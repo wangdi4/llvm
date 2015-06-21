@@ -201,12 +201,6 @@ def SDT_PPCsc     : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
 def PPCsc         : SDNode<"PPCISD::SC", SDT_PPCsc,
                            [SDNPHasChain, SDNPSideEffect]>;
 
-def PPCclrbhrb    : SDNode<"PPCISD::CLRBHRB", SDTNone,
-                           [SDNPHasChain, SDNPSideEffect]>;
-def PPCmfbhrbe    : SDNode<"PPCISD::MFBHRBE", SDTIntBinOp, [SDNPHasChain]>;
-def PPCrfebb      : SDNode<"PPCISD::RFEBB", SDT_PPCsc,
-                           [SDNPHasChain, SDNPSideEffect]>;
-
 def PPCvcmp       : SDNode<"PPCISD::VCMP" , SDT_PPCvcmp, []>;
 def PPCvcmp_o     : SDNode<"PPCISD::VCMPo", SDT_PPCvcmp, [SDNPOutGlue]>;
 
@@ -234,42 +228,41 @@ def PPCdynalloc   : SDNode<"PPCISD::DYNALLOC", SDTDynOp, [SDNPHasChain]>;
 
 def SHL32 : SDNodeXForm<imm, [{
   // Transformation function: 31 - imm
-  return getI32Imm(31 - N->getZExtValue(), SDLoc(N));
+  return getI32Imm(31 - N->getZExtValue());
 }]>;
 
 def SRL32 : SDNodeXForm<imm, [{
   // Transformation function: 32 - imm
-  return N->getZExtValue() ? getI32Imm(32 - N->getZExtValue(), SDLoc(N))
-                           : getI32Imm(0, SDLoc(N));
+  return N->getZExtValue() ? getI32Imm(32 - N->getZExtValue()) : getI32Imm(0);
 }]>;
 
 def LO16 : SDNodeXForm<imm, [{
   // Transformation function: get the low 16 bits.
-  return getI32Imm((unsigned short)N->getZExtValue(), SDLoc(N));
+  return getI32Imm((unsigned short)N->getZExtValue());
 }]>;
 
 def HI16 : SDNodeXForm<imm, [{
   // Transformation function: shift the immediate value down into the low bits.
-  return getI32Imm((unsigned)N->getZExtValue() >> 16, SDLoc(N));
+  return getI32Imm((unsigned)N->getZExtValue() >> 16);
 }]>;
 
 def HA16 : SDNodeXForm<imm, [{
   // Transformation function: shift the immediate value down into the low bits.
   signed int Val = N->getZExtValue();
-  return getI32Imm((Val - (signed short)Val) >> 16, SDLoc(N));
+  return getI32Imm((Val - (signed short)Val) >> 16);
 }]>;
 def MB : SDNodeXForm<imm, [{
   // Transformation function: get the start bit of a mask
   unsigned mb = 0, me;
   (void)isRunOfOnes((unsigned)N->getZExtValue(), mb, me);
-  return getI32Imm(mb, SDLoc(N));
+  return getI32Imm(mb);
 }]>;
 
 def ME : SDNodeXForm<imm, [{
   // Transformation function: get the end bit of a mask
   unsigned mb, me = 0;
   (void)isRunOfOnes((unsigned)N->getZExtValue(), mb, me);
-  return getI32Imm(me, SDLoc(N));
+  return getI32Imm(me);
 }]>;
 def maskimm32 : PatLeaf<(imm), [{
   // maskImm predicate - True if immediate is a run of ones.
@@ -504,15 +497,6 @@ def u6imm   : Operand<i32> {
   let PrintMethod = "printU6ImmOperand";
   let ParserMatchClass = PPCU6ImmAsmOperand;
   let DecoderMethod = "decodeUImmOperand<6>";
-}
-def PPCU10ImmAsmOperand : AsmOperandClass {
-  let Name = "U10Imm"; let PredicateMethod = "isU10Imm";
-  let RenderMethod = "addImmOperands";
-}
-def u10imm  : Operand<i32> {
-  let PrintMethod = "printU10ImmOperand";
-  let ParserMatchClass = PPCU10ImmAsmOperand;
-  let DecoderMethod = "decodeUImmOperand<10>";
 }
 def PPCU12ImmAsmOperand : AsmOperandClass {
   let Name = "U12Imm"; let PredicateMethod = "isU12Imm";
@@ -1371,24 +1355,6 @@ let PPC970_Unit = 7 in {
   def SC     : SCForm<17, 1, (outs), (ins i32imm:$lev),
                       "sc $lev", IIC_BrB, [(PPCsc (i32 imm:$lev))]>;
 }
-
-// Branch history rolling buffer.
-def CLRBHRB : XForm_0<31, 430, (outs), (ins), "clrbhrb", IIC_BrB,
-                      [(PPCclrbhrb)]>,
-                      PPC970_DGroup_Single;
-// The $dmy argument used for MFBHRBE is not needed; however, including
-// it avoids automatic generation of PPCFastISel::fastEmit_i(), which
-// interferes with necessary special handling (see PPCFastISel.cpp).
-def MFBHRBE : XFXForm_3p<31, 302, (outs gprc:$rD),
-                         (ins u10imm:$imm, u10imm:$dmy),
-                         "mfbhrbe $rD, $imm", IIC_BrB,
-                         [(set i32:$rD,
-                               (PPCmfbhrbe imm:$imm, imm:$dmy))]>,
-                         PPC970_DGroup_First;
-
-def RFEBB : XLForm_S<19, 146, (outs), (ins u1imm:$imm), "rfebb $imm",
-                     IIC_BrB, [(PPCrfebb (i32 imm:$imm))]>,
-                     PPC970_DGroup_Single;
 
 // DCB* instructions.
 def DCBA   : DCB_Form<758, 0, (outs), (ins memrr:$dst), "dcba $dst",

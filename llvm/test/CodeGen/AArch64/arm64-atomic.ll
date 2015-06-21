@@ -1,49 +1,37 @@
-; RUN: llc < %s -march=arm64 -asm-verbose=false -verify-machineinstrs -mcpu=cyclone | FileCheck %s
+; RUN: llc < %s -march=arm64 -verify-machineinstrs -mcpu=cyclone | FileCheck %s
 
-define i32 @val_compare_and_swap(i32* %p, i32 %cmp, i32 %new) #0 {
+define i32 @val_compare_and_swap(i32* %p) {
 ; CHECK-LABEL: val_compare_and_swap:
-; CHECK-NEXT: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
-; CHECK-NEXT: ldaxr  [[RESULT:w[0-9]+]], [x0]
-; CHECK-NEXT: cmp    [[RESULT]], w1
-; CHECK-NEXT: b.ne   [[LABEL2:.?LBB[0-9]+_[0-9]+]]
-; CHECK-NEXT: stxr   [[SCRATCH_REG:w[0-9]+]], w2, [x0]
-; CHECK-NEXT: cbnz   [[SCRATCH_REG]], [[LABEL]]
-; CHECK-NEXT: [[LABEL2]]:
-  %pair = cmpxchg i32* %p, i32 %cmp, i32 %new acquire acquire
+; CHECK: orr    [[NEWVAL_REG:w[0-9]+]], wzr, #0x4
+; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
+; CHECK: ldaxr   [[RESULT:w[0-9]+]], [x0]
+; CHECK: cmp    [[RESULT]], #7
+; CHECK: b.ne   [[LABEL2:.?LBB[0-9]+_[0-9]+]]
+; CHECK: stxr   [[SCRATCH_REG:w[0-9]+]], [[NEWVAL_REG]], [x0]
+; CHECK: cbnz   [[SCRATCH_REG]], [[LABEL]]
+; CHECK: [[LABEL2]]:
+  %pair = cmpxchg i32* %p, i32 7, i32 4 acquire acquire
   %val = extractvalue { i32, i1 } %pair, 0
   ret i32 %val
 }
 
-define i32 @val_compare_and_swap_rel(i32* %p, i32 %cmp, i32 %new) #0 {
-; CHECK-LABEL: val_compare_and_swap_rel:
-; CHECK-NEXT: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
-; CHECK-NEXT: ldaxr  [[RESULT:w[0-9]+]], [x0]
-; CHECK-NEXT: cmp    [[RESULT]], w1
-; CHECK-NEXT: b.ne   [[LABEL2:.?LBB[0-9]+_[0-9]+]]
-; CHECK-NEXT: stlxr  [[SCRATCH_REG:w[0-9]+]], w2, [x0]
-; CHECK-NEXT: cbnz   [[SCRATCH_REG]], [[LABEL]]
-; CHECK-NEXT: [[LABEL2]]:
-  %pair = cmpxchg i32* %p, i32 %cmp, i32 %new acq_rel monotonic
-  %val = extractvalue { i32, i1 } %pair, 0
-  ret i32 %val
-}
-
-define i64 @val_compare_and_swap_64(i64* %p, i64 %cmp, i64 %new) #0 {
+define i64 @val_compare_and_swap_64(i64* %p) {
 ; CHECK-LABEL: val_compare_and_swap_64:
-; CHECK-NEXT: mov    x[[ADDR:[0-9]+]], x0
-; CHECK-NEXT: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
-; CHECK-NEXT: ldxr   [[RESULT:x[0-9]+]], [x[[ADDR]]]
-; CHECK-NEXT: cmp    [[RESULT]], x1
-; CHECK-NEXT: b.ne   [[LABEL2:.?LBB[0-9]+_[0-9]+]]
-; CHECK-NEXT: stxr   [[SCRATCH_REG:w[0-9]+]], x2, [x[[ADDR]]]
-; CHECK-NEXT: cbnz   [[SCRATCH_REG]], [[LABEL]]
-; CHECK-NEXT: [[LABEL2]]:
-  %pair = cmpxchg i64* %p, i64 %cmp, i64 %new monotonic monotonic
+; CHECK: orr    w[[NEWVAL_REG:[0-9]+]], wzr, #0x4
+; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
+; CHECK: ldxr   [[RESULT:x[0-9]+]], [x0]
+; CHECK: cmp    [[RESULT]], #7
+; CHECK: b.ne   [[LABEL2:.?LBB[0-9]+_[0-9]+]]
+; CHECK-NOT: stxr x[[NEWVAL_REG]], x[[NEWVAL_REG]]
+; CHECK: stxr   [[SCRATCH_REG:w[0-9]+]], x[[NEWVAL_REG]], [x0]
+; CHECK: cbnz   [[SCRATCH_REG]], [[LABEL]]
+; CHECK: [[LABEL2]]:
+  %pair = cmpxchg i64* %p, i64 7, i64 4 monotonic monotonic
   %val = extractvalue { i64, i1 } %pair, 0
   ret i64 %val
 }
 
-define i32 @fetch_and_nand(i32* %p) #0 {
+define i32 @fetch_and_nand(i32* %p) {
 ; CHECK-LABEL: fetch_and_nand:
 ; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
 ; CHECK: ldxr   w[[DEST_REG:[0-9]+]], [x0]
@@ -57,7 +45,7 @@ define i32 @fetch_and_nand(i32* %p) #0 {
   ret i32 %val
 }
 
-define i64 @fetch_and_nand_64(i64* %p) #0 {
+define i64 @fetch_and_nand_64(i64* %p) {
 ; CHECK-LABEL: fetch_and_nand_64:
 ; CHECK: mov    x[[ADDR:[0-9]+]], x0
 ; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
@@ -71,7 +59,7 @@ define i64 @fetch_and_nand_64(i64* %p) #0 {
   ret i64 %val
 }
 
-define i32 @fetch_and_or(i32* %p) #0 {
+define i32 @fetch_and_or(i32* %p) {
 ; CHECK-LABEL: fetch_and_or:
 ; CHECK: movz   [[OLDVAL_REG:w[0-9]+]], #0x5
 ; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
@@ -85,7 +73,7 @@ define i32 @fetch_and_or(i32* %p) #0 {
   ret i32 %val
 }
 
-define i64 @fetch_and_or_64(i64* %p) #0 {
+define i64 @fetch_and_or_64(i64* %p) {
 ; CHECK: fetch_and_or_64:
 ; CHECK: mov    x[[ADDR:[0-9]+]], x0
 ; CHECK: [[LABEL:.?LBB[0-9]+_[0-9]+]]:
@@ -97,35 +85,35 @@ define i64 @fetch_and_or_64(i64* %p) #0 {
   ret i64 %val
 }
 
-define void @acquire_fence() #0 {
+define void @acquire_fence() {
    fence acquire
    ret void
    ; CHECK-LABEL: acquire_fence:
    ; CHECK: dmb ishld
 }
 
-define void @release_fence() #0 {
+define void @release_fence() {
    fence release
    ret void
    ; CHECK-LABEL: release_fence:
    ; CHECK: dmb ish{{$}}
 }
 
-define void @seq_cst_fence() #0 {
+define void @seq_cst_fence() {
    fence seq_cst
    ret void
    ; CHECK-LABEL: seq_cst_fence:
    ; CHECK: dmb ish{{$}}
 }
 
-define i32 @atomic_load(i32* %p) #0 {
+define i32 @atomic_load(i32* %p) {
    %r = load atomic i32, i32* %p seq_cst, align 4
    ret i32 %r
    ; CHECK-LABEL: atomic_load:
    ; CHECK: ldar
 }
 
-define i8 @atomic_load_relaxed_8(i8* %p, i32 %off32) #0 {
+define i8 @atomic_load_relaxed_8(i8* %p, i32 %off32) {
 ; CHECK-LABEL: atomic_load_relaxed_8:
   %ptr_unsigned = getelementptr i8, i8* %p, i32 4095
   %val_unsigned = load atomic i8, i8* %ptr_unsigned monotonic, align 1
@@ -150,7 +138,7 @@ define i8 @atomic_load_relaxed_8(i8* %p, i32 %off32) #0 {
   ret i8 %tot3
 }
 
-define i16 @atomic_load_relaxed_16(i16* %p, i32 %off32) #0 {
+define i16 @atomic_load_relaxed_16(i16* %p, i32 %off32) {
 ; CHECK-LABEL: atomic_load_relaxed_16:
   %ptr_unsigned = getelementptr i16, i16* %p, i32 4095
   %val_unsigned = load atomic i16, i16* %ptr_unsigned monotonic, align 2
@@ -175,7 +163,7 @@ define i16 @atomic_load_relaxed_16(i16* %p, i32 %off32) #0 {
   ret i16 %tot3
 }
 
-define i32 @atomic_load_relaxed_32(i32* %p, i32 %off32) #0 {
+define i32 @atomic_load_relaxed_32(i32* %p, i32 %off32) {
 ; CHECK-LABEL: atomic_load_relaxed_32:
   %ptr_unsigned = getelementptr i32, i32* %p, i32 4095
   %val_unsigned = load atomic i32, i32* %ptr_unsigned monotonic, align 4
@@ -200,7 +188,7 @@ define i32 @atomic_load_relaxed_32(i32* %p, i32 %off32) #0 {
   ret i32 %tot3
 }
 
-define i64 @atomic_load_relaxed_64(i64* %p, i32 %off32) #0 {
+define i64 @atomic_load_relaxed_64(i64* %p, i32 %off32) {
 ; CHECK-LABEL: atomic_load_relaxed_64:
   %ptr_unsigned = getelementptr i64, i64* %p, i32 4095
   %val_unsigned = load atomic i64, i64* %ptr_unsigned monotonic, align 8
@@ -226,14 +214,14 @@ define i64 @atomic_load_relaxed_64(i64* %p, i32 %off32) #0 {
 }
 
 
-define void @atomc_store(i32* %p) #0 {
+define void @atomc_store(i32* %p) {
    store atomic i32 4, i32* %p seq_cst, align 4
    ret void
    ; CHECK-LABEL: atomc_store:
    ; CHECK: stlr
 }
 
-define void @atomic_store_relaxed_8(i8* %p, i32 %off32, i8 %val) #0 {
+define void @atomic_store_relaxed_8(i8* %p, i32 %off32, i8 %val) {
 ; CHECK-LABEL: atomic_store_relaxed_8:
   %ptr_unsigned = getelementptr i8, i8* %p, i32 4095
   store atomic i8 %val, i8* %ptr_unsigned monotonic, align 1
@@ -255,7 +243,7 @@ define void @atomic_store_relaxed_8(i8* %p, i32 %off32, i8 %val) #0 {
   ret void
 }
 
-define void @atomic_store_relaxed_16(i16* %p, i32 %off32, i16 %val) #0 {
+define void @atomic_store_relaxed_16(i16* %p, i32 %off32, i16 %val) {
 ; CHECK-LABEL: atomic_store_relaxed_16:
   %ptr_unsigned = getelementptr i16, i16* %p, i32 4095
   store atomic i16 %val, i16* %ptr_unsigned monotonic, align 2
@@ -277,7 +265,7 @@ define void @atomic_store_relaxed_16(i16* %p, i32 %off32, i16 %val) #0 {
   ret void
 }
 
-define void @atomic_store_relaxed_32(i32* %p, i32 %off32, i32 %val) #0 {
+define void @atomic_store_relaxed_32(i32* %p, i32 %off32, i32 %val) {
 ; CHECK-LABEL: atomic_store_relaxed_32:
   %ptr_unsigned = getelementptr i32, i32* %p, i32 4095
   store atomic i32 %val, i32* %ptr_unsigned monotonic, align 4
@@ -299,7 +287,7 @@ define void @atomic_store_relaxed_32(i32* %p, i32 %off32, i32 %val) #0 {
   ret void
 }
 
-define void @atomic_store_relaxed_64(i64* %p, i32 %off32, i64 %val) #0 {
+define void @atomic_store_relaxed_64(i64* %p, i32 %off32, i64 %val) {
 ; CHECK-LABEL: atomic_store_relaxed_64:
   %ptr_unsigned = getelementptr i64, i64* %p, i32 4095
   store atomic i64 %val, i64* %ptr_unsigned monotonic, align 8
@@ -345,5 +333,3 @@ return:                                           ; preds = %if.else, %entry
   %retval.0 = phi i32 [ %add.i2, %if.else ], [ %add.i, %entry ]
   ret i32 %retval.0
 }
-
-attributes #0 = { nounwind }

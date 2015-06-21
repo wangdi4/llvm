@@ -549,15 +549,15 @@ void InstrInfoEmitter::emitRecord(const CodeGenInstruction &Inst, unsigned Num,
   CodeGenTarget &Target = CDP.getTargetInfo();
   if (Inst.HasComplexDeprecationPredicate)
     // Emit a function pointer to the complex predicate method.
-    OS << ", -1 "
+    OS << ",0"
        << ",&get" << Inst.DeprecatedReason << "DeprecationInfo";
   else if (!Inst.DeprecatedReason.empty())
     // Emit the Subtarget feature.
-    OS << ", " << Target.getInstNamespace() << "::" << Inst.DeprecatedReason
-       << " ,nullptr";
+    OS << "," << Target.getInstNamespace() << "::" << Inst.DeprecatedReason
+       << ",nullptr";
   else
     // Instruction isn't deprecated.
-    OS << ", -1 ,nullptr";
+    OS << ",0,nullptr";
 
   OS << " },  // Inst #" << Num << " = " << Inst.TheDef->getName() << "\n";
 }
@@ -575,8 +575,10 @@ void InstrInfoEmitter::emitEnums(raw_ostream &OS) {
   // We must emit the PHI opcode first...
   std::string Namespace = Target.getInstNamespace();
 
-  if (Namespace.empty())
-    PrintFatalError("No instructions defined!");
+  if (Namespace.empty()) {
+    fprintf(stderr, "No instructions defined!\n");
+    exit(1);
+  }
 
   const std::vector<const CodeGenInstruction*> &NumberedInstructions =
     Target.getInstructionsByEnumValue();

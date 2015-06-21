@@ -124,7 +124,6 @@ public:
   void EmitFunctionEntryLabel() override;
   void EmitFunctionBodyStart() override;
   void EmitFunctionBodyEnd() override;
-  void EmitBasicBlockEnd(const MachineBasicBlock &MBB) override;
   bool isBlockOnlyReachableByFallthrough(
                                    const MachineBasicBlock* MBB) const override;
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,

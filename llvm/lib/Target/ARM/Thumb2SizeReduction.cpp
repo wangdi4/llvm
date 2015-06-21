@@ -333,7 +333,9 @@ Thumb2SizeReduce::VerifyPredAndCC(MachineInstr *MI, const ReduceEntry &Entry,
 
 static bool VerifyLowRegs(MachineInstr *MI) {
   unsigned Opc = MI->getOpcode();
-  bool isPCOk = (Opc == ARM::t2LDMIA_RET || Opc == ARM::t2LDMIA_UPD);
+  bool isPCOk = (Opc == ARM::t2LDMIA_RET || Opc == ARM::t2LDMIA     ||
+                 Opc == ARM::t2LDMDB     || Opc == ARM::t2LDMIA_UPD ||
+                 Opc == ARM::t2LDMDB_UPD);
   bool isLROk = (Opc == ARM::t2STMDB_UPD);
   bool isSPOk = isPCOk || isLROk;
   for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
@@ -411,14 +413,16 @@ Thumb2SizeReduce::ReduceLoadStore(MachineBasicBlock &MBB, MachineInstr *MI,
     HasShift = true;
     OpNum = 4;
     break;
-  case ARM::t2LDMIA: {
+  case ARM::t2LDMIA:
+  case ARM::t2LDMDB: {
     unsigned BaseReg = MI->getOperand(0).getReg();
-    assert(isARMLowRegister(BaseReg));
+    if (!isARMLowRegister(BaseReg) || Entry.WideOpc != ARM::t2LDMIA)
+      return false;
 
     // For the non-writeback version (this one), the base register must be
     // one of the registers being loaded.
     bool isOK = false;
-    for (unsigned i = 3; i < MI->getNumOperands(); ++i) {
+    for (unsigned i = 4; i < MI->getNumOperands(); ++i) {
       if (MI->getOperand(i).getReg() == BaseReg) {
         isOK = true;
         break;
@@ -442,6 +446,7 @@ Thumb2SizeReduce::ReduceLoadStore(MachineBasicBlock &MBB, MachineInstr *MI,
     break;
   }
   case ARM::t2LDMIA_UPD:
+  case ARM::t2LDMDB_UPD:
   case ARM::t2STMIA_UPD:
   case ARM::t2STMDB_UPD: {
     OpNum = 0;
@@ -465,11 +470,9 @@ Thumb2SizeReduce::ReduceLoadStore(MachineBasicBlock &MBB, MachineInstr *MI,
 
   unsigned OffsetReg = 0;
   bool OffsetKill = false;
-  bool OffsetInternal = false;
   if (HasShift) {
     OffsetReg  = MI->getOperand(2).getReg();
     OffsetKill = MI->getOperand(2).isKill();
-    OffsetInternal = MI->getOperand(2).isInternalRead();
 
     if (MI->getOperand(3).getImm())
       // Thumb1 addressing mode doesn't support shift.
@@ -499,8 +502,7 @@ Thumb2SizeReduce::ReduceLoadStore(MachineBasicBlock &MBB, MachineInstr *MI,
     assert((!HasShift || OffsetReg) && "Invalid so_reg load / store address!");
 
     if (HasOffReg)
-      MIB.addReg(OffsetReg, getKillRegState(OffsetKill) |
-                            getInternalReadRegState(OffsetInternal));
+      MIB.addReg(OffsetReg, getKillRegState(OffsetKill));
   }
 
   // Transfer the rest of operands.
@@ -569,7 +571,7 @@ Thumb2SizeReduce::ReduceSpecial(MachineBasicBlock &MBB, MachineInstr *MI,
   if (Entry.LowRegs1 && !VerifyLowRegs(MI))
     return false;
 
-  if (MI->mayLoadOrStore())
+  if (MI->mayLoad() || MI->mayStore())
     return ReduceLoadStore(MBB, MI, Entry);
 
   switch (Opc) {

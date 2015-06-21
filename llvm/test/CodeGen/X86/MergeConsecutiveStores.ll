@@ -291,12 +291,17 @@ block4:                                       ; preds = %4, %.lr.ph
   ret void
 }
 
-;; On x86, even unaligned copies can be merged to vector ops.
 ; CHECK-LABEL: merge_loads_no_align:
 ;  load:
-; CHECK: vmovups
+; CHECK: movl
+; CHECK: movl
+; CHECK: movl
+; CHECK: movl
 ;  store:
-; CHECK: vmovups
+; CHECK: movl
+; CHECK: movl
+; CHECK: movl
+; CHECK: movl
 ; CHECK: ret
 define void @merge_loads_no_align(i32 %count, %struct.B* noalias nocapture %q, %struct.B* noalias nocapture %p) nounwind uwtable noinline ssp {
   %a1 = icmp sgt i32 %count, 0

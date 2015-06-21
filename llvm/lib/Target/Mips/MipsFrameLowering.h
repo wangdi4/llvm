@@ -32,8 +32,6 @@ public:
 
   bool hasFP(const MachineFunction &MF) const override;
 
-  bool isFPCloseToIncomingSP() const override { return false; }
-
   void
   eliminateCallFramePseudoInstr(MachineFunction &MF,
                                 MachineBasicBlock &MBB,

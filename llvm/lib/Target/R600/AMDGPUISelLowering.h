@@ -133,10 +133,6 @@ public:
                              EVT ExtVT) const override;
 
   bool isLoadBitCastBeneficial(EVT, EVT) const override;
-
-  bool storeOfVectorConstantIsCheap(EVT MemVT,
-                                    unsigned NumElem,
-                                    unsigned AS) const override;
   bool isCheapToSpeculateCttz() const override;
   bool isCheapToSpeculateCtlz() const override;
 
@@ -211,7 +207,7 @@ public:
 
 namespace AMDGPUISD {
 
-enum NodeType : unsigned {
+enum {
   // AMDIL ISD Opcodes
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   CALL,        // Function call based on a single integer
@@ -254,8 +250,6 @@ enum NodeType : unsigned {
   LDEXP,
   FP_CLASS,
   DOT4,
-  CARRY,
-  BORROW,
   BFE_U32, // Extract range of bits with zero extension to 32-bits.
   BFE_I32, // Extract range of bits with sign extension to 32-bits.
   BFI, // (src0 & src1) | (~src0 & src2)
@@ -292,10 +286,6 @@ enum NodeType : unsigned {
   BUILD_VERTICAL_VECTOR,
   /// Pointer to the start of the shader's constant data.
   CONST_DATA_PTR,
-  SENDMSG,
-  INTERP_MOV,
-  INTERP_P1,
-  INTERP_P2,
   FIRST_MEM_OPCODE_NUMBER = ISD::FIRST_TARGET_MEMORY_OPCODE,
   STORE_MSKOR,
   LOAD_CONSTANT,

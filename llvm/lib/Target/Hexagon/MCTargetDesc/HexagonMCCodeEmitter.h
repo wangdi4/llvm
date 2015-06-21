@@ -28,20 +28,13 @@ namespace llvm {
 class HexagonMCCodeEmitter : public MCCodeEmitter {
   MCContext &MCT;
   MCInstrInfo const &MCII;
-  std::unique_ptr<unsigned> Addend;
-  std::unique_ptr<bool> Extended;
-
-  // helper routine for getMachineOpValue()
-  unsigned getExprOpValue(const MCInst &MI, const MCOperand &MO,
-                          const MCExpr *ME, SmallVectorImpl<MCFixup> &Fixups,
-                          const MCSubtargetInfo &STI) const;
 
 public:
   HexagonMCCodeEmitter(MCInstrInfo const &aMII, MCContext &aMCT);
 
   MCSubtargetInfo const &getSubtargetInfo() const;
 
-  void encodeInstruction(MCInst const &MI, raw_ostream &OS,
+  void EncodeInstruction(MCInst const &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          MCSubtargetInfo const &STI) const override;
 

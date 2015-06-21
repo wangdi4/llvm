@@ -16,9 +16,7 @@
 #include "llvm/MC/MCCodeEmitter.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
 
 using namespace llvm;
 
@@ -37,7 +35,7 @@ public:
   ~SystemZMCCodeEmitter() override {}
 
   // OVerride MCCodeEmitter.
-  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
+  void EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override;
 
@@ -72,9 +70,6 @@ private:
   uint64_t getBDLAddr12Len8Encoding(const MCInst &MI, unsigned OpNum,
                                     SmallVectorImpl<MCFixup> &Fixups,
                                     const MCSubtargetInfo &STI) const;
-  uint64_t getBDVAddr12Encoding(const MCInst &MI, unsigned OpNum,
-                                SmallVectorImpl<MCFixup> &Fixups,
-                                const MCSubtargetInfo &STI) const;
 
   // Operand OpNum of MI needs a PC-relative fixup of kind Kind at
   // Offset bytes from the start of MI.  Add the fixup to Fixups
@@ -120,7 +115,7 @@ MCCodeEmitter *llvm::createSystemZMCCodeEmitter(const MCInstrInfo &MCII,
 }
 
 void SystemZMCCodeEmitter::
-encodeInstruction(const MCInst &MI, raw_ostream &OS,
+EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                   SmallVectorImpl<MCFixup> &Fixups,
                   const MCSubtargetInfo &STI) const {
   uint64_t Bits = getBinaryCodeForInstr(MI, Fixups, STI);
@@ -198,17 +193,6 @@ getBDLAddr12Len8Encoding(const MCInst &MI, unsigned OpNum,
   return (Len << 16) | (Base << 12) | Disp;
 }
 
-uint64_t SystemZMCCodeEmitter::
-getBDVAddr12Encoding(const MCInst &MI, unsigned OpNum,
-                     SmallVectorImpl<MCFixup> &Fixups,
-                     const MCSubtargetInfo &STI) const {
-  uint64_t Base = getMachineOpValue(MI, MI.getOperand(OpNum), Fixups, STI);
-  uint64_t Disp = getMachineOpValue(MI, MI.getOperand(OpNum + 1), Fixups, STI);
-  uint64_t Index = getMachineOpValue(MI, MI.getOperand(OpNum + 2), Fixups, STI);
-  assert(isUInt<4>(Base) && isUInt<12>(Disp) && isUInt<5>(Index));
-  return (Index << 16) | (Base << 12) | Disp;
-}
-
 uint64_t
 SystemZMCCodeEmitter::getPCRelEncoding(const MCInst &MI, unsigned OpNum,
                                        SmallVectorImpl<MCFixup> &Fixups,
@@ -229,12 +213,12 @@ SystemZMCCodeEmitter::getPCRelEncoding(const MCInst &MI, unsigned OpNum,
       Expr = MCBinaryExpr::CreateAdd(Expr, OffsetExpr, Ctx);
     }
   }
-  Fixups.push_back(MCFixup::create(Offset, Expr, (MCFixupKind)Kind));
+  Fixups.push_back(MCFixup::Create(Offset, Expr, (MCFixupKind)Kind));
 
   // Output the fixup for the TLS marker if present.
   if (AllowTLS && OpNum + 1 < MI.getNumOperands()) {
     const MCOperand &MOTLS = MI.getOperand(OpNum + 1);
-    Fixups.push_back(MCFixup::create(0, MOTLS.getExpr(),
+    Fixups.push_back(MCFixup::Create(0, MOTLS.getExpr(),
                                      (MCFixupKind)SystemZ::FK_390_TLS_CALL));
   }
   return 0;

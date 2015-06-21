@@ -55,8 +55,9 @@ eh.resume:
 ; CHECK-NEXT: indirectbr {{.*}} [label %__except]
 ;
 ; CHECK: __except:
-; CHECK: call i32 @llvm.eh.exceptioncode()
-; CHECK: invoke void @might_crash(i8* %{{.*}})
+;      FIXME: This should not be undef, it should be the new landingpad value, which
+;      should ultimately lower down to eax.
+; CHECK: invoke void @might_crash(i8* undef)
 ; CHECK: landingpad { i8*, i32 }
 ; CHECK-NEXT: cleanup
 ; CHECK-NEXT: call i8* (...) @llvm.eh.actions(i32 0, void (i8*, i8*)* @resume_phi.cleanup)

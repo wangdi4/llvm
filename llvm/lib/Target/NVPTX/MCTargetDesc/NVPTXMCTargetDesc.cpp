@@ -54,7 +54,7 @@ createNVPTXMCSubtargetInfo(StringRef TT, StringRef CPU, StringRef FS) {
 static MCCodeGenInfo *createNVPTXMCCodeGenInfo(
     StringRef TT, Reloc::Model RM, CodeModel::Model CM, CodeGenOpt::Level OL) {
   MCCodeGenInfo *X = new MCCodeGenInfo();
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 

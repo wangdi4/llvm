@@ -58,8 +58,8 @@ namespace llvm {
 
     /// \brief Given a mergeable constant with the specified size and relocation
     /// information, return a section that it should be placed in.
-    MCSection *getSectionForConstant(SectionKind Kind,
-                                     const Constant *C) const override;
+    const MCSection *getSectionForConstant(SectionKind Kind,
+                                           const Constant *C) const override;
   };
 
 } // end namespace llvm

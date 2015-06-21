@@ -285,7 +285,7 @@ static bool isIntOrIntVectorValue(const std::pair<const Value*, unsigned> &V) {
 
 ValueEnumerator::ValueEnumerator(const Module &M,
                                  bool ShouldPreserveUseListOrder)
-    : HasMDString(false), HasDILocation(false), HasGenericDINode(false),
+    : HasMDString(false), HasMDLocation(false), HasGenericDebugNode(false),
       ShouldPreserveUseListOrder(ShouldPreserveUseListOrder) {
   if (ShouldPreserveUseListOrder)
     UseListOrders = predictUseListOrder(M);
@@ -348,11 +348,6 @@ ValueEnumerator::ValueEnumerator(const Module &M,
     for (const Argument &A : F.args())
       EnumerateType(A.getType());
 
-    // Enumerate metadata attached to this function.
-    F.getAllMetadata(MDs);
-    for (const auto &I : MDs)
-      EnumerateMetadata(I.second);
-
     for (const BasicBlock &BB : F)
       for (const Instruction &I : BB) {
         for (const Use &Op : I.operands()) {
@@ -382,7 +377,7 @@ ValueEnumerator::ValueEnumerator(const Module &M,
 
         // Don't enumerate the location directly -- it has a special record
         // type -- but enumerate its operands.
-        if (DILocation *L = I.getDebugLoc())
+        if (MDLocation *L = I.getDebugLoc())
           EnumerateMDNodeOperands(L);
       }
   }
@@ -548,8 +543,8 @@ void ValueEnumerator::EnumerateMetadata(const Metadata *MD) {
     EnumerateValue(C->getValue());
 
   HasMDString |= isa<MDString>(MD);
-  HasDILocation |= isa<DILocation>(MD);
-  HasGenericDINode |= isa<GenericDINode>(MD);
+  HasMDLocation |= isa<MDLocation>(MD);
+  HasGenericDebugNode |= isa<GenericDebugNode>(MD);
 
   // Replace the dummy ID inserted above with the correct one.  MDValueMap may
   // have changed by inserting operands, so we need a fresh lookup here.

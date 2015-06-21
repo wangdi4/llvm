@@ -1,11 +1,11 @@
-//===-- AMDGPU.td - AMDGPU Tablegen files ------------------*- tablegen -*-===//
+//===-- AMDIL.td - AMDIL Tablegen files --*- tablegen -*-------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
 //
-//===----------------------------------------------------------------------===//
+//==-----------------------------------------------------------------------===//
 
 include "llvm/Target/Target.td"
 
@@ -16,11 +16,6 @@ include "llvm/Target/Target.td"
 // Debugging Features
 
 def FeatureDumpCode : SubtargetFeature <"DumpCode",
-        "DumpCode",
-        "true",
-        "Dump MachineInstrs in the CodeEmitter">;
-
-def FeatureDumpCodeLower : SubtargetFeature <"dumpcode",
         "DumpCode",
         "true",
         "Dump MachineInstrs in the CodeEmitter">;
@@ -132,15 +127,6 @@ def FeatureWavefrontSize16 : SubtargetFeatureWavefrontSize<16>;
 def FeatureWavefrontSize32 : SubtargetFeatureWavefrontSize<32>;
 def FeatureWavefrontSize64 : SubtargetFeatureWavefrontSize<64>;
 
-class SubtargetFeatureLDSBankCount <int Value> : SubtargetFeature <
-      "ldsbankcount"#Value,
-      "LDSBankCount",
-      !cast<string>(Value),
-      "The number of LDS banks per compute unit.">;
-
-def FeatureLDSBankCount16 : SubtargetFeatureLDSBankCount<16>;
-def FeatureLDSBankCount32 : SubtargetFeatureLDSBankCount<32>;
-
 class SubtargetFeatureLocalMemorySize <int Value> : SubtargetFeature<
         "localmemorysize"#Value,
         "LocalMemorySize",
@@ -198,8 +184,7 @@ def FeatureNorthernIslands : SubtargetFeatureGeneration<"NORTHERN_ISLANDS",
 
 def FeatureSouthernIslands : SubtargetFeatureGeneration<"SOUTHERN_ISLANDS",
         [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize32768,
-         FeatureWavefrontSize64, FeatureGCN, FeatureGCN1Encoding,
-         FeatureLDSBankCount32]>;
+         FeatureWavefrontSize64, FeatureGCN, FeatureGCN1Encoding]>;
 
 def FeatureSeaIslands : SubtargetFeatureGeneration<"SEA_ISLANDS",
         [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize65536,
@@ -209,7 +194,7 @@ def FeatureSeaIslands : SubtargetFeatureGeneration<"SEA_ISLANDS",
 def FeatureVolcanicIslands : SubtargetFeatureGeneration<"VOLCANIC_ISLANDS",
         [Feature64BitPtr, FeatureFP64, FeatureLocalMemorySize65536,
          FeatureWavefrontSize64, FeatureFlatAddressSpace, FeatureGCN,
-         FeatureGCN3Encoding, FeatureCIInsts, FeatureLDSBankCount32]>;
+         FeatureGCN3Encoding, FeatureCIInsts]>;
 
 //===----------------------------------------------------------------------===//
 

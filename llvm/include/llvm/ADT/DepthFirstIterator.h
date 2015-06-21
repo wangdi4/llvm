@@ -159,10 +159,8 @@ public:
     return *this;
   }
 
-  /// \brief Skips all children of the current node and traverses to next node
-  ///
-  /// Note: This function takes care of incrementing the iterator. If you
-  /// always increment and call this function, you risk walking off the end.
+  // skips all children of the current node and traverses to next node
+  //
   df_iterator &skipChildren() {
     VisitStack.pop_back();
     if (!VisitStack.empty())

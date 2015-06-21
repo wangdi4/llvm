@@ -225,8 +225,6 @@ public:
     return RecordInterestingDependences ? &InterestingDependences : nullptr;
   }
 
-  void clearInterestingDependences() { InterestingDependences.clear(); }
-
   /// \brief The vector of memory access instructions.  The indices are used as
   /// instruction identifiers in the Dependence class.
   const SmallVectorImpl<Instruction *> &getMemoryInstructions() const {

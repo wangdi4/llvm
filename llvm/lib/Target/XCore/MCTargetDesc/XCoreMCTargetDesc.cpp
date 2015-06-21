@@ -77,7 +77,7 @@ static MCCodeGenInfo *createXCoreMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   if (CM != CodeModel::Small && CM != CodeModel::Large)
     report_fatal_error("Target only supports CodeModel Small or Large");
 
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 

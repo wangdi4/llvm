@@ -109,19 +109,19 @@ void FunctionDumper::start(const PDBSymbolTypeFunctionSig &Symbol,
 }
 
 void FunctionDumper::start(const PDBSymbolFunc &Symbol, PointerType Pointer) {
-  uint64_t FuncStart = Symbol.getVirtualAddress();
-  uint64_t FuncEnd = FuncStart + Symbol.getLength();
+  uint32_t FuncStart = Symbol.getRelativeVirtualAddress();
+  uint32_t FuncEnd = FuncStart + Symbol.getLength();
 
   Printer << "func [";
   WithColor(Printer, PDB_ColorItem::Address).get() << format_hex(FuncStart, 10);
   if (auto DebugStart = Symbol.findOneChild<PDBSymbolFuncDebugStart>()) {
-    uint64_t Prologue = DebugStart->getVirtualAddress() - FuncStart;
+    uint32_t Prologue = DebugStart->getRelativeVirtualAddress() - FuncStart;
     WithColor(Printer, PDB_ColorItem::Offset).get() << "+" << Prologue;
   }
   Printer << " - ";
   WithColor(Printer, PDB_ColorItem::Address).get() << format_hex(FuncEnd, 10);
   if (auto DebugEnd = Symbol.findOneChild<PDBSymbolFuncDebugEnd>()) {
-    uint64_t Epilogue = FuncEnd - DebugEnd->getVirtualAddress();
+    uint32_t Epilogue = FuncEnd - DebugEnd->getRelativeVirtualAddress();
     WithColor(Printer, PDB_ColorItem::Offset).get() << "-" << Epilogue;
   }
   Printer << "] (";

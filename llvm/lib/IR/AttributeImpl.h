@@ -166,7 +166,6 @@ public:
   unsigned getAlignment() const;
   unsigned getStackAlignment() const;
   uint64_t getDereferenceableBytes() const;
-  uint64_t getDereferenceableOrNullBytes() const;
   std::string getAsString(bool InAttrGrp) const;
 
   typedef const Attribute *iterator;

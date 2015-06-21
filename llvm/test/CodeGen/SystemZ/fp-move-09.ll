@@ -1,4 +1,4 @@
-; Test moves between FPRs and GPRs for z196 and zEC12.
+; Test moves between FPRs and GPRs for z196 and above.
 ;
 ; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z196 | FileCheck %s
 

@@ -207,15 +207,13 @@ ARMBaseTargetMachine::getSubtargetImpl(const Function &F) const {
   // function before we can generate a subtarget. We also need to use
   // it as a key for the subtarget since that can be the only difference
   // between two functions.
-  bool SoftFloat =
-      F.hasFnAttribute("use-soft-float") &&
-      F.getFnAttribute("use-soft-float").getValueAsString() == "true";
-  // If the soft float attribute is set on the function turn on the soft float
-  // subtarget feature.
-  if (SoftFloat)
-    FS += FS.empty() ? "+soft-float" : ",+soft-float";
+  Attribute SFAttr = F.getFnAttribute("use-soft-float");
+  bool SoftFloat = !SFAttr.hasAttribute(Attribute::None)
+                       ? SFAttr.getValueAsString() == "true"
+                       : Options.UseSoftFloat;
 
-  auto &I = SubtargetMap[CPU + FS];
+  auto &I = SubtargetMap[CPU + FS + (SoftFloat ? "use-soft-float=true"
+                                               : "use-soft-float=false")];
   if (!I) {
     // This needs to be done before we create a new subtarget since any
     // creation will depend on the TM and the code generation flags on the
@@ -402,9 +400,6 @@ void ARMPassConfig::addPreEmitPass() {
   if (getARMSubtarget().isThumb2())
     addPass(&UnpackMachineBundlesID);
 
-  // Don't optimize barriers at -O0.
-  if (getOptLevel() != CodeGenOpt::None)
-    addPass(createARMOptimizeBarriersPass());
-
+  addPass(createARMOptimizeBarriersPass());
   addPass(createARMConstantIslandPass());
 }

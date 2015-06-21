@@ -74,9 +74,6 @@ struct InstrProfOptions {
 
   // Add the 'noredzone' attribute to added runtime library calls.
   bool NoRedZone;
-
-  // Name of the profile file to use as output
-  std::string InstrProfileOutput;
 };
 
 /// Insert frontend instrumentation based profiling.
@@ -98,27 +95,8 @@ ModulePass *createDataFlowSanitizerPass(
     const std::vector<std::string> &ABIListFiles = std::vector<std::string>(),
     void *(*getArgTLS)() = nullptr, void *(*getRetValTLS)() = nullptr);
 
-// Options for sanitizer coverage instrumentation.
-struct SanitizerCoverageOptions {
-  SanitizerCoverageOptions()
-      : CoverageType(SCK_None), IndirectCalls(false), TraceBB(false),
-        TraceCmp(false), Use8bitCounters(false) {}
-
-  enum Type {
-    SCK_None = 0,
-    SCK_Function,
-    SCK_BB,
-    SCK_Edge
-  } CoverageType;
-  bool IndirectCalls;
-  bool TraceBB;
-  bool TraceCmp;
-  bool Use8bitCounters;
-};
-
 // Insert SanitizerCoverage instrumentation.
-ModulePass *createSanitizerCoverageModulePass(
-    const SanitizerCoverageOptions &Options = SanitizerCoverageOptions());
+ModulePass *createSanitizerCoverageModulePass(int CoverageLevel);
 
 #if defined(__GNUC__) && defined(__linux__) && !defined(ANDROID)
 inline ModulePass *createDataFlowSanitizerPassForJIT(

@@ -10,7 +10,7 @@
 	.align	8
 
 // CHECK:        Section {
-// CHECK:          Name: .bss
+// CHECK:          Name: .bss (7)
 // CHECK-NEXT:     Type:
 // CHECK-NEXT:     Flags [
 // CHECK:          ]

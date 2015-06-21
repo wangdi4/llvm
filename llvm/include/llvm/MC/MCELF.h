@@ -15,6 +15,8 @@
 #ifndef LLVM_MC_MCELF_H
 #define LLVM_MC_MCELF_H
 
+#include "llvm/MC/MCExpr.h"
+
 namespace llvm {
 class MCSymbolData;
 

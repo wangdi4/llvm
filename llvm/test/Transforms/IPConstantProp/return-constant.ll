@@ -1,4 +1,5 @@
-; RUN: opt < %s -ipconstprop -instcombine -S | grep "ret i1 true" | count 2
+; RUN: opt < %s -ipconstprop -instcombine | \
+; RUN:    llvm-dis | grep "ret i1 true" | count 2
 define internal i32 @foo(i1 %C) {
         br i1 %C, label %T, label %F
 

@@ -65,12 +65,25 @@ const char* LTOCodeGenerator::getVersionString() {
 
 LTOCodeGenerator::LTOCodeGenerator()
     : Context(getGlobalContext()), IRLinker(new Module("ld-temp.o", Context)) {
-  initializeLTOPasses();
+  initialize();
 }
 
 LTOCodeGenerator::LTOCodeGenerator(std::unique_ptr<LLVMContext> Context)
     : OwnedContext(std::move(Context)), Context(*OwnedContext),
-      IRLinker(new Module("ld-temp.o", *OwnedContext)) {
+      IRLinker(new Module("ld-temp.o", *OwnedContext)), OptLevel(2) {
+  initialize();
+}
+
+void LTOCodeGenerator::initialize() {
+  TargetMach = nullptr;
+  EmitDwarfDebugInfo = false;
+  ScopeRestrictionsDone = false;
+  CodeModel = LTO_CODEGEN_PIC_MODEL_DEFAULT;
+  DiagHandler = nullptr;
+  DiagContext = nullptr;
+  OwnedModule = nullptr;
+  ShouldInternalize = true;
+
   initializeLTOPasses();
 }
 
@@ -202,7 +215,8 @@ bool LTOCodeGenerator::writeMergedModules(const char *path,
   }
 
   // write bitcode to it
-  WriteBitcodeToFile(IRLinker.getModule(), Out.os(), ShouldEmbedUselists);
+  WriteBitcodeToFile(IRLinker.getModule(), Out.os(),
+                     /* ShouldPreserveUseListOrder */ true);
   Out.os().close();
 
   if (Out.os().has_error()) {

@@ -62,7 +62,7 @@ OrcLazyJIT::TransformFtor OrcLazyJIT::createDebugDumper() {
 
   switch (OrcDumpKind) {
   case DumpKind::NoDump:
-    return [](std::unique_ptr<Module> M) { return M; };
+    return [](std::unique_ptr<Module> M) { return std::move(M); };
 
   case DumpKind::DumpFuncsToStdOut:
     return [](std::unique_ptr<Module> M) {
@@ -80,7 +80,7 @@ OrcLazyJIT::TransformFtor OrcLazyJIT::createDebugDumper() {
       }
 
       printf("]\n");
-      return M;
+      return std::move(M);
     };
 
   case DumpKind::DumpModsToStdErr:
@@ -88,7 +88,7 @@ OrcLazyJIT::TransformFtor OrcLazyJIT::createDebugDumper() {
              dbgs() << "----- Module Start -----\n" << *M
                     << "----- Module End -----\n";
 
-             return M;
+             return std::move(M);
            };
 
   case DumpKind::DumpModsToDisk:
@@ -102,7 +102,7 @@ OrcLazyJIT::TransformFtor OrcLazyJIT::createDebugDumper() {
                exit(1);
              }
              Out << *M;
-             return M;
+             return std::move(M);
            };
   }
   llvm_unreachable("Unknown DumpKind");

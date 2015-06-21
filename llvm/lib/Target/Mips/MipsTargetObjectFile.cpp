@@ -110,10 +110,9 @@ IsGlobalInSmallSectionImpl(const GlobalValue *GV,
   return IsInSmallSection(TM.getDataLayout()->getTypeAllocSize(Ty));
 }
 
-MCSection *
-MipsTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
-                                             SectionKind Kind, Mangler &Mang,
-                                             const TargetMachine &TM) const {
+const MCSection *MipsTargetObjectFile::
+SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
+                       Mangler &Mang, const TargetMachine &TM) const {
   // TODO: Could also support "weak" symbols as well with ".gnu.linkonce.s.*"
   // sections?
 
@@ -137,9 +136,8 @@ IsConstantInSmallSection(const Constant *CN, const TargetMachine &TM) const {
                             CN->getType())));
 }
 
-MCSection *
-MipsTargetObjectFile::getSectionForConstant(SectionKind Kind,
-                                            const Constant *C) const {
+const MCSection *MipsTargetObjectFile::
+getSectionForConstant(SectionKind Kind, const Constant *C) const {
   if (IsConstantInSmallSection(C, *TM))
     return SmallDataSection;
 

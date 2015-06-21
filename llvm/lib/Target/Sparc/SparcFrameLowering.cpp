@@ -82,11 +82,10 @@ void SparcFrameLowering::emitSPAdjustment(MachineFunction &MF,
     .addReg(SP::O6).addReg(SP::G1);
 }
 
-void SparcFrameLowering::emitPrologue(MachineFunction &MF,
-                                      MachineBasicBlock &MBB) const {
+void SparcFrameLowering::emitPrologue(MachineFunction &MF) const {
   SparcMachineFunctionInfo *FuncInfo = MF.getInfo<SparcMachineFunctionInfo>();
 
-  assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+  MachineBasicBlock &MBB = MF.front();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   const SparcInstrInfo &TII =
       *static_cast<const SparcInstrInfo *>(MF.getSubtarget().getInstrInfo());

@@ -15,7 +15,6 @@
 
 #include "llvm-pdbdump.h"
 #include "CompilandDumper.h"
-#include "ExternalSymbolDumper.h"
 #include "FunctionDumper.h"
 #include "LinePrinter.h"
 #include "TypeDumper.h"
@@ -59,7 +58,6 @@ cl::list<std::string> InputFilenames(cl::Positional,
 
 cl::OptionCategory TypeCategory("Symbol Type Options");
 cl::OptionCategory FilterCategory("Filtering Options");
-cl::OptionCategory OtherOptions("Other Options");
 
 cl::opt<bool> Compilands("compilands", cl::desc("Display compilands"),
                          cl::cat(TypeCategory));
@@ -67,17 +65,10 @@ cl::opt<bool> Symbols("symbols", cl::desc("Display symbols for each compiland"),
                       cl::cat(TypeCategory));
 cl::opt<bool> Globals("globals", cl::desc("Dump global symbols"),
                       cl::cat(TypeCategory));
-cl::opt<bool> Externals("externals", cl::desc("Dump external symbols"),
-                        cl::cat(TypeCategory));
 cl::opt<bool> Types("types", cl::desc("Display types"), cl::cat(TypeCategory));
 cl::opt<bool>
     All("all", cl::desc("Implies all other options in 'Symbol Types' category"),
         cl::cat(TypeCategory));
-
-cl::opt<uint64_t> LoadAddress(
-    "load-address",
-    cl::desc("Assume the module is loaded at the specified address"),
-    cl::cat(OtherOptions));
 
 cl::list<std::string>
     ExcludeTypes("exclude-types",
@@ -130,8 +121,6 @@ static void dumpInput(StringRef Path) {
            << "'.  An unknown error occured.\n";
     return;
   }
-  if (opts::LoadAddress)
-    Session->setLoadAddress(opts::LoadAddress);
 
   LinePrinter Printer(2, outs());
 
@@ -226,13 +215,6 @@ static void dumpInput(StringRef Path) {
     }
     Printer.Unindent();
   }
-  if (opts::Externals) {
-    Printer.NewLine();
-    WithColor(Printer, PDB_ColorItem::SectionHeader).get() << "---EXTERNALS---";
-    Printer.Indent();
-    ExternalSymbolDumper Dumper(Printer);
-    Dumper.start(*GlobalScope);
-  }
   outs().flush();
 }
 
@@ -258,7 +240,6 @@ int main(int argc_, const char *argv_[]) {
     opts::Symbols = true;
     opts::Globals = true;
     opts::Types = true;
-    opts::Externals = true;
   }
   if (opts::ExcludeCompilerGenerated) {
     opts::ExcludeTypes.push_back("__vc_attributes");

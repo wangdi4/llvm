@@ -21,7 +21,7 @@
 
 namespace llvm {
 namespace NVPTXISD {
-enum NodeType : unsigned {
+enum NodeType {
   // Start the numbering from where ISD NodeType finishes.
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   Wrapper,

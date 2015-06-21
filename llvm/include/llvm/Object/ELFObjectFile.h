@@ -86,7 +86,6 @@ protected:
   std::error_code getSymbolOther(DataRefImpl Symb, uint8_t &Res) const override;
   std::error_code getSymbolType(DataRefImpl Symb,
                                 SymbolRef::Type &Res) const override;
-  section_iterator getSymbolSection(const Elf_Sym *Symb) const;
   std::error_code getSymbolSection(DataRefImpl Symb,
                                    section_iterator &Res) const override;
 
@@ -113,7 +112,6 @@ protected:
   std::error_code getRelocationOffset(DataRefImpl Rel,
                                       uint64_t &Res) const override;
   symbol_iterator getRelocationSymbol(DataRefImpl Rel) const override;
-  section_iterator getRelocationSection(DataRefImpl Rel) const override;
   std::error_code getRelocationType(DataRefImpl Rel,
                                     uint64_t &Res) const override;
   std::error_code
@@ -411,30 +409,22 @@ uint32_t ELFObjectFile<ELFT>::getSymbolFlags(DataRefImpl Symb) const {
   if (isExportedToOtherDSO(ESym))
     Result |= SymbolRef::SF_Exported;
 
-  if (ESym->getVisibility() == ELF::STV_HIDDEN)
-    Result |= SymbolRef::SF_Hidden;
-
   return Result;
-}
-
-template <class ELFT>
-section_iterator
-ELFObjectFile<ELFT>::getSymbolSection(const Elf_Sym *ESym) const {
-  const Elf_Shdr *ESec = EF.getSection(ESym);
-  if (!ESec)
-    return section_end();
-  else {
-    DataRefImpl Sec;
-    Sec.p = reinterpret_cast<intptr_t>(ESec);
-    return section_iterator(SectionRef(Sec, this));
-  }
 }
 
 template <class ELFT>
 std::error_code
 ELFObjectFile<ELFT>::getSymbolSection(DataRefImpl Symb,
                                       section_iterator &Res) const {
-  Res = getSymbolSection(getSymbol(Symb));
+  const Elf_Sym *ESym = getSymbol(Symb);
+  const Elf_Shdr *ESec = EF.getSection(ESym);
+  if (!ESec)
+    Res = section_end();
+  else {
+    DataRefImpl Sec;
+    Sec.p = reinterpret_cast<intptr_t>(ESec);
+    Res = section_iterator(SectionRef(Sec, this));
+  }
   return object_error::success;
 }
 
@@ -593,20 +583,6 @@ ELFObjectFile<ELFT>::getRelocationSymbol(DataRefImpl Rel) const {
   }
 
   return symbol_iterator(SymbolRef(SymbolData, this));
-}
-
-// ELF relocations can target sections, by targetting a symbol of type
-// STT_SECTION
-template <class ELFT>
-section_iterator
-ELFObjectFile<ELFT>::getRelocationSection(DataRefImpl Rel) const {
-  symbol_iterator Sym = getRelocationSymbol(Rel);
-  if (Sym == symbol_end())
-    return section_end();
-  const Elf_Sym *ESym = getSymbol(Sym->getRawDataRefImpl());
-  if (ESym->getType() != ELF::STT_SECTION)
-    return section_end();
-  return getSymbolSection(ESym);
 }
 
 template <class ELFT>
@@ -952,7 +928,7 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
 
   case ELF::EM_SPARC:
   case ELF::EM_SPARC32PLUS:
-    return IsLittleEndian ? Triple::sparcel : Triple::sparc;
+    return Triple::sparc;
   case ELF::EM_SPARCV9:
     return Triple::sparcv9;
 

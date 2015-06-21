@@ -62,8 +62,14 @@ static void WriteOutputFile(const Module *M) {
     if (InputFilename == "-") {
       OutputFilename = "-";
     } else {
-      StringRef IFN = InputFilename;
-      OutputFilename = (IFN.endswith(".ll") ? IFN.drop_back(3) : IFN).str();
+      std::string IFN = InputFilename;
+      int Len = IFN.length();
+      if (IFN[Len-3] == '.' && IFN[Len-2] == 'l' && IFN[Len-1] == 'l') {
+        // Source ends in .ll
+        OutputFilename = std::string(IFN.begin(), IFN.end()-3);
+      } else {
+        OutputFilename = IFN;   // Append a .bc to it
+      }
       OutputFilename += ".bc";
     }
   }

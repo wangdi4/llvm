@@ -181,8 +181,9 @@ public:
 private:
   // String Data
   struct DataArray {
-    DwarfStringPoolEntryRef Name;
+    MCSymbol *StrSym;
     std::vector<HashDataContents *> Values;
+    DataArray() : StrSym(nullptr) {}
   };
   friend struct HashData;
   struct HashData {
@@ -200,7 +201,7 @@ private:
       O << "  Hash Value: " << format("0x%x", HashValue) << "\n";
       O << "  Symbol: ";
       if (Sym)
-        O << *Sym;
+        Sym->print(O);
       else
         O << "<none>";
       O << "\n";
@@ -244,7 +245,8 @@ private:
   // Public Implementation
 public:
   DwarfAccelTable(ArrayRef<DwarfAccelTable::Atom>);
-  void AddName(DwarfStringPoolEntryRef Name, const DIE *Die, char Flags = 0);
+  void AddName(StringRef Name, MCSymbol *StrSym, const DIE *Die,
+               char Flags = 0);
   void FinalizeTable(AsmPrinter *, StringRef);
   void emit(AsmPrinter *, const MCSymbol *, DwarfDebug *);
 #ifndef NDEBUG

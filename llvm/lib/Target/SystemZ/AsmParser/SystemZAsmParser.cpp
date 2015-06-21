@@ -39,17 +39,13 @@ enum RegisterKind {
   ADDR64Reg,
   FP32Reg,
   FP64Reg,
-  FP128Reg,
-  VR32Reg,
-  VR64Reg,
-  VR128Reg
+  FP128Reg
 };
 
 enum MemoryKind {
   BDMem,
   BDXMem,
-  BDLMem,
-  BDVMem
+  BDLMem
 };
 
 class SystemZOperand : public MCParsedAsmOperand {
@@ -89,14 +85,14 @@ private:
   };
 
   // Base + Disp + Index, where Base and Index are LLVM registers or 0.
-  // MemKind says what type of memory this is and RegKind says what type
-  // the base register has (ADDR32Reg or ADDR64Reg).  Length is the operand
-  // length for D(L,B)-style operands, otherwise it is null.
+  // RegKind says what type the registers have (ADDR32Reg or ADDR64Reg).
+  // Length is the operand length for D(L,B)-style operands, otherwise
+  // it is null.
   struct MemOp {
-    unsigned Base : 12;
-    unsigned Index : 12;
-    unsigned MemKind : 4;
-    unsigned RegKind : 4;
+    unsigned Base : 8;
+    unsigned Index : 8;
+    unsigned RegKind : 8;
+    unsigned Unused : 8;
     const MCExpr *Disp;
     const MCExpr *Length;
   };
@@ -120,11 +116,11 @@ private:
   void addExpr(MCInst &Inst, const MCExpr *Expr) const {
     // Add as immediates when possible.  Null MCExpr = 0.
     if (!Expr)
-      Inst.addOperand(MCOperand::createImm(0));
+      Inst.addOperand(MCOperand::CreateImm(0));
     else if (auto *CE = dyn_cast<MCConstantExpr>(Expr))
-      Inst.addOperand(MCOperand::createImm(CE->getValue()));
+      Inst.addOperand(MCOperand::CreateImm(CE->getValue()));
     else
-      Inst.addOperand(MCOperand::createExpr(Expr));
+      Inst.addOperand(MCOperand::CreateExpr(Expr));
   }
 
 public:
@@ -162,11 +158,10 @@ public:
     return Op;
   }
   static std::unique_ptr<SystemZOperand>
-  createMem(MemoryKind MemKind, RegisterKind RegKind, unsigned Base,
-            const MCExpr *Disp, unsigned Index, const MCExpr *Length,
-            SMLoc StartLoc, SMLoc EndLoc) {
+  createMem(RegisterKind RegKind, unsigned Base, const MCExpr *Disp,
+            unsigned Index, const MCExpr *Length, SMLoc StartLoc,
+            SMLoc EndLoc) {
     auto Op = make_unique<SystemZOperand>(KindMem, StartLoc, EndLoc);
-    Op->Mem.MemKind = MemKind;
     Op->Mem.RegKind = RegKind;
     Op->Mem.Base = Base;
     Op->Mem.Index = Index;
@@ -231,31 +226,20 @@ public:
   bool isMem() const override {
     return Kind == KindMem;
   }
-  bool isMem(MemoryKind MemKind) const {
+  bool isMem(RegisterKind RegKind, MemoryKind MemKind) const {
     return (Kind == KindMem &&
-            (Mem.MemKind == MemKind ||
-             // A BDMem can be treated as a BDXMem in which the index
-             // register field is 0.
-             (Mem.MemKind == BDMem && MemKind == BDXMem)));
+            Mem.RegKind == RegKind &&
+            (MemKind == BDXMem || !Mem.Index) &&
+            (MemKind == BDLMem) == (Mem.Length != nullptr));
   }
-  bool isMem(MemoryKind MemKind, RegisterKind RegKind) const {
-    return isMem(MemKind) && Mem.RegKind == RegKind;
+  bool isMemDisp12(RegisterKind RegKind, MemoryKind MemKind) const {
+    return isMem(RegKind, MemKind) && inRange(Mem.Disp, 0, 0xfff);
   }
-  bool isMemDisp12(MemoryKind MemKind, RegisterKind RegKind) const {
-    return isMem(MemKind, RegKind) && inRange(Mem.Disp, 0, 0xfff);
-  }
-  bool isMemDisp20(MemoryKind MemKind, RegisterKind RegKind) const {
-    return isMem(MemKind, RegKind) && inRange(Mem.Disp, -524288, 524287);
+  bool isMemDisp20(RegisterKind RegKind, MemoryKind MemKind) const {
+    return isMem(RegKind, MemKind) && inRange(Mem.Disp, -524288, 524287);
   }
   bool isMemDisp12Len8(RegisterKind RegKind) const {
-    return isMemDisp12(BDLMem, RegKind) && inRange(Mem.Length, 1, 0x100);
-  }
-  void addBDVAddrOperands(MCInst &Inst, unsigned N) const {
-    assert(N == 3 && "Invalid number of operands");
-    assert(isMem(BDVMem) && "Invalid operand type");
-    Inst.addOperand(MCOperand::createReg(Mem.Base));
-    addExpr(Inst, Mem.Disp);
-    Inst.addOperand(MCOperand::createReg(Mem.Index));
+    return isMemDisp12(RegKind, BDLMem) && inRange(Mem.Length, 1, 0x100);
   }
 
   // Override MCParsedAsmOperand.
@@ -267,12 +251,12 @@ public:
   // to an instruction.
   void addRegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands");
-    Inst.addOperand(MCOperand::createReg(getReg()));
+    Inst.addOperand(MCOperand::CreateReg(getReg()));
   }
   void addAccessRegOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands");
     assert(Kind == KindAccessReg && "Invalid operand type");
-    Inst.addOperand(MCOperand::createImm(AccessReg));
+    Inst.addOperand(MCOperand::CreateImm(AccessReg));
   }
   void addImmOperands(MCInst &Inst, unsigned N) const {
     assert(N == 1 && "Invalid number of operands");
@@ -280,21 +264,21 @@ public:
   }
   void addBDAddrOperands(MCInst &Inst, unsigned N) const {
     assert(N == 2 && "Invalid number of operands");
-    assert(isMem(BDMem) && "Invalid operand type");
-    Inst.addOperand(MCOperand::createReg(Mem.Base));
+    assert(Kind == KindMem && Mem.Index == 0 && "Invalid operand type");
+    Inst.addOperand(MCOperand::CreateReg(Mem.Base));
     addExpr(Inst, Mem.Disp);
   }
   void addBDXAddrOperands(MCInst &Inst, unsigned N) const {
     assert(N == 3 && "Invalid number of operands");
-    assert(isMem(BDXMem) && "Invalid operand type");
-    Inst.addOperand(MCOperand::createReg(Mem.Base));
+    assert(Kind == KindMem && "Invalid operand type");
+    Inst.addOperand(MCOperand::CreateReg(Mem.Base));
     addExpr(Inst, Mem.Disp);
-    Inst.addOperand(MCOperand::createReg(Mem.Index));
+    Inst.addOperand(MCOperand::CreateReg(Mem.Index));
   }
   void addBDLAddrOperands(MCInst &Inst, unsigned N) const {
     assert(N == 3 && "Invalid number of operands");
-    assert(isMem(BDLMem) && "Invalid operand type");
-    Inst.addOperand(MCOperand::createReg(Mem.Base));
+    assert(Kind == KindMem && "Invalid operand type");
+    Inst.addOperand(MCOperand::CreateReg(Mem.Base));
     addExpr(Inst, Mem.Disp);
     addExpr(Inst, Mem.Length);
   }
@@ -318,26 +302,17 @@ public:
   bool isFP32() const { return isReg(FP32Reg); }
   bool isFP64() const { return isReg(FP64Reg); }
   bool isFP128() const { return isReg(FP128Reg); }
-  bool isVR32() const { return isReg(VR32Reg); }
-  bool isVR64() const { return isReg(VR64Reg); }
-  bool isVF128() const { return false; }
-  bool isVR128() const { return isReg(VR128Reg); }
-  bool isBDAddr32Disp12() const { return isMemDisp12(BDMem, ADDR32Reg); }
-  bool isBDAddr32Disp20() const { return isMemDisp20(BDMem, ADDR32Reg); }
-  bool isBDAddr64Disp12() const { return isMemDisp12(BDMem, ADDR64Reg); }
-  bool isBDAddr64Disp20() const { return isMemDisp20(BDMem, ADDR64Reg); }
-  bool isBDXAddr64Disp12() const { return isMemDisp12(BDXMem, ADDR64Reg); }
-  bool isBDXAddr64Disp20() const { return isMemDisp20(BDXMem, ADDR64Reg); }
+  bool isBDAddr32Disp12() const { return isMemDisp12(ADDR32Reg, BDMem); }
+  bool isBDAddr32Disp20() const { return isMemDisp20(ADDR32Reg, BDMem); }
+  bool isBDAddr64Disp12() const { return isMemDisp12(ADDR64Reg, BDMem); }
+  bool isBDAddr64Disp20() const { return isMemDisp20(ADDR64Reg, BDMem); }
+  bool isBDXAddr64Disp12() const { return isMemDisp12(ADDR64Reg, BDXMem); }
+  bool isBDXAddr64Disp20() const { return isMemDisp20(ADDR64Reg, BDXMem); }
   bool isBDLAddr64Disp12Len8() const { return isMemDisp12Len8(ADDR64Reg); }
-  bool isBDVAddr64Disp12() const { return isMemDisp12(BDVMem, ADDR64Reg); }
-  bool isU1Imm() const { return isImm(0, 1); }
-  bool isU2Imm() const { return isImm(0, 3); }
-  bool isU3Imm() const { return isImm(0, 7); }
   bool isU4Imm() const { return isImm(0, 15); }
   bool isU6Imm() const { return isImm(0, 63); }
   bool isU8Imm() const { return isImm(0, 255); }
   bool isS8Imm() const { return isImm(-128, 127); }
-  bool isU12Imm() const { return isImm(0, 4095); }
   bool isU16Imm() const { return isImm(0, 65535); }
   bool isS16Imm() const { return isImm(-32768, 32767); }
   bool isU32Imm() const { return isImm(0, (1LL << 32) - 1); }
@@ -354,7 +329,6 @@ private:
   enum RegisterGroup {
     RegGR,
     RegFP,
-    RegV,
     RegAccess
   };
   struct Register {
@@ -373,12 +347,12 @@ private:
                                      RegisterKind Kind);
 
   bool parseAddress(unsigned &Base, const MCExpr *&Disp,
-                    unsigned &Index, bool &IsVector, const MCExpr *&Length,
+                    unsigned &Index, const MCExpr *&Length,
                     const unsigned *Regs, RegisterKind RegKind);
 
   OperandMatchResultTy parseAddress(OperandVector &Operands,
-                                    MemoryKind MemKind, const unsigned *Regs,
-                                    RegisterKind RegKind);
+                                    const unsigned *Regs, RegisterKind RegKind,
+                                    MemoryKind MemKind);
 
   OperandMatchResultTy parsePCRel(OperandVector &Operands, int64_t MinVal,
                                   int64_t MaxVal, bool AllowTLS);
@@ -440,32 +414,17 @@ public:
   OperandMatchResultTy parseFP128(OperandVector &Operands) {
     return parseRegister(Operands, RegFP, SystemZMC::FP128Regs, FP128Reg);
   }
-  OperandMatchResultTy parseVR32(OperandVector &Operands) {
-    return parseRegister(Operands, RegV, SystemZMC::VR32Regs, VR32Reg);
-  }
-  OperandMatchResultTy parseVR64(OperandVector &Operands) {
-    return parseRegister(Operands, RegV, SystemZMC::VR64Regs, VR64Reg);
-  }
-  OperandMatchResultTy parseVF128(OperandVector &Operands) {
-    llvm_unreachable("Shouldn't be used as an operand");
-  }
-  OperandMatchResultTy parseVR128(OperandVector &Operands) {
-    return parseRegister(Operands, RegV, SystemZMC::VR128Regs, VR128Reg);
-  }
   OperandMatchResultTy parseBDAddr32(OperandVector &Operands) {
-    return parseAddress(Operands, BDMem, SystemZMC::GR32Regs, ADDR32Reg);
+    return parseAddress(Operands, SystemZMC::GR32Regs, ADDR32Reg, BDMem);
   }
   OperandMatchResultTy parseBDAddr64(OperandVector &Operands) {
-    return parseAddress(Operands, BDMem, SystemZMC::GR64Regs, ADDR64Reg);
+    return parseAddress(Operands, SystemZMC::GR64Regs, ADDR64Reg, BDMem);
   }
   OperandMatchResultTy parseBDXAddr64(OperandVector &Operands) {
-    return parseAddress(Operands, BDXMem, SystemZMC::GR64Regs, ADDR64Reg);
+    return parseAddress(Operands, SystemZMC::GR64Regs, ADDR64Reg, BDXMem);
   }
   OperandMatchResultTy parseBDLAddr64(OperandVector &Operands) {
-    return parseAddress(Operands, BDLMem, SystemZMC::GR64Regs, ADDR64Reg);
-  }
-  OperandMatchResultTy parseBDVAddr64(OperandVector &Operands) {
-    return parseAddress(Operands, BDVMem, SystemZMC::GR64Regs, ADDR64Reg);
+    return parseAddress(Operands, SystemZMC::GR64Regs, ADDR64Reg, BDLMem);
   }
   OperandMatchResultTy parseAccessReg(OperandVector &Operands);
   OperandMatchResultTy parsePCRel16(OperandVector &Operands) {
@@ -520,8 +479,6 @@ bool SystemZAsmParser::parseRegister(Register &Reg) {
     Reg.Group = RegGR;
   else if (Prefix == 'f' && Reg.Num < 16)
     Reg.Group = RegFP;
-  else if (Prefix == 'v' && Reg.Num < 32)
-    Reg.Group = RegV;
   else if (Prefix == 'a' && Reg.Num < 16)
     Reg.Group = RegAccess;
   else
@@ -572,8 +529,8 @@ SystemZAsmParser::parseRegister(OperandVector &Operands, RegisterGroup Group,
 // Regs maps asm register numbers to LLVM register numbers and RegKind
 // says what kind of address register we're using (ADDR32Reg or ADDR64Reg).
 bool SystemZAsmParser::parseAddress(unsigned &Base, const MCExpr *&Disp,
-                                    unsigned &Index, bool &IsVector,
-                                    const MCExpr *&Length, const unsigned *Regs,
+                                    unsigned &Index, const MCExpr *&Length,
+                                    const unsigned *Regs,
                                     RegisterKind RegKind) {
   // Parse the displacement, which must always be present.
   if (getParser().parseExpression(Disp))
@@ -582,7 +539,6 @@ bool SystemZAsmParser::parseAddress(unsigned &Base, const MCExpr *&Disp,
   // Parse the optional base and index.
   Index = 0;
   Base = 0;
-  IsVector = false;
   Length = nullptr;
   if (getLexer().is(AsmToken::LParen)) {
     Parser.Lex();
@@ -590,23 +546,12 @@ bool SystemZAsmParser::parseAddress(unsigned &Base, const MCExpr *&Disp,
     if (getLexer().is(AsmToken::Percent)) {
       // Parse the first register and decide whether it's a base or an index.
       Register Reg;
-      if (parseRegister(Reg))
+      if (parseRegister(Reg, RegGR, Regs, RegKind))
         return true;
-      if (Reg.Group == RegV) {
-        // A vector index register.  The base register is optional.
-        IsVector = true;
-        Index = SystemZMC::VR128Regs[Reg.Num];
-      } else if (Reg.Group == RegGR) {
-        if (Reg.Num == 0)
-          return Error(Reg.StartLoc, "%r0 used in an address");
-        // If the are two registers, the first one is the index and the
-        // second is the base.
-        if (getLexer().is(AsmToken::Comma))
-          Index = Regs[Reg.Num];
-        else
-          Base = Regs[Reg.Num];
-      } else
-        return Error(Reg.StartLoc, "invalid address register");
+      if (getLexer().is(AsmToken::Comma))
+        Index = Reg.Num;
+      else
+        Base = Reg.Num;
     } else {
       // Parse the length.
       if (getParser().parseExpression(Length))
@@ -633,46 +578,37 @@ bool SystemZAsmParser::parseAddress(unsigned &Base, const MCExpr *&Disp,
 // Parse a memory operand and add it to Operands.  The other arguments
 // are as above.
 SystemZAsmParser::OperandMatchResultTy
-SystemZAsmParser::parseAddress(OperandVector &Operands, MemoryKind MemKind,
-                               const unsigned *Regs, RegisterKind RegKind) {
+SystemZAsmParser::parseAddress(OperandVector &Operands, const unsigned *Regs,
+                               RegisterKind RegKind, MemoryKind MemKind) {
   SMLoc StartLoc = Parser.getTok().getLoc();
   unsigned Base, Index;
-  bool IsVector;
   const MCExpr *Disp;
   const MCExpr *Length;
-  if (parseAddress(Base, Disp, Index, IsVector, Length, Regs, RegKind))
+  if (parseAddress(Base, Disp, Index, Length, Regs, RegKind))
     return MatchOperand_ParseFail;
 
-  if (IsVector && MemKind != BDVMem) {
-    Error(StartLoc, "invalid use of vector addressing");
-    return MatchOperand_ParseFail;
-  }
+  if (Index && MemKind != BDXMem)
+    {
+      Error(StartLoc, "invalid use of indexed addressing");
+      return MatchOperand_ParseFail;
+    }
 
-  if (!IsVector && MemKind == BDVMem) {
-    Error(StartLoc, "vector index required in address");
-    return MatchOperand_ParseFail;
-  }
+  if (Length && MemKind != BDLMem)
+    {
+      Error(StartLoc, "invalid use of length addressing");
+      return MatchOperand_ParseFail;
+    }
 
-  if (Index && MemKind != BDXMem && MemKind != BDVMem) {
-    Error(StartLoc, "invalid use of indexed addressing");
-    return MatchOperand_ParseFail;
-  }
-
-  if (Length && MemKind != BDLMem) {
-    Error(StartLoc, "invalid use of length addressing");
-    return MatchOperand_ParseFail;
-  }
-
-  if (!Length && MemKind == BDLMem) {
-    Error(StartLoc, "missing length in address");
-    return MatchOperand_ParseFail;
-  }
+  if (!Length && MemKind == BDLMem)
+    {
+      Error(StartLoc, "missing length in address");
+      return MatchOperand_ParseFail;
+    }
 
   SMLoc EndLoc =
     SMLoc::getFromPointer(Parser.getTok().getLoc().getPointer() - 1);
-  Operands.push_back(SystemZOperand::createMem(MemKind, RegKind, Base, Disp,
-                                               Index, Length, StartLoc,
-                                               EndLoc));
+  Operands.push_back(SystemZOperand::createMem(RegKind, Base, Disp, Index,
+                                               Length, StartLoc, EndLoc));
   return MatchOperand_Success;
 }
 
@@ -689,8 +625,6 @@ bool SystemZAsmParser::ParseRegister(unsigned &RegNo, SMLoc &StartLoc,
     RegNo = SystemZMC::GR64Regs[Reg.Num];
   else if (Reg.Group == RegFP)
     RegNo = SystemZMC::FP64Regs[Reg.Num];
-  else if (Reg.Group == RegV)
-    RegNo = SystemZMC::VR128Regs[Reg.Num];
   else
     // FIXME: Access registers aren't modelled as LLVM registers yet.
     return Error(Reg.StartLoc, "invalid operand for instruction");
@@ -763,10 +697,8 @@ bool SystemZAsmParser::parseOperand(OperandVector &Operands,
   // so we treat any plain expression as an immediate.
   SMLoc StartLoc = Parser.getTok().getLoc();
   unsigned Base, Index;
-  bool IsVector;
   const MCExpr *Expr, *Length;
-  if (parseAddress(Base, Expr, Index, IsVector, Length, SystemZMC::GR64Regs,
-                   ADDR64Reg))
+  if (parseAddress(Base, Expr, Index, Length, SystemZMC::GR64Regs, ADDR64Reg))
     return true;
 
   SMLoc EndLoc =
@@ -863,7 +795,7 @@ SystemZAsmParser::parsePCRel(OperandVector &Operands, int64_t MinVal,
       Error(StartLoc, "offset out of range");
       return MatchOperand_ParseFail;
     }
-    MCSymbol *Sym = Ctx.createTempSymbol();
+    MCSymbol *Sym = Ctx.CreateTempSymbol();
     Out.EmitLabel(Sym);
     const MCExpr *Base = MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_None,
                                                  Ctx);
@@ -904,7 +836,7 @@ SystemZAsmParser::parsePCRel(OperandVector &Operands, int64_t MinVal,
     }
 
     StringRef Identifier = Parser.getTok().getString();
-    Sym = MCSymbolRefExpr::Create(Ctx.getOrCreateSymbol(Identifier),
+    Sym = MCSymbolRefExpr::Create(Ctx.GetOrCreateSymbol(Identifier),
                                   Kind, Ctx);
     Parser.Lex();
   }

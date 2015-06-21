@@ -45,7 +45,7 @@ typedef std::pair<const MachineInstr *, const MachineInstr *> InsnRange;
 class LexicalScope {
 
 public:
-  LexicalScope(LexicalScope *P, const DILocalScope *D, const DILocation *I,
+  LexicalScope(LexicalScope *P, const MDLocalScope *D, const MDLocation *I,
                bool A)
       : Parent(P), Desc(D), InlinedAtLocation(I), AbstractScope(A),
         LastInsn(nullptr), FirstInsn(nullptr), DFSIn(0), DFSOut(0) {
@@ -58,8 +58,8 @@ public:
   // Accessors.
   LexicalScope *getParent() const { return Parent; }
   const MDNode *getDesc() const { return Desc; }
-  const DILocation *getInlinedAt() const { return InlinedAtLocation; }
-  const DILocalScope *getScopeNode() const { return Desc; }
+  const MDLocation *getInlinedAt() const { return InlinedAtLocation; }
+  const MDLocalScope *getScopeNode() const { return Desc; }
   bool isAbstractScope() const { return AbstractScope; }
   SmallVectorImpl<LexicalScope *> &getChildren() { return Children; }
   SmallVectorImpl<InsnRange> &getRanges() { return Ranges; }
@@ -119,8 +119,8 @@ public:
 
 private:
   LexicalScope *Parent;                        // Parent to this scope.
-  const DILocalScope *Desc;                    // Debug info descriptor.
-  const DILocation *InlinedAtLocation;         // Location at which this
+  const MDLocalScope *Desc;                    // Debug info descriptor.
+  const MDLocation *InlinedAtLocation;         // Location at which this
                                                // scope is inlined.
   bool AbstractScope;                          // Abstract Scope
   SmallVector<LexicalScope *, 4> Children;     // Scopes defined in scope.
@@ -159,16 +159,16 @@ public:
   /// getMachineBasicBlocks - Populate given set using machine basic blocks
   /// which have machine instructions that belong to lexical scope identified by
   /// DebugLoc.
-  void getMachineBasicBlocks(const DILocation *DL,
+  void getMachineBasicBlocks(const MDLocation *DL,
                              SmallPtrSetImpl<const MachineBasicBlock *> &MBBs);
 
   /// dominates - Return true if DebugLoc's lexical scope dominates at least one
   /// machine instruction's lexical scope in a given machine basic block.
-  bool dominates(const DILocation *DL, MachineBasicBlock *MBB);
+  bool dominates(const MDLocation *DL, MachineBasicBlock *MBB);
 
   /// findLexicalScope - Find lexical scope, either regular or inlined, for the
   /// given DebugLoc. Return NULL if not found.
-  LexicalScope *findLexicalScope(const DILocation *DL);
+  LexicalScope *findLexicalScope(const MDLocation *DL);
 
   /// getAbstractScopesList - Return a reference to list of abstract scopes.
   ArrayRef<LexicalScope *> getAbstractScopesList() const {
@@ -176,19 +176,19 @@ public:
   }
 
   /// findAbstractScope - Find an abstract scope or return null.
-  LexicalScope *findAbstractScope(const DILocalScope *N) {
+  LexicalScope *findAbstractScope(const MDLocalScope *N) {
     auto I = AbstractScopeMap.find(N);
     return I != AbstractScopeMap.end() ? &I->second : nullptr;
   }
 
   /// findInlinedScope - Find an inlined scope for the given scope/inlined-at.
-  LexicalScope *findInlinedScope(const DILocalScope *N, const DILocation *IA) {
+  LexicalScope *findInlinedScope(const MDLocalScope *N, const MDLocation *IA) {
     auto I = InlinedLexicalScopeMap.find(std::make_pair(N, IA));
     return I != InlinedLexicalScopeMap.end() ? &I->second : nullptr;
   }
 
   /// findLexicalScope - Find regular lexical scope or return null.
-  LexicalScope *findLexicalScope(const DILocalScope *N) {
+  LexicalScope *findLexicalScope(const MDLocalScope *N) {
     auto I = LexicalScopeMap.find(N);
     return I != LexicalScopeMap.end() ? &I->second : nullptr;
   }
@@ -197,24 +197,24 @@ public:
   void dump();
 
   /// getOrCreateAbstractScope - Find or create an abstract lexical scope.
-  LexicalScope *getOrCreateAbstractScope(const DILocalScope *Scope);
+  LexicalScope *getOrCreateAbstractScope(const MDLocalScope *Scope);
 
 private:
   /// getOrCreateLexicalScope - Find lexical scope for the given Scope/IA. If
   /// not available then create new lexical scope.
-  LexicalScope *getOrCreateLexicalScope(const DILocalScope *Scope,
-                                        const DILocation *IA = nullptr);
-  LexicalScope *getOrCreateLexicalScope(const DILocation *DL) {
+  LexicalScope *getOrCreateLexicalScope(const MDLocalScope *Scope,
+                                        const MDLocation *IA = nullptr);
+  LexicalScope *getOrCreateLexicalScope(const MDLocation *DL) {
     return DL ? getOrCreateLexicalScope(DL->getScope(), DL->getInlinedAt())
               : nullptr;
   }
 
   /// getOrCreateRegularScope - Find or create a regular lexical scope.
-  LexicalScope *getOrCreateRegularScope(const DILocalScope *Scope);
+  LexicalScope *getOrCreateRegularScope(const MDLocalScope *Scope);
 
   /// getOrCreateInlinedScope - Find or create an inlined lexical scope.
-  LexicalScope *getOrCreateInlinedScope(const DILocalScope *Scope,
-                                        const DILocation *InlinedAt);
+  LexicalScope *getOrCreateInlinedScope(const MDLocalScope *Scope,
+                                        const MDLocation *InlinedAt);
 
   /// extractLexicalScopes - Extract instruction ranges for each lexical scopes
   /// for the given machine function.
@@ -230,18 +230,18 @@ private:
 
   /// LexicalScopeMap - Tracks the scopes in the current function.
   // Use an unordered_map to ensure value pointer validity over insertion.
-  std::unordered_map<const DILocalScope *, LexicalScope> LexicalScopeMap;
+  std::unordered_map<const MDLocalScope *, LexicalScope> LexicalScopeMap;
 
   /// InlinedLexicalScopeMap - Tracks inlined function scopes in current
   /// function.
-  std::unordered_map<std::pair<const DILocalScope *, const DILocation *>,
+  std::unordered_map<std::pair<const MDLocalScope *, const MDLocation *>,
                      LexicalScope,
-                     pair_hash<const DILocalScope *, const DILocation *>>
+                     pair_hash<const MDLocalScope *, const MDLocation *>>
       InlinedLexicalScopeMap;
 
   /// AbstractScopeMap - These scopes are  not included LexicalScopeMap.
   // Use an unordered_map to ensure value pointer validity over insertion.
-  std::unordered_map<const DILocalScope *, LexicalScope> AbstractScopeMap;
+  std::unordered_map<const MDLocalScope *, LexicalScope> AbstractScopeMap;
 
   /// AbstractScopesList - Tracks abstract scopes constructed while processing
   /// a function.

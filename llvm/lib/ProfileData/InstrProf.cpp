@@ -29,13 +29,13 @@ class InstrProfErrorCategoryType : public std::error_category {
     case instrprof_error::eof:
       return "End of File";
     case instrprof_error::bad_magic:
-      return "Invalid profile data (bad magic)";
+      return "Invalid file format (bad magic)";
     case instrprof_error::bad_header:
-      return "Invalid profile data (file header is corrupt)";
+      return "Invalid header";
     case instrprof_error::unsupported_version:
-      return "Unsupported profiling format version";
+      return "Unsupported format version";
     case instrprof_error::unsupported_hash_type:
-      return "Unsupported profiling hash";
+      return "Unsupported hash function";
     case instrprof_error::too_large:
       return "Too much profile data";
     case instrprof_error::truncated:

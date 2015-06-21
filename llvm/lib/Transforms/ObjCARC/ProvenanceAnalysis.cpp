@@ -62,7 +62,8 @@ bool ProvenanceAnalysis::relatedPHI(const PHINode *A,
 
   // Check each unique source of the PHI node against B.
   SmallPtrSet<const Value *, 4> UniqueSrc;
-  for (Value *PV1 : A->incoming_values()) {
+  for (unsigned i = 0, e = A->getNumIncomingValues(); i != e; ++i) {
+    const Value *PV1 = A->getIncomingValue(i);
     if (UniqueSrc.insert(PV1).second && related(PV1, B, DL))
       return true;
   }

@@ -38,7 +38,7 @@ MCOperand BPFMCInstLower::LowerSymbolOperand(const MachineOperand &MO,
   if (!MO.isJTI() && MO.getOffset())
     llvm_unreachable("unknown symbol op");
 
-  return MCOperand::createExpr(Expr);
+  return MCOperand::CreateExpr(Expr);
 }
 
 void BPFMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
@@ -56,13 +56,13 @@ void BPFMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       // Ignore all implicit register operands.
       if (MO.isImplicit())
         continue;
-      MCOp = MCOperand::createReg(MO.getReg());
+      MCOp = MCOperand::CreateReg(MO.getReg());
       break;
     case MachineOperand::MO_Immediate:
-      MCOp = MCOperand::createImm(MO.getImm());
+      MCOp = MCOperand::CreateImm(MO.getImm());
       break;
     case MachineOperand::MO_MachineBasicBlock:
-      MCOp = MCOperand::createExpr(
+      MCOp = MCOperand::CreateExpr(
           MCSymbolRefExpr::Create(MO.getMBB()->getSymbol(), Ctx));
       break;
     case MachineOperand::MO_RegisterMask:

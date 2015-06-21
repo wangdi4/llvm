@@ -20,6 +20,7 @@ class MCAssembler;
 class MCFixup;
 class MCFragment;
 class MCObjectWriter;
+class MCSectionData;
 class MCSymbol;
 class MCSymbolData;
 class MCValue;
@@ -75,7 +76,7 @@ public:
   virtual void sortRelocs(const MCAssembler &Asm,
                           std::vector<ELFRelocationEntry> &Relocs);
 
-  /// \name Accessors
+  /// @name Accessors
   /// @{
   uint8_t getOSABI() const { return OSABI; }
   uint16_t getEMachine() const { return EMachine; }

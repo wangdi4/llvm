@@ -90,19 +90,6 @@ static void TrackDefUses(MachineInstr *MI,
   }
 }
 
-/// Clear kill flags for any uses in the given set.  This will likely
-/// conservatively remove more kill flags than are necessary, but removing them
-/// is safer than incorrect kill flags remaining on instructions.
-static void ClearKillFlags(MachineInstr *MI, SmallSet<unsigned, 4> &Uses) {
-  for (MIOperands MO(MI); MO.isValid(); ++MO) {
-    if (!MO->isReg() || MO->isDef() || !MO->isKill())
-      continue;
-    if (!Uses.count(MO->getReg()))
-      continue;
-    MO->setIsKill(false);
-  }
-}
-
 static bool isCopy(MachineInstr *MI) {
   switch (MI->getOpcode()) {
   default:
@@ -235,7 +222,6 @@ bool Thumb2ITBlockPass::InsertITInstructions(MachineBasicBlock &MBB) {
             --MBBI;
             MBB.remove(NMI);
             MBB.insert(InsertPos, NMI);
-            ClearKillFlags(MI, Uses);
             ++NumMovedInsts;
             continue;
           }

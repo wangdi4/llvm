@@ -88,7 +88,8 @@ PrintAfterAll("print-after-all",
 
 static bool ShouldPrintBeforeOrAfterPass(const PassInfo *PI,
                                          PassOptionList &PassesToPrint) {
-  for (auto *PassInf : PassesToPrint) {
+  for (unsigned i = 0, ie = PassesToPrint.size(); i < ie; ++i) {
+    const llvm::PassInfo *PassInf = PassesToPrint[i];
     if (PassInf)
       if (PassInf->getPassArgument() == PI->getPassArgument()) {
         return true;

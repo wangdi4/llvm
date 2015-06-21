@@ -142,10 +142,6 @@ MachineInstr *TargetInstrInfo::commuteInstruction(MachineInstr *MI,
   unsigned SubReg2 = MI->getOperand(Idx2).getSubReg();
   bool Reg1IsKill = MI->getOperand(Idx1).isKill();
   bool Reg2IsKill = MI->getOperand(Idx2).isKill();
-  bool Reg1IsUndef = MI->getOperand(Idx1).isUndef();
-  bool Reg2IsUndef = MI->getOperand(Idx2).isUndef();
-  bool Reg1IsInternal = MI->getOperand(Idx1).isInternalRead();
-  bool Reg2IsInternal = MI->getOperand(Idx2).isInternalRead();
   // If destination is tied to either of the commuted source register, then
   // it must be updated.
   if (HasDef && Reg0 == Reg1 &&
@@ -176,10 +172,6 @@ MachineInstr *TargetInstrInfo::commuteInstruction(MachineInstr *MI,
   MI->getOperand(Idx1).setSubReg(SubReg2);
   MI->getOperand(Idx2).setIsKill(Reg1IsKill);
   MI->getOperand(Idx1).setIsKill(Reg2IsKill);
-  MI->getOperand(Idx2).setIsUndef(Reg1IsUndef);
-  MI->getOperand(Idx1).setIsUndef(Reg2IsUndef);
-  MI->getOperand(Idx2).setIsInternalRead(Reg1IsInternal);
-  MI->getOperand(Idx1).setIsInternalRead(Reg2IsInternal);
   return MI;
 }
 
@@ -652,8 +644,8 @@ int TargetInstrInfo::getSPAdjust(const MachineInstr *MI) const {
   bool StackGrowsDown =
     TFI->getStackGrowthDirection() == TargetFrameLowering::StackGrowsDown;
 
-  unsigned FrameSetupOpcode = getCallFrameSetupOpcode();
-  unsigned FrameDestroyOpcode = getCallFrameDestroyOpcode();
+  int FrameSetupOpcode = getCallFrameSetupOpcode();
+  int FrameDestroyOpcode = getCallFrameDestroyOpcode();
 
   if (MI->getOpcode() != FrameSetupOpcode &&
       MI->getOpcode() != FrameDestroyOpcode)

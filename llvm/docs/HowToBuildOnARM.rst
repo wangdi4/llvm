@@ -40,7 +40,7 @@ on the ARMv6 and ARMv7 architectures and may be inapplicable to older chips.
 
    .. code-block:: bash
 
-     ../$LLVM_SRC_DIR/configure --build=armv7l-unknown-linux-gnueabihf \
+     ./configure --build=armv7l-unknown-linux-gnueabihf \
      --host=armv7l-unknown-linux-gnueabihf \
      --target=armv7l-unknown-linux-gnueabihf --with-cpu=cortex-a9 \
      --with-float=hard --with-abi=aapcs-vfp --with-fpu=neon \

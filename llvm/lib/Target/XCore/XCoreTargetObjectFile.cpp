@@ -95,7 +95,7 @@ static unsigned getXCoreSectionFlags(SectionKind K, bool IsCPRel) {
   return Flags;
 }
 
-MCSection *
+const MCSection *
 XCoreTargetObjectFile::getExplicitSectionGlobal(const GlobalValue *GV,
                                                 SectionKind Kind, Mangler &Mang,
                                                 const TargetMachine &TM) const {
@@ -108,10 +108,9 @@ XCoreTargetObjectFile::getExplicitSectionGlobal(const GlobalValue *GV,
                                     getXCoreSectionFlags(Kind, IsCPRel));
 }
 
-MCSection *
-XCoreTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
-                                              SectionKind Kind, Mangler &Mang,
-                                              const TargetMachine &TM) const {
+const MCSection *XCoreTargetObjectFile::
+SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind, Mangler &Mang,
+                       const TargetMachine &TM) const{
 
   bool UseCPRel = GV->isLocalLinkage(GV->getLinkage());
 
@@ -142,7 +141,7 @@ XCoreTargetObjectFile::SelectSectionForGlobal(const GlobalValue *GV,
   report_fatal_error("Target does not support TLS or Common sections");
 }
 
-MCSection *
+const MCSection *
 XCoreTargetObjectFile::getSectionForConstant(SectionKind Kind,
                                              const Constant *C) const {
   if (Kind.isMergeableConst4())           return MergeableConst4Section;

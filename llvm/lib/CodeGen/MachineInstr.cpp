@@ -141,28 +141,6 @@ void MachineOperand::ChangeToFPImmediate(const ConstantFP *FPImm) {
   Contents.CFP = FPImm;
 }
 
-void MachineOperand::ChangeToES(const char *SymName, unsigned char TargetFlags) {
-  assert((!isReg() || !isTied()) &&
-         "Cannot change a tied operand into an external symbol");
-
-  removeRegFromUses();
-
-  OpKind = MO_ExternalSymbol;
-  Contents.OffsetedInfo.Val.SymbolName = SymName;
-  setOffset(0); // Offset is always 0.
-  setTargetFlags(TargetFlags);
-}
-
-void MachineOperand::ChangeToMCSymbol(MCSymbol *Sym) {
-  assert((!isReg() || !isTied()) &&
-         "Cannot change a tied operand into an MCSymbol");
-
-  removeRegFromUses();
-
-  OpKind = MO_MCSymbol;
-  Contents.Sym = Sym;
-}
-
 /// ChangeToRegister - Replace this operand with a new register operand of
 /// the specified value.  If an operand is known to be an register already,
 /// the setReg method should be used.
@@ -321,8 +299,8 @@ void MachineOperand::print(raw_ostream &OS,
         if (isUndef() && getSubReg())
           OS << ",read-undef";
       } else if (isImplicit()) {
-        OS << "imp-use";
-        NeedComma = true;
+          OS << "imp-use";
+          NeedComma = true;
       }
 
       if (isKill()) {
@@ -1366,7 +1344,9 @@ void MachineInstr::substituteRegister(unsigned FromReg,
 /// isSafeToMove - Return true if it is safe to move this instruction. If
 /// SawStore is set to true, it means that there is a store (or call) between
 /// the instruction's location and its intended destination.
-bool MachineInstr::isSafeToMove(AliasAnalysis *AA, bool &SawStore) const {
+bool MachineInstr::isSafeToMove(const TargetInstrInfo *TII,
+                                AliasAnalysis *AA,
+                                bool &SawStore) const {
   // Ignore stuff that we obviously can't move.
   //
   // Treat volatile loads as stores. This is not strictly necessary for
@@ -1639,7 +1619,7 @@ void MachineInstr::print(raw_ostream &OS, bool SkipOpers) const {
     }
     if (isDebugValue() && MO.isMetadata()) {
       // Pretty print DBG_VALUE instructions.
-      auto *DIV = dyn_cast<DILocalVariable>(MO.getMetadata());
+      auto *DIV = dyn_cast<MDLocalVariable>(MO.getMetadata());
       if (DIV && !DIV->getName().empty())
         OS << "!\"" << DIV->getName() << '\"';
       else
@@ -1730,7 +1710,7 @@ void MachineInstr::print(raw_ostream &OS, bool SkipOpers) const {
   // Print debug location information.
   if (isDebugValue() && getOperand(e - 2).isMetadata()) {
     if (!HaveSemi) OS << ";";
-    auto *DV = cast<DILocalVariable>(getOperand(e - 2).getMetadata());
+    auto *DV = cast<MDLocalVariable>(getOperand(e - 2).getMetadata());
     OS << " line no:" <<  DV->getLine();
     if (auto *InlinedAt = debugLoc->getInlinedAt()) {
       DebugLoc InlinedAtDL(InlinedAt);

@@ -51,7 +51,7 @@ public:
                                  const MCAsmLayout *Layout,
                                  const MCFixup *Fixup) const override;
   void visitUsedExpr(MCStreamer &Streamer) const override;
-  MCSection *FindAssociatedSection() const override {
+  const MCSection *FindAssociatedSection() const override {
     return getSubExpr()->FindAssociatedSection();
   }
 

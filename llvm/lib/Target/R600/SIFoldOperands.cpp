@@ -216,7 +216,7 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
           const TargetRegisterClass *UseRC
             = TargetRegisterInfo::isVirtualRegister(UseReg) ?
             MRI.getRegClass(UseReg) :
-            TRI.getPhysRegClass(UseReg);
+            TRI.getRegClass(UseReg);
 
           Imm = APInt(64, OpToFold.getImm());
 
@@ -240,7 +240,7 @@ bool SIFoldOperands::runOnMachineFunction(MachineFunction &MF) {
             const TargetRegisterClass *DestRC
               = TargetRegisterInfo::isVirtualRegister(DestReg) ?
               MRI.getRegClass(DestReg) :
-              TRI.getPhysRegClass(DestReg);
+              TRI.getRegClass(DestReg);
 
             unsigned MovOp = TII->getMovOpcode(DestRC);
             if (MovOp == AMDGPU::COPY)

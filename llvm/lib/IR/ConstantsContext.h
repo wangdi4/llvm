@@ -100,7 +100,7 @@ public:
     return User::operator new(s, 2);
   }
   ExtractElementConstantExpr(Constant *C1, Constant *C2)
-    : ConstantExpr(cast<VectorType>(C1->getType())->getElementType(),
+    : ConstantExpr(cast<VectorType>(C1->getType())->getElementType(), 
                    Instruction::ExtractElement, &Op<0>(), 2) {
     Op<0>() = C1;
     Op<1>() = C2;
@@ -121,7 +121,7 @@ public:
     return User::operator new(s, 3);
   }
   InsertElementConstantExpr(Constant *C1, Constant *C2, Constant *C3)
-    : ConstantExpr(C1->getType(), Instruction::InsertElement,
+    : ConstantExpr(C1->getType(), Instruction::InsertElement, 
                    &Op<0>(), 3) {
     Op<0>() = C1;
     Op<1>() = C2;
@@ -146,7 +146,7 @@ public:
   : ConstantExpr(VectorType::get(
                    cast<VectorType>(C1->getType())->getElementType(),
                    cast<VectorType>(C3->getType())->getNumElements()),
-                 Instruction::ShuffleVector,
+                 Instruction::ShuffleVector, 
                  &Op<0>(), 3) {
     Op<0>() = C1;
     Op<1>() = C2;
@@ -207,32 +207,23 @@ public:
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
 
+
 /// GetElementPtrConstantExpr - This class is private to Constants.cpp, and is
 /// used behind the scenes to implement getelementpr constant exprs.
 class GetElementPtrConstantExpr : public ConstantExpr {
-  Type *SrcElementTy;
   void anchor() override;
-  GetElementPtrConstantExpr(Type *SrcElementTy, Constant *C,
-                            ArrayRef<Constant *> IdxList, Type *DestTy);
-
+  GetElementPtrConstantExpr(Constant *C, ArrayRef<Constant*> IdxList,
+                            Type *DestTy);
 public:
   static GetElementPtrConstantExpr *Create(Constant *C,
                                            ArrayRef<Constant*> IdxList,
                                            Type *DestTy,
                                            unsigned Flags) {
-    return Create(
-        cast<PointerType>(C->getType()->getScalarType())->getElementType(), C,
-        IdxList, DestTy, Flags);
-  }
-  static GetElementPtrConstantExpr *Create(Type *SrcElementTy, Constant *C,
-                                           ArrayRef<Constant *> IdxList,
-                                           Type *DestTy, unsigned Flags) {
-    GetElementPtrConstantExpr *Result = new (IdxList.size() + 1)
-        GetElementPtrConstantExpr(SrcElementTy, C, IdxList, DestTy);
+    GetElementPtrConstantExpr *Result =
+      new(IdxList.size() + 1) GetElementPtrConstantExpr(C, IdxList, DestTy);
     Result->SubclassOptionalData = Flags;
     return Result;
   }
-  Type *getSourceElementType() const;
   /// Transparently provide more efficient getOperand methods.
   DECLARE_TRANSPARENT_OPERAND_ACCESSORS(Value);
 };
@@ -260,54 +251,65 @@ public:
 };
 
 template <>
-struct OperandTraits<UnaryConstantExpr>
-    : public FixedNumOperandTraits<UnaryConstantExpr, 1> {};
+struct OperandTraits<UnaryConstantExpr> :
+  public FixedNumOperandTraits<UnaryConstantExpr, 1> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(UnaryConstantExpr, Value)
 
 template <>
-struct OperandTraits<BinaryConstantExpr>
-    : public FixedNumOperandTraits<BinaryConstantExpr, 2> {};
+struct OperandTraits<BinaryConstantExpr> :
+  public FixedNumOperandTraits<BinaryConstantExpr, 2> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(BinaryConstantExpr, Value)
 
 template <>
-struct OperandTraits<SelectConstantExpr>
-    : public FixedNumOperandTraits<SelectConstantExpr, 3> {};
+struct OperandTraits<SelectConstantExpr> :
+  public FixedNumOperandTraits<SelectConstantExpr, 3> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(SelectConstantExpr, Value)
 
 template <>
-struct OperandTraits<ExtractElementConstantExpr>
-    : public FixedNumOperandTraits<ExtractElementConstantExpr, 2> {};
+struct OperandTraits<ExtractElementConstantExpr> :
+  public FixedNumOperandTraits<ExtractElementConstantExpr, 2> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(ExtractElementConstantExpr, Value)
 
 template <>
-struct OperandTraits<InsertElementConstantExpr>
-    : public FixedNumOperandTraits<InsertElementConstantExpr, 3> {};
+struct OperandTraits<InsertElementConstantExpr> :
+  public FixedNumOperandTraits<InsertElementConstantExpr, 3> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(InsertElementConstantExpr, Value)
 
 template <>
-struct OperandTraits<ShuffleVectorConstantExpr>
-    : public FixedNumOperandTraits<ShuffleVectorConstantExpr, 3> {};
+struct OperandTraits<ShuffleVectorConstantExpr> :
+    public FixedNumOperandTraits<ShuffleVectorConstantExpr, 3> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(ShuffleVectorConstantExpr, Value)
 
 template <>
-struct OperandTraits<ExtractValueConstantExpr>
-    : public FixedNumOperandTraits<ExtractValueConstantExpr, 1> {};
+struct OperandTraits<ExtractValueConstantExpr> :
+  public FixedNumOperandTraits<ExtractValueConstantExpr, 1> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(ExtractValueConstantExpr, Value)
 
 template <>
-struct OperandTraits<InsertValueConstantExpr>
-    : public FixedNumOperandTraits<InsertValueConstantExpr, 2> {};
+struct OperandTraits<InsertValueConstantExpr> :
+  public FixedNumOperandTraits<InsertValueConstantExpr, 2> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(InsertValueConstantExpr, Value)
 
 template <>
-struct OperandTraits<GetElementPtrConstantExpr>
-    : public VariadicOperandTraits<GetElementPtrConstantExpr, 1> {};
+struct OperandTraits<GetElementPtrConstantExpr> :
+  public VariadicOperandTraits<GetElementPtrConstantExpr, 1> {
+};
 
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(GetElementPtrConstantExpr, Value)
 
+
 template <>
-struct OperandTraits<CompareConstantExpr>
-    : public FixedNumOperandTraits<CompareConstantExpr, 2> {};
+struct OperandTraits<CompareConstantExpr> :
+  public FixedNumOperandTraits<CompareConstantExpr, 2> {
+};
 DEFINE_TRANSPARENT_OPERAND_ACCESSORS(CompareConstantExpr, Value)
 
 template <class ConstantClass> struct ConstantAggrKeyType;
@@ -418,16 +420,13 @@ struct ConstantExprKeyType {
   uint16_t SubclassData;
   ArrayRef<Constant *> Ops;
   ArrayRef<unsigned> Indexes;
-  Type *ExplicitTy;
 
   ConstantExprKeyType(unsigned Opcode, ArrayRef<Constant *> Ops,
                       unsigned short SubclassData = 0,
                       unsigned short SubclassOptionalData = 0,
-                      ArrayRef<unsigned> Indexes = None,
-                      Type *ExplicitTy = nullptr)
+                      ArrayRef<unsigned> Indexes = None)
       : Opcode(Opcode), SubclassOptionalData(SubclassOptionalData),
-        SubclassData(SubclassData), Ops(Ops), Indexes(Indexes),
-        ExplicitTy(ExplicitTy) {}
+        SubclassData(SubclassData), Ops(Ops), Indexes(Indexes) {}
   ConstantExprKeyType(ArrayRef<Constant *> Operands, const ConstantExpr *CE)
       : Opcode(CE->getOpcode()),
         SubclassOptionalData(CE->getRawSubclassOptionalData()),
@@ -498,11 +497,8 @@ struct ConstantExprKeyType {
     case Instruction::ExtractValue:
       return new ExtractValueConstantExpr(Ops[0], Indexes, Ty);
     case Instruction::GetElementPtr:
-      return GetElementPtrConstantExpr::Create(
-          ExplicitTy ? ExplicitTy
-                     : cast<PointerType>(Ops[0]->getType()->getScalarType())
-                           ->getElementType(),
-          Ops[0], Ops.slice(1), Ty, SubclassOptionalData);
+      return GetElementPtrConstantExpr::Create(Ops[0], Ops.slice(1), Ty,
+                                               SubclassOptionalData);
     case Instruction::ICmp:
       return new CompareConstantExpr(Ty, Instruction::ICmp, SubclassData,
                                      Ops[0], Ops[1]);

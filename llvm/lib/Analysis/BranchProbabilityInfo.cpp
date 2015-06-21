@@ -115,6 +115,11 @@ static const uint32_t NORMAL_WEIGHT = 16;
 // Minimum weight of an edge. Please note, that weight is NEVER 0.
 static const uint32_t MIN_WEIGHT = 1;
 
+static uint32_t getMaxWeightFor(BasicBlock *BB) {
+  return UINT32_MAX / BB->getTerminator()->getNumSuccessors();
+}
+
+
 /// \brief Calculate edge weights for successors lead to unreachable.
 ///
 /// Predict that a successor which leads necessarily to an
@@ -180,18 +185,15 @@ bool BranchProbabilityInfo::calcMetadataWeights(BasicBlock *BB) {
   if (!WeightsNode)
     return false;
 
-  // Check that the number of successors is manageable.
-  assert(TI->getNumSuccessors() < UINT32_MAX && "Too many successors");
-
   // Ensure there are weights for all of the successors. Note that the first
   // operand to the metadata node is a name, not a weight.
   if (WeightsNode->getNumOperands() != TI->getNumSuccessors() + 1)
     return false;
 
-  // Build up the final weights that will be used in a temporary buffer.
-  // Compute the sum of all weights to later decide whether they need to
-  // be scaled to fit in 32 bits.
-  uint64_t WeightSum = 0;
+  // Build up the final weights that will be used in a temporary buffer, but
+  // don't add them until all weights are present. Each weight value is clamped
+  // to [1, getMaxWeightFor(BB)].
+  uint32_t WeightLimit = getMaxWeightFor(BB);
   SmallVector<uint32_t, 2> Weights;
   Weights.reserve(TI->getNumSuccessors());
   for (unsigned i = 1, e = WeightsNode->getNumOperands(); i != e; ++i) {
@@ -199,26 +201,12 @@ bool BranchProbabilityInfo::calcMetadataWeights(BasicBlock *BB) {
         mdconst::dyn_extract<ConstantInt>(WeightsNode->getOperand(i));
     if (!Weight)
       return false;
-    assert(Weight->getValue().getActiveBits() <= 32 &&
-           "Too many bits for uint32_t");
-    Weights.push_back(Weight->getZExtValue());
-    WeightSum += Weights.back();
+    Weights.push_back(
+      std::max<uint32_t>(1, Weight->getLimitedValue(WeightLimit)));
   }
   assert(Weights.size() == TI->getNumSuccessors() && "Checked above");
-
-  // If the sum of weights does not fit in 32 bits, scale every weight down
-  // accordingly.
-  uint64_t ScalingFactor =
-      (WeightSum > UINT32_MAX) ? WeightSum / UINT32_MAX + 1 : 1;
-
-  WeightSum = 0;
-  for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i) {
-    uint32_t W = Weights[i] / ScalingFactor;
-    WeightSum += W;
-    setEdgeWeight(BB, i, W);
-  }
-  assert(WeightSum <= UINT32_MAX &&
-         "Expected weights to scale down to 32 bits");
+  for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
+    setEdgeWeight(BB, i, Weights[i]);
 
   return true;
 }
@@ -565,7 +553,7 @@ uint32_t BranchProbabilityInfo::getSumForBlock(const BasicBlock *BB) const {
     uint32_t PrevSum = Sum;
 
     Sum += Weight;
-    assert(Sum >= PrevSum); (void) PrevSum;
+    assert(Sum > PrevSum); (void) PrevSum;
   }
 
   return Sum;
@@ -628,17 +616,14 @@ uint32_t BranchProbabilityInfo::getEdgeWeight(const BasicBlock *Src,
 uint32_t BranchProbabilityInfo::
 getEdgeWeight(const BasicBlock *Src, const BasicBlock *Dst) const {
   uint32_t Weight = 0;
-  bool FoundWeight = false;
   DenseMap<Edge, uint32_t>::const_iterator MapI;
   for (succ_const_iterator I = succ_begin(Src), E = succ_end(Src); I != E; ++I)
     if (*I == Dst) {
       MapI = Weights.find(std::make_pair(Src, I.getSuccessorIndex()));
-      if (MapI != Weights.end()) {
-        FoundWeight = true;
+      if (MapI != Weights.end())
         Weight += MapI->second;
-      }
     }
-  return (!FoundWeight) ? DEFAULT_WEIGHT : Weight;
+  return (Weight == 0) ? DEFAULT_WEIGHT : Weight;
 }
 
 /// Set the edge weight for a given edge specified by PredBlock and an index

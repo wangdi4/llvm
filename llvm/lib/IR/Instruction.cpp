@@ -58,11 +58,6 @@ const Module *Instruction::getModule() const {
   return getParent()->getModule();
 }
 
-Module *Instruction::getModule() {
-  return getParent()->getModule();
-}
-
-
 void Instruction::removeFromParent() {
   getParent()->getInstList().remove(this);
 }

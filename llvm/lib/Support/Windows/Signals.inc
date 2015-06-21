@@ -441,9 +441,6 @@ void llvm::sys::AddSignalHandler(void (*FnPtr)(void *), void *Cookie) {
 }
 
 static void Cleanup() {
-  if (CleanupExecuted)
-    return;
-
   EnterCriticalSection(&CriticalSection);
 
   // Prevent other thread from registering new files and directories for
@@ -459,8 +456,8 @@ static void Cleanup() {
     }
 
   if (CallBacksToRun)
-    for (auto &I : *CallBacksToRun)
-      I.first(I.second);
+    for (unsigned i = 0, e = CallBacksToRun->size(); i != e; ++i)
+      (*CallBacksToRun)[i].first((*CallBacksToRun)[i].second);
 
   LeaveCriticalSection(&CriticalSection);
 }

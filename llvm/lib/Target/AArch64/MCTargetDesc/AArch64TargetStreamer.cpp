@@ -1,4 +1,4 @@
-//===- AArch64TargetStreamer.cpp - AArch64TargetStreamer class ------------===//
+//===- AArch64TargetStreamer.cpp - AArch64TargetStreamer class --*- C++ -*---------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -10,9 +10,12 @@
 // This file implements the AArch64TargetStreamer class.
 //
 //===----------------------------------------------------------------------===//
-
-#include "AArch64TargetStreamer.h"
+#include "llvm/ADT/MapVector.h"
 #include "llvm/MC/ConstantPools.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCExpr.h"
+#include "llvm/MC/MCStreamer.h"
+
 using namespace llvm;
 
 //

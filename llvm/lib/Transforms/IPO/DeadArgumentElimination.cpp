@@ -127,7 +127,7 @@ namespace {
     // As the code generation for module is finished (and DIBuilder is
     // finalized) we assume that subprogram descriptors won't be changed, and
     // they are stored in map for short duration anyway.
-    DenseMap<const Function *, DISubprogram *> FunctionDIs;
+    DenseMap<const Function *, MDSubprogram *> FunctionDIs;
 
   protected:
     // DAH uses this to specify a different ID.
@@ -303,7 +303,7 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
   // Patch the pointer to LLVM function in debug info descriptor.
   auto DI = FunctionDIs.find(&Fn);
   if (DI != FunctionDIs.end()) {
-    DISubprogram *SP = DI->second;
+    MDSubprogram *SP = DI->second;
     SP->replaceFunction(NF);
     // Ensure the map is updated so it can be reused on non-varargs argument
     // eliminations of the same function.
@@ -849,12 +849,17 @@ bool DAE::RemoveDeadStuffFromFunction(Function *F) {
   // here. Currently, this should not be possible, but special handling might be
   // required when new return value attributes are added.
   if (NRetTy->isVoidTy())
-    RAttrs = RAttrs.removeAttributes(NRetTy->getContext(),
-                                     AttributeSet::ReturnIndex,
-                                     AttributeFuncs::typeIncompatible(NRetTy));
+    RAttrs =
+      AttributeSet::get(NRetTy->getContext(), AttributeSet::ReturnIndex,
+                        AttrBuilder(RAttrs, AttributeSet::ReturnIndex).
+         removeAttributes(AttributeFuncs::
+                          typeIncompatible(NRetTy, AttributeSet::ReturnIndex),
+                          AttributeSet::ReturnIndex));
   else
     assert(!AttrBuilder(RAttrs, AttributeSet::ReturnIndex).
-             overlaps(AttributeFuncs::typeIncompatible(NRetTy)) &&
+             hasAttributes(AttributeFuncs::
+                           typeIncompatible(NRetTy, AttributeSet::ReturnIndex),
+                           AttributeSet::ReturnIndex) &&
            "Return attributes no longer compatible?");
 
   if (RAttrs.hasAttributes(AttributeSet::ReturnIndex))
@@ -898,9 +903,13 @@ bool DAE::RemoveDeadStuffFromFunction(Function *F) {
     AttributeSet RAttrs = CallPAL.getRetAttributes();
 
     // Adjust in case the function was changed to return void.
-    RAttrs = RAttrs.removeAttributes(NRetTy->getContext(),
-                                     AttributeSet::ReturnIndex,
-                        AttributeFuncs::typeIncompatible(NF->getReturnType()));
+    RAttrs =
+      AttributeSet::get(NF->getContext(), AttributeSet::ReturnIndex,
+                        AttrBuilder(RAttrs, AttributeSet::ReturnIndex).
+        removeAttributes(AttributeFuncs::
+                         typeIncompatible(NF->getReturnType(),
+                                          AttributeSet::ReturnIndex),
+                         AttributeSet::ReturnIndex));
     if (RAttrs.hasAttributes(AttributeSet::ReturnIndex))
       AttributesVec.push_back(AttributeSet::get(NF->getContext(), RAttrs));
 

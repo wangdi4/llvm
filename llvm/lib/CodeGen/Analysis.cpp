@@ -295,8 +295,8 @@ static const Value *getNoopInput(const Value *V,
     } else if (const InsertValueInst *IVI = dyn_cast<InsertValueInst>(V)) {
       // Value may come from either the aggregate or the scalar
       ArrayRef<unsigned> InsertLoc = IVI->getIndices();
-      if (ValLoc.size() >= InsertLoc.size() &&
-          std::equal(InsertLoc.begin(), InsertLoc.end(), ValLoc.rbegin())) {
+      if (std::equal(InsertLoc.rbegin(), InsertLoc.rend(),
+                     ValLoc.rbegin())) {
         // The type being inserted is a nested sub-type of the aggregate; we
         // have to remove those initial indices to get the location we're
         // interested in for the operand.

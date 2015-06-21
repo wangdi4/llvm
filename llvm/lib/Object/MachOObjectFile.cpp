@@ -415,13 +415,49 @@ std::error_code MachOObjectFile::getSymbolAlignment(DataRefImpl DRI,
 
 std::error_code MachOObjectFile::getSymbolSize(DataRefImpl DRI,
                                                uint64_t &Result) const {
+  uint64_t BeginOffset;
+  uint64_t EndOffset = 0;
+  uint8_t SectionIndex;
+
+  MachO::nlist_base Entry = getSymbolTableEntryBase(this, DRI);
   uint64_t Value;
   getSymbolAddress(DRI, Value);
-  uint32_t flags = getSymbolFlags(DRI);
-  if (flags & SymbolRef::SF_Common)
-    Result = Value;
-  else
+  if (Value == UnknownAddressOrSize) {
     Result = UnknownAddressOrSize;
+    return object_error::success;
+  }
+
+  BeginOffset = Value;
+
+  SectionIndex = Entry.n_sect;
+  if (!SectionIndex) {
+    uint32_t flags = getSymbolFlags(DRI);
+    if (flags & SymbolRef::SF_Common)
+      Result = Value;
+    else
+      Result = UnknownAddressOrSize;
+    return object_error::success;
+  }
+  // Unfortunately symbols are unsorted so we need to touch all
+  // symbols from load command
+  for (const SymbolRef &Symbol : symbols()) {
+    DataRefImpl DRI = Symbol.getRawDataRefImpl();
+    Entry = getSymbolTableEntryBase(this, DRI);
+    getSymbolAddress(DRI, Value);
+    if (Value == UnknownAddressOrSize)
+      continue;
+    if (Entry.n_sect == SectionIndex && Value > BeginOffset)
+      if (!EndOffset || Value < EndOffset)
+        EndOffset = Value;
+  }
+  if (!EndOffset) {
+    DataRefImpl Sec;
+    Sec.d.a = SectionIndex-1;
+    uint64_t Size = getSectionSize(Sec);
+    EndOffset = getSectionAddress(Sec);
+    EndOffset += Size;
+  }
+  Result = EndOffset - BeginOffset;
   return object_error::success;
 }
 
@@ -501,8 +537,6 @@ std::error_code MachOObjectFile::getSymbolSection(DataRefImpl Symb,
   } else {
     DataRefImpl DRI;
     DRI.d.a = index - 1;
-    if (DRI.d.a >= Sections.size())
-      report_fatal_error("getSymbolSection: Invalid section index.");
     Res = section_iterator(SectionRef(DRI, this));
   }
 
@@ -674,11 +708,6 @@ MachOObjectFile::getRelocationSymbol(DataRefImpl Rel) const {
   DataRefImpl Sym;
   Sym.p = reinterpret_cast<uintptr_t>(getPtr(this, Offset));
   return symbol_iterator(SymbolRef(Sym, this));
-}
-
-section_iterator
-MachOObjectFile::getRelocationSection(DataRefImpl Rel) const {
-  return section_iterator(getAnyRelocationSection(getRelocation(Rel)));
 }
 
 std::error_code MachOObjectFile::getRelocationType(DataRefImpl Rel,
@@ -2112,7 +2141,8 @@ MachOObjectFile::getSectionFinalSegmentName(DataRefImpl Sec) const {
 
 ArrayRef<char>
 MachOObjectFile::getSectionRawName(DataRefImpl Sec) const {
-  assert(Sec.d.a < Sections.size() && "Should have detected this earlier");
+  if (Sec.d.a >= Sections.size())
+    report_fatal_error("getSectionRawName: Invalid section index");
   const section_base *Base =
     reinterpret_cast<const section_base *>(Sections[Sec.d.a]);
   return makeArrayRef(Base->sectname);
@@ -2120,7 +2150,8 @@ MachOObjectFile::getSectionRawName(DataRefImpl Sec) const {
 
 ArrayRef<char>
 MachOObjectFile::getSectionRawFinalSegmentName(DataRefImpl Sec) const {
-  assert(Sec.d.a < Sections.size() && "Should have detected this earlier");
+  if (Sec.d.a >= Sections.size())
+    report_fatal_error("getSectionRawFinalSegmentName: Invalid section index");
   const section_base *Base =
     reinterpret_cast<const section_base *>(Sections[Sec.d.a]);
   return makeArrayRef(Base->segname);
@@ -2193,7 +2224,7 @@ MachOObjectFile::getAnyRelocationType(
 }
 
 SectionRef
-MachOObjectFile::getAnyRelocationSection(
+MachOObjectFile::getRelocationSection(
                                    const MachO::any_relocation_info &RE) const {
   if (isRelocationScattered(RE) || getPlainRelocationExternal(RE))
     return *section_end();
@@ -2227,12 +2258,16 @@ MachOObjectFile::getNextLoadCommandInfo(const LoadCommandInfo &L) const {
 }
 
 MachO::section MachOObjectFile::getSection(DataRefImpl DRI) const {
-  assert(DRI.d.a < Sections.size() && "Should have detected this earlier");
+  // TODO: What if Sections.size() == 0?
+  if (DRI.d.a >= Sections.size())
+    report_fatal_error("getSection: Invalid section index.");
   return getStruct<MachO::section>(this, Sections[DRI.d.a]);
 }
 
 MachO::section_64 MachOObjectFile::getSection64(DataRefImpl DRI) const {
-  assert(DRI.d.a < Sections.size() && "Should have detected this earlier");
+  // TODO: What if Sections.size() == 0?
+  if (DRI.d.a >= Sections.size())
+    report_fatal_error("getSection64: Invalid section index.");
   return getStruct<MachO::section_64>(this, Sections[DRI.d.a]);
 }
 

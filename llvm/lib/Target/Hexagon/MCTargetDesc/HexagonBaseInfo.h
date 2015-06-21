@@ -70,7 +70,7 @@ namespace HexagonII {
     PostInc        = 6   // Post increment addressing mode
   };
 
-  enum class MemAccessSize {
+  enum MemAccessSize {
     NoMemAccess = 0,            // Not a memory acces instruction.
     ByteAccess = 1,             // Byte access instruction (memb).
     HalfWordAccess = 2,         // Half word access instruction (memh).

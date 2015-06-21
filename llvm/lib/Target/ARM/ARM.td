@@ -23,9 +23,6 @@ include "llvm/Target/Target.td"
 def ModeThumb  : SubtargetFeature<"thumb-mode", "InThumbMode", "true",
                                   "Thumb mode">;
 
-def ModeSoftFloat : SubtargetFeature<"soft-float", "UseSoftFloat", "true",
-                                     "Use software floating point features.">;
-
 //===----------------------------------------------------------------------===//
 // ARM Subtarget features.
 //

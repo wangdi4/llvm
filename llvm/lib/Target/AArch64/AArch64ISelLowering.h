@@ -25,7 +25,7 @@ namespace llvm {
 
 namespace AArch64ISD {
 
-enum NodeType : unsigned {
+enum {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   WrapperLarge, // 4-instruction MOVZ/MOVK sequence for 64-bit addresses.
   CALL,         // Function call.

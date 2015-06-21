@@ -9,30 +9,14 @@
 // IO functions.
 //===----------------------------------------------------------------------===//
 #include "FuzzerInternal.h"
+#include <iostream>
 #include <iterator>
 #include <fstream>
 #include <dirent.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cstdio>
-
 namespace fuzzer {
 
-static long GetEpoch(const std::string &Path) {
-  struct stat St;
-  if (stat(Path.c_str(), &St)) return 0;
-  return St.st_mtime;
-}
-
-static std::vector<std::string> ListFilesInDir(const std::string &Dir,
-                                               long *Epoch) {
+static std::vector<std::string> ListFilesInDir(const std::string &Dir) {
   std::vector<std::string> V;
-  if (Epoch) {
-    auto E = GetEpoch(Dir.c_str());
-    if (*Epoch >= E) return V;
-    *Epoch = E;
-  }
   DIR *D = opendir(Dir.c_str());
   if (!D) return V;
   while (auto E = readdir(D)) {
@@ -56,7 +40,9 @@ std::string FileToString(const std::string &Path) {
 }
 
 void CopyFileToErr(const std::string &Path) {
-  Printf("%s", FileToString(Path).c_str());
+  std::ifstream T(Path);
+  std::copy(std::istreambuf_iterator<char>(T), std::istreambuf_iterator<char>(),
+            std::ostream_iterator<char>(std::cerr, ""));
 }
 
 void WriteToFile(const Unit &U, const std::string &Path) {
@@ -64,31 +50,14 @@ void WriteToFile(const Unit &U, const std::string &Path) {
   OF.write((const char*)U.data(), U.size());
 }
 
-void ReadDirToVectorOfUnits(const char *Path, std::vector<Unit> *V,
-                            long *Epoch) {
-  long E = Epoch ? *Epoch : 0;
-  for (auto &X : ListFilesInDir(Path, Epoch)) {
-    auto FilePath = DirPlusFile(Path, X);
-    if (Epoch && GetEpoch(FilePath) < E) continue;
-    V->push_back(FileToVector(FilePath));
-  }
+void ReadDirToVectorOfUnits(const char *Path, std::vector<Unit> *V) {
+  for (auto &X : ListFilesInDir(Path))
+    V->push_back(FileToVector(DirPlusFile(Path, X)));
 }
 
 std::string DirPlusFile(const std::string &DirPath,
                         const std::string &FileName) {
   return DirPath + "/" + FileName;
-}
-
-void PrintFileAsBase64(const std::string &Path) {
-  std::string Cmd = "base64 -w 0 < " + Path + "; echo";
-  ExecuteCommand(Cmd);
-}
-
-void Printf(const char *Fmt, ...) {
-  va_list ap;
-  va_start(ap, Fmt);
-  vfprintf(stderr, Fmt, ap);
-  va_end(ap);
 }
 
 }  // namespace fuzzer

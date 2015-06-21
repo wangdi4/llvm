@@ -531,8 +531,8 @@ static void computeBaseDerivedRelocateMap(
   for (auto &U : AllRelocateCalls) {
     GCRelocateOperands ThisRelocate(U);
     IntrinsicInst *I = cast<IntrinsicInst>(U);
-    auto K = std::make_pair(ThisRelocate.getBasePtrIndex(),
-                            ThisRelocate.getDerivedPtrIndex());
+    auto K = std::make_pair(ThisRelocate.basePtrIndex(),
+                            ThisRelocate.derivedPtrIndex());
     RelocateIdxMap.insert(std::make_pair(K, I));
   }
   for (auto &Item : RelocateIdxMap) {
@@ -581,15 +581,15 @@ simplifyRelocatesOffABase(IntrinsicInst *RelocatedBase,
     GCRelocateOperands MasterRelocate(RelocatedBase);
     GCRelocateOperands ThisRelocate(ToReplace);
 
-    assert(ThisRelocate.getBasePtrIndex() == MasterRelocate.getBasePtrIndex() &&
+    assert(ThisRelocate.basePtrIndex() == MasterRelocate.basePtrIndex() &&
            "Not relocating a derived object of the original base object");
-    if (ThisRelocate.getBasePtrIndex() == ThisRelocate.getDerivedPtrIndex()) {
+    if (ThisRelocate.basePtrIndex() == ThisRelocate.derivedPtrIndex()) {
       // A duplicate relocate call. TODO: coalesce duplicates.
       continue;
     }
 
-    Value *Base = ThisRelocate.getBasePtr();
-    auto Derived = dyn_cast<GetElementPtrInst>(ThisRelocate.getDerivedPtr());
+    Value *Base = ThisRelocate.basePtr();
+    auto Derived = dyn_cast<GetElementPtrInst>(ThisRelocate.derivedPtr());
     if (!Derived || Derived->getPointerOperand() != Base)
       continue;
 
@@ -598,50 +598,15 @@ simplifyRelocatesOffABase(IntrinsicInst *RelocatedBase,
       continue;
 
     // Create a Builder and replace the target callsite with a gep
-    assert(RelocatedBase->getNextNode() && "Should always have one since it's not a terminator");
-
-    // Insert after RelocatedBase
-    IRBuilder<> Builder(RelocatedBase->getNextNode());
+    IRBuilder<> Builder(ToReplace);
     Builder.SetCurrentDebugLocation(ToReplace->getDebugLoc());
-
-    // If gc_relocate does not match the actual type, cast it to the right type.
-    // In theory, there must be a bitcast after gc_relocate if the type does not
-    // match, and we should reuse it to get the derived pointer. But it could be
-    // cases like this:
-    // bb1:
-    //  ...
-    //  %g1 = call coldcc i8 addrspace(1)* @llvm.experimental.gc.relocate.p1i8(...)
-    //  br label %merge
-    //
-    // bb2:
-    //  ...
-    //  %g2 = call coldcc i8 addrspace(1)* @llvm.experimental.gc.relocate.p1i8(...)
-    //  br label %merge
-    //
-    // merge:
-    //  %p1 = phi i8 addrspace(1)* [ %g1, %bb1 ], [ %g2, %bb2 ]
-    //  %cast = bitcast i8 addrspace(1)* %p1 in to i32 addrspace(1)*
-    //
-    // In this case, we can not find the bitcast any more. So we insert a new bitcast
-    // no matter there is already one or not. In this way, we can handle all cases, and
-    // the extra bitcast should be optimized away in later passes.
-    Instruction *ActualRelocatedBase = RelocatedBase;
-    if (RelocatedBase->getType() != Base->getType()) {
-      ActualRelocatedBase =
-          cast<Instruction>(Builder.CreateBitCast(RelocatedBase, Base->getType()));
-    }
     Value *Replacement = Builder.CreateGEP(
-        Derived->getSourceElementType(), ActualRelocatedBase, makeArrayRef(OffsetV));
+        Derived->getSourceElementType(), RelocatedBase, makeArrayRef(OffsetV));
     Instruction *ReplacementInst = cast<Instruction>(Replacement);
+    ReplacementInst->removeFromParent();
+    ReplacementInst->insertAfter(RelocatedBase);
     Replacement->takeName(ToReplace);
-    // If the newly generated derived pointer's type does not match the original derived
-    // pointer's type, cast the new derived pointer to match it. Same reasoning as above.
-    Instruction *ActualReplacement = ReplacementInst;
-    if (ReplacementInst->getType() != ToReplace->getType()) {
-      ActualReplacement =
-          cast<Instruction>(Builder.CreateBitCast(ReplacementInst, ToReplace->getType()));
-    }
-    ToReplace->replaceAllUsesWith(ActualReplacement);
+    ToReplace->replaceAllUsesWith(Replacement);
     ToReplace->eraseFromParent();
 
     MadeChange = true;
@@ -1396,16 +1361,6 @@ bool CodeGenPrepare::OptimizeCallInst(CallInst *CI, bool& ModifiedDT) {
         return true;
       }
       return false;
-    }
-    case Intrinsic::aarch64_stlxr:
-    case Intrinsic::aarch64_stxr: {
-      ZExtInst *ExtVal = dyn_cast<ZExtInst>(CI->getArgOperand(0));
-      if (!ExtVal || !ExtVal->hasOneUse() ||
-          ExtVal->getParent() == CI->getParent())
-        return false;
-      // Sink a zext feeding stlxr/stxr before it, so it can be folded into it.
-      ExtVal->moveBefore(CI);
-      return true;
     }
     }
 
@@ -2672,6 +2627,7 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
       return MatchAddr(AddrInst->getOperand(0), Depth);
     return false;
   case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
     // BitCast is always a noop, and we can handle it as long as it is
     // int->int or pointer->pointer (we don't want int<->fp or something).
     if ((AddrInst->getOperand(0)->getType()->isPointerTy() ||
@@ -2682,14 +2638,6 @@ bool AddressingModeMatcher::MatchOperationAddr(User *AddrInst, unsigned Opcode,
         AddrInst->getOperand(0)->getType() != AddrInst->getType())
       return MatchAddr(AddrInst->getOperand(0), Depth);
     return false;
-  case Instruction::AddrSpaceCast: {
-    unsigned SrcAS
-      = AddrInst->getOperand(0)->getType()->getPointerAddressSpace();
-    unsigned DestAS = AddrInst->getType()->getPointerAddressSpace();
-    if (TLI.isNoopAddrSpaceCast(SrcAS, DestAS))
-      return MatchAddr(AddrInst->getOperand(0), Depth);
-    return false;
-  }
   case Instruction::Add: {
     // Check to see if we can merge in the RHS then the LHS.  If so, we win.
     ExtAddrMode BackupAddrMode = AddrMode;
@@ -3221,8 +3169,8 @@ bool CodeGenPrepare::OptimizeMemoryInst(Instruction *MemoryInst, Value *Addr,
 
     // For a PHI node, push all of its incoming values.
     if (PHINode *P = dyn_cast<PHINode>(V)) {
-      for (Value *IncValue : P->incoming_values())
-        worklist.push_back(IncValue);
+      for (unsigned i = 0, e = P->getNumIncomingValues(); i != e; ++i)
+        worklist.push_back(P->getIncomingValue(i));
       continue;
     }
 

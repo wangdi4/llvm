@@ -100,9 +100,6 @@ protected:
   /// InThumbMode - True if compiling for Thumb, false for ARM.
   bool InThumbMode;
 
-  /// UseSoftFloat - True if we're using software floating point features.
-  bool UseSoftFloat;
-
   /// HasThumb2 - True if Thumb2 instructions are supported.
   bool HasThumb2;
 
@@ -396,7 +393,6 @@ public:
   bool isAPCS_ABI() const;
   bool isAAPCS_ABI() const;
 
-  bool useSoftFloat() const { return UseSoftFloat; }
   bool isThumb() const { return InThumbMode; }
   bool isThumb1Only() const { return InThumbMode && !HasThumb2; }
   bool isThumb2() const { return InThumbMode && HasThumb2; }
@@ -450,8 +446,6 @@ public:
   /// symbol.
   bool GVIsIndirectSymbol(const GlobalValue *GV, Reloc::Model RelocM) const;
 
-  /// True if fast-isel is used.
-  bool useFastISel() const;
 };
 } // End llvm namespace
 

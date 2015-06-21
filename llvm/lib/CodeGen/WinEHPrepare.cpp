@@ -8,11 +8,9 @@
 //===----------------------------------------------------------------------===//
 //
 // This pass lowers LLVM IR exception handling into something closer to what the
-// backend wants for functions using a personality function from a runtime
-// provided by MSVC. Functions with other personality functions are left alone
-// and may be prepared by other passes. In particular, all supported MSVC
-// personality functions require cleanup code to be outlined, and the C++
-// personality requires catch handler code to be outlined.
+// backend wants. It snifs the personality function to see which kind of
+// preparation is necessary. If the personality function uses the Itanium LSDA,
+// this pass delegates to the DWARF EH preparation pass.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,7 +19,6 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SetVector.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/TinyPtrVector.h"
 #include "llvm/Analysis/LibCallSemantics.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
@@ -33,6 +30,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
@@ -73,10 +71,7 @@ class WinEHPrepare : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid.
   WinEHPrepare(const TargetMachine *TM = nullptr)
-      : FunctionPass(ID) {
-    if (TM)
-      TheTriple = Triple(TM->getTargetTriple());
-  }
+      : FunctionPass(ID), DT(nullptr) {}
 
   bool runOnFunction(Function &Fn) override;
 
@@ -91,22 +86,13 @@ public:
 private:
   bool prepareExceptionHandlers(Function &F,
                                 SmallVectorImpl<LandingPadInst *> &LPads);
-  void identifyEHBlocks(Function &F, SmallVectorImpl<LandingPadInst *> &LPads);
   void promoteLandingPadValues(LandingPadInst *LPad);
   void demoteValuesLiveAcrossHandlers(Function &F,
                                       SmallVectorImpl<LandingPadInst *> &LPads);
-  void findSEHEHReturnPoints(Function &F,
-                             SetVector<BasicBlock *> &EHReturnBlocks);
-  void findCXXEHReturnPoints(Function &F,
-                             SetVector<BasicBlock *> &EHReturnBlocks);
-  void getPossibleReturnTargets(Function *ParentF, Function *HandlerF,
-                                SetVector<BasicBlock*> &Targets);
   void completeNestedLandingPad(Function *ParentFn,
                                 LandingPadInst *OutlinedLPad,
                                 const LandingPadInst *OriginalLPad,
                                 FrameVarInfoMap &VarInfo);
-  Function *createHandlerFunc(Type *RetTy, const Twine &Name, Module *M,
-                              Value *&ParentFP);
   bool outlineHandler(ActionHandler *Action, Function *SrcFn,
                       LandingPadInst *LPad, BasicBlock *StartBB,
                       FrameVarInfoMap &VarInfo);
@@ -120,17 +106,12 @@ private:
 
   void processSEHCatchHandler(CatchHandler *Handler, BasicBlock *StartBB);
 
-  Triple TheTriple;
-
   // All fields are reset by runOnFunction.
-  DominatorTree *DT = nullptr;
-  EHPersonality Personality = EHPersonality::Unknown;
+  DominatorTree *DT;
+  EHPersonality Personality;
   CatchHandlerMapTy CatchHandlerMap;
   CleanupHandlerMapTy CleanupHandlerMap;
   DenseMap<const LandingPadInst *, LandingPadMap> LPadMaps;
-  SmallPtrSet<BasicBlock *, 4> NormalBlocks;
-  SmallPtrSet<BasicBlock *, 4> EHBlocks;
-  SetVector<BasicBlock *> EHReturnBlocks;
 
   // This maps landing pad instructions found in outlined handlers to
   // the landing pad instruction in the parent function from which they
@@ -152,17 +133,11 @@ private:
   // outlined into a handler.  This is done after all handlers have been
   // outlined but before the outlined code is pruned from the parent function.
   DenseMap<const BasicBlock *, BasicBlock *> LPadTargetBlocks;
-
-  // Map from outlined handler to call to llvm.frameaddress(1). Only used for
-  // 32-bit EH.
-  DenseMap<Function *, Value *> HandlerToParentFP;
-
-  AllocaInst *SEHExceptionCodeSlot = nullptr;
 };
 
 class WinEHFrameVariableMaterializer : public ValueMaterializer {
 public:
-  WinEHFrameVariableMaterializer(Function *OutlinedFn, Value *ParentFP,
+  WinEHFrameVariableMaterializer(Function *OutlinedFn,
                                  FrameVarInfoMap &FrameVarInfo);
   ~WinEHFrameVariableMaterializer() override {}
 
@@ -198,12 +173,16 @@ private:
 
 class WinEHCloningDirectorBase : public CloningDirector {
 public:
-  WinEHCloningDirectorBase(Function *HandlerFn, Value *ParentFP,
-                           FrameVarInfoMap &VarInfo, LandingPadMap &LPadMap)
-      : Materializer(HandlerFn, ParentFP, VarInfo),
+  WinEHCloningDirectorBase(Function *HandlerFn, FrameVarInfoMap &VarInfo,
+                           LandingPadMap &LPadMap)
+      : Materializer(HandlerFn, VarInfo),
         SelectorIDType(Type::getInt32Ty(HandlerFn->getContext())),
         Int8PtrType(Type::getInt8PtrTy(HandlerFn->getContext())),
-        LPadMap(LPadMap), ParentFP(ParentFP) {}
+        LPadMap(LPadMap) {
+    auto AI = HandlerFn->getArgumentList().begin();
+    ++AI;
+    EstablisherFrame = AI;
+  }
 
   CloningAction handleInstruction(ValueToValueMapTy &VMap,
                                   const Instruction *Inst,
@@ -218,9 +197,6 @@ public:
   virtual CloningAction handleTypeIdFor(ValueToValueMapTy &VMap,
                                         const Instruction *Inst,
                                         BasicBlock *NewBB) = 0;
-  virtual CloningAction handleIndirectBr(ValueToValueMapTy &VMap,
-                                         const IndirectBrInst *IBr,
-                                         BasicBlock *NewBB) = 0;
   virtual CloningAction handleInvoke(ValueToValueMapTy &VMap,
                                      const InvokeInst *Invoke,
                                      BasicBlock *NewBB) = 0;
@@ -243,20 +219,18 @@ protected:
   LandingPadMap &LPadMap;
 
   /// The value representing the parent frame pointer.
-  Value *ParentFP;
+  Value *EstablisherFrame;
 };
 
 class WinEHCatchDirector : public WinEHCloningDirectorBase {
 public:
   WinEHCatchDirector(
-      Function *CatchFn, Value *ParentFP, Value *Selector,
-      FrameVarInfoMap &VarInfo, LandingPadMap &LPadMap,
-      DenseMap<LandingPadInst *, const LandingPadInst *> &NestedLPads,
-      DominatorTree *DT, SmallPtrSetImpl<BasicBlock *> &EHBlocks)
-      : WinEHCloningDirectorBase(CatchFn, ParentFP, VarInfo, LPadMap),
+      Function *CatchFn, Value *Selector, FrameVarInfoMap &VarInfo,
+      LandingPadMap &LPadMap,
+      DenseMap<LandingPadInst *, const LandingPadInst *> &NestedLPads)
+      : WinEHCloningDirectorBase(CatchFn, VarInfo, LPadMap),
         CurrentSelector(Selector->stripPointerCasts()),
-        ExceptionObjectVar(nullptr), NestedLPtoOriginalLP(NestedLPads),
-        DT(DT), EHBlocks(EHBlocks) {}
+        ExceptionObjectVar(nullptr), NestedLPtoOriginalLP(NestedLPads) {}
 
   CloningAction handleBeginCatch(ValueToValueMapTy &VMap,
                                  const Instruction *Inst,
@@ -266,15 +240,12 @@ public:
   CloningAction handleTypeIdFor(ValueToValueMapTy &VMap,
                                 const Instruction *Inst,
                                 BasicBlock *NewBB) override;
-  CloningAction handleIndirectBr(ValueToValueMapTy &VMap,
-                                 const IndirectBrInst *IBr,
-                                 BasicBlock *NewBB) override;
   CloningAction handleInvoke(ValueToValueMapTy &VMap, const InvokeInst *Invoke,
                              BasicBlock *NewBB) override;
   CloningAction handleResume(ValueToValueMapTy &VMap, const ResumeInst *Resume,
                              BasicBlock *NewBB) override;
-  CloningAction handleCompare(ValueToValueMapTy &VMap, const CmpInst *Compare,
-                              BasicBlock *NewBB) override;
+  CloningAction handleCompare(ValueToValueMapTy &VMap,
+                              const CmpInst *Compare, BasicBlock *NewBB) override;
   CloningAction handleLandingPad(ValueToValueMapTy &VMap,
                                  const LandingPadInst *LPad,
                                  BasicBlock *NewBB) override;
@@ -291,16 +262,13 @@ private:
   // This will be a reference to the field of the same name in the WinEHPrepare
   // object which instantiates this WinEHCatchDirector object.
   DenseMap<LandingPadInst *, const LandingPadInst *> &NestedLPtoOriginalLP;
-  DominatorTree *DT;
-  SmallPtrSetImpl<BasicBlock *> &EHBlocks;
 };
 
 class WinEHCleanupDirector : public WinEHCloningDirectorBase {
 public:
-  WinEHCleanupDirector(Function *CleanupFn, Value *ParentFP,
-                       FrameVarInfoMap &VarInfo, LandingPadMap &LPadMap)
-      : WinEHCloningDirectorBase(CleanupFn, ParentFP, VarInfo,
-                                 LPadMap) {}
+  WinEHCleanupDirector(Function *CleanupFn, FrameVarInfoMap &VarInfo,
+                       LandingPadMap &LPadMap)
+      : WinEHCloningDirectorBase(CleanupFn, VarInfo, LPadMap) {}
 
   CloningAction handleBeginCatch(ValueToValueMapTy &VMap,
                                  const Instruction *Inst,
@@ -310,15 +278,12 @@ public:
   CloningAction handleTypeIdFor(ValueToValueMapTy &VMap,
                                 const Instruction *Inst,
                                 BasicBlock *NewBB) override;
-  CloningAction handleIndirectBr(ValueToValueMapTy &VMap,
-                                 const IndirectBrInst *IBr,
-                                 BasicBlock *NewBB) override;
   CloningAction handleInvoke(ValueToValueMapTy &VMap, const InvokeInst *Invoke,
                              BasicBlock *NewBB) override;
   CloningAction handleResume(ValueToValueMapTy &VMap, const ResumeInst *Resume,
                              BasicBlock *NewBB) override;
-  CloningAction handleCompare(ValueToValueMapTy &VMap, const CmpInst *Compare,
-                              BasicBlock *NewBB) override;
+  CloningAction handleCompare(ValueToValueMapTy &VMap,
+                              const CmpInst *Compare, BasicBlock *NewBB) override;
   CloningAction handleLandingPad(ValueToValueMapTy &VMap,
                                  const LandingPadInst *LPad,
                                  BasicBlock *NewBB) override;
@@ -425,62 +390,13 @@ static void findReachableBlocks(SmallPtrSetImpl<BasicBlock *> &ReachableBBs,
   }
 }
 
-// Attempt to find an instruction where a block can be split before
-// a call to llvm.eh.begincatch and its operands.  If the block
-// begins with the begincatch call or one of its adjacent operands
-// the block will not be split.
-static Instruction *findBeginCatchSplitPoint(BasicBlock *BB,
-                                             IntrinsicInst *II) {
-  // If the begincatch call is already the first instruction in the block,
-  // don't split.
-  Instruction *FirstNonPHI = BB->getFirstNonPHI();
-  if (II == FirstNonPHI)
-    return nullptr;
-
-  // If either operand is in the same basic block as the instruction and
-  // isn't used by another instruction before the begincatch call, include it
-  // in the split block.
-  auto *Op0 = dyn_cast<Instruction>(II->getOperand(0));
-  auto *Op1 = dyn_cast<Instruction>(II->getOperand(1));
-
-  Instruction *I = II->getPrevNode();
-  Instruction *LastI = II;
-
-  while (I == Op0 || I == Op1) {
-    // If the block begins with one of the operands and there are no other
-    // instructions between the operand and the begincatch call, don't split.
-    if (I == FirstNonPHI)
-      return nullptr;
-
-    LastI = I;
-    I = I->getPrevNode();
-  }
-
-  // If there is at least one instruction in the block before the begincatch
-  // call and its operands, split the block at either the begincatch or
-  // its operand.
-  return LastI;
-}
-
 /// Find all points where exceptional control rejoins normal control flow via
 /// llvm.eh.endcatch. Add them to the normal bb reachability worklist.
-void WinEHPrepare::findCXXEHReturnPoints(
-    Function &F, SetVector<BasicBlock *> &EHReturnBlocks) {
+static void findCXXEHReturnPoints(Function &F,
+                                  SetVector<BasicBlock *> &EHReturnBlocks) {
   for (auto BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     for (Instruction &I : *BB) {
-      if (match(&I, m_Intrinsic<Intrinsic::eh_begincatch>())) {
-        Instruction *SplitPt =
-            findBeginCatchSplitPoint(BB, cast<IntrinsicInst>(&I));
-        if (SplitPt) {
-          // Split the block before the llvm.eh.begincatch call to allow
-          // cleanup and catch code to be distinguished later.
-          // Do not update BBI because we still need to process the
-          // portion of the block that we are splitting off.
-          SplitBlock(BB, SplitPt, DT);
-          break;
-        }
-      }
       if (match(&I, m_Intrinsic<Intrinsic::eh_endcatch>())) {
         // Split the block after the call to llvm.eh.endcatch if there is
         // anything other than an unconditional branch, or if the successor
@@ -490,7 +406,7 @@ void WinEHPrepare::findCXXEHReturnPoints(
             isa<PHINode>(Br->getSuccessor(0)->begin())) {
           DEBUG(dbgs() << "splitting block " << BB->getName()
                        << " with llvm.eh.endcatch\n");
-          BBI = SplitBlock(BB, I.getNextNode(), DT);
+          BBI = BB->splitBasicBlock(I.getNextNode(), "ehreturn");
         }
         // The next BB is normal control flow.
         EHReturnBlocks.insert(BB->getTerminator()->getSuccessor(0));
@@ -511,8 +427,8 @@ static bool isCatchAllLandingPad(const BasicBlock *BB) {
 
 /// Find all points where exceptions control rejoins normal control flow via
 /// selector dispatch.
-void WinEHPrepare::findSEHEHReturnPoints(
-    Function &F, SetVector<BasicBlock *> &EHReturnBlocks) {
+static void findSEHEHReturnPoints(Function &F,
+                                  SetVector<BasicBlock *> &EHReturnBlocks) {
   for (auto BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
     BasicBlock *BB = BBI;
     // If the landingpad is a catch-all, treat the whole lpad as if it is
@@ -542,8 +458,13 @@ void WinEHPrepare::findSEHEHReturnPoints(
   }
 }
 
-void WinEHPrepare::identifyEHBlocks(Function &F, 
-                                    SmallVectorImpl<LandingPadInst *> &LPads) {
+/// Ensure that all values live into and out of exception handlers are stored
+/// in memory.
+/// FIXME: This falls down when values are defined in one handler and live into
+/// another handler. For example, a cleanup defines a value used only by a
+/// catch handler.
+void WinEHPrepare::demoteValuesLiveAcrossHandlers(
+    Function &F, SmallVectorImpl<LandingPadInst *> &LPads) {
   DEBUG(dbgs() << "Demoting values live across exception handlers in function "
                << F.getName() << '\n');
 
@@ -553,6 +474,10 @@ void WinEHPrepare::identifyEHBlocks(Function &F,
   // - Exceptional blocks are blocks reachable from landingpads. Analysis does
   //   not follow llvm.eh.endcatch blocks, which mark a transition from
   //   exceptional to normal control.
+  SmallPtrSet<BasicBlock *, 4> NormalBlocks;
+  SmallPtrSet<BasicBlock *, 4> EHBlocks;
+  SetVector<BasicBlock *> EHReturnBlocks;
+  SetVector<BasicBlock *> Worklist;
 
   if (Personality == EHPersonality::MSVC_CXX)
     findCXXEHReturnPoints(F, EHReturnBlocks);
@@ -565,8 +490,8 @@ void WinEHPrepare::identifyEHBlocks(Function &F,
       dbgs() << "  " << BB->getName() << '\n';
   });
 
-// Join points should not have phis at this point, unless they are a
-// landingpad, in which case we will demote their phis later.
+  // Join points should not have phis at this point, unless they are a
+  // landingpad, in which case we will demote their phis later.
 #ifndef NDEBUG
   for (BasicBlock *BB : EHReturnBlocks)
     assert((BB->isLandingPad() || !isa<PHINode>(BB->begin())) &&
@@ -575,7 +500,6 @@ void WinEHPrepare::identifyEHBlocks(Function &F,
 
   // Normal blocks are the blocks reachable from the entry block and all EH
   // return points.
-  SetVector<BasicBlock *> Worklist;
   Worklist = EHReturnBlocks;
   Worklist.insert(&F.getEntryBlock());
   findReachableBlocks(NormalBlocks, Worklist, nullptr);
@@ -596,21 +520,6 @@ void WinEHPrepare::identifyEHBlocks(Function &F,
     for (BasicBlock *BB : EHBlocks)
       dbgs() << "  " << BB->getName() << '\n';
   });
-
-}
-
-/// Ensure that all values live into and out of exception handlers are stored
-/// in memory.
-/// FIXME: This falls down when values are defined in one handler and live into
-/// another handler. For example, a cleanup defines a value used only by a
-/// catch handler.
-void WinEHPrepare::demoteValuesLiveAcrossHandlers(
-    Function &F, SmallVectorImpl<LandingPadInst *> &LPads) {
-  DEBUG(dbgs() << "Demoting values live across exception handlers in function "
-               << F.getName() << '\n');
-
-  // identifyEHBlocks() should have been called before this function.
-  assert(!NormalBlocks.empty());
 
   SetVector<Argument *> ArgsToDemote;
   SetVector<Instruction *> InstrsToDemote;
@@ -702,7 +611,6 @@ bool WinEHPrepare::prepareExceptionHandlers(
         return false;
   }
 
-  identifyEHBlocks(F, LPads);
   demoteValuesLiveAcrossHandlers(F, LPads);
 
   // These containers are used to re-map frame variables that are used in
@@ -719,31 +627,6 @@ bool WinEHPrepare::prepareExceptionHandlers(
   PointerType *Int8PtrType = Type::getInt8PtrTy(Context);
   Type *Int32Type = Type::getInt32Ty(Context);
   Function *ActionIntrin = Intrinsic::getDeclaration(M, Intrinsic::eh_actions);
-
-  if (isAsynchronousEHPersonality(Personality)) {
-    // FIXME: Switch the ehptr type to i32 and then switch this.
-    SEHExceptionCodeSlot =
-        new AllocaInst(Int8PtrType, nullptr, "seh_exception_code",
-                       F.getEntryBlock().getFirstInsertionPt());
-  }
-
-  // In order to handle the case where one outlined catch handler returns
-  // to a block within another outlined catch handler that would otherwise
-  // be unreachable, we need to outline the nested landing pad before we
-  // outline the landing pad which encloses it.
-  if (!isAsynchronousEHPersonality(Personality))
-    std::sort(LPads.begin(), LPads.end(),
-              [this](LandingPadInst *const &L, LandingPadInst *const &R) {
-                return DT->properlyDominates(R->getParent(), L->getParent());
-              });
-
-  // This container stores the llvm.eh.recover and IndirectBr instructions
-  // that make up the body of each landing pad after it has been outlined.
-  // We need to defer the population of the target list for the indirectbr
-  // until all landing pads have been outlined so that we can handle the
-  // case of blocks in the target that are reached only from nested
-  // landing pads.
-  SmallVector<std::pair<CallInst*, IndirectBrInst *>, 4> LPadImpls;
 
   for (LandingPadInst *LPad : LPads) {
     // Look for evidence that this landingpad has already been processed.
@@ -787,56 +670,44 @@ bool WinEHPrepare::prepareExceptionHandlers(
       outlineHandler(Action, &F, LPad, StartBB, FrameVarInfo);
     }
 
-    // Split the block after the landingpad instruction so that it is just a
-    // call to llvm.eh.actions followed by indirectbr.
-    assert(!isa<PHINode>(LPadBB->begin()) && "lpad phi not removed");
-    SplitBlock(LPadBB, LPad->getNextNode(), DT);
-    // Erase the branch inserted by the split so we can insert indirectbr.
-    LPadBB->getTerminator()->eraseFromParent();
+    // Replace the landing pad with a new llvm.eh.action based landing pad.
+    BasicBlock *NewLPadBB = BasicBlock::Create(Context, "lpad", &F, LPadBB);
+    assert(!isa<PHINode>(LPadBB->begin()));
+    auto *NewLPad = cast<LandingPadInst>(LPad->clone());
+    NewLPadBB->getInstList().push_back(NewLPad);
+    while (!pred_empty(LPadBB)) {
+      auto *pred = *pred_begin(LPadBB);
+      InvokeInst *Invoke = cast<InvokeInst>(pred->getTerminator());
+      Invoke->setUnwindDest(NewLPadBB);
+    }
+
+    // Replace the mapping of any nested landing pad that previously mapped
+    // to this landing pad with a referenced to the cloned version.
+    for (auto &LPadPair : NestedLPtoOriginalLP) {
+      const LandingPadInst *OriginalLPad = LPadPair.second;
+      if (OriginalLPad == LPad) {
+        LPadPair.second = NewLPad;
+      }
+    }
 
     // Replace all extracted values with undef and ultimately replace the
     // landingpad with undef.
-    SmallVector<Instruction *, 4> SEHCodeUses;
-    SmallVector<Instruction *, 4> EHUndefs;
+    // FIXME: This doesn't handle SEH GetExceptionCode(). For now, we just give
+    // out undef until we figure out the codegen support.
+    SmallVector<Instruction *, 4> Extracts;
     for (User *U : LPad->users()) {
       auto *E = dyn_cast<ExtractValueInst>(U);
       if (!E)
         continue;
       assert(E->getNumIndices() == 1 &&
              "Unexpected operation: extracting both landing pad values");
-      unsigned Idx = *E->idx_begin();
-      assert((Idx == 0 || Idx == 1) && "unexpected index");
-      if (Idx == 0 && isAsynchronousEHPersonality(Personality))
-        SEHCodeUses.push_back(E);
-      else
-        EHUndefs.push_back(E);
+      Extracts.push_back(E);
     }
-    for (Instruction *E : EHUndefs) {
+    for (Instruction *E : Extracts) {
       E->replaceAllUsesWith(UndefValue::get(E->getType()));
       E->eraseFromParent();
     }
     LPad->replaceAllUsesWith(UndefValue::get(LPad->getType()));
-
-    // Rewrite uses of the exception pointer to loads of an alloca.
-    for (Instruction *E : SEHCodeUses) {
-      SmallVector<Use *, 4> Uses;
-      for (Use &U : E->uses())
-        Uses.push_back(&U);
-      for (Use *U : Uses) {
-        auto *I = cast<Instruction>(U->getUser());
-        if (isa<ResumeInst>(I))
-          continue;
-        LoadInst *LI;
-        if (auto *Phi = dyn_cast<PHINode>(I))
-          LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false,
-                            Phi->getIncomingBlock(*U));
-        else
-          LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false, I);
-        U->set(LI);
-      }
-      E->replaceAllUsesWith(UndefValue::get(E->getType()));
-      E->eraseFromParent();
-    }
 
     // Add a call to describe the actions for this landing pad.
     std::vector<Value *> ActionArgs;
@@ -862,8 +733,9 @@ bool WinEHPrepare::prepareExceptionHandlers(
       ActionArgs.push_back(Action->getHandlerBlockOrFunc());
     }
     CallInst *Recover =
-        CallInst::Create(ActionIntrin, ActionArgs, "recover", LPadBB);
+        CallInst::Create(ActionIntrin, ActionArgs, "recover", NewLPadBB);
 
+    // Add an indirect branch listing possible successors of the catch handlers.
     SetVector<BasicBlock *> ReturnTargets;
     for (ActionHandler *Action : Actions) {
       if (auto *CatchAction = dyn_cast<CatchHandler>(Action)) {
@@ -872,16 +744,9 @@ bool WinEHPrepare::prepareExceptionHandlers(
       }
     }
     IndirectBrInst *Branch =
-        IndirectBrInst::Create(Recover, ReturnTargets.size(), LPadBB);
+        IndirectBrInst::Create(Recover, ReturnTargets.size(), NewLPadBB);
     for (BasicBlock *Target : ReturnTargets)
       Branch->addDestination(Target);
-
-    if (!isAsynchronousEHPersonality(Personality)) {
-      // C++ EH must repopulate the targets later to handle the case of
-      // targets that are reached indirectly through nested landing pads.
-      LPadImpls.push_back(std::make_pair(Recover, Branch));
-    }
-
   } // End for each landingpad
 
   // If nothing got outlined, there is no more processing to be done.
@@ -894,50 +759,6 @@ bool WinEHPrepare::prepareExceptionHandlers(
   for (auto &LPadPair : NestedLPtoOriginalLP)
     completeNestedLandingPad(&F, LPadPair.first, LPadPair.second, FrameVarInfo);
   NestedLPtoOriginalLP.clear();
-
-  // Update the indirectbr instructions' target lists if necessary.
-  SetVector<BasicBlock*> CheckedTargets;
-  SmallVector<std::unique_ptr<ActionHandler>, 4> ActionList;
-  for (auto &LPadImplPair : LPadImpls) {
-    IntrinsicInst *Recover = cast<IntrinsicInst>(LPadImplPair.first);
-    IndirectBrInst *Branch = LPadImplPair.second;
-
-    // Get a list of handlers called by 
-    parseEHActions(Recover, ActionList);
-
-    // Add an indirect branch listing possible successors of the catch handlers.
-    SetVector<BasicBlock *> ReturnTargets;
-    for (const auto &Action : ActionList) {
-      if (auto *CA = dyn_cast<CatchHandler>(Action.get())) {
-        Function *Handler = cast<Function>(CA->getHandlerBlockOrFunc());
-        getPossibleReturnTargets(&F, Handler, ReturnTargets);
-      }
-    }
-    ActionList.clear();
-    // Clear any targets we already knew about.
-    for (unsigned int I = 0, E = Branch->getNumDestinations(); I < E; ++I) {
-      BasicBlock *KnownTarget = Branch->getDestination(I);
-      if (ReturnTargets.count(KnownTarget))
-        ReturnTargets.remove(KnownTarget);
-    }
-    for (BasicBlock *Target : ReturnTargets) {
-      Branch->addDestination(Target);
-      // The target may be a block that we excepted to get pruned.
-      // If it is, it may contain a call to llvm.eh.endcatch.
-      if (CheckedTargets.insert(Target)) {
-        // Earlier preparations guarantee that all calls to llvm.eh.endcatch
-        // will be followed by an unconditional branch.
-        auto *Br = dyn_cast<BranchInst>(Target->getTerminator());
-        if (Br && Br->isUnconditional() &&
-            Br != Target->getFirstNonPHIOrDbgOrLifetime()) {
-          Instruction *Prev = Br->getPrevNode();
-          if (match(cast<Value>(Prev), m_Intrinsic<Intrinsic::eh_endcatch>()))
-            Prev->eraseFromParent();
-        }
-      }
-    }
-  }
-  LPadImpls.clear();
 
   F.addFnAttr("wineh-parent", F.getName());
 
@@ -985,23 +806,19 @@ bool WinEHPrepare::prepareExceptionHandlers(
       if (TempAlloca == getCatchObjectSentinel())
         continue; // Skip catch parameter sentinels.
       Function *HandlerFn = TempAlloca->getParent()->getParent();
-      llvm::Value *FP = HandlerToParentFP[HandlerFn];
-      assert(FP);
-
-      // FIXME: Sink this framerecover into the blocks where it is used.
+      // FIXME: Sink this GEP into the blocks where it is used.
       Builder.SetInsertPoint(TempAlloca);
       Builder.SetCurrentDebugLocation(TempAlloca->getDebugLoc());
       Value *RecoverArgs[] = {
-          Builder.CreateBitCast(&F, Int8PtrType, ""), FP,
+          Builder.CreateBitCast(&F, Int8PtrType, ""),
+          &(HandlerFn->getArgumentList().back()),
           llvm::ConstantInt::get(Int32Type, AllocasToEscape.size() - 1)};
-      Instruction *RecoveredAlloca =
-          Builder.CreateCall(RecoverFrameFn, RecoverArgs);
-
+      Value *RecoveredAlloca = Builder.CreateCall(RecoverFrameFn, RecoverArgs);
       // Add a pointer bitcast if the alloca wasn't an i8.
       if (RecoveredAlloca->getType() != TempAlloca->getType()) {
         RecoveredAlloca->setName(Twine(TempAlloca->getName()) + ".i8");
-        RecoveredAlloca = cast<Instruction>(
-            Builder.CreateBitCast(RecoveredAlloca, TempAlloca->getType()));
+        RecoveredAlloca =
+            Builder.CreateBitCast(RecoveredAlloca, TempAlloca->getType());
       }
       TempAlloca->replaceAllUsesWith(RecoveredAlloca);
       TempAlloca->removeFromParent();
@@ -1015,24 +832,11 @@ bool WinEHPrepare::prepareExceptionHandlers(
   Builder.SetInsertPoint(&F.getEntryBlock().back());
   Builder.CreateCall(FrameEscapeFn, AllocasToEscape);
 
-  if (SEHExceptionCodeSlot) {
-    if (SEHExceptionCodeSlot->hasNUses(0))
-      SEHExceptionCodeSlot->eraseFromParent();
-    else if (isAllocaPromotable(SEHExceptionCodeSlot))
-      PromoteMemToReg(SEHExceptionCodeSlot, *DT);
-  }
-
   // Clean up the handler action maps we created for this function
   DeleteContainerSeconds(CatchHandlerMap);
   CatchHandlerMap.clear();
   DeleteContainerSeconds(CleanupHandlerMap);
   CleanupHandlerMap.clear();
-  HandlerToParentFP.clear();
-  DT = nullptr;
-  SEHExceptionCodeSlot = nullptr;
-  EHBlocks.clear();
-  NormalBlocks.clear();
-  EHReturnBlocks.clear();
 
   return HandlersOutlined;
 }
@@ -1074,42 +878,6 @@ void WinEHPrepare::promoteLandingPadValues(LandingPadInst *LPad) {
     RecursivelyDeleteTriviallyDeadInstructions(U);
 }
 
-void WinEHPrepare::getPossibleReturnTargets(Function *ParentF,
-                                            Function *HandlerF,
-                                            SetVector<BasicBlock*> &Targets) {
-  for (BasicBlock &BB : *HandlerF) {
-    // If the handler contains landing pads, check for any
-    // handlers that may return directly to a block in the
-    // parent function.
-    if (auto *LPI = BB.getLandingPadInst()) {
-      IntrinsicInst *Recover = cast<IntrinsicInst>(LPI->getNextNode());
-      SmallVector<std::unique_ptr<ActionHandler>, 4> ActionList;
-      parseEHActions(Recover, ActionList);
-      for (const auto &Action : ActionList) {
-        if (auto *CH = dyn_cast<CatchHandler>(Action.get())) {
-          Function *NestedF = cast<Function>(CH->getHandlerBlockOrFunc());
-          getPossibleReturnTargets(ParentF, NestedF, Targets);
-        }
-      }
-    }
-
-    auto *Ret = dyn_cast<ReturnInst>(BB.getTerminator());
-    if (!Ret)
-      continue;
-
-    // Handler functions must always return a block address.
-    BlockAddress *BA = cast<BlockAddress>(Ret->getReturnValue());
-
-    // If this is the handler for a nested landing pad, the
-    // return address may have been remapped to a block in the
-    // parent handler.  We're not interested in those.
-    if (BA->getFunction() != ParentF)
-      continue;
-
-    Targets.insert(BA->getBasicBlock());
-  }
-}
-
 void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
                                             LandingPadInst *OutlinedLPad,
                                             const LandingPadInst *OriginalLPad,
@@ -1118,19 +886,10 @@ void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
   // temporarily inserted as its terminator.
   LLVMContext &Context = ParentFn->getContext();
   BasicBlock *OutlinedBB = OutlinedLPad->getParent();
-  // If the nested landing pad was outlined before the landing pad that enclosed
-  // it, it will already be in outlined form.  In that case, we just need to see
-  // if the returns and the enclosing branch instruction need to be updated.
-  IndirectBrInst *Branch =
-      dyn_cast<IndirectBrInst>(OutlinedBB->getTerminator());
-  if (!Branch) {
-    // If the landing pad wasn't in outlined form, it should be a stub with
-    // an unreachable terminator.
-    assert(isa<UnreachableInst>(OutlinedBB->getTerminator()));
-    OutlinedBB->getTerminator()->eraseFromParent();
-    // That should leave OutlinedLPad as the last instruction in its block.
-    assert(&OutlinedBB->back() == OutlinedLPad);
-  }
+  assert(isa<UnreachableInst>(OutlinedBB->getTerminator()));
+  OutlinedBB->getTerminator()->eraseFromParent();
+  // That should leave OutlinedLPad as the last instruction in its block.
+  assert(&OutlinedBB->back() == OutlinedLPad);
 
   // The original landing pad will have already had its action intrinsic
   // built by the outlining loop.  We need to clone that into the outlined
@@ -1144,14 +903,15 @@ void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
   // The instruction after the landing pad should now be a call to eh.actions.
   const Instruction *Recover = II;
   assert(match(Recover, m_Intrinsic<Intrinsic::eh_actions>()));
-  const IntrinsicInst *EHActions = cast<IntrinsicInst>(Recover);
+  IntrinsicInst *EHActions = cast<IntrinsicInst>(Recover->clone());
 
-  // Remap the return target in the nested handler.
+  // Remap the exception variables into the outlined function.
+  WinEHFrameVariableMaterializer Materializer(OutlinedHandlerFn, FrameVarInfo);
   SmallVector<BlockAddress *, 4> ActionTargets;
-  SmallVector<std::unique_ptr<ActionHandler>, 4> ActionList;
+  SmallVector<ActionHandler *, 4> ActionList;
   parseEHActions(EHActions, ActionList);
-  for (const auto &Action : ActionList) {
-    auto *Catch = dyn_cast<CatchHandler>(Action.get());
+  for (auto *Action : ActionList) {
+    auto *Catch = dyn_cast<CatchHandler>(Action);
     if (!Catch)
       continue;
     // The dyn_cast to function here selects C++ catch handlers and skips
@@ -1173,7 +933,7 @@ void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
       // should be a block that was outlined into OutlinedHandlerFn.
       assert(BA->getFunction() == ParentFn);
 
-      // Ignore targets that aren't part of an outlined handler function.
+      // Ignore targets that aren't part of OutlinedHandlerFn.
       if (!LPadTargetBlocks.count(BA->getBasicBlock()))
         continue;
 
@@ -1189,26 +949,15 @@ void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
       ActionTargets.push_back(NewBA);
     }
   }
+  DeleteContainerPointers(ActionList);
   ActionList.clear();
+  OutlinedBB->getInstList().push_back(EHActions);
 
-  if (Branch) {
-    // If the landing pad was already in outlined form, just update its targets.
-    for (unsigned int I = Branch->getNumDestinations(); I > 0; --I)
-      Branch->removeDestination(I);
-    // Add the previously collected action targets.
-    for (auto *Target : ActionTargets)
-      Branch->addDestination(Target->getBasicBlock());
-  } else {
-    // If the landing pad was previously stubbed out, fill in its outlined form.
-    IntrinsicInst *NewEHActions = cast<IntrinsicInst>(EHActions->clone());
-    OutlinedBB->getInstList().push_back(NewEHActions);
-
-    // Insert an indirect branch into the outlined landing pad BB.
-    IndirectBrInst *IBr = IndirectBrInst::Create(NewEHActions, 0, OutlinedBB);
-    // Add the previously collected action targets.
-    for (auto *Target : ActionTargets)
-      IBr->addDestination(Target->getBasicBlock());
-  }
+  // Insert an indirect branch into the outlined landing pad BB.
+  IndirectBrInst *IBr = IndirectBrInst::Create(EHActions, 0, OutlinedBB);
+  // Add the previously collected action targets.
+  for (auto *Target : ActionTargets)
+    IBr->addDestination(Target->getBasicBlock());
 }
 
 // This function examines a block to determine whether the block ends with a
@@ -1266,9 +1015,9 @@ static BasicBlock *createStubLandingPad(Function *Handler,
                             Type::getInt32Ty(Context), nullptr),
       PersonalityFn, 0);
   // Insert a call to llvm.eh.actions so that we don't try to outline this lpad.
-  Function *ActionIntrin =
-      Intrinsic::getDeclaration(Handler->getParent(), Intrinsic::eh_actions);
-  Builder.CreateCall(ActionIntrin, {}, "recover");
+  Function *ActionIntrin = Intrinsic::getDeclaration(Handler->getParent(),
+                                                     Intrinsic::eh_actions);
+  Builder.CreateCall(ActionIntrin, "recover");
   LPad->setCleanup(true);
   Builder.CreateUnreachable();
   return StubBB;
@@ -1307,7 +1056,7 @@ void WinEHPrepare::addStubInvokeToHandlerIfNeeded(Function *Handler,
   else
     Term = Unreached;
   BasicBlock *OldRetBB = Term->getParent();
-  BasicBlock *NewRetBB = SplitBlock(OldRetBB, Term, DT);
+  BasicBlock *NewRetBB = SplitBlock(OldRetBB, Term);
   // SplitBlock adds an unconditional branch instruction at the end of the
   // parent block.  We want to replace that with an invoke call, so we can
   // erase it now.
@@ -1318,62 +1067,35 @@ void WinEHPrepare::addStubInvokeToHandlerIfNeeded(Function *Handler,
   InvokeInst::Create(F, NewRetBB, StubLandingPad, None, "", OldRetBB);
 }
 
-// FIXME: Consider sinking this into lib/Target/X86 somehow. TargetLowering
-// usually doesn't build LLVM IR, so that's probably the wrong place.
-Function *WinEHPrepare::createHandlerFunc(Type *RetTy, const Twine &Name,
-                                          Module *M, Value *&ParentFP) {
-  // x64 uses a two-argument prototype where the parent FP is the second
-  // argument. x86 uses no arguments, just the incoming EBP value.
-  LLVMContext &Context = M->getContext();
-  FunctionType *FnType;
-  if (TheTriple.getArch() == Triple::x86_64) {
-    Type *Int8PtrType = Type::getInt8PtrTy(Context);
-    Type *ArgTys[2] = {Int8PtrType, Int8PtrType};
-    FnType = FunctionType::get(RetTy, ArgTys, false);
-  } else {
-    FnType = FunctionType::get(RetTy, None, false);
-  }
-
-  Function *Handler =
-      Function::Create(FnType, GlobalVariable::InternalLinkage, Name, M);
-  BasicBlock *Entry = BasicBlock::Create(Context, "entry");
-  Handler->getBasicBlockList().push_front(Entry);
-  if (TheTriple.getArch() == Triple::x86_64) {
-    ParentFP = &(Handler->getArgumentList().back());
-  } else {
-    assert(M);
-    Function *FrameAddressFn =
-        Intrinsic::getDeclaration(M, Intrinsic::frameaddress);
-    Value *Args[1] = {ConstantInt::get(Type::getInt32Ty(Context), 1)};
-    ParentFP = CallInst::Create(FrameAddressFn, Args, "parent_fp",
-                                &Handler->getEntryBlock());
-  }
-  return Handler;
-}
-
 bool WinEHPrepare::outlineHandler(ActionHandler *Action, Function *SrcFn,
                                   LandingPadInst *LPad, BasicBlock *StartBB,
                                   FrameVarInfoMap &VarInfo) {
   Module *M = SrcFn->getParent();
   LLVMContext &Context = M->getContext();
-  Type *Int8PtrType = Type::getInt8PtrTy(Context);
 
   // Create a new function to receive the handler contents.
-  Value *ParentFP;
+  Type *Int8PtrType = Type::getInt8PtrTy(Context);
+  std::vector<Type *> ArgTys;
+  ArgTys.push_back(Int8PtrType);
+  ArgTys.push_back(Int8PtrType);
   Function *Handler;
   if (Action->getType() == Catch) {
-    Handler = createHandlerFunc(Int8PtrType, SrcFn->getName() + ".catch", M,
-                                ParentFP);
+    FunctionType *FnType = FunctionType::get(Int8PtrType, ArgTys, false);
+    Handler = Function::Create(FnType, GlobalVariable::InternalLinkage,
+                               SrcFn->getName() + ".catch", M);
   } else {
-    Handler = createHandlerFunc(Type::getVoidTy(Context),
-                                SrcFn->getName() + ".cleanup", M, ParentFP);
+    FunctionType *FnType =
+        FunctionType::get(Type::getVoidTy(Context), ArgTys, false);
+    Handler = Function::Create(FnType, GlobalVariable::InternalLinkage,
+                               SrcFn->getName() + ".cleanup", M);
   }
-  HandlerToParentFP[Handler] = ParentFP;
+
   Handler->addFnAttr("wineh-parent", SrcFn->getName());
-  BasicBlock *Entry = &Handler->getEntryBlock();
 
   // Generate a standard prolog to setup the frame recovery structure.
   IRBuilder<> Builder(Context);
+  BasicBlock *Entry = BasicBlock::Create(Context, "entry");
+  Handler->getBasicBlockList().push_front(Entry);
   Builder.SetInsertPoint(Entry);
   Builder.SetCurrentDebugLocation(LPad->getDebugLoc());
 
@@ -1386,14 +1108,12 @@ bool WinEHPrepare::outlineHandler(ActionHandler *Action, Function *SrcFn,
     LPadMap.mapLandingPad(LPad);
   if (auto *CatchAction = dyn_cast<CatchHandler>(Action)) {
     Constant *Sel = CatchAction->getSelector();
-    Director.reset(new WinEHCatchDirector(Handler, ParentFP, Sel, VarInfo,
-                                          LPadMap, NestedLPtoOriginalLP, DT,
-                                          EHBlocks));
+    Director.reset(new WinEHCatchDirector(Handler, Sel, VarInfo, LPadMap,
+                                          NestedLPtoOriginalLP));
     LPadMap.remapEHValues(VMap, UndefValue::get(Int8PtrType),
                           ConstantInt::get(Type::getInt32Ty(Context), 1));
   } else {
-    Director.reset(
-        new WinEHCleanupDirector(Handler, ParentFP, VarInfo, LPadMap));
+    Director.reset(new WinEHCleanupDirector(Handler, VarInfo, LPadMap));
     LPadMap.remapEHValues(VMap, UndefValue::get(Int8PtrType),
                           UndefValue::get(Type::getInt32Ty(Context)));
   }
@@ -1430,19 +1150,10 @@ bool WinEHPrepare::outlineHandler(ActionHandler *Action, Function *SrcFn,
                             /*ModuleLevelChanges=*/false, Returns, "",
                             &OutlinedFunctionInfo, Director.get());
 
-  // Move all the instructions in the cloned "entry" block into our entry block.
-  // Depending on how the parent function was laid out, the block that will
-  // correspond to the outlined entry block may not be the first block in the
-  // list.  We can recognize it, however, as the cloned block which has no
-  // predecessors.  Any other block wouldn't have been cloned if it didn't
-  // have a predecessor which was also cloned.
-  Function::iterator ClonedIt = std::next(Function::iterator(Entry));
-  while (!pred_empty(ClonedIt))
-    ++ClonedIt;
-  BasicBlock *ClonedEntryBB = ClonedIt;
-  assert(ClonedEntryBB);
-  Entry->getInstList().splice(Entry->end(), ClonedEntryBB->getInstList());
-  ClonedEntryBB->eraseFromParent();
+  // Move all the instructions in the first cloned block into our entry block.
+  BasicBlock *FirstClonedBB = std::next(Function::iterator(Entry));
+  Entry->getInstList().splice(Entry->end(), FirstClonedBB->getInstList());
+  FirstClonedBB->eraseFromParent();
 
   // Make sure we can identify the handler's personality later.
   addStubInvokeToHandlerIfNeeded(Handler, LPad->getPersonalityFn());
@@ -1508,14 +1219,9 @@ void WinEHPrepare::processSEHCatchHandler(CatchHandler *CatchAction,
   } else {
     // This must be a catch-all. Split the block after the landingpad.
     assert(CatchAction->getSelector()->isNullValue() && "expected catch-all");
-    HandlerBB = SplitBlock(StartBB, StartBB->getFirstInsertionPt(), DT);
+    HandlerBB =
+        StartBB->splitBasicBlock(StartBB->getFirstInsertionPt(), "catch.all");
   }
-  IRBuilder<> Builder(HandlerBB->getFirstInsertionPt());
-  Function *EHCodeFn = Intrinsic::getDeclaration(
-      StartBB->getParent()->getParent(), Intrinsic::eh_exceptioncode);
-  Value *Code = Builder.CreateCall(EHCodeFn, {}, "sehcode");
-  Code = Builder.CreateIntToPtr(Code, SEHExceptionCodeSlot->getAllocatedType());
-  Builder.CreateStore(Code, SEHExceptionCodeSlot);
   CatchAction->setHandlerBlockOrFunc(BlockAddress::get(HandlerBB));
   TinyPtrVector<BasicBlock *> Targets(HandlerBB);
   CatchAction->setReturnTargets(Targets);
@@ -1592,20 +1298,13 @@ CloningDirector::CloningAction WinEHCloningDirectorBase::handleInstruction(
   if (LPadMap.isLandingPadSpecificInst(Inst))
     return CloningDirector::SkipInstruction;
 
-  // Nested landing pads that have not already been outlined will be cloned as
-  // stubs, with just the landingpad instruction and an unreachable instruction.
-  // When all landingpads have been outlined, we'll replace this with the
-  // llvm.eh.actions call and indirect branch created when the landing pad was
-  // outlined.
+  // Nested landing pads will be cloned as stubs, with just the
+  // landingpad instruction and an unreachable instruction. When
+  // all landingpads have been outlined, we'll replace this with the
+  // llvm.eh.actions call and indirect branch created when the
+  // landing pad was outlined.
   if (auto *LPad = dyn_cast<LandingPadInst>(Inst)) {
     return handleLandingPad(VMap, LPad, NewBB);
-  }
-
-  // Nested landing pads that have already been outlined will be cloned in their
-  // outlined form, but we need to intercept the ibr instruction to filter out
-  // targets that do not return to the handler we are outlining.
-  if (auto *IBr = dyn_cast<IndirectBrInst>(Inst)) {
-    return handleIndirectBr(VMap, IBr, NewBB);
   }
 
   if (auto *Invoke = dyn_cast<InvokeInst>(Inst))
@@ -1627,7 +1326,7 @@ CloningDirector::CloningAction WinEHCloningDirectorBase::handleInstruction(
   // When outlining llvm.frameaddress(i32 0), remap that to the second argument,
   // which is the FP of the parent.
   if (isFrameAddressCall(Inst)) {
-    VMap[Inst] = ParentFP;
+    VMap[Inst] = EstablisherFrame;
     return CloningDirector::SkipInstruction;
   }
 
@@ -1637,20 +1336,6 @@ CloningDirector::CloningAction WinEHCloningDirectorBase::handleInstruction(
 
 CloningDirector::CloningAction WinEHCatchDirector::handleLandingPad(
     ValueToValueMapTy &VMap, const LandingPadInst *LPad, BasicBlock *NewBB) {
-  // If the instruction after the landing pad is a call to llvm.eh.actions
-  // the landing pad has already been outlined.  In this case, we should
-  // clone it because it may return to a block in the handler we are
-  // outlining now that would otherwise be unreachable.  The landing pads
-  // are sorted before outlining begins to enable this case to work
-  // properly.
-  const Instruction *NextI = LPad->getNextNode();
-  if (match(NextI, m_Intrinsic<Intrinsic::eh_actions>()))
-    return CloningDirector::CloneInstruction;
-
-  // If the landing pad hasn't been outlined yet, the landing pad we are
-  // outlining now does not dominate it and so it cannot return to a block
-  // in this handler.  In that case, we can just insert a stub landing
-  // pad now and patch it up later.
   Instruction *NewInst = LPad->clone();
   if (LPad->hasName())
     NewInst->setName(LPad->getName());
@@ -1742,48 +1427,6 @@ CloningDirector::CloningAction WinEHCatchDirector::handleTypeIdFor(
   return CloningDirector::SkipInstruction;
 }
 
-CloningDirector::CloningAction WinEHCatchDirector::handleIndirectBr(
-    ValueToValueMapTy &VMap,
-    const IndirectBrInst *IBr,
-    BasicBlock *NewBB) {
-  // If this indirect branch is not part of a landing pad block, just clone it.
-  const BasicBlock *ParentBB = IBr->getParent();
-  if (!ParentBB->isLandingPad())
-    return CloningDirector::CloneInstruction;
-
-  // If it is part of a landing pad, we want to filter out target blocks
-  // that are not part of the handler we are outlining.
-  const LandingPadInst *LPad = ParentBB->getLandingPadInst();
-
-  // Save this correlation for later processing.
-  NestedLPtoOriginalLP[cast<LandingPadInst>(VMap[LPad])] = LPad;
-
-  // We should only get here for landing pads that have already been outlined.
-  assert(match(LPad->getNextNode(), m_Intrinsic<Intrinsic::eh_actions>()));
-
-  // Copy the indirectbr, but only include targets that were previously
-  // identified as EH blocks and are dominated by the nested landing pad.
-  SetVector<const BasicBlock *> ReturnTargets;
-  for (int I = 0, E = IBr->getNumDestinations(); I < E; ++I) {
-    auto *TargetBB = IBr->getDestination(I);
-    if (EHBlocks.count(const_cast<BasicBlock*>(TargetBB)) &&
-        DT->dominates(ParentBB, TargetBB)) {
-      DEBUG(dbgs() << "  Adding destination " << TargetBB->getName() << "\n");
-      ReturnTargets.insert(TargetBB);
-    }
-  }
-  IndirectBrInst *NewBranch = 
-        IndirectBrInst::Create(const_cast<Value *>(IBr->getAddress()),
-                               ReturnTargets.size(), NewBB);
-  for (auto *Target : ReturnTargets)
-    NewBranch->addDestination(const_cast<BasicBlock*>(Target));
-
-  // The operands and targets of the branch instruction are remapped later
-  // because it is a terminator.  Tell the cloning code to clone the
-  // blocks we just added to the target list.
-  return CloningDirector::CloneSuccessors;
-}
-
 CloningDirector::CloningAction
 WinEHCatchDirector::handleInvoke(ValueToValueMapTy &VMap,
                                  const InvokeInst *Invoke, BasicBlock *NewBB) {
@@ -1806,8 +1449,7 @@ WinEHCatchDirector::handleCompare(ValueToValueMapTy &VMap,
   const IntrinsicInst *IntrinCall = nullptr;
   if (match(Compare->getOperand(0), m_Intrinsic<Intrinsic::eh_typeid_for>())) {
     IntrinCall = dyn_cast<IntrinsicInst>(Compare->getOperand(0));
-  } else if (match(Compare->getOperand(1),
-                   m_Intrinsic<Intrinsic::eh_typeid_for>())) {
+  } else if (match(Compare->getOperand(1), m_Intrinsic<Intrinsic::eh_typeid_for>())) {
     IntrinCall = dyn_cast<IntrinsicInst>(Compare->getOperand(1));
   }
   if (IntrinCall) {
@@ -1816,7 +1458,8 @@ WinEHCatchDirector::handleCompare(ValueToValueMapTy &VMap,
     // on the filter function we intend to match.
     if (Selector == CurrentSelector->stripPointerCasts()) {
       VMap[Compare] = ConstantInt::get(SelectorIDType, 1);
-    } else {
+    }
+    else {
       VMap[Compare] = ConstantInt::get(SelectorIDType, 0);
     }
     return CloningDirector::SkipInstruction;
@@ -1873,14 +1516,6 @@ CloningDirector::CloningAction WinEHCleanupDirector::handleTypeIdFor(
   return CloningDirector::SkipInstruction;
 }
 
-CloningDirector::CloningAction WinEHCleanupDirector::handleIndirectBr(
-    ValueToValueMapTy &VMap,
-    const IndirectBrInst *IBr,
-    BasicBlock *NewBB) {
-  // No special handling is required for cleanup cloning.
-  return CloningDirector::CloneInstruction;
-}
-
 CloningDirector::CloningAction WinEHCleanupDirector::handleInvoke(
     ValueToValueMapTy &VMap, const InvokeInst *Invoke, BasicBlock *NewBB) {
   // All invokes in cleanup handlers can be replaced with calls.
@@ -1927,19 +1562,14 @@ WinEHCleanupDirector::handleCompare(ValueToValueMapTy &VMap,
     return CloningDirector::SkipInstruction;
   }
   return CloningDirector::CloneInstruction;
+
 }
 
 WinEHFrameVariableMaterializer::WinEHFrameVariableMaterializer(
-    Function *OutlinedFn, Value *ParentFP, FrameVarInfoMap &FrameVarInfo)
+    Function *OutlinedFn, FrameVarInfoMap &FrameVarInfo)
     : FrameVarInfo(FrameVarInfo), Builder(OutlinedFn->getContext()) {
   BasicBlock *EntryBB = &OutlinedFn->getEntryBlock();
-
-  // New allocas should be inserted in the entry block, but after the parent FP
-  // is established if it is an instruction.
-  Instruction *InsertPoint = EntryBB->getFirstInsertionPt();
-  if (auto *FPInst = dyn_cast<Instruction>(ParentFP))
-    InsertPoint = FPInst->getNextNode();
-  Builder.SetInsertPoint(EntryBB, InsertPoint);
+  Builder.SetInsertPoint(EntryBB, EntryBB->getFirstInsertionPt());
 }
 
 Value *WinEHFrameVariableMaterializer::materializeValueFor(Value *V) {
@@ -1957,12 +1587,7 @@ Value *WinEHFrameVariableMaterializer::materializeValueFor(Value *V) {
   }
 
   if (isa<Instruction>(V) || isa<Argument>(V)) {
-    Function *Parent = isa<Instruction>(V)
-                           ? cast<Instruction>(V)->getParent()->getParent()
-                           : cast<Argument>(V)->getParent();
-    errs()
-        << "Failed to demote instruction used in exception handler of function "
-        << GlobalValue::getRealLinkageName(Parent->getName()) << ":\n";
+    errs() << "Failed to demote instruction used in exception handler:\n";
     errs() << "  " << *V << '\n';
     report_fatal_error("WinEHPrepare failed to demote instruction");
   }
@@ -2034,8 +1659,7 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
 
     // See if the clause we're looking for is a catch-all.
     // If so, the catch begins immediately.
-    Constant *ExpectedSelector =
-        LPad->getClause(HandlersFound)->stripPointerCasts();
+    Constant *ExpectedSelector = LPad->getClause(HandlersFound)->stripPointerCasts();
     if (isa<ConstantPointerNull>(ExpectedSelector)) {
       // The catch all must occur last.
       assert(HandlersFound == NumClauses - 1);
@@ -2046,9 +1670,17 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
       Constant *Selector;
       while (BB && isSelectorDispatch(BB, CatchBlock, Selector, NextBB)) {
         DEBUG(dbgs() << "  Found extra catch dispatch in block "
-                     << CatchBlock->getName() << "\n");
+          << CatchBlock->getName() << "\n");
         BB = NextBB;
       }
+
+      // For C++ EH, check if there is any interesting cleanup code before we
+      // begin the catch. This is important because cleanups cannot rethrow
+      // exceptions but code called from catches can. For SEH, it isn't
+      // important if some finally code before a catch-all is executed out of
+      // line or after recovering from the exception.
+      if (Personality == EHPersonality::MSVC_CXX)
+        findCleanupHandlers(Actions, BB, BB);
 
       // Add the catch handler to the action list.
       CatchHandler *Action = nullptr;
@@ -2057,29 +1689,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
         Action = CatchHandlerMap[BB];
         assert(Action->getSelector() == ExpectedSelector);
       } else {
-        // We don't expect a selector dispatch, but there may be a call to
-        // llvm.eh.begincatch, which separates catch handling code from
-        // cleanup code in the same control flow.  This call looks for the
-        // begincatch intrinsic.
-        Action = findCatchHandler(BB, NextBB, VisitedBlocks);
-        if (Action) {
-          // For C++ EH, check if there is any interesting cleanup code before
-          // we begin the catch. This is important because cleanups cannot
-          // rethrow exceptions but code called from catches can. For SEH, it
-          // isn't important if some finally code before a catch-all is executed
-          // out of line or after recovering from the exception.
-          if (Personality == EHPersonality::MSVC_CXX)
-            findCleanupHandlers(Actions, BB, BB);
-        } else {
-          // If an action was not found, it means that the control flows
-          // directly into the catch-all handler and there is no cleanup code.
-          // That's an expected situation and we must create a catch action.
-          // Since this is a catch-all handler, the selector won't actually
-          // appear in the code anywhere.  ExpectedSelector here is the constant
-          // null ptr that we got from the landing pad instruction.
-          Action = new CatchHandler(BB, ExpectedSelector, nullptr);
-          CatchHandlerMap[BB] = Action;
-        }
+        // Since this is a catch-all handler, the selector won't actually appear
+        // in the code anywhere.  ExpectedSelector here is the constant null ptr
+        // that we got from the landing pad instruction.
+        Action = new CatchHandler(BB, ExpectedSelector, nullptr);
+        CatchHandlerMap[BB] = Action;
       }
       Actions.insertCatchHandler(Action);
       DEBUG(dbgs() << "  Catch all handler at block " << BB->getName() << "\n");
@@ -2277,7 +1891,7 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
       if (auto *Action = CleanupHandlerMap[BB]) {
         Actions.insertCleanupHandler(Action);
         DEBUG(dbgs() << "  Found cleanup code in block "
-                     << Action->getStartBlock()->getName() << "\n");
+              << Action->getStartBlock()->getName() << "\n");
         // FIXME: This cleanup might chain into another, and we need to discover
         // that.
         return;
@@ -2401,18 +2015,14 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
         // for finally calls in the normal successor block.
         BasicBlock *SuccBB = BB;
         if (FinallyCall.getInstruction() != BB->getTerminator() &&
-            FinallyCall.getInstruction()->getNextNode() !=
-                BB->getTerminator()) {
-          SuccBB =
-              SplitBlock(BB, FinallyCall.getInstruction()->getNextNode(), DT);
+            FinallyCall.getInstruction()->getNextNode() != BB->getTerminator()) {
+          SuccBB = BB->splitBasicBlock(FinallyCall.getInstruction()->getNextNode());
         } else {
           if (FinallyCall.isInvoke()) {
-            SuccBB =
-                cast<InvokeInst>(FinallyCall.getInstruction())->getNormalDest();
+            SuccBB = cast<InvokeInst>(FinallyCall.getInstruction())->getNormalDest();
           } else {
             SuccBB = BB->getUniqueSuccessor();
-            assert(SuccBB &&
-                   "splitOutlinedFinallyCalls didn't insert a branch");
+            assert(SuccBB && "splitOutlinedFinallyCalls didn't insert a branch");
           }
         }
         BB = SuccBB;
@@ -2451,9 +2061,8 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
 
 // This is a public function, declared in WinEHFuncInfo.h and is also
 // referenced by WinEHNumbering in FunctionLoweringInfo.cpp.
-void llvm::parseEHActions(
-    const IntrinsicInst *II,
-    SmallVectorImpl<std::unique_ptr<ActionHandler>> &Actions) {
+void llvm::parseEHActions(const IntrinsicInst *II,
+                          SmallVectorImpl<ActionHandler *> &Actions) {
   for (unsigned I = 0, E = II->getNumArgOperands(); I != E;) {
     uint64_t ActionKind =
         cast<ConstantInt>(II->getArgOperand(I))->getZExtValue();
@@ -2463,17 +2072,16 @@ void llvm::parseEHActions(
       int64_t EHObjIndexVal = EHObjIndex->getSExtValue();
       Constant *Handler = cast<Constant>(II->getArgOperand(I + 3));
       I += 4;
-      auto CH = make_unique<CatchHandler>(/*BB=*/nullptr, Selector,
-                                          /*NextBB=*/nullptr);
+      auto *CH = new CatchHandler(/*BB=*/nullptr, Selector, /*NextBB=*/nullptr);
       CH->setHandlerBlockOrFunc(Handler);
       CH->setExceptionVarIndex(EHObjIndexVal);
-      Actions.push_back(std::move(CH));
+      Actions.push_back(CH);
     } else if (ActionKind == 0) {
       Constant *Handler = cast<Constant>(II->getArgOperand(I + 1));
       I += 2;
-      auto CH = make_unique<CleanupHandler>(/*BB=*/nullptr);
+      auto *CH = new CleanupHandler(/*BB=*/nullptr);
       CH->setHandlerBlockOrFunc(Handler);
-      Actions.push_back(std::move(CH));
+      Actions.push_back(CH);
     } else {
       llvm_unreachable("Expected either a catch or cleanup handler!");
     }

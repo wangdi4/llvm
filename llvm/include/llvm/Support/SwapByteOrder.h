@@ -104,7 +104,7 @@ inline float getSwappedBytes(float C) {
   return out.f;
 }
 
-inline double getSwappedBytes(double C) {
+inline float getSwappedBytes(double C) {
   union {
     uint64_t i;
     double d;

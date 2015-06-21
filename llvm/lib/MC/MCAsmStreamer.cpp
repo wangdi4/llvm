@@ -65,9 +65,8 @@ public:
         AsmBackend(asmbackend), CommentStream(CommentToEmit),
         IsVerboseAsm(isVerboseAsm), ShowInst(showInst),
         UseDwarfDirectory(useDwarfDirectory) {
-    assert(InstPrinter);
-    if (IsVerboseAsm)
-        InstPrinter->setCommentStream(CommentStream);
+    if (InstPrinter && IsVerboseAsm)
+      InstPrinter->setCommentStream(CommentStream);
   }
 
   inline void EmitEOL() {
@@ -115,7 +114,8 @@ public:
   /// @name MCStreamer Interface
   /// @{
 
-  void ChangeSection(MCSection *Section, const MCExpr *Subsection) override;
+  void ChangeSection(const MCSection *Section,
+                     const MCExpr *Subsection) override;
 
   void EmitLOHDirective(MCLOHType Kind, const MCLOHArgs &Args) override;
   void EmitLabel(MCSymbol *Symbol) override;
@@ -150,11 +150,11 @@ public:
   void EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                              unsigned ByteAlignment) override;
 
-  void EmitZerofill(MCSection *Section, MCSymbol *Symbol = nullptr,
+  void EmitZerofill(const MCSection *Section, MCSymbol *Symbol = nullptr,
                     uint64_t Size = 0, unsigned ByteAlignment = 0) override;
 
-  void EmitTBSSSymbol(MCSection *Section, MCSymbol *Symbol, uint64_t Size,
-                      unsigned ByteAlignment = 0) override;
+  void EmitTBSSSymbol (const MCSection *Section, MCSymbol *Symbol,
+                       uint64_t Size, unsigned ByteAlignment = 0) override;
 
   void EmitBytes(StringRef Data) override;
 
@@ -297,7 +297,7 @@ void MCAsmStreamer::emitRawComment(const Twine &T, bool TabPrefix) {
   EmitEOL();
 }
 
-void MCAsmStreamer::ChangeSection(MCSection *Section,
+void MCAsmStreamer::ChangeSection(const MCSection *Section,
                                   const MCExpr *Subsection) {
   assert(Section && "Cannot switch to a null section!");
   Section->PrintSwitchToSection(*MAI, OS, Subsection);
@@ -542,7 +542,7 @@ void MCAsmStreamer::EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
   EmitEOL();
 }
 
-void MCAsmStreamer::EmitZerofill(MCSection *Section, MCSymbol *Symbol,
+void MCAsmStreamer::EmitZerofill(const MCSection *Section, MCSymbol *Symbol,
                                  uint64_t Size, unsigned ByteAlignment) {
   if (Symbol)
     AssignSection(Symbol, Section);
@@ -565,7 +565,7 @@ void MCAsmStreamer::EmitZerofill(MCSection *Section, MCSymbol *Symbol,
 // .tbss sym, size, align
 // This depends that the symbol has already been mangled from the original,
 // e.g. _a.
-void MCAsmStreamer::EmitTBSSSymbol(MCSection *Section, MCSymbol *Symbol,
+void MCAsmStreamer::EmitTBSSSymbol(const MCSection *Section, MCSymbol *Symbol,
                                    uint64_t Size, unsigned ByteAlignment) {
   AssignSection(Symbol, Section);
 
@@ -946,7 +946,7 @@ void MCAsmStreamer::EmitCFIEndProcImpl(MCDwarfFrameInfo &Frame) {
 }
 
 void MCAsmStreamer::EmitRegisterName(int64_t Register) {
-  if (!MAI->useDwarfRegNumForCFI()) {
+  if (InstPrinter && !MAI->useDwarfRegNumForCFI()) {
     const MCRegisterInfo *MRI = getContext().getRegisterInfo();
     unsigned LLVMRegister = MRI->getLLVMRegNum(Register, true);
     InstPrinter->printRegName(OS, LLVMRegister);
@@ -1102,7 +1102,7 @@ void MCAsmStreamer::EmitWinEHHandlerData() {
   // We only do this so the section switch that terminates the handler
   // data block is visible.
   WinEH::FrameInfo *CurFrame = getCurrentWinFrameInfo();
-  if (MCSection *XData = WinEH::UnwindEmitter::getXDataSection(
+  if (const MCSection *XData = WinEH::UnwindEmitter::getXDataSection(
           CurFrame->Function, getContext()))
     SwitchSectionNoChange(XData);
 
@@ -1167,7 +1167,7 @@ void MCAsmStreamer::AddEncodingComment(const MCInst &Inst,
   SmallString<256> Code;
   SmallVector<MCFixup, 4> Fixups;
   raw_svector_ostream VecOS(Code);
-  Emitter->encodeInstruction(Inst, VecOS, Fixups, STI);
+  Emitter->EncodeInstruction(Inst, VecOS, Fixups, STI);
   VecOS.flush();
 
   // If we are showing fixups, create symbolic markers in the encoded
@@ -1260,8 +1260,11 @@ void MCAsmStreamer::EmitInstruction(const MCInst &Inst, const MCSubtargetInfo &S
     GetCommentOS() << "\n";
   }
 
-  InstPrinter->printInst(&Inst, OS, "", STI);
-
+  // If we have an AsmPrinter, use that to print, otherwise print the MCInst.
+  if (InstPrinter)
+    InstPrinter->printInst(&Inst, OS, "", STI);
+  else
+    Inst.print(OS);
   EmitEOL();
 }
 

@@ -5,7 +5,6 @@
 
 set(LLVM_LINK_COMPONENTS
   DebugInfoDWARF
-  DebugInfoPDB
   Object
   Support
   )

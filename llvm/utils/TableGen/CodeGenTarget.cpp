@@ -411,9 +411,9 @@ ComplexPattern::ComplexPattern(Record *R) {
     } else if (PropList[i]->getName() == "SDNPWantParent") {
       Properties |= 1 << SDNPWantParent;
     } else {
-      PrintFatalError("Unsupported SD Node property '" +
-                      PropList[i]->getName() + "' on ComplexPattern '" +
-                      R->getName() + "'!");
+      errs() << "Unsupported SD Node property '" << PropList[i]->getName()
+             << "' on ComplexPattern '" << R->getName() << "'!\n";
+      exit(1);
     }
 }
 
@@ -444,7 +444,6 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
   canThrow = false;
   isNoReturn = false;
   isNoDuplicate = false;
-  isConvergent = false;
 
   if (DefName.size() <= 4 ||
       std::string(DefName.begin(), DefName.begin() + 4) != "int_")
@@ -575,8 +574,6 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
       canThrow = true;
     else if (Property->getName() == "IntrNoDuplicate")
       isNoDuplicate = true;
-    else if (Property->getName() == "IntrConvergent")
-      isConvergent = true;
     else if (Property->getName() == "IntrNoReturn")
       isNoReturn = true;
     else if (Property->isSubClassOf("NoCapture")) {

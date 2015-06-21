@@ -302,7 +302,7 @@ void RAFast::spillVirtReg(MachineBasicBlock::iterator MI,
       bool IsIndirect = DBG->isIndirectDebugValue();
       uint64_t Offset = IsIndirect ? DBG->getOperand(1).getImm() : 0;
       DebugLoc DL = DBG->getDebugLoc();
-      assert(cast<DILocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
+      assert(cast<MDLocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
              "Expected inlined-at fields to agree");
       MachineInstr *NewDV =
           BuildMI(*MBB, MI, DL, TII->get(TargetOpcode::DBG_VALUE))
@@ -874,7 +874,7 @@ void RAFast::AllocateBasicBlock() {
               DebugLoc DL = MI->getDebugLoc();
               MachineBasicBlock *MBB = MI->getParent();
               assert(
-                  cast<DILocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
+                  cast<MDLocalVariable>(Var)->isValidLocationForIntrinsic(DL) &&
                   "Expected inlined-at fields to agree");
               MachineInstr *NewDV = BuildMI(*MBB, MBB->erase(MI), DL,
                                             TII->get(TargetOpcode::DBG_VALUE))

@@ -138,9 +138,7 @@ private:  // Parser methods.
   Record *InstantiateMulticlassDef(MultiClass &MC,
                                    Record *DefProto,
                                    Init *&DefmPrefix,
-                                   SMRange DefmPrefixRange,
-                                   const std::vector<Init *> &TArgs,
-                                   std::vector<Init *> &TemplateVals);
+                                   SMRange DefmPrefixRange);
   bool ResolveMulticlassDefArgs(MultiClass &MC,
                                 Record *DefProto,
                                 SMLoc DefmPrefixLoc,

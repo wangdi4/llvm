@@ -239,7 +239,7 @@ ARCInstKind llvm::objcarc::GetARCInstKind(const Value *V) {
         ARCInstKind Class = GetFunctionClass(F);
         if (Class != ARCInstKind::CallOrUser)
           return Class;
-        Intrinsic::ID ID = F->getIntrinsicID();
+        unsigned ID = F->getIntrinsicID();
         if (isInertIntrinsic(ID))
           return ARCInstKind::None;
         if (isUseOnlyIntrinsic(ID))

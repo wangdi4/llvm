@@ -48,10 +48,6 @@ AArch64MCAsmInfoDarwin::AArch64MCAsmInfoDarwin() {
   UseDataRegionDirectives = true;
 
   ExceptionsType = ExceptionHandling::DwarfCFI;
-
-  // AArch64 Darwin doesn't have the baggage of X86/ARM, so it's fine to use
-  // LShr instead of AShr.
-  UseLogicalShr = true;
 }
 
 const MCExpr *AArch64MCAsmInfoDarwin::getExprForPersonalitySymbol(
@@ -63,7 +59,7 @@ const MCExpr *AArch64MCAsmInfoDarwin::getExprForPersonalitySymbol(
   MCContext &Context = Streamer.getContext();
   const MCExpr *Res =
       MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_GOT, Context);
-  MCSymbol *PCSym = Context.createTempSymbol();
+  MCSymbol *PCSym = Context.CreateTempSymbol();
   Streamer.EmitLabel(PCSym);
   const MCExpr *PC = MCSymbolRefExpr::Create(PCSym, Context);
   return MCBinaryExpr::CreateSub(Res, PC, Context);

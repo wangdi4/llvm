@@ -174,14 +174,14 @@ bool AddDiscriminators::runOnFunction(Function &F) {
   for (Function::iterator I = F.begin(), E = F.end(); I != E; ++I) {
     BasicBlock *B = I;
     TerminatorInst *Last = B->getTerminator();
-    const DILocation *LastDIL = Last->getDebugLoc();
+    const MDLocation *LastDIL = Last->getDebugLoc();
     if (!LastDIL)
       continue;
 
     for (unsigned I = 0; I < Last->getNumSuccessors(); ++I) {
       BasicBlock *Succ = Last->getSuccessor(I);
       Instruction *First = Succ->getFirstNonPHIOrDbgOrLifetime();
-      const DILocation *FirstDIL = First->getDebugLoc();
+      const MDLocation *FirstDIL = First->getDebugLoc();
       if (!FirstDIL)
         continue;
 
@@ -197,7 +197,7 @@ bool AddDiscriminators::runOnFunction(Function &F) {
         auto *File = Builder.createFile(Filename, Scope->getDirectory());
 
         // FIXME: Calculate the discriminator here, based on local information,
-        // and delete DILocation::computeNewDiscriminator().  The current
+        // and delete MDLocation::computeNewDiscriminator().  The current
         // solution gives different results depending on other modules in the
         // same context.  All we really need is to discriminate between
         // FirstDIL and LastDIL -- a local map would suffice.
@@ -205,7 +205,7 @@ bool AddDiscriminators::runOnFunction(Function &F) {
         auto *NewScope =
             Builder.createLexicalBlockFile(Scope, File, Discriminator);
         auto *NewDIL =
-            DILocation::get(Ctx, FirstDIL->getLine(), FirstDIL->getColumn(),
+            MDLocation::get(Ctx, FirstDIL->getLine(), FirstDIL->getColumn(),
                             NewScope, FirstDIL->getInlinedAt());
         DebugLoc newDebugLoc = NewDIL;
 

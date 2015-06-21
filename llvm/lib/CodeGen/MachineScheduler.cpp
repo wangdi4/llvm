@@ -943,9 +943,8 @@ updateScheduledPressure(const SUnit *SU,
     unsigned Limit = RegClassInfo->getRegPressureSetLimit(ID);
     if (NewMaxPressure[ID] >= Limit - 2) {
       DEBUG(dbgs() << "  " << TRI->getRegPressureSetName(ID) << ": "
-            << NewMaxPressure[ID]
-            << ((NewMaxPressure[ID] > Limit) ? " > " : " <= ") << Limit
-            << "(+ " << BotRPTracker.getLiveThru()[ID] << " livethru)\n");
+            << NewMaxPressure[ID] << " > " << Limit << "(+ "
+            << BotRPTracker.getLiveThru()[ID] << " livethru)\n");
     }
   }
 }
@@ -2612,7 +2611,8 @@ void GenericScheduler::tryCandidate(SchedCandidate &Cand,
                  TryCand, Cand, PhysRegCopy))
     return;
 
-  // Avoid exceeding the target's limit.
+  // Avoid exceeding the target's limit. If signed PSetID is negative, it is
+  // invalid; convert it to INT_MAX to give it lowest priority.
   if (DAG->isTrackingPressure() && tryPressure(TryCand.RPDelta.Excess,
                                                Cand.RPDelta.Excess,
                                                TryCand, Cand, RegExcess))

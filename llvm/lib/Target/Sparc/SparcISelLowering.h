@@ -22,7 +22,7 @@ namespace llvm {
   class SparcSubtarget;
 
   namespace SPISD {
-    enum NodeType : unsigned {
+    enum {
       FIRST_NUMBER = ISD::BUILTIN_OP_END,
       CMPICC,      // Compare two GPR operands, set icc+xcc.
       CMPFCC,      // Compare two FP operands, set fcc.

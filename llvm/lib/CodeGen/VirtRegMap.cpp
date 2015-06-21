@@ -264,7 +264,8 @@ void VirtRegRewriter::addMBBLiveIns() {
             if ((SubRegLaneMask & S.LaneMask) == 0)
               continue;
             for (unsigned i = 0, e = LiveIn.size(); i != e; ++i) {
-              LiveIn[i]->addLiveIn(SubReg);
+              if (!LiveIn[i]->isLiveIn(SubReg))
+                LiveIn[i]->addLiveIn(SubReg);
             }
           }
           LiveIn.clear();
@@ -276,16 +277,12 @@ void VirtRegRewriter::addMBBLiveIns() {
         if (!Indexes->findLiveInMBBs(Seg.start, Seg.end, LiveIn))
           continue;
         for (unsigned i = 0, e = LiveIn.size(); i != e; ++i)
-          LiveIn[i]->addLiveIn(PhysReg);
+          if (!LiveIn[i]->isLiveIn(PhysReg))
+            LiveIn[i]->addLiveIn(PhysReg);
         LiveIn.clear();
       }
     }
   }
-
-  // Sort and unique MBB LiveIns as we've not checked if SubReg/PhysReg were in
-  // each MBB's LiveIns set before calling addLiveIn on them.
-  for (MachineBasicBlock &MBB : *MF)
-    MBB.sortUniqueLiveIns();
 }
 
 void VirtRegRewriter::rewrite() {

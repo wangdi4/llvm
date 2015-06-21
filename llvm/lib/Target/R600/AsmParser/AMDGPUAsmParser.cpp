@@ -91,7 +91,7 @@ public:
   };
 
   void addImmOperands(MCInst &Inst, unsigned N) const {
-    Inst.addOperand(MCOperand::createImm(getImm()));
+    Inst.addOperand(MCOperand::CreateImm(getImm()));
   }
 
   StringRef getToken() const {
@@ -99,7 +99,7 @@ public:
   }
 
   void addRegOperands(MCInst &Inst, unsigned N) const {
-    Inst.addOperand(MCOperand::createReg(getReg()));
+    Inst.addOperand(MCOperand::CreateReg(getReg()));
   }
 
   void addRegOrImmOperands(MCInst &Inst, unsigned N) const {
@@ -110,7 +110,7 @@ public:
   }
 
   void addRegWithInputModsOperands(MCInst &Inst, unsigned N) const {
-    Inst.addOperand(MCOperand::createImm(
+    Inst.addOperand(MCOperand::CreateImm(
         Reg.Modifiers == -1 ? 0 : Reg.Modifiers));
     addRegOperands(Inst, N);
   }
@@ -120,7 +120,7 @@ public:
       addImmOperands(Inst, N);
     else {
       assert(isExpr());
-      Inst.addOperand(MCOperand::createExpr(Expr));
+      Inst.addOperand(MCOperand::CreateExpr(Expr));
     }
   }
 
@@ -321,7 +321,7 @@ public:
       : MCTargetAsmParser(), STI(STI), MII(MII), Parser(_Parser),
         ForcedEncodingSize(0){
 
-    if (STI.getFeatureBits().none()) {
+    if (!STI.getFeatureBits()) {
       // Set default features.
       STI.ToggleFeature("SOUTHERN_ISLANDS");
     }
@@ -948,7 +948,7 @@ void AMDGPUAsmParser::cvtDSOffset01(MCInst &Inst,
   ((AMDGPUOperand &)*Operands[Offset0Idx]).addImmOperands(Inst, 1); // offset0
   ((AMDGPUOperand &)*Operands[Offset1Idx]).addImmOperands(Inst, 1); // offset1
   ((AMDGPUOperand &)*Operands[GDSIdx]).addImmOperands(Inst, 1); // gds
-  Inst.addOperand(MCOperand::createReg(AMDGPU::M0)); // m0
+  Inst.addOperand(MCOperand::CreateReg(AMDGPU::M0)); // m0
 }
 
 void AMDGPUAsmParser::cvtDS(MCInst &Inst, const OperandVector &Operands) {
@@ -981,7 +981,7 @@ void AMDGPUAsmParser::cvtDS(MCInst &Inst, const OperandVector &Operands) {
     unsigned GDSIdx = OptionalIdx[AMDGPUOperand::ImmTyGDS];
     ((AMDGPUOperand &)*Operands[GDSIdx]).addImmOperands(Inst, 1); // gds
   }
-  Inst.addOperand(MCOperand::createReg(AMDGPU::M0)); // m0
+  Inst.addOperand(MCOperand::CreateReg(AMDGPU::M0)); // m0
 }
 
 
@@ -1084,7 +1084,7 @@ AMDGPUAsmParser::parseSOppBrTarget(OperandVector &Operands) {
 
     case AsmToken::Identifier:
       Operands.push_back(AMDGPUOperand::CreateExpr(
-          MCSymbolRefExpr::Create(getContext().getOrCreateSymbol(
+          MCSymbolRefExpr::Create(getContext().GetOrCreateSymbol(
                                   Parser.getTok().getString()), getContext()), S));
       Parser.Lex();
       return MatchOperand_Success;

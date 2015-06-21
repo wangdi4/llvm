@@ -1,10 +1,7 @@
 ; Test 64-bit floating-point comparison.  The tests assume a z10 implementation
 ; of select, using conditional branches rather than LOCGR.
 ;
-; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z10 \
-; RUN:   | FileCheck -check-prefix=CHECK -check-prefix=CHECK-SCALAR %s
-; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z13 \
-; RUN:   | FileCheck -check-prefix=CHECK -check-prefix=CHECK-VECTOR %s
+; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z10 | FileCheck %s
 
 declare double @foo()
 
@@ -12,9 +9,8 @@ declare double @foo()
 define i64 @f1(i64 %a, i64 %b, double %f1, double %f2) {
 ; CHECK-LABEL: f1:
 ; CHECK: cdbr %f0, %f2
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %cond = fcmp oeq double %f1, %f2
   %res = select i1 %cond, i64 %a, i64 %b
@@ -25,9 +21,8 @@ define i64 @f1(i64 %a, i64 %b, double %f1, double %f2) {
 define i64 @f2(i64 %a, i64 %b, double %f1, double *%ptr) {
 ; CHECK-LABEL: f2:
 ; CHECK: cdb %f0, 0(%r4)
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %f2 = load double , double *%ptr
   %cond = fcmp oeq double %f1, %f2
@@ -39,9 +34,8 @@ define i64 @f2(i64 %a, i64 %b, double %f1, double *%ptr) {
 define i64 @f3(i64 %a, i64 %b, double %f1, double *%base) {
 ; CHECK-LABEL: f3:
 ; CHECK: cdb %f0, 4088(%r4)
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %ptr = getelementptr double, double *%base, i64 511
   %f2 = load double , double *%ptr
@@ -56,9 +50,8 @@ define i64 @f4(i64 %a, i64 %b, double %f1, double *%base) {
 ; CHECK-LABEL: f4:
 ; CHECK: aghi %r4, 4096
 ; CHECK: cdb %f0, 0(%r4)
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %ptr = getelementptr double, double *%base, i64 512
   %f2 = load double , double *%ptr
@@ -72,9 +65,8 @@ define i64 @f5(i64 %a, i64 %b, double %f1, double *%base) {
 ; CHECK-LABEL: f5:
 ; CHECK: aghi %r4, -8
 ; CHECK: cdb %f0, 0(%r4)
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %ptr = getelementptr double, double *%base, i64 -1
   %f2 = load double , double *%ptr
@@ -88,9 +80,8 @@ define i64 @f6(i64 %a, i64 %b, double %f1, double *%base, i64 %index) {
 ; CHECK-LABEL: f6:
 ; CHECK: sllg %r1, %r5, 3
 ; CHECK: cdb %f0, 800(%r1,%r4)
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %ptr1 = getelementptr double, double *%base, i64 %index
   %ptr2 = getelementptr double, double *%ptr1, i64 100
@@ -104,7 +95,7 @@ define i64 @f6(i64 %a, i64 %b, double %f1, double *%base, i64 %index) {
 define double @f7(double *%ptr0) {
 ; CHECK-LABEL: f7:
 ; CHECK: brasl %r14, foo@PLT
-; CHECK-SCALAR: cdb {{%f[0-9]+}}, 160(%r15)
+; CHECK: cdb {{%f[0-9]+}}, 160(%r15)
 ; CHECK: br %r14
   %ptr1 = getelementptr double, double *%ptr0, i64 2
   %ptr2 = getelementptr double, double *%ptr0, i64 4
@@ -161,12 +152,9 @@ define double @f7(double *%ptr0) {
 ; Check comparison with zero.
 define i64 @f8(i64 %a, i64 %b, double %f) {
 ; CHECK-LABEL: f8:
-; CHECK-SCALAR: ltdbr %f0, %f0
-; CHECK-SCALAR-NEXT: je
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR: lzdr %f1
-; CHECK-VECTOR-NEXT: cdbr %f0, %f1
-; CHECK-VECTOR-NEXT: locgrne %r2, %r3
+; CHECK: ltdbr %f0, %f0
+; CHECK-NEXT: je
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %cond = fcmp oeq double %f, 0.0
   %res = select i1 %cond, i64 %a, i64 %b
@@ -177,9 +165,8 @@ define i64 @f8(i64 %a, i64 %b, double %f) {
 define i64 @f9(i64 %a, i64 %b, double %f2, double *%ptr) {
 ; CHECK-LABEL: f9:
 ; CHECK: cdb %f0, 0(%r4)
-; CHECK-SCALAR-NEXT: jl
-; CHECK-SCALAR: lgr %r2, %r3
-; CHECK-VECTOR-NEXT: locgrnl %r2, %r3
+; CHECK-NEXT: jl {{\.L.*}}
+; CHECK: lgr %r2, %r3
 ; CHECK: br %r14
   %f1 = load double , double *%ptr
   %cond = fcmp ogt double %f1, %f2

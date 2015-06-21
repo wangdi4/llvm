@@ -147,9 +147,6 @@ private:
   /// Boolean tracking whether macro substitution is enabled.
   unsigned MacrosEnabledFlag : 1;
 
-  /// \brief Keeps track of how many .macro's have been instantiated.
-  unsigned NumOfMacroInstantiations;
-
   /// Flag tracking whether any errors have been encountered.
   unsigned HadError : 1;
 
@@ -254,7 +251,7 @@ private:
                         ArrayRef<MCAsmMacroParameter> Parameters);
   bool expandMacro(raw_svector_ostream &OS, StringRef Body,
                    ArrayRef<MCAsmMacroParameter> Parameters,
-                   ArrayRef<MCAsmMacroArgument> A, bool EnableAtPseudoVariable,
+                   ArrayRef<MCAsmMacroArgument> A,
                    const SMLoc &L);
 
   /// \brief Are macros enabled in the parser?
@@ -325,9 +322,6 @@ private:
 
   bool parseAssignment(StringRef Name, bool allow_redef,
                        bool NoDeadStrip = false);
-
-  unsigned getBinOpPrecedence(AsmToken::TokenKind K,
-                              MCBinaryExpr::Opcode &Kind);
 
   bool parseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
   bool parseParenExpr(const MCExpr *&Res, SMLoc &EndLoc);
@@ -525,8 +519,6 @@ AsmParser::AsmParser(SourceMgr &SM, MCContext &Ctx, MCStreamer &Out,
 
   PlatformParser->Initialize(*this);
   initializeDirectiveKindMap();
-
-  NumOfMacroInstantiations = 0;
 }
 
 AsmParser::~AsmParser() {
@@ -630,13 +622,12 @@ bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   // If we are generating dwarf for assembly source files save the initial text
   // section and generate a .file directive.
   if (getContext().getGenDwarfForAssembly()) {
-    MCSymbol *SectionStartSym = getContext().createTempSymbol();
+    MCSymbol *SectionStartSym = getContext().CreateTempSymbol();
     getStreamer().EmitLabel(SectionStartSym);
-    MCSection *Sec = getStreamer().getCurrentSection().first;
-    bool InsertResult = getContext().addGenDwarfSection(Sec);
-    assert(InsertResult && ".text section should not have debug info yet");
-    (void)InsertResult;
-    Sec->setBeginSymbol(SectionStartSym);
+    auto InsertResult = getContext().addGenDwarfSection(
+        getStreamer().getCurrentSection().first);
+    assert(InsertResult.second && ".text section should not have debug info yet");
+    InsertResult.first->second.first = SectionStartSym;
     getContext().setGenDwarfFileNumber(getStreamer().EmitDwarfFileDirective(
         0, StringRef(), getContext().getMainFileName()));
   }
@@ -799,7 +790,7 @@ bool AsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
         if (Lexer.getMAI().getDollarIsPC()) {
           // This is a '$' reference, which references the current PC.  Emit a
           // temporary label to the streamer and refer to it.
-          MCSymbol *Sym = Ctx.createTempSymbol();
+          MCSymbol *Sym = Ctx.CreateTempSymbol();
           Out.EmitLabel(Sym);
           Res = MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_None,
                                         getContext());
@@ -856,7 +847,7 @@ bool AsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
       }
     }
 
-    MCSymbol *Sym = getContext().getOrCreateSymbol(SymbolName);
+    MCSymbol *Sym = getContext().GetOrCreateSymbol(SymbolName);
 
     // If this is an absolute variable reference, substitute it now to preserve
     // semantics in the face of reassignment.
@@ -894,7 +885,7 @@ bool AsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
       }
       if (IDVal == "f" || IDVal == "b") {
         MCSymbol *Sym =
-            Ctx.getDirectionalLocalSymbol(IntVal, IDVal == "b");
+            Ctx.GetDirectionalLocalSymbol(IntVal, IDVal == "b");
         Res = MCSymbolRefExpr::Create(Sym, Variant, getContext());
         if (IDVal == "b" && Sym->isUndefined())
           return Error(Loc, "invalid reference to undefined symbol");
@@ -915,7 +906,7 @@ bool AsmParser::parsePrimaryExpr(const MCExpr *&Res, SMLoc &EndLoc) {
   case AsmToken::Dot: {
     // This is a '.' reference, which references the current PC.  Emit a
     // temporary label to the streamer and refer to it.
-    MCSymbol *Sym = Ctx.createTempSymbol();
+    MCSymbol *Sym = Ctx.CreateTempSymbol();
     Out.EmitLabel(Sym);
     Res = MCSymbolRefExpr::Create(Sym, MCSymbolRefExpr::VK_None, getContext());
     EndLoc = Lexer.getTok().getEndLoc();
@@ -1076,8 +1067,8 @@ bool AsmParser::parseAbsoluteExpression(int64_t &Res) {
   return false;
 }
 
-unsigned AsmParser::getBinOpPrecedence(AsmToken::TokenKind K,
-                                       MCBinaryExpr::Opcode &Kind) {
+static unsigned getBinOpPrecedence(AsmToken::TokenKind K,
+                                   MCBinaryExpr::Opcode &Kind) {
   switch (K) {
   default:
     return 0; // not a binop.
@@ -1129,7 +1120,7 @@ unsigned AsmParser::getBinOpPrecedence(AsmToken::TokenKind K,
     Kind = MCBinaryExpr::Shl;
     return 4;
   case AsmToken::GreaterGreater:
-    Kind = MAI.shouldUseLogicalShr() ? MCBinaryExpr::LShr : MCBinaryExpr::AShr;
+    Kind = MCBinaryExpr::Shr;
     return 4;
 
   // High Intermediate Precedence: +, -
@@ -1310,9 +1301,9 @@ bool AsmParser::parseStatement(ParseStatementInfo &Info,
                                                IDVal.size(), RewrittenLabel));
         IDVal = RewrittenLabel;
       }
-      Sym = getContext().getOrCreateSymbol(IDVal);
+      Sym = getContext().GetOrCreateSymbol(IDVal);
     } else
-      Sym = Ctx.createDirectionalLocalSymbol(LocalLabelVal);
+      Sym = Ctx.CreateDirectionalLocalSymbol(LocalLabelVal);
 
     Sym->redefineIfPossible();
 
@@ -1773,8 +1764,7 @@ static bool isIdentifierChar(char c) {
 
 bool AsmParser::expandMacro(raw_svector_ostream &OS, StringRef Body,
                             ArrayRef<MCAsmMacroParameter> Parameters,
-                            ArrayRef<MCAsmMacroArgument> A,
-                            bool EnableAtPseudoVariable, const SMLoc &L) {
+                            ArrayRef<MCAsmMacroArgument> A, const SMLoc &L) {
   unsigned NParameters = Parameters.size();
   bool HasVararg = NParameters ? Parameters.back().Vararg : false;
   if ((!IsDarwin || NParameters != 0) && NParameters != A.size())
@@ -1840,47 +1830,36 @@ bool AsmParser::expandMacro(raw_svector_ostream &OS, StringRef Body,
       Pos += 2;
     } else {
       unsigned I = Pos + 1;
-
-      // Check for the \@ pseudo-variable.
-      if (EnableAtPseudoVariable && Body[I] == '@' && I + 1 != End)
+      while (isIdentifierChar(Body[I]) && I + 1 != End)
         ++I;
-      else
-        while (isIdentifierChar(Body[I]) && I + 1 != End)
-          ++I;
 
       const char *Begin = Body.data() + Pos + 1;
       StringRef Argument(Begin, I - (Pos + 1));
       unsigned Index = 0;
+      for (; Index < NParameters; ++Index)
+        if (Parameters[Index].Name == Argument)
+          break;
 
-      if (Argument == "@") {
-        OS << NumOfMacroInstantiations;
-        Pos += 2;
-      } else {
-        for (; Index < NParameters; ++Index)
-          if (Parameters[Index].Name == Argument)
-            break;
-
-        if (Index == NParameters) {
-          if (Body[Pos + 1] == '(' && Body[Pos + 2] == ')')
-            Pos += 3;
-          else {
-            OS << '\\' << Argument;
-            Pos = I;
-          }
-        } else {
-          bool VarargParameter = HasVararg && Index == (NParameters - 1);
-          for (MCAsmMacroArgument::const_iterator it = A[Index].begin(),
-                                                  ie = A[Index].end();
-               it != ie; ++it)
-            // We expect no quotes around the string's contents when
-            // parsing for varargs.
-            if (it->getKind() != AsmToken::String || VarargParameter)
-              OS << it->getString();
-            else
-              OS << it->getStringContents();
-
-          Pos += 1 + Argument.size();
+      if (Index == NParameters) {
+        if (Body[Pos + 1] == '(' && Body[Pos + 2] == ')')
+          Pos += 3;
+        else {
+          OS << '\\' << Argument;
+          Pos = I;
         }
+      } else {
+        bool VarargParameter = HasVararg && Index == (NParameters - 1);
+        for (MCAsmMacroArgument::const_iterator it = A[Index].begin(),
+                                                ie = A[Index].end();
+             it != ie; ++it)
+          // We expect no quotes around the string's contents when
+          // parsing for varargs.
+          if (it->getKind() != AsmToken::String || VarargParameter)
+            OS << it->getString();
+          else
+            OS << it->getStringContents();
+
+        Pos += 1 + Argument.size();
       }
     }
     // Update the scan point.
@@ -2138,7 +2117,7 @@ bool AsmParser::handleMacroEntry(const MCAsmMacro *M, SMLoc NameLoc) {
   StringRef Body = M->Body;
   raw_svector_ostream OS(Buf);
 
-  if (expandMacro(OS, Body, M->Parameters, A, true, getTok().getLoc()))
+  if (expandMacro(OS, Body, M->Parameters, A, getTok().getLoc()))
     return true;
 
   // We include the .endmacro in the buffer as our cue to exit the macro
@@ -2153,8 +2132,6 @@ bool AsmParser::handleMacroEntry(const MCAsmMacro *M, SMLoc NameLoc) {
   MacroInstantiation *MI = new MacroInstantiation(
       NameLoc, CurBuffer, getTok().getLoc(), TheCondStack.size());
   ActiveMacros.push_back(MI);
-
-  ++NumOfMacroInstantiations;
 
   // Jump to the macro instantiation and prime the lexer.
   CurBuffer = SrcMgr.AddNewSourceBuffer(std::move(Instantiation), SMLoc());
@@ -2218,7 +2195,7 @@ bool AsmParser::parseAssignment(StringRef Name, bool allow_redef,
 
   // Validate that the LHS is allowed to be a variable (either it has not been
   // used as a symbol, or it is an absolute symbol).
-  MCSymbol *Sym = getContext().lookupSymbol(Name);
+  MCSymbol *Sym = getContext().LookupSymbol(Name);
   if (Sym) {
     // Diagnose assignment to a label.
     //
@@ -2247,7 +2224,7 @@ bool AsmParser::parseAssignment(StringRef Name, bool allow_redef,
     }
     return false;
   } else
-    Sym = getContext().getOrCreateSymbol(Name);
+    Sym = getContext().GetOrCreateSymbol(Name);
 
   Sym->setRedefinable(allow_redef);
 
@@ -3187,7 +3164,7 @@ bool AsmParser::parseDirectiveCFIPersonalityOrLsda(bool IsPersonality) {
   if (parseIdentifier(Name))
     return TokError("expected identifier in directive");
 
-  MCSymbol *Sym = getContext().getOrCreateSymbol(Name);
+  MCSymbol *Sym = getContext().GetOrCreateSymbol(Name);
 
   if (IsPersonality)
     getStreamer().EmitCFIPersonality(Sym, Encoding);
@@ -3701,7 +3678,7 @@ bool AsmParser::parseDirectiveSymbolAttribute(MCSymbolAttr Attr) {
       if (parseIdentifier(Name))
         return Error(Loc, "expected identifier in directive");
 
-      MCSymbol *Sym = getContext().getOrCreateSymbol(Name);
+      MCSymbol *Sym = getContext().GetOrCreateSymbol(Name);
 
       // Assembler local symbols don't make any sense here. Complain loudly.
       if (Sym->isTemporary())
@@ -3734,7 +3711,7 @@ bool AsmParser::parseDirectiveComm(bool IsLocal) {
     return TokError("expected identifier in directive");
 
   // Handle the identifier as the key symbol.
-  MCSymbol *Sym = getContext().getOrCreateSymbol(Name);
+  MCSymbol *Sym = getContext().GetOrCreateSymbol(Name);
 
   if (getLexer().isNot(AsmToken::Comma))
     return TokError("unexpected token in directive");
@@ -4031,7 +4008,7 @@ bool AsmParser::parseDirectiveIfdef(SMLoc DirectiveLoc, bool expect_defined) {
 
     Lex();
 
-    MCSymbol *Sym = getContext().lookupSymbol(Name);
+    MCSymbol *Sym = getContext().LookupSymbol(Name);
 
     if (expect_defined)
       TheCondState.CondMet = (Sym && !Sym->isUndefined());
@@ -4401,8 +4378,7 @@ bool AsmParser::parseDirectiveRept(SMLoc DirectiveLoc, StringRef Dir) {
   SmallString<256> Buf;
   raw_svector_ostream OS(Buf);
   while (Count--) {
-    // Note that the AtPseudoVariable is disabled for instantiations of .rep(t).
-    if (expandMacro(OS, M->Body, None, None, false, getTok().getLoc()))
+    if (expandMacro(OS, M->Body, None, None, getTok().getLoc()))
       return true;
   }
   instantiateMacroLikeBody(M, DirectiveLoc, OS);
@@ -4441,9 +4417,7 @@ bool AsmParser::parseDirectiveIrp(SMLoc DirectiveLoc) {
   raw_svector_ostream OS(Buf);
 
   for (MCAsmMacroArguments::iterator i = A.begin(), e = A.end(); i != e; ++i) {
-    // Note that the AtPseudoVariable is enabled for instantiations of .irp.
-    // This is undocumented, but GAS seems to support it.
-    if (expandMacro(OS, M->Body, Parameter, *i, true, getTok().getLoc()))
+    if (expandMacro(OS, M->Body, Parameter, *i, getTok().getLoc()))
       return true;
   }
 
@@ -4490,9 +4464,7 @@ bool AsmParser::parseDirectiveIrpc(SMLoc DirectiveLoc) {
     MCAsmMacroArgument Arg;
     Arg.push_back(AsmToken(AsmToken::Identifier, Values.slice(I, I + 1)));
 
-    // Note that the AtPseudoVariable is enabled for instantiations of .irpc.
-    // This is undocumented, but GAS seems to support it.
-    if (expandMacro(OS, M->Body, Parameter, Arg, true, getTok().getLoc()))
+    if (expandMacro(OS, M->Body, Parameter, Arg, getTok().getLoc()))
       return true;
   }
 

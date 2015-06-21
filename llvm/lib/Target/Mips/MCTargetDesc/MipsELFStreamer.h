@@ -55,7 +55,7 @@ public:
 
   /// Overriding this function allows us to dismiss all labels that are
   /// candidates for marking as microMIPS when .section directive is processed.
-  void SwitchSection(MCSection *Section,
+  void SwitchSection(const MCSection *Section,
                      const MCExpr *Subsection = nullptr) override;
 
   /// Overriding this function allows us to dismiss all labels that are

@@ -16,11 +16,11 @@ using namespace llvm;
 //===----------------------------------------------------------------------===//
 // DebugLoc Implementation
 //===----------------------------------------------------------------------===//
-DebugLoc::DebugLoc(const DILocation *L) : Loc(const_cast<DILocation *>(L)) {}
+DebugLoc::DebugLoc(const MDLocation *L) : Loc(const_cast<MDLocation *>(L)) {}
 DebugLoc::DebugLoc(const MDNode *L) : Loc(const_cast<MDNode *>(L)) {}
 
-DILocation *DebugLoc::get() const {
-  return cast_or_null<DILocation>(Loc.get());
+MDLocation *DebugLoc::get() const {
+  return cast_or_null<MDLocation>(Loc.get());
 }
 
 unsigned DebugLoc::getLine() const {
@@ -38,17 +38,17 @@ MDNode *DebugLoc::getScope() const {
   return get()->getScope();
 }
 
-DILocation *DebugLoc::getInlinedAt() const {
+MDLocation *DebugLoc::getInlinedAt() const {
   assert(get() && "Expected valid DebugLoc");
   return get()->getInlinedAt();
 }
 
 MDNode *DebugLoc::getInlinedAtScope() const {
-  return cast<DILocation>(Loc)->getInlinedAtScope();
+  return cast<MDLocation>(Loc)->getInlinedAtScope();
 }
 
 DebugLoc DebugLoc::getFnDebugLoc() const {
-  // FIXME: Add a method on \a DILocation that does this work.
+  // FIXME: Add a method on \a MDLocation that does this work.
   const MDNode *Scope = getInlinedAtScope();
   if (auto *SP = getDISubprogram(Scope))
     return DebugLoc::get(SP->getScopeLine(), 0, SP);
@@ -62,7 +62,7 @@ DebugLoc DebugLoc::get(unsigned Line, unsigned Col, const MDNode *Scope,
   if (!Scope)
     return DebugLoc();
 
-  return DILocation::get(Scope->getContext(), Line, Col,
+  return MDLocation::get(Scope->getContext(), Line, Col,
                          const_cast<MDNode *>(Scope),
                          const_cast<MDNode *>(InlinedAt));
 }
@@ -88,7 +88,7 @@ void DebugLoc::print(raw_ostream &OS) const {
     return;
 
   // Print source line info.
-  auto *Scope = cast<DIScope>(getScope());
+  auto *Scope = cast<MDScope>(getScope());
   OS << Scope->getFilename();
   OS << ':' << getLine();
   if (getCol() != 0)

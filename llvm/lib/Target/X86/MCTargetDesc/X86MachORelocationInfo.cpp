@@ -36,7 +36,7 @@ public:
     any_relocation_info RE = Obj->getRelocation(Rel.getRawDataRefImpl());
     bool isPCRel = Obj->getAnyRelocationPCRel(RE);
 
-    MCSymbol *Sym = Ctx.getOrCreateSymbol(SymName);
+    MCSymbol *Sym = Ctx.GetOrCreateSymbol(SymName);
     // FIXME: check that the value is actually the same.
     if (!Sym->isVariable())
       Sym->setVariableValue(MCConstantExpr::Create(SymAddr, Ctx));
@@ -92,7 +92,7 @@ public:
         StringRef RSymName;
         RSymI->getName(RSymName);
 
-        MCSymbol *RSym = Ctx.getOrCreateSymbol(RSymName);
+        MCSymbol *RSym = Ctx.GetOrCreateSymbol(RSymName);
         if (!RSym->isVariable())
           RSym->setVariableValue(MCConstantExpr::Create(RSymAddr, Ctx));
 

@@ -611,9 +611,7 @@ bool NclPopcountRecognize::recognize() {
 
 bool LoopIdiomRecognize::runOnCountableLoop() {
   const SCEV *BECount = SE->getBackedgeTakenCount(CurLoop);
-  assert(!isa<SCEVCouldNotCompute>(BECount) &&
-    "runOnCountableLoop() called on a loop without a predictable"
-    "backedge-taken count");
+  if (isa<SCEVCouldNotCompute>(BECount)) return false;
 
   // If this loop executes exactly one time, then it should be peeled, not
   // optimized by this pass.
@@ -639,12 +637,13 @@ bool LoopIdiomRecognize::runOnCountableLoop() {
 
   bool MadeChange = false;
   // Scan all the blocks in the loop that are not in subloops.
-  for (auto *BB : CurLoop->getBlocks()) {
+  for (Loop::block_iterator BI = CurLoop->block_begin(),
+         E = CurLoop->block_end(); BI != E; ++BI) {
     // Ignore blocks in subloops.
-    if (LI.getLoopFor(BB) != CurLoop)
+    if (LI.getLoopFor(*BI) != CurLoop)
       continue;
 
-    MadeChange |= runOnLoopBlock(BB, BECount, ExitBlocks);
+    MadeChange |= runOnLoopBlock(*BI, BECount, ExitBlocks);
   }
   return MadeChange;
 }
@@ -1001,7 +1000,7 @@ processLoopStridedStore(Value *DestPtr, unsigned StoreSize,
     GV->setUnnamedAddr(true); // Ok to merge these.
     GV->setAlignment(16);
     Value *PatternPtr = ConstantExpr::getBitCast(GV, Int8PtrTy);
-    NewCall = Builder.CreateCall(MSP, {BasePtr, PatternPtr, NumBytes});
+    NewCall = Builder.CreateCall3(MSP, BasePtr, PatternPtr, NumBytes);
   }
 
   DEBUG(dbgs() << "  Formed memset: " << *NewCall << "\n"

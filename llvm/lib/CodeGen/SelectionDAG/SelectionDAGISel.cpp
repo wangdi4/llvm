@@ -504,7 +504,7 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
       DebugLoc DL = MI->getDebugLoc();
       bool IsIndirect = MI->isIndirectDebugValue();
       unsigned Offset = IsIndirect ? MI->getOperand(1).getImm() : 0;
-      assert(cast<DILocalVariable>(Variable)->isValidLocationForIntrinsic(DL) &&
+      assert(cast<MDLocalVariable>(Variable)->isValidLocationForIntrinsic(DL) &&
              "Expected inlined-at fields to agree");
       // Def is never a terminator here, so it is ok to increment InsertPos.
       BuildMI(*EntryMBB, ++InsertPos, DL, TII->get(TargetOpcode::DBG_VALUE),
@@ -578,13 +578,6 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
         TargetRegisterInfo::isVirtualRegister(To))
       MRI.constrainRegClass(To, MRI.getRegClass(From));
     // Replace it.
-
-
-    // Replacing one register with another won't touch the kill flags.
-    // We need to conservatively clear the kill flags as a kill on the old
-    // register might dominate existing uses of the new register.
-    if (!MRI.use_empty(To))
-      MRI.clearKillFlags(From);
     MRI.replaceRegWith(From, To);
   }
 
@@ -967,6 +960,12 @@ bool SelectionDAGISel::PrepareEHLandingPad() {
     // Remove the edge from the invoke to the lpad.
     for (MachineBasicBlock *InvokeBB : InvokeBBs)
       InvokeBB->removeSuccessor(MBB);
+
+    // Transfer EH state number assigned to the IR block to the MBB.
+    if (Personality == EHPersonality::MSVC_CXX) {
+      WinEHFuncInfo &FI = MF->getMMI().getWinEHFuncInfo(MF->getFunction());
+      MF->getMMI().addWinEHState(MBB, FI.LandingPadStateMap[LPadInst]);
+    }
 
     // Don't select instructions for the landingpad.
     return false;
@@ -1717,10 +1716,11 @@ bool SelectionDAGISel::CheckOrMask(SDValue LHS, ConstantSDNode *RHS,
   return false;
 }
 
+
 /// SelectInlineAsmMemoryOperands - Calls to this are automatically generated
 /// by tblgen.  Others should not call it.
 void SelectionDAGISel::
-SelectInlineAsmMemoryOperands(std::vector<SDValue> &Ops, SDLoc DL) {
+SelectInlineAsmMemoryOperands(std::vector<SDValue> &Ops) {
   std::vector<SDValue> InOps;
   std::swap(InOps, Ops);
 
@@ -1766,7 +1766,7 @@ SelectInlineAsmMemoryOperands(std::vector<SDValue> &Ops, SDLoc DL) {
       // Add this to the output node.
       unsigned NewFlags =
         InlineAsm::getFlagWord(InlineAsm::Kind_Mem, SelOps.size());
-      Ops.push_back(CurDAG->getTargetConstant(NewFlags, DL, MVT::i32));
+      Ops.push_back(CurDAG->getTargetConstant(NewFlags, MVT::i32));
       Ops.insert(Ops.end(), SelOps.begin(), SelOps.end());
       i += 2;
     }
@@ -1912,13 +1912,11 @@ bool SelectionDAGISel::IsLegalToFold(SDValue N, SDNode *U, SDNode *Root,
 }
 
 SDNode *SelectionDAGISel::Select_INLINEASM(SDNode *N) {
-  SDLoc DL(N);
-
   std::vector<SDValue> Ops(N->op_begin(), N->op_end());
-  SelectInlineAsmMemoryOperands(Ops, DL);
+  SelectInlineAsmMemoryOperands(Ops);
 
   const EVT VTs[] = {MVT::Other, MVT::Glue};
-  SDValue New = CurDAG->getNode(ISD::INLINEASM, DL, VTs, Ops);
+  SDValue New = CurDAG->getNode(ISD::INLINEASM, SDLoc(N), VTs, Ops);
   New->setNodeId(-1);
   return New.getNode();
 }
@@ -1926,12 +1924,12 @@ SDNode *SelectionDAGISel::Select_INLINEASM(SDNode *N) {
 SDNode
 *SelectionDAGISel::Select_READ_REGISTER(SDNode *Op) {
   SDLoc dl(Op);
-  MDNodeSDNode *MD = dyn_cast<MDNodeSDNode>(Op->getOperand(1));
+  MDNodeSDNode *MD = dyn_cast<MDNodeSDNode>(Op->getOperand(0));
   const MDString *RegStr = dyn_cast<MDString>(MD->getMD()->getOperand(0));
   unsigned Reg =
       TLI->getRegisterByName(RegStr->getString().data(), Op->getValueType(0));
   SDValue New = CurDAG->getCopyFromReg(
-                        Op->getOperand(0), dl, Reg, Op->getValueType(0));
+                        CurDAG->getEntryNode(), dl, Reg, Op->getValueType(0));
   New->setNodeId(-1);
   return New.getNode();
 }
@@ -1944,7 +1942,7 @@ SDNode
   unsigned Reg = TLI->getRegisterByName(RegStr->getString().data(),
                                         Op->getOperand(2).getValueType());
   SDValue New = CurDAG->getCopyToReg(
-                        Op->getOperand(0), dl, Reg, Op->getOperand(2));
+                        CurDAG->getEntryNode(), dl, Reg, Op->getOperand(2));
   New->setNodeId(-1);
   return New.getNode();
 }
@@ -2940,8 +2938,7 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
       if (Val & 128)
         Val = GetVBR(Val, MatcherTable, MatcherIndex);
       RecordedNodes.push_back(std::pair<SDValue, SDNode*>(
-                              CurDAG->getTargetConstant(Val, SDLoc(NodeToMatch),
-                                                        VT), nullptr));
+                              CurDAG->getTargetConstant(Val, VT), nullptr));
       continue;
     }
     case OPC_EmitRegister: {
@@ -2973,12 +2970,10 @@ SelectCodeCommon(SDNode *NodeToMatch, const unsigned char *MatcherTable,
 
       if (Imm->getOpcode() == ISD::Constant) {
         const ConstantInt *Val=cast<ConstantSDNode>(Imm)->getConstantIntValue();
-        Imm = CurDAG->getConstant(*Val, SDLoc(NodeToMatch), Imm.getValueType(),
-                                  true);
+        Imm = CurDAG->getConstant(*Val, Imm.getValueType(), true);
       } else if (Imm->getOpcode() == ISD::ConstantFP) {
         const ConstantFP *Val=cast<ConstantFPSDNode>(Imm)->getConstantFPValue();
-        Imm = CurDAG->getConstantFP(*Val, SDLoc(NodeToMatch),
-                                    Imm.getValueType(), true);
+        Imm = CurDAG->getConstantFP(*Val, Imm.getValueType(), true);
       }
 
       RecordedNodes.push_back(std::make_pair(Imm, RecordedNodes[RecNo].second));

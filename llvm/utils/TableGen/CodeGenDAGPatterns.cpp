@@ -913,7 +913,8 @@ SDTypeConstraint::SDTypeConstraint(Record *R) {
     x.SDTCisSameNumEltsAs_Info.OtherOperandNum =
       R->getValueAsInt("OtherOperandNum");
   } else {
-    PrintFatalError("Unrecognized SDTypeConstraint '" + R->getName() + "'!\n");
+    errs() << "Unrecognized SDTypeConstraint '" << R->getName() << "'!\n";
+    exit(1);
   }
 }
 
@@ -931,12 +932,11 @@ static TreePatternNode *getOperandNum(unsigned OpNo, TreePatternNode *N,
   OpNo -= NumResults;
 
   if (OpNo >= N->getNumChildren()) {
-    std::string S;
-    raw_string_ostream OS(S);
-    OS << "Invalid operand number in type constraint "
+    errs() << "Invalid operand number in type constraint "
            << (OpNo+NumResults) << " ";
-    N->print(OS);
-    PrintFatalError(OS.str());
+    N->dump();
+    errs() << '\n';
+    exit(1);
   }
 
   return N->getChild(OpNo);
@@ -1116,9 +1116,9 @@ SDNodeInfo::SDNodeInfo(Record *R) : Def(R) {
     } else if (PropList[i]->getName() == "SDNPVariadic") {
       Properties |= 1 << SDNPVariadic;
     } else {
-      PrintFatalError("Unknown SD Node property '" +
-                      PropList[i]->getName() + "' on node '" +
-                      R->getName() + "'!");
+      errs() << "Unknown SD Node property '" << PropList[i]->getName()
+             << "' on node '" << R->getName() << "'!\n";
+      exit(1);
     }
   }
 
@@ -1223,7 +1223,8 @@ static unsigned GetNumNodeResults(Record *Operator, CodeGenDAGPatterns &CDP) {
     return 1;
 
   Operator->dump();
-  PrintFatalError("Unhandled node in GetNumNodeResults");
+  errs() << "Unhandled node in GetNumNodeResults\n";
+  exit(1);
 }
 
 void TreePatternNode::print(raw_ostream &OS) const {
@@ -2372,9 +2373,10 @@ CodeGenDAGPatterns::CodeGenDAGPatterns(RecordKeeper &R) :
 
 Record *CodeGenDAGPatterns::getSDNodeNamed(const std::string &Name) const {
   Record *N = Records.getDef(Name);
-  if (!N || !N->isSubClassOf("SDNode"))
-    PrintFatalError("Error getting SDNode '" + Name + "'!");
-
+  if (!N || !N->isSubClassOf("SDNode")) {
+    errs() << "Error getting SDNode '" << Name << "'!\n";
+    exit(1);
+  }
   return N;
 }
 
@@ -3076,7 +3078,7 @@ void CodeGenDAGPatterns::ParseInstructions() {
     // null_frag operator is as-if no pattern were specified. Normally this
     // is from a multiclass expansion w/ a SDPatternOperator passed in as
     // null_frag.
-    if (!LI || LI->empty() || hasNullFragReference(LI)) {
+    if (!LI || LI->getSize() == 0 || hasNullFragReference(LI)) {
       std::vector<Record*> Results;
       std::vector<Record*> Operands;
 
@@ -3399,7 +3401,7 @@ void CodeGenDAGPatterns::ParsePatterns() {
     Pattern->InlinePatternFragments();
 
     ListInit *LI = CurPattern->getValueAsListInit("ResultInstrs");
-    if (LI->empty()) continue;  // no pattern.
+    if (LI->getSize() == 0) continue;  // no pattern.
 
     // Parse the instruction.
     TreePattern Result(CurPattern, LI, false, *this);

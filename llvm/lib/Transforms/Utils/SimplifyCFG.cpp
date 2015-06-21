@@ -4265,8 +4265,10 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
 
   if (!DefaultIsReachable || GeneratingCoveredLookupTable) {
     Builder.CreateBr(LookupBB);
-    // Note: We call removeProdecessor later since we need to be able to get the
-    // PHI value for the default case in case we're using a bit mask.
+    // We cached PHINodes in PHIs, to avoid accessing deleted PHINodes later,
+    // do not delete PHINodes here.
+    SI->getDefaultDest()->removePredecessor(SI->getParent(),
+                                            /*DontDeleteUselessPHIs=*/true);
   } else {
     Value *Cmp = Builder.CreateICmpULT(TableIndex, ConstantInt::get(
                                        MinCaseVal->getType(), TableSize));
@@ -4316,13 +4318,6 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
 
     Builder.SetInsertPoint(LookupBB);
     AddPredecessorToBlock(SI->getDefaultDest(), MaskBB, SI->getParent());
-  }
-
-  if (!DefaultIsReachable || GeneratingCoveredLookupTable) {
-    // We cached PHINodes in PHIs, to avoid accessing deleted PHINodes later,
-    // do not delete PHINodes here.
-    SI->getDefaultDest()->removePredecessor(SI->getParent(),
-                                            /*DontDeleteUselessPHIs=*/true);
   }
 
   bool ReturnedEarly = false;

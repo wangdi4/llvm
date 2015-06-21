@@ -978,7 +978,7 @@ unsigned llvm::getOrEnforceKnownAlignment(Value *V, unsigned PrefAlign,
 ///
 
 /// See if there is a dbg.value intrinsic for DIVar before I.
-static bool LdStHasDebugValue(const DILocalVariable *DIVar, Instruction *I) {
+static bool LdStHasDebugValue(const MDLocalVariable *DIVar, Instruction *I) {
   // Since we can't guarantee that the original dbg.declare instrinsic
   // is removed by LowerDbgDeclare(), we need to make sure that we are
   // not inserting the same dbg.value intrinsic over and over.
@@ -1342,24 +1342,4 @@ void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsign
         break;
     }
   }
-}
-
-unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
-                                        DominatorTree &DT,
-                                        const BasicBlockEdge &Root) {
-  assert(From->getType() == To->getType());
-  
-  unsigned Count = 0;
-  for (Value::use_iterator UI = From->use_begin(), UE = From->use_end();
-       UI != UE; ) {
-    Use &U = *UI++;
-    if (DT.dominates(Root, U)) {
-      U.set(To);
-      DEBUG(dbgs() << "Replace dominated use of '"
-            << From->getName() << "' as "
-            << *To << " in " << *U << "\n");
-      ++Count;
-    }
-  }
-  return Count;
 }

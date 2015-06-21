@@ -629,7 +629,6 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
     bool Weak = Flags & SymbolRef::SF_Weak;
     bool Absolute = Flags & SymbolRef::SF_Absolute;
     bool Common = Flags & SymbolRef::SF_Common;
-    bool Hidden = Flags & SymbolRef::SF_Hidden;
 
     if (Common) {
       uint32_t Alignment;
@@ -684,11 +683,8 @@ void llvm::PrintSymbolTable(const ObjectFile *o) {
       outs() << SectionName;
     }
     outs() << '\t'
-           << format("%08" PRIx64 " ", Size);
-    if (Hidden) {
-      outs() << ".hidden ";
-    }
-    outs() << Name
+           << format("%08" PRIx64 " ", Size)
+           << Name
            << '\n';
   }
 }

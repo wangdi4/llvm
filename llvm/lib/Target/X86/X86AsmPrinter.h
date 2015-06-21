@@ -82,7 +82,6 @@ class LLVM_LIBRARY_VISIBILITY X86AsmPrinter : public AsmPrinter {
   void InsertStackMapShadows(MachineFunction &MF);
   void LowerSTACKMAP(const MachineInstr &MI);
   void LowerPATCHPOINT(const MachineInstr &MI, X86MCInstLower &MCIL);
-  void LowerSTATEPOINT(const MachineInstr &MI, X86MCInstLower &MCIL);
 
   void LowerTlsAddr(X86MCInstLower &MCInstLowering, const MachineInstr &MI);
 
@@ -104,7 +103,7 @@ class LLVM_LIBRARY_VISIBILITY X86AsmPrinter : public AsmPrinter {
   void EmitInstruction(const MachineInstr *MI) override;
 
   void EmitBasicBlockEnd(const MachineBasicBlock &MBB) override {
-    SMShadowTracker.emitShadowPadding(*OutStreamer, getSubtargetInfo());
+    SMShadowTracker.emitShadowPadding(OutStreamer, getSubtargetInfo());
   }
 
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,

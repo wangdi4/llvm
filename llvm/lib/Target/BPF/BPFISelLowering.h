@@ -22,7 +22,7 @@
 namespace llvm {
 class BPFSubtarget;
 namespace BPFISD {
-enum NodeType : unsigned {
+enum {
   FIRST_NUMBER = ISD::BUILTIN_OP_END,
   RET_FLAG,
   CALL,

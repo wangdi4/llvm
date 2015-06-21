@@ -23,7 +23,6 @@
 #include "llvm/MC/MCInstPrinter.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
-#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Object/MachO.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -48,7 +47,6 @@ InputFileList(cl::Positional, cl::ZeroOrMore,
 enum ActionType {
   AC_Execute,
   AC_PrintLineInfo,
-  AC_PrintDebugLineInfo,
   AC_Verify
 };
 
@@ -59,8 +57,6 @@ Action(cl::desc("Action to perform:"),
                              "Load, link, and execute the inputs."),
                   clEnumValN(AC_PrintLineInfo, "printline",
                              "Load, link, and print line information for each function."),
-                  clEnumValN(AC_PrintDebugLineInfo, "printdebugline",
-                             "Load, link, and print line information for each function using the debug object"),
                   clEnumValN(AC_Verify, "verify",
                              "Load, link and verify the resulting memory image."),
                   clEnumValEnd));
@@ -192,9 +188,7 @@ static void loadDylibs() {
 
 /* *** */
 
-static int printLineInfoForInput(bool LoadObjects, bool UseDebugObj) {
-  assert(LoadObjects || !UseDebugObj);
-
+static int printLineInfoForInput() {
   // Load any dylibs requested on the command line.
   loadDylibs();
 
@@ -221,32 +215,24 @@ static int printLineInfoForInput(bool LoadObjects, bool UseDebugObj) {
 
     ObjectFile &Obj = **MaybeObj;
 
-    OwningBinary<ObjectFile> DebugObj;
-    std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo = nullptr;
-    ObjectFile *SymbolObj = &Obj;
-    if (LoadObjects) {
-      // Load the object file
-      LoadedObjInfo =
-        Dyld.loadObject(Obj);
+    // Load the object file
+    std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo =
+      Dyld.loadObject(Obj);
 
-      if (Dyld.hasError())
-        return Error(Dyld.getErrorString());
+    if (Dyld.hasError())
+      return Error(Dyld.getErrorString());
 
-      // Resolve all the relocations we can.
-      Dyld.resolveRelocations();
+    // Resolve all the relocations we can.
+    Dyld.resolveRelocations();
 
-      if (UseDebugObj) {
-        DebugObj = LoadedObjInfo->getObjectForDebug(Obj);
-        SymbolObj = DebugObj.getBinary();
-      }
-    }
+    OwningBinary<ObjectFile> DebugObj = LoadedObjInfo->getObjectForDebug(Obj);
 
     std::unique_ptr<DIContext> Context(
-      new DWARFContextInMemory(*SymbolObj,LoadedObjInfo.get()));
+      new DWARFContextInMemory(*DebugObj.getBinary()));
 
     // Use symbol info to iterate functions in the object.
-    for (object::symbol_iterator I = SymbolObj->symbol_begin(),
-                                 E = SymbolObj->symbol_end();
+    for (object::symbol_iterator I = DebugObj.getBinary()->symbol_begin(),
+                                 E = DebugObj.getBinary()->symbol_end();
          I != E; ++I) {
       object::SymbolRef::Type SymType;
       if (I->getType(SymType)) continue;
@@ -258,21 +244,7 @@ static int printLineInfoForInput(bool LoadObjects, bool UseDebugObj) {
         if (I->getAddress(Addr)) continue;
         if (I->getSize(Size)) continue;
 
-        // If we're not using the debug object, compute the address of the
-        // symbol in memory (rather than that in the unrelocated object file)
-        // and use that to query the DWARFContext.
-        if (!UseDebugObj && LoadObjects) {
-          object::section_iterator Sec(SymbolObj->section_end());
-          I->getSection(Sec);
-          StringRef SecName;
-          Sec->getName(SecName);
-          uint64_t SectionLoadAddress =
-            LoadedObjInfo->getSectionLoadAddress(SecName);
-          if (SectionLoadAddress != 0)
-            Addr += SectionLoadAddress - Sec->getAddress();
-        }
-
-        outs() << "Function: " << Name << ", Size = " << Size << ", Addr = " << Addr << "\n";
+        outs() << "Function: " << Name << ", Size = " << Size << "\n";
 
         DILineInfoTable Lines = Context->getLineInfoForAddressRange(Addr, Size);
         DILineInfoTable::iterator  Begin = Lines.begin();
@@ -621,10 +593,8 @@ int main(int argc, char **argv) {
   switch (Action) {
   case AC_Execute:
     return executeInput();
-  case AC_PrintDebugLineInfo:
-    return printLineInfoForInput(true,true);
   case AC_PrintLineInfo:
-    return printLineInfoForInput(true,false);
+    return printLineInfoForInput();
   case AC_Verify:
     return linkAndVerify();
   }

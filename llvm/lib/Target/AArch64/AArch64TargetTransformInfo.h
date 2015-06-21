@@ -110,7 +110,7 @@ public:
     return 64;
   }
 
-  unsigned getMaxInterleaveFactor(unsigned VF);
+  unsigned getMaxInterleaveFactor();
 
   unsigned getCastInstrCost(unsigned Opcode, Type *Dst, Type *Src);
 

@@ -61,7 +61,6 @@
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/IRBuilder.h"
@@ -405,37 +404,20 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForAdd(
   }
 }
 
-// Returns true if A matches B + C where C is constant.
-static bool matchesAdd(Value *A, Value *&B, ConstantInt *&C) {
-  return (match(A, m_Add(m_Value(B), m_ConstantInt(C))) ||
-          match(A, m_Add(m_ConstantInt(C), m_Value(B))));
-}
-
-// Returns true if A matches B | C where C is constant.
-static bool matchesOr(Value *A, Value *&B, ConstantInt *&C) {
-  return (match(A, m_Or(m_Value(B), m_ConstantInt(C))) ||
-          match(A, m_Or(m_ConstantInt(C), m_Value(B))));
-}
-
 void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForMul(
     Value *LHS, Value *RHS, Instruction *I) {
   Value *B = nullptr;
   ConstantInt *Idx = nullptr;
-  if (matchesAdd(LHS, B, Idx)) {
+  // Only handle the canonical operand ordering.
+  if (match(LHS, m_Add(m_Value(B), m_ConstantInt(Idx)))) {
     // If LHS is in the form of "Base + Index", then I is in the form of
     // "(Base + Index) * RHS".
-    allocateCandidatesAndFindBasis(Candidate::Mul, SE->getSCEV(B), Idx, RHS, I);
-  } else if (matchesOr(LHS, B, Idx) && haveNoCommonBitsSet(B, Idx, *DL)) {
-    // If LHS is in the form of "Base | Index" and Base and Index have no common
-    // bits set, then
-    //   Base | Index = Base + Index
-    // and I is thus in the form of "(Base + Index) * RHS".
     allocateCandidatesAndFindBasis(Candidate::Mul, SE->getSCEV(B), Idx, RHS, I);
   } else {
     // Otherwise, at least try the form (LHS + 0) * RHS.
     ConstantInt *Zero = ConstantInt::get(cast<IntegerType>(I->getType()), 0);
     allocateCandidatesAndFindBasis(Candidate::Mul, SE->getSCEV(LHS), Zero, RHS,
-                                   I);
+                                  I);
   }
 }
 
@@ -509,34 +491,31 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForGEP(
   if (GEP->getType()->isVectorTy())
     return;
 
-  SmallVector<const SCEV *, 4> IndexExprs;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
-    IndexExprs.push_back(SE->getSCEV(*I));
+  const SCEV *GEPExpr = SE->getSCEV(GEP);
+  Type *IntPtrTy = DL->getIntPtrType(GEP->getType());
 
   gep_type_iterator GTI = gep_type_begin(GEP);
-  for (unsigned I = 1, E = GEP->getNumOperands(); I != E; ++I) {
+  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I) {
     if (!isa<SequentialType>(*GTI++))
       continue;
-
-    const SCEV *OrigIndexExpr = IndexExprs[I - 1];
-    IndexExprs[I - 1] = SE->getConstant(OrigIndexExpr->getType(), 0);
-
-    // The base of this candidate is GEP's base plus the offsets of all
-    // indices except this current one.
-    const SCEV *BaseExpr = SE->getGEPExpr(GEP->getSourceElementType(),
-                                          SE->getSCEV(GEP->getPointerOperand()),
-                                          IndexExprs, GEP->isInBounds());
-    Value *ArrayIdx = GEP->getOperand(I);
+    Value *ArrayIdx = *I;
+    // Compute the byte offset of this index.
     uint64_t ElementSize = DL->getTypeAllocSize(*GTI);
-    factorArrayIndex(ArrayIdx, BaseExpr, ElementSize, GEP);
+    const SCEV *ElementSizeExpr = SE->getSizeOfExpr(IntPtrTy, *GTI);
+    const SCEV *ArrayIdxExpr = SE->getSCEV(ArrayIdx);
+    ArrayIdxExpr = SE->getTruncateOrSignExtend(ArrayIdxExpr, IntPtrTy);
+    const SCEV *LocalOffset =
+        SE->getMulExpr(ArrayIdxExpr, ElementSizeExpr, SCEV::FlagNSW);
+    // The base of this candidate equals GEPExpr less the byte offset of this
+    // index.
+    const SCEV *Base = SE->getMinusSCEV(GEPExpr, LocalOffset);
+    factorArrayIndex(ArrayIdx, Base, ElementSize, GEP);
     // When ArrayIdx is the sext of a value, we try to factor that value as
     // well.  Handling this case is important because array indices are
     // typically sign-extended to the pointer size.
     Value *TruncatedArrayIdx = nullptr;
     if (match(ArrayIdx, m_SExt(m_Value(TruncatedArrayIdx))))
-      factorArrayIndex(TruncatedArrayIdx, BaseExpr, ElementSize, GEP);
-
-    IndexExprs[I - 1] = OrigIndexExpr;
+      factorArrayIndex(TruncatedArrayIdx, Base, ElementSize, GEP);
   }
 }
 

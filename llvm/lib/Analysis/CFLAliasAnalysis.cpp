@@ -305,7 +305,8 @@ public:
   }
 
   void visitPHINode(PHINode &Inst) {
-    for (Value *Val : Inst.incoming_values()) {
+    for (unsigned I = 0, E = Inst.getNumIncomingValues(); I != E; ++I) {
+      Value *Val = Inst.getIncomingValue(I);
       Output.push_back(Edge(&Inst, Val, EdgeType::Assign, AttrNone));
     }
   }

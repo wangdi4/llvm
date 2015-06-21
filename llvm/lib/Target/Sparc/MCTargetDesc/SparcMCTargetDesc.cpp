@@ -97,7 +97,7 @@ static MCCodeGenInfo *createSparcMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   case CodeModel::JITDefault: CM = CodeModel::Small; break;
   }
 
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 
@@ -118,7 +118,7 @@ static MCCodeGenInfo *createSparcV9MCCodeGenInfo(StringRef TT, Reloc::Model RM,
     break;
   }
 
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 
@@ -146,9 +146,8 @@ extern "C" void LLVMInitializeSparcTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfoFn X(TheSparcTarget, createSparcMCAsmInfo);
   RegisterMCAsmInfoFn Y(TheSparcV9Target, createSparcV9MCAsmInfo);
-  RegisterMCAsmInfoFn Z(TheSparcelTarget, createSparcMCAsmInfo);
 
-  for (Target *T : {&TheSparcTarget, &TheSparcV9Target, &TheSparcelTarget}) {
+  for (Target *T : {&TheSparcTarget, &TheSparcV9Target}) {
     // Register the MC instruction info.
     TargetRegistry::RegisterMCInstrInfo(*T, createSparcMCInstrInfo);
 
@@ -177,9 +176,8 @@ extern "C" void LLVMInitializeSparcTargetMC() {
 
   // Register the MC codegen info.
   TargetRegistry::RegisterMCCodeGenInfo(TheSparcTarget,
-                                        createSparcMCCodeGenInfo);
+                                       createSparcMCCodeGenInfo);
   TargetRegistry::RegisterMCCodeGenInfo(TheSparcV9Target,
-                                        createSparcV9MCCodeGenInfo);
-  TargetRegistry::RegisterMCCodeGenInfo(TheSparcelTarget,
-                                        createSparcMCCodeGenInfo);
+                                       createSparcV9MCCodeGenInfo);
+
 }

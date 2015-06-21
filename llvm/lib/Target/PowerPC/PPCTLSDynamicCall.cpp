@@ -55,16 +55,14 @@ protected:
       bool Is64Bit = MBB.getParent()->getSubtarget<PPCSubtarget>().isPPC64();
 
       for (MachineBasicBlock::iterator I = MBB.begin(), IE = MBB.end();
-           I != IE;) {
+           I != IE; ++I) {
         MachineInstr *MI = I;
 
         if (MI->getOpcode() != PPC::ADDItlsgdLADDR &&
             MI->getOpcode() != PPC::ADDItlsldLADDR &&
             MI->getOpcode() != PPC::ADDItlsgdLADDR32 &&
-            MI->getOpcode() != PPC::ADDItlsldLADDR32) {
-          ++I;
+            MI->getOpcode() != PPC::ADDItlsldLADDR32)
           continue;
-        }
 
         DEBUG(dbgs() << "TLS Dynamic Call Fixup:\n    " << *MI;);
 

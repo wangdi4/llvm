@@ -216,7 +216,6 @@ public:
 
 private:
   void destroyValueName();
-  void setNameImpl(const Twine &Name);
 
 public:
   /// \brief Return a constant reference to the value's name.

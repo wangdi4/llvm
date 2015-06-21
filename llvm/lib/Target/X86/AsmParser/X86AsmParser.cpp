@@ -729,24 +729,23 @@ private:
 
   bool is64BitMode() const {
     // FIXME: Can tablegen auto-generate this?
-    return STI.getFeatureBits()[X86::Mode64Bit];
+    return (STI.getFeatureBits() & X86::Mode64Bit) != 0;
   }
   bool is32BitMode() const {
     // FIXME: Can tablegen auto-generate this?
-    return STI.getFeatureBits()[X86::Mode32Bit];
+    return (STI.getFeatureBits() & X86::Mode32Bit) != 0;
   }
   bool is16BitMode() const {
     // FIXME: Can tablegen auto-generate this?
-    return STI.getFeatureBits()[X86::Mode16Bit];
+    return (STI.getFeatureBits() & X86::Mode16Bit) != 0;
   }
-  void SwitchMode(unsigned mode) {
-    FeatureBitset AllModes({X86::Mode64Bit, X86::Mode32Bit, X86::Mode16Bit});
-    FeatureBitset OldMode = STI.getFeatureBits() & AllModes;
-    unsigned FB = ComputeAvailableFeatures(
-      STI.ToggleFeature(OldMode.flip(mode)));
+  void SwitchMode(uint64_t mode) {
+    uint64_t oldMode = STI.getFeatureBits() &
+        (X86::Mode64Bit | X86::Mode32Bit | X86::Mode16Bit);
+    unsigned FB = ComputeAvailableFeatures(STI.ToggleFeature(oldMode | mode));
     setAvailableFeatures(FB);
-    
-    assert(FeatureBitset({mode}) == (STI.getFeatureBits() & AllModes));
+    assert(mode == (STI.getFeatureBits() &
+                    (X86::Mode64Bit | X86::Mode32Bit | X86::Mode16Bit)));
   }
 
   unsigned getPointerWidth() {
@@ -1192,7 +1191,7 @@ bool X86AsmParser::ParseIntelExpression(IntelExprStateMachine &SM, SMLoc &End) {
         StringRef IDVal = getTok().getString();
         if (IDVal == "f" || IDVal == "b") {
           MCSymbol *Sym =
-              getContext().getDirectionalLocalSymbol(IntVal, IDVal == "b");
+              getContext().GetDirectionalLocalSymbol(IntVal, IDVal == "b");
           MCSymbolRefExpr::VariantKind Variant = MCSymbolRefExpr::VK_None;
           const MCExpr *Val =
 	    MCSymbolRefExpr::Create(Sym, Variant, getContext());
@@ -1352,7 +1351,7 @@ bool X86AsmParser::ParseIntelIdentifier(const MCExpr *&Val,
   }
 
   // Create the symbol reference.
-  MCSymbol *Sym = getContext().getOrCreateSymbol(Identifier);
+  MCSymbol *Sym = getContext().GetOrCreateSymbol(Identifier);
   MCSymbolRefExpr::VariantKind Variant = MCSymbolRefExpr::VK_None;
   Val = MCSymbolRefExpr::Create(Sym, Variant, getParser().getContext());
   return false;
@@ -1415,8 +1414,7 @@ std::unique_ptr<X86Operand>
 X86AsmParser::ParseRoundingModeOp(SMLoc Start, SMLoc End) {
   MCAsmParser &Parser = getParser();
   const AsmToken &Tok = Parser.getTok();
-  // Eat "{" and mark the current place.
-  const SMLoc consumedToken = consumeToken();
+  consumeToken(); // Eat "{"
   if (Tok.getIdentifier().startswith("r")){
     int rndMode = StringSwitch<int>(Tok.getIdentifier())
       .Case("rn", X86::STATIC_ROUNDING::TO_NEAREST_INT)
@@ -1437,13 +1435,6 @@ X86AsmParser::ParseRoundingModeOp(SMLoc Start, SMLoc End) {
     const MCExpr *RndModeOp =
       MCConstantExpr::Create(rndMode, Parser.getContext());
     return X86Operand::CreateImm(RndModeOp, Start, End);
-  }
-  if(Tok.getIdentifier().equals("sae")){
-    Parser.Lex();  // Eat the sae
-    if (!getLexer().is(AsmToken::RCurly))
-      return ErrorOperand(Tok.getLoc(), "Expected } at this point");
-    Parser.Lex();  // Eat "}"
-    return X86Operand::CreateToken("{sae}", consumedToken);
   }
   return ErrorOperand(Tok.getLoc(), "unknown token in expression");
 }
@@ -1697,7 +1688,7 @@ std::unique_ptr<X86Operand> X86AsmParser::ParseIntelOperand() {
   }
 
   // rounding mode token
-  if (STI.getFeatureBits()[X86::FeatureAVX512] &&
+  if (STI.getFeatureBits() & X86::FeatureAVX512 &&
       getLexer().is(AsmToken::LCurly))
     return ParseRoundingModeOp(Start, End);
 
@@ -1755,7 +1746,7 @@ std::unique_ptr<X86Operand> X86AsmParser::ParseATTOperand() {
   }
   case AsmToken::LCurly:{
     SMLoc Start = Parser.getTok().getLoc(), End;
-    if (STI.getFeatureBits()[X86::FeatureAVX512])
+    if (STI.getFeatureBits() & X86::FeatureAVX512)
       return ParseRoundingModeOp(Start, End);
     return ErrorOperand(Start, "unknown token in expression");
   }
@@ -1765,7 +1756,7 @@ std::unique_ptr<X86Operand> X86AsmParser::ParseATTOperand() {
 bool X86AsmParser::HandleAVX512Operand(OperandVector &Operands,
                                        const MCParsedAsmOperand &Op) {
   MCAsmParser &Parser = getParser();
-  if(STI.getFeatureBits()[X86::FeatureAVX512]) {
+  if(STI.getFeatureBits() & X86::FeatureAVX512) {
     if (getLexer().is(AsmToken::LCurly)) {
       // Eat "{" and mark the current place.
       const SMLoc consumedToken = consumeToken();
@@ -2334,8 +2325,8 @@ static bool convertToSExti8(MCInst &Inst, unsigned Opcode, unsigned Reg,
   MCInst TmpInst;
   TmpInst.setOpcode(Opcode);
   if (!isCmp)
-    TmpInst.addOperand(MCOperand::createReg(Reg));
-  TmpInst.addOperand(MCOperand::createReg(Reg));
+    TmpInst.addOperand(MCOperand::CreateReg(Reg));
+  TmpInst.addOperand(MCOperand::CreateReg(Reg));
   TmpInst.addOperand(Inst.getOperand(0));
   Inst = TmpInst;
   return true;

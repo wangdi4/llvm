@@ -212,7 +212,7 @@ bool PPCMachObjectWriter::RecordScatteredRelocation(
     report_fatal_error("symbol '" + A->getName() +
                        "' can not be undefined in a subtraction expression");
 
-  uint32_t Value = Writer->getSymbolAddress(*A, Layout);
+  uint32_t Value = Writer->getSymbolAddress(A_SD, Layout);
   uint64_t SecAddr =
       Writer->getSectionAddress(A_SD->getFragment()->getParent());
   FixedValue += SecAddr;
@@ -226,7 +226,7 @@ bool PPCMachObjectWriter::RecordScatteredRelocation(
                          "' can not be undefined in a subtraction expression");
 
     // FIXME: is Type correct? see include/llvm/Support/MachO.h
-    Value2 = Writer->getSymbolAddress(B->getSymbol(), Layout);
+    Value2 = Writer->getSymbolAddress(B_SD, Layout);
     FixedValue -= Writer->getSectionAddress(B_SD->getFragment()->getParent());
   }
   // FIXME: does FixedValue get used??
@@ -244,7 +244,7 @@ bool PPCMachObjectWriter::RecordScatteredRelocation(
     if (FixupOffset > 0xffffff) {
       char Buffer[32];
       format("0x%x", FixupOffset).print(Buffer, sizeof(Buffer));
-      Asm.getContext().reportFatalError(Fixup.getLoc(),
+      Asm.getContext().FatalError(Fixup.getLoc(),
                                   Twine("Section too large, can't encode "
                                         "r_address (") +
                                       Buffer + ") into 24 bits of scattered "
@@ -324,16 +324,16 @@ void PPCMachObjectWriter::RecordPPCRelocation(
 
   // this doesn't seem right for RIT_PPC_BR24
   // Get the symbol data, if any.
-  const MCSymbol *A = nullptr;
+  const MCSymbolData *SD = nullptr;
   if (Target.getSymA())
-    A = &Target.getSymA()->getSymbol();
+    SD = &Asm.getSymbolData(Target.getSymA()->getSymbol());
 
   // See <reloc.h>.
   const uint32_t FixupOffset = getFixupOffset(Layout, Fragment, Fixup);
   unsigned Index = 0;
   unsigned Type = RelocType;
 
-  const MCSymbol *RelSymbol = nullptr;
+  const MCSymbolData *RelSymbol = nullptr;
   if (Target.isAbsolute()) { // constant
                              // SymbolNum of 0 indicates the absolute section.
                              //
@@ -344,9 +344,9 @@ void PPCMachObjectWriter::RecordPPCRelocation(
     // the above line stolen from ARM, not sure
   } else {
     // Resolve constant variables.
-    if (A->isVariable()) {
+    if (SD->getSymbol().isVariable()) {
       int64_t Res;
-      if (A->getVariableValue()->EvaluateAsAbsolute(
+      if (SD->getSymbol().getVariableValue()->EvaluateAsAbsolute(
               Res, Layout, Writer->getSectionAddressMap())) {
         FixedValue = Res;
         return;
@@ -354,18 +354,19 @@ void PPCMachObjectWriter::RecordPPCRelocation(
     }
 
     // Check whether we need an external or internal relocation.
-    if (Writer->doesSymbolRequireExternRelocation(*A)) {
-      RelSymbol = A;
+    if (Writer->doesSymbolRequireExternRelocation(SD)) {
+      RelSymbol = SD;
       // For external relocations, make sure to offset the fixup value to
       // compensate for the addend of the symbol address, if it was
       // undefined. This occurs with weak definitions, for example.
-      if (!A->isUndefined())
-        FixedValue -= Layout.getSymbolOffset(*A);
+      if (!SD->getSymbol().isUndefined())
+        FixedValue -= Layout.getSymbolOffset(SD);
     } else {
       // The index is the section ordinal (1-based).
-      const MCSection &Sec = A->getSection();
-      Index = Sec.getOrdinal() + 1;
-      FixedValue += Writer->getSectionAddress(&Sec);
+      const MCSectionData &SymSD =
+          Asm.getSectionData(SD->getSymbol().getSection());
+      Index = SymSD.getOrdinal() + 1;
+      FixedValue += Writer->getSectionAddress(&SymSD);
     }
     if (IsPCRel)
       FixedValue -= Writer->getSectionAddress(Fragment->getParent());

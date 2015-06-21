@@ -93,7 +93,7 @@ static MCCodeGenInfo *createMipsMCCodeGenInfo(StringRef TT, Reloc::Model RM,
     RM = Reloc::Static;
   else if (RM == Reloc::Default)
     RM = Reloc::PIC_;
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 

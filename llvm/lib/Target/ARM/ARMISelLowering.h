@@ -27,7 +27,7 @@ namespace llvm {
 
   namespace ARMISD {
     // ARM Specific DAG Nodes
-    enum NodeType : unsigned {
+    enum NodeType {
       // Start the numbering where the builtin ops and target ops leave off.
       FIRST_NUMBER = ISD::BUILTIN_OP_END,
 
@@ -231,7 +231,6 @@ namespace llvm {
                                const ARMSubtarget &STI);
 
     unsigned getJumpTableEncoding() const override;
-    bool useSoftFloat() const override;
 
     SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
 
@@ -593,7 +592,8 @@ namespace llvm {
                                 MachineBasicBlock *MBB,
                                 MachineBasicBlock *DispatchBB, int FI) const;
 
-    void EmitSjLjDispatchBlock(MachineInstr *MI, MachineBasicBlock *MBB) const;
+    MachineBasicBlock *EmitSjLjDispatchBlock(MachineInstr *MI,
+                                             MachineBasicBlock *MBB) const;
 
     bool RemapAddSubWithFlags(MachineInstr *MI, MachineBasicBlock *BB) const;
 

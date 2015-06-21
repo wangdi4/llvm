@@ -66,10 +66,6 @@ static cl::opt<std::string>
   BlockInfoFilename("block-info",
                     cl::desc("Use the BLOCK_INFO from the given file"));
 
-static cl::opt<bool>
-  ShowBinaryBlobs("show-binary-blobs",
-                  cl::desc("Print binary blobs using hex escapes"));
-
 namespace {
 
 /// CurStreamTypeType - A type for CurStreamType
@@ -464,22 +460,17 @@ static bool ParseBlock(BitstreamCursor &Stream, unsigned BlockID,
 
       if (Blob.data()) {
         outs() << " blob data = ";
-        if (ShowBinaryBlobs) {
-          outs() << "'";
-          outs().write_escaped(Blob, /*hex=*/true) << "'";
-        } else {
-          bool BlobIsPrintable = true;
-          for (unsigned i = 0, e = Blob.size(); i != e; ++i)
-            if (!isprint(static_cast<unsigned char>(Blob[i]))) {
-              BlobIsPrintable = false;
-              break;
-            }
+        bool BlobIsPrintable = true;
+        for (unsigned i = 0, e = Blob.size(); i != e; ++i)
+          if (!isprint(static_cast<unsigned char>(Blob[i]))) {
+            BlobIsPrintable = false;
+            break;
+          }
 
-          if (BlobIsPrintable)
-            outs() << "'" << Blob << "'";
-          else
-            outs() << "unprintable, " << Blob.size() << " bytes.";          
-        }
+        if (BlobIsPrintable)
+          outs() << "'" << Blob << "'";
+        else
+          outs() << "unprintable, " << Blob.size() << " bytes.";
       }
 
       outs() << "\n";

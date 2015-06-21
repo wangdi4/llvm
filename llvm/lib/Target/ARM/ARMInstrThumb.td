@@ -21,7 +21,7 @@ def ARMtcall : SDNode<"ARMISD::tCALL", SDT_ARMcall,
 
 def imm_sr_XFORM: SDNodeXForm<imm, [{
   unsigned Imm = N->getZExtValue();
-  return CurDAG->getTargetConstant((Imm == 32 ? 0 : Imm), SDLoc(N), MVT::i32);
+  return CurDAG->getTargetConstant((Imm == 32 ? 0 : Imm), MVT::i32);
 }]>;
 def ThumbSRImmAsmOperand: AsmOperandClass { let Name = "ImmThumbSR"; }
 def imm_sr : Operand<i32>, PatLeaf<(imm), [{
@@ -33,8 +33,7 @@ def imm_sr : Operand<i32>, PatLeaf<(imm), [{
 }
 
 def imm_comp_XFORM : SDNodeXForm<imm, [{
-  return CurDAG->getTargetConstant(~((uint32_t)N->getZExtValue()), SDLoc(N),
-                                   MVT::i32);
+  return CurDAG->getTargetConstant(~((uint32_t)N->getZExtValue()), MVT::i32);
 }]>;
 
 def imm0_7_neg : PatLeaf<(i32 imm), [{
@@ -62,12 +61,12 @@ def thumb_immshifted : PatLeaf<(imm), [{
 
 def thumb_immshifted_val : SDNodeXForm<imm, [{
   unsigned V = ARM_AM::getThumbImmNonShiftedVal((unsigned)N->getZExtValue());
-  return CurDAG->getTargetConstant(V, SDLoc(N), MVT::i32);
+  return CurDAG->getTargetConstant(V, MVT::i32);
 }]>;
 
 def thumb_immshifted_shamt : SDNodeXForm<imm, [{
   unsigned V = ARM_AM::getThumbImmValShift((unsigned)N->getZExtValue());
-  return CurDAG->getTargetConstant(V, SDLoc(N), MVT::i32);
+  return CurDAG->getTargetConstant(V, MVT::i32);
 }]>;
 
 // Scaled 4 immediate.
@@ -522,9 +521,9 @@ let isBranch = 1, isTerminator = 1, isBarrier = 1 in {
                           Sched<[WriteBrTbl]>;
 
   def tBR_JTr : tPseudoInst<(outs),
-                      (ins tGPR:$target, i32imm:$jt),
+                      (ins tGPR:$target, i32imm:$jt, i32imm:$id),
                       0, IIC_Br,
-                      [(ARMbrjt tGPR:$target, tjumptable:$jt)]>,
+                      [(ARMbrjt tGPR:$target, tjumptable:$jt, imm:$id)]>,
                       Sched<[WriteBrTbl]> {
     list<Predicate> Predicates = [IsThumb, IsThumb1Only];
   }
@@ -1255,7 +1254,7 @@ def tLEApcrel   : tPseudoInst<(outs tGPR:$Rd), (ins i32imm:$label, pred:$p),
 
 let hasSideEffects = 1 in
 def tLEApcrelJT : tPseudoInst<(outs tGPR:$Rd),
-                              (ins i32imm:$label, pred:$p),
+                              (ins i32imm:$label, nohash_imm:$id, pred:$p),
                               2, IIC_iALUi, []>, Sched<[WriteALU]>;
 
 //===----------------------------------------------------------------------===//
@@ -1356,8 +1355,8 @@ def tLDRLIT_ga_abs : PseudoInst<(outs tGPR:$dst), (ins i32imm:$src),
 
 
 // JumpTable
-def : T1Pat<(ARMWrapperJT tjumptable:$dst),
-            (tLEApcrelJT tjumptable:$dst)>;
+def : T1Pat<(ARMWrapperJT tjumptable:$dst, imm:$id),
+            (tLEApcrelJT tjumptable:$dst, imm:$id)>;
 
 // Direct calls
 def : T1Pat<(ARMtcall texternalsym:$func), (tBL texternalsym:$func)>,

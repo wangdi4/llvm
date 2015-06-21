@@ -84,20 +84,20 @@ public:
         new NVPTXSection(MCSection::SV_ELF, SectionKind::getMetadata());
   }
 
-  MCSection *getSectionForConstant(SectionKind Kind,
-                                   const Constant *C) const override {
+  const MCSection *getSectionForConstant(SectionKind Kind,
+                                         const Constant *C) const override {
     return ReadOnlySection;
   }
 
-  MCSection *getExplicitSectionGlobal(const GlobalValue *GV, SectionKind Kind,
-                                      Mangler &Mang,
-                                      const TargetMachine &TM) const override {
+  const MCSection *getExplicitSectionGlobal(const GlobalValue *GV,
+                                       SectionKind Kind, Mangler &Mang,
+                                       const TargetMachine &TM) const override {
     return DataSection;
   }
 
-  MCSection *SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind,
-                                    Mangler &Mang,
-                                    const TargetMachine &TM) const override;
+  const MCSection *
+  SelectSectionForGlobal(const GlobalValue *GV, SectionKind Kind, Mangler &Mang,
+                         const TargetMachine &TM) const override;
 };
 
 } // end namespace llvm

@@ -26,7 +26,7 @@ namespace llvm {
 bool isPositiveHalfWord(SDNode *N);
 
   namespace HexagonISD {
-    enum NodeType : unsigned {
+    enum {
       OP_BEGIN = ISD::BUILTIN_OP_END,
 
       CONST32 = OP_BEGIN,
@@ -206,6 +206,9 @@ bool isPositiveHalfWord(SDNode *N);
     /// compare a register against the immediate without having to materialize
     /// the immediate into a register.
     bool isLegalICmpImmediate(int64_t Imm) const override;
+
+  private:
+    void setHexLibcallName(RTLIB::Libcall Call, Twine Name);
   };
 } // end namespace llvm
 

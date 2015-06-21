@@ -113,4 +113,3 @@ define float @test11(float %a) {
   %t2 = fadd float %a, %t1
   ret float %t2
 }
-

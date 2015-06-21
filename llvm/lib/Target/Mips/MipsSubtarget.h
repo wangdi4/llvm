@@ -48,9 +48,6 @@ class MipsSubtarget : public MipsGenSubtargetInfo {
   // IsLittle - The target is Little Endian
   bool IsLittle;
 
-  // IsSoftFloat - The target does not support any floating point instructions.
-  bool IsSoftFloat;
-
   // IsSingleFloat - The target only supports single precision float
   // point operations. This enable the target to use all 32 32-bit
   // floating point registers instead of only using even ones.
@@ -236,7 +233,7 @@ public:
 
   bool hasStandardEncoding() const { return !inMips16Mode(); }
 
-  bool useSoftFloat() const { return IsSoftFloat; }
+  bool abiUsesSoftFloat() const;
 
   bool enableLongBranchPass() const {
     return hasStandardEncoding() || allowMixed16_32();

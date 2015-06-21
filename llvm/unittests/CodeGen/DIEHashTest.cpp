@@ -10,7 +10,6 @@
 #include "llvm/CodeGen/DIE.h"
 #include "../lib/CodeGen/AsmPrinter/DIEHash.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/CodeGen/DwarfStringPoolEntry.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/Format.h"
@@ -19,20 +18,7 @@
 using namespace llvm;
 
 namespace {
-
-// Test fixture
-class DIEHashTest : public testing::Test {
-  StringMap<DwarfStringPoolEntry> Pool;
-
-public:
-  DIEString getString(StringRef S) {
-    DwarfStringPoolEntry Entry = {nullptr, 1, 1};
-    return DIEString(
-        DwarfStringPoolEntryRef(*Pool.insert(std::make_pair(S, Entry)).first));
-  }
-};
-
-TEST_F(DIEHashTest, Data1) {
+TEST(DIEHashTest, Data1) {
   DIEHash Hash;
   DIE Die(dwarf::DW_TAG_base_type);
   DIEInteger Size(4);
@@ -42,7 +28,7 @@ TEST_F(DIEHashTest, Data1) {
 }
 
 // struct {};
-TEST_F(DIEHashTest, TrivialType) {
+TEST(DIEHashTest, TrivialType) {
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
@@ -57,10 +43,10 @@ TEST_F(DIEHashTest, TrivialType) {
 }
 
 // struct foo { };
-TEST_F(DIEHashTest, NamedType) {
+TEST(DIEHashTest, NamedType) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&One, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
 
@@ -71,19 +57,19 @@ TEST_F(DIEHashTest, NamedType) {
 }
 
 // namespace space { struct foo { }; }
-TEST_F(DIEHashTest, NamespacedType) {
+TEST(DIEHashTest, NamespacedType) {
   DIE CU(dwarf::DW_TAG_compile_unit);
 
   auto Space = make_unique<DIE>(dwarf::DW_TAG_namespace);
   DIEInteger One(1);
-  DIEString SpaceStr = getString("space");
+  DIEString SpaceStr(&One, "space");
   Space->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &SpaceStr);
   // DW_AT_declaration is ignored.
   Space->addValue(dwarf::DW_AT_declaration, dwarf::DW_FORM_flag_present, &One);
   // sibling?
 
   auto Foo = make_unique<DIE>(dwarf::DW_TAG_structure_type);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&One, "foo");
   Foo->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
   Foo->addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
 
@@ -98,13 +84,13 @@ TEST_F(DIEHashTest, NamespacedType) {
 }
 
 // struct { int member; };
-TEST_F(DIEHashTest, TypeWithMember) {
+TEST(DIEHashTest, TypeWithMember) {
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   DIEInteger Four(4);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Four);
 
   DIE Int(dwarf::DW_TAG_base_type);
-  DIEString IntStr = getString("int");
+  DIEString IntStr(&Four, "int");
   Int.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &IntStr);
   Int.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Four);
   DIEInteger Five(5);
@@ -113,7 +99,7 @@ TEST_F(DIEHashTest, TypeWithMember) {
   DIEEntry IntRef(Int);
 
   auto Member = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemberStr = getString("member");
+  DIEString MemberStr(&Four, "member");
   Member->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemberStr);
   DIEInteger Zero(0);
   Member->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1,
@@ -128,14 +114,14 @@ TEST_F(DIEHashTest, TypeWithMember) {
 }
 
 // struct foo { int mem1, mem2; };
-TEST_F(DIEHashTest, ReusedType) {
+TEST(DIEHashTest, ReusedType) {
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   DIEInteger Eight(8);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Eight);
 
   DIEInteger Four(4);
   DIE Int(dwarf::DW_TAG_base_type);
-  DIEString IntStr = getString("int");
+  DIEString IntStr(&Four, "int");
   Int.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &IntStr);
   Int.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Four);
   DIEInteger Five(5);
@@ -144,7 +130,7 @@ TEST_F(DIEHashTest, ReusedType) {
   DIEEntry IntRef(Int);
 
   auto Mem1 = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString Mem1Str = getString("mem1");
+  DIEString Mem1Str(&Four, "mem1");
   Mem1->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &Mem1Str);
   DIEInteger Zero(0);
   Mem1->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1,
@@ -154,7 +140,7 @@ TEST_F(DIEHashTest, ReusedType) {
   Unnamed.addChild(std::move(Mem1));
 
   auto Mem2 = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString Mem2Str = getString("mem2");
+  DIEString Mem2Str(&Four, "mem2");
   Mem2->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &Mem2Str);
   Mem2->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1,
                  &Four);
@@ -168,15 +154,15 @@ TEST_F(DIEHashTest, ReusedType) {
 }
 
 // struct foo { static foo f; };
-TEST_F(DIEHashTest, RecursiveType) {
+TEST(DIEHashTest, RecursiveType) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&One, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
 
   auto Mem = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemStr = getString("mem");
+  DIEString MemStr(&One, "mem");
   Mem->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemStr);
   DIEEntry FooRef(Foo);
   Mem->addValue(dwarf::DW_AT_type, dwarf::DW_FORM_ref4, &FooRef);
@@ -190,15 +176,15 @@ TEST_F(DIEHashTest, RecursiveType) {
 }
 
 // struct foo { foo *mem; };
-TEST_F(DIEHashTest, Pointer) {
+TEST(DIEHashTest, Pointer) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger Eight(8);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Eight);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&Eight, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
 
   auto Mem = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemStr = getString("mem");
+  DIEString MemStr(&Eight, "mem");
   Mem->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemStr);
   DIEInteger Zero(0);
   Mem->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1, &Zero);
@@ -219,15 +205,15 @@ TEST_F(DIEHashTest, Pointer) {
 }
 
 // struct foo { foo &mem; };
-TEST_F(DIEHashTest, Reference) {
+TEST(DIEHashTest, Reference) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger Eight(8);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Eight);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&Eight, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
 
   auto Mem = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemStr = getString("mem");
+  DIEString MemStr(&Eight, "mem");
   Mem->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemStr);
   DIEInteger Zero(0);
   Mem->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1, &Zero);
@@ -252,15 +238,15 @@ TEST_F(DIEHashTest, Reference) {
 }
 
 // struct foo { foo &&mem; };
-TEST_F(DIEHashTest, RValueReference) {
+TEST(DIEHashTest, RValueReference) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger Eight(8);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Eight);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&Eight, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
 
   auto Mem = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemStr = getString("mem");
+  DIEString MemStr(&Eight, "mem");
   Mem->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemStr);
   DIEInteger Zero(0);
   Mem->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1, &Zero);
@@ -285,15 +271,15 @@ TEST_F(DIEHashTest, RValueReference) {
 }
 
 // struct foo { foo foo::*mem; };
-TEST_F(DIEHashTest, PtrToMember) {
+TEST(DIEHashTest, PtrToMember) {
   DIE Foo(dwarf::DW_TAG_structure_type);
   DIEInteger Eight(8);
   Foo.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Eight);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&Eight, "foo");
   Foo.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
 
   auto Mem = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString MemStr = getString("mem");
+  DIEString MemStr(&Eight, "mem");
   Mem->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &MemStr);
   DIEInteger Zero(0);
   Mem->addValue(dwarf::DW_AT_data_member_location, dwarf::DW_FORM_data1, &Zero);
@@ -319,13 +305,13 @@ TEST_F(DIEHashTest, PtrToMember) {
 //
 //   struct bar; // { };
 //   struct foo { bar foo::*mem; };
-TEST_F(DIEHashTest, PtrToMemberDeclDefMatch) {
+TEST(DIEHashTest, PtrToMemberDeclDefMatch) {
   DIEInteger Zero(0);
   DIEInteger One(1);
   DIEInteger Eight(8);
-  DIEString FooStr = getString("foo");
-  DIEString BarStr = getString("bar");
-  DIEString MemStr = getString("mem");
+  DIEString FooStr(&Eight, "foo");
+  DIEString BarStr(&Eight, "bar");
+  DIEString MemStr(&Eight, "mem");
   uint64_t MD5ResDecl;
   {
     DIE Bar(dwarf::DW_TAG_structure_type);
@@ -392,13 +378,13 @@ TEST_F(DIEHashTest, PtrToMemberDeclDefMatch) {
 //
 //   struct bar; // { };
 //   struct foo { bar bar::*mem; };
-TEST_F(DIEHashTest, PtrToMemberDeclDefMisMatch) {
+TEST(DIEHashTest, PtrToMemberDeclDefMisMatch) {
   DIEInteger Zero(0);
   DIEInteger One(1);
   DIEInteger Eight(8);
-  DIEString FooStr = getString("foo");
-  DIEString BarStr = getString("bar");
-  DIEString MemStr = getString("mem");
+  DIEString FooStr(&Eight, "foo");
+  DIEString BarStr(&Eight, "bar");
+  DIEString MemStr(&Eight, "mem");
   uint64_t MD5ResDecl;
   {
     DIE Bar(dwarf::DW_TAG_structure_type);
@@ -465,12 +451,12 @@ TEST_F(DIEHashTest, PtrToMemberDeclDefMisMatch) {
 
 // struct { } a;
 // struct foo { decltype(a) mem; };
-TEST_F(DIEHashTest, RefUnnamedType) {
+TEST(DIEHashTest, RefUnnamedType) {
   DIEInteger Zero(0);
   DIEInteger One(1);
   DIEInteger Eight(8);
-  DIEString FooStr = getString("foo");
-  DIEString MemStr = getString("mem");
+  DIEString FooStr(&Zero, "foo");
+  DIEString MemStr(&Zero, "mem");
 
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
@@ -499,13 +485,13 @@ TEST_F(DIEHashTest, RefUnnamedType) {
 }
 
 // struct { struct foo { }; };
-TEST_F(DIEHashTest, NestedType) {
+TEST(DIEHashTest, NestedType) {
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
 
   auto Foo = make_unique<DIE>(dwarf::DW_TAG_structure_type);
-  DIEString FooStr = getString("foo");
+  DIEString FooStr(&One, "foo");
   Foo->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FooStr);
   Foo->addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
 
@@ -518,13 +504,13 @@ TEST_F(DIEHashTest, NestedType) {
 }
 
 // struct { static void func(); };
-TEST_F(DIEHashTest, MemberFunc) {
+TEST(DIEHashTest, MemberFunc) {
   DIE Unnamed(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
   Unnamed.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
 
   auto Func = make_unique<DIE>(dwarf::DW_TAG_subprogram);
-  DIEString FuncStr = getString("func");
+  DIEString FuncStr(&One, "func");
   Func->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FuncStr);
 
   Unnamed.addChild(std::move(Func));
@@ -538,18 +524,18 @@ TEST_F(DIEHashTest, MemberFunc) {
 // struct A {
 //   static void func();
 // };
-TEST_F(DIEHashTest, MemberFuncFlag) {
+TEST(DIEHashTest, MemberFuncFlag) {
   DIE A(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
-  DIEString AStr = getString("A");
+  DIEString AStr(&One, "A");
   A.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &AStr);
   A.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
   A.addValue(dwarf::DW_AT_decl_file, dwarf::DW_FORM_data1, &One);
   A.addValue(dwarf::DW_AT_decl_line, dwarf::DW_FORM_data1, &One);
 
   auto Func = make_unique<DIE>(dwarf::DW_TAG_subprogram);
-  DIEString FuncStr = getString("func");
-  DIEString FuncLinkage = getString("_ZN1A4funcEv");
+  DIEString FuncStr(&One, "func");
+  DIEString FuncLinkage(&One, "_ZN1A4funcEv");
   DIEInteger Two(2);
   Func->addValue(dwarf::DW_AT_external, dwarf::DW_FORM_flag_present, &One);
   Func->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &FuncStr);
@@ -571,10 +557,10 @@ TEST_F(DIEHashTest, MemberFuncFlag) {
 //   const static int PI = -3;
 // };
 // A a;
-TEST_F(DIEHashTest, MemberSdata) {
+TEST(DIEHashTest, MemberSdata) {
   DIE A(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
-  DIEString AStr = getString("A");
+  DIEString AStr(&One, "A");
   A.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &AStr);
   A.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
   A.addValue(dwarf::DW_AT_decl_file, dwarf::DW_FORM_data1, &One);
@@ -582,7 +568,7 @@ TEST_F(DIEHashTest, MemberSdata) {
 
   DIEInteger Four(4);
   DIEInteger Five(5);
-  DIEString FStr = getString("int");
+  DIEString FStr(&One, "int");
   DIE IntTyDIE(dwarf::DW_TAG_base_type);
   IntTyDIE.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Four);
   IntTyDIE.addValue(dwarf::DW_AT_encoding, dwarf::DW_FORM_data1, &Five);
@@ -594,7 +580,7 @@ TEST_F(DIEHashTest, MemberSdata) {
 
   DIEEntry PITy(*PITyDIE);
   auto PI = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString PIStr = getString("PI");
+  DIEString PIStr(&One, "PI");
   DIEInteger Two(2);
   DIEInteger NegThree(-3);
   PI->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &PIStr);
@@ -616,17 +602,17 @@ TEST_F(DIEHashTest, MemberSdata) {
 //   const static float PI = 3.14;
 // };
 // A a;
-TEST_F(DIEHashTest, MemberBlock) {
+TEST(DIEHashTest, MemberBlock) {
   DIE A(dwarf::DW_TAG_structure_type);
   DIEInteger One(1);
-  DIEString AStr = getString("A");
+  DIEString AStr(&One, "A");
   A.addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &AStr);
   A.addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &One);
   A.addValue(dwarf::DW_AT_decl_file, dwarf::DW_FORM_data1, &One);
   A.addValue(dwarf::DW_AT_decl_line, dwarf::DW_FORM_data1, &One);
 
   DIEInteger Four(4);
-  DIEString FStr = getString("float");
+  DIEString FStr(&One, "float");
   auto FloatTyDIE = make_unique<DIE>(dwarf::DW_TAG_base_type);
   FloatTyDIE->addValue(dwarf::DW_AT_byte_size, dwarf::DW_FORM_data1, &Four);
   FloatTyDIE->addValue(dwarf::DW_AT_encoding, dwarf::DW_FORM_data1, &Four);
@@ -638,7 +624,7 @@ TEST_F(DIEHashTest, MemberBlock) {
 
   DIEEntry PITy(*PITyDIE);
   auto PI = make_unique<DIE>(dwarf::DW_TAG_member);
-  DIEString PIStr = getString("PI");
+  DIEString PIStr(&One, "PI");
   DIEInteger Two(2);
   PI->addValue(dwarf::DW_AT_name, dwarf::DW_FORM_strp, &PIStr);
   PI->addValue(dwarf::DW_AT_decl_file, dwarf::DW_FORM_data1, &One);

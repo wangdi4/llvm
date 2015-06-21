@@ -142,8 +142,6 @@ public:
   bool FoldImmediate(MachineInstr *UseMI, MachineInstr *DefMI,
                      unsigned Reg, MachineRegisterInfo *MRI) const final;
 
-  unsigned getMachineCSELookAheadLimit() const override { return 500; }
-
   bool isSALU(uint16_t Opcode) const {
     return get(Opcode).TSFlags & SIInstrFlags::SALU;
   }
@@ -214,10 +212,6 @@ public:
 
   bool isWQM(uint16_t Opcode) const {
     return get(Opcode).TSFlags & SIInstrFlags::WQM;
-  }
-
-  bool isVGPRSpill(uint16_t Opcode) const {
-    return get(Opcode).TSFlags & SIInstrFlags::VGPRSpill;
   }
 
   bool isInlineConstant(const APInt &Imm) const;

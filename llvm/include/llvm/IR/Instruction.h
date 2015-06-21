@@ -78,7 +78,6 @@ public:
   /// Note: this is undefined behavior if the instruction does not have a
   /// parent, or the parent basic block does not have a parent function.
   const Module *getModule() const;
-  Module *getModule();
 
   /// removeFromParent - This method unlinks 'this' from the containing basic
   /// block, but does not delete it.
@@ -91,12 +90,12 @@ public:
   /// \returns an iterator pointing to the element after the erased one
   iplist<Instruction>::iterator eraseFromParent();
 
-  /// Insert an unlinked instruction into a basic block immediately before
-  /// the specified instruction.
+  /// insertBefore - Insert an unlinked instructions into a basic block
+  /// immediately before the specified instruction.
   void insertBefore(Instruction *InsertPos);
 
-  /// Insert an unlinked instruction into a basic block immediately after the
-  /// specified instruction.
+  /// insertAfter - Insert an unlinked instructions into a basic block
+  /// immediately after the specified instruction.
   void insertAfter(Instruction *InsertPos);
 
   /// moveBefore - Unlink this instruction from its current basic block and

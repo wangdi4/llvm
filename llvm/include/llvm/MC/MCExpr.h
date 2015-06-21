@@ -21,14 +21,15 @@ class MCAssembler;
 class MCContext;
 class MCFixup;
 class MCSection;
+class MCSectionData;
 class MCStreamer;
 class MCSymbol;
 class MCValue;
 class raw_ostream;
 class StringRef;
-typedef DenseMap<const MCSection *, uint64_t> SectionAddrMap;
+typedef DenseMap<const MCSectionData*, uint64_t> SectionAddrMap;
 
-/// \brief Base class for the full range of assembler expressions which are
+/// MCExpr - Base class for the full range of assembler expressions which are
 /// needed for parsing.
 class MCExpr {
 public:
@@ -63,29 +64,29 @@ protected:
                                  const SectionAddrMap *Addrs, bool InSet) const;
 
 public:
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
   ExprKind getKind() const { return Kind; }
 
   /// @}
-  /// \name Utility Methods
+  /// @name Utility Methods
   /// @{
 
   void print(raw_ostream &OS) const;
   void dump() const;
 
   /// @}
-  /// \name Expression Evaluation
+  /// @name Expression Evaluation
   /// @{
 
-  /// \brief Try to evaluate the expression to an absolute value.
+  /// EvaluateAsAbsolute - Try to evaluate the expression to an absolute value.
   ///
-  /// \param Res - The absolute value, if evaluation succeeds.
-  /// \param Layout - The assembler layout object to use for evaluating symbol
+  /// @param Res - The absolute value, if evaluation succeeds.
+  /// @param Layout - The assembler layout object to use for evaluating symbol
   /// values. If not given, then only non-symbolic expressions will be
   /// evaluated.
-  /// \return - True on success.
+  /// @result - True on success.
   bool EvaluateAsAbsolute(int64_t &Res, const MCAsmLayout &Layout,
                           const SectionAddrMap &Addrs) const;
   bool EvaluateAsAbsolute(int64_t &Res) const;
@@ -94,13 +95,13 @@ public:
 
   bool evaluateKnownAbsolute(int64_t &Res, const MCAsmLayout &Layout) const;
 
-  /// \brief Try to evaluate the expression to a relocatable value, i.e. an
-  /// expression of the fixed form (a - b + constant).
+  /// EvaluateAsRelocatable - Try to evaluate the expression to a relocatable
+  /// value, i.e. an expression of the fixed form (a - b + constant).
   ///
-  /// \param Res - The relocatable value, if evaluation succeeds.
-  /// \param Layout - The assembler layout object to use for evaluating values.
-  /// \param Fixup - The Fixup object if available.
-  /// \return - True on success.
+  /// @param Res - The relocatable value, if evaluation succeeds.
+  /// @param Layout - The assembler layout object to use for evaluating values.
+  /// @param Fixup - The Fixup object if available.
+  /// @result - True on success.
   bool EvaluateAsRelocatable(MCValue &Res, const MCAsmLayout *Layout,
                              const MCFixup *Fixup) const;
 
@@ -111,11 +112,11 @@ public:
   /// use is for when relocations are not available, like the .size directive.
   bool evaluateAsValue(MCValue &Res, const MCAsmLayout &Layout) const;
 
-  /// \brief Find the "associated section" for this expression, which is
-  /// currently defined as the absolute section for constants, or
+  /// FindAssociatedSection - Find the "associated section" for this expression,
+  /// which is currently defined as the absolute section for constants, or
   /// otherwise the section associated with the first defined symbol in the
   /// expression.
-  MCSection *FindAssociatedSection() const;
+  const MCSection *FindAssociatedSection() const;
 
   /// @}
 };
@@ -125,7 +126,7 @@ inline raw_ostream &operator<<(raw_ostream &OS, const MCExpr &E) {
   return OS;
 }
 
-//// \brief  Represent a constant integer expression.
+//// MCConstantExpr - Represent a constant integer expression.
 class MCConstantExpr : public MCExpr {
   int64_t Value;
 
@@ -133,13 +134,13 @@ class MCConstantExpr : public MCExpr {
       : MCExpr(MCExpr::Constant), Value(Value) {}
 
 public:
-  /// \name Construction
+  /// @name Construction
   /// @{
 
   static const MCConstantExpr *Create(int64_t Value, MCContext &Ctx);
 
   /// @}
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
   int64_t getValue() const { return Value; }
@@ -151,14 +152,15 @@ public:
   }
 };
 
-/// \brief  Represent a reference to a symbol from inside an expression.
+/// MCSymbolRefExpr - Represent a reference to a symbol from inside an
+/// expression.
 ///
 /// A symbol reference in an expression may be a use of a label, a use of an
 /// assembler variable (defined constant), or constitute an implicit definition
 /// of the symbol as external.
 class MCSymbolRefExpr : public MCExpr {
 public:
-  enum VariantKind : uint16_t {
+  enum VariantKind {
     VK_None,
     VK_Invalid,
 
@@ -276,25 +278,12 @@ public:
     VK_Mips_PCREL_HI16,
     VK_Mips_PCREL_LO16,
 
-    VK_COFF_IMGREL32, // symbol@imgrel (image-relative)
-
-    VK_Hexagon_PCREL,
-    VK_Hexagon_LO16,
-    VK_Hexagon_HI16,
-    VK_Hexagon_GPREL,
-    VK_Hexagon_GD_GOT,
-    VK_Hexagon_LD_GOT,
-    VK_Hexagon_GD_PLT,
-    VK_Hexagon_LD_PLT,
-    VK_Hexagon_IE,
-    VK_Hexagon_IE_GOT,
-    VK_TPREL,
-    VK_DTPREL
+    VK_COFF_IMGREL32 // symbol@imgrel (image-relative)
   };
 
 private:
   /// The symbol reference modifier.
-  const VariantKind Kind;
+  const unsigned Kind : 16;
 
   /// Specifies how the variant kind should be printed.
   const unsigned UseParensForSymbolVariant : 1;
@@ -309,7 +298,7 @@ private:
                            const MCAsmInfo *MAI);
 
 public:
-  /// \name Construction
+  /// @name Construction
   /// @{
 
   static const MCSymbolRefExpr *Create(const MCSymbol *Symbol, MCContext &Ctx) {
@@ -322,19 +311,19 @@ public:
                                        MCContext &Ctx);
 
   /// @}
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
   const MCSymbol &getSymbol() const { return *Symbol; }
 
-  VariantKind getKind() const { return Kind; }
+  VariantKind getKind() const { return static_cast<VariantKind>(Kind); }
 
   void printVariantKind(raw_ostream &OS) const;
 
   bool hasSubsectionsViaSymbols() const { return HasSubsectionsViaSymbols; }
 
   /// @}
-  /// \name Static Utility Functions
+  /// @name Static Utility Functions
   /// @{
 
   static StringRef getVariantKindName(VariantKind Kind);
@@ -348,7 +337,7 @@ public:
   }
 };
 
-/// \brief Unary assembler expressions.
+/// MCUnaryExpr - Unary assembler expressions.
 class MCUnaryExpr : public MCExpr {
 public:
   enum Opcode {
@@ -366,7 +355,7 @@ private:
       : MCExpr(MCExpr::Unary), Op(Op), Expr(Expr) {}
 
 public:
-  /// \name Construction
+  /// @name Construction
   /// @{
 
   static const MCUnaryExpr *Create(Opcode Op, const MCExpr *Expr,
@@ -385,13 +374,13 @@ public:
   }
 
   /// @}
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
-  /// \brief Get the kind of this unary expression.
+  /// getOpcode - Get the kind of this unary expression.
   Opcode getOpcode() const { return Op; }
 
-  /// \brief Get the child of this unary expression.
+  /// getSubExpr - Get the child of this unary expression.
   const MCExpr *getSubExpr() const { return Expr; }
 
   /// @}
@@ -401,7 +390,7 @@ public:
   }
 };
 
-/// \brief Binary assembler expressions.
+/// MCBinaryExpr - Binary assembler expressions.
 class MCBinaryExpr : public MCExpr {
 public:
   enum Opcode {
@@ -424,8 +413,7 @@ public:
     NE,   ///< Inequality comparison.
     Or,   ///< Bitwise or.
     Shl,  ///< Shift left.
-    AShr, ///< Arithmetic shift right.
-    LShr, ///< Logical shift right.
+    Shr,  ///< Shift right (arithmetic or logical, depending on target)
     Sub,  ///< Subtraction.
     Xor   ///< Bitwise exclusive or.
   };
@@ -438,7 +426,7 @@ private:
       : MCExpr(MCExpr::Binary), Op(Op), LHS(LHS), RHS(RHS) {}
 
 public:
-  /// \name Construction
+  /// @name Construction
   /// @{
 
   static const MCBinaryExpr *Create(Opcode Op, const MCExpr *LHS,
@@ -503,13 +491,9 @@ public:
                                        MCContext &Ctx) {
     return Create(Shl, LHS, RHS, Ctx);
   }
-  static const MCBinaryExpr *CreateAShr(const MCExpr *LHS, const MCExpr *RHS,
+  static const MCBinaryExpr *CreateShr(const MCExpr *LHS, const MCExpr *RHS,
                                        MCContext &Ctx) {
-    return Create(AShr, LHS, RHS, Ctx);
-  }
-  static const MCBinaryExpr *CreateLShr(const MCExpr *LHS, const MCExpr *RHS,
-                                       MCContext &Ctx) {
-    return Create(LShr, LHS, RHS, Ctx);
+    return Create(Shr, LHS, RHS, Ctx);
   }
   static const MCBinaryExpr *CreateSub(const MCExpr *LHS, const MCExpr *RHS,
                                        MCContext &Ctx) {
@@ -521,16 +505,16 @@ public:
   }
 
   /// @}
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
-  /// \brief Get the kind of this binary expression.
+  /// getOpcode - Get the kind of this binary expression.
   Opcode getOpcode() const { return Op; }
 
-  /// \brief Get the left-hand side expression of the binary operator.
+  /// getLHS - Get the left-hand side expression of the binary operator.
   const MCExpr *getLHS() const { return LHS; }
 
-  /// \brief Get the right-hand side expression of the binary operator.
+  /// getRHS - Get the right-hand side expression of the binary operator.
   const MCExpr *getRHS() const { return RHS; }
 
   /// @}
@@ -540,8 +524,8 @@ public:
   }
 };
 
-/// \brief This is an extension point for target-specific MCExpr subclasses to
-/// implement.
+/// MCTargetExpr - This is an extension point for target-specific MCExpr
+/// subclasses to implement.
 ///
 /// NOTE: All subclasses are required to have trivial destructors because
 /// MCExprs are bump pointer allocated and not destructed.
@@ -557,7 +541,7 @@ public:
                                          const MCAsmLayout *Layout,
                                          const MCFixup *Fixup) const = 0;
   virtual void visitUsedExpr(MCStreamer& Streamer) const = 0;
-  virtual MCSection *FindAssociatedSection() const = 0;
+  virtual const MCSection *FindAssociatedSection() const = 0;
 
   virtual void fixELFSymbolsInTLSFixups(MCAssembler &) const = 0;
 

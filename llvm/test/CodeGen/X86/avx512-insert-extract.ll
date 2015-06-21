@@ -137,12 +137,10 @@ define i64 @test12(<16 x i64>%a, <16 x i64>%b, i64 %a1, i64 %b1) {
 }
 
 ;CHECK-LABEL: test13
-;CHECK: cmpl    %esi, %edi
-;CHECK: setb    %al
-;CHECK: andl    $1, %eax
-;CHECK: kmovw   %eax, %k0
-;CHECK: movw    $-4
-;CHECK: korw    
+;CHECK: cmpl
+;CHECK: sbbl
+;CHECK: orl $65532
+;CHECK: ret
 define i16 @test13(i32 %a, i32 %b) {
   %cmp_res = icmp ult i32 %a, %b
   %maskv = insertelement <16 x i1> <i1 true, i1 false, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true, i1 true>, i1 %cmp_res, i32 0
@@ -169,22 +167,19 @@ define i64 @test14(<8 x i64>%a, <8 x i64>%b, i64 %a1, i64 %b1) {
 }
 
 ;CHECK-LABEL: test15
-;CHECK: movb (%rdi), %al
-;CHECK: andb $1, %al
-;CHECK: movw    $-1, %ax
-;CHECK: cmovew
+;CHECK: kshiftlw
+;CHECK: kmovw
+;CHECK: ret
 define i16 @test15(i1 *%addr) {
-  %x = load i1 , i1 * %addr, align 1
+  %x = load i1 , i1 * %addr, align 128
   %x1 = insertelement <16 x i1> undef, i1 %x, i32 10
   %x2 = bitcast <16 x i1>%x1 to i16
   ret i16 %x2
 }
 
 ;CHECK-LABEL: test16
-;CHECK: movb (%rdi), %al
-;CHECK: andw $1, %ax
-;CHECK: kmovw
-;CHECK: kshiftlw        $10
+;CHECK: kshiftlw
+;CHECK: kshiftrw
 ;CHECK: korw
 ;CHECK: ret
 define i16 @test16(i1 *%addr, i16 %a) {
@@ -196,11 +191,11 @@ define i16 @test16(i1 *%addr, i16 %a) {
 }
 
 ;CHECK-LABEL: test17
-;KNL: movb (%rdi), %al
-;KNL: andw $1, %ax
-;KNL: kshiftlw $4
+;KNL: kshiftlw
+;KNL: kshiftrw
 ;KNL: korw
-;SKX: kshiftlb $4
+;SKX: kshiftlb
+;SKX: kshiftrb
 ;SKX: korb
 ;CHECK: ret
 define i8 @test17(i1 *%addr, i8 %a) {

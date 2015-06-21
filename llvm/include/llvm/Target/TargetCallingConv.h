@@ -18,7 +18,6 @@
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/MathExtras.h"
 #include <string>
-#include <limits.h>
 
 namespace llvm {
 

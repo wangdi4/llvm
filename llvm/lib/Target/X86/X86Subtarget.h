@@ -222,9 +222,6 @@ protected:
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX;
 
-  /// Use software floating point for code generation.
-  bool UseSoftFloat;
-
   /// The minimum alignment known to hold of the stack frame on
   /// entry to the function and which must be maintained by every function.
   unsigned stackAlignment;
@@ -392,7 +389,6 @@ public:
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool useSoftFloat() const { return UseSoftFloat; }
 
   const Triple &getTargetTriple() const { return TargetTriple; }
 

@@ -765,7 +765,3 @@ bool PointerType::isValidElementType(Type *ElemTy) {
   return !ElemTy->isVoidTy() && !ElemTy->isLabelTy() &&
          !ElemTy->isMetadataTy();
 }
-
-bool PointerType::isLoadableOrStorableType(Type *ElemTy) {
-  return isValidElementType(ElemTy) && !ElemTy->isFunctionTy();
-}

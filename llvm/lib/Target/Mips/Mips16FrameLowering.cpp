@@ -32,9 +32,8 @@ using namespace llvm;
 Mips16FrameLowering::Mips16FrameLowering(const MipsSubtarget &STI)
     : MipsFrameLowering(STI, STI.stackAlignment()) {}
 
-void Mips16FrameLowering::emitPrologue(MachineFunction &MF,
-                                       MachineBasicBlock &MBB) const {
-  assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+void Mips16FrameLowering::emitPrologue(MachineFunction &MF) const {
+  MachineBasicBlock &MBB = MF.front();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   const Mips16InstrInfo &TII =
       *static_cast<const Mips16InstrInfo *>(STI.getInstrInfo());

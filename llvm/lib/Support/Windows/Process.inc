@@ -156,6 +156,10 @@ Optional<std::string> Process::GetEnv(StringRef Name) {
   return std::string(Res.data());
 }
 
+static std::error_code windows_error(DWORD E) {
+  return mapWindowsError(E);
+}
+
 static void AllocateAndPush(const SmallVectorImpl<char> &S,
                             SmallVectorImpl<const char *> &Vector,
                             SpecificBumpPtrAllocator<char> &Allocator) {
@@ -231,7 +235,7 @@ Process::GetArgumentVector(SmallVectorImpl<const char *> &Args,
   wchar_t **UnicodeCommandLine =
       CommandLineToArgvW(GetCommandLineW(), &ArgCount);
   if (!UnicodeCommandLine)
-    return mapWindowsError(::GetLastError());
+    return windows_error(::GetLastError());
 
   Args.reserve(ArgCount);
   std::error_code ec;

@@ -108,7 +108,7 @@ static MCCodeGenInfo *createPPCMCCodeGenInfo(StringRef TT, Reloc::Model RM,
         (T.getArch() == Triple::ppc64 || T.getArch() == Triple::ppc64le))
       CM = CodeModel::Medium;
   }
-  X->initMCCodeGenInfo(RM, CM, OL);
+  X->InitMCCodeGenInfo(RM, CM, OL);
   return X;
 }
 

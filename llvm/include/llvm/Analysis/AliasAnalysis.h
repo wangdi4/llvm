@@ -134,10 +134,6 @@ public:
       Copy.AATags = AAMDNodes();
       return Copy;
     }
-
-    bool operator==(const AliasAnalysis::Location &Other) const {
-      return Ptr == Other.Ptr && Size == Other.Size && AATags == Other.AATags;
-    }
   };
 
   /// getLocation - Fill in Loc with information about the memory reference by
@@ -619,7 +615,9 @@ struct DenseMapInfo<AliasAnalysis::Location> {
   }
   static bool isEqual(const AliasAnalysis::Location &LHS,
                       const AliasAnalysis::Location &RHS) {
-    return LHS == RHS;
+    return LHS.Ptr == RHS.Ptr &&
+           LHS.Size == RHS.Size &&
+           LHS.AATags == RHS.AATags;
   }
 };
 

@@ -309,9 +309,8 @@ static void emitIncrement(MachineBasicBlock &MBB,
   }
 }
 
-void SystemZFrameLowering::emitPrologue(MachineFunction &MF,
-                                        MachineBasicBlock &MBB) const {
-  assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+void SystemZFrameLowering::emitPrologue(MachineFunction &MF) const {
+  MachineBasicBlock &MBB = MF.front();
   MachineFrameInfo *MFFrame = MF.getFrameInfo();
   auto *ZII =
       static_cast<const SystemZInstrInfo *>(MF.getSubtarget().getInstrInfo());

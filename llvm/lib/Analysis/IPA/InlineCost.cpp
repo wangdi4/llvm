@@ -955,9 +955,16 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
         AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller)
       return false;
 
-    // Check if we've past the maximum possible threshold so we don't spin in
-    // huge basic blocks that will never inline.
-    if (Cost > Threshold)
+    if (NumVectorInstructions > NumInstructions/2)
+      VectorBonus = FiftyPercentVectorBonus;
+    else if (NumVectorInstructions > NumInstructions/10)
+      VectorBonus = TenPercentVectorBonus;
+    else
+      VectorBonus = 0;
+
+    // Check if we've past the threshold so we don't spin in huge basic
+    // blocks that will never inline.
+    if (Cost > (Threshold + VectorBonus))
       return false;
   }
 
@@ -1013,32 +1020,24 @@ ConstantInt *CallAnalyzer::stripAndComputeInBoundsConstantOffsets(Value *&V) {
 bool CallAnalyzer::analyzeCall(CallSite CS) {
   ++NumCallsAnalyzed;
 
-  // Perform some tweaks to the cost and threshold based on the direct
-  // callsite information.
-
-  // We want to more aggressively inline vector-dense kernels, so up the
-  // threshold, and we'll lower it if the % of vector instructions gets too
-  // low. Note that these bonuses are some what arbitrary and evolved over time
-  // by accident as much as because they are principled bonuses.
-  //
-  // FIXME: It would be nice to remove all such bonuses. At least it would be
-  // nice to base the bonus values on something more scientific.
-  assert(NumInstructions == 0);
-  assert(NumVectorInstructions == 0);
-  FiftyPercentVectorBonus = 3 * Threshold / 2;
-  TenPercentVectorBonus = 3 * Threshold / 4;
-  const DataLayout &DL = F.getParent()->getDataLayout();
-
   // Track whether the post-inlining function would have more than one basic
   // block. A single basic block is often intended for inlining. Balloon the
   // threshold by 50% until we pass the single-BB phase.
   bool SingleBB = true;
   int SingleBBBonus = Threshold / 2;
+  Threshold += SingleBBBonus;
 
-  // Speculatively apply all possible bonuses to Threshold. If cost exceeds
-  // this Threshold any time, and cost cannot decrease, we can stop processing
-  // the rest of the function body.
-  Threshold += (SingleBBBonus + FiftyPercentVectorBonus);
+  // Perform some tweaks to the cost and threshold based on the direct
+  // callsite information.
+
+  // We want to more aggressively inline vector-dense kernels, so up the
+  // threshold, and we'll lower it if the % of vector instructions gets too
+  // low.
+  assert(NumInstructions == 0);
+  assert(NumVectorInstructions == 0);
+  FiftyPercentVectorBonus = Threshold;
+  TenPercentVectorBonus = Threshold / 2;
+  const DataLayout &DL = F.getParent()->getDataLayout();
 
   // Give out bonuses per argument, as the instructions setting them up will
   // be gone after inlining.
@@ -1082,9 +1081,9 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
   Instruction *Instr = CS.getInstruction();
   if (InvokeInst *II = dyn_cast<InvokeInst>(Instr)) {
     if (isa<UnreachableInst>(II->getNormalDest()->begin()))
-      Threshold = 0;
+      Threshold = 1;
   } else if (isa<UnreachableInst>(++BasicBlock::iterator(Instr)))
-    Threshold = 0;
+    Threshold = 1;
 
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
@@ -1156,7 +1155,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
   for (unsigned Idx = 0; Idx != BBWorklist.size(); ++Idx) {
     // Bail out the moment we cross the threshold. This means we'll under-count
     // the cost, but only when undercounting doesn't matter.
-    if (Cost > Threshold)
+    if (Cost > (Threshold + VectorBonus))
       break;
 
     BasicBlock *BB = BBWorklist[Idx];
@@ -1234,13 +1233,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
     return false;
 
-  // We applied the maximum possible vector bonus at the beginning. Now,
-  // subtract the excess bonus, if any, from the Threshold before
-  // comparing against Cost.
-  if (NumVectorInstructions <= NumInstructions / 10)
-    Threshold -= FiftyPercentVectorBonus;
-  else if (NumVectorInstructions <= NumInstructions / 2)
-    Threshold -= (FiftyPercentVectorBonus - TenPercentVectorBonus);
+  Threshold += VectorBonus;
 
   return Cost < Threshold;
 }
@@ -1255,12 +1248,12 @@ void CallAnalyzer::dump() {
   DEBUG_PRINT_STAT(NumConstantPtrCmps);
   DEBUG_PRINT_STAT(NumConstantPtrDiffs);
   DEBUG_PRINT_STAT(NumInstructionsSimplified);
-  DEBUG_PRINT_STAT(NumInstructions);
   DEBUG_PRINT_STAT(SROACostSavings);
   DEBUG_PRINT_STAT(SROACostSavingsLost);
   DEBUG_PRINT_STAT(ContainsNoDuplicateCall);
   DEBUG_PRINT_STAT(Cost);
   DEBUG_PRINT_STAT(Threshold);
+  DEBUG_PRINT_STAT(VectorBonus);
 #undef DEBUG_PRINT_STAT
 }
 #endif

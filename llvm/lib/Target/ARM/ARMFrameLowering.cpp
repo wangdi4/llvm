@@ -43,14 +43,6 @@ ARMFrameLowering::ARMFrameLowering(const ARMSubtarget &sti)
     : TargetFrameLowering(StackGrowsDown, sti.getStackAlignment(), 0, 4),
       STI(sti) {}
 
-bool ARMFrameLowering::noFramePointerElim(const MachineFunction &MF) const {
-  // iOS always has a FP for backtracking, force other targets to keep their FP
-  // when doing FastISel. The emitted code is currently superior, and in cases
-  // like test-suite's lencod FastISel isn't quite correct when FP is eliminated.
-  return TargetFrameLowering::noFramePointerElim(MF) ||
-         MF.getSubtarget<ARMSubtarget>().useFastISel();
-}
-
 /// hasFP - Return true if the specified function should have a dedicated frame
 /// pointer register.  This is true if the function has variable sized allocas
 /// or if frame pointer elimination is disabled.
@@ -286,9 +278,8 @@ static void emitAligningInstructions(MachineFunction &MF, ARMFunctionInfo *AFI,
   }
 }
 
-void ARMFrameLowering::emitPrologue(MachineFunction &MF,
-                                    MachineBasicBlock &MBB) const {
-  assert(&MBB == &MF.front() && "Shrink-wrapping not yet implemented");
+void ARMFrameLowering::emitPrologue(MachineFunction &MF) const {
+  MachineBasicBlock &MBB = MF.front();
   MachineBasicBlock::iterator MBBI = MBB.begin();
   MachineFrameInfo  *MFI = MF.getFrameInfo();
   ARMFunctionInfo *AFI = MF.getInfo<ARMFunctionInfo>();
@@ -1870,8 +1861,7 @@ static const uint64_t kSplitStackAvailable = 256;
 // ARM can be found at [1].
 //
 // [1] - https://github.com/mozilla/rust/blob/86efd9/src/rt/arch/arm/morestack.S
-void ARMFrameLowering::adjustForSegmentedStacks(
-    MachineFunction &MF, MachineBasicBlock &PrologueMBB) const {
+void ARMFrameLowering::adjustForSegmentedStacks(MachineFunction &MF) const {
   unsigned Opcode;
   unsigned CFIIndex;
   const ARMSubtarget *ST = &MF.getSubtarget<ARMSubtarget>();
@@ -1884,7 +1874,7 @@ void ARMFrameLowering::adjustForSegmentedStacks(
   if (!ST->isTargetAndroid() && !ST->isTargetLinux())
     report_fatal_error("Segmented stacks not supported on this platform.");
 
-  assert(&PrologueMBB == &MF.front() && "Shrink-wrapping not yet implemented");
+  MachineBasicBlock &prologueMBB = MF.front();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   MachineModuleInfo &MMI = MF.getMMI();
   MCContext &Context = MMI.getContext();
@@ -1912,8 +1902,8 @@ void ARMFrameLowering::adjustForSegmentedStacks(
   MachineBasicBlock *GetMBB = MF.CreateMachineBasicBlock();
   MachineBasicBlock *McrMBB = MF.CreateMachineBasicBlock();
 
-  for (MachineBasicBlock::livein_iterator i = PrologueMBB.livein_begin(),
-                                          e = PrologueMBB.livein_end();
+  for (MachineBasicBlock::livein_iterator i = prologueMBB.livein_begin(),
+                                          e = prologueMBB.livein_end();
        i != e; ++i) {
     AllocMBB->addLiveIn(*i);
     GetMBB->addLiveIn(*i);
@@ -2166,7 +2156,7 @@ void ARMFrameLowering::adjustForSegmentedStacks(
       .addCFIIndex(CFIIndex);
 
   // Organizing MBB lists
-  PostStackMBB->addSuccessor(&PrologueMBB);
+  PostStackMBB->addSuccessor(&prologueMBB);
 
   AllocMBB->addSuccessor(PostStackMBB);
 

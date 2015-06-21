@@ -53,7 +53,7 @@ MCSymbol *MachineBasicBlock::getSymbol() const {
     const MachineFunction *MF = getParent();
     MCContext &Ctx = MF->getContext();
     const char *Prefix = Ctx.getAsmInfo()->getPrivateLabelPrefix();
-    CachedMCSymbol = Ctx.getOrCreateSymbol(Twine(Prefix) + "BB" +
+    CachedMCSymbol = Ctx.GetOrCreateSymbol(Twine(Prefix) + "BB" +
                                            Twine(MF->getFunctionNumber()) +
                                            "_" + Twine(getNumber()));
   }
@@ -1129,19 +1129,21 @@ getWeightIterator(MachineBasicBlock::const_succ_iterator I) const {
 /// instructions after (searching just for defs) MI.
 MachineBasicBlock::LivenessQueryResult
 MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
-                                           unsigned Reg, const_iterator Before,
-                                           unsigned Neighborhood) const {
+                                           unsigned Reg, MachineInstr *MI,
+                                           unsigned Neighborhood) {
   unsigned N = Neighborhood;
+  MachineBasicBlock *MBB = MI->getParent();
 
-  // Start by searching backwards from Before, looking for kills, reads or defs.
-  const_iterator I(Before);
+  // Start by searching backwards from MI, looking for kills, reads or defs.
+
+  MachineBasicBlock::iterator I(MI);
   // If this is the first insn in the block, don't search backwards.
-  if (I != begin()) {
+  if (I != MBB->begin()) {
     do {
       --I;
 
       MachineOperandIteratorBase::PhysRegInfo Analysis =
-        ConstMIOperands(I).analyzePhysReg(Reg, TRI);
+        MIOperands(I).analyzePhysReg(Reg, TRI);
 
       if (Analysis.Defines)
         // Outputs happen after inputs so they take precedence if both are
@@ -1156,15 +1158,15 @@ MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
         // Defined or read without a previous kill - live.
         return Analysis.Reads ? LQR_Live : LQR_OverlappingLive;
 
-    } while (I != begin() && --N > 0);
+    } while (I != MBB->begin() && --N > 0);
   }
 
   // Did we get to the start of the block?
-  if (I == begin()) {
+  if (I == MBB->begin()) {
     // If so, the register's state is definitely defined by the live-in state.
     for (MCRegAliasIterator RAI(Reg, TRI, /*IncludeSelf=*/true);
          RAI.isValid(); ++RAI) {
-      if (isLiveIn(*RAI))
+      if (MBB->isLiveIn(*RAI))
         return (*RAI == Reg) ? LQR_Live : LQR_OverlappingLive;
     }
 
@@ -1173,13 +1175,13 @@ MachineBasicBlock::computeRegisterLiveness(const TargetRegisterInfo *TRI,
 
   N = Neighborhood;
 
-  // Try searching forwards from Before, looking for reads or defs.
-  I = const_iterator(Before);
+  // Try searching forwards from MI, looking for reads or defs.
+  I = MachineBasicBlock::iterator(MI);
   // If this is the last insn in the block, don't search forwards.
-  if (I != end()) {
-    for (++I; I != end() && N > 0; ++I, --N) {
+  if (I != MBB->end()) {
+    for (++I; I != MBB->end() && N > 0; ++I, --N) {
       MachineOperandIteratorBase::PhysRegInfo Analysis =
-        ConstMIOperands(I).analyzePhysReg(Reg, TRI);
+        MIOperands(I).analyzePhysReg(Reg, TRI);
 
       if (Analysis.ReadsOverlap)
         // Used, therefore must have been live.

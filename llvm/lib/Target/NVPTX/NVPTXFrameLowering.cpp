@@ -31,10 +31,9 @@ NVPTXFrameLowering::NVPTXFrameLowering()
 
 bool NVPTXFrameLowering::hasFP(const MachineFunction &MF) const { return true; }
 
-void NVPTXFrameLowering::emitPrologue(MachineFunction &MF,
-                                      MachineBasicBlock &MBB) const {
+void NVPTXFrameLowering::emitPrologue(MachineFunction &MF) const {
   if (MF.getFrameInfo()->hasStackObjects()) {
-    assert(&MF.front() == &MBB && "Shrink-wrapping not yet supported");
+    MachineBasicBlock &MBB = MF.front();
     // Insert "mov.u32 %SP, %Depot"
     MachineBasicBlock::iterator MBBI = MBB.begin();
     // This instruction really occurs before first instruction

@@ -38,10 +38,6 @@
 
 using namespace llvm;
 
-bool MCELFStreamer::isBundleLocked() const {
-  return getCurrentSectionData()->isBundleLocked();
-}
-
 MCELFStreamer::~MCELFStreamer() {
 }
 
@@ -137,17 +133,18 @@ void MCELFStreamer::EmitAssemblerFlag(MCAssemblerFlag Flag) {
 
 // If bundle aligment is used and there are any instructions in the section, it
 // needs to be aligned to at least the bundle size.
-static void setSectionAlignmentForBundling(const MCAssembler &Assembler,
-                                           MCSection *Section) {
-  if (Section && Assembler.isBundlingEnabled() && Section->hasInstructions() &&
+static void setSectionAlignmentForBundling(
+    const MCAssembler &Assembler, MCSectionData *Section) {
+  if (Assembler.isBundlingEnabled() && Section &&
+      Section->hasInstructions() &&
       Section->getAlignment() < Assembler.getBundleAlignSize())
     Section->setAlignment(Assembler.getBundleAlignSize());
 }
 
-void MCELFStreamer::ChangeSection(MCSection *Section,
+void MCELFStreamer::ChangeSection(const MCSection *Section,
                                   const MCExpr *Subsection) {
-  MCSection *CurSection = getCurrentSectionData();
-  if (CurSection && isBundleLocked())
+  MCSectionData *CurSection = getCurrentSectionData();
+  if (CurSection && CurSection->isBundleLocked())
     report_fatal_error("Unterminated .bundle_lock when changing a section");
 
   MCAssembler &Asm = getAssembler();
@@ -201,7 +198,7 @@ bool MCELFStreamer::EmitSymbolAttribute(MCSymbol *Symbol,
     // important for matching the string table that 'as' generates.
     IndirectSymbolData ISD;
     ISD.Symbol = Symbol;
-    ISD.Section = getCurrentSectionData();
+    ISD.SectionData = getCurrentSectionData();
     getAssembler().getIndirectSymbols().push_back(ISD);
     return true;
   }
@@ -317,12 +314,12 @@ void MCELFStreamer::EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
   MCELF::SetType(SD, ELF::STT_OBJECT);
 
   if (MCELF::GetBinding(SD) == ELF_STB_Local) {
-    MCSection *Section = getAssembler().getContext().getELFSection(
+    const MCSection *Section = getAssembler().getContext().getELFSection(
         ".bss", ELF::SHT_NOBITS, ELF::SHF_WRITE | ELF::SHF_ALLOC);
 
     AssignSection(Symbol, Section);
 
-    struct LocalCommon L = {Symbol, Size, ByteAlignment};
+    struct LocalCommon L = {&SD, Size, ByteAlignment};
     LocalCommons.push_back(L);
   } else {
     SD.setCommon(Size, ByteAlignment);
@@ -348,7 +345,7 @@ void MCELFStreamer::EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size,
 
 void MCELFStreamer::EmitValueImpl(const MCExpr *Value, unsigned Size,
                                   const SMLoc &Loc) {
-  if (isBundleLocked())
+  if (getCurrentSectionData()->isBundleLocked())
     report_fatal_error("Emitting values inside a locked bundle is forbidden");
   fixSymbolsInTLSFixups(Value);
   MCObjectStreamer::EmitValueImpl(Value, Size, Loc);
@@ -358,7 +355,7 @@ void MCELFStreamer::EmitValueToAlignment(unsigned ByteAlignment,
                                          int64_t Value,
                                          unsigned ValueSize,
                                          unsigned MaxBytesToEmit) {
-  if (isBundleLocked())
+  if (getCurrentSectionData()->isBundleLocked())
     report_fatal_error("Emitting values inside a locked bundle is forbidden");
   MCObjectStreamer::EmitValueToAlignment(ByteAlignment, Value,
                                          ValueSize, MaxBytesToEmit);
@@ -372,7 +369,7 @@ void MCELFStreamer::EmitFileDirective(StringRef Filename) {
 }
 
 void MCELFStreamer::EmitIdent(StringRef IdentString) {
-  MCSection *Comment = getAssembler().getContext().getELFSection(
+  const MCSection *Comment = getAssembler().getContext().getELFSection(
       ".comment", ELF::SHT_PROGBITS, ELF::SHF_MERGE | ELF::SHF_STRINGS, 1, "");
   PushSection();
   SwitchSection(Comment);
@@ -482,7 +479,7 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   SmallVector<MCFixup, 4> Fixups;
   SmallString<256> Code;
   raw_svector_ostream VecOS(Code);
-  Assembler.getEmitter().encodeInstruction(Inst, VecOS, Fixups, STI);
+  Assembler.getEmitter().EncodeInstruction(Inst, VecOS, Fixups, STI);
   VecOS.flush();
 
   for (unsigned i = 0, e = Fixups.size(); i != e; ++i)
@@ -506,21 +503,21 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   MCDataFragment *DF;
 
   if (Assembler.isBundlingEnabled()) {
-    MCSection &Sec = *getCurrentSectionData();
-    if (Assembler.getRelaxAll() && isBundleLocked())
+    MCSectionData *SD = getCurrentSectionData();
+    if (Assembler.getRelaxAll() && SD->isBundleLocked())
       // If the -mc-relax-all flag is used and we are bundle-locked, we re-use
       // the current bundle group.
       DF = BundleGroups.back();
-    else if (Assembler.getRelaxAll() && !isBundleLocked())
+    else if (Assembler.getRelaxAll() && !SD->isBundleLocked())
       // When not in a bundle-locked group and the -mc-relax-all flag is used,
       // we create a new temporary fragment which will be later merged into
       // the current fragment.
       DF = new MCDataFragment();
-    else if (isBundleLocked() && !Sec.isBundleGroupBeforeFirstInst())
+    else if (SD->isBundleLocked() && !SD->isBundleGroupBeforeFirstInst())
       // If we are bundle-locked, we re-use the current fragment.
       // The bundle-locking directive ensures this is a new data fragment.
       DF = cast<MCDataFragment>(getCurrentFragment());
-    else if (!isBundleLocked() && Fixups.size() == 0) {
+    else if (!SD->isBundleLocked() && Fixups.size() == 0) {
       // Optimize memory usage by emitting the instruction to a
       // MCCompactEncodedInstFragment when not in a bundle-locked group and
       // there are no fixups registered.
@@ -532,7 +529,7 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
       DF = new MCDataFragment();
       insert(DF);
     }
-    if (Sec.getBundleLockState() == MCSection::BundleLockedAlignToEnd) {
+    if (SD->getBundleLockState() == MCSectionData::BundleLockedAlignToEnd) {
       // If this fragment is for a group marked "align_to_end", set a flag
       // in the fragment. This can happen after the fragment has already been
       // created if there are nested bundle_align groups and an inner one
@@ -542,7 +539,7 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
 
     // We're now emitting an instruction in a bundle group, so this flag has
     // to be turned off.
-    Sec.setBundleGroupBeforeFirstInst(false);
+    SD->setBundleGroupBeforeFirstInst(false);
   } else {
     DF = getOrCreateDataFragment();
   }
@@ -556,7 +553,8 @@ void MCELFStreamer::EmitInstToData(const MCInst &Inst,
   DF->getContents().append(Code.begin(), Code.end());
 
   if (Assembler.isBundlingEnabled() && Assembler.getRelaxAll()) {
-    if (!isBundleLocked()) {
+    MCSectionData *SD = getCurrentSectionData();
+    if (!SD->isBundleLocked()) {
       mergeFragment(getOrCreateDataFragment(), DF);
       delete DF;
     }
@@ -574,35 +572,35 @@ void MCELFStreamer::EmitBundleAlignMode(unsigned AlignPow2) {
 }
 
 void MCELFStreamer::EmitBundleLock(bool AlignToEnd) {
-  MCSection &Sec = *getCurrentSectionData();
+  MCSectionData *SD = getCurrentSectionData();
 
   // Sanity checks
   //
   if (!getAssembler().isBundlingEnabled())
     report_fatal_error(".bundle_lock forbidden when bundling is disabled");
 
-  if (!isBundleLocked())
-    Sec.setBundleGroupBeforeFirstInst(true);
+  if (!SD->isBundleLocked())
+    SD->setBundleGroupBeforeFirstInst(true);
 
-  if (getAssembler().getRelaxAll() && !isBundleLocked()) {
+  if (getAssembler().getRelaxAll() && !SD->isBundleLocked()) {
     // TODO: drop the lock state and set directly in the fragment
     MCDataFragment *DF = new MCDataFragment();
     BundleGroups.push_back(DF);
   }
 
-  Sec.setBundleLockState(AlignToEnd ? MCSection::BundleLockedAlignToEnd
-                                    : MCSection::BundleLocked);
+  SD->setBundleLockState(AlignToEnd ? MCSectionData::BundleLockedAlignToEnd :
+                                      MCSectionData::BundleLocked);
 }
 
 void MCELFStreamer::EmitBundleUnlock() {
-  MCSection &Sec = *getCurrentSectionData();
+  MCSectionData *SD = getCurrentSectionData();
 
   // Sanity checks
   if (!getAssembler().isBundlingEnabled())
     report_fatal_error(".bundle_unlock forbidden when bundling is disabled");
-  else if (!isBundleLocked())
+  else if (!SD->isBundleLocked())
     report_fatal_error(".bundle_unlock without matching lock");
-  else if (Sec.isBundleGroupBeforeFirstInst())
+  else if (SD->isBundleGroupBeforeFirstInst())
     report_fatal_error("Empty bundle-locked group is forbidden");
 
   // When the -mc-relax-all flag is used, we emit instructions to fragments
@@ -613,39 +611,40 @@ void MCELFStreamer::EmitBundleUnlock() {
     MCDataFragment *DF = BundleGroups.back();
 
     // FIXME: Use BundleGroups to track the lock state instead.
-    Sec.setBundleLockState(MCSection::NotBundleLocked);
+    SD->setBundleLockState(MCSectionData::NotBundleLocked);
 
-    // FIXME: Use more separate fragments for nested groups.
-    if (!isBundleLocked()) {
+    // FIXME: Use more separate fragments for nested groups. 
+    if (!SD->isBundleLocked()) {
       mergeFragment(getOrCreateDataFragment(), DF);
       BundleGroups.pop_back();
       delete DF;
     }
 
-    if (Sec.getBundleLockState() != MCSection::BundleLockedAlignToEnd)
+    if (SD->getBundleLockState() != MCSectionData::BundleLockedAlignToEnd)
       getOrCreateDataFragment()->setAlignToBundleEnd(false);
   } else
-    Sec.setBundleLockState(MCSection::NotBundleLocked);
+    SD->setBundleLockState(MCSectionData::NotBundleLocked);
 }
 
 void MCELFStreamer::Flush() {
   for (std::vector<LocalCommon>::const_iterator i = LocalCommons.begin(),
                                                 e = LocalCommons.end();
        i != e; ++i) {
-    const MCSymbol &Symbol = *i->Symbol;
+    MCSymbolData *SD = i->SD;
     uint64_t Size = i->Size;
     unsigned ByteAlignment = i->ByteAlignment;
-    MCSection &Section = Symbol.getSection();
+    const MCSymbol &Symbol = SD->getSymbol();
+    const MCSection &Section = Symbol.getSection();
 
-    getAssembler().registerSection(Section);
-    new MCAlignFragment(ByteAlignment, 0, 1, ByteAlignment, &Section);
+    MCSectionData &SectData = getAssembler().getOrCreateSectionData(Section);
+    new MCAlignFragment(ByteAlignment, 0, 1, ByteAlignment, &SectData);
 
-    MCFragment *F = new MCFillFragment(0, 0, Size, &Section);
-    Symbol.getData().setFragment(F);
+    MCFragment *F = new MCFillFragment(0, 0, Size, &SectData);
+    SD->setFragment(F);
 
     // Update the maximum alignment of the section if necessary.
-    if (ByteAlignment > Section.getAlignment())
-      Section.setAlignment(ByteAlignment);
+    if (ByteAlignment > SectData.getAlignment())
+      SectData.setAlignment(ByteAlignment);
   }
 
   LocalCommons.clear();
@@ -653,8 +652,7 @@ void MCELFStreamer::Flush() {
 
 void MCELFStreamer::FinishImpl() {
   // Ensure the last section gets aligned if necessary.
-  MCSection *CurSection = getCurrentSectionData();
-  setSectionAlignmentForBundling(getAssembler(), CurSection);
+  setSectionAlignmentForBundling(getAssembler(), getCurrentSectionData());
 
   EmitFrames(nullptr);
 
@@ -696,12 +694,12 @@ void MCELFStreamer::EndCOFFSymbolDef() {
   llvm_unreachable("ELF doesn't support this directive");
 }
 
-void MCELFStreamer::EmitZerofill(MCSection *Section, MCSymbol *Symbol,
+void MCELFStreamer::EmitZerofill(const MCSection *Section, MCSymbol *Symbol,
                                  uint64_t Size, unsigned ByteAlignment) {
   llvm_unreachable("ELF doesn't support this directive");
 }
 
-void MCELFStreamer::EmitTBSSSymbol(MCSection *Section, MCSymbol *Symbol,
+void MCELFStreamer::EmitTBSSSymbol(const MCSection *Section, MCSymbol *Symbol,
                                    uint64_t Size, unsigned ByteAlignment) {
   llvm_unreachable("ELF doesn't support this directive");
 }

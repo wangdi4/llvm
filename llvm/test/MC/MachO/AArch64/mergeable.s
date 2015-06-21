@@ -1,6 +1,4 @@
 // RUN: llvm-mc -triple aarch64-apple-darwin14 %s -filetype=obj -o - | llvm-readobj -r --expand-relocs | FileCheck %s
-// FIXME: the final relocation should be internal, but the linker doesn't
-// currently handle the it correctly.
 
 // Test that we "S + K" produce a relocation with a symbol, but just S produces
 // a relocation with the section.
@@ -52,9 +50,9 @@ L1:
 // CHECK-NEXT:       Offset: 0x0
 // CHECK-NEXT:       PCRel: 0
 // CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Extern: 1
+// CHECK-NEXT:       Extern: 0
 // CHECK-NEXT:       Type: ARM64_RELOC_UNSIGNED (0)
-// CHECK-NEXT:       Symbol: L0
+// CHECK-NEXT:       Symbol: 0x2
 // CHECK-NEXT:       Scattered: 0
 // CHECK-NEXT:     }
 // CHECK-NEXT:   }

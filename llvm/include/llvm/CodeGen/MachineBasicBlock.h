@@ -315,18 +315,9 @@ public:
 
   // LiveIn management methods.
 
-  /// Adds the specified register as a live in. Note that it is an error to add
-  /// the same register to the same set more than once unless the intention is
-  /// to call sortUniqueLiveIns after all registers are added.
-  void addLiveIn(unsigned Reg) { LiveIns.push_back(Reg); }
-
-  /// Sorts and uniques the LiveIns vector. It can be significantly faster to do
-  /// this than repeatedly calling isLiveIn before calling addLiveIn for every
-  /// LiveIn insertion.
-  void sortUniqueLiveIns() {
-    std::sort(LiveIns.begin(), LiveIns.end());
-    LiveIns.erase(std::unique(LiveIns.begin(), LiveIns.end()), LiveIns.end());
-  }
+  /// addLiveIn - Add the specified register as a live in.  Note that it
+  /// is an error to add the same register to the same set more than once.
+  void addLiveIn(unsigned Reg)  { LiveIns.push_back(Reg); }
 
   /// Add PhysReg as live in to this block, and ensure that there is a copy of
   /// PhysReg to a virtual register of class RC. Return the virtual register
@@ -633,18 +624,17 @@ public:
                          ///< neighborhood.
   };
 
-  /// Return whether (physical) register \p Reg has been <def>ined and not
-  /// <kill>ed as of just before \p Before.
+  /// computeRegisterLiveness - Return whether (physical) register \c Reg
+  /// has been <def>ined and not <kill>ed as of just before \c MI.
   ///
-  /// Search is localised to a neighborhood of \p Neighborhood instructions
-  /// before (searching for defs or kills) and \p Neighborhood instructions
-  /// after (searching just for defs) \p Before.
+  /// Search is localised to a neighborhood of
+  /// \c Neighborhood instructions before (searching for defs or kills) and
+  /// Neighborhood instructions after (searching just for defs) MI.
   ///
-  /// \p Reg must be a physical register.
+  /// \c Reg must be a physical register.
   LivenessQueryResult computeRegisterLiveness(const TargetRegisterInfo *TRI,
-                                              unsigned Reg,
-                                              const_iterator Before,
-                                              unsigned Neighborhood=10) const;
+                                              unsigned Reg, MachineInstr *MI,
+                                              unsigned Neighborhood=10);
 
   // Debugging methods.
   void dump() const;

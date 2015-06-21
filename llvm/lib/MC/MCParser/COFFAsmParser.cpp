@@ -272,7 +272,7 @@ bool COFFAsmParser::ParseDirectiveSymbolAttribute(StringRef Directive, SMLoc) {
       if (getParser().parseIdentifier(Name))
         return TokError("expected identifier in directive");
 
-      MCSymbol *Sym = getContext().getOrCreateSymbol(Name);
+      MCSymbol *Sym = getContext().GetOrCreateSymbol(Name);
 
       getStreamer().EmitSymbolAttribute(Sym, Attr);
 
@@ -398,7 +398,7 @@ bool COFFAsmParser::ParseDirectiveDef(StringRef, SMLoc) {
   if (getParser().parseIdentifier(SymbolName))
     return TokError("expected identifier in directive");
 
-  MCSymbol *Sym = getContext().getOrCreateSymbol(SymbolName);
+  MCSymbol *Sym = getContext().GetOrCreateSymbol(SymbolName);
 
   getStreamer().BeginCOFFSymbolDef(Sym);
 
@@ -446,7 +446,7 @@ bool COFFAsmParser::ParseDirectiveSecRel32(StringRef, SMLoc) {
   if (getLexer().isNot(AsmToken::EndOfStatement))
     return TokError("unexpected token in directive");
 
-  MCSymbol *Symbol = getContext().getOrCreateSymbol(SymbolID);
+  MCSymbol *Symbol = getContext().GetOrCreateSymbol(SymbolID);
 
   Lex();
   getStreamer().EmitCOFFSecRel32(Symbol);
@@ -461,7 +461,7 @@ bool COFFAsmParser::ParseDirectiveSecIdx(StringRef, SMLoc) {
   if (getLexer().isNot(AsmToken::EndOfStatement))
     return TokError("unexpected token in directive");
 
-  MCSymbol *Symbol = getContext().getOrCreateSymbol(SymbolID);
+  MCSymbol *Symbol = getContext().GetOrCreateSymbol(SymbolID);
 
   Lex();
   getStreamer().EmitCOFFSectionIndex(Symbol);
@@ -524,7 +524,7 @@ bool COFFAsmParser::ParseSEHDirectiveStartProc(StringRef, SMLoc) {
   if (getLexer().isNot(AsmToken::EndOfStatement))
     return TokError("unexpected token in directive");
 
-  MCSymbol *Symbol = getContext().getOrCreateSymbol(SymbolID);
+  MCSymbol *Symbol = getContext().GetOrCreateSymbol(SymbolID);
 
   Lex();
   getStreamer().EmitWinCFIStartProc(Symbol);
@@ -568,7 +568,7 @@ bool COFFAsmParser::ParseSEHDirectiveHandler(StringRef, SMLoc) {
   if (getLexer().isNot(AsmToken::EndOfStatement))
     return TokError("unexpected token in directive");
 
-  MCSymbol *handler = getContext().getOrCreateSymbol(SymbolID);
+  MCSymbol *handler = getContext().GetOrCreateSymbol(SymbolID);
 
   Lex();
   getStreamer().EmitWinEHHandler(handler, unwind, except);

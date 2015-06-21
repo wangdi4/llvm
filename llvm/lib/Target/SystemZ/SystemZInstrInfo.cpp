@@ -423,7 +423,7 @@ static MachineInstr *getDef(unsigned Reg,
 }
 
 // Return true if MI is a shift of type Opcode by Imm bits.
-static bool isShift(MachineInstr *MI, unsigned Opcode, int64_t Imm) {
+static bool isShift(MachineInstr *MI, int Opcode, int64_t Imm) {
   return (MI->getOpcode() == Opcode &&
           !MI->getOperand(2).getReg() &&
           MI->getOperand(3).getImm() == Imm);
@@ -578,12 +578,6 @@ SystemZInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
     Opcode = SystemZ::LDR;
   else if (SystemZ::FP128BitRegClass.contains(DestReg, SrcReg))
     Opcode = SystemZ::LXR;
-  else if (SystemZ::VR32BitRegClass.contains(DestReg, SrcReg))
-    Opcode = SystemZ::VLR32;
-  else if (SystemZ::VR64BitRegClass.contains(DestReg, SrcReg))
-    Opcode = SystemZ::VLR64;
-  else if (SystemZ::VR128BitRegClass.contains(DestReg, SrcReg))
-    Opcode = SystemZ::VLR;
   else
     llvm_unreachable("Impossible reg-to-reg copy");
 
@@ -1122,16 +1116,6 @@ void SystemZInstrInfo::getLoadStoreOpcodes(const TargetRegisterClass *RC,
   } else if (RC == &SystemZ::FP128BitRegClass) {
     LoadOpcode = SystemZ::LX;
     StoreOpcode = SystemZ::STX;
-  } else if (RC == &SystemZ::VR32BitRegClass) {
-    LoadOpcode = SystemZ::VL32;
-    StoreOpcode = SystemZ::VST32;
-  } else if (RC == &SystemZ::VR64BitRegClass) {
-    LoadOpcode = SystemZ::VL64;
-    StoreOpcode = SystemZ::VST64;
-  } else if (RC == &SystemZ::VF128BitRegClass ||
-             RC == &SystemZ::VR128BitRegClass) {
-    LoadOpcode = SystemZ::VL;
-    StoreOpcode = SystemZ::VST;
   } else
     llvm_unreachable("Unsupported regclass to load or store");
 }
@@ -1201,7 +1185,6 @@ static bool isStringOfOnes(uint64_t Mask, unsigned &LSB, unsigned &Length) {
 bool SystemZInstrInfo::isRxSBGMask(uint64_t Mask, unsigned BitSize,
                                    unsigned &Start, unsigned &End) const {
   // Reject trivial all-zero masks.
-  Mask &= allOnes(BitSize);
   if (Mask == 0)
     return false;
 

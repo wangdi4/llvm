@@ -320,7 +320,9 @@ MinInstrCountEnsemble::pickTracePred(const MachineBasicBlock *MBB) {
   unsigned CurCount = MTM.getResources(MBB)->InstrCount;
   const MachineBasicBlock *Best = nullptr;
   unsigned BestDepth = 0;
-  for (const MachineBasicBlock *Pred : MBB->predecessors()) {
+  for (MachineBasicBlock::const_pred_iterator
+       I = MBB->pred_begin(), E = MBB->pred_end(); I != E; ++I) {
+    const MachineBasicBlock *Pred = *I;
     const MachineTraceMetrics::TraceBlockInfo *PredTBI =
       getDepthResources(Pred);
     // Ignore cycles that aren't natural loops.
@@ -342,7 +344,9 @@ MinInstrCountEnsemble::pickTraceSucc(const MachineBasicBlock *MBB) {
   const MachineLoop *CurLoop = getLoopFor(MBB);
   const MachineBasicBlock *Best = nullptr;
   unsigned BestHeight = 0;
-  for (const MachineBasicBlock *Succ : MBB->successors()) {
+  for (MachineBasicBlock::const_succ_iterator
+       I = MBB->succ_begin(), E = MBB->succ_end(); I != E; ++I) {
+    const MachineBasicBlock *Succ = *I;
     // Don't consider back-edges.
     if (CurLoop && Succ == CurLoop->getHeader())
       continue;

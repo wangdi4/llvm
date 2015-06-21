@@ -62,7 +62,7 @@ GetJumpTableSymbol(const MachineOperand &MO) const {
   }
 
   // Create a symbol for the name.
-  return Ctx.getOrCreateSymbol(Name);
+  return Ctx.GetOrCreateSymbol(Name);
 }
 
 MCSymbol *MSP430MCInstLower::
@@ -79,7 +79,7 @@ GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
   }
 
   // Create a symbol for the name.
-  return Ctx.getOrCreateSymbol(Name);
+  return Ctx.GetOrCreateSymbol(Name);
 }
 
 MCSymbol *MSP430MCInstLower::
@@ -107,7 +107,7 @@ LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
     Expr = MCBinaryExpr::CreateAdd(Expr,
                                    MCConstantExpr::Create(MO.getOffset(), Ctx),
                                    Ctx);
-  return MCOperand::createExpr(Expr);
+  return MCOperand::CreateExpr(Expr);
 }
 
 void MSP430MCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
@@ -124,13 +124,13 @@ void MSP430MCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_Register:
       // Ignore all implicit register operands.
       if (MO.isImplicit()) continue;
-      MCOp = MCOperand::createReg(MO.getReg());
+      MCOp = MCOperand::CreateReg(MO.getReg());
       break;
     case MachineOperand::MO_Immediate:
-      MCOp = MCOperand::createImm(MO.getImm());
+      MCOp = MCOperand::CreateImm(MO.getImm());
       break;
     case MachineOperand::MO_MachineBasicBlock:
-      MCOp = MCOperand::createExpr(MCSymbolRefExpr::Create(
+      MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
                          MO.getMBB()->getSymbol(), Ctx));
       break;
     case MachineOperand::MO_GlobalAddress:

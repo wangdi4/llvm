@@ -14,7 +14,6 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
-#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cctype>
@@ -169,10 +168,6 @@ void Input::endMapping() {
   }
 }
 
-void Input::beginFlowMapping() { beginMapping(); }
-
-void Input::endFlowMapping() { endMapping(); }
-
 unsigned Input::beginSequence() {
   if (SequenceHNode *SQ = dyn_cast<SequenceHNode>(CurrentNode))
     return SQ->Entries.size();
@@ -310,8 +305,6 @@ void Input::scalarString(StringRef &S, bool) {
   }
 }
 
-void Input::blockScalarString(StringRef &S) { scalarString(S, false); }
-
 void Input::setError(HNode *hnode, const Twine &message) {
   assert(hnode && "HNode must not be NULL");
   this->setError(hnode->_node, message);
@@ -334,11 +327,6 @@ std::unique_ptr<Input::HNode> Input::createHNodes(Node *N) {
       KeyStr = StringRef(Buf, Len);
     }
     return llvm::make_unique<ScalarHNode>(N, KeyStr);
-  } else if (BlockScalarNode *BSN = dyn_cast<BlockScalarNode>(N)) {
-    StringRef Value = BSN->getValue();
-    char *Buf = StringAllocator.Allocate<char>(Value.size());
-    memcpy(Buf, Value.data(), Value.size());
-    return llvm::make_unique<ScalarHNode>(N, StringRef(Buf, Value.size()));
   } else if (SequenceNode *SQ = dyn_cast<SequenceNode>(N)) {
     auto SQHNode = llvm::make_unique<SequenceHNode>(N);
     for (Node &SN : *SQ) {
@@ -405,7 +393,6 @@ Output::Output(raw_ostream &yout, void *context)
       Out(yout),
       Column(0),
       ColumnAtFlowStart(0),
-      ColumnAtMapFlowStart(0),
       NeedBitValueComma(false),
       NeedFlowSequenceComma(false),
       EnumerationMatchFound(false),
@@ -440,13 +427,8 @@ bool Output::preflightKey(const char *Key, bool Required, bool SameAsDefault,
                           bool &UseDefault, void *&) {
   UseDefault = false;
   if (Required || !SameAsDefault) {
-    auto State = StateStack.back();
-    if (State == inFlowMapFirstKey || State == inFlowMapOtherKey) {
-      flowKey(Key);
-    } else {
-      this->newLineCheck();
-      this->paddedKey(Key);
-    }
+    this->newLineCheck();
+    this->paddedKey(Key);
     return true;
   }
   return false;
@@ -456,22 +438,7 @@ void Output::postflightKey(void *) {
   if (StateStack.back() == inMapFirstKey) {
     StateStack.pop_back();
     StateStack.push_back(inMapOtherKey);
-  } else if (StateStack.back() == inFlowMapFirstKey) {
-    StateStack.pop_back();
-    StateStack.push_back(inFlowMapOtherKey);
   }
-}
-
-void Output::beginFlowMapping() {
-  StateStack.push_back(inFlowMapFirstKey);
-  this->newLineCheck();
-  ColumnAtMapFlowStart = Column;
-  output("{ ");
-}
-
-void Output::endFlowMapping() {
-  StateStack.pop_back();
-  this->outputUpToEndOfLine(" }");
 }
 
 void Output::beginDocuments() {
@@ -617,24 +584,6 @@ void Output::scalarString(StringRef &S, bool MustQuote) {
   this->outputUpToEndOfLine("'"); // Ending single quote.
 }
 
-void Output::blockScalarString(StringRef &S) {
-  if (!StateStack.empty())
-    newLineCheck();
-  output(" |");
-  outputNewLine();
-
-  unsigned Indent = StateStack.empty() ? 1 : StateStack.size();
-
-  auto Buffer = MemoryBuffer::getMemBuffer(S, "", false);
-  for (line_iterator Lines(*Buffer, false); !Lines.is_at_end(); ++Lines) {
-    for (unsigned I = 0; I < Indent; ++I) {
-      output("  ");
-    }
-    output(*Lines);
-    outputNewLine();
-  }
-}
-
 void Output::setError(const Twine &message) {
 }
 
@@ -658,9 +607,7 @@ void Output::output(StringRef s) {
 
 void Output::outputUpToEndOfLine(StringRef s) {
   this->output(s);
-  if (StateStack.empty() || (StateStack.back() != inFlowSeq &&
-                             StateStack.back() != inFlowMapFirstKey &&
-                             StateStack.back() != inFlowMapOtherKey))
+  if (StateStack.empty() || StateStack.back() != inFlowSeq)
     NeedsNewLine = true;
 }
 
@@ -686,9 +633,7 @@ void Output::newLineCheck() {
 
   if (StateStack.back() == inSeq) {
     OutputDash = true;
-  } else if ((StateStack.size() > 1) && ((StateStack.back() == inMapFirstKey) ||
-             (StateStack.back() == inFlowSeq) ||
-             (StateStack.back() == inFlowMapFirstKey)) &&
+  } else if ((StateStack.size() > 1) && (StateStack.back() == inMapFirstKey) &&
              (StateStack[StateStack.size() - 2] == inSeq)) {
     --Indent;
     OutputDash = true;
@@ -711,20 +656,6 @@ void Output::paddedKey(StringRef key) {
     output(&spaces[key.size()]);
   else
     output(" ");
-}
-
-void Output::flowKey(StringRef Key) {
-  if (StateStack.back() == inFlowMapOtherKey)
-    output(", ");
-  if (Column > 70) {
-    output("\n");
-    for (int I = 0; I < ColumnAtMapFlowStart; ++I)
-      output(" ");
-    Column = ColumnAtMapFlowStart;
-    output("  ");
-  }
-  output(Key);
-  output(": ");
 }
 
 //===----------------------------------------------------------------------===//

@@ -73,7 +73,7 @@ MCOperand AArch64MCInstLower::lowerSymbolOperandDarwin(const MachineOperand &MO,
   if (!MO.isJTI() && MO.getOffset())
     Expr = MCBinaryExpr::CreateAdd(
         Expr, MCConstantExpr::Create(MO.getOffset(), Ctx), Ctx);
-  return MCOperand::createExpr(Expr);
+  return MCOperand::CreateExpr(Expr);
 }
 
 MCOperand AArch64MCInstLower::lowerSymbolOperandELF(const MachineOperand &MO,
@@ -148,7 +148,7 @@ MCOperand AArch64MCInstLower::lowerSymbolOperandELF(const MachineOperand &MO,
   RefKind = static_cast<AArch64MCExpr::VariantKind>(RefFlags);
   Expr = AArch64MCExpr::Create(Expr, RefKind, Ctx);
 
-  return MCOperand::createExpr(Expr);
+  return MCOperand::CreateExpr(Expr);
 }
 
 MCOperand AArch64MCInstLower::LowerSymbolOperand(const MachineOperand &MO,
@@ -169,16 +169,16 @@ bool AArch64MCInstLower::lowerOperand(const MachineOperand &MO,
     // Ignore all implicit register operands.
     if (MO.isImplicit())
       return false;
-    MCOp = MCOperand::createReg(MO.getReg());
+    MCOp = MCOperand::CreateReg(MO.getReg());
     break;
   case MachineOperand::MO_RegisterMask:
     // Regmasks are like implicit defs.
     return false;
   case MachineOperand::MO_Immediate:
-    MCOp = MCOperand::createImm(MO.getImm());
+    MCOp = MCOperand::CreateImm(MO.getImm());
     break;
   case MachineOperand::MO_MachineBasicBlock:
-    MCOp = MCOperand::createExpr(
+    MCOp = MCOperand::CreateExpr(
         MCSymbolRefExpr::Create(MO.getMBB()->getSymbol(), Ctx));
     break;
   case MachineOperand::MO_GlobalAddress:

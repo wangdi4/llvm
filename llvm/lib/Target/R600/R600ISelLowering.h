@@ -50,8 +50,7 @@ private:
 
   void lowerImplicitParameter(MachineInstr *MI, MachineBasicBlock &BB,
       MachineRegisterInfo & MRI, unsigned dword_offset) const;
-  SDValue OptimizeSwizzle(SDValue BuildVector, SDValue Swz[], SelectionDAG &DAG,
-                          SDLoc DL) const;
+  SDValue OptimizeSwizzle(SDValue BuildVector, SDValue Swz[], SelectionDAG &DAG) const;
   SDValue vectorToVerticalVector(SelectionDAG &DAG, SDValue Vector) const;
 
   SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
@@ -64,8 +63,6 @@ private:
   SDValue LowerTrig(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSHLParts(SDValue Op, SelectionDAG &DAG) const;
   SDValue LowerSRXParts(SDValue Op, SelectionDAG &DAG) const;
-  SDValue LowerUADDSUBO(SDValue Op, SelectionDAG &DAG,
-                        unsigned mainop, unsigned ovf) const;
 
   SDValue stackPtrToRegIndex(SDValue Ptr, unsigned StackWidth,
                                           SelectionDAG &DAG) const;

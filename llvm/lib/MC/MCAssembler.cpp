@@ -69,19 +69,19 @@ MCAsmLayout::MCAsmLayout(MCAssembler &Asm)
  {
   // Compute the section layout order. Virtual sections must go last.
   for (MCAssembler::iterator it = Asm.begin(), ie = Asm.end(); it != ie; ++it)
-    if (!it->isVirtualSection())
+    if (!it->getSection().isVirtualSection())
       SectionOrder.push_back(&*it);
   for (MCAssembler::iterator it = Asm.begin(), ie = Asm.end(); it != ie; ++it)
-    if (it->isVirtualSection())
+    if (it->getSection().isVirtualSection())
       SectionOrder.push_back(&*it);
 }
 
 bool MCAsmLayout::isFragmentValid(const MCFragment *F) const {
-  const MCSection *Sec = F->getParent();
-  const MCFragment *LastValid = LastValidFragment.lookup(Sec);
+  const MCSectionData &SD = *F->getParent();
+  const MCFragment *LastValid = LastValidFragment.lookup(&SD);
   if (!LastValid)
     return false;
-  assert(LastValid->getParent() == Sec);
+  assert(LastValid->getParent() == F->getParent());
   return F->getLayoutOrder() <= LastValid->getLayoutOrder();
 }
 
@@ -92,14 +92,16 @@ void MCAsmLayout::invalidateFragmentsFrom(MCFragment *F) {
 
   // Otherwise, reset the last valid fragment to the previous fragment
   // (if this is the first fragment, it will be NULL).
-  LastValidFragment[F->getParent()] = F->getPrevNode();
+  const MCSectionData &SD = *F->getParent();
+  LastValidFragment[&SD] = F->getPrevNode();
 }
 
 void MCAsmLayout::ensureValid(const MCFragment *F) const {
-  MCSection *Sec = F->getParent();
-  MCFragment *Cur = LastValidFragment[Sec];
+  MCSectionData &SD = *F->getParent();
+
+  MCFragment *Cur = LastValidFragment[&SD];
   if (!Cur)
-    Cur = Sec->begin();
+    Cur = &*SD.begin();
   else
     Cur = Cur->getNextNode();
 
@@ -118,23 +120,25 @@ uint64_t MCAsmLayout::getFragmentOffset(const MCFragment *F) const {
 }
 
 // Simple getSymbolOffset helper for the non-varibale case.
-static bool getLabelOffset(const MCAsmLayout &Layout, const MCSymbol &S,
+static bool getLabelOffset(const MCAsmLayout &Layout, const MCSymbolData &SD,
                            bool ReportError, uint64_t &Val) {
-  const MCSymbolData &SD = S.getData();
   if (!SD.getFragment()) {
     if (ReportError)
       report_fatal_error("unable to evaluate offset to undefined symbol '" +
-                         S.getName() + "'");
+                         SD.getSymbol().getName() + "'");
     return false;
   }
   Val = Layout.getFragmentOffset(SD.getFragment()) + SD.getOffset();
   return true;
 }
 
-static bool getSymbolOffsetImpl(const MCAsmLayout &Layout, const MCSymbol &S,
-                                bool ReportError, uint64_t &Val) {
+static bool getSymbolOffsetImpl(const MCAsmLayout &Layout,
+                                const MCSymbolData *SD, bool ReportError,
+                                uint64_t &Val) {
+  const MCSymbol &S = SD->getSymbol();
+
   if (!S.isVariable())
-    return getLabelOffset(Layout, S, ReportError, Val);
+    return getLabelOffset(Layout, *SD, ReportError, Val);
 
   // If SD is a variable, evaluate it.
   MCValue Target;
@@ -144,10 +148,13 @@ static bool getSymbolOffsetImpl(const MCAsmLayout &Layout, const MCSymbol &S,
 
   uint64_t Offset = Target.getConstant();
 
+  const MCAssembler &Asm = Layout.getAssembler();
+
   const MCSymbolRefExpr *A = Target.getSymA();
   if (A) {
     uint64_t ValA;
-    if (!getLabelOffset(Layout, A->getSymbol(), ReportError, ValA))
+    if (!getLabelOffset(Layout, Asm.getSymbolData(A->getSymbol()), ReportError,
+                        ValA))
       return false;
     Offset += ValA;
   }
@@ -155,7 +162,8 @@ static bool getSymbolOffsetImpl(const MCAsmLayout &Layout, const MCSymbol &S,
   const MCSymbolRefExpr *B = Target.getSymB();
   if (B) {
     uint64_t ValB;
-    if (!getLabelOffset(Layout, B->getSymbol(), ReportError, ValB))
+    if (!getLabelOffset(Layout, Asm.getSymbolData(B->getSymbol()), ReportError,
+                        ValB))
       return false;
     Offset -= ValB;
   }
@@ -164,13 +172,13 @@ static bool getSymbolOffsetImpl(const MCAsmLayout &Layout, const MCSymbol &S,
   return true;
 }
 
-bool MCAsmLayout::getSymbolOffset(const MCSymbol &S, uint64_t &Val) const {
-  return getSymbolOffsetImpl(*this, S, false, Val);
+bool MCAsmLayout::getSymbolOffset(const MCSymbolData *SD, uint64_t &Val) const {
+  return getSymbolOffsetImpl(*this, SD, false, Val);
 }
 
-uint64_t MCAsmLayout::getSymbolOffset(const MCSymbol &S) const {
+uint64_t MCAsmLayout::getSymbolOffset(const MCSymbolData *SD) const {
   uint64_t Val;
-  getSymbolOffsetImpl(*this, S, true, Val);
+  getSymbolOffsetImpl(*this, SD, true, Val);
   return Val;
 }
 
@@ -185,7 +193,7 @@ const MCSymbol *MCAsmLayout::getBaseSymbol(const MCSymbol &Symbol) const {
 
   const MCSymbolRefExpr *RefB = Value.getSymB();
   if (RefB)
-    Assembler.getContext().reportFatalError(
+    Assembler.getContext().FatalError(
         SMLoc(), Twine("symbol '") + RefB->getSymbol().getName() +
                      "' could not be evaluated in a subtraction expression");
 
@@ -198,7 +206,7 @@ const MCSymbol *MCAsmLayout::getBaseSymbol(const MCSymbol &Symbol) const {
   const MCSymbolData &ASD = Asm.getSymbolData(ASym);
   if (ASD.isCommon()) {
     // FIXME: we should probably add a SMLoc to MCExpr.
-    Asm.getContext().reportFatalError(SMLoc(),
+    Asm.getContext().FatalError(SMLoc(),
                                 "Common symbol " + ASym.getName() +
                                     " cannot be used in assignment expr");
   }
@@ -206,19 +214,19 @@ const MCSymbol *MCAsmLayout::getBaseSymbol(const MCSymbol &Symbol) const {
   return &ASym;
 }
 
-uint64_t MCAsmLayout::getSectionAddressSize(const MCSection *Sec) const {
+uint64_t MCAsmLayout::getSectionAddressSize(const MCSectionData *SD) const {
   // The size is the last fragment's end offset.
-  const MCFragment &F = Sec->getFragmentList().back();
+  const MCFragment &F = SD->getFragmentList().back();
   return getFragmentOffset(&F) + getAssembler().computeFragmentSize(*this, F);
 }
 
-uint64_t MCAsmLayout::getSectionFileSize(const MCSection *Sec) const {
+uint64_t MCAsmLayout::getSectionFileSize(const MCSectionData *SD) const {
   // Virtual sections have no file size.
-  if (Sec->isVirtualSection())
+  if (SD->getSection().isVirtualSection())
     return 0;
 
   // Otherwise, the file size is the same as the address space size.
-  return getSectionAddressSize(Sec);
+  return getSectionAddressSize(SD);
 }
 
 uint64_t llvm::computeBundlePadding(const MCAssembler &Assembler,
@@ -270,7 +278,7 @@ MCFragment::MCFragment() : Kind(FragmentType(~0)) {
 MCFragment::~MCFragment() {
 }
 
-MCFragment::MCFragment(FragmentType Kind, MCSection *Parent)
+MCFragment::MCFragment(FragmentType Kind, MCSectionData *Parent)
     : Kind(Kind), Parent(Parent), Atom(nullptr), Offset(~UINT64_C(0)) {
   if (Parent)
     Parent->getFragmentList().push_back(this);
@@ -284,6 +292,80 @@ MCEncodedFragment::~MCEncodedFragment() {
 /* *** */
 
 MCEncodedFragmentWithFixups::~MCEncodedFragmentWithFixups() {
+}
+
+/* *** */
+
+MCSectionData::MCSectionData() : Section(nullptr) {}
+
+MCSectionData::MCSectionData(const MCSection &Section, MCAssembler *A)
+    : Section(&Section), Ordinal(~UINT32_C(0)), Alignment(1),
+      BundleLockState(NotBundleLocked), BundleLockNestingDepth(0),
+      BundleGroupBeforeFirstInst(false), HasInstructions(false) {
+  if (A)
+    A->getSectionList().push_back(this);
+}
+
+MCSectionData::iterator
+MCSectionData::getSubsectionInsertionPoint(unsigned Subsection) {
+  if (Subsection == 0 && SubsectionFragmentMap.empty())
+    return end();
+
+  SmallVectorImpl<std::pair<unsigned, MCFragment *> >::iterator MI =
+    std::lower_bound(SubsectionFragmentMap.begin(), SubsectionFragmentMap.end(),
+                     std::make_pair(Subsection, (MCFragment *)nullptr));
+  bool ExactMatch = false;
+  if (MI != SubsectionFragmentMap.end()) {
+    ExactMatch = MI->first == Subsection;
+    if (ExactMatch)
+      ++MI;
+  }
+  iterator IP;
+  if (MI == SubsectionFragmentMap.end())
+    IP = end();
+  else
+    IP = MI->second;
+  if (!ExactMatch && Subsection != 0) {
+    // The GNU as documentation claims that subsections have an alignment of 4,
+    // although this appears not to be the case.
+    MCFragment *F = new MCDataFragment();
+    SubsectionFragmentMap.insert(MI, std::make_pair(Subsection, F));
+    getFragmentList().insert(IP, F);
+    F->setParent(this);
+  }
+
+  return IP;
+}
+
+void MCSectionData::setBundleLockState(BundleLockStateType NewState) {
+  if (NewState == NotBundleLocked) {
+    if (BundleLockNestingDepth == 0) {
+      report_fatal_error("Mismatched bundle_lock/unlock directives");
+    }
+    if (--BundleLockNestingDepth == 0) {
+      BundleLockState = NotBundleLocked;
+    }
+    return;
+  }
+
+  // If any of the directives is an align_to_end directive, the whole nested
+  // group is align_to_end. So don't downgrade from align_to_end to just locked.
+  if (BundleLockState != BundleLockedAlignToEnd) {
+    BundleLockState = NewState;
+  }
+  ++BundleLockNestingDepth;
+}
+
+/* *** */
+
+MCSymbolData::MCSymbolData() : Symbol(nullptr) {}
+
+MCSymbolData::MCSymbolData(const MCSymbol &Symbol, MCFragment *Fragment,
+                           uint64_t Offset, MCAssembler *A)
+    : Symbol(&Symbol), Fragment(Fragment), Offset(Offset), SymbolSize(nullptr),
+      CommonAlign(-1U), Flags(0), Index(0) {
+  if (A)
+    A->getSymbolList().push_back(this);
 }
 
 /* *** */
@@ -303,6 +385,8 @@ MCAssembler::~MCAssembler() {
 void MCAssembler::reset() {
   Sections.clear();
   Symbols.clear();
+  SectionMap.clear();
+  SymbolMap.clear();
   IndirectSymbols.clear();
   DataRegions.clear();
   LinkerOptions.clear();
@@ -372,23 +456,23 @@ bool MCAssembler::isSymbolLinkerVisible(const MCSymbol &Symbol) const {
   return false;
 }
 
-const MCSymbol *MCAssembler::getAtom(const MCSymbol &S) const {
+const MCSymbolData *MCAssembler::getAtom(const MCSymbolData *SD) const {
   // Linker visible symbols define atoms.
-  if (isSymbolLinkerVisible(S))
-    return &S;
+  if (isSymbolLinkerVisible(SD->getSymbol()))
+    return SD;
 
   // Absolute and undefined symbols have no defining atom.
-  if (!S.getData().getFragment())
+  if (!SD->getFragment())
     return nullptr;
 
   // Non-linker visible symbols in sections which can't be atomized have no
   // defining atom.
   if (!getContext().getAsmInfo()->isSectionAtomizableBySymbols(
-          *S.getData().getFragment()->getParent()))
+          SD->getFragment()->getParent()->getSection()))
     return nullptr;
 
   // Otherwise, return the atom for the containing fragment.
-  return S.getData().getFragment()->getAtom();
+  return SD->getFragment()->getAtom();
 }
 
 bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
@@ -401,7 +485,7 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
   // fixup and records a relocation if one is needed.
   const MCExpr *Expr = Fixup.getValue();
   if (!Expr->EvaluateAsRelocatable(Target, &Layout, &Fixup))
-    getContext().reportFatalError(Fixup.getLoc(), "expected relocatable expression");
+    getContext().FatalError(Fixup.getLoc(), "expected relocatable expression");
 
   bool IsPCRel = Backend.getFixupKindInfo(
     Fixup.getKind()).Flags & MCFixupKindInfo::FKF_IsPCRel;
@@ -418,8 +502,9 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
       if (A->getKind() != MCSymbolRefExpr::VK_None || SA.isUndefined()) {
         IsResolved = false;
       } else {
+        const MCSymbolData &DataA = getSymbolData(SA);
         IsResolved = getWriter().IsSymbolRefDifferenceFullyResolvedImpl(
-            *this, SA, *DF, false, true);
+            *this, DataA, *DF, false, true);
       }
     }
   } else {
@@ -431,12 +516,12 @@ bool MCAssembler::evaluateFixup(const MCAsmLayout &Layout,
   if (const MCSymbolRefExpr *A = Target.getSymA()) {
     const MCSymbol &Sym = A->getSymbol();
     if (Sym.isDefined())
-      Value += Layout.getSymbolOffset(Sym);
+      Value += Layout.getSymbolOffset(&getSymbolData(Sym));
   }
   if (const MCSymbolRefExpr *B = Target.getSymB()) {
     const MCSymbol &Sym = B->getSymbol();
     if (Sym.isDefined())
-      Value -= Layout.getSymbolOffset(Sym);
+      Value -= Layout.getSymbolOffset(&getSymbolData(Sym));
   }
 
 
@@ -733,15 +818,15 @@ static void writeFragment(const MCAssembler &Asm, const MCAsmLayout &Layout,
          "The stream should advance by fragment size");
 }
 
-void MCAssembler::writeSectionData(const MCSection *Sec,
+void MCAssembler::writeSectionData(const MCSectionData *SD,
                                    const MCAsmLayout &Layout) const {
   // Ignore virtual sections.
-  if (Sec->isVirtualSection()) {
-    assert(Layout.getSectionFileSize(Sec) == 0 && "Invalid size for section!");
+  if (SD->getSection().isVirtualSection()) {
+    assert(Layout.getSectionFileSize(SD) == 0 && "Invalid size for section!");
 
     // Check that contents are only things legal inside a virtual section.
-    for (MCSection::const_iterator it = Sec->begin(), ie = Sec->end(); it != ie;
-         ++it) {
+    for (MCSectionData::const_iterator it = SD->begin(),
+           ie = SD->end(); it != ie; ++it) {
       switch (it->getKind()) {
       default: llvm_unreachable("Invalid fragment in virtual section!");
       case MCFragment::FT_Data: {
@@ -753,7 +838,7 @@ void MCAssembler::writeSectionData(const MCSection *Sec,
                "Cannot have fixups in virtual section!");
         for (unsigned i = 0, e = DF.getContents().size(); i != e; ++i)
           if (DF.getContents()[i]) {
-            if (auto *ELFSec = dyn_cast<const MCSectionELF>(Sec))
+            if (auto *ELFSec = dyn_cast<const MCSectionELF>(&SD->getSection()))
               report_fatal_error("non-zero initializer found in section '" +
                   ELFSec->getSectionName() + "'");
             else
@@ -782,12 +867,12 @@ void MCAssembler::writeSectionData(const MCSection *Sec,
   uint64_t Start = getWriter().getStream().tell();
   (void)Start;
 
-  for (MCSection::const_iterator it = Sec->begin(), ie = Sec->end(); it != ie;
-       ++it)
+  for (MCSectionData::const_iterator it = SD->begin(), ie = SD->end();
+       it != ie; ++it)
     writeFragment(*this, Layout, *it);
 
   assert(getWriter().getStream().tell() - Start ==
-         Layout.getSectionAddressSize(Sec));
+         Layout.getSectionAddressSize(SD));
 }
 
 std::pair<uint64_t, bool> MCAssembler::handleFixup(const MCAsmLayout &Layout,
@@ -822,18 +907,18 @@ void MCAssembler::Finish() {
     // Create dummy fragments to eliminate any empty sections, this simplifies
     // layout.
     if (it->getFragmentList().empty())
-      new MCDataFragment(&*it);
+      new MCDataFragment(it);
 
     it->setOrdinal(SectionIndex++);
   }
 
   // Assign layout order indices to sections and fragments.
   for (unsigned i = 0, e = Layout.getSectionOrder().size(); i != e; ++i) {
-    MCSection *Sec = Layout.getSectionOrder()[i];
-    Sec->setLayoutOrder(i);
+    MCSectionData *SD = Layout.getSectionOrder()[i];
+    SD->setLayoutOrder(i);
 
     unsigned FragmentIndex = 0;
-    for (MCSection::iterator iFrag = Sec->begin(), iFragEnd = Sec->end();
+    for (MCSectionData::iterator iFrag = SD->begin(), iFragEnd = SD->end();
          iFrag != iFragEnd; ++iFrag)
       iFrag->setLayoutOrder(FragmentIndex++);
   }
@@ -861,8 +946,8 @@ void MCAssembler::Finish() {
 
   // Evaluate and apply the fixups, generating relocation entries as necessary.
   for (MCAssembler::iterator it = begin(), ie = end(); it != ie; ++it) {
-    for (MCSection::iterator it2 = it->begin(), ie2 = it->end(); it2 != ie2;
-         ++it2) {
+    for (MCSectionData::iterator it2 = it->begin(),
+           ie2 = it->end(); it2 != ie2; ++it2) {
       MCEncodedFragmentWithFixups *F =
         dyn_cast<MCEncodedFragmentWithFixups>(it2);
       if (F) {
@@ -935,7 +1020,7 @@ bool MCAssembler::relaxInstruction(MCAsmLayout &Layout,
   SmallVector<MCFixup, 4> Fixups;
   SmallString<256> Code;
   raw_svector_ostream VecOS(Code);
-  getEmitter().encodeInstruction(Relaxed, VecOS, Fixups, F.getSubtargetInfo());
+  getEmitter().EncodeInstruction(Relaxed, VecOS, Fixups, F.getSubtargetInfo());
   VecOS.flush();
 
   // Update the fragment.
@@ -997,7 +1082,7 @@ bool MCAssembler::relaxDwarfCallFrameFragment(MCAsmLayout &Layout,
   return OldSize != Data.size();
 }
 
-bool MCAssembler::layoutSectionOnce(MCAsmLayout &Layout, MCSection &Sec) {
+bool MCAssembler::layoutSectionOnce(MCAsmLayout &Layout, MCSectionData &SD) {
   // Holds the first fragment which needed relaxing during this layout. It will
   // remain NULL if none were relaxed.
   // When a fragment is relaxed, all the fragments following it should get
@@ -1005,7 +1090,7 @@ bool MCAssembler::layoutSectionOnce(MCAsmLayout &Layout, MCSection &Sec) {
   MCFragment *FirstRelaxedFragment = nullptr;
 
   // Attempt to relax all the fragments in the section.
-  for (MCSection::iterator I = Sec.begin(), IE = Sec.end(); I != IE; ++I) {
+  for (MCSectionData::iterator I = SD.begin(), IE = SD.end(); I != IE; ++I) {
     // Check if this is a fragment that needs relaxation.
     bool RelaxedFrag = false;
     switch(I->getKind()) {
@@ -1044,8 +1129,8 @@ bool MCAssembler::layoutOnce(MCAsmLayout &Layout) {
 
   bool WasRelaxed = false;
   for (iterator it = begin(), ie = end(); it != ie; ++it) {
-    MCSection &Sec = *it;
-    while (layoutSectionOnce(Layout, Sec))
+    MCSectionData &SD = *it;
+    while (layoutSectionOnce(Layout, SD))
       WasRelaxed = true;
   }
 
@@ -1184,14 +1269,27 @@ void MCFragment::dump() {
   OS << ">";
 }
 
+void MCSectionData::dump() {
+  raw_ostream &OS = llvm::errs();
+
+  OS << "<MCSectionData";
+  OS << " Alignment:" << getAlignment()
+     << " Fragments:[\n      ";
+  for (iterator it = begin(), ie = end(); it != ie; ++it) {
+    if (it != begin()) OS << ",\n      ";
+    it->dump();
+  }
+  OS << "]>";
+}
+
 void MCSymbolData::dump() const {
   raw_ostream &OS = llvm::errs();
 
-  OS << "<MCSymbolData"
+  OS << "<MCSymbolData Symbol:" << getSymbol()
      << " Fragment:" << getFragment();
   if (!isCommon())
     OS << " Offset:" << getOffset();
-  OS << " Flags:" << getFlags();
+  OS << " Flags:" << getFlags() << " Index:" << getIndex();
   if (isCommon())
     OS << " (common, size:" << getCommonSize()
        << " align: " << getCommonAlignment() << ")";
@@ -1216,11 +1314,7 @@ void MCAssembler::dump() {
 
   for (symbol_iterator it = symbol_begin(), ie = symbol_end(); it != ie; ++it) {
     if (it != symbol_begin()) OS << ",\n           ";
-    OS << "(";
     it->dump();
-    OS << ", Index:" << it->getIndex() << ", ";
-    it->getData().dump();
-    OS << ")";
   }
   OS << "]>\n";
 }

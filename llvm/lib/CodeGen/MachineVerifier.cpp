@@ -329,18 +329,8 @@ bool MachineVerifier::runOnMachineFunction(MachineFunction &MF) {
       } else if (!CurBundle)
         report("No bundle header", MBBI);
       visitMachineInstrBefore(MBBI);
-      for (unsigned I = 0, E = MBBI->getNumOperands(); I != E; ++I) {
-        const MachineInstr &MI = *MBBI;
-        const MachineOperand &Op = MI.getOperand(I);
-        if (Op.getParent() != &MI) {
-          // Make sure to use correct addOperand / RemoveOperand / ChangeTo
-          // functions when replacing operands of a MachineInstr.
-          report("Instruction has operand with wrong parent set", &MI);
-        }
-
-        visitMachineOperand(&Op, I);
-      }
-
+      for (unsigned I = 0, E = MBBI->getNumOperands(); I != E; ++I)
+        visitMachineOperand(&MBBI->getOperand(I), I);
       visitMachineInstrAfter(MBBI);
 
       // Was this the last bundled instruction?
@@ -1716,8 +1706,8 @@ namespace {
 /// by a FrameDestroy <n>, stack adjustments are identical on all
 /// CFG edges to a merge point, and frame is destroyed at end of a return block.
 void MachineVerifier::verifyStackFrame() {
-  unsigned FrameSetupOpcode   = TII->getCallFrameSetupOpcode();
-  unsigned FrameDestroyOpcode = TII->getCallFrameDestroyOpcode();
+  int FrameSetupOpcode   = TII->getCallFrameSetupOpcode();
+  int FrameDestroyOpcode = TII->getCallFrameDestroyOpcode();
 
   SmallVector<StackStateOfBB, 8> SPState;
   SPState.resize(MF->getNumBlockIDs());

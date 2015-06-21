@@ -33,8 +33,7 @@ void DWARFTypeUnit::dump(raw_ostream &OS) {
      << " (next unit at " << format("0x%08x", getNextUnitOffset())
      << ")\n";
 
-  if (const DWARFDebugInfoEntryMinimal *TU = getUnitDIE(false))
-    TU->dump(OS, this, -1U);
-  else
-    OS << "<type unit can't be parsed!>\n\n";
+  const DWARFDebugInfoEntryMinimal *CU = getCompileUnitDIE(false);
+  assert(CU && "Null Compile Unit?");
+  CU->dump(OS, this, -1U);
 }

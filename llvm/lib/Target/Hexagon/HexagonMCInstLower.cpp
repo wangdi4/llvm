@@ -34,7 +34,7 @@ static MCOperand GetSymbolRef(const MachineOperand& MO, const MCSymbol* Symbol,
     ME = MCBinaryExpr::CreateAdd(ME, MCConstantExpr::Create(MO.getOffset(), MC),
                                  MC);
 
-  return (MCOperand::createExpr(ME));
+  return (MCOperand::CreateExpr(ME));
 }
 
 // Create an MCInst from a MachineInstr
@@ -53,20 +53,20 @@ void llvm::HexagonLowerToMC(MachineInstr const* MI, MCInst& MCI,
     case MachineOperand::MO_Register:
       // Ignore all implicit register operands.
       if (MO.isImplicit()) continue;
-      MCO = MCOperand::createReg(MO.getReg());
+      MCO = MCOperand::CreateReg(MO.getReg());
       break;
     case MachineOperand::MO_FPImmediate: {
       APFloat Val = MO.getFPImm()->getValueAPF();
       // FP immediates are used only when setting GPRs, so they may be dealt
       // with like regular immediates from this point on.
-      MCO = MCOperand::createImm(*Val.bitcastToAPInt().getRawData());
+      MCO = MCOperand::CreateImm(*Val.bitcastToAPInt().getRawData());
       break;
     }
     case MachineOperand::MO_Immediate:
-      MCO = MCOperand::createImm(MO.getImm());
+      MCO = MCOperand::CreateImm(MO.getImm());
       break;
     case MachineOperand::MO_MachineBasicBlock:
-      MCO = MCOperand::createExpr
+      MCO = MCOperand::CreateExpr
               (MCSymbolRefExpr::Create(MO.getMBB()->getSymbol(),
                AP.OutContext));
       break;

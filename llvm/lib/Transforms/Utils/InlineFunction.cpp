@@ -830,16 +830,17 @@ static bool hasLifetimeMarkers(AllocaInst *AI) {
 /// Rebuild the entire inlined-at chain for this instruction so that the top of
 /// the chain now is inlined-at the new call site.
 static DebugLoc
-updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
-                    DenseMap<const DILocation *, DILocation *> &IANodes) {
-  SmallVector<DILocation *, 3> InlinedAtLocations;
-  DILocation *Last = InlinedAtNode;
-  DILocation *CurInlinedAt = DL;
+updateInlinedAtInfo(DebugLoc DL, MDLocation *InlinedAtNode,
+                    LLVMContext &Ctx,
+                    DenseMap<const MDLocation *, MDLocation *> &IANodes) {
+  SmallVector<MDLocation*, 3> InlinedAtLocations;
+  MDLocation *Last = InlinedAtNode;
+  MDLocation *CurInlinedAt = DL;
 
   // Gather all the inlined-at nodes
-  while (DILocation *IA = CurInlinedAt->getInlinedAt()) {
+  while (MDLocation *IA = CurInlinedAt->getInlinedAt()) {
     // Skip any we've already built nodes for
-    if (DILocation *Found = IANodes[IA]) {
+    if (MDLocation *Found = IANodes[IA]) {
       Last = Found;
       break;
     }
@@ -853,8 +854,8 @@ updateInlinedAtInfo(DebugLoc DL, DILocation *InlinedAtNode, LLVMContext &Ctx,
   // map of already-constructed inlined-at nodes.
   for (auto I = InlinedAtLocations.rbegin(), E = InlinedAtLocations.rend();
        I != E; ++I) {
-    const DILocation *MD = *I;
-    Last = IANodes[MD] = DILocation::getDistinct(
+    const MDLocation *MD = *I;
+    Last = IANodes[MD] = MDLocation::getDistinct(
         Ctx, MD->getLine(), MD->getColumn(), MD->getScope(), Last);
   }
 
@@ -872,18 +873,18 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
     return;
 
   auto &Ctx = Fn->getContext();
-  DILocation *InlinedAtNode = TheCallDL;
+  MDLocation *InlinedAtNode = TheCallDL;
 
   // Create a unique call site, not to be confused with any other call from the
   // same location.
-  InlinedAtNode = DILocation::getDistinct(
+  InlinedAtNode = MDLocation::getDistinct(
       Ctx, InlinedAtNode->getLine(), InlinedAtNode->getColumn(),
       InlinedAtNode->getScope(), InlinedAtNode->getInlinedAt());
 
   // Cache the inlined-at nodes as they're built so they are reused, without
   // this every instruction's inlined-at chain would become distinct from each
   // other.
-  DenseMap<const DILocation *, DILocation *> IANodes;
+  DenseMap<const MDLocation *, MDLocation *> IANodes;
 
   for (; FI != Fn->end(); ++FI) {
     for (BasicBlock::iterator BI = FI->begin(), BE = FI->end();
@@ -1202,7 +1203,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
 
     // Insert the llvm.stacksave.
     CallInst *SavedPtr = IRBuilder<>(FirstNewBlock, FirstNewBlock->begin())
-                             .CreateCall(StackSave, {}, "savedstack");
+      .CreateCall(StackSave, "savedstack");
 
     // Insert a call to llvm.stackrestore before any return instructions in the
     // inlined function.

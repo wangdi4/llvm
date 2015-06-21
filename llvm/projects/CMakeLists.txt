@@ -7,8 +7,7 @@ foreach(entry ${entries})
     if((NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/compiler-rt) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/dragonegg) AND
        (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxx) AND
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi) AND
-       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libunwind))
+       (NOT ${entry} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}/libcxxabi))
       add_subdirectory(${entry})
     endif()
   endif()
@@ -24,7 +23,6 @@ if(${LLVM_BUILD_RUNTIME})
     # first.
     add_llvm_external_project(libcxxabi)
     add_llvm_external_project(libcxx)
-    add_llvm_external_project(libunwind)
   endif()
   if(NOT LLVM_BUILD_EXTERNAL_COMPILER_RT)
     add_llvm_external_project(compiler-rt)

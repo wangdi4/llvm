@@ -195,8 +195,9 @@ public:
     BaseAddr = base_addr;
   }
 
-  const DWARFDebugInfoEntryMinimal *getUnitDIE(bool ExtractUnitDIEOnly = true) {
-    extractDIEsIfNeeded(ExtractUnitDIEOnly);
+  const DWARFDebugInfoEntryMinimal *
+  getCompileUnitDIE(bool extract_cu_die_only = true) {
+    extractDIEsIfNeeded(extract_cu_die_only);
     return DieArray.empty() ? nullptr : &DieArray[0];
   }
 
@@ -225,7 +226,8 @@ public:
   /// It is illegal to call this method with a DIE that hasn't be
   /// created by this unit. In other word, it's illegal to call this
   /// method on a DIE that isn't accessible by following
-  /// children/sibling links starting from this unit's getUnitDIE().
+  /// children/sibling links starting from this unit's
+  /// getCompileUnitDIE().
   uint32_t getDIEIndex(const DWARFDebugInfoEntryMinimal *DIE) {
     assert(!DieArray.empty() && DIE >= &DieArray[0] &&
            DIE < &DieArray[0] + DieArray.size());

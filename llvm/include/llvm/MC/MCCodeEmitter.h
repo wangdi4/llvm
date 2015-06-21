@@ -24,7 +24,6 @@ class MCCodeEmitter {
 private:
   MCCodeEmitter(const MCCodeEmitter &) = delete;
   void operator=(const MCCodeEmitter &) = delete;
-
 protected: // Can only create subclasses.
   MCCodeEmitter();
 
@@ -32,11 +31,11 @@ public:
   virtual ~MCCodeEmitter();
 
   /// Lifetime management
-  virtual void reset() {}
+  virtual void reset() { }
 
   /// EncodeInstruction - Encode the given \p Inst to bytes on the output
   /// stream \p OS.
-  virtual void encodeInstruction(const MCInst &Inst, raw_ostream &OS,
+  virtual void EncodeInstruction(const MCInst &Inst, raw_ostream &OS,
                                  SmallVectorImpl<MCFixup> &Fixups,
                                  const MCSubtargetInfo &STI) const = 0;
 };

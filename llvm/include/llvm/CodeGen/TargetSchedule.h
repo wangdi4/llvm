@@ -40,9 +40,6 @@ class TargetSchedModel {
   SmallVector<unsigned, 16> ResourceFactors;
   unsigned MicroOpFactor; // Multiply to normalize microops to resource units.
   unsigned ResourceLCM;   // Resource units per cycle. Latency normalization factor.
-
-  unsigned computeInstrLatency(const MCSchedClassDesc &SCDesc) const;
-
 public:
   TargetSchedModel(): SchedModel(MCSchedModel::GetDefaultSchedModel()), STI(nullptr), TII(nullptr) {}
 

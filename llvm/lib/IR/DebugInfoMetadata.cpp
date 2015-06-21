@@ -19,9 +19,9 @@
 
 using namespace llvm;
 
-DILocation::DILocation(LLVMContext &C, StorageType Storage, unsigned Line,
+MDLocation::MDLocation(LLVMContext &C, StorageType Storage, unsigned Line,
                        unsigned Column, ArrayRef<Metadata *> MDs)
-    : MDNode(C, DILocationKind, Storage, MDs) {
+    : MDNode(C, MDLocationKind, Storage, MDs) {
   assert((MDs.size() == 1 || MDs.size() == 2) &&
          "Expected a scope and optional inlined-at");
 
@@ -38,7 +38,7 @@ static void adjustColumn(unsigned &Column) {
     Column = 0;
 }
 
-DILocation *DILocation::getImpl(LLVMContext &Context, unsigned Line,
+MDLocation *MDLocation::getImpl(LLVMContext &Context, unsigned Line,
                                 unsigned Column, Metadata *Scope,
                                 Metadata *InlinedAt, StorageType Storage,
                                 bool ShouldCreate) {
@@ -48,8 +48,8 @@ DILocation *DILocation::getImpl(LLVMContext &Context, unsigned Line,
   assert(Scope && "Expected scope");
   if (Storage == Uniqued) {
     if (auto *N =
-            getUniqued(Context.pImpl->DILocations,
-                       DILocationInfo::KeyTy(Line, Column, Scope, InlinedAt)))
+            getUniqued(Context.pImpl->MDLocations,
+                       MDLocationInfo::KeyTy(Line, Column, Scope, InlinedAt)))
       return N;
     if (!ShouldCreate)
       return nullptr;
@@ -62,11 +62,11 @@ DILocation *DILocation::getImpl(LLVMContext &Context, unsigned Line,
   if (InlinedAt)
     Ops.push_back(InlinedAt);
   return storeImpl(new (Ops.size())
-                       DILocation(Context, Storage, Line, Column, Ops),
-                   Storage, Context.pImpl->DILocations);
+                       MDLocation(Context, Storage, Line, Column, Ops),
+                   Storage, Context.pImpl->MDLocations);
 }
 
-unsigned DILocation::computeNewDiscriminator() const {
+unsigned MDLocation::computeNewDiscriminator() const {
   // FIXME: This seems completely wrong.
   //
   //  1. If two modules are generated in the same context, then the second
@@ -83,14 +83,14 @@ unsigned DILocation::computeNewDiscriminator() const {
   return ++getContext().pImpl->DiscriminatorTable[Key];
 }
 
-unsigned DINode::getFlag(StringRef Flag) {
+unsigned DebugNode::getFlag(StringRef Flag) {
   return StringSwitch<unsigned>(Flag)
 #define HANDLE_DI_FLAG(ID, NAME) .Case("DIFlag" #NAME, Flag##NAME)
 #include "llvm/IR/DebugInfoFlags.def"
       .Default(0);
 }
 
-const char *DINode::getFlagString(unsigned Flag) {
+const char *DebugNode::getFlagString(unsigned Flag) {
   switch (Flag) {
   default:
     return "";
@@ -101,8 +101,8 @@ const char *DINode::getFlagString(unsigned Flag) {
   }
 }
 
-unsigned DINode::splitFlags(unsigned Flags,
-                            SmallVectorImpl<unsigned> &SplitFlags) {
+unsigned DebugNode::splitFlags(unsigned Flags,
+                               SmallVectorImpl<unsigned> &SplitFlags) {
   // Accessibility flags need to be specially handled, since they're packed
   // together.
   if (unsigned A = Flags & FlagAccessibility) {
@@ -125,33 +125,33 @@ unsigned DINode::splitFlags(unsigned Flags,
   return Flags;
 }
 
-DIScopeRef DIScope::getScope() const {
-  if (auto *T = dyn_cast<DIType>(this))
+MDScopeRef MDScope::getScope() const {
+  if (auto *T = dyn_cast<MDType>(this))
     return T->getScope();
 
-  if (auto *SP = dyn_cast<DISubprogram>(this))
+  if (auto *SP = dyn_cast<MDSubprogram>(this))
     return SP->getScope();
 
-  if (auto *LB = dyn_cast<DILexicalBlockBase>(this))
-    return DIScopeRef(LB->getScope());
+  if (auto *LB = dyn_cast<MDLexicalBlockBase>(this))
+    return MDScopeRef(LB->getScope());
 
-  if (auto *NS = dyn_cast<DINamespace>(this))
-    return DIScopeRef(NS->getScope());
+  if (auto *NS = dyn_cast<MDNamespace>(this))
+    return MDScopeRef(NS->getScope());
 
-  assert((isa<DIFile>(this) || isa<DICompileUnit>(this)) &&
+  assert((isa<MDFile>(this) || isa<MDCompileUnit>(this)) &&
          "Unhandled type of scope.");
   return nullptr;
 }
 
-StringRef DIScope::getName() const {
-  if (auto *T = dyn_cast<DIType>(this))
+StringRef MDScope::getName() const {
+  if (auto *T = dyn_cast<MDType>(this))
     return T->getName();
-  if (auto *SP = dyn_cast<DISubprogram>(this))
+  if (auto *SP = dyn_cast<MDSubprogram>(this))
     return SP->getName();
-  if (auto *NS = dyn_cast<DINamespace>(this))
+  if (auto *NS = dyn_cast<MDNamespace>(this))
     return NS->getName();
-  assert((isa<DILexicalBlockBase>(this) || isa<DIFile>(this) ||
-          isa<DICompileUnit>(this)) &&
+  assert((isa<MDLexicalBlockBase>(this) || isa<MDFile>(this) ||
+          isa<MDCompileUnit>(this)) &&
          "Unhandled type of scope.");
   return "";
 }
@@ -168,14 +168,15 @@ static bool isCanonical(const MDString *S) {
 }
 #endif
 
-GenericDINode *GenericDINode::getImpl(LLVMContext &Context, unsigned Tag,
-                                      MDString *Header,
-                                      ArrayRef<Metadata *> DwarfOps,
-                                      StorageType Storage, bool ShouldCreate) {
+GenericDebugNode *GenericDebugNode::getImpl(LLVMContext &Context, unsigned Tag,
+                                            MDString *Header,
+                                            ArrayRef<Metadata *> DwarfOps,
+                                            StorageType Storage,
+                                            bool ShouldCreate) {
   unsigned Hash = 0;
   if (Storage == Uniqued) {
-    GenericDINodeInfo::KeyTy Key(Tag, getString(Header), DwarfOps);
-    if (auto *N = getUniqued(Context.pImpl->GenericDINodes, Key))
+    GenericDebugNodeInfo::KeyTy Key(Tag, getString(Header), DwarfOps);
+    if (auto *N = getUniqued(Context.pImpl->GenericDebugNodes, Key))
       return N;
     if (!ShouldCreate)
       return nullptr;
@@ -187,13 +188,13 @@ GenericDINode *GenericDINode::getImpl(LLVMContext &Context, unsigned Tag,
   // Use a nullptr for empty headers.
   assert(isCanonical(Header) && "Expected canonical MDString");
   Metadata *PreOps[] = {Header};
-  return storeImpl(new (DwarfOps.size() + 1) GenericDINode(
+  return storeImpl(new (DwarfOps.size() + 1) GenericDebugNode(
                        Context, Storage, Hash, Tag, PreOps, DwarfOps),
-                   Storage, Context.pImpl->GenericDINodes);
+                   Storage, Context.pImpl->GenericDebugNodes);
 }
 
-void GenericDINode::recalculateHash() {
-  setHash(GenericDINodeInfo::KeyTy::calculateHash(this));
+void GenericDebugNode::recalculateHash() {
+  setHash(GenericDebugNodeInfo::KeyTy::calculateHash(this));
 }
 
 #define UNWRAP_ARGS_IMPL(...) __VA_ARGS__
@@ -223,49 +224,49 @@ void GenericDINode::recalculateHash() {
                        CLASS(Context, Storage, OPS),                           \
                    Storage, Context.pImpl->CLASS##s)
 
-DISubrange *DISubrange::getImpl(LLVMContext &Context, int64_t Count, int64_t Lo,
+MDSubrange *MDSubrange::getImpl(LLVMContext &Context, int64_t Count, int64_t Lo,
                                 StorageType Storage, bool ShouldCreate) {
-  DEFINE_GETIMPL_LOOKUP(DISubrange, (Count, Lo));
-  DEFINE_GETIMPL_STORE_NO_OPS(DISubrange, (Count, Lo));
+  DEFINE_GETIMPL_LOOKUP(MDSubrange, (Count, Lo));
+  DEFINE_GETIMPL_STORE_NO_OPS(MDSubrange, (Count, Lo));
 }
 
-DIEnumerator *DIEnumerator::getImpl(LLVMContext &Context, int64_t Value,
+MDEnumerator *MDEnumerator::getImpl(LLVMContext &Context, int64_t Value,
                                     MDString *Name, StorageType Storage,
                                     bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIEnumerator, (Value, getString(Name)));
+  DEFINE_GETIMPL_LOOKUP(MDEnumerator, (Value, getString(Name)));
   Metadata *Ops[] = {Name};
-  DEFINE_GETIMPL_STORE(DIEnumerator, (Value), Ops);
+  DEFINE_GETIMPL_STORE(MDEnumerator, (Value), Ops);
 }
 
-DIBasicType *DIBasicType::getImpl(LLVMContext &Context, unsigned Tag,
+MDBasicType *MDBasicType::getImpl(LLVMContext &Context, unsigned Tag,
                                   MDString *Name, uint64_t SizeInBits,
                                   uint64_t AlignInBits, unsigned Encoding,
                                   StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   DEFINE_GETIMPL_LOOKUP(
-      DIBasicType, (Tag, getString(Name), SizeInBits, AlignInBits, Encoding));
+      MDBasicType, (Tag, getString(Name), SizeInBits, AlignInBits, Encoding));
   Metadata *Ops[] = {nullptr, nullptr, Name};
-  DEFINE_GETIMPL_STORE(DIBasicType, (Tag, SizeInBits, AlignInBits, Encoding),
+  DEFINE_GETIMPL_STORE(MDBasicType, (Tag, SizeInBits, AlignInBits, Encoding),
                        Ops);
 }
 
-DIDerivedType *DIDerivedType::getImpl(
+MDDerivedType *MDDerivedType::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
     unsigned Line, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
     uint64_t AlignInBits, uint64_t OffsetInBits, unsigned Flags,
     Metadata *ExtraData, StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIDerivedType, (Tag, getString(Name), File, Line, Scope,
+  DEFINE_GETIMPL_LOOKUP(MDDerivedType, (Tag, getString(Name), File, Line, Scope,
                                         BaseType, SizeInBits, AlignInBits,
                                         OffsetInBits, Flags, ExtraData));
   Metadata *Ops[] = {File, Scope, Name, BaseType, ExtraData};
   DEFINE_GETIMPL_STORE(
-      DIDerivedType, (Tag, Line, SizeInBits, AlignInBits, OffsetInBits, Flags),
+      MDDerivedType, (Tag, Line, SizeInBits, AlignInBits, OffsetInBits, Flags),
       Ops);
 }
 
-DICompositeType *DICompositeType::getImpl(
+MDCompositeType *MDCompositeType::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
     unsigned Line, Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
     uint64_t AlignInBits, uint64_t OffsetInBits, unsigned Flags,
@@ -273,69 +274,68 @@ DICompositeType *DICompositeType::getImpl(
     Metadata *TemplateParams, MDString *Identifier, StorageType Storage,
     bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DICompositeType,
+  DEFINE_GETIMPL_LOOKUP(MDCompositeType,
                         (Tag, getString(Name), File, Line, Scope, BaseType,
                          SizeInBits, AlignInBits, OffsetInBits, Flags, Elements,
                          RuntimeLang, VTableHolder, TemplateParams,
                          getString(Identifier)));
   Metadata *Ops[] = {File,     Scope,        Name,           BaseType,
                      Elements, VTableHolder, TemplateParams, Identifier};
-  DEFINE_GETIMPL_STORE(DICompositeType, (Tag, Line, RuntimeLang, SizeInBits,
+  DEFINE_GETIMPL_STORE(MDCompositeType, (Tag, Line, RuntimeLang, SizeInBits,
                                          AlignInBits, OffsetInBits, Flags),
                        Ops);
 }
 
-DISubroutineType *DISubroutineType::getImpl(LLVMContext &Context,
+MDSubroutineType *MDSubroutineType::getImpl(LLVMContext &Context,
                                             unsigned Flags, Metadata *TypeArray,
                                             StorageType Storage,
                                             bool ShouldCreate) {
-  DEFINE_GETIMPL_LOOKUP(DISubroutineType, (Flags, TypeArray));
+  DEFINE_GETIMPL_LOOKUP(MDSubroutineType, (Flags, TypeArray));
   Metadata *Ops[] = {nullptr,   nullptr, nullptr, nullptr,
                      TypeArray, nullptr, nullptr, nullptr};
-  DEFINE_GETIMPL_STORE(DISubroutineType, (Flags), Ops);
+  DEFINE_GETIMPL_STORE(MDSubroutineType, (Flags), Ops);
 }
 
-DIFile *DIFile::getImpl(LLVMContext &Context, MDString *Filename,
+MDFile *MDFile::getImpl(LLVMContext &Context, MDString *Filename,
                         MDString *Directory, StorageType Storage,
                         bool ShouldCreate) {
   assert(isCanonical(Filename) && "Expected canonical MDString");
   assert(isCanonical(Directory) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIFile, (getString(Filename), getString(Directory)));
+  DEFINE_GETIMPL_LOOKUP(MDFile, (getString(Filename), getString(Directory)));
   Metadata *Ops[] = {Filename, Directory};
-  DEFINE_GETIMPL_STORE_NO_CONSTRUCTOR_ARGS(DIFile, Ops);
+  DEFINE_GETIMPL_STORE_NO_CONSTRUCTOR_ARGS(MDFile, Ops);
 }
 
-DICompileUnit *DICompileUnit::getImpl(
+MDCompileUnit *MDCompileUnit::getImpl(
     LLVMContext &Context, unsigned SourceLanguage, Metadata *File,
     MDString *Producer, bool IsOptimized, MDString *Flags,
     unsigned RuntimeVersion, MDString *SplitDebugFilename,
     unsigned EmissionKind, Metadata *EnumTypes, Metadata *RetainedTypes,
     Metadata *Subprograms, Metadata *GlobalVariables,
-    Metadata *ImportedEntities, uint64_t DWOId,
-    StorageType Storage, bool ShouldCreate) {
+    Metadata *ImportedEntities, StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Producer) && "Expected canonical MDString");
   assert(isCanonical(Flags) && "Expected canonical MDString");
   assert(isCanonical(SplitDebugFilename) && "Expected canonical MDString");
   DEFINE_GETIMPL_LOOKUP(
-      DICompileUnit,
+      MDCompileUnit,
       (SourceLanguage, File, getString(Producer), IsOptimized, getString(Flags),
        RuntimeVersion, getString(SplitDebugFilename), EmissionKind, EnumTypes,
-       RetainedTypes, Subprograms, GlobalVariables, ImportedEntities, DWOId));
+       RetainedTypes, Subprograms, GlobalVariables, ImportedEntities));
   Metadata *Ops[] = {File, Producer, Flags, SplitDebugFilename, EnumTypes,
                      RetainedTypes, Subprograms, GlobalVariables,
                      ImportedEntities};
   DEFINE_GETIMPL_STORE(
-      DICompileUnit,
-      (SourceLanguage, IsOptimized, RuntimeVersion, EmissionKind, DWOId), Ops);
+      MDCompileUnit,
+      (SourceLanguage, IsOptimized, RuntimeVersion, EmissionKind), Ops);
 }
 
-DISubprogram *DILocalScope::getSubprogram() const {
-  if (auto *Block = dyn_cast<DILexicalBlockBase>(this))
+MDSubprogram *MDLocalScope::getSubprogram() const {
+  if (auto *Block = dyn_cast<MDLexicalBlockBase>(this))
     return Block->getScope()->getSubprogram();
-  return const_cast<DISubprogram *>(cast<DISubprogram>(this));
+  return const_cast<MDSubprogram *>(cast<MDSubprogram>(this));
 }
 
-DISubprogram *DISubprogram::getImpl(
+MDSubprogram *MDSubprogram::getImpl(
     LLVMContext &Context, Metadata *Scope, MDString *Name,
     MDString *LinkageName, Metadata *File, unsigned Line, Metadata *Type,
     bool IsLocalToUnit, bool IsDefinition, unsigned ScopeLine,
@@ -345,7 +345,7 @@ DISubprogram *DISubprogram::getImpl(
     StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   assert(isCanonical(LinkageName) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DISubprogram,
+  DEFINE_GETIMPL_LOOKUP(MDSubprogram,
                         (Scope, getString(Name), getString(LinkageName), File,
                          Line, Type, IsLocalToUnit, IsDefinition, ScopeLine,
                          ContainingType, Virtuality, VirtualIndex, Flags,
@@ -354,18 +354,18 @@ DISubprogram *DISubprogram::getImpl(
   Metadata *Ops[] = {File,           Scope,       Name,           Name,
                      LinkageName,    Type,        ContainingType, Function,
                      TemplateParams, Declaration, Variables};
-  DEFINE_GETIMPL_STORE(DISubprogram,
+  DEFINE_GETIMPL_STORE(MDSubprogram,
                        (Line, ScopeLine, Virtuality, VirtualIndex, Flags,
                         IsLocalToUnit, IsDefinition, IsOptimized),
                        Ops);
 }
 
-Function *DISubprogram::getFunction() const {
+Function *MDSubprogram::getFunction() const {
   // FIXME: Should this be looking through bitcasts?
   return dyn_cast_or_null<Function>(getFunctionConstant());
 }
 
-bool DISubprogram::describes(const Function *F) const {
+bool MDSubprogram::describes(const Function *F) const {
   assert(F && "Invalid function");
   if (F == getFunction())
     return true;
@@ -375,64 +375,64 @@ bool DISubprogram::describes(const Function *F) const {
   return F->getName() == Name;
 }
 
-void DISubprogram::replaceFunction(Function *F) {
+void MDSubprogram::replaceFunction(Function *F) {
   replaceFunction(F ? ConstantAsMetadata::get(F)
                     : static_cast<ConstantAsMetadata *>(nullptr));
 }
 
-DILexicalBlock *DILexicalBlock::getImpl(LLVMContext &Context, Metadata *Scope,
+MDLexicalBlock *MDLexicalBlock::getImpl(LLVMContext &Context, Metadata *Scope,
                                         Metadata *File, unsigned Line,
                                         unsigned Column, StorageType Storage,
                                         bool ShouldCreate) {
   assert(Scope && "Expected scope");
-  DEFINE_GETIMPL_LOOKUP(DILexicalBlock, (Scope, File, Line, Column));
+  DEFINE_GETIMPL_LOOKUP(MDLexicalBlock, (Scope, File, Line, Column));
   Metadata *Ops[] = {File, Scope};
-  DEFINE_GETIMPL_STORE(DILexicalBlock, (Line, Column), Ops);
+  DEFINE_GETIMPL_STORE(MDLexicalBlock, (Line, Column), Ops);
 }
 
-DILexicalBlockFile *DILexicalBlockFile::getImpl(LLVMContext &Context,
+MDLexicalBlockFile *MDLexicalBlockFile::getImpl(LLVMContext &Context,
                                                 Metadata *Scope, Metadata *File,
                                                 unsigned Discriminator,
                                                 StorageType Storage,
                                                 bool ShouldCreate) {
   assert(Scope && "Expected scope");
-  DEFINE_GETIMPL_LOOKUP(DILexicalBlockFile, (Scope, File, Discriminator));
+  DEFINE_GETIMPL_LOOKUP(MDLexicalBlockFile, (Scope, File, Discriminator));
   Metadata *Ops[] = {File, Scope};
-  DEFINE_GETIMPL_STORE(DILexicalBlockFile, (Discriminator), Ops);
+  DEFINE_GETIMPL_STORE(MDLexicalBlockFile, (Discriminator), Ops);
 }
 
-DINamespace *DINamespace::getImpl(LLVMContext &Context, Metadata *Scope,
+MDNamespace *MDNamespace::getImpl(LLVMContext &Context, Metadata *Scope,
                                   Metadata *File, MDString *Name, unsigned Line,
                                   StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DINamespace, (Scope, File, getString(Name), Line));
+  DEFINE_GETIMPL_LOOKUP(MDNamespace, (Scope, File, getString(Name), Line));
   Metadata *Ops[] = {File, Scope, Name};
-  DEFINE_GETIMPL_STORE(DINamespace, (Line), Ops);
+  DEFINE_GETIMPL_STORE(MDNamespace, (Line), Ops);
 }
 
-DITemplateTypeParameter *DITemplateTypeParameter::getImpl(LLVMContext &Context,
+MDTemplateTypeParameter *MDTemplateTypeParameter::getImpl(LLVMContext &Context,
                                                           MDString *Name,
                                                           Metadata *Type,
                                                           StorageType Storage,
                                                           bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DITemplateTypeParameter, (getString(Name), Type));
+  DEFINE_GETIMPL_LOOKUP(MDTemplateTypeParameter, (getString(Name), Type));
   Metadata *Ops[] = {Name, Type};
-  DEFINE_GETIMPL_STORE_NO_CONSTRUCTOR_ARGS(DITemplateTypeParameter, Ops);
+  DEFINE_GETIMPL_STORE_NO_CONSTRUCTOR_ARGS(MDTemplateTypeParameter, Ops);
 }
 
-DITemplateValueParameter *DITemplateValueParameter::getImpl(
+MDTemplateValueParameter *MDTemplateValueParameter::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *Type,
     Metadata *Value, StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DITemplateValueParameter,
+  DEFINE_GETIMPL_LOOKUP(MDTemplateValueParameter,
                         (Tag, getString(Name), Type, Value));
   Metadata *Ops[] = {Name, Type, Value};
-  DEFINE_GETIMPL_STORE(DITemplateValueParameter, (Tag), Ops);
+  DEFINE_GETIMPL_STORE(MDTemplateValueParameter, (Tag), Ops);
 }
 
-DIGlobalVariable *
-DIGlobalVariable::getImpl(LLVMContext &Context, Metadata *Scope, MDString *Name,
+MDGlobalVariable *
+MDGlobalVariable::getImpl(LLVMContext &Context, Metadata *Scope, MDString *Name,
                           MDString *LinkageName, Metadata *File, unsigned Line,
                           Metadata *Type, bool IsLocalToUnit, bool IsDefinition,
                           Metadata *Variable,
@@ -440,41 +440,44 @@ DIGlobalVariable::getImpl(LLVMContext &Context, Metadata *Scope, MDString *Name,
                           StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   assert(isCanonical(LinkageName) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIGlobalVariable,
+  DEFINE_GETIMPL_LOOKUP(MDGlobalVariable,
                         (Scope, getString(Name), getString(LinkageName), File,
                          Line, Type, IsLocalToUnit, IsDefinition, Variable,
                          StaticDataMemberDeclaration));
   Metadata *Ops[] = {Scope, Name,        File,     Type,
                      Name,  LinkageName, Variable, StaticDataMemberDeclaration};
-  DEFINE_GETIMPL_STORE(DIGlobalVariable, (Line, IsLocalToUnit, IsDefinition),
+  DEFINE_GETIMPL_STORE(MDGlobalVariable, (Line, IsLocalToUnit, IsDefinition),
                        Ops);
 }
 
-DILocalVariable *DILocalVariable::getImpl(LLVMContext &Context, unsigned Tag,
+MDLocalVariable *MDLocalVariable::getImpl(LLVMContext &Context, unsigned Tag,
                                           Metadata *Scope, MDString *Name,
                                           Metadata *File, unsigned Line,
                                           Metadata *Type, unsigned Arg,
                                           unsigned Flags, StorageType Storage,
                                           bool ShouldCreate) {
-  // 64K ought to be enough for any frontend.
-  assert(Arg <= UINT16_MAX && "Expected argument number to fit in 16-bits");
+  // Truncate Arg to 8 bits.
+  //
+  // FIXME: This is gross (and should be changed to an assert or removed), but
+  // it matches historical behaviour for now.
+  Arg &= (1u << 8) - 1;
 
   assert(Scope && "Expected scope");
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DILocalVariable, (Tag, Scope, getString(Name), File,
+  DEFINE_GETIMPL_LOOKUP(MDLocalVariable, (Tag, Scope, getString(Name), File,
                                           Line, Type, Arg, Flags));
   Metadata *Ops[] = {Scope, Name, File, Type};
-  DEFINE_GETIMPL_STORE(DILocalVariable, (Tag, Line, Arg, Flags), Ops);
+  DEFINE_GETIMPL_STORE(MDLocalVariable, (Tag, Line, Arg, Flags), Ops);
 }
 
-DIExpression *DIExpression::getImpl(LLVMContext &Context,
+MDExpression *MDExpression::getImpl(LLVMContext &Context,
                                     ArrayRef<uint64_t> Elements,
                                     StorageType Storage, bool ShouldCreate) {
-  DEFINE_GETIMPL_LOOKUP(DIExpression, (Elements));
-  DEFINE_GETIMPL_STORE_NO_OPS(DIExpression, (Elements));
+  DEFINE_GETIMPL_LOOKUP(MDExpression, (Elements));
+  DEFINE_GETIMPL_STORE_NO_OPS(MDExpression, (Elements));
 }
 
-unsigned DIExpression::ExprOperand::getSize() const {
+unsigned MDExpression::ExprOperand::getSize() const {
   switch (getOp()) {
   case dwarf::DW_OP_bit_piece:
     return 3;
@@ -485,7 +488,7 @@ unsigned DIExpression::ExprOperand::getSize() const {
   }
 }
 
-bool DIExpression::isValid() const {
+bool MDExpression::isValid() const {
   for (auto I = expr_op_begin(), E = expr_op_end(); I != E; ++I) {
     // Check that there's space for the operand.
     if (I->get() + I->getSize() > E->get())
@@ -506,7 +509,7 @@ bool DIExpression::isValid() const {
   return true;
 }
 
-bool DIExpression::isBitPiece() const {
+bool MDExpression::isBitPiece() const {
   assert(isValid() && "Expected valid expression");
   if (unsigned N = getNumElements())
     if (N >= 3)
@@ -514,38 +517,38 @@ bool DIExpression::isBitPiece() const {
   return false;
 }
 
-uint64_t DIExpression::getBitPieceOffset() const {
+uint64_t MDExpression::getBitPieceOffset() const {
   assert(isBitPiece() && "Expected bit piece");
   return getElement(getNumElements() - 2);
 }
 
-uint64_t DIExpression::getBitPieceSize() const {
+uint64_t MDExpression::getBitPieceSize() const {
   assert(isBitPiece() && "Expected bit piece");
   return getElement(getNumElements() - 1);
 }
 
-DIObjCProperty *DIObjCProperty::getImpl(
+MDObjCProperty *MDObjCProperty::getImpl(
     LLVMContext &Context, MDString *Name, Metadata *File, unsigned Line,
     MDString *GetterName, MDString *SetterName, unsigned Attributes,
     Metadata *Type, StorageType Storage, bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   assert(isCanonical(GetterName) && "Expected canonical MDString");
   assert(isCanonical(SetterName) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIObjCProperty,
+  DEFINE_GETIMPL_LOOKUP(MDObjCProperty,
                         (getString(Name), File, Line, getString(GetterName),
                          getString(SetterName), Attributes, Type));
   Metadata *Ops[] = {Name, File, GetterName, SetterName, Type};
-  DEFINE_GETIMPL_STORE(DIObjCProperty, (Line, Attributes), Ops);
+  DEFINE_GETIMPL_STORE(MDObjCProperty, (Line, Attributes), Ops);
 }
 
-DIImportedEntity *DIImportedEntity::getImpl(LLVMContext &Context, unsigned Tag,
+MDImportedEntity *MDImportedEntity::getImpl(LLVMContext &Context, unsigned Tag,
                                             Metadata *Scope, Metadata *Entity,
                                             unsigned Line, MDString *Name,
                                             StorageType Storage,
                                             bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
-  DEFINE_GETIMPL_LOOKUP(DIImportedEntity,
+  DEFINE_GETIMPL_LOOKUP(MDImportedEntity,
                         (Tag, Scope, Entity, Line, getString(Name)));
   Metadata *Ops[] = {Scope, Entity, Name};
-  DEFINE_GETIMPL_STORE(DIImportedEntity, (Tag, Line), Ops);
+  DEFINE_GETIMPL_STORE(MDImportedEntity, (Tag, Line), Ops);
 }

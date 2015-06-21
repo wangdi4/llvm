@@ -469,7 +469,8 @@ static Value *ThreadBinOpOverPHI(unsigned Opcode, Value *LHS, Value *RHS,
 
   // Evaluate the BinOp on the incoming phi values.
   Value *CommonValue = nullptr;
-  for (Value *Incoming : PI->incoming_values()) {
+  for (unsigned i = 0, e = PI->getNumIncomingValues(); i != e; ++i) {
+    Value *Incoming = PI->getIncomingValue(i);
     // If the incoming value is the phi node itself, it can safely be skipped.
     if (Incoming == PI) continue;
     Value *V = PI == LHS ?
@@ -509,7 +510,8 @@ static Value *ThreadCmpOverPHI(CmpInst::Predicate Pred, Value *LHS, Value *RHS,
 
   // Evaluate the BinOp on the incoming phi values.
   Value *CommonValue = nullptr;
-  for (Value *Incoming : PI->incoming_values()) {
+  for (unsigned i = 0, e = PI->getNumIncomingValues(); i != e; ++i) {
+    Value *Incoming = PI->getIncomingValue(i);
     // If the incoming value is the phi node itself, it can safely be skipped.
     if (Incoming == PI) continue;
     Value *V = SimplifyCmpInst(Pred, Incoming, RHS, Q, MaxRecurse);
@@ -3375,7 +3377,8 @@ static Value *SimplifyPHINode(PHINode *PN, const Query &Q) {
   // with the common value.
   Value *CommonValue = nullptr;
   bool HasUndefInput = false;
-  for (Value *Incoming : PN->incoming_values()) {
+  for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+    Value *Incoming = PN->getIncomingValue(i);
     // If the incoming value is the phi node itself, it can safely be skipped.
     if (Incoming == PN) continue;
     if (isa<UndefValue>(Incoming)) {
@@ -3556,53 +3559,14 @@ static bool IsIdempotent(Intrinsic::ID ID) {
 }
 
 template <typename IterTy>
-static Value *SimplifyIntrinsic(Function *F, IterTy ArgBegin, IterTy ArgEnd,
+static Value *SimplifyIntrinsic(Intrinsic::ID IID, IterTy ArgBegin, IterTy ArgEnd,
                                 const Query &Q, unsigned MaxRecurse) {
-  Intrinsic::ID IID = F->getIntrinsicID();
-  unsigned NumOperands = std::distance(ArgBegin, ArgEnd);
-  Type *ReturnType = F->getReturnType();
-
-  // Binary Ops
-  if (NumOperands == 2) {
-    Value *LHS = *ArgBegin;
-    Value *RHS = *(ArgBegin + 1);
-    if (IID == Intrinsic::usub_with_overflow ||
-        IID == Intrinsic::ssub_with_overflow) {
-      // X - X -> { 0, false }
-      if (LHS == RHS)
-        return Constant::getNullValue(ReturnType);
-
-      // X - undef -> undef
-      // undef - X -> undef
-      if (isa<UndefValue>(LHS) || isa<UndefValue>(RHS))
-        return UndefValue::get(ReturnType);
-    }
-
-    if (IID == Intrinsic::uadd_with_overflow ||
-        IID == Intrinsic::sadd_with_overflow) {
-      // X + undef -> undef
-      if (isa<UndefValue>(RHS))
-        return UndefValue::get(ReturnType);
-    }
-
-    if (IID == Intrinsic::umul_with_overflow ||
-        IID == Intrinsic::smul_with_overflow) {
-      // X * 0 -> { 0, false }
-      if (match(RHS, m_Zero()))
-        return Constant::getNullValue(ReturnType);
-
-      // X * undef -> { 0, false }
-      if (match(RHS, m_Undef()))
-        return Constant::getNullValue(ReturnType);
-    }
-  }
-
   // Perform idempotent optimizations
   if (!IsIdempotent(IID))
     return nullptr;
 
   // Unary Ops
-  if (NumOperands == 1)
+  if (std::distance(ArgBegin, ArgEnd) == 1)
     if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(*ArgBegin))
       if (II->getIntrinsicID() == IID)
         return II;
@@ -3626,8 +3590,9 @@ static Value *SimplifyCall(Value *V, IterTy ArgBegin, IterTy ArgEnd,
   if (!F)
     return nullptr;
 
-  if (F->isIntrinsic())
-    if (Value *Ret = SimplifyIntrinsic(F, ArgBegin, ArgEnd, Q, MaxRecurse))
+  if (unsigned IID = F->getIntrinsicID())
+    if (Value *Ret =
+        SimplifyIntrinsic((Intrinsic::ID) IID, ArgBegin, ArgEnd, Q, MaxRecurse))
       return Ret;
 
   if (!canConstantFoldCallTo(F))

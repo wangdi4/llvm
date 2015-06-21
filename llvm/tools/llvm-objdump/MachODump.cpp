@@ -81,12 +81,6 @@ cl::opt<bool>
                                   "(requires -macho)"));
 
 cl::opt<bool>
-    ArchiveMemberOffsets("archive-member-offsets",
-                         cl::desc("Print the offset to each archive member for "
-                                  "Mach-O archives (requires -macho and "
-                                  "-archive-headers)"));
-
-cl::opt<bool>
     llvm::IndirectSymbols("indirect-symbols",
                           cl::desc("Print indirect symbol table for Mach-O "
                                    "objects (requires -macho)"));
@@ -1565,7 +1559,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
   if (Archive *A = dyn_cast<Archive>(&Bin)) {
     outs() << "Archive : " << Filename << "\n";
     if (ArchiveHeaders)
-      printArchiveHeaders(A, !NonVerbose, ArchiveMemberOffsets);
+      printArchiveHeaders(A, true, false);
     for (Archive::child_iterator I = A->child_begin(), E = A->child_end();
          I != E; ++I) {
       ErrorOr<std::unique_ptr<Binary>> ChildOrErr = I->getAsBinary();
@@ -1612,7 +1606,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
                 outs() << " (architecture " << ArchitectureName << ")";
               outs() << "\n";
               if (ArchiveHeaders)
-                printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
+                printArchiveHeaders(A.get(), true, false);
               for (Archive::child_iterator AI = A->child_begin(),
                                            AE = A->child_end();
                    AI != AE; ++AI) {
@@ -1654,7 +1648,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
             std::unique_ptr<Archive> &A = *AOrErr;
             outs() << "Archive : " << Filename << "\n";
             if (ArchiveHeaders)
-              printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
+              printArchiveHeaders(A.get(), true, false);
             for (Archive::child_iterator AI = A->child_begin(),
                                          AE = A->child_end();
                  AI != AE; ++AI) {
@@ -1691,7 +1685,7 @@ void llvm::ParseInputMachO(StringRef Filename) {
           outs() << " (architecture " << ArchitectureName << ")";
         outs() << "\n";
         if (ArchiveHeaders)
-          printArchiveHeaders(A.get(), !NonVerbose, ArchiveMemberOffsets);
+          printArchiveHeaders(A.get(), true, false);
         for (Archive::child_iterator AI = A->child_begin(), AE = A->child_end();
              AI != AE; ++AI) {
           ErrorOr<std::unique_ptr<Binary>> ChildOrErr = AI->getAsBinary();
@@ -6484,7 +6478,7 @@ static void findUnwindRelocNameAddend(const MachOObjectFile *Obj,
   }
 
   auto RE = Obj->getRelocation(Reloc.getRawDataRefImpl());
-  SectionRef RelocSection = Obj->getAnyRelocationSection(RE);
+  SectionRef RelocSection = Obj->getRelocationSection(RE);
 
   uint64_t SectionAddr = RelocSection.getAddress();
 

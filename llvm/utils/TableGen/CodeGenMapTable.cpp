@@ -128,7 +128,7 @@ public:
     ListInit *ColValList = MapRec->getValueAsListInit("ValueCols");
 
     // Each instruction map must specify at least one column for it to be valid.
-    if (ColValList->empty())
+    if (ColValList->getSize() == 0)
       PrintFatalError(MapRec->getLoc(), "InstrMapping record `" +
         MapRec->getName() + "' has empty " + "`ValueCols' field!");
 

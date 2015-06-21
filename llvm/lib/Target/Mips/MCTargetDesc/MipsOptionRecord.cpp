@@ -28,11 +28,10 @@ void MipsRegInfoRecord::EmitMipsOptionRecord() {
   if (MTS->getABI().IsN64()) {
     // The EntrySize value of 1 seems strange since the records are neither
     // 1-byte long nor fixed length but it matches the value GAS emits.
-    MCSectionELF *Sec =
+    const MCSectionELF *Sec =
         Context.getELFSection(".MIPS.options", ELF::SHT_MIPS_OPTIONS,
                               ELF::SHF_ALLOC | ELF::SHF_MIPS_NOSTRIP, 1, "");
-    MCA.registerSection(*Sec);
-    Sec->setAlignment(8);
+    MCA.getOrCreateSectionData(*Sec).setAlignment(8);
     Streamer->SwitchSection(Sec);
 
     Streamer->EmitIntValue(ELF::ODK_REGINFO, 1);  // kind
@@ -47,10 +46,10 @@ void MipsRegInfoRecord::EmitMipsOptionRecord() {
     Streamer->EmitIntValue(ri_cprmask[3], 4);
     Streamer->EmitIntValue(ri_gp_value, 8);
   } else {
-    MCSectionELF *Sec = Context.getELFSection(".reginfo", ELF::SHT_MIPS_REGINFO,
-                                              ELF::SHF_ALLOC, 24, "");
-    MCA.registerSection(*Sec);
-    Sec->setAlignment(MTS->getABI().IsN32() ? 8 : 4);
+    const MCSectionELF *Sec = Context.getELFSection(
+        ".reginfo", ELF::SHT_MIPS_REGINFO, ELF::SHF_ALLOC, 24, "");
+    MCA.getOrCreateSectionData(*Sec)
+        .setAlignment(MTS->getABI().IsN32() ? 8 : 4);
     Streamer->SwitchSection(Sec);
 
     Streamer->EmitIntValue(ri_gprmask, 4);

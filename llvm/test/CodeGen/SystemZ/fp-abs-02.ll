@@ -1,7 +1,6 @@
 ; Test negated floating-point absolute.
 ;
-; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z10 | FileCheck %s
-; RUN: llc < %s -mtriple=s390x-linux-gnu -mcpu=z13 | FileCheck %s
+; RUN: llc < %s -mtriple=s390x-linux-gnu | FileCheck %s
 
 ; Test f32.
 declare float @llvm.fabs.f32(float %f)

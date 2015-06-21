@@ -394,15 +394,15 @@ std::error_code Module::materialize(GlobalValue *GV) {
   return Materializer->materialize(GV);
 }
 
-void Module::dematerialize(GlobalValue *GV) {
+void Module::Dematerialize(GlobalValue *GV) {
   if (Materializer)
-    return Materializer->dematerialize(GV);
+    return Materializer->Dematerialize(GV);
 }
 
 std::error_code Module::materializeAll() {
   if (!Materializer)
     return std::error_code();
-  return Materializer->materializeModule(this);
+  return Materializer->MaterializeModule(this);
 }
 
 std::error_code Module::materializeAllPermanently() {

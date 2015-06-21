@@ -459,7 +459,8 @@ bool GlobalMerge::doMerge(SmallVectorImpl<GlobalVariable *> &Globals,
       if (Linkage != GlobalValue::InternalLinkage) {
         // Generate a new alias...
         auto *PTy = cast<PointerType>(GEP->getType());
-        GlobalAlias::create(PTy, Linkage, Name, GEP, &M);
+        GlobalAlias::create(PTy->getElementType(), PTy->getAddressSpace(),
+                            Linkage, Name, GEP, &M);
       }
 
       NumMerged++;

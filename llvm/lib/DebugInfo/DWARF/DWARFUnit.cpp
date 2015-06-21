@@ -79,7 +79,10 @@ bool DWARFUnit::extractImpl(DataExtractor debug_info, uint32_t *offset_ptr) {
     return false;
 
   Abbrevs = Abbrev->getAbbreviationDeclarationSet(AbbrOffset);
-  return Abbrevs != nullptr;
+  if (Abbrevs == nullptr)
+    return false;
+
+  return true;
 }
 
 bool DWARFUnit::extract(DataExtractor debug_info, uint32_t *offset_ptr) {
@@ -307,11 +310,8 @@ void DWARFUnit::clearDIEs(bool KeepCUDie) {
 }
 
 void DWARFUnit::collectAddressRanges(DWARFAddressRangesVector &CURanges) {
-  const auto *U = getUnitDIE();
-  if (U == nullptr)
-    return;
-  // First, check if unit DIE describes address ranges for the whole unit.
-  const auto &CUDIERanges = U->getAddressRanges(this);
+  // First, check if CU DIE describes address ranges for the unit.
+  const auto &CUDIERanges = getCompileUnitDIE()->getAddressRanges(this);
   if (!CUDIERanges.empty()) {
     CURanges.insert(CURanges.end(), CUDIERanges.begin(), CUDIERanges.end());
     return;

@@ -47,11 +47,11 @@ inline LLVMTargetRef wrap(const Target * P) {
 }
 
 LLVMTargetRef LLVMGetFirstTarget() {
-  if (TargetRegistry::targets().begin() == TargetRegistry::targets().end()) {
+  if(TargetRegistry::begin() == TargetRegistry::end()) {
     return nullptr;
   }
 
-  const Target *target = &*TargetRegistry::targets().begin();
+  const Target* target = &*TargetRegistry::begin();
   return wrap(target);
 }
 LLVMTargetRef LLVMGetNextTarget(LLVMTargetRef T) {
@@ -60,10 +60,13 @@ LLVMTargetRef LLVMGetNextTarget(LLVMTargetRef T) {
 
 LLVMTargetRef LLVMGetTargetFromName(const char *Name) {
   StringRef NameRef = Name;
-  auto I = std::find_if(
-      TargetRegistry::targets().begin(), TargetRegistry::targets().end(),
-      [&](const Target &T) { return T.getName() == NameRef; });
-  return I != TargetRegistry::targets().end() ? wrap(&*I) : nullptr;
+  for (TargetRegistry::iterator IT = TargetRegistry::begin(),
+                                IE = TargetRegistry::end(); IT != IE; ++IT) {
+    if (IT->getName() == NameRef)
+      return wrap(&*IT);
+  }
+  
+  return nullptr;
 }
 
 LLVMBool LLVMGetTargetFromTriple(const char* TripleStr, LLVMTargetRef *T,

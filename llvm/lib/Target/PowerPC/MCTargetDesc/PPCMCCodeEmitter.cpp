@@ -20,7 +20,6 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
@@ -98,7 +97,7 @@ public:
   uint64_t getBinaryCodeForInstr(const MCInst &MI,
                                  SmallVectorImpl<MCFixup> &Fixups,
                                  const MCSubtargetInfo &STI) const;
-  void encodeInstruction(const MCInst &MI, raw_ostream &OS,
+  void EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups,
                          const MCSubtargetInfo &STI) const override {
     // For fast-isel, a float COPY_TO_REGCLASS can survive this long.
@@ -175,7 +174,7 @@ getDirectBrEncoding(const MCInst &MI, unsigned OpNo,
   if (MO.isReg() || MO.isImm()) return getMachineOpValue(MI, MO, Fixups, STI);
   
   // Add a fixup for the branch target.
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_br24));
   return 0;
 }
@@ -187,7 +186,7 @@ unsigned PPCMCCodeEmitter::getCondBrEncoding(const MCInst &MI, unsigned OpNo,
   if (MO.isReg() || MO.isImm()) return getMachineOpValue(MI, MO, Fixups, STI);
 
   // Add a fixup for the branch target.
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_brcond14));
   return 0;
 }
@@ -200,7 +199,7 @@ getAbsDirectBrEncoding(const MCInst &MI, unsigned OpNo,
   if (MO.isReg() || MO.isImm()) return getMachineOpValue(MI, MO, Fixups, STI);
 
   // Add a fixup for the branch target.
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_br24abs));
   return 0;
 }
@@ -213,7 +212,7 @@ getAbsCondBrEncoding(const MCInst &MI, unsigned OpNo,
   if (MO.isReg() || MO.isImm()) return getMachineOpValue(MI, MO, Fixups, STI);
 
   // Add a fixup for the branch target.
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_brcond14abs));
   return 0;
 }
@@ -225,7 +224,7 @@ unsigned PPCMCCodeEmitter::getImm16Encoding(const MCInst &MI, unsigned OpNo,
   if (MO.isReg() || MO.isImm()) return getMachineOpValue(MI, MO, Fixups, STI);
   
   // Add a fixup for the immediate field.
-  Fixups.push_back(MCFixup::create(IsLittleEndian? 0 : 2, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(IsLittleEndian? 0 : 2, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_half16));
   return 0;
 }
@@ -243,7 +242,7 @@ unsigned PPCMCCodeEmitter::getMemRIEncoding(const MCInst &MI, unsigned OpNo,
     return (getMachineOpValue(MI, MO, Fixups, STI) & 0xFFFF) | RegBits;
   
   // Add a fixup for the displacement field.
-  Fixups.push_back(MCFixup::create(IsLittleEndian? 0 : 2, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(IsLittleEndian? 0 : 2, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_half16));
   return RegBits;
 }
@@ -262,7 +261,7 @@ unsigned PPCMCCodeEmitter::getMemRIXEncoding(const MCInst &MI, unsigned OpNo,
     return ((getMachineOpValue(MI, MO, Fixups, STI) >> 2) & 0x3FFF) | RegBits;
   
   // Add a fixup for the displacement field.
-  Fixups.push_back(MCFixup::create(IsLittleEndian? 0 : 2, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(IsLittleEndian? 0 : 2, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_half16ds));
   return RegBits;
 }
@@ -325,7 +324,7 @@ unsigned PPCMCCodeEmitter::getTLSRegEncoding(const MCInst &MI, unsigned OpNo,
   // Add a fixup for the TLS register, which simply provides a relocation
   // hint to the linker that this statement is part of a relocation sequence.
   // Return the thread-pointer register's encoding.
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_nofixup));
   Triple TT(STI.getTargetTriple());
   bool isPPC64 = TT.getArch() == Triple::ppc64 || TT.getArch() == Triple::ppc64le;
@@ -339,7 +338,7 @@ unsigned PPCMCCodeEmitter::getTLSCallEncoding(const MCInst &MI, unsigned OpNo,
   // (__tls_get_addr), which we create via getDirectBrEncoding as usual,
   // and one for the TLSGD or TLSLD symbol, which is emitted here.
   const MCOperand &MO = MI.getOperand(OpNo+1);
-  Fixups.push_back(MCFixup::create(0, MO.getExpr(),
+  Fixups.push_back(MCFixup::Create(0, MO.getExpr(),
                                    (MCFixupKind)PPC::fixup_ppc_nofixup));
   return getDirectBrEncoding(MI, OpNo, Fixups, STI);
 }

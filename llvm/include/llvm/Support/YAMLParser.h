@@ -76,9 +76,9 @@ std::string escape(StringRef Input);
 class Stream {
 public:
   /// \brief This keeps a reference to the string referenced by \p Input.
-  Stream(StringRef Input, SourceMgr &, bool ShowColors = true);
+  Stream(StringRef Input, SourceMgr &);
 
-  Stream(MemoryBufferRef InputBuffer, SourceMgr &, bool ShowColors = true);
+  Stream(MemoryBufferRef InputBuffer, SourceMgr &);
   ~Stream();
 
   document_iterator begin();
@@ -107,7 +107,6 @@ public:
   enum NodeKind {
     NK_Null,
     NK_Scalar,
-    NK_BlockScalar,
     NK_KeyValue,
     NK_Mapping,
     NK_Sequence,
@@ -159,7 +158,7 @@ protected:
 
   void operator delete(void *) throw() {}
 
-  ~Node() = default;
+  virtual ~Node() {}
 
 private:
   unsigned int TypeID;
@@ -172,7 +171,7 @@ private:
 ///
 /// Example:
 ///   !!null null
-class NullNode final : public Node {
+class NullNode : public Node {
   void anchor() override;
 
 public:
@@ -187,7 +186,7 @@ public:
 ///
 /// Example:
 ///   Adena
-class ScalarNode final : public Node {
+class ScalarNode : public Node {
   void anchor() override;
 
 public:
@@ -223,36 +222,6 @@ private:
                                  SmallVectorImpl<char> &Storage) const;
 };
 
-/// \brief A block scalar node is an opaque datum that can be presented as a
-///        series of zero or more Unicode scalar values.
-///
-/// Example:
-///   |
-///     Hello
-///     World
-class BlockScalarNode final : public Node {
-  void anchor() override;
-
-public:
-  BlockScalarNode(std::unique_ptr<Document> &D, StringRef Anchor, StringRef Tag,
-                  StringRef Value, StringRef RawVal)
-      : Node(NK_BlockScalar, D, Anchor, Tag), Value(Value) {
-    SMLoc Start = SMLoc::getFromPointer(RawVal.begin());
-    SMLoc End = SMLoc::getFromPointer(RawVal.end());
-    SourceRange = SMRange(Start, End);
-  }
-
-  /// \brief Gets the value of this node as a StringRef.
-  StringRef getValue() const { return Value; }
-
-  static inline bool classof(const Node *N) {
-    return N->getType() == NK_BlockScalar;
-  }
-
-private:
-  StringRef Value;
-};
-
 /// \brief A key and value pair. While not technically a Node under the YAML
 ///        representation graph, it is easier to treat them this way.
 ///
@@ -260,7 +229,7 @@ private:
 ///
 /// Example:
 ///   Section: .text
-class KeyValueNode final : public Node {
+class KeyValueNode : public Node {
   void anchor() override;
 
 public:
@@ -284,8 +253,7 @@ public:
 
   void skip() override {
     getKey()->skip();
-    if (Node *Val = getValue())
-      Val->skip();
+    getValue()->skip();
   }
 
   static inline bool classof(const Node *N) {
@@ -371,7 +339,7 @@ template <class CollectionType> void skip(CollectionType &C) {
 /// Example:
 ///   Name: _main
 ///   Scope: Global
-class MappingNode final : public Node {
+class MappingNode : public Node {
   void anchor() override;
 
 public:
@@ -418,7 +386,7 @@ private:
 /// Example:
 ///   - Hello
 ///   - World
-class SequenceNode final : public Node {
+class SequenceNode : public Node {
   void anchor() override;
 
 public:
@@ -471,7 +439,7 @@ private:
 ///
 /// Example:
 ///   *AnchorName
-class AliasNode final : public Node {
+class AliasNode : public Node {
   void anchor() override;
 
 public:

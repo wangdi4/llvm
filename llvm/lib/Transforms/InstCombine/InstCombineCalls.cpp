@@ -13,7 +13,6 @@
 
 #include "InstCombineInternal.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Dominators.h"
@@ -202,7 +201,7 @@ static Value *SimplifyX86insertps(const IntrinsicInst &II,
                                   InstCombiner::BuilderTy &Builder) {
   if (auto *CInt = dyn_cast<ConstantInt>(II.getArgOperand(2))) {
     VectorType *VecTy = cast<VectorType>(II.getType());
-    assert(VecTy->getNumElements() == 4 && "insertps with wrong vector type");
+    ConstantAggregateZero *ZeroVector = ConstantAggregateZero::get(VecTy);
     
     // The immediate permute control byte looks like this:
     //    [3:0] - zero mask for each 32-bit lane
@@ -214,42 +213,25 @@ static Value *SimplifyX86insertps(const IntrinsicInst &II,
     uint8_t DestLane = (Imm >> 4) & 0x3;
     uint8_t SourceLane = (Imm >> 6) & 0x3;
 
-    ConstantAggregateZero *ZeroVector = ConstantAggregateZero::get(VecTy);
-
     // If all zero mask bits are set, this was just a weird way to
     // generate a zero vector.
     if (ZMask == 0xf)
       return ZeroVector;
+    
+    // TODO: Model this case as two shuffles or a 'logical and' plus shuffle?
+    if (ZMask)
+      return nullptr;
 
-    // Initialize by passing all of the first source bits through.
+    assert(VecTy->getNumElements() == 4 && "insertps with wrong vector type");
+
+    // If we're not zeroing anything, this is a single shuffle.
+    // Replace the selected destination lane with the selected source lane.
+    // For all other lanes, pass the first source bits through.
     int ShuffleMask[4] = { 0, 1, 2, 3 };
-
-    // We may replace the second operand with the zero vector.
-    Value *V1 = II.getArgOperand(1);
-
-    if (ZMask) {
-      // If the zero mask is being used with a single input or the zero mask
-      // overrides the destination lane, this is a shuffle with the zero vector.
-      if ((II.getArgOperand(0) == II.getArgOperand(1)) ||
-          (ZMask & (1 << DestLane))) {
-        V1 = ZeroVector;
-        // We may still move 32-bits of the first source vector from one lane
-        // to another.
-        ShuffleMask[DestLane] = SourceLane;
-        // The zero mask may override the previous insert operation.
-        for (unsigned i = 0; i < 4; ++i)
-          if ((ZMask >> i) & 0x1)
-            ShuffleMask[i] = i + 4;
-      } else {
-        // TODO: Model this case as 2 shuffles or a 'logical and' plus shuffle?
-        return nullptr;
-      }
-    } else {
-      // Replace the selected destination lane with the selected source lane.
-      ShuffleMask[DestLane] = SourceLane + 4;
-    }
-  
-    return Builder.CreateShuffleVector(II.getArgOperand(0), V1, ShuffleMask);
+    ShuffleMask[DestLane] = SourceLane + 4;
+    
+    return Builder.CreateShuffleVector(II.getArgOperand(0), II.getArgOperand(1),
+                                       ShuffleMask);
   }
   return nullptr;
 }
@@ -324,11 +306,6 @@ static Value *SimplifyX86vperm2(const IntrinsicInst &II,
 /// the heavy lifting.
 ///
 Instruction *InstCombiner::visitCallInst(CallInst &CI) {
-  auto Args = CI.arg_operands();
-  if (Value *V = SimplifyCall(CI.getCalledValue(), Args.begin(), Args.end(), DL,
-                              TLI, DT, AC))
-    return ReplaceInstUsesWith(CI, V);
-
   if (isFreeCall(&CI, TLI))
     return visitFree(CI);
 
@@ -630,12 +607,9 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // Turn PPC QPX qvlfs -> load if the pointer is known aligned.
     if (getOrEnforceKnownAlignment(II->getArgOperand(0), 16, DL, II, AC, DT) >=
         16) {
-      Type *VTy = VectorType::get(Builder->getFloatTy(),
-                                  II->getType()->getVectorNumElements());
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(0),
-                                         PointerType::getUnqual(VTy));
-      Value *Load = Builder->CreateLoad(Ptr);
-      return new FPExtInst(Load, II->getType());
+                                         PointerType::getUnqual(II->getType()));
+      return new LoadInst(Ptr);
     }
     break;
   case Intrinsic::ppc_qpx_qvlfd:
@@ -651,12 +625,10 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // Turn PPC QPX qvstfs -> store if the pointer is known aligned.
     if (getOrEnforceKnownAlignment(II->getArgOperand(1), 16, DL, II, AC, DT) >=
         16) {
-      Type *VTy = VectorType::get(Builder->getFloatTy(),
-          II->getArgOperand(0)->getType()->getVectorNumElements());
-      Value *TOp = Builder->CreateFPTrunc(II->getArgOperand(0), VTy);
-      Type *OpPtrTy = PointerType::getUnqual(VTy);
+      Type *OpPtrTy =
+        PointerType::getUnqual(II->getArgOperand(0)->getType());
       Value *Ptr = Builder->CreateBitCast(II->getArgOperand(1), OpPtrTy);
-      return new StoreInst(TOp, Ptr);
+      return new StoreInst(II->getArgOperand(0), Ptr);
     }
     break;
   case Intrinsic::ppc_qpx_qvstfd:
@@ -1207,8 +1179,7 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // facts about the relocate value, while being careful to
     // preserve relocation semantics.
     GCRelocateOperands Operands(II);
-    Value *DerivedPtr = Operands.getDerivedPtr();
-    auto *GCRelocateType = cast<PointerType>(II->getType());
+    Value *DerivedPtr = Operands.derivedPtr();
 
     // Remove the relocation if unused, note that this check is required
     // to prevent the cases below from looping forever.
@@ -1219,18 +1190,14 @@ Instruction *InstCombiner::visitCallInst(CallInst &CI) {
     // TODO: provide a hook for this in GCStrategy.  This is clearly legal for
     // most practical collectors, but there was discussion in the review thread
     // about whether it was legal for all possible collectors.
-    if (isa<UndefValue>(DerivedPtr)) {
-      // gc_relocate is uncasted. Use undef of gc_relocate's type to replace it.
-      return ReplaceInstUsesWith(*II, UndefValue::get(GCRelocateType));
-    }
+    if (isa<UndefValue>(DerivedPtr))
+      return ReplaceInstUsesWith(*II, DerivedPtr);
 
     // The relocation of null will be null for most any collector.
     // TODO: provide a hook for this in GCStrategy.  There might be some weird
     // collector this property does not hold for.
-    if (isa<ConstantPointerNull>(DerivedPtr)) {
-      // gc_relocate is uncasted. Use null-pointer of gc_relocate's type to replace it.
-      return ReplaceInstUsesWith(*II, ConstantPointerNull::get(GCRelocateType));
-    }
+    if (isa<ConstantPointerNull>(DerivedPtr))
+      return ReplaceInstUsesWith(*II, DerivedPtr);
 
     // isKnownNonNull -> nonnull attribute
     if (isKnownNonNull(DerivedPtr))
@@ -1529,7 +1496,10 @@ bool InstCombiner::transformConstExprCastCall(CallSite CS) {
 
     if (!CallerPAL.isEmpty() && !Caller->use_empty()) {
       AttrBuilder RAttrs(CallerPAL, AttributeSet::ReturnIndex);
-      if (RAttrs.overlaps(AttributeFuncs::typeIncompatible(NewRetTy)))
+      if (RAttrs.
+          hasAttributes(AttributeFuncs::
+                        typeIncompatible(NewRetTy, AttributeSet::ReturnIndex),
+                        AttributeSet::ReturnIndex))
         return false;   // Attribute not compatible with transformed value.
     }
 
@@ -1570,7 +1540,8 @@ bool InstCombiner::transformConstExprCastCall(CallSite CS) {
       return false;   // Cannot transform this parameter value.
 
     if (AttrBuilder(CallerPAL.getParamAttributes(i + 1), i + 1).
-          overlaps(AttributeFuncs::typeIncompatible(ParamTy)))
+          hasAttributes(AttributeFuncs::
+                        typeIncompatible(ParamTy, i + 1), i + 1))
       return false;   // Attribute not compatible with transformed value.
 
     if (CS.isInAllocaArgument(i))
@@ -1643,7 +1614,10 @@ bool InstCombiner::transformConstExprCastCall(CallSite CS) {
 
   // If the return value is not being used, the type may not be compatible
   // with the existing attributes.  Wipe out any problematic attributes.
-  RAttrs.remove(AttributeFuncs::typeIncompatible(NewRetTy));
+  RAttrs.
+    removeAttributes(AttributeFuncs::
+                     typeIncompatible(NewRetTy, AttributeSet::ReturnIndex),
+                     AttributeSet::ReturnIndex);
 
   // Add the new return attributes.
   if (RAttrs.hasAttributes())

@@ -21,6 +21,7 @@
 
 namespace llvm {
 
+class MCSectionData;
 class MachObjectWriter;
 
 class MCMachObjectTargetWriter {
@@ -44,14 +45,14 @@ protected:
 public:
   virtual ~MCMachObjectTargetWriter();
 
-  /// \name Lifetime Management
+  /// @name Lifetime Management
   /// @{
 
   virtual void reset() {};
 
   /// @}
 
-  /// \name Accessors
+  /// @name Accessors
   /// @{
 
   bool is64Bit() const { return Is64Bit; }
@@ -64,7 +65,7 @@ public:
 
   /// @}
 
-  /// \name API
+  /// @name API
   /// @{
 
   virtual void RecordRelocation(MachObjectWriter *Writer, MCAssembler &Asm,
@@ -80,7 +81,7 @@ class MachObjectWriter : public MCObjectWriter {
   /// MachSymbolData - Helper struct for containing some precomputed information
   /// on symbols.
   struct MachSymbolData {
-    const MCSymbol *Symbol;
+    MCSymbolData *SymbolData;
     uint64_t StringIndex;
     uint8_t SectionIndex;
 
@@ -91,21 +92,21 @@ class MachObjectWriter : public MCObjectWriter {
   /// The target specific Mach-O writer instance.
   std::unique_ptr<MCMachObjectTargetWriter> TargetObjectWriter;
 
-  /// \name Relocation Data
+  /// @name Relocation Data
   /// @{
 
   struct RelAndSymbol {
-    const MCSymbol *Sym;
+    const MCSymbolData *Sym;
     MachO::any_relocation_info MRE;
-    RelAndSymbol(const MCSymbol *Sym, const MachO::any_relocation_info &MRE)
+    RelAndSymbol(const MCSymbolData *Sym, const MachO::any_relocation_info &MRE)
         : Sym(Sym), MRE(MRE) {}
   };
 
-  llvm::DenseMap<const MCSection *, std::vector<RelAndSymbol>> Relocations;
-  llvm::DenseMap<const MCSection *, unsigned> IndirectSymBase;
+  llvm::DenseMap<const MCSectionData *, std::vector<RelAndSymbol>> Relocations;
+  llvm::DenseMap<const MCSectionData*, unsigned> IndirectSymBase;
 
   /// @}
-  /// \name Symbol Table Data
+  /// @name Symbol Table Data
   /// @{
 
   StringTableBuilder StringTable;
@@ -124,14 +125,14 @@ public:
 
   const MCSymbol &findAliasedSymbol(const MCSymbol &Sym) const;
 
-  /// \name Lifetime management Methods
+  /// @name Lifetime management Methods
   /// @{
 
   void reset() override;
 
   /// @}
 
-  /// \name Utility Methods
+  /// @name Utility Methods
   /// @{
 
   bool isFixupKindPCRel(const MCAssembler &Asm, unsigned Kind);
@@ -140,21 +141,23 @@ public:
 
   SectionAddrMap &getSectionAddressMap() { return SectionAddress; }
 
-  uint64_t getSectionAddress(const MCSection *Sec) const {
-    return SectionAddress.lookup(Sec);
+  uint64_t getSectionAddress(const MCSectionData* SD) const {
+    return SectionAddress.lookup(SD);
   }
-  uint64_t getSymbolAddress(const MCSymbol &S, const MCAsmLayout &Layout) const;
+  uint64_t getSymbolAddress(const MCSymbolData* SD,
+                            const MCAsmLayout &Layout) const;
 
   uint64_t getFragmentAddress(const MCFragment *Fragment,
                               const MCAsmLayout &Layout) const;
 
-  uint64_t getPaddingSize(const MCSection *SD, const MCAsmLayout &Layout) const;
+  uint64_t getPaddingSize(const MCSectionData *SD,
+                          const MCAsmLayout &Layout) const;
 
-  bool doesSymbolRequireExternRelocation(const MCSymbol &S);
+  bool doesSymbolRequireExternRelocation(const MCSymbolData *SD);
 
   /// @}
 
-  /// \name Target Writer Proxy Accessors
+  /// @name Target Writer Proxy Accessors
   /// @{
 
   bool is64Bit() const { return TargetObjectWriter->is64Bit(); }
@@ -178,7 +181,7 @@ public:
                                uint64_t SectionDataSize);
 
   void WriteSection(const MCAssembler &Asm, const MCAsmLayout &Layout,
-                    const MCSection &Sec, uint64_t FileOffset,
+                    const MCSectionData &SD, uint64_t FileOffset,
                     uint64_t RelocationsStart, unsigned NumRelocations);
 
   void WriteSymtabLoadCommand(uint32_t SymbolOffset, uint32_t NumSymbols,
@@ -220,10 +223,10 @@ public:
   // to a symbol it should be passed as \p RelSymbol so that it can be updated
   // afterwards. If the relocation doesn't refer to a symbol, nullptr should be
   // used.
-  void addRelocation(const MCSymbol *RelSymbol, const MCSection *Sec,
+  void addRelocation(const MCSymbolData *RelSymbol, const MCSectionData *SD,
                      MachO::any_relocation_info &MRE) {
     RelAndSymbol P(RelSymbol, MRE);
-    Relocations[Sec].push_back(P);
+    Relocations[SD].push_back(P);
   }
 
   void RecordScatteredRelocation(const MCAssembler &Asm,
@@ -260,8 +263,9 @@ public:
                                 const MCAsmLayout &Layout) override;
 
   bool IsSymbolRefDifferenceFullyResolvedImpl(const MCAssembler &Asm,
-                                              const MCSymbol &SymA,
-                                              const MCFragment &FB, bool InSet,
+                                              const MCSymbolData &DataA,
+                                              const MCFragment &FB,
+                                              bool InSet,
                                               bool IsPCRel) const override;
 
   void WriteObject(MCAssembler &Asm, const MCAsmLayout &Layout) override;

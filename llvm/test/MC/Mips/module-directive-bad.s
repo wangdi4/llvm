@@ -203,7 +203,7 @@
 
     .set macro
     .module fp=64
-# CHECK: :[[@LINE-1]]:13: error: .module directive must appear before any code
+# FIXME: emitDirectiveSetMacro should call forbidModuleDirective().
 
     .llvm_internal_mips_reallow_module_directive
     .module fp=32
@@ -211,7 +211,7 @@
 
     .set nomacro
     .module fp=64
-# CHECK: :[[@LINE-1]]:13: error: .module directive must appear before any code
+# FIXME: emitDirectiveSetNoMacro should call forbidModuleDirective().
 
     .llvm_internal_mips_reallow_module_directive
     .module fp=32

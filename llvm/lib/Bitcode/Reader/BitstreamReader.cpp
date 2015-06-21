@@ -39,16 +39,15 @@ bool BitstreamCursor::EnterSubBlock(unsigned BlockID, unsigned *NumWordsP) {
 
   // Get the codesize of this block.
   CurCodeSize = ReadVBR(bitc::CodeLenWidth);
-  // We can't read more than MaxChunkSize at a time
-  if (CurCodeSize > MaxChunkSize)
-    return true;
-
   SkipToFourByteBoundary();
   unsigned NumWords = Read(bitc::BlockSizeWidth);
   if (NumWordsP) *NumWordsP = NumWords;
 
   // Validate that this block is sane.
-  return CurCodeSize == 0 || AtEndOfStream();
+  if (CurCodeSize == 0 || AtEndOfStream())
+    return true;
+
+  return false;
 }
 
 static uint64_t readAbbreviatedField(BitstreamCursor &Cursor,
@@ -200,12 +199,8 @@ unsigned BitstreamCursor::readRecord(unsigned AbbrevID,
       unsigned NumElts = ReadVBR(6);
 
       // Get the element encoding.
-      if (i + 2 != e)
-        report_fatal_error("Array op not second to last");
+      assert(i+2 == e && "array op not second to last?");
       const BitCodeAbbrevOp &EltEnc = Abbv->getOperandInfo(++i);
-      if (!EltEnc.isEncoding())
-        report_fatal_error(
-            "Array element type has to be an encoding of a type");
       if (EltEnc.getEncoding() == BitCodeAbbrevOp::Array ||
           EltEnc.getEncoding() == BitCodeAbbrevOp::Blob)
         report_fatal_error("Array element type can't be an Array or a Blob");
@@ -285,9 +280,6 @@ void BitstreamCursor::ReadAbbrevRecord() {
     } else
       Abbv->Add(BitCodeAbbrevOp(E));
   }
-
-  if (Abbv->getNumOperandInfos() == 0)
-    report_fatal_error("Abbrev record with no operands");
   CurAbbrevs.push_back(Abbv);
 }
 

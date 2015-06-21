@@ -13,7 +13,8 @@ entry:
 ; Make sure the fence comes before the comparison, since it
 ; clobbers EFLAGS.
 
-; CHECK: lock orl {{.*}}, (%esp)
+; CHECK: lock
+; CHECK-NEXT: orl {{.*}}, (%esp)
 ; CHECK-NEXT: testl [[REG:%e[a-z]+]], [[REG]]
 
 if.then:                                          ; preds = %entry

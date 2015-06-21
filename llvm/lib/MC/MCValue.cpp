@@ -26,11 +26,11 @@ void MCValue::print(raw_ostream &OS) const {
   if (getRefKind())
     OS << ':' << getRefKind() <<  ':';
 
-  OS << *getSymA();
+  getSymA()->print(OS);
 
   if (getSymB()) {
     OS << " - ";
-    OS << *getSymB();
+    getSymB()->print(OS);
   }
 
   if (getConstant())
