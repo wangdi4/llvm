@@ -364,8 +364,12 @@ elseif ( REVISION_ID MATCHES "-r[0-9]*" ) # Review ID
   set( GIT_REVISION $ENV{RELEASE_BRANCH} )
 endif()
 
-set( PRODUCTVER_MAJOR 10 )
-set( PRODUCTVER_MINOR  0 )
+# MAJOR and MINOR version aligned with 15.40 branch because currently
+# we are delivering cpu bundle from master.
+# As soon as we will deliver cpu buncle from release branch to vpg
+# revert this change. CSSD100021694.
+set( PRODUCTVER_MAJOR 5 )
+set( PRODUCTVER_MINOR 2 )
 
 math(EXPR BUILDVER_16_BIT_MAJOR "${BUILDVER_WC_REVISION} / 65536")
 math(EXPR BUILDVER_16_BIT_MINOR "${BUILDVER_WC_REVISION} % 65536")
