@@ -75,9 +75,10 @@ static std::string getRealName(std::string name) {
 }
 
 static bool isStaticMethod(StringRef linkageName) {
-  // FIXME: this is a temporary WA to partial demangle gcc linkageName
+  // FIXME: this is a temporary WA to partial demangle linkageName
+  //        Clang should mark static method using MDSubprogram flag
   size_t pos = linkageName.find("@@");
-  if (pos != StringRef::npos) {
+  if (pos != StringRef::npos && (pos +2) < linkageName.size()) {
     switch (linkageName[pos + 2]) {
     case 'T':
     case 'S':
@@ -925,8 +926,13 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
   //  return;
 
   // Locate the symbol for this function.
-  procedure = _functionMap.find(MF->getFunction())
-                  ->second; // FIXME: validate function exist in the map
+  FunctionMap::iterator Itr = _functionMap.find(MF->getFunction());
+  if (Itr == _functionMap.end()) {
+    // If function has no debug info, skip it.
+    setCurrentProcedure(nullptr);
+    return;
+  }
+  procedure = Itr->second;
   procedure->setLabelBegin(createFuncLabel("fbeg"));
   procedure->setLabelEnd(createFuncLabel("fend"));
 
@@ -944,6 +950,9 @@ void STIDebugImpl::endFunction(const MachineFunction *MF) {
     return;
 
   STISymbolProcedure *procedure = getCurrentProcedure();
+
+  if (procedure == nullptr)
+    return;
 
   // Emit the label marking the end of the procedure.
   emitLabel(procedure->getLabelEnd());
@@ -970,7 +979,7 @@ void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
 
   assert(_curMI == nullptr);
 
-  if (MI->isDebugValue()) {
+  if (MI->isDebugValue() || getCurrentProcedure() == nullptr) {
     return;
   }
 
@@ -1602,8 +1611,17 @@ void STIDebugImpl::collectClassInfoFromInheritance(ClassInfo &info,
                                                    bool &finalizedOffset) {
   bool isVirtual = inherTy->isVirtual();
 
-  MDCompositeType *DDTy =
-      dyn_cast<MDCompositeType>(resolve(inherTy->getBaseType()));
+  const MDType *BaseTy = resolve(inherTy->getBaseType());
+
+  // Base type of inheritance entry might be a typedef entry.
+  // Skip all typedef entries to get to the class entry.
+  while (!isa<MDCompositeType>(BaseTy)) {
+    assert(isa<MDDerivedType>(BaseTy) && "Base type expected to be derived type");
+    const MDDerivedType *DTy = cast<MDDerivedType>(BaseTy);
+    assert(DTy->getTag() == dwarf::DW_TAG_typedef);
+    BaseTy = resolve(DTy->getBaseType());
+  }
+  const MDCompositeType *DDTy = dyn_cast<MDCompositeType>(BaseTy);
   ClassInfo &inherInfo = collectClassInfo(DDTy);
 
   for (auto &itr : inherInfo.vBaseClasses) {
@@ -3043,19 +3061,6 @@ void STIDebugImpl::layout() {
     case STI_OBJECT_KIND_TYPE_BASIC:
       type->setIndex(static_cast<STITypeBasic *>(type)->getPrimitive());
       continue;
-    case STI_OBJECT_KIND_TYPE_POINTER: {
-      STITypePointer *pType = static_cast<STITypePointer *>(type);
-      STIType *pPointerTo = pType->getPointerTo();
-      if (pPointerTo->getKind() == STI_OBJECT_KIND_TYPE_BASIC) {
-        STITypeBasic *pBasicType = static_cast<STITypeBasic *>(pPointerTo);
-        switch (pBasicType->getPrimitive()) {
-        // TODO: Add more cases!
-        case T_CHAR:
-          type->setIndex(T_64PRCHAR);
-          continue;
-        }
-      }
-    }
     default:
       type->setIndex(nextTypeIndex++);
       break;
@@ -3397,12 +3402,17 @@ STIDebugImpl::emitSymbolProcedure(const STISymbolProcedure *procedure) const {
 
 void STIDebugImpl::emitSymbolProcedureEnd() const {
   emitInt16(2);
+#if 1
+  // FIXME: This is WA till ntobjanl tool is updated.
+  emitSymbolID(S_END);
+#else
   emitSymbolID(S_PROC_ID_END);
+#endif
 }
 
 class STIFrameProcFlags {
 public:
-  operator int() { return 0x14000; } // FIXME
+  operator int() { return 0; } // FIXME
 };
 
 void STIDebugImpl::emitSymbolFrameProc(const STISymbolFrameProc *frame) const {
