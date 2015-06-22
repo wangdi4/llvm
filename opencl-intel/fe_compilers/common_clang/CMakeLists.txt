@@ -7,12 +7,6 @@ project( common_clang )
 use_eh(TRUE)
 use_rtti(FALSE)
 
-# Handling of stack overflow exception on windows requires /EHa
-if (WIN32)
-	ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHsc" "/EHa" )
-	ocl_replace_compiler_option(CMAKE_CXX_FLAGS "/EHs" "/EHa" ) 
-endif()
-
 # set that name of the main output file as a target name
 set( TARGET_NAME common_clang${BUILD_PLATFORM} )
 
