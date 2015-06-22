@@ -757,7 +757,7 @@ VarDescription DebugServer::DebugServerImpl::CreateVarDescription(const Function
 
     string var_type_str = DescribeVarType(di_type, m_typeIdentifierMap);
     string var_value_str = DescribeVarValue(di_type, var_info.addr, m_typeIdentifierMap, var_type_str);
-    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(di_type);
+    VarTypeDescriptor var_type_descriptor = GenerateVarTypeDescriptor(di_type, m_typeIdentifierMap);
     
     return VarDescription(
         var_name_str, 

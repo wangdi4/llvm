@@ -49,7 +49,7 @@ std::string DescribeVarValue(const llvm::DIType& di_type, void* addr,
 // transmission to the client.
 //
 debugservermessages::VarTypeDescriptor GenerateVarTypeDescriptor(
-    const llvm::DIType& di_type);
+    const llvm::DIType& di_type, const llvm::DITypeIdentifierMap& typeIdentifierMap);
 
 
 #endif // DEBUGINFO_UTILS_H
