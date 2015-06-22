@@ -36,6 +36,8 @@ static bool buildVectorizerAVR(Function &F, Module &M) {
 
   AVRList->print();
 
+  AVRList->CodeGen();
+
   return true;
 }
 } // namespace intel
@@ -46,16 +48,18 @@ using namespace llvm::vpo;
 VPODriver::VPODriver() : FunctionPass(ID) {}
 
 bool VPODriver::runOnFunction(Function &F) {
+  bool ret_val;
+
   DEBUG(errs() << "VPODriver: ");
   DEBUG(errs().write_escaped(F.getName()) << '\n');
 
-  intel::buildVectorizerAVR(F, *(F.getParent()));
+  ret_val = intel::buildVectorizerAVR(F, *(F.getParent()));
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   WR = &getAnalysis<WRegionInfo>();
   SC = &getAnalysis<ScalarEvolution>();
 
-  return false;
+  return ret_val;
 }
 
 char VPODriver::ID = 0;

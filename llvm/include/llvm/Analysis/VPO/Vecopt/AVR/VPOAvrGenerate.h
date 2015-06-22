@@ -50,6 +50,10 @@ public:
   void print();
   void buildBody(AVRFunction *AVRFunc);
 
+  /// \brief Code generation for AVRs. We have this under analysis for
+  /// now. Clients call this from a transform pass. This will change
+  /// and will move into transforms once we have AVR visitors.
+  void CodeGen();
 };
 
 }  // End VPO Vectorizer namespace

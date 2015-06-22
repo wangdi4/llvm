@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIf.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace intel;
@@ -29,4 +30,18 @@ void AVRIf::print() const {
 
 void AVRIf::dump() const {
   print();
+}
+
+void AVRIf::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(CompareInstruction->dump());
+  inst = CompareInstruction->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(CompareInstruction->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(CompareInstruction, inst);
+  DEBUG(inst->dump());
 }

@@ -78,6 +78,9 @@ public:
   virtual void dump() const { print(); }
   virtual void print() const;
 
+  /// \brief Code generation for AVR.
+  virtual void CodeGen();
+
   /// \brief Returns the immediate lexical parent of the AVR.
   AVR *getParent() const { return Parent; }
 

@@ -136,6 +136,13 @@ public:
   /// \brief Dump AVR Function Node and its children.
   void dump() const override;
 
+  /// \brief Code generation for AVR Function Node and its children.
+  // We have this under analysis for now. Clients call this from a 
+  // transform pass. This will change and will move into transforms
+  // once we have AVR visitors. Only does a simple cloning of the
+  // underlying LLVM instruction in AVRs for now.
+  void CodeGen() override;
+
 };
 
 }  // End VPO Vectorizer namespace

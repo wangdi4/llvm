@@ -14,6 +14,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmt.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace intel;
@@ -39,6 +40,20 @@ void AVRAssign::dump() const {
   print();
 }
 
+void AVRAssign::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+
 //----------AVR Label Implementation----------//
 AVRLabel::AVRLabel(BasicBlock *SourceB)
   : AVR(AVR::AVRLabelNode), SourceBlock(SourceB) {}
@@ -53,6 +68,9 @@ void AVRLabel::print() const {
 
 void AVRLabel::dump() const {
   print();
+}
+
+void AVRLabel::CodeGen() {
 }
 
 //----------AVR Phi Implementation----------//
@@ -71,6 +89,20 @@ void AVRPhi::dump() const {
   print();
 }
 
+void AVRPhi::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+
 //----------AVR Call Implementation----------//
 AVRCall::AVRCall(Instruction * Inst)
   : AVR(AVR::AVRCallNode), Instruct(Inst) {}
@@ -85,6 +117,20 @@ void AVRCall::print() const {
 
 void AVRCall::dump() const {
   print();
+}
+
+void AVRCall::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
 }
 
 //----------AVR FBranch Implementation----------//
@@ -102,6 +148,21 @@ void AVRFBranch::print() const {
 void AVRFBranch::dump() const {
   print();
 }
+
+void AVRFBranch::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+
 //----------AVR BackEdge Implementation----------//
 AVRBackEdge::AVRBackEdge(Instruction * Inst)
   : AVR(AVR::AVRFBranchNode), Instruct(Inst) {}
@@ -116,6 +177,20 @@ void AVRBackEdge::print() const {
 
 void AVRBackEdge::dump() const {
   print();
+}
+
+void AVRBackEdge::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
 }
 
 //----------AVR Entry Implementation----------//
@@ -134,6 +209,21 @@ void AVREntry::dump() const {
   print();
 }
 
+void AVREntry::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+
+
 //----------AVR Return Implementation----------//
 AVRReturn::AVRReturn(Instruction * Inst)
   : AVR(AVR::AVRReturnNode), Instruct(Inst) {}
@@ -149,3 +239,18 @@ void AVRReturn::print() const {
 void AVRReturn::dump() const {
   print();
 }
+
+void AVRReturn::CodeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+

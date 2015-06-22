@@ -132,6 +132,9 @@ public:
 
   void print() const override;
   void dump() const override;
+
+  /// \brief Code generation for AVR loop.
+  void CodeGen() override;
 };
 
 

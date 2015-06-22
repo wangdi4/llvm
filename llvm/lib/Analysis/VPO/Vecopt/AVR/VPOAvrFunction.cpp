@@ -54,3 +54,10 @@ void AVRFunction::dump() const {
     Itr->print();
   }
 }
+
+void AVRFunction::CodeGen() {
+
+  for (auto Itr = child_begin(); Itr !=child_end(); ++Itr) {
+    Itr->CodeGen();
+  }
+}

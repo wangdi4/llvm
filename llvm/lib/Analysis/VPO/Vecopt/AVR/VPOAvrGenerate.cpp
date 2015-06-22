@@ -134,3 +134,11 @@ void AVRGenerate::print() {
     DEBUG(dbgs() << "No AVRs Generated\n\n");
   }
 }
+
+void AVRGenerate::CodeGen() {
+
+  if (!AVRList.empty()) {
+    AVR *ANode = &AVRList.back();
+    ANode->CodeGen();
+  }
+}

@@ -82,6 +82,9 @@ public:
 
   void dump() const override;
 
+  /// \brief Code generation for AVR Assign.
+  void CodeGen() override;
+
 };
 
 //----------AVR Label Node----------//
@@ -108,6 +111,9 @@ public:
 
   void print() const override;
   void dump() const override;
+
+  /// \brief Code generation for AVR Label.
+  void CodeGen() override;
 
 };
 
@@ -143,6 +149,10 @@ public:
   AVRPhi *clone() const override;
   void print() const override;
   void dump() const override;
+
+  /// \brief Code generation for AVR Phi.
+  void CodeGen() override;
+
 };
 
 
@@ -169,6 +179,9 @@ public:
   void print() const override;
   void dump() const override;
 
+  /// \brief Code generation for AVR Call.
+  void CodeGen() override;
+
 };
 
 //----------AVR Fbranch Node----------//
@@ -193,6 +206,9 @@ public:
   AVRFBranch *clone() const override;
   void print() const override;
   void dump() const override;
+
+  /// \brief Code generation for AVR Forward branch.
+  void CodeGen() override;
 
 };
 
@@ -220,6 +236,9 @@ public:
   void print() const override;
   void dump() const override;
 
+  /// \brief Code generation for AVR Backedge.
+  void CodeGen() override;
+
 };
 
 
@@ -246,6 +265,9 @@ public:
   void print() const override;
   void dump() const override;
 
+  /// \brief Code generation for AVR Entry.
+  void CodeGen() override;
+
 };
 
 //----------AVR Return Node----------//
@@ -270,6 +292,9 @@ public:
   AVRReturn *clone() const override;
   void print() const override;
   void dump() const override;
+
+  /// \brief Code generation for AVR Return.
+  void CodeGen() override;
 
 };
 

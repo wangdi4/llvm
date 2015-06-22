@@ -24,6 +24,11 @@ AVR::AVR(unsigned SCID)
 void AVR::print() const {
   DEBUG(dbgs() <<"Base AVR Node\n");
 }
+
+/// Should this be made pure virtual?
+void AVR::CodeGen()  {
+}
+
 /*
 void AVR::dump() const {
   print();
