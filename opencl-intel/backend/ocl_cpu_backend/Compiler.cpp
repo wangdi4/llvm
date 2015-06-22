@@ -36,6 +36,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
@@ -58,11 +59,6 @@ using std::string;
 #include <fstream>
 #include <iostream>
 #include <sstream>
-
-namespace llvm
-{
-  extern bool DisablePrettyStackTrace;
-}
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 void dumpModule(llvm::Module& m){
@@ -287,7 +283,10 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     llvm::cl::ParseCommandLineOptions(argv.size(), &argv[0]);
 
-    llvm::DisablePrettyStackTrace = config.DisableStackDump();
+    if (!config.DisableStackDump())
+    {
+        llvm::EnablePrettyStackTrace();
+    }
 
     s_globalStateInitialized = true;
 }

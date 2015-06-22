@@ -2530,7 +2530,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     if( !synchHelper )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        return NULL;
+        return 0;
     }
 
     errCode = synchHelper->PrepareToExecute(
