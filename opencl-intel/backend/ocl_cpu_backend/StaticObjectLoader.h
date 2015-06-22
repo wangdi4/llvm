@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 class StaticObjectLoader : public llvm::ObjectCache {
 
-  typedef llvm::DenseMap<const llvm::Module*, const llvm::MemoryBuffer* > ModuleMemBuffers;
+  typedef llvm::DenseMap<const llvm::Module*, std::unique_ptr<llvm::MemoryBuffer>> ModuleMemBuffers;
   typedef llvm::DenseMap<const llvm::Module*, std::string> ModuleStringMap;
 
   // Map of modules to buffers containing object files which have been been
@@ -47,22 +47,15 @@ class StaticObjectLoader : public llvm::ObjectCache {
   }
 
   llvm::MemoryBuffer* readObject(llvm::StringRef Location) {
-    auto memBuf = llvm::MemoryBuffer::getFile(Location);
-    return memBuf.get().release();
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> memBufOrErr = llvm::MemoryBuffer::getFile(Location);
+    return memBufOrErr.get().release();
   }
 
 public:
 
   StaticObjectLoader()  { }
 
-  virtual ~StaticObjectLoader() {
-    // Delete all the in-memory static object copies owned by this class
-    ModuleMemBuffers::iterator i = StaticObjects.begin();
-    ModuleMemBuffers::iterator e = StaticObjects.end();
-    for (; i != e; ++i) {
-      delete i->second;
-    }
-  }
+  virtual ~StaticObjectLoader() { }
 
   /// addLocation - Adds a mapping between a module and a path on the filesystem
   /// from where the object file for the given module should be loaded,
@@ -73,9 +66,9 @@ public:
     Paths[M] = ObjectFilePath;
     if (exists(ObjectFilePath)) {
       // A file exists at ObjectFilePath, so read it now and save it for later retrieval via getObject
-        std::unique_ptr<const llvm::MemoryBuffer> StaticObject(
+        std::unique_ptr<llvm::MemoryBuffer> StaticObject(
         readObject(ObjectFilePath));
-      StaticObjects.insert(std::make_pair(M, StaticObject.release()));
+      StaticObjects.insert(std::make_pair(M, std::move(StaticObject)));
     }
   }
 
@@ -83,7 +76,8 @@ public:
   /// file.
   virtual void addPreCompiled(const llvm::Module* M,
                               const llvm::MemoryBuffer* MemBuff) {
-    StaticObjects.insert(std::make_pair(M, MemBuff));
+    StaticObjects.insert(std::make_pair(M, (std::unique_ptr<llvm::MemoryBuffer>(
+                        const_cast<llvm::MemoryBuffer*>(MemBuff)))));
   }
 
   virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef) {
@@ -99,7 +93,7 @@ public:
     if (i == StaticObjects.end()) {
       return 0;
     } else {
-      return std::unique_ptr<llvm::MemoryBuffer>(const_cast<llvm::MemoryBuffer*>(i->second));
+      return std::move(i->second);
     }
   }
 };
