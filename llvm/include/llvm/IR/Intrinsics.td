@@ -707,7 +707,7 @@ def int_masked_scatter: Intrinsic<[],
 def int_bitset_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
                                 [IntrNoMem]>;
 
-//#ifdef INTEL_CUSTOMIZATION
+//ifdef INTEL_CUSTOMIZATION
 //===--------------------- Intel Directive Intrinsics ---------------------===//
 
 def int_intel_directive : Intrinsic<[], [llvm_metadata_ty],
@@ -728,7 +728,7 @@ def int_intel_directive_qual_opndlist : Intrinsic<
                                         [llvm_metadata_ty, llvm_vararg_ty],
                                         [IntrReadWriteArgMem],
                                         "llvm.intel.directive.qual.opndlist">;
-//#endif
+//endif INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Target-specific intrinsics

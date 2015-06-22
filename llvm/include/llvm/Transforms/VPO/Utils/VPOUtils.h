@@ -46,7 +46,10 @@ public:
                      LoopInfo *LI = nullptr);
 
     /// \brief Return the string representation of the metadata argument used
-    /// within a call to the llvm.intel.directive intrinsic.
+    /// within a call to the llvm.intel.directive intrinsic. Currently, this
+    /// function only supports calls to llvm.intel.directive. Future support
+    /// will be added for llvm.intel.directive.qual,
+    /// llvm.intel.directive.qual.opnd and llvm.intel.directive.qual.opndlist.
     static StringRef getDirectiveMetadataString(CallInst *Call);
 };
 

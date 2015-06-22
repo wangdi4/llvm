@@ -24,6 +24,9 @@ using namespace llvm::vpo;
 StringRef VPOUtils::getDirectiveMetadataString(CallInst *Call)
 {
     Function *CalledFunc = Call->getCalledFunction();
+    // For now, assert if this is not a call to llvm.intel.directive. Support
+    // will be added later for llvm.intel.directive.qual,
+    // llvm.intel.directive.qual.opnd, and llvm.intel.diretive.qual.opndlist.
     assert(CalledFunc->isIntrinsic() &&
            CalledFunc->getIntrinsicID() == Intrinsic::intel_directive &&
            "Expected a call to the llvm.intel.directive(metadata) intrinsic");
