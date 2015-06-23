@@ -1,3 +1,6 @@
+[common]
+subdirectories = SIMDFunctionCloning
+
 [component_0]
 type = Library
 name = Vecopt

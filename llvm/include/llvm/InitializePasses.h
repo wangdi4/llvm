@@ -308,6 +308,7 @@ void initializeAvrGeneratePass(PassRegistry&);
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
+void initializeSIMDFunctionCloningPass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
 }
 

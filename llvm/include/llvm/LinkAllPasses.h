@@ -196,6 +196,7 @@ namespace {
 #if INTEL_CUSTOMIZATION
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createVPODriverPass();
+      (void) llvm::createSIMDFunctionCloningPass();
       (void) llvm::createVPOVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
 

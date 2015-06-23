@@ -17,6 +17,7 @@ set(LLVM_LINK_COMPONENTS
   Vectorize
   VPOVectorizer #***INTEL
   VPODriver
+  SIMDFunctionCloning
   )
 
 # Support plugins.

@@ -1290,7 +1290,13 @@ AttrBuilder &AttrBuilder::addRawValue(uint64_t Val) {
 AttributeSet AttributeFuncs::typeIncompatible(Type *Ty, uint64_t Index) {
   AttrBuilder Incompatible;
 
+#ifdef INTEL_CUSTOMIZATION
+  // We want to be able to zero/sign extend vector parameters/return for
+  // vector functions.
+  if (!Ty->isIntOrIntVectorTy())
+#else // INTEL_CUSTOMIZATION
   if (!Ty->isIntegerTy())
+#endif
     // Attribute that only apply to integers.
     Incompatible.addAttribute(Attribute::SExt)
       .addAttribute(Attribute::ZExt);

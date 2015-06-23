@@ -93,6 +93,10 @@ static cl::opt<bool> RunVPODriver("VPO-Driver",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO vectorization driver"));
 
+static cl::opt<bool> RunSIMDFunctionCloning("SIMD-Function-Cloning",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run SIMD Function Cloning"));
+
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
     SizeLevel = 0;
@@ -196,6 +200,9 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 #if INTEL_CUSTOMIZATION
+    if (RunSIMDFunctionCloning) {
+      MPM.add(createSIMDFunctionCloningPass());
+    }
     if (RunVPODriver) {
       MPM.add(createVPODriverPass());
     }
@@ -419,6 +426,9 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
+  if (RunSIMDFunctionCloning) {
+    MPM.add(createSIMDFunctionCloningPass());
+  }
   if (RunVPODriver) {
     MPM.add(createVPODriverPass());
   }

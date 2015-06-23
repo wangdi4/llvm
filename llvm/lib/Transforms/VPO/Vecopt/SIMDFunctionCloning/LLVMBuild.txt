@@ -1,0 +1,5 @@
+[component_0]
+type = Library
+name = SIMDFunctionCloning
+parent = VPO
+required_libraries = Analysis Core Scalar Support TransformUtils TransformVPOUtils
