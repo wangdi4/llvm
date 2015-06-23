@@ -51,9 +51,11 @@ struct MDValueTraits
         if( nullptr == pNode) // || !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return nullptr;
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         value_type pT = llvm::dyn_cast<T>(pNode);
         if( nullptr == pT )
@@ -157,9 +159,11 @@ struct MDValueTraits<bool, void>
         // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
         if(nullptr == pNode)// || !pNode->hasValueHandle())
         {
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return value_type();
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
         if( !pval )
@@ -205,9 +209,11 @@ struct MDValueTraits<int64_t, void>
         // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
         if( nullptr == pNode )//|| !pNode->hasValueHandle())
         {
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return value_type();
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         using namespace llvm;
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
@@ -256,6 +262,9 @@ struct MDValueTraits<int32_t, void>
         {
             return value_type();
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         using namespace llvm;
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
@@ -303,9 +312,11 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Metadata
         // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
         if(nullptr == pNode )//|| !pNode->hasValueHandle())
         {
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return nullptr;
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         value_type pT = llvm::dyn_cast<T>(pNode);
         if( nullptr == pT)
@@ -353,9 +364,11 @@ struct MDValueTraits<llvm::Function, void>
         if(nullptr == pNode )//|| !pNode->hasValueHandle())
         {
             // it is ok to pass NULL nodes - part of support for optional values
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
             return nullptr;
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         ValueAsMetadata * vAsM = dyn_cast<ValueAsMetadata>(pNode);
         assert(vAsM && "VauseAsMetadata is expected");
