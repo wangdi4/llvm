@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma noinline test
 
 // CHECK: define i32 @main{{.*}}
@@ -8,7 +8,7 @@ int main(int argc, char **argv)
   int j, k, aaa;
   i = 1;
 // CHECK: store i32 1, i32* %i{{.*}}
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL:[0-9]+]])
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: store i32 0, i32* %i{{.*}}
   #pragma noinline 
   for(i = 0; i < argc; ++i)
@@ -16,19 +16,19 @@ int main(int argc, char **argv)
     for(j = i; j < argc; ++i)
     ;
   }
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   i++;
   for(j = i; j < argc; ++i)
   ;
 
 noinline_label1:  
-// CHECK: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK-NEXT: load i32* %j{{.*}}
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK-NEXT: load i32, i32* %j{{.*}}
   #pragma noinline
   i+=j;
 // CHECK: store i32 %{{.*}}, i32* %i{{.*}}
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata !2)
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: br label {{.*}}
   #pragma noinline
   do
@@ -37,32 +37,32 @@ noinline_label1:
   }
   while (i > argc);
   
-// CHECK: call void @llvm.intel.pragma(metadata !2)
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: br label {{.*}}
   #pragma noinline
   while(i > argc)
   ;
-// CHECK: call void @llvm.intel.pragma(metadata !2)
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK-NEXT: load i32* %i{{.*}}
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK-NEXT: load i32, i32* %i{{.*}}
 // CHECK-NEXT: store i32 %{{.*}}, i32* %l{{.*}}
   #pragma noinline
   for(int l = i; l < argc; ++l)
   {
     aaa+=lll;
 // CHECK: store i32 {{.*}}, i32* %aaa{{.*}}
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: store i32 0, i32* %k{{.*}}
   #pragma noinline
     for(k = 0; k < argc; k++)
     ;
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   }
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   ;
 noinline_label2:  
-// CHECK: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: br label {{.*}}
   #pragma noinline
   do
@@ -70,38 +70,38 @@ noinline_label2:
   ;
   }
   while (i > argc);
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   switch (argc) {
     case (0):
-// CHECK: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata !2)
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
 // CHECK-NEXT: br label {{.*}}
       #pragma noinline
       #pragma noinline 
       ;
       break;
     default:
-// CHECK: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
 // CHECK-NEXT: store{{.*}}
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
 // CHECK-NEXT: br label{{.*}}
       #pragma noinline
       return (1);
   }
   ++i;
 // CHECK: store i32 %{{.*}}, i32* %i{{.*}}
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
   #pragma noinline 121212 ; // expected-warning {{extra text after expected end of preprocessing directive}}
   #pragma noinline;        // expected-warning {{extra text after expected end of preprocessing directive}}
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata !2)
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata !2)
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   ;
-// CHECK-NEXT: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
   #pragma noinline
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
   
   return (i);
 }
@@ -109,13 +109,11 @@ noinline_label2:
 // CHECK: define void {{.*}}www{{.*}}(
 void www()
 {
-// CHECK: call void @llvm.intel.pragma(metadata ![[PRAGMA_VAL]])
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOINLINE")
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"ENDINLINE")
 // CHECK-NEXT: ret {{.*}}
   #pragma noinline
 
   return;
 }
 
-// CHECK: ![[PRAGMA_VAL]] = metadata !{metadata !"NOINLINE"}
-// CHECK-NEXT: !2 = metadata !{metadata !"ENDINLINE"}

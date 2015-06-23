@@ -1,5 +1,4 @@
-// RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s     -o - | FileCheck %s
-// XFAIL: *
+// RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s -o - | FileCheck %s
 
 void extern1();
 void extern2();

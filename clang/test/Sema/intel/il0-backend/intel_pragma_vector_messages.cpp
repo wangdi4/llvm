@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -DERROR_MSG -o - %s 
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -DERROR_MSG -o - %s 
 //***INTEL: pragma vector test
 
 // CHECK: target datalayout{{.*}}
