@@ -38,7 +38,7 @@ static void host_local_global_internal(
 
     // Data for the input buffer
     vector<cl_uchar> databuf(data_size);
-    for (size_t i = 0; i < data_size; ++i) {
+    for (int i = 0; i < data_size; ++i) {
         databuf[i] = static_cast<unsigned char>(i);
     }
 

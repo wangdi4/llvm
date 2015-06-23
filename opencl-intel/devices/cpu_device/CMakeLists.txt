@@ -14,7 +14,9 @@ set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
 # function that not use in every build target.
 if (NOT WIN32)
-      add_definitions( "-Wno-unused-function" )
+     # disable warnings inherited from external componennts
+     add_definitions( "-Wno-unused-function" )
+     add_definitions( "-Wno-attributes" )
 endif(NOT Win32)
 
 if (NOT WIN32)

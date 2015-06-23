@@ -14,7 +14,10 @@ if (NOT WIN32)
     # this warning occur when processing externals/itt/include/ittnotify.h
     # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
     # function that not use in every build target.
+
+    # disable warnings inherited from external componennts
     add_definitions( "-Wno-unused-function" )
+    add_definitions( "-Wno-attributes" )
 endif (NOT WIN32)
 
 include_directories( BEFORE ${HW_UTILS_HEADERS} 

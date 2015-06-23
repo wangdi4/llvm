@@ -4,6 +4,12 @@ endif()
 set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
+if (NOT WIN32)
+  # disable warnings inherited from external componennts
+  add_definitions(-Wno-attributes)
+  add_definitions(-Wno-missing-braces)
+endif (NOT WIN32)
+
 include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export

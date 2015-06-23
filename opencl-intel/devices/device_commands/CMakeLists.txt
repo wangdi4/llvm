@@ -14,7 +14,9 @@ add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
 # function that not use in every build target.
 if (NOT WIN32)
+      # disable warnings inherited from external componennts
       add_definitions( "-Wno-unused-function" )
+      add_definitions( "-Wno-attributes" )
 endif(NOT Win32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
