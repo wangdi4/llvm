@@ -21,7 +21,7 @@ template <class ELFT>
 std::error_code checkCompatibility(unsigned char size, unsigned char endian);
 
 template <typename ELFT>
-std::error_code isCompatible(const MemoryBuffer &mb, ELFLinkingContext &ctx) {
+std::error_code isCompatible(MemoryBufferRef mb, ELFLinkingContext &ctx) {
   typedef llvm::object::Elf_Ehdr_Impl<ELFT> Elf_Ehdr;
 
   if (uintptr_t(mb.getBufferStart()) & 1)
@@ -35,9 +35,6 @@ std::error_code isCompatible(const MemoryBuffer &mb, ELFLinkingContext &ctx) {
   unsigned char endian;
   std::tie(size, endian) = llvm::object::getElfArchType(mb.getBuffer());
   if (std::error_code ec = checkCompatibility<ELFT>(size, endian))
-    return ec;
-
-  if (auto ec = ctx.mergeHeaderFlags(hdr->getFileClass(), hdr->e_flags))
     return ec;
   return std::error_code();
 }

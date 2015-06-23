@@ -40,6 +40,7 @@
 #include "../Commands/CommandObjectType.h"
 #include "../Commands/CommandObjectVersion.h"
 #include "../Commands/CommandObjectWatchpoint.h"
+#include "../Commands/CommandObjectLanguage.h"
 
 
 #include "lldb/Core/Debugger.h"
@@ -443,6 +444,7 @@ CommandInterpreter::LoadCommandDictionary ()
     m_command_dict["type"]      = CommandObjectSP (new CommandObjectType (*this));
     m_command_dict["version"]   = CommandObjectSP (new CommandObjectVersion (*this));
     m_command_dict["watchpoint"]= CommandObjectSP (new CommandObjectMultiwordWatchpoint (*this));
+    m_command_dict["language"]  = CommandObjectSP (new CommandObjectLanguage(*this));
 
     const char *break_regexes[][2] = {{"^(.*[^[:space:]])[[:space:]]*:[[:space:]]*([[:digit:]]+)[[:space:]]*$", "breakpoint set --file '%1' --line %2"},
                                       {"^/([^/]+)/$", "breakpoint set --source-pattern-regexp '%1'"},
@@ -2245,7 +2247,7 @@ CommandInterpreter::BuildAliasCommandArgs (CommandObject *alias_cmd_obj,
         }
 
         cmd_args.Clear();
-        cmd_args.SetArguments (new_args.GetArgumentCount(), (const char **) new_args.GetArgumentVector());
+        cmd_args.SetArguments (new_args.GetArgumentCount(), new_args.GetConstArgumentVector());
     }
     else
     {
@@ -2256,7 +2258,7 @@ CommandInterpreter::BuildAliasCommandArgs (CommandObject *alias_cmd_obj,
         if (wants_raw_input)
         {
             cmd_args.Clear();
-            cmd_args.SetArguments (new_args.GetArgumentCount(), (const char **) new_args.GetArgumentVector());
+            cmd_args.SetArguments (new_args.GetArgumentCount(), new_args.GetConstArgumentVector());
         }
         return;
     }
@@ -2272,7 +2274,7 @@ CommandInterpreter::GetOptionArgumentPosition (const char *in_string)
     int position = 0;   // Any string that isn't an argument position, i.e. '%' followed by an integer, gets a position
                         // of zero.
 
-    char *cptr = (char *) in_string;
+    const char *cptr = in_string;
 
     // Does it start with '%'
     if (cptr[0] == '%')
