@@ -1432,10 +1432,10 @@ MacroInfo *ASTReader::ReadMacroRecord(ModuleFile &F, uint64_t Offset) {
         PreprocessedEntityID
             GlobalID = getGlobalPreprocessedEntityID(F, Record[NextIndex]);
         PreprocessingRecord &PPRec = *PP.getPreprocessingRecord();
-        PreprocessingRecord::PPEntityID
-          PPID = PPRec.getPPEntityID(GlobalID-1, /*isLoaded=*/true);
-        MacroDefinition *PPDef =
-          cast_or_null<MacroDefinition>(PPRec.getPreprocessedEntity(PPID));
+        PreprocessingRecord::PPEntityID PPID =
+            PPRec.getPPEntityID(GlobalID - 1, /*isLoaded=*/true);
+        MacroDefinitionRecord *PPDef = cast_or_null<MacroDefinitionRecord>(
+            PPRec.getPreprocessedEntity(PPID));
         if (PPDef)
           PPRec.RegisterMacroDefinition(Macro, PPDef);
       }
@@ -1723,22 +1723,6 @@ void ASTReader::markIdentifierUpToDate(IdentifierInfo *II) {
     IdentifierGeneration[II] = getGeneration();
 }
 
-struct ASTReader::ModuleMacroInfo {
-  ModuleMacro *MM;
-  // FIXME: Remove this.
-  ModuleFile *F;
-
-  bool isDefine() const { return MM->getMacroInfo(); }
-
-  ArrayRef<ModuleMacro *> getOverriddenMacros() const {
-    return MM->overrides();
-  }
-
-  MacroDirective *import(Preprocessor &PP, SourceLocation ImportLoc) const {
-    return PP.AllocateImportedMacroDirective(MM, ImportLoc);
-  }
-};
-
 void ASTReader::resolvePendingMacro(IdentifierInfo *II,
                                     const PendingMacroInfo &PMInfo) {
   ModuleFile &M = *PMInfo.M;
@@ -1806,19 +1790,7 @@ void ASTReader::resolvePendingMacro(IdentifierInfo *II,
 
       bool Inserted = false;
       Module *Owner = getSubmodule(MMR.SubModID);
-      auto *MM = PP.addModuleMacro(Owner, II, MMR.MI, Overrides, Inserted);
-      if (!Inserted)
-        continue;
-
-      ModuleMacroInfo MMI = { MM, &M };
-      if (Owner->NameVisibility == Module::Hidden) {
-        // Macros in the owning module are hidden. Just remember this macro to
-        // install if we make this module visible.
-        HiddenNamesMap[Owner].HiddenMacros.insert(
-            std::make_pair(II, new (Context) ModuleMacroInfo(MMI)));
-      } else {
-        installImportedMacro(II, MMI, Owner);
-      }
+      PP.addModuleMacro(Owner, II, MMR.MI, Overrides, Inserted);
     }
   }
 
@@ -1837,21 +1809,11 @@ void ASTReader::resolvePendingMacro(IdentifierInfo *II,
     switch (K) {
     case MacroDirective::MD_Define: {
       MacroInfo *MI = getMacro(getGlobalMacroID(M, Record[Idx++]));
-      bool IsAmbiguous = Record[Idx++];
-      ModuleMacro *MM = nullptr;
-      if (SubmoduleID ImportedFrom = getGlobalSubmoduleID(M, Record[Idx++]))
-        MM = PP.getModuleMacro(getSubmodule(ImportedFrom), II);
-      MD = MM ? PP.AllocateImportedMacroDirective(MM, Loc)
-              : PP.AllocateDefMacroDirective(MI, Loc);
-      cast<DefMacroDirective>(MD)->setAmbiguous(IsAmbiguous);
+      MD = PP.AllocateDefMacroDirective(MI, Loc);
       break;
     }
     case MacroDirective::MD_Undefine: {
-      ModuleMacro *MM = nullptr;
-      if (SubmoduleID ImportedFrom = getGlobalSubmoduleID(M, Record[Idx++]))
-        MM = PP.getModuleMacro(getSubmodule(ImportedFrom), II);
-      MD = MM ? PP.AllocateImportedMacroDirective(MM, Loc)
-              : PP.AllocateUndefMacroDirective(Loc);
+      MD = PP.AllocateUndefMacroDirective(Loc);
       break;
     }
     case MacroDirective::MD_Visibility:
@@ -1867,165 +1829,8 @@ void ASTReader::resolvePendingMacro(IdentifierInfo *II,
     Earliest = MD;
   }
 
-  PP.setLoadedMacroDirective(II, Latest);
-}
-
-/// \brief For the given macro definitions, check if they are both in system
-/// modules.
-static bool areDefinedInSystemModules(MacroInfo *PrevMI, MacroInfo *NewMI,
-                                      Module *NewOwner, ASTReader &Reader) {
-  assert(PrevMI && NewMI);
-  Module *PrevOwner = nullptr;
-  if (SubmoduleID PrevModID = PrevMI->getOwningModuleID())
-    PrevOwner = Reader.getSubmodule(PrevModID);
-  if (PrevOwner && PrevOwner == NewOwner)
-    return false;
-  SourceManager &SrcMgr = Reader.getSourceManager();
-  bool PrevInSystem = (PrevOwner && PrevOwner->IsSystem) ||
-                      SrcMgr.isInSystemHeader(PrevMI->getDefinitionLoc());
-  bool NewInSystem = (NewOwner && NewOwner->IsSystem) ||
-                     SrcMgr.isInSystemHeader(NewMI->getDefinitionLoc());
-  return PrevInSystem && NewInSystem;
-}
-
-void ASTReader::removeOverriddenMacros(IdentifierInfo *II,
-                                       SourceLocation ImportLoc,
-                                       AmbiguousMacros &Ambig,
-                                       ArrayRef<ModuleMacro *> Overrides) {
-  for (ModuleMacro *Overridden : Overrides) {
-    Module *Owner = Overridden->getOwningModule();
-    // If this macro is not yet visible, remove it from the hidden names list.
-    // It won't be there if we're in the middle of making the owner visible.
-    auto HiddenIt = HiddenNamesMap.find(Owner);
-    if (HiddenIt != HiddenNamesMap.end()) {
-      HiddenNames &Hidden = HiddenIt->second;
-      HiddenMacrosMap::iterator HI = Hidden.HiddenMacros.find(II);
-      if (HI != Hidden.HiddenMacros.end()) {
-        // Register the macro now so we don't lose it when we re-export.
-        PP.appendMacroDirective(II, HI->second->import(PP, ImportLoc));
-
-        auto SubOverrides = HI->second->getOverriddenMacros();
-        Hidden.HiddenMacros.erase(HI);
-        removeOverriddenMacros(II, ImportLoc, Ambig, SubOverrides);
-      }
-    }
-
-    // If this macro is already in our list of conflicts, remove it from there.
-    Ambig.erase(
-        std::remove_if(Ambig.begin(), Ambig.end(), [&](DefMacroDirective *MD) {
-          return getSubmodule(MD->getInfo()->getOwningModuleID()) == Owner;
-        }),
-        Ambig.end());
-  }
-}
-
-ASTReader::AmbiguousMacros *
-ASTReader::removeOverriddenMacros(IdentifierInfo *II,
-                                  SourceLocation ImportLoc,
-                                  ArrayRef<ModuleMacro *> Overrides) {
-  MacroDirective *Prev = PP.getMacroDirective(II);
-  if (!Prev && Overrides.empty())
-    return nullptr;
-
-  DefMacroDirective *PrevDef = Prev ? Prev->getDefinition().getDirective()
-                                    : nullptr;
-  if (PrevDef && PrevDef->isAmbiguous()) {
-    // We had a prior ambiguity. Check whether we resolve it (or make it worse).
-    AmbiguousMacros &Ambig = AmbiguousMacroDefs[II];
-    Ambig.push_back(PrevDef);
-
-    removeOverriddenMacros(II, ImportLoc, Ambig, Overrides);
-
-    if (!Ambig.empty())
-      return &Ambig;
-
-    AmbiguousMacroDefs.erase(II);
-  } else {
-    // There's no ambiguity yet. Maybe we're introducing one.
-    AmbiguousMacros Ambig;
-    if (PrevDef)
-      Ambig.push_back(PrevDef);
-
-    removeOverriddenMacros(II, ImportLoc, Ambig, Overrides);
-
-    if (!Ambig.empty()) {
-      AmbiguousMacros &Result = AmbiguousMacroDefs[II];
-      std::swap(Result, Ambig);
-      return &Result;
-    }
-  }
-
-  // We ended up with no ambiguity.
-  return nullptr;
-}
-
-void ASTReader::installImportedMacro(IdentifierInfo *II, ModuleMacroInfo &MMI,
-                                     Module *Owner) {
-  assert(II && Owner);
-
-  SourceLocation ImportLoc = Owner->MacroVisibilityLoc;
-
-  AmbiguousMacros *Prev =
-      removeOverriddenMacros(II, ImportLoc, MMI.getOverriddenMacros());
-
-  // Create a synthetic macro definition corresponding to the import (or null
-  // if this was an undefinition of the macro).
-  MacroDirective *Imported = MMI.import(PP, ImportLoc);
-  DefMacroDirective *MD = dyn_cast<DefMacroDirective>(Imported);
-
-  // If there's no ambiguity, just install the macro.
-  if (!Prev) {
-    PP.appendMacroDirective(II, Imported);
-    return;
-  }
-  assert(!Prev->empty());
-
-  if (!MD) {
-    // We imported a #undef that didn't remove all prior definitions. The most
-    // recent prior definition remains, and we install it in the place of the
-    // imported directive, as if by a local #pragma pop_macro.
-    MacroInfo *NewMI = Prev->back()->getInfo();
-    Prev->pop_back();
-    MD = PP.AllocateDefMacroDirective(NewMI, ImportLoc);
-
-    // Install our #undef first so that we don't lose track of it. We'll replace
-    // this with whichever macro definition ends up winning.
-    PP.appendMacroDirective(II, Imported);
-  }
-
-  // We're introducing a macro definition that creates or adds to an ambiguity.
-  // We can resolve that ambiguity if this macro is token-for-token identical to
-  // all of the existing definitions.
-  MacroInfo *NewMI = MD->getInfo();
-  assert(NewMI && "macro definition with no MacroInfo?");
-  while (!Prev->empty()) {
-    MacroInfo *PrevMI = Prev->back()->getInfo();
-    assert(PrevMI && "macro definition with no MacroInfo?");
-
-    // Before marking the macros as ambiguous, check if this is a case where
-    // both macros are in system headers. If so, we trust that the system
-    // did not get it wrong. This also handles cases where Clang's own
-    // headers have a different spelling of certain system macros:
-    //   #define LONG_MAX __LONG_MAX__ (clang's limits.h)
-    //   #define LONG_MAX 0x7fffffffffffffffL (system's limits.h)
-    //
-    // FIXME: Remove the defined-in-system-headers check. clang's limits.h
-    // overrides the system limits.h's macros, so there's no conflict here.
-    if (NewMI != PrevMI &&
-        !PrevMI->isIdenticalTo(*NewMI, PP, /*Syntactically=*/true) &&
-        !areDefinedInSystemModules(PrevMI, NewMI, Owner, *this))
-      break;
-
-    // The previous definition is the same as this one (or both are defined in
-    // system modules so we can assume they're equivalent); we don't need to
-    // track it any more.
-    Prev->pop_back();
-  }
-
-  if (!Prev->empty())
-    MD->setAmbiguous(true);
-
-  PP.appendMacroDirective(II, MD);
+  if (Latest)
+    PP.setLoadedMacroDirective(II, Latest);
 }
 
 ASTReader::InputFileInfo
@@ -3216,6 +3021,18 @@ ASTReader::ReadASTBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
             ReadSourceLocation(F, Record, I).getRawEncoding());
       }
       break;
+    case DELETE_EXPRS_TO_ANALYZE:
+      for (unsigned I = 0, N = Record.size(); I != N;) {
+        DelayedDeleteExprs.push_back(getGlobalDeclID(F, Record[I++]));
+        const uint64_t Count = Record[I++];
+        DelayedDeleteExprs.push_back(Count);
+        for (uint64_t C = 0; C < Count; ++C) {
+          DelayedDeleteExprs.push_back(ReadSourceLocation(F, Record, I).getRawEncoding());
+          bool IsArrayForm = Record[I++] == 1;
+          DelayedDeleteExprs.push_back(IsArrayForm);
+        }
+      }
+      break;
 
     case IMPORTED_MODULES: {
       if (F.Kind != MK_ImplicitModule && F.Kind != MK_ExplicitModule) {
@@ -3418,11 +3235,8 @@ static void moveMethodToBackOfGlobalList(Sema &S, ObjCMethodDecl *Method) {
 }
 
 void ASTReader::makeNamesVisible(const HiddenNames &Names, Module *Owner) {
-  assert(Owner->NameVisibility >= Module::MacrosVisible &&
-         "nothing to make visible?");
-
-  // FIXME: Only do this if Owner->NameVisibility == AllVisible.
-  for (Decl *D : Names.HiddenDecls) {
+  assert(Owner->NameVisibility != Module::Hidden && "nothing to make visible?");
+  for (Decl *D : Names) {
     bool wasHidden = D->Hidden;
     D->Hidden = false;
 
@@ -3432,15 +3246,11 @@ void ASTReader::makeNamesVisible(const HiddenNames &Names, Module *Owner) {
       }
     }
   }
-
-  for (const auto &Macro : Names.HiddenMacros)
-    installImportedMacro(Macro.first, *Macro.second, Owner);
 }
 
 void ASTReader::makeModuleVisible(Module *Mod,
                                   Module::NameVisibilityKind NameVisibility,
-                                  SourceLocation ImportLoc,
-                                  bool Complain) {
+                                  SourceLocation ImportLoc) {
   llvm::SmallPtrSet<Module *, 4> Visited;
   SmallVector<Module *, 4> Stack;
   Stack.push_back(Mod);
@@ -3459,9 +3269,6 @@ void ASTReader::makeModuleVisible(Module *Mod,
     }
 
     // Update the module's name visibility.
-    if (NameVisibility >= Module::MacrosVisible &&
-        Mod->NameVisibility < Module::MacrosVisible)
-      Mod->MacroVisibilityLoc = ImportLoc;
     Mod->NameVisibility = NameVisibility;
 
     // If we've already deserialized any names from this module,
@@ -3483,20 +3290,6 @@ void ASTReader::makeModuleVisible(Module *Mod,
       Module *Exported = *I;
       if (Visited.insert(Exported).second)
         Stack.push_back(Exported);
-    }
-
-    // Detect any conflicts.
-    if (Complain) {
-      assert(ImportLoc.isValid() && "Missing import location");
-      for (unsigned I = 0, N = Mod->Conflicts.size(); I != N; ++I) {
-        if (Mod->Conflicts[I].Other->NameVisibility >= NameVisibility) {
-          Diag(ImportLoc, diag::warn_module_conflict)
-            << Mod->getFullModuleName()
-            << Mod->Conflicts[I].Other->getFullModuleName()
-            << Mod->Conflicts[I].Message;
-          // FIXME: Need note where the other module was imported.
-        }
-      }
     }
   }
 }
@@ -3656,7 +3449,7 @@ ASTReader::ASTReadResult ASTReader::ReadAST(const std::string &FileName,
 
     case UnresolvedModuleRef::Import:
       if (ResolvedMod)
-        Unresolved.Mod->Imports.push_back(ResolvedMod);
+        Unresolved.Mod->Imports.insert(ResolvedMod);
       continue;
 
     case UnresolvedModuleRef::Export:
@@ -3868,7 +3661,7 @@ ASTReader::ReadASTCore(StringRef FileName,
   return Success;
 }
 
-void ASTReader::InitializeContext() {  
+void ASTReader::InitializeContext() {
   // If there's a listener, notify them that we "read" the translation unit.
   if (DeserializationListener)
     DeserializationListener->DeclRead(PREDEF_DECL_TRANSLATION_UNIT_ID, 
@@ -3991,13 +3784,13 @@ void ASTReader::InitializeContext() {
   }
 
   // Re-export any modules that were imported by a non-module AST file.
-  // FIXME: This does not make macro-only imports visible again. It also doesn't
-  // make #includes mapped to module imports visible.
+  // FIXME: This does not make macro-only imports visible again.
   for (auto &Import : ImportedModules) {
-    if (Module *Imported = getSubmodule(Import.ID))
+    if (Module *Imported = getSubmodule(Import.ID)) {
       makeModuleVisible(Imported, Module::AllVisible,
-                        /*ImportLoc=*/Import.ImportLoc,
-                        /*Complain=*/false);
+                        /*ImportLoc=*/Import.ImportLoc);
+      PP.makeModuleVisible(Imported, Import.ImportLoc);
+    }
   }
   ImportedModules.clear();
 }
@@ -4489,10 +4282,12 @@ ASTReader::ReadSubmoduleBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
     }
         
     case SUBMODULE_UMBRELLA_HEADER: {
-      if (const FileEntry *Umbrella = PP.getFileManager().getFile(Blob)) {
+      std::string Filename = Blob;
+      ResolveImportedPath(F, Filename);
+      if (auto *Umbrella = PP.getFileManager().getFile(Filename)) {
         if (!CurrentModule->getUmbrellaHeader())
-          ModMap.setUmbrellaHeader(CurrentModule, Umbrella);
-        else if (CurrentModule->getUmbrellaHeader() != Umbrella) {
+          ModMap.setUmbrellaHeader(CurrentModule, Umbrella, Blob);
+        else if (CurrentModule->getUmbrellaHeader().Entry != Umbrella) {
           // This can be a spurious difference caused by changing the VFS to
           // point to a different copy of the file, and it is too late to
           // to rebuild safely.
@@ -4525,11 +4320,12 @@ ASTReader::ReadSubmoduleBlock(ModuleFile &F, unsigned ClientLoadCapabilities) {
     }
 
     case SUBMODULE_UMBRELLA_DIR: {
-      if (const DirectoryEntry *Umbrella
-                                  = PP.getFileManager().getDirectory(Blob)) {
+      std::string Dirname = Blob;
+      ResolveImportedPath(F, Dirname);
+      if (auto *Umbrella = PP.getFileManager().getDirectory(Dirname)) {
         if (!CurrentModule->getUmbrellaDir())
-          ModMap.setUmbrellaDir(CurrentModule, Umbrella);
-        else if (CurrentModule->getUmbrellaDir() != Umbrella) {
+          ModMap.setUmbrellaDir(CurrentModule, Umbrella, Blob);
+        else if (CurrentModule->getUmbrellaDir().Entry != Umbrella) {
           if ((ClientLoadCapabilities & ARR_OutOfDate) == 0)
             Error("mismatched umbrella directories in submodule");
           return OutOfDate;
@@ -4841,13 +4637,14 @@ PreprocessedEntity *ASTReader::ReadPreprocessedEntity(unsigned Index) {
   case PPD_MACRO_EXPANSION: {
     bool isBuiltin = Record[0];
     IdentifierInfo *Name = nullptr;
-    MacroDefinition *Def = nullptr;
+    MacroDefinitionRecord *Def = nullptr;
     if (isBuiltin)
       Name = getLocalIdentifier(M, Record[1]);
     else {
-      PreprocessedEntityID
-          GlobalID = getGlobalPreprocessedEntityID(M, Record[1]);
-      Def =cast<MacroDefinition>(PPRec.getLoadedPreprocessedEntity(GlobalID-1));
+      PreprocessedEntityID GlobalID =
+          getGlobalPreprocessedEntityID(M, Record[1]);
+      Def = cast<MacroDefinitionRecord>(
+          PPRec.getLoadedPreprocessedEntity(GlobalID - 1));
     }
 
     MacroExpansion *ME;
@@ -4863,8 +4660,7 @@ PreprocessedEntity *ASTReader::ReadPreprocessedEntity(unsigned Index) {
     // Decode the identifier info and then check again; if the macro is
     // still defined and associated with the identifier,
     IdentifierInfo *II = getLocalIdentifier(M, Record[0]);
-    MacroDefinition *MD
-      = new (PPRec) MacroDefinition(II, Range);
+    MacroDefinitionRecord *MD = new (PPRec) MacroDefinitionRecord(II, Range);
 
     if (DeserializationListener)
       DeserializationListener->MacroDefinitionRead(PPID, MD);
@@ -6361,10 +6157,7 @@ namespace {
         PredefsVisited[I] = false;
     }
 
-    static bool visit(ModuleFile &M, bool Preorder, void *UserData) {
-      if (Preorder)
-        return false;
-
+    static bool visitPostorder(ModuleFile &M, void *UserData) {
       FindExternalLexicalDeclsVisitor *This
         = static_cast<FindExternalLexicalDeclsVisitor *>(UserData);
 
@@ -6406,7 +6199,8 @@ ExternalLoadResult ASTReader::FindExternalLexicalDecls(const DeclContext *DC,
   // There might be lexical decls in multiple modules, for the TU at
   // least. Walk all of the modules in the order they were loaded.
   FindExternalLexicalDeclsVisitor Visitor(*this, DC, isKindWeWant, Decls);
-  ModuleMgr.visitDepthFirst(&FindExternalLexicalDeclsVisitor::visit, &Visitor);
+  ModuleMgr.visitDepthFirst(
+      nullptr, &FindExternalLexicalDeclsVisitor::visitPostorder, &Visitor);
   ++NumLexicalDeclContextsRead;
   return ELR_Success;
 }
@@ -7229,6 +7023,21 @@ void ASTReader::ReadUndefinedButUsed(
     SourceLocation Loc =
         SourceLocation::getFromRawEncoding(UndefinedButUsed[Idx++]);
     Undefined.insert(std::make_pair(D, Loc));
+  }
+}
+
+void ASTReader::ReadMismatchingDeleteExpressions(llvm::MapVector<
+    FieldDecl *, llvm::SmallVector<std::pair<SourceLocation, bool>, 4>> &
+                                                     Exprs) {
+  for (unsigned Idx = 0, N = DelayedDeleteExprs.size(); Idx != N;) {
+    FieldDecl *FD = cast<FieldDecl>(GetDecl(DelayedDeleteExprs[Idx++]));
+    uint64_t Count = DelayedDeleteExprs[Idx++];
+    for (uint64_t C = 0; C < Count; ++C) {
+      SourceLocation DeleteLoc =
+          SourceLocation::getFromRawEncoding(DelayedDeleteExprs[Idx++]);
+      const bool IsArrayForm = DelayedDeleteExprs[Idx++];
+      Exprs[FD].push_back(std::make_pair(DeleteLoc, IsArrayForm));
+    }
   }
 }
 
@@ -8216,7 +8025,7 @@ void ASTReader::getInputFiles(ModuleFile &F,
 
 std::string ASTReader::getOwningModuleNameForDiagnostic(const Decl *D) {
   // If we know the owning module, use it.
-  if (Module *M = D->getOwningModule())
+  if (Module *M = D->getImportedOwningModule())
     return M->getFullModuleName();
 
   // Otherwise, use the name of the top-level module the decl is within.
@@ -8387,6 +8196,11 @@ void ASTReader::finishPendingActions() {
       MD->setLazyBody(PB->second);
   }
   PendingBodies.clear();
+
+  // Do some cleanup.
+  for (auto *ND : PendingMergedDefinitionsToDeduplicate)
+    getContext().deduplicateMergedDefinitonsFor(ND);
+  PendingMergedDefinitionsToDeduplicate.clear();
 }
 
 void ASTReader::diagnoseOdrViolations() {

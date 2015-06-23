@@ -81,10 +81,10 @@ std::unique_ptr<RuntimeFile<ELFT>> ExecutableWriter<ELFT>::createRuntimeFile() {
   file->addAbsoluteAtom("__bss_end");
   file->addAbsoluteAtom("_end");
   file->addAbsoluteAtom("end");
-  file->addAbsoluteAtom("__preinit_array_start");
-  file->addAbsoluteAtom("__preinit_array_end");
-  file->addAbsoluteAtom("__init_array_start");
-  file->addAbsoluteAtom("__init_array_end");
+  file->addAbsoluteAtom("__preinit_array_start", true);
+  file->addAbsoluteAtom("__preinit_array_end", true);
+  file->addAbsoluteAtom("__init_array_start", true);
+  file->addAbsoluteAtom("__init_array_end", true);
   if (this->_ctx.isRelaOutputFormat()) {
     file->addAbsoluteAtom("__rela_iplt_start");
     file->addAbsoluteAtom("__rela_iplt_end");
@@ -92,8 +92,8 @@ std::unique_ptr<RuntimeFile<ELFT>> ExecutableWriter<ELFT>::createRuntimeFile() {
     file->addAbsoluteAtom("__rel_iplt_start");
     file->addAbsoluteAtom("__rel_iplt_end");
   }
-  file->addAbsoluteAtom("__fini_array_start");
-  file->addAbsoluteAtom("__fini_array_end");
+  file->addAbsoluteAtom("__fini_array_start", true);
+  file->addAbsoluteAtom("__fini_array_end", true);
   return file;
 }
 
@@ -127,28 +127,13 @@ template <class ELFT> void ExecutableWriter<ELFT>::finalizeDefaultAtomValues() {
   assert((bssStartAtom || bssEndAtom || underScoreEndAtom || endAtom) &&
          "Unable to find the absolute atoms that have been added by lld");
 
-  auto startEnd = [&](StringRef sym, StringRef sec) -> void {
-    std::string start = ("__" + sym + "_start").str();
-    std::string end = ("__" + sym + "_end").str();
-    AtomLayout *s = this->_layout.findAbsoluteAtom(start);
-    AtomLayout *e = this->_layout.findAbsoluteAtom(end);
-    OutputSection<ELFT> *section = this->_layout.findOutputSection(sec);
-    if (section) {
-      s->_virtualAddr = section->virtualAddr();
-      e->_virtualAddr = section->virtualAddr() + section->memSize();
-    } else {
-      s->_virtualAddr = 0;
-      e->_virtualAddr = 0;
-    }
-  };
-
-  startEnd("preinit_array", ".preinit_array");
-  startEnd("init_array", ".init_array");
+  this->updateScopeAtomValues("preinit_array", ".preinit_array");
+  this->updateScopeAtomValues("init_array", ".init_array");
   if (this->_ctx.isRelaOutputFormat())
-    startEnd("rela_iplt", ".rela.plt");
+    this->updateScopeAtomValues("rela_iplt", ".rela.plt");
   else
-    startEnd("rel_iplt", ".rel.plt");
-  startEnd("fini_array", ".fini_array");
+    this->updateScopeAtomValues("rel_iplt", ".rel.plt");
+  this->updateScopeAtomValues("fini_array", ".fini_array");
 
   auto bssSection = this->_layout.findOutputSection(".bss");
 

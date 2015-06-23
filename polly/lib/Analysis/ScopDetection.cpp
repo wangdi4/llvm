@@ -45,13 +45,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/CodeGen/BlockGenerators.h"
+#include "polly/CodeGen/CodeGeneration.h"
 #include "polly/LinkAllPasses.h"
 #include "polly/Options.h"
-#include "polly/ScopDetectionDiagnostic.h"
 #include "polly/ScopDetection.h"
+#include "polly/ScopDetectionDiagnostic.h"
 #include "polly/Support/SCEVValidator.h"
 #include "polly/Support/ScopHelper.h"
-#include "polly/CodeGen/CodeGeneration.h"
+#include "polly/Support/ScopLocation.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -60,9 +61,9 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/IR/DebugInfo.h"
-#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
 #include <set>
@@ -169,7 +170,7 @@ static cl::opt<bool, true> XPollyModelPHINodes(
     "polly-model-phi-nodes",
     cl::desc("Allow PHI nodes in the input [Unsafe with code-generation!]."),
     cl::location(PollyModelPHINodes), cl::Hidden, cl::ZeroOrMore,
-    cl::init(false), cl::cat(PollyCategory));
+    cl::init(true), cl::cat(PollyCategory));
 
 bool polly::PollyModelPHINodes = false;
 bool polly::PollyTrackFailures = false;
@@ -350,7 +351,7 @@ bool ScopDetection::isValidCFG(BasicBlock &BB,
     // TODO: This is not sufficient and just hides bugs. However it does pretty
     // well.
     if (ICmp->isUnsigned() && !AllowUnsigned)
-      return false;
+      return invalid<ReportUnsignedCond>(Context, /*Assert=*/true, Br, &BB);
 
     // Are both operands of the ICmp affine?
     if (isa<UndefValue>(ICmp->getOperand(0)) ||
@@ -486,6 +487,13 @@ bool ScopDetection::hasAffineMemoryAccesses(DetectionContext &Context) const {
     // Second step: find array shape.
     SE->findArrayDimensions(Terms, Shape->DelinearizedSizes,
                             Context.ElementSize[BasePointer]);
+
+    if (!AllowNonAffine)
+      for (const SCEV *DelinearizedSize : Shape->DelinearizedSizes)
+        if (hasScalarDepsInsideRegion(DelinearizedSize, &CurRegion))
+          invalid<ReportNonAffineAccess>(
+              Context, /*Assert=*/true, DelinearizedSize,
+              Context.Accesses[BasePointer].front().first, BaseValue);
 
     // No array shape derived.
     if (Shape->DelinearizedSizes.empty()) {
@@ -730,9 +738,6 @@ Region *ScopDetection::expandRegion(Region &R) {
       //  - if true, a valid region was found => store it + keep expanding
       //  - if false, .tbd. => stop  (should this really end the loop?)
       if (!allBlocksValid(Context) || Context.Log.hasErrors())
-        break;
-
-      if (Context.Log.hasErrors())
         break;
 
       // Delete unnecessary regions (allocated by getExpandedRegion)
