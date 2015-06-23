@@ -95,8 +95,24 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
              Option == LoopHintAttr::InterleaveCount ||
              Option == LoopHintAttr::UnrollCount) {
     assert(ValueExpr && "Attribute must have a valid value expression.");
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#366562 - let pragma unroll value in IntelCompat mode be out of
+    // strictly positive 32-bit integer range (don't check the range here).
+    bool IsCheckRange = !S.getLangOpts().IntelCompat || !PragmaUnroll;
+    if (S.CheckLoopHintExpr(ValueExpr, St->getLocStart(), IsCheckRange))
+      return nullptr;
+    // If it's pragma unroll and IntelCompat mode and the above test passed,
+    // we should verify that the value is strictly positive 32-bit integer...
+    if (!IsCheckRange &&
+        S.IsExprValueOutOfStrictlyPositive32BitIntRange(ValueExpr)) {
+      // ... and if it isn't, act like there were no arguments to pragma unroll.
+      Option = LoopHintAttr::Unroll;
+      ValueExpr = nullptr;
+    }
+#else
     if (S.CheckLoopHintExpr(ValueExpr, St->getLocStart()))
       return nullptr;
+#endif // INTEL_CUSTOMIZATION
   } else if (Option == LoopHintAttr::Vectorize ||
              Option == LoopHintAttr::Interleave ||
              Option == LoopHintAttr::Unroll) {

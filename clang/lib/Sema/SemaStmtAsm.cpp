@@ -233,10 +233,28 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
     // Only allow void types for memory constraints.
     if (Info.allowsMemory() && !Info.allowsRegister()) {
       if (CheckAsmLValue(InputExpr, *this))
+#ifdef INTEL_CUSTOMIZATION
+      {
+        // CQ#371735 - classic ICC compiler allows use of registers for rvalues
+        // under 'm' constraint.
+        // This can be looked up in ICC's source file dev/proton/npcg/gnu_asm.c
+        // in function ASMG_evaluate_constraint().
+        if (getLangOpts().IntelCompat &&
+            Literal->getString().find('m') != StringRef::npos) {
+          Info.setAllowsRegister();
+          ExprResult Result = DefaultFunctionArrayLvalueConversion(Exprs[i]);
+          if (Result.isInvalid())
+            return StmtError();
+          Exprs[i] = Result.get();
+        } else
+#endif // INTEL_CUSTOMIZATION
         return StmtError(Diag(InputExpr->getLocStart(),
                               diag::err_asm_invalid_lvalue_in_input)
                          << Info.getConstraintStr()
                          << InputExpr->getSourceRange());
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     } else if (Info.requiresImmediateConstant() && !Info.allowsRegister()) {
       llvm::APSInt Result;
       if (!InputExpr->EvaluateAsInt(Result, Context))

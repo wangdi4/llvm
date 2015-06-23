@@ -2323,6 +2323,12 @@ public:
   /// \param Target The target 
   void InitBuiltinTypes(const TargetInfo &Target);
   
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Determines whether NamedDecl is a library-defined builtin function
+  /// without '__builtin_' prefix.
+  bool IsPredefinedLibBuiltin(const NamedDecl *ND) const;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   void InitBuiltinType(CanQualType &R, BuiltinType::Kind K);
 
