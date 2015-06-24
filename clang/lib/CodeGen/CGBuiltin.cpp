@@ -968,16 +968,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__atomic_nand_fetch_explicit:
   case Builtin::BI__atomic_or_fetch_explicit:
   case Builtin::BI__atomic_xor_fetch_explicit:
-#endif  // INTEL_CUSTOMIZATION
-    llvm_unreachable("Shouldn't make it through sema");
-#ifdef INTEL_CUSTOMIZATION
-  case Builtin::BI__builtin_return:
-  case Builtin::BI__builtin_apply:
-  case Builtin::BI__builtin_apply_args:
-  case Builtin::BI__atomic_flag_test_and_set_explicit:
-  case Builtin::BI__atomic_flag_clear_explicit:
-    return emitLibraryCall(*this, FD, E,
-                           CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
   case Builtin::BI__assume_aligned: {
     llvm::SmallVector<llvm::Value *, 4> Args;
     auto &C = CGM.getLLVMContext();
@@ -995,6 +985,16 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     llvm::Value *Fn = CGM.getIntrinsic(llvm::Intrinsic::intel_pragma);
     return RValue::get(Builder.CreateCall(Fn, Args));
   }
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+    llvm_unreachable("Shouldn't make it through sema");
+#ifdef INTEL_CUSTOMIZATION
+  case Builtin::BI__builtin_return:
+  case Builtin::BI__builtin_apply:
+  case Builtin::BI__builtin_apply_args:
+  case Builtin::BI__atomic_flag_test_and_set_explicit:
+  case Builtin::BI__atomic_flag_clear_explicit:
+    return emitLibraryCall(*this, FD, E,
+                           CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
   case Builtin::BI__atomic_store_explicit_4:
