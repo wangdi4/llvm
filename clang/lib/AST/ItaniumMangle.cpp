@@ -176,6 +176,11 @@ public:
 
   void mangleCXXVTableBitSet(const CXXRecordDecl *RD, raw_ostream &) override;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
     if (isLambda(ND))
@@ -4081,6 +4086,14 @@ void ItaniumMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
   CXXNameMangler Mangler(*this, Out);
   Mangler.mangleType(QualType(RD->getTypeForDecl(), 0));
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                raw_ostream &Out) {
+  return mangleTypeName(QualType(RD->getTypeForDecl(), 0), Out);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_ostream &) {
   llvm_unreachable("Can't mangle string literals");

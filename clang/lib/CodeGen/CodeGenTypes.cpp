@@ -69,6 +69,12 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     else
       TDD->printName(OS);
   } else
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+    if (CGM.getLangOpts().IntelCompat && RD->isLambda()) {
+      CGM.getCXXABI().getMangleContext().mangleLambdaName(RD, OS);
+    } else
+#endif // INTEL_CUSTOMIZATION
     OS << "anon";
 
   if (!suffix.empty())

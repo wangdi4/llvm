@@ -159,6 +159,12 @@ public:
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
   void mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                              raw_ostream &Out) override;
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
     if (isLambda(ND))
@@ -265,6 +271,8 @@ public:
                           const FunctionDecl *D = nullptr,
                           bool ForceThisQuals = false);
   void mangleNestedName(const NamedDecl *ND);
+
+  void mangleUnscopedLambdaName(const RecordDecl *RD);
 
 private:
   void mangleUnqualifiedName(const NamedDecl *ND) {
@@ -1077,6 +1085,12 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   // <unscoped-template-name> ::= ?$ <unqualified-name>
   Out << "?$";
   mangleUnqualifiedName(TD);
+}
+
+void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
+  // <unscoped-lambda-name> ::= __10<unqualified-name>
+  Out << "__10";
+  mangleUnqualifiedName(RD);
 }
 
 void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
@@ -2760,6 +2774,15 @@ void MicrosoftMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                                                        raw_ostream &Out) {
   llvm::report_fatal_error("Cannot mangle bitsets yet");
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                  raw_ostream &Out) {
+  MicrosoftCXXNameMangler Mangler(*this, Out);
+  return Mangler.mangleUnscopedLambdaName(RD);
+}
+#endif // INTEL_CUSTOMIZATION
 
 MicrosoftMangleContext *
 MicrosoftMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {
