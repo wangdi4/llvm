@@ -1,4 +1,4 @@
-Base {
+{
     global:
         clDevCreateDeviceInstance;
         clDevGetDeviceInfo;

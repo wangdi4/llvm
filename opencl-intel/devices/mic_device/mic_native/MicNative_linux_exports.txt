@@ -1,4 +1,4 @@
-Base {
+{
     global:
         get_backend_target_description;
         get_backend_target_description_size;
