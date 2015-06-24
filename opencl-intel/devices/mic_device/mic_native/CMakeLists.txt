@@ -384,7 +384,7 @@ list( APPEND MIC_FLAGS
                 -I ${ITT_DIR}/include
                 -I ${ITT_DIR}/ittnotify
                 -I ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
-                -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang
+                -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers
                 -I ${DEVICE_COMMON_DIR}/builtin_kernels
                 -DDEVICE_NATIVE
                 -DDISABLE_NUMA_SUPPORT
