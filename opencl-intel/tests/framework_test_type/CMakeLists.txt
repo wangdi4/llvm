@@ -88,7 +88,7 @@ install(TARGETS ${TARGET} DESTINATION ${CREATE_DIR_NAME})
 install(FILES cfg_win.xml cfg_linux.xml DESTINATION ${CREATE_DIR_NAME}/framework_test)
 install(FILES framework_test_type.pm DESTINATION ${CREATE_DIR_NAME})
 
-set( INCLUDE_HEADERS_PATH ${OCL_SOURCE_DIR}/fe_compilers/common_clang/cl_headers)
+set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
 
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
@@ -138,11 +138,11 @@ endif ( INCLUDE_MIC_DEVICE )
 add_custom_command( TARGET ${TARGET}
   POST_BUILD
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
+  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${SPIR_OPT}
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
   COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
-  -I ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang/cl_headers -emit-llvm-bc
+  -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc
   ${INV_SPIR_OPT}
   -include opencl_.h -O0 -o ${CMAKE_CURRENT_BINARY_DIR}/${INV_OUTPUT_FILE}
   MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
