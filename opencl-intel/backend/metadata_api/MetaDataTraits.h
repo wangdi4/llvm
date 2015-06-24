@@ -55,7 +55,7 @@ struct MDValueTraits
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         value_type pT = llvm::dyn_cast<T>(pNode);
         if( nullptr == pT )
@@ -114,6 +114,9 @@ struct MDValueTraits<std::string, void>
         {
             return std::string();
         }
+        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
+        // is needed let's catch a situation when pNode is not NULL live.
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         llvm::MDString* mdStr = llvm::dyn_cast<llvm::MDString>(pNode);
         if( !mdStr )
@@ -163,7 +166,7 @@ struct MDValueTraits<bool, void>
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
         if( !pval )
@@ -213,7 +216,7 @@ struct MDValueTraits<int64_t, void>
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         using namespace llvm;
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
@@ -264,7 +267,7 @@ struct MDValueTraits<int32_t, void>
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         using namespace llvm;
         ConstantInt* pval = mdconst::dyn_extract<ConstantInt>(pNode);
@@ -316,7 +319,7 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Metadata
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         value_type pT = llvm::dyn_cast<T>(pNode);
         if( nullptr == pT)
@@ -368,7 +371,7 @@ struct MDValueTraits<llvm::Function, void>
         }
         // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
         // is needed let's catch a situation when pNode is not NULL live.
-        assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
+        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         ValueAsMetadata * vAsM = dyn_cast<ValueAsMetadata>(pNode);
         assert(vAsM && "VauseAsMetadata is expected");
@@ -405,7 +408,7 @@ struct MDValueTraits<llvm::Function, void>
         if( load(trgt) != val )
         {
 //            trgt->replaceAllUsesWith( generateValue(context, val) );
-           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+//           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
