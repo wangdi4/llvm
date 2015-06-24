@@ -93,6 +93,8 @@ public:
 
     virtual TaskGroupStatus Wait();
 
+    virtual ~TbbTaskGroup() { }
+
 private:
 
     tbb::task_group m_tskGrp;

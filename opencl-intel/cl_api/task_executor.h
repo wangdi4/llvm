@@ -228,7 +228,6 @@ public:
      * @return the status of this IThreadLibTaskGroup after the wait has been completed
      */
     virtual TaskGroupStatus Wait() = 0;
-    
 };
 
 /**
