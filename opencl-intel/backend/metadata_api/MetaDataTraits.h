@@ -408,7 +408,7 @@ struct MDValueTraits<llvm::Function, void>
         if( load(trgt) != val )
         {
 //            trgt->replaceAllUsesWith( generateValue(context, val) );
-//           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
         }
     }
 };
