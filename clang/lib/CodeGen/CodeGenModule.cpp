@@ -436,10 +436,12 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
-  if (getLangOpts().IntelCompat)
-    EmitIntelDebugInfoMetadata();
-  if (getLangOpts().IntelMSCompat)
-    EmitMSDebugInfoMetadata();
+  if (getCodeGenOpts().getDebugInfo() != CodeGenOptions::NoDebugInfo) {
+    if (getLangOpts().IntelCompat)
+      EmitIntelDebugInfoMetadata();
+    if (getLangOpts().IntelMSCompat)
+      EmitMSDebugInfoMetadata();
+  }
 #endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();

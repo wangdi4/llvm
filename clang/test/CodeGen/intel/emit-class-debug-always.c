@@ -1,5 +1,7 @@
 // CQ#368123
 
+// RUN: %clang_cc1 -emit-llvm %s -o - | FileCheck -check-prefix CHECK1 %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm %s -o - | FileCheck -check-prefix CHECK1 %s
 // RUN: %clang_cc1 -g -emit-llvm %s -o - | FileCheck -check-prefix CHECK1 %s
 // CHECK1-NOT: !llvm.dbg.intel.emit_class_debug_always = !{!{{.*}}}
 
