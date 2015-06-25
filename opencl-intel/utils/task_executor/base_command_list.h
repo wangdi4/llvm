@@ -93,7 +93,7 @@ public:
 
     virtual TaskGroupStatus Wait();
 
-    virtual ~TbbTaskGroup() noexcept { }
+    virtual ~TbbTaskGroup() throw() { }
 
 private:
 

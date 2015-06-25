@@ -211,7 +211,7 @@ public:
 
     PREPARE_SHARED_PTR(IThreadLibTaskGroup)
 
-    virtual ~IThreadLibTaskGroup() noexcept { }
+    virtual ~IThreadLibTaskGroup() throw() { }
 
     /**
      * Status of the IThreadLibTaskGroup
