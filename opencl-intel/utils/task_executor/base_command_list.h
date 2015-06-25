@@ -93,7 +93,7 @@ public:
 
     virtual TaskGroupStatus Wait();
 
-    virtual ~TbbTaskGroup() throw() { }
+    virtual ~TbbTaskGroup() GCC_NOEXCEPT_BUG_WORKAROUND {}
 
 private:
 
