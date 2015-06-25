@@ -70,7 +70,7 @@ public:
      * Destructor
      * It is virtual so that the object can be deleted from a pointer to any of its super-classes
      */
-    virtual ~ReferenceCountedObject() { }
+    virtual ~ReferenceCountedObject() noexcept { }
 
     /**
      * Increment the reference counter
