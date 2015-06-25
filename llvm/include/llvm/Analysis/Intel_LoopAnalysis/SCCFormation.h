@@ -22,12 +22,13 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Pass.h"
 
+#include "llvm/IR/Instruction.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 
 namespace llvm {
 
 class Function;
-class Instruction;
 class Loop;
 class LoopInfo;
 class DominatorTree;
@@ -43,7 +44,17 @@ namespace loopopt {
 class SCCFormation : public FunctionPass {
 public:
   typedef Instruction NodeTy;
-  typedef SmallPtrSet<const NodeTy *, 12> SCCTy;
+  typedef SmallPtrSet<const NodeTy *, 12> SCCNodesTy;
+
+  struct SCC {
+    const NodeTy *Root;
+    SCCNodesTy Nodes;
+
+    SCC(const NodeTy *R) : Root(R) {}
+  };
+
+  typedef struct SCC SCCTy;
+
   typedef SmallVector<SCCTy *, 32> RegionSCCTy;
   /// Iterators to iterate over regions
   typedef RegionSCCTy::const_iterator const_iterator;
@@ -109,7 +120,7 @@ private:
   /// are part of the SCC they are not strongly associated with the phis. They
   /// should not be assigned the same symbase as they can be live(used) at the
   /// same time as other nodes in the SCC.
-  void removeIntermediateNodes(SCCTy &CurSCC);
+  void removeIntermediateNodes(SCCNodesTy &CurSCC);
 
   /// \brief Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();

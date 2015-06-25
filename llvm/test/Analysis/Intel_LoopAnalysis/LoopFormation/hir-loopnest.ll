@@ -1,19 +1,13 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-regions | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-loops | FileCheck %s
 
-; Check output of hir-regions
-; CHECK: Region 1
-; CHECK-NEXT: EntryBB
-; CHECK-SAME: for.cond1.preheader
-; CHECK-NEXT: ExitBB
-; CHECK-NEXT: Member
-; CHECK-SAME: for.cond1.preheader
-; CHECK-SAME: for.body3.preheader
-; CHECK-SAME: for.body3
-; CHECK-SAME: if.else
-; CHECK-SAME: if.then
-; CHECK-SAME: for.inc
-; CHECK-SAME: for.inc14.loopexit
-; CHECK-SAME: for.inc14
+; Check that two unknown loops have been formed
+; CHECK: UNKNOWN LOOP i1
+; CHECK: UNKNOWN LOOP i2
+; CHECK-NOT: goto
+; CHECK: END LOOP
+; CHECK-NOT: goto
+; CHECK: END LOOP
+; CHECK-NOT: goto
 
 
 ; ModuleID = 'loopnest.c'

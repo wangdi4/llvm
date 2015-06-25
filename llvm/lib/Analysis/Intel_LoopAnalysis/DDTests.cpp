@@ -383,8 +383,7 @@ bool DDtest::areCEequal(const CanonExpr *CE1, const CanonExpr *CE2) const {
 }
 
 static Type *getType(const CanonExpr *CE) {
-  return CE->getLLVMType(); 
-  // return CE->getType();
+  return CE->getType();
 }
 
 const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
@@ -584,6 +583,7 @@ void DDtest::Constraint::setEmpty() { Kind = Empty; }
 void DDtest::Constraint::setAny() { Kind = Any; }
 
 // For debugging purposes. Dumps the constraint out to OS.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DDtest::Constraint::dump(raw_ostream &OS) const {
   if (isEmpty()) {
     OS << " Empty\n";
@@ -617,6 +617,7 @@ void DDtest::Constraint::dump(raw_ostream &OS) const {
     llvm_unreachable("unknown constraint type in Constraint::dump");
   }
 }
+#endif
 
 #if 0
 
@@ -782,7 +783,7 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
 //===----------------------------------------------------------------------===//
 // DependenceAnalysis methods
 // For debugging purposes. Dumps a dependence to OS.
-
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void Dependences::dump(raw_ostream &OS) const {
   bool Splitable = false;
 
@@ -866,6 +867,7 @@ void Dependences::dump(raw_ostream &OS) const {
   }
   OS << " \n";
 }
+#endif
 
 #if 0 
 
@@ -4297,7 +4299,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   if (Result == nullptr) {
     DEBUG(dbgs() << "Is Independent!\n");
   } else {
-    Result->dump(OS);
+    DEBUG(Result->dump(OS));
   }
 
   // Independent?

@@ -20,12 +20,14 @@ using namespace loopopt;
 
 RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
 
-BlobDDRef *DDRefUtils::createBlobDDRef(int SB, const CanonExpr *CE,
-                                       RegDDRef *Parent) {
-
-  return new BlobDDRef(SB, CE, Parent);
+BlobDDRef *DDRefUtils::createBlobDDRef(int SB, const CanonExpr *CE) {
+  return new BlobDDRef(SB, CE);
 }
 
 void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 
 void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
+
+void DDRefUtils::printScalarLval(raw_ostream &OS, const RegDDRef *Ref) {
+  getHIRParser()->printScalarLval(OS, Ref->getSymBase());
+}

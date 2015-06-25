@@ -31,7 +31,7 @@ namespace loopopt {
 /// It contains a bunch of static member functions which manipulate DDRefs.
 /// It does not store any state.
 ///
-class DDRefUtils {
+class DDRefUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
   DDRefUtils() = delete;
@@ -43,8 +43,7 @@ private:
 
 protected:
   /// \brief Returns a new BlobDDRef.
-  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE,
-                                    RegDDRef *Parent = nullptr);
+  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE);
 
 public:
   /// \brief Returns a new RegDDRef.
@@ -52,6 +51,9 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
+
+  /// \brief Prints scalar for lval RegDDRefs.
+  static void printScalarLval(raw_ostream &OS, const RegDDRef *Ref);
 };
 
 } // End namespace loopopt

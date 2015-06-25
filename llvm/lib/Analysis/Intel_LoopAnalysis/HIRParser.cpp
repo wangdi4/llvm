@@ -21,6 +21,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -36,6 +37,7 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(LoopFormation)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
@@ -43,7 +45,7 @@ INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 char HIRParser::ID = 0;
 
 // define the static pointer
-HIRParser *HLUtils::HIRParPtr = nullptr;
+HIRParser *HLUtils::HIRPar = nullptr;
 
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
@@ -55,23 +57,12 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolution>();
+  AU.addRequiredTransitive<ScalarSymbaseAssignment>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
 }
 
-unsigned HIRParser::findBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findBlob(Blob);
-}
-
-unsigned HIRParser::findOrInsertBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findOrInsertBlob(Blob);
-}
-
-CanonExpr::BlobTy HIRParser::getBlob(unsigned BlobIndex) {
-  return CanonExpr::getBlob(BlobIndex);
-}
-
-bool HIRParser::isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
+bool HIRParser::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const {
 
   // Check if this Blob is of Constant Type
   const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
@@ -84,13 +75,32 @@ bool HIRParser::isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
   return true;
 }
 
+bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    Type *Ty;
+    Constant *FieldNo;
+
+    if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
+        !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
+        !ScalarSA->isConstant(UnknownSCEV->getValue())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HIRParser::isTempBlob(unsigned Symbase) const {
+  return TempBlobSymbases.count(Symbase);
+}
+
 CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
                                         unsigned *NewBlobIndex) {
   Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
   auto Blob = SE->getConstant(Int64Type, Val, false);
 
   if (Insert) {
-    unsigned BlobIndex = findOrInsertBlob(Blob);
+    unsigned BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -109,7 +119,7 @@ CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
   auto Blob = SE->getAddExpr(LHS, RHS);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(Blob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -128,7 +138,7 @@ CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(Blob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -147,7 +157,7 @@ CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
   auto Blob = SE->getMulExpr(LHS, RHS);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(Blob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -166,7 +176,7 @@ CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(Blob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -186,7 +196,7 @@ CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(NewBlob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -206,7 +216,7 @@ CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(NewBlob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -226,7 +236,7 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
   if (Insert) {
-    BlobIndex = findOrInsertBlob(NewBlob);
+    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -234,6 +244,209 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
   }
 
   return NewBlob;
+}
+
+unsigned HIRParser::getMaxScalarSymbase() const {
+  return ScalarSA->getMaxScalarSymbase();
+}
+
+unsigned HIRParser::getSymBaseForConstants() const {
+  return ScalarSA->getSymBaseForConstants();
+}
+
+class HIRParser::PolynomialFinder {
+private:
+  bool Found;
+
+public:
+  PolynomialFinder() : Found(false) {}
+  ~PolynomialFinder() {}
+
+  bool follow(const SCEV *SC) {
+
+    if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+      if (!RecSCEV->isAffine()) {
+        Found = true;
+      }
+    }
+
+    return !Found;
+  }
+
+  bool found() const { return Found; }
+  bool isDone() const { return found(); }
+};
+
+class HIRParser::BlobLevelSetter {
+private:
+  HIRParser *HIRP;
+  CanonExpr *CExpr;
+  unsigned Level;
+
+public:
+  BlobLevelSetter(HIRParser *Par, CanonExpr *CE, unsigned NestingLevel)
+      : HIRP(Par), CExpr(CE), Level(NestingLevel) {}
+  ~BlobLevelSetter() {}
+
+  bool follow(const SCEV *SC) const {
+
+    assert(!isa<SCEVAddRecExpr>(SC) && "AddRec found inside blob!");
+
+    if (HIRP->isTempBlob(SC)) {
+      HIRP->setTempBlobLevel(cast<SCEVUnknown>(SC), CExpr, Level);
+    }
+
+    return !isDone();
+  }
+
+  bool isDone() const { return false; }
+};
+
+void HIRParser::printScalarLval(raw_ostream &OS, unsigned Symbase) const {
+  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+}
+
+void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
+
+  if (isa<SCEVConstant>(Blob)) {
+    OS << *Blob;
+
+  } else if (auto CastSECV = dyn_cast<SCEVCastExpr>(Blob)) {
+    auto SrcType = CastSECV->getOperand()->getType();
+    auto DstType = CastSECV->getType();
+
+    if (isa<SCEVZeroExtendExpr>(CastSECV)) {
+      OS << "zext.";
+    } else if (isa<SCEVSignExtendExpr>(CastSECV)) {
+      OS << "sext.";
+    } else if (isa<SCEVTruncateExpr>(CastSECV)) {
+      OS << "trunc.";
+    } else {
+      llvm_unreachable("Unexptected casting operation!");
+    }
+
+    OS << *SrcType << "." << *DstType << "(";
+    printBlob(OS, CastSECV->getOperand());
+    OS << ")";
+
+  } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
+    const char *OpStr;
+
+    if (isa<SCEVAddExpr>(NArySCEV)) {
+      OS << "(";
+      OpStr = " + ";
+    } else if (isa<SCEVMulExpr>(NArySCEV)) {
+      OS << "(";
+      OpStr = " * ";
+    } else if (isa<SCEVSMaxExpr>(NArySCEV)) {
+      OS << "smax(";
+      OpStr = ", ";
+    } else if (isa<SCEVSMaxExpr>(NArySCEV)) {
+      OS << "umax(";
+      OpStr = ", ";
+    } else {
+      assert(false && "Blob contains AddRec!");
+    }
+
+    for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
+      printBlob(OS, *I);
+
+      if (std::next(I) != E) {
+        OS << OpStr;
+      }
+    }
+    OS << ")";
+
+  } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(Blob)) {
+    OS << "(";
+    printBlob(OS, UDivSCEV->getLHS());
+    OS << " /u ";
+    printBlob(OS, UDivSCEV->getRHS());
+    OS << ")";
+  } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    if (isTempBlob(Blob)) {
+      auto Temp = UnknownSCEV->getValue();
+      ScalarSA->getBaseScalar(Temp)->printAsOperand(OS, false);
+
+    } else {
+      OS << *Blob;
+    }
+  } else {
+    llvm_unreachable("Unknown Blob type!");
+  }
+}
+
+bool HIRParser::isPolyBlobDef(const Instruction *Inst) const {
+
+  if (SE->isSCEVable(Inst->getType())) {
+    auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+
+    // Non-GEP instructions containing non-affine(polynomial) addRecs are made
+    // blobs.
+    if (!isa<GetElementPtrInst>(Inst)) {
+      PolynomialFinder PF;
+      SCEVTraversal<PolynomialFinder> Searcher(PF);
+      Searcher.visitAll(SC);
+
+      if (PF.found()) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+bool HIRParser::isBlobDef(const Instruction *Inst) const {
+
+  if (SE->isSCEVable(Inst->getType())) {
+    auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+    if (isa<SCEVUnknown>(SC)) {
+      return true;
+    }
+  } else if (!isPolyBlobDef(Inst)) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
+  auto Symbase = ScalarSA->getScalarSymbase(Inst);
+
+  if (Symbase && CurRegion->isLiveOut(Symbase)) {
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRParser::isRequired(const Instruction *Inst) const {
+
+  if (isa<StoreInst>(Inst)) {
+    return true;
+  } else if (isa<CmpInst>(Inst)) {
+    assert(hasExpectedUsers(cast<CmpInst>(Inst)) &&
+           "Unexpected compare instruction user!");
+    return false;
+  }
+
+  return (isRegionLiveOut(Inst) || isBlobDef(Inst));
+}
+
+bool HIRParser::hasExpectedUsers(const CmpInst *CInst) const {
+
+  for (auto I = CInst->user_begin(), E = CInst->user_end(); I != E; ++I) {
+    if (auto UseInst = dyn_cast<Instruction>(*I)) {
+      if (!isa<BranchInst>(UseInst) && !isa<SelectInst>(UseInst)) {
+        return false;
+      }
+    } else {
+      assert(false && "Use is not an instruction!");
+    }
+  }
+
+  return true;
 }
 
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
@@ -246,299 +459,477 @@ void HIRParser::parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE) {
   CE->setConstant(CE->getConstant() + Const);
 }
 
-/// TODO: Add blob DDRef logic
-/// TODO: Handle compound blobs
-void HIRParser::parseBlob(const SCEV *BlobSCEV, CanonExpr *CE, unsigned Level) {
-  auto Index = findOrInsertBlob(BlobSCEV);
-  unsigned DefLevel = 0;
-  HLLoop *HLoop;
-
-  CE->addBlob(Index, 1);
-
-  if (auto SingleBlobSCEV = dyn_cast<SCEVUnknown>(BlobSCEV)) {
-    /// Skip DefLevel if CanonExpr is already non-linear.
-    if (!CE->isNonLinear()) {
-      if (auto Inst = dyn_cast<Instruction>(SingleBlobSCEV->getValue())) {
-        auto Lp = LI->getLoopFor(Inst->getParent());
-
-        if (Lp && (HLoop = LF->findHLLoop(Lp))) {
-          DefLevel = HLoop->getNestingLevel();
-
-          /// Make non-linear
-          if (DefLevel == Level) {
-            CE->setDefinedAtLevel(-1);
-          } else if (DefLevel > (unsigned)CE->getDefinedAtLevel()) {
-            CE->setDefinedAtLevel(DefLevel);
-          }
-        }
-      }
-    }
-  } else {
-    assert(false && "Can't handle compound blobs!");
+void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
+                                     unsigned DefLevel) const {
+  if (DefLevel >= NestingLevel) {
+    // Make non-linear instead.
+    CE->setNonLinear();
+  } else if (DefLevel > CE->getDefinedAtLevel()) {
+    CE->setDefinedAtLevel(DefLevel);
   }
 }
 
-/// TODO: Make it recursive
-RegDDRef *HIRParser::parseRecursive(const SCEV *SC, const SCEV *ElementSize,
-                                    unsigned Level, bool IsErasable,
-                                    bool IsTop) {
+void HIRParser::addTempBlobEntry(const Value *Temp, unsigned Index,
+                                 unsigned Symbase, unsigned DefLevel) {
+  TempBlobSymbases.insert(Symbase);
+  CurTempBlobLevelMap[Index] = DefLevel;
+}
+
+void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
+                                 unsigned Level) {
+  unsigned DefLevel;
+  HLLoop *HLoop;
+
+  auto Temp = TempBlobSCEV->getValue();
+  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Temp);
+  auto Index = CanonExprUtils::findOrInsertBlob(TempBlobSCEV);
+
+  if (auto Inst = dyn_cast<Instruction>(Temp)) {
+    auto Lp = LI->getLoopFor(Inst->getParent());
+
+    if (Lp && (HLoop = LF->findHLLoop(Lp))) {
+      DefLevel = HLoop->getNestingLevel();
+      setCanonExprDefLevel(CE, Level, DefLevel);
+
+      // Cache blob level for later reuse.
+      addTempBlobEntry(Temp, Index, Symbase, DefLevel);
+    } else {
+      // Blob lies outside the region.
+      addTempBlobEntry(Temp, Index, Symbase, 0);
+    }
+  } else {
+    // Blob is some global value.
+    addTempBlobEntry(Temp, Index, Symbase, 0);
+  }
+}
+
+void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
+                          unsigned IVLevel) {
+  auto Index = CanonExprUtils::findOrInsertBlob(Blob);
+
+  if (IVLevel) {
+    bool IsBlobCoeff;
+    assert(!CE->getIVCoeff(IVLevel, &IsBlobCoeff) &&
+           "Canon Expr already has a blob coeff for this IV!");
+    CE->setIVCoeff(IVLevel, Index, true);
+
+  } else {
+    CE->addBlob(Index, 1);
+  }
+
+  // Set defined at level.
+  BlobLevelSetter BLS(this, CE, Level);
+  SCEVTraversal<BlobLevelSetter> LevelSetter(BLS);
+  LevelSetter.visitAll(Blob);
+}
+
+// TODO: refine logic
+void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
+                               bool IsTop) {
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
-    assert(IsTop && "Can't handle constant embedded in the SCEV tree!");
-
-    auto CE = CanonExprUtils::createCanonExpr(ConstSCEV->getType());
-    auto Ref = DDRefUtils::createRegDDRef(0);
-
+    assert(IsTop && "Can't handle constants embedded in the SCEV tree!");
     parseConstant(ConstSCEV, CE);
-    Ref->addDimension(CE, nullptr);
 
-    return Ref;
   } else if (isa<SCEVUnknown>(SC)) {
-    assert(IsTop && "Can't handle blob embedded in the SCEV tree!");
-
-    auto CE = CanonExprUtils::createCanonExpr(SC->getType());
-    auto RRef = DDRefUtils::createRegDDRef(0);
-
+    assert(IsTop && "Can't handle unknowns embedded in the SCEV tree!");
     parseBlob(SC, CE, Level);
-    RRef->addDimension(CE, nullptr);
 
-    return RRef;
-  }
-  /// TODO: delinearlize multi-dim arrays
-  /// NOTE: AddRec->delinearize() doesn't work with contant bound arrays
-  else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    assert(IsTop && "Can't handle embedded AddRecs!");
-    assert(RecSCEV->isAffine() && "Can't handle non-affine AddRecs!");
+  } else if (isa<SCEVCastExpr>(SC)) {
+    assert(IsTop && "Can't handle casts embedded in the SCEV tree!");
+    parseBlob(SC, CE, Level);
 
-    if (IsErasable && RecSCEV->isAffine()) {
-      assert(IsTop && "unexpected condition!");
-      return nullptr;
+  } else if (auto AddSCEV = dyn_cast<SCEVAddExpr>(SC)) {
+    assert(IsTop && "Can't handle adds embedded in the SCEV tree!");
+
+    for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
+      parseRecursive(*I, CE, Level, true);
     }
 
-    CanonExpr *StrideCE = nullptr;
-    int64_t Denom = 1;
-    auto RRef = DDRefUtils::createRegDDRef(0);
+  } else if (auto MulSCEV = dyn_cast<SCEVMulExpr>(SC)) {
+    assert(IsTop && "Can't handle multiplies embedded in the SCEV tree!");
+
+    for (auto I = MulSCEV->op_begin(), E = MulSCEV->op_end(); I != E; ++I) {
+      parseRecursive(*I, CE, Level, false);
+    }
+
+  } else if (isa<SCEVUDivExpr>(SC)) {
+    assert(IsTop && "Can't handle divisions embedded in the SCEV tree!");
+    parseBlob(SC, CE, Level);
+
+  } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+    assert(RecSCEV->isAffine() && "Non-affine AddRecs not expected!");
 
     auto Lp = RecSCEV->getLoop();
     auto HLoop = LF->findHLLoop(Lp);
 
-    assert(HLoop && "Non-HIR loop not handled!");
+    assert(HLoop && "Non-HIR loop IVs not handled!");
 
-    auto OffsetSCEV = RecSCEV->getOperand(0);
+    // Break linear addRec into base and step
+    auto BaseSCEV = RecSCEV->getOperand(0);
     auto StepSCEV = RecSCEV->getOperand(1);
 
-    if (ElementSize) {
-      assert(isa<SCEVConstant>(ElementSize) &&
-             "Can't handle non-constant element size!");
+    parseRecursive(BaseSCEV, CE, Level, IsTop);
 
-      StrideCE = CanonExprUtils::createCanonExpr(ElementSize->getType());
-      parseConstant(cast<SCEVConstant>(ElementSize), StrideCE);
-      Denom = StrideCE->getConstant();
-
-      auto BaseSCEV = SE->getPointerBase(SC);
-      assert(BaseSCEV && "Could not find pointer base!");
-      assert(isa<SCEVUnknown>(BaseSCEV) && "Unexpected Pointer base type!");
-
-      auto BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
-
-      parseBlob(BaseSCEV, BaseCE, Level);
-      RRef->setBaseCE(BaseCE);
-
-      OffsetSCEV = SE->getMinusSCEV(OffsetSCEV, BaseSCEV);
+    // Set constant IV coeff
+    if (isa<SCEVConstant>(StepSCEV)) {
+      auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
+      CE->addIV(HLoop->getNestingLevel(), Coeff);
+    }
+    // Set blob IV coeff
+    else {
+      parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel());
     }
 
-    assert(isa<SCEVConstant>(OffsetSCEV) && isa<SCEVConstant>(StepSCEV) &&
-           "Can't handle non-constant base/step in AddRecs!");
+  } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
+    assert(IsTop && "Can't handle max embedded in the SCEV tree!");
+    parseBlob(SC, CE, Level);
 
-    auto IndexCE = CanonExprUtils::createCanonExpr(StepSCEV->getType());
-    auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
-
-    parseConstant(cast<SCEVConstant>(OffsetSCEV), IndexCE);
-    IndexCE->addIV(HLoop->getNestingLevel(), Coeff);
-
-    /// Normalize w.r.t element size.
-    IndexCE->setDenominator(Denom);
-    CanonExprUtils::simplify(IndexCE);
-
-    RRef->addDimension(IndexCE, StrideCE);
-    return RRef;
+  } else {
+    assert(false && "unexpected SCEV type!");
   }
-  /// TODO: Add other types.
-  else {
-    assert(false && "SCEV type not handled!");
+}
+
+void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
+  auto BlobSCEV = SE->getUnknown(const_cast<Value *>(Val));
+  CE->setType(BlobSCEV->getType());
+  parseBlob(BlobSCEV, CE, Level);
+}
+
+CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
+
+  if (auto Inst = dyn_cast<Instruction>(Val)) {
+    // Parse polynomial blob definitions as (1 * blob)
+    if (isPolyBlobDef(Inst)) {
+      auto CE = CanonExprUtils::createCanonExpr(Val->getType());
+      parseAsBlob(Val, CE, Level);
+      return CE;
+    }
   }
 
-  return nullptr;
+  auto SC = SE->getSCEV(const_cast<Value *>(Val));
+  auto CE = CanonExprUtils::createCanonExpr(SC->getType());
+
+  parseRecursive(SC, CE, Level, true);
+
+  return CE;
+}
+
+void HIRParser::clearTempBlobLevelMap() { CurTempBlobLevelMap.clear(); }
+
+void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
+  for (auto I = CurTempBlobLevelMap.begin(), E = CurTempBlobLevelMap.end();
+       I != E; ++I) {
+    auto Blob = CanonExprUtils::getBlob(I->first);
+    assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
+
+    auto Symbase =
+        ScalarSA->getOrAssignScalarSymbase(cast<SCEVUnknown>(Blob)->getValue());
+    auto CE = CanonExprUtils::createCanonExpr(Blob->getType());
+
+    CE->addBlob(I->first, 1);
+    CE->setDefinedAtLevel(I->second);
+
+    auto BRef = DDRefUtils::createBlobDDRef(Symbase, CE);
+    Ref->addBlobDDRef(BRef);
+  }
+}
+
+RegDDRef *HIRParser::createLowerDDRef(const SCEV *BETC) {
+  auto CE = CanonExprUtils::createCanonExpr(BETC->getType());
+  auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
+  Ref->setSingleCanonExpr(CE);
+
+  return Ref;
+}
+
+RegDDRef *HIRParser::createStrideDDRef(const SCEV *BETC) {
+  auto CE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
+  auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
+  Ref->setSingleCanonExpr(CE);
+
+  return Ref;
+}
+
+RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level) {
+  const Value *Val;
+
+  clearTempBlobLevelMap();
+
+  if (auto ConstSCEV = dyn_cast<SCEVConstant>(BETC)) {
+    Val = ConstSCEV->getValue();
+  } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(BETC)) {
+    Val = UnknownSCEV->getValue();
+  } else {
+    Val = ScalarSA->getGenericLoopUpperVal();
+  }
+
+  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+
+  auto Ref = DDRefUtils::createRegDDRef(Symbase);
+  auto CE = CanonExprUtils::createCanonExpr(BETC->getType());
+
+  parseRecursive(BETC, CE, Level, true);
+  Ref->setSingleCanonExpr(CE);
+
+  if (!CE->isSelfBlob()) {
+    populateBlobDDRefs(Ref);
+  }
+
+  return Ref;
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
 
-  if (auto Lp = HLoop->getLLVMLoop()) {
+  auto Lp = HLoop->getLLVMLoop();
+  assert(Lp && "HLLoop doesn't contain LLVM loop!");
 
+  if (SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
     auto BETC = SE->getBackedgeTakenCount(Lp);
 
-    if (!isa<SCEVCouldNotCompute>(BETC)) {
+    // Initialize Lower to 0.
+    auto LowerRef = createLowerDDRef(BETC);
+    HLoop->setLowerDDRef(LowerRef);
 
-      // Set the lower bound
-      // Initialize Lower to 0.
-      auto LowerCE = CanonExprUtils::createCanonExpr(BETC->getType());
-      auto LowerRef = DDRefUtils::createRegDDRef(0);
-      LowerRef->addDimension(LowerCE, nullptr);
-      HLoop->setLowerDDRef(LowerRef);
+    // Initialize Stride to 1.
+    auto StrideRef = createStrideDDRef(BETC);
+    HLoop->setStrideDDRef(StrideRef);
 
-      // Set the stride
-      // Initialize Stride to 1.
-      auto StrideCE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
-      auto StrideRef = DDRefUtils::createRegDDRef(0);
-      StrideRef->addDimension(StrideCE, nullptr);
-      HLoop->setStrideDDRef(StrideRef);
-
-      // Set the upper bound
-      auto UpperDDRef = parseRecursive(BETC, nullptr, CurLevel, false);
-      HLoop->setUpperDDRef(UpperDDRef);
-    }
-  } else {
-    assert(false && "HLLoop doesn't contain LLVM loop!");
+    // Set the upper bound
+    auto UpperRef = createUpperDDRef(BETC, CurLevel);
+    HLoop->setUpperDDRef(UpperRef);
   }
 
   CurLevel++;
 }
 
-RegDDRef *HIRParser::createGEPRegDDRef(const SCEV *SC, const SCEV *ElementSize,
-                                       const GEPOperator *GEPOp, unsigned Level,
-                                       bool IsErasable) {
-  assert(!isa<SCEVConstant>(SC) && "Lval is a constant!");
-  assert(!isa<SCEVCouldNotCompute>(SC) && "Unexpected condition!");
+void HIRParser::parseCompare(const Value *Cond, unsigned Level,
+                             CmpInst::Predicate *Pred, RegDDRef **LHSDDRef,
+                             RegDDRef **RHSDDRef) {
 
-  RegDDRef *Ref;
+  *LHSDDRef = *RHSDDRef = nullptr;
 
-  if (isa<SCEVAddRecExpr>(SC)) {
-    Ref = parseRecursive(SC, ElementSize, Level, IsErasable);
-
-    if (!Ref) {
-      return nullptr;
-    }
-
-    Ref->setInBounds(GEPOp->isInBounds());
-  } else {
-    /// handle SCEVAddExpr later
-    assert(false && "Non AddRec GEPs not handled!");
-  }
-
-  return Ref;
-}
-
-RegDDRef *HIRParser::createRvalDDRef(const Value *Val, unsigned Level) {
-  RegDDRef *Ref;
-
-  if (auto LInst = dyn_cast<LoadInst>(Val)) {
-    Val = LInst->getPointerOperand();
-    auto SC = SE->getSCEV(const_cast<Value *>(Val));
-    Ref =
-        createGEPRegDDRef(SC, SE->getElementSize(const_cast<LoadInst *>(LInst)),
-                          dyn_cast<GEPOperator>(Val), Level, false);
-  } else {
-    auto SC = SE->getSCEV(const_cast<Value *>(Val));
-    Ref = parseRecursive(SC, nullptr, Level, false);
-  }
-
-  return Ref;
-}
-
-/// TODO: Move to an earlier pass
-bool HIRParser::isRegionLiveOut(const Value *Val, bool IsCompare) {
-
-  for (auto I = Val->user_begin(), E = Val->user_end(); I != E; ++I) {
-    if (auto UseInst = dyn_cast<Instruction>(*I)) {
-
-      /// TODO: Remove temporary workaround to get rid of compares.
-      if (IsCompare) {
-        if (!isa<BranchInst>(UseInst)) {
-          return true;
-        }
-        if (!cast<BranchInst>(UseInst)->isConditional()) {
-          return true;
-        }
-      }
-      if (!CurRegion->containsBBlock(UseInst->getParent())) {
-        return true;
-      }
+  if (auto ConstVal = dyn_cast<Constant>(Cond)) {
+    if (ConstVal->isOneValue()) {
+      *Pred = CmpInst::Predicate::FCMP_TRUE;
+      return;
+    } else if (ConstVal->isZeroValue()) {
+      *Pred = CmpInst::Predicate::FCMP_FALSE;
+      return;
     } else {
-      assert(false && "Use is not an instruction!");
+      llvm_unreachable("Unexpected conditional branch value");
+    }
+  } else if (auto CInst = dyn_cast<CmpInst>(Cond)) {
+    *Pred = CInst->getPredicate();
+
+    if ((*Pred == CmpInst::Predicate::FCMP_TRUE) ||
+        (*Pred == CmpInst::Predicate::FCMP_FALSE)) {
+      return;
+    }
+
+    *LHSDDRef = createRvalDDRef(CInst, 0, Level);
+    *RHSDDRef = createRvalDDRef(CInst, 1, Level);
+
+  } else {
+    llvm_unreachable("Unexpected i1 value type!");
+  }
+}
+
+void HIRParser::parse(HLIf *If) {
+  CmpInst::Predicate Pred;
+  RegDDRef *LHSDDRef, *RHSDDRef;
+
+  auto SrcBB = HIR->getSrcBBlock(If);
+  assert(SrcBB && "Could not find If's src basic block!");
+
+  auto BeginPredIter = If->pred_begin();
+  auto IfCond = cast<BranchInst>(SrcBB->getTerminator())->getCondition();
+
+  parseCompare(IfCond, CurLevel, &Pred, &LHSDDRef, &RHSDDRef);
+
+  If->replacePredicate(If->pred_begin(), Pred);
+  If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
+  If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+}
+
+void HIRParser::collectStrides(Type *GEPType,
+                               SmallVectorImpl<uint64_t> &Strides) {
+  if (isa<ArrayType>(GEPType)) {
+    GEPType = cast<ArrayType>(GEPType)->getElementType();
+  }
+
+  // Collect number of elements in each dimension
+  for (; isa<ArrayType>(GEPType);
+       GEPType = cast<ArrayType>(GEPType)->getElementType()) {
+    Strides.push_back(cast<ArrayType>(GEPType)->getNumElements());
+  }
+
+  assert(GEPType->isIntegerTy() && "Non-integer arrays not handled!");
+  auto ElementSize = GEPType->getPrimitiveSizeInBits() / 8;
+
+  // Multiple number of elements in each dimension by the size of each element
+  // in the dimension.
+  // We need to do a reverse traversal from the smallest(innermost) to
+  // largest(outermost) dimension.
+  for (auto I = Strides.rbegin(), E = Strides.rend(); I != E; ++I) {
+    (*I) *= ElementSize;
+    ElementSize = (*I);
+  }
+
+  Strides.push_back(ElementSize);
+}
+
+// NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
+/// TODO: Add blob DDRef logic
+RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
+  const Value *GEPVal = nullptr;
+  SmallVector<uint64_t, 9> Strides;
+
+  clearTempBlobLevelMap();
+
+  if (auto SInst = dyn_cast<StoreInst>(Val)) {
+    GEPVal = SInst->getPointerOperand();
+  } else if (auto LInst = dyn_cast<LoadInst>(Val)) {
+    GEPVal = LInst->getPointerOperand();
+  } else {
+    // Might need to handle getelementptr instruction later.
+    assert(false && "Unhandled instruction!");
+  }
+  // TODO: handle A[0] which doesn't have a GEP.
+  assert(GEPVal && isa<GetElementPtrInst>(GEPVal) &&
+         "Could not find GEP instruction!");
+  auto GEPInst = cast<GetElementPtrInst>(GEPVal);
+
+  auto Ref = DDRefUtils::createRegDDRef(0);
+
+  auto BaseCE = parse(GEPInst->getOperand(0), Level);
+  Ref->setBaseCE(BaseCE);
+
+  collectStrides(GEPInst->getSourceElementType(), Strides);
+
+  auto GEPNumOp = GEPInst->getNumOperands();
+  auto Count = Strides.size();
+
+  for (auto I = GEPNumOp - 1; Count > 0; --I, --Count) {
+    auto IndexCE = parse(GEPInst->getOperand(I), Level);
+
+    auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getType(), 0,
+                                                    Strides[Count - 1]);
+    Ref->addDimension(IndexCE, StrideCE);
+  }
+
+  Ref->setInBounds(dyn_cast<GEPOperator>(GEPVal)->isInBounds());
+  populateBlobDDRefs(Ref);
+
+  return Ref;
+}
+
+/// TODO: Add blob DDRef logic
+RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
+                                       bool IsLval) {
+  CanonExpr *CE;
+
+  clearTempBlobLevelMap();
+
+  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
+  auto Ref = DDRefUtils::createRegDDRef(Symbase);
+
+  CE = parse(Val, Level);
+
+  if (IsLval) {
+    // If the lval is non-linear, make it a self-blob to reduce number of
+    // BlobDDRefs and DD edges.
+    if (CE->isNonLinear() && !CE->isSelfBlob()) {
+      CE->clear();
+      parseAsBlob(Val, CE, Level);
     }
   }
 
-  return false;
+  Ref->setSingleCanonExpr(CE);
+
+  if (!CE->isSelfBlob()) {
+    populateBlobDDRefs(Ref);
+  }
+
+  return Ref;
+}
+
+RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
+                                     unsigned Level) {
+  RegDDRef *Ref;
+
+  if (isa<LoadInst>(Inst)) {
+    Ref = createGEPDDRef(Inst, Level);
+  } else {
+    Ref = createScalarDDRef(Inst->getOperand(OpNum), Level, false);
+  }
+
+  return Ref;
+}
+
+RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
+  RegDDRef *Ref;
+
+  if (!isRequired(Inst)) {
+    return nullptr;
+
+  } else if (isa<StoreInst>(Inst)) {
+    Ref = createGEPDDRef(Inst, Level);
+  } else {
+    Ref = createScalarDDRef(Inst, Level, true);
+  }
+
+  return Ref;
 }
 
 void HIRParser::parse(HLInst *HInst) {
   const Value *Val;
   RegDDRef *Ref;
-  const SCEV *ElementSize = nullptr;
-  bool IsErasable = true, HasLval = false;
+  bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
   unsigned NumRvalOp = HInst->getNumOperands() - 1;
   unsigned Level = CurLevel;
 
   if (HInst->isInPreheaderOrPostexit()) {
-    Level = CurLevel - 1;
+    --Level;
   }
 
   /// Process lval
   if (HInst->hasLval()) {
     HasLval = true;
-    Val = Inst;
 
-    if (isRegionLiveOut(Val)) {
-      IsErasable = false;
-    }
-
-    /// TODO: Remove temporary workaround to get rid of compares.
-    if (isa<CmpInst>(Inst)) {
-      assert(IsErasable && "Could not eliminate compare instruction!");
-      EraseSet.push_back(HInst);
-      return;
-    } else if (auto SInst = dyn_cast<StoreInst>(Inst)) {
-      Val = SInst->getPointerOperand();
-      ElementSize = SE->getElementSize(const_cast<StoreInst *>(SInst));
-      /// Cannot erase stores.
-      IsErasable = false;
-    } else if (auto LInst = dyn_cast<LoadInst>(Inst)) {
-      /// TODO: Add logic to check whether load is used as a blob which makes
-      /// it non-erasable.
-      Val = LInst->getPointerOperand();
-      ElementSize = SE->getElementSize(const_cast<LoadInst *>(LInst));
-    }
-
-    auto SC = SE->getSCEV(const_cast<Value *>(Val));
-
-    if (ElementSize) {
-      Ref = createGEPRegDDRef(SC, ElementSize, dyn_cast<GEPOperator>(Val),
-                              Level, IsErasable);
-    } else {
-      Ref = parseRecursive(SC, nullptr, Level, IsErasable);
-    }
+    Ref = createLvalDDRef(Inst, Level);
 
     if (!Ref) {
-      /// Eliminate linear lval instructions.
-      /// TODO: eliminate all lvals other than non-affine AddRecs and unknowns
-      /// both of which should become blob defs.
+      /// Eliminate useless instructions.
       EraseSet.push_back(HInst);
       return;
     }
-
-    assert(!isa<LoadInst>(Inst) && "Non-linear load not handled!");
 
     HInst->setLvalDDRef(Ref);
   }
 
   /// Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
-    Val = Inst->getOperand(I);
-    Ref = createRvalDDRef(Val, Level);
-    assert(Ref && "Ref is null!");
 
-    HInst->setOperandDDRef(Ref, HasLval ? I + 1 : I);
+    Val = Inst->getOperand(I);
+
+    if (isa<SelectInst>(Inst) && (I == 0)) {
+      CmpInst::Predicate Pred;
+      RegDDRef *LHSDDRef, *RHSDDRef;
+
+      parseCompare(Val, Level, &Pred, &LHSDDRef, &RHSDDRef);
+
+      HInst->setPredicate(Pred);
+      HInst->setOperandDDRef(LHSDDRef, 1);
+      HInst->setOperandDDRef(RHSDDRef, 2);
+      continue;
+    }
+
+    Ref = createRvalDDRef(Inst, I, Level);
+
+    auto OpNum = HasLval ? (isa<SelectInst>(Inst) ? (I + 2) : (I + 1)) : I;
+    HInst->setOperandDDRef(Ref, OpNum);
   }
 }
 
@@ -549,13 +940,13 @@ void HIRParser::eraseUselessNodes() {
 }
 
 bool HIRParser::runOnFunction(Function &F) {
-  this->Func = &F;
-  HIR = &getAnalysis<HIRCreation>();
-  LF = &getAnalysis<LoopFormation>();
   SE = &getAnalysis<ScalarEvolution>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
+  HIR = &getAnalysis<HIRCreation>();
+  LF = &getAnalysis<LoopFormation>();
 
-  HLUtils::setHIRParserPtr(this);
+  HLUtils::setHIRParser(this);
 
   Visitor PV(this);
   HLNodeUtils::visitAll(&PV);
@@ -570,11 +961,12 @@ void HIRParser::releaseMemory() {
   DDRefUtils::destroyAll();
   CanonExprUtils::destroyAll();
 
+  TempBlobSymbases.clear();
   EraseSet.clear();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
-  /// TODO: implement later
+  HIR->print(OS, M);
 }
 
 void HIRParser::verifyAnalysis() const {

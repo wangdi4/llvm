@@ -99,14 +99,15 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
     assert(CE->hasBlob());
     for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
       // Even if there are multiple ptr blobs, will AA make correct choice?
-      const SCEV *Blob = HIRP->getBlob(I->Index);
+      const SCEV *Blob = CanonExprUtils::getBlob(I->Index);
       if (Blob->getType()->isPointerTy()) {
         const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
         return PtrSCEV->getValue();
       }
     }
   } else {
-    // assert isScalarRef and has symbase TODO
+    assert(Ref->isScalarRef() && "DDRef is in an inconsistent state!");
+    assert(Ref->getSymBase() && "Scalar DDRef was not assigned a symbase!");
   }
   return nullptr;
 }
@@ -145,6 +146,14 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                     true)
 
+unsigned int SymbaseAssignment::getSymBaseForConstants() const {
+  return HIRP->getSymBaseForConstants();
+}
+
+void SymbaseAssignment::initializeMaxSymBase() {
+  MaxSymBase = HIRP->getMaxScalarSymbase();
+}
+
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
@@ -157,6 +166,9 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   this->F = &F;
   auto AA = &getAnalysis<AliasAnalysis>();
   HIRP = &getAnalysis<HIRParser>();
+
+  initializeMaxSymBase();
+
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
   HLNodeUtils::visitAll(&SV);

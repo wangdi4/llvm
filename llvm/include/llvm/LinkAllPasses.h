@@ -192,6 +192,7 @@ namespace {
   #if INTEL_CUSTOMIZATION  // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
+      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();

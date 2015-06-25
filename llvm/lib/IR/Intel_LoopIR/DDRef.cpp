@@ -63,22 +63,22 @@ void DDRef::detailedDump() const {
 }
 #endif
 
-Type *DDRef::getLLVMType() const {
+Type *DDRef::getType() const {
   const CanonExpr *CE;
 
   if (auto BRef = dyn_cast<BlobDDRef>(this)) {
     CE = BRef->getCanonExpr();
     assert(CE && "DDRef is empty!");
-    return CE->getLLVMType();
+    return CE->getType();
   } else if (auto RRef = dyn_cast<RegDDRef>(this)) {
     if (RRef->hasGEPInfo()) {
       CE = RRef->getBaseCE();
       assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-      return CE->getLLVMType();
+      return CE->getType();
     } else {
       CE = RRef->getSingleCanonExpr();
       assert(CE && "DDRef is empty!");
-      return CE->getLLVMType();
+      return CE->getType();
     }
   }
 

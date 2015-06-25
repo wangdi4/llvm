@@ -31,8 +31,7 @@ class HLLoop;
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
 class HLIf : public HLDDNode {
 public:
-  typedef std::vector<CmpInst::Predicate> PredicateTy;
-  typedef std::vector<unsigned> ConjunctionTy;
+  typedef SmallVector<CmpInst::Predicate, 2> PredicateTy;
   typedef HLContainerTy ChildNodeTy;
 
   /// Iterators to iterate over predicates
@@ -89,10 +88,11 @@ protected:
 
   /// \brief Returns the offset of the LHS/RHS DDRef associated with this
   /// predicate.
-  unsigned getPredicateOperandDDRefOffset(pred_iterator PredI,
+  unsigned getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
                                           bool IsLHS) const;
-  unsigned getPredicateOperandDDRefOffset(const_pred_iterator PredI,
-                                          bool IsLHS) const;
+
+  /// \brief Returns non-const iterator version of const_pred_iterator.
+  pred_iterator getNonConstPredIterator(const_pred_iterator CPredI);
 
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branching within the
@@ -105,19 +105,15 @@ public:
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
 
   /// \brief Returns the underlying type of if.
-  Type *getLLVMType() const;
+  Type *getType() const;
 
   /// Predicate iterator methods
-  pred_iterator pred_begin() { return Predicates.begin(); }
   const_pred_iterator pred_begin() const { return Predicates.begin(); }
-  pred_iterator pred_end() { return Predicates.end(); }
   const_pred_iterator pred_end() const { return Predicates.end(); }
 
-  reverse_pred_iterator pred_rbegin() { return Predicates.rbegin(); }
   const_reverse_pred_iterator pred_rbegin() const {
     return Predicates.rbegin();
   }
-  reverse_pred_iterator pred_rend() { return Predicates.rend(); }
   const_reverse_pred_iterator pred_rend() const { return Predicates.rend(); }
 
   /// \brief Returns the number of predicates associated with this if.
@@ -220,21 +216,24 @@ public:
   ///
   /// After:
   /// If((Op1 Pred1 Op2) AND (Op5 Pred3 Op6))
-  void removePredicate(pred_iterator PredI);
+  void removePredicate(const_pred_iterator CPredI);
+
+  /// \brief Replaces existing predicate pointed to by CPredI, by NewPred.
+  void replacePredicate(const_pred_iterator CPredI, CmpInst::Predicate NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
-  RegDDRef *getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
-  const RegDDRef *getPredicateOperandDDRef(const_pred_iterator PredI,
-                                           bool IsLHS) const;
+  RegDDRef *getPredicateOperandDDRef(const_pred_iterator CPredI,
+                                     bool IsLHS) const;
 
   /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
-  void setPredicateOperandDDRef(RegDDRef *Ref, pred_iterator PredI, bool IsLHS);
+  void setPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI,
+                                bool IsLHS);
 
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
-  RegDDRef *removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS);
+  RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
 };
 
 } // End namespace loopopt

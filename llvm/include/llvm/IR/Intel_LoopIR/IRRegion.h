@@ -21,6 +21,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
 
@@ -39,7 +40,7 @@ public:
   typedef SmallPtrSet<const BasicBlock *, 32> RegionBBlocksTy;
   typedef std::pair<unsigned, const Value *> SymbaseInitValuePairTy;
   typedef SmallVector<SymbaseInitValuePairTy, 8> LiveInSetTy;
-  typedef SmallPtrSet<const Value *, 16> LiveOutSetTy;
+  typedef SmallDenseMap<unsigned, const Value *, 16> LiveOutSetTy;
 
   /// Iterators to iterate over bblocks and live-in/live-out sets.
   typedef RegionBBlocksTy::const_iterator const_bb_iterator;
@@ -72,7 +73,8 @@ private:
   // Set of (symbase - initial value) pairs which need to be materialized into
   // a store during HIRCG.
   LiveInSetTy LiveInSet;
-  // Set of values whose live-out uses need to be materialized into a load
+  // Set of symbases/values whose live-out uses need to be materialized into a
+  // load
   // during HIRCG.
   LiveOutSetTy LiveOutSet;
 
@@ -108,10 +110,12 @@ public:
   }
 
   /// \brief Adds a live-out temp to the region.
-  void addLiveOutTemp(const Value *Temp) { LiveOutSet.insert(Temp); }
+  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
+    LiveOutSet.insert(std::make_pair(Symbase, Temp));
+  }
 
-  /// \brief Returns true if this value is live out of this region.
-  bool isLiveOut(const Value *Temp) const { return LiveOutSet.count(Temp); }
+  /// \brief Returns true if this symbase is live out of this region.
+  bool isLiveOut(unsigned Symbase) const { return LiveOutSet.count(Symbase); }
 
   const_bb_iterator bb_begin() const { return BBlocks.begin(); }
   const_bb_iterator bb_end() const { return BBlocks.end(); }

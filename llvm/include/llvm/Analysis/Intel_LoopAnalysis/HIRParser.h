@@ -11,6 +11,7 @@
 //
 // This analysis is used to create DDRefs and parse SCEVs into CanonExprs
 // for HLNodes.
+// It is also responsible for assigning symbases to non livein/liveout scalars.
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +19,9 @@
 #define LLVM_ANALYSIS_INTEL_LOOPANALYSIS_HIRPARSER_H
 
 #include "llvm/Pass.h"
+
+#include "llvm/ADT/SmallSet.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
@@ -36,6 +40,7 @@ class LoopInfo;
 
 namespace loopopt {
 
+class ScalarSymbaseAssignment;
 class LoopFormation;
 class HLNode;
 class HLRegion;
@@ -51,10 +56,20 @@ class CanonExpr;
 
 /// \brief This analysis creates DDRefs and parses SCEVs into CanonExprs for
 /// HLNodes inside HIR regions. It eliminates HLNodes useless to HIR.
+///
+/// It is also responsible for assigning symbases to non livein/liveout scalars.
 class HIRParser : public FunctionPass {
 private:
-  /// Func - The function we are analyzing.
-  Function *Func;
+  // CanonExprUtils/DDRefUtils provides wrapper functions on top of private
+  // functions of HIRParser like createBlob() etc.
+  friend class CanonExprUtils;
+  friend class DDRefUtils;
+
+  // Needs to access getMaxScalarSymbase().
+  friend class SymbaseAssignment;
+
+  /// ScalarSA - Scalar Symbase Assignment Analysis.
+  ScalarSymbaseAssignment *ScalarSA;
 
   /// HIR - HIR for the function.
   HIRCreation *HIR;
@@ -76,6 +91,25 @@ private:
 
   /// EraseSet - Contains HLNodes to be erased.
   SmallVector<HLNode *, 32> EraseSet;
+
+  /// TempBlobSymbases - Set of symbases which represent temp blobs.
+  /// This can be used to query whether an HLInst is a blob definition and needs
+  /// to be kept updated for new instructions created by HIR transformations.
+  SmallSet<unsigned, 64> TempBlobSymbases;
+
+  /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
+  /// DDRef.
+  SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
+
+  /// PolynomialFinder - Used to find non-affine(polynomial) sub-SCEVs in an
+  /// SCEV.
+  class PolynomialFinder;
+
+  /// BlobLevelSetter - Used to set blob levels in the canon expr.
+  class BlobLevelSetter;
+
+  /// BlobPrinter - Used to print blobs.
+  class BlobPrinter;
 
   /// \brief Visits HIR and calls HIRParser utilities.
   struct Visitor {
@@ -109,7 +143,7 @@ private:
   void parse(HLLoop *HLoop);
   void postParse(HLLoop *HLoop) { CurLevel--; }
 
-  void parse(HLIf *If) { assert(false && "If not handled yet!"); }
+  void parse(HLIf *If);
   void postParse(HLIf *If) {}
 
   void parse(HLSwitch *Switch) { assert(false && "Switch not handled yet!"); }
@@ -119,33 +153,156 @@ private:
   void parse(HLLabel *Label) {}
   void parse(HLGoto *Goto) {}
 
+  /// \brief Returns true if this instruction has a polynomial representation
+  /// and should be parsed as a blob (1 * t).
+  bool isPolyBlobDef(const Instruction *Inst) const;
+
+  /// \brief Returns true if this instruction is a blob definition.
+  bool isBlobDef(const Instruction *Inst) const;
+
+  /// \brief Returns true if this instruction has a user outside the region.
+  bool isRegionLiveOut(const Instruction *Inst) const;
+
+  /// \brief Returns true if this instruction cannot be eliminated as useless.
+  bool isRequired(const Instruction *Inst) const;
+
+  /// \brief Returns true if CmpInst is used in either conditional branch or
+  /// select instruction.
+  bool hasExpectedUsers(const CmpInst *CInst) const;
+
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
 
   /// \brief Parses a SCEVConstant expr into CE.
   void parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE);
 
-  /// \brief Parses a SCEVUnknown expr into CE.
-  void parseBlob(const SCEV *BlobSCEV, CanonExpr *CE, unsigned CurLevel);
+  /// \brief Sets the DefinedAtLevel for the Canon Expr.
+  void setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
+                            unsigned DefLevel) const;
 
-  /// \brief Parses the passed in SCEV into the CanonExpr CE.
-  RegDDRef *parseRecursive(const SCEV *SC, const SCEV *ElementSize,
-                           unsigned CurLevel, bool IsErasable,
-                           bool IsTop = true);
+  /// \brief Adds an entry for the temp blob in blob maps.
+  void addTempBlobEntry(const Value *Temp, unsigned Index, unsigned Symbase,
+                        unsigned DefLevel);
+
+  /// \brief overrides CE's DefinedAtLevel if the temp blob has a deeper level.
+  void setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
+                        unsigned Level);
+
+  /// \brief Parses a blob into CE. If IVLevel is non-zero, blob is parsed as an
+  /// IV coeff.
+  void parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
+                 unsigned IVLevel = 0);
+
+  /// \brief Parses SCEV into CanonExpr.
+  void parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
+                      bool IsTop);
+
+  /// \brief Forces incoming value to be parsed as a blob.
+  void parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level);
+
+  /// \brief Forms and returns a CanonExpr representing Val.
+  CanonExpr *parse(const Value *Val, unsigned Level);
+
+  /// \brief Parses the i1 condition associated with conditional branches and
+  /// select instructions.
+  void parseCompare(const Value *Cond, unsigned Level, CmpInst::Predicate *Pred,
+                    RegDDRef **LHSDDRef, RegDDRef **RHSDDRef);
+
+  /// \brief Clears blob level map populated for the previous DDRef.
+  void clearTempBlobLevelMap();
+
+  /// \brief populates blob DDRefs for Ref based on CurTempBlobLevelMap.
+  void populateBlobDDRefs(RegDDRef *Ref);
+
+  /// \brief Returns a RegDDRef representing loop lower (constant 0).
+  RegDDRef *createLowerDDRef(const SCEV *BETC);
+
+  /// \brief Returns a RegDDRef representing loop stride (constant 1).
+  RegDDRef *createStrideDDRef(const SCEV *BETC);
+
+  /// \brief Returns a RegDDRef representing loop upper.
+  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level);
+
+  /// \brief collects strides for an ArrayType in the Strides vector.
+  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides);
 
   /// \brief Returns a RegDDRef containing GEPInfo.
-  RegDDRef *createGEPRegDDRef(const SCEV *SC, const SCEV *ElementSize,
-                              const GEPOperator *GEPOp, unsigned Level,
-                              bool IsErasable);
+  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level);
+
+  /// \brief Returns a RegDDRef representing this scalar value.
+  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level, bool isLval);
 
   /// \brief Returns an rval DDRef created from Val.
-  RegDDRef *createRvalDDRef(const Value *Val, unsigned Level);
+  RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,
+                            unsigned Level);
 
-  /// \brief Returns true if the Value is region live out.
-  bool isRegionLiveOut(const Value *Val, bool IsCompare = false);
+  /// \brief Returns an lval DDRef created from Inst.
+  RegDDRef *createLvalDDRef(const Instruction *Inst, unsigned Level);
 
   /// \brief Erases HLNodes which are deemed useless by the parser.
   void eraseUselessNodes();
+
+  /// \brief Prints scalar lval corresponding to Symbase.
+  void printScalarLval(raw_ostream &OS, unsigned Symbase) const;
+
+  /// \brief Prints blob.
+  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
+
+  /// \brief Checks if the blob is constant or not
+  /// If blob is constant, sets the return value in Val
+  bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const;
+
+  /// \brief Return true if this is a temp blob.
+  bool isTempBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Return true if this symbase corresponds to a temp blob.
+  bool isTempBlob(unsigned Symbase) const;
+
+  /// \brief Returns a new blob created from a constant value.
+  CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
+                               unsigned *NewBlobIndex = nullptr);
+
+  /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+                                  bool Insert = true,
+                                  unsigned *NewBlobIndex = nullptr);
+
+  /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createMinusBlob(CanonExpr::BlobTy LHS,
+                                    CanonExpr::BlobTy RHS, bool Insert = true,
+                                    unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createMulBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+                                  bool Insert = true,
+                                  unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createUDivBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+                                   bool Insert = true,
+                                   unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createTruncateBlob(CanonExpr::BlobTy Blob, Type *Ty,
+                                       bool Insert = true,
+                                       unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createZeroExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
+                                         bool Insert = true,
+                                         unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  CanonExpr::BlobTy createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
+                                         bool Insert = true,
+                                         unsigned *NewBlobIndex = nullptr);
+
+  // TODO handle min/max blobs.
+
+  /// \brief Returns the max symbase assigned to any temp.
+  unsigned getMaxScalarSymbase() const;
 
 public:
   static char ID; // Pass identification
@@ -170,71 +327,8 @@ public:
   HIRCreation::reverse_iterator hir_rend() { return HIR->rend(); }
   HIRCreation::const_reverse_iterator hir_rend() const { return HIR->rend(); }
 
-  /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns 0
-  /// if the blob is not present in the table.
-  unsigned findBlob(CanonExpr::BlobTy Blob);
-  /// \brief Returns the index of Blob in the blob table. Blob is first
-  /// inserted, if it isn't
-  /// already present in the blob table. Index range is [1, UINT_MAX].
-  unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns blob corresponding to BlobIndex.
-  CanonExpr::BlobTy getBlob(unsigned BlobIndex);
-
-  /// \brief Checks if the blob is constant or not
-  /// If blob is constant, sets the return value in Val
-  bool isConstIntBlob(CanonExpr::BlobTy Blob, int64_t *Val);
-
-  /// \brief Returns a new blob created from a constant value.
-  CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
-                               unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
-  /// index is returned
-  /// via NewBlobIndex argument.
-  CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
-                                  bool Insert = true,
-                                  unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
-  /// index is returned
-  /// via NewBlobIndex argument.
-  CanonExpr::BlobTy createMinusBlob(CanonExpr::BlobTy LHS,
-                                    CanonExpr::BlobTy RHS, bool Insert = true,
-                                    unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
-  /// index is returned
-  /// via NewBlobIndex argument.
-  CanonExpr::BlobTy createMulBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
-                                  bool Insert = true,
-                                  unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
-  /// index is returned
-  /// via NewBlobIndex argument.
-  CanonExpr::BlobTy createUDivBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
-                                   bool Insert = true,
-                                   unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
-  /// true its index is
-  /// returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createTruncateBlob(CanonExpr::BlobTy Blob, Type *Ty,
-                                       bool Insert = true,
-                                       unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
-  /// true its index is
-  /// returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createZeroExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
-  /// true its index is
-  /// returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
-
-  /// TODO handle min/max blobs.
+  /// \brief Returns symbase representing constants.
+  unsigned getSymBaseForConstants() const;
 };
 
 } // End namespace loopopt

@@ -85,9 +85,8 @@ private:
       llvm_unreachable("Unknown HIR type in CG");
     }
 
-    CGVisitor(Function *CurFunc, ScalarEvolution *SE, HIRParser *Parser,
-              Pass *CurPass)
-        : F(CurFunc), HIRP(Parser), HIRCG(CurPass) {
+    CGVisitor(Function *CurFunc, ScalarEvolution *SE, Pass *CurPass)
+        : F(CurFunc), HIRCG(CurPass) {
       Builder = new IRBuilder<>(F->getContext());
       // TODO possibly IV conflict if scev blobs contain IV
       const DataLayout &DL =
@@ -110,7 +109,7 @@ private:
     Value *generateAllPredicates(HLIf *HIf);
 
     /// \brief Generates a bool value for prediacte in HLIf
-    Value *generatePredicate(HLIf *HIf, HLIf::pred_iterator P);
+    Value *generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P);
 
     // \brief Return a value for blob corresponding to BlobIdx
     Value *getBlobValue(int BlobIdx, Type *Ty) {
@@ -121,7 +120,7 @@ private:
 
     // \brief TODO blobs are reprsented by scev with some caveats
     SCEV *getBlobSCEV(int BlobIdx) {
-      return const_cast<SCEV *>(HIRP->getBlob(BlobIdx));
+      return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
     }
 
     //\brief return value for coeff*iv with IV at level
@@ -139,7 +138,6 @@ private:
     SCEVExpander *Expander;
     // Dont need custom insertion funcs...yet
     IRBuilder<> *Builder;
-    HIRParser *HIRP;
     Pass *HIRCG;
 
     // keep track of our mem allocs. Only IV atm
@@ -182,7 +180,7 @@ public:
     auto HIRP = &getAnalysis<HIRParser>();
 
     // generate code
-    CGVisitor CG(&F, SE, HIRP, this);
+    CGVisitor CG(&F, SE, this);
     for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
       if (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG) {
         CG.visit(I);
@@ -215,7 +213,7 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   IVSum = sumIV(CE);
 
   int C0 = CE->getConstant();
-  Type *Ty = CE->getLLVMType();
+  Type *Ty = CE->getType();
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
@@ -261,8 +259,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   // Create zero for the first GEP index
-  Value *Zero =
-      ConstantInt::getSigned((*(Ref->canon_begin()))->getLLVMType(), 0);
+  Value *Zero = ConstantInt::getSigned((*(Ref->canon_begin()))->getType(), 0);
 
   std::vector<Value *> IndexV;
   IndexV.push_back(Zero);
@@ -322,7 +319,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 }
 
 Value *HIRCodeGen::CGVisitor::generatePredicate(HLIf *HIf,
-                                                HLIf::pred_iterator P) {
+                                                HLIf::const_pred_iterator P) {
   Value *CurPred = nullptr;
   Value *LHSVal, *RHSVal;
   RegDDRef *LHSRef = HIf->getPredicateOperandDDRef(P, true);
@@ -584,7 +581,7 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_cbegin();
-  Type *Ty = CE->getLLVMType();
+  Type *Ty = CE->getType();
   Value *res = BlobPairCG(*CurBlobPair, Ty);
   CurBlobPair++;
 
@@ -609,7 +606,7 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   if (CurIVPair == CE->iv_cend())
     llvm_unreachable("No iv in CE");
 
-  Type *Ty = CE->getLLVMType();
+  Type *Ty = CE->getType();
 
   Value *res = IVPairCG(*CurIVPair, Level, Ty);
   CurIVPair++;

@@ -1,19 +1,17 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-regions | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-cleanup | FileCheck %s
 
-; Check output of hir-regions
-; CHECK: Region 1
-; CHECK-NEXT: EntryBB
-; CHECK-SAME: for.cond1.preheader
-; CHECK-NEXT: ExitBB
-; CHECK-NEXT: Member
-; CHECK-SAME: for.cond1.preheader
-; CHECK-SAME: for.body3.preheader
-; CHECK-SAME: for.body3
-; CHECK-SAME: if.else
-; CHECK-SAME: if.then
-; CHECK-SAME: for.inc
-; CHECK-SAME: for.inc14.loopexit
-; CHECK-SAME: for.inc14
+; Check that only redundant gotos/labels were eliminated
+; CHECK: for.cond1.preheader
+; CHECK-NOT: for.body3.preheader
+; CHECK: for.body3:
+; CHECK-NOT: if.then
+; CHECK-NOT: goto for.inc
+; CHECK-NOT: if.else
+; CHECK-NOT: for.inc:
+; CHECK-NOT: for.inc14.loopexit
+; CHECK: goto for.body3
+; CHECK-NOT: for.inc14
+; CHECK: goto for.cond1.preheader
 
 
 ; ModuleID = 'loopnest.c'

@@ -103,7 +103,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
       }
 
       if (I->IsBlobCoeff) {
-        getBlob(I->Coeff)->print(OS);
+        CanonExprUtils::printBlob(OS, getBlob(I->Coeff));
         OS << " * ";
       } else if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
@@ -123,7 +123,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      getBlob(I->Index)->print(OS);
+      CanonExprUtils::printBlob(OS, getBlob(I->Index));
     }
   }
 
@@ -176,6 +176,13 @@ CanonExpr::BlobTy CanonExpr::getBlob(unsigned BlobIndex) {
   return BlobTable[BlobIndex - 1];
 }
 
+bool CanonExpr::isSelfBlob() const {
+  return (!hasIV() && (numBlobs() == 1) &&
+          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())) &&
+          (getSingleBlobCoeff() == 1) && !getConstant() &&
+          (getDenominator() == 1));
+}
+
 void CanonExpr::setDenominator(int64_t Val) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
@@ -190,32 +197,57 @@ void CanonExpr::setDenominator(int64_t Val) {
 
 bool CanonExpr::hasIV() const {
 
-  bool ret = false;
+  bool Ret = false;
 
   for (auto &I : IVCoeffs) {
     if (I.Coeff != 0) {
-      ret = true;
+      Ret = true;
       break;
     }
   }
 
-  return ret;
+  return Ret;
+}
+
+unsigned CanonExpr::numIVs() const {
+
+  unsigned Count = 0;
+
+  for (auto &I : IVCoeffs) {
+    if (I.Coeff != 0) {
+      ++Count;
+    }
+  }
+
+  return Count;
 }
 
 bool CanonExpr::hasBlobIVCoeffs() const {
 
-  bool ret = false;
+  bool Ret = false;
 
   for (auto &I : IVCoeffs) {
     if (I.Coeff != 0) {
       if (I.IsBlobCoeff) {
-        ret = true;
+        Ret = true;
         break;
       }
     }
   }
 
-  return ret;
+  return Ret;
+}
+
+unsigned CanonExpr::numBlobIVCoeffs() const {
+  unsigned Count = 0;
+
+  for (auto &I : IVCoeffs) {
+    if ((I.Coeff != 0) && I.IsBlobCoeff) {
+      ++Count;
+    }
+  }
+
+  return Count;
 }
 
 int64_t CanonExpr::getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const {

@@ -187,8 +187,8 @@ public:
   void print(formatted_raw_ostream &OS) const;
 
   /// \brief Returns the LLVM type of this canon expr.
-  Type *getLLVMType() const { return Ty; }
-  void setLLVMType(Type *Typ) { Ty = Typ; }
+  Type *getType() const { return Ty; }
+  void setType(Type *Typ) { Ty = Typ; }
 
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
@@ -198,7 +198,7 @@ public:
            "DefinedAtLevel is meaningless for non-linear types!");
     return DefinedAtLevel;
   }
-  /// \brief Sets the defined at level.
+  /// \brief Sets non-negative defined at level.
   void setDefinedAtLevel(unsigned DefLvl) {
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
     DefinedAtLevel = DefLvl;
@@ -225,6 +225,9 @@ public:
 
     return result;
   }
+  /// \brief Returns true if this canon expr looks something like (1 * %t) i.e.
+  /// a single blob with a coefficient of 1.
+  bool isSelfBlob() const;
 
   /// \brief return true if the CanonExpr is zero
   bool isZero() const {
@@ -296,11 +299,18 @@ public:
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
+  /// \brief Returns the number of non-zero IVs in the canon expr.
+  unsigned numIVs() const;
+
   /// \brief Returns true if this contains any Blob IV Coeffs.
   /// Examples: -M*i, N*j
   bool hasBlobIVCoeffs() const;
+  /// \brief Returns the number of blobs IV Coeffs.
+  unsigned numBlobIVCoeffs() const;
   /// \brief Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
+  /// \brief Returns the number of blobs in the canon expr.
+  unsigned numBlobs() const { return BlobCoeffs.size(); }
 
   /// \brief Returns the IV coefficient at a particular loop level. Lvl's
   /// range is [1, MaxLoopNestLevel].
@@ -320,6 +330,17 @@ public:
 
   /// \brief Returns the blob coefficient.
   int64_t getBlobCoeff(unsigned BlobIndex) const;
+  /// \brief Returns the blob index of the only blob.
+  int64_t getSingleBlobIndex() const {
+    assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    return BlobCoeffs[0].Index;
+  }
+  /// \brief Returns the blob coeff of the only blob.
+  int64_t getSingleBlobCoeff() const {
+    assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    return BlobCoeffs[0].Coeff;
+  }
+
   /// \brief Sets the blob coefficient.
   void setBlobCoeff(unsigned BlobIndex, int64_t BlobCoeff);
 

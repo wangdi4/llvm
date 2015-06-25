@@ -101,10 +101,12 @@ public:
   }
 
   /// \brief Adds a live-out temp to the region.
-  void addLiveOutTemp(const Value *Temp) { IRReg->addLiveOutTemp(Temp); }
+  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
+    IRReg->addLiveOutTemp(Temp, Symbase);
+  }
 
-  /// \brief Returns true if this value is live out of this region.
-  bool isLiveOut(const Value *Temp) const { return IRReg->isLiveOut(Temp); }
+  /// \brief Returns true if this symbase is live out of this region.
+  bool isLiveOut(unsigned Symbase) const { return IRReg->isLiveOut(Symbase); }
 
   /// BBlock iterator methods
   const_bb_iterator bb_begin() const { return IRReg->bb_begin(); }

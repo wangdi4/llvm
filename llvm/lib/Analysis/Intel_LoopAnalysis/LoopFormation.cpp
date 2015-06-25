@@ -168,7 +168,7 @@ void LoopFormation::formLoops() {
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
     // Find HIR hook for the loop latch.
-    auto LatchHook = HIRC->findHLNode(Lp->getLoopLatch());
+    auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
     assert(((*I)->getParent() == LatchHook->getParent()) &&
            "Wrong lexical links built!");
@@ -224,12 +224,7 @@ bool LoopFormation::runOnFunction(Function &F) {
 void LoopFormation::releaseMemory() { Loops.clear(); }
 
 void LoopFormation::print(raw_ostream &OS, const Module *M) const {
-  formatted_raw_ostream FOS(OS);
-
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
-    FOS << "\n";
-    I->print(FOS, 0);
-  }
+  HIR->print(OS, M);
 }
 
 void LoopFormation::verifyAnalysis() const {

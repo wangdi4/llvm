@@ -44,14 +44,18 @@ class RegionIdentification;
 ///
 /// 1) RegionIdentification - identifies regions in IR.
 /// 2) SCCFormation - identifies SCCs in regions.
-/// 3) SSADeconstruction - deconstructs SSA for HIR.
-/// 3) HIRCreation - populates HIR regions with a sequence of HLNodes (without
+/// 3) SSADeconstruction - deconstructs SSA for HIR by inserting copies.
+/// 4) ScalarSymbaseAssignment - Assigns symbases to livein/liveout scalar
+///    DDRefs.
+/// 5) HIRCreation - populates HIR regions with a sequence of HLNodes (without
 ///    HIR loops).
-/// 4) HIRCleanup - removes redundant gotos/labels from HIR.
-/// 5) LoopFormation - Forms HIR loops within HIR regions.
-/// 6) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs.
-/// 7) SymbaseAssignment - Assigns symbases to DDRefs..
-/// 8) DDAnalysis - Builds DD edges between DDRefs.
+/// 6) HIRCleanup - removes redundant gotos/labels from HIR.
+/// 7) LoopFormation - Forms HIR loops within HIR regions.
+/// 8) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs. Also assigns
+///    symbases to non livein/liveout scalars using ScalarSymbaseAssignment's
+///    interface.
+/// 9) SymbaseAssignment - Assigns symbases to memory DDRefs.
+/// 10) DDAnalysis - Builds DD edges between DDRefs.
 ///
 class HIRCreation : public FunctionPass {
 public:
@@ -62,6 +66,7 @@ public:
   typedef HLContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
+  // HIRCleanup accesses Gotos and Labels populated by this pass.
   friend class HIRCleanup;
 
   /// Regions - HLRegions formed out of incoming LLVM IR.
@@ -86,16 +91,16 @@ private:
   BasicBlock *LastRegionBB;
 
   /// Labels - HLLabel map to be used by later passes.
-  SmallDenseMap<BasicBlock *, HLLabel *, 64> Labels;
+  SmallDenseMap<const BasicBlock *, HLLabel *, 64> Labels;
 
   /// Gotos - HLGotos vector to be used by later passes.
   SmallVector<HLGoto *, 64> Gotos;
 
   /// Ifs - HLIfs map to be used by later passes.
-  SmallDenseMap<HLIf *, BasicBlock *, 32> Ifs;
+  SmallDenseMap<HLIf *, const BasicBlock *, 32> Ifs;
 
   /// Switches - HLSwitches map to be used by later passes.
-  SmallDenseMap<HLSwitch *, BasicBlock *, 8> Switches;
+  SmallDenseMap<HLSwitch *, const BasicBlock *, 8> Switches;
 
   /// \brief Creates HLNodes corresponding to the terminator of the basic block.
   HLNode *populateTerminator(BasicBlock *BB, HLNode *InsertionPos);
@@ -131,6 +136,14 @@ public:
   const_reverse_iterator rbegin() const { return Regions.rbegin(); }
   reverse_iterator rend() { return Regions.rend(); }
   const_reverse_iterator rend() const { return Regions.rend(); }
+
+  /// \brief Returns the src bblock associated with this if. Returns null if it
+  /// fails to find one.
+  const BasicBlock *getSrcBBlock(HLIf *If) const;
+
+  /// \brief Returns the src bblock associated with this switch. Returns null if
+  /// it fails to find one.
+  const BasicBlock *getSrcBBlock(HLSwitch *Switch) const;
 };
 
 } // End namespace loopopt

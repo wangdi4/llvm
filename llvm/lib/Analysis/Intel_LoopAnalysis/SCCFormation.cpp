@@ -56,11 +56,14 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool SCCFormation::isLinear(const NodeTy *Node) const {
-  auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
 
-  if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    if (AddRecSCEV->isAffine()) {
-      return true;
+  if (SE->isSCEVable(Node->getType())) {
+    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+
+    if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+      if (AddRecSCEV->isAffine()) {
+        return true;
+      }
     }
   }
 
@@ -157,7 +160,7 @@ SCCFormation::getLastSucc(const NodeTy *Node) const {
   return Node->user_end();
 }
 
-void SCCFormation::removeIntermediateNodes(SCCTy &CurSCC) {
+void SCCFormation::removeIntermediateNodes(SCCNodesTy &CurSCC) {
 
   SmallVector<const NodeTy *, 4> IntermediateNodes;
 
@@ -250,8 +253,8 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       NodeStack.pop_back();
     } else {
       // Create new SCC.
-      RegionSCCs.push_back(new SCCTy());
-      auto NewSCC = RegionSCCs.back();
+      RegionSCCs.push_back(new SCC(Node));
+      auto &NewSCCNodes = RegionSCCs.back()->Nodes;
       const NodeTy *SCCNode;
 
       // Set pointer to first SCC of region, if applicable.
@@ -260,14 +263,14 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.back();
-        NewSCC->insert(SCCNode);
+        NewSCCNodes.insert(SCCNode);
         NodeStack.pop_back();
 
         // Invalidate index so it isn't used in another SCC.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      removeIntermediateNodes(*NewSCC);
+      removeIntermediateNodes(NewSCCNodes);
     }
   }
 
@@ -322,6 +325,8 @@ bool SCCFormation::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolution>();
   RI = &getAnalysis<RegionIdentification>();
 
+  RegionSCCBegin.resize(RI->getNumRegions());
+
   formRegionSCCs();
 
   return false;
@@ -374,9 +379,9 @@ void SCCFormation::print(raw_ostream &OS, const Module *M) const {
       }
 
       OS << "\n   SCC" << Count << ": ";
-      for (auto InstI = (*SCCIt)->begin(), InstE = (*SCCIt)->end();
+      for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
            InstI != InstE; ++InstI) {
-        if (InstI != (*SCCIt)->begin()) {
+        if (InstI != (*SCCIt)->Nodes.begin()) {
           OS << " -> ";
         }
         OS << (*InstI)->getName();

@@ -183,6 +183,7 @@ DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
   return InputDV;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
@@ -195,6 +196,7 @@ void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
     }
   }
 }
+#endif
 
 void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   //  collect all refs into symbase vector

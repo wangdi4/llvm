@@ -47,6 +47,26 @@ void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
+const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
+  auto Iter = Ifs.find(If);
+
+  if (Iter != Ifs.end()) {
+    return Iter->second;
+  }
+
+  return nullptr;
+}
+
+const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
+  auto Iter = Switches.find(Switch);
+
+  if (Iter != Switches.end()) {
+    return Iter->second;
+  }
+
+  return nullptr;
+}
+
 HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
   auto Terminator = BB->getTerminator();
 

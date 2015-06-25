@@ -75,8 +75,83 @@ int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   return ((A * B) / gcd(A, B));
 }
 
+unsigned CanonExprUtils::findBlob(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findBlob(Blob);
+}
+
+unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findOrInsertBlob(Blob);
+}
+
+CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
+  return CanonExpr::getBlob(BlobIndex);
+}
+
+void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
+  getHIRParser()->printBlob(OS, Blob);
+}
+
+bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
+  return getHIRParser()->isConstantIntBlob(Blob, Val);
+}
+
+bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
+  return getHIRParser()->isTempBlob(Blob);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
+                                             unsigned *NewBlobIndex) {
+  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createAddBlob(CanonExpr::BlobTy LHS,
+                                                CanonExpr::BlobTy RHS,
+                                                bool Insert,
+                                                unsigned *NewBlobIndex) {
+  return getHIRParser()->createAddBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createMinusBlob(CanonExpr::BlobTy LHS,
+                                                  CanonExpr::BlobTy RHS,
+                                                  bool Insert,
+                                                  unsigned *NewBlobIndex) {
+  return getHIRParser()->createMinusBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createMulBlob(CanonExpr::BlobTy LHS,
+                                                CanonExpr::BlobTy RHS,
+                                                bool Insert,
+                                                unsigned *NewBlobIndex) {
+  return getHIRParser()->createMulBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createUDivBlob(CanonExpr::BlobTy LHS,
+                                                 CanonExpr::BlobTy RHS,
+                                                 bool Insert,
+                                                 unsigned *NewBlobIndex) {
+  return getHIRParser()->createUDivBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createTruncateBlob(CanonExpr::BlobTy Blob,
+                                                     Type *Ty, bool Insert,
+                                                     unsigned *NewBlobIndex) {
+  return getHIRParser()->createTruncateBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createZeroExtendBlob(CanonExpr::BlobTy Blob,
+                                                       Type *Ty, bool Insert,
+                                                       unsigned *NewBlobIndex) {
+  return getHIRParser()->createZeroExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
+                                                       Type *Ty, bool Insert,
+                                                       unsigned *NewBlobIndex) {
+  return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
-  return (CE1->getLLVMType() == CE2->getLLVMType());
+  return (CE1->getType() == CE2->getType());
 }
 
 bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
@@ -168,19 +243,18 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
       Result->addIV(Level, I->Coeff);
     } else {
       // Handle cases when either of them is a blob
-      HIRParser *HIRP = getHIRParserPtr();
       CanonExpr::BlobTy Blob1 = isResultIVBlobCoeff
                                     ? Result->getBlob(ResultIVBlobCoeff)
-                                    : HIRP->createBlob(ResultIVBlobCoeff);
+                                    : createBlob(ResultIVBlobCoeff);
 
-      CanonExpr::BlobTy Blob2 = I->IsBlobCoeff ? NewCE2->getBlob(I->Coeff)
-                                               : HIRP->createBlob(I->Coeff);
-      CanonExpr::BlobTy ResultBlob = HIRP->createAddBlob(Blob1, Blob2, false);
+      CanonExpr::BlobTy Blob2 =
+          I->IsBlobCoeff ? NewCE2->getBlob(I->Coeff) : createBlob(I->Coeff);
+      CanonExpr::BlobTy ResultBlob = createAddBlob(Blob1, Blob2, false);
       int64_t BlobConst;
-      if (HIRP->isConstIntBlob(ResultBlob, &BlobConst)) {
+      if (isConstantIntBlob(ResultBlob, &BlobConst)) {
         Result->setIVCoeff(Level, BlobConst, false);
       } else {
-        unsigned ResultBIndex = HIRP->findOrInsertBlob(ResultBlob);
+        unsigned ResultBIndex = findOrInsertBlob(ResultBlob);
         Result->setIVCoeff(Level, ResultBIndex, true);
       }
     }
@@ -235,10 +309,9 @@ void CanonExprUtils::multiplyIVByConstant(CanonExpr *CE, unsigned Level,
   }
 
   // IV is a blob coeff
-  CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
+  CanonExpr::BlobTy ValBlob = createBlob(Val);
   unsigned CEBIndex;
-  getHIRParserPtr()->createMulBlob(CE->getBlob(Coeff), ValBlob, true,
-                                   &CEBIndex);
+  createMulBlob(CE->getBlob(Coeff), ValBlob, true, &CEBIndex);
   CE->setIVCoeff(Level, CEBIndex, true);
 }
 

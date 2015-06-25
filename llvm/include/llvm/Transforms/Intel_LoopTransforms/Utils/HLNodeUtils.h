@@ -67,22 +67,22 @@ private:
   /// Internal helper functions, not to be called directly.
 
   /// \brief Implements insert(before) functionality. Moves [First, last) from
-  /// RemoveContainer to Parent's container. If RemoveContainer is null it
+  /// OrigContainer to Parent's container. If OrigContainer is null it
   /// assumes a range of 1(node). UpdateSeparator indicates whether separators
   /// used in containers should be updated. Additional arguments for updating
   /// postexit separator and switch's case number is required.
   static void insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
-                         HLContainerTy *RemoveContainer,
+                         HLContainerTy *OrigContainer,
                          HLContainerTy::iterator First,
                          HLContainerTy::iterator Last, bool UpdateSeparator,
                          bool PostExitSeparator = false, int CaseNum = -1);
 
-  /// \brief Moves [First, last) from RemoveContainer to InsertContainer.
-  /// If RemoveContainer is null it assumes a range of 1(node) and inserts
+  /// \brief Moves [First, last) from OrigContainer to InsertContainer.
+  /// If OrigContainer is null it assumes a range of 1(node) and inserts
   /// First into InsertContainer..
   static void insertInternal(HLContainerTy &InsertContainer,
                              HLContainerTy::iterator Pos,
-                             HLContainerTy *RemoveContainer,
+                             HLContainerTy *OrigContainer,
                              HLContainerTy::iterator First,
                              HLContainerTy::iterator Last);
 
@@ -95,26 +95,22 @@ private:
                                         HLContainerTy::iterator Last);
 
   /// \brief Implements insertAs*Child() functionality.
-  static void insertAsChildImpl(HLNode *Parent, HLContainerTy *RemoveContainer,
+  static void insertAsChildImpl(HLNode *Parent, HLContainerTy *OrigContainer,
                                 HLContainerTy::iterator First,
                                 HLContainerTy::iterator Last,
                                 bool IsFirstChild);
 
   /// \brief Implements insertAs*Child() functionality for switch.
-  static void insertAsChildImpl(HLSwitch *Switch,
-                                HLContainerTy *RemoveContainer,
+  static void insertAsChildImpl(HLSwitch *Switch, HLContainerTy *OrigContainer,
                                 HLContainerTy::iterator First,
                                 HLContainerTy::iterator Last, unsigned CaseNum,
                                 bool isFirstChild);
 
   /// \brief Implements insertAs*Preheader*()/insertAs*Postexit*()
   /// functionality.
-  static void insertAsPreheaderPostexitImpl(HLLoop *Loop,
-                                            HLContainerTy *RemoveContainer,
-                                            HLContainerTy::iterator First,
-                                            HLContainerTy::iterator Last,
-                                            bool IsPreheader,
-                                            bool IsFirstChild);
+  static void insertAsPreheaderPostexitImpl(
+      HLLoop *Loop, HLContainerTy *OrigContainer, HLContainerTy::iterator First,
+      HLContainerTy::iterator Last, bool IsPreheader, bool IsFirstChild);
 
   /// \brief Implements remove functionality. Removes [First, last) and destroys
   /// them if Erase is set. If erase isn't set and MoveContainer isn't null they
@@ -136,6 +132,12 @@ private:
 
   /// \brief Update the goto branches with new labels.
   static void updateGotos(GotoContainerTy *GotoList, LabelMapTy *LabelMap);
+
+  /// \brief Implements moveAs*Children() functionality for switch.
+  static void moveAsChildrenImpl(HLSwitch *Switch,
+                                 HLContainerTy::iterator First,
+                                 HLContainerTy::iterator Last, unsigned CaseNum,
+                                 bool isFirstChild);
 
 public:
   /// \brief Returns a new HLRegion.
@@ -207,9 +209,9 @@ public:
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {
-      V.forwardVisitAll(getHIRParserPtr());
+      V.forwardVisitAll(getHIRParser());
     } else {
-      V.backwardVisitAll(getHIRParserPtr());
+      V.backwardVisitAll(getHIRParser());
     }
   }
 

@@ -36,16 +36,20 @@ private:
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(int SB, const CanonExpr *CE, RegDDRef *Parent);
+  explicit BlobDDRef(int SB, const CanonExpr *CE);
   ~BlobDDRef() {}
 
   /// \brief Copy constructor used by cloning.
   BlobDDRef(const BlobDDRef &BlobDDRefObj);
 
+  friend class RegDDRef;
   friend class DDRefUtils;
 
-  /// \brief Sets the HLDDNode of BlobDDRef
+  /// \brief Sets the HLDDNode of BlobDDRef.
   void setHLDDNode(HLDDNode *HNode) override;
+
+  /// \brief Sets the parent DDRef of BlobDDRef.
+  void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
 public:
   /// \brief Prints BlobDDRef in a simple format.

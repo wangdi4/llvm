@@ -73,6 +73,73 @@ public:
   /// \brief Multiplies IV of CanonExpr by a constant based on level.
   static void multiplyIVByConstant(CanonExpr *CE, unsigned Level, int64_t Val);
 
+  /// \brief Returns the index of Blob in the blob table. Index range is [1,
+  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  static unsigned findBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't already present in the blob table. Index range is
+  /// [1, UINT_MAX].
+  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns blob corresponding to BlobIndex.
+  static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
+
+  /// \brief Prints blob.
+  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
+
+  /// \brief Checks if the blob is constant or not.
+  /// If blob is constant, sets the return value in Val.
+  static bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val);
+
+  /// \brief Returns true if Blob is a temp.
+  static bool isTempBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns a new blob created from a constant value.
+  static CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
+                                      unsigned *NewBlobIndex = nullptr);
+
+  /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS,
+                                         CanonExpr::BlobTy RHS,
+                                         bool Insert = true,
+                                         unsigned *NewBlobIndex = nullptr);
+
+  /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy createMinusBlob(CanonExpr::BlobTy LHS,
+                                           CanonExpr::BlobTy RHS,
+                                           bool Insert = true,
+                                           unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy createMulBlob(CanonExpr::BlobTy LHS,
+                                         CanonExpr::BlobTy RHS,
+                                         bool Insert = true,
+                                         unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
+  /// index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy createUDivBlob(CanonExpr::BlobTy LHS,
+                                          CanonExpr::BlobTy RHS,
+                                          bool Insert = true,
+                                          unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy createTruncateBlob(CanonExpr::BlobTy Blob, Type *Ty,
+                                              bool Insert = true,
+                                              unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy
+  createZeroExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
+                       unsigned *NewBlobIndex = nullptr);
+  /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
+  /// true its index is returned via NewBlobIndex argument.
+  static CanonExpr::BlobTy
+  createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
+                       unsigned *NewBlobIndex = nullptr);
+
   /// \brief Returns true if the type of both Canon Expr matches
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2);
 

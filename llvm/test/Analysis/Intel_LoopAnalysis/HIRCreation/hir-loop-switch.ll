@@ -25,7 +25,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str2 = private unnamed_addr constant [8 x i8] c"default\00", align 1
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32 %c, i32 %n) #0 {
+define void @foo(i32 %c, i32 %n) {
 entry:
   %cmp5 = icmp sgt i32 %n, 0
   br i1 %cmp5, label %for.body, label %for.end
@@ -58,14 +58,6 @@ for.end:                                          ; preds = %for.inc, %entry
   ret void
 }
 
-; Function Attrs: nounwind
-declare i32 @printf(i8* nocapture readonly, ...) #1
+declare i32 @printf(i8* nocapture readonly, ...)
 
-attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.7.0 (trunk 637) (llvm/branches/loopopt 657)"}
 

@@ -313,6 +313,7 @@ void initializeLoopDistributePass(PassRegistry&);
 #if INTEL_CUSTOMIZATION // HIR passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
+void initializeScalarSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
 void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);

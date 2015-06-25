@@ -44,7 +44,7 @@ private:
   LoopInfo *LI;
 
   /// LoopLatchHooks - Stores HLNodes representing start of a loop latch block.
-  SmallDenseMap<BasicBlock *, HLNode *, 32> LoopLatchHooks;
+  SmallDenseMap<const BasicBlock *, HLNode *, 32> LoopLatchHooks;
 
   /// RequiredLabels - HLLabels which aren't redundant.
   RequiredLabelsTy RequiredLabels;
@@ -68,8 +68,8 @@ public:
   /// \brief Returns the set of required labels.
   const RequiredLabelsTy &getRequiredLabels() const { return RequiredLabels; }
 
-  /// \brief Finds a HLNode which corresponds to this basic block.
-  HLNode *findHLNode(const BasicBlock *BB) const;
+  /// \brief Finds a hook in the HIR which corresponds to this basic block.
+  HLNode *findHIRHook(const BasicBlock *BB) const;
 };
 
 } // End namespace loopopt

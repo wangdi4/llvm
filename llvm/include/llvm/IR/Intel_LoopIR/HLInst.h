@@ -16,7 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLINST_H
 #define LLVM_IR_INTEL_LOOPIR_HLINST_H
 
-#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
@@ -33,6 +33,7 @@ class HLInst : public HLDDNode {
 private:
   const Instruction *Inst;
   HLInst *SafeRednSucc;
+  CmpInst::Predicate SelectInstPred;
 
 protected:
   explicit HLInst(Instruction *In);
@@ -58,6 +59,16 @@ protected:
   /// Returns cloned Inst.
   HLInst *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
+
+  /// \brief Returns true if there is a separator that we can print between
+  /// operands of this instruction. Prints the separators if Print is true.
+  bool checkSeparator(formatted_raw_ostream &OS, bool Print) const;
+
+  /// \brief Prints the beginning Opcode equivalent for this instruction.
+  void printBeginOpcode(formatted_raw_ostream &OS, bool HasSeparator) const;
+
+  /// \brief Prints the ending Opcode equivalent for this instruction.
+  void printEndOpcode(formatted_raw_ostream &OS) const;
 
 public:
   /// \brief Prints HLInst.
@@ -168,6 +179,24 @@ public:
   bool isInPostexit() const;
   /// \brief Returns true if this is in a loop's preheader or postexit.
   bool isInPreheaderOrPostexit() const;
+
+  /// \brief Returns predicate for select instruction.
+  CmpInst::Predicate getPredicate() const {
+    assert(isa<SelectInst>(Inst) &&
+           "Predicate cannot be returned for non-select instruction!");
+    return SelectInstPred;
+  }
+
+  /// \brief Sets predicate for select instruction.
+  void setPredicate(CmpInst::Predicate Pred) {
+    assert(isa<SelectInst>(Inst) &&
+           "Predicate cannot be set for non-select instruction!");
+    SelectInstPred = Pred;
+  }
+
+  /// \brief Retuns true if this is a bitcast instruction with identical src and
+  /// dest types. These are generally inserted by SSA deconstruction pass.
+  bool isCopyInst() const;
 };
 
 } // End namespace loopopt

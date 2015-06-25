@@ -40,16 +40,16 @@ private:
 
   friend class HIRParser;
 
-  static HIRParser *HIRParPtr;
+  static HIRParser *HIRPar;
 
   /// \brief Sets the HIRParser pointer
-  static void setHIRParserPtr(HIRParser *HIRP) {
+  static void setHIRParser(HIRParser *HIRP) {
     assert(HIRP && " HIR Parser pointer is null");
-    HIRParPtr = HIRP;
+    HIRPar = HIRP;
   }
 
 protected:
-  static HIRParser *getHIRParserPtr() { return HIRParPtr; }
+  static HIRParser *getHIRParser() { return HIRPar; }
 };
 
 } // End namespace loopopt

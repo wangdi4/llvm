@@ -192,12 +192,20 @@ void HLLoop::setNumExits(unsigned NumEx) {
   NumExits = NumEx;
 }
 
+unsigned
+HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
+                                          bool IsLHS) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return (getNumLoopDDRefs() +
+          Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
+}
+
 void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
                              RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
 
-  ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
+  const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
   /// Move the RegDDRefs to loop.
   setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
@@ -206,53 +214,51 @@ void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
                               LastIt, false);
 }
 
-void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
+void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
   assert(hasZtt() && "Ztt is absent!");
 
-  /// Remove RegDDRefs from loop.
-  removeZttPredicateOperandDDRef(PredI, true);
-  removeZttPredicateOperandDDRef(PredI, false);
+  // Remove RegDDRefs from loop.
+  removeZttPredicateOperandDDRef(CPredI, true);
+  removeZttPredicateOperandDDRef(CPredI, false);
 
-  /// Erase the DDRef slots from loop.
-  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
-  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
+  // Erase the DDRef slots from loop.
+  // Since erasing from the vector leads to shifting of elements, it is better
+  // to erase in reverse order.
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getZttPredicateOperandDDRefOffset(CPredI, false));
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getZttPredicateOperandDDRefOffset(CPredI, true));
 
-  /// Remove predicate from ztt.
-  Ztt->removePredicate(PredI);
+  // Remove predicate from ztt.
+  Ztt->removePredicate(CPredI);
 }
 
-RegDDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
-                                              bool IsLHS) {
+void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                                 CmpInst::Predicate NewPred) {
   assert(hasZtt() && "Ztt is absent!");
-  return getOperandDDRefImpl(getNumLoopDDRefs() +
-                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  Ztt->replacePredicate(CPredI, NewPred);
 }
 
-const RegDDRef *
-HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                    bool IsLHS) const {
+RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                              bool IsLHS) const {
   assert(hasZtt() && "Ztt is absent!");
-  return getOperandDDRefImpl(getNumLoopDDRefs() +
-                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  return getOperandDDRefImpl(getZttPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
+void HLLoop::setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                         const_ztt_pred_iterator CPredI,
                                          bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
-  setOperandDDRefImpl(Ref,
-                      getNumLoopDDRefs() +
-                          Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  setOperandDDRefImpl(Ref, getZttPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-RegDDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+RegDDRef *HLLoop::removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                                  bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
-  auto TRef = getZttPredicateOperandDDRef(PredI, IsLHS);
+  auto TRef = getZttPredicateOperandDDRef(CPredI, IsLHS);
 
   if (TRef) {
-    setZttPredicateOperandDDRef(nullptr, PredI, IsLHS);
+    setZttPredicateOperandDDRef(nullptr, CPredI, IsLHS);
   }
 
   return TRef;
@@ -265,7 +271,7 @@ const RegDDRef *HLLoop::getLowerDDRef() const {
 }
 
 void HLLoop::setLowerDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid LowerDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid LowerDDRef!");
 
   setOperandDDRefImpl(Ref, 0);
 }
@@ -287,7 +293,7 @@ const RegDDRef *HLLoop::getUpperDDRef() const {
 }
 
 void HLLoop::setUpperDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid UpperDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid UpperDDRef!");
 
   setOperandDDRefImpl(Ref, 1);
 }
@@ -309,7 +315,7 @@ const RegDDRef *HLLoop::getStrideDDRef() const {
 }
 
 void HLLoop::setStrideDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid StrideDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid StrideDDRef!");
 
   setOperandDDRefImpl(Ref, 2);
 }

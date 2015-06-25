@@ -85,7 +85,7 @@ public:
   /// virtual Value *getLLVMValue() const = 0;
 
   /// \brief Returns the LLVM type.
-  Type *getLLVMType() const;
+  Type *getType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned int getSymBase() const { return SymBase; };

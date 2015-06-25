@@ -16,9 +16,10 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 #define LLVM_IR_INTEL_LOOPIR_REGDDREF_H
 
-#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/Support/Casting.h"
-#include <vector>
+#include "llvm/ADT/SmallVector.h"
+
+#include "llvm/IR/Intel_LoopIR/DDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 
 namespace llvm {
@@ -38,8 +39,8 @@ public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
   /// subscript
   /// having its own canonical form.
-  typedef std::vector<CanonExpr *> CanonExprsTy;
-  typedef std::vector<BlobDDRef *> BlobDDRefsTy;
+  typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
+  typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
   typedef CanonExprsTy StrideTy;
 
@@ -113,6 +114,9 @@ protected:
   /// \brief Returns the stride associated with each dimension
   StrideTy &getStrides() { return GepInfo->Strides; }
   StrideTy &getStrides() const { return GepInfo->Strides; }
+
+  /// \brief Returns non-const iterator version of CBlobI.
+  blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
 public:
   /// \brief Prints RegDDRef in a simple format.
@@ -201,47 +205,87 @@ public:
   /// BlobDDRef iterator methods
   /// c-version allows use of "auto" keyword and doesn't conflict with protected
   /// non-const begin() / end().
-  const_blob_iterator blob_cbegin() const { return BlobDDRefs.cbegin(); }
-  const_blob_iterator blob_cend() const { return BlobDDRefs.cend(); }
+  const_blob_iterator blob_cbegin() const { return BlobDDRefs.begin(); }
+  const_blob_iterator blob_cend() const { return BlobDDRefs.end(); }
 
   const_reverse_blob_iterator blob_crbegin() const {
-    return BlobDDRefs.crbegin();
+    return BlobDDRefs.rbegin();
   }
-  const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.crend(); }
+  const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
 
   /// Stride iterator methods
   stride_iterator stride_begin() {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().begin();
+    if (hasGEPInfo()) {
+      return getStrides().begin();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_end();
+    }
   }
   const_stride_iterator stride_begin() const {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().begin();
+    if (hasGEPInfo()) {
+      return getStrides().begin();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_end();
+    }
   }
   stride_iterator stride_end() {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().end();
+    if (hasGEPInfo()) {
+      return getStrides().end();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_end();
+    }
   }
   const_stride_iterator stride_end() const {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().end();
+    if (hasGEPInfo()) {
+      return getStrides().end();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_end();
+    }
   }
 
   reverse_stride_iterator stride_rbegin() {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().rbegin();
+    if (hasGEPInfo()) {
+      return getStrides().rbegin();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_rend();
+    }
   }
   const_reverse_stride_iterator stride_rbegin() const {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().rbegin();
+    if (hasGEPInfo()) {
+      return getStrides().rbegin();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_rend();
+    }
   }
   reverse_stride_iterator stride_rend() {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().rend();
+    if (hasGEPInfo()) {
+      return getStrides().rend();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_rend();
+    }
   }
   const_reverse_stride_iterator stride_rend() const {
-    assert(hasGEPInfo() && "DDRef does not have stride!");
-    return getStrides().rend();
+    if (hasGEPInfo()) {
+      return getStrides().rend();
+    } else {
+      // Workaround to avoid forcing clients to check for GEPInfo before
+      // accessing strides.
+      return canon_rend();
+    }
   }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -272,7 +316,7 @@ public:
   ///      RegDDRef is Memory Reference - A[i]
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
-  bool isSimpleRef() const;
+  bool isScalarRef() const;
 
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);
@@ -280,6 +324,12 @@ public:
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
   void removeDimension(unsigned DimensionNum);
+
+  /// \brief Adds a blob DDRef to this DDRef.
+  void addBlobDDRef(BlobDDRef *BlobRef);
+
+  /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
+  BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
   /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in
   /// the associated canon exprs. It will also remove BlobDDRefs associated

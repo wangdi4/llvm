@@ -126,6 +126,10 @@ protected:
   /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
+  /// \brief Returns the DDRef offset of a ztt predicate.
+  unsigned getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
+                                             bool IsLHS) const;
+
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branches within the
   /// cloned loop and LabelMap with Old and New Labels. Returns a cloned loop.
@@ -156,34 +160,18 @@ public:
   Type *getZttLLVMType() const;
 
   /// ZTT Predicate iterator methods
-  ztt_pred_iterator ztt_pred_begin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_begin();
-  }
   const_ztt_pred_iterator ztt_pred_begin() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_begin();
-  }
-  ztt_pred_iterator ztt_pred_end() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_end();
   }
   const_ztt_pred_iterator ztt_pred_end() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_end();
   }
 
-  reverse_ztt_pred_iterator ztt_pred_rbegin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_rbegin();
-  }
   const_reverse_ztt_pred_iterator ztt_pred_rbegin() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_rbegin();
-  }
-  reverse_ztt_pred_iterator ztt_pred_rend() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_rend();
   }
   const_reverse_ztt_pred_iterator ztt_pred_rend() const {
     assert(hasZtt() && "Ztt is absent!");
@@ -200,22 +188,26 @@ public:
   void addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
-  void removeZttPredicate(ztt_pred_iterator PredI);
+  void removeZttPredicate(const_ztt_pred_iterator CPredI);
+
+  /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                           CmpInst::Predicate NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
-  RegDDRef *getZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
-  const RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                              bool IsLHS) const;
+  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                        bool IsLHS) const;
 
   /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
-  void setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
-                                   bool IsLHS);
+  void setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                   const_ztt_pred_iterator CPredI, bool IsLHS);
 
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
-  RegDDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                           bool IsLHS);
 
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
