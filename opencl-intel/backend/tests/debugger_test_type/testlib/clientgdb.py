@@ -7,10 +7,13 @@ import sys
 from pexpect_2_4 import pexpect
 import re
 import types
+import string
+import subprocess
 
 from common import os_is_windows, find_on_path, GDBContinueError, StopReason, loge, logd, logw, TestClient
 
 from clientsimulator import ClientSimulator, SimulatorError
+from distutils.spawn import find_executable	
 
 RPC_TIMEOUT = 30
 RPC_RETRY_DELAY = 10
@@ -129,18 +132,19 @@ class ClientGDB(TestClient):
 
         # setup debug server arguments
         cl_file_fullpath = self.cl_abs_filename(cl_name)
+        # GDB environment variable should be set to gdb path before start of test
+        gdb_command = os.environ['GDB']
+		
         options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
         if not options_str:
              options_str = 'none'
-
-        args = [self.gdb_command,
+        args = [gdb_command,
                 "--args",
                 self.debuggee_exe_path,
                 hostprog_name,
                 options_str,
                 "'" + cl_file_fullpath + "'"]
         args += map(str, extra_args)
-
         logd("Testing debugger command: " + " ".join(args))
         self.child = pexpect.spawn(" ".join(args),
                                    logfile=self.logfile,
