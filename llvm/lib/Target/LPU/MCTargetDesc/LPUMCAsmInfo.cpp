@@ -19,8 +19,12 @@ void LPUMCAsmInfo::anchor() { }
 
 LPUMCAsmInfo::LPUMCAsmInfo(StringRef TT) {
   PointerSize = CalleeSaveStackSlotSize = 8;
-
-  CommentString = "#";
+  // For now
+  HasDotTypeDotSizeDirective = false;
+  HasSingleParameterDotFile = false;
+  MaxInstLength = 8;
+  MinInstAlignment = 8;
+  DollarIsPC = true;
 
   UsesELFSectionDirectiveForBSS = true;
 
@@ -28,4 +32,7 @@ LPUMCAsmInfo::LPUMCAsmInfo(StringRef TT) {
   // registers.  This enables .loc, but it also enables a lot of other things
   // that we have no plans to deal with...
   // SupportsDebugInformation = true;
+
+  // Maybe someday
+  // UseIntegratedAssembler = true;
 }
