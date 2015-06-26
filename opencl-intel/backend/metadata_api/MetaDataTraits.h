@@ -386,7 +386,8 @@ struct MDValueTraits<llvm::Function, void>
 
     static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
-        return llvm::ValueAsMetadata::get(const_cast<value_type>(val));
+	if(val) return llvm::ValueAsMetadata::get(const_cast<value_type>(val));
+	return nullptr;
     }
 
     static llvm::Metadata* generateValue(llvm::LLVMContext& context, const llvm::Metadata*& val)

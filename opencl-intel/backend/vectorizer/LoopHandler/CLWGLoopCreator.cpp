@@ -551,9 +551,9 @@ BasicBlock *CLWGLoopCreator::inlineVectorFunction(BasicBlock *BB) {
   assert (!m_vectorFunc->getNumUses() && "vector kernel should have no use");
   if (!m_vectorFunc->getNumUses()) {
     intel::Statistic::removeFunctionStats(*m_vectorFunc);
-    m_vectorFunc->eraseFromParent();
     // remove the DISubprogram metadata from the module
     dropSubprogramDI(m_vectorFunc);
+    m_vectorFunc->eraseFromParent();
   }
   return vectorEntryBlock;
 }

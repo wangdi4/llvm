@@ -45,7 +45,7 @@ namespace Utils
         {
             SmallString<128> absFilePath(baseDirectory);
             sys::path::append(absFilePath, fileName);
-            if(!sys::fs::exists(absFilePath.str()))
+            if(error_code EC = llvm::sys::fs::make_absolute(absFilePath))
                 throw Exception::IOError("GetDataFilePath::nonexistent path created with \
                                          fileName=" + fileName +
                                          " and baseDirectory=" +  baseDirectory);

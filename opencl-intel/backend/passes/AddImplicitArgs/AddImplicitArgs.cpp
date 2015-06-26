@@ -264,7 +264,7 @@ namespace intel{
         }
         else if(ConstantAsMetadata * funcAsMet = dyn_cast<ConstantAsMetadata>(mdOp)) {
           if (m_pFunc == mdconst::dyn_extract<Function>(funcAsMet))
-            ValueAsMetadata::handleRAUW(m_pFunc, m_pNewF);
+            pMDNode->replaceOperandWith(i, ConstantAsMetadata::get(m_pNewF));
           // TODO: Check if the old metadata has to bee deleted manually to avoid
           //       memory leaks.
         }
