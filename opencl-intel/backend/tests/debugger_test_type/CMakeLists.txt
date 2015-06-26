@@ -67,6 +67,11 @@ install(TARGETS ${TARGET} DESTINATION ${DTT_DIR_NAME})
 file(GLOB MAIN_PY_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.py)
 install(FILES ${MAIN_PY_FILES} DESTINATION ${DTT_DIR_NAME})
 
+# Copy all .pm files from the main directory
+#
+file(GLOB MAIN_PM_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *.pm)
+install(FILES ${MAIN_PM_FILES} DESTINATION ${DTT_DIR_NAME})
+
 # Copy all .zip files from the testlib directory
 #
 set(DTT_TESTLIB_DIR_NAME ${DTT_DIR_NAME}/testlib)
