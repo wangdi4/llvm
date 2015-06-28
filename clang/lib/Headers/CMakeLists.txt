@@ -39,6 +39,7 @@ set(modified_files
 
 set(special_files
   __x86intrin_features.h
+  Intrin.h
   )
 
 set(orig_files
@@ -50,7 +51,6 @@ set(orig_files
   fma4intrin.h
   htmintrin.h
   htmxlintrin.h
-  Intrin.h
   iso646.h
   limits.h
   module.modulemap
