@@ -64,7 +64,7 @@ void check_bf2(void) {
   } s2;
   // CHECK-BITMANIP-LINUX: getelementptr inbounds %struct.bf2, %struct.bf2* %{{.+}}, i32 0, i32 2
   // CHECK-BITMANIP-LINUX-NEXT: load i32, i32* %{{.+}}
-  // CHECK-BITMANIP-LINUX-NEXT: and i32 %c{{.+}}, 511
+  // CHECK-BITMANIP-LINUX-NEXT: and i32 %{{.+}}, 511
   // CHECK-BITMANIP-LINUX-NEXT: shl i32 %{{.+}}, 16
   // CHECK-BITMANIP-LINUX-NEXT: and i32 %{{.+}}, -33488897
   // CHECK-BITMANIP-LINUX-NEXT: or i32 %{{.+}}, %{{.+}}
