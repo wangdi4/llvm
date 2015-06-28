@@ -11878,6 +11878,19 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
             Previous.addDecl(Tag);
             Previous.resolveKind();
           }
+#ifdef INTEL_CUSTOMIZATION
+          // CQ#364598 - allow elaborated befriended type refer to a typedef in
+          // the same scope. Emit a warning as this relaxes ISO C++ restriction.
+          else if (getLangOpts().IntelCompat && TUK == TUK_Friend &&
+                   TD->getDeclContext()->getRedeclContext() == SearchDC) {
+            Diag(NameLoc, diag::ext_intel_elab_befriended_type_refers_typedef);
+            Diag(PrevDecl->getLocation(), diag::note_declared_at);
+            PrevDecl = Tag;
+            Previous.clear();
+            Previous.addDecl(Tag);
+            Previous.resolveKind();
+          }
+#endif // INTEL_CUSTOMIZATION
         }
       }
     }
