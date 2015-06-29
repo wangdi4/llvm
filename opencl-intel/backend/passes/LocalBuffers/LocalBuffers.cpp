@@ -203,7 +203,8 @@ namespace intel{
     assert(pInst && InstInsert.size());
 
     // Change all non-constant references recursively
-    for (User * user : pCE->users()) {
+    SmallVector<User *, 8> users(pCE->users());
+    for (User * user : users) {
       if (isa<Constant>(user)) {
         ChangeConstant(pUser, user, pInst, Where);
       }
@@ -275,19 +276,16 @@ namespace intel{
         // Advance total implicit size
         currLocalOffset += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
-        // [ LLVM 3.6 UPGADE] FIXME: replace iteration over a container which is subject to modify
-        // with it's copy (just like before the upgrade)
-        //
-        // std::vector<User*> users(pLclBuff->user_begin(), pLclBuff->user_end());
-        for (User * user : pLclBuff->users())  {
+        SmallVector<User *, 8> users(pLclBuff->users());
+        for (User * user : users)  {
           if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(user))  {
-            ChangeConstant(pLclBuff, pCE, pBitCast, pBitCast);
+            ChangeConstant(pLclBuff, pCE, pPointerCast, pPointerCast);
           }
            // Check if user is an instruction that belongs to the same function
           else if (Instruction *Inst = dyn_cast<Instruction>(user)) {
             if (Inst->getParent()->getParent() == pFunc) {
-              // pBitCast was already added to a basic block during it's creation
-              Inst->replaceUsesOfWith(pLclBuff, pBitCast);
+              // pPointerCast was already added to a basic block during it's creation
+              Inst->replaceUsesOfWith(pLclBuff, pPointerCast);
               // Only if debugging, copy from local memory buffer to thread
               // specific global buffer.
               if (m_isNativeDBG) {
