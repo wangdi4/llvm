@@ -45,7 +45,7 @@ public:
 
   /// Looks up a function pointer (to compiled code) in the ExecutionEngine
   void* getPointerToFunction(llvm::Function* func) {
-      return m_EE->getPointerToFunction(func);
+    return reinterpret_cast<void*>(m_EE->getFunctionAddress(func->getName().str()));
   }
 
 private:

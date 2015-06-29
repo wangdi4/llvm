@@ -55,7 +55,7 @@ CPUProgram::~CPUProgram()
 }
 
 void* CPUProgram::GetPointerToFunction(llvm::Function* F) {
-    return m_pExecutionEngine->getPointerToFunction(F);
+    return reinterpret_cast<void*>(m_pExecutionEngine->getFunctionAddress(F->getName().str()));
 }
 
 void CPUProgram::Deserialize(IInputStream& ist, SerializationStatus* stats)

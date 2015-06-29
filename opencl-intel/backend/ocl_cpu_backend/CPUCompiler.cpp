@@ -261,7 +261,7 @@ void *CPUCompiler::GetPointerToFunction(llvm::Function *pf)
     if(!m_pExecEngine)
       m_pExecEngine = CreateCPUExecutionEngine(pM);
 
-    return m_pExecEngine->getPointerToFunction(pf);
+    return reinterpret_cast<void*>(m_pExecEngine->getFunctionAddress(pf->getName().str()));
 }
 
 void CPUCompiler::SelectCpu( const std::string& cpuName, const std::string& cpuFeatures )

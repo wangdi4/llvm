@@ -94,7 +94,8 @@ void CPUJITContainer::Deserialize(IInputStream& ist, SerializationStatus* stats)
     CPUProgram* pProgram = (CPUProgram*)stats->GetPointerMark("pProgram");
     if(NULL != pProgram && NULL != m_pFuncCode)
     {
-        m_pFuncCode = pProgram->GetExecutionEngine()->getPointerToFunction(m_pFunction);
+        m_pFuncCode = reinterpret_cast<const void*>(
+            pProgram->GetExecutionEngine()->getFunctionAddress(m_pFunction->getName().str()));
     }
 }
 
