@@ -931,8 +931,9 @@ namespace Validation
                 char* sz_logdir = getenv("OCLRECORDER_LOGDIR");
                 char* sz_dumpprefix = getenv("OCLRECORDER_DUMPPREFIX");
 
-                llvm::SmallString<MAX_LOG_PATH> logpath(sz_logdir);
-                if (nullptr == sz_logdir) llvm::sys::fs::current_path(logpath);
+                llvm::SmallString<MAX_LOG_PATH> logpath;
+                if (sz_logdir) logpath = sz_logdir;
+                else llvm::sys::fs::current_path(logpath);
 
                 char argv0[MAX_LOG_PATH];
                 size_t addr = 0;
