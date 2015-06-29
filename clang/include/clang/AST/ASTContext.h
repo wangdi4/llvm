@@ -2359,7 +2359,15 @@ public:
   /// \brief Returns true if this is an inline-initialized static data member
   /// which is treated as a definition for MSVC compatibility.
   bool isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const;
-  
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
+  // of a structure.
+  /// \brief Returns true if this is an inline-initialized static data member
+  /// which is treated as a definition for Intel compatibility.
+  bool isIntelStaticDataMemberInlineDefinition(const VarDecl *VD) const;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   const ASTRecordLayout &
   getObjCLayout(const ObjCInterfaceDecl *D,

@@ -4983,6 +4983,17 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          VD->isFirstDecl() && !VD->isOutOfLine() && VD->hasInit();
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
+// a structure.
+bool ASTContext::isIntelStaticDataMemberInlineDefinition(
+    const VarDecl *VD) const {
+  return getLangOpts().IntelCompat && VD->isStaticDataMember() &&
+         VD->getType()->isIntegralOrEnumerationType() && VD->isFirstDecl() &&
+         !VD->isOutOfLine() && VD->hasInit();
+}
+#endif // INTEL_CUSTOMIZATION
+
 static inline 
 std::string charUnitsToString(const CharUnits &CU) {
   return llvm::itostr(CU.getQuantity());
@@ -8055,6 +8066,13 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
+  // of a structure.
+  if (Context.isIntelStaticDataMemberInlineDefinition(VD))
+    return GVA_DiscardableODR;
+#endif // INTEL_CUSTOMIZATION
+
   switch (VD->getTemplateSpecializationKind()) {
   case TSK_Undeclared:
   case TSK_ExplicitSpecialization:
@@ -8143,6 +8161,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   assert(VD->isFileVarDecl() && "Expected file scoped var");
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+      // field of a structure.
+      !isIntelStaticDataMemberInlineDefinition(VD) &&
+#endif // INTEL_CUSTOMIZATION
       !isMSStaticDataMemberInlineDefinition(VD))
     return false;
 
