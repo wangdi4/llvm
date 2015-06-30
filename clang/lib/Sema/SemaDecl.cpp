@@ -1871,6 +1871,26 @@ static void filterNonConflictingPreviousDecls(Sema &S,
   filter.done();
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// \brief Filter out any previous declarations that are library-defined builtin
+/// functions like 'malloc' or 'exp'.
+static void filterPredefinedLibBuiltins(ASTContext &Context,
+                                        LookupResult &Previous) {
+  // Empty sets are not interesting.
+  if (Previous.empty())
+    return;
+
+  LookupResult::Filter Filter = Previous.makeFilter();
+  while (Filter.hasNext())
+    // If it's a library-defined builtin function, filter it out.
+    // Later we make sure that this builtin never appears on name lookup.
+    if (Context.IsPredefinedLibBuiltin(Filter.next()))
+      Filter.erase();
+
+  Filter.done();
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Typedef declarations don't have linkage, but they still denote the same
 /// entity if their types are the same.
 /// FIXME: This is notionally doing the same thing as ASTReaderDecl's
@@ -6479,6 +6499,12 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD, LookupResult &Previous) {
   // Filter out any non-conflicting previous declarations.
   filterNonConflictingPreviousDecls(*this, NewVD, Previous);
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#368318 - filter out built-in functions without '__builtin_' prefix.
+  if (getLangOpts().IntelCompat)
+    filterPredefinedLibBuiltins(Context, Previous);
+#endif // INTEL_CUSTOMIZATION
+
   if (!Previous.empty()) {
     MergeVarDecl(NewVD, Previous);
     return true;
@@ -10982,9 +11008,21 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
     if (FD && FD->hasAttr<NakedAttr>()) {
       for (const Stmt *S : Body->children()) {
         if (!isa<AsmStmt>(S) && !isa<NullStmt>(S)) {
+#ifdef INTEL_CUSTOMIZATION
+          // CQ#371340 - ignore 'naked' attribute on functions with non-ASM
+          // statements in IntelCompat mode.
+          if (getLangOpts().IntelCompat) {
+            Diag(FD->getAttr<NakedAttr>()->getLocation(),
+                 diag::warn_non_asm_stmt_in_naked_function);
+            FD->dropAttr<NakedAttr>();
+          } else {
+#endif // INTEL_CUSTOMIZATION
           Diag(S->getLocStart(), diag::err_non_asm_stmt_in_naked_function);
           Diag(FD->getAttr<NakedAttr>()->getLocation(), diag::note_attribute);
           FD->setInvalidDecl();
+#ifdef INTEL_CUSTOMIZATION
+          }
+#endif // INTEL_CUSTOMIZATION
           break;
         }
       }

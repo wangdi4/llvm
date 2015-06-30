@@ -1580,12 +1580,30 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#371662 - don't do bit manipulations in IntelCompat mode if both offset
+  // and size are of natural sizes. This improves code size.
+  unsigned ByteWidth = getTarget().getCharWidth();
+  bool ShouldSkipBitMasking = getLangOpts().IntelCompat &&
+                              Info.Offset % ByteWidth == 0 &&
+                              Info.Size % ByteWidth == 0;
+  if (ShouldSkipBitMasking) {
+    if (Info.Offset)
+      Ptr = Builder.CreateConstGEP1_64(EmitCastToVoidPtr(Ptr),
+                                       Info.Offset / ByteWidth);
+    Ptr = Builder.CreatePointerBitCastOrAddrSpaceCast(
+        Ptr, Builder.getIntNTy(Info.Size)->getPointerTo());
+  }
+#endif // INTEL_CUSTOMIZATION
   // Cast the source to the storage type and shift it into place.
   SrcVal = Builder.CreateIntCast(SrcVal,
                                  Ptr->getType()->getPointerElementType(),
                                  /*IsSigned=*/false);
   llvm::Value *MaskedVal = SrcVal;
 
+#ifdef INTEL_CUSTOMIZATION
+  if (!ShouldSkipBitMasking) {
+#endif // INTEL_CUSTOMIZATION
   // See if there are other bits in the bitfield's storage we'll need to load
   // and mask together with source before storing.
   if (Info.StorageSize != Info.Size) {
@@ -1616,6 +1634,9 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   } else {
     assert(Info.Offset == 0);
   }
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Write the new value back out.
   llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,

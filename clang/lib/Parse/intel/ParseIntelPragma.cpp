@@ -3357,4 +3357,4 @@ void Parser::resetIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION                                                                                                                                      
+#endif  // INTEL_CUSTOMIZATION

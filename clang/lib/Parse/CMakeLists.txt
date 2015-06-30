@@ -20,6 +20,7 @@ add_clang_library(clangParse
   intel/ParseSIMD.cpp
   intel/ParseIntelPragma.cpp
   intel/CheckStmt.cpp
+  intel/ParseStmt.cpp
 #endif // INTEL_CUSTOMIZATION
   ParseStmtAsm.cpp
   ParseTemplate.cpp

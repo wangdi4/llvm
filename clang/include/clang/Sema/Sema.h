@@ -3727,7 +3727,16 @@ public:
   ExprResult ActOnPredefinedExpr(SourceLocation Loc, tok::TokenKind Kind);
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
 
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Check if expression value is NOT strictly positive 32-bit integer.
+  /// If the expression is invalid, false is returned.
+  bool IsExprValueOutOfStrictlyPositive32BitIntRange(Expr* E);
+  /// \param IsCheckRange Indicates whether \p E is a #pragma unroll expression
+  /// in IntelCompat mode.
+  bool CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange = true);
+#else
   bool CheckLoopHintExpr(Expr *E, SourceLocation Loc);
+#endif // INTEL_CUSTOMIZATION
 
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = nullptr);
   ExprResult ActOnCharacterConstant(const Token &Tok,
