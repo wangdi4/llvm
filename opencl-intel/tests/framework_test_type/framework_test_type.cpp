@@ -159,6 +159,11 @@ TEST(FrameworkTestType, Test_clJITLoadTest)
     EXPECT_TRUE(clCheckJITLoadTest());
 }
 
+TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
+{
+    EXPECT_TRUE(clCheckCPUArchForJIT());
+}
+
 TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
 {
     EXPECT_TRUE(clBuildProgramTwiceTest());
