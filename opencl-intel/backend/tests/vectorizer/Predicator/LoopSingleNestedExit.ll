@@ -35,7 +35,7 @@ lor.rhs:                                          ; preds = %while.cond
   br i1 %cmp2, label %while.body, label %while.end
 
 while.body:                                       ; preds = %while.cond, %lor.rhs
-  %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
+  %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
   %2 = load float addrspace(1)* %arrayidx, align 4
   %dec = fadd float %2, -1.000000e+00
   store float %dec, float addrspace(1)* %arrayidx, align 4
@@ -90,7 +90,7 @@ lor.rhs:                                          ; preds = %while.cond
   br i1 %cmp2, label %while.body, label %while.end
 
 while.body:                                       ; preds = %lor.rhs, %while.cond
-  %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
+  %call3 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %call) nounwind
   %2 = load float addrspace(1)* %arrayidx, align 4
   %dec = fadd float %2, -1.000000e+00
   store float %dec, float addrspace(1)* %arrayidx, align 4

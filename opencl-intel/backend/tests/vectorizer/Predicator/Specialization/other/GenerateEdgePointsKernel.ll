@@ -111,7 +111,7 @@ NewEdgeIndex.exit:                                ; preds = %36, %34
 ; <label>:42                                      ; preds = %NewEdgeIndex.exit
   %43 = sext i32 %39 to i64
   %44 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %43, i32 0, i64 0
-  %45 = bitcast i32 addrspace(1)* %44 to i8*
+  %45 = addrspacecast i32 addrspace(1)* %44 to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %45, i8 -1, i64 16, i32 1, i1 false)
   br label %UnifiedReturnBlock
 
@@ -656,7 +656,7 @@ NewFaceIndex.exit3:                               ; preds = %364, %351
   %tmp48 = ashr i64 %sext87, 32
   %429 = sext i32 %tmp57 to i64
   %430 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %429, i32 0, i64 0
-  %431 = bitcast i32 addrspace(1)* %430 to i8*
+  %431 = addrspacecast i32 addrspace(1)* %430 to i8*
   tail call void @llvm.memset.p0i8.i64(i8* %431, i8 -1, i64 16, i32 1, i1 false)
   store i32 -1, i32 addrspace(1)* %334, align 4
   %432 = getelementptr inbounds %struct._Edge addrspace(1)* %m_pOutEB, i64 %tmp48, i32 0, i64 1

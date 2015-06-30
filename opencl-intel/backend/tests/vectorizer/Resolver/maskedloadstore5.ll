@@ -4,13 +4,13 @@
 
 ; CHECK: @testldst
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: @__ocl_masked_load_float4
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: @__ocl_masked_store_float4
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: @__ocl_masked_store_float4
 ; CHECK: ret
 

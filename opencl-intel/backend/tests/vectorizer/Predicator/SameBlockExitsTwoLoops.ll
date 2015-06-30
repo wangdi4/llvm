@@ -45,7 +45,7 @@ while.body:                                       ; preds = %while.cond
 
 if.then:                                          ; preds = %while.body
   %add = add nsw i32 %k.0.ph, 10
-  %call5 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([19 x i8]* @.str to i8 addrspace(2)*), i32 %call, i32 %add) nounwind
+  %call5 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([19 x i8]* @.str to i8 addrspace(2)*), i32 %call, i32 %add) nounwind
   br label %while.cond.outer
 
 while.end:                                        ; preds = %while.cond
@@ -104,7 +104,7 @@ while.body:                                       ; preds = %while.cond
 
 if.then:                                          ; preds = %while.body
   %add = add nsw i32 %k.0.ph, 10
-  %call5 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([19 x i8]* @.str to i8 addrspace(2)*), i32 %call, i32 %add) nounwind
+  %call5 = tail call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([19 x i8]* @.str to i8 addrspace(2)*), i32 %call, i32 %add) nounwind
   br label %while.cond.outer
 
 while.end:                                        ; preds = %while.cond
