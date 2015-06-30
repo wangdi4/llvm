@@ -11,7 +11,7 @@
 ;;}
 
 ; The test checks that function "wait_group_events" resolve with GAS argument.
-; CHECK: [[VAR:%.*]] = bitcast %opencl.event_t* addrspace(4)* %{{.*}} to %opencl.event_t**
+; CHECK: [[VAR:%.*]] = addrspacecast %opencl.event_t* addrspace(4)* %{{.*}} to %opencl.event_t**
 ; CHECK: call void @_Z17wait_group_eventsiP9ocl_event(i32 1, %opencl.event_t** [[VAR]])
 ; CHECK: declare void @_Z17wait_group_eventsiP9ocl_event(i32, %opencl.event_t**)
 
@@ -26,7 +26,7 @@ define void @ker(i32 addrspace(1)* %zuzu) #0 {
   %1 = alloca i32 addrspace(1)*, align 8
   %ev = alloca %opencl.event_t*, align 8
   store i32 addrspace(1)* %zuzu, i32 addrspace(1)** %1, align 8
-  %2 = bitcast %opencl.event_t** %ev to %opencl.event_t* addrspace(4)*
+  %2 = addrspacecast %opencl.event_t** %ev to %opencl.event_t* addrspace(4)*
   call void @_Z17wait_group_eventsiPU3AS49ocl_event(i32 1, %opencl.event_t* addrspace(4)* %2)
   ret void
 }

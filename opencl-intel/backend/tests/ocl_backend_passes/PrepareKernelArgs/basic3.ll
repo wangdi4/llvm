@@ -29,7 +29,7 @@ define void @A(<4 x i8> %c, <4 x i8> %uc, <4 x i16> %s, <4 x i16> %us, <4 x i32>
 ; CHECK: %13 = bitcast i8* %12 to <4 x float>*
 ; CHECK: %explicit_6 = load <4 x float>* %13, align 16
 ; CHECK: %14 = getelementptr i8* %pUniformArgs, i32 80
-; CHECK: %15 = addrspacecast i8* %14 to <4 x float> addrspace(1)**
+; CHECK: %15 = bitcast i8* %14 to <4 x float> addrspace(1)**
 ; CHECK: %explicit_7 = load <4 x float> addrspace(1)** %15, align 8
 ; CHECK: %16 = getelementptr i8* %pUniformArgs, i32 88
 ; CHECK: %pWorkDim = bitcast i8* %16 to { i64, [3 x i64], [3 x i64], [2 x [3 x i64]], [3 x i64], {}*, {}* }*
