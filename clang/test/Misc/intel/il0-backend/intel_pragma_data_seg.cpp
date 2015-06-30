@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma data_seg test
 
 // CHECK: target

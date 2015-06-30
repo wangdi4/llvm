@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s  
+// RUN: %clang_cc1 -fintel-compatibility -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s  
 //***INTEL: pragma init_seg test
 
 // CHECK: target
@@ -20,7 +20,7 @@ struct S {
 } d;
 
 // CHECK: define private void @.DIRECTIVE.() #1 {
-// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"INIT_SEG", metadata !"__DATA, user, mod_init_funcs")
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 #pragma init_seg "user") 
@@ -38,4 +38,3 @@ int main(int argc, char **argv)
   return (0);
 }
 
-// CHECK: !1 = metadata !{metadata !"INIT_SEG", metadata !"__DATA, user, mod_init_funcs"}

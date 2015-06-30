@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma check_stack
 
 #pragma check_stack(on)
@@ -6,7 +6,7 @@
 // CHECK: define i32 @main()
 int main() {
   int i = 13, j;
-// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOCHECK_STACK")
 #pragma check_stack on
 #pragma check_stack +
 #pragma check_stack(+)
@@ -30,7 +30,7 @@ static int a;
 #pragma check_stack (on  off // expected-warning {{extra text after expected end of preprocessing directive}}
 // CHECK: define i32 @{{.*}}www{{.*}}
 int www() {
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"CHECK_STACK")
    return a;
 }
 // CHECK: }
@@ -41,14 +41,12 @@ static void aaa() {
 }
 // CHECK: define void @{{.*}}bbb{{.*}}
 void bbb() {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata 
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata 
   aaa();
   return;
 }
 // CHECK: }
 // CHECK: define internal void @{{.*}}aaa{{.*}}
-// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"NOCHECK_STACK")
 // CHECK: }
 
-// CHECK: !1 = metadata !{metadata !"NOCHECK_STACK"}
-// CHECK-NEXT: !2 = metadata !{metadata !"CHECK_STACK"}

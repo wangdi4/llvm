@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -verify %s
 
 #pragma vtordisp ; // expected-warning {{missing '(' after '#pragma vtordisp' - ignoring}}
 #pragma vtordisp ( // expected-warning {{'on' or 'off' is expected}}

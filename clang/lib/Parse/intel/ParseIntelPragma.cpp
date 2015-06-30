@@ -1147,7 +1147,8 @@ StmtResult Parser::HandlePragmaVector() {
           while (Tok.isNot(tok::annot_pragma_end)) {
             // Parse expr
             //Decl::SetUseReferencedInExpr(false);
-            ExprResult Res = ParseAssignmentExpression();
+            auto Res =
+                Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
             //Decl::SetUseReferencedInExpr(true);
             if(!Res.isUsable()) {
               // Error is found
@@ -1367,7 +1368,8 @@ StmtResult Parser::HandlePragmaParallel() {
       while (Tok.isNot(tok::annot_pragma_end) && Tok.isNot(tok::r_paren)) {
         // Parse expr
         //Decl::SetUseReferencedInExpr(false);
-        ExprResult Res = ParseAssignmentExpression();
+        auto Res =
+            Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
         //Decl::SetUseReferencedInExpr(true);
         //Res.get()->dumpAll();
         if(!Res.isUsable()) {
