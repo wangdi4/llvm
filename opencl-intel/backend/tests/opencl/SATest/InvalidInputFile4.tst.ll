@@ -57,5 +57,5 @@ declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (<4 x i32> addrspace(1)*, <4 x float> addrspace(1)*, i32)* @BitcastTest, metadata !1, metadata !1, metadata !"", metadata !"<4 x i32> __attribute__((address_space(1))) *, <4 x float> __attribute__((address_space(1))) *, uint const", metadata !"opencl_bitcast_locals_anchor"}
-!1 = metadata !{i32 0, i32 0, i32 0}
+!0 = !{void (<4 x i32> addrspace(1)*, <4 x float> addrspace(1)*, i32)* @BitcastTest, !1, !1, !"", !"<4 x i32> __attribute__((address_space(1))) *, <4 x float> __attribute__((address_space(1))) *, uint const", !"opencl_bitcast_locals_anchor"}
+!1 = !{i32 0, i32 0, i32 0}

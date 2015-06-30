@@ -21,7 +21,7 @@ declare <16 x float> @_Z5exp10Dv16_f(<16 x float>)
 
 !opencl.compiler.options = !{!0}
 
-!0 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{!"-cl-std=CL2.0"}
 
 ; CHECK:        define void @check_exp10_float
 ; CHECK:        entry:

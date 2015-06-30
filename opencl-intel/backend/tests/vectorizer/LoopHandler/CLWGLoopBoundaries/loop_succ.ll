@@ -36,6 +36,6 @@ declare i32 @_Z13get_global_idj(i32) nounwind readnone
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32)* @sample_test, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
-!2 = metadata !{}
+!0 = !{void (i32 addrspace(1)*, i32)* @sample_test, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3}
+!2 = !{}

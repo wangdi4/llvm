@@ -36,4 +36,4 @@ declare i32 @_Z3maxjj(i32, i32) nounwind readnone
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (<4 x i8> addrspace(1)*, i32, i32)* @max_kernel}
+!0 = !{void (<4 x i8> addrspace(1)*, i32, i32)* @max_kernel}

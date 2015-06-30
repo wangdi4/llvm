@@ -37,10 +37,10 @@ entry:
   %b.addr = alloca float addrspace(1)*, align 8
   %x = alloca i32, align 4
   store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata !{float addrspace(1)** %a.addr}, metadata !15), !dbg !16
+  call void @llvm.dbg.declare(!{float addrspace(1)** %a.addr}, !15), !dbg !16
   store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8
-  call void @llvm.dbg.declare(metadata !{float addrspace(1)** %b.addr}, metadata !17), !dbg !16
-  call void @llvm.dbg.declare(metadata !{i32* %x}, metadata !18), !dbg !20
+  call void @llvm.dbg.declare(!{float addrspace(1)** %b.addr}, !17), !dbg !16
+  call void @llvm.dbg.declare(!{i32* %x}, !18), !dbg !20
   %call = call i64 @_Z12get_local_idj(i32 0) #1, !dbg !20
   %conv = trunc i64 %call to i32, !dbg !20
   store i32 %conv, i32* %x, align 4, !dbg !20
@@ -69,9 +69,9 @@ entry:
   %a.addr = alloca float addrspace(1)*, align 8
   %b.addr = alloca float addrspace(1)*, align 8
   store float addrspace(1)* %a, float addrspace(1)** %a.addr, align 8
-  call void @llvm.dbg.declare(metadata !{float addrspace(1)** %a.addr}, metadata !23), !dbg !24
+  call void @llvm.dbg.declare(!{float addrspace(1)** %a.addr}, !23), !dbg !24
   store float addrspace(1)* %b, float addrspace(1)** %b.addr, align 8
-  call void @llvm.dbg.declare(metadata !{float addrspace(1)** %b.addr}, metadata !25), !dbg !24
+  call void @llvm.dbg.declare(!{float addrspace(1)** %b.addr}, !25), !dbg !24
   %0 = load float addrspace(1)** %a.addr, align 8, !dbg !26
   %1 = load float addrspace(1)** %b.addr, align 8, !dbg !26
   call void @bar(float addrspace(1)* %0, float addrspace(1)* %1), !dbg !26
@@ -91,13 +91,13 @@ attributes #2 = { nounwind readnone "less-precise-fpmad"="false" "no-frame-point
 
 ;;; Check that that debug info metadata for the old function was changed to the
 ;;; new function, but that there's a new debug metadata for the old function.
-; CHECK: !3 = metadata !{metadata !4, metadata !11, metadata [[NewMD:![0-9]+]]}
-; CHECK: !4 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"bar", metadata !"bar", metadata !"", i32 3, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @__internal.bar, null, null, metadata !2, i32 3}
-; CHECK: [[NewMD]] = metadata !{i32 786478, metadata !5, metadata !6, metadata !"bar", metadata !"bar", metadata !"", i32 3, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, metadata !2, i32 3}
+; CHECK: !3 = !{!4, !11, metadata [[NewMD:![0-9]+]]}
+; CHECK: !4 = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @__internal.bar, null, null, !2, i32 3}
+; CHECK: [[NewMD]] = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, !2, i32 3}
 
 ;;; The following checks that exactly one metadata node was added and that @bar is still a kernel.
 ; CHECK-NOT: !29
-; CHECK: metadata !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
+; CHECK: !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
 ; CHECK: !28
 
 !llvm.dbg.cu = !{!0}
@@ -105,31 +105,31 @@ attributes #2 = { nounwind readnone "less-precise-fpmad"="false" "no-frame-point
 !opencl.compiler.options = !{!14}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{i32 786449, metadata !1, i32 12, metadata !"clang version 3.4 ", i1 false, metadata !"", i32 0, metadata !2, metadata !2, metadata !3, metadata !2, metadata !2, metadata !""} ; [ DW_TAG_compile_unit ] [] [DW_LANG_C99]
-!1 = metadata !{metadata !"OutputFileName", metadata !"WorkingDir"}
-!2 = metadata !{i32 0}
-!3 = metadata !{metadata !4, metadata !11}
-!4 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"bar", metadata !"bar", metadata !"", i32 3, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, metadata !2, i32 3} ; [ DW_TAG_subprogram ] [line 3] [def] [bar]
-!5 = metadata !{metadata !"InputFileName", metadata !"WorkingDir"}
-!6 = metadata !{i32 786473, metadata !5}          ; [ DW_TAG_file_type ] []
-!7 = metadata !{i32 786453, i32 0, i32 0, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!8 = metadata !{null, metadata !9, metadata !9}
-!9 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, metadata !10} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from float]
-!10 = metadata !{i32 786468, null, null, metadata !"float", i32 0, i64 32, i64 32, i64 0, i32 0, i32 4} ; [ DW_TAG_base_type ] [float] [line 0, size 32, align 32, offset 0, enc DW_ATE_float]
-!11 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"foo", metadata !"foo", metadata !"", i32 8, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @foo, null, null, metadata !2, i32 8} ; [ DW_TAG_subprogram ] [line 8] [def] [foo]
-!12 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
-!13 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @foo}
-!14 = metadata !{metadata !"-cl-std=CL1.2"}
-!15 = metadata !{i32 786689, metadata !4, metadata !"a", metadata !6, i32 16777219, metadata !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 3]
-!16 = metadata !{i32 3, i32 0, metadata !4, null}
-!17 = metadata !{i32 786689, metadata !4, metadata !"b", metadata !6, i32 33554435, metadata !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 3]
-!18 = metadata !{i32 786688, metadata !4, metadata !"x", metadata !6, i32 4, metadata !19, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [x] [line 4]
-!19 = metadata !{i32 786468, null, null, metadata !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
-!20 = metadata !{i32 4, i32 0, metadata !4, null}
-!21 = metadata !{i32 5, i32 0, metadata !4, null}
-!22 = metadata !{i32 6, i32 0, metadata !4, null}
-!23 = metadata !{i32 786689, metadata !11, metadata !"a", metadata !6, i32 16777224, metadata !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 8]
-!24 = metadata !{i32 8, i32 0, metadata !11, null} ; [ DW_TAG_imported_declaration ]
-!25 = metadata !{i32 786689, metadata !11, metadata !"b", metadata !6, i32 33554440, metadata !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 8]
-!26 = metadata !{i32 9, i32 0, metadata !11, null}
-!27 = metadata !{i32 10, i32 0, metadata !11, null}
+!0 = !{i32 786449, !1, i32 12, !"clang version 3.4 ", i1 false, !"", i32 0, !2, !2, !3, !2, !2, !""} ; [ DW_TAG_compile_unit ] [] [DW_LANG_C99]
+!1 = !{!"OutputFileName", !"WorkingDir"}
+!2 = !{i32 0}
+!3 = !{!4, !11}
+!4 = !{i32 786478, !5, !6, !"bar", !"bar", !"", i32 3, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @bar, null, null, !2, i32 3} ; [ DW_TAG_subprogram ] [line 3] [def] [bar]
+!5 = !{!"InputFileName", !"WorkingDir"}
+!6 = !{i32 786473, !5}          ; [ DW_TAG_file_type ] []
+!7 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!8 = !{null, !9, !9}
+!9 = !{i32 786447, null, null, !"", i32 0, i64 64, i64 64, i64 0, i32 0, !10} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from float]
+!10 = !{i32 786468, null, null, !"float", i32 0, i64 32, i64 32, i64 0, i32 0, i32 4} ; [ DW_TAG_base_type ] [float] [line 0, size 32, align 32, offset 0, enc DW_ATE_float]
+!11 = !{i32 786478, !5, !6, !"foo", !"foo", !"", i32 8, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (float addrspace(1)*, float addrspace(1)*)* @foo, null, null, !2, i32 8} ; [ DW_TAG_subprogram ] [line 8] [def] [foo]
+!12 = !{void (float addrspace(1)*, float addrspace(1)*)* @bar}
+!13 = !{void (float addrspace(1)*, float addrspace(1)*)* @foo}
+!14 = !{!"-cl-std=CL1.2"}
+!15 = !{i32 786689, !4, !"a", !6, i32 16777219, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 3]
+!16 = !{i32 3, i32 0, !4, null}
+!17 = !{i32 786689, !4, !"b", !6, i32 33554435, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 3]
+!18 = !{i32 786688, !4, !"x", !6, i32 4, !19, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [x] [line 4]
+!19 = !{i32 786468, null, null, !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
+!20 = !{i32 4, i32 0, !4, null}
+!21 = !{i32 5, i32 0, !4, null}
+!22 = !{i32 6, i32 0, !4, null}
+!23 = !{i32 786689, !11, !"a", !6, i32 16777224, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 8]
+!24 = !{i32 8, i32 0, !11, null} ; [ DW_TAG_imported_declaration ]
+!25 = !{i32 786689, !11, !"b", !6, i32 33554440, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [b] [line 8]
+!26 = !{i32 9, i32 0, !11, null}
+!27 = !{i32 10, i32 0, !11, null}

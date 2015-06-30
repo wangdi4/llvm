@@ -65,28 +65,28 @@ __zero_imm_separated_args.exit:                   ; preds = %scalar_kernel_entry
   ret void
 }
 
-!0 = metadata !{void ()* @thisIsKernel, metadata !1}
-!1 = metadata !{metadata !"kernel_wrapper", void ()* @thisIsKernel}
+!0 = !{void ()* @thisIsKernel, !1}
+!1 = !{!"kernel_wrapper", void ()* @thisIsKernel}
 
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!8}
 !opencl.kernel_info = !{!15}
 
-!0 = metadata !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, metadata !1, metadata !2}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}
-!2 = metadata !{metadata !"cl_kernel_arg_info", metadata !3, metadata !4, metadata !5, metadata !6, metadata !7}
-!3 = metadata !{i32 0, i32 0, i32 0, i32 0}
-!4 = metadata !{i32 3, i32 3, i32 3, i32 3}
-!5 = metadata !{metadata !"double*", metadata !"float*", metadata !"double*", metadata !"float*"}
-!6 = metadata !{i32 0, i32 0, i32 1, i32 1}
-!7 = metadata !{metadata !"outD", metadata !"outF", metadata !"inD", metadata !"inF"}
-!8 = metadata !{metadata !"-cl-std=CL1.2", metadata !"-cl-kernel-arg-info"}
-!9 = metadata !{metadata !"no_barrier_path", i1 true}
-!10 = metadata !{metadata !"kernel_wrapper", void (i8*)* @zero_imm}
-!11 = metadata !{metadata !"float", metadata !12}
-!12 = metadata !{metadata !"omnipotent char", metadata !13}
-!13 = metadata !{metadata !"Simple C/C++ TBAA", null}
-!14 = metadata !{metadata !"double", metadata !12}
+!0 = !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, !1, !2}
+!1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}
+!2 = !{!"cl_kernel_arg_info", !3, !4, !5, !6, !7}
+!3 = !{i32 0, i32 0, i32 0, i32 0}
+!4 = !{i32 3, i32 3, i32 3, i32 3}
+!5 = !{!"double*", !"float*", !"double*", !"float*"}
+!6 = !{i32 0, i32 0, i32 1, i32 1}
+!7 = !{!"outD", !"outF", !"inD", !"inF"}
+!8 = !{!"-cl-std=CL1.2", !"-cl-kernel-arg-info"}
+!9 = !{!"no_barrier_path", i1 true}
+!10 = !{!"kernel_wrapper", void (i8*)* @zero_imm}
+!11 = !{!"float", !12}
+!12 = !{!"omnipotent char", !13}
+!13 = !{!"Simple C/C++ TBAA", null}
+!14 = !{!"double", !12}
 
 !15 = !{void (double addrspace(1)*, float addrspace(1)*, double addrspace(1)*, float addrspace(1)*, i8 addrspace(3)*, { i32, [3 x i64], [3 x i64], [3 x i64], [3 x i64] }*, i64*, <{ [4 x i64] }>*, <{ [4 x i64] }>*, i64*, i64, i8*, i64*)* @__zero_imm_separated_args, !16}
-!16 = metadata !{metadata !9, metadata !10}
+!16 = !{!9, !10}

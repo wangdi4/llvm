@@ -33,4 +33,4 @@ entry:
 declare i64 @_Z20get_global_linear_idv()
 
 !opencl.compiler.options = !{!0}
-!0 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{!"-cl-std=CL2.0"}

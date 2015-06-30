@@ -26,4 +26,4 @@ define void @enqueue_simple_block(i32 addrspace(1)* %res) nounwind {
 }
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

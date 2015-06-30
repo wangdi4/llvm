@@ -142,37 +142,37 @@ declare void @__ocl_masked_store_int4(<4 x i32>*, <4 x i32>, <4 x i32>)
 !opencl.module_info_list = !{!28}
 !llvm.functions_info = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
-!1 = metadata !{metadata !"kernel_arg_addr_space", i32 1, i32 1}
-!2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none", metadata !"none"}
-!3 = metadata !{metadata !"kernel_arg_type", metadata !"int*", metadata !"int*"}
-!4 = metadata !{metadata !"kernel_arg_type_qual", metadata !"", metadata !""}
-!5 = metadata !{metadata !"kernel_arg_name", metadata !"a", metadata !"b"}
-!6 = metadata !{i32 1, i32 0}
-!7 = metadata !{i32 2, i32 0}
-!8 = metadata !{}
-!9 = metadata !{metadata !"-cl-std=CL2.0"}
-!10 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform, metadata !11}
-!11 = metadata !{metadata !12, metadata !13, metadata !14, metadata !15, metadata !16, metadata !17, metadata !18, metadata !19, metadata !20}
-!12 = metadata !{metadata !"local_buffer_size", null}
-!13 = metadata !{metadata !"barrier_buffer_size", null}
-!14 = metadata !{metadata !"kernel_execution_length", i32 15}
-!15 = metadata !{metadata !"kernel_has_barrier", i1 true}
-!16 = metadata !{metadata !"no_barrier_path", i1 false}
-!17 = metadata !{metadata !"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform}
-!18 = metadata !{metadata !"vectorized_width", i32 1}
-!19 = metadata !{metadata !"kernel_wrapper", null}
-!20 = metadata !{metadata !"scalarized_kernel", null}
-!21 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform, metadata !22}
-!22 = metadata !{metadata !12, metadata !13, metadata !23, metadata !15, metadata !24, metadata !25, metadata !26, metadata !19, metadata !27}
-!23 = metadata !{metadata !"kernel_execution_length", i32 25}
-!24 = metadata !{metadata !"no_barrier_path", null}
-!25 = metadata !{metadata !"vectorized_kernel", null}
-!26 = metadata !{metadata !"vectorized_width", i32 4}
-!27 = metadata !{metadata !"scalarized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform}
-!28 = metadata !{metadata !29, metadata !30}
-!29 = metadata !{metadata !"gen_addr_space_pointer_counter", null}
-!30 = metadata !{metadata !"gen_addr_space_pointer_warnings"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space", i32 1, i32 1}
+!2 = !{!"kernel_arg_access_qual", !"none", !"none"}
+!3 = !{!"kernel_arg_type", !"int*", !"int*"}
+!4 = !{!"kernel_arg_type_qual", !"", !""}
+!5 = !{!"kernel_arg_name", !"a", !"b"}
+!6 = !{i32 1, i32 0}
+!7 = !{i32 2, i32 0}
+!8 = !{}
+!9 = !{!"-cl-std=CL2.0"}
+!10 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform, !11}
+!11 = !{!12, !13, !14, !15, !16, !17, !18, !19, !20}
+!12 = !{!"local_buffer_size", null}
+!13 = !{!"barrier_buffer_size", null}
+!14 = !{!"kernel_execution_length", i32 15}
+!15 = !{!"kernel_has_barrier", i1 true}
+!16 = !{!"no_barrier_path", i1 false}
+!17 = !{!"vectorized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform}
+!18 = !{!"vectorized_width", i32 1}
+!19 = !{!"kernel_wrapper", null}
+!20 = !{!"scalarized_kernel", null}
+!21 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @__Vectorized_.wg_test_uniform, !22}
+!22 = !{!12, !13, !23, !15, !24, !25, !26, !19, !27}
+!23 = !{!"kernel_execution_length", i32 25}
+!24 = !{!"no_barrier_path", null}
+!25 = !{!"vectorized_kernel", null}
+!26 = !{!"vectorized_width", i32 4}
+!27 = !{!"scalarized_kernel", void (i32 addrspace(1)*, i32 addrspace(1)*)* @wg_test_uniform}
+!28 = !{!29, !30}
+!29 = !{!"gen_addr_space_pointer_counter", null}
+!30 = !{!"gen_addr_space_pointer_warnings"}
 
 ;;; --- OpenCL source (compilation options: "-cl-std=CL2.0 -D__OPENCL_C_VERSION__=200"
 ;;;__kernel void wg_test_uniform(__global int* a, __global int* b) {

@@ -47,13 +47,13 @@
   !opencl.kernels = !{!0}
   !opencl.kernel_info = !{!7}
   
-  !0 = metadata !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*)* @math_kernel, metadata !1}
-  !1 = metadata !{metadata !"apple.cl.arg_metadata", metadata !2, metadata !2, metadata !2}
-  !2 = metadata !{metadata !"stream", metadata !"write", metadata !"global"}
-  !3 = metadata !{metadata !"no_barrier_path", i1 true}
-  !4 = metadata !{metadata !"float", metadata !5}
-  !5 = metadata !{metadata !"omnipotent char", metadata !6}
-  !6 = metadata !{metadata !"Simple C/C++ TBAA"}
+  !0 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*)* @math_kernel, !1}
+  !1 = !{!"apple.cl.arg_metadata", !2, !2, !2}
+  !2 = !{!"stream", !"write", !"global"}
+  !3 = !{!"no_barrier_path", i1 true}
+  !4 = !{!"float", !5}
+  !5 = !{!"omnipotent char", !6}
+  !6 = !{!"Simple C/C++ TBAA"}
 
-  !7 = metadata !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*)* @math_kernel, metadata !8}
-  !8 = metadata !{metadata !3}
+  !7 = !{void (float addrspace(1)*, float addrspace(1)*, float addrspace(1)*)* @math_kernel, !8}
+  !8 = !{!3}

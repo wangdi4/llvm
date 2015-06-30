@@ -44,5 +44,5 @@ Entry5:                                       ; preds = %Entry3, %Entry4
 
 declare i64 @_Z13get_global_idj(...)
 
-!0 = metadata !{metadata !"omnipotent char", metadata !1}
-!1 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{!"omnipotent char", !1}
+!1 = !{!"Simple C/C++ TBAA", null}

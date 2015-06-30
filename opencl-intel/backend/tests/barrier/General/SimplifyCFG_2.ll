@@ -202,6 +202,6 @@ declare void @_Z7barrierj(i64)
 !opencl.kernels = !{!2}
 !opencl_spmv_csr_vector_kernel_locals_anchor = !{!4}
 
-!1 = metadata !{i32 0, i32 0, i32 0}
-!2 = metadata !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, float addrspace(1)*)* @spmv_csr_vector_kernel, metadata !1, metadata !1, metadata !"float4",metadata !"float const __attribute__((address_space(1))) *restrict, float const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const, float __attribute__((address_space(1))) *restrict", metadata !"opencl_spmv_csr_vector_kernel_locals_anchor"}
-!4 = metadata !{metadata !"opencl_spmv_csr_vector_kernel_local_partialSums"}
+!1 = !{i32 0, i32 0, i32 0}
+!2 = !{void (float addrspace(1)*, float addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i32, float addrspace(1)*)* @spmv_csr_vector_kernel, !1, !1, !"float4",!"float const __attribute__((address_space(1))) *restrict, float const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const __attribute__((address_space(1))) *restrict, int const, float __attribute__((address_space(1))) *restrict", !"opencl_spmv_csr_vector_kernel_locals_anchor"}
+!4 = !{!"opencl_spmv_csr_vector_kernel_local_partialSums"}

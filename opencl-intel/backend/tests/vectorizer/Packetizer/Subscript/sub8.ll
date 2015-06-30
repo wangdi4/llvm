@@ -32,5 +32,5 @@ define void @kernel(i8* nocapture %A, i64 %k) nounwind {
 
 declare i64 @_Z13get_global_idj(...)
 
-!0 = metadata !{metadata !"omnipotent char", metadata !1}
-!1 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{!"omnipotent char", !1}
+!1 = !{!"Simple C/C++ TBAA", null}

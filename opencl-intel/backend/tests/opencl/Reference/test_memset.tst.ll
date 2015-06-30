@@ -43,6 +43,6 @@ declare i32 @printf(i8 addrspace(2)*, ...)
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
-!0 = metadata !{void ()* @test_memset, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier"}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
+!0 = !{void ()* @test_memset, !1}
+!1 = !{!"image_access_qualifier"}
+!2 = !{!"-cl-std=CL1.2"}

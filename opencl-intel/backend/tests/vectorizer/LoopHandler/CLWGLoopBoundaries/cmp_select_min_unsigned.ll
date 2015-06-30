@@ -36,4 +36,4 @@ define void @cmp_select_min_kernel(<4 x i8> addrspace(1)* nocapture %dst, i32 %w
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (<4 x i8> addrspace(1)*, i32, i32)* @cmp_select_min_kernel}
+!0 = !{void (<4 x i8> addrspace(1)*, i32, i32)* @cmp_select_min_kernel}

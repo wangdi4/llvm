@@ -30,7 +30,7 @@ define void @f1(i8 addrspace(3)* %a) #0 {
 entry:
   %a.addr = alloca i8 addrspace(3)*, align 4
   store i8 addrspace(3)* %a, i8 addrspace(3)** %a.addr, align 4
-  call void @llvm.dbg.declare(metadata !{i8 addrspace(3)** %a.addr}, metadata !21), !dbg !22
+  call void @llvm.dbg.declare(!{i8 addrspace(3)** %a.addr}, !21), !dbg !22
   ret void, !dbg !23
 }
 
@@ -52,29 +52,29 @@ attributes #1 = { nounwind readnone }
 !opencl.compiler.options = !{!20}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{i32 786449, metadata !1, i32 12, metadata !"clang version 3.4 ", i1 false, metadata !"", i32 0, metadata !2, metadata !2, metadata !3, metadata !14, metadata !2, metadata !""} ; [ DW_TAG_compile_unit ] [] [DW_LANG_C99]
-!1 = metadata !{metadata !"OutputFileName", metadata !"WorkingDir"}
-!2 = metadata !{i32 0}
-!3 = metadata !{metadata !4, metadata !11}
-!4 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"f1", metadata !"f1", metadata !"", i32 2, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8 addrspace(3)*)* @f1, null, null, metadata !2, i32 2} ; [ DW_TAG_subprogram ] [line 2] [def] [f1]
-!5 = metadata !{metadata !"InputFileName", metadata !"WorkingDir"}
-!6 = metadata !{i32 786473, metadata !5}          ; [ DW_TAG_file_type ] []
-!7 = metadata !{i32 786453, i32 0, i32 0, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!8 = metadata !{null, metadata !9}
-!9 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 32, i64 32, i64 0, i32 0, metadata !10} ; [ DW_TAG_pointer_type ] [line 0, size 32, align 32, offset 0] [from char]
-!10 = metadata !{i32 786468, null, null, metadata !"char", i32 0, i64 8, i64 8, i64 0, i32 0, i32 6} ; [ DW_TAG_base_type ] [char] [line 0, size 8, align 8, offset 0, enc DW_ATE_signed_char]
-!11 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"mykernel", metadata !"mykernel", metadata !"", i32 5, metadata !12, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void ()* @mykernel, null, null, metadata !2, i32 5} ; [ DW_TAG_subprogram ] [line 5] [def] [mykernel]
-!12 = metadata !{i32 786453, i32 0, i32 0, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !13, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!13 = metadata !{null}
-!14 = metadata !{metadata !15}
-!15 = metadata !{i32 786484, i32 0, metadata !11, metadata !"x", metadata !"x", metadata !"", metadata !6, i32 6, metadata !16, i32 1, i32 1, [100 x i8] addrspace(3)* @mykernel.x, null} ; [ DW_TAG_variable ] [x] [line 6] [local] [def]
-!16 = metadata !{i32 786433, null, null, metadata !"", i32 0, i64 800, i64 8, i32 0, i32 0, metadata !10, metadata !17, i32 0, i32 0} ; [ DW_TAG_array_type ] [line 0, size 800, align 8, offset 0] [from char]
-!17 = metadata !{metadata !18}
-!18 = metadata !{i32 786465, i64 0, i64 100}      ; [ DW_TAG_subrange_type ] [0, 99]
-!19 = metadata !{void ()* @mykernel}
-!20 = metadata !{metadata !"-cl-std=CL1.2"}
-!21 = metadata !{i32 786689, metadata !4, metadata !"a", metadata !6, i32 16777218, metadata !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 2]
-!22 = metadata !{i32 2, i32 0, metadata !4, null}
-!23 = metadata !{i32 3, i32 0, metadata !4, null}
-!24 = metadata !{i32 7, i32 0, metadata !11, null}
-!25 = metadata !{i32 8, i32 0, metadata !11, null} ; [ DW_TAG_imported_declaration ]
+!0 = !{i32 786449, !1, i32 12, !"clang version 3.4 ", i1 false, !"", i32 0, !2, !2, !3, !14, !2, !""} ; [ DW_TAG_compile_unit ] [] [DW_LANG_C99]
+!1 = !{!"OutputFileName", !"WorkingDir"}
+!2 = !{i32 0}
+!3 = !{!4, !11}
+!4 = !{i32 786478, !5, !6, !"f1", !"f1", !"", i32 2, !7, i1 false, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8 addrspace(3)*)* @f1, null, null, !2, i32 2} ; [ DW_TAG_subprogram ] [line 2] [def] [f1]
+!5 = !{!"InputFileName", !"WorkingDir"}
+!6 = !{i32 786473, !5}          ; [ DW_TAG_file_type ] []
+!7 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!8 = !{null, !9}
+!9 = !{i32 786447, null, null, !"", i32 0, i64 32, i64 32, i64 0, i32 0, !10} ; [ DW_TAG_pointer_type ] [line 0, size 32, align 32, offset 0] [from char]
+!10 = !{i32 786468, null, null, !"char", i32 0, i64 8, i64 8, i64 0, i32 0, i32 6} ; [ DW_TAG_base_type ] [char] [line 0, size 8, align 8, offset 0, enc DW_ATE_signed_char]
+!11 = !{i32 786478, !5, !6, !"mykernel", !"mykernel", !"", i32 5, !12, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void ()* @mykernel, null, null, !2, i32 5} ; [ DW_TAG_subprogram ] [line 5] [def] [mykernel]
+!12 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !13, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!13 = !{null}
+!14 = !{!15}
+!15 = !{i32 786484, i32 0, !11, !"x", !"x", !"", !6, i32 6, !16, i32 1, i32 1, [100 x i8] addrspace(3)* @mykernel.x, null} ; [ DW_TAG_variable ] [x] [line 6] [local] [def]
+!16 = !{i32 786433, null, null, !"", i32 0, i64 800, i64 8, i32 0, i32 0, !10, !17, i32 0, i32 0} ; [ DW_TAG_array_type ] [line 0, size 800, align 8, offset 0] [from char]
+!17 = !{!18}
+!18 = !{i32 786465, i64 0, i64 100}      ; [ DW_TAG_subrange_type ] [0, 99]
+!19 = !{void ()* @mykernel}
+!20 = !{!"-cl-std=CL1.2"}
+!21 = !{i32 786689, !4, !"a", !6, i32 16777218, !9, i32 0, i32 0} ; [ DW_TAG_arg_variable ] [a] [line 2]
+!22 = !{i32 2, i32 0, !4, null}
+!23 = !{i32 3, i32 0, !4, null}
+!24 = !{i32 7, i32 0, !11, null}
+!25 = !{i32 8, i32 0, !11, null} ; [ DW_TAG_imported_declaration ]

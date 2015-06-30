@@ -104,7 +104,7 @@ declare i8* @_Z10to_privatePKU3AS4v(i8 addrspace(4)*)
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
 
 ;;  -----  ArrayParameter.cl   -------
 ;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 ArrayParameter.cl -o ArrayParameterTmp.ll

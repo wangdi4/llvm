@@ -152,14 +152,14 @@ attributes #2 = { nounwind readnone }
 !opencl.compiler.options = !{!6}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (double*, double*, i64*)* @foo_double}
-!1 = metadata !{void (<2 x double>*, <2 x double>*, <2 x i64>*)* @foo_double2}
-!2 = metadata !{void (<3 x double>*, <3 x double>*, <3 x i64>*)* @foo_double3}
-!3 = metadata !{void (<4 x double>*, <4 x double>*, <4 x i64>*)* @foo_double4}
-!4 = metadata !{void (<8 x double>*, <8 x double>*, <8 x i64>*)* @foo_double8}
-!5 = metadata !{void (<16 x double>*, <16 x double>*, <16 x i64>*)* @foo_double16}
-!6 = metadata !{metadata !"-cl-std=CL1.2"}
-!7 = metadata !{metadata !"double", metadata !8}
-!8 = metadata !{metadata !"omnipotent char", metadata !9}
-!9 = metadata !{metadata !"Simple C/C++ TBAA"}
-!10 = metadata !{metadata !"long", metadata !8}
+!0 = !{void (double*, double*, i64*)* @foo_double}
+!1 = !{void (<2 x double>*, <2 x double>*, <2 x i64>*)* @foo_double2}
+!2 = !{void (<3 x double>*, <3 x double>*, <3 x i64>*)* @foo_double3}
+!3 = !{void (<4 x double>*, <4 x double>*, <4 x i64>*)* @foo_double4}
+!4 = !{void (<8 x double>*, <8 x double>*, <8 x i64>*)* @foo_double8}
+!5 = !{void (<16 x double>*, <16 x double>*, <16 x i64>*)* @foo_double16}
+!6 = !{!"-cl-std=CL1.2"}
+!7 = !{!"double", !8}
+!8 = !{!"omnipotent char", !9}
+!9 = !{!"Simple C/C++ TBAA"}
+!10 = !{!"long", !8}

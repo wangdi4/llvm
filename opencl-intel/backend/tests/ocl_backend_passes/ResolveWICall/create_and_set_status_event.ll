@@ -18,4 +18,4 @@ declare %opencl.clk_event_t* @_Z17create_user_eventv()
 declare void @_Z21set_user_event_status13ocl_clk_eventi(%opencl.clk_event_t*, i32)
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

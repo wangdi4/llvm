@@ -58,11 +58,11 @@ define internal void @__ker_block_invoke(i8* %.block_descriptor) #0 {
   %id = alloca i64, align 8
   store i8* %.block_descriptor, i8** %1, align 8
   %3 = load i8** %1
-  call void @llvm.dbg.value(metadata !{i8* %3}, i64 0, metadata !18), !dbg !30
-  call void @llvm.dbg.declare(metadata !{i8* %.block_descriptor}, metadata !18), !dbg !30
+  call void @llvm.dbg.value(!{i8* %3}, i64 0, !18), !dbg !30
+  call void @llvm.dbg.declare(!{i8* %.block_descriptor}, !18), !dbg !30
   %4 = bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor* }>*, !dbg !30
   store <{ i8*, i32, i32, i8*, %struct.__block_descriptor* }>* %4, <{ i8*, i32, i32, i8*, %struct.__block_descriptor* }>** %2, align 8
-  call void @llvm.dbg.declare(metadata !{i64* %id}, metadata !31), !dbg !36
+  call void @llvm.dbg.declare(!{i64* %id}, !31), !dbg !36
   store i64 4, i64* %id, align 8, !dbg !36
   ret void, !dbg !37
 }
@@ -84,41 +84,41 @@ attributes #4 = { nounwind }
 !opencl.compiler.options = !{!14}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{i32 786449, metadata !1, i32 12, metadata !"clang version 3.4 ", i1 false, metadata !"", i32 0, metadata !2, metadata !2, metadata !3, metadata !2, metadata !2, metadata !""} ; [ DW_TAG_compile_unit ] [/home/vromanov/OCL_SDK//tmp/<unknown>] [DW_LANG_C99]
-!1 = metadata !{metadata !"/tmp/<unknown>", metadata !"/home/vromanov/OCL_SDK"}
-!2 = metadata !{i32 0}
-!3 = metadata !{metadata !4, metadata !9}
-!4 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"ker", metadata !"ker", metadata !"", i32 1, metadata !7, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void ()* @ker, null, null, metadata !2, i32 2} ; [ DW_TAG_subprogram ] [line 1] [def] [scope 2] [ker]
-!5 = metadata !{metadata !"/tmp/reproducer_CloneBlockToKernel.cl", metadata !"/home/vromanov/OCL_SDK"}
-!6 = metadata !{i32 786473, metadata !5}          ; [ DW_TAG_file_type ] [/home/vromanov/OCL_SDK//tmp/reproducer_CloneBlockToKernel.cl]
-!7 = metadata !{i32 786453, i32 0, i32 0, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!8 = metadata !{null}
-!9 = metadata !{i32 786478, metadata !5, metadata !6, metadata !"__ker_block_invoke", metadata !"__ker_block_invoke", metadata !"", i32 6, metadata !10, i1 true, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8*)* @__ker_block_invoke, null, null, metadata !2, i32 6} ; [ DW_TAG_subprogram ] [line 6] [local] [def] [__ker_block_invoke]
-!10 = metadata !{i32 786453, i32 0, i32 0, metadata !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, metadata !11, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
-!11 = metadata !{null, metadata !12}
-!12 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, null} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from ]
-!13 = metadata !{void ()* @ker}
-!14 = metadata !{metadata !"-cl-std=CL2.0"}
-!15 = metadata !{i32 3, i32 0, metadata !4, null}
-!16 = metadata !{i32 5, i32 0, metadata !4, null}
-!17 = metadata !{i32 9, i32 0, metadata !4, null}
-!18 = metadata !{i32 786689, metadata !9, metadata !".block_descriptor", metadata !6, i32 16777222, metadata !19, i32 64, i32 0} ; [ DW_TAG_arg_variable ] [.block_descriptor] [line 6]
-!19 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 0, i64 0, i32 0, metadata !20} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 0, offset 0] [from __block_literal_1]
-!20 = metadata !{i32 786451, metadata !5, metadata !6, metadata !"__block_literal_1", i32 6, i64 256, i64 64, i32 0, i32 0, null, metadata !21, i32 0, null, null} ; [ DW_TAG_structure_type ] [__block_literal_1] [line 6, size 256, align 64, offset 0] [from ]
-!21 = metadata !{metadata !22, metadata !23, metadata !25, metadata !26, metadata !27}
-!22 = metadata !{i32 786445, metadata !5, metadata !6, metadata !"__isa", i32 6, i64 64, i64 64, i64 0, i32 0, metadata !12} ; [ DW_TAG_member ] [__isa] [line 6, size 64, align 64, offset 0] [from ]
-!23 = metadata !{i32 786445, metadata !5, metadata !6, metadata !"__flags", i32 6, i64 32, i64 32, i64 64, i32 0, metadata !24} ; [ DW_TAG_member ] [__flags] [line 6, size 32, align 32, offset 64] [from int]
-!24 = metadata !{i32 786468, null, null, metadata !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
-!25 = metadata !{i32 786445, metadata !5, metadata !6, metadata !"__reserved", i32 6, i64 32, i64 32, i64 96, i32 0, metadata !24} ; [ DW_TAG_member ] [__reserved] [line 6, size 32, align 32, offset 96] [from int]
-!26 = metadata !{i32 786445, metadata !5, metadata !6, metadata !"__FuncPtr", i32 6, i64 64, i64 64, i64 128, i32 0, metadata !12} ; [ DW_TAG_member ] [__FuncPtr] [line 6, size 64, align 64, offset 128] [from ]
-!27 = metadata !{i32 786445, metadata !5, metadata !6, metadata !"__descriptor", i32 6, i64 64, i64 64, i64 192, i32 0, metadata !28} ; [ DW_TAG_member ] [__descriptor] [line 6, size 64, align 64, offset 192] [from ]
-!28 = metadata !{i32 786447, null, null, metadata !"", i32 0, i64 64, i64 64, i64 0, i32 0, metadata !29} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from __block_descriptor]
-!29 = metadata !{i32 786451, metadata !1, null, metadata !"__block_descriptor", i32 6, i64 0, i64 0, i32 0, i32 4, null, null, i32 0} ; [ DW_TAG_structure_type ] [__block_descriptor] [line 6, size 0, align 0, offset 0] [fwd] [from ]
-!30 = metadata !{i32 6, i32 0, metadata !9, null}
-!31 = metadata !{i32 786688, metadata !32, metadata !"id", metadata !6, i32 7, metadata !33, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [id] [line 7]
-!32 = metadata !{i32 786443, metadata !5, metadata !9, i32 6, i32 0, i32 0} ; [ DW_TAG_lexical_block ] [/home/vromanov/OCL_SDK//tmp/reproducer_CloneBlockToKernel.cl]
-!33 = metadata !{i32 786454, metadata !5, null, metadata !"size_t", i32 69, i64 0, i64 0, i64 0, i32 0, metadata !34} ; [ DW_TAG_typedef ] [size_t] [line 69, size 0, align 0, offset 0] [from ulong]
-!34 = metadata !{i32 786454, metadata !5, null, metadata !"ulong", i32 58, i64 0, i64 0, i64 0, i32 0, metadata !35} ; [ DW_TAG_typedef ] [ulong] [line 58, size 0, align 0, offset 0] [from unsigned long]
-!35 = metadata !{i32 786468, null, null, metadata !"unsigned long", i32 0, i64 64, i64 64, i64 0, i32 0, i32 7} ; [ DW_TAG_base_type ] [unsigned long] [line 0, size 64, align 64, offset 0, enc DW_ATE_unsigned]
-!36 = metadata !{i32 7, i32 0, metadata !32, null}
-!37 = metadata !{i32 8, i32 0, metadata !9, null} ; [ DW_TAG_imported_declaration ]
+!0 = !{i32 786449, !1, i32 12, !"clang version 3.4 ", i1 false, !"", i32 0, !2, !2, !3, !2, !2, !""} ; [ DW_TAG_compile_unit ] [/home/vromanov/OCL_SDK//tmp/<unknown>] [DW_LANG_C99]
+!1 = !{!"/tmp/<unknown>", !"/home/vromanov/OCL_SDK"}
+!2 = !{i32 0}
+!3 = !{!4, !9}
+!4 = !{i32 786478, !5, !6, !"ker", !"ker", !"", i32 1, !7, i1 false, i1 true, i32 0, i32 0, null, i32 0, i1 false, void ()* @ker, null, null, !2, i32 2} ; [ DW_TAG_subprogram ] [line 1] [def] [scope 2] [ker]
+!5 = !{!"/tmp/reproducer_CloneBlockToKernel.cl", !"/home/vromanov/OCL_SDK"}
+!6 = !{i32 786473, !5}          ; [ DW_TAG_file_type ] [/home/vromanov/OCL_SDK//tmp/reproducer_CloneBlockToKernel.cl]
+!7 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !8, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!8 = !{null}
+!9 = !{i32 786478, !5, !6, !"__ker_block_invoke", !"__ker_block_invoke", !"", i32 6, !10, i1 true, i1 true, i32 0, i32 0, null, i32 256, i1 false, void (i8*)* @__ker_block_invoke, null, null, !2, i32 6} ; [ DW_TAG_subprogram ] [line 6] [local] [def] [__ker_block_invoke]
+!10 = !{i32 786453, i32 0, i32 0, !"", i32 0, i64 0, i64 0, i64 0, i32 0, null, !11, i32 0, i32 0} ; [ DW_TAG_subroutine_type ] [line 0, size 0, align 0, offset 0] [from ]
+!11 = !{null, !12}
+!12 = !{i32 786447, null, null, !"", i32 0, i64 64, i64 64, i64 0, i32 0, null} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from ]
+!13 = !{void ()* @ker}
+!14 = !{!"-cl-std=CL2.0"}
+!15 = !{i32 3, i32 0, !4, null}
+!16 = !{i32 5, i32 0, !4, null}
+!17 = !{i32 9, i32 0, !4, null}
+!18 = !{i32 786689, !9, !".block_descriptor", !6, i32 16777222, !19, i32 64, i32 0} ; [ DW_TAG_arg_variable ] [.block_descriptor] [line 6]
+!19 = !{i32 786447, null, null, !"", i32 0, i64 64, i64 0, i64 0, i32 0, !20} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 0, offset 0] [from __block_literal_1]
+!20 = !{i32 786451, !5, !6, !"__block_literal_1", i32 6, i64 256, i64 64, i32 0, i32 0, null, !21, i32 0, null, null} ; [ DW_TAG_structure_type ] [__block_literal_1] [line 6, size 256, align 64, offset 0] [from ]
+!21 = !{!22, !23, !25, !26, !27}
+!22 = !{i32 786445, !5, !6, !"__isa", i32 6, i64 64, i64 64, i64 0, i32 0, !12} ; [ DW_TAG_member ] [__isa] [line 6, size 64, align 64, offset 0] [from ]
+!23 = !{i32 786445, !5, !6, !"__flags", i32 6, i64 32, i64 32, i64 64, i32 0, !24} ; [ DW_TAG_member ] [__flags] [line 6, size 32, align 32, offset 64] [from int]
+!24 = !{i32 786468, null, null, !"int", i32 0, i64 32, i64 32, i64 0, i32 0, i32 5} ; [ DW_TAG_base_type ] [int] [line 0, size 32, align 32, offset 0, enc DW_ATE_signed]
+!25 = !{i32 786445, !5, !6, !"__reserved", i32 6, i64 32, i64 32, i64 96, i32 0, !24} ; [ DW_TAG_member ] [__reserved] [line 6, size 32, align 32, offset 96] [from int]
+!26 = !{i32 786445, !5, !6, !"__FuncPtr", i32 6, i64 64, i64 64, i64 128, i32 0, !12} ; [ DW_TAG_member ] [__FuncPtr] [line 6, size 64, align 64, offset 128] [from ]
+!27 = !{i32 786445, !5, !6, !"__descriptor", i32 6, i64 64, i64 64, i64 192, i32 0, !28} ; [ DW_TAG_member ] [__descriptor] [line 6, size 64, align 64, offset 192] [from ]
+!28 = !{i32 786447, null, null, !"", i32 0, i64 64, i64 64, i64 0, i32 0, !29} ; [ DW_TAG_pointer_type ] [line 0, size 64, align 64, offset 0] [from __block_descriptor]
+!29 = !{i32 786451, !1, null, !"__block_descriptor", i32 6, i64 0, i64 0, i32 0, i32 4, null, null, i32 0} ; [ DW_TAG_structure_type ] [__block_descriptor] [line 6, size 0, align 0, offset 0] [fwd] [from ]
+!30 = !{i32 6, i32 0, !9, null}
+!31 = !{i32 786688, !32, !"id", !6, i32 7, !33, i32 0, i32 0} ; [ DW_TAG_auto_variable ] [id] [line 7]
+!32 = !{i32 786443, !5, !9, i32 6, i32 0, i32 0} ; [ DW_TAG_lexical_block ] [/home/vromanov/OCL_SDK//tmp/reproducer_CloneBlockToKernel.cl]
+!33 = !{i32 786454, !5, null, !"size_t", i32 69, i64 0, i64 0, i64 0, i32 0, !34} ; [ DW_TAG_typedef ] [size_t] [line 69, size 0, align 0, offset 0] [from ulong]
+!34 = !{i32 786454, !5, null, !"ulong", i32 58, i64 0, i64 0, i64 0, i32 0, !35} ; [ DW_TAG_typedef ] [ulong] [line 58, size 0, align 0, offset 0] [from unsigned long]
+!35 = !{i32 786468, null, null, !"unsigned long", i32 0, i64 64, i64 64, i64 0, i32 0, i32 7} ; [ DW_TAG_base_type ] [unsigned long] [line 0, size 64, align 64, offset 0, enc DW_ATE_unsigned]
+!36 = !{i32 7, i32 0, !32, null}
+!37 = !{i32 8, i32 0, !9, null} ; [ DW_TAG_imported_declaration ]

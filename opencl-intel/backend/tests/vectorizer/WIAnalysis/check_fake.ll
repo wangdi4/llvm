@@ -59,15 +59,15 @@ declare spir_func i32 @_Z6selectiii(i32, i32, i32) nounwind readnone
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32)* @check_fake, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
-!1 = metadata !{metadata !"kernel_arg_addr_space", i32 1, i32 1, i32 0, i32 0}
-!2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none", metadata !"none", metadata !"none", metadata !"none"}
-!3 = metadata !{metadata !"kernel_arg_type", metadata !"int*", metadata !"int*", metadata !"int", metadata !"int"}
-!4 = metadata !{metadata !"kernel_arg_type_qual", metadata !"", metadata !"", metadata !"const", metadata !"const"}
-!5 = metadata !{metadata !"kernel_arg_name", metadata !"in", metadata !"out", metadata !"num", metadata !"inc"}
-!6 = metadata !{i32 1, i32 0}
-!7 = metadata !{i32 0, i32 0}
-!8 = metadata !{}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32, i32)* @check_fake, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space", i32 1, i32 1, i32 0, i32 0}
+!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none"}
+!3 = !{!"kernel_arg_type", !"int*", !"int*", !"int", !"int"}
+!4 = !{!"kernel_arg_type_qual", !"", !"", !"const", !"const"}
+!5 = !{!"kernel_arg_name", !"in", !"out", !"num", !"inc"}
+!6 = !{i32 1, i32 0}
+!7 = !{i32 0, i32 0}
+!8 = !{}
 
 ;CHECK: WIA 0   %{{[0-9]*}} = tail call spir_func i32 @_f_v._Z6selectiii
 

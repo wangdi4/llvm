@@ -19,4 +19,4 @@ entry:
 }
 
 !opencl.kernels = !{}
-; CHECK: metadata !{metadata !"block_literal_size", i32 36}
+; CHECK: !{!"block_literal_size", i32 36}

@@ -53,5 +53,5 @@ declare void @foo(<4 x i32>)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_any, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}
+!0 = !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_any, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}

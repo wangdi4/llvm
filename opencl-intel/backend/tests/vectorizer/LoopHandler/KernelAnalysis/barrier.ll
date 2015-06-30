@@ -69,9 +69,9 @@ declare void @_Z7barrierj(i32)
 !opencl.kernels = !{!0, !1, !2, !3, !4}
 
 
-!0 = metadata !{void ()* @kernel_contains_barrier}
-!1 = metadata !{void ()* @kernel_not_contains_barrier}
-!2 = metadata !{void ()* @kernel_call_func_call_barrier}
-!3 = metadata !{void ()* @kernel_call_func_call_func_call_barrier}
-!4 = metadata !{void ()* @kernel_call_func_no_call_barrier}
+!0 = !{void ()* @kernel_contains_barrier}
+!1 = !{void ()* @kernel_not_contains_barrier}
+!2 = !{void ()* @kernel_call_func_call_barrier}
+!3 = !{void ()* @kernel_call_func_call_func_call_barrier}
+!4 = !{void ()* @kernel_call_func_no_call_barrier}
 

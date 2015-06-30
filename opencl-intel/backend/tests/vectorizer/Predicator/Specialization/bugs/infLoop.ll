@@ -489,18 +489,18 @@ declare i1 @__ocl_allZero(i1)
 !opencl.enable.FP_CONTRACT = !{}
 !opencl.kernel_info = !{!3}
 
-!0 = metadata !{void (i32, i32, float, float addrspace(1)*, i32, float, float addrspace(1)*, float addrspace(1)*)* @ocl_Kernel_5, metadata !1}
-!1 = metadata !{metadata !"argument_attribute", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
-!3 = metadata !{void (i32, i32, float, float addrspace(1)*, i32, float, float addrspace(1)*, float addrspace(1)*)* @ocl_Kernel_5, metadata !4}
-!4 = metadata !{metadata !5, metadata !6, metadata !7, metadata !8, metadata !9, metadata !10, metadata !11, metadata !12, metadata !13}
-!5 = metadata !{metadata !"local_buffer_size", null}
-!6 = metadata !{metadata !"barrier_buffer_size", null}
-!7 = metadata !{metadata !"kernel_execution_length", null}
-!8 = metadata !{metadata !"kernel_has_barrier", null}
-!9 = metadata !{metadata !"no_barrier_path", i1 true}
-!10 = metadata !{metadata !"vectorized_kernel", null}
-!11 = metadata !{metadata !"vectorized_width", null}
-!12 = metadata !{metadata !"kernel_wrapper", null}
-!13 = metadata !{metadata !"scalarized_kernel", null}
-!14 = metadata !{float 2.500000e+00}
+!0 = !{void (i32, i32, float, float addrspace(1)*, i32, float, float addrspace(1)*, float addrspace(1)*)* @ocl_Kernel_5, !1}
+!1 = !{!"argument_attribute", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
+!2 = !{!"-cl-std=CL1.2"}
+!3 = !{void (i32, i32, float, float addrspace(1)*, i32, float, float addrspace(1)*, float addrspace(1)*)* @ocl_Kernel_5, !4}
+!4 = !{!5, !6, !7, !8, !9, !10, !11, !12, !13}
+!5 = !{!"local_buffer_size", null}
+!6 = !{!"barrier_buffer_size", null}
+!7 = !{!"kernel_execution_length", null}
+!8 = !{!"kernel_has_barrier", null}
+!9 = !{!"no_barrier_path", i1 true}
+!10 = !{!"vectorized_kernel", null}
+!11 = !{!"vectorized_width", null}
+!12 = !{!"kernel_wrapper", null}
+!13 = !{!"scalarized_kernel", null}
+!14 = !{float 2.500000e+00}

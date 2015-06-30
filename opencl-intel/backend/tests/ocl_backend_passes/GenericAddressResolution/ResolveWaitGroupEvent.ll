@@ -40,5 +40,5 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !opencl.compiler.options = !{!1}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @ker}
-!1 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{void (i32 addrspace(1)*)* @ker}
+!1 = !{!"-cl-std=CL2.0"}

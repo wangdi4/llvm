@@ -19,4 +19,4 @@ define void @enqueue_kernel_events(%opencl.queue_t.7* %q, %opencl.ndrange_t.2* %
 declare i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangejPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvvE(%opencl.queue_t.7*, i32, %opencl.ndrange_t.2*, i32, %opencl.clk_event_t.4**, %opencl.clk_event_t.4**, void ()*)
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

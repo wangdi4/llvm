@@ -458,17 +458,17 @@ define void @externalUnBranchDivLoopMX(i32 addrspace(1)* nocapture %a, i32 addrs
 !opencl.kernels = !{!0, !2, !3, !4, !5, !6, !7, !8, !9}
 !opencl.compiler.options = !{!10}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchMX, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3}
-!2 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchMX, metadata !1}
-!3 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchNestedUnLoopsMX, metadata !1}
-!4 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchNestedLoopsMX, metadata !1}
-!5 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchNestedUnLoopsMX, metadata !1}
-!6 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchNestedLoopsMX, metadata !1}
-!7 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchThreeNestedUnLoopsMX, metadata !1}
-!8 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalUnBranchDivLoopMX, metadata !1}
-!9 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalUnBranchDivLoopMX, metadata !1}
-!10 = metadata !{metadata !"-cl-std=CL1.2"}
-!11 = metadata !{metadata !"int", metadata !12}
-!12 = metadata !{metadata !"omnipotent char", metadata !13}
-!13 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchMX, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3}
+!2 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchMX, !1}
+!3 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchNestedUnLoopsMX, !1}
+!4 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalDivBranchNestedLoopsMX, !1}
+!5 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchNestedUnLoopsMX, !1}
+!6 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchNestedLoopsMX, !1}
+!7 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalDivBranchThreeNestedUnLoopsMX, !1}
+!8 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @internalUnBranchDivLoopMX, !1}
+!9 = !{void (i32 addrspace(1)*, i32 addrspace(1)*, i32)* @externalUnBranchDivLoopMX, !1}
+!10 = !{!"-cl-std=CL1.2"}
+!11 = !{!"int", !12}
+!12 = !{!"omnipotent char", !13}
+!13 = !{!"Simple C/C++ TBAA", null}

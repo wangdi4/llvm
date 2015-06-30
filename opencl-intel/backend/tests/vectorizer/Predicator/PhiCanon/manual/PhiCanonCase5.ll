@@ -65,9 +65,9 @@ declare i32 @_Z13get_global_idj(i32) readnone
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{}
 
-!0 = metadata !{void (i32, i32, float addrspace(1)*, float addrspace(1)*)* @PhiCanonCase5, metadata !1, metadata !1, metadata !"", metadata !"int, int, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *", metadata !"opencl_PhiCanonCase5_locals_anchor", metadata !2, metadata !3, metadata !4, metadata !5, metadata !""}
-!1 = metadata !{i32 0, i32 0, i32 0}
-!2 = metadata !{i32 0, i32 0, i32 1, i32 1}
-!3 = metadata !{i32 3, i32 3, i32 3, i32 3}
-!4 = metadata !{metadata !"int", metadata !"int", metadata !"float*", metadata !"float*"}
-!5 = metadata !{metadata !"arg1", metadata !"arg2", metadata !"a", metadata !"b"}
+!0 = !{void (i32, i32, float addrspace(1)*, float addrspace(1)*)* @PhiCanonCase5, !1, !1, !"", !"int, int, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *", !"opencl_PhiCanonCase5_locals_anchor", !2, !3, !4, !5, !""}
+!1 = !{i32 0, i32 0, i32 0}
+!2 = !{i32 0, i32 0, i32 1, i32 1}
+!3 = !{i32 3, i32 3, i32 3, i32 3}
+!4 = !{!"int", !"int", !"float*", !"float*"}
+!5 = !{!"arg1", !"arg2", !"a", !"b"}

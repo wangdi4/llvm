@@ -60,5 +60,5 @@ define void @pipe_builtins(%opencl.pipe_t addrspace(1)* %pipe, i8 addrspace(1)* 
 
 !opencl.ocl.version = !{!0}
 !opencl.compiler.options = !{!1}
-!0 = metadata !{i32 2, i32 0}
-!1 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{i32 2, i32 0}
+!1 = !{!"-cl-std=CL2.0"}

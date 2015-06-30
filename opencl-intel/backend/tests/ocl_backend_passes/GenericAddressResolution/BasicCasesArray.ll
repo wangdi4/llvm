@@ -19,9 +19,9 @@
 ; CHECK: %call28 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr27)
 ; CHECK: ret
 
-; BUGBUG: !1 = metadata !{metadata !2, metadata !3}																BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !2 = metadata !{metadata !"gen_addr_space_pointer_counter", i32 0}			BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !3 = metadata !{metadata !"gen_addr_space_pointer_warnings"}						BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !1 = !{!2, !3}																BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !2 = !{!"gen_addr_space_pointer_counter", i32 0}			BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !3 = !{!"gen_addr_space_pointer_warnings"}						BUGBUG in Metadata (CQ CSSD100017034)
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
@@ -155,9 +155,9 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
-!1 = metadata !{metadata !"argument_attribute", i32 0, i32 0, i32 0}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
+!1 = !{!"argument_attribute", i32 0, i32 0, i32 0}
+!2 = !{!"-cl-std=CL2.0"}
 
 ;;  -----  BasicCasesArray.cl   -------
 ;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 BasicCasesArray.cl -o BasicCasesArrayTmp.ll

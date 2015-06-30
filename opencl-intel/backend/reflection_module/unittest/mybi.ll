@@ -20,9 +20,9 @@ declare double @_Z3mixddd(double, double, double) nounwind readnone
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}
 
-!0 = metadata !{void (double addrspace(1)*, double addrspace(1)*, double addrspace(1)*)* @testcase, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
-!3 = metadata !{metadata !"double", metadata !4}
-!4 = metadata !{metadata !"omnipotent char", metadata !5}
-!5 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{void (double addrspace(1)*, double addrspace(1)*, double addrspace(1)*)* @testcase, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3}
+!2 = !{!"-cl-std=CL1.2"}
+!3 = !{!"double", !4}
+!4 = !{!"omnipotent char", !5}
+!5 = !{!"Simple C/C++ TBAA", null}

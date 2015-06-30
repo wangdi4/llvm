@@ -61,6 +61,6 @@ declare i32 @_Z14enqueue_kernel9ocl_queuei11ocl_ndrangeU13block_pointerFvvE(%ope
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @enqueue_simple_block, metadata !1}
-!1 = metadata !{metadata !"argument_attribute", i32 0}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{void (i32 addrspace(1)*)* @enqueue_simple_block, !1}
+!1 = !{!"argument_attribute", i32 0}
+!2 = !{!"-cl-std=CL2.0"}

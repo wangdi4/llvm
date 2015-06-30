@@ -37,5 +37,5 @@ declare void @_Z7barrierj(i32)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (i32 addrspace(1)*, <4 x i32>, i32)* @program}
+!0 = !{void (i32 addrspace(1)*, <4 x i32>, i32)* @program}
 

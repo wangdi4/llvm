@@ -105,11 +105,11 @@ declare i64 @_Z14get_local_sizej(i32) nounwind readnone
 !opencl.cl_kernel_arg_info = !{!1}
 !opencl.compiler.options = !{!7}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan}
-!1 = metadata !{metadata !"cl_kernel_arg_info", void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan, metadata !2, metadata !3, metadata !4, metadata !5, metadata !6}
-!2 = metadata !{i32 1, i32 0, i32 3}
-!3 = metadata !{i32 3, i32 3, i32 3}
-!4 = metadata !{metadata !"uint*", metadata !"int", metadata !"uint*"}
-!5 = metadata !{i32 0, i32 1, i32 0}
-!6 = metadata !{metadata !"isums", metadata !"n", metadata !"lmem"}
-!7 = metadata !{metadata !"-cl-kernel-arg-info"}
+!0 = !{void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan}
+!1 = !{!"cl_kernel_arg_info", void (i32 addrspace(1)*, i32, i32 addrspace(3)*)* @top_scan, !2, !3, !4, !5, !6}
+!2 = !{i32 1, i32 0, i32 3}
+!3 = !{i32 3, i32 3, i32 3}
+!4 = !{!"uint*", !"int", !"uint*"}
+!5 = !{i32 0, i32 1, i32 0}
+!6 = !{!"isums", !"n", !"lmem"}
+!7 = !{!"-cl-kernel-arg-info"}

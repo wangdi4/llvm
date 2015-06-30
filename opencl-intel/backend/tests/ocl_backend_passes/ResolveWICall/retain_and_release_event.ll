@@ -19,4 +19,4 @@ declare void @_Z12retain_event13ocl_clk_event(%opencl.clk_event_t*)
 declare void @_Z13release_event13ocl_clk_event(%opencl.clk_event_t*)
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

@@ -32,8 +32,8 @@ declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @store_float, metadata !1, metadata !1, metadata !"", metadata !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", metadata !"opencl_store_float_locals_anchor"}
-!1 = metadata !{i32 0, i32 0, i32 0}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(1)*)* @store_float, !1, !1, !"", !"int __attribute__((address_space(1))) *, int __attribute__((address_space(1))) *", !"opencl_store_float_locals_anchor"}
+!1 = !{i32 0, i32 0, i32 0}
 
 
 

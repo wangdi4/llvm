@@ -29,7 +29,7 @@ declare void @_Z12atomic_storePVU3AS3ii(i32 addrspace(3)*, i32)
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*)* @copy}
-!1 = metadata !{metadata !"int", metadata !2}
-!2 = metadata !{metadata !"omnipotent char", metadata !3}
-!3 = metadata !{metadata !"Simple C/C++ TBAA"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*)* @copy}
+!1 = !{!"int", !2}
+!2 = !{!"omnipotent char", !3}
+!3 = !{!"Simple C/C++ TBAA"}

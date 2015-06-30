@@ -83,4 +83,4 @@ declare i32 @_Z14get_local_sizej(i32)
 declare i32 @_Z23get_enqueued_local_sizej(i32)
 
 !opencl.compiler.options = !{!0}
-!0 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{!"-cl-std=CL2.0"}
