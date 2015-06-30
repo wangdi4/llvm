@@ -87,9 +87,6 @@ private:
   /// CurRegion - Points to the region being processed.
   HLRegion *CurRegion;
 
-  /// LastRegionBB - Points to the (lexically) last bblock of the region.
-  BasicBlock *LastRegionBB;
-
   /// Labels - HLLabel map to be used by later passes.
   SmallDenseMap<const BasicBlock *, HLLabel *, 64> Labels;
 
@@ -112,6 +109,9 @@ private:
   /// region.
   /// Returns the last HLNode for the current sub-tree.
   HLNode *doPreOrderRegionWalk(BasicBlock *BB, HLNode *InsertionPos);
+
+  /// \brief Sets the exit basic block of CurRegion using its last child.
+  void setExitBBlock() const;
 
   /// \brief Creates HLRegions out of IRRegions.
   void create();

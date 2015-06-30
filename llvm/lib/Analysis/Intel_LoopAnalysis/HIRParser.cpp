@@ -403,8 +403,12 @@ bool HIRParser::isBlobDef(const Instruction *Inst) const {
     auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
     if (isa<SCEVUnknown>(SC)) {
       return true;
+    } else if (isPolyBlobDef(Inst)) {
+      return true;
     }
-  } else if (!isPolyBlobDef(Inst)) {
+  } else {
+    // If it isn't SCEVable we cannot eliminate it, so we mark it as a blob
+    // definition.
     return true;
   }
 
@@ -597,20 +601,28 @@ void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
 }
 
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
+  const SCEV *SC;
+  CanonExpr *CE;
 
   if (auto Inst = dyn_cast<Instruction>(Val)) {
     // Parse polynomial blob definitions as (1 * blob)
     if (isPolyBlobDef(Inst)) {
-      auto CE = CanonExprUtils::createCanonExpr(Val->getType());
+      CE = CanonExprUtils::createCanonExpr(Val->getType());
       parseAsBlob(Val, CE, Level);
       return CE;
     }
   }
 
-  auto SC = SE->getSCEV(const_cast<Value *>(Val));
-  auto CE = CanonExprUtils::createCanonExpr(SC->getType());
-
-  parseRecursive(SC, CE, Level, true);
+  // Parse as blob if the type is not SCEVable.
+  // This is currently for handling floating types.
+  if (!SE->isSCEVable(Val->getType())) {
+    CE = CanonExprUtils::createCanonExpr(Val->getType());
+    parseAsBlob(Val, CE, Level);
+  } else {
+    SC = SE->getSCEV(const_cast<Value *>(Val));
+    CE = CanonExprUtils::createCanonExpr(SC->getType());
+    parseRecursive(SC, CE, Level, true);
+  }
 
   return CE;
 }
@@ -754,17 +766,22 @@ void HIRParser::parse(HLIf *If) {
 
 void HIRParser::collectStrides(Type *GEPType,
                                SmallVectorImpl<uint64_t> &Strides) {
-  if (isa<ArrayType>(GEPType)) {
-    GEPType = cast<ArrayType>(GEPType)->getElementType();
+  assert(isa<PointerType>(GEPType));
+  GEPType = cast<PointerType>(GEPType)->getElementType();
+
+  if (ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType)) {
+    GEPType = GEPArrType->getElementType();
   }
 
   // Collect number of elements in each dimension
-  for (; isa<ArrayType>(GEPType);
-       GEPType = cast<ArrayType>(GEPType)->getElementType()) {
-    Strides.push_back(cast<ArrayType>(GEPType)->getNumElements());
+  for (; ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType);
+       GEPType = GEPArrType->getElementType()) {
+    Strides.push_back(GEPArrType->getNumElements());
   }
 
-  assert(GEPType->isIntegerTy() && "Non-integer arrays not handled!");
+  assert((GEPType->isIntegerTy() || GEPType->isFloatingPointTy()) &&
+         "Unexpected GEP type!");
+
   auto ElementSize = GEPType->getPrimitiveSizeInBits() / 8;
 
   // Multiple number of elements in each dimension by the size of each element
@@ -795,30 +812,42 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     // Might need to handle getelementptr instruction later.
     assert(false && "Unhandled instruction!");
   }
+
+  // In some cases float* is converted into int32* before loading/storing.
+  if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
+    GEPVal = BCInst->getOperand(0);
+  }
+
   // TODO: handle A[0] which doesn't have a GEP.
-  assert(GEPVal && isa<GetElementPtrInst>(GEPVal) &&
-         "Could not find GEP instruction!");
-  auto GEPInst = cast<GetElementPtrInst>(GEPVal);
+  assert(GEPVal && isa<GEPOperator>(GEPVal) && "Could not find GEP operator!");
+  auto GEPOp = cast<GEPOperator>(GEPVal);
 
   auto Ref = DDRefUtils::createRegDDRef(0);
 
-  auto BaseCE = parse(GEPInst->getOperand(0), Level);
+  auto BaseCE = parse(GEPOp->getPointerOperand(), Level);
   Ref->setBaseCE(BaseCE);
 
-  collectStrides(GEPInst->getSourceElementType(), Strides);
+  collectStrides(GEPOp->getPointerOperandType(), Strides);
 
-  auto GEPNumOp = GEPInst->getNumOperands();
-  auto Count = Strides.size();
+  unsigned GEPNumOp = GEPOp->getNumOperands();
+  unsigned Count = Strides.size();
+  auto CI = dyn_cast<ConstantInt>(GEPOp->getOperand(1));
+
+  // Check that the number of GEP operands match with the number of strides we
+  // have collected, accounting for cases where the first GEP operand is zero.
+  assert(((Count == GEPNumOp - 1) ||
+          (CI && CI->isZero() && (Count == GEPNumOp - 2))) &&
+         "Number of subscripts snd strides do not match!");
 
   for (auto I = GEPNumOp - 1; Count > 0; --I, --Count) {
-    auto IndexCE = parse(GEPInst->getOperand(I), Level);
+    auto IndexCE = parse(GEPOp->getOperand(I), Level);
 
     auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getType(), 0,
                                                     Strides[Count - 1]);
     Ref->addDimension(IndexCE, StrideCE);
   }
 
-  Ref->setInBounds(dyn_cast<GEPOperator>(GEPVal)->isInBounds());
+  Ref->setInBounds(GEPOp->isInBounds());
   populateBlobDDRefs(Ref);
 
   return Ref;

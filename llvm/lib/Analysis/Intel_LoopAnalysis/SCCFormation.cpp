@@ -334,12 +334,16 @@ bool SCCFormation::runOnFunction(Function &F) {
 
 void SCCFormation::releaseMemory() {
   GlobalNodeIndex = 1;
+  isNewRegion = false;
 
   for (auto &I : RegionSCCs) {
     delete I;
   }
 
   RegionSCCs.clear();
+  RegionSCCBegin.clear();
+  VisitedNodes.clear();
+  NodeStack.clear();
 }
 
 SCCFormation::const_iterator

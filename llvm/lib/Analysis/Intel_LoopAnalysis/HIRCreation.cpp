@@ -172,8 +172,6 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     return InsertionPos;
   }
 
-  LastRegionBB = BB;
-
   auto Root = DT->getNode(BB);
 
   /// Visit(link) this bblock to HIR.
@@ -234,20 +232,32 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   return InsertionPos;
 }
 
+void HIRCreation::setExitBBlock() const {
+
+  auto LastChild = CurRegion->getLastChild();
+  assert(LastChild && "Last child of region is null!");
+  /// TODO: Handle other last child types later.
+  assert(isa<HLIf>(LastChild) && "Unexpected last region child!");
+
+  auto ExitRegionBB = getSrcBBlock(cast<HLIf>(LastChild));
+  assert(ExitRegionBB && "Could not find src bblock of if!");
+
+  CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
+}
+
+
 void HIRCreation::create() {
 
   for (auto &I : *RI) {
 
     CurRegion = HLNodeUtils::createHLRegion(I);
 
-    LastRegionBB = nullptr;
     auto LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
 
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
-    assert(LastRegionBB && "Last region bblock is null!");
 
-    CurRegion->setExitBBlock(LastRegionBB);
+    setExitBBlock();
 
     Regions.push_back(CurRegion);
   }
