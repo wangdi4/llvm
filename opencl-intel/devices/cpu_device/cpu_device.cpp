@@ -1238,13 +1238,17 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_NAME):
         {
             const char* name = CPUDetect::GetInstance()->GetCPUBrandString();
-            *pinternalRetunedValueSize = (NULL == name) ? 0 : (strlen(name) + 1);
+			if (NULL == name)
+			{
+				name = "Unknown CPU";
+			}
+            *pinternalRetunedValueSize = strlen(name) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
             }
             //if OUT paramVal is NULL it should be ignored
-            if((NULL != paramVal) && (NULL != name))
+            if(NULL != paramVal)
             {
                 STRCPY_S((char*)paramVal, valSize, name);
             }
