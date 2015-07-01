@@ -133,7 +133,13 @@ class ClientGDB(TestClient):
         # setup debug server arguments
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
-        gdb_command = os.environ['GDB']
+        # gdb_command = os.environ['GDB'] - should work this way, 
+		# but now there is no obvious way how to set GDB environment variable in appropriate way in test command line
+        """
+        !!! Hardoceded path to gdb it is a HUGE WORKAROUND !!!
+        """
+        gdb_command = '/nfs/inn/proj/ocl/ocl_qa/tools/lin.x64/gdb/rh/bin/gdb'
+		
 		
         options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
         if not options_str:
