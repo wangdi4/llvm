@@ -91,7 +91,9 @@ enum E_EH_TYPE
 //    fully defined.
 enum E_EH_MACHINE
 {
-    EH_MACHINE_NONE       = 0
+    EH_MACHINE_NONE       = 0,
+    EM_860                = 7,      // for 32-bit machine
+    EM_X86_64             = 62      // for 64-bit machine
     //EHT_MACHINE_LO_RSVD    = 1,   // Beginning of range of reserved types.
     //EHT_MACHINE_HI_RSVD    = 200, // End of range of reserved types.
 };
