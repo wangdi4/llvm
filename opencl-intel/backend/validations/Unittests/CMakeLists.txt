@@ -3,6 +3,11 @@ cmake_policy(SET CMP0001 NEW)
 cmake_policy(SET CMP0011 OLD)
 use_eh(TRUE)
 
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+
 set (TARGET_NAME ValidationTests)
 
 # to be shure that ICC compiler uses the correct presentation of 80-bit long doubles
@@ -38,7 +43,7 @@ set(TARGET_SOURCE_FILES
 
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_INCLUDE_DIRS}/cclang
+    ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${BACKEND_ROOT_DIR}/../externals/gtest/include
     ${BACKEND_ROOT_DIR}/../cl_api
     ${BACKEND_ROOT_DIR}/external/tinyxml

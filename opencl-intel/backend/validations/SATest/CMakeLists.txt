@@ -1,3 +1,7 @@
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 #
 # Settings for Linux compilation
 #
@@ -40,7 +44,7 @@ link_directories(${LLVM_LIBRARY_DIRS})
 
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${LLVM_INCLUDE_DIRS}/cclang
+  ${LLVM_FE_INCLUDE_DIRS}/cclang
   ${VALIDATIONS_ROOT}/SATest
   ${VALIDATIONS_ROOT}/DataVersion
   ${VALIDATIONS_ROOT}/DataManager

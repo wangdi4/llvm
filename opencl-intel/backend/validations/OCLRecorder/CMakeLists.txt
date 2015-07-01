@@ -1,3 +1,9 @@
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+
+find_package(LLVM REQUIRED)
 if(NOT WIN32)
 add_definitions(-msse4.2)
 endif(NOT WIN32)
@@ -52,7 +58,7 @@ endif (WIN32)
 # Add include directories
 include_directories(
   ${LLVM_INCLUDE_DIRS}
-  ${LLVM_INCLUDE_DIRS}/cclang
+  ${LLVM_FE_INCLUDE_DIRS}/cclang
   ${VALIDATIONS_ROOT}/DataVersion
   ${OCL_RECORDER_IMPORT_DIR}
   ${OCL_RECORDER_EXPORT_DIR}
@@ -63,6 +69,7 @@ include_directories(
   ${OCL_NEAT_DIR}
   ${CMAKE_SOURCE_DIR}/backend/plugin_manager
 )
+message (STATUS DEBUG: LLVM_PATH_FE=${LLVM_PATH_FE})
 
 if(WIN32)
     get_target_property( lib_dir NEAT_wrapper lib_dir )

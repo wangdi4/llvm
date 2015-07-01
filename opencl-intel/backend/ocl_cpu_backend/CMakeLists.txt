@@ -1,5 +1,13 @@
 cmake_minimum_required(VERSION 2.8.7)
 
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
+
+set (TARGET_NAME ValidationTests)
+
+
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
 
@@ -297,7 +305,7 @@ endif (CMAKE_SIZEOF_VOID_P EQUAL 8)
 # Add include directories
 include_directories(
     ${LLVM_INCLUDE_DIRS}
-    ${LLVM_INCLUDE_DIRS}/cclang
+    ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${BACKEND_ROOT_DIR}
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export
