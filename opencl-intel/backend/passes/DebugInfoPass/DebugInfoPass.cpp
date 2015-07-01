@@ -238,18 +238,20 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 3. Address of the metadata for complex expression
     // 4-6. global IDs for dimensions 0-2
     //
-    vector<Type*> local_params;
-    local_params.push_back(pointer_i8);
+    vector<Type*> declare_params;
+    declare_params.push_back(pointer_i8);
     for (int i = 0; i < 5; ++i)
-      local_params.push_back(i64);
-    FunctionType* local_functype = FunctionType::get(void_type, local_params, false);
+      declare_params.push_back(i64);
+    FunctionType* local_functype = FunctionType::get(void_type, declare_params, false);
     Function::Create(local_functype, Function::ExternalLinkage,
         BUILTIN_DBG_DECLARE_LOCAL_NAME, m_pModule);
 
     // BUILTIN_DBG_DECLARE_GLOBAL_NAME
     // Arguments: similar to BUILTIN_DBG_DECLARE_LOCAL_NAME
-    //
-    Function::Create(local_functype, Function::ExternalLinkage,
+    // except it doesn't have complex expression
+    declare_params.pop_back();
+    FunctionType* global_functype = FunctionType::get(void_type, declare_params, false);
+    Function::Create(global_functype, Function::ExternalLinkage,
         BUILTIN_DBG_DECLARE_GLOBAL_NAME, m_pModule);
 
     // BUILTIN_DBG_ENTER_FUNCTION_NAME
