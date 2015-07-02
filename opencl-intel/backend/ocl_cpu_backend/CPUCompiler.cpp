@@ -408,7 +408,7 @@ void CPUCompiler::DumpJIT( llvm::Module *pModule, const std::string& filename) c
 
     std::error_code ec;
     llvm::raw_fd_ostream out(filename.c_str(), ec, llvm::sys::fs::F_RW);
-    if (!ec)
+    if (ec)
     {
         throw Exceptions::CompilerException(
 			std::string("Failed to open the target file for dump: error code:") + ec.message());
