@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../../dxruntime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll -runtime=dx
+; RUN: opt  -runtimelib %p/../../dxruntime.bc -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll -runtime=dx
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; CHECK: dx_soa_load_input_uniform_indirect_4_float4_vs
 ;;LLVMIR start
