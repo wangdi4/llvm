@@ -1,3 +1,4 @@
+// REQUIRES: llvm-backend
 // RUN: %clang_cc1 -verify -fsyntax-only -triple x86_64-apple-darwin9 %s
 
 int x __attribute__((section(

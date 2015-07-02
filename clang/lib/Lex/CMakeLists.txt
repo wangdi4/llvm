@@ -14,9 +14,6 @@ add_clang_library(clangLex
   PPCallbacks.cpp
   PPConditionalDirectiveRecord.cpp
   PPDirectives.cpp
-#ifdef INTEL_CUSTOMIZATION
-  intel/PPIntelDirectives.cpp
-#endif
   PPExpressions.cpp
   PPLexerChange.cpp
   PPMacroExpansion.cpp

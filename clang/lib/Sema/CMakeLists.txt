@@ -2,6 +2,11 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+if( INTEL_CUSTOMIZATION )
+  add_subdirectory(intel)
+  set(LIBS clangSemaIntel)
+endif()
+
 add_clang_library(clangSema
   AnalysisBasedWarnings.cpp
   AttributeList.cpp
@@ -19,10 +24,6 @@ add_clang_library(clangSema
   SemaCXXScopeSpec.cpp
   SemaCast.cpp
   SemaChecking.cpp
-#ifdef INTEL_CUSTOMIZATION
-  intel/SemaCilk.cpp
-  intel/SemaIntelAttr.cpp
-#endif
   SemaCodeComplete.cpp
   SemaConsumer.cpp
   SemaCUDA.cpp
@@ -60,4 +61,5 @@ add_clang_library(clangSema
   clangBasic
   clangEdit
   clangLex
+  ${LIBS}
   )
