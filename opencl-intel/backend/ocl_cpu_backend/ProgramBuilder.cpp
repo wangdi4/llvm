@@ -247,7 +247,8 @@ cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBack
         if(CheckIfProgramHasCachedExecutable(pProgram))
         {
              std::string log = "Reload Program Binary Object.";
-             ReloadProgramFromCachedExecutable(pProgram);
+             if (!ReloadProgramFromCachedExecutable(pProgram))
+                 throw Exceptions::DeviceBackendExceptionBase("Invalid binary", CL_DEV_INVALID_BINARY);
              pProgram->SetBuildLog(log);
              return CL_DEV_SUCCESS;
         }

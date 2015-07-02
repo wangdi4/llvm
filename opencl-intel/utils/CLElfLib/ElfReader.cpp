@@ -29,11 +29,6 @@ Notes:
 #include <string.h>
 #include <stdio.h>
 
-#if defined _M_X64 || defined __x86_64__
-#define MACHINE EM_X86_64
-#else
-#define MACHINE EM_860
-#endif
 
 namespace CLElfLib
 {
@@ -129,17 +124,6 @@ bool CElfReader::IsValidElf64(
             ourSize += pElf64Header->ElfHeaderSize;
             retVal = true;
         }
-    }
-
-    // validate machine
-    if (retVal == true)
-    {
-        // get the machine header section
-        if (pElf64Header->Machine == MACHINE ||
-            pElf64Header->Machine == 0)
-            retVal = true;
-        else
-            retVal = false;
     }
 
     // validate sections

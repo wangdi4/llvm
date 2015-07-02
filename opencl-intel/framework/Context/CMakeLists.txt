@@ -13,7 +13,7 @@ CALCULATE_TARGET_SOURCES()
 include_directories( 
             ${CMAKE_SOURCE_DIR}/fe_compilers/common_clang 
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export
-            ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
+            ${CMAKE_SOURCE_DIR}/utils/CLElfLib
             )
 
 # add a target named ${TARGET_NAME}

@@ -357,6 +357,13 @@ cl_dev_err_code ProgramService::BuildProgram( cl_dev_program OUT prog,
     cl_build_status status = CL_DEV_SUCCEEDED(ret) ? CL_BUILD_SUCCESS : CL_BUILD_ERROR;
     pEntry->clBuildStatus = status;
 
+    if ( CL_BUILD_SUCCESS != pEntry->clBuildStatus )
+    {
+        CpuErrLog(m_pLogDescriptor, m_iLogHandle, TEXT("Invalid build status(%d), should be CL_BUILD_SUCCESS(%d)"),
+            pEntry->clBuildStatus, CL_BUILD_SUCCESS);
+        return CL_DEV_INVALID_BINARY;
+    }
+
     // if the user requested -dump-opt-asm, emit the asm of this module into a file
     if( CL_DEV_SUCCEEDED(ret) && (NULL != options) && ('\0' != *options) &&
         (NULL != (p = strstr(options, "-dump-opt-asm="))))
