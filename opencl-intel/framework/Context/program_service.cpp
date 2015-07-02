@@ -45,11 +45,6 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-#if defined _M_X64 || defined __x86_64__
-#define MACHINE EM_X86_64
-#else
-#define MACHINE EM_860
-#endif
 
 //
 // ElfWriterDP- ElfWriter delete policy for autoptr.
@@ -187,10 +182,9 @@ bool CompileTask::Execute()
         return true;
     }
 
-    //compile succeeded
     ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_OBJECTS,
-                                                          CLElfLib::MACHINE,
-                                                          0 ));
+                                                          CLElfLib::EH_MACHINE_NONE,
+                                                          CLElfLib::EH_FLAG_NONE ));
     CLElfLib::SSectionNode sectionNode;
     sectionNode.Name = ".ocl.ir";
     sectionNode.pData = pOutBinary.get();
@@ -338,8 +332,8 @@ bool LinkTask::Execute()
     //Else link succeeded
 
     ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( bIsLibrary? CLElfLib::EH_TYPE_OPENCL_LIBRARY : CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS,
-                                                          CLElfLib::MACHINE,
-                                                          0 ));
+                                                          CLElfLib::EH_MACHINE_NONE,
+                                                          CLElfLib::EH_FLAG_NONE ));
     CLElfLib::SSectionNode sectionNode;
     sectionNode.Name = ".ocl.ir";
     sectionNode.pData = pOutBinary.get();

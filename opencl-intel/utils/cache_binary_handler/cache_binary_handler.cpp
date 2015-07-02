@@ -29,11 +29,6 @@
 #include "elf_binary.h"
 #include "assert.h"
 
-#if defined _M_X64 || defined __x86_64__
-#define MACHINE EM_X86_64
-#else
-#define MACHINE EM_860
-#endif
 
 namespace Intel{ namespace OpenCL{ namespace ELFUtils {
 const char* g_metaSectionName = ".ocl.meta";
@@ -133,11 +128,20 @@ const void* CacheBinaryReader::GetSectionData(const char* sectionName) const
     return NULL;
 }
 
-CacheBinaryWriter::CacheBinaryWriter()
+const CLElfLib::SElf64Header* CacheBinaryReader::GetElfHeader()
+{
+    assert(m_pReader && "reader is null");
+    if (m_pReader)
+    {
+        return m_pReader->GetElfHeader();
+    }
+}
+
+CacheBinaryWriter::CacheBinaryWriter(CLElfLib::E_EH_MACHINE  machine, CLElfLib::E_EH_FLAGS flag)
 {
     m_pWriter = CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_EXECUTABLE,
-        CLElfLib::MACHINE,
-        0 );
+                                              machine,
+                                              flag);
 }
 
 CacheBinaryWriter::~CacheBinaryWriter()

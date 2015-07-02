@@ -159,6 +159,11 @@ TEST(FrameworkTestType, Test_clJITLoadTest)
     EXPECT_TRUE(clCheckJITLoadTest());
 }
 
+TEST(FrameworkTestType, Test_GenerateBinaryFile)
+{
+    EXPECT_TRUE(GenerateBinaryFile());
+}
+
 TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
 {
     EXPECT_TRUE(clCheckCPUArchForJIT());
