@@ -80,7 +80,7 @@ class ClientGDB(TestClient):
         self.cl_dir_path = cl_dir_path
 
         self.logfile = logfile
-
+        """
         # FIXME: Get this from some configuration object.
         ci_gdb_location = os.path.join('/opt', 'tools', 'bin', 'gdb')
         if os.path.exists(ci_gdb_location):
@@ -89,7 +89,7 @@ class ClientGDB(TestClient):
         else:
             # default to system gdb
             self.gdb_command = "gdb"
-
+        """
         # Using -1 (an invalid id) as a flag for uninitialized global IDs
         self.gid_x = -1
         self.gid_y = -1
@@ -133,13 +133,7 @@ class ClientGDB(TestClient):
         # setup debug server arguments
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
-        # gdb_command = os.environ['GDB'] - should work this way, 
-		# but now there is no obvious way how to set GDB environment variable in appropriate way in test command line
-        """
-        !!! Hardoceded path to gdb it is a HUGE WORKAROUND !!!
-        """
-        gdb_command = '/nfs/inn/proj/ocl/ocl_qa/tools/lin.x64/gdb/rh/bin/gdb'
-		
+        gdb_command = os.environ['GDB']+'/gdb'
 		
         options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
         if not options_str:
