@@ -211,10 +211,6 @@ class GCC<string name> : Spelling<name, "GCC"> {
   let KnownToGCC = 1;
 }
 
-//#ifdef INTEL_CUSTOMIZATION
-class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
-//#endif  //INTEL_CUSTOMIZATION
-
 class Accessor<string name, list<Spelling> spellings> {
   string Name = name;
   list<Spelling> Spellings = spellings;
@@ -237,6 +233,12 @@ class LangOpt<string name, bit negated = 0> {
   string Name = name;
   bit Negated = negated;
 }
+
+//#ifdef INTEL_CUSTOMIZATION
+class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
+def CilkPlus : LangOpt<"CilkPlus">;
+//#endif  //INTEL_CUSTOMIZATION
+
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
@@ -2115,6 +2117,34 @@ def CilkLinear : InheritableAttr {
       }
       SourceLocation getStepLoc() const {
         Expr *E = getStepExpr();
+        return E ? E->getExprLoc() : SourceLocation();
+      }
+      template <typename SemaMemberPtr>
+        Expr *CheckArgument(Sema &S, Expr *E, SemaMemberPtr Fn) const {
+        return (S.*Fn)(E);
+      }
+    }];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
+def CilkAligned : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "aligned">];
+  let LangOpts = [CilkPlus];
+  let Args = [IdentifierArgument<"Parameter">,
+              SourceLocArgument<"ParameterLoc">,
+              CheckedExprArgument<"AlignedExpr">,
+              SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let AdditionalMembers =
+    [{
+      IdentifierInfo *getAlignedParameter() const {
+        DeclRefExpr *E = dyn_cast_or_null<DeclRefExpr>(getAlignedExpr());
+        return E ? E->getDecl()->getIdentifier() : 0;
+      }
+      SourceLocation getAlignedLoc() const {
+        Expr *E = getAlignedExpr();
         return E ? E->getExprLoc() : SourceLocation();
       }
       template <typename SemaMemberPtr>

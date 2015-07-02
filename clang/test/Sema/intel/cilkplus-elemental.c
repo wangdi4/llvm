@@ -36,3 +36,10 @@ ATTR(vector(linear(this, this)))          // expected-error {{parameter 'this' c
 ATTR(vector(uniform(this), linear(this))) // expected-error {{parameter 'this' cannot be the subject of two elemental clauses}} // expected-note{{here}}
 ATTR(vector(linear(this), uniform(this))) // expected-error {{parameter 'this' cannot be the subject of two elemental clauses}} // expected-note{{here}}
 int test_this(int this); // expected-note 4{{parameter here}}
+
+ATTR(vector(aligned(i))) // OK
+int test_int_ptr(struct S s, int i);
+ATTR(vector(aligned(i, s : 16))) // OK
+int test_int_ptr(struct S s, int i);
+ATTR(vector(aligned(s : i))) // expected-error {{aligned is not a constant}}
+int test_int_ptr(struct S s, int i);

@@ -3327,6 +3327,7 @@ public:
   bool DiagnoseElementalAttributes(FunctionDecl *FD);
   Expr *CheckCilkVecLengthArg(Expr *E);
   Expr *CheckCilkLinearArg(Expr *E);
+  Expr *CheckCilkAlignedArg(Expr *E);
 
   StmtResult ActOnCilkSyncStmt(SourceLocation SyncLoc);
   ExprResult ActOnCilkSpawnCall(SourceLocation SpawnLoc, Expr *E);

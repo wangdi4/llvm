@@ -314,7 +314,8 @@ void Parser::ParseCilkPlusElementalAttribute(IdentifierInfo &AttrName,
     SourceLocation SubAttrNameLoc = ConsumeToken();
 
     if (Tok.is(tok::l_paren)) {
-      if (SubAttrName->isStr("uniform") || SubAttrName->isStr("linear")) {
+      if (SubAttrName->isStr("uniform") || SubAttrName->isStr("linear") ||
+          SubAttrName->isStr("aligned")) {
         // These sub-attributes are parsed specially because their
         // arguments are function parameters not yet declared.
         ParseFunctionParameterAttribute(*SubAttrName, SubAttrNameLoc,
@@ -405,7 +406,7 @@ void Parser::ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
                                                  ParmName);
     ArgExprs.push_back(IdArg);
 
-    if (AttrName.isStr("linear")) {
+    if (AttrName.isStr("linear") || AttrName.isStr("aligned")) {
       if (Tok.is(tok::colon)) {
         ConsumeToken();
         // The grammar is ambiguous for the linear step, which could be a

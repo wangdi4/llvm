@@ -7658,6 +7658,10 @@ def err_cilk_elemental_linear_step_not_integral : Error<
   "linear step has non-integer type %0">;
 def err_cilk_elemental_linear_step_not_constant : Error<
   "linear step is not constant">;
+def err_cilk_elemental_aligned_not_integral : Error<
+  "aligned has non-integer type %0">;
+def err_cilk_elemental_aligned_not_constant : Error<
+  "aligned is not a constant">;
 def err_cilk_elemental_repeated_vectorlength: Error<
   "repeated %select{vectorlength|vectorlengthfor}0 attribute is not allowed">;
 def err_cilk_elemental_both_mask_nomask : Error<

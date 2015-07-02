@@ -4117,6 +4117,9 @@ bool Sema::DiagnoseElementalAttributes(FunctionDecl *FD) {
     } else if (CilkLinearAttr *A = dyn_cast<CilkLinearAttr>(*AI)) {
       unsigned key = A->getGroup().getRawEncoding();
       Groups[key].push_back(A);
+    } else if (CilkAlignedAttr *A = dyn_cast<CilkAlignedAttr>(*AI)) {
+      unsigned key = A->getGroup().getRawEncoding();
+      Groups[key].push_back(A);
     } else if (CilkUniformAttr *A = dyn_cast<CilkUniformAttr>(*AI)) {
       unsigned key = A->getGroup().getRawEncoding();
       Groups[key].push_back(A);
@@ -4157,6 +4160,9 @@ bool Sema::DiagnoseElementalAttributes(FunctionDecl *FD) {
       } else if (CilkLinearAttr *LA = dyn_cast<CilkLinearAttr>(CurA)) {
         II = LA->getParameter();
         SubjectLoc = LA->getParameterLoc();
+      } else if (CilkAlignedAttr *AA = dyn_cast<CilkAlignedAttr>(CurA)) {
+        II = AA->getParameter();
+        SubjectLoc = AA->getParameterLoc();
       } else if (CilkMaskAttr *MA = dyn_cast<CilkMaskAttr>(CurA)) {
         // Check (4)
         if (PrevMaskAttr && PrevMaskAttr->getMask() != MA->getMask()) {
@@ -4317,6 +4323,41 @@ Expr *Sema::CheckCilkLinearArg(Expr *E) {
     llvm::APSInt Val(Context.getTypeSize(Ty), /*isUnsigned*/ false);
     if (!E->isIntegerConstantExpr(Val, Context)) {
       Diag(ExprLoc, diag::err_cilk_elemental_linear_step_not_constant)
+          << E->getSourceRange();
+      return 0;
+    }
+
+    // Create an integeral literal for the final attribute.
+    return IntegerLiteral::Create(Context, Val, Ty, ExprLoc);
+  }
+
+  return E;
+}
+
+Expr *Sema::CheckCilkAlignedArg(Expr *E) {
+  if (!E)
+    return E;
+
+  SourceLocation ExprLoc = E->getExprLoc();
+  QualType Ty = E->getType().getNonReferenceType();
+
+  // Check type.
+  if (!E->isTypeDependent() && !Ty->isIntegralOrEnumerationType()) {
+    Diag(ExprLoc, diag::err_cilk_elemental_aligned_not_integral)
+        << E->getType() << E->getSourceRange();
+    return 0;
+  }
+
+  if (!E->isInstantiationDependent()) {
+    // If this is a parameter name, then return itself. Otherwise, make
+    // sure it is an integer constant.
+    if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E))
+      if (isa<ParmVarDecl>(DRE->getDecl()))
+        return E;
+
+    llvm::APSInt Val(Context.getTypeSize(Ty), /*isUnsigned*/ false);
+    if (!E->isIntegerConstantExpr(Val, Context)) {
+      Diag(ExprLoc, diag::err_cilk_elemental_aligned_not_constant)
           << E->getSourceRange();
       return 0;
     }

@@ -164,40 +164,44 @@ static char encodeISAClass(ISAClass ISA) {
 
 static llvm::FunctionType *
 encodeParameters(llvm::Function *Func, llvm::MDNode *ArgName,
-                 llvm::MDNode *ArgStep, bool Mask, llvm::Type *VectorDataTy,
-                 SmallVectorImpl<ParamInfo> &Info,
+                 llvm::MDNode *ArgStep, llvm::MDNode *ArgAlig, bool Mask,
+                 llvm::Type *VectorDataTy, SmallVectorImpl<ParamInfo> &Info,
                  llvm::raw_svector_ostream &MangledParams) {
   assert(Func && "Func is null");
   unsigned ArgSize = Func->arg_size();
 
   assert((ArgName->getNumOperands() == 1 + ArgSize) && "invalid metadata");
   assert((ArgStep->getNumOperands() == 1 + ArgSize) && "invalid metadata");
+  assert((ArgAlig->getNumOperands() == 1 + ArgSize) && "invalid metadata");
 
   SmallVector<llvm::Type *, 4> Tys;
   llvm::Function::const_arg_iterator Arg = Func->arg_begin();
   for (unsigned i = 1, ie = 1 + ArgSize; i < ie; ++i, ++Arg) {
-    // llvm::MDString *Name = dyn_cast<llvm::MDString>(ArgName->getOperand(i));
-    // assert(Name && "invalid metadata");
+    llvm::MDString *Name = dyn_cast<llvm::MDString>(ArgName->getOperand(i));
+    assert(Name && "invalid metadata");
 
     llvm::Metadata *Step = ArgStep->getOperand(i);
-    llvm::Value *V = (dyn_cast<llvm::ValueAsMetadata>(Step))->getValue();
-    if (isa<llvm::UndefValue>(V)) {
-      MangledParams << "v";
-      unsigned VL = VectorDataTy->getVectorNumElements();
-      Tys.push_back(llvm::VectorType::get(Arg->getType(), VL));
-      Info.push_back(ParamInfo(PK_Vector));
-    } else if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(V)) {
-      if (C->isZero()) {
-        MangledParams << "u";
-        Tys.push_back(Arg->getType());
-        Info.push_back(ParamInfo(PK_Uniform));
-      } else {
-        MangledParams << "l";
-        if (!C->isOne())
-          MangledParams << C->getZExtValue();
-        Tys.push_back(Arg->getType());
-        Info.push_back(ParamInfo(PK_LinearConst, C));
-      }
+    if (llvm::ValueAsMetadata *VAM = dyn_cast<llvm::ValueAsMetadata>(Step)) {
+      llvm::Value *V = VAM->getValue();
+      if (isa<llvm::UndefValue>(V)) {
+        MangledParams << "v";
+        unsigned VL = VectorDataTy->getVectorNumElements();
+        Tys.push_back(llvm::VectorType::get(Arg->getType(), VL));
+        Info.push_back(ParamInfo(PK_Vector));
+      } else if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(V)) {
+        if (C->isZero()) {
+          MangledParams << "u";
+          Tys.push_back(Arg->getType());
+          Info.push_back(ParamInfo(PK_Uniform));
+        } else {
+          MangledParams << "l";
+          if (!C->isOne())
+            MangledParams << C->getZExtValue();
+          Tys.push_back(Arg->getType());
+          Info.push_back(ParamInfo(PK_LinearConst, C));
+        }
+      } else
+        llvm_unreachable("invalid step metadata");
     } else if (llvm::MDString *StepName = dyn_cast<llvm::MDString>(Step)) {
       // Search parameter names for StepName to determine the index.
       unsigned Idx = 0, NumParams = ArgName->getNumOperands() - 1;
@@ -217,6 +221,31 @@ encodeParameters(llvm::Function *Func, llvm::MDNode *ArgName,
       Info.push_back(ParamInfo(
           PK_Linear,
           llvm::ConstantInt::get(llvm::Type::getInt32Ty(Context), Idx)));
+    } else
+      llvm_unreachable("invalid step metadata");
+
+    llvm::Metadata *Align = ArgAlig->getOperand(i);
+    if (llvm::ValueAsMetadata *VAM = dyn_cast<llvm::ValueAsMetadata>(Align)) {
+      llvm::Value *V = VAM->getValue();
+      if (llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(V)) {
+        MangledParams << "a";
+        if (!C->isZero())
+          MangledParams << C->getZExtValue();
+      }
+    } else if (llvm::MDString *AligName = dyn_cast<llvm::MDString>(Align)) {
+      // Search parameter names for AligName to determine the index.
+      unsigned Idx = 0, NumParams = ArgName->getNumOperands() - 1;
+      for (; Idx < NumParams; ++Idx) {
+        // The first operand is the argument name kind metadata.
+        llvm::Metadata *V = ArgName->getOperand(Idx + 1);
+        assert(isa<llvm::MDString>(V) && "invalid metadata");
+        llvm::MDString *MS = cast<llvm::MDString>(V);
+        if (MS->getString().equals(AligName->getString()))
+          break;
+      }
+      assert((Idx < NumParams) && "aligned parameter not found");
+
+      MangledParams << "A" << Idx;
     } else
       llvm_unreachable("invalid step metadata");
   }
@@ -319,16 +348,17 @@ static bool getMetaInfo(llvm::Function *Func, llvm::MDNode *MetadataRoot,
 static bool writeMangledName(std::string ProcessorName, bool IsMasked,
                              llvm::raw_svector_ostream &MangledName,
                              llvm::MDNode *ArgName, llvm::MDNode *ArgStep,
-                             llvm::Type *VectorDataTy, uint64_t VLen,
-                             llvm::Function *Func) {
+                             llvm::MDNode *ArgAlig, llvm::Type *VectorDataTy,
+                             uint64_t VLen, llvm::Function *Func) {
   ISAClass ISA = getISAClass(ProcessorName);
   if (ISA == IC_Unknown)
     return false;
   SmallVector<ParamInfo, 4> Info;
   SmallString<16> ParamStr;
   llvm::raw_svector_ostream MangledParams(ParamStr);
-  llvm::FunctionType *NewFuncTy = encodeParameters(
-      Func, ArgName, ArgStep, IsMasked, VectorDataTy, Info, MangledParams);
+  llvm::FunctionType *NewFuncTy =
+      encodeParameters(Func, ArgName, ArgStep, ArgAlig, IsMasked, VectorDataTy,
+                       Info, MangledParams);
   if (!NewFuncTy)
     return false;
   MangledName << "_ZGV" // Magic prefix
@@ -361,8 +391,8 @@ static bool createMangledName(llvm::Function *Func, llvm::MDNode *MD,
     return false;
   }
 
-  return  writeMangledName(ProcessorName, IsMasked, MangledName, ArgName,
-                           ArgStep, VectorDataTy, VLen, Func);
+  return writeMangledName(ProcessorName, IsMasked, MangledName, ArgName,
+                          ArgStep, ArgAlig, VectorDataTy, VLen, Func);
 }
 
 void CodeGenModule::EmitCilkElementalAttribute(llvm::Function *Func,
@@ -655,6 +685,14 @@ void CodeGenModule::EmitCilkElementalMetadata(const CGFunctionInfo &FnInfo,
         Step = E->getValue().getSExtValue();
       }
       Groups[key].setLinear(Name, IdName, Step);
+    } else if (CilkAlignedAttr *A = dyn_cast<CilkAlignedAttr>(*AI)) {
+      unsigned key = A->getGroup().getRawEncoding();
+      std::string Name = A->getParameter()->getName();
+      int Align = -1;
+      if (IntegerLiteral *E = dyn_cast<IntegerLiteral>(A->getAlignedExpr()))
+        Align = E->getValue().getSExtValue();
+      if (Align >= 0)
+        Groups[key].setAligned(Name, Align);
     } else if (CilkUniformAttr *A = dyn_cast<CilkUniformAttr>(*AI)) {
       unsigned key = A->getGroup().getRawEncoding();
       Groups[key].setUniform(A->getParameter()->getName());
@@ -888,13 +926,13 @@ static bool createVectorVariant(llvm::MDNode *Root, const FunctionDecl *FD,
                                 llvm::Function *Func) {
   std::string ProcessorName;
   unsigned VariantIndex = 0;
-  llvm::MDNode *ArgName = 0, *ArgStep = 0, *Mask = 0, *Variant = 0;
+  llvm::MDNode *ArgName = 0, *ArgStep = 0, *ArgAlig = 0, *Mask = 0,
+               *Variant = 0;
   llvm::Type *VectorDataTy = 0;
   uint64_t VLen = 0;
 
-  if (!getMetaInfo(Func, Root, &ArgName, nullptr, &ArgStep, 
-                  &VectorDataTy, &VLen,
-                  &Mask, &Variant, &VariantIndex, ProcessorName))
+  if (!getMetaInfo(Func, Root, &ArgName, nullptr, &ArgStep, &VectorDataTy,
+                   &VLen, &Mask, &Variant, &VariantIndex, ProcessorName))
     return false;
 
   if (!ArgName || !ArgStep || !VectorDataTy || !Variant) {
@@ -923,16 +961,17 @@ static bool createVectorVariant(llvm::MDNode *Root, const FunctionDecl *FD,
   SmallVector<ParamInfo, 4> Info;
   SmallString<16> ParamStr;
   llvm::raw_svector_ostream MangledParams(ParamStr);
-  llvm::FunctionType *NewFuncTy = encodeParameters(
-      Func, ArgName, ArgStep, IsMasked, VectorDataTy, Info, MangledParams);
+  llvm::FunctionType *NewFuncTy =
+      encodeParameters(Func, ArgName, ArgStep, ArgAlig, IsMasked, VectorDataTy,
+                       Info, MangledParams);
   if (!NewFuncTy)
     return false;
 
   // Generate the mangled name.
   SmallString<32> NameStr;
   llvm::raw_svector_ostream MangledName(NameStr);
-  if (!writeMangledName(ProcessorName, IsMasked, MangledName, ArgName,
-                        ArgStep, VectorDataTy, VLen, Func))
+  if (!writeMangledName(ProcessorName, IsMasked, MangledName, ArgName, ArgStep,
+                        ArgAlig, VectorDataTy, VLen, Func))
     return false;
 
   // Declare the vector variant function in to the module.
