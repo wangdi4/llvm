@@ -73,7 +73,7 @@ namespace{
             "  ret void "
             "} "
             "!opencl.kernels = !{!0}"
-            "!0 = metadata !{void (") + stringForParser(params) + std::string(")* @") + kernelName + std::string("}");
+            "!0 = !{void (") + stringForParser(params) + std::string(")* @") + kernelName + std::string("}");
         std::cerr << program << std::endl;
 
         llvm::SMDiagnostic Error;
