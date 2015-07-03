@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../Full/runtime.bc -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../Full/runtime.bc -std-link-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -scalarize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\tcc.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -155,7 +155,7 @@ for.body:                                         ; preds = %for.cond
   %tmp44 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom = sext i16 %vecext to i32              ; <i32> [#uses=1]
   %arrayidx45 = getelementptr inbounds i8 addrspace(2)* %tmp44, i32 %idxprom ; <i8 addrspace(2)*> [#uses=1]
-  %0 = bitcast i8 addrspace(2)* %arrayidx45 to i32* ; <i32*> [#uses=1]
+  %0 = addrspacecast i8 addrspace(2)* %arrayidx45 to i32* ; <i32*> [#uses=1]
   %tmp46 = load i32* %0                           ; <i32> [#uses=1]
   %tmp47 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins = insertelement <8 x i32> %tmp47, i32 %tmp46, i32 0 ; <<8 x i32>> [#uses=1]
@@ -165,7 +165,7 @@ for.body:                                         ; preds = %for.cond
   %tmp50 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom51 = sext i16 %vecext49 to i32          ; <i32> [#uses=1]
   %arrayidx52 = getelementptr inbounds i8 addrspace(2)* %tmp50, i32 %idxprom51 ; <i8 addrspace(2)*> [#uses=1]
-  %1 = bitcast i8 addrspace(2)* %arrayidx52 to i32* ; <i32*> [#uses=1]
+  %1 = addrspacecast i8 addrspace(2)* %arrayidx52 to i32* ; <i32*> [#uses=1]
   %tmp53 = load i32* %1                           ; <i32> [#uses=1]
   %tmp54 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins55 = insertelement <8 x i32> %tmp54, i32 %tmp53, i32 1 ; <<8 x i32>> [#uses=1]
@@ -175,7 +175,7 @@ for.body:                                         ; preds = %for.cond
   %tmp58 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom59 = sext i16 %vecext57 to i32          ; <i32> [#uses=1]
   %arrayidx60 = getelementptr inbounds i8 addrspace(2)* %tmp58, i32 %idxprom59 ; <i8 addrspace(2)*> [#uses=1]
-  %2 = bitcast i8 addrspace(2)* %arrayidx60 to i32* ; <i32*> [#uses=1]
+  %2 = addrspacecast i8 addrspace(2)* %arrayidx60 to i32* ; <i32*> [#uses=1]
   %tmp61 = load i32* %2                           ; <i32> [#uses=1]
   %tmp62 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins63 = insertelement <8 x i32> %tmp62, i32 %tmp61, i32 2 ; <<8 x i32>> [#uses=1]
@@ -185,7 +185,7 @@ for.body:                                         ; preds = %for.cond
   %tmp66 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom67 = sext i16 %vecext65 to i32          ; <i32> [#uses=1]
   %arrayidx68 = getelementptr inbounds i8 addrspace(2)* %tmp66, i32 %idxprom67 ; <i8 addrspace(2)*> [#uses=1]
-  %3 = bitcast i8 addrspace(2)* %arrayidx68 to i32* ; <i32*> [#uses=1]
+  %3 = addrspacecast i8 addrspace(2)* %arrayidx68 to i32* ; <i32*> [#uses=1]
   %tmp69 = load i32* %3                           ; <i32> [#uses=1]
   %tmp70 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins71 = insertelement <8 x i32> %tmp70, i32 %tmp69, i32 3 ; <<8 x i32>> [#uses=1]
@@ -195,7 +195,7 @@ for.body:                                         ; preds = %for.cond
   %tmp74 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom75 = sext i16 %vecext73 to i32          ; <i32> [#uses=1]
   %arrayidx76 = getelementptr inbounds i8 addrspace(2)* %tmp74, i32 %idxprom75 ; <i8 addrspace(2)*> [#uses=1]
-  %4 = bitcast i8 addrspace(2)* %arrayidx76 to i32* ; <i32*> [#uses=1]
+  %4 = addrspacecast i8 addrspace(2)* %arrayidx76 to i32* ; <i32*> [#uses=1]
   %tmp77 = load i32* %4                           ; <i32> [#uses=1]
   %tmp78 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins79 = insertelement <8 x i32> %tmp78, i32 %tmp77, i32 4 ; <<8 x i32>> [#uses=1]
@@ -205,7 +205,7 @@ for.body:                                         ; preds = %for.cond
   %tmp82 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom83 = sext i16 %vecext81 to i32          ; <i32> [#uses=1]
   %arrayidx84 = getelementptr inbounds i8 addrspace(2)* %tmp82, i32 %idxprom83 ; <i8 addrspace(2)*> [#uses=1]
-  %5 = bitcast i8 addrspace(2)* %arrayidx84 to i32* ; <i32*> [#uses=1]
+  %5 = addrspacecast i8 addrspace(2)* %arrayidx84 to i32* ; <i32*> [#uses=1]
   %tmp85 = load i32* %5                           ; <i32> [#uses=1]
   %tmp86 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins87 = insertelement <8 x i32> %tmp86, i32 %tmp85, i32 5 ; <<8 x i32>> [#uses=1]
@@ -215,7 +215,7 @@ for.body:                                         ; preds = %for.cond
   %tmp90 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom91 = sext i16 %vecext89 to i32          ; <i32> [#uses=1]
   %arrayidx92 = getelementptr inbounds i8 addrspace(2)* %tmp90, i32 %idxprom91 ; <i8 addrspace(2)*> [#uses=1]
-  %6 = bitcast i8 addrspace(2)* %arrayidx92 to i32* ; <i32*> [#uses=1]
+  %6 = addrspacecast i8 addrspace(2)* %arrayidx92 to i32* ; <i32*> [#uses=1]
   %tmp93 = load i32* %6                           ; <i32> [#uses=1]
   %tmp94 = load <8 x i32>* %sat_data_uint8        ; <<8 x i32>> [#uses=1]
   %vecins95 = insertelement <8 x i32> %tmp94, i32 %tmp93, i32 6 ; <<8 x i32>> [#uses=1]
@@ -225,7 +225,7 @@ for.body:                                         ; preds = %for.cond
   %tmp98 = load i8 addrspace(2)** %SatLUTEntry.addr ; <i8 addrspace(2)*> [#uses=1]
   %idxprom99 = sext i16 %vecext97 to i32          ; <i32> [#uses=1]
   %arrayidx100 = getelementptr inbounds i8 addrspace(2)* %tmp98, i32 %idxprom99 ; <i8 addrspace(2)*> [#uses=1]
-  %7 = bitcast i8 addrspace(2)* %arrayidx100 to i32* ; <i32*> [#uses=1]
+  %7 = addrspacecast i8 addrspace(2)* %arrayidx100 to i32* ; <i32*> [#uses=1]
   %tmp101 = load i32* %7                          ; <i32> [#uses=1]
   %tmp102 = load <8 x i32>* %sat_data_uint8       ; <<8 x i32>> [#uses=1]
   %vecins103 = insertelement <8 x i32> %tmp102, i32 %tmp101, i32 7 ; <<8 x i32>> [#uses=1]

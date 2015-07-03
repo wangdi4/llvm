@@ -84,7 +84,8 @@ define i32 @list_create(<4 x float> %in, i32 %x) #1 {
 
 ; <label>:33                                      ; preds = %33, %0
   %oldVal.0.i = phi i32 [ %32, %0 ], [ %34, %33 ]
-  %34 = cmpxchg i32* %31, i32 %oldVal.0.i, i32 %x seq_cst
+  %atom_op = cmpxchg i32* %31, i32 %oldVal.0.i, i32 %x seq_cst seq_cst
+  %34 = extractvalue { i32, i1 } %atom_op, 0
   %35 = icmp eq i32 %oldVal.0.i, %34
   br i1 %35, label %atomicXchg.exit, label %33
 
@@ -160,7 +161,8 @@ init:
 
 ; <label>:33                                      ; preds = %33, %init
   %oldVal.0.i.i = phi i32 [ %32, %init ], [ %34, %33 ]
-  %34 = cmpxchg i32* %31, i32 %oldVal.0.i.i, i32 %x seq_cst
+  %atom_op = cmpxchg i32* %31, i32 %oldVal.0.i.i, i32 %x seq_cst seq_cst
+  %34 = extractvalue { i32, i1 } %atom_op, 0
   %35 = icmp eq i32 %oldVal.0.i.i, %34
   br i1 %35, label %list_create.exit, label %33
 
@@ -11396,14 +11398,16 @@ define <4 x float> @rsUnpackColor8888(<4 x i8> %c) #7 {
 
 ; Function Attrs: nounwind
 define i32 @_Z11rsAtomicCasPViii(i32* %ptr, i32 %expectedValue, i32 %newValue) #5 {
-  %1 = cmpxchg i32* %ptr, i32 %expectedValue, i32 %newValue seq_cst
-  ret i32 %1
+  %1 = cmpxchg i32* %ptr, i32 %expectedValue, i32 %newValue seq_cst seq_cst
+  %2 = extractvalue { i32, i1 } %1, 0
+  ret i32 %2
 }
 
 ; Function Attrs: nounwind
 define i32 @_Z11rsAtomicCasPVjjj(i32* %ptr, i32 %expectedValue, i32 %newValue) #5 {
-  %1 = cmpxchg i32* %ptr, i32 %expectedValue, i32 %newValue seq_cst
-  ret i32 %1
+  %1 = cmpxchg i32* %ptr, i32 %expectedValue, i32 %newValue seq_cst seq_cst
+  %2 = extractvalue { i32, i1 } %1, 0
+  ret i32 %2
 }
 
 ; Function Attrs: nounwind
@@ -11456,7 +11460,8 @@ define i32 @_Z11rsAtomicMinPVjj(i32* %ptr, i32 %value) #5 {
   %2 = load volatile i32* %ptr, align 4, !tbaa !21
   %3 = icmp ult i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
-  %5 = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst
+  %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
+  %5 = extractvalue { i32, i1 } %val, 0
   %6 = icmp eq i32 %5, %2
   br i1 %6, label %7, label %1
 
@@ -11472,7 +11477,8 @@ define i32 @_Z11rsAtomicMinPVii(i32* %ptr, i32 %value) #5 {
   %2 = load volatile i32* %ptr, align 4, !tbaa !21
   %3 = icmp slt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
-  %5 = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst
+  %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
+  %5 = extractvalue { i32, i1 } %val, 0
   %6 = icmp eq i32 %5, %2
   br i1 %6, label %7, label %1
 
@@ -11488,7 +11494,8 @@ define i32 @_Z11rsAtomicMaxPVjj(i32* %ptr, i32 %value) #5 {
   %2 = load volatile i32* %ptr, align 4, !tbaa !21
   %3 = icmp ugt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
-  %5 = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst
+  %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
+  %5 = extractvalue { i32, i1 } %val, 0
   %6 = icmp eq i32 %5, %2
   br i1 %6, label %7, label %1
 
@@ -11504,7 +11511,8 @@ define i32 @_Z11rsAtomicMaxPVii(i32* %ptr, i32 %value) #5 {
   %2 = load volatile i32* %ptr, align 4, !tbaa !21
   %3 = icmp sgt i32 %value, %2
   %4 = select i1 %3, i32 %value, i32 %2
-  %5 = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst
+  %val = cmpxchg i32* %ptr, i32 %2, i32 %4 seq_cst seq_cst
+  %5 = extractvalue { i32, i1 } %val, 0
   %6 = icmp eq i32 %5, %2
   br i1 %6, label %7, label %1
 
@@ -28877,8 +28885,9 @@ declare float @_Z10half_rsqrtf.clone(float)
 declare float @_Z4sqrtf.clone(float)
 
 define i32 @cmpxchg.mock(i32*, i32, i32) {
-  %4 = cmpxchg i32* %0, i32 %1, i32 %2 seq_cst
-  ret i32 %4
+  %4 = cmpxchg i32* %0, i32 %1, i32 %2 seq_cst seq_cst
+  %5 = extractvalue { i32, i1 } %4, 0
+  ret i32 %5
 }
 
 attributes #0 = { alwaysinline nounwind readnone }

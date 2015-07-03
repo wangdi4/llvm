@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-link-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlDCT.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -10,11 +10,11 @@ target triple = "i686-pc-win32"
 @opencl_DCT_local_inter = internal addrspace(3) global [64 x float] zeroinitializer, align 4 ; <[64 x float] addrspace(3)*> [#uses=2]
 @opencl_DCT_VECTOR_local_inter = internal addrspace(3) global [8 x <8 x float>] zeroinitializer, align 32 ; <[8 x <8 x float>] addrspace(3)*> [#uses=9]
 @opencl_DCT_VECTOR_DOT_local_inter = internal addrspace(3) global [8 x <8 x float>] zeroinitializer, align 32 ; <[8 x <8 x float>] addrspace(3)*> [#uses=9]
-@opencl_DCT_locals = appending global [2 x i8*] [i8* bitcast ([64 x float] addrspace(3)* @opencl_DCT_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
+@opencl_DCT_locals = appending global [2 x i8*] [i8* addrspacecast ([64 x float] addrspace(3)* @opencl_DCT_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
 @opencl_DCT_parameters = appending global [140 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[140 x i8]*> [#uses=1]
-@opencl_DCT_VECTOR_locals = appending global [2 x i8*] [i8* bitcast ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
+@opencl_DCT_VECTOR_locals = appending global [2 x i8*] [i8* addrspacecast ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
 @opencl_DCT_VECTOR_parameters = appending global [143 x i8] c"float8 __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[143 x i8]*> [#uses=1]
-@opencl_DCT_VECTOR_DOT_locals = appending global [2 x i8*] [i8* bitcast ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
+@opencl_DCT_VECTOR_DOT_locals = appending global [2 x i8*] [i8* addrspacecast ([8 x <8 x float>] addrspace(3)* @opencl_DCT_VECTOR_DOT_local_inter to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
 @opencl_DCT_VECTOR_DOT_parameters = appending global [143 x i8] c"float8 __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, float8 __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[143 x i8]*> [#uses=1]
 @opencl_DCT_CPU_locals = appending global [1 x i8*] zeroinitializer, section "llvm.metadata" ; <[1 x i8*]*> [#uses=1]
 @opencl_DCT_CPU_parameters = appending global [140 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const\00", section "llvm.metadata" ; <[140 x i8]*> [#uses=1]

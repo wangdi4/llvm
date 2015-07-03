@@ -56,7 +56,7 @@ if.end8:                                          ; preds = %if.then7, %if.then3
 
 if.else:                                          ; preds = %if.end
   %5 = load i32* %c, align 4
-  %call9 = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([13 x i8]* @.str to i8 addrspace(2)*), i32 %5)
+  %call9 = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([13 x i8]* @.str to i8 addrspace(2)*), i32 %5)
   br label %if.end10
 
 if.end10:                                         ; preds = %if.else, %if.end8

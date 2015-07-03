@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../runtime.bc -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../runtime.bc -std-link-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -resolve -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 ; ModuleID = '.\cl_files\wlATIFFT.cl'
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-f80:128:128-v64:64:64-v128:128:128-a0:0:64-f80:32:32-n8:16:32"
@@ -8,7 +8,7 @@ target triple = "i686-pc-win32"
 %opencl_metadata_type = type <{ i8*, i8*, [4 x i32], [4 x i32], i8*, i8* }>
 
 @opencl_kfft_local_lds = internal addrspace(3) global [2176 x float] zeroinitializer, align 4 ; <[2176 x float] addrspace(3)*> [#uses=2]
-@opencl_kfft_locals = appending global [2 x i8*] [i8* bitcast ([2176 x float] addrspace(3)* @opencl_kfft_local_lds to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
+@opencl_kfft_locals = appending global [2 x i8*] [i8* addrspacecast ([2176 x float] addrspace(3)* @opencl_kfft_local_lds to i8*), i8* null], section "llvm.metadata" ; <[2 x i8*]*> [#uses=1]
 @opencl_kfft_parameters = appending global [85 x i8] c"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *\00", section "llvm.metadata" ; <[85 x i8]*> [#uses=1]
 @opencl_metadata = appending global [1 x %opencl_metadata_type] [%opencl_metadata_type <{ i8* bitcast (void (float addrspace(1)*, float addrspace(1)*)* @kfft to i8*), i8* null, [4 x i32] zeroinitializer, [4 x i32] [i32 1, i32 64, i32 1, i32 1], i8* bitcast ([2 x i8*]* @opencl_kfft_locals to i8*), i8* getelementptr inbounds ([85 x i8]* @opencl_kfft_parameters, i32 0, i32 0) }>], section "llvm.metadata" ; <[1 x %opencl_metadata_type]*> [#uses=0]
 

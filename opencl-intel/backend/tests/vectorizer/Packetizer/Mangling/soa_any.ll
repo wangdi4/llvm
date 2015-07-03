@@ -1,4 +1,4 @@
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify -S -o - %s \
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-link-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
 ; ModuleID = 'run_any.cl'

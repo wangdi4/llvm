@@ -3,7 +3,7 @@
 ;Tests the LLVM vicmp instruction when it recieves ulong2 constant.
 ;*******************************************
 
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -inline-threshold=4096 -inline  -scalarize -verify %s -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-link-opts -inline-threshold=4096 -inline  -scalarize -verify %s -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 

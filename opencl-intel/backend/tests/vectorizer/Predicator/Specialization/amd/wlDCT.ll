@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
+; RUN: opt  -std-link-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -specialize -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'wlDCT.cl'
@@ -9,15 +9,15 @@ target triple = "i686-pc-win32"
 @DCT_cllocal_inter = internal addrspace(3) global [64 x float] zeroinitializer		; <[64 x float] addrspace(3)*> [#uses=2]
 @sgv = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
-@lvgv = internal constant [1 x i8*] [i8* bitcast ([64 x float] addrspace(3)* @DCT_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
+@lvgv = internal constant [1 x i8*] [i8* addrspacecast ([64 x float] addrspace(3)* @DCT_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
 @DCT_VECTOR_cllocal_inter = internal addrspace(3) global [8 x <8 x float>] zeroinitializer		; <[8 x <8 x float>] addrspace(3)*> [#uses=9]
 @sgv1 = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv2 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
-@lvgv3 = internal constant [1 x i8*] [i8* bitcast ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
+@lvgv3 = internal constant [1 x i8*] [i8* addrspacecast ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
 @DCT_VECTOR_DOT_cllocal_inter = internal addrspace(3) global [8 x <8 x float>] zeroinitializer		; <[8 x <8 x float>] addrspace(3)*> [#uses=9]
 @sgv4 = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv5 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
-@lvgv6 = internal constant [1 x i8*] [i8* bitcast ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_DOT_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
+@lvgv6 = internal constant [1 x i8*] [i8* addrspacecast ([8 x <8 x float>] addrspace(3)* @DCT_VECTOR_DOT_cllocal_inter to i8*)]		; <[1 x i8*]*> [#uses=1]
 @sgv7 = internal constant [5 x i8] c"2220\00"		; <[5 x i8]*> [#uses=1]
 @fgv8 = internal constant [0 x i8] zeroinitializer		; <[0 x i8]*> [#uses=1]
 @lvgv9 = internal constant [0 x i8*] zeroinitializer		; <[0 x i8*]*> [#uses=1]
