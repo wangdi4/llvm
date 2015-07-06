@@ -15,23 +15,100 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Atomic.h"
 #include "llvm/Support/DataTypes.h"
+#include <set>
+#include <map>
 
 namespace Intel
 {
-// [LLVM 3.6 UPGRADE] FIXME: MetaDataApi relied on RAUW ability of llvm::Value before,
-// but after the Metadata/Value split see commit 
+
+// [LLVM 3.6 UPGRADE] WORKAROUND: MetaDataApi widely used llvm::Value RAUW ability
+// but after the Metadata/Value split this ability of the Metadata was lost.
+//
+// See commit
 //      From dad20b2ae2544708d6a33abdb9bddd0a329f50e0 Mon Sep 17 00:00:00 2001
 //      From: "Duncan P. N. Exon Smith" <dexonsmith@apple.com>
 //      Date: Tue, 9 Dec 2014 18:38:53 +0000
 //      Subject: [PATCH] IR: Split Metadata from Value
-// This ability of the Metadata was lost.
-// It is not clear if it was really used before by OCL BE so the code below was instrumented
-// with assert(false && "[LLVM 3.6 UPGRADE] FIXME) in each place where the Metadata/Value
-// split had an impact.
-// If Metadata's RAUW will turn out to be used (and useful) by the OCL BE then it seems
-// feasible to store a mapping from used values to it's users during loading/saving the
-// 'IMetaDataObject's iniside the MetaDataUtils instance. Otherwise the better way is to
-// cut the RAUW.
+//
+// Because it is not clear if RAUW was really necessary by the MetaDataApiUtils in
+// order to save resource it was decided to implement similar approach for the new
+// Metadata. This approach relies on the fact what only users of OCL metadata might
+// be MDNode or NamedMDNode. So each time MDNode or NamedMDNode is created or its
+// operands get replaced an internal use mapping must be updated accordingly.
+
+// The following enum is intended to differentiate MDNode and NamedMDNode because
+// in LLVM 3.6.0 NamedMDNode is not inherited from Metadata so it is not integrated
+// into the LLVM's custom RTTI
+enum MDNodeKind { NamedMDNode_K, MDNode_K };
+
+struct MDUser {
+  MDUser(llvm::MDNode * node) : m_kind(MDNode_K), m_node(node) { }
+  MDUser(llvm::NamedMDNode * node) : m_kind(NamedMDNode_K), m_node(node) { }
+
+  bool operator< (MDUser const& other) const {
+    return this->m_node < other.m_node;
+  }
+
+  MDNodeKind m_kind;
+  void * m_node;
+};
+
+// FIXME: The metadataRAUW uses a global variable g_metaDataApiUtilsUseMap which is cleared
+// in MetaDataApiUtils dtor. This approach should work OK with current implementation
+// but bare in mind it is not thread safe and has other drawbacks typical for global
+// variables.
+typedef std::set<MDUser> UserSet;
+extern std::map<llvm::Metadata *, UserSet> g_metaDataApiUtilsUseMap;
+
+// This function is implementation of RAUW (aka llvm::Value::replaceAllUsesWith) for
+// llvm::Metadata.
+// FIXME: remove old unused metadata from LLVM context
+inline void metadataRAUW(llvm::Metadata * oldNode, llvm::Metadata * newNode) {
+  if(g_metaDataApiUtilsUseMap.count(oldNode)) {
+    // Iterate over all users and replace the old operand with the new one
+    UserSet & userSet = g_metaDataApiUtilsUseMap[oldNode];
+    for(MDUser const& user : userSet) {
+      // NamedMDNode or MDNode?
+      switch(user.m_kind) {
+        case NamedMDNode_K: {
+          llvm::NamedMDNode * pNode = static_cast<llvm::NamedMDNode *>(user.m_node);
+	  // Iterate over all used metadata and replace oldNode with newNode
+          for(unsigned opIdx = 0; opIdx < pNode->getNumOperands(); ++opIdx) {
+            if(pNode->getOperand(opIdx) == oldNode) {
+              pNode->setOperand(opIdx, llvm::cast<llvm::MDNode>(newNode));
+            }
+          }
+          break;
+        }
+        case MDNode_K: {
+          llvm::MDNode * pNode = static_cast<llvm::MDNode *>(user.m_node);
+	  // Iterate over all used metadata and replace oldNode with newNode
+          for(unsigned opIdx = 0; opIdx < pNode->getNumOperands(); ++opIdx) {
+            if(pNode->getOperand(opIdx).get() == oldNode) {
+              pNode->replaceOperandWith(opIdx, newNode);
+            }
+          }
+          break;
+        }
+      }
+    }
+    // Update use mapping
+    g_metaDataApiUtilsUseMap[oldNode].swap(g_metaDataApiUtilsUseMap[newNode]);
+    g_metaDataApiUtilsUseMap.erase(oldNode);
+  }
+}
+
+template<typename MetaDataNode, typename Cont>
+inline void updateMetadataUseMapping(MetaDataNode * user, Cont const & operands) {
+  for(llvm::Metadata * operand : operands) {
+    g_metaDataApiUtilsUseMap[operand].insert(user);
+  }
+}
+
+template<typename MetaDataNode, typename UsedMDNode>
+inline void updateMetadataUseMapping(MetaDataNode * user, UsedMDNode * operand) {
+  g_metaDataApiUtilsUseMap[operand].insert(user);
+}
 
 ///
 // Generic template for the traits types.
@@ -47,15 +124,11 @@ struct MDValueTraits
     // Loads the given value_type from the given node
     static value_type load(llvm::Metadata* pNode)
     {
-        // [LLVM 3.6 UPGRADE] FIXME: why was !pNode->hasValueHandle() below?
-        if( nullptr == pNode) // || !pNode->hasValueHandle())
+        if( nullptr == pNode)
         {
             // it is ok to pass NULL nodes - part of support for optional values
             return nullptr;
         }
-        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
-        // is needed let's catch a situation when pNode is not NULL live.
-        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         value_type pT = llvm::dyn_cast<T>(pNode);
         if( nullptr == pT )
@@ -92,8 +165,7 @@ struct MDValueTraits
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -114,9 +186,6 @@ struct MDValueTraits<std::string, void>
         {
             return std::string();
         }
-        // [LLVM 3.6 UPGRADE] FIXME: In order to figure out why !pNode->hasValueHandle()
-        // is needed let's catch a situation when pNode is not NULL live.
-        // assert(!pNode && "[LLVM 3.6 UPGRADE] FIXME: pNode is not NULL - hint for !pNode->hasValueHandle()");
 
         llvm::MDString* mdStr = llvm::dyn_cast<llvm::MDString>(pNode);
         if( !mdStr )
@@ -144,8 +213,7 @@ struct MDValueTraits<std::string, void>
     {
         if( load(trgt) != val )
         {
-            //trgt->replaceAllUsesWith( generateValue(context, val) );
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -195,8 +263,7 @@ struct MDValueTraits<bool, void>
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -246,8 +313,7 @@ struct MDValueTraits<int64_t, void>
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -297,8 +363,7 @@ struct MDValueTraits<int32_t, void>
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -347,9 +412,7 @@ struct MDValueTraits< T,  typename std::enable_if<std::is_base_of<llvm::Metadata
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-           assert(false && "[LLVM 3.6 UPGRADE] FIXME");
-            //llvm::MDNode::deleteTemporary(trgt);
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };
@@ -408,8 +471,7 @@ struct MDValueTraits<llvm::Function, void>
     {
         if( load(trgt) != val )
         {
-//            trgt->replaceAllUsesWith( generateValue(context, val) );
-            assert(false && "[LLVM 3.6 UPGRADE] FIXME");
+           metadataRAUW(trgt, generateValue(context, val));
         }
     }
 };

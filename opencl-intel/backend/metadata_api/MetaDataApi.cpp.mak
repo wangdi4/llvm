@@ -10,6 +10,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace Intel
 {
+std::map<llvm::Metadata *, UserSet> g_metaDataApiUtilsUseMap;
+
 <%utils:iterate_structs args="typename">
 <%type=schema[typename]%>
 ///
@@ -118,10 +120,13 @@ llvm::Metadata* ${class_name(typename)}::generateNode(llvm::LLVMContext& context
     }
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
-    args.push_back( ${member_name(element)}.generateNode(context));\
+    args.push_back(${member_name(element)}.generateNode(context));
     </%utils:iterate_struct_elements>
 
-    return llvm::MDNode::get(context, args);
+    llvm::MDNode * pNode = llvm::MDNode::get(context, args);
+    updateMetadataUseMapping(pNode, args);
+
+    return pNode;
 }
 
 ///
@@ -138,8 +143,7 @@ void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNo
     // check that we could save the new information to the given node without regenerating it
     if( !compatibleWith(pNode) )
     {
-//        pNode->replaceAllUsesWith(generateNode(context));
-	assert(false && "FIXME");
+        metadataRAUW(pNode, generateNode(context));
         return;
     }
 
@@ -190,6 +194,8 @@ llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MD
 // dtor
 MetaDataUtils::~MetaDataUtils()
 {
+    // clear the usage mapping
+    g_metaDataApiUtilsUseMap.clear();
     assert(!dirty() && "There were changes in the metadata hierarchy. Either save or discardChanges should be called");
 }
 

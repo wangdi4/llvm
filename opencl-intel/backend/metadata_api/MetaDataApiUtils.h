@@ -12,7 +12,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "MetaDataObject.h"
 #include "MetaDataIterator.h"
 #include "MapList.h"
-#include "llvm/IR/Value.h"
 #include "llvm/IR/Metadata.h"
 #include <vector>
 
@@ -89,6 +88,7 @@ public:
 
     const_iterator end() const
     {
+        lazyLoad();
         return m_data.end();
     }
 
@@ -110,12 +110,14 @@ public:
     item_type getItem(size_t index)
     {
         lazyLoad();
+        assert(index < m_data.size() && "out of bounds access");
         return m_data[index];
     }
 
     void setItem( size_t index, const item_type& item)
     {
         lazyLoad();
+        assert(index < m_data.size() && "out of bounds access");
         m_data[index] = item;
         m_isDirty = true;
     }
@@ -171,9 +173,7 @@ public:
 
         if(pNode->getNumOperands() != size() + _Mybase::getStartIndex() )
         {
-            //pNode->replaceAllUsesWith(generateNode(context));
-            llvm::MDNode::deleteTemporary(pNode);
-            assert(false && "FIXME");
+            metadataRAUW(pNode, generateNode(context));
             return;
         }
 
@@ -208,7 +208,9 @@ public:
             args.push_back( Traits::generateValue(context, *i));
         }
 
-        return llvm::MDNode::get(context,args);
+        llvm::MDNode * pNode = llvm::MDNode::get(context, args);
+	updateMetadataUseMapping(pNode, args);
+        return pNode;
     }
 
 protected:
@@ -347,7 +349,9 @@ public:
             else
             {
                 assert( i != e && mi == me );
-                pNode->addOperand(llvm::cast<llvm::MDNode>(Traits::generateValue(context, *i)));
+                llvm::MDNode * pOpNode = llvm::cast<llvm::MDNode>(Traits::generateValue(context, *i));
+                pNode->addOperand(pOpNode);
+		updateMetadataUseMapping(pNode, pOpNode);
                 ++i;
             }
         }
@@ -548,7 +552,12 @@ public:
             llvm::SmallVector< llvm::Metadata*, 2> args;
             args.push_back(KeyTraits::generateValue(context, (*i).first));
             args.push_back(ValTraits::generateValue(context, (*i).second));
-            pNode->addOperand(llvm::MDNode::get(context,args));
+
+            llvm::MDNode * keyValNode = llvm::MDNode::get(context, args);
+	    updateMetadataUseMapping(keyValNode, args);
+
+            pNode->addOperand(keyValNode);
+	    updateMetadataUseMapping(pNode, keyValNode);
             ++i;
         }
     }

@@ -8,11 +8,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #define METADATAVALUE_H
 
 #include "MetaDataTraits.h"
-#include "llvm/IR/Value.h"
 #include "llvm/IR/Metadata.h"
 
 namespace Intel
 {
+
 ///
 // Represents the meta data value stored using the positional schema
 // The root node is actuall storing the value
@@ -87,8 +87,7 @@ public:
             return;
         }
 
-//        pNode->replaceAllUsesWith(generateNode(context));
-            assert(false && "FIXME");
+        metadataRAUW(pNode, generateNode(context));
     }
 
     llvm::Metadata* generateNode(llvm::LLVMContext &context) const
@@ -189,8 +188,7 @@ public:
 
         if(pMDNode->getNumOperands() != 2)
         {
-//            pMDNode->replaceAllUsesWith(generateNode(context));
-            assert(false && "FIXME");
+            metadataRAUW(pMDNode, generateNode(context));
             return;
         }
 
@@ -205,7 +203,9 @@ public:
         args.push_back( m_id.generateNode(context));
         args.push_back( m_value.generateNode(context));
 
-        return llvm::MDNode::get(context,args);
+        llvm::MDNode * pNode = llvm::MDNode::get(context,args);
+	updateMetadataUseMapping(pNode, args);
+        return pNode;
     }
 private:
     llvm::Metadata* getIdNode(const llvm::Metadata* pNode)
