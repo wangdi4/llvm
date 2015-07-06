@@ -23,7 +23,7 @@ for.body:                                         ; preds = %for.cond
   %idxprom = sext i32 %2 to i64
   %arrayidx = getelementptr inbounds [8 x i32]* %arr, i32 0, i64 %idxprom
   %3 = load i32* %arrayidx, align 4
-  %call = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %3)
+  %call = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([4 x i8]* @.str to i8 addrspace(2)*), i32 %3)
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
