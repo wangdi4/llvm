@@ -440,7 +440,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         FuncInfo = MDArgInfo->getOperand(i);
 
         if(func == llvm::mdconst::dyn_extract<llvm::Function>(
-                    FuncInfo->getOperand(1))->stripPointerCasts())
+                    FuncInfo->getOperand(0))->stripPointerCasts())
           break;
       }
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
