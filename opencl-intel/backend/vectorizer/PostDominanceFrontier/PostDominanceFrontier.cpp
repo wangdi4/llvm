@@ -32,7 +32,7 @@ char PostDominanceFrontier::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(PostDominanceFrontier, "postdomfrontier",
                 "Post-Dominance Frontier Construction", true, true)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_END(PostDominanceFrontier, "postdomfrontier",
                 "Post-Dominance Frontier Construction", true, true)
 
@@ -48,13 +48,13 @@ void PostDominanceFrontier::releaseMemory() {
 
 bool PostDominanceFrontier::runOnFunction(Function &) {
   releaseMemory();
-  Base.analyze(getAnalysis<DominatorTreeWrapperPass>().getDomTree());
+  Base.analyze(*(getAnalysis<PostDominatorTree>().DT));
   return false;
 }
 
 void PostDominanceFrontier::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
-  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<PostDominatorTree>();
 }
 
 void PostDominanceFrontier::print(raw_ostream &OS, const Module *) const {

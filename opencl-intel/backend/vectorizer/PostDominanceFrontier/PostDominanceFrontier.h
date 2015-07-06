@@ -33,7 +33,7 @@ public:
     this->Roots = DT.getRoots();
     assert(this->Roots.size() == 1 &&
            "Only one entry block for post domfronts!");
-    calculate(DT, DT[this->Roots[0]]);
+    calculate(DT, DT.getRootNode());
   }
 
   const llvm::DominanceFrontier::DomSetType &
