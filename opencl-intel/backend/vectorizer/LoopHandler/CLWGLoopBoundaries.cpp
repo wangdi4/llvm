@@ -1274,21 +1274,11 @@ static char toChar(bool v) {
   return 'F';
 }
 
-/// [LLVM 3.6 UPGRADE] FIXME: this print produces vague compile error
-/// while trying to call << for raw_ostream and SmallVector<Value*, 4>.
-/// void print(raw_ostream &OS, const llvm::Module *M = 0) const;
-/// A small reproducer is
-/*
-SmallVector<Value*, 4> vec;
-OS << vec.size();
-*/
-/// The error is calling protected llvm::Metadata ctor and dtor.
-
-/*
 void CLWGLoopBoundaries::print(raw_ostream &OS, const Module *M) const {
   if ( !M ) return;
 
   OS << "\nCLWGLoopBoundaries\n";
+
   OS << "found " << m_TIDDesc.size() << " early exit boundaries\n";
   for (unsigned i = 0, e = m_TIDDesc.size(); i < e; ++i) {
     TIDDesc td = m_TIDDesc[i];
@@ -1307,7 +1297,6 @@ void CLWGLoopBoundaries::print(raw_ostream &OS, const Module *M) const {
        << *(ud.m_cond) << "\n";
   }
 }
-*/
 
 } //namespace
 
