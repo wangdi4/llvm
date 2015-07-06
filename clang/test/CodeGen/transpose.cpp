@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm %s  -o - | FileCheck %s
+// RUN: %clang_cc1 -fcilkplus -O0 -emit-llvm %s  -o - | FileCheck %s
 
 /* Regression test.  Just compile .cpp -> .ll to test */
 
@@ -80,7 +80,4 @@ void test (){
   block.trans(100, 200);
 }
 // CHECK: define {{.+}}blockTrans
-// CHECK: for.body:
-// CHECK: cilk.spawn.savestate:
-// CHECK: cilk.spawn.helpercall:
 // CHECK: define {{.+}}__cilk_spawn_helper

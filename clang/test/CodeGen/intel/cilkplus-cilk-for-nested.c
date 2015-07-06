@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -emit-llvm -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fcilkplus -emit-llvm -O0 -o - %s | FileCheck %s
 
 // CHECK: %struct.anon = type { i32*, float**, i32* }
 // CHECK: %struct.anon.0 = type { i32*, float** }
@@ -338,8 +338,18 @@ int test999()
 // CHECK: call {{.+}}__cilkrts_cilk_for
 // CHECK: define {{.+}}__cilk_for_helper
 // CHECK: define {{.+}}__cilk_for_helper
-// CHECK: cilk.spawn.savestate:
-// CHECK: cilk.spawn.helpercall:
-// CHECK: cilk.spawn.continuation:
-// CHECK: loop.inc:
-// CHECK: loop.end:
+
+
+int test8888(){
+  int i, j;
+  _Cilk_for (i = 0; i < 8; i++)
+    _Cilk_for (j = 0; j < 50; j++)
+      {
+        //do nothing
+      }
+  return 0; 
+}
+
+// CHECK: define {{.+}}test8888
+// CHECK: call {{.+}}__cilkrts_cilk_for
+// CHECK: call {{.+}}__cilkrts_cilk_for

@@ -48,16 +48,11 @@ class CilkForRAII {
   CodeGenFunction *CGF;
 
 public:
-  CilkForRAII() : CGF(nullptr){};
-  void capture(CodeGenFunction *_CGF,
-               CodeGenFunction::CGCapturedStmtInfo *CSI) {
-    CGF = _CGF;
+  CilkForRAII(CodeGenFunction *CGF) : CGF(CGF){
     OldCapturedStmtInfo = CGF->CapturedStmtInfo;
-    CGF->CapturedStmtInfo = CSI;
-  }
+  };
   ~CilkForRAII() {
-    if (CGF)
-      CGF->CapturedStmtInfo = OldCapturedStmtInfo;
+    CGF->CapturedStmtInfo = OldCapturedStmtInfo;
   }
 };
 
@@ -89,11 +84,11 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   EmitBlock(ThenBlock);
   {
-    CilkForRAII cfRAII;
+    CilkForRAII CfRAII (this);
     RunCleanupsScope Scope(*this);
     const Expr *LoopCountExpr = S.getLoopCount();
     if(!CapturedStmtInfo)
-      cfRAII.capture(this, &CSInfo); // use the proper captured info
+      CapturedStmtInfo = &CSInfo;
     llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
@@ -131,6 +126,11 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
     // Update the Loop Control Variable
     if (!isa<DeclStmt>(S.getInit())) {
       llvm::Value *LCVAddr = LocalDeclMap.lookup(S.getLoopControlVar());
+      if(!LCVAddr){
+        if(CGCilkForStmtInfo *CFCSI = dyn_cast<CGCilkForStmtInfo>(CapturedStmtInfo))
+          LCVAddr = CFCSI->getInnerLoopControlVarAddr();
+      }
+      assert(LCVAddr && "missing inner loop control variable address");
       llvm::Value *LCVValue = Builder.CreateLoad(LCVAddr);
 
       bool IsAdd = true;
