@@ -127,11 +127,9 @@ namespace Validation
         ///                             some are output and some of them could be both.
         /// @param [IN] pKernelConfig   Configuration containing kernel-specific parameters.
         /// @param [IN] runConfig       Configuration containing kernel run options.
-        /// @param [IN] builder         Execution Engines builder.
         void RunKernel( IRunResult * runResult,
             OpenCLKernelConfiguration * pKernelConfig,
-            const ReferenceRunOptions* runConfig ,
-            llvm::EngineBuilder &builder );
+            const ReferenceRunOptions* runConfig );
 
         /// @brief Loads the given container from the given file in the given format
         /// @param filename [in] file to load the container from

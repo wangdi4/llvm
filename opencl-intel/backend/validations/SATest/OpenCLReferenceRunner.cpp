@@ -63,6 +63,7 @@ File Name:  OpenCLReferenceRunner.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "OpenCLReferenceRunner"
 #include "llvm/Support/Debug.h"
@@ -163,16 +164,6 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
     const ReferenceRunOptions *pRunConfig = static_cast<const ReferenceRunOptions *>(runConfig);
 
     m_pModule = static_cast<const OpenCLProgram*>(program)->ParseToModule();
-    // use interpreterPluggable instead of interpreter
-    // this should be called prior to creating EngineBuilder
-    LLVMLinkInInterpreterPluggable();
-    // GCC 4.7.3 denies to compile temporary (i.e. rvalue) std::unique_ptr<Module) passed
-    // to the EngineBuilder ctor. So, create an lvalue std::unique_ptr and pass it to the
-    // std::move instead
-    std::unique_ptr<Module> pModule(m_pModule);
-    EngineBuilder builder(std::move(pModule));
-    builder.setEngineKind(EngineKind::Interpreter);
-
 
     // if FP_CONTRACT is on, use fma in NEAT
     m_bUseFmaNEAT = m_pModule->getNamedMetadata("opencl.enable.FP_CONTRACT");
@@ -182,7 +173,7 @@ void OpenCLReferenceRunner::Run(IRunResult* runResult,
         ++it )
     {
         std::string kernelName = (*it)->GetKernelName();
-        RunKernel( runResult, *it, pRunConfig, builder );
+        RunKernel( runResult, *it, pRunConfig );
     }
 }
 
@@ -869,8 +860,7 @@ static bool isWGSizeMustBeUniform(llvm::Module *module)
 
 void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
                                        OpenCLKernelConfiguration * pKernelConfig,
-                                       const ReferenceRunOptions* runConfig,
-                                       EngineBuilder &builder )
+                                       const ReferenceRunOptions* runConfig )
 {
     assert(pKernelConfig != NULL && "There is no kernel to run!");
 
@@ -982,9 +972,22 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // storage of kernel arguments. each per local work item
     KernelArgsVector localKernelArgVector(totalLocalWIs);
 
+    // use interpreterPluggable instead of interpreter
+    // this should be called prior to creating EngineBuilder
+    LLVMLinkInInterpreterPluggable();
+
     // initialize interpreters
     for(uint64_t idx = 0; idx < totalLocalWIs; ++idx)
     {
+        // GCC 4.7.3 denies to compile temporary (i.e. rvalue) std::unique_ptr<Module) passed
+        // to the EngineBuilder ctor. So, create an lvalue std::unique_ptr and pass it to the
+        // std::move instead
+        // [LLVM 3.6 UPGRADE} TODO: calling ExecutionEngine::create moves ownership of
+        // llvm::Module from EngineBuilder to ExecutionEngine and we lose control over Module lifetime.
+        // Need to figure out a way of creating ExecutionEngine instances without llvm::Module cloning.
+        EngineBuilder builder(std::unique_ptr<Module>(CloneModule(m_pModule)));
+        builder.setEngineKind(EngineKind::Interpreter);
+
         // Create interpreter instance.
         ExecutionEngine * pExecEngine = builder.create();
         if (0 == pExecEngine)
