@@ -2525,6 +2525,15 @@ void CXXNameMangler::mangleType(const UnaryTransformType *T) {
       case UnaryTransformType::EnumUnderlyingType:
         Out << "3eut";
         break;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      case UnaryTransformType::BasesOfType:
+        Out << "3bot";
+        break;
+      case UnaryTransformType::DirectBasesOfType:
+        Out << "4dbot";
+        break;
+#endif // INTEL_CUSTOMIZATION
     }
   }
 

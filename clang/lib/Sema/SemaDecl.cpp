@@ -114,6 +114,11 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
     return true;
 
   case tok::annot_typename:
@@ -4539,6 +4544,11 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   case DeclSpec::TST_typename:
   case DeclSpec::TST_typeofType:
   case DeclSpec::TST_underlyingType:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case DeclSpec::TST_bases:
+  case DeclSpec::TST_directBases:
+#endif // INTEL_CUSTOMIZATION
   case DeclSpec::TST_atomic: {
     // Grab the type from the parser.
     TypeSourceInfo *TSI = nullptr;

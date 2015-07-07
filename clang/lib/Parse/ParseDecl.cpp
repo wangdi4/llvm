@@ -3446,6 +3446,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseUnderlyingTypeSpecifier(DS);
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case tok::kw___bases:
+    case tok::kw___direct_bases:
+      ParseBasesSpecifier(DS);
+      continue;
+
+#endif // INTEL_CUSTOMIZATION
     case tok::kw__Atomic:
       // C11 6.7.2.4/4:
       //   If the _Atomic keyword is immediately followed by a left parenthesis,

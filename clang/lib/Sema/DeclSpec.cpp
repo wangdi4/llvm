@@ -326,6 +326,11 @@ bool Declarator::isDeclarationOfFunction() const {
       return false;
      
     case TST_underlyingType:
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case TST_bases:
+    case TST_directBases:
+#endif // INTEL_CUSTOMIZATION
     case TST_typename:
     case TST_typeofType: {
       QualType QT = DS.getRepAsType().get();
@@ -479,6 +484,11 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_decltype:    return "(decltype)";
   case DeclSpec::TST_decltype_auto: return "decltype(auto)";
   case DeclSpec::TST_underlyingType: return "__underlying_type";
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case DeclSpec::TST_bases: return "__bases";
+  case DeclSpec::TST_directBases: return "__direct_bases";
+#endif // INTEL_CUSTOMIZATION
   case DeclSpec::TST_unknown_anytype: return "__unknown_anytype";
   case DeclSpec::TST_atomic: return "_Atomic";
   case DeclSpec::TST_error:       return "(error)";

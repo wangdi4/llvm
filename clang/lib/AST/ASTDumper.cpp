@@ -350,6 +350,15 @@ namespace  {
       case UnaryTransformType::EnumUnderlyingType:
         OS << " underlying_type";
         break;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      case UnaryTransformType::BasesOfType:
+        OS << " bases";
+        break;
+      case UnaryTransformType::DirectBasesOfType:
+        OS << " direct_bases";
+        break;
+#endif // INTEL_CUSTOMIZATION
       }
       dumpTypeAsChild(T->getBaseType());
     }

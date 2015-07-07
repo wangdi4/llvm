@@ -45,6 +45,11 @@ bool FormatToken::isSimpleTypeSpecifier() const {
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
   case tok::annot_typename:
   case tok::kw_char16_t:
   case tok::kw_char32_t:

@@ -3895,6 +3895,20 @@ QualType ASTContext::getUnaryTransformType(QualType BaseType,
   return QualType(Ty, 0);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+QualType ASTContext::getBasesType(QualType ArgType,
+                                  UnaryTransformType::UTTKind Kind) const {
+  assert((Kind == UnaryTransformType::BasesOfType ||
+          Kind == UnaryTransformType::DirectBasesOfType) &&
+         "unknown bases type kind");
+  UnaryTransformType *Ty =
+      new (*this, TypeAlignment) UnaryTransformType(ArgType, Kind);
+  Types.push_back(Ty);
+  return QualType(Ty, 0);
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// getAutoType - Return the uniqued reference to the 'auto' type which has been
 /// deduced to the given type, or to the canonical undeduced 'auto' type, or the
 /// canonical deduced-but-dependent 'auto' type.
