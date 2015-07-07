@@ -2854,6 +2854,11 @@ bool InitializationSequence::isAmbiguous() const {
   case FK_VariableLengthArrayHasInitializer:
   case FK_PlaceholderType:
   case FK_ExplicitConstructor:
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#236476: Static variable is referenced in two separate routines
+  // in iclang
+  case FK_StaticLabelAddress:
+#endif // INTEL_CUSTOMIZATION
     return false;
 
   case FK_ReferenceInitOverloadFailed:
@@ -4737,6 +4742,18 @@ void InitializationSequence::InitializeFrom(Sema &S,
       TryReferenceInitialization(S, Entity, Kind, Args[0], *this);
     return;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#236476 - Static variable is referenced in two separate routines
+  // in iclang
+  if (S.getLangOpts().IntelCompat && DestType->isAnyPointerType() &&
+      Initializer && isa<AddrLabelExpr>(Initializer->IgnoreParenImpCasts()) &&
+      Entity.getKind() == InitializedEntity::EK_Variable &&
+      cast<VarDecl>(Entity.getDecl())->isStaticLocal()) {
+    SetFailed(FK_StaticLabelAddress);
+    return;
+  }
+#endif
 
   //     - If the initializer is (), the object is value-initialized.
   if (Kind.getKind() == InitializationKind::IK_Value ||
@@ -7119,6 +7136,15 @@ bool InitializationSequence::Diagnose(Sema &S,
     S.Diag(CtorDecl->getLocation(), diag::note_constructor_declared_here);
     break;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#236476: Static variable is referenced in two separate routines
+  // in iclang
+  case FK_StaticLabelAddress:
+    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+        << Args[0]->getSourceRange();
+    break;
+#endif // INTEL_CUSTOMIZATION
   }
 
   PrintInitLocationNote(S, Entity);
@@ -7249,6 +7275,14 @@ void InitializationSequence::dump(raw_ostream &OS) const {
     case FK_ExplicitConstructor:
       OS << "list copy initialization chose explicit constructor";
       break;
+
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#236476: Static variable is referenced in two separate routines
+    // in iclang
+    case FK_StaticLabelAddress:
+      OS << "initialization of static variable with label address";
+      break;
+#endif // INTEL_CUSTOMIZATION
     }
     OS << '\n';
     return;
