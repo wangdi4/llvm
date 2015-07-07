@@ -70,7 +70,7 @@ bool PrintIRPass::runOnModule(llvm::Module &M)
                 sys::fs::F_RW);
     if (ErrorInfo) {
        return false;
-     }
+    }
     M.print(FDTemp, nullptr);
     return true;
 }
