@@ -187,7 +187,8 @@ namespace intel{
       }
     }
 
-    for (User *user : pFunc->users()) {
+    std::vector<User*> users(pFunc->user_begin(), pFunc->user_end());
+    for (User *user : users) {
       // handle constant expression with bitcast of function pointer
       // it handles cases like block_literal global variable definitions
       // Example of case:
