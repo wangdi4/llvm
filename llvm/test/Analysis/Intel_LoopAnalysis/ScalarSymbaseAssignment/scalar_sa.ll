@@ -3,7 +3,7 @@
 ; Check region liveins/liveouts
 ; CHECK: Region 1
 ; CHECK-NEXT: LiveIns:
-; CHECK-SAME: a.addr.08(%a)
+; CHECK-SAME: a.addr.014(%a)
 ; CHECK-NEXT: LiveOuts:
 ; CHECK-SAME: output.1
 ; CHECK-NOT: Region 
@@ -12,38 +12,40 @@
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
-; Function Attrs: nounwind uwtable
-define i32 @foo(i32* nocapture %A, i32 %a, i32 %b, i32 %n) #0 {
+define i32 @foo(i32* nocapture %A, i32* nocapture %B, i32 %a, i32 %b, i32 %n) {
 entry:
-  %cmp7 = icmp sgt i32 %n, 0
-  br i1 %cmp7, label %for.body.preheader, label %for.end
+  %cmp13 = icmp sgt i32 %n, 0
+  br i1 %cmp13, label %for.body.preheader, label %for.end
 
 for.body.preheader:                               ; preds = %entry
   br label %for.body
 
-for.body:                                         ; preds = %for.body.preheader, %for.inc
-  %indvars.iv = phi i64 [ %indvars.iv.next, %for.inc ], [ 0, %for.body.preheader ]
-  %a.addr.08 = phi i32 [ %a.addr.1, %for.inc ], [ %a, %for.body.preheader ], !hir.de.ssa !1
+for.body:                                         ; preds = %for.body.preheader, %if.end
+  %indvars.iv = phi i64 [ %indvars.iv.next, %if.end ], [ 0, %for.body.preheader ]
+  %a.addr.014 = phi i32 [ %a.addr.1, %if.end ], [ %a, %for.body.preheader ], !in.de.ssa !0
+  %a.addr.014.out = bitcast i32 %a.addr.014 to i32, !out.de.ssa !0
   %cmp1 = icmp sgt i64 %indvars.iv, 77
-  %output.1.de.ssa1 = bitcast i32 %b to i32, !hir.de.ssa !2
-  br i1 %cmp1, label %if.then, label %for.inc
+  %output.1.in.1 = bitcast i32 %b to i32, !in.de.ssa !1
+  br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %inc = add nsw i32 %a.addr.08, 1
+  %inc = add nsw i32 %a.addr.014, 1
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
-  store i32 %inc, i32* %arrayidx, align 4, !tbaa !3
-  %output.1.de.ssa = bitcast i32 %a.addr.08 to i32, !hir.de.ssa !2
-  br label %for.inc
+  store i32 %inc, i32* %arrayidx, align 4
+  %output.1.in = bitcast i32 %a.addr.014.out to i32, !in.de.ssa !1
+  br label %if.end
 
-for.inc:                                          ; preds = %if.then, %for.body
-  %a.addr.1 = phi i32 [ %inc, %if.then ], [ %a.addr.08, %for.body ]
-  %output.1 = phi i32 [ %a.addr.08, %if.then ], [ %b, %for.body ]
+if.end:                                           ; preds = %if.then, %for.body
+  %a.addr.1 = phi i32 [ %inc, %if.then ], [ %a.addr.014, %for.body ]
+  %output.1 = phi i32 [ %a.addr.014.out, %if.then ], [ %b, %for.body ], !in.de.ssa !1
+  %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
+  store i32 %output.1, i32* %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %n
   br i1 %exitcond, label %for.end.loopexit, label %for.body
 
-for.end.loopexit:                                 ; preds = %for.inc
+for.end.loopexit:                                 ; preds = %if.end
   br label %for.end
 
 for.end:                                          ; preds = %for.end.loopexit, %entry
@@ -51,15 +53,6 @@ for.end:                                          ; preds = %for.end.loopexit, %
   ret i32 %output.0.lcssa
 }
 
-attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.7.0 (trunk 637) (llvm/branches/loopopt 662)"}
-!1 = !{!"a.addr.08.de.ssa"}
-!2 = !{!"output.1.de.ssa"}
-!3 = !{!4, !4, i64 0}
-!4 = !{!"int", !5, i64 0}
-!5 = !{!"omnipotent char", !6, i64 0}
-!6 = !{!"Simple C/C++ TBAA"}
+!0 = !{!"a.addr.014.de.ssa"}
+!1 = !{!"output.1.de.ssa"}
 

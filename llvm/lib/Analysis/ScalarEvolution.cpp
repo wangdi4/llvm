@@ -4091,8 +4091,8 @@ ScalarEvolution::getRange(const SCEV *S,
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
 bool ScalarEvolution::isHIRCopyInst(Instruction *Inst) const {
-  return (Inst->getMetadata("scc.livein.de.ssa") || 
-    Inst->getMetadata("scc.liveout.de.ssa"));
+  return (Inst->getMetadata("in.de.ssa") || 
+    Inst->getMetadata("out.de.ssa"));
 }
 #endif
 

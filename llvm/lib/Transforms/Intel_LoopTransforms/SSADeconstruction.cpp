@@ -9,13 +9,13 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file Deconstructs SSA for HIR. It inserts copies for SCC livein/liveout
-// values and non-SCC phi operands. Metadata nodes are attached to the
+// This file Deconstructs SSA for HIR. It inserts copies for livein/liveout
+// values to SCC and non-SCC phis. Metadata nodes are attached to the
 // livein/liveout copies, to the SCC root node and non-SCC phi node. The livein
-// copies are assigned the same metadata kind node as the root/phi node so that 
-// they can all be assigned the same symbase by ScalarSymbaseAssignment pass. 
+// copies are assigned the same metadata kind node as the root/phi node so that
+// they can all be assigned the same symbase by ScalarSymbaseAssignment pass.
 //
-// Liveout copies require metadata to indicate to ScalarEvolution analysis to 
+// Liveout copies require metadata to indicate to ScalarEvolution analysis to
 // not trace through them.
 //
 //===----------------------------------------------------------------------===//
@@ -63,7 +63,6 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<RegionIdentification>();
     AU.addRequired<SCCFormation>();
@@ -92,12 +91,16 @@ private:
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
-  /// \brief Inserts copies of Phi operands livein to the SCC.
-  void processPhiLiveins(PHINode *Phi, SCCFormation::SCCNodesTy &SCCNodes,
+  /// \brief Inserts copies of Phi operands livein to the SCC. If SCCNodes is
+  /// null, Phi is treated as a standalone phi and all operands are considered
+  /// livein.
+  void processPhiLiveins(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
                          StringRef Name);
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
-  /// replaces the liveout uses with the copy.
-  void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy SCCNodes,
+  /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
+  /// treated as a standalone phi and this is needed to handle a special case
+  /// described in the function definition.
+  void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
                           StringRef Name);
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(const PHINode *Phi);
@@ -105,7 +108,6 @@ private:
   void deconstructSSAForRegions();
 
 private:
-  LoopInfo *LI;
   ScalarEvolution *SE;
   RegionIdentification *RI;
   SCCFormation *SCCF;
@@ -119,7 +121,6 @@ private:
 char SSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
@@ -138,9 +139,9 @@ void SSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
   if (IsLivein) {
-    Inst->setMetadata("scc.livein.de.ssa", Node);
+    Inst->setMetadata("in.de.ssa", Node);
   } else {
-    Inst->setMetadata("scc.liveout.de.ssa", Node);
+    Inst->setMetadata("out.de.ssa", Node);
   }
 }
 
@@ -148,7 +149,7 @@ Instruction *SSADeconstruction::createCopy(Value *Val, StringRef Name,
                                            bool IsLivein) const {
 
   auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
-                                Name + ".de.ssa");
+                                Name + (IsLivein ? ".in" : ".out"));
 
   attachMetadata(CInst, Name, IsLivein);
 
@@ -196,7 +197,7 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
 }
 
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
-                                           SCCFormation::SCCNodesTy SCCNodes,
+                                           SCCFormation::SCCNodesTy *SCCNodes,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
@@ -207,14 +208,101 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
 
     auto UserInst = cast<Instruction>(*UserIt);
 
-    // Ignore if this value is region live-out.
-    if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-      continue;
-    }
+    // Handle a SCC phi.
+    if (SCCNodes) {
+      // Ignore if this value is region live-out.
+      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
+        continue;
+      }
 
-    // Check if the use is outside SCC.
-    if (SCCNodes.count(UserInst)) {
-      continue;
+      // Check if the use is outside SCC.
+      if (SCCNodes->count(UserInst)) {
+        continue;
+      }
+    } else {
+      // If this phi is used in another phi in the same basic block, then we can
+      // potentially have ordering issues with the insertion of livein copies
+      // for the phis. This is because the use of phi operands is deemed to
+      // occur on the edge of the basic block which means that the 'use' takes
+      // the value from the previous execution of the bblock, not the merged
+      // value in the current basic block.
+      //
+      // Let us consider the example below.
+      //
+      // for.body:              ; preds = %entry, %for.body
+      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+      //   ...
+      //   br i1 %exitcond, label %for.end, label %for.body
+      //
+      // After inserting livein copies for the two phis, the basic block would
+      // look like this-
+      //
+      // for.body:              ; preds = %entry, %for.body
+      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+      //   !in.de.ssa
+      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+      //   !in.de.ssa
+      //   ...
+      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
+      //   %a.addr.07.in = %b.addr.08 !in.de.ssa
+      //   br i1 %exitcond, label %for.end, label %for.body
+      //
+      // The livein copies %a.addr.07.in and %b.addr.08.in would be
+      // assigned the same symbase as %a.addr.07 and %b.addr.08, repectively.
+      // This means that the value of %a.addr.07 after the execution of the
+      // basic block would be the updated value of %b.addr.08 through the copy,
+      // which is wrong.
+      //
+      // To fix this problem, we create a liveout copy of %b.addr.08 so it
+      // looks like this-
+      //
+      // for.body:              ; preds = %entry, %for.body
+      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+      //   !in.de.ssa
+      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+      //   !in.de.ssa
+      //   %b.addr.08.out = %b.addr.08 !out.de.ssa
+      //   ...
+      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
+      //   %a.addr.07.in = %b.addr.08.out !in.de.ssa
+      //   br i1 %exitcond, label %for.end, label %for.body
+      //
+      // Note that reordering the livein copies which produces a cleaner HIR
+      // works in some cases but cannot resolve phi cycles. In comparison, 
+      // adding a liveout copy always works. Looking for a cycle would take
+      // more compile time so this seems like an acceptable solution.
+      //
+      // Here's an example of a phi cycle-
+      //
+      // for(i=0; i<n; i++) {
+      //   A[i] = a;
+      //   t = a;
+      //   a = b;
+      //   b = c;
+      //   c = t;
+      // }
+
+      if (!isa<PHINode>(UserInst) ||
+          (Phi->getParent() != UserInst->getParent())) {
+        continue;
+      }
+
+      bool CopyRequired = true;
+      // If the 'user' phi occurs before definition phi the copies are inserted
+      // in the correct order (on the assumption that we traverse the bblock
+      // instructions in order).
+      for (auto InstIt = Phi->getParent()->begin(),
+                EndIt = BasicBlock::iterator(Phi);
+           InstIt != EndIt; ++InstIt) {
+        if (&(*InstIt) == UserInst) {
+          CopyRequired = false;
+        }
+      }
+
+      if (!CopyRequired) {
+        continue;
+      }
     }
 
     // Insert copy, if it doesn't exist.
@@ -228,17 +316,18 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
 }
 
 void SSADeconstruction::processPhiLiveins(PHINode *Phi,
-                                          SCCFormation::SCCNodesTy &SCCNodes,
+                                          SCCFormation::SCCNodesTy *SCCNodes,
                                           StringRef Name) {
 
   // Insert a copy in the predecessor bblock for each phi operand which
-  // lies outside the SCC(incoming values).
+  // lies outside the SCC(livein values).
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
     auto PhiOp = Phi->getIncomingValue(I);
 
+    // This check is only for SCC phis.
     // Constant operand is assumed to lie outside SCC.
-    if (!isa<Constant>(PhiOp) && isa<Instruction>(PhiOp) &&
-        SCCNodes.count(cast<Instruction>(PhiOp))) {
+    if (SCCNodes && !isa<Constant>(PhiOp) && isa<Instruction>(PhiOp) &&
+        SCCNodes->count(cast<Instruction>(PhiOp))) {
       continue;
     }
 
@@ -270,9 +359,9 @@ void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
     for (auto const &SCCInst : PhiSCC->Nodes) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
-        processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), PhiSCC->Nodes,
+        processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                           Name);
-        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), PhiSCC->Nodes,
+        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                            Name);
       }
     }
@@ -289,17 +378,23 @@ void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
     // else {
     //   output = b;
     // }
-    assert(!LI->isLoopHeader(const_cast<BasicBlock *>(Phi->getParent())) &&
-           "Phi in loop header cannot be stand alone!");
+    //
+    // In some cases the standalone phi can occur in loop headers as well.
+    // Example test case-
+    //
+    // for(i=0; i<n; i++) {
+    //   A[i] = a;
+    //   a = b;
+    //   b = c;
+    //   c += i;
+    // }
+    //
 
     // Attach metadata to Phi to connect it to its copies.
     attachMetadata(const_cast<PHINode *>(Phi), Phi->getName(), true);
 
-    for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-      // Insert copy.
-      insertCopyAsLastInst(Phi->getIncomingValue(I), Phi->getIncomingBlock(I),
-                           Phi->getName());
-    }
+    processPhiLiveins(const_cast<PHINode *>(Phi), nullptr, Phi->getName());
+    processPhiLiveouts(const_cast<PHINode *>(Phi), nullptr, Phi->getName());
   }
 }
 
@@ -329,7 +424,6 @@ void SSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool SSADeconstruction::runOnFunction(Function &F) {
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolution>();
   RI = &getAnalysis<RegionIdentification>();
   SCCF = &getAnalysis<SCCFormation>();

@@ -290,11 +290,21 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
+  printImpl(OS, false);
+}
+
+void HIRCreation::printWithIRRegion(raw_ostream &OS) const {
+  printImpl(OS, true);
+}
+
+void HIRCreation::printImpl(raw_ostream &OS, bool printIRRegion) const {
   formatted_raw_ostream FOS(OS);
 
   for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
-    I->print(FOS, 0);
+
+    assert(isa<HLRegion>(I) && "Top level node is not a region!");
+    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion);
   }
 }
 

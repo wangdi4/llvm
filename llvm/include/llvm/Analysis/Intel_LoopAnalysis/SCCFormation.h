@@ -128,6 +128,10 @@ private:
   /// \brief Sets RegIt as the current region being processed.
   void setRegion(RegionIdentification::const_iterator RegIt);
 
+  /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
+  /// all its nodes.
+  bool isValidSCC(SCCTy *NewSCC);
+
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.
   unsigned findSCC(const NodeTy *Node);

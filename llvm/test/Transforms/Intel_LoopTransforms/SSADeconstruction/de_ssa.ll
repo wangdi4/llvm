@@ -1,15 +1,15 @@
 ; RUN: opt < %s -loop-simplify -hir-de-ssa -S | FileCheck %s
 
 ; CHECK: a.addr.014
-; CHECK-SAME: scc.livein.de.ssa
-; CHECK-NEXT: a.addr.014.de.ssa
-; CHECK-SAME: scc.liveout.de.ssa
-; CHECK: output.1.de.ssa.1
-; CHECK-SAME: scc.livein.de.ssa
-; CHECK: output.1.de.ssa
-; CHECK-SAME: scc.livein.de.ssa
+; CHECK-SAME: in.de.ssa
+; CHECK-NEXT: a.addr.014.out
+; CHECK-SAME: out.de.ssa
+; CHECK: output.1.in.1
+; CHECK-SAME: in.de.ssa
+; CHECK: output.1.in
+; CHECK-SAME: in.de.ssa
 ; CHECK: output.1
-; CHECK-SAME: scc.livein.de.ssa
+; CHECK-SAME: in.de.ssa
 
 
 ; ModuleID = 'de_ssa1.c'

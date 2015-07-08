@@ -36,9 +36,20 @@ HLRegion *HLRegion::clone() const {
 }
 
 void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  print(OS, Depth, false);
+}
+
+void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool PrintIRRegion) const {
   indent(OS, Depth);
 
   OS << "BEGIN REGION\n";
+
+  if (PrintIRRegion) {
+    OS << "\n";
+    IRReg->print(OS, Depth);
+    OS << "\n";
+  }
 
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
     I->print(OS, Depth + 1);

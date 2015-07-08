@@ -38,9 +38,8 @@ namespace loopopt {
 class IRRegion {
 public:
   typedef SmallPtrSet<const BasicBlock *, 32> RegionBBlocksTy;
-  typedef std::pair<unsigned, const Value *> SymbaseInitValuePairTy;
-  typedef SmallVector<SymbaseInitValuePairTy, 8> LiveInSetTy;
-  typedef SmallDenseMap<unsigned, const Value *, 16> LiveOutSetTy;
+  typedef SmallDenseMap<unsigned, const Value *, 16> LiveInSetTy;
+  typedef LiveInSetTy LiveOutSetTy;
 
   /// Iterators to iterate over bblocks and live-in/live-out sets.
   typedef RegionBBlocksTy::const_iterator const_bb_iterator;
@@ -104,15 +103,24 @@ public:
   /// \brief Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const { return BBlocks.count(BB); }
 
-  /// \brief Adds a live-in temp to the region.
-  void addLiveInTemp(unsigned Symbase, const Value *Temp) {
-    LiveInSet.push_back(std::make_pair(Symbase, Temp));
+  /// \brief Adds a live-in temp (represented using Symbase) with initial value
+  /// InitVal to the region.
+  void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
+    auto Ret = LiveInSet.insert(std::make_pair(Symbase, InitVal));
+
+    assert((Ret.second || ((Ret.first->first == Symbase) &&
+                           (Ret.first->second == InitVal))) &&
+           "Inconsistent livein value detected!");
   }
 
-  /// \brief Adds a live-out temp to the region.
+  /// \brief Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
-    LiveOutSet.insert(std::make_pair(Symbase, Temp));
+    auto Ret = LiveOutSet.insert(std::make_pair(Symbase, Temp));
+    assert(Ret.second && "Liveout value already exists!");
   }
+
+  /// \brief Returns true if this symbase is live in to this region.
+  bool isLiveIn(unsigned Symbase) const { return LiveInSet.count(Symbase); }
 
   /// \brief Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return LiveOutSet.count(Symbase); }

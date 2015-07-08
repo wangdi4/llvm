@@ -15,6 +15,8 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
@@ -80,7 +82,7 @@ void RegDDRef::print(formatted_raw_ostream &OS) const {
 
   // Do not print linear forms for scalar lvals
   if (isLval() && !HasGEP) {
-    DDRefUtils::printScalarLval(OS, this);
+    CanonExprUtils::printScalar(OS, getSymBase());
 
   } else {
     if (HasGEP) {

@@ -90,13 +90,9 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
-bool HIRParser::isTempBlob(unsigned Symbase) const {
-  return TempBlobSymbases.count(Symbase);
-}
-
 CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
                                         unsigned *NewBlobIndex) {
-  Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
+  Type *Int64Type = IntegerType::get(SE->getContext(), 64);
   auto Blob = SE->getConstant(Int64Type, Val, false);
 
   if (Insert) {
@@ -302,7 +298,7 @@ public:
   bool isDone() const { return false; }
 };
 
-void HIRParser::printScalarLval(raw_ostream &OS, unsigned Symbase) const {
+void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
   ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
 }
 
@@ -473,10 +469,8 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   }
 }
 
-void HIRParser::addTempBlobEntry(const Value *Temp, unsigned Index,
-                                 unsigned Symbase, unsigned DefLevel) {
-  TempBlobSymbases.insert(Symbase);
-  CurTempBlobLevelMap[Index] = DefLevel;
+void HIRParser::addTempBlobEntry(unsigned Index, unsigned DefLevel) {
+  CurTempBlobLevelMap.insert(std::make_pair(Index, DefLevel));
 }
 
 void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
@@ -496,14 +490,17 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
       setCanonExprDefLevel(CE, Level, DefLevel);
 
       // Cache blob level for later reuse.
-      addTempBlobEntry(Temp, Index, Symbase, DefLevel);
+      addTempBlobEntry(Index, DefLevel);
     } else {
       // Blob lies outside the region.
-      addTempBlobEntry(Temp, Index, Symbase, 0);
+      addTempBlobEntry(Index, 0);
+
+      // Add this as a livein temp.
+      CurRegion->addLiveInTemp(Symbase, Temp);
     }
   } else {
     // Blob is some global value.
-    addTempBlobEntry(Temp, Index, Symbase, 0);
+    addTempBlobEntry(Index, 0);
   }
 }
 
@@ -916,8 +913,9 @@ void HIRParser::parse(HLInst *HInst) {
   RegDDRef *Ref;
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
-  unsigned NumRvalOp = HInst->getNumOperands() - 1;
   unsigned Level = CurLevel;
+
+  assert(!Inst->getType()->isVectorTy() && "Vector types not supported!");
 
   if (HInst->isInPreheaderOrPostexit()) {
     --Level;
@@ -938,6 +936,9 @@ void HIRParser::parse(HLInst *HInst) {
     HInst->setLvalDDRef(Ref);
   }
 
+  unsigned NumRvalOp =
+      HasLval ? HInst->getNumOperands() - 1 : HInst->getNumOperands();
+
   /// Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
@@ -957,7 +958,10 @@ void HIRParser::parse(HLInst *HInst) {
 
     Ref = createRvalDDRef(Inst, I, Level);
 
+    // To translate Instruction's operand number into HLInst's operand number we
+    // add one offset each for having an lval and being a select instruction.
     auto OpNum = HasLval ? (isa<SelectInst>(Inst) ? (I + 2) : (I + 1)) : I;
+
     HInst->setOperandDDRef(Ref, OpNum);
   }
 }
@@ -990,12 +994,12 @@ void HIRParser::releaseMemory() {
   DDRefUtils::destroyAll();
   CanonExprUtils::destroyAll();
 
-  TempBlobSymbases.clear();
   EraseSet.clear();
+  CurTempBlobLevelMap.clear();
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
-  HIR->print(OS, M);
+  HIR->printWithIRRegion(OS);
 }
 
 void HIRParser::verifyAnalysis() const {

@@ -3,11 +3,11 @@
 ; Check parsing output for the loop
 ; CHECK: DO i1 = 0, %n + -1
 ; CHECK-SAME: DO_LOOP
-; CHECK-NEXT: %a.addr.014.de.ssa = %a.addr.014
+; CHECK-NEXT: %a.addr.014.out = %a.addr.014
 ; CHECK-NEXT: %output.1 = %b
 ; CHECK-NEXT: i1 > 77
 ; CHECK: (%A)[i1] = %a.addr.014 + 1
-; CHECK-NEXT: %output.1 = %a.addr.014.de.ssa
+; CHECK-NEXT: %output.1 = %a.addr.014.out
 ; CHECK: (%B)[i1] = %output.1
 ; CHECK-NEXT: END LOOP
 

@@ -10,12 +10,20 @@
 //===----------------------------------------------------------------------===//
 //
 // This analysis is used to assign symbase to scalars.
-// It assigns symbases to livein/livout scalars and populates the livein/liveout
-// set for regions as well. These livein/liveout scalars are required by HIRCG 
-// to generate the correct code.
+// It assigns symbases to liveins(present as phi operands) and livout scalars 
+// and populates the livein/liveout set for regions as well. 
 //
-// HIRParser uses its interface to assign symbases to non livein/livout scalars.
+// Livein scalars are phi operands coming from outside the region (including
+// constants) or instructions defined outisde the region and used inside. 
+// Please note that globals and function parameters are not marked livein.
 //
+// Liveout scalars are instructions defined inside the region and used outside.
+//
+// HIRParser uses its interface to assign symbases to non livein/liveout 
+// scalars. Non-phi livein scalars are also populated by HIRParser because 
+// some livein scalars can only be discovered during parsing.
+//
+// Livein/liveout scalars are required by HIRCG to generate the correct code.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_INTEL_LOOPANALYSIS_SCALARSYMBASEASSIGNMENT_H
@@ -60,9 +68,6 @@ private:
   /// TempSymbaseMap - Maps temps to their symbase.
   SmallDenseMap<const Value *, unsigned, 64> TempSymbaseMap;
 
-  /// LiveInMap - Maps symbases to livein Values. Only used for printing.
-  SmallDenseMap<unsigned, const Value *, 16> LiveInMap;
-
   /// StrSymbaseMap - Used to map MDString (attached to an instruction by
   /// SSADeconstruction pass) to symbase.
   StringMap<unsigned> StrSymbaseMap;
@@ -82,8 +87,12 @@ private:
   /// \brief Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(RegionIdentification::iterator RegIt);
 
-  /// \brief Populates livein Values for the region pointed to by RegIt.
-  void populateRegionLiveins(RegionIdentification::iterator RegIt);
+  /// \brief Processes operands of Phi to determine if they are region liveout.
+  bool processRegionPhiLivein(RegionIdentification::iterator RegIt,
+                              const PHINode *Phi, unsigned Symbase);
+
+  /// \brief Populates livein Values from the phi nodes present in the region.
+  void populateRegionPhiLiveins(RegionIdentification::iterator RegIt);
 
   /// \brief Inserts Temp into set of base temps and returns its non-zero
   /// symbase.

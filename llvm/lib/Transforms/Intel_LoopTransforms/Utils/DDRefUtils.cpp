@@ -27,7 +27,3 @@ BlobDDRef *DDRefUtils::createBlobDDRef(int SB, const CanonExpr *CE) {
 void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 
 void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
-
-void DDRefUtils::printScalarLval(raw_ostream &OS, const RegDDRef *Ref) {
-  getHIRParser()->printScalarLval(OS, Ref->getSymBase());
-}

@@ -88,6 +88,9 @@ public:
   /// \brief Prints blob.
   static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
 
+  /// \brief Prints scalar corresponding to symbase.
+  static void printScalar(raw_ostream &OS, unsigned Symbase);
+
   /// \brief Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
   static bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val);

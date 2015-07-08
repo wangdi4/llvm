@@ -212,6 +212,48 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
+bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
+  SmallPtrSet<const BasicBlock *, 12> BBlocks;
+
+  for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
+       InstIt != IEndIt; ++InstIt) {
+    if (isa<PHINode>(*InstIt)) {
+
+      auto ParentBB = (*InstIt)->getParent();
+
+      if (BBlocks.count(ParentBB)) {
+        // If any two phis in the SCC have the same bblock parent then we 
+        // cannot assign the same symbase to them because they are live inside
+        // the bblock at the same time, hence we invalidate the SCC. This can
+        // happen in circular wrap cases. The following example generates a
+        // single SCC out of a, b and c.
+        //
+        // for(i=0; i<n; i++) {
+        //   A[i] = a;
+        //   t = a;
+        //   a = b;
+        //   b = c;
+        //   c = t;
+        // }
+        //
+        // IR-
+        //
+        // for.body: 
+        //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
+        //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
+        //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
+        // ...
+        //
+        return false;
+      }
+
+      BBlocks.insert(ParentBB);
+    }
+  }
+
+  return true;  
+}
+
 unsigned SCCFormation::findSCC(const NodeTy *Node) {
   unsigned Index = GlobalNodeIndex++;
   unsigned LowLink = Index;
@@ -253,12 +295,9 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       NodeStack.pop_back();
     } else {
       // Create new SCC.
-      RegionSCCs.push_back(new SCC(Node));
-      auto &NewSCCNodes = RegionSCCs.back()->Nodes;
+      SCCTy *NewSCC = new SCCTy(Node);
+      auto &NewSCCNodes = NewSCC->Nodes;
       const NodeTy *SCCNode;
-
-      // Set pointer to first SCC of region, if applicable.
-      setRegionSCCBegin();
 
       // Insert Nodes in new SCC.
       do {
@@ -270,7 +309,20 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      removeIntermediateNodes(NewSCCNodes);
+      if (isValidSCC(NewSCC)) {
+        // Add new SCC to the list.
+        RegionSCCs.push_back(NewSCC);
+        
+        // Set pointer to first SCC of region, if applicable.
+        setRegionSCCBegin();
+
+        // Remove nodes not directly associated with the phi nodes.
+        removeIntermediateNodes(NewSCCNodes);
+
+      } else {
+        // Not a valid SCC.
+        delete NewSCC;
+      }
     }
   }
 

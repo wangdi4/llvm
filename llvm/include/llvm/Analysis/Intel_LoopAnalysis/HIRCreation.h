@@ -116,6 +116,9 @@ private:
   /// \brief Creates HLRegions out of IRRegions.
   void create();
 
+  /// \brief Contains implementation for print().
+  void printImpl(raw_ostream &OS, bool printIRRegion) const;
+
 public:
   static char ID; // Pass identification
   HIRCreation();
@@ -124,6 +127,8 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
+  /// \brief Prints the contained IRRegion along with the HLRegion.
+  void printWithIRRegion(raw_ostream &OS) const;
   void verifyAnalysis() const override;
 
   /// Region iterator methods

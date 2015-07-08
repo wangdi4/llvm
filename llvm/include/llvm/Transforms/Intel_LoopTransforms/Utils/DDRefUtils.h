@@ -51,9 +51,6 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
-
-  /// \brief Prints scalar for lval RegDDRefs.
-  static void printScalarLval(raw_ostream &OS, const RegDDRef *Ref);
 };
 
 } // End namespace loopopt

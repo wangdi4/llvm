@@ -91,6 +91,10 @@ void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
   getHIRParser()->printBlob(OS, Blob);
 }
 
+void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
+  getHIRParser()->printScalar(OS, Symbase);
+}
+
 bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
   return getHIRParser()->isConstantIntBlob(Blob, Val);
 }

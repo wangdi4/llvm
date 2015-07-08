@@ -11,7 +11,10 @@
 //
 // This analysis is used to create DDRefs and parse SCEVs into CanonExprs
 // for HLNodes.
-// It is also responsible for assigning symbases to non livein/liveout scalars.
+// It is also responsible for assigning symbases to non livein/liveout scalars
+// and populating non-phi livein scalars. Some livein scalars can only be
+// discovered during parsing because they appear in SCEVs but not in the IR for
+// the region. Loop upper is an example.
 //
 //===----------------------------------------------------------------------===//
 
@@ -92,10 +95,12 @@ private:
   /// EraseSet - Contains HLNodes to be erased.
   SmallVector<HLNode *, 32> EraseSet;
 
+  /// TODO:Commenting out as the usefulness of blob definition is not clear yet.
+  ///
   /// TempBlobSymbases - Set of symbases which represent temp blobs.
   /// This can be used to query whether an HLInst is a blob definition and needs
   /// to be kept updated for new instructions created by HIR transformations.
-  SmallSet<unsigned, 64> TempBlobSymbases;
+  //SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
   /// DDRef.
@@ -181,10 +186,9 @@ private:
                             unsigned DefLevel) const;
 
   /// \brief Adds an entry for the temp blob in blob maps.
-  void addTempBlobEntry(const Value *Temp, unsigned Index, unsigned Symbase,
-                        unsigned DefLevel);
+  void addTempBlobEntry(unsigned Index, unsigned DefLevel);
 
-  /// \brief overrides CE's DefinedAtLevel if the temp blob has a deeper level.
+  /// \brief Overrides CE's DefinedAtLevel if the temp blob has a deeper level.
   void setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
                         unsigned Level);
 
@@ -242,8 +246,8 @@ private:
   /// \brief Erases HLNodes which are deemed useless by the parser.
   void eraseUselessNodes();
 
-  /// \brief Prints scalar lval corresponding to Symbase.
-  void printScalarLval(raw_ostream &OS, unsigned Symbase) const;
+  /// \brief Prints scalar corresponding to Symbase.
+  void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
   /// \brief Prints blob.
   void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
@@ -254,9 +258,6 @@ private:
 
   /// \brief Return true if this is a temp blob.
   bool isTempBlob(CanonExpr::BlobTy Blob) const;
-
-  /// \brief Return true if this symbase corresponds to a temp blob.
-  bool isTempBlob(unsigned Symbase) const;
 
   /// \brief Returns a new blob created from a constant value.
   CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,

@@ -119,7 +119,7 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
   }
 
   return RetVal;
-#else 
+#else
   return nullptr;
 #endif
 }
@@ -165,7 +165,7 @@ MDString *
 ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   // We only care about livein copies here because unlike liveout copies, livein
   // copies need to be assigned the same symbase as other values in the SCC.
-  auto MDNode = Inst->getMetadata("scc.livein.de.ssa");
+  auto MDNode = Inst->getMetadata("in.de.ssa");
 
   if (!MDNode) {
     return nullptr;
@@ -256,14 +256,32 @@ void ScalarSymbaseAssignment::populateRegionLiveouts(
 
       if (isRegionLiveOut(RegIt, Inst)) {
         auto Symbase = getOrAssignScalarSymbase(Inst);
-        (*RegIt)
-            ->addLiveOutTemp(const_cast<Value *>(cast<Value>(Inst)), Symbase);
+        (*RegIt)->addLiveOutTemp(Inst, Symbase);
       }
     }
   }
 }
 
-void ScalarSymbaseAssignment::populateRegionLiveins(
+bool ScalarSymbaseAssignment::processRegionPhiLivein(
+    RegionIdentification::iterator RegIt, const PHINode *Phi,
+    unsigned Symbase) {
+  bool Ret = false;
+
+  // Check whether phi operands are live in to the region.
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
+
+    if (!(*RegIt)->containsBBlock(Phi->getIncomingBlock(I))) {
+      (*RegIt)->addLiveInTemp(Symbase, Phi->getIncomingValue(I));
+
+      Ret = true;
+      break;
+    }
+  }
+
+  return Ret;
+}
+
+void ScalarSymbaseAssignment::populateRegionPhiLiveins(
     RegionIdentification::iterator RegIt) {
   // Traverse SCCs associated with the region.
   for (auto SCCIt = SCCF->begin(RegIt), EndIt = SCCF->end(RegIt);
@@ -283,27 +301,25 @@ void ScalarSymbaseAssignment::populateRegionLiveins(
       }
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt)) {
-
-        // Check whether phi operands are live in to the region.
-        for (unsigned I = 0, E = SCCPhiInst->getNumIncomingValues(); I != E;
-             ++I) {
-
-          if (!(*RegIt)->containsBBlock(SCCPhiInst->getIncomingBlock(I))) {
-            assert(!SCCLiveInProcessed &&
-                   "Multiple region live-in values found for the same SCC!");
-
-            (*RegIt)->addLiveInTemp(Symbase, SCCPhiInst->getIncomingValue(I));
-
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-            // Only used for printing.
-            LiveInMap[Symbase] = SCCPhiInst;
-#endif
-
-            SCCLiveInProcessed = true;
-          }
+        if (!SCCLiveInProcessed &&
+            processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
+          SCCLiveInProcessed = true;
         }
       }
     }
+  }
+
+  // Process phis in the entry bblock that are not part of any SCC.
+  for (auto InstIt = (*RegIt)->getEntryBBlock()->begin(),
+            EndIt = (*RegIt)->getEntryBBlock()->end();
+       InstIt != EndIt && isa<PHINode>(InstIt); ++InstIt) {
+    // Has been processed already?
+    if (getTempSymbase(InstIt)) {
+      continue;
+    }
+
+    processRegionPhiLivein(RegIt, cast<PHINode>(InstIt),
+                           getOrAssignScalarSymbase(InstIt));
   }
 }
 
@@ -317,7 +333,7 @@ bool ScalarSymbaseAssignment::runOnFunction(Function &F) {
 
   for (auto RegIt = RI->begin(), EndRegIt = RI->end(); RegIt != EndRegIt;
        ++RegIt) {
-    populateRegionLiveins(RegIt);
+    populateRegionPhiLiveins(RegIt);
     populateRegionLiveouts(RegIt);
   }
 
@@ -327,7 +343,6 @@ bool ScalarSymbaseAssignment::runOnFunction(Function &F) {
 void ScalarSymbaseAssignment::releaseMemory() {
   BaseTemps.clear();
   TempSymbaseMap.clear();
-  LiveInMap.clear();
   StrSymbaseMap.clear();
   ScalarLvalSymbases.clear();
 }
@@ -340,21 +355,16 @@ void ScalarSymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
        ++RegIt) {
     OS << "\nRegion " << (RegIt - RegBegin + 1);
 
-    OS << "\n   LiveIns: ";
+    OS << "\n   Phi LiveIns: ";
     for (auto LiveInIt = (*RegIt)->live_in_begin(),
               EndIt = (*RegIt)->live_in_end();
          LiveInIt != EndIt; ++LiveInIt) {
-
-      auto LiveInMapIter =
-          LiveInMap.find(*(const_cast<unsigned *>(&LiveInIt->first)));
-      assert((LiveInMapIter != LiveInMap.end()) &&
-             "Symbase not found in live-in map!");
 
       if (LiveInIt != (*RegIt)->live_in_begin()) {
         OS << ", ";
       }
 
-      LiveInMapIter->second->printAsOperand(OS, false);
+      getBaseScalar(LiveInIt->first)->printAsOperand(OS, false);
       OS << "(";
       LiveInIt->second->printAsOperand(OS, false);
       OS << ")";

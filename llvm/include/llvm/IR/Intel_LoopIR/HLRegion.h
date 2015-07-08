@@ -79,6 +79,9 @@ private:
 public:
   /// \brief Prints HLRegion.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  /// \brief Prints HLRegion along with the contained IRRegion.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             bool PrintIRRegion) const;
 
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return IRReg->getEntryBBlock(); }
@@ -95,15 +98,19 @@ public:
     return IRReg->containsBBlock(BB);
   }
 
-  /// \brief Adds a live-in temp to the region.
-  void addLiveInTemp(unsigned Symbase, const Value *Temp) {
-    IRReg->addLiveInTemp(Symbase, Temp);
+  /// \brief Adds a live-in temp (represented using Symbase) with initial value
+  /// InitVal to the region.
+  void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
+    IRReg->addLiveInTemp(Symbase, InitVal);
   }
 
-  /// \brief Adds a live-out temp to the region.
+  /// \brief Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
     IRReg->addLiveOutTemp(Temp, Symbase);
   }
+
+  /// \brief Returns true if this symbase is live in to this region.
+  bool isLiveIn(unsigned Symbase) const { return IRReg->isLiveIn(Symbase); }
 
   /// \brief Returns true if this symbase is live out of this region.
   bool isLiveOut(unsigned Symbase) const { return IRReg->isLiveOut(Symbase); }
