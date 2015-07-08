@@ -46,11 +46,11 @@ void clBuildOptionsTest()
         "#define xstr(s) str(s)\n\
          #define str(s) #s\n\
          kernel void clBuildOptionsTest(global char *result,\
-                                          int resultCapacity,\
-                                          global int* resultSize)\
+                                        unsigned int resultCapacity,\
+                                        global unsigned int* resultSize)\
          {\
              constant char *s = xstr(msg);\
-             int cnt = 0;\
+             unsigned int cnt = 0;\
              while( s[cnt] != 0 && cnt < resultCapacity ) \
              {\
                  result[cnt] = s[cnt];\
@@ -77,9 +77,9 @@ void clBuildOptionsTest()
     options.push_back(make_pair("-Dmsg=\"\\\"\\\\\\\"x y\\\\\\\"\\\"\"",
                                               "\"\\\"x y\\\"\""));
 
-    const size_t capacity = 128;
-    char resultBuffer[capacity];
-    size_t resultSize = 0;
+    cl_uint capacity = 128;
+    vector<char> resultBuffer(capacity);
+    cl_uint resultSize = 0;
     vector<cl::Platform> platforms;
     vector<cl::Device> devices;
     try
@@ -89,7 +89,7 @@ void clBuildOptionsTest()
         cl::Context context(devices);
         cl::CommandQueue queue(context, devices[0]);
         cl::Buffer resultBuf(context, CL_MEM_WRITE_ONLY, capacity);
-        cl::Buffer resultSizeBuf(context, CL_MEM_WRITE_ONLY, sizeof(size_t));
+        cl::Buffer resultSizeBuf(context, CL_MEM_WRITE_ONLY, sizeof(resultSize));
         cl::Program program(context, source, /*call clBuildProgram = */false);
 
         for(size_t i = 0; i < options.size(); ++i)
@@ -109,18 +109,18 @@ void clBuildOptionsTest()
                 throw;
             }
             cl::Kernel kernel(program, "clBuildOptionsTest");
-            kernel.setArg(0, resultBuf);
-            kernel.setArg(1, capacity);
-            kernel.setArg(2, resultSizeBuf);
+            kernel.setArg(0, sizeof(resultBuf), &resultBuf);
+            kernel.setArg(1, sizeof(capacity), &capacity);
+            kernel.setArg(2, sizeof(resultSizeBuf), &resultSizeBuf);
             cl::NDRange global(1);
             queue.enqueueNDRangeKernel(kernel, NULL, global);
             queue.finish();
-            queue.enqueueReadBuffer(resultSizeBuf, CL_TRUE, 0, sizeof(size_t),
+            queue.enqueueReadBuffer(resultSizeBuf, CL_TRUE, 0, sizeof(resultSize),
                                     &resultSize);
             ASSERT_LE(resultSize, capacity);
             queue.enqueueReadBuffer(resultBuf, CL_TRUE, 0, resultSize,
-                                    resultBuffer);
-            ASSERT_STREQ(resultBuffer, options[i].second);
+                                    &resultBuffer[0]);
+            ASSERT_STREQ(&resultBuffer[0], options[i].second);
         }
     }
     catch(cl::Error& e)
