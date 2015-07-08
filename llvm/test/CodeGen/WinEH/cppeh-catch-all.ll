@@ -22,7 +22,7 @@ target triple = "x86_64-pc-windows-msvc"
 ; CHECK: define void @_Z4testv()
 ; CHECK: entry:
 ; CHECK:   invoke void @_Z9may_throwv()
-; CHECK:           to label %invoke.cont unwind label %[[LPAD_LABEL:lpad[0-9]+]]
+; CHECK:           to label %invoke.cont unwind label %[[LPAD_LABEL:lpad[0-9]*]]
 
 ; Function Attrs: uwtable
 define void @_Z4testv() #0 {
@@ -88,7 +88,7 @@ declare void @llvm.eh.endcatch()
 
 attributes #0 = { uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
 attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { noinline noreturn nounwind }
+attributes #2 = { noinline nounwind }
 attributes #3 = { nounwind }
 attributes #4 = { noreturn nounwind }
 

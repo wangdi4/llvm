@@ -34,6 +34,7 @@ add_llvm_library(LLVMCore
   Metadata.cpp
   MetadataTracking.cpp
   Module.cpp
+  Operator.cpp
   Pass.cpp
   PassManager.cpp
   PassRegistry.cpp
@@ -52,3 +53,4 @@ add_llvm_library(LLVMCore
   )
 
 add_dependencies(LLVMCore intrinsics_gen)
+add_subdirectory(Intel_LoopIR)

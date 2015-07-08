@@ -26,8 +26,6 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOPasses.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -39,8 +37,13 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOPasses.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
+//***INTEL - HIR Transforms
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
@@ -176,6 +179,7 @@ namespace {
       (void) llvm::createPartiallyInlineLibCallsPass();
       (void) llvm::createScalarizerPass();
       (void) llvm::createSeparateConstOffsetFromGEPPass();
+      (void) llvm::createSpeculativeExecutionPass();
       (void) llvm::createRewriteSymbolsPass();
       (void) llvm::createStraightLineStrengthReducePass();
       (void) llvm::createMemDerefPrinter();
@@ -202,6 +206,21 @@ namespace {
 
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
+
+  #if INTEL_CUSTOMIZATION  // HIR passes
+      (void) llvm::createRegionIdentificationPass();
+      (void) llvm::createSCCFormationPass();
+      (void) llvm::createHIRCreationPass();
+      (void) llvm::createHIRCleanupPass();
+      (void) llvm::createLoopFormationPass();
+      (void) llvm::createHIRParserPass();
+      (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createDDAnalysisPass();
+
+      (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRCodeGenPass();
+  #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

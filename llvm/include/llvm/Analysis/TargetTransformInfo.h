@@ -417,7 +417,7 @@ public:
   /// \return The maximum interleave factor that any transform should try to
   /// perform for this target. This number depends on the level of parallelism
   /// and the number of execution units in the CPU.
-  unsigned getMaxInterleaveFactor() const;
+  unsigned getMaxInterleaveFactor(unsigned VF) const;
 
   /// \return The expected cost of arithmetic ops, such as mul, xor, fsub, etc.
   unsigned
@@ -584,7 +584,7 @@ public:
                                  const APInt &Imm, Type *Ty) = 0;
   virtual unsigned getNumberOfRegisters(bool Vector) = 0;
   virtual unsigned getRegisterBitWidth(bool Vector) = 0;
-  virtual unsigned getMaxInterleaveFactor() = 0;
+  virtual unsigned getMaxInterleaveFactor(unsigned VF) = 0;
   virtual unsigned
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,
                          OperandValueKind Opd2Info,
@@ -736,8 +736,8 @@ public:
   unsigned getRegisterBitWidth(bool Vector) override {
     return Impl.getRegisterBitWidth(Vector);
   }
-  unsigned getMaxInterleaveFactor() override {
-    return Impl.getMaxInterleaveFactor();
+  unsigned getMaxInterleaveFactor(unsigned VF) override {
+    return Impl.getMaxInterleaveFactor(VF);
   }
   unsigned
   getArithmeticInstrCost(unsigned Opcode, Type *Ty, OperandValueKind Opd1Info,

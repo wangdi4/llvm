@@ -20,6 +20,7 @@ set(LLVM_LINK_COMPONENTS
   VPODriver
   SIMDFunctionCloning
   Passes
+  Intel_LoopTransforms
   )
 
 # Support plugins.

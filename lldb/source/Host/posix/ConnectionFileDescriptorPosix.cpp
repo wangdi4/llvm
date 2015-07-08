@@ -166,6 +166,14 @@ ConnectionFileDescriptor::Connect(const char *s, Error *error_ptr)
             // unix://SOCKNAME
             return NamedSocketAccept(s + strlen("unix-accept://"), error_ptr);
         }
+        else if (strstr(s, "adb://") == s)
+        {
+            int port = -1;
+            sscanf(s, "adb://%*[^:]:%d", &port);
+            char host_and_port[sizeof("localhost:65535")];
+            snprintf(host_and_port, sizeof(host_and_port), "localhost:%d", port);
+            return ConnectTCP(host_and_port, error_ptr);
+        }
         else if (strstr(s, "connect://") == s)
         {
             return ConnectTCP(s + strlen("connect://"), error_ptr);
@@ -363,6 +371,9 @@ ConnectionFileDescriptor::Disconnect(Error *error_ptr)
         status = eConnectionStatusError;
     if (error_ptr)
         *error_ptr = error.Fail() ? error : error2;
+
+    // Close any pipes we were using for async interrupts
+    m_pipe.Close();
 
     m_uri.clear();
     m_shutting_down = false;

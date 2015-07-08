@@ -64,7 +64,7 @@ LIB_TYPE     := $(call check_variable,LIB_TYPE,norm prof stub)
 # Type of library: dynamic or static linking.
 LINK_TYPE    := $(call check_variable,LINK_TYPE,dyna stat)
 # Supported OpenMP version, 2.5 or 3.0.
-OMP_VERSION  := $(call check_variable,OMP_VERSION,40 30 25)
+OMP_VERSION  := $(call check_variable,OMP_VERSION,41 40 30 25)
 # Generate optimized code.
 OPTIMIZATION := $(call check_variable,OPTIMIZATION,off on)
 # Library version: 4 -- legacy, 5 -- compat.
@@ -94,6 +94,9 @@ define curr_config
     CXXFLAGS=$(subst $(space),_,$(CXXFLAGS))
     FFLAGS=$(subst $(space),_,$(FFLAGS))
     LDFLAGS=$(subst $(space),_,$(LDFLAGS))
+    OMPT_SUPPORT=$(OMPT_SUPPORT)
+    OMPT_BLAME=$(OMPT_BLAME)
+    OMPT_TRACE=$(OMPT_TRACE)
 endef
 # And check it.
 include $(tools_dir)src/common-checks.mk
@@ -510,7 +513,7 @@ ifeq "$(os)" "win"
     cpp-flags += -D KMP_WIN_CDECL
 endif
 ifeq "$(LINK_TYPE)" "dyna"
-    cpp-flags += -D GUIDEDLL_EXPORTS
+    cpp-flags += -D KMP_DYNAMIC_LIB
 endif
 ifeq "$(LIB_TYPE)" "stub"
     cpp-flags += -D KMP_STUB
@@ -643,11 +646,15 @@ gd-flags += -D $(LIB_TYPE)
 ifeq "$(HAVE_QUAD)" "1"
     gd-flags += -D HAVE_QUAD
 endif
-ifeq "$(OMP_VERSION)" "40"
-    gd-flags += -D OMP_40 -D OMP_30
+ifeq "$(OMP_VERSION)" "41"
+    gd-flags += -D OMP_41 -D OMP_40 -D OMP_30
 else
-    ifeq "$(OMP_VERSION)" "30"
-        gd-flags += -D OMP_30
+    ifeq "$(OMP_VERSION)" "40"
+        gd-flags += -D OMP_40 -D OMP_30
+    else
+        ifeq "$(OMP_VERSION)" "30"
+            gd-flags += -D OMP_30
+        endif
     endif
 endif
 ifneq "$(VERSION)" "4"
@@ -689,12 +696,25 @@ ld-flags   += $(LDFLAGS)
 # --------------------------------------------------------------------------------------------------
 # Files.
 # --------------------------------------------------------------------------------------------------
+ifeq "$(OMPT_SUPPORT)" "on"
+    ompt_items = ompt-general
+    cpp-flags += -D OMPT_SUPPORT=1
+
+    ifeq "$(OMPT_BLAME)" "on"
+        cpp-flags += -D OMPT_BLAME=1
+    endif
+
+    ifeq "$(OMPT_TRACE)" "on"
+        cpp-flags += -D OMPT_TRACE=1
+    endif
+endif
 
 # Library files. These files participate in all kinds of library.
 lib_c_items :=      \
     kmp_ftn_cdecl   \
     kmp_ftn_extra   \
     kmp_version     \
+    $(ompt_items)   \
     $(empty)
 lib_cpp_items :=
 lib_asm_items :=
@@ -740,7 +760,7 @@ else # norm or prof
         kmp_sched                    \
         $(empty)
 
-ifeq "$(OMP_VERSION)" "40"
+ifeq ($(OMP_VERSION),$(filter $(OMP_VERSION),40 41))
     lib_cpp_items += kmp_taskdeps
     lib_cpp_items += kmp_cancel
 endif
@@ -860,6 +880,10 @@ out_mod_files  = \
 out_cmn_files  = \
     $(addprefix $(out_cmn_dir)include/,omp.h omp_lib.h omp_lib.f omp_lib.f90) \
     $(addprefix $(out_cmn_dir)include_compat/,iomp.h)
+ifeq "$(OMPT_SUPPORT)" "on"
+    out_cmn_files  += $(addprefix $(out_cmn_dir)include/,ompt.h)
+endif
+
 ifneq "$(out_lib_fat_dir)" ""
     out_lib_fat_files  = $(addprefix $(out_lib_fat_dir),$(lib_file) $(imp_file))
 endif

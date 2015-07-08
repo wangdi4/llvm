@@ -682,7 +682,9 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   Function::arg_iterator copiedArgEnd = wrapperFunc->arg_end();
   for (uint64_t index = 1; copiedArgIt != copiedArgEnd; copiedArgIt++, index++) {
     Type* argType = (*copiedArgIt).getType();
-    (*copiedArgIt).removeAttr(AttributeFuncs::typeIncompatible(argType, index));
+    AttrBuilder AB = AttributeFuncs::typeIncompatible(argType);
+    AttributeSet AS = AttributeSet::get(wrapperFunc->getContext(), index, AB);
+    (*copiedArgIt).removeAttr(AS);
   }
 
   wrapperFunc->setCallingConv(CallingConv::Intel_regcall);

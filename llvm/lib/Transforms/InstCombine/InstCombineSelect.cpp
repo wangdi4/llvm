@@ -17,6 +17,7 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetTransformInfo.h"
 #endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/PatternMatch.h"
 using namespace llvm;
 using namespace PatternMatch;
@@ -41,57 +42,44 @@ getMinMaxSPF(ICmpInst::Predicate Pred, bool Flip) {
     }
 }
 
-/// MatchSelectPattern - Pattern match integer [SU]MIN, [SU]MAX, and ABS idioms,
-/// returning the kind and providing the out parameter results if we
-/// successfully match.
 static SelectPatternFlavor
-MatchSelectPattern(Value *V, Value *&LHS, Value *&RHS) {
-  SelectInst *SI = dyn_cast<SelectInst>(V);
-  if (!SI) return SPF_UNKNOWN;
+getInverseMinMaxSelectPattern(SelectPatternFlavor SPF) {
+  switch (SPF) {
+  default:
+    llvm_unreachable("unhandled!");
 
-  ICmpInst *ICI = dyn_cast<ICmpInst>(SI->getCondition());
-  if (!ICI) return SPF_UNKNOWN;
-
-  ICmpInst::Predicate Pred = ICI->getPredicate();
-  Value *CmpLHS = ICI->getOperand(0);
-  Value *CmpRHS = ICI->getOperand(1);
-  Value *TrueVal = SI->getTrueValue();
-  Value *FalseVal = SI->getFalseValue();
-
-  LHS = CmpLHS;
-  RHS = CmpRHS;
-
-  // (icmp X, Y) ? X : Y
-  if (TrueVal == CmpLHS && FalseVal == CmpRHS) {
-    return getMinMaxSPF(Pred, false);
+  case SPF_SMIN:
+    return SPF_SMAX;
+  case SPF_UMIN:
+    return SPF_UMAX;
+  case SPF_SMAX:
+    return SPF_SMIN;
+  case SPF_UMAX:
+    return SPF_UMIN;
   }
+}
 
-  // (icmp X, Y) ? Y : X
-  if (TrueVal == CmpRHS && FalseVal == CmpLHS) {
-    return getMinMaxSPF(Pred, true);
+static CmpInst::Predicate getICmpPredicateForMinMax(SelectPatternFlavor SPF) {
+  switch (SPF) {
+  default:
+    llvm_unreachable("unhandled!");
+
+  case SPF_SMIN:
+    return ICmpInst::ICMP_SLT;
+  case SPF_UMIN:
+    return ICmpInst::ICMP_ULT;
+  case SPF_SMAX:
+    return ICmpInst::ICMP_SGT;
+  case SPF_UMAX:
+    return ICmpInst::ICMP_UGT;
   }
+}
 
-  if (ConstantInt *C1 = dyn_cast<ConstantInt>(CmpRHS)) {
-    if ((CmpLHS == TrueVal && match(FalseVal, m_Neg(m_Specific(CmpLHS)))) ||
-        (CmpLHS == FalseVal && match(TrueVal, m_Neg(m_Specific(CmpLHS))))) {
-
-      // ABS(X) ==> (X >s 0) ? X : -X and (X >s -1) ? X : -X
-      // NABS(X) ==> (X >s 0) ? -X : X and (X >s -1) ? -X : X
-      if (Pred == ICmpInst::ICMP_SGT && (C1->isZero() || C1->isMinusOne())) {
-        return (CmpLHS == TrueVal) ? SPF_ABS : SPF_NABS;
-      }
-
-      // ABS(X) ==> (X <s 0) ? -X : X and (X <s 1) ? -X : X
-      // NABS(X) ==> (X <s 0) ? X : -X and (X <s 1) ? X : -X
-      if (Pred == ICmpInst::ICMP_SLT && (C1->isZero() || C1->isOne())) {
-        return (CmpLHS == FalseVal) ? SPF_ABS : SPF_NABS;
-      }
-    }
-  }
-
-  // TODO: (X > 4) ? X : 5   -->  (X >= 5) ? X : 5  -->  MAX(X, 5)
-
-  return SPF_UNKNOWN;
+static Value *generateMinMaxSelectPattern(InstCombiner::BuilderTy *Builder,
+                                          SelectPatternFlavor SPF, Value *A,
+                                          Value *B) {
+  CmpInst::Predicate Pred = getICmpPredicateForMinMax(SPF);
+  return Builder->CreateSelect(Builder->CreateICmp(Pred, A, B), A, B);
 }
 
 #if INTEL_CUSTOMIZATION
@@ -897,6 +885,52 @@ Instruction *InstCombiner::FoldSPFofSPF(Instruction *Inner,
         SI->getCondition(), SI->getFalseValue(), SI->getTrueValue());
     return ReplaceInstUsesWith(Outer, NewSI);
   }
+
+  auto IsFreeOrProfitableToInvert =
+      [&](Value *V, Value *&NotV, bool &ElidesXor) {
+    if (match(V, m_Not(m_Value(NotV)))) {
+      // If V has at most 2 uses then we can get rid of the xor operation
+      // entirely.
+      ElidesXor |= !V->hasNUsesOrMore(3);
+      return true;
+    }
+
+    if (IsFreeToInvert(V, !V->hasNUsesOrMore(3))) {
+      NotV = nullptr;
+      return true;
+    }
+
+    return false;
+  };
+
+  Value *NotA, *NotB, *NotC;
+  bool ElidesXor = false;
+
+  // MIN(MIN(~A, ~B), ~C) == ~MAX(MAX(A, B), C)
+  // MIN(MAX(~A, ~B), ~C) == ~MAX(MIN(A, B), C)
+  // MAX(MIN(~A, ~B), ~C) == ~MIN(MAX(A, B), C)
+  // MAX(MAX(~A, ~B), ~C) == ~MIN(MIN(A, B), C)
+  //
+  // This transform is performance neutral if we can elide at least one xor from
+  // the set of three operands, since we'll be tacking on an xor at the very
+  // end.
+  if (IsFreeOrProfitableToInvert(A, NotA, ElidesXor) &&
+      IsFreeOrProfitableToInvert(B, NotB, ElidesXor) &&
+      IsFreeOrProfitableToInvert(C, NotC, ElidesXor) && ElidesXor) {
+    if (!NotA)
+      NotA = Builder->CreateNot(A);
+    if (!NotB)
+      NotB = Builder->CreateNot(B);
+    if (!NotC)
+      NotC = Builder->CreateNot(C);
+
+    Value *NewInner = generateMinMaxSelectPattern(
+        Builder, getInverseMinMaxSelectPattern(SPF1), NotA, NotB);
+    Value *NewOuter = Builder->CreateNot(generateMinMaxSelectPattern(
+        Builder, getInverseMinMaxSelectPattern(SPF2), NewInner, NotC));
+    return ReplaceInstUsesWith(Outer, NewOuter);
+  }
+
   return nullptr;
 }
 
@@ -1155,11 +1189,11 @@ findSaturateDownConvertPattern(SelectInst &SI, Value *&Val,
   }
   SelectPatternFlavor SPF2 = SPF_UNKNOWN;
   if ((Clip1 = dyn_cast<Constant>(LHS1))) {
-    SPF2 = MatchSelectPattern(RHS1, LHS2, RHS2);
+    SPF2 = matchSelectPattern(RHS1, LHS2, RHS2);
     if (SPF2 != SPF_SMAX && SPF2 != SPF_SMIN) return false;
   }
   else if ((Clip1 = dyn_cast<Constant>(RHS1))) {
-    SPF2 = MatchSelectPattern(LHS1, LHS2, RHS2);
+    SPF2 = matchSelectPattern(LHS1, LHS2, RHS2);
     if (SPF2 != SPF_SMAX && SPF2 != SPF_SMIN) return false;
   }
   assert(Clip1 && "MatchSelectDcnvPattern returned non-Constant");
@@ -1583,23 +1617,35 @@ Instruction *InstCombiner::visitSelectInst(SelectInst &SI) {
       }
 
   // See if we can fold the select into one of our operands.
-  if (SI.getType()->isIntegerTy()) {
+  if (SI.getType()->isIntOrIntVectorTy()) {
     if (Instruction *FoldI = FoldSelectIntoOp(SI, TrueVal, FalseVal))
       return FoldI;
 
     Value *LHS, *RHS, *LHS2, *RHS2;
-    SelectPatternFlavor SPF = MatchSelectPattern(&SI, LHS, RHS);
+    Instruction::CastOps CastOp;
+    SelectPatternFlavor SPF = matchSelectPattern(&SI, LHS, RHS, &CastOp);
 
-    // MAX(MAX(a, b), a) -> MAX(a, b)
-    // MIN(MIN(a, b), a) -> MIN(a, b)
-    // MAX(MIN(a, b), a) -> a
-    // MIN(MAX(a, b), a) -> a
     if (SPF) {
-      if (SelectPatternFlavor SPF2 = MatchSelectPattern(LHS, LHS2, RHS2))
+      // Canonicalize so that type casts are outside select patterns.
+      if (LHS->getType()->getPrimitiveSizeInBits() !=
+          SI.getType()->getPrimitiveSizeInBits()) {
+        CmpInst::Predicate Pred = getICmpPredicateForMinMax(SPF);
+        Value *Cmp = Builder->CreateICmp(Pred, LHS, RHS);
+        Value *NewSI = Builder->CreateCast(CastOp,
+                                           Builder->CreateSelect(Cmp, LHS, RHS),
+                                           SI.getType());
+        return ReplaceInstUsesWith(SI, NewSI);
+      }
+
+      // MAX(MAX(a, b), a) -> MAX(a, b)
+      // MIN(MIN(a, b), a) -> MIN(a, b)
+      // MAX(MIN(a, b), a) -> a
+      // MIN(MAX(a, b), a) -> a
+      if (SelectPatternFlavor SPF2 = matchSelectPattern(LHS, LHS2, RHS2))
         if (Instruction *R = FoldSPFofSPF(cast<Instruction>(LHS),SPF2,LHS2,RHS2,
                                           SI, SPF, RHS))
           return R;
-      if (SelectPatternFlavor SPF2 = MatchSelectPattern(RHS, LHS2, RHS2))
+      if (SelectPatternFlavor SPF2 = matchSelectPattern(RHS, LHS2, RHS2))
         if (Instruction *R = FoldSPFofSPF(cast<Instruction>(RHS),SPF2,LHS2,RHS2,
                                           SI, SPF, LHS))
           return R;

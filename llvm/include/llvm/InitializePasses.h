@@ -70,6 +70,16 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
+#if INTEL_CUSTOMIZATION // HIR passes
+/// initializeIntel_LoopAnalysis - Initialize all passes linked into the
+/// Intel_LoopAnalysis library.
+void initializeIntel_LoopAnalysis(PassRegistry&);
+
+/// initializeIntel_LoopTransforms - Initialize all passes linked into the
+/// Intel_LoopTransforms library.
+void initializeIntel_LoopTransforms(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
+
 void initializeAAEvalPass(PassRegistry&);
 void initializeAddDiscriminatorsPass(PassRegistry&);
 void initializeADCEPass(PassRegistry&);
@@ -255,6 +265,7 @@ void initializeSROA_DTPass(PassRegistry&);
 void initializeSROA_SSAUpPass(PassRegistry&);
 void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
 void initializeScalarEvolutionPass(PassRegistry&);
+void initializeShrinkWrapPass(PassRegistry &);
 void initializeSimpleInlinerPass(PassRegistry&);
 void initializeShadowStackGCLoweringPass(PassRegistry&);  
 void initializeRegisterCoalescerPass(PassRegistry&);
@@ -263,6 +274,7 @@ void initializeSinkingPass(PassRegistry&);
 void initializeSeparateConstOffsetFromGEPPass(PassRegistry &);
 void initializeSlotIndexesPass(PassRegistry&);
 void initializeSpillPlacementPass(PassRegistry&);
+void initializeSpeculativeExecutionPass(PassRegistry&);
 void initializeStackProtectorPass(PassRegistry&);
 void initializeStackColoringPass(PassRegistry&);
 void initializeStackSlotColoringPass(PassRegistry&);
@@ -275,7 +287,6 @@ void initializeStripSymbolsPass(PassRegistry&);
 void initializeTailCallElimPass(PassRegistry&);
 void initializeTailDuplicatePassPass(PassRegistry&);
 void initializeTargetPassConfigPass(PassRegistry&);
-void initializeDataLayoutPassPass(PassRegistry &);
 void initializeTargetTransformInfoWrapperPassPass(PassRegistry &);
 void initializeTargetLibraryInfoWrapperPassPass(PassRegistry &);
 void initializeAssumptionCacheTrackerPass(PassRegistry &);
@@ -310,6 +321,23 @@ void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 void initializeSIMDFunctionCloningPass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
+void initializeLoopDistributePass(PassRegistry&);
+
+#if INTEL_CUSTOMIZATION // HIR passes
+void initializeRegionIdentificationPass(PassRegistry&);
+void initializeSCCFormationPass(PassRegistry&);
+void initializeHIRCreationPass(PassRegistry&);
+void initializeHIRCleanupPass(PassRegistry&);
+void initializeLoopFormationPass(PassRegistry&);
+void initializeHIRParserPass(PassRegistry&);
+void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeDDAnalysisPass(PassRegistry&);
+
+void initializeSSADeconstructionPass(PassRegistry&);
+void initializeHIRPrinterPass(llvm::PassRegistry&);
+void initializeHIRCompleteUnrollPass(PassRegistry&);
+void initializeHIRCodeGenPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #endif

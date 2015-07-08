@@ -4,6 +4,13 @@ include(CheckLibraryExists)
 include(CheckSymbolExists)
 include(TestBigEndian)
 
+function(check_linker_flag flag out_var)
+  cmake_push_check_state()
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${flag}")
+  check_cxx_compiler_flag("" ${out_var})
+  cmake_pop_check_state()
+endfunction()
+
 # CodeGen options.
 check_cxx_compiler_flag(-fPIC                COMPILER_RT_HAS_FPIC_FLAG)
 check_cxx_compiler_flag(-fPIE                COMPILER_RT_HAS_FPIE_FLAG)
@@ -58,6 +65,11 @@ check_library_exists(dl dlopen "" COMPILER_RT_HAS_LIBDL)
 check_library_exists(m pow "" COMPILER_RT_HAS_LIBM)
 check_library_exists(pthread pthread_create "" COMPILER_RT_HAS_LIBPTHREAD)
 check_library_exists(stdc++ __cxa_throw "" COMPILER_RT_HAS_LIBSTDCXX)
+
+# Linker flags.
+if(ANDROID)
+  check_linker_flag("-Wl,-z,global" COMPILER_RT_HAS_Z_GLOBAL)
+endif()
 
 # Architectures.
 
@@ -184,11 +196,11 @@ else()
     # FIXME: Ideally, we would build the N32 library too.
     if("${COMPILER_RT_TEST_TARGET_ARCH}" MATCHES "mipsel|mips64el")
       # regex for mipsel, mips64el
-      test_target_arch(mipsel "" "-mips32r2")
-      test_target_arch(mips64el "" "-mips64r2 -mabi=n64")
+      test_target_arch(mipsel "" "-mips32r2" "--target=mipsel-linux-gnu")
+      test_target_arch(mips64el "" "-mips64r2" "-mabi=n64")
     else()
-      test_target_arch(mips "" "-mips32r2")
-      test_target_arch(mips64 "" "-mips64r2 -mabi=n64")
+      test_target_arch(mips "" "-mips32r2" "--target=mips-linux-gnu")
+      test_target_arch(mips64 "" "-mips64r2" "-mabi=n64")
     endif()
   elseif("${COMPILER_RT_TEST_TARGET_ARCH}" MATCHES "arm")
     test_target_arch(arm "" "-march=armv7-a")
@@ -214,6 +226,7 @@ function(filter_available_targets out_var)
   set(${out_var} ${archs} PARENT_SCOPE)
 endfunction()
 
+# Returns a list of architecture specific target cflags in @out_var list.
 function(get_target_flags_for_arch arch out_var)
   list(FIND COMPILER_RT_SUPPORTED_ARCH ${arch} ARCH_INDEX)
   if(ARCH_INDEX EQUAL -1)
