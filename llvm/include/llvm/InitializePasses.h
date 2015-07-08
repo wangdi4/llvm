@@ -308,6 +308,9 @@ void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
+#ifdef INTEL_CUSTOMIZATION
+void initializeFeatureOutlinerPass(PassRegistry&);
+#endif  // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 
 #if INTEL_CUSTOMIZATION // HIR passes

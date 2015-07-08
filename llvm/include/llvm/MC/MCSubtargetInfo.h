@@ -75,6 +75,13 @@ public:
   ///
   void setFeatureBits(FeatureBitset& FeatureBits_) { FeatureBits = FeatureBits_; }
 
+#ifdef INTEL_CUSTOMIZATION
+  /// getProcFeatures - get the architecture's processor features array
+  const ArrayRef<SubtargetFeatureKV> getProcFeatures() const {
+    return ProcFeatures;
+  }
+#endif //INTEL_CUSTOMIZATION  
+
   /// InitMCProcessorInfo - Set or change the CPU (optionally supplemented with
   /// feature string). Recompute feature bits and scheduling model.
   void InitMCProcessorInfo(StringRef CPU, StringRef FS);

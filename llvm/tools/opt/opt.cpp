@@ -327,6 +327,10 @@ int main(int argc, char **argv) {
   initializeWinEHPreparePass(Registry);
   initializeDwarfEHPreparePass(Registry);
 
+#ifdef INTEL_CUSTOMIZATION
+  initializeFeatureOutlinerPass(Registry);
+#endif  // INTEL_CUSTOMIZATION
+
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif

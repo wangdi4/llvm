@@ -22334,6 +22334,27 @@ static SDValue PerformINTRINSIC_WO_CHAINCombine(SDNode *N, SelectionDAG &DAG,
   }
   }
 }
+#ifdef INTEL_CUSTOMIZATION
+/// MulOptCompute returns PowerOfTwoPlusOne if Num = 2^C+1
+/// PowerOfTwoMinuOne if Num = 2^C-1, or NoMulOpt otherwise
+
+enum MulOptDef {
+  PowerOfTwoPlusOne,
+  PowerOfTwoMinusOne,
+  NoMulOpt
+};
+
+static MulOptDef MulOptCompute(int64_t Num) {
+  int Sign = Num > 0 ? 1 : -1;
+  if ((Num == INT64_MIN) || (Num == INT64_MAX) || (Num == -INT64_MAX))
+    return MulOptDef::NoMulOpt;
+  if (isPowerOf2_64(Sign*Num + 1))
+    return MulOptDef::PowerOfTwoMinusOne;
+  if (isPowerOf2_64(Sign*Num - 1))
+    return MulOptDef::PowerOfTwoPlusOne;
+  return MulOptDef::NoMulOpt;
+}
+#endif //INTEL_CUSTOMIZATION
 
 /// PerformMulCombine - Optimize a single multiply with constant into two
 /// in order to implement it with two cheaper instructions, e.g.
@@ -22342,18 +22363,46 @@ static SDValue PerformMulCombine(SDNode *N, SelectionDAG &DAG,
                                  TargetLowering::DAGCombinerInfo &DCI) {
   if (DCI.isBeforeLegalize() || DCI.isCalledByLegalizer())
     return SDValue();
-
   EVT VT = N->getValueType(0);
   if (VT != MVT::i64 && VT != MVT::i32)
     return SDValue();
-
   ConstantSDNode *C = dyn_cast<ConstantSDNode>(N->getOperand(1));
   if (!C)
     return SDValue();
   uint64_t MulAmt = C->getZExtValue();
   if (isPowerOf2_64(MulAmt) || MulAmt == 3 || MulAmt == 5 || MulAmt == 9)
     return SDValue();
-
+#ifdef INTEL_CUSTOMIZATION
+  int64_t SignMulAmt = C->getSExtValue();
+  int NumSign = SignMulAmt > 0 ? 1 : -1;
+  switch (MulOptCompute(SignMulAmt)) {
+  // fold (mul x, (1 << c) - 1) -> (x << c) - x
+  case MulOptDef::PowerOfTwoMinusOne: {
+    SDLoc DL(N);
+    SDValue SHL = DAG.getNode(ISD::SHL, DL, VT, N->getOperand(0),
+      DAG.getConstant(Log2_64(NumSign * SignMulAmt + 1), DL, MVT::i8));
+    SDValue SUB = DAG.getNode(ISD::SUB, DL, VT, SHL, N->getOperand(0));
+    if (NumSign == -1)
+      // To negate, subtract the number from zero
+      SUB = DAG.getNode(ISD::SUB, DL, VT, DAG.getConstant(0, DL, VT), SUB);
+    DCI.CombineTo(N, SUB, false);
+    return SDValue();
+  }
+  case MulOptDef::PowerOfTwoPlusOne: {
+    // fold (mul x, (1 << c) + 1) -> (x << c) + x
+    SDLoc DL(N);
+    SDValue SHL = DAG.getNode(ISD::SHL, DL, VT, N->getOperand(0),
+      DAG.getConstant(Log2_64(NumSign*SignMulAmt - 1), DL, MVT::i8));
+    SDValue ADD = DAG.getNode(ISD::ADD, DL, VT, SHL, N->getOperand(0));
+    if (NumSign == -1)
+      ADD = DAG.getNode(ISD::SUB, DL, VT, DAG.getConstant(0, DL, VT), ADD);
+    DCI.CombineTo(N, ADD, false);
+    return SDValue();
+  }
+  default:
+    break;
+  }
+#endif // INTEL_CUSTOMIZATION
   uint64_t MulAmt1 = 0;
   uint64_t MulAmt2 = 0;
   if ((MulAmt % 9) == 0) {
@@ -22369,14 +22418,12 @@ static SDValue PerformMulCombine(SDNode *N, SelectionDAG &DAG,
   if (MulAmt2 &&
       (isPowerOf2_64(MulAmt2) || MulAmt2 == 3 || MulAmt2 == 5 || MulAmt2 == 9)){
     SDLoc DL(N);
-
     if (isPowerOf2_64(MulAmt2) &&
         !(N->hasOneUse() && N->use_begin()->getOpcode() == ISD::ADD))
       // If second multiplifer is pow2, issue it first. We want the multiply by
       // 3, 5, or 9 to be folded into the addressing mode unless the lone use
       // is an add.
       std::swap(MulAmt1, MulAmt2);
-
     SDValue NewMul;
     if (isPowerOf2_64(MulAmt1))
       NewMul = DAG.getNode(ISD::SHL, DL, VT, N->getOperand(0),

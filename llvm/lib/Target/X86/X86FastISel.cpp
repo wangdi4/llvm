@@ -1076,6 +1076,7 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
     unsigned SrcReg = getRegForValue(Zero);
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
             TII.get(TargetOpcode::COPY), DstReg).addReg(SrcReg);
+    RetRegs.push_back(DstReg);
   }
 #endif
 

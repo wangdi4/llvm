@@ -378,6 +378,12 @@ namespace llvm {
   /// matching during instruction selection.
   FunctionPass *createCodeGenPreparePass(const TargetMachine *TM = nullptr);
 
+#ifdef INTEL_CUSTOMIZATION
+  // createFeatureOutlinerPass - This pass outlines basic blocks that use
+  // subtarget features not available on the default subtarget
+  ModulePass *createFeatureOutlinerPass(const TargetMachine *TM = nullptr);
+#endif  // INTEL_CUSTOMIZATION
+  
   /// AtomicExpandID -- Lowers atomic operations in terms of either cmpxchg
   /// load-linked/store-conditional loops.
   extern char &AtomicExpandID;
