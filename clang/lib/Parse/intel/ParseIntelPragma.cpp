@@ -192,7 +192,6 @@ void Parser::HandlePragmaNoVectorDecl() {
 }
 
 void PragmaNoVectorHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoVectorLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -223,7 +222,6 @@ void Parser::HandlePragmaDistributeDecl() {
 }
 
 void PragmaDistributeHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation DistributeLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -751,7 +749,6 @@ void Parser::HandlePragmaNoParallelDecl() {
 }
 
 void PragmaNoParallelHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoParallelLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -1004,7 +1001,6 @@ void Parser::HandlePragmaNoFusionDecl() {
 }
 
 void PragmaNoFusionHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer, Token &FirstTok) {
-  Token Tok;
   SourceLocation NoFusionLoc = FirstTok.getLocation();
   
   // ignore everything till the end of line
@@ -1151,7 +1147,8 @@ StmtResult Parser::HandlePragmaVector() {
           while (Tok.isNot(tok::annot_pragma_end)) {
             // Parse expr
             //Decl::SetUseReferencedInExpr(false);
-            ExprResult Res = ParseAssignmentExpression();
+            auto Res =
+                Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
             //Decl::SetUseReferencedInExpr(true);
             if(!Res.isUsable()) {
               // Error is found
@@ -1371,7 +1368,8 @@ StmtResult Parser::HandlePragmaParallel() {
       while (Tok.isNot(tok::annot_pragma_end) && Tok.isNot(tok::r_paren)) {
         // Parse expr
         //Decl::SetUseReferencedInExpr(false);
-        ExprResult Res = ParseAssignmentExpression();
+        auto Res =
+            Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
         //Decl::SetUseReferencedInExpr(true);
         //Res.get()->dumpAll();
         if(!Res.isUsable()) {
@@ -3359,4 +3357,4 @@ void Parser::resetIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION                                                                                                                                      
+#endif  // INTEL_CUSTOMIZATION

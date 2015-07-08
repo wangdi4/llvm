@@ -485,12 +485,6 @@ ClangUserExpression::Parse (Stream &error_stream,
                 }
             }
         }
-        
-        decl_vendor->ForEachMacro(modules_for_macros, [log, &prefix] (const std::string &expansion) -> bool {
-            prefix.append(expansion);
-            prefix.append("\n");
-            return false;
-        });
     }
     
     std::unique_ptr<ExpressionSourceCode> source_code (ExpressionSourceCode::CreateWrapped(prefix.c_str(), m_expr_text.c_str()));
@@ -1072,10 +1066,11 @@ ClangUserExpression::Evaluate (ExecutionContext &exe_ctx,
                                     keep_expression_in_memory,
                                     generate_debug_info))
     {
+        execution_results = lldb::eExpressionParseError;
         if (error_stream.GetString().empty())
-            error.SetExpressionError (lldb::eExpressionParseError, "expression failed to parse, unknown error");
+            error.SetExpressionError (execution_results, "expression failed to parse, unknown error");
         else
-            error.SetExpressionError (lldb::eExpressionParseError, error_stream.GetString().c_str());
+            error.SetExpressionError (execution_results, error_stream.GetString().c_str());
     }
     else
     {

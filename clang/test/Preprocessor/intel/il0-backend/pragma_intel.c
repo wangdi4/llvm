@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 %s -fsyntax-only -verify -IntelCompat
+// RUN: %clang_cc1 %s -fsyntax-only -verify -fintel-compatibility
 // This test should be removed when we remove our version of MS pragmas.
 
 

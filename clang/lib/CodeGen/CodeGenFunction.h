@@ -1177,6 +1177,12 @@ private:
 
   CodeGenPGO PGO;
 
+  /// Calculate branch weights appropriate for PGO data
+  llvm::MDNode *createProfileWeights(uint64_t TrueCount, uint64_t FalseCount);
+  llvm::MDNode *createProfileWeights(ArrayRef<uint64_t> Weights);
+  llvm::MDNode *createProfileWeightsForLoop(const Stmt *Cond,
+                                            uint64_t LoopCount);
+
 public:
   /// Increment the profiler's counter for the given statement.
   void incrementProfileCounter(const Stmt *S) {
@@ -1327,10 +1333,10 @@ private:
 
   /// The current lexical scope.
   LexicalScope *CurLexicalScope;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  /// ExceptionsDisabled - Whether exceptions are currently disabled.
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Whether exceptions are currently disabled.
   bool ExceptionsDisabled;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   /// The current source location that should be used for exception
   /// handling code.
   SourceLocation CurEHLocation;
@@ -1401,10 +1407,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   void disableExceptions() { ExceptionsDisabled = true; }
   void enableExceptions() { ExceptionsDisabled = false; }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   bool currentFunctionUsesSEHTry() const {
     const auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
     return FD && FD->usesSEHTry();
@@ -2532,9 +2538,9 @@ private:
   bool EmitOMPWorksharingLoop(const OMPLoopDirective &S);
   void EmitOMPForOuterLoop(OpenMPScheduleClauseKind ScheduleKind,
                            const OMPLoopDirective &S,
-                           OMPPrivateScope &LoopScope, llvm::Value *LB,
-                           llvm::Value *UB, llvm::Value *ST, llvm::Value *IL,
-                           llvm::Value *Chunk);
+                           OMPPrivateScope &LoopScope, bool Ordered,
+                           llvm::Value *LB, llvm::Value *UB, llvm::Value *ST,
+                           llvm::Value *IL, llvm::Value *Chunk);
 
 public:
 
@@ -2606,7 +2612,7 @@ public:
       bool IsWeak = false, AggValueSlot Slot = AggValueSlot::ignored());
 
   void EmitAtomicUpdate(LValue LVal, llvm::AtomicOrdering AO,
-                        const std::function<RValue(RValue)> &UpdateOp,
+                        const llvm::function_ref<RValue(RValue)> &UpdateOp,
                         bool IsVolatile);
 
   /// EmitToMemory - Change a scalar value from its value
@@ -3182,7 +3188,7 @@ public:
   /// \brief Create a basic block that will call a handler function in a
   /// sanitizer runtime with the provided arguments, and create a conditional
   /// branch to it.
-  void EmitCheck(ArrayRef<std::pair<llvm::Value *, SanitizerKind>> Checked,
+  void EmitCheck(ArrayRef<std::pair<llvm::Value *, SanitizerMask>> Checked,
                  StringRef CheckName, ArrayRef<llvm::Constant *> StaticArgs,
                  ArrayRef<llvm::Value *> DynamicArgs);
 

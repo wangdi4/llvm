@@ -2727,9 +2727,27 @@ static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   QualType ParamTy = FD->getParamDecl(0)->getType();
   if (S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
                                    ParamTy, Ty) != Sema::Compatible) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#371284 - allow 'PtrToInt' cast for cleanup function's argument.
+    // We also need to generate corresponding cast operation (ptrtoint
+    // instead of bitcast) at CodeGen stage.
+    // For IntelCompat mode only.
+    if (S.getLangOpts().IntelCompat &&
+        S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
+                                     ParamTy, Ty) == Sema::PointerToInt) {
+      S.Diag(Loc, diag::ext_typecheck_convert_pointer_int)
+          << Ty << ParamTy << Sema::AA_Sending << 0;
+      S.Diag(FD->getParamDecl(0)->getLocation(),
+             diag::note_attribute_cleanup_func_ptr_to_int_conversion)
+          << NI.getName();
+    } else {
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Loc, diag::err_attribute_cleanup_func_arg_incompatible_type)
       << NI.getName() << ParamTy << Ty;
     return;
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   D->addAttr(::new (S.Context)
@@ -4647,6 +4665,43 @@ static void handleDeprecatedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   handleAttrWithMessage<DeprecatedAttr>(S, D, Attr);
 }
 
+static void handleNoSanitizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1))
+    return;
+
+  std::vector<std::string> Sanitizers;
+
+  for (unsigned I = 0, E = Attr.getNumArgs(); I != E; ++I) {
+    StringRef SanitizerName;
+    SourceLocation LiteralLoc;
+
+    if (!S.checkStringLiteralArgumentAttr(Attr, I, SanitizerName, &LiteralLoc))
+      return;
+
+    if (parseSanitizerValue(SanitizerName, /*AllowGroups=*/true) == 0)
+      S.Diag(LiteralLoc, diag::warn_unknown_sanitizer_ignored) << SanitizerName;
+
+    Sanitizers.push_back(SanitizerName);
+  }
+
+  D->addAttr(::new (S.Context) NoSanitizeAttr(
+      Attr.getRange(), S.Context, Sanitizers.data(), Sanitizers.size(),
+      Attr.getAttributeSpellingListIndex()));
+}
+
+static void handleNoSanitizeSpecificAttr(Sema &S, Decl *D,
+                                         const AttributeList &Attr) {
+  std::string SanitizerName =
+      llvm::StringSwitch<std::string>(Attr.getName()->getName())
+          .Case("no_address_safety_analysis", "address")
+          .Case("no_sanitize_address", "address")
+          .Case("no_sanitize_thread", "thread")
+          .Case("no_sanitize_memory", "memory");
+  D->addAttr(::new (S.Context)
+                 NoSanitizeAttr(Attr.getRange(), S.Context, &SanitizerName, 1,
+                                Attr.getAttributeSpellingListIndex()));
+}
+
 /// Handles semantic checking for features that are common to all attributes,
 /// such as checking whether a parameter was properly specified, or the correct
 /// number of arguments were passed, etc.
@@ -5201,17 +5256,14 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_ScopedLockable:
     handleSimpleAttribute<ScopedLockableAttr>(S, D, Attr);
     break;
-  case AttributeList::AT_NoSanitizeAddress:
-    handleSimpleAttribute<NoSanitizeAddressAttr>(S, D, Attr);
+  case AttributeList::AT_NoSanitize:
+    handleNoSanitizeAttr(S, D, Attr);
+    break;
+  case AttributeList::AT_NoSanitizeSpecific:
+    handleNoSanitizeSpecificAttr(S, D, Attr);
     break;
   case AttributeList::AT_NoThreadSafetyAnalysis:
     handleSimpleAttribute<NoThreadSafetyAnalysisAttr>(S, D, Attr);
-    break;
-  case AttributeList::AT_NoSanitizeThread:
-    handleSimpleAttribute<NoSanitizeThreadAttr>(S, D, Attr);
-    break;
-  case AttributeList::AT_NoSanitizeMemory:
-    handleSimpleAttribute<NoSanitizeMemoryAttr>(S, D, Attr);
     break;
   case AttributeList::AT_GuardedBy:
     handleGuardedByAttr(S, D, Attr);
@@ -5624,7 +5676,7 @@ static void DoEmitAvailabilityWarning(Sema &S, Sema::AvailabilityDiagnostic K,
   // Don't warn if our current context is deprecated or unavailable.
   switch (K) {
   case Sema::AD_Deprecation:
-    if (isDeclDeprecated(Ctx))
+    if (isDeclDeprecated(Ctx) || isDeclUnavailable(Ctx))
       return;
     diag = !ObjCPropertyAccess ? diag::warn_deprecated
                                : diag::warn_property_method_deprecated;

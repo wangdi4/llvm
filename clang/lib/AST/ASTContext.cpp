@@ -869,6 +869,31 @@ void ASTContext::PrintStats() const {
   BumpAlloc.PrintStats();
 }
 
+void ASTContext::mergeDefinitionIntoModule(NamedDecl *ND, Module *M,
+                                           bool NotifyListeners) {
+  if (NotifyListeners)
+    if (auto *Listener = getASTMutationListener())
+      Listener->RedefinedHiddenDefinition(ND, M);
+
+  if (getLangOpts().ModulesLocalVisibility)
+    MergedDefModules[ND].push_back(M);
+  else
+    ND->setHidden(false);
+}
+
+void ASTContext::deduplicateMergedDefinitonsFor(NamedDecl *ND) {
+  auto It = MergedDefModules.find(ND);
+  if (It == MergedDefModules.end())
+    return;
+
+  auto &Merged = It->second;
+  llvm::DenseSet<Module*> Found;
+  for (Module *&M : Merged)
+    if (!Found.insert(M).second)
+      M = nullptr;
+  Merged.erase(std::remove(Merged.begin(), Merged.end(), nullptr), Merged.end());
+}
+
 ExternCContextDecl *ASTContext::getExternCContextDecl() const {
   if (!ExternCContext)
     ExternCContext = ExternCContextDecl::Create(*this, getTranslationUnitDecl());
@@ -1072,6 +1097,21 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
   // Builtin type used to help define __builtin_va_list.
   VaListTagTy = QualType();
 }
+
+#ifdef INTEL_CUSTOMIZATION
+bool ASTContext::IsPredefinedLibBuiltin(const NamedDecl *ND) const {
+  const auto FD = ND->getAsFunction();
+
+  // Predefined library builtin must be an implicit function.
+  if (!FD || !FD->isImplicit())
+    return false;
+
+  unsigned BuiltinID = FD->getBuiltinID();
+  // isPredefinedLibFunction() determines whether a builtin is used
+  // without '__builtin_' prefix.
+  return (BuiltinID > 0) && BuiltinInfo.isPredefinedLibFunction(BuiltinID);
+}
+#endif // INTEL_CUSTOMIZATION
 
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
   return SourceMgr.getDiagnostics();
@@ -4940,7 +4980,7 @@ CharUnits ASTContext::getObjCEncodingTypeSize(QualType type) const {
 bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
   return getLangOpts().MSVCCompat && VD->isStaticDataMember() &&
          VD->getType()->isIntegralOrEnumerationType() &&
-         !VD->getFirstDecl()->isOutOfLine() && VD->getFirstDecl()->hasInit();
+         VD->isFirstDecl() && !VD->isOutOfLine() && VD->hasInit();
 }
 
 static inline 

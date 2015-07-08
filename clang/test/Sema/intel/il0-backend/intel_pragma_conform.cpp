@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s 
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s 
 //***INTEL: pragma conform test
 #pragma conform (forScope, show) // expected-warning {{forScope behavior is standard}}
 #pragma conform // expected-warning {{missing '(' after '#pragma conform' - ignoring}}

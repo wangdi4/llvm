@@ -169,6 +169,8 @@ static std::string getStaticDeclName(CodeGenModule &CGM, const VarDecl &D) {
   assert(!D.isExternallyVisible() && "name shouldn't matter");
   std::string ContextName;
   const DeclContext *DC = D.getDeclContext();
+  if (auto *CD = dyn_cast<CapturedDecl>(DC))
+    DC = cast<DeclContext>(CD->getNonClosureContext());
   if (const auto *FD = dyn_cast<FunctionDecl>(DC))
     ContextName = CGM.getMangledName(FD);
   else if (const auto *BD = dyn_cast<BlockDecl>(DC))
@@ -512,6 +514,11 @@ namespace {
       // To fix this we insert a bitcast here.
       QualType ArgTy = FnInfo.arg_begin()->type;
       llvm::Value *Arg =
+#ifdef INTEL_CUSTOMIZATION
+          // CQ#371284 - allow 'ptrtoint' parameter cast for cleanup function.
+          (CGF.getLangOpts().IntelCompat)
+          ? CGF.Builder.CreateBitOrPointerCast(Addr, CGF.ConvertType(ArgTy)) :
+#endif // INTEL_CUSTOMIZATION
         CGF.Builder.CreateBitCast(Addr, CGF.ConvertType(ArgTy));
 
       CallArgList Args;
@@ -1014,7 +1021,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       llvm::Value *Stack = CreateTempAlloca(Int8PtrTy, "saved_stack");
 
       llvm::Value *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
-      llvm::Value *V = Builder.CreateCall(F);
+      llvm::Value *V = Builder.CreateCall(F, {});
 
       Builder.CreateStore(V, Stack);
 

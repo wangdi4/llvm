@@ -12,5 +12,5 @@ int main() {
   return 0;
 }
 
-// CHECK: !MDSubprogram(name: "getY", linkageName: "{{.+}}getY@Foo{{.+}}", scope: !{{.+}}, file: !{{.+}}, line: [[@LINE-11]], type: !{{.+}}, isLocal: false, isDefinition: false, scopeLine: {{.+}}, containingType: !{{.+}}, virtuality: DW_VIRTUALITY_virtual, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
-// CHECK: !MDSubprogram(name: "getX", linkageName: "{{.+}}getX@Foo{{.+}}", scope: !{{.+}}, file: !{{.+}}, line: [[@LINE-11]], type: !{{.+}}, isLocal: false, isDefinition: false, scopeLine: {{.+}}, containingType: !10, virtuality: DW_VIRTUALITY_virtual, virtualIndex: 1, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
+// CHECK: !DISubprogram(name: "getY", linkageName: "{{.+}}getY@Foo{{.+}}", scope: !{{.+}}, file: !{{.+}}, line: [[@LINE-11]], type: !{{.+}}, isLocal: false, isDefinition: false, scopeLine: {{.+}}, containingType: !{{.+}}, virtuality: DW_VIRTUALITY_virtual, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)
+// CHECK: !DISubprogram(name: "getX", linkageName: "{{.+}}getX@Foo{{.+}}", scope: !{{.+}}, file: !{{.+}}, line: [[@LINE-11]], type: !{{.+}}, isLocal: false, isDefinition: false, scopeLine: {{.+}}, containingType: !10, virtuality: DW_VIRTUALITY_virtual, virtualIndex: 1, flags: DIFlagPublic | DIFlagPrototyped, isOptimized: false)

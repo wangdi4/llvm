@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma alloc_text test
 
 // CHECK: target
