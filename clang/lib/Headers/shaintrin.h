@@ -28,10 +28,6 @@
 #ifndef __SHAINTRIN_H
 #define __SHAINTRIN_H
 
-#if !defined (__SHA__)
-#  error "SHA instructions not enabled"
-#endif
-
 #define _mm_sha1rnds4_epu32(V1, V2, M) __extension__ ({ \
   __builtin_ia32_sha1rnds4((V1), (V2), (M)); })
 

@@ -25,10 +25,6 @@
 #error "Never use <bmi2intrin.h> directly; include <x86intrin.h> instead."
 #endif
 
-#ifndef __BMI2__
-# error "BMI2 instruction set not enabled"
-#endif /* __BMI2__ */
-
 #ifndef __BMI2INTRIN_H
 #define __BMI2INTRIN_H
 

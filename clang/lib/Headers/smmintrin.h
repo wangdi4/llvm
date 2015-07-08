@@ -24,10 +24,6 @@
 #ifndef _SMMINTRIN_H
 #define _SMMINTRIN_H
 
-#ifndef __SSE4_1__
-#error "SSE4.1 instruction set not enabled"
-#else
-
 #include <tmmintrin.h>
 
 /* SSE4 Rounding macros. */
@@ -378,7 +374,6 @@ _mm_minpos_epu16(__m128i __V)
 
 /* These definitions are normally in nmmintrin.h, but gcc puts them in here
    so we'll do the same.  */
-#ifdef __SSE4_2__
 
 /* These specify the type of data that we're comparing.  */
 #define _SIDD_UBYTE_OPS                 0x00
@@ -472,11 +467,6 @@ _mm_crc32_u64(unsigned long long __C, unsigned long long __D)
 }
 #endif /* __x86_64__ */
 
-#ifdef __POPCNT__
 #include <popcntintrin.h>
-#endif
-
-#endif /* __SSE4_2__ */
-#endif /* __SSE4_1__ */
 
 #endif /* _SMMINTRIN_H */

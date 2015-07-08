@@ -24,10 +24,6 @@
 #ifndef __MMINTRIN_H
 #define __MMINTRIN_H
 
-#ifndef __MMX__
-#error "MMX instruction set not enabled"
-#else
-
 typedef long long __m64 __attribute__((__vector_size__(8)));
 
 typedef int __v2si __attribute__((__vector_size__(8)));
@@ -496,8 +492,6 @@ _mm_setr_pi8(char __b0, char __b1, char __b2, char __b3, char __b4, char __b5,
 #define _m_pcmpgtb _mm_cmpgt_pi8
 #define _m_pcmpgtw _mm_cmpgt_pi16
 #define _m_pcmpgtd _mm_cmpgt_pi32
-
-#endif /* __MMX__ */
 
 #endif /* __MMINTRIN_H */
 

@@ -21,10 +21,6 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef __POPCNT__
-#error "POPCNT instruction set not enabled"
-#endif
-
 #ifndef _POPCNTINTRIN_H
 #define _POPCNTINTRIN_H
 

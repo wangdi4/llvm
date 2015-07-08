@@ -24,10 +24,6 @@
 #ifndef __PMMINTRIN_H
 #define __PMMINTRIN_H
 
-#ifndef __SSE3__
-#error "SSE3 instruction set not enabled"
-#else
-
 #include <emmintrin.h>
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
@@ -111,7 +107,5 @@ _mm_mwait(unsigned __extensions, unsigned __hints)
 {
   __builtin_ia32_mwait(__extensions, __hints);
 }
-
-#endif /* __SSE3__ */
 
 #endif /* __PMMINTRIN_H */
