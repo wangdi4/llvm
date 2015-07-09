@@ -26,32 +26,19 @@ extern cl_device_type gDeviceType;
 /**************************************************************************************************
   clCheckCPUArchForJIT
   --------------------
-  test load invalid binaries and try to create program with these binaries
-  binary file was created before for invalid CPU architecture
-  Expect fail: clBuildProgram
-**************************************************************************************************/
+  load invalid binaries and try to create program with these binaries
+  binary file must be saved before for invalid CPU architecture (by GenerateBinaryFile() test)
+  Expect fail: clCreateProgramWithBinary
+  **************************************************************************************************/
 
 bool clCheckCPUArchForJIT() {
-    /*
-    // check and set CPU architecture
-    if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX20))
-    {
-        if (!SETENV("VOLCANO_CPU_ARCH", "corei7"))
-        {
-            printf("ERROR: CheckCPUArchForJIT: Can't set environment variable. Test FAILED\n");
-            return false;
-        }
-    }
-    else
-    {
-        if (!SETENV("VOLCANO_CPU_ARCH", "corei7-avx2"))
-        {
-            printf("ERROR: CheckCPUArchForJIT: Can't set environment variable. Test FAILED\n");
-            return false;
-        }
-    }
-    */
     if (gDeviceType != CL_DEVICE_TYPE_CPU) return true;
+
+    if (!UNSETENV("VOLCANO_CPU_ARCH")) {
+        printf("ERROR clCheckCPUArchForJIT: Can't unset VOLCANO_CPU_ARCH environment variable. Test FAILED\n");
+        return false;
+    }
+
     cl_context context;
     cl_device_id device;
 
@@ -124,19 +111,12 @@ bool clCheckCPUArchForJIT() {
     // create program with binary
     cl_int binaryStatus;
     cl_program program = clCreateProgramWithBinary(context, 1, &device, &binarySize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
-    bResult &= Check(L"clCreateProgramWithBinary", CL_SUCCESS, iRet);
-
-    iRet = clBuildProgram(program, 1, &device, NULL, NULL, NULL);
-    bResult &= Check(L"clBuildProgram", CL_BUILD_PROGRAM_FAILURE, iRet);
+    bResult &= Check(L"clCreateProgramWithBinary", CL_INVALID_BINARY, iRet);
+    bResult &= Check(L"binaryStatus = CL_INVALID_BINARY", CL_INVALID_BINARY, binaryStatus);
 
     // Release objects
     clReleaseProgram(program);
     clReleaseContext(context);
-
-    if (!UNSETENV("VOLCANO_CPU_ARCH")) {
-        printf("ERROR CheckCPUArchForJIT: Can't unset VOLCANO_CPU_ARCH environment variable. Test FAILED\n");
-        return false;
-    }
 
     return bResult;
 }

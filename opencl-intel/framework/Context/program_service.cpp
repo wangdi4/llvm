@@ -45,7 +45,6 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-
 //
 // ElfWriterDP- ElfWriter delete policy for autoptr.
 //
@@ -182,6 +181,7 @@ bool CompileTask::Execute()
         return true;
     }
 
+    //compile succeeded
     ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_OBJECTS,
                                                           CLElfLib::EH_MACHINE_NONE,
                                                           CLElfLib::EH_FLAG_NONE ));

@@ -83,7 +83,7 @@ CElfWriter::~CElfWriter()
 CElfWriter* CElfWriter::Create(
     E_EH_TYPE type,
     E_EH_MACHINE machine,
-    E_EH_FLAGS flags)
+    E_EH_FLAGS flags )
 {
     CElfWriter* pWriter = new CElfWriter(
         type, machine, flags );

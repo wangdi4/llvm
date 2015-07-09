@@ -20,6 +20,8 @@ File Name:  CPUCompileService.cpp
 #include "CPUCompileService.h"
 #include "CPUDeviceBackendFactory.h"
 #include "exceptions.h"
+#include "elf_binary.h"
+#include "cache_binary_handler.h"
 
 #include "llvm/IR/Module.h"
 
@@ -53,4 +55,42 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCode
     }
 }
 
+cl_dev_err_code CPUCompileService::CheckProgramBinary(const void* pBinary,
+    size_t uiBinarySize) const
+{
+    CPUId cpuId = m_programBuilder.GetCompiler()->GetCpuId();
+    OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
+    // Need to check only for cached Binary Object
+    if (reader.IsCachedObject())
+    {
+        // get maximum supported instruction from ELF header
+        CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
+
+        // get bitOS from ELF header
+        CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
+
+        bool retVal = true;
+
+        // check bitOS
+        if (cpuId.Is64BitOS())
+            retVal = (headerBit == CLElfLib::EM_X86_64) ? true : false;
+        else
+            retVal = (headerBit == CLElfLib::EM_860) ? true : false;
+
+        // check maximum supported instruction
+        if (retVal)
+        {
+            if (cpuId.HasAVX2())
+                retVal = (headerFlag == CLElfLib::EH_FLAG_AVX2) ? true : false;
+            else if (cpuId.HasAVX1())
+                retVal = (headerFlag == CLElfLib::EH_FLAG_AVX1) ? true : false;
+            else
+                retVal = (headerFlag == CLElfLib::EH_FLAG_SSE4) ? true : false;
+        }
+
+        if (!retVal)
+            return CL_DEV_INVALID_BINARY;
+    }
+    return CL_DEV_SUCCESS;
+}
 }}}

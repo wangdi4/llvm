@@ -87,8 +87,6 @@ enum E_EH_TYPE
 };
 
 // E_EH_MACHINE - List of pre-defined machine types.
-//    For OpenCL, currently, we do not need this information, so this is not
-//    fully defined.
 enum E_EH_MACHINE
 {
     EH_MACHINE_NONE       = 0,
@@ -105,7 +103,7 @@ enum E_EHT_VERSION
     EH_VERSION_CURRENT    = 1
 };
 
-// E_EH_FLAGS - list of muximum supported instruction
+// E_EH_FLAGS - list of muximum supported vector instruction
 enum E_EH_FLAGS
 {
     EH_FLAG_NONE               = 0,

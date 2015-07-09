@@ -80,7 +80,7 @@ public:
     static CElfWriter* ELF_CALL Create(
         E_EH_TYPE type,
         E_EH_MACHINE machine,
-        E_EH_FLAGS flags);
+        E_EH_FLAGS flags );
 
     static void ELF_CALL Delete( CElfWriter* &pElfWriter );
 
@@ -98,7 +98,7 @@ protected:
     ELF_CALL CElfWriter(
         E_EH_TYPE type,
         E_EH_MACHINE machine,
-        E_EH_FLAGS flags);
+        E_EH_FLAGS flags );
 
     ELF_CALL ~CElfWriter();
 

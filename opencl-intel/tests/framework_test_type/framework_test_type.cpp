@@ -166,6 +166,8 @@ TEST(FrameworkTestType, Test_GenerateBinaryFile)
 
 TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
 {
+    // GenerateBinaryFile before clCheckCPUArchForJIT
+    // clCheckCPUArchForJIT cannot function w\o calling GenerateBinaryFile
     EXPECT_TRUE(clCheckCPUArchForJIT());
 }
 

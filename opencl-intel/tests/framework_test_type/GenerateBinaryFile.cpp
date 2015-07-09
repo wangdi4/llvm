@@ -21,8 +21,15 @@
 
 using namespace Intel::OpenCL::Utils;
 
-
 extern cl_device_type gDeviceType;
+
+/**************************************************************************************************
+GenerateBinaryFile
+--------------------
+generate and save invalid binary file (for invalid CPU architecture)
+to load it in clCheckCPUArchForJIT test
+GenerateBinaryFile before clCheckCPUArchForJIT
+**************************************************************************************************/
 
 bool GenerateBinaryFile()
 {
@@ -42,7 +49,6 @@ bool GenerateBinaryFile()
     char * filename;
     printf("GenerateBinaryFile\n");
 
-    // check CPU architecture
     if (!CPUDetect::GetInstance()->IsFeatureSupported(CFS_AVX10))
     {
         if (!SETENV("VOLCANO_CPU_ARCH", "corei7-avx"))
@@ -72,17 +78,8 @@ bool GenerateBinaryFile()
 
     cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
 
-    cl_uint uiNumDevices = 0;
-    // get device(s)
-    iRet = clGetDeviceIDs(platform, gDeviceType, 0, NULL, &uiNumDevices);
-    if (CL_SUCCESS != iRet)
-    {
-        printf("clGetDeviceIDs = %s\n", ClErrTxt(iRet));
-        return false;
-    }
-
-    std::vector<cl_device_id> devices(uiNumDevices);
-    iRet = clGetDeviceIDs(platform, gDeviceType, uiNumDevices, &devices[0], NULL);
+    cl_device_id device;
+    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
     if (CL_SUCCESS != iRet)
     {
         printf("clGetDeviceIDs = %s\n", ClErrTxt(iRet));
@@ -90,7 +87,7 @@ bool GenerateBinaryFile()
     }
 
     // create context
-    cl_context context = clCreateContext(prop, uiNumDevices, &devices[0], NULL, NULL, &iRet);
+    cl_context context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
     if (CL_SUCCESS != iRet)
     {
         printf("clCreateContext = %s\n", ClErrTxt(iRet));
@@ -103,38 +100,42 @@ bool GenerateBinaryFile()
     if (!bResult)
     {
         clReleaseContext(context);
+        clReleaseProgram(clProg);
         return bResult;
     }
 
-    std::vector<size_t> binarySizes(uiNumDevices);
-    char ** pBinaries = NULL;
+    size_t binarySize = 0;
+    char * pBinaries = NULL;
     if (bResult)
     {
         // get the binary
-        iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t)* uiNumDevices, &binarySizes[0], NULL);
+        iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARY_SIZES, sizeof(size_t), &binarySize, NULL);
         bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARY_SIZES)", CL_SUCCESS, iRet);
         if (bResult)
         {
-            size_t sumBinariesSize = 0;
-            pBinaries = new char*[uiNumDevices];
-            for (unsigned int i = 0; i < uiNumDevices; ++i)
-            {
-                pBinaries[i] = new char[binarySizes[i]];
-                sumBinariesSize += binarySizes[i];
-            }
-            iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, sumBinariesSize, pBinaries, NULL);
+            pBinaries = new char[binarySize];
+            iRet = clGetProgramInfo(clProg, CL_PROGRAM_BINARIES, binarySize, &pBinaries, NULL);
             bResult &= Check(L"clGetProgramInfo(CL_PROGRAM_BINARIES)", CL_SUCCESS, iRet);
             if (bResult)
             {
                 FILE * fout;
                 fout = fopen(filename, "wb");
-                fwrite(pBinaries[0], 1, binarySizes[0], fout);
+                if (NULL == fout)
+                {
+                    printf("Failed open file.\n");
+                    clReleaseContext(context);
+                    clReleaseProgram(clProg);
+                    return false;
+                }
+                fwrite(pBinaries, 1, binarySize, fout);
                 fclose(fout);
-                printf("Saved successfully!! [size = %d] \n", sumBinariesSize);
+                printf("Saved successfully!! [size = %d] \n", binarySize);
             }
         }
     }
-    return bResult;
+
+    clReleaseContext(context);
+    clReleaseProgram(clProg);
 
     if (!UNSETENV("VOLCANO_CPU_ARCH")) {
         printf("ERROR GenerateBinaryFile: Can't unset VOLCANO_CPU_ARCH environment variable. Test FAILED\n");

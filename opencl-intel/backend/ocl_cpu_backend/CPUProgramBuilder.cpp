@@ -119,13 +119,13 @@ void CPUProgramBuilder::BuildProgramCachedExecutable(ObjectCodeCache* pCache, Pr
     CLElfLib::E_EH_MACHINE bitOS = m_compiler.GetCpuId().Is64BitOS() ? CLElfLib::EM_X86_64 : CLElfLib::EM_860;
 
     //Checking maximum supported instruction
-    CLElfLib::E_EH_FLAGS maxSuppurtedInstruction = CLElfLib::EH_FLAG_SSE4;
+    CLElfLib::E_EH_FLAGS maxSupportedVectorISA = CLElfLib::EH_FLAG_SSE4;
     if (m_compiler.GetCpuId().HasAVX2())
-        maxSuppurtedInstruction = CLElfLib::EH_FLAG_AVX2;
+        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX2;
     else if (m_compiler.GetCpuId().HasAVX1())
-        maxSuppurtedInstruction = CLElfLib::EH_FLAG_AVX1;
+        maxSupportedVectorISA = CLElfLib::EH_FLAG_AVX1;
 
-    std::auto_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter(bitOS, maxSuppurtedInstruction));
+    std::auto_ptr<CacheBinaryWriter> pWriter(new CacheBinaryWriter(bitOS, maxSupportedVectorISA));
 
     // fill the IR bit code
     const char* irStart = ((const char*)(pProgram->GetProgramIRCodeContainer()->GetCode()));
@@ -170,13 +170,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
 
     // get sizes
     CacheBinaryReader reader(pCachedObject,cacheSize);
-
-    // get muximum supported instruction from ELF header
-    CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
-
-    // get bitOS from ELF header
-    CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
-
     size_t serializationSize = reader.GetSectionSize(g_metaSectionName);
     size_t optModuleSize = reader.GetSectionSize(g_optSectionName);
     size_t objectSize = reader.GetSectionSize(g_objSectionName);
@@ -208,27 +201,6 @@ bool CPUProgramBuilder::ReloadProgramFromCachedExecutable(Program* pProgram)
     Compiler* pCompiler = GetCompiler();
     llvm::Module* pModule = pCompiler->ParseModuleIR(Buffer.get());
     pCompiler->CreateExecutionEngine(pModule);
-
-    bool retVal = true;
-
-    // check bitOS
-    if (pCompiler->GetCpuId().Is64BitOS())
-        retVal = headerBit == CLElfLib::E_EH_MACHINE::EM_X86_64 ? true : false;
-    else
-        retVal = headerBit == CLElfLib::E_EH_MACHINE::EM_860 ? true : false;
-
-    // check maximum supported instruction
-    if (retVal){
-        if (pCompiler->GetCpuId().HasAVX2())
-            retVal = headerFlag == CLElfLib::EH_FLAG_AVX2 ? true : false;
-        else if (pCompiler->GetCpuId().HasAVX1())
-            retVal = headerFlag == CLElfLib::EH_FLAG_AVX1 ? true : false;
-        else
-            retVal = headerFlag == CLElfLib::EH_FLAG_SSE4 ? true : false;
-    }
-
-    if (!retVal)
-        return false;
 
     llvm::ExecutionEngine* pEngine = (llvm::ExecutionEngine*)GetCompiler()->GetExecutionEngine();
 

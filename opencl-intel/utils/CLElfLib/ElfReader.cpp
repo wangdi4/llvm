@@ -29,7 +29,6 @@ Notes:
 #include <string.h>
 #include <stdio.h>
 
-
 namespace CLElfLib
 {
 /******************************************************************************\

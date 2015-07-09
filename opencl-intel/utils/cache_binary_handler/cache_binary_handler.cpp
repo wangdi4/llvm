@@ -29,7 +29,6 @@
 #include "elf_binary.h"
 #include "assert.h"
 
-
 namespace Intel{ namespace OpenCL{ namespace ELFUtils {
 const char* g_metaSectionName = ".ocl.meta";
 const char* g_irSectionName   = ".ocl.ir";
@@ -135,13 +134,14 @@ const CLElfLib::SElf64Header* CacheBinaryReader::GetElfHeader()
     {
         return m_pReader->GetElfHeader();
     }
+    return NULL;
 }
 
 CacheBinaryWriter::CacheBinaryWriter(CLElfLib::E_EH_MACHINE  machine, CLElfLib::E_EH_FLAGS flag)
 {
     m_pWriter = CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_EXECUTABLE,
                                               machine,
-                                              flag);
+                                              flag );
 }
 
 CacheBinaryWriter::~CacheBinaryWriter()

@@ -64,7 +64,7 @@ private:
 class CacheBinaryWriter
 {
 public:
-    CacheBinaryWriter(CLElfLib::E_EH_MACHINE  machine, CLElfLib::E_EH_FLAGS flag);
+    CacheBinaryWriter(CLElfLib::E_EH_MACHINE machine, CLElfLib::E_EH_FLAGS flag);
     virtual ~CacheBinaryWriter();
     bool AddSection(const char* sectionName, const char* sectionData, size_t sectionSize);
     size_t GetBinarySize() const;
