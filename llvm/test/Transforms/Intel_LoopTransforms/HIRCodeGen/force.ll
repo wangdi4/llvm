@@ -8,14 +8,14 @@
 ; 
 ; CHECK: region:
 ; CHECK-NEXT: store i64 0, i64* %i1
-; CHECK-NEXT: br label %loop
+; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
-; CHECK: loop:
+; CHECK: [[L1Label]]:
 ; CHECK-NEXT: load{{.*}} %i1
 ; CHECK: store{{.*}} %i1
-; CHECK: br{{.*}} label %loop, label %afterloop
+; CHECK: br{{.*}} label %[[L1Label]], label %after[[L1Label]]
 
-; CHECK: afterloop:
+; CHECK: after[[L1Label]]:
 ; CHECK-NEXT: br label %for.end
 
 ; ModuleID = 'test.cpp'
