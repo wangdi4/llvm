@@ -27,10 +27,10 @@
 #include <list>
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 
 namespace llvm {
 namespace loopopt {
-class DDRef;
 class HLNode;
 
 struct DirectionVector {
@@ -53,7 +53,7 @@ struct DirectionVector {
     Elements[Level - 1] = NewDirection;
   }
 
-  const std::string elementAsChar(Direction Dir) {
+  const std::string elementAsChar(Direction Dir) const {
     switch (Dir) {
     case Direction::UNINIT:
       return "0";
@@ -76,16 +76,18 @@ struct DirectionVector {
     }
   }
 
-  void dump() {
-    dbgs() << "[ ";
+  void print(raw_ostream &OS) const {
+    OS << "[ ";
     for (unsigned int i = 0; i < MaxLoopNestLevel; ++i) {
       if (i > 0 && Elements[i] == Direction::UNINIT)
         break;
-      dbgs() << elementAsChar(Elements[i]) << " ";
+      OS << elementAsChar(Elements[i]) << " ";
     }
-    dbgs() << "]"
-           << "\n";
+    OS << "]"
+       << "\n";
   }
+
+  void dump() const { print(dbgs()); }
 
 private:
   Direction Elements[MaxLoopNestLevel];
@@ -127,15 +129,17 @@ public:
     // TODO
   }
 
-  void dump() {
+  void print(raw_ostream &OS) const {
     for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
       std::vector<GraphEdge> edges = I->second;
       for (auto EIt = edges.begin(), EdgesEnd = edges.end(); EIt != EdgesEnd;
            ++EIt) {
-        EIt->dump();
+        EIt->print(OS);
       }
     }
   }
+
+  void dump() const { print(dbgs()); }
 
   void clear() {
     inEdges.clear();
@@ -169,17 +173,61 @@ public:
   DDEdge(DDRef *SrcRef, DDRef *SinkRef, DirectionVector DirV)
       : Src(SrcRef), Sink(SinkRef), DV(DirV) {}
 
-  DepType getEdgeType() {
-    // TODO based only on src sink or cache type?
-    return DepType::FLOW;
+  DepType getEdgeType() const {
+    RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
+    RegDDRef *SinkRef = dyn_cast<RegDDRef>(Sink);
+    bool SrcIsLval = (SrcRef && SrcRef->isLval()) ? true : false;
+    bool SinkIsLval = (SinkRef && SinkRef->isLval()) ? true : false;
+
+    if (SrcIsLval) {
+      if (SinkIsLval)
+        return DepType::OUTPUT;
+      return DepType::FLOW;
+    } else {
+      if (SinkIsLval)
+        return DepType::ANTI;
+      return DepType::INPUT;
+    }
   }
+
   DDRef *getSrc() { return Src; }
   DDRef *getSink() { return Sink; }
-  void dump() {
-    DV.dump();
-    dbgs() << " \n";
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &out, DepType value) {
+    const char *s = 0;
+    switch (value) {
+    case DepType::OUTPUT:
+      s = "OUTPUT";
+      break;
+    case DepType::ANTI:
+      s = "ANTI";
+      break;
+    case DepType::FLOW:
+      s = "FLOW";
+      break;
+    case DepType::INPUT:
+      s = "INPUT";
+      break;
+    }
+
+    return out << s;
+  }
+
+  void print(raw_ostream &OS) const {
+    formatted_raw_ostream FOS(OS);
+    FOS << Src->getHLDDNode()->getNumber() << ":";
+    FOS << Sink->getHLDDNode()->getNumber() << " ";
+    Src->print(FOS);
+    FOS << " --> ";
+    Sink->print(FOS);
+    FOS << " ";
+    FOS << getEdgeType();
+    FOS << " ";
+    DV.print(FOS);
+    FOS << " \n";
     // todo
   }
+
+  void dump() const { print(dbgs()); }
 };
 
 // TODO better name?

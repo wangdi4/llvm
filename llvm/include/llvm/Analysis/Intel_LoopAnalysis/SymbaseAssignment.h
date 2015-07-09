@@ -52,15 +52,15 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
 
   // Returns a new unused symbase ID
-  unsigned int getNewSymBase() { return MaxSymBase++; }
+  unsigned int getNewSymBase() { return ++MaxSymBase; }
 
   unsigned int getSymBaseForConstants() const;
 
 private:
   Function *F;
-  HIRParser* HIRP;
+  HIRParser *HIRP;
 
-  unsigned int MaxSymBase; 
+  unsigned int MaxSymBase;
 
 private:
   /// \brief Initializes max symbase using the max scalar symbase returned by

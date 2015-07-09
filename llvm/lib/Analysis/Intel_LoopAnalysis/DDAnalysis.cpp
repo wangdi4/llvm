@@ -21,6 +21,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -33,6 +34,34 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-analysis"
+
+// Rebuild nests in runOnFunction for loops of level n, 0 being whole region
+// for testing.
+// eg opt -dda -dda-verify=L1,L2 ... would result a walk of outermost loops, building
+// graph along the way, then a walk of level 2 loops, rebuilding graph for those
+// as well if graph isnt already cached. Best used with -verify to print graph
+// afterward all builds are done
+// This is useful for testing not only graph, but caching implementation as well
+cl::list<DDVerificationLevel> VerifyLevelList("dda-verify",
+    cl::CommaSeparated, 
+    cl::desc("DD graph built for Levels:"),
+    cl::values(clEnumVal(Region, "Build for entire region"),
+               clEnumVal(L1, "Build for Loop at Level 1(Outermost)"),
+               clEnumVal(L2, "Build for Loop at Level 2"),
+               clEnumVal(L3, "Build for Loop at Level 3"),
+               clEnumVal(L4, "Build for Loop at Level 4"),
+               clEnumVal(L5, "Build for Loop at Level 5"),
+               clEnumVal(L6, "Build for Loop at Level 6"),
+               clEnumVal(L7, "Build for Loop at Level 7"),
+               clEnumVal(L8, "Build for Loop at Level 8"),
+               clEnumVal(L9, "Build for Loop at Level 9"),
+               clEnumVal(Innermost, "Build for innermost loops only"),
+               clEnumValEnd));
+
+// Disable caching behavior and rebuild graph for every request.
+static cl::opt<bool>
+    forceDDA("force-DDA", cl::init(false), cl::Hidden,
+             cl::desc("forces graph construction for every request"));
 
 FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
@@ -63,7 +92,12 @@ bool DDAnalysis::runOnFunction(Function &F) {
   // Compute TopSortNum - which is needed to determine forward or backward edges
   HLNodeUtils::resetTopSortNum();
 
-  getGraph(HIRP->hir_begin(), false);
+  // If cl opts are present, build graph for requested loop levels
+  for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
+    DDVerificationLevel CurLevel = VerifyLevelList[I];
+    GraphVerifier V(this, CurLevel);
+    HLNodeUtils::visitAll(&V);
+  }
 
   return false;
 }
@@ -185,6 +219,42 @@ DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
   return InputDV;
 }
 
+// this is temporary until use of DirectionVector vs DVector is settled
+// only one should be used.
+DirectionVector convertDVectorTyToDV(DVectorTy DVector) {
+  DirectionVector OutputDV;
+  for (unsigned int i = 1; i <= MaxLoopNestLevel; ++i) {
+    auto Level = i - 1;
+    switch (DVector[Level]) {
+    case DV::ALL:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::ALL, i);
+      break;
+    case DV::LT:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::LT, i);
+      break;
+    case DV::EQ:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::EQ, i);
+      break;
+    case DV::LE:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::LE, i);
+      break;
+    case DV::GT:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::GT, i);
+      break;
+    case DV::NE:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::LG, i);
+      break;
+    case DV::NONE:
+      OutputDV.setDVAtLevel(DirectionVector::Direction::UNINIT, i);
+      break;
+    default:
+      break;
+    }
+  }
+
+  return OutputDV;
+}
+
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -207,7 +277,9 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
 
   HLNodeUtils::visit(&Gatherer, Node, true, true);
 
+  DEBUG(dbgs() << "Building graph for:\n");
   DEBUG(dumpSymBaseMap(RefMap));
+  DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
@@ -220,18 +292,37 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
         if (edgeNeeded(*Ref1, *Ref2, BuildInputEdges)) {
           DDtest DA;
           DVectorTy inputDV;
-          DVectorTy outputDVforward;
-          DVectorTy outputDVbackward;
+          DVectorTy OutputDVForward;
+          DVectorTy OutputDVBackward;
+          // TODO this is incorrect, we need a direction vector of
+          //= = * for 3rd level inermost loops
           DA.setInputDV(inputDV, 1, 9);
 
           bool IsDependent = DA.findDependences(
-              *Ref1, *Ref2, inputDV, outputDVforward, outputDVbackward);
+              *Ref1, *Ref2, inputDV, OutputDVForward, OutputDVBackward);
           //  Sample code to check output:
           //  first check IsDependent
           //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;
           //  etc
-          if (IsDependent) {
-            DEBUG(dbgs() << " Found Dependence!\n");
+
+          // TODO Blindly adding edges means we have the unfortunate side effect
+          // of obliterating edges if we request outermost loop graph then
+          // innermost loop graph. If refinement is not possible, we should
+          // keep the previous result cached somewhere.
+          if (OutputDVForward[0] != DV::NONE) {
+            DDEdge Edge =
+                DDEdge(*Ref1, *Ref2, convertDVectorTyToDV(OutputDVForward));
+            // DEBUG(dbgs() << "Got edge of :");
+            // DEBUG(Edge.dump());
+            FunctionDDGraph.addEdge(Edge);
+          }
+
+          if (OutputDVBackward[0] != DV::NONE) {
+            DDEdge Edge =
+                DDEdge(*Ref2, *Ref1, convertDVectorTyToDV(OutputDVBackward));
+            // DEBUG(dbgs() << "Got back edge of :");
+            // DEBUG(Edge.dump());
+            FunctionDDGraph.addEdge(Edge);
           }
         }
       }
@@ -240,8 +331,32 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
 }
 
 bool DDAnalysis::graphForNodeValid(HLNode *Node) {
+  if (forceDDA)
+    return false;
+
   // TODO
   return false;
+}
+void DDAnalysis::print(raw_ostream &OS, const Module *M) const {
+  OS << "DD graph for function:\n";
+  FunctionDDGraph.print(OS);
+}
+
+// Graph verifier does not build input edges
+void DDAnalysis::GraphVerifier::visit(HLRegion *Region) {
+  if (CurLevel == DDVerificationLevel::Region &&
+      !CurDDA->graphForNodeValid(Region)) {
+    CurDDA->rebuildGraph(Region, false);
+  }
+}
+
+void DDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
+  if (Loop->getNestingLevel() == CurLevel ||
+      (Loop->isInnermost() && CurLevel == DDVerificationLevel::Innermost)) {
+    if (!CurDDA->graphForNodeValid(Loop)) {
+      CurDDA->rebuildGraph(Loop, false);
+    }
+  }
 }
 
 unsigned int DDAnalysis::getNewSymBase() { return SA->getNewSymBase(); }

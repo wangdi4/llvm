@@ -4191,12 +4191,14 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     switch (Result.getDirection(II)) {
     case DV::GT:
     case DV::GE:
+    // TODO: ALL does not need reversal for output but this needs to be
+    // handled in caller
+    case DV::ALL:
       needReversal = true;
       done = true;
       break;
     case DV::LT:
     case DV::LE:
-    case DV::ALL:
       done = true;
       break;
     default:
@@ -4288,6 +4290,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   raw_ostream &OS = dbgs();
   bool isTemp = false;
 
+  DA.initDV(forwardDV);
+  DA.initDV(backwardDV);
+
   auto Result = DA.depends(SrcDDRef, DstDDRef, inputDV);
 
   if (Result == nullptr) {
@@ -4315,8 +4320,6 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  DA.initDV(forwardDV);
-  DA.initDV(backwardDV);
 
   if (isa<BlobDDRef>(SrcDDRef)) {
     isTemp = true;

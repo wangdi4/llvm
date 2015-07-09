@@ -113,7 +113,8 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
 }
 
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  // TODO if ref is not mem load/str return
+  if (Ref->isScalarRef())
+    return;
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
@@ -152,6 +153,7 @@ unsigned int SymbaseAssignment::getSymBaseForConstants() const {
 
 void SymbaseAssignment::initializeMaxSymBase() {
   MaxSymBase = HIRP->getMaxScalarSymbase();
+  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymBase << " \n");
 }
 
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {

@@ -1,14 +1,14 @@
-; RUN: opt -analyze -symbase < %s | FileCheck -debug %s
-; Without an AA impl, both array refs should be in same symbase
-; CHECK-DAG: {{@B.*\[.*}} Symbase: [[Base1:[0-9]+]]
-; CHECK-DAG: {{@A.*\[.*}} Symbase: [[Base1]]
+; RUN:opt -basicaa -dda -dda-verify=Region -analyze < %s | FileCheck %s
+; without domination its unclear wheter type is flow or anti
+; CHECK: DD graph for function:
+; CHECK: (@A)[i1 + 1] --> (@A)[i1 + 1] {{.*\[ = \]}}
+; CHECK-NOT: @A
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @A = global [10 x i32] zeroinitializer, align 16
-@B = global [10 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
 define i32 @_Z3foov() #0 {
@@ -17,7 +17,7 @@ entry:
 
 for.body:                                         ; preds = %for.body, %entry
   %i.05 = phi i64 [ 1, %entry ], [ %inc, %for.body ]
-  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @B, i64 0, i64 %i.05
+  %arrayidx = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %i.05
   %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
   %arrayidx1 = getelementptr inbounds [10 x i32], [10 x i32]* @A, i64 0, i64 %i.05
   store i32 %0, i32* %arrayidx1, align 4, !tbaa !1
