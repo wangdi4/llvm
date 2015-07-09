@@ -67,7 +67,8 @@ namespace intel{
       // TODO: remove once SPIR 2.0 format for blocks is used.
       // Clang produces _NSConcreteGlobalBlock unresolved external variable which is not used by OpenCL.
       // MCJIT do not compile a module with unresolved external symbols, so we delete _NSConcreteGlobalBlock and replace all usages with undef.
-      if (GVar->hasExternalLinkage() && GVar->getName() == "_NSConcreteGlobalBlock") {
+      if (GVar->hasExternalLinkage() &&
+         (GVar->getName() == "_NSConcreteGlobalBlock" || GVar->getName() == "_NSConcreteStackBlock")) {
         GVar->replaceAllUsesWith(UndefValue::get(GVar->getType()));
         toDelete.push_back(GVar);
         continue;
