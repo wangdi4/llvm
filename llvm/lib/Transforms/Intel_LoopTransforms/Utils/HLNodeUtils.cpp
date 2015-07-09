@@ -910,6 +910,83 @@ void HLNodeUtils::resetTopSortNum() {
   HLNodeUtils::visitAll(&TS);
 }
 
+bool HLNodeUtils::strictlyDominates(HLNode *HIR1, HLNode *HIR2) {
+
+  //  Is HIR1 strictly Dominates HIR2?
+  //  based on HIR links and topsort order when dominators are not present.
+  //  if HIR1 == HIR2, it will return false.
+  //  for dd_refs in the same statement:   s = s + ..., caller needs to
+  //  handle this case.
+  //  Current code does not support constructs in switch
+
+  unsigned Num1, Num2;
+  Num1 = HIR1->getTopSortNum();
+  Num2 = HIR2->getTopSortNum();
+  if (Num1 >= Num2) {
+    return false;
+  }
+
+  HLNode *Parent1 = HIR1->getParent();
+  HLNode *Parent2 = HIR2->getParent();
+  HLNode *tmpParent;
+
+  if (isa<HLLoop>(Parent1) && isa<HLLoop>(Parent2)) {
+    // immediate parent is loop and both HIR are in same loop
+    if (Parent1 == Parent2) {
+      return true;
+    }
+  }
+
+  if (isa<HLLoop>(Parent1) || isa<HLIf>(Parent1)) {
+    tmpParent = Parent2;
+    while (tmpParent) {
+      if (tmpParent == Parent1) {
+        // immediate parent of HIR1 is Loop or If, trace back from HIR2 to
+        // see if we can reach Parent1
+        return true;
+      }
+      tmpParent = tmpParent->getParent();
+    }
+  }
+
+  HLIf *If1 = dyn_cast<HLIf>(Parent1);
+  HLIf *If2 = dyn_cast<HLIf>(Parent2);
+  // When both are under the same IF stmt
+  if (If1 == If2 && If1) {
+    bool HIR1found = false;
+
+    for (auto It = If1->then_begin(), E = If1->then_end(); It != E; ++It) {
+      HLNode *HIRtemp = It;
+      if (HIRtemp == HIR1) {
+        HIR1found = true;
+      } else if (HIRtemp == HIR2) {
+        return HIR1found;
+      }
+    }
+    if (HIR1found) {
+      return false;
+    }
+
+    for (auto It = If1->else_begin(), E = If1->else_end(); It != E; ++It) {
+      HLNode *HIRtemp = It;
+      if (HIRtemp == HIR1) {
+        HIR1found = true;
+      } else if (HIRtemp == HIR2) {
+        return HIR1found;
+      }
+    }
+    if (HIR1found) {
+      return false;
+    }
+    llvm_unreachable("Not expecting to be here");
+  }
+
+  // TODO: consider constant trip count across loops
+  // This is not important and can defer
+
+  return false;
+}
+
 const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned level,
                                                   const HLLoop *innermostLoop) {
   // level is at least 1

@@ -68,6 +68,19 @@ namespace loopopt {
 typedef unsigned char DVType;
 typedef DVType DVectorTy[MaxLoopNestLevel];
 
+struct DV {
+  enum DVelement {
+    NONE = 0,
+    LT = 1,
+    EQ = 2,
+    LE = 3,
+    GT = 4,
+    NE = 5,
+    GE = 6,
+    ALL = 7
+  };
+};
+
 class Dependences {
 public:
   Dependences(DDRef *Source, DDRef *Destination)
@@ -78,7 +91,6 @@ public:
   /// has a direction (or perhaps a union of several directions), and
   /// perhaps a distance.
   struct DVEntry {
-    enum { NONE = 0, LT = 1, EQ = 2, LE = 3, GT = 4, NE = 5, GE = 6, ALL = 7 };
     DVType Direction : 3; // Init to ALL, then refine.
     bool Scalar : 1;      // Init to true.
     bool PeelFirst : 1;   // Peeling the first iteration will break dependence.
@@ -86,7 +98,7 @@ public:
     bool Splitable : 1; // Splitting the loop will break dependence.
     const CanonExpr *Distance; // NULL implies no distance available.
     DVEntry()
-        : Direction(ALL), Scalar(true), PeelFirst(false), PeelLast(false),
+        : Direction(DV::ALL), Scalar(true), PeelFirst(false), PeelLast(false),
           Splitable(false), Distance(nullptr) {}
   };
 
@@ -97,34 +109,6 @@ public:
   /// getDst - Returns the destination instruction for this dependence.
   ///
   DDRef *getDst() const { return Dst; }
-
-#if 0
-		
-    /// isInput - Returns true if this is an input dependence.
-    ///
-    bool isInput() const;
-
-    /// isOutput - Returns true if this is an output dependence.
-    ///
-    bool isOutput() const;
-
-    /// isFlow - Returns true if this is a flow (aka true) dependence.
-    ///
-    bool isFlow() const;
-
-    /// isAnti - Returns true if this is an anti dependence.
-    ///
-    bool isAnti() const;
-
-    /// isOrdered - Returns true if dependence is Output, Flow, or Anti
-    ///
-    bool isOrdered() const { return isOutput() || isFlow() || isAnti(); }
-
-    /// isUnordered - Returns true if dependence is Input
-    ///
-    bool isUnordered() const { return isInput(); }
-
-#endif
 
   /// isLoopIndependent - Returns true if this is a loop-independent
   /// dependence.
@@ -151,7 +135,7 @@ public:
 
   /// getDirection - Returns the direction associated with a particular
   /// level.
-  virtual unsigned getDirection(unsigned Level) const { return DVEntry::ALL; }
+  virtual unsigned getDirection(unsigned Level) const { return DV::ALL; }
 
   /// getDistance - Returns the distance (or NULL) associated with a
   /// particular level.
@@ -191,6 +175,10 @@ private:
 /// (for output, flow, and anti dependences), the dependence implies an
 /// ordering, where the source must precede the destination; in contrast,
 /// input dependences are unordered.
+
+/// The class has more information that  put in the DD Edge which contains
+/// the DV.  These detail info are avaiable through calls to Depends
+
 class FullDependences : public Dependences {
 public:
   FullDependences(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned Levels);
@@ -261,10 +249,6 @@ private:
 /// DDtest - This class is the main dependence-analysis driver.
 ///
 
-// class DDtest : public FunctionPass {
-//  void operator=(const DDtest &) LLVM_DELETED_FUNCTION;
-//  DDtest(const DDtest &) LLVM_DELETED_FUNCTION;
-
 class DDtest {
 
 public:
@@ -333,6 +317,7 @@ public:
   ///
   /// breaks the dependence and allows us to vectorize/parallelize
   /// both loops.
+
   const CanonExpr *getSplitIteration(const Dependences &Dep, unsigned Level);
 
   //

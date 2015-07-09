@@ -63,6 +63,8 @@ bool DDAnalysis::runOnFunction(Function &F) {
   // Compute TopSortNum - which is needed to determine forward or backward edges
   HLNodeUtils::resetTopSortNum();
 
+  getGraph(HIRP->hir_begin(), false);
+
   return false;
 }
 

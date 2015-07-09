@@ -432,6 +432,9 @@ public:
   /// \brief Reset TopSortNum
   static void resetTopSortNum();
 
+  /// \brief HIR Strictly dominates
+  static bool strictlyDominates(HLNode *Node1, HLNode *Node2);
+
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned level,
