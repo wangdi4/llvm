@@ -83,10 +83,10 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
 def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i32imm:$amt),
-                               "// ADJCALLSTACKDOWN $amt",
+                               "# ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i32imm:$amt1, i32imm:$amt2),
-                            "// ADJCALLSTACKUP $amt1",
+                            "# ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 
 def SDT_LPURet : SDTypeProfile<0, 0, []>;
@@ -98,7 +98,7 @@ def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs), (ins),
-    "// return",
+    "# mov0 out,ctl",
     [(LPURet)]>;
 
 multiclass MovOp<string opStr, ValueType T> {
