@@ -1531,7 +1531,7 @@ def err_lvalue_reference_bind_to_initlist : Error<
 def err_lvalue_reference_bind_to_temporary : Error<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">;
-//if INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_lvalue_reference_bind_to_initlist : Warning<
   "non-const lvalue reference to type %0 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
@@ -1539,7 +1539,7 @@ def warn_lvalue_reference_bind_to_temporary : Warning<
   "non-const lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}0,1">,
   InGroup<IntelCompat>;
-//endif
+// endif INTEL_CUSTOMIZATION
 def err_lvalue_reference_bind_to_unrelated : Error<
   "%select{non-const|volatile}0 lvalue reference "
   "%diff{to type $ cannot bind to a value of unrelated type $|"
@@ -4141,7 +4141,7 @@ def err_tag_reference_non_tag : Error<
 // if INTEL_CUSTOMIZATION
 def ext_intel_elab_befriended_type_refers_typedef : ExtWarn<
   "elaborated befriended type refers to a typedef">, InGroup<IntelCompat>;
-// endif //INTEL_CUSTOMIZATION
+// endif INTEL_CUSTOMIZATION
 def err_tag_reference_conflict : Error<
   "implicit declaration introduced by elaborated type conflicts with "
   "%select{a declaration|a typedef|a type alias|a template}0 of the same name">;
@@ -6163,6 +6163,13 @@ def err_typecheck_call_too_many_args : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
   "expected %1, have %2">;
+// CQ#364630
+// if INTEL_CUSTOMIZATION
+def ext_intel_typecheck_call_too_many_args : ExtWarn<
+  "too many %select{|||execution configuration }0arguments to "
+  "%select{function|block|method|kernel function}0 call, "
+  "expected %1, have %2">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_call_too_many_args_one : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
@@ -7470,7 +7477,7 @@ def err_opencl_global_invalid_addr_space : Error<
   "global variables must have a constant address space qualifier">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
 
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_empty_cilk_for_body : Warning<
   "Cilk for loop has empty body">, InGroup<EmptyBody>;
 def warn_empty_simd_for_body : Warning<
@@ -7783,7 +7790,7 @@ def err_cean_type_of_arg : Error<
   "type of expression is %diff{$, but must be $|not the same as type of the first argument}0,1">;
 def err_assume_aligned_not_pointer : Error<"expression is not a pointer">;
 def err_assume_aligned_not_integer : Error<"expression is not a constant integer value or not a power of 2">;
-//#endif  // INTEL_CUSTOMIZATION
+// endif INTEL_CUSTOMIZATION
 
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to a kernel function">;
