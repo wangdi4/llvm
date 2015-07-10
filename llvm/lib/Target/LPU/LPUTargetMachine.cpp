@@ -80,11 +80,9 @@ public:
   bool addInstSelector() override;
   void addPostRegAlloc() override;
 
-  /*
   FunctionPass *createTargetRegisterAllocator(bool) override;
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
   void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
-  */
 
   void addMachineLateOptimization() override;
   bool addGCPasses() override;
@@ -118,13 +116,13 @@ void LPUPassConfig::addIRPasses() {
   disablePass(&MachineCopyPropagationID);
   disablePass(&BranchFolderPassID);
   disablePass(&TailDuplicateID);
+
+  // Do not need scheduling...
+  // (Note: Does not dsable the "fastDAGScheduler"...)
   disablePass(&MachineSchedulerID);
   disablePass(&PostMachineSchedulerID);
   disablePass(&PostRASchedulerID);
-  // The above still doesn't disable list scheduling...??
-
   TargetPassConfig::addIRPasses();
-
 }
 
 bool LPUPassConfig::addInstSelector() {
@@ -137,7 +135,6 @@ void LPUPassConfig::addPostRegAlloc() {
   addPass(createLPUPrologEpilogPass(), false);
 }
 
-/*
 FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
   return nullptr; // No reg alloc
 }
@@ -155,7 +152,6 @@ void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
   //addPass(&MachineLoopInfoID);
   //addPass(&PHIEliminationID); retain PHIs for now
 }
-*/
 
 void LPUPassConfig::addMachineLateOptimization() {
   // none for now

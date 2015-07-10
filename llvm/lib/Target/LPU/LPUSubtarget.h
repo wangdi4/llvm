@@ -65,6 +65,10 @@ public:
   const LPUSelectionDAGInfo *getSelectionDAGInfo() const override {
     return &TSInfo;
   }
+
+  // No scheduling...
+  bool enableMachineScheduler() const override { return false; }
+  bool enablePostMachineScheduler() const override { return false; }
 };
 } // End llvm namespace
 

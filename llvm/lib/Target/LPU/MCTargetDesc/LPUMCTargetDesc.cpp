@@ -39,7 +39,7 @@ static MCInstrInfo *createLPUMCInstrInfo() {
 
 static MCRegisterInfo *createLPUMCRegisterInfo(StringRef TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitLPUMCRegisterInfo(X, LPU::R0); // TODO: Fix R0 - just picked a reg...
+  InitLPUMCRegisterInfo(X, LPU::FP); // TODO: Fix R0 - just picked a reg...
   return X;
 }
 
