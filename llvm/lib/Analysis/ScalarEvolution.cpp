@@ -4355,7 +4355,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
   case Instruction::BitCast:
 #if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for copy instructions inserted by HIR.
-    if (!isHIRCopyInst(cast<Instruction>(V))) {
+    if (!isa<Instruction>(V) || !isHIRCopyInst(cast<Instruction>(V))) {
 #endif
       // BitCasts are no-op casts so we just eliminate the cast.
       if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
