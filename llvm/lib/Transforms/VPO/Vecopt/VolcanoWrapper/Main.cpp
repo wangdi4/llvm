@@ -27,9 +27,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Verifier.h"
 
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrGenerate.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
-
 #include <sstream>
 
 using namespace std;
@@ -383,34 +380,6 @@ Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
   return functionToVectorize;
 }
 
-#if 0
-// xtian: Temporary Implementation To Test WRegionInfo Generation.
-bool Vectorizer::generateWRegionInfo(Function& F, Module& M)
-{
-  legacy::FunctionPassManager fpm(&M);
-
-  vpo::WRegionInfo* WrnInfo = new vpo::WRegionInfo();
-  fpm.add(WrnInfo);
-  fpm.run(F);
-
-  return true;
-}
-
-// Eric: Temporary Implementation To Test AVR Generation.
-bool Vectorizer::buildVectorizerAVR(Function& F, Module& M) 
-{
-  legacy::FunctionPassManager fpm(&M); 
-
-  AVRGenerate* AVRList = new AVRGenerate();
-  fpm.add(AVRList);
-  fpm.run(F);
-
-  AVRList->print();
-
-  return true;
-}
-#endif
-
 bool Vectorizer::runOnModule(Module &M)
 {
   V_PRINT(wrapper, "\nEntered Vectorizer Wrapper!\n");
@@ -420,23 +389,6 @@ bool Vectorizer::runOnModule(Module &M)
 
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
-
-  // To test AVR generation remove the 'if 0' below
-  // Disabled by default to prevent interference with function vectorization 
-#if 0
-  // Eric: Before we attempt function vectorization, test AVR generate analysis
-  // Walk functions in this module and build AVRS
-  for (auto it = M.begin(), end = M.end(); it != end; it++) {
-    Function& F = *it;
-
-    // Call Build WRegionInfo Graph On-Demand
-    generateWRegionInfo(F, M);
-
-    // Call Analysis Pass On-Demand
-    buildVectorizerAVR(F, M);
-
-  }
-#endif
 
   VectorizerUtils::FunctionVariants functionsToVectorize;
   VectorizerUtils::getFunctionsToVectorize(M, functionsToVectorize);

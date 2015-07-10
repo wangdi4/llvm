@@ -20,7 +20,13 @@ namespace llvm {
 class PassRegistry;
 
 #if INTEL_CUSTOMIZATION
+// initializeVPOVecoptAnaylsis - Initialize all passes linked into the
+// VPO Vectorizer
 void initializeVPOVectorizer(PassRegistry&);
+
+// initializeVPOVecoptAnaylsis - Initialize all passes linked into the 
+// VPOVecoptAnalysis library
+void initializeVPOVecoptAnalysis(PassRegistry&);
 
 /// initializeVPODriverPass - Initialize all passes linked into the
 /// VPODriver library
@@ -315,11 +321,14 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
-void initializeAvrGeneratePass(PassRegistry&);
+#if INTEL_CUSTOMIZATION
+void initializeAVRGeneratePass(PassRegistry&);
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
+void initializeIdentifyVectorCandidatesPass(PassRegistry&);
 void initializeSIMDFunctionCloningPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 void initializeFloat2IntPass(PassRegistry&);
 void initializeLoopDistributePass(PassRegistry&);
 

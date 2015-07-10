@@ -54,7 +54,7 @@ class WRegionCollection : public FunctionPass {
 private:
 
   /// WRegions - Vector of WRegions.
-  /// WRegionsTy WRegions;
+  WRContainerTy WRegionList;
 
   /// Func - The function we are analyzing.
   Function *Func;
@@ -93,6 +93,27 @@ public:
 
   /// \brief Identifies WRegions and build W-Region Graph for LLVM Dom-Tree
   void doBuildWRegionGraph(Function &F);
+
+  /// \brief Returns the size of the WRegionList container
+  unsigned getWRegionListSize() {return WRegionList.size();}
+
+
+  // Iterators to traverse WRegionList
+  typedef WRContainerTy::iterator iterator;
+  typedef WRContainerTy::const_iterator const_iterator;
+  typedef WRContainerTy::reverse_iterator reverse_iterator;
+  typedef WRContainerTy::const_reverse_iterator const_reverse_iterator;
+
+  iterator begin() { return WRegionList.begin(); }
+  const_iterator begin() const { return WRegionList.begin(); }
+  iterator end() { return WRegionList.end(); }
+  const_iterator end() const { return WRegionList.end(); }
+
+  reverse_iterator rbegin() { return WRegions.rbegin(); }
+  const_reverse_iterator rbegin() const { return WRegionList.rbegin(); }
+  reverse_iterator rend() { return WRegionList.rend(); }
+  const_reverse_iterator rend() const { return WRegionList.rend(); }
+
 };
 
 } // End namespace vpo

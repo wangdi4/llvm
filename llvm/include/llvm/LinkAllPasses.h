@@ -37,7 +37,7 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOPasses.h"
+#include "llvm/Analysis/VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/Transforms/VPO/VPOPasses.h"
@@ -193,15 +193,14 @@ namespace {
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
-#if 0
+#if INTEL_CUSTOMIZATION
+      (void) llvm::createVPOVectorizerPass();
       (void) llvm::createWRegionCollectionPass();
       (void) llvm::createWRegionInfoPass();
-#endif
-#if INTEL_CUSTOMIZATION
+      (void) llvm::createIdentifyVectorCandidatesPass();
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createVPODriverPass();
       (void) llvm::createSIMDFunctionCloningPass();
-      (void) llvm::createVPOVectorizerPass();
 #endif // INTEL_CUSTOMIZATION
 
       (void) llvm::AreStatisticsEnabled();

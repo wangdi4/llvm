@@ -9,30 +9,16 @@
 //
 //   Source file:
 //   ------------
-//   VPOAvr.cpp -- Implements the abstract vector representation base node.
+//   VPOVecoptAnalysis.cpp -- Vecopt Analysis Passes initializers.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrFunction.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/PassRegistry.h"
 
 using namespace llvm;
-using namespace llvm::vpo;
 
-AVR::AVR(unsigned SCID)
-  : SubClassID(SCID), Parent(nullptr), Number(0) {}
-
-void AVR::print() const {
-  DEBUG(dbgs() <<"Base AVR Node\n");
+void llvm::initializeVPOVecoptAnalysis(PassRegistry &Registry) {
+  initializeAVRGeneratePass(Registry);
+  initializeIdentifyVectorCandidatesPass(Registry);
 }
-
-/// Should this be made pure virtual?
-void AVR::codeGen()  {
-}
-
-/*
-void AVR::dump() const {
-  print();
-}
-*/

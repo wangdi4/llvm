@@ -1,13 +1,15 @@
-//===---------- VectorAVR.h - Abstract Vector Representation------*- C++ -*-===//
+//===------------------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file defines the Vectorizer's AVR node.
+//   Source file:
+//   ------------
+//   VPOAvr.h -- Defines the Abstract Vector Representation (AVR) base node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,18 +17,23 @@
 #define LLVM_ANALYSIS_VPO_AVR_H
 
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
+
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Compiler.h"
 
 #define DEBUG_TYPE "avr"
 
-namespace intel { // VPO Vectorizer Namespace
-
-using namespace llvm;
+namespace llvm {  // LLVM Namespace
+namespace vpo {   // VPO Vectorizer Namespace
 
 class AVRLoop;
 
@@ -41,7 +48,7 @@ class AVR : public ilist_node<AVR> {
 private:
 
   /// \brief Make class uncopyable.
-  //void operator=(const AVR &) LLVM_DELETED_FUNCTION;
+  void operator=(const AVR &) = delete;
 
   /// AVR Subclass Identifier
   const unsigned char SubClassID;
@@ -56,30 +63,34 @@ private:
   /// phase code generation.
   static void destroyAll();
 
-  /// Sets unique ID for this AVR Node.
-  void setNumber();
-
 protected:
   AVR(unsigned SCID);
   AVR(const AVR &AVRObj);
+  ~AVR() {} // TODO: Virtual Destructor
 
-  //friend class AVRUtils;
   /// \brief Destroys the object.
   void destroy();
 
+  /// Sets unique ID for this AVR Node.
+  void setNumber();
+
+  /// \brief Sets the lexical parent of this AVR.
+  void setParent(AVR *ParentNode) { Parent = ParentNode; }
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
 
 public:
-  //ToDo implement virtual destructor
-  //virtual ~AVR() {}
-  ~AVR() {}
 
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
+  /// Virtual dump method. Derived classes should implement this routine.
   virtual void dump() const { print(); }
+  /// Virtual print method. Derived classes should implement this routine.
   virtual void print() const;
 
   /// \brief Code generation for AVR.
-  virtual void CodeGen();
+  virtual void codeGen();
 
   /// \brief Returns the immediate lexical parent of the AVR.
   AVR *getParent() const { return Parent; }
@@ -89,18 +100,15 @@ public:
 
   /// \brief Returns the strictly lexical parent loop of this node, if one
   /// exists.
-  /// This is different for HLInsts which are located in loop
-  /// preheader/postexit.
+  /// AVR nodes which are part of preheader or postexit will have different
+  /// parent.
   AVRLoop *getLexicalParentLoop() const;
 
   /// \brief Return an ID for the concrete type of this object.
   ///
-  /// This is used to implement the classof checks in LLVM and should't
-  ///  be used for any other purpose.
+  /// This is used to implement the classof, etc. checks in LLVM and should't
+  /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
-
-  /// \brief Sets the lexical parent of this AVR.
-  void setParent(AVR *ParentNode) { Parent = ParentNode; }
 
   /// \brief Enumeration for the concrete subclasses of AVR.
   enum AVRVal {
@@ -120,48 +128,50 @@ public:
 
 };
 
+
 } // End VPO Vectorizer Namspace
 
-namespace llvm { 
 
-// ilist templates
+/// \brief Traits for iplist<AVR>
+///
+/// See ilist_traits<Instruction> in BasicBlock.h for details
 template <>
-struct ilist_traits<intel::AVR>
-  : public ilist_default_traits<intel::AVR> {
+struct ilist_traits<vpo::AVR>
+  : public ilist_default_traits<vpo::AVR> {
 
-  intel::AVR *createSentinel() const {
-    return static_cast<intel::AVR *>(&Sentinel);
+  vpo::AVR *createSentinel() const {
+    return static_cast<vpo::AVR *>(&Sentinel);
   }
 
-  static void destroySentinel(intel::AVR *) {}
+  static void destroySentinel(vpo::AVR *) {}
 
-  intel::AVR *provideInitialHead() const { return createSentinel(); }
-  intel::AVR *ensureHead(intel::AVR *) const {
+  vpo::AVR *provideInitialHead() const { return createSentinel(); }
+  vpo::AVR *ensureHead(vpo::AVR *) const {
     return createSentinel();
   }
-  static void noteHead(intel::AVR *, intel::AVR *) {}
+  static void noteHead(vpo::AVR *, vpo::AVR *) {}
 
-  static intel::AVR *createNode(const intel::AVR &) {
+  static vpo::AVR *createNode(const vpo::AVR &) {
     llvm_unreachable("AVR should be explicitly created via AVRUtils"
                      "class");
 
     return nullptr;
   }
-  static void deleteNode(intel::AVR *) {}
+  static void deleteNode(vpo::AVR *) {}
 
 private:
-  mutable ilist_half_node<intel::AVR> Sentinel;
+  mutable ilist_half_node<vpo::AVR> Sentinel;
 };
 
-}  // End llvm Namespace
+namespace vpo { // VPO Vectorizer Namespace
 
-
-namespace intel { // VPO Vectorizer Namespace
 typedef iplist<AVR> AVRContainerTy;
+
 // TODO: Remove this.
 extern AVRContainerTy AVRFunctions;
 
-} // End VPO Namespace
+} // End VPO Vectorizer Namespace
+} // End LLVM Namespace
 
 #endif // LLVM_ANALYSIS_VPO_AVR_H
 

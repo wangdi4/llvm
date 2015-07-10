@@ -23,10 +23,10 @@ using namespace vpo;
 // W-Region Graph Creatation Utilities
 WRegion *WRegionUtils::createWRegion(
   BasicBlock *EntryBB, 
-  BasicBlock *ExitBB, WRegionBSetTy &BBs
+  BasicBlock *ExitBB, WRegionBSetTy &BBs, LoopInfo *LI
 ) 
 {
-  return new WRegion(EntryBB, ExitBB, BBs);
+  return new WRegion(EntryBB, ExitBB, BBs, LI);
 }
 
 // Insertion Utilities
@@ -99,6 +99,7 @@ void WRegionUtils::insertWRegionNode(
         llvm_unreachable("VPO: Unknown WRegionNode Insertion Operation Type");
     }
     W->setParent(Parent);
+    DEBUG(dbgs() << "\n\nWRWR: INSERTING WRN NODE CHILD\n\n");
     WRContainer.insert(pos, W);
 #endif
   }

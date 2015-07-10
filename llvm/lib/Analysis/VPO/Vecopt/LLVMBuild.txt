@@ -1,24 +1,21 @@
-;===- ./lib/Analysis/VPO/Vecopt/LLVMBuild.txt ------------------*- Conf -*--===;
 ;
-;                     The LLVM Compiler Infrastructure
+;    Copyright (C) 2015 Intel Corporation. All rights reserved.
 ;
-; This file is distributed under the University of Illinois Open Source
-; License. See LICENSE.TXT for details.
+;    The information and source code contained herein is the exclusive
+;    property of Intel Corporation. and may not be disclosed, examined
+;    or reproduced in whole or in part without explicit written authorization
+;    from the company.
 ;
-;===------------------------------------------------------------------------===;
+;    Source file: LLVMBuild.txt
+;    ------------
+;    Configures build properties and library dependencies.
 ;
-; This is an LLVMBuild description file for the components in this subdirectory.
-;
-; For more information on the LLVMBuild system, please see:
-;
-;   http://llvm.org/docs/LLVMBuild.html
-;
-;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = AVR
+;[common]
+;subdirectories = AVR CandidateIdent
 
-;[component_0]
-;type = Library
-;name = Vecopt_Analysis
-;parent = VPO_Analysis
+[component_0]
+type = Library
+name = Vecopt_Analysis
+parent = Libraries
+required_libraries = WRegionInfoAnalysis ;Vecopt_CandidateIdent Vecopt_AvrAnalysis

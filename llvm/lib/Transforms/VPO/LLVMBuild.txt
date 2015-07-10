@@ -11,4 +11,4 @@ type = Library
 name = VPODriver
 parent = VPO
 library_name = VPODriver
-required_libraries = Analysis Core Scalar Support TransformUtils Vecopt_AvrAnalysis WRegionInfoAnalysis
+required_libraries = Analysis Core Scalar Support TransformUtils Vecopt_Analysis WRegionInfoAnalysis

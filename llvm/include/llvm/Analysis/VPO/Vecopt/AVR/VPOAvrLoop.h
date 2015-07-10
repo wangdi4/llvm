@@ -1,13 +1,15 @@
-//===--------------- VectorAVRLoop.h - AVR Loop Node-------------*- C++ -*-===//
+//===------------------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file defines the Vectorizer's AVR Loop node.
+//   Source file:
+//   ------------
+//   VPOAvrLoop.h -- Defines the Abstract Vector Representation (AVR) loop node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,13 +18,11 @@
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
+namespace llvm { // LLVM Namespace
 
-namespace intel { // Change namespace
+class LoopInfo;
 
-using namespace llvm;
-
-class Loop;
-class WRN; // Replace With Corresponding PAR WRN
+namespace vpo {  // VPO Vectorizer Namespace
 
 /// \brief Loop node abstract vector representation
 ///
@@ -55,7 +55,7 @@ public:
 private:
 
   /// Pointer to orignial LLVM Loop Class.
-  const Loop *OrigLoop;
+  const LoopInfo *OrigLoop;
   /// Loop nesting level.
   unsigned NestingLevel;
   /// Number of loop exits. 
@@ -80,10 +80,15 @@ private:
   /// Iterator pointing to begining of postexit nodes
   ChildrenTy::iterator PostexitBegin;
 
-  // To Do: PHI Node
+  /// Pointer to Loop info Contained in WRN
+  // const WRN *WRNInfo;
 
-public:
-  AVRLoop(const Loop *OrigLLVMLoop, bool IsDoWhileLoop);
+  // TODO: PHI Node
+
+protected:
+
+  AVRLoop(const LoopInfo *OrigLLVMLoop, bool IsDoWhileLoop);
+  AVRLoop(const AVRLoop &AVROrigLoop);
   ~AVRLoop();
 
   /// \brief Set the loop nesting level
@@ -99,14 +104,13 @@ public:
   void setExplicitVectorCandidate(bool ExplicitVectorCand) {
     IsExplicitVectorCandidate = ExplicitVectorCand; }
 
+  /// Only this utility class should be use to modify/delete AVR nodes.
+  friend class AVRUtils;
 
-  // Eric : Do we want the ability to clone?
-  AVRLoop (const AVRLoop &AVROrigLoop);
+public:
 
-  /// Pointer to Loop info Contained in WRN
-  const WRN *WRNInfo;
   /// \brief Returns Original LLVM Loop
-  const Loop *getLLVMLoop() const {
+  const LoopInfo *getLLVMLoop() const {
      return OrigLoop; 
   }
   /// \brief Returns true if loop is a do loop.
@@ -130,15 +134,52 @@ public:
     return IsInnerMost;
   }
 
+  child_iterator child_begin() { return Children.begin(); }
+  const_child_iterator child_begin() const { return Children.begin(); }
+  reverse_child_iterator child_rbegin() { return Children.rbegin(); }
+  const_reverse_child_iterator child_rbegin() const { return Children.rbegin(); }
+  child_iterator child_end() { return Children.end(); }
+  const_child_iterator child_end() const { return Children.end(); }
+  reverse_child_iterator child_rend() { return Children.rend(); }
+  const_reverse_child_iterator child_rend() const { return Children.rend(); }
+
+  /// Children Methods
+  AVR *getFirstChild();
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  const AVR *getFirstChild() const {
+    return const_cast<AVRLoop *>(this)->getFirstChild();
+  }
+
+  /// \brief Returns the last child if it exists, otherwise returns null.
+  AVR *getLastChild();
+
+  /// \brief Returns const pointer to last child if it exisits.
+  const AVR *getLastChild() const {
+    return const_cast<AVRLoop *>(this)->getLastChild();
+  }
+
+  /// \brief Returns the number of children.
+  unsigned getNumChildren() const { return Children.size(); }
+
+  /// \brief Returns true if it has children.
+  bool hasChildren() const { return !Children.empty(); }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRLoopNode;
+  }
+
   void print() const override;
   void dump() const override;
+  AVRLoop *clone() const override; 
 
   /// \brief Code generation for AVR loop.
-  void CodeGen() override;
+  void codeGen() override;
 };
 
 
-}  // End VPO Vectorizer namespace
-
+} // End VPO Vectorizer Namespace
+} // End LLVM Namespace
 
 #endif  // LLVM_ANALYSIS_VPO_AVR_LOOP_H

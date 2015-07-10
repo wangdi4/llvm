@@ -1,20 +1,23 @@
-//===--- VPOAvrFunction.cpp - Implements AVRFunction class ------*- C++ -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
 //===----------------------------------------------------------------------===//
 //
-// This file implements the the AVRFuction class.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//   Source file:
+//   ------------
+//   VPOAvrFunction.cpp -- Implements the Abstract Vector Representation (AVR)
+//   function node.
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrFunction.h"
 
 using namespace llvm;
-using namespace intel;
+using namespace llvm::vpo;
 
 AVRFunction::AVRFunction(Function *OrigF)
   : AVR(AVR::AVRFunctionNode), OriginalFunction(OrigF) {}
@@ -45,19 +48,19 @@ AVR *AVRFunction::getLastChild() {
 }
 
 void AVRFunction::print() const {
-  DEBUG(dbgs() <<"AVR_Function\n");
+  DEBUG(dbgs() <<"AVR_FUNCTION\n");
 }
 
 void AVRFunction::dump() const {
   print();
-  for (auto Itr = child_begin(); Itr !=child_end(); ++Itr) {
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
     Itr->print();
   }
 }
 
-void AVRFunction::CodeGen() {
+void AVRFunction::codeGen() {
 
-  for (auto Itr = child_begin(); Itr !=child_end(); ++Itr) {
-    Itr->CodeGen();
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
+    Itr->codeGen();
   }
 }

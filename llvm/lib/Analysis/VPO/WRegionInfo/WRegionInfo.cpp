@@ -65,9 +65,13 @@ bool WRegionInfo::runOnFunction(Function &F) {
 
   DT     = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT    = &getAnalysis<PostDominatorTree>();
-  auto W = &getAnalysis<WRegionCollection>();
+  WRC    = &getAnalysis<WRegionCollection>();
 
-  doFillUpWRegionInfo(W);
+  // Set collected WRegions. This is to be properly fixed once WRegion
+  // passes are fully implemented.
+  setWRegions();
+
+  doFillUpWRegionInfo(WRC);
 
   DEBUG(dbgs() << "W-Region Information Collection End\n");
 
@@ -85,7 +89,7 @@ void WRegionInfo::releaseMemory() {
 void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
   formatted_raw_ostream FOS(OS);
 
-  for (auto I = begin(), E = end(); I != E; I++) {
+  for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
     I->print(FOS, 0);
   }
@@ -93,4 +97,23 @@ void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
 
 void WRegionInfo::verifyAnalysis() const {
   // TODO: Implement later
+}
+
+void WRegionInfo::setWRegions() {
+  DEBUG(dbgs() << "\nRC Size = " << WRC->getWRegionListSize() << "\n");
+
+  for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I) {
+
+    // Naive Copy 
+    if (WRegion *WNode = dyn_cast<WRegion>(I)) {
+      BasicBlock *EntryBB   = WNode->getEntryBBlock(); 
+      BasicBlock *ExitBB    = WNode->getExitBBlock();
+      auto &BBSet           = WNode->getBBlockSet();
+      LoopInfo const *LoopI = WNode->getLoopInfo();
+
+      // New Node Added to List
+      WRegion *NewNode = new WRegion(EntryBB, ExitBB, BBSet, LoopI);
+      WRegions.push_back(NewNode); 
+    }
+  }
 }

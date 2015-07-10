@@ -24,55 +24,53 @@
 
 #define DEBUG_TYPE "VPODriver"
 
-namespace intel {
-
-// Temporary Implementation To Test AVR Generation.
-static bool buildVectorizerAVR(Function &F, Module &M) {
-  legacy::FunctionPassManager fpm(&M);
-
-  AVRGenerate *AVRList = new AVRGenerate();
-  fpm.add(AVRList);
-  fpm.run(F);
-
-  AVRList->print();
-
-  AVRList->CodeGen();
-
-  return true;
-}
-} // namespace intel
-
 using namespace llvm;
 using namespace llvm::vpo;
 
-VPODriver::VPODriver() : FunctionPass(ID) {}
+INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver",
+                      false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
+INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver",
+                    false, false)
+
+char VPODriver::ID = 0;
+
+FunctionPass *llvm::createVPODriverPass() {
+
+  return new VPODriver();
+}
+
+VPODriver::VPODriver() : FunctionPass(ID) {
+
+  initializeVPODriverPass(*PassRegistry::getPassRegistry());
+}
+
+void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
+
+  AU.setPreservesAll();
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<AVRGenerate>();
+  AU.addRequired<ScalarEvolution>();
+}
 
 bool VPODriver::runOnFunction(Function &F) {
+
   bool ret_val;
 
   DEBUG(errs() << "VPODriver: ");
   DEBUG(errs().write_escaped(F.getName()) << '\n');
 
-  ret_val = intel::buildVectorizerAVR(F, *(F.getParent()));
-
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  WR = &getAnalysis<WRegionInfo>();
   SC = &getAnalysis<ScalarEvolution>();
+  AV = &getAnalysis<AVRGenerate>();
+
+  // Print results of AvrGenerate Pass
+  AV->print();
+
+  // Invoke AVR->LLVM_IR Code Generation.
+  ret_val = AV->codeGen();
 
   return ret_val;
-}
-
-char VPODriver::ID = 0;
-
-INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver",
-                      false, false)
-INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
-INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver",
-                    false, false)
-
-FunctionPass *llvm::createVPODriverPass() {
-  initializeVPODriverPass(*PassRegistry::getPassRegistry());
-  return new VPODriver();
 }
 

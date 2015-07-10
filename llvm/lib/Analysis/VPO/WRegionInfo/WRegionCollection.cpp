@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -19,6 +21,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -152,18 +155,31 @@ void WRegionCollection::doPreOrderDomTreeVisit(
     /// We know we've encountered a call instruction, so we need to 
     /// determine if it's a call to the function pointed to by LLVM
 
-    if (CallInst* callInst = dyn_cast<CallInst>(&*I)) {
+    if (IntrinsicInst* intrinInst = dyn_cast<IntrinsicInst>(&*I)) {
 
       /// To determine if it's a call to the function pointed to by LLVM
       /// directive START instrinsic function
-      //if (callInst->getCalledFunction() == DirStart) {
-          //BBSet.insert(BB);
+      if (intrinInst->getIntrinsicID() == Intrinsic::intel_directive) {
+ 
+        //BBSet.insert(BB);
+        StringRef DirString = VPOUtils::getDirectiveMetadataString(intrinInst);
 
-          W = new WRegion(BB, BB, BBSet);
+        /// To determine if it's a call to the function pointed to by LLVM
+        /// directive START instrinsic function
+        if (DirString == "dir.simd") { 
+
+          W = new WRegion(BB, BB, BBSet, LI);
           
           /// Top-level W-Region
           if (S->empty()) { 
-             WRegions.push_back(W);
+             // 
+	     // Bug: WRegions container not a member of this class. Need to save locally
+             // before another pass can access this data.
+             // WRegions.push_back(W);
+
+             // Temporary Add to class member WRegionList. This container is then
+             // saved in the calling pass (WRegionInfo) for access by AVR_Generate.   
+             WRegionList.push_back(W);
           }
           else {
              WRegion *Parent = S->top();
@@ -178,13 +194,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(
 
           S->push(W);
           DEBUG(dbgs() << "\nStacksize = " << S->size() 
-                       << " \n " << *W->getEntryBBlock() << "\n");
+                       << " SIMD block \n " << *W->getEntryBBlock() << "\n");
           break;
-      //}
+        }
 
-      /// To determine if it's a call to the function pointed to by LLVM
-      /// directive END instrinsic function
-      //if (callInst->getCalledFunction() == DirEnd) {
+        /// To determine if it's a call to the function pointed to by LLVM
+        /// directive END instrinsic function
+        if (DirString == "dir.simd.end") { 
          
           SmallPtrSet<BasicBlock*, 16> preOrderTreeVisited;
           preOrderTreeVisited.clear();
@@ -210,9 +226,10 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           if (!S->empty()) S->pop();
 
           DEBUG(dbgs() << "\nStacksize = " << S->size() 
-                       << " \n " << *W->getExitBBlock() << "\n");
+                       << " SIMD END block \n " << *W->getExitBBlock() << "\n");
           break;
-      //}
+        }
+      }
     }
   }
 
@@ -249,6 +266,8 @@ bool WRegionCollection::runOnFunction(Function &F) {
   doBuildWRegionGraph(F);
   DEBUG(dbgs() << "W-Region Graph Construction End\n");
 
+  // TODO: This return should return true if call to CFGRestruction()
+  // has modifed the IR.
   return false;
 }
 

@@ -1,13 +1,15 @@
-//===-------- VPOAvrUtils.h - Utilities for Avr class -----------*- C++ -*-===//
+//===------------------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file defines the utilities for AVR class.
+//   Source file:
+//   ------------
+//   VPOAvr.h -- Defines the utilities class for AVR nodes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -21,11 +23,14 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmt.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIf.h"
 
+namespace llvm { // LLVM Namespace
 
-namespace intel { // VPO Vectorizer Namespace
+class LoopInfo;
+
+namespace vpo {  // VPO Vectorizer Namespace
 
 // Enumeration for types of AVR insertion
-  enum InsertType {FirstChild, LastChild, Append, Prepend};
+enum InsertType {FirstChild, LastChild, Append, Prepend};
 
 /// \brief This class defines the utilies for AVR nodes.
 ///
@@ -42,6 +47,8 @@ public:
 
   /// \brief Returns a new AVRFunction node.
   static AVRFunction *createAVRFunction(Function *OrigF);
+  /// \brief Returns a new AVRFunction node.
+  static AVRLoop *createAVRLoop(const LoopInfo *OrigL, bool isDW);
   /// \brief Returns a new AVRAssign node.
   static AVRAssign *createAVRAssign(Instruction *Inst);
   /// \brief Returns a new AVRLabel node.
@@ -64,7 +71,6 @@ public:
   static AVRIf *createAVRIf(Instruction *Inst);
   /// \brief Returns a new AVRExpr node.
   static AVRExpr *createAVRExpr();
-
 
   // Insertion Utilities
   // To Do: Define More Utilities
@@ -105,6 +111,7 @@ public:
 };
 
 } // End VPO Vectorizer Namespace
+} // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VPO_AVR_UTILS_H
 

@@ -1,13 +1,16 @@
-//===--------------- VPOAvrIf.cpp - Implements AVRIf class ------*- C++ -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
 //===----------------------------------------------------------------------===//
 //
-// This file implements the the AVRIf class.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//   Source file:
+//   ------------
+//   VPOAvrIf.cpp -- Implements the Abstract Vector Representation (AVR)
+//   if node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,7 +18,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-using namespace intel;
+using namespace llvm::vpo;
 
 AVRIf::AVRIf(Instruction *CompInst)
   : AVR(AVR::AVRIfNode), CompareInstruction(CompInst) {}
@@ -32,7 +35,7 @@ void AVRIf::dump() const {
   print();
 }
 
-void AVRIf::CodeGen() {
+void AVRIf::codeGen() {
   Instruction *inst;
 
   DEBUG(CompareInstruction->dump());

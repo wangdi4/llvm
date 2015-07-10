@@ -57,6 +57,9 @@ private:
   /// PDT - The post-dominator tree.
   PostDominatorTree *PDT;
 
+  /// WRC - WRegionCollection
+  WRegionCollection* WRC;
+
   /// \brief Populates W-Region with WRegionNodes.
   void populateWRegion(WRegion *W, BasicBlock *EntryBB, BasicBlock **ExitBB);
 
@@ -83,6 +86,18 @@ public:
   const_reverse_iterator rbegin() const { return WRegions.rbegin(); }
   reverse_iterator rend() { return WRegions.rend(); }
   const_reverse_iterator rend() const { return WRegions.rend(); }
+
+  /// \brief Returns the size of the WRegions iplist.
+  unsigned getWRegionsSize() const { return WRegions.size();}
+
+  /// \brief Returns true if the WRegions iplist is empty.
+  bool WRegionsIsEmpty() const { return WRegions.empty(); }
+
+  // Temporary setting of WRegion container from WRegionCollection.
+  // This should be properly fixed when full WRegions(kind) is supported
+  /// \brief Sets the list of WRegion graphs collected in WRegionCollection
+  void setWRegions();
+
 };
 
 } // End namespace vpo

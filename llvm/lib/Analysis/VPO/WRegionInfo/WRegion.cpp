@@ -19,9 +19,9 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-WRegion::WRegion(BasicBlock *EntryBB, BasicBlock *ExitBB, WRegionBSetTy &BBs)
-    : WRegionNode(WRegionNode::VPO_PAR_REGION),
-      EntryBBlock(EntryBB), ExitBBlock(ExitBB), BBlockSet(BBs)
+WRegion::WRegion(BasicBlock *EntryBB, BasicBlock *ExitBB, const WRegionBSetTy &BBs,
+    const LoopInfo *LoopI) : WRegionNode(WRegionNode::VPO_PAR_REGION),
+    EntryBBlock(EntryBB), ExitBBlock(ExitBB), BBlockSet(BBs), LI(LoopI)
 {}
 
 WRegion *WRegion::clone() const {

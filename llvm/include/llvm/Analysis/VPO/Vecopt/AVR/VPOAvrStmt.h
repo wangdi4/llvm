@@ -1,13 +1,15 @@
-//===------------- VectorAVRStmt.h - AVR Loop Node---------------*- C++ -*-===//
+//===------------------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file defines the Vectorizer's AVR Stmt node.
+//   Source file:
+//   ------------
+//   VPOAvrStmt.h -- Defines the Abstract Vector Representation (AVR) stmt nodes
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,9 +19,8 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
-namespace intel { // VPO Vectorizer Namespace
-
-using namespace llvm;
+namespace llvm { // LLVM Namespace
+namespace vpo {  // VPO Vectorizer Namespace
 
 // Eric: Think about this.
 // TODO: Need to combine Call, Assign, Label, Phi, Fbranch, BackEdge, Entry,
@@ -47,8 +48,7 @@ class AVRAssign : public AVR {
 private:
   Instruction *Instruct;
 
-public:
-
+protected:
   /// \brief AVRAssign Object Constructor.
   AVRAssign(Instruction *Instr);
 
@@ -60,6 +60,11 @@ public:
 
   /// \bried Sets up state object.
   void initialize();
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
 
   /// \brief Returns the LLVM Instruction
   const Instruction *getLLVMInstruction() const { return Instruct; }
@@ -83,7 +88,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Assign.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -94,11 +99,15 @@ class AVRLabel : public AVR {
 private:
   BasicBlock *SourceBlock;
 
-public:
+protected:
 
   AVRLabel(BasicBlock *SourceB);
   ~AVRLabel() {}
 
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
   ///\brief returns BasicBlock assoicated with this Label.
   BasicBlock *getSourceBBlock () const { return SourceBlock; }
 
@@ -113,7 +122,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Label.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -134,11 +143,15 @@ private:
 
   // TODO: Add member data
 
-public:
+protected:
 
   AVRPhi(Instruction *Inst);
   ~AVRPhi();
 
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
   // TODO: Add member functions
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -151,7 +164,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Phi.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -164,11 +177,15 @@ private:
   Instruction *Instruct;
   // TODO: Add Member Data
 
-public:
+protected:
   AVRCall(Instruction *Inst);
   ~AVRCall();
 
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
   // TODO: Add Member Functions
+public:
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
@@ -180,7 +197,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Call.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -192,10 +209,14 @@ private:
   Instruction *Instruct;
   // TODO: Add Member Data
 
-public:
+protected:
   AVRFBranch(Instruction *Inst);
   ~AVRFBranch();
 
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
   // TODO: Add Member Functions
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -208,7 +229,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Forward branch.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -221,10 +242,14 @@ private:
   Instruction *Instruct;
   // TODO: Add Member Data
 
-public:
+protected:
   AVRBackEdge(Instruction *Inst);
   ~AVRBackEdge();
 
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
   // TODO: Add Member Functions
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -237,7 +262,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Backedge.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -250,12 +275,15 @@ private:
   Instruction *Instruct;
   // TODO: Add Member Data
 
-public:
+protected:
   AVREntry(Instruction *Inst);
   ~AVREntry();
 
-  // TODO: Add Member Functions
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
 
+  // TODO: Add Member Functions
+public:
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVREntryNode;
@@ -266,7 +294,7 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Entry.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
@@ -278,12 +306,15 @@ private:
   Instruction *Instruct;
   // TODO: Add Member Data
 
-public:
+protected:
   AVRReturn(Instruction *Inst);
   ~AVRReturn();
 
   // TODO: Add Member Functions
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
 
+public:
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRReturnNode;
@@ -294,10 +325,11 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR Return.
-  void CodeGen() override;
+  void codeGen() override;
 
 };
 
+} // End VPO Vectorizer Namespace
+} // End LLVM Namespace 
 
-}  // End VPO Vectorizer Namespace
 #endif  // LLVM_ANALYSIS_VPO_AVR_STMT_H

@@ -22,7 +22,7 @@
 namespace llvm {
 
 class BasicBlock;
-//class Loop;
+class LoopInfo;
 
 namespace vpo {
 
@@ -47,7 +47,9 @@ public:
 private:
   BasicBlock    *EntryBBlock;
   BasicBlock    *ExitBBlock;
-  WRegionBSetTy &BBlockSet;
+  const WRegionBSetTy &BBlockSet;
+  const LoopInfo *LI;
+
 
 public:
 
@@ -65,7 +67,8 @@ public:
     //const_cast<WRegion *>(this)->getLastChild();
   }
 
-  WRegion(BasicBlock *EntryBB, BasicBlock *ExitBB, WRegionBSetTy &BBlockSet);
+  WRegion(BasicBlock *EntryBB, BasicBlock *ExitBB, const WRegionBSetTy &BBlockSet,
+          const LoopInfo *LoopI);
 
   /// WRegionNodes are destroyed in bulk using 
   /// WRegionUtils::destroyAll(). iplist<> tries to
@@ -128,6 +131,9 @@ public:
 
   /// \brief Returns the number of children.
   unsigned getNumChildren() const { return Children.size(); }
+
+  /// \brief Returns the Loop Info for this Work Region
+  const LoopInfo * getLoopInfo() const { return LI; }
 
   /// \brief Returns true if it has children.
   bool hasChildren() const { return !Children.empty(); }

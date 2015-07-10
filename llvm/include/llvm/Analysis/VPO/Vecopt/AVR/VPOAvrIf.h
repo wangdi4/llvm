@@ -1,13 +1,15 @@
-//===------------------ VectorAVRIf.h - AVR Loop Node-------------*- C++ -*-===//
+//===------------------------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
-//===----------------------------------------------------------------------===//
-//
-// This file defines the Vectorizer's AVR Stmt node.
+//   Source file:
+//   ------------
+//   VPOAvrIf.h -- Defines the Abstract Vector Representation (AVR) if node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -16,9 +18,8 @@
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
-namespace intel { // VPO Vectorizer Namespace
-
-using namespace llvm;
+namespace llvm { // LLVM Namespace
+namespace vpo {  // VPO Vectorizer Namespace
 
 /// \brief If node abstract vector representation
 ///
@@ -41,27 +42,29 @@ public:
 
 private:
 
+  /// Container that holds IF children in 'Then' branch
   IfChildrenTy ThenChildren;
+  /// Container that holds IF children in 'Else' branch
   IfChildrenTy ElseChildren;
-
+  /// If comparison instruction
   Instruction *CompareInstruction;
 
-public:
+protected:
 
-  /// \brief AVRAssign Object Constructor.
   AVRIf(Instruction *CompareInst);
-
-  /// \brief AVRAssign Object Destructor.
+  AVRIf (const AVRIf &AVRIf);
   ~AVRIf();
 
-  /// \brief Copy Constructor. 
-  AVRIf (const AVRIf &AVRIf);
-
-  /// \bried Sets up state object.
+  /// \brief Sets up state object.
   void initialize();
 
-  // TODO: Eric: Get Predicate
-  // TODO: Eric: Get Conjuntion
+  // TODO: Get Predicate
+  // TODO: Get Conjuntion
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
 
   /// Children iterator methods
   then_iterator then_begin() { return ThenChildren.begin(); }
@@ -136,9 +139,10 @@ public:
   void dump() const override;
 
   /// \brief Code generation for AVR IF
-  void CodeGen()  override;
+  void codeGen()  override;
 };
 
-}  // End VPO Vectorizer Namespace
+} // End VPO Vectorizer Namespace
+} // End LLVM Namespace
 
 #endif  // LLVM_ANALYSIS_VPO_AVR_IF_H

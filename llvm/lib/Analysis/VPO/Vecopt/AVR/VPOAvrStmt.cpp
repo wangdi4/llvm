@@ -1,13 +1,16 @@
-//===--------- VPOAvrStmt.cpp - Implements AVRAssign class ------*- C++ -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
 //===----------------------------------------------------------------------===//
 //
-// This file implements the the AVR STMT classes.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//   Source file:
+//   ------------
+//   VPOAvrFunction.cpp -- Implements the Abstract Vector Representation (AVR)
+//   statement nodes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,7 +20,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
-using namespace intel;
+using namespace llvm::vpo;
 
 #define DEBUG_TYPE "avr"
 
@@ -33,14 +36,15 @@ AVRAssign *AVRAssign::clone() const {
 }
 
 void AVRAssign::print() const {
-  DEBUG(dbgs() <<"AVR_Assign\n");
+  DEBUG(dbgs() <<"AVR_ASSIGN: ");
+  DEBUG(Instruct->dump());
 }
 
 void AVRAssign::dump() const {
   print();
 }
 
-void AVRAssign::CodeGen() {
+void AVRAssign::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -63,14 +67,14 @@ AVRLabel *AVRLabel::clone() const {
 }
 
 void AVRLabel::print() const {
-  DEBUG(dbgs() <<"\nAVR_Label\n");
+  DEBUG(dbgs() <<"\nAVR_LABEL:    " <<
+    this->SourceBlock->getName() << "\n");
 }
 
 void AVRLabel::dump() const {
   print();
 }
-
-void AVRLabel::CodeGen() {
+void AVRLabel::codeGen() {
 }
 
 //----------AVR Phi Implementation----------//
@@ -82,14 +86,15 @@ AVRPhi *AVRPhi::clone() const {
 }
 
 void AVRPhi::print() const {
-  DEBUG(dbgs() <<"AVR_Phi\n");
+  DEBUG(dbgs() <<"AVR_PHI:    ");
+  DEBUG(Instruct->dump());
 }
 
 void AVRPhi::dump() const {
   print();
 }
 
-void AVRPhi::CodeGen() {
+void AVRPhi::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -112,14 +117,15 @@ AVRCall *AVRCall::clone() const {
 }
 
 void AVRCall::print() const {
-  DEBUG(dbgs() <<"AVR_Call\n");
+  DEBUG(dbgs() <<"AVR_CALL:   ");
+  DEBUG(Instruct->dump());
 }
 
 void AVRCall::dump() const {
   print();
 }
 
-void AVRCall::CodeGen() {
+void AVRCall::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -142,14 +148,15 @@ AVRFBranch *AVRFBranch::clone() const {
 }
 
 void AVRFBranch::print() const {
-  DEBUG(dbgs() <<"AVR_ForwardBranch\n");
+  DEBUG(dbgs() <<"AVR_FBRANCH:");
+  DEBUG(Instruct->dump());
 }
 
 void AVRFBranch::dump() const {
   print();
 }
 
-void AVRFBranch::CodeGen() {
+void AVRFBranch::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -172,14 +179,15 @@ AVRBackEdge *AVRBackEdge::clone() const {
 }
 
 void AVRBackEdge::print() const {
-  DEBUG(dbgs() <<"AVR_BackEdge\n");
+  DEBUG(dbgs() <<"AVR_BACKEDGE:");
+  DEBUG(Instruct->dump());
 }
 
 void AVRBackEdge::dump() const {
   print();
 }
 
-void AVRBackEdge::CodeGen() {
+void AVRBackEdge::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -202,14 +210,15 @@ AVREntry *AVREntry::clone() const {
 }
 
 void AVREntry::print() const {
-  DEBUG(dbgs() <<"AVR_Entry\n");
+  DEBUG(dbgs() <<"AVR_ENTRY: ");
+  DEBUG(Instruct->dump());
 }
 
 void AVREntry::dump() const {
   print();
 }
 
-void AVREntry::CodeGen() {
+void AVREntry::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -233,14 +242,15 @@ AVRReturn *AVRReturn::clone() const {
 }
 
 void AVRReturn::print() const {
-  DEBUG(dbgs() <<"AVR_Return\n");
+  DEBUG(dbgs() <<"AVR_RETURN: ");
+  DEBUG(Instruct->dump());
 }
 
 void AVRReturn::dump() const {
   print();
 }
 
-void AVRReturn::CodeGen() {
+void AVRReturn::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());

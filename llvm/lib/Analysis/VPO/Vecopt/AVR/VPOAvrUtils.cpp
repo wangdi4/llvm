@@ -1,13 +1,16 @@
-//===------- VPOAvrUtils.cpp - Implements AVRUtils class --------*- C++ -*-===//
-//
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
-//
 //===----------------------------------------------------------------------===//
 //
-// This file implements the the AVRUtils class.
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
+//
+//   Source file:
+//   ------------
+//   VPOAvrUtils.cpp -- Implements the Abstract Vector Representation (AVR)
+//   utilities.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,11 +22,15 @@
 
 
 using namespace llvm;
-using namespace intel;
+using namespace llvm::vpo;
 
 // AVR Creatation Utilities
 AVRFunction *AVRUtils::createAVRFunction(Function *OrigF) {
   return new AVRFunction(OrigF);
+}
+
+AVRLoop *AVRUtils::createAVRLoop(const LoopInfo *OrigL, bool isDW) {
+  return new AVRLoop(OrigL, isDW);
 }
 
 AVRAssign *AVRUtils::createAVRAssign(Instruction *Inst) {
@@ -83,41 +90,51 @@ void AVRUtils::insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr) {
 
 void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr, InsertType Itype) {
 
-  assert(Parent && "Parent is Null");
+  assert(Parent && "Parent is null.");
 
-  // TODO: Clean this up - Only Supports Function Parents right now.
-  // TODO: Add AVRLoop, AVRIf support.
+  AvrItr InsertionPos;
+  AVRContainerTy  *Children = nullptr;
 
-  if (isa<AVRFunction>(Parent)) {
+  if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Parent)) {
+    Children = &(AFunc->Children);
+  }
+  else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
+    Children = &(ALoop->Children);
+  }
+  else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
+    llvm_unreachable("VPO: AVR_SPLIT Insertion not supported.\n");
+    // TODO: Split Support
+    Children = &(AIf->ThenChildren);
+    Children = &(AIf->ElseChildren);
+  } 
+  else {
+    llvm_unreachable("VPO: Unsupported AVR Insertion\n");
+  }
 
-    AVRFunction *Func = cast<AVRFunction>(Parent);
-    AVRContainerTy &AVRContainer = Func->Children;
-    AvrItr InsertionPos;
+  assert(Children && "Children container ptr is null.");
 
-    switch (Itype) {
-      case FirstChild:
-        InsertionPos = Func->child_begin();
-        break;
-      case LastChild:
-        InsertionPos = Func->getLastChild();
-        break;
-      case Append:
-        InsertionPos = std::next(Pos);
-        break;
-      case Prepend:
-        InsertionPos = Pos;
-        break;
-      default:
-        llvm_unreachable("VPO: Unknown AVR Insertion Type");
+  // Set insertion point
+  switch (Itype) {
+    case FirstChild:
+      InsertionPos = Children->begin();
+      break;
+    case LastChild:
+      InsertionPos = Children->end();
+      break;
+    case Append:
+      InsertionPos = std::next(Pos);
+      break;
+    case Prepend:
+      InsertionPos = Pos;
+      break;
+    default:
+      llvm_unreachable("VPO: Unknown AVR Insertion Type");
     }
 
-    NewAvr->setParent(Parent);
-    AVRContainer.insert(InsertionPos, NewAvr);
-  }
-  else {
-    // TODO: Missing Support
-    DEBUG(dbgs() << "Missing Full Insertion Support\n");
-  }
+
+  // Insert new avr.
+  NewAvr->setParent(Parent);
+  Children->insert(InsertionPos, NewAvr);
 
   return;
 }

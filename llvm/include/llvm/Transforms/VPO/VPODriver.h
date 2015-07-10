@@ -18,6 +18,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrGenerate.h"
 
 namespace llvm {
 
@@ -32,19 +33,15 @@ class VPODriver : public FunctionPass {
   ScalarEvolution *SC;
   WRegionInfo *WR;
 
+  /// Handle to AVR Generate Pass
+  AVRGenerate *AV;
+
 public:
   static char ID; // Pass identification, replacement for typeid
 
   VPODriver();
-
   bool runOnFunction(Function &F) override;
-
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
-    AU.addRequired<LoopInfoWrapperPass>();
-    AU.addRequired<WRegionInfo>();
-    AU.addRequired<ScalarEvolution>();
-  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // End namespace vpo

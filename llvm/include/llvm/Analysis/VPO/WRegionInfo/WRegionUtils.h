@@ -72,7 +72,7 @@ public:
 
   /// \brief Returns a new WRegionNode node.
   static WRegion *createWRegion(BasicBlock *EntryBB, 
-                                BasicBlock *ExitBB, WRegionBSetTy &BBs); 
+                                BasicBlock *ExitBB, WRegionBSetTy &BBs, LoopInfo *LI); 
 
   /// Removal Utilities
 

@@ -16,6 +16,8 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   Vectorize
+  TransformVPOUtils
+  WRegionInfoAnalysis
   VPOVectorizer #***INTEL
   VPODriver
   SIMDFunctionCloning
