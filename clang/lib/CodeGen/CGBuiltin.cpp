@@ -425,6 +425,15 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateCall(FnExpect, {ArgValue, ExpectedValue}, "expval");
     return RValue::get(Result);
   }
+#if defined(INTEL_CUSTOMIZATION) && !defined(INTEL_SPECIFIC_IL0_BACKEND)
+  // CQ#373129 - support for __assume_aligned builtin.
+  case Builtin::BI__assume_aligned:
+    if (!getLangOpts().IntelCompat)
+      break;
+    assert(E->getNumArgs() == 2 &&
+           "Wrong number of arguments for __assume_aligned builtin");
+    // Intentional fall through.
+#endif // INTEL_CUSTOMIZATION and not INTEL_SPECIFIC_IL0_BACKEND
   case Builtin::BI__builtin_assume_aligned: {
     Value *PtrValue = EmitScalarExpr(E->getArg(0));
     Value *OffsetValue =
@@ -993,8 +1002,6 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_apply_args:
   case Builtin::BI__atomic_flag_test_and_set_explicit:
   case Builtin::BI__atomic_flag_clear_explicit:
-    return emitLibraryCall(*this, FD, E,
-                           CGM.getBuiltinIntelLibFunction(FD, BuiltinID));
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
   case Builtin::BI__atomic_store_explicit_4:
@@ -1293,11 +1300,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                                RequiredArgs::All);
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args
 #ifdef INTEL_CUSTOMIZATION
-                    , 0, 0, E->isCilkSpawnCall()
-#endif  // INTEL_CUSTOMIZATION
-                   );
+    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args, 0, 0,
+                    E->isCilkSpawnCall());
+#else
+    return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args);
+#endif // INTEL_CUSTOMIZATION
   }
 
   case Builtin::BI__atomic_test_and_set: {
