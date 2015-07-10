@@ -741,7 +741,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
         Count = SI->getSmallConstantTripCount(LI->getLoopFor(Latch), Latch);
     }
     else if (Latch)
-      Count = SI->getSmallConstantTripCount(L, Latch);
+      Count = SI->getSmallConstantTripCount(L);
 
     // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.
