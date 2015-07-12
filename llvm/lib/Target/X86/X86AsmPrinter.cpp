@@ -60,8 +60,11 @@ bool X86AsmPrinter::runOnMachineFunction(MachineFunction &MF) {
                                             : COFF::IMAGE_SYM_CLASS_EXTERNAL);
     OutStreamer->EmitCOFFSymbolType(COFF::IMAGE_SYM_DTYPE_FUNCTION
                                                << COFF::SCT_COMPLEX_TYPE_SHIFT);
+    OutStreamer->EmitSyntaxDirective();
     OutStreamer->EndCOFFSymbolDef();
   }
+  else
+    OutStreamer->EmitSyntaxDirective();
 
   // Emit the rest of the function body.
   EmitFunctionBody();

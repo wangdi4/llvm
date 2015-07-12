@@ -78,6 +78,7 @@ public:
     }
     EmitCommentsAndEOL();
   }
+  virtual void EmitSyntaxDirective();
   void EmitCommentsAndEOL();
 
   /// isVerboseAsm - Return true if this streamer supports verbose assembly at
@@ -481,6 +482,11 @@ void MCAsmStreamer::EmitCOFFSymbolType (int Type) {
   EmitEOL();
 }
 
+void MCAsmStreamer::EmitSyntaxDirective(){
+  if (MAI->getAssemblerDialect() == 1)
+     OS << "\t.syntax_intel prefix\n";
+  
+}
 void MCAsmStreamer::EndCOFFSymbolDef() {
   OS << "\t.endef";
   EmitEOL();
