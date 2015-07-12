@@ -141,11 +141,13 @@ FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
 
 void LPUPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
   assert(!RegAllocPass && "LPU uses no regalloc!");
+  addPass(createLPULICAllocPass(), false);
   //addPass(&PHIEliminationID); retain PHIs for now
 }
 
 void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
   assert(!RegAllocPass && "LPU uses no regalloc!");
+  addPass(createLPULICAllocPass(), false);
 
   //addPass(&ProcessImplicitDefsID);
   //addPass(&LiveVariablesID);

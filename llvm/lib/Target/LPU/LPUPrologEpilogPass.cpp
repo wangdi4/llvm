@@ -34,6 +34,10 @@ public:
   static char ID;
   LPUPrologEpilogPass() : MachineFunctionPass(ID) {}
 
+  const char* getPassName() const override {
+    return "LPU Prolog/Epilog";
+  }
+
   bool runOnMachineFunction(MachineFunction &MF) override;
 
 private:

@@ -98,7 +98,7 @@ def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs), (ins),
-    "# mov0 out,ctl",
+    "# mov0 c1,c0",
     [(LPURet)]>;
 
 multiclass MovOp<string opStr, ValueType T> {
@@ -532,54 +532,65 @@ def : Pat<(i16 (sext_inreg i16:$op1, i8)),
 // (Is the copy even necessary?  Or can we just return the value?)
 // (Or - do we need an explicit mask.  If the incoming value is in range,
 // it shouldn't need to be masked...)
-def : Pat<(i64 (zext CCI32:$op1)),
-  (COPY_TO_REGCLASS CCI32:$op1, CCI64)>;
-def : Pat<(i64 (zext CCI16:$op1)),
-  (COPY_TO_REGCLASS CCI16:$op1, CCI64)>;
-def : Pat<(i64 (zext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI64)>;
-def : Pat<(i64 (zext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI64)>;
 
-def : Pat<(i32 (zext CCI16:$op1)),
-  (COPY_TO_REGCLASS CCI16:$op1, CCI32)>;
-def : Pat<(i32 (zext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI32)>;
-def : Pat<(i32 (zext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI32)>;
+def : Pat<(i64 (zext i32:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND64 $op1, 0xFFFFFFFF)>;  // gets "Type inference contradiction found, merging 'i32' into 'i64'
+def : Pat<(i64 (zext i16:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND64 $op1, 0xFFFF)>;
+def : Pat<(i64 (zext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND64 $op1, 0xFF)>;
+def : Pat<(i64 (zext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND64 $op1, 1)>;
 
-def : Pat<(i16 (zext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI16)>;
-def : Pat<(i16 (zext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI16)>;
+def : Pat<(i32 (zext i16:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND32 $op1, 0xFFFF)>;
+def : Pat<(i32 (zext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND32 $op1, 0xFF)>;
+def : Pat<(i32 (zext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND32 $op1, 1)>;
 
-def : Pat<(i8 (zext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI8)>;
+def : Pat<(i16 (zext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND16 $op1, 0xFF)>;
+def : Pat<(i16 (zext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND16 $op1, 1)>;
+
+def : Pat<(i8 (zext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+//  (AND8 $op1, 1)>;
 
 // anyext are treated as zext
-def : Pat<(i64 (anyext CCI32:$op1)),
-  (COPY_TO_REGCLASS CCI32:$op1, CCI64)>;
-def : Pat<(i64 (anyext CCI16:$op1)),
-  (COPY_TO_REGCLASS CCI16:$op1, CCI64)>;
-def : Pat<(i64 (anyext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI64)>;
-def : Pat<(i64 (anyext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI64)>;
+def : Pat<(i64 (anyext i32:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i64 (anyext i16:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i64 (anyext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i64 (anyext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
 
-def : Pat<(i32 (anyext CCI16:$op1)),
-  (COPY_TO_REGCLASS CCI16:$op1, CCI32)>;
-def : Pat<(i32 (anyext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI32)>;
-def : Pat<(i32 (anyext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI32)>;
+def : Pat<(i32 (anyext i16:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i32 (anyext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i32 (anyext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
 
-def : Pat<(i16 (anyext CCI8:$op1)),
-  (COPY_TO_REGCLASS CCI8:$op1, CCI16)>;
-def : Pat<(i16 (anyext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI16)>;
+def : Pat<(i16 (anyext i8:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
+def : Pat<(i16 (anyext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
 
-def : Pat<(i8 (anyext CCI1:$op1)),
-  (COPY_TO_REGCLASS CCI1:$op1, CCI8)>;
+def : Pat<(i8 (anyext i1:$op1)),
+  (COPY_TO_REGCLASS $op1, CC)>;
 
 // Eventually
 //include "LPUIntrinsics.td"

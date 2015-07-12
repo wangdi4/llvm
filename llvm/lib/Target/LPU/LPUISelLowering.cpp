@@ -52,38 +52,14 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
   // Set up the register classes.
-  /*
-  addRegisterClass(MVT::i1,   &LPU::RCI1RegClass);
-  addRegisterClass(MVT::i8,   &LPU::RCI8RegClass);
-  addRegisterClass(MVT::i16,  &LPU::RCI16RegClass);
-  addRegisterClass(MVT::i32,  &LPU::RCI32RegClass);
-  addRegisterClass(MVT::i64,  &LPU::RCI64RegClass);
-  addRegisterClass(MVT::f32,  &LPU::RCF32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::RCF64RegClass);
-
-  addRegisterClass(MVT::i1,   &LPU::CCRESRegClass);
-  addRegisterClass(MVT::i8,   &LPU::CCRESRegClass);
-  addRegisterClass(MVT::i16,  &LPU::CCRESRegClass);
-  addRegisterClass(MVT::i32,  &LPU::CCRESRegClass);
-  addRegisterClass(MVT::i64,  &LPU::CCRESRegClass);
-  addRegisterClass(MVT::f32,  &LPU::CCRESRegClass);
-  addRegisterClass(MVT::f64,  &LPU::CCRESRegClass);
-
-  addRegisterClass(MVT::i1,   &LPU::C1RegClass);
-  addRegisterClass(MVT::i8,   &LPU::C8RegClass);
-  addRegisterClass(MVT::i16,  &LPU::C16RegClass);
-  addRegisterClass(MVT::i32,  &LPU::C32RegClass);
-  addRegisterClass(MVT::i64,  &LPU::C64RegClass);
-  addRegisterClass(MVT::f32,  &LPU::C32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::C64RegClass);
-  */
-  addRegisterClass(MVT::i1,   &LPU::CCI1RegClass);
-  addRegisterClass(MVT::i8,   &LPU::CCI8RegClass);
-  addRegisterClass(MVT::i16,  &LPU::CCI16RegClass);
-  addRegisterClass(MVT::i32,  &LPU::CCI32RegClass);
-  addRegisterClass(MVT::i64,  &LPU::CCI64RegClass);
-  addRegisterClass(MVT::f32,  &LPU::CCF32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::CCF64RegClass);
+  addRegisterClass(MVT::i1,   &LPU::CCRegClass);
+  addRegisterClass(MVT::i8,   &LPU::CCRegClass);
+  addRegisterClass(MVT::i16,  &LPU::CCRegClass);
+  addRegisterClass(MVT::i32,  &LPU::CCRegClass);
+  addRegisterClass(MVT::i64,  &LPU::CCRegClass);
+  addRegisterClass(MVT::f16,  &LPU::CCRegClass);
+  addRegisterClass(MVT::f32,  &LPU::CCRegClass);
+  addRegisterClass(MVT::f64,  &LPU::CCRegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -415,7 +391,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::CCARGRegClass);
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::CCRegClass);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
       InVals.push_back(ArgValue);
 

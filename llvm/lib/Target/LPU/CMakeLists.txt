@@ -14,6 +14,7 @@ add_llvm_target(LPUCodeGen
   LPUISelLowering.cpp
   LPUInstrInfo.cpp
   LPUFrameLowering.cpp
+  LPULICAllocPass.cpp
   LPUMachineFunctionInfo.cpp
   LPUPrologEpilogPass.cpp
   LPURegisterInfo.cpp

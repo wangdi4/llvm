@@ -39,13 +39,9 @@ void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   unsigned DestReg, unsigned SrcReg,
                                   bool KillSrc) const {
   // This could determine the opcode based on the minimum size of the source and destination
-  // For now, just use MOV64
+  // For now, just use MOV64 to make sure all bits are moved.
+  // Ideally, this would be based on the actual bits in the value...
   unsigned Opc = LPU::MOV64;
-  if (LPU::CCI1RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV1;
-  if (LPU::CCI8RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV8;
-  if (LPU::CCI16RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV16;
-  if (LPU::CCI32RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV32;
-  if (LPU::CCF32RegClass.contains(DestReg,SrcReg)) Opc = LPU::MOV32;
 
   BuildMI(MBB, I, DL, get(Opc), DestReg)
     .addReg(SrcReg, getKillRegState(KillSrc));

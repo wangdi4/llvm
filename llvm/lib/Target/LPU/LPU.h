@@ -27,6 +27,7 @@ namespace llvm {
   FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
   MachineFunctionPass *createLPUPrologEpilogPass();
+  MachineFunctionPass *createLPULICAllocPass();
   //FunctionPass *createLPULowerStructArgsPass();
 
 } // end namespace llvm;

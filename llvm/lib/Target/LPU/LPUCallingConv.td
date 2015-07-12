@@ -15,16 +15,18 @@
 // Return Value Calling Conventions
 //===----------------------------------------------------------------------===//
 
+// Note: C0 is control input, C1 is control output
+
 // LPU 64-bit C return-value convention.
 def RetCC_LPU : CallingConv<[
-  CCIfType<[i32,i64,f32,f64], CCAssignToReg<[RES0, RES1, RES2, RES3, RES4, RES5, RES6, RES7]>>,
+  CCIfType<[i32,i64,f32,f64], CCAssignToReg<[C18, C19]>>,
   CCAssignToStack<8, 8>
 ]>;
 
 // LPU 64-bit C Calling convention.
 def CC_LPU : CallingConv<[
   CCIfType<[i32,i64,f32,f64],
-        CCAssignToReg<[ARG0, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7,
-                       ARG8, ARG9, ARG10, ARG11, ARG12, ARG13, ARG14, ARG15]>>,
+        CCAssignToReg<[C2, C3, C4, C5, C6, C7, C8, C9,
+                       C10, C11, C12, C13, C14, C15, C16, C17]>>,
   CCAssignToStack<8, 8>
 ]>;
