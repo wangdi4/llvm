@@ -47,6 +47,7 @@ set(orig_files
   ammintrin.h
   arm_acle.h
   cpuid.h
+  cuda_builtin_vars.h
   float.h
   fma4intrin.h
   htmintrin.h
