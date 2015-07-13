@@ -4552,3 +4552,12 @@ def LIC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
         C4070, C4071, C4072, C4073, C4074, C4075, C4076, C4077, C4078, C4079,
         C4080, C4081, C4082, C4083, C4084, C4085, C4086, C4087, C4088, C4089,
         C4090, C4091)>;
+
+def I1  : RegisterClass<"LPU", [i1],  64, (add LIC)>;
+def I8  : RegisterClass<"LPU", [i8],  64, (add LIC)>;
+def I16 : RegisterClass<"LPU", [i16], 64, (add LIC)>;
+def I32 : RegisterClass<"LPU", [i32], 64, (add LIC)>;
+def I64 : RegisterClass<"LPU", [i64], 64, (add LIC)>;
+def F16 : RegisterClass<"LPU", [f16], 64, (add LIC)>;
+def F32 : RegisterClass<"LPU", [f32], 64, (add LIC)>;
+def F64 : RegisterClass<"LPU", [f64], 64, (add LIC)>;
