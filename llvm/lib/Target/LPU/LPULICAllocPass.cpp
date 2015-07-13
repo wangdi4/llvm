@@ -18,6 +18,7 @@
 #include "LPUTargetMachine.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -51,6 +52,7 @@ char LPULICAllocPass::ID = 0;
 
 bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   const TargetMachine &TM = MF.getTarget();
+  MachineRegisterInfo *MRI = &MF.getRegInfo();
 // const TargetFrameLowering &TFI = *TM.getSubtargetImpl()->getFrameLowering();
   const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
   bool Modified = false;
@@ -72,6 +74,10 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   // "allocation".
   // If we change to using LICs as a separate operand type, this is where
   // they would be introduced...
+
+  MRI->setPhysRegUsed(LPU::C0);
+  MRI->setPhysRegUsed(LPU::C1);
+  MRI->addLiveIn(LPU::C1);
 
   // 1st pass - allocate LICs for each VR.
   // We also track through (and remove) copies
@@ -98,34 +104,40 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
         // If the source doesn't match the dest, AND the source isn't
         // an input or output, plan to map the Src to the Dst on the next sweep
         if (Src != Dst && Src >= FirstAllocatable) {
-          printf("inserting %d => %d\n", Src, Dst);
+          //printf("inserting %d => %d\n", Src, Dst);
           LICToLIC[Src] = Dst;
         }
+        MRI->setPhysRegUsed(Src);
+        MRI->setPhysRegUsed(Dst);
       } else {
         // For each operand, if it is a VR, and there is no phys reg already
         // assigned, assign one.  Regardless, replace all VRs with phys regs.
         for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
           if (MI->getOperand(i).isReg()) {
             unsigned reg = MI->getOperand(i).getReg();
+            unsigned lic = 0;
             if (TargetRegisterInfo::isVirtualRegister(reg)) {
               unsigned vidx = TRI.virtReg2Index(reg);
-              unsigned lic = 0;
               RegMap::iterator rmi = virtToLIC.find(vidx);
               if (rmi == virtToLIC.end()) {
                 // "allocate" a new physical register
                 virtToLIC[vidx] = lic = nextLICAlloc++;
-                printf("allocating %d (%s) for vreg%d\n", lic,
-                       LPUInstPrinter::getRegisterName(lic), vidx);
+                //printf("allocating %d (%s) for vreg%d\n", lic,
+                //       LPUInstPrinter::getRegisterName(lic), vidx);
               } else {
                 lic = virtToLIC[vidx];
               }
               MI->getOperand(i).setReg(lic);
+            } else {
+              lic = reg;
             }
+            MRI->setPhysRegUsed(lic);
           }
         }
       }
     }
   }
+
   // 2nd pass to remove copies targeting assigned outputs (e.g. results.)
   for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
@@ -139,6 +151,13 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
           }
         }
       }
+    }
+  }
+
+  // for any LICs that were used in C3..C19, mark as live in
+  for (unsigned reg=LPU::C3; reg<=LPU::C19; reg++) {
+    if (MRI->isPhysRegUsed(reg)) {
+      MRI->addLiveIn(reg);
     }
   }
 
