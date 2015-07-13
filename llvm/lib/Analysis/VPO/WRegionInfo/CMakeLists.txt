@@ -7,3 +7,4 @@ add_llvm_library(LLVMWRegionInfoAnalysis
   WRegionInfoAnalysis.cpp
 )
 
+add_dependencies(LLVMWRegionInfoAnalysis intrinsics_gen)
