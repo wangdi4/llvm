@@ -632,7 +632,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   // does not apply to its vector counterpart).
   Function::arg_iterator copiedArgIt = wrapperFunc->arg_begin();
   Function::arg_iterator copiedArgEnd = wrapperFunc->arg_end();
-  for (uint64_t index = 1; copiedArgIt != copiedArgEnd; copiedArgIt++, index++) {
+  for (uint64_t index = 1; copiedArgIt != copiedArgEnd; ++copiedArgIt, index++) {
     Type* argType = (*copiedArgIt).getType();
     AttrBuilder AB = AttributeFuncs::typeIncompatible(argType);
     AttributeSet AS = AttributeSet::get(wrapperFunc->getContext(), index, AB);
