@@ -534,63 +534,63 @@ def : Pat<(i16 (sext_inreg i16:$op1, i8)),
 // it shouldn't need to be masked...)
 
 def : Pat<(i64 (zext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND64 $op1, 0xFFFFFFFF)>;  // gets "Type inference contradiction found, merging 'i32' into 'i64'
 def : Pat<(i64 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND64 $op1, 0xFFFF)>;
 def : Pat<(i64 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND64 $op1, 0xFF)>;
 def : Pat<(i64 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND64 $op1, 1)>;
 
 def : Pat<(i32 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND32 $op1, 0xFFFF)>;
 def : Pat<(i32 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND32 $op1, 0xFF)>;
 def : Pat<(i32 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND32 $op1, 1)>;
 
 def : Pat<(i16 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND16 $op1, 0xFF)>;
 def : Pat<(i16 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND16 $op1, 1)>;
 
 def : Pat<(i8 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 //  (AND8 $op1, 1)>;
 
 // anyext are treated as zext
 def : Pat<(i64 (anyext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i64 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i64 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i64 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 
 def : Pat<(i32 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i32 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i32 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 
 def : Pat<(i16 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 def : Pat<(i16 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 
 def : Pat<(i8 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, CC)>;
+  (COPY_TO_REGCLASS $op1, LIC)>;
 
 // Eventually
 //include "LPUIntrinsics.td"

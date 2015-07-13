@@ -4141,7 +4141,7 @@ def C4091 : LPUReg<4091, "c4091">;
 // 4092..4095 reserved for SP, RA, etc.
 
 // generic channel class
-def CC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
+def LIC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
    (add   C0,   C1,   C2,   C3,   C4,   C5,   C6,   C7,   C8,   C9,
          C10,  C11,  C12,  C13,  C14,  C15,  C16,  C17,  C18,  C19,
          C20,  C21,  C22,  C23,  C24,  C25,  C26,  C27,  C28,  C29,
