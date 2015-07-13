@@ -196,11 +196,12 @@ public:
       if (UnaryOperator *UO = dyn_cast_or_null<UnaryOperator>(P)) {
         if (UO->getOpcode() == UO_AddrOf) {
           AddressOf = true;
-          P = PMap.getParentIgnoreParenImpCasts(P);
-          while (dyn_cast<CastExpr>(P)) {
-            P = PMap.getParentIgnoreParenImpCasts(P);
-          }
-
+          Stmt *Parent = P;
+          do {
+            Parent = PMap.getParentIgnoreParenImpCasts(Parent);
+          } while (Parent && isa<CastExpr>(Parent));
+          if (Parent)
+            P = Parent;
           // If the parent is a comma operator, get its parent to see if there
           // are any assignments.
           if (BinaryOperator *BO = dyn_cast<BinaryOperator>(P)) {
@@ -209,7 +210,6 @@ public:
           }
         }
       }
-
       // Use the usage visitor to analyze if the parent tries to modify the
       // loop control variable
       ControlVarUsageVisitor V(S, DeclRef, PMap, AddressOf);
