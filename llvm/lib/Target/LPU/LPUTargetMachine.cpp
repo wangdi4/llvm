@@ -113,7 +113,6 @@ void LPUPassConfig::addIRPasses() {
   // of the PrologEpilogCodeInserter pass, so we emulate that behavior in the
   // LPUPrologEpilog pass (see LPUPrologEpilogPass.cpp).
   disablePass(&PrologEpilogCodeInserterID);
-  disablePass(&MachineCopyPropagationID);
   disablePass(&BranchFolderPassID);
   disablePass(&TailDuplicateID);
 
@@ -156,7 +155,8 @@ void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
 }
 
 void LPUPassConfig::addMachineLateOptimization() {
-  // none for now
+  // Removed: branch folding, tail duplication
+  addPass(&MachineCopyPropagationID);
 }
 
 bool LPUPassConfig::addGCPasses() {
