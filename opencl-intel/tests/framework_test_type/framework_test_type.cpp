@@ -470,6 +470,11 @@ TEST(FrameworkTestType, Test_CL11_Option)
     EXPECT_TRUE(clBuildWithCL11option());
 }
 
+TEST(FrameworkTestType, Test_clBuildOptions)
+{
+    clBuildOptionsTest();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE

@@ -148,4 +148,5 @@ bool clSampler();
 bool clAoSFieldScatterGather();
 bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize);
 bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, bool hasLocalWGSize);
+void clBuildOptionsTest();
 //#define CUDA_DEVICE
