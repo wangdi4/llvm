@@ -320,8 +320,8 @@ defm SUB16 : BinOp<"sub16", sub, i16, immi16, 0>;
 defm SUB32 : BinOp<"sub32", sub, i32, immi32, 0>;
 defm SUB64 : BinOp<"sub64", sub, i64, immi64, 0>;
 
-defm SUBF32 : BinOp<"sub32f", fsub, f32, immf32, 1>;
-defm SUBF64 : BinOp<"subf64", fsub, f64, immf64, 1>;
+defm SUBF32 : BinOp<"sub32f", fsub, f32, immf32, 0>;
+defm SUBF64 : BinOp<"subf64", fsub, f64, immf64, 0>;
 
 defm MUL8  : BinOp<"mul8",  mul, i8,  immi8, 1>;
 defm MUL16 : BinOp<"mul16", mul, i16, immi16, 1>;
