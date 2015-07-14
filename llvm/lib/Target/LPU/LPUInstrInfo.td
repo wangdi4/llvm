@@ -162,10 +162,10 @@ multiclass CmpOp<string opStr, PatFrag opNode, RegisterClass LIC,
       !strconcat(opStr, "\t$dst, $op1, $op2"),
       [(set I1:$dst, (opNode LIC:$op1, LIC:$op2))]>;
     def i : FMTGEN<
-      (outs LIC:$dst),
+      (outs I1:$dst),
       (ins LIC:$op1, immOpnd:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set LIC:$dst, (opNode LIC:$op1, (opType immAny:$imm)))]>;
+      [(set I1:$dst, (opNode LIC:$op1, (opType immAny:$imm)))]>;
   }
 }
 
