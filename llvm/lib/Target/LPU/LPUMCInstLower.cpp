@@ -130,11 +130,11 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_Immediate:
       MCOp = MCOperand::CreateImm(MO.getImm());
       break;
-      /*
     case MachineOperand::MO_MachineBasicBlock:
       MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
                          MO.getMBB()->getSymbol(), Ctx));
       break;
+      /*
     case MachineOperand::MO_GlobalAddress:
       MCOp = LowerSymbolOperand(MO, GetGlobalAddressSymbol(MO));
       break;

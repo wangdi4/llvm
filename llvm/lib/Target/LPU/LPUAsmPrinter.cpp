@@ -67,10 +67,10 @@ void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
   case MachineOperand::MO_Immediate:
     O << MO.getImm();
     return;
-  /*
   case MachineOperand::MO_MachineBasicBlock:
     O << *MO.getMBB()->getSymbol();
     return;
+  /*
   case MachineOperand::MO_GlobalAddress: {
     bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
     uint64_t Offset = MO.getOffset();
