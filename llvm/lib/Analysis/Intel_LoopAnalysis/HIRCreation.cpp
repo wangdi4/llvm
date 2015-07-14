@@ -13,13 +13,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/CommandLine.h"
+
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -33,6 +37,10 @@ INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
+
+static cl::opt<bool>
+    HIRPrinterDetailed("hir-details", cl::desc("Show HIR with dd_ref details"),
+                       cl::init(false));
 
 FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
 
@@ -245,7 +253,6 @@ void HIRCreation::setExitBBlock() const {
   CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
 }
 
-
 void HIRCreation::create() {
 
   for (auto &I : *RI) {
@@ -302,10 +309,10 @@ void HIRCreation::printImpl(raw_ostream &OS, bool printIRRegion) const {
 
   for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
-
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
-    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion);
+    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion, HIRPrinterDetailed);
   }
+  FOS << "\n";
 }
 
 void HIRCreation::verifyAnalysis() const {

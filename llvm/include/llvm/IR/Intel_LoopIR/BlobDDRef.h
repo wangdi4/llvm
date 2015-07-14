@@ -52,14 +52,12 @@ protected:
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
 public:
-  /// \brief Prints BlobDDRef in a simple format.
-  virtual void print(formatted_raw_ostream &OS) const override;
-
-  /// \brief Prints BlobDDRef with much more information.
-  virtual void detailedPrint(formatted_raw_ostream &OS) const override;
-
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;
+
+  /// \brief Prints BlobDDRef in a simple format.
+  virtual void print(formatted_raw_ostream &OS,
+                     bool Detailed = false) const override;
 
   /// TODO implementation
   /// Value *getLLVMValue() const override { return nullptr; }

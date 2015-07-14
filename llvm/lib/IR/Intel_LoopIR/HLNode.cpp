@@ -58,9 +58,11 @@ void HLNode::destroyAll() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void HLNode::dump() const {
+void HLNode::dump() const { this->dump(false); }
+
+void HLNode::dump(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS, 0);
+  print(OS, 0, Detailed);
 }
 #endif
 
@@ -103,7 +105,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 }
 
 void HLNode::printPredicate(formatted_raw_ostream &OS,
-                            const CmpInst::Predicate &Pred) const {
+                            const CmpInst::Predicate &Pred) {
   if (Pred == CmpInst::Predicate::FCMP_TRUE) {
     OS << "true";
   } else if (Pred == CmpInst::Predicate::FCMP_FALSE) {

@@ -43,7 +43,8 @@ HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
 
 HLGoto *HLGoto::clone() const { return cloneImpl(nullptr, nullptr); }
 
-void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
 
   indent(OS, Depth);
 

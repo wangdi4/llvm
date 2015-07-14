@@ -87,12 +87,14 @@ CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
 }
 
-void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
-  getHIRParser()->printBlob(OS, Blob);
+void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
+                               bool Detailed) {
+  getHIRParser()->printBlob(OS, Blob, Detailed);
 }
 
-void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
-  getHIRParser()->printScalar(OS, Symbase);
+void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase,
+                                 bool Detailed) {
+  getHIRParser()->printScalar(OS, Symbase, Detailed);
 }
 
 bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {

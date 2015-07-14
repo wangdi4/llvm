@@ -52,15 +52,12 @@ void DDRef::destroyAll() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DDRef::dump() const {
+void DDRef::dump(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS);
+  print(OS, Detailed);
 }
 
-void DDRef::detailedDump() const {
-  formatted_raw_ostream OS(dbgs());
-  detailedPrint(OS);
-}
+void DDRef::dump() const { dump(false); }
 #endif
 
 Type *DDRef::getType() const {
@@ -83,4 +80,8 @@ Type *DDRef::getType() const {
   }
 
   llvm_unreachable("Unknown DDRef kind!");
+}
+
+void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+  OS << "{sb:" << getSymBase() << "}";
 }

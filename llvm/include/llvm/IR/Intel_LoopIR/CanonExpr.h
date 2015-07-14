@@ -131,7 +131,7 @@ private:
 
 protected:
   CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
-  ~CanonExpr() {}
+  virtual ~CanonExpr(){};
 
   friend class CanonExprUtils;
   friend class HIRParser;
@@ -184,7 +184,7 @@ public:
   /// \brief Dumps CanonExpr.
   void dump() const;
   /// \brief Prints CanonExpr.
-  void print(formatted_raw_ostream &OS) const;
+  void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
   /// \brief Returns the LLVM type of this canon expr.
   Type *getType() const { return Ty; }

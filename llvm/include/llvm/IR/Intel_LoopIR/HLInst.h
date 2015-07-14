@@ -37,7 +37,7 @@ private:
 
 protected:
   explicit HLInst(Instruction *In);
-  ~HLInst() {}
+  virtual ~HLInst() {}
 
   /// \brief Copy constructor used by cloning.
   HLInst(const HLInst &HLInstObj);
@@ -72,7 +72,8 @@ protected:
 
 public:
   /// \brief Prints HLInst.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns the underlying Instruction.
   const Instruction *getLLVMInstruction() const { return Inst; }

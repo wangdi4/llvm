@@ -35,15 +35,23 @@ HLRegion *HLRegion::clone() const {
   return nullptr;
 }
 
-void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  print(OS, Depth, false);
+void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const {
+  print(OS, Depth, false, false);
 }
 
 void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
-                     bool PrintIRRegion) const {
+                     bool PrintIRRegion, bool Detailed) const {
   indent(OS, Depth);
 
-  OS << "BEGIN REGION\n";
+  OS << "BEGIN REGION";
+
+  OS << " {";
+  if (shouldGenCode()) {
+    OS << " modified";
+  }
+  OS << " }";
+  OS << "\n";
 
   if (PrintIRRegion) {
     OS << "\n";
@@ -52,7 +60,7 @@ void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   indent(OS, Depth);

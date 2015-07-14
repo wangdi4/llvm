@@ -155,7 +155,8 @@ void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
   }
 }
 
-void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
   unsigned Count = 0;
   bool HasSeparator = checkSeparator(OS, false);
 
@@ -168,7 +169,7 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
     if (Count == 0) {
       if (hasLval()) {
-        *I ? (*I)->print(OS) : (void)(OS << *I);
+        *I ? (*I)->print(OS, false) : (void)(OS << *I);
 
         OS << " = ";
         printBeginOpcode(OS, HasSeparator);
@@ -176,16 +177,18 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {
       } else {
         printBeginOpcode(OS, HasSeparator);
 
-        *I ? (*I)->print(OS) : (void)(OS << *I);
+        *I ? (*I)->print(OS, false) : (void)(OS << *I);
       }
     } else {
-      *I ? (*I)->print(OS) : (void)(OS << *I);
+      *I ? (*I)->print(OS, false) : (void)(OS << *I);
     }
   }
 
   printEndOpcode(OS);
 
   OS << ";\n";
+
+  HLDDNode::print(OS, Depth, Detailed);
 }
 
 bool HLInst::hasLval() const {

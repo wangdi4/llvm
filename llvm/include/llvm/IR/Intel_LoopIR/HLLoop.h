@@ -90,9 +90,8 @@ protected:
          RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to
-  /// access and destroy the nodes if we don't clear them out here.
-  ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
@@ -138,7 +137,8 @@ protected:
 
 public:
   /// \brief Prints HLLoop.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }

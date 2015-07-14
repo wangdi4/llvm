@@ -39,7 +39,8 @@ HLLabel *HLLabel::cloneImpl(GotoContainerTy *GotoList,
 
 HLLabel *HLLabel::clone() const { return cloneImpl(nullptr, nullptr); }
 
-void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLLabel::print(formatted_raw_ostream &OS, unsigned Depth,
+                    bool Detailed) const {
   indent(OS, Depth);
   OS << SrcBBlock->getName() << ":\n";
 }

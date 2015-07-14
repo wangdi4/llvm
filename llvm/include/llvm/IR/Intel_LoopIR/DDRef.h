@@ -65,15 +65,13 @@ protected:
 public:
   /// Virtual Clone Method
   virtual DDRef *clone() const = 0;
+  /// \brief Dumps DDRef.
+  void dump(bool Detailed) const;
   /// \brief Dumps DDRef in a simple format.
   void dump() const;
-  /// \brief Dumps DDRef in a more extensive format.
-  void detailedDump() const;
-  /// \brief Prints DDRef in a simple format.
-  virtual void print(formatted_raw_ostream &OS) const = 0;
 
-  /// \brief Prints DDRef in a more extensive format.
-  virtual void detailedPrint(formatted_raw_ostream &OS) const = 0;
+  /// \brief Prints DDRef in a simple format.
+  virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
   /// \brief Returns the HLDDNode this DDRef is attached to.
   virtual HLDDNode *getHLDDNode() const = 0;

@@ -119,14 +119,12 @@ protected:
   blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
 public:
-  /// \brief Prints RegDDRef in a simple format.
-  virtual void print(formatted_raw_ostream &OS) const override;
-
-  /// \brief Prints RegDDRef with much more information.
-  virtual void detailedPrint(formatted_raw_ostream &OS) const override;
-
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
+
+  /// \brief Prints RegDDRef.
+  virtual void print(formatted_raw_ostream &OS,
+                     bool Detailed = false) const override;
 
   /// TODO implementation
   /// Value *getLLVMValue() const override { return nullptr; }

@@ -101,9 +101,6 @@ protected:
                   LabelMapTy *LabelMap) const override;
 
 public:
-  /// \brief Prints HLIf.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
-
   /// \brief Returns the underlying type of if.
   Type *getType() const;
 
@@ -200,6 +197,14 @@ public:
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned If.
   HLIf *clone() const override;
+
+  /// \brief Prints HLIf header only: if (...condition...)
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const;
+
+  /// \brief Prints HLIf.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns the number of operands this HLIf is supposed to have.
   unsigned getNumOperands() const override;

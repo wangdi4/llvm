@@ -47,7 +47,8 @@ protected:
 
 public:
   /// \brief Prints HLLabel.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns the underlying LLVM BBlock.
   BasicBlock *getSrcBBlock() const { return SrcBBlock; }

@@ -134,27 +134,52 @@ HLLoop *HLLoop::clone() const {
   return NewLoop;
 }
 
-void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
   const RegDDRef *Ref;
-
-  indent(OS, Depth);
 
   /// Print preheader
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, false);
   }
 
+  if (Detailed) {
+    {
+      indent(OS, Depth);
+      OS << "+ NumExits: " << getNumExits() << "\n";
+    }
+
+    {
+      indent(OS, Depth);
+      OS << "+ Ztt: ";
+      if (hasZtt()) {
+        Ztt->printHeader(OS, 0, true);
+      } else {
+        OS << "No";
+      }
+      OS << "\n";
+    }
+  }
+
+  indent(OS, Depth);
   /// Print header
   if (isDoLoop() || isDoWhileLoop() || isDoMultiExitLoop()) {
-    OS << "+ DO i" << NestingLevel << " = ";
+    OS << "+ DO ";
+    if (Detailed) {
+      getIVType()->print(OS);
+      OS << " ";
+    }
+    OS << "i" << NestingLevel;
+
+    OS << " = ";
     Ref = getLowerDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
     OS << ", ";
     Ref = getUpperDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
     OS << ", ";
     Ref = getStrideDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
     if (isDoLoop()) {
@@ -172,9 +197,11 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
     llvm_unreachable("Unexpected loop type!");
   }
 
+  HLDDNode::print(OS, Depth, Detailed);
+
   /// Print children
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   /// Print footer
@@ -183,7 +210,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   /// Print postexit
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 }
 

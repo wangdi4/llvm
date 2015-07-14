@@ -97,3 +97,55 @@ void HLDDNode::setOperandDDRefImpl(RegDDRef *Ref, unsigned OperandNum) {
 
   RegDDRefs[OperandNum] = Ref;
 }
+
+void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const {
+  if (Detailed) {
+    printDDRefs(OS, Depth);
+  }
+}
+
+void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
+  bool printed = false;
+  bool isLoop = false;
+
+  // DD refs attached to Loop nodes require additional
+  // "|" symbol to make listing nice
+  if (isa<HLLoop>(this)) {
+    isLoop = true;
+  }
+
+  for (auto it = ddref_begin(); it != ddref_end(); it++) {
+    if ((*it) == nullptr || (*it)->isConstant()) {
+      continue;
+    }
+
+    indent(OS, Depth);
+
+    if (isLoop) {
+      OS << "| ";
+    }
+    OS << "<REG> ";
+    (*it)->print(OS, true);
+    OS << "\n";
+    for (auto blob = (*it)->blob_cbegin(); blob != (*it)->blob_cend(); blob++) {
+      indent(OS, Depth);
+      if (isLoop) {
+        OS << "| ";
+      }
+      OS << "<BLOB> ";
+      (*blob)->print(OS, true);
+      OS << "\n";
+    }
+
+    printed = true;
+  }
+
+  if (printed) {
+    indent(OS, Depth);
+    if (isLoop) {
+      OS << "| ";
+    }
+    OS << "\n";
+  }
+}

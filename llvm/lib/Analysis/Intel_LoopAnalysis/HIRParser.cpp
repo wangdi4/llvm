@@ -298,31 +298,33 @@ public:
   bool isDone() const { return false; }
 };
 
-void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
-  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
+void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase,
+                            bool Detailed) const {
+  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, Detailed);
 }
 
-void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
+void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
+                          bool Detailed) const {
 
   if (isa<SCEVConstant>(Blob)) {
     OS << *Blob;
 
-  } else if (auto CastSECV = dyn_cast<SCEVCastExpr>(Blob)) {
-    auto SrcType = CastSECV->getOperand()->getType();
-    auto DstType = CastSECV->getType();
+  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(Blob)) {
+    auto SrcType = CastSCEV->getOperand()->getType();
+    auto DstType = CastSCEV->getType();
 
-    if (isa<SCEVZeroExtendExpr>(CastSECV)) {
+    if (isa<SCEVZeroExtendExpr>(CastSCEV)) {
       OS << "zext.";
-    } else if (isa<SCEVSignExtendExpr>(CastSECV)) {
+    } else if (isa<SCEVSignExtendExpr>(CastSCEV)) {
       OS << "sext.";
-    } else if (isa<SCEVTruncateExpr>(CastSECV)) {
+    } else if (isa<SCEVTruncateExpr>(CastSCEV)) {
       OS << "trunc.";
     } else {
       llvm_unreachable("Unexptected casting operation!");
     }
 
     OS << *SrcType << "." << *DstType << "(";
-    printBlob(OS, CastSECV->getOperand());
+    printBlob(OS, CastSCEV->getOperand(), false);
     OS << ")";
 
   } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
@@ -345,7 +347,7 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
     }
 
     for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
-      printBlob(OS, *I);
+      printBlob(OS, *I, Detailed);
 
       if (std::next(I) != E) {
         OS << OpStr;
@@ -355,15 +357,14 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(Blob)) {
     OS << "(";
-    printBlob(OS, UDivSCEV->getLHS());
+    printBlob(OS, UDivSCEV->getLHS(), Detailed);
     OS << " /u ";
-    printBlob(OS, UDivSCEV->getRHS());
+    printBlob(OS, UDivSCEV->getRHS(), Detailed);
     OS << ")";
   } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     if (isTempBlob(Blob)) {
-      auto Temp = UnknownSCEV->getValue();
-      ScalarSA->getBaseScalar(Temp)->printAsOperand(OS, false);
-
+      auto Temp = ScalarSA->getBaseScalar(UnknownSCEV->getValue());
+      Temp->printAsOperand(OS, Detailed);
     } else {
       OS << *Blob;
     }

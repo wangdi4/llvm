@@ -40,16 +40,11 @@ BlobDDRef *BlobDDRef::clone() const {
   return NewBlobDDRef;
 }
 
-void BlobDDRef::print(formatted_raw_ostream &OS) const {
+void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto CE = getCanonExpr();
-
-  CE ? CE->print(OS) : (void)(OS << CE);
-}
-
-void BlobDDRef::detailedPrint(formatted_raw_ostream &OS) const {
-  print(OS);
-
-  OS << " Symbase: " << getSymBase();
+  CE ? CE->print(OS, Detailed) : (void)(OS << CE);
+  OS << " ";
+  DDRef::print(OS, Detailed);
 }
 
 HLDDNode *BlobDDRef::getHLDDNode() const {

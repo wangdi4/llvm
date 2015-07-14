@@ -72,7 +72,6 @@ void CanonExpr::destroyAll() {
 }
 
 CanonExpr *CanonExpr::clone() const {
-
   CanonExpr *CE = new CanonExpr(*this);
   return CE;
 }
@@ -84,17 +83,25 @@ void CanonExpr::dump() const {
 }
 #endif
 
-void CanonExpr::print(formatted_raw_ostream &OS) const {
+void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto C0 = getConstant();
   auto Denom = getDenominator();
   unsigned Level = 1;
   bool Printed = false;
 
+  if (Detailed && !isConstant()) {
+    if (isNonLinear()) {
+      OS << "NON-LINEAR ";
+    } else {
+      OS << "LINEAR ";
+    }
+  }
+
   if (Denom != 1) {
     OS << "(";
   }
 
-  for (auto I = iv_cbegin(), E = iv_cend(); I != E; I++, Level++) {
+  for (auto I = iv_cbegin(), E = iv_cend(); I != E; ++I, ++Level) {
     if (I->Coeff != 0) {
       if (Printed) {
         OS << " + ";
@@ -103,7 +110,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
       }
 
       if (I->IsBlobCoeff) {
-        CanonExprUtils::printBlob(OS, getBlob(I->Coeff));
+        CanonExprUtils::printBlob(OS, getBlob(I->Coeff), Detailed);
         OS << " * ";
       } else if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
@@ -112,7 +119,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
     }
   }
 
-  for (auto I = blob_cbegin(), E = blob_cend(); I != E; I++) {
+  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
     if (I->Coeff != 0) {
       if (Printed) {
         OS << " + ";
@@ -123,7 +130,7 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      CanonExprUtils::printBlob(OS, getBlob(I->Index));
+      CanonExprUtils::printBlob(OS, getBlob(I->Index), Detailed);
     }
   }
 
@@ -136,12 +143,18 @@ void CanonExpr::print(formatted_raw_ostream &OS) const {
   if (Denom != 1) {
     OS << ")/" << Denom;
   }
+
+  if (Detailed) {
+    if (isLinearAtLevel() && getDefinedAtLevel() > 0) {
+      OS << "{def@" << getDefinedAtLevel() << "}";
+    }
+  }
 }
 
 unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, bool Insert) {
   assert(Blob && "Blob is null!");
 
-  for (auto I = BlobTable.begin(), E = BlobTable.end(); I != E; I++) {
+  for (auto I = BlobTable.begin(), E = BlobTable.end(); I != E; ++I) {
     if (*I == Blob) {
       return (I - BlobTable.begin() + 1);
     }

@@ -100,7 +100,7 @@ private:
   /// TempBlobSymbases - Set of symbases which represent temp blobs.
   /// This can be used to query whether an HLInst is a blob definition and needs
   /// to be kept updated for new instructions created by HIR transformations.
-  //SmallSet<unsigned, 64> TempBlobSymbases;
+  // SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
   /// DDRef.
@@ -247,10 +247,11 @@ private:
   void eraseUselessNodes();
 
   /// \brief Prints scalar corresponding to Symbase.
-  void printScalar(raw_ostream &OS, unsigned Symbase) const;
+  void printScalar(raw_ostream &OS, unsigned Symbase, bool Detailed) const;
 
   /// \brief Prints blob.
-  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
+  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
+                 bool Detailed = false) const;
 
   /// \brief Checks if the blob is constant or not
   /// If blob is constant, sets the return value in Val

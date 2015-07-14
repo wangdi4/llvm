@@ -50,7 +50,8 @@ protected:
 
 public:
   /// \brief Prints HLGoto.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const override;
 
   /// \brief Returns the target basic block of this goto.
   BasicBlock *getTargetBBlock() const { return TargetBBlock; }

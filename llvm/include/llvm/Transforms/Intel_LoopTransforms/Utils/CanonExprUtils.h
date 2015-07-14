@@ -22,6 +22,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
+#include <set>
+
 namespace llvm {
 
 class Type;
@@ -40,6 +42,9 @@ private:
   CanonExprUtils() = delete;
 
   friend class HIRParser;
+
+  /// Keeps track of objects of the CanonExpr class.
+  static std::set<CanonExpr *> GlobalCanonExprs;
 
   /// \brief Destroys all CanonExprs and BlobTable. Called during HIR cleanup.
   static void destroyAll();
@@ -86,10 +91,12 @@ public:
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
   /// \brief Prints blob.
-  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
+  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
+                        bool Detailed = false);
 
   /// \brief Prints scalar corresponding to symbase.
-  static void printScalar(raw_ostream &OS, unsigned Symbase);
+  static void printScalar(raw_ostream &OS, unsigned Symbase,
+                          bool Detailed = false);
 
   /// \brief Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.

@@ -78,10 +78,11 @@ private:
 
 public:
   /// \brief Prints HLRegion.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
   /// \brief Prints HLRegion along with the contained IRRegion.
-  void print(formatted_raw_ostream &OS, unsigned Depth,
-             bool PrintIRRegion) const;
+  void print(formatted_raw_ostream &OS, unsigned Depth, bool PrintIRRegion,
+             bool Detailed) const;
 
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return IRReg->getEntryBBlock(); }

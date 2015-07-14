@@ -76,19 +76,20 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-void RegDDRef::print(formatted_raw_ostream &OS) const {
+void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  // Do not print linear forms for scalar lvals
-  if (isLval() && !HasGEP) {
-    CanonExprUtils::printScalar(OS, getSymBase());
+  bool printSymbase = Detailed && !isConstant();
 
+  // Do not print linear forms for scalar lvals
+  if (isLval() && !HasGEP && !Detailed) {
+    CanonExprUtils::printScalar(OS, getSymBase(), Detailed);
   } else {
     if (HasGEP) {
       OS << "(";
       CE = getBaseCE();
-      CE ? CE->print(OS) : (void)(OS << CE);
+      CE ? CE->print(OS, Detailed) : (void)(OS << CE);
       OS << ")";
     }
 
@@ -97,19 +98,23 @@ void RegDDRef::print(formatted_raw_ostream &OS) const {
         OS << "[";
       }
 
-      *I ? (*I)->print(OS) : (void)(OS << *I);
+      *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
+
+      /*if (isSingleCanonExpr() && (*I)->numBlobs() == 1 &&
+          (*I)->numTerms() == 1) {
+        printSymbase = false;
+      }*/
 
       if (HasGEP) {
         OS << "]";
       }
     }
   }
-}
 
-void RegDDRef::detailedPrint(formatted_raw_ostream &OS) const {
-  print(OS);
-
-  OS << " Symbase: " << getSymBase();
+  if (printSymbase) {
+    OS << " ";
+    DDRef::print(OS, Detailed);
+  }
 }
 
 bool RegDDRef::isLval() const {

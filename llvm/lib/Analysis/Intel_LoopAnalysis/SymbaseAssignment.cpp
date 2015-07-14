@@ -133,7 +133,7 @@ void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
     if ((*I)->isConstant()) {
       (*I)->setSymBase(SA->getSymBaseForConstants());
     } else if ((*I)->getBaseCE()) {
-        addToAST(*I);
+      addToAST(*I);
     }
   }
 }
@@ -210,7 +210,7 @@ void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     FOS << SymVecPair->first;
     FOS << ":\n";
     for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      (*Ref)->detailedPrint(FOS);
+      (*Ref)->print(FOS, true);
       FOS << "\n";
     }
   }

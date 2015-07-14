@@ -97,41 +97,49 @@ HLIf *HLIf::clone() const {
   return NewIf;
 }
 
-void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  const RegDDRef *Ref;
+void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                       bool Detailed) const {
+
   bool FirstPred = true;
-
-  indent(OS, Depth);
-
   OS << "if (";
 
   /// Print predicates
   for (auto I = pred_begin(), E = pred_end(); I != E; I++) {
+    const RegDDRef *Ref;
     if (!FirstPred) {
       OS << " && ";
     }
 
     Ref = getPredicateOperandDDRef(I, true);
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
     OS << " ";
 
     printPredicate(OS, *I);
 
     OS << " ";
     Ref = getPredicateOperandDDRef(I, false);
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
 
     FirstPred = false;
   }
 
   OS << ")\n";
+}
+
+void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const {
+
+  indent(OS, Depth);
+  printHeader(OS, Depth, false);
+
+  HLDDNode::print(OS, Depth, Detailed);
 
   indent(OS, Depth);
   OS << "{\n";
 
   /// Print then children
   for (auto I = then_begin(), E = then_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   indent(OS, Depth);
@@ -145,7 +153,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
     /// Print else children
     for (auto I = else_begin(), E = else_end(); I != E; I++) {
-      I->print(OS, Depth + 1);
+      I->print(OS, Depth + 1, Detailed);
     }
 
     indent(OS, Depth);
