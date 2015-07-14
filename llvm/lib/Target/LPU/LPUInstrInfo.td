@@ -395,11 +395,18 @@ defm CMPGEF64 : FCmpOp<"cmpgef64", setoge, setuge, F64, 0>;
 defm CMPNEF32 : FCmpOp<"cmpnef32", setone, setune, F32, 1>;
 defm CMPNEF64 : FCmpOp<"cmpnef64", setone, setune, F64, 1>;
 
+// Drop?
 // todo: def BSEL8
 // todo: def BSEL16
 // todo: def BSEL32
 // todo: def BSEL64
-// todo: def LAND1
+
+def LAND1 : FMTGEN<
+  (outs I1:$dst),
+  (ins I1:$op1, I1:$op2, I1:$op3, I1:$op4),
+  "land1\t$dst, $op1, $op2, $op3, $op4",
+  []>;
+
 
 defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, F32>;
 defm FMAF32x : FusedOp2<"fmaf32", fmul, fadd, F32>; // crude handling of comm.
@@ -429,45 +436,123 @@ defm ST32f : StOp<"st32", F32, immf32, f32imm>;
 defm ST64  : StOp<"st64", I64, immi64, i64imm>;
 defm ST64f : StOp<"st64", F64, immf64, f64imm>;
 
+multiclass CopyOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$op0, RC:$op1, RC:$op2, RC:$op3),
+    (ins RC:$op4),
+    !strconcat(opStr, "\t$op0, $op1, $op2, $op3, $op4"),
+    []>;
+}
+defm COPY0  : CopyOp<"copy0",  I1>;
+defm COPY1  : CopyOp<"copy1",  I1>;
+defm COPY8  : CopyOp<"copy8",  I8>;
+defm COPY16 : CopyOp<"copy16", I16>;
+defm COPY32 : CopyOp<"copy32", I32>;
+defm COPY64 : CopyOp<"copy64", I64>;
 
-// todo: COPY0
-// todo: COPY1
-// todo: COPY8
-// todo: COPY16
-// todo: COPY32
-// todo: COPY64
-// todo: MERGE1
-// todo: MERGE8
-// todo: MERGE16
-// todo: MERGE32
-// todo: MERGE64
-// todo: SWITCH1
-// todo: SWITCH8
-// todo: SWITCH16
-// todo: SWITCH32
-// todo: SWITCH64
-// todo: SWITCHANY1
-// todo: SWITCHANY8
-// todo: SWITCHANY16
-// todo: SWITCHANY32
-// todo: SWITCHANY64
-// todo: PICK1
-// todo: PICK8
-// todo: PICK16
-// todo: PICK32
-// todo: PICK64
-// todo: PICKANY1
-// todo: PICKANY8
-// todo: PICKANY16
-// todo: PICKANY32
-// todo: PICKANY64
-// todo: ANY0
-// todo: ALL0
-// todo: ONCOUNT0
-// todo: SEQC64
-// todo: SEQS64
-// todo: REPEAT64
+multiclass MergeOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst),
+    (ins I1:$sel, RC:$v0, RC:$v1),
+    !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
+    []>;
+}
+defm MERGE1  : MergeOp<"merge1",  I1>;
+defm MERGE8  : MergeOp<"merge8",  I8>;
+defm MERGE16 : MergeOp<"merge16", I16>;
+defm MERGE32 : MergeOp<"merge32", I32>;
+defm MERGE64 : MergeOp<"merge64", I64>;
+
+multiclass SwitchOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst0, RC:$dst1),
+    (ins I1:$sel, RC:$v),
+    !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
+    []>;
+}
+defm SWITCH1  : SwitchOp<"switch1",  I1>;
+defm SWITCH8  : SwitchOp<"switch8",  I8>;
+defm SWITCH16 : SwitchOp<"switch16", I16>;
+defm SWITCH32 : SwitchOp<"switch32", I32>;
+defm SWITCH64 : SwitchOp<"switch64", I64>;
+
+multiclass SwitchAnyOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst0, RC:$dst1, I1:$sel),
+    (ins RC:$v),
+    !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
+    []>;
+}
+defm SWITCHANY1  : SwitchAnyOp<"switchany1",  I1>;
+defm SWITCHANY8  : SwitchAnyOp<"switchany8",  I8>;
+defm SWITCHANY16 : SwitchAnyOp<"switchany16", I16>;
+defm SWITCHANY32 : SwitchAnyOp<"switchany32", I32>;
+defm SWITCHANY64 : SwitchAnyOp<"switchany64", I64>;
+
+multiclass PickOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst),
+    (ins I1:$sel, RC:$v0, RC:$v1),
+    !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
+    []>;
+}
+defm PICK1  : PickOp<"pick1",  I1>;
+defm PICK8  : PickOp<"pick8",  I8>;
+defm PICK16 : PickOp<"pick16", I16>;
+defm PICK32 : PickOp<"pick32", I32>;
+defm PICK64 : PickOp<"pick64", I64>;
+
+multiclass PickAnyOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst, I1:$sel),
+    (ins RC:$v0, RC:$v1),
+    !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
+    []>;
+}
+defm PICKANY1  : PickAnyOp<"pickany1",  I1>;
+defm PICKANY8  : PickAnyOp<"pickany8",  I8>;
+defm PICKANY16 : PickAnyOp<"pickany16", I16>;
+defm PICKANY32 : PickAnyOp<"pickany32", I32>;
+defm PICKANY64 : PickAnyOp<"pickany64", I64>;
+
+def ANY0 : FMTGEN<
+  (outs I0:$dst),
+  (ins I0:$op1, I0:$op2, I0:$op3, I0:$op4),
+  "any0\t$dst, $op1, $op2, $op3, $op4",
+  []>;
+
+def ALL0 : FMTGEN<
+  (outs I0:$dst),
+  (ins I0:$op1, I0:$op2, I0:$op3, I0:$op4),
+  "all0\t$dst, $op1, $op2, $op3, $op4",
+  []>;
+
+def ONCOUNT0 : FMTGEN<  // TODO: something to reflect state
+  (outs I0:$dst),
+  (ins I64:$cnt, I0:$op2, I0:$op3, I0:$op4, I0:$op5),
+  "oncount0\t$dst, $cnt, $op2, $op3, $op4, $op5",
+  []>;
+
+def SEQC64 : FMTGEN<  // TODO: something to reflect state
+  (outs I64:$val, I1:$pred),
+  (ins I64:$base, I64:$count, I64:$stride),
+  "seqc64\t$val, $pred, $base, $count, $stride",
+  []>;
+
+def SEQS64 : FMTGEN<  // TODO: something to reflect state
+  (outs I64:$val, I1:$pred),
+  (ins I64:$base, I64:$bound, I64:$stride),
+  "seqs64\t$val, $pred, $base, $bound, $stride",
+  []>;
+
+def REPEAT64 : FMTGEN<  // TODO: something to reflect state
+  (outs I64:$out),
+  (ins I1:$pred, I64:$in),
+  "repeat64\t$out, $pred, $in",
+  []>;
+
 // todo: ORDER
+
 // todo: DISAM
 
 // Arbitrary immediate support

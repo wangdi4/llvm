@@ -33,7 +33,7 @@ def FP  : LPUReg<4092, "fp">;  // preserved (conventional FP)
 def SP  : LPUReg<4093, "sp">;  // stack pointer
 def RA  : LPUReg<4094, "ra">;  // return addr
 
-def RCR : RegisterClass<"LPU", [i64], 64,
+def GLOBALREG : RegisterClass<"LPU", [i64], 64,
     (add FP, SP, RA)>;
 
 // This is a TEMPORARY work-around.  Ideally, LICs of the appropriate size
@@ -4553,6 +4553,7 @@ def LIC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
         C4080, C4081, C4082, C4083, C4084, C4085, C4086, C4087, C4088, C4089,
         C4090, C4091)>;
 
+def I0  : RegisterClass<"LPU", [i1],  64, (add LIC)>; // 0 bit LIC...
 def I1  : RegisterClass<"LPU", [i1],  64, (add LIC)>;
 def I8  : RegisterClass<"LPU", [i8],  64, (add LIC)>;
 def I16 : RegisterClass<"LPU", [i16], 64, (add LIC)>;
