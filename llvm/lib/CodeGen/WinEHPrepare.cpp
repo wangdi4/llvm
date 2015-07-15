@@ -363,6 +363,34 @@ bool WinEHPrepare::runOnFunction(Function &Fn) {
   if (Fn.hasFnAttribute("wineh-parent"))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // This is kind of an ugly hack.  It is here to prevent us from calling
+  // removeUnreachableBlocks() on functions that don't contain any exception
+  // handling constructs.  Doing so breaks some of the lit tests.
+  // There is a change set in LLVM trunk (r239940 from 6/17/2015) that would
+  // allow us to check the personality of the function directly, but without
+  // that change (and the associated changes in clang) we need to find a
+  // landing pad to determine personality.  We can't defer the call to
+  // removeUnreachableBlocks() until after the LPads vector is constructed
+  // because some of the landingpad and resume instructions in the vectors to
+  // which we are storing pointers might be removed.
+  Personality = EHPersonality::Unknown;
+  for (BasicBlock &BB : Fn) {
+    if (auto *LP = BB.getLandingPadInst()) {
+      // Classify the personality to see what kind of preparation we need.
+      Personality = classifyEHPersonality(LP->getPersonalityFn());
+      break;
+    }
+  }
+
+  // Do nothing if this is not an MSVC personality.
+  if (!isMSVCEHPersonality(Personality))
+    return false;
+
+  // Avoid outlining unreachable code
+  removeUnreachableBlocks(Fn);
+#endif // INTEL_CUSTOMIZATION
+
   SmallVector<LandingPadInst *, 4> LPads;
   SmallVector<ResumeInst *, 4> Resumes;
   for (BasicBlock &BB : Fn) {
@@ -376,12 +404,14 @@ bool WinEHPrepare::runOnFunction(Function &Fn) {
   if (LPads.empty())
     return false;
 
+#if !INTEL_CUSTOMIZATION
   // Classify the personality to see what kind of preparation we need.
   Personality = classifyEHPersonality(LPads.back()->getPersonalityFn());
 
   // Do nothing if this is not an MSVC personality.
   if (!isMSVCEHPersonality(Personality))
     return false;
+#endif // !INTEL_CUSTOMIZATION
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
@@ -446,7 +476,19 @@ static Instruction *findBeginCatchSplitPoint(BasicBlock *BB,
   Instruction *I = II->getPrevNode();
   Instruction *LastI = II;
 
+#if INTEL_CUSTOMIZATION
+  // We would like to split the block so that it starts with the call to
+  // llvm.eh.begincatch, but if there are bitcasts, debug info intrinsics or
+  // lifetime start intrinsics just before the llvm.eh.begincatch call, they
+  // also need to be kept in the block.  Otherwise, the outlining code will
+  // not clone these instructions and report their values as having not been
+  // properly demoted.
+  while (I == Op0 || I == Op1 || isa<DbgInfoIntrinsic>(I) ||
+         isa<CastInst>(I) ||
+         match(I, m_Intrinsic<Intrinsic::lifetime_start>())) {
+#else // !INTEL_CUSTOMIZATION
   while (I == Op0 || I == Op1) {
+#endif // INTEL_CUSTOMIZATION
     // If the block begins with one of the operands and there are no other
     // instructions between the operand and the begincatch call, don't split.
     if (I == FirstNonPHI)
@@ -620,6 +662,14 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
     if (!IsNormalBB && !IsEHBB)
       continue; // Blocks that are neither normal nor EH are unreachable.
     for (Instruction &I : BB) {
+#if INTEL_CUSTOMIZATION
+      // The code below doesn't work properly with metadata operands.
+      // The values being described by the debug intrinsics will be
+      // outlined correctly.  Something more may be necessary to remap
+      // the intrinsics.
+      if (isa<DbgInfoIntrinsic>(&I))
+        continue;
+#endif // INTEL_CUSTOMIZATION
       for (Value *Op : I.operands()) {
         // Don't demote static allocas, constants, and labels.
         if (isa<Constant>(Op) || isa<BasicBlock>(Op) || isa<InlineAsm>(Op))
@@ -637,7 +687,22 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
           continue;
         }
 
+#if !INTEL_CUSTOMIZATION
         auto *OpI = cast<Instruction>(Op);
+#else // INTEL_CUSTOMIZATION
+        auto *OpI = dyn_cast<Instruction>(Op);
+        if (!OpI) {
+          // FIXME: I'm not aware of a case where this currently happens. It
+          //        used to happen when a debug info intrinsic got into this
+          //        loop.  It seems better to ignore the operand than to
+          //        generate a fatal error if this does occur.  I think it is
+          //        most likely to happen with metadata operands.
+          DEBUG(dbgs() << "Unexpected operand: " << *Op << '\n'
+                       << "  found while demoting instructions\n"
+                       << "  User: " << I << '\n');
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         BasicBlock *OpBB = OpI->getParent();
         // If a value is produced and consumed in the same BB, we don't need to
         // demote it.
@@ -1054,7 +1119,21 @@ void WinEHPrepare::promoteLandingPadValues(LandingPadInst *LPad) {
 
     for (auto *EU : Extract->users()) {
       if (auto *Store = dyn_cast<StoreInst>(EU)) {
+#if !INTEL_CUSTOMIZATION
         auto *AV = cast<AllocaInst>(Store->getPointerOperand());
+#else // INTEL_CUSTOMIZATION
+        auto *AV = dyn_cast<AllocaInst>(Store->getPointerOperand());
+        if (!AV) {
+          // FIXME: This happens with Cilk cleanup handlers that are trying to
+          //        get the stack pointer.  We need to do something to connect
+          //        the argument of the cleanup routine to the code that is
+          //        doing this.  With this change we will see runtime errors if
+          //        if an exception occurs in Cilk code.
+          DEBUG(dbgs() << "Unexpected store operand: " 
+                       << *(Store->getPointerOperand()) << '\n');
+          continue;
+        }
+#endif // INTEL_CUSTOMIZATION
         EHAllocas.push_back(AV);
       }
     }
@@ -1441,6 +1520,16 @@ bool WinEHPrepare::outlineHandler(ActionHandler *Action, Function *SrcFn,
     ++ClonedIt;
   BasicBlock *ClonedEntryBB = ClonedIt;
   assert(ClonedEntryBB);
+#if INTEL_CUSTOMIZATION
+  // We are about to move all of the instructions from ClonedEntryBB
+  // into Entry, and so all blocks that were previously successors of
+  // ClonedEntryBB will now be successors of Entry instead along the
+  // equivalent control path. However, moving the instructions does
+  // not automatically update the PHI nodes in the successors, which
+  // still hold a pointer to ClonedEntryBB. This call updates the PHI
+  // nodes to point to Entry.
+  ClonedEntryBB->replaceAllUsesWith(Entry);
+#endif // INTEL_CUSTOMIZATION
   Entry->getInstList().splice(Entry->end(), ClonedEntryBB->getInstList());
   ClonedEntryBB->eraseFromParent();
 
@@ -2370,8 +2459,13 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
           continue;
         return createCleanupHandler(Actions, CleanupHandlerMap, BB);
       }
+#if INTEL_CUSTOMIZATION      
+      // The selector dispatch block terminates our search but EndBB may
+      // point to the catch handler.
+#else // !INTEL_CUSTOMIZATION
       // The selector dispatch block should always terminate our search.
       assert(BB == EndBB);
+#endif // !INTEL_CUSTOMIZATION
       return;
     }
 
