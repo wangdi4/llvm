@@ -215,12 +215,12 @@ public:
   void setNonLinear() { DefinedAtLevel = -1; }
 
   /// \brief Returns true if constant integer and its value, otherwise false
-  bool isConstant(int64_t *konst = nullptr) const {
+  bool isConstant(int64_t *Val = nullptr) const {
 
     bool result = !(hasIV() || hasBlob() || (getDenominator() != 1));
 
-    if (result && konst != nullptr) {
-      *konst = getConstant();
+    if (result && Val != nullptr) {
+      *Val = getConstant();
     }
 
     return result;
@@ -231,16 +231,16 @@ public:
 
   /// \brief return true if the CanonExpr is zero
   bool isZero() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst == 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val == 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if the CanonExpr is one
   bool isOne() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst == 1) {
+    int64_t Val;
+    if (isConstant(&Val) && Val == 1) {
       return true;
     }
     return false;
@@ -250,40 +250,40 @@ public:
   // Extend later for non-constant, e.g. based on UpperBound canon
   /// \brief return true if non-zero
   bool isKnownNonZERO() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst != 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val != 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if non-positive
   bool isKnownNonPositive() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst < 1) {
+    int64_t Val;
+    if (isConstant(&Val) && Val < 1) {
       return true;
     }
     return false;
   }
   /// \brief return true if non-negative
   bool isKnownNonNegative() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst >= 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val >= 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if negative
   bool isKnownNegative() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst < 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val < 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if positive
   bool isKnownPositive() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst > 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val > 0) {
       return true;
     }
     return false;

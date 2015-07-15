@@ -198,6 +198,9 @@ public:
   /// \brief Retuns true if this is a bitcast instruction with identical src and
   /// dest types. These are generally inserted by SSA deconstruction pass.
   bool isCopyInst() const;
+
+  /// \brief Returns true if this is a call instruction.
+  bool isCallInst() const;
 };
 
 } // End namespace loopopt

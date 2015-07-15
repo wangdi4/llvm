@@ -1,4 +1,4 @@
-//===------- HLNodeUtils.cpp - Implements HLNodeUtils class ------*- C++==-===//
+//===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -102,7 +102,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
 
   HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
   visit<HLNodeUtils::CloneVisitor>(&CloneVisit, It1, std::next(It2), false,
-                                   true);
+                                   true, true);
   CloneVisit.postVisitUpdate();
 }
 
@@ -339,6 +339,7 @@ void HLNodeUtils::insertAsChildImpl(HLNode *Parent,
                                     HLContainerTy::iterator First,
                                     HLContainerTy::iterator Last,
                                     bool IsFirstChild) {
+  assert(Parent && " Parent is null.");
 
   if (auto Reg = dyn_cast<HLRegion>(Parent)) {
     insertImpl(Reg, IsFirstChild ? Reg->child_begin() : Reg->child_end(),
@@ -366,9 +367,23 @@ void HLNodeUtils::insertAsFirstChild(HLLoop *Loop, HLNode *Node) {
   insertAsChildImpl(Loop, nullptr, Node, Node, true);
 }
 
+void HLNodeUtils::insertAsFirstChildren(HLLoop *Loop,
+                                        HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsChildImpl(Loop, NodeContainer, NodeContainer->begin(),
+                    NodeContainer->end(), true);
+}
+
 void HLNodeUtils::insertAsLastChild(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
   insertAsChildImpl(Loop, nullptr, Node, Node, false);
+}
+
+void HLNodeUtils::insertAsLastChildren(HLLoop *Loop,
+                                       HLContainerTy *NodeContainer) {
+  assert(NodeContainer && "NodeContainer is null!");
+  insertAsChildImpl(Loop, NodeContainer, NodeContainer->begin(),
+                    NodeContainer->end(), false);
 }
 
 void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
@@ -987,17 +1002,107 @@ bool HLNodeUtils::strictlyDominates(HLNode *HIR1, HLNode *HIR2) {
   return false;
 }
 
-const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned level,
-                                                  const HLLoop *innermostLoop) {
+const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
+                                                  const HLLoop *InnermostLoop) {
+  assert(InnermostLoop && " InnermostLoop is null.");
+  assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is invalid.");
   // level is at least 1
   // parentLoop is immediate parent
   // return nullptr for invalid inputs
   HLLoop *Loop;
-  for (Loop = const_cast<HLLoop *>(innermostLoop); Loop != nullptr;
+  for (Loop = const_cast<HLLoop *>(InnermostLoop); Loop != nullptr;
        Loop = Loop->getParentLoop()) {
-    if (level == Loop->getNestingLevel()) {
+    if (Level == Loop->getNestingLevel()) {
       return Loop;
     }
   }
   return nullptr;
+}
+
+// Switch-Call Visitor to check if Switch or Call exists.
+struct SwitchCallVisitor {
+  bool IsSwitch, IsCall;
+
+  void visit(HLSwitch *Switch) { IsSwitch = true; }
+
+  void visit(HLInst *Inst) {
+    if (Inst->isCallInst()) {
+      IsCall = true;
+    }
+  }
+
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *) {}
+  bool isDone() { return (IsSwitch || IsCall); }
+  SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
+};
+
+bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
+                                  const HLNode *NodeEnd,
+                                  bool RecurseInsideLoops) {
+  assert(NodeStart && NodeEnd && " Node Start/End is null.");
+  SwitchCallVisitor SCVisit;
+  HLNodeUtils::visit(&SCVisit, const_cast<HLNode *>(NodeStart),
+                     const_cast<HLNode *>(NodeEnd), true, RecurseInsideLoops);
+  return (SCVisit.IsSwitch || SCVisit.IsCall);
+}
+
+// Visitor to gather innermost loops.
+struct InnermostLoopVisitor {
+
+  SmallVectorImpl<const HLLoop *> *InnerLoops;
+
+  InnermostLoopVisitor(SmallVectorImpl<const HLLoop *> *Loops)
+      : InnerLoops(Loops) {}
+
+  void visit(HLLoop *L) {
+    if (L->isInnermost()) {
+      InnerLoops->push_back(L);
+    }
+  }
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+  bool isDone() { return false; }
+};
+
+void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
+  assert(Loops && " Loops parameter is null.");
+  InnermostLoopVisitor LoopVisit(Loops);
+  HLNodeUtils::visitAll<InnermostLoopVisitor>(&LoopVisit);
+}
+
+// Visitor to gather loops with specified level.
+struct LoopLevelVisitor {
+
+  SmallVectorImpl<const HLLoop *> *Loops;
+  unsigned Level;
+
+  LoopLevelVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer, unsigned Lvl)
+      : Loops(LoopContainer), Level(Lvl) {}
+
+  void visit(HLLoop *L) {
+    if (L->getNestingLevel() == Level) {
+      Loops->push_back(L);
+    }
+  }
+  void visit(HLNode *Node) {}
+  void postVisit(HLNode *Node) {}
+  bool isDone() { return false; }
+};
+
+void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
+  assert(Loops && " Loops parameter is null.");
+  // Level 1 denotes outermost loops
+  LoopLevelVisitor LoopVisit(Loops, 1);
+  HLNodeUtils::visitAll<LoopLevelVisitor>(&LoopVisit);
+}
+
+void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
+                                       SmallVectorImpl<const HLLoop *> *Loops,
+                                       unsigned Level) {
+  assert(Node && " Node is null.");
+  assert(Loops && " Loops parameter is null.");
+  assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is out of range.");
+  LoopLevelVisitor LoopVisit(Loops, Level);
+  HLNodeUtils::visit<LoopLevelVisitor>(&LoopVisit, const_cast<HLNode *>(Node));
 }

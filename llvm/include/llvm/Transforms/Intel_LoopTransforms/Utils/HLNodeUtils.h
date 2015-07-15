@@ -45,7 +45,7 @@ private:
   friend class HIRCreation;
   friend class HIRCleanup;
 
-  /// \brief Visitor for clone sequence
+  /// \brief Visitor for clone sequence.
   struct CloneVisitor;
 
   struct LoopFinderUpdater;
@@ -182,24 +182,41 @@ public:
   /// \brief Visits the passed in HLNode.
   template <typename HV>
   static void visit(HV *Visitor, HLNode *Node, bool Recursive = true,
-                    bool Forward = true) {
+                    bool RecurseInsideLoops = true, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
-    V.visit(Node, Recursive, Forward);
+    V.visit(Node, Recursive, RecurseInsideLoops, Forward);
   }
 
   /// \brief Visits HLNodes in the range [begin, end). The direction is
-  /// specified using Forward flag.
+  /// specified using Forward flag. Recursion across all the HLNodes is
+  /// specified using Recursive flag and Recursion inside HLLoops is
+  /// specified using RecurseInsideLoops (which is only used when
+  /// Recursive flag is set).
   template <typename HV>
   static void visit(HV *Visitor, HLContainerTy::iterator Begin,
                     HLContainerTy::iterator End, bool Recursive = true,
-                    bool Forward = true) {
+                    bool RecurseInsideLoops = true, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {
-      V.forwardVisit(Begin, End, Recursive);
+      V.forwardVisit(Begin, End, Recursive, RecurseInsideLoops);
     } else {
-      V.backwardVisit(Begin, End, Recursive);
+      V.backwardVisit(Begin, End, Recursive, RecurseInsideLoops);
     }
+  }
+
+  /// \brief Visits HLNodes in the range [begin, end]. The direction is
+  /// specified using Forward flag. This is overloaded to have begin and
+  /// end as HLNode parameters.
+  template <typename HV>
+  static void visit(HV *Visitor, HLNode *Begin, HLNode *End,
+                    bool Recursive = true, bool RecurseInsideLoops = true,
+                    bool Forward = true) {
+    assert(Begin && End && " Begin/End Node is null");
+    HLContainerTy::iterator BeginIter(Begin);
+    HLContainerTy::iterator EndIter(End);
+    visit(Visitor, BeginIter, std::next(EndIter), Recursive, RecurseInsideLoops,
+          Forward);
   }
 
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
@@ -222,7 +239,7 @@ public:
   static void insertBefore(HLNode *Pos, HLContainerTy *NodeContainer);
   /// \brief Inserts an unlinked Node after Pos in HIR.
   static void insertAfter(HLNode *Pos, HLNode *Node);
-  /// \brief Inserts an unlinked Nodes in NodeContainer after Pos in HIR.
+  /// \brief Inserts unlinked Nodes in NodeContainer after Pos in HIR.
   /// The contents of NodeContainer will be empty after insertion.
   static void insertAfter(HLNode *Pos, HLContainerTy *NodeContainer);
 
@@ -233,8 +250,16 @@ public:
 
   /// \brief Inserts an unlinked Node as first child of parent loop.
   static void insertAsFirstChild(HLLoop *Loop, HLNode *Node);
+  /// \brief Inserts unlinked Nodes as first children of parent loop.
+  /// The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertAsFirstChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
   /// \brief Inserts an unlinked Node as last child of parent loop.
   static void insertAsLastChild(HLLoop *Loop, HLNode *Node);
+  /// \brief Inserts unlinked Nodes as last children of parent loop.
+  /// The order of NodeContainer is insertion order.
+  /// The contents of NodeContainer will be empty after insertion.
+  static void insertAsLastChildren(HLLoop *Loop, HLContainerTy *NodeContainer);
 
   /// \brief Inserts an unlinked Node as first child of this If. The flag
   /// IsThenChild indicates whether this is to be inserted as then or else
@@ -437,8 +462,31 @@ public:
 
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
-  static const HLLoop *getParentLoopwithLevel(unsigned level,
-                                              const HLLoop *innermostLoop);
+  static const HLLoop *getParentLoopwithLevel(unsigned Level,
+                                              const HLLoop *InnermostLoop);
+
+  /// \brief Gathers the innermost loops across regions and stores them into
+  /// the loop vector.
+  static void gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops);
+
+  /// \brief Gathers the outermost loops (or highest level loops with Level 1)
+  /// across regions and stores them into the loop vector.
+  static void gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops);
+
+  /// \brief Gathers loops inside the Node with specified Level and stores them
+  /// in the Loops vector.
+  static void gatherLoopswithLevel(const HLNode *Node,
+                                   SmallVectorImpl<const HLLoop *> *Loops,
+                                   unsigned Level);
+
+  /// \brief Returns true if HLSwitch or HLCall exists between NodeStart and
+  /// NodeEnd. RecurseInsideLoops flag denotes if we want to check switch
+  /// or call inside nested loops. Usually, this flag is used to for
+  /// optimizations where checks have already been made for child loops.
+  // TODO: Move this utility to header file, if there are no users except
+  // unrolling.
+  static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
+                              bool RecurseInsideLoops = true);
 };
 
 } // End namespace loopopt

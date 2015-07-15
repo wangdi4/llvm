@@ -88,18 +88,26 @@ private:
   HLNodeVisitor(HV *V) : Visitor(V) {}
 
   /// \brief Contains the core logic to visit nodes and recurse further.
-  /// Returns true to indicate that early termination has occured.
-  bool visit(HLNode *Node, bool Recursive, bool Forward);
+  /// Returns true to indicate that early termination has occurred.
+  /// Recursive parameter denotes if we want to visit inside the HLNodes
+  /// such as HLIf and HLLoops. RecursiveInsideLoops parameter denotes
+  /// whether we want to visit inside the loops or not and this parameter
+  /// is only useful if Recursive parameter is true.
+  bool visit(HLNode *Node, bool Recursive, bool RecurseInsideLoops,
+             bool Forward);
 
   /// \brief Visits HLNodes in the forward direction in the range [begin, end).
-  /// Returns true to indicate that early termination has occured.
+  /// Returns true to indicate that early termination has occurred.
   bool forwardVisit(HLContainerTy::iterator Begin, HLContainerTy::iterator End,
-                    bool Recursive);
+                    bool Recursive, bool RecurseInsideLoops);
 
   /// \brief Visits HLNodes in the backward direction in the range [begin, end).
-  /// Returns true to indicate that early termination has occured.
+  /// Returns true to indicate that early termination has occurred.
+  /// RecursiveInsideLoops parameter denotes whether we want to visit inside the
+  /// loops or not and this parameter
+  /// is only useful if Recursive parameter is true.
   bool backwardVisit(HLContainerTy::iterator Begin, HLContainerTy::iterator End,
-                     bool Recursive);
+                     bool Recursive, bool RecurseInsideLoops);
 
   /// \brief Visits all HLNodes in the HIR in forward direction.
   void forwardVisitAll(HIRParser *HIRP);
@@ -110,13 +118,13 @@ private:
 template <typename HV>
 bool HLNodeVisitor<HV>::forwardVisit(HLContainerTy::iterator Begin,
                                      HLContainerTy::iterator End,
-                                     bool Recursive) {
+                                     bool Recursive, bool RecurseInsideLoops) {
 
   for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
 
     ++Next;
 
-    if (visit(I, Recursive, true)) {
+    if (visit(I, Recursive, RecurseInsideLoops, true)) {
       return true;
     }
   }
@@ -127,7 +135,7 @@ bool HLNodeVisitor<HV>::forwardVisit(HLContainerTy::iterator Begin,
 template <typename HV>
 bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
                                       HLContainerTy::iterator End,
-                                      bool Recursive) {
+                                      bool Recursive, bool RecurseInsideLoops) {
 
   HLContainerTy::reverse_iterator RI(End), RE(Begin);
 
@@ -136,7 +144,7 @@ bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
 
     ++RNext;
 
-    if (visit(&(*(RI)), Recursive, false)) {
+    if (visit(&(*(RI)), Recursive, RecurseInsideLoops, false)) {
       return true;
     }
   }
@@ -146,16 +154,17 @@ bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
 
 template <typename HV>
 void HLNodeVisitor<HV>::forwardVisitAll(HIRParser *HIRP) {
-  forwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true);
+  forwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true, true);
 }
 
 template <typename HV>
 void HLNodeVisitor<HV>::backwardVisitAll(HIRParser *HIRP) {
-  backwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true);
+  backwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true, true);
 }
 
 template <typename HV>
-bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
+bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
+                              bool RecurseInsideLoops, bool Forward) {
 
   bool Ret;
 
@@ -164,8 +173,10 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
     Visitor->visit(Reg);
 
     if (Recursive && !Visitor->isDone()) {
-      Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(), true)
-                    : backwardVisit(Reg->child_begin(), Reg->child_end(), true);
+      Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(Reg->child_begin(), Reg->child_end(),
+                                    RecurseInsideLoops, true);
 
       if (Ret) {
         return true;
@@ -178,15 +189,19 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
     Visitor->visit(If);
 
     if (Recursive && !Visitor->isDone()) {
-      Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(), true)
-                    : backwardVisit(If->else_begin(), If->else_end(), true);
+      Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(If->else_begin(), If->else_end(),
+                                    RecurseInsideLoops, true);
 
       if (Ret) {
         return true;
       }
 
-      Ret = Forward ? forwardVisit(If->else_begin(), If->else_end(), true)
-                    : backwardVisit(If->then_begin(), If->then_end(), true);
+      Ret = Forward ? forwardVisit(If->else_begin(), If->else_end(),
+                                   RecurseInsideLoops, true)
+                    : backwardVisit(If->then_begin(), If->then_end(),
+                                    RecurseInsideLoops, true);
 
       if (Ret) {
         return true;
@@ -198,24 +213,28 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
 
     Visitor->visit(Loop);
 
-    if (Recursive && !Visitor->isDone()) {
-      Ret = Forward ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true)
-                    : backwardVisit(Loop->post_begin(), Loop->post_end(), true);
+    if (Recursive && RecurseInsideLoops && !Visitor->isDone()) {
+      Ret =
+          Forward
+              ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true)
+              : backwardVisit(Loop->post_begin(), Loop->post_end(), true, true);
+
+      if (Ret) {
+        return true;
+      }
+
+      Ret = Forward ? forwardVisit(Loop->child_begin(), Loop->child_end(), true,
+                                   true)
+                    : backwardVisit(Loop->child_begin(), Loop->child_end(),
+                                    true, true);
 
       if (Ret) {
         return true;
       }
 
       Ret = Forward
-                ? forwardVisit(Loop->child_begin(), Loop->child_end(), true)
-                : backwardVisit(Loop->child_begin(), Loop->child_end(), true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Ret = Forward ? forwardVisit(Loop->post_begin(), Loop->post_end(), true)
-                    : backwardVisit(Loop->pre_begin(), Loop->pre_end(), true);
+                ? forwardVisit(Loop->post_begin(), Loop->post_end(), true, true)
+                : backwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true);
 
       if (Ret) {
         return true;
@@ -232,26 +251,30 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive, bool Forward) {
       if (Forward) {
         for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
           if (forwardVisit(Switch->case_child_begin(I),
-                           Switch->case_child_end(I), true)) {
+                           Switch->case_child_end(I), RecurseInsideLoops,
+                           true)) {
             return true;
           }
         }
 
         if (forwardVisit(Switch->default_case_child_begin(),
-                         Switch->default_case_child_end(), true)) {
+                         Switch->default_case_child_end(), RecurseInsideLoops,
+                         true)) {
           return true;
         }
 
       } else {
 
         if (backwardVisit(Switch->default_case_child_begin(),
-                          Switch->default_case_child_end(), true)) {
+                          Switch->default_case_child_end(), RecurseInsideLoops,
+                          true)) {
           return true;
         }
 
         for (unsigned I = Switch->getNumCases(), E = 0; I > E; --I) {
           if (backwardVisit(Switch->case_child_begin(I),
-                            Switch->case_child_end(I), true)) {
+                            Switch->case_child_end(I), RecurseInsideLoops,
+                            true)) {
             return true;
           }
         }

@@ -346,7 +346,8 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
 
   /// IV coefficient is blob index
   if (IVCoeffs[Lvl - 1].IsBlobCoeff) {
-    addBlob(Coeff, Val);
+    if (Val != 0)
+      addBlob(Coeff, Val);
   }
   /// IV coefficient is constant
   else {

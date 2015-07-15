@@ -62,9 +62,9 @@ HLIf::HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap)
   /// Clone DDRefs
   auto II = HLIfObj.pred_begin();
   for (auto I = pred_begin(), E = pred_end(); I != E; I++, II++) {
-    Ref = getPredicateOperandDDRef(II, true);
+    Ref = HLIfObj.getPredicateOperandDDRef(II, true);
     setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, true);
-    Ref = getPredicateOperandDDRef(II, false);
+    Ref = HLIfObj.getPredicateOperandDDRef(II, false);
     setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, false);
   }
 

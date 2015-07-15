@@ -4,6 +4,7 @@ add_llvm_library(LLVMIntel_LoopTransforms
         HIRPrinter.cpp
         HIRCodeGen.cpp
         HIRCompleteUnroll.cpp
+        HIRGeneralUnroll.cpp
         )
 
 add_subdirectory(Utils)

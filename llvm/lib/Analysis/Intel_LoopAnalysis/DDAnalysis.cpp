@@ -37,14 +37,14 @@ using namespace llvm::loopopt;
 
 // Rebuild nests in runOnFunction for loops of level n, 0 being whole region
 // for testing.
-// eg opt -dda -dda-verify=L1,L2 ... would result a walk of outermost loops, building
+// eg opt -dda -dda-verify=L1,L2 ... would result a walk of outermost loops,
+// building
 // graph along the way, then a walk of level 2 loops, rebuilding graph for those
 // as well if graph isnt already cached. Best used with -verify to print graph
 // afterward all builds are done
 // This is useful for testing not only graph, but caching implementation as well
-cl::list<DDVerificationLevel> VerifyLevelList("dda-verify",
-    cl::CommaSeparated, 
-    cl::desc("DD graph built for Levels:"),
+cl::list<DDVerificationLevel> VerifyLevelList(
+    "dda-verify", cl::CommaSeparated, cl::desc("DD graph built for Levels:"),
     cl::values(clEnumVal(Region, "Build for entire region"),
                clEnumVal(L1, "Build for Loop at Level 1(Outermost)"),
                clEnumVal(L2, "Build for Loop at Level 2"),
@@ -275,7 +275,7 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   SymToRefs RefMap;
   DDRefGatherer Gatherer(&RefMap);
 
-  HLNodeUtils::visit(&Gatherer, Node, true, true);
+  HLNodeUtils::visit(&Gatherer, Node, true, true, true);
 
   DEBUG(dbgs() << "Building graph for:\n");
   DEBUG(dumpSymBaseMap(RefMap));
@@ -298,8 +298,8 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           //= = * for 3rd level inermost loops
           DA.setInputDV(inputDV, 1, 9);
 
-          bool IsDependent = DA.findDependences(
-              *Ref1, *Ref2, inputDV, OutputDVForward, OutputDVBackward);
+          DA.findDependences(*Ref1, *Ref2, inputDV, OutputDVForward,
+                             OutputDVBackward);
           //  Sample code to check output:
           //  first check IsDependent
           //  else  check outputDVforward[0] != Dependences::DVEntry::NONE;

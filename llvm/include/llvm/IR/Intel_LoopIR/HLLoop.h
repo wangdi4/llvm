@@ -94,8 +94,10 @@ protected:
   virtual ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
+  /// CloneChildren parameter denotes if we want to clone
+  /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-         LabelMapTy *LabelMap);
+         LabelMapTy *LabelMap, bool CloneChildren);
 
   friend class HLNodeUtils;
 
@@ -431,6 +433,13 @@ public:
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned loop.
   HLLoop *clone() const override;
+
+  /// \brief - Clones the original loop without any of the children, preheader
+  /// and postexit nodes. This routines copies all the original loop properties
+  /// such as exits, ub, lb, etc. Data members that depend on where the cloned
+  /// loop lives in HIR (like parent, nesting level) are not copied. They will
+  /// be updated by HLNode insertion/removal utilities.
+  HLLoop *cloneEmptyLoop() const;
 
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;

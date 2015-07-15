@@ -17,5 +17,6 @@ using namespace llvm;
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeSSADeconstructionPass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
+  initializeHIRGeneralUnrollPass(Registry);
   initializeHIRCodeGenPass(Registry);
 }

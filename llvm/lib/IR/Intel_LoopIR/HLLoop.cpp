@@ -68,13 +68,11 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-               LabelMapTy *LabelMap)
+               LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost) {
-
-  assert(GotoList && " GotoList is null.");
-  assert(LabelMap && " LabelMap is null.");
+      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost),
+      IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
 
@@ -89,6 +87,14 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
+
+  // Avoid cloning children and preheader/postexit.
+  if (!CloneChildren)
+    return;
+
+  // Assert is placed here since empty loop cloning will not use it.
+  assert(GotoList && " GotoList is null.");
+  assert(LabelMap && " LabelMap is null.");
 
   /// Loop over children, preheader and postexit
   for (auto PreIter = HLLoopObj.pre_begin(), PreIterEnd = HLLoopObj.pre_end();
@@ -114,14 +120,11 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   }
 }
 
-// HLLoop::HLLoop(const HLLoop &HLLoopObj) :
-//    HLLoop(HLLoopObj, nullptr, nullptr) {}
-
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
                           LabelMapTy *LabelMap) const {
 
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap);
+  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap, true);
 
   return NewHLLoop;
 }
@@ -132,6 +135,14 @@ HLLoop *HLLoop::clone() const {
   HLNodeUtils::cloneSequence(&NContainer, this);
   HLLoop *NewLoop = cast<HLLoop>(NContainer.remove(NContainer.begin()));
   return NewLoop;
+}
+
+HLLoop *HLLoop::cloneEmptyLoop() const {
+
+  // Call the Copy Constructor
+  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
+
+  return NewHLLoop;
 }
 
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
