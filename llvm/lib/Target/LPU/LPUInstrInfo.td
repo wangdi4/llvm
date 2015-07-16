@@ -472,18 +472,24 @@ defm COPY16 : CopyOp<"copy16", I16>;
 defm COPY32 : CopyOp<"copy32", I32>;
 defm COPY64 : CopyOp<"copy64", I64>;
 
-multiclass MergeOp<string opStr, RegisterClass LIC> {
+multiclass MergeOp<string opStr, RegisterClass LIC, ValueType opType,
+                                 Operand immOpnd> {
   def "" : FMTGEN<
     (outs LIC:$dst),
     (ins I1:$sel, LIC:$v0, LIC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
     [(set LIC:$dst, (select I1:$sel, LIC:$v1, LIC:$v0))]>;
+  def i : FMTGEN<
+    (outs LIC:$dst),
+    (ins I1:$sel, LIC:$v0, immOpnd:$imm),
+    !strconcat(opStr, "\t$dst, $sel, $v0, $imm"),
+    [(set LIC:$dst, (select I1:$sel, (opType immAny:$imm), LIC:$v0))]>;
 }
-defm MERGE1  : MergeOp<"merge1",  I1>;
-defm MERGE8  : MergeOp<"merge8",  I8>;
-defm MERGE16 : MergeOp<"merge16", I16>;
-defm MERGE32 : MergeOp<"merge32", I32>;
-defm MERGE64 : MergeOp<"merge64", I64>;
+defm MERGE1  : MergeOp<"merge1",  I1,  i1,  i1imm>;
+defm MERGE8  : MergeOp<"merge8",  I8,  i8,  i8imm>;
+defm MERGE16 : MergeOp<"merge16", I16, i16, i16imm>;
+defm MERGE32 : MergeOp<"merge32", I32, i32, i32imm>;
+defm MERGE64 : MergeOp<"merge64", I64, i64, i64imm>;
 
 multiclass SwitchOp<string opStr, RegisterClass LIC> {
   def "" : FMTGEN<
