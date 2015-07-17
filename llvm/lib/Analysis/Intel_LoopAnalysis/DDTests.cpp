@@ -361,6 +361,9 @@ const CanonExpr *DDtest::getAdd(const CanonExpr *SrcConst,
 
 bool DDtest::areCEequal(const CanonExpr *CE1, const CanonExpr *CE2) const {
 
+  if (!CE1 || !CE2) {
+    return false;
+  }
   return CanonExprUtils::areEqual(CE1, CE2);
 }
 
@@ -1105,6 +1108,9 @@ bool DDtest::checkSrcSubscript(const CanonExpr *Src, const HLLoop *LoopNest,
     return false;
   }
 
+  // Level used in this context are similar to loop level
+  // it starts from 1
+
   if (Src->hasIV()) {
     for (auto CurIVPair = Src->iv_begin(), E = Src->iv_end(); CurIVPair != E;
          ++CurIVPair) {
@@ -1291,14 +1297,14 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   // check that |Delta| < iteration count
   // TBD: get UB for CurLoop
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     const CanonExpr *AbsDelta =
         Delta->isKnownNonNegative() ? Delta : getNegative(Delta);
     const CanonExpr *AbsCoeff =
         Coeff->isKnownNonNegative() ? Coeff : getNegative(Coeff);
-
     const CanonExpr *Product = getMulExpr(UpperBound, AbsCoeff);
-
+    DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
+    DEBUG(dbgs() << "\n    AbsDelta = "; AbsDelta->dump());
+    DEBUG(dbgs() << "\n    Product = "; Product->dump());
     if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       // Distance greater than trip count - no dependence
       ++StrongSIVindependence;
@@ -2254,7 +2260,7 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 
   DEBUG(dbgs() << "\ntry symbolic RDIV test\n");
   DEBUG(dbgs() << "\n    A1 = "; A1->dump());
-  DEBUG(dbgs() << ", type = " << getType(A1) << "\n");
+  DEBUG(dbgs() << ", type = " << *(getType(A1)) << "\n");
   DEBUG(dbgs() << "\n    A2 = "; A2->dump());
   DEBUG(dbgs() << "\n    C1 = "; C1->dump());
   DEBUG(dbgs() << "\n    C2 = "; C2->dump());
@@ -2262,14 +2268,17 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
   const CanonExpr *N1 = Loop1->getUpperCanonExpr();
   const CanonExpr *N2 = Loop2->getUpperCanonExpr();
 
-  DEBUG(if (N1) dbgs() << "\n    N1 = "; N1->dump());
-  DEBUG(if (N2) dbgs() << "\n    N2 = "; N2->dump());
-
+  if (N1) {
+    DEBUG(dbgs() << "\n    N1 = "; N1->dump());
+  }
+  if (N2) {
+    DEBUG(dbgs() << "\n    N2 = "; N2->dump());
+  }
   const CanonExpr *C2_C1 = getMinus(C2, C1);
   const CanonExpr *C1_C2 = getNegative(C2_C1);
 
-  DEBUG(dbgs() << "\t    C2 - C1 = "; C2_C1->dump());
-  DEBUG(dbgs() << "\t    C1 - C2 = "; C1_C2->dump());
+  DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
+  DEBUG(dbgs() << "\n    C1 - C2 = "; C1_C2->dump());
 
   if (A1->isKnownNonNegative()) {
     if (A2->isKnownNonNegative()) {
@@ -2277,7 +2286,7 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
       if (N1) {
         // make sure that c2 - c1 <= a1*N1
         const CanonExpr *A1N1 = getMulExpr(A1, N1);
-        DEBUG(dbgs() << "\n  A1*N1 = "; A1N1->dump());
+        DEBUG(dbgs() << "\n    A1*N1 = "; A1N1->dump());
         if (isKnownPredicate(CmpInst::ICMP_SGT, C2_C1, A1N1)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2286,7 +2295,7 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
       if (N2) {
         // make sure that -a2*N2 <= c2 - c1, or a2*N2 >= c1 - c2
         const CanonExpr *A2N2 = getMulExpr(A2, N2);
-        DEBUG(dbgs() << "\n  A2*N2 = "; A2N2->dump());
+        DEBUG(dbgs() << "\n    A2*N2 = "; A2N2->dump());
         if (isKnownPredicate(CmpInst::ICMP_SLT, A2N2, C1_C2)) {
           ++SymbolicRDIVindependence;
           return true;
@@ -2806,17 +2815,17 @@ bool DDtest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop);
   BoundInfo *Bound = new BoundInfo[MaxLevels + 1];
   const CanonExpr *Delta = getMinus(B0, A0);
-  DEBUG(dbgs() << "\nDelta = "; Delta->dump());
+  DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // Compute bounds for all the * directions.
-  DEBUG(dbgs() << "\tBounds[*]\n");
+  DEBUG(dbgs() << "\n\tBounds[*]\n");
   for (unsigned K = 1; K <= MaxLevels; ++K) {
     Bound[K].Iterations = A[K].Iterations ? A[K].Iterations : B[K].Iterations;
     Bound[K].Direction = DV::ALL;
     Bound[K].DirSet = DV::NONE;
     findBoundsALL(A, B, Bound, K);
 #ifndef NDEBUG
-    DEBUG(dbgs() << "\t    " << K << '\t');
+    DEBUG(dbgs() << "\n    " << K << '\t');
     const CanonExpr *BL = Bound[K].Lower[DV::ALL];
     const CanonExpr *BU = Bound[K].Upper[DV::ALL];
     if (BL) {
@@ -2881,7 +2890,7 @@ unsigned DDtest::exploreDirections(unsigned Level, CoefficientInfo *A,
                                    const CanonExpr *Delta) {
   if (Level > CommonLevels) {
     // record result
-    DEBUG(dbgs() << "\t[");
+    DEBUG(dbgs() << "\n\t[");
     for (unsigned K = 1; K <= CommonLevels; ++K) {
       if (Loops[K]) {
         Bound[K].DirSet |= Bound[K].Direction;
@@ -2905,7 +2914,7 @@ unsigned DDtest::exploreDirections(unsigned Level, CoefficientInfo *A,
 #endif
       }
     }
-    DEBUG(dbgs() << " ]\n");
+    DEBUG(dbgs() << " ]");
     return 1;
   }
   if (Loops[Level]) {
@@ -2916,41 +2925,53 @@ unsigned DDtest::exploreDirections(unsigned Level, CoefficientInfo *A,
       findBoundsGT(A, B, Bound, Level);
       findBoundsEQ(A, B, Bound, Level);
 #ifndef NDEBUG
-      DEBUG(dbgs() << "\tBound for level = " << Level << '\n');
-      DEBUG(dbgs() << "\t    <\t");
+      DEBUG(dbgs() << "\n\tBound for level = " << Level << '\n');
+      DEBUG(dbgs() << "\n\t    <\t");
       const CanonExpr *CE;
       CE = Bound[Level].Lower[DV::LT];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "-inf\t");
+      }
       CE = Bound[Level].Upper[DV::LT];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "+inf\n");
-      DEBUG(dbgs() << "\t    =\t");
+      }
+      DEBUG(dbgs() << "\n\t    =\t");
       CE = Bound[Level].Lower[DV::EQ];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "-inf\t");
+      }
       CE = Bound[Level].Upper[DV::EQ];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "+inf\n");
-      DEBUG(dbgs() << "\t    >\t");
+      }
+      DEBUG(dbgs() << "\n\t    >\t");
       CE = Bound[Level].Lower[DV::GT];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "-inf\t");
+      }
       CE = Bound[Level].Upper[DV::GT];
-      if (CE)
+      if (CE) {
         DEBUG(dbgs(); CE->dump());
-      else
+        DEBUG(dbgs() << "\t");
+      } else {
         DEBUG(dbgs() << "+inf\n");
+      }
 #endif
     }
 
@@ -3197,17 +3218,19 @@ DDtest::CoefficientInfo *DDtest::collectCoeffInfo(const CanonExpr *Subscript,
 #ifndef NDEBUG
   DEBUG(dbgs() << "\tCoefficient Info\n");
   for (unsigned K = 1; K <= MaxLevels; ++K) {
-    DEBUG(dbgs() << "\n    " << K << "\t"; (CI[K].Coeff)->dump());
-    DEBUG(dbgs() << "\nPos Part = "; (CI[K].PosPart)->dump());
-    DEBUG(dbgs() << "\nNeg Part = "; (CI[K].NegPart)->dump());
-    DEBUG(dbgs() << "\nUpper Bound = ");
+    DEBUG(dbgs() << "\n       " << K << "\t"; (CI[K].Coeff)->dump());
+    DEBUG(dbgs() << "\tPos Part = "; (CI[K].PosPart)->dump());
+    DEBUG(dbgs() << "\tNeg Part = "; (CI[K].NegPart)->dump());
+    DEBUG(dbgs() << "\tUpper Bound = ");
     if (CI[K].Iterations)
       DEBUG(dbgs(); (CI[K].Iterations)->dump());
     else
       DEBUG(dbgs() << "+inf");
     DEBUG(dbgs() << '\n');
   }
-  DEBUG(dbgs() << "\nConstant = "; Constant->dump());
+  DEBUG(dbgs() << "\t   Constant = "; Constant->dump());
+  DEBUG(dbgs() << "\n");
+
 #endif
   return CI;
 }
@@ -3695,6 +3718,8 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   int numSrcDim = 1;
   int numDstDim = 1;
+  CanonExpr *SrcBaseCE = nullptr;
+  CanonExpr *DstBaseCE = nullptr;
 
   DEBUG(dbgs() << "\n Src, Dst DDRefs\n"; SrcDDRef->dump());
   DEBUG(dbgs() << ",  "; DstDDRef->dump());
@@ -3755,7 +3780,20 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   ++TotalArrayPairs;
   WorkCE.clear();
 
-  if (numSrcDim != numDstDim) {
+  if (!IsSrcBlob) {
+    RegDDRef *RDef = cast<RegDDRef>(SrcDDRef);
+    SrcBaseCE = RDef->getBaseCE();
+  }
+
+  if (!IsDstBlob) {
+    RegDDRef *RDef = cast<RegDDRef>(DstDDRef);
+    DstBaseCE = RDef->getBaseCE();
+  }
+
+  if (numSrcDim != numDstDim || !areCEequal(SrcBaseCE, DstBaseCE)) {
+    //  Number of dimemsion are different or
+    //  different base: need to bail out
+    DEBUG(dbgs() << "\nDiff dim or base\n");
     auto Final = make_unique<FullDependences>(Result);
     Result.DV = nullptr;
     return std::move(Final);
@@ -3791,7 +3829,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     }
   }
 
-  // Note: Couple of orginal functionality were skipped
+  // Note: Couple of original functionality were skipped
   //  UnifyingSubscriptType due to different sign extension
   //  Delinearize: assuming handle in framework
 
@@ -4178,8 +4216,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     switch (Result.getDirection(II)) {
     case DV::GT:
     case DV::GE:
-    // TODO: ALL does not need reversal for output but this needs to be
-    // handled in caller
+    // ALL does not need reversal. The  check is in the caller
     case DV::ALL:
       needReversal = true;
       done = true;
@@ -4283,7 +4320,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   auto Result = DA.depends(SrcDDRef, DstDDRef, inputDV);
 
   if (Result == nullptr) {
-    DEBUG(dbgs() << "Is Independent!\n");
+    DEBUG(dbgs() << "\nIs Independent!\n");
   } else {
     DEBUG(Result->dump(OS));
   }
@@ -4293,20 +4330,22 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  //  Bidirectional DV are needed if leftmost non-EQ  is a * or <=
+  //  Bidirectional DV are needed if leftmost non-EQ  is a *
   //  e.g.
-  //  (= = *  =)
-  //  (= = <= <)
+  //  (= = *   =)  Yes
+  //  (= = <=  *)  Yes
+  //  (= = <=  =)  no
+  //  (= = <   >)  no
 
-  bool biDirection = false;
+  bool BiDirection = false;
   for (unsigned II = 1; II <= Result->getLevels(); ++II) {
     DVType dv = Result->getDirection(II);
-    if (dv == DV::ALL || dv == DV::GE) {
-      biDirection = true;
+    if (dv == DV::ALL) {
+      BiDirection = true;
+      DEBUG(dbgs() << "BiDirection needed!\n");
       break;
     }
   }
-
 
   if (isa<BlobDDRef>(SrcDDRef)) {
     isTemp = true;
@@ -4467,21 +4506,15 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   // How to determine whether the edge is forward or backward:
-  //  if  leftmost non-EQ dv is <
-  //       isReversed implies backward else forward
-  //  if  all EQ, loop at TopSort order (TODO)
-  //  if  leftmost non-EQ is  <=
-  //      it may need 1 edge or 2 depending on the TopSort order and if
-  //      lval/rval
-  //  all others: both forward & backward
+  //  (1) birectional: both forward & backward
+  //  (2) if all EQ, look at TopSort order
+  //  (3) if leftmost non-EQ dv is <
+  //      isReversed implies backward else forward
 
-  //	if (!RegRef->isLval()) {
-
-  if (biDirection) {
-    if (Result->isReversed()) {
-      for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-        backwardDV[II - 1] = Result->getDirection(II);
-      }
+  if (BiDirection) {
+    // (1) both directions
+    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      backwardDV[II - 1] = Result->getDirection(II);
     }
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       forwardDV[II - 1] = Result->getDirection(II);
@@ -4494,7 +4527,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   if (Result->isLoopIndependent()) {
-    // DV are all = = ..
+    // (2) DV are all =
     HLDDNode *SrcDDNode = SrcDDRef->getHLDDNode();
     HLDDNode *DstDDNode = DstDDRef->getHLDDNode();
     HLNode *SrcHIR = dyn_cast<HLNode>(SrcDDNode);
@@ -4518,15 +4551,15 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return true;
   }
 
-  // Leftmost is <
-  // Srce->Dest
+  // (3) Leftmost is <
+  //     Srce->Dest
 
   if (!Result->isReversed()) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       forwardDV[II - 1] = Result->getDirection(II);
     }
   }
-  // Dest->Srce
+  //  Dest->Srce
   else {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       backwardDV[II - 1] = Result->getDirection(II);
