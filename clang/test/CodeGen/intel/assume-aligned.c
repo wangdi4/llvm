@@ -1,4 +1,5 @@
 // CQ#373129
+// REQUIRES: llvm-backend
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility %s -emit-llvm -o - | FileCheck %s
 
 void check(int *a, short *b, char *c) {
