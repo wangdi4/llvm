@@ -164,7 +164,7 @@ void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
     CExpr->shift(Level, UnrollCnt);
 
   // IV*UF .
-  CanonExprUtils::multiplyIVByConstant(CExpr, Level, UnrollFactor);
+  CExpr->multiplyIVByConstant(Level, UnrollFactor);
 }
 
 namespace {

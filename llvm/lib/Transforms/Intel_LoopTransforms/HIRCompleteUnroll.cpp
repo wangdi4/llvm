@@ -165,13 +165,8 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 /// Processes CanonExpr to replace IV by TripVal.
 /// This is an internal helper function.
 void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
-
-  bool IsBlobCoeff;
-
-  if (CExpr->getIVCoeff(Level, &IsBlobCoeff)) {
-    DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
-    CExpr->replaceIVByConstant(Level, TripVal);
-  }
+  DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
+  CExpr->replaceIVByConstant(Level, TripVal);
 }
 
 namespace {

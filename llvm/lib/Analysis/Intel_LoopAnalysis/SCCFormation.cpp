@@ -222,7 +222,7 @@ bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
       auto ParentBB = (*InstIt)->getParent();
 
       if (BBlocks.count(ParentBB)) {
-        // If any two phis in the SCC have the same bblock parent then we 
+        // If any two phis in the SCC have the same bblock parent then we
         // cannot assign the same symbase to them because they are live inside
         // the bblock at the same time, hence we invalidate the SCC. This can
         // happen in circular wrap cases. The following example generates a
@@ -238,7 +238,7 @@ bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
         //
         // IR-
         //
-        // for.body: 
+        // for.body:
         //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
         //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
         //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
@@ -251,7 +251,7 @@ bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
     }
   }
 
-  return true;  
+  return true;
 }
 
 unsigned SCCFormation::findSCC(const NodeTy *Node) {
@@ -312,7 +312,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       if (isValidSCC(NewSCC)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(NewSCC);
-        
+
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
 

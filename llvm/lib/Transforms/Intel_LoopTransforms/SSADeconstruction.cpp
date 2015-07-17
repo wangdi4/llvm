@@ -269,7 +269,7 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
       //   br i1 %exitcond, label %for.end, label %for.body
       //
       // Note that reordering the livein copies which produces a cleaner HIR
-      // works in some cases but cannot resolve phi cycles. In comparison, 
+      // works in some cases but cannot resolve phi cycles. In comparison,
       // adding a liveout copy always works. Looking for a cycle would take
       // more compile time so this seems like an acceptable solution.
       //

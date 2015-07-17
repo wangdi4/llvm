@@ -150,15 +150,22 @@ private:
       return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
     }
 
-    //\brief return value for coeff*iv with IV at level
-    Value *IVPairCG(CanonExpr::BlobOrConstToVal Pair, int Level, Type *Ty);
+    Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty) {
+      return CoefCG(CE->getIVConstCoeff(IVIt),
+                    getBlobValue(CE->getIVBlobCoeff(IVIt), Ty));
+    }
+
+    //\brief return value for blobCoeff * constCoeff * iv with IV at level
+    Value *IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty);
 
     // \brief retutn value for coeff*V
     Value *CoefCG(int Coeff, Value *V);
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
-    Value *BlobPairCG(CanonExpr::BlobIndexToCoeff BlobPair, Type *Ty) {
-      return CoefCG(BlobPair.Coeff, getBlobValue(BlobPair.Index, Ty));
+    Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
+                      Type *Ty) {
+      return CoefCG(CE->getBlobCoeff(BlobIt),
+                    getBlobValue(CE->getBlobIndex(BlobIt), Ty));
     }
 
     Function *F;
@@ -711,13 +718,13 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
   if (!CE->hasBlob())
     return nullptr;
 
-  auto CurBlobPair = CE->blob_cbegin();
+  auto CurBlobPair = CE->blob_begin();
   Type *Ty = CE->getType();
-  Value *res = BlobPairCG(*CurBlobPair, Ty);
+  Value *res = BlobPairCG(CE, CurBlobPair, Ty);
   CurBlobPair++;
 
-  for (auto E = CE->blob_cend(); CurBlobPair != E; ++CurBlobPair)
-    res = Builder->CreateAdd(res, BlobPairCG(*CurBlobPair, Ty));
+  for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair)
+    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair, Ty));
 
   return res;
 }
@@ -726,42 +733,41 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   if (!CE->hasIV())
     return nullptr;
 
-  auto CurIVPair = CE->iv_cbegin();
-  int Level = 1;
+  auto CurIVPair = CE->iv_begin();
   // start with first summation not of x*0
-  for (auto E = CE->iv_cend(); CurIVPair != E; ++CurIVPair, ++Level) {
-    if (CurIVPair->Coeff != 0)
+  for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair))
       break;
   }
 
-  if (CurIVPair == CE->iv_cend())
+  if (CurIVPair == CE->iv_end())
     llvm_unreachable("No iv in CE");
 
   Type *Ty = CE->getType();
 
-  Value *res = IVPairCG(*CurIVPair, Level, Ty);
+  Value *res = IVPairCG(CE, CurIVPair, Ty);
   CurIVPair++;
-  Level++;
 
   // accumulate other pairs
-  for (auto E = CE->iv_cend(); CurIVPair != E; ++CurIVPair, ++Level) {
-    if (CurIVPair->Coeff != 0)
-      res = Builder->CreateAdd(res, IVPairCG(*CurIVPair, Level, Ty));
+  for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair))
+      res = Builder->CreateAdd(
+          res, IVPairCG(CE, CurIVPair, Ty));
   }
 
   return res;
 }
 
-Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr::BlobOrConstToVal Pair,
-                                       int Level, Type *Ty) {
+Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
+                                       CanonExpr::iv_iterator IVIt, Type *Ty) {
 
-  Value *IV = Builder->CreateLoad(NamedValues[getIVName(Level, Ty)]);
+  Value *IV = Builder->CreateLoad(NamedValues[getIVName(CE->getLevel(IVIt), Ty)]);
 
-  // pairs are of form <isBlob, coeff>. if its a blob, coeff is the blobidx
-  if (Pair.IsBlobCoeff) {
-    return Builder->CreateMul(getBlobValue(Pair.Coeff, Ty), IV);
+  // pairs are of form <Index, Coeff>.
+  if (CE->getIVBlobCoeff(IVIt)) {
+    return Builder->CreateMul(IVCoefCG(CE, IVIt, Ty), IV);
   } else {
-    return CoefCG(Pair.Coeff, IV);
+    return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
 }
 Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {

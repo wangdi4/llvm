@@ -90,7 +90,6 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
   }
 
   OS << "\n";
-
 }
 
 BasicBlock *IRRegion::getPredBBlock() const {

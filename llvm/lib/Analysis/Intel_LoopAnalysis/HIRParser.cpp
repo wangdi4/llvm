@@ -510,10 +510,9 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   auto Index = CanonExprUtils::findOrInsertBlob(Blob);
 
   if (IVLevel) {
-    bool IsBlobCoeff;
-    assert(!CE->getIVCoeff(IVLevel, &IsBlobCoeff) &&
-           "Canon Expr already has a blob coeff for this IV!");
-    CE->setIVCoeff(IVLevel, Index, true);
+    assert(!CE->hasIVConstCoeff(IVLevel) && !CE->hasIVBlobCoeff(IVLevel) &&
+           "Canon Expr already has a coeff for this IV!");
+    CE->setIVCoeff(IVLevel, Index, 1);
 
   } else {
     CE->addBlob(Index, 1);
@@ -576,7 +575,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     // Set constant IV coeff
     if (isa<SCEVConstant>(StepSCEV)) {
       auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
-      CE->addIV(HLoop->getNestingLevel(), Coeff);
+      CE->addIV(HLoop->getNestingLevel(), 0, Coeff);
     }
     // Set blob IV coeff
     else {

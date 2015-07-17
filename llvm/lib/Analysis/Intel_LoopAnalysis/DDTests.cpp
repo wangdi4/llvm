@@ -205,16 +205,8 @@ const CanonExpr *DDtest::getInvariant(const CanonExpr *CE) {
   // get a copy and zero out all iv coeffs
 
   CanonExpr *CE2 = CE->clone();
-  unsigned level = 1;
 
-  if (CE->hasIV()) {
-    for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-         ++CurIVPair, ++level) {
-      if (CurIVPair->Coeff != 0) {
-        CE2->removeIV(level);
-      }
-    }
-  }
+  CE2->clearIVs();
 
   push(CE2);
   return CE2;
@@ -231,16 +223,15 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
 
   CanonExpr *CE2 = CE->clone();
   unsigned int IVfound = 0;
-  unsigned level = 1;
   assert(IVnum > 0 && IVnum <= MaxLoopNestLevel && "IVnum not within range");
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++level) {
-    if (CurIVPair->Coeff != 0) {
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair)) {
       IVfound++;
       if (IVfound == IVnum) {
-        CE2->setConstant(CurIVPair->Coeff);
-        CE2->removeIV(level);
+        CE2->setConstant(CE->getIVConstCoeff(CurIVPair));
+        CE2->removeIV(CE->getLevel(CurIVPair));
       }
       if (checkSingleIV) {
         assert((IVfound == 1) && "found more than 1 iv");
@@ -277,16 +268,15 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *parentLoop) {
     return nullptr;
   }
 
-  unsigned Level = 1;
   unsigned IVLevel;
   bool IVfound = false;
   const HLLoop *Loop;
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++Level) {
-    if (CurIVPair->Coeff != 0) {
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair)) {
       assert(!IVfound && "found more than 1 iv");
-      IVLevel = Level;
+      IVLevel = CE->getLevel(CurIVPair);
       IVfound = true;
     }
   }
@@ -304,17 +294,17 @@ static const HLLoop *getFirstLoop(const CanonExpr *CE,
 
   assert(CE->hasIV() && "Loop has no iv");
 
-  unsigned level = 1;
   const HLLoop *Loop;
+  auto CurIVPair = CE->iv_begin();
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++level) {
-    if (CurIVPair->Coeff != 0) {
+  for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair)) {
       break;
     }
   }
 
-  Loop = HLNodeUtils::getParentLoopwithLevel(level, parentLoop);
+  Loop =
+      HLNodeUtils::getParentLoopwithLevel(CE->getLevel(CurIVPair), parentLoop);
   assert(Loop && "Loop must be found for iv ");
   return Loop;
 }
@@ -327,13 +317,12 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
 
   assert(CE->hasIV() && "Loop has no iv");
 
-  unsigned level = 1;
   HLLoop *Loop;
   int numiv = 0;
+  auto CurIVPair = CE->iv_begin();
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++level) {
-    if (CurIVPair->Coeff != 0) {
+  for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
+    if (CE->getIVConstCoeff(CurIVPair)) {
       if ((numiv++) == 2) {
         break;
       }
@@ -341,7 +330,7 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
   }
   for (Loop = const_cast<HLLoop *>(parentLoop); Loop != nullptr;
        Loop = Loop->getParentLoop()) {
-    if (level == Loop->getNestingLevel()) {
+    if (CE->getLevel(CurIVPair) == Loop->getNestingLevel()) {
       return Loop;
     }
   }
@@ -403,11 +392,11 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
   CanonExpr *CE = nullptr;
 
   if (CE2->isConstant(&konst)) {
-    CE = CanonExprUtils::multiplyByConstant(const_cast<CanonExpr *>(CE1), konst,
-                                            true);
+    CE = CE1->clone();
+    CE->multiplyByConstant(konst);
   } else if (CE1->isConstant(&konst)) {
-    CE = CanonExprUtils::multiplyByConstant(const_cast<CanonExpr *>(CE2), konst,
-                                            true);
+    CE = CE2->clone();
+    CE->multiplyByConstant(konst);
   } else {
     llvm_unreachable("Multiply CanonExpr: one must be constant");
   }
@@ -532,6 +521,7 @@ const CanonExpr *DDtest::Constraint::getC() const {
 // Otherwise assert.
 const CanonExpr *DDtest::Constraint::getD() const {
   assert(Kind == Distance && "Kind should be Distance");
+
   return CanonExprUtils::negate(const_cast<CanonExpr *>(C), true);
 }
 
@@ -566,6 +556,7 @@ void DDtest::Constraint::setDistance(const CanonExpr *D,
   A = CanonExprUtils::createCanonExpr(getType(D), 0, 1, 1);
   B = CanonExprUtils::negate(const_cast<CanonExpr *>(A), true);
   C = CanonExprUtils::negate(const_cast<CanonExpr *>(D), true);
+
   AssociatedLoop = CurLoop;
 }
 
@@ -1113,13 +1104,12 @@ bool DDtest::checkSrcSubscript(const CanonExpr *Src, const HLLoop *LoopNest,
   if (Src->isNonLinear()) {
     return false;
   }
-  int Level = 0;
 
   if (Src->hasIV()) {
-    for (auto CurIVPair = Src->iv_cbegin(), E = Src->iv_cend(); CurIVPair != E;
-         ++CurIVPair, ++Level) {
-      if (CurIVPair->Coeff != 0) {
-        Loops.set(Level);
+    for (auto CurIVPair = Src->iv_begin(), E = Src->iv_end(); CurIVPair != E;
+         ++CurIVPair) {
+      if (Src->getIVConstCoeff(CurIVPair)) {
+        Loops.set(Src->getLevel(CurIVPair));
       }
     }
   }
@@ -1136,13 +1126,12 @@ bool DDtest::checkDstSubscript(const CanonExpr *Dst, const HLLoop *LoopNest,
   if (Dst->isNonLinear()) {
     return false;
   }
-  int level = 0;
 
   if (Dst->hasIV()) {
-    for (auto CurIVPair = Dst->iv_cbegin(), E = Dst->iv_cend(); CurIVPair != E;
-         ++CurIVPair, ++level) {
-      if (CurIVPair->Coeff != 0) {
-        Loops.set(level);
+    for (auto CurIVPair = Dst->iv_begin(), E = Dst->iv_end(); CurIVPair != E;
+         ++CurIVPair) {
+      if (Dst->getIVConstCoeff(CurIVPair)) {
+        Loops.set(Dst->getLevel(CurIVPair));
       }
     }
   }
@@ -2584,12 +2573,12 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   const CanonExpr *CE2;
 
   int64_t k1 = 0;
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        CurIVPair++) {
-    if (CurIVPair->Coeff == 0) {
+    if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CurIVPair->IsBlobCoeff) {
+    if (CE->getIVBlobCoeff(CurIVPair)) {
       // TODO   3 * N .. return false for now
       return false;
     }
@@ -2597,7 +2586,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     // do i=1,n; do j=2,n; a(i+2*j) = a(i+2*j-1) with input dv (= *)
     // returns INDEP (Tested already)
 
-    k1 = CurIVPair->Coeff;
+    k1 = CE->getIVConstCoeff(CurIVPair);
     APInt ConstCoeff = llvm::APInt(64, k1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\nRunningGCD1  =" << RunningGCD);
@@ -2612,16 +2601,16 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   CE = Dst;
   k1 = 0;
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        CurIVPair++) {
-    if (CurIVPair->Coeff == 0) {
+    if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CurIVPair->IsBlobCoeff) {
+    if (CE->getIVBlobCoeff(CurIVPair)) {
       // TODO   3 * N .. return false for now
       return false;
     }
-    k1 = CurIVPair->Coeff;
+    k1 = CE->getIVConstCoeff(CurIVPair);
     APInt ConstCoeff = llvm::APInt(64, k1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\nRunningGCD2  =" << RunningGCD);
@@ -2669,46 +2658,44 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   DEBUG(dbgs() << "    ExtraGCD = " << ExtraGCD << '\n');
 
   bool Improved = false;
-  unsigned level = 1;
   CE = Src;
 
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++level) {
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
 
-    if (CurIVPair->Coeff == 0) {
+    if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CurIVPair->IsBlobCoeff) {
+    if (CE->getIVBlobCoeff(CurIVPair)) {
       // TODO   3 * N .. return false for now
       return false;
     }
 
     // based on level, get to corrs. parent loop
-    const HLLoop *CurLoop =
-        HLNodeUtils::getParentLoopwithLevel(level, SrcParentLoop);
+    const HLLoop *CurLoop = HLNodeUtils::getParentLoopwithLevel(
+        CE->getLevel(CurIVPair), SrcParentLoop);
     RunningGCD = ExtraGCD;
 
     const CanonExpr *SrcCoeff =
-        getConstantwithType(getType(Src), CurIVPair->Coeff);
+        getConstantwithType(getType(Src), CE->getIVConstCoeff(CurIVPair));
     const CanonExpr *DstCoeff = getMinus(SrcCoeff, SrcCoeff); // start with  0
     const CanonExpr *Inner = Src;
 
     CE2 = Inner;
 
-    unsigned level2 = 1;
-    for (auto CurIVPair2 = CE2->iv_cbegin(), E2 = CE2->iv_cend();
-         CurIVPair2 != E2; CurIVPair2++, level2++) {
+    for (auto CurIVPair2 = CE2->iv_begin(), E2 = CE2->iv_end();
+         CurIVPair2 != E2; CurIVPair2++) {
       if (RunningGCD == 1) {
         break;
       }
-      if (CurIVPair2->Coeff == 0) {
+      if (!CE2->getIVConstCoeff(CurIVPair2)) {
         continue;
       }
-      if (level == level2) {
+      if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
         // SrcCoeff == Coeff
       } else {
         // TODO handle 4 * n in coeff
-        k1 = CurIVPair2->Coeff;
+        k1 = CE2->getIVConstCoeff(CurIVPair2);
         APInt ConstCoeff = llvm::APInt(64, k1, true);
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
@@ -2717,21 +2704,21 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
     Inner = Dst;
     CE2 = Inner;
-    level2 = 1;
-    for (auto CurIVPair2 = CE2->iv_cbegin(), E2 = CE2->iv_cend();
-         CurIVPair2 != E2; CurIVPair2++, level2++) {
+    for (auto CurIVPair2 = CE2->iv_begin(), E2 = CE2->iv_end();
+         CurIVPair2 != E2; CurIVPair2++) {
       if (RunningGCD == 1) {
         break;
       }
-      if (CurIVPair2->Coeff == 0) {
+      if (!CE2->getIVConstCoeff(CurIVPair2)) {
         continue;
       }
 
-      if (level == level2) {
-        DstCoeff = getConstantwithType(getType(Dst), CurIVPair2->Coeff);
+      if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
+        DstCoeff =
+            getConstantwithType(getType(Dst), CE2->getIVConstCoeff(CurIVPair2));
       } else {
         // TODO handle 4 * n in coeff
-        k1 = CurIVPair2->Coeff;
+        k1 = CE2->getIVConstCoeff(CurIVPair2);
         APInt ConstCoeff = llvm::APInt(64, k1, true);
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
@@ -3185,21 +3172,21 @@ DDtest::CoefficientInfo *DDtest::collectCoeffInfo(const CanonExpr *Subscript,
     CI[K].Iterations = nullptr;
   }
 
-  unsigned level = 1;
   const CanonExpr *CE = Subscript;
-  for (auto CurIVPair = CE->iv_cbegin(), E = CE->iv_cend(); CurIVPair != E;
-       ++CurIVPair, ++level) {
-    if (CurIVPair->Coeff == 0) {
+  for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
+       ++CurIVPair) {
+    if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CurIVPair->IsBlobCoeff) {
+    if (CE->getIVBlobCoeff(CurIVPair)) {
       // TODO: for blob coeff
       continue;
     }
-    const HLLoop *L = HLNodeUtils::getParentLoopwithLevel(level, SrcParentLoop);
+    const HLLoop *L = HLNodeUtils::getParentLoopwithLevel(
+        CE->getLevel(CurIVPair), SrcParentLoop);
     unsigned K = SrcFlag ? mapSrcLoop(L) : mapDstLoop(L);
     const CanonExpr *CE2 = CI[K].Coeff =
-        getConstantwithType(getType(Subscript), CurIVPair->Coeff);
+        getConstantwithType(getType(Subscript), CE->getIVConstCoeff(CurIVPair));
     CI[K].PosPart = getPositivePart(CE2);
     CI[K].NegPart = getNegativePart(CE2);
     CI[K].Iterations = collectUpperBound(L, getType(Subscript));

@@ -10,17 +10,17 @@
 //===----------------------------------------------------------------------===//
 //
 // This analysis is used to assign symbase to scalars.
-// It assigns symbases to liveins(present as phi operands) and livout scalars 
-// and populates the livein/liveout set for regions as well. 
+// It assigns symbases to liveins(present as phi operands) and livout scalars
+// and populates the livein/liveout set for regions as well.
 //
 // Livein scalars are phi operands coming from outside the region (including
-// constants) or instructions defined outisde the region and used inside. 
+// constants) or instructions defined outisde the region and used inside.
 // Please note that globals and function parameters are not marked livein.
 //
 // Liveout scalars are instructions defined inside the region and used outside.
 //
-// HIRParser uses its interface to assign symbases to non livein/liveout 
-// scalars. Non-phi livein scalars are also populated by HIRParser because 
+// HIRParser uses its interface to assign symbases to non livein/liveout
+// scalars. Non-phi livein scalars are also populated by HIRParser because
 // some livein scalars can only be discovered during parsing.
 //
 // Livein/liveout scalars are required by HIRCG to generate the correct code.

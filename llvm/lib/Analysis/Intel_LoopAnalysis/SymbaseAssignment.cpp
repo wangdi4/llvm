@@ -97,7 +97,7 @@ public:
 Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
   if (CanonExpr *CE = Ref->getBaseCE()) {
     assert(CE->hasBlob());
-    for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
+    for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
       // Even if there are multiple ptr blobs, will AA make correct choice?
       const SCEV *Blob = CanonExprUtils::getBlob(I->Index);
       if (Blob->getType()->isPointerTy()) {
