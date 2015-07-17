@@ -87,7 +87,16 @@ public:
             return;
         }
 
-        metadataRAUW(pNode, generateNode(context));
+        assert(pNode && "cannot RAUW of nullptr");
+        if(pNode) metadataRAUW(pNode, generateNode(context));
+    }
+
+    // [LLVM 3.6 UPGRADE] WORKAROUND: metadataRAUW cannot RAUW nullptr
+    void replaceNullValueWith(llvm::LLVMContext &context, llvm::MDNode * parentMDNode,
+                              unsigned opIdx) const {
+      llvm::Metadata * newNode = generateNode(context);
+      parentMDNode->replaceOperandWith(opIdx, newNode);
+      updateMetadataUseMapping(parentMDNode, newNode);
     }
 
     llvm::Metadata* generateNode(llvm::LLVMContext &context) const
@@ -193,7 +202,11 @@ public:
         }
 
         m_id.save(context, pMDNode->getOperand(0));
-        m_value.save(context, pMDNode->getOperand(1));
+        llvm::Metadata * pValue = pMDNode->getOperand(1);
+        if(!pValue)
+          m_value.replaceNullValueWith(context, pMDNode, 1);
+        else
+          m_value.save(context, pMDNode->getOperand(1));
     }
 
     llvm::Metadata* generateNode(llvm::LLVMContext &context) const
@@ -204,7 +217,7 @@ public:
         args.push_back( m_value.generateNode(context));
 
         llvm::MDNode * pNode = llvm::MDNode::get(context,args);
-	updateMetadataUseMapping(pNode, args);
+        updateMetadataUseMapping(pNode, args);
         return pNode;
     }
 private:

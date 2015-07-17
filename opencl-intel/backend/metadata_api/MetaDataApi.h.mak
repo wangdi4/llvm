@@ -190,7 +190,8 @@ private:
     // Returns true if the given MDNode could be saved to without replacement
     bool compatibleWith( const llvm::MDNode* pNode) const
     {
-        return false;
+        return this->m_pNode && pNode &&
+               this->m_pNode->getNumOperands() == pNode->getNumOperands();
     }
 
 private:

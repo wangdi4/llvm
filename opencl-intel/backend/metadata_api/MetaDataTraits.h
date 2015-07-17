@@ -101,13 +101,15 @@ inline void metadataRAUW(llvm::Metadata * oldNode, llvm::Metadata * newNode) {
 template<typename MetaDataNode, typename Cont>
 inline void updateMetadataUseMapping(MetaDataNode * user, Cont const & operands) {
   for(llvm::Metadata * operand : operands) {
-    g_metaDataApiUtilsUseMap[operand].insert(user);
+    // Operand might be nullptr
+    if(operand) g_metaDataApiUtilsUseMap[operand].insert(user);
   }
 }
 
 template<typename MetaDataNode, typename UsedMDNode>
 inline void updateMetadataUseMapping(MetaDataNode * user, UsedMDNode * operand) {
-  g_metaDataApiUtilsUseMap[operand].insert(user);
+  // Operand might be nullptr
+  if(operand) g_metaDataApiUtilsUseMap[operand].insert(user);
 }
 
 ///
