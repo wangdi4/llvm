@@ -1,5 +1,5 @@
 ; RUN: llc -x86-asm-syntax=intel < %s | FileCheck %s
-; CHECK: .syntax_intel prefix
+; CHECK: .intel_syntax noprefix
 define i32 @test(i32 %a) {
 entry:
 ; 	CHECK-LABEL: test:
