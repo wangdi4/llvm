@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2014 Intel Corporation.  All rights reserved.
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -71,4 +71,4 @@
 #define _FEATURE_AVX512VL            0x4000000000ULL
 #define _FEATURE_AVX512VBMI          0x8000000000ULL
 
-#endif
+#endif // __X86INTRIN_FEATURES_H
