@@ -221,21 +221,28 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
   // e.g.  3 * i1 + 4 * i3,  returns 3 when IVnum is 1
   // The default is asserting 1 single iv in input CE
 
-  CanonExpr *CE2 = CE->clone();
+  CanonExpr *CE2 = CanonExprUtils::createCanonExpr(CE->getType());
+
   unsigned int IVfound = 0;
   assert(IVnum > 0 && IVnum <= MaxLoopNestLevel && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
-    if (CE->getIVConstCoeff(CurIVPair)) {
-      IVfound++;
-      if (IVfound == IVnum) {
-        CE2->setConstant(CE->getIVConstCoeff(CurIVPair));
-        CE2->removeIV(CE->getLevel(CurIVPair));
+    int64_t ConstCoeff = CE->getIVConstCoeff(CurIVPair);
+    unsigned BlobIdx = CE->getIVBlobCoeff(CurIVPair);
+    if (ConstCoeff == 0) {
+      continue;
+    }
+    IVfound++;
+    if (IVfound == IVnum) {
+      if (BlobIdx != 0) {
+        CE2->addBlob(BlobIdx, ConstCoeff);
+      } else {
+        CE2->setConstant(ConstCoeff);
       }
-      if (checkSingleIV) {
-        assert((IVfound == 1) && "found more than 1 iv");
-      }
+    }
+    if (checkSingleIV) {
+      assert((IVfound == 1) && "found more than 1 iv");
     }
   }
 
@@ -1296,7 +1303,17 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
 
   // check that |Delta| < iteration count
   // TBD: get UB for CurLoop
+
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
+
+    // There is some issue with the original code
+    // for a[2 *n ]  n is SI64  in source.
+    // Coeff in SCEV is  2*n  I64
+    // SE->isKnowNonNegative(Coeff) return true but n could be nagative
+    // w/o knowing what compose the whole subscript
+    // Our implementation  using canon will return false for 2*n
+    // But GCD test should get Indep for 2*n vs 2*n+1
+
     const CanonExpr *AbsDelta =
         Delta->isKnownNonNegative() ? Delta : getNegative(Delta);
     const CanonExpr *AbsCoeff =
@@ -1305,6 +1322,7 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
     DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
     DEBUG(dbgs() << "\n    AbsDelta = "; AbsDelta->dump());
     DEBUG(dbgs() << "\n    Product = "; Product->dump());
+
     if (isKnownPredicate(CmpInst::ICMP_SGT, AbsDelta, Product)) {
       // Distance greater than trip count - no dependence
       ++StrongSIVindependence;
@@ -2560,6 +2578,9 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
                         const HLLoop *DstParentLoop, FullDependences &Result) {
 
   DEBUG(dbgs() << "\nstarting gcd\n");
+  DEBUG(dbgs() << "\n   src = "; Src->dump());
+  DEBUG(dbgs() << "\n   dst = "; Dst->dump());
+
   ++GCDapplications;
 
   // The next line requires SE handler
@@ -2577,26 +2598,34 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Because we're looking for the constant at the end of the chain,
   // we can't quit the loop just because the GCD == 1.
 
-  DEBUG(dbgs() << "RunningGCD  =" << RunningGCD);
+  DEBUG(dbgs() << "\nRunningGCD  =" << RunningGCD);
   const CanonExpr *CE = Src;
   const CanonExpr *CE2;
 
   int64_t k1 = 0;
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
-       CurIVPair++) {
-    if (!CE->getIVConstCoeff(CurIVPair)) {
+       ++CurIVPair) {
+
+    unsigned Index;
+    int64_t Coeff1;
+    CE->getIVCoeff(CurIVPair, &Index, &Coeff1);
+
+    DEBUG(dbgs() << "\n bingo! index, coeff  =" << Index << "  " << Coeff1);
+
+    k1 = CE->getIVConstCoeff(CurIVPair);
+    if (k1 == 0) {
       continue;
     }
-    if (CE->getIVBlobCoeff(CurIVPair)) {
-      // TODO   3 * N .. return false for now
-      return false;
-    }
+    //  okay to ignore blobcoeff
+    //  BlobCoeff(CurIVPair)
 
     // do i=1,n; do j=2,n; a(i+2*j) = a(i+2*j-1) with input dv (= *)
     // returns INDEP (Tested already)
 
-    k1 = CE->getIVConstCoeff(CurIVPair);
     APInt ConstCoeff = llvm::APInt(64, k1, true);
+    DEBUG(dbgs() << "\nRunningGCD in  =" << RunningGCD);
+    DEBUG(dbgs() << "\n k1  =" << k1);
+
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
     DEBUG(dbgs() << "\nRunningGCD1  =" << RunningGCD);
   }
@@ -2611,14 +2640,13 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   CE = Dst;
   k1 = 0;
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
-       CurIVPair++) {
+       ++CurIVPair) {
     if (!CE->getIVConstCoeff(CurIVPair)) {
       continue;
     }
-    if (CE->getIVBlobCoeff(CurIVPair)) {
-      // TODO   3 * N .. return false for now
-      return false;
-    }
+
+    // okay to ignore blob coeff
+
     k1 = CE->getIVConstCoeff(CurIVPair);
     APInt ConstCoeff = llvm::APInt(64, k1, true);
     RunningGCD = APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
@@ -2677,7 +2705,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     }
     if (CE->getIVBlobCoeff(CurIVPair)) {
       // TODO   3 * N .. return false for now
-      return false;
+      // return false;
     }
 
     // based on level, get to corrs. parent loop
@@ -2703,7 +2731,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
         // SrcCoeff == Coeff
       } else {
-        // TODO handle 4 * n in coeff
+
         k1 = CE2->getIVConstCoeff(CurIVPair2);
         APInt ConstCoeff = llvm::APInt(64, k1, true);
         RunningGCD =
@@ -2726,7 +2754,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         DstCoeff =
             getConstantwithType(getType(Dst), CE2->getIVConstCoeff(CurIVPair2));
       } else {
-        // TODO handle 4 * n in coeff
+
         k1 = CE2->getIVConstCoeff(CurIVPair2);
         APInt ConstCoeff = llvm::APInt(64, k1, true);
         RunningGCD =
