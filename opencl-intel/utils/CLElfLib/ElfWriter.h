@@ -80,7 +80,7 @@ public:
     static CElfWriter* ELF_CALL Create(
         E_EH_TYPE type,
         E_EH_MACHINE machine,
-        Elf64_Xword flags );
+        E_EH_FLAGS flags );
 
     static void ELF_CALL Delete( CElfWriter* &pElfWriter );
 
@@ -98,13 +98,13 @@ protected:
     ELF_CALL CElfWriter(
         E_EH_TYPE type,
         E_EH_MACHINE machine,
-        Elf64_Xword flags );
+        E_EH_FLAGS flags );
 
     ELF_CALL ~CElfWriter();
 
     E_EH_TYPE m_type;
     E_EH_MACHINE m_machine;
-    Elf64_Xword m_flags;
+    E_EH_FLAGS m_flags;
 
     std::queue<SSectionNode*> m_nodeQueue;
 

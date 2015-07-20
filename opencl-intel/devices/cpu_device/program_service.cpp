@@ -170,20 +170,8 @@ cl_dev_err_code ProgramService::Init()
 cl_dev_err_code ProgramService::CheckProgramBinary (size_t IN binSize, const void* IN bin)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("CheckProgramBinary enter"));
-
-    //If it is Binary Object, no other checks needed
-    if ( _CL_OBJECT_BITCODE_MASK_ == ((const int*)bin)[0] )
-    {
-        return CL_DEV_SUCCESS;
-    }
-
-    // If it is SPIR binary, no other checks needed
-    if ( !memcmp(_CL_LLVM_BITCODE_MASK_, bin, sizeof(_CL_LLVM_BITCODE_MASK_) - 1) )
-    {
-        return CL_DEV_SUCCESS;
-    }
-
-    return CL_DEV_INVALID_BINARY;
+    // Need to check if binary is supported by the device
+    return m_pBackendCompiler->CheckProgramBinary(bin, binSize);
 }
 
 /*******************************************************************************************************************

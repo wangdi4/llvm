@@ -33,6 +33,7 @@ public:
     const ProgramBuilder* GetProgramBuilder() const { return &m_programBuilder; }
     ProgramBuilder* GetProgramBuilder() { return &m_programBuilder; }
 
+    cl_dev_err_code MICCompileService::CheckProgramBinary(const void* pBinary, size_t uiBinarySize) const { return CL_DEV_SUCCESS; }
 private:
     MICProgramBuilder m_programBuilder;
 };

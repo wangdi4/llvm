@@ -40,7 +40,7 @@ namespace CLElfLib
 CElfWriter::CElfWriter(
     E_EH_TYPE type,
     E_EH_MACHINE machine,
-    Elf64_Xword flags )
+    E_EH_FLAGS flags )
 {
     m_type = type;
     m_machine = machine;
@@ -83,7 +83,7 @@ CElfWriter::~CElfWriter()
 CElfWriter* CElfWriter::Create(
     E_EH_TYPE type,
     E_EH_MACHINE machine,
-    Elf64_Xword flags )
+    E_EH_FLAGS flags )
 {
     CElfWriter* pWriter = new CElfWriter(
         type, machine, flags );

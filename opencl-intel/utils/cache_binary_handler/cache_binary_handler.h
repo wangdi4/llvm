@@ -24,6 +24,7 @@
 #pragma once
 
 #include <string>
+#include "CLElfTypes.h"
 
 namespace CLElfLib
 {
@@ -49,6 +50,7 @@ public:
 
     int GetSectionSize(const char* sectionName) const;
     const void* GetSectionData(const char* sectionName) const;
+    const CLElfLib::SElf64Header* GetElfHeader();
 
 private:
     // Disable copy ctor and assignment operator
@@ -62,7 +64,7 @@ private:
 class CacheBinaryWriter
 {
 public:
-    CacheBinaryWriter();
+    CacheBinaryWriter(CLElfLib::E_EH_MACHINE machine, CLElfLib::E_EH_FLAGS flag);
     virtual ~CacheBinaryWriter();
     bool AddSection(const char* sectionName, const char* sectionData, size_t sectionSize);
     size_t GetBinarySize() const;

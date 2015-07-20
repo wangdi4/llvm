@@ -87,11 +87,11 @@ enum E_EH_TYPE
 };
 
 // E_EH_MACHINE - List of pre-defined machine types.
-//    For OpenCL, currently, we do not need this information, so this is not
-//    fully defined.
 enum E_EH_MACHINE
 {
-    EH_MACHINE_NONE       = 0
+    EH_MACHINE_NONE       = 0,
+    EM_860                = 7,      // for 32-bit machine
+    EM_X86_64             = 62      // for 64-bit machine
     //EHT_MACHINE_LO_RSVD    = 1,   // Beginning of range of reserved types.
     //EHT_MACHINE_HI_RSVD    = 200, // End of range of reserved types.
 };
@@ -101,6 +101,15 @@ enum E_EHT_VERSION
 {
     EH_VERSION_INVALID    = 0,
     EH_VERSION_CURRENT    = 1
+};
+
+// E_EH_FLAGS - list of muximum supported vector instruction
+enum E_EH_FLAGS
+{
+    EH_FLAG_NONE               = 0,
+    EH_FLAG_SSE4               = 1,
+    EH_FLAG_AVX1               = 1 << 1,
+    EH_FLAG_AVX2               = 1 << 2
 };
 
 // E_SH_TYPE - List of pre-defined section header types.

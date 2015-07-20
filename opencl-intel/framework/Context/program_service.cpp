@@ -184,7 +184,7 @@ bool CompileTask::Execute()
     //compile succeeded
     ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( CLElfLib::EH_TYPE_OPENCL_OBJECTS,
                                                           CLElfLib::EH_MACHINE_NONE,
-                                                          0 ));
+                                                          CLElfLib::EH_FLAG_NONE ));
     CLElfLib::SSectionNode sectionNode;
     sectionNode.Name = ".ocl.ir";
     sectionNode.pData = pOutBinary.get();
@@ -333,7 +333,7 @@ bool LinkTask::Execute()
 
     ElfWriterPtr pElfWriter(CLElfLib::CElfWriter::Create( bIsLibrary? CLElfLib::EH_TYPE_OPENCL_LIBRARY : CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS,
                                                           CLElfLib::EH_MACHINE_NONE,
-                                                          0 ));
+                                                          CLElfLib::EH_FLAG_NONE ));
     CLElfLib::SSectionNode sectionNode;
     sectionNode.Name = ".ocl.ir";
     sectionNode.pData = pOutBinary.get();

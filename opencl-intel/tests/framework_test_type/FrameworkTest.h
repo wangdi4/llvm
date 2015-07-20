@@ -55,6 +55,8 @@ bool clBuildProgramWithSourceTest();
 bool clCheckJITSaveLoadTest();
 bool clCheckJITSaveTest();
 bool clCheckJITLoadTest();
+bool GenerateBinaryFile();      // GenerateBinaryFile before clCheckCPUArchForJIT
+bool clCheckCPUArchForJIT();    // clCheckCPUArchForJIT cannot function w\o calling GenerateBinaryFile
 bool clBuildProgramWithBinaryTest(openBcFunc pFunc);
 bool clBuildInvalidSpirProgramWithBinaryTest();
 bool clBuildProgramTwiceTest();

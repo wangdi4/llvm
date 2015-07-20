@@ -115,21 +115,15 @@ void DeviceProgram::SetDevice(const SharedPtr<FissionableDevice>& pDevice)
 cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* pBinary, cl_int* piBinaryStatus)
 {
     cl_prog_binary_type uiBinaryType;
-    // Check if binary format is known by the runtime
+    // Check if binary format is known by the runtime and device
     if (!CheckProgramBinary(uiBinarySize, pBinary, &uiBinaryType))
     {
-        // Format is not supported by the runtime
-        // Need to explicitly check if binary is supported by the device
-        cl_dev_err_code devErr = m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinarySize, pBinary);
-        if ( CL_DEV_FAILED(devErr) )
+        // Binary format is not supported by both runtime and device
+        if (piBinaryStatus)
         {
-            // Binary format is not supported by both runtime and device
-            if (piBinaryStatus)
-            {
-                *piBinaryStatus = CL_INVALID_BINARY;
-            }
-            return CL_INVALID_BINARY;
+            *piBinaryStatus = CL_INVALID_BINARY;
         }
+        return CL_INVALID_BINARY;
     }
 
     cl_program_binary_type clBinaryType = CL_PROGRAM_BINARY_TYPE_NONE;
@@ -655,6 +649,8 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl
                    *pBinaryType = CL_PROG_BIN_LINKED_LLVM;
                    break;
                case CLElfLib::EH_TYPE_OPENCL_EXECUTABLE:
+                   *pBinaryType = CL_PROG_BIN_EXECUTABLE_LLVM;
+                   return CL_DEV_SUCCEEDED(m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize, pBinary));
                case CLElfLib::EH_TYPE_OPENCL_LINKED_OBJECTS:
                    *pBinaryType = CL_PROG_BIN_EXECUTABLE_LLVM;
                    break;

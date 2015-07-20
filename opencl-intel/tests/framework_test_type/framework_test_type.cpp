@@ -159,6 +159,18 @@ TEST(FrameworkTestType, Test_clJITLoadTest)
     EXPECT_TRUE(clCheckJITLoadTest());
 }
 
+TEST(FrameworkTestType, Test_GenerateBinaryFile)
+{
+    EXPECT_TRUE(GenerateBinaryFile());
+}
+
+TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
+{
+    // GenerateBinaryFile before clCheckCPUArchForJIT
+    // clCheckCPUArchForJIT cannot function w\o calling GenerateBinaryFile
+    EXPECT_TRUE(clCheckCPUArchForJIT());
+}
+
 TEST(FrameworkTestType, Test_clBuildProgramTwiceTest)
 {
     EXPECT_TRUE(clBuildProgramTwiceTest());
