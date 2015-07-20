@@ -678,7 +678,7 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl
         if( pBinaryType )
             *pBinaryType = CL_PROG_BIN_COMPILED_SPIR;
 
-        return true;
+        return CL_DEV_SUCCEEDED(m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize, pBinary));
     }
 
     return false;
