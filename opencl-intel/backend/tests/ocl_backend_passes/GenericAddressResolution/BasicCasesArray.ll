@@ -8,14 +8,13 @@
 ; CHECK: %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
 ; CHECK: store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx, align 4
 ; CHECK: %10 = load i32 addrspace(4)** %arrayidx10, align 4
-; CHECK: %11 = ptrtoint i32 addrspace(4)* %10 to i32
-; CHECK: %12 = inttoptr i32 %11 to i32 addrspace(4)*
-; CHECK: %13 = load i32 addrspace(4)** %arrayidx12, align 4
-; CHECK: %14 = bitcast i32 addrspace(4)* %13 to i8 addrspace(4)*
-; CHECK: call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %14)
-; CHECK: %19 = load i32 addrspace(4)** %arrayidx26, align 4
-; CHECK: %20 = bitcast i32 addrspace(4)* %19 to float addrspace(4)*
-; CHECK: %add.ptr27 = getelementptr inbounds float addrspace(4)* %20, i32 10
+; CHECK: %11 = bitcast i32 addrspace(4)* %10 to i32 addrspace(4)*
+; CHECK: %12 = load i32 addrspace(4)** %arrayidx12, align 4
+; CHECK: %13 = bitcast i32 addrspace(4)* %12 to i8 addrspace(4)*
+; CHECK: call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %13)
+; CHECK: %18 = load i32 addrspace(4)** %arrayidx26, align 4
+; CHECK: %19 = bitcast i32 addrspace(4)* %18 to float addrspace(4)*
+; CHECK: %add.ptr27 = getelementptr inbounds float addrspace(4)* %19, i32 10
 ; CHECK: %call28 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr27)
 ; CHECK: ret
 
