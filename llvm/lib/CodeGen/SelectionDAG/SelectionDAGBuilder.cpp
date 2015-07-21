@@ -4699,6 +4699,15 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::var_annotation:
     // Discard annotate attributes and assumptions
     return nullptr;
+#ifdef INTEL_CUSTOMIZATION    
+  case Intrinsic::has_feature:  
+    // Discard has_feature intrinsics, they are only
+    // used by assumes. However, since they return a value,
+    // which may be consumed by an assume in a different
+    // block, we need to return something.
+    setValue(&I, DAG.getConstant(1, sdl, MVT::i1));
+    return nullptr;
+#endif    
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Intrinsic::intel_pragma:
     // Discard everything
