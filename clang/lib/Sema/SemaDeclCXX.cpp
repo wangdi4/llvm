@@ -671,6 +671,10 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#373130: friend functions with default parameter without name.
+  if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   if (Old->getFriendObjectKind() == Decl::FOK_Undeclared &&
       functionDeclHasDefaultArgument(Old)) {
     Diag(New->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
@@ -12756,11 +12760,19 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#373130: friend functions with default parameter without
+      // name.
+      if (!getLangOpts().IntelCompat) {
+#endif // INTEL_CUSTOMIZATION
       if (FunctionDecl *OldFD = FD->getPreviousDecl()) {
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
         Diag(OldFD->getLocation(), diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Mark templated-scope function declarations as unsupported.
