@@ -1071,6 +1071,21 @@ static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// The llvm.eh.begincatch intrinsic is used to mark boundaries of
+// individual exception handlers.  It should never be hoisted above
+// its original location.
+static bool isSafeToHoistIntrinsic(Instruction *I1) {
+  // The outlining code in WinEHPrepare depends on llvm.eh.begincatch to
+  // identify the structure of catch handler blocks.  Hoisting the
+  // eh_begincatch intrinsics from multiple catch handlers into a single
+  // predecessor block causes outlining to fail, so this check prevents it.
+  if (match(I1, m_Intrinsic<Intrinsic::eh_begincatch>()))
+    return false;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I);
 
 /// HoistThenElseCodeToIf - Given a conditional branch that goes to BB1 and
@@ -1100,6 +1115,9 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       I2 = BB2_Itr++;
   }
   if (isa<PHINode>(I1) || !I1->isIdenticalToWhenDefined(I2) ||
+#if INTEL_CUSTOMIZATION
+      (isa<IntrinsicInst>(I1) && !isSafeToHoistIntrinsic(I1)) ||
+#endif // INTEL_CUSTOMIZATION
       (isa<InvokeInst>(I1) && !isSafeToHoistInvoke(BB1, BB2, I1, I2)))
     return false;
 
@@ -1144,6 +1162,10 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       while (isa<DbgInfoIntrinsic>(I2))
         I2 = BB2_Itr++;
     }
+#if INTEL_CUSTOMIZATION
+    if (isa<IntrinsicInst>(I1) && !isSafeToHoistIntrinsic(I1))
+      break;
+#endif // INTEL_CUSTOMIZATION
   } while (I1->isIdenticalToWhenDefined(I2));
 
   return true;

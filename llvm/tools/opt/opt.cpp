@@ -312,8 +312,10 @@ int main(int argc, char **argv) {
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
+  initializeIntel_LoopAnalysis(Registry);   //***INTEL
   initializeIPA(Registry);
   initializeTransformUtils(Registry);
+  initializeIntel_LoopTransforms(Registry); //***INTEL
   initializeInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
@@ -324,6 +326,10 @@ int main(int argc, char **argv) {
   initializeRewriteSymbolsPass(Registry);
   initializeWinEHPreparePass(Registry);
   initializeDwarfEHPreparePass(Registry);
+
+#ifdef INTEL_CUSTOMIZATION
+  initializeFeatureOutlinerPass(Registry);
+#endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);

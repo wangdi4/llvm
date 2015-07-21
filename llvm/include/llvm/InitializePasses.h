@@ -62,6 +62,16 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
+#if INTEL_CUSTOMIZATION // HIR passes
+/// initializeIntel_LoopAnalysis - Initialize all passes linked into the
+/// Intel_LoopAnalysis library.
+void initializeIntel_LoopAnalysis(PassRegistry&);
+
+/// initializeIntel_LoopTransforms - Initialize all passes linked into the
+/// Intel_LoopTransforms library.
+void initializeIntel_LoopTransforms(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
+
 void initializeAAEvalPass(PassRegistry&);
 void initializeAddDiscriminatorsPass(PassRegistry&);
 void initializeADCEPass(PassRegistry&);
@@ -298,7 +308,26 @@ void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
+#ifdef INTEL_CUSTOMIZATION
+void initializeFeatureOutlinerPass(PassRegistry&);
+#endif  // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
+
+#if INTEL_CUSTOMIZATION // HIR passes
+void initializeRegionIdentificationPass(PassRegistry&);
+void initializeSCCFormationPass(PassRegistry&);
+void initializeHIRCreationPass(PassRegistry&);
+void initializeHIRCleanupPass(PassRegistry&);
+void initializeLoopFormationPass(PassRegistry&);
+void initializeHIRParserPass(PassRegistry&);
+void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeDDAnalysisPass(PassRegistry&);
+
+void initializeSSADeconstructionPass(PassRegistry&);
+void initializeHIRPrinterPass(llvm::PassRegistry&);
+void initializeHIRCompleteUnrollPass(PassRegistry&);
+void initializeHIRCodeGenPass(PassRegistry&);
+#endif // INTEL_CUSTOMIZATION
 }
 
 #endif

@@ -124,7 +124,7 @@ public:
 
 private:
   /// ExtensionList - This is list of all of the extensions that are registered.
-  std::vector<std::pair<ExtensionPointTy, ExtensionFn> > Extensions;
+  std::vector<std::pair<ExtensionPointTy, ExtensionFn>> Extensions;
 
 public:
   PassManagerBuilder();
@@ -141,6 +141,11 @@ private:
   void addInitialAliasAnalysisPasses(legacy::PassManagerBase &PM) const;
   void addLTOOptimizationPasses(legacy::PassManagerBase &PM);
   void addLateLTOOptimizationPasses(legacy::PassManagerBase &PM);
+
+#if INTEL_CUSTOMIZATION // HIR passes
+  void addLoopOptPasses(legacy::PassManagerBase &PM) const;
+  void addLoopOptCleanupPasses(legacy::PassManagerBase &PM) const;
+#endif // INTEL_CUSTOMIZATION
 
 public:
   /// populateFunctionPassManager - This fills in the function pass manager,
