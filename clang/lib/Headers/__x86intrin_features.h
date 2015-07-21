@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- __x86intrin_features.h -------------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -20,6 +28,10 @@
  *
  *===-----------------------------------------------------------------------===
  */
+
+#ifndef __X86INTRIN_FEATURES_H
+#define __X86INTRIN_FEATURES_H
+ 
 #define _FEATURE_GENERIC_IA32        0x00000001ULL
 #define _FEATURE_FPU                 0x00000002ULL
 #define _FEATURE_CMOV                0x00000004ULL
@@ -58,3 +70,5 @@
 #define _FEATURE_AVX512BW            0x2000000000ULL
 #define _FEATURE_AVX512VL            0x4000000000ULL
 #define _FEATURE_AVX512VBMI          0x8000000000ULL
+
+#endif // __X86INTRIN_FEATURES_H
