@@ -221,42 +221,6 @@ void Vectorizer::deleteVectorizationStubs(Module& M) {
   m_functionsToRetain.clear();
 }
 
-static Type* calcCharacteristicType(Function& F, VectorVariant& vectorVariant) {
-  ISAClass isa = vectorVariant.getISA();
-  Type* returnType = F.getReturnType();
-  Type* characteristicDataType = NULL;
-  std::vector<VectorKind>& parameterKinds = vectorVariant.getParameters();
-  if (!returnType->isVoidTy())
-    characteristicDataType = returnType;
-  const Function::ArgumentListType& arguments = F.getArgumentList();
-  Function::ArgumentListType::const_iterator argIt = arguments.begin();
-  Function::ArgumentListType::const_iterator argEnd = arguments.end();
-  std::vector<VectorKind>::iterator vkIt = parameterKinds.begin();
-
-  vector<VectorKind> parameters;
-  stringstream args_sst;
-  for (; argIt != argEnd; argIt++, vkIt++) {
-    if (vkIt->isVector() && !characteristicDataType)
-      characteristicDataType = (*argIt).getType();
-  }
-
-  // TODO except Clang's ComplexType
-  if (!characteristicDataType || characteristicDataType->isStructTy()) {
-    characteristicDataType = Type::getInt32Ty(F.getContext());
-  }
-
-  characteristicDataType =
-    VectorVariant::promoteToSupportedType(characteristicDataType, isa);
-
-  if (characteristicDataType->isPointerTy()) {
-    const DataLayout& dataLayout = F.getParent()->getDataLayout();
-    unsigned pointerSize = dataLayout.getPointerSizeInBits();
-    characteristicDataType = Type::getIntNTy(F.getContext(), pointerSize);
-  }
-
-  return characteristicDataType;
-}
-
 Function* Vectorizer::createFunctionToVectorize(Function& originalFunction,
 						VectorVariant& vectorVariant,
 						Type* characteristicDataType) {
@@ -424,7 +388,8 @@ bool Vectorizer::runOnModule(Module &M)
 	      (vectorVariant.isMasked() ? 1 : 0)) &&
 	     "function and vector variant differ in number of parameters");
 
-      Type* characteristicDataType = calcCharacteristicType(F, vectorVariant);
+      Type* characteristicDataType =
+          VectorizerUtils::calcCharacteristicType(F, vectorVariant);
 
       // Get a working copy of the function to operate on
       Function *clone = createFunctionToVectorize(F,

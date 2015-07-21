@@ -78,8 +78,7 @@ public:
     static CallInst* createDirectiveCall(Module &M, StringRef DirectiveStr);
 
     /// \brief Return a call to the llvm.intel.directive.qual intrinsic.
-    //static CallInst* createDirectiveQualCall(Module &M, StringRef
-    //                                         DirectiveStr);
+    static CallInst* createDirectiveQualCall(Module &M, StringRef DirectiveStr);
 
     /// \brief Return a call to the llvm.intel.directive.qual.opnd intrinsic.
     static CallInst* createDirectiveQualOpndCall(Module &M,

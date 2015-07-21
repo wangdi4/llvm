@@ -59,7 +59,7 @@ Value* VPOUtils::createMetadataAsValueFromString(Module &M, StringRef Str)
   return llvm::MetadataAsValue::get(M.getContext(), MDNodePtr);
 }
 
-// This function generates calls to llvm.intel.directive.
+// This function generates calls to llvm.intel.directive
 CallInst* VPOUtils::createDirectiveCall(Module &M, StringRef DirectiveStr)
 {
   Function *DirIntrin =
@@ -73,7 +73,21 @@ CallInst* VPOUtils::createDirectiveCall(Module &M, StringRef DirectiveStr)
   return DirCall;
 }
 
-// This function generates calls to llvm.intel.directive.qual.opnd.
+// This function generates calls to llvm.intel.directive.qual
+CallInst* VPOUtils::createDirectiveQualCall(Module &M, StringRef DirectiveStr)
+{
+  Function *DirQualIntrin =
+      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual);
+
+  assert(DirQualIntrin && "Cannot get declaration for\
+                           @llvm.intel.directive.qual(metadata) intrinsic");
+
+  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
+  CallInst *DirQualCall = CallInst::Create(DirQualIntrin, CallArg);
+  return DirQualCall;
+}
+
+// This function generates calls to llvm.intel.directive.qual.opnd
 CallInst* VPOUtils::createDirectiveQualOpndCall(Module &M,
                                                 StringRef DirectiveStr,
                                                 Value *Val)
@@ -97,7 +111,7 @@ CallInst* VPOUtils::createDirectiveQualOpndCall(Module &M,
   return DirCall;
 }
 
-// This function generates calls to llvm.intel.directive.qual.opndlist.
+// This function generates calls to llvm.intel.directive.qual.opndlist
 CallInst* VPOUtils::createDirectiveQualOpndListCall(
     Module &M,
     StringRef DirectiveStr,

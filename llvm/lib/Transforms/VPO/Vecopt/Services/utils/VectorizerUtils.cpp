@@ -33,16 +33,55 @@ std::vector<Attribute> VectorizerUtils::getVectorVariantAttributes(Function& F) 
   return retVal;
 }
 
+Type* VectorizerUtils::calcCharacteristicType(Function& F,
+                                              VectorVariant& Variant)
+{
+  ISAClass ISA = Variant.getISA();
+  Type* ReturnType = F.getReturnType();
+  Type* CharacteristicDataType = NULL;
+  std::vector<VectorKind>& ParmKinds = Variant.getParameters();
+
+  if (!ReturnType->isVoidTy())
+    CharacteristicDataType = ReturnType;
+
+  const Function::ArgumentListType& Args = F.getArgumentList();
+  Function::ArgumentListType::const_iterator ArgIt = Args.begin();
+  Function::ArgumentListType::const_iterator ArgEnd = Args.end();
+  std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+
+  std::vector<VectorKind> Parms;
+  for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {
+    if (VKIt->isVector() && !CharacteristicDataType)
+      CharacteristicDataType = (*ArgIt).getType();
+  }
+
+  // TODO except Clang's ComplexType
+  if (!CharacteristicDataType || CharacteristicDataType->isStructTy()) {
+    CharacteristicDataType = Type::getInt32Ty(F.getContext());
+  }
+
+  CharacteristicDataType =
+    VectorVariant::promoteToSupportedType(CharacteristicDataType, ISA);
+
+  if (CharacteristicDataType->isPointerTy()) {
+    const DataLayout& DL = F.getParent()->getDataLayout();
+    unsigned PointerSize = DL.getPointerSizeInBits();
+    CharacteristicDataType = Type::getIntNTy(F.getContext(), PointerSize);
+  }
+
+  return CharacteristicDataType;
+}
+
 void VectorizerUtils::getFunctionsToVectorize(llvm::Module &M,
 					      FunctionVariants& funcVars) {
   for (auto it = M.begin(), end = M.end(); it != end; it++) {
     Function& F = *it;
-    auto vectorVariantAttributes = getVectorVariantAttributes(F);
-    if (vectorVariantAttributes.empty())
+    auto VariantAttributes = getVectorVariantAttributes(F);
+    if (VariantAttributes.empty())
       continue;
     funcVars[&F] = DeclaredVariants();
     DeclaredVariants& declaredVariants = funcVars[&F];
-    for (auto attribute : vectorVariantAttributes)
+    for (auto attribute : VariantAttributes)
       declaredVariants.push_back(attribute.getKindAsString());
   }
 }

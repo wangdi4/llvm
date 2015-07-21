@@ -9,9 +9,12 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Type.h"
 #include <vector>
 
 namespace intel {
+
+class VectorVariant;
 
 class VectorizerUtils {
 
@@ -24,6 +27,10 @@ public:
   /// @param F Function to inspect
   /// @return A vector of all matching attributes
   static std::vector<llvm::Attribute> getVectorVariantAttributes(llvm::Function& F);
+
+  /// \brief Determine the characteristic type of the vector function as
+  /// specified acccording to the vector function ABI.
+  static llvm::Type* calcCharacteristicType(llvm::Function& F, VectorVariant& Variant);
 
   /// @brief Get all functions marked for vectorization in module.
   /// @param M Module to query

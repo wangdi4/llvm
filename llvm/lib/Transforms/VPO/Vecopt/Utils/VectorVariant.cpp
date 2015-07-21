@@ -20,6 +20,11 @@ VectorVariant::VectorVariant(llvm::StringRef funcName) {
     int strideSign = 1;
     int alignment = VectorKind::NA();
     sst.get(kind);
+    // Default stride for linear is 1. If the stride for a parameter is 1,
+    // then the front-end will not encode it and we will not have set the
+    // correct stride below.
+    if (kind == 'l')
+      stride = 1;
     if (sst.peek() == 'n') {
       sst.ignore(1);
       strideSign = -1;
