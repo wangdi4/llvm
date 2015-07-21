@@ -566,8 +566,14 @@ ALIAS("__volatile"   , volatile   , KEYALL)
 ALIAS("__volatile__" , volatile   , KEYALL)
 
 // Microsoft extensions which should be disabled in strict conformance mode
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#373504: __ptr64 and __ptr32 on Linux.
+KEYWORD(__ptr64                       , KEYALL)
+KEYWORD(__ptr32                       , KEYALL)
+#else
 KEYWORD(__ptr64                       , KEYMS)
 KEYWORD(__ptr32                       , KEYMS)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__sptr                        , KEYMS)
 KEYWORD(__uptr                        , KEYMS)
 KEYWORD(__w64                         , KEYMS)
