@@ -78,6 +78,9 @@ LANGOPT(CilkPlus, 1, 0, "Intel Cilk Plus extensions to C/C++")
 LANGOPT(Float128, 1, 0, "128 bit float support")
 LANGOPT(Restrict         , 1, 0,
         "Enables the 'restrict' keyword for disambiguating pointers")
+// CQ#373517: compilation fails with 'redefinition of default argument'.
+LANGOPT(PermissiveArgs   , 1, 0,
+        "Allows to redefine default arguments")
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")

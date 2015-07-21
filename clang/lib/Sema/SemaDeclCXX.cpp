@@ -523,7 +523,33 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-    if (OldParamHasDfl && NewParamHasDfl) {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#373517: compilation fails with 'redefinition of default
+    // argument'.
+    if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
+        (getLangOpts().PermissiveArgs ||
+         getSourceManager().isInSystemHeader(New->getLocation()))) {
+      NewParam->setHasInheritedDefaultArg();
+      if (OldParam) {
+        if (OldParam->hasUnparsedDefaultArg())
+          NewParam->setUnparsedDefaultArg();
+        else if (OldParam->hasUninstantiatedDefaultArg())
+          NewParam->setUninstantiatedDefaultArg(
+              OldParam->getUninstantiatedDefaultArg());
+        else
+          NewParam->setDefaultArg(OldParam->getInit());
+      } else {
+        if (NewParam->hasUninstantiatedDefaultArg())
+          OldParam->setUninstantiatedDefaultArg(
+              NewParam->getUninstantiatedDefaultArg());
+        else
+          OldParam->setDefaultArg(NewParam->getInit());
+      }
+      Invalid = false;
+      continue;
+    } else
+#endif // INTEL_CUSTOMIZATION
+        if (OldParamHasDfl && NewParamHasDfl) {
       unsigned DiagDefaultParamID =
         diag::err_param_default_argument_redefinition;
 
