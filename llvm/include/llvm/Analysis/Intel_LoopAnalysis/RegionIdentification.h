@@ -97,7 +97,7 @@ public:
   reverse_iterator rend() { return IRRegions.rend(); }
   const_reverse_iterator rend() const { return IRRegions.rend(); }
 
-  unsigned getNumRegions() const { return std::distance(begin(), end()); }
+  unsigned getNumRegions() const { return IRRegions.size(); }
 };
 
 } // End namespace loopopt

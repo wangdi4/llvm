@@ -3,9 +3,11 @@
 ; Check formation of one SCC
 ; CHECK: Region 1
 ; CHECK-NEXT: SCC1
-; CHECK-SAME: inc
-; CHECK-SAME: a.addr.1
-; CHECK-SAME: a.addr.08
+; CHECK-DAG: inc
+; CHECK-NOT: SCC
+; CHECK-DAG: a.addr.1
+; CHECK-NOT: SCC
+; CHECK-DAG: a.addr.08
 ; CHECK-NOT: SCC
 
 

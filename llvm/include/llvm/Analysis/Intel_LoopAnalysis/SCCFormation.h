@@ -59,7 +59,8 @@ public:
   /// Iterators to iterate over regions
   typedef RegionSCCTy::const_iterator const_iterator;
 
-  typedef SmallVector<const_iterator, 16> RegionSCCBeginTy;
+  /// Vector of indices into RegionSCCs vector.
+  typedef SmallVector<int, 16> RegionSCCBeginTy;
 
 private:
   /// LI - The loop information for the function we are currently analyzing.
@@ -77,10 +78,11 @@ private:
   /// RegionSCCs - Vector of SCCs identified by this pass.
   RegionSCCTy RegionSCCs;
 
-  /// RegionSCCBegin - Vector of iterators pointing to first SCC of regions.
+  /// RegionSCCBegin - Vector of indices pointing to first SCC of regions in
+  /// RegionSCCs. If there are no SCCs for the region, index is set to NO_SCC.
   RegionSCCBeginTy RegionSCCBegin;
 
-  /// VisitedNodes - Maps visited instructions to index. This is a per-region
+  /// VisitedNodes - Maps visited instructions to indices. This is a per-region
   /// data structure.
   SmallDenseMap<const NodeTy *, unsigned, 64> VisitedNodes;
 
@@ -99,6 +101,11 @@ private:
   /// isNewRegion - Indicates that we have started processing a new region.
   bool isNewRegion;
 
+  /// NO_SCC - Used in RegionSCCBegin to indicate that there are no sccs
+  /// associated with the region.
+  const int NO_SCC = -1;
+
+private:
   /// \brief Returns true if this is a potential root of a new SCC.
   bool isCandidateRootNode(const NodeTy *Node) const;
 
@@ -124,6 +131,9 @@ private:
 
   /// \brief Sets the RegionSCCBegin iterator for a new region.
   void setRegionSCCBegin();
+
+  /// \brief Returns the index/offset of this region relative to RI->begin().
+  unsigned getRegionIndex(RegionIdentification::const_iterator RegIt) const;
 
   /// \brief Sets RegIt as the current region being processed.
   void setRegion(RegionIdentification::const_iterator RegIt);
