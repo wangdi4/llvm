@@ -12,6 +12,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/InlinerPass.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -25,9 +28,14 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#include "llvm/Transforms/IPO/InlinerPass.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Support/Debug.h"
+#endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
+#ifdef INTEL_CUSTOMIZATION
+using namespace InlineReportTypes;
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "inline"
 
@@ -79,7 +87,14 @@ public:
 
   using llvm::Pass::doFinalization;
   bool doFinalization(CallGraph &CG) override {
+#ifdef INTEL_CUSTOMIZATION
+    bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ true);
+    getReport().print();
+    removeDeletableFunctions();
+    return ReturnValue;
+#else
     return removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ true);
+#endif // INTEL_CUSTOMIZATION
   }
 };
 
@@ -141,12 +156,24 @@ InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining. FIXME: We shouldn't even get here for
   // declarations.
+#ifdef INTEL_CUSTOMIZATION
+  InlineReason Reason; 
+  if (Callee && !Callee->isDeclaration() &&
+      CS.hasFnAttr(Attribute::AlwaysInline)) { 
+      if (ICA->isInlineViable(*Callee, Reason)) {
+        return InlineCost::getAlways(InlrAlwaysInline);
+      }
+      return InlineCost::getNever(Reason); 
+  } 
+  return InlineCost::getNever(NinlrNotAlwaysInline);
+#else 
   if (Callee && !Callee->isDeclaration() &&
       CS.hasFnAttr(Attribute::AlwaysInline) &&
       ICA->isInlineViable(*Callee))
     return InlineCost::getAlways();
 
   return InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
 }
 
 bool AlwaysInliner::runOnSCC(CallGraphSCC &SCC) {
