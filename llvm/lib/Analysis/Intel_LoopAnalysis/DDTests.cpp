@@ -3790,7 +3790,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // if both instructions don't reference memory, there's no dependence
     // TBC: need to handle input DEP when sc_repl is ready
     // okay to skip indep now
-    return nullptr;
+  //  return nullptr;
   }
 
   // TBC: inquire disam util to get INDEP if the base ptrs are different
@@ -4410,13 +4410,13 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
     DEBUG(dbgs() << " src/dst num " << SrcNum << " " << DstNum);
 
-    if (RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef)) {
+    if (RegDDRef *RegRef = dyn_cast<RegDDRef>(SrcDDRef)) {
       if (RegRef->isLval()) {
         IsSrcRval = false;
       }
     }
 
-    if (RegDDRef *RegRef = cast<RegDDRef>(DstDDRef)) {
+    if (RegDDRef *RegRef = dyn_cast<RegDDRef>(DstDDRef)) {
       if (RegRef->isLval()) {
         IsDstRval = false;
       }
@@ -4527,8 +4527,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
     }
 
-    DEBUG(dbgs() << "\nforward DV: "; DA.printDV(forwardDV, Levels, OS));
-    DEBUG(dbgs() << "\nbackward DV: "; DA.printDV(backwardDV, Levels, OS));
+    DEBUG(dbgs() << "\nforward DV: "; printDV(forwardDV, Levels, OS));
+    DEBUG(dbgs() << "\nbackward DV: "; printDV(backwardDV, Levels, OS));
 
     return true;
   }
@@ -4548,9 +4548,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       forwardDV[II - 1] = Result->getDirection(II);
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          DA.printDV(forwardDV, Result->getLevels(), OS));
+          printDV(forwardDV, Result->getLevels(), OS));
     DEBUG(dbgs() << "\nbackward DV: ";
-          DA.printDV(backwardDV, Result->getLevels(), OS));
+          printDV(backwardDV, Result->getLevels(), OS));
     return true;
   }
 
@@ -4573,9 +4573,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          DA.printDV(forwardDV, Result->getLevels(), OS));
+          printDV(forwardDV, Result->getLevels(), OS));
     DEBUG(dbgs() << "\nbackward DV: ";
-          DA.printDV(backwardDV, Result->getLevels(), OS));
+          printDV(backwardDV, Result->getLevels(), OS));
     return true;
   }
 
@@ -4595,9 +4595,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   DEBUG(dbgs() << "\nforward DV: ";
-        DA.printDV(forwardDV, Result->getLevels(), OS));
+        printDV(forwardDV, Result->getLevels(), OS));
   DEBUG(dbgs() << "\nbackward DV: ";
-        DA.printDV(backwardDV, Result->getLevels(), OS));
+        printDV(backwardDV, Result->getLevels(), OS));
 
   return true;
 }
@@ -4629,7 +4629,8 @@ void DDtest::initDV(DVectorTy &inputDV) {
   }
 }
 
-void DDtest::printDV(DVType *DV, unsigned Levels, raw_ostream &OS) const {
+void llvm::loopopt::printDV(const DVType *DV, unsigned Levels,
+                            raw_ostream &OS) {
 
   if (DV[0] == DV::NONE) {
     OS << "nil\n";

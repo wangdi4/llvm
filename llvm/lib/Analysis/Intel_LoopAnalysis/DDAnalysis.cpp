@@ -182,9 +182,10 @@ bool DDAnalysis::edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq) {
   return InputEdgesReq;
 }
 
-// returns a direction vector used to test from Node's loop nesting level
+// initializes direction vector used to test from Node's loop nesting level
 // to the deepest of ref1 and ref2s level
-DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
+void DDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
+                            DDRef *Ref2) {
   HLLoop *Parent1 = dyn_cast<HLLoop>(Ref1->getHLDDNode());
   HLLoop *Parent2 = dyn_cast<HLLoop>(Ref2->getHLDDNode());
   Parent1 = Parent1 ? Parent1 : Ref1->getHLDDNode()->getLexicalParentLoop();
@@ -207,52 +208,13 @@ DirectionVector DDAnalysis::getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2) {
   }
   assert(ShallowestLevel <= DeepestLevel && "Incorrect Input DV calculation");
 
-  DirectionVector InputDV;
-  for (int i = 1; i < ShallowestLevel; ++i) {
-    InputDV.setDVAtLevel(DirectionVector::Direction::EQ, i);
+  for (int I = 1; I < ShallowestLevel; ++I) {
+    InputDV[I - 1] = DV::EQ;
   }
 
-  for (int i = ShallowestLevel; i <= DeepestLevel; ++i) {
-    InputDV.setDVAtLevel(DirectionVector::Direction::ALL, i);
+  for (int I = ShallowestLevel; I <= DeepestLevel; ++I) {
+    InputDV[I - 1] = DV::ALL;
   }
-
-  return InputDV;
-}
-
-// this is temporary until use of DirectionVector vs DVector is settled
-// only one should be used.
-DirectionVector convertDVectorTyToDV(DVectorTy DVector) {
-  DirectionVector OutputDV;
-  for (unsigned int i = 1; i <= MaxLoopNestLevel; ++i) {
-    auto Level = i - 1;
-    switch (DVector[Level]) {
-    case DV::ALL:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::ALL, i);
-      break;
-    case DV::LT:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::LT, i);
-      break;
-    case DV::EQ:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::EQ, i);
-      break;
-    case DV::LE:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::LE, i);
-      break;
-    case DV::GT:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::GT, i);
-      break;
-    case DV::NE:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::LG, i);
-      break;
-    case DV::NONE:
-      OutputDV.setDVAtLevel(DirectionVector::Direction::UNINIT, i);
-      break;
-    default:
-      break;
-    }
-  }
-
-  return OutputDV;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -310,16 +272,14 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
           // innermost loop graph. If refinement is not possible, we should
           // keep the previous result cached somewhere.
           if (OutputDVForward[0] != DV::NONE) {
-            DDEdge Edge =
-                DDEdge(*Ref1, *Ref2, convertDVectorTyToDV(OutputDVForward));
+            DDEdge Edge = DDEdge(*Ref1, *Ref2, OutputDVForward);
             // DEBUG(dbgs() << "Got edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(Edge);
           }
 
           if (OutputDVBackward[0] != DV::NONE) {
-            DDEdge Edge =
-                DDEdge(*Ref2, *Ref1, convertDVectorTyToDV(OutputDVBackward));
+            DDEdge Edge = DDEdge(*Ref2, *Ref1, OutputDVBackward);
             // DEBUG(dbgs() << "Got back edge of :");
             // DEBUG(Edge.dump());
             FunctionDDGraph.addEdge(Edge);

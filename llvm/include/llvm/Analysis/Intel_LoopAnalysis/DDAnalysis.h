@@ -146,7 +146,7 @@ private:
   DDGraphTy FunctionDDGraph;
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
-  DirectionVector getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2);
+  void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
   void dumpSymBaseMap(SymToRefs &RefMap);
 
   // Used to rebuild graphs for node/regions based on cl options

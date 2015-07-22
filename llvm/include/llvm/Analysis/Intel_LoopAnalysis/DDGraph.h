@@ -28,70 +28,11 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
 namespace llvm {
 namespace loopopt {
 class HLNode;
-
-struct DirectionVector {
-  enum class Direction : unsigned char {
-    UNINIT = 0,
-    GT = 1,
-    EQ = 2,
-    GE = 3, // 0x1 || 0x2
-    LT = 4,
-    LG = 5, // 0x1 || 0x4
-    LE = 6, // 0x4 || 0x2
-    ALL = 7,
-  };
-  Direction getDVAtLevel(int Level) { return Elements[Level - 1]; }
-  DirectionVector() {
-    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i)
-      Elements[i] = Direction::UNINIT;
-  }
-  void setDVAtLevel(Direction NewDirection, int Level) {
-    Elements[Level - 1] = NewDirection;
-  }
-
-  const std::string elementAsChar(Direction Dir) const {
-    switch (Dir) {
-    case Direction::UNINIT:
-      return "0";
-    case Direction::GT:
-      return ">";
-    case Direction::EQ:
-      return "=";
-    case Direction::GE:
-      return ">=";
-    case Direction::LT:
-      return "<";
-    case Direction::LG:
-      return "<>";
-    case Direction::LE:
-      return "<=";
-    case Direction::ALL:
-      return "*";
-    default:
-      return "?";
-    }
-  }
-
-  void print(raw_ostream &OS) const {
-    OS << "[ ";
-    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i) {
-      if (i > 0 && Elements[i] == Direction::UNINIT)
-        break;
-      OS << elementAsChar(Elements[i]) << " ";
-    }
-    OS << "]"
-       << "\n";
-  }
-
-  void dump() const { print(dbgs()); }
-
-private:
-  Direction Elements[MaxLoopNestLevel];
-};
 
 // TODO move to another location to make a generic graph?
 // TODO doc req
@@ -166,12 +107,16 @@ private:
   };
   DDRef *Src;
   DDRef *Sink;
-  DirectionVector DV;
+  DVectorTy DV;
 
 public:
   DDEdge() { Src = Sink = nullptr; }
-  DDEdge(DDRef *SrcRef, DDRef *SinkRef, DirectionVector DirV)
-      : Src(SrcRef), Sink(SinkRef), DV(DirV) {}
+  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV)
+      : Src(SrcRef), Sink(SinkRef) {
+    for (unsigned II = 0; II < MaxLoopNestLevel; ++II) {
+      DV[II] = DirV[II];
+    }
+  }
 
   DepType getEdgeType() const {
     RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
@@ -222,7 +167,13 @@ public:
     FOS << " ";
     FOS << getEdgeType();
     FOS << " ";
-    DV.print(FOS);
+    unsigned Level;
+    for (Level = 0; Level < MaxLoopNestLevel; ++Level) {
+      if (DV[Level] == DV::NONE) {
+        break;
+      }
+    }
+    printDV(DV, Level, FOS);
     FOS << " \n";
     // todo
   }

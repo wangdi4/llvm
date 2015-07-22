@@ -68,6 +68,9 @@ namespace loopopt {
 typedef unsigned char DVType;
 typedef DVType DVectorTy[MaxLoopNestLevel];
 
+// Print DV from level 1 to Level
+void printDV(const DVType *DV, unsigned Level, raw_ostream &OS);
+
 struct DV {
   enum DVelement {
     NONE = 0,
@@ -336,8 +339,6 @@ public:
 
   // Construct all 0
   void initDV(DVectorTy &inputDV);
-  // Print DV from level 1 to Level
-  void printDV(DVType *DV, unsigned Level, raw_ostream &OS) const;
 
 private:
   //    AliasAnalysis *AA;
