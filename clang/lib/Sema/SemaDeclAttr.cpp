@@ -5615,7 +5615,15 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   // when X is a decl attribute.
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
     if (const AttributeList *Attrs = PD.getTypeObject(i).getAttrs())
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#373601: applying gnu::aligned attribute.
+      ProcessDeclAttributeList(S, D, Attrs,
+                               getLangOpts().IntelCompat &&
+                                   PD.getDeclSpec().getStorageClassSpec() ==
+                                       DeclSpec::SCS_typedef);
+#else // INTEL_CUSTOMIZATION
       ProcessDeclAttributeList(S, D, Attrs, /*IncludeCXX11Attributes=*/false);
+#endif // INTEL_CUSTOMIZATION
 
   // Finally, apply any attributes on the decl itself.
   if (const AttributeList *Attrs = PD.getAttributes())

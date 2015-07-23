@@ -4935,6 +4935,17 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     if (attr.isInvalid())
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#373601: applying gnu::aligned attribute.
+    if (state.getSema().getLangOpts().IntelCompat &&
+        attr.getKind() == AttributeList::AT_Aligned &&
+        state.getDeclarator().getDeclSpec().getStorageClassSpec() ==
+            DeclSpec::SCS_typedef &&
+        state.getCurrentChunkIndex() ==
+            state.getDeclarator().getNumTypeObjects() - 1)
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
     if (attr.isCXX11Attribute()) {
       // [[gnu::...]] attributes are treated as declaration attributes, so may
       // not appertain to a DeclaratorChunk, even if we handle them as type
