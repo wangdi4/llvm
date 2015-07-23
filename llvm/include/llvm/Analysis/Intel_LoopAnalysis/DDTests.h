@@ -263,7 +263,7 @@ public:
   /// FullDependence) with as much information as can be gleaned.
 
   std::unique_ptr<Dependences> depends(DDRef *SrcDDRef, DDRef *DstDDRef,
-                                       const DVectorTy &inputDV,
+                                       const DVectorTy &InputDV,
                                        bool fromFusion = false);
 
   /// findDependences  - return true if there is a dependence, otherwise INDEP
@@ -626,8 +626,9 @@ private:
   /// Returns true if dependence disproved.
   /// Can sometimes refine direction vectors.
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
-               const SmallBitVector &Loops, FullDependences &Result,
-               const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop);
+               const DVectorTy &InputDV, const SmallBitVector &Loops,
+               FullDependences &Result, const HLLoop *SrcParentLoop,
+               const HLLoop *DstParentLoop);
 
   /// strongSIVtest - Tests the strong SIV subscript pair (Src and Dst)
   /// for dependence.
@@ -743,8 +744,9 @@ private:
   /// Marks the result as inconsistent.
   /// Computes directions.
   bool banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
-                       const SmallBitVector &Loops, FullDependences &Result,
-                       const HLLoop *SrcLoop, const HLLoop *DstLoop);
+                       const DVectorTy &InputDV, const SmallBitVector &Loops,
+                       FullDependences &Result, const HLLoop *SrcLoop,
+                       const HLLoop *DstLoop);
 
   /// collectCoefficientInfo - Walks through the subscript,
   /// collecting each coefficient, the associated loop bounds,
@@ -831,12 +833,13 @@ private:
   unsigned exploreDirections(unsigned Level, CoefficientInfo *A,
                              CoefficientInfo *B, BoundInfo *Bound,
                              const SmallBitVector &Loops,
-                             unsigned &DepthExpanded, const CanonExpr *Delta);
+                             unsigned &DepthExpanded, const CanonExpr *Delta,
+                             const DVectorTy &InputDV);
 
   /// testBounds - Returns true iff the current bounds are plausible.
   ///
   bool testBounds(DVType DirKind, unsigned Level, BoundInfo *Bound,
-                  const CanonExpr *Delta);
+                  const CanonExpr *Delta, const DVectorTy &InputDV);
 
   /// findBoundsALL - Computes the upper and lower bounds for level K
   /// using the * direction. Records them in Bound.

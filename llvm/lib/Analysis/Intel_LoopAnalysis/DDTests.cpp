@@ -1465,7 +1465,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
     ++WeakCrossingSIVsuccesses;
     if (!Result.DV[Level].Direction) {
       ++WeakCrossingSIVindependence;
-      DEBUG(dbgs() << "\nWeakCrossingSIV INDEP-0!");
+      DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-0!");
       return true;
     }
     Result.DV[Level].Distance = Delta; // = 0
@@ -1523,7 +1523,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
     // No dependence, Delta < 0s
     ++WeakCrossingSIVindependence;
     ++WeakCrossingSIVsuccesses;
-    DEBUG(dbgs() << "\nWeakCrossingSIV INDEP-1!");
+    DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-1!");
     return true;
   }
 
@@ -1539,7 +1539,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
       // Delta too big, no dependence
       ++WeakCrossingSIVindependence;
       ++WeakCrossingSIVsuccesses;
-      DEBUG(dbgs() << "\nWeakCrossingSIV INDEP-2!");
+      DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-2!");
       return true;
     }
     if (isKnownPredicate(CmpInst::ICMP_EQ, Delta, ML)) {
@@ -1549,7 +1549,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
       ++WeakCrossingSIVsuccesses;
       if (!Result.DV[Level].Direction) {
         ++WeakCrossingSIVindependence;
-        DEBUG(dbgs() << "\nWeakCrossingSIV INDEP-3!");
+        DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-3!");
         return true;
       }
       Result.DV[Level].Splitable = false;
@@ -1575,7 +1575,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
     // Coeff doesn't divide Delta, no dependence
     ++WeakCrossingSIVindependence;
     ++WeakCrossingSIVsuccesses;
-    DEBUG(dbgs() << "\nWeakCrossingSIV INDEP-4!");
+    DEBUG(dbgs() << "\n\tWeakCrossingSIV INDEP-4!");
     return true;
   }
   DEBUG(dbgs() << "\n    Distance = " << Distance << "\n");
@@ -2528,14 +2528,16 @@ bool DDtest::testRDIV(const CanonExpr *Src, const CanonExpr *Dst,
 // Return true if dependence disproved.
 // Can sometimes refine direction vectors.
 bool DDtest::testMIV(const CanonExpr *Src, const CanonExpr *Dst,
-                     const SmallBitVector &Loops, FullDependences &Result,
-                     const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop) {
+                     const DVectorTy &InputDV, const SmallBitVector &Loops,
+                     FullDependences &Result, const HLLoop *SrcParentLoop,
+                     const HLLoop *DstParentLoop) {
 
   DEBUG(dbgs() << "\n   src = "; Src->dump());
   DEBUG(dbgs() << "\n   dst = "; Dst->dump());
   Result.Consistent = false;
   return gcdMIVtest(Src, Dst, SrcParentLoop, DstParentLoop, Result) ||
-         banerjeeMIVtest(Src, Dst, Loops, Result, SrcParentLoop, DstParentLoop);
+         banerjeeMIVtest(Src, Dst, InputDV, Loops, Result, SrcParentLoop,
+                         DstParentLoop);
 }
 
 #if 0
@@ -2826,6 +2828,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 //
 // Return true if dependence disproved.
 bool DDtest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
+                             const DVectorTy &InputDV,
                              const SmallBitVector &Loops,
                              FullDependences &Result,
                              const HLLoop *SrcParentLoop,
@@ -2871,11 +2874,11 @@ bool DDtest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   // Test the *, *, *, ... case.
   bool Disproved = false;
-  if (testBounds(DV::ALL, 0, Bound, Delta)) {
+  if (testBounds(DV::ALL, 0, Bound, Delta, InputDV)) {
     // Explore the direction vector hierarchy.
     unsigned DepthExpanded = 0;
     unsigned NewDeps =
-        exploreDirections(1, A, B, Bound, Loops, DepthExpanded, Delta);
+        exploreDirections(1, A, B, Bound, Loops, DepthExpanded, Delta, InputDV);
     if (NewDeps > 0) {
       bool Improved = false;
       for (unsigned K = 1; K <= CommonLevels; ++K) {
@@ -2915,7 +2918,8 @@ unsigned DDtest::exploreDirections(unsigned Level, CoefficientInfo *A,
                                    CoefficientInfo *B, BoundInfo *Bound,
                                    const SmallBitVector &Loops,
                                    unsigned &DepthExpanded,
-                                   const CanonExpr *Delta) {
+                                   const CanonExpr *Delta,
+                                   const DVectorTy &InputDV) {
   if (Level > CommonLevels) {
     // record result
     DEBUG(dbgs() << "\n\t[");
@@ -3006,31 +3010,47 @@ unsigned DDtest::exploreDirections(unsigned Level, CoefficientInfo *A,
     unsigned NewDeps = 0;
 
     // test bounds for <, *, *, ...
-    if (testBounds(DV::LT, Level, Bound, Delta))
+    if (testBounds(DV::LT, Level, Bound, Delta, InputDV))
       NewDeps += exploreDirections(Level + 1, A, B, Bound, Loops, DepthExpanded,
-                                   Delta);
+                                   Delta, InputDV);
 
     // Test bounds for =, *, *, ...
-    if (testBounds(DV::EQ, Level, Bound, Delta))
+    if (testBounds(DV::EQ, Level, Bound, Delta, InputDV))
       NewDeps += exploreDirections(Level + 1, A, B, Bound, Loops, DepthExpanded,
-                                   Delta);
+                                   Delta, InputDV);
 
     // test bounds for >, *, *, ...
-    if (testBounds(DV::GT, Level, Bound, Delta))
+    if (testBounds(DV::GT, Level, Bound, Delta, InputDV))
       NewDeps += exploreDirections(Level + 1, A, B, Bound, Loops, DepthExpanded,
-                                   Delta);
+                                   Delta, InputDV);
 
     Bound[Level].Direction = DV::ALL;
     return NewDeps;
   } else
     return exploreDirections(Level + 1, A, B, Bound, Loops, DepthExpanded,
-                             Delta);
+                             Delta, InputDV);
 }
 
 // Returns true iff the current bounds are plausible.
+// Return false implies no dependences for that level & DirKind
+
 bool DDtest::testBounds(DVType DirKind, unsigned Level, BoundInfo *Bound,
-                        const CanonExpr *Delta) {
+                        const CanonExpr *Delta, const DVectorTy &InputDV) {
+
   Bound[Level].Direction = DirKind;
+  DEBUG(dbgs() << "\n\tTestBound: Level,DirKind\t" << Level << " "
+               << (unsigned)DirKind);
+
+  // Level = 0 is called banerjeeMIVTest before expanding the call for
+  // all combinations of DV
+  // exploreDircetions will spawn off testing all combinations of DV
+  // with Level > 0
+
+  if (Level && (DirKind & InputDV[Level - 1]) == 0) {
+    DEBUG(dbgs() << "\n\tSkip testBound because no match with inputDV");
+    return false;
+  }
+
   if (const CanonExpr *LowerBound = getLowerBound(Bound))
     if (isKnownPredicate(CmpInst::ICMP_SGT, LowerBound, Delta))
       return false;
@@ -3695,7 +3715,7 @@ DDtest::~DDtest() {
 // up to date with respect to this routine.
 
 std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
-                                             const DVectorTy &inputDV,
+                                             const DVectorTy &InputDV,
                                              bool fromFusion) {
   //
   //
@@ -3708,10 +3728,10 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   // e.g.   (=  <>) will check if the innermost loop can be parallelized.
   //
   // Sample for calling this function & dump result:
-  //    DVectorTy inputDV;
-  //   (which is actually  DVType inputDV[MaxLoopNestLevel])
-  //    DA.setInputDV((inputDV, 1, CommonLevels);
-  // 	  auto D = DA.depends(ddref[0], ddref[1], inputDV);
+  //    DVectorTy InputDV;
+  //   (which is actually  DVType InputDV[MaxLoopNestLevel])
+  //    DA.setInputDV((InputDV, 1, CommonLevels);
+  // 	  auto D = DA.depends(ddref[0], ddref[1], InputDV);
   //    if (D == nullptr)
   //       OS << "is Independent!";
   //    else
@@ -3782,15 +3802,13 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   DEBUG(dbgs() << "\nSrc/Dst Blob?  " << IsSrcBlob << " " << IsDstBlob
                << "\n ");
 
-  if ((IsSrcRval && IsDstRval) || (IsSrcBlob != IsDstBlob)) {
-    // TODO: right now, A[i]  and A are grouped in same symbase
-    // which are not supposed to be
-    // The fix would be in SB assignment
-
+  if ((IsSrcRval && IsDstRval)) {
     // if both instructions don't reference memory, there's no dependence
-    // TBC: need to handle input DEP when sc_repl is ready
-    // okay to skip indep now
-  //  return nullptr;
+    // TODO: need to handle input DEP when sc_repl is ready
+    // okay to skip input dep now
+    // We only need to generate input dep when there is no dd_ref with lval
+    // so it requires a scan first
+    return nullptr;
   }
 
   // TBC: inquire disam util to get INDEP if the base ptrs are different
@@ -4035,8 +4053,8 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
       DEBUG(dbgs() << ", MIV\n");
 
-      if (testMIV(Pair[SI].Src, Pair[SI].Dst, Pair[SI].Loops, Result, SrcLoop,
-                  DstLoop)) {
+      if (testMIV(Pair[SI].Src, Pair[SI].Dst, InputDV, Pair[SI].Loops, Result,
+                  SrcLoop, DstLoop)) {
         return nullptr;
       }
       break;
@@ -4061,7 +4079,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       unsigned Level = mapSrcLoop(ivLoop);
 
       Result.setDirection(Level,
-                          Result.getDirection(Level) & inputDV[Level - 1]);
+                          Result.getDirection(Level) & InputDV[Level - 1]);
 
       if (Result.getDirection(Level) == DV::NONE) {
         return nullptr;
@@ -4168,7 +4186,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
       for (int SJ = Mivs.find_first(); SJ >= 0; SJ = Mivs.find_next(SJ)) {
         if (Pair[SJ].Classification == Subscript::MIV) {
           DEBUG(dbgs() << "MIV test\n");
-          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, Pair[SJ].Loops, Result))
+          if (testMIV(Pair[SJ].Src, Pair[SJ].Dst, InputDV, Pair[SJ].Loops, Result))
             return nullptr;
         } else
           llvm_unreachable("expected only MIV subscripts at this point");
@@ -4203,9 +4221,9 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   for (unsigned II = 1; II <= CommonLevels; ++II) {
     unsigned Level = II - 1;
-    Result.DV[Level].Direction &= inputDV[Level];
+    Result.DV[Level].Direction &= InputDV[Level];
     if (Result.DV[Level].Direction == DV::NONE) {
-      DEBUG(dbgs() << "\t return INDEP-09\n");
+      DEBUG(dbgs() << "\n\t return INDEP-09\n");
       return nullptr;
     }
   }
@@ -4226,7 +4244,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     // If src & sink are the same ddref  and the DV are all =
     // there is no DEP.
     if (SrcDDRef == DstDDRef) {
-      DEBUG(dbgs() << "\t return INDEP-11\n" << SrcDDRef << DstDDRef);
+      DEBUG(dbgs() << "\n\t return INDEP-11\n" << SrcDDRef << DstDDRef);
       return nullptr;
     }
   }
@@ -4293,10 +4311,10 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   return std::move(Final);
 }
 
-void DDtest::reverseDV(const DVectorTy &inputDV, DVectorTy &outputDV) const {
+void DDtest::reverseDV(const DVectorTy &InputDV, DVectorTy &outputDV) const {
 
   for (unsigned II = 1; II <= CommonLevels; ++II) {
-    switch (inputDV[II - 1]) {
+    switch (InputDV[II - 1]) {
     case DV::LT:
       outputDV[II - 1] = DV::GT;
       break;
@@ -4310,14 +4328,14 @@ void DDtest::reverseDV(const DVectorTy &inputDV, DVectorTy &outputDV) const {
       outputDV[II - 1] = DV::LE;
       break;
     default:
-      outputDV[II - 1] = inputDV[II - 1];
+      outputDV[II - 1] = InputDV[II - 1];
       break;
     }
   }
 }
 
 bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                             const DVectorTy &inputDV, DVectorTy &forwardDV,
+                             const DVectorTy &InputDV, DVectorTy &forwardDV,
                              DVectorTy &backwardDV) {
 
   // This interface is created to facilitate the building of DDG when forward or
@@ -4345,7 +4363,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   DA.initDV(forwardDV);
   DA.initDV(backwardDV);
 
-  auto Result = DA.depends(SrcDDRef, DstDDRef, inputDV);
+  auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4602,30 +4620,30 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   return true;
 }
 
-void DDtest::setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
+void DDtest::setInputDV(DVectorTy &InputDV, const unsigned int startLevel,
                         const unsigned int endLevel) const {
 
-  // setInputDV (&inputDV, 3,4)
+  // setInputDV (&InputDV, 3,4)
   // will construct (= = * *)
 
   for (unsigned II = 1; II < startLevel; ++II) {
-    inputDV[II - 1] = DV::EQ;
+    InputDV[II - 1] = DV::EQ;
   }
 
   for (unsigned II = startLevel; II <= endLevel; ++II) {
-    inputDV[II - 1] = DV::ALL;
+    InputDV[II - 1] = DV::ALL;
   }
 
   for (unsigned II = endLevel + 1; II <= MaxLoopNestLevel; ++II) {
-    inputDV[II - 1] = DV::NONE;
+    InputDV[II - 1] = DV::NONE;
   }
 }
 
-void DDtest::initDV(DVectorTy &inputDV) {
+void DDtest::initDV(DVectorTy &InputDV) {
 
   // Construct all  0 (NONE)
   for (unsigned II = 1; II < MaxLoopNestLevel; ++II) {
-    inputDV[II - 1] = DV::NONE;
+    InputDV[II - 1] = DV::NONE;
   }
 }
 
