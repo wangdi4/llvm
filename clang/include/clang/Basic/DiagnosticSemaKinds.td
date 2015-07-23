@@ -1329,6 +1329,12 @@ def err_not_integral_type_anon_bitfield : Error<
   "anonymous bit-field has non-integral type %0">;
 def err_member_function_initialization : Error<
   "initializer on function does not look like a pure-specifier">;
+// if INTEL_CUSTOMIZATION
+// CQ#373607
+def warn_member_function_initialization : Warning<
+  "initializer on function does not look like a pure-specifier">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_non_virtual_pure : Error<
   "%0 is not virtual and cannot be declared pure">;
 def ext_pure_function_definition : ExtWarn<

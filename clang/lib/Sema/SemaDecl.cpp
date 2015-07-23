@@ -8877,6 +8877,16 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
     if ((IL = dyn_cast<IntegerLiteral>(Init)) && IL->getValue() == 0 &&
         Context.getCanonicalType(IL->getType()) == Context.IntTy)
       CheckPureMethod(Method, Init->getSourceRange());
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#373607 - allow using 0 with modificators as pure-specifier.
+    else if ((IL = dyn_cast<IntegerLiteral>(Init)) && IL->getValue() == 0 &&
+             getLangOpts().IntelCompat &&
+             Context.getCanonicalType(IL->getType()) != Context.IntTy) {
+      Diag(Method->getLocation(), diag::warn_member_function_initialization)
+          << Method->getDeclName() << Init->getSourceRange();
+      CheckPureMethod(Method, Init->getSourceRange());
+    }
+#endif // INTEL_CUSTOMIZATION
     else {
       Diag(Method->getLocation(), diag::err_member_function_initialization)
         << Method->getDeclName() << Init->getSourceRange();
