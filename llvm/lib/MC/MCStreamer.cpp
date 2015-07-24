@@ -470,6 +470,8 @@ void MCStreamer::EmitWinCFIPushReg(unsigned Register) {
   CurrentWinFrameInfo->Instructions.push_back(Inst);
 }
 
+void MCStreamer::EmitSyntaxDirective(){}
+
 void MCStreamer::EmitWinCFISetFrame(unsigned Register, unsigned Offset) {
   EnsureValidWinFrameInfo();
   if (CurrentWinFrameInfo->LastFrameInst >= 0)

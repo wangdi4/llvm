@@ -629,6 +629,8 @@ def int_bitset_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
 //#ifdef INTEL_CUSTOMIZATION
 def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
+
+def int_has_feature : Intrinsic<[llvm_i1_ty], [llvm_i64_ty], [IntrNoMem]>;
 //#endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
