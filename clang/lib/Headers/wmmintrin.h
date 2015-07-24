@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- wmmintrin.h - AES intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -26,17 +34,8 @@
 
 #include <emmintrin.h>
 
-#if !defined (__AES__) && !defined (__PCLMUL__)
-# error "AES/PCLMUL instructions not enabled"
-#else
-
-#ifdef __AES__
 #include <__wmmintrin_aes.h>
-#endif /* __AES__ */
 
-#ifdef __PCLMUL__
 #include <__wmmintrin_pclmul.h>
-#endif /* __PCLMUL__ */
 
-#endif /* __AES__ || __PCLMUL__ */
 #endif /* _WMMINTRIN_H */

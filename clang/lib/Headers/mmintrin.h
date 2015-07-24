@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- mmintrin.h - MMX intrinsics --------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,10 +31,6 @@
 
 #ifndef __MMINTRIN_H
 #define __MMINTRIN_H
-
-#ifndef __MMX__
-#error "MMX instruction set not enabled"
-#else
 
 typedef long long __m64 __attribute__((__vector_size__(8)));
 
@@ -496,8 +500,6 @@ _mm_setr_pi8(char __b0, char __b1, char __b2, char __b3, char __b4, char __b5,
 #define _m_pcmpgtb _mm_cmpgt_pi8
 #define _m_pcmpgtw _mm_cmpgt_pi16
 #define _m_pcmpgtd _mm_cmpgt_pi32
-
-#endif /* __MMX__ */
 
 #endif /* __MMINTRIN_H */
 

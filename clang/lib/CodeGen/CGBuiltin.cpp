@@ -1829,6 +1829,11 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__notify_zc_intrinsic:
     // FIXME: not implemented yet.
     return RValue::get(0);
+  case Builtin::BI__builtin_has_cpu_feature: {
+    Value *ArgValue = EmitScalarExpr(E->getArg(0), IntTy);
+    Value *FnAssume = CGM.getIntrinsic(Intrinsic::has_feature);
+    return RValue::get(Builder.CreateCall(FnAssume, ArgValue));
+  }
 #endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__exception_code:
   case Builtin::BI_exception_code:

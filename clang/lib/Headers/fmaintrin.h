@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- fma4intrin.h - FMA4 intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,10 +35,6 @@
 
 #ifndef __FMAINTRIN_H
 #define __FMAINTRIN_H
-
-#ifndef __FMA__
-# error "FMA instruction set is not enabled"
-#else
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
 _mm_fmadd_ps(__m128 __A, __m128 __B, __m128 __C)
@@ -223,7 +227,5 @@ _mm256_fmsubadd_pd(__m256d __A, __m256d __B, __m256d __C)
 {
   return (__m256d)__builtin_ia32_vfmsubaddpd256(__A, __B, __C);
 }
-
-#endif /* __FMA__ */
 
 #endif /* __FMAINTRIN_H */

@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- f16cintrin.h - F16C intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,10 +32,6 @@
 #if !defined __X86INTRIN_H && !defined __IMMINTRIN_H
 #error "Never use <f16cintrin.h> directly; include <x86intrin.h> instead."
 #endif
-
-#ifndef __F16C__
-# error "F16C instruction is not enabled"
-#endif /* __F16C__ */
 
 #ifndef __F16CINTRIN_H
 #define __F16CINTRIN_H

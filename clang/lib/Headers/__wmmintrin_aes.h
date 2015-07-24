@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- __wmmintrin_aes.h - AES intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,10 +32,6 @@
 #define _WMMINTRIN_AES_H
 
 #include <emmintrin.h>
-
-#if !defined (__AES__)
-#  error "AES instructions not enabled"
-#else
 
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_aesenc_si128(__m128i __V, __m128i __R)
@@ -61,7 +65,5 @@ _mm_aesimc_si128(__m128i __V)
 
 #define _mm_aeskeygenassist_si128(C, R) \
   __builtin_ia32_aeskeygenassist128((C), (R))
-
-#endif
 
 #endif  /* _WMMINTRIN_AES_H */

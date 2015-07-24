@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- nmmintrin.h - SSE4 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,12 +32,7 @@
 #ifndef _NMMINTRIN_H
 #define _NMMINTRIN_H
 
-#ifndef __SSE4_2__
-#error "SSE4.2 instruction set not enabled"
-#else
-
 /* To match expectations of gcc we put the sse4.2 definitions into smmintrin.h,
    just include it now then.  */
 #include <smmintrin.h>
-#endif /* __SSE4_2__ */
 #endif /* _NMMINTRIN_H */
