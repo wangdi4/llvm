@@ -1,4 +1,4 @@
-//===--- CanonExprUtils.cpp - Implements CanonExprUtils class ----- C++ -*-===//
+//===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -23,6 +23,8 @@
 
 using namespace llvm;
 using namespace loopopt;
+
+HIRParser *HLUtils::HIRPar(nullptr);
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, unsigned Level,
                                            int64_t Const, int64_t Denom) {
@@ -105,6 +107,11 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
+CanonExpr::BlobTy CanonExprUtils::createBlob(Value* Val, bool Insert,
+                                             unsigned *NewBlobIndex) {
+  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+}
+
 CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
                                              unsigned *NewBlobIndex) {
   return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
@@ -154,6 +161,17 @@ CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
                                                        Type *Ty, bool Insert,
                                                        unsigned *NewBlobIndex) {
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val) {
+  unsigned Index;
+
+  getHIRParser()->createBlob(Val, true, &Index);
+  auto CE = createCanonExpr(Val->getType());
+  CE->addBlob(Index, 1);
+  CE->setNonLinear();
+
+  return CE;
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {

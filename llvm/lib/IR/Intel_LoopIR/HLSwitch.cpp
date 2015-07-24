@@ -16,7 +16,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;

@@ -1,4 +1,4 @@
-//===---- HIRCleanup.cpp - Clean up redundant HIR Nodes -----*- C++ -*-----===//
+//===---- HIRCleanup.cpp - Clean up redundant HIR Nodes -------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

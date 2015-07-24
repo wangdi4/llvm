@@ -1,4 +1,4 @@
-//===----- HIRParser.cpp - Parses SCEVs into CanonExprs -----*- C++ -*-----===//
+//===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -44,9 +44,6 @@ INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
 
-// define the static pointer
-HIRParser *HLUtils::HIRPar = nullptr;
-
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
 HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {
@@ -60,6 +57,10 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarSymbaseAssignment>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
+}
+
+void HIRParser::insertHIRLval(const Value *Lval, unsigned Symbase) {
+  ScalarSA->insertHIRLval(Lval, Symbase);
 }
 
 bool HIRParser::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const {
@@ -90,11 +91,8 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
-CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
-                                        unsigned *NewBlobIndex) {
-  Type *Int64Type = IntegerType::get(SE->getContext(), 64);
-  auto Blob = SE->getConstant(Int64Type, Val, false);
-
+void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, bool Insert,
+                                 unsigned *NewBlobIndex) {
   if (Insert) {
     unsigned BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
 
@@ -102,6 +100,25 @@ CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
       *NewBlobIndex = BlobIndex;
     }
   }
+}
+
+CanonExpr::BlobTy HIRParser::createBlob(Value *Val, bool Insert,
+                                        unsigned *NewBlobIndex) {
+  assert(Val && "Value cannot be null!");
+
+  auto Blob = SE->getUnknown(Val);
+
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
+
+  return Blob;
+}
+
+CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
+                                        unsigned *NewBlobIndex) {
+  Type *Int64Type = IntegerType::get(getContext(), 64);
+  auto Blob = SE->getConstant(Int64Type, Val, false);
+
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -110,17 +127,10 @@ CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
                                            CanonExpr::BlobTy RHS, bool Insert,
                                            unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot by null!");
-  unsigned BlobIndex;
 
   auto Blob = SE->getAddExpr(LHS, RHS);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -129,17 +139,10 @@ CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
                                              CanonExpr::BlobTy RHS, bool Insert,
                                              unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot by null!");
-  unsigned BlobIndex;
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -148,17 +151,10 @@ CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
                                            CanonExpr::BlobTy RHS, bool Insert,
                                            unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot by null!");
-  unsigned BlobIndex;
 
   auto Blob = SE->getMulExpr(LHS, RHS);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -167,17 +163,10 @@ CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
                                             CanonExpr::BlobTy RHS, bool Insert,
                                             unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot by null!");
-  unsigned BlobIndex;
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(Blob, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -187,17 +176,10 @@ CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
                                                 unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot by null!");
   assert(Ty && "Type cannot by null!");
-  unsigned BlobIndex;
 
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -207,17 +189,10 @@ CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
                                                   unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot by null!");
   assert(Ty && "Type cannot by null!");
-  unsigned BlobIndex;
 
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -227,17 +202,10 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
                                                   unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot by null!");
   assert(Ty && "Type cannot by null!");
-  unsigned BlobIndex;
 
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
-  if (Insert) {
-    BlobIndex = CanonExprUtils::findOrInsertBlob(NewBlob);
-
-    if (NewBlobIndex) {
-      *NewBlobIndex = BlobIndex;
-    }
-  }
+  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -997,6 +965,8 @@ void HIRParser::releaseMemory() {
   EraseSet.clear();
   CurTempBlobLevelMap.clear();
 }
+
+LLVMContext &HIRParser::getContext() const { return SE->getContext(); }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
   HIR->printWithIRRegion(OS);

@@ -1,4 +1,4 @@
-//===------ SCCFormation.cpp - Identifies SCC in IRRegions *- C++ -*-------===//
+//===------ SCCFormation.cpp - Identifies SCC in IRRegions ----------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

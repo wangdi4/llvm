@@ -1,4 +1,4 @@
-//===-- ScalarSymbaseAssignment.h - Assigns symbase to scalars -*-- C++ --*===//
+//===--- ScalarSymbaseAssignment.h - Assigns symbase to scalars -*- C++ -*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -131,8 +131,8 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Will be used by HIRParser to add new lvals created by HIR
-  /// transformations.
+  /// \brief Registers new lval/symbase pairs created by HIR transformations.
+  /// Only used for printing.
   void insertHIRLval(const Value *Lval, unsigned Symbase);
 
   /// \brief Returns the scalar associated with symbase.

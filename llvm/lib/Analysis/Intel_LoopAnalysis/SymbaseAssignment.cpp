@@ -1,4 +1,4 @@
-//===- SymbaseAssignment.cpp - Assigns symbase to ddrefs *- C++ -*---------===//
+//===- SymbaseAssignment.cpp - Assigns symbase to ddrefs ------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -13,22 +13,24 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/AliasAnalysis.h"
+
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/Analysis/AliasSetTracker.h"
-#include <map>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -169,6 +171,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   auto AA = &getAnalysis<AliasAnalysis>();
   HIRP = &getAnalysis<HIRParser>();
 
+  HLUtils::setSymbaseAssignment(this);
   initializeMaxSymBase();
 
   SymbaseAssignmentVisitor SV(this, AA, HIRP);

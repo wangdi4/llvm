@@ -1,4 +1,4 @@
-//===- DDRef.cpp - Implements the DDRef class -------------------*- C++ -*-===//
+//===- DDRef.cpp - Implements the DDRef class -----------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -20,6 +20,8 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -80,6 +82,10 @@ Type *DDRef::getType() const {
   }
 
   llvm_unreachable("Unknown DDRef kind!");
+}
+
+Type *DDRef::getElementType() const {
+  return DDRefUtils::getElementType(getType());
 }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {

@@ -1,4 +1,4 @@
-//===- RegionIdentification.cpp - Identifies HIR Regions *- C++ -*---------===//
+//===- RegionIdentification.cpp - Identifies HIR Regions ------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

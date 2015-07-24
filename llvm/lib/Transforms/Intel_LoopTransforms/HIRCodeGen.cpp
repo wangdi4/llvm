@@ -1,4 +1,4 @@
-//===--- HIRCodeGen.cpp - Implements HIRCodeGen class ----- C++ -*-===//
+//===--------- HIRCodeGen.cpp - Implements HIRCodeGen class ---------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -29,7 +29,6 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -53,6 +52,7 @@ class HIRCodeGen : public FunctionPass {
 private:
   ScalarEvolution *SE;
   Function *F;
+  BasicBlock::InstListType DummyInstList;
 
   // This does the real work of llvm ir cg
   // Uses IRBuilder to generate LLVM IR for each HIR construct
@@ -72,8 +72,8 @@ private:
     // While a ddref represents a single value, the ddref for A[i] has a
     // different meaning whether lval or rval. For Lvals, we are storing into
     // &A[i], and so we need to return a value representing that address to use
-    // in a store instruction. For rvals, we want a value for what is stored at 
-    // that address to use as operand of an instruction. This function will 
+    // in a store instruction. For rvals, we want a value for what is stored at
+    // that address to use as operand of an instruction. This function will
     // return an address or a load of that address depending on rval/lval of ref
     Value *visitRegDDRef(RegDDRef *Ref);
     Value *visitScalar(RegDDRef *Ref);
@@ -222,6 +222,8 @@ public:
     SE = &getAnalysis<ScalarEvolution>();
     auto HIRP = &getAnalysis<HIRParser>();
 
+    moveDummyInstructions();
+
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
@@ -234,6 +236,8 @@ public:
       }
     }
 
+    eraseDummyInstructions();
+
     return Transformed;
   }
 
@@ -243,6 +247,14 @@ public:
     AU.addRequired<ScalarEvolution>();
     AU.addRequired<HIRParser>();
   }
+
+  /// \brief Moves all the dummy instructions created by HIR transformations to
+  /// an internal list, to be erased later on. This is done to avoid erasing
+  /// alloca instructions inseted by CG in the function entry bblock.
+  void moveDummyInstructions();
+
+  /// \brief Erases all the dummy instructions.
+  void eraseDummyInstructions();
 };
 }
 
@@ -254,7 +266,7 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 
-//TODO support Denominator
+// TODO support Denominator
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr;
   BlobSum = sumBlobs(CE);
@@ -571,8 +583,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 
   Value *EndCond = Builder->CreateICmpSLE(NextVar, Upper, "cond" + LName);
 
-  BasicBlock *AfterBB =
-      BasicBlock::Create(F->getContext(), "after" + LName, F);
+  BasicBlock *AfterBB = BasicBlock::Create(F->getContext(), "after" + LName, F);
 
   // latch
   Builder->CreateCondBr(EndCond, LoopBB, AfterBB);
@@ -781,3 +792,27 @@ Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {
   return Builder->CreateMul(
       ConstantInt::getSigned(const_cast<Type *>(V->getType()), Coeff), V);
 }
+
+void HIRCodeGen::moveDummyInstructions() {
+  auto Inst = HLNodeUtils::getFirstDummyInst();
+
+  if (!Inst) {
+    return;
+  }
+
+  auto BB = Inst->getParent();
+  auto &BBInstList = BB->getInstList();
+  auto TermInst = BB->getTerminator();
+  auto FirstIt = BasicBlock::iterator(Inst);
+  auto LastIt = BasicBlock::iterator(TermInst);
+
+  // Dummy instructions are inserted before the terminator of the bblock so we
+  // need to move all the instructions upto the terminator.
+  DummyInstList.splice(DummyInstList.begin(), BBInstList, FirstIt, LastIt);
+}
+
+void HIRCodeGen::eraseDummyInstructions() {
+  // clear() calls delete on the nodes.
+  DummyInstList.clear();
+}
+

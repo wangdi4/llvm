@@ -1,4 +1,4 @@
-//===------------- HIRPrinter.cpp - Prints HIR ----------*- C++ -*---------===//
+//===------------- HIRPrinter.cpp - Prints HIR ----------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

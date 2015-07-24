@@ -1,4 +1,4 @@
-//===- RegDDRef.cpp - Implements the RegDDRef class ---------*- C++ -*-===//
+//===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -15,6 +15,7 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"

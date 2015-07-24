@@ -1,4 +1,4 @@
-//===----- SSADeconstruction.cpp - Deconstructs SSA for HIR -----*- C++ -*-===//
+//===----- SSADeconstruction.cpp - Deconstructs SSA for HIR ---------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

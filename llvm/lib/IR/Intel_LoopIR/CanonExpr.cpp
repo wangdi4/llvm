@@ -1,4 +1,4 @@
-//===- CanonExpr.cpp - Implements the CanonExpr class -----------*- C++ -*-===//
+//===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

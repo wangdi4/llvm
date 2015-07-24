@@ -1,4 +1,4 @@
-//===------ CanonExprUtils.h - Utilities for CanonExpr class ----*- C++ -*-===//
+//===------ CanonExprUtils.h - Utilities for CanonExpr class --*- C++ -*---===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -63,6 +63,9 @@ public:
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
 
+  /// \brief Creates a non-linear self blob canon expr from the passed in Val.
+  static CanonExpr *createSelfBlobCanonExpr(Value *Val);
+
   /// \brief Calculates the gcd of two positive inputs.
   static int64_t gcd(int64_t A, int64_t B);
 
@@ -92,6 +95,10 @@ public:
 
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns a new blob created from passed in Val.
+  static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
+                                      unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a new blob created from a constant value.
   static CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,

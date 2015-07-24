@@ -1,4 +1,4 @@
-//===------- HIRCreation.cpp - Creates HIR Nodes --------*- C++ -*---------===//
+//===------- HIRCreation.cpp - Creates HIR Nodes --------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -276,6 +276,8 @@ bool HIRCreation::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
   RI = &getAnalysis<RegionIdentification>();
+
+  HLNodeUtils::initialize(F);
 
   create();
 

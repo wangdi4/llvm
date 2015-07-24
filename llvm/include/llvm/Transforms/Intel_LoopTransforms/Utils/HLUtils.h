@@ -1,4 +1,4 @@
-//===-------- HLUtils.h - Base class for utilities ----------*- C++ -*-===//
+//===------------ HLUtils.h - Base class for utilities -------*- C++ -*----===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -25,6 +25,7 @@ namespace llvm {
 namespace loopopt {
 
 class HIRParser;
+class SymbaseAssignment;
 
 /// \brief Defines HLUtils base class for utilities
 ///
@@ -39,17 +40,25 @@ private:
   void operator=(const HLUtils &) = delete;
 
   friend class HIRParser;
+  friend class SymbaseAssignment;
 
   static HIRParser *HIRPar;
+  static SymbaseAssignment *SA;
 
   /// \brief Sets the HIRParser pointer
   static void setHIRParser(HIRParser *HIRP) {
-    assert(HIRP && " HIR Parser pointer is null");
+    assert(HIRP && " HIR Parser pointer is null!");
     HIRPar = HIRP;
+  }
+
+  static void setSymbaseAssignment(SymbaseAssignment *SymA) {
+    assert(SymA && "Symbase Assignment pointer is null!");
+    SA = SymA;
   }
 
 protected:
   static HIRParser *getHIRParser() { return HIRPar; }
+  static SymbaseAssignment *getSymbaseAssignment() { return SA; }
 };
 
 } // End namespace loopopt

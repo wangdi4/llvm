@@ -1,4 +1,4 @@
-//===------ DDRef.h - Data dependency node in HIR ---------------*- C++ -*-===//
+//===------ DDRef.h - Data dependency node in HIR -------*- C++ -*---------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -84,6 +84,10 @@ public:
 
   /// \brief Returns the LLVM type.
   Type *getType() const;
+
+  /// \brief Returns the primitive type associated with this (composite) type.
+  /// For example, if the type is [100 x [100 x float]], we will return float.
+  Type *getElementType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned int getSymBase() const { return SymBase; };

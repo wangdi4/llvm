@@ -14,9 +14,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace loopopt;
+
+HLNodeUtils::DummyIRBuilderTy *HLNodeUtils::DummyIRBuilder(nullptr);
+Instruction *HLNodeUtils::FirstDummyInst(nullptr);
 
 HLRegion *HLNodeUtils::createHLRegion(IRRegion *IRReg) {
   return new HLRegion(IRReg);
@@ -49,6 +53,625 @@ HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
                                   RegDDRef *UpperDDRef, RegDDRef *StrideDDRef,
                                   bool IsDoWh, unsigned NumEx) {
   return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, IsDoWh, NumEx);
+}
+
+void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
+
+void HLNodeUtils::setFirstDummyInst(Instruction *Inst) {
+  if (!FirstDummyInst) {
+    FirstDummyInst = Inst;
+  }
+}
+
+void HLNodeUtils::initialize(Function &F) {
+
+  DummyIRBuilder = new DummyIRBuilderTy(F.getContext());
+  DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
+
+  FirstDummyInst = nullptr;
+}
+
+void HLNodeUtils::destroyAll() {
+  HLNode::destroyAll();
+  delete DummyIRBuilder;
+}
+
+Value *HLNodeUtils::createZeroVal(Type *Ty) {
+  return Constant::getNullValue(Ty);
+}
+
+Value *HLNodeUtils::createOneVal(Type *Ty) {
+  if (Ty->isIntegerTy()) {
+    return ConstantInt::get(Ty, 1);
+  } else if (Ty->isFloatingPointTy()) {
+    return ConstantFP::get(Ty, 1);
+  }
+
+  assert(false && "Unhandled type!");
+
+  return nullptr;
+}
+
+void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef) {
+  assert(RvalRef && "Rval is null!");
+
+  auto ElTy = RvalRef->getElementType();
+
+  assert((!LvalRef || (ElTy == LvalRef->getElementType())) &&
+         "Operand types do not match!");
+}
+
+void HLNodeUtils::checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
+                                          RegDDRef *OpRef2) {
+  assert(OpRef1 && OpRef2 && "Operands are null!");
+
+  auto ElTy = OpRef1->getElementType();
+
+  assert((ElTy == OpRef2->getElementType()) && "Operand types do not match!");
+  assert((!LvalRef || (ElTy == LvalRef->getElementType())) &&
+         "Operand types do not match!");
+}
+
+HLInst *HLNodeUtils::createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef) {
+
+  setFirstDummyInst(Inst);
+ 
+  auto HInst = createHLInst(Inst);
+
+  if (!LvalRef) {
+    LvalRef = DDRefUtils::createSelfBlobRef(Inst);
+  }
+
+  HInst->setLvalDDRef(LvalRef);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
+                                       RegDDRef *RvalRef, const Twine &Name,
+                                       Type *DestTy, bool IsVolatile,
+                                       unsigned Align) {
+  Value *InstVal = nullptr;
+  Instruction *Inst = nullptr;
+  HLInst *HInst = nullptr;
+  const Twine NewName(Name.isTriviallyEmpty() ? "dummy" : Name);
+
+  checkUnaryInstOperands(LvalRef, RvalRef);
+
+  // Create dummy val.
+  auto OneVal = createOneVal(RvalRef->getElementType());
+
+  switch (OpCode) {
+  case Instruction::Load: {
+    assert(!RvalRef->isScalarRef() &&
+           "Rval of load instruction cannot be scalar!");
+
+    if (LvalRef) {
+      assert(LvalRef->isScalarRef() &&
+             "Lval of load instruction is not a scalar!");
+    }
+
+    auto NullPtr = createZeroVal(RvalRef->getType());
+
+    if (Align) {
+      InstVal = DummyIRBuilder->CreateAlignedLoad(NullPtr, Align, IsVolatile,
+                                                  NewName);
+    } else {
+      InstVal = DummyIRBuilder->CreateLoad(NullPtr, IsVolatile, NewName);
+    }
+
+    break;
+  }
+
+  case Instruction::Store: {
+    if (LvalRef) {
+      assert(!LvalRef->isScalarRef() &&
+             "Lval of store instruction cannot be scalar!");
+    }
+
+    auto NullPtr = createZeroVal(RvalRef->getType());
+
+    if (Align) {
+      InstVal = DummyIRBuilder->CreateAlignedStore(OneVal, NullPtr, Align,
+                                                   IsVolatile);
+    } else {
+      InstVal = DummyIRBuilder->CreateStore(OneVal, NullPtr, IsVolatile);
+    }
+
+    break;
+  }
+
+  case Instruction::Trunc:
+  case Instruction::ZExt:
+  case Instruction::SExt:
+  case Instruction::FPToUI:
+  case Instruction::FPToSI:
+  case Instruction::UIToFP:
+  case Instruction::SIToFP:
+  case Instruction::FPTrunc:
+  case Instruction::FPExt:
+  case Instruction::PtrToInt:
+  case Instruction::IntToPtr:
+  case Instruction::BitCast:
+  case Instruction::AddrSpaceCast:
+
+    InstVal = DummyIRBuilder->CreateCast((Instruction::CastOps)OpCode, OneVal,
+                                         DestTy, NewName);
+
+  default:
+    assert(false && "Instruction not handled!");
+  }
+
+  Inst = cast<Instruction>(InstVal);
+
+  HInst = createLvalHLInst(Inst, LvalRef);
+  HInst->setRvalDDRef(RvalRef);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, RegDDRef *LvalRef,
+                                    const Twine &Name) {
+  Value *InstVal;
+  Instruction *Inst;
+  HLInst *HInst;
+  const Twine NewName(Name.isTriviallyEmpty() ? "dummy" : Name);
+
+  checkUnaryInstOperands(LvalRef, RvalRef);
+
+  // Create dummy val.
+  auto OneVal = createOneVal(RvalRef->getElementType());
+
+  // Cannot use IRBuilder here as it returns the same value for casts with
+  // identical src and dest types.
+  InstVal = CastInst::Create(Instruction::BitCast, OneVal, OneVal->getType(),
+                             NewName);
+  Inst = cast<Instruction>(InstVal);
+  Inst->insertBefore(DummyIRBuilder->GetInsertPoint());
+
+  HInst = createLvalHLInst(Inst, LvalRef);
+  HInst->setRvalDDRef(RvalRef);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createLoad(RegDDRef *RvalRef, RegDDRef *LvalRef,
+                                const Twine &Name, bool IsVolatile,
+                                unsigned Align) {
+  return createUnaryHLInst(Instruction::Load, LvalRef, RvalRef, Name, nullptr,
+                           IsVolatile, Align);
+}
+
+HLInst *HLNodeUtils::createStore(RegDDRef *RvalRef, RegDDRef *LvalRef,
+                                 const Twine &Name, bool IsVolatile,
+                                 unsigned Align) {
+  return createUnaryHLInst(Instruction::Store, LvalRef, RvalRef, Name, nullptr,
+                           IsVolatile, Align);
+}
+
+HLInst *HLNodeUtils::createTrunc(Type *DestTy, RegDDRef *RvalRef,
+                                 RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::Trunc, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createZExt(Type *DestTy, RegDDRef *RvalRef,
+                                RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::ZExt, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createSExt(Type *DestTy, RegDDRef *RvalRef,
+                                RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::SExt, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createFPToUI(Type *DestTy, RegDDRef *RvalRef,
+                                  RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::FPToUI, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createFPToSI(Type *DestTy, RegDDRef *RvalRef,
+                                  RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::FPToSI, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createUIToFP(Type *DestTy, RegDDRef *RvalRef,
+                                  RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::UIToFP, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createSIToFP(Type *DestTy, RegDDRef *RvalRef,
+                                  RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::SIToFP, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createFPTrunc(Type *DestTy, RegDDRef *RvalRef,
+                                   RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::FPTrunc, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createFPExt(Type *DestTy, RegDDRef *RvalRef,
+                                 RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::FPExt, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createPtrToInt(Type *DestTy, RegDDRef *RvalRef,
+                                    RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::PtrToInt, LvalRef, RvalRef, Name,
+                           DestTy, false, 0);
+}
+
+HLInst *HLNodeUtils::createIntToPtr(Type *DestTy, RegDDRef *RvalRef,
+                                    RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::IntToPtr, LvalRef, RvalRef, Name,
+                           DestTy, false, 0);
+}
+
+HLInst *HLNodeUtils::createBitCast(Type *DestTy, RegDDRef *RvalRef,
+                                   RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::BitCast, LvalRef, RvalRef, Name, DestTy,
+                           false, 0);
+}
+
+HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
+                                         RegDDRef *LvalRef, const Twine &Name) {
+  return createUnaryHLInst(Instruction::AddrSpaceCast, LvalRef, RvalRef, Name,
+                           DestTy, false, 0);
+}
+
+HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                        RegDDRef *OpRef2, RegDDRef *LvalRef,
+                                        const Twine &Name, bool HasNUWOrExact,
+                                        bool HasNSW, MDNode *FPMathTag) {
+  Value *InstVal;
+  Instruction *Inst;
+  HLInst *HInst;
+  const Twine NewName(Name.isTriviallyEmpty() ? "dummy" : Name);
+
+  checkBinaryInstOperands(LvalRef, OpRef1, OpRef2);
+
+  // Create dummy val.
+  auto OneVal = createOneVal(OpRef1->getElementType());
+
+  switch (OpCode) {
+  case Instruction::Add: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateAdd(OneVal, OneVal, NewName, HasNUWOrExact,
+                                        HasNSW);
+    break;
+  }
+
+  case Instruction::FAdd: {
+    assert(OpRef1->getElementType()->isFloatingPointTy() &&
+           "Operand is not a floating point type!");
+    InstVal = DummyIRBuilder->CreateFAdd(OneVal, OneVal, NewName, FPMathTag);
+    break;
+  }
+
+  case Instruction::Sub: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateSub(OneVal, OneVal, NewName, HasNUWOrExact,
+                                        HasNSW);
+    break;
+  }
+
+  case Instruction::FSub: {
+    assert(OpRef1->getElementType()->isFloatingPointTy() &&
+           "Operand is not a floating point type!");
+    InstVal = DummyIRBuilder->CreateFSub(OneVal, OneVal, NewName, FPMathTag);
+    break;
+  }
+
+  case Instruction::Mul: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateMul(OneVal, OneVal, NewName, HasNUWOrExact,
+                                        HasNSW);
+    break;
+  }
+
+  case Instruction::FMul: {
+    assert(OpRef1->getElementType()->isFloatingPointTy() &&
+           "Operand is not a floating point type!");
+    InstVal = DummyIRBuilder->CreateFMul(OneVal, OneVal, NewName, FPMathTag);
+    break;
+  }
+
+  case Instruction::UDiv: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal =
+        DummyIRBuilder->CreateUDiv(OneVal, OneVal, NewName, HasNUWOrExact);
+    break;
+  }
+
+  case Instruction::SDiv: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal =
+        DummyIRBuilder->CreateSDiv(OneVal, OneVal, NewName, HasNUWOrExact);
+    break;
+  }
+
+  case Instruction::FDiv: {
+    assert(OpRef1->getElementType()->isFloatingPointTy() &&
+           "Operand is not a floating point type!");
+    InstVal = DummyIRBuilder->CreateFDiv(OneVal, OneVal, NewName, FPMathTag);
+    break;
+  }
+
+  case Instruction::URem: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateURem(OneVal, OneVal, NewName);
+    break;
+  }
+
+  case Instruction::SRem: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateSRem(OneVal, OneVal, NewName);
+    break;
+  }
+
+  case Instruction::FRem: {
+    assert(OpRef1->getElementType()->isFloatingPointTy() &&
+           "Operand is not a floating point type!");
+    InstVal = DummyIRBuilder->CreateFRem(OneVal, OneVal, NewName, FPMathTag);
+    break;
+  }
+
+  case Instruction::Shl: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateShl(OneVal, OneVal, NewName, HasNUWOrExact,
+                                        HasNSW);
+    break;
+  }
+
+  case Instruction::LShr: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal =
+        DummyIRBuilder->CreateLShr(OneVal, OneVal, NewName, HasNUWOrExact);
+    break;
+  }
+
+  case Instruction::AShr: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal =
+        DummyIRBuilder->CreateAShr(OneVal, OneVal, NewName, HasNUWOrExact);
+    break;
+  }
+
+  case Instruction::And: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateAnd(OneVal, OneVal, NewName);
+    break;
+  }
+
+  case Instruction::Or: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateOr(OneVal, OneVal, NewName);
+    break;
+  }
+
+  case Instruction::Xor: {
+    assert(OpRef1->getElementType()->isIntegerTy() &&
+           "Operand is not an integer type!");
+    InstVal = DummyIRBuilder->CreateXor(OneVal, OneVal, NewName);
+    break;
+  }
+
+  default:
+    llvm_unreachable("Unknown binary op code!");
+  }
+
+  Inst = cast<Instruction>(InstVal);
+
+  HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(OpRef2, 2);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name,
+                               bool HasNUW, bool HasNSW) {
+  return createBinaryHLInst(Instruction::Add, OpRef1, OpRef2, LvalRef, Name,
+                            HasNUW, HasNSW, nullptr);
+}
+
+HLInst *HLNodeUtils::createFAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                MDNode *FPMathTag) {
+  return createBinaryHLInst(Instruction::FAdd, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name,
+                               bool HasNUW, bool HasNSW) {
+  return createBinaryHLInst(Instruction::Sub, OpRef1, OpRef2, LvalRef, Name,
+                            HasNUW, HasNSW, nullptr);
+}
+
+HLInst *HLNodeUtils::createFSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                MDNode *FPMathTag) {
+  return createBinaryHLInst(Instruction::FSub, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name,
+                               bool HasNUW, bool HasNSW) {
+  return createBinaryHLInst(Instruction::Mul, OpRef1, OpRef2, LvalRef, Name,
+                            HasNUW, HasNSW, nullptr);
+}
+
+HLInst *HLNodeUtils::createFMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                MDNode *FPMathTag) {
+  return createBinaryHLInst(Instruction::FMul, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createUDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                bool IsExact) {
+  return createBinaryHLInst(Instruction::UDiv, OpRef1, OpRef2, LvalRef, Name,
+                            IsExact, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createSDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                bool IsExact) {
+  return createBinaryHLInst(Instruction::SDiv, OpRef1, OpRef2, LvalRef, Name,
+                            IsExact, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createFDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                MDNode *FPMathTag) {
+  return createBinaryHLInst(Instruction::FDiv, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createURem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name) {
+  return createBinaryHLInst(Instruction::URem, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createSRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name) {
+  return createBinaryHLInst(Instruction::SRem, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createFRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                MDNode *FPMathTag) {
+  return createBinaryHLInst(Instruction::FRem, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, FPMathTag);
+}
+
+HLInst *HLNodeUtils::createShl(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name,
+                               bool HasNUW, bool HasNSW) {
+  return createBinaryHLInst(Instruction::Shl, OpRef1, OpRef2, LvalRef, Name,
+                            HasNUW, HasNSW, nullptr);
+}
+
+HLInst *HLNodeUtils::createLShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                bool IsExact) {
+  return createBinaryHLInst(Instruction::LShr, OpRef1, OpRef2, LvalRef, Name,
+                            IsExact, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createAShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                RegDDRef *LvalRef, const Twine &Name,
+                                bool IsExact) {
+  return createBinaryHLInst(Instruction::AShr, OpRef1, OpRef2, LvalRef, Name,
+                            IsExact, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createAnd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name) {
+  return createBinaryHLInst(Instruction::And, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createOr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                              RegDDRef *LvalRef, const Twine &Name) {
+  return createBinaryHLInst(Instruction::Or, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                               RegDDRef *LvalRef, const Twine &Name) {
+  return createBinaryHLInst(Instruction::Xor, OpRef1, OpRef2, LvalRef, Name,
+                            false, false, nullptr);
+}
+
+HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+                               RegDDRef *OpRef2, RegDDRef *LvalRef,
+                               const Twine &Name) {
+  Value *InstVal;
+  HLInst *HInst;
+  const Twine NewName(Name.isTriviallyEmpty() ? "dummy" : Name);
+
+  checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
+
+  if (LvalRef) {
+    assert((LvalRef->getType()->isIntegerTy() &&
+            (LvalRef->getType()->getIntegerBitWidth() == 1)) &&
+           "LvalRef has invalid type!");
+  }
+
+  auto OneVal = createOneVal(OpRef1->getElementType());
+
+  if (OpRef1->getElementType()->isIntegerTy()) {
+    InstVal =
+        DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, OneVal, OneVal, NewName);
+  } else {
+    InstVal = DummyIRBuilder->CreateFCmp(FCmpInst::FCMP_TRUE, OneVal, OneVal,
+                                         NewName);
+  }
+
+  HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  HInst->setPredicate(Pred);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(OpRef2, 2);
+
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+                                  RegDDRef *OpRef2, RegDDRef *OpRef3,
+                                  RegDDRef *OpRef4, RegDDRef *LvalRef,
+                                  const Twine &Name) {
+  Value *InstVal;
+  HLInst *HInst;
+  const Twine NewName(Name.isTriviallyEmpty() ? "dummy" : Name);
+
+  // LvalRef, OpRef3 and OpRef4 should be the same type.
+  checkBinaryInstOperands(LvalRef, OpRef3, OpRef4);
+  // OpRef1 and OpRef2 should be the same type.
+  checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
+
+  auto CmpVal = createOneVal(Type::getInt1Ty(getHIRParser()->getContext()));
+  auto OpVal = createOneVal(OpRef3->getElementType());
+
+  InstVal = DummyIRBuilder->CreateSelect(CmpVal, OpVal, OpVal, Name);
+
+  HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  HInst->setPredicate(Pred);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(OpRef2, 2);
+  HInst->setOperandDDRef(OpRef3, 3);
+  HInst->setOperandDDRef(OpRef4, 4);
+
+  return HInst;
 }
 
 struct HLNodeUtils::CloneVisitor {
@@ -115,10 +738,6 @@ void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
   assert(CloneContainer && " Clone Container is null.");
   cloneSequenceImpl(CloneContainer, Node1, Node2);
 }
-
-void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
-
-void HLNodeUtils::destroyAll() { HLNode::destroyAll(); }
 
 /// \brief Helper for updating loop info during insertion/removal.
 ///

@@ -1,4 +1,4 @@
-//===-------- HLNodeUtils.h - Utilities for HLNode class --------*- C++ -*-===//
+//===-------- HLNodeUtils.h - Utilities for HLNode class ---*- C++ -*------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -19,11 +19,15 @@
 #include <set>
 #include "llvm/Support/Compiler.h"
 
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/NoFolder.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 namespace llvm {
 
+class Function;
 class BasicBlock;
 class Instruction;
 
@@ -42,6 +46,15 @@ private:
   /// \brief Do not allow instantiation.
   HLNodeUtils() = delete;
 
+  /// \brief Used to create dummy LLVM instructions corresponding to new HIR
+  /// instructions. Dummy instructions are appended to the function entry
+  /// bblock. IRBuilder by default uses constant folding which needs to be
+  /// suppressed for dummy instructions so we use NoFolder class instead.
+  typedef IRBuilder<true, NoFolder> DummyIRBuilderTy;
+  static DummyIRBuilderTy *DummyIRBuilder;
+  /// \brief Points to first dummy instruction created in the function.
+  static Instruction *FirstDummyInst;
+
   friend class HIRCreation;
   friend class HIRCleanup;
 
@@ -51,13 +64,50 @@ private:
   struct LoopFinderUpdater;
   struct TopSorter;
 
+  /// \brief Initializes FirstDummyInst for the function.
+  static void setFirstDummyInst(Instruction *Inst);
+
+  /// \brief Initializes static members for this function.
+  static void initialize(Function &F);
+
+  /// \brief Destroys all HLNodes, called during framework cleanup.
+  static void destroyAll();
+
+  /// \brief Creates a zero value. Used to create dummy instructions.
+  static Value *createZeroVal(Type *Ty);
+
+  /// \brief Creates a one value. Used to create dummy instructions.
+  static Value *createOneVal(Type *Ty);
+
+  /// \brief Performs sanity checking on unary instruction operands.
+  static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef);
+
+  /// \brief Performs sanity checking on binary instruction operands.
+  static void checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
+                                      RegDDRef *OpRef2);
+
+  /// \brief Creates an HLInst for this Inst. It assigns LvalRef as the lval
+  /// DDRef if it isn't null, otherwise, a new non-linear self-blob DDRef is
+  /// created and assigned. It also updates first dummy instruction, if
+  /// applicable.
+  static HLInst *createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef);
+
+  /// \brief Creates a unary instruction.
+  static HLInst *createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
+                                   RegDDRef *RvalRef, const Twine &Name,
+                                   Type *DestTy, bool IsVolatile,
+                                   unsigned Align);
+
+  /// \brief Creates a binary instruction.
+  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                    RegDDRef *OpRef2, RegDDRef *LvalRef,
+                                    const Twine &Name, bool HasNUWOrExact,
+                                    bool HasNSW, MDNode *FPMathTag);
+
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
   static void cloneSequenceImpl(HLContainerTy *CloneContainer,
                                 const HLNode *Node1, const HLNode *Node2);
-
-  /// \brief Destroys all HLNodes, called during framework cleanup.
-  static void destroyAll();
 
   /// \brief Returns successor of Node assuming control flows in strict lexical
   /// order (by ignoring jumps(gotos)).
@@ -140,6 +190,8 @@ private:
                                  bool isFirstChild);
 
 public:
+  static Instruction *getFirstDummyInst() { return FirstDummyInst; }
+
   /// \brief Returns a new HLRegion.
   static HLRegion *createHLRegion(IRRegion *IRReg);
 
@@ -169,15 +221,163 @@ public:
                               RegDDRef *StrideDDRef = nullptr,
                               bool IsDoWh = false, unsigned NumEx = 1);
 
+  /// \brief Destroys the passed in HLNode.
+  static void destroy(HLNode *Node);
+
+  /// Utilities to create new HLInsts follow. Please note that LvalRef argument
+  /// defaults to null and hence follows rval ref arguments in the function
+  /// sginature. A new non-linear self blob ref is created if the LvalRef is set
+  /// to null.
+
+  /// \brief Used to create copy instructions of the form: Lval = Rval;
+  static HLInst *createCopyInst(RegDDRef *RvalRef, RegDDRef *LvalRef = nullptr,
+                                const Twine &Name = "");
+
+  /// \brief Creates a new Load instruction.
+  static HLInst *createLoad(RegDDRef *RvalRef, RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "", bool IsVolatile = false,
+                            unsigned Align = 0);
+  /// \brief Creates a new Store instruction.
+  static HLInst *createStore(RegDDRef *RvalRef, RegDDRef *LvalRef = nullptr,
+                             const Twine &Name = "", bool IsVolatile = false,
+                             unsigned Align = 0);
+  /// \brief Creates a new Trunc instruction.
+  static HLInst *createTrunc(Type *DestTy, RegDDRef *RvalRef,
+                             RegDDRef *LvalRef = nullptr,
+                             const Twine &Name = "");
+  /// \brief Creates a new ZExt instruction.
+  static HLInst *createZExt(Type *DestTy, RegDDRef *RvalRef,
+                            RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "");
+  /// \brief Creates a new SExt instruction.
+  static HLInst *createSExt(Type *DestTy, RegDDRef *RvalRef,
+                            RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "");
+  /// \brief Creates a new FPToUI instruction.
+  static HLInst *createFPToUI(Type *DestTy, RegDDRef *RvalRef,
+                              RegDDRef *LvalRef = nullptr,
+                              const Twine &Name = "");
+  /// \brief Creates a new FPToSI instruction.
+  static HLInst *createFPToSI(Type *DestTy, RegDDRef *RvalRef,
+                              RegDDRef *LvalRef = nullptr,
+                              const Twine &Name = "");
+  /// \brief Creates a new UIToFP instruction.
+  static HLInst *createUIToFP(Type *DestTy, RegDDRef *RvalRef,
+                              RegDDRef *LvalRef = nullptr,
+                              const Twine &Name = "");
+  /// \brief Creates a new SIToFP instruction.
+  static HLInst *createSIToFP(Type *DestTy, RegDDRef *RvalRef,
+                              RegDDRef *LvalRef = nullptr,
+                              const Twine &Name = "");
+  /// \brief Creates a new FPTrunc instruction.
+  static HLInst *createFPTrunc(Type *DestTy, RegDDRef *RvalRef,
+                               RegDDRef *LvalRef = nullptr,
+                               const Twine &Name = "");
+  /// \brief Creates a new FPExt instruction.
+  static HLInst *createFPExt(Type *DestTy, RegDDRef *RvalRef,
+                             RegDDRef *LvalRef = nullptr,
+                             const Twine &Name = "");
+  /// \brief Creates a new PtrToInt instruction.
+  static HLInst *createPtrToInt(Type *DestTy, RegDDRef *RvalRef,
+                                RegDDRef *LvalRef = nullptr,
+                                const Twine &Name = "");
+  /// \brief Creates a new IntToPtr instruction.
+  static HLInst *createIntToPtr(Type *DestTy, RegDDRef *RvalRef,
+                                RegDDRef *LvalRef = nullptr,
+                                const Twine &Name = "");
+  /// \brief Creates a new BitCast instruction.
+  static HLInst *createBitCast(Type *DestTy, RegDDRef *RvalRef,
+                               RegDDRef *LvalRef = nullptr,
+                               const Twine &Name = "");
+  /// \brief Creates a new AddrSpaceCast instruction.
+  static HLInst *createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
+                                     RegDDRef *LvalRef = nullptr,
+                                     const Twine &Name = "");
+  /// \brief Creates a new Add instruction.
+  static HLInst *createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                           bool HasNUW = false, bool HasNSW = false);
+  /// \brief Creates a new FAdd instruction.
+  static HLInst *createFAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            MDNode *FPMathTag = nullptr);
+  /// \brief Creates a new Sub instruction.
+  static HLInst *createSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                           bool HasNUW = false, bool HasNSW = false);
+  /// \brief Creates a new FSub instruction.
+  static HLInst *createFSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            MDNode *FPMathTag = nullptr);
+  /// \brief Creates a new Mul instruction.
+  static HLInst *createMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                           bool HasNUW = false, bool HasNSW = false);
+  /// \brief Creates a new FMul instruction.
+  static HLInst *createFMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            MDNode *FPMathTag = nullptr);
+  /// \brief Creates a new UDiv instruction.
+  static HLInst *createUDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            bool IsExact = false);
+  /// \brief Creates a new SDiv instruction.
+  static HLInst *createSDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            bool IsExact = false);
+  /// \brief Creates a new FDiv instruction.
+  static HLInst *createFDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            MDNode *FPMathTag = nullptr);
+  /// \brief Creates a new URem instruction.
+  static HLInst *createURem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "");
+  /// \brief Creates a new SRem instruction.
+  static HLInst *createSRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "");
+  /// \brief Creates a new FRem instruction.
+  static HLInst *createFRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            MDNode *FPMathTag = nullptr);
+  /// \brief Creates a new Shl instruction.
+  static HLInst *createShl(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                           bool HasNUW = false, bool HasNSW = false);
+  /// \brief Creates a new LShr instruction.
+  static HLInst *createLShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            bool IsExact = false);
+  /// \brief Creates a new AShr instruction.
+  static HLInst *createAShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
+                            bool IsExact = false);
+  /// \brief Creates a new And instruction.
+  static HLInst *createAnd(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "");
+  /// \brief Creates a new Or instruction.
+  static HLInst *createOr(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                          RegDDRef *LvalRef = nullptr, const Twine &Name = "");
+  /// \brief Creates a new Xor instruction.
+  static HLInst *createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                           RegDDRef *LvalRef = nullptr, const Twine &Name = "");
+  /// \brief Creates a new Cmp instruction.
+  static HLInst *createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+                           RegDDRef *OpRef2, RegDDRef *LvalRef = nullptr,
+                           const Twine &Name = "");
+  /// \brief Creates a new Select instruction.
+  static HLInst *createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
+                              RegDDRef *OpRef2, RegDDRef *OpRef3,
+                              RegDDRef *OpRef4, RegDDRef *LvalRef = nullptr,
+                              const Twine &Name = "");
+
   /// \brief Creates a clones sequence from Node1 to Node2, including both
   /// the nodes and all the nodes in between them. If Node2 is null or Node1
   /// equals Node2, then the utility just clones Node1 and inserts into the
   /// CloneContainer. This utility does not support Region cloning.
   static void cloneSequence(HLContainerTy *CloneContainer, const HLNode *Node1,
                             const HLNode *Node2 = nullptr);
-
-  /// \brief Destroys the passed in HLNode.
-  static void destroy(HLNode *Node);
 
   /// \brief Visits the passed in HLNode.
   template <typename HV>

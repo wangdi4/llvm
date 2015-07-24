@@ -1,4 +1,4 @@
-//===---- DDAnalysis.cpp - Provides Data Dependence Analysis *- C++ -*-----===//
+//===---- DDAnalysis.cpp - Provides Data Dependence Analysis --------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -75,8 +75,8 @@ INITIALIZE_PASS_END(DDAnalysis, "dda", "Data Dependence Analysis", false, true)
 void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRParser>();
-  AU.addRequired<SymbaseAssignment>();
+  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<SymbaseAssignment>();
 
   // scev
   // need tbaa// or just general AA?

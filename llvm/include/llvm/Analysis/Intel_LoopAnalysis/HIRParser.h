@@ -1,4 +1,4 @@
-//===-------- HIRParser.h - Parses SCEVs into CanonExprs ------*-- C++ --*-===//
+//===---------- HIRParser.h - Parses SCEVs into CanonExprs --*- C++ -*-----===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -253,12 +253,24 @@ private:
   void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
                  bool Detailed = false) const;
 
+  /// \brief Registers new lval/symbase pairs created by HIR transformations.
+  /// Only used for printing.
+  void insertHIRLval(const Value *Lval, unsigned Symbase);
+
   /// \brief Checks if the blob is constant or not
   /// If blob is constant, sets the return value in Val
   bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const;
 
-  /// \brief Return true if this is a temp blob.
+  /// \brief Returns true if this is a temp blob.
   bool isTempBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Helper to insert newly created blobs.
+  void insertBlobHelper(CanonExpr::BlobTy Blob, bool Insert,
+                        unsigned *NewBlobIndex);
+
+  /// \brief Returns a new blob created from passed in Val.
+  CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
+                               unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a new blob created from a constant value.
   CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
@@ -315,6 +327,8 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
+
+  LLVMContext &getContext() const;
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }

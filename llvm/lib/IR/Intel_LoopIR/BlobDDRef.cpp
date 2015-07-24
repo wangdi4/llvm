@@ -1,4 +1,4 @@
-//===--- BlobDDRef.cpp - Implements the BlobDDRef class ---------*- C++ -*-===//
+//===--- BlobDDRef.cpp - Implements the BlobDDRef class -----------------*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

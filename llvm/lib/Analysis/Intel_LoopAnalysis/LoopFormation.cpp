@@ -1,4 +1,4 @@
-//===------- LoopFormation.cpp - Creates HIR Loops ------*- C++ -*---------===//
+//===------- LoopFormation.cpp - Creates HIR Loops ------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

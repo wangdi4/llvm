@@ -1,4 +1,4 @@
-//===------- HLInst.h - High level IR instruction node ----------*- C++ -*-===//
+//===------- HLInst.h - High level IR instruction node ----*- C++ -*-------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -33,7 +33,8 @@ class HLInst : public HLDDNode {
 private:
   const Instruction *Inst;
   HLInst *SafeRednSucc;
-  CmpInst::Predicate SelectInstPred;
+  // Only used for Cmp and Select instructions.
+  CmpInst::Predicate CmpOrSelectPred;
 
 protected:
   explicit HLInst(Instruction *In);
@@ -183,16 +184,16 @@ public:
 
   /// \brief Returns predicate for select instruction.
   CmpInst::Predicate getPredicate() const {
-    assert(isa<SelectInst>(Inst) &&
-           "Predicate cannot be returned for non-select instruction!");
-    return SelectInstPred;
+    assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
+           "This instruction does not contain a predicate!");
+    return CmpOrSelectPred;
   }
 
   /// \brief Sets predicate for select instruction.
   void setPredicate(CmpInst::Predicate Pred) {
-    assert(isa<SelectInst>(Inst) &&
-           "Predicate cannot be set for non-select instruction!");
-    SelectInstPred = Pred;
+    assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
+           "This instruction does not contain a predicate!");
+    CmpOrSelectPred = Pred;
   }
 
   /// \brief Retuns true if this is a bitcast instruction with identical src and

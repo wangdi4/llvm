@@ -1,4 +1,4 @@
-//===- ScalarSymbaseAssignment.cpp - Assigns symbase to scalars -*- C++ -*-===//
+//===- ScalarSymbaseAssignment.cpp - Assigns symbase to scalars -----------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //

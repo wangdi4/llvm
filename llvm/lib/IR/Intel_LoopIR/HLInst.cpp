@@ -31,13 +31,15 @@ void HLInst::initialize() {
 }
 
 HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr) {
+    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr),
+      CmpOrSelectPred(CmpInst::Predicate::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
-    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr) {
+    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr),
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
 
   unsigned NumOp, Count = 0;
 
