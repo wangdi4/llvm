@@ -21,10 +21,10 @@ using namespace Intel::OpenCL::DeviceBackend;
 namespace intel {
 
 // Supported target triples.
-const char *PC_LIN64 = "x86_64-pc-linux"; // Used for RH64/SLES64.
-const char *PC_LIN32 = "i686-pc-linux";   // Used for Android.
-const char *PC_WIN32 = "i686-pc-win32";   // Win 32 bit.
-const char *PC_WIN64 = "x86_64-pc-win32"; // Win 64 bit.
+const char *PC_LIN64 = "x86_64-pc-linux";       // Used for RH64/SLES64.
+const char *PC_LIN32 = "i686-pc-linux";         // Used for Android.
+const char *PC_WIN32 = "i686-pc-win32-msvc";    // Win 32 bit.
+const char *PC_WIN64 = "x86_64-pc-win32";       // Win 64 bit.
 
 // Command line option used for cross compilation.
 const char *CROSS_SWITCH = "-target-triple";
