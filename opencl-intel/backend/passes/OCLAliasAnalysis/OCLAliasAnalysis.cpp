@@ -104,7 +104,7 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
 
     // Mark this value's users to be visited.
     for (Value::const_user_iterator it = pointerValue->user_begin(), end = pointerValue->user_end(); it != end; ++it)
-      if (isa<BitCastInst>(*it) || isa<GetElementPtrInst>(*it))
+      if (isa<BitCastInst>(*it) || isa<GetElementPtrInst>(*it) || isa<AddrSpaceCastInst>(*it))
 	nextPointerValues.push(*it);
 
     // Also mark the base address this value is using to be visited, in case the
@@ -113,6 +113,8 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
       nextPointerValues.push(bitCastInst->getOperand(0));
     } else if (const GetElementPtrInst* gepInst = dyn_cast<GetElementPtrInst>(pointerValue)) {
       nextPointerValues.push(gepInst->getPointerOperand());
+    } else if (const AddrSpaceCastInst* addrSpaceCastInst = dyn_cast<AddrSpaceCastInst>(pointerValue)) {
+      nextPointerValues.push(addrSpaceCastInst->getOperand(0));
     }
   } while (!nextPointerValues.empty());
 
