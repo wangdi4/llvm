@@ -64,29 +64,18 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCode
 cl_dev_err_code CPUCompileService::CheckProgramBinary(const void* pBinary,
     size_t uiBinarySize) const
 {
-    //check if it is LLVM IR object
+    // check if it is LLVM BC (such as SPIR 1.2)
     if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1))
     {
-        // Get binary code
-        BitCodeContainer* pBcc = new BitCodeContainer(pBinary, uiBinarySize);
-        llvm::Module* pModule = static_cast<llvm::Module*>(pBcc->GetModule());
-
-        if (!pModule)
-        {
-            llvm::MemoryBuffer* pBuffer = static_cast<llvm::MemoryBuffer*>(pBcc->GetMemoryBuffer());
-            Compiler* pCompiler = const_cast<Compiler*>(m_programBuilder.GetCompiler());
-            pModule = pCompiler->ParseModuleIR(pBuffer);
-
-        }
-        std::string strTargetTriple = pModule->getTargetTriple();
+        std::string strTargetTriple = const_cast<Compiler*>(m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
 
         if (strTargetTriple.substr(0, 4) == "spir" && strTargetTriple != SPIR_TARGET_TRIPLE)
             return CL_DEV_INVALID_BINARY;
 
         return CL_DEV_SUCCESS;
     }
-
-    if (_CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0])
+    // check if it is a binary object
+    else if (_CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0])
     {
         OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
         // Need to check only for cached Binary Object
