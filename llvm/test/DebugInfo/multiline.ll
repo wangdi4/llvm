@@ -1,5 +1,5 @@
-; RUN: llc -filetype=asm -asm-verbose=0 -O0 < %s | FileCheck %s
-; RUN: llc -filetype=obj -O0 < %s | llvm-dwarfdump -debug-dump=line - | FileCheck %s --check-prefix=INT
+; RUN: %llc_dwarf -filetype=asm -asm-verbose=0 -O0 < %s | FileCheck %s
+; RUN: %llc_dwarf -filetype=obj -O0 < %s | llvm-dwarfdump -debug-dump=line - | FileCheck %s --check-prefix=INT
 ; XFAIL: hexagon
 
 ; Check that the assembly output properly handles is_stmt changes. And since

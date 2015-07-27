@@ -66,6 +66,13 @@ static const char *const CodeViewLineTablesGroupName = "CodeView Line Tables";
 //***INTEL
 static const char *const STIDebugGroupName = "STI Debug Info Emission";
 
+//***INTEL
+static cl::opt<bool> EmitWinCodeViewLineTables(
+        "debug-emit-wincodeviewlinetables",
+        cl::Hidden,
+        cl::desc("Emit WinCodeViewLineTables instead of STI debug information"),
+        cl::init(false));
+
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
 char AsmPrinter::ID = 0;
@@ -238,14 +245,17 @@ bool AsmPrinter::doInitialization(Module &M) {
     bool skip_dwarf = false;
     if (Triple(TM.getTargetTriple()).isKnownWindowsMSVCEnvironment()) {
 //***INTEL
-      Handlers.push_back(HandlerInfo(STIDebug::create(this),
-                                     DbgTimerName,
-                                     STIDebugGroupName));
-#if 0
-      Handlers.push_back(HandlerInfo(new WinCodeViewLineTables(this),
-                                     DbgTimerName,
-                                     CodeViewLineTablesGroupName));
-#endif
+      if (!EmitWinCodeViewLineTables) {
+        Handlers.push_back(HandlerInfo(STIDebug::create(this),
+                                       DbgTimerName,
+                                       STIDebugGroupName));
+        skip_dwarf = true;
+      } else {
+        Handlers.push_back(HandlerInfo(new WinCodeViewLineTables(this),
+                                       DbgTimerName,
+                                       CodeViewLineTablesGroupName));
+      }
+
       // FIXME: Don't emit DWARF debug info if there's at least one function
       // with AddressSanitizer instrumentation.
       // This is a band-aid fix for PR22032.

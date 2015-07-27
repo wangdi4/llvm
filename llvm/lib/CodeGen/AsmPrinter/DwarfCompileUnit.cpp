@@ -8,6 +8,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
@@ -15,6 +16,13 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 namespace llvm {
+
+//***INTEL
+static cl::opt<bool> EmitPubnamesWithLocals(
+        "debug-emit-pubnames-with-locals",
+        cl::Hidden,
+        cl::desc("Add local symbol names to the .debug_pubnames section"),
+        cl::init(false));
 
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
@@ -138,7 +146,7 @@ DIE *DwarfCompileUnit::getOrCreateGlobalVariableDIE(
 
   if (!GV->isDefinition())
     addFlag(*VariableDIE, dwarf::DW_AT_declaration);
-  else if (!GV->isLocalToUnit()) //***INTEL
+  else if (!GV->isLocalToUnit() || EmitPubnamesWithLocals) //***INTEL
     addGlobalName(GV->getName(), *VariableDIE, DeclContext);
 
   // Add location.
@@ -811,7 +819,7 @@ void DwarfCompileUnit::applySubprogramAttributesToDefinition(
   auto *SPDecl = SP->getDeclaration();
   auto *Context = resolve(SPDecl ? SPDecl->getScope() : SP->getScope());
   applySubprogramAttributes(SP, SPDie, includeMinimalInlineScopes());
-  if (!SP->isLocalToUnit()) //***INTEL
+  if (!SP->isLocalToUnit() || EmitPubnamesWithLocals) //***INTEL
     addGlobalName(SP->getName(), SPDie, Context);
 }
 

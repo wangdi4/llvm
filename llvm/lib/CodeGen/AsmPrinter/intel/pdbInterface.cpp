@@ -381,10 +381,6 @@ void pdb_set_default_dll_name(const char * dll_name)
     pdb_dll_names[pos] = NULLP;
 }
 
-extern char *pdb_get_path() {
-  return _getcwd(NULLP, 0);
-}
-
 static dgi_bool open_dll(void)
 {
     size_t maxlen = 0;
@@ -709,7 +705,5 @@ size_t pdb_get_signature(unsigned char * buf, size_t maxlen) { return 0; }
 size_t pdb_get_age(unsigned char *buf, size_t maxlen) {  return 0; }
 
 void pdb_set_default_dll_name(const char * dll_name) {}
-
-extern char *pdb_get_path() { return nullptr; }
 
 #endif // LLVM_ON_WIN32

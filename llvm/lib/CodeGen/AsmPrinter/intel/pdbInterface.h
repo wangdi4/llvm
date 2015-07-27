@@ -51,7 +51,6 @@ extern size_t  pdb_get_age(unsigned char *buf, size_t maxlen);
 extern void pdb_set_default_dll_name(const char * dll_name);
 
 
-extern char *pdb_get_path();
 extern void pdb_free_path(const char *path);
 
 #endif

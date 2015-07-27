@@ -25,6 +25,7 @@
 #include "llvm/MC/MCSection.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
@@ -33,13 +34,45 @@
 #include <map>
 #include <vector>
 
+// FIXME: We should determine which getcwd to use during configuration and not
+//        at compile time.
+//
+#ifdef LLVM_ON_WIN32
+#include <direct.h>
+#define GETCWD _getcwd
+#else
+#include <unistd.h>
+#define GETCWD getcwd
+#endif
+
 using namespace llvm;
 
-#define PDB_DEFAULT_FILE_NAME "vc110.pdb"
-#define PDB_DEFAULT_DLL_NAME "mspdb110.dll"
+//===----------------------------------------------------------------------===//
+// Options
+//===----------------------------------------------------------------------===//
+
+// EmitFunctionIDs
+//
+// When true, functions are emitted using S_GPROC32_ID/S_LPROC32_ID and a
+// seperate LF_FUNC_ID/LF_MFUNC_ID record is generated. Otherwise the functions
+// are emitted as S_GPROC32/S_LPROC32 and no function id is emitted.
+//
+// NOTE: These records are currently emitted to the .debug$T section, which is
+//       incompatible with the PDB support where they are supposed to be
+//       written to an "ID's" section.
+//
+static cl::opt<bool> EmitFunctionIDs (
+    "debug-emit-function-ids",
+    cl::Hidden,
+    cl::desc("Emit function ID records"),
+    cl::init(false));
+
 //===----------------------------------------------------------------------===//
 // Helper Routines
 //===----------------------------------------------------------------------===//
+
+#define PDB_DEFAULT_FILE_NAME "vc110.pdb"
+#define PDB_DEFAULT_DLL_NAME "mspdb110.dll"
 
 static int16_t getPaddedSize(const int16_t num) {
   static const int16_t padding = 4;
@@ -48,8 +81,8 @@ static int16_t getPaddedSize(const int16_t num) {
   return (num + paddingInc) & paddingMask;
 }
 
-static void getFullFileName(const DIScope* scope, std::string &path) {
-  path = (scope->getDirectory() + Twine("\\") + scope->getFilename()).str();
+static void getFullFileName(const DIFile *file, std::string &path) {
+  path = (file->getDirectory() + Twine("\\") + file->getFilename()).str();
   std::replace(path.begin(), path.end(), '/', '\\');
   size_t index = 0;
   while ((index = path.find("\\\\", index)) != std::string::npos) {
@@ -653,6 +686,10 @@ protected:
   void setWriter(STIWriter* writer);
 
   std::string getUniqueName();
+  char *getCWD() const;
+  std::string getPDBFullPath() const;
+  std::string getOBJFullPath() const;
+  StringRef getMDStringValue(StringRef MDName) const;
 
   STISymbolCompileUnit *getCompileUnit() { // FIXME:
     STISymbolModule *module =
@@ -758,9 +795,6 @@ protected:
   // Routines for emitting atomic PDB data.
   void typeBegin(const STIType* type) const;
   void typeEnd(const STIType* type) const;
-  std::string getPDBFullPath() const;
-  std::string getOBJFullPath() const;
-  StringRef getMDStringValue(StringRef MDName) const;
   bool usePDB() const;
 
   // Routines for emitting sections.
@@ -817,10 +851,6 @@ protected:
   void emitTypeProcedure(const STITypeProcedure *type) const;
   void emitTypeArgumentList(const STITypeArgumentList *type) const;
   void emitTypeServer(const STITypeServer *type) const;
-
-  // Routines for creating labels.
-  MCSymbol *createFuncLabel(const char *name) const;
-  MCSymbol *createBlockLabel(const char *name) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -921,11 +951,6 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
 
   STISymbolProcedure *procedure;
 
-  _lexicalScopes.initialize(*MF);
-
-  // if (_lexicalScopes.empty())
-  //  return;
-
   // Locate the symbol for this function.
   FunctionMap::iterator Itr = _functionMap.find(MF->getFunction());
   if (Itr == _functionMap.end()) {
@@ -933,12 +958,14 @@ void STIDebugImpl::beginFunction(const MachineFunction *MF) {
     setCurrentProcedure(nullptr);
     return;
   }
-  procedure = Itr->second;
-  procedure->setLabelBegin(createFuncLabel("fbeg"));
-  procedure->setLabelEnd(createFuncLabel("fend"));
 
-  // Emit the label marking the beginning of the procedure.
-  emitLabel(procedure->getLabelBegin());
+  _lexicalScopes.initialize(*MF);
+
+  // if (_lexicalScopes.empty())
+  //  return;
+
+  procedure = Itr->second;
+  procedure->setLabelBegin(ASM()->getFunctionBegin());
 
   // Record this as the current procedure.
   setCurrentProcedure(procedure);
@@ -951,12 +978,11 @@ void STIDebugImpl::endFunction(const MachineFunction *MF) {
     return;
 
   STISymbolProcedure *procedure = getCurrentProcedure();
-
   if (procedure == nullptr)
     return;
 
-  // Emit the label marking the end of the procedure.
-  emitLabel(procedure->getLabelEnd());
+  // Record the label marking the end of the procedure.
+  procedure->setLabelEnd(ASM()->getFunctionEnd());
 
   // Collect information about this routine.
   collectRoutineInfo();
@@ -1000,7 +1026,7 @@ void STIDebugImpl::beginInstruction(const MachineInstr *MI) {
   line = location.getLine();
 
   scope = cast<DIScope>(location.getScope());
-  getFullFileName(scope, path);
+  getFullFileName(scope->getFile(), path);
 
   label = MMI()->getContext().createTempSymbol();
   emitLabel(label);
@@ -2554,12 +2580,6 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   bool isStatic = isStaticMethod(SP->getLinkageName());
   STIType *procedureType = createType(
       resolve(SP->getType()->getRef()), classType, isStatic);
-  STITypeFunctionID *funcIDType = STITypeFunctionID::create();
-
-  funcIDType->setType(procedureType);
-  funcIDType->setParentScope(nullptr); // FIXME
-  funcIDType->setParentClassType(classType);
-  funcIDType->setName(SP->getName());
 
   STISymbolFrameProc *frame = STISymbolFrameProc::create();
 
@@ -2567,14 +2587,23 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   procedure = STISymbolProcedure::create();
   procedure->setName(
       getScopeFullName(resolve(SP->getScope()), SP->getName(), true));
-#if 1
-  // FIXME: This is WA till ntobjanl tool is updated.
-  procedure->setType(procedureType);
-  procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32 : S_GPROC32);
-#else
-  procedure->setType(funcIDType);
-  procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32_ID : S_GPROC32_ID);
-#endif
+
+  if (EmitFunctionIDs) {
+    STITypeFunctionID *funcIDType = STITypeFunctionID::create();
+    funcIDType->setType(procedureType);
+    funcIDType->setParentScope(nullptr); // FIXME
+    funcIDType->setParentClassType(classType);
+    funcIDType->setName(SP->getName());
+
+    // FIXME: When emitting a PDB file, this does NOT go in the types section!
+    const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(funcIDType);
+
+    procedure->setType(funcIDType);
+    procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32_ID : S_GPROC32_ID);
+  } else {
+    procedure->setType(procedureType);
+    procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32 : S_GPROC32);
+  }
   procedure->getLineSlice()->setFunction(SP->getFunction());
   procedure->setScopeLineNumber(SP->getScopeLine());
   procedure->setFrame(frame);
@@ -2588,10 +2617,8 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   //
   getCompileUnit()->getScope()->add(procedure);
 
-  const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-      funcIDType); // FIXME
-
   _functionMap.insert(std::make_pair(pFunc, procedure));
+
   return procedure;
 }
 
@@ -2894,6 +2921,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
     if (GlobalVariable* global =
         dyn_cast_or_null<GlobalVariable>(DIGV->getVariable())) {
       STISymbolVariable* variable;
+      const DIScope *    scope;
 
       MCSymbol *label = ASM()->getSymbol(global);
 
@@ -2901,12 +2929,12 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
                             ? STILocation::createLocalSegmentedOffset(label)
                             : STILocation::createGlobalSegmentedOffset(label);
 
-      const DIScope *scope = DIGV->getScope();
-
       if (DIDerivedType *SDMDecl = DIGV->getStaticDataMemberDeclaration()) {
         scope = resolve(SDMDecl->getScope());
         assert(SDMDecl->isStaticMember() && "Expected static member decl");
         assert(DIGV->isDefinition());
+      } else {
+	scope = DIGV->getScope();  // Note: "scope" may be null!
       }
 
       variable = STISymbolVariable::create();
@@ -2917,7 +2945,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
       getOrCreateScope(scope)->add(variable);
 
       std::string path;
-      getFullFileName(scope, path);
+      getFullFileName((scope != nullptr ? scope : CU)->getFile(), path);
       (void)getOrCreateChecksum(path);  // FIXME:  Do not check every variable!
 
     } else if (Constant* constant = DIGV->getVariable()) {
@@ -3024,6 +3052,11 @@ void STIDebugImpl::collectRoutineInfo() {
     if (processed.count(IV))
       continue;
     processed.insert(IV);
+
+    // FIXME: We do not know hwo to emit inlined variables.
+    // Skip inlined variables.
+    if (IV.second)
+      continue;
 
     // Ignore this variable if we can't identify the scope it belongs to.
     // This prevents us from crashing later when we try to insert the variable
@@ -3138,14 +3171,6 @@ void STIDebugImpl::emitSubsection(STISubsectionID id) const {
   emitSubsectionBegin(_currentSubsection);
 }
 
-MCSymbol *STIDebugImpl::createFuncLabel(const char *name) const {
-  return ASM()->createTempSymbol(name);
-}
-
-MCSymbol *STIDebugImpl::createBlockLabel(const char *name) const {
-  return ASM()->createTempSymbol(name);
-}
-
 void STIDebugImpl::emitAlign(unsigned int byteAlignment) const {
   ASM()->OutStreamer->EmitValueToAlignment(byteAlignment);
 }
@@ -3245,15 +3270,19 @@ bool STIDebugImpl::usePDB() const {
   return _usePDB;
 }
 
+char *STIDebugImpl::getCWD() const {
+  return GETCWD(nullptr, 0);
+}
+
 std::string STIDebugImpl::getPDBFullPath() const {
-  char *path = pdb_get_path();
+  char *path = getCWD();
   std::string pdbName = (Twine(path) + Twine("\\") + Twine(_pdbFileName)).str();
   free(path);
   return pdbName;
 }
 
 std::string STIDebugImpl::getOBJFullPath() const {
-  char *path = pdb_get_path();
+  char *path = getCWD();
   std::string objName = (Twine(path) + Twine("\\") + Twine(_objFileName)).str();
   free(path);
   return objName;
@@ -3403,12 +3432,11 @@ STIDebugImpl::emitSymbolProcedure(const STISymbolProcedure *procedure) const {
 
 void STIDebugImpl::emitSymbolProcedureEnd() const {
   emitInt16(2);
-#if 1
-  // FIXME: This is WA till ntobjanl tool is updated.
-  emitSymbolID(S_END);
-#else
-  emitSymbolID(S_PROC_ID_END);
-#endif
+  if (EmitFunctionIDs) {
+    emitSymbolID(S_PROC_ID_END);
+  } else {
+    emitSymbolID(S_END);
+  }
 }
 
 class STIFrameProcFlags {
