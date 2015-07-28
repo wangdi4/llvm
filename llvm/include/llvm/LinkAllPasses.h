@@ -26,6 +26,7 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "llvm/Analysis/RegionPrinter.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -36,6 +37,8 @@
 #include "llvm/Transforms/Utils/SymbolRewriter.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
+//***INTEL - HIR Transforms
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 
@@ -185,6 +188,21 @@ namespace {
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
+
+  #if INTEL_CUSTOMIZATION  // HIR passes
+      (void) llvm::createRegionIdentificationPass();
+      (void) llvm::createSCCFormationPass();
+      (void) llvm::createHIRCreationPass();
+      (void) llvm::createHIRCleanupPass();
+      (void) llvm::createLoopFormationPass();
+      (void) llvm::createHIRParserPass();
+      (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createDDAnalysisPass();
+
+      (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRCodeGenPass();
+  #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.
 }

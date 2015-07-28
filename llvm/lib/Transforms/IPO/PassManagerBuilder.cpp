@@ -27,6 +27,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" //***INTEL - HIR passes
 
 using namespace llvm;
 
@@ -88,6 +89,10 @@ static cl::opt<bool> EnableLoopInterchange(
 static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
+
+//***INTEL - HIR passes
+static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
+                                 cl::desc("Runs loop optimizations passes"));
 
 PassManagerBuilder::PassManagerBuilder() {
     OptLevel = 2;
@@ -324,6 +329,8 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form.
   MPM.add(createLoopRotatePass());
 
+  addLoopOptPasses(MPM); //***INTEL - HIR passes
+
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.
   if (EnableLoopDistribute)
@@ -522,6 +529,40 @@ void PassManagerBuilder::addLateLTOOptimizationPasses(
   if (MergeFunctions)
     PM.add(createMergeFunctionsPass());
 }
+
+#if INTEL_CUSTOMIZATION // HIR passes
+void PassManagerBuilder::addLoopOptCleanupPasses(
+    legacy::PassManagerBase &PM) const {
+  PM.add(createCFGSimplificationPass());
+  PM.add(createPromoteMemoryToRegisterPass());
+  PM.add(createGVNPass(DisableGVNLoadPRE));
+  PM.add(createInstructionCombiningPass());
+
+  /// This pass is used to set wrap (nuw/nsw) flags on instructions after HIR.
+  /// We will need to propagate these flags in HIR if either HIR
+  /// transformations require them or running this pass turns out to be compile
+  /// time expensive.
+  PM.add(createIndVarSimplifyPass());
+}
+
+void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
+
+  if (!RunLoopOpts || (OptLevel < 2)) {
+    return;
+  }
+
+  // This pass "canonicalizes" loops and makes analysis easier.
+  PM.add(createLoopSimplifyPass());
+
+  PM.add(createSSADeconstructionPass());
+
+  PM.add(createHIRCompleteUnrollPass());
+
+  PM.add(createHIRCodeGenPass());
+
+  addLoopOptCleanupPasses(PM);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void PassManagerBuilder::populateLTOPassManager(legacy::PassManagerBase &PM) {
   if (LibraryInfo)

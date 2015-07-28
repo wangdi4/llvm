@@ -25,6 +25,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -212,8 +213,13 @@ void CodeExtractor::severSplitPHINodes(BasicBlock *&Header) {
   // second that contains all of the code for the block and merges back any
   // incoming values from inside of the region.
   BasicBlock::iterator AfterPHIs = Header->getFirstNonPHI();
-  BasicBlock *NewBB = Header->splitBasicBlock(AfterPHIs,
-                                              Header->getName()+".ce");
+#ifdef INTEL_CUSTOMIZATION
+  // This fixes a bug in the way the DT update is handled. 
+  // It needs to be contributed back
+  //BasicBlock *NewBB = Header->splitBasicBlock(AfterPHIs,
+  //                                            Header->getName()+".ce");
+  BasicBlock *NewBB = SplitBlock(Header, AfterPHIs, DT);
+#endif // INTEL_CUSTOMIZATION
 
   // We only want to code extract the second block now, and it becomes the new
   // header of the region.
@@ -222,11 +228,13 @@ void CodeExtractor::severSplitPHINodes(BasicBlock *&Header) {
   Blocks.insert(NewBB);
   Header = NewBB;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Continuation of the DT fix from above, needs to be contributed back.
   // Okay, update dominator sets. The blocks that dominate the new one are the
   // blocks that dominate TIBB plus the new block itself.
-  if (DT)
-    DT->splitBlock(NewBB);
-
+  //if (DT)
+  //  DT->splitBlock(NewBB);
+#endif // INTEL_CUSTOMIZATION
   // Okay, now we need to adjust the PHI nodes and any branches from within the
   // region to go to the new header block instead of the old header block.
   if (NumPredsFromRegion) {
@@ -284,6 +292,7 @@ void CodeExtractor::splitReturnBlocks() {
       }
     }
 }
+
 
 /// constructFunction - make a function based on inputs and outputs, as follows:
 /// f(in0, ..., inN, out0, ..., outN)
@@ -680,6 +689,19 @@ void CodeExtractor::moveCodeToFunction(Function *newFunction) {
 
     // Insert this basic block into the new function
     newBlocks.push_back(*i);
+#ifdef INTEL_CUSTOMIZATION
+    // TODO: CodeExtractor currently doesn't handle DebugInfo correctly.
+    // For now, simply remove the debug info. This is something we need
+    // to resolve properly, both here and in the community version.
+    // Will open a PR for this, once I can construct a test-case that
+    // reproduces with existing users of CE.
+    SmallVector<Instruction *, 8> DebugInstrs;
+    for (auto &Inst : **i)
+      if (isa<DbgValueInst>(&Inst) || isa<DbgDeclareInst>(&Inst))
+        DebugInstrs.push_back(&Inst);
+    for (auto Inst : DebugInstrs)    
+      Inst->eraseFromParent();
+#endif //INTEL_CUSTOMIZATION
   }
 }
 
@@ -713,6 +735,7 @@ Function *CodeExtractor::extractCodeRegion() {
                                                "newFuncRoot");
   newFuncRoot->getInstList().push_back(BranchInst::Create(header));
 
+#ifndef INTEL_CUSTOMIZATION
   // Find inputs to, outputs from the code region.
   findInputsOutputs(inputs, outputs);
 
@@ -723,7 +746,75 @@ Function *CodeExtractor::extractCodeRegion() {
       if (!Blocks.count(*SI))
         ExitBlocks.insert(*SI);
   NumExitBlocks = ExitBlocks.size();
+#else
+  // This code was changed significantly, to fix a bug in the way
+  // multiple-exit blocks are handled. We need to contribute this back.
+  
+  // We need to make sure each exiting block of the region exits
+  // into its own block. So, find all of the exit blocks, and
+  // if any of them has more than two incoming exiting edges,
+  // add new exiting blocks outside the region.
+  
+  // Find all the exit blocks, and their respective exiting blocks.
+  // Each exit block may have several exit blocks leading to it.
+  std::map<BasicBlock*, std::set<BasicBlock*>> ExitBlockMap;
+  for (BasicBlock *BB : Blocks)
+    for (BasicBlock *Succ : successors(BB))
+      if (!Blocks.count(Succ))
+        ExitBlockMap[Succ].insert(BB);
 
+  SmallPtrSet<BasicBlock *, 1> ExitBlocks;
+  for (auto ExitI : ExitBlockMap) {
+    BasicBlock *BB = ExitI.first;
+    std::set<BasicBlock*> &PredBlocks = ExitI.second;
+    if (PredBlocks.size() == 1) {
+      ExitBlocks.insert(BB);
+      continue;
+    } else {
+      // This exit block has two incoming exiting edges. Add a block
+      // on each exiting edge.
+      for (BasicBlock *PI : PredBlocks) {
+        Instruction *Term = PI->getTerminator();
+        BasicBlock *NewBB = BasicBlock::Create(Term->getContext(), "split", 
+                                               oldFunction, BB);
+        NewBB->getInstList().push_back(BranchInst::Create(BB));
+        // Update the PHI nodes in the exit block to use "split" instead
+        // of the original exiting block.
+        // TODO: This loop already has two copies, in BasicBlock and in CGP.
+        // Perhaps it deserves its own utility function. Should happen
+        // if we contribute this back.
+        for (Instruction &II : *BB) {
+          PHINode *PN = dyn_cast<PHINode>(&II);
+          if (!PN)
+            break;
+          int i;
+          while ((i = PN->getBasicBlockIndex(PI)) >= 0)
+            PN->setIncomingBlock(i, NewBB);
+        }
+        Term->replaceUsesOfWith(BB, NewBB);
+
+        ExitBlocks.insert(NewBB);
+        // Update the DT to be aware of the "split" block.
+        // The new block is dominated by PI. However, it can never dominate
+        // anything. If NewBB were to dominate anything, it would also dominate
+        // BB. We can only get here if there is another edge into BB from another
+        // block in the region, Q. So, NewBB must also dominate Q, which means
+        // BB itself dominates Q. (Imagine BB being a loop header, and Q being
+        // the latch). But this means the dominance chain is: 
+        // PI -> NewBB -> BB -> Q
+        // This is impossible because both PI and Q are in the outlined region,
+        // and BB isn't.
+        if (DT)
+          DT->addNewBlock(NewBB, PI);
+      }
+    }
+  }
+
+  NumExitBlocks = ExitBlocks.size();
+
+  // Find inputs to, outputs from the code region.
+  findInputsOutputs(inputs, outputs);
+#endif //INTEL_CUSTOMIZATION
   // Construct new function based on inputs/outputs & add allocas for all defs.
   Function *newFunction = constructFunction(inputs, outputs, header,
                                             newFuncRoot,
@@ -733,6 +824,37 @@ Function *CodeExtractor::extractCodeRegion() {
   emitCallAndSwitchStatement(newFunction, codeReplacer, inputs, outputs);
 
   moveCodeToFunction(newFunction);
+#ifdef INTEL_CUSTOMIZATION
+  // CodeExtractor only partially updated the DT. This completes the update.
+  // It needs to be contributed back to the community.
+  
+  // Update the DT
+  if (DT) {
+    // Add the new block to the DT instead of the region header
+    DomTreeNode *ReplacerNode = 
+      DT->addNewBlock(codeReplacer, DT->getNode(header)->getIDom()->getBlock());
+
+    SmallVector<DomTreeNode*, 16> Successors;
+    // Now, move all nodes that were immediately dominated by anything in the
+    // region, to be immediately dominated by the new block.
+    for (SetVector<BasicBlock*>::const_iterator i = Blocks.begin(),
+         e = Blocks.end(); i != e; ++i) {
+      DomTreeNode *BlockNode = DT->getNode(*i);
+      for (auto C = BlockNode->begin(), CE = BlockNode->end(); C != CE; ++C)
+          Successors.push_back(*C);
+    }
+
+    for (auto &Node : Successors)
+      Node->setIDom(ReplacerNode);
+
+    // Finally, get rid of the blocks that we've actually moved.
+    // What we'll end up with is the nodes immediately dominated by anything
+    // on the edges of the region being immediately dominated by the new block.
+    for (SetVector<BasicBlock*>::const_iterator i = Blocks.begin(),
+         e = Blocks.end(); i != e; ++i)
+      DT->eraseNode(*i);
+  }
+#endif //INTEL_CUSTOMIZATION
 
   // Loop over all of the PHI nodes in the header block, and change any
   // references to the old incoming edge to be the new incoming edge.
