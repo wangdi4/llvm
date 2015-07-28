@@ -2934,7 +2934,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
         assert(SDMDecl->isStaticMember() && "Expected static member decl");
         assert(DIGV->isDefinition());
       } else {
-	scope = DIGV->getScope();  // Note: "scope" may be null!
+        scope = DIGV->getScope();  // Note: "scope" may be null!
       }
 
       variable = STISymbolVariable::create();
@@ -3053,7 +3053,7 @@ void STIDebugImpl::collectRoutineInfo() {
       continue;
     processed.insert(IV);
 
-    // FIXME: We do not know hwo to emit inlined variables.
+    // FIXME: We do not know how to emit inlined variables.
     // Skip inlined variables.
     if (IV.second)
       continue;

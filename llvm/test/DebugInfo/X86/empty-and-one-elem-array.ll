@@ -1,3 +1,4 @@
+;;***INTEL
 ; RUN: llc -mtriple=x86_64-apple-darwin -O0 -filetype=obj -o %t -debug-emit-dwarf-attr-count < %s
 ; RUN: llvm-dwarfdump -debug-dump=info %t | FileCheck %s
 ; <rdar://problem/12566646>

@@ -1,3 +1,4 @@
+;;***INTEL
 ; RUN: llc -mcpu=core2 -mtriple=i686-pc-win32 -O0 -debug-emit-wincodeviewlinetables < %s | FileCheck --check-prefix=X86 %s
 ; RUN: llc -mcpu=core2 -mtriple=i686-pc-win32 -o - -O0 -debug-emit-wincodeviewlinetables < %s | llvm-mc -triple=i686-pc-win32 -filetype=obj | llvm-readobj -s -sr -codeview -section-symbols | FileCheck --check-prefix=OBJ32 %s
 ; RUN: llc -mcpu=core2 -mtriple=x86_64-pc-win32 -O0 -debug-emit-wincodeviewlinetables < %s | FileCheck --check-prefix=X64 %s

@@ -1,3 +1,4 @@
+;;***INTEL
 ; RUN: llc -mtriple=x86_64-pc-linux-gnu -generate-gnu-dwarf-pub-sections -debug-emit-pubnames-with-locals < %s | FileCheck -check-prefix=ASM %s
 ; RUN: llc -mtriple=x86_64-pc-linux-gnu -generate-gnu-dwarf-pub-sections -debug-emit-pubnames-with-locals -filetype=obj < %s | llvm-dwarfdump - | FileCheck %s
 ; ModuleID = 'dwarf-public-names.cpp'
