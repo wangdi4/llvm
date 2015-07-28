@@ -413,12 +413,6 @@ namespace llvm {
     /// getRange - Determine the range for a particular SCEV.
     ConstantRange getRange(const SCEV *S, RangeSignHint Hint);
 
-#if INTEL_CUSTOMIZATION // HIR parsing 
-    /// isHIRCopyInst - Returns true if this instruction is a copy instruction
-    /// inserted by HIR framework.
-    bool isHIRCopyInst(Instruction *Inst) const; 
-#endif
-
     /// createSCEV - We know that there is no SCEV for the specified value.
     /// Analyze the expression.
     const SCEV *createSCEV(Value *V);
@@ -589,6 +583,12 @@ namespace llvm {
     ScalarEvolution();
 
     LLVMContext &getContext() const { return F->getContext(); }
+
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// isHIRCopyInst - Returns true if this instruction is a copy instruction
+    /// inserted by HIR framework.
+    bool isHIRCopyInst(const Instruction *Inst) const; 
+#endif
 
     /// isSCEVable - Test if values of the given type are analyzable within
     /// the SCEV framework. This primarily includes integer types, and it

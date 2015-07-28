@@ -58,12 +58,6 @@ public:
 
   /// \brief Returns a new symbase.
   static unsigned getNewSymBase();
-
-  /// \brief Returns the primitive type associated with this (composite) type.
-  /// For example, if the type is [100 x [100 x float]], we will return float.
-  /// This will usually be called on a DDRef to get to the load/store type.
-  /// TODO: extend to handle struct types.
-  static Type *getElementType(Type *Ty);
 };
 
 } // End namespace loopopt

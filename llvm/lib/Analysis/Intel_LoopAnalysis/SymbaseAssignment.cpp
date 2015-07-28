@@ -30,7 +30,6 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -63,6 +62,7 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 // TODO shared with dda. move?
@@ -91,6 +91,7 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
   std::map<unsigned, SmallVector<DDRef *, 16>> SymToRefs;
 };
 }

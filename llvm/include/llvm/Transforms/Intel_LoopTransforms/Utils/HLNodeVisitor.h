@@ -48,14 +48,20 @@ namespace loopopt {
 ///    can contain other nodes. These are only needed for recursive walks and
 ///    are called after we finish visiting the children of the node.
 /// 3) bool isDone() for early termination of the traversal.
+/// 4) bool skipRecursion(HLNode *Node) for skipping recursion on Node. This is
+///    checked after visit() has been called on Node.
 ///
 /// Sample visitor class:
 ///
 /// struct Visitor {
+///   HLNode *SkipNode;
+///
 ///   void visit(HLRegion* Region) { errs() << "visited region!\n"; }
 ///   void postVisit(HLRegion* Region) { }
-///   void visit(HLLoop* Loop) { errs() << "visited loop!\n"; }
+///
+///   void visit(HLLoop* Loop) { SkipNode = Loop; }
 ///   void postVisit(HLLoop* Loop) { }
+///
 ///   void visit(HLIf* If) { errs() << "visited if!\n" }
 ///   void postVisit(HLIf* If) { }
 ///   void visit(HLSwitch* Switch) { errs() << "visited switch!\n" }
@@ -63,7 +69,10 @@ namespace loopopt {
 ///   void visit(HLLabel* Label) { errs() << "visited label!\n" }
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }
+///
 ///   bool isDone() { return false; }
+///
+///   bool skipRecursion (HLNode *Node) { return Node == SkipNode; }
 /// };
 ///
 /// It is also possible to implement generic(catch-all) visit() functions for
@@ -77,6 +86,10 @@ namespace loopopt {
 ///
 ///   void visit(HLNode* Node) { } // Empty catch-all function for others
 ///   void postVisit(HLNode* Node) { } // Empty catch-all function for others
+///
+///   bool isDone() { return false; }
+///
+///   bool skipRecursion (HLNode *Node) { return false; }
 /// };
 ///
 template <typename HV> class HLNodeVisitor {
@@ -172,7 +185,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
 
     Visitor->visit(Reg);
 
-    if (Recursive && !Visitor->isDone()) {
+    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
       Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(),
                                    RecurseInsideLoops, true)
                     : backwardVisit(Reg->child_begin(), Reg->child_end(),
@@ -188,7 +201,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
 
     Visitor->visit(If);
 
-    if (Recursive && !Visitor->isDone()) {
+    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
       Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(),
                                    RecurseInsideLoops, true)
                     : backwardVisit(If->else_begin(), If->else_end(),
@@ -213,7 +226,8 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
 
     Visitor->visit(Loop);
 
-    if (Recursive && RecurseInsideLoops && !Visitor->isDone()) {
+    if (Recursive && RecurseInsideLoops && !Visitor->skipRecursion(Node) &&
+        !Visitor->isDone()) {
       Ret =
           Forward
               ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true)
@@ -246,7 +260,7 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
 
     Visitor->visit(Switch);
 
-    if (Recursive && !Visitor->isDone()) {
+    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
 
       if (Forward) {
         for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {

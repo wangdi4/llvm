@@ -333,8 +333,11 @@ public:
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
-  // \brief Sets canon expr's denominator. Negates it for negative denominators.
-  void setDenominator(int64_t Val);
+  /// \brief Sets canon expr's denominator. Negates it for negative
+  /// denominators.
+  /// If Simplifiy is set, we call simplify() on the canon expr after setting
+  /// the denominator.
+  void setDenominator(int64_t Val, bool Simplify = false);
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;

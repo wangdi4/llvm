@@ -115,7 +115,7 @@ void HLNodeUtils::checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
 HLInst *HLNodeUtils::createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef) {
 
   setFirstDummyInst(Inst);
- 
+
   auto HInst = createHLInst(Inst);
 
   if (!LvalRef) {
@@ -690,7 +690,7 @@ struct HLNodeUtils::CloneVisitor {
 
   void postVisit(HLNode *Node) {}
   bool isDone() { return false; }
-
+  bool skipRecursion(HLNode *Node) { return false; }
   void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
 };
 
@@ -774,6 +774,8 @@ struct HLNodeUtils::LoopFinderUpdater {
     }
     return false;
   }
+
+  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 void HLNodeUtils::updateLoopInfo(HLLoop *Loop) {
@@ -1536,6 +1538,7 @@ struct HLNodeUtils::TopSorter {
 
   void postVisit(HLNode *) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
   TopSorter() : TopSortNum(0) {}
 };
 
@@ -1653,6 +1656,7 @@ struct SwitchCallVisitor {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *) {}
   bool isDone() { return (IsSwitch || IsCall); }
+  bool skipRecursion(HLNode *Node) { return false; }
   SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
 };
 
@@ -1670,6 +1674,7 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
 struct InnermostLoopVisitor {
 
   SmallVectorImpl<const HLLoop *> *InnerLoops;
+  HLNode *SkipNode;
 
   InnermostLoopVisitor(SmallVectorImpl<const HLLoop *> *Loops)
       : InnerLoops(Loops) {}
@@ -1677,11 +1682,13 @@ struct InnermostLoopVisitor {
   void visit(HLLoop *L) {
     if (L->isInnermost()) {
       InnerLoops->push_back(L);
+      SkipNode = L;
     }
   }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return (Node == SkipNode); }
 };
 
 void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
@@ -1695,6 +1702,7 @@ struct LoopLevelVisitor {
 
   SmallVectorImpl<const HLLoop *> *Loops;
   unsigned Level;
+  HLNode *SkipNode;
 
   LoopLevelVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer, unsigned Lvl)
       : Loops(LoopContainer), Level(Lvl) {}
@@ -1702,11 +1710,13 @@ struct LoopLevelVisitor {
   void visit(HLLoop *L) {
     if (L->getNestingLevel() == Level) {
       Loops->push_back(L);
+      SkipNode = L;
     }
   }
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return (Node == SkipNode); }
 };
 
 void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {

@@ -191,7 +191,7 @@ bool CanonExpr::isSelfBlob() const {
           (getDenominator() == 1));
 }
 
-void CanonExpr::setDenominator(int64_t Val) {
+void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   assert((Val != 0) && "Denominator cannot be zero!");
 
   // Negate the canon expr instead of storing negative denominators.
@@ -200,6 +200,10 @@ void CanonExpr::setDenominator(int64_t Val) {
     Denominator = -Val;
   } else {
     Denominator = Val;
+  }
+
+  if (Simplify) {
+    simplify();
   }
 }
 

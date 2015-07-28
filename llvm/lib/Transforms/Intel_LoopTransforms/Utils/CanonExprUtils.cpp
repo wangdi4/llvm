@@ -107,7 +107,7 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
-CanonExpr::BlobTy CanonExprUtils::createBlob(Value* Val, bool Insert,
+CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
                                              unsigned *NewBlobIndex) {
   return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
 }
@@ -333,4 +333,3 @@ CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
 
   return Result;
 }
-

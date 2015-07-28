@@ -762,8 +762,7 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   // accumulate other pairs
   for (auto E = CE->iv_end(); CurIVPair != E; ++CurIVPair) {
     if (CE->getIVConstCoeff(CurIVPair))
-      res = Builder->CreateAdd(
-          res, IVPairCG(CE, CurIVPair, Ty));
+      res = Builder->CreateAdd(res, IVPairCG(CE, CurIVPair, Ty));
   }
 
   return res;
@@ -772,7 +771,8 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
 Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
                                        CanonExpr::iv_iterator IVIt, Type *Ty) {
 
-  Value *IV = Builder->CreateLoad(NamedValues[getIVName(CE->getLevel(IVIt), Ty)]);
+  Value *IV =
+      Builder->CreateLoad(NamedValues[getIVName(CE->getLevel(IVIt), Ty)]);
 
   // pairs are of form <Index, Coeff>.
   if (CE->getIVBlobCoeff(IVIt)) {
@@ -815,4 +815,3 @@ void HIRCodeGen::eraseDummyInstructions() {
   // clear() calls delete on the nodes.
   DummyInstList.clear();
 }
-

@@ -53,18 +53,3 @@ RegDDRef *DDRefUtils::createSelfBlobRef(Value *Val) {
 
   return Ref;
 }
-
-Type *DDRefUtils::getElementType(Type *Ty) {
-
-  assert(!isa<FunctionType>(Ty) && "Invalid type!");
-  assert(!isa<StructType>(Ty) && "Struct type not handled!");
-
-  Type *RetTy = Ty;
-  SequentialType *SeqTy;
-
-  while((SeqTy = dyn_cast<SequentialType>(RetTy))) {
-    RetTy = SeqTy->getElementType();
-  }
-
-  return RetTy;
-}

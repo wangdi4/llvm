@@ -140,15 +140,17 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
 
   if (auto CInst = dyn_cast<CastInst>(Inst)) {
     if (!isCopyInst()) {
-      OS << CInst->getOpcodeName() << "(";
+      OS << CInst->getOpcodeName() << ".";
       OS << *(CInst->getSrcTy());
       OS << ".";
       OS << *(CInst->getDestTy());
+      OS << "(";
     }
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
     FInst->getCalledFunction()->printAsOperand(OS, false);
     OS << "(";
-  } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst)) {
+  } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
+             !isa<GetElementPtrInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
   }
 }
@@ -315,7 +317,11 @@ unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 unsigned HLInst::getNumOperandsInternal() const {
   unsigned NumOp = 0;
 
-  if (auto CInst = dyn_cast<CallInst>(Inst)) {
+  if (isa<GetElementPtrInst>(Inst)) {
+    // GEP is represented as an assignment of address: %t = &A[i];
+    // TODO: GEP accessing structure elements
+    NumOp = 1;
+  } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
     NumOp = CInst->getNumArgOperands();
   } else {
     NumOp = Inst->getNumOperands();

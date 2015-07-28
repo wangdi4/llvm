@@ -33,6 +33,7 @@ namespace llvm {
 
 class Type;
 class Function;
+class PHINode;
 class SCEV;
 class ScalarEvolution;
 class SCEVConstant;
@@ -71,20 +72,23 @@ private:
   // Needs to access getMaxScalarSymbase().
   friend class SymbaseAssignment;
 
-  /// ScalarSA - Scalar Symbase Assignment Analysis.
-  ScalarSymbaseAssignment *ScalarSA;
-
-  /// HIR - HIR for the function.
-  HIRCreation *HIR;
-
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// HIR - HIR for the function.
+  HIRCreation *HIR;
+
   /// LF - Loop formation analysis of HIR.
   LoopFormation *LF;
+
+  /// ScalarSA - Scalar Symbase Assignment Analysis.
+  ScalarSymbaseAssignment *ScalarSA;
+
+  /// Func - The function we are operating on.
+  Function *Func;
 
   /// CurRegion - The region we are operating on.
   HLRegion *CurRegion;
@@ -103,8 +107,8 @@ private:
   // SmallSet<unsigned, 64> TempBlobSymbases;
 
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
-  /// DDRef.
-  SmallDenseMap<unsigned, unsigned, 8> CurTempBlobLevelMap;
+  /// DDRef. Level of -1 denotes non-linear blobs.
+  SmallDenseMap<unsigned, int, 8> CurTempBlobLevelMap;
 
   /// PolynomialFinder - Used to find non-affine(polynomial) sub-SCEVs in an
   /// SCEV.
@@ -116,30 +120,8 @@ private:
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
 
-  /// \brief Visits HIR and calls HIRParser utilities.
-  struct Visitor {
-    HIRParser *HIRP;
-
-    Visitor(HIRParser *Parser) : HIRP(Parser) {}
-
-    void visit(HLRegion *Reg) { HIRP->parse(Reg); }
-    void postVisit(HLRegion *Reg) { HIRP->postParse(Reg); }
-
-    void visit(HLLoop *HLoop) { HIRP->parse(HLoop); }
-    void postVisit(HLLoop *HLoop) { HIRP->postParse(HLoop); }
-
-    void visit(HLIf *If) { HIRP->parse(If); }
-    void postVisit(HLIf *If) { HIRP->postParse(If); }
-
-    void visit(HLSwitch *Switch) { HIRP->parse(Switch); }
-    void postVisit(HLSwitch *Switch) { HIRP->postParse(Switch); }
-
-    void visit(HLInst *HInst) { HIRP->parse(HInst); }
-    void visit(HLLabel *Label) { HIRP->parse(Label); }
-    void visit(HLGoto *Goto) { HIRP->parse(Goto); }
-
-    bool isDone() { return false; }
-  };
+  /// \brief Visits HIR and calls HIRParser's parse*() utilities.
+  struct Visitor;
 
   /// Main parser functions
   void parse(HLRegion *Reg) { CurRegion = Reg; }
@@ -186,11 +168,18 @@ private:
                             unsigned DefLevel) const;
 
   /// \brief Adds an entry for the temp blob in blob maps.
-  void addTempBlobEntry(unsigned Index, unsigned DefLevel);
+  void addTempBlobEntry(unsigned Index, unsigned NestingLevel,
+                        unsigned DefLevel);
 
   /// \brief Overrides CE's DefinedAtLevel if the temp blob has a deeper level.
   void setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
-                        unsigned Level);
+                        unsigned NestingLevel);
+
+  /// \brief Breaks multiplication blobs such as (2 * n) into multiplier 2 and
+  /// new blob n, otherwise sets the multiplier to 1. Also returns the index for
+  /// the new or the orignal blob, as applicable.
+  void breakConstantMultiplierBlob(CanonExpr::BlobTy Blob, int64_t *Multiplier,
+                                   unsigned *Index);
 
   /// \brief Parses a blob into CE. If IVLevel is non-zero, blob is parsed as an
   /// IV coeff.
@@ -229,6 +218,25 @@ private:
 
   /// \brief collects strides for an ArrayType in the Strides vector.
   void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides);
+
+  /// \brief Looks for GEPOperator associated with this pointer Phi in the phi
+  /// operands.
+  const GEPOperator *findGEPOperator(const PHINode *PtrPhi) const;
+
+  /// \brief Returns the size of the contained type in bits. Incoming type is
+  /// expected to be a pointer type.
+  unsigned getBitElementSize(Type *Ty) const;
+
+  /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
+  RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
+                                  const GEPOperator *GEPOp, unsigned Level);
+
+  /// \brief Creates a GEP RegDDRef representing a single element. For example-
+  /// %t[0].
+  RegDDRef *createSingleElementGEPDDRef(const Value *GEPVal, unsigned Level);
+
+  /// \brief Creates a GEP RegDDRef for this GEPOperator.
+  RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
 
   /// \brief Returns a RegDDRef containing GEPInfo.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level);
@@ -329,6 +337,7 @@ public:
   void verifyAnalysis() const override;
 
   LLVMContext &getContext() const;
+  const DataLayout &getDataLayout() const;
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }

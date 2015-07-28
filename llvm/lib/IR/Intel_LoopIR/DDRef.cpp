@@ -73,7 +73,13 @@ Type *DDRef::getType() const {
     if (RRef->hasGEPInfo()) {
       CE = RRef->getBaseCE();
       assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-      return CE->getType();
+
+      if (RRef->isAddressOf()) {
+        return CE->getType();
+      } else {
+        // load/store DDRef is a dereference of the base type.
+        return cast<PointerType>(CE->getType())->getElementType();
+      }
     } else {
       CE = RRef->getSingleCanonExpr();
       assert(CE && "DDRef is empty!");
@@ -85,7 +91,14 @@ Type *DDRef::getType() const {
 }
 
 Type *DDRef::getElementType() const {
-  return DDRefUtils::getElementType(getType());
+  Type *RetTy = getType();
+  ArrayType *ArrTy;
+
+  while ((ArrTy = dyn_cast<ArrayType>(RetTy))) {
+    RetTy = ArrTy->getElementType();
+  }
+
+  return RetTy;
 }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {

@@ -67,9 +67,12 @@ private:
   /// at code generation.
   struct GEPInfo {
     CanonExpr *BaseCE;
-    /// One for each dimension, corresponds to CanonExprs
+    // One for each dimension, corresponds to CanonExprs
     StrideTy Strides;
     bool InBounds;
+    // This is set if this DDRef represents an address computation (GEP) instead
+    // of a load or store.
+    bool AddressOf;
 
     GEPInfo();
     ~GEPInfo();
@@ -153,6 +156,16 @@ public:
       createGEP();
     }
     GepInfo->InBounds = IsInBounds;
+  }
+
+  /// \brief Returns true if this ia an address computation.
+  bool isAddressOf() const { return hasGEPInfo() ? GepInfo->AddressOf : false; }
+  /// Marks this ref as an address computation.
+  void setAddressOf(bool IsAddressOf) {
+    if (!hasGEPInfo()) {
+      createGEP();
+    }
+    GepInfo->AddressOf = IsAddressOf;
   }
 
   /// \brief Returns true if this RegDDRef is a constant

@@ -39,6 +39,11 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     setInBounds(true);
   }
 
+  /// Copy AddressOf flag.
+  if (RegDDRefObj.isAddressOf()) {
+    setAddressOf(true);
+  }
+
   /// Loop over CanonExprs
   for (auto I = RegDDRefObj.canon_begin(), E = RegDDRefObj.canon_end(); I != E;
        ++I) {
@@ -66,7 +71,8 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   }
 }
 
-RegDDRef::GEPInfo::GEPInfo() : BaseCE(nullptr), InBounds(false) {}
+RegDDRef::GEPInfo::GEPInfo()
+    : BaseCE(nullptr), InBounds(false), AddressOf(false) {}
 RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
@@ -88,6 +94,10 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     CanonExprUtils::printScalar(OS, getSymBase(), Detailed);
   } else {
     if (HasGEP) {
+      if (isAddressOf()) {
+        OS << "&(";
+      }
+
       OS << "(";
       CE = getBaseCE();
       CE ? CE->print(OS, Detailed) : (void)(OS << CE);
@@ -101,14 +111,13 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
       *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
 
-      /*if (isSingleCanonExpr() && (*I)->numBlobs() == 1 &&
-          (*I)->numTerms() == 1) {
-        printSymbase = false;
-      }*/
-
       if (HasGEP) {
         OS << "]";
       }
+    }
+
+    if (isAddressOf()) {
+      OS << ")";
     }
   }
 

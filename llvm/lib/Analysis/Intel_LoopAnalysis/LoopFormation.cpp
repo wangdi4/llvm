@@ -119,7 +119,7 @@ const PHINode *LoopFormation::findIVDefInHeader(const Loop *Lp,
 
   for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
     // Not looking at scev of the IV since in some cases it is unknown even for
-    // do loops. 
+    // do loops.
     //
     // Example-
     //

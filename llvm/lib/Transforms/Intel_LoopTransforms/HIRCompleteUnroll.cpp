@@ -123,6 +123,7 @@ public:
   }
   void postVisit(HLNode *Node) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 } // namespace

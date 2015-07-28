@@ -85,8 +85,11 @@ public:
   /// \brief Returns the LLVM type.
   Type *getType() const;
 
-  /// \brief Returns the primitive type associated with this (composite) type.
-  /// For example, if the type is [100 x [100 x float]], we will return float.
+  /// \brief Returns the element type associated with this DDRef.
+  /// Examples in the form of (incoming type -> returned types)-
+  /// 1) [100 x [100 x float]] -> float
+  /// 2) int* -> int*
+  /// TODO: extend to handle struct types.
   Type *getElementType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.

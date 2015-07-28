@@ -167,6 +167,7 @@ private:
     void visit(HLNode *Node) {}
     void postVisit(HLNode *Node) {}
     bool isDone() { return false; }
+    bool skipRecursion(HLNode *Node) { return false; }
   };
 };
 

@@ -25,7 +25,6 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
 #include <vector>
 #include <map>
@@ -139,6 +138,7 @@ public:
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
   void addRef(DDRef *Ref);
 };
 
