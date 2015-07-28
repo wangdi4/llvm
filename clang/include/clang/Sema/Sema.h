@@ -7590,6 +7590,10 @@ public:
                                SIMDReductionAttr::SIMDReductionKind Operator,
                                llvm::MutableArrayRef<Expr *> VarList);
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  AttrResult ActOnPragmaSIMDAssert(SourceLocation Loc);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
   StmtResult ActOnSIMDForStmt(SourceLocation PragmaLoc,
                               ArrayRef<Attr *> Attrs,
                               SourceLocation ForLoc,

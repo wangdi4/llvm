@@ -6066,6 +6066,15 @@ AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
         llvm::MutableArrayRef<Expr *>(Exprs));
     break;
   }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case attr::SIMDAssert: {
+    SIMDAssertAttr *AssertAttr = cast<SIMDAssertAttr>(A);
+    R = getSema().ActOnPragmaSIMDAssert(AssertAttr->getLocation());
+    break;
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
   default:
     llvm_unreachable("Unknown SIMD clause");
     break;

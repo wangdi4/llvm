@@ -1416,6 +1416,7 @@ AttrResult Sema::ActOnPragmaSIMDLength(SourceLocation VectorLengthLoc,
                     SIMDLengthAttr(VectorLengthLoc, Context, E.get(), 0));
 }
 
+
 AttrResult Sema::ActOnPragmaSIMDLinear(SourceLocation LinearLoc,
                                        ArrayRef<Expr *> Exprs) {
   for (unsigned i = 0, e = Exprs.size(); i < e; i += 2) {
@@ -1704,7 +1705,7 @@ Sema::ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
       ReductionOp = BO_LAnd;
       break;
     case SIMDReductionAttr::pipepipe:
-      ReductionOp = BO_LAnd;
+      ReductionOp = BO_LOr;
       break;
     }
     if (Operator != SIMDReductionAttr::max &&
@@ -1723,6 +1724,12 @@ Sema::ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
 
   return AttrResult(ReductionAttr);
 }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+AttrResult Sema::ActOnPragmaSIMDAssert(SourceLocation Loc) {
+  return AttrResult(::new (Context) SIMDAssertAttr(Loc, Context, 0));
+}
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 namespace {
 struct UsedDecl {

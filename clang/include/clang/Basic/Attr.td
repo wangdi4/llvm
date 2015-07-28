@@ -1933,6 +1933,13 @@ def SIMDLength : Attr {
   let Documentation = [Undocumented];
 }
 
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+def SIMDAssert : Attr {
+  let Spellings = [CilkKeyword<"assert">];
+  let Documentation = [Undocumented];
+}
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
 def SIMDLinear : Attr {
   let Spellings = [CilkKeyword<"linear">];
   // Array alternates between linear variable and linear step.
