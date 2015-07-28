@@ -34,10 +34,23 @@
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
+#ifdef INTEL_CUSTOMIZATION
+using namespace InlineReportTypes;
+#endif // INTEL_CUSTOMIZATION
 
 #define DEBUG_TYPE "inline-cost"
 
 STATISTIC(NumCallsAnalyzed, "Number of call sites analyzed");
+
+#ifdef INTEL_CUSTOMIZATION
+extern bool llvm::IsInlinedReason(InlineReason Reason) {
+  return Reason > InlrFirst && Reason < InlrLast;
+}
+
+extern bool llvm::IsNotInlinedReason(InlineReason Reason) {
+  return Reason > NinlrFirst && Reason < NinlrLast;
+}
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -156,7 +169,11 @@ public:
         NumConstantPtrDiffs(0), NumInstructionsSimplified(0),
         SROACostSavings(0), SROACostSavingsLost(0) {}
 
+#ifdef INTEL_CUSTOMIZATION 
+  bool analyzeCall(CallSite CS, InlineReason* Reason);
+#else
   bool analyzeCall(CallSite CS);
+#endif // INTEL_CUSTOMIZATION
 
   int getThreshold() { return Threshold; }
   int getCost() { return Cost; }
@@ -791,7 +808,11 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // inlining, but cap that bonus in the event that inlining wouldn't pan
   // out. Pretend to inline the function, with a custom threshold.
   CallAnalyzer CA(TTI, ACT, *F, InlineConstants::IndirectCallThreshold);
+#ifdef INTEL_CUSTOMIZATION
+  if (CA.analyzeCall(CS, nullptr)) {
+#else
   if (CA.analyzeCall(CS)) {
+#endif // INTEL_CUSTOMIZATION
     // We were able to inline the indirect call! Subtract the cost from the
     // bonus we want to apply, but don't go below zero.
     Cost -= std::max(0, InlineConstants::IndirectCallThreshold - CA.getCost());
@@ -964,6 +985,30 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
   return true;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+///
+/// \brief Find the best inlining or non-inlining reason 
+///
+/// Given a 'DefaultReason' and a vector of inlining/non-inlining reasons,
+/// return the best reason among all of them.  Inlining/Non-inlining reasons
+/// are considered better if their corresponding enum value is lower.
+///
+
+typedef SmallVector<InlineReason,2> InlineReasonVector;
+
+static InlineReason bestInlineReason(const InlineReasonVector& ReasonVector, 
+  InlineReason DefaultReason)
+{
+  InlineReason Reason = DefaultReason; 
+  for (unsigned i = 0; i < ReasonVector.size(); i++) { 
+    if (ReasonVector[i] < Reason) { 
+       Reason = ReasonVector[i];
+    } 
+  } 
+  return Reason; 
+} 
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Compute the base pointer and cumulative constant offsets for V.
 ///
 /// This strips all constant offsets off of V, leaving it the base pointer, and
@@ -1010,8 +1055,23 @@ ConstantInt *CallAnalyzer::stripAndComputeInBoundsConstantOffsets(Value *&V) {
 /// factors and heuristics. If this method returns false but the computed cost
 /// is below the computed threshold, then inlining was forcibly disabled by
 /// some artifact of the routine.
+#ifdef INTEL_CUSTOMIZATION
+///
+/// The Intel version also sets the value of *Reason to be the principal 
+/// the call site would be inlined or not inlined. 
+
+bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) {
+#else 
 bool CallAnalyzer::analyzeCall(CallSite CS) {
+#endif // INTEL_CUSTOMIZATION
   ++NumCallsAnalyzed;
+#ifdef INTEL_CUSTOMIZATION
+  InlineReasonVector YesReasonVector; 
+  InlineReasonVector NoReasonVector; 
+  if (Reason != nullptr) { 
+    *Reason = NinlrNoReason;
+  } 
+#endif // INTEL_CUSTOMIZATION
 
   // Perform some tweaks to the cost and threshold based on the direct
   // callsite information.
@@ -1074,29 +1134,78 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
     &F == CS.getCalledFunction();
   if (OnlyOneCallAndLocalLinkage)
     Cost += InlineConstants::LastCallToStaticBonus;
+#ifdef INTEL_CUSTOMIZATION
+  if (OnlyOneCallAndLocalLinkage && Reason != nullptr) { 
+    YesReasonVector.push_back(InlrSingleLocalCall); 
+  } 
+#endif // INTEL_CUSTOMIZATION
 
   // If the instruction after the call, or if the normal destination of the
   // invoke is an unreachable instruction, the function is noreturn. As such,
   // there is little point in inlining this unless there is literally zero
   // cost.
   Instruction *Instr = CS.getInstruction();
+#ifdef INTEL_CUSTOMIZATION
+  if (InvokeInst *II = dyn_cast<InvokeInst>(Instr)) {
+    if (isa<UnreachableInst>(II->getNormalDest()->begin())) {
+      Threshold = 0;
+      if (Reason != nullptr) {
+        NoReasonVector.push_back(NinlrNoReturn);
+      } 
+    }
+  } else if (isa<UnreachableInst>(++BasicBlock::iterator(Instr))) {
+    Threshold = 0;
+    if (Reason != nullptr) { 
+      NoReasonVector.push_back(NinlrNoReturn);
+    } 
+  }
+#else 
   if (InvokeInst *II = dyn_cast<InvokeInst>(Instr)) {
     if (isa<UnreachableInst>(II->getNormalDest()->begin()))
       Threshold = 0;
   } else if (isa<UnreachableInst>(++BasicBlock::iterator(Instr)))
     Threshold = 0;
+#endif // INTEL_CUSTOMIZATION
 
   // If this function uses the coldcc calling convention, prefer not to inline
   // it.
+     
+#ifdef INTEL_CUSTOMIZATION
+  if (F.getCallingConv() == CallingConv::Cold) { 
+    Cost += InlineConstants::ColdccPenalty;
+    if (Reason != nullptr) { 
+      NoReasonVector.push_back(NinlrColdCC);
+    } 
+  } 
+#else 
   if (F.getCallingConv() == CallingConv::Cold)
     Cost += InlineConstants::ColdccPenalty;
+#endif // INTEL_CUSTOMIZATION
 
   // Check if we're done. This can happen due to bonuses and penalties.
+#ifdef INTEL_CUSTOMIZATION
+  if (Cost > Threshold) {
+    if (Reason != nullptr) { 
+      *Reason = bestInlineReason(NoReasonVector, NinlrNotProfitable); 
+    } 
+    return false;
+  } 
+#else
   if (Cost > Threshold)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
+#ifdef INTEL_CUSTOMIZATION
+  if (F.empty()) { 
+    if (Reason != nullptr) { 
+      *Reason = InlrEmptyFunction; 
+    } 
+    return true;
+  } 
+#else
   if (F.empty())
     return true;
+#endif // INTEL_CUSTOMIZATION
 
   Function *Caller = CS.getInstruction()->getParent()->getParent();
   // Check if the caller function is recursive itself.
@@ -1169,22 +1278,74 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
     // see an indirect branch that ends up being dead code at a particular call
     // site. If the blockaddress escapes the function, e.g., via a global
     // variable, inlining may lead to an invalid cross-function reference.
-    if (BB->hasAddressTaken())
+#ifdef INTEL_CUSTOMIZATION
+    if (BB->hasAddressTaken()) {
+      if (Reason != nullptr) {
+        *Reason = NinlrBlockAddress;
+      } 
       return false;
+    } 
+#else 
+    if (BB->hasAddressTaken())  
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
     // Analyze the cost of this block. If we blow through the threshold, this
     // returns false, and we can bail on out.
     if (!analyzeBlock(BB, EphValues)) {
+#ifdef INTEL_CUSTOMIZATION
+      if (IsRecursiveCall) { 
+        if (Reason != nullptr) {
+          *Reason = NinlrRecursive;
+        }
+        return false; 
+      } 
+      if (ExposesReturnsTwice) { 
+        if (Reason != nullptr) {
+          *Reason = NinlrReturnsTwice; 
+        }
+        return false; 
+      }  
+      if (HasDynamicAlloca) { 
+        if (Reason != nullptr) {
+          *Reason = NinlrDynamicAlloca; 
+        }
+        return false; 
+      }  
+      if (HasIndirectBr) { 
+        if (Reason != nullptr) {
+          *Reason = NinlrIndirectBranch; 
+        }
+        return false;
+      } 
+      if (HasFrameEscape) { 
+        if (Reason != nullptr) {
+          *Reason = NinlrCallsFramescape; 
+        }
+        return false;
+      } 
+#else 
       if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
           HasIndirectBr || HasFrameEscape)
         return false;
+#endif // INTEL_CUSTOMIZATION
 
       // If the caller is a recursive function then we don't want to inline
       // functions which allocate a lot of stack space because it would increase
       // the caller stack usage dramatically.
+#ifdef INTEL_CUSTOMIZATION
+      if (IsCallerRecursive &&
+          AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller) {
+        if (Reason != nullptr) {
+          *Reason = NinlrTooMuchStack; 
+        } 
+        return false;
+      }
+#else 
       if (IsCallerRecursive &&
           AllocatedSize > InlineConstants::TotalAllocaSizeRecursiveCaller)
         return false;
+#endif // INTEL_CUSTOMIZATION
 
       break;
     }
@@ -1228,11 +1389,28 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
     }
   }
 
+#ifdef INTEL_CUSTOMIZATION 
+  if (SingleBB) { 
+    if (Reason != nullptr) { 
+      YesReasonVector.push_back(InlrSingleBasicBlock); 
+    }
+  } 
+#endif // INTEL_CUSTOMIZATION
+
   // If this is a noduplicate call, we can still inline as long as
   // inlining this would cause the removal of the caller (so the instruction
   // is not actually duplicated, just moved).
+#ifdef INTEL_CUSTOMIZATION
+  if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall) { 
+    if (Reason != nullptr) {
+      *Reason = NinlrDuplicateCall; 
+    } 
+    return false;
+  } 
+#else 
   if (!OnlyOneCallAndLocalLinkage && ContainsNoDuplicateCall)
     return false;
+#endif // INTEL_CUSTOMIZATION
 
   // We applied the maximum possible vector bonus at the beginning. Now,
   // subtract the excess bonus, if any, from the Threshold before
@@ -1241,6 +1419,19 @@ bool CallAnalyzer::analyzeCall(CallSite CS) {
     Threshold -= FiftyPercentVectorBonus;
   else if (NumVectorInstructions <= NumInstructions / 2)
     Threshold -= (FiftyPercentVectorBonus - TenPercentVectorBonus);
+#ifdef INTEL_CUSTOMIZATION
+  if (Reason != nullptr) { 
+    if (VectorBonus > 0) { 
+      YesReasonVector.push_back(InlrVectorBonus); 
+    } 
+    if (Cost < Threshold) { 
+      *Reason = bestInlineReason(YesReasonVector, InlrProfitable);   
+    } 
+    else { 
+      *Reason = bestInlineReason(NoReasonVector, NinlrNotProfitable);   
+    } 
+  } 
+#endif // INTEL_CUSTOMIZATION
 
   return Cost < Threshold;
 }
@@ -1317,56 +1508,123 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
                                              int Threshold) {
   // Cannot inline indirect calls.
   if (!Callee)
+#ifdef INTEL_CUSTOMIZATION
+    return llvm::InlineCost::getNever(NinlrIndirect);
+#else 
     return llvm::InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
 
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
+#ifdef INTEL_CUSTOMIZATION
+    InlineReason Reason = InlrNoReason; 
+    if (isInlineViable(*Callee, Reason))  
+      return llvm::InlineCost::getAlways(InlrAlwaysInline);
+    assert(IsNotInlinedReason(Reason)); 
+    return llvm::InlineCost::getNever(Reason);
+#else 
     if (isInlineViable(*Callee))
       return llvm::InlineCost::getAlways();
     return llvm::InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
   if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee))
+#ifdef INTEL_CUSTOMIZATION
+    return llvm::InlineCost::getNever(NinlrMismatchedAttributes);
+#else 
     return llvm::InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
 
   // Don't inline this call if the caller has the optnone attribute.
   if (CS.getCaller()->hasFnAttribute(Attribute::OptimizeNone))
+#ifdef INTEL_CUSTOMIZATION
+    return llvm::InlineCost::getNever(NinlrOptNone);
+#else
     return llvm::InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
 
   // Don't inline functions which can be redefined at link-time to mean
   // something else.  Don't inline functions marked noinline or call sites
   // marked noinline.
+#ifdef INTEL_CUSTOMIZATION
+  if (Callee->mayBeOverridden()) { 
+    return llvm::InlineCost::getNever(NinlrMayBeOverriden);
+  } 
+  if (Callee->hasFnAttribute(Attribute::NoInline)) { 
+    return llvm::InlineCost::getNever(NinlrNoinlineAttribute); 
+  } 
+  if (CS.isNoInline()) { 
+    return llvm::InlineCost::getNever(NinlrNoinlineCallsite);
+  }
+#else 
   if (Callee->mayBeOverridden() ||
       Callee->hasFnAttribute(Attribute::NoInline) || CS.isNoInline())
     return llvm::InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
 
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
         << "...\n");
 
+#ifdef INTEL_CUSTOMIZATION
+  InlineReason Reason = InlrNoReason;
+#endif // INTEL_CUSTOMIZATION
   CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold);
+#ifdef INTEL_CUSTOMIZATION
+  bool ShouldInline = CA.analyzeCall(CS, &Reason);
+  assert(Reason != InlrNoReason); 
+#else
   bool ShouldInline = CA.analyzeCall(CS);
+#endif // INTEL_CUSTOMIZATION
 
   DEBUG(CA.dump());
 
   // Check if there was a reason to force inlining or no inlining.
   if (!ShouldInline && CA.getCost() < CA.getThreshold())
+#ifdef INTEL_CUSTOMIZATION
+    return InlineCost::getNever(Reason);
+#else 
     return InlineCost::getNever();
+#endif // INTEL_CUSTOMIZATION
   if (ShouldInline && CA.getCost() >= CA.getThreshold())
+#ifdef INTEL_CUSTOMIZATION
+    return InlineCost::getAlways(Reason);
+#else 
     return InlineCost::getAlways();
+#endif // INTEL_CUSTOMIZATION
 
+#ifdef INTEL_CUSTOMIZATION
+  return llvm::InlineCost::get(CA.getCost(), CA.getThreshold(), Reason);
+#else 
   return llvm::InlineCost::get(CA.getCost(), CA.getThreshold());
+#endif // INTEL_CUSTOMIZATION
 }
 
+#ifdef INTEL_CUSTOMIZATION
+bool InlineCostAnalysis::isInlineViable(Function &F, InlineReason& Reason) {
+#else 
 bool InlineCostAnalysis::isInlineViable(Function &F) {
+#endif // INTEL_CUSTOMIZATION
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or
     // blockaddresses.
+#ifdef INTEL_CUSTOMIZATION
+    if (isa<IndirectBrInst>(BI->getTerminator())) { 
+      Reason = NinlrIndirectBranch;
+      return false;
+    } 
+    if (BI->hasAddressTaken()) { 
+      Reason = NinlrBlockAddress;
+      return false;
+    } 
+#else 
     if (isa<IndirectBrInst>(BI->getTerminator()) || BI->hasAddressTaken())
       return false;
+#endif // INTEL_CUSTOMIZATION
 
     for (BasicBlock::iterator II = BI->begin(), IE = BI->end(); II != IE;
          ++II) {
@@ -1375,21 +1633,45 @@ bool InlineCostAnalysis::isInlineViable(Function &F) {
         continue;
 
       // Disallow recursive calls.
+#ifdef INTEL_CUSTOMIZATION
+      if (&F == CS.getCalledFunction()) { 
+        Reason = NinlrRecursive;
+        return false;
+      } 
+#else 
       if (&F == CS.getCalledFunction())
         return false;
+#endif // INTEL_CUSTOMIZATION
 
       // Disallow calls which expose returns-twice to a function not previously
       // attributed as such.
+#ifdef INTEL_CUSTOMIZATION
+      if (!ReturnsTwice && CS.isCall() &&
+          cast<CallInst>(CS.getInstruction())->canReturnTwice()) { 
+        Reason = NinlrReturnsTwice;
+        return false;
+      } 
+#else 
       if (!ReturnsTwice && CS.isCall() &&
           cast<CallInst>(CS.getInstruction())->canReturnTwice())
         return false;
+#endif // INTEL_CUSTOMIZATION
 
       // Disallow inlining functions that call @llvm.frameescape. Doing this
       // correctly would require major changes to the inliner.
+#ifdef INTEL_CUSTOMIZATION
+      if (CS.getCalledFunction() &&
+          CS.getCalledFunction()->getIntrinsicID() ==
+              llvm::Intrinsic::frameescape) { 
+        Reason = NinlrCallsFramescape;
+        return false;
+      } 
+#else 
       if (CS.getCalledFunction() &&
           CS.getCalledFunction()->getIntrinsicID() ==
               llvm::Intrinsic::frameescape)
         return false;
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
