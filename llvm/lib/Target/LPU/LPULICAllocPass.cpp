@@ -58,14 +58,15 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   bool Modified = false;
 
   typedef std::map<int,int> RegMap;
-  // Map from virtual register index, to physical register number
+  // Map from virtual register index, to physical register/LIC number
   RegMap virtToLIC;
   // Map from LIC to a replacement LIC
   RegMap LICToLIC;
+  BitVector mustBeReg;
   // Hack.  Start packing with c20.
-  // c0/c1 - control input/output
-  // c2..c17 - up to 16 input params
-  // c18..c19 - up to 2 results
+  // c0/c1 - control ouput/input
+  // c2..c3 - up to 2 results
+  // c4..c19 - up to 16 input params
   const int FirstAllocatable = LPU::C20;
   int nextLICAlloc = FirstAllocatable;
 
@@ -84,31 +85,90 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
     for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
       MachineInstr *MI = I;
-      // If this is a copy, handle specially.
-      // If the output is a VR, we do not allocate a new register,
-      // but instead mark the mapping for the output VR to be to the input
-      // to the copy.  If the output is a physical register, we note that on
-      // a second pass, a replacement should take place.
-      if (MI->isCopy()) {
+      if (MI->isPHI()) {
+        // Loop through operands.
+        // - If 0 phys reg, allocate a new phys reg
+        // - If 1 phys reg., map all others to it
+        // - If >1 phys reg. - problem - we need to insert a rename at a source...
+        //   (ignore for temp solution?)
+        int preg = -1;
+        for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
+          if (MI->getOperand(i).isReg()) {
+            unsigned reg = MI->getOperand(i).getReg();
+            int thispreg = -1;
+            if (TargetRegisterInfo::isVirtualRegister(reg)) {
+              unsigned vidx = TRI.virtReg2Index(reg);
+              // If there is a mapping, that is the preg.  If not, not a constraint
+              RegMap::iterator rmi = virtToLIC.find(vidx);
+              if (rmi != virtToLIC.end()) {
+                thispreg = rmi->second;
+                MI->getOperand(i).setReg(thispreg);
+                //printf("phi opnd %d - changing v%d to %s\n",i,vidx,LPUInstPrinter::getRegisterName(thispreg));
+              } else {
+                //printf("phi opnd %d - unmapped vreg v%d\n",i,vidx);
+              }
+            } else {
+              thispreg = reg;
+              //printf("phi opnd %d - already %s\n",i,LPUInstPrinter::getRegisterName(thispreg));
+            }
+            if (thispreg != -1) {
+              assert((preg==-1 || preg==thispreg) &&
+                     "can't deal with PHI with multiple physregs");
+              preg = thispreg;
+            }
+          }
+        }
+        // If no preg yet, allocate one
+        if (preg == -1) {
+          preg = nextLICAlloc++;
+          //printf("phi alloc preg %d\n", preg);
+        }
+        // Convert all virtuals to the preg and mark each for mapping...
+        for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
+          if (MI->getOperand(i).isReg()) {
+            unsigned reg = MI->getOperand(i).getReg();
+            if (TargetRegisterInfo::isVirtualRegister(reg)) {
+              unsigned vidx = TRI.virtReg2Index(reg);
+              // If there is no mapping, make it be to this phys reg
+              RegMap::iterator rmi = virtToLIC.find(vidx);
+              if (rmi == virtToLIC.end()) {
+                virtToLIC[vidx] = preg;
+                //printf("phi added mapping v%d to %s\n", vidx, LPUInstPrinter::getRegisterName(preg));
+              }
+              // Check that the mapping is right
+              //printf("phi index: v%d, to %s, preg is %s\n", vidx,
+              //       LPUInstPrinter::getRegisterName(virtToLIC[vidx]),
+              //       LPUInstPrinter::getRegisterName(preg));
+              assert(virtToLIC[vidx] == preg && "inconsistent mapping");
+              MI->getOperand(i).setReg(preg);
+            }
+          }
+        }
+      } else if (MI->isCopy()) {
+        // If this is a copy, handle specially.
+        // If the output is a VR, we do not allocate a new register,
+        // but instead mark the mapping for the output VR to be to the input
+        // to the copy.  If the output is a physical register, we note that on
+        // a second pass, a replacement should take place.
         unsigned Dst = MI->getOperand(0).getReg();
         unsigned Src = MI->getOperand(1).getReg();
         if (TargetRegisterInfo::isVirtualRegister(Src)) {
           Src = virtToLIC[TRI.virtReg2Index(Src)];
           MI->getOperand(1).setReg(Src);
         }
+        MRI->setPhysRegUsed(Src);
         if (TargetRegisterInfo::isVirtualRegister(Dst)) {
           // Set the translation for the copy-defined Virt to be the input Phys
           Dst = virtToLIC[TRI.virtReg2Index(Dst)] = Src;
           MI->getOperand(0).setReg(Src);
         }
+        MRI->setPhysRegUsed(Dst);
         // If the source doesn't match the dest, AND the source isn't
         // an input or output, plan to map the Src to the Dst on the next sweep
         if (Src != Dst && Src >= FirstAllocatable) {
           //printf("inserting %d => %d\n", Src, Dst);
           LICToLIC[Src] = Dst;
         }
-        MRI->setPhysRegUsed(Src);
-        MRI->setPhysRegUsed(Dst);
       } else {
         // For each operand, if it is a VR, and there is no phys reg already
         // assigned, assign one.  Regardless, replace all VRs with phys regs.
@@ -140,7 +200,7 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
 
   // 2nd pass to remove copies targeting assigned outputs (e.g. results.)
   for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB) {
-    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end();) {
       MachineInstr *MI = I;
       for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
         if (MI->getOperand(i).isReg()) {
@@ -150,6 +210,11 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
             MI->getOperand(i).setReg(rmi->second);
           }
         }
+      }
+      ++I;
+      if (MI->isPHI()) {
+        // Remove it...
+        MI->eraseFromParent();
       }
     }
   }

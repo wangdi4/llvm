@@ -78,19 +78,20 @@ public:
 
   void addIRPasses() override;
   bool addInstSelector() override;
-  void addPostRegAlloc() override;
+
+  void addPreRegAlloc() override;
 
   FunctionPass *createTargetRegisterAllocator(bool) override;
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
   void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
 
-  void addMachineLateOptimization() override;
+  void addPostRegAlloc() override;
+
   bool addGCPasses() override;
   void addBlockPlacement() override;
 
   /* These are used by the AMD (R600) target.  May be interesting....
      See AMDGPUTargetMachine.cpp
-  void addPreRegAlloc() override;
   void addCodeGenPrepare() override;
   bool addPreISel() override;
   void addPreSched2() override;
@@ -113,7 +114,6 @@ void LPUPassConfig::addIRPasses() {
   // of the PrologEpilogCodeInserter pass, so we emulate that behavior in the
   // LPUPrologEpilog pass (see LPUPrologEpilogPass.cpp).
   disablePass(&PrologEpilogCodeInserterID);
-  disablePass(&BranchFolderPassID);
   disablePass(&TailDuplicateID);
 
   // Do not need scheduling...
@@ -130,8 +130,8 @@ bool LPUPassConfig::addInstSelector() {
   return false;
 }
 
-void LPUPassConfig::addPostRegAlloc() {
-  addPass(createLPUPrologEpilogPass(), false);
+void LPUPassConfig::addPreRegAlloc() {
+  addPass(createLPUConvertControlPass(), false);
 }
 
 FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
@@ -140,23 +140,19 @@ FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
 
 void LPUPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
   assert(!RegAllocPass && "LPU uses no regalloc!");
-  addPass(createLPULICAllocPass(), false);
-  //addPass(&PHIEliminationID); retain PHIs for now
+  addPass(createLPULICAllocPass(), false); // removes PHIs...
+  //addPass(&ProcessImplicitDefsID);
+  //addPass(&LiveVariablesID);
+  addPass(&MachineLoopInfoID);
+  //addPass(&PHIEliminationID);
 }
 
 void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
-  assert(!RegAllocPass && "LPU uses no regalloc!");
-  addPass(createLPULICAllocPass(), false);
-
-  //addPass(&ProcessImplicitDefsID);
-  //addPass(&LiveVariablesID);
-  //addPass(&MachineLoopInfoID);
-  //addPass(&PHIEliminationID); retain PHIs for now
+  addFastRegAlloc(RegAllocPass);
 }
 
-void LPUPassConfig::addMachineLateOptimization() {
-  // Removed: branch folding, tail duplication
-  addPass(&MachineCopyPropagationID);
+void LPUPassConfig::addPostRegAlloc() {
+  addPass(createLPUPrologEpilogPass(), false);
 }
 
 bool LPUPassConfig::addGCPasses() {

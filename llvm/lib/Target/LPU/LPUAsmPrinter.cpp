@@ -48,6 +48,7 @@ namespace {
     }
 
     void EmitFunctionBodyStart() override;
+    void EmitFunctionBodyEnd() override;
 
     void printOperand(const MachineInstr *MI, int OpNum,
                       raw_ostream &O, const char* Modifier = nullptr);
@@ -100,8 +101,9 @@ void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
 void LPUAsmPrinter::EmitFunctionBodyStart() {
   const MachineRegisterInfo *MRI;
   MRI = &MF->getRegInfo();
-  OutStreamer.EmitRawText(StringRef("\t.result\tc0, 0, 1"));
-  OutStreamer.EmitRawText(StringRef("\t.param\tc1, 0, 1"));
+  OutStreamer.EmitRawText("\t.unit SXU, 0");
+  OutStreamer.EmitRawText("\t.result\tc0, 0, 1");
+  OutStreamer.EmitRawText("\t.param\tc1, 0, 1");
 
   // iterate over all "registers" (LICs) (should be an iterator for that...)
   // 
@@ -110,16 +112,25 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
     raw_svector_ostream O(Str);
     if (MRI->isPhysRegUsed(reg)) {
       if (reg<=LPU::C3) {
-        O << "\t.result\t"<<LPUInstPrinter::getRegisterName(reg)<<", i64, 1";
+        O << "\t.result\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64, 1";
       } else if (reg<=LPU::C19) {
-        O << "\t.param\t"<<LPUInstPrinter::getRegisterName(reg)<<", i64, 1";
+        O << "\t.param\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64, 1";
       } else {
-        O << "\t.lic\t"<<LPUInstPrinter::getRegisterName(reg)<<", i64, 2";
+        O << "\t.lic\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64, 2";
       }
       OutStreamer.EmitRawText(O.str());
     }
   }
 
+  // Temporary hack - the start label and the backward branch should be in the code
+  // for serial units
+  OutStreamer.EmitRawText(".start:");
+  OutStreamer.EmitRawText("\tmov0\t%ign, %c1");
+}
+
+void LPUAsmPrinter::EmitFunctionBodyEnd() {
+  // Because code is serially reusable, 
+  OutStreamer.EmitRawText("\t.endunit");
 }
 
 //===----------------------------------------------------------------------===//

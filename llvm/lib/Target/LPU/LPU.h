@@ -26,6 +26,7 @@ namespace llvm {
   //ImmutablePass *createLPUTargetTransformInfoPass(const LPUTargetMachine *TM);
   FunctionPass *createLPUISelDag(LPUTargetMachine &TM,
                                  llvm::CodeGenOpt::Level OptLevel);
+  MachineFunctionPass *createLPUConvertControlPass();
   MachineFunctionPass *createLPUPrologEpilogPass();
   MachineFunctionPass *createLPULICAllocPass();
   //FunctionPass *createLPULowerStructArgsPass();

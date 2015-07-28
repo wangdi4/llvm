@@ -13,6 +13,7 @@ add_llvm_target(LPUCodeGen
   LPUISelDAGToDAG.cpp
   LPUISelLowering.cpp
   LPUInstrInfo.cpp
+  LPUConvertControlPass.cpp
   LPUFrameLowering.cpp
   LPULICAllocPass.cpp
   LPUMachineFunctionInfo.cpp

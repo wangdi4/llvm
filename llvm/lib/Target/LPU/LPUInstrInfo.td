@@ -73,7 +73,8 @@ def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs), (ins),
-    "mov0\tc0, c1",      // very temporary until control flow handled
+    "mov0 %c0,0\n\t"
+    "br\t.start",      // very temporary until control flow handled
     [(LPURet)]>;
 
 multiclass MovOp<string opStr, RegisterClass LICt, ValueType opType, Operand immOp> {

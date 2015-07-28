@@ -56,6 +56,8 @@ BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
 
   Reserved.set(LPU::SP);
+  Reserved.set(LPU::RA);
+  Reserved.set(LPU::IGN);
 
   // Mark frame pointer as reserved if needed.
   if (TFI->hasFP(MF)) {

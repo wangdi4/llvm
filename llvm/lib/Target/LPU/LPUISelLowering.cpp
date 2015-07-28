@@ -211,6 +211,20 @@ getRegForInlineAsmConstraint(const std::string &Constraint,
   return TargetLowering::getRegForInlineAsmConstraint(Constraint, VT);
 }
 */
+
+bool LPUTargetLowering::isLegalICmpImmediate(int64_t Imm) const {
+  return true;
+}
+
+bool LPUTargetLowering::isLegalAddImmediate(int64_t Imm) const {
+  return true;
+}
+
+bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
+  return true;
+}
+
+
 //===----------------------------------------------------------------------===//
 //                      Calling Convention Implementation
 //===----------------------------------------------------------------------===//
@@ -1057,27 +1071,39 @@ bool LPUTargetLowering::isTruncateFree(Type *Ty1,
 
   return (Ty1->getPrimitiveSizeInBits() > Ty2->getPrimitiveSizeInBits());
 }
-
+*/
+bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
+  if (!VT1.isInteger() || !VT2.isInteger())
+    return false;
+  unsigned NumBits1 = VT1.getSizeInBits();
+  unsigned NumBits2 = VT2.getSizeInBits();
+  return NumBits1 > NumBits2;
+}
+/*
 bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
   if (!VT1.isInteger() || !VT2.isInteger())
     return false;
 
   return (VT1.getSizeInBits() > VT2.getSizeInBits());
 }
+*/
 
 bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
-  // LPU implicitly zero-extends 8-bit results in 16-bit registers.
-  return 0 && Ty1->isIntegerTy(8) && Ty2->isIntegerTy(16);
+  // Using a small op only references the relevant bits
+  return true;
 }
 
 bool LPUTargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
-  // LPU implicitly zero-extends 8-bit results in 16-bit registers.
-  return 0 && VT1 == MVT::i8 && VT2 == MVT::i16;
+  // Using a small op only references the relevant bits
+  return true;
 }
 
 bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
-  return isZExtFree(Val.getValueType(), VT2);
+  EVT VT1 = Val.getValueType();
+  return (isZExtFree(VT1, VT2));
 }
+
+/*
 
 //===----------------------------------------------------------------------===//
 //  Other Lowering Code

@@ -22,6 +22,14 @@
 
 namespace llvm {
 
+namespace LPU {
+  enum CondCode {
+    COND_T,
+    COND_F,
+    COND_INVALID
+  };
+}
+
 class LPUSubtarget;
 
 class LPUInstrInfo : public LPUGenInstrInfo {
@@ -55,22 +63,24 @@ public:
                             const TargetRegisterInfo *TRI) const override;
 
   unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
-
+  */
   // Branch folding goodness
   bool
   ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
+  /*
   bool isUnpredicatedTerminator(const MachineInstr *MI) const override;
+  */
   bool AnalyzeBranch(MachineBasicBlock &MBB,
                      MachineBasicBlock *&TBB, MachineBasicBlock *&FBB,
                      SmallVectorImpl<MachineOperand> &Cond,
                      bool AllowModify) const override;
 
   unsigned RemoveBranch(MachineBasicBlock &MBB) const override;
+
   unsigned InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                         MachineBasicBlock *FBB,
                         const SmallVectorImpl<MachineOperand> &Cond,
-    `                    DebugLoc DL) const override;
-  */
+                        DebugLoc DL) const override;
 };
 
 }

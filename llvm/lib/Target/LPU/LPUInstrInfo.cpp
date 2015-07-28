@@ -27,6 +27,38 @@ using namespace llvm;
 #define GET_INSTRINFO_CTOR_DTOR
 #include "LPUGenInstrInfo.inc"
 
+// GetCondFromBranchOpc - Return the LPU CC that matches
+// the correspondent Branch instruction opcode.
+static LPU::CondCode GetCondFromBranchOpc(unsigned BrOpc)
+{
+  switch (BrOpc) {
+  default: return LPU::COND_INVALID;
+  case LPU::BT  : return LPU::COND_T;
+  case LPU::BF  : return LPU::COND_F;
+  }
+}
+
+// GetCondBranchFromCond - Return the Branch instruction
+// opcode that matches the cc.
+static unsigned GetCondBranchFromCond(LPU::CondCode CC)
+{
+  switch (CC) {
+  default: llvm_unreachable("Illegal condition code!");
+  case LPU::COND_T  : return LPU::BT;
+  case LPU::COND_F  : return LPU::BF;
+  }
+}
+
+// GetOppositeBranchCondition - Return the inverse of the specified condition
+static LPU::CondCode GetOppositeBranchCondition(LPU::CondCode CC)
+{
+  switch (CC) {
+  default: llvm_unreachable("Illegal condition code!");
+  case LPU::COND_T  : return LPU::COND_F;
+  case LPU::COND_F  : return LPU::COND_T;
+  }
+}
+
 // Pin the vtable to this file.
 void LPUInstrInfo::anchor() {}
 
@@ -102,7 +134,7 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   else
     llvm_unreachable("Cannot store this register to stack slot!");
 }
-
+*/
 unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.end();
   unsigned Count = 0;
@@ -111,10 +143,9 @@ unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
     --I;
     if (I->isDebugValue())
       continue;
-    if (I->getOpcode() != LPU::JMP &&
-        I->getOpcode() != LPU::JCC &&
-        I->getOpcode() != LPU::Br &&
-        I->getOpcode() != LPU::Bm)
+    if (I->getOpcode() != LPU::BR &&
+        I->getOpcode() != LPU::BT &&
+        I->getOpcode() != LPU::BF)
       break;
     // Remove the branch.
     I->eraseFromParent();
@@ -127,36 +158,11 @@ unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
 
 bool LPUInstrInfo::
 ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
-  assert(Cond.size() == 1 && "Invalid Xbranch condition!");
-
-  LPUCC::CondCodes CC = static_cast<LPUCC::CondCodes>(Cond[0].getImm());
-
-  switch (CC) {
-  default: llvm_unreachable("Invalid branch condition!");
-  case LPUCC::COND_E:
-    CC = LPUCC::COND_NE;
-    break;
-  case LPUCC::COND_NE:
-    CC = LPUCC::COND_E;
-    break;
-  case LPUCC::COND_L:
-    CC = LPUCC::COND_GE;
-    break;
-  case LPUCC::COND_GE:
-    CC = LPUCC::COND_L;
-    break;
-  case LPUCC::COND_HS:
-    CC = LPUCC::COND_LO;
-    break;
-  case LPUCC::COND_LO:
-    CC = LPUCC::COND_HS;
-    break;
-  }
-
-  Cond[0].setImm(CC);
+  assert(Cond.size() == 1 && "Invalid branch condition!");
+  Cond[0].setImm(GetOppositeBranchCondition((LPU::CondCode)Cond[0].getImm()));
   return false;
 }
-
+/*
 bool LPUInstrInfo::isUnpredicatedTerminator(const MachineInstr *MI) const {
   if (!MI->isTerminator()) return false;
 
@@ -167,7 +173,7 @@ bool LPUInstrInfo::isUnpredicatedTerminator(const MachineInstr *MI) const {
     return true;
   return !isPredicated(MI);
 }
-
+*/
 bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
                                     MachineBasicBlock *&TBB,
                                     MachineBasicBlock *&FBB,
@@ -191,13 +197,8 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
     if (!I->isBranch())
       return true;
 
-    // Cannot handle indirect branches.
-    if (I->getOpcode() == LPU::Br ||
-        I->getOpcode() == LPU::Bm)
-      return true;
-
     // Handle unconditional branches.
-    if (I->getOpcode() == LPU::JMP) {
+    if (I->getOpcode() == LPU::BR) {
       if (!AllowModify) {
         TBB = I->getOperand(0).getMBB();
         continue;
@@ -223,16 +224,14 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
     }
 
     // Handle conditional branches.
-    assert(I->getOpcode() == LPU::JCC && "Invalid conditional branch");
-    LPUCC::CondCodes BranchCode =
-      static_cast<LPUCC::CondCodes>(I->getOperand(1).getImm());
-    if (BranchCode == LPUCC::COND_INVALID)
+    LPU::CondCode BranchCode = GetCondFromBranchOpc(I->getOpcode());
+    if (BranchCode == LPU::COND_INVALID)
       return true;  // Can't handle weird stuff.
 
     // Working from the bottom, handle the first conditional branch.
     if (Cond.empty()) {
       FBB = TBB;
-      TBB = I->getOperand(0).getMBB();
+      TBB = I->getOperand(1).getMBB();
       Cond.push_back(MachineOperand::CreateImm(BranchCode));
       continue;
     }
@@ -244,10 +243,10 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
 
     // Only handle the case where all conditional branches branch to
     // the same destination.
-    if (TBB != I->getOperand(0).getMBB())
+    if (TBB != I->getOperand(1).getMBB())
       return true;
 
-    LPUCC::CondCodes OldBranchCode = (LPUCC::CondCodes)Cond[0].getImm();
+    LPU::CondCode OldBranchCode = (LPU::CondCode)Cond[0].getImm();
     // If the conditions are the same, we can leave them alone.
     if (OldBranchCode == BranchCode)
       continue;
@@ -268,26 +267,26 @@ LPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
   assert((Cond.size() == 1 || Cond.size() == 0) &&
          "LPU branch conditions have one component!");
 
-  if (Cond.empty()) {
-    // Unconditional branch?
-    assert(!FBB && "Unconditional branch with multiple successors!");
-    BuildMI(&MBB, DL, get(LPU::JMP)).addMBB(TBB);
+  if (FBB == 0) { // One way branch.
+    if (Cond.empty()) {
+      // Unconditional branch?
+      BuildMI(&MBB, DL, get(LPU::BR)).addMBB(TBB);
+    } else {
+      // Conditional branch.
+      unsigned Opc = GetCondBranchFromCond((LPU::CondCode)Cond[0].getImm());
+      BuildMI(&MBB, DL, get(Opc)).addReg(Cond[1].getReg()).addMBB(TBB);
+    }
     return 1;
   }
 
-  // Conditional branch.
-  unsigned Count = 0;
-  BuildMI(&MBB, DL, get(LPU::JCC)).addMBB(TBB).addImm(Cond[0].getImm());
-  ++Count;
+  // Two-way Conditional branch.
+  unsigned Opc = GetCondBranchFromCond((LPU::CondCode)Cond[0].getImm());
+  BuildMI(&MBB, DL, get(Opc)).addReg(Cond[1].getReg()).addMBB(TBB);
+  BuildMI(&MBB, DL, get(LPU::BR)).addMBB(FBB);
 
-  if (FBB) {
-    // Two-way Conditional branch. Insert the second branch.
-    BuildMI(&MBB, DL, get(LPU::JMP)).addMBB(FBB);
-    ++Count;
-  }
-  return Count;
+  return 2;
 }
-
+/*
 /// GetInstSize - Return the number of bytes of code the specified
 /// instruction may be.  This returns the maximum number of bytes.
 ///
