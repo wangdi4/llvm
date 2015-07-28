@@ -272,7 +272,10 @@ public:
                           bool ForceThisQuals = false);
   void mangleNestedName(const NamedDecl *ND);
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   void mangleUnscopedLambdaName(const RecordDecl *RD);
+#endif //INTEL_CUSTOMIZATION
 
 private:
   void mangleUnqualifiedName(const NamedDecl *ND) {
@@ -1087,11 +1090,14 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   mangleUnqualifiedName(TD);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
   // <unscoped-lambda-name> ::= __10<unqualified-name>
   Out << "__10";
   mangleUnqualifiedName(RD);
 }
+#endif //INTEL_CUSTOMIZATION
 
 void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
                                                    bool IsBoolean) {
