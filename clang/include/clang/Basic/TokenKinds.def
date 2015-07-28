@@ -763,10 +763,10 @@ ANNOTATION(pragma_cilk_grainsize_end)
 ANNOTATION(pragma_simd)
 ANNOTATION(pragma_simd_end)
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
 // Alternate spelling for alignof
 ALIAS("__ALIGNOF__" , __alignof , KEYALL)
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
 ANNOTATION(pragma_end)
 
 // Annotation for #pragma ivdep

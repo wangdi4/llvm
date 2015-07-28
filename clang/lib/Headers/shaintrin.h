@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- shaintrin.h - SHA intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,10 +35,6 @@
 
 #ifndef __SHAINTRIN_H
 #define __SHAINTRIN_H
-
-#if !defined (__SHA__)
-#  error "SHA instructions not enabled"
-#endif
 
 #define _mm_sha1rnds4_epu32(V1, V2, M) __extension__ ({ \
   __builtin_ia32_sha1rnds4((V1), (V2), (M)); })

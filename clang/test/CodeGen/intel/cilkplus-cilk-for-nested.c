@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fcilkplus -emit-llvm -o - %s | FileCheck %s
-// XFAIL: *
 
 // CHECK: %struct.anon = type { i32*, float**, i32* }
 // CHECK: %struct.anon.0 = type { i32*, float** }
@@ -322,3 +321,25 @@ void test_nested_loop_20(float* vec, int n) {
     }
   }
 }
+
+#define cilk_for _Cilk_for
+#define cilk_spawn _Cilk_spawn
+extern void f0(float *x);
+int test999()
+{
+  float vec1[10];
+  cilk_for (int i00 = 0; i00 < 2; i00++)
+    cilk_for (int i01 = 0; i01 <= i00; i01++)
+      cilk_spawn f0(vec1 + (i00|i00));
+  return 0;
+}
+
+// CHECK: define {{.+}}test999
+// CHECK: call {{.+}}__cilkrts_cilk_for
+// CHECK: define {{.+}}__cilk_for_helper
+// CHECK: define {{.+}}__cilk_for_helper
+// CHECK: cilk.spawn.savestate:
+// CHECK: cilk.spawn.helpercall:
+// CHECK: cilk.spawn.continuation:
+// CHECK: loop.inc:
+// CHECK: loop.end:

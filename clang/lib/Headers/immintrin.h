@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- immintrin.h - Intel intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,87 +32,46 @@
 #ifndef __IMMINTRIN_H
 #define __IMMINTRIN_H
 
-#ifdef __MMX__
 #include <mmintrin.h>
-#endif
 
-#ifdef __SSE__
 #include <xmmintrin.h>
-#endif
 
-#ifdef __SSE2__
 #include <emmintrin.h>
-#endif
 
-#ifdef __SSE3__
 #include <pmmintrin.h>
-#endif
 
-#ifdef __SSSE3__
 #include <tmmintrin.h>
-#endif
 
-#if defined (__SSE4_2__) || defined (__SSE4_1__)
 #include <smmintrin.h>
-#endif
 
-#if defined (__AES__) || defined (__PCLMUL__)
 #include <wmmintrin.h>
-#endif
 
-#ifdef __AVX__
 #include <avxintrin.h>
-#endif
 
-#ifdef __AVX2__
 #include <avx2intrin.h>
-#endif
 
-#ifdef __BMI__
 #include <bmiintrin.h>
-#endif
 
-#ifdef __BMI2__
 #include <bmi2intrin.h>
-#endif
 
-#ifdef __LZCNT__
 #include <lzcntintrin.h>
-#endif
 
-#ifdef __FMA__
 #include <fmaintrin.h>
-#endif
 
-#ifdef __AVX512F__
 #include <avx512fintrin.h>
-#endif
 
-#ifdef __AVX512VL__
 #include <avx512vlintrin.h>
-#endif
 
-#ifdef __AVX512BW__
 #include <avx512bwintrin.h>
-#endif
 
-#ifdef __AVX512DQ__
 #include <avx512dqintrin.h>
-#endif
 
-#if defined (__AVX512VL__) && defined (__AVX512BW__)
 #include <avx512vlbwintrin.h>
-#endif
 
-#if defined (__AVX512VL__) && defined (__AVX512DQ__)
 #include <avx512vldqintrin.h>
-#endif
 
-#ifdef __AVX512ER__
 #include <avx512erintrin.h>
-#endif
 
-#ifdef __RDRND__
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _rdrand16_step(unsigned short *__p)
 {
@@ -124,9 +91,7 @@ _rdrand64_step(unsigned long long *__p)
   return __builtin_ia32_rdrand64_step(__p);
 }
 #endif
-#endif /* __RDRND__ */
 
-#ifdef __FSGSBASE__
 #ifdef __x86_64__
 static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
 _readfsbase_u32(void)
@@ -176,24 +141,16 @@ _writegsbase_u64(unsigned long long __V)
   return __builtin_ia32_wrgsbase64(__V);
 }
 #endif
-#endif /* __FSGSBASE__ */
 
-#ifdef __RTM__
 #include <rtmintrin.h>
-#endif
 
-/* FIXME: check __HLE__ as well when HLE is supported. */
-#if defined (__RTM__)
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _xtest(void)
 {
   return __builtin_ia32_xtest();
 }
-#endif
 
-#ifdef __SHA__
 #include <shaintrin.h>
-#endif
 
 /* Some intrinsics inside adxintrin.h are available only if __ADX__ defined,
  * whereas others are also available if __ADX__ undefined */

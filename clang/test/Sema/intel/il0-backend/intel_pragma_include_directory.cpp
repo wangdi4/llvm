@@ -1,4 +1,4 @@
-// RUN: pushd %S; %clang_cc1 -IntelCompat -fsyntax-only -verify %s; popd
+// RUN: pushd %S; %clang_cc1 -fintel-compatibility -fsyntax-only -verify %s; popd
 
 #pragma include_directory               // expected-warning {{Path to directory is expected}}
 

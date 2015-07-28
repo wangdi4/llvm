@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- emmintrin.h - SSE2 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,10 +31,6 @@
 
 #ifndef __EMMINTRIN_H
 #define __EMMINTRIN_H
-
-#ifndef __SSE2__
-#error "SSE2 instruction set not enabled"
-#else
 
 #include <xmmintrin.h>
 
@@ -1469,7 +1473,5 @@ _mm_pause(void)
 }
 
 #define _MM_SHUFFLE2(x, y) (((x) << 1) | (y))
-
-#endif /* __SSE2__ */
 
 #endif /* __EMMINTRIN_H */

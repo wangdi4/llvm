@@ -2727,9 +2727,27 @@ static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   QualType ParamTy = FD->getParamDecl(0)->getType();
   if (S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
                                    ParamTy, Ty) != Sema::Compatible) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#371284 - allow 'PtrToInt' cast for cleanup function's argument.
+    // We also need to generate corresponding cast operation (ptrtoint
+    // instead of bitcast) at CodeGen stage.
+    // For IntelCompat mode only.
+    if (S.getLangOpts().IntelCompat &&
+        S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
+                                     ParamTy, Ty) == Sema::PointerToInt) {
+      S.Diag(Loc, diag::ext_typecheck_convert_pointer_int)
+          << Ty << ParamTy << Sema::AA_Sending << 0;
+      S.Diag(FD->getParamDecl(0)->getLocation(),
+             diag::note_attribute_cleanup_func_ptr_to_int_conversion)
+          << NI.getName();
+    } else {
+#endif // INTEL_CUSTOMIZATION
     S.Diag(Loc, diag::err_attribute_cleanup_func_arg_incompatible_type)
       << NI.getName() << ParamTy << Ty;
     return;
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   D->addAttr(::new (S.Context)

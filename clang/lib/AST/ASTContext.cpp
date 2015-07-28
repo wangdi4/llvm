@@ -1098,6 +1098,21 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target) {
   VaListTagTy = QualType();
 }
 
+#ifdef INTEL_CUSTOMIZATION
+bool ASTContext::IsPredefinedLibBuiltin(const NamedDecl *ND) const {
+  const auto FD = ND->getAsFunction();
+
+  // Predefined library builtin must be an implicit function.
+  if (!FD || !FD->isImplicit())
+    return false;
+
+  unsigned BuiltinID = FD->getBuiltinID();
+  // isPredefinedLibFunction() determines whether a builtin is used
+  // without '__builtin_' prefix.
+  return (BuiltinID > 0) && BuiltinInfo.isPredefinedLibFunction(BuiltinID);
+}
+#endif // INTEL_CUSTOMIZATION
+
 DiagnosticsEngine &ASTContext::getDiagnostics() const {
   return SourceMgr.getDiagnostics();
 }

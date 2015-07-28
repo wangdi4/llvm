@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- rdseedintrin.h - RDSEED intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,7 +36,6 @@
 #ifndef __RDSEEDINTRIN_H
 #define __RDSEEDINTRIN_H
 
-#ifdef __RDSEED__
 static __inline__ int __attribute__((__always_inline__, __nodebug__))
 _rdseed16_step(unsigned short *__p)
 {
@@ -48,5 +55,4 @@ _rdseed64_step(unsigned long long *__p)
   return __builtin_ia32_rdseed64_step(__p);
 }
 #endif
-#endif /* __RDSEED__ */
 #endif /* __RDSEEDINTRIN_H */

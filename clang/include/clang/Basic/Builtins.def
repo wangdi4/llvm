@@ -1439,6 +1439,11 @@ BUILTIN(__builtin_addressof, "v*v&", "nct")
 BUILTIN(__builtin_operator_new, "v*z", "c")
 BUILTIN(__builtin_operator_delete, "vv*", "n")
 
+#ifdef INTEL_CUSTOMIZATION
+// Builtin to support architecture features
+BUILTIN(__builtin_has_cpu_feature, "bULLi", "nc")
+#endif  // INTEL_CUSTOMIZATION
+
 #undef BUILTIN
 #undef LIBBUILTIN
 #undef LANGBUILTIN

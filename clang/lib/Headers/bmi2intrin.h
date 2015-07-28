@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- bmi2intrin.h - BMI2 intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,10 +32,6 @@
 #if !defined __X86INTRIN_H && !defined __IMMINTRIN_H
 #error "Never use <bmi2intrin.h> directly; include <x86intrin.h> instead."
 #endif
-
-#ifndef __BMI2__
-# error "BMI2 instruction set not enabled"
-#endif /* __BMI2__ */
 
 #ifndef __BMI2INTRIN_H
 #define __BMI2INTRIN_H

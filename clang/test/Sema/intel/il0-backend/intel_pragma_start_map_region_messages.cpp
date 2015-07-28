@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -fsyntax-only -verify -I %S/intel %s
+// RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -verify -I %S/intel %s
 
 #pragma start_map_region wwww // expected-warning {{missing '(' after '#pragma start_map_region' - ignoring}}
 #pragma start_map_region( // expected-warning {{expected a string}}

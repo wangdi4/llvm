@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- adxintrin.h - ADX intrinsics -------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,8 +36,6 @@
 #ifndef __ADXINTRIN_H
 #define __ADXINTRIN_H
 
-/* Intrinsics that are available only if __ADX__ defined */
-#ifdef __ADX__
 static __inline unsigned char __attribute__((__always_inline__, __nodebug__))
 _addcarryx_u32(unsigned char __cf, unsigned int __x, unsigned int __y,
                unsigned int *__p)
@@ -44,7 +50,6 @@ _addcarryx_u64(unsigned char __cf, unsigned long long __x,
 {
   return __builtin_ia32_addcarryx_u64(__cf, __x, __y, __p);
 }
-#endif
 #endif
 
 /* Intrinsics that are also available if __ADX__ undefined */

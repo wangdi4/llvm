@@ -183,8 +183,14 @@ void Parser::initializePragmaHandlers() {
   RedefineExtnameHandler.reset(new PragmaRedefineExtnameHandler());
   PP.AddPragmaHandler(RedefineExtnameHandler.get());
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!getLangOpts().IntelCompat) {
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   FPContractHandler.reset(new PragmaFPContractHandler());
   PP.AddPragmaHandler("STDC", FPContractHandler.get());
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   if (getLangOpts().OpenCL) {
     OpenCLExtensionHandler.reset(new PragmaOpenCLExtensionHandler());
@@ -230,11 +236,17 @@ void Parser::initializePragmaHandlers() {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!getLangOpts().IntelCompat) {
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   OptimizeHandler.reset(new PragmaOptimizeHandler(Actions));
   PP.AddPragmaHandler("clang", OptimizeHandler.get());
 
   LoopHintHandler.reset(new PragmaLoopHintHandler());
   PP.AddPragmaHandler("clang", LoopHintHandler.get());
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #ifdef INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
@@ -242,12 +254,11 @@ void Parser::initializePragmaHandlers() {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (!getLangOpts().IntelCompat) {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-
   UnrollHintHandler.reset(new PragmaUnrollHintHandler("unroll"));
   PP.AddPragmaHandler(UnrollHintHandler.get());
+
   NoUnrollHintHandler.reset(new PragmaUnrollHintHandler("nounroll"));
   PP.AddPragmaHandler(NoUnrollHintHandler.get());
-
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
@@ -312,6 +323,9 @@ void Parser::resetPragmaHandlers() {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  if (!getLangOpts().IntelCompat) {
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   PP.RemovePragmaHandler("STDC", FPContractHandler.get());
   FPContractHandler.reset();
 
@@ -320,6 +334,9 @@ void Parser::resetPragmaHandlers() {
 
   PP.RemovePragmaHandler("clang", LoopHintHandler.get());
   LoopHintHandler.reset();
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 #ifdef INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
@@ -327,12 +344,11 @@ void Parser::resetPragmaHandlers() {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (!getLangOpts().IntelCompat) {
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-
   PP.RemovePragmaHandler(UnrollHintHandler.get());
   UnrollHintHandler.reset();
+
   PP.RemovePragmaHandler(NoUnrollHintHandler.get());
   NoUnrollHintHandler.reset();
-
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
@@ -885,7 +901,15 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
     ConsumeToken(); // Consume the constant expression eof terminator.
 
     if (R.isInvalid() ||
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#366562 - allow pragma unroll value in IntelCompat mode be out of
+        // strictly positive 32-bit integer range.
+        Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(),
+                                  /*IsCheckRange=*/
+                                  !getLangOpts().IntelCompat || !PragmaUnroll))
+#else
         Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation()))
+#endif // INTEL_CUSTOMIZATION
       return false;
 
     // Argument is a constant expression with an integer type.

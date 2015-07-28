@@ -2766,6 +2766,8 @@ def err_attribute_cleanup_arg_not_function : Error<
   "'cleanup' argument %select{|%1 |%1 }0is not a %select{||single }0function">;
 def err_attribute_cleanup_func_must_take_one_arg : Error<
   "'cleanup' function %0 must take 1 parameter">;
+def note_attribute_cleanup_func_ptr_to_int_conversion : Note<
+  "'cleanup' function %0 has formal parameter of type 'int'">;
 def err_attribute_cleanup_func_arg_incompatible_type : Error<
   "'cleanup' function %0 parameter has "
   "%diff{type $ which is incompatible with type $|incompatible type}1,2">;
@@ -7404,6 +7406,12 @@ def err_filter_expression_integral : Error<
 
 def err_non_asm_stmt_in_naked_function : Error<
   "non-ASM statement in naked function is not supported">;
+// CQ#371340
+// if INTEL_CUSTOMIZATION
+def warn_non_asm_stmt_in_naked_function : Warning<
+  "attribute 'naked' ignored on function with non-ASM statements">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def err_asm_naked_this_ref : Error<
   "'this' pointer references not allowed in naked functions">;
 def err_asm_naked_parm_ref : Error<

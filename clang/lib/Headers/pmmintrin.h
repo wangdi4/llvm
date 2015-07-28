@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- pmmintrin.h - SSE3 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,10 +31,6 @@
  
 #ifndef __PMMINTRIN_H
 #define __PMMINTRIN_H
-
-#ifndef __SSE3__
-#error "SSE3 instruction set not enabled"
-#else
 
 #include <emmintrin.h>
 
@@ -111,7 +115,5 @@ _mm_mwait(unsigned __extensions, unsigned __hints)
 {
   __builtin_ia32_mwait(__extensions, __hints);
 }
-
-#endif /* __SSE3__ */
 
 #endif /* __PMMINTRIN_H */

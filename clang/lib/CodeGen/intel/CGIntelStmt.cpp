@@ -42,34 +42,24 @@ CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
   EmitCilkForStmt(*cast<CilkForStmt>(S.getCilkFor()), Grainsize);
 }
 
-/// \brief RAII for emitting code of CapturedStmt without function outlining.
-class InlinedCilkRegion {
-  CodeGenFunction &CGF;
-  CodeGenFunction::CGCapturedStmtInfo *PrevCapturedStmtInfo;
+/// A simple RAII object to deal with CapturedStmtInfo of the given CGF
+class CilkForRAII {
+  CodeGenFunction::CGCapturedStmtInfo *OldCapturedStmtInfo;
+  CodeGenFunction *CGF;
 
 public:
-  InlinedCilkRegion(CodeGenFunction &CGF,
-                    CodeGenFunction::CGCapturedStmtInfo *CSI)
-      : CGF(CGF), PrevCapturedStmtInfo(CGF.CapturedStmtInfo) {
-    CGF.CapturedStmtInfo = CSI;
-  };
-  ~InlinedCilkRegion() { CGF.CapturedStmtInfo = PrevCapturedStmtInfo; };
+  CilkForRAII() : CGF(nullptr){};
+  void capture(CodeGenFunction *_CGF,
+               CodeGenFunction::CGCapturedStmtInfo *CSI) {
+    CGF = _CGF;
+    OldCapturedStmtInfo = CGF->CapturedStmtInfo;
+    CGF->CapturedStmtInfo = CSI;
+  }
+  ~CilkForRAII() {
+    if (CGF)
+      CGF->CapturedStmtInfo = OldCapturedStmtInfo;
+  }
 };
-
-// We need this function to be sure
-//    that RAII object will be destroyed in proper time
-static llvm::Value *getCapturedValue(CodeGenFunction &CGF,
-                                      const Expr *E,
-                                      CodeGenFunction::CGCapturedStmtInfo *SI) {
-
-  assert ((isa<CodeGenFunction::CGCilkForStmtInfo>(SI) ||
-           isa<CodeGenFunction::CGSIMDForStmtInfo>(SI)) &&
-           "Invalid type of CGCapturedStmtInfo");
-  // create RAII object with required CapturedStmtInfo
-  InlinedCilkRegion CFRegion(CGF, SI);
-  // get LoopCount value
-  return CGF.EmitAnyExpr(E).getScalarVal();
-}
 
 void
 CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
@@ -87,12 +77,10 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   // Evaluate the first part before the loop.
   EmitStmt(S.getInit());
-
   // Emit the helper function
   CGCilkForStmtInfo CSInfo(S);
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-
   llvm::Function *Helper = CGF.GenerateCapturedStmtFunction(*S.getBody());
 
   llvm::BasicBlock *ThenBlock = createBasicBlock("if.then");
@@ -101,14 +89,15 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   EmitBlock(ThenBlock);
   {
+    CilkForRAII cfRAII;
     RunCleanupsScope Scope(*this);
     const Expr *LoopCountExpr = S.getLoopCount();
-    llvm::Value *LoopCount = getCapturedValue(*this, LoopCountExpr, &CSInfo);
+    if(!CapturedStmtInfo)
+      cfRAII.capture(this, &CSInfo); // use the proper captured info
+    llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
-
     llvm::LLVMContext &Ctx = CGM.getLLVMContext();
-
     // Get or insert the cilk_for abi function.
     llvm::Constant *CilkForABI = 0;
     llvm::FunctionType *FTy = 0;
@@ -343,13 +332,13 @@ void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
     LastIter = llvm::ConstantInt::getFalse(BodyFunc->getContext());
   HelperArgs.push_back(LastIter);
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   disableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   EmitCallOrInvoke(BodyFunc, HelperArgs);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   enableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
@@ -499,13 +488,13 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
                               LoopStack.getCurLoopParallel());
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CGF.disableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   llvm::Function *BodyFunction = CGF.GenerateCapturedStmtFunction(CS);
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   CGF.enableExceptions();
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   // Always inline this function back to the call site.
   BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
   return BodyFunction;

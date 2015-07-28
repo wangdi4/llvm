@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- prfchwintrin.h - PREFETCHW intrinsic -----------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,12 +36,10 @@
 #ifndef __PRFCHWINTRIN_H
 #define __PRFCHWINTRIN_H
 
-#if defined(__PRFCHW__) || defined(__3dNOW__)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _m_prefetchw(void *__P)
 {
   __builtin_prefetch (__P, 1, 3 /* _MM_HINT_T0 */);
 }
-#endif
 
 #endif /* __PRFCHWINTRIN_H */

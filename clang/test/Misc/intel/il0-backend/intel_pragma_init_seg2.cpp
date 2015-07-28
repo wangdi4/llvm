@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s  
+// RUN: %clang_cc1 -fintel-compatibility -triple=x86_64-apple-darwin -emit-llvm -verify -o - %s | FileCheck %s  
 //***INTEL: pragma init_seg test
 
 // CHECK: target
@@ -19,12 +19,12 @@ struct S {
   int a;
 } d;
 // CHECK: define private void @.DIRECTIVE.() #1 {
-// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"INIT_SEG", metadata !".CRT$XCU")
 // CHECK-NEXT: ret void
 // CHECK-NEXT: }
 #pragma init_seg(user)
 
-// CHECK-NOT: define private void @.DIRECTIVE.1() #1 {
+// CHECK-NOT: define private void @.DIRECTIVE..1() #1 {
 #pragma init_seg "user") // expected-warning {{initialization segment already defined}}
 class C {
   int a;
@@ -40,5 +40,3 @@ int main(int argc, char **argv)
   return (0);
 }
 
-// CHECK: !1 = metadata !{metadata !"INIT_SEG", metadata !".CRT$XCU"}
-// CHECK-NOT: !2 = metadata !{metadata !"INIT_SEG"

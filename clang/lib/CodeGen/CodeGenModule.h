@@ -333,7 +333,11 @@ private:
   /// ElementalVariantToEmit - This contains all Cilk Plus elemental function
   /// variants to be emitted.
   llvm::SmallVector<ElementalVariantInfo, 8> ElementalVariantToEmit;
+
+  /// ElementalAttributes - This contains all attributes of elemental functions.
+  llvm::StringMap<llvm::Function *, llvm::BumpPtrAllocator> ElementalAttributes;
 #endif  // INTEL_CUSTOMIZATION
+
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
   // or a definition.
@@ -628,7 +632,12 @@ public:
 
   /// Emit all elemental function vector variants in this module.
   void EmitCilkElementalVariants();
+
+  /// Emit an attribute for given elemental function.
+  void EmitCilkElementalAttribute(llvm::Function *Func, llvm::MDNode *MD,
+                                  bool IsMasked);
 #endif  // INTEL_CUSTOMIZATION
+
   ARCEntrypoints &getARCEntrypoints() const {
     assert(getLangOpts().ObjCAutoRefCount && ARCData != nullptr);
     return *ARCData;

@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -ferror-limit 100 -emit-llvm -verify -o - %s
+// RUN: %clang_cc1 -fintel-compatibility -ferror-limit 100 -emit-llvm -verify -o - %s
 //***INTEL: pragma loop_count test
 
 #pragma loop_count ; // expected-error {{this pragma must immediately precede a statement}}

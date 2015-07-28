@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s
 //***INTEL: pragma distribute_point test
 
 #pragma distribute_point // expected-error {{this pragma must immediately precede a statement}}

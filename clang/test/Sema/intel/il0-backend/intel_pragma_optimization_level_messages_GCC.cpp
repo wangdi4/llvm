@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -pragma-optimization-level=GCC -verify -o - %s 
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -pragma-optimization-level=GCC -verify -o - %s 
 //***INTEL: pragma optimization_level
 
 #pragma GCC optimization_level 1

@@ -514,6 +514,11 @@ namespace {
       // To fix this we insert a bitcast here.
       QualType ArgTy = FnInfo.arg_begin()->type;
       llvm::Value *Arg =
+#ifdef INTEL_CUSTOMIZATION
+          // CQ#371284 - allow 'ptrtoint' parameter cast for cleanup function.
+          (CGF.getLangOpts().IntelCompat)
+          ? CGF.Builder.CreateBitOrPointerCast(Addr, CGF.ConvertType(ArgTy)) :
+#endif // INTEL_CUSTOMIZATION
         CGF.Builder.CreateBitCast(Addr, CGF.ConvertType(ArgTy));
 
       CallArgList Args;

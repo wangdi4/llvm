@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -fp-model precise -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -fp-model precise -o - %s | FileCheck %s
 //***INTEL: pragma fp_control, fenv_access test
 
 // CHECK: define void @{{.*}}f1{{.*}}() #0

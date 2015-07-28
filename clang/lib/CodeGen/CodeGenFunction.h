@@ -1333,10 +1333,10 @@ private:
 
   /// The current lexical scope.
   LexicalScope *CurLexicalScope;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  /// ExceptionsDisabled - Whether exceptions are currently disabled.
+#ifdef INTEL_CUSTOMIZATION
+  /// \brief Whether exceptions are currently disabled.
   bool ExceptionsDisabled;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   /// The current source location that should be used for exception
   /// handling code.
   SourceLocation CurEHLocation;
@@ -1407,10 +1407,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
   void disableExceptions() { ExceptionsDisabled = true; }
   void enableExceptions() { ExceptionsDisabled = false; }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   bool currentFunctionUsesSEHTry() const {
     const auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
     return FD && FD->usesSEHTry();

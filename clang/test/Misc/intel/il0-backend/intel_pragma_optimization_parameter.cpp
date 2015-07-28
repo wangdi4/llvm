@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -IntelCompat -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm -verify -o - %s | FileCheck %s
 //***INTEL: pragma intel optimization_parameter target_arch=
 // expected-no-diagnostics
 
@@ -8,12 +8,12 @@ struct AAAAAA{
 };
 // CHECK: atom1{{.*}} {
 void atom1() {
-// CHECK: call void @llvm.intel.pragma(metadata !1)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"OPT_PARAM_TARGET_ARCH", metadata !"ATOM")
 }
 // CHECK: }
 
 // CHECK: atom2{{.*}} {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata !
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata !
 void atom2() {}
 // CHECK: }
 
@@ -24,12 +24,12 @@ struct AAAAAA1{
 };
 // CHECK: avx1{{.*}} {
 void avx1() {
-// CHECK: call void @llvm.intel.pragma(metadata !2)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"OPT_PARAM_TARGET_ARCH", metadata !"AVX")
 }
 // CHECK: }
 
 // CHECK: avx2{{.*}} {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata !
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata !
 void avx2() {}
 // CHECK: }
 
@@ -37,7 +37,7 @@ void avx2() {}
 #pragma intel optimization_parameter target_ar
 #pragma intel optimization_parameter wfrrhff (10)+
 // CHECK: aaaa{{.*}} {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata !
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata !
 void aaaa() {
   ;
 }
@@ -51,14 +51,14 @@ int main() {
 struct S {
   int a;
 };
-// CHECK: call void @llvm.intel.pragma(metadata !3)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"OPT_PARAM_TARGET_ARCH", metadata !"X86")
 
   return (0);
 }
 // CHECK: }
 
 // CHECK: x86{{.*}} {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata !
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata !
 void x86() {}
 // CHECK: }
 
@@ -70,17 +70,12 @@ struct S {
   void sse22();
 };
 // CHECK: sse22{{.*}} {
-// CHECK-NOT: call void @llvm.intel.pragma(metadata !
+// CHECK-NOT: call void (metadata, ...) @llvm.intel.pragma(metadata !
 void S::sse22(){sse21();}
 // CHECK: }
 // CHECK: sse21{{.*}} {
-// CHECK: call void @llvm.intel.pragma(metadata !4)
+// CHECK: call void (metadata, ...) @llvm.intel.pragma(metadata !"OPT_PARAM_TARGET_ARCH", metadata !"SSE2")
 // CHECK: }
 
 static int a;
 
-
-// CHECK: !1 = metadata !{metadata !"OPT_PARAM_TARGET_ARCH", metadata !"ATOM"}
-// CHECK: !2 = metadata !{metadata !"OPT_PARAM_TARGET_ARCH", metadata !"AVX"}
-// CHECK: !3 = metadata !{metadata !"OPT_PARAM_TARGET_ARCH", metadata !"X86"}
-// CHECK: !4 = metadata !{metadata !"OPT_PARAM_TARGET_ARCH", metadata !"SSE2"}
