@@ -105,6 +105,7 @@ private:
     ANTI,
     FLOW,
   };
+
   DDRef *Src;
   DDRef *Sink;
   DVectorTy DV;
@@ -135,8 +136,19 @@ public:
     }
   }
 
-  DDRef *getSrc() { return Src; }
-  DDRef *getSink() { return Sink; }
+  DDRef *getSrc() const { return Src; }
+  DDRef *getSink() const { return Sink; }
+
+  // Next one is useful to loop through each element of DV
+  const DVType *getDV() const { return &DV[0]; }
+  // Next one returns pointer to an array of char
+  const DVectorTy *getDirVector() const { return &DV; }
+
+  bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
+  bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }
+  bool isANTIdep() const { return getEdgeType() == DepType::ANTI; }
+  bool isINPUTdep() const { return getEdgeType() == DepType::INPUT; }
+
   friend llvm::raw_ostream &operator<<(llvm::raw_ostream &out, DepType value) {
     const char *s = 0;
     switch (value) {

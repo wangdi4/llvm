@@ -1624,6 +1624,25 @@ bool HLNodeUtils::strictlyDominates(HLNode *HIR1, HLNode *HIR2) {
   return false;
 }
 
+//  Check if DDRef is contained in Loop
+bool HLNodeUtils::LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref) {
+
+  HLDDNode *DDNode = DDref->getHLDDNode();
+
+  if (DDNode == Loop) {
+    return true;
+  }
+
+  for (HLLoop *LP = DDNode->getParentLoop(); LP != nullptr;
+       LP = LP->getParentLoop()) {
+    if (LP == Loop) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
                                                   const HLLoop *InnermostLoop) {
   assert(InnermostLoop && " InnermostLoop is null.");

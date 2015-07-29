@@ -660,6 +660,9 @@ public:
   /// \brief HIR Strictly dominates
   static bool strictlyDominates(HLNode *Node1, HLNode *Node2);
 
+  /// \brief Check if DDRef is contained in Loop
+	static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
+		
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned Level,

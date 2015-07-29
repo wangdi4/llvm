@@ -44,6 +44,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
+	
 }
 
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -71,7 +72,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost),
+      NestingLevel(0),  TemporalLocalityWt(0), 
+      SpatialLocalityWt(0), IsInnermost(HLLoopObj.IsInnermost),
       IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
@@ -88,6 +90,9 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
 
+  setTemporalLocalityWt(HLLoopObj.getTemporalLocalityWt());
+  setSpatialLocalityWt(HLLoopObj.getSpatialLocalityWt());
+	
   // Avoid cloning children and preheader/postexit.
   if (!CloneChildren)
     return;
@@ -158,6 +163,8 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     {
       indent(OS, Depth);
       OS << "+ NumExits: " << getNumExits() << "\n";
+      OS << "+ TemporalLocalityWt: " << getTemporalLocalityWt() << "\n";
+      OS << "+ SpatialLocalityWt: " << getSpatialLocalityWt() << "\n";
     }
 
     {
@@ -228,6 +235,14 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 void HLLoop::setNumExits(unsigned NumEx) {
   assert(NumEx && "Number of exits cannot be zero!");
   NumExits = NumEx;
+}
+
+void HLLoop::setTemporalLocalityWt(unsigned Weight) {
+  TemporalLocalityWt = Weight;
+}
+
+void HLLoop::setSpatialLocalityWt(unsigned Weight) {
+  SpatialLocalityWt = Weight;
 }
 
 unsigned

@@ -2612,7 +2612,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     int64_t Coeff1;
     CE->getIVCoeff(CurIVPair, &Index, &Coeff1);
 
-    DEBUG(dbgs() << "\n bingo! index, coeff  =" << Index << "  " << Coeff1);
+    DEBUG(dbgs() << "\nindex, coeff  =" << Index << "  " << Coeff1);
 
     k1 = CE->getIVConstCoeff(CurIVPair);
     if (k1 == 0) {
@@ -4688,6 +4688,47 @@ void llvm::loopopt::printDV(const DVType *DV, unsigned Levels,
     }
   }
   OS << ")\n";
+}
+
+// Is  DV all ( = = = .. =)?
+bool llvm::loopopt::isDValEQ(const DVType *DV) {
+
+  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
+    unsigned Direction = DV[II - 1];
+    if (Direction == DV::NONE) {
+      break;
+    }
+    if (Direction != DV::EQ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Is DV implying INDEP for level L to end?
+// e.g.  DV = (< *)	 implies INDEP for innermost loop
+// In this example, isDVIndepFromLevel(&DV, 2) return true
+bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
+
+  assert((FromLevel > 0 && FromLevel <= MaxLoopNestLevel) && "incorrect Level");
+
+  for (unsigned II = 1; II <= FromLevel - 1; ++II) {
+    unsigned Direction = DV[II - 1];
+    if (Direction == DV::NONE) {
+      break;
+    }
+    switch (Direction) {
+    case DV::LT:
+    case DV::LE:
+    case DV::GT:
+    case DV::GE:
+      return true;
+    default:
+      break;
+    }
+  }
+
+  return false;
 }
 
 #if 0

@@ -83,7 +83,16 @@ struct DV {
     ALL = 7
   };
 };
-
+	
+// Is  DV all ( = = = .. =)?
+bool isDValEQ(const DVType *DV);
+	
+// Is DV imply INDEP for level L on
+// e.g.  DV = (< *)	 implies INDEP for innermost loop
+// In this example, isDVIndepFromLevel(&DV, 2) return true
+	
+bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
+	
 class Dependences {
 public:
   Dependences(DDRef *Source, DDRef *Destination)

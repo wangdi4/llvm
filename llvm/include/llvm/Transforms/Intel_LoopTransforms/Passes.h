@@ -34,10 +34,13 @@ FunctionPass *createHIRCodeGenPass();
 /// createHIRCompleteUnrollPass - This creates a pass that performs complete
 /// unrolling on small trip count HIR loops.
 FunctionPass *createHIRCompleteUnrollPass(int Threshold = -1);
-
+	
+/// createHIRInterchangePass - This creates a pass that performs Loop Interchange
+FunctionPass *createHIRLoopInterchangePass();
 /// createHIRGeneralUnrollPass - This creates a pass that performs general
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass(int Threshold = -1, int UFactor = -1);
+
 }
 
 #endif

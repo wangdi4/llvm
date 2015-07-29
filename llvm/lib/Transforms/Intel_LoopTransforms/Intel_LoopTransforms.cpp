@@ -18,5 +18,7 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeSSADeconstructionPass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
+  initializeHIRLoopInterchangePass(Registry);
   initializeHIRCodeGenPass(Registry);
+
 }

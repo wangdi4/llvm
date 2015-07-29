@@ -81,6 +81,8 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
+  unsigned TemporalLocalityWt;
+  unsigned SpatialLocalityWt;
   bool IsInnermost;
   Type *IVType;
 
@@ -280,6 +282,15 @@ public:
   unsigned getNestingLevel() const { return NestingLevel; }
   /// \brief Returns true if this is the innermost loop in the loopnest.
   bool isInnermost() const { return IsInnermost; }
+  /// \brief Returns the temporal locality wt of the loop.
+  unsigned getTemporalLocalityWt() const { return TemporalLocalityWt; }
+  /// \brief Returns the spatial locality wt of the loop.
+  unsigned getSpatialLocalityWt() const  { return SpatialLocalityWt;  }
+  /// \brief Sets the temporal locality wt of the loop.
+  void setTemporalLocalityWt(unsigned Weight); 
+  /// \brief Returns the spatial locality wt of the loop.
+  void setSpatialLocalityWt(unsigned Weight);  
+
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
