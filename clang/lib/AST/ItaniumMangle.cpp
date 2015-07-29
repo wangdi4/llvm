@@ -2010,7 +2010,11 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Half: Out << "Dh"; break;
   case BuiltinType::Float: Out << 'f'; break;
   case BuiltinType::Double: Out << 'd'; break;
-  case BuiltinType::LongDouble: Out << 'e'; break;
+  case BuiltinType::LongDouble:
+    Out << (getASTContext().getTargetInfo().useFloat128ManglingForLongDouble()
+                ? 'g'
+                : 'e');
+    break;
 #ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128: Out << 'g'; break;
 #endif  // INTEL_CUSTOMIZATION
@@ -2679,7 +2683,9 @@ recurse:
   // These all can only appear in local or variable-initialization
   // contexts and so should never appear in a mangling.
   case Expr::AddrLabelExprClass:
+  case Expr::DesignatedInitUpdateExprClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::NoInitExprClass:
   case Expr::ParenListExprClass:
   case Expr::LambdaExprClass:
   case Expr::MSPropertyRefExprClass:
@@ -4068,8 +4074,7 @@ void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
 
 void ItaniumMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                                                      raw_ostream &Out) {
-  Linkage L = RD->getLinkageInternal();
-  if (L == InternalLinkage || L == UniqueExternalLinkage) {
+  if (!RD->isExternallyVisible()) {
     // This part of the identifier needs to be unique across all translation
     // units in the linked program. The scheme fails if multiple translation
     // units are compiled using the same relative source file path, or if

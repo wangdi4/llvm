@@ -64,6 +64,8 @@
 
 #include <avx512bwintrin.h>
 
+#include <avx512cdintrin.h>
+
 #include <avx512dqintrin.h>
 
 #include <avx512vlbwintrin.h>
@@ -72,20 +74,20 @@
 
 #include <avx512erintrin.h>
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand16_step(unsigned short *__p)
 {
   return __builtin_ia32_rdrand16_step(__p);
 }
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand32_step(unsigned int *__p)
 {
   return __builtin_ia32_rdrand32_step(__p);
 }
 
 #ifdef __x86_64__
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __attribute__((__always_inline__, __nodebug__, __target__("rdrnd")))
 _rdrand64_step(unsigned long long *__p)
 {
   return __builtin_ia32_rdrand64_step(__p);
@@ -93,49 +95,49 @@ _rdrand64_step(unsigned long long *__p)
 #endif
 
 #ifdef __x86_64__
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _readfsbase_u32(void)
 {
   return __builtin_ia32_rdfsbase32();
 }
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _readfsbase_u64(void)
 {
   return __builtin_ia32_rdfsbase64();
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _readgsbase_u32(void)
 {
   return __builtin_ia32_rdgsbase32();
 }
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _readgsbase_u64(void)
 {
   return __builtin_ia32_rdgsbase64();
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
+static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u32(unsigned int __V)
 {
   return __builtin_ia32_wrfsbase32(__V);
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
+static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writefsbase_u64(unsigned long long __V)
 {
   return __builtin_ia32_wrfsbase64(__V);
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
+static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u32(unsigned int __V)
 {
   return __builtin_ia32_wrgsbase32(__V);
 }
 
-static __inline__ void __attribute__((__always_inline__, __nodebug__))
+static __inline__ void __attribute__((__always_inline__, __nodebug__, __target__("fsgsbase")))
 _writegsbase_u64(unsigned long long __V)
 {
   return __builtin_ia32_wrgsbase64(__V);
@@ -144,16 +146,14 @@ _writegsbase_u64(unsigned long long __V)
 
 #include <rtmintrin.h>
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
-_xtest(void)
-{
-  return __builtin_ia32_xtest();
-}
+#include <xtestintrin.h>
 
 #include <shaintrin.h>
 
-/* Some intrinsics inside adxintrin.h are available only if __ADX__ defined,
- * whereas others are also available if __ADX__ undefined */
+#include <fxsrintrin.h>
+
+/* Some intrinsics inside adxintrin.h are available only on processors with ADX,
+ * whereas others are also available at all times. */
 #include <adxintrin.h>
 
 #endif /* __IMMINTRIN_H */

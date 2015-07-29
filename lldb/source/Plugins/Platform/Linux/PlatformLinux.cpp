@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/lldb-python.h"
-
 #include "PlatformLinux.h"
 #include "lldb/Host/Config.h"
 
@@ -59,11 +57,6 @@ static uint32_t g_initialize_count = 0;
 
 namespace
 {
-    enum
-    {
-        ePropertyUseLlgsForLocal = 0,
-    };
-
     class PlatformLinuxProperties : public Properties
     {
     public:
@@ -74,9 +67,6 @@ namespace
 
         virtual
         ~PlatformLinuxProperties() = default;
-
-        bool
-        GetUseLlgsForLocal() const;
 
     private:
         static const PropertyDefinition*
@@ -101,26 +91,14 @@ PlatformLinuxProperties::GetSettingName ()
     return g_setting_name;
 }
 
-bool
-PlatformLinuxProperties::GetUseLlgsForLocal() const
-{
-    const uint32_t idx = ePropertyUseLlgsForLocal;
-    return m_collection_sp->GetPropertyAtIndexAsBoolean (NULL, idx, GetStaticPropertyDefinitions()[idx].default_uint_value != 0);
-}
-
 const PropertyDefinition*
 PlatformLinuxProperties::GetStaticPropertyDefinitions()
 {
     static PropertyDefinition
     g_properties[] =
     {
-        { "use-llgs-for-local" , OptionValue::eTypeBoolean, true, true, NULL, NULL, "Control whether the platform uses llgs for local debug sessions." },
         {  NULL        , OptionValue::eTypeInvalid, false, 0  , NULL, NULL, NULL  }
     };
-
-    // Allow environment variable to disable llgs-local.
-    if (getenv("PLATFORM_LINUX_DISABLE_LLGS_LOCAL"))
-        g_properties[ePropertyUseLlgsForLocal].default_uint_value = false;
 
     return g_properties;
 }
@@ -515,6 +493,8 @@ PlatformLinux::GetSupportedArchitectureAtIndex (uint32_t idx, ArchSpec &arch)
             case 4: triple.setArchName("mips64"); break;
             case 5: triple.setArchName("hexagon"); break;
             case 6: triple.setArchName("mips"); break;
+            case 7: triple.setArchName("mips64el"); break;
+            case 8: triple.setArchName("mipsel"); break;
             default: return false;
         }
         // Leave the vendor as "llvm::Triple:UnknownVendor" and don't specify the vendor by
@@ -678,21 +658,11 @@ PlatformLinux::GetResumeCountForLaunchInfo (ProcessLaunchInfo &launch_info)
 }
 
 bool
-PlatformLinux::UseLlgsForLocalDebugging ()
-{
-    PlatformLinuxPropertiesSP properties_sp = GetGlobalProperties ();
-    assert (properties_sp && "global properties shared pointer is null");
-    return properties_sp ? properties_sp->GetUseLlgsForLocal () : false;
-}
-
-bool
 PlatformLinux::CanDebugProcess ()
 {
     if (IsHost ())
     {
-        // The platform only does local debugging (i.e. uses llgs) when the setting indicates we do that.
-        // Otherwise, we'll use ProcessLinux/ProcessPOSIX to handle with ProcessMonitor.
-        return UseLlgsForLocalDebugging ();
+        return true;
     }
     else
     {
@@ -723,14 +693,6 @@ PlatformLinux::DebugProcess (ProcessLaunchInfo &launch_info,
     //
 
     ProcessSP process_sp;
-
-    // Ensure we're using llgs for local debugging.
-    if (!UseLlgsForLocalDebugging ())
-    {
-        assert (false && "we're trying to debug a local process but platform.plugin.linux.use-llgs-for-local is false, should never get here");
-        error.SetErrorString ("attempted to start gdb-remote-based debugging for local process but platform.plugin.linux.use-llgs-for-local is false");
-        return process_sp;
-    }
 
     // Make sure we stop at the entry point
     launch_info.GetFlags ().Set (eLaunchFlagDebug);
@@ -934,12 +896,21 @@ PlatformLinux::AttachNativeProcess (lldb::pid_t pid,
 }
 
 uint64_t
-PlatformLinux::ConvertMmapFlagsToPlatform(unsigned flags)
+PlatformLinux::ConvertMmapFlagsToPlatform(const ArchSpec &arch, unsigned flags)
 {
     uint64_t flags_platform = 0;
+    uint64_t map_anon = MAP_ANON;
+
+    // To get correct flags for MIPS Architecture
+    if (arch.GetTriple ().getArch () == llvm::Triple::mips64
+       || arch.GetTriple ().getArch () == llvm::Triple::mips64el 
+       || arch.GetTriple ().getArch () == llvm::Triple::mips 
+       || arch.GetTriple ().getArch () == llvm::Triple::mipsel)
+           map_anon = 0x800;
+
     if (flags & eMmapFlagsPrivate)
         flags_platform |= MAP_PRIVATE;
     if (flags & eMmapFlagsAnon)
-        flags_platform |= MAP_ANON;
+        flags_platform |= map_anon;
     return flags_platform;
 }

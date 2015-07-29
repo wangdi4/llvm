@@ -16,7 +16,9 @@
 #include "BoolPointerImplicitConversionCheck.h"
 #include "InaccurateEraseCheck.h"
 #include "InefficientAlgorithmCheck.h"
-#include "NoexceptMoveCtorsCheck.h"
+#include "MacroParenthesesCheck.h"
+#include "MacroRepeatedSideEffectsCheck.h"
+#include "NoexceptMoveConstructorCheck.h"
 #include "StaticAssertCheck.h"
 #include "SwappedArgumentsCheck.h"
 #include "UndelegatedConstructor.h"
@@ -42,8 +44,12 @@ public:
         "misc-inaccurate-erase");
     CheckFactories.registerCheck<InefficientAlgorithmCheck>(
         "misc-inefficient-algorithm");
-    CheckFactories.registerCheck<NoexceptMoveCtorsCheck>(
-        "misc-noexcept-move-ctors");
+    CheckFactories.registerCheck<MacroParenthesesCheck>(
+        "misc-macro-parentheses");
+    CheckFactories.registerCheck<MacroRepeatedSideEffectsCheck>(
+        "misc-macro-repeated-side-effects");
+    CheckFactories.registerCheck<NoexceptMoveConstructorCheck>(
+        "misc-noexcept-move-constructor");
     CheckFactories.registerCheck<StaticAssertCheck>(
         "misc-static-assert");
     CheckFactories.registerCheck<SwappedArgumentsCheck>(

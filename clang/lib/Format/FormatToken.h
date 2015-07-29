@@ -51,6 +51,7 @@ enum TokenType {
   TT_InlineASMBrace,
   TT_InlineASMColon,
   TT_JavaAnnotation,
+  TT_JsComputedPropertyName,
   TT_JsFatArrow,
   TT_JsTypeColon,
   TT_JsTypeOptionalQuestion,
@@ -85,24 +86,12 @@ enum TokenType {
 };
 
 // Represents what type of block a set of braces open.
-enum BraceBlockKind {
-  BK_Unknown,
-  BK_Block,
-  BK_BracedInit
-};
+enum BraceBlockKind { BK_Unknown, BK_Block, BK_BracedInit };
 
 // The packing kind of a function's parameters.
-enum ParameterPackingKind {
-  PPK_BinPacked,
-  PPK_OnePerLine,
-  PPK_Inconclusive
-};
+enum ParameterPackingKind { PPK_BinPacked, PPK_OnePerLine, PPK_Inconclusive };
 
-enum FormatDecision {
-  FD_Unformatted,
-  FD_Continue,
-  FD_Break
-};
+enum FormatDecision { FD_Unformatted, FD_Continue, FD_Break };
 
 class TokenRole;
 class AnnotatedLine;

@@ -45,7 +45,7 @@ static cl::opt<int> OptComputeOut(
     "polly-dependences-computeout",
     cl::desc("Bound the dependence analysis by a maximal amount of "
              "computational steps (0 means no bound)"),
-    cl::Hidden, cl::init(250000), cl::ZeroOrMore, cl::cat(PollyCategory));
+    cl::Hidden, cl::init(410000), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 static cl::opt<bool> LegalityCheckDisabled(
     "disable-polly-legality", cl::desc("Disable polly legality check"),
@@ -125,12 +125,12 @@ static void collectInfo(Scop &S, isl_union_map **Read, isl_union_map **Write,
 }
 
 /// @brief Fix all dimension of @p Zero to 0 and add it to @p user
-static int fixSetToZero(__isl_take isl_set *Zero, void *user) {
+static isl_stat fixSetToZero(__isl_take isl_set *Zero, void *user) {
   isl_union_set **User = (isl_union_set **)user;
   for (unsigned i = 0; i < isl_set_dim(Zero, isl_dim_set); i++)
     Zero = isl_set_fix_si(Zero, isl_dim_set, i, 0);
   *User = isl_union_set_add_set(*User, Zero);
-  return 0;
+  return isl_stat_ok;
 }
 
 /// @brief Compute the privatization dependences for a given dependency @p Map
@@ -351,7 +351,7 @@ void Dependences::calculateDependences(Scop &S) {
   // 2) Intersect them with the actual RAW & WAW dependences to the get the
   //    actual reduction dependences. This will ensure the load/store memory
   //    addresses were __identical__ in the two iterations of the statement.
-  // 3) Relax the original RAW and WAW dependences by substracting the actual
+  // 3) Relax the original RAW and WAW dependences by subtracting the actual
   //    reduction dependences. Binary reductions (sum += A[i]) cause both, and
   //    the same, RAW and WAW dependences.
   // 4) Add the privatization dependences which are widened versions of
