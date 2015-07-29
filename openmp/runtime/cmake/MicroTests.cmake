@@ -12,16 +12,16 @@
 ######################################################
 # MICRO TESTS
 # The following micro-tests are small tests to perform on 
-# the library just created in ${build_dir}/, there are currently
+# the library just created in ${CMAKE_CURRENT_BINARY_DIR}/, there are currently
 # five micro-tests: 
 # (1) test-touch 
-#    - Compile and run a small program using newly created libiomp5 library
+#    - Compile and run a small program using newly created libomp library
 #    - Fails if test-touch.c does not compile or if test-touch.c does not run after compilation
 #    - Program dependencies: gcc or g++, grep, bourne shell
 #    - Available for all Linux,Mac,Windows builds.  Not available on Intel(R) MIC Architecture builds.
 # (2) test-relo
 #    - Tests dynamic libraries for position-dependent code (can not have any position dependent code)
-#    - Fails if TEXTREL is in output of readelf -d libiomp5.so command
+#    - Fails if TEXTREL is in output of readelf -d libomp.so command
 #    - Program dependencies: readelf, grep, bourne shell
 #    - Available for Linux, Intel(R) MIC Architecture dynamic library builds. Not available otherwise.
 # (3) test-execstack 
@@ -35,7 +35,7 @@
 #    - Program dependencies: perl, objdump 
 #    - Available for Intel(R) MIC Architecture builds. Not available otherwise.
 # (5) test-deps      
-#    - Tests newly created libiomp5 for library dependencies
+#    - Tests newly created libomp for library dependencies
 #    - Fails if sees a dependence not listed in td_exp variable below
 #    - Program dependencies: perl, (linux)readelf, (mac)otool[64], (windows)link.exe
 #    - Available for Linux,Mac,Windows, Intel(R) MIC Architecture dynamic builds and Windows static builds. Not available otherwise.
@@ -58,7 +58,7 @@ set(regular_test_touch_items "${test_touch_items}")
 add_suffix("/.success"  regular_test_touch_items)
 # test-touch : ${test_touch_items}/.success
 set(ldeps "${regular_test_touch_items}")
-add_custom_target(libiomp-test-touch DEPENDS ${ldeps})
+add_custom_target(libomp-test-touch DEPENDS ${ldeps})
 
 if(${WINDOWS})
     # pick test-touch compiler
@@ -72,7 +72,7 @@ if(${WINDOWS})
         list(APPEND tt-c-flags-mt -MTd)
         list(APPEND tt-c-flags-md -MDd)
     endif()
-    list(APPEND tt-libs ${build_dir}/${imp_file})
+    list(APPEND tt-libs ${CMAKE_CURRENT_BINARY_DIR}/${imp_file})
     list(APPEND tt-ld-flags -link -nodefaultlib:oldnames)
     if(${IA32})
         list(APPEND tt-ld-flags -safeseh)
@@ -94,32 +94,32 @@ else() # (Unix based systems, Intel(R) MIC Architecture, and Mac)
     elseif(${INTEL64})
         list(APPEND tt-c-flags -m64)
     endif()
-    list(APPEND tt-libs ${build_dir}/${lib_file})
+    list(APPEND tt-libs ${CMAKE_CURRENT_BINARY_DIR}/${lib_file})
     if(${MAC})
         list(APPEND tt-ld-flags-v -Wl,-t)
         set(tt-env "DYLD_LIBRARY_PATH=.:$ENV{DYLD_LIBRARY_PATH}")
     else()
         list(APPEND tt-ld-flags-v -Wl,--verbose)
-        set(tt-env LD_LIBRARY_PATH=".:${build_dir}:$ENV{LD_LIBRARY_PATH}")
+        set(tt-env LD_LIBRARY_PATH=".:${CMAKE_CURRENT_BINARY_DIR}:$ENV{LD_LIBRARY_PATH}")
     endif()
 endif()
 list(APPEND tt-c-flags "${tt-c-flags-rt}")
 list(APPEND tt-env "KMP_VERSION=1")
 
 macro(test_touch_recipe test_touch_dir)
-    set(ldeps ${src_dir}/test-touch.c lib)
+    set(ldeps ${src_dir}/test-touch.c omp)
     set(tt-exe-file ${test_touch_dir}/test-touch${exe})
     if(${WINDOWS})
         # ****** list(APPEND tt-c-flags -Fo$(dir $@)test-touch${obj} -Fe$(dir $@)test-touch${exe}) *******
         set(tt-c-flags-out -Fo${test_touch_dir}/test-touch${obj} -Fe${test_touch_dir}/test-touch${exe})
-        list(APPEND ldeps ${build_dir}/${imp_file})
+        list(APPEND ldeps ${CMAKE_CURRENT_BINARY_DIR}/${imp_file})
     else()
         # ****** list(APPEND tt-c-flags -o $(dir $@)test-touch${exe}) ********
         set(tt-c-flags-out -o ${test_touch_dir}/test-touch${exe})
     endif()
     add_custom_command(
         OUTPUT  ${test_touch_dir}/.success
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${build_dir}/${test_touch_dir}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/${test_touch_dir}
         COMMAND ${CMAKE_COMMAND} -E remove -f ${test_touch_dir}/*
         COMMAND ${tt-c} ${tt-c-flags-out} ${tt-c-flags} ${src_dir}/test-touch.c ${tt-libs} ${tt-ld-flags}
         COMMAND ${CMAKE_COMMAND} -E remove -f ${tt-exe-file}
@@ -138,38 +138,38 @@ else()
 endif()
 
 # test-relo 
-add_custom_target(libiomp-test-relo DEPENDS test-relo/.success)
+add_custom_target(libomp-test-relo DEPENDS test-relo/.success)
 add_custom_command(
     OUTPUT  test-relo/.success
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${build_dir}/test-relo
-    COMMAND readelf -d ${build_dir}/${lib_file} > test-relo/readelf.log
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/test-relo
+    COMMAND readelf -d ${CMAKE_CURRENT_BINARY_DIR}/${lib_file} > test-relo/readelf.log
     COMMAND grep -e TEXTREL test-relo/readelf.log \; [ $$? -eq 1 ]
     COMMAND ${CMAKE_COMMAND} -E touch test-relo/.success
-    DEPENDS lib
+    DEPENDS omp
 )
 
 # test-execstack
-add_custom_target(libiomp-test-execstack DEPENDS test-execstack/.success)
+add_custom_target(libomp-test-execstack DEPENDS test-execstack/.success)
 add_custom_command(
     OUTPUT  test-execstack/.success
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${build_dir}/test-execstack
-    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-execstack.pl ${oa_opts} ${build_dir}/${lib_file}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/test-execstack
+    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-execstack.pl ${oa_opts} ${CMAKE_CURRENT_BINARY_DIR}/${lib_file}
     COMMAND ${CMAKE_COMMAND} -E touch test-execstack/.success
-    DEPENDS lib
+    DEPENDS omp
 )
 
 # test-instr
-add_custom_target(libiomp-test-instr DEPENDS test-instr/.success)
+add_custom_target(libomp-test-instr DEPENDS test-instr/.success)
 add_custom_command(
     OUTPUT  test-instr/.success
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${build_dir}/test-instr
-    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-instruction-set.pl ${oa_opts} --show --mic-arch=${mic_arch} ${build_dir}/${lib_file}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/test-instr
+    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-instruction-set.pl ${oa_opts} --show --mic-arch=${LIBOMP_MIC_ARCH} ${CMAKE_CURRENT_BINARY_DIR}/${lib_file}
     COMMAND ${CMAKE_COMMAND} -E touch test-instr/.success
-    DEPENDS lib ${tools_dir}/check-instruction-set.pl
+    DEPENDS omp ${tools_dir}/check-instruction-set.pl
 )
 
 # test-deps
-add_custom_target(libiomp-test-deps DEPENDS test-deps/.success)
+add_custom_target(libomp-test-deps DEPENDS test-deps/.success)
 set(td_exp)
 if(${FREEBSD})
     set(td_exp libc.so.7 libthr.so.3 libunwind.so.5)
@@ -209,10 +209,10 @@ elseif(${LINUX})
 endif()
 add_custom_command(
     OUTPUT  test-deps/.success
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${build_dir}/test-deps
-    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-depends.pl ${oa_opts} --expected="${td_exp}" ${build_dir}/${lib_file}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/test-deps
+    COMMAND ${PERL_EXECUTABLE} ${tools_dir}/check-depends.pl ${oa_opts} --expected="${td_exp}" ${CMAKE_CURRENT_BINARY_DIR}/${lib_file}
     COMMAND ${CMAKE_COMMAND} -E touch test-deps/.success
-    DEPENDS lib ${tools_dir}/check-depends.pl
+    DEPENDS omp ${tools_dir}/check-depends.pl
 )
 # END OF TESTS
 ######################################################

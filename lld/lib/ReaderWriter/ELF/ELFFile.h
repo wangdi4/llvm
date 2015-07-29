@@ -26,7 +26,6 @@ template <class ELFT> class ELFFile : public SimpleFile {
   typedef llvm::object::Elf_Shdr_Impl<ELFT> Elf_Shdr;
   typedef llvm::object::Elf_Rel_Impl<ELFT, false> Elf_Rel;
   typedef llvm::object::Elf_Rel_Impl<ELFT, true> Elf_Rela;
-  typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym_Iter Elf_Sym_Iter;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Rela_Iter Elf_Rela_Iter;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Rel_Iter Elf_Rel_Iter;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
@@ -197,16 +196,15 @@ protected:
     return _objFile->getSectionContents(shdr);
   }
 
-  /// Returns true if the symbol is a undefined symbol.
-  bool isUndefinedSymbol(const Elf_Sym *sym) const {
-    return (sym->st_shndx == llvm::ELF::SHN_UNDEF);
-  }
-
   /// Determines if the target wants to create an atom for a section that has no
   /// symbol references.
   bool handleSectionWithNoSymbols(const Elf_Shdr *shdr,
-                                  std::vector<Elf_Sym_Iter> &syms) const {
-    return shdr && (shdr->sh_type == llvm::ELF::SHT_PROGBITS) && syms.empty();
+                                  std::vector<const Elf_Sym *> &syms) const {
+    return shdr &&
+           (shdr->sh_type == llvm::ELF::SHT_PROGBITS ||
+            shdr->sh_type == llvm::ELF::SHT_INIT_ARRAY ||
+            shdr->sh_type == llvm::ELF::SHT_FINI_ARRAY) &&
+           syms.empty();
   }
 
   /// Handle creation of atoms for .gnu.linkonce sections.
@@ -223,11 +221,6 @@ protected:
   ELFUndefinedAtom<ELFT> *createUndefinedAtom(StringRef symName,
                                               const Elf_Sym *sym) {
     return new (_readerStorage) ELFUndefinedAtom<ELFT>(*this, symName, sym);
-  }
-
-  /// Returns true if the symbol is a absolute symbol.
-  bool isAbsoluteSymbol(const Elf_Sym *sym) const {
-    return (sym->st_shndx == llvm::ELF::SHN_ABS);
   }
 
   /// Process the Absolute symbol and create an atom for it.
@@ -279,17 +272,6 @@ protected:
   virtual ELFCommonAtom<ELFT> *createCommonAtom(StringRef symName,
                                                 const Elf_Sym *sym) {
     return new (_readerStorage) ELFCommonAtom<ELFT>(*this, symName, sym);
-  }
-
-  /// Returns true if the symbol is a defined symbol.
-  virtual bool isDefinedSymbol(const Elf_Sym *sym) const {
-    return (sym->getType() == llvm::ELF::STT_NOTYPE ||
-            sym->getType() == llvm::ELF::STT_OBJECT ||
-            sym->getType() == llvm::ELF::STT_FUNC ||
-            sym->getType() == llvm::ELF::STT_GNU_IFUNC ||
-            sym->getType() == llvm::ELF::STT_SECTION ||
-            sym->getType() == llvm::ELF::STT_FILE ||
-            sym->getType() == llvm::ELF::STT_TLS);
   }
 
   /// Creates an atom for a given defined symbol.
@@ -365,7 +347,8 @@ protected:
 
   /// \brief the section and the symbols that are contained within it to create
   /// used to create atoms
-  llvm::MapVector<const Elf_Shdr *, std::vector<Elf_Sym_Iter>> _sectionSymbols;
+  llvm::MapVector<const Elf_Shdr *, std::vector<const Elf_Sym *>>
+      _sectionSymbols;
 
   /// \brief Sections that have merge string property
   std::vector<const Elf_Shdr *> _mergeStringSections;

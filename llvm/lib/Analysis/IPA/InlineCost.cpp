@@ -67,6 +67,11 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   // The called function.
   Function &F;
 
+  // The candidate callsite being analyzed. Please do not use this to do
+  // analysis in the caller function; we want the inline cost query to be
+  // easily cacheable. Instead, use the cover function paramHasAttr.
+  CallSite CandidateCS;
+
   int Threshold;
   int Cost;
 
@@ -119,6 +124,17 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool simplifyCallSite(Function *F, CallSite CS);
   ConstantInt *stripAndComputeInBoundsConstantOffsets(Value *&V);
 
+  /// Return true if the given argument to the function being considered for
+  /// inlining has the given attribute set either at the call site or the
+  /// function declaration.  Primarily used to inspect call site specific
+  /// attributes since these can be more precise than the ones on the callee
+  /// itself. 
+  bool paramHasAttr(Argument *A, Attribute::AttrKind Attr);
+  
+  /// Return true if the given value is known non null within the callee if
+  /// inlined through this particular callsite. 
+  bool isKnownNonNullInCallee(Value *V);
+
   // Custom analysis routines.
   bool analyzeBlock(BasicBlock *BB, SmallPtrSetImpl<const Value *> &EphValues);
 
@@ -157,9 +173,9 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
 
 public:
   CallAnalyzer(const TargetTransformInfo &TTI, AssumptionCacheTracker *ACT,
-               Function &Callee, int Threshold)
-      : TTI(TTI), ACT(ACT), F(Callee), Threshold(Threshold), Cost(0),
-        IsCallerRecursive(false), IsRecursiveCall(false),
+               Function &Callee, int Threshold, CallSite CSArg)
+    : TTI(TTI), ACT(ACT), F(Callee), CandidateCS(CSArg), Threshold(Threshold),
+        Cost(0), IsCallerRecursive(false), IsRecursiveCall(false),
         ExposesReturnsTwice(false), HasDynamicAlloca(false),
         ContainsNoDuplicateCall(false), HasReturn(false), HasIndirectBr(false),
         HasFrameEscape(false), AllocatedSize(0), NumInstructions(0),
@@ -513,6 +529,33 @@ bool CallAnalyzer::visitUnaryInstruction(UnaryInstruction &I) {
   return false;
 }
 
+bool CallAnalyzer::paramHasAttr(Argument *A, Attribute::AttrKind Attr) {
+  unsigned ArgNo = A->getArgNo();
+  return CandidateCS.paramHasAttr(ArgNo+1, Attr);
+}
+
+bool CallAnalyzer::isKnownNonNullInCallee(Value *V) {
+  // Does the *call site* have the NonNull attribute set on an argument?  We
+  // use the attribute on the call site to memoize any analysis done in the
+  // caller. This will also trip if the callee function has a non-null
+  // parameter attribute, but that's a less interesting case because hopefully
+  // the callee would already have been simplified based on that.
+  if (Argument *A = dyn_cast<Argument>(V))
+    if (paramHasAttr(A, Attribute::NonNull))
+      return true;
+  
+  // Is this an alloca in the caller?  This is distinct from the attribute case
+  // above because attributes aren't updated within the inliner itself and we
+  // always want to catch the alloca derived case.
+  if (isAllocaDerivedArg(V))
+    // We can actually predict the result of comparisons between an
+    // alloca-derived value and null. Note that this fires regardless of
+    // SROA firing.
+    return true;
+  
+  return false;
+}
+
 bool CallAnalyzer::visitCmpInst(CmpInst &I) {
   Value *LHS = I.getOperand(0), *RHS = I.getOperand(1);
   // First try to handle simplified comparisons.
@@ -554,18 +597,14 @@ bool CallAnalyzer::visitCmpInst(CmpInst &I) {
   }
 
   // If the comparison is an equality comparison with null, we can simplify it
-  // for any alloca-derived argument.
-  if (I.isEquality() && isa<ConstantPointerNull>(I.getOperand(1)))
-    if (isAllocaDerivedArg(I.getOperand(0))) {
-      // We can actually predict the result of comparisons between an
-      // alloca-derived value and null. Note that this fires regardless of
-      // SROA firing.
-      bool IsNotEqual = I.getPredicate() == CmpInst::ICMP_NE;
-      SimplifiedValues[&I] = IsNotEqual ? ConstantInt::getTrue(I.getType())
-                                        : ConstantInt::getFalse(I.getType());
-      return true;
-    }
-
+  // if we know the value (argument) can't be null
+  if (I.isEquality() && isa<ConstantPointerNull>(I.getOperand(1)) &&
+      isKnownNonNullInCallee(I.getOperand(0))) {
+    bool IsNotEqual = I.getPredicate() == CmpInst::ICMP_NE;
+    SimplifiedValues[&I] = IsNotEqual ? ConstantInt::getTrue(I.getType())
+                                      : ConstantInt::getFalse(I.getType());
+    return true;
+  }
   // Finally check for SROA candidates in comparisons.
   Value *SROAArg;
   DenseMap<Value *, int>::iterator CostIt;
@@ -807,7 +846,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   // during devirtualization and so we want to give it a hefty bonus for
   // inlining, but cap that bonus in the event that inlining wouldn't pan
   // out. Pretend to inline the function, with a custom threshold.
-  CallAnalyzer CA(TTI, ACT, *F, InlineConstants::IndirectCallThreshold);
+  CallAnalyzer CA(TTI, ACT, *F, InlineConstants::IndirectCallThreshold, CS);
 #ifdef INTEL_CUSTOMIZATION
   if (CA.analyzeCall(CS, nullptr)) {
 #else
@@ -1569,11 +1608,9 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
         << "...\n");
 
+  CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold, CS);
 #ifdef INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
-#endif // INTEL_CUSTOMIZATION
-  CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold);
-#ifdef INTEL_CUSTOMIZATION
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
   assert(Reason != InlrNoReason); 
 #else

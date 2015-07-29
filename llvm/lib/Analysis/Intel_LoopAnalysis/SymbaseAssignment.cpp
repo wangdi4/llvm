@@ -123,7 +123,7 @@ void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
   AAMDNodes AAInfo;
   // we want loop carried disam, so use a store of unknown size
   // to simulate read/write of all mem accessed by loop
-  AST.add(Ptr, AliasAnalysis::UnknownSize, AAInfo);
+  AST.add(Ptr, MemoryLocation::UnknownSize, AAInfo);
 }
 
 void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {

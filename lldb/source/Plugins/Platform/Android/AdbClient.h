@@ -25,6 +25,9 @@
 #include "lldb/Host/ConnectionFileDescriptor.h"
 
 namespace lldb_private {
+
+class FileSpec;
+
 namespace platform_android {
 
 class AdbClient
@@ -51,10 +54,13 @@ public:
     DeletePortForwarding (const uint16_t port);
 
     Error
-    PullFile (const char *remote_file, const char *local_file);
+    PullFile (const FileSpec &remote_file, const FileSpec &local_file);
 
     Error
-    PushFile (const lldb_private::FileSpec& source, const lldb_private::FileSpec& destination);
+    PushFile (const FileSpec &local_file, const FileSpec &remote_file);
+
+    Error
+    Stat (const FileSpec &remote_file, uint32_t &mode, uint32_t &size, uint32_t &mtime);
 
 private:
     Error
@@ -89,6 +95,9 @@ private:
 
     Error
     Sync ();
+
+    Error
+    StartSync ();
 
     Error
     PullFileChunk (std::vector<char> &buffer, bool &eof);
