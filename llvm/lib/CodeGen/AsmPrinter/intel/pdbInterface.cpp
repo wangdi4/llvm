@@ -54,6 +54,7 @@ const bool DEBUG_show_pdb_trace = false;
 
 static HMODULE the_dll_handle = NULLP;
 static PDB  *  pdb_handle = NULLP;
+static TPI*  ipi_handle = NULLP;
 static TPI*  tpi_handle = NULLP;
 
 static const char * pdb_errors[] = {
@@ -107,6 +108,7 @@ const char *  entry_point_names[] = {
     "PDBOpenEx2W",
     "PDBClose",
     "PDBCommit",
+    "PDBOpenIpi",
     "PDBOpenTpi",
     "PDBQueryAge",
     "PDBQuerySignature2",
@@ -184,6 +186,7 @@ typedef BOOL (__cdecl * t_PDBOpenEx2W) (
 
 typedef BOOL (__cdecl *t_PDBClose)(PDB *);
 typedef BOOL (__cdecl *t_PDBCommit)(PDB*);
+typedef BOOL (__cdecl *t_PDBOpenIpi)(PDB*, _In_z_ const char*, OUT TPI**);
 typedef BOOL (__cdecl *t_PDBOpenTpi)(PDB*, _In_z_ const char*, OUT TPI**);
 typedef AGE  (__cdecl *t_PDBQueryAge)(PDB*);
 typedef BOOL (__cdecl *t_PDBQuerySignature2)(PDB*, PSIG70);
@@ -196,6 +199,7 @@ typedef BOOL (__cdecl *t_TypesQueryTiForCVRecordEx)(TPI*, BYTE*, OUT TI*);
 static t_PDBOpenEx2W p_PDBOpenEx2W = NULLP;
 static t_PDBClose p_PDBClose = NULLP;
 static t_PDBCommit p_PDBCommit = NULLP;
+static t_PDBOpenIpi p_PDBOpenIpi = NULLP;
 static t_PDBOpenTpi p_PDBOpenTpi = NULLP;
 static t_PDBQueryAge p_PDBQueryAge = NULLP;
 static t_PDBQuerySignature2 p_PDBQuerySignature2 = NULLP;
@@ -208,6 +212,7 @@ void ** entry_point[] = {
     (void **)&p_PDBOpenEx2W,
     (void **)&p_PDBClose,
     (void **)&p_PDBCommit,
+    (void **)&p_PDBOpenIpi,
     (void **)&p_PDBOpenTpi,
     (void **)&p_PDBQueryAge,
     (void **)&p_PDBQuerySignature2,
@@ -440,6 +445,7 @@ dgi_bool pdb_open(const char *name)
     TRACE_COMMAND("PDB_OPEN");
 
     if (the_dll_handle != NULLP &&
+        ipi_handle != NULLP &&
         tpi_handle != NULLP &&
         pdb_handle != NULLP) {
         return TRUE; // already open
@@ -456,6 +462,7 @@ dgi_bool pdb_open(const char *name)
     }
 
     // clear fields in case we fail
+    ipi_handle = NULLP;
     tpi_handle = NULLP;
     pdb_handle = NULLP;
 
@@ -499,7 +506,30 @@ dgi_bool pdb_open(const char *name)
             ASSERT_DEBUG(FALSE, 0, 0, "could not open pdb");
             return FALSE;
         }
-    
+
+        if (ok) {
+            // open the id manager interface
+            ok = (p_PDBOpenIpi)(pdb_handle, pdbWrite pdbGetTiOnly, &ipi_handle);
+
+            if (!ok) {
+                // if we could not open the pdb delete it and create a new one
+                // as it is correupt. This will result in incomplete debug info
+                // but it is what the Microsoft compiler appears to do
+#if DEBUG  > 0
+                process_error();
+#endif
+                pdb_close();
+                if (retry_count == 0) {
+                    //DIAG_Message(DIAG_SEVERITY_ERROR, 
+                    //         NULLP, -1, -1, NULLP, 
+                    //         DGI_CORRUPT_PDB_MESSAGE,
+                    //         name);
+                    exit(-1);
+                }
+                Sleep(2000);   // wait for transient problem to clear itself
+            }
+        }
+
         if (ok) {
             // open the type manager interface
             ok = (p_PDBOpenTpi)(pdb_handle, pdbWrite pdbGetTiOnly, &tpi_handle);
@@ -534,10 +564,22 @@ void pdb_close()
     int retry_count = 5;
     BOOL ok = TRUE;
     while (retry_count-- > 0 && 
-            (tpi_handle != NULLP ||
+            (ipi_handle != NULLP ||
+            tpi_handle != NULLP ||
             pdb_handle != NULLP)) {
         ok = TRUE;
-        if (tpi_handle != NULLP) {
+        if (ok && ipi_handle != NULLP) {
+            ok = (p_TypesCommit)(ipi_handle);
+            ASSERT_PROD(ok || retry_count > 0, 0, 0, 
+                "Could not commit ipi info\n");
+        }
+        if (ok && ipi_handle != NULLP) {
+            ok = (p_TypesClose)(ipi_handle);
+            ASSERT_PROD(ok || retry_count > 0, 0, 0, 
+                "Could not close id handle");
+            if(ok)ipi_handle = NULLP;
+        }
+        if (ok && tpi_handle != NULLP) {
             ok = (p_TypesCommit)(tpi_handle);
             ASSERT_PROD(ok || retry_count > 0, 0, 0, 
                 "Could not commit tpi info\n");
@@ -588,7 +630,6 @@ static void dump_record(unsigned char *buf)
         len = 512;
     }
     len += 2;
-    unsigned char * name = NULLP;
 
     int i;
     for (i=0;i<len;i+=16) {
@@ -627,9 +668,9 @@ static unsigned int get_field(const char *buff, int offset, int size)
 }
 
 
-dgi_bool pdb_write_type(const char * buf, unsigned long *assigned_index)
+static dgi_bool pdb_write_type_or_id(TPI*  handle, const char * buf, unsigned long *assigned_index)
 {
-    if (tpi_handle == NULLP) {
+    if (handle == NULLP) {
          return FALSE;
     }
 
@@ -639,7 +680,7 @@ dgi_bool pdb_write_type(const char * buf, unsigned long *assigned_index)
 
     BOOL ok;
 
-    ok = (p_TypesQueryTiForCVRecordEx)(tpi_handle, (BYTE*)buf, &ti);
+    ok = (p_TypesQueryTiForCVRecordEx)(handle, (BYTE*)buf, &ti);
 
     if (DEBUG_show_pdb_trace) {
         dump_record((unsigned char *)buf);
@@ -663,6 +704,15 @@ dgi_bool pdb_write_type(const char * buf, unsigned long *assigned_index)
     return TRUE;
 }
 
+dgi_bool pdb_write_id(const char * buf, unsigned long *assigned_index)
+{
+    return pdb_write_type_or_id(ipi_handle, buf, assigned_index);
+}
+
+dgi_bool pdb_write_type(const char * buf, unsigned long *assigned_index)
+{
+    return pdb_write_type_or_id(tpi_handle, buf, assigned_index);
+}
 
 size_t  pdb_get_signature(unsigned char * buf, size_t maxlen) 
 {

@@ -403,6 +403,8 @@ public:
   virtual void emitLabel(MCSymbol *symbol) = 0;
   virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes) = 0;
 
+  virtual void idBegin(const STIType* type) = 0;
+  virtual void idEnd(const STIType* type) = 0;
   virtual void typeBegin(const STIType* type) = 0;
   virtual void typeEnd(const STIType* type) = 0;
 
@@ -441,6 +443,8 @@ public:
   virtual void emitLabel(MCSymbol *symbol);
   virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes);
 
+  virtual void idBegin(const STIType* type);
+  virtual void idEnd(const STIType* type);
   virtual void typeBegin(const STIType* type);
   virtual void typeEnd(const STIType* type);
 
@@ -501,6 +505,12 @@ void STIAsmWriter::emitValue(const MCExpr *value, unsigned int sizeInBytes) {
   ASM()->OutStreamer->EmitValue(value, sizeInBytes);
 }
 
+void STIAsmWriter::idBegin(const STIType* type) {
+}
+
+void STIAsmWriter::idEnd(const STIType* type) {
+}
+
 void STIAsmWriter::typeBegin(const STIType* type) {
 }
 
@@ -528,6 +538,8 @@ public:
   virtual void emitLabel(MCSymbol *symbol);
   virtual void emitValue(const MCExpr *value, unsigned int sizeInBytes);
 
+  virtual void idBegin(const STIType* type);
+  virtual void idEnd(const STIType* type);
   virtual void typeBegin(const STIType* type);
   virtual void typeEnd(const STIType* type);
 
@@ -583,6 +595,23 @@ void STIPdbWriter::emitLabel(MCSymbol *symbol) {
 void STIPdbWriter::emitValue(const MCExpr *value, unsigned int sizeInBytes) {
   // This is currently only used for emitting label diffs, which are not used
   // when writing type information to the PDB writer.
+}
+
+void STIPdbWriter::idBegin(const STIType* type) {
+  assert(_buffer.size() == 0);
+}
+
+void STIPdbWriter::idEnd(const STIType* type) {
+  unsigned long index;
+
+  // Buffer must minimally contain a type length.
+  assert(_buffer.size() > 2);
+
+  pdb_write_id(_buffer.data(), &index);
+
+  const_cast<STIType *>(type)->setIndex(index);
+
+  _buffer.clear();
 }
 
 void STIPdbWriter::typeBegin(const STIType* type) {
@@ -793,6 +822,8 @@ protected:
   void emitNumeric(const STINumeric* numeric) const;
 
   // Routines for emitting atomic PDB data.
+  void idBegin(const STIType* type) const;
+  void idEnd(const STIType* type) const;
   void typeBegin(const STIType* type) const;
   void typeEnd(const STIType* type) const;
   bool usePDB() const;
@@ -3175,6 +3206,14 @@ void STIDebugImpl::emitAlign(unsigned int byteAlignment) const {
   ASM()->OutStreamer->EmitValueToAlignment(byteAlignment);
 }
 
+void STIDebugImpl::idBegin(const STIType* type) const {
+  writer()->idBegin(type);
+}
+
+void STIDebugImpl::idEnd(const STIType* type) const {
+  writer()->idEnd(type);
+}
+
 void STIDebugImpl::typeBegin(const STIType* type) const {
   writer()->typeBegin(type);
 }
@@ -4324,14 +4363,14 @@ void STIDebugImpl::emitTypeFunctionID(const STITypeFunctionID *type) const {
   uint16_t length = 10 + name.size() + 1;
   uint16_t paddedLength = getPaddedSize(length);
 
-  typeBegin     (type);
+  idBegin       (type);
   emitInt16     (paddedLength);
   emitInt16     (symbolID);
   emitInt32     (parentScope ? parentScope->getIndex() : 0);
   emitInt32     (funcType ? funcType->getIndex() : 0);
   emitString    (name);
   emitPadding   (paddedLength - length);
-  typeEnd       (type);
+  idEnd         (type);
 }
 
 void STIDebugImpl::emitTypeProcedure(const STITypeProcedure *type) const {

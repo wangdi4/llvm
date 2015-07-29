@@ -34,6 +34,14 @@ extern dgi_bool pdb_open(const char *name);
 
 extern void pdb_close();
 
+//      Write an id. Returns TRUE is successful
+//      assigned_index, of not NULLP gets index assigned
+//      buf is bytes for id, with length on front
+
+extern dgi_bool pdb_write_id(const char * buf, 
+                        unsigned long 
+                        *assigned_index);
+
 //      Write a type. Returns TRUE is successful
 //      assigned_index, of not NULLP gets index assigned
 //      buf is bytes for type, with length on front
