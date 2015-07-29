@@ -7720,9 +7720,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         HasExplicitTemplateArgs = false;
       } else {
+#ifndef INTEL_CUSTOMIZATION
+        // Fix for CQ374168: Regression (assertion failure) on
+        // cfe_iclangCpp/nlu1_8)
         assert((isFunctionTemplateSpecialization ||
                 D.getDeclSpec().isFriendSpecified()) &&
                "should have a 'template<>' for this decl");
+#endif // INTEL_CUSTOMIZATION
         // "friend void foo<>(int);" is an implicit specialization decl.
         isFunctionTemplateSpecialization = true;
       }
