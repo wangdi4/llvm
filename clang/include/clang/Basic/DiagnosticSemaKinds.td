@@ -7146,6 +7146,13 @@ def ext_return_has_expr : ExtWarn<
   "%select{void function|void method|constructor|destructor}1 %0 "
   "should not return a value">,
   DefaultError, InGroup<ReturnType>;
+// if INTEL_CUSTOMIZATION
+// Same as ext_return_has_expr, but a warning, not an error, for
+// IntelCompat mode. CQ#367767
+def warn_ext_return_has_expr : Warning<
+  "%select{void function|void method|constructor|destructor}1 %0 "
+  "should not return a value">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_return_has_void_expr : Extension<
   "void %select{function|method|block}1 %0 should not return void expression">;
 def err_return_init_list : Error<
