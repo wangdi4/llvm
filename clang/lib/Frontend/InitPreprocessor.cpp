@@ -504,6 +504,15 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
+#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // Version string for iclang: cfe_iclangC/tr60450
+  if (LangOpts.IntelCompat)
+    Builder.defineMacro("__VERSION__", "\"" +
+                      Twine(getIClangFullCPPVersion()) + "\"");
+  else
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
   // As sad as it is, enough software depends on the __VERSION__ for version
   // checks that it is necessary to report 4.2.1 (the base GCC version we claim
   // compatibility with) first.
@@ -589,7 +598,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
 #ifdef INTEL_CUSTOMIZATION
     // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
     if (!LangOpts.IntelCompat)
+#endif  // not INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");

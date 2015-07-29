@@ -1,5 +1,3 @@
-// REQUIRES: llvm-backend
-// The same test for IL0 backend is in the Preprocessor/intel/il0-backend subfolder
 // CQ#366613
 // RUN: %clang_cc1 -E -dM < %s | FileCheck -check-prefix CHECK1 %s
 // CHECK1-NOT: #define __LONG_DOUBLE_SIZE__
@@ -31,4 +29,11 @@
 // CHECK_GNUG_1: #define __GNUG__ 4
 
 // RUN: %clang_cc1 -x c++ -E -dM -fintel-compatibility < %s | FileCheck -check-prefix CHECK_GNUG_2 %s
-// CHECK_GNUG_2-NOT: #define __GNUG__
+// CHECK_GNUG_2: #define __GNUG__
+//
+
+// Version string for iclang: cfe_iclangC/tr60450
+// RUN: %clang_cc1 -E -dM -ffreestanding -fintel-compatibility  < %s | FileCheck -check-prefix CHECK_ICLANG_VERSION %s
+// CHECK_ICLANG_VERSION: #define __VERSION__ "Intel(R) C++ Clang
+//
+
