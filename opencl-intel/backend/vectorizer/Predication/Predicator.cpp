@@ -934,7 +934,7 @@ void Predicator::selectOutsideUsedInstructions(Instruction* inst) {
   // We only replace instructions which do not belong to the same loop.
   // Instructions which are inside the loop will be predicated with local masks
   // instructions outside the loop need the special masking.
-  std::vector<Value*> users(inst->user_begin(), inst->user_begin());
+  std::vector<Value*> users(inst->user_begin(), inst->user_end());
   for (Value * userVal : users) {
     // If the user is an instruction
     Instruction* user = dyn_cast<Instruction>(userVal);
