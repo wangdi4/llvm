@@ -90,16 +90,16 @@ static const CoreDefinition g_core_definitions[] =
     { eByteOrderLittle, 8, 4, 4, llvm::Triple::aarch64, ArchSpec::eCore_arm_aarch64     , "aarch64"   },
 
     // mips32, mips32r2, mips32r3, mips32r5, mips32r6
-    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32         , "mips32"      },
-    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r2       , "mips32r2"    },
-    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r3       , "mips32r3"    },
-    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r5       , "mips32r5"    },
-    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r6       , "mips32r6"    },
-    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32el       , "mips32el"    },
-    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r2el     , "mips32r2el"  },
-    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r3el     , "mips32r3el"  },
-    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r5el     , "mips32r5el"  },
-    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r6el     , "mips32r6el"  },
+    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32         , "mips"      },
+    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r2       , "mipsr2"    },
+    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r3       , "mipsr3"    },
+    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r5       , "mipsr5"    },
+    { eByteOrderBig   , 4, 4, 4, llvm::Triple::mips  , ArchSpec::eCore_mips32r6       , "mipsr6"    },
+    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32el       , "mipsel"    },
+    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r2el     , "mipsr2el"  },
+    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r3el     , "mipsr3el"  },
+    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r5el     , "mipsr5el"  },
+    { eByteOrderLittle, 4, 4, 4, llvm::Triple::mipsel, ArchSpec::eCore_mips32r6el     , "mipsr6el"  },
     
     // mips64, mips64r2, mips64r3, mips64r5, mips64r6
     { eByteOrderBig   , 8, 4, 4, llvm::Triple::mips64  , ArchSpec::eCore_mips64         , "mips64"      },
@@ -283,7 +283,7 @@ static const ArchDefinitionEntry g_elf_arch_entries[] =
 {
     { ArchSpec::eCore_sparc_generic   , llvm::ELF::EM_SPARC  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Sparc
     { ArchSpec::eCore_x86_32_i386     , llvm::ELF::EM_386    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel 80386
-    { ArchSpec::eCore_x86_32_i486     , llvm::ELF::EM_486    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel 486 (deprecated)
+    { ArchSpec::eCore_x86_32_i486     , llvm::ELF::EM_IAMCU  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // Intel MCU // FIXME: is this correct?
     { ArchSpec::eCore_ppc_generic     , llvm::ELF::EM_PPC    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // PowerPC
     { ArchSpec::eCore_ppc64_generic   , llvm::ELF::EM_PPC64  , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // PowerPC64
     { ArchSpec::eCore_arm_generic     , llvm::ELF::EM_ARM    , LLDB_INVALID_CPUTYPE, 0xFFFFFFFFu, 0xFFFFFFFFu }, // ARM
@@ -840,7 +840,7 @@ ArchSpec::MergeFrom(const ArchSpec &other)
 }
 
 bool
-ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t sub)
+ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t sub, uint32_t os)
 {
     m_core = kCore_invalid;
     bool update_triple = true;
@@ -861,7 +861,6 @@ ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t su
                 if (arch_type == eArchTypeMachO)
                 {
                     m_triple.setVendor (llvm::Triple::Apple);
-
                     switch (core_def->machine)
                     {
                         case llvm::Triple::aarch64:
@@ -886,10 +885,22 @@ ArchSpec::SetArchitecture (ArchitectureType arch_type, uint32_t cpu, uint32_t su
                             break;
                     }
                 }
-                else
+                else if (arch_type == eArchTypeELF)
                 {
+                    llvm::Triple::OSType ostype;
+                    switch (os)
+                    {
+                        case llvm::ELF::ELFOSABI_AIX:      ostype = llvm::Triple::OSType::AIX; break;
+                        case llvm::ELF::ELFOSABI_FREEBSD:  ostype = llvm::Triple::OSType::FreeBSD; break;
+                        case llvm::ELF::ELFOSABI_GNU:      ostype = llvm::Triple::OSType::Linux; break;
+                        case llvm::ELF::ELFOSABI_NETBSD:   ostype = llvm::Triple::OSType::NetBSD; break;
+                        case llvm::ELF::ELFOSABI_OPENBSD:  ostype = llvm::Triple::OSType::OpenBSD; break;
+                        case llvm::ELF::ELFOSABI_SOLARIS:  ostype = llvm::Triple::OSType::Solaris; break;
+                        default:
+                            ostype = llvm::Triple::OSType::UnknownOS;
+                    }
+                    m_triple.setOS (ostype);
                     m_triple.setVendor (llvm::Triple::UnknownVendor);
-                    m_triple.setOS (llvm::Triple::UnknownOS);
                 }
                 // Fall back onto setting the machine type if the arch by name failed...
                 if (m_triple.getArch () == llvm::Triple::UnknownArch)
@@ -1080,6 +1091,8 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             try_inverse = false;
             if (core2 == ArchSpec::eCore_arm_armv7)
                 return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
         }
         break;
 
@@ -1088,8 +1101,36 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             return true;
         break;
 
-    case ArchSpec::eCore_arm_armv7m:
     case ArchSpec::eCore_arm_armv7em:
+        if (!enforce_exact_match)
+        {
+            if (core2 == ArchSpec::eCore_arm_generic)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7)
+                return true;
+            try_inverse = true;
+        }
+        break;
+
+    case ArchSpec::eCore_arm_armv7m:
+        if (!enforce_exact_match)
+        {
+            if (core2 == ArchSpec::eCore_arm_generic)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv6m)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7)
+                return true;
+            if (core2 == ArchSpec::eCore_arm_armv7em)
+                return true;
+            try_inverse = true;
+        }
+        break;
+
     case ArchSpec::eCore_arm_armv7f:
     case ArchSpec::eCore_arm_armv7k:
     case ArchSpec::eCore_arm_armv7s:
@@ -1140,6 +1181,36 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             if (core2 == ArchSpec::eCore_arm_aarch64)
                 return true;
             if (core2 == ArchSpec::eCore_arm_armv8)
+                return true;
+            try_inverse = false;
+        }
+        break;
+
+    case ArchSpec::eCore_mips64:
+    case ArchSpec::eCore_mips64r2:
+    case ArchSpec::eCore_mips64r3:
+    case ArchSpec::eCore_mips64r5:
+    case ArchSpec::eCore_mips64r6:
+        if (!enforce_exact_match)
+        {
+            if (core2 >= ArchSpec::kCore_mips32_first && core2 <= (core1 - 10))
+                return true;
+            if (core2 >= ArchSpec::kCore_mips64_first && core2 <= (core1 - 1))
+                return true;
+            try_inverse = false;
+        }
+        break;
+
+    case ArchSpec::eCore_mips64el:
+    case ArchSpec::eCore_mips64r2el:
+    case ArchSpec::eCore_mips64r3el:
+    case ArchSpec::eCore_mips64r5el:
+    case ArchSpec::eCore_mips64r6el:
+        if (!enforce_exact_match)
+        {
+            if (core2 >= ArchSpec::kCore_mips32el_first && core2 <= (core1 - 10))
+                return true;
+            if (core2 >= ArchSpec::kCore_mips64el_first && core2 <= (core1 - 1))
                 return true;
             try_inverse = false;
         }

@@ -140,8 +140,8 @@ std::error_code ELFFile<ELFT>::createAtomizableSections() {
       if (std::error_code ec = sectionName.getError())
         return ec;
 
-      auto rai(_objFile->begin_rela(&section));
-      auto rae(_objFile->end_rela(&section));
+      auto rai = _objFile->rela_begin(&section);
+      auto rae = _objFile->rela_end(&section);
 
       _relocationAddendReferences[sHdr] = make_range(rai, rae);
       totalRelocs += std::distance(rai, rae);
@@ -152,8 +152,8 @@ std::error_code ELFFile<ELFT>::createAtomizableSections() {
       if (std::error_code ec = sectionName.getError())
         return ec;
 
-      auto ri(_objFile->begin_rel(&section));
-      auto re(_objFile->end_rel(&section));
+      auto ri = _objFile->rel_begin(&section);
+      auto re = _objFile->rel_end(&section);
 
       _relocationReferences[sHdr] = make_range(ri, re);
       totalRelocs += std::distance(ri, re);
@@ -210,7 +210,7 @@ template <class ELFT>
 std::error_code ELFFile<ELFT>::createSymbolsFromAtomizableSections() {
   // Increment over all the symbols collecting atoms and symbol names for
   // later use.
-  auto SymI = _objFile->begin_symbols(), SymE = _objFile->end_symbols();
+  auto SymI = _objFile->symbol_begin(), SymE = _objFile->symbol_end();
 
   // Skip over dummy sym.
   if (SymI != SymE)
@@ -219,16 +219,16 @@ std::error_code ELFFile<ELFT>::createSymbolsFromAtomizableSections() {
   for (; SymI != SymE; ++SymI) {
     const Elf_Shdr *section = _objFile->getSection(&*SymI);
 
-    auto symbolName = _objFile->getSymbolName(SymI);
+    auto symbolName = _objFile->getSymbolName(SymI, false);
     if (std::error_code ec = symbolName.getError())
       return ec;
 
-    if (isAbsoluteSymbol(&*SymI)) {
+    if (SymI->isAbsolute()) {
       ELFAbsoluteAtom<ELFT> *absAtom = createAbsoluteAtom(
           *symbolName, &*SymI, (int64_t)getSymbolValue(&*SymI));
       addAtom(*absAtom);
       _symbolToAtomMapping.insert(std::make_pair(&*SymI, absAtom));
-    } else if (isUndefinedSymbol(&*SymI)) {
+    } else if (SymI->isUndefined()) {
       if (_useWrap &&
           (_wrapSymbolMap.find(*symbolName) != _wrapSymbolMap.end())) {
         auto wrapAtom = _wrapSymbolMap.find(*symbolName);
@@ -245,7 +245,7 @@ std::error_code ELFFile<ELFT>::createSymbolsFromAtomizableSections() {
       commonAtom->setOrdinal(++_ordinal);
       addAtom(*commonAtom);
       _symbolToAtomMapping.insert(std::make_pair(&*SymI, commonAtom));
-    } else if (isDefinedSymbol(&*SymI)) {
+    } else if (SymI->isDefined()) {
       _sectionSymbols[section].push_back(SymI);
     } else {
       llvm::errs() << "Unable to create atom for: " << *symbolName << "\n";
@@ -264,11 +264,11 @@ template <class ELFT> std::error_code ELFFile<ELFT>::createAtoms() {
   // Contains a list of comdat sections for a group.
   for (auto &i : _sectionSymbols) {
     const Elf_Shdr *section = i.first;
-    std::vector<Elf_Sym_Iter> &symbols = i.second;
+    std::vector<const Elf_Sym *> &symbols = i.second;
 
     // Sort symbols by position.
     std::stable_sort(symbols.begin(), symbols.end(),
-                     [this](Elf_Sym_Iter a, Elf_Sym_Iter b) {
+                     [this](const Elf_Sym *a, const Elf_Sym *b) {
                        return getSymbolValue(&*a) < getSymbolValue(&*b);
                      });
 
@@ -305,7 +305,7 @@ template <class ELFT> std::error_code ELFFile<ELFT>::createAtoms() {
       auto symbol = *si;
       StringRef symbolName = "";
       if (symbol->getType() != llvm::ELF::STT_SECTION) {
-        auto symName = _objFile->getSymbolName(symbol);
+        auto symName = _objFile->getSymbolName(symbol, false);
         if (std::error_code ec = symName.getError())
           return ec;
         symbolName = *symName;
@@ -486,7 +486,12 @@ std::error_code ELFFile<ELFT>::handleSectionGroup(
   }
   const Elf_Sym *symbol = _objFile->getSymbol(section->sh_info);
   const Elf_Shdr *symtab = _objFile->getSection(section->sh_link);
-  ErrorOr<StringRef> symbolName = _objFile->getSymbolName(symtab, symbol);
+  const Elf_Shdr *strtab_sec = _objFile->getSection(symtab->sh_link);
+  ErrorOr<StringRef> strtab_or_err = _objFile->getStringTable(strtab_sec);
+  if (std::error_code ec = strtab_or_err.getError())
+    return ec;
+  StringRef strtab = *strtab_or_err;
+  ErrorOr<StringRef> symbolName = symbol->getName(strtab);
   if (std::error_code ec = symbolName.getError())
     return ec;
 

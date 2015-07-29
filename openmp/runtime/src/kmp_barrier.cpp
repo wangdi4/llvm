@@ -1049,26 +1049,31 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
     KA_TRACE(15, ("__kmp_barrier: T#%d(%d:%d) has arrived\n",
                   gtid, __kmp_team_from_gtid(gtid)->t.t_id, __kmp_tid_from_gtid(gtid)));
 
-#if OMPT_SUPPORT && OMPT_TRACE
+#if OMPT_SUPPORT
     if (ompt_status & ompt_status_track) {
+#if OMPT_BLAME
         if (ompt_status == ompt_status_track_callback) {
             my_task_id = team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id;
             my_parallel_id = team->t.ompt_team_info.parallel_id;
 
+#if OMPT_TRACE
             if (this_thr->th.ompt_thread_info.state == ompt_state_wait_single) {
                 if (ompt_callbacks.ompt_callback(ompt_event_single_others_end)) {
                     ompt_callbacks.ompt_callback(ompt_event_single_others_end)(
                         my_parallel_id, my_task_id);
                 }
             }
-            this_thr->th.ompt_thread_info.state = ompt_state_wait_barrier;
+#endif
             if (ompt_callbacks.ompt_callback(ompt_event_barrier_begin)) {
                 ompt_callbacks.ompt_callback(ompt_event_barrier_begin)(
                     my_parallel_id, my_task_id);
             }
-        } else {
-            this_thr->th.ompt_thread_info.state = ompt_state_wait_barrier;
-        }
+        } 
+#endif
+        // It is OK to report the barrier state after the barrier begin callback.
+        // According to the OMPT specification, a compliant implementation may
+        // even delay reporting this state until the barrier begins to wait.
+        this_thr->th.ompt_thread_info.state = ompt_state_wait_barrier;
     }
 #endif
 
@@ -1237,7 +1242,8 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
                 }
 #endif
 
-                kmp_task_team_t * task_team = this_thr->th.th_task_team;
+                kmp_task_team_t * task_team;
+                task_team = this_thr->th.th_task_team;
                 KMP_DEBUG_ASSERT(task_team->tt.tt_found_proxy_tasks == TRUE);
                 __kmp_task_team_wait(this_thr, team
                                                USE_ITT_BUILD_ARG(itt_sync_obj));
@@ -1260,7 +1266,7 @@ __kmp_barrier(enum barrier_type bt, int gtid, int is_split, size_t reduce_size,
 
 #if OMPT_SUPPORT
     if (ompt_status & ompt_status_track) {
-#if OMPT_TRACE
+#if OMPT_BLAME
         if ((ompt_status == ompt_status_track_callback) &&
             ompt_callbacks.ompt_callback(ompt_event_barrier_end)) {
             ompt_callbacks.ompt_callback(ompt_event_barrier_end)(
@@ -1362,13 +1368,15 @@ __kmp_join_barrier(int gtid)
     KMP_DEBUG_ASSERT(this_thr == team->t.t_threads[tid]);
     KA_TRACE(10, ("__kmp_join_barrier: T#%d(%d:%d) arrived at join barrier\n", gtid, team_id, tid));
 
-#if OMPT_SUPPORT && OMPT_TRACE
+#if OMPT_SUPPORT 
+#if OMPT_TRACE
     if ((ompt_status == ompt_status_track_callback) &&
         ompt_callbacks.ompt_callback(ompt_event_barrier_begin)) {
         ompt_callbacks.ompt_callback(ompt_event_barrier_begin)(
             team->t.ompt_team_info.parallel_id,
             team->t.t_implicit_task_taskdata[tid].ompt_task_info.task_id);
     }
+#endif
     this_thr->th.ompt_thread_info.state = ompt_state_wait_barrier;
 #endif
 
@@ -1685,7 +1693,6 @@ void
 __kmp_setup_icv_copy(kmp_team_t *team, int new_nproc, kmp_internal_control_t *new_icvs, ident_t *loc )
 {
     KMP_TIME_BLOCK(KMP_setup_icv_copy);
-    int f;
 
     KMP_DEBUG_ASSERT(team && new_nproc && new_icvs);
     KMP_DEBUG_ASSERT((!TCR_4(__kmp_init_parallel)) || new_icvs->nproc);
@@ -1708,7 +1715,7 @@ __kmp_setup_icv_copy(kmp_team_t *team, int new_nproc, kmp_internal_control_t *ne
     // Copy the ICVs to each of the non-master threads.  This takes O(nthreads) time.
     ngo_load(new_icvs);
     KMP_DEBUG_ASSERT(team->t.t_threads[0]);  // The threads arrays should be allocated at this point
-    for (f=1; f<new_nproc; ++f) { // Skip the master thread
+    for (int f=1; f<new_nproc; ++f) { // Skip the master thread
         // TODO: GEH - pass in better source location info since usually NULL here
         KF_TRACE(10, ("__kmp_setup_icv_copy: LINEAR: T#%d this_thread=%p team=%p\n",
                       f, team->t.t_threads[f], team));

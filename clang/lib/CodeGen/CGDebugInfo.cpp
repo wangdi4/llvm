@@ -27,6 +27,8 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/Version.h"
 #include "clang/Frontend/CodeGenOptions.h"
+#include "clang/Lex/HeaderSearchOptions.h"
+#include "clang/Lex/PreprocessorOptions.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/IR/Constants.h"
@@ -590,18 +592,29 @@ llvm::DIType *CGDebugInfo::CreateType(const PointerType *Ty,
                                Ty->getPointeeType(), Unit);
 }
 
+/// \return whether a C++ mangling exists for the type defined by TD.
+static bool hasCXXMangling(const TagDecl *TD, llvm::DICompileUnit *TheCU) {
+  switch (TheCU->getSourceLanguage()) {
+  case llvm::dwarf::DW_LANG_C_plus_plus:
+    return true;
+  case llvm::dwarf::DW_LANG_ObjC_plus_plus:
+    return isa<CXXRecordDecl>(TD) || isa<EnumDecl>(TD);
+  default:
+    return false;
+  }
+}
+
 /// In C++ mode, types have linkage, so we can rely on the ODR and
 /// on their mangled names, if they're external.
 static SmallString<256> getUniqueTagTypeName(const TagType *Ty,
                                              CodeGenModule &CGM,
                                              llvm::DICompileUnit *TheCU) {
   SmallString<256> FullName;
-  // FIXME: ODR should apply to ObjC++ exactly the same wasy it does to C++.
-  // For now, only apply ODR with C++.
   const TagDecl *TD = Ty->getDecl();
-  if (TheCU->getSourceLanguage() != llvm::dwarf::DW_LANG_C_plus_plus ||
-      !TD->isExternallyVisible())
+
+  if (!hasCXXMangling(TD, TheCU) || !TD->isExternallyVisible())
     return FullName;
+
   // Microsoft Mangler does not have support for mangleCXXRTTIName yet.
   if (CGM.getTarget().getCXXABI().isMicrosoft())
     return FullName;
@@ -1168,12 +1181,13 @@ void CGDebugInfo::CollectCXXMemberFunctions(
     // the member being added to type units by LLVM, while still allowing it
     // to be emitted into the type declaration/reference inside the compile
     // unit.
+    // Ditto 'nodebug' methods, for consistency with CodeGenFunction.cpp.
     // FIXME: Handle Using(Shadow?)Decls here to create
     // DW_TAG_imported_declarations inside the class for base decls brought into
     // derived classes. GDB doesn't seem to notice/leverage these when I tried
     // it, so I'm not rushing to fix this. (GCC seems to produce them, if
     // referenced)
-    if (!Method || Method->isImplicit())
+    if (!Method || Method->isImplicit() || Method->hasAttr<NoDebugAttr>())
       continue;
 
     if (Method->getType()->getAs<FunctionProtoType>()->getContainedAutoType())
@@ -1268,7 +1282,7 @@ CGDebugInfo::CollectTemplateParams(const TemplateParameterList *TPList,
       // Member function pointers have special support for building them, though
       // this is currently unsupported in LLVM CodeGen.
       else if ((MD = dyn_cast<CXXMethodDecl>(D)) && MD->isInstance())
-        V = CGM.getCXXABI().EmitMemberPointer(MD);
+        V = CGM.getCXXABI().EmitMemberFunctionPointer(MD);
       else if (const auto *FD = dyn_cast<FunctionDecl>(D))
         V = CGM.GetAddrOfFunction(FD);
       // Member data pointers have special handling too to compute the fixed
@@ -1647,6 +1661,47 @@ llvm::DIType *CGDebugInfo::CreateType(const ObjCInterfaceType *Ty,
   }
 
   return CreateTypeDefinition(Ty, Unit);
+}
+
+llvm::DIModule *
+CGDebugInfo::getOrCreateModuleRef(ExternalASTSource::ASTSourceDescriptor Mod) {
+  auto it = ModuleRefCache.find(Mod.Signature);
+  if (it != ModuleRefCache.end())
+    return it->second;
+
+  // Macro definitions that were defined with "-D" on the command line.
+  SmallString<128> ConfigMacros;
+  {
+    llvm::raw_svector_ostream OS(ConfigMacros);
+    const auto &PPOpts = CGM.getPreprocessorOpts();
+    unsigned I = 0;
+    // Translate the macro definitions back into a commmand line.
+    for (auto &M : PPOpts.Macros) {
+      if (++I > 1)
+        OS << " ";
+      const std::string &Macro = M.first;
+      bool Undef = M.second;
+      OS << "\"-" << (Undef ? 'U' : 'D');
+      for (char c : Macro)
+        switch (c) {
+        case '\\' : OS << "\\\\"; break;
+        case '"'  : OS << "\\\""; break;
+        default: OS << c;
+        }
+      OS << '\"';
+    }
+  }
+  llvm::DIBuilder DIB(CGM.getModule());
+  auto *CU = DIB.createCompileUnit(
+      TheCU->getSourceLanguage(), internString(Mod.ModuleName),
+      internString(Mod.Path), TheCU->getProducer(), true, StringRef(), 0,
+      internString(Mod.ASTFile), llvm::DIBuilder::FullDebug, Mod.Signature);
+  llvm::DIModule *ModuleRef =
+      DIB.createModule(CU, Mod.ModuleName, ConfigMacros, internString(Mod.Path),
+                       internString(CGM.getHeaderSearchOpts().Sysroot));
+  DIB.finalize();
+  ModuleRefCache.insert(std::make_pair(Mod.Signature, ModuleRef));
+  return ModuleRef;
 }
 
 llvm::DIType *CGDebugInfo::CreateTypeDefinition(const ObjCInterfaceType *Ty,
@@ -3290,6 +3345,15 @@ void CGDebugInfo::EmitUsingDecl(const UsingDecl &UD) {
     DBuilder.createImportedDeclaration(
         getCurrentContextDescriptor(cast<Decl>(USD.getDeclContext())), Target,
         getLineNumber(USD.getLocation()));
+}
+
+void CGDebugInfo::EmitImportDecl(const ImportDecl &ID) {
+  auto *Reader = CGM.getContext().getExternalSource();
+  auto Info = Reader->getSourceDescriptor(*ID.getImportedModule());
+  DBuilder.createImportedDeclaration(
+    getCurrentContextDescriptor(cast<Decl>(ID.getDeclContext())),
+                                getOrCreateModuleRef(Info),
+                                getLineNumber(ID.getLocation()));
 }
 
 llvm::DIImportedEntity *

@@ -363,6 +363,10 @@ public:
     return *LongDoubleFormat;
   }
 
+  /// \brief Return true if the 'long double' type should be mangled like
+  /// __float128.
+  virtual bool useFloat128ManglingForLongDouble() const { return false; }
+
   /// \brief Return the value for the C99 FLT_EVAL_METHOD macro.
   virtual unsigned getFloatEvalMethod() const { return 0; }
 
@@ -606,6 +610,9 @@ public:
       // Don't copy Name or constraint string.
     }
   };
+
+  // Validate the contents of the __builtin_cpu_supports(const char*) argument.
+  virtual bool validateCpuSupports(StringRef Name) const { return false; }
 
   // validateOutputConstraint, validateInputConstraint - Checks that
   // a constraint is valid and provides information about it.

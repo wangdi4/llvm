@@ -186,7 +186,6 @@ void
 xexpand(KMP_API_NAME_GOMP_SINGLE_COPY_END)(void *data)
 {
     int gtid = __kmp_get_gtid();
-    MKLOC(loc, "GOMP_single_copy_end");
     KA_TRACE(20, ("GOMP_single_copy_end: T#%d\n", gtid));
 
     //
@@ -476,7 +475,9 @@ void
 xexpand(KMP_API_NAME_GOMP_PARALLEL_END)(void)
 {
     int gtid = __kmp_get_gtid();
-    kmp_info_t *thr = __kmp_threads[gtid];
+    kmp_info_t *thr;
+
+    thr = __kmp_threads[gtid];
 
     MKLOC(loc, "GOMP_parallel_end");
     KA_TRACE(20, ("GOMP_parallel_end: T#%d\n", gtid));
@@ -824,7 +825,6 @@ LOOP_NEXT_ULL(xexpand(KMP_API_NAME_GOMP_LOOP_ULL_ORDERED_RUNTIME_NEXT), \
       long lb, long ub, long str, long chunk_sz)                             \
     {                                                                        \
         int gtid = __kmp_entry_gtid();                                       \
-        int last = FALSE;                                                    \
         MKLOC(loc, #func);                                                   \
         KA_TRACE(20, ( #func ": T#%d, lb 0x%lx, ub 0x%lx, str 0x%lx, chunk_sz 0x%lx\n",        \
           gtid, lb, ub, str, chunk_sz ));                                    \
@@ -1021,7 +1021,6 @@ xexpand(KMP_API_NAME_GOMP_PARALLEL_SECTIONS_START)(void (*task) (void *), void *
   unsigned num_threads, unsigned count)
 {
     int gtid = __kmp_entry_gtid();
-    int last = FALSE;
 
 #if OMPT_SUPPORT
     ompt_frame_t *parent_frame;
@@ -1117,7 +1116,6 @@ xexpand(KMP_API_NAME_GOMP_PARALLEL_SECTIONS)(void (*task) (void *), void *data,
   unsigned num_threads, unsigned count, unsigned flags)
 {
     int gtid = __kmp_entry_gtid();
-    int last = FALSE;
     MKLOC(loc, "GOMP_parallel_sections");
     KA_TRACE(20, ("GOMP_parallel_sections: T#%d\n", gtid));
 
@@ -1149,7 +1147,6 @@ xexpand(KMP_API_NAME_GOMP_PARALLEL_SECTIONS)(void (*task) (void *), void *data,
       long lb, long ub, long str, long chunk_sz, unsigned flags)             \
     {                                                                        \
         int gtid = __kmp_entry_gtid();                                       \
-        int last = FALSE;                                                    \
         MKLOC(loc, #func);                                                   \
         KA_TRACE(20, ( #func ": T#%d, lb 0x%lx, ub 0x%lx, str 0x%lx, chunk_sz 0x%lx\n",        \
           gtid, lb, ub, str, chunk_sz ));                                    \
@@ -1212,7 +1209,7 @@ xexpand(KMP_API_NAME_GOMP_TASKGROUP_END)(void)
 #ifndef KMP_DEBUG
 static
 #endif /* KMP_DEBUG */
-kmp_int32 __kmp_gomp_to_iomp_cancellation_kind(int gomp_kind) {
+kmp_int32 __kmp_gomp_to_omp_cancellation_kind(int gomp_kind) {
     kmp_int32 cncl_kind = 0;
     switch(gomp_kind) {
       case 1:
@@ -1241,7 +1238,7 @@ xexpand(KMP_API_NAME_GOMP_CANCELLATION_POINT)(int which)
     MKLOC(loc, "GOMP_cancellation_point");
     KA_TRACE(20, ("GOMP_cancellation_point: T#%d\n", gtid));
 
-    kmp_int32 cncl_kind = __kmp_gomp_to_iomp_cancellation_kind(which);
+    kmp_int32 cncl_kind = __kmp_gomp_to_omp_cancellation_kind(which);
 
     return __kmpc_cancellationpoint(&loc, gtid, cncl_kind);
 }
@@ -1273,7 +1270,7 @@ xexpand(KMP_API_NAME_GOMP_CANCEL)(int which, bool do_cancel)
     MKLOC(loc, "GOMP_cancel");
     KA_TRACE(20, ("GOMP_cancel: T#%d\n", gtid));
 
-    kmp_int32 cncl_kind = __kmp_gomp_to_iomp_cancellation_kind(which);
+    kmp_int32 cncl_kind = __kmp_gomp_to_omp_cancellation_kind(which);
 
     if(do_cancel == FALSE) {
         return xexpand(KMP_API_NAME_GOMP_CANCELLATION_POINT)(which);
