@@ -746,6 +746,10 @@ dgi_bool pdb_open(const char *name) { return 0; }
 
 void pdb_close() {}
 
+dgi_bool pdb_write_id(const char * buf, unsigned long *assigned_index) {
+  return 0;
+}
+
 dgi_bool pdb_write_type(const char * buf, unsigned long *assigned_index) {
   return 0;
 }
