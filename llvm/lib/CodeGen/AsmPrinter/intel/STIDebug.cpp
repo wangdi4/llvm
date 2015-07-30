@@ -3278,9 +3278,9 @@ void STIDebugImpl::emitLabelDiff(const MCSymbol *begin,
   const MCExpr *eExpr;
   const MCExpr *delta;
 
-  bExpr = MCSymbolRefExpr::Create(begin, MCSymbolRefExpr::VK_None, context);
-  eExpr = MCSymbolRefExpr::Create(end, MCSymbolRefExpr::VK_None, context);
-  delta = MCBinaryExpr::Create(MCBinaryExpr::Sub, eExpr, bExpr, context);
+  bExpr = MCSymbolRefExpr::create(begin, MCSymbolRefExpr::VK_None, context);
+  eExpr = MCSymbolRefExpr::create(end, MCSymbolRefExpr::VK_None, context);
+  delta = MCBinaryExpr::create(MCBinaryExpr::Sub, eExpr, bExpr, context);
 
   emitValue(delta, 4);
 }

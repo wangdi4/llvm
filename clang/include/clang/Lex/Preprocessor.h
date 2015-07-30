@@ -256,6 +256,10 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   /// \#pragma clang arc_cf_code_audited begin.
   SourceLocation PragmaARCCFCodeAuditedLoc;
 
+  /// \brief The source location of the currently-active
+  /// \#pragma clang assume_nonnull begin.
+  SourceLocation PragmaAssumeNonNullLoc;
+
   /// \brief True if we hit the code-completion point.
   bool CodeCompletionReached;
 
@@ -390,7 +394,9 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
                                    const IdentifierInfo *II) const {
       // FIXME: Find a spare bit on IdentifierInfo and store a
       //        HasModuleMacros flag.
-      if (!II->hasMacroDefinition() || !PP.getLangOpts().Modules ||
+      if (!II->hasMacroDefinition() ||
+          (!PP.getLangOpts().Modules &&
+           !PP.getLangOpts().ModulesLocalVisibility) ||
           !PP.CurSubmoduleState->VisibleModules.getGeneration())
         return nullptr;
 
@@ -450,13 +456,16 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
     MacroDirective::DefInfo findDirectiveAtLoc(SourceLocation Loc,
                                                SourceManager &SourceMgr) const {
       // FIXME: Incorporate module macros into the result of this.
-      return getLatest()->findDirectiveAtLoc(Loc, SourceMgr);
+      if (auto *Latest = getLatest())
+        return Latest->findDirectiveAtLoc(Loc, SourceMgr);
+      return MacroDirective::DefInfo();
     }
 
     void overrideActiveModuleMacros(Preprocessor &PP, IdentifierInfo *II) {
       if (auto *Info = getModuleInfo(PP, II)) {
-        for (auto *Active : Info->ActiveModuleMacros)
-          Info->OverriddenMacros.push_back(Active);
+        Info->OverriddenMacros.insert(Info->OverriddenMacros.end(),
+                                      Info->ActiveModuleMacros.begin(),
+                                      Info->ActiveModuleMacros.end());
         Info->ActiveModuleMacros.clear();
         Info->IsAmbiguous = false;
       }
@@ -890,7 +899,7 @@ public:
   ///
   /// These predefines are automatically injected when parsing the main file.
   void setPredefines(const char *P) { Predefines = P; }
-  void setPredefines(const std::string &P) { Predefines = P; }
+  void setPredefines(StringRef P) { Predefines = P; }
 
   /// Return information about the specified preprocessor
   /// identifier token.
@@ -1247,6 +1256,20 @@ public:
   /// arc_cf_code_audited begin.  An invalid location ends the pragma.
   void setPragmaARCCFCodeAuditedLoc(SourceLocation Loc) {
     PragmaARCCFCodeAuditedLoc = Loc;
+  }
+
+  /// \brief The location of the currently-active \#pragma clang
+  /// assume_nonnull begin.
+  ///
+  /// Returns an invalid location if there is no such pragma active.
+  SourceLocation getPragmaAssumeNonNullLoc() const {
+    return PragmaAssumeNonNullLoc;
+  }
+
+  /// \brief Set the location of the currently-active \#pragma clang
+  /// assume_nonnull begin.  An invalid location ends the pragma.
+  void setPragmaAssumeNonNullLoc(SourceLocation Loc) {
+    PragmaAssumeNonNullLoc = Loc;
   }
 
   /// \brief Set the directory in which the main file should be considered
@@ -1617,9 +1640,9 @@ private:
 
   void PushIncludeMacroStack() {
     assert(CurLexerKind != CLK_CachingLexer && "cannot push a caching lexer");
-    IncludeMacroStack.push_back(IncludeStackInfo(
+    IncludeMacroStack.emplace_back(
         CurLexerKind, CurSubmodule, std::move(CurLexer), std::move(CurPTHLexer),
-        CurPPLexer, std::move(CurTokenLexer), CurDirLookup));
+        CurPPLexer, std::move(CurTokenLexer), CurDirLookup);
     CurPPLexer = nullptr;
   }
 

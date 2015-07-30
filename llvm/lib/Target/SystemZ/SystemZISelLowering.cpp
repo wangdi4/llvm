@@ -506,9 +506,10 @@ bool SystemZTargetLowering::allowsMisalignedMemoryAccesses(EVT VT,
     *Fast = true;
   return true;
 }
-  
+
 bool SystemZTargetLowering::isLegalAddressingMode(const AddrMode &AM,
-                                                  Type *Ty) const {
+                                                  Type *Ty,
+                                                  unsigned AS) const {
   // Punt on globals for now, although they can be used in limited
   // RELATIVE LONG cases.
   if (AM.BaseGV)
@@ -2004,17 +2005,17 @@ static Comparison getIntrinsicCmp(SelectionDAG &DAG, unsigned Opcode,
   else if (Cond == ISD::SETLT || Cond == ISD::SETULT)
     // bits above bit 3 for CC==0 (always false), bits above bit 0 for CC==3,
     // always true for CC>3.
-    C.CCMask = CC < 4 ? -1 << (4 - CC) : -1;
+    C.CCMask = CC < 4 ? ~0U << (4 - CC) : -1;
   else if (Cond == ISD::SETGE || Cond == ISD::SETUGE)
     // ...and the inverse of that.
-    C.CCMask = CC < 4 ? ~(-1 << (4 - CC)) : 0;
+    C.CCMask = CC < 4 ? ~(~0U << (4 - CC)) : 0;
   else if (Cond == ISD::SETLE || Cond == ISD::SETULE)
     // bit 3 and above for CC==0, bit 0 and above for CC==3 (always true),
     // always true for CC>3.
-    C.CCMask = CC < 4 ? -1 << (3 - CC) : -1;
+    C.CCMask = CC < 4 ? ~0U << (3 - CC) : -1;
   else if (Cond == ISD::SETGT || Cond == ISD::SETUGT)
     // ...and the inverse of that.
-    C.CCMask = CC < 4 ? ~(-1 << (3 - CC)) : 0;
+    C.CCMask = CC < 4 ? ~(~0U << (3 - CC)) : 0;
   else
     llvm_unreachable("Unexpected integer comparison type");
   C.CCMask &= CCValid;

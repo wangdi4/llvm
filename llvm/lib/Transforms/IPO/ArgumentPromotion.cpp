@@ -245,6 +245,24 @@ CallGraphNode *ArgPromotion::PromoteArguments(CallGraphNode *CGN) {
     Argument *PtrArg = PointerArgs[i];
     Type *AgTy = cast<PointerType>(PtrArg->getType())->getElementType();
 
+    // Replace sret attribute with noalias. This reduces register pressure by
+    // avoiding a register copy.
+    if (PtrArg->hasStructRetAttr()) {
+      unsigned ArgNo = PtrArg->getArgNo();
+      F->setAttributes(
+          F->getAttributes()
+              .removeAttribute(F->getContext(), ArgNo + 1, Attribute::StructRet)
+              .addAttribute(F->getContext(), ArgNo + 1, Attribute::NoAlias));
+      for (Use &U : F->uses()) {
+        CallSite CS(U.getUser());
+        CS.setAttributes(
+            CS.getAttributes()
+                .removeAttribute(F->getContext(), ArgNo + 1,
+                                 Attribute::StructRet)
+                .addAttribute(F->getContext(), ArgNo + 1, Attribute::NoAlias));
+      }
+    }
+
     // If this is a byval argument, and if the aggregate type is small, just
     // pass the elements, which is always safe, if the passed value is densely
     // packed or if we can prove the padding bytes are never accessed. This does
@@ -553,7 +571,7 @@ bool ArgPromotion::isSafeToPromoteArgument(Argument *Arg,
     LoadInst *Load = Loads[i];
     BasicBlock *BB = Load->getParent();
 
-    AliasAnalysis::Location Loc = AA.getLocation(Load);
+    MemoryLocation Loc = MemoryLocation::get(Load);
     if (AA.canInstructionRangeModRef(BB->front(), *Load, Loc,
         AliasAnalysis::Mod))
       return false;  // Pointer is invalidated!
@@ -732,6 +750,11 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
   // Get the callgraph information that we need to update to reflect our
   // changes.
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
+#ifdef INTEL_CUSTOMIZATION
+  // Argument promotion is replacing F with NF. We need to update all of the 
+  // call graph reports to reflect this.
+  CG.replaceFunctionWithFunctionInCGReports(F, NF); 
+#endif // INTEL_CUSTOMIZATION
 
   // Get a new callgraph node for NF.
   CallGraphNode *NF_CGN = CG.getOrInsertFunction(NF);
@@ -774,7 +797,7 @@ CallGraphNode *ArgPromotion::DoPromotion(Function *F,
         for (unsigned i = 0, e = STy->getNumElements(); i != e; ++i) {
           Idxs[1] = ConstantInt::get(Type::getInt32Ty(F->getContext()), i);
           Value *Idx = GetElementPtrInst::Create(
-              STy, *AI, Idxs, (*AI)->getName() + "." + utostr(i), Call);
+              STy, *AI, Idxs, (*AI)->getName() + "." + Twine(i), Call);
           // TODO: Tell AA about the new values?
           Args.push_back(new LoadInst(Idx, Idx->getName()+".val", Call));
         }
