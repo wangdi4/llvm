@@ -52,7 +52,7 @@ MachineFunctionPass *llvm::createLPUConvertControlPass() {
 char LPUConvertControlPass::ID = 0;
 
 bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
-  const TargetMachine &TM = MF.getTarget();
+  //  const TargetMachine &TM = MF.getTarget();
   //  MachineRegisterInfo *MRI = &MF.getRegInfo();
 // const TargetFrameLowering &TFI = *TM.getSubtargetImpl()->getFrameLowering();
 //  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();

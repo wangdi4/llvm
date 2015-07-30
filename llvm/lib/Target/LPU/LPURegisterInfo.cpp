@@ -53,26 +53,19 @@ LPURegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
 BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
 
-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+  //  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
 
   Reserved.set(LPU::SP);
   Reserved.set(LPU::RA);
   Reserved.set(LPU::IGN);
+  Reserved.set(LPU::FP);
 
-  // Mark frame pointer as reserved if needed.
-  if (TFI->hasFP(MF)) {
-    Reserved.set(LPU::FP);
-  }
+  Reserved.set(LPU::C0);
+  Reserved.set(LPU::C1);
 
   return Reserved;
 }
-/*
-const TargetRegisterClass *
-LPURegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
-                                                                         const {
-  return &LPU::GR16RegClass;
-}
-*/
+
 void
 LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                         int SPAdj, unsigned FIOperandNum,

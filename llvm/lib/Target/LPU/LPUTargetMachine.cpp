@@ -82,8 +82,10 @@ public:
   void addPreRegAlloc() override;
 
   FunctionPass *createTargetRegisterAllocator(bool) override;
+  /* temp disable
   void addFastRegAlloc(FunctionPass *RegAllocPass) override;
   void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
+  */
 
   void addPostRegAlloc() override;
 
@@ -135,9 +137,10 @@ void LPUPassConfig::addPreRegAlloc() {
 }
 
 FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
-  return nullptr; // No reg alloc
+  return createBasicRegisterAllocator();
+  /* temp disable   return nullptr; // No reg alloc */
 }
-
+/* temp disable
 void LPUPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
   assert(!RegAllocPass && "LPU uses no regalloc!");
   addPass(createLPULICAllocPass(), false); // removes PHIs...
@@ -150,7 +153,7 @@ void LPUPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
 void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
   addFastRegAlloc(RegAllocPass);
 }
-
+*/
 void LPUPassConfig::addPostRegAlloc() {
   addPass(createLPUPrologEpilogPass(), false);
 }

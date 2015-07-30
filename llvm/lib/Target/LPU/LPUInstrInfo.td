@@ -452,12 +452,12 @@ defm LD32f : LdOp<"ld32", F32>;
 defm LD64  : LdOp<"ld64", I64>;
 defm LD64f : LdOp<"ld64", F64>;
 
-defm ST8   : StOp<"st8",  I8,  i8,  i8imm>;
-defm ST16  : StOp<"st16", I16, i16, i16imm>;
-defm ST32  : StOp<"st32", I32, i32, i32imm>;
-defm ST32f : FStOp<"st32", F32, f32, f32imm>;
-defm ST64  : StOp<"st64", I64, i64, i64imm>;
-defm ST64f : FStOp<"st64", F64, f64, f64imm>;
+defm ST8   : StOp<"st8\t%ign,",  I8,  i8,  i8imm>;
+defm ST16  : StOp<"st16\t%ign,", I16, i16, i16imm>;
+defm ST32  : StOp<"st32\t%ign,", I32, i32, i32imm>;
+defm ST32f : FStOp<"st32\t%ign,", F32, f32, f32imm>;
+defm ST64  : StOp<"st64\t%ign,", I64, i64, i64imm>;
+defm ST64f : FStOp<"st64\t%ign,", F64, f64, f64imm>;
 
 multiclass CopyOp<string opStr, RegisterClass LIC> {
   def "" : FMTGEN<

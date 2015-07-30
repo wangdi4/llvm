@@ -29,12 +29,6 @@ public:
   getCalleeSavedRegs(const MachineFunction *MF = nullptr) const override;
 
   BitVector getReservedRegs(const MachineFunction &MF) const override;
-  /*
-
-  const TargetRegisterClass*
-  getPointerRegClass(const MachineFunction &MF,
-                     unsigned Kind = 0) const override;
-  */
 
   void eliminateFrameIndex(MachineBasicBlock::iterator II,
                            int SPAdj, unsigned FIOperandNum,
