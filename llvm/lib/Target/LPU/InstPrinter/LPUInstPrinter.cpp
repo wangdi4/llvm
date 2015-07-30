@@ -47,6 +47,8 @@ void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
     O << Op.getImm();
+  } else if (Op.isFPImm()) {
+    O << Op.getFPImm();
   } else {
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     O << *Op.getExpr(); // Branch targets...

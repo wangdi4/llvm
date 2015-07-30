@@ -51,15 +51,15 @@ const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
 LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
-  // Set up the register classes.
-  addRegisterClass(MVT::i1,   &LPU::LICRegClass);
-  addRegisterClass(MVT::i8,   &LPU::LICRegClass);
-  addRegisterClass(MVT::i16,  &LPU::LICRegClass);
-  addRegisterClass(MVT::i32,  &LPU::LICRegClass);
-  addRegisterClass(MVT::i64,  &LPU::LICRegClass);
-  addRegisterClass(MVT::f16,  &LPU::LICRegClass);
-  addRegisterClass(MVT::f32,  &LPU::LICRegClass);
-  addRegisterClass(MVT::f64,  &LPU::LICRegClass);
+  // Set up the "register" (LIC) classes.
+  addRegisterClass(MVT::i1,   &LPU::I1RegClass);
+  addRegisterClass(MVT::i8,   &LPU::I8RegClass);
+  addRegisterClass(MVT::i16,  &LPU::I16RegClass);
+  addRegisterClass(MVT::i32,  &LPU::I32RegClass);
+  addRegisterClass(MVT::i64,  &LPU::I64RegClass);
+  addRegisterClass(MVT::f16,  &LPU::F16RegClass);
+  addRegisterClass(MVT::f32,  &LPU::F32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::F64RegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -76,7 +76,6 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
     setOperationAction(ISD::BR_CC,            VT,    Expand);
-    //    setOperationAction(ISD::SELECT,           VT,    Expand);
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
 
     setOperationAction(ISD::SIGN_EXTEND,      VT,    Expand);
@@ -127,8 +126,95 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setLoadExtAction(ISD::SEXTLOAD, VT, MVT::i32, Expand);
   }
 
-  // We don't have any truncstores
-  //  setTruncStoreAction(MVT::i16, MVT::i8, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::f32, MVT::f16, Expand);
+  setLoadExtAction(ISD::EXTLOAD, MVT::f64, MVT::f16, Expand);
+
+  // We don't accept any truncstore of integer registers.
+  setTruncStoreAction(MVT::i64, MVT::i32, Expand);
+  setTruncStoreAction(MVT::i64, MVT::i16, Expand);
+  setTruncStoreAction(MVT::i64, MVT::i8 , Expand);
+  setTruncStoreAction(MVT::i32, MVT::i16, Expand);
+  setTruncStoreAction(MVT::i32, MVT::i8 , Expand);
+  setTruncStoreAction(MVT::i16, MVT::i8,  Expand);
+
+  setTruncStoreAction(MVT::f64, MVT::f32, Expand);
+  setTruncStoreAction(MVT::f64, MVT::f16, Expand);
+  setTruncStoreAction(MVT::f32, MVT::f16, Expand);
+
+  // SETOEQ and SETUNE require checking two conditions.
+  setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);
+  setCondCodeAction(ISD::SETOEQ, MVT::f64, Expand);
+  setCondCodeAction(ISD::SETOEQ, MVT::f80, Expand);
+  setCondCodeAction(ISD::SETUNE, MVT::f32, Expand);
+  setCondCodeAction(ISD::SETUNE, MVT::f64, Expand);
+  setCondCodeAction(ISD::SETUNE, MVT::f80, Expand);
+
+  setOperationAction(ISD::UINT_TO_FP, MVT::i1, Promote);
+  setOperationAction(ISD::UINT_TO_FP, MVT::i8, Promote);
+  setOperationAction(ISD::UINT_TO_FP, MVT::i16, Promote);
+
+  setOperationAction(ISD::SINT_TO_FP, MVT::i1, Promote);
+  setOperationAction(ISD::SINT_TO_FP, MVT::i8, Promote);
+  setOperationAction(ISD::SINT_TO_FP, MVT::i16, Promote);
+
+  setOperationAction(ISD::FP_TO_UINT, MVT::i1, Promote);
+  setOperationAction(ISD::FP_TO_UINT, MVT::i8, Promote);
+  setOperationAction(ISD::FP_TO_UINT, MVT::i16, Promote);
+
+  setOperationAction(ISD::FP_TO_SINT, MVT::i1, Promote);
+  setOperationAction(ISD::FP_TO_SINT, MVT::i8, Promote);
+  setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
+
+  // Allow full FP literals
+  setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
+  setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
+
+/*  These are to enable as CG work is done
+  // Allow specialized integer operations (popc, ctlz, cttz)
+  for (MVT VT : MVT::integer_valuetypes()) {
+    setOperationAction(ISD::CTPOP, VT, Legal);
+    setOperationAction(ISD::CTLZ, VT, Legal);
+    setOperationAction(ISD::CTTZ, VT, Legal);
+  }
+
+  // Short float
+  setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
+  setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
+
+  // Allow various FP operations
+  setOperationAction(ISD::FABS,  MVT::f32, Legal);
+  setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Legal);
+  setOperationAction(ISD::FREM,  MVT::f32, Legal);
+  setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
+  setOperationAction(ISD::FCEIL, MVT::f32, Legal);
+  setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
+  setOperationAction(ISD::FRINT, MVT::f32, Legal);
+  setOperationAction(ISD::FREM,  MVT::f32, Legal);
+  setOperationAction(ISD::FSQRT, MVT::f32, Legal);
+  setOperationAction(ISD::FLOG,  MVT::f32, Legal);
+  setOperationAction(ISD::FLOG2, MVT::f32, Legal);
+  setOperationAction(ISD::FEXP,  MVT::f32, Legal);
+  setOperationAction(ISD::FEXP2, MVT::f32, Legal);
+  setOperationAction(ISD::FSIN,  MVT::f32, Legal);
+  setOperationAction(ISD::FCOS,  MVT::f32, Legal);
+  setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
+
+  setOperationAction(ISD::FABS,  MVT::f64, Legal);
+  setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Legal);
+  setOperationAction(ISD::FREM,  MVT::f64, Legal);
+  setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
+  setOperationAction(ISD::FCEIL, MVT::f64, Legal);
+  setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
+  setOperationAction(ISD::FRINT, MVT::f64, Legal);
+  setOperationAction(ISD::FSQRT, MVT::f64, Legal);
+  setOperationAction(ISD::FLOG,  MVT::f64, Legal);
+  setOperationAction(ISD::FLOG2, MVT::f64, Legal);
+  setOperationAction(ISD::FEXP,  MVT::f64, Legal);
+  setOperationAction(ISD::FEXP2, MVT::f64, Legal);
+  setOperationAction(ISD::FSIN,  MVT::f64, Legal);
+  setOperationAction(ISD::FCOS,  MVT::f64, Legal);
+  setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
+*/
 
   //  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
   //  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
@@ -405,7 +491,7 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::LICRegClass);
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::ANYCRegClass);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
       InVals.push_back(ArgValue);
 

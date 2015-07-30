@@ -68,6 +68,10 @@ void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
   case MachineOperand::MO_Immediate:
     O << MO.getImm();
     return;
+  case MachineOperand::MO_FPImmediate:
+    // This really ought to be done in hex
+    O << MO.getFPImm();
+    return;
   case MachineOperand::MO_MachineBasicBlock:
     O << *MO.getMBB()->getSymbol();
     return;

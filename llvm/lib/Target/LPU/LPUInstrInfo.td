@@ -73,28 +73,28 @@ def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs), (ins),
-    "mov0 %c0,0\n\t"
+    "mov0\t%c0, 0\n\t"
     "br\t.start",      // very temporary until control flow handled
     [(LPURet)]>;
 
-multiclass MovOp<string opStr, RegisterClass LICt, ValueType opType, Operand immOp> {
+multiclass MovOp<string opStr, RegisterClass RC, ValueType opType, Operand immOp> {
   def "" : FMTGEN<
-    (outs LICt:$dst),
-    (ins LICt:$op1),
+    (outs RC:$dst),
+    (ins RC:$op1),
     !strconcat(opStr, "\t$dst, $op1"),
     []>;
   def i : FMTGEN<
-    (outs LICt:$dst),
+    (outs RC:$dst),
     (ins immOp:$imm),
     !strconcat(opStr, "\t$dst, $imm"),
     []>;
 }
 
 // Binary op, no pattern, not commutable
-multiclass SExtOp<string opStr, RegisterClass LICt, RegisterClass LICs> {
+multiclass SExtOp<string opStr, RegisterClass RCt, RegisterClass RCs> {
   def "" : FMTGEN<
-    (outs LICt:$dst),
-    (ins LICs:$op1, LICs:$op2),
+    (outs RCt:$dst),
+    (ins RCs:$op1, RCs:$op2),
     !strconcat(opStr, "\t$dst, $op1, $op2"),
     []>;
 }
@@ -111,98 +111,98 @@ multiclass CvtOp<string opStr, SDNode opNode, RegisterClass DT, RegisterClass ST
 // class doesn't allow the Opndxx in the ins/outs list.  (Why?)
 // (Also, nested multiclass would be nice - it would allow declaring 4 defs
 // per operator, rather than enumerating 8/16/32/64, etc.)
-multiclass BinOp<string opStr, SDNode opNode, RegisterClass LIC,
+multiclass BinOp<string opStr, SDNode opNode, RegisterClass RC,
            ValueType opType, Operand immOpnd, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
-      (outs LIC:$dst),
-      (ins LIC:$op1, LIC:$op2),
+      (outs RC:$dst),
+      (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set LIC:$dst, (opNode LIC:$op1, LIC:$op2))]>;
+      [(set RC:$dst, (opNode RC:$op1, RC:$op2))]>;
     def i : FMTGEN<
-      (outs LIC:$dst),
-      (ins LIC:$op1, immOpnd:$imm),
+      (outs RC:$dst),
+      (ins RC:$op1, immOpnd:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set LIC:$dst, (opNode LIC:$op1, (opType immAny:$imm)))]>;
+      [(set RC:$dst, (opNode RC:$op1, (opType immAny:$imm)))]>;
   }
 }
 
-multiclass FBinOp<string opStr, SDNode opNode, RegisterClass LIC,
+multiclass FBinOp<string opStr, SDNode opNode, RegisterClass RC,
            ValueType opType, Operand immOpnd, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
-      (outs LIC:$dst),
-      (ins LIC:$op1, LIC:$op2),
+      (outs RC:$dst),
+      (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set LIC:$dst, (opNode LIC:$op1, LIC:$op2))]>;
+      [(set RC:$dst, (opNode RC:$op1, RC:$op2))]>;
   }
 }
 
-multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass LIC> {
+multiclass FusedOp1<string opStr, SDNode inner, SDNode outer, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst),
-    (ins LIC:$op1, LIC:$op2, LIC:$op3),
+    (outs RC:$dst),
+    (ins RC:$op1, RC:$op2, RC:$op3),
     !strconcat(opStr, "\t$dst, $op1, $op2, $op3"),
-    [(set LIC:$dst, (outer (inner LIC:$op1, LIC:$op2), LIC:$op3))]>;
+    [(set RC:$dst, (outer (inner RC:$op1, RC:$op2), RC:$op3))]>;
 }
 
-multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass LIC> {
+multiclass FusedOp2<string opStr, SDNode inner, SDNode outer, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst),
-    (ins LIC:$op1, LIC:$op2, LIC:$op3),
+    (outs RC:$dst),
+    (ins RC:$op1, RC:$op2, RC:$op3),
     !strconcat(opStr, "\t$dst, $op2, $op3, $op1"),
-    [(set LIC:$dst, (outer LIC:$op1, (inner LIC:$op2, LIC:$op3)))]>;
+    [(set RC:$dst, (outer RC:$op1, (inner RC:$op2, RC:$op3)))]>;
 }
 
-multiclass CmpOp<string opStr, PatFrag opNode, RegisterClass LIC,
+multiclass CmpOp<string opStr, PatFrag opNode, RegisterClass RC,
            ValueType opType, Operand immOpnd, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
       (outs I1:$dst),
-      (ins LIC:$op1, LIC:$op2),
+      (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set I1:$dst, (opNode LIC:$op1, LIC:$op2))]>;
+      [(set I1:$dst, (opNode RC:$op1, RC:$op2))]>;
     def i : FMTGEN<
       (outs I1:$dst),
-      (ins LIC:$op1, immOpnd:$imm),
+      (ins RC:$op1, immOpnd:$imm),
       !strconcat(opStr, "\t$dst, $op1, $imm"),
-      [(set I1:$dst, (opNode LIC:$op1, (opType immAny:$imm)))]>;
+      [(set I1:$dst, (opNode RC:$op1, (opType immAny:$imm)))]>;
   }
 }
 
 multiclass FCmpOp<string opStr, PatFrag opNodeOrd, PatFrag opNodeUnord,
-           RegisterClass LIC, bit commutable> {
+           RegisterClass RC, bit commutable> {
   let isCommutable = commutable in {
     def "" : FMTGEN<
       (outs I1:$dst),
-      (ins LIC:$op1, LIC:$op2),
+      (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeOrd LIC:$op1, LIC:$op2))]>;
+      [(set i1:$dst, (opNodeOrd RC:$op1, RC:$op2))]>;
     def u : FMTGEN<
       (outs I1:$dst),
-      (ins LIC:$op1, LIC:$op2),
+      (ins RC:$op1, RC:$op2),
       !strconcat(opStr, "\t$dst, $op1, $op2"),
-      [(set i1:$dst, (opNodeUnord LIC:$op1, LIC:$op2))]>;
+      [(set i1:$dst, (opNodeUnord RC:$op1, RC:$op2))]>;
   }
 }
 
 // This provides a full set of result register types.  Some are nonsensical
 // (e.g. LD8_F64 or LD32_I64)
-multiclass LdOp<string opStr, RegisterClass LIC> {
+multiclass LdOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst),
+    (outs RC:$dst),
     (ins I64:$addr),
     !strconcat(opStr, "\t$dst, $addr"),
-    [(set LIC:$dst, (load ADDR_R:$addr))]>;
+    [(set RC:$dst, (load ADDR_R:$addr))]>;
 }
 
 // TODO: How to handle store output flag?
-multiclass StOp<string opStr, RegisterClass LIC, ValueType opType, Operand immOpnd> {
+multiclass StOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpnd> {
   def "" : FMTGEN<
     (outs),  // How to handle output flag??
-    (ins I64:$addr, LIC:$data),
+    (ins I64:$addr, RC:$data),
     !strconcat(opStr, "\t$addr, $data"),
-    [(store LIC:$data, ADDR_R:$addr)]>;
+    [(store RC:$data, ADDR_R:$addr)]>;
   def i : FMTGEN<
     (outs),  // How to handle output flag??
     (ins I64:$addr, immOpnd:$data),
@@ -210,12 +210,12 @@ multiclass StOp<string opStr, RegisterClass LIC, ValueType opType, Operand immOp
     [(store (opType immAny:$data), ADDR_R:$addr)]>;
 }
 
-multiclass FStOp<string opStr, RegisterClass LIC, ValueType opType, Operand immOpnd> {
+multiclass FStOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpnd> {
   def "" : FMTGEN<
     (outs),  // How to handle output flag??
-    (ins I64:$addr, LIC:$data),
+    (ins I64:$addr, RC:$data),
     !strconcat(opStr, "\t$addr, $data"),
-    [(store LIC:$data, ADDR_R:$addr)]>;
+    [(store RC:$data, ADDR_R:$addr)]>;
 }
 
 // The repetition below could be removed if nested multiclass were supported.
@@ -459,10 +459,10 @@ defm ST32f : FStOp<"st32\t%ign,", F32, f32, f32imm>;
 defm ST64  : StOp<"st64\t%ign,", I64, i64, i64imm>;
 defm ST64f : FStOp<"st64\t%ign,", F64, f64, f64imm>;
 
-multiclass CopyOp<string opStr, RegisterClass LIC> {
+multiclass CopyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$op0, LIC:$op1, LIC:$op2, LIC:$op3),
-    (ins LIC:$op4),
+    (outs RC:$op0, RC:$op1, RC:$op2, RC:$op3),
+    (ins RC:$op4),
     !strconcat(opStr, "\t$op0, $op1, $op2, $op3, $op4"),
     []>;
 }
@@ -473,18 +473,18 @@ defm COPY16 : CopyOp<"copy16", I16>;
 defm COPY32 : CopyOp<"copy32", I32>;
 defm COPY64 : CopyOp<"copy64", I64>;
 
-multiclass MergeOp<string opStr, RegisterClass LIC, ValueType opType,
+multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
                                  Operand immOpnd> {
   def "" : FMTGEN<
-    (outs LIC:$dst),
-    (ins I1:$sel, LIC:$v0, LIC:$v1),
+    (outs RC:$dst),
+    (ins I1:$sel, RC:$v0, RC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
-    [(set LIC:$dst, (select I1:$sel, LIC:$v1, LIC:$v0))]>;
+    [(set RC:$dst, (select I1:$sel, RC:$v1, RC:$v0))]>;
   def i : FMTGEN<
-    (outs LIC:$dst),
-    (ins I1:$sel, LIC:$v0, immOpnd:$imm),
+    (outs RC:$dst),
+    (ins I1:$sel, RC:$v0, immOpnd:$imm),
     !strconcat(opStr, "\t$dst, $sel, $v0, $imm"),
-    [(set LIC:$dst, (select I1:$sel, (opType immAny:$imm), LIC:$v0))]>;
+    [(set RC:$dst, (select I1:$sel, (opType immAny:$imm), RC:$v0))]>;
 }
 defm MERGE1  : MergeOp<"merge1",  I1,  i1,  i1imm>;
 defm MERGE8  : MergeOp<"merge8",  I8,  i8,  i8imm>;
@@ -492,10 +492,10 @@ defm MERGE16 : MergeOp<"merge16", I16, i16, i16imm>;
 defm MERGE32 : MergeOp<"merge32", I32, i32, i32imm>;
 defm MERGE64 : MergeOp<"merge64", I64, i64, i64imm>;
 
-multiclass SwitchOp<string opStr, RegisterClass LIC> {
+multiclass SwitchOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst0, LIC:$dst1),
-    (ins I1:$sel, LIC:$v),
+    (outs RC:$dst0, RC:$dst1),
+    (ins I1:$sel, RC:$v),
     !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
     []>;
 }
@@ -505,10 +505,10 @@ defm SWITCH16 : SwitchOp<"switch16", I16>;
 defm SWITCH32 : SwitchOp<"switch32", I32>;
 defm SWITCH64 : SwitchOp<"switch64", I64>;
 
-multiclass SwitchAnyOp<string opStr, RegisterClass LIC> {
+multiclass SwitchAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst0, LIC:$dst1, I1:$sel),
-    (ins LIC:$v),
+    (outs RC:$dst0, RC:$dst1, I1:$sel),
+    (ins RC:$v),
     !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
     []>;
 }
@@ -518,10 +518,10 @@ defm SWITCHANY16 : SwitchAnyOp<"switchany16", I16>;
 defm SWITCHANY32 : SwitchAnyOp<"switchany32", I32>;
 defm SWITCHANY64 : SwitchAnyOp<"switchany64", I64>;
 
-multiclass PickOp<string opStr, RegisterClass LIC> {
+multiclass PickOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst),
-    (ins I1:$sel, LIC:$v0, LIC:$v1),
+    (outs RC:$dst),
+    (ins I1:$sel, RC:$v0, RC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
     []>;
 }
@@ -531,10 +531,10 @@ defm PICK16 : PickOp<"pick16", I16>;
 defm PICK32 : PickOp<"pick32", I32>;
 defm PICK64 : PickOp<"pick64", I64>;
 
-multiclass PickAnyOp<string opStr, RegisterClass LIC> {
+multiclass PickAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
-    (outs LIC:$dst, I1:$sel),
-    (ins LIC:$v0, LIC:$v1),
+    (outs RC:$dst, I1:$sel),
+    (ins RC:$v0, RC:$v1),
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
     []>;
 }
@@ -631,63 +631,79 @@ def : Pat<(i16 (sext_inreg i16:$op1, i8)),
 // it shouldn't need to be masked...)
 
 def : Pat<(i64 (zext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND64 $op1, 0xFFFFFFFF)>;  // gets "Type inference contradiction found, merging 'i32' into 'i64'
 def : Pat<(i64 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND64 $op1, 0xFFFF)>;
 def : Pat<(i64 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND64 $op1, 0xFF)>;
 def : Pat<(i64 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND64 $op1, 1)>;
 
 def : Pat<(i32 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND32 $op1, 0xFFFF)>;
 def : Pat<(i32 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND32 $op1, 0xFF)>;
 def : Pat<(i32 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND32 $op1, 1)>;
 
 def : Pat<(i16 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND16 $op1, 0xFF)>;
 def : Pat<(i16 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND16 $op1, 1)>;
 
 def : Pat<(i8 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 //  (AND8 $op1, 1)>;
 
 // anyext are treated as zext
 def : Pat<(i64 (anyext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i64 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i64 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i64 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 
 def : Pat<(i32 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i32 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i32 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 
 def : Pat<(i16 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 def : Pat<(i16 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
 
 def : Pat<(i8 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, LIC)>;
+  (COPY_TO_REGCLASS $op1, ANYC)>;
+
+// Truncate
+def : Pat<(i32 (trunc i64:$op1)),
+    (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(i16 (trunc i64:$op1)),
+    (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i8 (trunc i64:$op1)),
+    (COPY_TO_REGCLASS $op1, I8)>;
+
+def : Pat<(i16 (trunc i32:$op1)),
+    (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(i8 (trunc i32:$op1)),
+    (COPY_TO_REGCLASS $op1, I8)>;
+
+def : Pat<(i8 (trunc i16:$op1)),
+    (COPY_TO_REGCLASS $op1, I8)>;
 
 // Branches MAY exist eventually on a single unit, but for now, their only
 // purpose is pseudo-ops during translation from control flow representation

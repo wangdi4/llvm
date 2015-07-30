@@ -4143,7 +4143,7 @@ def C4091 : LPUReg<4091, "%c4091">;
 // 4092..4095 reserved for SP, RA, etc.
 
 // generic channel class
-def LIC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
+def ANYC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
    (add   
          IGN,   // IGN (ignore) part of all regs, but not allocatable...
 
@@ -4558,12 +4558,12 @@ def LIC : RegisterClass<"LPU", [i1,i8,i16,i32,i64,f16,f32,f64], 64,
         C4080, C4081, C4082, C4083, C4084, C4085, C4086, C4087, C4088, C4089,
         C4090, C4091)>;
 
-def I0  : RegisterClass<"LPU", [i1],  64, (add LIC)>; // 0 bit LIC...
-def I1  : RegisterClass<"LPU", [i1],  64, (add LIC)>;
-def I8  : RegisterClass<"LPU", [i8],  64, (add LIC)>;
-def I16 : RegisterClass<"LPU", [i16], 64, (add LIC)>;
-def I32 : RegisterClass<"LPU", [i32], 64, (add LIC)>;
-def I64 : RegisterClass<"LPU", [i64], 64, (add LIC)>;
-def F16 : RegisterClass<"LPU", [f16], 64, (add LIC)>;
-def F32 : RegisterClass<"LPU", [f32], 64, (add LIC)>;
-def F64 : RegisterClass<"LPU", [f64], 64, (add LIC)>;
+def I0  : RegisterClass<"LPU", [i1],  64, (add ANYC)>; // 0 bit LIC...
+def I1  : RegisterClass<"LPU", [i1],  64, (add ANYC)>;
+def I8  : RegisterClass<"LPU", [i8],  64, (add ANYC)>;
+def I16 : RegisterClass<"LPU", [i16], 64, (add ANYC)>;
+def I32 : RegisterClass<"LPU", [i32], 64, (add ANYC)>;
+def I64 : RegisterClass<"LPU", [i64], 64, (add ANYC)>;
+def F16 : RegisterClass<"LPU", [f16], 64, (add ANYC)>;
+def F32 : RegisterClass<"LPU", [f32], 64, (add ANYC)>;
+def F64 : RegisterClass<"LPU", [f64], 64, (add ANYC)>;

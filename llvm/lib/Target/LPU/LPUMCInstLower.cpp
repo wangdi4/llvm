@@ -17,6 +17,7 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -130,6 +131,14 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
     case MachineOperand::MO_Immediate:
       MCOp = MCOperand::CreateImm(MO.getImm());
       break;
+    case MachineOperand::MO_FPImmediate: {
+      const ConstantFP* f = MO.getFPImm();
+      APFloat apf = f->getValueAPF();
+      bool ignored;
+      if (f->getType() == Type::getFloatTy(f->getContext()))
+        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
+      MCOp = MCOperand::CreateFPImm(apf.convertToDouble());
+      break; }
     case MachineOperand::MO_MachineBasicBlock:
       MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
                          MO.getMBB()->getSymbol(), Ctx));
