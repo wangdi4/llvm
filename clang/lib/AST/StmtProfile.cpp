@@ -425,6 +425,9 @@ OMPClauseProfiler::VisitOMPCopyprivateClause(const OMPCopyprivateClause *C) {
 void OMPClauseProfiler::VisitOMPFlushClause(const OMPFlushClause *C) {
   VisitOMPClauseList(C);
 }
+void OMPClauseProfiler::VisitOMPDependClause(const OMPDependClause *C) {
+  VisitOMPClauseList(C);
+}
 }
 
 void
@@ -510,6 +513,10 @@ void StmtProfiler::VisitOMPTaskwaitDirective(const OMPTaskwaitDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
+void StmtProfiler::VisitOMPTaskgroupDirective(const OMPTaskgroupDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
 void StmtProfiler::VisitOMPFlushDirective(const OMPFlushDirective *S) {
   VisitOMPExecutableDirective(S);
 }
@@ -527,6 +534,11 @@ void StmtProfiler::VisitOMPTargetDirective(const OMPTargetDirective *S) {
 }
 
 void StmtProfiler::VisitOMPTeamsDirective(const OMPTeamsDirective *S) {
+  VisitOMPExecutableDirective(S);
+}
+
+void StmtProfiler::VisitOMPCancellationPointDirective(
+    const OMPCancellationPointDirective *S) {
   VisitOMPExecutableDirective(S);
 }
 
@@ -784,6 +796,18 @@ void StmtProfiler::VisitDesignatedInitExpr(const DesignatedInitExpr *S) {
     }
     ID.AddInteger(D->getFirstExprIndex());
   }
+}
+
+// Seems that if VisitInitListExpr() only works on the syntactic form of an
+// InitListExpr, then a DesignatedInitUpdateExpr is not encountered.
+void StmtProfiler::VisitDesignatedInitUpdateExpr(
+    const DesignatedInitUpdateExpr *S) {
+  llvm_unreachable("Unexpected DesignatedInitUpdateExpr in syntactic form of "
+                   "initializer");
+}
+
+void StmtProfiler::VisitNoInitExpr(const NoInitExpr *S) {
+  llvm_unreachable("Unexpected NoInitExpr in syntactic form of initializer");
 }
 
 void StmtProfiler::VisitImplicitValueInitExpr(const ImplicitValueInitExpr *S) {

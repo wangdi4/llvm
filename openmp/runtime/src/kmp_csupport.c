@@ -654,7 +654,6 @@ __kmpc_barrier(ident_t *loc, kmp_int32 global_tid)
 {
     KMP_COUNT_BLOCK(OMP_BARRIER);
     KMP_TIME_BLOCK(OMP_barrier);
-    int explicit_barrier_flag;
     KC_TRACE( 10, ("__kmpc_barrier: called T#%d\n", global_tid ) );
 
     if (! TCR_4(__kmp_init_parallel))
@@ -2148,7 +2147,8 @@ __kmpc_unset_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
     __kmp_itt_lock_releasing( lck );
 #endif /* USE_ITT_BUILD */
 
-    int release_status = RELEASE_NESTED_LOCK( lck, gtid );
+    int release_status;
+    release_status = RELEASE_NESTED_LOCK( lck, gtid );
 #if OMPT_SUPPORT && OMPT_BLAME
     if (ompt_status == ompt_status_track_callback) {
         if (release_status == KMP_LOCK_RELEASED) {
@@ -2431,7 +2431,7 @@ __kmpc_reduce_nowait(
     kmp_critical_name *lck ) {
 
     KMP_COUNT_BLOCK(REDUCE_nowait);
-    int retval;
+    int retval = 0;
     PACKED_REDUCTION_METHOD_T packed_reduction_method;
 #if OMP_40_ENABLED
     kmp_team_t *team;
@@ -2629,7 +2629,7 @@ __kmpc_reduce(
     kmp_critical_name *lck )
 {
     KMP_COUNT_BLOCK(REDUCE_wait);
-    int retval;
+    int retval = 0;
     PACKED_REDUCTION_METHOD_T packed_reduction_method;
 
     KA_TRACE( 10, ( "__kmpc_reduce() enter: called T#%d\n", global_tid ) );

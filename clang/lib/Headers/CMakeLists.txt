@@ -4,6 +4,7 @@ set(modified_files
   adxintrin.h
   avx2intrin.h
   avx512bwintrin.h
+  avx512cdintrin.h
   avx512erintrin.h
   avx512fintrin.h
   avx512vlbwintrin.h
@@ -50,8 +51,10 @@ set(orig_files
   cuda_builtin_vars.h
   float.h
   fma4intrin.h
+  fxsrintrin.h
   htmintrin.h
   htmxlintrin.h
+  inttypes.h
   iso646.h
   limits.h
   module.modulemap
@@ -71,6 +74,7 @@ set(orig_files
   vadefs.h
   varargs.h
   xopintrin.h
+  xtestintrin.h
   )
 
 set(intel_files ${modified_files} ${special_files})

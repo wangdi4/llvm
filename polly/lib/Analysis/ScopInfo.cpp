@@ -105,6 +105,7 @@ private:
   __isl_give isl_pw_aff *visitUMaxExpr(const SCEVUMaxExpr *Expr);
   __isl_give isl_pw_aff *visitUnknown(const SCEVUnknown *Expr);
   __isl_give isl_pw_aff *visitSDivInstruction(Instruction *SDiv);
+  __isl_give isl_pw_aff *visitSRemInstruction(Instruction *SDiv);
 
   friend struct SCEVVisitor<SCEVAffinator, isl_pw_aff *>;
 };
@@ -283,11 +284,29 @@ __isl_give isl_pw_aff *SCEVAffinator::visitSDivInstruction(Instruction *SDiv) {
   return isl_pw_aff_tdiv_q(DividendPWA, DivisorPWA);
 }
 
+__isl_give isl_pw_aff *SCEVAffinator::visitSRemInstruction(Instruction *SRem) {
+  assert(SRem->getOpcode() == Instruction::SRem && "Assumed SRem instruction!");
+  auto *SE = S->getSE();
+
+  auto *Divisor = dyn_cast<ConstantInt>(SRem->getOperand(1));
+  assert(Divisor && "SRem is no parameter but has a non-constant RHS.");
+  auto *DivisorVal = isl_valFromAPInt(Ctx, Divisor->getValue(),
+                                      /* isSigned */ true);
+
+  auto *Dividend = SRem->getOperand(0);
+  auto *DividendSCEV = SE->getSCEV(Dividend);
+  auto *DividendPWA = visit(DividendSCEV);
+
+  return isl_pw_aff_mod_val(DividendPWA, isl_val_abs(DivisorVal));
+}
+
 __isl_give isl_pw_aff *SCEVAffinator::visitUnknown(const SCEVUnknown *Expr) {
   if (Instruction *I = dyn_cast<Instruction>(Expr->getValue())) {
     switch (I->getOpcode()) {
     case Instruction::SDiv:
       return visitSDivInstruction(I);
+    case Instruction::SRem:
+      return visitSRemInstruction(I);
     default:
       break; // Fall through.
     }
@@ -540,6 +559,12 @@ void MemoryAccess::assumeNoOutOfBound(const IRAccess &Access) {
   Outside = isl_set_apply(Outside, isl_map_reverse(getAccessRelation()));
   Outside = isl_set_intersect(Outside, Statement->getDomain());
   Outside = isl_set_params(Outside);
+
+  // Remove divs to avoid the construction of overly complicated assumptions.
+  // Doing so increases the set of parameter combinations that are assumed to
+  // not appear. This is always save, but may make the resulting run-time check
+  // bail out more often than strictly necessary.
+  Outside = isl_set_remove_divs(Outside);
   Outside = isl_set_complement(Outside);
   Statement->getParent()->addAssumption(Outside);
   isl_space_free(Space);
@@ -1388,7 +1413,7 @@ void Scop::simplifyAssumedContext() {
 }
 
 /// @brief Add the minimal/maximal access in @p Set to @p User.
-static int buildMinMaxAccess(__isl_take isl_set *Set, void *User) {
+static isl_stat buildMinMaxAccess(__isl_take isl_set *Set, void *User) {
   Scop::MinMaxVectorTy *MinMaxAccesses = (Scop::MinMaxVectorTy *)User;
   isl_pw_multi_aff *MinPMA, *MaxPMA;
   isl_pw_aff *LastDimAff;
@@ -1417,7 +1442,7 @@ static int buildMinMaxAccess(__isl_take isl_set *Set, void *User) {
 
     if (InvolvedParams > RunTimeChecksMaxParameters) {
       isl_set_free(Set);
-      return -1;
+      return isl_stat_error;
     }
   }
 
@@ -1446,7 +1471,7 @@ static int buildMinMaxAccess(__isl_take isl_set *Set, void *User) {
   MinMaxAccesses->push_back(std::make_pair(MinPMA, MaxPMA));
 
   isl_set_free(Set);
-  return 0;
+  return isl_stat_ok;
 }
 
 static __isl_give isl_set *getAccessDomain(MemoryAccess *MA) {
@@ -2063,6 +2088,8 @@ bool ScopInfo::runOnRegion(Region *R, RGPassManager &RGM) {
   }
 
   scop = new Scop(*tempScop, LI, SE, SD, ctx);
+
+  DEBUG(scop->print(dbgs()));
 
   if (!PollyUseRuntimeAliasChecks) {
     // Statistics.

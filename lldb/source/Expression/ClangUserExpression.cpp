@@ -72,9 +72,9 @@ ClangUserExpression::ClangUserExpression (const char *expr,
     m_result_synthesizer(),
     m_jit_module_wp(),
     m_enforce_valid_object (true),
-    m_cplusplus (false),
-    m_objectivec (false),
-    m_static_method(false),
+    m_in_cplusplus_method (false),
+    m_in_objectivec_method (false),
+    m_in_static_method(false),
     m_needs_object_ptr (false),
     m_const_object (false),
     m_target (NULL),
@@ -196,7 +196,7 @@ ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err)
                 }
             }
 
-            m_cplusplus = true;
+            m_in_cplusplus_method = true;
             m_needs_object_ptr = true;
         }
     }
@@ -227,17 +227,17 @@ ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err)
                 }
             }
 
-            m_objectivec = true;
+            m_in_objectivec_method = true;
             m_needs_object_ptr = true;
 
             if (!method_decl->isInstanceMethod())
-                m_static_method = true;
+                m_in_static_method = true;
         }
     }
     else if (clang::FunctionDecl *function_decl = llvm::dyn_cast<clang::FunctionDecl>(decl_context))
     {
         // We might also have a function that said in the debug information that it captured an
-        // object pointer.  The best way to deal with getting to the ivars at present it by pretending
+        // object pointer.  The best way to deal with getting to the ivars at present is by pretending
         // that this is a method of a class in whatever runtime the debug info says the object pointer
         // belongs to.  Do that here.
 
@@ -270,7 +270,7 @@ ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err)
                     }
                 }
 
-                m_cplusplus = true;
+                m_in_cplusplus_method = true;
                 m_needs_object_ptr = true;
             }
             else if (language == lldb::eLanguageTypeObjC)
@@ -319,7 +319,7 @@ ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err)
                     }
                     else if (self_clang_type.IsObjCObjectPointerType())
                     {
-                        m_objectivec = true;
+                        m_in_objectivec_method = true;
                         m_needs_object_ptr = true;
                     }
                     else
@@ -330,7 +330,7 @@ ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Error &err)
                 }
                 else
                 {
-                    m_objectivec = true;
+                    m_in_objectivec_method = true;
                     m_needs_object_ptr = true;
                 }
             }
@@ -491,14 +491,14 @@ ClangUserExpression::Parse (Stream &error_stream,
     
     lldb::LanguageType lang_type;
 
-    if (m_cplusplus)
+    if (m_in_cplusplus_method)
         lang_type = lldb::eLanguageTypeC_plus_plus;
-    else if(m_objectivec)
+    else if (m_in_objectivec_method)
         lang_type = lldb::eLanguageTypeObjC;
     else
         lang_type = lldb::eLanguageTypeC;
 
-    if (!source_code->GetText(m_transformed_text, lang_type, m_const_object, m_static_method, exe_ctx))
+    if (!source_code->GetText(m_transformed_text, lang_type, m_const_object, m_in_static_method, exe_ctx))
     {
         error_stream.PutCString ("error: couldn't construct expression body");
         return false;
@@ -701,11 +701,11 @@ ClangUserExpression::PrepareToExecuteJITExpression (Stream &error_stream,
         {
             ConstString object_name;
 
-            if (m_cplusplus)
+            if (m_in_cplusplus_method)
             {
                 object_name.SetCString("this");
             }
-            else if (m_objectivec)
+            else if (m_in_objectivec_method)
             {
                 object_name.SetCString("self");
             }
@@ -725,7 +725,7 @@ ClangUserExpression::PrepareToExecuteJITExpression (Stream &error_stream,
                 object_ptr = 0;
             }
 
-            if (m_objectivec)
+            if (m_in_objectivec_method)
             {
                 ConstString cmd_name("_cmd");
 
@@ -876,7 +876,7 @@ ClangUserExpression::Execute (Stream &error_stream,
             {
                 args.push_back(object_ptr);
 
-                if (m_objectivec)
+                if (m_in_objectivec_method)
                     args.push_back(cmd_ptr);
             }
 
@@ -913,7 +913,7 @@ ClangUserExpression::Execute (Stream &error_stream,
 
             if (m_needs_object_ptr) {
                 args.push_back(object_ptr);
-                if (m_objectivec)
+                if (m_in_objectivec_method)
                     args.push_back(cmd_ptr);
             }
 
@@ -1043,7 +1043,22 @@ ClangUserExpression::Evaluate (ExecutionContext &exe_ctx,
     if (process == NULL || !process->CanJIT())
         execution_policy = eExecutionPolicyNever;
 
-    lldb::ClangUserExpressionSP user_expression_sp (new ClangUserExpression (expr_cstr, expr_prefix, language, desired_type));
+    const char *full_prefix = NULL;
+    const char *option_prefix = options.GetPrefix();
+    std::string full_prefix_storage;
+    if (expr_prefix && option_prefix)
+    {
+        full_prefix_storage.assign(expr_prefix);
+        full_prefix_storage.append(option_prefix);
+        if (!full_prefix_storage.empty())
+            full_prefix = full_prefix_storage.c_str();
+    }
+    else if (expr_prefix)
+        full_prefix = expr_prefix;
+    else
+        full_prefix = option_prefix;
+
+    lldb::ClangUserExpressionSP user_expression_sp (new ClangUserExpression (expr_cstr, full_prefix, language, desired_type));
 
     StreamString error_stream;
 
