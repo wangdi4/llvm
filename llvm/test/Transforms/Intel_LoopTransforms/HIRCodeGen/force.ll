@@ -11,7 +11,21 @@
 ; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
 ; CHECK: [[L1Label]]:
+; check iv load is loaded
 ; CHECK-NEXT: load{{.*}} %i1
+
+; load B[] and store it into a memslot for symbase of lval temp
+; CHECK: [[GEP:%.*]] = getelementptr {{.*}} @B
+; CHECK-NEXT: [[GEPLOAD:%.*]] = load{{.*}} [[GEP]]
+; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
+
+; get addr of A[], load memslot from earlier and stored loaded 
+; value at that addr
+; CHECK-DAG: [[GEP:%.*]] = getelementptr {{.*}} @A
+; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, i32* [[TEMPSLOT]]
+; CHECK-NEXT: store i32 [[TEMPLOAD]], i32* [[GEP]]
+
+; a value for iv is stored
 ; CHECK: store{{.*}} %i1
 ; CHECK: br{{.*}} label %[[L1Label]], label %after[[L1Label]]
 

@@ -438,7 +438,7 @@ public:
   int64_t getBlobCoeff(const_blob_iterator CBlobI) const;
 
   /// \brief Returns the blob index of the only blob.
-  int64_t getSingleBlobIndex() const {
+  unsigned getSingleBlobIndex() const {
     assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
     return BlobCoeffs[0].Index;
   }
