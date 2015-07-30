@@ -210,6 +210,40 @@ static llvm::Value *EmitOverflowIntrinsic(CodeGenFunction &CGF,
   return CGF.Builder.CreateExtractValue(Tmp, 0);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// \brief Evaluate argument of the call as constant int, checking its value's
+/// constraints.
+///
+/// \arg CGF The current codegen function.
+/// \arg ArgIndex The index of the argument of interest.
+/// \arg Low The lower constraint of the value.
+/// \arg High The higher constraint of the value.
+/// \arg DefaultForIncorrect Value returned if the argument's value doesn't
+/// satisfy constraints.
+/// \arg DefaultForMissing Value returned if the argument is not given.
+///
+/// \returns The value of the argument, if it is given and lies between \p Low
+/// and \p High. Otherwise returns the corresponding default value.
+static llvm::Value* GetCallArgAsConstInt(CodeGenFunction &CGF,
+                                         const CallExpr *E, unsigned ArgIndex,
+                                         int Low, int High,
+                                         llvm::ConstantInt *DefaultForIncorrect,
+                                         llvm::ConstantInt *DefaultForMissing) {
+  llvm::Value *Result = nullptr;
+  if (E->getNumArgs() > ArgIndex) {
+    llvm::APSInt ArgValue =
+      E->getArg(ArgIndex)->EvaluateKnownConstInt(CGF.getContext());
+    // Check value constraints and assign default value if it fails.
+    if (ArgValue < Low || ArgValue > High)
+      Result = DefaultForIncorrect;
+    else
+      Result = CGF.EmitScalarExpr(E->getArg(ArgIndex));
+  } else
+    Result = DefaultForMissing;
+  return Result;
+}
+#endif // INTEL_CUSTOMIZATION
+
 RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                         unsigned BuiltinID, const CallExpr *E,
                                         ReturnValueSlot ReturnValue) {
@@ -488,10 +522,26 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
     // FIXME: Technically these constants should of type 'int', yes?
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#371990 - let __prefetch_builtin arguments be out of their range (0..1
+    // for the first argument, 0..3 for the second one), assigning 0 if argument
+    // is out of its range.
+    RW = GetCallArgAsConstInt(/*CGF=*/*this, E, /*ArgIndex=*/1, /*Low=*/0,
+                              /*High=*/1, /*DefaultForIncorrect=*/
+                              llvm::ConstantInt::get(Int32Ty, 0),
+                              /*DefaultForMissing=*/
+                              llvm::ConstantInt::get(Int32Ty, 0));
+    Locality = GetCallArgAsConstInt(/*CGF=*/*this, E, /*ArgIndex=*/2, /*Low=*/0,
+                                    /*High=*/3, /*DefaultForIncorrect=*/
+                                    llvm::ConstantInt::get(Int32Ty, 0),
+                                    /*DefaultForMissing=*/
+                                    llvm::ConstantInt::get(Int32Ty, 3));
+#else
     RW = (E->getNumArgs() > 1) ? EmitScalarExpr(E->getArg(1)) :
       llvm::ConstantInt::get(Int32Ty, 0);
     Locality = (E->getNumArgs() > 2) ? EmitScalarExpr(E->getArg(2)) :
       llvm::ConstantInt::get(Int32Ty, 3);
+#endif // INTEL_CUSTOMIZATION
     Value *Data = llvm::ConstantInt::get(Int32Ty, 1);
     Value *F = CGM.getIntrinsic(Intrinsic::prefetch);
     return RValue::get(Builder.CreateCall(F, {Address, RW, Locality, Data}));

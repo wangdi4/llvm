@@ -7221,6 +7221,12 @@ def err_invalid_neon_type_code : Error<
   "incompatible constant for this __builtin_neon function">; 
 def err_argument_invalid_range : Error<
   "argument should be a value from %0 to %1">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#371990 - let argument be out of Low..High range, assuming Low.
+def warn_arg_invalid_range_low_assumed : Warning<
+  "expected a value between %0 and %1, defaults to %0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def warn_neon_vector_initializer_non_portable : Warning<
   "vector initializers are not compatible with NEON intrinsics in big endian "
   "mode">, InGroup<DiagGroup<"nonportable-vector-initialization">>;
