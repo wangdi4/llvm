@@ -39,6 +39,7 @@ namespace loopopt {
 /// - Define pass under anonymous(preferred) or loopopt namespace.
 /// - Declare HIRParser analysis as a required pass to access HIR and blob
 ///   utilities  like findBlob() etc.
+/// - Declare DDAnalysis pass as required to have an access to DD information.
 /// - Always call setPreservesAll() in getAnalysisUsage().
 class HIRTransformPass : public FunctionPass {
 public:

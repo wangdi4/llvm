@@ -90,20 +90,18 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
       /// TODO: HLGoto targets should be assigned in a later pass.
       /// TODO: Redundant gotos should be cleaned up during lexlink cleanup.
-      HLGoto *ThenGoto =
-          HLNodeUtils::createHLGoto(BI->getSuccessor(0), nullptr);
+      HLGoto *ThenGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
       HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
-      HLGoto *ElseGoto =
-          HLNodeUtils::createHLGoto(BI->getSuccessor(1), nullptr);
+      HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1));
       HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
       HLNodeUtils::insertAfter(InsertionPos, If);
       InsertionPos = If;
     } else {
-      auto Goto = HLNodeUtils::createHLGoto(BI->getSuccessor(0), nullptr);
+      auto Goto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
 
@@ -122,14 +120,14 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     /// Add gotos to all the cases. They are added for convenience in forming
     /// lexical links and will be eliminated later.
-    auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest(), nullptr);
+    auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest());
     HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor(), nullptr);
+      auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor());
       HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
     }

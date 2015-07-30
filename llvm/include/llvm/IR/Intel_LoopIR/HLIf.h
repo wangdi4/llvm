@@ -68,9 +68,8 @@ protected:
   HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to
-  /// access and destroy the nodes if we don't clear them out here.
-  ~HLIf() { Children.clearAndLeakNodesUnsafely(); }
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLIf() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap);

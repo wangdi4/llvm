@@ -89,7 +89,7 @@ protected:
   RegDDRef(int SB);
 
   /// Calling delete on a null pointer has no effect.
-  ~RegDDRef() { delete GepInfo; }
+  virtual ~RegDDRef() override { delete GepInfo; }
 
   /// \brief Copy constructor used by cloning.
   RegDDRef(const RegDDRef &RegDDRefObj);

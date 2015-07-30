@@ -34,8 +34,16 @@ HLLabel *HLNodeUtils::createHLLabel(BasicBlock *SrcBB) {
   return new HLLabel(SrcBB);
 }
 
-HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB, HLLabel *TargetL) {
-  return new HLGoto(TargetBB, TargetL);
+HLLabel *HLNodeUtils::createHLLabel(const Twine &Name) {
+  return new HLLabel(Name);
+}
+
+HLGoto *HLNodeUtils::createHLGoto(BasicBlock *TargetBB) {
+  return new HLGoto(TargetBB);
+}
+
+HLGoto *HLNodeUtils::createHLGoto(HLLabel *TargetL) {
+  return new HLGoto(TargetL);
 }
 
 HLInst *HLNodeUtils::createHLInst(Instruction *In) { return new HLInst(In); }

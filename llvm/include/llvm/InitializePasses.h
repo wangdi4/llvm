@@ -326,6 +326,7 @@ void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
+void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 }

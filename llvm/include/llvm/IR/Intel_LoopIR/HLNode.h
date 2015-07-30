@@ -80,6 +80,7 @@ private:
 protected:
   HLNode(unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
+  virtual ~HLNode() {}
 
   friend class HLNodeUtils;
 
@@ -114,7 +115,6 @@ protected:
   }
 
 public:
-  virtual ~HLNode() {}
 
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;

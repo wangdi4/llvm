@@ -37,7 +37,7 @@ private:
 
 protected:
   explicit BlobDDRef(int SB, const CanonExpr *CE);
-  ~BlobDDRef() {}
+  virtual ~BlobDDRef() override {}
 
   /// \brief Copy constructor used by cloning.
   BlobDDRef(const BlobDDRef &BlobDDRefObj);

@@ -44,7 +44,7 @@ protected:
 
   /// ConditionRef represents the switch conditon.
   HLSwitch(RegDDRef *ConditionRef);
-  ~HLSwitch() {}
+  virtual ~HLSwitch() override {}
 
   /// \brief Copy constructor used by cloning.
   HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,

@@ -93,7 +93,7 @@ protected:
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
-  virtual ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
+  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   /// CloneChildren parameter denotes if we want to clone

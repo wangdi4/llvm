@@ -33,8 +33,9 @@ private:
   HLLabel *TargetLabel;
 
 protected:
-  HLGoto(BasicBlock *TargetBB, HLLabel *TargetL);
-  ~HLGoto() {}
+  HLGoto(BasicBlock *TargetBB);
+  HLGoto(HLLabel *TargetL);
+  virtual ~HLGoto() override {}
 
   /// \brief Copy constructor used by cloning.
   HLGoto(const HLGoto &HLGotoObj);

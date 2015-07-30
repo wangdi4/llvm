@@ -145,7 +145,7 @@ private:
 
 protected:
   CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
-  virtual ~CanonExpr(){};
+  virtual ~CanonExpr() {};
 
   friend class CanonExprUtils;
   friend class HIRParser;

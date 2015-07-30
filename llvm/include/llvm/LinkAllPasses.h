@@ -201,8 +201,9 @@ namespace {
       (void) llvm::createDDAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
-      (void)llvm::createHIRGeneralUnrollPass();
+      (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
   #endif // INTEL_CUSTOMIZATION
     }

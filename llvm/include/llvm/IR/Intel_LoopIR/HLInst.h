@@ -38,7 +38,7 @@ private:
 
 protected:
   explicit HLInst(Instruction *In);
-  virtual ~HLInst() {}
+  virtual ~HLInst() override {}
 
   /// \brief Copy constructor used by cloning.
   HLInst(const HLInst &HLInstObj);

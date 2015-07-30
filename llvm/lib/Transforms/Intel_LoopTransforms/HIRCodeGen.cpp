@@ -725,8 +725,7 @@ BasicBlock *HIRCodeGen::CGVisitor::getBBlockForLabel(HLLabel *L) {
   if (InternalLabels.count(L))
     return InternalLabels[L];
 
-  BasicBlock *LabelBB =
-      BasicBlock::Create(F->getContext(), "hir.label." + L->getNumber(), F);
+  BasicBlock *LabelBB = BasicBlock::Create(F->getContext(), L->getName(), F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }

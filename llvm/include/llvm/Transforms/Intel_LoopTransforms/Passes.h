@@ -37,6 +37,10 @@ FunctionPass *createHIRCompleteUnrollPass(int Threshold = -1);
 	
 /// createHIRInterchangePass - This creates a pass that performs Loop Interchange
 FunctionPass *createHIRLoopInterchangePass();
+/// createHIRDummyTransformationPass - This creates a dummy pass that is used
+/// for debugging purposes.
+FunctionPass *createHIRDummyTransformationPass();
+
 /// createHIRGeneralUnrollPass - This creates a pass that performs general
 /// unrolling for larger trip count HIR loops.
 FunctionPass *createHIRGeneralUnrollPass(int Threshold = -1, int UFactor = -1);

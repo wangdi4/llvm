@@ -201,8 +201,14 @@ public:
   /// \brief Returns a new HLLabel.
   static HLLabel *createHLLabel(BasicBlock *SrcBB);
 
-  /// \brief Returns a new HLGoto.
-  static HLGoto *createHLGoto(BasicBlock *TargetBB, HLLabel *TargetL = nullptr);
+  /// \brief Returns a new HLLabel with custom name.
+  static HLLabel *createHLLabel(const Twine &Name = "L");
+
+  /// \brief Returns a new external HLGoto that branches outside of HLRegion.
+  static HLGoto *createHLGoto(BasicBlock *TargetBB);
+
+  /// \brief Returns a new HLGoto that branches to HLLabel.
+  static HLGoto *createHLGoto(HLLabel *TargetL);
 
   /// \brief Returns a new HLInst.
   static HLInst *createHLInst(Instruction *In);
