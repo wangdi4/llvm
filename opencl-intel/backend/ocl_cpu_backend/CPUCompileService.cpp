@@ -25,6 +25,12 @@ File Name:  CPUCompileService.cpp
 
 #include "llvm/IR/Module.h"
 
+#if defined _M_X64 || defined __x86_64__
+#define SPIR_TARGET_TRIPLE "spir64-unknown-unknown"
+#else
+#define SPIR_TARGET_TRIPLE "spir-unknown-unknown"
+#endif
+
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
 CPUCompileService::CPUCompileService(const ICompilerConfig& config)
@@ -58,38 +64,53 @@ cl_dev_err_code CPUCompileService::DumpJITCodeContainer( const ICLDevBackendCode
 cl_dev_err_code CPUCompileService::CheckProgramBinary(const void* pBinary,
     size_t uiBinarySize) const
 {
-    CPUId cpuId = m_programBuilder.GetCompiler()->GetCpuId();
-    OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
-    // Need to check only for cached Binary Object
-    if (reader.IsCachedObject())
+    // check if it is LLVM BC (such as SPIR 1.2)
+    if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1))
     {
-        // get maximum supported instruction from ELF header
-        CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
+        std::string strTargetTriple = const_cast<Compiler*>(m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
 
-        // get bitOS from ELF header
-        CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
-
-        bool retVal = true;
-
-        // check bitOS
-        if (cpuId.Is64BitOS())
-            retVal = (headerBit == CLElfLib::EM_X86_64) ? true : false;
-        else
-            retVal = (headerBit == CLElfLib::EM_860) ? true : false;
-
-        // check maximum supported instruction
-        if (retVal)
-        {
-            if (cpuId.HasAVX2())
-                retVal = (headerFlag == CLElfLib::EH_FLAG_AVX2) ? true : false;
-            else if (cpuId.HasAVX1())
-                retVal = (headerFlag == CLElfLib::EH_FLAG_AVX1) ? true : false;
-            else
-                retVal = (headerFlag == CLElfLib::EH_FLAG_SSE4) ? true : false;
-        }
-
-        if (!retVal)
+        if (strTargetTriple.substr(0, 4) == "spir" && strTargetTriple != SPIR_TARGET_TRIPLE)
             return CL_DEV_INVALID_BINARY;
+
+        return CL_DEV_SUCCESS;
+    }
+    // check if it is a binary object
+    else if (_CL_OBJECT_BITCODE_MASK_ == ((const int*)pBinary)[0])
+    {
+        OpenCL::ELFUtils::CacheBinaryReader reader(pBinary, uiBinarySize);
+        // Need to check only for cached Binary Object
+        if (reader.IsCachedObject())
+        {
+            CPUId cpuId = m_programBuilder.GetCompiler()->GetCpuId();
+
+            // get maximum supported instruction from ELF header
+            CLElfLib::E_EH_FLAGS headerFlag = static_cast<CLElfLib::E_EH_FLAGS>(reader.GetElfHeader()->Flags);
+
+            // get bitOS from ELF header
+            CLElfLib::E_EH_MACHINE headerBit = static_cast<CLElfLib::E_EH_MACHINE>(reader.GetElfHeader()->Machine);
+
+            bool retVal = true;
+
+            // check bitOS
+            if (cpuId.Is64BitOS())
+                retVal = (headerBit == CLElfLib::EM_X86_64) ? true : false;
+            else
+                retVal = (headerBit == CLElfLib::EM_860) ? true : false;
+
+            // check maximum supported instruction
+            if (retVal)
+            {
+                if (cpuId.HasAVX2())
+                    retVal = (headerFlag == CLElfLib::EH_FLAG_AVX2) ? true : false;
+                else if (cpuId.HasAVX1())
+                    retVal = (headerFlag == CLElfLib::EH_FLAG_AVX1) ? true : false;
+                else
+                    retVal = (headerFlag == CLElfLib::EH_FLAG_SSE4) ? true : false;
+            }
+
+            if (!retVal)
+                return CL_DEV_INVALID_BINARY;
+        }
     }
     return CL_DEV_SUCCESS;
 }
