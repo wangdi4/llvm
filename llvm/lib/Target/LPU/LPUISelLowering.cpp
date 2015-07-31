@@ -142,12 +142,14 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
 
   // SETOEQ and SETUNE require checking two conditions.
+  /*
   setCondCodeAction(ISD::SETOEQ, MVT::f32, Expand);
   setCondCodeAction(ISD::SETOEQ, MVT::f64, Expand);
   setCondCodeAction(ISD::SETOEQ, MVT::f80, Expand);
   setCondCodeAction(ISD::SETUNE, MVT::f32, Expand);
   setCondCodeAction(ISD::SETUNE, MVT::f64, Expand);
   setCondCodeAction(ISD::SETUNE, MVT::f80, Expand);
+  */
 
   setOperationAction(ISD::UINT_TO_FP, MVT::i1, Promote);
   setOperationAction(ISD::UINT_TO_FP, MVT::i8, Promote);
