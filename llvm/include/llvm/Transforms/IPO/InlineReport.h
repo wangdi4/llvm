@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_INLINEREPORT_H
 #define LLVM_TRANSFORMS_IPO_INLINEREPORT_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/CallGraphReport.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
@@ -186,7 +187,8 @@ private:
   InlineReportCallSiteVector CallSites;
 };
 
-typedef std::map<Function*, InlineReportFunction*> InlineReportFunctionMap;
+typedef MapVector<Function*, InlineReportFunction*> 
+  InlineReportFunctionMap;
 typedef std::map<Instruction*, InlineReportCallSite*>
   InlineReportInstructionCallSiteMap;
 
