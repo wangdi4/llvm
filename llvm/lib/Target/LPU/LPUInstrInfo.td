@@ -37,6 +37,8 @@ class Addr<int numArgs, string funcName, dag opInfo> :
 
 def ADDR_R : Addr<1, "SelectAddrReg", (ops i64)>;
 
+def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
+def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 
 //===----------------------------------------------------------------------===//
 // LPU Instruction Predicate Definitions
@@ -245,6 +247,20 @@ defm MOV64f: MovOp<"mov64", F64, f64, f64imm>;
 // todo: ABSF64
 // todo: SQRTF32
 // todo: SQRTF64
+// todo: EXP2F32
+// todo: EXP2F64
+// todo: LOG2F32
+// todo: LOG2F64
+// todo: EXPF32
+// todo: EXPF64
+// todo: LOGF32
+// todo: LOGF64
+// todo: SINF32
+// todo: SINF64
+// todo: COSF32
+// todo: COSF64
+// todo: SINCOSF32
+// todo: SINCOSF64
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
@@ -705,9 +721,24 @@ def : Pat<(i8 (trunc i32:$op1)),
 def : Pat<(i8 (trunc i16:$op1)),
     (COPY_TO_REGCLASS $op1, I8)>;
 
-// Branches MAY exist eventually on a single unit, but for now, their only
-// purpose is pseudo-ops during translation from control flow representation
-// to pure dataflow representation.
+
+// bitconvert (shows up in exp)
+def : Pat<(i64 (bitconvert f64:$op1)),
+    (COPY_TO_REGCLASS $op1, I64)>;
+def : Pat<(f64 (bitconvert i64:$op1)),
+    (COPY_TO_REGCLASS $op1, F64)>;
+
+def : Pat<(i32 (bitconvert f32:$op1)),
+    (COPY_TO_REGCLASS $op1, I32)>;
+def : Pat<(f32 (bitconvert i32:$op1)),
+    (COPY_TO_REGCLASS $op1, F32)>;
+
+def : Pat<(i16 (bitconvert f16:$op1)),
+    (COPY_TO_REGCLASS $op1, I16)>;
+def : Pat<(f16 (bitconvert i16:$op1)),
+    (COPY_TO_REGCLASS $op1, F16)>;
+
+
 let isBranch=1, isTerminator=1 in {
   // Branch true
   def BT : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
