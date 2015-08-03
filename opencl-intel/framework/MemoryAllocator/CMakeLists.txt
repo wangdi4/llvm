@@ -10,11 +10,11 @@ set( TARGET_NAME MemoryAllocator )
 # [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
 # this warning occur when processing externals/itt/include/ittnotify.h
 # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that not use in every build target.
+# function that is not used in every build target.
 # The warning conversion-null occur when ccomparing SharedPtr with NULL.
 if (NOT WIN32)
        add_definitions( "-Wno-unused-function -Wno-conversion-null" )
-endif(NOT Win32)
+endif(NOT WIN32)
 
 FIND_SOURCES( ${IGNORE_FILES} )
 CALCULATE_TARGET_SOURCES()

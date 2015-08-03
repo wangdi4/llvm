@@ -41,7 +41,7 @@ add_subdirectory( device_commands )
 # [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
 # this warning occur when processing externals/itt/include/ittnotify.h
 # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that not use in every build target.
+# function that is not used in every build target.
 if (NOT WIN32)
      # disable warnings inherited from external componennts
      add_definitions( "-Wno-unused-function" )
