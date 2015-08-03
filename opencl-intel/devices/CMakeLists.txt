@@ -46,7 +46,7 @@ if (NOT WIN32)
      # disable warnings inherited from external componennts
      add_definitions( "-Wno-unused-function" )
      add_definitions( "-Wno-attributes" )
-endif(NOT Win32)
+endif(NOT WIN32)
 
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device )

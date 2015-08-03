@@ -18,7 +18,7 @@ if (NOT WIN32)
       # disable warnings inherited from external componennts
       add_definitions( "-Wno-unused-function" )
       add_definitions( "-Wno-attributes" )
-endif(NOT Win32)
+endif(NOT WIN32)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${DEVICES_FOLDER_NAME} )
 

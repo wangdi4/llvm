@@ -5,6 +5,8 @@
 #include <cctype>
 #include "cl_device_api.h"
 
+#include "llvm/Support/FileSystem.h"
+
 static std::string getZeroLiteral(const std::string& type){
   if ("char" == type || "short" == type || "int" == type ||
       "uchar" == type || "ushort" == type || "uint" == type ||
@@ -29,13 +31,15 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins -fblocks -D__OPENCL_C_VERSION__=200";
+  std::string options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
+  options +=  " -triple ";
+  options += (sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown " : "spir-unknown-unknown ";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
   const char* tmpfile = "tmp.cl";
   assert(fileName != tmpfile && "tmp.cl is reserved!");
   //writing the cl code to the input file
-  std::string errInfo;
-  llvm::raw_fd_ostream input(tmpfile, errInfo);
+  std::error_code ec;
+  llvm::raw_fd_ostream input(tmpfile, ec, llvm::sys::fs::F_RW);
   input << code;
   input.close();
   //building the command line

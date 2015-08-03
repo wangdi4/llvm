@@ -4,7 +4,9 @@
 #include <sstream>
 #include <cctype>
 #include "cl_device_api.h"
-#include "llvm/Support/PathV1.h"
+
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 
 
 static std::string getZeroLiteral(const std::string& type){
@@ -32,16 +34,17 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  const char* options = "-cc1 -emit-llvm -include opencl_.h -opencl-builtins";
+  std::string options = "-cc1 -emit-llvm -include opencl_.h -opencl-builtins -cl-std=CL2.0";
+  options +=  " -triple ";
+  options += (sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown " : "spir-unknown-unknown ";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
   std::string err;
-  llvm::sys::Path tmpfile("tmp");
-  tmpfile.makeUnique(false, &err);
-  tmpfile.appendSuffix("cl");
-  assert(fileName != tmpfile.str() && "tmp.cl is reserved!");
+  llvm::SmallString<128> tmpfile;
+  llvm::sys::fs::createUniqueFile("tmp-%%%%%%%.cl", tmpfile);
+  assert(fileName != tmpfile.str() && "fileName is reserved!");
   //writing the cl code to the input file
-  std::string errInfo;
-  llvm::raw_fd_ostream input(tmpfile.c_str(), errInfo);
+  std::error_code ec;
+  llvm::raw_fd_ostream input(tmpfile.c_str(), ec, llvm::sys::fs::F_RW);
   input << code;
   input.close();
   //building the command line
