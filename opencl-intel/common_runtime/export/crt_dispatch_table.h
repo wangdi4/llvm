@@ -82,6 +82,11 @@ namespace CRT_ICD_DISPATCH
         size_t *                    image_row_pitch,
         size_t *                    image_slice_pitch);
 
+    typedef CL_API_ENTRY cl_int( CL_API_CALL *INTELpfn_clSetDebugVariableINTEL )(
+        cl_device_id                device,
+        const char*                 pKey,
+        cl_uint                     value );
+
     /* Performance Counter APIs */
     typedef CL_API_ENTRY cl_command_queue (CL_API_CALL *INTELpfn_clCreatePerfCountersCommandQueueINTEL)(
         cl_context                  context,
@@ -104,6 +109,12 @@ namespace CRT_ICD_DISPATCH
         size_t                      param_value_size,
         void *                      param_value,
         size_t *                    param_value_size_ret ) CL_API_SUFFIX__VERSION_1_2;
+
+    typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clSetAcceleratorInfoINTEL)(
+        cl_accelerator_intel        accelerator,
+        cl_accelerator_info_intel   param_name,
+        size_t                      param_value_size,
+        void *                      param_value) CL_API_SUFFIX__VERSION_1_2;
 
     typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clRetainAcceleratorINTEL)(
         cl_accelerator_intel        accelerator ) CL_API_SUFFIX__VERSION_1_2;
@@ -208,6 +219,11 @@ namespace CRT_ICD_DISPATCH
 
         // API to create pipe with host pointer
         INTELpfn_clCreatePipeINTEL                          clCreatePipeINTEL;
+
+        INTELpfn_clSetDebugVariableINTEL                    clSetDebugVariableINTEL;
+
+        // Video Analytics Accelerator
+        INTELpfn_clSetAcceleratorInfoINTEL                  clSetAcceleratorInfoINTEL;
     };
 
     struct SOCLEntryPointsTable

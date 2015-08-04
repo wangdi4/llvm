@@ -450,6 +450,11 @@ public:
         cl_mem_flags            flags,
         CrtContext*             ctx);
 
+    void StoreMappedRegion(const void* ptr, const size_t* region);
+    std::vector<size_t> GetMappedRegion( const void* ptr);
+
+    void StoreMappedOrigin(const void* ptr, const size_t* origin);
+    std::vector<size_t> GetMappedOrigin( const void* ptr);
 
     virtual ~CrtImage();
 
@@ -471,6 +476,8 @@ public:
     // For Image2D this will be =2
     // For Image3D this will be =3
     cl_uint                     m_dimCount;
+    std::map< const void*, std::vector<size_t> > m_mappedOrigins;
+    std::map< const void*, std::vector<size_t> > m_mappedRegions;
 };
 
 class CrtGLImage: public CrtImage

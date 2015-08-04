@@ -295,8 +295,9 @@ void FrameworkProxy::InitOCLEntryPoints()
     CRTDispatchTable.clGetDeviceIDsFromVAMediaAdapterINTEL = NULL;
     CRTDispatchTable.clEnqueueReleaseVAMediaSurfacesINTEL = NULL;
     CRTDispatchTable.clEnqueueAcquireVAMediaSurfacesINTEL = NULL;
-
     CRTDispatchTable.clCreatePipeINTEL = (INTELpfn_clCreatePipeINTEL)GET_ALIAS(clCreatePipeINTEL);
+    CRTDispatchTable.clSetDebugVariableINTEL = NULL;
+    CRTDispatchTable.clSetAcceleratorInfoINTEL = NULL;
 
     /// Extra CPU specific functions
 }

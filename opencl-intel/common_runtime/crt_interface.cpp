@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2014 Intel Corporation
+// Copyright (c) 2006-2015 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -223,6 +223,9 @@ cl_int CL_API_CALL clGetPlatformInfo(
                 break;
             case OPENCL_2_0:
                 crtVersion.assign(INTEL_OPENCL_2_0_PVER_STR, strlen( INTEL_OPENCL_2_0_PVER_STR ) );
+                break;
+            case OPENCL_2_1:
+                crtVersion.assign( INTEL_OPENCL_2_1_PVER_STR, strlen( INTEL_OPENCL_2_1_PVER_STR ) );
                 break;
             }
             RetSize = strnlen_s( crtVersion.c_str(), MAX_STRLEN );
@@ -2377,10 +2380,12 @@ void * CL_API_CALL clEnqueueMapImage(
         crtImage->m_mapCount++;
         crtImage->m_mappedPointers.push_back(ptr);
 
+        // Remember the used regionning and ptr
+        crtImage->StoreMappedRegion(ptr, region);
+        crtImage->StoreMappedOrigin(ptr, origin);
+
         if( crtImage->HasPrivateCopy() && ( crtImage->m_mapCount <= 1 ) && ( ( map_flags & CL_MAP_WRITE_INVALIDATE_REGION ) == 0 ) )
         {
-            const size_t origin[3] = {0};
-            const size_t region[3] = { crtImage->m_imageDesc.desc.image_width, crtImage->m_imageDesc.desc.image_height, crtImage->m_imageDesc.desc.image_depth };
             errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueReadImage(
                 queue->m_cmdQueueDEV,
                 devMemObj,
@@ -2389,7 +2394,7 @@ void * CL_API_CALL clEnqueueMapImage(
                 region,
                 crtImage->m_hostPtrRowPitch,
                 crtImage->m_hostPtrSlicePitch,
-                crtImage->m_pUsrPtr,
+                ptr,
                 numOutEvents,
                 outEvents,
                 &crtEvent->m_eventDEV);
@@ -2421,8 +2426,8 @@ void * CL_API_CALL clEnqueueMapImage(
     {
         // Interop Object
         queue->m_cmdQueueDEV->dispatch->clEnqueueMapImage(
-            command_queue,
-            image,
+            queue->m_cmdQueueDEV,
+            devMemObj,
             blocking_map,
             map_flags,
             origin,
@@ -2530,7 +2535,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     if( !synchHelper )
     {
         errCode = CL_OUT_OF_HOST_MEMORY;
-        return NULL;
+        goto FINISH;
     }
 
     errCode = synchHelper->PrepareToExecute(
@@ -2574,20 +2579,27 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
             if( crtMemObj->getObjectType() == CrtObject::CL_IMAGE )
             {
                 CrtImage* crtImage = (CrtImage*)crtMemObj;
+                std::vector<size_t> mappedRegion = crtImage->GetMappedRegion( mapped_ptr );
+                std::vector<size_t> mappedOrigin = crtImage->GetMappedOrigin( mapped_ptr );
+                
+                if( mappedRegion.empty() || mappedOrigin.empty() )
+                {
+                    errCode = CL_INVALID_VALUE;
+                    goto FINISH;
+                }
+                
+                crtImage->m_mappedOrigins.erase( mapped_ptr );
+                crtImage->m_mappedRegions.erase( mapped_ptr );
 
-                // currently we copy all buffer contents and not only the mapped region.
-                // copying the mapped region only will be an optimization for the future
-                const size_t origin[3] = {0};
-                const size_t region[3] = { crtImage->m_imageDesc.desc.image_width, crtImage->m_imageDesc.desc.image_height, crtImage->m_imageDesc.desc.image_depth };
                 errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueWriteImage(
                     queue->m_cmdQueueDEV,
                     crtMemObj->getDeviceMemObj(queue->m_device),
                     false,
-                    origin,
-                    region,
+                    &mappedOrigin[0],
+                    &mappedRegion[0],
                     crtImage->m_hostPtrRowPitch,
                     crtImage->m_hostPtrSlicePitch,
-                    crtImage->m_pUsrPtr,
+                    mapped_ptr,
                     numOutEvents,
                     outEvents,
                     &crtEvent->m_eventDEV);
@@ -8413,6 +8425,39 @@ SET_ALIAS( clEnqueueReleaseDX9ObjectsINTEL );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clSetDebugVariableINTEL(
+    cl_device_id                   device,
+    const char*                    pKey,
+    cl_uint                        value )
+{
+    cl_int errCode = CL_SUCCESS;
+    CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( device );
+
+    if( devInfo == NULL )
+    {
+        errCode = CL_INVALID_DEVICE;
+        goto FINISH;
+    }
+
+    if( devInfo->m_devType != CL_DEVICE_TYPE_GPU )
+    {
+        errCode = CL_INVALID_DEVICE_TYPE;
+        goto FINISH;
+    }
+    else
+    {
+        errCode = ( (SOCLEntryPointsTable*)devInfo->m_crtPlatform->m_platformIdDEV )->crtDispatch->clSetDebugVariableINTEL(
+            device,
+            pKey,
+            value );
+    }
+
+FINISH:
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 CL_API_ENTRY cl_command_queue CL_API_CALL clCreatePerfCountersCommandQueueINTEL(
     cl_context                   context,
     cl_device_id                 device,
@@ -8917,6 +8962,35 @@ FINISH:
 }
 SET_ALIAS( clGetAcceleratorInfoINTEL );
 
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clSetAcceleratorInfoINTEL(
+                           cl_accelerator_intel         accelerator,
+                           cl_accelerator_info_intel    param_name,
+                           size_t                       param_value_size,
+                           void *                       param_value)
+{
+    cl_int errCode = CL_SUCCESS;
+
+    if( accelerator == NULL )
+    {
+        errCode = CL_INVALID_ACCELERATOR_INTEL;
+        goto FINISH;
+    }
+
+    errCode = ( (SOCLEntryPointsTable*)accelerator )->crtDispatch->clSetAcceleratorInfoINTEL(
+                           accelerator,
+                           param_name,
+                           param_value_size,
+                           param_value);
+
+FINISH:
+    return errCode;
+}
+SET_ALIAS( clSetAcceleratorInfoINTEL );
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -9231,6 +9305,10 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreatePerfCountersCommandQueueINTEL ) );
     }
+    if( funcname && !strcmp( funcname, "clSetDebugVariableINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )GET_ALIAS( clSetDebugVariableINTEL ) );
+    }
     if( funcname && !strcmp( funcname, "GetCRTInfo" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( GetCRTInfo ) );
@@ -9245,6 +9323,10 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     if( funcname && !strcmp( funcname, "clGetAcceleratorInfoINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clGetAcceleratorInfoINTEL ) );
+    }
+	if( funcname && !strcmp( funcname, "clSetAcceleratorInfoINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )GET_ALIAS( clSetAcceleratorInfoINTEL ) );
     }
     if( funcname && !strcmp( funcname, "clRetainAcceleratorINTEL" ) )
     {
