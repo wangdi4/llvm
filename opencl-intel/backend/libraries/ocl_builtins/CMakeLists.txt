@@ -157,19 +157,11 @@ else()
 endif()
 
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
-if (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set (TRIPLE i686-pc-win32-elf)
-  else ()
-    set (TRIPLE x86_64-pc-win32-elf)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-else (WIN32)
-  if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    set    (TRIPLE i686-pc-Linux)
-  else ()
-     set (TRIPLE x86_64-pc-linux)
-  endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
-endif (WIN32)
+if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+  set (TRIPLE i686-pc-linux)
+else ()
+  set (TRIPLE x86_64-pc-linux)
+endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 
 #
 # external tools
@@ -203,18 +195,8 @@ endif(INCLUDE_MIC_DEVICE)
 set (CLANG_COMPILER_PARAMS
   -cc1 -triple ${TRIPLE} -emit-llvm-bc -fwrapv -O3
   -x cl -I ${IMPORT_DIR} -I ${CLANG_HEADERS} -I ${LLVM_INCLUDE_DIRS}/cclang/cl_headers/ -I ${CL_BUILTIN_SOURCE_DIR} ${CLANG_LLVM_INCLUDE_DIRS} -include opencl_.h
-  -fblocks -cl-std=CL2.0
+  -fblocks -ffake-address-space-map -faddress-space-map-mangling=yes -cl-std=CL2.0 -D __OPENCL_C_VERSION__=200
   )
-
-if (PLATFORM EQUAL Win32)
-  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-win32-OpenCL)
-elseif (PLATFORM EQUAL Win64)
-  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=x86_64-pc-win32-OpenCL)
-elseif (PLATFORM EQUAL Linux64)
-  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=x86_64-pc-linux-OpenCL)
-elseif (PLATFORM EQUAL Android32)
-  set (CLANG_COMPILER_PARAMS ${CLANG_COMPILER_PARAMS} -target=i686-pc-linux-OpenCL)
-endif (PLATFORM EQUAL Win32)
 
 # llvm-opt
 set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
@@ -331,6 +313,7 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
 
     add_custom_command(OUTPUT ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       COMMENT "Opt optimizing ${OUTPUT_FILE}_noopt"
+      COMMAND ${OPT} ${OUTPUT_FILE}_noopt -generic-addr-static-resolution -o ${OUTPUT_FILE}_noopt
       COMMAND ${OPT} ${OUTPUT_FILE}_noopt ${LLVM_IMAGES_OPT_PARAMS} -runtimelib=${RTL_TO_LINK} -arch=${ARCH} -o ${BUILTINS_INSTALL_DIR}/${OUTPUT_FILE}
       DEPENDS ${OPT_DEP} ${OUTPUT_FILE}_noopt ${RTL_TO_LINK}
       VERBATIM

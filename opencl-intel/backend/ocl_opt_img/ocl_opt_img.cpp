@@ -30,12 +30,14 @@ arch("arch",
 
 extern "C" Pass* createBuiltinLibInfoPass(SmallVector<Module*, 2> builtinsList, std::string type);
 extern "C" Pass* createBuiltInImportPass(const char* CPUName);
+extern "C" llvm::ModulePass *createGenericAddressStaticResolutionPass();
 
 void initializeOCLPasses(PassRegistry &Registry)
 {
     intel::initializeBuiltinCallToInstPass(Registry);
     intel::initializeBIImportPass(Registry);
     intel::initializeBuiltinLibInfoPass(Registry);
+    intel::initializeGenericAddressStaticResolutionPass(Registry);
 }
 
 void InitOCLOpt(llvm::LLVMContext& context)

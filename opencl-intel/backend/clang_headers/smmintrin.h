@@ -140,7 +140,7 @@ _mm_mul_epi32 (__m128i __V1, __m128i __V2)
 static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_stream_load_si128 (__m128i *__V)
 {
-  return (__m128i) __builtin_ia32_movntdqa ((__v2di *) __V);
+  return (__m128i) __builtin_ia32_movntdqa ((private __v2di *) __V);
 }
 
 /* SSE4 Packed Integer Min/Max Instructions.  */

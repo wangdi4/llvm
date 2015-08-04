@@ -350,9 +350,9 @@ code atomic_compare_exchange_l_code = [{
     (void) $Arg5VarName;
 
     // this implementation relies on that a workgroup is executed by single phy. thread
-    $Arg2Type oldValue = *($Arg1Type)$Arg0VarName;
+    $Arg2Type oldValue = *($Arg1Type)(void*)$Arg0VarName;
     if(oldValue == *$Arg1VarName) {
-      *($Arg1Type)$Arg0VarName = $Arg2VarName;
+      *($Arg1Type)(void*)$Arg0VarName = $Arg2VarName;
       return true;
     }
     *$Arg1VarName = oldValue;

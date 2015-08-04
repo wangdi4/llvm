@@ -33,7 +33,7 @@
 static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
 _mm_lddqu_si128(__m128i const *p)
 {
-  return (__m128i)__builtin_ia32_lddqu((char const *)p);
+  return (__m128i)__builtin_ia32_lddqu((char __private const *)p);
 }
 
 static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
@@ -103,7 +103,7 @@ _mm_movedup_pd(__m128d a)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_monitor(void const *p, unsigned extensions, unsigned hints)
 {
-  __builtin_ia32_monitor((void *)p, extensions, hints);
+  __builtin_ia32_monitor((__private void *)p, extensions, hints);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))

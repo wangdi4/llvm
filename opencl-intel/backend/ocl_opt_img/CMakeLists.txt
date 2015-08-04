@@ -13,6 +13,7 @@ set(OCL_BE_PASSES
     BuiltInFuncImport
     BuiltinCallToInst
     BuiltinLibInfo
+    GenericAddressResolution
 )
 
 # Dependencies of the passes

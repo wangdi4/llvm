@@ -73,7 +73,7 @@ ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1};
 ALIGN16 const constant float4 BorderColorDepthFloat = {0.0f, 0.0f, 0.0f, 0.0f};
 
 ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1};
-ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
+ALIGN16 const global float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
 
 // utility functions declarations
 int isOutOfBoundsInt(image2d_t image, int4 coord);
@@ -161,7 +161,7 @@ float4 SampleImage2DFloatCh1(float4 components, float4 frac);
 
 float4 SampleImage3DFloat(float4 Ti0j0k0, float4 Ti1j0k0, float4 Ti0j1k0, float4 Ti1j1k0, float4 Ti0j0k1, float4 Ti1j0k1, float4 Ti0j1k1, float4 Ti1j1k1, float4 frac);
 
-#define _mm_abs_ps(X)    _mm_andnot_ps(_mm_load_ps((const float*)f4SignMask),X)
+#define _mm_abs_ps(X)    _mm_andnot_ps(_mm_load_ps((private float*)(float*)f4SignMask),X)
 
 ALIGN16 const constant short  Fvec8Float16ExponentMask[] = {0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00, 0x7C00};
 ALIGN16 const constant short  Fvec8Float16MantissaMask[] = {0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF, 0x03FF};
@@ -521,9 +521,9 @@ int4 trans_coord_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, float4 coor
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     __m128 isZero = _mm_cmpeq_ps((__m128)coord, float4AllZeros);
-    __m128 mcoord = as_float4(_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm)));
+    __m128 mcoord = as_float4(_mm_sub_epi32((__m128i)coord, *((constant __m128i*)f4minNorm)));
     mcoord= rint((__m128)mcoord);
-    mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
+    mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((constant __m128i*)f4minNorm));
     /// Set to zero coordinates that were equal to zero before
     /// multiplications
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);
@@ -585,9 +585,9 @@ float4 trans_coord_float_float_MIRRORED_REPEAT_TRUE_NEAREST(image2d_t image, flo
     image_aux_data *pImage = __builtin_astype(image, image_aux_data*);
     int4 upper = as_int4(_mm_load_si128((__m128i*)(&pImage->dimSub1)));
     __m128 isZero = _mm_cmpeq_ps(coord, float4AllZeros);
-    __m128 mcoord = (__m128)_mm_sub_epi32((__m128i)coord, *((__m128i*)f4minNorm));
+    __m128 mcoord = (__m128)_mm_sub_epi32((__m128i)coord, *((constant __m128i*)f4minNorm));
     mcoord = rint(mcoord);
-    mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((__m128i*)f4minNorm));
+    mcoord = (__m128)_mm_add_epi32((__m128i)mcoord, *((constant __m128i*)f4minNorm));
     /// Set to zero coordinates that were equal to zero before
     /// multiplications
     mcoord = (__m128)_mm_andnot_si128((__m128i)isZero, (__m128i)mcoord);

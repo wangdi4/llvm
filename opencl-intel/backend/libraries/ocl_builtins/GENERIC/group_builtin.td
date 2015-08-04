@@ -27,11 +27,11 @@ wait_group_events:                                               *
 *   void wait_group_events (int num_events,  event_t *event_list)*
 \*****************************************************************/
 code AsyncWorkGroupCopyCode_l2g = [{
-    __builtin_memcpy((__private char*)$Arg0VarName, (const __private char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
+    __builtin_memcpy((__private char*)(char*)$Arg0VarName, (const __private char*)(const char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
     return $Arg3VarName;
   }];
 code AsyncWorkGroupCopyCode_g2l = [{
-    __builtin_memcpy((__private char*)$Arg0VarName, (const __private char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
+    __builtin_memcpy((__private char*)(char*)$Arg0VarName, (const __private char*)(const char*)$Arg1VarName, $Arg2VarName*sizeof(*$Arg0VarName));
     return $Arg3VarName;
   }];
 code AsyncWorkGroupStridedCopyCode_l2g = [{
