@@ -34,27 +34,42 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  std::string options = "-cc1 -emit-llvm -include opencl_.h -opencl-builtins -cl-std=CL2.0";
-  options +=  " -triple ";
-  options += (sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown " : "spir-unknown-unknown ";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
-  std::string err;
+
+  std::stringstream options;
+  options << "-cc1 -emit-llvm -include opencl_.h -opencl-builtins -cl-std=CL2.0";
+  options <<  " " << "-triple" << " "
+      << ((sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown" : "spir-unknown-unknown") << " ";
+
   llvm::SmallString<128> tmpfile;
-  llvm::sys::fs::createUniqueFile("tmp-%%%%%%%.cl", tmpfile);
-  assert(fileName != tmpfile.str() && "fileName is reserved!");
-  //writing the cl code to the input file
   std::error_code ec;
+  ec = llvm::sys::fs::createUniqueFile("tmp-%%%%%%%.cl", tmpfile);
+  if( ec )
+  {
+      llvm::errs() << "couldn't generate unique name: " << ec.message() << "\n";
+      exit(1);
+  }
+  assert(fileName != tmpfile.str() && "fileName is reserved!");
+
+  //writing the cl code to the input file
   llvm::raw_fd_ostream input(tmpfile.c_str(), ec, llvm::sys::fs::F_RW);
+  if( ec )
+  {
+      llvm::errs() << "couldn't open a file " << tmpfile.str() << ": " << ec.message();
+      exit(1);
+  }
   input << code;
   input.close();
+
   //building the command line
   std::stringstream cmdline;
-  cmdline << clangpath << " " << options << " -o " << fileName << " -I " << include_dir << " " << tmpfile.c_str();
+  cmdline << clangpath << " " << options.str() << " -o " << fileName << " -I " << include_dir << " " << tmpfile.c_str();
   int res = system(cmdline.str().c_str());
   if( res ){
     llvm::errs() << "bi compilation failed!\n";
     exit(1);
   }
+
   //deleting the temporary file
   remove(tmpfile.c_str());
 }

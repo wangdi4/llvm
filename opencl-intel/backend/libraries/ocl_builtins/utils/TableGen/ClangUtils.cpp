@@ -31,25 +31,35 @@ static std::string getZeroLiteral(const std::string& type){
 //builds the given code to a file with a given name
 void build(const std::string& code, std::string fileName){
   const char* clangpath = XSTR(CLANG_BIN_PATH);
-  std::string options = "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
-  options +=  " -triple ";
-  options += (sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown " : "spir-unknown-unknown ";
   const char* include_dir = XSTR(CLANG_INCLUDE_PATH);
+
+  std::stringstream options;
+  options << "-cc1 -x cl -emit-llvm -include opencl_.h -opencl-builtins -fblocks -cl-std=CL2.0 -D__OPENCL_C_VERSION__=200";
+  options <<  " " << "-triple" << " "
+      << ((sizeof(size_t)*8 == 64) ? "spir64-unknown-unknown" : "spir-unknown-unknown") << " ";
+
   const char* tmpfile = "tmp.cl";
   assert(fileName != tmpfile && "tmp.cl is reserved!");
   //writing the cl code to the input file
   std::error_code ec;
   llvm::raw_fd_ostream input(tmpfile, ec, llvm::sys::fs::F_RW);
+  if( ec )
+  {
+      llvm::errs() << "couldn't open a file " << tmpfile << ": " << ec.message();
+      exit(1);
+  }
   input << code;
   input.close();
+
   //building the command line
   std::stringstream cmdline;
-  cmdline << clangpath << " " << options << " -o " << fileName << " -I " << include_dir << " " << tmpfile;
+  cmdline << clangpath << " " << options.str() << " -o " << fileName << " -I " << include_dir << " " << tmpfile;
   int res = system(cmdline.str().c_str());
   if( res ){
     llvm::errs() << "bi compilation failed!\n";
     exit(1);
   }
+
   //deleting the temporary file
   remove(tmpfile);
 }
