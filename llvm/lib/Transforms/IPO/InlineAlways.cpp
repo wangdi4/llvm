@@ -145,11 +145,12 @@ InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   // debug info in IL0 and also IL0 backend does not inline back functions
   // with call to Cilk's setjmp.
   if (Il0BackendMode) {
+    InlineReason Reason;
     if (Callee && !Callee->isDeclaration() &&
         Callee->hasFnAttribute("INTEL_ALWAYS_INLINE") &&
-        ICA->isInlineViable(*Callee))
-      return InlineCost::getAlways();
-    return InlineCost::getNever();
+        ICA->isInlineViable(*Callee, Reason))
+      return InlineCost::getAlways(InlrAlwaysInline);
+    return InlineCost::getNever(NinlrNotAlwaysInline);
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
