@@ -133,7 +133,8 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
       FilenameLoc, LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename,
       isAngled, nullptr, nullptr, CurDir, Callbacks ? &SearchPath : nullptr,
       Callbacks ? &RelativePath : nullptr,
-      HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule : nullptr);
+      HeaderInfo.getHeaderSearchOpts().ImplicitModuleMaps ? &SuggestedModule
+                                                          : nullptr);
 
   if (!File) {
     if (Callbacks) {
@@ -144,14 +145,15 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
           // Add the recovery path to the list of search paths.
           DirectoryLookup DL(DE, SrcMgr::C_User, false);
           HeaderInfo.AddSearchPath(DL, isAngled);
-          
+
           // Try the lookup again, skipping the cache.
           File = LookupFile(
               FilenameLoc,
               LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename, isAngled,
               nullptr, nullptr, CurDir, nullptr, nullptr,
-              HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule
-                                                          : nullptr,
+              HeaderInfo.getHeaderSearchOpts().ImplicitModuleMaps
+                  ? &SuggestedModule
+                  : nullptr,
               /*SkipCache*/ true);
         }
       }
@@ -165,11 +167,11 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
         File = LookupFile(
             FilenameLoc,
             LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename, false,
-            nullptr, nullptr, CurDir,
-            Callbacks ? &SearchPath : nullptr,
+            nullptr, nullptr, CurDir, Callbacks ? &SearchPath : nullptr,
             Callbacks ? &RelativePath : nullptr,
-            HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule
-                                                        : nullptr);
+            HeaderInfo.getHeaderSearchOpts().ImplicitModuleMaps
+                ? &SuggestedModule
+                : nullptr);
         if (File) {
           SourceRange Range(FilenameTok.getLocation(), CharEnd);
           Diag(FilenameTok, diag::err_pp_file_not_found_not_fatal) << 
@@ -273,7 +275,8 @@ void Preprocessor::ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTo
   // Ask HeaderInfo if we should enter this #include file.  If not, #including
   // this file will have no effect.
   if (ShouldEnter &&
-      !HeaderInfo.ShouldEnterIncludeFile(*this, File, /*IsImport*/false)) {
+      !HeaderInfo.ShouldEnterIncludeFile(*this, File, /*IsImport*/ false,
+                                         SuggestedModule.getModule())) {
     ShouldEnter = false;
     if (Callbacks)
       Callbacks->FileSkipped(*File, FilenameTok, FileCharacter);
