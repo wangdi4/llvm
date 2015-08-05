@@ -758,10 +758,8 @@ __kmp_task_init_ompt( kmp_taskdata_t * task, int tid )
 {
     task->ompt_task_info.task_id = __ompt_task_id_new(tid);
     task->ompt_task_info.function = NULL;
-    task->ompt_task_info.frame = (ompt_frame_t) {
-        .exit_runtime_frame = NULL,
-        .reenter_runtime_frame = NULL
-    };
+    task->ompt_task_info.frame.exit_runtime_frame = NULL;
+    task->ompt_task_info.frame.reenter_runtime_frame = NULL;
 }
 #endif
 
@@ -1035,8 +1033,8 @@ __kmp_task_alloc( ident_t *loc_ref, kmp_int32 gtid, kmp_tasking_flags_t *flags,
     if (ompt_status & ompt_status_track) {
         taskdata->ompt_task_info.task_id = __ompt_task_id_new(gtid);
         taskdata->ompt_task_info.function = (void*) task_entry;
-        taskdata->ompt_task_info.frame = (ompt_frame_t)
-            { .exit_runtime_frame = NULL, .reenter_runtime_frame = NULL };
+        taskdata->ompt_task_info.frame.exit_runtime_frame = NULL; 
+        taskdata->ompt_task_info.frame.reenter_runtime_frame = NULL;
     }
 #endif
 
@@ -1055,15 +1053,18 @@ __kmpc_omp_task_alloc( ident_t *loc_ref, kmp_int32 gtid, kmp_int32 flags,
     input_flags->native = FALSE;
     // __kmp_task_alloc() sets up all other runtime flags
 
+#if OMP_41_ENABLED
     KA_TRACE(10, ("__kmpc_omp_task_alloc(enter): T#%d loc=%p, flags=(%s %s) "
                   "sizeof_task=%ld sizeof_shared=%ld entry=%p\n",
                   gtid, loc_ref, input_flags->tiedness ? "tied  " : "untied",
-#if OMP_41_ENABLED
                   input_flags->proxy ? "proxy" : "",
-#else
-		  "",
-#endif
                   sizeof_kmp_task_t, sizeof_shareds, task_entry) );
+#else
+    KA_TRACE(10, ("__kmpc_omp_task_alloc(enter): T#%d loc=%p, flags=(%s) "
+                  "sizeof_task=%ld sizeof_shared=%ld entry=%p\n",
+                  gtid, loc_ref, input_flags->tiedness ? "tied  " : "untied",
+                  sizeof_kmp_task_t, sizeof_shareds, task_entry) );
+#endif
 
     retval = __kmp_task_alloc( loc_ref, gtid, input_flags, sizeof_kmp_task_t,
                                sizeof_shareds, task_entry );
@@ -1271,9 +1272,10 @@ __kmp_omp_task( kmp_int32 gtid, kmp_task_t * new_task, bool serialize_immediate 
 kmp_int32
 __kmpc_omp_task( ident_t *loc_ref, kmp_int32 gtid, kmp_task_t * new_task)
 {
-    kmp_taskdata_t * new_taskdata = KMP_TASK_TO_TASKDATA(new_task);
+    kmp_taskdata_t * new_taskdata;
     kmp_int32 res;
 
+    new_taskdata = KMP_TASK_TO_TASKDATA(new_task);
     KA_TRACE(10, ("__kmpc_omp_task(enter): T#%d loc=%p task=%p\n",
                   gtid, loc_ref, new_taskdata ) );
 
@@ -1559,7 +1561,7 @@ __kmp_steal_task( kmp_info_t *victim, kmp_int32 gtid, kmp_task_team_t *task_team
     kmp_task_t * task;
     kmp_taskdata_t * taskdata;
     kmp_thread_data_t *victim_td, *threads_data;
-    kmp_int32 victim_tid, thread_tid;
+    kmp_int32 victim_tid;
 
     KMP_DEBUG_ASSERT( __kmp_tasking_mode != tskm_immediate_exec );
 
@@ -1633,7 +1635,9 @@ __kmp_steal_task( kmp_info_t *victim, kmp_int32 gtid, kmp_task_team_t *task_team
         // We need to un-mark this victim as a finished victim.  This must be done before
         // releasing the lock, or else other threads (starting with the master victim)
         // might be prematurely released from the barrier!!!
-        kmp_uint32 count = KMP_TEST_THEN_INC32( (kmp_int32 *)unfinished_threads );
+        kmp_uint32 count;
+
+        count = KMP_TEST_THEN_INC32( (kmp_int32 *)unfinished_threads );
 
         KA_TRACE(20, ("__kmp_steal_task: T#%d inc unfinished_threads to %d: task_team=%p\n",
                       gtid, count + 1, task_team) );
@@ -1670,7 +1674,6 @@ static inline int __kmp_execute_tasks_template(kmp_info_t *thread, kmp_int32 gti
                                                USE_ITT_BUILD_ARG(void * itt_sync_obj), kmp_int32 is_constrained)
 {
     kmp_task_team_t *     task_team;
-    kmp_team_t *          team;
     kmp_thread_data_t *   threads_data;
     kmp_task_t *          task;
     kmp_taskdata_t *      current_task = thread -> th.th_current_task;
@@ -1741,7 +1744,9 @@ static inline int __kmp_execute_tasks_template(kmp_info_t *thread, kmp_int32 gti
         // been done.  This decrement might be to the spin location, and
         // result in the termination condition being satisfied.
         if (! *thread_finished) {
-            kmp_uint32 count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
+            kmp_uint32 count;
+
+            count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
             KA_TRACE(20, ("__kmp_execute_tasks_template(dec #1): T#%d dec unfinished_threads to %d task_team=%p\n",
                           gtid, count, task_team) );
             *thread_finished = TRUE;
@@ -1822,7 +1827,9 @@ static inline int __kmp_execute_tasks_template(kmp_info_t *thread, kmp_int32 gti
             // been done.  This decrement might be to the spin location, and
             // result in the termination condition being satisfied.
             if (! *thread_finished) {
-                kmp_uint32 count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
+                kmp_uint32 count;
+
+                count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
                 KA_TRACE(20, ("__kmp_execute_tasks_template(dec #2): T#%d dec unfinished_threads to %d "
                               "task_team=%p\n", gtid, count, task_team) );
                 *thread_finished = TRUE;
@@ -1935,7 +1942,9 @@ static inline int __kmp_execute_tasks_template(kmp_info_t *thread, kmp_int32 gti
             // been done.  This decrement might be to the spin location, and
             // result in the termination condition being satisfied.
             if (! *thread_finished) {
-                kmp_uint32 count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
+                kmp_uint32 count;
+
+                count = KMP_TEST_THEN_DEC32( (kmp_int32 *)unfinished_threads ) - 1;
                 KA_TRACE(20, ("__kmp_execute_tasks_template(dec #3): T#%d dec unfinished_threads to %d; "
                               "task_team=%p\n",
                               gtid, count, task_team) );
@@ -1993,13 +2002,14 @@ int __kmp_execute_tasks_oncore(kmp_info_t *thread, kmp_int32 gtid, kmp_flag_onco
 static void
 __kmp_enable_tasking( kmp_task_team_t *task_team, kmp_info_t *this_thr )
 {
-    kmp_team_t *team = this_thr->th.th_team;
+    kmp_team_t *team;
     kmp_thread_data_t *threads_data;
     int nthreads, i, is_init_thread;
 
     KA_TRACE( 10, ( "__kmp_enable_tasking(enter): T#%d\n",
                     __kmp_gtid_from_thread( this_thr ) ) );
 
+    team = this_thr->th.th_team;
     KMP_DEBUG_ASSERT(task_team != NULL);
     KMP_DEBUG_ASSERT(team != NULL);
 

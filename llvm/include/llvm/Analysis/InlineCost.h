@@ -14,7 +14,9 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
+#ifdef INTEL_CUSTOMIZATION
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#endif // INTEL_CUSTOMIZATION
 #include <cassert>
 #include <climits>
 
@@ -24,6 +26,7 @@ class CallSite;
 class DataLayout;
 class Function;
 class TargetTransformInfoWrapperPass;
+
 
 namespace InlineConstants {
   // Various magic constants used to adjust heuristics.
@@ -38,6 +41,70 @@ namespace InlineConstants {
   const unsigned TotalAllocaSizeRecursiveCaller = 1024;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+namespace InlineReportTypes { 
+
+/// \brief Inlining and non-inlining reasons
+///
+/// Each element of this enum is a reason why a function was or was not
+/// inlined.  These are used in the inlining report. Those with names
+/// beginning with Inlr are reasons FOR inlining.  Those with names
+/// beginning with Ninlr are reasons for NOT inlining.
+///
+/// NOTE: The order of the values below is significant.  Those with a lower
+/// enum value are considered more significant and will be given preference
+/// when the inlining report is printed. (See the function bestInlineReason()
+/// in InlineCost.cpp. 
+///
+typedef enum {
+   InlrFirst, // Just a marker placed before the first inlining reason
+   InlrNoReason,
+   InlrAlwaysInline,
+   InlrSingleBasicBlock,
+   InlrSingleLocalCall,
+   InlrEmptyFunction,
+   InlrVectorBonus,
+   InlrProfitable,
+   InlrLast, // Just a marker placed after the last inlining reason
+   NinlrFirst, // Just a marker placed before the first non-inlining reason
+   NinlrNoReason,
+   NinlrColdCC,
+   NinlrDeleted,
+   NinlrDuplicateCall,
+   NinlrDynamicAlloca,
+   NinlrExtern,
+   NinlrIndirect,
+   NinlrIndirectBranch,
+   NinlrBlockAddress,
+   NinlrCallsFramescape,
+   NinlrNeverInline,
+   NinlrIntrinsic,
+   NinlrOuterInlining,
+   NinlrRecursive,
+   NinlrReturnsTwice,
+   NinlrTooMuchStack,
+   NinlrVarargs,
+   NinlrMismatchedAttributes,
+   NinlrMismatchedGC,
+   NinlrMismatchedPersonality,
+   NinlrNoinlineAttribute,
+   NinlrNoinlineCallsite,
+   NinlrNoReturn,
+   NinlrOptNone,
+   NinlrMayBeOverriden,
+   NinlrNotPossible,
+   NinlrNotAlwaysInline,
+   NinlrNewlyCreated,
+   NinlrNotProfitable,
+   NinlrLast // Just a marker placed after the last non-inlining reason
+} InlineReason;
+
+}
+
+extern bool IsInlinedReason(InlineReportTypes::InlineReason Reason);
+extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Represents the cost of inlining a function.
 ///
 /// This supports special values for functions which should "always" or
@@ -48,6 +115,11 @@ namespace InlineConstants {
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
+#ifdef INTEL_CUSTOMIZATION
+/// The Intel version is augmented with the InlineReason, which is the 
+/// principal reason that a call site was or was not inlined. 
+#endif // INTEL_CUSTOMIZATION
+
 class InlineCost {
   enum SentinelValues {
     AlwaysInlineCost = INT_MIN,
@@ -60,8 +132,19 @@ class InlineCost {
   /// \brief The adjusted threshold against which this cost was computed.
   const int Threshold;
 
+#ifdef INTEL_CUSTOMIZATION 
+  InlineReportTypes::InlineReason Reason; 
+#endif // INTEL_CUSTOMIZATION
+
   // Trivial constructor, interesting logic in the factory functions below.
+
+#ifdef INTEL_CUSTOMIZATION 
+  InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason 
+    = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold), 
+    Reason(Reason) {}
+#else 
   InlineCost(int Cost, int Threshold) : Cost(Cost), Threshold(Threshold) {}
+#endif // INTEL_CUSTOMIZATION
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -69,12 +152,28 @@ public:
     assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
     return InlineCost(Cost, Threshold);
   }
+#ifdef INTEL_CUSTOMIZATION
+  static InlineCost get(int Cost, int Threshold, 
+    InlineReportTypes::InlineReason Reason) {
+    assert(Cost > AlwaysInlineCost && "Cost crosses sentinel value");
+    assert(Cost < NeverInlineCost && "Cost crosses sentinel value");
+    return InlineCost(Cost, Threshold, Reason);
+  }
+#endif // INTEL_CUSTOMIZATION
   static InlineCost getAlways() {
     return InlineCost(AlwaysInlineCost, 0);
   }
   static InlineCost getNever() {
     return InlineCost(NeverInlineCost, 0);
   }
+#ifdef INTEL_CUSTOMIZATION
+  static InlineCost getAlways(InlineReportTypes::InlineReason Reason) {
+    return InlineCost(AlwaysInlineCost, 0, Reason);
+  }
+  static InlineCost getNever(InlineReportTypes::InlineReason Reason) {
+    return InlineCost(NeverInlineCost, 0, Reason);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   /// \brief Test whether the inline cost is low enough for inlining.
   explicit operator bool() const {
@@ -96,6 +195,14 @@ public:
   /// Only valid if the cost is of the variable kind. Returns a negative
   /// value if the cost is too high to inline.
   int getCostDelta() const { return Threshold - getCost(); }
+
+#ifdef INTEL_CUSTOMIZATION 
+  InlineReportTypes::InlineReason getInlineReason() const 
+    { return Reason; }
+  void setInlineReason(InlineReportTypes::InlineReason MyReason) 
+    { Reason = MyReason; }
+#endif // INTEL_CUSTOMIZATION
+
 };
 
 /// \brief Cost analyzer used by inliner.
@@ -135,9 +242,13 @@ public:
   InlineCost getInlineCost(CallSite CS, Function *Callee, int Threshold);
 
   /// \brief Minimal filter to detect invalid constructs for inlining.
+#ifdef INTEL_CUSTOMIZATION
+  bool isInlineViable(Function &Callee, 
+    InlineReportTypes::InlineReason& Reason);
+#else
   bool isInlineViable(Function &Callee);
+#endif // INTEL_CUSTOMIZATION
 };
 
 }
-
 #endif

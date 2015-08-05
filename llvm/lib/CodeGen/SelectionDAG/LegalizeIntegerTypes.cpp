@@ -602,10 +602,13 @@ SDValue DAGTypeLegalizer::PromoteIntRes_SETCC(SDNode *N) {
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_SHL(SDNode *N) {
-  SDValue Res = GetPromotedInteger(N->getOperand(0));
-  SDValue Amt = N->getOperand(1);
-  Amt = Amt.getValueType().isVector() ? ZExtPromotedInteger(Amt) : Amt;
-  return DAG.getNode(ISD::SHL, SDLoc(N), Res.getValueType(), Res, Amt);
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
+  if (getTypeAction(LHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    LHS = GetPromotedInteger(LHS);
+  if (getTypeAction(RHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    RHS = ZExtPromotedInteger(RHS);
+  return DAG.getNode(ISD::SHL, SDLoc(N), LHS.getValueType(), LHS, RHS);
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_SIGN_EXTEND_INREG(SDNode *N) {
@@ -625,19 +628,25 @@ SDValue DAGTypeLegalizer::PromoteIntRes_SimpleIntBinOp(SDNode *N) {
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_SRA(SDNode *N) {
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
   // The input value must be properly sign extended.
-  SDValue Res = SExtPromotedInteger(N->getOperand(0));
-  SDValue Amt = N->getOperand(1);
-  Amt = Amt.getValueType().isVector() ? ZExtPromotedInteger(Amt) : Amt;
-  return DAG.getNode(ISD::SRA, SDLoc(N), Res.getValueType(), Res, Amt);
+  if (getTypeAction(LHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    LHS = SExtPromotedInteger(LHS);
+  if (getTypeAction(RHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    RHS = ZExtPromotedInteger(RHS);
+  return DAG.getNode(ISD::SRA, SDLoc(N), LHS.getValueType(), LHS, RHS);
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_SRL(SDNode *N) {
+  SDValue LHS = N->getOperand(0);
+  SDValue RHS = N->getOperand(1);
   // The input value must be properly zero extended.
-  SDValue Res = ZExtPromotedInteger(N->getOperand(0));
-  SDValue Amt = N->getOperand(1);
-  Amt = Amt.getValueType().isVector() ? ZExtPromotedInteger(Amt) : Amt;
-  return DAG.getNode(ISD::SRL, SDLoc(N), Res.getValueType(), Res, Amt);
+  if (getTypeAction(LHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    LHS = ZExtPromotedInteger(LHS);
+  if (getTypeAction(RHS.getValueType()) == TargetLowering::TypePromoteInteger)
+    RHS = ZExtPromotedInteger(RHS);
+  return DAG.getNode(ISD::SRL, SDLoc(N), LHS.getValueType(), LHS, RHS);
 }
 
 SDValue DAGTypeLegalizer::PromoteIntRes_TRUNCATE(SDNode *N) {
@@ -2426,10 +2435,10 @@ void DAGTypeLegalizer::ExpandIntRes_XMULO(SDNode *N,
 
   TargetLowering::ArgListTy Args;
   TargetLowering::ArgListEntry Entry;
-  for (unsigned i = 0, e = N->getNumOperands(); i != e; ++i) {
-    EVT ArgVT = N->getOperand(i).getValueType();
+  for (const SDValue &Op : N->op_values()) {
+    EVT ArgVT = Op.getValueType();
     Type *ArgTy = ArgVT.getTypeForEVT(*DAG.getContext());
-    Entry.Node = N->getOperand(i);
+    Entry.Node = Op;
     Entry.Ty = ArgTy;
     Entry.isSExt = true;
     Entry.isZExt = false;

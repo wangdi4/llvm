@@ -329,7 +329,7 @@ WaitForProcessToSIGSTOP (const lldb::pid_t pid, const int timeout_in_seconds)
 //            {
 //                pid = (intptr_t)accept_thread_result;
 //
-//                // Wait for process to be stopped the the entry point by watching
+//                // Wait for process to be stopped the entry point by watching
 //                // for the process status to be set to SSTOP which indicates it it
 //                // SIGSTOP'ed at the entry point
 //                WaitForProcessToSIGSTOP (pid, 5);
@@ -411,9 +411,9 @@ LaunchInNewTerminalWithAppleScript (const char *exe_path, ProcessLaunchInfo &lau
     if (arch_spec.IsValid())
         command.Printf(" --arch=%s", arch_spec.GetArchitectureName());
 
-    const char *working_dir = launch_info.GetWorkingDirectory();
+    FileSpec working_dir{launch_info.GetWorkingDirectory()};
     if (working_dir)
-        command.Printf(" --working-dir '%s'", working_dir);
+        command.Printf(" --working-dir '%s'", working_dir.GetCString());
     else
     {
         char cwd[PATH_MAX];
@@ -527,7 +527,7 @@ LaunchInNewTerminalWithAppleScript (const char *exe_path, ProcessLaunchInfo &lau
         WaitForProcessToSIGSTOP(pid, 5);
     }
 
-    FileSystem::Unlink(unix_socket_name);
+    FileSystem::Unlink(FileSpec{unix_socket_name, false});
     [applescript release];
     if (pid != LLDB_INVALID_PROCESS_ID)
         launch_info.SetProcessID (pid);

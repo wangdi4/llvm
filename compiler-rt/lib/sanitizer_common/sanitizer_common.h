@@ -44,6 +44,10 @@ static const uptr kMaxNumberOfModules = 1 << 14;
 
 const uptr kMaxThreadStackSize = 1 << 30;  // 1Gb
 
+// Denotes fake PC values that come from JIT/JAVA/etc.
+// For such PC values __tsan_symbolize_external() will be called.
+const u64 kExternalPCBit = 1ULL << 60;
+
 extern const char *SanitizerToolName;  // Can be changed by the tool.
 
 extern atomic_uint32_t current_verbosity;
@@ -69,10 +73,11 @@ void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
 // Memory management
 void *MmapOrDie(uptr size, const char *mem_type);
 void UnmapOrDie(void *addr, uptr size);
-void *MmapFixedNoReserve(uptr fixed_addr, uptr size);
+void *MmapFixedNoReserve(uptr fixed_addr, uptr size,
+                         const char *name = nullptr);
 void *MmapNoReserveOrDie(uptr size, const char *mem_type);
 void *MmapFixedOrDie(uptr fixed_addr, uptr size);
-void *MmapNoAccess(uptr fixed_addr, uptr size);
+void *MmapNoAccess(uptr fixed_addr, uptr size, const char *name = nullptr);
 // Map aligned chunk of address space; size and alignment are powers of two.
 void *MmapAlignedOrDie(uptr size, uptr alignment, const char *mem_type);
 // Disallow access to a memory range.  Use MmapNoAccess to allocate an
@@ -237,6 +242,10 @@ const char *StripPathPrefix(const char *filepath,
 const char *StripModuleName(const char *module);
 
 // OS
+uptr ReadBinaryName(/*out*/char *buf, uptr buf_len);
+uptr ReadBinaryNameCached(/*out*/char *buf, uptr buf_len);
+const char *GetBinaryBasename();
+void CacheBinaryName();
 void DisableCoreDumperIfNecessary();
 void DumpProcessMap();
 bool FileExists(const char *filename);
@@ -247,8 +256,6 @@ char *FindPathToBinary(const char *name);
 bool IsPathSeparator(const char c);
 bool IsAbsolutePath(const char *path);
 
-// Returns the path to the main executable.
-uptr ReadBinaryName(/*out*/char *buf, uptr buf_len);
 u32 GetUid();
 void ReExec();
 bool StackSizeIsUnlimited();
@@ -606,15 +613,15 @@ typedef bool (*string_predicate_t)(const char *);
 uptr GetListOfModules(LoadedModule *modules, uptr max_modules,
                       string_predicate_t filter);
 
-#if SANITIZER_POSIX
-const uptr kPthreadDestructorIterations = 4;
-#else
-// Unused on Windows.
-const uptr kPthreadDestructorIterations = 0;
-#endif
-
 // Callback type for iterating over a set of memory ranges.
 typedef void (*RangeIteratorCallback)(uptr begin, uptr end, void *arg);
+
+enum AndroidApiLevel {
+  ANDROID_NOT_ANDROID = 0,
+  ANDROID_KITKAT = 19,
+  ANDROID_LOLLIPOP_MR1 = 22,
+  ANDROID_POST_LOLLIPOP = 23
+};
 
 #if SANITIZER_ANDROID
 // Initialize Android logging. Any writes before this are silently lost.
@@ -622,14 +629,25 @@ void AndroidLogInit();
 void AndroidLogWrite(const char *buffer);
 void GetExtraActivationFlags(char *buf, uptr size);
 void SanitizerInitializeUnwinder();
-u32 AndroidGetApiLevel();
+AndroidApiLevel AndroidGetApiLevel();
 #else
 INLINE void AndroidLogInit() {}
 INLINE void AndroidLogWrite(const char *buffer_unused) {}
 INLINE void GetExtraActivationFlags(char *buf, uptr size) { *buf = '\0'; }
 INLINE void SanitizerInitializeUnwinder() {}
-INLINE u32 AndroidGetApiLevel() { return 0; }
+INLINE AndroidApiLevel AndroidGetApiLevel() { return ANDROID_NOT_ANDROID; }
 #endif
+
+INLINE uptr GetPthreadDestructorIterations() {
+#if SANITIZER_ANDROID
+  return (AndroidGetApiLevel() == ANDROID_LOLLIPOP_MR1) ? 8 : 4;
+#elif SANITIZER_POSIX
+  return 4;
+#else
+// Unused on Windows.
+  return 0;
+#endif
+}
 
 void *internal_start_thread(void(*func)(void*), void *arg);
 void internal_join_thread(void *th);
