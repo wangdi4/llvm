@@ -92,6 +92,30 @@ multiclass MovOp<string opStr, RegisterClass RC, ValueType opType, Operand immOp
     []>;
 }
 
+multiclass UnaryOp<string opStr, SDNode opNode, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst),
+    (ins RC:$op1),
+    !strconcat(opStr, "\t$dst, $op1"),
+    [(set RC:$dst, (opNode RC:$op1))]>;
+}
+
+multiclass NotOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst),
+    (ins RC:$op1),
+    !strconcat(opStr, "\t$dst, $op1"),
+    [(set RC:$dst, (not RC:$op1))]>;
+}
+
+multiclass NegOp<string opStr, RegisterClass RC> {
+  def "" : FMTGEN<
+    (outs RC:$dst),
+    (ins RC:$op1),
+    !strconcat(opStr, "\t$dst, $op1"),
+    [(set RC:$dst, (sub 0, RC:$op1))]>;
+}
+
 // Binary op, no pattern, not commutable
 multiclass SExtOp<string opStr, RegisterClass RCt, RegisterClass RCs> {
   def "" : FMTGEN<
@@ -108,6 +132,7 @@ multiclass CvtOp<string opStr, SDNode opNode, RegisterClass DT, RegisterClass ST
     !strconcat(opStr, "\t$dst, $src"),
     [(set DT:$dst, (opNode ST:$src))]>;
 }
+
 
 // This uses a multiclass even though it only declares one class because
 // class doesn't allow the Opndxx in the ins/outs list.  (Why?)
@@ -232,35 +257,35 @@ defm MOV32f: MovOp<"mov32", F32, f32, f32imm>;
 defm MOV64 : MovOp<"mov64", I64, i64, i64imm>;
 defm MOV64f: MovOp<"mov64", F64, f64, f64imm>;
 
-// todo: NOT1
-// todo: NOT8
-// todo: NOT16
-// todo: NOT32
-// todo: NOT64
-// todo: NEG8
-// todo: NEGS16
-// todo: NEGS32
-// todo: NEGS64
-// todo: NEGF32
-// todo: NEGF64
-// todo: ABSF32
-// todo: ABSF64
-// todo: SQRTF32
-// todo: SQRTF64
-// todo: EXP2F32
-// todo: EXP2F64
-// todo: LOG2F32
-// todo: LOG2F64
-// todo: EXPF32
-// todo: EXPF64
-// todo: LOGF32
-// todo: LOGF64
-// todo: SINF32
-// todo: SINF64
-// todo: COSF32
-// todo: COSF64
-// todo: SINCOSF32
-// todo: SINCOSF64
+defm NOT1      : NotOp  <"not1",             I1>;
+defm NOT8      : NotOp  <"not8",             I8>;
+defm NOT16     : NotOp  <"not16",            I16>;
+defm NOT32     : NotOp  <"not32",            I32>;
+defm NOT64     : NotOp  <"not64",            I64>;
+defm NEG8      : NegOp  <"neg8",             I8>;
+defm NEGS16    : NegOp  <"negs16",           I16>;
+defm NEGS32    : NegOp  <"negs32",           I32>;
+defm NEGS64    : NegOp  <"negs64",           I64>;
+defm NEGF32    : UnaryOp<"negf32",    fneg,  F32>;
+defm NEGF64    : UnaryOp<"negf64",    fneg,  F64>;
+defm ABSF32    : UnaryOp<"absf32",    fabs,  F32>;
+defm ABSF64    : UnaryOp<"absf64",    fabs,  F64>;
+defm SQRTF32   : UnaryOp<"sqrtf32",   fsqrt, F32>;
+defm SQRTF64   : UnaryOp<"sqrtf64",   fsqrt, F64>;
+defm EXP2F32   : UnaryOp<"exp2f32",   fexp2, F32>;
+defm EXP2F64   : UnaryOp<"exp2f64",   fexp2, F64>;
+defm LOG2F32   : UnaryOp<"log2f32",   flog2, F32>;
+defm LOG2F64   : UnaryOp<"log2f64",   flog2, F64>;
+defm EXPF32    : UnaryOp<"expf32",    fexp,  F32>;
+defm EXPF64    : UnaryOp<"expf64",    fexp,  F64>;
+defm LOGF32    : UnaryOp<"logf32",    flog,  F32>;
+defm LOGF64    : UnaryOp<"logf64",    flog,  F64>;
+defm SINF32    : UnaryOp<"sinf32",    fsin,  F32>;
+defm SINF64    : UnaryOp<"sinf64",    fsin,  F64>;
+defm COSF32    : UnaryOp<"cosf32",    fcos,  F32>;
+defm COSF64    : UnaryOp<"cosf64",    fcos,  F64>;
+//defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, F32>;
+//defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, F64>;
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
@@ -386,6 +411,9 @@ defm CMPLEU16 : CmpOp<"cmpleu16", setule, I16, i16, i16imm, 0>;
 defm CMPLEU32 : CmpOp<"cmpleu32", setule, I32, i32, i32imm, 0>;
 defm CMPLEU64 : CmpOp<"cmpleu64", setule, I64, i64, i64imm, 0>;
 
+// Note - there is no cmpeq1.  As long as operands are clean, cmpeq8
+// suffices
+defm CMPEQ1   : CmpOp<"cmpeq8",   seteq,  I1,  i1,  i1imm,  1>;
 defm CMPEQ8   : CmpOp<"cmpeq8",   seteq,  I8,  i8,  i8imm,  1>;
 defm CMPEQ16  : CmpOp<"cmpeq16",  seteq,  I16, i16, i16imm, 1>;
 defm CMPEQ32  : CmpOp<"cmpeq32",  seteq,  I32, i32, i32imm, 1>;
@@ -411,6 +439,7 @@ defm CMPGEU16 : CmpOp<"cmpgeu16", setuge, I16, i16, i16imm, 0>;
 defm CMPGEU32 : CmpOp<"cmpgeu32", setuge, I32, i32, i32imm, 0>;
 defm CMPGEU64 : CmpOp<"cmpgeu64", setuge, I64, i64, i64imm, 0>;
 
+def : Pat<(i1 (setne i1:$op1, i1:$op2)), (XOR1 $op1,$op2)>;
 defm CMPNE8   : CmpOp<"cmpne8",   setne,  I8,  i8,  i8imm,  1>;
 defm CMPNE16  : CmpOp<"cmpne16",  setne,  I16, i16, i16imm, 1>;
 defm CMPNE32  : CmpOp<"cmpne32",  setne,  I32, i32, i32imm, 1>;

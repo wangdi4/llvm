@@ -34,6 +34,8 @@ namespace llvm {
   public:
     explicit LPUTargetLowering(const TargetMachine &TM);
 
+    EVT getSetCCResultType(LLVMContext &Context, EVT VT) const override;
+
     // Returns the type that the value to shift-by should have
     // given the EVT of that operand. Since the LPU supports
     // all types save i1, that is what we return.

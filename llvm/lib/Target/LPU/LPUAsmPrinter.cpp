@@ -49,58 +49,9 @@ namespace {
 
     void EmitFunctionBodyStart() override;
     void EmitFunctionBodyEnd() override;
-
-    void printOperand(const MachineInstr *MI, int OpNum,
-                      raw_ostream &O, const char* Modifier = nullptr);
     void EmitInstruction(const MachineInstr *MI) override;
   };
 } // end of anonymous namespace
-
-
-void LPUAsmPrinter::printOperand(const MachineInstr *MI, int OpNum,
-                                    raw_ostream &O, const char *Modifier) {
-  const MachineOperand &MO = MI->getOperand(OpNum);
-  switch (MO.getType()) {
-  default: llvm_unreachable("Not implemented yet!");
-  case MachineOperand::MO_Register:
-    O << LPUInstPrinter::getRegisterName(MO.getReg());
-    return;
-  case MachineOperand::MO_Immediate:
-    O << MO.getImm();
-    return;
-  case MachineOperand::MO_FPImmediate:
-    // This really ought to be done in hex
-    O << MO.getFPImm();
-    return;
-  case MachineOperand::MO_MachineBasicBlock:
-    O << *MO.getMBB()->getSymbol();
-    return;
-  /*
-  case MachineOperand::MO_GlobalAddress: {
-    bool isMemOp  = Modifier && !strcmp(Modifier, "mem");
-    uint64_t Offset = MO.getOffset();
-
-    // If the global address expression is a part of displacement field with a
-    // register base, we should not emit any prefix symbol here, e.g.
-    //   mov.w &foo, r1
-    // vs
-    //   mov.w glb(r1), r2
-    // Otherwise (!) msp430-as will silently miscompile the output :(
-    if (!Modifier || strcmp(Modifier, "nohash"))
-      O << (isMemOp ? '&' : '#');
-    if (Offset)
-      O << '(' << Offset << '+';
-
-    O << *getSymbol(MO.getGlobal());
-
-    if (Offset)
-      O << ')';
-
-    return;
-  }
-  */
-  }
-}
 
 void LPUAsmPrinter::EmitFunctionBodyStart() {
   const MachineRegisterInfo *MRI;

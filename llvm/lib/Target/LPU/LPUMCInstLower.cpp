@@ -137,7 +137,19 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       bool ignored;
       if (f->getType() == Type::getFloatTy(f->getContext()))
         apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven, &ignored);
-      MCOp = MCOperand::CreateFPImm(apf.convertToDouble());
+      double d = apf.convertToDouble();
+      switch  (f->getType()->getTypeID()) {
+      default:
+        report_fatal_error("Unsupported FP type");
+        break;
+      case Type::FloatTyID: {
+        float f = d;
+        MCOp = MCOperand::CreateImm(*(int*)&f);
+        break; }
+      case Type::DoubleTyID:
+        MCOp = MCOperand::CreateImm(*(long long*)&d);
+        break;
+      }
       break; }
     case MachineOperand::MO_MachineBasicBlock:
       MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
