@@ -32,7 +32,7 @@ typedef llvm::SmallVectorImpl<VarDecl const *> VarDeclVec;
 // This visitor looks for references to the loop control variable inside a
 // _Cilk_for body.
 class CilkForControlVarVisitor
-    : public RecursiveASTVisitor<CilkForControlVarVisitor> {
+    : public StmtVisitor<CilkForControlVarVisitor, bool> {
 private:
   // This visitor looks for potential errors and warnings about the modification
   // of the loop control variable.
@@ -215,6 +215,14 @@ public:
       ControlVarUsageVisitor V(S, DeclRef, PMap, AddressOf);
       V.TraverseStmt(P);
       Error |= V.Error;
+    }
+    return true;
+  }
+
+  bool VisitStmt(Stmt *S) {
+    for (auto *ST : S->children()) {
+      if (ST)
+        Visit(ST);
     }
     return true;
   }
@@ -884,7 +892,7 @@ bool Sema::CheckIfBodyModifiesLoopControlVar(Stmt *Body) {
 
   ParentMap PMap(Body);
   CilkForControlVarVisitor V(*this, PMap, LoopControlVarsInScope);
-  V.TraverseStmt(Body);
+  V.Visit(Body);
 
   return V.Error;
 }

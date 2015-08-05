@@ -3,6 +3,7 @@
 // RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST1 -emit-llvm %s -o - | FileCheck -check-prefix CHECK1 %s
 // RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST2 -emit-llvm %s -o - | FileCheck -check-prefix CHECK2 %s
 // RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST3 -emit-llvm %s -o - | FileCheck -check-prefix CHECK2 %s
+// REQUIRES: llvm-backend
 
 int main(void) {
   int i = 0, s = 0;

@@ -30,6 +30,7 @@
 #include "isl/constraint.h"
 #include "isl/map.h"
 #include "isl/options.h"
+#include "isl/printer.h"
 #include "isl/schedule.h"
 #include "isl/schedule_node.h"
 #include "isl/space.h"
@@ -315,7 +316,7 @@ isl_schedule_node *IslScheduleOptimizer::optimizeBand(isl_schedule_node *Node,
 __isl_give isl_union_map *
 IslScheduleOptimizer::getScheduleMap(__isl_keep isl_schedule *Schedule) {
   isl_schedule_node *Root = isl_schedule_get_root(Schedule);
-  Root = isl_schedule_node_map_descendant(
+  Root = isl_schedule_node_map_descendant_bottom_up(
       Root, IslScheduleOptimizer::optimizeBand, NULL);
   auto ScheduleMap = isl_schedule_node_get_subtree_schedule_union_map(Root);
   ScheduleMap = isl_union_map_detect_equalities(ScheduleMap);
@@ -405,16 +406,16 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   DEBUG(dbgs() << "Proximity := " << stringFromIslObj(Proximity) << ";\n");
   DEBUG(dbgs() << "Validity := " << stringFromIslObj(Validity) << ";\n");
 
-  int IslFusionStrategy;
+  unsigned IslSerializeSCCs;
 
   if (FusionStrategy == "max") {
-    IslFusionStrategy = ISL_SCHEDULE_FUSE_MAX;
+    IslSerializeSCCs = 0;
   } else if (FusionStrategy == "min") {
-    IslFusionStrategy = ISL_SCHEDULE_FUSE_MIN;
+    IslSerializeSCCs = 1;
   } else {
     errs() << "warning: Unknown fusion strategy. Falling back to maximal "
               "fusion.\n";
-    IslFusionStrategy = ISL_SCHEDULE_FUSE_MAX;
+    IslSerializeSCCs = 0;
   }
 
   int IslMaximizeBands;
@@ -429,7 +430,7 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
     IslMaximizeBands = 1;
   }
 
-  isl_options_set_schedule_fuse(S.getIslCtx(), IslFusionStrategy);
+  isl_options_set_schedule_serialize_sccs(S.getIslCtx(), IslSerializeSCCs);
   isl_options_set_schedule_maximize_band_depth(S.getIslCtx(), IslMaximizeBands);
   isl_options_set_schedule_max_constant_term(S.getIslCtx(), MaxConstantTerm);
   isl_options_set_schedule_max_coefficient(S.getIslCtx(), MaxCoefficient);
@@ -454,7 +455,13 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
   if (!Schedule)
     return false;
 
-  DEBUG(dbgs() << "Schedule := " << stringFromIslObj(Schedule) << ";\n");
+  DEBUG({
+    auto *P = isl_printer_to_str(S.getIslCtx());
+    P = isl_printer_set_yaml_style(P, ISL_YAML_STYLE_BLOCK);
+    P = isl_printer_print_schedule(P, Schedule);
+    dbgs() << "NewScheduleTree: \n" << isl_printer_get_str(P) << "\n";
+    isl_printer_free(P);
+  });
 
   isl_union_map *NewSchedule = getScheduleMap(Schedule);
 

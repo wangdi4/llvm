@@ -28,9 +28,7 @@
 
 #include <immintrin.h>
 
-#ifdef __3dNOW__
 #include <mm3dnow.h>
-#endif
 
 #include <bmiintrin.h>
 
@@ -42,25 +40,15 @@
 
 #include <rdseedintrin.h>
 
-#ifdef __PRFCHW__
 #include <prfchwintrin.h>
-#endif
 
-#ifdef __SSE4A__
 #include <ammintrin.h>
-#endif
 
-#ifdef __FMA4__
 #include <fma4intrin.h>
-#endif
 
-#ifdef __XOP__
 #include <xopintrin.h>
-#endif
 
-#ifdef __TBM__
 #include <tbmintrin.h>
-#endif
 
 #include <f16cintrin.h>
 

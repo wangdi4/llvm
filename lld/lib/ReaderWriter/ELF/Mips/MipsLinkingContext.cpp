@@ -37,29 +37,7 @@ static std::unique_ptr<TargetHandler> createTarget(llvm::Triple triple,
 }
 
 MipsLinkingContext::MipsLinkingContext(llvm::Triple triple)
-    : ELFLinkingContext(triple, createTarget(triple, *this)),
-      _flagsMerger(triple.isArch64Bit()) {}
-
-std::error_code MipsLinkingContext::mergeElfFlags(uint64_t flags) {
-  return _flagsMerger.mergeFlags(flags);
-}
-
-void MipsLinkingContext::mergeReginfoMask(const MipsReginfo &info) {
-  std::lock_guard<std::mutex> lock(_maskMutex);
-  if (_reginfoMask.hasValue())
-    _reginfoMask->merge(info);
-  else
-    _reginfoMask = info;
-}
-
-uint32_t MipsLinkingContext::getMergedELFFlags() const {
-  return _flagsMerger.getMergedELFFlags();
-}
-
-const llvm::Optional<MipsReginfo> &
-MipsLinkingContext::getMergedReginfoMask() const {
-  return _reginfoMask;
-}
+    : ELFLinkingContext(triple, createTarget(triple, *this)) {}
 
 uint64_t MipsLinkingContext::getBaseAddress() const {
   if (_baseAddress == 0 && getOutputELFType() == llvm::ELF::ET_EXEC)
@@ -92,13 +70,14 @@ bool MipsLinkingContext::isDynamicRelocation(const Reference &r) const {
   switch (r.kindValue()) {
   case llvm::ELF::R_MIPS_COPY:
   case llvm::ELF::R_MIPS_REL32:
+    return true;
   case llvm::ELF::R_MIPS_TLS_DTPMOD32:
   case llvm::ELF::R_MIPS_TLS_DTPREL32:
   case llvm::ELF::R_MIPS_TLS_TPREL32:
   case llvm::ELF::R_MIPS_TLS_DTPMOD64:
   case llvm::ELF::R_MIPS_TLS_DTPREL64:
   case llvm::ELF::R_MIPS_TLS_TPREL64:
-    return true;
+    return isDynamic();
   default:
     return false;
   }
@@ -147,8 +126,6 @@ const Registry::KindStrings kindStrings[] = {
   LLD_KIND_STRING_ENTRY(LLD_R_MIPS_32_HI16),
   LLD_KIND_STRING_ENTRY(LLD_R_MIPS_64_HI16),
   LLD_KIND_STRING_ENTRY(LLD_R_MIPS_GLOBAL_26),
-  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_HI16),
-  LLD_KIND_STRING_ENTRY(LLD_R_MIPS_LO16),
   LLD_KIND_STRING_ENTRY(LLD_R_MIPS_STO_PLT),
   LLD_KIND_STRING_ENTRY(LLD_R_MICROMIPS_GLOBAL_26_S1),
   LLD_KIND_STRING_END

@@ -17,6 +17,7 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/Core/ArchSpec.h"
+#include "lldb/Core/StructuredData.h"
 #include "lldb/Target/Process.h"
 
 #include "GDBRemoteCommunication.h"
@@ -78,6 +79,11 @@ public:
                                           const char *packet_payload,
                                           size_t packet_length,
                                           StringExtractorGDBRemote &response);
+    bool
+    SendvContPacket (ProcessGDBRemote *process,
+                     const char *payload,
+                     size_t packet_length,
+                     StringExtractorGDBRemote &response);
 
     bool
     GetThreadSuffixSupported () override;
@@ -205,11 +211,11 @@ public:
     ///     Zero if the for success, or an error code for failure.
     //------------------------------------------------------------------
     int
-    SetSTDIN (char const *path);
+    SetSTDIN(const FileSpec &file_spec);
     int
-    SetSTDOUT (char const *path);
+    SetSTDOUT(const FileSpec &file_spec);
     int
-    SetSTDERR (char const *path);
+    SetSTDERR(const FileSpec &file_spec);
 
     //------------------------------------------------------------------
     /// Sets the disable ASLR flag to \a enable for a process that will 
@@ -243,27 +249,27 @@ public:
     /// implements the platform, it will change the current working
     /// directory for the platform process.
     ///
-    /// @param[in] path
+    /// @param[in] working_dir
     ///     The path to a directory to use when launching our process
     ///
     /// @return
     ///     Zero if the for success, or an error code for failure.
     //------------------------------------------------------------------
     int
-    SetWorkingDir (char const *path);
+    SetWorkingDir(const FileSpec &working_dir);
 
     //------------------------------------------------------------------
     /// Gets the current working directory of a remote platform GDB
     /// server.
     ///
-    /// @param[out] cwd
+    /// @param[out] working_dir
     ///     The current working directory on the remote platform.
     ///
     /// @return
     ///     Boolean for success
     //------------------------------------------------------------------
     bool
-    GetWorkingDir (std::string &cwd);
+    GetWorkingDir(FileSpec &working_dir);
 
     lldb::addr_t
     AllocateMemory (size_t size, uint32_t permissions);
@@ -314,7 +320,7 @@ public:
     GetSyncThreadStateSupported();
     
     void
-    ResetDiscoverableSettings();
+    ResetDiscoverableSettings (bool did_exec);
 
     bool
     GetHostInfo (bool force = false);
@@ -430,6 +436,9 @@ public:
     GetRemoteMaxPacketSize();
 
     bool
+    GetEchoSupported ();
+
+    bool
     GetAugmentedLibrariesSVR4ReadSupported ();
 
     bool
@@ -463,10 +472,10 @@ public:
     GetFileSize (const FileSpec& file_spec);
     
     Error
-    GetFilePermissions(const char *path, uint32_t &file_permissions);
+    GetFilePermissions(const FileSpec &file_spec, uint32_t &file_permissions);
 
     Error
-    SetFilePermissions(const char *path, uint32_t file_permissions);
+    SetFilePermissions(const FileSpec &file_spec, uint32_t file_permissions);
 
     uint64_t
     ReadFile (lldb::user_id_t fd,
@@ -483,26 +492,26 @@ public:
                Error &error);
     
     Error
-    CreateSymlink (const char *src,
-                   const char *dst);
+    CreateSymlink(const FileSpec &src,
+                  const FileSpec &dst);
     
     Error
-    Unlink (const char *path);
+    Unlink(const FileSpec &file_spec);
 
     Error
-    MakeDirectory (const char *path, uint32_t mode);
-    
+    MakeDirectory(const FileSpec &file_spec, uint32_t mode);
+
     bool
     GetFileExists (const FileSpec& file_spec);
     
     Error
-    RunShellCommand (const char *command,           // Shouldn't be NULL
-                     const char *working_dir,       // Pass NULL to use the current working directory
-                     int *status_ptr,               // Pass NULL if you don't want the process exit status
-                     int *signo_ptr,                // Pass NULL if you don't want the signal that caused the process to exit
-                     std::string *command_output,   // Pass NULL if you don't want the command output
-                     uint32_t timeout_sec);         // Timeout in seconds to wait for shell program to finish
-    
+    RunShellCommand(const char *command,           // Shouldn't be NULL
+                    const FileSpec &working_dir,   // Pass empty FileSpec to use the current working directory
+                    int *status_ptr,               // Pass NULL if you don't want the process exit status
+                    int *signo_ptr,                // Pass NULL if you don't want the signal that caused the process to exit
+                    std::string *command_output,   // Pass NULL if you don't want the command output
+                    uint32_t timeout_sec);         // Timeout in seconds to wait for shell program to finish
+
     bool
     CalculateMD5 (const FileSpec& file_spec, uint64_t &high, uint64_t &low);
     
@@ -534,6 +543,9 @@ public:
     bool
     AvoidGPackets(ProcessGDBRemote *process);
 
+    StructuredData::ObjectSP
+    GetThreadsInfo();
+
     bool
     GetThreadExtendedInfoSupported();
 
@@ -548,6 +560,9 @@ public:
                     std::string & out,
                     lldb_private::Error & err);
 
+    void
+    ServeSymbolLookups(lldb_private::Process *process);
+
 protected:
 
     PacketResult
@@ -560,6 +575,11 @@ protected:
 
     bool
     GetGDBServerVersion();
+
+    // Given the list of compression types that the remote debug stub can support,
+    // possibly enable compression if we find an encoding we can handle.
+    void
+    MaybeEnableCompression (std::vector<std::string> supported_compressions);
 
     //------------------------------------------------------------------
     // Classes that inherit from GDBRemoteCommunicationClient can see and modify these
@@ -607,7 +627,9 @@ protected:
         m_supports_z3:1,
         m_supports_z4:1,
         m_supports_QEnvironment:1,
-        m_supports_QEnvironmentHexEncoded:1;
+        m_supports_QEnvironmentHexEncoded:1,
+        m_supports_qSymbol:1,
+        m_supports_jThreadsInfo:1;
     
     lldb::pid_t m_curr_pid;
     lldb::tid_t m_curr_tid;         // Current gdb remote protocol thread index for all other operations
@@ -640,6 +662,7 @@ protected:
     uint32_t m_gdb_server_version; // from reply to qGDBServerVersion, zero if qGDBServerVersion is not supported
     uint32_t m_default_packet_timeout;
     uint64_t m_max_packet_size;  // as returned by qSupported
+
     
     bool
     DecodeProcessInfoResponse (StringExtractorGDBRemote &response, 

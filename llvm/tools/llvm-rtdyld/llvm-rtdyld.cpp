@@ -25,6 +25,7 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Object/MachO.h"
+#include "llvm/Object/SymbolSize.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -47,6 +48,7 @@ InputFileList(cl::Positional, cl::ZeroOrMore,
 
 enum ActionType {
   AC_Execute,
+  AC_PrintObjectLineInfo,
   AC_PrintLineInfo,
   AC_PrintDebugLineInfo,
   AC_Verify
@@ -61,6 +63,8 @@ Action(cl::desc("Action to perform:"),
                              "Load, link, and print line information for each function."),
                   clEnumValN(AC_PrintDebugLineInfo, "printdebugline",
                              "Load, link, and print line information for each function using the debug object"),
+                  clEnumValN(AC_PrintObjectLineInfo, "printobjline",
+                             "Like -printlineinfo but does not load the object first"),
                   clEnumValN(AC_Verify, "verify",
                              "Load, link and verify the resulting memory image."),
                   clEnumValEnd));
@@ -77,6 +81,12 @@ Dylibs("dylib",
 
 static cl::opt<std::string>
 TripleName("triple", cl::desc("Target triple for disassembler"));
+
+static cl::opt<std::string>
+MCPU("mcpu",
+     cl::desc("Target a specific cpu type (-mcpu=help for details)"),
+     cl::value_desc("cpu-name"),
+     cl::init(""));
 
 static cl::list<std::string>
 CheckFiles("check",
@@ -136,6 +146,11 @@ public:
   // explicit cache flush, otherwise JIT code manipulations (like resolved
   // relocations) will get to the data cache but not to the instruction cache.
   virtual void invalidateInstructionCache();
+
+  void registerEHFrames(uint8_t *Addr, uint64_t LoadAddr,
+                        size_t Size) override {}
+  void deregisterEHFrames(uint8_t *Addr, uint64_t LoadAddr,
+                          size_t Size) override {}
 };
 
 uint8_t *TrivialMemoryManager::allocateCodeSection(uintptr_t Size,
@@ -244,26 +259,27 @@ static int printLineInfoForInput(bool LoadObjects, bool UseDebugObj) {
     std::unique_ptr<DIContext> Context(
       new DWARFContextInMemory(*SymbolObj,LoadedObjInfo.get()));
 
+    std::vector<std::pair<SymbolRef, uint64_t>> SymAddr =
+        object::computeSymbolSizes(*SymbolObj);
+
     // Use symbol info to iterate functions in the object.
-    for (object::symbol_iterator I = SymbolObj->symbol_begin(),
-                                 E = SymbolObj->symbol_end();
-         I != E; ++I) {
-      object::SymbolRef::Type SymType;
-      if (I->getType(SymType)) continue;
-      if (SymType == object::SymbolRef::ST_Function) {
+    for (const auto &P : SymAddr) {
+      object::SymbolRef Sym = P.first;
+      if (Sym.getType() == object::SymbolRef::ST_Function) {
         StringRef  Name;
         uint64_t   Addr;
-        uint64_t   Size;
-        if (I->getName(Name)) continue;
-        if (I->getAddress(Addr)) continue;
-        if (I->getSize(Size)) continue;
+        if (Sym.getName(Name))
+          continue;
+        if (Sym.getAddress(Addr))
+          continue;
 
+        uint64_t Size = P.second;
         // If we're not using the debug object, compute the address of the
         // symbol in memory (rather than that in the unrelocated object file)
         // and use that to query the DWARFContext.
         if (!UseDebugObj && LoadObjects) {
           object::section_iterator Sec(SymbolObj->section_end());
-          I->getSection(Sec);
+          Sym.getSection(Sec);
           StringRef SecName;
           Sec->getName(SecName);
           uint64_t SectionLoadAddress =
@@ -524,7 +540,7 @@ static int linkAndVerify() {
   TripleName = TheTriple.getTriple();
 
   std::unique_ptr<MCSubtargetInfo> STI(
-    TheTarget->createMCSubtargetInfo(TripleName, "", ""));
+    TheTarget->createMCSubtargetInfo(TripleName, MCPU, ""));
   assert(STI && "Unable to create subtarget info!");
 
   std::unique_ptr<MCRegisterInfo> MRI(TheTarget->createMCRegInfo(TripleName));
@@ -622,9 +638,11 @@ int main(int argc, char **argv) {
   case AC_Execute:
     return executeInput();
   case AC_PrintDebugLineInfo:
-    return printLineInfoForInput(true,true);
+    return printLineInfoForInput(/* LoadObjects */ true,/* UseDebugObj */ true);
   case AC_PrintLineInfo:
-    return printLineInfoForInput(true,false);
+    return printLineInfoForInput(/* LoadObjects */ true,/* UseDebugObj */false);
+  case AC_PrintObjectLineInfo:
+    return printLineInfoForInput(/* LoadObjects */false,/* UseDebugObj */false);
   case AC_Verify:
     return linkAndVerify();
   }

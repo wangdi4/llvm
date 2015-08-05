@@ -1576,6 +1576,15 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
     PragmaARCCFCodeAuditedLoc = SourceLocation();
   }
 
+  // Complain about attempts to #include files in an assume-nonnull pragma.
+  if (PragmaAssumeNonNullLoc.isValid()) {
+    Diag(HashLoc, diag::err_pp_include_in_assume_nonnull);
+    Diag(PragmaAssumeNonNullLoc, diag::note_pragma_entered_here);
+
+    // Immediately leave the pragma.
+    PragmaAssumeNonNullLoc = SourceLocation();
+  }
+
   if (HeaderInfo.HasIncludeAliasMap()) {
     // Map the filename with the brackets still attached.  If the name doesn't 
     // map to anything, fall back on the filename we've already gotten the 
@@ -1604,7 +1613,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
       FilenameLoc, LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename,
       isAngled, LookupFrom, LookupFromFile, CurDir,
       Callbacks ? &SearchPath : nullptr, Callbacks ? &RelativePath : nullptr,
-      HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule : nullptr);
+      &SuggestedModule);
 
   if (!File) {
     if (Callbacks) {
@@ -1621,9 +1630,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
               FilenameLoc,
               LangOpts.MSVCCompat ? NormalizedPath.c_str() : Filename, isAngled,
               LookupFrom, LookupFromFile, CurDir, nullptr, nullptr,
-              HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule
-                                                          : nullptr,
-              /*SkipCache*/ true);
+              &SuggestedModule, /*SkipCache*/ true);
         }
       }
     }
@@ -1639,8 +1646,7 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
             LookupFrom, LookupFromFile, CurDir,
             Callbacks ? &SearchPath : nullptr,
             Callbacks ? &RelativePath : nullptr,
-            HeaderInfo.getHeaderSearchOpts().ModuleMaps ? &SuggestedModule
-                                                        : nullptr);
+            &SuggestedModule);
         if (File) {
           SourceRange Range(FilenameTok.getLocation(), CharEnd);
           Diag(FilenameTok, diag::err_pp_file_not_found_not_fatal) << 
@@ -1744,7 +1750,8 @@ void Preprocessor::HandleIncludeDirective(SourceLocation HashLoc,
   // Ask HeaderInfo if we should enter this #include file.  If not, #including
   // this file will have no effect.
   if (ShouldEnter &&
-      !HeaderInfo.ShouldEnterIncludeFile(*this, File, isImport)) {
+      !HeaderInfo.ShouldEnterIncludeFile(*this, File, isImport,
+                                         SuggestedModule.getModule())) {
     ShouldEnter = false;
     if (Callbacks)
       Callbacks->FileSkipped(*File, FilenameTok, FileCharacter);
@@ -2021,8 +2028,8 @@ static bool isConfigurationPattern(Token &MacroName, MacroInfo *MI,
   }
 
   // #define inline
-  if ((MacroName.is(tok::kw_extern) || MacroName.is(tok::kw_inline) ||
-       MacroName.is(tok::kw_static) || MacroName.is(tok::kw_const)) &&
+  if (MacroName.isOneOf(tok::kw_extern, tok::kw_inline, tok::kw_static,
+                        tok::kw_const) &&
       MI->getNumTokens() == 0) {
     return true;
   }

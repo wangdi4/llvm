@@ -363,14 +363,14 @@ static int test_construction(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_inequality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_param, 0, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_inequality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_inequality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -5);
@@ -674,7 +674,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, 1);
@@ -683,7 +683,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 1, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, -1);
@@ -703,7 +703,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, -1);
@@ -712,7 +712,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 1, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, 1);
@@ -732,7 +732,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, -1);
@@ -741,7 +741,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 1, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -3);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, 1);
@@ -761,7 +761,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 2);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, -1);
@@ -770,7 +770,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 1, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_constant(c, v);
 	isl_int_set_si(v, 1);
@@ -790,14 +790,14 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, 3);
 	isl_constraint_set_coefficient(c, isl_dim_set, 2, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -3);
@@ -815,14 +815,14 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, 6);
 	isl_constraint_set_coefficient(c, isl_dim_set, 2, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -3);
@@ -849,7 +849,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -3);
@@ -874,7 +874,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -3);
@@ -885,7 +885,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 4, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, 1);
@@ -908,7 +908,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -1);
@@ -917,7 +917,7 @@ static int test_div(isl_ctx *ctx)
 	isl_constraint_set_coefficient(c, isl_dim_set, 2, v);
 	bset = isl_basic_set_add_constraint(bset, c);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, -1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, 3);
@@ -940,7 +940,7 @@ static int test_div(isl_ctx *ctx)
 	bset = isl_basic_set_universe(isl_space_copy(dim));
 	ls = isl_local_space_from_space(dim);
 
-	c = isl_equality_alloc(isl_local_space_copy(ls));
+	c = isl_constraint_alloc_equality(isl_local_space_copy(ls));
 	isl_int_set_si(v, 1);
 	isl_constraint_set_coefficient(c, isl_dim_set, 0, v);
 	isl_int_set_si(v, -2);
@@ -2077,7 +2077,7 @@ struct must_may {
 	isl_map *may;
 };
 
-static int collect_must_may(__isl_take isl_map *dep, int must,
+static isl_stat collect_must_may(__isl_take isl_map *dep, int must,
 	void *dep_user, void *user)
 {
 	struct must_may *mm = (struct must_may *)user;
@@ -2087,7 +2087,7 @@ static int collect_must_may(__isl_take isl_map *dep, int must,
 	else
 		mm->may = isl_map_union(mm->may, dep);
 
-	return 0;
+	return isl_stat_ok;
 }
 
 static int common_space(void *first, void *second)
@@ -2606,33 +2606,30 @@ static int test_union(isl_ctx *ctx)
 
 /* Check that computing a bound of a non-zero polynomial over an unbounded
  * domain does not produce a rational value.
- * Ideally, we want the value to be infinity, but we accept NaN for now.
- * We certainly do not want to obtain the value zero.
+ * In particular, check that the upper bound is infinity.
  */
 static int test_bound_unbounded_domain(isl_ctx *ctx)
 {
 	const char *str;
-	isl_set *dom;
-	isl_point *pnt;
 	isl_pw_qpolynomial *pwqp;
-	isl_pw_qpolynomial_fold *pwf;
-	isl_val *v;
-	int is_rat;
+	isl_pw_qpolynomial_fold *pwf, *pwf2;
+	isl_bool equal;
 
 	str = "{ [m,n] -> -m * n }";
 	pwqp = isl_pw_qpolynomial_read_from_str(ctx, str);
 	pwf = isl_pw_qpolynomial_bound(pwqp, isl_fold_max, NULL);
-	dom = isl_pw_qpolynomial_fold_domain(isl_pw_qpolynomial_fold_copy(pwf));
-	pnt = isl_set_sample_point(dom);
-	v = isl_pw_qpolynomial_fold_eval(pwf, pnt);
-	is_rat = isl_val_is_rat(v);
-	isl_val_free(v);
+	str = "{ infty }";
+	pwqp = isl_pw_qpolynomial_read_from_str(ctx, str);
+	pwf2 = isl_pw_qpolynomial_bound(pwqp, isl_fold_max, NULL);
+	equal = isl_pw_qpolynomial_fold_plain_is_equal(pwf, pwf2);
+	isl_pw_qpolynomial_fold_free(pwf);
+	isl_pw_qpolynomial_fold_free(pwf2);
 
-	if (is_rat < 0)
+	if (equal < 0)
 		return -1;
-	if (is_rat)
+	if (!equal)
 		isl_die(ctx, isl_error_unknown,
-			"unexpected rational value", return -1);
+			"expecting infinite polynomial bound", return -1);
 
 	return 0;
 }
@@ -2842,7 +2839,7 @@ int test_factorize(isl_ctx *ctx)
 	return 0;
 }
 
-static int check_injective(__isl_take isl_map *map, void *user)
+static isl_stat check_injective(__isl_take isl_map *map, void *user)
 {
 	int *injective = user;
 
@@ -2850,9 +2847,9 @@ static int check_injective(__isl_take isl_map *map, void *user)
 	isl_map_free(map);
 
 	if (*injective < 0 || !*injective)
-		return -1;
+		return isl_stat_error;
 
-	return 0;
+	return isl_stat_ok;
 }
 
 int test_one_schedule(isl_ctx *ctx, const char *d, const char *w,
@@ -2983,9 +2980,15 @@ int test_one_schedule(isl_ctx *ctx, const char *d, const char *w,
 	return 0;
 }
 
-static __isl_give isl_union_map *compute_schedule(isl_ctx *ctx,
-	const char *domain, const char *validity, const char *proximity)
+/* Compute a schedule for the given instance set, validity constraints,
+ * proximity constraints and context and return a corresponding union map
+ * representation.
+ */
+static __isl_give isl_union_map *compute_schedule_with_context(isl_ctx *ctx,
+	const char *domain, const char *validity, const char *proximity,
+	const char *context)
 {
+	isl_set *con;
 	isl_union_set *dom;
 	isl_union_map *dep;
 	isl_union_map *prox;
@@ -2993,10 +2996,12 @@ static __isl_give isl_union_map *compute_schedule(isl_ctx *ctx,
 	isl_schedule *schedule;
 	isl_union_map *sched;
 
+	con = isl_set_read_from_str(ctx, context);
 	dom = isl_union_set_read_from_str(ctx, domain);
 	dep = isl_union_map_read_from_str(ctx, validity);
 	prox = isl_union_map_read_from_str(ctx, proximity);
 	sc = isl_schedule_constraints_on_domain(dom);
+	sc = isl_schedule_constraints_set_context(sc, con);
 	sc = isl_schedule_constraints_set_validity(sc, dep);
 	sc = isl_schedule_constraints_set_proximity(sc, prox);
 	schedule = isl_schedule_constraints_compute_schedule(sc);
@@ -3004,6 +3009,16 @@ static __isl_give isl_union_map *compute_schedule(isl_ctx *ctx,
 	isl_schedule_free(schedule);
 
 	return sched;
+}
+
+/* Compute a schedule for the given instance set, validity constraints and
+ * proximity constraints and return a corresponding union map representation.
+ */
+static __isl_give isl_union_map *compute_schedule(isl_ctx *ctx,
+	const char *domain, const char *validity, const char *proximity)
+{
+	return compute_schedule_with_context(ctx, domain, validity, proximity,
+						"{ : }");
 }
 
 /* Check that a schedule can be constructed on the given domain
@@ -3339,6 +3354,65 @@ static int test_strongly_satisfying_schedule(isl_ctx *ctx)
 	return 0;
 }
 
+/* Compute a schedule for input where the instance set constraints
+ * conflict with the context constraints.
+ * Earlier versions of isl did not properly handle this situation.
+ */
+static int test_conflicting_context_schedule(isl_ctx *ctx)
+{
+	isl_union_map *schedule;
+	const char *domain, *context;
+
+	domain = "[n] -> { A[] : n >= 0 }";
+	context = "[n] -> { : n < 0 }";
+	schedule = compute_schedule_with_context(ctx,
+						domain, "{}", "{}", context);
+	isl_union_map_free(schedule);
+
+	if (!schedule)
+		return -1;
+
+	return 0;
+}
+
+/* Check that the dependence carrying step is not confused by
+ * a bound on the coefficient size.
+ * In particular, force the scheduler to move to a dependence carrying
+ * step by demanding outer coincidence and bound the size of
+ * the coefficients.  Earlier versions of isl would take this
+ * bound into account while carrying dependences, breaking
+ * fundamental assumptions.
+ */
+static int test_bounded_coefficients_schedule(isl_ctx *ctx)
+{
+	const char *domain, *dep;
+	isl_union_set *I;
+	isl_union_map *D;
+	isl_schedule_constraints *sc;
+	isl_schedule *schedule;
+
+	domain = "{ C[i0, i1] : 2 <= i0 <= 3999 and 0 <= i1 <= -1 + i0 }";
+	dep = "{ C[i0, i1] -> C[i0, 1 + i1] : i0 <= 3999 and i1 >= 0 and "
+						"i1 <= -2 + i0; "
+		"C[i0, -1 + i0] -> C[1 + i0, 0] : i0 <= 3998 and i0 >= 1 }";
+	I = isl_union_set_read_from_str(ctx, domain);
+	D = isl_union_map_read_from_str(ctx, dep);
+	sc = isl_schedule_constraints_on_domain(I);
+	sc = isl_schedule_constraints_set_validity(sc, isl_union_map_copy(D));
+	sc = isl_schedule_constraints_set_coincidence(sc, D);
+	isl_options_set_schedule_outer_coincidence(ctx, 1);
+	isl_options_set_schedule_max_coefficient(ctx, 20);
+	schedule = isl_schedule_constraints_compute_schedule(sc);
+	isl_options_set_schedule_max_coefficient(ctx, -1);
+	isl_options_set_schedule_outer_coincidence(ctx, 0);
+	isl_schedule_free(schedule);
+
+	if (!schedule)
+		return -1;
+
+	return 0;
+}
+
 int test_schedule(isl_ctx *ctx)
 {
 	const char *D, *W, *R, *V, *P, *S;
@@ -3632,6 +3706,12 @@ int test_schedule(isl_ctx *ctx)
 		return -1;
 
 	if (test_strongly_satisfying_schedule(ctx) < 0)
+		return -1;
+
+	if (test_conflicting_context_schedule(ctx) < 0)
+		return -1;
+
+	if (test_bounded_coefficients_schedule(ctx) < 0)
 		return -1;
 
 	return 0;
@@ -4214,7 +4294,7 @@ struct isl_vertices_test_data {
 
 /* Check that "vertex" corresponds to one of the vertices in data->vertex.
  */
-static int find_vertex(__isl_take isl_vertex *vertex, void *user)
+static isl_stat find_vertex(__isl_take isl_vertex *vertex, void *user)
 {
 	struct isl_vertices_test_data *data = user;
 	isl_ctx *ctx;
@@ -4222,7 +4302,7 @@ static int find_vertex(__isl_take isl_vertex *vertex, void *user)
 	isl_basic_set *bset;
 	isl_pw_multi_aff *pma;
 	int i;
-	int equal;
+	isl_bool equal;
 
 	ctx = isl_vertex_get_ctx(vertex);
 	bset = isl_vertex_get_domain(vertex);
@@ -4244,9 +4324,9 @@ static int find_vertex(__isl_take isl_vertex *vertex, void *user)
 	isl_vertex_free(vertex);
 
 	if (equal < 0)
-		return -1;
+		return isl_stat_error;
 
-	return equal ? 0 : - 1;
+	return equal ? isl_stat_ok : isl_stat_error;
 }
 
 int test_vertices(isl_ctx *ctx)
@@ -5086,7 +5166,7 @@ static int test_ast_gen1(isl_ctx *ctx)
 }
 
 /* Check that the AST generator handles domains that are integrally disjoint
- * but not ratinoally disjoint.
+ * but not rationally disjoint.
  */
 static int test_ast_gen2(isl_ctx *ctx)
 {

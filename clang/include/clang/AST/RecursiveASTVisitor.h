@@ -2244,9 +2244,11 @@ DEF_TRAVERSE_STMT(CXXThisExpr, {})
 DEF_TRAVERSE_STMT(CXXThrowExpr, {})
 DEF_TRAVERSE_STMT(UserDefinedLiteral, {})
 DEF_TRAVERSE_STMT(DesignatedInitExpr, {})
+DEF_TRAVERSE_STMT(DesignatedInitUpdateExpr, {})
 DEF_TRAVERSE_STMT(ExtVectorElementExpr, {})
 DEF_TRAVERSE_STMT(GNUNullExpr, {})
 DEF_TRAVERSE_STMT(ImplicitValueInitExpr, {})
+DEF_TRAVERSE_STMT(NoInitExpr, {})
 DEF_TRAVERSE_STMT(ObjCBoolLiteralExpr, {})
 DEF_TRAVERSE_STMT(ObjCEncodeExpr, {
   if (TypeSourceInfo *TInfo = S->getEncodedTypeSourceInfo())
@@ -2402,6 +2404,12 @@ DEF_TRAVERSE_STMT(OMPBarrierDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPTaskwaitDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPTaskgroupDirective,
+                  { TRY_TO(TraverseOMPExecutableDirective(S)); })
+
+DEF_TRAVERSE_STMT(OMPCancellationPointDirective,
                   { TRY_TO(TraverseOMPExecutableDirective(S)); })
 
 DEF_TRAVERSE_STMT(OMPFlushDirective,
@@ -2664,6 +2672,12 @@ RecursiveASTVisitor<Derived>::VisitOMPReductionClause(OMPReductionClause *C) {
 
 template <typename Derived>
 bool RecursiveASTVisitor<Derived>::VisitOMPFlushClause(OMPFlushClause *C) {
+  TRY_TO(VisitOMPClauseList(C));
+  return true;
+}
+
+template <typename Derived>
+bool RecursiveASTVisitor<Derived>::VisitOMPDependClause(OMPDependClause *C) {
   TRY_TO(VisitOMPClauseList(C));
   return true;
 }

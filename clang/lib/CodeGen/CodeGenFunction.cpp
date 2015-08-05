@@ -51,12 +51,12 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       LambdaThisCaptureField(nullptr), NormalCleanupDest(nullptr),
       NextCleanupDestIndex(1), FirstBlockInfo(nullptr), EHResumeBlock(nullptr),
       ExceptionSlot(nullptr), EHSelectorSlot(nullptr),
-      AbnormalTerminationSlot(nullptr), SEHPointersDecl(nullptr),
-      DebugInfo(CGM.getModuleDebugInfo()), DisableDebugInfo(false),
-      DidCallStackSave(false), IndirectBranch(nullptr), PGO(cgm),
-      SwitchInsn(nullptr), SwitchWeights(nullptr), CaseRangeBlock(nullptr),
-      UnreachableBlock(nullptr), NumReturnExprs(0), NumSimpleReturnExprs(0),
-      CXXABIThisDecl(nullptr), CXXABIThisValue(nullptr), CXXThisValue(nullptr),
+      DebugInfo(CGM.getModuleDebugInfo()),
+      DisableDebugInfo(false), DidCallStackSave(false), IndirectBranch(nullptr),
+      PGO(cgm), SwitchInsn(nullptr), SwitchWeights(nullptr),
+      CaseRangeBlock(nullptr), UnreachableBlock(nullptr), NumReturnExprs(0),
+      NumSimpleReturnExprs(0), CXXABIThisDecl(nullptr),
+      CXXABIThisValue(nullptr), CXXThisValue(nullptr),
       CXXDefaultInitExprThis(nullptr), CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
       CurLexicalScope(nullptr),
@@ -631,12 +631,14 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   }
 
   // Apply sanitizer attributes to the function.
-  if (SanOpts.has(SanitizerKind::Address))
+  if (SanOpts.hasOneOf(SanitizerKind::Address | SanitizerKind::KernelAddress))
     Fn->addFnAttr(llvm::Attribute::SanitizeAddress);
   if (SanOpts.has(SanitizerKind::Thread))
     Fn->addFnAttr(llvm::Attribute::SanitizeThread);
   if (SanOpts.has(SanitizerKind::Memory))
     Fn->addFnAttr(llvm::Attribute::SanitizeMemory);
+  if (SanOpts.has(SanitizerKind::SafeStack))
+    Fn->addFnAttr(llvm::Attribute::SafeStack);
 
   // Pass inline keyword to optimizer if it appears explicitly on any
   // declaration. Also, in the case of -fno-inline attach NoInline

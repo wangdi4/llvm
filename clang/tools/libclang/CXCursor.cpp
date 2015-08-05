@@ -246,11 +246,13 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::CXXUuidofExprClass:
   case Stmt::ChooseExprClass:
   case Stmt::DesignatedInitExprClass:
+  case Stmt::DesignatedInitUpdateExprClass:
   case Stmt::ExprWithCleanupsClass:
   case Stmt::ExpressionTraitExprClass:
   case Stmt::ExtVectorElementExprClass:
   case Stmt::ImplicitCastExprClass:
   case Stmt::ImplicitValueInitExprClass:
+  case Stmt::NoInitExprClass:
   case Stmt::MaterializeTemporaryExprClass:
   case Stmt::ObjCIndirectCopyRestoreExprClass:
   case Stmt::OffsetOfExprClass:
@@ -595,6 +597,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPTaskwaitDirectiveClass:
     K = CXCursor_OMPTaskwaitDirective;
     break;
+  case Stmt::OMPTaskgroupDirectiveClass:
+    K = CXCursor_OMPTaskgroupDirective;
+    break;
   case Stmt::OMPFlushDirectiveClass:
     K = CXCursor_OMPFlushDirective;
     break;
@@ -609,6 +614,9 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
     break;
   case Stmt::OMPTeamsDirectiveClass:
     K = CXCursor_OMPTeamsDirective;
+    break;
+  case Stmt::OMPCancellationPointDirectiveClass:
+    K = CXCursor_OMPCancellationPointDirective;
     break;
   }
 

@@ -120,10 +120,7 @@ namespace platform_linux {
                              NativeProcessProtocolSP &process_sp) override;
 
         uint64_t
-        ConvertMmapFlagsToPlatform(unsigned flags) override;
-
-        static bool
-        UseLlgsForLocalDebugging ();
+        ConvertMmapFlagsToPlatform(const ArchSpec &arch, unsigned flags) override;
 
     private:
         DISALLOW_COPY_AND_ASSIGN (PlatformLinux);

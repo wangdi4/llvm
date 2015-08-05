@@ -65,6 +65,10 @@ def ext_keyword_as_ident : ExtWarn<
   "%select{here|for the remainder of the translation unit}1">,
   InGroup<KeywordCompat>;
 
+def ext_nullability : Extension<
+  "type nullability specifier %0 is a Clang extension">,
+  InGroup<DiagGroup<"nullability-extension">>;
+
 def error_empty_enum : Error<"use of empty enum">;
 // CQ#364426
 // if INTEL_CUSTOMIZATION
@@ -754,6 +758,13 @@ def warn_cxx98_compat_defaulted_function : Warning<
   "defaulted function definitions are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
 
+// if INTEL_CUSTOMIZATION
+// CQ#373607
+def warn_member_function_initialization : Warning<
+  "initializer on function does not look like a pure-specifier">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
+
 // C++11 in-class member initialization
 def ext_nonstatic_member_init : ExtWarn<
   "in-class initialization of non-static data member is a C++11 extension">,
@@ -1103,17 +1114,21 @@ def err_omp_expected_identifier_for_critical : Error<
 // Pragma loop support.
 def err_pragma_loop_missing_argument : Error<
   "missing argument; expected %select{an integer value|"
-  "'%select{enable|full}1' or 'disable'}0">;
+  "%select{'enable', 'assume_safety'|'full'}1 or 'disable'}0">;
 def err_pragma_loop_invalid_option : Error<
   "%select{invalid|missing}0 option%select{ %1|}0; expected vectorize, "
   "vectorize_width, interleave, interleave_count, unroll, or unroll_count">;
 def err_pragma_invalid_keyword : Error<
-  "invalid argument; expected '%select{enable|full}0' or 'disable'">;
+  "invalid argument; expected %select{'enable', 'assume_safety'|'full'}0 or 'disable'">;
 
 // Pragma unroll support.
 def warn_pragma_unroll_cuda_value_in_parens : Warning<
   "argument to '#pragma unroll' should not be in parentheses in CUDA C/C++">,
   InGroup<CudaCompat>;
+
+def err_empty_attribute_block : Error<
+  "Microsoft attribute block cannot be empty">;
+
 } // end of Parse Issue category.
 
 let CategoryName = "Modules Issue" in {
