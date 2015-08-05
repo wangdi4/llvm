@@ -774,7 +774,6 @@ bool DependenceAnalysis::intersectConstraints(Constraint *X,
 
 // DependenceAnalysis methods
 // For debugging purposes. Dumps a dependence to OS.
-
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void Dependences::dump(raw_ostream &OS) const {
   bool Splitable = false;

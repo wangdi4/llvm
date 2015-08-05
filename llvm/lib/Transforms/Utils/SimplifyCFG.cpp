@@ -138,9 +138,8 @@ public:
 };
 }
 
-/// SafeToMergeTerminators - Return true if it is safe to merge these two
+/// Return true if it is safe to merge these two
 /// terminator instructions together.
-///
 static bool SafeToMergeTerminators(TerminatorInst *SI1, TerminatorInst *SI2) {
   if (SI1 == SI2) return false;  // Can't merge with self!
 
@@ -164,11 +163,9 @@ static bool SafeToMergeTerminators(TerminatorInst *SI1, TerminatorInst *SI2) {
   return true;
 }
 
-/// isProfitableToFoldUnconditional - Return true if it is safe and profitable
-/// to merge these two terminator instructions together, where SI1 is an
-/// unconditional branch. PhiNodes will store all PHI nodes in common
-/// successors.
-///
+/// Return true if it is safe and profitable to merge these two terminator
+/// instructions together, where SI1 is an unconditional branch. PhiNodes will
+/// store all PHI nodes in common successors.
 static bool isProfitableToFoldUnconditional(BranchInst *SI1,
                                           BranchInst *SI2,
                                           Instruction *Cond,
@@ -205,10 +202,10 @@ static bool isProfitableToFoldUnconditional(BranchInst *SI1,
   return true;
 }
 
-/// AddPredecessorToBlock - Update PHI nodes in Succ to indicate that there will
-/// now be entries in it from the 'NewPred' block.  The values that will be
-/// flowing into the PHI nodes will be the same as those coming in from
-/// ExistPred, an existing predecessor of Succ.
+/// Update PHI nodes in Succ to indicate that there will now be entries in it
+/// from the 'NewPred' block. The values that will be flowing into the PHI nodes
+/// will be the same as those coming in from ExistPred, an existing predecessor
+/// of Succ.
 static void AddPredecessorToBlock(BasicBlock *Succ, BasicBlock *NewPred,
                                   BasicBlock *ExistPred) {
   if (!isa<PHINode>(Succ->begin())) return; // Quick exit if nothing to do
@@ -219,9 +216,9 @@ static void AddPredecessorToBlock(BasicBlock *Succ, BasicBlock *NewPred,
     PN->addIncoming(PN->getIncomingValueForBlock(ExistPred), NewPred);
 }
 
-/// ComputeSpeculationCost - Compute an abstract "cost" of speculating the
-/// given instruction, which is assumed to be safe to speculate. TCC_Free means
-/// cheap, TCC_Basic means less cheap, and TCC_Expensive means prohibitively
+/// Compute an abstract "cost" of speculating the given instruction,
+/// which is assumed to be safe to speculate. TCC_Free means cheap,
+/// TCC_Basic means less cheap, and TCC_Expensive means prohibitively
 /// expensive.
 static unsigned ComputeSpeculationCost(const User *I,
                                        const TargetTransformInfo &TTI) {
@@ -326,7 +323,7 @@ CanDominateConditionalBranch(Value *V, BasicBlock *BB,
 }
 #endif //INTEL_CUSTOMIZATION
 
-/// GetConstantInt - Extract ConstantInt from value, looking through IntToPtr
+/// Extract ConstantInt from value, looking through IntToPtr
 /// and PointerNullValue. Return NULL if value is not a constant int.
 static ConstantInt *GetConstantInt(Value *V, const DataLayout &DL) {
   // Normal constant int.
@@ -480,7 +477,7 @@ private:
 
   }
 
-  /// gather - Given a potentially 'or'd or 'and'd together collection of icmp
+  /// Given a potentially 'or'd or 'and'd together collection of icmp
   /// eq/ne/lt/gt instructions that compare a value against a constant, extract
   /// the value being compared, and stick the list constants into the Vals
   /// vector.
@@ -543,7 +540,7 @@ static void EraseTerminatorInstAndDCECond(TerminatorInst *TI) {
   if (Cond) RecursivelyDeleteTriviallyDeadInstructions(Cond);
 }
 
-/// isValueEqualityComparison - Return true if the specified terminator checks
+/// Return true if the specified terminator checks
 /// to see if a value is equal to constant integer value.
 Value *SimplifyCFGOpt::isValueEqualityComparison(TerminatorInst *TI) {
   Value *CV = nullptr;
@@ -571,7 +568,7 @@ Value *SimplifyCFGOpt::isValueEqualityComparison(TerminatorInst *TI) {
   return CV;
 }
 
-/// GetValueEqualityComparisonCases - Given a value comparison instruction,
+/// Given a value comparison instruction,
 /// decode all of the 'cases' that it represents and return the 'default' block.
 BasicBlock *SimplifyCFGOpt::
 GetValueEqualityComparisonCases(TerminatorInst *TI,
@@ -595,15 +592,14 @@ GetValueEqualityComparisonCases(TerminatorInst *TI,
 }
 
 
-/// EliminateBlockCases - Given a vector of bb/value pairs, remove any entries
+/// Given a vector of bb/value pairs, remove any entries
 /// in the list that match the specified block.
 static void EliminateBlockCases(BasicBlock *BB,
                               std::vector<ValueEqualityComparisonCase> &Cases) {
   Cases.erase(std::remove(Cases.begin(), Cases.end(), BB), Cases.end());
 }
 
-/// ValuesOverlap - Return true if there are any keys in C1 that exist in C2 as
-/// well.
+/// Return true if there are any keys in C1 that exist in C2 as well.
 static bool
 ValuesOverlap(std::vector<ValueEqualityComparisonCase> &C1,
               std::vector<ValueEqualityComparisonCase > &C2) {
@@ -637,12 +633,11 @@ ValuesOverlap(std::vector<ValueEqualityComparisonCase> &C1,
   return false;
 }
 
-/// SimplifyEqualityComparisonWithOnlyPredecessor - If TI is known to be a
-/// terminator instruction and its block is known to only have a single
-/// predecessor block, check to see if that predecessor is also a value
-/// comparison with the same value, and if that comparison determines the
-/// outcome of this comparison.  If so, simplify TI.  This does a very limited
-/// form of jump threading.
+/// If TI is known to be a terminator instruction and its block is known to
+/// only have a single predecessor block, check to see if that predecessor is
+/// also a value comparison with the same value, and if that comparison
+/// determines the outcome of this comparison. If so, simplify TI. This does a
+/// very limited form of jump threading.
 bool SimplifyCFGOpt::
 SimplifyEqualityComparisonWithOnlyPredecessor(TerminatorInst *TI,
                                               BasicBlock *Pred,
@@ -778,7 +773,7 @@ SimplifyEqualityComparisonWithOnlyPredecessor(TerminatorInst *TI,
 }
 
 namespace {
-  /// ConstantIntOrdering - This class implements a stable ordering of constant
+  /// This class implements a stable ordering of constant
   /// integers that does not depend on their address.  This is important for
   /// applications that sort ConstantInt's to ensure uniqueness.
   struct ConstantIntOrdering {
@@ -841,8 +836,8 @@ static void FitWeights(MutableArrayRef<uint64_t> Weights) {
   }
 }
 
-/// FoldValueComparisonIntoPredecessors - The specified terminator is a value
-/// equality comparison instruction (either a switch or a branch on "X == c").
+/// The specified terminator is a value equality comparison instruction
+/// (either a switch or a branch on "X == c").
 /// See if any of the predecessors of the terminator block are value comparisons
 /// on the same value.  If so, and if safe to do so, fold them together.
 bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
@@ -1051,10 +1046,9 @@ bool SimplifyCFGOpt::FoldValueComparisonIntoPredecessors(TerminatorInst *TI,
   return Changed;
 }
 
-// isSafeToHoistInvoke - If we would need to insert a select that uses the
-// value of this invoke (comments in HoistThenElseCodeToIf explain why we
-// would need to do this), we can't hoist the invoke, as there is nowhere
-// to put the select in this case.
+// If we would need to insert a select that uses the value of this invoke
+// (comments in HoistThenElseCodeToIf explain why we would need to do this), we
+// can't hoist the invoke, as there is nowhere to put the select in this case.
 static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
                                 Instruction *I1, Instruction *I2) {
   for (succ_iterator SI = succ_begin(BB1), E = succ_end(BB1); SI != E; ++SI) {
@@ -1071,11 +1065,26 @@ static bool isSafeToHoistInvoke(BasicBlock *BB1, BasicBlock *BB2,
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// The llvm.eh.begincatch intrinsic is used to mark boundaries of
+// individual exception handlers.  It should never be hoisted above
+// its original location.
+static bool isSafeToHoistIntrinsic(Instruction *I1) {
+  // The outlining code in WinEHPrepare depends on llvm.eh.begincatch to
+  // identify the structure of catch handler blocks.  Hoisting the
+  // eh_begincatch intrinsics from multiple catch handlers into a single
+  // predecessor block causes outlining to fail, so this check prevents it.
+  if (match(I1, m_Intrinsic<Intrinsic::eh_begincatch>()))
+    return false;
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool passingValueIsAlwaysUndefined(Value *V, Instruction *I);
 
-/// HoistThenElseCodeToIf - Given a conditional branch that goes to BB1 and
-/// BB2, hoist any common code in the two blocks up into the branch block.  The
-/// caller of this function guarantees that BI's block dominates BB1 and BB2.
+/// Given a conditional branch that goes to BB1 and BB2, hoist any common code
+/// in the two blocks up into the branch block. The caller of this function
+/// guarantees that BI's block dominates BB1 and BB2.
 static bool HoistThenElseCodeToIf(BranchInst *BI,
                                   const TargetTransformInfo &TTI) {
   // This does very trivial matching, with limited scanning, to find identical
@@ -1100,6 +1109,9 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       I2 = BB2_Itr++;
   }
   if (isa<PHINode>(I1) || !I1->isIdenticalToWhenDefined(I2) ||
+#if INTEL_CUSTOMIZATION
+      (isa<IntrinsicInst>(I1) && !isSafeToHoistIntrinsic(I1)) ||
+#endif // INTEL_CUSTOMIZATION
       (isa<InvokeInst>(I1) && !isSafeToHoistInvoke(BB1, BB2, I1, I2)))
     return false;
 
@@ -1144,6 +1156,10 @@ static bool HoistThenElseCodeToIf(BranchInst *BI,
       while (isa<DbgInfoIntrinsic>(I2))
         I2 = BB2_Itr++;
     }
+#if INTEL_CUSTOMIZATION
+    if (isa<IntrinsicInst>(I1) && !isSafeToHoistIntrinsic(I1))
+      break;
+#endif // INTEL_CUSTOMIZATION
   } while (I1->isIdenticalToWhenDefined(I2));
 
   return true;
@@ -1221,7 +1237,7 @@ HoistTerminator:
   return true;
 }
 
-/// SinkThenElseCodeToEnd - Given an unconditional branch that goes to BBEnd,
+/// Given an unconditional branch that goes to BBEnd,
 /// check whether BBEnd has only two predecessors and the other predecessor
 /// ends with an unconditional branch. If it is true, sink any common code
 /// in the two predecessors to BBEnd.
@@ -1680,8 +1696,7 @@ static bool HasNoDuplicateCall(const BasicBlock *BB) {
   return false;
 }
 
-/// BlockIsSimpleEnoughToThreadThrough - Return true if we can thread a branch
-/// across this block.
+/// Return true if we can thread a branch across this block.
 static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   BranchInst *BI = cast<BranchInst>(BB->getTerminator());
   unsigned Size = 0;
@@ -1705,10 +1720,9 @@ static bool BlockIsSimpleEnoughToThreadThrough(BasicBlock *BB) {
   return true;
 }
 
-/// FoldCondBranchOnPHI - If we have a conditional branch on a PHI node value
-/// that is defined in the same block as the branch and if any PHI entries are
-/// constants, thread edges corresponding to that entry to be branches to their
-/// ultimate destination.
+/// If we have a conditional branch on a PHI node value that is defined in the
+/// same block as the branch and if any PHI entries are constants, thread edges
+/// corresponding to that entry to be branches to their ultimate destination.
 static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL) {
   BasicBlock *BB = BI->getParent();
   PHINode *PN = dyn_cast<PHINode>(BI->getCondition());
@@ -1820,8 +1834,8 @@ static bool FoldCondBranchOnPHI(BranchInst *BI, const DataLayout &DL) {
 
 /// FoldPHIEntries - Given a BB that starts with the specified PHI node,
 /// see if we can fold the phi node or some of its entries.
-static bool FoldPHIEntries(PHINode *PN, const DataLayout &DL,
-                           const TargetTransformInfo &TTI) {
+static bool FoldPHIEntries(PHINode *PN, const TargetTransformInfo &TTI,
+                           const DataLayout &DL) {
   BasicBlock *BB = PN->getParent();
   bool Changed = false;
 
@@ -2026,8 +2040,8 @@ static bool FoldPHIEntries(PHINode *PN, const DataLayout &DL,
 }
 #endif //INTEL_CUSTOMIZATION
 
-/// SimplifyCondBranchToTwoReturns - If we found a conditional branch that goes
-/// to two returning blocks, try to merge them together into one return,
+/// If we found a conditional branch that goes to two returning blocks,
+/// try to merge them together into one return,
 /// introducing a select if the return values disagree.
 static bool SimplifyCondBranchToTwoReturns(BranchInst *BI,
                                            IRBuilder<> &Builder) {
@@ -2114,10 +2128,9 @@ static bool SimplifyCondBranchToTwoReturns(BranchInst *BI,
   return true;
 }
 
-/// ExtractBranchMetadata - Given a conditional BranchInstruction, retrieve the
-/// probabilities of the branch taking each edge. Fills in the two APInt
-/// parameters and return true, or returns false if no or invalid metadata was
-/// found.
+/// Given a conditional BranchInstruction, retrieve the probabilities of the
+/// branch taking each edge. Fills in the two APInt parameters and returns true,
+/// or returns false if no or invalid metadata was found.
 static bool ExtractBranchMetadata(BranchInst *BI,
                                   uint64_t &ProbTrue, uint64_t &ProbFalse) {
   assert(BI->isConditional() &&
@@ -2134,9 +2147,8 @@ static bool ExtractBranchMetadata(BranchInst *BI,
   return true;
 }
 
-/// checkCSEInPredecessor - Return true if the given instruction is available
+/// Return true if the given instruction is available
 /// in its predecessor block. If yes, the instruction will be removed.
-///
 static bool checkCSEInPredecessor(Instruction *Inst, BasicBlock *PB) {
   if (!isa<BinaryOperator>(Inst) && !isa<CmpInst>(Inst))
     return false;
@@ -2152,9 +2164,9 @@ static bool checkCSEInPredecessor(Instruction *Inst, BasicBlock *PB) {
   return false;
 }
 
-/// FoldBranchToCommonDest - If this basic block is simple enough, and if a
-/// predecessor branches to us and one of our successors, fold the block into
-/// the predecessor and use logical operations to pick the right destination.
+/// If this basic block is simple enough, and if a predecessor branches to us
+/// and one of our successors, fold the block into the predecessor and use
+/// logical operations to pick the right destination.
 bool llvm::FoldBranchToCommonDest(BranchInst *BI, unsigned BonusInstThreshold) {
   BasicBlock *BB = BI->getParent();
 
@@ -2296,11 +2308,11 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, unsigned BonusInstThreshold) {
     }
 
     // If we have bonus instructions, clone them into the predecessor block.
-    // Note that there may be mutliple predecessor blocks, so we cannot move
+    // Note that there may be multiple predecessor blocks, so we cannot move
     // bonus instructions to a predecessor block.
     ValueToValueMapTy VMap; // maps original values to cloned values
     // We already make sure Cond is the last instruction before BI. Therefore,
-    // every instructions before Cond other than DbgInfoIntrinsic are bonus
+    // all instructions before Cond other than DbgInfoIntrinsic are bonus
     // instructions.
     for (auto BonusInst = BB->begin(); Cond != BonusInst; ++BonusInst) {
       if (isa<DbgInfoIntrinsic>(BonusInst))
@@ -2448,8 +2460,8 @@ bool llvm::FoldBranchToCommonDest(BranchInst *BI, unsigned BonusInstThreshold) {
   return false;
 }
 
-/// SimplifyCondBranchToCondBranch - If we have a conditional branch as a
-/// predecessor of another block, this function tries to simplify it.  We know
+/// If we have a conditional branch as a predecessor of another block,
+/// this function tries to simplify it.  We know
 /// that PBI and BI are both conditional branches, and BI is in one of the
 /// successor blocks of PBI - PBI branches to BI.
 static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI) {
@@ -2664,8 +2676,8 @@ static bool SimplifyCondBranchToCondBranch(BranchInst *PBI, BranchInst *BI) {
   return true;
 }
 
-// SimplifyTerminatorOnSelect - Simplifies a terminator by replacing it with a
-// branch to TrueBB if Cond is true or to FalseBB if Cond is false.
+// Simplifies a terminator by replacing it with a branch to TrueBB if Cond is
+// true or to FalseBB if Cond is false.
 // Takes care of updating the successors and removing the old terminator.
 // Also makes sure not to introduce new successors by assuming that edges to
 // non-successor TrueBBs and FalseBBs aren't reachable.
@@ -2730,7 +2742,7 @@ static bool SimplifyTerminatorOnSelect(TerminatorInst *OldTerm, Value *Cond,
   return true;
 }
 
-// SimplifySwitchOnSelect - Replaces
+// Replaces
 //   (switch (select cond, X, Y)) on constant X, Y
 // with a branch - conditional if X and Y lead to distinct BBs,
 // unconditional otherwise.
@@ -2765,7 +2777,7 @@ static bool SimplifySwitchOnSelect(SwitchInst *SI, SelectInst *Select) {
                                     TrueWeight, FalseWeight);
 }
 
-// SimplifyIndirectBrOnSelect - Replaces
+// Replaces
 //   (indirectbr (select cond, blockaddress(@fn, BlockA),
 //                             blockaddress(@fn, BlockB)))
 // with
@@ -2786,8 +2798,8 @@ static bool SimplifyIndirectBrOnSelect(IndirectBrInst *IBI, SelectInst *SI) {
                                     0, 0);
 }
 
-/// TryToSimplifyUncondBranchWithICmpInIt - This is called when we find an icmp
-/// instruction (a seteq/setne with a constant) as the only instruction in a
+/// This is called when we find an icmp instruction
+/// (a seteq/setne with a constant) as the only instruction in a
 /// block that ends with an uncond branch.  We are looking for a very specific
 /// pattern that occurs when "A == 1 || A == 2 || A == 3" gets simplified.  In
 /// this case, we merge the first two "or's of icmp" into a switch, but then the
@@ -2908,7 +2920,7 @@ static bool TryToSimplifyUncondBranchWithICmpInIt(
   return true;
 }
 
-/// SimplifyBranchOnICmpChain - The specified branch is a conditional branch.
+/// The specified branch is a conditional branch.
 /// Check to see if it is branching on an or/and chain of icmp instructions, and
 /// fold it into a switch instruction if so.
 static bool SimplifyBranchOnICmpChain(BranchInst *BI, IRBuilder<> &Builder,
@@ -3345,7 +3357,7 @@ static bool TurnSwitchRangeIntoICmp(SwitchInst *SI, IRBuilder<> &Builder) {
   return true;
 }
 
-/// EliminateDeadSwitchCases - Compute masked bits for the condition of a switch
+/// Compute masked bits for the condition of a switch
 /// and use it to remove dead cases.
 static bool EliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
                                      const DataLayout &DL) {
@@ -3396,8 +3408,8 @@ static bool EliminateDeadSwitchCases(SwitchInst *SI, AssumptionCache *AC,
   return !DeadCases.empty();
 }
 
-/// FindPHIForConditionForwarding - If BB would be eligible for simplification
-/// by TryToSimplifyUncondBranchFromEmptyBlock (i.e. it is empty and terminated
+/// If BB would be eligible for simplification by
+/// TryToSimplifyUncondBranchFromEmptyBlock (i.e. it is empty and terminated
 /// by an unconditional branch), look at the phi node for BB in the successor
 /// block and see if the incoming value is equal to CaseValue. If so, return
 /// the phi node, and set PhiIndex to BB's index in the phi node.
@@ -3430,9 +3442,9 @@ static PHINode *FindPHIForConditionForwarding(ConstantInt *CaseValue,
   return nullptr;
 }
 
-/// ForwardSwitchConditionToPHI - Try to forward the condition of a switch
-/// instruction to a phi node dominated by the switch, if that would mean that
-/// some of the destination blocks of the switch can be folded away.
+/// Try to forward the condition of a switch instruction to a phi node
+/// dominated by the switch, if that would mean that some of the destination
+/// blocks of the switch can be folded away.
 /// Returns true if a change is made.
 static bool ForwardSwitchConditionToPHI(SwitchInst *SI) {
   typedef DenseMap<PHINode*, SmallVector<int,4> > ForwardingNodesMap;
@@ -3467,7 +3479,7 @@ static bool ForwardSwitchConditionToPHI(SwitchInst *SI) {
   return Changed;
 }
 
-/// ValidLookupTableConstant - Return true if the backend will be able to handle
+/// Return true if the backend will be able to handle
 /// initializing an array of constants like C.
 static bool ValidLookupTableConstant(Constant *C) {
   if (C->isThreadDependent())
@@ -3485,7 +3497,7 @@ static bool ValidLookupTableConstant(Constant *C) {
       isa<UndefValue>(C);
 }
 
-/// LookupConstant - If V is a Constant, return it. Otherwise, try to look up
+/// If V is a Constant, return it. Otherwise, try to look up
 /// its constant value in ConstantPool, returning 0 if it's not there.
 static Constant *LookupConstant(Value *V,
                          const SmallDenseMap<Value*, Constant*>& ConstantPool) {
@@ -3494,7 +3506,7 @@ static Constant *LookupConstant(Value *V,
   return ConstantPool.lookup(V);
 }
 
-/// ConstantFold - Try to fold instruction I into a constant. This works for
+/// Try to fold instruction I into a constant. This works for
 /// simple instructions such as binary operations where both operands are
 /// constant or can be replaced by constants from the ConstantPool. Returns the
 /// resulting constant on success, 0 otherwise.
@@ -3528,7 +3540,7 @@ ConstantFold(Instruction *I, const DataLayout &DL,
   return ConstantFoldInstOperands(I->getOpcode(), I->getType(), COps, DL);
 }
 
-/// GetCaseResults - Try to determine the resulting constant values in phi nodes
+/// Try to determine the resulting constant values in phi nodes
 /// at the common destination basic block, *CommonDest, for one of the case
 /// destionations CaseDest corresponding to value CaseVal (0 for the default
 /// case), of a switch instruction SI.
@@ -3607,8 +3619,8 @@ GetCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
   return Res.size() > 0;
 }
 
-// MapCaseToResult - Helper function used to
-// add CaseVal to the list of cases that generate Result.
+// Helper function used to add CaseVal to the list of cases that generate
+// Result.
 static void MapCaseToResult(ConstantInt *CaseVal,
     SwitchCaseResultVectorTy &UniqueResults,
     Constant *Result) {
@@ -3622,7 +3634,7 @@ static void MapCaseToResult(ConstantInt *CaseVal,
         SmallVector<ConstantInt*, 4>(1, CaseVal)));
 }
 
-// InitializeUniqueCases - Helper function that initializes a map containing
+// Helper function that initializes a map containing
 // results for the PHI node of the common destination block for a switch
 // instruction. Returns false if multiple PHI nodes have been found or if
 // there is not a common destination block for the switch.
@@ -3667,9 +3679,8 @@ static bool InitializeUniqueCases(SwitchInst *SI, PHINode *&PHI,
   return true;
 }
 
-// ConvertTwoCaseSwitch - Helper function that checks if it is possible to
-// transform a switch with only two cases (or two cases + default)
-// that produces a result into a value select.
+// Helper function that checks if it is possible to transform a switch with only
+// two cases (or two cases + default) that produces a result into a select.
 // Example:
 // switch (a) {
 //   case 10:                %0 = icmp eq i32 %a, 10
@@ -3709,9 +3720,8 @@ ConvertTwoCaseSwitch(const SwitchCaseResultVectorTy &ResultVector,
   return nullptr;
 }
 
-// RemoveSwitchAfterSelectConversion - Helper function to cleanup a switch
-// instruction that has been converted into a select, fixing up PHI nodes and
-// basic blocks.
+// Helper function to cleanup a switch instruction that has been converted into
+// a select, fixing up PHI nodes and basic blocks.
 static void RemoveSwitchAfterSelectConversion(SwitchInst *SI, PHINode *PHI,
                                               Value *SelectValue,
                                               IRBuilder<> &Builder) {
@@ -3733,7 +3743,7 @@ static void RemoveSwitchAfterSelectConversion(SwitchInst *SI, PHINode *PHI,
   SI->eraseFromParent();
 }
 
-/// SwitchToSelect - If the switch is only used to initialize one or more
+/// If the switch is only used to initialize one or more
 /// phi nodes in a common successor block with only two different
 /// constant values, replace the switch with select.
 static bool SwitchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
@@ -3765,23 +3775,21 @@ static bool SwitchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
 }
 
 namespace {
-  /// SwitchLookupTable - This class represents a lookup table that can be used
-  /// to replace a switch.
+  /// This class represents a lookup table that can be used to replace a switch.
   class SwitchLookupTable {
   public:
-    /// SwitchLookupTable - Create a lookup table to use as a switch replacement
-    /// with the contents of Values, using DefaultValue to fill any holes in the
-    /// table.
+    /// Create a lookup table to use as a switch replacement with the contents
+    /// of Values, using DefaultValue to fill any holes in the table.
     SwitchLookupTable(
         Module &M, uint64_t TableSize, ConstantInt *Offset,
         const SmallVectorImpl<std::pair<ConstantInt *, Constant *>> &Values,
         Constant *DefaultValue, const DataLayout &DL);
 
-    /// BuildLookup - Build instructions with Builder to retrieve the value at
+    /// Build instructions with Builder to retrieve the value at
     /// the position given by Index in the lookup table.
     Value *BuildLookup(Value *Index, IRBuilder<> &Builder);
 
-    /// WouldFitInRegister - Return true if a table with TableSize elements of
+    /// Return true if a table with TableSize elements of
     /// type ElementType would fit in a target-legal register.
     static bool WouldFitInRegister(const DataLayout &DL, uint64_t TableSize,
                                    const Type *ElementType);
@@ -4013,9 +4021,8 @@ bool SwitchLookupTable::WouldFitInRegister(const DataLayout &DL,
   return DL.fitsInLegalInteger(TableSize * IT->getBitWidth());
 }
 
-/// ShouldBuildLookupTable - Determine whether a lookup table should be built
-/// for this switch, based on the number of cases, size of the table and the
-/// types of the results.
+/// Determine whether a lookup table should be built for this switch, based on
+/// the number of cases, size of the table, and the types of the results.
 static bool
 ShouldBuildLookupTable(SwitchInst *SI, uint64_t TableSize,
                        const TargetTransformInfo &TTI, const DataLayout &DL,
@@ -4139,9 +4146,9 @@ static void reuseTableCompare(User *PhiUser, BasicBlock *PhiBlock,
   }
 }
 
-/// SwitchToLookupTable - If the switch is only used to initialize one or more
-/// phi nodes in a common successor block with different constant values,
-/// replace the switch with lookup tables.
+/// If the switch is only used to initialize one or more phi nodes in a common
+/// successor block with different constant values, replace the switch with
+/// lookup tables.
 static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
                                 const DataLayout &DL,
                                 const TargetTransformInfo &TTI) {
@@ -4164,7 +4171,7 @@ static bool SwitchToLookupTable(SwitchInst *SI, IRBuilder<> &Builder,
     return false;
 
   // Figure out the corresponding result for each case value and phi node in the
-  // common destination, as well as the the min and max case values.
+  // common destination, as well as the min and max case values.
   assert(SI->case_begin() != SI->case_end());
   SwitchInst::CaseIt CI = SI->case_begin();
   ConstantInt *MinCaseVal = CI.getCaseValue();
@@ -4781,7 +4788,7 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
     // To keep xmain as clean as possible we got rid of the FoldTwoEntryPHINode,
     // therefore, there might be conflicts during code merge. If resolving
     // conflicts becomes too cumbersome, we can try something different.
-    Changed |= FoldPHIEntries(PN, DL, TTI);
+    Changed |= FoldPHIEntries(PN, TTI, DL);
 #endif
   }
 
@@ -4809,8 +4816,8 @@ bool SimplifyCFGOpt::run(BasicBlock *BB) {
   return Changed;
 }
 
-/// SimplifyCFG - This function is used to do simplification of a CFG.  For
-/// example, it adjusts branches to branches to eliminate the extra hop, it
+/// This function is used to do simplification of a CFG.
+/// For example, it adjusts branches to branches to eliminate the extra hop,
 /// eliminates unreachable basic blocks, and does other "peephole" optimization
 /// of the CFG.  It returns true if a modification was made.
 ///

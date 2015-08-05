@@ -115,12 +115,11 @@ public:
   /// can be overridden.
   virtual bool enableJoinGlobalCopies() const;
 
-  /// \brief True if the subtarget should run PostMachineScheduler.
+  /// True if the subtarget should run a scheduler after register allocation.
   ///
-  /// This only takes effect if the target has configured the
-  /// PostMachineScheduler pass to run, or if the global cl::opt flag,
-  /// MISchedPostRA, is set.
-  virtual bool enablePostMachineScheduler() const;
+  /// By default this queries the PostRAScheduling bit in the scheduling model
+  /// which is the preferred way to influence this.
+  virtual bool enablePostRAScheduler() const;
 
   /// \brief True if the subtarget should run the atomic expansion pass.
   virtual bool enableAtomicExpand() const;
@@ -177,6 +176,14 @@ public:
 
   /// Enable tracking of subregister liveness in register allocator.
   virtual bool enableSubRegLiveness() const { return false; }
+  
+#ifdef INTEL_CUSTOMIZATION
+  /// Check whether the subtarget has the requested feature.
+  /// Currently implemented only by the x86 target.
+  virtual bool hasFeature(StringRef Feature) const {
+    return false;
+  }
+#endif  // INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace

@@ -27,27 +27,28 @@ namespace elf {
 
 template <class ELFT>
 MipsELFWriter<ELFT>::MipsELFWriter(MipsLinkingContext &ctx,
-                                   MipsTargetLayout<ELFT> &targetLayout)
-    : _ctx(ctx), _targetLayout(targetLayout) {}
+                                   MipsTargetLayout<ELFT> &targetLayout,
+                                   const MipsAbiInfoHandler<ELFT> &abiInfo)
+    : _ctx(ctx), _targetLayout(targetLayout), _abiInfo(abiInfo) {}
 
 template <class ELFT>
 void MipsELFWriter<ELFT>::setELFHeader(ELFHeader<ELFT> &elfHeader) {
   elfHeader.e_version(1);
   elfHeader.e_ident(llvm::ELF::EI_VERSION, llvm::ELF::EV_CURRENT);
   elfHeader.e_ident(llvm::ELF::EI_OSABI, llvm::ELF::ELFOSABI_NONE);
-  if (_targetLayout.findOutputSection(".got.plt"))
-    elfHeader.e_ident(llvm::ELF::EI_ABIVERSION, 1);
-  else
-    elfHeader.e_ident(llvm::ELF::EI_ABIVERSION, 0);
 
-  elfHeader.e_flags(_ctx.getMergedELFFlags());
+  unsigned char abiVer = 0;
+  if (_ctx.getOutputELFType() == ET_EXEC && _abiInfo.isCPicOnly())
+    abiVer = 1;
+  if (_abiInfo.isFp64())
+    abiVer = 3;
+
+  elfHeader.e_ident(llvm::ELF::EI_ABIVERSION, abiVer);
+  elfHeader.e_flags(_abiInfo.getFlags());
 }
 
 template <class ELFT>
 void MipsELFWriter<ELFT>::finalizeMipsRuntimeAtomValues() {
-  if (!_ctx.isDynamic())
-    return;
-
   auto gotSection = _targetLayout.findOutputSection(".got");
   auto got = gotSection ? gotSection->virtualAddr() : 0;
   auto gp = gotSection ? got + _targetLayout.getGPOffset() : 0;
@@ -60,13 +61,36 @@ void MipsELFWriter<ELFT>::finalizeMipsRuntimeAtomValues() {
 template <class ELFT>
 std::unique_ptr<RuntimeFile<ELFT>> MipsELFWriter<ELFT>::createRuntimeFile() {
   auto file = llvm::make_unique<RuntimeFile<ELFT>>(_ctx, "Mips runtime file");
-  if (_ctx.isDynamic()) {
-    file->addAbsoluteAtom("_gp");
-    file->addAbsoluteAtom("_gp_disp");
-    file->addAbsoluteAtom("__gnu_local_gp");
+  file->addAbsoluteAtom("_gp");
+  file->addAbsoluteAtom("_gp_disp");
+  file->addAbsoluteAtom("__gnu_local_gp");
+  if (_ctx.isDynamic())
     file->addAtom(*new (file->allocator()) MipsDynamicAtom(*file));
-  }
   return file;
+}
+
+template <class ELFT>
+unique_bump_ptr<Section<ELFT>>
+MipsELFWriter<ELFT>::createOptionsSection(llvm::BumpPtrAllocator &alloc) {
+  typedef unique_bump_ptr<Section<ELFT>> Ptr;
+  const auto &regMask = _abiInfo.getRegistersMask();
+  if (!regMask.hasValue())
+    return Ptr();
+  return ELFT::Is64Bits
+             ? Ptr(new (alloc)
+                       MipsOptionsSection<ELFT>(_ctx, _targetLayout, *regMask))
+             : Ptr(new (alloc)
+                       MipsReginfoSection<ELFT>(_ctx, _targetLayout, *regMask));
+}
+
+template <class ELFT>
+unique_bump_ptr<Section<ELFT>>
+MipsELFWriter<ELFT>::createAbiFlagsSection(llvm::BumpPtrAllocator &alloc) {
+  typedef unique_bump_ptr<Section<ELFT>> Ptr;
+  const auto &abi = _abiInfo.getAbiFlags();
+  if (!abi.hasValue())
+    return Ptr();
+  return Ptr(new (alloc) MipsAbiFlagsSection<ELFT>(_ctx, _targetLayout, *abi));
 }
 
 template <class ELFT>
@@ -78,9 +102,10 @@ void MipsELFWriter<ELFT>::setAtomValue(StringRef name, uint64_t value) {
 
 template <class ELFT>
 MipsDynamicLibraryWriter<ELFT>::MipsDynamicLibraryWriter(
-    MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &layout)
-    : DynamicLibraryWriter<ELFT>(ctx, layout), _writeHelper(ctx, layout),
-      _targetLayout(layout) {}
+    MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &layout,
+    const MipsAbiInfoHandler<ELFT> &abiInfo)
+    : DynamicLibraryWriter<ELFT>(ctx, layout),
+      _writeHelper(ctx, layout, abiInfo), _targetLayout(layout) {}
 
 template <class ELFT>
 void MipsDynamicLibraryWriter<ELFT>::createImplicitFiles(
@@ -98,17 +123,12 @@ void MipsDynamicLibraryWriter<ELFT>::finalizeDefaultAtomValues() {
 template <class ELFT>
 void MipsDynamicLibraryWriter<ELFT>::createDefaultSections() {
   DynamicLibraryWriter<ELFT>::createDefaultSections();
-  const auto &ctx = static_cast<const MipsLinkingContext &>(this->_ctx);
-  const auto &mask = ctx.getMergedReginfoMask();
-  if (!mask.hasValue())
-    return;
-  if (ELFT::Is64Bits)
-    _reginfo = unique_bump_ptr<Section<ELFT>>(
-        new (this->_alloc) MipsOptionsSection<ELFT>(ctx, _targetLayout, *mask));
-  else
-    _reginfo = unique_bump_ptr<Section<ELFT>>(
-        new (this->_alloc) MipsReginfoSection<ELFT>(ctx, _targetLayout, *mask));
-  this->_layout.addSection(_reginfo.get());
+  _reginfo = _writeHelper.createOptionsSection(this->_alloc);
+  if (_reginfo)
+    this->_layout.addSection(_reginfo.get());
+  _abiFlags = _writeHelper.createAbiFlagsSection(this->_alloc);
+  if (_abiFlags)
+    this->_layout.addSection(_abiFlags.get());
 }
 
 template <class ELFT>
@@ -143,9 +163,10 @@ template class MipsDynamicLibraryWriter<ELF32LE>;
 template class MipsDynamicLibraryWriter<ELF64LE>;
 
 template <class ELFT>
-MipsExecutableWriter<ELFT>::MipsExecutableWriter(MipsLinkingContext &ctx,
-                                                 MipsTargetLayout<ELFT> &layout)
-    : ExecutableWriter<ELFT>(ctx, layout), _writeHelper(ctx, layout),
+MipsExecutableWriter<ELFT>::MipsExecutableWriter(
+    MipsLinkingContext &ctx, MipsTargetLayout<ELFT> &layout,
+    const MipsAbiInfoHandler<ELFT> &abiInfo)
+    : ExecutableWriter<ELFT>(ctx, layout), _writeHelper(ctx, layout, abiInfo),
       _targetLayout(layout) {}
 
 template <class ELFT>
@@ -223,17 +244,12 @@ void MipsExecutableWriter<ELFT>::finalizeDefaultAtomValues() {
 
 template <class ELFT> void MipsExecutableWriter<ELFT>::createDefaultSections() {
   ExecutableWriter<ELFT>::createDefaultSections();
-  const auto &ctx = static_cast<const MipsLinkingContext &>(this->_ctx);
-  const auto &mask = ctx.getMergedReginfoMask();
-  if (!mask.hasValue())
-    return;
-  if (ELFT::Is64Bits)
-    _reginfo = unique_bump_ptr<Section<ELFT>>(
-        new (this->_alloc) MipsOptionsSection<ELFT>(ctx, _targetLayout, *mask));
-  else
-    _reginfo = unique_bump_ptr<Section<ELFT>>(
-        new (this->_alloc) MipsReginfoSection<ELFT>(ctx, _targetLayout, *mask));
-  this->_layout.addSection(_reginfo.get());
+  _reginfo = _writeHelper.createOptionsSection(this->_alloc);
+  if (_reginfo)
+    this->_layout.addSection(_reginfo.get());
+  _abiFlags = _writeHelper.createAbiFlagsSection(this->_alloc);
+  if (_abiFlags)
+    this->_layout.addSection(_abiFlags.get());
 }
 
 template <class ELFT>

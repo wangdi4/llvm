@@ -23,6 +23,10 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <string>
 
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/ADT/StringSwitch.h"
+#endif  //INTEL_CUSTOMIZATION
+
 #define GET_SUBTARGETINFO_HEADER
 #include "X86GenSubtargetInfo.inc"
 
@@ -190,16 +194,6 @@ protected:
   /// True if INC and DEC instructions are slow when writing to flags
   bool SlowIncDec;
 
-  /// Use the RSQRT* instructions to optimize square root calculations.
-  /// For this to be profitable, the cost of FSQRT and FDIV must be
-  /// substantially higher than normal FP ops like FADD and FMUL.
-  bool UseSqrtEst;
-
-  /// Use the RCP* instructions to optimize FP division calculations.
-  /// For this to be profitable, the cost of FDIV must be
-  /// substantially higher than normal FP ops like FADD and FMUL.
-  bool UseReciprocalEst;
-
   /// Processor has AVX-512 PreFetch Instructions
   bool HasPFI;
 
@@ -217,6 +211,9 @@ protected:
 
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX;
+
+  /// Processot supports MPX - Memory Protection Extensions
+  bool HasMPX;
 
   /// Use software floating point for code generation.
   bool UseSoftFloat;
@@ -260,9 +257,8 @@ public:
   /// This constructor initializes the data members to match that
   /// of the specified triple.
   ///
-  X86Subtarget(const std::string &TT, const std::string &CPU,
-               const std::string &FS, const X86TargetMachine &TM,
-               unsigned StackAlignOverride);
+  X86Subtarget(const Triple &TT, const std::string &CPU, const std::string &FS,
+               const X86TargetMachine &TM, unsigned StackAlignOverride);
 
   const X86TargetLowering *getTargetLowering() const override {
     return &TLInfo;
@@ -377,14 +373,13 @@ public:
   bool LEAusesAG() const { return LEAUsesAG; }
   bool slowLEA() const { return SlowLEA; }
   bool slowIncDec() const { return SlowIncDec; }
-  bool useSqrtEst() const { return UseSqrtEst; }
-  bool useReciprocalEst() const { return UseReciprocalEst; }
   bool hasCDI() const { return HasCDI; }
   bool hasPFI() const { return HasPFI; }
   bool hasERI() const { return HasERI; }
   bool hasDQI() const { return HasDQI; }
   bool hasBWI() const { return HasBWI; }
   bool hasVLX() const { return HasVLX; }
+  bool hasMPX() const { return HasMPX; }
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
@@ -497,6 +492,57 @@ public:
   AntiDepBreakMode getAntiDepBreakMode() const override {
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // This is basically taken from clang's X86TargetInfo::hasFeature
+  // I have no idea why X86Subtarget doesn't have this.
+
+  // TODO: sse4a and xop are currently wrong, because I don't know
+  // how they are represented here - there is no XOPLevel.
+  // This could be fixed, but we don't really care about it right now.
+  bool hasFeature(StringRef Feature) const override {
+    return llvm::StringSwitch<bool>(Feature)
+      .Case("aes", HasAES)
+      .Case("avx", X86SSELevel >= AVX)
+      .Case("avx2", X86SSELevel >= AVX2)
+      .Case("avx512f", X86SSELevel >= AVX512F)
+      .Case("avx512cd", HasCDI)
+      .Case("avx512er", HasERI)
+      .Case("avx512pf", HasPFI)
+      .Case("avx512dq", HasDQI)
+      .Case("avx512bw", HasBWI)
+      .Case("avx512vl", HasVLX)
+      .Case("bmi", HasBMI)
+      .Case("bmi2", HasBMI2)
+      .Case("cx16", HasCmpxchg16b)
+      .Case("f16c", HasF16C)
+      .Case("fma", HasFMA)
+      .Case("fma4", HasFMA4)
+      .Case("fsgsbase", HasFSGSBase)
+      .Case("lzcnt", HasLZCNT)
+      .Case("mm3dnow", X863DNowLevel >= ThreeDNow)
+      .Case("mm3dnowa", X863DNowLevel >= ThreeDNowA)
+      .Case("mmx", X86SSELevel >= MMX)
+      .Case("pclmul", HasPCLMUL)
+      .Case("popcnt", HasPOPCNT)
+      .Case("prfchw", HasPRFCHW)
+      .Case("rdrnd", HasRDRAND)
+      .Case("rdseed", HasRDSEED)
+      .Case("rtm", HasRTM)
+      .Case("sha", HasSHA)
+      .Case("sse", X86SSELevel >= SSE1)
+      .Case("sse2", X86SSELevel >= SSE2)
+      .Case("sse3", X86SSELevel >= SSE3)
+      .Case("ssse3", X86SSELevel >= SSSE3)
+      .Case("sse4.1", X86SSELevel >= SSE41)
+      .Case("sse4.2", X86SSELevel >= SSE42)
+      .Case("sse4a", false)
+      .Case("tbm", HasTBM)
+      .Case("xop", false)
+      .Default(false);
+  }
+#endif  //INTEL_CUSTOMIZATION
+
 };
 
 } // End llvm namespace

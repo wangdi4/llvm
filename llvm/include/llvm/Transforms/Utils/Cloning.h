@@ -18,6 +18,9 @@
 #ifndef LLVM_TRANSFORMS_UTILS_CLONING_H
 #define LLVM_TRANSFORMS_UTILS_CLONING_H
 
+#ifdef INTEL_CUSTOMIZATION
+#include "llvm/Analysis/InlineCost.h" 
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/ValueHandle.h"
@@ -206,12 +209,21 @@ public:
   /// get copied into the caller.
   SmallVector<AllocaInst *, 4> StaticAllocas;
 
+#ifdef INTEL_CUSTOMIZATION
+  /// OriginalCalls - InlineFunction fills this in with callsites that were
+  /// cloned from the callee.  This is only filled in if CG is non-null.
+  SmallVector<const Value*, 8> OriginalCalls;
+#endif // INTEL_CUSTOMIZATION
+
   /// InlinedCalls - InlineFunction fills this in with callsites that were
   /// inlined from the callee.  This is only filled in if CG is non-null.
   SmallVector<WeakVH, 8> InlinedCalls;
 
   void reset() {
     StaticAllocas.clear();
+#ifdef INTEL_CUSTOMIZATION
+    OriginalCalls.clear();
+#endif // INTEL_CUSTOMIZATION
     InlinedCalls.clear();
   }
 };
@@ -226,12 +238,30 @@ public:
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
+#ifdef INTEL_CUSTOMIZATION
+/// The Intel version returns the InlineReason indicating the prinicipal 
+/// reason the function was or was not inlined. To determine if the function
+/// was or was not inlined, one can call IsInlinedReason(InlineReason) or 
+/// NotInlinedReason(InlineReason). 
+///
+
+InlineReportTypes::InlineReason InlineFunction(CallInst *C, 
+                    InlineFunctionInfo &IFI,
+                    bool InsertLifetime = true);
+InlineReportTypes::InlineReason InlineFunction(InvokeInst *II, 
+                    InlineFunctionInfo &IFI,
+                    bool InsertLifetime = true);
+InlineReportTypes::InlineReason InlineFunction(CallSite CS, 
+                    InlineFunctionInfo &IFI,
+                    bool InsertLifetime = true);
+#else 
 bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
                     bool InsertLifetime = true);
 bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
                     bool InsertLifetime = true);
 bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
                     bool InsertLifetime = true);
+#endif // INTEL_CUSTOMIZATION
 
 } // End llvm namespace
 
