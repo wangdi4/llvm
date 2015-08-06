@@ -57,8 +57,8 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
   const MachineRegisterInfo *MRI;
   MRI = &MF->getRegInfo();
   OutStreamer.EmitRawText("\t.group");
-  OutStreamer.EmitRawText("\t.result\t%c0, 0, 1");
-  OutStreamer.EmitRawText("\t.param\t%c1, 0, 1");
+  OutStreamer.EmitRawText("\t.result .lic@1 .nil %c0");
+  OutStreamer.EmitRawText("\t.param .lic@1 .nil %c1");
 
   // iterate over all "registers" (LICs) (should be an iterator for that...)
   // 
@@ -68,11 +68,11 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
     raw_svector_ostream O(Str);
     if (MRI->isPhysRegUsed(reg)) {
       if (reg<=LPU::C3) {
-        O << "\t.result\t.reg\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64";
+        O << "\t.result .reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
       } else if (reg<=LPU::C19) {
-        O << "\t.param\t.reg\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64";
+        O << "\t.param .reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
       } else {
-        O << "\t.reg\t"<<LPUInstPrinter::getRegisterName(reg)<<", .i64";
+        O << "\t.reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
       }
       OutStreamer.EmitRawText(O.str());
     }
