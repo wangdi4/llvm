@@ -79,6 +79,7 @@ enum STIObjectKindEnum {
   STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT, // STISymbolCompileUnit
   STI_OBJECT_KIND_SYMBOL_CONSTANT,     // STISymbolConstant
   STI_OBJECT_KIND_SYMBOL_PROCEDURE,    // STISymbolProcedure
+  STI_OBJECT_KIND_SYMBOL_THUNK,        // STISymbolThunk
   STI_OBJECT_KIND_SYMBOL_FRAMEPROC,    // STISymbolFrameProc
   STI_OBJECT_KIND_SYMBOL_BLOCK,        // STISymbolBlock
   STI_OBJECT_KIND_SYMBOL_VARIABLE,     // STISymbolVariable
@@ -503,6 +504,7 @@ private:
 
 protected:
   STISymbolProcedure();
+  STISymbolProcedure(STIObjectKind kind, STISymbolID _symbolID);
 
 public:
   static STISymbolProcedure *create();
@@ -532,6 +534,29 @@ public:
 
   STISymbolFrameProc *getFrame() const;
   void setFrame(STISymbolFrameProc *frame);
+};
+
+//===----------------------------------------------------------------------===//
+// STISymbolThunk
+//===----------------------------------------------------------------------===//
+
+class STISymbolThunk : public STISymbolProcedure {
+private:
+  int _adjustor;
+  std::string _targetName;
+
+protected:
+  STISymbolThunk();
+
+public:
+  static STISymbolThunk *create();
+
+  ~STISymbolThunk();
+
+  int getAdjustor() const;
+  void setAdjustor(int adjustor);
+  StringRef getTargetName() const;
+  void setTargetName(StringRef name);
 };
 
 //===----------------------------------------------------------------------===//

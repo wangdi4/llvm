@@ -481,6 +481,13 @@ STISymbolProcedure::STISymbolProcedure()
       _lineSlice(STILineSlice::create()), _scopeLineNumber(0),
       _frame(nullptr) {}
 
+STISymbolProcedure::STISymbolProcedure(STIObjectKind kind, STISymbolID symbolID)
+    : STISymbol(kind), _symbolID(symbolID),
+      _name(), _type(nullptr), _scope(STIScope::create(this)),
+      _labelBegin(nullptr), _labelEnd(nullptr), _labelPrologEnd(nullptr),
+      _lineSlice(STILineSlice::create()), _scopeLineNumber(0),
+      _frame(nullptr) {}
+
 STISymbolProcedure::~STISymbolProcedure() {
   delete _scope;
   delete _lineSlice;
@@ -546,6 +553,27 @@ void STISymbolProcedure::setScopeLineNumber(unsigned line) {
 STISymbolFrameProc *STISymbolProcedure::getFrame() const { return _frame; }
 
 void STISymbolProcedure::setFrame(STISymbolFrameProc *frame) { _frame = frame; }
+
+
+//===----------------------------------------------------------------------===//
+// STISymbolThunk
+//===----------------------------------------------------------------------===//
+
+STISymbolThunk::STISymbolThunk()
+    : STISymbolProcedure(STI_OBJECT_KIND_SYMBOL_THUNK, S_THUNK32),
+      _adjustor(0), _targetName() {}
+
+STISymbolThunk::~STISymbolThunk() {}
+
+STISymbolThunk *STISymbolThunk::create() { return new STISymbolThunk(); }
+
+int STISymbolThunk::getAdjustor() const { return _adjustor; }
+
+void STISymbolThunk::setAdjustor(int adjustor) { _adjustor = adjustor; }
+
+StringRef STISymbolThunk::getTargetName() const { return _targetName; }
+
+void STISymbolThunk::setTargetName(StringRef name) { _targetName = name; }
 
 //===----------------------------------------------------------------------===//
 // STISymbolFrameProc

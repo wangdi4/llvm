@@ -110,9 +110,9 @@ static std::string getRealName(std::string name) {
 
 static bool isStaticMethod(StringRef linkageName) {
   // FIXME: this is a temporary WA to partial demangle linkageName
-  //        Clang should mark static method using MDSubprogram flag
+  //        Clang should mark static method using MDSubprogram (DPD200372369)
   size_t pos = linkageName.find("@@");
-  if (pos != StringRef::npos && (pos +2) < linkageName.size()) {
+  if (pos != StringRef::npos && (pos + 2) < linkageName.size()) {
     switch (linkageName[pos + 2]) {
     case 'T':
     case 'S':
@@ -124,6 +124,51 @@ static bool isStaticMethod(StringRef linkageName) {
     }
   }
   return false;
+}
+
+static bool isThunkMethod(StringRef linkageName) {
+  // FIXME: this is a temporary WA to partial demangle gcc linkageName
+  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
+  size_t pos = linkageName.find("@@");
+  if (pos == StringRef::npos || linkageName.size() <= pos + 2) {
+    return false;
+  }
+  char ch = linkageName[pos + 2];
+  switch (ch) {
+  case 'W':
+  case 'G':
+  case 'O':
+    return true;
+  }
+  return false;
+}
+
+static int getThunkAdjustor(StringRef linkageName) {
+  // FIXME: this is a temporary WA to partial demangle gcc linkageName
+  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
+  assert(isThunkMethod(linkageName));
+  size_t pos = linkageName.find("@@");
+  if (linkageName.size() <= pos + 3)
+    return 0;
+
+  char adjChar = linkageName[pos + 3];
+  if (adjChar < '0' || adjChar > '9')
+    return 0;
+
+  return -(adjChar - '0' + 1);
+}
+
+StringRef getThunkTargetMethodName(StringRef linkageName) {
+  // FIXME: this is a temporary WA to partial demangle gcc linkageName
+  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
+  assert(isThunkMethod(linkageName));
+  size_t posStart = linkageName.find("?");
+  size_t posEnd = linkageName.find("@");
+  posStart = (posStart == StringRef::npos)? 0 : posStart+1;
+  if (posEnd == StringRef::npos)
+    posEnd = linkageName.size();
+  StringRef name = linkageName.slice(posStart, posEnd);
+  return name;
 }
 
 static unsigned getFunctionAttribute(const DISubprogram *SP,
@@ -771,6 +816,7 @@ protected:
   STINumeric* createNumericAPFloat(const DIType *ditype, const APFloat& value);
 
   STISymbolProcedure *getOrCreateSymbolProcedure(const DISubprogram *SP);
+  STISymbolProcedure *createSymbolThunk(const DISubprogram *SP);
   STISymbolBlock *createSymbolBlock(const DILexicalBlockBase *LB);
   STIChecksumEntry *getOrCreateChecksum(StringRef path);
 
@@ -812,7 +858,9 @@ protected:
   void emitComment(StringRef comment) const;
   void emitValue(const MCExpr *expr, unsigned int byteSize) const;
   void emitLabel(MCSymbol *symbol) const;
-  void emitLabelDiff(const MCSymbol *begin, const MCSymbol *end) const;
+  void emitLabelDiff(const MCSymbol *begin,
+                     const MCSymbol *end,
+                     unsigned sizeInBytes = 4) const;
   void emitSymbolID(const STISymbolID symbolID) const;
   void emitBytes(const char *data, size_t size) const;
   void emitFill(size_t size, const uint8_t byte) const;
@@ -853,6 +901,7 @@ protected:
   void emitSymbolCompileUnit(const STISymbolCompileUnit *compileUnit) const;
   void emitSymbolConstant(const STISymbolConstant *symbol) const;
   void emitSymbolProcedure(const STISymbolProcedure *procedure) const;
+  void emitSymbolThunk(const STISymbolThunk *thunk) const;
   void emitSymbolProcedureEnd() const;
   void emitSymbolFrameProc(const STISymbolFrameProc *frame) const;
   void emitSymbolBlock(const STISymbolBlock *block) const;
@@ -2607,8 +2656,13 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
     return _functionMap[pFunc];
   }
 
+  StringRef linkageName = SP->getLinkageName();
+  if (isThunkMethod(linkageName)) {
+    return createSymbolThunk(SP);
+  }
+
   STIType *classType = getClassScope(resolve(SP->getScope()));
-  bool isStatic = isStaticMethod(SP->getLinkageName());
+  bool isStatic = isStaticMethod(linkageName);
   STIType *procedureType = createType(
       resolve(SP->getType()->getRef()), classType, isStatic);
 
@@ -2650,6 +2704,34 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 
   _functionMap.insert(std::make_pair(pFunc, procedure));
 
+  return procedure;
+}
+
+STISymbolProcedure *STIDebugImpl::createSymbolThunk(const DISubprogram *SP) {
+  Function *pFunc = SP->getFunction();
+  assert(pFunc && "LLVM subprogram has no LLVM function");
+
+  // Thunk methods are artificially created and is expected to have only
+  // linkage name, no regular name.
+  assert(SP->getName().empty() && "Thunk method has a name");
+
+  StringRef linkageName = SP->getLinkageName();
+  int adjustor = getThunkAdjustor(linkageName);
+  std::string targetName = getThunkTargetMethodName(linkageName);
+
+  STISymbolThunk *thunk;
+  thunk = STISymbolThunk::create();
+  thunk->getLineSlice()->setFunction(SP->getFunction());
+  thunk->setScopeLineNumber(SP->getScopeLine());
+  thunk->setName(getScopeFullName(resolve(SP->getScope()), linkageName, true));
+  thunk->setAdjustor(adjustor);
+  thunk->setTargetName(targetName);
+
+  getCompileUnit()->getScope()->add(thunk);
+
+  // Thunk symbol is a derived container from procedure symbol.
+  STISymbolProcedure* procedure = static_cast<STISymbolProcedure*>(thunk);
+  _functionMap.insert(std::make_pair(pFunc, procedure));
   return procedure;
 }
 
@@ -3272,7 +3354,8 @@ void STIDebugImpl::emitPadding(unsigned int padByteCount) const {
 }
 
 void STIDebugImpl::emitLabelDiff(const MCSymbol *begin,
-                                 const MCSymbol *end) const {
+                                 const MCSymbol *end,
+                                 unsigned sizeInBytes) const {
   MCContext &context = ASM()->OutStreamer->getContext();
   const MCExpr *bExpr;
   const MCExpr *eExpr;
@@ -3282,7 +3365,7 @@ void STIDebugImpl::emitLabelDiff(const MCSymbol *begin,
   eExpr = MCSymbolRefExpr::create(end, MCSymbolRefExpr::VK_None, context);
   delta = MCBinaryExpr::create(MCBinaryExpr::Sub, eExpr, bExpr, context);
 
-  emitValue(delta, 4);
+  emitValue(delta, sizeInBytes);
 }
 
 void STIDebugImpl::emitSecRel32(MCSymbol *symbol) const {
@@ -3443,7 +3526,7 @@ STIDebugImpl::emitSymbolProcedure(const STISymbolProcedure *procedure) const {
   const MCSymbol *labelEnd = procedure->getLabelEnd();
   const MCSymbol *labelPrologEnd = procedure->getLabelPrologEnd();
   int debugEnd = 0;
-  int procType = procedure->getType()->getIndex();
+  const STIType *procType = procedure->getType();
   STIProcedureFlags flags;
   StringRef name = procedure->getName();
 
@@ -3462,11 +3545,47 @@ STIDebugImpl::emitSymbolProcedure(const STISymbolProcedure *procedure) const {
   emitLabelDiff(labelBegin, labelEnd);
   emitLabelDiff(labelBegin, labelPrologEnd);
   emitInt32(debugEnd);
-  emitInt32(procType);
+  emitInt32(procType->getIndex());
   emitSecRel32(functionLabel);
   emitSectionIndex(functionLabel);
   emitInt8(flags);
   emitString(name);
+}
+
+void
+STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
+  int length;
+  int pParent = 0;
+  int pEnd = 0;
+  int pNext = 0;
+  const MCSymbol *labelBegin = thunk->getLabelBegin();
+  const MCSymbol *labelEnd = thunk->getLabelEnd();
+  StringRef name = thunk->getName();
+  StringRef targetName = thunk->getTargetName();
+  int adjustor = thunk->getAdjustor();
+
+  // Is not this equal to: labelBegin?
+  const STILineSlice *slice = thunk->getLineSlice();
+  Function *function = slice->getFunction(); // FIXME
+  MCSymbol *functionLabel = ASM()->getSymbol(function);
+
+  length = 23 + (name.size() + 1)
+           // For adjustor thunk type
+           + 2 + (targetName.size() + 1);
+
+  emitInt16(length); // record length
+  emitSymbolID(S_THUNK32);
+  emitInt32(pParent);
+  emitInt32(pEnd);
+  emitInt32(pNext);
+  emitSecRel32(functionLabel);
+  emitSectionIndex(functionLabel);
+  emitLabelDiff(labelBegin, labelEnd, 2);
+  emitInt8(STI_THUNK_ADJUSTOR);
+  emitString(name);
+  // For adjustor thunk type
+  emitInt16(adjustor);
+  emitString(targetName);
 }
 
 void STIDebugImpl::emitSymbolProcedureEnd() const {
@@ -3858,6 +3977,16 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
     emitLineSlice(procedure);
     // The line slice is emitted into the LINES subsection, so you can't emit
     // anything here and expect it to be emitted into the symbols subsection.
+  } break;
+
+  case STI_OBJECT_KIND_SYMBOL_THUNK: {
+    const STISymbolThunk *thunk;
+
+    thunk = static_cast<const STISymbolThunk *>(symbol);
+    emitSymbolThunk(thunk);
+    // For Thunk method no need to emit any additional symbol, like: frame,
+    // variable, lines, etc. Just emit the end symbol and break.
+    emitSymbolProcedureEnd();
   } break;
 
   case STI_OBJECT_KIND_SYMBOL_BLOCK: {
