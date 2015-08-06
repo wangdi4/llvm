@@ -19,20 +19,27 @@ VectorVariant::VectorVariant(llvm::StringRef funcName) {
     int stride = VectorKind::NA();
     int strideSign = 1;
     int alignment = VectorKind::NA();
+    // Get parameter kind
     sst.get(kind);
     // Default stride for linear is 1. If the stride for a parameter is 1,
     // then the front-end will not encode it and we will not have set the
     // correct stride below.
     if (kind == 'l')
       stride = 1;
+    // Handle optional stride
     if (sst.peek() == 'n') {
+      // Stride is negative
       sst.ignore(1);
       strideSign = -1;
     }
-    if (std::isdigit(sst.peek()))
+    if (std::isdigit(sst.peek())) {
+      // Extract constant stride
       sst >> stride;
-    assert(kind != 's' || stride >= 0);
+      assert((kind != 's' || stride >= 0) &&
+             "variable stride argument index cannot be negative");
+    }
     stride *= strideSign;
+    // Handle optional alignment
     if (sst.peek() == 'a') {
       sst.ignore(1);
       sst >> alignment;

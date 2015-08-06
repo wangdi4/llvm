@@ -58,10 +58,30 @@ public:
     /// @return True if changed
     virtual bool runOnFunction(Function &F);
 
+    /// @brief Set the loop being vectorized
+    void initVectorizedLoop();
+
+    /// @brief Get the loop being vectorized (i.e. the SESE region that we
+    /// produce a xN version of).
+    /// @return The loop being vectorized
+    inline Loop* getVectorizedLoop() {
+      assert(m_vectorizedLoop && "WIAnalysis queried before running");
+      return m_vectorizedLoop;
+    }
+
+    /// @brief Get the depth of the loop being vectorized
+    /// @return The depth of the loop being vectorized
+    inline unsigned getVectorizedLoopDepth() {
+      assert(m_vectorizedLoop && "WIAnalysis queried before running");
+      return m_vectorizedLoopDepth;
+    }
+
     /// @brief Initialize root values
-    /// Some values (e.g. the function's parameters) can have a predefined
-    /// WI dependency. These predefined values jumpstart the analysis by
-    /// injecting non-default dependencies.
+    /// Predefine the root values for the analysis. We assume the code is
+    /// written such that all dependencies are expressed via the induction
+    /// variable of the loop being vectorized, so we mark all values
+    /// outside this loop (including function arguments) as uniform and
+    /// that loop's induction variable as consecutive.
     /// @param F Function being analyzed
     void initPredefinedDependencies(Function &F);
 
@@ -215,6 +235,12 @@ private:
     DominatorTree *m_DT;
     PostDominatorTree *m_PDT;
     LoopInfo *m_LI;
+
+    /// The loop being vectorized
+    Loop* m_vectorizedLoop;
+
+    /// The depth of the loop being vectorized
+    unsigned m_vectorizedLoopDepth;
 
     //// Fields for the control flow divergence propagation
 

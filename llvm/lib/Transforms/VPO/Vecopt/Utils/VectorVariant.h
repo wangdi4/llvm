@@ -31,8 +31,10 @@ public:
   VectorKind(char k, int s, int a = -1) {
     assert((s == NA() || k == 's' || k == 'l') &&
 	   "only linear vectors have strides");
+    assert((k != 'l' || s != NA()) &&
+	   "linear vectors must have a stride");
     assert((k != 's' || s != NA()) &&
-	   "variable-stride vectors must have a stride");
+	   "variable stride vectors must have a stride");
     assert((k != 's' || s >= 0) &&
 	   "variable stride position must be non-negative");
     assert((a == NA() || a > 0) &&

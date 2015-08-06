@@ -229,32 +229,32 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   assert(head->getParent() == latch->getParent());
   // Creating Blocks to wrap the code as described above.
   Function *F = head->getParent();
-  BasicBlock *preHead = BasicBlock::Create(C, name + "pre_head", F, head);
-  BasicBlock *exit = BasicBlock::Create(C, name + "exit", F);
+  BasicBlock *preHead = BasicBlock::Create(C, name + ".pre_head", F, head);
+  BasicBlock *exit = BasicBlock::Create(C, name + ".exit", F);
   exit->moveAfter(latch);
   BranchInst::Create(head, preHead);
 
   // Insert induction variable phi in the head entry.
   PHINode *indVar =
       head->empty()
-          ? PHINode::Create(indTy, 2, name + "ind_var", head)
-          : PHINode::Create(indTy, 2, name + "ind_var", head->begin());
+          ? PHINode::Create(indTy, 2, name + ".ind_var", head)
+          : PHINode::Create(indTy, 2, name + ".ind_var", head->begin());
 
   // Increment induction variable.
   BinaryOperator *incIndVar = BinaryOperator::Create(
-      Instruction::Add, indVar, increment, name + "inc_ind_var", latch);
+      Instruction::Add, indVar, increment, name + ".inc_ind_var", latch);
   incIndVar->setHasNoSignedWrap();
   incIndVar->setHasNoUnsignedWrap();
 
   // Create compare and conditionally branch out from latch.
   Instruction *compare = new ICmpInst(*latch, CmpInst::ICMP_EQ, incIndVar, end,
-                                      name + "cmp.to.max");
+                                      name + ".cmp.to.max");
   BranchInst::Create(exit, head, compare, latch);
 
   // Upadte induction variable phi with the incoming values.
   indVar->addIncoming(begin, preHead);
   indVar->addIncoming(incIndVar, latch);
-  return loopRegion(preHead, exit);
+  return loopRegion(preHead, exit, indVar);
 }
 } // LoopUtils
 } // namespace intel

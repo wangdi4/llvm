@@ -73,69 +73,6 @@ bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue)
   return true;
 }
 
-Instruction* PacketizeFunction::createFakeWideScalar(Value* origValue,
-						     Type* wideType) {
-  assert(!origValue->getType()->isVectorTy() &&
-	 !origValue->getType()->isAggregateType() &&
-         "expected a scalar type");
-  assert(((wideType->isVectorTy() &&
-	   wideType->getScalarType() == origValue->getType()) ||
-	  (wideType->isArrayTy() &&
-	   wideType->getArrayElementType() == origValue->getType())) &&
-         "expected either a vector or an array type of the scalar type");
-
-  SmallVector<Value *, 3> args;
-  args.push_back(origValue);
-  LLVMContext& context = origValue->getContext();
-  AttributeSet attrs;
-  attrs = attrs.addAttribute(context,
-			     AttributeSet::FunctionIndex,
-			     Attribute::ReadNone);
-  attrs = attrs.addAttribute(context,
-			     AttributeSet::FunctionIndex,
-			     Attribute::NoUnwind);
-  attrs = attrs.addAttribute(context,
-			     AttributeSet::FunctionIndex,
-			     Mangler::fake_wide_scalar_attr);
-  Instruction* insertBefore = findInsertPoint(origValue);
-  Module* module = insertBefore->getParent()->getParent()->getParent();
-  Type* retType = NULL;
-  if (wideType->isVectorTy()) {
-    retType = VectorType::get(origValue->getType(), m_packetWidth);
-  } else if (wideType->isArrayTy()) {
-    retType = ArrayType::get(origValue->getType(), m_packetWidth);
-  } else {
-  }
-  assert(retType && "unable to determine wide type");
-  std::string funcName = Mangler::getFakeWideScalarName(origValue->getType(),
-							retType,
-							m_packetWidth);
-  return VectorizerUtils::createFunctionCall(module, funcName, retType,
-					     args, attrs, insertBefore);
-}
-
-void PacketizeFunction::hoistDefToDominateNewUser(Instruction* newUser,
-						  ArrayRef<Instruction*> defs) {
-  BasicBlock* defsBB = defs[0]->getParent(); // defs assumed to be in the same BB
-  BasicBlock* newUserBB = newUser->getParent();
-  if (newUserBB == defsBB)
-    return; // already dominating (by traversal order)
-
-  BasicBlock* commonDominator = m_DT->findNearestCommonDominator(defsBB,
-								 newUserBB);
-  assert(commonDominator && "expected a common dominator to exist");
-  if (commonDominator == defsBB)
-    return; // already dominating
-
-  BasicBlock::iterator fip = commonDominator->getFirstInsertionPt();
-  assert(fip != commonDominator->end());
-  Instruction& insertionPoint = *fip;
-  ArrayRef<Instruction*>::iterator it = defs.begin();
-  ArrayRef<Instruction*>::iterator end = defs.end();
-  for (; it != end; it++)
-    (*it)->moveBefore(&insertionPoint);
-}
-
 void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValue,
                                               Instruction * origInst)
 {
@@ -146,6 +83,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
   *retValue = NULL;
   if (isa<Instruction>(origValue))
   {
+    Instruction *origOrigInst = origInst;
     Instruction *origInst = cast<Instruction>(origValue);
     if (m_VCM.count(origValue))
     {
@@ -201,58 +139,35 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
         }
       }
     }
+    else if (!m_depAnalysis->getVectorizedLoop()->contains(origInst)) {
+      // Value defined outside the vectorized loop, so it can only be
+      // UNIFORM or the CONSECUTIVE induction variable of the outer loop).
+      switch (m_depAnalysis->whichDepend(origValue)) {
+        case WIAnalysis::UNIFORM:
+          // We packetize outer-scoped values on demand.
+          // Treat this instruction as any UNIFORM instruction in the
+          // vectorized loop: mark it as such and then let us treat it the
+          // usual way.
+          useOriginalConstantInstruction(origInst);
+          obtainVectorizedValue(retValue, origValue, origOrigInst);
+          return;
+        case WIAnalysis::CONSECUTIVE:
+          // This is the induction variable of the 0..m_packetWidth outer-loop,
+          // just return a constant vector.
+          *retValue =
+            VectorizerUtils::createZeroToNMinusOneVector(m_packetWidth,
+                                                         origValue->getContext());
+          return;
+        default:
+          assert(false && "Unexpected dependency of outer-scoped value");
+          return;
+      }
+    }
     else
     {
       V_ASSERT(origInst && "received a NULL origInst");
       // Entry was not found in VCM. Means it will be defined in a following basic block
       createDummyVectorVal(origValue, retValue);
-    }
-  }
-  else if (isa<Argument>(origValue))
-  {
-    if (m_VCM.count(origValue))
-    {
-      // Entry is found in VCM. Since we are adding a user for vector
-      // value, make sure it resides in a BB that dominates both its
-      // current BB and the BB of origInst.
-      VCMEntry * foundEntry = m_VCM[origValue];
-      V_ASSERT(foundEntry->vectorValue != NULL &&
-	       "expected vector value for argument");
-      *retValue = foundEntry->vectorValue;
-      Instruction* vectorInst = dyn_cast<Instruction>(foundEntry->vectorValue);
-      std::vector<Instruction*> defs;
-      defs.push_back(vectorInst);
-      hoistDefToDominateNewUser(origInst, defs);
-    }
-    else
-    {
-      // Create a new entry in VCM
-      Instruction* vectorValue;
-      switch (m_depAnalysis->whichDepend(origValue)) {
-        case WIAnalysis::CONSECUTIVE:
-	  vectorValue = VectorizerUtils::createConsecutiveVector(origValue, m_packetWidth,
-								 findInsertPoint(origValue),
-								 false);
-	  break;
-        case WIAnalysis::RANDOM:
-        {
-          VectorType* wideType = VectorType::get(origValue->getType(),
-						 m_packetWidth);
-          vectorValue = createFakeWideScalar(origValue, wideType);
-	  VectorizerUtils::SetDebugLocBy(vectorValue, origInst);
-          break;
-        }
-        default:
-	  vectorValue = NULL;
-	  break;
-      }
-      if (vectorValue) {
-	VCMEntry* newEntry = allocateNewVCMEntry();
-	newEntry->vectorValue = vectorValue;
-	newEntry->isScalarRemoved = false;
-	m_VCM.insert(std::pair<Value *, VCMEntry *>(origValue, newEntry));
-	*retValue = vectorValue;
-      }
     }
   }
 
@@ -293,238 +208,107 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
       "\t\tObtained vectorized value(s) of type: " << *((*retValue)->getType()) << "\n");
 }
 
-void PacketizeFunction::obtainArgumentMultiScalarValues(Value *retValues[],
-							Value *origValue,
-							Instruction *origInst) {
-  WIAnalysis::WIDependancy valueDep = m_depAnalysis->whichDepend(origValue);
-
-  // For uniform values just duplicate the scalar argument.
-  if (valueDep == WIAnalysis::UNIFORM) {
-    for (unsigned i = 0; i < m_packetWidth; i++)
-      retValues[i] = origValue;
-    return;
-  }
-
-  // Non-uniform arguments
-
-  Type* origType = origValue->getType();
-  bool isVectorizable = origType->isIntegerTy() || origType->isFloatingPointTy();
-  Type* i32Type = Type::getInt32Ty(origValue->getContext());
-
-  if (!m_VCM.count(origValue)) {
-    if (isVectorizable) {
-      // Base our multi-scalar values on its vectorized version (which we
-      // are the first to use).
-      Value *vectorizedValue;
-      obtainVectorizedValue(&vectorizedValue, origValue, origInst);
-    }
-    else {
-      Instruction * multiScalarValues[MAX_PACKET_WIDTH] = {NULL};
-      if (valueDep == WIAnalysis::RANDOM) {
-	// Generate a fake array (to be replaced by the actual array when
-	// the argument is expanded).
-	bool wideningUsingArray = origType->isAggregateType();
-	Type* wideType;
-	if (wideningUsingArray)
-	  wideType = ArrayType::get(origType, m_packetWidth);
-	else
-	  wideType = VectorType::get(origType, m_packetWidth);
-	Instruction* vectorValue = createFakeWideScalar(origValue, wideType);
-	VectorizerUtils::SetDebugLocBy(vectorValue, origInst);
-	// %extract0 = extract{element,value} <4 x Type> %vector, i32 0
-	// %extract1 = extract{element,value} <4 x Type> %vector, i32 1
-	// %extract2 = extract{element,value} <4 x Type> %vector, i32 2
-	// %extract3 = extract{element,value} <4 x Type> %vector, i32 3
-	Instruction * insertPoint = findInsertPoint(vectorValue);
-	unsigned indices[1];
-	ArrayRef<unsigned> indicesRef(indices, 1);
-	for (unsigned index = 0; index < m_packetWidth; ++index)
-        {
-	  indices[0] = index;
-	  Instruction *newEI;
-	  if (wideningUsingArray)
-	    newEI = ExtractValueInst::Create(vectorValue, index, "extract");
-	  else
-	    newEI = ExtractElementInst::Create(vectorValue,
-					       ConstantInt::get(i32Type, index),
-					       "extract");
-	  VectorizerUtils::SetDebugLocBy(newEI, origInst);
-	  multiScalarValues[index] = newEI;
-	  newEI->insertAfter(insertPoint);
-	  insertPoint = newEI;
-	}
-      }
-      else if (valueDep == WIAnalysis::PTR_CONSECUTIVE) {
-	// %consec.ptr0 = getelementptr %scalar, i32 0
-	// %consec.ptr1 = getelementptr %scalar, i32 1
-	// %consec.ptr2 = getelementptr %scalar, i32 2
-	// %consec.ptr3 = getelementptr %scalar, i32 3
-	for (unsigned index = 0; index < m_packetWidth; ++index)
-        {
-	  Value * constIndex = ConstantInt::get(i32Type, index);
-	  Instruction* newGEP = GetElementPtrInst::Create(nullptr,
-                                                          origValue,
-							  constIndex,
-							  "consec.ptr",
-							  origInst);
-	  VectorizerUtils::SetDebugLocBy(newGEP, origInst);
-	  multiScalarValues[index] = newGEP;
-	}
-      }
-      else {
-	assert(false &&
-	       "non-vectorizable, non-uniform value has unexpecded dependency");
-	return;
-      }
-      VCMEntry* newEntry = allocateNewVCMEntry();
-      newEntry->vectorValue = NULL;
-      for (unsigned index = 0; index < m_packetWidth; ++index)
-        newEntry->multiScalarValues[index] = multiScalarValues[index];
-      newEntry->isScalarRemoved = false;
-      m_VCM.insert(std::pair<Value *, VCMEntry *>(origValue, newEntry));
-    }
-  }
-
-  assert(m_VCM.count(origValue) && "expected argument to be in VCM");
-  VCMEntry* foundEntry = m_VCM[origValue];
-
-  if (foundEntry->multiScalarValues[0]) {
-    // Make sure the existing multi-values are defined for this new use.
-    std::vector<Instruction*> defs;
-    if (isa<ExtractValueInst>(foundEntry->multiScalarValues[0])) {
-      // need to hoist the fake wide scalar as well
-      CallInst* ci =
-	dyn_cast<CallInst>(foundEntry->multiScalarValues[0]->getOperand(0));
-      assert(ci && "expected operand to be a function call");
-      assert(ci->getCalledFunction() &&
-	     ci->getCalledFunction()->hasFnAttribute(Mangler::fake_wide_scalar_attr) &&
-	     "expected called function to be a fake wide scalar stub");
-
-      defs.push_back(ci);
-    }
-    for (unsigned index = 0; index < m_packetWidth; ++index)
-      defs.push_back(foundEntry->multiScalarValues[index]);
-
-    hoistDefToDominateNewUser(origInst, defs);
-  }
-  else {
-    assert(foundEntry->vectorValue &&
-	   "expected value to have either multi-scalar or vector values");
-    // %extract0 = extractelement <4 x Type> %vector, i32 0
-    // %extract1 = extractelement <4 x Type> %vector, i32 1
-    // %extract2 = extractelement <4 x Type> %vector, i32 2
-    // %extract3 = extractelement <4 x Type> %vector, i32 3
-    V_ASSERT(foundEntry->vectorValue && "expected a vector value");
-    Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
-    for (unsigned index = 0; index < m_packetWidth; ++index)
-    {
-      Value * constIndex = ConstantInt::get(i32Type, index);
-      Instruction *newEE = ExtractElementInst::Create(foundEntry->vectorValue,
-						      constIndex,
-						      "extract");
-      VectorizerUtils::SetDebugLocBy(newEE, origInst);
-      retValues[index] = newEE;
-      foundEntry->multiScalarValues[index] = newEE;
-      newEE->insertAfter(insertPoint);
-      insertPoint = newEE;
-    }
-  }
-
-  // Copy the multi-scalar values
-  for (unsigned i = 0; i < m_packetWidth; i++)
-    retValues[i] = foundEntry->multiScalarValues[i];
-}
-
 void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
                                                 Value *origValue,
                                                 Instruction *origInst)
 {
-  if (isa<Argument>(origValue)) {
-    obtainArgumentMultiScalarValues(retValues, origValue, origInst);
-    return;
-  }
-
   if (!isa<Instruction>(origValue))
   {
     // Original value is not an instruction. So simply broadcast it
     for (unsigned i = 0; i < m_packetWidth; i++)
       retValues[i] = origValue;
+    return;
+  }
+
+  IntegerType* i32T = Type::getInt32Ty(origValue->getContext());
+  origInst = cast<Instruction>(origValue);
+  if (m_VCM.count(origValue) == 0) {
+    if (!m_depAnalysis->getVectorizedLoop()->contains(origInst)) {
+      // Value defined outside the vectorized loop, so it can only be
+      // UNIFORM or the CONSECUTIVE induction variable of the outer loop).
+      switch (m_depAnalysis->whichDepend(origValue)) {
+        case WIAnalysis::UNIFORM:
+          // We packetize outer-scoped values on demand.
+          // Treat this instruction as any UNIFORM instruction in the
+          // vectorized loop: mark it as such and then let us treat it the
+          // usual way.
+          useOriginalConstantInstruction(origInst);
+          break;
+        case WIAnalysis::CONSECUTIVE:
+          // This is the induction variable of the 0..m_packetWidth outer-loop,
+          // just return the array [0, 1, ..., m_packetWidth].
+          for (unsigned i = 0; i < m_packetWidth; i++)
+            retValues[i] = ConstantInt::get(i32T, i);
+          return;
+        default:
+          assert(false && "Unexpected dependency of outer-scoped value");
+          return;
+       }
+    }
+  }
+
+  // Entry is found in VCM
+  VCMEntry * foundEntry = m_VCM[origValue];
+  if (foundEntry->isScalarRemoved == false)
+  {
+    // Use the scalar value multiple times
+    for (unsigned i = 0; i < m_packetWidth; i++)
+      retValues[i] = origValue;
   }
   else
   {
-    Instruction *origInst = cast<Instruction>(origValue);
-    if (m_VCM.count(origValue))
+    // Must either find multi-scalar values, or break down the vector value
+    if (foundEntry->multiScalarValues[0])
     {
-      // Entry is found in VCM
-      VCMEntry * foundEntry = m_VCM[origValue];
-      if (foundEntry->isScalarRemoved == false)
-      {
-        // Use the scalar value multiple times
-        for (unsigned i = 0; i < m_packetWidth; i++)
-          retValues[i] = origValue;
-      }
-      else
-      {
-        // Must either find multi-scalar values, or break down the vector value
-        if (foundEntry->multiScalarValues[0])
-        {
-          // found pre-prepared multi-scalar values
-          for (unsigned i = 0; i < m_packetWidth; i++)
-            retValues[i] = foundEntry->multiScalarValues[i];
-        }
-        else if(isa<SExtInst>(origInst) || isa<ZExtInst>(origInst))
-        {
-          // For performance reasons it is better to use the original non-extended vector
-          // because in general "vector extract -> scalar extend" X86 sequence is better
-          // than the "vector extend -> vector extract" for following multiscalar operation.
+      // found pre-prepared multi-scalar values
+      for (unsigned i = 0; i < m_packetWidth; i++)
+        retValues[i] = foundEntry->multiScalarValues[i];
+    }
+    else if(isa<SExtInst>(origInst) || isa<ZExtInst>(origInst))
+    {
+      // For performance reasons it is better to use the original non-extended vector
+      // because in general "vector extract -> scalar extend" X86 sequence is better
+      // than the "vector extend -> vector extract" for following multiscalar operation.
 
-          // TODO: To avoid negative performance impact do this only if all users
-          //       of this SExt/ZExt are non-packetiziable
+      // TODO: To avoid negative performance impact do this only if all users
+      //       of this SExt/ZExt are non-packetiziable
 
-          SmallVector<Value *, 16> nonExtValues(m_packetWidth);
-          obtainMultiScalarValues(nonExtValues.data(), origInst->getOperand(0), origInst);
+      SmallVector<Value *, 16> nonExtValues(m_packetWidth);
+      obtainMultiScalarValues(nonExtValues.data(), origInst->getOperand(0), origInst);
 
-          Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
-          for (unsigned index = 0; index < m_packetWidth; ++index) {
-            CastInst * pCast = CastInst::Create((Instruction::CastOps)origInst->getOpcode(),
-                                                 nonExtValues[index], origInst->getType());
-            VectorizerUtils::SetDebugLocBy(pCast, origInst);
+      Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
+      for (unsigned index = 0; index < m_packetWidth; ++index) {
+        CastInst * pCast = CastInst::Create((Instruction::CastOps)origInst->getOpcode(),
+                                             nonExtValues[index], origInst->getType());
+        VectorizerUtils::SetDebugLocBy(pCast, origInst);
 
-            pCast->insertAfter(insertPoint);
-            retValues[index] = pCast;
-            foundEntry->multiScalarValues[index] = pCast;
-            insertPoint = pCast;
-          }
-        }
-        else
-        {
-          // Failed to find multi-scalar values. Break down the vectorized value instead
-          //     %extract0 = extractelement <4 x Type> %vector, i32 0
-          //     %extract1 = extractelement <4 x Type> %vector, i32 1
-          //     %extract2 = extractelement <4 x Type> %vector, i32 2
-          //     %extract3 = extractelement <4 x Type> %vector, i32 3
-          V_ASSERT(foundEntry->vectorValue && "expected a vector value");
-          Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
-          for (unsigned index = 0; index < m_packetWidth; ++index)
-          {
-            Value * constIndex = ConstantInt::get(Type::getInt32Ty(context()), index);
-            Instruction *newEE =
-              ExtractElementInst::Create(foundEntry->vectorValue, constIndex, "extract");
-
-            VectorizerUtils::SetDebugLocBy(newEE, origInst);
-            retValues[index] = newEE;
-            foundEntry->multiScalarValues[index] = newEE;
-            newEE->insertAfter(insertPoint);
-            insertPoint = newEE;
-          }
-        }
+        pCast->insertAfter(insertPoint);
+        retValues[index] = pCast;
+        foundEntry->multiScalarValues[index] = pCast;
+        insertPoint = pCast;
       }
     }
     else
     {
-      V_ASSERT(origInst && "expected to have origInst");
-      // Entry was not found in VCM. Means it will be defined in a following basic block
-      createDummyMultiScalarVals(origValue, retValues);
+      // Failed to find multi-scalar values. Break down the vectorized value instead
+      //     %extract0 = extractelement <4 x Type> %vector, i32 0
+      //     %extract1 = extractelement <4 x Type> %vector, i32 1
+      //     %extract2 = extractelement <4 x Type> %vector, i32 2
+      //     %extract3 = extractelement <4 x Type> %vector, i32 3
+      V_ASSERT(foundEntry->vectorValue && "expected a vector value");
+      Instruction * insertPoint = findInsertPoint(foundEntry->vectorValue);
+      for (unsigned index = 0; index < m_packetWidth; ++index)
+      {
+        Value * constIndex = ConstantInt::get(i32T, index);
+        Instruction *newEE =
+          ExtractElementInst::Create(foundEntry->vectorValue, constIndex, "extract");
+
+        VectorizerUtils::SetDebugLocBy(newEE, origInst);
+        retValues[index] = newEE;
+        foundEntry->multiScalarValues[index] = newEE;
+        newEE->insertAfter(insertPoint);
+        insertPoint = newEE;
+      }
     }
   }
 }

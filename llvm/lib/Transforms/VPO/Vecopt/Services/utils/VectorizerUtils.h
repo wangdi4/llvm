@@ -29,7 +29,7 @@ public:
   static std::vector<llvm::Attribute> getVectorVariantAttributes(llvm::Function& F);
 
   /// \brief Determine the characteristic type of the vector function as
-  /// specified acccording to the vector function ABI.
+  /// specified according to the vector function ABI.
   static llvm::Type* calcCharacteristicType(llvm::Function& F, VectorVariant& Variant);
 
   /// @brief Get all functions marked for vectorization in module.
@@ -107,6 +107,11 @@ public:
   /// @param insertAfter if true, insert after whereTo instruction, otherwise insert before it.
   /// @return new broadcast vector
   static llvm::Instruction *createBroadcast(llvm::Value * pVal, unsigned int packetWidth, llvm::Instruction* whereTo, bool insertAfter = false);
+
+  /// @brief Create the constant vector <0, 1, ..., N-1>
+  /// @param N vector length
+  /// @param context to create the value in
+  static llvm::Constant* createZeroToNMinusOneVector(unsigned int N, llvm::LLVMContext& context);
 
   /// @brief Creates a consecutive vector (<pVal, pVal, ...> + <0, 1, ... width>)
   /// @param pVal value to prodcast

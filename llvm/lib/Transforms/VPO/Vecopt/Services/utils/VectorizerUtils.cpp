@@ -633,12 +633,18 @@ Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, I
   return shuffle;
 }
 
+Constant* VectorizerUtils::createZeroToNMinusOneVector(unsigned int N,
+                                                       LLVMContext& context) {
+  IntegerType* i32T = Type::getInt32Ty(context);
+  std::vector<Constant*> consecutiveConstants;
+  for (unsigned int i = 0; i < N; i++)
+    consecutiveConstants.push_back(ConstantInt::get(i32T, i));
+  return ConstantVector::get(consecutiveConstants);
+}
+
 Instruction *VectorizerUtils::createConsecutiveVector(Value *pVal, unsigned int width, Instruction* whereTo, bool insertAfter) {
   Instruction *broadcastedValue = createBroadcast(pVal, width, whereTo, insertAfter);
-  std::vector<Constant*> consecutiveConstants;
-  for (unsigned int i = 0; i < width; i++)
-    consecutiveConstants.push_back(ConstantInt::get(Type::getInt32Ty(pVal->getContext()), i));
-  Constant *incrementalVector = ConstantVector::get(consecutiveConstants);
+  Constant *incrementalVector = createZeroToNMinusOneVector(width, pVal->getContext());
   Instruction *nullInstruction = NULL;
   BinaryOperator *consecutiveVector =
     BinaryOperator::CreateAdd(broadcastedValue, incrementalVector, "consecutiveValue", nullInstruction);

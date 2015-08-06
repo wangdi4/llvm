@@ -27,6 +27,7 @@ char WIAnalysis::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 
 
@@ -110,14 +111,28 @@ gep_conversion_for_indirection[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
 WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
     m_vectorizedDim = 0;
+    m_vectorizedLoop = NULL;
 }
 
 WIAnalysis::WIAnalysis(unsigned int vectorizationDimension) :
   FunctionPass(ID), m_rtServices(NULL) {
   initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   m_vectorizedDim = vectorizationDimension;
+  m_vectorizedLoop = NULL;
 }
 
+void WIAnalysis::initVectorizedLoop() {
+  // For now we support vectorizing the single top-level loop in the function.
+  LoopInfo::iterator it = m_LI->begin();
+  LoopInfo::iterator end = m_LI->end();
+  assert(it != end && "Expected at least one top-level loops");
+  std::vector<Loop*>& subLoops = (*it)->getSubLoopsVector();
+  assert(subLoops.size() == 1 && "Expected a single nested loop");
+  m_vectorizedLoop = subLoops[0];
+  m_vectorizedLoopDepth = m_vectorizedLoop->getLoopDepth();
+  it++;
+  assert(it == end && "Expected at most one top-level loops");
+}
 
 bool WIAnalysis::runOnFunction(Function &F) {
   m_rtServices = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
@@ -138,6 +153,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   assert(m_LI && "Unable to get LoopInfo pass");
 
+  initVectorizedLoop();
+
   m_deps.clear();
   m_changed1.clear();
   m_changed2.clear();
@@ -152,11 +169,9 @@ bool WIAnalysis::runOnFunction(Function &F) {
   // Compute the  first iteration of the WI-dep according to ordering
   // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
-  inst_iterator it = inst_begin(F);
-  inst_iterator  e = inst_end(F);
-  for (; it != e; ++it) {
-    calculate_dep(&*it);
-  }
+  for (BasicBlock* loopBB : getVectorizedLoop()->getBlocks())
+    for (Instruction& loopInst : *loopBB)
+      calculate_dep(&loopInst);
 
   // Recursively check if WI-dep changes and if so recalculates
   // the WI-dep and marks the users for re-checking.
@@ -166,7 +181,9 @@ bool WIAnalysis::runOnFunction(Function &F) {
 
   if(PrintWiaCheck) {
     outs() << F.getName().str() << "\n";
-    for (it = inst_begin(F); it != e; ++it) {
+    inst_iterator it = inst_begin(F);
+    inst_iterator  e = inst_end(F);
+    for (; it != e; ++it) {
       Instruction *I = &*it;
       outs()<<"WI-RunOnFunction " <<m_deps[I] <<" "<<*I <<" " << "\n";
     }
@@ -196,6 +213,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
 }
 
 void WIAnalysis::initPredefinedDependencies(Function &F) {
+  // Initialize all arguments to uniform (any other dependency should
+  // have already been made explicit via induction variables).
   VectorVariant vectorVariant(F.getName());
   const Function::ArgumentListType& arguments = F.getArgumentList();
   std::vector<VectorKind>& parameters = vectorVariant.getParameters();
@@ -203,20 +222,36 @@ void WIAnalysis::initPredefinedDependencies(Function &F) {
 	 "Vector variant doesn't match function parameters");
   Function::ArgumentListType::const_iterator argIt = arguments.begin();
   Function::ArgumentListType::const_iterator argEnd = arguments.end();
-  std::vector<VectorKind>::iterator vkIt = parameters.begin();
-  for (; argIt != argEnd; argIt++, vkIt++) {
-    const Value& argument = *argIt;
-    VectorKind& vectorKind = *vkIt;
-    WIDependancy dep = WIDependancy::RANDOM;
-    if (vectorKind.isUniform())
-      dep = WIDependancy::UNIFORM;
-    else if (vectorKind.isLinear()) {
-      if (argument.getType()->isPointerTy())
-	dep = WIDependancy::PTR_CONSECUTIVE;
-      else
-	dep = WIDependancy::CONSECUTIVE;
+  for (; argIt != argEnd; argIt++) {
+    m_deps[&*argIt] = WIDependancy::UNIFORM;
+  }
+
+  // Init the induction variable of the outer loop to CONSECUTIVE (only the
+  // phi node is used in the vectorized loop).
+  Loop* outerLoop = getVectorizedLoop()->getParentLoop();
+  assert(outerLoop && "Expected vectorized loop to have an outer loop");
+  PHINode* indVar = outerLoop->getCanonicalInductionVariable();
+  assert(indVar && "Vectorized loop has no canonical induction variable");
+  m_deps[indVar] = WIDependancy::CONSECUTIVE;
+
+  // All basic blocks outside the vectorized loop (and every instruction
+  // in them) are uniform, including outerloop's auto-increment, test and
+  // branch (which must remain uniform despite the induction variable's phi
+  // being consecutive in order to keep the outer loop uniform).
+  Function::iterator bbIt = F.begin();
+  Function::iterator bbEnd = F.end();
+  for (; bbIt != bbEnd; bbIt++) {
+    if (getVectorizedLoop()->contains(&*bbIt))
+      continue; // block is in the vectorized region
+    BasicBlock::iterator instIt = bbIt->begin();
+    BasicBlock::iterator instEnd = bbIt->end();
+    for (;instIt != instEnd; instIt++) {
+      if (instIt->getType()->isVectorTy())
+        continue;
+      if (hasDependency(&*instIt))
+        continue; // already predefined
+      m_deps[&*instIt] = WIDependancy::UNIFORM;
     }
-    m_deps[&argument] = dep;
   }
 }
 
@@ -881,8 +916,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const PHINode* inst) {
   assert(dep.size() > 0 && "We should not reach here with All incoming values are unset");
 
   WIDependancy totalDep = dep[0];
-  for (unsigned i=1; i < dep.size(); ++i)
-  {
+  for (unsigned i=1; i < dep.size(); ++i) {
     totalDep = select_conversion[totalDep][dep[i]];
   }
 

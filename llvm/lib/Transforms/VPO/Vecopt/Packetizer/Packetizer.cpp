@@ -51,6 +51,7 @@ OCL_INITIALIZE_PASS_BEGIN(PacketizeFunction, "packetize", "packetize functions",
 OCL_INITIALIZE_PASS_DEPENDENCY(WIAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", false, false)
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
@@ -164,6 +165,7 @@ bool PacketizeFunction::runOnFunction(Function &F)
   V_ASSERT(m_rtServices && "Runtime services were not initialized!");
   m_pDL = &F.getParent()->getDataLayout();
   m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
@@ -219,13 +221,15 @@ bool PacketizeFunction::runOnFunction(Function &F)
   // Iterate over all the instructions. Always hold the iterator at the instruction
   // following the one being packetized (so the iterator will "skip" any instructions
   // that are going to be added in the packetization work
-  inst_iterator vI = inst_begin(m_currFunc);
-  inst_iterator vE = inst_end(m_currFunc);
-  while (vI != vE)
-  {
-    Instruction *currInst = &*vI;
-    ++vI;
-    dispatchInstructionToPacketize(currInst);
+  inst_iterator vI, vE;
+  for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
+    auto vI = vecLoopBB->begin();
+    auto vE = vecLoopBB->end();
+    while (vI != vE) {
+      Instruction *currInst = &*vI;
+      ++vI;
+      dispatchInstructionToPacketize(currInst);
+    }
   }
 
   resolveDeferredInstructions();
@@ -297,10 +301,8 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
     // if an extractElement uses a phi-node which uses another phi-node,
     // we might need to iterate several times.
     somethingChanged = false;
-    for (Function::iterator it = m_currFunc->begin(), e = m_currFunc->end();
-      it != e; ++it) { // each BB
-
-        BasicBlock* BB = it;
+    for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
+        BasicBlock* BB = vecLoopBB;
         // duplicate a vector of pointers to the instructions of BB,
         // to safely iterate over the instructions.
         // infact, we only need the phi-nodes.
@@ -540,42 +542,44 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
 
 void PacketizeFunction::obtainTranspose() {
   // Go over all instructions and identify possible load + transpose, tranpose + store
-  for (inst_iterator vI = inst_begin(m_currFunc), vE = inst_end(m_currFunc); vI != vE; ++vI) {
-    Instruction *I = &*vI;
+  for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
+    for (auto vI = vecLoopBB->begin(), vE = vecLoopBB->end(); vI != vE; ++vI) {
+      Instruction *I = &*vI;
 
-    Value *Address = NULL, *Val = NULL;
-    bool isTranspose = false, isMasked = false, isStore = false;
-    // First, compute the parameters of the relevant transpose
-    if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
-      isTranspose = true;
-      Address = LI->getPointerOperand();
-    } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
-      isTranspose = true;
-      Address = SI->getPointerOperand();
-      Val = SI->getValueOperand();
-      isStore = true;
-    } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
-      // Handle masked versions of load and store
-      StringRef Name = CI->getCalledFunction()->getName();
-      if (Mangler::isMangledLoad(Name)) {
+      Value *Address = NULL, *Val = NULL;
+      bool isTranspose = false, isMasked = false, isStore = false;
+      // First, compute the parameters of the relevant transpose
+      if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
         isTranspose = true;
-        Address = CI->getArgOperand(1);
-        isMasked = true;
-      } else if (Mangler::isMangledStore(Name)) {
+        Address = LI->getPointerOperand();
+      } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
         isTranspose = true;
-        Val = CI->getArgOperand(1);
-        Address = CI->getArgOperand(2);
-        isMasked = true;
+        Address = SI->getPointerOperand();
+        Val = SI->getValueOperand();
         isStore = true;
+      } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
+        // Handle masked versions of load and store
+        StringRef Name = CI->getCalledFunction()->getName();
+        if (Mangler::isMangledLoad(Name)) {
+          isTranspose = true;
+          Address = CI->getArgOperand(1);
+          isMasked = true;
+        } else if (Mangler::isMangledStore(Name)) {
+          isTranspose = true;
+          Val = CI->getArgOperand(1);
+          Address = CI->getArgOperand(2);
+          isMasked = true;
+          isStore = true;
+        }
       }
-    }
 
-    // Now, actually construct it.
-    if (isTranspose) {
-      if (isStore)
-        obtainTransposeAndStore(I, Address, Val, isMasked);
-      else
-        obtainLoadAndTranspose(I, Address, isMasked);
+      // Now, actually construct it.
+      if (isTranspose) {
+        if (isStore)
+          obtainTransposeAndStore(I, Address, Val, isMasked);
+        else
+          obtainLoadAndTranspose(I, Address, isMasked);
+      }
     }
   }
 }

@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 #include "OCLPassSupport.h"
 #include "VectorizerUtils.h"
+#include "LoopUtils.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
@@ -396,33 +397,33 @@ bool Vectorizer::runOnModule(Module &M)
 						  vectorVariant,
 						  characteristicDataType);
 
-      // Prepare for vectorization
+      // Prepare the (clone) scalar function for vectorization
       bool canVectorize = preVectorizeFunction(*clone);
       if (!canVectorize) {
-	// We can't or choose not to vectorize the kernel.
-	// Erase the clone from the module, but first copy the vectorizer
-	// stats back to the original function
-	intel::Statistic::copyFunctionStats(*clone, F);
-	intel::Statistic::removeFunctionStats(*clone);
-	clone->eraseFromParent();
-	continue;
+        // We can't or choose not to vectorize the function.
+        // Erase the clone from the module, but first copy the vectorizer
+        // stats back to the original function
+        intel::Statistic::copyFunctionStats(*clone, F);
+        intel::Statistic::removeFunctionStats(*clone);
+        clone->eraseFromParent();
+        continue;
       }
 
-      // Do actual vectorization work on the clone
-      vectorizeFunction(*clone, vectorVariant);
-
-      // Generate a vector version of the function with the right signature
-      // and delete the vectorized clone.
-      Function* vectFunc = createVectorVersion(*clone,
-					       vectorVariant,
-					       F.getName());
+      // Generate the vector variant of the scalar function. This function
+      // has the correct signature for this variant but computes the requested
+      // N instances of the scalar function by calling it in a 0..N loop (call
+      // is inlined, so the cloned scalar function is no longer needed). 
+      Function* vectFunc = createVectorLoopFunction(*clone,
+                                                    vectorVariant,
+                                                    F.getName());
       // copy stats from the original function to the new one
       intel::Statistic::copyFunctionStats(*clone, *vectFunc);
       intel::Statistic::removeFunctionStats(*clone);
+      // Delete the scalar pre-vectorized clone
       clone->eraseFromParent();
 
-      // Do post vectorization work on the vector version
-      postVectorizeFunction(*vectFunc);
+      // Do actual vectorization work on the vector variant
+      vectorizeFunction(*vectFunc, vectorVariant);
 
       m_functionsToRetain.insert(vectFunc);
     }
@@ -498,12 +499,65 @@ bool Vectorizer::preVectorizeFunction(Function& F) {
   return vecPossiblity->isVectorizable();
 }
 
+/// @brief Utility pass to collapse the 0..VL outer loop into a single iteration
+class CollapseOuterLoop : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  CollapseOuterLoop() : FunctionPass(ID) {}
+  ~CollapseOuterLoop() {}
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "PacketizeFunction";
+  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequired<LoopInfoWrapperPass>();
+  }
+  virtual bool runOnFunction(Function &F) {
+    LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    assert(LI && "Unable to get LoopInfo pass");
+    LoopInfo::iterator it = LI->begin();
+    LoopInfo::iterator end = LI->end();
+    assert(it != end && "Expected at least one top-level loops");
+    llvm::Loop* outerLoop = *it;
+    it++;
+    assert(it == end && "Expected at most one top-level loops");
+    PHINode* indVar = outerLoop->getCanonicalInductionVariable();
+    assert(indVar && "Outer loop has no canonical induction variable");
+    assert(indVar->hasOneUse() && "Expected single use for induction variable");
+    BasicBlock* latch = outerLoop->getLoopLatch();
+    assert(latch && "Outer loop does not have a single latch");
+    Value* valueFromLatch = indVar->getIncomingValueForBlock(latch);
+    auto userIt = valueFromLatch->user_begin();
+    auto userEnd = valueFromLatch->user_end();
+    for (; userIt != userEnd; ++userIt) {
+      Value* user = *userIt;
+      ICmpInst* limit = dyn_cast<ICmpInst>(user);
+      if (!limit)
+        continue;
+      IntegerType* int32Type = Type::getInt32Ty(F.getContext());
+      ICmpInst* collapsedLimit = new ICmpInst(limit,
+                                              limit->getPredicate(),
+                                              limit->getOperand(0),
+                                              ConstantInt::get(int32Type, 1),
+                                              "collapsed.ind.var");
+      limit->replaceAllUsesWith(collapsedLimit);
+      limit->eraseFromParent();
+      assert(!verifyFunction(F) && "I broke this module");
+      break; // there should be only one
+    }
+    return true;
+  }
+};
+char CollapseOuterLoop::ID = 0;
+
 void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   // Function-wide (vectorization)
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
 
   Module *M = F.getParent();
   legacy::FunctionPassManager fpm(M);
+
   BuiltinLibInfo* pBuiltinInfoPass =
     (BuiltinLibInfo*)createBuiltinLibInfoPass(M, "");
   pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(vectorVariant.getVlen());
@@ -521,8 +575,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   fpm.add(mem2reg);
 
   // Register DCE
-  FunctionPass *dce = createDeadCodeEliminationPass();
-  fpm.add(dce);
+  fpm.add(createDeadCodeEliminationPass());
 
   // Add WIAnalysis for SimplifyGEP.
   fpm.add(new WIAnalysis(vectorizationDim));
@@ -538,37 +591,90 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   FunctionPass *packetize = createPacketizer(m_pConfig->GetCpuId(), vectorizationDim);
   fpm.add(packetize);
 
+  // Register DCE
+  fpm.add(createDeadCodeEliminationPass());
+
+  if (m_pConfig->GetDumpHeuristicIRFlag())
+    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
+
+  // Register resolve
+  FunctionPass *resolver = createResolverPass(m_pConfig->GetCpuId());
+  fpm.add(resolver);
+  fpm.add(new CollapseOuterLoop());
+  fpm.add(createLoopUnrollPass());
+
+  // Final cleaning up
+  // TODO:: support patterns generated by instcombine in LoopWIAnalysis so
+  // it will be able to identify strided values which are important in apple
+  // for stream samplers handling.
+  fpm.add(createInstructionCombiningPass());
+  fpm.add(createCFGSimplificationPass());
+  fpm.add(createPromoteMemoryToRegisterPass());
+  fpm.add(createAggressiveDCEPass());
+  if (m_pConfig->GetDumpHeuristicIRFlag()) {
+    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "vec_end"));
+  }
+
   fpm.doInitialization();
   fpm.run(F);
   V_ASSERT(!verifyFunction(F) && "vectorized function failed to verify");
 }
 
-// Create a vector signature for a vectorized version.
-// Since the vectorized function still uses the original scalar signature
-// we need to generate the vector signature which correctly reflects the
-// vector variant.
-// The vector version contains a call to the vectorized function (with
-// vector parameters and return value extracted/inserted from/to fake
-// scalar values). The call is then inlined and the fake scalar proxies
-// are replaced with the real vector values.
-Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
-					  VectorVariant& vectorVariant,
-					  StringRef scalarFuncName) {
+// Create a function implementing a given vector variant of a scalar function.
+// The resulting function will have the signature induced by the vector variant
+// but will still use a scalar loop to compute the N instances. The loop,
+// however, will be tailored for the vectorizer (i.e. strip-mined and
+// interchanged). For example, for a scalar function
+//   Tr f(uniform T1 p1, consecutive T2 p2, random T3 p3);
+// annotated with some vectorlength=VL, the function will have the following
+// schematic structure (where AVL is the actual vector length chosen by the
+// vectorizer):
+//   <VL x Tr> fv(T1 p1, T2 p2, <VL x T1> p3) {
+//     T3 s3[VL];
+//     Tr sr[VL];
+//     <VL x Tr> rv;
+//     s3 <- p3;
+//     unsigned int AVL = VL; // always, for now
+//     for (i = 0; i < AVL; ++i)      // 'for (k = 0; k < VL; ++k)' strip-mined
+//       for (j = 0; j < VL; j+=AVL)  // by factor AVL and interchanged
+//         sr[j+i] = f(p1, p2+j+i, s3[j+i]); // inlined
+//     rv <- sr;
+//     return rv;
+//   }
+// The outer loop is the loop to be vectorized (i.e. runs AVL iterations at once),
+// while the inner loop is the region to be packetized (i.e. executes AVL times
+// in parallel), with 'i' predefined as CONSECUTIVE.
+// This allows us to treat the inner loop and its body uniformly and transform
+// the inner loop into a vector loop of the form:
+//   for (j=<0,...,0>; j < <VL,...,VL>; j+= <AVL,...,AVL>)
+// Once the inner loop is packetized the outer loop is removed. The result is
+// as if a single 'for (k = 0; k < VL; ++k)' loop was vectorized.
+// Note that:
+// - We assume VL % AVL == 0 to keep the inner loop UNIFORM. The more general
+// condition 'i + j < VL' would also support remainder iterations (last
+// iteration partly masked) but we need WIAnalysis to support piecewise-uniform
+// values to avoid masking when VL % AVL == 0 does hold.
+// - The inner loop can be removed after vectorization if VL == AVL.
+// The temporary arrays used for scalarizing the accesses to vector parameters
+// and return value are removed after vectorization.
+Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
+                                                 VectorVariant& vectorVariant,
+                                                 StringRef scalarFuncName) {
   // Create a new function type with vector types for the RANDOM parameters
-  FunctionType* originalFunctionType = vectorizedFunction.getFunctionType();
+  FunctionType* originalFunctionType = scalarFunction.getFunctionType();
   Type* originalReturnType = originalFunctionType->getReturnType();
   Type* vectorReturnType;
   if (originalReturnType->isVoidTy())
     vectorReturnType = originalReturnType;
   else
-    vectorReturnType = VectorType::get(originalFunctionType->getReturnType(),
+    vectorReturnType = VectorType::get(originalReturnType,
 				       vectorVariant.getVlen());
   std::vector<VectorKind> parameterKinds = vectorVariant.getParameters();
   vector<Type*> parameterTypes;
   FunctionType::param_iterator it = originalFunctionType->param_begin();
   FunctionType::param_iterator end = originalFunctionType->param_end();
   std::vector<VectorKind>::iterator vkIt = parameterKinds.begin();
-  for (; it != end; it++, vkIt++) {
+  for (; it != end; it++, ++vkIt) {
     if (vkIt->isVector())
       parameterTypes.push_back(VectorType::get(*it, vectorVariant.getVlen()));
     else
@@ -579,72 +685,162 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
 						       false);
   std::string name = vectorVariant.generateFunctionName(scalarFuncName);
   Function* wrapperFunc = Function::Create(vectorFunctionType,
-					   vectorizedFunction.getLinkage(),
+					   scalarFunction.getLinkage(),
 					   name,
-					   vectorizedFunction.getParent());
+					   scalarFunction.getParent());
   // Copy all the attributes from the scalar function to its vector version
   // except for the vector variant attributes.
-  wrapperFunc->copyAttributesFrom(&vectorizedFunction);
+  wrapperFunc->copyAttributesFrom(&scalarFunction);
   AttrBuilder attrBuilder;
-  for (auto attr : VectorizerUtils::getVectorVariantAttributes(*wrapperFunc)) {
-    attrBuilder.addAttribute(attr);
+  for (auto attribute : VectorizerUtils::getVectorVariantAttributes(*wrapperFunc)) {
+    attrBuilder.addAttribute(attribute);
   }
   AttributeSet attrsToRemove = AttributeSet::get(wrapperFunc->getContext(),
                                                  AttributeSet::FunctionIndex,
                                                  attrBuilder);
   wrapperFunc->removeAttributes(AttributeSet::FunctionIndex, attrsToRemove);
-  // Remove incompatible argument attributes (applied to the scalar argument,
-  // does not apply to its vector counterpart).
-  Function::arg_iterator copiedArgIt = wrapperFunc->arg_begin();
-  Function::arg_iterator copiedArgEnd = wrapperFunc->arg_end();
-  for (uint64_t index = 1; copiedArgIt != copiedArgEnd; ++copiedArgIt, index++) {
-    Type* argType = (*copiedArgIt).getType();
-    AttrBuilder AB = AttributeFuncs::typeIncompatible(argType);
-    AttributeSet AS = AttributeSet::get(wrapperFunc->getContext(), index, AB);
-    (*copiedArgIt).removeAttr(AS);
-  }
-
+      
   wrapperFunc->setCallingConv(CallingConv::Intel_regcall);
   BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),
 					   "wrapper.entry",
 					   wrapperFunc);
 
-  std::vector<ExtractElementInst*> extractedValues;
-  std::vector<Instruction*> removedInstructions;
-
-  // Generate a call to the vectorized function and return its value
+  // Create the loops.
   IntegerType* int32Type = Type::getInt32Ty(wrapperFunc->getContext());
   Value* zero = ConstantInt::get(int32Type, 0);
-  Function::arg_iterator argIt = wrapperFunc->arg_begin();
-  Function::arg_iterator argEnd = wrapperFunc->arg_end();
-  Function::arg_iterator origArgIt = vectorizedFunction.arg_begin();
-  std::vector<Value*> callArguments;
-  for (vkIt = parameterKinds.begin(); argIt != argEnd; argIt++, origArgIt++, vkIt++) {
-    argIt->setName(origArgIt->getName());
-    if (vkIt->isVector()) {
-      // Create extract element 0 as the fake scalar argument
-      ExtractElementInst* fakeScalarArg =
-	ExtractElementInst::Create(&*argIt, zero, "fake_arg", entryBB);
-      extractedValues.push_back(fakeScalarArg);
-      callArguments.push_back(fakeScalarArg);
-    }
-    else
-      callArguments.push_back(&*argIt);
-  }
-  CallInst* call = CallInst::Create(&vectorizedFunction,
-				    callArguments,
-				    (vectorReturnType->isVoidTy() ? "" : "scalar_ret_val"),
-				    entryBB);
+  Value* one = ConstantInt::get(int32Type, 1);
+  unsigned vlen = vectorVariant.getVlen();
+  unsigned avlen = vectorVariant.getVlen();
+  Value* vlenVal = ConstantInt::get(int32Type, vlen);
+  Value* avlenVal = ConstantInt::get(int32Type, avlen);
+  string vecLoopName = "vec_loop";
+  loopRegion vecLoop = LoopUtils::createLoop(entryBB, entryBB, zero, avlenVal,
+                                             vlenVal, vecLoopName,
+                                             wrapperFunc->getContext());
+  string outerLoopName = "outer_loop";
+  loopRegion outerLoop = LoopUtils::createLoop(vecLoop.m_preHeader,
+                                               vecLoop.m_exit, zero,
+                                               one, avlenVal, outerLoopName,
+                                               wrapperFunc->getContext());
 
+  // Store vector arguments into arrays so loop is fully scalar, i.e. contains
+  // '%s = %v[%i]' access patterns instead of '%s = extractelement %v, %i'.
+  Instruction* insAtPH = outerLoop.m_preHeader->getTerminator();
+  BasicBlock::iterator insAtLB = entryBB->getFirstInsertionPt();
+  Value* adjustedIndex =
+    BinaryOperator::CreateAdd(BinaryOperator::CreateMul(vecLoop.m_indVar,
+                                                        avlenVal,
+                                                        "offset",
+                                                        insAtLB),
+                              outerLoop.m_indVar,
+                              "index",
+                              insAtLB);
+  FunctionType::param_iterator wft_it = vectorFunctionType->param_begin();
+  FunctionType::param_iterator wft_end = vectorFunctionType->param_end();
+  Function::arg_iterator wfa_it = wrapperFunc->arg_begin();
+  Function::arg_iterator ofa_it = scalarFunction.arg_begin();
+  vkIt = parameterKinds.begin();
+  std::vector<Value*> callArguments;
+  ArrayRef<Value*> loopIndex(adjustedIndex);
+  map<int, Value*> ithStrideValues;
+  for (; wft_it != wft_end; ++wft_it, ++wfa_it, ++ofa_it, ++vkIt) {
+    Argument& arg = *wfa_it;
+    Type* argType = *wft_it;
+    arg.setName(ofa_it->getName());
+    if (!argType->isVectorTy()) {
+      Value* callArg = NULL;
+      if (vkIt->isLinear()) {
+        // Linear parameters translate to (arg + i * stride)
+        stringstream stride_name;
+        int stride = vkIt->getStride();
+        Value* ithStride;
+        auto existingValue = ithStrideValues.find(stride);
+        if (existingValue == ithStrideValues.end()) {
+          Value* strideValue;
+          if (stride != 1) {
+            strideValue = ConstantInt::get(int32Type, stride);
+            stride_name << "i_x_" << vkIt->getStride();
+            ithStride = BinaryOperator::CreateMul(adjustedIndex,
+                                                  strideValue,
+                                                  stride_name.str(),
+                                                  insAtLB);
+          }
+          else
+            ithStride = adjustedIndex;
+          ithStrideValues[stride] = ithStride;
+        }
+        else
+          ithStride = existingValue->second;
+        string ithElemName = arg.getName().str() + "_i";
+        if (argType->isPointerTy()) {
+          // Express the linear stride using GEP
+          callArg = GetElementPtrInst::Create(nullptr,
+                                              &arg,
+                                              loopIndex,
+                                              ithElemName,
+                                              insAtLB);
+        }
+        else {
+          // Express the linear stride using addition
+          callArg = BinaryOperator::CreateAdd(&arg,
+                                               ithStride,
+                                               ithElemName,
+                                               insAtLB);
+        }
+      }
+      else {
+        // Just pass the argument as is
+        callArg = &arg;
+      }
+      callArguments.push_back(callArg);
+      continue;
+    }
+    // Argument passed as vector. Store and access as an array of scalars.
+    VectorType* vectorType = dyn_cast<VectorType>(*wft_it);
+    AllocaInst* vecStorage = new AllocaInst(vectorType, "tmp_array", insAtPH);
+    new StoreInst(&arg, vecStorage, insAtPH);
+    string elemName = arg.getName().str() + "_i";
+    string elemAddrName = elemName + "_addr";
+    Type* scalarPointerType = vectorType->getElementType()->getPointerTo();
+    BitCastInst* toScalarPointer = new BitCastInst(vecStorage,
+                                                   scalarPointerType,
+                                                   "scalar_" + elemAddrName,
+                                                   insAtPH);
+    GetElementPtrInst* GEP = GetElementPtrInst::CreateInBounds(toScalarPointer,
+                                                               loopIndex,
+                                                               elemAddrName,
+                                                               insAtLB);
+    callArguments.push_back(new LoadInst(GEP, elemName, insAtLB));
+  }
+
+  CallInst* call = CallInst::Create(&scalarFunction, callArguments,
+				                    "", insAtLB);
+
+  // Create a return value if needed and temporary storage for the scalar
+  // return values.
   if (vectorReturnType->isVoidTy())
-    ReturnInst::Create(wrapperFunc->getContext(), entryBB);
+    ReturnInst::Create(wrapperFunc->getContext(), outerLoop.m_exit);
   else
   {
-    // Return the function's (scalar) return value as a vector
-    Value* undefs = UndefValue::get(vectorReturnType);
-    Instruction* fakeRetVal =
-      InsertElementInst::Create(undefs, call, zero, "fake_ret_val", entryBB);
-    ReturnInst::Create(wrapperFunc->getContext(), fakeRetVal, entryBB);
+    // Return as vector a temporary array to which we'll assign the return
+    // values of the scalar call to.
+    Value* tmpRetVal = new AllocaInst(vectorReturnType, "tmpRetVal", insAtPH);
+    ReturnInst::Create(wrapperFunc->getContext(),
+                       new LoadInst(tmpRetVal, "retVal", outerLoop.m_exit),
+                       outerLoop.m_exit);
+    // Store the scalar call's return value into the temporary array returned
+    // as vector.
+    Type* scalarPointerType = originalReturnType->getPointerTo();
+    BitCastInst* toScalarPointer = new BitCastInst(tmpRetVal,
+                                                   scalarPointerType,
+                                                   "scalar_ret_val_addr",
+                                                   insAtPH);
+    GetElementPtrInst* scalarRetStorage =
+      GetElementPtrInst::CreateInBounds(toScalarPointer,
+                                        loopIndex,
+                                        "scalar_ret_addr",
+                                        insAtLB);
+    new StoreInst(call, scalarRetStorage, insAtLB);
   }
 
   // Inline the wrapper call
@@ -652,111 +848,7 @@ Function* Vectorizer::createVectorVersion(Function& vectorizedFunction,
   bool inlined = llvm::InlineFunction(call, ifi, false);
   assert(inlined && "expected inline to succeed");
 
-  // Fix the vector arguments to be used correctly instead of the fake
-  // extract/insert element pair
-  std::vector<ExtractElementInst*>::iterator extractedIt = extractedValues.begin();
-  std::vector<ExtractElementInst*>::iterator extractedEnd = extractedValues.end();
-  for (; extractedIt != extractedEnd; extractedIt++) {
-    // Remove the fake scalar argument
-    ExtractElementInst* eei = *extractedIt;
-    removedInstructions.push_back(eei);
-    if (eei->getNumUses() == 0)
-      continue;
-    // If the fake scalar was used replace its uses with the vector argument
-    // and remove the fake scalar expansion to vector.
-    assert(eei->getNumUses() == 1 &&
-	   "expected exactly 1 use for extract-element");
-    User* eeiUser = eei->user_back();
-    CallInst* ci = dyn_cast<CallInst>(eeiUser);
-    assert(ci && "expected user to be a function call");
-    Function* calledFunction = ci->getCalledFunction();
-    assert(calledFunction &&
-	   calledFunction->hasFnAttribute(Mangler::fake_wide_scalar_attr) &&
-	   "expected called function to be a fake wide scalar stub");
-    ci->replaceAllUsesWith(eei->getVectorOperand());
-  }
-
-  if (!vectorReturnType->isVoidTy()) {
-    // Fix the return value to use the actual vector result instead of the fake
-    // extract/insert element pair
-    Function::iterator bbIt = wrapperFunc->begin(), bbEnd = wrapperFunc->end();
-    for (; bbIt != bbEnd; bbIt++) {
-      TerminatorInst* terminator = bbIt->getTerminator();
-      ReturnInst* returnInst = dyn_cast<ReturnInst>(terminator);
-      if (!returnInst)
-	continue;
-      InsertElementInst* iei = dyn_cast<InsertElementInst>(returnInst->getReturnValue());
-      assert(iei && "expected return value to be an insert-element");
-      assert(iei->getNumUses() == 1 && "expected exactly 1 use for insert-element");
-      removedInstructions.push_back(iei);
-      Value* actualVectorRetVal = NULL;
-      Value* fakeScalarRetVal = iei->getOperand(1);
-      ExtractElementInst* eei = dyn_cast<ExtractElementInst>(fakeScalarRetVal);
-      if (eei) {
-       actualVectorRetVal = eei->getVectorOperand();
-       removedInstructions.push_back(eei);
-      }
-      else {
-       // If the IEI operand is a scalar - broadcast it.
-       unsigned numElements = iei->getType()->getVectorNumElements();
-       Constant* constant = dyn_cast<Constant>(fakeScalarRetVal);
-       if (constant) {
-         actualVectorRetVal = ConstantVector::getSplat(numElements, constant);
-       } else {
-         VectorizerUtils::createBroadcast(fakeScalarRetVal, numElements,
-                                          iei, false);
-       }
-      }
-      assert(actualVectorRetVal && "unexpected fake scalar return value");
-      iei->replaceAllUsesWith(actualVectorRetVal);
-      break; // there can be only one
-    }
-  }
-
-  // Erase all fake values
-  std::vector<Instruction*>::iterator removedIt = removedInstructions.begin();
-  std::vector<Instruction*>::iterator removedEnd = removedInstructions.end();
-  for (; removedIt != removedEnd; removedIt++) {
-    (*removedIt)->replaceAllUsesWith(UndefValue::get((*removedIt)->getType()));
-    (*removedIt)->eraseFromParent();
-  }
-
   return wrapperFunc;
-}
-
-void Vectorizer::postVectorizeFunction(Function& F) {
-  Module *M = F.getParent();
-  legacy::FunctionPassManager fpm(M);
-
-  fpm.add(createBuiltinLibInfoPass(M, ""));
-
-  // Register DCE
-  FunctionPass *dce = createDeadCodeEliminationPass();
-  fpm.add(dce);
-
-  if (m_pConfig->GetDumpHeuristicIRFlag())
-    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
-
-  // Register resolve
-  FunctionPass *resolver = createResolverPass(m_pConfig->GetCpuId());
-  fpm.add(resolver);
-
-  // Final cleaning up
-  // TODO:: support patterns generated by instcombine in LoopWIAnalysis so
-  // it will be able to identify strided values which are important in apple
-  // for stream samplers handling.
-  fpm.add(createInstructionCombiningPass());
-
-  fpm.add(createCFGSimplificationPass());
-  fpm.add(createPromoteMemoryToRegisterPass());
-  fpm.add(createAggressiveDCEPass());
-  if (m_pConfig->GetDumpHeuristicIRFlag()) {
-    fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "vec_end"));
-  }
-
-  fpm.doInitialization();
-  fpm.run(F);
-  V_ASSERT(!verifyFunction(F) && "post-vectorization function failed to verify");
 }
 
 } // Namespace intel

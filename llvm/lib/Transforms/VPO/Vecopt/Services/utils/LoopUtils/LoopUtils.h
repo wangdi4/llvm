@@ -25,10 +25,11 @@ typedef SmallVector<IVec, 4> IVecVec;
 struct loopRegion {
     BasicBlock *m_preHeader; // Pre header block of the loop.
     BasicBlock *m_exit;      // Exit block of the loop.
+    PHINode *m_indVar;       // Induction variable of the loop.
 
     ///@brief C'tor.
-    loopRegion(BasicBlock *preHeader, BasicBlock *exit)
-        : m_preHeader(preHeader), m_exit(exit) {}
+    loopRegion(BasicBlock *preHeader, BasicBlock *exit, PHINode *indVar)
+        : m_preHeader(preHeader), m_exit(exit), m_indVar(indVar) {}
 };
 
 namespace LoopUtils {

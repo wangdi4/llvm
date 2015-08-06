@@ -58,10 +58,9 @@ private:
 					Type* characteristicDataType);
     bool preVectorizeFunction(Function& F);
     void vectorizeFunction(Function& F, VectorVariant& vectorVariant);
-    Function* createVectorVersion(Function& vectorizedFunction,
-				  VectorVariant& vectorVariant,
-				  StringRef scalarFuncName);
-    void postVectorizeFunction(Function& F);
+    Function* createVectorLoopFunction(Function& scalarFunction,
+                                         VectorVariant& vectorVariant,
+                                         StringRef scalarFuncName);
 
     void createVectorizationStubs(Module& M);
     void deleteVectorizationStubs(Module& M);
