@@ -768,7 +768,7 @@ public:
     FK_TooManyInitsForReference,
     /// \brief Array must be initialized with an initializer list.
     FK_ArrayNeedsInitList,
-    /// \brief Array must be initialized with an initializer list or a 
+    /// \brief Array must be initialized with an initializer list or a
     /// string literal.
     FK_ArrayNeedsInitListOrStringLiteral,
     /// \brief Array must be initialized with an initializer list or a
@@ -830,6 +830,13 @@ public:
     FK_PlaceholderType,
     /// \brief List-copy-initialization chose an explicit constructor.
     FK_ExplicitConstructor
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#236476: Static variable is referenced in two separate routines
+    // in iclang
+    /// \brief Static variable with label address.
+    ,
+    FK_StaticLabelAddress
+#endif // INTEL_CUSTOMIZATION
   };
   
 private:

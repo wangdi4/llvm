@@ -2282,6 +2282,17 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
   unsigned Line = getLineNumber(RD->getLocation());
   StringRef RDName = getClassName(RD);
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  SmallString<256> TypeInfoString;
+  if (CGM.getLangOpts().IntelCompat && RD->isLambda() && RDName.empty()) {
+    llvm::raw_svector_ostream Out(TypeInfoString);
+    CGM.getCXXABI().getMangleContext().mangleLambdaName(RD, Out);
+    Out.flush();
+    RDName = StringRef(TypeInfoString);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   llvm::DIScope *RDContext =
       getContextDescriptor(cast<Decl>(RD->getDeclContext()));
 

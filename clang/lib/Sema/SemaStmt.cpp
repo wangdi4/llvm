@@ -3352,6 +3352,11 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
       } else if (!RetValExp->isTypeDependent()) {
         // C99 6.8.6.4p1 (ext_ since GCC warns)
         unsigned D = diag::ext_return_has_expr;
+#ifdef INTEL_CUSTOMIZATION
+        if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus)
+          // CQ#367767 - allow returning a value from a void function.
+          D = diag::warn_ext_return_has_expr;
+#endif /* INTEL_CUSTOMIZATION */
         if (RetValExp->getType()->isVoidType()) {
           NamedDecl *CurDecl = getCurFunctionOrMethodDecl();
           if (isa<CXXConstructorDecl>(CurDecl) ||

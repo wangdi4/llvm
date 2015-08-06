@@ -425,6 +425,10 @@ BUILTIN(__builtin_memmove, "v*v*vC*z", "nF")
 BUILTIN(__builtin_mempcpy, "v*v*vC*z", "nF")
 BUILTIN(__builtin_memset, "v*v*iz", "nF")
 BUILTIN(__builtin_printf, "icC*.", "Fp:0:")
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ373625: __builtin_sprintf function is undeclared
+BUILTIN(__builtin_sprintf, "ic*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_stpcpy, "c*c*cC*", "nF")
 BUILTIN(__builtin_stpncpy, "c*c*cC*z", "nF")
 BUILTIN(__builtin_strcasecmp, "icC*cC*", "nF")

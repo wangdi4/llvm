@@ -3714,10 +3714,13 @@ static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
                                          CGF.EmitScalarExpr(E->getLengths()[Rank])),
                 MainLoop, ExitLoop);
     CGF.EmitBlock(MainLoop);
-    EmitRecursiveCEANBuiltinExpr(CGF, E, Rank + 1);
-    CGF.EmitStmt(E->getIncrements()[Rank]);
-    CGF.EmitBranch(CondBlock);
+    {
+      CodeGenFunction::RunCleanupsScope BodyScope(CGF);
+      EmitRecursiveCEANBuiltinExpr(CGF, E, Rank + 1);
+      CGF.EmitStmt(E->getIncrements()[Rank]);
+    }
     CGF.LoopStack.pop();
+    CGF.EmitBranch(CondBlock);
     CGF.EmitBlock(ExitLoop, true);
   } else {
     CodeGenFunction::RunCleanupsScope BodyScope(CGF);
@@ -3731,7 +3734,10 @@ void CodeGenFunction::EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E) {
       EmitStmt(E->getInit());
     JumpDest ExitExpr = getJumpDestInCurrentScope("cean.builtin.end");
     BreakContinueStack.push_back(BreakContinue(ExitExpr, ExitExpr));
-    EmitRecursiveCEANBuiltinExpr(*this, E, 0);
+    {
+      RunCleanupsScope BodyScope(*this);
+      EmitRecursiveCEANBuiltinExpr(*this, E, 0);
+    }
     BreakContinueStack.pop_back();
     EmitBranchThroughCleanup(ExitExpr);
     EmitBlock(ExitExpr.getBlock());

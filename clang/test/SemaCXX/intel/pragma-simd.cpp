@@ -170,7 +170,7 @@ namespace TypeOpCheck1 {
     A operator|=(A);
     A operator&=(A);
     A operator^=(A);
-    bool operator&&(A);
+    bool operator&&(A); bool operator||(A);
   };
   void test1() {
     A a;
@@ -202,7 +202,7 @@ namespace TypeOpCheck1 {
     B operator-(B);
   };
   B operator^=(B, B);
-  bool operator||(B, A);
+  bool operator||(B, A); // expected-note {{candidate function not viable: no known conversion from}}
   void test2() {
     B b;
     /* expected-error@+1 {{no viable overloaded '+='}} */

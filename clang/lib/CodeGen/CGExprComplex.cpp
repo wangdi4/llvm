@@ -648,6 +648,20 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
     // still more of this within the type system.
 
     if (Op.LHS.second && Op.RHS.second) {
+
+#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+      // Simplify complex dtype recognition in the LLVM->IL0 translator.
+      // Just emit call to 'mul' function. It will be pattern matched and
+      // translated to EXPR_MUL, without any calls.
+      // Need to re-visit this if/when LLVM IR will have special types for
+      // complex numbers.
+      if (CGF.getLangOpts().IntelCompat)
+        return EmitComplexBinOpLibCall(
+            getComplexMultiplyLibCallName(Op.LHS.first->getType()), Op);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
+
       // If both operands are complex, emit the core math directly, and then
       // test for NaNs. If we find NaNs in the result, we delegate to a libcall
       // to carefully re-compute the correct infinity representation if

@@ -4417,7 +4417,15 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       else
         Diag(Args[NumParams]->getLocStart(),
              MinArgs == NumParams
+#ifdef INTEL_CUSTOMIZATION
+                 // CQ#364630 - in case of too many arguments emit an extension
+                 // warning in IntelCompat mode instead of an error.
+                 ? (getLangOpts().IntelCompat
+                        ? diag::ext_intel_typecheck_call_too_many_args
+                        : diag::err_typecheck_call_too_many_args)
+#else
                  ? diag::err_typecheck_call_too_many_args
+#endif // INTEL_CUSTOMIZATION
                  : diag::err_typecheck_call_too_many_args_at_most)
             << FnKind << NumParams << static_cast<unsigned>(Args.size())
             << Fn->getSourceRange()
@@ -4431,6 +4439,10 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       
       // This deletes the extra arguments.
       Call->setNumArgs(Context, NumParams);
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#364630 - don't consider this an error in IntelCompat mode.
+      if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       return true;
     }
   }

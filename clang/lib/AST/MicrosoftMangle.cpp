@@ -162,6 +162,12 @@ public:
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
   void mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                              raw_ostream &Out) override;
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
     if (isLambda(ND))
@@ -268,6 +274,11 @@ public:
                           const FunctionDecl *D = nullptr,
                           bool ForceThisQuals = false);
   void mangleNestedName(const NamedDecl *ND);
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleUnscopedLambdaName(const RecordDecl *RD);
+#endif //INTEL_CUSTOMIZATION
 
 private:
   void mangleUnqualifiedName(const NamedDecl *ND) {
@@ -1088,6 +1099,15 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   Out << "?$";
   mangleUnqualifiedName(TD);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
+  // <unscoped-lambda-name> ::= __10<unqualified-name>
+  Out << "__10";
+  mangleUnqualifiedName(RD);
+}
+#endif //INTEL_CUSTOMIZATION
 
 void MicrosoftCXXNameMangler::mangleIntegerLiteral(const llvm::APSInt &Value,
                                                    bool IsBoolean) {
@@ -2795,6 +2815,15 @@ void MicrosoftMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
   MicrosoftCXXNameMangler mangler(*this, Out);
   mangler.mangleName(RD);
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                  raw_ostream &Out) {
+  MicrosoftCXXNameMangler Mangler(*this, Out);
+  return Mangler.mangleUnscopedLambdaName(RD);
+}
+#endif // INTEL_CUSTOMIZATION
 
 MicrosoftMangleContext *
 MicrosoftMangleContext::create(ASTContext &Context, DiagnosticsEngine &Diags) {

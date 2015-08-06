@@ -433,10 +433,12 @@ void CodeGenModule::Release() {
 #ifdef INTEL_CUSTOMIZATION
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
-  if (getLangOpts().IntelCompat)
-    EmitIntelDebugInfoMetadata();
-  if (getLangOpts().IntelMSCompat)
-    EmitMSDebugInfoMetadata();
+  if (getCodeGenOpts().getDebugInfo() != CodeGenOptions::NoDebugInfo) {
+    if (getLangOpts().IntelCompat)
+      EmitIntelDebugInfoMetadata();
+    if (getLangOpts().IntelMSCompat)
+      EmitMSDebugInfoMetadata();
+  }
 #endif  // INTEL_CUSTOMIZATION
   if (getCodeGenOpts().EmitGcovArcs || getCodeGenOpts().EmitGcovNotes)
     EmitCoverageFile();
@@ -1402,6 +1404,11 @@ void CodeGenModule::EmitGlobal(GlobalDecl GD) {
     assert(VD->isFileVarDecl() && "Cannot emit local var decl as global.");
 
     if (VD->isThisDeclarationADefinition() != VarDecl::Definition &&
+#ifdef INTEL_CUSTOMIZATION
+        // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+        // field of a structure.
+        !Context.isIntelStaticDataMemberInlineDefinition(VD) &&
+#endif // INTEL_CUSTOMIZATION
         !Context.isMSStaticDataMemberInlineDefinition(VD))
       return;
   }
@@ -1817,6 +1824,14 @@ CodeGenModule::GetOrCreateLLVMGlobal(StringRef MangledName,
     if (getContext().isMSStaticDataMemberInlineDefinition(D)) {
       EmitGlobalVarDefinition(D);
     }
+
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+    // field of a structure.
+    if (getContext().isIntelStaticDataMemberInlineDefinition(D)) {
+      EmitGlobalVarDefinition(D);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     // Handle XCore specific ABI requirements.
     if (getTarget().getTriple().getArch() == llvm::Triple::xcore &&

@@ -206,6 +206,51 @@ static StringRef normalizeAttrName(StringRef Name) {
   return Name;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// \brief Build full attribute name based in its Syntax, Scope and ID
+static void fillAttrFullName(const IdentifierInfo &II,
+                             AttributeList::Syntax Syntax,
+                             IdentifierInfo *ScopeName, std::string &Result) {
+  std::string Variety, Scope;
+  switch (Syntax) {
+  case AttributeList::Syntax::AS_GNU:
+    Variety = "GNU";
+    break;
+  case AttributeList::Syntax::AS_CXX11:
+    Variety = "CXX11";
+    if (ScopeName)
+      Scope = ScopeName->getName();
+    break;
+  case AttributeList::Syntax::AS_Declspec:
+    Variety = "Declspec";
+    break;
+  case AttributeList::Syntax::AS_Keyword:
+    // FIXME:  add AS_ContextSensitiveKeyword
+    Variety = "Keyword";
+    break;
+  case AttributeList::Syntax::AS_CilkKeyword:
+    Variety = "CilkKeyword";
+    break;
+  default:
+    Variety = "GNU";
+  }
+  Result = Variety + "::" + (Scope.length() > 0 ? Scope + "::" : "") +
+           normalizeAttrName(II.getName()).str();
+}
+
+/// \brief Determine whether the given attribute has an identifier argument.
+static bool attributeHasIdentifierArg(const IdentifierInfo &II,
+                                      AttributeList::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_IDENTIFIER_ARG_LIST
+}
+#else
 /// \brief Determine whether the given attribute has an identifier argument.
 static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
 #define CLANG_ATTR_IDENTIFIER_ARG_LIST
@@ -214,6 +259,7 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
            .Default(false);
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Determine whether the given attribute parses a type argument.
 static bool attributeIsTypeArgAttr(const IdentifierInfo &II) {
@@ -282,7 +328,12 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
+#ifdef INTEL_CUSTOMIZATION
+    bool IsIdentifierArg =
+        attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
+#else
     bool IsIdentifierArg = attributeHasIdentifierArg(*AttrName);
+#endif // INTEL_CUSTOMIZATION
     AttributeList::Kind AttrKind =
         AttributeList::getKind(AttrName, ScopeName, Syntax);
 
@@ -3441,6 +3492,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseUnderlyingTypeSpecifier(DS);
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case tok::kw___bases:
+    case tok::kw___direct_bases:
+      ParseBasesSpecifier(DS);
+      continue;
+
+#endif // INTEL_CUSTOMIZATION
     case tok::kw__Atomic:
       // C11 6.7.2.4/4:
       //   If the _Atomic keyword is immediately followed by a left parenthesis,

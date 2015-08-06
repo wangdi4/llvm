@@ -1479,10 +1479,19 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
 
     // All these spellings take an identifier argument.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
+#ifndef INTEL_CUSTOMIZATION
     std::set<std::string> Emitted;
+#endif
     for (const auto &S : Spellings) {
+#ifndef INTEL_CUSTOMIZATION
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
+#else
+      OS << ".Case(\"" << S.variety();
+      if (S.nameSpace().length())
+        OS << "::" << S.nameSpace();
+      OS << "::" << S.name() << "\", true)\n";
+#endif // INTEL_CUSTOMIZATION
     }
   }
   OS << "#endif // CLANG_ATTR_IDENTIFIER_ARG_LIST\n\n";

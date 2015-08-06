@@ -206,6 +206,13 @@ def err_expected_less_after : Error<"expected '<' after '%0'">;
 def err_expected_lbrace_in_compound_literal : Error<
   "expected '{' in compound literal">;
 def err_expected_while : Error<"expected 'while' in do/while loop">;
+// if INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+def err_bases_arg_type_not_dependent: Error<"'%select{__bases|__direct_bases}0' "
+  "specifier must be used with dependent type">;
+def err_expected_ellipsis : Error<"expected '...' after "
+  "'%select{__bases|__direct_bases}0' specifier">;
+// endif INTEL_CUSTOMIZATION
 
 def err_expected_semi_after_stmt : Error<"expected ';' after %0 statement">;
 def err_expected_semi_after_expr : Error<"expected ';' after expression">;
@@ -750,6 +757,13 @@ def ext_defaulted_function : ExtWarn<
 def warn_cxx98_compat_defaulted_function : Warning<
   "defaulted function definitions are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
+
+// if INTEL_CUSTOMIZATION
+// CQ#373607
+def warn_member_function_initialization : Warning<
+  "initializer on function does not look like a pure-specifier">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 // C++11 in-class member initialization
 def ext_nonstatic_member_init : ExtWarn<

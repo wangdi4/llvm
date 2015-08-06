@@ -14,7 +14,7 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+// if INTEL_SPECIFIC_IL0_BACKEND
  def x_warn_intel_pragma_opt_level : Warning<"optimization level must be between 0 and 3">,
   InGroup<IntelPragma>;
  def x_warn_intel_pragma_function_only : Warning<"optimization level applies only to function definitions">,
@@ -47,7 +47,7 @@ let CategoryName = "Semantic Issue" in {
  def x_err_attribute_not_string : Error<"argument to %0 attribute was not a string literal">;
  def err_attribute_section_local_variable : Error<
    "'section' attribute is not valid on local variables">;
-//#endif  // INTEL_SPECIFIC_IL0_BACKEND
+// endif INTEL_SPECIFIC_IL0_BACKEND
 def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
@@ -541,8 +541,8 @@ def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) must be of type %1">;
-// CQ#364268
 // if INTEL_CUSTOMIZATION
+// CQ#364268
 def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) should be of type %1">, InGroup<Main>;
@@ -1533,7 +1533,7 @@ def err_lvalue_reference_bind_to_initlist : Error<
 def err_lvalue_reference_bind_to_temporary : Error<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">;
-//if INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_lvalue_reference_bind_to_initlist : Warning<
   "non-const lvalue reference to type %0 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
@@ -1541,7 +1541,7 @@ def warn_lvalue_reference_bind_to_temporary : Warning<
   "non-const lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}0,1">,
   InGroup<IntelCompat>;
-//endif
+// endif INTEL_CUSTOMIZATION
 def err_lvalue_reference_bind_to_unrelated : Error<
   "%select{non-const|volatile}0 lvalue reference "
   "%diff{to type $ cannot bind to a value of unrelated type $|"
@@ -1644,6 +1644,11 @@ def note_uninit_fixit_remove_cond : Note<
   "remove the %select{'%1' if its condition|condition if it}0 "
   "is always %select{false|true}2">;
 def err_init_incomplete_type : Error<"initialization of incomplete type %0">;
+// if INTEL_CUSTOMIZATION
+// CQ#236476 - static variable is referenced in two separate routines in iclang.
+def err_static_variable_with_label_addr
+    : Error<"cannot initialize static variable with label address">;
+// endif INTEL_CUSTOMIZATION
 
 def warn_unsequenced_mod_mod : Warning<
   "multiple unsequenced modifications to %0">, InGroup<Unsequenced>;
@@ -4141,6 +4146,11 @@ def err_redefinition_different_typedef : Error<
   "redefinition with different types%diff{ ($ vs $)|}1,2">;
 def err_tag_reference_non_tag : Error<
   "elaborated type refers to %select{a non-tag type|a typedef|a type alias|a template|a type alias template}0">;
+// if INTEL_CUSTOMIZATION
+// CQ#364598
+def ext_intel_elab_befriended_type_refers_typedef : ExtWarn<
+  "elaborated befriended type refers to a typedef">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_tag_reference_conflict : Error<
   "implicit declaration introduced by elaborated type conflicts with "
   "%select{a declaration|a typedef|a type alias|a template}0 of the same name">;
@@ -4150,8 +4160,8 @@ def err_dependent_tag_decl : Error<
 def err_tag_definition_of_typedef : Error<
   "definition of type %0 conflicts with %select{typedef|type alias}1 of the same name">;
 def err_conflicting_types : Error<"conflicting types for %0">;
-// CQ#366612
 // if INTEL_CUSTOMIZATION
+// CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
@@ -4176,8 +4186,8 @@ def err_forward_ref_enum : Error<
   "ISO C++ forbids forward references to 'enum' types">;
 def ext_ms_forward_ref_enum : Extension<
   "forward references to 'enum' types are a Microsoft extension">, InGroup<Microsoft>;
-// CQ#365886
 // if INTEL_CUSTOMIZATION
+// CQ#365886
 def ext_intel_forward_ref_enum : ExtWarn<
   "forward references to 'enum' types are an Intel extension">,
   InGroup<IntelCompat>;
@@ -6119,8 +6129,8 @@ def err_typecheck_incomplete_type_not_modifiable_lvalue : Error<
   "incomplete type %0 is not assignable">;
 def err_typecheck_lvalue_casts_not_supported : Error<
   "assignment to cast is illegal, lvalue casts are not supported">;
-// CQ#366312
 // if INTEL_CUSTOMIZATION
+// CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
   "an object is an Intel Extension">, InGroup<IntelCompat>;
@@ -6168,6 +6178,13 @@ def err_typecheck_call_too_many_args : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
   "expected %1, have %2">;
+// if INTEL_CUSTOMIZATION
+// CQ#364630
+def ext_intel_typecheck_call_too_many_args : ExtWarn<
+  "too many %select{|||execution configuration }0arguments to "
+  "%select{function|block|method|kernel function}0 call, "
+  "expected %1, have %2">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_call_too_many_args_one : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
@@ -7130,8 +7147,7 @@ def warn_return_missing_expr : Warning<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;
 // if INTEL_CUSTOMIZATION
-// Same as warn_return_missing_expr, but a warning, not an error, for
-// IntelCompat mode. CQ#364256
+// CQ#364256. Same as warn_return_missing_expr, but not a DefaultError.
 def warn_return_missing_expr_no_err : Warning<
   "non-void %select{function|method}1 %0 should return a value">,
   InGroup<IntelCompat>;
@@ -7143,6 +7159,13 @@ def ext_return_has_expr : ExtWarn<
   "%select{void function|void method|constructor|destructor}1 %0 "
   "should not return a value">,
   DefaultError, InGroup<ReturnType>;
+// if INTEL_CUSTOMIZATION
+// Same as ext_return_has_expr, but a warning, not an error, for
+// IntelCompat mode. CQ#367767
+def warn_ext_return_has_expr : Warning<
+  "%select{void function|void method|constructor|destructor}1 %0 "
+  "should not return a value">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_return_has_void_expr : Extension<
   "void %select{function|method|block}1 %0 should not return void expression">;
 def err_return_init_list : Error<
@@ -7211,6 +7234,12 @@ def err_invalid_neon_type_code : Error<
   "incompatible constant for this __builtin_neon function">; 
 def err_argument_invalid_range : Error<
   "argument should be a value from %0 to %1">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#371990 - let argument be out of Low..High range, assuming Low.
+def warn_arg_invalid_range_low_assumed : Warning<
+  "expected a value between %0 and %1, defaults to %0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def warn_neon_vector_initializer_non_portable : Warning<
   "vector initializers are not compatible with NEON intrinsics in big endian "
   "mode">, InGroup<DiagGroup<"nonportable-vector-initialization">>;
@@ -7425,8 +7454,8 @@ def err_filter_expression_integral : Error<
 
 def err_non_asm_stmt_in_naked_function : Error<
   "non-ASM statement in naked function is not supported">;
-// CQ#371340
 // if INTEL_CUSTOMIZATION
+// CQ#371340
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
@@ -7478,7 +7507,7 @@ def err_opencl_global_invalid_addr_space : Error<
   "global variables must have a constant address space qualifier">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
 
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_empty_cilk_for_body : Warning<
   "Cilk for loop has empty body">, InGroup<EmptyBody>;
 def warn_empty_simd_for_body : Warning<
@@ -7672,6 +7701,10 @@ def err_cilk_elemental_linear_step_not_integral : Error<
   "linear step has non-integer type %0">;
 def err_cilk_elemental_linear_step_not_constant : Error<
   "linear step is not constant">;
+def err_cilk_elemental_aligned_not_integral : Error<
+  "aligned has non-integer type %0">;
+def err_cilk_elemental_aligned_not_constant : Error<
+  "aligned is not a constant">;
 def err_cilk_elemental_repeated_vectorlength: Error<
   "repeated %select{vectorlength|vectorlengthfor}0 attribute is not allowed">;
 def err_cilk_elemental_both_mask_nomask : Error<
@@ -7785,9 +7818,10 @@ def err_cean_arg_not_lvalue : Error<
   "argument expression must be an l-value">;
 def err_cean_type_of_arg : Error<
   "type of expression is %diff{$, but must be $|not the same as type of the first argument}0,1">;
-def err_assume_aligned_not_pointer : Error<"expression is not a pointer">;
-def err_assume_aligned_not_integer : Error<"expression is not a constant integer value or not a power of 2">;
-//#endif  // INTEL_CUSTOMIZATION
+// CQ#373129 - support for __assume_aligned builtin.
+def err_assume_aligned_first_arg_not_pointer : Error<
+  "first argument to '__assume_aligned' must be a pointer">;
+// endif INTEL_CUSTOMIZATION
 
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to a kernel function">;

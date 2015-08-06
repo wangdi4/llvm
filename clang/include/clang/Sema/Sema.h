@@ -3441,6 +3441,7 @@ public:
   bool DiagnoseElementalAttributes(FunctionDecl *FD);
   Expr *CheckCilkVecLengthArg(Expr *E);
   Expr *CheckCilkLinearArg(Expr *E);
+  Expr *CheckCilkAlignedArg(Expr *E);
 
   StmtResult ActOnCilkSyncStmt(SourceLocation SyncLoc);
   ExprResult ActOnCilkSpawnCall(SourceLocation SpawnLoc, Expr *E);
@@ -7706,6 +7707,10 @@ public:
       ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
                                SIMDReductionAttr::SIMDReductionKind Operator,
                                llvm::MutableArrayRef<Expr *> VarList);
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  AttrResult ActOnPragmaSIMDAssert(SourceLocation Loc);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
   StmtResult ActOnSIMDForStmt(SourceLocation PragmaLoc,
                               ArrayRef<Attr *> Attrs,

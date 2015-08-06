@@ -523,7 +523,33 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-    if (OldParamHasDfl && NewParamHasDfl) {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#373517: compilation fails with 'redefinition of default
+    // argument'.
+    if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
+        (getLangOpts().PermissiveArgs ||
+         getSourceManager().isInSystemHeader(New->getLocation()))) {
+      NewParam->setHasInheritedDefaultArg();
+      if (OldParam) {
+        if (OldParam->hasUnparsedDefaultArg())
+          NewParam->setUnparsedDefaultArg();
+        else if (OldParam->hasUninstantiatedDefaultArg())
+          NewParam->setUninstantiatedDefaultArg(
+              OldParam->getUninstantiatedDefaultArg());
+        else
+          NewParam->setDefaultArg(OldParam->getInit());
+      } else {
+        if (NewParam->hasUninstantiatedDefaultArg())
+          OldParam->setUninstantiatedDefaultArg(
+              NewParam->getUninstantiatedDefaultArg());
+        else
+          OldParam->setDefaultArg(NewParam->getInit());
+      }
+      Invalid = false;
+      continue;
+    } else
+#endif // INTEL_CUSTOMIZATION
+        if (OldParamHasDfl && NewParamHasDfl) {
       unsigned DiagDefaultParamID =
         diag::err_param_default_argument_redefinition;
 
@@ -671,6 +697,10 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#373130: friend functions with default parameter without name.
+  if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   if (Old->getFriendObjectKind() == Decl::FOK_Undeclared &&
       functionDeclHasDefaultArgument(Old)) {
     Diag(New->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
@@ -11651,6 +11681,12 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
       }
     }
 
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#372133: overloaded operator's parameter.
+    if (!ClassOrEnumParam && getLangOpts().IntelCompat &&
+        FnDecl->isTemplateInstantiation())
+      return true;
+#endif // INTEL_CUSTOMIZATION
     if (!ClassOrEnumParam)
       return Diag(FnDecl->getLocation(),
                   diag::err_operator_overload_needs_class_or_enum)
@@ -12762,11 +12798,19 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#373130: friend functions with default parameter without
+      // name.
+      if (!getLangOpts().IntelCompat) {
+#endif // INTEL_CUSTOMIZATION
       if (FunctionDecl *OldFD = FD->getPreviousDecl()) {
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
         Diag(OldFD->getLocation(), diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Mark templated-scope function declarations as unsupported.

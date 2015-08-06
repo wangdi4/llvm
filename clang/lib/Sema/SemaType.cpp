@@ -1081,7 +1081,26 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       declarator.setInvalidType(true);
     }
     break;
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case DeclSpec::TST_bases:
+  case DeclSpec::TST_directBases: {
+    UnaryTransformType::UTTKind UKind =
+        (DS.getTypeSpecType() == DeclSpec::TST_bases)
+            ? UnaryTransformType::BasesOfType
+            : UnaryTransformType::DirectBasesOfType;
+    Result = S.GetTypeFromParser(DS.getRepAsType());
+    assert(!Result.isNull() && "Didn't get a type for bases specifier?");
+    QualType NewTy =
+        S.BuildUnaryTransformType(Result, UKind, DS.getTypeSpecTypeLoc());
+    if (NewTy.isNull())
+      declarator.setInvalidType(true);
+    else
+      Result = NewTy;
+    break;
+  }
 
+#endif // INTEL_CUSTOMIZATION
   case DeclSpec::TST_auto:
     // TypeQuals handled by caller.
     // If auto is mentioned in a lambda parameter context, convert it to a 
@@ -4205,8 +4224,16 @@ namespace {
       TL.setUnderlyingTInfo(TInfo);
     }
     void VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      // FIXME: This holds only because we only have three unary transforms.
+      assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType ||
+             DS.getTypeSpecType() == DeclSpec::TST_bases ||
+             DS.getTypeSpecType() == DeclSpec::TST_directBases);
+#else
       // FIXME: This holds only because we only have one unary transform.
       assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType);
+#endif // INTEL_CUSTOMIZATION
       TL.setKWLoc(DS.getTypeSpecTypeLoc());
       TL.setParensRange(DS.getTypeofParensRange());
       assert(DS.getRepAsType());
@@ -5693,6 +5720,17 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     if (attr.isInvalid())
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#373601: applying gnu::aligned attribute.
+    if (state.getSema().getLangOpts().IntelCompat &&
+        attr.getKind() == AttributeList::AT_Aligned &&
+        state.getDeclarator().getDeclSpec().getStorageClassSpec() ==
+            DeclSpec::SCS_typedef &&
+        state.getCurrentChunkIndex() ==
+            state.getDeclarator().getNumTypeObjects() - 1)
+      continue;
+#endif // INTEL_CUSTOMIZATION
+
     if (attr.isCXX11Attribute()) {
       // [[gnu::...]] attributes are treated as declaration attributes, so may
       // not appertain to a DeclaratorChunk, even if we handle them as type
@@ -6431,6 +6469,12 @@ QualType Sema::BuildUnaryTransformType(QualType BaseType,
       return Context.getUnaryTransformType(BaseType, Underlying,
                                         UnaryTransformType::EnumUnderlyingType);
     }
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case UnaryTransformType::BasesOfType:
+  case UnaryTransformType::DirectBasesOfType:
+    return Context.getBasesType(BaseType, UKind);
+#endif // INTEL_CUSTOMIZATION
   }
   llvm_unreachable("unknown unary transform type");
 }

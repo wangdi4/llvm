@@ -2630,6 +2630,47 @@ static void handleCilkLinearAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                                      Attr.getScopeLoc(), 0);
   D->addAttr(LinearAttr);
 }
+
+static void handleCilkAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  if (!FD || FD->isInvalidDecl())
+    return;
+
+  IdentifierLoc *IdLoc = 0;
+  if (!diagnoseCilkAttrSubject(S, FD, Attr, IdLoc))
+    return;
+  Expr *AlignExpr = 0;
+  unsigned NumArgs = Attr.getNumArgs();
+
+  if (NumArgs == 1)
+    // Use default alignment for the given argument
+    AlignExpr = IntegerLiteral::Create(S.Context, llvm::APInt(32, 0),
+                                       S.Context.IntTy, SourceLocation());
+  else if (NumArgs == 2) {
+    // FIXME: is it possible to use an identifier as the alignment value?
+    //        (we don't have any spec yet about aligned attribute)
+    // FIXME: it should be done in Sema::CheckCilkAlignedArg
+    if (Attr.getArg(1).is<IdentifierLoc *>()) {
+      S.Diag(Attr.getArg(1).get<IdentifierLoc *>()->Loc,
+             diag::err_cilk_elemental_aligned_not_constant);
+      return;
+    }
+    AlignExpr = Attr.getArg(1).get<Expr *>();
+  } else {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_number_arguments)
+        << Attr.getName() << 1;
+    return;
+  }
+  if (AlignExpr)
+    AlignExpr = S.CheckCilkAlignedArg(AlignExpr);
+  if (!AlignExpr)
+    return;
+  // Add the linear attribute to the function.
+  CilkAlignedAttr *AlignAttr = ::new (S.Context) CilkAlignedAttr(
+      Attr.getLoc(), S.Context, IdLoc ? IdLoc->Ident : 0,
+      IdLoc ? IdLoc->Loc : SourceLocation(), AlignExpr, Attr.getScopeLoc(), 0);
+  D->addAttr(AlignAttr);
+}
 #endif  // INTEL_CUSTOMIZATION
 
 SectionAttr *Sema::mergeSectionAttr(Decl *D, SourceRange Range,
@@ -5465,6 +5506,9 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_CilkLinear:
     handleCilkLinearAttr(S, D, Attr);
     break;
+  case AttributeList::AT_CilkAligned:
+    handleCilkAlignedAttr(S, D, Attr);
+    break;
   case AttributeList::AT_CilkUniform:
     handleCilkUniformAttr(S, D, Attr);
     break;
@@ -5691,7 +5735,15 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   // when X is a decl attribute.
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
     if (const AttributeList *Attrs = PD.getTypeObject(i).getAttrs())
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#373601: applying gnu::aligned attribute.
+      ProcessDeclAttributeList(S, D, Attrs,
+                               getLangOpts().IntelCompat &&
+                                   PD.getDeclSpec().getStorageClassSpec() ==
+                                       DeclSpec::SCS_typedef);
+#else // INTEL_CUSTOMIZATION
       ProcessDeclAttributeList(S, D, Attrs, /*IncludeCXX11Attributes=*/false);
+#endif // INTEL_CUSTOMIZATION
 
   // Finally, apply any attributes on the decl itself.
   if (const AttributeList *Attrs = PD.getAttributes())

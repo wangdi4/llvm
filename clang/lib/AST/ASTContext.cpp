@@ -3905,6 +3905,20 @@ QualType ASTContext::getUnaryTransformType(QualType BaseType,
   return QualType(Ty, 0);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+QualType ASTContext::getBasesType(QualType ArgType,
+                                  UnaryTransformType::UTTKind Kind) const {
+  assert((Kind == UnaryTransformType::BasesOfType ||
+          Kind == UnaryTransformType::DirectBasesOfType) &&
+         "unknown bases type kind");
+  UnaryTransformType *Ty =
+      new (*this, TypeAlignment) UnaryTransformType(ArgType, Kind);
+  Types.push_back(Ty);
+  return QualType(Ty, 0);
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// getAutoType - Return the uniqued reference to the 'auto' type which has been
 /// deduced to the given type, or to the canonical undeduced 'auto' type, or the
 /// canonical deduced-but-dependent 'auto' type.
@@ -4992,6 +5006,17 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          VD->getType()->isIntegralOrEnumerationType() &&
          VD->isFirstDecl() && !VD->isOutOfLine() && VD->hasInit();
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
+// a structure.
+bool ASTContext::isIntelStaticDataMemberInlineDefinition(
+    const VarDecl *VD) const {
+  return getLangOpts().IntelCompat && VD->isStaticDataMember() &&
+         VD->getType()->isIntegralOrEnumerationType() && VD->isFirstDecl() &&
+         !VD->isOutOfLine() && VD->hasInit();
+}
+#endif // INTEL_CUSTOMIZATION
 
 static inline 
 std::string charUnitsToString(const CharUnits &CU) {
@@ -8064,6 +8089,13 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
+  // of a structure.
+  if (Context.isIntelStaticDataMemberInlineDefinition(VD))
+    return GVA_DiscardableODR;
+#endif // INTEL_CUSTOMIZATION
+
   switch (VD->getTemplateSpecializationKind()) {
   case TSK_Undeclared:
   case TSK_ExplicitSpecialization:
@@ -8152,6 +8184,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   assert(VD->isFileVarDecl() && "Expected file scoped var");
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+      // field of a structure.
+      !isIntelStaticDataMemberInlineDefinition(VD) &&
+#endif // INTEL_CUSTOMIZATION
       !isMSStaticDataMemberInlineDefinition(VD))
     return false;
 

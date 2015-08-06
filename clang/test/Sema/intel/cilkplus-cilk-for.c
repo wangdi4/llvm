@@ -481,7 +481,11 @@ void test_wrap_around() {
                                        // expected-note {{wraparounds cause undefined behavior in Cilk for}}
 
   _Cilk_for(int i = 0; i != 10; i += 3); // expected-warning {{positive stride causes signed wraparound}} \
+                                         // expected-warning {{Cilk for loop has empty body}} \
+                                         // expected-note {{put the semicolon on a separate line to silence this warning}} \
                                          // expected-note {{wraparounds cause undefined behavior in Cilk for}}
+   _Cilk_for (int i = 0; i < 10; ++i)
+        &i; // expected-warning {{expression result unused}}
 }
 
 void test_cilk_spawn_in_cilk_for() {
