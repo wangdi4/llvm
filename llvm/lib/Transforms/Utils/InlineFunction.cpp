@@ -42,9 +42,7 @@
 #include "llvm/Support/CommandLine.h"
 #include <algorithm>
 using namespace llvm;
-#ifdef INTEL_CUSTOMIZATION
-using namespace InlineReportTypes;
-#endif // INTEL_CUSTOMIZATION
+using namespace InlineReportTypes; // INTEL 
 
 static cl::opt<bool>
 EnableNoAliasConversion("enable-noalias-to-md-conversion", cl::init(true),
@@ -56,20 +54,15 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-#ifdef INTEL_CUSTOMIZATION 
-InlineReason llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
-#else 
-bool llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI,
-#endif // INTEL_CUSTOMIZATION
-                          bool InsertLifetime) {
+InlineReason llvm::InlineFunction(CallInst *CI, // INTEL 
+  InlineFunctionInfo &IFI, // INTEL
+  bool InsertLifetime) { // INTEL 
   return InlineFunction(CallSite(CI), IFI, InsertLifetime);
 }
-#ifdef INTEL_CUSTOMIZATION 
-InlineReason llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-#else
-bool llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-#endif // INTEL_CUSTOMIZATION
-                          bool InsertLifetime) {
+
+InlineReason llvm::InlineFunction(InvokeInst *II, // INTEL 
+  InlineFunctionInfo &IFI, // INTEL 
+  bool InsertLifetime) { // INTEL 
   return InlineFunction(CallSite(II), IFI, InsertLifetime);
 }
 
@@ -703,9 +696,8 @@ static void UpdateCallGraphAfterInlining(CallSite CS,
     
     // If the call was inlined, but then constant folded, there is no edge to
     // add.  Check for this case.
-#ifdef INTEL_CUSTOMIZATION
-    const Instruction *OldCall = dyn_cast<const Instruction>(VMI->first);
-#endif // INTEL_CUSTOMIZATION
+    const Instruction *OldCall // INTEL 
+      = dyn_cast<const Instruction>(VMI->first); // INTEL 
     Instruction *NewCall = dyn_cast<Instruction>(VMI->second);
     if (!NewCall)
       continue;
@@ -714,21 +706,17 @@ static void UpdateCallGraphAfterInlining(CallSite CS,
     // expect them to become inline code; do not add an edge for an intrinsic.
     CallSite CS = CallSite(NewCall);
 #ifdef INTEL_CUSTOMIZATION
-    if (CS && CS.getCalledFunction() && CS.getCalledFunction()->isIntrinsic()) {
+    if (CS && CS.getCalledFunction() 
+      && CS.getCalledFunction()->isIntrinsic()) { 
       IFI.OriginalCalls.push_back(OldCall); 
       IFI.InlinedCalls.push_back(NewCall);
       continue;
     } 
-#else 
-    if (CS && CS.getCalledFunction() && CS.getCalledFunction()->isIntrinsic())
-      continue;
 #endif // INTEL_CUSTOMIZATION
     
     // Remember that this call site got inlined for the client of
     // InlineFunction.
-#ifdef INTEL_CUSTOMIZATION
-    IFI.OriginalCalls.push_back(OldCall); 
-#endif // INTEL_CUSTOMIZATION
+    IFI.OriginalCalls.push_back(OldCall); // INTEL 
     IFI.InlinedCalls.push_back(NewCall);
 
     // It's possible that inlining the callsite will cause it to go from an
@@ -941,16 +929,13 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 /// instruction 'call B' is inlined, and 'B' calls 'C', then the call to 'C' now
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
-#ifdef INTEL_CUSTOMIZATION
 ///
-/// The Intel version returns the principal reason the function was or 
-/// was not inlined at the call site.
+/// INTEL The Intel version returns the principal reason the function was or 
+/// INTEL was not inlined at the call site.
 ///
-InlineReason llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-#else 
-bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-#endif // INTEL_CUSTOMIZATION
-                          bool InsertLifetime) {
+InlineReason llvm::InlineFunction(CallSite CS, // INTEL 
+  InlineFunctionInfo &IFI, // INTEL
+  bool InsertLifetime) { // INTEL 
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getParent()->getParent() &&
          "Instruction not in function!");
@@ -959,24 +944,23 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
   IFI.reset();
   
   const Function *CalledFunc = CS.getCalledFunction();
-#ifdef INTEL_CUSTOMIZATION 
-  if (!CalledFunc) { 
-    // Can't inline indirect call
-    return NinlrIndirect;
-  }
-  if (CalledFunc->isDeclaration()) { 
-    // Can't inline external call 
-    return NinlrExtern; 
-  }
-  if (CalledFunc->getFunctionType()->isVarArg()) { 
-    // Can't inline call to a vararg function!
-    return NinlrVarargs;
-  } 
-#else 
   if (!CalledFunc ||              // Can't inline external function or indirect
       CalledFunc->isDeclaration() || // call, or call to a vararg function!
-      CalledFunc->getFunctionType()->isVarArg()) return false;
+      CalledFunc->getFunctionType()->isVarArg()) { // INTEL 
+#ifdef INTEL_CUSTOMIZATION 
+    if (!CalledFunc) { 
+      // Can't inline indirect call
+      return NinlrIndirect;
+    }
+    if (CalledFunc->isDeclaration()) { 
+      // Can't inline external call 
+      return NinlrExtern; 
+    }
+    assert(CalledFunc->getFunctionType()->isVarArg()); 
+    // Can't inline call to a vararg function!
+    return NinlrVarargs;
 #endif // INTEL_CUSTOMIZATION
+  } // INTEL 
 
   // If the call to the callee cannot throw, set the 'nounwind' flag on any
   // calls that we inline.
@@ -993,11 +977,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     if (!Caller->hasGC())
       Caller->setGC(CalledFunc->getGC());
     else if (CalledFunc->getGC() != Caller->getGC())
-#ifdef INTEL_CUSTOMIZATION
-      return NinlrMismatchedGC;
-#else 
-      return false;
-#endif // INTEL_CUSTOMIZATION
+      return NinlrMismatchedGC; // INTEL 
   }
 
   // Get the personality function from the callee if it contains a landing pad.
@@ -1017,11 +997,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     // TODO: This isn't 100% true. Some personality functions are proper
     //       supersets of others and can be used in place of the other.
     else if (CalledPersonality != CallerPersonality)
-#ifdef INTEL_CUSTOMIZATION
-      return NinlrMismatchedPersonality;
-#else 
-      return false;
-#endif // INTEL_CUSTOMIZATION
+      return NinlrMismatchedPersonality; // INTEL 
   }
 
   // Get an iterator to the last basic block in the function, which will have
@@ -1334,11 +1310,7 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     Returns[0]->eraseFromParent();
 
     // We are now done with the inlining.
-#ifdef INTEL_CUSTOMIZATION
-    return InlrNoReason;
-#else
-    return true;
-#endif // INTEL_CUSTOMIZATION
+    return InlrNoReason; // INTEL 
   }
 
   // Otherwise, we have the normal case, of more than one block to inline or
@@ -1493,9 +1465,5 @@ bool llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
-  return InlrNoReason;
-#else
-  return true;
-#endif // INTEL_CUSTOMIZATION
+  return InlrNoReason; // INTEL 
 }

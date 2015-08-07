@@ -52,9 +52,7 @@
 #ifndef LLVM_ANALYSIS_CALLGRAPH_H
 #define LLVM_ANALYSIS_CALLGRAPH_H
 
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Analysis/CallGraphReport.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/CallGraphReport.h" // INTEL
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/CallSite.h"
@@ -106,11 +104,9 @@ class CallGraph {
   /// functions that it calls.
   void addToCallGraph(Function *F);
 
-#ifdef INTEL_CUSTOMIZATION
-  // A list of CGReports (e.g. the InlineReport) which can be manipulated 
-  // in a minimal way outside their local context 
-  SmallVector<CallGraphReport*, 16> CGReports;
-#endif // INTEL_CUSTOMIZATION
+  // INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated 
+  // INTEL in a minimal way outside their local context 
+  SmallVector<CallGraphReport*, 16> CGReports; // INTEL
 
 public:
   CallGraph(Module &M);
