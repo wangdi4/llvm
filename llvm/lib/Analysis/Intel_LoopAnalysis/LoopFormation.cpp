@@ -1,4 +1,4 @@
-//===------- LoopFormation.cpp - Creates HIR Loops ------*- C++ -*---------===//
+//===------- LoopFormation.cpp - Creates HIR Loops ------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -110,20 +110,37 @@ HLLoop *LoopFormation::findHLLoop(const Loop *Lp) {
 const PHINode *LoopFormation::findIVDefInHeader(const Loop *Lp,
                                                 const Instruction *Inst) const {
 
-  if (isa<PHINode>(Inst) && (Inst->getParent() == Lp->getHeader())) {
-    return cast<PHINode>(Inst);
-  }
-
-  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
-    auto SC = SE->getSCEV(I->get());
-
-    if (isa<SCEVAddRecExpr>(SC) &&
-        (cast<SCEVAddRecExpr>(SC)->getLoop() == Lp)) {
-      return findIVDefInHeader(Lp, cast<Instruction>(I));
+  // Is this a phi node in the loop header?
+  if (Inst->getParent() == Lp->getHeader()) {
+    if (auto Phi = dyn_cast<PHINode>(Inst)) {
+      return Phi;
     }
   }
 
-  llvm_unreachable("Could not find loop IV!");
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
+    // Not looking at scev of the IV since in some cases it is unknown even for
+    // do loops.
+    //
+    // Example-
+    //
+    // for (i = 101; i > 1; i = i/2) {
+    // ...
+    // }
+    if (auto OPInst = dyn_cast<Instruction>(I)) {
+      // Instruction lies outside the loop.
+      if (!Lp->contains(LI->getLoopFor(OPInst->getParent()))) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OPInst);
+
+      if (IVNode) {
+        return IVNode;
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 void LoopFormation::setIVType(HLLoop *HLoop) const {
@@ -149,6 +166,8 @@ void LoopFormation::setIVType(HLLoop *HLoop) const {
          "Loop exit condition is not an instruction!");
 
   auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
+  assert(IVNode && "Could not find loop IV!");
+
   HLoop->setIVType(IVNode->getType());
 }
 
@@ -168,7 +187,7 @@ void LoopFormation::formLoops() {
     Loop *Lp = LI->getLoopFor(HeaderBB);
 
     // Find HIR hook for the loop latch.
-    auto LatchHook = HIRC->findHLNode(Lp->getLoopLatch());
+    auto LatchHook = HIRC->findHIRHook(Lp->getLoopLatch());
 
     assert(((*I)->getParent() == LatchHook->getParent()) &&
            "Wrong lexical links built!");
@@ -224,12 +243,7 @@ bool LoopFormation::runOnFunction(Function &F) {
 void LoopFormation::releaseMemory() { Loops.clear(); }
 
 void LoopFormation::print(raw_ostream &OS, const Module *M) const {
-  formatted_raw_ostream FOS(OS);
-
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
-    FOS << "\n";
-    I->print(FOS, 0);
-  }
+  HIR->print(OS, M);
 }
 
 void LoopFormation::verifyAnalysis() const {

@@ -21,11 +21,19 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-HLGoto::HLGoto(BasicBlock *TargetBB, HLLabel *TargetL)
-    : HLNode(HLNode::HLGotoVal), TargetBBlock(TargetBB), TargetLabel(TargetL) {}
+HLGoto::HLGoto(BasicBlock *TargetBB)
+    : HLNode(HLNode::HLGotoVal),
+      TargetBBlock(TargetBB),
+      TargetLabel(nullptr) {}
+
+HLGoto::HLGoto(HLLabel *TargetL)
+    : HLNode(HLNode::HLGotoVal),
+      TargetBBlock(nullptr),
+      TargetLabel(TargetL) {}
 
 HLGoto::HLGoto(const HLGoto &HLGotoObj)
-    : HLNode(HLGotoObj), TargetBBlock(HLGotoObj.TargetBBlock),
+    : HLNode(HLGotoObj),
+      TargetBBlock(HLGotoObj.TargetBBlock),
       TargetLabel(HLGotoObj.TargetLabel) {}
 
 HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
@@ -43,16 +51,17 @@ HLGoto *HLGoto::cloneImpl(GotoContainerTy *GotoList,
 
 HLGoto *HLGoto::clone() const { return cloneImpl(nullptr, nullptr); }
 
-void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
 
   indent(OS, Depth);
 
   OS << "goto ";
 
   if (TargetLabel) {
-    OS << TargetLabel->getSrcBBlock()->getName();
+    OS << TargetLabel->getName();
   } else {
-    OS << TargetBBlock->getName();
+    HLLabel::printBBlockName(OS, *TargetBBlock);
   }
 
   OS << ";\n";

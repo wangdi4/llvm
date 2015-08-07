@@ -1,7 +1,7 @@
 ; RUN: opt -analyze -symbase < %s | FileCheck -debug %s
 ; Without an AA impl, both array refs should be in same symbase
-; CHECK-DAG: {{@B.*}} Symbase: [[Base1:[0-9]+]]
-; CHECK-DAG: {{@A.*}} Symbase: [[Base1]]
+; CHECK-DAG: {{.*@B.*\[.*}} {sb:[[Base1:[0-9]+]]}
+; CHECK-DAG: {{.*@A.*\[.*}} {sb:[[Base1]]}
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

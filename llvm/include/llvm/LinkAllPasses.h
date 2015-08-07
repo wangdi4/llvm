@@ -193,6 +193,7 @@ namespace {
   #if INTEL_CUSTOMIZATION  // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
+      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
@@ -201,7 +202,9 @@ namespace {
       (void) llvm::createDDAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
   #endif // INTEL_CUSTOMIZATION
     }

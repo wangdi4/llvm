@@ -32,20 +32,35 @@ namespace loopopt {
 class DDRef;
 class HLNode;
 class HLRegion;
+class HLDDNode;
 class HLLoop;
 class HIRParser;
 class SymbaseAssignment;
 class DirectionVector;
 class DDGraph;
 
+enum DDVerificationLevel {
+  Region = 0,
+  L1,
+  L2,
+  L3,
+  L4,
+  L5,
+  L6,
+  L7,
+  L8,
+  L9,
+  Innermost
+};
+
 typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
 
-/// \brief TODO
 class DDAnalysis : public FunctionPass {
 public:
   DDAnalysis() : FunctionPass(ID) {}
   static char ID;
   bool runOnFunction(Function &F) override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const;
 
@@ -131,8 +146,29 @@ private:
   DDGraphTy FunctionDDGraph;
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
-  DirectionVector getInputDV(HLNode *Node, DDRef *Ref1, DDRef *Ref2);
+  void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
   void dumpSymBaseMap(SymToRefs &RefMap);
+
+  // Used to rebuild graphs for node/regions based on cl options
+  // in DDA's runonPass for verification purposes.
+  class GraphVerifier {
+  private:
+    DDAnalysis *CurDDA;
+    DDVerificationLevel CurLevel;
+
+  public:
+    GraphVerifier(DDAnalysis *DDA, DDVerificationLevel Level)
+        : CurDDA(DDA), CurLevel(Level) {}
+
+    void visit(HLRegion *Region);
+
+    void visit(HLLoop *Loop);
+
+    void visit(HLNode *Node) {}
+    void postVisit(HLNode *Node) {}
+    bool isDone() { return false; }
+    bool skipRecursion(HLNode *Node) { return false; }
+  };
 };
 
 // DDAnalysis returns instances of this to ensure clients can access graph,
@@ -160,8 +196,10 @@ public:
     return G->outgoing_edges_end(Ref);
   }
 
-  // todo
-  void dump() { G->dump(); }
+  void print(raw_ostream &OS) const { G->print(OS); }
+  // todo visit all refs in CurNode, prining outgoing edges whose sink is
+  // also in curnode
+  void dump() const { G->dump(); }
 };
 }
 }

@@ -1,4 +1,4 @@
-//===------ SCCFormation.cpp - Identifies SCC in IRRegions *- C++ -*-------===//
+//===------ SCCFormation.cpp - Identifies SCC in IRRegions ----------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -56,11 +56,14 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 bool SCCFormation::isLinear(const NodeTy *Node) const {
-  auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
 
-  if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    if (AddRecSCEV->isAffine()) {
-      return true;
+  if (SE->isSCEVable(Node->getType())) {
+    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+
+    if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
+      if (AddRecSCEV->isAffine()) {
+        return true;
+      }
     }
   }
 
@@ -157,7 +160,7 @@ SCCFormation::getLastSucc(const NodeTy *Node) const {
   return Node->user_end();
 }
 
-void SCCFormation::removeIntermediateNodes(SCCTy &CurSCC) {
+void SCCFormation::removeIntermediateNodes(SCCNodesTy &CurSCC) {
 
   SmallVector<const NodeTy *, 4> IntermediateNodes;
 
@@ -195,11 +198,16 @@ void SCCFormation::removeIntermediateNodes(SCCTy &CurSCC) {
   }
 }
 
-void SCCFormation::setRegionSCCBegin() {
-  if ((CurRegIt != RI->begin()) && isNewRegion) {
+unsigned
+SCCFormation::getRegionIndex(RegionIdentification::const_iterator RegIt) const {
+  return RegIt - RI->begin();
+}
 
-    // Make the last RegionSCC iterator, current region's first SCC.
-    RegionSCCBegin[CurRegIt - RI->begin() - 1] = std::prev(RegionSCCs.end());
+void SCCFormation::setRegionSCCBegin() {
+  if (isNewRegion) {
+    // Set the index of the last RegionSCC element as the current region's first
+    // SCC.
+    RegionSCCBegin[getRegionIndex(CurRegIt)] = RegionSCCs.size() - 1;
     isNewRegion = false;
   }
 }
@@ -207,6 +215,48 @@ void SCCFormation::setRegionSCCBegin() {
 void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
   CurRegIt = RegIt;
   isNewRegion = true;
+}
+
+bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
+  SmallPtrSet<const BasicBlock *, 12> BBlocks;
+
+  for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
+       InstIt != IEndIt; ++InstIt) {
+    if (isa<PHINode>(*InstIt)) {
+
+      auto ParentBB = (*InstIt)->getParent();
+
+      if (BBlocks.count(ParentBB)) {
+        // If any two phis in the SCC have the same bblock parent then we
+        // cannot assign the same symbase to them because they are live inside
+        // the bblock at the same time, hence we invalidate the SCC. This can
+        // happen in circular wrap cases. The following example generates a
+        // single SCC out of a, b and c.
+        //
+        // for(i=0; i<n; i++) {
+        //   A[i] = a;
+        //   t = a;
+        //   a = b;
+        //   b = c;
+        //   c = t;
+        // }
+        //
+        // IR-
+        //
+        // for.body:
+        //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
+        //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
+        //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
+        // ...
+        //
+        return false;
+      }
+
+      BBlocks.insert(ParentBB);
+    }
+  }
+
+  return true;
 }
 
 unsigned SCCFormation::findSCC(const NodeTy *Node) {
@@ -248,26 +298,38 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
     // Ignore trivial single node SCC.
     if (Node == NodeStack.back()) {
       NodeStack.pop_back();
+
+      // Invalidate index so node is ignored in subsequent traversals.
+      VisitedNodes[Node] = 0;
     } else {
       // Create new SCC.
-      RegionSCCs.push_back(new SCCTy());
-      auto NewSCC = RegionSCCs.back();
+      SCCTy *NewSCC = new SCCTy(Node);
+      auto &NewSCCNodes = NewSCC->Nodes;
       const NodeTy *SCCNode;
-
-      // Set pointer to first SCC of region, if applicable.
-      setRegionSCCBegin();
 
       // Insert Nodes in new SCC.
       do {
-        SCCNode = NodeStack.back();
-        NewSCC->insert(SCCNode);
-        NodeStack.pop_back();
+        SCCNode = NodeStack.pop_back_val();
+        NewSCCNodes.insert(SCCNode);
 
-        // Invalidate index so it isn't used in another SCC.
+        // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
-      removeIntermediateNodes(*NewSCC);
+      if (isValidSCC(NewSCC)) {
+        // Add new SCC to the list.
+        RegionSCCs.push_back(NewSCC);
+
+        // Set pointer to first SCC of region, if applicable.
+        setRegionSCCBegin();
+
+        // Remove nodes not directly associated with the phi nodes.
+        removeIntermediateNodes(NewSCCNodes);
+
+      } else {
+        // Not a valid SCC.
+        delete NewSCC;
+      }
     }
   }
 
@@ -322,6 +384,9 @@ bool SCCFormation::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolution>();
   RI = &getAnalysis<RegionIdentification>();
 
+  // Initialize to NO_SCC.
+  RegionSCCBegin.resize(RI->getNumRegions(), NO_SCC);
+
   formRegionSCCs();
 
   return false;
@@ -329,30 +394,70 @@ bool SCCFormation::runOnFunction(Function &F) {
 
 void SCCFormation::releaseMemory() {
   GlobalNodeIndex = 1;
+  isNewRegion = false;
 
   for (auto &I : RegionSCCs) {
     delete I;
   }
 
   RegionSCCs.clear();
+  RegionSCCBegin.clear();
+  VisitedNodes.clear();
+  NodeStack.clear();
 }
 
 SCCFormation::const_iterator
 SCCFormation::begin(RegionIdentification::const_iterator RegIt) const {
-  if (RegIt == RI->begin()) {
-    return RegionSCCs.begin();
+  unsigned Index = getRegionIndex(RegIt);
+  int BeginOffset = RegionSCCBegin[Index];
+
+  // No SCCs associated with this region, return end().
+  if (BeginOffset == NO_SCC) {
+    return RegionSCCs.end();
   }
 
-  return RegionSCCBegin[RegIt - RI->begin() - 1];
+  return RegionSCCs.begin() + BeginOffset;
 }
 
 SCCFormation::const_iterator
 SCCFormation::end(RegionIdentification::const_iterator RegIt) const {
-  if (RegIt == std::prev(RI->end())) {
+
+  // RegionSCCBegin vector contains an offset indicating the first SCC of the
+  // region in RegionSCCs vector. Index set to NO_SCC means the region has no
+  // SCCs so we can simply return RegionSCCs end() iterator. Otherwise, to find
+  // the last SCC associated with the region, we need to traverse the
+  // RegionSCCBegin vector and find the next non - NO_SCC element. For exmaple,
+  // consider the following RegionSCCBegin vector-
+  //
+  // [NO_SCC, 0, NO_SCC, 4]
+  //
+  // The above vector indicates that:
+  // - First region does not contain any SCCs.
+  // - Second region contains SCCs 0 to 3(4 is the end() element).
+  // - Third region does not contain any SCCs.
+  // - Fourth region contains all the remaining SCCs starting from 4.
+  //
+  unsigned Index = getRegionIndex(RegIt);
+  int BeginOffset = RegionSCCBegin[Index];
+
+  // No SCCs associated with this region, return end().
+  if (BeginOffset == NO_SCC) {
     return RegionSCCs.end();
   }
 
-  return RegionSCCBegin[RegIt - RI->begin()];
+  // Look for the end() for this region by looking at the next non-null index in
+  // the array.
+  for (++Index; Index < RegionSCCBegin.size(); ++Index) {
+    int EndOffset = RegionSCCBegin[Index];
+
+    if (EndOffset != NO_SCC) {
+      assert(EndOffset > BeginOffset && "Region SCC offsets are wrong!");
+      return RegionSCCs.begin() + EndOffset;
+    }
+  }
+
+  // Couldn't find a non-null index, return end().
+  return RegionSCCs.end();
 }
 
 void SCCFormation::print(raw_ostream &OS, const Module *M) const {
@@ -374,15 +479,18 @@ void SCCFormation::print(raw_ostream &OS, const Module *M) const {
       }
 
       OS << "\n   SCC" << Count << ": ";
-      for (auto InstI = (*SCCIt)->begin(), InstE = (*SCCIt)->end();
+      for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
            InstI != InstE; ++InstI) {
-        if (InstI != (*SCCIt)->begin()) {
+        if (InstI != (*SCCIt)->Nodes.begin()) {
           OS << " -> ";
         }
-        OS << (*InstI)->getName();
+        (*InstI)->printAsOperand(OS, false);
       }
     }
-    OS << "\n";
+    // Add a newline only if we printed anything.
+    if (!FirstSCC) {
+      OS << "\n";
+    }
   }
 }
 

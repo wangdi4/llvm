@@ -20,6 +20,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -55,7 +57,6 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
   }
 
   OS << "\n";
-
   OS.indent(IndentWidth) << "Member BBlocks: ";
 
   for (auto I = BBlocks.begin(), E = BBlocks.end(); I != E; ++I) {
@@ -63,6 +64,29 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
       OS << ", ";
     }
     OS << (*I)->getName();
+  }
+
+  OS << "\n";
+  OS.indent(IndentWidth) << "LiveIns: ";
+
+  for (auto I = LiveInSet.begin(), E = LiveInSet.end(); I != E; ++I) {
+    if (I != LiveInSet.begin()) {
+      OS << ", ";
+    }
+    CanonExprUtils::printScalar(OS, I->first);
+    OS << "(";
+    I->second->printAsOperand(OS, false);
+    OS << ")";
+  }
+
+  OS << "\n";
+  OS.indent(IndentWidth) << "LiveOuts: ";
+
+  for (auto I = LiveOutSet.begin(), E = LiveOutSet.end(); I != E; ++I) {
+    if (I != LiveOutSet.begin()) {
+      OS << ", ";
+    }
+    I->second->printAsOperand(OS, false);
   }
 
   OS << "\n";

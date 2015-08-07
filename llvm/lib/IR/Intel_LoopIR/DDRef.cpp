@@ -1,4 +1,4 @@
-//===- DDRef.cpp - Implements the DDRef class -------------------*- C++ -*-===//
+//===- DDRef.cpp - Implements the DDRef class -----------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -20,6 +20,8 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -52,35 +54,53 @@ void DDRef::destroyAll() {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DDRef::dump() const {
+void DDRef::dump(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS);
+  print(OS, Detailed);
 }
 
-void DDRef::detailedDump() const {
-  formatted_raw_ostream OS(dbgs());
-  detailedPrint(OS);
-}
+void DDRef::dump() const { dump(false); }
 #endif
 
-Type *DDRef::getLLVMType() const {
+Type *DDRef::getType() const {
   const CanonExpr *CE;
 
   if (auto BRef = dyn_cast<BlobDDRef>(this)) {
     CE = BRef->getCanonExpr();
     assert(CE && "DDRef is empty!");
-    return CE->getLLVMType();
+    return CE->getType();
   } else if (auto RRef = dyn_cast<RegDDRef>(this)) {
     if (RRef->hasGEPInfo()) {
       CE = RRef->getBaseCE();
       assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-      return CE->getLLVMType();
+
+      if (RRef->isAddressOf()) {
+        return CE->getType();
+      } else {
+        // load/store DDRef is a dereference of the base type.
+        return cast<PointerType>(CE->getType())->getElementType();
+      }
     } else {
       CE = RRef->getSingleCanonExpr();
       assert(CE && "DDRef is empty!");
-      return CE->getLLVMType();
+      return CE->getType();
     }
   }
 
   llvm_unreachable("Unknown DDRef kind!");
+}
+
+Type *DDRef::getElementType() const {
+  Type *RetTy = getType();
+  ArrayType *ArrTy;
+
+  while ((ArrTy = dyn_cast<ArrayType>(RetTy))) {
+    RetTy = ArrTy->getElementType();
+  }
+
+  return RetTy;
+}
+
+void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+  OS << "{sb:" << getSymBase() << "}";
 }

@@ -16,7 +16,9 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -97,14 +99,15 @@ void HLSwitch::print_break(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth) const {
+void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed) const {
 
   indent(OS, Depth);
 
   OS << "switch(";
 
   auto Ref = getConditionDDRef();
-  Ref ? Ref->print(OS) : (void)(OS << Ref);
+  Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
 
   OS << ")\n";
   indent(OS, Depth);
@@ -116,12 +119,12 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
     OS << "case ";
     auto Ref = getCaseValueDDRef(I);
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
     OS << ":\n";
 
     for (auto It = case_child_begin(I), EndIt = case_child_end(I); It != EndIt;
          It++) {
-      It->print(OS, Depth + 1);
+      It->print(OS, Depth + 1, Detailed);
     }
 
     print_break(OS, Depth, I);
@@ -133,7 +136,7 @@ void HLSwitch::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   for (auto It = default_case_child_begin(), EndIt = default_case_child_end();
        It != EndIt; It++) {
-    It->print(OS, Depth + 1);
+    It->print(OS, Depth + 1, Detailed);
   }
 
   print_break(OS, Depth, 0);

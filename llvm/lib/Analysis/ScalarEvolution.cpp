@@ -4089,6 +4089,13 @@ ScalarEvolution::getRange(const SCEV *S,
   return setRange(S, SignHint, ConservativeResult);
 }
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
+  return (Inst->getMetadata("in.de.ssa") || 
+    Inst->getMetadata("out.de.ssa"));
+}
+#endif
+
 /// createSCEV - We know that there is no SCEV for the specified value.
 /// Analyze the expression.
 ///
@@ -4346,9 +4353,16 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-    // BitCasts are no-op casts so we just eliminate the cast.
-    if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
-      return getSCEV(U->getOperand(0));
+#if INTEL_CUSTOMIZATION // HIR parsing
+    // Suppress traceback for copy instructions inserted by HIR.
+    if (!isa<Instruction>(V) || !isHIRCopyInst(cast<Instruction>(V))) {
+#endif
+      // BitCasts are no-op casts so we just eliminate the cast.
+      if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
+        return getSCEV(U->getOperand(0));
+#if INTEL_CUSTOMIZATION // HIR parsing
+    }
+#endif
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can

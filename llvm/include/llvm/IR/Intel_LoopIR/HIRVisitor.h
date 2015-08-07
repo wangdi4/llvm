@@ -9,7 +9,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_IR_HLVISITOR_H
 #define LLVM_IR_HLVISITOR_H
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
