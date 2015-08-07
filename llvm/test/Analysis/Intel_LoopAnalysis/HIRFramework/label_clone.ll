@@ -1,5 +1,5 @@
 ; Check goto cloning
-; RUN: opt < %s -mem2reg | opt -S -HIRCompleteUnroll -print-before=HIRCompleteUnroll -print-after=HIRCompleteUnroll |& FileCheck %s
+; RUN: opt < %s -mem2reg | opt -S -HIRCompleteUnroll -print-before=HIRCompleteUnroll -print-after=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; CHECK-LABEL: *** IR Dump Before HIR Complete Unroll ***
 ; CHECK: goto [[LABEL0:L.*]];

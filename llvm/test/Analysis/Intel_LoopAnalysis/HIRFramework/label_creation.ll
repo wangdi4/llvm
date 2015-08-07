@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -S -hir-dummy -hir-dummy-label -print-after=hir-dummy |& FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -S -hir-dummy -hir-dummy-label -print-after=hir-dummy 2>&1 | FileCheck %s
 
 ; CHECK: <[[LABEL0:[0-9]+]]>{{.*}}L0.[[LABEL0]]:
 ; CHECK: <[[LABEL1:[0-9]+]]>{{.*}}L1.[[LABEL1]]:
