@@ -1,9 +1,11 @@
 //===------- WRegionCollection.h - Collect W-Regions -----------*- C++ --*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -70,7 +72,7 @@ private:
 
 public:
 
-  friend class WRegion;
+  friend class WRegionNode;
 
   static char ID; // Pass identification
   WRegionCollection();
@@ -84,12 +86,9 @@ public:
   /// \brief Returns true if ParOpt/VecOpt is able to handle this loop.
   bool isCandidateLoop(Loop &Lp);
 
-  /// \brief generates BB set in sub CFG for a given W-Region
-  void doPreOrderSubCFGVisit(BasicBlock *EntryBB, BasicBlock *exitBB, 
-                             SmallPtrSetImpl<BasicBlock*> *preOrderTreeVisited);
-
   /// \brief performs pre-order visit in LLVM Dom-Tree to get W-Regions
-  void doPreOrderDomTreeVisit(BasicBlock *BB, WRStack<WRegion *> *S);
+
+  void doPreOrderDomTreeVisit(BasicBlock *BB, WRStack<WRegionNode *> *S);
 
   /// \brief Identifies WRegions and build W-Region Graph for LLVM Dom-Tree
   void doBuildWRegionGraph(Function &F);

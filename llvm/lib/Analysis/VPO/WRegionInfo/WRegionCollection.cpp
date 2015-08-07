@@ -1,13 +1,15 @@
-//===- WRegionCollection.cpp - Identifies HIR Regions *- C++ -*---------===//
+//===------ WRegionCollection.cpp - Build WRN Graph -----*- C++ -*---------===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the W-Region Collection pass.
+//   This file implements the W-Region Collection pass.
 //
 //===----------------------------------------------------------------------===//
 
@@ -20,8 +22,6 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/LoopPass.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
@@ -118,120 +118,102 @@ bool WRegionCollection::isCandidateLoop(Loop &Lp) {
   return true;
 }
 
-/// \brief Visit the Sub CFG to collect all Basic Block in the Sub CFG 
-void WRegionCollection::doPreOrderSubCFGVisit(
-  BasicBlock   *BB,
-  BasicBlock   *ExitBB,
-  SmallPtrSetImpl<BasicBlock*> *preOrderTreeVisited
-)
-{ 
-  if (!preOrderTreeVisited->count(BB)) {
-    //DEBUG(dbgs() << *BB);
-    preOrderTreeVisited->insert(BB);
-
-    for (succ_iterator I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-      if (*I != ExitBB) {
-        doPreOrderSubCFGVisit(*I, ExitBB, preOrderTreeVisited);
-      }  
-    }
-  }
-  return;
-}
-
 /// \brief Visit the Dom Tree to identify all W-Regions 
 void WRegionCollection::doPreOrderDomTreeVisit(
   BasicBlock *BB,
-  WRStack<WRegion *> *S
+  WRStack<WRegionNode *> *S
 )
 {
   DEBUG(dbgs() << *BB);
   auto Root = DT->getNode(BB);
 
-  WRegion       *W;
-  WRegionBSetTy BBSet;
+  WRegionNode *W;
   
-  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) { 
+  //
+  // Iterate through all the intstructions in BB.
+  //
+  for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    /// We know we've encountered a call instruction, so we need to 
-    /// determine if it's a call to the function pointed to by LLVM
+    IntrinsicInst* IntrinInst = dyn_cast<IntrinsicInst>(&*I);
 
-    if (IntrinsicInst* intrinInst = dyn_cast<IntrinsicInst>(&*I)) {
+    if (IntrinInst) { 
+      if (IntrinInst->getIntrinsicID() == Intrinsic::intel_directive) {
 
-      /// To determine if it's a call to the function pointed to by LLVM
-      /// directive START instrinsic function
-      if (intrinInst->getIntrinsicID() == Intrinsic::intel_directive) {
- 
-        //BBSet.insert(BB);
-        StringRef DirString = VPOUtils::getDirectiveMetadataString(intrinInst);
+        StringRef DirString = VPOUtils::getDirectiveMetadataString(IntrinInst);
 
-        /// To determine if it's a call to the function pointed to by LLVM
-        /// directive START instrinsic function
-        if (DirString == "dir.simd") { 
-
-          W = new WRegion(BB, BB, BBSet, LI);
-          
-          /// Top-level W-Region
+        // If the intrinsic represents an intel BEGIN directive, then
+        // W is a pointer to an object for the corresponding WRN.
+        // Otherwise, W is nullptr.
+        W = WRegionUtils::createWRegion(DirString, BB);
+        if (W) {
+          // The intrinsic represents an intel BEGIN directive.
+          // W is a pointer to an object for the corresponding WRN.
           if (S->empty()) { 
-             // 
-	     // Bug: WRegions container not a member of this class. Need to save locally
-             // before another pass can access this data.
-             // WRegions.push_back(W);
+            /// Top-level W-Region
+            //
+            // Bug: WRegions container not a member of this class. Need to save
+            // locally before another pass can access this data.
+            // WRegions.push_back(W);
 
-             // Temporary Add to class member WRegionList. This container is then
-             // saved in the calling pass (WRegionInfo) for access by AVR_Generate.   
-             WRegionList.push_back(W);
+            // Temporarily add to class member WRegionList; it is then saved 
+            // in the calling pass (WRegionInfo) for access by AVR_Generate.
+            WRegionList.push_back(W);
           }
           else {
-             WRegion *Parent = S->top();
-             if (!Parent->hasChildren()) {
-               WRegionUtils::insertFirstChild(Parent, W);
-             }
-             else {
-               WRegionNode *C = Parent->getLastChild();
-               WRegionUtils::insertAfter(C, W);
-             }
+            WRegionNode *Parent = S->top();
+            if (!Parent->hasChildren()) {
+              WRegionUtils::insertFirstChild(Parent, W);
+            }
+            else {
+              WRegionNode *C = Parent->getLastChild();
+              WRegionUtils::insertAfter(C, W);
+            }
           }
 
           S->push(W);
           DEBUG(dbgs() << "\nStacksize = " << S->size() 
                        << " SIMD block \n " << *W->getEntryBBlock() << "\n");
-          break;
         }
-
-        /// To determine if it's a call to the function pointed to by LLVM
-        /// directive END instrinsic function
-        if (DirString == "dir.simd.end") { 
-         
-          SmallPtrSet<BasicBlock*, 16> preOrderTreeVisited;
-          preOrderTreeVisited.clear();
+        else if (WRegionUtils::isEndDirective(DirString)) {
+          // The intrinsic represents an intel END directive
 
           W = S->top(); 
-
           W->setExitBBlock(BB);
 
-          /// generate BB set out of DFS Tree visting in the sub CFG
-          doPreOrderSubCFGVisit(W->getEntryBBlock(), 
-                                W->getExitBBlock(), &preOrderTreeVisited);
+          // generate BB set; 
+          // Remove this call later; the client will do it on demand
+          W->computeBBlockSet();
 
-          BBSet = W->getBBlockSet(); 
-
-          for (SmallPtrSetIterator<BasicBlock *>  
-               I = preOrderTreeVisited.begin(), 
-               E = preOrderTreeVisited.end(); I != E; ++I) {
-            BB = *I;
-            BBSet.insert(BB);
-          }
-    
- 
           if (!S->empty()) S->pop();
 
           DEBUG(dbgs() << "\nStacksize = " << S->size() 
-                       << " SIMD END block \n " << *W->getExitBBlock() << "\n");
-          break;
+                     << " SIMD END block \n " << *W->getExitBBlock() << "\n");
         }
       }
-    }
-  }
+      else if (IntrinInst->getIntrinsicID() == 
+                              Intrinsic::intel_directive_qual) {
+        WRegionUtils::handleDirQual(IntrinInst, S->top());
+      }
+      else if (IntrinInst->getIntrinsicID() == 
+                              Intrinsic::intel_directive_qual_opnd) {
+        WRegionUtils::handleDirQualOpnd(IntrinInst, S->top());
+      }
+      else if (IntrinInst->getIntrinsicID() == 
+                              Intrinsic::intel_directive_qual_opndlist) {
+        WRegionUtils::handleDirQualOpndList(IntrinInst, S->top());
+      }
+
+/* TODO: implement WRNFlushNode and WRNCancelNode
+      if (!S->empty() && I == E) {
+        WRegionNode *A = S->top();
+        if (WRegionNode* StandAloneWConstruct = dyn_cast<WRNFlushNode>(&*A) ||
+            WRegionNode* StandAloneWConstruct = dyn_cast<WRNCancelNode>(&*A)) {
+          S->pop();
+        }
+      }
+*/
+    } // if (IntrinInst)
+  } // for
 
   /// Walk over dominator children.
   for (auto D = Root->begin(), E = Root->end(); D != E; ++D) {
@@ -242,12 +224,14 @@ void WRegionCollection::doPreOrderDomTreeVisit(
   return;
 }
 
+
 void WRegionCollection::doBuildWRegionGraph(Function &F) {
 
   DEBUG(dbgs() << "\nFunction = \n" << *this->Func );
-  WRStack<WRegion *> S;
+  WRStack<WRegionNode *> S;
 
   doPreOrderDomTreeVisit(&F.getEntryBlock(), &S); 
+
   return;
 }
 

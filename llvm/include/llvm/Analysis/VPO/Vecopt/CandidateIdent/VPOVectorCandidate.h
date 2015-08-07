@@ -30,7 +30,7 @@ class LoopInfo;
 
 namespace vpo { // VPO Vectorizer Namespace
 
-class WRegion;
+class WRNVecLoopNode;
 
 /// \brief Candidate loop for vectorization.
 ///
@@ -45,7 +45,7 @@ public:
 protected:
 
   /// LLVM IR Constructor
-  VectorCandidate(WRegion *WRN);
+  VectorCandidate(WRNVecLoopNode *WRN);
 
   /// HIR Constructor
   VectorCandidate(HLNode* HLN);
@@ -57,7 +57,7 @@ protected:
 private:
 
   /// Work Region Node (if available)
-  WRegion *WRNode;
+  WRNVecLoopNode *WRNode;
 
   /// HIR Node (if available)
   HLNode *HIRNode;

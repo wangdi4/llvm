@@ -1,33 +1,91 @@
-//===- WRegionNodeUtils.cpp - Implements W-Region Node Utils class --*- C++ -*-===//
+//===----- WRegionNodeUtils.cpp - W-Region Node Utils class -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the the WRegionNode Utils class.
+//   This file implements the the WRegionNode Utils class.
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "WRegionUtils"
 
 using namespace llvm;
 using namespace vpo;
 
-// W-Region Graph Creatation Utilities
-WRegion *WRegionUtils::createWRegion(
-  BasicBlock *EntryBB, 
-  BasicBlock *ExitBB, WRegionBSetTy &BBs, LoopInfo *LI
+/// \brief Create a specialized WRN based on the DirString.
+/// If the string corrensponds to a BEGIN directive, then create
+/// a WRN node of WRegionNodeKind corresponding to the directive,
+/// and return a pointer to it. Otherwise; return nullptr.
+WRegionNode *WRegionUtils::createWRegion(
+  StringRef DirString,
+  BasicBlock *EntryBB
+)
+{
+  WRegionNode *W = nullptr;
+
+  if (DirString == "dir.parallel") {
+    W = new WRNParallelNode();
+  }
+  else if (DirString == "dir.simd") {
+    W = new WRNVecLoopNode();
+  }
+  // TODO: complete the list for all WRegionNodeKinds
+
+  if (W)
+    W->setEntryBBlock(EntryBB);
+
+  return W;
+}
+
+
+bool WRegionUtils::isEndDirective(
+  StringRef DirString
+)
+{
+  if ((DirString == "dir.parallel.end") ||
+      (DirString == "dir.simd.end")) {
+    // TODO: complete the list for all WRegionNodeKinds
+    return true;
+  }
+  return false;
+}
+
+void WRegionUtils::handleDirQual(
+  IntrinsicInst *Intrin, 
+  WRegionNode *W
 ) 
 {
-  return new WRegion(EntryBB, ExitBB, BBs, LI);
+  // TODO: implement
+  return;
 }
+
+void WRegionUtils::handleDirQualOpnd(
+  IntrinsicInst *Intrin, 
+  WRegionNode *W
+) 
+{
+  // TODO: implement
+  return;
+}
+
+void WRegionUtils::handleDirQualOpndList(
+  IntrinsicInst *Intrin, 
+  WRegionNode *W
+) 
+{
+  // TODO: implement
+  return;
+}
+
 
 // Insertion Utilities
 void WRegionUtils::insertFirstChild(
@@ -74,39 +132,30 @@ void WRegionUtils::insertWRegionNode(
 ) 
 {
   assert(Parent && "Parent is Null");
-  // TODO: Add VpoParLoop, VpoParSections support.
 
-  if (isa<WRegion>(Parent)) {
-    auto wrn = dyn_cast<WRegion>(Parent);
-#if 1
-    WRContainerTy &WRContainer = wrn->Children;
-    WrnIter pos;
+  WRContainerTy &WRContainer = Parent->getChildren();
 
-    switch (Op) {
+  WrnIter InsertionPoint;
+
+  switch (Op) {
       case FirstChild:
-        pos = wrn->wrn_child_begin();
+        InsertionPoint = Parent->getFirstChild();
         break;
       case LastChild:
-        pos = wrn->wrn_child_end();
+        InsertionPoint = Parent->getLastChild();
         break;
       case Append:
-        pos = std::next(Pos);
+        InsertionPoint = std::next(Pos);
         break;
       case Prepend:
-        pos = Pos;
+        InsertionPoint = Pos;
         break;
       default:
         llvm_unreachable("VPO: Unknown WRegionNode Insertion Operation Type");
-    }
-    W->setParent(Parent);
-    DEBUG(dbgs() << "\n\nWRWR: INSERTING WRN NODE CHILD\n\n");
-    WRContainer.insert(pos, W);
-#endif
   }
-  else {
-    // TODO: Missing Support
-    DEBUG(dbgs() << "Missing Full Insertion Support\n");
-  }
+
+  W->setParent(Parent);
+  WRContainer.insert(InsertionPoint, W);
+
   return;
 }
-

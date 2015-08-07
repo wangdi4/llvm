@@ -20,7 +20,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-VectorCandidate::VectorCandidate(WRegion *WNode) : WRNode(WNode),
+VectorCandidate::VectorCandidate(WRNVecLoopNode *WNode) : WRNode(WNode),
   HIRNode(nullptr), IsHIRCandidate(false)
 {
   setEntryBBlock(WNode->getEntryBBlock());

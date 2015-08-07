@@ -1,13 +1,15 @@
 //===--------- WRegionNode.h - W-Region Graph Node --------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file defines the W-Region Graph node.
+//   This file defines the W-Region Graph node.
 //
 //===----------------------------------------------------------------------===//
 
@@ -19,8 +21,11 @@
 
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
 
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/BasicBlock.h"
 
 #include <set>
 
@@ -28,112 +33,185 @@ namespace llvm {
 
 namespace vpo {
 
-class WRegion;
+typedef std::set<const BasicBlock *> WRegionBSetTy;
+
+class WRegionNode;
+typedef iplist<WRegionNode> WRContainerTy;
 
 /// \brief WRegion Node base class
-///
-/// This represents a node of the W-Region. It is used to represent
-/// the incoming LLVM IR in program order.
-///
-/// This class (hierarchy) disallows creating objects on stack.
-/// Objects are created/destroyed using WRegionNodeUtils friend class.
 class WRegionNode : public ilist_node<WRegionNode> {
 private:
   /// \brief Make class uncopyable.
-  //void operator=(const WRegionNode &) LLVM_DELETED_FUNCTION;
+  void operator=(const WRegionNode &) = delete;
+
+  /// Unique number associated with this WRegionNode.
+  unsigned Number;
+
+  /// ID to differentitate between concrete subclasses.
+  const unsigned SubClassID;
+
+  /// Entry and Exit BBs of this WRN
+  BasicBlock    *EntryBBlock;
+  BasicBlock    *ExitBBlock;
+
+  /// Set containing all the BBs in this WRN
+  WRegionBSetTy *BBlockSet;
+
+  /// Enclosing parent of WRegionNode in CFG.
+  WRegionNode *Parent;
+
+  /// True if the WRN came from HIR; false otherwise
+  bool IsFromHIR;
+
+  /// Counter used for assigning unique numbers to WRegionNodes.
+  static unsigned UniqueNum;
+
+  /// \brief Sets the unique number associated with this WRegionNode.
+  void setNextNumber() { Number = ++UniqueNum; }
+
+  /// \brief Sets the flag to indicate if WRN came from HIR
+  void setIsFromHIR(bool flag) { IsFromHIR = flag; }
 
   /// \brief Destroys all objects of this class. Should only be
   /// called after code gen.
   static void destroyAll();
 
-  /// Keeps track of objects of this class.
-  static std::set<WRegionNode *> Objs;
-
-  /// Number used for assigning unique numbers to WRegionNodes.
-  static unsigned UniqueNum;
-
-  /// ID to differentitate bwtween concrete subclasses.
-  const unsigned SubClassID;
-
-  /// Enclosing parent of WRegionNode in CFG.
-  WRegionNode *Parent;
-
-  /// Unique number associated with WRegionNodes.
-  unsigned Number;
-
-  /// \brief Sets the unique number associated with this WRegionNode.
-  void setNextNumber();
-
 protected:
+
+  /// \brief constructors
   WRegionNode(unsigned SCID);
-  WRegionNode(const WRegionNode &WRegionNodeObj);
+  WRegionNode(WRegionNode *W);
 
-  // friend class WRegionNodeUtils;
-
-  /// IndentWidth used to print WRegionNodes.
-  static const unsigned IndentWidth = 3;
+  // copy constructor not needed (at least for now)
+  // WRegionNode(const WRegionNode &WRegionNodeObj);
 
   /// \brief Destroys the object.
   void destroy();
 
-  /// \brief Indents nodes for printing.
-  void indent(formatted_raw_ostream &OS, unsigned Depth) const;
+  /// \brief Sets the entry(first) bblock of this region.
+  void setEntryBBlock(BasicBlock *EntryBB) { EntryBBlock = EntryBB; }
+
+  /// \brief Sets the exit(last) bblock of this region.
+  void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
+
+  /// \brief generates BB set in sub CFG for a given WRegionNode.
+  //  Consider moving this to WRegionUtil
+  void doPreOrderSubCFGVisit(BasicBlock *BB, BasicBlock *ExitBB,
+                             SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited);
+
+  /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
+  void computeBBlockSet();
+
+  /// \brief Sets the set of bblocks that constitute this region.
+  void setBBlockSet(WRegionBSetTy *BBSet) { BBlockSet = BBSet; }
+
+  /// \brief Sets the graph parent of this WRegionNode.
+  void setParent(WRegionNode *P) { Parent = P; }
+
+  /// Only these classes are allowed to create/modify/delete WRegionNode.
+  friend class WRegionUtils;
+  friend class WRegionCollection;  //temporary
 
 public:
   
+#if 0
+  // WRegionNodes are destroyed in bulk using
+  // WRegionUtils::destroyAll(). iplist<> tries to
+  // access and destroy the nodes if we don't clear them out here.
+  virtual ~WRegionNode() { Children.clearAndLeakNodesUnsafely(); }
+#else
   virtual ~WRegionNode() {}
+#endif
 
-  /// Virtual Clone Method
-  virtual WRegionNode *clone() const = 0;
+  // Virtual Clone Method
+  // virtual WRegionNode *clone() const = 0;
+
+  /// \brief Returns the unique number associated with this WRegionNode.
+  unsigned getNumber() const { return Number; }
+
+  /// \brief Returns the flag that indicates if WRN came from HIR
+  bool getIsFromHIR() const { return IsFromHIR; }
 
   /// \brief Dumps WRegionNode.
   void dump() const;
 
   /// \brief Prints WRegionNode.
+  //  Actual code from derived class only
   virtual void print(formatted_raw_ostream &OS, unsigned Depth) const = 0;
 
-  /// \brief Sets the lexical parent of this WRegionNode.
-  void setParent(WRegionNode *P) { Parent = P; }
+  /// \brief Prints WRegionNode children.
+  void printChildren(formatted_raw_ostream &OS, unsigned Depth) const;
+
+  /// \brief Returns the entry(first) bblock of this region.
+  BasicBlock *getEntryBBlock() const { return EntryBBlock; }
+
+  /// \brief Returns the exit(last) bblock of this region.
+  BasicBlock *getExitBBlock() const { return ExitBBlock; }
+
+  /// \brief Returns the set of bblocks that constitute this region.
+  /// BBlockset must be populated by calling computeBBlockSet() first.
+  WRegionBSetTy *getBBlockSet() const { return BBlockSet; }
+
+  /// \brief Returns the predecessor bblock of this region.
+  BasicBlock *getPredBBlock() const;
+
+  /// \brief Returns the successor bblock of this region.
+  BasicBlock *getSuccBBlock() const;
 
   /// \brief Returns the immediate enclosing parent of the WRegionNode.
   WRegionNode *getParent() const { return Parent; }
 
-  /// \brief Returns the parent region of this node, if one exists.
-  WRegion *getParentRegion() const;
+  /// Children acess methods
+
+  /// \brief Returns true if it has children.
+  bool hasChildren() const ;
+
+  /// \brief Returns the number of children.
+  unsigned getNumChildren() const ;
+
+  /// \brief Return address of the Children container 
+  WRContainerTy &getChildren() ;
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
+  WRegionNode *getFirstChild();
+
+  /// \brief Returns the last child if it exists, otherwise returns null.
+  WRegionNode *getLastChild();
 
   /// \brief Return an ID for the concrete type of this object.
   ///
   /// This is used to implement the classof checks in LLVM and should't
-  ///  be used for any other purpose.
+  /// be used for any other purpose.
   unsigned getWRegionKindID() const { return SubClassID; }
-
-  /// \brief Returns the unique number associated with this WRegionNode.
-  unsigned getNumber() const { return Number; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of 
   /// WRegionNode
   enum WRegionNodeKind{
-    VPO_PAR_REGION,
-    VPO_PAR_LOOP,
-    VPO_PAR_SECTIONs,
-    VPO_PAR_TASK,
-    VPO_WKS_LOOP,
-    VPO_VEC_LOOP,
-    VPO_WKS_SECTIONS,
-    VPO_SECTION,
-    VPO_SINGLE,
-    VPO_MASTER,
-    VPO_ORDERED,
-    VPO_ATOMIC,
-    VPO_CRITICAL,
-    VPO_TASKGROUP,
-    VPO_BARRIER,
-    VPO_CANCEL
+    // These require outlining:
+    WRNParallel,
+    WRNParallelLoop,
+    WRNParallelSections,
+    WRNTask,
+
+    // These don't require outlining:
+    WRNVecLoop,
+    WRNWksLoop,
+    WRNWksSections,
+    WRNSection,
+    WRNSingle,
+    WRNMaster,
+    WRNAtomic,
+    WRNBarrier,
+    WRNCancel,
+    WRNCritical,
+    WRNFlush,
+    WRNOrdered,
+    WRNTaskgroup
   };
-  //
-};
+}; // class WRegionNode
 
 } // End vpo namespace
+
 
 /// \brief traits for iplist<WRegionNode>
 ///
@@ -156,7 +234,7 @@ struct ilist_traits<vpo::WRegionNode>
 
   static vpo::WRegionNode *createWRegionNode(const vpo::WRegionNode &) {
     llvm_unreachable("WRegionNodes should be explicitly created via" 
-                     "WRegionNodeUtils class");
+                     "WRegionUtils class");
     return nullptr;
   }
   static void deleteWRegionNode(vpo::WRegionNode *) {}
@@ -164,16 +242,12 @@ struct ilist_traits<vpo::WRegionNode>
 private:
   mutable ilist_half_node<vpo::WRegionNode> Sentinel;
 };
-/// Global definitions
+
 
 namespace vpo {
-
-typedef iplist<WRegionNode> WRContainerTy;
-
 /// TODO: Remove this.
 /// Top level WRegionNodes (regions)
 extern WRContainerTy WRegions;
-
 } // End vpo namespace
 
 } // End llvm namespace

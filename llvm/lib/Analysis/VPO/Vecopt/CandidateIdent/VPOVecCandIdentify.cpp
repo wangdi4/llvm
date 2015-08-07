@@ -73,7 +73,7 @@ void IdentifyVectorCandidates::identifyExplicitCandidates()
   // Replace with WRN vistor once its implemented
   for (auto I = WR->begin(), E = WR->end(); I != E;  ++I) {
  
-    if (WRegion *WRN = dyn_cast<WRegion>(I)) {
+    if (WRNVecLoopNode *WRN = dyn_cast<WRNVecLoopNode>(I)) {
       VectorCandidate *VC = new VectorCandidate(WRN);
       VecCandidates.push_back(VC);
     }

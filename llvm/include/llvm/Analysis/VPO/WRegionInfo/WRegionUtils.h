@@ -1,9 +1,11 @@
 //===----- WRegionNodeUtils.h - Utilities for WRegionNodeNode class -----*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -45,10 +47,9 @@ private:
 public:
 
   friend class WRegionNode;
-  friend class WRegion;
 
   /// It contains functions which are used to create, modify, and destroy
-  /// WRegion Nodes.
+  /// WRegionNode.
 
   /// Insertion Utilities -- To Do: Define More Utilities
 
@@ -70,9 +71,17 @@ public:
 
   /// Creation Utilities
 
-  /// \brief Returns a new WRegionNode node.
-  static WRegion *createWRegion(BasicBlock *EntryBB, 
-                                BasicBlock *ExitBB, WRegionBSetTy &BBs, LoopInfo *LI); 
+  /// \brief Returns a new node derived from WRegionNode node that
+  /// matches the construct type based on DirString. 
+  //  (eg create a WRNParRegion node if DirString is "dir.parallel")
+  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB);
+
+  /// Utilities to handle directives & clauses 
+
+  static bool isEndDirective(StringRef DirString);
+  static void handleDirQual(IntrinsicInst *Intrin, WRegionNode *W);
+  static void handleDirQualOpnd(IntrinsicInst *Intrin, WRegionNode *W);
+  static void handleDirQualOpndList(IntrinsicInst *Intrin, WRegionNode *W);
 
   /// Removal Utilities
 
@@ -97,5 +106,3 @@ public:
 } // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VPO_WREGIONUTILS_H
-
-

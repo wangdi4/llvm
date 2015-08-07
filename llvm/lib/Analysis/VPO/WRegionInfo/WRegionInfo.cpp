@@ -1,9 +1,11 @@
 //===------- WRegionInfo.cpp - Build WRegion Graph ---------*- C++ -*------===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -17,8 +19,6 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
@@ -80,10 +80,6 @@ bool WRegionInfo::runOnFunction(Function &F) {
 
 void WRegionInfo::releaseMemory() {
   WRegions.clear();
-#if 0
-  /// Destroy all WRegionNodes.
-  WRegionUtils::destroyAll();
-#endif
 }
 
 void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
@@ -99,20 +95,21 @@ void WRegionInfo::verifyAnalysis() const {
   // TODO: Implement later
 }
 
+//
+// JJJ TODO: remove this temporary hack
+//
 void WRegionInfo::setWRegions() {
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRegionListSize() << "\n");
 
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I) {
 
     // Naive Copy 
-    if (WRegion *WNode = dyn_cast<WRegion>(I)) {
-      BasicBlock *EntryBB   = WNode->getEntryBBlock(); 
-      BasicBlock *ExitBB    = WNode->getExitBBlock();
-      auto &BBSet           = WNode->getBBlockSet();
-      LoopInfo const *LoopI = WNode->getLoopInfo();
-
+    if (WRNVecLoopNode *WNode = dyn_cast<WRNVecLoopNode>(I)) {
+#if 0
+      WNode->dump();
+#endif
       // New Node Added to List
-      WRegion *NewNode = new WRegion(EntryBB, ExitBB, BBSet, LoopI);
+      WRNVecLoopNode *NewNode = new WRNVecLoopNode(WNode);
       WRegions.push_back(NewNode); 
     }
   }

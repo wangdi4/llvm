@@ -1,17 +1,21 @@
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
-// This file implements the WRegionNode class.
+//   This file implements the WRegionNode class.
+//   It's the base class for WRN graph nodes, and should never be
+//   instantiated directly.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
+#include "llvm/IR/CFG.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 
@@ -20,81 +24,139 @@ using namespace llvm::vpo;
 
 WRContainerTy llvm::vpo::WRegions;
 
-std::set<WRegionNode *> WRegionNode::Objs;
 unsigned WRegionNode::UniqueNum(0);
 
-WRegionNode::WRegionNode(unsigned SCID)
-    : SubClassID(SCID), Parent(nullptr) {
-  Objs.insert(this);
+WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID)  {
   setNextNumber();
+  setParent(nullptr);
+  setEntryBBlock(nullptr);
+  setExitBBlock(nullptr);
+  setBBlockSet(nullptr);
+  setIsFromHIR(false);
 }
 
-WRegionNode::WRegionNode(const WRegionNode &WRegionNodeObj)
-    : SubClassID(WRegionNodeObj.SubClassID), Parent(nullptr) {
-  Objs.insert(this);
-  setNextNumber();
+WRegionNode::WRegionNode(WRegionNode *W)
+    : SubClassID(W->SubClassID) {
+  setNextNumber();   // can't reuse the same number; get a new one
+  setParent(W->getParent());
+  setEntryBBlock(W->getEntryBBlock()); setExitBBlock(W->getExitBBlock());
+  setBBlockSet(W->getBBlockSet());
+  setIsFromHIR(W->getIsFromHIR());
+  //TODO: add code to copy Children?
+}
+
+void WRegionNode::doPreOrderSubCFGVisit(
+  BasicBlock   *BB,
+  BasicBlock   *ExitBB,
+  SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited
+)
+{
+  if (!PreOrderTreeVisited->count(BB)) {
+    PreOrderTreeVisited->insert(BB);
+    for (succ_iterator I = succ_begin(BB), 
+                       E = succ_end(BB); I != E; ++I) {
+      if (*I != ExitBB) {
+        doPreOrderSubCFGVisit(*I, ExitBB, PreOrderTreeVisited);
+      }
+    }
+    PreOrderTreeVisited->insert(ExitBB);
+  }
+  return;
+}
+
+/// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
+void WRegionNode::computeBBlockSet()
+{
+  BasicBlock *EntryBB = getEntryBBlock();
+  BasicBlock *ExitBB  = getExitBBlock();
+  setBBlockSet(nullptr);
+
+  if (!EntryBB || !ExitBB)
+    return;
+
+  SmallPtrSet<BasicBlock*, 16> PreOrderTreeVisited;
+  doPreOrderSubCFGVisit(EntryBB, ExitBB, &PreOrderTreeVisited);
+
+  WRegionBSetTy * BBSet = new (WRegionBSetTy);
+
+  // for (SmallPtrSetIterator<BasicBlock *> I = PreOrderTreeVisited.begin(), 
+  for (auto I = PreOrderTreeVisited.begin(), 
+            E = PreOrderTreeVisited.end(); I != E; ++I) {
+    BasicBlock *BB = *I;
+    BBSet->insert(BB);
+  }
+  setBBlockSet(BBSet);
+}
+
+
+
+// After CFGRestructuring, the EntryBB should have a single predecessor
+BasicBlock *WRegionNode::getPredBBlock() const {
+  auto PredI = pred_begin(EntryBBlock); 
+  auto TempPredI = PredI;
+  ++TempPredI;
+  assert((TempPredI == pred_end(EntryBBlock)) &&
+          "Region has more than one predecessor!");
+  return *PredI;
+}
+
+// After CFGRestructuring, the ExitBB should have a single successor
+BasicBlock *WRegionNode::getSuccBBlock() const {
+  auto SuccI = succ_begin(ExitBBlock);
+  auto TempSuccI = SuccI;
+  ++TempSuccI;
+
+  assert((TempSuccI == succ_end(ExitBBlock)) &&
+          "Region has more than one successor!");
+  return *SuccI;
+}
+
+bool WRegionNode::hasChildren() const { 
+  const WRegion* W = static_cast<const WRegion*>(this);
+  return !(W->hasChildren()); 
+}
+
+/// \brief Returns the number of children.
+unsigned WRegionNode::getNumChildren() const { 
+  const WRegion* W = static_cast<const WRegion*>(this);
+  return W->getNumChildren(); 
+  return 0;
+}
+
+/// \brief Return address of the Children container
+WRContainerTy &WRegionNode::getChildren() { 
+  WRegion* W = static_cast<WRegion*>(this);
+  return W->getChildren(); 
+}
+
+WRegionNode *WRegionNode::getFirstChild() {
+  WRegion* W = static_cast<WRegion*>(this);
+  return W->getFirstChild();
+}
+
+WRegionNode *WRegionNode::getLastChild() {
+  WRegion* W = static_cast<WRegion*>(this);
+  return W->getLastChild();
 }
 
 void WRegionNode::destroy() {
-  Objs.erase(this);
-  delete this;
+  // TODO: call destructor
 }
 
 void WRegionNode::destroyAll() {
-
-  for (auto &I : Objs) {
-    delete I;
-  }
-
-  Objs.clear();
+  // TODO: implement this by recursive walk from top
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void WRegionNode::dump() const {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   formatted_raw_ostream OS(dbgs());
   print(OS, 0);
-}
 #endif
-
-void WRegionNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
-
-  static std::string WRegionIndentString(100, ' ');
-  static std::string SpaceString(IndentWidth, ' ');
-
-  WRegionIndentString.clear();
-
-  /// Placeholder until we can get source location.
-  if (!isa<WRegion>(this)) {
-    OS << "<" << Number << ">";
-  }
-  OS.PadToColumn(10);
-
-  auto Parent = getParent();
-
-  while ((Depth > 0) && Parent) {
-    WRegionIndentString = SpaceString + WRegionIndentString;
-#if 0
-    if (isa<WRegion>(Parent)) {
-      WRegionIndentString = "|" + WRegionIndentString;
-    }
-#endif
-    Depth--;
-    Parent = Parent->getParent();
-  }
-
-  OS.indent(IndentWidth * Depth);
-  OS << WRegionIndentString;
 }
 
-void WRegionNode::setNextNumber() { Number = UniqueNum++; }
-
-WRegion *WRegionNode::getParentRegion() const {
-  assert(!isa<WRegion>(this) && "Top Level WRegion cannot not have a parent!");
-
-  WRegionNode *P = getParent();
-
-  while (P && !isa<WRegion>(P)) {
-    P = P->getParent();
-  }
-  return cast_or_null<WRegion>(P);
+void WRegionNode::printChildren(formatted_raw_ostream &OS, 
+                                unsigned Depth) const {
+  const WRegion* W = static_cast<const WRegion*>(this);
+  W->printChildren(OS, Depth);
 }
+
