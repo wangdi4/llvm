@@ -295,26 +295,39 @@ Value *IslExprBuilder::createOpBin(__isl_take isl_ast_expr *Expr) {
     Res = Builder.CreateNSWMul(LHS, RHS);
     break;
   case isl_ast_op_div:
+    Res = Builder.CreateSDiv(LHS, RHS, "pexp.div", true);
+    break;
   case isl_ast_op_pdiv_q: // Dividend is non-negative
-    Res = Builder.CreateSDiv(LHS, RHS);
+    Res = Builder.CreateUDiv(LHS, RHS, "pexp.p_div_q");
     break;
   case isl_ast_op_fdiv_q: { // Round towards -infty
+    if (auto *Const = dyn_cast<ConstantInt>(RHS)) {
+      auto &Val = Const->getValue();
+      if (Val.isPowerOf2() && Val.isNonNegative()) {
+        Res = Builder.CreateAShr(LHS, Val.ceilLogBase2(), "polly.fdiv_q.shr");
+        break;
+      }
+    }
     // TODO: Review code and check that this calculation does not yield
     //       incorrect overflow in some bordercases.
     //
     // floord(n,d) ((n < 0) ? (n - d + 1) : n) / d
     Value *One = ConstantInt::get(MaxType, 1);
     Value *Zero = ConstantInt::get(MaxType, 0);
-    Value *Sum1 = Builder.CreateSub(LHS, RHS);
-    Value *Sum2 = Builder.CreateAdd(Sum1, One);
-    Value *isNegative = Builder.CreateICmpSLT(LHS, Zero);
-    Value *Dividend = Builder.CreateSelect(isNegative, Sum2, LHS);
-    Res = Builder.CreateSDiv(Dividend, RHS);
+    Value *Sum1 = Builder.CreateSub(LHS, RHS, "pexp.fdiv_q.0");
+    Value *Sum2 = Builder.CreateAdd(Sum1, One, "pexp.fdiv_q.1");
+    Value *isNegative = Builder.CreateICmpSLT(LHS, Zero, "pexp.fdiv_q.2");
+    Value *Dividend =
+        Builder.CreateSelect(isNegative, Sum2, LHS, "pexp.fdiv_q.3");
+    Res = Builder.CreateSDiv(Dividend, RHS, "pexp.fdiv_q.4");
     break;
   }
   case isl_ast_op_pdiv_r: // Dividend is non-negative
+    Res = Builder.CreateURem(LHS, RHS, "pexp.pdiv_r");
+    break;
+
   case isl_ast_op_zdiv_r: // Result only compared against zero
-    Res = Builder.CreateSRem(LHS, RHS);
+    Res = Builder.CreateURem(LHS, RHS, "pexp.zdiv_r");
     break;
   }
 

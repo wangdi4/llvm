@@ -27,69 +27,12 @@
 #include <list>
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
 namespace llvm {
 namespace loopopt {
-class DDRef;
 class HLNode;
-
-struct DirectionVector {
-  enum class Direction : unsigned char {
-    UNINIT = 0,
-    GT = 1,
-    EQ = 2,
-    GE = 3, // 0x1 || 0x2
-    LT = 4,
-    LG = 5, // 0x1 || 0x4
-    LE = 6, // 0x4 || 0x2
-    ALL = 7,
-  };
-  Direction getDVAtLevel(int Level) { return Elements[Level - 1]; }
-  DirectionVector() {
-    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i)
-      Elements[i] = Direction::UNINIT;
-  }
-  void setDVAtLevel(Direction NewDirection, int Level) {
-    Elements[Level - 1] = NewDirection;
-  }
-
-  const std::string elementAsChar(Direction Dir) {
-    switch (Dir) {
-    case Direction::UNINIT:
-      return "0";
-    case Direction::GT:
-      return ">";
-    case Direction::EQ:
-      return "=";
-    case Direction::GE:
-      return ">=";
-    case Direction::LT:
-      return "<";
-    case Direction::LG:
-      return "<>";
-    case Direction::LE:
-      return "<=";
-    case Direction::ALL:
-      return "*";
-    default:
-      return "?";
-    }
-  }
-
-  void dump() {
-    dbgs() << "[ ";
-    for (unsigned int i = 0; i < MaxLoopNestLevel; ++i) {
-      if (i > 0 && Elements[i] == Direction::UNINIT)
-        break;
-      dbgs() << elementAsChar(Elements[i]) << " ";
-    }
-    dbgs() << "]"
-           << "\n";
-  }
-
-private:
-  Direction Elements[MaxLoopNestLevel];
-};
 
 // TODO move to another location to make a generic graph?
 // TODO doc req
@@ -127,15 +70,17 @@ public:
     // TODO
   }
 
-  void dump() {
+  void print(raw_ostream &OS) const {
     for (auto I = outEdges.begin(), E = outEdges.end(); I != E; ++I) {
       std::vector<GraphEdge> edges = I->second;
       for (auto EIt = edges.begin(), EdgesEnd = edges.end(); EIt != EdgesEnd;
            ++EIt) {
-        EIt->dump();
+        EIt->print(OS);
       }
     }
   }
+
+  void dump() const { print(dbgs()); }
 
   void clear() {
     inEdges.clear();
@@ -160,26 +105,92 @@ private:
     ANTI,
     FLOW,
   };
+
   DDRef *Src;
   DDRef *Sink;
-  DirectionVector DV;
+  DVectorTy DV;
 
 public:
   DDEdge() { Src = Sink = nullptr; }
-  DDEdge(DDRef *SrcRef, DDRef *SinkRef, DirectionVector DirV)
-      : Src(SrcRef), Sink(SinkRef), DV(DirV) {}
-
-  DepType getEdgeType() {
-    // TODO based only on src sink or cache type?
-    return DepType::FLOW;
+  DDEdge(DDRef *SrcRef, DDRef *SinkRef, const DVectorTy &DirV)
+      : Src(SrcRef), Sink(SinkRef) {
+    for (unsigned II = 0; II < MaxLoopNestLevel; ++II) {
+      DV[II] = DirV[II];
+    }
   }
-  DDRef *getSrc() { return Src; }
-  DDRef *getSink() { return Sink; }
-  void dump() {
-    DV.dump();
-    dbgs() << " \n";
+
+  DepType getEdgeType() const {
+    RegDDRef *SrcRef = dyn_cast<RegDDRef>(Src);
+    RegDDRef *SinkRef = dyn_cast<RegDDRef>(Sink);
+    bool SrcIsLval = (SrcRef && SrcRef->isLval()) ? true : false;
+    bool SinkIsLval = (SinkRef && SinkRef->isLval()) ? true : false;
+
+    if (SrcIsLval) {
+      if (SinkIsLval)
+        return DepType::OUTPUT;
+      return DepType::FLOW;
+    } else {
+      if (SinkIsLval)
+        return DepType::ANTI;
+      return DepType::INPUT;
+    }
+  }
+
+  DDRef *getSrc() const { return Src; }
+  DDRef *getSink() const { return Sink; }
+
+  // Next one is useful to loop through each element of DV
+  const DVType *getDV() const { return &DV[0]; }
+  // Next one returns pointer to an array of char
+  const DVectorTy *getDirVector() const { return &DV; }
+
+  bool isOUTPUTdep() const { return getEdgeType() == DepType::OUTPUT; }
+  bool isFLOWdep() const { return getEdgeType() == DepType::FLOW; }
+  bool isANTIdep() const { return getEdgeType() == DepType::ANTI; }
+  bool isINPUTdep() const { return getEdgeType() == DepType::INPUT; }
+
+  friend llvm::raw_ostream &operator<<(llvm::raw_ostream &out, DepType value) {
+    const char *s = 0;
+    switch (value) {
+    case DepType::OUTPUT:
+      s = "OUTPUT";
+      break;
+    case DepType::ANTI:
+      s = "ANTI";
+      break;
+    case DepType::FLOW:
+      s = "FLOW";
+      break;
+    case DepType::INPUT:
+      s = "INPUT";
+      break;
+    }
+
+    return out << s;
+  }
+
+  void print(raw_ostream &OS) const {
+    formatted_raw_ostream FOS(OS);
+    FOS << Src->getHLDDNode()->getNumber() << ":";
+    FOS << Sink->getHLDDNode()->getNumber() << " ";
+    Src->print(FOS);
+    FOS << " --> ";
+    Sink->print(FOS);
+    FOS << " ";
+    FOS << getEdgeType();
+    FOS << " ";
+    unsigned Level;
+    for (Level = 0; Level < MaxLoopNestLevel; ++Level) {
+      if (DV[Level] == DV::NONE) {
+        break;
+      }
+    }
+    printDV(DV, Level, FOS);
+    FOS << " \n";
     // todo
   }
+
+  void dump() const { print(dbgs()); }
 };
 
 // TODO better name?

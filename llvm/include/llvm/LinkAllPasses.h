@@ -101,7 +101,7 @@ namespace {
       (void) llvm::createLICMPass();
       (void) llvm::createLazyValueInfoPass();
       (void) llvm::createLoopExtractorPass();
-      (void)llvm::createLoopInterchangePass();
+      (void) llvm::createLoopInterchangePass();
       (void) llvm::createLoopSimplifyPass();
       (void) llvm::createLoopStrengthReducePass();
       (void) llvm::createLoopRerollPass();
@@ -134,6 +134,7 @@ namespace {
       (void) llvm::createRegionPrinterPass();
       (void) llvm::createRegionViewerPass();
       (void) llvm::createSCCPPass();
+      (void) llvm::createSafeStackPass();
       (void) llvm::createScalarReplAggregatesPass();
       (void) llvm::createSingleLoopExtractorPass();
       (void) llvm::createStripSymbolsPass();
@@ -192,6 +193,7 @@ namespace {
   #if INTEL_CUSTOMIZATION  // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
+      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
@@ -200,7 +202,9 @@ namespace {
       (void) llvm::createDDAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
+      (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
   #endif // INTEL_CUSTOMIZATION
     }

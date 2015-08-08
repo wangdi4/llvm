@@ -16,6 +16,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Function.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -30,13 +31,15 @@ void HLInst::initialize() {
 }
 
 HLInst::HLInst(Instruction *In)
-    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr) {
+    : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr),
+      CmpOrSelectPred(CmpInst::Predicate::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
 
 HLInst::HLInst(const HLInst &HLInstObj)
-    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr) {
+    : HLDDNode(HLInstObj), Inst(HLInstObj.Inst), SafeRednSucc(nullptr),
+      CmpOrSelectPred(HLInstObj.CmpOrSelectPred) {
 
   unsigned NumOp, Count = 0;
 
@@ -68,37 +71,130 @@ HLInst *HLInst::clone() const {
   return cloneImpl(nullptr, nullptr);
 }
 
-void HLInst::print(formatted_raw_ostream &OS, unsigned Depth) const {
+bool HLInst::isCallInst() const { return (isa<CallInst>(Inst)); }
+
+bool HLInst::isCopyInst() const {
+
+  if (auto BCInst = dyn_cast<BitCastInst>(Inst)) {
+    if (BCInst->getSrcTy() == BCInst->getDestTy()) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/// TODO: Add beautification logic based on instruction types.
+bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
+
+  bool Ret = true;
+  unsigned Opcode = Inst->getOpcode();
+
+  if (isa<BinaryOperator>(Inst)) {
+    if (Print) {
+      if ((Opcode == Instruction::Add) || (Opcode == Instruction::FAdd)) {
+        OS << "  +  ";
+      } else if ((Opcode == Instruction::Sub) ||
+                 (Opcode == Instruction::FSub)) {
+        OS << "  -  ";
+      } else if ((Opcode == Instruction::Mul) ||
+                 (Opcode == Instruction::FMul)) {
+        OS << "  *  ";
+      } else if ((Opcode == Instruction::UDiv) ||
+                 (Opcode == Instruction::SDiv) ||
+                 (Opcode == Instruction::FDiv)) {
+        OS << "  /  ";
+      } else if ((Opcode == Instruction::URem) ||
+                 (Opcode == Instruction::SRem) ||
+                 (Opcode == Instruction::FRem)) {
+        OS << "  %  ";
+      } else if (Opcode == Instruction::Shl) {
+        OS << "  <<  ";
+      } else if ((Opcode == Instruction::LShr) ||
+                 (Opcode == Instruction::AShr)) {
+        OS << "  >>  ";
+      } else if (Opcode == Instruction::And) {
+        OS << "  &&  ";
+      } else if (Opcode == Instruction::Or) {
+        OS << "  ||  ";
+      } else if (Opcode == Instruction::Xor) {
+        OS << "  ^  ";
+      } else {
+        llvm_unreachable("Unexpected binary operator!");
+      }
+    }
+  } else {
+    if (!isa<CallInst>(Inst)) {
+      Ret = false;
+    }
+    if (Print) {
+      OS << ",  ";
+    }
+  }
+
+  return Ret;
+}
+
+void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
+                              bool HasSeparator) const {
+
+  if (auto CInst = dyn_cast<CastInst>(Inst)) {
+    if (!isCopyInst()) {
+      OS << CInst->getOpcodeName() << ".";
+      OS << *(CInst->getSrcTy());
+      OS << ".";
+      OS << *(CInst->getDestTy());
+      OS << "(";
+    }
+  } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
+    FInst->getCalledFunction()->printAsOperand(OS, false);
+    OS << "(";
+  } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
+             !isa<GetElementPtrInst>(Inst)) {
+    OS << Inst->getOpcodeName() << " ";
+  }
+}
+
+void HLInst::printEndOpcode(formatted_raw_ostream &OS) const {
+  if (isa<CallInst>(Inst) || (isa<CastInst>(Inst) && !isCopyInst())) {
+    OS << ")";
+  }
+}
+
+void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
   unsigned Count = 0;
+  bool HasSeparator = checkSeparator(OS, false);
 
   indent(OS, Depth);
 
-  /// TODO: Add beautification logic based on instruction types.
   for (auto I = op_ddref_begin(), E = op_ddref_end(); I != E; I++, Count++) {
     if ((Count > 1) || (!hasLval() && (Count > 0))) {
-      OS << " , ";
+      checkSeparator(OS, true);
     }
 
     if (Count == 0) {
       if (hasLval()) {
-        *I ? (*I)->print(OS) : (void)(OS << *I);
+        *I ? (*I)->print(OS, false) : (void)(OS << *I);
 
         OS << " = ";
+        printBeginOpcode(OS, HasSeparator);
 
-        if (!isa<LoadInst>(Inst) && !isa<StoreInst>(Inst)) {
-          OS << Inst->getOpcodeName() << " ";
-        }
       } else {
-        OS << Inst->getOpcodeName() << " ";
+        printBeginOpcode(OS, HasSeparator);
 
-        *I ? (*I)->print(OS) : (void)(OS << *I);
+        *I ? (*I)->print(OS, false) : (void)(OS << *I);
       }
     } else {
-      *I ? (*I)->print(OS) : (void)(OS << *I);
+      *I ? (*I)->print(OS, false) : (void)(OS << *I);
     }
   }
 
+  printEndOpcode(OS);
+
   OS << ";\n";
+
+  HLDDNode::print(OS, Depth, Detailed);
 }
 
 bool HLInst::hasLval() const {
@@ -219,9 +315,24 @@ void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
 unsigned HLInst::getNumOperands() const { return getNumOperandsInternal(); }
 
 unsigned HLInst::getNumOperandsInternal() const {
-  unsigned NumOp = Inst->getNumOperands();
+  unsigned NumOp = 0;
+
+  if (isa<GetElementPtrInst>(Inst)) {
+    // GEP is represented as an assignment of address: %t = &A[i];
+    // TODO: GEP accessing structure elements
+    NumOp = 1;
+  } else if (auto CInst = dyn_cast<CallInst>(Inst)) {
+    NumOp = CInst->getNumArgOperands();
+  } else {
+    NumOp = Inst->getNumOperands();
+  }
 
   if (hasLval() && !isa<StoreInst>(Inst)) {
+    NumOp++;
+  }
+  // Select instruction gains an extra operand due to inclusion of the
+  // predicate.
+  if (isa<SelectInst>(Inst)) {
     NumOp++;
   }
 

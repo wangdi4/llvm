@@ -140,6 +140,14 @@ StringExtractorGDBRemote::GetServerPacketType () const
             if (packet_size == 2)                               return eServerPacketType_qC;
             break;
 
+        case 'E':
+            if (PACKET_STARTS_WITH ("qEcho:"))                  return eServerPacketType_qEcho;
+            break;
+
+        case 'F':
+            if (PACKET_STARTS_WITH ("qFileLoadAddress:"))       return eServerPacketType_qFileLoadAddress;
+            break;
+
         case 'G':
             if (PACKET_STARTS_WITH ("qGroupName:"))             return eServerPacketType_qGroupName;
             if (PACKET_MATCHES ("qGetWorkingDir"))              return eServerPacketType_qGetWorkingDir;
