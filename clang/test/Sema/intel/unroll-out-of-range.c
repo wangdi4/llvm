@@ -1,6 +1,7 @@
 // CQ#366562
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -DERROR -verify %s
 // RUN: %clang_cc1 -fintel-compatibility -fsyntax-only -DOK -verify %s
+// REQUIRES: llvm-backend
 
 int main(void) {
   int i = 0, s = 0;

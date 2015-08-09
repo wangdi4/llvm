@@ -389,7 +389,7 @@ protected:
     if (Triple.getEnvironment() == llvm::Triple::Android) {
       Builder.defineMacro("__ANDROID__", "1");
       unsigned Maj, Min, Rev;
-      Triple.getOSVersion(Maj, Min, Rev);
+      Triple.getEnvironmentVersion(Maj, Min, Rev);
       this->PlatformName = "android";
       this->PlatformMinVersion = VersionTuple(Maj, Min, Rev);
     }
@@ -991,6 +991,12 @@ public:
 
   bool hasSjLjLowering() const override {
     return true;
+  }
+
+  bool useFloat128ManglingForLongDouble() const override {
+    return LongDoubleWidth == 128 &&
+           LongDoubleFormat == &llvm::APFloat::PPCDoubleDouble &&
+           getTriple().isOSBinFormatELF();
   }
 };
 
@@ -1661,7 +1667,7 @@ public:
     }
   };
 
-static const unsigned R600AddrSpaceMap[] = {
+static const unsigned AMDGPUAddrSpaceMap[] = {
   1,    // opencl_global
   3,    // opencl_local
   2,    // opencl_constant
@@ -1687,11 +1693,11 @@ static const char *DescriptionStringSI =
   "-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128"
   "-v192:256-v256:256-v512:512-v1024:1024-v2048:2048-n32:64";
 
-class R600TargetInfo : public TargetInfo {
+class AMDGPUTargetInfo : public TargetInfo {
   static const Builtin::Info BuiltinInfo[];
   static const char * const GCCRegNames[];
 
-  /// \brief The GPU profiles supported by the R600 target.
+  /// \brief The GPU profiles supported by the AMDGPU target.
   enum GPUKind {
     GK_NONE,
     GK_R600,
@@ -1703,7 +1709,8 @@ class R600TargetInfo : public TargetInfo {
     GK_NORTHERN_ISLANDS,
     GK_CAYMAN,
     GK_SOUTHERN_ISLANDS,
-    GK_SEA_ISLANDS
+    GK_SEA_ISLANDS,
+    GK_VOLCANIC_ISLANDS
   } GPU;
 
   bool hasFP64:1;
@@ -1711,8 +1718,8 @@ class R600TargetInfo : public TargetInfo {
   bool hasLDEXPF:1;
 
 public:
-  R600TargetInfo(const llvm::Triple &Triple)
-      : TargetInfo(Triple) {
+  AMDGPUTargetInfo(const llvm::Triple &Triple)
+    : TargetInfo(Triple) {
 
     if (Triple.getArch() == llvm::Triple::amdgcn) {
       DescriptionString = DescriptionStringSI;
@@ -1727,7 +1734,7 @@ public:
       hasFMAF = false;
       hasLDEXPF = false;
     }
-    AddrSpaceMap = &R600AddrSpaceMap;
+    AddrSpaceMap = &AMDGPUAddrSpaceMap;
     UseAddrSpaceMapMangling = true;
   }
 
@@ -1766,7 +1773,7 @@ public:
   void getTargetBuiltins(const Builtin::Info *&Records,
                          unsigned &NumRecords) const override {
     Records = BuiltinInfo;
-    NumRecords = clang::R600::LastTSBuiltin - Builtin::FirstTSBuiltin;
+    NumRecords = clang::AMDGPU::LastTSBuiltin - Builtin::FirstTSBuiltin;
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -1822,6 +1829,9 @@ public:
       .Case("kaveri",   GK_SEA_ISLANDS)
       .Case("hawaii",   GK_SEA_ISLANDS)
       .Case("mullins",  GK_SEA_ISLANDS)
+      .Case("tonga",    GK_VOLCANIC_ISLANDS)
+      .Case("iceland",  GK_VOLCANIC_ISLANDS)
+      .Case("carrizo",  GK_VOLCANIC_ISLANDS)
       .Default(GK_NONE);
 
     if (GPU == GK_NONE) {
@@ -1851,6 +1861,7 @@ public:
       break;
     case GK_SOUTHERN_ISLANDS:
     case GK_SEA_ISLANDS:
+    case GK_VOLCANIC_ISLANDS:
       DescriptionString = DescriptionStringSI;
       hasFP64 = true;
       hasFMAF = true;
@@ -1862,12 +1873,12 @@ public:
   }
 };
 
-const Builtin::Info R600TargetInfo::BuiltinInfo[] = {
+const Builtin::Info AMDGPUTargetInfo::BuiltinInfo[] = {
 #define BUILTIN(ID, TYPE, ATTRS)                \
   { #ID, TYPE, ATTRS, 0, ALL_LANGUAGES },
-#include "clang/Basic/BuiltinsR600.def"
+#include "clang/Basic/BuiltinsAMDGPU.def"
 };
-const char * const R600TargetInfo::GCCRegNames[] = {
+const char * const AMDGPUTargetInfo::GCCRegNames[] = {
   "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
   "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15",
   "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23",
@@ -1920,8 +1931,8 @@ const char * const R600TargetInfo::GCCRegNames[] = {
   "vcc_lo", "vcc_hi", "flat_scr_lo", "flat_scr_hi"
 };
 
-void R600TargetInfo::getGCCRegNames(const char * const *&Names,
-                                    unsigned &NumNames) const {
+void AMDGPUTargetInfo::getGCCRegNames(const char * const *&Names,
+                                      unsigned &NumNames) const {
   Names = GCCRegNames;
   NumNames = llvm::array_lengthof(GCCRegNames);
 }
@@ -2204,6 +2215,7 @@ public:
     Names = AddlRegNames;
     NumNames = llvm::array_lengthof(AddlRegNames);
   }
+  bool validateCpuSupports(StringRef Name) const override;
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override;
 
@@ -2238,7 +2250,9 @@ public:
   bool handleTargetFeatures(std::vector<std::string> &Features,
                             DiagnosticsEngine &Diags) override;
   StringRef getABI() const override {
-    if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX)
+    if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX512F)
+      return "avx512";
+    else if (getTriple().getArch() == llvm::Triple::x86_64 && SSELevel >= AVX)
       return "avx";
     else if (getTriple().getArch() == llvm::Triple::x86 &&
              MMX3DNowLevel == NoMMX3DNow)
@@ -2714,7 +2728,11 @@ void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
 
 void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
                                           StringRef Name, bool Enabled) {
-  Features[Name] = Enabled;
+  // This is a bit of a hack to deal with the sse4 target feature when used
+  // as part of the target attribute. We handle sse4 correctly everywhere
+  // else. See below for more information on how we handle the sse4 options.
+  if (Name != "sse4")
+    Features[Name] = Enabled;
 
   if (Name == "mmx") {
     setMMXLevel(Features, MMX, Enabled);
@@ -2765,6 +2783,15 @@ void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
   } else if (Name == "sha") {
     if (Enabled)
       setSSELevel(Features, SSE2, Enabled);
+  } else if (Name == "sse4") {
+    // We can get here via the __target__ attribute since that's not controlled
+    // via the -msse4/-mno-sse4 command line alias. Handle this the same way
+    // here - turn on the sse4.2 if enabled, turn off the sse4.1 level if
+    // disabled.
+    if (Enabled)
+      setSSELevel(Features, SSE42, Enabled);
+    else
+      setSSELevel(Features, SSE41, Enabled);
   }
 }
 
@@ -3325,6 +3352,33 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Default(false);
 }
 
+// We can't use a generic validation scheme for the features accepted here
+// versus subtarget features accepted in the target attribute because the
+// bitfield structure that's initialized in the runtime only supports the
+// below currently rather than the full range of subtarget features. (See
+// X86TargetInfo::hasFeature for a somewhat comprehensive list).
+bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
+  return llvm::StringSwitch<bool>(FeatureStr)
+      .Case("cmov", true)
+      .Case("mmx", true)
+      .Case("popcnt", true)
+      .Case("sse", true)
+      .Case("sse2", true)
+      .Case("sse3", true)
+      .Case("sse4.1", true)
+      .Case("sse4.2", true)
+      .Case("avx", true)
+      .Case("avx2", true)
+      .Case("sse4a", true)
+      .Case("fma4", true)
+      .Case("xop", true)
+      .Case("fma", true)
+      .Case("avx512f", true)
+      .Case("bmi", true)
+      .Case("bmi2", true)
+      .Default(false);
+}
+
 bool
 X86TargetInfo::validateAsmConstraint(const char *&Name,
                                      TargetInfo::ConstraintInfo &Info) const {
@@ -3596,11 +3650,8 @@ public:
 };
 } // end anonymous namespace
 
-static void addMinGWDefines(const LangOptions &Opts, MacroBuilder &Builder) {
-  Builder.defineMacro("__MSVCRT__");
-  Builder.defineMacro("__MINGW32__");
-
-  // Mingw defines __declspec(a) to __attribute__((a)).  Clang supports
+static void addCygMingDefines(const LangOptions &Opts, MacroBuilder &Builder) {
+  // Mingw and cygwin define __declspec(a) to __attribute__((a)).  Clang supports
   // __declspec natively under -fms-extensions, but we define a no-op __declspec
   // macro anyway for pre-processor compatibility.
   if (Opts.MicrosoftExt)
@@ -3621,6 +3672,12 @@ static void addMinGWDefines(const LangOptions &Opts, MacroBuilder &Builder) {
       Builder.defineMacro(Twine("__") + CC, GCCSpelling);
     }
   }
+}
+
+static void addMinGWDefines(const LangOptions &Opts, MacroBuilder &Builder) {
+  Builder.defineMacro("__MSVCRT__");
+  Builder.defineMacro("__MINGW32__");
+  addCygMingDefines(Opts, Builder);
 }
 
 namespace {
@@ -3655,6 +3712,7 @@ public:
     Builder.defineMacro("_X86_");
     Builder.defineMacro("__CYGWIN__");
     Builder.defineMacro("__CYGWIN32__");
+    addCygMingDefines(Opts, Builder);
     DefineStd(Builder, "unix", Opts);
     if (Opts.CPlusPlus)
       Builder.defineMacro("_GNU_SOURCE");
@@ -4184,9 +4242,7 @@ public:
   // FIXME: This should be based on Arch attributes, not CPU names.
   void getDefaultFeatures(llvm::StringMap<bool> &Features) const override {
     StringRef ArchName = getTriple().getArchName();
-    unsigned ArchKind =
-                llvm::ARMTargetParser::parseArch(
-                llvm::ARMTargetParser::getCanonicalArchName(ArchName));
+    unsigned ArchKind = llvm::ARMTargetParser::parseArch(ArchName);
     bool IsV8 = (ArchKind == llvm::ARM::AK_ARMV8A ||
                  ArchKind == llvm::ARM::AK_ARMV8_1A);
 
@@ -4231,6 +4287,9 @@ public:
     SoftFloat = SoftFloatABI = false;
     HWDiv = 0;
 
+    // This does not diagnose illegal cases like having both
+    // "+vfpv2" and "+vfpv3" or having "+neon" and "+fp-only-sp".
+    uint32_t HW_FP_remove = 0;
     for (const auto &Feature : Features) {
       if (Feature == "+soft-float") {
         SoftFloat = true;
@@ -4238,19 +4297,19 @@ public:
         SoftFloatABI = true;
       } else if (Feature == "+vfp2") {
         FPU |= VFP2FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+vfp3") {
         FPU |= VFP3FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+vfp4") {
         FPU |= VFP4FPU;
-        HW_FP = HW_FP_SP | HW_FP_DP | HW_FP_HP;
+        HW_FP |= HW_FP_SP | HW_FP_DP | HW_FP_HP;
       } else if (Feature == "+fp-armv8") {
         FPU |= FPARMV8;
-        HW_FP = HW_FP_SP | HW_FP_DP | HW_FP_HP;
+        HW_FP |= HW_FP_SP | HW_FP_DP | HW_FP_HP;
       } else if (Feature == "+neon") {
         FPU |= NeonFPU;
-        HW_FP = HW_FP_SP | HW_FP_DP;
+        HW_FP |= HW_FP_SP | HW_FP_DP;
       } else if (Feature == "+hwdiv") {
         HWDiv |= HWDivThumb;
       } else if (Feature == "+hwdiv-arm") {
@@ -4260,9 +4319,10 @@ public:
       } else if (Feature == "+crypto") {
         Crypto = 1;
       } else if (Feature == "+fp-only-sp") {
-        HW_FP &= ~HW_FP_DP;
+        HW_FP_remove |= HW_FP_DP | HW_FP_HP;
       }
     }
+    HW_FP &= ~HW_FP_remove;
 
     if (!(FPU & NeonFPU) && FPMath == FP_Neon) {
       Diags.Report(diag::err_target_unsupported_fpmath) << "neon";
@@ -4293,9 +4353,7 @@ public:
         .Case("hwdiv-arm", HWDiv & HWDivARM)
         .Default(false);
   }
-  // FIXME: Should we actually have some table instead of these switches?
   const char *getCPUDefineSuffix(StringRef Name) const {
-    // FIXME: Use ARMTargetParser
     if(Name == "generic") {
       auto subarch = getTriple().getSubArch();
       switch (subarch) {
@@ -4306,34 +4364,33 @@ public:
       }
     }
 
-    return llvm::StringSwitch<const char *>(Name)
-        .Cases("arm8", "arm810", "4")
-        .Cases("strongarm", "strongarm110", "strongarm1100", "strongarm1110",
-               "4")
-        .Cases("arm7tdmi", "arm7tdmi-s", "arm710t", "arm720t", "arm9", "4T")
-        .Cases("arm9tdmi", "arm920", "arm920t", "arm922t", "arm940t", "4T")
-        .Case("ep9312", "4T")
-        .Cases("arm10tdmi", "arm1020t", "5T")
-        .Cases("arm9e", "arm946e-s", "arm966e-s", "arm968e-s", "5TE")
-        .Case("arm926ej-s", "5TEJ")
-        .Cases("arm10e", "arm1020e", "arm1022e", "5TE")
-        .Cases("xscale", "iwmmxt", "5TE")
-        .Case("arm1136j-s", "6J")
-        .Case("arm1136jf-s", "6")
-        .Cases("mpcorenovfp", "mpcore", "6K")
-        .Cases("arm1176jz-s", "arm1176jzf-s", "6K")
-        .Cases("arm1156t2-s", "arm1156t2f-s", "6T2")
-        .Cases("cortex-a5", "cortex-a7", "cortex-a8", "7A")
-        .Cases("cortex-a9", "cortex-a12", "cortex-a15", "cortex-a17", "krait",
-               "7A")
-        .Cases("cortex-r4", "cortex-r4f", "cortex-r5", "cortex-r7", "7R")
-        .Case("swift", "7S")
-        .Case("cyclone", "8A")
-        .Cases("sc300", "cortex-m3", "7M")
-        .Cases("cortex-m4", "cortex-m7", "7EM")
-        .Cases("sc000", "cortex-m0", "cortex-m0plus", "cortex-m1", "6M")
-        .Cases("cortex-a53", "cortex-a57", "cortex-a72", "8A")
-        .Default(nullptr);
+    unsigned ArchKind = llvm::ARMTargetParser::parseCPUArch(Name);
+    if (ArchKind == llvm::ARM::AK_INVALID)
+      return "";
+
+    // For most sub-arches, the build attribute CPU name is enough.
+    // For Cortex variants, it's slightly different.
+    switch(ArchKind) {
+    default:
+      return llvm::ARMTargetParser::getCPUAttr(ArchKind);
+    case llvm::ARM::AK_ARMV6M:
+    case llvm::ARM::AK_ARMV6SM:
+      return "6M";
+    case llvm::ARM::AK_ARMV7:
+    case llvm::ARM::AK_ARMV7A:
+    case llvm::ARM::AK_ARMV7S:
+      return "7A";
+    case llvm::ARM::AK_ARMV7R:
+      return "7R";
+    case llvm::ARM::AK_ARMV7M:
+      return "7M";
+    case llvm::ARM::AK_ARMV7EM:
+      return "7EM";
+    case llvm::ARM::AK_ARMV8A:
+      return "8A";
+    case llvm::ARM::AK_ARMV8_1A:
+      return "8_1A";
+    }
   }
   const char *getCPUProfile(StringRef Name) const {
     if(Name == "generic") {
@@ -5500,6 +5557,16 @@ class SparcV8TargetInfo : public SparcTargetInfo {
 public:
   SparcV8TargetInfo(const llvm::Triple &Triple) : SparcTargetInfo(Triple) {
     DescriptionString = "E-m:e-p:32:32-i64:64-f128:64-n32-S64";
+    // NetBSD uses long (same as llvm default); everyone else uses int.
+    if (getTriple().getOS() == llvm::Triple::NetBSD) {
+      SizeType = UnsignedLong;
+      IntPtrType = SignedLong;
+      PtrDiffType = SignedLong;
+    } else {
+      SizeType = UnsignedInt;
+      IntPtrType = SignedInt;
+      PtrDiffType = SignedInt;
+    }
   }
 
   void getTargetDefines(const LangOptions &Opts,
@@ -5569,15 +5636,6 @@ public:
     // No need to store the CPU yet.  There aren't any CPU-specific
     // macros to define.
     return CPUKnown;
-  }
-};
-
-class SolarisSparcV8TargetInfo : public SolarisTargetInfo<SparcV8TargetInfo> {
-public:
-  SolarisSparcV8TargetInfo(const llvm::Triple &Triple)
-      : SolarisTargetInfo<SparcV8TargetInfo>(Triple) {
-    SizeType = UnsignedInt;
-    PtrDiffType = SignedInt;
   }
 };
 
@@ -5687,6 +5745,10 @@ public:
     if (HasVector)
       return "vector";
     return "";
+  }
+
+  bool useFloat128ManglingForLongDouble() const override {
+    return true;
   }
 };
 
@@ -5889,6 +5951,60 @@ validateAsmConstraint(const char *&Name,
     void getGCCRegAliases(const GCCRegAlias *&Aliases,
                           unsigned &NumAliases) const override {}
   };
+
+class BPFTargetInfo : public TargetInfo {
+public:
+  BPFTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
+    LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
+    SizeType    = UnsignedLong;
+    PtrDiffType = SignedLong;
+    IntPtrType  = SignedLong;
+    IntMaxType  = SignedLong;
+    Int64Type   = SignedLong;
+    RegParmMax = 5;
+    if (Triple.getArch() == llvm::Triple::bpfeb) {
+      BigEndian = true;
+      DescriptionString = "E-m:e-p:64:64-i64:64-n32:64-S128";
+    } else {
+      BigEndian = false;
+      DescriptionString = "e-m:e-p:64:64-i64:64-n32:64-S128";
+    }
+    MaxAtomicPromoteWidth = 64;
+    MaxAtomicInlineWidth = 64;
+    TLSSupported = false;
+  }
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    DefineStd(Builder, "bpf", Opts);
+    Builder.defineMacro("__BPF__");
+  }
+  bool hasFeature(StringRef Feature) const override {
+    return Feature == "bpf";
+  }
+
+  void getTargetBuiltins(const Builtin::Info *&Records,
+                         unsigned &NumRecords) const override {}
+  const char *getClobbers() const override {
+    return "";
+  }
+  BuiltinVaListKind getBuiltinVaListKind() const override {
+    return TargetInfo::VoidPtrBuiltinVaList;
+  }
+  void getGCCRegNames(const char * const *&Names,
+                      unsigned &NumNames) const override {
+    Names = nullptr;
+    NumNames = 0;
+  }
+  bool validateAsmConstraint(const char *&Name,
+                             TargetInfo::ConstraintInfo &info) const override {
+    return true;
+  }
+  void getGCCRegAliases(const GCCRegAlias *&Aliases,
+                        unsigned &NumAliases) const override {
+    Aliases = nullptr;
+    NumAliases = 0;
+  }
+};
 
 class MipsTargetInfoBase : public TargetInfo {
   virtual void setDescriptionString() = 0;
@@ -6888,6 +7004,10 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new ARMbeTargetInfo(Triple);
     }
 
+  case llvm::Triple::bpfeb:
+  case llvm::Triple::bpfel:
+    return new BPFTargetInfo(Triple);
+
   case llvm::Triple::msp430:
     return new MSP430TargetInfo(Triple);
 
@@ -7015,14 +7135,14 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
 
   case llvm::Triple::amdgcn:
   case llvm::Triple::r600:
-    return new R600TargetInfo(Triple);
+    return new AMDGPUTargetInfo(Triple);
 
   case llvm::Triple::sparc:
     switch (os) {
     case llvm::Triple::Linux:
       return new LinuxTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::Solaris:
-      return new SolarisSparcV8TargetInfo(Triple);
+      return new SolarisTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::NetBSD:
       return new NetBSDTargetInfo<SparcV8TargetInfo>(Triple);
     case llvm::Triple::OpenBSD:
@@ -7080,6 +7200,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new DarwinI386TargetInfo(Triple);
 
     switch (os) {
+    case llvm::Triple::CloudABI:
+      return new CloudABITargetInfo<X86_32TargetInfo>(Triple);
     case llvm::Triple::Linux: {
       switch (Triple.getEnvironment()) {
       default:

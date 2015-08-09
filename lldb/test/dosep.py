@@ -48,12 +48,12 @@ def get_timeout_command():
     if sys.platform.startswith("win32"):
         return None
     try:
-        subprocess.call("timeout")
+        subprocess.call("timeout", stderr=subprocess.PIPE)
         return "timeout"
     except OSError:
         pass
     try:
-        subprocess.call("gtimeout")
+        subprocess.call("gtimeout", stderr=subprocess.PIPE)
         return "gtimeout"
     except OSError:
         pass
@@ -61,32 +61,79 @@ def get_timeout_command():
 
 timeout_command = get_timeout_command()
 
-default_timeout = os.getenv("LLDB_TEST_TIMEOUT") or "10m"
-
 # Status codes for running command with timeout.
 eTimedOut, ePassed, eFailed = 124, 0, 1
 
-def call_with_timeout(command, timeout):
+output_lock = None
+test_counter = None
+total_tests = None
+
+def setup_lock_and_counter(lock, counter, total):
+    global output_lock, test_counter, total_tests
+    output_lock = lock
+    test_counter = counter
+    total_tests = total
+
+def update_status(name = None, command = None, output = None):
+    global output_lock, test_counter, total_tests
+    with output_lock:
+        if output is not None:
+            print >> sys.stderr
+            print >> sys.stderr, "Failed test suite: %s" % name
+            print >> sys.stderr, "Command invoked: %s" % ' '.join(command)
+            print >> sys.stderr, "stdout:\n%s" % output[0]
+            print >> sys.stderr, "stderr:\n%s" % output[1]
+        sys.stderr.write("\r%*d out of %d test suites processed" %
+            (len(str(total_tests)), test_counter.value, total_tests))
+        test_counter.value += 1
+
+def parse_test_results(output):
+    passes = 0
+    failures = 0
+    for result in output:
+        pass_count = re.search("^RESULT:.*([0-9]+) passes", result, re.MULTILINE)
+        fail_count = re.search("^RESULT:.*([0-9]+) failures", result, re.MULTILINE)
+        error_count = re.search("^RESULT:.*([0-9]+) errors", result, re.MULTILINE)
+        this_fail_count = 0
+        this_error_count = 0
+        if pass_count != None:
+            passes = passes + int(pass_count.group(1))
+        if fail_count != None:
+            failures = failures + int(fail_count.group(1))
+        if error_count != None:
+            failures = failures + int(error_count.group(1))
+        pass
+    return passes, failures
+
+def call_with_timeout(command, timeout, name):
     """Run command with a timeout if possible."""
     """-s QUIT will create a coredump if they are enabled on your system"""
+    process = None
+    if timeout_command and timeout != "0":
+        command = [timeout_command, '-s', 'QUIT', timeout] + command
+    # Specifying a value for close_fds is unsupported on Windows when using subprocess.PIPE
     if os.name != "nt":
-        if timeout_command and timeout != "0":
-            return subprocess.call([timeout_command, '-s', 'QUIT', timeout] + command,
-                                   stdin=subprocess.PIPE, close_fds=True)
-        return (ePassed if subprocess.call(command, stdin=subprocess.PIPE, close_fds=True) == 0
-                else eFailed)
+        process = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE,
+                                            close_fds=True)
     else:
-        if timeout_command and timeout != "0":
-            return subprocess.call([timeout_command, '-s', 'QUIT', timeout] + command,
-                                   stdin=subprocess.PIPE)
-        return (ePassed if subprocess.call(command, stdin=subprocess.PIPE) == 0
-                else eFailed)
+        process = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                            stdout=subprocess.PIPE,
+                                            stderr=subprocess.PIPE)
+    output = process.communicate()
+    exit_status = process.returncode
+    passes, failures = parse_test_results(output)
+    update_status(name, command, output if exit_status != 0 else None)
+    return exit_status, passes, failures
 
 def process_dir(root, files, test_root, dotest_argv):
     """Examine a directory for tests, and invoke any found within it."""
     timed_out = []
     failed = []
     passed = []
+    pass_sub_count = 0
+    fail_sub_count = 0
     for name in files:
         path = os.path.join(root, name)
 
@@ -107,15 +154,18 @@ def process_dir(root, files, test_root, dotest_argv):
 
         timeout = os.getenv("LLDB_%s_TIMEOUT" % timeout_name) or default_timeout
 
-        exit_status = call_with_timeout(command, timeout)
+        exit_status, pass_count, fail_count = call_with_timeout(command, timeout, name)
 
-        if ePassed == exit_status:
+        pass_sub_count = pass_sub_count + pass_count
+        fail_sub_count = fail_sub_count + fail_count
+
+        if exit_status == ePassed:
             passed.append(name)
         else:
             if eTimedOut == exit_status:
                 timed_out.append(name)
             failed.append(name)
-    return (timed_out, failed, passed)
+    return (timed_out, failed, passed, fail_sub_count, pass_sub_count)
 
 in_q = None
 out_q = None
@@ -141,10 +191,19 @@ def walk_and_invoke(test_directory, test_subdir, dotest_argv, num_threads):
     for root, dirs, files in os.walk(test_subdir, topdown=False):
         test_work_items.append((root, files, test_directory, dotest_argv))
 
+    global output_lock, test_counter, total_tests
+    output_lock = multiprocessing.Lock()
+    total_tests = len(test_work_items)
+    test_counter = multiprocessing.Value('i', 0)
+    print >> sys.stderr, "Testing: %d tests, %d threads" % (total_tests, num_threads)
+    update_status()
+
     # Run the items, either in a pool (for multicore speedup) or
     # calling each individually.
     if num_threads > 1:
-        pool = multiprocessing.Pool(num_threads)
+        pool = multiprocessing.Pool(num_threads,
+            initializer = setup_lock_and_counter,
+            initargs = (output_lock, test_counter, total_tests))
         test_results = pool.map(process_dir_worker, test_work_items)
     else:
         test_results = []
@@ -154,14 +213,18 @@ def walk_and_invoke(test_directory, test_subdir, dotest_argv, num_threads):
     timed_out = []
     failed = []
     passed = []
+    fail_sub_count = 0
+    pass_sub_count = 0
 
     for test_result in test_results:
-        (dir_timed_out, dir_failed, dir_passed) = test_result
+        (dir_timed_out, dir_failed, dir_passed, dir_fail_sub_count, dir_pass_sub_count) = test_result
         timed_out += dir_timed_out
         failed += dir_failed
         passed += dir_passed
+        fail_sub_count = fail_sub_count + dir_fail_sub_count
+        pass_sub_count = pass_sub_count + dir_pass_sub_count
 
-    return (timed_out, failed, passed)
+    return (timed_out, failed, passed, fail_sub_count, pass_sub_count)
 
 def getExpectedTimeouts(platform_name):
     # returns a set of test filenames that might timeout
@@ -184,6 +247,9 @@ def getExpectedTimeouts(platform_name):
             "TestCreateAfterAttach.py",
             "TestEvents.py",
             "TestExitDuringStep.py",
+            "TestHelloWorld.py", # Times out in ~10% of the times on the build bot
+            "TestMultithreaded.py",
+            "TestRegisters.py", # ~12/600 dosep runs (build 3120-3122)
             "TestThreadStepOut.py",
         }
     elif target.startswith("android"):
@@ -194,6 +260,8 @@ def getExpectedTimeouts(platform_name):
     elif target.startswith("freebsd"):
         expected_timeout |= {
             "TestBreakpointConditions.py",
+            "TestChangeProcessGroup.py",
+            "TestValueObjectRecursion.py",
             "TestWatchpointConditionAPI.py",
         }
     elif target.startswith("darwin"):
@@ -201,6 +269,19 @@ def getExpectedTimeouts(platform_name):
             "TestThreadSpecificBreakpoint.py", # times out on MBP Retina, Mid 2012
         }
     return expected_timeout
+
+def getDefaultTimeout(platform_name):
+    if os.getenv("LLDB_TEST_TIMEOUT"):
+        return os.getenv("LLDB_TEST_TIMEOUT")
+
+    if platform_name is None:
+        platform_name = sys.platform
+
+    if platform_name.startswith("remote-"):
+        return "10m"
+    else:
+        return "4m"
+
 
 def touch(fname, times=None):
     with open(fname, 'a'):
@@ -291,11 +372,15 @@ Run lldb test suite using a separate process for each test file.
     if num_threads < 1:
         num_threads = 1
 
+    global default_timeout
+    default_timeout = getDefaultTimeout(dotest_options.lldb_platform_name)
+
     system_info = " ".join(platform.uname())
-    (timed_out, failed, passed) = walk_and_invoke(test_directory, test_subdir, dotest_argv,
-                                                  num_threads)
+    (timed_out, failed, passed, all_fails, all_passes) = walk_and_invoke(test_directory, test_subdir, dotest_argv, num_threads)
+
     timed_out = set(timed_out)
-    num_tests = len(failed) + len(passed)
+    num_test_files = len(failed) + len(passed)
+    num_tests = all_fails + all_passes
 
     # move core files into session dir
     cores = find('core.*', test_subdir)
@@ -320,7 +405,11 @@ Run lldb test suite using a separate process for each test file.
             test_name = os.path.splitext(xtime)[0]
             touch(os.path.join(session_dir, "{}-{}".format(result, test_name)))
 
-    print "Ran %d tests." % num_tests
+    print
+    print "Ran %d test suites (%d failed) (%f%%)" % (num_test_files, len(failed),
+            (100.0 * len(failed) / num_test_files) if num_test_files > 0 else float('NaN'))
+    print "Ran %d test cases (%d failed) (%f%%)" % (num_tests, all_fails,
+            (100.0 * all_fails / num_tests) if num_tests > 0 else float('NaN'))
     if len(failed) > 0:
         failed.sort()
         print "Failing Tests (%d)" % len(failed)

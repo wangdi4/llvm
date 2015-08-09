@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/lldb-python.h"
-
 #include "lldb/Core/ValueObject.h"
 
 // C Includes
@@ -43,7 +41,6 @@
 #include "lldb/Host/Endian.h"
 
 #include "lldb/Interpreter/CommandInterpreter.h"
-#include "lldb/Interpreter/ScriptInterpreterPython.h"
 
 #include "lldb/Symbol/ClangASTType.h"
 #include "lldb/Symbol/ClangASTContext.h"
@@ -3563,7 +3560,7 @@ void
 ValueObject::LogValueObject (Log *log)
 {
     if (log)
-        return LogValueObject (log, DumpValueObjectOptions::DefaultOptions());
+        return LogValueObject (log, DumpValueObjectOptions(*this));
 }
 
 void
@@ -3581,7 +3578,7 @@ ValueObject::LogValueObject (Log *log, const DumpValueObjectOptions& options)
 void
 ValueObject::Dump (Stream &s)
 {
-    Dump (s, DumpValueObjectOptions::DefaultOptions());
+    Dump (s, DumpValueObjectOptions(*this));
 }
 
 void

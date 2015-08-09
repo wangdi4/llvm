@@ -1472,6 +1472,8 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
       FuncAttrs.addAttribute("no-frame-pointer-elim-non-leaf");
     }
 
+    FuncAttrs.addAttribute("disable-tail-calls",
+                           llvm::toStringRef(CodeGenOpts.DisableTailCalls));
     FuncAttrs.addAttribute("less-precise-fpmad",
                            llvm::toStringRef(CodeGenOpts.LessPreciseFPMAD));
     FuncAttrs.addAttribute("no-infs-fp-math",
@@ -1488,24 +1490,75 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
     if (!CodeGenOpts.StackRealignment)
       FuncAttrs.addAttribute("no-realign-stack");
 
-    // Add target-cpu and target-features work if they differ from the defaults.
-    std::string &CPU = getTarget().getTargetOpts().CPU;
-    if (CPU != "")
-      FuncAttrs.addAttribute("target-cpu", CPU);
+    // Add target-cpu and target-features attributes to functions. If
+    // we have a decl for the function and it has a target attribute then
+    // parse that and add it to the feature set.
+    StringRef TargetCPU = getTarget().getTargetOpts().CPU;
 
     // TODO: Features gets us the features on the command line including
     // feature dependencies. For canonicalization purposes we might want to
-    // avoid putting features in the target-features set if we know it'll be one
-    // of the default features in the backend, e.g. corei7-avx and +avx or figure
-    // out non-explicit dependencies.
-    std::vector<std::string> &Features = getTarget().getTargetOpts().Features;
+    // avoid putting features in the target-features set if we know it'll be
+    // one of the default features in the backend, e.g. corei7-avx and +avx or
+    // figure out non-explicit dependencies.
+    // Canonicalize the existing features in a new feature map.
+    // TODO: Migrate the existing backends to keep the map around rather than
+    // the vector.
+    llvm::StringMap<bool> FeatureMap;
+    for (auto F : getTarget().getTargetOpts().Features) {
+      const char *Name = F.c_str();
+      bool Enabled = Name[0] == '+';
+      getTarget().setFeatureEnabled(FeatureMap, Name + 1, Enabled);
+    }
+
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl);
+    if (FD) {
+      if (const TargetAttr *TD = FD->getAttr<TargetAttr>()) {
+        StringRef FeaturesStr = TD->getFeatures();
+        SmallVector<StringRef, 1> AttrFeatures;
+        FeaturesStr.split(AttrFeatures, ",");
+
+        // Grab the various features and prepend a "+" to turn on the feature to
+        // the backend and add them to our existing set of features.
+        for (auto &Feature : AttrFeatures) {
+          // While we're here iterating check for a different target cpu.
+          if (Feature.startswith("arch="))
+            TargetCPU = Feature.split("=").second;
+	  else if (Feature.startswith("tune="))
+	    // We don't support cpu tuning this way currently.
+	    ;
+	  else if (Feature.startswith("fpmath="))
+	    // TODO: Support the fpmath option this way. It will require checking
+	    // overall feature validity for the function with the rest of the
+	    // attributes on the function.
+	    ;
+	  else if (Feature.startswith("mno-"))
+            getTarget().setFeatureEnabled(FeatureMap, Feature.split("-").second,
+                                          false);
+          else
+            getTarget().setFeatureEnabled(FeatureMap, Feature, true);
+        }
+      }
+    }
+
+    // Produce the canonical string for this set of features.
+    std::vector<std::string> Features;
+    for (llvm::StringMap<bool>::const_iterator it = FeatureMap.begin(),
+                                               ie = FeatureMap.end();
+         it != ie; ++it)
+      Features.push_back((it->second ? "+" : "-") + it->first().str());
+
+    // Now add the target-cpu and target-features to the function.
+    if (TargetCPU != "")
+      FuncAttrs.addAttribute("target-cpu", TargetCPU);
     if (!Features.empty()) {
-      std::stringstream S;
+      std::stable_sort(Features.begin(), Features.end());
+      std::stringstream TargetFeatures;
       std::copy(Features.begin(), Features.end(),
-                std::ostream_iterator<std::string>(S, ","));
+                std::ostream_iterator<std::string>(TargetFeatures, ","));
+
       // The drop_back gets rid of the trailing space.
       FuncAttrs.addAttribute("target-features",
-                             StringRef(S.str()).drop_back(1));
+                             StringRef(TargetFeatures.str()).drop_back(1));
     }
   }
 
@@ -2245,11 +2298,10 @@ static llvm::StoreInst *findDominatingStoreToReturnValue(CodeGenFunction &CGF) {
         if (Intrinsic->getIntrinsicID() == llvm::Intrinsic::lifetime_end) {
           const llvm::Value *CastAddr = Intrinsic->getArgOperand(1);
           ++II;
-          if (isa<llvm::BitCastInst>(&*II)) {
-            if (CastAddr == &*II) {
-              continue;
-            }
-          }
+          if (II == IE)
+            break;
+          if (isa<llvm::BitCastInst>(&*II) && (CastAddr == &*II))
+            continue;
         }
       }
       I = &*II;
@@ -2595,7 +2647,7 @@ static void emitWritebackArg(CodeGenFunction &CGF, CallArgList &args,
   LValue srcLV;
 
   // Make an optimistic effort to emit the address as an l-value.
-  // This can fail if the the argument expression is more complicated.
+  // This can fail if the argument expression is more complicated.
   if (const Expr *lvExpr = maybeGetUnaryAddrOfOperand(CRE->getSubExpr())) {
     srcLV = CGF.EmitLValue(lvExpr);
 
@@ -2743,27 +2795,28 @@ void CallArgList::freeArgumentMemory(CodeGenFunction &CGF) const {
   }
 }
 
-static void emitNonNullArgCheck(CodeGenFunction &CGF, RValue RV,
-                                QualType ArgType, SourceLocation ArgLoc,
-                                const FunctionDecl *FD, unsigned ParmNum) {
-  if (!CGF.SanOpts.has(SanitizerKind::NonnullAttribute) || !FD)
+void CodeGenFunction::EmitNonNullArgCheck(RValue RV, QualType ArgType,
+                                          SourceLocation ArgLoc,
+                                          const FunctionDecl *FD,
+                                          unsigned ParmNum) {
+  if (!SanOpts.has(SanitizerKind::NonnullAttribute) || !FD)
     return;
   auto PVD = ParmNum < FD->getNumParams() ? FD->getParamDecl(ParmNum) : nullptr;
   unsigned ArgNo = PVD ? PVD->getFunctionScopeIndex() : ParmNum;
   auto NNAttr = getNonNullAttr(FD, PVD, ArgType, ArgNo);
   if (!NNAttr)
     return;
-  CodeGenFunction::SanitizerScope SanScope(&CGF);
+  SanitizerScope SanScope(this);
   assert(RV.isScalar());
   llvm::Value *V = RV.getScalarVal();
   llvm::Value *Cond =
-      CGF.Builder.CreateICmpNE(V, llvm::Constant::getNullValue(V->getType()));
+      Builder.CreateICmpNE(V, llvm::Constant::getNullValue(V->getType()));
   llvm::Constant *StaticData[] = {
-      CGF.EmitCheckSourceLocation(ArgLoc),
-      CGF.EmitCheckSourceLocation(NNAttr->getLocation()),
-      llvm::ConstantInt::get(CGF.Int32Ty, ArgNo + 1),
+      EmitCheckSourceLocation(ArgLoc),
+      EmitCheckSourceLocation(NNAttr->getLocation()),
+      llvm::ConstantInt::get(Int32Ty, ArgNo + 1),
   };
-  CGF.EmitCheck(std::make_pair(Cond, SanitizerKind::NonnullAttribute),
+  EmitCheck(std::make_pair(Cond, SanitizerKind::NonnullAttribute),
                 "nonnull_arg", StaticData, None);
 }
 
@@ -2791,7 +2844,7 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     for (int I = ArgTypes.size() - 1; I >= 0; --I) {
       CallExpr::const_arg_iterator Arg = ArgBeg + I;
       EmitCallArg(Args, *Arg, ArgTypes[I]);
-      emitNonNullArgCheck(*this, Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
+      EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                           CalleeDecl, ParamsToSkip + I);
     }
 
@@ -2805,7 +2858,7 @@ void CodeGenFunction::EmitCallArgs(CallArgList &Args,
     CallExpr::const_arg_iterator Arg = ArgBeg + I;
     assert(Arg != ArgEnd);
     EmitCallArg(Args, *Arg, ArgTypes[I]);
-    emitNonNullArgCheck(*this, Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
+    EmitNonNullArgCheck(Args.back().RV, ArgTypes[I], Arg->getExprLoc(),
                         CalleeDecl, ParamsToSkip + I);
   }
 }
@@ -3109,10 +3162,18 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // If the call returns a temporary with struct return, create a temporary
   // alloca to hold the result, unless one is given to us.
   llvm::Value *SRetPtr = nullptr;
+  size_t UnusedReturnSize = 0;
   if (RetAI.isIndirect() || RetAI.isInAlloca()) {
     SRetPtr = ReturnValue.getValue();
-    if (!SRetPtr)
+    if (!SRetPtr) {
       SRetPtr = CreateMemTemp(RetTy);
+      if (HaveInsertPoint() && ReturnValue.isUnused()) {
+        uint64_t size =
+            CGM.getDataLayout().getTypeAllocSize(ConvertTypeForMem(RetTy));
+        if (EmitLifetimeStart(size, SRetPtr))
+          UnusedReturnSize = size;
+      }
+    }
     if (IRFunctionArgs.hasSRetArg()) {
       IRCallArgs[IRFunctionArgs.getSRetArgNo()] = SRetPtr;
     } else {
@@ -3449,6 +3510,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   // insertion point; this allows the rest of IRgen to discard
   // unreachable code.
   if (CS.doesNotReturn()) {
+    if (UnusedReturnSize)
+      EmitLifetimeEnd(llvm::ConstantInt::get(Int64Ty, UnusedReturnSize),
+                      SRetPtr);
+
     Builder.CreateUnreachable();
     Builder.ClearInsertionPoint();
 
@@ -3477,8 +3542,13 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
   RValue Ret = [&] {
     switch (RetAI.getKind()) {
     case ABIArgInfo::InAlloca:
-    case ABIArgInfo::Indirect:
-      return convertTempToRValue(SRetPtr, RetTy, SourceLocation());
+    case ABIArgInfo::Indirect: {
+      RValue ret = convertTempToRValue(SRetPtr, RetTy, SourceLocation());
+      if (UnusedReturnSize)
+        EmitLifetimeEnd(llvm::ConstantInt::get(Int64Ty, UnusedReturnSize),
+                        SRetPtr);
+      return ret;
+    }
 
     case ABIArgInfo::Ignore:
       // If we are ignoring an argument that had a result, make sure to

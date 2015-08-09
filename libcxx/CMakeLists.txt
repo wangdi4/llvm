@@ -58,6 +58,7 @@ option(LIBCXX_ENABLE_GLOBAL_FILESYSTEM_NAMESPACE "Build libc++ with support for 
 option(LIBCXX_ENABLE_STDIN "Build libc++ with support for stdin/std::cin." ON)
 option(LIBCXX_ENABLE_STDOUT "Build libc++ with support for stdout/std::cout." ON)
 option(LIBCXX_ENABLE_THREADS "Build libc++ with support for threads." ON)
+option(LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS "Build libc++ with support for thread-unsafe C functions" ON)
 option(LIBCXX_BUILD_32_BITS "Build 32 bit libc++" OFF)
 option(LIBCXX_ENABLE_MONOTONIC_CLOCK
   "Build libc++ with support for a monotonic clock.
@@ -103,27 +104,6 @@ set_property(CACHE LIBCXX_CXX_ABI PROPERTY STRINGS ;${CXXABIS})
 # Build libc++abi with libunwind. We need this option to determine whether to
 # link with libunwind or libgcc_s while running the test cases.
 option(LIBCXXABI_USE_LLVM_UNWINDER "Build and use the LLVM unwinder." OFF)
-
-# TODO(ericwf): Remove these options by March/25/2015.
-# These CMake options have been removed in favor of a generic option
-# "LIBCXX_CXX_ABI_INCLUDE_PATHS". Issue an explicit error message explaining
-# the change for anybody that still uses them.
-if (DEFINED LIBCXX_LIBCXXABI_INCLUDE_PATHS)
-  message(FATAL_ERROR
-    "The option \"LIBCXX_LIBCXXABI_INCLUDE_PATHS\" has been removed. "
-    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
-    "and clean your build directory.")
-elseif(DEFINED LIBCXX_LIBSUPCXX_INCLUDE_PATHS)
-  message(FATAL_ERROR
-    "The option \"LIBCXX_LIBSUPCXX_INCLUDE_PATHS\" has been removed. "
-    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
-    "and clean your build directory.")
-elseif(DEFINED LIBCXX_LIBCXXRT_INCLUDE_PATHS)
-  message(FATAL_ERROR
-    "The option \"LIBCXX_LIBCXXRT_INCLUDE_PATHS\" has been removed. "
-    "Use \"LIBCXX_CXX_ABI_INCLUDE_PATHS\" instead "
-    "and clean your build directory.")
-endif()
 
 #===============================================================================
 # Configure System
@@ -293,6 +273,11 @@ if (NOT LIBCXX_ENABLE_THREADS)
 elseif(NOT LIBCXX_ENABLE_MONOTONIC_CLOCK)
   message(FATAL_ERROR "LIBCXX_ENABLE_MONOTONIC_CLOCK can only be set to OFF"
                       " when LIBCXX_ENABLE_THREADS is also set to OFF.")
+endif()
+
+# LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS configuration
+if (NOT LIBCXX_ENABLE_THREAD_UNSAFE_C_FUNCTIONS)
+  add_definitions(-D_LIBCPP_HAS_NO_THREAD_UNSAFE_C_FUNCTIONS)
 endif()
 
 # Configure for sanitizers. If LIBCXX_BUILT_STANDALONE then we have to do
