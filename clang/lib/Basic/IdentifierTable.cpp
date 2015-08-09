@@ -16,6 +16,7 @@
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LangOptions.h"
 #include "clang/Basic/OperatorKinds.h"
+#include "clang/Basic/Specifiers.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/SmallString.h"
@@ -70,8 +71,6 @@ IdentifierIterator *IdentifierInfoLookup::getIdentifiers() {
   return new EmptyLookupIterator();
 }
 
-ExternalIdentifierLookup::~ExternalIdentifierLookup() {}
-
 IdentifierTable::IdentifierTable(const LangOptions &LangOpts,
                                  IdentifierInfoLookup* externalLookup)
   : HashTable(8192), // Start with space for 8K identifiers.
@@ -109,13 +108,15 @@ namespace {
     KEYNOOPENCL = 0x02000,
     WCHARSUPPORT = 0x04000,
     HALFSUPPORT = 0x08000,
+    KEYCONCEPTS = 0x10000,
 #ifdef INTEL_CUSTOMIZATION
-    KEYCILKPLUS = 0x10000,
-    KEYFLOAT128 = 0x20000,
-    KEYRESTRICT = 0x40000,
-    KEYMSASM = 0x80000,
+    KEYCILKPLUS = 0x20000,
+    KEYFLOAT128 = 0x40000,
+    KEYRESTRICT = 0x80000,
+    KEYMSASM = 0x100000,
+    KEYBASES = 0x100000,
 #endif  // INTEL_CUSTOMIZATION
-    KEYALL = (0x7ffff & ~KEYNOMS18 &  // INTEL_CUSTOMIZATION 0x7ffff vs 0xffff
+    KEYALL = (0x1fffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
 
@@ -148,6 +149,10 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
   if (LangOpts.IntelCompat && LangOpts.AsmBlocks && (Flags & KEYMSASM))
     return KS_Extension;
+  // CQ#369185 - enable '__bases' and '__direct_bases' keywords for IntelCompat
+  // and C++11 modes only.
+  if (LangOpts.IntelCompat && LangOpts.CPlusPlus11 && (Flags & KEYBASES))
+    return KS_Extension;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;
@@ -159,6 +164,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // We treat bridge casts as objective-C keywords so we can warn on them
   // in non-arc mode.
   if (LangOpts.ObjC2 && (Flags & KEYARC)) return KS_Enabled;
+  if (LangOpts.ConceptsTS && (Flags & KEYCONCEPTS)) return KS_Enabled;
   if (LangOpts.CPlusPlus && (Flags & KEYCXX11)) return KS_Future;
   return KS_Disabled;
 }
@@ -658,4 +664,19 @@ const char *clang::getOperatorSpelling(OverloadedOperatorKind Operator) {
   }
 
   llvm_unreachable("Invalid OverloadedOperatorKind!");
+}
+
+StringRef clang::getNullabilitySpelling(NullabilityKind kind,
+                                        bool isContextSensitive) {
+  switch (kind) {
+  case NullabilityKind::NonNull:
+    return isContextSensitive ? "nonnull" : "_Nonnull";
+
+  case NullabilityKind::Nullable:
+    return isContextSensitive ? "nullable" : "_Nullable";
+
+  case NullabilityKind::Unspecified:
+    return isContextSensitive ? "null_unspecified" : "_Null_unspecified";
+  }
+  llvm_unreachable("Unknown nullability kind.");
 }

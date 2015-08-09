@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- popcntintrin.h - POPCNT intrinsics -------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,25 +29,26 @@
  *===-----------------------------------------------------------------------===
  */
 
-#ifndef __POPCNT__
-#error "POPCNT instruction set not enabled"
-#endif
-
 #ifndef _POPCNTINTRIN_H
 #define _POPCNTINTRIN_H
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("popcnt")))
+
+static __inline__ int __DEFAULT_FN_ATTRS
 _mm_popcnt_u32(unsigned int __A)
 {
   return __builtin_popcount(__A);
 }
 
 #ifdef __x86_64__
-static __inline__ long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ long long __DEFAULT_FN_ATTRS
 _mm_popcnt_u64(unsigned long long __A)
 {
   return __builtin_popcountll(__A);
 }
 #endif /* __x86_64__ */
+
+#undef __DEFAULT_FN_ATTRS
 
 #endif /* _POPCNTINTRIN_H */

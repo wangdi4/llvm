@@ -301,6 +301,10 @@ def fmessage_length : Separate<["-"], "fmessage-length">, MetaVarName<"<N>">,
   HelpText<"Format message diagnostics so that they fit within N columns or fewer, when possible.">;
 def verify : Flag<["-"], "verify">,
   HelpText<"Verify diagnostic output using comment directives">;
+def verify_ignore_unexpected : Flag<["-"], "verify-ignore-unexpected">,
+  HelpText<"Ignore unexpected diagnostic messages">;
+def verify_ignore_unexpected_EQ : CommaJoined<["-"], "verify-ignore-unexpected=">,
+  HelpText<"Ignore unexpected diagnostic messages">;
 def Wno_rewrite_macros : Flag<["-"], "Wno-rewrite-macros">,
   HelpText<"Silence ObjC rewriting warnings">;
 
@@ -365,6 +369,10 @@ def fmodules_local_submodule_visibility :
   Flag<["-"], "fmodules-local-submodule-visibility">,
   HelpText<"Enforce name visibility rules across submodules of the same "
            "top-level module.">;
+def fno_modules_hide_internal_linkage :
+  Flag<["-"], "fno-modules-hide-internal-linkage">,
+  HelpText<"Make all declarations visible to redeclaration lookup, "
+           "even if they have internal linkage.">;
 def fconcepts_ts : Flag<["-"], "fconcepts-ts">,
   HelpText<"Enable C++ Extensions for Concepts.">;
 
@@ -570,6 +578,9 @@ def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
 // CQ#369692 - support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
+// CQ#373517 - compilation fails with 'redefinition of default argument'.
+def fpermissive_args : Flag<["-"], "fpermissive-args">,
+  HelpText<"Allows to redefine default arguments">;
 // endif INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

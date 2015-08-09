@@ -1220,6 +1220,13 @@ public:
   QualType getUnaryTransformType(QualType BaseType, QualType UnderlyingType,
                                  UnaryTransformType::UTTKind UKind) const;
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  /// \brief __bases and __direct_bases types.
+  QualType getBasesType(QualType ArgType,
+                        UnaryTransformType::UTTKind UKind) const;
+
+#endif // INTEL_CUSTOMIZATION
   /// \brief C++11 deduced auto type.
   QualType getAutoType(QualType DeducedType, bool IsDecltypeAuto,
                        bool IsDependent) const;
@@ -1786,6 +1793,17 @@ public:
   /// \param method should be the declaration from the class definition
   void setNonKeyFunction(const CXXMethodDecl *method);
 
+  /// Loading virtual member pointers using the virtual inheritance model
+  /// always results in an adjustment using the vbtable even if the index is
+  /// zero.
+  ///
+  /// This is usually OK because the first slot in the vbtable points
+  /// backwards to the top of the MDC.  However, the MDC might be reusing a
+  /// vbptr from an nv-base.  In this case, the first slot in the vbtable
+  /// points to the start of the nv-base which introduced the vbptr and *not*
+  /// the MDC.  Modify the NonVirtualBaseAdjustment to account for this.
+  CharUnits getOffsetOfBaseWithVBPtr(const CXXRecordDecl *RD) const;
+
   /// Get the offset of a FieldDecl or IndirectFieldDecl, in bits.
   uint64_t getFieldOffset(const ValueDecl *FD) const;
 
@@ -1858,6 +1876,36 @@ public:
   bool hasSameUnqualifiedType(QualType T1, QualType T2) const {
     return getCanonicalType(T1).getTypePtr() ==
            getCanonicalType(T2).getTypePtr();
+  }
+
+  bool hasSameNullabilityTypeQualifier(QualType SubT, QualType SuperT,
+                                       bool IsParam) const {
+    auto SubTnullability = SubT->getNullability(*this);
+    auto SuperTnullability = SuperT->getNullability(*this);
+    if (SubTnullability.hasValue() == SuperTnullability.hasValue()) {
+      // Neither has nullability; return true
+      if (!SubTnullability)
+        return true;
+      // Both have nullability qualifier.
+      if (*SubTnullability == *SuperTnullability ||
+          *SubTnullability == NullabilityKind::Unspecified ||
+          *SuperTnullability == NullabilityKind::Unspecified)
+        return true;
+      
+      if (IsParam) {
+        // Ok for the superclass method parameter to be "nonnull" and the subclass
+        // method parameter to be "nullable"
+        return (*SuperTnullability == NullabilityKind::NonNull &&
+                *SubTnullability == NullabilityKind::Nullable);
+      }
+      else {
+        // For the return type, it's okay for the superclass method to specify
+        // "nullable" and the subclass method specify "nonnull"
+        return (*SuperTnullability == NullabilityKind::Nullable &&
+                *SubTnullability == NullabilityKind::NonNull);
+      }
+    }
+    return true;
   }
 
   bool ObjCMethodsAreEqual(const ObjCMethodDecl *MethodDecl,
@@ -2359,7 +2407,15 @@ public:
   /// \brief Returns true if this is an inline-initialized static data member
   /// which is treated as a definition for MSVC compatibility.
   bool isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const;
-  
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
+  // of a structure.
+  /// \brief Returns true if this is an inline-initialized static data member
+  /// which is treated as a definition for Intel compatibility.
+  bool isIntelStaticDataMemberInlineDefinition(const VarDecl *VD) const;
+#endif // INTEL_CUSTOMIZATION
+
 private:
   const ASTRecordLayout &
   getObjCLayout(const ObjCInterfaceDecl *D,

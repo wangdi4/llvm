@@ -523,7 +523,33 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-    if (OldParamHasDfl && NewParamHasDfl) {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#373517: compilation fails with 'redefinition of default
+    // argument'.
+    if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
+        (getLangOpts().PermissiveArgs ||
+         getSourceManager().isInSystemHeader(New->getLocation()))) {
+      NewParam->setHasInheritedDefaultArg();
+      if (OldParam) {
+        if (OldParam->hasUnparsedDefaultArg())
+          NewParam->setUnparsedDefaultArg();
+        else if (OldParam->hasUninstantiatedDefaultArg())
+          NewParam->setUninstantiatedDefaultArg(
+              OldParam->getUninstantiatedDefaultArg());
+        else
+          NewParam->setDefaultArg(OldParam->getInit());
+      } else {
+        if (NewParam->hasUninstantiatedDefaultArg())
+          OldParam->setUninstantiatedDefaultArg(
+              NewParam->getUninstantiatedDefaultArg());
+        else
+          OldParam->setDefaultArg(NewParam->getInit());
+      }
+      Invalid = false;
+      continue;
+    } else
+#endif // INTEL_CUSTOMIZATION
+        if (OldParamHasDfl && NewParamHasDfl) {
       unsigned DiagDefaultParamID =
         diag::err_param_default_argument_redefinition;
 
@@ -671,6 +697,10 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#373130: friend functions with default parameter without name.
+  if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   if (Old->getFriendObjectKind() == Decl::FOK_Undeclared &&
       functionDeclHasDefaultArgument(Old)) {
     Diag(New->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
@@ -1363,57 +1393,6 @@ static bool findCircularInheritance(const CXXRecordDecl *Class,
   return false;
 }
 
-/// \brief Perform propagation of DLL attributes from a derived class to a
-/// templated base class for MS compatibility.
-static void propagateDLLAttrToBaseClassTemplate(
-    Sema &S, CXXRecordDecl *Class, Attr *ClassAttr,
-    ClassTemplateSpecializationDecl *BaseTemplateSpec, SourceLocation BaseLoc) {
-  if (getDLLAttr(
-          BaseTemplateSpec->getSpecializedTemplate()->getTemplatedDecl())) {
-    // If the base class template has a DLL attribute, don't try to change it.
-    return;
-  }
-
-  if (BaseTemplateSpec->getSpecializationKind() == TSK_Undeclared) {
-    // If the base class is not already specialized, we can do the propagation.
-    auto *NewAttr = cast<InheritableAttr>(ClassAttr->clone(S.getASTContext()));
-    NewAttr->setInherited(true);
-    BaseTemplateSpec->addAttr(NewAttr);
-    return;
-  }
-
-  bool DifferentAttribute = false;
-  if (Attr *SpecializationAttr = getDLLAttr(BaseTemplateSpec)) {
-    if (!SpecializationAttr->isInherited()) {
-      // The template has previously been specialized or instantiated with an
-      // explicit attribute. We should not try to change it.
-      return;
-    }
-    if (SpecializationAttr->getKind() == ClassAttr->getKind()) {
-      // The specialization already has the right attribute.
-      return;
-    }
-    DifferentAttribute = true;
-  }
-
-  // The template was previously instantiated or explicitly specialized without
-  // a dll attribute, or the template was previously instantiated with a
-  // different inherited attribute. It's too late for us to change the
-  // attribute, so warn that this is unsupported.
-  S.Diag(BaseLoc, diag::warn_attribute_dll_instantiated_base_class)
-      << BaseTemplateSpec->isExplicitSpecialization() << DifferentAttribute;
-  S.Diag(ClassAttr->getLocation(), diag::note_attribute);
-  if (BaseTemplateSpec->isExplicitSpecialization()) {
-    S.Diag(BaseTemplateSpec->getLocation(),
-           diag::note_template_class_explicit_specialization_was_here)
-        << BaseTemplateSpec;
-  } else {
-    S.Diag(BaseTemplateSpec->getPointOfInstantiation(),
-           diag::note_template_class_instantiation_was_here)
-        << BaseTemplateSpec;
-  }
-}
-
 /// \brief Check the validity of a C++ base class specifier.
 ///
 /// \returns a new CXXBaseSpecifier if well-formed, emits diagnostics
@@ -1485,8 +1464,8 @@ Sema::CheckBaseSpecifier(CXXRecordDecl *Class,
     if (Attr *ClassAttr = getDLLAttr(Class)) {
       if (auto *BaseTemplate = dyn_cast_or_null<ClassTemplateSpecializationDecl>(
               BaseType->getAsCXXRecordDecl())) {
-        propagateDLLAttrToBaseClassTemplate(*this, Class, ClassAttr,
-                                            BaseTemplate, BaseLoc);
+        propagateDLLAttrToBaseClassTemplate(Class, ClassAttr, BaseTemplate,
+                                            BaseLoc);
       }
     }
   }
@@ -2255,9 +2234,6 @@ Sema::ActOnCXXMemberDeclarator(Scope *S, AccessSpecifier AS, Declarator &D,
       assert(Member && "HandleField never returns null");
     }
   } else {
-    assert(InitStyle == ICIS_NoInit ||
-           D.getDeclSpec().getStorageClassSpec() == DeclSpec::SCS_static);
-
     Member = HandleDeclarator(S, D, TemplateParameterLists);
     if (!Member)
       return nullptr;
@@ -4809,8 +4785,9 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
 
   TemplateSpecializationKind TSK = Class->getTemplateSpecializationKind();
 
-  // Don't dllexport explicit class template instantiation declarations.
-  if (ClassExported && TSK == TSK_ExplicitInstantiationDeclaration) {
+  // Ignore explicit dllexport on explicit class template instantiation declarations.
+  if (ClassExported && !ClassAttr->isInherited() &&
+      TSK == TSK_ExplicitInstantiationDeclaration) {
     Class->dropAttr<DLLExportAttr>();
     return;
   }
@@ -4858,12 +4835,15 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
     }
 
     if (MD && ClassExported) {
+      if (TSK == TSK_ExplicitInstantiationDeclaration)
+        // Don't go any further if this is just an explicit instantiation
+        // declaration.
+        continue;
+
       if (MD->isUserProvided()) {
         // Instantiate non-default class member functions ...
 
         // .. except for certain kinds of template specializations.
-        if (TSK == TSK_ExplicitInstantiationDeclaration)
-          continue;
         if (TSK == TSK_ImplicitInstantiation && !ClassAttr->isInherited())
           continue;
 
@@ -4891,6 +4871,61 @@ void Sema::checkClassLevelDLLAttribute(CXXRecordDecl *Class) {
         Consumer.HandleTopLevelDecl(DeclGroupRef(MD));
       }
     }
+  }
+}
+
+/// \brief Perform propagation of DLL attributes from a derived class to a
+/// templated base class for MS compatibility.
+void Sema::propagateDLLAttrToBaseClassTemplate(
+    CXXRecordDecl *Class, Attr *ClassAttr,
+    ClassTemplateSpecializationDecl *BaseTemplateSpec, SourceLocation BaseLoc) {
+  if (getDLLAttr(
+          BaseTemplateSpec->getSpecializedTemplate()->getTemplatedDecl())) {
+    // If the base class template has a DLL attribute, don't try to change it.
+    return;
+  }
+
+  auto TSK = BaseTemplateSpec->getSpecializationKind();
+  if (!getDLLAttr(BaseTemplateSpec) &&
+      (TSK == TSK_Undeclared || TSK == TSK_ExplicitInstantiationDeclaration ||
+       TSK == TSK_ImplicitInstantiation)) {
+    // The template hasn't been instantiated yet (or it has, but only as an
+    // explicit instantiation declaration or implicit instantiation, which means
+    // we haven't codegenned any members yet), so propagate the attribute.
+    auto *NewAttr = cast<InheritableAttr>(ClassAttr->clone(getASTContext()));
+    NewAttr->setInherited(true);
+    BaseTemplateSpec->addAttr(NewAttr);
+
+    // If the template is already instantiated, checkDLLAttributeRedeclaration()
+    // needs to be run again to work see the new attribute. Otherwise this will
+    // get run whenever the template is instantiated.
+    if (TSK != TSK_Undeclared)
+      checkClassLevelDLLAttribute(BaseTemplateSpec);
+
+    return;
+  }
+
+  if (getDLLAttr(BaseTemplateSpec)) {
+    // The template has already been specialized or instantiated with an
+    // attribute, explicitly or through propagation. We should not try to change
+    // it.
+    return;
+  }
+
+  // The template was previously instantiated or explicitly specialized without
+  // a dll attribute, It's too late for us to add an attribute, so warn that
+  // this is unsupported.
+  Diag(BaseLoc, diag::warn_attribute_dll_instantiated_base_class)
+      << BaseTemplateSpec->isExplicitSpecialization();
+  Diag(ClassAttr->getLocation(), diag::note_attribute);
+  if (BaseTemplateSpec->isExplicitSpecialization()) {
+    Diag(BaseTemplateSpec->getLocation(),
+           diag::note_template_class_explicit_specialization_was_here)
+        << BaseTemplateSpec;
+  } else {
+    Diag(BaseTemplateSpec->getPointOfInstantiation(),
+           diag::note_template_class_instantiation_was_here)
+        << BaseTemplateSpec;
   }
 }
 
@@ -9504,6 +9539,7 @@ static void getDefaultArgExprsForConstructors(Sema &S, CXXRecordDecl *Class) {
 
       Expr *DefaultArg = S.BuildCXXDefaultArgExpr(Class->getLocation(), CD,
                                                   CD->getParamDecl(I)).get();
+      S.DiscardCleanupsInEvaluationContext();
       S.Context.addDefaultArgExprForConstructor(CD, I, DefaultArg);
     }
   }
@@ -11645,6 +11681,12 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
       }
     }
 
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#372133: overloaded operator's parameter.
+    if (!ClassOrEnumParam && getLangOpts().IntelCompat &&
+        FnDecl->isTemplateInstantiation())
+      return true;
+#endif // INTEL_CUSTOMIZATION
     if (!ClassOrEnumParam)
       return Diag(FnDecl->getLocation(),
                   diag::err_operator_overload_needs_class_or_enum)
@@ -12756,11 +12798,19 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#373130: friend functions with default parameter without
+      // name.
+      if (!getLangOpts().IntelCompat) {
+#endif // INTEL_CUSTOMIZATION
       if (FunctionDecl *OldFD = FD->getPreviousDecl()) {
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_redeclared);
         Diag(OldFD->getLocation(), diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Mark templated-scope function declarations as unsupported.
@@ -13070,6 +13120,15 @@ bool Sema::CheckPureMethod(CXXMethodDecl *Method, SourceRange InitRange) {
     Diag(Method->getLocation(), diag::err_non_virtual_pure)
       << Method->getDeclName() << InitRange;
   return true;
+}
+
+void Sema::ActOnPureSpecifier(Decl *D, SourceLocation ZeroLoc) {
+  if (D->getFriendObjectKind())
+    Diag(D->getLocation(), diag::err_pure_friend);
+  else if (auto *M = dyn_cast<CXXMethodDecl>(D))
+    CheckPureMethod(M, ZeroLoc);
+  else
+    Diag(D->getLocation(), diag::err_illegal_initializer);
 }
 
 /// \brief Determine whether the given declaration is a static data member.

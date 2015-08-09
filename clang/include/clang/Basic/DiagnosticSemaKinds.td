@@ -14,7 +14,7 @@
 
 let Component = "Sema" in {
 let CategoryName = "Semantic Issue" in {
-//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+// if INTEL_SPECIFIC_IL0_BACKEND
  def x_warn_intel_pragma_opt_level : Warning<"optimization level must be between 0 and 3">,
   InGroup<IntelPragma>;
  def x_warn_intel_pragma_function_only : Warning<"optimization level applies only to function definitions">,
@@ -47,7 +47,7 @@ let CategoryName = "Semantic Issue" in {
  def x_err_attribute_not_string : Error<"argument to %0 attribute was not a string literal">;
  def err_attribute_section_local_variable : Error<
    "'section' attribute is not valid on local variables">;
-//#endif  // INTEL_SPECIFIC_IL0_BACKEND
+// endif INTEL_SPECIFIC_IL0_BACKEND
 def note_previous_decl : Note<"%0 declared here">;
 def note_entity_declared_at : Note<"%0 declared here">;
 def note_callee_decl : Note<"%0 declared here">;
@@ -141,6 +141,7 @@ def err_ice_ambiguous_conversion : Error<
 def err_ice_too_large : Error<
   "integer constant expression evaluates to value %0 that cannot be "
   "represented in a %1-bit %select{signed|unsigned}2 integer type">;
+def err_expr_not_string_literal : Error<"expression is not a string literal">;
 
 // Semantic analysis of constant literals.
 def ext_predef_outside_function : Warning<
@@ -457,6 +458,8 @@ def warn_redecl_library_builtin : Warning<
   "incompatible redeclaration of library function %0">,
   InGroup<DiagGroup<"incompatible-library-redeclaration">>;
 def err_builtin_definition : Error<"definition of builtin function %0">;
+def err_arm_invalid_specialreg : Error<"invalid special register for builtin">;
+def err_invalid_cpu_supports : Error<"invalid cpu feature string for builtin">;
 def warn_builtin_unknown : Warning<"use of unknown builtin %0">,
   InGroup<ImplicitFunctionDeclare>, DefaultError;
 def warn_dyn_class_memaccess : Warning<
@@ -538,8 +541,8 @@ def warn_main_one_arg : Warning<"only one parameter on 'main' declaration">,
 def err_main_arg_wrong : Error<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) must be of type %1">;
-// CQ#364268
 // if INTEL_CUSTOMIZATION
+// CQ#364268
 def warn_main_arg_wrong : Warning<"%select{first|second|third|fourth}0 "
     "parameter of 'main' (%select{argument count|argument array|environment|"
     "platform-specific data}0) should be of type %1">, InGroup<Main>;
@@ -947,10 +950,6 @@ def warn_dealloc_in_category : Warning<
 InGroup<DeallocInCategory>;
 def err_gc_weak_property_strong_type : Error<
   "weak attribute declared on a __strong type property in GC mode">;
-def warn_receiver_is_weak : Warning <
-  "weak %select{receiver|property|implicit property}0 may be "
-  "unpredictably set to nil">,
-  InGroup<DiagGroup<"receiver-is-weak">>, DefaultIgnore;
 def warn_arc_repeated_use_of_weak : Warning <
   "weak %select{variable|property|implicit property|instance variable}0 %1 is "
   "accessed multiple times in this %select{function|method|block|lambda}2 "
@@ -1091,6 +1090,7 @@ def ext_friend_tag_redecl_outside_namespace : ExtWarn<
   "unqualified friend declaration referring to type outside of the nearest "
   "enclosing namespace is a Microsoft extension; add a nested name specifier">,
   InGroup<Microsoft>;
+def err_pure_friend : Error<"friend declaration cannot have a pure-specifier">;
 
 def err_invalid_member_in_interface : Error<
   "%select{data member |non-public member function |static member function |"
@@ -1303,6 +1303,8 @@ def ext_mutable_reference : ExtWarn<
 def err_mutable_const : Error<"'mutable' and 'const' cannot be mixed">;
 def err_mutable_nonmember : Error<
   "'mutable' can only be applied to member variables">;
+def err_virtual_in_union : Error<
+  "unions cannot have virtual functions">;
 def err_virtual_non_function : Error<
   "'virtual' can only appear on non-static member functions">;
 def err_virtual_out_of_class : Error<
@@ -1531,7 +1533,7 @@ def err_lvalue_reference_bind_to_initlist : Error<
 def err_lvalue_reference_bind_to_temporary : Error<
   "%select{non-const|volatile}0 lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}1,2">;
-//if INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_lvalue_reference_bind_to_initlist : Warning<
   "non-const lvalue reference to type %0 cannot bind to an "
   "initializer list temporary">, InGroup<IntelCompat>;
@@ -1539,7 +1541,7 @@ def warn_lvalue_reference_bind_to_temporary : Warning<
   "non-const lvalue reference %diff{to type $ cannot bind "
   "to a temporary of type $|cannot bind to incompatible temporary}0,1">,
   InGroup<IntelCompat>;
-//endif
+// endif INTEL_CUSTOMIZATION
 def err_lvalue_reference_bind_to_unrelated : Error<
   "%select{non-const|volatile}0 lvalue reference "
   "%diff{to type $ cannot bind to a value of unrelated type $|"
@@ -1642,6 +1644,11 @@ def note_uninit_fixit_remove_cond : Note<
   "remove the %select{'%1' if its condition|condition if it}0 "
   "is always %select{false|true}2">;
 def err_init_incomplete_type : Error<"initialization of incomplete type %0">;
+// if INTEL_CUSTOMIZATION
+// CQ#236476 - static variable is referenced in two separate routines in iclang.
+def err_static_variable_with_label_addr
+    : Error<"cannot initialize static variable with label address">;
+// endif INTEL_CUSTOMIZATION
 
 def warn_unsequenced_mod_mod : Warning<
   "multiple unsequenced modifications to %0">, InGroup<Unsequenced>;
@@ -2033,8 +2040,11 @@ def err_attribute_too_few_arguments : Error<
 def err_attribute_invalid_vector_type : Error<"invalid vector element type %0">;
 def err_attribute_bad_neon_vector_size : Error<
   "Neon vector size must be 64 or 128 bits">;
-def err_attribute_unsupported : Error<
-  "%0 attribute is not supported for this target">;
+def warn_unsupported_target_attribute
+    : Warning<"Ignoring unsupported '%0' in the target attribute string">,
+    InGroup<IgnoredAttributes>;
+def err_attribute_unsupported
+    : Error<"%0 attribute is not supported for this target">;
 // The err_*_attribute_argument_not_int are seperate because they're used by
 // VerifyIntegerConstantExpression.
 def err_aligned_attribute_argument_not_int : Error<
@@ -2135,12 +2145,16 @@ def err_attr_objc_ownership_redundant : Error<
   "the type %0 is already explicitly ownership-qualified">;
 def err_undeclared_nsnumber : Error<
   "NSNumber must be available to use Objective-C literals">;
+def err_undeclared_nsvalue : Error<
+  "NSValue must be available to use Objective-C boxed expressions">;
 def err_invalid_nsnumber_type : Error<
   "%0 is not a valid literal type for NSNumber">;
 def err_undeclared_nsstring : Error<
   "cannot box a string value because NSString has not been declared">;
 def err_objc_illegal_boxed_expression_type : Error<
   "illegal type %0 used in a boxed expression">;
+def err_objc_non_trivially_copyable_boxed_expression_type : Error<
+  "non-trivially copyable type %0 cannot be used in a boxed expression">;
 def err_objc_incomplete_boxed_expression_type : Error<
   "incomplete type %0 used in a boxed expression">;
 def err_undeclared_nsarray : Error<
@@ -2244,7 +2258,7 @@ def err_attribute_invalid_on_stmt : Error<
   "%0 attribute cannot be applied to a statement">;
 def warn_declspec_attribute_ignored : Warning<
   "attribute %0 is ignored, place it after "
-  "\"%select{class|struct|union|interface|enum}1\" to apply attribute to "
+  "\"%select{class|struct|interface|union|enum}1\" to apply attribute to "
   "type declaration">, InGroup<IgnoredAttributes>;
 def warn_attribute_precede_definition : Warning<
   "attribute declaration must precede definition">,
@@ -2308,7 +2322,7 @@ def warn_attribute_dllimport_static_field_definition : Warning<
   InGroup<DiagGroup<"dllimport-static-field-def">>;
 def warn_attribute_dllexport_explicit_instantiation_decl : Warning<
   "explicit instantiation declaration should not be 'dllexport'">,
-  InGroup<DiagGroup<"dllexport-explicit-instantation-decl">>;
+  InGroup<DiagGroup<"dllexport-explicit-instantiation-decl">>;
 def warn_invalid_initializer_from_system_header : Warning<
   "invalid constructor form class in system header, should not be explicit">,
   InGroup<DiagGroup<"invalid-initializer-from-system-header">>;
@@ -2317,8 +2331,7 @@ def err_attribute_dll_member_of_dll_class : Error<
   "attribute %q0 cannot be applied to member of %q1 class">;
 def warn_attribute_dll_instantiated_base_class : Warning<
   "propagating dll attribute to %select{already instantiated|explicitly specialized}0 "
-  "base class template "
-  "%select{without dll attribute|with different dll attribute}1 is not supported">,
+  "base class template without dll attribute is not supported">,
   InGroup<DiagGroup<"unsupported-dll-base-class-template">>, DefaultIgnore;
 def err_attribute_weakref_not_static : Error<
   "weakref declaration must have internal linkage">;
@@ -2740,6 +2753,8 @@ def err_mode_not_primitive : Error<
   "mode attribute only supported for integer and floating-point types">;
 def err_mode_wrong_type : Error<
   "type of machine mode does not match type of base type">;
+def err_complex_mode_vector_type : Error<
+  "type of machine mode does not support base vector types">;
 def err_attr_wrong_decl : Error<
   "%0 attribute invalid on this declaration, requires typedef or value">;
 def warn_attribute_nonnull_no_pointers : Warning<
@@ -2806,8 +2821,8 @@ def warn_ns_attribute_wrong_return_type : Warning<
   "return %select{an Objective-C object|a pointer|a non-retainable pointer}2">,
   InGroup<IgnoredAttributes>;
 def warn_ns_attribute_wrong_parameter_type : Warning<
-  "%0 attribute only applies to %select{Objective-C object|pointer}1 "
-  "parameters">,
+  "%0 attribute only applies to "
+  "%select{Objective-C object|pointer|pointer-to-CF-pointer}1 parameters">,
   InGroup<IgnoredAttributes>;
 def warn_objc_requires_super_protocol : Warning<
   "%0 attribute cannot be applied to %select{methods in protocols|dealloc}1">,
@@ -4131,6 +4146,11 @@ def err_redefinition_different_typedef : Error<
   "redefinition with different types%diff{ ($ vs $)|}1,2">;
 def err_tag_reference_non_tag : Error<
   "elaborated type refers to %select{a non-tag type|a typedef|a type alias|a template|a type alias template}0">;
+// if INTEL_CUSTOMIZATION
+// CQ#364598
+def ext_intel_elab_befriended_type_refers_typedef : ExtWarn<
+  "elaborated befriended type refers to a typedef">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_tag_reference_conflict : Error<
   "implicit declaration introduced by elaborated type conflicts with "
   "%select{a declaration|a typedef|a type alias|a template}0 of the same name">;
@@ -4140,8 +4160,8 @@ def err_dependent_tag_decl : Error<
 def err_tag_definition_of_typedef : Error<
   "definition of type %0 conflicts with %select{typedef|type alias}1 of the same name">;
 def err_conflicting_types : Error<"conflicting types for %0">;
-// CQ#366612
 // if INTEL_CUSTOMIZATION
+// CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
   "%select{declaration|definition}1">, InGroup<IntelCompat>;
@@ -4166,8 +4186,8 @@ def err_forward_ref_enum : Error<
   "ISO C++ forbids forward references to 'enum' types">;
 def ext_ms_forward_ref_enum : Extension<
   "forward references to 'enum' types are a Microsoft extension">, InGroup<Microsoft>;
-// CQ#365886
 // if INTEL_CUSTOMIZATION
+// CQ#365886
 def ext_intel_forward_ref_enum : ExtWarn<
   "forward references to 'enum' types are an Intel extension">,
   InGroup<IntelCompat>;
@@ -5459,6 +5479,10 @@ def err_bad_const_cast_dest : Error<
   "which is not a reference, pointer-to-object, or pointer-to-data-member">;
 def ext_cast_fn_obj : Extension<
   "cast between pointer-to-function and pointer-to-object is an extension">;
+def ext_ms_cast_fn_obj : ExtWarn<
+  "static_cast between pointer-to-function and pointer-to-object is a "
+  "Microsoft extension">,
+  InGroup<Microsoft>;
 def warn_cxx98_compat_cast_fn_obj : Warning<
   "cast between pointer-to-function and pointer-to-object is incompatible with C++98">,
   InGroup<CXX98CompatPedantic>, DefaultIgnore;
@@ -5629,6 +5653,8 @@ def err_seh_try_outside_functions : Error<
   "cannot use SEH '__try' in blocks, captured regions, or Obj-C method decls">;
 def err_mixing_cxx_try_seh_try : Error<
   "cannot use C++ 'try' in the same function as SEH '__try'">;
+def err_seh_try_unsupported : Error<
+  "SEH '__try' is not supported on this target">;
 def note_conflicting_try_here : Note<
   "conflicting %0 here">;
 def warn_jump_out_of_seh_finally : Warning<
@@ -6103,8 +6129,8 @@ def err_typecheck_incomplete_type_not_modifiable_lvalue : Error<
   "incomplete type %0 is not assignable">;
 def err_typecheck_lvalue_casts_not_supported : Error<
   "assignment to cast is illegal, lvalue casts are not supported">;
-// CQ#366312
 // if INTEL_CUSTOMIZATION
+// CQ#366312
 def ext_intel_lvalue_cast_not_lengthened: ExtWarn<
   "assignment to lvalue cast that does not lengthen the size of "
   "an object is an Intel Extension">, InGroup<IntelCompat>;
@@ -6152,6 +6178,13 @@ def err_typecheck_call_too_many_args : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
   "expected %1, have %2">;
+// if INTEL_CUSTOMIZATION
+// CQ#364630
+def ext_intel_typecheck_call_too_many_args : ExtWarn<
+  "too many %select{|||execution configuration }0arguments to "
+  "%select{function|block|method|kernel function}0 call, "
+  "expected %1, have %2">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_call_too_many_args_one : Error<
   "too many %select{|||execution configuration }0arguments to "
   "%select{function|block|method|kernel function}0 call, "
@@ -6412,6 +6445,9 @@ let CategoryName = "Inline Assembly Issue" in {
     "remove the cast or build with -fheinous-gnu-extensions">;
   def err_invalid_asm_value_for_constraint
       : Error <"value '%0' out of range for constraint '%1'">;
+  def err_asm_bitfield_in_memory_constraint
+      : Error <"reference to a bit-field in asm "
+      "%select{input|output}0 with a memory constraint '%1'">;
 
   def warn_asm_label_on_auto_decl : Warning<
     "ignored asm label '%0' on automatic variable">;
@@ -7111,8 +7147,7 @@ def warn_return_missing_expr : Warning<
   "non-void %select{function|method}1 %0 should return a value">, DefaultError,
   InGroup<ReturnType>;
 // if INTEL_CUSTOMIZATION
-// Same as warn_return_missing_expr, but a warning, not an error, for
-// IntelCompat mode. CQ#364256
+// CQ#364256. Same as warn_return_missing_expr, but not a DefaultError.
 def warn_return_missing_expr_no_err : Warning<
   "non-void %select{function|method}1 %0 should return a value">,
   InGroup<IntelCompat>;
@@ -7124,6 +7159,13 @@ def ext_return_has_expr : ExtWarn<
   "%select{void function|void method|constructor|destructor}1 %0 "
   "should not return a value">,
   DefaultError, InGroup<ReturnType>;
+// if INTEL_CUSTOMIZATION
+// Same as ext_return_has_expr, but a warning, not an error, for
+// IntelCompat mode. CQ#367767
+def warn_ext_return_has_expr : Warning<
+  "%select{void function|void method|constructor|destructor}1 %0 "
+  "should not return a value">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_return_has_void_expr : Extension<
   "void %select{function|method|block}1 %0 should not return void expression">;
 def err_return_init_list : Error<
@@ -7192,6 +7234,12 @@ def err_invalid_neon_type_code : Error<
   "incompatible constant for this __builtin_neon function">; 
 def err_argument_invalid_range : Error<
   "argument should be a value from %0 to %1">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#371990 - let argument be out of Low..High range, assuming Low.
+def warn_arg_invalid_range_low_assumed : Warning<
+  "expected a value between %0 and %1, defaults to %0">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def warn_neon_vector_initializer_non_portable : Warning<
   "vector initializers are not compatible with NEON intrinsics in big endian "
   "mode">, InGroup<DiagGroup<"nonportable-vector-initialization">>;
@@ -7406,8 +7454,8 @@ def err_filter_expression_integral : Error<
 
 def err_non_asm_stmt_in_naked_function : Error<
   "non-ASM statement in naked function is not supported">;
-// CQ#371340
 // if INTEL_CUSTOMIZATION
+// CQ#371340
 def warn_non_asm_stmt_in_naked_function : Warning<
   "attribute 'naked' ignored on function with non-ASM statements">,
   InGroup<IgnoredAttributes>;
@@ -7459,7 +7507,7 @@ def err_opencl_global_invalid_addr_space : Error<
   "global variables must have a constant address space qualifier">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
 
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_empty_cilk_for_body : Warning<
   "Cilk for loop has empty body">, InGroup<EmptyBody>;
 def warn_empty_simd_for_body : Warning<
@@ -7653,6 +7701,10 @@ def err_cilk_elemental_linear_step_not_integral : Error<
   "linear step has non-integer type %0">;
 def err_cilk_elemental_linear_step_not_constant : Error<
   "linear step is not constant">;
+def err_cilk_elemental_aligned_not_integral : Error<
+  "aligned has non-integer type %0">;
+def err_cilk_elemental_aligned_not_constant : Error<
+  "aligned is not a constant">;
 def err_cilk_elemental_repeated_vectorlength: Error<
   "repeated %select{vectorlength|vectorlengthfor}0 attribute is not allowed">;
 def err_cilk_elemental_both_mask_nomask : Error<
@@ -7766,9 +7818,10 @@ def err_cean_arg_not_lvalue : Error<
   "argument expression must be an l-value">;
 def err_cean_type_of_arg : Error<
   "type of expression is %diff{$, but must be $|not the same as type of the first argument}0,1">;
-def err_assume_aligned_not_pointer : Error<"expression is not a pointer">;
-def err_assume_aligned_not_integer : Error<"expression is not a constant integer value or not a power of 2">;
-//#endif  // INTEL_CUSTOMIZATION
+// CQ#373129 - support for __assume_aligned builtin.
+def err_assume_aligned_first_arg_not_pointer : Error<
+  "first argument to '__assume_aligned' must be a pointer">;
+// endif INTEL_CUSTOMIZATION
 
 def err_opencl_kernel_attr :
   Error<"attribute %0 can only be applied to a kernel function">;
@@ -7807,8 +7860,8 @@ def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
 def err_omp_expected_var_name : Error<
   "expected variable name">;
-def err_omp_required_method : Error<
-  "%0 variable must have an accessible, unambiguous %select{default constructor|copy constructor|copy assignment operator|'%2'|destructor}1">;
+def err_omp_expected_var_name_or_array_item : Error<
+  "expected variable name, array element or array section">;
 def note_omp_task_predetermined_firstprivate_here : Note<
   "predetermined as a firstprivate in a task construct here">;
 def err_omp_clause_ref_type_arg : Error<
@@ -7997,6 +8050,12 @@ def err_omp_single_copyprivate_with_nowait : Error<
   "the 'copyprivate' clause must not be used with the 'nowait' clause">;
 def note_omp_nowait_clause_here : Note<
   "'nowait' clause is here">;
+def err_omp_wrong_cancel_region : Error<
+  "one of 'for', 'parallel', 'sections' or 'taskgroup' is expected">;
+def err_omp_parent_cancel_region_nowait : Error<
+  "parent region for 'omp %select{cancellation point/cancel}0' construct cannot be nowait">;
+def err_omp_parent_cancel_region_ordered : Error<
+  "parent region for 'omp %select{cancellation point/cancel}0' construct cannot be ordered">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -8034,10 +8093,12 @@ def err_module_private_local : Error<
 def err_module_private_local_class : Error<
   "local %select{struct|interface|union|class|enum}0 cannot be declared "
   "__module_private__">;
-def err_module_private_declaration : Error<
-  "declaration of %0 must be imported from module '%1' before it is required">;
-def err_module_private_definition : Error<
-  "definition of %0 must be imported from module '%1' before it is required">;
+def err_module_unimported_use : Error<
+  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "from module '%2' before it is required">;
+def err_module_unimported_use_multiple : Error<
+  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "from one of the following modules before it is required:%2">;
 def err_module_import_in_extern_c : Error<
   "import of C++ module '%0' appears within extern \"C\" language linkage "
   "specification">;
@@ -8067,5 +8128,46 @@ def warn_profile_data_unprofiled : Warning<
   InGroup<ProfileInstrUnprofiled>;
 
 } // end of instrumentation issue category
+
+let CategoryName = "Nullability Issue" in {
+
+def warn_mismatched_nullability_attr : Warning<
+  "nullability specifier %0 conflicts with existing specifier %1">,
+  InGroup<Nullability>;
+
+def warn_nullability_declspec : Warning<
+  "nullability specifier %0 cannot be applied "
+  "to non-pointer type %1; did you mean to apply the specifier to the "
+  "%select{pointer|block pointer|member pointer|function pointer|"
+  "member function pointer}2?">,
+  InGroup<NullabilityDeclSpec>,
+  DefaultError;
+
+def note_nullability_here : Note<"%0 specified here">;
+
+def err_nullability_nonpointer : Error<
+  "nullability specifier %0 cannot be applied to non-pointer type %1">;
+
+def warn_nullability_lost : Warning<
+  "implicit conversion from nullable pointer %0 to non-nullable pointer "
+  "type %1">,
+  InGroup<NullableToNonNullConversion>, DefaultIgnore;
+
+def err_nullability_cs_multilevel : Error<
+  "nullability keyword %0 cannot be applied to multi-level pointer type %1">;
+def note_nullability_type_specifier : Note<
+  "use nullability type specifier %0 to affect the innermost "
+  "pointer type of %1">;
+
+def warn_null_resettable_setter : Warning<
+  "synthesized setter %0 for null_resettable property %1 does not handle nil">,
+  InGroup<Nullability>;
+
+def warn_nullability_missing : Warning<
+  "%select{pointer|block pointer|member pointer}0 is missing a nullability "
+  "type specifier (_Nonnull, _Nullable, or _Null_unspecified)">,
+  InGroup<NullabilityCompleteness>;
+
+}
 
 } // end of sema component.

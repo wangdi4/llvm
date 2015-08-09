@@ -64,10 +64,9 @@ GetFlattenedSpellings(const Record &Attr) {
   for (const auto &Spelling : Spellings) {
     if (Spelling->getValueAsString("Variety") == "GCC") {
       // Gin up two new spelling objects to add into the list.
-      Ret.push_back(FlattenedSpelling("GNU", Spelling->getValueAsString("Name"),
-                                      "", true));
-      Ret.push_back(FlattenedSpelling(
-          "CXX11", Spelling->getValueAsString("Name"), "gnu", true));
+      Ret.emplace_back("GNU", Spelling->getValueAsString("Name"), "", true);
+      Ret.emplace_back("CXX11", Spelling->getValueAsString("Name"), "gnu",
+                       true);
     } else
       Ret.push_back(FlattenedSpelling(*Spelling));
   }
@@ -1480,10 +1479,19 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
 
     // All these spellings take an identifier argument.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
+#ifndef INTEL_CUSTOMIZATION
     std::set<std::string> Emitted;
+#endif
     for (const auto &S : Spellings) {
+#ifndef INTEL_CUSTOMIZATION
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
+#else
+      OS << ".Case(\"" << S.variety();
+      if (S.nameSpace().length())
+        OS << "::" << S.nameSpace();
+      OS << "::" << S.name() << "\", true)\n";
+#endif // INTEL_CUSTOMIZATION
     }
   }
   OS << "#endif // CLANG_ATTR_IDENTIFIER_ARG_LIST\n\n";
@@ -2793,7 +2801,8 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
   StringMatcher("Name", Declspec, OS).Emit();
   OS << "  } else if (AttributeList::AS_CXX11 == Syntax) {\n";
   StringMatcher("Name", CXX11, OS).Emit();
-  OS << "  } else if (AttributeList::AS_Keyword == Syntax) {\n";
+  OS << "  } else if (AttributeList::AS_Keyword == Syntax || ";
+  OS << "AttributeList::AS_ContextSensitiveKeyword == Syntax) {\n";
   StringMatcher("Name", Keywords, OS).Emit();
 #ifdef INTEL_CUSTOMIZATION
   OS << "  } else if (AttributeList::AS_CilkKeyword == Syntax) {\n";

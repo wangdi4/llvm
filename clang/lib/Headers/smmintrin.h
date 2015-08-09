@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- smmintrin.h - SSE4 intrinsics ------------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -24,11 +32,10 @@
 #ifndef _SMMINTRIN_H
 #define _SMMINTRIN_H
 
-#ifndef __SSE4_1__
-#error "SSE4.1 instruction set not enabled"
-#else
-
 #include <tmmintrin.h>
+
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("sse4.1")))
 
 /* SSE4 Rounding macros. */
 #define _MM_FROUND_TO_NEAREST_INT    0x00
@@ -92,21 +99,21 @@
                                   (((M) & 0x04) ? 6 : 2), \
                                   (((M) & 0x08) ? 7 : 3)); })
 
-static __inline__ __m128d __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128d __DEFAULT_FN_ATTRS
 _mm_blendv_pd (__m128d __V1, __m128d __V2, __m128d __M)
 {
   return (__m128d) __builtin_ia32_blendvpd ((__v2df)__V1, (__v2df)__V2,
                                             (__v2df)__M);
 }
 
-static __inline__ __m128 __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128 __DEFAULT_FN_ATTRS
 _mm_blendv_ps (__m128 __V1, __m128 __V2, __m128 __M)
 {
   return (__m128) __builtin_ia32_blendvps ((__v4sf)__V1, (__v4sf)__V2,
                                            (__v4sf)__M);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
 {
   return (__m128i) __builtin_ia32_pblendvb128 ((__v16qi)__V1, (__v16qi)__V2,
@@ -127,13 +134,13 @@ _mm_blendv_epi8 (__m128i __V1, __m128i __V2, __m128i __M)
                                    (((M) & 0x80) ? 15 : 7)); })
 
 /* SSE4 Dword Multiply Instructions.  */
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_mullo_epi32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) ((__v4si)__V1 * (__v4si)__V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_mul_epi32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmuldq128 ((__v4si)__V1, (__v4si)__V2);
@@ -151,56 +158,56 @@ _mm_mul_epi32 (__m128i __V1, __m128i __V2)
   (__m128d) __builtin_ia32_dppd((__v2df)__X, (__v2df)__Y, (M)); })
 
 /* SSE4 Streaming Load Hint Instruction.  */
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_stream_load_si128 (__m128i *__V)
 {
   return (__m128i) __builtin_ia32_movntdqa ((__v2di *) __V);
 }
 
 /* SSE4 Packed Integer Min/Max Instructions.  */
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epi8 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pminsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epi8 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmaxsb128 ((__v16qi) __V1, (__v16qi) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epu16 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pminuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epu16 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmaxuw128 ((__v8hi) __V1, (__v8hi) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epi32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pminsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epi32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmaxsd128 ((__v4si) __V1, (__v4si) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_min_epu32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pminud128((__v4si) __V1, (__v4si) __V2);
 }
 
-static __inline__  __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__  __m128i __DEFAULT_FN_ATTRS
 _mm_max_epu32 (__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_pmaxud128((__v4si) __V1, (__v4si) __V2);
@@ -254,19 +261,19 @@ _mm_max_epu32 (__m128i __V1, __m128i __V2)
 #endif /* __x86_64 */
 
 /* SSE4 128-bit Packed Integer Comparisons.  */
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __DEFAULT_FN_ATTRS
 _mm_testz_si128(__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestz128((__v2di)__M, (__v2di)__V);
 }
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __DEFAULT_FN_ATTRS
 _mm_testc_si128(__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestc128((__v2di)__M, (__v2di)__V);
 }
 
-static __inline__ int __attribute__((__always_inline__, __nodebug__))
+static __inline__ int __DEFAULT_FN_ATTRS
 _mm_testnzc_si128(__m128i __M, __m128i __V)
 {
   return __builtin_ia32_ptestnzc128((__v2di)__M, (__v2di)__V);
@@ -277,88 +284,88 @@ _mm_testnzc_si128(__m128i __M, __m128i __V)
 #define _mm_test_all_zeros(M, V) _mm_testz_si128 ((M), (V))
 
 /* SSE4 64-bit Packed Integer Comparisons.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cmpeq_epi64(__m128i __V1, __m128i __V2)
 {
   return (__m128i)((__v2di)__V1 == (__v2di)__V2);
 }
 
 /* SSE4 Packed Integer Sign-Extension.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi16(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxbw128((__v16qi) __V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi32(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxbd128((__v16qi) __V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi8_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxbq128((__v16qi) __V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi16_epi32(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxwd128((__v8hi) __V); 
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi16_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxwq128((__v8hi)__V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepi32_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovsxdq128((__v4si)__V);
 }
 
 /* SSE4 Packed Integer Zero-Extension.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu8_epi16(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxbw128((__v16qi) __V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu8_epi32(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxbd128((__v16qi)__V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu8_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxbq128((__v16qi)__V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu16_epi32(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxwd128((__v8hi)__V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu16_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxwq128((__v8hi)__V);
 }
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cvtepu32_epi64(__m128i __V)
 {
   return (__m128i) __builtin_ia32_pmovzxdq128((__v4si)__V);
 }
 
 /* SSE4 Pack with Unsigned Saturation.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_packus_epi32(__m128i __V1, __m128i __V2)
 {
   return (__m128i) __builtin_ia32_packusdw128((__v4si)__V1, (__v4si)__V2);
@@ -370,15 +377,19 @@ _mm_packus_epi32(__m128i __V1, __m128i __V2)
   __m128i __Y = (Y); \
   (__m128i) __builtin_ia32_mpsadbw128((__v16qi)__X, (__v16qi)__Y, (M)); })
 
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_minpos_epu16(__m128i __V)
 {
   return (__m128i) __builtin_ia32_phminposuw128((__v8hi)__V);
 }
 
+/* Handle the sse4.2 definitions here. */
+
 /* These definitions are normally in nmmintrin.h, but gcc puts them in here
    so we'll do the same.  */
-#ifdef __SSE4_2__
+
+#undef __DEFAULT_FN_ATTRS
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("sse4.2")))
 
 /* These specify the type of data that we're comparing.  */
 #define _SIDD_UBYTE_OPS                 0x00
@@ -439,44 +450,41 @@ _mm_minpos_epu16(__m128i __V)
      __builtin_ia32_pcmpestriz128((A), (LA), (B), (LB), (M))
 
 /* SSE4.2 Compare Packed Data -- Greater Than.  */
-static __inline__ __m128i __attribute__((__always_inline__, __nodebug__))
+static __inline__ __m128i __DEFAULT_FN_ATTRS
 _mm_cmpgt_epi64(__m128i __V1, __m128i __V2)
 {
   return (__m128i)((__v2di)__V1 > (__v2di)__V2);
 }
 
 /* SSE4.2 Accumulate CRC32.  */
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _mm_crc32_u8(unsigned int __C, unsigned char __D)
 {
   return __builtin_ia32_crc32qi(__C, __D);
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _mm_crc32_u16(unsigned int __C, unsigned short __D)
 {
   return __builtin_ia32_crc32hi(__C, __D);
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _mm_crc32_u32(unsigned int __C, unsigned int __D)
 {
   return __builtin_ia32_crc32si(__C, __D);
 }
 
 #ifdef __x86_64__
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _mm_crc32_u64(unsigned long long __C, unsigned long long __D)
 {
   return __builtin_ia32_crc32di(__C, __D);
 }
 #endif /* __x86_64__ */
 
-#ifdef __POPCNT__
-#include <popcntintrin.h>
-#endif
+#undef __DEFAULT_FN_ATTRS
 
-#endif /* __SSE4_2__ */
-#endif /* __SSE4_1__ */
+#include <popcntintrin.h>
 
 #endif /* _SMMINTRIN_H */

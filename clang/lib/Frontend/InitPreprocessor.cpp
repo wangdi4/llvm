@@ -97,10 +97,11 @@ static void AddImplicitIncludePTH(MacroBuilder &Builder, Preprocessor &PP,
 /// \brief Add an implicit \#include using the original file used to generate
 /// a PCH file.
 static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
+                                  const PCHContainerOperations &PCHContainerOps,
                                   StringRef ImplicitIncludePCH) {
   std::string OriginalFile =
-    ASTReader::getOriginalSourceFile(ImplicitIncludePCH, PP.getFileManager(),
-                                     PP.getDiagnostics());
+      ASTReader::getOriginalSourceFile(ImplicitIncludePCH, PP.getFileManager(),
+                                       PCHContainerOps, PP.getDiagnostics());
   if (OriginalFile.empty())
     return;
 
@@ -504,6 +505,15 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
+#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // Version string for iclang: cfe_iclangC/tr60450
+  if (LangOpts.IntelCompat)
+    Builder.defineMacro("__VERSION__", "\"" +
+                      Twine(getIClangFullCPPVersion()) + "\"");
+  else
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
   // As sad as it is, enough software depends on the __VERSION__ for version
   // checks that it is necessary to report 4.2.1 (the base GCC version we claim
   // compatibility with) first.
@@ -589,7 +599,9 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
 #ifdef INTEL_CUSTOMIZATION
     // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
     if (!LangOpts.IntelCompat)
+#endif  // not INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
@@ -887,6 +899,14 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                         "__attribute__((objc_ownership(none)))");
   }
 
+  // On Darwin, there are __double_underscored variants of the type
+  // nullability qualifiers.
+  if (TI.getTriple().isOSDarwin()) {
+    Builder.defineMacro("__nonnull", "_Nonnull");
+    Builder.defineMacro("__null_unspecified", "_Null_unspecified");
+    Builder.defineMacro("__nullable", "_Nullable");
+  }
+
   // OpenMP definition
   if (LangOpts.OpenMP) {
     // OpenMP 2.2:
@@ -915,9 +935,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 /// InitializePreprocessor - Initialize the preprocessor getting it and the
 /// environment ready to process a single file. This returns true on error.
 ///
-void clang::InitializePreprocessor(Preprocessor &PP,
-                                   const PreprocessorOptions &InitOpts,
-                                   const FrontendOptions &FEOpts) {
+void clang::InitializePreprocessor(
+    Preprocessor &PP, const PreprocessorOptions &InitOpts,
+    const PCHContainerOperations &PCHContainerOps,
+    const FrontendOptions &FEOpts) {
   const LangOptions &LangOpts = PP.getLangOpts();
   std::string PredefineBuffer;
   PredefineBuffer.reserve(4080);
@@ -976,7 +997,8 @@ void clang::InitializePreprocessor(Preprocessor &PP,
 
   // Process -include-pch/-include-pth directives.
   if (!InitOpts.ImplicitPCHInclude.empty())
-    AddImplicitIncludePCH(Builder, PP, InitOpts.ImplicitPCHInclude);
+    AddImplicitIncludePCH(Builder, PP, PCHContainerOps,
+                          InitOpts.ImplicitPCHInclude);
   if (!InitOpts.ImplicitPTHInclude.empty())
     AddImplicitIncludePTH(Builder, PP, InitOpts.ImplicitPTHInclude);
 

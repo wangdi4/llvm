@@ -1,3 +1,11 @@
+//
+// Copyright (C) 2015 Intel Corporation.  All rights reserved.
+//
+// The information and source code contained herein is the exclusive
+// property of Intel Corporation and may not be disclosed, examined
+// or reproduced in whole or in part without explicit written authorization
+// from the company.
+//
 /*===---- bmi2intrin.h - BMI2 intrinsics -----------------------------------===
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,26 +33,25 @@
 #error "Never use <bmi2intrin.h> directly; include <x86intrin.h> instead."
 #endif
 
-#ifndef __BMI2__
-# error "BMI2 instruction set not enabled"
-#endif /* __BMI2__ */
-
 #ifndef __BMI2INTRIN_H
 #define __BMI2INTRIN_H
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+/* Define the default attributes for the functions in this file. */
+#define __DEFAULT_FN_ATTRS __attribute__((__always_inline__, __nodebug__, __target__("bmi2")))
+
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _bzhi_u32(unsigned int __X, unsigned int __Y)
 {
   return __builtin_ia32_bzhi_si(__X, __Y);
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _pdep_u32(unsigned int __X, unsigned int __Y)
 {
   return __builtin_ia32_pdep_si(__X, __Y);
 }
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _pext_u32(unsigned int __X, unsigned int __Y)
 {
   return __builtin_ia32_pext_si(__X, __Y);
@@ -52,25 +59,25 @@ _pext_u32(unsigned int __X, unsigned int __Y)
 
 #ifdef  __x86_64__
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _bzhi_u64(unsigned long long __X, unsigned long long __Y)
 {
   return __builtin_ia32_bzhi_di(__X, __Y);
 }
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _pdep_u64(unsigned long long __X, unsigned long long __Y)
 {
   return __builtin_ia32_pdep_di(__X, __Y);
 }
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _pext_u64(unsigned long long __X, unsigned long long __Y)
 {
   return __builtin_ia32_pext_di(__X, __Y);
 }
 
-static __inline__ unsigned long long __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned long long __DEFAULT_FN_ATTRS
 _mulx_u64 (unsigned long long __X, unsigned long long __Y,
 	   unsigned long long *__P)
 {
@@ -81,7 +88,7 @@ _mulx_u64 (unsigned long long __X, unsigned long long __Y,
 
 #else /* !__x86_64__ */
 
-static __inline__ unsigned int __attribute__((__always_inline__, __nodebug__))
+static __inline__ unsigned int __DEFAULT_FN_ATTRS
 _mulx_u32 (unsigned int __X, unsigned int __Y, unsigned int *__P)
 {
   unsigned long long __res = (unsigned long long) __X * __Y;
@@ -90,5 +97,7 @@ _mulx_u32 (unsigned int __X, unsigned int __Y, unsigned int *__P)
 }
 
 #endif /* !__x86_64__  */
+
+#undef __DEFAULT_FN_ATTRS
 
 #endif /* __BMI2INTRIN_H */

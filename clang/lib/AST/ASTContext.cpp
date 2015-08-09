@@ -1904,6 +1904,16 @@ CharUnits ASTContext::getAlignOfGlobalVarInChars(QualType T) const {
   return toCharUnitsFromBits(getAlignOfGlobalVar(T));
 }
 
+CharUnits ASTContext::getOffsetOfBaseWithVBPtr(const CXXRecordDecl *RD) const {
+  CharUnits Offset = CharUnits::Zero();
+  const ASTRecordLayout *Layout = &getASTRecordLayout(RD);
+  while (const CXXRecordDecl *Base = Layout->getBaseSharingVBPtr()) {
+    Offset += Layout->getBaseClassOffset(Base);
+    Layout = &getASTRecordLayout(Base);
+  }
+  return Offset;
+}
+
 /// DeepCollectObjCIvars -
 /// This routine first collects all declared, but not synthesized, ivars in
 /// super class and then collects all ivars, including those synthesized for
@@ -3895,6 +3905,20 @@ QualType ASTContext::getUnaryTransformType(QualType BaseType,
   return QualType(Ty, 0);
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+QualType ASTContext::getBasesType(QualType ArgType,
+                                  UnaryTransformType::UTTKind Kind) const {
+  assert((Kind == UnaryTransformType::BasesOfType ||
+          Kind == UnaryTransformType::DirectBasesOfType) &&
+         "unknown bases type kind");
+  UnaryTransformType *Ty =
+      new (*this, TypeAlignment) UnaryTransformType(ArgType, Kind);
+  Types.push_back(Ty);
+  return QualType(Ty, 0);
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// getAutoType - Return the uniqued reference to the 'auto' type which has been
 /// deduced to the given type, or to the canonical undeduced 'auto' type, or the
 /// canonical deduced-but-dependent 'auto' type.
@@ -4983,6 +5007,17 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          VD->isFirstDecl() && !VD->isOutOfLine() && VD->hasInit();
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
+// a structure.
+bool ASTContext::isIntelStaticDataMemberInlineDefinition(
+    const VarDecl *VD) const {
+  return getLangOpts().IntelCompat && VD->isStaticDataMember() &&
+         VD->getType()->isIntegralOrEnumerationType() && VD->isFirstDecl() &&
+         !VD->isOutOfLine() && VD->hasInit();
+}
+#endif // INTEL_CUSTOMIZATION
+
 static inline 
 std::string charUnitsToString(const CharUnits &CU) {
   return llvm::itostr(CU.getQuantity());
@@ -5662,8 +5697,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
     // @encode(class_name)
     ObjCInterfaceDecl *OI = OIT->getDecl();
     S += '{';
-    const IdentifierInfo *II = OI->getIdentifier();
-    S += II->getName();
+    S += OI->getObjCRuntimeNameAsString();
     S += '=';
     SmallVector<const ObjCIvarDecl*, 32> Ivars;
     DeepCollectObjCIvars(OI, true, Ivars);
@@ -5706,7 +5740,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
         S += '"';
         for (const auto *I : OPT->quals()) {
           S += '<';
-          S += I->getNameAsString();
+          S += I->getObjCRuntimeNameAsString();
           S += '>';
         }
         S += '"';
@@ -5730,7 +5764,7 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
         for (unsigned i = 0, e = Ivars.size(); i != e; ++i) {
           if (cast<FieldDecl>(Ivars[i]) == FD) {
             S += '{';
-            S += OI->getIdentifier()->getName();
+            S += OI->getObjCRuntimeNameAsString();
             S += '}';
             return;
           }
@@ -5748,10 +5782,10 @@ void ASTContext::getObjCEncodingForTypeImpl(QualType T, std::string& S,
     if (OPT->getInterfaceDecl() && 
         (FD || EncodingProperty || EncodeClassNames)) {
       S += '"';
-      S += OPT->getInterfaceDecl()->getIdentifier()->getName();
+      S += OPT->getInterfaceDecl()->getObjCRuntimeNameAsString();
       for (const auto *I : OPT->quals()) {
         S += '<';
-        S += I->getNameAsString();
+        S += I->getObjCRuntimeNameAsString();
         S += '>';
       }
       S += '"';
@@ -8055,6 +8089,13 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
+  // of a structure.
+  if (Context.isIntelStaticDataMemberInlineDefinition(VD))
+    return GVA_DiscardableODR;
+#endif // INTEL_CUSTOMIZATION
+
   switch (VD->getTemplateSpecializationKind()) {
   case TSK_Undeclared:
   case TSK_ExplicitSpecialization:
@@ -8143,6 +8184,11 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   assert(VD->isFileVarDecl() && "Expected file scoped var");
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+      // field of a structure.
+      !isIntelStaticDataMemberInlineDefinition(VD) &&
+#endif // INTEL_CUSTOMIZATION
       !isMSStaticDataMemberInlineDefinition(VD))
     return false;
 

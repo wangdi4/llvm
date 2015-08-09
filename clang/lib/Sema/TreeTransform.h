@@ -569,6 +569,13 @@ public:
   QualType Transform##CLASS##Type(TypeLocBuilder &TLB, CLASS##TypeLoc T);
 #include "clang/AST/TypeLocNodes.def"
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  bool TryTransformBasesOfType(TemplateArgumentLoc Pattern,
+                               TemplateArgumentLoc Out,
+                               TemplateArgumentListInfo &Outputs);
+
+#endif // INTEL_CUSTOMIZATION
   template<typename Fn>
   QualType TransformFunctionProtoType(TypeLocBuilder &TLB,
                                       FunctionProtoTypeLoc TL,
@@ -1327,11 +1334,12 @@ public:
   /// Subclasses may override this routine to provide different behavior.
   StmtResult RebuildOMPExecutableDirective(OpenMPDirectiveKind Kind,
                                            DeclarationNameInfo DirName,
+                                           OpenMPDirectiveKind CancelRegion,
                                            ArrayRef<OMPClause *> Clauses,
                                            Stmt *AStmt, SourceLocation StartLoc,
                                            SourceLocation EndLoc) {
-    return getSema().ActOnOpenMPExecutableDirective(Kind, DirName, Clauses,
-                                                    AStmt, StartLoc, EndLoc);
+    return getSema().ActOnOpenMPExecutableDirective(
+        Kind, DirName, CancelRegion, Clauses, AStmt, StartLoc, EndLoc);
   }
 
   /// \brief Build a new OpenMP 'if' clause.
@@ -1555,6 +1563,19 @@ public:
                                    SourceLocation EndLoc) {
     return getSema().ActOnOpenMPFlushClause(VarList, StartLoc, LParenLoc,
                                             EndLoc);
+  }
+
+  /// \brief Build a new OpenMP 'depend' pseudo clause.
+  ///
+  /// By default, performs semantic analysis to build the new OpenMP clause.
+  /// Subclasses may override this routine to provide different behavior.
+  OMPClause *
+  RebuildOMPDependClause(OpenMPDependClauseKind DepKind, SourceLocation DepLoc,
+                         SourceLocation ColonLoc, ArrayRef<Expr *> VarList,
+                         SourceLocation StartLoc, SourceLocation LParenLoc,
+                         SourceLocation EndLoc) {
+    return getSema().ActOnOpenMPDependClause(DepKind, DepLoc, ColonLoc, VarList,
+                                             StartLoc, LParenLoc, EndLoc);
   }
 
   /// \brief Rebuild the operand to an Objective-C \@synchronized statement.
@@ -3673,6 +3694,12 @@ bool TreeTransform<Derived>::TransformTemplateArguments(InputIterator First,
         = getSema().getTemplateArgumentPackExpansionPattern(
               In, Ellipsis, OrigNumExpansions);
 
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      if (TryTransformBasesOfType(Pattern, Out, Outputs))
+        continue;
+
+#endif // INTEL_CUSTOMIZATION
       SmallVector<UnexpandedParameterPack, 2> Unexpanded;
       getSema().collectUnexpandedParameterPacks(Pattern, Unexpanded);
       assert(!Unexpanded.empty() && "Pack expansion without parameter packs?");
@@ -5053,6 +5080,82 @@ QualType TreeTransform<Derived>::TransformUnaryTransformType(
   return Result;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+static void CollectAllBases(QualType Type, ASTContext &Context,
+                            llvm::SmallPtrSet<QualType, 4> &Set) {
+  // Even though the incoming type is a base, it might not be
+  // a class -- it could be a template parm, for instance.
+  if (const auto *Rec = Type->getAs<RecordType>()) {
+    const auto *Decl = Rec->getAsCXXRecordDecl();
+    // Iterate over its bases.
+    for (const auto &BaseSpec : Decl->bases()) {
+      QualType Base =
+          Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
+      if (Set.insert(Base).second)
+        // If we've not already seen it, recurse.
+        CollectAllBases(Base, Context, Set);
+    }
+  }
+}
+
+static void CollectAllDirectBases(QualType Type, ASTContext &Context,
+                                  llvm::SmallPtrSet<QualType, 4> &Set) {
+  if (const auto *Rec = Type->getAs<RecordType>()) {
+    const auto *Decl = Rec->getAsCXXRecordDecl();
+    for (const auto &BaseSpec : Decl->bases()) {
+      QualType Base =
+          Context.getCanonicalType(BaseSpec.getType()).getUnqualifiedType();
+      Set.insert(Base);
+    }
+  }
+}
+
+template <typename Derived>
+bool TreeTransform<Derived>::TryTransformBasesOfType(
+    TemplateArgumentLoc Pattern, TemplateArgumentLoc Out,
+    TemplateArgumentListInfo &Outputs) {
+
+  // Non-types are not interesting.
+  auto &Argument = Pattern.getArgument();
+  if (Argument.getKind() != TemplateArgument::Type)
+    return false;
+
+  // Non-BasesType types are not interesting.
+  const UnaryTransformType *UTT =
+      dyn_cast<UnaryTransformType>(Argument.getAsType().getTypePtr());
+  if (!UTT || !UTT->isBasesType())
+    return false;
+
+  // Try to transform dependent argument of __bases or __direct_bases.
+  if (getDerived().TransformTemplateArgument(Pattern, Out))
+    return false;
+
+  // Evaluate argument type of __bases or __direct_bases.
+  const Type *OutType = Out.getArgument().getAsType().getTypePtr();
+  UTT = dyn_cast<UnaryTransformType>(OutType);
+  QualType T = UTT->getUnderlyingType();
+
+  // Collect base classes of evaluated type T.
+  llvm::SmallPtrSet<QualType, 4> BaseTypes;
+  if (UTT->getUTTKind() == UnaryTransformType::BasesOfType)
+    CollectAllBases(T, SemaRef.Context, BaseTypes);
+  else if (UTT->getUTTKind() == UnaryTransformType::DirectBasesOfType)
+    CollectAllDirectBases(T, SemaRef.Context, BaseTypes);
+  else
+    llvm_unreachable("unknown kind of bases type");
+
+  // Add base classes to pack expansion's output set.
+  for (const auto &Base : BaseTypes) {
+    TemplateArgumentLoc Out =
+        TemplateArgumentLoc(TemplateArgument(Base), InventTypeSourceInfo(Base));
+    Outputs.addArgument(Out);
+  }
+
+  return true;
+}
+
+#endif // INTEL_CUSTOMIZATION
 template<typename Derived>
 QualType TreeTransform<Derived>::TransformAutoType(TypeLocBuilder &TLB,
                                                    AutoTypeLoc TL) {
@@ -5474,6 +5577,17 @@ QualType TreeTransform<Derived>::TransformAttributedType(
       = getDerived().TransformType(oldType->getEquivalentType());
     if (equivalentType.isNull())
       return QualType();
+
+    // Check whether we can add nullability; it is only represented as
+    // type sugar, and therefore cannot be diagnosed in any other way.
+    if (auto nullability = oldType->getImmediateNullability()) {
+      if (!modifiedType->canHaveNullability()) {
+        SemaRef.Diag(TL.getAttrNameLoc(), diag::err_nullability_nonpointer)
+          << DiagNullabilityKind(*nullability, false) << modifiedType;
+        return QualType();
+      }
+    }
+
     result = SemaRef.Context.getAttributedType(oldType->getAttrKind(),
                                                modifiedType,
                                                equivalentType);
@@ -5977,6 +6091,15 @@ AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
         llvm::MutableArrayRef<Expr *>(Exprs));
     break;
   }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  case attr::SIMDAssert: {
+    SIMDAssertAttr *AssertAttr = cast<SIMDAssertAttr>(A);
+    R = getSema().ActOnPragmaSIMDAssert(AssertAttr->getLocation());
+    break;
+  }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
   default:
     llvm_unreachable("Unknown SIMD clause");
     break;
@@ -6895,7 +7018,9 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
   for (ArrayRef<OMPClause *>::iterator I = Clauses.begin(), E = Clauses.end();
        I != E; ++I) {
     if (*I) {
+      getDerived().getSema().StartOpenMPClause((*I)->getClauseKind());
       OMPClause *Clause = getDerived().TransformOMPClause(*I);
+      getDerived().getSema().EndOpenMPClause();
       if (Clause)
         TClauses.push_back(Clause);
     } else {
@@ -6931,10 +7056,14 @@ StmtResult TreeTransform<Derived>::TransformOMPExecutableDirective(
     DirName = cast<OMPCriticalDirective>(D)->getDirectiveName();
     DirName = getDerived().TransformDeclarationNameInfo(DirName);
   }
+  OpenMPDirectiveKind CancelRegion = OMPD_unknown;
+  if (D->getDirectiveKind() == OMPD_cancellation_point) {
+    CancelRegion = cast<OMPCancellationPointDirective>(D)->getCancelRegion();
+  }
 
   return getDerived().RebuildOMPExecutableDirective(
-      D->getDirectiveKind(), DirName, TClauses, AssociatedStmt.get(),
-      D->getLocStart(), D->getLocEnd());
+      D->getDirectiveKind(), DirName, CancelRegion, TClauses,
+      AssociatedStmt.get(), D->getLocStart(), D->getLocEnd());
 }
 
 template <typename Derived>
@@ -7113,6 +7242,17 @@ TreeTransform<Derived>::TransformOMPTaskwaitDirective(OMPTaskwaitDirective *D) {
 }
 
 template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformOMPTaskgroupDirective(
+    OMPTaskgroupDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_taskgroup, DirName, nullptr,
+                                             D->getLocStart());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformOMPFlushDirective(OMPFlushDirective *D) {
   DeclarationNameInfo DirName;
@@ -7162,6 +7302,17 @@ TreeTransform<Derived>::TransformOMPTeamsDirective(OMPTeamsDirective *D) {
   DeclarationNameInfo DirName;
   getDerived().getSema().StartOpenMPDSABlock(OMPD_teams, DirName, nullptr,
                                              D->getLocStart());
+  StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
+  getDerived().getSema().EndOpenMPDSABlock(Res.get());
+  return Res;
+}
+
+template <typename Derived>
+StmtResult TreeTransform<Derived>::TransformOMPCancellationPointDirective(
+    OMPCancellationPointDirective *D) {
+  DeclarationNameInfo DirName;
+  getDerived().getSema().StartOpenMPDSABlock(OMPD_cancellation_point, DirName,
+                                             nullptr, D->getLocStart());
   StmtResult Res = getDerived().TransformOMPExecutableDirective(D);
   getDerived().getSema().EndOpenMPDSABlock(Res.get());
   return Res;
@@ -7471,6 +7622,22 @@ OMPClause *TreeTransform<Derived>::TransformOMPFlushClause(OMPFlushClause *C) {
   }
   return getDerived().RebuildOMPFlushClause(Vars, C->getLocStart(),
                                             C->getLParenLoc(), C->getLocEnd());
+}
+
+template <typename Derived>
+OMPClause *
+TreeTransform<Derived>::TransformOMPDependClause(OMPDependClause *C) {
+  llvm::SmallVector<Expr *, 16> Vars;
+  Vars.reserve(C->varlist_size());
+  for (auto *VE : C->varlists()) {
+    ExprResult EVar = getDerived().TransformExpr(cast<Expr>(VE));
+    if (EVar.isInvalid())
+      return nullptr;
+    Vars.push_back(EVar.get());
+  }
+  return getDerived().RebuildOMPDependClause(
+      C->getDependencyKind(), C->getDependencyLoc(), C->getColonLoc(), Vars,
+      C->getLocStart(), C->getLParenLoc(), C->getLocEnd());
 }
 
 //===----------------------------------------------------------------------===//
@@ -8349,6 +8516,25 @@ TreeTransform<Derived>::TransformDesignatedInitExpr(DesignatedInitExpr *E) {
   return getDerived().RebuildDesignatedInitExpr(Desig, ArrayExprs,
                                                 E->getEqualOrColonLoc(),
                                                 E->usesGNUSyntax(), Init.get());
+}
+
+// Seems that if TransformInitListExpr() only works on the syntactic form of an
+// InitListExpr, then a DesignatedInitUpdateExpr is not encountered.
+template<typename Derived>
+ExprResult
+TreeTransform<Derived>::TransformDesignatedInitUpdateExpr(
+    DesignatedInitUpdateExpr *E) {
+  llvm_unreachable("Unexpected DesignatedInitUpdateExpr in syntactic form of "
+                   "initializer");
+  return ExprError();
+}
+
+template<typename Derived>
+ExprResult
+TreeTransform<Derived>::TransformNoInitExpr(
+    NoInitExpr *E) {
+  llvm_unreachable("Unexpected NoInitExpr in syntactic form of initializer");
+  return ExprError();
 }
 
 template<typename Derived>
@@ -9728,7 +9914,8 @@ TreeTransform<Derived>::TransformLambdaExpr(LambdaExpr *E) {
     }
 
     // Capture the transformed variable.
-    getSema().tryCaptureVariable(CapturedVar, C->getLocation(), Kind);
+    getSema().tryCaptureVariable(CapturedVar, C->getLocation(), Kind,
+                                 EllipsisLoc);
   }
   if (!FinishedExplicitCaptures)
     getSema().finishLambdaExplicitCaptures(LSI);

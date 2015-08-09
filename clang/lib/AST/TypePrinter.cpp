@@ -819,6 +819,21 @@ void TypePrinter::printUnaryTransformBefore(const UnaryTransformType *T,
       OS << ')';
       spaceBeforePlaceHolder(OS);
       return;
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case UnaryTransformType::BasesOfType:
+      OS << "__bases(";
+      print(T->getBaseType(), OS, StringRef());
+      OS << ')';
+      spaceBeforePlaceHolder(OS);
+      return;
+    case UnaryTransformType::DirectBasesOfType:
+      OS << "__direct_bases(";
+      print(T->getBaseType(), OS, StringRef());
+      OS << ')';
+      spaceBeforePlaceHolder(OS);
+      return;
+#endif // INTEL_CUSTOMIZATION
   }
 
   printBefore(T->getBaseType(), OS);
@@ -829,6 +844,11 @@ void TypePrinter::printUnaryTransformAfter(const UnaryTransformType *T,
 
   switch (T->getUTTKind()) {
     case UnaryTransformType::EnumUnderlyingType:
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case UnaryTransformType::BasesOfType:
+    case UnaryTransformType::DirectBasesOfType:
+#endif // INTEL_CUSTOMIZATION
       return;
   }
 
@@ -1146,6 +1166,21 @@ void TypePrinter::printAttributedBefore(const AttributedType *T,
     }
     spaceBeforePlaceHolder(OS);
   }
+
+  // Print nullability type specifiers.
+  if (T->getAttrKind() == AttributedType::attr_nonnull ||
+      T->getAttrKind() == AttributedType::attr_nullable ||
+      T->getAttrKind() == AttributedType::attr_null_unspecified) {
+    if (T->getAttrKind() == AttributedType::attr_nonnull)
+      OS << " _Nonnull";
+    else if (T->getAttrKind() == AttributedType::attr_nullable)
+      OS << " _Nullable";
+    else if (T->getAttrKind() == AttributedType::attr_null_unspecified)
+      OS << " _Null_unspecified";
+    else
+      llvm_unreachable("unhandled nullability");
+    spaceBeforePlaceHolder(OS);
+  }
 }
 
 void TypePrinter::printAttributedAfter(const AttributedType *T,
@@ -1159,11 +1194,33 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
   if (T->isMSTypeSpec())
     return;
 
+  // Nothing to print after.
+  if (T->getAttrKind() == AttributedType::attr_nonnull ||
+      T->getAttrKind() == AttributedType::attr_nullable ||
+      T->getAttrKind() == AttributedType::attr_null_unspecified)
+    return printAfter(T->getModifiedType(), OS);
+
   // If this is a calling convention attribute, don't print the implicit CC from
   // the modified type.
   SaveAndRestore<bool> MaybeSuppressCC(InsideCCAttribute, T->isCallingConv());
 
   printAfter(T->getModifiedType(), OS);
+
+  // Print nullability type specifiers that occur after
+  if (T->getAttrKind() == AttributedType::attr_nonnull ||
+      T->getAttrKind() == AttributedType::attr_nullable ||
+      T->getAttrKind() == AttributedType::attr_null_unspecified) {
+    if (T->getAttrKind() == AttributedType::attr_nonnull)
+      OS << " _Nonnull";
+    else if (T->getAttrKind() == AttributedType::attr_nullable)
+      OS << " _Nullable";
+    else if (T->getAttrKind() == AttributedType::attr_null_unspecified)
+      OS << " _Null_unspecified";
+    else
+      llvm_unreachable("unhandled nullability");
+
+    return;
+  }
 
   OS << " __attribute__((";
   switch (T->getAttrKind()) {

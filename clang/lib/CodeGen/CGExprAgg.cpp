@@ -34,6 +34,7 @@ class AggExprEmitter : public StmtVisitor<AggExprEmitter> {
   CodeGenFunction &CGF;
   CGBuilderTy &Builder;
   AggValueSlot Dest;
+  bool IsResultUnused;
 
   /// We want to use 'dest' as the return slot except under two
   /// conditions:
@@ -48,7 +49,7 @@ class AggExprEmitter : public StmtVisitor<AggExprEmitter> {
     if (!shouldUseDestForReturnSlot())
       return ReturnValueSlot();
 
-    return ReturnValueSlot(Dest.getAddr(), Dest.isVolatile());
+    return ReturnValueSlot(Dest.getAddr(), Dest.isVolatile(), IsResultUnused);
   }
 
   AggValueSlot EnsureSlot(QualType T) {
@@ -61,9 +62,9 @@ class AggExprEmitter : public StmtVisitor<AggExprEmitter> {
   }
 
 public:
-  AggExprEmitter(CodeGenFunction &cgf, AggValueSlot Dest)
-    : CGF(cgf), Builder(CGF.Builder), Dest(Dest) {
-  }
+  AggExprEmitter(CodeGenFunction &cgf, AggValueSlot Dest, bool IsResultUnused)
+    : CGF(cgf), Builder(CGF.Builder), Dest(Dest),
+    IsResultUnused(IsResultUnused) { }
 
   //===--------------------------------------------------------------------===//
   //                               Utilities
@@ -169,10 +170,12 @@ public:
     EmitAggLoadOfLValue(E);
   }
 
+  void VisitDesignatedInitUpdateExpr(DesignatedInitUpdateExpr *E);
   void VisitAbstractConditionalOperator(const AbstractConditionalOperator *CO);
   void VisitChooseExpr(const ChooseExpr *CE);
   void VisitInitListExpr(InitListExpr *E);
   void VisitImplicitValueInitExpr(ImplicitValueInitExpr *E);
+  void VisitNoInitExpr(NoInitExpr *E) { } // Do nothing.
   void VisitCXXDefaultArgExpr(CXXDefaultArgExpr *DAE) {
     Visit(DAE->getExpr());
   }
@@ -1065,6 +1068,9 @@ AggExprEmitter::EmitInitializationToLValue(Expr *E, LValue LV) {
     return;
   } else if (isa<ImplicitValueInitExpr>(E) || isa<CXXScalarValueInitExpr>(E)) {
     return EmitNullInitializationToLValue(LV);
+  } else if (isa<NoInitExpr>(E)) {
+    // Do nothing.
+    return;
   } else if (type->isReferenceType()) {
     RValue RV = CGF.EmitReferenceBindingToExpr(E);
     return CGF.EmitStoreThroughLValue(RV, LV);
@@ -1285,6 +1291,15 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
     cleanupDominator->eraseFromParent();
 }
 
+void AggExprEmitter::VisitDesignatedInitUpdateExpr(DesignatedInitUpdateExpr *E) {
+  AggValueSlot Dest = EnsureSlot(E->getType());
+
+  LValue DestLV = CGF.MakeAddrLValue(Dest.getAddr(), E->getType(),
+                                     Dest.getAlignment());
+  EmitInitializationToLValue(E->getBase(), DestLV);
+  VisitInitListExpr(E->getUpdater());
+}
+
 //===----------------------------------------------------------------------===//
 //                        Entry Points into this File
 //===----------------------------------------------------------------------===//
@@ -1404,7 +1419,7 @@ void CodeGenFunction::EmitAggExpr(const Expr *E, AggValueSlot Slot) {
   // Optimize the slot if possible.
   CheckAggExprForMemSetUse(Slot, E, *this);
  
-  AggExprEmitter(*this, Slot).Visit(const_cast<Expr*>(E));
+  AggExprEmitter(*this, Slot, Slot.isIgnored()).Visit(const_cast<Expr*>(E));
 }
 
 LValue CodeGenFunction::EmitAggExprToLValue(const Expr *E) {

@@ -425,6 +425,10 @@ BUILTIN(__builtin_memmove, "v*v*vC*z", "nF")
 BUILTIN(__builtin_mempcpy, "v*v*vC*z", "nF")
 BUILTIN(__builtin_memset, "v*v*iz", "nF")
 BUILTIN(__builtin_printf, "icC*.", "Fp:0:")
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ373625: __builtin_sprintf function is undeclared
+BUILTIN(__builtin_sprintf, "ic*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_stpcpy, "c*c*cC*", "nF")
 BUILTIN(__builtin_stpncpy, "c*c*cC*z", "nF")
 BUILTIN(__builtin_strcasecmp, "icC*cC*", "nF")
@@ -1438,6 +1442,15 @@ BUILTIN(__builtin_smulll_overflow, "bSLLiCSLLiCSLLi*", "n")
 BUILTIN(__builtin_addressof, "v*v&", "nct")
 BUILTIN(__builtin_operator_new, "v*z", "c")
 BUILTIN(__builtin_operator_delete, "vv*", "n")
+
+#ifdef INTEL_CUSTOMIZATION
+// Builtin to support architecture features
+BUILTIN(__builtin_has_cpu_feature, "bULLi", "nc")
+#endif  // INTEL_CUSTOMIZATION
+
+// Safestack builtins
+BUILTIN(__builtin___get_unsafe_stack_start, "v*", "Fn")
+BUILTIN(__builtin___get_unsafe_stack_ptr, "v*", "Fn")
 
 #undef BUILTIN
 #undef LIBBUILTIN

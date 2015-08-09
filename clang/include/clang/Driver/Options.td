@@ -577,8 +577,13 @@ def fno_sanitize_recover_EQ
     : CommaJoined<["-"], "fno-sanitize-recover=">,
       Group<f_clang_Group>,
       HelpText<"Disable recovery for specified sanitizers">;
+def fsanitize_trap_EQ : CommaJoined<["-"], "fsanitize-trap=">, Group<f_clang_Group>,
+                        Flags<[CC1Option, CoreOption]>,
+                        HelpText<"Enable trapping for specified sanitizers">;
+def fno_sanitize_trap_EQ : CommaJoined<["-"], "fno-sanitize-trap=">, Group<f_clang_Group>,
+                           HelpText<"Disable trapping for specified sanitizers">;
 def fsanitize_undefined_trap_on_error : Flag<["-"], "fsanitize-undefined-trap-on-error">,
-                                        Group<f_clang_Group>, Flags<[CC1Option]>;
+                                        Group<f_clang_Group>;
 def fno_sanitize_undefined_trap_on_error : Flag<["-"], "fno-sanitize-undefined-trap-on-error">,
                                            Group<f_clang_Group>;
 def fsanitize_link_cxx_runtime : Flag<["-"], "fsanitize-link-c++-runtime">,
@@ -717,9 +722,10 @@ def fmodules_validate_system_headers : Flag<["-"], "fmodules-validate-system-hea
 def fmodules : Flag <["-"], "fmodules">, Group<f_Group>,
   Flags<[DriverOption, CC1Option]>,
   HelpText<"Enable the 'modules' language feature">;
-def fmodule_maps : Flag <["-"], "fmodule-maps">, Group<f_Group>,
-  Flags<[DriverOption,CC1Option]>,
-  HelpText<"Read module maps to understand the structure of library headers">;
+def fimplicit_module_maps : Flag <["-"], "fimplicit-module-maps">, Group<f_Group>,
+  Flags<[DriverOption, CC1Option]>,
+  HelpText<"Implicitly search the file system for module map files.">;
+def fmodule_maps : Flag <["-"], "fmodule-maps">, Alias<fimplicit_module_maps>;
 def fmodule_name : JoinedOrSeparate<["-"], "fmodule-name=">, Group<f_Group>,
   Flags<[DriverOption,CC1Option]>, MetaVarName<"<name>">,
   HelpText<"Specify the name of the module to build">;
@@ -739,12 +745,6 @@ def fmodules_strict_decluse : Flag <["-"], "fmodules-strict-decluse">, Group<f_G
   HelpText<"Like -fmodules-decluse but requires all headers to be in modules">;
 def fno_modules_search_all : Flag <["-"], "fno-modules-search-all">, Group<f_Group>,
   Flags<[DriverOption, CC1Option]>;
-def fmodules_implicit_maps :
-  Flag <["-"], "fmodules-implicit-maps">,
-  Group<f_Group>, Flags<[DriverOption, CC1Option]>;
-def fno_modules_implicit_maps :
-  Flag <["-"], "fno-modules-implicit-maps">,
-  Group<f_Group>, Flags<[DriverOption, CC1Option]>;
 def fno_implicit_modules :
   Flag <["-"], "fno-implicit-modules">,
   Group<f_Group>, Flags<[DriverOption, CC1Option]>;
@@ -806,8 +806,9 @@ def fno_merge_all_constants : Flag<["-"], "fno-merge-all-constants">, Group<f_Gr
     Flags<[CC1Option]>, HelpText<"Disallow merging of constants">;
 def fno_modules : Flag <["-"], "fno-modules">, Group<f_Group>,
   Flags<[DriverOption]>;
-def fno_module_maps : Flag <["-"], "fno-module-maps">, Group<f_Group>,
+def fno_implicit_module_maps : Flag <["-"], "fno-implicit-module-maps">, Group<f_Group>,
   Flags<[DriverOption]>;
+def fno_module_maps : Flag <["-"], "fno-module-maps">, Alias<fno_implicit_module_maps>;
 def fno_modules_decluse : Flag <["-"], "fno-modules-decluse">, Group<f_Group>,
   Flags<[DriverOption]>;
 def fno_modules_strict_decluse : Flag <["-"], "fno-strict-modules-decluse">, Group<f_Group>,
@@ -902,6 +903,7 @@ def fno_objc_nonfragile_abi : Flag<["-"], "fno-objc-nonfragile-abi">, Group<f_Gr
 def fobjc_sender_dependent_dispatch : Flag<["-"], "fobjc-sender-dependent-dispatch">, Group<f_Group>;
 def fomit_frame_pointer : Flag<["-"], "fomit-frame-pointer">, Group<f_Group>;
 def fopenmp : Flag<["-"], "fopenmp">, Group<f_Group>, Flags<[CC1Option, NoArgumentUnused]>;
+def fno_openmp : Flag<["-"], "fno-openmp">, Group<f_Group>, Flags<[NoArgumentUnused]>;
 def fopenmp_EQ : Joined<["-"], "fopenmp=">, Group<f_Group>;
 def fno_optimize_sibling_calls : Flag<["-"], "fno-optimize-sibling-calls">, Group<f_Group>;
 def foptimize_sibling_calls : Flag<["-"], "foptimize-sibling-calls">, Group<f_Group>;
@@ -1194,6 +1196,7 @@ def miphoneos_version_min_EQ : Joined<["-"], "miphoneos-version-min=">, Group<m_
 def mios_version_min_EQ : Joined<["-"], "mios-version-min=">,
   Alias<miphoneos_version_min_EQ>, HelpText<"Set iOS deployment target">;
 def mios_simulator_version_min_EQ : Joined<["-"], "mios-simulator-version-min=">, Alias<miphoneos_version_min_EQ>;
+def miphonesimulator_version_min_EQ : Joined<["-"], "miphonesimulator-version-min=">, Alias<miphoneos_version_min_EQ>;
 def mkernel : Flag<["-"], "mkernel">, Group<m_Group>;
 def mlinker_version_EQ : Joined<["-"], "mlinker-version=">,
   Flags<[DriverOption]>;
@@ -1363,6 +1366,8 @@ def msoft_float : Flag<["-"], "msoft-float">, Group<m_Group>, Flags<[CC1Option]>
 def mno_implicit_float : Flag<["-"], "mno-implicit-float">, Group<m_Group>,
   HelpText<"Don't generate implicit floating point instructions">;
 def mimplicit_float : Flag<["-"], "mimplicit-float">, Group<m_Group>;
+def mrecip : Flag<["-"], "mrecip">, Group<m_Group>;
+def mrecip_EQ : CommaJoined<["-"], "mrecip=">, Group<m_Group>, Flags<[CC1Option]>;
 def msse2 : Flag<["-"], "msse2">, Group<m_x86_Features_Group>;
 def msse3 : Flag<["-"], "msse3">, Group<m_x86_Features_Group>;
 def msse4a : Flag<["-"], "msse4a">, Group<m_x86_Features_Group>;
@@ -1764,6 +1769,7 @@ def _warn_ : Joined<["--"], "warn-">, Alias<W_Joined>;
 def _write_dependencies : Flag<["--"], "write-dependencies">, Alias<MD>;
 def _write_user_dependencies : Flag<["--"], "write-user-dependencies">, Alias<MMD>;
 def _ : Joined<["--"], "">, Flags<[Unsupported]>;
+
 def mieee_rnd_near : Flag<["-"], "mieee-rnd-near">, Group<m_hexagon_Features_Group>;
 def mv1 : Flag<["-"], "mv1">, Group<m_hexagon_Features_Group>, Alias<march_EQ>,
           AliasArgs<["v1"]>;

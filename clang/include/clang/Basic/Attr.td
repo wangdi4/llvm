@@ -199,7 +199,8 @@ class CXX11<string namespace, string name, int version = 1>
     : Spelling<name, "CXX11"> {
   string Namespace = namespace;
   int Version = version;
-} class Keyword<string name> : Spelling<name, "Keyword">;
+}
+class Keyword<string name> : Spelling<name, "Keyword">;
 class Pragma<string namespace, string name> : Spelling<name, "Pragma"> {
   string Namespace = namespace;
 }
@@ -210,10 +211,6 @@ class Pragma<string namespace, string name> : Spelling<name, "Pragma"> {
 class GCC<string name> : Spelling<name, "GCC"> {
   let KnownToGCC = 1;
 }
-
-//#ifdef INTEL_CUSTOMIZATION
-class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
-//#endif  //INTEL_CUSTOMIZATION
 
 class Accessor<string name, list<Spelling> spellings> {
   string Name = name;
@@ -237,6 +234,12 @@ class LangOpt<string name, bit negated = 0> {
   string Name = name;
   bit Negated = negated;
 }
+
+//#ifdef INTEL_CUSTOMIZATION
+class CilkKeyword<string name> : Spelling<name, "CilkKeyword">;
+def CilkPlus : LangOpt<"CilkPlus">;
+//#endif  //INTEL_CUSTOMIZATION
+
 def MicrosoftExt : LangOpt<"MicrosoftExt">;
 def Borland : LangOpt<"Borland">;
 def CUDA : LangOpt<"CUDA">;
@@ -957,14 +960,30 @@ def NonNull : InheritableAttr {
   } }];
   // FIXME: We should merge duplicates into a single nonnull attribute.
   let DuplicatesAllowedWhileMerging = 1;
-  let Documentation = [Undocumented];
+  let Documentation = [NonNullDocs];
 }
 
 def ReturnsNonNull : InheritableAttr {
   let Spellings = [GCC<"returns_nonnull">];
   let Subjects = SubjectList<[ObjCMethod, Function], WarnDiag,
                              "ExpectedFunctionOrMethod">;
-  let Documentation = [Undocumented];
+  let Documentation = [ReturnsNonNullDocs];
+}
+
+// Nullability type attributes.
+def TypeNonNull : TypeAttr {
+  let Spellings = [Keyword<"_Nonnull">];
+  let Documentation = [TypeNonNullDocs];
+}
+
+def TypeNullable : TypeAttr {
+  let Spellings = [Keyword<"_Nullable">];
+  let Documentation = [TypeNullableDocs];
+}
+
+def TypeNullUnspecified : TypeAttr {
+  let Spellings = [Keyword<"_Null_unspecified">];
+  let Documentation = [TypeNullUnspecifiedDocs];
 }
 
 def AssumeAligned : InheritableAttr {
@@ -1116,6 +1135,12 @@ def ObjCRuntimeName : Attr {
   let Documentation = [ObjCRuntimeNameDocs];
 }
 
+def ObjCBoxable : Attr {
+  let Spellings = [GNU<"objc_boxable">];
+  let Subjects = SubjectList<[Record], ErrorDiag, "ExpectedStructOrUnion">;
+  let Documentation = [Undocumented];
+}
+
 def OptimizeNone : InheritableAttr {
   let Spellings = [GNU<"optnone">, CXX11<"clang", "optnone">];
   let Subjects = SubjectList<[Function, ObjCMethod]>;
@@ -1262,6 +1287,14 @@ def VectorCall : InheritableAttr {
 def Pascal : InheritableAttr {
   let Spellings = [GNU<"pascal">, Keyword<"__pascal">, Keyword<"_pascal">];
 //  let Subjects = [Function, ObjCMethod];
+  let Documentation = [Undocumented];
+}
+
+def Target : InheritableAttr {
+  let Spellings = [GCC<"target">];
+  let Args = [StringArgument<"features">];
+  let Subjects =
+      SubjectList<[Function], ErrorDiag, "ExpectedFunctionMethodOrClass">;
   let Documentation = [Undocumented];
 }
 
@@ -1938,6 +1971,13 @@ def SIMDLength : Attr {
   let Documentation = [Undocumented];
 }
 
+//#ifdef INTEL_SPECIFIC_IL0_BACKEND
+def SIMDAssert : Attr {
+  let Spellings = [CilkKeyword<"assert">];
+  let Documentation = [Undocumented];
+}
+//#endif  // INTEL_SPECIFIC_IL0_BACKEND
+
 def SIMDLinear : Attr {
   let Spellings = [CilkKeyword<"linear">];
   // Array alternates between linear variable and linear step.
@@ -2133,6 +2173,34 @@ def CilkLinear : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+def CilkAligned : InheritableAttr {
+  let Spellings = [CXX11<"_Cilk_elemental", "aligned">];
+  let LangOpts = [CilkPlus];
+  let Args = [IdentifierArgument<"Parameter">,
+              SourceLocArgument<"ParameterLoc">,
+              CheckedExprArgument<"AlignedExpr">,
+              SourceLocArgument<"Group">];
+  let Subjects = SubjectList<[Function]>;
+  let TemplateDependent = 1;
+  let AdditionalMembers =
+    [{
+      IdentifierInfo *getAlignedParameter() const {
+        DeclRefExpr *E = dyn_cast_or_null<DeclRefExpr>(getAlignedExpr());
+        return E ? E->getDecl()->getIdentifier() : 0;
+      }
+      SourceLocation getAlignedLoc() const {
+        Expr *E = getAlignedExpr();
+        return E ? E->getExprLoc() : SourceLocation();
+      }
+      template <typename SemaMemberPtr>
+        Expr *CheckArgument(Sema &S, Expr *E, SemaMemberPtr Fn) const {
+        return (S.*Fn)(E);
+      }
+    }];
+  let HasCustomParsing = 1;
+  let Documentation = [Undocumented];
+}
+
 def CilkUniform : InheritableAttr {
   let Spellings = [CXX11<"_Cilk_elemental", "uniform">];
   let Args = [IdentifierArgument<"Parameter">,
@@ -2230,8 +2298,8 @@ def LoopHint : Attr {
                           ["Vectorize", "VectorizeWidth", "Interleave", "InterleaveCount",
                            "Unroll", "UnrollCount"]>,
               EnumArgument<"State", "LoopHintState",
-                           ["default", "enable", "disable"],
-                           ["Default", "Enable", "Disable"]>,
+                           ["default", "enable", "disable", "assume_safety"],
+                           ["Default", "Enable", "Disable", "AssumeSafety"]>,
               ExprArgument<"Value">];
 
   let AdditionalMembers = [{
@@ -2277,6 +2345,8 @@ def LoopHint : Attr {
       return "";
     else if (state == Enable)
       OS << (option == Unroll ? "full" : "enable");
+    else if (state == AssumeSafety)
+      OS << "assume_safety";
     else
       OS << "disable";
     OS << ")";

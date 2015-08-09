@@ -176,6 +176,11 @@ public:
 
   void mangleCXXVTableBitSet(const CXXRecordDecl *RD, raw_ostream &) override;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
+#endif // INTEL_CUSTOMIZATION
+
   bool getNextDiscriminator(const NamedDecl *ND, unsigned &disc) {
     // Lambda closure types are already numbered.
     if (isLambda(ND))
@@ -2010,7 +2015,11 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::Half: Out << "Dh"; break;
   case BuiltinType::Float: Out << 'f'; break;
   case BuiltinType::Double: Out << 'd'; break;
-  case BuiltinType::LongDouble: Out << 'e'; break;
+  case BuiltinType::LongDouble:
+    Out << (getASTContext().getTargetInfo().useFloat128ManglingForLongDouble()
+                ? 'g'
+                : 'e');
+    break;
 #ifdef INTEL_CUSTOMIZATION
   case BuiltinType::Float128: Out << 'g'; break;
 #endif  // INTEL_CUSTOMIZATION
@@ -2520,6 +2529,15 @@ void CXXNameMangler::mangleType(const UnaryTransformType *T) {
       case UnaryTransformType::EnumUnderlyingType:
         Out << "3eut";
         break;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      case UnaryTransformType::BasesOfType:
+        Out << "3bot";
+        break;
+      case UnaryTransformType::DirectBasesOfType:
+        Out << "4dbot";
+        break;
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -2679,7 +2697,9 @@ recurse:
   // These all can only appear in local or variable-initialization
   // contexts and so should never appear in a mangling.
   case Expr::AddrLabelExprClass:
+  case Expr::DesignatedInitUpdateExprClass:
   case Expr::ImplicitValueInitExprClass:
+  case Expr::NoInitExprClass:
   case Expr::ParenListExprClass:
   case Expr::LambdaExprClass:
   case Expr::MSPropertyRefExprClass:
@@ -4068,8 +4088,7 @@ void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
 
 void ItaniumMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                                                      raw_ostream &Out) {
-  Linkage L = RD->getLinkageInternal();
-  if (L == InternalLinkage || L == UniqueExternalLinkage) {
+  if (!RD->isExternallyVisible()) {
     // This part of the identifier needs to be unique across all translation
     // units in the linked program. The scheme fails if multiple translation
     // units are compiled using the same relative source file path, or if
@@ -4081,6 +4100,14 @@ void ItaniumMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
   CXXNameMangler Mangler(*this, Out);
   Mangler.mangleType(QualType(RD->getTypeForDecl(), 0));
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
+                                                raw_ostream &Out) {
+  return mangleTypeName(QualType(RD->getTypeForDecl(), 0), Out);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void ItaniumMangleContextImpl::mangleStringLiteral(const StringLiteral *, raw_ostream &) {
   llvm_unreachable("Can't mangle string literals");

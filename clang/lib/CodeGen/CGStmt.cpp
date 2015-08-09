@@ -249,6 +249,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::OMPTaskwaitDirectiveClass:
     EmitOMPTaskwaitDirective(cast<OMPTaskwaitDirective>(*S));
     break;
+  case Stmt::OMPTaskgroupDirectiveClass:
+    EmitOMPTaskgroupDirective(cast<OMPTaskgroupDirective>(*S));
+    break;
   case Stmt::OMPFlushDirectiveClass:
     EmitOMPFlushDirective(cast<OMPFlushDirective>(*S));
     break;
@@ -263,6 +266,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
     break;
   case Stmt::OMPTeamsDirectiveClass:
     EmitOMPTeamsDirective(cast<OMPTeamsDirective>(*S));
+    break;
+  case Stmt::OMPCancellationPointDirectiveClass:
+    EmitOMPCancellationPointDirective(cast<OMPCancellationPointDirective>(*S));
     break;
   }
 }
@@ -716,7 +722,7 @@ void CodeGenFunction::EmitWhileStmt(const WhileStmt &S,
   JumpDest LoopHeader = getJumpDestInCurrentScope("while.cond");
   EmitBlock(LoopHeader.getBlock());
 
-  LoopStack.push(LoopHeader.getBlock());
+  LoopStack.push(LoopHeader.getBlock(), WhileAttrs);
 
   // Create an exit block for when the condition fails, which will
   // also become the break target.
@@ -810,7 +816,7 @@ void CodeGenFunction::EmitDoStmt(const DoStmt &S,
   // Emit the body of the loop.
   llvm::BasicBlock *LoopBody = createBasicBlock("do.body");
 
-  LoopStack.push(LoopBody);
+  LoopStack.push(LoopBody, DoAttrs);
 
   EmitBlockWithFallThrough(LoopBody, &S);
   {
@@ -876,7 +882,7 @@ void CodeGenFunction::EmitForStmt(const ForStmt &S,
   llvm::BasicBlock *CondBlock = Continue.getBlock();
   EmitBlock(CondBlock);
 
-  LoopStack.push(CondBlock);
+  LoopStack.push(CondBlock, ForAttrs);
 
   // If the for loop doesn't have an increment we can just use the
   // condition as the continue block.  Otherwise we'll need to create
@@ -974,7 +980,7 @@ CodeGenFunction::EmitCXXForRangeStmt(const CXXForRangeStmt &S,
   llvm::BasicBlock *CondBlock = createBasicBlock("for.cond");
   EmitBlock(CondBlock);
 
-  LoopStack.push(CondBlock);
+  LoopStack.push(CondBlock, ForAttrs);
 
   // If there are any cleanups between here and the loop-exit scope,
   // create a block to stage a loop exit along.
@@ -1789,6 +1795,16 @@ llvm::Value* CodeGenFunction::EmitAsmInput(
                                          const TargetInfo::ConstraintInfo &Info,
                                            const Expr *InputExpr,
                                            std::string &ConstraintStr) {
+  // If this can't be a register or memory, i.e., has to be a constant
+  // (immediate or symbolic), try to emit it as such.
+  if (!Info.allowsRegister() && !Info.allowsMemory()) {
+    llvm::APSInt Result;
+    if (InputExpr->EvaluateAsInt(Result, getContext()))
+      return llvm::ConstantInt::get(getLLVMContext(), Result);
+    assert(!Info.requiresImmediateConstant() &&
+           "Required-immediate inlineasm arg isn't constant?");
+  }
+
   if (Info.allowsRegister() || !Info.allowsMemory())
     if (CodeGenFunction::hasScalarEvaluationKind(InputExpr->getType()))
       return EmitScalarExpr(InputExpr);
@@ -1856,13 +1872,15 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                                           S.getNumOutputs(), Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
 #ifdef INTEL_CUSTOMIZATION
-    // CQ#375735 - allows use of registers for rvalues under 'm' constraint.
+    // CQ#371735 - allow use of registers for rvalues under 'm' constraint.
     if (getLangOpts().IntelCompat &&
         S.getInputConstraint(i).find('m') != StringRef::npos &&
         Info.allowsMemory() && !Info.allowsRegister())
       if (const Expr *E = S.getInputExpr(i)) {
         const Expr *E2 = E->IgnoreParenNoopCasts(getContext());
-        if (!E->isLValue() && (!E2 || !E2->isLValue()))
+        Expr::Classification::Kinds Kind = E2->Classify(getContext()).getKind();
+        // Allow registers for anything except lvalues, xvalues and functions.
+        if (!E->isLValue() && Kind > Expr::Classification::CL_Function)
           Info.setAllowsRegister();
       }
 #endif // INTEL_CUSTOMIZATION
@@ -2186,7 +2204,7 @@ CodeGenFunction::EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K) {
 
   // Emit the CapturedDecl
   CodeGenFunction CGF(CGM, true);
-  CGF.CapturedStmtInfo = new CGCapturedStmtInfo(S, K);
+  CGCapturedStmtRAII CapInfoRAII(CGF, new CGCapturedStmtInfo(S, K));
   llvm::Function *F = CGF.GenerateCapturedStmtFunction(S);
   delete CGF.CapturedStmtInfo;
 

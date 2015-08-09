@@ -147,6 +147,11 @@ public:
   virtual void mangleCXXVTableBitSet(const CXXRecordDecl *RD,
                                      raw_ostream &) = 0;
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+  virtual void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) = 0;
+#endif // INTEL_CUSTOMIZATION
+
   /// @}
 };
 
@@ -203,6 +208,10 @@ public:
 
   virtual void mangleVirtualMemPtrThunk(const CXXMethodDecl *MD,
                                         raw_ostream &) = 0;
+
+  virtual void mangleCXXVirtualDisplacementMap(const CXXRecordDecl *SrcRD,
+                                               const CXXRecordDecl *DstRD,
+                                               raw_ostream &Out) = 0;
 
   virtual void mangleCXXThrowInfo(QualType T, bool IsConst, bool IsVolatile,
                                   uint32_t NumEntries, raw_ostream &Out) = 0;

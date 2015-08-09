@@ -1476,6 +1476,23 @@ const internal::VariadicDynCastAllOfMatcher<
   Stmt,
   ConditionalOperator> conditionalOperator;
 
+/// \brief Matches a C++ static_assert declaration.
+///
+/// Example:
+///   staticAssertExpr()
+/// matches
+///   static_assert(sizeof(S) == sizeof(int))
+/// in
+/// \code
+///   struct S {
+///     int x;
+///   };
+///   static_assert(sizeof(S) == sizeof(int));
+/// \endcode
+const internal::VariadicDynCastAllOfMatcher<
+  Decl,
+  StaticAssertDecl> staticAssertDecl;
+
 /// \brief Matches a reinterpret_cast expression.
 ///
 /// Either the source expression or the destination type can be matched
@@ -3743,9 +3760,19 @@ AST_TYPE_MATCHER(TemplateSpecializationType, templateSpecializationType);
 /// Given:
 /// \code
 ///   typedef __underlying_type(T) type;
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+///   typedef __bases(T) type;
+///   typedef __direct_bases(T) type;
+#endif // INTEL_CUSTOMIZATION
 /// \endcode
 /// unaryTransformType()
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+///   matches "__underlying_type(T)", "__bases(T)" and "__direct_bases(T)"
+#else
 ///   matches "__underlying_type(T)"
+#endif // INTEL_CUSTOMIZATION
 AST_TYPE_MATCHER(UnaryTransformType, unaryTransformType);
 
 /// \brief Matches record types (e.g. structs, classes).

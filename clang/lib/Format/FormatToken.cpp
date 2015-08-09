@@ -45,6 +45,11 @@ bool FormatToken::isSimpleTypeSpecifier() const {
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
   case tok::annot_typename:
   case tok::kw_char16_t:
   case tok::kw_char32_t:
@@ -206,11 +211,14 @@ void CommaSeparatedList::precomputeFormattingInfos(const FormatToken *Token) {
 
   // We can never place more than ColumnLimit / 3 items in a row (because of the
   // spaces and the comma).
-  for (unsigned Columns = 1; Columns <= Style.ColumnLimit / 3; ++Columns) {
+  unsigned MaxItems = Style.ColumnLimit / 3;
+  std::vector<unsigned> MinSizeInColumn;
+  MinSizeInColumn.reserve(MaxItems);
+  for (unsigned Columns = 1; Columns <= MaxItems; ++Columns) {
     ColumnFormat Format;
     Format.Columns = Columns;
     Format.ColumnSizes.resize(Columns);
-    std::vector<unsigned> MinSizeInColumn(Columns, UINT_MAX);
+    MinSizeInColumn.assign(Columns, UINT_MAX);
     Format.LineCount = 1;
     bool HasRowWithSufficientColumns = false;
     unsigned Column = 0;
