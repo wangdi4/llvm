@@ -118,9 +118,9 @@ static std::error_code getOffset(const SymbolRef &Sym, uint64_t &Result) {
   if (std::error_code EC = Sym.getAddress(Address))
     return EC;
 
-  if (Address == UnknownAddressOrSize) {
-    Result = UnknownAddressOrSize;
-    return object_error::success;
+  if (Address == UnknownAddress) {
+    Result = UnknownAddress;
+    return std::error_code();
   }
 
   const ObjectFile *Obj = Sym.getObject();
@@ -129,13 +129,13 @@ static std::error_code getOffset(const SymbolRef &Sym, uint64_t &Result) {
     return EC;
 
   if (SecI == Obj->section_end()) {
-    Result = UnknownAddressOrSize;
-    return object_error::success;
+    Result = UnknownAddress;
+    return std::error_code();
   }
 
   uint64_t SectionAddress = SecI->getAddress();
   Result = Address - SectionAddress;
-  return object_error::success;
+  return std::error_code();
 }
 
 std::pair<unsigned, unsigned>
@@ -149,6 +149,7 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
   // Save information about our target
   Arch = (Triple::ArchType)Obj.getArch();
   IsTargetLittleEndian = Obj.isLittleEndian();
+  setMipsABI(Obj);
 
   // Compute the memory size required to load all sections to be loaded
   // and pass this information to the memory manager
@@ -174,8 +175,7 @@ RuntimeDyldImpl::loadObjectImpl(const object::ObjectFile &Obj) {
     if (IsCommon)
       CommonSymbols.push_back(*I);
     else {
-      object::SymbolRef::Type SymType;
-      Check(I->getType(SymType));
+      object::SymbolRef::Type SymType = I->getType();
 
       if (SymType == object::SymbolRef::ST_Function ||
           SymType == object::SymbolRef::ST_Data ||
@@ -266,10 +266,10 @@ computeAllocationSizeForSections(std::vector<uint64_t> &SectionSizes,
   return TotalSize;
 }
 
-static bool isRequiredForExecution(const SectionRef &Section) {
+static bool isRequiredForExecution(const SectionRef Section) {
   const ObjectFile *Obj = Section.getObject();
-  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
-    return ELFObj->getSectionFlags(Section) & ELF::SHF_ALLOC;
+  if (isa<object::ELFObjectFileBase>(Obj))
+    return ELFSectionRef(Section).getFlags() & ELF::SHF_ALLOC;
   if (auto *COFFObj = dyn_cast<object::COFFObjectFile>(Obj)) {
     const coff_section *CoffSection = COFFObj->getCOFFSection(Section);
     // Avoid loading zero-sized COFF sections.
@@ -286,12 +286,12 @@ static bool isRequiredForExecution(const SectionRef &Section) {
   
   assert(isa<MachOObjectFile>(Obj));
   return true;
- }
+}
 
-static bool isReadOnlyData(const SectionRef &Section) {
+static bool isReadOnlyData(const SectionRef Section) {
   const ObjectFile *Obj = Section.getObject();
-  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
-    return !(ELFObj->getSectionFlags(Section) &
+  if (isa<object::ELFObjectFileBase>(Obj))
+    return !(ELFSectionRef(Section).getFlags() &
              (ELF::SHF_WRITE | ELF::SHF_EXECINSTR));
   if (auto *COFFObj = dyn_cast<object::COFFObjectFile>(Obj))
     return ((COFFObj->getCOFFSection(Section)->Characteristics &
@@ -306,10 +306,10 @@ static bool isReadOnlyData(const SectionRef &Section) {
   return false;
 }
 
-static bool isZeroInit(const SectionRef &Section) {
+static bool isZeroInit(const SectionRef Section) {
   const ObjectFile *Obj = Section.getObject();
-  if (auto *ELFObj = dyn_cast<object::ELFObjectFileBase>(Obj))
-    return ELFObj->getSectionType(Section) == ELF::SHT_NOBITS;
+  if (isa<object::ELFObjectFileBase>(Obj))
+    return ELFSectionRef(Section).getType() == ELF::SHT_NOBITS;
   if (auto *COFFObj = dyn_cast<object::COFFObjectFile>(Obj))
     return COFFObj->getCOFFSection(Section)->Characteristics &
             COFF::IMAGE_SCN_CNT_UNINITIALIZED_DATA;
@@ -386,8 +386,7 @@ void RuntimeDyldImpl::computeTotalAllocSize(const ObjectFile &Obj,
     uint32_t Flags = I->getFlags();
     if (Flags & SymbolRef::SF_Common) {
       // Add the common symbols to a list.  We'll allocate them all below.
-      uint64_t Size = 0;
-      Check(I->getSize(Size));
+      uint64_t Size = I->getCommonSize();
       CommonSize += Size;
     }
   }
@@ -493,10 +492,8 @@ void RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
       continue;
     }
 
-    uint32_t Align = 0;
-    uint64_t Size = 0;
-    Check(Sym.getAlignment(Align));
-    Check(Sym.getSize(Size));
+    uint32_t Align = Sym.getAlignment();
+    uint64_t Size = Sym.getCommonSize();
 
     CommonSize += Align + Size;
     SymbolsToAllocate.push_back(Sym);
@@ -517,11 +514,9 @@ void RuntimeDyldImpl::emitCommonSymbols(const ObjectFile &Obj,
 
   // Assign the address of each symbol
   for (auto &Sym : SymbolsToAllocate) {
-    uint32_t Align;
-    uint64_t Size;
+    uint32_t Align = Sym.getAlignment();
     StringRef Name;
-    Check(Sym.getAlignment(Align));
-    Check(Sym.getSize(Size));
+    uint64_t Size = Sym.getCommonSize();
     Check(Sym.getName(Name));
     if (Align) {
       // This symbol has an alignment requirement.
@@ -689,7 +684,7 @@ uint8_t *RuntimeDyldImpl::createStubFunction(uint8_t *Addr,
     // and stubs for branches Thumb - ARM and ARM - Thumb.
     writeBytesUnaligned(0xe51ff004, Addr, 4); // ldr pc,<label>
     return Addr + 4;
-  } else if (Arch == Triple::mipsel || Arch == Triple::mips) {
+  } else if (IsMipsO32ABI) {
     // 0:   3c190000        lui     t9,%hi(addr).
     // 4:   27390000        addiu   t9,t9,%lo(addr).
     // 8:   03200008        jr      t9.

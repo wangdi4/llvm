@@ -108,6 +108,7 @@ def err_ice_ambiguous_conversion : Error<
 def err_ice_too_large : Error<
   "integer constant expression evaluates to value %0 that cannot be "
   "represented in a %1-bit %select{signed|unsigned}2 integer type">;
+def err_expr_not_string_literal : Error<"expression is not a string literal">;
 
 // Semantic analysis of constant literals.
 def ext_predef_outside_function : Warning<
@@ -424,6 +425,8 @@ def warn_redecl_library_builtin : Warning<
   "incompatible redeclaration of library function %0">,
   InGroup<DiagGroup<"incompatible-library-redeclaration">>;
 def err_builtin_definition : Error<"definition of builtin function %0">;
+def err_arm_invalid_specialreg : Error<"invalid special register for builtin">;
+def err_invalid_cpu_supports : Error<"invalid cpu feature string for builtin">;
 def warn_builtin_unknown : Warning<"use of unknown builtin %0">,
   InGroup<ImplicitFunctionDeclare>, DefaultError;
 def warn_dyn_class_memaccess : Warning<
@@ -908,10 +911,6 @@ def warn_dealloc_in_category : Warning<
 InGroup<DeallocInCategory>;
 def err_gc_weak_property_strong_type : Error<
   "weak attribute declared on a __strong type property in GC mode">;
-def warn_receiver_is_weak : Warning <
-  "weak %select{receiver|property|implicit property}0 may be "
-  "unpredictably set to nil">,
-  InGroup<DiagGroup<"receiver-is-weak">>, DefaultIgnore;
 def warn_arc_repeated_use_of_weak : Warning <
   "weak %select{variable|property|implicit property|instance variable}0 %1 is "
   "accessed multiple times in this %select{function|method|block|lambda}2 "
@@ -1052,6 +1051,7 @@ def ext_friend_tag_redecl_outside_namespace : ExtWarn<
   "unqualified friend declaration referring to type outside of the nearest "
   "enclosing namespace is a Microsoft extension; add a nested name specifier">,
   InGroup<Microsoft>;
+def err_pure_friend : Error<"friend declaration cannot have a pure-specifier">;
 
 def err_invalid_member_in_interface : Error<
   "%select{data member |non-public member function |static member function |"
@@ -1264,6 +1264,8 @@ def ext_mutable_reference : ExtWarn<
 def err_mutable_const : Error<"'mutable' and 'const' cannot be mixed">;
 def err_mutable_nonmember : Error<
   "'mutable' can only be applied to member variables">;
+def err_virtual_in_union : Error<
+  "unions cannot have virtual functions">;
 def err_virtual_non_function : Error<
   "'virtual' can only appear on non-static member functions">;
 def err_virtual_out_of_class : Error<
@@ -1978,8 +1980,11 @@ def err_attribute_too_few_arguments : Error<
 def err_attribute_invalid_vector_type : Error<"invalid vector element type %0">;
 def err_attribute_bad_neon_vector_size : Error<
   "Neon vector size must be 64 or 128 bits">;
-def err_attribute_unsupported : Error<
-  "%0 attribute is not supported for this target">;
+def warn_unsupported_target_attribute
+    : Warning<"Ignoring unsupported '%0' in the target attribute string">,
+    InGroup<IgnoredAttributes>;
+def err_attribute_unsupported
+    : Error<"%0 attribute is not supported for this target">;
 // The err_*_attribute_argument_not_int are seperate because they're used by
 // VerifyIntegerConstantExpression.
 def err_aligned_attribute_argument_not_int : Error<
@@ -2080,12 +2085,16 @@ def err_attr_objc_ownership_redundant : Error<
   "the type %0 is already explicitly ownership-qualified">;
 def err_undeclared_nsnumber : Error<
   "NSNumber must be available to use Objective-C literals">;
+def err_undeclared_nsvalue : Error<
+  "NSValue must be available to use Objective-C boxed expressions">;
 def err_invalid_nsnumber_type : Error<
   "%0 is not a valid literal type for NSNumber">;
 def err_undeclared_nsstring : Error<
   "cannot box a string value because NSString has not been declared">;
 def err_objc_illegal_boxed_expression_type : Error<
   "illegal type %0 used in a boxed expression">;
+def err_objc_non_trivially_copyable_boxed_expression_type : Error<
+  "non-trivially copyable type %0 cannot be used in a boxed expression">;
 def err_objc_incomplete_boxed_expression_type : Error<
   "incomplete type %0 used in a boxed expression">;
 def err_undeclared_nsarray : Error<
@@ -2189,7 +2198,7 @@ def err_attribute_invalid_on_stmt : Error<
   "%0 attribute cannot be applied to a statement">;
 def warn_declspec_attribute_ignored : Warning<
   "attribute %0 is ignored, place it after "
-  "\"%select{class|struct|union|interface|enum}1\" to apply attribute to "
+  "\"%select{class|struct|interface|union|enum}1\" to apply attribute to "
   "type declaration">, InGroup<IgnoredAttributes>;
 def warn_attribute_precede_definition : Warning<
   "attribute declaration must precede definition">,
@@ -2253,7 +2262,7 @@ def warn_attribute_dllimport_static_field_definition : Warning<
   InGroup<DiagGroup<"dllimport-static-field-def">>;
 def warn_attribute_dllexport_explicit_instantiation_decl : Warning<
   "explicit instantiation declaration should not be 'dllexport'">,
-  InGroup<DiagGroup<"dllexport-explicit-instantation-decl">>;
+  InGroup<DiagGroup<"dllexport-explicit-instantiation-decl">>;
 def warn_invalid_initializer_from_system_header : Warning<
   "invalid constructor form class in system header, should not be explicit">,
   InGroup<DiagGroup<"invalid-initializer-from-system-header">>;
@@ -2262,8 +2271,7 @@ def err_attribute_dll_member_of_dll_class : Error<
   "attribute %q0 cannot be applied to member of %q1 class">;
 def warn_attribute_dll_instantiated_base_class : Warning<
   "propagating dll attribute to %select{already instantiated|explicitly specialized}0 "
-  "base class template "
-  "%select{without dll attribute|with different dll attribute}1 is not supported">,
+  "base class template without dll attribute is not supported">,
   InGroup<DiagGroup<"unsupported-dll-base-class-template">>, DefaultIgnore;
 def err_attribute_weakref_not_static : Error<
   "weakref declaration must have internal linkage">;
@@ -2685,6 +2693,8 @@ def err_mode_not_primitive : Error<
   "mode attribute only supported for integer and floating-point types">;
 def err_mode_wrong_type : Error<
   "type of machine mode does not match type of base type">;
+def err_complex_mode_vector_type : Error<
+  "type of machine mode does not support base vector types">;
 def err_attr_wrong_decl : Error<
   "%0 attribute invalid on this declaration, requires typedef or value">;
 def warn_attribute_nonnull_no_pointers : Warning<
@@ -2749,8 +2759,8 @@ def warn_ns_attribute_wrong_return_type : Warning<
   "return %select{an Objective-C object|a pointer|a non-retainable pointer}2">,
   InGroup<IgnoredAttributes>;
 def warn_ns_attribute_wrong_parameter_type : Warning<
-  "%0 attribute only applies to %select{Objective-C object|pointer}1 "
-  "parameters">,
+  "%0 attribute only applies to "
+  "%select{Objective-C object|pointer|pointer-to-CF-pointer}1 parameters">,
   InGroup<IgnoredAttributes>;
 def warn_objc_requires_super_protocol : Warning<
   "%0 attribute cannot be applied to %select{methods in protocols|dealloc}1">,
@@ -5390,6 +5400,10 @@ def err_bad_const_cast_dest : Error<
   "which is not a reference, pointer-to-object, or pointer-to-data-member">;
 def ext_cast_fn_obj : Extension<
   "cast between pointer-to-function and pointer-to-object is an extension">;
+def ext_ms_cast_fn_obj : ExtWarn<
+  "static_cast between pointer-to-function and pointer-to-object is a "
+  "Microsoft extension">,
+  InGroup<Microsoft>;
 def warn_cxx98_compat_cast_fn_obj : Warning<
   "cast between pointer-to-function and pointer-to-object is incompatible with C++98">,
   InGroup<CXX98CompatPedantic>, DefaultIgnore;
@@ -5560,6 +5574,8 @@ def err_seh_try_outside_functions : Error<
   "cannot use SEH '__try' in blocks, captured regions, or Obj-C method decls">;
 def err_mixing_cxx_try_seh_try : Error<
   "cannot use C++ 'try' in the same function as SEH '__try'">;
+def err_seh_try_unsupported : Error<
+  "SEH '__try' is not supported on this target">;
 def note_conflicting_try_here : Note<
   "conflicting %0 here">;
 def warn_jump_out_of_seh_finally : Warning<
@@ -6334,6 +6350,9 @@ let CategoryName = "Inline Assembly Issue" in {
     "remove the cast or build with -fheinous-gnu-extensions">;
   def err_invalid_asm_value_for_constraint
       : Error <"value '%0' out of range for constraint '%1'">;
+  def err_asm_bitfield_in_memory_constraint
+      : Error <"reference to a bit-field in asm "
+      "%select{input|output}0 with a memory constraint '%1'">;
 
   def warn_asm_label_on_auto_decl : Warning<
     "ignored asm label '%0' on automatic variable">;
@@ -7404,8 +7423,8 @@ def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
 def err_omp_expected_var_name : Error<
   "expected variable name">;
-def err_omp_required_method : Error<
-  "%0 variable must have an accessible, unambiguous %select{default constructor|copy constructor|copy assignment operator|'%2'|destructor}1">;
+def err_omp_expected_var_name_or_array_item : Error<
+  "expected variable name, array element or array section">;
 def note_omp_task_predetermined_firstprivate_here : Note<
   "predetermined as a firstprivate in a task construct here">;
 def err_omp_clause_ref_type_arg : Error<
@@ -7594,6 +7613,12 @@ def err_omp_single_copyprivate_with_nowait : Error<
   "the 'copyprivate' clause must not be used with the 'nowait' clause">;
 def note_omp_nowait_clause_here : Note<
   "'nowait' clause is here">;
+def err_omp_wrong_cancel_region : Error<
+  "one of 'for', 'parallel', 'sections' or 'taskgroup' is expected">;
+def err_omp_parent_cancel_region_nowait : Error<
+  "parent region for 'omp %select{cancellation point/cancel}0' construct cannot be nowait">;
+def err_omp_parent_cancel_region_ordered : Error<
+  "parent region for 'omp %select{cancellation point/cancel}0' construct cannot be ordered">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -7631,10 +7656,12 @@ def err_module_private_local : Error<
 def err_module_private_local_class : Error<
   "local %select{struct|interface|union|class|enum}0 cannot be declared "
   "__module_private__">;
-def err_module_private_declaration : Error<
-  "declaration of %0 must be imported from module '%1' before it is required">;
-def err_module_private_definition : Error<
-  "definition of %0 must be imported from module '%1' before it is required">;
+def err_module_unimported_use : Error<
+  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "from module '%2' before it is required">;
+def err_module_unimported_use_multiple : Error<
+  "%select{declaration|definition|default argument}0 of %1 must be imported "
+  "from one of the following modules before it is required:%2">;
 def err_module_import_in_extern_c : Error<
   "import of C++ module '%0' appears within extern \"C\" language linkage "
   "specification">;
@@ -7664,5 +7691,46 @@ def warn_profile_data_unprofiled : Warning<
   InGroup<ProfileInstrUnprofiled>;
 
 } // end of instrumentation issue category
+
+let CategoryName = "Nullability Issue" in {
+
+def warn_mismatched_nullability_attr : Warning<
+  "nullability specifier %0 conflicts with existing specifier %1">,
+  InGroup<Nullability>;
+
+def warn_nullability_declspec : Warning<
+  "nullability specifier %0 cannot be applied "
+  "to non-pointer type %1; did you mean to apply the specifier to the "
+  "%select{pointer|block pointer|member pointer|function pointer|"
+  "member function pointer}2?">,
+  InGroup<NullabilityDeclSpec>,
+  DefaultError;
+
+def note_nullability_here : Note<"%0 specified here">;
+
+def err_nullability_nonpointer : Error<
+  "nullability specifier %0 cannot be applied to non-pointer type %1">;
+
+def warn_nullability_lost : Warning<
+  "implicit conversion from nullable pointer %0 to non-nullable pointer "
+  "type %1">,
+  InGroup<NullableToNonNullConversion>, DefaultIgnore;
+
+def err_nullability_cs_multilevel : Error<
+  "nullability keyword %0 cannot be applied to multi-level pointer type %1">;
+def note_nullability_type_specifier : Note<
+  "use nullability type specifier %0 to affect the innermost "
+  "pointer type of %1">;
+
+def warn_null_resettable_setter : Warning<
+  "synthesized setter %0 for null_resettable property %1 does not handle nil">,
+  InGroup<Nullability>;
+
+def warn_nullability_missing : Warning<
+  "%select{pointer|block pointer|member pointer}0 is missing a nullability "
+  "type specifier (_Nonnull, _Nullable, or _Null_unspecified)">,
+  InGroup<NullabilityCompleteness>;
+
+}
 
 } // end of sema component.

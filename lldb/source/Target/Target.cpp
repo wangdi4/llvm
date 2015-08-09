@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/lldb-python.h"
-
 #include "lldb/Target/Target.h"
 
 // C Includes
@@ -2384,9 +2382,8 @@ Target::Install (ProcessLaunchInfo *launch_info)
                                 if (is_main_executable) // TODO: add setting for always installing main executable???
                                 {
                                     // Always install the main executable
-                                    remote_file = FileSpec(module_sp->GetFileSpec().GetFilename().AsCString(),
-                                                           false, module_sp->GetArchitecture());
-                                    remote_file.GetDirectory() = platform_sp->GetWorkingDirectory();
+                                    remote_file = platform_sp->GetRemoteWorkingDirectory();
+                                    remote_file.AppendPathComponent(module_sp->GetFileSpec().GetFilename().GetCString());
                                 }
                             }
                             if (remote_file)
@@ -2397,7 +2394,7 @@ Target::Install (ProcessLaunchInfo *launch_info)
                                     module_sp->SetPlatformFileSpec(remote_file);
                                     if (is_main_executable)
                                     {
-                                        platform_sp->SetFilePermissions(remote_file.GetPath(false).c_str(), 0700);
+                                        platform_sp->SetFilePermissions(remote_file, 0700);
                                         if (launch_info)
                                             launch_info->SetExecutableFile(remote_file, false);
                                     }
@@ -2970,7 +2967,7 @@ g_properties[] =
     { "disable-stdio"                      , OptionValue::eTypeBoolean   , false, false                     , NULL, NULL, "Disable stdin/stdout for process (e.g. for a GUI application)" },
     { "inline-breakpoint-strategy"         , OptionValue::eTypeEnum      , false, eInlineBreakpointsAlways  , NULL, g_inline_breakpoint_enums, "The strategy to use when settings breakpoints by file and line. "
         "Breakpoint locations can end up being inlined by the compiler, so that a compile unit 'a.c' might contain an inlined function from another source file. "
-        "Usually this is limitted to breakpoint locations from inlined functions from header or other include files, or more accurately non-implementation source files. "
+        "Usually this is limited to breakpoint locations from inlined functions from header or other include files, or more accurately non-implementation source files. "
         "Sometimes code might #include implementation files and cause inlined breakpoint locations in inlined implementation files. "
         "Always checking for inlined breakpoint locations can be expensive (memory and time), so if you have a project with many headers "
         "and find that setting breakpoints is slow, then you can change this setting to headers. "
@@ -3553,6 +3550,13 @@ TargetProperties::GetNonStopModeEnabled () const
     return m_collection_sp->GetPropertyAtIndexAsBoolean (NULL, idx, false);
 }
 
+void
+TargetProperties::SetNonStopModeEnabled (bool b)
+{
+    const uint32_t idx = ePropertyNonStopModeEnabled;
+    m_collection_sp->SetPropertyAtIndexAsBoolean (NULL, idx, b);
+}
+
 const ProcessLaunchInfo &
 TargetProperties::GetProcessLaunchInfo ()
 {
@@ -3622,21 +3626,21 @@ void
 TargetProperties::InputPathValueChangedCallback(void *target_property_ptr, OptionValue *)
 {
     TargetProperties *this_ = reinterpret_cast<TargetProperties *>(target_property_ptr);
-    this_->m_launch_info.AppendOpenFileAction(STDIN_FILENO, this_->GetStandardInputPath().GetPath().c_str(), true, false);
+    this_->m_launch_info.AppendOpenFileAction(STDIN_FILENO, this_->GetStandardInputPath(), true, false);
 }
 
 void
 TargetProperties::OutputPathValueChangedCallback(void *target_property_ptr, OptionValue *)
 {
     TargetProperties *this_ = reinterpret_cast<TargetProperties *>(target_property_ptr);
-    this_->m_launch_info.AppendOpenFileAction(STDOUT_FILENO, this_->GetStandardOutputPath().GetPath().c_str(), false, true);
+    this_->m_launch_info.AppendOpenFileAction(STDOUT_FILENO, this_->GetStandardOutputPath(), false, true);
 }
 
 void
 TargetProperties::ErrorPathValueChangedCallback(void *target_property_ptr, OptionValue *)
 {
     TargetProperties *this_ = reinterpret_cast<TargetProperties *>(target_property_ptr);
-    this_->m_launch_info.AppendOpenFileAction(STDERR_FILENO, this_->GetStandardErrorPath().GetPath().c_str(), false, true);
+    this_->m_launch_info.AppendOpenFileAction(STDERR_FILENO, this_->GetStandardErrorPath(), false, true);
 }
 
 void
