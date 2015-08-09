@@ -25,6 +25,7 @@ def immi16       : PatLeaf<(i16 imm)>;
 def immi32       : PatLeaf<(i32 imm)>;
 def immi64       : PatLeaf<(i64 imm)>;
 def fpimmAny     : PatLeaf<(fpimm)>;
+def immf16       : PatLeaf<(f16 fpimm)>;
 def immf32       : PatLeaf<(f32 fpimm)>;
 def immf64       : PatLeaf<(f64 fpimm)>;
 
@@ -45,6 +46,17 @@ def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 // LPU Instruction Predicate Definitions
 //===----------------------------------------------------------------------===//
 
+// Note S8, S16 not added to patterns
+// (If really needed, look at adding as param to multiclass templates.)
+// Maybe predicate for last param of many multiclass?
+def HasS8        : Predicate<"Subtarget.hasS8()">;
+def HasS16       : Predicate<"Subtarget.hasS16()">;
+def HasF16       : Predicate<"Subtarget.hasF16()">;
+def HasIDiv      : Predicate<"Subtarget.hasIDiv()">;
+def HasFDiv      : Predicate<"Subtarget.hasFDiv()">;
+def HasFMA       : Predicate<"Subtarget.hasFMA()">;
+def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
+def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 
 //===----------------------------------------------------------------------===//
 // LPU Instructions.
@@ -371,22 +383,26 @@ defm NEGF32    : UnaryOp<"negf32",    fneg,  F32>;
 defm NEGF64    : UnaryOp<"negf64",    fneg,  F64>;
 defm ABSF32    : UnaryOp<"absf32",    fabs,  F32>;
 defm ABSF64    : UnaryOp<"absf64",    fabs,  F64>;
-defm SQRTF32   : UnaryOp<"sqrtf32",   fsqrt, F32>;
-defm SQRTF64   : UnaryOp<"sqrtf64",   fsqrt, F64>;
-defm EXP2F32   : UnaryOp<"exp2f32",   fexp2, F32>;
-defm EXP2F64   : UnaryOp<"exp2f64",   fexp2, F64>;
-defm LOG2F32   : UnaryOp<"log2f32",   flog2, F32>;
-defm LOG2F64   : UnaryOp<"log2f64",   flog2, F64>;
-defm EXPF32    : UnaryOp<"expf32",    fexp,  F32>;
-defm EXPF64    : UnaryOp<"expf64",    fexp,  F64>;
-defm LOGF32    : UnaryOp<"logf32",    flog,  F32>;
-defm LOGF64    : UnaryOp<"logf64",    flog,  F64>;
-defm SINF32    : UnaryOp<"sinf32",    fsin,  F32>;
-defm SINF64    : UnaryOp<"sinf64",    fsin,  F64>;
-defm COSF32    : UnaryOp<"cosf32",    fcos,  F32>;
-defm COSF64    : UnaryOp<"cosf64",    fcos,  F64>;
-//defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, F32>;
-//defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, F64>;
+let Predicates = [HasSqrt] in {
+  defm SQRTF32 : UnaryOp<"sqrtf32",   fsqrt, F32>;
+  defm SQRTF64 : UnaryOp<"sqrtf64",   fsqrt, F64>;
+}
+let Predicates = [HasMath0] in {
+  defm EXP2F32 : UnaryOp<"exp2f32",   fexp2, F32>;
+  defm EXP2F64 : UnaryOp<"exp2f64",   fexp2, F64>;
+  defm LOG2F32 : UnaryOp<"log2f32",   flog2, F32>;
+  defm LOG2F64 : UnaryOp<"log2f64",   flog2, F64>;
+  defm EXPF32  : UnaryOp<"expf32",    fexp,  F32>;
+  defm EXPF64  : UnaryOp<"expf64",    fexp,  F64>;
+  defm LOGF32  : UnaryOp<"logf32",    flog,  F32>;
+  defm LOGF64  : UnaryOp<"logf64",    flog,  F64>;
+  defm SINF32  : UnaryOp<"sinf32",    fsin,  F32>;
+  defm SINF64  : UnaryOp<"sinf64",    fsin,  F64>;
+  defm COSF32  : UnaryOp<"cosf32",    fcos,  F32>;
+  defm COSF64  : UnaryOp<"cosf64",    fcos,  F64>;
+  //defm SINCOSF32 : UnaryOp<"sincosf32", fsincos, F32>;
+  //defm SINCOSF64 : UnaryOp<"sincosf64", fsincos, F64>;
+}
 
 // todo: int<=>float Conversions
 // first type in convert name is result, second is source type
@@ -479,18 +495,21 @@ defm MUL64 : BinOpC<"mul64", mul, I64, i64, i64imm>;
 defm MULF32 : FBinOpC<"mul32f", fmul, F32, f32, f32imm>;
 defm MULF64 : FBinOpC<"mulf64", fmul, F64, f64, f64imm>;
 
-defm DIVS8  : BinOpNC<"divs8",  sdiv, I8,  i8,  i8imm>;
-defm DIVS16 : BinOpNC<"divs16", sdiv, I16, i16, i16imm>;
-defm DIVS32 : BinOpNC<"divs32", sdiv, I32, i32, i32imm>;
-defm DIVS64 : BinOpNC<"divs64", sdiv, I64, i64, i64imm>;
+let Predicates = [HasIDiv] in {
+  defm DIVS8  : BinOpNC<"divs8",  sdiv, I8,  i8,  i8imm>;
+  defm DIVS16 : BinOpNC<"divs16", sdiv, I16, i16, i16imm>;
+  defm DIVS32 : BinOpNC<"divs32", sdiv, I32, i32, i32imm>;
+  defm DIVS64 : BinOpNC<"divs64", sdiv, I64, i64, i64imm>;
 
-defm DIVU8  : BinOpNC<"divu8",  udiv, I8,  i8,  i8imm>;
-defm DIVU16 : BinOpNC<"divu16", udiv, I16, i16, i16imm>;
-defm DIVU32 : BinOpNC<"divu32", udiv, I32, i32, i32imm>;
-defm DIVU64 : BinOpNC<"divu64", udiv, I64, i64, i64imm>;
-
-defm DIVF32 : FBinOpNC<"div32f", fdiv, F32, f32, f32imm>;
-defm DIVF64 : FBinOpNC<"divf64", fdiv, F64, f64, f64imm>;
+  defm DIVU8  : BinOpNC<"divu8",  udiv, I8,  i8,  i8imm>;
+  defm DIVU16 : BinOpNC<"divu16", udiv, I16, i16, i16imm>;
+  defm DIVU32 : BinOpNC<"divu32", udiv, I32, i32, i32imm>;
+  defm DIVU64 : BinOpNC<"divu64", udiv, I64, i64, i64imm>;
+}
+let Predicates = [HasFDiv] in {
+  defm DIVF32 : FBinOpNC<"div32f", fdiv, F32, f32, f32imm>;
+  defm DIVF64 : FBinOpNC<"divf64", fdiv, F64, f64, f64imm>;
+}
 
 defm CMPLTS8  : CmpOpNC<"cmplts8",  setlt,  I8,  i8,  i8imm>;
 defm CMPLTS16 : CmpOpNC<"cmplts16", setlt,  I16, i16, i16imm>;
@@ -577,16 +596,17 @@ def LAND1 : FMTGEN<
   "land1\t$dst, $op1, $op2, $op3, $op4",
   []>;
 
+let Predicates = [HasFMA] in {
+  defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, F32, f32, f32imm>;
+  defm FMAF32x : FusedOp2<"fmaf32", fmul, fadd, F32, f32, f32imm>; // crude handling of comm.
+  defm FMSF32  : FusedOp1<"fmsf32", fmul, fsub, F32, f32, f32imm>;
+  defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, F32, f32, f32imm>;
 
-defm FMAF32  : FusedOp1<"fmaf32", fmul, fadd, F32, f32, f32imm>;
-defm FMAF32x : FusedOp2<"fmaf32", fmul, fadd, F32, f32, f32imm>; // crude handling of comm.
-defm FMSF32  : FusedOp1<"fmsf32", fmul, fsub, F32, f32, f32imm>;
-defm FMRSF32 : FusedOp2<"fmrsf32", fmul, fsub, F32, f32, f32imm>;
-
-defm FMAF64  : FusedOp1<"fmaf64", fmul, fadd, F64, f64, f64imm>;
-defm FMAF64x : FusedOp2<"fmaf64", fmul, fadd, F64, f64, f64imm>; // crude handling of comm
-defm FMSF64  : FusedOp1<"fmsf64", fmul, fsub, F64, f64, f64imm>;
-defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, F64, f64, f64imm>;
+  defm FMAF64  : FusedOp1<"fmaf64", fmul, fadd, F64, f64, f64imm>;
+  defm FMAF64x : FusedOp2<"fmaf64", fmul, fadd, F64, f64, f64imm>; // crude handling of comm
+  defm FMSF64  : FusedOp1<"fmsf64", fmul, fsub, F64, f64, f64imm>;
+  defm FMRSF64 : FusedOp2<"fmrsf64", fmul, fsub, F64, f64, f64imm>;
+}
 
 // Should we do these, or drop and assume sext-at-consumer?
 // todo: LDS8

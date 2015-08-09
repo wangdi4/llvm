@@ -38,7 +38,26 @@ class LPUSubtarget : public LPUGenSubtargetInfo {
   LPUTargetLowering TLInfo;
   LPUSelectionDAGInfo TSInfo;
 
+protected:
+  bool HasS8;
+  bool HasS16;
+  bool HasF16;
+  bool HasIDiv;
+  bool HasFDiv;
+  bool HasFMA;
+  bool HasSqrt;
+  bool HasMath0;
+
 public:
+  bool hasS8()    const { return HasS8; }
+  bool hasS16()   const { return HasS16; }
+  bool hasF16()   const { return HasF16; }
+  bool hasIDiv()  const { return HasIDiv; }
+  bool hasFDiv()  const { return HasFDiv; }
+  bool hasFMA()   const { return HasFMA; }
+  bool hasSqrt()  const { return HasSqrt; }
+  bool hasMath0() const { return HasMath0; }
+
   /// This constructor initializes the data members to match that
   /// of the specified triple.
   ///

@@ -17,7 +17,25 @@ include "llvm/Target/Target.td"
 // LPU subtarget features
 //===----------------------------------------------------------------------===//
 
-// Currently no features
+// Type features
+def FeatureS8    : SubtargetFeature<"s8", "HasS8", "true",
+                            "Enable 8b small integer ALU ops">;
+def FeatureS16   : SubtargetFeature<"s16", "HasS16", "true",
+                            "Enable 16b small integer ALU ops">;
+def FeatureF16   : SubtargetFeature<"f16", "HasF16", "true",
+                            "Enable 16b float ALU ops">;
+
+// Operation features
+def FeatureIDiv  : SubtargetFeature<"idiv", "HasIDiv", "true",
+                            "Enable integer div">;
+def FeatureFDiv  : SubtargetFeature<"fdiv", "HasFDiv", "true",
+                            "Enable floating div">;
+def FeatureFMA   : SubtargetFeature<"fma", "HasFMA", "true",
+                            "Enable fused mul/add">;
+def FeatureSqrt  : SubtargetFeature<"sqrt", "HasSqrt", "true",
+                            "Enable sqrt">;
+def FeatureMath0 : SubtargetFeature<"math0", "HasMath0", "true",
+                            "Enable exp[2]/log[2]/sin/cos">;
 
 //===----------------------------------------------------------------------===//
 // LPU supported processors
@@ -28,9 +46,22 @@ include "llvm/Target/Target.td"
 class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"autounit",          []>;
-//def : Proc<"typedcluster1",     []>;
-//def : Proc<"mixedcluster1",     []>;
+def : Proc<"ordered",  [FeatureS8,   FeatureS16,  FeatureF16,
+                        FeatureIDiv, FeatureFDiv, FeatureFMA,
+                        FeatureSqrt, FeatureMath0]>;
+
+def : Proc<"autounit", [FeatureS8,   FeatureS16,  FeatureF16,
+                        FeatureFMA,  FeatureIDiv, FeatureFDiv,
+                        FeatureSqrt, FeatureMath0]>;
+// Like autounit, but almost all more complex ops disabled
+def : Proc<"automin",  []>;
+
+def : Proc<"config0",  [FeatureS8,   FeatureS16,  FeatureF16,
+                        FeatureIDiv, FeatureFDiv, FeatureFMA,
+                        FeatureSqrt, FeatureMath0]>;
+def : Proc<"config1",  [FeatureS8,   FeatureS16,  FeatureF16,
+                        FeatureIDiv, FeatureFDiv, FeatureFMA,
+                        FeatureSqrt, FeatureMath0]>;
 
 //===----------------------------------------------------------------------===//
 // Register file description
