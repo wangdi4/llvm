@@ -31,12 +31,12 @@ class StringRef;
 
 class LPUSubtarget : public LPUGenSubtargetInfo {
   virtual void anchor();
-  bool ExtendedInsts;
   const DataLayout DL; // Calculates type size & alignment
   LPUFrameLowering FrameLowering;
   LPUInstrInfo InstrInfo;
   LPUTargetLowering TLInfo;
   LPUSelectionDAGInfo TSInfo;
+  std::string LPUName;
 
 protected:
   bool HasS8;
@@ -49,6 +49,7 @@ protected:
   bool HasMath0;
 
 public:
+  std::string lpuName() const { return LPUName; }
   bool hasS8()    const { return HasS8; }
   bool hasS16()   const { return HasS16; }
   bool hasF16()   const { return HasF16; }

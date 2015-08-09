@@ -47,11 +47,21 @@ namespace {
       return "LPU Assembly Printer";
     }
 
+    void EmitStartOfAsmFile(Module &) override;
     void EmitFunctionBodyStart() override;
     void EmitFunctionBodyEnd() override;
     void EmitInstruction(const MachineInstr *MI) override;
   };
 } // end of anonymous namespace
+
+void LPUAsmPrinter::EmitStartOfAsmFile(Module &) {
+  SmallString<128> Str;
+  raw_svector_ostream O(Str);
+  O << "\t.processor ";
+  O << TM.getSubtarget<LPUSubtarget>().lpuName();
+  OutStreamer.EmitRawText(O.str());
+}
+
 
 void LPUAsmPrinter::EmitFunctionBodyStart() {
   const MachineRegisterInfo *MRI;

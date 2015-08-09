@@ -25,11 +25,8 @@ using namespace llvm;
 
 void LPUSubtarget::anchor() { }
 
-LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef LPU, StringRef FS) {
-  std::string LPUName = LPU;
-  if (LPUName.empty())
-    LPUName = "ordered";
-  ParseSubtargetFeatures(LPUName, FS);
+LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+  ParseSubtargetFeatures(CPU, FS);
   return *this;
 }
 
@@ -39,13 +36,6 @@ LPUSubtarget::LPUSubtarget(const std::string &TT, const std::string &CPU,
       DL("e-m:e-i64:64-n32:64"),
       FrameLowering(),
       InstrInfo(initializeSubtargetDependencies(CPU, FS)), TLInfo(TM),
-      TSInfo(DL)
-      /*      HasS8(),
-      HasS16(),
-      HasF16(),
-      HasIDiv(),
-      HasFDiv(),
-      HasFMA(),
-      HasSqrt(),
-      HasMath0() */
+      TSInfo(DL),
+      LPUName(CPU.empty() ? "ordered" : CPU)
   {}
