@@ -1922,12 +1922,12 @@ Decl *TemplateDeclInstantiator::VisitTemplateTypeParmDecl(
                                  D->isParameterPack());
   Inst->setAccess(AS_public);
 
-  if (D->hasDefaultArgument()) {
+  if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited()) {
     TypeSourceInfo *InstantiatedDefaultArg =
         SemaRef.SubstType(D->getDefaultArgumentInfo(), TemplateArgs,
                           D->getDefaultArgumentLoc(), D->getDeclName());
     if (InstantiatedDefaultArg)
-      Inst->setDefaultArgument(InstantiatedDefaultArg, false);
+      Inst->setDefaultArgument(InstantiatedDefaultArg);
   }
 
   // Introduce this template parameter's instantiation into the instantiation
@@ -2078,10 +2078,10 @@ Decl *TemplateDeclInstantiator::VisitNonTypeTemplateParmDecl(
   if (Invalid)
     Param->setInvalidDecl();
 
-  if (D->hasDefaultArgument()) {
+  if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited()) {
     ExprResult Value = SemaRef.SubstExpr(D->getDefaultArgument(), TemplateArgs);
     if (!Value.isInvalid())
-      Param->setDefaultArgument(Value.get(), false);
+      Param->setDefaultArgument(Value.get());
   }
 
   // Introduce this template parameter's instantiation into the instantiation
@@ -2205,7 +2205,7 @@ TemplateDeclInstantiator::VisitTemplateTemplateParmDecl(
                                              D->getPosition(),
                                              D->isParameterPack(),
                                              D->getIdentifier(), InstParams);
-  if (D->hasDefaultArgument()) {
+  if (D->hasDefaultArgument() && !D->defaultArgumentWasInherited()) {
     NestedNameSpecifierLoc QualifierLoc =
         D->getDefaultArgument().getTemplateQualifierLoc();
     QualifierLoc =
@@ -2215,10 +2215,10 @@ TemplateDeclInstantiator::VisitTemplateTemplateParmDecl(
         D->getDefaultArgument().getTemplateNameLoc(), TemplateArgs);
     if (!TName.isNull())
       Param->setDefaultArgument(
+          SemaRef.Context,
           TemplateArgumentLoc(TemplateArgument(TName),
                               D->getDefaultArgument().getTemplateQualifierLoc(),
-                              D->getDefaultArgument().getTemplateNameLoc()),
-          false);
+                              D->getDefaultArgument().getTemplateNameLoc()));
   }
   Param->setAccess(AS_public);
 
@@ -3246,10 +3246,18 @@ TemplateDeclInstantiator::InitFunctionInstantiation(FunctionDecl *New,
 
     // DR1330: In C++11, defer instantiation of a non-trivial
     // exception specification.
+    // DR1484: Local classes and their members are instantiated along with the
+    // containing function.
+    bool RequireInstantiation = false;
+    if (CXXRecordDecl *Cls = dyn_cast<CXXRecordDecl>(Tmpl->getDeclContext())) {
+      if (Cls->isLocalClass())
+        RequireInstantiation = true;
+    }
     if (SemaRef.getLangOpts().CPlusPlus11 &&
         EPI.ExceptionSpec.Type != EST_None &&
         EPI.ExceptionSpec.Type != EST_DynamicNone &&
-        EPI.ExceptionSpec.Type != EST_BasicNoexcept) {
+        EPI.ExceptionSpec.Type != EST_BasicNoexcept &&
+        !RequireInstantiation) {
       FunctionDecl *ExceptionSpecTemplate = Tmpl;
       if (EPI.ExceptionSpec.Type == EST_Uninstantiated)
         ExceptionSpecTemplate = EPI.ExceptionSpec.SourceTemplate;

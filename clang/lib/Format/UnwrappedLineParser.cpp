@@ -251,7 +251,6 @@ void UnwrappedLineParser::parse() {
       assert(PPLevelBranchIndex.back() <= PPLevelBranchCount.back());
     }
   } while (!PPLevelBranchIndex.empty());
-
 }
 
 void UnwrappedLineParser::parseFile() {
@@ -657,6 +656,16 @@ void UnwrappedLineParser::parseStructuralElement() {
       nextToken();
       addUnwrappedLine();
       return;
+    case tok::objc_autoreleasepool:
+      nextToken();
+      if (FormatTok->Tok.is(tok::l_brace)) {
+        if (Style.BreakBeforeBraces == FormatStyle::BS_Allman ||
+            Style.BreakBeforeBraces == FormatStyle::BS_GNU)
+          addUnwrappedLine();
+        parseBlock(/*MustBeDeclaration=*/false);
+      }
+      addUnwrappedLine();
+      return;
     case tok::objc_try:
       // This branch isn't strictly necessary (the kw_try case below would
       // do this too after the tok::at is parsed above).  But be explicit.
@@ -774,7 +783,15 @@ void UnwrappedLineParser::parseStructuralElement() {
         parseBracedList();
       break;
     case tok::kw_enum:
+      // parseEnum falls through and does not yet add an unwrapped line as an
+      // enum definition can start a structural element.
       parseEnum();
+      // This does not apply for Java and JavaScript.
+      if (Style.Language == FormatStyle::LK_Java ||
+          Style.Language == FormatStyle::LK_JavaScript) {
+        addUnwrappedLine();
+        return;
+      }
       break;
     case tok::kw_typedef:
       nextToken();
@@ -785,9 +802,15 @@ void UnwrappedLineParser::parseStructuralElement() {
     case tok::kw_struct:
     case tok::kw_union:
     case tok::kw_class:
+      // parseRecord falls through and does not yet add an unwrapped line as a
+      // record declaration or definition can start a structural element.
       parseRecord();
-      // A record declaration or definition is always the start of a structural
-      // element.
+      // This does not apply for Java and JavaScript.
+      if (Style.Language == FormatStyle::LK_Java ||
+          Style.Language == FormatStyle::LK_JavaScript) {
+        addUnwrappedLine();
+        return;
+      }
       break;
     case tok::period:
       nextToken();
@@ -848,6 +871,7 @@ void UnwrappedLineParser::parseStructuralElement() {
            Style.Language == FormatStyle::LK_Java) &&
           FormatTok->is(Keywords.kw_interface)) {
         parseRecord();
+        addUnwrappedLine();
         break;
       }
 
@@ -872,8 +896,7 @@ void UnwrappedLineParser::parseStructuralElement() {
                 ? FormatTok->NewlinesBefore > 0
                 : CommentsBeforeNextToken.front()->NewlinesBefore > 0;
 
-        if (FollowedByNewline &&
-            (Text.size() >= 5 || FunctionLike) &&
+        if (FollowedByNewline && (Text.size() >= 5 || FunctionLike) &&
             tokenCanStartNewLine(FormatTok->Tok) && Text == Text.upper()) {
           addUnwrappedLine();
           return;
@@ -887,9 +910,8 @@ void UnwrappedLineParser::parseStructuralElement() {
       // followed by a curly.
       if (FormatTok->is(TT_JsFatArrow)) {
         nextToken();
-        if (FormatTok->is(tok::l_brace)) {
+        if (FormatTok->is(tok::l_brace))
           parseChildBlock();
-        }
         break;
       }
 
@@ -912,6 +934,10 @@ void UnwrappedLineParser::parseStructuralElement() {
 }
 
 bool UnwrappedLineParser::tryToParseLambda() {
+  if (Style.Language != FormatStyle::LK_Cpp) {
+    nextToken();
+    return false;
+  }
   // FIXME: This is a dirty way to access the previous token. Find a better
   // solution.
   if (!Line->Tokens.empty() &&
@@ -950,7 +976,7 @@ bool UnwrappedLineParser::tryToParseLambda() {
       nextToken();
       break;
     case tok::arrow:
-      FormatTok->Type = TT_TrailingReturnArrow;
+      FormatTok->Type = TT_LambdaArrow;
       nextToken();
       break;
     default:
@@ -1019,7 +1045,7 @@ void UnwrappedLineParser::tryToParseJSFunction() {
     return;
 
   // Parse formal parameter list.
-  parseBalanced(tok::l_paren, tok::r_paren);
+  parseParens();
 
   if (FormatTok->is(tok::colon)) {
     // Parse a type definition.
@@ -1027,32 +1053,14 @@ void UnwrappedLineParser::tryToParseJSFunction() {
 
     // Eat the type declaration. For braced inline object types, balance braces,
     // otherwise just parse until finding an l_brace for the function body.
-    if (FormatTok->is(tok::l_brace)) {
-      parseBalanced(tok::l_brace, tok::r_brace);
-    } else {
-      while(FormatTok->isNot(tok::l_brace) && !eof()) {
+    if (FormatTok->is(tok::l_brace))
+      tryToParseBracedList();
+    else
+      while (FormatTok->isNot(tok::l_brace) && !eof())
         nextToken();
-      }
-    }
   }
 
   parseChildBlock();
-}
-
-void UnwrappedLineParser::parseBalanced(tok::TokenKind OpenKind,
-                                        tok::TokenKind CloseKind) {
-  assert(FormatTok->is(OpenKind));
-  nextToken();
-  int Depth = 1;
-  while (Depth > 0 && !eof()) {
-    // Parse the formal parameter list.
-    if (FormatTok->is(OpenKind)) {
-      ++Depth;
-    } else if (FormatTok->is(CloseKind)) {
-      --Depth;
-    }
-    nextToken();
-  }
 }
 
 bool UnwrappedLineParser::tryToParseBracedList() {
@@ -1076,11 +1084,12 @@ bool UnwrappedLineParser::parseBracedList(bool ContinueOnSemicolons) {
       if (FormatTok->is(Keywords.kw_function)) {
         tryToParseJSFunction();
         continue;
-      } else if (FormatTok->is(TT_JsFatArrow)) {
+      }
+      if (FormatTok->is(TT_JsFatArrow)) {
         nextToken();
         // Fat arrows can be followed by simple expressions or by child blocks
         // in curly braces.
-        if (FormatTok->is(tok::l_brace)){
+        if (FormatTok->is(tok::l_brace)) {
           parseChildBlock();
           continue;
         }
@@ -1102,16 +1111,15 @@ bool UnwrappedLineParser::parseBracedList(bool ContinueOnSemicolons) {
       FormatTok->BlockKind = BK_BracedInit;
       parseBracedList();
       break;
-    case tok::r_paren:
+    case tok::l_paren:
+      parseParens();
       // JavaScript can just have free standing methods and getters/setters in
       // object literals. Detect them by a "{" following ")".
       if (Style.Language == FormatStyle::LK_JavaScript) {
-        nextToken();
         if (FormatTok->is(tok::l_brace))
           parseChildBlock();
         break;
       }
-      nextToken();
       break;
     case tok::r_brace:
       nextToken();
@@ -1489,6 +1497,7 @@ void UnwrappedLineParser::parseEnum() {
   // Eat up enum class ...
   if (FormatTok->Tok.is(tok::kw_class) || FormatTok->Tok.is(tok::kw_struct))
     nextToken();
+
   while (FormatTok->Tok.getIdentifierInfo() ||
          FormatTok->isOneOf(tok::colon, tok::coloncolon, tok::less,
                             tok::greater, tok::comma, tok::question)) {
@@ -1496,8 +1505,14 @@ void UnwrappedLineParser::parseEnum() {
     // We can have macros or attributes in between 'enum' and the enum name.
     if (FormatTok->is(tok::l_paren))
       parseParens();
-    if (FormatTok->is(tok::identifier))
+    if (FormatTok->is(tok::identifier)) {
       nextToken();
+      // If there are two identifiers in a row, this is likely an elaborate
+      // return type. In Java, this can be "implements", etc.
+      if (Style.Language == FormatStyle::LK_Cpp &&
+          FormatTok->is(tok::identifier))
+        return;
+    }
   }
 
   // Just a declaration or something is wrong.
@@ -1519,8 +1534,8 @@ void UnwrappedLineParser::parseEnum() {
     addUnwrappedLine();
   }
 
-  // We fall through to parsing a structural element afterwards, so that in
-  // enum A {} n, m;
+  // There is no addUnwrappedLine() here so that we fall through to parsing a
+  // structural element afterwards. Thus, in "enum A {} n, m;",
   // "} n, m;" will end up in one unwrapped line.
 }
 
@@ -1590,7 +1605,6 @@ void UnwrappedLineParser::parseRecord() {
   const FormatToken &InitialToken = *FormatTok;
   nextToken();
 
-
   // The actual identifier can be a nested name specifier, and in macros
   // it is often token-pasted.
   while (FormatTok->isOneOf(tok::identifier, tok::coloncolon, tok::hashhash,
@@ -1637,13 +1651,9 @@ void UnwrappedLineParser::parseRecord() {
     parseBlock(/*MustBeDeclaration=*/true, /*AddLevel=*/true,
                /*MunchSemi=*/false);
   }
-  // We fall through to parsing a structural element afterwards, so
-  // class A {} n, m;
-  // will end up in one unwrapped line.
-  // This does not apply for Java and JavaScript.
-  if (Style.Language == FormatStyle::LK_Java ||
-      Style.Language == FormatStyle::LK_JavaScript)
-    addUnwrappedLine();
+  // There is no addUnwrappedLine() here so that we fall through to parsing a
+  // structural element afterwards. Thus, in "class A {} n, m;",
+  // "} n, m;" will end up in one unwrapped line.
 }
 
 void UnwrappedLineParser::parseObjCProtocolList() {
@@ -1736,7 +1746,8 @@ void UnwrappedLineParser::parseJavaScriptEs6ImportExport() {
     return;
   }
 
-  if (FormatTok->isOneOf(tok::kw_const, tok::kw_class, Keywords.kw_var))
+  if (FormatTok->isOneOf(tok::kw_const, tok::kw_class, tok::kw_enum,
+                         Keywords.kw_var))
     return; // Fall through to parsing the corresponding structure.
 
   if (FormatTok->is(tok::l_brace)) {
@@ -1780,15 +1791,12 @@ void UnwrappedLineParser::addUnwrappedLine() {
     if (CurrentLines == &Lines)
       printDebugInfo(*Line);
   });
-  CurrentLines->push_back(*Line);
+  CurrentLines->push_back(std::move(*Line));
   Line->Tokens.clear();
   if (CurrentLines == &Lines && !PreprocessorDirectives.empty()) {
-    for (SmallVectorImpl<UnwrappedLine>::iterator
-             I = PreprocessorDirectives.begin(),
-             E = PreprocessorDirectives.end();
-         I != E; ++I) {
-      CurrentLines->push_back(*I);
-    }
+    CurrentLines->append(
+        std::make_move_iterator(PreprocessorDirectives.begin()),
+        std::make_move_iterator(PreprocessorDirectives.end()));
     PreprocessorDirectives.clear();
   }
 }

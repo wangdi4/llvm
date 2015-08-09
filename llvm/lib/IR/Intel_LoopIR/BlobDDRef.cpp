@@ -1,4 +1,4 @@
-//===--- BlobDDRef.cpp - Implements the BlobDDRef class ---------*- C++ -*-===//
+//===--- BlobDDRef.cpp - Implements the BlobDDRef class -----------------*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -21,8 +21,8 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(int SB, const CanonExpr *CE, RegDDRef *Parent)
-    : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(Parent) {}
+BlobDDRef::BlobDDRef(int SB, const CanonExpr *CE)
+    : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(nullptr) {}
 
 BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)
     : DDRef(BlobDDRefObj), ParentDDRef(nullptr) {
@@ -40,16 +40,11 @@ BlobDDRef *BlobDDRef::clone() const {
   return NewBlobDDRef;
 }
 
-void BlobDDRef::print(formatted_raw_ostream &OS) const {
+void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto CE = getCanonExpr();
-
-  CE ? CE->print(OS) : (void)(OS << CE);
-}
-
-void BlobDDRef::detailedPrint(formatted_raw_ostream &OS) const {
-  print(OS);
-
-  OS << " Symbase: " << getSymBase();
+  CE ? CE->print(OS, Detailed) : (void)(OS << CE);
+  OS << " ";
+  DDRef::print(OS, Detailed);
 }
 
 HLDDNode *BlobDDRef::getHLDDNode() const {

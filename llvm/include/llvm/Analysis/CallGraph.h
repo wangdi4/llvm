@@ -52,10 +52,12 @@
 #ifndef LLVM_ANALYSIS_CALLGRAPH_H
 #define LLVM_ANALYSIS_CALLGRAPH_H
 
+#include "llvm/Analysis/CallGraphReport.h" // INTEL
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Pass.h"
 #include <map>
@@ -101,6 +103,10 @@ class CallGraph {
   /// \brief Add a function to the call graph, and link the node to all of the
   /// functions that it calls.
   void addToCallGraph(Function *F);
+
+  // INTEL A list of CGReports (e.g. the InlineReport) which can be manipulated 
+  // INTEL in a minimal way outside their local context 
+  SmallVector<CallGraphReport*, 16> CGReports; // INTEL
 
 public:
   CallGraph(Module &M);
@@ -156,6 +162,32 @@ public:
   /// \brief Similar to operator[], but this will insert a new CallGraphNode for
   /// \c F if one does not already exist.
   CallGraphNode *getOrInsertFunction(const Function *F);
+
+#ifdef INTEL_CUSTOMIZATION
+
+  /// \brief Add 'Report' to the list of reports which describe how the 
+  /// call graph is being transformed.  These reports will need to be 
+  /// updated when major changes are made to the call graph (e.g. adding 
+  /// or deleting a function).
+  void registerCGReport(CallGraphReport* Report) { 
+    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) { 
+      if (CGReports[I] == Report) { 
+        return;
+      } 
+    } 
+    CGReports.push_back(Report); 
+  } 
+
+  /// \brief For all registered CG reports, indicate that 'OldFunction' 
+  /// has been replaced by 'NewFunction'.
+  void replaceFunctionWithFunctionInCGReports(Function* OldFunction, 
+    Function* NewFunction) {
+    for (unsigned I = 0, E = CGReports.size(); I < E; ++I) { 
+      CGReports[I]->replaceFunctionWithFunction(OldFunction, NewFunction);
+    } 
+  }
+#endif // INTEL_CUSTOMIZATION
+
 };
 
 /// \brief A node in the call graph for a module.
@@ -229,8 +261,9 @@ public:
   /// \brief Adds a function to the list of functions called by this one.
   void addCalledFunction(CallSite CS, CallGraphNode *M) {
     assert(!CS.getInstruction() || !CS.getCalledFunction() ||
-           !CS.getCalledFunction()->isIntrinsic());
-    CalledFunctions.push_back(std::make_pair(CS.getInstruction(), M));
+           !CS.getCalledFunction()->isIntrinsic() ||
+           !Intrinsic::isLeaf(CS.getCalledFunction()->getIntrinsicID()));
+    CalledFunctions.emplace_back(CS.getInstruction(), M);
     M->AddRef();
   }
 

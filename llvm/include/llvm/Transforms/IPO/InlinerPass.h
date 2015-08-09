@@ -18,6 +18,7 @@
 #define LLVM_TRANSFORMS_IPO_INLINERPASS_H
 
 #include "llvm/Analysis/CallGraphSCCPass.h"
+#include "llvm/Transforms/IPO/InlineReport.h" // INTEL
 
 namespace llvm {
   class CallSite;
@@ -73,7 +74,11 @@ struct Inliner : public CallGraphSCCPass {
   /// attribute. This is useful for the InlineAlways pass that only wants to
   /// deal with that subset of the functions.
   bool removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly = false);
-
+#ifdef INTEL_CUSTOMIZATION
+  InlineReport& getReport() { return Report; }
+  void addDeletableFunction(Function* F) { DeletableFunctions.push_back(F); }
+  void removeDeletableFunctions(void);
+#endif // INTEL_CUSTOMIZATION
 private:
   // InlineThreshold - Cache the value here for easy access.
   unsigned InlineThreshold;
@@ -83,7 +88,13 @@ private:
 
   /// shouldInline - Return true if the inliner should attempt to
   /// inline at the given CallSite.
-  bool shouldInline(CallSite CS);
+bool shouldInline(CallSite CS);
+#ifdef INTEL_CUSTOMIZATION
+  // The inline report
+  InlineReport Report;
+  // A list of Function*s that can be deleted after the inliner is done
+  SmallVector<Function*, 16> DeletableFunctions;
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace

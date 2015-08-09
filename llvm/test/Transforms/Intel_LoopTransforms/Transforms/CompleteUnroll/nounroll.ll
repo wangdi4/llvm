@@ -1,7 +1,7 @@
-; Make sure HIRCG does nothing when nothing changes
-; No bblock for region
+; Test for Complete Unrolling when trip count is large.
+; There should not be any complete unrolling for this test case.
 
-; RUN: opt -HIRCompleteUnroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-de-ssa -HIRCompleteUnroll -HIRCG -S < %s | FileCheck %s
 ; CHECK: entry
 ; CHECK-NOT: region
 

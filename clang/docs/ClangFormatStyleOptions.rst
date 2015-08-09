@@ -155,23 +155,21 @@ the configuration (without a prefix: ``Auto``).
 
   This applies to round brackets (parentheses), angle brackets and square
   brackets. This will result in formattings like
-
-  .. code-block:: c++
-
-    someLongFunction(argument1,
-    argument2);
+  \code
+  someLongFunction(argument1,
+  argument2);
+  \endcode
 
 **AlignConsecutiveAssignments** (``bool``)
   If ``true``, aligns consecutive assignments.
 
   This will align the assignment operators of consecutive lines. This
   will result in formattings like
-
-  .. code-block:: c++
-
-    int aaaa = 12;
-    int b    = 23;
-    int ccc  = 23;
+  \code
+  int aaaa = 12;
+  int b    = 23;
+  int ccc  = 23;
+  \endcode
 
 **AlignEscapedNewlinesLeft** (``bool``)
   If ``true``, aligns escaped newlines as far left as possible.
@@ -204,10 +202,10 @@ the configuration (without a prefix: ``Auto``).
 
   * ``SFS_None`` (in configuration: ``None``)
     Never merge functions into a single line.
-  * ``SFS_Inline`` (in configuration: ``Inline``)
-    Only merge functions defined inside a class.
   * ``SFS_Empty`` (in configuration: ``Empty``)
     Only merge empty functions.
+  * ``SFS_Inline`` (in configuration: ``Inline``)
+    Only merge functions defined inside a class. Implies "empty".
   * ``SFS_All`` (in configuration: ``All``)
     Merge all functions fitting on a single line.
 
@@ -220,15 +218,27 @@ the configuration (without a prefix: ``Auto``).
   If ``true``, ``while (true) continue;`` can be put on a
   single line.
 
-**AlwaysBreakAfterDefinitionReturnType** (``bool``)
-  If ``true``, always break after function definition return types.
+**AlwaysBreakAfterDefinitionReturnType** (``DefinitionReturnTypeBreakingStyle``)
+  The function definition return type breaking style to use.
 
-  More truthfully called 'break before the identifier following the type
-  in a function definition'. PenaltyReturnTypeOnItsOwnLine becomes
-  irrelevant.
+  Possible values:
+
+  * ``DRTBS_None`` (in configuration: ``None``)
+    Break after return type automatically.
+    ``PenaltyReturnTypeOnItsOwnLine`` is taken into account.
+  * ``DRTBS_All`` (in configuration: ``All``)
+    Always break after the return type.
+  * ``DRTBS_TopLevel`` (in configuration: ``TopLevel``)
+    Always break after the return types of top level functions.
+
 
 **AlwaysBreakBeforeMultilineStrings** (``bool``)
   If ``true``, always break before multiline string literals.
+
+  This flag is mean to make cases where there are multiple multiline strings
+  in a file look more consistent. Thus, it will only take effect if wrapping
+  the string at that point leads to it being indented
+  ``ContinuationIndentWidth`` spaces from the start of the line.
 
 **AlwaysBreakTemplateDeclarations** (``bool``)
   If ``true``, always break after the ``template<...>`` of a
@@ -324,7 +334,7 @@ the configuration (without a prefix: ``Auto``).
   alignment of & and \*. ``PointerAlignment`` is then used only as fallback.
 
 **DisableFormat** (``bool``)
-  Disables formatting at all.
+  Disables formatting completely.
 
 **ExperimentalAutoDetectBinPacking** (``bool``)
   If ``true``, clang-format detects whether function calls and
@@ -343,11 +353,10 @@ the configuration (without a prefix: ``Auto``).
   instead of as function calls.
 
   These are expected to be macros of the form:
-
-    .. code-block:: c++
-
-      FOREACH(<variable-declaration>, ...)
-      <loop-body>
+  \code
+  FOREACH(<variable-declaration>, ...)
+  <loop-body>
+  \endcode
 
   For example: BOOST_FOREACH.
 

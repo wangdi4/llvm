@@ -53,9 +53,8 @@ protected:
   HLRegion(IRRegion *IReg);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to
-  /// access and destroy the nodes if we don't clear them out here.
-  ~HLRegion() { Children.clearAndLeakNodesUnsafely(); }
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLRegion() override { Children.clearAndLeakNodesUnsafely(); }
 
   friend class HLNodeUtils;
   friend class HIRCreation;
@@ -78,7 +77,11 @@ private:
 
 public:
   /// \brief Prints HLRegion.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
+  /// \brief Prints HLRegion along with the contained IRRegion.
+  void print(formatted_raw_ostream &OS, unsigned Depth, bool PrintIRRegion,
+             bool Detailed) const;
 
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return IRReg->getEntryBBlock(); }
@@ -95,16 +98,22 @@ public:
     return IRReg->containsBBlock(BB);
   }
 
-  /// \brief Adds a live-in temp to the region.
-  void addLiveInTemp(unsigned Symbase, const Value *Temp) {
-    IRReg->addLiveInTemp(Symbase, Temp);
+  /// \brief Adds a live-in temp (represented using Symbase) with initial value
+  /// InitVal to the region.
+  void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
+    IRReg->addLiveInTemp(Symbase, InitVal);
   }
 
-  /// \brief Adds a live-out temp to the region.
-  void addLiveOutTemp(const Value *Temp) { IRReg->addLiveOutTemp(Temp); }
+  /// \brief Adds a live-out temp (represented using Symbase) to the region.
+  void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
+    IRReg->addLiveOutTemp(Temp, Symbase);
+  }
 
-  /// \brief Returns true if this value is live out of this region.
-  bool isLiveOut(const Value *Temp) const { return IRReg->isLiveOut(Temp); }
+  /// \brief Returns true if this symbase is live in to this region.
+  bool isLiveIn(unsigned Symbase) const { return IRReg->isLiveIn(Symbase); }
+
+  /// \brief Returns true if this symbase is live out of this region.
+  bool isLiveOut(unsigned Symbase) const { return IRReg->isLiveOut(Symbase); }
 
   /// BBlock iterator methods
   const_bb_iterator bb_begin() const { return IRReg->bb_begin(); }
