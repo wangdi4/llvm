@@ -1524,6 +1524,13 @@ static std::string getCPUName(const ArgList &Args, const llvm::Triple &T) {
   case llvm::Triple::r600:
   case llvm::Triple::amdgcn:
     return getR600TargetGPU(Args);
+
+  case llvm::Triple::lpu:
+    // last of arch or cpu
+    if (const Arg *A = Args.getLastArg(options::OPT_march_EQ,
+                                     options::OPT_mcpu_EQ))
+      return A->getValue();
+    return "";
   }
 }
 

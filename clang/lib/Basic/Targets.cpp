@@ -483,7 +483,17 @@ public:
 // LPU Target
 namespace {
 class LPUTargetInfo : public TargetInfo {
-    static const Builtin::Info BuiltinInfo[];
+  static const Builtin::Info BuiltinInfo[];
+
+  enum LPUKind {
+    LPU_NONE,
+    LPU_ORDERED,
+    LPU_AUTOUNIT,
+    LPU_AUTOMIN,
+    LPU_CONFIG0,
+    LPU_CONFIG1
+  } LPU;
+
 public:
   LPUTargetInfo(const llvm::Triple &Triple) : TargetInfo(Triple) {
     LongWidth = LongAlign = PointerWidth = PointerAlign = 64;
@@ -532,6 +542,16 @@ public:
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &Info) const override {
     return false;
+  }
+  bool setCPU(const std::string &Name) override {
+    LPU = llvm::StringSwitch<LPUKind>(Name)
+        .Case("ordered", LPU_ORDERED)
+        .Case("autounit",LPU_AUTOUNIT)
+        .Case("automin", LPU_AUTOMIN)
+        .Case("config0", LPU_CONFIG0)
+        .Case("config1", LPU_CONFIG1)
+        .Default(LPU_NONE);
+    return LPU != LPU_NONE;
   }
 };
 
