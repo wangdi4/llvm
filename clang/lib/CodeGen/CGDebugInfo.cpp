@@ -1165,6 +1165,11 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
     Flags |= llvm::DINode::FlagLValueReference;
   if (Method->getRefQualifier() == RQ_RValue)
     Flags |= llvm::DINode::FlagRValueReference;
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#372369: Mark static method in DISubprogram flags entry.
+  if (CGM.getLangOpts().IntelCompat && Method->isStatic())
+    Flags |= llvm::DINode::FlagStaticMember;
+#endif // INTEL_CUSTOMIZATION
 
   llvm::DINodeArray TParamsArray = CollectFunctionTemplateParams(Method, Unit);
   llvm::DISubprogram *SP = DBuilder.createMethod(
