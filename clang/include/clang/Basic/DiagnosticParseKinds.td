@@ -609,6 +609,12 @@ def err_cxx11_attribute_forbids_ellipsis : Error<
 def err_cxx11_attribute_repeated : Error<
   "attribute %0 cannot appear multiple times in an attribute specifier">;
 def err_attributes_not_allowed : Error<"an attribute list cannot appear here">;
+// CQ#370092
+// if INTEL_CUSTOMIZATION
+def warn_attributes_not_allowed : Warning<
+  "an attribute list cannot appear here; attributes are ignored">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def err_l_square_l_square_not_attribute : Error<
   "C++11 only allows consecutive left square brackets when "
   "introducing an attribute">;

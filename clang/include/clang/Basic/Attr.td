@@ -357,7 +357,7 @@ def AddressSpace : TypeAttr {
 def Alias : Attr {
   let Spellings = [GCC<"alias">];
   let Args = [StringArgument<"Aliasee">];
-  let Subjects = SubjectList<[Function, GlobalVar], ErrorDiag,
+  let Subjects = SubjectList<[Function, GlobalVar], WarnDiag, //***INTEL
                              "ExpectedFunctionGlobalVarMethodOrProperty">;
   let Documentation = [Undocumented];
 }
@@ -1416,7 +1416,7 @@ def WeakRef : InheritableAttr {
   let Spellings = [GCC<"weakref">];
   // A WeakRef that has an argument is treated as being an AliasAttr
   let Args = [StringArgument<"Aliasee", 1>];
-  let Subjects = SubjectList<[Var, Function], ErrorDiag>;
+  let Subjects = SubjectList<[Var, Function], WarnDiag>; //***INTEL
   let Documentation = [Undocumented];
 }
 

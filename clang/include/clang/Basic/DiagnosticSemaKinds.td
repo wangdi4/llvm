@@ -2254,6 +2254,13 @@ def warn_cxx11_gnu_attribute_on_type : Warning<
 def warn_unhandled_ms_attribute_ignored : Warning<
   "__declspec attribute %0 is not supported">, 
   InGroup<IgnoredAttributes>;
+// CQ#370092
+// if INTEL_CUSTOMIZATION
+def warn_attribute_invalid_on_stmt : Warning<
+  "%0 attribute cannot be applied to a statement; "
+  "attribute ignored">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def err_attribute_invalid_on_stmt : Error<
   "%0 attribute cannot be applied to a statement">;
 def warn_declspec_attribute_ignored : Warning<
@@ -2738,6 +2745,12 @@ def warn_attribute_protected_visibility :
   Warning<"target does not support 'protected' visibility; using 'default'">,
   InGroup<DiagGroup<"unsupported-visibility">>;
 def err_mismatched_visibility: Error<"visibility does not match previous declaration">;
+// CQ#370092
+// if INTEL_CUSTOMIZATION
+def warn_mismatched_visibility: Warning<"visibility does not match previous declaration; "
+  "attribute ignored">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 def note_previous_attribute : Note<"previous attribute is here">;
 def note_conflicting_attribute : Note<"conflicting attribute is here">;
 def note_attribute : Note<"attribute is here">;
