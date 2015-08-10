@@ -170,6 +170,8 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueAcquireVAMediaSurfac
 typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clEnqueueReleaseVAMediaSurfacesINTEL)();
 typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clGetDeviceIDsFromVAMediaAdapterINTEL)();
 typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreateFromVAMediaSurfaceINTEL)();
+typedef CL_API_ENTRY cl_int( CL_API_CALL *INTELpfn_clSetDebugVariableINTEL)();
+typedef CL_API_ENTRY cl_int (CL_API_CALL *INTELpfn_clSetAcceleratorInfoINTEL)();
 
 typedef CL_API_ENTRY cl_mem (CL_API_CALL *INTELpfn_clCreatePipeINTEL)(
     cl_context                  /*context*/,
@@ -224,6 +226,11 @@ struct SOCLCRTDispatchTable
 
     // API to create pipe with host pointer
     INTELpfn_clCreatePipeINTEL                      clCreatePipeINTEL;
+
+    INTELpfn_clSetDebugVariableINTEL                clSetDebugVariableINTEL;
+
+        // Video Analytics Accelerator
+    INTELpfn_clSetAcceleratorInfoINTEL              clSetAcceleratorInfoINTEL;
 };
 
 struct ocl_entry_points

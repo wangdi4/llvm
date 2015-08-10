@@ -39,7 +39,7 @@ inline std::string FormatLibNameForOS( std::string &libName )
     retName = libName + "64.dll";
 #elif defined( _WIN32 )
     retName = libName + "32.dll";
-#else // Linux/Android
+#elif defined( __linux__ )
     retName = "lib" + libName + ".so";
 #endif
     return retName;

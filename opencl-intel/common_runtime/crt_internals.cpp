@@ -1153,20 +1153,19 @@ FINISH:
 CrtImage::CrtImage(
     cl_mem_flags            flags,
     CrtContext*             ctx):
-CrtMemObject(flags,NULL,ctx)
+        CrtMemObject(flags,NULL,ctx)
 {
     m_imageDesc.crtBuffer = NULL;
 }
-
 CrtImage::CrtImage(
     const cl_image_format * image_format,
     const cl_image_desc *   image_desc,
     cl_mem_flags            flags,
     void*                   host_ptr,
     CrtContext*             ctx):
-CrtMemObject(flags, host_ptr, ctx),
-m_imageFormat(*image_format),
-m_dimCount(0)
+        CrtMemObject(flags, host_ptr, ctx),
+        m_imageFormat(*image_format),
+        m_dimCount(0)
 {
     m_imageDesc.desc = *image_desc;
 
@@ -1288,6 +1287,48 @@ void*  CrtImage::GetMapPointer(const size_t* origin, const size_t* region)
     mapPtr += origin[1] * m_hostPtrRowPitch;
     mapPtr += origin[2] * m_hostPtrSlicePitch;
     return mapPtr;
+}
+
+void CrtImage::StoreMappedRegion(const void* ptr, const size_t* region)
+{
+    std::vector<size_t> mappedRegion;
+    mappedRegion.assign( region, region+3);
+
+    m_mappedRegions[ptr] = mappedRegion;
+}
+
+
+std::vector<size_t> CrtImage::GetMappedRegion( const void* ptr)
+{
+    std::map< const void*, std::vector<size_t> >::iterator itr;
+
+    itr = m_mappedRegions.find( ptr );
+    if( itr == m_mappedRegions.end() )
+    {
+        return std::vector<size_t>();
+    }
+
+    return itr->second;
+}
+
+void CrtImage::StoreMappedOrigin( const void* ptr, const size_t* origin)
+{
+    std::vector<size_t> mappedOrigin;
+    mappedOrigin.assign( origin, origin+3);
+    m_mappedOrigins[ptr] = mappedOrigin;
+}
+
+std::vector<size_t> CrtImage::GetMappedOrigin( const void* ptr)
+{
+    std::map< const void*, std::vector<size_t> >::iterator itr;
+
+    itr = m_mappedOrigins.find( ptr );
+    if( itr == m_mappedOrigins.end() )
+    {
+        return std::vector<size_t>();
+    }
+
+    return itr->second;
 }
 
 cl_int CrtImage::CheckParamsAndBounds(const size_t* origin, const size_t* region)
@@ -1564,7 +1605,7 @@ CrtImage(flags, ctx)
     m_dimCount      = dim_count;
     m_textureTarget = texture_target;
     m_mipLevel      = miplevel;
-    m_texture       = texture;    
+    m_texture       = texture;
 }
 
 CrtGLImage::~CrtGLImage()
@@ -3026,6 +3067,10 @@ cl_uint GetPlatformVersion( const char* platform_version )
     else if( !sub.compare( "2.0" ) )
     {
         version = OPENCL_2_0;
+    }
+    else if( !sub.compare( "2.1" ) )
+    {
+        version = OPENCL_2_1;
     }
     return version;
 }
