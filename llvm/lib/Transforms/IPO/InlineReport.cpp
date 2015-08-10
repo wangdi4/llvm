@@ -141,10 +141,10 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Not legal to inline",
   // NinlrNotAlwaysInline,
   InlPrtSimple, "Callee is not always_inline",
-  // NinlrNotProfitable,
-  InlPrtCost, "Inlining is not profitable", 
   // NinlrNewlyCreated,
   InlPrtSimple, "Newly created callsite", 
+  // NinlrNotProfitable,
+  InlPrtCost, "Inlining is not profitable", 
   // NinlrLast 
   InlPrtNone, nullptr
 }; 
@@ -548,7 +548,8 @@ void InlineReport::printOptionValues(void) const {
   llvm::errs() << "Option Values:\n"; 
   llvm::errs() << "  inline-threshold: " << InlineLimit << "\n";    
   llvm::errs() << "  inlinehint-threshold: " << HintThreshold << "\n";    
-  llvm::errs() << "  cold-threshold: " << ColdThreshold << "\n";    
+  llvm::errs() << "  inlinecold-threshold: " << ColdThreshold << "\n";    
+  llvm::errs() << "  inlineoptsize-threshold: " << OptSizeThreshold << "\n";    
   llvm::errs() << "\n"; 
 } 
 
