@@ -1158,4 +1158,11 @@ BUILTIN(__builtin_ia32_vpconflictsi_512_mask, "V16iV16iV16iUs", "")
 BUILTIN(__builtin_ia32_vplzcntd_512_mask, "V16iV16iV16iUs", "")
 BUILTIN(__builtin_ia32_vplzcntq_512_mask, "V8LLiV8LLiV8LLiUc", "")
 
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ374386: mwaitxintrin.h couldn't be compiled because of undeclared
+// builtin-functions
+BUILTIN(__builtin_ia32_monitorx, "vvC*UiUi", "Fnc")
+BUILTIN(__builtin_ia32_mwaitx, "vUiUiUi", "Fnc")
+#endif // INTEL_CUSTOMIZATION
+
 #undef BUILTIN
