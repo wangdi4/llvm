@@ -39,6 +39,7 @@ class LPUSubtarget : public LPUGenSubtargetInfo {
   std::string LPUName;
 
 protected:
+  bool IsOrdered;
   bool HasS8;
   bool HasS16;
   bool HasF16;
@@ -50,6 +51,7 @@ protected:
 
 public:
   std::string lpuName() const { return LPUName; }
+  bool isOrdered() const { return IsOrdered; }
   bool hasS8()    const { return HasS8; }
   bool hasS16()   const { return HasS16; }
   bool hasF16()   const { return HasF16; }

@@ -49,6 +49,7 @@ def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
 // Note S8, S16 not added to patterns
 // (If really needed, look at adding as param to multiclass templates.)
 // Maybe predicate for last param of many multiclass?
+def IsOrdered    : Predicate<"Subtarget.isOrdered()">;
 def HasS8        : Predicate<"Subtarget.hasS8()">;
 def HasS16       : Predicate<"Subtarget.hasS16()">;
 def HasF16       : Predicate<"Subtarget.hasF16()">;

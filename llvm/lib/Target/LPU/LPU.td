@@ -17,6 +17,10 @@ include "llvm/Target/Target.td"
 // LPU subtarget features
 //===----------------------------------------------------------------------===//
 
+// Large scale features
+def FeatureOrdered : SubtargetFeature<"ordered", "IsOrdered", "true",
+                            "All operations have ordered semantics - 1 unit">;
+
 // Type features
 def FeatureS8    : SubtargetFeature<"s8", "HasS8", "true",
                             "Enable 8b small integer ALU ops">;
@@ -46,7 +50,8 @@ def FeatureMath0 : SubtargetFeature<"math0", "HasMath0", "true",
 class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"ordered",  [FeatureS8,   FeatureS16,  FeatureF16,
+def : Proc<"ordered",  [FeatureOrdered,
+                        FeatureS8,   FeatureS16,  FeatureF16,
                         FeatureIDiv, FeatureFDiv, FeatureFMA,
                         FeatureSqrt, FeatureMath0]>;
 
