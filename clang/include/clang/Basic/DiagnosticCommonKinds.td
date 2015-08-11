@@ -95,6 +95,12 @@ def note_decl_hiding_tag_type : Note<
   "%1 %0 is hidden by a non-type declaration of %0 here">;
 def err_attribute_not_type_attr : Error<
   "%0 attribute cannot be applied to types">;
+// CQ#370092
+//#ifdef INTEL_CUSTOMIZATION
+def warn_attribute_not_type_attr : Warning<
+  "%0 attribute cannot be applied to types">,
+  InGroup<IgnoredAttributes>;
+//#endif  // INTEL_CUSTOMIZATION
 def err_enum_template : Error<"enumeration cannot be a template">;
 //#ifdef INTEL_CUSTOMIZATION
 def err_pragma_simd_expected_for_loop : Error<

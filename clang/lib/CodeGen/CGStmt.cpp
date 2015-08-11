@@ -1872,13 +1872,15 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
                                           S.getNumOutputs(), Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
 #ifdef INTEL_CUSTOMIZATION
-    // CQ#375735 - allows use of registers for rvalues under 'm' constraint.
+    // CQ#371735 - allow use of registers for rvalues under 'm' constraint.
     if (getLangOpts().IntelCompat &&
         S.getInputConstraint(i).find('m') != StringRef::npos &&
         Info.allowsMemory() && !Info.allowsRegister())
       if (const Expr *E = S.getInputExpr(i)) {
         const Expr *E2 = E->IgnoreParenNoopCasts(getContext());
-        if (!E->isLValue() && (!E2 || !E2->isLValue()))
+        Expr::Classification::Kinds Kind = E2->Classify(getContext()).getKind();
+        // Allow registers for anything except lvalues, xvalues and functions.
+        if (!E->isLValue() && Kind > Expr::Classification::CL_Function)
           Info.setAllowsRegister();
       }
 #endif // INTEL_CUSTOMIZATION

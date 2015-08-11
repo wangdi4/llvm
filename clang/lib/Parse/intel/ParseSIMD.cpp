@@ -296,6 +296,12 @@ static bool ParseSIMDClauses(Parser &P, Sema &S, SourceLocation BeginLoc,
       A = S.ActOnPragmaSIMDReduction(ILoc, ItemParser.Operator,
                                      ItemParser.VarExprs);
     }
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    else if (II->isStr("assert")) {
+      P.ConsumeToken();
+      A = S.ActOnPragmaSIMDAssert(ILoc);
+    }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
     else {
       P.Diag(Tok, diag::err_simd_invalid_clause);
       return false;

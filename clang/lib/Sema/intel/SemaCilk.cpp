@@ -32,7 +32,7 @@ typedef llvm::SmallVectorImpl<VarDecl const *> VarDeclVec;
 // This visitor looks for references to the loop control variable inside a
 // _Cilk_for body.
 class CilkForControlVarVisitor
-    : public RecursiveASTVisitor<CilkForControlVarVisitor> {
+    : public StmtVisitor<CilkForControlVarVisitor, bool> {
 private:
   // This visitor looks for potential errors and warnings about the modification
   // of the loop control variable.
@@ -196,11 +196,12 @@ public:
       if (UnaryOperator *UO = dyn_cast_or_null<UnaryOperator>(P)) {
         if (UO->getOpcode() == UO_AddrOf) {
           AddressOf = true;
-          P = PMap.getParentIgnoreParenImpCasts(P);
-          while (dyn_cast<CastExpr>(P)) {
-            P = PMap.getParentIgnoreParenImpCasts(P);
-          }
-
+          Stmt *Parent = P;
+          do {
+            Parent = PMap.getParentIgnoreParenImpCasts(Parent);
+          } while (Parent && isa<CastExpr>(Parent));
+          if (Parent)
+            P = Parent;
           // If the parent is a comma operator, get its parent to see if there
           // are any assignments.
           if (BinaryOperator *BO = dyn_cast<BinaryOperator>(P)) {
@@ -209,12 +210,19 @@ public:
           }
         }
       }
-
       // Use the usage visitor to analyze if the parent tries to modify the
       // loop control variable
       ControlVarUsageVisitor V(S, DeclRef, PMap, AddressOf);
       V.TraverseStmt(P);
       Error |= V.Error;
+    }
+    return true;
+  }
+
+  bool VisitStmt(Stmt *S) {
+    for (auto *ST : S->children()) {
+      if (ST)
+        Visit(ST);
     }
     return true;
   }
@@ -884,7 +892,7 @@ bool Sema::CheckIfBodyModifiesLoopControlVar(Stmt *Body) {
 
   ParentMap PMap(Body);
   CilkForControlVarVisitor V(*this, PMap, LoopControlVarsInScope);
-  V.TraverseStmt(Body);
+  V.Visit(Body);
 
   return V.Error;
 }
@@ -1416,6 +1424,7 @@ AttrResult Sema::ActOnPragmaSIMDLength(SourceLocation VectorLengthLoc,
                     SIMDLengthAttr(VectorLengthLoc, Context, E.get(), 0));
 }
 
+
 AttrResult Sema::ActOnPragmaSIMDLinear(SourceLocation LinearLoc,
                                        ArrayRef<Expr *> Exprs) {
   for (unsigned i = 0, e = Exprs.size(); i < e; i += 2) {
@@ -1704,7 +1713,7 @@ Sema::ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
       ReductionOp = BO_LAnd;
       break;
     case SIMDReductionAttr::pipepipe:
-      ReductionOp = BO_LAnd;
+      ReductionOp = BO_LOr;
       break;
     }
     if (Operator != SIMDReductionAttr::max &&
@@ -1723,6 +1732,12 @@ Sema::ActOnPragmaSIMDReduction(SourceLocation ReductionLoc,
 
   return AttrResult(ReductionAttr);
 }
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+AttrResult Sema::ActOnPragmaSIMDAssert(SourceLocation Loc) {
+  return AttrResult(::new (Context) SIMDAssertAttr(Loc, Context, 0));
+}
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
 namespace {
 struct UsedDecl {
@@ -4117,6 +4132,9 @@ bool Sema::DiagnoseElementalAttributes(FunctionDecl *FD) {
     } else if (CilkLinearAttr *A = dyn_cast<CilkLinearAttr>(*AI)) {
       unsigned key = A->getGroup().getRawEncoding();
       Groups[key].push_back(A);
+    } else if (CilkAlignedAttr *A = dyn_cast<CilkAlignedAttr>(*AI)) {
+      unsigned key = A->getGroup().getRawEncoding();
+      Groups[key].push_back(A);
     } else if (CilkUniformAttr *A = dyn_cast<CilkUniformAttr>(*AI)) {
       unsigned key = A->getGroup().getRawEncoding();
       Groups[key].push_back(A);
@@ -4157,6 +4175,9 @@ bool Sema::DiagnoseElementalAttributes(FunctionDecl *FD) {
       } else if (CilkLinearAttr *LA = dyn_cast<CilkLinearAttr>(CurA)) {
         II = LA->getParameter();
         SubjectLoc = LA->getParameterLoc();
+      } else if (CilkAlignedAttr *AA = dyn_cast<CilkAlignedAttr>(CurA)) {
+        II = AA->getParameter();
+        SubjectLoc = AA->getParameterLoc();
       } else if (CilkMaskAttr *MA = dyn_cast<CilkMaskAttr>(CurA)) {
         // Check (4)
         if (PrevMaskAttr && PrevMaskAttr->getMask() != MA->getMask()) {
@@ -4317,6 +4338,41 @@ Expr *Sema::CheckCilkLinearArg(Expr *E) {
     llvm::APSInt Val(Context.getTypeSize(Ty), /*isUnsigned*/ false);
     if (!E->isIntegerConstantExpr(Val, Context)) {
       Diag(ExprLoc, diag::err_cilk_elemental_linear_step_not_constant)
+          << E->getSourceRange();
+      return 0;
+    }
+
+    // Create an integeral literal for the final attribute.
+    return IntegerLiteral::Create(Context, Val, Ty, ExprLoc);
+  }
+
+  return E;
+}
+
+Expr *Sema::CheckCilkAlignedArg(Expr *E) {
+  if (!E)
+    return E;
+
+  SourceLocation ExprLoc = E->getExprLoc();
+  QualType Ty = E->getType().getNonReferenceType();
+
+  // Check type.
+  if (!E->isTypeDependent() && !Ty->isIntegralOrEnumerationType()) {
+    Diag(ExprLoc, diag::err_cilk_elemental_aligned_not_integral)
+        << E->getType() << E->getSourceRange();
+    return 0;
+  }
+
+  if (!E->isInstantiationDependent()) {
+    // If this is a parameter name, then return itself. Otherwise, make
+    // sure it is an integer constant.
+    if (DeclRefExpr *DRE = dyn_cast<DeclRefExpr>(E))
+      if (isa<ParmVarDecl>(DRE->getDecl()))
+        return E;
+
+    llvm::APSInt Val(Context.getTypeSize(Ty), /*isUnsigned*/ false);
+    if (!E->isIntegerConstantExpr(Val, Context)) {
+      Diag(ExprLoc, diag::err_cilk_elemental_aligned_not_constant)
           << E->getSourceRange();
       return 0;
     }

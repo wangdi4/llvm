@@ -114,6 +114,11 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
     return true;
 
   case tok::annot_typename:
@@ -4595,6 +4600,11 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   case DeclSpec::TST_typename:
   case DeclSpec::TST_typeofType:
   case DeclSpec::TST_underlyingType:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case DeclSpec::TST_bases:
+  case DeclSpec::TST_directBases:
+#endif // INTEL_CUSTOMIZATION
   case DeclSpec::TST_atomic: {
     // Grab the type from the parser.
     TypeSourceInfo *TSI = nullptr;
@@ -7788,9 +7798,13 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         HasExplicitTemplateArgs = false;
       } else {
+#ifndef INTEL_CUSTOMIZATION
+        // Fix for CQ374168: Regression (assertion failure) on
+        // cfe_iclangCpp/nlu1_8)
         assert((isFunctionTemplateSpecialization ||
                 D.getDeclSpec().isFriendSpecified()) &&
                "should have a 'template<>' for this decl");
+#endif // INTEL_CUSTOMIZATION
         // "friend void foo<>(int);" is an implicit specialization decl.
         isFunctionTemplateSpecialization = true;
       }
@@ -11950,6 +11964,19 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
             Previous.addDecl(Tag);
             Previous.resolveKind();
           }
+#ifdef INTEL_CUSTOMIZATION
+          // CQ#364598 - allow elaborated befriended type refer to a typedef in
+          // the same scope. Emit a warning as this relaxes ISO C++ restriction.
+          else if (getLangOpts().IntelCompat && TUK == TUK_Friend &&
+                   TD->getDeclContext()->getRedeclContext() == SearchDC) {
+            Diag(NameLoc, diag::ext_intel_elab_befriended_type_refers_typedef);
+            Diag(PrevDecl->getLocation(), diag::note_declared_at);
+            PrevDecl = Tag;
+            Previous.clear();
+            Previous.addDecl(Tag);
+            Previous.resolveKind();
+          }
+#endif // INTEL_CUSTOMIZATION
         }
       }
     }

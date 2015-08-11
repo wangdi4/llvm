@@ -190,6 +190,21 @@ namespace {
           }
         }
       }
+
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#371078: linkfail when static const/constexpr is used as a
+      // field of a structure.
+      if (Ctx->getLangOpts().IntelCompat) {
+        for (Decl *Member : D->decls()) {
+          if (VarDecl *VD = dyn_cast<VarDecl>(Member)) {
+            if (Ctx->isIntelStaticDataMemberInlineDefinition(VD) &&
+                Ctx->DeclMustBeEmitted(VD)) {
+              Builder->EmitGlobal(VD);
+            }
+          }
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     void HandleTagDeclRequiredDefinition(const TagDecl *D) override {

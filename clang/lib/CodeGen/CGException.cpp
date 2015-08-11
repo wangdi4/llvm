@@ -552,6 +552,10 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
 #ifdef INTEL_CUSTOMIZATION
+  // CQ#372058 - associate landing pad in debug info with the end of the try
+  // scope. The landing pad is associated with CurEHLocation.
+  SourceLocation OldEHLocation = CurEHLocation;
+  CurEHLocation = S.getTryBlock()->getLocEnd();
   {
     if (getLangOpts().CilkPlus && CurCGCilkImplicitSyncInfo) {
       // The following implicit sync is not required by the Cilk Plus
@@ -570,6 +574,8 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
     EmitStmt(S.getTryBlock());
   }
+  // Restore EH location.
+  CurEHLocation = OldEHLocation;
 #else
   EmitStmt(S.getTryBlock());
 #endif // INTEL_CUSTOMIZATION

@@ -154,6 +154,11 @@ Parser::TPResult Parser::TryConsumeDeclarationSpecifier() {
     // Fall through.
   case tok::kw_typeof:
   case tok::kw___attribute:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___underlying_type: {
     ConsumeToken();
     if (Tok.isNot(tok::l_paren))
@@ -980,6 +985,11 @@ Parser::isExpressionOrTypeSpecifierSimple(tok::TokenKind Kind) {
   case tok::kw__Thread_local:
   case tok::kw_typeof:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
@@ -1473,6 +1483,11 @@ Parser::isCXXDeclarationSpecifier(Parser::TPResult BracedCastResult,
 
   // C++0x type traits support
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
     return TPResult::True;
 
   // C11 _Atomic
@@ -1492,6 +1507,11 @@ bool Parser::isCXXDeclarationSpecifierAType() {
   case tok::annot_typename:
   case tok::kw_typeof:
   case tok::kw___underlying_type:
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369185 - support of __bases and __direct_bases intrinsics.
+  case tok::kw___bases:
+  case tok::kw___direct_bases:
+#endif // INTEL_CUSTOMIZATION
     return true;
 
     // elaborated-type-specifier

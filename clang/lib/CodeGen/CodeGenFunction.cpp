@@ -946,6 +946,10 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   } else
     llvm_unreachable("no definition for emitted function");
 
+#ifdef INTEL_CUSTOMIZATION
+  // This is disabled in IntelCompat mode to follow icc's example. CQ#371796.
+  if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   // C++11 [stmt.return]p2:
   //   Flowing off the end of a function [...] results in undefined behavior in
   //   a value-returning function.

@@ -48,16 +48,11 @@ class CilkForRAII {
   CodeGenFunction *CGF;
 
 public:
-  CilkForRAII() : CGF(nullptr){};
-  void capture(CodeGenFunction *_CGF,
-               CodeGenFunction::CGCapturedStmtInfo *CSI) {
-    CGF = _CGF;
+  CilkForRAII(CodeGenFunction *CGF) : CGF(CGF){
     OldCapturedStmtInfo = CGF->CapturedStmtInfo;
-    CGF->CapturedStmtInfo = CSI;
-  }
+  };
   ~CilkForRAII() {
-    if (CGF)
-      CGF->CapturedStmtInfo = OldCapturedStmtInfo;
+    CGF->CapturedStmtInfo = OldCapturedStmtInfo;
   }
 };
 
@@ -89,11 +84,11 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
   EmitBlock(ThenBlock);
   {
-    CilkForRAII cfRAII;
+    CilkForRAII CfRAII (this);
     RunCleanupsScope Scope(*this);
     const Expr *LoopCountExpr = S.getLoopCount();
     if(!CapturedStmtInfo)
-      cfRAII.capture(this, &CSInfo); // use the proper captured info
+      CapturedStmtInfo = &CSInfo;
     llvm::Value *LoopCount = EmitAnyExpr(LoopCountExpr).getScalarVal();
     // Initialize the captured struct.
     LValue CapStruct = InitCapturedStruct(*S.getBody());
@@ -131,6 +126,11 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
     // Update the Loop Control Variable
     if (!isa<DeclStmt>(S.getInit())) {
       llvm::Value *LCVAddr = LocalDeclMap.lookup(S.getLoopControlVar());
+      if(!LCVAddr){
+        if(CGCilkForStmtInfo *CFCSI = dyn_cast<CGCilkForStmtInfo>(CapturedStmtInfo))
+          LCVAddr = CFCSI->getInnerLoopControlVarAddr();
+      }
+      assert(LCVAddr && "missing inner loop control variable address");
       llvm::Value *LCVValue = Builder.CreateLoad(LCVAddr);
 
       bool IsAdd = true;
@@ -450,6 +450,21 @@ public:
     }
     return *this;
   }
+  IntelPragmaBuilder &addop(LValue LVal, CodeGenFunction *CGF) {
+    if (LVal.isSimple()) {
+      addop("SIMPLE").addop(LVal.getAddress());
+    } else if (LVal.isVectorElt()) {
+      addop("VECTOR_ELT").addop(LVal.getVectorAddr()).addop(
+          LVal.getVectorIdx());
+    } else if (LVal.isExtVectorElt()) {
+      RValue RVal = CGF->EmitLoadOfExtVectorElementLValue(LVal);
+      addop("EXT_VECTOR_ELT").addop(RVal);
+    } else {
+      RValue RVal = CGF->EmitLoadOfBitfieldLValue(LVal);
+      addop("BITFIELD").addop(RVal);
+    }
+    return *this;
+  }
   ArrayRef<llvm::Value *> getops() { return Ops; }
 };
 
@@ -468,6 +483,33 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
           auto C = cast<llvm::ConstantInt>(Width.getScalarVal());
           P.addop("VECTORLENGTH");
           P.addop(C);
+        } break;
+      case clang::attr::SIMDAssert:
+        P.addop("ASSERT");
+        break;
+      case clang::attr::SIMDReduction:
+        {
+          auto A = static_cast<const SIMDReductionAttr *>(Attrs[i]);
+          std::string Op = "";
+          switch (A->Operator) {
+            case SIMDReductionAttr::max:      Op = "MAX"; break;
+            case SIMDReductionAttr::min:      Op = "MIN"; break;
+            case SIMDReductionAttr::plus:     Op = "+"; break;
+            case SIMDReductionAttr::star:     Op = "*"; break;
+            case SIMDReductionAttr::minus:    Op = "-"; break;
+            case SIMDReductionAttr::amp:      Op = "&"; break;
+            case SIMDReductionAttr::pipe:     Op = "|"; break;
+            case SIMDReductionAttr::caret:    Op = "^"; break;
+            case SIMDReductionAttr::ampamp:   Op = "&&"; break;
+            case SIMDReductionAttr::pipepipe: Op = "||"; break;
+          }
+          for (SIMDReductionAttr::variables_iterator
+               it = A->variables_begin(), end = A->variables_end();
+               it != end; ++it) {
+            P.addop("REDUCTION").addop(Op);
+            LValue LVal = CGF->EmitLValue(*it);
+            P.addop("LVALUE").addop(LVal, CGF);
+          }
         } break;
       default:
         break;
@@ -625,6 +667,16 @@ void CodeGenFunction::EmitPragmaSimd(CodeGenFunction::CGPragmaSimdWrapper &W) {
 
     // Emit the fall-through block.
     EmitBlock(LoopExit.getBlock(), true);
+
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+    {
+      // Mark the end of #pragma simd - it's required for IL0 backend.
+      IntelPragmaBuilder P(CGM.getLLVMContext());
+      P.addop("SIMD_END_LOOP");
+      EmitRuntimeCall(CGM.getIntrinsic(llvm::Intrinsic::intel_pragma),
+                      P.getops());
+    }
+#endif // INTEL_SPECIFIC_IL0_BACKEND
 
     // Increment again, for last iteration.
     W.emitIncrement(*this, LoopIndex);
@@ -1216,19 +1268,7 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         }
       } else {
         LValue LVal = EmitLValue(S.getAttribs()[i].Value);
-        P.addop("LVALUE");
-        if (LVal.isSimple()) {
-          P.addop("SIMPLE").addop(LVal.getAddress());
-        } else if (LVal.isVectorElt()) {
-          P.addop("VECTOR_ELT").addop(LVal.getVectorAddr()).addop(
-              LVal.getVectorIdx());
-        } else if (LVal.isExtVectorElt()) {
-          RValue RVal = EmitLoadOfExtVectorElementLValue(LVal);
-          P.addop("EXT_VECTOR_ELT").addop(RVal);
-        } else {
-          RValue RVal = EmitLoadOfBitfieldLValue(LVal);
-          P.addop("BITFIELD").addop(RVal);
-        }
+        P.addop("LVALUE").addop(LVal, this);
       }
     }
     assert(!(S.getPragmaKind() == IntelPragmaInlineEnd &&

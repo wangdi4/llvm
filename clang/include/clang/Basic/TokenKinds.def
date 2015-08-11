@@ -396,6 +396,9 @@ KEYWORD(_Cilk_for                   , KEYCILKPLUS)
 KEYWORD(_Quad                       , KEYFLOAT128)
 // CQ#367834 - __float128 should be an alias for _Quad.
 ALIAS("__float128"    , _Quad       , KEYFLOAT128)
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+KEYWORD(__bases                     , KEYBASES)
+KEYWORD(__direct_bases              , KEYBASES)
 #endif  // INTEL_CUSTOMIZATION
 // MSVC12.0 / VS2013 Type Traits
 TYPE_TRAIT_1(__is_destructible, IsDestructible, KEYMS)
@@ -578,8 +581,14 @@ KEYWORD(_Nullable                , KEYALL)
 KEYWORD(_Null_unspecified        , KEYALL)
 
 // Microsoft extensions which should be disabled in strict conformance mode
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ#373504: __ptr64 and __ptr32 on Linux.
+KEYWORD(__ptr64                       , KEYALL)
+KEYWORD(__ptr32                       , KEYALL)
+#else
 KEYWORD(__ptr64                       , KEYMS)
 KEYWORD(__ptr32                       , KEYMS)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__sptr                        , KEYMS)
 KEYWORD(__uptr                        , KEYMS)
 KEYWORD(__w64                         , KEYMS)

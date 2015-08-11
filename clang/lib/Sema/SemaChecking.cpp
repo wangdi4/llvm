@@ -614,32 +614,33 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
                                 TheCall->getRParenLoc());
     }
     break;
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
-  case Builtin::BI__assume_aligned: {
-    if (checkArgCount(*this, TheCall, 2)) return ExprError();
-    Expr *Arg1 = TheCall->getArg(0);
-    Expr *Arg2 = TheCall->getArg(1);
-    QualType QTy1 = Arg1->getType();
-    QualType QTy2 = Arg2->getType();
-    if (QTy1->isDependentType() ||
-        QTy2->isDependentType() ||
-        QTy1->isInstantiationDependentType() ||
-        QTy2->isInstantiationDependentType()) break;
-    if (!QTy1->isPointerType()) {
-      Diag(Arg1->getExprLoc(), diag::err_assume_aligned_not_pointer)
-        << QTy1 << Arg1->getSourceRange();
-      return ExprError();
+    // CQ#373129 - support for __assume_aligned builtin.
+    case Builtin::BI__assume_aligned: {
+      if (checkArgCount(*this, TheCall, 2))
+        return ExprError();
+      Expr *Arg1 = TheCall->getArg(0);
+      Expr *Arg2 = TheCall->getArg(1);
+      QualType QTy1 = Arg1->getType();
+      QualType QTy2 = Arg2->getType();
+      if (QTy1->isDependentType() || QTy2->isDependentType() ||
+          QTy1->isInstantiationDependentType() ||
+          QTy2->isInstantiationDependentType())
+        break;
+      if (!QTy1->isPointerType()) {
+        Diag(Arg1->getExprLoc(), diag::err_assume_aligned_first_arg_not_pointer)
+            << QTy1 << Arg1->getSourceRange();
+        return ExprError();
+      }
+      llvm::APSInt Result;
+      if (SemaBuiltinConstantArg(TheCall, 1, Result))
+        return ExprError();
+      if (!Result.isStrictlyPositive() || !Result.isPowerOf2()) {
+        Diag(Arg2->getExprLoc(), diag::err_alignment_not_power_of_two)
+            << QTy2 << Arg2->getSourceRange();
+        return ExprError();
+      }
+      break;
     }
-    llvm::APSInt Result;
-    if (SemaBuiltinConstantArg(TheCall, 1, Result) || !Result.isStrictlyPositive() ||
-        !Result.isPowerOf2()) {
-      Diag(Arg2->getExprLoc(), diag::err_assume_aligned_not_integer)
-        << QTy2 << Arg2->getSourceRange();
-      return ExprError();
-    }
-    }
-    break;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_addressof:
     if (SemaBuiltinAddressof(*this, TheCall))
@@ -3188,8 +3189,21 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
     return true;
 
   if (Result.getSExtValue() < Low || Result.getSExtValue() > High)
+#ifdef INTEL_CUSTOMIZATION
+  {
+    // CQ#371990 - let __builtin_prefetch's argument be out of Low..High range,
+    // assuming Low value.
+    if (getLangOpts().IntelCompat &&
+        TheCall->getBuiltinCallee() == Builtin::BI__builtin_prefetch)
+      Diag(TheCall->getLocStart(), diag::warn_arg_invalid_range_low_assumed)
+            << Low << High << Arg->getSourceRange();
+    else
+#endif // INTEL_CUSTOMIZATION
     return Diag(TheCall->getLocStart(), diag::err_argument_invalid_range)
       << Low << High << Arg->getSourceRange();
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
