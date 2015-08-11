@@ -94,7 +94,8 @@ private:
   std::vector<std::pair<unsigned, unsigned>> LoopCost;
   void TransformLoop(HLLoop *Loop);
   void ProcessLoop(HLLoop *Loop, DDAnalysis *DDA);
-  void CheckLegality(HLNode *Loop, DDAnalysis *DDA);
+  // returns true means legal for any permutation
+  bool LegalForInterchange(HLNode *Loop, DDAnalysis *DDA);
   void visit(HLNode *Node);
   void visit(HLRegion *Node);
   void visit(HLLoop *Node);
@@ -169,7 +170,7 @@ void HIRLoopInterchange::ProcessLoop(HLLoop *Loop, DDAnalysis *DDA) {
   bool InterchangeNeeded = false;
   for (size_t i = 0; i <= LoopCost.size(); ++i) {
 
-    // next line test only !!!
+    // Next line test only !!!
     LoopCost[i].first = 10.0 * i;
 
     unsigned Sum = LoopCost[i].first;
@@ -179,13 +180,23 @@ void HIRLoopInterchange::ProcessLoop(HLLoop *Loop, DDAnalysis *DDA) {
       continue;
     }
     if (Sum > LastSum) {
-      CheckLegality(cast<HLNode>(Loop), DDA);
       InterchangeNeeded = true;
       break;
     }
     LastSum = Sum;
   }
+
   DEBUG(dbgs() << "\nInterchangeNeeded=" << InterchangeNeeded << "\n");
+
+  if (!InterchangeNeeded) {
+    return;
+  }
+
+  // When returning legal == true, means we can just interchange w/o
+  // examining DV.
+  // Otherwise, need to find best permutation
+  if (!LegalForInterchange(cast<HLNode>(Loop), DDA)) {
+  }
 }
 
 static bool IgnoreAntiEdge(DDEdge const *Edge, DVType *DV) {
@@ -196,7 +207,7 @@ static bool IgnoreAntiEdge(DDEdge const *Edge, DVType *DV) {
     unsigned Direction = DV[0];
     if (RegRef->isScalarRef() && Direction == DV::LT) {
       raw_ostream &OS = dbgs();
-      DEBUG(dbgs() << "\n\tScalar Anti edge dropped");
+      DEBUG(dbgs() << "\n\tANTI edge for Temp dropped");
       DEBUG(dbgs() << "\t"; Edge->print(OS));
       return true;
     }
@@ -204,7 +215,8 @@ static bool IgnoreAntiEdge(DDEdge const *Edge, DVType *DV) {
   return false;
 }
 
-static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop) {
+static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop,
+                       DVType *RefinedDV = nullptr) {
 
   //  1. Ignore all  (= = ..)
   //  2. for temps, ignore  anti (< ..)
@@ -212,7 +224,11 @@ static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop) {
   //     be all =
   //  3. Safe reduction (already done before calling here)
 
-  DVType *DV = const_cast<DVType *>(Edge->getDV());
+  DVType *DV = RefinedDV;
+
+  if (DV == nullptr) {
+    DV = const_cast<DVType *>(Edge->getDV());
+  }
 
   if (isDValEQ(DV)) {
     DEBUG(dbgs() << "\n\tDV all =");
@@ -232,7 +248,7 @@ static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop) {
   }
 
   if (IgnoreAntiEdge(Edge, DV)) {
-    DEBUG(dbgs() << "\n\tIgnoe Anti edge");
+    DEBUG(dbgs() << "\n\tIgnore Anti edge");
     return true;
   }
 
@@ -243,8 +259,14 @@ struct WalkHIR {
 
   raw_ostream &OS = dbgs();
   DDGraph DDG;
-  unsigned NumEdges;
   HLNode *CandidateLoop;
+  // Indicates if we need to call Demand Driven DD to refine DV
+  bool RefineDV;
+  DVectorTy ResultDV;
+  // start, end level of Candidate Loop nest
+  unsigned int StartLevel;
+  unsigned int EndLevel;
+
   void visit(HLNode *Node) {
 
     HLInst *Inst = dyn_cast<HLInst>(Node);
@@ -252,11 +274,9 @@ struct WalkHIR {
     if (!Inst) {
       return;
     }
-
     if (Inst->isSafeRedn()) {
       return;
     }
-
     for (auto I = Inst->ddref_begin(), E = Inst->ddref_end(); I != E; ++I) {
       if ((*I)->isConstant()) {
         continue;
@@ -277,10 +297,57 @@ struct WalkHIR {
           DEBUG(dbgs() << "\n\t<Edge dropped>");
           DEBUG(dbgs() << "\t"; II->print(OS));
           continue;
-        } else {
-          DEBUG(dbgs() << "\n\t<Edge selected>");
-          DEBUG(dbgs() << "\t"; II->print(OS));
         }
+
+        const DVType *TempDV = II->getDV();
+        HLLoop *Loop = cast<HLLoop>(CandidateLoop);
+
+        const DVType *DV = II->getDV();
+        DDtest DA;
+
+        if (StartLevel == 0) {
+          StartLevel = Loop->getNestingLevel();
+          // get last level from  DD Util
+          EndLevel = DA.lastLevelInDV(DV);
+        }
+
+        // Calling Demand Driven DD to refine DV
+        if (RefineDV) {
+          RegDDRef *RegDDref = dyn_cast<RegDDRef>(DDref);
+          if (RegDDref && !(RegDDref->isScalarRef())) {
+
+            DDRef *SrcDDRef = II->getSrc();
+            DDRef *DstDDRef = DDref;
+            DVectorTy InputDV;
+            DVectorTy RefinedDV;
+
+            DA.setInputDV(InputDV, StartLevel, EndLevel);
+            DEBUG(dbgs() << "\nCalling Demand Driven DD");
+            auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+
+            if (Result == nullptr) {
+              DEBUG(dbgs() << "\nIs INDEP from Demand Driven DD\n");
+              continue;
+            }
+
+            for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+              RefinedDV[I - 1] = Result->getDirection(I);
+            }
+
+            DEBUG(Result->dump(OS));
+            if (IgnoreEdge(edge, CandidateLoop, &RefinedDV[0])) {
+              continue;
+            }
+            TempDV = &RefinedDV[0];
+          }
+        }
+
+        for (unsigned I = StartLevel; I <= EndLevel; ++I) {
+          ResultDV[I - 1] |= TempDV[I - 1];
+        }
+
+        DEBUG(dbgs() << "\n\t<Edge selected>");
+        DEBUG(dbgs() << "\t"; II->print(OS));
       }
 
       for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
@@ -293,11 +360,15 @@ struct WalkHIR {
   void postVisit(HLNode *) {}
   bool isDone() { return false; }
   bool skipRecursion(HLNode *Node) { return false; }
-  WalkHIR(DDGraph DDG, unsigned NumEdges, HLNode *CandidateLoop)
-      : DDG(DDG), NumEdges(NumEdges), CandidateLoop(CandidateLoop) {}
+  WalkHIR(DDGraph DDG, HLNode *CandidateLoop, bool RefineDV)
+      : DDG(DDG), CandidateLoop(CandidateLoop), RefineDV(RefineDV) {}
 };
 
-void HIRLoopInterchange::CheckLegality(HLNode *Loop, DDAnalysis *DDAP) {
+// returns true means legal for any permutation
+bool HIRLoopInterchange::LegalForInterchange(HLNode *Loop, DDAnalysis *DDAP) {
+
+  bool DVhasLT;
+  bool DVhasGT;
 
   // Sorting in decending order
   // first hold the localityWt sum
@@ -315,20 +386,58 @@ void HIRLoopInterchange::CheckLegality(HLNode *Loop, DDAnalysis *DDAP) {
   }
 
   // TODO
-  // 4) exclude loops that has pragma  for unroll or unroll & jam
+  // 4) exclude loops that has pragma for unroll or unroll & jam
   //    exclude triangular loop until later
 
   // 5) Gather/sum DV from DDG. Filter out loop indep dep for temps,
   // safe reduction
 
-  // Rebuild DDG for loop on demand as needed
+  // We plan to avoid demand driven DD refining DV.
+  // Will set last srgument of WalkHIR as false later after testing
+
   DEBUG(dbgs() << "\n\tCalling Rebuild\n");
   DDGraph DDG = DDAP->getGraph(Loop, false);
   DEBUG(dbgs() << "\n\tEnd calling Rebuild\n");
 
-  WalkHIR WHIR(DDG, 0, Loop);
+  WalkHIR WHIR(DDG, Loop, true);
+  DDtest DA;
+  DA.initDV(WHIR.ResultDV);
+  WHIR.StartLevel = 0;
+  WHIR.EndLevel = 0;
 
   HLNodeUtils::visit(&WHIR, Loop, true, true, true);
+
+  DEBUG(dbgs() << "\nStart, End level\n" << WHIR.StartLevel << " "
+               << WHIR.EndLevel);
+
+  DEBUG(dbgs() << "\nDV Accumulated: ";
+        printDV(WHIR.ResultDV, WHIR.EndLevel, dbgs()));
+
+  // If no edges are selected (Startlevel == 0)
+  // then there is no dependence preventing interchange
+
+  if (WHIR.StartLevel == 0) {
+    return true;
+  }
+
+  DVhasLT = DVhasGT = false;
+
+  for (unsigned II = WHIR.StartLevel; II <= WHIR.EndLevel; ++II) {
+    if (!DVhasGT && (WHIR.ResultDV[II - 1] & DV::GT)) {
+      DVhasGT = true;
+    }
+    if (!DVhasLT && (WHIR.ResultDV[II - 1] & DV::LT)) {
+      DVhasLT = true;
+    }
+  }
+
+  // Note: 2 stars will get both boolean flags set on
+
+  if (!DVhasLT || !DVhasGT) {
+    return true;
+  }
+
+  return false;
 }
 
 void HIRLoopInterchange::visit(HLNode *Node) {

@@ -230,6 +230,10 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
        ++CurIVPair) {
     int64_t ConstCoeff = CE->getIVConstCoeff(CurIVPair);
     unsigned BlobIdx = CE->getIVBlobCoeff(CurIVPair);
+
+    DEBUG(dbgs() << "\n\tConst coeff, Blobidx: " << ConstCoeff << " "
+                 << BlobIdx);
+
     if (ConstCoeff == 0) {
       continue;
     }
@@ -4375,22 +4379,26 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  //  Bidirectional DV are needed if leftmost non-EQ  is a *
+  //  Bidirectional DV are needed if leftmost (non-EQ or non <=)  is a *
+	//  except when src == dst
   //  e.g.
   //  (= = *   =)  Yes
   //  (= = <=  *)  Yes
   //  (= = <=  =)  no
   //  (= = <   >)  no
 
+
   bool BiDirection = false;
-  for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-    DVType dv = Result->getDirection(II);
-    if (dv == DV::ALL) {
-      BiDirection = true;
-      DEBUG(dbgs() << "BiDirection needed!\n");
-      break;
-    }
-  }
+	if (SrcDDRef != DstDDRef) {
+		for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+			DVType dv = Result->getDirection(II);
+			if (dv == DV::ALL) {
+				BiDirection = true;
+				DEBUG(dbgs() << "BiDirection needed!\n");
+				break;
+			}
+		}
+	}	
 
   if (isa<BlobDDRef>(SrcDDRef)) {
     isTemp = true;
@@ -4472,6 +4480,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
           for (unsigned II = 1; II <= Levels; ++II) {
             forwardDV[II - 1] = DV::EQ;
           }
+					// Suppress ANTI (< ) edge for now until it's really needed
+					#if 0 
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
               backwardDV[II - 1] = DV::LT;
@@ -4479,10 +4489,14 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
               backwardDV[II - 1] = DV::ALL;
             }
           }
+          #endif
+					
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
           }
+					// Suppress ANTI (< ) edge for now until it's really needed
+					#if 0
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
               forwardDV[II - 1] = DV::LT;
@@ -4490,6 +4504,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
               forwardDV[II - 1] = DV::ALL;
             }
           }
+          #endif
         }
       } else if (IsAnti) {
         // b)    = x ;
@@ -4617,6 +4632,19 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
         printDV(backwardDV, Result->getLevels(), OS));
 
   return true;
+}
+
+// Returns last level used  in DV
+// e.g  ( = = >)  return 3
+unsigned int DDtest::lastLevelInDV(const DVType *DV) {
+
+  for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
+    if (DV[II - 1] == DV::NONE) {
+      return II - 1;
+    }
+  }
+
+  return MaxLoopNestLevel;
 }
 
 void DDtest::setInputDV(DVectorTy &InputDV, const unsigned int startLevel,

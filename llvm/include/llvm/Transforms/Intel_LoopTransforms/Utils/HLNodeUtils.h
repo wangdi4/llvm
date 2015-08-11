@@ -674,6 +674,10 @@ public:
   /// \brief Check if DDRef is contained in Loop
   static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
 
+  /// \brief Check if 1st HLNode contains 2nd HLNode
+  static bool HLParentContainsHIRNode(const HLNode *HLParent,
+                                      const HLNode *HIRnode);
+
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned Level,
