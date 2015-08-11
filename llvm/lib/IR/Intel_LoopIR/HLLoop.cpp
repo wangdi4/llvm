@@ -44,6 +44,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
+	
 }
 
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -68,13 +69,12 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-               LabelMapTy *LabelMap)
+               LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost) {
-
-  assert(GotoList && " GotoList is null.");
-  assert(LabelMap && " LabelMap is null.");
+      NestingLevel(0),  TemporalLocalityWt(0), 
+      SpatialLocalityWt(0), IsInnermost(HLLoopObj.IsInnermost),
+      IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
 
@@ -89,6 +89,17 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
+
+  setTemporalLocalityWt(HLLoopObj.getTemporalLocalityWt());
+  setSpatialLocalityWt(HLLoopObj.getSpatialLocalityWt());
+	
+  // Avoid cloning children and preheader/postexit.
+  if (!CloneChildren)
+    return;
+
+  // Assert is placed here since empty loop cloning will not use it.
+  assert(GotoList && " GotoList is null.");
+  assert(LabelMap && " LabelMap is null.");
 
   /// Loop over children, preheader and postexit
   for (auto PreIter = HLLoopObj.pre_begin(), PreIterEnd = HLLoopObj.pre_end();
@@ -114,14 +125,11 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   }
 }
 
-// HLLoop::HLLoop(const HLLoop &HLLoopObj) :
-//    HLLoop(HLLoopObj, nullptr, nullptr) {}
-
 HLLoop *HLLoop::cloneImpl(GotoContainerTy *GotoList,
                           LabelMapTy *LabelMap) const {
 
   // Call the Copy Constructor
-  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap);
+  HLLoop *NewHLLoop = new HLLoop(*this, GotoList, LabelMap, true);
 
   return NewHLLoop;
 }
@@ -134,27 +142,62 @@ HLLoop *HLLoop::clone() const {
   return NewLoop;
 }
 
-void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  const RegDDRef *Ref;
+HLLoop *HLLoop::cloneEmptyLoop() const {
 
-  indent(OS, Depth);
+  // Call the Copy Constructor
+  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
+
+  return NewHLLoop;
+}
+
+void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
+                   bool Detailed) const {
+  const RegDDRef *Ref;
 
   /// Print preheader
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, false);
   }
 
+  if (Detailed) {
+    {
+      indent(OS, Depth);
+      OS << "+ NumExits: " << getNumExits() << "\n";
+      OS << "+ TemporalLocalityWt: " << getTemporalLocalityWt() << "\n";
+      OS << "+ SpatialLocalityWt: " << getSpatialLocalityWt() << "\n";
+    }
+
+    {
+      indent(OS, Depth);
+      OS << "+ Ztt: ";
+      if (hasZtt()) {
+        Ztt->printHeader(OS, 0, true);
+      } else {
+        OS << "No";
+      }
+      OS << "\n";
+    }
+  }
+
+  indent(OS, Depth);
   /// Print header
   if (isDoLoop() || isDoWhileLoop() || isDoMultiExitLoop()) {
-    OS << "+ DO i" << NestingLevel << " = ";
+    OS << "+ DO ";
+    if (Detailed) {
+      getIVType()->print(OS);
+      OS << " ";
+    }
+    OS << "i" << NestingLevel;
+
+    OS << " = ";
     Ref = getLowerDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
     OS << ", ";
     Ref = getUpperDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
     OS << ", ";
     Ref = getStrideDDRef();
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
     if (isDoLoop()) {
@@ -172,9 +215,11 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
     llvm_unreachable("Unexpected loop type!");
   }
 
+  HLDDNode::print(OS, Depth, Detailed);
+
   /// Print children
   for (auto I = child_begin(), E = child_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   /// Print footer
@@ -183,7 +228,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
   /// Print postexit
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 }
 
@@ -192,12 +237,28 @@ void HLLoop::setNumExits(unsigned NumEx) {
   NumExits = NumEx;
 }
 
+void HLLoop::setTemporalLocalityWt(unsigned Weight) {
+  TemporalLocalityWt = Weight;
+}
+
+void HLLoop::setSpatialLocalityWt(unsigned Weight) {
+  SpatialLocalityWt = Weight;
+}
+
+unsigned
+HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
+                                          bool IsLHS) const {
+  assert(hasZtt() && "Ztt is absent!");
+  return (getNumLoopDDRefs() +
+          Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
+}
+
 void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
                              RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
 
-  ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
+  const_ztt_pred_iterator LastIt = std::prev(ztt_pred_end());
 
   /// Move the RegDDRefs to loop.
   setZttPredicateOperandDDRef(Ztt->removePredicateOperandDDRef(LastIt, true),
@@ -206,53 +267,51 @@ void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
                               LastIt, false);
 }
 
-void HLLoop::removeZttPredicate(ztt_pred_iterator PredI) {
+void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
   assert(hasZtt() && "Ztt is absent!");
 
-  /// Remove RegDDRefs from loop.
-  removeZttPredicateOperandDDRef(PredI, true);
-  removeZttPredicateOperandDDRef(PredI, false);
+  // Remove RegDDRefs from loop.
+  removeZttPredicateOperandDDRef(CPredI, true);
+  removeZttPredicateOperandDDRef(CPredI, false);
 
-  /// Erase the DDRef slots from loop.
-  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
-  RegDDRefs.erase(RegDDRefs.begin() + getNumLoopDDRefs() +
-                  Ztt->getPredicateOperandDDRefOffset(PredI, true));
+  // Erase the DDRef slots from loop.
+  // Since erasing from the vector leads to shifting of elements, it is better
+  // to erase in reverse order.
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getZttPredicateOperandDDRefOffset(CPredI, false));
+  RegDDRefs.erase(RegDDRefs.begin() +
+                  getZttPredicateOperandDDRefOffset(CPredI, true));
 
-  /// Remove predicate from ztt.
-  Ztt->removePredicate(PredI);
+  // Remove predicate from ztt.
+  Ztt->removePredicate(CPredI);
 }
 
-RegDDRef *HLLoop::getZttPredicateOperandDDRef(ztt_pred_iterator PredI,
-                                              bool IsLHS) {
+void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                                 CmpInst::Predicate NewPred) {
   assert(hasZtt() && "Ztt is absent!");
-  return getOperandDDRefImpl(getNumLoopDDRefs() +
-                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  Ztt->replacePredicate(CPredI, NewPred);
 }
 
-const RegDDRef *
-HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                    bool IsLHS) const {
+RegDDRef *HLLoop::getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                              bool IsLHS) const {
   assert(hasZtt() && "Ztt is absent!");
-  return getOperandDDRefImpl(getNumLoopDDRefs() +
-                             Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  return getOperandDDRefImpl(getZttPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
+void HLLoop::setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                         const_ztt_pred_iterator CPredI,
                                          bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
-  setOperandDDRefImpl(Ref,
-                      getNumLoopDDRefs() +
-                          Ztt->getPredicateOperandDDRefOffset(PredI, IsLHS));
+  setOperandDDRefImpl(Ref, getZttPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-RegDDRef *HLLoop::removeZttPredicateOperandDDRef(ztt_pred_iterator PredI,
+RegDDRef *HLLoop::removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                                  bool IsLHS) {
   assert(hasZtt() && "Ztt is absent!");
-  auto TRef = getZttPredicateOperandDDRef(PredI, IsLHS);
+  auto TRef = getZttPredicateOperandDDRef(CPredI, IsLHS);
 
   if (TRef) {
-    setZttPredicateOperandDDRef(nullptr, PredI, IsLHS);
+    setZttPredicateOperandDDRef(nullptr, CPredI, IsLHS);
   }
 
   return TRef;
@@ -265,7 +324,7 @@ const RegDDRef *HLLoop::getLowerDDRef() const {
 }
 
 void HLLoop::setLowerDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid LowerDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid LowerDDRef!");
 
   setOperandDDRefImpl(Ref, 0);
 }
@@ -287,7 +346,7 @@ const RegDDRef *HLLoop::getUpperDDRef() const {
 }
 
 void HLLoop::setUpperDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid UpperDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid UpperDDRef!");
 
   setOperandDDRefImpl(Ref, 1);
 }
@@ -309,7 +368,7 @@ const RegDDRef *HLLoop::getStrideDDRef() const {
 }
 
 void HLLoop::setStrideDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isSimpleRef()) && "Invalid StrideDDRef!");
+  assert((!Ref || Ref->isScalarRef()) && "Invalid StrideDDRef!");
 
   setOperandDDRefImpl(Ref, 2);
 }

@@ -18,9 +18,7 @@
 #define LLVM_TRANSFORMS_IPO_INLINERPASS_H
 
 #include "llvm/Analysis/CallGraphSCCPass.h"
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/InlineReport.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/InlineReport.h" // INTEL
 
 namespace llvm {
   class CallSite;

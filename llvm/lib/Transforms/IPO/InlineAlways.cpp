@@ -12,9 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Transforms/IPO/InlinerPass.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/IPO/InlinerPass.h" // INTEL 
 #include "llvm/Transforms/IPO.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/AliasAnalysis.h"
@@ -28,14 +26,10 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Support/Debug.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Support/Debug.h" // INTEL 
 
-using namespace llvm;
-#ifdef INTEL_CUSTOMIZATION
-using namespace InlineReportTypes;
-#endif // INTEL_CUSTOMIZATION
+using namespace llvm; 
+using namespace InlineReportTypes; // INTEL 
 
 #define DEBUG_TYPE "inline"
 
@@ -92,8 +86,6 @@ public:
     getReport().print();
     removeDeletableFunctions();
     return ReturnValue;
-#else
-    return removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ true);
 #endif // INTEL_CUSTOMIZATION
   }
 };
@@ -145,35 +137,25 @@ InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   // debug info in IL0 and also IL0 backend does not inline back functions
   // with call to Cilk's setjmp.
   if (Il0BackendMode) {
+    InlineReason Reason;
     if (Callee && !Callee->isDeclaration() &&
         Callee->hasFnAttribute("INTEL_ALWAYS_INLINE") &&
-        ICA->isInlineViable(*Callee))
-      return InlineCost::getAlways();
-    return InlineCost::getNever();
+        ICA->isInlineViable(*Callee, Reason))
+      return InlineCost::getAlways(InlrAlwaysInline);
+    return InlineCost::getNever(NinlrNotAlwaysInline);
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
   // Only inline direct calls to functions with always-inline attributes
   // that are viable for inlining. FIXME: We shouldn't even get here for
   // declarations.
-#ifdef INTEL_CUSTOMIZATION
-  InlineReason Reason; 
-  if (Callee && !Callee->isDeclaration() &&
-      CS.hasFnAttr(Attribute::AlwaysInline)) { 
-      if (ICA->isInlineViable(*Callee, Reason)) {
-        return InlineCost::getAlways(InlrAlwaysInline);
-      }
-      return InlineCost::getNever(Reason); 
-  } 
-  return InlineCost::getNever(NinlrNotAlwaysInline);
-#else 
+  InlineReason Reason; // INTEL
   if (Callee && !Callee->isDeclaration() &&
       CS.hasFnAttr(Attribute::AlwaysInline) &&
-      ICA->isInlineViable(*Callee))
-    return InlineCost::getAlways();
+      ICA->isInlineViable(*Callee, Reason)) // INTEL 
+    return InlineCost::getAlways(InlrAlwaysInline); // INTEL 
 
-  return InlineCost::getNever();
-#endif // INTEL_CUSTOMIZATION
+  return InlineCost::getNever(NinlrNotAlwaysInline); // INTEL 
 }
 
 bool AlwaysInliner::runOnSCC(CallGraphSCC &SCC) {

@@ -1,4 +1,4 @@
-//===------- HLInst.h - High level IR instruction node ----------*- C++ -*-===//
+//===------- HLInst.h - High level IR instruction node ----*- C++ -*-------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -16,7 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLINST_H
 #define LLVM_IR_INTEL_LOOPIR_HLINST_H
 
-#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
 
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
@@ -33,10 +33,12 @@ class HLInst : public HLDDNode {
 private:
   const Instruction *Inst;
   HLInst *SafeRednSucc;
+  // Only used for Cmp and Select instructions.
+  CmpInst::Predicate CmpOrSelectPred;
 
 protected:
   explicit HLInst(Instruction *In);
-  ~HLInst() {}
+  virtual ~HLInst() override {}
 
   /// \brief Copy constructor used by cloning.
   HLInst(const HLInst &HLInstObj);
@@ -59,9 +61,20 @@ protected:
   HLInst *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
+  /// \brief Returns true if there is a separator that we can print between
+  /// operands of this instruction. Prints the separators if Print is true.
+  bool checkSeparator(formatted_raw_ostream &OS, bool Print) const;
+
+  /// \brief Prints the beginning Opcode equivalent for this instruction.
+  void printBeginOpcode(formatted_raw_ostream &OS, bool HasSeparator) const;
+
+  /// \brief Prints the ending Opcode equivalent for this instruction.
+  void printEndOpcode(formatted_raw_ostream &OS) const;
+
 public:
   /// \brief Prints HLInst.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns the underlying Instruction.
   const Instruction *getLLVMInstruction() const { return Inst; }
@@ -168,6 +181,27 @@ public:
   bool isInPostexit() const;
   /// \brief Returns true if this is in a loop's preheader or postexit.
   bool isInPreheaderOrPostexit() const;
+
+  /// \brief Returns predicate for select instruction.
+  CmpInst::Predicate getPredicate() const {
+    assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
+           "This instruction does not contain a predicate!");
+    return CmpOrSelectPred;
+  }
+
+  /// \brief Sets predicate for select instruction.
+  void setPredicate(CmpInst::Predicate Pred) {
+    assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
+           "This instruction does not contain a predicate!");
+    CmpOrSelectPred = Pred;
+  }
+
+  /// \brief Retuns true if this is a bitcast instruction with identical src and
+  /// dest types. These are generally inserted by SSA deconstruction pass.
+  bool isCopyInst() const;
+
+  /// \brief Returns true if this is a call instruction.
+  bool isCallInst() const;
 };
 
 } // End namespace loopopt

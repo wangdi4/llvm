@@ -1,4 +1,4 @@
-//===- RegionIdentification.cpp - Identifies HIR Regions *- C++ -*---------===//
+//===- RegionIdentification.cpp - Identifies HIR Regions ------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -49,40 +49,6 @@ RegionIdentification::RegionIdentification() : FunctionPass(ID) {
   initializeRegionIdentificationPass(*PassRegistry::getPassRegistry());
 }
 
-unsigned RegionIdentification::insertBaseTemp(const Value *Temp) {
-  BaseTemps.push_back(Temp);
-  // Offset of 1 for "constant" symbase.
-  return BaseTemps.size() + 1;
-}
-
-const Value *RegionIdentification::getBaseTemp(unsigned Symbase) const {
-  assert((Symbase > 0 && Symbase <= (BaseTemps.size() + 1)) &&
-         "Symbase is out of range!");
-
-  return BaseTemps[Symbase - 2];
-}
-
-void RegionIdentification::insertTempSymbase(const Value *Temp,
-                                             unsigned Symbase) {
-  assert((Symbase > 0 && Symbase <= (BaseTemps.size() + 1)) &&
-         "Symbase is out of range!");
-
-  auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
-
-  assert(Ret.second && "Attempt to overwrite Temp symbase!");
-}
-
-unsigned RegionIdentification::findTempSymbase(const Value *Temp) const {
-
-  auto Iter = TempSymbaseMap.find(Temp);
-
-  if (Iter != TempSymbaseMap.end()) {
-    return Iter->second;
-  }
-
-  return 0;
-}
-
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
@@ -104,10 +70,8 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  const SCEV *BETC = SE->getBackedgeTakenCount(&Lp);
-
   // Don't handle unknown loops for now.
-  if (isa<SCEVCouldNotCompute>(BETC)) {
+  if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
     return false;
   }
 
@@ -194,8 +158,6 @@ void RegionIdentification::formRegions() {
 }
 
 bool RegionIdentification::runOnFunction(Function &F) {
-  this->Func = &F;
-
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolution>();
@@ -206,13 +168,8 @@ bool RegionIdentification::runOnFunction(Function &F) {
 }
 
 void RegionIdentification::releaseMemory() {
-
   IRRegion::destroyAll();
-
   IRRegions.clear();
-
-  BaseTemps.clear();
-  TempSymbaseMap.clear();
 }
 
 void RegionIdentification::print(raw_ostream &OS, const Module *M) const {

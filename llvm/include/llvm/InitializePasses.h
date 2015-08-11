@@ -319,6 +319,7 @@ void initializeLoopDistributePass(PassRegistry&);
 #if INTEL_CUSTOMIZATION // HIR passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
+void initializeScalarSymbaseAssignmentPass(PassRegistry&);
 void initializeHIRCreationPass(PassRegistry&);
 void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
@@ -329,6 +330,9 @@ void initializeDDAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
+void initializeHIRLoopInterchangePass(PassRegistry&);
+void initializeHIRGeneralUnrollPass(PassRegistry&);
+void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 }

@@ -8,7 +8,10 @@
 // from the company.
 //
 //===----------------------------------------------------------------------===//
-// This pass is responsible for initial assignment of symbases to ddrefs
+// This pass is responsible for initial assignment of symbases to memory ddrefs.
+// Temps are assigned symbase by the dependent HIRParser pass which then returns
+// the max symbase assigned to any temp. This max is used to initialize the
+// range for memory ddref symbase.
 // DDRefs sharing a symbase may alias with any other ddref with the same
 // symbase but are guaranteed not to alias with a DDref with another
 // symbase. Similar in many respects to LLVM's alias sets concept.
@@ -39,6 +42,7 @@ class Function;
 namespace loopopt {
 
 class HIRParser;
+
 class SymbaseAssignment : public FunctionPass {
 public:
   SymbaseAssignment() : FunctionPass(ID) {}
@@ -48,19 +52,20 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
 
   // Returns a new unused symbase ID
-  unsigned int getNewSymBase() { return MaxSymBase++; }
+  unsigned int getNewSymBase() { return ++MaxSymBase; }
 
-  unsigned int getSymBaseForConstants() { return CONSTANT_SYMBASE; }
+  unsigned int getSymBaseForConstants() const;
 
 private:
-  HIRParser* HIRP;
-  // this symbase is reserved for DDRefs representing constants which require
-  // no dd testing
-  const unsigned int CONSTANT_SYMBASE = 1;
-
-  unsigned int MaxSymBase = CONSTANT_SYMBASE + 1;
-
   Function *F;
+  HIRParser *HIRP;
+
+  unsigned int MaxSymBase;
+
+private:
+  /// \brief Initializes max symbase using the max scalar symbase returned by
+  /// HIRParser.
+  void initializeMaxSymBase();
 };
 }
 }

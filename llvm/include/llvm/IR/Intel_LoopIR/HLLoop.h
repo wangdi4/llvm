@@ -81,6 +81,8 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
+  unsigned TemporalLocalityWt;
+  unsigned SpatialLocalityWt;
   bool IsInnermost;
   Type *IVType;
 
@@ -90,13 +92,14 @@ protected:
          RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
-  /// tries to
-  /// access and destroy the nodes if we don't clear them out here.
-  ~HLLoop() { Children.clearAndLeakNodesUnsafely(); }
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLLoop() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
+  /// CloneChildren parameter denotes if we want to clone
+  /// children and preheader/postexit.
   HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
-         LabelMapTy *LabelMap);
+         LabelMapTy *LabelMap, bool CloneChildren);
 
   friend class HLNodeUtils;
 
@@ -126,6 +129,10 @@ protected:
   /// \brief Implements getNumOperands() functionality.
   unsigned getNumOperandsInternal() const;
 
+  /// \brief Returns the DDRef offset of a ztt predicate.
+  unsigned getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
+                                             bool IsLHS) const;
+
   /// \brief Clone Implementation
   /// This function populates the GotoList with Goto branches within the
   /// cloned loop and LabelMap with Old and New Labels. Returns a cloned loop.
@@ -134,7 +141,8 @@ protected:
 
 public:
   /// \brief Prints HLLoop.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// \brief Returns underlying LLVM loop.
   const Loop *getLLVMLoop() const { return OrigLoop; }
@@ -156,34 +164,18 @@ public:
   Type *getZttLLVMType() const;
 
   /// ZTT Predicate iterator methods
-  ztt_pred_iterator ztt_pred_begin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_begin();
-  }
   const_ztt_pred_iterator ztt_pred_begin() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_begin();
-  }
-  ztt_pred_iterator ztt_pred_end() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_end();
   }
   const_ztt_pred_iterator ztt_pred_end() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_end();
   }
 
-  reverse_ztt_pred_iterator ztt_pred_rbegin() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_rbegin();
-  }
   const_reverse_ztt_pred_iterator ztt_pred_rbegin() const {
     assert(hasZtt() && "Ztt is absent!");
     return Ztt->pred_rbegin();
-  }
-  reverse_ztt_pred_iterator ztt_pred_rend() {
-    assert(hasZtt() && "Ztt is absent!");
-    return Ztt->pred_rend();
   }
   const_reverse_ztt_pred_iterator ztt_pred_rend() const {
     assert(hasZtt() && "Ztt is absent!");
@@ -200,22 +192,26 @@ public:
   void addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
-  void removeZttPredicate(ztt_pred_iterator PredI);
+  void removeZttPredicate(const_ztt_pred_iterator CPredI);
+
+  /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
+                           CmpInst::Predicate NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
-  RegDDRef *getZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
-  const RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator PredI,
-                                              bool IsLHS) const;
+  RegDDRef *getZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                        bool IsLHS) const;
 
   /// \brief Sets the LHS/RHS operand DDRef of the predicate based on the IsLHS
   /// flag.
-  void setZttPredicateOperandDDRef(RegDDRef *Ref, ztt_pred_iterator PredI,
-                                   bool IsLHS);
+  void setZttPredicateOperandDDRef(RegDDRef *Ref,
+                                   const_ztt_pred_iterator CPredI, bool IsLHS);
 
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
-  RegDDRef *removeZttPredicateOperandDDRef(ztt_pred_iterator PredI, bool IsLHS);
+  RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
+                                           bool IsLHS);
 
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
@@ -286,6 +282,15 @@ public:
   unsigned getNestingLevel() const { return NestingLevel; }
   /// \brief Returns true if this is the innermost loop in the loopnest.
   bool isInnermost() const { return IsInnermost; }
+  /// \brief Returns the temporal locality wt of the loop.
+  unsigned getTemporalLocalityWt() const { return TemporalLocalityWt; }
+  /// \brief Returns the spatial locality wt of the loop.
+  unsigned getSpatialLocalityWt() const  { return SpatialLocalityWt;  }
+  /// \brief Sets the temporal locality wt of the loop.
+  void setTemporalLocalityWt(unsigned Weight); 
+  /// \brief Returns the spatial locality wt of the loop.
+  void setSpatialLocalityWt(unsigned Weight);  
+
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -439,6 +444,13 @@ public:
   /// This method will automatically update the goto branches with new labels
   /// inside the cloned loop.
   HLLoop *clone() const override;
+
+  /// \brief - Clones the original loop without any of the children, preheader
+  /// and postexit nodes. This routines copies all the original loop properties
+  /// such as exits, ub, lb, etc. Data members that depend on where the cloned
+  /// loop lives in HIR (like parent, nesting level) are not copied. They will
+  /// be updated by HLNode insertion/removal utilities.
+  HLLoop *cloneEmptyLoop() const;
 
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;

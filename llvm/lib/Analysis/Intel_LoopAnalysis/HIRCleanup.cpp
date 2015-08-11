@@ -1,4 +1,4 @@
-//===---- HIRCleanup.cpp - Clean up redundant HIR Nodes -----*- C++ -*-----===//
+//===---- HIRCleanup.cpp - Clean up redundant HIR Nodes -------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -45,13 +45,13 @@ void HIRCleanup::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<HIRCreation>();
 }
 
-HLNode *HIRCleanup::findHLNode(const BasicBlock *BB) const {
-  auto It = LoopLatchHooks.find(const_cast<BasicBlock *>(BB));
+HLNode *HIRCleanup::findHIRHook(const BasicBlock *BB) const {
+  auto It = LoopLatchHooks.find(BB);
 
   if (It != LoopLatchHooks.end()) {
     return It->second;
   }
-  auto Iter = HIR->Labels.find(const_cast<BasicBlock *>(BB));
+  auto Iter = HIR->Labels.find(BB);
 
   if (Iter != HIR->Labels.end()) {
     return Iter->second;
@@ -129,12 +129,7 @@ void HIRCleanup::releaseMemory() {
 }
 
 void HIRCleanup::print(raw_ostream &OS, const Module *M) const {
-  formatted_raw_ostream FOS(OS);
-
-  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
-    FOS << "\n";
-    I->print(FOS, 0);
-  }
+  HIR->print(OS, M);
 }
 
 void HIRCleanup::verifyAnalysis() const {

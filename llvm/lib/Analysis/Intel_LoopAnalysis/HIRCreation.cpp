@@ -1,4 +1,4 @@
-//===------- HIRCreation.cpp - Creates HIR Nodes --------*- C++ -*---------===//
+//===------- HIRCreation.cpp - Creates HIR Nodes --------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -13,13 +13,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/CommandLine.h"
+
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Dominators.h"
-#include "llvm/Analysis/PostDominators.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -34,6 +38,10 @@ INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
 
+static cl::opt<bool>
+    HIRPrinterDetailed("hir-details", cl::desc("Show HIR with dd_ref details"),
+                       cl::init(false));
+
 FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
 
 HIRCreation::HIRCreation() : FunctionPass(ID) {
@@ -45,6 +53,26 @@ void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTree>();
   AU.addRequiredTransitive<RegionIdentification>();
+}
+
+const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
+  auto Iter = Ifs.find(If);
+
+  if (Iter != Ifs.end()) {
+    return Iter->second;
+  }
+
+  return nullptr;
+}
+
+const BasicBlock *HIRCreation::getSrcBBlock(HLSwitch *Switch) const {
+  auto Iter = Switches.find(Switch);
+
+  if (Iter != Switches.end()) {
+    return Iter->second;
+  }
+
+  return nullptr;
 }
 
 HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
@@ -62,20 +90,18 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
       /// TODO: HLGoto targets should be assigned in a later pass.
       /// TODO: Redundant gotos should be cleaned up during lexlink cleanup.
-      HLGoto *ThenGoto =
-          HLNodeUtils::createHLGoto(BI->getSuccessor(0), nullptr);
+      HLGoto *ThenGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
       HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
 
-      HLGoto *ElseGoto =
-          HLNodeUtils::createHLGoto(BI->getSuccessor(1), nullptr);
+      HLGoto *ElseGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(1));
       HLNodeUtils::insertAsFirstChild(If, ElseGoto, false);
       Gotos.push_back(ElseGoto);
 
       HLNodeUtils::insertAfter(InsertionPos, If);
       InsertionPos = If;
     } else {
-      auto Goto = HLNodeUtils::createHLGoto(BI->getSuccessor(0), nullptr);
+      auto Goto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
 
       Gotos.push_back(Goto);
 
@@ -94,14 +120,14 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     /// Add gotos to all the cases. They are added for convenience in forming
     /// lexical links and will be eliminated later.
-    auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest(), nullptr);
+    auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest());
     HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
 
     unsigned Count = 1;
 
     for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I, ++Count) {
-      auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor(), nullptr);
+      auto CaseGoto = HLNodeUtils::createHLGoto(I.getCaseSuccessor());
       HLNodeUtils::insertAsFirstChild(Switch, CaseGoto, Count);
       Gotos.push_back(CaseGoto);
     }
@@ -151,8 +177,6 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   if (!CurRegion->containsBBlock(BB)) {
     return InsertionPos;
   }
-
-  LastRegionBB = BB;
 
   auto Root = DT->getNode(BB);
 
@@ -214,20 +238,31 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
   return InsertionPos;
 }
 
+void HIRCreation::setExitBBlock() const {
+
+  auto LastChild = CurRegion->getLastChild();
+  assert(LastChild && "Last child of region is null!");
+  /// TODO: Handle other last child types later.
+  assert(isa<HLIf>(LastChild) && "Unexpected last region child!");
+
+  auto ExitRegionBB = getSrcBBlock(cast<HLIf>(LastChild));
+  assert(ExitRegionBB && "Could not find src bblock of if!");
+
+  CurRegion->setExitBBlock(const_cast<BasicBlock *>(ExitRegionBB));
+}
+
 void HIRCreation::create() {
 
   for (auto &I : *RI) {
 
     CurRegion = HLNodeUtils::createHLRegion(I);
 
-    LastRegionBB = nullptr;
     auto LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
 
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
-    assert(LastRegionBB && "Last region bblock is null!");
 
-    CurRegion->setExitBBlock(LastRegionBB);
+    setExitBBlock();
 
     Regions.push_back(CurRegion);
   }
@@ -239,6 +274,8 @@ bool HIRCreation::runOnFunction(Function &F) {
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
   RI = &getAnalysis<RegionIdentification>();
+
+  HLNodeUtils::initialize(F);
 
   create();
 
@@ -260,12 +297,22 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
+  printImpl(OS, false);
+}
+
+void HIRCreation::printWithIRRegion(raw_ostream &OS) const {
+  printImpl(OS, true);
+}
+
+void HIRCreation::printImpl(raw_ostream &OS, bool printIRRegion) const {
   formatted_raw_ostream FOS(OS);
 
   for (auto I = begin(), E = end(); I != E; ++I) {
     FOS << "\n";
-    I->print(FOS, 0);
+    assert(isa<HLRegion>(I) && "Top level node is not a region!");
+    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion, HIRPrinterDetailed);
   }
+  FOS << "\n";
 }
 
 void HIRCreation::verifyAnalysis() const {

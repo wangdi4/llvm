@@ -49,39 +49,53 @@ const unsigned MaxLoopNestLevel = 9;
 /// negative denominator value, the numerator is negated instead.
 ///
 /// CanonExpr representation-
-/// (C1 * i1 + C2 * i2 + ... + BC1 * b1 + BC2 * b2 + ... + C0) / D
+/// (C1 * B1 * i1 + C2 * B2 * i2 + ... + BC1 * b1 + BC2 * b2 + ... + C0) / D
 ///
 /// Where:
 /// - i1, i2 etc are induction variables of loop at level 1, 2 etc.
-/// - C1, C2 etc are coefficients of i1, i2 etc.
+/// - C1, C2 etc are constant coefficients of i1, i2 etc.
+/// - B1, B2 etc are blob coefficients of i1, i2 etc. A zero blob coefficient
+///   implies a constant only coefficient.
 /// - b1, b2 etc are blobs.
-/// - BC1, BC2 etc are coefficients of b1, b2 etc.
+/// - BC1, BC2 etc are constant coefficients of b1, b2 etc.
 /// - C0 is the constant additive.
 /// - D is the denominator.
 ///
 /// This class disallows creating objects on stack.
 /// Objects are created/destroyed using CanonExprUtils friend class.
 class CanonExpr {
-public:
-  struct BlobOrConstToVal {
-    bool IsBlobCoeff;
-    /// Represents BlobIndex if IsBlobCoeff is true else represents Coeff Value.
-    int64_t Coeff;
-    BlobOrConstToVal(bool IsBlobCoef, int64_t Coef);
-    ~BlobOrConstToVal();
-  };
-
+private:
   struct BlobIndexToCoeff {
-    /// Index range is [1, UINT_MAX].
+    /// Valid index range is [1, UINT_MAX]. If this is associated with an IV, 0
+    /// implies a constant only coefficient.
     unsigned Index;
     int64_t Coeff;
     BlobIndexToCoeff(unsigned Indx, int64_t Coef);
     ~BlobIndexToCoeff();
   };
 
+  // Used to keep the blob vector sorted by index.
+  struct BlobIndexCompareLess {
+    bool operator()(const CanonExpr::BlobIndexToCoeff &B1,
+                    const CanonExpr::BlobIndexToCoeff &B2) {
+      return B1.Index < B2.Index;
+    }
+  };
+
+  // Used to keep the blob vector sorted by index.
+  struct BlobIndexCompareEqual {
+    bool operator()(const CanonExpr::BlobIndexToCoeff &B1,
+                    const CanonExpr::BlobIndexToCoeff &B2) {
+      return B1.Index == B2.Index;
+    }
+  };
+
+public:
   typedef const SCEV *BlobTy;
   typedef SmallVector<BlobTy, 64> BlobTableTy;
-  typedef SmallVector<BlobOrConstToVal, 4> IVCoeffsTy;
+  /// Each element represents blob index and coefficient associated with an IV
+  /// at a particular loop level.
+  typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
   /// Kept sorted by blob index
   typedef SmallVector<BlobIndexToCoeff, 2> BlobCoeffsTy;
 
@@ -131,7 +145,7 @@ private:
 
 protected:
   CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
-  ~CanonExpr() {}
+  virtual ~CanonExpr() {};
 
   friend class CanonExprUtils;
   friend class HIRParser;
@@ -153,42 +167,44 @@ protected:
   /// \brief Returns blob corresponding to BlobIndex.
   static BlobTy getBlob(unsigned BlobIndex);
 
+  /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
+  /// functionality.
+  unsigned numIVImpl(bool CheckIVPresence, bool CheckBlobCoeffs) const;
+
   /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes
   /// beyond the current size. This will avoid future reallocs.
-  /// Returns true if we did resize.
-  bool resizeIVCoeffsToMax(unsigned Lvl);
+  void resizeIVCoeffsToMax(unsigned Lvl);
 
-  /// \brief Sets an IV coefficient. Depending upon the overwrite flag the
-  /// existing coefficient is either overwritten or added to.
-  void addIVInternal(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff,
-                     bool overwrite);
+  /// \brief Sets blob/const coefficient of an IV at a particular loop level.
+  /// Overwrite flags indicate what is to be overwritten.
+  void setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
+                     bool OverwriteIndex, bool OverwriteCoeff);
+
+  /// \brief Adds blob/const coefficient of an IV at a particular loop level.
+  void addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff);
 
   /// \brief Sets a blob coefficient. Depending upon the overwrite flag the
   /// existing coefficient is either overwritten or added to.
   void addBlobInternal(unsigned BlobIndex, int64_t BlobCoeff, bool overwrite);
 
-  /// Non-const IV iterator methods
-  iv_iterator iv_begin() { return IVCoeffs.begin(); }
-  iv_iterator iv_end() { return IVCoeffs.end(); }
-  reverse_iv_iterator iv_rbegin() { return IVCoeffs.rbegin(); }
-  reverse_iv_iterator iv_rend() { return IVCoeffs.rend(); }
+  /// \brief Helper to calculate gcd for simplify(). Handles negative integers
+  /// as well.
+  int64_t simplifyGCDHelper(int64_t CurrentGCD, int64_t Num);
 
-  /// Non-const blob iterator methods
-  blob_iterator blob_begin() { return BlobCoeffs.begin(); }
-  blob_iterator blob_end() { return BlobCoeffs.end(); }
-  reverse_blob_iterator blob_rbegin() { return BlobCoeffs.rbegin(); }
-  reverse_blob_iterator blob_rend() { return BlobCoeffs.rend(); }
+  /// \brief Implements multiplyByConstant() functionality. Simplify flag
+  /// indicates whether simplification can be performed.
+  void multiplyByConstantImpl(int64_t Val, bool Simplify);
 
 public:
   CanonExpr *clone() const;
   /// \brief Dumps CanonExpr.
   void dump() const;
   /// \brief Prints CanonExpr.
-  void print(formatted_raw_ostream &OS) const;
+  void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
   /// \brief Returns the LLVM type of this canon expr.
-  Type *getLLVMType() const { return Ty; }
-  void setLLVMType(Type *Typ) { Ty = Typ; }
+  Type *getType() const { return Ty; }
+  void setType(Type *Typ) { Ty = Typ; }
 
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
@@ -198,7 +214,7 @@ public:
            "DefinedAtLevel is meaningless for non-linear types!");
     return DefinedAtLevel;
   }
-  /// \brief Sets the defined at level.
+  /// \brief Sets non-negative defined at level.
   void setDefinedAtLevel(unsigned DefLvl) {
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
     DefinedAtLevel = DefLvl;
@@ -206,7 +222,8 @@ public:
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
-  /// \brief Returns true if this is not non-linear.
+  /// \brief Returns true if this is linear at some levels (greater than
+  /// DefinedAtLevel) in the current loopnest.
   bool isLinearAtLevel() const { return (DefinedAtLevel >= 0); }
   /// \brief Returns true if some blob in the canon expr is defined in
   /// the current loop level.
@@ -214,30 +231,55 @@ public:
   /// \brief Mark this canon expr as non-linear.
   void setNonLinear() { DefinedAtLevel = -1; }
 
+  /// IV iterator methods
+  iv_iterator iv_begin() { return IVCoeffs.begin(); }
+  const_iv_iterator iv_begin() const { return IVCoeffs.begin(); }
+  iv_iterator iv_end() { return IVCoeffs.end(); }
+  const_iv_iterator iv_end() const { return IVCoeffs.end(); }
+  reverse_iv_iterator iv_rbegin() { return IVCoeffs.rbegin(); }
+  const_reverse_iv_iterator iv_rbegin() const { return IVCoeffs.rbegin(); }
+  reverse_iv_iterator iv_rend() { return IVCoeffs.rend(); }
+  const_reverse_iv_iterator iv_rend() const { return IVCoeffs.rend(); }
+
+  /// Blob iterator methods
+  blob_iterator blob_begin() { return BlobCoeffs.begin(); }
+  const_blob_iterator blob_begin() const { return BlobCoeffs.begin(); }
+  blob_iterator blob_end() { return BlobCoeffs.end(); }
+  const_blob_iterator blob_end() const { return BlobCoeffs.end(); }
+  reverse_blob_iterator blob_rbegin() { return BlobCoeffs.rbegin(); }
+  const_reverse_blob_iterator blob_rbegin() const {
+    return BlobCoeffs.rbegin();
+  }
+  reverse_blob_iterator blob_rend() { return BlobCoeffs.rend(); }
+  const_reverse_blob_iterator blob_rend() const { return BlobCoeffs.rend(); }
+
   /// \brief Returns true if constant integer and its value, otherwise false
-  bool isConstant(int64_t *konst = nullptr) const {
+  bool isConstant(int64_t *Val = nullptr) const {
 
     bool result = !(hasIV() || hasBlob() || (getDenominator() != 1));
 
-    if (result && konst != nullptr) {
-      *konst = getConstant();
+    if (result && Val != nullptr) {
+      *Val = getConstant();
     }
 
     return result;
   }
+  /// \brief Returns true if this canon expr looks something like (1 * %t) i.e.
+  /// a single blob with a coefficient of 1.
+  bool isSelfBlob() const;
 
   /// \brief return true if the CanonExpr is zero
   bool isZero() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst == 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val == 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if the CanonExpr is one
   bool isOne() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst == 1) {
+    int64_t Val;
+    if (isConstant(&Val) && Val == 1) {
       return true;
     }
     return false;
@@ -247,40 +289,40 @@ public:
   // Extend later for non-constant, e.g. based on UpperBound canon
   /// \brief return true if non-zero
   bool isKnownNonZERO() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst != 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val != 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if non-positive
   bool isKnownNonPositive() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst < 1) {
+    int64_t Val;
+    if (isConstant(&Val) && Val < 1) {
       return true;
     }
     return false;
   }
   /// \brief return true if non-negative
   bool isKnownNonNegative() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst >= 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val >= 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if negative
   bool isKnownNegative() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst < 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val < 0) {
       return true;
     }
     return false;
   }
   /// \brief return true if positive
   bool isKnownPositive() const {
-    int64_t konst;
-    if (isConstant(&konst) && konst > 0) {
+    int64_t Val;
+    if (isConstant(&Val) && Val > 0) {
       return true;
     }
     return false;
@@ -291,78 +333,171 @@ public:
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
-  // \brief Sets canon expr's denominator. Negates it for negative denominators.
-  void setDenominator(int64_t Val);
+  /// \brief Sets canon expr's denominator. Negates it for negative
+  /// denominators.
+  /// If Simplifiy is set, we call simplify() on the canon expr after setting
+  /// the denominator.
+  void setDenominator(int64_t Val, bool Simplify = false);
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
+  /// \brief Returns the number of non-zero IVs in the canon expr.
+  unsigned numIVs() const;
+
   /// \brief Returns true if this contains any Blob IV Coeffs.
   /// Examples: -M*i, N*j
   bool hasBlobIVCoeffs() const;
+  /// \brief Returns the number of blobs IV Coeffs.
+  unsigned numBlobIVCoeffs() const;
   /// \brief Returns true if this contains any blobs.
   bool hasBlob() const { return !BlobCoeffs.empty(); }
+  /// \brief Returns the number of blobs in the canon expr.
+  unsigned numBlobs() const { return BlobCoeffs.size(); }
 
-  /// \brief Returns the IV coefficient at a particular loop level. Lvl's
-  /// range is [1, MaxLoopNestLevel].
-  int64_t getIVCoeff(unsigned Lvl, bool *IsBlobCoeff) const;
-  /// \brief Sets the IV coefficient at a particular loop level. Lvl's range
-  /// is [1, MaxLoopNestLevel].
-  void setIVCoeff(unsigned Lvl, int64_t Coeff, bool IsBlobCoeff);
+  /// \brief Returns the level of IV associated with this iterator.
+  unsigned getLevel(const_iv_iterator ConstIVIter) const;
 
-  /// \brief Adds to the existing constant IV coefficient at a particular loop
-  /// level.
-  void addIV(unsigned Lvl, int64_t Coeff);
+  /// \brief Returns blob index and coefficient associated with an IV at a
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel].
+  void getIVCoeff(unsigned Lvl, unsigned *Index, int64_t *Coeff) const;
+  /// \brief Iterator version of getIVCoeff().
+  void getIVCoeff(const_iv_iterator ConstIVIter, unsigned *Index,
+                  int64_t *Coeff) const;
+
+  /// \brief Sets the blob index and coefficient associated with an IV at a
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel].
+  void setIVCoeff(unsigned Lvl, unsigned Index, int64_t Coeff);
+  /// \brief Iterator version of setIVCoeff().
+  void setIVCoeff(iv_iterator IVI, unsigned Index, int64_t Coeff);
+
+  /// \brief Returns the blob coefficient associated with an IV at a particular
+  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns 0 if there is
+  /// no blob coeff.
+  unsigned getIVBlobCoeff(unsigned Lvl) const;
+  /// \brief Iterator version of getIVBlobCoeff().
+  unsigned getIVBlobCoeff(const_iv_iterator ConstIVIter) const;
+
+  /// \brief Sets the blob coefficient associated with an IV at a particular
+  /// loop level. Lvl's range is [1, MaxLoopNestLevel].
+  void setIVBlobCoeff(unsigned Lvl, unsigned Index);
+  /// \brief Iterator version of setIVBlobCoeff().
+  void setIVBlobCoeff(iv_iterator IVI, unsigned Index);
+
+  /// \brief Returns true if IV has a blob coefficient.
+  bool hasIVBlobCoeff(unsigned Lvl) const;
+  /// \brief Iterator version of hasIVBlobCoeff().
+  bool hasIVBlobCoeff(const_iv_iterator ConstIVIter) const;
+
+  /// \brief Returns the constant coefficient associated with an IV at a
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel].
+  int64_t getIVConstCoeff(unsigned Lvl) const;
+  /// \brief Iterator version of getIVConstCoeff().
+  int64_t getIVConstCoeff(const_iv_iterator ConstIVIter) const;
+
+  /// \brief Sets the constant coefficient associated with an IV at a particular
+  /// loop level. Lvl's range is [1, MaxLoopNestLevel]
+  void setIVConstCoeff(unsigned Lvl, int64_t Coeff);
+  /// \brief Iterator version of setIVConstCoeff().
+  void setIVConstCoeff(iv_iterator IVI, int64_t Coeff);
+
+  /// \brief Returns true if IV has a constant coefficient.
+  bool hasIVConstCoeff(unsigned Lvl) const;
+  /// \brief Iterator version of hasIVBlobCoeff().
+  bool hasIVConstCoeff(const_iv_iterator ConstIVIter) const;
+
+  /// \brief Adds to the existing blob/constant IV coefficients at a particular
+  /// loop level. The new IV coefficient looks something like (C1 * b1 + C2 *
+  /// b2). Index can be set to zero if only a constant needs to be added. For
+  /// example if the canon expr looks like (2 * n) * i1 before change, it will
+  /// be modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3).
+  void addIV(unsigned Lvl, unsigned Index, int64_t Coeff);
+  /// \brief Iterator version of addIV().
+  void addIV(iv_iterator IVI, unsigned Index, int64_t Coeff);
+
   /// \brief Removes IV at a particular loop level.
   void removeIV(unsigned Lvl);
+  /// \brief Iterator version of removeIV().
+  void removeIV(iv_iterator IVI);
 
-  /// \brief Replaces IV by a constant at a particular loop level.
+  /// \brief Multiplies IV at a particular loop level by a constant.
+  void multiplyIVByConstant(unsigned Level, int64_t Val);
+  /// \brief Iterator version of multiplyIVByConstant().
+  void multiplyIVByConstant(iv_iterator IVI, int64_t Val);
+
+  /// \brief Replaces IV at a particular loop level by a constant.
   void replaceIVByConstant(unsigned Lvl, int64_t Val);
+  /// \brief Iterator version of replaceIVByConstant().
+  void replaceIVByConstant(iv_iterator IVI, int64_t Val);
+
+  /// \brief Returns the index associated with this blob iterator.
+  unsigned getBlobIndex(const_blob_iterator CBlobI) const;
 
   /// \brief Returns the blob coefficient.
-  int64_t getBlobCoeff(unsigned BlobIndex) const;
+  int64_t getBlobCoeff(unsigned Index) const;
+  /// \brief Iterator version of getBlobCoeff().
+  int64_t getBlobCoeff(const_blob_iterator CBlobI) const;
+
+  /// \brief Returns the blob index of the only blob.
+  unsigned getSingleBlobIndex() const {
+    assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    return BlobCoeffs[0].Index;
+  }
+  /// \brief Returns the blob coeff of the only blob.
+  int64_t getSingleBlobCoeff() const {
+    assert((numBlobs() == 1) && "Canon expr does not contain single blob!");
+    return BlobCoeffs[0].Coeff;
+  }
+
   /// \brief Sets the blob coefficient.
-  void setBlobCoeff(unsigned BlobIndex, int64_t BlobCoeff);
+  void setBlobCoeff(unsigned Index, int64_t Coeff);
+  /// \brief Iterator version of setBlobCoeff().
+  void setBlobCoeff(blob_iterator BlobI, int64_t Coeff);
 
   /// \brief Adds to the existing blob coefficient.
-  void addBlob(unsigned BlobIndex, int64_t BlobCoeff);
-  /// \brief Removes a blob.
-  void removeBlob(unsigned BlobIndex);
+  void addBlob(unsigned Index, int64_t Coeff);
+  /// \brief Iterator version of addBlob().
+  void addBlob(blob_iterator BlobI, int64_t Coeff);
 
-  /// \brief Replaces an old blob with a new one.
-  void replaceBlob(unsigned OldBlobIndex, unsigned NewBlobIndex);
+  /// \brief Removes a blob. It does not touch IV blob coefficients.
+  void removeBlob(unsigned Index);
+  /// \brief Iterator version of removeBlob().
+  void removeBlob(blob_iterator BlobI);
+
+  /// \brief Replaces an old blob with a new one (including blob IV coeffs).
+  void replaceBlob(unsigned OldIndex, unsigned NewIndex);
 
   /// \brief Clears everything from the CanonExpr except Type. Denominator is
   /// set to 1.
   void clear();
 
+  /// \brief Clears all the IV coefficients from the CanonExpr.
+  void clearIVs();
+
+  /// \brief Clears all the blobs (excluding blob IV coeffs) from the CanonExpr.
+  void clearBlobs() { BlobCoeffs.clear(); }
+
   /// \brief Shifts the canon expr by a constant offset at a particular loop
   /// level.
   void shift(unsigned Lvl, int64_t Val);
+  /// \brief Iterator version of shift.
+  void shift(iv_iterator IVI, int64_t Val);
 
   /// \brief Multiplies this canon expr by a blob.
-  void multiplyByBlob(unsigned BlobIndex);
+  void multiplyByBlob(unsigned Index);
 
   /// \brief Populates BlobIndices with all blobs contained in the CanonExpr
   /// (including blob IV coeffs).
-  void extractBlobIndices(SmallVectorImpl<unsigned> &BlobIndices);
+  void extractBlobIndices(SmallVectorImpl<unsigned> &Indices);
 
-  /// IV iterator methods
-  /// c-version allows use of "auto" keyword and doesn't conflict with protected
-  /// non-const begin() / end().
-  const_iv_iterator iv_cbegin() const { return IVCoeffs.begin(); }
-  const_iv_iterator iv_cend() const { return IVCoeffs.end(); }
-  const_reverse_iv_iterator iv_crbegin() const { return IVCoeffs.rbegin(); }
-  const_reverse_iv_iterator iv_crend() const { return IVCoeffs.rend(); }
+  /// \brief Simplifies canon expr by dividing numerator and denominator by
+  /// common gcd.
+  void simplify();
 
-  /// Blob iterator methods
-  /// c-version allows use of "auto" keyword and doesn't conflict with protected
-  /// non-const begin() / end().
-  const_blob_iterator blob_cbegin() const { return BlobCoeffs.begin(); }
-  const_blob_iterator blob_cend() const { return BlobCoeffs.end(); }
-  const_reverse_blob_iterator blob_crbegin() const {
-    return BlobCoeffs.rbegin();
-  }
-  const_reverse_blob_iterator blob_crend() const { return BlobCoeffs.rend(); }
+  /// \brief Multiplies the canon expr by Val.
+  void multiplyByConstant(int64_t Val);
+
+  /// \brief Negates canon expr.
+  void negate();
 };
 
 } // End loopopt namespace

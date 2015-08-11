@@ -53,9 +53,6 @@ private:
   /// IRRegions - Vector of IRRegion.
   IRRegionsTy IRRegions;
 
-  /// Func - The function we are analyzing.
-  Function *Func;
-
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
 
@@ -64,13 +61,6 @@ private:
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
-
-  /// BaseTemps - Temps used to represent a set of scalar values which are
-  /// assigned the same symbase.
-  SmallVector<const Value *, 32> BaseTemps;
-
-  /// TempSymbaseMap - Maps temps to their symbase.
-  SmallDenseMap<const Value *, unsigned, 64> TempSymbaseMap;
 
   /// \brief Returns true if Lp appears to be generable without looking at the
   /// sub loops.
@@ -96,19 +86,6 @@ public:
   void print(raw_ostream &OS, const Module * = nullptr) const override;
   void verifyAnalysis() const override;
 
-  /// \brief Inserts Temp into set of base temps and returns its non-zero
-  /// symbase.
-  unsigned insertBaseTemp(const Value *Temp);
-
-  /// \brief Returns the temp associated with symbase.
-  const Value *getBaseTemp(unsigned Symbase) const;
-
-  /// \brief Inserts temp-symbase pair into the map. Symbase cannot be zero.
-  void insertTempSymbase(const Value *Temp, unsigned Symbase);
-
-  /// \brief Returns Temp's symbase if it exists, else returns zero.
-  unsigned findTempSymbase(const Value *Temp) const;
-
   /// IRRegion iterator methods
   iterator begin() { return IRRegions.begin(); }
   const_iterator begin() const { return IRRegions.begin(); }
@@ -119,6 +96,8 @@ public:
   const_reverse_iterator rbegin() const { return IRRegions.rbegin(); }
   reverse_iterator rend() { return IRRegions.rend(); }
   const_reverse_iterator rend() const { return IRRegions.rend(); }
+
+  unsigned getNumRegions() const { return IRRegions.size(); }
 };
 
 } // End namespace loopopt
