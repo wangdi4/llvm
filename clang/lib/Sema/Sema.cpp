@@ -252,6 +252,31 @@ void Sema::Initialize() {
   DeclarationName BuiltinVaList = &Context.Idents.get("__builtin_va_list");
   if (IdResolver.begin(BuiltinVaList) == IdResolver.end())
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#367961: clang does not support automatically-aligned dynamic
+  // allocation via <aligned_new> header.
+  if (PP.getLangOpts().IntelCompat && PP.getLangOpts().CPlusPlus) {
+    auto *StdNamespace = getOrCreateStdNamespace();
+    auto *AlignValT = &Context.Idents.get("align_val_t");
+    LookupResult R(*this, AlignValT, SourceLocation(), LookupTagName);
+    LookupQualifiedName(R, StdNamespace);
+    if (R.empty()) {
+      auto *AlignValTTy = EnumDecl::Create(
+          Context, StdNamespace, SourceLocation(), SourceLocation(), AlignValT,
+          /*PrevDecl=*/nullptr, /*IsScoped=*/true,
+          /*IsScopedUsingClassTag=*/true, /*IsFixed=*/true);
+      auto BestType = Context.getSizeType();
+      AlignValTTy->setIntegerType(BestType);
+      AlignValTTy->completeDefinition(BestType, BestType,
+                                      /*NumPositiveBits=*/0,
+                                      /*NumNegativeBits=*/0);
+      StdNamespace->addDecl(AlignValTTy);
+    }
+    if (StdNamespace->isImplicit())
+      PushOnScopeChains(StdNamespace, TUScope);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 Sema::~Sema() {
