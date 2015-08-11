@@ -4,6 +4,11 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
+if( INTEL_CUSTOMIZATION )
+  add_subdirectory(intel)
+  set(LIBS clangParseIntel)
+endif()
+
 add_clang_library(clangParse
   ParseAST.cpp
   ParseCXXInlineMethods.cpp
@@ -16,12 +21,6 @@ add_clang_library(clangParse
   ParseOpenMP.cpp
   ParsePragma.cpp
   ParseStmt.cpp
-#ifdef INTEL_CUSTOMIZATION
-  intel/ParseSIMD.cpp
-  intel/ParseIntelPragma.cpp
-  intel/CheckStmt.cpp
-  intel/ParseStmt.cpp
-#endif // INTEL_CUSTOMIZATION
   ParseStmtAsm.cpp
   ParseTemplate.cpp
   ParseTentative.cpp
@@ -32,4 +31,5 @@ add_clang_library(clangParse
   clangBasic
   clangLex
   clangSema
+  ${LIBS}
   )

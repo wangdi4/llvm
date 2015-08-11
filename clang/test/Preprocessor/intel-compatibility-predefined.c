@@ -1,3 +1,4 @@
+// REQUIRES: llvm-backend
 //
 // This test verifies that the GNUC macros are not predefined when the
 // -fintel-compatibility flag is on, but that they are on without that

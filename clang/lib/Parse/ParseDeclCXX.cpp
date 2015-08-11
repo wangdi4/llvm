@@ -907,6 +907,66 @@ void Parser::ParseUnderlyingTypeSpecifier(DeclSpec &DS) {
   DS.setTypeofParensRange(T.getRange());
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// CQ#369185 - support of __bases and __direct_bases intrinsics.
+/// [N2965]:
+///   __bases( type-name )
+///   __direct_bases( type-name )
+void Parser::ParseBasesSpecifier(DeclSpec &DS) {
+  DeclSpec::TST TST;
+  if (Tok.is(tok::kw___bases))
+    TST = DeclSpec::TST_bases;
+  else {
+    assert(Tok.is(tok::kw___direct_bases) && "Unknown bases type specifier");
+    TST = DeclSpec::TST_directBases;
+  }
+
+  // Match the '('.
+  SourceLocation StartLoc = ConsumeToken();
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  const PrintingPolicy &PPol = Actions.getASTContext().getPrintingPolicy();
+  if (T.expectAndConsume(diag::err_expected_lparen_after,
+                         DS.getSpecifierName(TST, PPol), tok::r_paren))
+    return;
+
+  // Match type-name.
+  SourceLocation TypeLoc = Tok.getLocation();
+  TypeResult Result = ParseTypeName();
+  if (Result.isInvalid()) {
+    SkipUntil(tok::r_paren, StopAtSemi);
+    return;
+  }
+
+  // Check that the parsed type is dependent.
+  ParsedType Ty = Result.get();
+  if (!Ty.get()->isDependentType()) {
+    Diag(TypeLoc, diag::err_bases_arg_type_not_dependent)
+        << (TST == DeclSpec::TST_directBases);
+    DS.SetTypeSpecError();
+    return;
+  }
+
+  // Match the ')'.
+  T.consumeClose();
+  if (T.getCloseLocation().isInvalid())
+    return;
+
+  // Match the '...'.
+  if (!Tok.is(tok::ellipsis)) {
+    Diag(Tok.getLocation(), diag::err_expected_ellipsis)
+        << (TST == DeclSpec::TST_directBases);
+    DS.SetTypeSpecError();
+    return;
+  }
+
+  const char *PrevSpec = nullptr;
+  unsigned DiagID;
+  if (DS.SetTypeSpecType(TST, StartLoc, PrevSpec, DiagID, Ty, PPol))
+    Diag(StartLoc, DiagID) << PrevSpec;
+  DS.setTypeofParensRange(T.getRange());
+}
+
+#endif // INTEL_CUSTOMIZATION
 /// ParseBaseTypeSpecifier - Parse a C++ base-type-specifier which is either a
 /// class name or decltype-specifier. Note that we only check that the result 
 /// names a type; semantic analysis will need to verify that the type names a 
@@ -2382,7 +2442,22 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     SmallString<8> Buffer;
     if (Zero.isNot(tok::numeric_constant) || Zero.getLength() != 1 ||
         PP.getSpelling(Zero, Buffer) != "0")
-      return false;
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#373607 - allow using 0 with modificators as pure-specifier.
+    {
+      if (getLangOpts().IntelCompat && Zero.is(tok::numeric_constant)) {
+        auto *IL = dyn_cast_or_null<IntegerLiteral>(
+            Actions.ActOnNumericConstant(Zero).get());
+        if (!IL || IL->getValue() != 0)
+          return false;
+        else
+          Diag(Zero, diag::warn_member_function_initialization);
+      } else
+#endif // INTEL_CUSTOMIZATION
+        return false;
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
 
     auto &After = GetLookAheadToken(2);
     if (!After.isOneOf(tok::semi, tok::comma) &&

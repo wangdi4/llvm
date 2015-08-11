@@ -21,7 +21,8 @@ XMLToFeature = {
   "MONITOR" : "GENERIC_IA32",
   "RDTSCP" : "GENERIC_IA32",
   "AVX512F/KNCNI" : "AVX512F",
-  "AVX512PF/KNCNI" : "AVX512PF"
+  "AVX512PF/KNCNI" : "AVX512PF",
+  "FXSR" : "FXSAVE"
 }
 
 allIntrinsics = Set([])

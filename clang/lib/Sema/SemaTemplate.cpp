@@ -1852,6 +1852,11 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
         continue;
       }
 
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#367129: template explicit partial specialization requires
+      // 'template<>'
+      if (!getLangOpts().IntelCompat)
+#endif
       if (!IsFriend)
         if (DiagnoseMissingExplicitSpecialization(
                 getRangeOfTypeInNestedNameSpecifier(Context, T, SS)))
@@ -1906,6 +1911,12 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
       // We don't have a template header for the declaration itself, but we
       // should.
       IsExplicitSpecialization = true;
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ#367129: template explicit partial specialization requires
+      // 'template<>'
+      if (getLangOpts().IntelCompat)
+        return nullptr;
+#endif
       DiagnoseMissingExplicitSpecialization(SourceRange(TemplateId->LAngleLoc,
                                                         TemplateId->RAngleLoc));
 
@@ -6165,6 +6176,11 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
     else
       isExplicitSpecialization = true;
   } else {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ#367129: template explicit partial specialization requires
+    // 'template<>'
+    if (!getLangOpts().IntelCompat)
+#endif
     assert(TUK == TUK_Friend && "should have a 'template<>' for this decl");
   }
 

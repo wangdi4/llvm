@@ -28,8 +28,7 @@ extern char setArray3(char *a, char x, unsigned char k) {
 }
 
 // CHECK: define i32 @setArray4(i16* {{.+}}, double {{.+}}, i8 {{.+}}) #4 {
-__declspec(vector(uniform(a,x,k), processor("core_2_duo_ssse3")))
-extern int setArray4(short *a, double x, char k) {
+__declspec(vector(uniform(a, x, k), processor("core_2_duo_ssse3"))) extern int setArray4(short *a, double x, char k) {
   a[k] = a[k] + x;
   return a[k];
 }
@@ -61,6 +60,18 @@ extern unsigned int setArray7(struct S *a, const int x, int k) {
   return a[k].data;
 }
 
+__declspec(vector(aligned(a : 32))) extern unsigned int setArray8(struct S *a, const int x, int k) {
+  a[k].id = k;
+  a[k].data = x;
+  return a[k].data;
+}
+
+__declspec(vector(aligned(a))) extern unsigned int setArray9(struct S *a, const int x, int k) {
+  a[k].id = k;
+  a[k].data = x;
+  return a[k].data;
+}
+
 // CHECK: attributes #0 = { {{.*}} "_ZGVxM4_" "_ZGVxN4_"
 
 // CHECK: attributes #1 = { {{.*}} "_ZGVxM4u_" "_ZGVxN4u_"
@@ -78,4 +89,5 @@ extern unsigned int setArray7(struct S *a, const int x, int k) {
 // CHECK-NOT: attributes #6 = { {{.*}} "_ZGVYM4uvul16_"
 
 // CHECK: attributes #7 = { {{.*}} "_ZGVxM4vuv_" "_ZGVxN4vuv_"
-
+// CHECK: attributes #8 = { {{.*}} "_ZGVxM4va32vv_" "_ZGVxN4va32vv_"
+// CHECK: attributes #9 = { {{.*}} "_ZGVxM4vavv_" "_ZGVxN4vavv_"

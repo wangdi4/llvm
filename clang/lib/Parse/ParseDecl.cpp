@@ -206,6 +206,51 @@ static StringRef normalizeAttrName(StringRef Name) {
   return Name;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// \brief Build full attribute name based in its Syntax, Scope and ID
+static void fillAttrFullName(const IdentifierInfo &II,
+                             AttributeList::Syntax Syntax,
+                             IdentifierInfo *ScopeName, std::string &Result) {
+  std::string Variety, Scope;
+  switch (Syntax) {
+  case AttributeList::Syntax::AS_GNU:
+    Variety = "GNU";
+    break;
+  case AttributeList::Syntax::AS_CXX11:
+    Variety = "CXX11";
+    if (ScopeName)
+      Scope = ScopeName->getName();
+    break;
+  case AttributeList::Syntax::AS_Declspec:
+    Variety = "Declspec";
+    break;
+  case AttributeList::Syntax::AS_Keyword:
+    // FIXME:  add AS_ContextSensitiveKeyword
+    Variety = "Keyword";
+    break;
+  case AttributeList::Syntax::AS_CilkKeyword:
+    Variety = "CilkKeyword";
+    break;
+  default:
+    Variety = "GNU";
+  }
+  Result = Variety + "::" + (Scope.length() > 0 ? Scope + "::" : "") +
+           normalizeAttrName(II.getName()).str();
+}
+
+/// \brief Determine whether the given attribute has an identifier argument.
+static bool attributeHasIdentifierArg(const IdentifierInfo &II,
+                                      AttributeList::Syntax Syntax,
+                                      IdentifierInfo *ScopeName) {
+  std::string FullName;
+  fillAttrFullName(II, Syntax, ScopeName, FullName);
+#define CLANG_ATTR_IDENTIFIER_ARG_LIST
+  return llvm::StringSwitch<bool>(FullName)
+#include "clang/Parse/AttrParserStringSwitches.inc"
+      .Default(false);
+#undef CLANG_ATTR_IDENTIFIER_ARG_LIST
+}
+#else
 /// \brief Determine whether the given attribute has an identifier argument.
 static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
 #define CLANG_ATTR_IDENTIFIER_ARG_LIST
@@ -214,6 +259,7 @@ static bool attributeHasIdentifierArg(const IdentifierInfo &II) {
            .Default(false);
 #undef CLANG_ATTR_IDENTIFIER_ARG_LIST
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Determine whether the given attribute parses a type argument.
 static bool attributeIsTypeArgAttr(const IdentifierInfo &II) {
@@ -282,7 +328,12 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
+#ifdef INTEL_CUSTOMIZATION
+    bool IsIdentifierArg =
+        attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
+#else
     bool IsIdentifierArg = attributeHasIdentifierArg(*AttrName);
+#endif // INTEL_CUSTOMIZATION
     AttributeList::Kind AttrKind =
         AttributeList::getKind(AttrName, ScopeName, Syntax);
 
@@ -1379,6 +1430,13 @@ bool Parser::DiagnoseProhibitedCXX11Attribute() {
     SkipUntil(tok::r_square);
     assert(Tok.is(tok::r_square) && "isCXX11AttributeSpecifier lied");
     SourceLocation EndLoc = ConsumeBracket();
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(BeginLoc, diag::warn_attributes_not_allowed)
+        << SourceRange(BeginLoc, EndLoc);
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(BeginLoc, diag::err_attributes_not_allowed)
       << SourceRange(BeginLoc, EndLoc);
     return true;
@@ -1400,12 +1458,27 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(Loc, diag::warn_attributes_not_allowed)
+        << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
+        << FixItHint::CreateRemoval(AttrRange);
+    else
+#endif // INTEL_CUSTOMIZATION
   Diag(Loc, diag::err_attributes_not_allowed)
     << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
     << FixItHint::CreateRemoval(AttrRange);
 }
 
 void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(attrs.Range.getBegin(), diag::warn_attributes_not_allowed)
+        << attrs.Range;
+    else
+#endif // INTEL_CUSTOMIZATION
   Diag(attrs.Range.getBegin(), diag::err_attributes_not_allowed)
     << attrs.Range;
 }
@@ -1414,6 +1487,13 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &attrs) {
   AttributeList *AttrList = attrs.getList();
   while (AttrList) {
     if (AttrList->isCXX11Attribute()) {
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#370092 - emit a warning, not error in IntelCompat mode
+      if (getLangOpts().IntelCompat)
+        Diag(AttrList->getLoc(), diag::warn_attribute_not_type_attr) 
+          << AttrList->getName();
+      else
+#endif // INTEL_CUSTOMIZATION
       Diag(AttrList->getLoc(), diag::err_attribute_not_type_attr) 
         << AttrList->getName();
       AttrList->setInvalid();
@@ -3441,6 +3521,14 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseUnderlyingTypeSpecifier(DS);
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369185 - support of __bases and __direct_bases intrinsics.
+    case tok::kw___bases:
+    case tok::kw___direct_bases:
+      ParseBasesSpecifier(DS);
+      continue;
+
+#endif // INTEL_CUSTOMIZATION
     case tok::kw__Atomic:
       // C11 6.7.2.4/4:
       //   If the _Atomic keyword is immediately followed by a left parenthesis,
@@ -4836,8 +4924,22 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
 
     case tok::kw___attribute:
       if (AttrReqs & AR_GNUAttributesParsedAndRejected)
+#ifdef INTEL_CUSTOMIZATION
+      // This brace is necessary to suppress a warning suggesting brace
+      // insertion to avoid ambiguouse 'else'.
+      {
+#endif // INTEL_CUSTOMIZATION
         // When GNU attributes are expressly forbidden, diagnose their usage.
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+        if (getLangOpts().IntelCompat)
+          Diag(Tok, diag::warn_attributes_not_allowed);
+        else
+#endif // INTEL_CUSTOMIZATION
         Diag(Tok, diag::err_attributes_not_allowed);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Parse the attributes even if they are rejected to ensure that error
       // recovery is graceful.

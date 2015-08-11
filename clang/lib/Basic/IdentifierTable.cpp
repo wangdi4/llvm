@@ -114,6 +114,7 @@ namespace {
     KEYFLOAT128 = 0x40000,
     KEYRESTRICT = 0x80000,
     KEYMSASM = 0x100000,
+    KEYBASES = 0x100000,
 #endif  // INTEL_CUSTOMIZATION
     KEYALL = (0x1fffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -147,6 +148,10 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
     return LangOpts.C99 ? KS_Enabled : KS_Extension;
   // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
   if (LangOpts.IntelCompat && LangOpts.AsmBlocks && (Flags & KEYMSASM))
+    return KS_Extension;
+  // CQ#369185 - enable '__bases' and '__direct_bases' keywords for IntelCompat
+  // and C++11 modes only.
+  if (LangOpts.IntelCompat && LangOpts.CPlusPlus11 && (Flags & KEYBASES))
     return KS_Extension;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;

@@ -141,7 +141,8 @@ int main() {
 }
 
 
-// CHECK: attributes #0 = { nounwind "less
+// CHECK: attributes #0 = { nounwind
+// CHECK-SAME: "less
 // CHECK: attributes #1 = { nounwind "INTEL:EXCEPT-OFF"
 // CHECK: attributes #2 = { nounwind "INTEL:PRECISE-ON"
 // CHECK: attributes #3 = { nounwind "INTEL:EXCEPT-ON"

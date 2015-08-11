@@ -17,6 +17,7 @@ set(modified_files
   emmintrin.h
   f16cintrin.h
   fmaintrin.h
+  fxsrintrin.h
   ia32intrin.h
   immintrin.h
   lzcntintrin.h
@@ -34,6 +35,7 @@ set(modified_files
   __wmmintrin_aes.h
   wmmintrin.h
   __wmmintrin_pclmul.h
+  xtestintrin.h
   x86intrin.h
   xmmintrin.h
   )
@@ -51,7 +53,6 @@ set(orig_files
   cuda_builtin_vars.h
   float.h
   fma4intrin.h
-  fxsrintrin.h
   htmintrin.h
   htmxlintrin.h
   inttypes.h
@@ -74,7 +75,6 @@ set(orig_files
   vadefs.h
   varargs.h
   xopintrin.h
-  xtestintrin.h
   )
 
 set(intel_files ${modified_files} ${special_files})

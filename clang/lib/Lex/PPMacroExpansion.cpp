@@ -1179,6 +1179,11 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("cxx_unrestricted_unions", LangOpts.CPlusPlus11)
       .Case("cxx_user_literals", LangOpts.CPlusPlus11)
       .Case("cxx_variadic_templates", LangOpts.CPlusPlus11)
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369185 - support of __bases and __direct_bases intrinsics.
+      .Case("bases", LangOpts.CPlusPlus11)
+      .Case("direct_bases", LangOpts.CPlusPlus11)
+#endif // INTEL_CUSTOMIZATION
       // C++1y features
       .Case("cxx_aggregate_nsdmi", LangOpts.CPlusPlus14)
       .Case("cxx_binary_literals", LangOpts.CPlusPlus14)
