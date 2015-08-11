@@ -3036,6 +3036,14 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
       STISymbolVariable* variable;
       const DIScope *    scope;
 
+      // Globals with available_externally linkage are not emitted as part of
+      // this compilation unit, so we don't emit debug information for them.
+      // If we did, relocations against these symbols would fail.
+      //
+      if (global->hasAvailableExternallyLinkage()) {
+        continue;
+      }
+
       MCSymbol *label = ASM()->getSymbol(global);
 
       STILocation *location = DIGV->isLocalToUnit()
