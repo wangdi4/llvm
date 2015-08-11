@@ -137,7 +137,7 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
 
   // TODO: print data local to this VecLoop 
 
-#if 0
+#if 1
     DEBUG(dbgs()<< "EntryBB:"  << *getEntryBBlock());
     DEBUG(dbgs()<< "\nExitBB:"  << *getExitBBlock());
     DEBUG(dbgs()<< "\nBBlockSet dump:\n");

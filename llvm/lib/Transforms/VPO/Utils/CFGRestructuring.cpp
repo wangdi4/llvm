@@ -78,8 +78,8 @@ void VPOUtils::CFGRestructuring(
         //
         if (Inst->getIntrinsicID() == Intrinsic::intel_directive) {
           StringRef DirString = getDirectiveMetadataString(Inst);
-          if ((DirString == "DIR_BEGIN") || (DirString == "DIR_END") ||
-              (DirString == "DIR_QUAL_END")) {
+          if ((DirString == "dir.simd") || (DirString == "dir.simd.end") ||
+              (DirString == "dir.qual.end")) {
             InstructionsToSplit.insert(I);
           }
         }
@@ -103,7 +103,7 @@ void VPOUtils::CFGRestructuring(
     if (I != BB->begin()) {
       Instruction* SplitPoint = I;
       StringRef DirString = getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
-      if (DirString == "DIR_QUAL_END") {
+      if (DirString == "dir.qual.end") {
         BasicBlock::iterator inst = I;
         SplitPoint = ++inst;
       }

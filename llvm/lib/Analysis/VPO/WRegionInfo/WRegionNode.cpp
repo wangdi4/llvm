@@ -16,8 +16,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/CFG.h"
+#include "llvm/IR/Dominators.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+
+#define DEBUG_TYPE "vpo-wrnnode"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -46,26 +50,29 @@ WRegionNode::WRegionNode(WRegionNode *W)
 }
 
 void WRegionNode::doPreOrderSubCFGVisit(
-  BasicBlock   *BB,
-  BasicBlock   *ExitBB,
+  BasicBlock    *BB,
+  BasicBlock    *ExitBB,
   SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited
 )
 {
   if (!PreOrderTreeVisited->count(BB)) {
+
+    // DEBUG(dbgs()<< "DUMP PreOrder Tree Visiting :"  << *BB);
     PreOrderTreeVisited->insert(BB);
+
     for (succ_iterator I = succ_begin(BB), 
                        E = succ_end(BB); I != E; ++I) {
       if (*I != ExitBB) {
         doPreOrderSubCFGVisit(*I, ExitBB, PreOrderTreeVisited);
       }
     }
-    PreOrderTreeVisited->insert(ExitBB);
+
   }
   return;
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-void WRegionNode::computeBBlockSet()
+void WRegionNode::populateBBlockSet(void)
 {
   BasicBlock *EntryBB = getEntryBBlock();
   BasicBlock *ExitBB  = getExitBBlock();
@@ -75,7 +82,11 @@ void WRegionNode::computeBBlockSet()
     return;
 
   SmallPtrSet<BasicBlock*, 16> PreOrderTreeVisited;
+
   doPreOrderSubCFGVisit(EntryBB, ExitBB, &PreOrderTreeVisited);
+
+  /// Added ExitBBlock to Pre-Order Tree
+  PreOrderTreeVisited.insert(ExitBB);
 
   WRegionBSetTy * BBSet = new (WRegionBSetTy);
 
@@ -83,7 +94,11 @@ void WRegionNode::computeBBlockSet()
   for (auto I = PreOrderTreeVisited.begin(), 
             E = PreOrderTreeVisited.end(); I != E; ++I) {
     BasicBlock *BB = *I;
-    BBSet->insert(BB);
+
+    // DEBUG(dbgs()<< "SHOW BBSet BBLOCK Insert Ordering :"  << *BB);
+
+    /// Populate BBlockSet for the Region/Loop
+    BBSet->push_back(BB);
   }
   setBBlockSet(BBSet);
 }

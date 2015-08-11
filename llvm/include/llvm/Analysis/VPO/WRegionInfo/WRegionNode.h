@@ -19,6 +19,7 @@
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
 
+#include "llvm/IR/Dominators.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
@@ -33,9 +34,10 @@ namespace llvm {
 
 namespace vpo {
 
-typedef std::set<const BasicBlock *> WRegionBSetTy;
+typedef std::vector<const BasicBlock *> WRegionBSetTy;
 
 class WRegionNode;
+
 typedef iplist<WRegionNode> WRContainerTy;
 
 /// \brief WRegion Node base class
@@ -100,7 +102,7 @@ protected:
                              SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited);
 
   /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-  void computeBBlockSet();
+  void populateBBlockSet();
 
   /// \brief Sets the set of bblocks that constitute this region.
   void setBBlockSet(WRegionBSetTy *BBSet) { BBlockSet = BBSet; }

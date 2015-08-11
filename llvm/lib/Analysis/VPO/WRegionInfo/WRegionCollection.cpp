@@ -181,8 +181,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           W->setExitBBlock(BB);
 
           // generate BB set; 
-          // Remove this call later; the client will do it on demand
-          W->computeBBlockSet();
+          // TODO: Remove this call later; the client will do it on demand
+          W->populateBBlockSet();
 
           if (!S->empty()) S->pop();
 
@@ -203,7 +203,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(
         WRegionUtils::handleDirQualOpndList(IntrinInst, S->top());
       }
 
-/* TODO: implement WRNFlushNode and WRNCancelNode
+#if 0
+      // TODO: implement WRNFlushNode and WRNCancelNode
       if (!S->empty() && I == E) {
         WRegionNode *A = S->top();
         if (WRegionNode* StandAloneWConstruct = dyn_cast<WRNFlushNode>(&*A) ||
@@ -211,7 +212,8 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           S->pop();
         }
       }
-*/
+#endif
+
     } // if (IntrinInst)
   } // for
 

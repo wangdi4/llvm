@@ -51,8 +51,8 @@ bool WRegionUtils::isEndDirective(
   StringRef DirString
 )
 {
-  if ((DirString == "dir.parallel.end") ||
-      (DirString == "dir.simd.end")) {
+  if ((DirString == "dir.end.parallel") ||
+      (DirString == "dir.end.simd")) {
     // TODO: complete the list for all WRegionNodeKinds
     return true;
   }
