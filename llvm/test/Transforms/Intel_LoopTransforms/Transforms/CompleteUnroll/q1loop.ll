@@ -1,5 +1,5 @@
-; Make sure HIRCG does nothing when nothing changes
-; No bblock for region
+; Test Complete Unrolling of simple loop.
+; A[i] = B[i], unrolled 4 times
 
 ; RUN: opt -HIRCompleteUnroll -HIRCG -S < %s | FileCheck %s
 ; CHECK: entry
@@ -8,13 +8,17 @@
 ; CHECK: for.body:
 ; CHECK: br i1 true, {{.*}}label %region
 
-; check loop is completed unrolled.
+; check loop is completely unrolled.
 ; CHECK: region:
-; CHECK-NEXT: %gepload = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 1)
-; CHECK-NEXT: store i32 %gepload, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 1)
-; CHECK: %gepload3 = load i32, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 4)
-; CHECK-NEXT: store i32 %gepload3, i32* getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 4) 
-; CHECK-NEXT: br label %for.end
+; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 1)
+; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 1)
+; CHECK: getelementptr
+; CHECK: getelementptr
+; CHECK: getelementptr
+; CHECK: getelementptr
+; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @B, i64 0, i64 4)
+; CHECK: getelementptr inbounds ([10 x i32], [10 x i32]* @A, i64 0, i64 4) 
+; CHECK: br label %for.end
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

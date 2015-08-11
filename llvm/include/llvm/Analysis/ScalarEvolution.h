@@ -584,6 +584,12 @@ namespace llvm {
 
     LLVMContext &getContext() const { return F->getContext(); }
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// isHIRCopyInst - Returns true if this instruction is a copy instruction
+    /// inserted by HIR framework.
+    bool isHIRCopyInst(const Instruction *Inst) const; 
+#endif
+
     /// isSCEVable - Test if values of the given type are analyzable within
     /// the SCEV framework. This primarily includes integer types, and it
     /// can optionally include pointer types if the ScalarEvolution class

@@ -81,7 +81,14 @@ namespace llvm {
     bool LSRMode;
 
     typedef IRBuilder<true, TargetFolder> BuilderType;
+#if INTEL_CUSTOMIZATION
+protected:
+#endif
     BuilderType Builder;
+
+#if INTEL_CUSTOMIZATION
+private:
+#endif
 
 #ifndef NDEBUG
     const char *DebugType;
@@ -100,6 +107,10 @@ namespace llvm {
       DebugType = "";
 #endif
     }
+
+#if INTEL_CUSTOMIZATION
+    virtual ~SCEVExpander() {}
+#endif
 
 #ifndef NDEBUG
     void setDebugType(const char* s) { DebugType = s; }
@@ -222,6 +233,9 @@ namespace llvm {
                           const SCEV *const *op_end,
                           PointerType *PTy, Type *Ty, Value *V);
 
+#if INTEL_CUSTOMIZATION
+    virtual
+#endif
     Value *expand(const SCEV *S);
 
     /// \brief Insert code to directly compute the specified SCEV expression
@@ -255,6 +269,9 @@ namespace llvm {
 
     Value *visitUMaxExpr(const SCEVUMaxExpr *S);
 
+#if INTEL_CUSTOMIZATION
+    virtual
+#endif
     Value *visitUnknown(const SCEVUnknown *S) {
       return S->getValue();
     }

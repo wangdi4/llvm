@@ -34,12 +34,12 @@ HLIf::HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
   assert(((FirstPred == CmpInst::Predicate::FCMP_FALSE) ||
           (FirstPred == CmpInst::Predicate::FCMP_TRUE) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
-  assert((!Ref1 || (Ref1->getLLVMType() == Ref2->getLLVMType())) &&
+  assert((!Ref1 || (Ref1->getType() == Ref2->getType())) &&
          "Ref1/Ref2 type mismatch!");
   assert((!Ref1 || ((CmpInst::isIntPredicate(FirstPred) &&
-                     Ref1->getLLVMType()->isIntegerTy()) ||
+                     Ref1->getType()->isIntegerTy()) ||
                     (CmpInst::isFPPredicate(FirstPred) &&
-                     Ref1->getLLVMType()->isFloatingPointTy()))) &&
+                     Ref1->getType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
 
   /// TODO: add check for type consistency (integer/float)
@@ -62,9 +62,9 @@ HLIf::HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap)
   /// Clone DDRefs
   auto II = HLIfObj.pred_begin();
   for (auto I = pred_begin(), E = pred_end(); I != E; I++, II++) {
-    Ref = getPredicateOperandDDRef(II, true);
+    Ref = HLIfObj.getPredicateOperandDDRef(II, true);
     setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, true);
-    Ref = getPredicateOperandDDRef(II, false);
+    Ref = HLIfObj.getPredicateOperandDDRef(II, false);
     setPredicateOperandDDRef(Ref ? Ref->clone() : nullptr, I, false);
   }
 
@@ -97,57 +97,68 @@ HLIf *HLIf::clone() const {
   return NewIf;
 }
 
-void HLIf::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  const RegDDRef *Ref;
+void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
+                       bool Detailed) const {
+
   bool FirstPred = true;
-
-  indent(OS, Depth);
-
   OS << "if (";
 
   /// Print predicates
   for (auto I = pred_begin(), E = pred_end(); I != E; I++) {
+    const RegDDRef *Ref;
     if (!FirstPred) {
       OS << " && ";
     }
 
     Ref = getPredicateOperandDDRef(I, true);
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
     OS << " ";
 
     printPredicate(OS, *I);
 
     OS << " ";
     Ref = getPredicateOperandDDRef(I, false);
-    Ref ? Ref->print(OS) : (void)(OS << Ref);
+    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
 
     FirstPred = false;
   }
 
   OS << ")\n";
+}
+
+void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
+                 bool Detailed) const {
+
+  indent(OS, Depth);
+  printHeader(OS, Depth, false);
+
+  HLDDNode::print(OS, Depth, Detailed);
 
   indent(OS, Depth);
   OS << "{\n";
 
   /// Print then children
   for (auto I = then_begin(), E = then_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   indent(OS, Depth);
   OS << "}\n";
-  indent(OS, Depth);
-  OS << "else\n";
-  indent(OS, Depth);
-  OS << "{\n";
 
-  /// Print else children
-  for (auto I = else_begin(), E = else_end(); I != E; I++) {
-    I->print(OS, Depth + 1);
+  if (hasElseChildren()) {
+    indent(OS, Depth);
+    OS << "else\n";
+    indent(OS, Depth);
+    OS << "{\n";
+
+    /// Print else children
+    for (auto I = else_begin(), E = else_end(); I != E; I++) {
+      I->print(OS, Depth + 1, Detailed);
+    }
+
+    indent(OS, Depth);
+    OS << "}\n";
   }
-
-  indent(OS, Depth);
-  OS << "}\n";
 }
 
 unsigned HLIf::getNumOperandsInternal() const {
@@ -188,15 +199,10 @@ HLNode *HLIf::getLastElseChild() {
   return nullptr;
 }
 
-unsigned HLIf::getPredicateOperandDDRefOffset(pred_iterator PredI,
+unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
                                               bool IsLHS) const {
-  const_pred_iterator CPredI(PredI);
-  return getPredicateOperandDDRefOffset(CPredI, IsLHS);
-}
-
-unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator PredI,
-                                              bool IsLHS) const {
-  return ((2 * (PredI - Predicates.begin())) + (IsLHS ? 0 : 1));
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
 void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
@@ -204,18 +210,16 @@ void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != CmpInst::Predicate::FCMP_FALSE) &&
          (Pred != CmpInst::Predicate::FCMP_TRUE) && "Invalid predicate!");
-  assert((Ref1->getLLVMType() == Ref2->getLLVMType()) &&
-         "Ref1/Ref2 type mismatch!");
+  assert((Ref1->getType() == Ref2->getType()) && "Ref1/Ref2 type mismatch!");
   assert(((CmpInst::isIntPredicate(Pred) &&
            CmpInst::isIntPredicate(Predicates[0])) ||
           (CmpInst::isFPPredicate(Pred) &&
            CmpInst::isFPPredicate(Predicates[0]))) &&
          "Predicate type mismatch!");
-  assert(
-      ((CmpInst::isIntPredicate(Pred) && Ref1->getLLVMType()->isIntegerTy()) ||
-       (CmpInst::isFPPredicate(Pred) &&
-        Ref1->getLLVMType()->isFloatingPointTy())) &&
-      "Predicate/DDRef type mismatch!");
+  assert(((CmpInst::isIntPredicate(Pred) && Ref1->getType()->isIntegerTy()) ||
+          (CmpInst::isFPPredicate(Pred) &&
+           Ref1->getType()->isFloatingPointTy())) &&
+         "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
   Predicates.push_back(Pred);
@@ -227,43 +231,55 @@ void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
   setOperandDDRefImpl(Ref2, NumOp - 1);
 }
 
-void HLIf::removePredicate(pred_iterator PredI) {
+HLIf::pred_iterator HLIf::getNonConstPredIterator(const_pred_iterator CPredI) {
+  pred_iterator PredI(Predicates.begin());
+  std::advance(PredI, std::distance<const_pred_iterator>(PredI, CPredI));
+  return PredI;
+}
+
+void HLIf::removePredicate(const_pred_iterator CPredI) {
   assert(!Predicates.empty() && "No conjuntions present!");
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+
+  auto PredI = getNonConstPredIterator(CPredI);
 
   /// Remove DDRefs associated with the predicate.
-  removePredicateOperandDDRef(PredI, true);
-  removePredicateOperandDDRef(PredI, false);
+  removePredicateOperandDDRef(CPredI, true);
+  removePredicateOperandDDRef(CPredI, false);
 
   /// Erase the DDRef slots.
   RegDDRefs.erase(RegDDRefs.begin() +
-                  getPredicateOperandDDRefOffset(PredI, true));
+                  getPredicateOperandDDRefOffset(CPredI, true));
   RegDDRefs.erase(RegDDRefs.begin() +
-                  getPredicateOperandDDRefOffset(PredI, true));
+                  getPredicateOperandDDRefOffset(CPredI, true));
 
   /// Erase the predicate.
   Predicates.erase(PredI);
 }
 
-RegDDRef *HLIf::getPredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
-  const_pred_iterator CPredI(PredI);
-  return const_cast<RegDDRef *>(getPredicateOperandDDRef(CPredI, IsLHS));
+void HLIf::replacePredicate(const_pred_iterator CPredI,
+                            CmpInst::Predicate NewPred) {
+  assert((CPredI != pred_end()) && "End iterator is not a valid input!");
+  auto PredI = getNonConstPredIterator(CPredI);
+  *PredI = NewPred;
 }
 
-const RegDDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator PredI,
-                                               bool IsLHS) const {
-  return getOperandDDRefImpl(getPredicateOperandDDRefOffset(PredI, IsLHS));
+RegDDRef *HLIf::getPredicateOperandDDRef(const_pred_iterator CPredI,
+                                         bool IsLHS) const {
+  return getOperandDDRefImpl(getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLIf::setPredicateOperandDDRef(RegDDRef *Ref, pred_iterator PredI,
+void HLIf::setPredicateOperandDDRef(RegDDRef *Ref, const_pred_iterator CPredI,
                                     bool IsLHS) {
-  setOperandDDRefImpl(Ref, getPredicateOperandDDRefOffset(PredI, IsLHS));
+  setOperandDDRefImpl(Ref, getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-RegDDRef *HLIf::removePredicateOperandDDRef(pred_iterator PredI, bool IsLHS) {
-  auto TRef = getPredicateOperandDDRef(PredI, IsLHS);
+RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
+                                            bool IsLHS) {
+  auto TRef = getPredicateOperandDDRef(CPredI, IsLHS);
 
   if (TRef) {
-    setPredicateOperandDDRef(nullptr, PredI, IsLHS);
+    setPredicateOperandDDRef(nullptr, CPredI, IsLHS);
   }
 
   return TRef;

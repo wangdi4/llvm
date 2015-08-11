@@ -714,7 +714,8 @@ void InlineReport::replaceFunctionWithFunction(Function* OldFunction,
     return; 
   } 
   InlineReportFunction* IRF = IrfIt->second; 
-  IRFunctionMap.erase(IrfIt); 
+  int count = IRFunctionMap.erase(OldFunction); 
+  assert(count == 1); 
   IRFunctionMap.insert(std::make_pair(NewFunction, IRF)); 
   InlineReportInstructionCallSiteMap::const_iterator IrcsIt, IrcsEnd; 
   for (IrcsIt = IRInstructionCallSiteMap.begin(), 

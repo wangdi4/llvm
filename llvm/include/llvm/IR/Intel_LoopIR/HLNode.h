@@ -80,6 +80,7 @@ private:
 protected:
   HLNode(unsigned SCID);
   HLNode(const HLNode &HLNodeObj);
+  virtual ~HLNode() {}
 
   friend class HLNodeUtils;
 
@@ -95,8 +96,8 @@ protected:
   void indent(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Pretty prints predicates.
-  void printPredicate(formatted_raw_ostream &OS,
-                      const CmpInst::Predicate &Pred) const;
+  static void printPredicate(formatted_raw_ostream &OS,
+                             const CmpInst::Predicate &Pred);
 
   /// \brief Virtual Clone Implementation
   /// This function populates the GotoList with Goto branching within the
@@ -114,14 +115,18 @@ protected:
   }
 
 public:
-  virtual ~HLNode() {}
 
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;
   /// \brief Dumps HLNode.
   void dump() const;
-  /// \brief Prints HLNode.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const = 0;
+
+  /// \brief Dumps HLNode with details.
+  void dump(bool Detailed) const;
+
+  /// \brief Prints HLNode with details.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const = 0;
 
   /// \brief Returns the immediate lexical parent of the HLNode.
   HLNode *getParent() const { return Parent; }

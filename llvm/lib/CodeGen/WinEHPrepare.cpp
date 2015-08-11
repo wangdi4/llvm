@@ -729,6 +729,11 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
     for (User *U : Users) {
       auto *I = dyn_cast<Instruction>(U);
       if (I && EHBlocks.count(I->getParent())) {
+#ifdef INTEL_CUSTOMIZATION
+        // If I is a PHI, then change it to be the first legal insertion point.
+        if (isa<PHINode>(I))
+          I = I->getParent()->getFirstInsertionPt();
+#endif
         auto *Reload = new LoadInst(Slot, Arg->getName() + ".reload", false, I);
         U->replaceUsesOfWith(Arg, Reload);
       }
@@ -885,7 +890,7 @@ bool WinEHPrepare::prepareExceptionHandlers(
         LoadInst *LI;
         if (auto *Phi = dyn_cast<PHINode>(I))
           LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false,
-                            Phi->getIncomingBlock(*U));
+                            Phi->getIncomingBlock(*U)->getTerminator());
         else
           LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false, I);
         U->set(LI);

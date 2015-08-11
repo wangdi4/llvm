@@ -44,7 +44,7 @@ protected:
 
   /// ConditionRef represents the switch conditon.
   HLSwitch(RegDDRef *ConditionRef);
-  ~HLSwitch() {}
+  virtual ~HLSwitch() override {}
 
   /// \brief Copy constructor used by cloning.
   HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,
@@ -97,13 +97,14 @@ protected:
                       LabelMapTy *LabelMap) const override;
 
 public:
-  /// \brief Prints HLSwitch.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth) const override;
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {
     return Node->getHLNodeID() == HLNode::HLSwitchVal;
   }
+
+  /// \brief Prints HLSwitch.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
 
   /// clone() - Create a copy of 'this' switch that is identical in all
   /// ways except the following:

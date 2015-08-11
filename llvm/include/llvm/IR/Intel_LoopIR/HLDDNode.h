@@ -45,7 +45,7 @@ public:
 
 protected:
   HLDDNode(unsigned SCID);
-  virtual ~HLDDNode(){};
+  virtual ~HLDDNode() override {};
 
   friend class HLNodeUtils;
 
@@ -71,6 +71,12 @@ protected:
                               LabelMapTy *LabelMap) const = 0;
 
 public:
+  /// \brief Prints HLInst.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     bool Detailed = false) const override;
+  /// \brief Prints list of attached Reg and Blob DD Refs
+  void printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
+
   /// DDRef iterator methods
   ddref_iterator ddref_begin();
   const_ddref_iterator ddref_begin() const;

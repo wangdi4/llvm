@@ -1,4 +1,4 @@
-//===-------- DDRefUtils.h - Utilities for DDRef class ----------*- C++ -*-===//
+//===-------- DDRefUtils.h - Utilities for DDRef class ---*- C++ -*--------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -20,7 +20,8 @@
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 namespace llvm {
 
@@ -31,7 +32,7 @@ namespace loopopt {
 /// It contains a bunch of static member functions which manipulate DDRefs.
 /// It does not store any state.
 ///
-class DDRefUtils {
+class DDRefUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
   DDRefUtils() = delete;
@@ -41,10 +42,8 @@ private:
   /// \brief Destroys all DDRefs. Called during HIR cleanup.
   static void destroyAll();
 
-protected:
   /// \brief Returns a new BlobDDRef.
-  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE,
-                                    RegDDRef *Parent = nullptr);
+  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE);
 
 public:
   /// \brief Returns a new RegDDRef.
@@ -52,6 +51,13 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
+
+  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
+  /// Val.
+  static RegDDRef *createSelfBlobRef(Value *Val);
+
+  /// \brief Returns a new symbase.
+  static unsigned getNewSymBase();
 };
 
 } // End namespace loopopt

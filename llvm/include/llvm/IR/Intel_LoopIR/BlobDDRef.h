@@ -36,26 +36,28 @@ private:
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(int SB, const CanonExpr *CE, RegDDRef *Parent);
-  ~BlobDDRef() {}
+  explicit BlobDDRef(int SB, const CanonExpr *CE);
+  virtual ~BlobDDRef() override {}
 
   /// \brief Copy constructor used by cloning.
   BlobDDRef(const BlobDDRef &BlobDDRefObj);
 
+  friend class RegDDRef;
   friend class DDRefUtils;
 
-  /// \brief Sets the HLDDNode of BlobDDRef
+  /// \brief Sets the HLDDNode of BlobDDRef.
   void setHLDDNode(HLDDNode *HNode) override;
 
+  /// \brief Sets the parent DDRef of BlobDDRef.
+  void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
+
 public:
-  /// \brief Prints BlobDDRef in a simple format.
-  virtual void print(formatted_raw_ostream &OS) const override;
-
-  /// \brief Prints BlobDDRef with much more information.
-  virtual void detailedPrint(formatted_raw_ostream &OS) const override;
-
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;
+
+  /// \brief Prints BlobDDRef in a simple format.
+  virtual void print(formatted_raw_ostream &OS,
+                     bool Detailed = false) const override;
 
   /// TODO implementation
   /// Value *getLLVMValue() const override { return nullptr; }

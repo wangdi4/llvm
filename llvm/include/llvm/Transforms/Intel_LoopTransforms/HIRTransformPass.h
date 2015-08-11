@@ -30,7 +30,7 @@ namespace loopopt {
 /// - Define under Intel_LoopTransforms directory.
 /// - Use the INITIALIZE_PASS* macros for initialization.
 /// - Declare initialize<PassName>Pass() in llvm/InitializePasses.h and add a
-///   call in initializeIntel_LoopTransforms.cpp.
+///   call in Intel_LoopTransforms.cpp.
 /// - Declare create<PassName>Pass() in Intel_LoopTransforms/Passes.h, define
 ///   it in your file and add a call in llvm/LinkAllPasses.h (so it is not
 ///   optimized away) and PassManagerBuilder.cpp (to add it to clang opt
@@ -39,6 +39,7 @@ namespace loopopt {
 /// - Define pass under anonymous(preferred) or loopopt namespace.
 /// - Declare HIRParser analysis as a required pass to access HIR and blob
 ///   utilities  like findBlob() etc.
+/// - Declare DDAnalysis pass as required to have an access to DD information.
 /// - Always call setPreservesAll() in getAnalysisUsage().
 class HIRTransformPass : public FunctionPass {
 public:

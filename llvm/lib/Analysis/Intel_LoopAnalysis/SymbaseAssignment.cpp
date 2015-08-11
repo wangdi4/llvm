@@ -1,4 +1,4 @@
-//===- SymbaseAssignment.cpp - Assigns symbase to ddrefs *- C++ -*---------===//
+//===- SymbaseAssignment.cpp - Assigns symbase to ddrefs ------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -13,22 +13,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <map>
+
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/AliasAnalysis.h"
+
 #include "llvm/Support/Debug.h"
 
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/Analysis/AliasSetTracker.h"
-#include <map>
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -61,6 +62,7 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 // TODO shared with dda. move?
@@ -89,6 +91,7 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
   bool isDone() { return false; }
+  bool skipRecursion(HLNode *Node) { return false; }
   std::map<unsigned, SmallVector<DDRef *, 16>> SymToRefs;
 };
 }
@@ -97,22 +100,24 @@ public:
 Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
   if (CanonExpr *CE = Ref->getBaseCE()) {
     assert(CE->hasBlob());
-    for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
+    for (auto I = CE->blob_begin(), E = CE->blob_end(); I != E; ++I) {
       // Even if there are multiple ptr blobs, will AA make correct choice?
-      const SCEV *Blob = HIRP->getBlob(I->Index);
+      const SCEV *Blob = CanonExprUtils::getBlob(I->Index);
       if (Blob->getType()->isPointerTy()) {
         const SCEVUnknown *PtrSCEV = cast<const SCEVUnknown>(Blob);
         return PtrSCEV->getValue();
       }
     }
   } else {
-    // assert isScalarRef and has symbase TODO
+    assert(Ref->isScalarRef() && "DDRef is in an inconsistent state!");
+    assert(Ref->getSymBase() && "Scalar DDRef was not assigned a symbase!");
   }
   return nullptr;
 }
 
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  // TODO if ref is not mem load/str return
+  if (Ref->isScalarRef())
+    return;
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
@@ -130,7 +135,7 @@ void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
     if ((*I)->isConstant()) {
       (*I)->setSymBase(SA->getSymBaseForConstants());
-    } else {
+    } else if ((*I)->getBaseCE()) {
       addToAST(*I);
     }
   }
@@ -145,6 +150,15 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                     true)
 
+unsigned int SymbaseAssignment::getSymBaseForConstants() const {
+  return HIRP->getSymBaseForConstants();
+}
+
+void SymbaseAssignment::initializeMaxSymBase() {
+  MaxSymBase = HIRP->getMaxScalarSymbase();
+  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymBase << " \n");
+}
+
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
@@ -157,6 +171,10 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   this->F = &F;
   auto AA = &getAnalysis<AliasAnalysis>();
   HIRP = &getAnalysis<HIRParser>();
+
+  HLUtils::setSymbaseAssignment(this);
+  initializeMaxSymBase();
+
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
   HLNodeUtils::visitAll(&SV);
@@ -196,7 +214,7 @@ void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
     FOS << SymVecPair->first;
     FOS << ":\n";
     for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      (*Ref)->detailedPrint(FOS);
+      (*Ref)->print(FOS, true);
       FOS << "\n";
     }
   }

@@ -18,7 +18,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @A = common global [100 x i32] zeroinitializer, align 16
 
 ; Function Attrs: nounwind uwtable
-define void @foo(i32 %m, i32 %n) #0 {
+define void @foo(i32 %m, i32 %n) {
 entry:
   %cmp16 = icmp sgt i32 %n, 0
   br i1 %cmp16, label %for.body, label %for.cond2.preheader
@@ -30,9 +30,9 @@ for.cond2.preheader:                              ; preds = %for.body, %entry
 for.body:                                         ; preds = %entry, %for.body
   %indvars.iv18 = phi i64 [ %indvars.iv.next19, %for.body ], [ 0, %entry ]
   %arrayidx = getelementptr inbounds [100 x i32], [100 x i32]* @B, i64 0, i64 %indvars.iv18
-  %0 = load i32, i32* %arrayidx, align 4, !tbaa !1
+  %0 = load i32, i32* %arrayidx, align 4
   %inc = add nsw i32 %0, 1
-  store i32 %inc, i32* %arrayidx, align 4, !tbaa !1
+  store i32 %inc, i32* %arrayidx, align 4
   %indvars.iv.next19 = add nuw nsw i64 %indvars.iv18, 1
   %lftr.wideiv20 = trunc i64 %indvars.iv.next19 to i32
   %exitcond21 = icmp eq i32 %lftr.wideiv20, %n
@@ -41,7 +41,7 @@ for.body:                                         ; preds = %entry, %for.body
 for.body4:                                        ; preds = %for.cond2.preheader, %for.body4
   %indvars.iv = phi i64 [ %indvars.iv.next, %for.body4 ], [ 0, %for.cond2.preheader ]
   %arrayidx6 = getelementptr inbounds [100 x i32], [100 x i32]* @A, i64 0, i64 %indvars.iv
-  store i32 0, i32* %arrayidx6, align 4, !tbaa !1
+  store i32 0, i32* %arrayidx6, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1
   %lftr.wideiv = trunc i64 %indvars.iv.next to i32
   %exitcond = icmp eq i32 %lftr.wideiv, %m
@@ -50,14 +50,4 @@ for.body4:                                        ; preds = %for.cond2.preheader
 for.end9:                                         ; preds = %for.body4, %for.cond2.preheader
   ret void
 }
-
-attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-
-!llvm.ident = !{!0}
-
-!0 = !{!"clang version 3.7.0 (trunk 637) (llvm/branches/loopopt 657)"}
-!1 = !{!2, !2, i64 0}
-!2 = !{!"int", !3, i64 0}
-!3 = !{!"omnipotent char", !4, i64 0}
-!4 = !{!"Simple C/C++ TBAA"}
 

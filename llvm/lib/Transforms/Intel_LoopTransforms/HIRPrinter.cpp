@@ -1,4 +1,4 @@
-//===------------- HIRPrinter.cpp - Prints HIR ----------*- C++ -*---------===//
+//===------------- HIRPrinter.cpp - Prints HIR ----------------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -15,7 +15,7 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
@@ -37,18 +37,21 @@ public:
       : FunctionPass(ID), OS(OS), Banner(Banner) {}
 
   bool runOnFunction(Function &F) override {
-    auto HIR = getAnalysisIfAvailable<HIRCreation>();
+    auto &HIR = getAnalysis<HIRCreation>();
 
     OS << Banner << "\n";
 
-    if (HIR) {
-      HIR->print(OS, nullptr);
-    }
+    HIR.print(OS);
 
     return false;
   }
 
-  void getAnalysisUsage(AnalysisUsage &AU) const { AU.setPreservesAll(); }
+  void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequired<HIRCreation>();
+    // HIRParser is required, as it's implicitly used during printing.
+    AU.addRequired<HIRParser>();
+  }
 };
 }
 

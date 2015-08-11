@@ -29,6 +29,10 @@ FunctionPass *createRegionIdentificationPass();
 /// regions.
 FunctionPass *createSCCFormationPass();
 
+/// createScalarSymbaseAssignmentPass - This creates a pass that assigns
+/// symbase to livein/liveout scalars.
+FunctionPass *createScalarSymbaseAssignmentPass();
+
 /// createHIRCreationPass - This creates a pass that forms HIR nodes.
 FunctionPass *createHIRCreationPass();
 

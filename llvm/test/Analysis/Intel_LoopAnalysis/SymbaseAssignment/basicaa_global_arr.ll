@@ -3,9 +3,9 @@
 ; Find A[] and it's symbase, make sure there is no B[] ref before or after
 ; with same symbase
 
-; CHECK-NOT: {{@B.*}} Symbase: [[BASE1]]
-; CHECK: {{@A.*}} Symbase: [[BASE1:[0-9]+]]
-; CHECK-NOT: {{@B.*}} Symbase: [[BASE1]]
+; CHECK-NOT: {{.*@B.*\[.*}} {sb:[[BASE1]]}
+; CHECK: {{.*@A.*\[.*}} {sb:[[BASE1:[0-9]+]]}
+; CHECK-NOT: {{.*@B.*\[.*}} {sb:[[BASE1]]}
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
