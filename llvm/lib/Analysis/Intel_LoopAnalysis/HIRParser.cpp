@@ -416,18 +416,24 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
 
 bool HIRParser::isRequired(const Instruction *Inst) const {
 
-  if (isa<StoreInst>(Inst)) {
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
     return true;
-  } else if (isa<CmpInst>(Inst)) {
-    assert(hasExpectedUsers(cast<CmpInst>(Inst)) &&
-           "Unexpected compare instruction user!");
-    return false;
+
+  } else if (isRegionLiveOut(Inst)) {
+    return true;
+
+  } else if (auto CInst = dyn_cast<CmpInst>(Inst)) {
+    if (hasPropagableUses(CInst)) {
+      return false;
+    }
+    
+    return true;
   }
 
-  return (isRegionLiveOut(Inst) || isBlobDef(Inst));
+  return isBlobDef(Inst);
 }
 
-bool HIRParser::hasExpectedUsers(const CmpInst *CInst) const {
+bool HIRParser::hasPropagableUses(const CmpInst *CInst) const {
 
   for (auto I = CInst->user_begin(), E = CInst->user_end(); I != E; ++I) {
     if (auto UseInst = dyn_cast<Instruction>(*I)) {
@@ -454,11 +460,15 @@ void HIRParser::parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE) {
 
 void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
                                      unsigned DefLevel) const {
-  if (DefLevel >= NestingLevel) {
-    // Make non-linear instead.
-    CE->setNonLinear();
-  } else if (DefLevel > CE->getDefinedAtLevel()) {
-    CE->setDefinedAtLevel(DefLevel);
+  // If the CE is already non-linear, DefinedAtLevel cannot be refined any
+  // further.
+  if (!CE->isNonLinear()) {
+    if (DefLevel >= NestingLevel) {
+      // Make non-linear instead.
+      CE->setNonLinear();
+    } else if (DefLevel > CE->getDefinedAtLevel()) {
+      CE->setDefinedAtLevel(DefLevel);
+    }
   }
 }
 
@@ -502,7 +512,8 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
 
   setCanonExprDefLevel(CE, NestingLevel, DefLevel);
 
-  // Cache blob level for later reuse.
+  // Cache blob level for later reuse in population of BlobDDRefs for this
+  // RegDDRef.
   addTempBlobEntry(Index, NestingLevel, DefLevel);
 }
 
@@ -1003,10 +1014,17 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     BasePhi = dyn_cast<PHINode>(GEPVal);
     GEPOp = cast<GEPOperator>(GEPInst);
     IsAddressOf = true;
+  } else if ((GEPOp = dyn_cast<GEPOperator>(Val))) {
+    GEPVal = GEPOp->getPointerOperand();
+    BasePhi = dyn_cast<PHINode>(GEPVal);
+    IsAddressOf = true;
   } else {
     llvm_unreachable("Unexpected instruction!");
   }
 
+  // TODO: We need to store this casting information for correct code
+  // generation. A possible way is to store this in the base CanonExpr's DestTy,
+  // when SrcTy/DestTy is introduced for CanonExprs.
   // In some cases float* is converted into int32* before loading/storing.
   if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
     if (!SE->isHIRCopyInst(BCInst)) {
@@ -1038,7 +1056,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
   return Ref;
 }
 
-/// TODO: Add blob DDRef logic
 RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
                                        bool IsLval) {
   CanonExpr *CE;
@@ -1049,15 +1066,6 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
 
   CE = parse(Val, Level);
-
-  if (IsLval) {
-    // If the lval is non-linear, make it a self-blob to reduce number of
-    // BlobDDRefs and DD edges.
-    if (CE->isNonLinear() && !CE->isSelfBlob()) {
-      CE->clear();
-      parseAsBlob(Val, CE, Level);
-    }
-  }
 
   Ref->setSingleCanonExpr(CE);
 
@@ -1071,11 +1079,14 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
 RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                                      unsigned Level) {
   RegDDRef *Ref;
+  auto OpVal = Inst->getOperand(OpNum);
 
   if (isa<LoadInst>(Inst) || isa<GetElementPtrInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level);
+  } else if (isa<GEPOperator>(OpVal)) {
+    Ref = createGEPDDRef(OpVal, Level);
   } else {
-    Ref = createScalarDDRef(Inst->getOperand(OpNum), Level, false);
+    Ref = createScalarDDRef(OpVal, Level, false);
   }
 
   return Ref;
@@ -1096,8 +1107,21 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   return Ref;
 }
 
+unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
+  unsigned NumRvalOp = HInst->getNumOperands();
+
+  if (HInst->hasLval()) {
+    NumRvalOp--;
+  }
+
+  if (isa<SelectInst>(HInst->getLLVMInstruction())) {
+    NumRvalOp--;
+  }
+
+  return NumRvalOp;
+}
+
 void HIRParser::parse(HLInst *HInst) {
-  const Value *Val;
   RegDDRef *Ref;
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
@@ -1124,19 +1148,16 @@ void HIRParser::parse(HLInst *HInst) {
     HInst->setLvalDDRef(Ref);
   }
 
-  unsigned NumRvalOp =
-      HasLval ? HInst->getNumOperands() - 1 : HInst->getNumOperands();
+  unsigned NumRvalOp = getNumRvalOperands(HInst);
 
   /// Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
-
-    Val = Inst->getOperand(I);
 
     if (isa<SelectInst>(Inst) && (I == 0)) {
       CmpInst::Predicate Pred;
       RegDDRef *LHSDDRef, *RHSDDRef;
 
-      parseCompare(Val, Level, &Pred, &LHSDDRef, &RHSDDRef);
+      parseCompare(Inst->getOperand(0), Level, &Pred, &LHSDDRef, &RHSDDRef);
 
       HInst->setPredicate(Pred);
       HInst->setOperandDDRef(LHSDDRef, 1);
@@ -1151,6 +1172,10 @@ void HIRParser::parse(HLInst *HInst) {
     auto OpNum = HasLval ? (isa<SelectInst>(Inst) ? (I + 2) : (I + 1)) : I;
 
     HInst->setOperandDDRef(Ref, OpNum);
+  }
+
+  if (auto CInst = dyn_cast<CmpInst>(Inst)) {
+    HInst->setPredicate(CInst->getPredicate());
   }
 }
 

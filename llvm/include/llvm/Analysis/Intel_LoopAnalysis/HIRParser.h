@@ -140,6 +140,9 @@ private:
   void parse(HLLabel *Label) {}
   void parse(HLGoto *Goto) {}
 
+  /// \brief Returns the number of rval operands of HInst.
+  static unsigned getNumRvalOperands(HLInst *HInst);
+  
   /// \brief Returns true if this instruction has a polynomial representation
   /// and should be parsed as a blob (1 * t).
   bool isPolyBlobDef(const Instruction *Inst) const;
@@ -153,9 +156,10 @@ private:
   /// \brief Returns true if this instruction cannot be eliminated as useless.
   bool isRequired(const Instruction *Inst) const;
 
-  /// \brief Returns true if CmpInst is used in either conditional branch or
-  /// select instruction.
-  bool hasExpectedUsers(const CmpInst *CInst) const;
+  /// \brief Returns true if CmpInst is only used in conditional branches and
+  /// select instructions. These uses can be propagated into HLIfs and select
+  /// HLInsts thus making the CmpInst eliminable.
+  bool hasPropagableUses(const CmpInst *CInst) const;
 
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;

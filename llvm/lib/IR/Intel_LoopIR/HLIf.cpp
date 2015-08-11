@@ -112,11 +112,9 @@ void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
 
     Ref = getPredicateOperandDDRef(I, true);
     Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
-    OS << " ";
 
     printPredicate(OS, *I);
 
-    OS << " ";
     Ref = getPredicateOperandDDRef(I, false);
     Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
 

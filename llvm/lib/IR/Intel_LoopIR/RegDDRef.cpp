@@ -127,6 +127,14 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 }
 
+Type *RegDDRef::getBaseType() const {
+  if (hasGEPInfo()) {
+    return getBaseCE()->getType();
+  }
+
+  return nullptr;
+}
+
 bool RegDDRef::isLval() const {
   auto HNode = getHLDDNode();
 

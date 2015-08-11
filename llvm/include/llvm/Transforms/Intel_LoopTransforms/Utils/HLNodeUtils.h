@@ -57,6 +57,7 @@ private:
 
   friend class HIRCreation;
   friend class HIRCleanup;
+  friend class LoopFormation;
 
   /// \brief Visitor for clone sequence.
   struct CloneVisitor;
@@ -70,6 +71,23 @@ private:
   /// \brief Initializes static members for this function.
   static void initialize(Function &F);
 
+  /// \brief Returns a new HLRegion. Only used by framework.
+  static HLRegion *createHLRegion(IRRegion *IRReg);
+
+  /// \brief Returns a new HLLabel. Only used by framework.
+  static HLLabel *createHLLabel(BasicBlock *SrcBB);
+
+  /// \brief Returns a new external HLGoto that branches outside of HLRegion.
+  /// Only used by framework.
+  static HLGoto *createHLGoto(BasicBlock *TargetBB);
+
+  /// \brief Returns a new HLInst. Only used by framework.
+  static HLInst *createHLInst(Instruction *In);
+
+  /// \brief Returns a new HLLoop created from an underlying LLVM loop. Only
+  /// used by framework.
+  static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
+
   /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
 
@@ -80,7 +98,8 @@ private:
   static Value *createOneVal(Type *Ty);
 
   /// \brief Performs sanity checking on unary instruction operands.
-  static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef);
+  static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
+                                     Type *DestTy);
 
   /// \brief Performs sanity checking on binary instruction operands.
   static void checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
@@ -190,35 +209,21 @@ private:
                                  bool isFirstChild);
 
 public:
+  /// \brief Returns the first dummy instruction added for the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
-
-  /// \brief Returns a new HLRegion.
-  static HLRegion *createHLRegion(IRRegion *IRReg);
 
   /// \brief Returns a new HLSwitch.
   static HLSwitch *createHLSwitch(RegDDRef *ConditionRef);
 
-  /// \brief Returns a new HLLabel.
-  static HLLabel *createHLLabel(BasicBlock *SrcBB);
-
   /// \brief Returns a new HLLabel with custom name.
   static HLLabel *createHLLabel(const Twine &Name = "L");
-
-  /// \brief Returns a new external HLGoto that branches outside of HLRegion.
-  static HLGoto *createHLGoto(BasicBlock *TargetBB);
 
   /// \brief Returns a new HLGoto that branches to HLLabel.
   static HLGoto *createHLGoto(HLLabel *TargetL);
 
-  /// \brief Returns a new HLInst.
-  static HLInst *createHLInst(Instruction *In);
-
   /// \brief Returns a new HLIf.
   static HLIf *createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
                           RegDDRef *Ref2);
-
-  /// \brief Returns a new HLLoop created from an underlying LLVM loop.
-  static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
 
   /// \brief Returns a new HLLoop.
   static HLLoop *createHLLoop(HLIf *ZttIf = nullptr,
@@ -667,8 +672,8 @@ public:
   static bool strictlyDominates(HLNode *Node1, HLNode *Node2);
 
   /// \brief Check if DDRef is contained in Loop
-	static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
-		
+  static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
+
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned Level,

@@ -82,15 +82,11 @@ public:
   /// storing it, if really needed.
   /// virtual Value *getLLVMValue() const = 0;
 
-  /// \brief Returns the LLVM type.
-  Type *getType() const;
-
   /// \brief Returns the element type associated with this DDRef.
-  /// Examples in the form of (incoming type -> returned types)-
-  /// 1) [100 x [100 x float]] -> float
-  /// 2) int* -> int*
+  /// For example, for a 2 dimensional GEP DDRef whose base type is [7 x [101 x
+  /// float]]*, we will return float.
   /// TODO: extend to handle struct types.
-  Type *getElementType() const;
+  Type *getType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned int getSymBase() const { return SymBase; };

@@ -37,7 +37,7 @@ HLRegion *HLRegion::clone() const {
 
 void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,
                      bool Detailed) const {
-  print(OS, Depth, false, false);
+  print(OS, Depth, false, Detailed);
 }
 
 void HLRegion::print(formatted_raw_ostream &OS, unsigned Depth,

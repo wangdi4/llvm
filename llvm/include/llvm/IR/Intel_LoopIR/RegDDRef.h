@@ -135,6 +135,10 @@ public:
   /// \brief Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
 
+  /// \brief Returns the type of the base CanonExpr for GEP DDRefs, else returns
+  /// null.
+  Type *getBaseType() const;
+
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return hasGEPInfo() ? GepInfo->BaseCE : nullptr; }
   const CanonExpr *getBaseCE() const {

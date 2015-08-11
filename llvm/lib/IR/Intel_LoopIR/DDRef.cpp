@@ -73,13 +73,41 @@ Type *DDRef::getType() const {
     if (RRef->hasGEPInfo()) {
       CE = RRef->getBaseCE();
       assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
+      assert(isa<PointerType>(CE->getType()) && "Invalid baseCE type!");
 
-      if (RRef->isAddressOf()) {
-        return CE->getType();
-      } else {
-        // load/store DDRef is a dereference of the base type.
-        return cast<PointerType>(CE->getType())->getElementType();
+      PointerType *BaseTy = cast<PointerType>(CE->getType());
+
+      // Get base pointer's contained type.
+      // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
+      // [101 x float]].
+      Type *RetTy = BaseTy->getElementType();
+
+      unsigned I = 0;
+      unsigned NumDim = RRef->getNumDimensions();
+
+      // Recurse into the array type(s).
+      // Assuming NumDim is 2 and RetTy is [7 x [101 x float]], the following
+      // loop will set RetTy as float.
+      for (I = 0; I < NumDim; ++I) {
+        if (auto ArrTy = dyn_cast<ArrayType>(RetTy)) {
+          RetTy = ArrTy->getElementType();
+        } else {
+          break;
+        }
       }
+
+      // The highest dimension can come from "*" instead of "[]".
+      // For example- GEP i32* A, 0 can be mapped as A[0].
+      assert(((I == NumDim) || (I == NumDim - 1)) && "Malformed DDRef!");
+
+      // For DDRefs representing addresses, we need to return a pointer to
+      // RetTy.
+      if (RRef->isAddressOf()) {
+        return PointerType::get(RetTy, BaseTy->getAddressSpace());
+      } else {
+        return RetTy;
+      }
+
     } else {
       CE = RRef->getSingleCanonExpr();
       assert(CE && "DDRef is empty!");
@@ -88,17 +116,6 @@ Type *DDRef::getType() const {
   }
 
   llvm_unreachable("Unknown DDRef kind!");
-}
-
-Type *DDRef::getElementType() const {
-  Type *RetTy = getType();
-  ArrayType *ArrTy;
-
-  while ((ArrTy = dyn_cast<ArrayType>(RetTy))) {
-    RetTy = ArrTy->getElementType();
-  }
-
-  return RetTy;
 }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {

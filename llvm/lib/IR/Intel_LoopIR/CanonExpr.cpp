@@ -373,8 +373,9 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   // are different.
   // At least one of the indices is non-zero here.
   if (IVCoeffs[Lvl - 1].Index != Index) {
-    BlobTy MulBlob1 = nullptr, MulBlob2 = nullptr;
+    BlobTy AddBlob, MulBlob1 = nullptr, MulBlob2 = nullptr;
     unsigned NewIndex = 0;
+    int64_t NewCoeff = 1;
 
     // Create a mul blob from new index/coeff.
     MulBlob1 = CanonExprUtils::createBlob(Coeff, false);
@@ -396,18 +397,23 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
     // Create an add blob, if necessary.
     if (MulBlob2) {
-      // TODO: check whether the add blob has been simplified to a constant,
-      // and if so, set it as a constant coefficient.
+      AddBlob =
+          CanonExprUtils::createAddBlob(MulBlob1, MulBlob2, true, &NewIndex);
+
+      // Check whether the add blob has been simplified to a constant, if so,
+      // set it as a constant coefficient.
       // For example: (%b + 2) + (-%b) = 2
-      //
-      CanonExprUtils::createAddBlob(MulBlob1, MulBlob2, true, &NewIndex);
+      if (CanonExprUtils::isConstantIntBlob(AddBlob, &NewCoeff)) {
+        NewIndex = 0;
+      }
     }
 
-    assert(NewIndex && "NewIndex is unexpectedly zero!");
+    assert(((NewCoeff == 1) || (NewIndex == 0)) &&
+           "Unexpected merge condition!");
 
     // Set new index and coefficient.
     IVCoeffs[Lvl - 1].Index = NewIndex;
-    IVCoeffs[Lvl - 1].Coeff = 1;
+    IVCoeffs[Lvl - 1].Coeff = NewCoeff;
   } else {
     // Both indices are equal(or zero) so just add the const coefficients.
     IVCoeffs[Lvl - 1].Coeff += Coeff;

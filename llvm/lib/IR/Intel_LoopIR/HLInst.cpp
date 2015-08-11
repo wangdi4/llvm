@@ -123,11 +123,15 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
         llvm_unreachable("Unexpected binary operator!");
       }
     }
+  } else if (isa<CmpInst>(Inst)) {
+    if (Print) {
+      printPredicate(OS, CmpOrSelectPred);
+    }
   } else {
     if (!isa<CallInst>(Inst)) {
       Ret = false;
     }
-    if (Print) {
+    if (Print && !isa<SelectInst>(Inst)) {
       OS << ",  ";
     }
   }
@@ -149,8 +153,10 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
     FInst->getCalledFunction()->printAsOperand(OS, false);
     OS << "(";
+  } else if(isa<SelectInst>(Inst)) {
+    OS << "(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
-             !isa<GetElementPtrInst>(Inst)) {
+             !isa<GetElementPtrInst>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
   }
 }
@@ -187,6 +193,16 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
       }
     } else {
       *I ? (*I)->print(OS, false) : (void)(OS << *I);
+
+      if (isa<SelectInst>(Inst)) {
+        if (Count == 1) {
+          printPredicate(OS, CmpOrSelectPred);
+        } else if (Count == 2) {
+          OS << ") ? ";
+        } else if (Count == 3) {
+          OS << " : ";
+        }
+      }
     }
   }
 

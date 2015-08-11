@@ -1,7 +1,8 @@
 ; RUN: opt < %s -loop-simplify -hir-de-ssa -S | FileCheck %s
 
-; CHECK: a.addr.014
-; CHECK-NEXT: a.addr.014.out
+; Check that an unnamed value's (%0 here) copy is provided an appropriate name.
+; CHECK: %0
+; CHECK-NEXT: %0.out
 ; CHECK-SAME: out.de.ssa
 ; CHECK: output.1.in.1
 ; CHECK-SAME: in.de.ssa
@@ -23,19 +24,19 @@ entry:
 
 for.body:                                         ; preds = %entry, %if.end
   %indvars.iv = phi i64 [ %indvars.iv.next, %if.end ], [ 0, %entry ]
-  %a.addr.014 = phi i32 [ %a.addr.1, %if.end ], [ %a, %entry ]
+  %0 = phi i32 [ %a.addr.1, %if.end ], [ %a, %entry ]
   %cmp1 = icmp sgt i64 %indvars.iv, 77
   br i1 %cmp1, label %if.then, label %if.end
 
 if.then:                                          ; preds = %for.body
-  %inc = add nsw i32 %a.addr.014, 1
+  %inc = add nsw i32 %0, 1
   %arrayidx = getelementptr inbounds i32, i32* %A, i64 %indvars.iv
   store i32 %inc, i32* %arrayidx, align 4
   br label %if.end
 
 if.end:                                           ; preds = %for.body, %if.then
-  %a.addr.1 = phi i32 [ %inc, %if.then ], [ %a.addr.014, %for.body ]
-  %output.1 = phi i32 [ %a.addr.014, %if.then ], [ %b, %for.body ]
+  %a.addr.1 = phi i32 [ %inc, %if.then ], [ %0, %for.body ]
+  %output.1 = phi i32 [ %0, %if.then ], [ %b, %for.body ]
   %arrayidx3 = getelementptr inbounds i32, i32* %B, i64 %indvars.iv
   store i32 %output.1, i32* %arrayidx3, align 4
   %indvars.iv.next = add nuw nsw i64 %indvars.iv, 1

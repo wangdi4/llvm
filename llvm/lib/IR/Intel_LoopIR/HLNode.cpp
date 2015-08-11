@@ -107,43 +107,43 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 void HLNode::printPredicate(formatted_raw_ostream &OS,
                             const CmpInst::Predicate &Pred) {
   if (Pred == CmpInst::Predicate::FCMP_TRUE) {
-    OS << "true";
+    OS << " true ";
   } else if (Pred == CmpInst::Predicate::FCMP_FALSE) {
-    OS << "false";
+    OS << " false ";
   }
   /// TODO: Differentiate ordered/unordered and signed/unsigned.
   else if ((Pred == CmpInst::Predicate::FCMP_OEQ) ||
            (Pred == CmpInst::Predicate::FCMP_UEQ) ||
            (Pred == CmpInst::Predicate::ICMP_EQ)) {
-    OS << "==";
+    OS << " == ";
   } else if ((Pred == CmpInst::Predicate::FCMP_ONE) ||
              (Pred == CmpInst::Predicate::FCMP_UNE) ||
              (Pred == CmpInst::Predicate::ICMP_NE)) {
-    OS << "!=";
+    OS << " != ";
   } else if ((Pred == CmpInst::Predicate::FCMP_OGT) ||
              (Pred == CmpInst::Predicate::FCMP_UGT) ||
              (Pred == CmpInst::Predicate::ICMP_UGT) ||
              (Pred == CmpInst::Predicate::ICMP_SGT)) {
-    OS << ">";
+    OS << " > ";
   } else if ((Pred == CmpInst::Predicate::FCMP_OGE) ||
              (Pred == CmpInst::Predicate::FCMP_UGE) ||
              (Pred == CmpInst::Predicate::ICMP_UGE) ||
              (Pred == CmpInst::Predicate::ICMP_SGE)) {
-    OS << ">=";
+    OS << " >= ";
   } else if ((Pred == CmpInst::Predicate::FCMP_OLT) ||
              (Pred == CmpInst::Predicate::FCMP_ULT) ||
              (Pred == CmpInst::Predicate::ICMP_ULT) ||
              (Pred == CmpInst::Predicate::ICMP_SLT)) {
-    OS << "<";
+    OS << " < ";
   } else if ((Pred == CmpInst::Predicate::FCMP_OLE) ||
              (Pred == CmpInst::Predicate::FCMP_ULE) ||
              (Pred == CmpInst::Predicate::ICMP_ULE) ||
              (Pred == CmpInst::Predicate::ICMP_SLE)) {
-    OS << "<=";
+    OS << " <= ";
   } else if (Pred == CmpInst::Predicate::FCMP_ORD) {
-    OS << "ORDERED";
+    OS << " ORDERED ";
   } else if (Pred == CmpInst::Predicate::FCMP_UNO) {
-    OS << "UNORDERED";
+    OS << " UNORDERED ";
   } else {
     llvm_unreachable("Unexpected predicate!");
   }
