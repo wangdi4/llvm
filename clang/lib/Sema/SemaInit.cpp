@@ -7308,8 +7308,15 @@ bool InitializationSequence::Diagnose(Sema &S,
   // Fix for CQ#236476: Static variable is referenced in two separate routines
   // in iclang
   case FK_StaticLabelAddress:
-    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-        << Args[0]->getSourceRange();
+    // Fix for CQ#374664: After promotion xmain becomes too strict on
+    // initialization of static variable with label address.
+    DeclContext *DC = S.getFunctionLevelDeclContext();
+    while (isa<RecordDecl>(DC))
+      DC = DC->getParent();
+    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
+      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic())
+        S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+            << Args[0]->getSourceRange();
     break;
 #endif // INTEL_CUSTOMIZATION
   }
