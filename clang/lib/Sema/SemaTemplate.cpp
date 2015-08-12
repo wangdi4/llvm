@@ -1914,7 +1914,13 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
 #ifdef INTEL_CUSTOMIZATION
       // Fix for CQ#367129: template explicit partial specialization requires
       // 'template<>'
-      if (getLangOpts().IntelCompat)
+      // Fix for CQ#374679: Several negative tests are failed after promotion
+      // due to patches allowing too permissive xmain's behavior.
+      if (getLangOpts().IntelCompat &&
+          (SS.isInvalid() || SS.isEmpty() ||
+           (SS.getScopeRep()->getKind() != NestedNameSpecifier::TypeSpec &&
+            SS.getScopeRep()->getKind() !=
+                NestedNameSpecifier::TypeSpecWithTemplate)))
         return nullptr;
 #endif
       DiagnoseMissingExplicitSpecialization(SourceRange(TemplateId->LAngleLoc,

@@ -12809,7 +12809,10 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #ifdef INTEL_CUSTOMIZATION
-      }
+      // Fix for CQ#374679: Several negative tests are failed after promotion
+      // due to patches allowing too permissive xmain's behavior.
+      } else if (!D.isFunctionDefinition())
+        Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #endif // INTEL_CUSTOMIZATION
     }
 

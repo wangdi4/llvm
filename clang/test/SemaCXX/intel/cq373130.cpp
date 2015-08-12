@@ -3,14 +3,9 @@
 
 struct S {
   static const int i = 3;
-  friend int f(int = i);
+  friend int f(int = i) { return 0; };
 };
-
-int f(int c) {
-  c++;
-  return c;
-}
-
+int f(int);
 int main() {
   return f();
 }
