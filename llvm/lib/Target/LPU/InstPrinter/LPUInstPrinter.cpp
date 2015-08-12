@@ -46,7 +46,14 @@ void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   if (Op.isReg()) {
     O << getRegisterName(Op.getReg());
   } else if (Op.isImm()) {
-    O << Op.getImm();
+    int64_t imm = Op.getImm();
+    if (-65536 <= imm && imm <= 65535) {
+      O << Op.getImm();
+    } else {
+      char str[20] = {};
+      sprintf(str,"0x%llx",(long long)imm);
+      O << str;
+    }
   } else if (Op.isFPImm()) {
     O << Op.getFPImm();
   } else {

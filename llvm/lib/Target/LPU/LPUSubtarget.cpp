@@ -26,7 +26,7 @@ using namespace llvm;
 void LPUSubtarget::anchor() { }
 
 LPUSubtarget &LPUSubtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
-  ParseSubtargetFeatures(CPU, FS);
+  ParseSubtargetFeatures(CPU.empty() ? "ordered" : CPU, FS);
   return *this;
 }
 
