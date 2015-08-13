@@ -81,18 +81,22 @@ ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
               cl::desc("Threshold for inlining functions with cold attribute"));
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
-const int OptSizeThreshold = 75;
+#ifdef INTEL_CUSTOMIZATION
+static cl::opt<int>
+OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(75),
+              cl::desc("Threshold for inlining functions with -Os"));
+#endif // INTEL_CUSTOMIZATION
 
 Inliner::Inliner(char &ID)
   : CallGraphSCCPass(ID), InlineThreshold(InlineLimit), InsertLifetime(true),
     Report(IntelInlineReportLevel, InlineLimit, HintThreshold, // INTEL 
-    ColdThreshold) {} // INTEL 
+    ColdThreshold, OptSizeThreshold) {} // INTEL 
 Inliner::Inliner(char &ID, int Threshold, bool InsertLifetime)
   : CallGraphSCCPass(ID), InlineThreshold(InlineLimit.getNumOccurrences() > 0 ?
                                           InlineLimit : Threshold),
     InsertLifetime(InsertLifetime),  
     Report(IntelInlineReportLevel, InlineLimit, HintThreshold, // INTEL 
-    ColdThreshold) {} // INTEL 
+    ColdThreshold, OptSizeThreshold) {} // INTEL 
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should

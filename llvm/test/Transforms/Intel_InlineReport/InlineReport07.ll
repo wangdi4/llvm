@@ -1,13 +1,13 @@
-; RUN: opt -inline -inline-report=7 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
 
-; Generated with clang -c -S -emit-llvm sm1.c
+; Generated with clang -c -S -emit-llvm sm1.c 
 
 ; CHECK: Begin 
 ; CHECK-NEXT: Option Values:
-; CHECK-NEXT: inline-threshold:
-; CHECK-NEXT: inlinehint-threshold:
-; CHECK-NEXT: inlinecold-threshold:
-; CHECK-NEXT: inlineoptsize-threshold:
+; CHECK-NEXT: inline-threshold: 50
+; CHECK-NEXT: inlinehint-threshold: 100
+; CHECK-NEXT: inlinecold-threshold: 25
+; CHECK-NEXT: inlineoptsize-threshold: 10 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -16,7 +16,6 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: COMPILE FUNC: main
 ; CHECK-NEXT: INLINE: foo
-; CHECK-SAME: <<Callee is always inline>>
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() #0 {
@@ -26,6 +25,7 @@ entry:
   %call = call i32 @foo()
   ret i32 %call
 }
+
 
 ; Function Attrs: alwaysinline nounwind uwtable
 define internal i32 @foo() #0 {
