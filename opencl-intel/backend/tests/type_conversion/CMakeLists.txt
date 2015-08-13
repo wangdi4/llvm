@@ -20,7 +20,7 @@ target_link_libraries(
 )
 
 if( ANDROID ) 
-  target_link_libraries( ${TARGET_NAME} gnustl_shared )
+  target_link_libraries( ${TARGET_NAME} c++ )
   set_property(TARGET ${TARGET_NAME} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
 endif( ANDROID )
 
