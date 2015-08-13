@@ -500,7 +500,7 @@ void MCAsmStreamer::EmitCOFFSymbolType (int Type) {
 
 void MCAsmStreamer::EmitSyntaxDirective(){
   if (MAI->getAssemblerDialect() == 1)
-     OS << "\t.syntax_intel prefix\n";
+     OS << "\t.intel_syntax noprefix\n";
   
 }
 void MCAsmStreamer::EndCOFFSymbolDef() {
