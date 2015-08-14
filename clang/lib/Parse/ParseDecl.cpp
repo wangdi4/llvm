@@ -5358,6 +5358,16 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
         if (Tok.isAtStartOfLine() && Loc.isValid())
           Diag(PP.getLocForEndOfToken(Loc), diag::err_expected_unqualified_id)
               << getLangOpts().CPlusPlus;
+#ifdef INTEL_CUSTOMIZATION
+        // In IntelCompat mode issue a warning, not an error, on usage of
+        // "inline" keyword here. CQ#364737.
+        else if (getLangOpts().IntelCompat &&
+            Tok.getKind() == tok::kw_inline) {
+          Diag(Tok.getLocation(), diag::warn_inline_not_allowed);
+          D.SetIdentifier(nullptr, Tok.getLocation());
+          ConsumeToken();
+        }
+#endif // INTEL_CUSTOMIZATION
         else
           Diag(getMissingDeclaratorIdLoc(D, Tok.getLocation()),
                diag::err_expected_unqualified_id)

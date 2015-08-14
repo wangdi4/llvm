@@ -565,6 +565,13 @@ def err_function_is_not_record : Error<
   "unexpected %0 in function call; perhaps remove the %0?">;
 def err_super_in_using_declaration : Error<
   "'__super' cannot be used with a using declaration">;
+// if INTEL_CUSTOMIZATION
+// CQ#364737
+def warn_inline_not_allowed : Warning<
+  "\"inline\" is not allowed">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
+
 
 // C++ derived classes
 def err_dup_virtual : Error<"duplicate 'virtual' in base specifier">;
