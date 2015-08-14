@@ -366,7 +366,12 @@ def Aligned : InheritableAttr {
   let Spellings = [GCC<"aligned">, Declspec<"align">, Keyword<"alignas">,
                    Keyword<"_Alignas">];
 //  let Subjects = SubjectList<[NonBitField, NormalVar, Tag]>;
-  let Args = [AlignedArgument<"Alignment", 1>];
+  let Args = [AlignedArgument<"Alignment", 1>
+//#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ368132: __declspec (align) in icc can take more than one argument.
+              , AlignedArgument<"Offset", 1>
+//#endif // INTEL_CUSTOMIZATION
+  ];
   let Accessors = [Accessor<"isGNU", [GCC<"aligned">]>,
                    Accessor<"isC11", [Keyword<"_Alignas">]>,
                    Accessor<"isAlignas", [Keyword<"alignas">,

@@ -1254,6 +1254,16 @@ writePrettyPrintFunction(Record &R,
       writeAvailabilityValue(OS);
     } else {
       for (auto I = Args.begin(), E = Args.end(); I != E; ++ I) {
+#ifdef INTEL_CUSTOMIZATION
+        // Fix for CQ368132: __declspec (align) in icc can take more than one
+        // argument.
+        if (I != Args.begin() && R.getName() == "Aligned") {
+          OS << "\";\n";
+          // The offset attribute argument expression is optional.
+          OS << "    if (isoffsetExpr && offsetExpr)\n";
+          OS << "      OS << \"";
+        }
+#endif
         if (I != Args.begin()) OS << ", ";
         (*I)->writeValue(OS);
       }

@@ -7799,8 +7799,14 @@ public:
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ368132: __declspec (align) in icc can take more than one argument.
+  void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
+                      unsigned SpellingListIndex, bool IsPackExpansion);
+#else
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
                       unsigned SpellingListIndex, bool IsPackExpansion);
+#endif // INTEL_CUSTOMIZATION
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *T,
                       unsigned SpellingListIndex, bool IsPackExpansion);
 
