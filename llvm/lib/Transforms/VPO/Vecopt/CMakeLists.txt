@@ -39,7 +39,6 @@ set(SERVICES_TARGET_SOURCE_FILES
 # -------------------------- VECTORIZER ---------------------------
 
 set(TARGET_EXTRA_SOURCE_FILES 
-  Resolver/MICResolver.cpp
   Utils/Namer.cpp
   Utils/PrintfAdder.cpp
 )

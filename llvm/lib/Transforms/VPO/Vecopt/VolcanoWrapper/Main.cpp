@@ -45,14 +45,14 @@ extern "C" FunctionPass* createSimplifyGEPPass();
 extern "C" FunctionPass* createPacketizerPass(bool, unsigned int);
 extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string type);
 
-extern "C" FunctionPass* createGatherScatterResolverPass();
 extern "C" FunctionPass* createX86ResolverPass();
+extern "C" FunctionPass* createZMMResolverPass();
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
 
 
-static FunctionPass* createResolverPass(const Intel::CPUId& CpuId) {
-  if (CpuId.HasGatherScatter())
-    return createGatherScatterResolverPass();
+static FunctionPass* createResolverPass(intel::ISAClass isaClass) {
+  if (isaClass == intel::ISAClass::ZMM)
+    return createZMMResolverPass();
   return createX86ResolverPass();
 }
 
@@ -598,7 +598,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
     fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
 
   // Register resolve
-  FunctionPass *resolver = createResolverPass(m_pConfig->GetCpuId());
+  FunctionPass *resolver = createResolverPass(vectorVariant.getISA());
   fpm.add(resolver);
   fpm.add(new CollapseOuterLoop());
   fpm.add(createLoopUnrollPass());

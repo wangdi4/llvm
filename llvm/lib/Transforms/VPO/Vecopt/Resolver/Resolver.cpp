@@ -24,10 +24,16 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 namespace intel {
 
 char X86Resolver::ID = 0;
+char ZMMResolver::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(X86Resolver, "resolve", "Resolves masked and vectorized function calls on x86", false, false)
+
+
+OCL_INITIALIZE_PASS_BEGIN(ZMMResolver, "resolve", "Resolves masked and vectorized function calls on ZMM ISA", false, false)
+OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
+OCL_INITIALIZE_PASS_END(ZMMResolver, "resolve", "Resolves masked and vectorized function calls on ZMM ISA", false, false)
 
 bool FuncResolver::runOnFunction(Function &F) {
 
@@ -290,51 +296,6 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
     phi->addIncoming(getDefaultValForType(insts[i]->getType()), header);
     phi->addIncoming(insts[i], body);
   }
-}
-
-void FuncResolver::resolveAllZero(CallInst* caller) {
-  V_PRINT(DEBUG_TYPE, "Inspecting all-zero\n" <<*caller<<"\n");
-  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
-  Value* arg0 = caller->getArgOperand(0);
-  Type* arg0Type = arg0->getType();
-  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
-  V_ASSERT(arg0VectorType && "Bad op type");
-  unsigned int vecWidth = arg0VectorType->getNumElements();
-  Type* bitMaskType = Type::getIntNTy(caller->getContext(), vecWidth);
-  Instruction *bitCastInst = new BitCastInst(arg0,
-					     bitMaskType,
-					     "bitMask",
-					     caller);
-  Instruction *cmpInst = new ICmpInst(caller,
-				      CmpInst::ICMP_EQ,
-				      bitCastInst,
-				      Constant::getNullValue(bitMaskType),
-				      "isAllZero");
-  caller->replaceAllUsesWith(cmpInst);
-}
-
-void FuncResolver::resolveAllOne(CallInst* caller) {
-  V_PRINT(DEBUG_TYPE, "Inspecting all-one\n" <<*caller<<"\n");
-  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
-  Value* arg0 = caller->getArgOperand(0);
-  Type* arg0Type = arg0->getType();
-  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
-  V_ASSERT(arg0VectorType && "Bad op type");
-  unsigned int vecWidth = arg0VectorType->getNumElements();
-  //  unsigned int bitMaskWidth = std::max(vecWidth, 8u);
-  APInt allOnesMaskBits = APInt::getLowBitsSet(vecWidth, vecWidth);
-  Type* bitMaskType = Type::getIntNTy(caller->getContext(), vecWidth);
-  Instruction *bitCastInst = new BitCastInst(arg0,
-					     bitMaskType,
-					     "bitMask",
-					     caller);
-  Instruction *cmpInst = new ICmpInst(caller,
-				      CmpInst::ICMP_EQ,
-				      bitCastInst,
-				      ConstantInt::get(caller->getContext(),
-						       allOnesMaskBits),
-				      "isAllOne");
-  caller->replaceAllUsesWith(cmpInst);
 }
 
 void FuncResolver::resolveLoad(CallInst* caller) {
@@ -648,6 +609,150 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
   caller->eraseFromParent();
 }
 
+void X86Resolver::resolveAllZero(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-zero\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  m_IRBuilder->SetInsertPoint(caller);
+  Value* bitMask = NULL;
+  // The default implementation assumes nothing about the ISA and reduces
+  // the vector of bits the long way.
+  Value* reducedOr = reduceBitVector(arg0,
+                                     vecWidth,
+                                     Instruction::Or,
+                                     "isAnyOne");
+  bitMask = m_IRBuilder->CreateNot(reducedOr, "isAllZeros");
+  assert(caller->getType() == bitMask->getType() &&
+         "Failed to resolve all-zeros to the same type");
+  caller->replaceAllUsesWith(bitMask);
+}
+
+void X86Resolver::resolveAllOne(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-one\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  m_IRBuilder->SetInsertPoint(caller);
+  Value* bitMask = NULL;
+  // The default implementation assumes nothing about the ISA and reduces
+  // the vector of bits the long way.
+  bitMask = reduceBitVector(arg0,
+                            vecWidth,
+                            Instruction::And,
+                            "isAllOnes");
+  assert(caller->getType() == bitMask->getType() &&
+         "Failed to resolve all-ones to the same type");
+  caller->replaceAllUsesWith(bitMask);
+}
+
+Value* X86Resolver::reduceBitVector(Value* value,
+                                     unsigned int vecWidth,
+                                     Instruction::BinaryOps op,
+                                     const std::string& name) {
+  // Reduce the given bit vector by iteratively shifting half the vector
+  // and applying the argument operator element-wise until we get a single
+  // element, then extract and return element 0.
+  // Note that we work with vectors of i32s instead of the original vector of
+  // i1s to simplify the codegen's work, so we also truncate the resulting i32
+  // value to i1 before returning it.
+  LLVMContext& context = value->getContext();
+  VectorType* valueType = dyn_cast<VectorType>(value->getType());
+  assert(valueType != NULL && "Expected value to be a vector");
+  Type* i1Type = Type::getInt1Ty(context);
+  Type* i32Type = Type::getInt32Ty(context);
+  Type* vNi1Type = VectorType::get(i1Type, vecWidth);
+  assert(valueType == vNi1Type && "Expected value to be a bit vector");
+  Type* vNi32Type = VectorType::get(i32Type, vecWidth);
+  // TODO: If "value" was produced by an "if (x == 0)", would we be able to
+  // apply the reduction directly to x instead of the sext'ed "value"?
+  Value* i32Value = m_IRBuilder->CreateSExt(value,
+                                            vNi32Type,
+                                            value->getName() + ".i32");
+  StringRef i32Name = i32Value->getName();
+  Constant* undefVector = UndefValue::get(vNi32Type);
+  Constant* undefInt = UndefValue::get(i32Type);
+  for (int i = vecWidth; i > 1; i /= 2) {
+    SmallVector<Constant*, 8> shuffleIndices(vecWidth);
+    for (int k = 0; k < (int)vecWidth; ++k) {
+      if (k < i / 2)
+        shuffleIndices[k] = m_IRBuilder->getInt32(k + (i / 2));
+      else
+        shuffleIndices[k] = undefInt;
+    }
+    Value *shiftMask = ConstantVector::get(shuffleIndices);
+    Value* shifted =
+      m_IRBuilder->CreateShuffleVector(i32Value,
+                                       undefVector,
+                                       shiftMask,
+                                       i32Value->getName() + ".high");
+    i32Value = m_IRBuilder->CreateBinOp(op,
+                                        i32Value,
+                                        shifted,
+                                        i32Value->getName() + ".fold");
+  }
+  Value* reducedi32Value =
+    m_IRBuilder->CreateExtractElement(i32Value,
+                                      uint64_t(0),
+                                      i32Name + ".reduced");
+  return m_IRBuilder->CreateICmpNE(reducedi32Value,
+                                   m_IRBuilder->getInt32(0), name);
+}
+
+void ZMMResolver::resolveAllZero(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-zero\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  m_IRBuilder->SetInsertPoint(caller);
+  // On ZMM we can efficiently (thanks to k-registers) bitcast the vNi1 bit
+  // vector into a iN and compare to an integer value.
+  APInt zero(vecWidth, 0);
+  Value* bitMask = compareBitVectorToInt(arg0, vecWidth, zero, "isAllZeros");
+  assert(caller->getType() == bitMask->getType() &&
+         "Failed to resolve all-zeros to the same type");
+  caller->replaceAllUsesWith(bitMask);
+}
+
+void ZMMResolver::resolveAllOne(CallInst* caller) {
+  V_PRINT(DEBUG_TYPE, "Inspecting all-one\n" <<*caller<<"\n");
+  V_ASSERT(caller->getNumArgOperands() == 1 && "Bad number of operands");
+  Value* arg0 = caller->getArgOperand(0);
+  Type* arg0Type = arg0->getType();
+  VectorType* arg0VectorType = dyn_cast<VectorType>(arg0Type);
+  V_ASSERT(arg0VectorType && "Bad op type");
+  unsigned int vecWidth = arg0VectorType->getNumElements();
+  m_IRBuilder->SetInsertPoint(caller);
+  // On ZMM we can efficiently (thanks to k-registers) bitcast the vNi1 bit
+  // vector into a iN and compare to an integer value.
+  APInt allOnesMask = APInt::getLowBitsSet(vecWidth, vecWidth);
+  Value* bitMask = compareBitVectorToInt(arg0, vecWidth, allOnesMask, "isAllOnes");
+  assert(caller->getType() == bitMask->getType() &&
+         "Failed to resolve all-ones to the same type");
+  caller->replaceAllUsesWith(bitMask);
+}
+
+Value* ZMMResolver::compareBitVectorToInt(Value* value,
+                                            unsigned int vecWidth,
+                                            const APInt& compareTo,
+                                            const std::string& name) {
+  Type* bitMaskType = Type::getIntNTy(value->getContext(), vecWidth);
+  Value* bitCast = m_IRBuilder->CreateBitCast(value, bitMaskType, "bitMask");
+  return m_IRBuilder->CreateICmpEQ(bitCast,
+                                   ConstantInt::get(value->getContext(),
+                                                    compareTo),
+                                   name);
+}
+
 } // namespace
 
 /// Support for static linking of modules for Windows
@@ -655,6 +760,9 @@ void FuncResolver::resolveRetByVectorBuiltin(CallInst* caller) {
 extern "C" {
   FunctionPass* createX86ResolverPass() {
     return new intel::X86Resolver();
+  }
+  FunctionPass* createZMMResolverPass() {
+    return new intel::ZMMResolver();
   }
 }
 

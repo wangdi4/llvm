@@ -84,10 +84,10 @@ private:
    * \{ */
   /// @brief Resolve allZero test
   /// @param caller Instruction to resolve
-  void resolveAllZero(CallInst* caller);
+  virtual void resolveAllZero(CallInst* caller) = 0;
   /// @brief Resolve allOne test
   /// @param caller Instruction to resolve
-  void resolveAllOne(CallInst* caller);
+  virtual void resolveAllOne(CallInst* caller) = 0;
   /*! \} */
 
   /*! \name Load Resolvers
@@ -200,6 +200,8 @@ private:
   // Pointer to runtime service object
   const RuntimeServices * m_rtServices;
 
+protected:
+
   IRBuilder<>* m_IRBuilder;
 };
 
@@ -219,6 +221,72 @@ public:
   /// @param caller Instruction to resolve
   /// @return true if this call was handled by the resolver
   virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
+
+private:
+
+  /*! \name Dynamic-Uniform Mask Resolvers
+   * \{ */
+  /// @brief Resolve allZero test
+  /// @param caller Instruction to resolve
+  virtual void resolveAllZero(CallInst* caller);
+  /// @brief Resolve allOne test
+  /// @param caller Instruction to resolve
+  virtual void resolveAllOne(CallInst* caller);
+  /*! \} */
+
+  // @brief Reduce a bit vector using a given bit operation
+  /// @param value Bit vector to reduce
+  /// @param vecWidth Vector width
+  /// @param op Bit operation to reduce by
+  /// @param name Optional name for the result
+  /// @returns The reduced result as an i1 value
+  /// Note: function uses m_IRBuilder - set the insert point before calling.
+  Value* reduceBitVector(Value* value,
+                         unsigned int vecWidth,
+                         Instruction::BinaryOps op,
+                         const std::string& name = "");
+};
+
+class ZMMResolver : public FuncResolver {
+public:
+  // Pass identification, replacement for typeid
+  static char ID;
+  /// @brief C'tor
+  ZMMResolver() : FuncResolver(ID) {}
+
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "ZMMResolver";
+  }
+
+  /// @brief Resolve a call-site. This is a target specific hook.
+  /// @param caller Instruction to resolve
+  /// @return true if this call was handled by the resolver
+  virtual bool TargetSpecificResolve(CallInst* caller) { return false; }
+
+private:
+
+  /*! \name Dynamic-Uniform Mask Resolvers
+   * \{ */
+  /// @brief Resolve allZero test
+  /// @param caller Instruction to resolve
+  virtual void resolveAllZero(CallInst* caller);
+  /// @brief Resolve allOne test
+  /// @param caller Instruction to resolve
+  virtual void resolveAllOne(CallInst* caller);
+  /*! \} */
+
+  /// @brief Compare a bit vector to an integer mask
+  /// @param value Bit vector to compare
+  /// @param vecWidth Vector width
+  /// @param compareTo Integer mask to compare to
+  /// @param name Optional name for the result
+  /// @returns The compare result as an i1 value
+  /// Note: function uses m_IRBuilder - set the insert point before calling.
+  Value* compareBitVectorToInt(Value* value,
+                               unsigned int vecWidth,
+                               const APInt& compareTo,
+                               const std::string& name = "");
 };
 
 }
