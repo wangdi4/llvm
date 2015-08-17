@@ -1238,10 +1238,10 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         case( CL_DEVICE_NAME):
         {
             const char* name = CPUDetect::GetInstance()->GetCPUBrandString();
-			if (NULL == name)
-			{
-				name = "Unknown CPU";
-			}
+            if (!strcmp("", name))
+            {
+                name = "Unknown CPU";
+            }
             *pinternalRetunedValueSize = strlen(name) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
