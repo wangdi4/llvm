@@ -3,7 +3,8 @@
 // OpenCL 1.2 rev 15, Table 6.8
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def acos          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def acosh         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def acospi        : OclBuiltin<"acospi",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
