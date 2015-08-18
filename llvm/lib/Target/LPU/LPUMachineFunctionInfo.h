@@ -38,7 +38,10 @@ public:
   LPUMachineFunctionInfo() /* : CalleeSavedFrameSize(0) */ {}
 
   explicit LPUMachineFunctionInfo(MachineFunction &MF)
-    /*: CalleeSavedFrameSize(0), ReturnAddrIndex(0) */ {}
+ 
+  // TODO: Add mapping from LIC to LIC depth
+
+   /*: CalleeSavedFrameSize(0), ReturnAddrIndex(0) */ {}
   /*
   unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
   void setCalleeSavedFrameSize(unsigned bytes) { CalleeSavedFrameSize = bytes; }

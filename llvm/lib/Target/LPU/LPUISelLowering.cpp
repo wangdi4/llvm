@@ -55,15 +55,16 @@ const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
 LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
-  // Set up the "register" (LIC) classes.
-  addRegisterClass(MVT::i1,   &LPU::I1RegClass);
-  addRegisterClass(MVT::i8,   &LPU::I8RegClass);
-  addRegisterClass(MVT::i16,  &LPU::I16RegClass);
-  addRegisterClass(MVT::i32,  &LPU::I32RegClass);
-  addRegisterClass(MVT::i64,  &LPU::I64RegClass);
-  addRegisterClass(MVT::f16,  &LPU::F16RegClass);
-  addRegisterClass(MVT::f32,  &LPU::F32RegClass);
-  addRegisterClass(MVT::f64,  &LPU::F64RegClass);
+  // Set up the register classes.
+  // The actual allocation should depend on the context (serial vs. parallel)
+  addRegisterClass(MVT::i1,   &LPU::I1RRegClass);
+  addRegisterClass(MVT::i8,   &LPU::I8RRegClass);
+  addRegisterClass(MVT::i16,  &LPU::I16RRegClass);
+  addRegisterClass(MVT::i32,  &LPU::I32RRegClass);
+  addRegisterClass(MVT::i64,  &LPU::I64RRegClass);
+  addRegisterClass(MVT::f16,  &LPU::F16RRegClass);
+  addRegisterClass(MVT::f32,  &LPU::F32RRegClass);
+  addRegisterClass(MVT::f64,  &LPU::F64RRegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -492,13 +493,13 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), ArgLocs,
                  *DAG.getContext());
 
-  CCInfo.AnalyzeFormalArguments(Ins, CC_LPU);
+  CCInfo.AnalyzeFormalArguments(Ins, CC_Reg_LPU);
 
   for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::ANYCRegClass);
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::ANYRRegClass);
       SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
       InVals.push_back(ArgValue);
 
@@ -554,7 +555,7 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
                  *DAG.getContext());
 
   // Analize return values.
-  CCInfo.AnalyzeReturn(Outs,RetCC_LPU);
+  CCInfo.AnalyzeReturn(Outs,RetCC_Reg_LPU);
 
   SDValue Flag;
   SmallVector<SDValue, 4> RetOps(1, Chain);
@@ -736,7 +737,7 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());
 
-  CCInfo.AnalyzeCallResult(Ins,RetCC_LPU);
+  CCInfo.AnalyzeCallResult(Ins,RetCC_Reg_LPU);
 
   // Copy all of the result registers out of their specified physreg.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {

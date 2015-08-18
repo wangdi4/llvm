@@ -73,17 +73,20 @@ void LPUAsmPrinter::EmitFunctionBodyStart() {
   // iterate over all "registers" (LICs) (should be an iterator for that...)
   // 
   // FIXME!!!
-  for(unsigned reg=LPU::C2; reg<LPU::C4091; reg++) {
+  for (TargetRegisterClass::iterator ri = LPU::I64RRegClass.begin(); ri!=LPU::I64RRegClass.end(); ++ri) {
+    MCPhysReg reg = *ri;
     SmallString<128> Str;
     raw_svector_ostream O(Str);
     if (MRI->isPhysRegUsed(reg)) {
-      if (reg<=LPU::C3) {
-        O << "\t.result .reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
-      } else if (reg<=LPU::C19) {
-        O << "\t.param .reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
-      } else {
-        O << "\t.reg .i64 "<<LPUInstPrinter::getRegisterName(reg);
-      }
+      O << "\t";
+      // This probably isn't a good way to do this - .param or .result
+      if (MRI->isLiveIn(reg)) { O << ".param "; }
+      else if (reg==LPU::R2 || reg==LPU::R3) { O << ".result "; }
+      // LIC or register
+      O << (LPU::ANYCRegClass.contains(reg) ? ".lic " : ".reg ");
+      // To get type, will need map from VReg RegClass
+      O << ".i64";
+      O << " " << LPUInstPrinter::getRegisterName(reg);
       OutStreamer.EmitRawText(O.str());
     }
   }
