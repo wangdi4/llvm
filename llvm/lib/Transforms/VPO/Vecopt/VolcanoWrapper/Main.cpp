@@ -507,10 +507,9 @@ public:
   ~CollapseOuterLoop() {}
   /// @brief Provides name of pass
   virtual const char *getPassName() const {
-    return "PacketizeFunction";
+    return "CollapseOuterLoop";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
     AU.addRequired<LoopInfoWrapperPass>();
   }
   virtual bool runOnFunction(Function &F) {
@@ -550,6 +549,126 @@ public:
   }
 };
 char CollapseOuterLoop::ID = 0;
+
+/// @brief Utility pass to remove the temporary alloca instructions used for
+/// representing vector arguments and return value inside the loop being
+/// vectorized as scalar, induction variable based memory accesses.
+class RemoveTempScalarizingAllocas : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  RemoveTempScalarizingAllocas() : FunctionPass(ID) {}
+  ~RemoveTempScalarizingAllocas() {}
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "RemoveTempScalarizingAllocas";
+  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  }
+  virtual bool runOnFunction(Function &F) {
+    bool Modified = false;
+    // For each argument stored to an alloca, replace all uses of that alloca
+    // with the argument. We'll let standard cleanup passes remove the now
+    // redundant alloca code.
+    Function::arg_iterator ArgIt = F.arg_begin();
+    Function::arg_iterator ArgEnd = F.arg_end();
+    for (; ArgIt != ArgEnd; ArgIt++) {
+      Argument& Arg = *ArgIt;
+      if (!Arg.getType()->isVectorTy())
+        continue; // skip non-vector arguments
+      auto UserIt = Arg.user_begin();
+      auto UserEnd = Arg.user_end();
+      for (; UserIt != UserEnd; ++UserIt) {
+        Value* User = *UserIt;
+        if (StoreInst* Store = dyn_cast<StoreInst>(User)) {
+          Value* Address = Store->getPointerOperand();
+          if (isa<AllocaInst>(Address) && Store->getValueOperand() == &Arg)
+            Modified = replaceLoadsWithArgument(Address, Arg) || Modified;
+        }
+      }
+    }
+    // If the return value is loaded from an alloca, find the value being
+    // stored and return it instead.
+    for (auto BBI = F.begin(), BBE = F.end(); BBI != BBE; ++BBI) {
+      ReturnInst* RetInst = dyn_cast<ReturnInst>(BBI->getTerminator());
+      if (!RetInst)
+        continue; // BB doesn't terminate with a 'return'
+      Value* RetVal = RetInst->getReturnValue();
+      if (!RetVal)
+        break; // Function returns void
+      if (LoadInst* Load = dyn_cast<LoadInst>(RetVal)) {
+        Value* Address = Load->getPointerOperand();
+        if (isa<AllocaInst>(Address))
+          Modified = replaceValueWithStoredValue(Address, RetVal) || Modified;
+      }
+      break; // We expect a single return instruction
+    }
+    assert(!verifyFunction(F) && "I broke this module");
+    return Modified;
+  }
+private:
+  /// @brief Recursively go through a value and its users and replace any Load
+  /// instruction among them with an argument.
+  /// @param Val value to replace with Arg if it is a Load
+  /// @param Arg value to substitute Val with
+  /// @return whether we modified the code
+  bool replaceLoadsWithArgument(Value* Val, Argument& Arg) {
+    LoadInst* Load = dyn_cast<LoadInst>(Val);
+    if (Load) {
+      // Make sure we're loading the same type (just in case
+      // the load was scalarized for some reason).
+      if (Load->getType() == Arg.getType()) {
+        // This is what we came for: after this, the argument is used
+        // directly by the former user of this load.
+        Load->replaceAllUsesWith(&Arg);
+        return true;
+      }
+      return false; // Either way, we're done
+    }
+    // Val isn't a load, but its users might be (we follow only certain types of
+    /// users to limit the recursion while still supporting common patterns for
+    /// reaching the load).
+    bool Modified = false;
+    auto UserIt = Val->user_begin();
+    auto UserEnd = Val->user_end();
+    for (; UserIt != UserEnd; ++UserIt)
+      if (isa<LoadInst>(*UserIt) ||
+          isa<GetElementPtrInst>(*UserIt) ||
+          isa<ExtractElementInst>(*UserIt) ||
+          isa<BitCastInst>(*UserIt))
+        Modified = replaceLoadsWithArgument(*UserIt, Arg) || Modified;
+    return Modified;
+  }
+  /// @brief Recursively go through a value to find a StoreInst and replace
+  /// a given value with the value it stores (assume there is only one).
+  /// @param Stored value to explore looking for a Store
+  /// @param Loaded value to replace with the stored value
+  bool replaceValueWithStoredValue(Value* Stored, Value* Loaded) {
+    StoreInst* Store = dyn_cast<StoreInst>(Stored);
+    if (Store) {
+      Value* StoredValue = Store->getValueOperand();
+      // This is what we came for: after this, the stored value is used
+      // directly by the user of the loaded value.
+      assert(StoredValue->getType() == Loaded->getType() &&
+             "stored value not of the same type as loaded value");
+      Loaded->replaceAllUsesWith(StoredValue);
+      return true;
+    }
+    // This isn't a store, but one of its users may be (we follow only certain
+    // types of users to limit the recursion while still supporting common
+    // patterns for reaching the store).
+    auto UserIt = Stored->user_begin();
+    auto UserEnd = Stored->user_end();
+    for (; UserIt != UserEnd; ++UserIt)
+      if (isa<StoreInst>(*UserIt) ||
+          isa<GetElementPtrInst>(*UserIt) ||
+          isa<ExtractElementInst>(*UserIt) ||
+          isa<BitCastInst>(*UserIt))
+        if (replaceValueWithStoredValue(*UserIt, Loaded))
+          return true;
+    return false;
+  }
+};
+char RemoveTempScalarizingAllocas::ID = 0;
 
 void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   // Function-wide (vectorization)
@@ -602,6 +721,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   fpm.add(resolver);
   fpm.add(new CollapseOuterLoop());
   fpm.add(createLoopUnrollPass());
+  fpm.add(new RemoveTempScalarizingAllocas());
 
   // Final cleaning up
   // TODO:: support patterns generated by instcombine in LoopWIAnalysis so
