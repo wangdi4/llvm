@@ -34,7 +34,8 @@ Instruction *PacketizeFunction::findInsertPoint(Value * val)
 bool PacketizeFunction::isInsertNeededToObtainVectorizedValue(Value * origValue) {
   V_ASSERT((
     origValue->getType()->isIntegerTy() ||
-    origValue->getType()->isFloatingPointTy())
+    origValue->getType()->isFloatingPointTy() /*||
+    origValue->getType()->isPointerTy()*/)
     && "Trying to get a packetized value of non-primitive type!");
   if (!isa<Instruction>(origValue))
     return false;
@@ -78,7 +79,8 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
 {
   V_ASSERT((
     origValue->getType()->isIntegerTy() ||
-    origValue->getType()->isFloatingPointTy())
+    origValue->getType()->isFloatingPointTy() ||
+    origValue->getType()->isPointerTy())
     && "Trying to get a packetized value of non-primitive type!");
   *retValue = NULL;
   if (isa<Instruction>(origValue))
@@ -103,7 +105,8 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
           // Original value is kept, so just need to broadcast it
           //  %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
           //  %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
-          Instruction *shuffleInst = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
+          Instruction* insertionPoint = findInsertPoint(origValue);
+          Instruction *shuffleInst = VectorizerUtils::createBroadcast(origValue, m_packetWidth, insertionPoint, !isa<TerminatorInst>(insertionPoint));
 
           // Add to return structure and update VCM
           *retValue = shuffleInst;
@@ -194,7 +197,9 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
 	// Need to broadcast the value
 	//    %temp   = insertelement <4 x Type> undef  , Type %value, i32 0
 	//    %vector = shufflevector <4 x Type> %temp, <4 x Type> %undef, <4 x i32> <0,0,0,0>
-	broadcastedVal = VectorizerUtils::createBroadcast(origValue, m_packetWidth, findInsertPoint(origValue), true);
+        Instruction* insertionPoint = findInsertPoint(origValue);
+
+	broadcastedVal = VectorizerUtils::createBroadcast(origValue, m_packetWidth, insertionPoint, !isa<TerminatorInst>(insertionPoint));
 	// Add broadcast to BAG
 	m_BAG.insert(std::pair<Value*,Value*>(origValue, broadcastedVal));
       }
@@ -322,6 +327,18 @@ void PacketizeFunction::useOriginalConstantInstruction(Instruction *origInst)
   m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
 }
 
+void PacketizeFunction::createVCMEntryWithVectorizedValue(Instruction *origInst,
+                                                             Instruction *value)
+{
+  V_ASSERT(0 == m_VCM.count(origInst) && "should not be appearing in VCM already");
+  VCMEntry * newEntry = allocateNewVCMEntry();
+  newEntry->isScalarRemoved = true;
+  newEntry->vectorValue = value;
+  VectorizerUtils::SetDebugLocBy(value, origInst);
+  for (unsigned i = 0; i < m_packetWidth; i++)
+    newEntry->multiScalarValues[i] = value;
+  m_VCM.insert(std::pair<Value *, VCMEntry *>(origInst, newEntry));
+}
 
 void PacketizeFunction::createVCMEntryWithVectorValue(Instruction *origInst,
                                                       Instruction *vectoredValue)

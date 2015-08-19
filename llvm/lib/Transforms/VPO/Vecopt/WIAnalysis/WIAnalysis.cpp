@@ -166,6 +166,15 @@ bool WIAnalysis::runOnFunction(Function &F) {
   // initialize predefined WI dependencies
   initPredefinedDependencies(F);
 
+  // Calculate dependency for allocas in the entry block not marked as UNIFORM.
+  for (Instruction& EntryInst : F.getEntryBlock()) {
+    AllocaInst* Alloca = dyn_cast<AllocaInst>(&EntryInst);
+    if (!Alloca)
+      continue;
+    if (!hasDependency(Alloca))
+      calculate_dep(Alloca);
+  }
+
   // Compute the  first iteration of the WI-dep according to ordering
   // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
@@ -234,7 +243,7 @@ void WIAnalysis::initPredefinedDependencies(Function &F) {
   assert(indVar && "Vectorized loop has no canonical induction variable");
   m_deps[indVar] = WIDependancy::CONSECUTIVE;
 
-  // All basic blocks outside the vectorized loop (and every instruction
+  // All basic blocks outside the vectorized loop (and the instructions
   // in them) are uniform, including outerloop's auto-increment, test and
   // branch (which must remain uniform despite the induction variable's phi
   // being consecutive in order to keep the outer loop uniform).
@@ -250,6 +259,10 @@ void WIAnalysis::initPredefinedDependencies(Function &F) {
         continue;
       if (hasDependency(&*instIt))
         continue; // already predefined
+      AllocaInst* Alloca = dyn_cast<AllocaInst>(&*instIt);
+      if (Alloca && (!Alloca->hasName() ||
+                     !Alloca->getName().startswith("__wrapper__.")))
+          continue; // alloca will be classified later
       m_deps[&*instIt] = WIDependancy::UNIFORM;
     }
   }
@@ -983,6 +996,9 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const SelectInst* inst) {
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const AllocaInst* inst) {
+  // Ignore allocas with an existing dependency
+  if (hasDependency(inst))
+    return getDependency(inst);
   // Check if alloca instruction can be converted to SOA-alloca
   if( m_soaAllocaAnalysis->isSoaAllocaScalarRelated(inst) ) {
     return WIAnalysis::PTR_CONSECUTIVE;

@@ -27,6 +27,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <sstream>
 
@@ -634,6 +636,10 @@ private:
       if (isa<LoadInst>(*UserIt) ||
           isa<GetElementPtrInst>(*UserIt) ||
           isa<ExtractElementInst>(*UserIt) ||
+#ifndef VECTOR_GEP_TAKES_SCALARS
+          isa<InsertElementInst>(*UserIt) || // uniform address is broadcasted
+          isa<ShuffleVectorInst>(*UserIt) || // uniform address is broadcasted
+#endif
           isa<BitCastInst>(*UserIt))
         Modified = replaceLoadsWithArgument(*UserIt, Arg) || Modified;
     return Modified;
@@ -651,6 +657,7 @@ private:
       assert(StoredValue->getType() == Loaded->getType() &&
              "stored value not of the same type as loaded value");
       Loaded->replaceAllUsesWith(StoredValue);
+      Store->removeFromParent();
       return true;
     }
     // This isn't a store, but one of its users may be (we follow only certain
@@ -662,6 +669,10 @@ private:
       if (isa<StoreInst>(*UserIt) ||
           isa<GetElementPtrInst>(*UserIt) ||
           isa<ExtractElementInst>(*UserIt) ||
+#ifndef VECTOR_GEP_TAKES_SCALARS
+          isa<InsertElementInst>(*UserIt) || // uniform address is broadcasted
+          isa<ShuffleVectorInst>(*UserIt) || // uniform address is broadcasted
+#endif
           isa<BitCastInst>(*UserIt))
         if (replaceValueWithStoredValue(*UserIt, Loaded))
           return true;
@@ -669,6 +680,224 @@ private:
   }
 };
 char RemoveTempScalarizingAllocas::ID = 0;
+
+/// @brief Temporary utility pass to scalarize gathers and scatters.
+///
+/// Until CG handles IR gathers/scatters correctly on all platforms
+/// we use this pass to scalarize such calls at IR level.
+struct ScatterGatherScalarizer : public FunctionPass {
+  static char ID; // Pass identification, replacement for typeid
+  ScatterGatherScalarizer() : FunctionPass(ID) {}
+
+  bool runOnFunction(Function &F) override {
+    std::set<Instruction *> gathers, scatters;
+    for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
+      Instruction *currInst = &*I;
+      if (isGather(currInst)) {
+        gathers.insert(&*I);
+      } else if (isScatter(currInst)) {
+        scatters.insert(&*I);
+      }
+    }
+    if (gathers.empty() && scatters.empty())
+      return false;
+    for(auto gather : gathers)
+      scalarizeGather(cast<CallInst>(gather)); 
+    for(auto scatter : scatters)
+      scalarizeScatter(cast<CallInst>(scatter));
+    return true;
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+  }
+
+private:
+
+  bool isGather(Instruction *insn) {
+    return isIntrinsic(insn, Intrinsic::masked_gather);
+  }
+
+  bool isScatter(Instruction *insn) {
+    return isIntrinsic(insn, Intrinsic::masked_scatter);
+  }
+
+  bool isIntrinsic(Instruction *insn, Intrinsic::ID ID) {
+    if (insn->getOpcode() != Instruction::Call)
+      return false;
+    CallInst *CI = cast<CallInst>(insn);
+    //StringRef FnName = CI->getCalledFunction()->getName();
+    Function *F = CI->getCalledFunction();
+    Intrinsic::ID IntrinsicID = F->getIntrinsicID();
+    return (IntrinsicID == ID);
+  }
+
+  void scalarizeScatter(CallInst *ScatterInsn) {
+    LLVMContext& context = ScatterInsn->getContext();
+    IRBuilder<> Builder(ScatterInsn);
+    /* process the arguments of the scatter call */
+    unsigned numArguments = ScatterInsn->getNumArgOperands();
+    assert(numArguments == 4 && "argument error");
+    /* Values argument */
+    Value *Values = ScatterInsn->getArgOperand(0); 
+	Type *VectorTy = Values->getType();
+    assert(isa<VectorType>(VectorTy));
+	unsigned NumElements = VectorTy->getVectorNumElements();
+    /* Ptrs argument */
+    Value *Ptrs = ScatterInsn->getArgOperand(1); 
+	/* Alignment argument */
+	Value *Align = ScatterInsn->getArgOperand(2);
+    ConstantInt *Alignment = dyn_cast<ConstantInt>(Align);
+	assert(Alignment && "expected alignment to be a constant");
+	/* Mask argument */
+	Value *Mask = ScatterInsn->getArgOperand(3);
+    Type *VTy = Mask->getType();
+    assert(isa<VectorType>(VTy));
+	assert(VTy->getVectorNumElements() == NumElements && "mask type doesn't match");
+
+	//assert(VTy is same type as VectorTy) // todo
+
+	/* Create the following sequence for each element:
+            v = extractelement(value, index)
+            if (mask[index] == true)
+               store(v, ptrs[index])
+    */
+    Instruction *insertPoint = ScatterInsn;
+    Builder.SetInsertPoint(insertPoint); // checkme: needed?
+	for (unsigned index = 0; index < (unsigned)NumElements; ++index) {
+      // m = extractelement (Mask, index)
+      Value *constIndex = ConstantInt::get(Type::getInt32Ty(context), index);
+
+      Builder.SetInsertPoint(insertPoint); // checkme: needed?
+      Value *newEE = Builder.CreateExtractElement(Mask, constIndex, "extractMask"); 
+      //ExtractElementInst::Create(Mask, constIndex, "extractMask"); 
+      assert(newEE && "extract creation failure"); //checkme: needed?
+
+      // if (m)
+      Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_EQ, newEE, ConstantInt::get(newEE->getType(), 1)); //boolean compare?
+      TerminatorInst *ThenTerm = SplitBlockAndInsertIfThen(Cmp,
+                                                           insertPoint,
+                                                           false);
+      IRBuilder<> ThenBuilder(ThenTerm);
+      Builder.SetInsertPoint(insertPoint); // checkme
+
+      // then: store (extractelement(values,index),
+      //              extractelement(ptrs,index))
+      Value* ScalarValue = ThenBuilder.CreateExtractElement(Values,
+                                                            constIndex,
+                                                            "scalarizedValue");    
+      Value* ScalarPtr = ThenBuilder.CreateExtractElement(Ptrs,
+                                                          constIndex,
+                                                          "scalarizedPtr");    
+	  StoreInst *newSI = ThenBuilder.CreateStore(ScalarValue, ScalarPtr);
+      newSI->setAlignment((Alignment->getValue()).getZExtValue()); 
+    }
+
+    ScatterInsn->eraseFromParent(); //checkme: Remove original instruction?
+  }
+
+  /// @brief Scalarize a gather intrinsic call
+  ///
+  /// %res = call <4 x double> @llvm.masked.gather.v4f64(<4 x double*> %ptrs, 
+  ///                                                    i32 8,
+  ///                                                    <4 x i1>%mask, 
+  ///                                                    <4 x double> <true, true, true, true>)
+  ///
+  ///		for i=0 to 8
+  /// 			pi = extract pointer from gep vector
+  ///			elemi = load (pi)
+  ///			res_vec = insert_element (res_vec, elemi, i)
+  ///	res_vec should replace original result vector
+  /// @param GatherInsn Gather to scalarize
+  void scalarizeGather(CallInst *GatherInsn) {
+    LLVMContext& context = GatherInsn->getContext();
+    IRBuilder<> Builder(GatherInsn);
+	Type *VectorTy = GatherInsn->getType();
+    assert(isa<VectorType>(VectorTy));
+    Type *ElemTy = (cast<VectorType>(VectorTy))->getElementType();
+	unsigned NumElements = VectorTy->getVectorNumElements(); 
+    /* process the arguments of the gather call */
+    unsigned numArguments = GatherInsn->getNumArgOperands();
+    assert(numArguments == 4 && "argument error");
+    /* Ptrs argument */
+    Value *Ptrs = GatherInsn->getArgOperand(0); 
+	/* Alignment argument */
+	Value *Align = GatherInsn->getArgOperand(1);
+    ConstantInt *Alignment = dyn_cast<ConstantInt>(Align);
+	assert(Alignment && "expected alignment to be a constant");
+	/* Mask argument */
+	Value *Mask = GatherInsn->getArgOperand(2);
+    Type *VTy = Mask->getType();
+    assert(isa<VectorType>(VTy));
+	assert(VTy->getVectorNumElements() == NumElements && "mask type doesn't match");
+	/* Passthru argument */
+	Value *Passthru = GatherInsn->getArgOperand(3);
+    VTy = Passthru->getType();
+    assert(isa<VectorType>(VTy));
+	assert(VTy->getVectorNumElements() == NumElements && "mask type doesn't match");
+	//assert(VTy is same type as VectorTy) // todo
+
+	/* Create the following sequence for each element:
+            if (mask[index] == true)
+               tmp = load(ptrs[index])
+            else
+               tmp = passthru[index]
+            v=insertelement(v,tmp,indx)   
+    */
+    UndefValue *undefVect = UndefValue::get(VectorTy);
+    Value *prevResult = undefVect;
+    Instruction *insertPoint = GatherInsn;
+    Builder.SetInsertPoint(insertPoint); // checkme: needed?
+	for (unsigned index = 0; index < (unsigned)NumElements; ++index) {
+      // m = extractelement (Mask, index)
+      Value *constIndex = ConstantInt::get(Type::getInt32Ty(context), index);
+
+      Builder.SetInsertPoint(insertPoint); // checkme: needed?
+      Value *newEE = Builder.CreateExtractElement(Mask, constIndex, "extractMask"); 
+      //ExtractElementInst::Create(Mask, constIndex, "extractMask"); 
+      assert(newEE && "extract creation failure"); //checkme: needed?
+
+      // if (m)
+      Value *Cmp = Builder.CreateICmp(ICmpInst::ICMP_EQ, newEE, ConstantInt::get(newEE->getType(), 1)); //boolean compare?
+      TerminatorInst *ThenTerm, *ElseTerm;
+      SplitBlockAndInsertIfThenElse(Cmp, insertPoint, &ThenTerm, &ElseTerm);
+      IRBuilder<> ThenBuilder(ThenTerm);
+      IRBuilder<> ElseBuilder(ElseTerm);
+      Builder.SetInsertPoint(insertPoint); // checkme
+
+      // then: tmp = load ( extractelement(ptrs,index) ) 
+      newEE = ThenBuilder.CreateExtractElement(Ptrs, constIndex, "extractPtr");    
+      assert(newEE && "extract creation failure"); //checkme: needed?
+	  LoadInst *newLI = ThenBuilder.CreateLoad(newEE, "scalarizedGather");
+      newLI->setAlignment((Alignment->getValue()).getZExtValue()); 
+      assert(newLI && "load creation failure"); //checkme: needed?
+
+      // else: tmp = extractelement(passthru,index) 
+      newEE = ElseBuilder.CreateExtractElement(Passthru, constIndex, "extractPassthru");    
+      assert(newEE && "extract creation failure"); //checkme: needed?
+          
+      // tail: t = phi(then_tmp,else_tmp)
+      //       v = inserelement(v,t,index) 
+      PHINode *elmntOrPassthruVal =
+        Builder.CreatePHI(ElemTy, 2, "elmntOrPassthruVal");
+      elmntOrPassthruVal->addIncoming(newLI, ThenTerm->getParent());
+      elmntOrPassthruVal->addIncoming(newEE, ElseTerm->getParent());
+      Value *insertVal = elmntOrPassthruVal; //checkme
+      Instruction *newIE = InsertElementInst::Create(prevResult,
+                                                     insertVal,
+                                                     constIndex,
+                                                     "temp.vect"); //fixme!! use builder
+      assert(newIE && "insert creation failure"); // checkme: needed?
+      //VectorizerUtils::SetDebugLocBy(newIE, GatherInst); //checkme
+      newIE->insertBefore(insertPoint);
+
+      prevResult = newIE;
+    }
+        
+    GatherInsn->replaceAllUsesWith(prevResult);
+    GatherInsn->eraseFromParent(); //checkme: Remove original instruction?
+  }
+};
+char ScatterGatherScalarizer::ID = 0;
 
 void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   // Function-wide (vectorization)
@@ -700,8 +929,10 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   fpm.add(new WIAnalysis(vectorizationDim));
 
   // Register SimplifyGEP
+#if 0
   FunctionPass *simplifyGEP = createSimplifyGEPPass();
   fpm.add(simplifyGEP);
+#endif
 
   // add WIAnalysis for the packetizer.
   fpm.add(new WIAnalysis(vectorizationDim));
@@ -721,7 +952,8 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   fpm.add(resolver);
   fpm.add(new CollapseOuterLoop());
   fpm.add(createLoopUnrollPass());
-  fpm.add(new RemoveTempScalarizingAllocas());
+  //  fpm.add(new RemoveTempScalarizingAllocas());
+  fpm.add(new ScatterGatherScalarizer()); // TODO: remove when CG can scalarize
 
   // Final cleaning up
   // TODO:: support patterns generated by instcombine in LoopWIAnalysis so
@@ -917,7 +1149,7 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
     }
     // Argument passed as vector. Store and access as an array of scalars.
     VectorType* vectorType = dyn_cast<VectorType>(*wft_it);
-    AllocaInst* vecStorage = new AllocaInst(vectorType, "tmp_array", insAtPH);
+    AllocaInst* vecStorage = new AllocaInst(vectorType, "__wrapper__.arg", insAtPH);
     new StoreInst(&arg, vecStorage, insAtPH);
     string elemName = arg.getName().str() + "_i";
     string elemAddrName = elemName + "_addr";
@@ -944,7 +1176,7 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
   {
     // Return as vector a temporary array to which we'll assign the return
     // values of the scalar call to.
-    Value* tmpRetVal = new AllocaInst(vectorReturnType, "tmpRetVal", insAtPH);
+    Value* tmpRetVal = new AllocaInst(vectorReturnType, "__wrapper__.ret", insAtPH);
     ReturnInst::Create(wrapperFunc->getContext(),
                        new LoadInst(tmpRetVal, "retVal", outerLoop.m_exit),
                        outerLoop.m_exit);

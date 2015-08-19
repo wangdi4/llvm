@@ -56,15 +56,6 @@ OCL_INITIALIZE_PASS_END(PacketizeFunction, "packetize", "packetize functions", f
 
 PacketizeFunction::PacketizeFunction(bool SupportScatterGather,
                                      unsigned int vectorizationDimension) : FunctionPass(ID),
-  OCLSTAT_INIT(GEP_With_2_Indices,
-  "Loads and stores of an address with exactly two indices",
-  m_kernelStats),
-  OCLSTAT_INIT(GEP_With_More_Than_2_Indices,
-  "Loads and stores of addresses with more than two indices that are scalarized instead of gathered / scattered",
-  m_kernelStats),
-  OCLSTAT_INIT(Array_Of_Structs_Store_Or_Loads,
-  "Gathered / scattered stores and loads in an A[id].x format",
-  m_kernelStats),
   OCLSTAT_INIT(Cant_Load_Transpose_Because_Of_Non_Extract_Users,
   "Load of vector types, where the load value is used both by extracts and by non-extrats instructions, and thus not transposed",
   m_kernelStats),
@@ -217,6 +208,18 @@ bool PacketizeFunction::runOnFunction(Function &F)
   postponePHINodesAfterExtracts();
 
   obtainTranspose();
+
+  // Before we packetize the loop, go over the entry BB's allocas and handle
+  // any alloca marked as non-UNIFORM.
+  BasicBlock& EntryBB = F.getEntryBlock();
+  for (auto ItI = EntryBB.begin(), ItE = EntryBB.end(); ItI != ItE; ++ItI) {
+    AllocaInst* Alloca = dyn_cast<AllocaInst>(&*ItI);
+    if (!Alloca)
+      continue;
+    if (m_depAnalysis->whichDepend(Alloca) == WIAnalysis::UNIFORM)
+      continue;
+    packetizeInstruction(Alloca);
+  }
 
   // Iterate over all the instructions. Always hold the iterator at the instruction
   // following the one being packetized (so the iterator will "skip" any instructions
@@ -960,24 +963,8 @@ void PacketizeFunction::packetizeInstruction(CmpInst *CI)
   m_removedInsts.insert(CI);
 }
 
-// Following check to be removed once Resolver handles scatter/gathers of
-// types not supported by target.  For now, refrain from generating them.
-bool PacketizeFunction::isGatherScatterType(bool masked,
-                                Mangler::GatherScatterType type,
-                                VectorType *VecTy) {
-  unsigned NumElements = VecTy->getNumElements();
-  Type *ElemTy = VecTy->getElementType();
-  if (EnableScatterGatherSubscript_v4i8 &&
-      (NumElements == 4) &&
-      (ElemTy->isIntegerTy(8)))
-    return true;
-  std::string gatherScatterName = Mangler::getGatherScatterName(masked, type, VecTy);
-  Function* gatherScatterFunc = m_rtServices->findInRuntimeModule(gatherScatterName);
-  return (gatherScatterFunc != NULL);
-}
-
 Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
-  V_ASSERT(MO.Base && MO.Index && "Bad base and index operands");
+  V_ASSERT(MO.Base && "Bad base operands");
 
   Type *ElemTy = 0;
 
@@ -999,89 +986,39 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
     ElemTy = (cast<VectorType>(ElemTy))->getElementType();
   }
 
+  // Check if this type is supported, i.e. can this type be the element type
+  // of a vector.
+  if (!(ElemTy->isFloatingPointTy() ||
+        ElemTy->isIntegerTy() ||
+        ElemTy->isPointerTy())) {
+    // No proper gather/scatter function for this load
+    V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
+    return NULL;
+  }
+
   VectorType *VecElemTy = VectorType::get(ElemTy, m_packetWidth);
 
-  Mangler::GatherScatterType type = Mangler::Scatter;
-
+  Intrinsic::ID IntrinsicID = Intrinsic::not_intrinsic;
   switch (MO.type) {
   case STORE:
-    type = Mangler::Scatter;
+    IntrinsicID = Intrinsic::masked_scatter;
     break;
   case LOAD:
-    type = Mangler::Gather;
+    IntrinsicID = Intrinsic::masked_gather;
     break;
   case PREFETCH:
-    type = Mangler::GatherPrefetch;
     break;
   default:
     V_ASSERT(false && "Invalid memory type");
   }
 
-  // Check if this type is supported and if we have a name for it
-  if (!isGatherScatterType(MO.Mask, type, VecElemTy)) {
-    // No proper gather/scatter function for this load and packet width
-    V_PRINT(gather_scatter_stat, "PACKETIZER: UNSUPPORTED TYPE" << *MO.Orig << "\n");
-    return NULL;
-  }
-
   Type *i1Ty = Type::getInt1Ty(MO.Orig->getContext());
   Type *i32Ty = Type::getInt32Ty(MO.Orig->getContext());
 
-  Value *SclrBase[MAX_PACKET_WIDTH];
-  obtainMultiScalarValues(SclrBase, MO.Base, MO.Orig);
-  MO.Base = SclrBase[0];
-
-  if (MO.Mask) {
-    // if mask is uniform keep it scalar (will be handled later in resolver)
-    if( WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(MO.Mask) ) {
-      Value *SclrMask[MAX_PACKET_WIDTH];
-      obtainMultiScalarValues(SclrMask, MO.Mask, MO.Orig);
-      MO.Mask = SclrMask[0];
-    }
-    else {
-      obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
-    }
-  }
-  else {
-    // If there is no mask, create uniform positive mask
-    MO.Mask = ConstantInt::get(i1Ty, 1);
-  }
-
-  Type *IndexTy = MO.Index->getType();
-  if (IndexTy->isVectorTy() && IndexTy->getVectorElementType()->isIntegerTy()) {
-    // Index is already a ready-to-use vector of indices
-    IndexTy = IndexTy->getVectorElementType();
-  } else {
-    obtainVectorizedValue(&MO.Index, MO.Index, MO.Orig);
-  }
-
-  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(MO.Orig)) {
-    // This is load/store from SOA-alloca instruction,
-    // need to fix the index and the base:
-    //   newBase = Bitcast(Base, scalar type)
-    //   newIndex = (index * packetWidth) + lane-id
-    Type *indexType = MO.Index->getType();
-    V_ASSERT(indexType->isVectorTy() && "index of scatter/gather is not a vector!");
-    indexType = cast<VectorType>(indexType)->getElementType();
-    Constant *vecWidthVal = ConstantInt::get(indexType, m_packetWidth);
-    // Not replacing with ConstantDataVector here because the type isn't known to be
-    // compatible.
-    vecWidthVal = ConstantVector::getSplat(m_packetWidth, vecWidthVal);
-    std::vector<Constant *> laneVec;
-    for (unsigned int i=0; i < m_packetWidth; ++i) {
-      laneVec.push_back(ConstantInt::get(indexType, i));
-    }
-    Constant *laneVal = ConstantVector::get(laneVec);
-    MO.Index = BinaryOperator::CreateNUWMul(MO.Index, vecWidthVal, "mulVecWidthPacked", MO.Orig);
-    MO.Index = BinaryOperator::CreateNUWAdd(MO.Index, laneVal, "addLanePacked", MO.Orig);
-
-    Type *baseType = MO.Base->getType();
-    V_ASSERT(baseType->isPointerTy() && "base of scatter/gather is not a pointer!");
-    baseType = cast<PointerType>(baseType)->getElementType();
-    V_ASSERT(baseType->isVectorTy() && "base of scatter/gather is not a pointer to a vector!");
-    baseType = cast<VectorType>(baseType)->getElementType();
-    MO.Base = BitCastInst::CreatePointerCast(MO.Base, baseType->getPointerTo(), "bitcast2Scalar", MO.Orig);
-  }
+  if (MO.Mask)
+    obtainVectorizedValue(&MO.Mask, MO.Mask, MO.Orig);
+  else // create a uniform positive mask
+    MO.Mask = ConstantVector::getSplat(m_packetWidth, ConstantInt::get(i1Ty, 1));
 
   if (MO.type == STORE)
     obtainVectorizedValue(&MO.Data, MO.Data, MO.Orig);
@@ -1105,51 +1042,45 @@ Instruction* PacketizeFunction::widenScatterGatherOp(MemoryOperation &MO) {
 
     PointerType *elemType = PointerType::get(ElemTy, 0);
     MO.Base = BitCastInst::CreatePointerCast(MO.Base, elemType, "2elemType", MO.Orig);
+    MO.Base = VectorizerUtils::createBroadcast(MO.Base, m_packetWidth, MO.Orig, false);
   }
 
-  // Remove address space from pointer type
-  PointerType *BaseTy = dyn_cast<PointerType>(MO.Base->getType());
-  PointerType *StrippedBaseTy = PointerType::get(BaseTy->getElementType(),0);
-  MO.Base = new BitCastInst(MO.Base, StrippedBaseTy, "stripAS", MO.Orig);
+  obtainVectorizedValue(&MO.Base, MO.Base, MO.Orig);
 
-  SmallVector<Value*, 8> args;
-  // Fill the arguments of the internal gather/scatter, these are the variants:
-  // internal.gather.*[].m*(Mask, BasePtr, Index, IndexValidBits, IndexIsSigned)
-  // internal.prefetch.gather.*[].m*(Mask, BasePtr, Index, IndexValidBits, IndexIsSigned)
-  // internal.scatter.*[].m*(Mask, BasePtr, Index, Data, IndexValidBits, IndexIsSigned)
-  args.push_back(MO.Mask);
-  args.push_back(MO.Base);
-  args.push_back(MO.Index);
-  if (MO.type == STORE) args.push_back(MO.Data);
-  args.push_back(ConstantInt::get(i32Ty, MO.IndexValidBits));
-  args.push_back(ConstantInt::get(i1Ty, MO.IndexIsSigned));
-
-  if (MO.type == STORE) {
-    V_ASSERT(VecElemTy == MO.Data->getType() && "Invalid vector type");
+  // Retrieve the intrinsic function for this memory operation
+  assert(IntrinsicID != Intrinsic::not_intrinsic && "No intrinsic for this memory operation");
+  Type* VectorOfPointersType = MO.Base->getType();
+  assert(VectorOfPointersType->isVectorTy() && "Expected a vector of pointers");
+  Type* ElementPointerType = VectorOfPointersType->getVectorElementType();
+  assert(ElementPointerType->isPointerTy() && "Expected a vector of pointers");
+  Type* ElementType = ElementPointerType->getPointerElementType();
+  Type* VectorOfElementsType =
+    VectorType::get(ElementType, VectorOfPointersType->getVectorNumElements());
+  std::vector<Type*> ArgumentTypes;
+  std::vector<Value*> Arguments;
+  // Stored value
+  if (IntrinsicID == Intrinsic::masked_scatter) {
+    assert(VecElemTy == MO.Data->getType() && "Invalid vector type");
+    Arguments.push_back(MO.Data);
   }
-
-  Type *RetTy = Type::getVoidTy(VecElemTy->getContext());
-  if (!MO.Orig->getType()->isVoidTy()) {
-    RetTy = VecElemTy;
+  // vector of pointers to load/store
+  ArgumentTypes.push_back(VectorOfElementsType);
+  Arguments.push_back(MO.Base);
+  // Alignment argument
+  Arguments.push_back(ConstantInt::get(i32Ty, MO.Alignment));
+  // Mask argument
+  Arguments.push_back(MO.Mask);
+  // Passthru argument
+  if (IntrinsicID == Intrinsic::masked_gather) {
+    //    Arguments.push_back(UndefValue::get(VectorOfElementsType));
+    Arguments.push_back(UndefValue::get(VectorOfElementsType));
   }
+  Function* Intrinsic = Intrinsic::getDeclaration(m_currFunc->getParent(),
+                                                  IntrinsicID,
+                                                  ArrayRef<Type*>(ArgumentTypes));
+  assert(Intrinsic && "Expected to have an intrinsic for this memory operation");
 
-  std::string name = Mangler::getGatherScatterInternalName(type, MO.Mask->getType(), VecElemTy, IndexTy);
-  // Create new gather/scatter/prefetch caller instruction
-  Instruction *newCaller = VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy, args, AttributeSet(), MO.Orig);
-
-  // In case the vector size cross cache line we need to also prefetch the next cachelines.
-  // According to OCL spec the vectors are aligned to the vector size (except for size 3 which is aligned as size 4)
-  // Cache line size is 64 bytes, therefore, only long16 and double16 cross cacheline.
-  if (MO.type == PREFETCH && vectorWidth == 16 && BaseTy->getElementType()->getPrimitiveSizeInBits() == 64) {
-    Type *indexType = cast<VectorType>(MO.Index->getType())->getElementType();
-    Constant *vecVal = ConstantInt::get(indexType, 64/8); // cache line size / scale size
-    vecVal = ConstantVector::getSplat(m_packetWidth, vecVal);
-    args[2] =  BinaryOperator::CreateNUWAdd(MO.Index, vecVal, "Jump2NextLine", MO.Orig);
-    VectorizerUtils::createFunctionCall(m_currFunc->getParent(), name, RetTy,
-					args, AttributeSet(), MO.Orig);
-  }
-
-  return newCaller;
+  return CallInst::Create(Intrinsic, ArrayRef<Value*>(Arguments), "", MO.Orig);
 }
 
 Value* PacketizeFunction::obtainNumElemsForConsecutivePrefetch(Value* scalarVal, Instruction* I) {
@@ -1223,7 +1154,6 @@ Instruction* PacketizeFunction::widenConsecutiveUnmaskedMemOp(MemoryOperation &M
 
 
 Instruction* PacketizeFunction::widenConsecutiveMaskedMemOp(MemoryOperation &MO) {
-
   V_ASSERT(MO.Mask && "expected masked operation");
   std::string name = (MO.Data? Mangler::getStoreName(MO.Alignment):
                                Mangler::getLoadName(MO.Alignment));
@@ -1306,31 +1236,6 @@ Instruction *PacketizeFunction::widenConsecutiveMemOp(MemoryOperation &MO) {
     }
   }
 
-  // On non-masked, or unifrom masked memory operations, we also allow cases
-  // where the ptr was calculated as base + index with uniform base and
-  // consecutive index. This relaxation is meant to capture cases where
-  // consecutive 32 bit index was zero extended and was declared random by
-  // WIAnalysis since it may wrap. Since buffer size is <= 2^31, and all work
-  // items access the memory we know that wrapping can't happen.
-  bool indexConsecutive = MO.Index && MO.Base && // has base, index
-    m_depAnalysis->whichDepend(MO.Index) == WIAnalysis::CONSECUTIVE && // index consecutive
-    m_depAnalysis->whichDepend(MO.Base) == WIAnalysis::UNIFORM && // base uniform
-    MO.Index->getType()->getPrimitiveSizeInBits() > MaxLogBufferSize; // index is at least 32 bit
-  if (!indexConsecutive) return NULL;
-
-  if (MO.Mask) {
-    if(m_depAnalysis->whichDepend(MO.Mask) == WIAnalysis::UNIFORM) {
-      Instruction *Wide = widenConsecutiveMaskedMemOp(MO);
-      V_ASSERT(Wide && "failed to generate masked wide memory operation");
-      Wide_Masked_Memory_Operation_Created++; // statistics
-      return Wide;
-    }
-  } else {
-    Instruction *Wide = widenConsecutiveUnmaskedMemOp(MO);
-    V_ASSERT(Wide && "failed to generate non-masked wide memory operation");
-    Wide_Unmasked_Memory_Operation_Created++; // statistics
-    return Wide;
-  }
   return NULL;
 }
 
@@ -1345,120 +1250,30 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
     return;
   }
 
-  Value *Base = 0;
-  Value *Index = 0;
   GetElementPtrInst *Gep = dyn_cast<GetElementPtrInst>(MO.Ptr);
-  // If we found the GEP
-  if (Gep && Gep->getNumIndices() == 1) {
-    Base = Gep->getOperand(0);
-    // and the base is uniform
-    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
-    if (depBase == WIAnalysis::UNIFORM ||
-        (depBase == WIAnalysis::PTR_CONSECUTIVE &&
-        m_soaAllocaAnalysis->isSoaAllocaScalarRelated(Base))) {
-      Index = Gep->getOperand(1);
-      MO.IndexIsSigned = true;
-      MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
-      if (ZExtInst* ZI = dyn_cast<ZExtInst>(Index)) {
-        Index = ZI->getOperand(0);
-        MO.IndexIsSigned = false;
-        MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
-      }
-      else if (SExtInst* SI = dyn_cast<SExtInst>(Index)) {
-        Index = SI->getOperand(0);
-        MO.IndexIsSigned = true;
-        MO.IndexValidBits = Index->getType()->getPrimitiveSizeInBits();
-      }
-      // Fall throw in order to catch bit reduction on ZExt/SExt operand!
-      if (BinaryOperator* BI = dyn_cast<BinaryOperator>(Index)) {
-        // Check for the idiom that keeps the lowest 32bits:
-        // %idxprom = ashr exact i64 %XXX, 32
-        if (BI->getOpcode() == Instruction::AShr || BI->getOpcode() == Instruction::LShr) {
-          // Constants are canonicalized to the RHS.
-          ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-          if (C0 && (C0->getBitWidth() < 65)) {
-            MO.IndexIsSigned = (BI->getOpcode() == Instruction::AShr);
-            unsigned int totalBits = BI->getType()->getPrimitiveSizeInBits();
-            unsigned int shiftCount = C0->getZExtValue();
-            MO.IndexValidBits = (totalBits > shiftCount) ? totalBits - shiftCount : 0;
-            V_ASSERT(shiftCount != 0 && "This means the SHR is redundant!");
-          }
-        }
-        // Check for the idiom "%idx = and i64 %mul, 4294967295" for using
-        // the lowest 32bits.
-        else if (BI->getOpcode() == Instruction::And) {
-          // Constants are canonicalized to the RHS.
-          ConstantInt *C0 = dyn_cast<ConstantInt>(BI->getOperand(1));
-          if (C0 && (C0->getBitWidth() < 65)) {
-            MO.IndexValidBits = VectorizerUtils::getBSR(C0->getZExtValue()) + 1;
-            MO.IndexIsSigned = (C0->getBitWidth() == MO.IndexValidBits);
-            V_ASSERT(C0->getBitWidth() != MO.IndexValidBits && "This means the AND is redundant!");
-          }
-        }
-      }
-      MO.Index = Index;
-      MO.Base = Base;
-    }
-    else {
-      V_PRINT(gather_scatter_stat, "PACKETIZER: BASE NON UNIFORM " << *MO.Orig << " Base: " << *Base << "\n");
-    }
-  }
-  else if (Gep && Gep->getNumIndices() == 2) {
-    // handling an array of structs
-    // for example, suppose A is an array of structs, one of the elements
-    // in it is x. Then we handle the following load.
-    // int loaded = A[i].x;
-    GEP_With_2_Indices++; // statistics
-    Base = Gep->getOperand(0);
-    Value* arrayIndex = Gep->getOperand(1);
-    Value* field = Gep->getOperand(2);
-    WIAnalysis::WIDependancy depBase = m_depAnalysis->whichDepend(Base);
-    WIAnalysis::WIDependancy gepArg1Dep = m_depAnalysis->whichDepend(arrayIndex);
-    ConstantInt* fieldConstantInt = dyn_cast<ConstantInt>(field);
-    PointerType* basePointerType = dyn_cast<PointerType>(Base->getType());
-    StructType* structType =
-      basePointerType ? dyn_cast<StructType>(basePointerType->getElementType()): NULL;
-    if (structType &&
-        depBase == WIAnalysis::UNIFORM &&
-        gepArg1Dep == WIAnalysis::CONSECUTIVE &&
-        fieldConstantInt && !fieldConstantInt->isNegative()) {
-      // Make sure this actually is a struct field access
-      uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
-      uint64_t fieldIndex = fieldConstantInt->getZExtValue();
-      Type* fieldType = structType->getElementType(fieldIndex);
-      uint64_t fieldSize = m_pDL->getTypeStoreSize(fieldType);
-      uint64_t fieldOffset = m_pDL->getStructLayout(structType)->getElementOffset(fieldIndex);
-      // make sure struct is not too large for current packet width and
-      // that the resulting field addresses are aligned to fieldSize (or
-      // we can't express them as array indices).
-      if (structAllocSize * (m_packetWidth - 1) + fieldSize < 0x7fffffff &&
-          structAllocSize % fieldSize == 0 &&
-          fieldOffset % fieldSize == 0) {
-        // Use the original GEP as the base for scatter/gather and
-        // generate a int32[m_packetWidth] constant vector for the
-        // index where index[j] = j * structAllocSize / fieldSize.
-        Array_Of_Structs_Store_Or_Loads++; // statistics
-        IntegerType* int32Type = Type::getInt32Ty(Gep->getContext());
-        uint64_t newIndex = structAllocSize / fieldSize;
-        std::vector<Constant*> constList;
-        for (unsigned j=0; j < m_packetWidth; ++j) {
-          constList.push_back(ConstantInt::getSigned(int32Type, j * newIndex));
-        }
-        Constant* newIndexConst = ConstantVector::get(ArrayRef<Constant*>(constList));
-        MO.IndexIsSigned = true;
-        uint64_t maxIndex = newIndex * (m_packetWidth - 1);
-        MO.IndexValidBits = VectorizerUtils::getBSR(maxIndex) + 1;
-        MO.Index = newIndexConst;
-        MO.Base = Gep;
-      }
-    }
-  }
-  else if (!Gep) {
+
+  // Handle memory operations where MO.Ptr is a not GEP (e.g. an argument or a
+  // function call).
+  if (!Gep) {
     V_PRINT(gather_scatter_stat, "PACKETIZER: NOT GEP " << *MO.Ptr << "\n");
-  } else {
-    V_PRINT(gather_scatter_stat, "PACKETIZER: GEP MORE THAN TWO INDICES " << *Gep << "\n");
-    GEP_With_More_Than_2_Indices++; // statistics
+    MO.Base = MO.Ptr;
+    MO.Index = NULL;
+    MO.IndexIsSigned = true;
+    MO.IndexValidBits = 0;
+    return;
   }
+
+  // MO.Ptr is a GEP. Treat special cases first
+
+  // Default case for a GEP: use the packetized value for this GEP as MO.Base
+  // (with no MO.Index) for the scatter/gather masked load intrinsic.
+  Value* vectorizedGep = NULL;
+  obtainVectorizedValue(&vectorizedGep, Gep, Gep);
+  assert(vectorizedGep && "Expected a vectorized GEP to exist");
+  MO.Base = Gep;
+  MO.Index = NULL;
+  MO.IndexIsSigned = true;
+  MO.IndexValidBits = 0;
 }
 
 void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
@@ -1492,7 +1307,7 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
   bool isVectorPrefetch = DT->isVectorTy() &&  MO.type == PREFETCH;
   // Not much we can do for load of non-scalars
   // For prefetches we can actually do
-  if (!(DT->isFloatingPointTy() || DT->isIntegerTy()) &&  !isVectorPrefetch) {
+  if (!(DT->isFloatingPointTy() || DT->isIntegerTy() || DT->isPointerTy()) &&  !isVectorPrefetch) {
     V_PRINT(vectorizer_stat, "<<<<NonPrimitiveCtr("<<__FILE__<<":"<<__LINE__<<"): "<<Instruction::getOpcodeName(MO.Orig->getOpcode()) <<" of non-scalars\n");
     V_STAT(m_nonPrimitiveCtr[MO.Orig->getOpcode()]++;)
     if (MO.Index) {
@@ -1515,8 +1330,8 @@ void PacketizeFunction::packetizeMemoryOperand(MemoryOperation &MO) {
 
   // In case we were told the target supports scat/gath regions, and were able to find
   // base+index pattern attempt to create scat/gath.
-  if (UseScatterGather && MO.Index) {
-    V_ASSERT(MO.Base && "Index w/o base");
+  if (UseScatterGather) {
+    V_ASSERT(MO.Base && "Scatter/Gather w/o base");
     // If we were able to generate scatter\gather update VCM and return.
     if (Instruction *Scat =  widenScatterGatherOp(MO)) {
       createVCMEntryWithVectorValue(MO.Orig, Scat);
@@ -2729,12 +2544,11 @@ void PacketizeFunction::packetizeInstruction(AllocaInst *AI) {
 
     AllocaInst* newAlloca = new AllocaInst(allocaType, 0, alignment, "PackedAlloca", AI);
 
-    Instruction *duplicateInsts[MAX_PACKET_WIDTH];
-    // Set the new SOA-alloca instruction as scalar multi instructions
-    for (unsigned i = 0; i < m_packetWidth; i++) {
-      duplicateInsts[i] = newAlloca;
-    }
-    createVCMEntryWithMultiScalarValues(AI, duplicateInsts);
+    // Set the new SOA-alloca instruction as both the vector value and
+    // multi-scalar values of this alloca (this pre-sets values for both cases
+    // so that we don't need to make exceptions from the standard logic for
+    // obtaining vector values from multi-scalars and vice-versa.
+    createVCMEntryWithVectorizedValue(AI, newAlloca);
 
     // Remove original instruction
     m_removedInsts.insert(AI);
@@ -2987,7 +2801,75 @@ void PacketizeFunction::packetizeInstruction(GetElementPtrInst *GI)
   V_PRINT(packetizer, "\t\tGetElementPtr Instruction\n");
   V_ASSERT(GI && "instruction type dynamic cast failed");
   V_STAT(m_getElemPtrCtr++;)
-  return duplicateNonPacketizableInst(GI);
+
+  // Create the vector GEP, keeping all uniform arguments scalar.
+
+  Value *Ptr = NULL;
+  Value* Base = GI->getPointerOperand();
+#if GEP_GETS_A_VECTOR_TYPE
+  if (m_depAnalysis->whichDepend(Base) == WIAnalysis::UNIFORM)
+    Ptr = Base;
+  else
+#else
+    obtainVectorizedValue(&Ptr, Base, GI);
+#ifndef GEP_GETS_A_VECTOR_TYPE
+  // broadcast if we got a scalar value (soa-alloca)
+  if (!(Ptr->getType()->isVectorTy()))
+      Ptr = VectorizerUtils::createBroadcast(Ptr,
+                                             m_packetWidth,
+                                             cast<Instruction>(Ptr),
+                                             true);
+#endif
+#endif
+  assert(Ptr != NULL && "Unable to set base pointer for vector GEP");
+
+  std::vector<Value*> Indices;
+  GetElementPtrInst::op_iterator IdxIt = GI->idx_begin();
+  GetElementPtrInst::op_iterator IdxEnd = GI->idx_end();
+  for (; IdxIt != IdxEnd; ++IdxIt) {
+    Value* Index = NULL;
+#if UNIFORM_INDICES_WORK
+    if (m_depAnalysis->whichDepend(*IdxIt) == WIAnalysis::UNIFORM)
+      Index = *IdxIt;
+    else
+#endif
+      obtainVectorizedValue(&Index, *IdxIt, GI);
+    assert(Index != NULL && "Unable to set index for vector GEP");
+    Indices.push_back(Index);
+  }
+
+  if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(GI)) {
+    // This GEP relates to a SoA Alloca, so while the scalar GEP pointed
+    // to a scalar E, the vector GEP needs to point to the correct lane
+    // within the <vNxE> vector in the vectorized Alloca: add an
+    // additional index to the GEP with the lane values.
+    Type *i32Ty = Type::getInt32Ty(GI->getContext());
+    std::vector<Constant *> laneVec;
+    for (unsigned int i=0; i < m_packetWidth; ++i) {
+      laneVec.push_back(ConstantInt::get(i32Ty, i));
+    }
+    Constant *laneVal = ConstantVector::get(laneVec);
+    Indices.push_back(laneVal);
+  }
+
+  GetElementPtrInst* VectorGEP = GetElementPtrInst::Create(nullptr,
+                                                           Ptr,
+                                                           Indices,
+                                                           "vectorGEP",
+                                                           GI);
+  VectorGEP->setIsInBounds(GI->isInBounds());
+
+  // Add new value/s to VCM
+  createVCMEntryWithVectorValue(GI, VectorGEP);
+
+  // Remove original instruction
+#if 1
+  m_removedInsts.insert(GI); // don't, special-case gather reuses it, so for now:
+#else
+  VCMEntry* foundEntry = m_VCM[GI];
+  assert(foundEntry->vectorValue != NULL && "Expected newly create entry to exist");
+  foundEntry->isScalarRemoved = false;
+#endif
 }
 
 
@@ -3212,7 +3094,7 @@ void PacketizeFunction::generateSequentialIndices(Instruction *I)
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createPacketizerPass(bool scatterGather = false,
+  FunctionPass* createPacketizerPass(bool scatterGather = true,
                                      unsigned int vectorizationDimension = 0) {
     return new intel::PacketizeFunction(scatterGather, vectorizationDimension);
   }

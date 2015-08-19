@@ -168,7 +168,7 @@ public:
         return HasGatherScatter(m_CPU);
     };
     static bool HasGatherScatter(ECPU CPU) {
-        return (CPU == MIC_KNC || CPU == CPU_KNL);
+        return true;
     };
     bool RequirePrefetch() const {
         return m_CPU == MIC_KNC;

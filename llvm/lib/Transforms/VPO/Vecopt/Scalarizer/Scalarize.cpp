@@ -1525,7 +1525,7 @@ bool ScalarizeFunction::isScalarizableLoadStoreType(VectorType *type) {
 /// Support for static linking of modules for Windows
 /// This pass is called by a modified Opt.exe
 extern "C" {
-  FunctionPass* createScalarizerPass(bool scatterGather = false) {
+  FunctionPass* createScalarizerPass(bool scatterGather = true) {
     return new intel::ScalarizeFunction(scatterGather);
   }
 }

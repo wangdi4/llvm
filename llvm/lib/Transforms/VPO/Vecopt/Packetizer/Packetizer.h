@@ -365,6 +365,9 @@ private:
 
   // VCM-related functions
 
+  /// @brief Create VCM entry with a single value as both the vector value and the multi-scalar values (original is removed)
+  void createVCMEntryWithVectorizedValue(Instruction *origInst, Instruction *value);
+
   /// @brief Create VCM entry and fill it with vectored values (original is removed)
   void createVCMEntryWithVectorValue(Instruction *origInst, Instruction *vectoredValue);
 
@@ -557,9 +560,6 @@ private:
 
   // Statistics:
   Statistic::ActiveStatsT m_kernelStats;
-  Statistic GEP_With_2_Indices;
-  Statistic GEP_With_More_Than_2_Indices;
-  Statistic Array_Of_Structs_Store_Or_Loads;
   Statistic Cant_Load_Transpose_Because_Of_Non_Extract_Users;
   Statistic Cant_Load_Transpose_Because_Multiple_Extract_Users_With_The_Same_Index;
   Statistic Load_Transpose_Created_For_A_Single_Scalar_Value;
