@@ -79,6 +79,10 @@ public:
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node) {
     for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+      if (!*I) {
+        continue;
+      }
+
       if (!(*I)->isConstant()) {
         addRef(*I);
         for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
@@ -133,6 +137,10 @@ void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
 void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+    if (!*I) {
+      continue;
+    }
+
     if ((*I)->isConstant()) {
       (*I)->setSymBase(SA->getSymBaseForConstants());
     } else if ((*I)->getBaseCE()) {
@@ -177,7 +185,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
-  HLNodeUtils::visitAll(&SV);
+  HLNodeUtils::visitAll(SV);
   AliasSetTracker &AST = SV.AST;
 
   // Each ref in a set gets the same symbase
@@ -202,7 +210,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
   DDRefGatherer G;
-  HLNodeUtils::visitAll(&G, HIRP);
+  HLNodeUtils::visitAll(G, HIRP);
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";
   FOS << "\n";

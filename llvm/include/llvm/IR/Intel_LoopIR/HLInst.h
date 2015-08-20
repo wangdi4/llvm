@@ -34,7 +34,7 @@ private:
   const Instruction *Inst;
   HLInst *SafeRednSucc;
   // Only used for Cmp and Select instructions.
-  CmpInst::Predicate CmpOrSelectPred;
+  PredicateTy CmpOrSelectPred;
 
 protected:
   explicit HLInst(Instruction *In);
@@ -183,14 +183,14 @@ public:
   bool isInPreheaderOrPostexit() const;
 
   /// \brief Returns predicate for select instruction.
-  CmpInst::Predicate getPredicate() const {
+  PredicateTy getPredicate() const {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     return CmpOrSelectPred;
   }
 
   /// \brief Sets predicate for select instruction.
-  void setPredicate(CmpInst::Predicate Pred) {
+  void setPredicate(PredicateTy Pred) {
     assert((isa<CmpInst>(Inst) || isa<SelectInst>(Inst)) &&
            "This instruction does not contain a predicate!");
     CmpOrSelectPred = Pred;
@@ -202,6 +202,9 @@ public:
 
   /// \brief Returns true if this is a call instruction.
   bool isCallInst() const;
+
+  /// \brief Verifies HLInst integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

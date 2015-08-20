@@ -35,7 +35,7 @@ class SCEV;
 namespace loopopt {
 
 /// \brief The maximum loopnest level allowed in HIR.
-const unsigned MaxLoopNestLevel = 9;
+const int MaxLoopNestLevel = 9;
 
 /// \brief Canonical form in high level IR
 ///
@@ -498,6 +498,9 @@ public:
 
   /// \brief Negates canon expr.
   void negate();
+
+  /// \brief Verifies canon expression
+  void verify() const;
 };
 
 } // End loopopt namespace

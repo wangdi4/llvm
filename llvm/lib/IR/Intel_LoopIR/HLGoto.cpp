@@ -66,3 +66,9 @@ void HLGoto::print(formatted_raw_ostream &OS, unsigned Depth,
 
   OS << ";\n";
 }
+
+void HLGoto::verify() const {
+  assert(((!TargetBBlock && TargetLabel) || (TargetBBlock && !TargetLabel))
+      && "One and only one TargetBBlock or TargetLabel should be non-NULL");
+  HLNode::verify();
+}

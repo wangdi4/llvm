@@ -105,44 +105,44 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 }
 
 void HLNode::printPredicate(formatted_raw_ostream &OS,
-                            const CmpInst::Predicate &Pred) {
-  if (Pred == CmpInst::Predicate::FCMP_TRUE) {
+                            PredicateTy Pred) {
+  if (Pred == PredicateTy::FCMP_TRUE) {
     OS << " true ";
-  } else if (Pred == CmpInst::Predicate::FCMP_FALSE) {
+  } else if (Pred == PredicateTy::FCMP_FALSE) {
     OS << " false ";
   }
   /// TODO: Differentiate ordered/unordered and signed/unsigned.
-  else if ((Pred == CmpInst::Predicate::FCMP_OEQ) ||
-           (Pred == CmpInst::Predicate::FCMP_UEQ) ||
-           (Pred == CmpInst::Predicate::ICMP_EQ)) {
+  else if ((Pred == PredicateTy::FCMP_OEQ) ||
+           (Pred == PredicateTy::FCMP_UEQ) ||
+           (Pred == PredicateTy::ICMP_EQ)) {
     OS << " == ";
-  } else if ((Pred == CmpInst::Predicate::FCMP_ONE) ||
-             (Pred == CmpInst::Predicate::FCMP_UNE) ||
-             (Pred == CmpInst::Predicate::ICMP_NE)) {
+  } else if ((Pred == PredicateTy::FCMP_ONE) ||
+             (Pred == PredicateTy::FCMP_UNE) ||
+             (Pred == PredicateTy::ICMP_NE)) {
     OS << " != ";
-  } else if ((Pred == CmpInst::Predicate::FCMP_OGT) ||
-             (Pred == CmpInst::Predicate::FCMP_UGT) ||
-             (Pred == CmpInst::Predicate::ICMP_UGT) ||
-             (Pred == CmpInst::Predicate::ICMP_SGT)) {
+  } else if ((Pred == PredicateTy::FCMP_OGT) ||
+             (Pred == PredicateTy::FCMP_UGT) ||
+             (Pred == PredicateTy::ICMP_UGT) ||
+             (Pred == PredicateTy::ICMP_SGT)) {
     OS << " > ";
-  } else if ((Pred == CmpInst::Predicate::FCMP_OGE) ||
-             (Pred == CmpInst::Predicate::FCMP_UGE) ||
-             (Pred == CmpInst::Predicate::ICMP_UGE) ||
-             (Pred == CmpInst::Predicate::ICMP_SGE)) {
+  } else if ((Pred == PredicateTy::FCMP_OGE) ||
+             (Pred == PredicateTy::FCMP_UGE) ||
+             (Pred == PredicateTy::ICMP_UGE) ||
+             (Pred == PredicateTy::ICMP_SGE)) {
     OS << " >= ";
-  } else if ((Pred == CmpInst::Predicate::FCMP_OLT) ||
-             (Pred == CmpInst::Predicate::FCMP_ULT) ||
-             (Pred == CmpInst::Predicate::ICMP_ULT) ||
-             (Pred == CmpInst::Predicate::ICMP_SLT)) {
+  } else if ((Pred == PredicateTy::FCMP_OLT) ||
+             (Pred == PredicateTy::FCMP_ULT) ||
+             (Pred == PredicateTy::ICMP_ULT) ||
+             (Pred == PredicateTy::ICMP_SLT)) {
     OS << " < ";
-  } else if ((Pred == CmpInst::Predicate::FCMP_OLE) ||
-             (Pred == CmpInst::Predicate::FCMP_ULE) ||
-             (Pred == CmpInst::Predicate::ICMP_ULE) ||
-             (Pred == CmpInst::Predicate::ICMP_SLE)) {
+  } else if ((Pred == PredicateTy::FCMP_OLE) ||
+             (Pred == PredicateTy::FCMP_ULE) ||
+             (Pred == PredicateTy::ICMP_ULE) ||
+             (Pred == PredicateTy::ICMP_SLE)) {
     OS << " <= ";
-  } else if (Pred == CmpInst::Predicate::FCMP_ORD) {
+  } else if (Pred == PredicateTy::FCMP_ORD) {
     OS << " ORDERED ";
-  } else if (Pred == CmpInst::Predicate::FCMP_UNO) {
+  } else if (Pred == PredicateTy::FCMP_UNO) {
     OS << " UNORDERED ";
   } else {
     llvm_unreachable("Unexpected predicate!");
@@ -185,4 +185,9 @@ HLRegion *HLNode::getParentRegion() const {
   }
 
   return cast_or_null<HLRegion>(Par);
+}
+
+void HLNode::verify() const {
+  assert((isa<HLRegion>(this) || getParent() != nullptr)
+      && "Non-Region HLNode should have a parent node");
 }

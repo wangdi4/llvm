@@ -31,14 +31,14 @@ class HLLoop;
 /// If( (Op1 Pred1 Op2) AND (Op3 Pred2 Op4) )
 class HLIf : public HLDDNode {
 public:
-  typedef SmallVector<CmpInst::Predicate, 2> PredicateTy;
+  typedef SmallVector<PredicateTy, 2> PredicateContainerTy;
   typedef HLContainerTy ChildNodeTy;
 
   /// Iterators to iterate over predicates
-  typedef PredicateTy::iterator pred_iterator;
-  typedef PredicateTy::const_iterator const_pred_iterator;
-  typedef PredicateTy::reverse_iterator reverse_pred_iterator;
-  typedef PredicateTy::const_reverse_iterator const_reverse_pred_iterator;
+  typedef PredicateContainerTy::iterator pred_iterator;
+  typedef PredicateContainerTy::const_iterator const_pred_iterator;
+  typedef PredicateContainerTy::reverse_iterator reverse_pred_iterator;
+  typedef PredicateContainerTy::const_reverse_iterator const_reverse_pred_iterator;
 
   /// Iterators to iterate over then/else children nodes
   typedef ChildNodeTy::iterator then_iterator;
@@ -56,7 +56,7 @@ private:
   /// predicate is FCMP_TRUE or FCMP_FALSE in which case they can be null.
   /// It should contain at least one predicate. Predicates are joined using the
   /// implicit AND conjunction.
-  PredicateTy Predicates;
+  PredicateContainerTy Predicates;
   /// Contains both then and else children, in that order.
   /// Having a single container allows for more efficient and cleaner
   /// implementation of insert(Before/After) and remove(Before/After).
@@ -65,7 +65,7 @@ private:
   ChildNodeTy::iterator ElseBegin;
 
 protected:
-  HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
+  HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
@@ -209,7 +209,7 @@ public:
   unsigned getNumOperands() const override;
 
   /// \brief Adds new predicate in HLIf.
-  void addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   /// Example-
@@ -223,7 +223,7 @@ public:
   void removePredicate(const_pred_iterator CPredI);
 
   /// \brief Replaces existing predicate pointed to by CPredI, by NewPred.
-  void replacePredicate(const_pred_iterator CPredI, CmpInst::Predicate NewPred);
+  void replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -238,6 +238,9 @@ public:
   /// \brief Removes and returns the LHS/RHS operand DDRef of the predicate
   /// based on the IsLHS flag.
   RegDDRef *removePredicateOperandDDRef(const_pred_iterator CPredI, bool IsLHS);
+
+  /// \brief Verifies HLIf integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

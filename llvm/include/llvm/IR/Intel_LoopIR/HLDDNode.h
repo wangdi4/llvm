@@ -97,6 +97,9 @@ public:
   /// \brief Returns the number of operands (and lval, if applicable) this node
   /// is supposed to have.
   virtual unsigned getNumOperands() const = 0;
+
+  /// \brief Verifies DDRefs attached to the node.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

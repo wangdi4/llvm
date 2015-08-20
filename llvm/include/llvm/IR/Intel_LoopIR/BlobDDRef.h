@@ -78,6 +78,9 @@ public:
   /// ways except the following:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
+
+  /// \brief Verifies BlobDDRef integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

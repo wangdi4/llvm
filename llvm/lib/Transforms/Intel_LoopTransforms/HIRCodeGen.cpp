@@ -509,7 +509,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // Keep maps of Blob Ids to Symbase independent of region
   BlobIdxToSymbase.clear();
   BlobToSymbaseMapper Mapper(BlobIdxToSymbase);
-  HLNodeUtils::visit(&Mapper, R, true, true);
+  HLNodeUtils::visit(Mapper, R, true, true);
 
   // TODO Stack map for live out values
 

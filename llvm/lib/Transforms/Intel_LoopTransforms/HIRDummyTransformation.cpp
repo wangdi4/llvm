@@ -55,9 +55,9 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
     AU.addRequiredTransitive<DDAnalysis>();
+    AU.setPreservesAll();
   }
 };
 
@@ -98,7 +98,7 @@ bool HIRDummyTransformation::runOnFunction(Function &F) {
                << "\n");
 
   NodeVisitor V;
-  HLNodeUtils::visitAll<NodeVisitor>(&V);
+  HLNodeUtils::visitAll<NodeVisitor>(V);
 
   return false;
 }

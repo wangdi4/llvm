@@ -352,6 +352,9 @@ public:
   /// It is the respoonsibility of the user to  call this function after
   /// making changes to the DDRef.
   void updateBlobDDRefs();
+
+  /// \brief Verifies RegDDRef integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

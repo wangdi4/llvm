@@ -32,7 +32,7 @@ void HLInst::initialize() {
 
 HLInst::HLInst(Instruction *In)
     : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr),
-      CmpOrSelectPred(CmpInst::Predicate::FCMP_TRUE) {
+      CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
@@ -380,4 +380,30 @@ bool HLInst::isInPostexit() const { return isInPreheaderPostexitImpl(false); }
 
 bool HLInst::isInPreheaderOrPostexit() const {
   return (isInPreheader() || isInPostexit());
+}
+
+void HLInst::verify() const {
+  bool IsSelectCmpTrueFalse = (isa<SelectInst>(Inst) || isa<CmpInst>(Inst)) &&
+                               isPredicateTrueOrFalse(CmpOrSelectPred);
+
+  // Number of operands to skip if instruction
+  // is Select or Cmp with True/False predicate
+  int Skip1 = 1;
+  int Skip2 = 2;
+  int C = 0;
+
+  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I, ++C) {
+    if (IsSelectCmpTrueFalse && (C == Skip1 || C == Skip2)) {
+      assert(*I == nullptr &&
+          "DDRefs for Select or Cmp Inst with " \
+          "True or False operands must be NULL");
+      continue;
+    }
+
+    assert(*I != nullptr &&
+        "DDRefs cannot be NULL except for " \
+        "Select or Cmp Inst with True or False predicate");
+  }
+
+  HLDDNode::verify();
 }

@@ -13,4 +13,5 @@ add_llvm_library(LLVMIntel_LoopIR
   HLSwitch.cpp
   IRRegion.cpp
   RegDDRef.cpp
+  HIRVerifier.cpp
   )

@@ -189,14 +189,14 @@ public:
   }
 
   /// \brief Adds new predicate in ZTT.
-  void addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
   void replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                           CmpInst::Predicate NewPred);
+                           PredicateTy NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -454,6 +454,9 @@ public:
 
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
+
+  /// \brief Verifies HLLoop integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

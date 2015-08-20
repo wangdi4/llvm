@@ -405,7 +405,7 @@ bool HIRLoopInterchange::LegalForInterchange(HLNode *Loop, DDAnalysis *DDAP) {
   WHIR.StartLevel = 0;
   WHIR.EndLevel = 0;
 
-  HLNodeUtils::visit(&WHIR, Loop, true, true, true);
+  HLNodeUtils::visit(WHIR, Loop, true, true, true);
 
   DEBUG(dbgs() << "\nStart, End level\n" << WHIR.StartLevel << " "
                << WHIR.EndLevel);

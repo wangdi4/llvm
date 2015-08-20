@@ -392,7 +392,7 @@ public:
 
   /// \brief Visits the passed in HLNode.
   template <typename HV>
-  static void visit(HV *Visitor, HLNode *Node, bool Recursive = true,
+  static void visit(HV &Visitor, HLNode *Node, bool Recursive = true,
                     bool RecurseInsideLoops = true, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
     V.visit(Node, Recursive, RecurseInsideLoops, Forward);
@@ -404,7 +404,7 @@ public:
   /// specified using RecurseInsideLoops (which is only used when
   /// Recursive flag is set).
   template <typename HV>
-  static void visit(HV *Visitor, HLContainerTy::iterator Begin,
+  static void visit(HV &Visitor, HLContainerTy::iterator Begin,
                     HLContainerTy::iterator End, bool Recursive = true,
                     bool RecurseInsideLoops = true, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
@@ -420,7 +420,7 @@ public:
   /// specified using Forward flag. This is overloaded to have begin and
   /// end as HLNode parameters.
   template <typename HV>
-  static void visit(HV *Visitor, HLNode *Begin, HLNode *End,
+  static void visit(HV &Visitor, HLNode *Begin, HLNode *End,
                     bool Recursive = true, bool RecurseInsideLoops = true,
                     bool Forward = true) {
     assert(Begin && End && " Begin/End Node is null");
@@ -433,7 +433,7 @@ public:
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
   template <typename HV>
-  static void visitAll(HV *Visitor, bool Forward = true) {
+  static void visitAll(HV &Visitor, bool Forward = true) {
     HLNodeVisitor<HV> V(Visitor);
 
     if (Forward) {

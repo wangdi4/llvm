@@ -125,9 +125,11 @@ public:
   // \brief Returns a new unused symbase ID.
   unsigned int getNewSymBase();
   void releaseMemory() override;
+
+  void verifyAnalysis() const override;
+
   // TODO
   // void print(raw_stream &OS, const Module* = nullptr) const override;
-  // void verifyAnalysis() const override;
   //
 
   // init_incremental_rebuild(HLNode*)

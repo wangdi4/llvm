@@ -63,11 +63,8 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   /// Loop over BlobDDRefs
   for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
        ++I) {
-
     BlobDDRef *NewBlobDDRef = (*I)->clone();
-    /// TODO: Check if push_back call sets the parent DDRef appropriately
-    /// NewBlobDDRef->setParentDDRef(this);
-    BlobDDRefs.push_back(NewBlobDDRef);
+    addBlobDDRef(NewBlobDDRef);
   }
 }
 
@@ -266,4 +263,25 @@ void RegDDRef::updateBlobDDRefs() {
       }
     }
   */
+}
+
+void RegDDRef::verify() const {
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    (*I)->verify();
+  }
+
+  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+    (*I)->verify();
+    assert((*I)->getParentDDRef() == this && "Child blob DDRefs should have this RegDDRef as a parent");
+  }
+
+  assert((!isSelfBlob() || BlobDDRefs.size() == 0) &&
+         "Self-blobs couldn't contain any BlobDDRefs.");
+
+  assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
+         "GEP DDRefs should have a base canon expression");
+  assert((!hasGEPInfo() || getNumDimensions() == getStrides().size()) &&
+         "Stride should be for every dimension");
+
+  DDRef::verify();
 }

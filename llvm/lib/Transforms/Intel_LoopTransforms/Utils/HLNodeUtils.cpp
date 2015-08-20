@@ -737,7 +737,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   HLContainerTy::iterator It2(const_cast<HLNode *>(Node2));
 
   HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
-  visit<HLNodeUtils::CloneVisitor>(&CloneVisit, It1, std::next(It2), false,
+  visit<HLNodeUtils::CloneVisitor>(CloneVisit, It1, std::next(It2), false,
                                    true, true);
   CloneVisit.postVisitUpdate();
 }
@@ -806,7 +806,7 @@ void HLNodeUtils::updateLoopInfoRecursively(HLContainerTy::iterator First,
                                             HLContainerTy::iterator Last) {
 
   HLNodeUtils::LoopFinderUpdater LoopUpdater(false);
-  visit<HLNodeUtils::LoopFinderUpdater>(&LoopUpdater, First, Last);
+  visit<HLNodeUtils::LoopFinderUpdater>(LoopUpdater, First, Last);
 }
 
 void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
@@ -1108,7 +1108,7 @@ bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
                                    HLContainerTy::iterator Last) {
   HLNodeUtils::LoopFinderUpdater LoopFinder(true);
 
-  visit<HLNodeUtils::LoopFinderUpdater>(&LoopFinder, First, Last);
+  visit<HLNodeUtils::LoopFinderUpdater>(LoopFinder, First, Last);
 
   return LoopFinder.foundLoop();
 }
@@ -1557,7 +1557,7 @@ struct HLNodeUtils::TopSorter {
 
 void HLNodeUtils::resetTopSortNum() {
   HLNodeUtils::TopSorter TS;
-  HLNodeUtils::visitAll(&TS);
+  HLNodeUtils::visitAll(TS);
 }
 
 bool HLNodeUtils::strictlyDominates(HLNode *HIR1, HLNode *HIR2) {
@@ -1697,7 +1697,7 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
                                   bool RecurseInsideLoops) {
   assert(NodeStart && NodeEnd && " Node Start/End is null.");
   SwitchCallVisitor SCVisit;
-  HLNodeUtils::visit(&SCVisit, const_cast<HLNode *>(NodeStart),
+  HLNodeUtils::visit(SCVisit, const_cast<HLNode *>(NodeStart),
                      const_cast<HLNode *>(NodeEnd), true, RecurseInsideLoops);
   return (SCVisit.IsSwitch || SCVisit.IsCall);
 }
@@ -1726,7 +1726,7 @@ struct InnermostLoopVisitor {
 void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
   assert(Loops && " Loops parameter is null.");
   InnermostLoopVisitor LoopVisit(Loops);
-  HLNodeUtils::visitAll<InnermostLoopVisitor>(&LoopVisit);
+  HLNodeUtils::visitAll<InnermostLoopVisitor>(LoopVisit);
 }
 
 // Visitor to gather loops with specified level.
@@ -1755,7 +1755,7 @@ void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
   assert(Loops && " Loops parameter is null.");
   // Level 1 denotes outermost loops
   LoopLevelVisitor LoopVisit(Loops, 1);
-  HLNodeUtils::visitAll<LoopLevelVisitor>(&LoopVisit);
+  HLNodeUtils::visitAll<LoopLevelVisitor>(LoopVisit);
 }
 
 void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
@@ -1765,5 +1765,5 @@ void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
   assert(Loops && " Loops parameter is null.");
   assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is out of range.");
   LoopLevelVisitor LoopVisit(Loops, Level);
-  HLNodeUtils::visit<LoopLevelVisitor>(&LoopVisit, const_cast<HLNode *>(Node));
+  HLNodeUtils::visit<LoopLevelVisitor>(LoopVisit, const_cast<HLNode *>(Node));
 }

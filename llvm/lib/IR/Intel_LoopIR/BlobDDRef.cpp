@@ -59,3 +59,15 @@ HLDDNode *BlobDDRef::getHLDDNode() const {
 void BlobDDRef::setHLDDNode(HLDDNode *HNode) {
   llvm_unreachable("Should not set HLDDNode via blob DDRef");
 }
+
+void BlobDDRef::verify() const {
+  const CanonExpr *CE = getCanonExpr();
+
+  assert(CE != nullptr && "Canon Expr for BlobDDRefObj cannot be NULL");
+
+  CE->verify();
+
+  assert(isSelfBlob() && "BlobDDRefs should represent a self blob");
+
+  DDRef::verify();
+}

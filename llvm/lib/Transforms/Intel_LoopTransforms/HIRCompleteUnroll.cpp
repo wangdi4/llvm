@@ -84,6 +84,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -202,6 +203,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
@@ -395,7 +397,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, LoopData *LD) {
     HLNodeUtils::insertBefore(Loop, &LoopBody);
 
     CanonExprVisitor CEVisit(Loop->getNestingLevel(), TripVal);
-    HLNodeUtils::visit<CanonExprVisitor>(&CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visit<CanonExprVisitor>(CEVisit, CurFirstChild, CurLastChild);
   }
 
   Loop->getParentRegion()->setGenCode();

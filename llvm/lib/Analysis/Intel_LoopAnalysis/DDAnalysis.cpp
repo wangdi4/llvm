@@ -20,11 +20,14 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+
+#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include <vector>
 #include <map>
@@ -62,6 +65,11 @@ static cl::opt<bool>
     forceDDA("force-DDA", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+static cl::opt<bool>
+    HIRVerify("hir-verify",
+              cl::desc("Verify HIR after each transformation (default=true)"),
+              cl::init(true));
+
 FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
 char DDAnalysis::ID = 0;
@@ -95,7 +103,7 @@ bool DDAnalysis::runOnFunction(Function &F) {
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
     GraphVerifier V(this, CurLevel);
-    HLNodeUtils::visitAll(&V);
+    HLNodeUtils::visitAll(V);
   }
 
   return false;
@@ -165,6 +173,13 @@ void DDRefGatherer::visit(HLDDNode *Node) {
 void DDAnalysis::releaseMemory() {
   GraphValidityMap.clear();
   FunctionDDGraph.clear();
+}
+
+void DDAnalysis::verifyAnalysis() const {
+  if (HIRVerify) {
+    HIRVerifier::verifyAll();
+    DEBUG(dbgs() << "Verification of HIR done" << "\n");
+  }
 }
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
@@ -237,7 +252,7 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   SymToRefs RefMap;
   DDRefGatherer Gatherer(&RefMap);
 
-  HLNodeUtils::visit(&Gatherer, Node, true, true, true);
+  HLNodeUtils::visit(Gatherer, Node, true, true, true);
 
   DEBUG(dbgs() << "Building graph for:\n");
   DEBUG(dumpSymBaseMap(RefMap));

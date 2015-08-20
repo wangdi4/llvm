@@ -1196,7 +1196,7 @@ bool HIRParser::runOnFunction(Function &F) {
   HLUtils::setHIRParser(this);
 
   Visitor PV(this);
-  HLNodeUtils::visitAll(&PV);
+  HLNodeUtils::visitAll(PV);
 
   eraseUselessNodes();
 
@@ -1223,5 +1223,5 @@ void HIRParser::print(raw_ostream &OS, const Module *M) const {
 }
 
 void HIRParser::verifyAnalysis() const {
-  /// TODO: implement later
+
 }

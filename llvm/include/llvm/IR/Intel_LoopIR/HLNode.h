@@ -42,6 +42,9 @@ typedef SmallVector<HLGoto *, 16> GotoContainerTy;
 // Map for Old Label and New Label
 typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 
+// Defining predicate type
+typedef CmpInst::Predicate PredicateTy;
+
 /// \brief High level IR node base class
 ///
 /// This represents a node of the High level IR. It is used to represent
@@ -50,6 +53,7 @@ typedef SmallDenseMap<const HLLabel *, HLLabel *, 16> LabelMapTy;
 /// This class (hierarchy) disallows creating objects on stack.
 /// Objects are created/destroyed using HLNodeUtils friend class.
 class HLNode : public ilist_node<HLNode> {
+
 private:
   /// \brief Make class uncopyable.
   void operator=(const HLNode &) = delete;
@@ -89,15 +93,22 @@ protected:
 
   /// \brief Sets the lexical parent of this HLNode.
   void setParent(HLNode *Par) { Parent = Par; }
+
   /// \brief Destroys the object.
   void destroy();
 
   /// \brief Indents nodes for printing.
   void indent(formatted_raw_ostream &OS, unsigned Depth) const;
 
+  /// \brief Returns true if Pred is TRUE or FALSE.
+  static bool isPredicateTrueOrFalse(PredicateTy Pred) {
+    return Pred == PredicateTy::FCMP_TRUE ||
+           Pred == PredicateTy::FCMP_FALSE;
+  }
+
   /// \brief Pretty prints predicates.
   static void printPredicate(formatted_raw_ostream &OS,
-                             const CmpInst::Predicate &Pred);
+                             PredicateTy Pred);
 
   /// \brief Virtual Clone Implementation
   /// This function populates the GotoList with Goto branching within the
@@ -146,7 +157,7 @@ public:
   /// \brief Return an ID for the concrete type of this object.
   ///
   /// This is used to implement the classof checks in LLVM and should't
-  ///  be used for any other purpose.
+  /// be used for any other purpose.
   unsigned getHLNodeID() const { return SubClassID; }
 
   /// \brief Returns the unique number associated with this HLNode.
@@ -155,7 +166,7 @@ public:
   /// \brief Returns the number of this node in the topological sort order.
   unsigned getTopSortNum() const { return TopSortNum; }
 
-  /// \brief An enumeration to keep track of the concrete subclasses of HLNode
+  /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
     HLRegionVal,
     HLLoopVal,
@@ -165,6 +176,9 @@ public:
     HLGotoVal,
     HLSwitchVal
   };
+
+  /// \brief Verifies HLNode integrity.
+  virtual void verify() const;
 };
 
 } // End loopopt namespace

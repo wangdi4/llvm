@@ -100,6 +100,12 @@ public:
 
   /// \brief An enumeration to keep track of the concrete subclasses of DDRef
   enum DDRefVal { ConstDDRefVal, RegDDRefVal, BlobDDRefVal };
+
+  /// \brief Returns true if the DDRef represents a self-blob.
+  bool isSelfBlob() const;
+
+  /// \brief Verifies DDRef integrity.
+  virtual void verify() const;
 };
 
 } // End loopopt namespace

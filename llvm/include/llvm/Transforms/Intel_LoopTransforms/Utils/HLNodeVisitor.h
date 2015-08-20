@@ -94,11 +94,11 @@ namespace loopopt {
 ///
 template <typename HV> class HLNodeVisitor {
 private:
-  HV *Visitor;
+  HV &Visitor;
 
   friend class HLNodeUtils;
 
-  HLNodeVisitor(HV *V) : Visitor(V) {}
+  HLNodeVisitor(HV &V) : Visitor(V) {}
 
   /// \brief Contains the core logic to visit nodes and recurse further.
   /// Returns true to indicate that early termination has occurred.
@@ -183,9 +183,9 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
 
   if (auto Reg = dyn_cast<HLRegion>(Node)) {
 
-    Visitor->visit(Reg);
+    Visitor.visit(Reg);
 
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
+    if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
       Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(),
                                    RecurseInsideLoops, true)
                     : backwardVisit(Reg->child_begin(), Reg->child_end(),
@@ -195,13 +195,13 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
         return true;
       }
 
-      Visitor->postVisit(Reg);
+      Visitor.postVisit(Reg);
     }
   } else if (auto If = dyn_cast<HLIf>(Node)) {
 
-    Visitor->visit(If);
+    Visitor.visit(If);
 
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
+    if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
       Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(),
                                    RecurseInsideLoops, true)
                     : backwardVisit(If->else_begin(), If->else_end(),
@@ -220,14 +220,14 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
         return true;
       }
 
-      Visitor->postVisit(If);
+      Visitor.postVisit(If);
     }
   } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
 
-    Visitor->visit(Loop);
+    Visitor.visit(Loop);
 
-    if (Recursive && RecurseInsideLoops && !Visitor->skipRecursion(Node) &&
-        !Visitor->isDone()) {
+    if (Recursive && RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
+        !Visitor.isDone()) {
       Ret =
           Forward
               ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true)
@@ -254,13 +254,13 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
         return true;
       }
 
-      Visitor->postVisit(Loop);
+      Visitor.postVisit(Loop);
     }
   } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
 
-    Visitor->visit(Switch);
+    Visitor.visit(Switch);
 
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
+    if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
       if (Forward) {
         for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
@@ -294,20 +294,20 @@ bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
         }
       }
 
-      Visitor->postVisit(Switch);
+      Visitor.postVisit(Switch);
     }
   } else if (auto Label = dyn_cast<HLLabel>(Node)) {
-    Visitor->visit(Label);
+    Visitor.visit(Label);
   } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
-    Visitor->visit(Goto);
+    Visitor.visit(Goto);
   } else if (auto Inst = dyn_cast<HLInst>(Node)) {
-    Visitor->visit(Inst);
+    Visitor.visit(Inst);
   } else {
     llvm_unreachable("Unknown HLNode type!");
   }
 
   /// Visitor indicated that the traversal is done
-  if (Visitor->isDone()) {
+  if (Visitor.isDone()) {
     return true;
   }
 

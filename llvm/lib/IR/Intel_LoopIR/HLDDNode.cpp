@@ -115,8 +115,8 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     isLoop = true;
   }
 
-  for (auto it = ddref_begin(); it != ddref_end(); it++) {
-    if ((*it) == nullptr || (*it)->isConstant()) {
+  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
+    if ((*I) == nullptr || (*I)->isConstant()) {
       continue;
     }
 
@@ -126,15 +126,15 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       OS << "| ";
     }
     OS << "<REG> ";
-    (*it)->print(OS, true);
+    (*I)->print(OS, true);
     OS << "\n";
-    for (auto blob = (*it)->blob_cbegin(); blob != (*it)->blob_cend(); blob++) {
+    for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
       indent(OS, Depth);
       if (isLoop) {
         OS << "| ";
       }
       OS << "<BLOB> ";
-      (*blob)->print(OS, true);
+      (*B)->print(OS, true);
       OS << "\n";
     }
 
@@ -148,4 +148,17 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     }
     OS << "\n";
   }
+}
+
+void HLDDNode::verify() const {
+  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
+    if (!*I) {
+      continue;
+    }
+
+    assert((*I)->getHLDDNode() == this && "DDRef is attached to a different node");
+    (*I)->verify();
+  }
+
+  HLNode::verify();
 }

@@ -805,3 +805,13 @@ void CanonExpr::multiplyByConstant(int64_t Val) {
 }
 
 void CanonExpr::negate() { multiplyByConstant(-1); }
+
+void CanonExpr::verify() const {
+  assert(getDenominator() > 0 && "Denominator must be greater than zero");
+  assert(DefinedAtLevel >= -1 && DefinedAtLevel <= MaxLoopNestLevel && "DefinedAtLevel must be within range [-1, MaxLoopNestLevel]");
+
+  for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
+    BlobTy B = CanonExpr::getBlob(I->Index);
+    assert(B->getType() == getType() && "Types of all blobs should match canon expr type");
+  }
+}

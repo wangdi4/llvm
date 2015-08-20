@@ -29,10 +29,10 @@ void HLIf::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLIf::HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
+HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
     : HLDDNode(HLNode::HLIfVal) {
-  assert(((FirstPred == CmpInst::Predicate::FCMP_FALSE) ||
-          (FirstPred == CmpInst::Predicate::FCMP_TRUE) || (Ref1 && Ref2)) &&
+  assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
+          (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
   assert((!Ref1 || (Ref1->getType() == Ref2->getType())) &&
          "Ref1/Ref2 type mismatch!");
@@ -203,11 +203,11 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
   return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
+void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1,
                         RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
-  assert((Pred != CmpInst::Predicate::FCMP_FALSE) &&
-         (Pred != CmpInst::Predicate::FCMP_TRUE) && "Invalid predicate!");
+  assert((Pred != PredicateTy::FCMP_FALSE) &&
+         (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
   assert((Ref1->getType() == Ref2->getType()) && "Ref1/Ref2 type mismatch!");
   assert(((CmpInst::isIntPredicate(Pred) &&
            CmpInst::isIntPredicate(Predicates[0])) ||
@@ -256,7 +256,7 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
 }
 
 void HLIf::replacePredicate(const_pred_iterator CPredI,
-                            CmpInst::Predicate NewPred) {
+                            PredicateTy NewPred) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   *PredI = NewPred;
@@ -281,4 +281,32 @@ RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
   }
 
   return TRef;
+}
+
+void HLIf::verify() const {
+  bool ContainsTrueFalsePred = false;
+
+  assert(getNumPredicates() > 0 && "HLIf should contain at least one predicate");
+
+  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
+    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I)) &&
+        "Invalid predicate value, should be one of PredicateTy");
+
+    bool IsBooleanPred = isPredicateTrueOrFalse(*I);
+    ContainsTrueFalsePred = ContainsTrueFalsePred || IsBooleanPred;
+
+    if (!IsBooleanPred) {
+      auto *DDRefLhs = getPredicateOperandDDRef(I, true);
+      auto *DDRefRhs = getPredicateOperandDDRef(I, false);
+
+      assert(DDRefLhs != nullptr &&
+             DDRefRhs != nullptr &&
+             "DDRefs should exist for every non FCMP_TRUE/FCMP_FALSE predicate");
+    }
+  }
+
+  assert((!ContainsTrueFalsePred || getNumPredicates() == 1) &&
+         "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
+
+  HLDDNode::verify();
 }

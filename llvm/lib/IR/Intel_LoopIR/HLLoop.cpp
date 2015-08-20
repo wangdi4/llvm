@@ -163,7 +163,9 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     {
       indent(OS, Depth);
       OS << "+ NumExits: " << getNumExits() << "\n";
+      indent(OS, Depth);
       OS << "+ TemporalLocalityWt: " << getTemporalLocalityWt() << "\n";
+      indent(OS, Depth);
       OS << "+ SpatialLocalityWt: " << getSpatialLocalityWt() << "\n";
     }
 
@@ -253,7 +255,7 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
+void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1,
                              RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
@@ -287,7 +289,7 @@ void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
 }
 
 void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                                 CmpInst::Predicate NewPred) {
+                                 PredicateTy NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
 }
@@ -533,4 +535,32 @@ HLNode *HLLoop::getLastChild() {
   }
 
   return nullptr;
+}
+
+void HLLoop::verify() const {
+  bool allDDRefsAreNull = (!getLowerDDRef() && !getUpperDDRef() && !getStrideDDRef());
+  bool allDDRefsAreNonNull = (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
+
+  assert((allDDRefsAreNull || allDDRefsAreNonNull) &&
+      "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
+
+  if (Ztt) {
+    Ztt->verify();
+  }
+
+  for (auto I = pre_begin(), E = pre_end(); I != E; ++I) {
+    assert(isa<HLInst>(*I) && "All nodes in preheader must be HLInst");
+  }
+
+  for (auto I = post_begin(), E = post_end(); I != E; ++I) {
+    assert(isa<HLInst>(*I) && "All nodes in postexit must be HLInst");
+  }
+
+  assert((!getParentLoop() ||
+         (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&
+         "If it's not a top-level loop its nesting level should be +1");
+  assert((getParentLoop() || getNestingLevel() == 1) &&
+         "Top level loops should have 1st nesting level");
+
+  HLDDNode::verify();
 }

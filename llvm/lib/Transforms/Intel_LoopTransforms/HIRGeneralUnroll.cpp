@@ -68,6 +68,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -189,6 +190,7 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
@@ -374,7 +376,7 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop) {
 
     CanonExprVisitor CEVisit(UnrollLoop->getNestingLevel(), UnrollFactor,
                              UnrollCnt);
-    HLNodeUtils::visit<CanonExprVisitor>(&CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visit<CanonExprVisitor>(CEVisit, CurFirstChild, CurLastChild);
   }
 }
 

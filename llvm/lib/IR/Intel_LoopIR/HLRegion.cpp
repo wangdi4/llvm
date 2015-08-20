@@ -83,3 +83,8 @@ HLNode *HLRegion::getLastChild() {
 
   return nullptr;
 }
+
+void HLRegion::verify() const {
+  assert(getParent() == nullptr && "HLRegion should be a root node");
+  HLNode::verify();
+}
