@@ -256,12 +256,17 @@ cl_err_code GLTextureBuffer::GetImageInfo(cl_image_info clParamName, size_t szPa
     }
     size_t  szSize = 0;
     const void * pValue = NULL;
+    cl_uint uiZero = 0;
     switch (clParamName)
     {
     case CL_IMAGE_FORMAT:
         szSize = sizeof(cl_image_format);
         pValue = &m_clFormat.clType;
         break;
+    case CL_IMAGE_NUM_SAMPLES:
+		szSize = sizeof(cl_uint);
+		pValue = &uiZero;
+		break;
     default:
         return CL_INVALID_VALUE;
     }
