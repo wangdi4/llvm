@@ -258,20 +258,20 @@ public:
   const CanonExpr *getTripCountCanonExpr() const;
 
   /// \brief Returns true if this is a do loop.
-  bool isDoLoop() const {
+  bool isDo() const {
     return (!IsDoWhile && (NumExits == 1) && getUpperDDRef());
   }
 
   /// \brief Returns true if this is a do-while loop.
-  bool isDoWhileLoop() const { return IsDoWhile; }
+  bool isDoWhile() const { return IsDoWhile; }
 
   /// \brief Returns true if this is a do multi-exit loop.
-  bool isDoMultiExitLoop() const {
+  bool isDoMultiExit() const {
     return (!IsDoWhile && (NumExits > 1) && getUpperDDRef());
   }
 
   /// \brief Returns true if this is an unknown loop.
-  bool isUnknownLoop() const { return !getUpperDDRef(); }
+  bool isUnknown() const { return !getUpperDDRef(); }
 
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }

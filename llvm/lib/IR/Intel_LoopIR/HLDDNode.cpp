@@ -37,7 +37,7 @@ HLDDNode::ddref_iterator HLDDNode::ddref_begin() {
   HLLoop *HLoop;
 
   /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
+  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
     return RegDDRefs.end();
   }
   return RegDDRefs.begin();
@@ -57,7 +57,7 @@ HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rbegin() {
   HLLoop *HLoop;
 
   /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
+  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
     return RegDDRefs.rend();
   }
   return RegDDRefs.rbegin();

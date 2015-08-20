@@ -44,7 +44,6 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
-	
 }
 
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -72,9 +71,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0),  TemporalLocalityWt(0), 
-      SpatialLocalityWt(0), IsInnermost(HLLoopObj.IsInnermost),
-      IVType(HLLoopObj.IVType) {
+      NestingLevel(0), TemporalLocalityWt(0), SpatialLocalityWt(0),
+      IsInnermost(HLLoopObj.IsInnermost), IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
 
@@ -92,7 +90,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
 
   setTemporalLocalityWt(HLLoopObj.getTemporalLocalityWt());
   setSpatialLocalityWt(HLLoopObj.getSpatialLocalityWt());
-	
+
   // Avoid cloning children and preheader/postexit.
   if (!CloneChildren)
     return;
@@ -183,7 +181,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   /// Print header
-  if (isDoLoop() || isDoWhileLoop() || isDoMultiExitLoop()) {
+  if (isDo() || isDoWhile() || isDoMultiExit()) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -202,16 +200,16 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
-    if (isDoLoop()) {
+    if (isDo()) {
       OS << "<DO_LOOP>";
-    } else if (isDoWhileLoop()) {
+    } else if (isDoWhile()) {
       OS << "<DO_WHILE_LOOP>";
-    } else if (isDoMultiExitLoop()) {
+    } else if (isDoMultiExit()) {
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
     OS << "\n";
-  } else if (isUnknownLoop()) {
+  } else if (isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -439,7 +437,8 @@ CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
 }
 
 const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)->getLoopCanonExpr(Ref);
+  return const_cast<HLLoop *>(this)
+      ->getLoopCanonExpr(const_cast<RegDDRef *>(Ref));
 }
 
 CanonExpr *HLLoop::getLowerCanonExpr() {

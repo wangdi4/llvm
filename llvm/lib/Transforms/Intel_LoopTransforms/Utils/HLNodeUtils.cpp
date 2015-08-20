@@ -105,9 +105,8 @@ void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
   assert(RvalRef && "Rval is null!");
 
   if (LvalRef) {
-    bool SameType =
-        DestTy ? (LvalRef->getType() == DestTy)
-               : (LvalRef->getType() == RvalRef->getType());
+    bool SameType = DestTy ? (LvalRef->getType() == DestTy)
+                           : (LvalRef->getType() == RvalRef->getType());
     assert(SameType && "Operand types do not match!");
   }
 }
@@ -1162,7 +1161,7 @@ void HLNodeUtils::removeImpl(HLContainerTy::iterator First,
 
   // The following if-else updates the separators. The only case where the
   // separator needs to be updated is if it points to 'First'. For more info on
-  // updating separators, refer to InsertImpl() comments.
+  // updating separators, refer to insertImpl() comments.
   if (auto Reg = dyn_cast<HLRegion>(Parent)) {
     OrigContainer = &Reg->Children;
   } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
@@ -1560,97 +1559,406 @@ void HLNodeUtils::resetTopSortNum() {
   HLNodeUtils::visitAll(TS);
 }
 
-bool HLNodeUtils::strictlyDominates(HLNode *HIR1, HLNode *HIR2) {
+bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
+                                      const HLNode *FirstNode,
+                                      const HLNode *LastNode) {
+  assert(Node && "Node is null!");
 
-  //  Is HIR1 strictly Dominates HIR2?
-  //  based on HIR links and topsort order when dominators are not present.
-  //  if HIR1 == HIR2, it will return false.
-  //  for dd_refs in the same statement:   s = s + ..., caller needs to
-  //  handle this case.
-  //  Current code does not support constructs in switch
-
-  unsigned Num1, Num2;
-  Num1 = HIR1->getTopSortNum();
-  Num2 = HIR2->getTopSortNum();
-  if (Num1 >= Num2) {
+  if (!FirstNode) {
     return false;
   }
 
-  HLNode *Parent1 = HIR1->getParent();
-  HLNode *Parent2 = HIR2->getParent();
-  HLNode *tmpParent;
+  assert(LastNode && "Last node is null!");
 
-  if (isa<HLLoop>(Parent1) && isa<HLLoop>(Parent2)) {
-    // immediate parent is loop and both HIR are in same loop
-    if (Parent1 == Parent2) {
-      return true;
-    }
-  }
+  unsigned Num = Node->getTopSortNum();
+  unsigned FirstNum = FirstNode->getTopSortNum();
+  unsigned LastNum = LastNode->getTopSortNum();
 
-  if (isa<HLLoop>(Parent1) || isa<HLIf>(Parent1)) {
-    tmpParent = Parent2;
-    while (tmpParent) {
-      if (tmpParent == Parent1) {
-        // immediate parent of HIR1 is Loop or If, trace back from HIR2 to
-        // see if we can reach Parent1
-        return true;
-      }
-      tmpParent = tmpParent->getParent();
-    }
-  }
-
-  HLIf *If1 = dyn_cast<HLIf>(Parent1);
-  HLIf *If2 = dyn_cast<HLIf>(Parent2);
-  // When both are under the same IF stmt
-  if (If1 == If2 && If1) {
-    bool HIR1found = false;
-
-    for (auto It = If1->then_begin(), E = If1->then_end(); It != E; ++It) {
-      HLNode *HIRtemp = It;
-      if (HIRtemp == HIR1) {
-        HIR1found = true;
-      } else if (HIRtemp == HIR2) {
-        return HIR1found;
-      }
-    }
-    if (HIR1found) {
-      return false;
-    }
-
-    for (auto It = If1->else_begin(), E = If1->else_end(); It != E; ++It) {
-      HLNode *HIRtemp = It;
-      if (HIRtemp == HIR1) {
-        HIR1found = true;
-      } else if (HIRtemp == HIR2) {
-        return HIR1found;
-      }
-    }
-    if (HIR1found) {
-      return false;
-    }
-    llvm_unreachable("Not expecting to be here");
-  }
-
-  // TODO: consider constant trip count across loops
-  // This is not important and can defer
-
-  return false;
+  return (Num >= FirstNum && Num <= LastNum);
 }
 
-//  Check if DDRef is contained in Loop
-bool HLNodeUtils::LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref) {
+// For domination we care about single entry i.e. absence of labels in the scope
+// of interest.
+// For post domination we care about single exit i.e. absence of jumps from
+// inside to outside the scope of interest.
+// TODO: handle intrinsics/calls/exception handling semantics.
+struct StructuredFlowChecker {
+  bool IsPDom;
+  HLNode *TargetNode;
+  bool IsStructured;
+  bool IsDone;
 
-  HLDDNode *DDNode = DDref->getHLDDNode();
+  StructuredFlowChecker(bool PDom, HLNode *TNode)
+      : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {}
 
-  if (DDNode == Loop) {
+  void visit(HLNode *Node) {
+    if (Node == TargetNode) {
+      IsDone = true;
+      return;
+    }
+
+    if (!IsPDom) {
+      if (isa<HLLabel>(Node)) {
+        IsStructured = false;
+      }
+      return;
+    }
+
+    // Post domination logic.
+    if (auto Goto = dyn_cast<HLGoto>(Node)) {
+      if (Goto->isExternal()) {
+        IsStructured = false;
+        return;
+      }
+
+      auto Label = Goto->getTargetLabel();
+
+      if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
+        IsStructured = false;
+      }
+
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+      // Be conservative in the presence of multi-exit loops.
+      if (Loop->getNumExits() > 1) {
+        IsStructured = false;
+      }
+    }
+  }
+
+  void postVisit(HLNode *) {}
+  bool isDone() { return (IsDone || !IsStructured); }
+  bool skipRecursion(HLNode *Node) { return false; }
+  bool isStructured() { return IsStructured; }
+};
+
+const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
+                                               const HLNode *Node, bool First) {
+  assert(Parent && "Parent is null!");
+
+  if (auto Reg = dyn_cast<HLRegion>(Parent)) {
+    return First ? Reg->getFirstChild() : Reg->getLastChild();
+  } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
+
+    if (!Node) {
+      return First ? Loop->Children.begin() : std::prev(Loop->Children.end());
+    }
+
+    if (isInTopSortNumRange(Node, Loop->getFirstPreheaderNode(),
+                            Loop->getLastPreheaderNode())) {
+      return First ? Loop->getFirstPreheaderNode()
+                   : Loop->getLastPreheaderNode();
+    } else if (isInTopSortNumRange(Node, Loop->getFirstChild(),
+                                   Loop->getLastChild())) {
+      return First ? Loop->getFirstChild() : Loop->getLastChild();
+    } else {
+      return First ? Loop->getFirstPostexitNode() : Loop->getLastPostexitNode();
+    }
+  } else if (auto If = dyn_cast<HLIf>(Parent)) {
+
+    if (!Node) {
+      return First ? If->Children.begin() : std::prev(If->Children.end());
+    }
+
+    if (isInTopSortNumRange(Node, If->getFirstThenChild(),
+                            If->getLastThenChild())) {
+      return First ? If->getFirstThenChild() : If->getLastThenChild();
+    } else {
+      return First ? If->getFirstElseChild() : If->getLastElseChild();
+    }
+  } else {
+    assert(isa<HLSwitch>(Parent) && "Unexpected parent type!");
+    auto Switch = cast<HLSwitch>(Parent);
+
+    if (!Node) {
+      return First ? Switch->Children.begin()
+                   : std::prev(Switch->Children.end());
+    }
+
+    for (unsigned I = 1, E = Switch->getNumCases(); I <= E; I++) {
+      if (isInTopSortNumRange(Node, Switch->getFirstCaseChild(I),
+                              Switch->getLastCaseChild(I))) {
+        return First ? Switch->getFirstCaseChild(I)
+                     : Switch->getLastCaseChild(I);
+      }
+    }
+
+    return First ? Switch->getFirstDefaultCaseChild()
+                 : Switch->getLastDefaultCaseChild();
+  }
+
+  llvm_unreachable("Unexpected condition!");
+}
+
+const HLNode *HLNodeUtils::getFirstLexicalChild(const HLNode *Parent,
+                                                const HLNode *Node) {
+  return getLexicalChildImpl(Parent, Node, true);
+}
+
+HLNode *HLNodeUtils::getFirstLexicalChild(HLNode *Parent, HLNode *Node) {
+  return const_cast<HLNode *>(getFirstLexicalChild(
+      static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
+}
+
+const HLNode *HLNodeUtils::getLastLexicalChild(const HLNode *Parent,
+                                               const HLNode *Node) {
+  return getLexicalChildImpl(Parent, Node, false);
+}
+
+HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
+  return const_cast<HLNode *>(getLastLexicalChild(
+      static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
+}
+
+bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
+                                    const HLNode *TargetNode,
+                                    bool PostDomination, bool UpwardTraversal) {
+  const HLNode *FirstNode = nullptr, *LastNode = nullptr;
+  auto ParentLoop = dyn_cast<HLLoop>(Parent);
+
+  // For loop parents we should check the structure in the loop body even if
+  // Node lies in preheader or postexit.
+  if (UpwardTraversal) {
+    FirstNode = ParentLoop ? ParentLoop->getFirstChild()
+                           : getFirstLexicalChild(Parent, Node);
+    LastNode = Node;
+  } else {
+    FirstNode = Node;
+    LastNode = ParentLoop ? ParentLoop->getLastChild()
+                          : getLastLexicalChild(Parent, Node);
+  }
+
+  if (!FirstNode || !LastNode) {
     return true;
   }
 
-  for (HLLoop *LP = DDNode->getParentLoop(); LP != nullptr;
-       LP = LP->getParentLoop()) {
-    if (LP == Loop) {
+  StructuredFlowChecker SFC(PostDomination, const_cast<HLNode *>(TargetNode));
+  // Doesn't recurse into loops.
+  visit(SFC, const_cast<HLNode *>(FirstNode), const_cast<HLNode *>(LastNode),
+        true, false, true);
+
+  return SFC.isStructured();
+}
+
+const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
+                                                  const HLNode *Node2,
+                                                  bool PostDomination,
+                                                  const HLNode **LastParent1) {
+  const HLNode *Parent = Node1->getParent();
+  const HLNode *FirstNode = nullptr, *LastNode = nullptr;
+  const HLNode *TargetNode;
+
+  *LastParent1 = Node1;
+
+  // Try to move up the parent chain by crossing constant trip count loops.
+  while (Parent) {
+
+    auto Loop = dyn_cast<HLLoop>(Parent);
+
+    if (!Loop) {
+      break;
+    }
+
+    if (!Loop->isDo() && !Loop->isDoWhile()) {
+      break;
+    }
+
+    auto UpperRef = Loop->getUpperDDRef();
+
+    if (!UpperRef->isConstant()) {
+      break;
+    }
+
+    if (PostDomination) {
+      FirstNode = getFirstLexicalChild(Loop);
+      LastNode = *LastParent1;
+    } else {
+      FirstNode = *LastParent1;
+      LastNode = getLastLexicalChild(Loop);
+    }
+
+    // Node2 is in range, no need to move up the parent chain.
+    if (isInTopSortNumRange(Node2, FirstNode, LastNode)) {
+      break;
+    }
+
+    TargetNode = PostDomination ? *LastParent1 : nullptr;
+    // Keep checking for structured flow for the nodes we come acoss while
+    // moving up the chain.
+    if (!hasStructuredFlow(Parent, *LastParent1, TargetNode, PostDomination,
+                           PostDomination)) {
+      return nullptr;
+    }
+
+    *LastParent1 = Parent;
+    Parent = Parent->getParent();
+  }
+
+  return Parent;
+}
+
+const HLNode *HLNodeUtils::getCommonDominatingParent(
+    const HLNode *Parent1, const HLNode *LastParent1, const HLNode *Node2,
+    bool PostDomination, const HLNode **LastParent2) {
+  const HLNode *CommonParent = Node2->getParent();
+  *LastParent2 = Node2;
+
+  // Trace back Node2 to Parent1.
+  while (CommonParent) {
+
+    // Keep checking for structured flow for the nodes we come acoss while
+    // moving up the chain.
+    if (!hasStructuredFlow(CommonParent, *LastParent2, LastParent1,
+                           PostDomination, !PostDomination)) {
+      return nullptr;
+    }
+
+    if (CommonParent == Parent1) {
+      break;
+    }
+
+    *LastParent2 = CommonParent;
+    CommonParent = CommonParent->getParent();
+  }
+
+  return CommonParent;
+}
+
+bool HLNodeUtils::dominatesImpl(const HLNode *Node1, const HLNode *Node2,
+                                bool PostDomination, bool StrictDomination) {
+
+  assert(Node1 && Node2 && "Node is null!");
+
+  assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
+         "Domination w.r.t regions is meaningless!");
+  assert((Node1->getParentRegion() == Node2->getParentRegion()) &&
+         "Nodes do not belong to the same region!");
+
+  unsigned Num1, Num2;
+
+  Num1 = Node1->getTopSortNum();
+  Num2 = Node2->getTopSortNum();
+
+  if (Node1 == Node2) {
+    return !StrictDomination;
+  }
+
+  if (PostDomination) {
+    if (Num1 < Num2) {
+      return false;
+    }
+  } else if (Num1 > Num2) {
+    return false;
+  }
+
+  // We need to find out the common parent of Node1 and Node2 and their last
+  // parents which tell us the path taken to reach the common parent.
+  // The following example demonstrates the usage-
+  //
+  // if () {  // common parent
+  //  N1;     // last parent of N1 is itself
+  // }
+  // else {
+  //  if () { // last parent of N2
+  //    N2;
+  //  }
+  // }
+  const HLNode *LastParent1 = nullptr;
+  const HLNode *Parent1 =
+      getOutermostSafeParent(Node1, Node2, PostDomination, &LastParent1);
+
+  // Could't find an appropriate parent for Node1.
+  if (!Parent1) {
+    return false;
+  }
+
+  const HLNode *LastParent2 = nullptr;
+  const HLNode *CommonParent = getCommonDominatingParent(
+      Parent1, LastParent1, Node2, PostDomination, &LastParent2);
+
+  const HLIf *IfParent = dyn_cast_or_null<HLIf>(CommonParent);
+  const HLSwitch *SwitchParent = dyn_cast_or_null<HLSwitch>(CommonParent);
+
+  // Couldn't find a common parent.
+  if (!CommonParent) {
+    return false;
+  }
+  // For region and loops parents we can deduce the result right away.
+  else if (!IfParent && !SwitchParent) {
+    return true;
+
+  } else if (IfParent) {
+    // Check whether both nodes are in the then or else case.
+    bool Node1Found =
+        isInTopSortNumRange(LastParent1, IfParent->getFirstThenChild(),
+                            IfParent->getLastThenChild());
+    bool Node2Found =
+        isInTopSortNumRange(LastParent2, IfParent->getFirstThenChild(),
+                            IfParent->getLastThenChild());
+
+    // Return false if only Node1 or Node2 was found.
+    if (Node1Found ^ Node2Found) {
+      return false;
+    }
+
+    return true;
+  } else {
+    assert(SwitchParent && "Unexpected parent node type!");
+    // Check whether both nodes are in the same case.
+    // The logic is conservative in that it assumes there is always a break
+    // between cases and does not account for jumps between cases.
+    // TODO: improve it later.
+    for (unsigned I = 1, E = SwitchParent->getNumCases(); I <= E; I++) {
+
+      bool Node1Found =
+          isInTopSortNumRange(LastParent1, SwitchParent->getFirstCaseChild(I),
+                              SwitchParent->getLastCaseChild(I));
+      bool Node2Found =
+          isInTopSortNumRange(LastParent2, SwitchParent->getFirstCaseChild(I),
+                              SwitchParent->getLastCaseChild(I));
+
+      // Return false if only Node1 or Node2 was found.
+      if (Node1Found ^ Node2Found) {
+        return false;
+      } else if (Node1Found && Node2Found) {
+        return true;
+      }
+    }
+
+    // Both nodes weren't found in any switch case so they must be present in
+    // the default case.
+    return true;
+  }
+
+  llvm_unreachable("Unexpected condition encountered!");
+  ;
+}
+
+bool HLNodeUtils::dominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, false);
+}
+
+bool HLNodeUtils::strictlyDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, false, true);
+}
+
+bool HLNodeUtils::postDominates(const HLNode *Node1, const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, false);
+}
+
+bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
+                                        const HLNode *Node2) {
+  return dominatesImpl(Node1, Node2, true, true);
+}
+
+bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node) {
+  assert(Parent && "Parent is null!");
+  assert(Node && "Node is null!");
+
+  while (Node) {
+    if (Parent == Node) {
       return true;
     }
+    Node = Node->getParent();
   }
 
   return false;

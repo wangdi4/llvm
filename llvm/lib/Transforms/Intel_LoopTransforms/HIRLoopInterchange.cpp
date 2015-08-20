@@ -287,8 +287,7 @@ struct WalkHIR {
 
         DDRef *DDref = II->getSink();
 
-        if (!(HLNodeUtils::LoopContainsDDRef(cast<HLLoop>(CandidateLoop),
-                                             DDref))) {
+        if (!(HLNodeUtils::contains(CandidateLoop, DDref->getHLDDNode()))) {
           DEBUG(dbgs() << "\n\tSink DDRef not in loop");
           continue;
         }

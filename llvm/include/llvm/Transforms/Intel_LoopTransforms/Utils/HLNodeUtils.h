@@ -208,6 +208,40 @@ private:
                                  HLContainerTy::iterator Last, unsigned CaseNum,
                                  bool isFirstChild);
 
+  /// \brief Implements get*LexicalChild() functionality.
+  static const HLNode *getLexicalChildImpl(const HLNode *Parent,
+                                           const HLNode *Node, bool First);
+
+  /// \brief Returns true if the lexical link have structured flow between
+  /// Parent's first/last child and Node. The direction is dictated by
+  /// UpwardTraversal flag. TargetNode is used for early termination of the
+  /// traversal. Structured flow checks are different for domination and
+  /// post-domination.
+  static bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
+                                const HLNode *TargetNode, bool PostDomination,
+                                bool UpwardTraversal);
+
+  /// \brief Returns the outermost parent of Node1 which is safe to be used for
+  /// checking domination. We move up through constant trip count loops. Last
+  /// parent indicates the path used to reach to the parent.
+  static const HLNode *getOutermostSafeParent(const HLNode *Node1,
+                                              const HLNode *Node2,
+                                              bool PostDomination,
+                                              const HLNode **LastParent1);
+
+  /// \brief Internally used by domination utility to get to the common
+  /// dominating parent. Last parent indicates the path used to reach to the
+  /// parent.
+  static const HLNode *getCommonDominatingParent(const HLNode *Parent1,
+                                                 const HLNode *LastParent1,
+                                                 const HLNode *Node2,
+                                                 bool PostDomination,
+                                                 const HLNode **LastParent2);
+
+  /// \brief Implements domination/post-domination functionality.
+  static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
+                                    bool PostDomination, bool StrictDomination);
+
 public:
   /// \brief Returns the first dummy instruction added for the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
@@ -668,11 +702,45 @@ public:
   /// \brief Reset TopSortNum
   static void resetTopSortNum();
 
-  /// \brief HIR Strictly dominates
-  static bool strictlyDominates(HLNode *Node1, HLNode *Node2);
+  /// \brief Returns true if Node is in the top sort num range [FirstNode,
+  /// LastNode].
+  static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
+                                  const HLNode *LastNode);
 
-  /// \brief Check if DDRef is contained in Loop
-  static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
+  /// \brief Returns the first lexical child of the parent w.r.t Node. For
+  /// example, if parent is a loop and Node lies in postexit, the function will
+  /// return the first postexit node. If Node is null, it returns the absolute
+  /// first/last child in the parent's container.
+  /// Please note that this function internally uses top sort num so it must be
+  /// valid.
+  static const HLNode *getFirstLexicalChild(const HLNode *Parent,
+                                            const HLNode *Node = nullptr);
+  static HLNode *getFirstLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+
+  /// \brief Returns the last lexical child of the parent w.r.t Node. For
+  /// example, if parent is a loop and Node lies in postexit, the function will
+  /// return the last postexit node. If Node is null, it returns the absolute
+  /// first/last child in the parent's container.
+  /// Please note that this function internally uses top sort num so it must be
+  /// valid.
+  static const HLNode *getLastLexicalChild(const HLNode *Parent,
+                                           const HLNode *Node = nullptr);
+  static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+
+  /// \brief Returns true if Node1 can be proven to dominate Node2, otherwise conservatively returns false.
+  static bool dominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief This is identical to dominates() except the case where Node1 == Node2, in which case it return false.
+  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief Returns true if Node1 can be proven to post-dominate Node2, otherwise conservatively returns false.
+  static bool postDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief This is identical to postDominates() except the case where Node1 == Node2, in which case it return false.
+  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief Returns true if Parent contains Node.
+  static bool contains(const HLNode *Parent, const HLNode *Node);
 
   /// \brief Check if 1st HLNode contains 2nd HLNode
   static bool HLParentContainsHIRNode(const HLNode *HLParent,
