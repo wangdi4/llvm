@@ -696,7 +696,10 @@ code Load = [{
     return res;
   }];
 code LoadC = [{
-    return *(constant $ReturnBaseType *)((constant char*)$Arg1VarName + ($Arg0VarName * $VecLength * sizeof($ReturnBaseType)));
+    const void *pSrc = __builtin_astype((const __constant char*)$Arg1VarName + ($Arg0VarName * $VecLength  * sizeof($ReturnBaseType)), const void*);
+    $ReturnType res;
+    memcpy((void*)&res, pSrc, $VecLength * sizeof($ReturnBaseType));
+    return res;
   }];
 code Load_half = [{
     return __ocl_HalfToFloat(*((short*)($Arg1VarName+$Arg0VarName)));
