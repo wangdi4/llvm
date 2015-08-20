@@ -119,6 +119,7 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 	}
 	size_t  szSize = 0;
 	const void * pValue = NULL;
+	cl_uint uiZero = 0;
 	switch (clParamName)
 	{
 	case CL_IMAGE_FORMAT:
@@ -140,6 +141,10 @@ cl_err_code	GLTexture::GetImageInfo(cl_image_info clParamName, size_t szParamVal
 	case CL_IMAGE_HEIGHT:
 		szSize = sizeof(size_t);
 		pValue = &m_stDimensions[1];
+		break;
+	case CL_IMAGE_NUM_SAMPLES:
+		szSize = sizeof(cl_uint);
+		pValue = &uiZero;
 		break;
 	default:
         return CL_INVALID_VALUE;
