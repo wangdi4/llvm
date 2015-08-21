@@ -253,7 +253,7 @@ int Intel::OpenCL::Utils::GetModulePathName(const void* modulePtr, char* fileNam
 		return 0;
 	}
 	ifstream ifs("/proc/self/maps", ifstream::in);
-	if (ifs == NULL)
+	if (!ifs.good())
 	{
 		fileName[0] = 0;
 		return 0;
