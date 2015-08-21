@@ -124,7 +124,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
   WRStack<WRegionNode *> *S
 )
 {
-  DEBUG(dbgs() << *BB);
+  // DEBUG(dbgs() << "\ndoPreOrderDomTreeVisit: processing BB:\n" << *BB);
   auto Root = DT->getNode(BB);
 
   WRegionNode *W;
@@ -146,18 +146,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(
         // Otherwise, W is nullptr.
         W = WRegionUtils::createWRegion(DirString, BB);
         if (W) {
+          // DEBUG(dbgs() << "\n Starting New WRegion{\n");
+
           // The intrinsic represents an intel BEGIN directive.
           // W is a pointer to an object for the corresponding WRN.
           if (S->empty()) { 
-            /// Top-level W-Region
-            //
-            // Bug: WRegions container not a member of this class. Need to save
-            // locally before another pass can access this data.
-            // WRegions.push_back(W);
-
-            // Temporarily add to class member WRegionList; it is then saved 
-            // in the calling pass (WRegionInfo) for access by AVR_Generate.
-            WRegionList.push_back(W);
+            // Top-level WRegionNode
+            WRGraph->push_back(W);
           }
           else {
             WRegionNode *Parent = S->top();
@@ -171,12 +166,12 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           }
 
           S->push(W);
-          DEBUG(dbgs() << "\nStacksize = " << S->size() 
-                       << " SIMD block \n " << *W->getEntryBBlock() << "\n");
+          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
         else if (WRegionUtils::isEndDirective(DirString)) {
           // The intrinsic represents an intel END directive
 
+          // DEBUG(dbgs() << "\n} Ending WRegion.\n");
           W = S->top(); 
           W->setExitBBlock(BB);
 
@@ -185,9 +180,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           W->populateBBlockSet();
 
           if (!S->empty()) S->pop();
-
-          DEBUG(dbgs() << "\nStacksize = " << S->size() 
-                     << " SIMD END block \n " << *W->getExitBBlock() << "\n");
+          // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
       }
       else if (IntrinInst->getIntrinsicID() == 
@@ -248,9 +241,10 @@ bool WRegionCollection::runOnFunction(Function &F) {
   // It maintains DominatorTree and LoopInfo.
   VPOUtils::CFGRestructuring(F, DT, LI);
 
-  DEBUG(dbgs() << "W-Region Graph Construction Start\n");
+  DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
+  WRGraph = new (WRContainerTy);
   doBuildWRegionGraph(F);
-  DEBUG(dbgs() << "W-Region Graph Construction End\n");
+  DEBUG(dbgs() << "} W-Region Graph Construction End\n");
 
   // TODO: This return should return true if call to CFGRestruction()
   // has modifed the IR.
@@ -258,7 +252,6 @@ bool WRegionCollection::runOnFunction(Function &F) {
 }
 
 void WRegionCollection::releaseMemory() {
-
 #if 0
   for (auto &I : WRegions) {
     delete I;

@@ -48,7 +48,7 @@ bool IdentifyVectorCandidates::runOnFunction(Function &F)
 {
   WR = &getAnalysis<WRegionInfo>();
 
-  if (!WR->WRegionsIsEmpty()) {
+  if (!WR->WRGraphIsEmpty()) {
     identifyVectorCandidates();
   }
   else {

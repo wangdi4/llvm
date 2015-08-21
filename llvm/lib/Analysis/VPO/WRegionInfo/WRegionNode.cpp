@@ -26,8 +26,6 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-WRContainerTy llvm::vpo::WRegions;
-
 unsigned WRegionNode::UniqueNum(0);
 
 WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID)  {

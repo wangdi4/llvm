@@ -170,6 +170,58 @@ class WRNParallelNode : public WRegion
 };
 
 //
+// WRNParallelLoopNode
+//
+// #pragma omp parallel loop
+//
+class WRNParallelLoopNode : public WRegion
+{
+  private:
+    SharedClause           *Shared;
+    PrivateClause          *Priv;
+    FirstprivateClause     *Fpriv;
+    ReductionClause        *Reduction;
+    CopyinClause           *Copyin;
+    EXPR                   *IfExpr;
+    EXPR                   *NumThreads;
+    VPODefaultKind         DefaultType;    
+    VPOProcBindKind        ProcBindType;   
+
+  protected:
+    void setShared(SharedClause *S)      { Shared = S;       }
+    void setPriv(PrivateClause *P)       { Priv = P;         }
+    void setFpriv(FirstprivateClause *F) { Fpriv = F;        }
+    void setRed(ReductionClause *R)      { Reduction = R;    }
+    void setCopyin(CopyinClause *C)      { Copyin = C;       }
+    void setIf(EXPR *E)                  { IfExpr = E;       }
+    void setNumThreads(EXPR *E)          { NumThreads = E;   }
+    void setDefault(VPODefaultKind T)    { DefaultType = T;  }
+    void setProcBind(VPOProcBindKind P)  { ProcBindType = P; }
+
+  public:
+    WRNParallelLoopNode();
+    WRNParallelLoopNode(WRNParallelLoopNode *W);
+    //WRNParallelLoopNode(const WRNParallelLoopNode &W);  // copy constructor
+
+    SharedClause       * getShared()     const { return Shared;       }
+    PrivateClause      * getPriv()       const { return Priv;         }
+    FirstprivateClause * getFpriv()      const { return Fpriv;        }
+    ReductionClause    * getRed()        const { return Reduction;    }
+    CopyinClause       * getCopyin()     const { return Copyin;       }
+    EXPR               * getIf()         const { return IfExpr;       }
+    EXPR               * getNumThreads() const { return NumThreads;   }
+    VPODefaultKind     getDefault()      const { return DefaultType;  }
+    VPOProcBindKind    getProcBind()     const { return ProcBindType; }
+
+    void print(formatted_raw_ostream &OS, unsigned Depth) const ;
+
+    /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+    static bool classof(const WRegionNode *W) {
+      return W->getWRegionKindID() == WRegionNode::WRNParallelLoop;
+    }
+};
+
+//
 // WRNVecLoopNode
 //
 // #pragma omp simd

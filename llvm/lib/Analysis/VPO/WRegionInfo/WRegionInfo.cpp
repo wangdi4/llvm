@@ -53,9 +53,7 @@ void WRegionInfo::getAnalysisUsage(AnalysisUsage &AU) const {
 }
 
 void WRegionInfo::doFillUpWRegionInfo(WRegionCollection *R) {
-  //for (auto &I : R->getWRegions()) {
    DEBUG(dbgs() << "fill Up W-Region Info After WRegionCollection\n");
-  //}
 }
 
 bool WRegionInfo::runOnFunction(Function &F) {
@@ -67,19 +65,19 @@ bool WRegionInfo::runOnFunction(Function &F) {
   PDT    = &getAnalysis<PostDominatorTree>();
   WRC    = &getAnalysis<WRegionCollection>();
 
-  // Set collected WRegions. This is to be properly fixed once WRegion
-  // passes are fully implemented.
-  setWRegions();
+#if 1
+  DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
+  for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
+      I->dump();
+#endif
 
   doFillUpWRegionInfo(WRC);
 
   DEBUG(dbgs() << "W-Region Information Collection End\n");
-
   return false;
 }
 
 void WRegionInfo::releaseMemory() {
-  WRegions.clear();
 }
 
 void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
@@ -93,24 +91,4 @@ void WRegionInfo::print(raw_ostream &OS, const Module *M) const {
 
 void WRegionInfo::verifyAnalysis() const {
   // TODO: Implement later
-}
-
-//
-// JJJ TODO: remove this temporary hack
-//
-void WRegionInfo::setWRegions() {
-  DEBUG(dbgs() << "\nRC Size = " << WRC->getWRegionListSize() << "\n");
-
-  for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I) {
-
-    // Naive Copy 
-    if (WRNVecLoopNode *WNode = dyn_cast<WRNVecLoopNode>(I)) {
-#if 0
-      WNode->dump();
-#endif
-      // New Node Added to List
-      WRNVecLoopNode *NewNode = new WRNVecLoopNode(WNode);
-      WRegions.push_back(NewNode); 
-    }
-  }
 }

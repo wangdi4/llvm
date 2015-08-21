@@ -245,13 +245,6 @@ private:
   mutable ilist_half_node<vpo::WRegionNode> Sentinel;
 };
 
-
-namespace vpo {
-/// TODO: Remove this.
-/// Top level WRegionNodes (regions)
-extern WRContainerTy WRegions;
-} // End vpo namespace
-
 } // End llvm namespace
 
 #endif

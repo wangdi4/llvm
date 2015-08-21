@@ -47,9 +47,6 @@ public:
   typedef WRContainerTy::const_reverse_iterator const_reverse_iterator;
 
 private:
-  /// WRegions - WRegions collected out of incoming LLVM IR.
-  WRContainerTy WRegions;
-
   /// Func - The function we are analyzing.
   Function *Func;
 
@@ -78,28 +75,25 @@ public:
   /// \brief Visit WRegion Graph and fill up Info based on the incoming LLVM IR.
   void doFillUpWRegionInfo(WRegionCollection *R);
 
-  /// WRegion iterator methods
-  iterator begin() { return WRegions.begin(); }
-  const_iterator begin() const { return WRegions.begin(); }
-  iterator end() { return WRegions.end(); }
-  const_iterator end() const { return WRegions.end(); }
+  /// WRN Graph
+  WRContainerTy *getWRGraph() const { return WRC->getWRGraph(); }
 
-  reverse_iterator rbegin() { return WRegions.rbegin(); }
-  const_reverse_iterator rbegin() const { return WRegions.rbegin(); }
-  reverse_iterator rend() { return WRegions.rend(); }
-  const_reverse_iterator rend() const { return WRegions.rend(); }
+  /// WRN Graph iterator methods
+  iterator begin() { return getWRGraph()->begin(); }
+  const_iterator begin() const { return getWRGraph()->begin(); }
+  iterator end() { return getWRGraph()->end(); }
+  const_iterator end() const { return getWRGraph()->end(); }
 
-  /// \brief Returns the size of the WRegions iplist.
-  unsigned getWRegionsSize() const { return WRegions.size();}
+  reverse_iterator rbegin() { return getWRGraph()->rbegin(); }
+  const_reverse_iterator rbegin() const { return getWRGraph()->rbegin(); }
+  reverse_iterator rend() { return getWRGraph()->rend(); }
+  const_reverse_iterator rend() const { return getWRGraph()->rend(); }
 
-  /// \brief Returns true if the WRegions iplist is empty.
-  bool WRegionsIsEmpty() const { return WRegions.empty(); }
+  /// \brief Returns the number of top-level WRegionNodes in the WRGraph
+  unsigned getWGraphSize() const { return getWRGraph()->size();}
 
-  // Temporary setting of WRegion container from WRegionCollection.
-  // This should be properly fixed when full WRegions(kind) is supported
-  /// \brief Sets the list of WRegion graphs collected in WRegionCollection
-  void setWRegions();
-
+  /// \brief Returns true if the WRGraph is empty.
+  bool WRGraphIsEmpty() const { return getWRGraph()->empty(); }
 };
 
 } // End namespace vpo

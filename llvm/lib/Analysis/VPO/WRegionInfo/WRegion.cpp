@@ -65,6 +65,7 @@ WRNParallelNode::WRNParallelNode() : WRegion(WRegionNode::WRNParallel)
   setNumThreads(nullptr);
   setDefault(VPODefaultFalse);
   setProcBind(VPOProcBindFalse);
+  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
 }
 
 WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegion(W)
@@ -78,6 +79,7 @@ WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegion(W)
   setNumThreads(W->getNumThreads());
   setDefault(W->getDefault());
   setProcBind(W->getProcBind());
+  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
 }
 
 
@@ -113,6 +115,7 @@ WRNVecLoopNode::WRNVecLoopNode() : WRegion(WRegionNode::WRNVecLoop)
   setCollapse(0);
   setIsAutoVec(false);
   setLoopInfo(nullptr);
+  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
 WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
@@ -127,6 +130,7 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
   setCollapse(W->getCollapse());
   setIsAutoVec(W->getIsAutoVec());
   setLoopInfo(W->getLoopInfo());
+  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
 
