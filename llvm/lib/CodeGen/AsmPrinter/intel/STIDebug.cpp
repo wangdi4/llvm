@@ -3144,6 +3144,12 @@ void STIDebugImpl::collectModuleInfo() {
         toMachineID(Triple(ASM()->getTargetTriple()).getArch()));
     module->add(compileUnit);
 
+    // Record the primary source file name in the file checksum table.
+    //
+    std::string path;
+    getFullFileName(CU->getFile(), path);
+    (void) getOrCreateChecksum(path);
+
     collectGlobalVariableInfo(CU);
 
     for (auto *SP : CU->getSubprograms()) {
