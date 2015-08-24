@@ -2111,6 +2111,13 @@ void ContextModule::RemoveAllMemObjects( bool preserve_user_handles )
     to_remove.clear();
     m_mapMemObjects.ReleaseAllObjects(false);
 
+    for(std::map<void*, SharedPtr<Context> >::iterator it =  m_mapSVMBuffers.begin();
+        it != m_mapSVMBuffers.end(); ++it)
+    {
+        it->second->SVMFree(it->first);
+    }
+    m_mapSVMBuffers.clear();
+
     // Remove all mapped regions
     MemObjListType mapped_list;
     m_setMappedMemObjects.getObjects( mapped_list );
@@ -3197,7 +3204,9 @@ void* ContextModule::SVMAlloc(cl_context context, cl_svm_mem_flags flags, size_t
         LOG_ERROR(TEXT("invalid alignment"), "");
         return NULL;
     }
-    return pContext->SVMAlloc(flags, size, uiAlignment);    
+    void* pSvmBuf = pContext->SVMAlloc(flags, size, uiAlignment);
+    m_mapSVMBuffers[pSvmBuf] = pContext;
+    return pSvmBuf;
 }
 
 void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
@@ -3214,6 +3223,7 @@ void ContextModule::SVMFree(cl_context context, void* pSvmPtr)
         return;
     }
     pContext->SVMFree(pSvmPtr);
+    m_mapSVMBuffers.erase(pSvmPtr);
 }
 
 //////////////////////////////////////////////////////////////////////////////

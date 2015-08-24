@@ -325,6 +325,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         OCLObjectsMap<_cl_kernel_int>           m_mapKernels;      // map list of kernels
         OCLObjectsMap<_cl_mem_int>              m_mapMemObjects;   // map list of all memory objects
         OCLObjectsMap<_cl_sampler_int>          m_mapSamplers;     // map list of all memory objects
+        std::map<void*, SharedPtr<Context> >    m_mapSVMBuffers;   // map list of all svm objects
 
         Intel::OpenCL::Utils::LifetimeObjectContainer<OclCommandQueue> m_setQueues;    // set of all queues including invisible to user
         Intel::OpenCL::Utils::LifetimeObjectContainer<MemoryObject>    m_setMappedMemObjects; // set of all memory objects that were mapped at least once in a history
