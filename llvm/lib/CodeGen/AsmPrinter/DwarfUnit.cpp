@@ -44,6 +44,13 @@ GenerateDwarfTypeUnits("generate-type-units", cl::Hidden,
                        cl::desc("Generate DWARF4 type units."),
                        cl::init(false));
 
+//***INTEL
+static cl::opt<bool> EmitDwarfAttrCount(
+        "debug-emit-dwarf-attr-count",
+        cl::Hidden,
+        cl::desc("Emit DW_AT_count attributes instead of DW_AT_upper_bound"),
+        cl::init(false));
+
 DIEDwarfExpression::DIEDwarfExpression(const AsmPrinter &AP, DwarfUnit &DU,
                                        DIELoc &DIE)
     : DwarfExpression(*AP.MF->getSubtarget().getRegisterInfo(),
@@ -1258,10 +1265,16 @@ void DwarfUnit::constructSubrangeDIE(DIE &Buffer, const DISubrange *SR,
   if (DefaultLowerBound == -1 || LowerBound != DefaultLowerBound)
     addUInt(DW_Subrange, dwarf::DW_AT_lower_bound, None, LowerBound);
 
-  if (Count != -1)
+  if (Count != -1) {
     // FIXME: An unbounded array should reference the expression that defines
     // the array.
-    addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
+//***INTEL
+    if (Count == 0 || EmitDwarfAttrCount)
+      addUInt(DW_Subrange, dwarf::DW_AT_count, None, Count);
+    else
+      addUInt(DW_Subrange, dwarf::DW_AT_upper_bound, None,
+              LowerBound + Count - 1);
+  }
 }
 
 DIE *DwarfUnit::getIndexTyDie() {

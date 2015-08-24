@@ -14,6 +14,8 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "DwarfDebug.h"
 #include "DwarfException.h"
+//***INTEL
+#include "intel/STIDebug.h"
 #include "WinException.h"
 #include "WinCodeViewLineTables.h"
 #include "llvm/ADT/SmallString.h"
@@ -61,6 +63,15 @@ static const char *const DWARFGroupName = "DWARF Emission";
 static const char *const DbgTimerName = "Debug Info Emission";
 static const char *const EHTimerName = "DWARF Exception Writer";
 static const char *const CodeViewLineTablesGroupName = "CodeView Line Tables";
+//***INTEL
+static const char *const STIDebugGroupName = "STI Debug Info Emission";
+
+//***INTEL
+static cl::opt<bool> EmitWinCodeViewLineTables(
+        "debug-emit-wincodeviewlinetables",
+        cl::Hidden,
+        cl::desc("Emit WinCodeViewLineTables instead of STI debug information"),
+        cl::init(false));
 
 STATISTIC(EmittedInsts, "Number of machine instrs printed");
 
@@ -233,9 +244,18 @@ bool AsmPrinter::doInitialization(Module &M) {
   if (MAI->doesSupportDebugInformation()) {
     bool skip_dwarf = false;
     if (TM.getTargetTriple().isKnownWindowsMSVCEnvironment()) {
-      Handlers.push_back(HandlerInfo(new WinCodeViewLineTables(this),
-                                     DbgTimerName,
-                                     CodeViewLineTablesGroupName));
+//***INTEL
+      if (!EmitWinCodeViewLineTables) {
+        Handlers.push_back(HandlerInfo(STIDebug::create(this),
+                                       DbgTimerName,
+                                       STIDebugGroupName));
+        skip_dwarf = true;
+      } else {
+        Handlers.push_back(HandlerInfo(new WinCodeViewLineTables(this),
+                                       DbgTimerName,
+                                       CodeViewLineTablesGroupName));
+      }
+
       // FIXME: Don't emit DWARF debug info if there's at least one function
       // with AddressSanitizer instrumentation.
       // This is a band-aid fix for PR22032.
