@@ -11,6 +11,7 @@
 #ifdef WIN32
     #include <intrin.h>
     #include <limits.h>
+    #define isnan(x) _isnan(x)
 #else
 	#ifdef __AVX__
 		// immintrin is a meta header that includes Intel headers, but it is new
@@ -276,6 +277,18 @@ __m128 float2half_rte_simd(__m128 param)
     return eq1;
 }
 
+float tosRGB(float color)
+{
+    if(isnan(color))
+        color = 0.0;
+    if(color > 1.0)
+        color = 1.0;
+    else if(color < 0.0031308)
+        color = 12.92 * color;
+    else
+        color = (1055.0/1000.0) * pow(color, 5.0/12.0) - (55.0/1000.0);
+    return color;
+}
 
 template <typename VecType>
 cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, const cl_channel_order channelOrder)
@@ -329,6 +342,20 @@ cl_int __arrange_by_channel_order(VecType *trgtColor, const VecType *srcColor, c
             MAP_CHANNEL(0, 0);
             break;
             
+        case CL_sRGBA:
+        case CL_sRGBx:
+            trgtColor->s[3] = srcColor->s[3];
+        case CL_sRGB:
+            trgtColor->s[0] = tosRGB(srcColor->s[0]);
+            trgtColor->s[1] = tosRGB(srcColor->s[1]);
+            trgtColor->s[2] = tosRGB(srcColor->s[2]);
+            break;
+
+        case CL_sBGRA:
+            trgtColor->s[0] = tosRGB(srcColor->s[2]);
+            trgtColor->s[1] = tosRGB(srcColor->s[1]);
+            trgtColor->s[2] = tosRGB(srcColor->s[0]);
+            trgtColor->s[3] = srcColor->s[3];
         default:
             return CL_IMAGE_FORMAT_NOT_SUPPORTED;
     }
@@ -341,8 +368,11 @@ cl_int __RGBA_fp_to_NORM(const cl_float4 *color,
                          const cl_channel_order channelOrder, VecType* trgt,
                          const cl_float multiplier)
 {
-    VecType modcolor = floatVec2IntVec<VecType>(*color, multiplier);
-    return __arrange_by_channel_order<VecType>(trgt, &modcolor, channelOrder);
+    cl_int status = CL_SUCCESS;
+    cl_float4 out;
+    status = __arrange_by_channel_order<cl_float4>(&out, color, channelOrder);
+    *trgt = floatVec2IntVec<VecType>(out, multiplier);
+    return status;
 }
 
 
