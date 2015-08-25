@@ -62,6 +62,9 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
+  /// \brief Implements get*Type() functionality.
+  Type *getTypeImpl(bool IsSrc) const;
+
 public:
   /// Virtual Clone Method
   virtual DDRef *clone() const = 0;
@@ -82,11 +85,16 @@ public:
   /// storing it, if really needed.
   /// virtual Value *getLLVMValue() const = 0;
 
-  /// \brief Returns the element type associated with this DDRef.
-  /// For example, for a 2 dimensional GEP DDRef whose base type is [7 x [101 x
-  /// float]]*, we will return float.
+  /// \brief Returns the src element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
+  /// [101 x float]]*, we will return float.
   /// TODO: extend to handle struct types.
-  Type *getType() const;
+  Type *getSrcType() const;
+  /// \brief Returns the dest element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
+  /// [101 x int32]]*, we will return int32.
+  /// TODO: extend to handle struct types.
+  Type *getDestType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned int getSymBase() const { return SymBase; };

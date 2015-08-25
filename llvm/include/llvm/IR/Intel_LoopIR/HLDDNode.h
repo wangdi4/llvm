@@ -45,7 +45,7 @@ public:
 
 protected:
   HLDDNode(unsigned SCID);
-  virtual ~HLDDNode() override {};
+  virtual ~HLDDNode() override{};
 
   friend class HLNodeUtils;
 

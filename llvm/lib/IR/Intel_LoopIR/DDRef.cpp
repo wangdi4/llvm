@@ -62,20 +62,23 @@ void DDRef::dump(bool Detailed) const {
 void DDRef::dump() const { dump(false); }
 #endif
 
-Type *DDRef::getType() const {
+Type *DDRef::getTypeImpl(bool IsSrc) const {
   const CanonExpr *CE;
 
   if (auto BRef = dyn_cast<BlobDDRef>(this)) {
     CE = BRef->getCanonExpr();
     assert(CE && "DDRef is empty!");
-    return CE->getType();
+    return IsSrc ? CE->getSrcType() : CE->getDestType();
   } else if (auto RRef = dyn_cast<RegDDRef>(this)) {
     if (RRef->hasGEPInfo()) {
       CE = RRef->getBaseCE();
       assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
-      assert(isa<PointerType>(CE->getType()) && "Invalid baseCE type!");
+      assert(isa<PointerType>(CE->getSrcType()) && "Invalid baseCE src type!");
+      assert(isa<PointerType>(CE->getDestType()) &&
+             "Invalid baseCE dest type!");
 
-      PointerType *BaseTy = cast<PointerType>(CE->getType());
+      PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
+                                  : cast<PointerType>(CE->getDestType());
 
       // Get base pointer's contained type.
       // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
@@ -111,12 +114,16 @@ Type *DDRef::getType() const {
     } else {
       CE = RRef->getSingleCanonExpr();
       assert(CE && "DDRef is empty!");
-      return CE->getType();
+      return IsSrc ? CE->getSrcType() : CE->getDestType();
     }
   }
 
   llvm_unreachable("Unknown DDRef kind!");
 }
+
+Type *DDRef::getSrcType() const { return getTypeImpl(true); }
+
+Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   OS << "{sb:" << getSymBase() << "}";

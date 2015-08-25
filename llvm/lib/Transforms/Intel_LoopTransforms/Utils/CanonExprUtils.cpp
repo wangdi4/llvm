@@ -26,10 +26,18 @@ using namespace loopopt;
 
 HIRParser *HLUtils::HIRPar(nullptr);
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, unsigned Level,
-                                           int64_t Const, int64_t Denom) {
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
+                                           int64_t Const, int64_t Denom,
+                                           bool IsSignedDiv) {
+  return new CanonExpr(Ty, Ty, false, Level, Const, Denom, IsSignedDiv);
+}
 
-  return new CanonExpr(Typ, Level, Const, Denom);
+CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
+                                              bool IsSExt, unsigned Level,
+                                              int64_t Const, int64_t Denom,
+                                              bool IsSignedDiv) {
+  return new CanonExpr(SrcType, DestType, IsSExt, Level, Const, Denom,
+                       IsSignedDiv);
 }
 
 CanonExpr *CanonExprUtils::createCanonExpr(const APInt &APVal, int Level) {
@@ -89,14 +97,12 @@ CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
 }
 
-void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                               bool Detailed) {
-  getHIRParser()->printBlob(OS, Blob, Detailed);
+void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
+  getHIRParser()->printBlob(OS, Blob);
 }
 
-void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase,
-                                 bool Detailed) {
-  getHIRParser()->printScalar(OS, Symbase, Detailed);
+void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
+  getHIRParser()->printScalar(OS, Symbase);
 }
 
 bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
@@ -174,20 +180,48 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val) {
   return CE;
 }
 
-bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
-  return (CE1->getType() == CE2->getType());
+bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                                 bool IgnoreDestType) {
+  return (CE1->getSrcType() == CE2->getSrcType()) &&
+         (IgnoreDestType || (CE1->getDestType() == CE2->getDestType() &&
+                             (CE1->isSExt() == CE2->isSExt())));
 }
 
-bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
+bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
+                               bool IgnoreDestType) {
+  // TODO: allow merging if only one of the CEs has a distinct destination type?
+  if (!isTypeEqual(CE1, CE2, IgnoreDestType)) {
+    return false;
+  }
+
+  // TODO: Look into the safety of merging signed/unsigned divisons.
+  // We allow merging if one of the denominators is 1 even if the signed
+  // division flag is different. The merged canon expr takes the flag from the
+  // canon expr with non-unit denominator.
+  if ((CE1->getDenominator() != 1) && (CE2->getDenominator() != 1)) {
+    return (CE1->isSignedDiv() == CE2->isSignedDiv());
+  }
+
+  return true;
+}
+
+bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                              bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
   // Match the types.
-  if (!isTypeEqual(CE1, CE2))
+  if (!isTypeEqual(CE1, CE2, IgnoreDestType))
     return false;
 
   if ((CE1->Const != CE2->Const) ||
       (CE1->getDenominator() != CE2->getDenominator())) {
+    return false;
+  }
+
+  // Check division type for non-unit denominator.
+  if ((CE1->getDenominator() != 1) &&
+      (CE1->isSignedDiv() != CE2->isSignedDiv())) {
     return false;
   }
 
@@ -234,10 +268,10 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
 }
 
 CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
-                               bool CreateNewCE) {
+                               bool CreateNewCE, bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
-  assert(isTypeEqual(CE1, CE2) && " Canon Expr type mismatch!");
+  assert(mergeable(CE1, CE2, IgnoreDestType) && " Canon Expr type mismatch!");
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
@@ -252,6 +286,11 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
     Result->multiplyByConstantImpl(NewDenom / Denom1, false);
+
+    // Since the denominator has changed, we should set the flag based on CE2.
+    // This is safe to do because the division type difference is only allowed
+    // if one of the denominators is 1 which in this case is Denom1.
+    Result->setDivisionType(CE2->isSignedDiv());
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
@@ -295,7 +334,7 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
 }
 
 CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                                    bool CreateNewCE) {
+                                    bool CreateNewCE, bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
@@ -305,13 +344,14 @@ CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
     // Result = -CE2 + CE1
     Result = CE2->clone();
     Result->negate();
-    Result = add(Result, CE1, false);
+    Result = add(Result, CE1, false, IgnoreDestType);
+    Result->setDestType(CE1->getDestType());
   } else {
     // -(-CE1+CE2) => CE1-CE2
     // Here, we avoid cloning by doing negation twice.
     Result = CE1;
     Result->negate();
-    Result = add(Result, CE2, false);
+    Result = add(Result, CE2, false, IgnoreDestType);
     Result->negate();
   }
 

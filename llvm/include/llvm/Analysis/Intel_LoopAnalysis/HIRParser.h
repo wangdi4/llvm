@@ -142,7 +142,7 @@ private:
 
   /// \brief Returns the number of rval operands of HInst.
   static unsigned getNumRvalOperands(HLInst *HInst);
-  
+
   /// \brief Returns true if this instruction has a polynomial representation
   /// and should be parsed as a blob (1 * t).
   bool isPolyBlobDef(const Instruction *Inst) const;
@@ -164,8 +164,16 @@ private:
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
 
-  /// \brief Parses a SCEVConstant expr into CE.
+  /// \brief Parses a SCEVConstant expr into CE's constant or denominator field
+  /// based on IsDenom flag.
+  void parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
+                         bool IsDenom);
+
+  /// \brief Parses a SCEVConstant expr into CE's constant field.
   void parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE);
+
+  /// \brief Parses a SCEVConstant expr into CE's denominator field.
+  void parseDenominator(const SCEVConstant *ConstSCEV, CanonExpr *CE);
 
   /// \brief Sets the DefinedAtLevel for the Canon Expr.
   void setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
@@ -259,11 +267,10 @@ private:
   void eraseUselessNodes();
 
   /// \brief Prints scalar corresponding to Symbase.
-  void printScalar(raw_ostream &OS, unsigned Symbase, bool Detailed) const;
+  void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
   /// \brief Prints blob.
-  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                 bool Detailed = false) const;
+  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
 
   /// \brief Registers new lval/symbase pairs created by HIR transformations.
   /// Only used for printing.

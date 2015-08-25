@@ -117,25 +117,35 @@ private:
   /// \brief Make class unassignable.
   void operator=(const CanonExpr &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be
-  /// called after code gen.
+  /// \brief Destroys all objects of this class. Should only be called after
+  /// code gen.
   static void destroyAll();
-  /// Keeps track of objects of this class.
+  // Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
 
-  /// BlobTable - vector containing blobs for the function.
-  /// TODO: Think about adding another vector sorted by blobs to provide faster
-  /// lookup for Blob -> Index.
-  /// Moved here from HIRParser to allow printer to print blobs without needing
-  /// the parser.
+  // BlobTable - vector containing blobs for the function.
+  // TODO: Think about adding another vector sorted by blobs to provide faster
+  // lookup for Blob -> Index.
+  // Moved here from HIRParser to allow printer to print blobs without needing
+  // the parser.
   static BlobTableTy BlobTable;
 
-  Type *Ty;
+  // SrcTy and DestTy hide one level of casting applied on top of the canonical
+  // form.
+  // If they are different, either both are integer types(regular canon exprs)
+  // or pointer types(base canon exprs of GEP DDRefs).
+  // Both types are identical in the absence of casting.
+  Type *SrcTy;
+  Type *DestTy;
+  // Capture whether we are hiding signed or zero extension.
+  bool IsSExt;
   int DefinedAtLevel;
   IVCoeffsTy IVCoeffs;
   BlobCoeffsTy BlobCoeffs;
   int64_t Const;
   int64_t Denominator;
+  // Capture whether we are representing signed or unsigned division.
+  bool IsSignedDiv;
 
   /// \brief Internal method to check blob index range.
   static bool isBlobIndexValid(unsigned Index);
@@ -144,8 +154,9 @@ private:
   static bool isLevelValid(unsigned Level);
 
 protected:
-  CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
-  virtual ~CanonExpr() {};
+  CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
+            int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
+  virtual ~CanonExpr(){};
 
   friend class CanonExprUtils;
   friend class HIRParser;
@@ -195,6 +206,9 @@ protected:
   /// indicates whether simplification can be performed.
   void multiplyByConstantImpl(int64_t Val, bool Simplify);
 
+  /// \brief Implements is*Ext() and isTrunc() functionality.
+  bool isExtImpl(bool IsSigned, bool IsTrunc) const;
+
 public:
   CanonExpr *clone() const;
   /// \brief Dumps CanonExpr.
@@ -202,9 +216,29 @@ public:
   /// \brief Prints CanonExpr.
   void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
-  /// \brief Returns the LLVM type of this canon expr.
-  Type *getType() const { return Ty; }
-  void setType(Type *Typ) { Ty = Typ; }
+  /// \brief Returns the src type of this canon expr.
+  Type *getSrcType() const { return SrcTy; }
+  void setSrcType(Type *SrcType) { SrcTy = SrcType; }
+
+  /// \brief Returns the dest type of this canon expr.
+  Type *getDestType() const { return DestTy; }
+  void setDestType(Type *DestType) { DestTy = DestType; }
+
+  /// \brief Returns true if the canon expr is hiding a signed extension.
+  bool isSExt() const;
+
+  /// \brief Returns true if the canon expr is hiding a zero extension.
+  bool isZExt() const;
+
+  /// \brief Returns true if the canon expr is hiding a trunc.
+  bool isTrunc() const;
+
+  /// \brief Returns true if the canon expr is hiding a pointer to pointer bitcast.
+  bool isPtrToPtrCast() const;
+
+  /// \brief Sets the extension type (signed or unsigned) for canon expr. This
+  /// can be a no-op depending upon src and dest types.
+  void setExtType(bool SExt) { IsSExt = SExt; }
 
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
@@ -338,6 +372,14 @@ public:
   /// If Simplifiy is set, we call simplify() on the canon expr after setting
   /// the denominator.
   void setDenominator(int64_t Val, bool Simplify = false);
+
+  /// \brief Returns true if the division in the canon expr is a signed
+  /// division.
+  bool isSignedDiv() const { return IsSignedDiv; }
+
+  /// \brief Sets the division type which can be either signed or unsigned. This
+  /// is a no-op for unit denominator.
+  void setDivisionType(bool SignedDiv) { IsSignedDiv = SignedDiv; }
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;

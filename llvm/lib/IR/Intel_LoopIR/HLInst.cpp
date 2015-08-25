@@ -153,7 +153,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
     FInst->getCalledFunction()->printAsOperand(OS, false);
     OS << "(";
-  } else if(isa<SelectInst>(Inst)) {
+  } else if (isa<SelectInst>(Inst)) {
     OS << "(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
              !isa<GetElementPtrInst>(Inst) && !isa<CmpInst>(Inst)) {

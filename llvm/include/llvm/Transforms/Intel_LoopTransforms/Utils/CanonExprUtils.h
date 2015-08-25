@@ -53,9 +53,20 @@ private:
   static int64_t lcm(int64_t A, int64_t B);
 
 public:
-  /// \brief Returns a new CanonExpr. All canon exprs are created linear.
-  static CanonExpr *createCanonExpr(Type *Typ, unsigned Level = 0,
-                                    int64_t Const = 0, int64_t Denom = 1);
+  /// \brief Returns a new CanonExpr with identical src and dest types. All
+  /// canon exprs are created linear.
+  static CanonExpr *createCanonExpr(Type *Ty, unsigned Level = 0,
+                                    int64_t Const = 0, int64_t Denom = 1,
+                                    bool IsSignedDiv = false);
+
+  /// \brief Returns a new CanonExpr with zero or sign extension. All canon
+  /// exprs are created linear.
+  /// Note: Overloading createCanonExpr() causes ambiguous calls for constant
+  /// arguments.
+  static CanonExpr *createExtCanonExpr(Type *SrcType, Type *DestType,
+                                       bool IsSExt, unsigned Level = 0,
+                                       int64_t Const = 0, int64_t Denom = 1,
+                                       bool IsSignedDiv = false);
 
   /// \brief Returns a new CanonExpr created from APInt Value
   static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);
@@ -82,12 +93,10 @@ public:
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
   /// \brief Prints blob.
-  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                        bool Detailed = false);
+  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
 
   /// \brief Prints scalar corresponding to symbase.
-  static void printScalar(raw_ostream &OS, unsigned Symbase,
-                          bool Detailed = false);
+  static void printScalar(raw_ostream &OS, unsigned Symbase);
 
   /// \brief Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
@@ -145,25 +154,37 @@ public:
   createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
                        unsigned *NewBlobIndex = nullptr);
 
-  /// \brief Returns true if the type of both Canon Expr matches
-  static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2);
+  /// \brief Returns true if the type of both Canon Expr matches.
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                          bool IgnoreDestType = false);
+
+  /// \brief Returns true if CE1 and CE2 can be merged (added/subtracted etc).
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
+                        bool IgnoreDestType = false);
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
-  static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2);
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                       bool IgnoreDestType = false);
 
   /// \brief Returns a canon expr which represents the sum of these canon
   /// exprs. Result = CE1+CE2
   /// If CreateNewCE is true, results in a new canon expr.
   /// If CreateNewCE is false, it updates the input canon expr.
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
   static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool CreateNewCE = false);
+                        bool CreateNewCE = false, bool IgnoreDestType = false);
 
   /// \brief Returns a canon expr which represents the difference of these
   /// canon exprs. Result = CE1 - CE2
   /// If CreateNewCE is true, results in a new canon expr.
   /// If CreateNewCE is false, it updates the input canon expr.
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
   static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool CreateNewCE = false);
+                             bool CreateNewCE = false,
+                             bool IgnoreDestType = false);
 
   /// \brief Returns a canon expr which represents the negation of given
   /// canon expr. Result = -CE1

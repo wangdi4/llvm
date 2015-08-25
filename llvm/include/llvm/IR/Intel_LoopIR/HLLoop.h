@@ -160,9 +160,6 @@ public:
   /// \brief Removes and returns the Ztt for HLLoop.
   HLIf *removeZtt();
 
-  /// \brief Returns the underlying type of ZTT.
-  Type *getZttLLVMType() const;
-
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
     assert(hasZtt() && "Ztt is absent!");
@@ -285,12 +282,11 @@ public:
   /// \brief Returns the temporal locality wt of the loop.
   unsigned getTemporalLocalityWt() const { return TemporalLocalityWt; }
   /// \brief Returns the spatial locality wt of the loop.
-  unsigned getSpatialLocalityWt() const  { return SpatialLocalityWt;  }
+  unsigned getSpatialLocalityWt() const { return SpatialLocalityWt; }
   /// \brief Sets the temporal locality wt of the loop.
-  void setTemporalLocalityWt(unsigned Weight); 
+  void setTemporalLocalityWt(unsigned Weight);
   /// \brief Returns the spatial locality wt of the loop.
-  void setSpatialLocalityWt(unsigned Weight);  
-
+  void setSpatialLocalityWt(unsigned Weight);
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }

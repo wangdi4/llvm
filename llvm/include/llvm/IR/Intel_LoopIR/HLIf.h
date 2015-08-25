@@ -100,9 +100,6 @@ protected:
                   LabelMapTy *LabelMap) const override;
 
 public:
-  /// \brief Returns the underlying type of if.
-  Type *getType() const;
-
   /// Predicate iterator methods
   const_pred_iterator pred_begin() const { return Predicates.begin(); }
   const_pred_iterator pred_end() const { return Predicates.end(); }

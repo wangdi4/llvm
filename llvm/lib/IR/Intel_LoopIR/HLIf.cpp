@@ -34,12 +34,12 @@ HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
   assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
           (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
-  assert((!Ref1 || (Ref1->getType() == Ref2->getType())) &&
+  assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
          "Ref1/Ref2 type mismatch!");
   assert((!Ref1 || ((CmpInst::isIntPredicate(FirstPred) &&
-                     Ref1->getType()->isIntegerTy()) ||
+                     Ref1->getDestType()->isIntegerTy()) ||
                     (CmpInst::isFPPredicate(FirstPred) &&
-                     Ref1->getType()->isFloatingPointTy()))) &&
+                     Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
 
   /// TODO: add check for type consistency (integer/float)
@@ -208,16 +208,18 @@ void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1,
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != PredicateTy::FCMP_FALSE) &&
          (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
-  assert((Ref1->getType() == Ref2->getType()) && "Ref1/Ref2 type mismatch!");
+  assert((Ref1->getDestType() == Ref2->getDestType()) &&
+         "Ref1/Ref2 type mismatch!");
   assert(((CmpInst::isIntPredicate(Pred) &&
            CmpInst::isIntPredicate(Predicates[0])) ||
           (CmpInst::isFPPredicate(Pred) &&
            CmpInst::isFPPredicate(Predicates[0]))) &&
          "Predicate type mismatch!");
-  assert(((CmpInst::isIntPredicate(Pred) && Ref1->getType()->isIntegerTy()) ||
-          (CmpInst::isFPPredicate(Pred) &&
-           Ref1->getType()->isFloatingPointTy())) &&
-         "Predicate/DDRef type mismatch!");
+  assert(
+      ((CmpInst::isIntPredicate(Pred) && Ref1->getDestType()->isIntegerTy()) ||
+       (CmpInst::isFPPredicate(Pred) &&
+        Ref1->getDestType()->isFloatingPointTy())) &&
+      "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
   Predicates.push_back(Pred);

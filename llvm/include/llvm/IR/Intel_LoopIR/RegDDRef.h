@@ -121,6 +121,9 @@ protected:
   /// \brief Returns non-const iterator version of CBlobI.
   blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
+  /// \brief Implements getBase*Type() functionality.
+  Type *getBaseTypeImpl(bool IsSrc) const;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -135,9 +138,17 @@ public:
   /// \brief Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
 
-  /// \brief Returns the type of the base CanonExpr for GEP DDRefs, else returns
-  /// null.
-  Type *getBaseType() const;
+  /// \brief Returns the src type of the base CanonExpr for GEP DDRefs, returns
+  /// null for non-GEP DDRefs.
+  Type *getBaseSrcType() const;
+  /// \brief Sets the src type of base CE of GEP DDRefs.
+  void setBaseSrcType(Type *SrcTy);
+
+  /// \brief Returns the dest type of the base CanonExpr for GEP DDRefs, returns
+  /// null for non-GEP DDRefs.
+  Type *getBaseDestType() const;
+  /// \brief Sets the dest type of base CE of GEP DDRefs.
+  void setBaseDestType(Type *DestTy);
 
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return hasGEPInfo() ? GepInfo->BaseCE : nullptr; }

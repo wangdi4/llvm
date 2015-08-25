@@ -221,7 +221,8 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
   // e.g.  3 * i1 + 4 * i3,  returns 3 when IVnum is 1
   // The default is asserting 1 single iv in input CE
 
-  CanonExpr *CE2 = CanonExprUtils::createCanonExpr(CE->getType());
+  CanonExpr *CE2 = CanonExprUtils::createExtCanonExpr(
+      CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVfound = 0;
   assert(IVnum > 0 && IVnum <= MaxLoopNestLevel && "IVnum not within range");
@@ -370,15 +371,14 @@ const CanonExpr *DDtest::getAdd(const CanonExpr *SrcConst,
   return CE;
 }
 
-bool DDtest::areCEequal(const CanonExpr *CE1, const CanonExpr *CE2) const {
+bool DDtest::areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                        bool IgnoreDestType) const {
 
   if (!CE1 || !CE2) {
     return false;
   }
-  return CanonExprUtils::areEqual(CE1, CE2);
+  return CanonExprUtils::areEqual(CE1, CE2, IgnoreDestType);
 }
-
-static Type *getType(const CanonExpr *CE) { return CE->getType(); }
 
 const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
 
@@ -427,9 +427,10 @@ const CanonExpr *DDtest::getConstantfromAPInt(const APInt &apint) {
   return CE;
 }
 
-const CanonExpr *DDtest::getConstantwithType(Type *Ty, int64_t Val,
-                                             bool isSigned) {
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val, 1);
+const CanonExpr *DDtest::getConstantWithType(Type *SrcTy, Type *DestTy,
+                                             bool IsSExt, int64_t Val) {
+  CanonExpr *CE =
+      CanonExprUtils::createExtCanonExpr(SrcTy, DestTy, IsSExt, 0, Val, 1);
   push(CE);
 
   return CE;
@@ -441,7 +442,7 @@ const CanonExpr *DDtest::getUDivExpr(const CanonExpr *CE1,
   // Only  handles restricted cases when the inputs are constant
   // Caller need to check for null result
 
-  if (getType(CE1) != getType(CE2)) {
+  if (!CanonExprUtils::isTypeEqual(CE1, CE2)) {
     return nullptr;
   }
   int64_t konst1, konst2;
@@ -452,8 +453,8 @@ const CanonExpr *DDtest::getUDivExpr(const CanonExpr *CE1,
   if (!(CE2->isConstant(&konst2)) || konst2 == 0) {
     return nullptr;
   }
-  const CanonExpr *CE =
-      getConstantwithType(getType(CE1), konst1 / konst2, false);
+  const CanonExpr *CE = getConstantWithType(
+      CE1->getSrcType(), CE1->getDestType(), CE1->isSExt(), konst1 / konst2);
 
   // Note: no need to do push_back CE here because it's already done
 
@@ -567,7 +568,8 @@ void DDtest::Constraint::setDistance(const CanonExpr *D,
                                      const HLLoop *CurLoop) {
   Kind = Distance;
   //      (Type, ivlevel, constval, denom)
-  A = CanonExprUtils::createCanonExpr(getType(D), 0, 1, 1);
+  A = CanonExprUtils::createExtCanonExpr(D->getSrcType(), D->getDestType(),
+                                         D->isSExt(), 0, 1, 1);
   B = CanonExprUtils::negate(const_cast<CanonExpr *>(A), true);
   C = CanonExprUtils::negate(const_cast<CanonExpr *>(D), true);
 
@@ -1493,16 +1495,20 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
   // compute SplitIter for use by DependenceAnalysis::getSplitIteration()
 
   const CanonExpr *MaxResult =
-      getSMaxExpr(getConstantwithType(getType(Delta), 0), Delta);
+      getSMaxExpr(getConstantWithType(Delta->getSrcType(), Delta->getDestType(),
+                                      Delta->isSExt(), 0),
+                  Delta);
 
   if (MaxResult == nullptr) {
     DEBUG(dbgs() << "\nNeed more support for Max!");
     return false;
   }
 
-  SplitIter =
-      getUDivExpr(MaxResult, getMulExpr(getConstantwithType(getType(Delta), 2),
-                                        ConstCoeff));
+  SplitIter = getUDivExpr(
+      MaxResult,
+      getMulExpr(getConstantWithType(Delta->getSrcType(), Delta->getDestType(),
+                                     Delta->isSExt(), 2),
+                 ConstCoeff));
 
   if (SplitIter == nullptr) {
     DEBUG(dbgs() << "\nNeed more support for Divide!");
@@ -1534,7 +1540,9 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
   // Check Delta/(2*ConstCoeff) against upper loop bound
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
     DEBUG(dbgs() << "\n    UpperBound = "; UpperBound->dump());
-    const CanonExpr *ConstantTwo = getConstantwithType(getType(UpperBound), 2);
+    const CanonExpr *ConstantTwo =
+        getConstantWithType(UpperBound->getSrcType(), UpperBound->getDestType(),
+                            UpperBound->isSExt(), 2);
     const CanonExpr *ML =
         getMulExpr(getMulExpr(ConstCoeff, UpperBound), ConstantTwo);
     DEBUG(dbgs() << "\n    ML = "; ML->dump());
@@ -1556,7 +1564,8 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
         return true;
       }
       Result.DV[Level].Splitable = false;
-      Result.DV[Level].Distance = getConstantwithType(getType(Delta), 0);
+      Result.DV[Level].Distance = getConstantWithType(
+          Delta->getSrcType(), Delta->getDestType(), Delta->isSExt(), 0);
       return false;
     }
   }
@@ -1929,8 +1938,10 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(SrcConst, DstConst);
 
-  NewConstraint.setLine(getConstantwithType(getType(Delta), 0), DstCoeff, Delta,
-                        CurLoop);
+  NewConstraint.setLine(getConstantWithType(Delta->getSrcType(),
+                                            Delta->getDestType(),
+                                            Delta->isSExt(), 0),
+                        DstCoeff, Delta, CurLoop);
 
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, SrcConst, DstConst)) {
@@ -2043,8 +2054,10 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
-  NewConstraint.setLine(SrcCoeff, getConstantwithType(getType(Delta), 0), Delta,
-                        CurLoop);
+  NewConstraint.setLine(SrcCoeff, getConstantWithType(Delta->getSrcType(),
+                                                      Delta->getDestType(),
+                                                      Delta->isSExt(), 0),
+                        Delta, CurLoop);
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   if (isKnownPredicate(CmpInst::ICMP_EQ, DstConst, SrcConst)) {
     if (Level < CommonLevels) {
@@ -2281,7 +2294,8 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
 
   DEBUG(dbgs() << "\ntry symbolic RDIV test\n");
   DEBUG(dbgs() << "\n    A1 = "; A1->dump());
-  DEBUG(dbgs() << ", type = " << *(getType(A1)) << "\n");
+  DEBUG(dbgs() << ", src type = " << *(A1->getSrcType()));
+  DEBUG(dbgs() << ", dest type = " << *(A1->getDestType()) << "\n");
   DEBUG(dbgs() << "\n    A2 = "; A2->dump());
   DEBUG(dbgs() << "\n    C1 = "; C1->dump());
   DEBUG(dbgs() << "\n    C2 = "; C2->dump());
@@ -2416,10 +2430,10 @@ bool DDtest::testSIV(const CanonExpr *Src, const CanonExpr *Dst,
     Level = mapSrcLoop(CurLoop);
     bool disproven;
 
-    if (areCEequal(SrcCoeff, DstCoeff)) {
+    if (areCEEqual(SrcCoeff, DstCoeff)) {
       disproven = strongSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop, Level,
                                 Result, NewConstraint);
-    } else if (areCEequal(SrcCoeff, getNegative(DstCoeff))) {
+    } else if (areCEEqual(SrcCoeff, getNegative(DstCoeff))) {
       disproven = weakCrossingSIVtest(SrcCoeff, SrcConst, DstConst, CurLoop,
                                       Level, Result, NewConstraint, SplitIter);
     } else {
@@ -2719,7 +2733,8 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     RunningGCD = ExtraGCD;
 
     const CanonExpr *SrcCoeff =
-        getConstantwithType(getType(Src), CE->getIVConstCoeff(CurIVPair));
+        getConstantWithType(Src->getSrcType(), Src->getDestType(),
+                            Src->isSExt(), CE->getIVConstCoeff(CurIVPair));
     const CanonExpr *DstCoeff = getMinus(SrcCoeff, SrcCoeff); // start with  0
     const CanonExpr *Inner = Src;
 
@@ -2756,8 +2771,9 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       }
 
       if (CE->getLevel(CurIVPair) == CE2->getLevel(CurIVPair2)) {
-        DstCoeff =
-            getConstantwithType(getType(Dst), CE2->getIVConstCoeff(CurIVPair2));
+        DstCoeff = getConstantWithType(Dst->getSrcType(), Dst->getDestType(),
+                                       Dst->isSExt(),
+                                       CE2->getIVConstCoeff(CurIVPair2));
       } else {
 
         k1 = CE2->getIVConstCoeff(CurIVPair2);
@@ -3089,10 +3105,16 @@ void DDtest::findBoundsALL(CoefficientInfo *A, CoefficientInfo *B,
         getMulExpr(getMinus(A[K].PosPart, B[K].NegPart), Bound[K].Iterations);
   } else {
     // If the difference is 0, we won't need to know the number of iterations.
-    if (isKnownPredicate(CmpInst::ICMP_EQ, A[K].NegPart, B[K].PosPart))
-      Bound[K].Lower[DV::ALL] = getConstantwithType(getType(A[K].Coeff), 0);
-    if (isKnownPredicate(CmpInst::ICMP_EQ, A[K].PosPart, B[K].NegPart))
-      Bound[K].Upper[DV::ALL] = getConstantwithType(getType(A[K].Coeff), 0);
+    if (isKnownPredicate(CmpInst::ICMP_EQ, A[K].NegPart, B[K].PosPart)) {
+      auto CE = A[K].Coeff;
+      Bound[K].Lower[DV::ALL] = getConstantWithType(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt(), 0);
+    }
+    if (isKnownPredicate(CmpInst::ICMP_EQ, A[K].PosPart, B[K].NegPart)) {
+      auto CE = A[K].Coeff;
+      Bound[K].Upper[DV::ALL] = getConstantWithType(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt(), 0);
+    }
   }
 }
 
@@ -3152,9 +3174,11 @@ void DDtest::findBoundsLT(CoefficientInfo *A, CoefficientInfo *B,
   Bound[K].Lower[DV::LT] = nullptr; // Default value = -infinity.
   Bound[K].Upper[DV::LT] = nullptr; // Default value = +infinity.
   if (Bound[K].Iterations) {
+    auto CE = Bound[K].Iterations;
     const CanonExpr *Iter_1 =
         getMinus(Bound[K].Iterations,
-                 getConstantwithType(getType(Bound[K].Iterations), 1));
+                 getConstantWithType(CE->getSrcType(), CE->getDestType(),
+                                     CE->isSExt(), 1));
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].NegPart, B[K].Coeff));
     Bound[K].Lower[DV::LT] = getMinus(getMulExpr(NegPart, Iter_1), B[K].Coeff);
@@ -3193,9 +3217,11 @@ void DDtest::findBoundsGT(CoefficientInfo *A, CoefficientInfo *B,
   Bound[K].Lower[DV::GT] = nullptr; // Default value = -infinity.
   Bound[K].Upper[DV::GT] = nullptr; // Default value = +infinity.
   if (Bound[K].Iterations) {
+    auto CE = Bound[K].Iterations;
     const CanonExpr *Iter_1 =
         getMinus(Bound[K].Iterations,
-                 getConstantwithType(getType(Bound[K].Iterations), 1));
+                 getConstantWithType(CE->getSrcType(), CE->getDestType(),
+                                     CE->isSExt(), 1));
     const CanonExpr *NegPart =
         getNegativePart(getMinus(A[K].Coeff, B[K].PosPart));
     Bound[K].Lower[DV::GT] = getAdd(getMulExpr(NegPart, Iter_1), A[K].Coeff);
@@ -3218,12 +3244,14 @@ void DDtest::findBoundsGT(CoefficientInfo *A, CoefficientInfo *B,
 
 // X^+ = max(X, 0)
 const CanonExpr *DDtest::getPositivePart(const CanonExpr *X) {
-  return getSMaxExpr(X, getConstantwithType(getType(X), 0));
+  return getSMaxExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
+                                            X->isSExt(), 0));
 }
 
 // X^- = min(X, 0)
 const CanonExpr *DDtest::getNegativePart(const CanonExpr *X) {
-  return getSMinExpr(X, getConstantwithType(getType(X), 0));
+  return getSMinExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
+                                            X->isSExt(), 0));
 }
 
 // Walks through the subscript,
@@ -3235,7 +3263,9 @@ DDtest::CoefficientInfo *DDtest::collectCoeffInfo(const CanonExpr *Subscript,
                                                   const HLLoop *SrcParentLoop,
                                                   const HLLoop *DstParentLoop) {
 
-  const CanonExpr *Zero = getConstantwithType(getType(Subscript), 0);
+  const CanonExpr *Zero =
+      getConstantWithType(Subscript->getSrcType(), Subscript->getDestType(),
+                          Subscript->isSExt(), 0);
   CoefficientInfo *CI = new CoefficientInfo[MaxLevels + 1];
   for (unsigned K = 1; K <= MaxLevels; ++K) {
     CI[K].Coeff = Zero;
@@ -3257,11 +3287,13 @@ DDtest::CoefficientInfo *DDtest::collectCoeffInfo(const CanonExpr *Subscript,
     const HLLoop *L = HLNodeUtils::getParentLoopwithLevel(
         CE->getLevel(CurIVPair), SrcParentLoop);
     unsigned K = SrcFlag ? mapSrcLoop(L) : mapDstLoop(L);
-    const CanonExpr *CE2 = CI[K].Coeff =
-        getConstantwithType(getType(Subscript), CE->getIVConstCoeff(CurIVPair));
+    const CanonExpr *CE2 = CI[K].Coeff = getConstantWithType(
+        Subscript->getSrcType(), Subscript->getDestType(), Subscript->isSExt(),
+        CE->getIVConstCoeff(CurIVPair));
     CI[K].PosPart = getPositivePart(CE2);
     CI[K].NegPart = getNegativePart(CE2);
-    CI[K].Iterations = collectUpperBound(L, getType(Subscript));
+    // unused type argument
+    CI[K].Iterations = collectUpperBound(L, Subscript->getSrcType());
   }
 
   Constant = getInvariant(CE);
@@ -3839,7 +3871,7 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
     DstBaseCE = RDef->getBaseCE();
   }
 
-  if (numSrcDim != numDstDim || !areCEequal(SrcBaseCE, DstBaseCE)) {
+  if (numSrcDim != numDstDim || !areCEEqual(SrcBaseCE, DstBaseCE, true)) {
     //  Number of dimemsion are different or
     //  different base: need to bail out
     DEBUG(dbgs() << "\nDiff dim or base\n");
@@ -4380,25 +4412,24 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   //  Bidirectional DV are needed if leftmost (non-EQ or non <=)  is a *
-	//  except when src == dst
+  //  except when src == dst
   //  e.g.
   //  (= = *   =)  Yes
   //  (= = <=  *)  Yes
   //  (= = <=  =)  no
   //  (= = <   >)  no
 
-
   bool BiDirection = false;
-	if (SrcDDRef != DstDDRef) {
-		for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-			DVType dv = Result->getDirection(II);
-			if (dv == DV::ALL) {
-				BiDirection = true;
-				DEBUG(dbgs() << "BiDirection needed!\n");
-				break;
-			}
-		}
-	}	
+  if (SrcDDRef != DstDDRef) {
+    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      DVType dv = Result->getDirection(II);
+      if (dv == DV::ALL) {
+        BiDirection = true;
+        DEBUG(dbgs() << "BiDirection needed!\n");
+        break;
+      }
+    }
+  }
 
   if (isa<BlobDDRef>(SrcDDRef)) {
     isTemp = true;
@@ -4480,8 +4511,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
           for (unsigned II = 1; II <= Levels; ++II) {
             forwardDV[II - 1] = DV::EQ;
           }
-					// Suppress ANTI (< ) edge for now until it's really needed
-					#if 0 
+// Suppress ANTI (< ) edge for now until it's really needed
+#if 0 
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
               backwardDV[II - 1] = DV::LT;
@@ -4489,14 +4520,14 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
               backwardDV[II - 1] = DV::ALL;
             }
           }
-          #endif
-					
+#endif
+
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
           }
-					// Suppress ANTI (< ) edge for now until it's really needed
-					#if 0
+// Suppress ANTI (< ) edge for now until it's really needed
+#if 0
           for (unsigned II = 1; II <= Levels; ++II) {
             if (II == 1) {
               forwardDV[II - 1] = DV::LT;
@@ -4504,7 +4535,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
               forwardDV[II - 1] = DV::ALL;
             }
           }
-          #endif
+#endif
         }
       } else if (IsAnti) {
         // b)    = x ;

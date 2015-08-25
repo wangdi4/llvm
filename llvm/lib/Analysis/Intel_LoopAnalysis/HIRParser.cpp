@@ -292,13 +292,11 @@ public:
   bool isDone() const { return false; }
 };
 
-void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase,
-                            bool Detailed) const {
-  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, Detailed);
+void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
+  ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
 }
 
-void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                          bool Detailed) const {
+void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
 
   if (isa<SCEVConstant>(Blob)) {
     OS << *Blob;
@@ -318,7 +316,7 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
     }
 
     OS << *SrcType << "." << *DstType << "(";
-    printBlob(OS, CastSCEV->getOperand(), false);
+    printBlob(OS, CastSCEV->getOperand());
     OS << ")";
 
   } else if (auto NArySCEV = dyn_cast<SCEVNAryExpr>(Blob)) {
@@ -341,7 +339,7 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
     }
 
     for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
-      printBlob(OS, *I, Detailed);
+      printBlob(OS, *I);
 
       if (std::next(I) != E) {
         OS << OpStr;
@@ -351,14 +349,14 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(Blob)) {
     OS << "(";
-    printBlob(OS, UDivSCEV->getLHS(), Detailed);
+    printBlob(OS, UDivSCEV->getLHS());
     OS << " /u ";
-    printBlob(OS, UDivSCEV->getRHS(), Detailed);
+    printBlob(OS, UDivSCEV->getRHS());
     OS << ")";
   } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     if (isTempBlob(Blob)) {
       auto Temp = ScalarSA->getBaseScalar(UnknownSCEV->getValue());
-      Temp->printAsOperand(OS, Detailed);
+      Temp->printAsOperand(OS, false);
     } else {
       OS << *Blob;
     }
@@ -426,7 +424,7 @@ bool HIRParser::isRequired(const Instruction *Inst) const {
     if (hasPropagableUses(CInst)) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -452,10 +450,25 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
   return ConstSCEV->getValue()->getSExtValue();
 }
 
-void HIRParser::parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE) {
+void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
+                                  bool IsDenom) {
   auto Const = getSCEVConstantValue(ConstSCEV);
 
-  CE->setConstant(CE->getConstant() + Const);
+  if (IsDenom) {
+    assert((CE->getDenominator() == 1) &&
+           "Attempt to overwrite non-unit denominator!");
+    CE->setDenominator(Const);
+  } else {
+    CE->setConstant(CE->getConstant() + Const);
+  }
+}
+
+void HIRParser::parseConstant(const SCEVConstant *ConstSCEV, CanonExpr *CE) {
+  parseConstOrDenom(ConstSCEV, CE, false);
+}
+
+void HIRParser::parseDenominator(const SCEVConstant *ConstSCEV, CanonExpr *CE) {
+  parseConstOrDenom(ConstSCEV, CE, true);
 }
 
 void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
@@ -579,6 +592,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
   } else if (isa<SCEVCastExpr>(SC)) {
     assert(IsTop && "Can't handle casts embedded in the SCEV tree!");
+    // TODO: strip the topmost convert(s) by using SrcTy/DestTy.
     parseBlob(SC, CE, Level);
 
   } else if (auto AddSCEV = dyn_cast<SCEVAddExpr>(SC)) {
@@ -592,9 +606,16 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     assert(IsTop && "Can't handle multiplies embedded in the SCEV tree!");
     parseBlob(SC, CE, Level);
 
-  } else if (isa<SCEVUDivExpr>(SC)) {
+  } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(SC)) {
     assert(IsTop && "Can't handle divisions embedded in the SCEV tree!");
-    parseBlob(SC, CE, Level);
+
+    // If the denominator is constant, move it into CE's denominator.
+    if (auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS())) {
+      parseDenominator(ConstDenomSCEV, CE);
+      parseRecursive(UDivSCEV->getLHS(), CE, Level, true);
+    } else {
+      parseBlob(SC, CE, Level);
+    }
 
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
     assert(RecSCEV->isAffine() && "Non-affine AddRecs not expected!");
@@ -631,7 +652,6 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
 void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
   auto BlobSCEV = SE->getUnknown(const_cast<Value *>(Val));
-  CE->setType(BlobSCEV->getType());
   parseBlob(BlobSCEV, CE, Level);
 }
 
@@ -915,7 +935,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   }
 
   auto StrideCE =
-      CanonExprUtils::createCanonExpr(IndexCE->getType(), 0, ElementSize);
+      CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0, ElementSize);
 
   // Here we add the other operand of GEPOperator as an offset to the index.
   if (GEPOp) {
@@ -961,7 +981,7 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
   for (auto I = GEPNumOp - 1; Count > 0; --I, --Count) {
     auto IndexCE = parse(GEPOp->getOperand(I), Level);
 
-    auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getType(), 0,
+    auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0,
                                                     Strides[Count - 1]);
     Ref->addDimension(IndexCE, StrideCE);
   }
@@ -1002,6 +1022,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
   const GEPOperator *GEPOp = nullptr;
   bool IsAddressOf = false;
   RegDDRef *Ref = nullptr;
+  Type *DestTy = nullptr;
 
   clearTempBlobLevelMap();
 
@@ -1022,13 +1043,12 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     llvm_unreachable("Unexpected instruction!");
   }
 
-  // TODO: We need to store this casting information for correct code
-  // generation. A possible way is to store this in the base CanonExpr's DestTy,
-  // when SrcTy/DestTy is introduced for CanonExprs.
-  // In some cases float* is converted into int32* before loading/storing.
+  // In some cases float* is converted into int32* before loading/storing. This
+  // info is propagated into the BaseCE dest type.
   if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
     if (!SE->isHIRCopyInst(BCInst)) {
       GEPVal = BCInst->getOperand(0);
+      DestTy = BCInst->getDestTy();
     }
   }
 
@@ -1047,6 +1067,10 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     Ref = createRegularGEPDDRef(GEPOp, Level);
   } else {
     Ref = createSingleElementGEPDDRef(GEPVal, Level);
+  }
+
+  if (DestTy) {
+    Ref->setBaseDestType(DestTy);
   }
 
   Ref->setAddressOf(IsAddressOf);

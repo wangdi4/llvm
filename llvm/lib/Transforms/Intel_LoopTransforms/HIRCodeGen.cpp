@@ -173,6 +173,9 @@ private:
                     getBlobValue(CE->getBlobIndex(BlobIt), Ty));
     }
 
+    // \brief Applies cast to Val according to CE's dest type, if applicable.
+    Value *castToDestType(CanonExpr *CE, Value *Val);
+
     Function *F;
 
     // Handles special casing for SCEVUnknowns possibly representing blobs
@@ -283,7 +286,7 @@ private:
     class BlobToSymbaseMapper {
     private:
       BlobIdxMap &BlobToSymbase;
-      //adds single blob from CE to map with symbase
+      // adds single blob from CE to map with symbase
       void addBlobFromCE(const CanonExpr *CE, unsigned SymBase) {
         unsigned BlobIdx = CE->getSingleBlobIndex();
         if (!BlobToSymbase.count(BlobIdx)) {
@@ -382,9 +385,25 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 
+Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
+
+  auto DestTy = CE->getDestType();
+
+  if (CE->isSExt()) {
+    Val = Builder->CreateSExt(Val, DestTy);
+  } else if (CE->isZExt()) {
+    Val = Builder->CreateZExt(Val, DestTy);
+  } else if (CE->isTrunc()) {
+    Val = Builder->CreateTrunc(Val, DestTy);
+  }
+
+  return Val;
+}
+
 // TODO support Denominator
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
-  Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr;
+  Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr,
+        *DenomVal = nullptr;
 
   DEBUG(dbgs() << "cg for CE ");
   DEBUG(CE->dump());
@@ -393,13 +412,18 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
 
-  int C0 = CE->getConstant();
-  Type *Ty = CE->getType();
+  int64_t C0 = CE->getConstant();
+  int64_t Denom = CE->getDenominator();
+
+  Type *Ty = CE->getSrcType();
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<SequentialType>(Ty)) {
-      Ty = IntegerType::get(F->getContext(), 64);
+    if (isa<CompositeType>(Ty)) {
+      // We should be generating a GEP for a pointer base with an offset. For
+      // struct types, we need to follow the structure layout.
+      assert("Pointer base with offset not handled!");
+      // Ty = IntegerType::get(F->getContext(), Ty->getPrimitiveSizeInBits());
     }
     C0Value = ConstantInt::getSigned(Ty, C0);
   }
@@ -423,6 +447,18 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
       llvm_unreachable("failed to cg IV or blob");
     Res = ConstantInt::getSigned(Ty, C0);
   }
+
+  if (Denom != 1) {
+    DenomVal = ConstantInt::getSigned(Ty, Denom);
+
+    if (CE->isSignedDiv()) {
+      Res = Builder->CreateSDiv(Res, DenomVal);
+    } else {
+      Res = Builder->CreateUDiv(Res, DenomVal);
+    }
+  }
+
+  Res = castToDestType(CE, Res);
 
   return Res;
 }
@@ -449,7 +485,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
 
   // Lvals must be stored into
   std::string TempName = getTempName(Ref);
-  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getType());
+  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getDestType());
 
   // For lvals return address of temp
   return Alloca;
@@ -472,7 +508,8 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   // of [10 x i32]*. We know we are referring to the first, and only, alloc'd
   // array, thus requiring an leading 0. For non exact allocs, we should not
   // add this 0
-  Value *Zero = ConstantInt::getSigned((*(Ref->canon_begin()))->getType(), 0);
+  Value *Zero =
+      ConstantInt::getSigned((*(Ref->canon_begin()))->getDestType(), 0);
 
   SmallVector<Value *, 4> IndexV;
   IndexV.push_back(Zero);
@@ -488,6 +525,12 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateInBoundsGEP(BaseV, IndexV, "arrayIdx");
   } else {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
+  }
+
+  // Base CE could have different src and dest types in which case we need a
+  // bitcast.
+  if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+    GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
   }
 
   // Ref is A[i], but meaning differs for lval vs rval. On rhs, we want the
@@ -852,7 +895,7 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_begin();
-  Type *Ty = CE->getType();
+  Type *Ty = CE->getSrcType();
   Value *res = BlobPairCG(CE, CurBlobPair, Ty);
   CurBlobPair++;
 
@@ -876,7 +919,7 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   if (CurIVPair == CE->iv_end())
     llvm_unreachable("No iv in CE");
 
-  Type *Ty = CE->getType();
+  Type *Ty = CE->getSrcType();
 
   Value *res = IVPairCG(CE, CurIVPair, Ty);
   CurIVPair++;

@@ -105,8 +105,8 @@ void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
   assert(RvalRef && "Rval is null!");
 
   if (LvalRef) {
-    bool SameType = DestTy ? (LvalRef->getType() == DestTy)
-                           : (LvalRef->getType() == RvalRef->getType());
+    bool SameType = DestTy ? (LvalRef->getDestType() == DestTy)
+                           : (LvalRef->getDestType() == RvalRef->getDestType());
     assert(SameType && "Operand types do not match!");
   }
 }
@@ -115,10 +115,10 @@ void HLNodeUtils::checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
                                           RegDDRef *OpRef2) {
   assert(OpRef1 && OpRef2 && "Operands are null!");
 
-  auto ElTy = OpRef1->getType();
+  auto ElTy = OpRef1->getDestType();
 
-  assert((ElTy == OpRef2->getType()) && "Operand types do not match!");
-  assert((!LvalRef || (ElTy == LvalRef->getType())) &&
+  assert((ElTy == OpRef2->getDestType()) && "Operand types do not match!");
+  assert((!LvalRef || (ElTy == LvalRef->getDestType())) &&
          "Operand types do not match!");
 }
 
@@ -149,7 +149,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
   checkUnaryInstOperands(LvalRef, RvalRef, DestTy);
 
   // Create dummy val.
-  auto OneVal = createOneVal(RvalRef->getType());
+  auto OneVal = createOneVal(RvalRef->getDestType());
 
   switch (OpCode) {
   case Instruction::Load: {
@@ -161,7 +161,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
              "Lval of load instruction is not a scalar!");
     }
 
-    auto NullPtr = createZeroVal(RvalRef->getType());
+    auto NullPtr = createZeroVal(RvalRef->getDestType());
 
     if (Align) {
       InstVal = DummyIRBuilder->CreateAlignedLoad(NullPtr, Align, IsVolatile,
@@ -179,7 +179,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
              "Lval of store instruction cannot be scalar!");
     }
 
-    auto NullPtr = createZeroVal(RvalRef->getType());
+    auto NullPtr = createZeroVal(RvalRef->getDestType());
 
     if (Align) {
       InstVal = DummyIRBuilder->CreateAlignedStore(OneVal, NullPtr, Align,
@@ -232,7 +232,7 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, RegDDRef *LvalRef,
   checkUnaryInstOperands(LvalRef, RvalRef, nullptr);
 
   // Create dummy val.
-  auto OneVal = createOneVal(RvalRef->getType());
+  auto OneVal = createOneVal(RvalRef->getDestType());
 
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
@@ -351,11 +351,11 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   checkBinaryInstOperands(LvalRef, OpRef1, OpRef2);
 
   // Create dummy val.
-  auto OneVal = createOneVal(OpRef1->getType());
+  auto OneVal = createOneVal(OpRef1->getDestType());
 
   switch (OpCode) {
   case Instruction::Add: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateAdd(OneVal, OneVal, NewName, HasNUWOrExact,
                                         HasNSW);
@@ -363,14 +363,14 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::FAdd: {
-    assert(OpRef1->getType()->isFloatingPointTy() &&
+    assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
     InstVal = DummyIRBuilder->CreateFAdd(OneVal, OneVal, NewName, FPMathTag);
     break;
   }
 
   case Instruction::Sub: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateSub(OneVal, OneVal, NewName, HasNUWOrExact,
                                         HasNSW);
@@ -378,14 +378,14 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::FSub: {
-    assert(OpRef1->getType()->isFloatingPointTy() &&
+    assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
     InstVal = DummyIRBuilder->CreateFSub(OneVal, OneVal, NewName, FPMathTag);
     break;
   }
 
   case Instruction::Mul: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateMul(OneVal, OneVal, NewName, HasNUWOrExact,
                                         HasNSW);
@@ -393,14 +393,14 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::FMul: {
-    assert(OpRef1->getType()->isFloatingPointTy() &&
+    assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
     InstVal = DummyIRBuilder->CreateFMul(OneVal, OneVal, NewName, FPMathTag);
     break;
   }
 
   case Instruction::UDiv: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal =
         DummyIRBuilder->CreateUDiv(OneVal, OneVal, NewName, HasNUWOrExact);
@@ -408,7 +408,7 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::SDiv: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal =
         DummyIRBuilder->CreateSDiv(OneVal, OneVal, NewName, HasNUWOrExact);
@@ -416,35 +416,35 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::FDiv: {
-    assert(OpRef1->getType()->isFloatingPointTy() &&
+    assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
     InstVal = DummyIRBuilder->CreateFDiv(OneVal, OneVal, NewName, FPMathTag);
     break;
   }
 
   case Instruction::URem: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateURem(OneVal, OneVal, NewName);
     break;
   }
 
   case Instruction::SRem: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateSRem(OneVal, OneVal, NewName);
     break;
   }
 
   case Instruction::FRem: {
-    assert(OpRef1->getType()->isFloatingPointTy() &&
+    assert(OpRef1->getDestType()->isFloatingPointTy() &&
            "Operand is not a floating point type!");
     InstVal = DummyIRBuilder->CreateFRem(OneVal, OneVal, NewName, FPMathTag);
     break;
   }
 
   case Instruction::Shl: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateShl(OneVal, OneVal, NewName, HasNUWOrExact,
                                         HasNSW);
@@ -452,7 +452,7 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::LShr: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal =
         DummyIRBuilder->CreateLShr(OneVal, OneVal, NewName, HasNUWOrExact);
@@ -460,7 +460,7 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::AShr: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal =
         DummyIRBuilder->CreateAShr(OneVal, OneVal, NewName, HasNUWOrExact);
@@ -468,21 +468,21 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   }
 
   case Instruction::And: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateAnd(OneVal, OneVal, NewName);
     break;
   }
 
   case Instruction::Or: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateOr(OneVal, OneVal, NewName);
     break;
   }
 
   case Instruction::Xor: {
-    assert(OpRef1->getType()->isIntegerTy() &&
+    assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
     InstVal = DummyIRBuilder->CreateXor(OneVal, OneVal, NewName);
     break;
@@ -633,14 +633,14 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
   if (LvalRef) {
-    assert((LvalRef->getType()->isIntegerTy() &&
-            (LvalRef->getType()->getIntegerBitWidth() == 1)) &&
+    assert((LvalRef->getDestType()->isIntegerTy() &&
+            (LvalRef->getDestType()->getIntegerBitWidth() == 1)) &&
            "LvalRef has invalid type!");
   }
 
-  auto OneVal = createOneVal(OpRef1->getType());
+  auto OneVal = createOneVal(OpRef1->getDestType());
 
-  if (OpRef1->getType()->isIntegerTy()) {
+  if (OpRef1->getDestType()->isIntegerTy()) {
     InstVal =
         DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, OneVal, OneVal, NewName);
   } else {
@@ -671,7 +671,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
   auto CmpVal = createOneVal(Type::getInt1Ty(getHIRParser()->getContext()));
-  auto OpVal = createOneVal(OpRef3->getType());
+  auto OpVal = createOneVal(OpRef3->getDestType());
 
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, OpVal, OpVal, Name);
 

@@ -84,15 +84,24 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  bool printSymbase = Detailed && !isConstant();
+  bool PrintSymbase = Detailed && !isConstant();
+  bool PrintBaseCast = false;
+
+  if (HasGEP) {
+    PrintBaseCast = !Detailed && (getBaseSrcType() != getBaseDestType());
+  }
 
   // Do not print linear forms for scalar lvals
   if (isLval() && !HasGEP && !Detailed) {
-    CanonExprUtils::printScalar(OS, getSymBase(), Detailed);
+    CanonExprUtils::printScalar(OS, getSymBase());
   } else {
     if (HasGEP) {
       if (isAddressOf()) {
         OS << "&(";
+      }
+
+      if (PrintBaseCast) {
+        OS << "*(" << *getBaseDestType() << ")";
       }
 
       OS << "(";
@@ -118,18 +127,32 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     }
   }
 
-  if (printSymbase) {
+  if (PrintSymbase) {
     OS << " ";
     DDRef::print(OS, Detailed);
   }
 }
 
-Type *RegDDRef::getBaseType() const {
+Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
-    return getBaseCE()->getType();
+    return IsSrc ? getBaseCE()->getSrcType() : getBaseCE()->getDestType();
   }
 
   return nullptr;
+}
+
+Type *RegDDRef::getBaseSrcType() const { return getBaseTypeImpl(true); }
+
+Type *RegDDRef::getBaseDestType() const { return getBaseTypeImpl(false); }
+
+void RegDDRef::setBaseSrcType(Type *SrcTy) {
+  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+  getBaseCE()->setSrcType(SrcTy);
+}
+
+void RegDDRef::setBaseDestType(Type *DestTy) {
+  assert(hasGEPInfo() && "Base CE accessed for non-GEP DDRef!");
+  getBaseCE()->setDestType(DestTy);
 }
 
 bool RegDDRef::isLval() const {

@@ -126,7 +126,6 @@ protected:
   }
 
 public:
-
   /// Virtual Clone Method
   virtual HLNode *clone() const = 0;
   /// \brief Dumps HLNode.

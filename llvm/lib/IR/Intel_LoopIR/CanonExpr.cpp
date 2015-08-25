@@ -32,9 +32,11 @@ CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
 
 CanonExpr::BlobIndexToCoeff::~BlobIndexToCoeff() {}
 
-CanonExpr::CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal,
-                     int64_t Denom)
-    : Ty(Typ), DefinedAtLevel(DefLevel), Const(ConstVal) {
+CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
+                     unsigned DefLevel, int64_t ConstVal, int64_t Denom,
+                     bool IsSignedDiv)
+    : SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
+      DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv) {
 
   Objs.insert(this);
 
@@ -45,8 +47,10 @@ CanonExpr::CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal,
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
-    : Ty(CE.Ty), DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
-      BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator) {
+    : SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
+      DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
+      BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
+      IsSignedDiv(CE.IsSignedDiv) {
 
   Objs.insert(this);
 }
@@ -89,6 +93,23 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
     } else {
       OS << "LINEAR ";
     }
+
+    if (getSrcType() != getDestType()) {
+      if (isSExt()) {
+        OS << "sext.";
+      } else if (isZExt()) {
+        OS << "zext.";
+      } else if (isTrunc()) {
+        OS << "trunc.";
+      } else {
+        OS << "bitcast.";
+      }
+
+      OS << *getSrcType() << ".";
+      OS << *getDestType() << "(";
+    } else {
+      OS << *getSrcType() << " ";
+    }
   }
 
   if (Denom != 1) {
@@ -107,7 +128,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
         OS << I->Coeff << " * ";
       }
       if (I->Index) {
-        CanonExprUtils::printBlob(OS, getBlob(I->Index), Detailed);
+        CanonExprUtils::printBlob(OS, getBlob(I->Index));
         OS << " * ";
       }
       OS << "i" << getLevel(I);
@@ -125,7 +146,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      CanonExprUtils::printBlob(OS, getBlob(I->Index), Detailed);
+      CanonExprUtils::printBlob(OS, getBlob(I->Index));
     }
   }
 
@@ -136,10 +157,21 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 
   if (Denom != 1) {
-    OS << ")/" << Denom;
+    OS << ")/";
+
+    if (!isSignedDiv()) {
+      OS << "u";
+    }
+
+    OS << Denom;
   }
 
   if (Detailed) {
+
+    if (getSrcType() != getDestType()) {
+      OS << ")";
+    }
+
     if (isLinearAtLevel() && getDefinedAtLevel() > 0) {
       OS << "{def@" << getDefinedAtLevel() << "}";
     }
@@ -205,6 +237,36 @@ void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   if (Simplify) {
     simplify();
   }
+}
+
+bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
+  if (SrcTy == DestTy) {
+    return false;
+  }
+
+  if (!SrcTy->isIntegerTy()) {
+    return false;
+  }
+
+  if (SrcTy->getPrimitiveSizeInBits() > DestTy->getPrimitiveSizeInBits()) {
+    if (IsTrunc) {
+      return true;
+    }
+
+    return false;
+  }
+
+  return IsSigned ? IsSExt : !IsSExt;
+}
+
+bool CanonExpr::isSExt() const { return isExtImpl(true, false); }
+
+bool CanonExpr::isZExt() const { return isExtImpl(false, false); }
+
+bool CanonExpr::isTrunc() const { return isExtImpl(false, true); }
+
+bool CanonExpr::isPtrToPtrCast() const {
+  return ((SrcTy != DestTy) && SrcTy->isPointerTy());
 }
 
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
@@ -807,11 +869,22 @@ void CanonExpr::multiplyByConstant(int64_t Val) {
 void CanonExpr::negate() { multiplyByConstant(-1); }
 
 void CanonExpr::verify() const {
-  assert(getDenominator() > 0 && "Denominator must be greater than zero");
-  assert(DefinedAtLevel >= -1 && DefinedAtLevel <= MaxLoopNestLevel && "DefinedAtLevel must be within range [-1, MaxLoopNestLevel]");
+  assert(getDenominator() > 0 && "Denominator must be greater than zero!");
+  // TODO: verify DefinedAtLevel with respect to current loop level.
+  assert(DefinedAtLevel >= -1 && DefinedAtLevel <= MaxLoopNestLevel &&
+         "DefinedAtLevel must be within range [-1, MaxLoopNestLevel]!");
+  assert(SrcTy && "SrcTy of CanonExpr is null!");
+  assert(DestTy && "DestTy of CanonExpr is null!");
+
+  if (SrcTy != DestTy) {
+    assert(((SrcTy->isIntegerTy() && DestTy->isIntegerTy()) ||
+            (SrcTy->isPointerTy() && DestTy->isPointerTy())) &&
+           "CanonExpr has invalid type!");
+  }
 
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = CanonExpr::getBlob(I->Index);
-    assert(B->getType() == getType() && "Types of all blobs should match canon expr type");
+    assert(B->getType() == getSrcType() &&
+           "Types of all blobs should match canon expr type!");
   }
 }

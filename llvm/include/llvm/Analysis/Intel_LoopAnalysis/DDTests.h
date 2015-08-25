@@ -801,7 +801,8 @@ private:
   const CanonExpr *getAdd(const CanonExpr *SrcConst, const CanonExpr *DstConst);
 
   /// return true if 2 CE are equal
-  bool areCEequal(const CanonExpr *CE1, const CanonExpr *CE2) const;
+  bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                  bool IgnoreDestType = false) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);
@@ -817,8 +818,8 @@ private:
   const CanonExpr *getConstantfromAPInt(const APInt &apint);
 
   /// return CE from int with type
-  const CanonExpr *getConstantwithType(Type *Ty, int64_t Val,
-                                       bool isSigned = true);
+  const CanonExpr *getConstantWithType(Type *SrcTy, Type *DestTy, bool IsSExt,
+                                       int64_t Val);
 
   /// CE1 / CE2
   const CanonExpr *getUDivExpr(const CanonExpr *CE1, const CanonExpr *CE2);
