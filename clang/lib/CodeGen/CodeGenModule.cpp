@@ -77,12 +77,11 @@ static CGCXXABI *createCXXABI(CodeGenModule &CGM) {
 CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
                              const PreprocessorOptions &PPO,
                              const CodeGenOptions &CGO, llvm::Module &M,
-                             const llvm::DataLayout &TD,
                              DiagnosticsEngine &diags,
                              CoverageSourceInfo *CoverageInfo)
     : Context(C), LangOpts(C.getLangOpts()), HeaderSearchOpts(HSO),
       PreprocessorOpts(PPO), CodeGenOpts(CGO), TheModule(M), Diags(diags),
-      TheDataLayout(TD), Target(C.getTargetInfo()), ABI(createCXXABI(*this)),
+      Target(C.getTargetInfo()), ABI(createCXXABI(*this)),
       VMContext(M.getContext()), TBAA(nullptr), TheTargetCodeGenInfo(nullptr),
       Types(*this), VTables(*this), ObjCRuntime(nullptr),
       OpenCLRuntime(nullptr), OpenMPRuntime(nullptr), CUDARuntime(nullptr),
@@ -370,11 +369,16 @@ void CodeGenModule::Release() {
       (Context.getLangOpts().Modules || !LinkerOptionsMetadata.empty())) {
     EmitModuleLinkOptions();
   }
-  if (CodeGenOpts.DwarfVersion)
+  if (CodeGenOpts.DwarfVersion) {
     // We actually want the latest version when there are conflicts.
     // We can change from Warning to Latest if such mode is supported.
     getModule().addModuleFlag(llvm::Module::Warning, "Dwarf Version",
                               CodeGenOpts.DwarfVersion);
+  }
+  if (CodeGenOpts.EmitCodeView) {
+    // Indicate that we want CodeView in the metadata.
+    getModule().addModuleFlag(llvm::Module::Warning, "CodeView", 1);
+  }
   if (DebugInfo)
     // We support a single version in the linked module. The LLVM
     // parser will drop debug info with a different version number
@@ -1262,6 +1266,11 @@ bool CodeGenModule::MayBeEmittedEagerly(const ValueDecl *Global) {
       // Implicit template instantiations may change linkage if they are later
       // explicitly instantiated, so they should not be emitted eagerly.
       return false;
+  // If OpenMP is enabled and threadprivates must be generated like TLS, delay
+  // codegen for global variables, because they may be marked as threadprivate.
+  if (LangOpts.OpenMP && LangOpts.OpenMPUseTLS &&
+      getContext().getTargetInfo().isTLSSupported() && isa<VarDecl>(Global))
+    return false;
 
   return true;
 }
@@ -1430,7 +1439,7 @@ namespace {
       unsigned BuiltinID = FD->getBuiltinID();
       if (!BuiltinID || !BI.isLibFunction(BuiltinID))
         return true;
-      StringRef BuiltinName = BI.GetName(BuiltinID);
+      StringRef BuiltinName = BI.getName(BuiltinID);
       if (BuiltinName.startswith("__builtin_") &&
           Name == BuiltinName.slice(strlen("__builtin_"), StringRef::npos)) {
         Result = true;
@@ -1888,8 +1897,8 @@ void CodeGenModule::EmitTentativeDefinition(const VarDecl *D) {
 }
 
 CharUnits CodeGenModule::GetTargetTypeStoreSize(llvm::Type *Ty) const {
-    return Context.toCharUnitsFromBits(
-      TheDataLayout.getTypeStoreSizeInBits(Ty));
+  return Context.toCharUnitsFromBits(
+      getDataLayout().getTypeStoreSizeInBits(Ty));
 }
 
 unsigned CodeGenModule::GetGlobalVarAddressSpace(const VarDecl *D,
@@ -3402,7 +3411,7 @@ void CodeGenModule::AddDeferredUnusedCoverageMapping(Decl *D) {
   case Decl::ObjCMethod:
   case Decl::CXXConstructor:
   case Decl::CXXDestructor: {
-    if (!cast<FunctionDecl>(D)->hasBody())
+    if (!cast<FunctionDecl>(D)->doesThisDeclarationHaveABody())
       return;
     auto I = DeferredEmptyCoverageMappingDecls.find(D);
     if (I == DeferredEmptyCoverageMappingDecls.end())

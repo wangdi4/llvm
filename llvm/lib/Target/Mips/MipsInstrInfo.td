@@ -166,6 +166,8 @@ def HasMips32    :    Predicate<"Subtarget->hasMips32()">,
                       AssemblerPredicate<"FeatureMips32">;
 def HasMips32r2  :    Predicate<"Subtarget->hasMips32r2()">,
                       AssemblerPredicate<"FeatureMips32r2">;
+def HasMips32r5  :    Predicate<"Subtarget->hasMips32r5()">,
+                      AssemblerPredicate<"FeatureMips32r5">;
 def HasMips32r6  :    Predicate<"Subtarget->hasMips32r6()">,
                       AssemblerPredicate<"FeatureMips32r6">;
 def NotMips32r6  :    Predicate<"!Subtarget->hasMips32r6()">,
@@ -242,6 +244,7 @@ class ISA_MIPS32R2 { list<Predicate> InsnPredicates = [HasMips32r2]; }
 class ISA_MIPS32R2_NOT_32R6_64R6 {
   list<Predicate> InsnPredicates = [HasMips32r2, NotMips32r6, NotMips64r6];
 }
+class ISA_MIPS32R5 { list<Predicate> InsnPredicates = [HasMips32r5]; }
 class ISA_MIPS64   { list<Predicate> InsnPredicates = [HasMips64]; }
 class ISA_MIPS64_NOT_64R6 {
   list<Predicate> InsnPredicates = [HasMips64, NotMips64r6];
@@ -1290,9 +1293,10 @@ def TRAP : TrapBase<BREAK>;
 def SDBBP : MMRel, SYS_FT<"sdbbp">, SDBBP_FM, ISA_MIPS32_NOT_32R6_64R6;
 
 let AdditionalPredicates = [NotInMicroMips] in {
-def ERET : MMRel, ER_FT<"eret">, ER_FM<0x18>, INSN_MIPS3_32;
+def ERET : MMRel, ER_FT<"eret">, ER_FM<0x18, 0x0>, INSN_MIPS3_32;
+def ERETNC : MMRel, ER_FT<"eretnc">, ER_FM<0x18, 0x1>, ISA_MIPS32R5;
 }
-def DERET : MMRel, ER_FT<"deret">, ER_FM<0x1f>, ISA_MIPS32;
+def DERET : MMRel, ER_FT<"deret">, ER_FM<0x1f, 0x0>, ISA_MIPS32;
 
 let AdditionalPredicates = [NotInMicroMips] in {
 def EI : MMRel, StdMMR6Rel, DEI_FT<"ei", GPR32Opnd>, EI_FM<1>, ISA_MIPS32R2;
@@ -1566,7 +1570,12 @@ def PREF :  MMRel, CacheOp<"pref", mem>, CACHEOP_FM<0b110011>,
 // Instruction aliases
 //===----------------------------------------------------------------------===//
 def : MipsInstAlias<"move $dst, $src",
-                    (ADDu GPR32Opnd:$dst, GPR32Opnd:$src,ZERO), 1>,
+                    (OR GPR32Opnd:$dst, GPR32Opnd:$src, ZERO), 1>,
+      GPR_32 {
+  let AdditionalPredicates = [NotInMicroMips];
+}
+def : MipsInstAlias<"move $dst, $src",
+                    (ADDu GPR32Opnd:$dst, GPR32Opnd:$src, ZERO), 1>,
       GPR_32 {
   let AdditionalPredicates = [NotInMicroMips];
 }
@@ -1611,7 +1620,9 @@ def : MipsInstAlias<"or $rs, $rt, $imm",
                     (ORi GPR32Opnd:$rs, GPR32Opnd:$rt, uimm16:$imm), 0>;
 def : MipsInstAlias<"or $rs, $imm",
                     (ORi GPR32Opnd:$rs, GPR32Opnd:$rs, uimm16:$imm), 0>;
+let AdditionalPredicates = [NotInMicroMips] in {
 def : MipsInstAlias<"nop", (SLL ZERO, ZERO, 0), 1>;
+}
 def : MipsInstAlias<"mfc0 $rt, $rd", (MFC0 GPR32Opnd:$rt, COP0Opnd:$rd, 0), 0>;
 def : MipsInstAlias<"mtc0 $rt, $rd", (MTC0 COP0Opnd:$rd, GPR32Opnd:$rt, 0), 0>;
 def : MipsInstAlias<"mfc2 $rt, $rd", (MFC2 GPR32Opnd:$rt, COP2Opnd:$rd, 0), 0>;

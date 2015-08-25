@@ -118,16 +118,14 @@ private:
   /// @return True, if we believe @p NewSchedule is an improvement for @p S.
   bool isProfitableSchedule(Scop &S, __isl_keep isl_union_map *NewSchedule);
 
-  /// @brief Create a map that pre-vectorizes one scheduling dimension.
+  /// @brief Pre-vectorizes one scheduling dimension of a schedule band.
   ///
-  /// getPrevectorMap creates a map that maps each input dimension to the same
-  /// output dimension, except for the dimension DimToVectorize.
-  /// DimToVectorize is strip mined by 'VectorWidth' and the newly created
-  /// point loop of DimToVectorize is moved to the innermost level.
+  /// prevectSchedBand splits out the dimension DimToVectorize, tiles it and
+  /// sinks the resulting point loop.
   ///
-  /// Example (DimToVectorize=0, ScheduleDimensions=2, VectorWidth=4):
+  /// Example (DimToVectorize=0, VectorWidth=4):
   ///
-  /// | Before transformation
+  /// | Before transformation:
   /// |
   /// | A[i,j] -> [i,j]
   /// |
@@ -135,17 +133,12 @@ private:
   /// |    for (j = 0; j < 128; j++)
   /// |      A(i,j);
   ///
-  ///   Prevector map:
-  ///   [i,j] -> [it,j,ip] : it % 4 = 0 and it <= ip <= it + 3 and i = ip
-  ///
   /// | After transformation:
   /// |
-  /// | A[i,j] -> [it,j,ip] : it % 4 = 0 and it <= ip <= it + 3 and i = ip
-  /// |
-  /// | for (it = 0; it < 128; it+=4)
+  /// | for (it = 0; it < 32; it+=1)
   /// |    for (j = 0; j < 128; j++)
-  /// |      for (ip = max(0,it); ip < min(128, it + 3); ip++)
-  /// |        A(ip,j);
+  /// |      for (ip = 0; ip <= 3; ip++)
+  /// |        A(4 * it + ip,j);
   ///
   /// The goal of this transformation is to create a trivially vectorizable
   /// loop.  This means a parallel loop at the innermost level that has a
@@ -156,9 +149,9 @@ private:
   /// DimToVectorize can be divided by VectorWidth. The default VectorWidth is
   /// currently constant and not yet target specific. This function does not
   /// reason about parallelism.
-  static __isl_give isl_map *getPrevectorMap(isl_ctx *ctx, int DimToVectorize,
-                                             int ScheduleDimensions,
-                                             int VectorWidth = 4);
+  static __isl_give isl_schedule_node *
+  prevectSchedBand(__isl_take isl_schedule_node *Node, unsigned DimToVectorize,
+                   int VectorWidth = 4);
 
   /// @brief Apply additional optimizations on the bands in the schedule tree.
   ///
@@ -169,15 +162,28 @@ private:
   ///      - if the band is tileable
   ///      - if the band has more than one loop dimension
   ///
-  ///  - Prevectorize the point loop of the tile
+  ///  - Prevectorize the schedule of the band (or the point loop in case of
+  ///    tiling).
   ///      - if vectorization is enabled
   ///
   /// @param Node The schedule node to (possibly) optimize.
   /// @param User A pointer to forward some use information (currently unused).
   static isl_schedule_node *optimizeBand(isl_schedule_node *Node, void *User);
 
-  static __isl_give isl_union_map *
-  getScheduleMap(__isl_keep isl_schedule *Schedule);
+  /// @brief Apply post-scheduling transformations.
+  ///
+  /// This function applies a set of additional local transformations on the
+  /// schedule tree as it computed by the isl scheduler. Local transformations
+  /// applied include:
+  ///
+  ///   - Tiling
+  ///   - Prevectorization
+  ///
+  /// @param Schedule The schedule object post-transformations will be applied
+  ///                 on.
+  /// @returns        The transformed schedule.
+  static __isl_give isl_schedule *
+  addPostTransforms(__isl_take isl_schedule *Schedule);
 
   using llvm::Pass::doFinalization;
 
@@ -191,58 +197,33 @@ private:
 
 char IslScheduleOptimizer::ID = 0;
 
-__isl_give isl_map *
-IslScheduleOptimizer::getPrevectorMap(isl_ctx *ctx, int DimToVectorize,
-                                      int ScheduleDimensions, int VectorWidth) {
-  isl_space *Space;
-  isl_local_space *LocalSpace, *LocalSpaceRange;
-  isl_set *Modulo;
-  isl_map *TilingMap;
-  isl_constraint *c;
-  isl_aff *Aff;
-  int PointDimension; /* ip */
-  int TileDimension;  /* it */
-  isl_val *VectorWidthMP;
+__isl_give isl_schedule_node *
+IslScheduleOptimizer::prevectSchedBand(__isl_take isl_schedule_node *Node,
+                                       unsigned DimToVectorize,
+                                       int VectorWidth) {
+  assert(isl_schedule_node_get_type(Node) == isl_schedule_node_band);
 
-  assert(0 <= DimToVectorize && DimToVectorize < ScheduleDimensions);
+  auto Space = isl_schedule_node_band_get_space(Node);
+  auto ScheduleDimensions = isl_space_dim(Space, isl_dim_set);
+  isl_space_free(Space);
+  assert(DimToVectorize < ScheduleDimensions);
 
-  Space = isl_space_alloc(ctx, 0, ScheduleDimensions, ScheduleDimensions + 1);
-  TilingMap = isl_map_universe(isl_space_copy(Space));
-  LocalSpace = isl_local_space_from_space(Space);
-  PointDimension = ScheduleDimensions;
-  TileDimension = DimToVectorize;
-
-  // Create an identity map for everything except DimToVectorize and map
-  // DimToVectorize to the point loop at the innermost dimension.
-  for (int i = 0; i < ScheduleDimensions; i++)
-    if (i == DimToVectorize)
-      TilingMap =
-          isl_map_equate(TilingMap, isl_dim_in, i, isl_dim_out, PointDimension);
-    else
-      TilingMap = isl_map_equate(TilingMap, isl_dim_in, i, isl_dim_out, i);
-
-  // it % 'VectorWidth' = 0
-  LocalSpaceRange = isl_local_space_range(isl_local_space_copy(LocalSpace));
-  Aff = isl_aff_zero_on_domain(LocalSpaceRange);
-  Aff = isl_aff_set_constant_si(Aff, VectorWidth);
-  Aff = isl_aff_set_coefficient_si(Aff, isl_dim_in, TileDimension, 1);
-  VectorWidthMP = isl_val_int_from_si(ctx, VectorWidth);
-  Aff = isl_aff_mod_val(Aff, VectorWidthMP);
-  Modulo = isl_pw_aff_zero_set(isl_pw_aff_from_aff(Aff));
-  TilingMap = isl_map_intersect_range(TilingMap, Modulo);
-
-  // it <= ip
-  TilingMap = isl_map_order_le(TilingMap, isl_dim_out, TileDimension,
-                               isl_dim_out, PointDimension);
-
-  // ip <= it + ('VectorWidth' - 1)
-  c = isl_inequality_alloc(LocalSpace);
-  isl_constraint_set_coefficient_si(c, isl_dim_out, TileDimension, 1);
-  isl_constraint_set_coefficient_si(c, isl_dim_out, PointDimension, -1);
-  isl_constraint_set_constant_si(c, VectorWidth - 1);
-  TilingMap = isl_map_add_constraint(TilingMap, c);
-
-  return TilingMap;
+  if (DimToVectorize > 0) {
+    Node = isl_schedule_node_band_split(Node, DimToVectorize);
+    Node = isl_schedule_node_child(Node, 0);
+  }
+  if (DimToVectorize < ScheduleDimensions - 1)
+    Node = isl_schedule_node_band_split(Node, 1);
+  Space = isl_schedule_node_band_get_space(Node);
+  auto Sizes = isl_multi_val_zero(Space);
+  auto Ctx = isl_schedule_node_get_ctx(Node);
+  Sizes =
+      isl_multi_val_set_val(Sizes, 0, isl_val_int_from_si(Ctx, VectorWidth));
+  Node = isl_schedule_node_band_tile(Node, Sizes);
+  Node = isl_schedule_node_child(Node, 0);
+  Node = isl_schedule_node_band_sink(Node);
+  Node = isl_schedule_node_child(Node, 0);
+  return Node;
 }
 
 isl_schedule_node *IslScheduleOptimizer::optimizeBand(isl_schedule_node *Node,
@@ -288,40 +269,30 @@ isl_schedule_node *IslScheduleOptimizer::optimizeBand(isl_schedule_node *Node,
     Res = Node;
   } else {
     Res = isl_schedule_node_band_tile(Node, Sizes);
+    Res = isl_schedule_node_child(Res, 0);
   }
 
   if (PollyVectorizerChoice == VECTORIZER_NONE)
     return Res;
 
-  Child = isl_schedule_node_get_child(Res, 0);
-  auto ChildSchedule = isl_schedule_node_band_get_partial_schedule(Child);
-
-  for (int i = Dims - 1; i >= 0; i--) {
-    if (isl_schedule_node_band_member_get_coincident(Child, i)) {
-      auto TileMap = IslScheduleOptimizer::getPrevectorMap(Ctx, i, Dims);
-      auto TileUMap = isl_union_map_from_map(TileMap);
-      auto ChildSchedule2 = isl_union_map_apply_range(
-          isl_union_map_from_multi_union_pw_aff(ChildSchedule), TileUMap);
-      ChildSchedule = isl_multi_union_pw_aff_from_union_map(ChildSchedule2);
+  for (int i = Dims - 1; i >= 0; i--)
+    if (isl_schedule_node_band_member_get_coincident(Res, i)) {
+      Res = IslScheduleOptimizer::prevectSchedBand(Res, i);
       break;
     }
-  }
 
-  isl_schedule_node_free(Res);
-  Res = isl_schedule_node_delete(Child);
-  Res = isl_schedule_node_insert_partial_schedule(Res, ChildSchedule);
   return Res;
 }
 
-__isl_give isl_union_map *
-IslScheduleOptimizer::getScheduleMap(__isl_keep isl_schedule *Schedule) {
+__isl_give isl_schedule *
+IslScheduleOptimizer::addPostTransforms(__isl_take isl_schedule *Schedule) {
   isl_schedule_node *Root = isl_schedule_get_root(Schedule);
+  isl_schedule_free(Schedule);
   Root = isl_schedule_node_map_descendant_bottom_up(
       Root, IslScheduleOptimizer::optimizeBand, NULL);
-  auto ScheduleMap = isl_schedule_node_get_subtree_schedule_union_map(Root);
-  ScheduleMap = isl_union_map_detect_equalities(ScheduleMap);
+  auto S = isl_schedule_node_get_schedule(Root);
   isl_schedule_node_free(Root);
-  return ScheduleMap;
+  return S;
 }
 
 bool IslScheduleOptimizer::isProfitableSchedule(
@@ -463,36 +434,19 @@ bool IslScheduleOptimizer::runOnScop(Scop &S) {
     isl_printer_free(P);
   });
 
-  isl_union_map *NewSchedule = getScheduleMap(Schedule);
+  isl_schedule *NewSchedule = addPostTransforms(Schedule);
+  isl_union_map *NewScheduleMap = isl_schedule_get_map(NewSchedule);
 
-  // Check if the optimizations performed were profitable, otherwise exit early.
-  if (!isProfitableSchedule(S, NewSchedule)) {
-    isl_schedule_free(Schedule);
-    isl_union_map_free(NewSchedule);
+  if (!isProfitableSchedule(S, NewScheduleMap)) {
+    isl_union_map_free(NewScheduleMap);
+    isl_schedule_free(NewSchedule);
     return false;
   }
 
+  S.setScheduleTree(NewSchedule);
   S.markAsOptimized();
 
-  for (ScopStmt &Stmt : S) {
-    isl_map *StmtSchedule;
-    isl_set *Domain = Stmt.getDomain();
-    isl_union_map *StmtBand;
-    StmtBand = isl_union_map_intersect_domain(isl_union_map_copy(NewSchedule),
-                                              isl_union_set_from_set(Domain));
-    if (isl_union_map_is_empty(StmtBand)) {
-      StmtSchedule = isl_map_from_domain(isl_set_empty(Stmt.getDomainSpace()));
-      isl_union_map_free(StmtBand);
-    } else {
-      assert(isl_union_map_n_map(StmtBand) == 1);
-      StmtSchedule = isl_map_from_union_map(StmtBand);
-    }
-
-    Stmt.setSchedule(StmtSchedule);
-  }
-
-  isl_schedule_free(Schedule);
-  isl_union_map_free(NewSchedule);
+  isl_union_map_free(NewScheduleMap);
   return false;
 }
 

@@ -130,8 +130,8 @@ TEST_F(IRBuilderTest, GetIntTy) {
 
 TEST_F(IRBuilderTest, FastMathFlags) {
   IRBuilder<> Builder(BB);
-  Value *F;
-  Instruction *FDiv, *FAdd;
+  Value *F, *FC;
+  Instruction *FDiv, *FAdd, *FCmp;
 
   F = Builder.CreateLoad(GV);
   F = Builder.CreateFAdd(F, F);
@@ -187,6 +187,24 @@ TEST_F(IRBuilderTest, FastMathFlags) {
   ASSERT_TRUE(isa<Instruction>(F));
   FDiv = cast<Instruction>(F);
   EXPECT_TRUE(FDiv->hasAllowReciprocal());
+
+  Builder.clearFastMathFlags();
+
+  FC = Builder.CreateFCmpOEQ(F, F);
+  ASSERT_TRUE(isa<Instruction>(FC));
+  FCmp = cast<Instruction>(FC);
+  EXPECT_FALSE(FCmp->hasAllowReciprocal());
+
+  FMF.clear();
+  FMF.setAllowReciprocal();
+  Builder.SetFastMathFlags(FMF);
+
+  FC = Builder.CreateFCmpOEQ(F, F);
+  EXPECT_TRUE(Builder.getFastMathFlags().any());
+  EXPECT_TRUE(Builder.getFastMathFlags().AllowReciprocal);
+  ASSERT_TRUE(isa<Instruction>(FC));
+  FCmp = cast<Instruction>(FC);
+  EXPECT_TRUE(FCmp->hasAllowReciprocal());
 
   Builder.clearFastMathFlags();
 
@@ -342,9 +360,11 @@ TEST_F(IRBuilderTest, DebugLoc) {
 
   DIBuilder DIB(*M);
   auto File = DIB.createFile("tmp.cpp", "/");
+  auto CU = DIB.createCompileUnit(dwarf::DW_LANG_C_plus_plus_11, "tmp.cpp", "/",
+                                  "", true, "", 0);
   auto SPType = DIB.createSubroutineType(File, DIB.getOrCreateTypeArray(None));
   auto SP =
-      DIB.createFunction(File, "foo", "foo", File, 1, SPType, false, true, 1);
+      DIB.createFunction(CU, "foo", "foo", File, 1, SPType, false, true, 1);
   DebugLoc DL1 = DILocation::get(Ctx, 2, 0, SP);
   DebugLoc DL2 = DILocation::get(Ctx, 3, 0, SP);
 
@@ -363,5 +383,7 @@ TEST_F(IRBuilderTest, DebugLoc) {
   EXPECT_EQ(DL2, Builder.getCurrentDebugLocation());
   auto Call2 = Builder.CreateCall(Callee, None);
   EXPECT_EQ(DL2, Call2->getDebugLoc());
+
+  DIB.finalize();
 }
 }
