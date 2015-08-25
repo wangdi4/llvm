@@ -163,7 +163,7 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
 {
     cl_command_queue iQueueID   = CL_INVALID_HANDLE;
     SharedPtr<Context>    pContext   = NULL;
-    cl_command_queue_properties queueProps;
+    cl_command_queue_properties queueProps = 0;
     cl_uint uiQueueSize;
     cl_int      errVal     = CheckCreateCommandQueueParams(clContext, clDevice, clQueueProperties, &pContext, queueProps, uiQueueSize);
 
