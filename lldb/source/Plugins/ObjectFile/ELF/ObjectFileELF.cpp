@@ -905,8 +905,17 @@ ObjectFileELF::GetAddressByteSize() const
 AddressClass
 ObjectFileELF::GetAddressClass (addr_t file_addr)
 {
-    auto res = ObjectFile::GetAddressClass (file_addr);
+    Symtab* symtab = GetSymtab();
+    if (!symtab)
+        return eAddressClassUnknown;
 
+    // The address class is determined based on the symtab. Ask it from the object file what
+    // contains the symtab information.
+    ObjectFile* symtab_objfile = symtab->GetObjectFile();
+    if (symtab_objfile != nullptr && symtab_objfile != this)
+        return symtab_objfile->GetAddressClass(file_addr);
+
+    auto res = ObjectFile::GetAddressClass (file_addr);
     if (res != eAddressClassCode)
         return res;
 
@@ -1437,6 +1446,25 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
         assert(spec_ostype == ostype);
     }
 
+    if (arch_spec.GetMachine() == llvm::Triple::mips || arch_spec.GetMachine() == llvm::Triple::mipsel
+        || arch_spec.GetMachine() == llvm::Triple::mips64 || arch_spec.GetMachine() == llvm::Triple::mips64el)
+    {
+        switch (header.e_flags & llvm::ELF::EF_MIPS_ARCH_ASE)
+        {
+            case llvm::ELF::EF_MIPS_MICROMIPS:  
+                arch_spec.SetFlags (ArchSpec::eMIPSAse_micromips); 
+                break;
+            case llvm::ELF::EF_MIPS_ARCH_ASE_M16: 
+                arch_spec.SetFlags (ArchSpec::eMIPSAse_mips16); 
+                break;
+            case llvm::ELF::EF_MIPS_ARCH_ASE_MDMX: 
+                arch_spec.SetFlags (ArchSpec::eMIPSAse_mdmx); 
+                break;
+            default: 
+                break;
+        }
+    }
+
     // If there are no section headers we are done.
     if (header.e_shnum == 0)
         return 0;
@@ -1482,6 +1510,22 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
                 ConstString name(shstr_data.PeekCStr(I->sh_name));
 
                 I->section_name = name;
+
+                if (arch_spec.GetMachine() == llvm::Triple::mips || arch_spec.GetMachine() == llvm::Triple::mipsel
+                    || arch_spec.GetMachine() == llvm::Triple::mips64 || arch_spec.GetMachine() == llvm::Triple::mips64el)
+                {
+                    if (header.sh_type == SHT_MIPS_ABIFLAGS)
+                    {
+                        DataExtractor data;
+                        if (section_size && (data.SetData (object_data, header.sh_offset, section_size) == section_size))
+                        {
+                            lldb::offset_t ase_offset = 12; // MIPS ABI Flags Version: 0
+                            uint32_t arch_flags = arch_spec.GetFlags ();
+                            arch_flags |= data.GetU32 (&ase_offset);
+                            arch_spec.SetFlags (arch_flags);
+                        }
+                    }
+                }
 
                 if (name == g_sect_name_gnu_debuglink)
                 {
@@ -1558,7 +1602,7 @@ ObjectFileELF::GetSegmentDataByIndex(lldb::user_id_t id)
 std::string
 ObjectFileELF::StripLinkerSymbolAnnotations(llvm::StringRef symbol_name) const
 {
-    size_t pos = symbol_name.find("@");
+    size_t pos = symbol_name.find('@');
     return symbol_name.substr(0, pos).str();
 }
 
@@ -1696,7 +1740,7 @@ ObjectFileELF::CreateSections(SectionList &unified_section_list)
             if (eSectionTypeOther == sect_type)
             {
                 // the kalimba toolchain assumes that ELF section names are free-form. It does
-                // supports linkscripts which (can) give rise to various arbitarily named
+                // support linkscripts which (can) give rise to various arbitrarily named
                 // sections being "Code" or "Data". 
                 sect_type = kalimbaSectionType(m_header, header);
             }
@@ -1795,7 +1839,16 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
     static ConstString bss_section_name(".bss");
     static ConstString opd_section_name(".opd");    // For ppc64
 
-    //StreamFile strm(stdout, false);
+    // On Android the oatdata and the oatexec symbols in system@framework@boot.oat covers the full
+    // .text section what causes issues with displaying unusable symbol name to the user and very
+    // slow unwinding speed because the instruction emulation based unwind plans try to emulate all
+    // instructions in these symbols. Don't add these symbols to the symbol list as they have no
+    // use for the debugger and they are causing a lot of trouble.
+    // Filtering can't be restricted to Android because this special object file don't contain the
+    // note section specifying the environment to Android but the custom extension and file name
+    // makes it highly unlikely that this will collide with anything else.
+    bool skip_oatdata_oatexec = m_file.GetFilename() == ConstString("system@framework@boot.oat");
+
     unsigned i;
     for (i = 0; i < num_symbols; ++i)
     {
@@ -1809,7 +1862,10 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             (symbol_name == NULL || symbol_name[0] == '\0'))
             continue;
 
-        //symbol.Dump (&strm, i, &strtab_data, section_list);
+        // Skipping oatdata and oatexec sections if it is requested. See details above the
+        // definition of skip_oatdata_oatexec for the reasons.
+        if (skip_oatdata_oatexec && (::strcmp(symbol_name, "oatdata") == 0 || ::strcmp(symbol_name, "oatexec") == 0))
+            continue;
 
         SectionSP symbol_section_sp;
         SymbolType symbol_type = eSymbolTypeInvalid;
@@ -1929,7 +1985,6 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
                             m_address_class_map[symbol.st_value] = eAddressClassData;
                         }
                     }
-
                     continue;
                 }
             }
@@ -1984,9 +2039,13 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             }
         }
 
-        // If the symbol section we've found has no data (SHT_NOBITS), then check the module section
-        // list. This can happen if we're parsing the debug file and it has no .text section, for example.
-        if (symbol_section_sp && (symbol_section_sp->GetFileSize() == 0))
+        // symbol_value_offset may contain 0 for ARM symbols or -1 for
+        // THUMB symbols. See above for more details.
+        uint64_t symbol_value = symbol.st_value + symbol_value_offset;
+        if (symbol_section_sp && CalculateType() != ObjectFile::Type::eTypeObjectFile)
+            symbol_value -= symbol_section_sp->GetFileAddress();
+
+        if (symbol_section_sp)
         {
             ModuleSP module_sp(GetModule());
             if (module_sp)
@@ -2004,11 +2063,6 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             }
         }
 
-        // symbol_value_offset may contain 0 for ARM symbols or -1 for
-        // THUMB symbols. See above for more details.
-        uint64_t symbol_value = symbol.st_value + symbol_value_offset;
-        if (symbol_section_sp && CalculateType() != ObjectFile::Type::eTypeObjectFile)
-            symbol_value -= symbol_section_sp->GetFileAddress();
         bool is_global = symbol.getBinding() == STB_GLOBAL;
         uint32_t flags = symbol.st_other << 8 | symbol.st_info | additional_flags;
         bool is_mangled = symbol_name ? (symbol_name[0] == '_' && symbol_name[1] == 'Z') : false;
@@ -2022,7 +2076,7 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
         Mangled mangled(ConstString(symbol_bare), is_mangled);
 
         // Now append the suffix back to mangled and unmangled names. Only do it if the
-        // demangling was sucessful (string is not empty).
+        // demangling was successful (string is not empty).
         if (has_suffix)
         {
             llvm::StringRef suffix = symbol_ref.substr(version_pos);
@@ -2031,8 +2085,9 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
             if (! mangled_name.empty())
                 mangled.SetMangledName( ConstString((mangled_name + suffix).str()) );
 
-            llvm::StringRef demangled_name = mangled.GetDemangledName().GetStringRef();
-            if (! demangled_name.empty())
+            ConstString demangled = mangled.GetDemangledName(lldb::eLanguageTypeUnknown);
+            llvm::StringRef demangled_name = demangled.GetStringRef();
+            if (!demangled_name.empty())
                 mangled.SetDemangledName( ConstString((demangled_name + suffix).str()) );
         }
 
@@ -2173,7 +2228,7 @@ ObjectFileELF::PLTRelocationType()
 }
 
 // Returns the size of the normal plt entries and the offset of the first normal plt entry. The
-// 0th entry in the plt table is ususally a resolution entry which have different size in some
+// 0th entry in the plt table is usually a resolution entry which have different size in some
 // architectures then the rest of the plt entries.
 static std::pair<uint64_t, uint64_t>
 GetPltEntrySizeAndOffset(const ELFSectionHeader* rel_hdr, const ELFSectionHeader* plt_hdr)
@@ -2189,8 +2244,8 @@ GetPltEntrySizeAndOffset(const ELFSectionHeader* rel_hdr, const ELFSectionHeader
     {
         // The linker haven't set the plt_hdr->sh_entsize field. Try to guess the size of the plt
         // entries based on the number of entries and the size of the plt section with the
-        // asumption that the size of the 0th entry is at least as big as the size of the normal
-        // entries and it isn't mutch bigger then that.
+        // assumption that the size of the 0th entry is at least as big as the size of the normal
+        // entries and it isn't much bigger then that.
         if (plt_hdr->sh_addralign)
             plt_entsize = plt_hdr->sh_size / plt_hdr->sh_addralign / (num_relocations + 1) * plt_hdr->sh_addralign;
         else
@@ -2515,8 +2570,6 @@ ObjectFileELF::GetSymtab()
         uint64_t symbol_id = 0;
         lldb_private::Mutex::Locker locker(module_sp->GetMutex());
 
-        m_symtab_ap.reset(new Symtab(this));
-
         // Sharable objects and dynamic executables usually have 2 distinct symbol
         // tables, one named ".symtab", and the other ".dynsym". The dynsym is a smaller
         // version of the symtab that only contains global symbols. The information found
@@ -2530,7 +2583,10 @@ ObjectFileELF::GetSymtab()
             symtab = section_list->FindSectionByType (eSectionTypeELFDynamicSymbols, true).get();
         }
         if (symtab)
+        {
+            m_symtab_ap.reset(new Symtab(symtab->GetObjectFile()));
             symbol_id += ParseSymbolTable (m_symtab_ap.get(), symbol_id, symtab);
+        }
 
         // DT_JMPREL
         //      If present, this entry's d_ptr member holds the address of relocation
@@ -2550,10 +2606,19 @@ ObjectFileELF::GetSymtab()
                 user_id_t reloc_id = reloc_section->GetID();
                 const ELFSectionHeaderInfo *reloc_header = GetSectionHeaderByIndex(reloc_id);
                 assert(reloc_header);
+                
+                if (m_symtab_ap == nullptr)
+                    m_symtab_ap.reset(new Symtab(reloc_section->GetObjectFile()));
 
                 ParseTrampolineSymbols (m_symtab_ap.get(), symbol_id, reloc_header, reloc_id);
             }
         }
+        
+        // If we still don't have any symtab then create an empty instance to avoid do the section
+        // lookup next time.
+        if (m_symtab_ap == nullptr)
+            m_symtab_ap.reset(new Symtab(this));
+            
         m_symtab_ap->CalculateSymbolSizes();
     }
 

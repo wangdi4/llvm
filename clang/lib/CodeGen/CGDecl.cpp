@@ -79,22 +79,19 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::Captured:
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::UsingShadow:
+  case Decl::ObjCTypeParam:
     llvm_unreachable("Declaration should not be in declstmts!");
   case Decl::Function:  // void X();
+  case Decl::Record:    // struct/union/class X;
   case Decl::Enum:      // enum X;
   case Decl::EnumConstant: // enum ? { X = ? }
+  case Decl::CXXRecord: // struct/union/class X; [C++]
   case Decl::StaticAssert: // static_assert(X, ""); [C++0x]
   case Decl::Label:        // __label__ x;
   case Decl::Import:
   case Decl::OMPThreadPrivate:
   case Decl::Empty:
     // None of these decls require codegen support.
-    return;
-
-  case Decl::CXXRecord: // struct/union/class X; [C++]
-  case Decl::Record:    // struct/union/class X;
-    if (CGDebugInfo *DI = getDebugInfo())
-      DI->recordDeclarationLexicalScope(D);
     return;
 
   case Decl::NamespaceAlias:
@@ -120,9 +117,6 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
   case Decl::TypeAlias: {  // using X = int; [C++0x]
     const TypedefNameDecl &TD = cast<TypedefNameDecl>(D);
     QualType Ty = TD.getUnderlyingType();
-
-    if (CGDebugInfo *DI = getDebugInfo())
-      DI->recordDeclarationLexicalScope(D);
 
     if (Ty->isVariablyModifiedType())
       EmitVariablyModifiedType(Ty);
@@ -317,6 +311,7 @@ CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
                                   OldGV->getThreadLocalMode(),
                            CGM.getContext().getTargetAddressSpace(D.getType()));
     GV->setVisibility(OldGV->getVisibility());
+    GV->setComdat(OldGV->getComdat());
 
     // Steal the name of the old global
     GV->takeName(OldGV);
@@ -586,9 +581,9 @@ static bool isAccessedBy(const VarDecl &var, const Stmt *s) {
     }
   }
 
-  for (Stmt::const_child_range children = s->children(); children; ++children)
-    // children might be null; as in missing decl or conditional of an if-stmt.
-    if ((*children) && isAccessedBy(var, *children))
+  for (const Stmt *SubStmt : s->children())
+    // SubStmt might be null; as in missing decl or conditional of an if-stmt.
+    if (SubStmt && isAccessedBy(var, SubStmt))
       return true;
 
   return false;
@@ -994,7 +989,7 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       llvm::Value *Stack = CreateTempAlloca(Int8PtrTy, "saved_stack");
 
       llvm::Value *F = CGM.getIntrinsic(llvm::Intrinsic::stacksave);
-      llvm::Value *V = Builder.CreateCall(F, {});
+      llvm::Value *V = Builder.CreateCall(F);
 
       Builder.CreateStore(V, Stack);
 
@@ -1081,8 +1076,8 @@ static bool isCapturedBy(const VarDecl &var, const Expr *e) {
     return false;
   }
 
-  for (Stmt::const_child_range children = e->children(); children; ++children)
-    if (isCapturedBy(var, cast<Expr>(*children)))
+  for (const Stmt *SubStmt : e->children())
+    if (isCapturedBy(var, cast<Expr>(SubStmt)))
       return true;
 
   return false;

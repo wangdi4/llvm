@@ -289,26 +289,27 @@ static InlineReason InlineCallIfPossible(CallSite CS, // INTEL
 }
 
 unsigned Inliner::getInlineThreshold(CallSite CS) const {
-  int thres = InlineThreshold; // -inline-threshold or else selected by
-                               // overall opt level
+  int Threshold = InlineThreshold; // -inline-threshold or else selected by
+                                   // overall opt level
 
   // If -inline-threshold is not given, listen to the optsize attribute when it
   // would decrease the threshold.
   Function *Caller = CS.getCaller();
   bool OptSize = Caller && !Caller->isDeclaration() &&
+                 // FIXME: Use Function::optForSize().
                  Caller->hasFnAttribute(Attribute::OptimizeForSize);
   if (!(InlineLimit.getNumOccurrences() > 0) && OptSize &&
-      OptSizeThreshold < thres)
-    thres = OptSizeThreshold;
+      OptSizeThreshold < Threshold)
+    Threshold = OptSizeThreshold;
 
   // Listen to the inlinehint attribute when it would increase the threshold
   // and the caller does not need to minimize its size.
   Function *Callee = CS.getCalledFunction();
   bool InlineHint = Callee && !Callee->isDeclaration() &&
                     Callee->hasFnAttribute(Attribute::InlineHint);
-  if (InlineHint && HintThreshold > thres &&
+  if (InlineHint && HintThreshold > Threshold &&
       !Caller->hasFnAttribute(Attribute::MinSize))
-    thres = HintThreshold;
+    Threshold = HintThreshold;
 
   // Listen to the cold attribute when it would decrease the threshold.
   bool ColdCallee = Callee && !Callee->isDeclaration() &&
@@ -318,10 +319,10 @@ unsigned Inliner::getInlineThreshold(CallSite CS) const {
   // do not use the default cold threshold even if it is smaller.
   if ((InlineLimit.getNumOccurrences() == 0 ||
        ColdThreshold.getNumOccurrences() > 0) && ColdCallee &&
-      ColdThreshold < thres)
-    thres = ColdThreshold;
+      ColdThreshold < Threshold)
+    Threshold = ColdThreshold;
 
-  return thres;
+  return Threshold;
 }
 
 static void emitAnalysis(CallSite CS, const Twine &Msg) {
@@ -503,36 +504,27 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
     for (BasicBlock &BB : *F)
       for (Instruction &I : BB) {
         CallSite CS(cast<Value>(&I));
-#ifdef INTEL_CUSTOMIZATION
         // If this isn't a call, or it is a call to an intrinsic, it can
         // never be inlined.
-        if (!CS) {
+        if (!CS)     // INTEL - Split out compound checks for inlining report
           continue;
-        } 
-        if (getReport().getCallSite(CS) == nullptr) { 
-          getReport().addCallSite(F, &CS, &CG.getModule()); 
-        } 
-        if (isa<IntrinsicInst>(I)) {
-            getReport().setReasonNotInlined(CS, NinlrIntrinsic); 
-            continue; 
-        } 
-        // If this is a direct call to an external function, we can never inline
-        // it.  If it is an indirect call, inlining may resolve it to be a
-        // direct call, so we keep it.
-        if (CS.getCalledFunction() && CS.getCalledFunction()->isDeclaration()) {
-          getReport().setReasonNotInlined(CS, NinlrExtern); 
-          continue; 
-        } 
-#endif // INTEL_CUSTOMIZATION
+
+        if (getReport().getCallSite(CS) == nullptr) {             // INTEL
+          getReport().addCallSite(F, &CS, &CG.getModule());       // INTEL
+        }                                                         // INTEL
+        if (isa<IntrinsicInst>(I)) {                              // INTEL
+            getReport().setReasonNotInlined(CS, NinlrIntrinsic);  // INTEL
+            continue;
+        }                                                         // INTEL
 
         // If this is a direct call to an external function, we can never inline
         // it.  If it is an indirect call, inlining may resolve it to be a
         // direct call, so we keep it.
-        if (CS.getCalledFunction() // INTEL 
-          && CS.getCalledFunction()->isDeclaration()) { // INTEL 
-          getReport().setReasonNotInlined(CS, NinlrExtern); // INTEL 
-          continue;
-        } 
+        if (Function *Callee = CS.getCalledFunction())
+          if (Callee->isDeclaration()) {                      // INTEL
+            getReport().setReasonNotInlined(CS, NinlrExtern); // INTEL 
+            continue;
+            }                                                 // INTEL
         CallSites.push_back(std::make_pair(CS, -1));
       }
   }
@@ -544,7 +536,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
     getReport().makeAllNotCurrent(); // INTEL 
     return false;
   } // INTEL 
-  
+
   // Now that we have all of the call sites, move the ones to functions in the
   // current SCC to the end of the list.
   unsigned FirstCallInSCC = CallSites.size();
@@ -760,8 +752,8 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
 
   // Scan for all of the functions, looking for ones that should now be removed
   // from the program.  Insert the dead ones in the FunctionsToRemove set.
-  for (auto I : CG) {
-    CallGraphNode *CGN = I.second;
+  for (const auto &I : CG) {
+    CallGraphNode *CGN = I.second.get();
     Function *F = CGN->getFunction();
     if (!F || F->isDeclaration())
       continue;

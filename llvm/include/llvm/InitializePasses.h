@@ -89,10 +89,10 @@ void initializeBarrierNoopPass(PassRegistry&);
 void initializeBasicAliasAnalysisPass(PassRegistry&);
 void initializeCallGraphWrapperPassPass(PassRegistry &);
 void initializeBlockExtractorPassPass(PassRegistry&);
-void initializeBlockFrequencyInfoPass(PassRegistry&);
+void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);
 void initializeBoundsCheckingPass(PassRegistry&);
 void initializeBranchFolderPassPass(PassRegistry&);
-void initializeBranchProbabilityInfoPass(PassRegistry&);
+void initializeBranchProbabilityInfoWrapperPassPass(PassRegistry&);
 void initializeBreakCriticalEdgesPass(PassRegistry&);
 void initializeCallGraphPrinterPass(PassRegistry&);
 void initializeCallGraphViewerPass(PassRegistry&);
@@ -140,6 +140,7 @@ void initializeSanitizerCoverageModulePass(PassRegistry&);
 void initializeDataFlowSanitizerPass(PassRegistry&);
 void initializeScalarizerPass(PassRegistry&);
 void initializeEarlyCSELegacyPassPass(PassRegistry &);
+void initializeEliminateAvailableExternallyPass(PassRegistry&);
 void initializeExpandISelPseudosPass(PassRegistry&);
 void initializeFunctionAttrsPass(PassRegistry&);
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
@@ -311,12 +312,10 @@ void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+// Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
-#endif  // INTEL_CUSTOMIZATION
-void initializeLoopDistributePass(PassRegistry&);
-
-#if INTEL_CUSTOMIZATION // HIR passes
+// HIR Passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
 void initializeScalarSymbaseAssignmentPass(PassRegistry&);
@@ -326,7 +325,6 @@ void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
-
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
@@ -335,6 +333,8 @@ void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
+void initializeLoopDistributePass(PassRegistry&);
+void initializeSjLjEHPreparePass(PassRegistry&);
 }
 
 #endif

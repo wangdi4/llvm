@@ -167,6 +167,8 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   bool visitSwitchInst(SwitchInst &SI);
   bool visitIndirectBrInst(IndirectBrInst &IBI);
   bool visitResumeInst(ResumeInst &RI);
+  bool visitCleanupReturnInst(CleanupReturnInst &RI);
+  bool visitCatchReturnInst(CatchReturnInst &RI);
   bool visitUnreachableInst(UnreachableInst &I);
 
 public:
@@ -794,7 +796,7 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
       case Intrinsic::memmove:
         // SROA can usually chew through these intrinsics, but they aren't free.
         return false;
-      case Intrinsic::frameescape:
+      case Intrinsic::localescape:
         HasFrameEscape = true;
         return false;
       }
@@ -911,6 +913,18 @@ bool CallAnalyzer::visitIndirectBrInst(IndirectBrInst &IBI) {
 bool CallAnalyzer::visitResumeInst(ResumeInst &RI) {
   // FIXME: It's not clear that a single instruction is an accurate model for
   // the inline cost of a resume instruction.
+  return false;
+}
+
+bool CallAnalyzer::visitCleanupReturnInst(CleanupReturnInst &CRI) {
+  // FIXME: It's not clear that a single instruction is an accurate model for
+  // the inline cost of a cleanupret instruction.
+  return false;
+}
+
+bool CallAnalyzer::visitCatchReturnInst(CatchReturnInst &CRI) {
+  // FIXME: It's not clear that a single instruction is an accurate model for
+  // the inline cost of a cleanupret instruction.
   return false;
 }
 
@@ -1289,7 +1303,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
           *ReasonAddr = NinlrIndirectBranch; 
         } 
         if (HasFrameEscape) { 
-          *ReasonAddr = NinlrCallsFramescape; 
+          *ReasonAddr = NinlrCallsLocalEscape; 
         } 
 #endif // INTEL_CUSTOMIZATION
         return false;
@@ -1444,9 +1458,9 @@ static bool attributeMatches(Function *F1, Function *F2, AttrKind Attr) {
 /// \brief Test that there are no attribute conflicts between Caller and Callee
 ///        that prevent inlining.
 static bool functionsHaveCompatibleAttributes(Function *Caller,
-                                              Function *Callee) {
-  return attributeMatches(Caller, Callee, "target-cpu") &&
-         attributeMatches(Caller, Callee, "target-features") &&
+                                              Function *Callee,
+                                              TargetTransformInfo &TTI) {
+  return TTI.areInlineCompatible(Caller, Callee) &&
          attributeMatches(Caller, Callee, Attribute::SanitizeAddress) &&
          attributeMatches(Caller, Callee, Attribute::SanitizeMemory) &&
          attributeMatches(Caller, Callee, Attribute::SanitizeThread);
@@ -1472,7 +1486,8 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
-  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee))
+  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee,
+                                         TTIWP->getTTI(*Callee)))
     return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL 
 
   // Don't inline this call if the caller has the optnone attribute.
@@ -1560,12 +1575,12 @@ bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL
         return false;
       } // INTEL 
 
-      // Disallow inlining functions that call @llvm.frameescape. Doing this
+      // Disallow inlining functions that call @llvm.localescape. Doing this
       // correctly would require major changes to the inliner.
       if (CS.getCalledFunction() &&
           CS.getCalledFunction()->getIntrinsicID() ==
-              llvm::Intrinsic::frameescape) { // INTEL 
-        Reason = NinlrCallsFramescape; // INTEL 
+              llvm::Intrinsic::localescape) { // INTEL
+        Reason = NinlrCallsLocalEscape; // INTEL 
         return false;
       } // INTEL 
     }
