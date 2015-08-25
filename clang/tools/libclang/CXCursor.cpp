@@ -612,11 +612,17 @@ CXCursor cxcursor::MakeCXCursor(const Stmt *S, const Decl *Parent,
   case Stmt::OMPTargetDirectiveClass:
     K = CXCursor_OMPTargetDirective;
     break;
+  case Stmt::OMPTargetDataDirectiveClass:
+    K = CXCursor_OMPTargetDataDirective;
+    break;
   case Stmt::OMPTeamsDirectiveClass:
     K = CXCursor_OMPTeamsDirective;
     break;
   case Stmt::OMPCancellationPointDirectiveClass:
     K = CXCursor_OMPCancellationPointDirective;
+    break;
+  case Stmt::OMPCancelDirectiveClass:
+    K = CXCursor_OMPCancelDirective;
     break;
   }
 
@@ -1322,6 +1328,7 @@ CXCompletionString clang_getCursorCompletionString(CXCursor cursor) {
       CodeCompletionString *String
         = Result.CreateCodeCompletionString(unit->getASTContext(),
                                             unit->getPreprocessor(),
+                                            CodeCompletionContext::CCC_Other,
                                  unit->getCodeCompletionTUInfo().getAllocator(),
                                  unit->getCodeCompletionTUInfo(),
                                  true);
@@ -1332,10 +1339,13 @@ CXCompletionString clang_getCursorCompletionString(CXCursor cursor) {
     const IdentifierInfo *MacroInfo = definition->getName();
     ASTUnit *unit = getCursorASTUnit(cursor);
     CodeCompletionResult Result(MacroInfo);
-    CodeCompletionString *String = Result.CreateCodeCompletionString(
-        unit->getASTContext(), unit->getPreprocessor(),
-        unit->getCodeCompletionTUInfo().getAllocator(),
-        unit->getCodeCompletionTUInfo(), false);
+    CodeCompletionString *String
+      = Result.CreateCodeCompletionString(unit->getASTContext(),
+                                          unit->getPreprocessor(),
+                                          CodeCompletionContext::CCC_Other,
+                                 unit->getCodeCompletionTUInfo().getAllocator(),
+                                 unit->getCodeCompletionTUInfo(),
+                                 false);
     return String;
   }
   return nullptr;

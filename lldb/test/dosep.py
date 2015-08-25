@@ -45,13 +45,12 @@ from optparse import OptionParser
 
 def get_timeout_command():
     """Search for a suitable timeout command."""
-    if sys.platform.startswith("win32"):
-        return None
-    try:
-        subprocess.call("timeout", stderr=subprocess.PIPE)
-        return "timeout"
-    except OSError:
-        pass
+    if not sys.platform.startswith("win32"):
+        try:
+            subprocess.call("timeout", stderr=subprocess.PIPE)
+            return "timeout"
+        except OSError:
+            pass
     try:
         subprocess.call("gtimeout", stderr=subprocess.PIPE)
         return "gtimeout"
@@ -67,25 +66,44 @@ eTimedOut, ePassed, eFailed = 124, 0, 1
 output_lock = None
 test_counter = None
 total_tests = None
+dotest_options = None
+output_on_success = False
 
-def setup_lock_and_counter(lock, counter, total):
-    global output_lock, test_counter, total_tests
+def setup_global_variables(lock, counter, total, options):
+    global output_lock, test_counter, total_tests, dotest_options
     output_lock = lock
     test_counter = counter
     total_tests = total
+    dotest_options = options
 
-def update_status(name = None, command = None, output = None):
+def report_test_failure(name, command, output):
+    global output_lock
+    with output_lock:
+        print >> sys.stderr, "\n"
+        print >> sys.stderr, output
+        print >> sys.stderr, "Command invoked: %s" % ' '.join(command)
+        update_progress(name, "FAILED")
+
+def report_test_pass(name, output):
+    global output_lock, output_on_success
+    with output_lock:
+        if output_on_success:
+            print >> sys.stderr, "\n"
+            print >> sys.stderr, output
+        update_progress(name, "PASSED")
+
+def update_progress(test_name, result):
     global output_lock, test_counter, total_tests
     with output_lock:
-        if output is not None:
-            print >> sys.stderr
-            print >> sys.stderr, "Failed test suite: %s" % name
-            print >> sys.stderr, "Command invoked: %s" % ' '.join(command)
-            print >> sys.stderr, "stdout:\n%s" % output[0]
-            print >> sys.stderr, "stderr:\n%s" % output[1]
-        sys.stderr.write("\r%*d out of %d test suites processed" %
-            (len(str(total_tests)), test_counter.value, total_tests))
+        if test_name != None:
+            sys.stderr.write("\n[%s %s] - %d out of %d test suites processed" %
+                (result, test_name, test_counter.value, total_tests))
+        else:
+            sys.stderr.write("\n%d out of %d test suites processed" %
+                (test_counter.value, total_tests))
         test_counter.value += 1
+        sys.stdout.flush()
+        sys.stderr.flush()
 
 def parse_test_results(output):
     passes = 0
@@ -124,7 +142,11 @@ def call_with_timeout(command, timeout, name):
     output = process.communicate()
     exit_status = process.returncode
     passes, failures = parse_test_results(output)
-    update_status(name, command, output if exit_status != 0 else None)
+    if exit_status == 0:
+        # stdout does not have any useful information from 'dotest.py', only stderr does.
+        report_test_pass(name, output[1])
+    else:
+        report_test_failure(name, command, output[1])
     return exit_status, passes, failures
 
 def process_dir(root, files, test_root, dotest_argv):
@@ -152,7 +174,7 @@ def process_dir(root, files, test_root, dotest_argv):
 
         timeout_name = os.path.basename(os.path.splitext(name)[0]).upper()
 
-        timeout = os.getenv("LLDB_%s_TIMEOUT" % timeout_name) or default_timeout
+        timeout = os.getenv("LLDB_%s_TIMEOUT" % timeout_name) or getDefaultTimeout(dotest_options.lldb_platform_name)
 
         exit_status, pass_count, fail_count = call_with_timeout(command, timeout, name)
 
@@ -192,18 +214,18 @@ def walk_and_invoke(test_directory, test_subdir, dotest_argv, num_threads):
         test_work_items.append((root, files, test_directory, dotest_argv))
 
     global output_lock, test_counter, total_tests
-    output_lock = multiprocessing.Lock()
+    output_lock = multiprocessing.RLock()
     total_tests = len(test_work_items)
     test_counter = multiprocessing.Value('i', 0)
     print >> sys.stderr, "Testing: %d tests, %d threads" % (total_tests, num_threads)
-    update_status()
+    update_progress(None, None)
 
     # Run the items, either in a pool (for multicore speedup) or
     # calling each individually.
     if num_threads > 1:
         pool = multiprocessing.Pool(num_threads,
-            initializer = setup_lock_and_counter,
-            initargs = (output_lock, test_counter, total_tests))
+            initializer = setup_global_variables,
+            initargs = (output_lock, test_counter, total_tests, dotest_options))
         test_results = pool.map(process_dir_worker, test_work_items)
     else:
         test_results = []
@@ -243,6 +265,7 @@ def getExpectedTimeouts(platform_name):
         expected_timeout |= {
             "TestAttachDenied.py",
             "TestAttachResume.py",
+            "TestProcessAttach.py",
             "TestConnectRemote.py",
             "TestCreateAfterAttach.py",
             "TestEvents.py",
@@ -324,6 +347,12 @@ Run lldb test suite using a separate process for each test file.
                       dest='dotest_options',
                       help="""The options passed to 'dotest.py' if specified.""")
 
+    parser.add_option('-s', '--output-on-success',
+                      action='store_true',
+                      dest='output_on_success',
+                      default=False,
+                      help="""Print full output of 'dotest.py' even when it succeeds.""")
+
     parser.add_option('-t', '--threads',
                       type='int',
                       dest='num_threads',
@@ -336,6 +365,9 @@ Run lldb test suite using a separate process for each test file.
     dotest_argv = shlex.split(dotest_option_string, posix=is_posix) if dotest_option_string else []
 
     parser = dotest_args.create_parser()
+    global dotest_options
+    global output_on_success
+    output_on_success = opts.output_on_success
     dotest_options = dotest_args.parse_args(parser, dotest_argv)
 
     if not dotest_options.s:
@@ -371,9 +403,6 @@ Run lldb test suite using a separate process for each test file.
             num_threads = multiprocessing.cpu_count()
     if num_threads < 1:
         num_threads = 1
-
-    global default_timeout
-    default_timeout = getDefaultTimeout(dotest_options.lldb_platform_name)
 
     system_info = " ".join(platform.uname())
     (timed_out, failed, passed, all_fails, all_passes) = walk_and_invoke(test_directory, test_subdir, dotest_argv, num_threads)

@@ -99,10 +99,12 @@ llvm::Value *CodeGenFunction::EvaluateExprAsBool(const Expr *E) {
   }
 
   QualType BoolTy = getContext().BoolTy;
+  SourceLocation Loc = E->getExprLoc();
   if (!E->getType()->isAnyComplexType())
-    return EmitScalarConversion(EmitScalarExpr(E), E->getType(), BoolTy);
+    return EmitScalarConversion(EmitScalarExpr(E), E->getType(), BoolTy, Loc);
 
-  return EmitComplexToScalarConversion(EmitComplexExpr(E), E->getType(),BoolTy);
+  return EmitComplexToScalarConversion(EmitComplexExpr(E), E->getType(), BoolTy,
+                                       Loc);
 }
 
 /// EmitIgnoredExpr - Emit code to compute the specified expression,
@@ -1162,16 +1164,8 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(llvm::Value *Addr, bool Volatile,
       llvm::Value *LoadVal = Builder.CreateLoad(Cast, Volatile, "loadVec4");
 
       // Shuffle vector to get vec3.
-      llvm::Constant *Mask[] = {
-        llvm::ConstantInt::get(llvm::Type::getInt32Ty(getLLVMContext()), 0),
-        llvm::ConstantInt::get(llvm::Type::getInt32Ty(getLLVMContext()), 1),
-        llvm::ConstantInt::get(llvm::Type::getInt32Ty(getLLVMContext()), 2)
-      };
-
-      llvm::Value *MaskV = llvm::ConstantVector::get(Mask);
-      V = Builder.CreateShuffleVector(LoadVal,
-                                      llvm::UndefValue::get(vec4Ty),
-                                      MaskV, "extractVec");
+      V = Builder.CreateShuffleVector(LoadVal, llvm::UndefValue::get(vec4Ty),
+                                      {0, 1, 2}, "extractVec");
       return EmitFromMemory(V, Ty);
     }
   }
@@ -1268,18 +1262,10 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
     auto *VecTy = cast<llvm::VectorType>(SrcTy);
     // Handle vec3 special.
     if (VecTy->getNumElements() == 3) {
-      llvm::LLVMContext &VMContext = getLLVMContext();
-
       // Our source is a vec3, do a shuffle vector to make it a vec4.
-      SmallVector<llvm::Constant*, 4> Mask;
-      Mask.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(VMContext),
-                                            0));
-      Mask.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(VMContext),
-                                            1));
-      Mask.push_back(llvm::ConstantInt::get(llvm::Type::getInt32Ty(VMContext),
-                                            2));
-      Mask.push_back(llvm::UndefValue::get(llvm::Type::getInt32Ty(VMContext)));
-
+      llvm::Constant *Mask[] = {Builder.getInt32(0), Builder.getInt32(1),
+                                Builder.getInt32(2),
+                                llvm::UndefValue::get(Builder.getInt32Ty())};
       llvm::Value *MaskV = llvm::ConstantVector::get(Mask);
       Value = Builder.CreateShuffleVector(Value,
                                           llvm::UndefValue::get(VecTy),
@@ -1371,14 +1357,15 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV, SourceLocation Loc) {
 
 RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
   const CGBitFieldInfo &Info = LV.getBitFieldInfo();
+  CharUnits Align = LV.getAlignment().alignmentAtOffset(Info.StorageOffset);
 
   // Get the output type.
   llvm::Type *ResLTy = ConvertType(LV.getType());
 
   llvm::Value *Ptr = LV.getBitFieldAddr();
-  llvm::Value *Val = Builder.CreateLoad(Ptr, LV.isVolatileQualified(),
-                                        "bf.load");
-  cast<llvm::LoadInst>(Val)->setAlignment(Info.StorageAlignment);
+  llvm::Value *Val = Builder.CreateAlignedLoad(Ptr, Align.getQuantity(),
+                                               LV.isVolatileQualified(),
+                                               "bf.load");
 
   if (Info.IsSigned) {
     assert(static_cast<unsigned>(Info.Offset + Info.Size) <= Info.StorageSize);
@@ -1574,6 +1561,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst,
 void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
                                                      llvm::Value **Result) {
   const CGBitFieldInfo &Info = Dst.getBitFieldInfo();
+  CharUnits Align = Dst.getAlignment().alignmentAtOffset(Info.StorageOffset);
   llvm::Type *ResLTy = ConvertTypeForMem(Dst.getType());
   llvm::Value *Ptr = Dst.getBitFieldAddr();
 
@@ -1608,9 +1596,9 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // and mask together with source before storing.
   if (Info.StorageSize != Info.Size) {
     assert(Info.StorageSize > Info.Size && "Invalid bitfield size.");
-    llvm::Value *Val = Builder.CreateLoad(Ptr, Dst.isVolatileQualified(),
-                                          "bf.load");
-    cast<llvm::LoadInst>(Val)->setAlignment(Info.StorageAlignment);
+    llvm::Value *Val = Builder.CreateAlignedLoad(Ptr, Align.getQuantity(),
+                                                 Dst.isVolatileQualified(),
+                                                 "bf.load");
 
     // Mask the source value as needed.
     if (!hasBooleanRepresentation(Dst.getType()))
@@ -1639,9 +1627,8 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 #endif // INTEL_CUSTOMIZATION
 
   // Write the new value back out.
-  llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,
-                                               Dst.isVolatileQualified());
-  Store->setAlignment(Info.StorageAlignment);
+  Builder.CreateAlignedStore(SrcVal, Ptr, Align.getQuantity(),
+                             Dst.isVolatileQualified());
 
   // Return the new value of the bit-field, if requested.
   if (Result) {
@@ -2492,8 +2479,7 @@ void CodeGenFunction::EmitTrapCheck(llvm::Value *Checked) {
     TrapBB = createBasicBlock("trap");
     Builder.CreateCondBr(Checked, Cont, TrapBB);
     EmitBlock(TrapBB);
-    llvm::Value *F = CGM.getIntrinsic(llvm::Intrinsic::trap);
-    llvm::CallInst *TrapCall = Builder.CreateCall(F, {});
+    llvm::CallInst *TrapCall = EmitTrapCall(llvm::Intrinsic::trap);
     TrapCall->setDoesNotReturn();
     TrapCall->setDoesNotThrow();
     Builder.CreateUnreachable();
@@ -2502,6 +2488,17 @@ void CodeGenFunction::EmitTrapCheck(llvm::Value *Checked) {
   }
 
   EmitBlock(Cont);
+}
+
+llvm::CallInst *CodeGenFunction::EmitTrapCall(llvm::Intrinsic::ID IntrID) {
+  llvm::CallInst *TrapCall = Builder.CreateCall(CGM.getIntrinsic(IntrID));
+
+  if (!CGM.getCodeGenOpts().TrapFuncName.empty())
+    TrapCall->addAttribute(llvm::AttributeSet::FunctionIndex,
+                           "trap-func-name",
+                           CGM.getCodeGenOpts().TrapFuncName);
+
+  return TrapCall;
 }
 
 /// isSimpleArrayDecayOperand - If the specified expr is a simple decay from an
@@ -2651,16 +2648,6 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
   return LV;
 }
 
-static
-llvm::Constant *GenerateConstantVector(CGBuilderTy &Builder,
-                                       SmallVectorImpl<unsigned> &Elts) {
-  SmallVector<llvm::Constant*, 4> CElts;
-  for (unsigned i = 0, e = Elts.size(); i != e; ++i)
-    CElts.push_back(Builder.getInt32(Elts[i]));
-
-  return llvm::ConstantVector::get(CElts);
-}
-
 LValue CodeGenFunction::
 EmitExtVectorElementExpr(const ExtVectorElementExpr *E) {
   // Emit the base vector as an l-value.
@@ -2695,11 +2682,12 @@ EmitExtVectorElementExpr(const ExtVectorElementExpr *E) {
     E->getType().withCVRQualifiers(Base.getQuals().getCVRQualifiers());
 
   // Encode the element access list into a vector of unsigned indices.
-  SmallVector<unsigned, 4> Indices;
+  SmallVector<uint32_t, 4> Indices;
   E->getEncodedElementAccess(Indices);
 
   if (Base.isSimple()) {
-    llvm::Constant *CV = GenerateConstantVector(Builder, Indices);
+    llvm::Constant *CV =
+        llvm::ConstantDataVector::get(getLLVMContext(), Indices);
     return LValue::MakeExtVectorElt(Base.getAddress(), CV, type,
                                     Base.getAlignment());
   }
@@ -3526,8 +3514,8 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   if (Chain)
     Args.add(RValue::get(Builder.CreateBitCast(Chain, CGM.VoidPtrTy)),
              CGM.getContext().VoidPtrTy);
-  EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arg_begin(),
-               E->arg_end(), E->getDirectCallee(), /*ParamsToSkip*/ 0);
+  EmitCallArgs(Args, dyn_cast<FunctionProtoType>(FnType), E->arguments(),
+               E->getDirectCallee(), /*ParamsToSkip*/ 0);
 
   const CGFunctionInfo &FnInfo = CGM.getTypes().arrangeFreeFunctionCall(
       Args, FnType, /*isChainCall=*/Chain);
@@ -3704,7 +3692,7 @@ static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
     CGF.EmitBranch(CondBlock);
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
-    CGF.LoopStack.setVectorizerEnable(true);
+    CGF.LoopStack.setVectorizeEnable(true);
     CGF.LoopStack.push(CondBlock);
     llvm::BasicBlock *MainLoop = CGF.createBasicBlock("cean.loop.body");
     llvm::BasicBlock *ExitLoop = CGF.createBasicBlock("cean.loop.exit");

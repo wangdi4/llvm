@@ -26,6 +26,7 @@
 #include "llvm/ADT/Optional.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/TrailingObjects.h"
 
 namespace clang {
 struct ASTTemplateArgumentListInfo;
@@ -573,8 +574,7 @@ struct QualifierInfo {
   /// setTemplateParameterListsInfo - Sets info about "outer" template
   /// parameter lists.
   void setTemplateParameterListsInfo(ASTContext &Context,
-                                     unsigned NumTPLists,
-                                     TemplateParameterList **TPLists);
+                                     ArrayRef<TemplateParameterList *> TPLists);
 
 private:
   // Copy constructor and copy assignment are disabled.
@@ -659,8 +659,8 @@ public:
     assert(index < getNumTemplateParameterLists());
     return getExtInfo()->TemplParamLists[index];
   }
-  void setTemplateParameterListsInfo(ASTContext &Context, unsigned NumTPLists,
-                                     TemplateParameterList **TPLists);
+  void setTemplateParameterListsInfo(ASTContext &Context,
+                                     ArrayRef<TemplateParameterList *> TPLists);
 
   SourceLocation getTypeSpecStartLoc() const;
 
@@ -815,6 +815,9 @@ protected:
 
     /// \brief Whether this variable is (C++0x) constexpr.
     unsigned IsConstexpr : 1;
+
+    /// \brief Whether this variable is a (C++ Concepts TS) concept.
+    unsigned IsConcept : 1;
 
     /// \brief Whether this variable is the implicit variable for a lambda
     /// init-capture.
@@ -1237,6 +1240,15 @@ public:
   void setConstexpr(bool IC) {
     assert(!isa<ParmVarDecl>(this));
     NonParmVarDeclBits.IsConstexpr = IC;
+  }
+
+  /// Whether this variable is (C++ Concepts TS) concept.
+  bool isConcept() const {
+    return isa<ParmVarDecl>(this) ? false : NonParmVarDeclBits.IsConcept;
+  }
+  void setConcept(bool IC) {
+    assert(!isa<ParmVarDecl>(this));
+    NonParmVarDeclBits.IsConcept = IC;
   }
 
   /// Whether this variable is the implicit variable for a lambda init-capture.
@@ -2498,7 +2510,8 @@ public:
 /// IndirectFieldDecl - An instance of this class is created to represent a
 /// field injected from an anonymous union/struct into the parent scope.
 /// IndirectFieldDecl are always implicit.
-class IndirectFieldDecl : public ValueDecl {
+class IndirectFieldDecl : public ValueDecl,
+                          public Mergeable<IndirectFieldDecl> {
   void anchor() override;
   NamedDecl **Chaining;
   unsigned ChainingSize;
@@ -2535,6 +2548,9 @@ public:
     assert(ChainingSize >= 2);
     return dyn_cast<VarDecl>(*chain_begin());
   }
+
+  IndirectFieldDecl *getCanonicalDecl() override { return getFirstDecl(); }
+  const IndirectFieldDecl *getCanonicalDecl() const { return getFirstDecl(); }
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
@@ -2978,8 +2994,8 @@ public:
     assert(i < getNumTemplateParameterLists());
     return getExtInfo()->TemplParamLists[i];
   }
-  void setTemplateParameterListsInfo(ASTContext &Context, unsigned NumTPLists,
-                                     TemplateParameterList **TPLists);
+  void setTemplateParameterListsInfo(ASTContext &Context,
+                                     ArrayRef<TemplateParameterList *> TPLists);
 
   // Implement isa/cast/dyncast/etc.
   static bool classof(const Decl *D) { return classofKind(D->getKind()); }
@@ -3486,7 +3502,7 @@ private:
   Stmt *Body;
   TypeSourceInfo *SignatureAsWritten;
 
-  Capture *Captures;
+  const Capture *Captures;
   unsigned NumCaptures;
 
   unsigned ManglingNumber;
@@ -3592,10 +3608,8 @@ public:
 
   bool capturesVariable(const VarDecl *var) const;
 
-  void setCaptures(ASTContext &Context,
-                   const Capture *begin,
-                   const Capture *end,
-                   bool capturesCXXThis);
+  void setCaptures(ASTContext &Context, ArrayRef<Capture> Captures,
+                   bool CapturesCXXThis);
 
    unsigned getBlockManglingNumber() const {
      return ManglingNumber;
@@ -3624,7 +3638,15 @@ public:
 
 /// \brief This represents the body of a CapturedStmt, and serves as its
 /// DeclContext.
-class CapturedDecl : public Decl, public DeclContext {
+class CapturedDecl final
+    : public Decl,
+      public DeclContext,
+      private llvm::TrailingObjects<CapturedDecl, ImplicitParamDecl *> {
+protected:
+  size_t numTrailingObjects(OverloadToken<ImplicitParamDecl>) {
+    return NumParams;
+  }
+
 private:
   /// \brief The number of parameters to the outlined function.
   unsigned NumParams;
@@ -3644,9 +3666,12 @@ private:
 #endif  // INTEL_CUSTOMIZATION
     { }
 
-  ImplicitParamDecl **getParams() const {
-    return reinterpret_cast<ImplicitParamDecl **>(
-             const_cast<CapturedDecl *>(this) + 1);
+  ImplicitParamDecl *const *getParams() const {
+    return getTrailingObjects<ImplicitParamDecl *>();
+  }
+
+  ImplicitParamDecl **getParams() {
+    return getTrailingObjects<ImplicitParamDecl *>();
   }
 
 public:
@@ -3687,7 +3712,7 @@ public:
   }
   unsigned getContextParamPosition() const { return ContextParam; }
 
-  typedef ImplicitParamDecl **param_iterator;
+  typedef ImplicitParamDecl *const *param_iterator;
   typedef llvm::iterator_range<param_iterator> param_range;
 
   /// \brief Retrieve an iterator pointing to the first parameter decl.
@@ -3710,6 +3735,7 @@ public:
 
   friend class ASTDeclReader;
   friend class ASTDeclWriter;
+  friend TrailingObjects;
 };
 #ifdef INTEL_CUSTOMIZATION
 class CilkSpawnDecl : public Decl {
@@ -3757,7 +3783,8 @@ public:
 ///
 /// Import declarations can also be implicitly generated from
 /// \#include/\#import directives.
-class ImportDecl : public Decl {
+class ImportDecl final : public Decl,
+                         llvm::TrailingObjects<ImportDecl, SourceLocation> {
   /// \brief The imported module, along with a bit that indicates whether
   /// we have source-location information for each identifier in the module
   /// name. 
@@ -3773,7 +3800,8 @@ class ImportDecl : public Decl {
   friend class ASTReader;
   friend class ASTDeclReader;
   friend class ASTContext;
-  
+  friend TrailingObjects;
+
   ImportDecl(DeclContext *DC, SourceLocation StartLoc, Module *Imported,
              ArrayRef<SourceLocation> IdentifierLocs);
 

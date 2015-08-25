@@ -394,7 +394,7 @@ bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
     switch (Attrs[i]->getKind()) {
       case clang::attr::SIMD:
         CGF->LoopStack.setParallel();
-        CGF->LoopStack.setVectorizerEnable(true);
+        CGF->LoopStack.setVectorizeEnable(true);
         break;
       case clang::attr::SIMDLength:
         {
@@ -404,7 +404,7 @@ bool CodeGenFunction::CGPragmaSimd::emitSafelen(CodeGenFunction *CGF) const {
               AggValueSlot::ignored(), true);
           llvm::ConstantInt *C = dyn_cast<llvm::ConstantInt>(Width.getScalarVal());
           assert(C);
-          CGF->LoopStack.setVectorizerWidth(C->getZExtValue());
+          CGF->LoopStack.setVectorizeWidth(C->getZExtValue());
           // In presence of finite 'safelen', it may be unsafe to mark all
           // the memory instructions parallel, because loop-carried
           // dependences of 'safelen' iterations are possible.
@@ -1000,10 +1000,9 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
       CGF.EmitBlock(EnterLoop);
     }
     if (Rank == S.getRank() - 1) {
-      for (Stmt::const_child_range ChRange = S.getInits()->children();
-           ChRange; ++ChRange) {
-        CGF.EmitStmt(*ChRange);
-      }
+      Stmt::const_child_range Ch = S.getInits()->children();
+      for (auto I = Ch.begin(), E = Ch.end(); I != E; ++I)
+        CGF.EmitStmt(*I);
     }
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     // Generate intel intrinsic.
@@ -1017,7 +1016,7 @@ static void EmitRecursiveCilkRankedStmt(CodeGenFunction &CGF,
     CGF.EmitBranch(CondBlock);
     CGF.EmitBlock(CondBlock);
     CGF.LoopStack.setParallel();
-    CGF.LoopStack.setVectorizerEnable(true);
+    CGF.LoopStack.setVectorizeEnable(true);
     CGF.LoopStack.push(CondBlock);
     const VarDecl *VD = cast<VarDecl>(DS->getSingleDecl());
     CGF.Builder.CreateCondBr(
