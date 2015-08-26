@@ -4679,7 +4679,7 @@ unsigned int DDtest::lastLevelInDV(const DVType *DV) {
 }
 
 void DDtest::setInputDV(DVectorTy &InputDV, const unsigned int startLevel,
-                        const unsigned int endLevel) const {
+                        const unsigned int endLevel) {
 
   // setInputDV (&InputDV, 3,4)
   // will construct (= = * *)

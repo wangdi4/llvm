@@ -92,10 +92,10 @@ private:
   Function *F;
   SmallVector<HLLoop *, 16> CandidateLoops;
   std::vector<std::pair<unsigned, unsigned>> LoopCost;
-  void TransformLoop(HLLoop *Loop);
-  void ProcessLoop(HLLoop *Loop, DDAnalysis *DDA);
+  void transformLoop(HLLoop *Loop);
+  void processLoop(HLLoop *Loop, DDAnalysis *DDA);
   // returns true means legal for any permutation
-  bool LegalForInterchange(HLNode *Loop, DDAnalysis *DDA);
+  bool legalForInterchange(HLLoop *Loop, DDAnalysis *DDA);
   void visit(HLNode *Node);
   void visit(HLRegion *Node);
   void visit(HLLoop *Node);
@@ -132,7 +132,7 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
   for (auto Iter = CandidateLoops.begin(), End = CandidateLoops.end();
        Iter != End; ++Iter) {
     HLLoop *Loop = *Iter;
-    ProcessLoop(Loop, DDAP);
+    processLoop(Loop, DDAP);
   }
 
   return false;
@@ -144,7 +144,7 @@ static unsigned getLoopCost(HLLoop *Loop) {
   return Loop->getTemporalLocalityWt() + Loop->getSpatialLocalityWt();
 }
 
-void HIRLoopInterchange::ProcessLoop(HLLoop *Loop, DDAnalysis *DDA) {
+void HIRLoopInterchange::processLoop(HLLoop *Loop, DDAnalysis *DDA) {
 
   // 2) Compute Loop cost by adding pre-computed temporal and spatial reuse
   HLNode *Tmp = Loop;
@@ -192,14 +192,16 @@ void HIRLoopInterchange::ProcessLoop(HLLoop *Loop, DDAnalysis *DDA) {
     return;
   }
 
+  // TODO:
   // When returning legal == true, means we can just interchange w/o
   // examining DV.
   // Otherwise, need to find best permutation
-  if (!LegalForInterchange(cast<HLNode>(Loop), DDA)) {
+
+  if (!legalForInterchange(Loop, DDA)) {
   }
 }
 
-static bool IgnoreAntiEdge(DDEdge const *Edge, DVType *DV) {
+static bool ignoreAntiEdge(const DDEdge *Edge, const DVType *DV) {
 
   if (Edge->isANTIdep()) {
     DDRef *SrcDDRef = Edge->getSrc();
@@ -215,7 +217,7 @@ static bool IgnoreAntiEdge(DDEdge const *Edge, DVType *DV) {
   return false;
 }
 
-static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop,
+static bool ignoreEdge(const DDEdge *Edge, HLNode *CandidateLoop,
                        DVType *RefinedDV = nullptr) {
 
   //  1. Ignore all  (= = ..)
@@ -224,10 +226,10 @@ static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop,
   //     be all =
   //  3. Safe reduction (already done before calling here)
 
-  DVType *DV = RefinedDV;
+  const DVType *DV = RefinedDV;
 
   if (DV == nullptr) {
-    DV = const_cast<DVType *>(Edge->getDV());
+    DV = Edge->getDV();
   }
 
   if (isDValEQ(DV)) {
@@ -247,12 +249,72 @@ static bool IgnoreEdge(DDEdge const *Edge, HLNode *CandidateLoop,
     return true;
   }
 
-  if (IgnoreAntiEdge(Edge, DV)) {
+  if (ignoreAntiEdge(Edge, DV)) {
     DEBUG(dbgs() << "\n\tIgnore Anti edge");
     return true;
   }
 
   return false;
+}
+
+static bool ignoreDVwihNoLTGT(const DVType *DV, unsigned StartLevel,
+                              unsigned EndLevel) {
+
+  //  Scan presence of  <  ... >
+  //  If no,  return true. it means  DV can be ignored for
+  //  Interchange legality checking
+
+  bool DVhasLT = false;
+  bool DVhasGT = false;
+
+  for (unsigned II = StartLevel; II <= EndLevel; ++II) {
+    if (!DVhasGT && (DV[II - 1] & DV::GT)) {
+      DVhasGT = true;
+    }
+    if (!DVhasLT && (DV[II - 1] & DV::LT)) {
+      DVhasLT = true;
+    }
+  }
+
+  // Note: 2 stars will get both boolean flags set on
+
+  if (!DVhasLT || !DVhasGT) {
+    return true;
+  }
+  return false;
+}
+
+static bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned StartLevel,
+                     unsigned EndLevel, DVectorTy &RefinedDV, bool *IsINDEP) {
+
+  // Refine DV by calling demand driven DD
+  // return true means RefineDV is  filled up
+  // IsINDEP is
+
+  bool IsDVrefined = false;
+  *IsINDEP = false;
+
+  RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
+  if (RegDDref && !(RegDDref->isScalarRef())) {
+    DDtest DA;
+    DVectorTy InputDV;
+    DDtest::setInputDV(InputDV, StartLevel, EndLevel);
+    DEBUG(dbgs() << "\nCalling Demand Driven DD");
+
+    auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+
+    if (Result == nullptr) {
+      DEBUG(dbgs() << "\nINDEP from Demand Driven DD\n");
+      *IsINDEP = true;
+    }
+
+    for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+      RefinedDV[I - 1] = Result->getDirection(I);
+      IsDVrefined = true;
+    }
+  }
+
+  return IsDVrefined;
 }
 
 struct WalkHIR {
@@ -262,7 +324,7 @@ struct WalkHIR {
   HLNode *CandidateLoop;
   // Indicates if we need to call Demand Driven DD to refine DV
   bool RefineDV;
-  DVectorTy ResultDV;
+  SmallVector<DVType *, 16> DVs;
   // start, end level of Candidate Loop nest
   unsigned int StartLevel;
   unsigned int EndLevel;
@@ -277,6 +339,7 @@ struct WalkHIR {
     if (Inst->isSafeRedn()) {
       return;
     }
+
     for (auto I = Inst->ddref_begin(), E = Inst->ddref_end(); I != E; ++I) {
       if ((*I)->isConstant()) {
         continue;
@@ -291,8 +354,8 @@ struct WalkHIR {
           DEBUG(dbgs() << "\n\tSink DDRef not in loop");
           continue;
         }
-        DDEdge const *edge = &(*II);
-        if (IgnoreEdge(edge, CandidateLoop)) {
+        const DDEdge *edge = &(*II);
+        if (ignoreEdge(edge, CandidateLoop)) {
           DEBUG(dbgs() << "\n\t<Edge dropped>");
           DEBUG(dbgs() << "\t"; II->print(OS));
           continue;
@@ -302,53 +365,44 @@ struct WalkHIR {
         HLLoop *Loop = cast<HLLoop>(CandidateLoop);
 
         const DVType *DV = II->getDV();
-        DDtest DA;
 
         if (StartLevel == 0) {
           StartLevel = Loop->getNestingLevel();
           // get last level from  DD Util
-          EndLevel = DA.lastLevelInDV(DV);
+          EndLevel = DDtest::lastLevelInDV(DV);
         }
 
         // Calling Demand Driven DD to refine DV
+        DVectorTy RefinedDV;
         if (RefineDV) {
-          RegDDRef *RegDDref = dyn_cast<RegDDRef>(DDref);
-          if (RegDDref && !(RegDDref->isScalarRef())) {
+          DDRef *SrcDDRef = II->getSrc();
+          DDRef *DstDDRef = DDref;
+          bool IsINDEP;
+          bool IsDVrefined = refineDV(SrcDDRef, DstDDRef, StartLevel, EndLevel,
+                                      RefinedDV, &IsINDEP);
+          if (IsINDEP) {
+            continue;
+          }
 
-            DDRef *SrcDDRef = II->getSrc();
-            DDRef *DstDDRef = DDref;
-            DVectorTy InputDV;
-            DVectorTy RefinedDV;
-
-            DA.setInputDV(InputDV, StartLevel, EndLevel);
-            DEBUG(dbgs() << "\nCalling Demand Driven DD");
-            auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
-
-            if (Result == nullptr) {
-              DEBUG(dbgs() << "\nIs INDEP from Demand Driven DD\n");
-              continue;
-            }
-
-            for (unsigned I = 1; I <= Result->getLevels(); ++I) {
-              RefinedDV[I - 1] = Result->getDirection(I);
-            }
-
-            DEBUG(Result->dump(OS));
-            if (IgnoreEdge(edge, CandidateLoop, &RefinedDV[0])) {
+          if (IsDVrefined) {
+            if (ignoreEdge(edge, CandidateLoop, &RefinedDV[0])) {
               continue;
             }
             TempDV = &RefinedDV[0];
           }
         }
 
-        for (unsigned I = StartLevel; I <= EndLevel; ++I) {
-          ResultDV[I - 1] |= TempDV[I - 1];
+        if (ignoreDVwihNoLTGT(TempDV, StartLevel, EndLevel)) {
+          continue;
         }
 
+        //  Save the DV in an array which will be used lter
+        DVType *WorkDV = new DVectorTy;
+        memcpy(WorkDV, TempDV, MaxLoopNestLevel);
+        DVs.push_back(WorkDV);
         DEBUG(dbgs() << "\n\t<Edge selected>");
         DEBUG(dbgs() << "\t"; II->print(OS));
       }
-
       for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
            BRefI != BRefE; ++BRefI) {
         // TODO *BRefI
@@ -359,15 +413,16 @@ struct WalkHIR {
   void postVisit(HLNode *) {}
   bool isDone() { return false; }
   bool skipRecursion(HLNode *Node) { return false; }
-  WalkHIR(DDGraph DDG, HLNode *CandidateLoop, bool RefineDV)
-      : DDG(DDG), CandidateLoop(CandidateLoop), RefineDV(RefineDV) {}
+  WalkHIR(DDGraph DDG, HLNode *CandidateLoop, bool RefineDV,
+          unsigned int StartLevel, unsigned int EndLevel)
+      : DDG(DDG), CandidateLoop(CandidateLoop), RefineDV(RefineDV),
+        StartLevel(0), EndLevel(0) {
+    DVs.clear();
+  }
 };
 
 // returns true means legal for any permutation
-bool HIRLoopInterchange::LegalForInterchange(HLNode *Loop, DDAnalysis *DDAP) {
-
-  bool DVhasLT;
-  bool DVhasGT;
+bool HIRLoopInterchange::legalForInterchange(HLLoop *Loop, DDAnalysis *DDAP) {
 
   // Sorting in decending order
   // first hold the localityWt sum
@@ -388,7 +443,7 @@ bool HIRLoopInterchange::LegalForInterchange(HLNode *Loop, DDAnalysis *DDAP) {
   // 4) exclude loops that has pragma for unroll or unroll & jam
   //    exclude triangular loop until later
 
-  // 5) Gather/sum DV from DDG. Filter out loop indep dep for temps,
+  // 5) Gather DV from DDG. Filter out loop indep dep for temps,
   // safe reduction
 
   // We plan to avoid demand driven DD refining DV.
@@ -398,45 +453,22 @@ bool HIRLoopInterchange::LegalForInterchange(HLNode *Loop, DDAnalysis *DDAP) {
   DDGraph DDG = DDAP->getGraph(Loop, false);
   DEBUG(dbgs() << "\n\tEnd calling Rebuild\n");
 
-  WalkHIR WHIR(DDG, Loop, true);
-  DDtest DA;
-  DA.initDV(WHIR.ResultDV);
-  WHIR.StartLevel = 0;
-  WHIR.EndLevel = 0;
+  WalkHIR WHIR(DDG, Loop, true, 0, 0);
 
   HLNodeUtils::visit(WHIR, Loop, true, true, true);
 
   DEBUG(dbgs() << "\nStart, End level\n" << WHIR.StartLevel << " "
                << WHIR.EndLevel);
 
-  DEBUG(dbgs() << "\nDV Accumulated: ";
-        printDV(WHIR.ResultDV, WHIR.EndLevel, dbgs()));
+  // If edges are selected
+  // then there are dependencies to check out w.r.t to intechange order
 
-  // If no edges are selected (Startlevel == 0)
-  // then there is no dependence preventing interchange
-
-  if (WHIR.StartLevel == 0) {
-    return true;
+  if (WHIR.DVs.size() > 0) {
+    return false;
   }
 
-  DVhasLT = DVhasGT = false;
-
-  for (unsigned II = WHIR.StartLevel; II <= WHIR.EndLevel; ++II) {
-    if (!DVhasGT && (WHIR.ResultDV[II - 1] & DV::GT)) {
-      DVhasGT = true;
-    }
-    if (!DVhasLT && (WHIR.ResultDV[II - 1] & DV::LT)) {
-      DVhasLT = true;
-    }
-  }
-
-  // Note: 2 stars will get both boolean flags set on
-
-  if (!DVhasLT || !DVhasGT) {
-    return true;
-  }
-
-  return false;
+  DEBUG(dbgs() << "\n\tDV array is empty");
+  return true;
 }
 
 void HIRLoopInterchange::visit(HLNode *Node) {

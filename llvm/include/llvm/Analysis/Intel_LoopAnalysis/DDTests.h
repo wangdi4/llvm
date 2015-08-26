@@ -339,7 +339,7 @@ public:
 
   // Returns last level in DV .e.g.  (= = =) return 3
 
-  unsigned int lastLevelInDV(const DVType *DV);
+  static unsigned int lastLevelInDV(const DVType *DV);
 
   //
   // Fill in input direction vector for demand driven DD
@@ -348,11 +348,11 @@ public:
   // will fill in (= = *)
   // which is testing for innermost loop only
 
-  void setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
-                  const unsigned int endLevel) const;
+  static void setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
+                         const unsigned int endLevel);
 
   // Construct all 0
-  void initDV(DVectorTy &inputDV);
+  static void initDV(DVectorTy &inputDV);
 
 private:
   //    AliasAnalysis *AA;
