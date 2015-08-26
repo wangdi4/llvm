@@ -1435,6 +1435,14 @@ def err_conflicting_overriding_cc_attributes : Error<
   "virtual function %0 has different calling convention attributes "
   "%diff{($) than the function it overrides (which has calling convention $)|"
   "than the function it overrides}1,2">;
+// if INTEL_CUSTOMIZATION
+// CQ#375232
+def warn_conflicting_overriding_cc_attributes : Warning<
+  "virtual function %0 has different calling convention attributes "
+  "%diff{($) than the function it overrides (which has calling convention $)|"
+  "than the function it overrides}1,2. New attribute ignored.">,
+  InGroup<IgnoredAttributes>;
+// endif INTEL_CUSTOMIZATION
 
 def err_covariant_return_inaccessible_base : Error<
   "invalid covariant return for virtual function: %1 is a "

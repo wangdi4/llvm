@@ -12992,6 +12992,15 @@ bool Sema::CheckOverridingFunctionAttributes(const CXXMethodDecl *New,
   if (New->getStorageClass() == SC_Static)
     return false;
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#375232: Issue a warning, not an error in case of non-compatible
+  // overriding function attributes (in IntelCompat mode).
+  if (getLangOpts().IntelCompat)
+    Diag(New->getLocation(),
+         diag::warn_conflicting_overriding_cc_attributes)
+      << New->getDeclName() << New->getType() << Old->getType();
+  else
+#endif // INTEL_CUSTOMIZATION
   Diag(New->getLocation(),
        diag::err_conflicting_overriding_cc_attributes)
     << New->getDeclName() << New->getType() << Old->getType();
