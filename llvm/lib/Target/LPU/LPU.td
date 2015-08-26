@@ -56,7 +56,7 @@ def : Proc<"ordered",  [FeatureOrdered,
                         FeatureSqrt, FeatureMath0]>;
 
 def : Proc<"autounit", [FeatureS8,   FeatureS16,  FeatureF16,
-                        FeatureFMA,  FeatureIDiv, FeatureFDiv,
+                        FeatureIDiv, FeatureFDiv, FeatureFMA,
                         FeatureSqrt, FeatureMath0]>;
 // Like autounit, but almost all more complex ops disabled
 def : Proc<"automin",  []>;
