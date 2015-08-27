@@ -54,6 +54,11 @@ using namespace llvm::loopopt;
 static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
 
+static cl::opt<unsigned> HIRDebugRegion(
+    "hir-cg-x-region-only", cl::Optional,
+    cl::desc("HIRCG the x'th region only, regardless of modification status"),
+    cl::Hidden, cl::value_desc("number"), cl::init(0));
+
 namespace {
 
 class HIRCodeGen : public FunctionPass {
@@ -98,9 +103,34 @@ private:
     Value *visitLabel(HLLabel *L);
     BasicBlock *getBBlockForLabel(HLLabel *L);
 
+    // For exact allocations (global arrays or local (m)allocs) the type
+    // is an array type. However, gep requires a pointer so we have a type
+    // of [10 x i32]*. We know we are referring to the first, and only, alloc'd
+    // array, thus requiring an leading 0. For non exact allocs, we should not
+    // add this 0
+    // Look for a ptr(seq ty) to an array, with base value being an alloc or
+    // global value. These are exact allocations requiring the leading 0
+    // TODO: this information may be better provided by parser, rather than
+    // trying to deduce it in CG.
+    bool GEPRequiresZero(RegDDRef *Ref, Value *BaseV);
+
+    // Regions have a list of live in values and their corresponding symbase
+    // Any use of the value in HIR region is represented by a temp with some
+    // symbase
+    // CG turns those temps into load/stores of memory corresponding ot symbase.
+    // However we must store the initial value into symbase's memory slot or the
+    // first use of live in value will remain as load of uninitialized memory
+    void initializeLiveIn(HLRegion *R);
+
+    // Regions have a list of liveout values and their symbase. We must ensure
+    // that all uses of liveout value are replaced by a load of symbase's
+    // memory slot. We must be careful of cases where one region's live out
+    // is another's livein
+    // TODO: support liveout for multiexit region
+    void processLiveOut(HLRegion *R);
+
     // any client shouldhave used visit(node), this function is used as a
-    // fallback
-    // when visitXXX couldnt be found for an hlnode of type XXX
+    // fallback when visitXXX couldnt be found for an hlnode of type XXX
     Value *visitHLNode(HLNode *Node) {
       llvm_unreachable("Unknown HIR type in CG");
     }
@@ -135,14 +165,15 @@ private:
     Value *generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P);
 
     // \brief Return a value for blob corresponding to BlobIdx
-    Value *getBlobValue(int BlobIdx, Type *Ty) {
+    Value *getBlobValue(int BlobIdx) {
       // SCEVExpander instruction generator references the insertion point's
       // parent.
       // If the IP is bblock.end(), undefined behavior results because the
       // parent of that "instruction" is invalid. We work around this by
       // adding temporary instruction to use as our IP, and remove it after
       Instruction *TmpIP = Builder->CreateUnreachable();
-      Value *Blob = Expander->expandCodeFor(getBlobSCEV(BlobIdx), Ty, TmpIP);
+      Value *Blob =
+          Expander->expandCodeFor(getBlobSCEV(BlobIdx), nullptr, TmpIP);
 
       // Expander shouldnt create new Bblocks, new IP is end of current bblock
       Builder->SetInsertPoint(TmpIP->getParent());
@@ -155,9 +186,9 @@ private:
       return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
     }
 
-    Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty) {
+    Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
       return CoefCG(CE->getIVConstCoeff(IVIt),
-                    getBlobValue(CE->getIVBlobCoeff(IVIt), Ty));
+                    getBlobValue(CE->getIVBlobCoeff(IVIt)));
     }
 
     //\brief return value for blobCoeff * constCoeff * iv with IV at level
@@ -170,7 +201,7 @@ private:
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
                       Type *Ty) {
       return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt), Ty));
+                    getBlobValue(CE->getBlobIndex(BlobIt)));
     }
 
     // \brief Applies cast to Val according to CE's dest type, if applicable.
@@ -242,6 +273,12 @@ private:
     // maps internal labels to bblocks. Needed if we encounter "goto Label"
     // before the label itself
     SmallDenseMap<HLLabel *, BasicBlock *, 16> InternalLabels;
+
+    // These are stored in HLRegion but become invalidated once CFG is
+    // changed. They are required for liveout materialization, which occurs
+    // after HIRCG's cfg modification
+    SmallDenseMap<HLRegion *, Instruction *, 16> RegionTerminators;
+    SmallDenseMap<HLRegion *, BasicBlock *, 16> RegionSucc;
 
     // \brief Creates a stack allocation of size with name at entry of
     // current func. used for allocs that we expect to regisiterize
@@ -333,8 +370,7 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    DEBUG(errs() << "Starting the code gen for ");
-    DEBUG(errs().write_escaped(F.getName()) << "\n");
+    DEBUG(dbgs().write_escaped(F.getName()) << "\n");
     DEBUG(F.dump());
 
     this->F = &F;
@@ -346,12 +382,29 @@ public:
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
-      if (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG) {
-        DEBUG(errs() << "Starting the code gen for \n");
+    unsigned RegionIdx = 1;
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+         ++I, ++RegionIdx) {
+      if ((!HIRDebugRegion &&
+              (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
+          (RegionIdx == HIRDebugRegion)) {
+        DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
+        DEBUG(I->dump(true));
         DEBUG(I->dump());
         CG.visit(I);
         Transformed = true;
+      }
+    }
+
+    // Liveout must be processed after all regions have be cg'd. One region's
+    // live out value may be the next regions live in.
+    RegionIdx = 1;
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+         ++I, ++RegionIdx) {
+      HLRegion *R = cast<HLRegion>(I);
+      if ((!HIRDebugRegion && (R->shouldGenCode() || forceHIRCG)) ||
+          (RegionIdx == HIRDebugRegion)) {
+        CG.processLiveOut(R);
       }
     }
 
@@ -447,6 +500,8 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
       llvm_unreachable("failed to cg IV or blob");
     Res = ConstantInt::getSigned(Ty, C0);
   }
+  if (CE->getDenominator() != 1)
+    llvm_unreachable("unimplemented CE denom");
 
   if (Denom != 1) {
     DenomVal = ConstantInt::getSigned(Ty, Denom);
@@ -491,6 +546,35 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
   return Alloca;
 }
 
+bool HIRCodeGen::CGVisitor::GEPRequiresZero(RegDDRef *Ref, Value *BaseV) {
+  SequentialType *SeqTy = dyn_cast<SequentialType>(BaseV->getType());
+  if (SeqTy && SeqTy->getElementType()->isArrayTy()) {
+    // direct out of region value, ie globals
+    if (isa<AllocaInst>(BaseV) || isa<GlobalValue>(BaseV)) {
+      return true;
+    }
+
+    // find blob for base ptr
+    HLRegion *R = Ref->getHLDDNode()->getParentRegion();
+    unsigned BaseSym = 0;
+    CanonExpr *BaseCE = Ref->getBaseCE();
+
+    assert(BaseCE->numBlobs() == 1 && "Multiblob base not handled");
+
+    BaseSym = BlobIdxToSymbase[BaseCE->getSingleBlobIndex()];
+
+    // see if it came from a global or an alloca
+    for (auto I = R->live_in_begin(), E = R->live_in_end(); I != E; ++I) {
+      if (I->first == BaseSym) {
+        if (isa<AllocaInst>(I->second) || isa<GlobalValue>(I->second)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
@@ -503,16 +587,12 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  // TODO for exact allocations (global arrays or local (m)allocs) the type
-  // is an array type. However, gep requires a pointer so we have a type
-  // of [10 x i32]*. We know we are referring to the first, and only, alloc'd
-  // array, thus requiring an leading 0. For non exact allocs, we should not
-  // add this 0
-  Value *Zero =
-      ConstantInt::getSigned((*(Ref->canon_begin()))->getDestType(), 0);
-
   SmallVector<Value *, 4> IndexV;
-  IndexV.push_back(Zero);
+  if (GEPRequiresZero(Ref, BaseV)) {
+    Value *Zero =
+        ConstantInt::getSigned((*(Ref->canon_begin()))->getSrcType(), 0);
+    IndexV.push_back(Zero);
+  }
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
@@ -527,8 +607,12 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
+  if (Ref->isAddressOf())
+    return GEPVal;
+
   // Base CE could have different src and dest types in which case we need a
-  // bitcast.
+  // bitcast. Can occur from llvm's canonicalization of store/load of float
+  // to int by bitcast
   if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
     GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
   }
@@ -543,6 +627,76 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   return GEPVal;
 }
 
+void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *R) {
+  for (auto I = R->live_out_begin(), E = R->live_out_end(); I != E; ++I) {
+    DEBUG(dbgs() << "Symbase " << I->first
+                 << " is liveout with tracked value ");
+    DEBUG(I->second->dump());
+    DEBUG(dbgs() << " \n");
+    DEBUG(R->getSuccBBlock()->dump());
+
+    // BasicBlock *SuccBBlock = R->getSuccBBlock();
+    BasicBlock *SuccBBlock = RegionSucc[R];
+    BasicBlock::iterator IP = SuccBBlock->getFirstInsertionPt();
+    Builder->SetInsertPoint(IP);
+
+    AllocaInst *SymSlot =
+        getNamedValue(getTempName(I->first), I->second->getType());
+    Value *ReplVal = Builder->CreateLoad(SymSlot);
+
+    Value *LiveOutVal = const_cast<Value *>(I->second);
+    SmallVector<Instruction *, 4> CurUsers;
+    SmallVector<PHINode *, 4> PhiUsers;
+
+    // Gather all uses outside of region before replacing any
+    for (Use &LiveOutUse : LiveOutVal->uses()) {
+      if (Instruction *Inst = dyn_cast<Instruction>(LiveOutUse.getUser())) {
+        BasicBlock *UseParentBBlock = Inst->getParent();
+        // Might need to constrain this to only uses outside ANY HIR region?
+        if (!R->containsBBlock(UseParentBBlock)) {
+          if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
+            if (UseParentBBlock == SuccBBlock) {
+              // uses in succ bblock must be handled differently if user itself
+              // is a phi. The load was generated after the user since all phi
+              // are before any other inst in bblock. We must insert
+              // load in last bblock of region and add a new phi operand.
+              PhiUsers.push_back(Phi);
+              continue;
+            }
+          }
+          CurUsers.push_back(Inst);
+        }
+      } else {
+        llvm_unreachable("unknown case of liveout");
+      }
+    }
+
+    // Replace those uses with loaded value
+    for (auto I = CurUsers.begin(), E = CurUsers.end(); I != E; ++I) {
+      (*I)->replaceUsesOfWith(LiveOutVal, ReplVal);
+    }
+
+    // create load before region terminator and add it as
+    // incoming value to successor bblock phi
+    Builder->SetInsertPoint(RegionTerminators[R]);
+    for (auto I = PhiUsers.begin(), E = PhiUsers.end(); I != E; ++I) {
+      Value *InRegionLoad = Builder->CreateLoad(SymSlot);
+      (*I)->addIncoming(InRegionLoad, RegionTerminators[R]->getParent());
+    }
+  }
+}
+
+void HIRCodeGen::CGVisitor::initializeLiveIn(HLRegion *R) {
+  for (auto I = R->live_in_begin(), E = R->live_in_end(); I != E; ++I) {
+    DEBUG(dbgs() << "Symbase " << I->first << " is livein with initial value ");
+    DEBUG(I->second->dump());
+    DEBUG(dbgs() << " \n");
+    AllocaInst *SymSlot =
+        getNamedValue(getTempName(I->first), I->second->getType());
+    Builder->CreateStore(const_cast<Value *>(I->second), SymSlot);
+  }
+}
+
 Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   // create new bblock for region entry
@@ -554,7 +708,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   BlobToSymbaseMapper Mapper(BlobIdxToSymbase);
   HLNodeUtils::visit(Mapper, R, true, true);
 
-  // TODO Stack map for live out values
+  initializeLiveIn(R);
 
   // Onto children cg
   for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
@@ -572,6 +726,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // Save entry and succ fields, these get invalidated once block is split
   BasicBlock *EntryFirstHalf = R->getEntryBBlock();
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
+  RegionSucc[R] = RegionSuccessor;
 
   BasicBlock *EntrySecondHalf =
       SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
@@ -589,7 +744,8 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   if (!RegionSuccessor)
     llvm_unreachable("no successor block to region");
 
-  Builder->CreateBr(RegionSuccessor);
+  Value *Terminator = Builder->CreateBr(RegionSuccessor);
+  RegionTerminators[R] = cast<Instruction>(Terminator);
   // DEBUG(F->dump());
   return nullptr;
 }
@@ -715,6 +871,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   // step and upper are loop invariant, we can generate them
   //"outside" the loop
   Value *StepVal = visitRegDDRef(L->getStrideDDRef());
+
   Value *Upper = visitRegDDRef(L->getUpperDDRef());
 
   if (StepVal->getType() != L->getIVType()) {
@@ -789,6 +946,12 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
   llvm_unreachable("untested cg for hlgoto");
   // get basic block for G's target
   BasicBlock *TargetBBlock = G->getTargetBBlock();
+
+  if (TargetBBlock) {
+    HLRegion *R = G->getParentRegion();
+    if (R->live_out_begin() != R->live_out_end())
+      llvm_unreachable("Unsupported liveout for multiexit region");
+  }
 
   // if bblock is null, it must be internal.
   if (!TargetBBlock)
@@ -882,7 +1045,25 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
         Cast->getOpcode(), Ops[1], Ops[0]->getType()->getPointerElementType());
 
     Builder->CreateStore(Res, Ops[0]);
-
+  } else if (isa<SelectInst>(Inst)) {
+    Value *Pred;
+    Value *CmpLHS = Ops[1];
+    Value *CmpRHS = Ops[2];
+    Value *TVal = Ops[3];
+    Value *FVal = Ops[4];
+    if (CmpLHS->getType()->isIntegerTy()) {
+      Pred =
+          Builder->CreateICmp(I->getPredicate(), CmpLHS, CmpRHS,
+                              "hir.selcmp." + std::to_string(I->getNumber()));
+    } else if (CmpLHS->getType()->isFloatTy()) {
+      Pred =
+          Builder->CreateFCmp(I->getPredicate(), CmpLHS, CmpRHS,
+                              "hir.selcmp." + std::to_string(I->getNumber()));
+    } else {
+      llvm_unreachable("unknown predicate type in HIRCG");
+    }
+    Value *NewSel = Builder->CreateSelect(Pred, TVal, FVal);
+    Builder->CreateStore(NewSel, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
@@ -941,7 +1122,7 @@ Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
 
   // pairs are of form <Index, Coeff>.
   if (CE->getIVBlobCoeff(IVIt)) {
-    return Builder->CreateMul(IVCoefCG(CE, IVIt, Ty), IV);
+    return Builder->CreateMul(IVCoefCG(CE, IVIt), IV);
   } else {
     return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
