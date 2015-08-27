@@ -85,6 +85,10 @@ public:
     return nullptr;
   }
 
+  const OutputSection<ELFT> *getOutputSection() const {
+    return _outputSection;
+  }
+
   void setOutputSection(OutputSection<ELFT> *os, bool isFirst = false) {
     _outputSection = os;
     _isFirstSectionInOutputSection = isFirst;
@@ -195,8 +199,8 @@ protected:
   std::vector<AtomLayout *> _atoms;
   mutable std::mutex _outputMutex;
 
-  void printError(const std::string &errorStr, const AtomLayout &atom,
-                  const Reference &ref) const;
+  std::string formatError(const std::string &errorStr, const AtomLayout &atom,
+                          const Reference &ref) const;
 };
 
 /// \brief A OutputSection represents a set of sections grouped by the same
@@ -260,7 +264,7 @@ public:
   int64_t entsize() const { return _entSize; }
   uint64_t fileOffset() const { return _fileOffset; }
   uint64_t flags() const { return _flags; }
-  uint64_t memSize() { return _memSize; }
+  uint64_t memSize() const { return _memSize; }
 
 private:
   StringRef _name;

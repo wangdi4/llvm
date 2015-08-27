@@ -74,7 +74,7 @@ typedef enum {
    NinlrIndirect,
    NinlrIndirectBranch,
    NinlrBlockAddress,
-   NinlrCallsFramescape,
+   NinlrCallsLocalEscape,
    NinlrNeverInline,
    NinlrIntrinsic,
    NinlrOuterInlining,

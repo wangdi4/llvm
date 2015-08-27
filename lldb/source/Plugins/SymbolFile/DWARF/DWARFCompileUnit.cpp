@@ -52,7 +52,8 @@ DWARFCompileUnit::DWARFCompileUnit(SymbolFileDWARF* dwarf2Data) :
     m_producer_version_minor (0),
     m_producer_version_update (0),
     m_language_type (eLanguageTypeUnknown),
-    m_is_dwarf64    (false)
+    m_is_dwarf64    (false),
+    m_is_optimized  (eLazyBoolCalculate)
 {
 }
 
@@ -71,6 +72,7 @@ DWARFCompileUnit::Clear()
     m_producer      = eProducerInvalid;
     m_language_type = eLanguageTypeUnknown;
     m_is_dwarf64    = false;
+    m_is_optimized  = eLazyBoolCalculate;
 }
 
 bool
@@ -669,6 +671,7 @@ DWARFCompileUnit::Index (const uint32_t cu_idx,
                                                                 GetOffset());
     }
 
+    const LanguageType cu_language = GetLanguageType();
     DWARFDebugInfoEntry::const_iterator pos;
     DWARFDebugInfoEntry::const_iterator begin = m_die_array.begin();
     DWARFDebugInfoEntry::const_iterator end = m_die_array.end();
@@ -882,8 +885,9 @@ DWARFCompileUnit::Index (const uint32_t cu_idx,
                     {
                         Mangled mangled (ConstString(mangled_cstr), true);
                         func_fullnames.Insert (mangled.GetMangledName(), die.GetOffset());
-                        if (mangled.GetDemangledName())
-                            func_fullnames.Insert (mangled.GetDemangledName(), die.GetOffset());
+                        ConstString demangled = mangled.GetDemangledName(cu_language);
+                        if (demangled)
+                            func_fullnames.Insert (demangled, die.GetOffset());
                     }
                 }
             }
@@ -904,8 +908,9 @@ DWARFCompileUnit::Index (const uint32_t cu_idx,
                     {
                         Mangled mangled (ConstString(mangled_cstr), true);
                         func_fullnames.Insert (mangled.GetMangledName(), die.GetOffset());
-                        if (mangled.GetDemangledName())
-                            func_fullnames.Insert (mangled.GetDemangledName(), die.GetOffset());
+                        ConstString demangled = mangled.GetDemangledName(cu_language);
+                        if (demangled)
+                            func_fullnames.Insert (demangled, die.GetOffset());
                     }
                 }
                 else
@@ -951,8 +956,9 @@ DWARFCompileUnit::Index (const uint32_t cu_idx,
                 {
                     Mangled mangled (ConstString(mangled_cstr), true);
                     globals.Insert (mangled.GetMangledName(), die.GetOffset());
-                    if (mangled.GetDemangledName())
-                        globals.Insert (mangled.GetDemangledName(), die.GetOffset());
+                    ConstString demangled = mangled.GetDemangledName(cu_language);
+                    if (demangled)
+                        globals.Insert (demangled, die.GetOffset());
                 }
             }
             break;
@@ -1104,3 +1110,27 @@ DWARFCompileUnit::IsDWARF64() const
     return m_is_dwarf64;
 }
 
+bool
+DWARFCompileUnit::GetIsOptimized ()
+{
+    if (m_is_optimized == eLazyBoolCalculate)
+    {
+        const DWARFDebugInfoEntry *die = GetCompileUnitDIEOnly();
+        if (die)
+        {
+            m_is_optimized = eLazyBoolNo;
+            if (die->GetAttributeValueAsUnsigned (m_dwarf2Data, this, DW_AT_APPLE_optimized, 0) == 1)
+            {
+                m_is_optimized = eLazyBoolYes;
+            }
+        }
+    }
+    if (m_is_optimized == eLazyBoolYes)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}

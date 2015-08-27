@@ -303,6 +303,7 @@ void Darwin::addProfileRTLibs(const ArgList &Args,
   if (!(Args.hasFlag(options::OPT_fprofile_arcs, options::OPT_fno_profile_arcs,
                      false) ||
         Args.hasArg(options::OPT_fprofile_generate) ||
+        Args.hasArg(options::OPT_fprofile_generate_EQ) ||
         Args.hasArg(options::OPT_fprofile_instr_generate) ||
         Args.hasArg(options::OPT_fprofile_instr_generate_EQ) ||
         Args.hasArg(options::OPT_fcreate_profile) ||
@@ -2074,9 +2075,8 @@ void Generic_ELF::addClangTargetOptions(const ArgList &DriverArgs,
 
 /// Hexagon Toolchain
 
-std::string Hexagon_TC::GetGnuDir(const std::string &InstalledDir,
-                                  const ArgList &Args) {
-
+std::string HexagonToolChain::GetGnuDir(const std::string &InstalledDir,
+                                        const ArgList &Args) {
   // Locate the rest of the toolchain ...
   std::string GccToolchain = getGCCToolchainDir(Args);
 
@@ -2094,7 +2094,7 @@ std::string Hexagon_TC::GetGnuDir(const std::string &InstalledDir,
   return InstallRelDir;
 }
 
-const char *Hexagon_TC::GetSmallDataThreshold(const ArgList &Args) {
+const char *HexagonToolChain::GetSmallDataThreshold(const ArgList &Args) {
   Arg *A;
 
   A = Args.getLastArg(options::OPT_G, options::OPT_G_EQ,
@@ -2110,7 +2110,7 @@ const char *Hexagon_TC::GetSmallDataThreshold(const ArgList &Args) {
   return 0;
 }
 
-bool Hexagon_TC::UsesG0(const char *smallDataThreshold) {
+bool HexagonToolChain::UsesG0(const char *smallDataThreshold) {
   return smallDataThreshold && smallDataThreshold[0] == '0';
 }
 
@@ -2133,7 +2133,8 @@ static void GetHexagonLibraryPaths(const ArgList &Args, const std::string &Ver,
   const std::string MarchSuffix = "/" + MarchString;
   const std::string G0Suffix = "/G0";
   const std::string MarchG0Suffix = MarchSuffix + G0Suffix;
-  const std::string RootDir = Hexagon_TC::GetGnuDir(InstalledDir, Args) + "/";
+  const std::string RootDir =
+      HexagonToolChain::GetGnuDir(InstalledDir, Args) + "/";
 
   // lib/gcc/hexagon/...
   std::string LibGCCHexagonDir = RootDir + "lib/gcc/hexagon/";
@@ -2157,11 +2158,11 @@ static void GetHexagonLibraryPaths(const ArgList &Args, const std::string &Ver,
   LibPaths->push_back(HexagonLibDir);
 }
 
-Hexagon_TC::Hexagon_TC(const Driver &D, const llvm::Triple &Triple,
-                       const ArgList &Args)
+HexagonToolChain::HexagonToolChain(const Driver &D, const llvm::Triple &Triple,
+                                   const ArgList &Args)
     : Linux(D, Triple, Args) {
   const std::string InstalledDir(getDriver().getInstalledDir());
-  const std::string GnuDir = Hexagon_TC::GetGnuDir(InstalledDir, Args);
+  const std::string GnuDir = HexagonToolChain::GetGnuDir(InstalledDir, Args);
 
   // Note: Generic_GCC::Generic_GCC adds InstalledDir and getDriver().Dir to
   // program paths
@@ -2192,18 +2193,18 @@ Hexagon_TC::Hexagon_TC(const Driver &D, const llvm::Triple &Triple,
                          InstalledDir, LibPaths);
 }
 
-Hexagon_TC::~Hexagon_TC() {}
+HexagonToolChain::~HexagonToolChain() {}
 
-Tool *Hexagon_TC::buildAssembler() const {
+Tool *HexagonToolChain::buildAssembler() const {
   return new tools::hexagon::Assembler(*this);
 }
 
-Tool *Hexagon_TC::buildLinker() const {
+Tool *HexagonToolChain::buildLinker() const {
   return new tools::hexagon::Linker(*this);
 }
 
-void Hexagon_TC::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
-                                           ArgStringList &CC1Args) const {
+void HexagonToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+                                                 ArgStringList &CC1Args) const {
   const Driver &D = getDriver();
 
   if (DriverArgs.hasArg(options::OPT_nostdinc) ||
@@ -2211,16 +2212,15 @@ void Hexagon_TC::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
     return;
 
   std::string Ver(GetGCCLibAndIncVersion());
-  std::string GnuDir = Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs);
+  std::string GnuDir = HexagonToolChain::GetGnuDir(D.InstalledDir, DriverArgs);
   std::string HexagonDir(GnuDir + "/lib/gcc/hexagon/" + Ver);
   addExternCSystemInclude(DriverArgs, CC1Args, HexagonDir + "/include");
   addExternCSystemInclude(DriverArgs, CC1Args, HexagonDir + "/include-fixed");
   addExternCSystemInclude(DriverArgs, CC1Args, GnuDir + "/hexagon/include");
 }
 
-void Hexagon_TC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
-                                              ArgStringList &CC1Args) const {
-
+void HexagonToolChain::AddClangCXXStdlibIncludeArgs(
+    const ArgList &DriverArgs, ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdlibinc) ||
       DriverArgs.hasArg(options::OPT_nostdincxx))
     return;
@@ -2228,7 +2228,7 @@ void Hexagon_TC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
   const Driver &D = getDriver();
   std::string Ver(GetGCCLibAndIncVersion());
   SmallString<128> IncludeDir(
-      Hexagon_TC::GetGnuDir(D.InstalledDir, DriverArgs));
+      HexagonToolChain::GetGnuDir(D.InstalledDir, DriverArgs));
 
   llvm::sys::path::append(IncludeDir, "hexagon/include/c++/");
   llvm::sys::path::append(IncludeDir, Ver);
@@ -2236,7 +2236,7 @@ void Hexagon_TC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
 }
 
 ToolChain::CXXStdlibType
-Hexagon_TC::GetCXXStdlibType(const ArgList &Args) const {
+HexagonToolChain::GetCXXStdlibType(const ArgList &Args) const {
   Arg *A = Args.getLastArg(options::OPT_stdlib_EQ);
   if (!A)
     return ToolChain::CST_Libstdcxx;
@@ -2272,7 +2272,7 @@ static int getHexagonVersion(const ArgList &Args) {
   return 4;
 }
 
-StringRef Hexagon_TC::GetTargetCPU(const ArgList &Args) {
+StringRef HexagonToolChain::GetTargetCPU(const ArgList &Args) {
   int V = getHexagonVersion(Args);
   // FIXME: We don't support versions < 4. We should error on them.
   switch (V) {
@@ -2292,9 +2292,19 @@ StringRef Hexagon_TC::GetTargetCPU(const ArgList &Args) {
 }
 // End Hexagon
 
+/// AMDGPU Toolchain
+AMDGPUToolChain::AMDGPUToolChain(const Driver &D, const llvm::Triple &Triple,
+                                 const ArgList &Args)
+  : Generic_ELF(D, Triple, Args) { }
+
+Tool *AMDGPUToolChain::buildLinker() const {
+  return new tools::amdgpu::Linker(*this);
+}
+// End AMDGPU
+
 /// NaCl Toolchain
-NaCl_TC::NaCl_TC(const Driver &D, const llvm::Triple &Triple,
-                 const ArgList &Args)
+NaClToolChain::NaClToolChain(const Driver &D, const llvm::Triple &Triple,
+                             const ArgList &Args)
     : Generic_ELF(D, Triple, Args) {
 
   // Remove paths added by Generic_GCC. NaCl Toolchain cannot use the
@@ -2337,6 +2347,13 @@ NaCl_TC::NaCl_TC(const Driver &D, const llvm::Triple &Triple,
     file_paths.push_back(ToolPath + "arm-nacl");
     break;
   }
+  case llvm::Triple::mipsel: {
+    file_paths.push_back(FilePath + "mipsel-nacl/lib");
+    file_paths.push_back(FilePath + "mipsel-nacl/usr/lib");
+    prog_paths.push_back(ProgPath + "bin");
+    file_paths.push_back(ToolPath + "mipsel-nacl");
+    break;
+  }
   default:
     break;
   }
@@ -2346,8 +2363,8 @@ NaCl_TC::NaCl_TC(const Driver &D, const llvm::Triple &Triple,
   NaClArmMacrosPath = GetFilePath("nacl-arm-macros.s");
 }
 
-void NaCl_TC::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
-                                        ArgStringList &CC1Args) const {
+void NaClToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+                                              ArgStringList &CC1Args) const {
   const Driver &D = getDriver();
   if (DriverArgs.hasArg(options::OPT_nostdinc))
     return;
@@ -2372,6 +2389,9 @@ void NaCl_TC::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   case llvm::Triple::x86_64:
     llvm::sys::path::append(P, "x86_64-nacl/usr/include");
     break;
+  case llvm::Triple::mipsel:
+    llvm::sys::path::append(P, "mipsel-nacl/usr/include");
+    break;
   default:
     return;
   }
@@ -2383,16 +2403,16 @@ void NaCl_TC::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   addSystemInclude(DriverArgs, CC1Args, P.str());
 }
 
-void NaCl_TC::AddCXXStdlibLibArgs(const ArgList &Args,
-                                  ArgStringList &CmdArgs) const {
+void NaClToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
+                                        ArgStringList &CmdArgs) const {
   // Check for -stdlib= flags. We only support libc++ but this consumes the arg
   // if the value is libc++, and emits an error for other values.
   GetCXXStdlibType(Args);
   CmdArgs.push_back("-lc++");
 }
 
-void NaCl_TC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
-                                           ArgStringList &CC1Args) const {
+void NaClToolChain::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
+                                                 ArgStringList &CC1Args) const {
   const Driver &D = getDriver();
   if (DriverArgs.hasArg(options::OPT_nostdlibinc) ||
       DriverArgs.hasArg(options::OPT_nostdincxx))
@@ -2416,12 +2436,17 @@ void NaCl_TC::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
     llvm::sys::path::append(P, "x86_64-nacl/include/c++/v1");
     addSystemInclude(DriverArgs, CC1Args, P.str());
     break;
+  case llvm::Triple::mipsel:
+    llvm::sys::path::append(P, "mipsel-nacl/include/c++/v1");
+    addSystemInclude(DriverArgs, CC1Args, P.str());
+    break;
   default:
     break;
   }
 }
 
-ToolChain::CXXStdlibType NaCl_TC::GetCXXStdlibType(const ArgList &Args) const {
+ToolChain::CXXStdlibType
+NaClToolChain::GetCXXStdlibType(const ArgList &Args) const {
   if (Arg *A = Args.getLastArg(options::OPT_stdlib_EQ)) {
     StringRef Value = A->getValue();
     if (Value == "libc++")
@@ -2432,8 +2457,9 @@ ToolChain::CXXStdlibType NaCl_TC::GetCXXStdlibType(const ArgList &Args) const {
   return ToolChain::CST_Libcxx;
 }
 
-std::string NaCl_TC::ComputeEffectiveClangTriple(const ArgList &Args,
-                                                 types::ID InputType) const {
+std::string
+NaClToolChain::ComputeEffectiveClangTriple(const ArgList &Args,
+                                           types::ID InputType) const {
   llvm::Triple TheTriple(ComputeLLVMTriple(Args, InputType));
   if (TheTriple.getArch() == llvm::Triple::arm &&
       TheTriple.getEnvironment() == llvm::Triple::UnknownEnvironment)
@@ -2441,11 +2467,11 @@ std::string NaCl_TC::ComputeEffectiveClangTriple(const ArgList &Args,
   return TheTriple.getTriple();
 }
 
-Tool *NaCl_TC::buildLinker() const {
+Tool *NaClToolChain::buildLinker() const {
   return new tools::nacltools::Linker(*this);
 }
 
-Tool *NaCl_TC::buildAssembler() const {
+Tool *NaClToolChain::buildAssembler() const {
   if (getTriple().getArch() == llvm::Triple::arm)
     return new tools::nacltools::AssemblerARM(*this);
   return new tools::gnutools::Assembler(*this);
@@ -2868,6 +2894,7 @@ enum Distro {
   UbuntuTrusty,
   UbuntuUtopic,
   UbuntuVivid,
+  UbuntuWily,
   UnknownDistro
 };
 
@@ -2882,7 +2909,7 @@ static bool IsDebian(enum Distro Distro) {
 }
 
 static bool IsUbuntu(enum Distro Distro) {
-  return Distro >= UbuntuHardy && Distro <= UbuntuVivid;
+  return Distro >= UbuntuHardy && Distro <= UbuntuWily;
 }
 
 static Distro DetectDistro(llvm::Triple::ArchType Arch) {
@@ -2911,6 +2938,7 @@ static Distro DetectDistro(llvm::Triple::ArchType Arch) {
                       .Case("trusty", UbuntuTrusty)
                       .Case("utopic", UbuntuUtopic)
                       .Case("vivid", UbuntuVivid)
+                      .Case("wily", UbuntuWily)
                       .Default(UnknownDistro);
     return Version;
   }
@@ -3590,15 +3618,18 @@ SanitizerMask Linux::getSupportedSanitizers() const {
                         getTriple().getArch() == llvm::Triple::mips64el;
   const bool IsPowerPC64 = getTriple().getArch() == llvm::Triple::ppc64 ||
                            getTriple().getArch() == llvm::Triple::ppc64le;
+  const bool IsAArch64 = getTriple().getArch() == llvm::Triple::aarch64 ||
+                         getTriple().getArch() == llvm::Triple::aarch64_be;
   SanitizerMask Res = ToolChain::getSupportedSanitizers();
   Res |= SanitizerKind::Address;
   Res |= SanitizerKind::KernelAddress;
   Res |= SanitizerKind::Vptr;
-  if (IsX86_64 || IsMIPS64) {
+  if (IsX86_64 || IsMIPS64 || IsAArch64)
     Res |= SanitizerKind::DataFlow;
+  if (IsX86_64 || IsMIPS64)
     Res |= SanitizerKind::Leak;
+  if (IsX86_64 || IsMIPS64 || IsAArch64)
     Res |= SanitizerKind::Thread;
-  }
   if (IsX86_64 || IsMIPS64 || IsPowerPC64)
     Res |= SanitizerKind::Memory;
   if (IsX86 || IsX86_64) {
@@ -3635,30 +3666,92 @@ Tool *DragonFly::buildLinker() const {
   return new tools::dragonfly::Linker(*this);
 }
 
+/// Stub for CUDA toolchain. At the moment we don't have assembler or
+/// linker and need toolchain mainly to propagate device-side options
+/// to CC1.
+
+CudaToolChain::CudaToolChain(const Driver &D, const llvm::Triple &Triple,
+                             const ArgList &Args)
+    : Linux(D, Triple, Args) {}
+
+void
+CudaToolChain::addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                                     llvm::opt::ArgStringList &CC1Args) const {
+  Linux::addClangTargetOptions(DriverArgs, CC1Args);
+  CC1Args.push_back("-fcuda-is-device");
+}
+
+llvm::opt::DerivedArgList *
+CudaToolChain::TranslateArgs(const llvm::opt::DerivedArgList &Args,
+                             const char *BoundArch) const {
+  DerivedArgList *DAL = new DerivedArgList(Args.getBaseArgs());
+  const OptTable &Opts = getDriver().getOpts();
+
+  for (Arg *A : Args) {
+    if (A->getOption().matches(options::OPT_Xarch__)) {
+      // Skip this argument unless the architecture matches BoundArch
+      if (A->getValue(0) != StringRef(BoundArch))
+        continue;
+
+      unsigned Index = Args.getBaseArgs().MakeIndex(A->getValue(1));
+      unsigned Prev = Index;
+      std::unique_ptr<Arg> XarchArg(Opts.ParseOneArg(Args, Index));
+
+      // If the argument parsing failed or more than one argument was
+      // consumed, the -Xarch_ argument's parameter tried to consume
+      // extra arguments. Emit an error and ignore.
+      //
+      // We also want to disallow any options which would alter the
+      // driver behavior; that isn't going to work in our model. We
+      // use isDriverOption() as an approximation, although things
+      // like -O4 are going to slip through.
+      if (!XarchArg || Index > Prev + 1) {
+        getDriver().Diag(diag::err_drv_invalid_Xarch_argument_with_args)
+            << A->getAsString(Args);
+        continue;
+      } else if (XarchArg->getOption().hasFlag(options::DriverOption)) {
+        getDriver().Diag(diag::err_drv_invalid_Xarch_argument_isdriver)
+            << A->getAsString(Args);
+        continue;
+      }
+      XarchArg->setBaseArg(A);
+      A = XarchArg.release();
+      DAL->AddSynthesizedArg(A);
+    }
+    DAL->append(A);
+  }
+
+  DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_march_EQ), BoundArch);
+  return DAL;
+}
+
 /// XCore tool chain
-XCore::XCore(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
+XCoreToolChain::XCoreToolChain(const Driver &D, const llvm::Triple &Triple,
+                               const ArgList &Args)
     : ToolChain(D, Triple, Args) {
   // ProgramPaths are found via 'PATH' environment variable.
 }
 
-Tool *XCore::buildAssembler() const {
+Tool *XCoreToolChain::buildAssembler() const {
   return new tools::XCore::Assembler(*this);
 }
 
-Tool *XCore::buildLinker() const { return new tools::XCore::Linker(*this); }
+Tool *XCoreToolChain::buildLinker() const {
+  return new tools::XCore::Linker(*this);
+}
 
-bool XCore::isPICDefault() const { return false; }
+bool XCoreToolChain::isPICDefault() const { return false; }
 
-bool XCore::isPIEDefault() const { return false; }
+bool XCoreToolChain::isPIEDefault() const { return false; }
 
-bool XCore::isPICDefaultForced() const { return false; }
+bool XCoreToolChain::isPICDefaultForced() const { return false; }
 
-bool XCore::SupportsProfiling() const { return false; }
+bool XCoreToolChain::SupportsProfiling() const { return false; }
 
-bool XCore::hasBlocksRuntime() const { return false; }
+bool XCoreToolChain::hasBlocksRuntime() const { return false; }
 
-void XCore::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
-                                      ArgStringList &CC1Args) const {
+void XCoreToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+                                               ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdinc) ||
       DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
@@ -3671,13 +3764,13 @@ void XCore::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   }
 }
 
-void XCore::addClangTargetOptions(const ArgList &DriverArgs,
-                                  ArgStringList &CC1Args) const {
+void XCoreToolChain::addClangTargetOptions(const ArgList &DriverArgs,
+                                           ArgStringList &CC1Args) const {
   CC1Args.push_back("-nostdsysteminc");
 }
 
-void XCore::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
-                                         ArgStringList &CC1Args) const {
+void XCoreToolChain::AddClangCXXStdlibIncludeArgs(
+    const ArgList &DriverArgs, ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdinc) ||
       DriverArgs.hasArg(options::OPT_nostdlibinc) ||
       DriverArgs.hasArg(options::OPT_nostdincxx))
@@ -3691,8 +3784,8 @@ void XCore::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
   }
 }
 
-void XCore::AddCXXStdlibLibArgs(const ArgList &Args,
-                                ArgStringList &CmdArgs) const {
+void XCoreToolChain::AddCXXStdlibLibArgs(const ArgList &Args,
+                                         ArgStringList &CmdArgs) const {
   // We don't output any lib args. This is handled by xcc.
 }
 
