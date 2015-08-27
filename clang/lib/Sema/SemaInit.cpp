@@ -3654,9 +3654,10 @@ static void TryReferenceListInitialization(Sema &S,
     if (DestType->isRValueReferenceType() ||
 #ifdef INTEL_CUSTOMIZATION
         // CQ#364712 - allow non-const non-volatile lvalue reference bind to
-        // temporary in IntelMSCompat mode.
-        ((S.getLangOpts().IntelMSCompat || T1Quals.hasConst()) &&
-         !T1Quals.hasVolatile()))
+        // temporary of structure or class types in IntelMSCompat mode.
+        (!T1Quals.hasVolatile() &&
+         (T1Quals.hasConst() ||
+          S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType())))
 #else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
 #endif // INTEL_CUSTOMIZATION
@@ -4175,7 +4176,7 @@ static void TryReferenceInitializationCore(Sema &S,
       // CQ#364712 - allow non-const lvalue reference bind to temporary in
       // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
       if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
-          InitCategory.isLValue())
+          InitCategory.isLValue() || !T1->isStructureOrClassType())
 #endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
