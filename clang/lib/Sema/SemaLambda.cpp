@@ -1386,7 +1386,13 @@ static ExprResult performLambdaVarCaptureInitialization(
     Sema &S, LambdaScopeInfo::Capture &Capture,
     FieldDecl *Field,
     SmallVectorImpl<VarDecl *> &ArrayIndexVars,
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ374573: Source correlation for lambda captured values.
+    SmallVectorImpl<unsigned> &ArrayIndexStarts, bool ImplicitCapture,
+    SourceLocation CaptureDefaultLoc) {
+#else
     SmallVectorImpl<unsigned> &ArrayIndexStarts) {
+#endif // INTEL_CUSTOMIZATION
   assert(Capture.isVariableCapture() && "not a variable capture");
 
   auto *Var = Capture.getVariable();
@@ -1404,8 +1410,19 @@ static ExprResult performLambdaVarCaptureInitialization(
   // C++ [expr.prim.lambda]p12:
   //   An entity captured by a lambda-expression is odr-used (3.2) in
   //   the scope containing the lambda-expression.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ374573: Source correlation for lambda captured values.
+  ExprResult RefResult = S.BuildDeclarationNameExpr(
+      CXXScopeSpec(),
+      DeclarationNameInfo(Var->getDeclName(),
+                          (ImplicitCapture && S.getLangOpts().IntelCompat)
+                              ? CaptureDefaultLoc
+                              : Loc),
+      Var);
+#else
   ExprResult RefResult = S.BuildDeclarationNameExpr(
       CXXScopeSpec(), DeclarationNameInfo(Var->getDeclName(), Loc), Var);
+#endif // INTEL_CUSTOMIZATION
   if (RefResult.isInvalid())
     return ExprError();
   Expr *Ref = RefResult.get();
@@ -1566,8 +1583,15 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc, SourceLocation EndLoc,
                                        Var, From.getEllipsisLoc()));
       Expr *Init = From.getInitExpr();
       if (!Init) {
+#ifdef INTEL_CUSTOMIZATION
+        // Fix for CQ374573: Source correlation for lambda captured values.
+        auto InitResult = performLambdaVarCaptureInitialization(
+            *this, From, *CurField, ArrayIndexVars, ArrayIndexStarts,
+            CaptureDefault != LCD_None, CaptureDefaultLoc);
+#else
         auto InitResult = performLambdaVarCaptureInitialization(
             *this, From, *CurField, ArrayIndexVars, ArrayIndexStarts);
+#endif // INTEL_CUSTOMIZATION
         if (InitResult.isInvalid())
           return ExprError();
         Init = InitResult.get();
