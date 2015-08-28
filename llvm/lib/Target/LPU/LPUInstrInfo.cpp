@@ -70,7 +70,8 @@ void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator I, DebugLoc DL,
                                   unsigned DestReg, unsigned SrcReg,
                                   bool KillSrc) const {
-  // This could determine the opcode based on the minimum size of the source and destination
+  // This could determine the opcode based on the minimum size of the source
+  // and destination
   // For now, just use MOV64 to make sure all bits are moved.
   // Ideally, this would be based on the actual bits in the value...
   unsigned Opc = LPU::MOV64;
@@ -158,7 +159,7 @@ unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
 
 bool LPUInstrInfo::
 ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const {
-  assert(Cond.size() == 1 && "Invalid branch condition!");
+  assert(Cond.size() == 2 && "Invalid branch condition!");
   Cond[0].setImm(GetOppositeBranchCondition((LPU::CondCode)Cond[0].getImm()));
   return false;
 }
@@ -204,13 +205,13 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
         continue;
       }
 
-      // If the block has any instructions after a JMP, delete them.
+      // If the block has any instructions after a BR, delete them.
       while (std::next(I) != MBB.end())
         std::next(I)->eraseFromParent();
       Cond.clear();
       FBB = nullptr;
 
-      // Delete the JMP if it's equivalent to a fall-through.
+      // Delete the BR if it's equivalent to a fall-through.
       if (MBB.isLayoutSuccessor(I->getOperand(0).getMBB())) {
         TBB = nullptr;
         I->eraseFromParent();
@@ -223,7 +224,7 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
       continue;
     }
 
-    // Handle conditional branches.
+    // Handle conditional branches.  This filters indirect jumps
     LPU::CondCode BranchCode = GetCondFromBranchOpc(I->getOpcode());
     if (BranchCode == LPU::COND_INVALID)
       return true;  // Can't handle weird stuff.
@@ -233,12 +234,13 @@ bool LPUInstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
       FBB = TBB;
       TBB = I->getOperand(1).getMBB();
       Cond.push_back(MachineOperand::CreateImm(BranchCode));
+      Cond.push_back(I->getOperand(0));
       continue;
     }
 
     // Handle subsequent conditional branches. Only handle the case where all
     // conditional branches branch to the same destination.
-    assert(Cond.size() == 1);
+    assert(Cond.size() == 2);
     assert(TBB);
 
     // Only handle the case where all conditional branches branch to
@@ -264,8 +266,8 @@ LPUInstrInfo::InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
                               DebugLoc DL) const {
   // Shouldn't be a fall through.
   assert(TBB && "InsertBranch must not be told to insert a fallthrough");
-  assert((Cond.size() == 1 || Cond.size() == 0) &&
-         "LPU branch conditions have one component!");
+  assert((Cond.size() == 2 || Cond.size() == 0) &&
+         "LPU branch conditions have two components!");
 
   if (FBB == 0) { // One way branch.
     if (Cond.empty()) {
