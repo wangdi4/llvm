@@ -221,6 +221,7 @@ char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "HIRGeneralUnroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "HIRGeneralUnroll", "HIR General Unroll",
                     false, false)
 
