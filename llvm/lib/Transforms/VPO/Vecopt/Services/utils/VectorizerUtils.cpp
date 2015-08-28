@@ -14,6 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace intel{
 using namespace llvm;
@@ -39,20 +40,24 @@ Type* VectorizerUtils::calcCharacteristicType(Function& F,
   ISAClass ISA = Variant.getISA();
   Type* ReturnType = F.getReturnType();
   Type* CharacteristicDataType = NULL;
-  std::vector<VectorKind>& ParmKinds = Variant.getParameters();
 
   if (!ReturnType->isVoidTy())
     CharacteristicDataType = ReturnType;
 
-  const Function::ArgumentListType& Args = F.getArgumentList();
-  Function::ArgumentListType::const_iterator ArgIt = Args.begin();
-  Function::ArgumentListType::const_iterator ArgEnd = Args.end();
-  std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+  if (!CharacteristicDataType) {
 
-  std::vector<VectorKind> Parms;
-  for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {
-    if (VKIt->isVector() && !CharacteristicDataType)
-      CharacteristicDataType = (*ArgIt).getType();
+    std::vector<VectorKind>& ParmKinds = Variant.getParameters();
+    const Function::ArgumentListType& Args = F.getArgumentList();
+    Function::ArgumentListType::const_iterator ArgIt = Args.begin();
+    Function::ArgumentListType::const_iterator ArgEnd = Args.end();
+    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+
+    for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {
+      if (VKIt->isVector()) { 
+        CharacteristicDataType = (*ArgIt).getType();
+        break;
+      }
+    }
   }
 
   // TODO except Clang's ComplexType
@@ -60,13 +65,18 @@ Type* VectorizerUtils::calcCharacteristicType(Function& F,
     CharacteristicDataType = Type::getInt32Ty(F.getContext());
   }
 
+  // Promote char/short types to int for Xeon Phi.
   CharacteristicDataType =
     VectorVariant::promoteToSupportedType(CharacteristicDataType, ISA);
 
   if (CharacteristicDataType->isPointerTy()) {
-    const DataLayout& DL = F.getParent()->getDataLayout();
-    unsigned PointerSize = DL.getPointerSizeInBits();
-    CharacteristicDataType = Type::getIntNTy(F.getContext(), PointerSize);
+    // For such cases as 'int* foo(int x)', where x is a non-vector type, the
+    // characteristic type at this point will be i32*. If we use the DataLayout
+    // to query the supported pointer size, then a promotion to i64* is
+    // incorrect because the mask element type will mismatch the element type
+    // of the characteristic type.
+    PointerType *PointerTy = dyn_cast<PointerType>(CharacteristicDataType);
+    CharacteristicDataType = PointerTy->getElementType();
   }
 
   return CharacteristicDataType;

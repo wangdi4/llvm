@@ -30,7 +30,7 @@
 ; CHECK-NEXT: %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
 ; CHECK-NEXT: %maskgep = getelementptr i32, i32* %veccast.3, i32 %index
 ; CHECK-NEXT: %mask5 = load i32, i32* %maskgep
-; CHECK-NEXT: %maskcond = icmp eq i32 %mask5, 1
+; CHECK-NEXT: %maskcond = icmp ne i32 %mask5, 0
 ; CHECK-NEXT: br i1 %maskcond, label %simd.loop.then, label %simd.loop.else
 
 ; CHECK: simd.loop.then:

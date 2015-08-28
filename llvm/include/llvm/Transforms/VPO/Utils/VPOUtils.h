@@ -29,6 +29,8 @@ class LoopInfo;
 class DominatorTree;
 class StringRef;
 class CallInst;
+class Constant;
+class LLVMContext;
 
 namespace vpo {
 
@@ -104,6 +106,10 @@ public:
     /// function passed in should correspond to the original scalar version
     /// of the function.
     static Type* calculateCharacteristicType(Function *ScalarFunc);
+
+    /// \brief Returns a floating point or integer constant depending on Ty.
+    template <typename T>
+    static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
 };
 
 } // End vpo namespace

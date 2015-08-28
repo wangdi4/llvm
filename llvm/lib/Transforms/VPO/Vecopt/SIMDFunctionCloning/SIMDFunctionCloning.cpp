@@ -35,6 +35,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/Transforms/VPO/VPOPasses.h"
+#include "llvm/Transforms/VPO/SIMDFunctionCloning.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
@@ -60,23 +61,26 @@ using namespace intel;
 
 SIMDFunctionCloning::SIMDFunctionCloning() : ModulePass(ID) { }
 
-BasicBlock::iterator SIMDFunctionCloning::findLastInstInBlock(BasicBlock *BB,
-                                                              InstType IT)
+Instruction* SIMDFunctionCloning::findLastInstInBlock(BasicBlock *BB,
+                                                      InstType IT)
 {
-  BasicBlock::iterator BBIt = BB->begin();
-  BasicBlock::iterator BBEnd = BB->end();
-  BasicBlock::iterator LastInst = BB->getTerminator();
-  if (!LastInst) LastInst = BBEnd;
+  BasicBlock::reverse_iterator BBIt = BB->rbegin();
+  BasicBlock::reverse_iterator BBEnd = BB->rend();
+  Instruction *LastInst = BB->getTerminator();
+  if (!LastInst) LastInst = &*BBEnd;
 
   for (; BBIt != BBEnd; ++BBIt) {
-    if (IT == ALLOCA && isa<AllocaInst>(BBIt)) {
-      LastInst = BBIt;
+    if (IT == ALLOCA && isa<AllocaInst>(&*BBIt)) {
+      LastInst = &*BBIt;
+      break;
     }
-    if (IT == STORE && isa<StoreInst>(BBIt)) {
-      LastInst = BBIt;
+    if (IT == STORE && isa<StoreInst>(&*BBIt)) {
+      LastInst = &*BBIt;
+      break;
     }
-    if (IT == BITCAST && isa<BitCastInst>(BBIt)) {
-      LastInst = BBIt;
+    if (IT == BITCAST && isa<BitCastInst>(&*BBIt)) {
+      LastInst = &*BBIt;
+      break;
     }
   }
 
@@ -408,7 +412,7 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
   // references. If there are no parameters, then the function simply does not
   // perform any expansion since we iterate over the function's arg list.
 
-  Instruction *Mask = NULL;
+  Instruction *Mask = nullptr;
 
   Function::ArgumentListType &CloneArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgIt = CloneArgList.begin();
@@ -676,7 +680,8 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
     // an alloca for either a parameter or return. This code just ensures that
     // the EntryBlock instructions are grouped by alloca, followed by store,
     // followed by bitcast for readability reasons.
-    BasicBlock::iterator InsertPt = findLastInstInBlock(EntryBlock, STORE);
+    Instruction *LastInst = findLastInstInBlock(EntryBlock, STORE);
+    BasicBlock::iterator InsertPt = LastInst;
     if (isa<StoreInst>(InsertPt)) {
       InsertPt++;
     } else {
@@ -858,21 +863,25 @@ void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
 
               if (ParmLoad->getType()->isPointerTy()) {
                 // Linear updates to pointer parameters involves an address
-                // calculation, so use gep.
+                // calculation, so use gep. To properly update linear pointers
+                // we only need to multiply the loop index and stride since gep
+                // is indexed starting at 0 from the base address passed to the
+                // function.
                 PointerType *ParmPtrType =
                   dyn_cast<PointerType>(ParmLoad->getType());
 
                 GetElementPtrInst *LinearParmGep =
                   GetElementPtrInst::Create(ParmPtrType->getElementType(),
                                             ParmLoad, Mul, "parmgep");
+
                 LinearParmGep->insertAfter(Mul);
                 LinearVal = LinearParmGep;
               } else {
-                // For parameters that are values, just add the stride to
-                // the value that is loaded.
+                // For linear values, a mul/add sequence is needed to generate
+                // the correct value.
+                // i.e., val = linear_var * stride + loop_index;
                 BinaryOperator *Add =
                     BinaryOperator::CreateAdd(ParmLoad, Mul, "add");
-
                 Add->insertAfter(Mul);
                 LinearVal = Add;
               }
@@ -1233,11 +1242,29 @@ void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
   LoadInst *MaskLoad = new LoadInst(MaskGep, "mask",
                                     LoopBlock->getTerminator());
 
-  Constant *One = ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 1);
+  Type *CompareTy = MaskLoad->getType();
+  Instruction *MaskCmp;
+  Constant* Zero;
 
-  Instruction *MaskCmp = new ICmpInst(LoopBlock->getTerminator(),
-                                      CmpInst::ICMP_EQ, MaskLoad, One,
-                                      "maskcond");
+  // Generate the compare instruction to see if the mask bit is on. In ICC, we
+  // use the movemask intrinsic which takes both float/int mask registers and
+  // converts to an integer scalar value, one bit representing each element.
+  // AVR construction will be complicated if this intrinsic is introduced here,
+  // so the current solution is to just generate either an integer or floating
+  // point compare instruction for now. This may change anyway if we decide to
+  // go to a vector of i1 values for the mask. I suppose this would be one
+  // positive reason to use vector of i1.
+  if (CompareTy->isIntegerTy()) {
+    Zero = VPOUtils::getConstantValue(CompareTy, Clone->getContext(), 0);
+    MaskCmp = new ICmpInst(LoopBlock->getTerminator(), CmpInst::ICMP_NE,
+                           MaskLoad, Zero, "maskcond");
+  } else if (CompareTy->isFloatingPointTy()) {
+    Zero = VPOUtils::getConstantValue(CompareTy, Clone->getContext(), 0.0);
+    MaskCmp = new FCmpInst(LoopBlock->getTerminator(), CmpInst::FCMP_UNE,
+                           MaskLoad, Zero, "maskcond");
+  } else {
+    assert(0 && "Unsupported mask compare");
+  }
 
   TerminatorInst *Term = LoopBlock->getTerminator();
   Term->eraseFromParent();
