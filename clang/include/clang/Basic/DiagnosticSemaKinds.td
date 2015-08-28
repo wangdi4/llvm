@@ -2938,6 +2938,11 @@ def err_uninitialized_member_in_ctor : Error<
 def err_default_arg_makes_ctor_special : Error<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">;
+//#ifdef INTEL_CUSTOMIZATION
+def warn_default_arg_makes_ctor_special : Warning<
+  "addition of default argument on redeclaration makes this constructor a "
+  "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
+//#endif
 
 def err_use_of_default_argument_to_function_declared_later : Error<
   "use of default argument to function %0 that is declared later in class %1">;
