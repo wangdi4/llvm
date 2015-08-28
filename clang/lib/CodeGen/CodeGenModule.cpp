@@ -2284,9 +2284,19 @@ llvm::GlobalValue::LinkageTypes CodeGenModule::getLLVMLinkageForDeclarator(
 
   // C++ doesn't have tentative definitions and thus cannot have common
   // linkage.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375398: 'common' attribute is not supported in C++
+  if ((getLangOpts().IntelCompat || !getLangOpts().CPlusPlus) &&
+      isa<VarDecl>(D) &&
+      !isVarDeclStrongDefinition(
+          Context, *this, cast<VarDecl>(D),
+          CodeGenOpts.NoCommon ||
+              (getLangOpts().IntelCompat && getLangOpts().CPlusPlus)))
+#else
   if (!getLangOpts().CPlusPlus && isa<VarDecl>(D) &&
       !isVarDeclStrongDefinition(Context, *this, cast<VarDecl>(D),
                                  CodeGenOpts.NoCommon))
+#endif // INTEL_CUSTOMIZATION
     return llvm::GlobalVariable::CommonLinkage;
 
   // selectany symbols are externally visible, so use weak instead of

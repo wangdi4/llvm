@@ -1567,6 +1567,10 @@ static void handleRestrictAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375398: 'common' attribute is not supported in C++
+  if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   if (S.LangOpts.CPlusPlus) {
     S.Diag(Attr.getLoc(), diag::err_attribute_not_supported_in_lang)
       << Attr.getName() << AttributeLangSupport::Cpp;
