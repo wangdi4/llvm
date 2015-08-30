@@ -42,7 +42,8 @@ public:
     llvm::BasicBlock::iterator b = BB.begin(), e = BB.end();
     while (e != b){
       if(llvm::CallInst *CI=llvm::dyn_cast<llvm::CallInst>(&*b)){
-        if (llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()){
+        if ((llvm::CallingConv::SPIR_FUNC == CI->getCallingConv()) ||
+            (llvm::CallingConv::SPIR_KERNEL == CI->getCallingConv())){
           CI->setCallingConv(llvm::CallingConv::C);
           m_isChanged = true;
         }
