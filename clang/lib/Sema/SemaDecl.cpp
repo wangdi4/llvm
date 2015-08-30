@@ -2740,6 +2740,12 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     if (getLangOpts().MicrosoftExt) {
       Diag(New->getLocation(), diag::ext_static_non_static) << New;
       Diag(OldLocation, PrevDiag);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369830 - static declarations are treated differently.
+    } else if (getLangOpts().IntelCompat) {
+      Diag(New->getLocation(), diag::ext_intel_static_non_static) << New;
+      Diag(OldLocation, PrevDiag);
+#endif // INTEL_CUSTOMIZATION
     } else {
       Diag(New->getLocation(), diag::err_static_non_static) << New;
       Diag(OldLocation, PrevDiag);
@@ -3479,6 +3485,13 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
       Diag(New->getLocation(), diag::ext_static_non_static)
           << New->getDeclName();
       Diag(OldLocation, PrevDiag);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369830 - static declarations are treated differently.
+    } else if (getLangOpts().IntelCompat) {
+      Diag(New->getLocation(), diag::ext_intel_static_non_static)
+          << New->getDeclName();
+      Diag(OldLocation, PrevDiag);
+#endif // INTEL_CUSTOMIZATION
     } else {
       Diag(New->getLocation(), diag::err_static_non_static)
           << New->getDeclName();
@@ -3500,9 +3513,20 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   else if (New->getCanonicalDecl()->getStorageClass() != SC_Static &&
            !New->isStaticDataMember() &&
            Old->getCanonicalDecl()->getStorageClass() == SC_Static) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369830 - static declarations are treated differently.
+    if (getLangOpts().IntelCompat) {
+      Diag(New->getLocation(), diag::ext_intel_non_static_static)
+          << New->getDeclName();
+      Diag(OldLocation, PrevDiag);
+    } else {
+#endif // INTEL_CUSTOMIZATION
     Diag(New->getLocation(), diag::err_non_static_static) << New->getDeclName();
     Diag(OldLocation, PrevDiag);
     return New->setInvalidDecl();
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Check if extern is followed by non-extern and vice-versa.
@@ -6923,6 +6947,14 @@ static StorageClass getFunctionStorageClass(Sema &SemaRef, Declarator &D) {
       //   block scope shall have no explicit storage-class specifier
       //   other than extern
       // See also (C++ [dcl.stc]p4).
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#369830 - static declarations are treated differently.
+      if (SemaRef.getLangOpts().IntelCompat) {
+        SemaRef.Diag(D.getDeclSpec().getStorageClassSpecLoc(),
+                     diag::ext_intel_static_block_func);
+        return SC_Static;
+      }
+#endif // INTEL_CUSTOMIZATION
       SemaRef.Diag(D.getDeclSpec().getStorageClassSpecLoc(),
                    diag::err_static_block_func);
       break;
@@ -8045,6 +8077,20 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   if (NewFD->isFirstDecl() && !NewFD->isInvalidDecl() &&
       isIncompleteDeclExternC(*this, NewFD))
     RegisterLocallyScopedExternCDecl(NewFD, S);
+#ifdef INTEL_CUSTOMIZATION
+  else {
+    // CQ#369830 - static declarations are treated differently.
+    // If it is a locally-scoped static declaration of a function, make it
+    // visible for lookup in C.
+    const LangOptions &Opts = getLangOpts();
+    bool isLocalDecl =
+      NewFD->getLexicalDeclContext()->getRedeclContext()->isFunctionOrMethod();
+    if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2) &&
+        NewFD->isFirstDecl() && !NewFD->isInvalidDecl() && isLocalDecl &&
+        NewFD->getStorageClass() == SC_Static)
+      RegisterLocallyScopedExternCDecl(NewFD, S);
+  }
+#endif
 
   // Set this FunctionDecl's range up to the right paren.
   NewFD->setRangeEnd(D.getSourceRange().getEnd());

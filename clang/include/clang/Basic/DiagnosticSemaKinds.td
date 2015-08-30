@@ -4130,6 +4130,17 @@ def warn_weak_import : Warning <
   "an already-declared variable is made a weak_import declaration %0">;
 def ext_static_non_static : Extension<
   "redeclaring non-static %0 as static is a Microsoft extension">, InGroup<Microsoft>;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#369830 - static declaration of functions is treated differently.
+def ext_intel_static_non_static : Extension<
+  "redeclaring non-static %0 as static is an Intel extension">,
+  InGroup<IntelCompat>;
+def ext_intel_non_static_static : Extension<
+  "redeclaring static %0 as non-static is an Intel extension">,
+  InGroup<IntelCompat>;
+def ext_intel_static_block_func : Extension<
+  "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_non_static_static : Error<
   "non-static declaration of %0 follows static declaration">;
 def err_extern_non_extern : Error<

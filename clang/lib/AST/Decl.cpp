@@ -1328,7 +1328,12 @@ public:
     // static can follow an extern, so we can have two decls with different
     // linkages.
     const LangOptions &Opts = D->getASTContext().getLangOpts();
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#369830 - static declarations are treated differently.
+    if (!Opts.CPlusPlus || Opts.MicrosoftExt || Opts.IntelCompat)
+#else
     if (!Opts.CPlusPlus || Opts.MicrosoftExt)
+#endif // INTEL_CUSTOMIZATION
       return LV;
 
     // We have just computed the linkage for this decl. By induction we know

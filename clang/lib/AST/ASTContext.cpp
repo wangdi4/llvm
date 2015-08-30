@@ -8015,6 +8015,17 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
     break;
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369830 - static declarations are treated differently.
+  // For a function definition, if it has ever been declared static, set
+  // internal linkage for C.
+  const LangOptions &Opts = Context.getLangOpts();
+  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
+    for (const FunctionDecl *Prev = FD; Prev; Prev = Prev->getPreviousDecl())
+      if (Prev->getStorageClass() == SC_Static)
+        return GVA_Internal;
+  }
+#endif // INTEL_CUSTOMIZATION
   if (!FD->isInlined())
     return External;
 

@@ -3657,7 +3657,7 @@ static void TryReferenceListInitialization(Sema &S,
         // temporary of structure or class types in IntelMSCompat mode.
         (!T1Quals.hasVolatile() &&
          (T1Quals.hasConst() ||
-          S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType())))
+          (S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType()))))
 #else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
 #endif // INTEL_CUSTOMIZATION

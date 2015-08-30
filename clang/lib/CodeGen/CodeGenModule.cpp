@@ -2152,6 +2152,32 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
       Context.getTargetInfo().getTriple().isMacOSX())
     Linkage = llvm::GlobalValue::InternalLinkage;
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#369830 - static declarations are treated differently.
+  // In case of "external - internal" linkage conflict, set external linkage if
+  // variable has ever been declared without storage class in C.
+  const LangOptions &Opts = getLangOpts();
+  if (Opts.IntelCompat && !(Opts.CPlusPlus || Opts.ObjC1 || Opts.ObjC2)) {
+    const VarDecl *FirstDecl = D->getCanonicalDecl();
+    StorageClass OldStorageClass = FirstDecl->getStorageClass();
+    // Iterate through all redeclarations until a declaration without storage
+    // class is found.
+    for (const VarDecl *Redecl : FirstDecl->redecls())
+      if (Redecl->getStorageClass() == SC_None) {
+        OldStorageClass = SC_None;
+        break;
+      }
+    // Check for linkage conflict.
+    if ((D->getLinkageInternal() == InternalLinkage) !=
+        (OldStorageClass == SC_Static)) {
+      Linkage = (OldStorageClass == SC_None || D->getStorageClass() == SC_None)
+                    ? InitExpr
+                        ? llvm::GlobalValue::ExternalLinkage
+                        : llvm::GlobalValue::CommonLinkage
+                    : llvm::GlobalValue::InternalLinkage;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   GV->setLinkage(Linkage);
   if (D->hasAttr<DLLImportAttr>())
     GV->setDLLStorageClass(llvm::GlobalVariable::DLLImportStorageClass);
