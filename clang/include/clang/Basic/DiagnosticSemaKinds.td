@@ -4758,6 +4758,12 @@ def err_illegal_decl_array_of_functions : Error<
   "'%0' declared as array of functions of type %1">;
 def err_illegal_decl_array_incomplete_type : Error<
   "array has incomplete element type %0">;
+//if INTEL_CUSTOMIZATION
+  // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
+def ext_intel_array_incomplete_type : Extension<
+  "array with incomplete element type %0 is an Intel extension">,
+  InGroup<IntelCompat>;
+//endif INTEL_CUSTOMIZATION
 def err_illegal_message_expr_incomplete_type : Error<
   "Objective-C message has incomplete result type %0">;
 def err_illegal_decl_array_of_references : Error<
