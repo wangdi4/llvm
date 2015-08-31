@@ -3619,14 +3619,9 @@ public:
 void STIDebugImpl::emitSymbolFrameProc(const STISymbolFrameProc *frame) const {
   int length = 28;
   STISymbolID symbolID = S_FRAMEPROC;
-  STISymbolProcedure *procedure = frame->getProcedure();
 
   STIFrameProcFlags flags;
 
-  // Is not this equal to: labelBegin?
-  const STILineSlice *slice = procedure->getLineSlice();
-  Function *function = slice->getFunction(); // FIXME
-  MCSymbol *functionLabel = ASM()->getSymbol(function);
 
   emitInt16(length); // record length
   emitSymbolID(symbolID);
@@ -3634,8 +3629,8 @@ void STIDebugImpl::emitSymbolFrameProc(const STISymbolFrameProc *frame) const {
   emitInt32(0);                    // cbPad
   emitInt32(0);                    // offPad
   emitInt32(0);                    // cbSaveRegs
-  emitSecRel32(functionLabel);     // offExHdlr
-  emitSectionIndex(functionLabel); // sectExHdlr
+  emitInt32(0); /* FIXME: */       // offExHdlr
+  emitInt16(0); /* FIXME: */       // sectExHdlr
   emitInt32(flags);                // flags
 }
 
