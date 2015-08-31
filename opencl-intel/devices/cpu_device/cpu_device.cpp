@@ -1106,6 +1106,25 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_GLOBAL_MEM_SIZE):
+// It's hack for conformance tests which allocate amount of memory returned
+// by CL_DEVICE_GLOBAL_MEM_SIZE query. On 32 bits system it causes crash.
+// So for 32 bits system we return CL_DEVICE_MAX_MEM_ALLOC_SIZE instead of CL_DEVICE_GLOBAL_MEM_SIZE.
+#if defined (_M_X64) || defined (__x86_64__)
+        {
+            *pinternalRetunedValueSize = sizeof(cl_ulong);
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                *(cl_ulong*)paramVal = GetGlobalMemorySize();
+            }
+            return CL_DEV_SUCCESS;
+        }
+#endif
         case( CL_DEVICE_MAX_MEM_ALLOC_SIZE):
         {
             *pinternalRetunedValueSize = sizeof(cl_ulong);
@@ -1117,20 +1136,6 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             if(NULL != paramVal)
             {
                 *(cl_ulong*)paramVal = GetMaxMemAllocSize();
-            }
-            return CL_DEV_SUCCESS;
-        }
-        case( CL_DEVICE_GLOBAL_MEM_SIZE):
-        {
-            *pinternalRetunedValueSize = sizeof(cl_ulong);
-            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
-            {
-                return CL_DEV_INVALID_VALUE;
-            }
-            //if OUT paramVal is NULL it should be ignored
-            if(NULL != paramVal)
-            {
-                *(cl_ulong*)paramVal = GetGlobalMemorySize();
             }
             return CL_DEV_SUCCESS;
         }
