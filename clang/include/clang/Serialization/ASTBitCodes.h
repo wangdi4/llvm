@@ -1112,7 +1112,7 @@ namespace clang {
       DECL_OBJC_TYPE_PARAM,
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       /// \brief A PragmaDecl record.
-      , DECL_PRAGMA
+      DECL_PRAGMA
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
     };
 

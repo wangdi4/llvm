@@ -2908,76 +2908,76 @@ Parser::DeclGroupPtrTy Parser::ParseCXXClassMemberDeclarationWithPragmas(
     switch (Tok.getKind()) {
     case (tok::annot_pragma_ivdep):
       HandlePragmaIvdepDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_novector):
       HandlePragmaNoVectorDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_vector):
       HandlePragmaVectorDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_distribute_point):
       HandlePragmaDistributeDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_inline):
       HandlePragmaInlineDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_loop_count):
       HandlePragmaLoopCountDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_optimize):
       HandlePragmaOptimizeDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_optimization_level):
       HandlePragmaOptimizationLevelDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_parallel):
       HandlePragmaParallelDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_noparallel):
       HandlePragmaNoParallelDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_unroll):
       HandlePragmaUnrollDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_unroll_and_jam):
       HandlePragmaUnrollAndJamDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_nofusion):
       HandlePragmaNoFusionDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_optimization_parameter):
       HandlePragmaOptimizationParameterDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_alloc_section):
       HandlePragmaAllocSectionDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_section):
       HandlePragmaSectionDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_alloc_text):
       HandlePragmaAllocTextDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_auto_inline):
       HandlePragmaAutoInlineDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_seg):
       HandlePragmaSegDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_check_stack):
       HandlePragmaCheckStackDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_init_seg):
       HandlePragmaInitSegDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_float_control):
       HandlePragmaFloatControlDecl();
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_intel_fp_contract):
       HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFPContract, false);
-      continue;
+      return DeclGroupPtrTy();
     case (tok::annot_pragma_fenv_access):
       HandlePragmaCommonOnOffDecl(Sema::IntelPragmaFEnvAccess, false);
-      continue;
+      return DeclGroupPtrTy();
     default:
       break;
     }
