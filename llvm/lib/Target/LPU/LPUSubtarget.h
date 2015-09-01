@@ -40,9 +40,19 @@ class LPUSubtarget : public LPUGenSubtargetInfo {
 
 protected:
   bool IsOrdered;
-  bool HasS8;
-  bool HasS16;
+  bool HasI1;
+  bool HasI8;
+  bool HasI16;
+  bool HasI32;
+  bool HasI64;
   bool HasF16;
+  bool HasF32;
+  bool HasF64;
+  bool HasSextL;
+  bool HasDispl;
+  bool HasIndex;
+  bool HasShAdd;
+  bool HasBitOp;
   bool HasIDiv;
   bool HasFDiv;
   bool HasFMA;
@@ -52,9 +62,19 @@ protected:
 public:
   std::string lpuName() const { return LPUName; }
   bool isOrdered() const { return IsOrdered; }
-  bool hasS8()    const { return HasS8; }
-  bool hasS16()   const { return HasS16; }
+  bool hasI1()    const { return HasI1; }
+  bool hasI8()    const { return HasI8; }
+  bool hasI16()   const { return HasI16; }
+  bool hasI32()   const { return HasI32; }
+  bool hasI64()   const { return HasI64; }
   bool hasF16()   const { return HasF16; }
+  bool hasF32()   const { return HasF32; }
+  bool hasF64()   const { return HasF64; }
+  bool hasSextL() const { return HasSextL; }
+  bool hasDispl() const { return HasDispl; }
+  bool hasIndex() const { return HasIndex; }
+  bool hasShAdd() const { return HasShAdd; }
+  bool hasBitOp() const { return HasBitOp; }
   bool hasIDiv()  const { return HasIDiv; }
   bool hasFDiv()  const { return HasFDiv; }
   bool hasFMA()   const { return HasFMA; }
