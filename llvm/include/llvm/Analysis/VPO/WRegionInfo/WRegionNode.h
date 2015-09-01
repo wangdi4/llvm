@@ -42,6 +42,15 @@ typedef iplist<WRegionNode> WRContainerTy;
 
 /// \brief WRegion Node base class
 class WRegionNode : public ilist_node<WRegionNode> {
+
+public:
+
+  /// Iterators to iterator over basic block set
+  typedef WRegionBSetTy::iterator bbset_iterator;
+  typedef WRegionBSetTy::const_iterator bbset_const_iterator;
+  typedef WRegionBSetTy::reverse_iterator bbset_reverse_iterator;
+  typedef WRegionBSetTy::const_reverse_iterator bbset_const_reverse_iterator;
+
 private:
   /// \brief Make class uncopyable.
   void operator=(const WRegionNode &) = delete;
@@ -101,9 +110,6 @@ protected:
   void doPreOrderSubCFGVisit(BasicBlock *BB, BasicBlock *ExitBB,
                              SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited);
 
-  /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-  void populateBBlockSet();
-
   /// \brief Sets the set of bblocks that constitute this region.
   void setBBlockSet(WRegionBSetTy *BBSet) { BBlockSet = BBSet; }
 
@@ -144,16 +150,6 @@ public:
   /// \brief Prints WRegionNode children.
   void printChildren(formatted_raw_ostream &OS, unsigned Depth) const;
 
-  /// \brief Returns the entry(first) bblock of this region.
-  BasicBlock *getEntryBBlock() const { return EntryBBlock; }
-
-  /// \brief Returns the exit(last) bblock of this region.
-  BasicBlock *getExitBBlock() const { return ExitBBlock; }
-
-  /// \brief Returns the set of bblocks that constitute this region.
-  /// BBlockset must be populated by calling computeBBlockSet() first.
-  WRegionBSetTy *getBBlockSet() const { return BBlockSet; }
-
   /// \brief Returns the predecessor bblock of this region.
   BasicBlock *getPredBBlock() const;
 
@@ -185,6 +181,49 @@ public:
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
   unsigned getWRegionKindID() const { return SubClassID; }
+
+  // Methods for BBlockSet
+
+  /// \brief Returns the set of bblocks that constitute this region.
+  WRegionBSetTy *getBBlockSet() const { return BBlockSet; }
+
+  /// \brief Returns the entry(first) bblock of this region.
+  BasicBlock *getEntryBBlock() const { return EntryBBlock; }
+
+  /// \brief Returns the exit(last) bblock of this region.
+  BasicBlock *getExitBBlock() const { return ExitBBlock; }
+
+  /// Basic Block set iterator methods.
+  bbset_iterator bbset_begin() { return BBlockSet->begin(); }
+  bbset_const_iterator bbset_begin() const { return BBlockSet->begin(); }
+  bbset_iterator bbset_end() { return BBlockSet->end(); }
+  bbset_const_iterator bbset_end() const { return BBlockSet->end(); }
+
+  bbset_reverse_iterator bbset_rbegin() { return BBlockSet->rbegin(); }
+  bbset_const_reverse_iterator bbset_rbegin() const { return BBlockSet->rbegin(); }
+  bbset_reverse_iterator bbset_rend() { return BBlockSet->rend(); }
+  bbset_const_reverse_iterator bbset_rend() const { return BBlockSet->rend(); }
+
+  /// \brief Returns True if BasicBlockSet is empty.
+  unsigned isBasicBlockSetEmpty() const { return BBlockSet->empty(); }
+
+  /// \brief Returns the number of BasicBlocks in BBlockSet.
+  unsigned getBBSetSize() const { return BBlockSet->size(); }
+
+  /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
+  void populateBBlockSet();
+
+  /// \brief On-Demand build of WRNRegionNode's BasicBlockSet.
+  ///  Because the BB set can change after each transformation,
+  ///  it is recommended to rebuild the set before each use.
+  void populateBasicBlockSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
+     WRegionBSetTy *BBSet);
+
+  /// \brief Reset the BasicBlockSet pointer. Used to prevent access
+  /// to outdated basic block set.
+  void resetBBSetPtr() { BBlockSet = nullptr; }
+
+  // Derieved Class Enumeration
 
   /// \brief An enumeration to keep track of the concrete subclasses of 
   /// WRegionNode

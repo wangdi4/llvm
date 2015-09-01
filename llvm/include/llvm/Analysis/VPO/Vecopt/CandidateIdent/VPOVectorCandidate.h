@@ -21,8 +21,6 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/Pass.h"
 
-//#define DEBUG_TYPE "vec_candidate"
-
 namespace llvm { // LLVM Namespace
 
 class HLNode;
@@ -56,7 +54,9 @@ protected:
 
 private:
 
-  /// Work Region Node (if available)
+  //  All VectorCandidate objects should be built from an underlying
+  //  Work Region Node.
+  /// Work Region Node
   WRNVecLoopNode *WRNode;
 
   /// HIR Node (if available)
@@ -115,6 +115,8 @@ public:
   /// \brief Returns the successor bblock of this region.
   BasicBlock *getSuccBBlock() const;
 
+  /// \brief Returns the WRN node from which this candidate was built.
+  WRNVecLoopNode *getWrnNode() { return WRNode; }
 
   // Iterator Methods
   const_bb_iterator bb_begin() const { return BBlockSet.begin(); }

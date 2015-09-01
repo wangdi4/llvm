@@ -12,6 +12,20 @@
 //   VPOVecCandIdentify.cpp -- Implements the vector loop candidate
 //   identification pass.
 //
+//   This is a wrapper pass for WRN Info Analysis.  This pass builds a
+//   a collection of candidate loops for vectorization.  These candidate loops
+//   are identified from the incoming LLVM IR by: 
+//     (1) WRN Info Analysis - For explicit vectorization
+//     (2) Computed locally - For auto vectorization. (Not implemented yet)
+//   
+//     # 2 is a temporary solution until WRN Info Analysis can idenitfy
+//     candidate loops for auto-vectorization. At that time we can 
+//     eliminate this pass.
+//
+//   The collection of candidate loops for vectorization, that were identified 
+//   by this pass, is stored in a vector container which is used by AVRGenerate
+//   to build the Abstract Layer with AVRs. 
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VPO/Vecopt/CandidateIdent/VPOVecCandIdentify.h"
@@ -19,6 +33,8 @@
 #include "llvm/Analysis/VPO/Vecopt/Passes.h"
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
+
+#define DEBUG_TYPE "identify-vector-candidates"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -69,6 +85,7 @@ void IdentifyVectorCandidates::identifyVectorCandidates()
 
 void IdentifyVectorCandidates::identifyExplicitCandidates()
 {
+  //DEBUG(dbgs() << "\nENG: Idenitfy Vector Candidates\n");
   // Walk the the top-level WRN graph nodes.
   // Replace with WRN vistor once its implemented
   for (auto I = WR->begin(), E = WR->end(); I != E;  ++I) {
@@ -78,6 +95,10 @@ void IdentifyVectorCandidates::identifyExplicitCandidates()
       VecCandidates.push_back(VC);
     }
   }
+}
+
+void IdentifyVectorCandidates::releaseMemory() {
+  VecCandidates.clear();
 }
 
 void IdentifyVectorCandidates::identifyAutoCandidates()

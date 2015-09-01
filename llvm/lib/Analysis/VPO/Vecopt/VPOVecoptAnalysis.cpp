@@ -19,6 +19,6 @@
 using namespace llvm;
 
 void llvm::initializeVPOVecoptAnalysis(PassRegistry &Registry) {
-  initializeAVRGeneratePass(Registry);
   initializeIdentifyVectorCandidatesPass(Registry);
+  initializeAVRGeneratePass(Registry);
 }

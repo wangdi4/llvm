@@ -30,10 +30,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Compiler.h"
 
-#define DEBUG_TYPE "avr"
-
 namespace llvm {  // LLVM Namespace
 namespace vpo {   // VPO Vectorizer Namespace
+
+#define TabLength 2
 
 class AVRLoop;
 
@@ -45,6 +45,7 @@ class AVRLoop;
 /// This class (hierarchy) disallows creating objects on stack.
 /// Objects are created/destroyed using AVRUtils friend class.
 class AVR : public ilist_node<AVR> {
+
 private:
 
   /// \brief Make class uncopyable.
@@ -66,7 +67,7 @@ private:
 protected:
   AVR(unsigned SCID);
   AVR(const AVR &AVRObj);
-  ~AVR() {} // TODO: Virtual Destructor
+  virtual ~AVR() {}
 
   /// \brief Destroys the object.
   void destroy();
@@ -84,11 +85,17 @@ public:
 
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
-  /// Virtual dump method. Derived classes should implement this routine.
-  virtual void dump() const { print(); }
-  /// Virtual print method. Derived classes should implement this routine.
-  virtual void print() const;
 
+  /// Dumps AvrNode. 
+  void dump() const;
+
+  /// Dumps Avr Node at verbosity Level.
+  void dump(unsigned Level) const;
+
+  /// Virtual print method. Derived classes should implement this routine.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
+                     unsigned VerbosityLevel) const = 0;
+                     
   /// \brief Code generation for AVR.
   virtual void codeGen();
 
@@ -123,7 +130,8 @@ public:
     AVRFBranchNode,
     AVRBackEdgeNode,
     AVREntryNode,
-    AVRReturnNode
+    AVRReturnNode,
+    AVRWrnNode
   };
 
 };

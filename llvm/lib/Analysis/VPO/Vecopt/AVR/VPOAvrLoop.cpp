@@ -16,14 +16,22 @@
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrLoop.h"
 
+#define DEBUG_TYPE "avr-loop"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRLoop::AVRLoop(const LoopInfo *LLVMLoop, bool IsDoWh)
-  : AVR(AVR::AVRLoopNode), OrigLoop(LLVMLoop), NestingLevel(0),
-    IsDoWhile(IsDoWh), IsInnerMost(true), IsVectorCandidate(true),
-    IsAutoVectorCandidate(false), IsExplicitVectorCandidate(true) {}
+AVRLoop::AVRLoop(const Loop *Lp)
+  : AVR(AVR::AVRLoopNode), WrnLoopNode(nullptr), LLVMLoop(Lp) {
 
+  setNestingLevel(0);               // TODO
+  setNumberOfExits(0);              // TODO
+  setIsDoWhileLoop(true);           // TODO
+  setIsInnerMost(false);            // TODO
+  setVectorCandidate(true);
+  setAutoVectorCandidate(false);    // TODO 
+  setExplicitVectorCandidate(true); // TODO 
+}
 
 AVRLoop *AVRLoop::clone() const {
   return nullptr;
@@ -38,16 +46,22 @@ AVR *AVRLoop::getLastChild() {
   }
 }
 
-void AVRLoop::print() const {
-  DEBUG(dbgs() <<"AVR_Loop\n");
-}
+void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
+                    unsigned VerbosityLevel) const {
 
-void AVRLoop::dump() const {
-  print();
-  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
-    Itr->print();
+  std::string Indent(Depth * TabLength, ' ');
+
+  if (VerbosityLevel > 0 ) {
+
+    OS << Indent  <<"AVR_LOOP:\n";
+
+    Depth++;
+    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
+      Itr->print(OS, Depth, VerbosityLevel);
+    }
   }
 }
+
 
 void AVRLoop::codeGen() {
 

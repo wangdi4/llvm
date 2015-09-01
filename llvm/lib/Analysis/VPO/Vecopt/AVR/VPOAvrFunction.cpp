@@ -16,21 +16,23 @@
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrFunction.h"
 
+#define DEBUG_TYPE "avr-function-node"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRFunction::AVRFunction(Function *OrigF)
-  : AVR(AVR::AVRFunctionNode), OriginalFunction(OrigF) {}
+AVRFunction::AVRFunction(Function *OrigF, const LoopInfo *LpInfo)
+  : AVR(AVR::AVRFunctionNode), OriginalFunction(OrigF), LI(LpInfo) {}
 
-BasicBlock *AVRFunction::getEntryBasicBlock() const {
+BasicBlock *AVRFunction::getEntryBBlock() const {
   return &OriginalFunction->getEntryBlock();
 }
 
-BasicBlock *AVRFunction::getFirstBasicBlock() const {
+BasicBlock *AVRFunction::getFirstBBlock() const {
   return &OriginalFunction->front();
 }
 
-BasicBlock *AVRFunction::getLastBasicBlock() const {
+BasicBlock *AVRFunction::getLastBBlock() const {
   return &OriginalFunction->back();
 }
 
@@ -47,14 +49,18 @@ AVR *AVRFunction::getLastChild() {
   }
 }
 
-void AVRFunction::print() const {
-  DEBUG(dbgs() <<"AVR_FUNCTION\n");
-}
+void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
+                        unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRFunction::dump() const {
-  print();
-  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
-    Itr->print();
+  if (VerbosityLevel > 0 ) {
+
+    OS << Indent << "AVR_FUNCTION:\n";
+
+    Depth++;
+    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
+      Itr->print(OS, Depth, VerbosityLevel);
+    }
   }
 }
 

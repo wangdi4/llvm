@@ -52,6 +52,7 @@ bool WRegionUtils::isEndDirective(
 )
 {
   if ((DirString == "dir.end.parallel") ||
+      (DirString == "dir.simd.end") ||     // This should be removed after fix in SIMDCloning 
       (DirString == "dir.end.simd")) {
     // TODO: complete the list for all WRegionNodeKinds
     return true;
@@ -85,7 +86,6 @@ void WRegionUtils::handleDirQualOpndList(
   // TODO: implement
   return;
 }
-
 
 // Insertion Utilities
 void WRegionUtils::insertFirstChild(
@@ -158,4 +158,12 @@ void WRegionUtils::insertWRegionNode(
   WRContainer.insert(InsertionPoint, W);
 
   return;
+}
+
+void WRegionUtils::setLoopInfo(
+  WRNVecLoopNode *WRNLoop,
+  LoopInfo* LI
+)
+{
+  WRNLoop->setLoopInfo(LI);
 }

@@ -252,6 +252,9 @@ class WRNVecLoopNode : public WRegion
     void setIsAutoVec(bool Flag)        { IsAutoVec = Flag; }
     void setLoopInfo(LoopInfo *L)       { Loop = L;         }
 
+    // Need to set some fields externally.  
+    friend class WRegionUtils;
+
   public:
 
     WRNVecLoopNode();

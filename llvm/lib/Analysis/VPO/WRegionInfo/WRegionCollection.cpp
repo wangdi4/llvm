@@ -150,6 +150,15 @@ void WRegionCollection::doPreOrderDomTreeVisit(
 
           // The intrinsic represents an intel BEGIN directive.
           // W is a pointer to an object for the corresponding WRN.
+
+	  // Eric:
+	  // TODO: Fix the lack of Loop field in WRNVecLoopNode
+	  // We need to set the LLVM Loop per each WRNNode. For today,
+	  // we will just attached whole function loop info
+	  if (WRNVecLoopNode *WRNLoop = dyn_cast<WRNVecLoopNode>(W)) {
+	    WRegionUtils::setLoopInfo(WRNLoop, LI);
+          }
+
           if (S->empty()) { 
             // Top-level WRegionNode
             WRGraph->push_back(W);

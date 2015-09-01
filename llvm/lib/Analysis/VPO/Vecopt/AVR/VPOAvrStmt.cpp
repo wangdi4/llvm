@@ -22,7 +22,7 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-#define DEBUG_TYPE "avr"
+#define DEBUG_TYPE "avr-stmt-node"
 
 // TODO: Properly define print routines.
 
@@ -35,13 +35,15 @@ AVRAssign *AVRAssign::clone() const {
   return nullptr;
 }
 
-void AVRAssign::print() const {
-  DEBUG(dbgs() <<"AVR_ASSIGN: ");
-  DEBUG(Instruct->dump());
-}
+void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
+                      unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRAssign::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent << "AVR_ASSIGN: ";
+    Instruct->print(OS); 
+    OS << "\n" ;
+  }
 }
 
 void AVRAssign::codeGen() {
@@ -66,14 +68,15 @@ AVRLabel *AVRLabel::clone() const {
   return nullptr;
 }
 
-void AVRLabel::print() const {
-  DEBUG(dbgs() <<"\nAVR_LABEL:    " <<
-    this->SourceBlock->getName() << "\n");
+void AVRLabel::print(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
+
+  if (VerbosityLevel > 0) {
+    OS << Indent <<"AVR_LABEL:    " << this->SourceBlock->getName() << "\n";
+  }
 }
 
-void AVRLabel::dump() const {
-  print();
-}
 void AVRLabel::codeGen() {
 }
 
@@ -85,13 +88,15 @@ AVRPhi *AVRPhi::clone() const {
   return nullptr;
 }
 
-void AVRPhi::print() const {
-  DEBUG(dbgs() <<"AVR_PHI:    ");
-  DEBUG(Instruct->dump());
-}
+void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRPhi::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent << "AVR_PHI:    ";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVRPhi::codeGen() {
@@ -116,13 +121,15 @@ AVRCall *AVRCall::clone() const {
   return nullptr;
 }
 
-void AVRCall::print() const {
-  DEBUG(dbgs() <<"AVR_CALL:   ");
-  DEBUG(Instruct->dump());
-}
+void AVRCall::print(formatted_raw_ostream &OS, unsigned Depth,
+                    unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRCall::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent <<"AVR_CALL:   ";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVRCall::codeGen() {
@@ -147,13 +154,15 @@ AVRFBranch *AVRFBranch::clone() const {
   return nullptr;
 }
 
-void AVRFBranch::print() const {
-  DEBUG(dbgs() <<"AVR_FBRANCH:");
-  DEBUG(Instruct->dump());
-}
+void AVRFBranch::print(formatted_raw_ostream &OS, unsigned Depth,
+                       unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRFBranch::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent << "AVR_FBRANCH:";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVRFBranch::codeGen() {
@@ -178,13 +187,15 @@ AVRBackEdge *AVRBackEdge::clone() const {
   return nullptr;
 }
 
-void AVRBackEdge::print() const {
-  DEBUG(dbgs() <<"AVR_BACKEDGE:");
-  DEBUG(Instruct->dump());
-}
+void AVRBackEdge::print(formatted_raw_ostream &OS, unsigned Depth,
+                        unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRBackEdge::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent << "AVR_BACKEDGE:";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVRBackEdge::codeGen() {
@@ -209,13 +220,15 @@ AVREntry *AVREntry::clone() const {
   return nullptr;
 }
 
-void AVREntry::print() const {
-  DEBUG(dbgs() <<"AVR_ENTRY: ");
-  DEBUG(Instruct->dump());
-}
+void AVREntry::print(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVREntry::dump() const {
-  print();
+  if (VerbosityLevel > 0 ) {
+    OS << Indent <<"AVR_ENTRY: ";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVREntry::codeGen() {
@@ -241,13 +254,15 @@ AVRReturn *AVRReturn::clone() const {
   return nullptr;
 }
 
-void AVRReturn::print() const {
-  DEBUG(dbgs() <<"AVR_RETURN: ");
-  DEBUG(Instruct->dump());
-}
+void AVRReturn::print(formatted_raw_ostream &OS, unsigned Depth,
+                      unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
 
-void AVRReturn::dump() const {
-  print();
+  if (VerbosityLevel > 0) {
+    OS << Indent << "AVR_RETURN: ";
+    Instruct->print(OS);
+    OS << "\n" ;
+  }
 }
 
 void AVRReturn::codeGen() {
@@ -262,5 +277,38 @@ void AVRReturn::codeGen() {
 
   ReplaceInstWithInst(Instruct, inst);
   DEBUG(inst->dump());
+}
+
+//----------------------------------------------------------------------------//
+// AVR Wrn Node
+//----------------------------------------------------------------------------//
+AVRWrn::AVRWrn(WRNVecLoopNode *WrnSimdNode)
+  : AVR(AVR::AVRWrnNode), WRegionSimdNode(WrnSimdNode) {}
+
+AVRWrn *AVRWrn::clone() const {
+  return nullptr;
+}
+
+
+void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
+                   unsigned VerbosityLevel) const {
+
+  std::string Indent(Depth * TabLength, ' ');
+
+  if (VerbosityLevel > 0) {
+
+    OS << Indent <<"AVR_WRN\n";
+
+    Depth++;
+    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
+      Itr->print(OS, Depth, VerbosityLevel);
+    }
+  }
+}
+
+void AVRWrn::codeGen() {
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
+    Itr->codeGen();
+  }
 }
 

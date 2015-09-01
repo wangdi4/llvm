@@ -17,22 +17,27 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrFunction.h"
 
+#define DEBUG_TYPE "avr-node"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
 AVR::AVR(unsigned SCID)
   : SubClassID(SCID), Parent(nullptr), Number(0) {}
 
-void AVR::print() const {
-  DEBUG(dbgs() <<"Base AVR Node\n");
+void AVR::destroy() {
+  delete this;
 }
 
 /// Should this be made pure virtual?
 void AVR::codeGen()  {
 }
 
-/*
 void AVR::dump() const {
-  print();
+  this->dump(1);
 }
-*/
+
+void AVR::dump(unsigned VerbosityLevel) const {
+  formatted_raw_ostream OS(dbgs());
+  print(OS, 1, VerbosityLevel);
+}

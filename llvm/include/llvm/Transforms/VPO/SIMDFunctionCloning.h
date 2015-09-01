@@ -181,6 +181,8 @@ class SIMDFunctionCloning : public ModulePass {
 
     static char ID;
     SIMDFunctionCloning();
+    void print(raw_ostream &OS, const Module * = nullptr) const override;
+
 }; // end pass class
 
 } // end vpo namespace

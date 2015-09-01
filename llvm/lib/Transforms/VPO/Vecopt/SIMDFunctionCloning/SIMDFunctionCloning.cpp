@@ -1373,6 +1373,10 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
   return true; // LLVM IR has been modified
 }
 
+void SIMDFunctionCloning::print(raw_ostream &OS, const Module *M) const {
+  // TODO
+}
+
 ModulePass *llvm::createSIMDFunctionCloningPass() {
   return new llvm::vpo::SIMDFunctionCloning();
 }

@@ -20,8 +20,6 @@
 #include "llvm/Pass.h"
 #include "llvm/Analysis/VPO/Vecopt/CandidateIdent/VPOVectorCandidate.h"
 
-#define DEBUG_TYPE "vec-candidate-id"
-
 namespace llvm { // LLVM Namespace
 namespace vpo { // VPO Vectorizer Namespace
 
@@ -69,6 +67,9 @@ private:
   /// Work Region Info Pass.
   WRegionInfo *WR;
 
+  /// LoopInfo Pass.
+  LoopInfo *LI;
+
 public:
 
   /// Iterator Methods
@@ -83,6 +84,11 @@ public:
   const_reverse_iterator rend() const { return VecCandidates.rend(); }
 
   VecCandidatesTy getVectorizationCandidates() {return VecCandidates;}
+
+  unsigned getNumCandidates() { return VecCandidates.size(); }
+
+  /// \brief Release memory for identified vector candidates.
+  void releaseMemory();
 
 };
 

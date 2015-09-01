@@ -66,7 +66,7 @@ bool VPODriver::runOnFunction(Function &F) {
   AV = &getAnalysis<AVRGenerate>();
 
   // Print results of AvrGenerate Pass
-  AV->print();
+  AV->dump();
 
   // Invoke AVR->LLVM_IR Code Generation.
   ret_val = AV->codeGen();

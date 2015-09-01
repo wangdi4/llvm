@@ -18,4 +18,4 @@
 type = Library
 name = Vecopt_Analysis
 parent = Libraries
-required_libraries = WRegionInfoAnalysis ;Vecopt_CandidateIdent Vecopt_AvrAnalysis
+required_libraries = WRegionInfoAnalysis

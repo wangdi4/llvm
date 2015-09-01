@@ -17,10 +17,11 @@
 #define LLVM_ANALYSIS_VPO_AVR_LOOP_H
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 
 namespace llvm { // LLVM Namespace
 
-class LoopInfo;
+class Loop;
 
 namespace vpo {  // VPO Vectorizer Namespace
 
@@ -54,14 +55,16 @@ public:
 
 private:
 
-  /// Pointer to orignial LLVM Loop Class.
-  const LoopInfo *OrigLoop;
+  /// WRNVecLoop Node.
+  WRNVecLoopNode *WrnLoopNode;
+  /// Pointer to original LLVM loop.
+  const Loop *LLVMLoop;
   /// Loop nesting level.
   unsigned NestingLevel;
   /// Number of loop exits. 
-  unsigned NumExits;
+  unsigned NumberOfExits;
   /// Loop is of form Do-While.
-  const bool IsDoWhile;
+  bool IsDoWhile;
   /// Loop is innermost.
   bool IsInnerMost;
   /// Loop is a candidate for vectorization.
@@ -73,6 +76,7 @@ private:
 
   /// Children of this AVRLoop
   ChildrenTy Children;
+
   /// Iterator pointing to begining of children nodes
   ChildrenTy::iterator ChildBegin;
   /// Iterator pointing to begining of preheader nodes
@@ -80,26 +84,40 @@ private:
   /// Iterator pointing to begining of postexit nodes
   ChildrenTy::iterator PostexitBegin;
 
-  /// Pointer to Loop info Contained in WRN
-  // const WRN *WRNInfo;
-
   // TODO: PHI Node
 
 protected:
 
-  AVRLoop(const LoopInfo *OrigLLVMLoop, bool IsDoWhileLoop);
+  // Interface to create AVRLoop from LLVM Loop.
+  AVRLoop(const Loop *Lp);
+
+  // AvrLoop copy constructor.
   AVRLoop(const AVRLoop &AVROrigLoop);
-  ~AVRLoop();
+
+  virtual ~AVRLoop() override {}
+
+  /// \brief Set Orig LLVM Loop
+  void setOrigLLVMLoop(Loop *Lp) { LLVMLoop = Lp; }
 
   /// \brief Set the loop nesting level
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
+
+  /// \brief Set the number of exits in loop
+  void setNumberOfExits(unsigned NumExits) { NumberOfExits = NumExits; }
+
+  /// \bried Set IsDoWhileLoop
+  void setIsDoWhileLoop(bool IsDoW) { IsDoWhile = IsDoW; }
+
   /// \brief Set the loop nesting level
   void setIsInnerMost(bool InnerM) { IsInnerMost = InnerM; }
+
   /// \brief Sets loop as a vectorization candidate.
   void setVectorCandidate(bool VectorCand) { IsVectorCandidate = VectorCand; }
+
   /// \brief Sets loop as an auto-vectorization candidate.
   void setAutoVectorCandidate(bool AutoVectorCand) {
     IsAutoVectorCandidate = AutoVectorCand; }
+
   /// \brief Sets loop as an explicit-vectorization candidate.
   void setExplicitVectorCandidate(bool ExplicitVectorCand) {
     IsExplicitVectorCandidate = ExplicitVectorCand; }
@@ -109,30 +127,42 @@ protected:
 
 public:
 
+
+  /// \brief Set WRNVecLoopNode
+  void setWrnVecLoopNode(WRNVecLoopNode *WRN) { WrnLoopNode = WRN; }
+
+  /// \brief Returns WRNVecLoop node.
+  WRNVecLoopNode *getWrnVecLoopNode() { return WrnLoopNode; }
+
   /// \brief Returns Original LLVM Loop
-  const LoopInfo *getLLVMLoop() const {
-     return OrigLoop; 
-  }
+  const Loop *getLLVMLoop() const { return LLVMLoop; }
+
+  /// \brief Returns Loop nesting level
+  unsigned getNestingLevel() const { return NestingLevel; }
+
   /// \brief Returns true if loop is a do loop.
-  bool isDoLoop() const {
-    return (!IsDoWhile && (NumExits == 1));
-  }
+  bool isDoLoop() const { return (!IsDoWhile && (NumberOfExits == 1)); }
+
   /// \brief Returns true is loop is of form Do-While.
-  bool isDoWhileLoop() const {
-    return IsDoWhile;
-  }
+  bool isDoWhileLoop() const { return IsDoWhile; }
+
   /// \brief Returns the number of exits of the loop.
-  unsigned getNumExits() const {
-    return NumExits;
-  }
-  /// \brief Returns loops nesting level
-  unsigned getNestingLevel() const {
-    return NestingLevel;
-  }
+  unsigned getNumExits() const {return NumberOfExits; }
+
   /// \brief Returns true is loop is innermost
-  bool isInnerMost() const {
-    return IsInnerMost;
-  }
+  bool isInnerMost() const { return IsInnerMost; }
+
+  /// \brief Returns true is loop is a candidate for vectorization.
+  bool isVectorCandidate() const { return IsVectorCandidate; }
+
+  /// \brief Returns true is loop is a candidate for auto-vectorization.
+  bool isAutoVectorCandidate() const { return IsAutoVectorCandidate; }
+
+  /// \brief Returns true is loop is a candidate for explicit vectorization.
+  bool isExplicitVectorCandidate() const { return IsExplicitVectorCandidate; }
+
+
+  // Loop Children Iterators
 
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }
@@ -143,7 +173,9 @@ public:
   reverse_child_iterator child_rend() { return Children.rend(); }
   const_reverse_child_iterator child_rend() const { return Children.rend(); }
 
-  /// Children Methods
+  // Children Methods
+
+  /// \brief Returns the first child if it exists, otherwise returns null.
   AVR *getFirstChild();
 
   /// \brief Returns the first child if it exists, otherwise returns null.
@@ -170,8 +202,10 @@ public:
     return Node->getAVRID() == AVR::AVRLoopNode;
   }
 
-  void print() const override;
-  void dump() const override;
+  /// \brief Prints the AvrLoop node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             unsigned VerbosityLevel) const override;
+
   AVRLoop *clone() const override; 
 
   /// \brief Code generation for AVR loop.

@@ -53,7 +53,7 @@ protected:
 
   AVRIf(Instruction *CompareInst);
   AVRIf (const AVRIf &AVRIf);
-  ~AVRIf();
+  virtual ~AVRIf() override {}
 
   /// \brief Sets up state object.
   void initialize();
@@ -134,9 +134,11 @@ public:
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
 
-  void print() const override;
 
-  void dump() const override;
+  /// \brief Prints the AvrIf node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+	     unsigned VerbosityLevel) const override;
+
 
   /// \brief Code generation for AVR IF
   void codeGen()  override;

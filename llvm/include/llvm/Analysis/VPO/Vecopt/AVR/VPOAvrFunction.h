@@ -20,6 +20,9 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
 namespace llvm { // LLVM Namespace
+
+class LoopInfo;
+
 namespace vpo {  // VPO Vectorizer Namespace
 
 /// \brief AVR Function node abstract vector representation
@@ -45,20 +48,29 @@ private:
 
   /// Pointer to orignial LLVM Loop
   Function *OriginalFunction;
+
   /// Function is void.
   bool IsVoidFunction;
+
   /// Function is a candidate for explicit vectorization
   bool IsExplicitVectorCandidate;
+
   /// Contains the children AVR nodes of this Function
   ChildrenTy Children;
 
+  /// Loop info for the original LLVM function.
+  const LoopInfo * LI;
+
   // TODO: Parameters
   // TODO: Returns
+
+  /// \brief Sets Loop Info
+  void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }
   
 protected:
 
-  AVRFunction(Function *OrigF);
-  ~AVRFunction();
+  AVRFunction(Function *OrigF, const LoopInfo *LpIn);
+  virtual ~AVRFunction() override {}
 
   /// \brief Sets pointer to original LLVM function.
   void setOriginalFunction(Function *OrigF) { OriginalFunction = OrigF; }
@@ -79,17 +91,21 @@ public:
   Function *getOrigFunction() const { return OriginalFunction; }
 
   /// \brief Returns the entry(first) bblock of this function.
-  BasicBlock *getEntryBasicBlock() const;
+  BasicBlock *getEntryBBlock() const;
 
   /// \brief Returns the first bblock of this function.
-  BasicBlock *getFirstBasicBlock() const;
+  BasicBlock *getFirstBBlock() const;
 
   /// \brief Returns the exit(last) bblock of this function.
-  BasicBlock *getLastBasicBlock() const;
+  BasicBlock *getLastBBlock() const;
+
+  /// \brief Returns Loop Info.
+  const LoopInfo *getLoopInfo() { return LI; }
 
   BasicBlockListTy *getBasicBlockList() const{
     return &OriginalFunction->getBasicBlockList();
   }
+
   /// \brief Returns true if function is void.
   bool isVoidFunction() const { return IsVoidFunction; }
 
@@ -137,11 +153,9 @@ public:
     return Node->getAVRID() == AVR::AVRFunctionNode;
   }
 
-  /// \brief Print Method for AVR Function.
-  void print() const override;
-
-  /// \brief Dump AVR Function Node and its children.
-  void dump() const override;
+  /// \brief Prints Avr Function
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
+                     unsigned VerbosityLevel) const override;
 
   /// \brief Code generation for AVR Function Node and its children.
   // We have this under analysis for now. Clients call this from a 

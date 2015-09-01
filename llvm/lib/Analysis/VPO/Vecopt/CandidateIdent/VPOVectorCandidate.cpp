@@ -17,6 +17,8 @@
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/VPO/Vecopt/Passes.h"
 
+#define DEBUG_TYPE "vector-candidate"
+
 using namespace llvm;
 using namespace llvm::vpo;
 

@@ -17,6 +17,8 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIf.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
+#define DEBUG_TYPE "avr-if-node"
+
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -27,13 +29,17 @@ AVRIf *AVRIf::clone() const {
   return nullptr;
 }
 
-void AVRIf::print() const {
-  DEBUG(dbgs() <<"AVR_If\n");
+void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
+                  unsigned VerbosityLevel) const {
+  std::string Indent(Depth * TabLength, ' ');
+
+  if (VerbosityLevel > 0) { 
+    OS << Indent << "AVR_IF:     ";
+    CompareInstruction->print(OS);
+    OS << "\n";
+  }
 }
 
-void AVRIf::dump() const {
-  print();
-}
 
 void AVRIf::codeGen() {
   Instruction *inst;

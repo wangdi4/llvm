@@ -99,6 +99,10 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
+
+  /// brief Sets the loop info for given WRNVecLoopNode
+  static void setLoopInfo(WRNVecLoopNode *WRNLoop, LoopInfo *LI);
+
 };
 
 } // End VPO Namespace

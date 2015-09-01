@@ -26,6 +26,4 @@ add_llvm_library(LLVMVecopt_Analysis
 
 add_dependencies(LLVMVecopt_Analysis intrinsics_gen)
 
-#add_subdirectory(AVR)
-#add_subdirectory(CandidateIdent)
 

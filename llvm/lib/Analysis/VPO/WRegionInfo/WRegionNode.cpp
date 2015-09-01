@@ -76,6 +76,9 @@ void WRegionNode::populateBBlockSet(void)
   BasicBlock *ExitBB  = getExitBBlock();
   setBBlockSet(nullptr);
 
+  assert(EntryBB && "Missing EntryBB!");
+  assert(ExitBB && "Missing ExitBB!");
+
   if (!EntryBB || !ExitBB)
     return;
 
@@ -93,7 +96,7 @@ void WRegionNode::populateBBlockSet(void)
             E = PreOrderTreeVisited.end(); I != E; ++I) {
     BasicBlock *BB = *I;
 
-    // DEBUG(dbgs()<< "SHOW BBSet BBLOCK Insert Ordering :"  << *BB);
+    //DEBUG(dbgs()<< "SHOW BBSet BBLOCK Insert Ordering :"  << *BB);
 
     /// Populate BBlockSet for the Region/Loop
     BBSet->push_back(BB);

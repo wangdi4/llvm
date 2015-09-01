@@ -90,6 +90,7 @@ static cl::opt<bool> EnableLoopInterchange(
     "enable-loopinterchange", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopInterchange Pass"));
 
+#if INTEL_CUSTOMIZATION
 static cl::opt<bool> RunVPODriver("VPO-Driver",
   cl::init(false), cl::Hidden,
   cl::desc("Run VPO vectorization driver"));
@@ -97,6 +98,14 @@ static cl::opt<bool> RunVPODriver("VPO-Driver",
 static cl::opt<bool> RunSIMDFunctionCloning("SIMD-Function-Cloning",
   cl::init(false), cl::Hidden,
   cl::desc("Run SIMD Function Cloning"));
+
+// While we have two vectorizers to work with (Ported OpenCL Vectorizer and new
+// Abstract Layer VPO vectorizer), we need a temporary switch to disable the 
+// ported OCL vectorizer.
+static cl::opt<bool> RunVPOOCLVectorizer("vpo-ocl-vectorizer",
+  cl::init(true), cl::Hidden,
+  cl::desc("Run VPO OCL Vectorizer"));
+#endif  // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
@@ -214,7 +223,9 @@ void PassManagerBuilder::populateModulePassManager(
     if (RunVPODriver) {
       MPM.add(createVPODriverPass());
     }
-    MPM.add(createVPOVectorizerPass());
+    if (RunVPOOCLVectorizer) {
+      MPM.add(createVPOVectorizerPass());
+    }
 #endif // INTEL_CUSTOMIZATION
     return;
   }
