@@ -754,6 +754,8 @@ public:
     case LibFunc::trunc:     case LibFunc::truncf:     case LibFunc::truncl:
     case LibFunc::log2:      case LibFunc::log2f:      case LibFunc::log2l:
     case LibFunc::exp2:      case LibFunc::exp2f:      case LibFunc::exp2l:
+    case LibFunc::log:       case LibFunc::logf:       case LibFunc::logl:
+    case LibFunc::exp:       case LibFunc::expf:       case LibFunc::expl:
     case LibFunc::memcmp:    case LibFunc::strcmp:     case LibFunc::strcpy:
     case LibFunc::stpcpy:    case LibFunc::strlen:     case LibFunc::strnlen:
     case LibFunc::memchr:

@@ -6256,6 +6256,18 @@ void SelectionDAGBuilder::visitCall(const CallInst &I) {
         if (visitUnaryFloatCall(I, ISD::FEXP2))
           return;
         break;
+      case LibFunc::log:
+      case LibFunc::logf:
+      case LibFunc::logl:
+        if (visitUnaryFloatCall(I, ISD::FLOG))
+          return;
+        break;
+      case LibFunc::exp:
+      case LibFunc::expf:
+      case LibFunc::expl:
+        if (visitUnaryFloatCall(I, ISD::FEXP))
+          return;
+        break;
       case LibFunc::memcmp:
         if (visitMemCmpCall(I))
           return;
