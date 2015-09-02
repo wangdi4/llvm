@@ -7,7 +7,7 @@ target triple = "x86_64-apple-macosx10.8.0"
 %struct.A = type { i8, i8, i8, i8, i8, i8, i8, i8 }
 %struct.B = type { i32, i32, i32, i32, i32, i32, i32, i32 }
 
-; CHECK: merge_const_store
+; CHECK-LABEL: merge_const_store:
 ; save 1,2,3 ... as one big integer.
 ; CHECK: movabsq $578437695752307201
 ; CHECK: ret
@@ -42,7 +42,7 @@ define void @merge_const_store(i32 %count, %struct.A* nocapture %p) nounwind uwt
 }
 
 ; No vectors because we use noimplicitfloat
-; CHECK: merge_const_store_no_vec
+; CHECK-LABEL: merge_const_store_no_vec:
 ; CHECK-NOT: vmovups
 ; CHECK: ret
 define void @merge_const_store_no_vec(i32 %count, %struct.B* nocapture %p) noimplicitfloat{
@@ -76,7 +76,7 @@ define void @merge_const_store_no_vec(i32 %count, %struct.B* nocapture %p) noimp
 }
 
 ; Move the constants using a single vector store.
-; CHECK: merge_const_store_vec
+; CHECK-LABEL: merge_const_store_vec:
 ; CHECK: vmovups
 ; CHECK: ret
 define void @merge_const_store_vec(i32 %count, %struct.B* nocapture %p) nounwind uwtable noinline ssp {
@@ -110,7 +110,7 @@ define void @merge_const_store_vec(i32 %count, %struct.B* nocapture %p) nounwind
 }
 
 ; Move the first 4 constants as a single vector. Move the rest as scalars.
-; CHECK: merge_nonconst_store
+; CHECK-LABEL: merge_nonconst_store:
 ; CHECK: movl $67305985
 ; CHECK: movb
 ; CHECK: movb
@@ -150,7 +150,7 @@ define void @merge_nonconst_store(i32 %count, i8 %zz, %struct.A* nocapture %p) n
 
 ; CHECK-LABEL: merge_loads_i16:
 ;  load:
-; CHECK: movw
+; CHECK: {{movw|movzwl}}
 ;  store:
 ; CHECK: movw
 ; CHECK: ret
@@ -183,9 +183,13 @@ define void @merge_loads_i16(i32 %count, %struct.A* noalias nocapture %q, %struc
 
 ; The loads and the stores are interleaved. Can't merge them.
 ; CHECK-LABEL: no_merge_loads:
+; load:
+; CHECK: {{movb|movzbl}}
+; store:
 ; CHECK: movb
-; CHECK: movb
-; CHECK: movb
+; load:
+; CHECK: {{movb|movzbl}}
+; store:
 ; CHECK: movb
 ; CHECK: ret
 define void @no_merge_loads(i32 %count, %struct.A* noalias nocapture %q, %struct.A* noalias nocapture %p) nounwind uwtable noinline ssp {
@@ -335,9 +339,9 @@ block4:                                       ; preds = %4, %.lr.ph
 
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy.
-; CHECK: MergeLoadStoreBaseIndexOffset
-; CHECK: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
-; CHECK: movw    [[REG]], (%{{.*}})
+; CHECK-LABEL: MergeLoadStoreBaseIndexOffset:
+; CHECK: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
+; CHECK: movw               %[[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -367,9 +371,9 @@ define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy even if there are intermediate sign
 ; extensions.
-; CHECK: MergeLoadStoreBaseIndexOffsetSext
-; CHECK: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
-; CHECK: movw    [[REG]], (%{{.*}})
+; CHECK-LABEL: MergeLoadStoreBaseIndexOffsetSext:
+; CHECK: {{movw|movzwl}}  (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
+; CHECK: movw             %[[REG]], (%{{.*}})
 define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -399,9 +403,9 @@ define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
 
 ; However, we can only merge ignore sign extensions when they are on all memory
 ; computations;
-; CHECK: loadStoreBaseIndexOffsetSextNoSex
-; CHECK-NOT: movw    (%{{.*}},%{{.*}}), [[REG:%[a-z]+]]
-; CHECK-NOT: movw    [[REG]], (%{{.*}})
+; CHECK-LABEL: loadStoreBaseIndexOffsetSextNoSex:
+; CHECK-NOT: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
+; CHECK-NOT: movw               %[[REG]], (%{{.*}})
 define void @loadStoreBaseIndexOffsetSextNoSex(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -457,7 +461,7 @@ define void @merge_vec_element_store(<8 x float> %v, float* %ptr) {
   store float %vecext7, float* %arrayidx7, align 4
   ret void
 
-; CHECK-LABEL: merge_vec_element_store
+; CHECK-LABEL: merge_vec_element_store:
 ; CHECK: vmovups
 ; CHECK-NEXT: vzeroupper
 ; CHECK-NEXT: retq
@@ -480,7 +484,7 @@ define void @merge_vec_extract_stores(<8 x float> %v1, <8 x float> %v2, <4 x flo
   store <4 x float> %shuffle3, <4 x float>* %idx3, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_extract_stores
+; CHECK-LABEL: merge_vec_extract_stores:
 ; CHECK:      vmovaps %xmm0, 48(%rdi)
 ; CHECK-NEXT: vextractf128 $1, %ymm0, 64(%rdi)
 ; CHECK-NEXT: vmovaps %xmm1, 80(%rdi)
@@ -501,7 +505,7 @@ define void @merge_vec_stores_from_loads(<4 x float>* %v, <4 x float>* %ptr) {
   store <4 x float> %v1, <4 x float>* %store_idx1, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_stores_from_loads
+; CHECK-LABEL: merge_vec_stores_from_loads:
 ; CHECK:      vmovaps
 ; CHECK-NEXT: vmovaps
 ; CHECK-NEXT: vmovaps
@@ -517,7 +521,7 @@ define void @merge_vec_stores_of_constants(<4 x i32>* %ptr) {
   store <4 x i32> <i32 0, i32 0, i32 0, i32 0>, <4 x i32>* %idx1, align 16
   ret void
 
-; CHECK-LABEL: merge_vec_stores_of_constants
+; CHECK-LABEL: merge_vec_stores_of_constants:
 ; CHECK:      vxorps
 ; CHECK-NEXT: vmovaps
 ; CHECK-NEXT: vmovaps
@@ -542,7 +546,7 @@ define void @merge_vec_element_and_scalar_load([6 x i64]* %array) {
   store i64 %a1, i64* %idx5, align 8
   ret void
 
-; CHECK-LABEL: merge_vec_element_and_scalar_load
+; CHECK-LABEL: merge_vec_element_and_scalar_load:
 ; CHECK:      movq	(%rdi), %rax
 ; CHECK-NEXT: movq	%rax, 32(%rdi)
 ; CHECK-NEXT: movq	8(%rdi), %rax
