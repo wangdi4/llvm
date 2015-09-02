@@ -2733,6 +2733,14 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
+#ifdef INTEL_CUSTOMIZATION
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+  // Fix for CQ375045: xmain's bitwise shift show results that are differ from
+  // results of icc/gcc
+  if (CGF.getLangOpts().IntelCompat)
+    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
                       Ops.Ty->hasSignedIntegerRepresentation();
