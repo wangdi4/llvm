@@ -2126,6 +2126,14 @@ void Sema::MergeTypedefNameDecl(TypedefNameDecl *New, LookupResult &OldDecls) {
     // since that was the intent of DR56.
     if (!isa<TypedefNameDecl>(Old))
       return;
+#if INTEL_CUSTOMIZATION
+    // CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
+    if (getLangOpts().IntelCompat) {
+      Diag(New->getLocation(), diag::ext_intel_member_typedef_redefinition);
+      Diag(Old->getLocation(), diag::note_previous_definition);
+      return;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     Diag(New->getLocation(), diag::err_redefinition)
       << New->getDeclName();

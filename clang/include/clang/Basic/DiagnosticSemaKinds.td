@@ -4040,6 +4040,12 @@ def warn_missing_variable_declarations : Warning<
 def err_static_data_member_reinitialization :
   Error<"static data member %0 already has an initializer">;
 def err_redefinition : Error<"redefinition of %0">;
+// if INTEL_CUSTOMIZATION
+// CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
+def ext_intel_member_typedef_redefinition : ExtWarn<
+  "class member typedef redefinition is an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_alias_after_tentative :
   Error<"alias definition of %0 after tentative definition">;
 def err_alias_is_definition :
