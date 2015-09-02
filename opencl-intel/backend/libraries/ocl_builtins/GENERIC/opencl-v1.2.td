@@ -409,7 +409,8 @@ def vstore_las  : OclBuiltin<"vstore$Suffix", (outs), (ins gentype:$data, size_t
 def vstore_gas  : OclBuiltin<"vstore$Suffix", (outs), (ins gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vload_half_gas        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_GLOBAL;
 def vload_half_cas        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONSTANT;
 def vload_half_las        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_LOCAL;
@@ -453,7 +454,8 @@ def vstoreaf_half_las     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins u
 def vstoreaf_half_gas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoreaf_half_rte_pas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoreaf_half_rte_las : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoreaf_half_rte_gas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
@@ -468,13 +470,15 @@ def vstoreaf_half_rtn_las : OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins u
 def vstoreaf_half_rtn_gas : OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoread_half_pas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoread_half_las     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoread_half_gas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoread_half_rte_pas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoread_half_rte_las : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoread_half_rte_gas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
