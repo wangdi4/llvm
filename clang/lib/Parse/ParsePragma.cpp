@@ -2110,6 +2110,9 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
 ///  #pragma unroll
 ///  #pragma unroll unroll-hint-value
 ///  #pragma unroll '(' unroll-hint-value ')'
+#ifdef INTEL_CUSTOMIZATION
+///  #pragma unroll '=' unroll-hint-value
+#endif // INTEL_CUSTOMIZATION
 ///  #pragma nounroll
 ///
 ///  unroll-hint-value:
@@ -2144,7 +2147,13 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
     // "#pragma unroll(N)".
     // Read '(' if it exists.
     bool ValueInParens = Tok.is(tok::l_paren);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#374273 - allow '#pragma unroll = N' spelling.
+    bool ValueWithEqual = PP.getLangOpts().IntelCompat && Tok.is(tok::equal);
+    if (ValueInParens || ValueWithEqual)
+#else
     if (ValueInParens)
+#endif // INTEL_CUSTOMIZATION
       PP.Lex(Tok);
 
     Token Option;
