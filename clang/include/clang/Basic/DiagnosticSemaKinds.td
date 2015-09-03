@@ -5734,6 +5734,13 @@ def err_conditional_ambiguous : Error<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">;
+//#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ375472.
+def warn_conditional_ambiguous : Warning<
+  "conditional expression is ambiguous; "
+  "%diff{$ can be converted to $ and vice versa|"
+  "types can be convert to each other}0,1">, InGroup<IntelCompat>;
+//#endif //INTEL_CUSTOMIZATION
 def err_conditional_ambiguous_ovl : Error<
   "conditional expression is ambiguous; %diff{$ and $|types}0,1 "
   "can be converted to several common types">;

@@ -4832,6 +4832,14 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
       return QualType();
 
     //   If both can be converted, [...] the program is ill-formed.
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ375472: Allow ambigous conversions in conditional expression.
+    if (HaveL2R && HaveR2L && getLangOpts().IntelCompat) {
+      Diag(QuestionLoc, diag::warn_conditional_ambiguous)
+          << LTy << RTy << LHS.get()->getSourceRange()
+          << RHS.get()->getSourceRange();
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (HaveL2R && HaveR2L) {
       Diag(QuestionLoc, diag::err_conditional_ambiguous)
         << LTy << RTy << LHS.get()->getSourceRange() << RHS.get()->getSourceRange();
