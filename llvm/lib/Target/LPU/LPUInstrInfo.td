@@ -516,7 +516,7 @@ defm ADD16 : BinOpC<"add16", add, I16, i16, i16imm, [HasI16]>;
 defm ADD32 : BinOpC<"add32", add, I32, i32, i32imm, [HasI32]>;
 defm ADD64 : BinOpC<"add64", add, I64, i64, i64imm, [HasI64]>;
 
-defm ADDF32 : FBinOpC<"add32f", fadd, F32, f32, f32imm, [HasF32]>;
+defm ADDF32 : FBinOpC<"addf32", fadd, F32, f32, f32imm, [HasF32]>;
 defm ADDF64 : FBinOpC<"addf64", fadd, F64, f64, f64imm, [HasF64]>;
 
 defm SUB8  : BinOpNC<"sub8",  sub, I8,  i8,  i8imm,  [HasI8]>;
@@ -524,7 +524,7 @@ defm SUB16 : BinOpNC<"sub16", sub, I16, i16, i16imm, [HasI16]>;
 defm SUB32 : BinOpNC<"sub32", sub, I32, i32, i32imm, [HasI32]>;
 defm SUB64 : BinOpNC<"sub64", sub, I64, i64, i64imm, [HasI64]>;
 
-defm SUBF32 : FBinOpNC<"sub32f", fsub, F32, f32, f32imm, [HasF32]>;
+defm SUBF32 : FBinOpNC<"subf32", fsub, F32, f32, f32imm, [HasF32]>;
 defm SUBF64 : FBinOpNC<"subf64", fsub, F64, f64, f64imm, [HasF64]>;
 
 defm MUL8  : BinOpC<"mul8",  mul, I8,  i8,  i8imm,  [HasI8]>;
@@ -532,7 +532,7 @@ defm MUL16 : BinOpC<"mul16", mul, I16, i16, i16imm, [HasI16]>;
 defm MUL32 : BinOpC<"mul32", mul, I32, i32, i32imm, [HasI32]>;
 defm MUL64 : BinOpC<"mul64", mul, I64, i64, i64imm, [HasI64]>;
 
-defm MULF32 : FBinOpC<"mul32f", fmul, F32, f32, f32imm, [HasF32]>;
+defm MULF32 : FBinOpC<"mulf32", fmul, F32, f32, f32imm, [HasF32]>;
 defm MULF64 : FBinOpC<"mulf64", fmul, F64, f64, f64imm, [HasF64]>;
 
 defm DIVS8  : BinOpNC<"divs8",  sdiv, I8,  i8,  i8imm,  [HasI8,HasIDiv]>;
@@ -545,7 +545,7 @@ defm DIVU16 : BinOpNC<"divu16", udiv, I16, i16, i16imm, [HasI16,HasIDiv]>;
 defm DIVU32 : BinOpNC<"divu32", udiv, I32, i32, i32imm, [HasI32,HasIDiv]>;
 defm DIVU64 : BinOpNC<"divu64", udiv, I64, i64, i64imm, [HasI64,HasIDiv]>;
 
-defm DIVF32 : FBinOpNC<"div32f", fdiv, F32, f32, f32imm, [HasF32,HasFDiv]>;
+defm DIVF32 : FBinOpNC<"divf32", fdiv, F32, f32, f32imm, [HasF32,HasFDiv]>;
 defm DIVF64 : FBinOpNC<"divf64", fdiv, F64, f64, f64imm, [HasF64,HasFDiv]>;
 
 defm CMPLTS8  : CmpOpNC<"cmplts8",  setlt,  I8,  i8,  i8imm,  [HasI8]>;
