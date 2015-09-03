@@ -2650,6 +2650,12 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
   Function *pFunc = SP->getFunction();
   if (pFunc == nullptr)
     return nullptr;
+  // Functions with available_externally linkage are not emitted as part of
+  // this compilation unit, so we don't emit debug information for them
+  // If we did, relocation against these symbols would fail.
+  // See (DPD200375706) for more information.
+  if (pFunc->hasAvailableExternallyLinkage())
+    return nullptr;
   assert(pFunc && "LLVM subprogram has no LLVM function");
   if (_functionMap.count(pFunc)) {
     // Function is already created
@@ -3038,8 +3044,8 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
 
       // Globals with available_externally linkage are not emitted as part of
       // this compilation unit, so we don't emit debug information for them.
-      // If we did, relocations against these symbols would fail.
-      //
+      // If we did, relocation against these symbols would fail.
+      // See (DPD200375706) for more information.
       if (global->hasAvailableExternallyLinkage()) {
         continue;
       }
