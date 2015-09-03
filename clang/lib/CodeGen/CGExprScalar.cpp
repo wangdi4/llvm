@@ -2055,13 +2055,22 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
       if (!eltSize.isOne())
         size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
 
+#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
+      return CGF.EmitIntelSizeof(TypeToSize, size);
+#else
       return size;
+#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
     }
   }
 
   // If this isn't sizeof(vla), the result must be constant; use the constant
   // folding logic so we don't have to duplicate it here.
+#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
+  auto Size = Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
+  return CGF.EmitIntelSizeof(TypeToSize, Size);
+#else
   return Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
+#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
 }
 
 Value *ScalarExprEmitter::VisitUnaryReal(const UnaryOperator *E) {

@@ -3369,6 +3369,10 @@ private:
 public:
   void EmitPragmaDecl(const PragmaDecl &D);
   void EmitIntelAttribute(const Decl &D);
+  /// Pass the type inside the sizeof expression \a QTy to the IL0 backend.
+  /// LLVM backend needs only the constant size value \a C; IL0 uses this for
+  /// early optimizations (mostly dtrans) and kfolds it out later.
+  llvm::Value *EmitIntelSizeof(QualType QTy, llvm::Value *C);
 private:
   void EmitPragmaStmt(const PragmaStmt &S);
   llvm::BasicBlock *CreateIPForInlineEnd(llvm::BasicBlock *InlineBB);

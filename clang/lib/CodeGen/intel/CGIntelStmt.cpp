@@ -1306,6 +1306,26 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
   }
 }
 
+// Pass the type inside the sizeof expression \a QTy to the IL0 backend.
+// LLVM backend needs only the constant size value \a C; IL0 uses this for
+// early optimizations (mostly dtrans) and kfolds it out later.
+llvm::Value *CodeGenFunction::EmitIntelSizeof(QualType QTy, llvm::Value *C) {
+  llvm::Type *Ty = CGM.getTypes().ConvertType(QTy);
+  if (!getLangOpts().IntelCompat || Ty == nullptr) {
+    return C;
+  }
+  // Sizeof may be represented as: (i64) gep (Ty*)null, 1
+  // But if we generate a ptrtoint above GEP, the type we need is kfolded out.
+  // Therefore we pass both GEP and size to llvm_fe through an intrinsic call.
+  auto GEP = llvm::ConstantExpr::getGetElementPtr(
+      Ty, llvm::ConstantExpr::getNullValue(llvm::PointerType::getUnqual(Ty)),
+      llvm::ConstantInt::get(llvm::Type::getInt32Ty(Ty->getContext()), 1));
+  llvm::Value *Ops[2] = { C, GEP };
+  llvm::Value *Callee =
+      CGM.getIntrinsic(llvm::Intrinsic::intel_sizeof, C->getType());
+  return Builder.CreateCall(Callee, Ops);
+}
+
 void CodeGenFunction::EmitPragmaDecl(const PragmaDecl &D) {
   switch (D.getStmt()->getPragmaKind()) {
   // case (IntelPragmaOptimize):

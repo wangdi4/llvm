@@ -1,7 +1,5 @@
-// REQUIRES: llvm-backend
-// The special IL0 backend version of the test is in the il0-backend subfolder.
 // CQ#366961
-// RUN: %clang_cc1 -fintel-compatibility --extended_float_types -emit-llvm %s -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fintel-compatibility --extended_float_types -emit-llvm %s -o - | FileCheck %s
 
 // CHECK: %struct.anon = type { i32, fp128 }
 struct {
@@ -60,7 +58,7 @@ void check() {
 }
 
 int check_sizeof_Quad() {
-  // CHECK: ret i32 16
+  // CHECK: {{%.+}} = call i64 (i64, ...) @llvm.intel.sizeof.i64(i64 16, fp128* getelementptr (fp128, fp128* null, i32 1))
   return sizeof(_Quad);
 }
 
@@ -76,6 +74,6 @@ __float128 foo();  // No error, _Quad and __float128 are the same type.
 int check_sizeof_float128() {
   // CHECK: call void @has_float128()
   has_float128();
-  // CHECK: ret i32 16
+  // CHECK: {{%.+}} = call i64 (i64, ...) @llvm.intel.sizeof.i64(i64 16, fp128* getelementptr (fp128, fp128* null, i32 1))
   return sizeof(__float128);
 }
