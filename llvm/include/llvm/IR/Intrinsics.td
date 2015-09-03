@@ -631,6 +631,19 @@ def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
 
 def int_has_feature : Intrinsic<[llvm_i1_ty], [llvm_i64_ty], [IntrNoMem]>;
+
+// Intrinsic generated for the sizeof operand in source code.
+// The given constant (first argument) is the size of the data type of the
+// getelementptr constant (passed as second argument).
+// Varargs are used because otherwise we would need some kind of (pointer) cast
+// of the second operand, which does constant folding on creation and may lose
+// information about the original data type.
+// Currently it is emitted by clang front-end in the IL0 backend mode only, and
+// translated into EXPR_SIZEOF in IL0.
+def int_intel_sizeof : Intrinsic<[llvm_anyint_ty],
+                                 [LLVMMatchType<0>, llvm_vararg_ty],
+                                 [IntrNoMem], "llvm.intel.sizeof">;
+
 //#endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
