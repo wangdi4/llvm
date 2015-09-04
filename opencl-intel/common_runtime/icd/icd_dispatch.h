@@ -57,9 +57,9 @@
 #include <windows.h>
 #include <d3d9.h>
 #include <d3d10_1.h>
-#include <CL/cl_dx9_media_sharing.h>
 #include <CL/cl_d3d10.h>
 #include <CL/cl_d3d11.h>
+#include <CL/cl_dx9_media_sharing.h>
 #endif
 #if !defined(__ANDROID__)
 #include <GL/gl.h>
@@ -117,6 +117,7 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL * KHRpfn_clRetainDevice)(
 
 typedef CL_API_ENTRY cl_int (CL_API_CALL * KHRpfn_clReleaseDevice)(
     cl_device_id     device) CL_API_SUFFIX__VERSION_1_2;
+
 
 // Context APIs  
 typedef CL_API_ENTRY cl_context (CL_API_CALL *KHRpfn_clCreateContext)(
@@ -405,6 +406,8 @@ typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clGetKernelSubGroupInfoKHR)(
     size_t                   /*param_value_size*/,
     void*                    /*param_value*/,
     size_t*                  /*param_value_size_ret*/) CL_EXT_SUFFIX__VERSION_2_0;
+
+
 
 // Event Object APIs
 typedef CL_API_ENTRY cl_int (CL_API_CALL *KHRpfn_clWaitForEvents)(
@@ -1232,6 +1235,53 @@ typedef CL_API_ENTRY cl_event (CL_API_CALL *KHRpfn_clCreateEventFromEGLSyncKHR)(
     CLeglDisplayKHR display,
     cl_int *errcode_ret);
 
+
+typedef CL_API_ENTRY cl_int( CL_API_CALL *KHRpfn_clSetDefaultDeviceCommandQueue )(
+    cl_context context,
+    cl_device_id device,
+    cl_command_queue command_queue ) CL_API_SUFFIX__VERSION_2_1;
+
+typedef CL_API_ENTRY cl_program( CL_API_CALL *KHRpfn_clCreateProgramWithIL )(
+    cl_context             /* context */,
+    const void *           /* il */,
+    size_t                 /* lengths */,
+    cl_int *               /* errcode_ret */ ) CL_API_SUFFIX__VERSION_2_1;
+
+
+typedef CL_API_ENTRY cl_int( CL_API_CALL *KHRpfn_clGetKernelSubGroupInfo )(
+    cl_kernel                /* in_kernel */,
+    cl_device_id             /*in_device*/,
+    cl_kernel_sub_group_info /* param_name */,
+    size_t                   /*input_value_size*/,
+    const void *             /*input_value*/,
+    size_t                   /*param_value_size*/,
+    void*                    /*param_value*/,
+    size_t*                  /*param_value_size_ret*/ ) CL_API_SUFFIX__VERSION_2_1;
+   
+typedef CL_API_ENTRY cl_kernel( CL_API_CALL *KHRpfn_clCloneKernel )(
+    const cl_kernel /* source_kernel */,
+    cl_int *        /* errcode_ret */ ) CL_API_SUFFIX__VERSION_2_1;
+
+typedef CL_API_ENTRY cl_int( CL_API_CALL *KHRpfn_clEnqueueSVMMigrateMem )(
+    cl_command_queue command_queue,
+    cl_uint num_svm_pointers,
+    const void ** svm_pointers,
+    const size_t * sizes,
+    cl_mem_migration_flags flags,
+    cl_uint num_events_in_wait_list,
+    const cl_event * event_wait_list,
+    cl_event * event ) CL_API_SUFFIX__VERSION_2_1;
+
+typedef CL_API_ENTRY cl_int( CL_API_CALL *KHRpfn_clGetDeviceAndHostTimer )(
+    cl_device_id device,
+    cl_ulong * device_timestamp,
+    cl_ulong * host_timestamp ) CL_API_SUFFIX__VERSION_2_1;
+
+typedef CL_API_ENTRY cl_int( CL_API_CALL *KHRpfn_clGetHostTimer )(
+    cl_device_id device,
+    cl_ulong * host_timestamp ) CL_API_SUFFIX__VERSION_2_1;
+
+
 /*
  *
  * vendor dispatch table structure
@@ -1405,6 +1455,14 @@ struct KHRicdVendorDispatchRec
 	
     /* cl_khr_sub_groups */
     KHRpfn_clGetKernelSubGroupInfoKHR               clGetKernelSubGroupInfoKHR;
+    /* OpenCL 2.1 */
+    KHRpfn_clCloneKernel                            clCloneKernel;
+    KHRpfn_clCreateProgramWithIL                    clCreateProgramWithIL;
+    KHRpfn_clEnqueueSVMMigrateMem                   clEnqueueSVMMigrateMem;
+    KHRpfn_clGetDeviceAndHostTimer                  clGetDeviceAndHostTimer;
+    KHRpfn_clGetHostTimer                           clGetHostTimer;
+    KHRpfn_clGetKernelSubGroupInfo                  clGetKernelSubGroupInfo;
+    KHRpfn_clSetDefaultDeviceCommandQueue                 clSetDefaultDeviceCommandQueue;
 };
 
 /*

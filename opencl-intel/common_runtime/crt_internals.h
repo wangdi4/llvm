@@ -622,6 +622,10 @@ public:
         cl_command_queue_properties     properties,
         CrtQueue**                      crtQueue);
 
+    cl_int SetDefaultDeviceCommandQueue(
+        cl_device_id                device,
+        cl_command_queue			queue_crt_handle );
+
     // Command Queue wit Properties and Build
     cl_int  CreateCommandQueueWithProperties(
         cl_command_queue                queue_crt_handle,
@@ -635,6 +639,10 @@ public:
         const size_t *     lengths ,
         CrtProgram **      crtProgram );
 
+    cl_int CreateProgramWithIL(
+        const void *        il,
+        size_t              lengths,
+        CrtProgram **       crtProgram );
 
     cl_int CreateProgramWithBinary(
         cl_uint                 num_devices,

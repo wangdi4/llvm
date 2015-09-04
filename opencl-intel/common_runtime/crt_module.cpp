@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2007 Intel Corporation
+// Copyright (c) 2006-2015 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -181,6 +181,13 @@ IcdDispatchMgr::IcdDispatchMgr()
 
     REGISTER_DISPATCH_ENTRYPOINT( clCreatePipe , clCreatePipe )
     REGISTER_DISPATCH_ENTRYPOINT( clGetPipeInfo , clGetPipeInfo )
+    REGISTER_DISPATCH_ENTRYPOINT( clCreateProgramWithIL, clCreateProgramWithIL )
+    REGISTER_DISPATCH_ENTRYPOINT( clCloneKernel, clCloneKernel )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetDeviceAndHostTimer, clGetDeviceAndHostTimer )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetHostTimer, clGetHostTimer )
+    REGISTER_DISPATCH_ENTRYPOINT( clGetKernelSubGroupInfo, clGetKernelSubGroupInfo )
+    REGISTER_DISPATCH_ENTRYPOINT( clEnqueueSVMMigrateMem, clEnqueueSVMMigrateMem )
+    REGISTER_DISPATCH_ENTRYPOINT( clSetDefaultDeviceCommandQueue, clSetDefaultDeviceCommandQueue )
 }
 
 CrtModule::CrtModule():
@@ -194,11 +201,17 @@ m_CrtPlatformVersion(OPENCL_INVALID)
 
 crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId)
 {
-    inDeviceId->dispatch->clCreateContext = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
-    inDeviceId->dispatch->clGetDeviceInfo = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
-    inDeviceId->dispatch->clCreateSubDevices = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
-    inDeviceId->dispatch->clReleaseDevice    = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDevice;
-    inDeviceId->dispatch->clRetainDevice     = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDevice;
+    inDeviceId->dispatch->clCreateContext         = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateContext;
+    inDeviceId->dispatch->clGetDeviceInfo         = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceInfo;
+    inDeviceId->dispatch->clCreateSubDevices      = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
+    inDeviceId->dispatch->clReleaseDevice         = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDevice;
+    inDeviceId->dispatch->clRetainDevice          = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDevice;
+    // device id dependent API. Add these two API here. It should be safe.
+    // TODO: Reopen the following code after CPU runtime has done in its dispatch table
+    //inDeviceId->dispatch->clGetDeviceAndHostTimer =
+    //    crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceAndHostTimer;
+    //inDeviceId->dispatch->clGetHostTimer = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetHostTimer;
+    //
     return CRT_SUCCESS;
 }
 
