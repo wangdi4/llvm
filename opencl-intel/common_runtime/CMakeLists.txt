@@ -18,18 +18,18 @@ include_directories( BEFORE
         ${OCL_BINARY_DIR}
         )
 
-if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )            
+if ( WIN32 AND ( DEFINED ENV{DXSDK_DIR} ) )
     add_definitions (-DCL_DX9_MEDIA_SHARING_INTEL_EXT)
 endif()
 
-set(FILES_TO_COPY 
-		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX} 
+set(FILES_TO_COPY
+		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
 		)
-			
+
 if (WIN32)
     set( CONFIG_FILES register_vendor32.reg register_vendor64.reg unregister_vendor32.reg unregister_vendor64.reg)
 endif (WIN32)
-			
+
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
@@ -46,10 +46,10 @@ target_link_libraries( ${TARGET_NAME} common_runtime_utils)
 set_target_properties(${TARGET_NAME} PROPERTIES OUTPUT_NAME "intelopencl${ADDR}")
 
 
-install( TARGETS ${TARGET_NAME} 
+install( TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION bin
-    LIBRARY DESTINATION bin 
-    ARCHIVE DESTINATION lib) 
+    LIBRARY DESTINATION bin
+    ARCHIVE DESTINATION lib)
 
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER common_runtime )
 

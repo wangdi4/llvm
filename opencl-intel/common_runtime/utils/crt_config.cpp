@@ -57,7 +57,7 @@ crt_err_code CrtConfig::Init()
     }
     else
     {
-        valueName = "cpu_path"; 
+        valueName = "cpu_path";
     }
 
     if( OCLCRT::Utils::GetCpuPathFromRegistry( valueName, libName ) )
