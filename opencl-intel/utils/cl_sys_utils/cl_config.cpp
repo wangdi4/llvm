@@ -141,7 +141,7 @@ cl_err_code ConfigFile::ReadFile(const string& fileName, ConfigFile& cfg)
     const string& strComment = cfg.m_sComment;
     const string& strEOF = cfg.m_sSentry;
 
-    while ( (NULL != fsInputStream) || (strNextLine.length() > 0) )
+    while ( fsInputStream.good() || (strNextLine.length() > 0) )
     {
         // if the next line is not empty, get its content and mark as empty line
         if (strNextLine.length() <= 0)

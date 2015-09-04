@@ -6,14 +6,13 @@
 #include <vector>
 #include <memory>
 
-
 // Various methods of OclSocket throw OclSocketError in case of errors with the 
 // socket APIs (where the low-level OS APIs return error codes).
 //
 class OclSocketError : public std::runtime_error
 {
 public:
-    OclSocketError(const std::string msg)
+    OclSocketError(const std::string & msg)
         : std::runtime_error(msg)
     {}
 };

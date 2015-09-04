@@ -215,36 +215,36 @@ bool OCLCRT::isSupportedContextType(const cl_context_properties* properties, cl_
     // Check for unsupported context properties
     if( properties != NULL )
     {
-        while( properties[ 0 ] != NULL )
+        while( properties[ 0 ] != 0 )
         {
             switch( properties[ 0 ] )
             {
             case CL_GL_CONTEXT_KHR:
-                if( properties[ 1 ] != NULL )
+                if( properties[ 1 ] != 0 )
                 {
                     return false;
                 }
                 break;
             case CL_EGL_DISPLAY_KHR:
-                if( properties[ 1 ] != NULL )
+                if( properties[ 1 ] != 0 )
                 {
                     return false;
                 }
                 break;
             case CL_GLX_DISPLAY_KHR:
-                if( properties[ 1 ] != NULL )
+                if( properties[ 1 ] != 0 )
                 {
                     return false;
                 }
                 break;
             case CL_CGL_SHAREGROUP_KHR:
-                if( properties[ 1 ] != NULL )
+                if( properties[ 1 ] != 0 )
                 {
                     return false;
                 }
                 break;
             case CL_WGL_HDC_KHR:
-                if( properties[ 1 ] != NULL )
+                if( properties[ 1 ] != 0 )
                 {
                     return false;
                 }
@@ -554,7 +554,7 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 
     if( properties != NULL )
     {
-        while( *properties != NULL )
+        while( *properties != 0 )
         {
             switch( properties[ 0 ] )
             {
@@ -651,6 +651,9 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 break;
 #endif
 #endif     
+            case CL_CGL_SHAREGROUP_KHR:
+            case CL_EGL_DISPLAY_KHR:
+                return CL_INVALID_OPERATION;
             default:
                 return CL_INVALID_PROPERTY;
             }
@@ -698,7 +701,7 @@ crt_err_code OCLCRT::ReplacePlatformId(const cl_context_properties* properties, 
         // when we need to return the properties so we need to change them
         clProperties = const_cast<cl_context_properties*>(properties);
     }
-    while (NULL != *properties)
+    while ( *properties != 0 )
     {
         switch (*properties)
         {

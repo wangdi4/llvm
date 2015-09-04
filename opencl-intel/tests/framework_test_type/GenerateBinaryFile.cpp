@@ -99,8 +99,8 @@ bool GenerateBinaryFile()
     bResult &= BuildProgramSynch(context, 1, (const char**)&ocl_test_program, NULL, "-cl-denorms-are-zero", &clProg);
     if (!bResult)
     {
-        clReleaseContext(context);
         clReleaseProgram(clProg);
+        clReleaseContext(context);
         return bResult;
     }
 
@@ -123,8 +123,8 @@ bool GenerateBinaryFile()
                 if (NULL == fout)
                 {
                     printf("Failed open file.\n");
-                    clReleaseContext(context);
                     clReleaseProgram(clProg);
+                    clReleaseContext(context);
                     return false;
                 }
                 fwrite(pBinaries, 1, binarySize, fout);
@@ -134,8 +134,8 @@ bool GenerateBinaryFile()
         }
     }
 
-    clReleaseContext(context);
     clReleaseProgram(clProg);
+    clReleaseContext(context);
 
     if (!UNSETENV("VOLCANO_CPU_ARCH")) {
         printf("ERROR GenerateBinaryFile: Can't unset VOLCANO_CPU_ARCH environment variable. Test FAILED\n");

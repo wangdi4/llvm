@@ -163,10 +163,7 @@ public:
     llvm::Module* BuildProgram(llvm::Module*,
                                ProgramBuildResult* pResult);
 
-    const CPUId &GetCpuId() const
-    {
-        return m_CpuId;
-    }
+    const CPUId &GetCpuId() const { return m_CpuId; }
 
     // Create execution engine
     virtual void CreateExecutionEngine(llvm::Module* m)  = 0;
@@ -186,6 +183,8 @@ public:
                                llvm::Function* &pFunction) const;
 
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
+
+    const std::string GetBitcodeTargetTriple(const void* pBinary, size_t uiBinarySize);
 
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;
 

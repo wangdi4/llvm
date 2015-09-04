@@ -70,14 +70,6 @@ File Name:  ProgramBuilder.cpp
 #include <codecvt>
 #endif // WIN32
 
-#if defined _M_X64 || defined __x86_64__
-#define SPIR_TARGET_TRIPLE "spir64-unknown-unknown"
-#define ERRMSG "32-bit SPIR on 64-bit device"
-#else
-#define SPIR_TARGET_TRIPLE "spir-unknown-unknown"
-#define ERRMSG "64-bit SPIR on 32-bit device"
-#endif
-
 #include <vector>
 #include <string>
 using std::string;
@@ -230,10 +222,6 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
     {
         throw Exceptions::DeviceBackendExceptionBase(e.what());
     }
-    string strTargetTriple = static_cast<Module*>(pProgram->GetModule())->getTargetTriple();
-    if (strTargetTriple.substr(0,4) == "spir" && strTargetTriple != SPIR_TARGET_TRIPLE)
-        throw Exceptions::DeviceBackendExceptionBase(ERRMSG, CL_DEV_INVALID_BINARY);
-
 }
 
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
