@@ -830,10 +830,6 @@ void HIRParser::collectStrides(Type *GEPType,
   assert(isa<PointerType>(GEPType));
   GEPType = cast<PointerType>(GEPType)->getElementType();
 
-  if (ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType)) {
-    GEPType = GEPArrType->getElementType();
-  }
-
   // Collect number of elements in each dimension
   for (; ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType);
        GEPType = GEPArrType->getElementType()) {
@@ -968,17 +964,16 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
 
   collectStrides(GEPOp->getPointerOperandType(), Strides);
 
-  unsigned GEPNumOp = GEPOp->getNumOperands();
+  // Ignore base pointer operand.
+  unsigned GEPNumOp = GEPOp->getNumOperands() - 1;
   unsigned Count = Strides.size();
-  auto CI = dyn_cast<ConstantInt>(GEPOp->getOperand(1));
 
   // Check that the number of GEP operands match with the number of strides we
-  // have collected, accounting for cases where the first GEP operand is zero.
-  assert(((Count == GEPNumOp - 1) ||
-          (CI && CI->isZero() && (Count == GEPNumOp - 2))) &&
+  // have collected.
+  assert((Count == GEPNumOp) &&
          "Number of subscripts snd strides do not match!");
 
-  for (auto I = GEPNumOp - 1; Count > 0; --I, --Count) {
+  for (auto I = GEPNumOp; I > 0; --I, --Count) {
     auto IndexCE = parse(GEPOp->getOperand(I), Level);
 
     auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0,

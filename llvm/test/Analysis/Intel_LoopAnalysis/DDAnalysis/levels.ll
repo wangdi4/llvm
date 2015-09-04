@@ -2,27 +2,27 @@
 ; expect both i1 and i2 references
 ; RUN: opt -dda -dda-verify=Region -analyze < %s | FileCheck %s
 ; CHECK: DD graph for function:
-; CHECK-DAG: (@A)[i2] --> (@A)[i2] OUTPUT
-; CHECK-DAG: (@A)[i1] --> (@A)[i2] FLOW
-; CHECK-DAG: (@A)[i2] --> (@A)[i1] ANTI
+; CHECK-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
+; CHECK-DAG: (@A)[0][i1] --> (@A)[0][i2] FLOW
+; CHECK-DAG: (@A)[0][i2] --> (@A)[0][i1] ANTI
 
 ; same as region wide for this particular single loop nest region
 ; RUN: opt -dda  -dda-verify=L1 -analyze < %s | FileCheck --check-prefix=L1 %s
 ; L1: DD graph for function:
-; L1-DAG: (@A)[i2] --> (@A)[i2] OUTPUT
-; L1-DAG: (@A)[i2] --> (@A)[i2] OUTPUT
-; L1-DAG: (@A)[i1] --> (@A)[i2] FLOW
-; L1-DAG: (@A)[i2] --> (@A)[i1] ANTI
+; L1-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
+; L1-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
+; L1-DAG: (@A)[0][i1] --> (@A)[0][i2] FLOW
+; L1-DAG: (@A)[0][i2] --> (@A)[0][i1] ANTI
 
 ; only i2 refs, the a[i1] is in l1
 ; RUN: opt -dda -dda-verify=Innermost -analyze < %s | FileCheck --check-prefix=INNER %s
-; INNER-NOT: (@A)[i1] --> (@A)[i2] FLOW
-; INNER: (@A)[i2] --> (@A)[i2] OUTPUT
+; INNER-NOT: (@A)[0][i1] --> (@A)[0][i2] FLOW
+; INNER: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
 
 ; same as innermost
 ; RUN: opt -dda -dda-verify=L2 -analyze < %s | FileCheck --check-prefix=L2 %s
-; L2-NOT: (@A)[i1] --> (@A)[i2] FLOW
-; L2: (@A)[i2] --> (@A)[i2] OUTPUT
+; L2-NOT: (@A)[0][i1] --> (@A)[0][i2] FLOW
+; L2: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
 
 ; no graph
 ; RUN: opt -dda -dda-verify=L3 -analyze < %s| FileCheck --check-prefix=NONE %s
@@ -32,8 +32,8 @@
 ; overwrite innermost answers with region wide
 ; RUN: opt -dda -dda-verify=L2,Region -analyze < %s | FileCheck --check-prefix=INOUT %s
 ; INOUT: DD graph for function:
-; INOUT-DAG: (@A)[i2] --> (@A)[i2] OUTPUT
-; INOUT-DAG: (@A)[i1] --> (@A)[i2] FLOW
+; INOUT-DAG: (@A)[0][i2] --> (@A)[0][i2] OUTPUT
+; INOUT-DAG: (@A)[0][i1] --> (@A)[0][i2] FLOW
 
 ; ModuleID = 'test.cpp'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

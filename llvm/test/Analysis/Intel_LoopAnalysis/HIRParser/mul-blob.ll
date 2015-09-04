@@ -2,9 +2,9 @@
 
 ; Check parsing output for loop verifying that multiplication blob is parsed correctly.
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %0 = (@A1)[3 * i1 + 3 * %n]
+; CHECK-NEXT: %0 = (@A1)[0][3 * i1 + 3 * %n]
 ; CHECK-NEXT: %add2 = %0  +  1.000000e+00
-; CHECK-NEXT: (@A1)[2 * i1 + %n] = %add2
+; CHECK-NEXT: (@A1)[0][2 * i1 + %n] = %add2
 ; CHECK-NEXT: END LOOP
 
 

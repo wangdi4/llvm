@@ -86,7 +86,8 @@ Type *DDRef::getTypeImpl(bool IsSrc) const {
       Type *RetTy = BaseTy->getElementType();
 
       unsigned I = 0;
-      unsigned NumDim = RRef->getNumDimensions();
+      // Subtract 1 for the pointer dereference.
+      unsigned NumDim = RRef->getNumDimensions() - 1;
 
       // Recurse into the array type(s).
       // Assuming NumDim is 2 and RetTy is [7 x [101 x float]], the following
@@ -101,7 +102,7 @@ Type *DDRef::getTypeImpl(bool IsSrc) const {
 
       // The highest dimension can come from "*" instead of "[]".
       // For example- GEP i32* A, 0 can be mapped as A[0].
-      assert(((I == NumDim) || (I == NumDim - 1)) && "Malformed DDRef!");
+      assert((I == NumDim) && "Malformed DDRef!");
 
       // For DDRefs representing addresses, we need to return a pointer to
       // RetTy.

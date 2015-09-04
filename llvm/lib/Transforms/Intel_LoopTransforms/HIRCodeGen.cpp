@@ -103,17 +103,6 @@ private:
     Value *visitLabel(HLLabel *L);
     BasicBlock *getBBlockForLabel(HLLabel *L);
 
-    // For exact allocations (global arrays or local (m)allocs) the type
-    // is an array type. However, gep requires a pointer so we have a type
-    // of [10 x i32]*. We know we are referring to the first, and only, alloc'd
-    // array, thus requiring an leading 0. For non exact allocs, we should not
-    // add this 0
-    // Look for a ptr(seq ty) to an array, with base value being an alloc or
-    // global value. These are exact allocations requiring the leading 0
-    // TODO: this information may be better provided by parser, rather than
-    // trying to deduce it in CG.
-    bool GEPRequiresZero(RegDDRef *Ref, Value *BaseV);
-
     // Regions have a list of live in values and their corresponding symbase
     // Any use of the value in HIR region is represented by a temp with some
     // symbase
@@ -546,35 +535,6 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
   return Alloca;
 }
 
-bool HIRCodeGen::CGVisitor::GEPRequiresZero(RegDDRef *Ref, Value *BaseV) {
-  SequentialType *SeqTy = dyn_cast<SequentialType>(BaseV->getType());
-  if (SeqTy && SeqTy->getElementType()->isArrayTy()) {
-    // direct out of region value, ie globals
-    if (isa<AllocaInst>(BaseV) || isa<GlobalValue>(BaseV)) {
-      return true;
-    }
-
-    // find blob for base ptr
-    HLRegion *R = Ref->getHLDDNode()->getParentRegion();
-    unsigned BaseSym = 0;
-    CanonExpr *BaseCE = Ref->getBaseCE();
-
-    assert(BaseCE->numBlobs() == 1 && "Multiblob base not handled");
-
-    BaseSym = BlobIdxToSymbase[BaseCE->getSingleBlobIndex()];
-
-    // see if it came from a global or an alloca
-    for (auto I = R->live_in_begin(), E = R->live_in_end(); I != E; ++I) {
-      if (I->first == BaseSym) {
-        if (isa<AllocaInst>(I->second) || isa<GlobalValue>(I->second)) {
-          return true;
-        }
-      }
-    }
-  }
-  return false;
-}
-
 Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
@@ -588,11 +548,6 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
   SmallVector<Value *, 4> IndexV;
-  if (GEPRequiresZero(Ref, BaseV)) {
-    Value *Zero =
-        ConstantInt::getSigned((*(Ref->canon_begin()))->getSrcType(), 0);
-    IndexV.push_back(Zero);
-  }
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;

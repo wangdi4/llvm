@@ -6,8 +6,8 @@
 ; CHECK: DO i2 = 0, %m + -1
 ; CHECK-SAME: DO_LOOP
 ; CHECK-NEXT: %t.034.out = %t.034
-; CHECK-NEXT: %0 = (@A)[i2][i1]
-; CHECK-NEXT: %1 = (@B)[i2][i1]
+; CHECK-NEXT: %0 = (@A)[0][i2][i1]
+; CHECK-NEXT: %1 = (@B)[0][i2][i1]
 ; CHECK-NEXT: %t.034 = %t.034.out + %0
 ; CHECK-NEXT: %call = @foo1(%t.034.out + %0)
 ; CHECK-NEXT: END LOOP
