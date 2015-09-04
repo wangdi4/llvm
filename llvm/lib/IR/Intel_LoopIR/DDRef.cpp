@@ -131,11 +131,11 @@ void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 }
 
 bool DDRef::isSelfBlob() const {
-  if (auto *Ref = dyn_cast<RegDDRef>(this)) {
-    return Ref->isSingleCanonExpr() && Ref->getSingleCanonExpr()->isSelfBlob();
-  }
-  else if (auto *Ref = dyn_cast<BlobDDRef>(this)) {
-    return Ref->getCanonExpr()->isSelfBlob();
+  if (auto Ref = dyn_cast<RegDDRef>(this)) {
+    return Ref->isScalarRef() && Ref->getSingleCanonExpr()->isSelfBlob();
+  } else if (auto Ref = dyn_cast<BlobDDRef>(this)) {
+    assert(Ref->getCanonExpr()->isSelfBlob() && "Blob DDRef is not a self blob!");
+    return true;
   }
   llvm_unreachable("Unknown DDRef kind!");
 }

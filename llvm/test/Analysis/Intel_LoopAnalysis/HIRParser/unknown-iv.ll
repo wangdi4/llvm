@@ -2,7 +2,6 @@
 
 ; Check parsing output for the loop
 ; CHECK: DO i1 = 0, 8
-; CHECK-NEXT: %i.05.out = %i.05;
 ; CHECK-NEXT: (%A)[sext.i32.i64(%i.05)] = %i.05
 ; CHECK-NEXT: %i.05 = %i.05  /  2
 ; CHECK-NEXT: END LOOP

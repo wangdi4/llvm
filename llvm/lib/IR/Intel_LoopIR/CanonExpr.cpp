@@ -178,17 +178,21 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 }
 
-unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, bool Insert) {
+unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
+                                         bool Insert, bool ReturnSymbase) {
   assert(Blob && "Blob is null!");
 
   for (auto I = BlobTable.begin(), E = BlobTable.end(); I != E; ++I) {
-    if (*I == Blob) {
-      return (I - BlobTable.begin() + 1);
+    if (I->first == Blob) {
+      return ReturnSymbase ? I->second : (I - BlobTable.begin() + 1);
     }
   }
 
   if (Insert) {
-    BlobTable.push_back(Blob);
+    assert((!CanonExprUtils::isTempBlob(Blob) || (Symbase > 0)) &&
+           "Invalid Blob/Symbase combination!");
+
+    BlobTable.push_back(std::make_pair(Blob, Symbase));
     return BlobTable.size();
   }
 
@@ -196,11 +200,15 @@ unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, bool Insert) {
 }
 
 unsigned CanonExpr::findBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, false);
+  return findOrInsertBlobImpl(Blob, 0, false, false);
 }
 
-unsigned CanonExpr::findOrInsertBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, true);
+unsigned CanonExpr::findBlobSymbase(BlobTy Blob) {
+  return findOrInsertBlobImpl(Blob, 0, false, true);
+}
+
+unsigned CanonExpr::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
+  return findOrInsertBlobImpl(Blob, Symbase, true, false);
 }
 
 bool CanonExpr::isBlobIndexValid(unsigned Index) {
@@ -213,7 +221,12 @@ bool CanonExpr::isLevelValid(unsigned Level) {
 
 CanonExpr::BlobTy CanonExpr::getBlob(unsigned Index) {
   assert(isBlobIndexValid(Index) && "Index is out of bounds!");
-  return BlobTable[Index - 1];
+  return BlobTable[Index - 1].first;
+}
+
+unsigned CanonExpr::getBlobSymbase(unsigned Index) {
+  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
+  return BlobTable[Index - 1].second;
 }
 
 bool CanonExpr::isSelfBlob() const {

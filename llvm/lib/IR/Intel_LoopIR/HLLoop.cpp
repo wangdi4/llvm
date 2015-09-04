@@ -253,8 +253,7 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1,
-                             RegDDRef *Ref2) {
+void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
 
@@ -537,11 +536,13 @@ HLNode *HLLoop::getLastChild() {
 }
 
 void HLLoop::verify() const {
-  bool allDDRefsAreNull = (!getLowerDDRef() && !getUpperDDRef() && !getStrideDDRef());
-  bool allDDRefsAreNonNull = (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
+  bool allDDRefsAreNull =
+      (!getLowerDDRef() && !getUpperDDRef() && !getStrideDDRef());
+  bool allDDRefsAreNonNull =
+      (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
 
   assert((allDDRefsAreNull || allDDRefsAreNonNull) &&
-      "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
+         "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
 
   if (Ztt) {
     Ztt->verify();
@@ -556,7 +557,7 @@ void HLLoop::verify() const {
   }
 
   assert((!getParentLoop() ||
-         (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&
+          (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&
          "If it's not a top-level loop its nesting level should be +1");
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");

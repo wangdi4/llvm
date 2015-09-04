@@ -104,16 +104,14 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   OS << LoopIndentString;
 }
 
-void HLNode::printPredicate(formatted_raw_ostream &OS,
-                            PredicateTy Pred) {
+void HLNode::printPredicate(formatted_raw_ostream &OS, PredicateTy Pred) {
   if (Pred == PredicateTy::FCMP_TRUE) {
     OS << " true ";
   } else if (Pred == PredicateTy::FCMP_FALSE) {
     OS << " false ";
   }
   /// TODO: Differentiate ordered/unordered and signed/unsigned.
-  else if ((Pred == PredicateTy::FCMP_OEQ) ||
-           (Pred == PredicateTy::FCMP_UEQ) ||
+  else if ((Pred == PredicateTy::FCMP_OEQ) || (Pred == PredicateTy::FCMP_UEQ) ||
            (Pred == PredicateTy::ICMP_EQ)) {
     OS << " == ";
   } else if ((Pred == PredicateTy::FCMP_ONE) ||
@@ -188,6 +186,6 @@ HLRegion *HLNode::getParentRegion() const {
 }
 
 void HLNode::verify() const {
-  assert((isa<HLRegion>(this) || getParent() != nullptr)
-      && "Non-Region HLNode should have a parent node");
+  assert((isa<HLRegion>(this) || getParent() != nullptr) &&
+         "Non-Region HLNode should have a parent node");
 }

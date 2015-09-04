@@ -42,6 +42,7 @@ private:
   CanonExprUtils() = delete;
 
   friend class HIRParser;
+  friend class DDRefUtils;
 
   /// Keeps track of objects of the CanonExpr class.
   static std::set<CanonExpr *> GlobalCanonExprs;
@@ -51,6 +52,19 @@ private:
 
   /// \brief Calculates the lcm of two positive inputs.
   static int64_t lcm(int64_t A, int64_t B);
+
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't already present in the blob table. Index range is
+  /// [1, UINT_MAX]. There is a 1-1 mapping of temp blob index and symbase. This
+  /// information is stored in the blob table. This interface is private
+  /// because only the framework is allowed to create temp blobs for insertion
+  /// in the blob table.
+  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob, unsigned Symbase);
+
+  /// \brief Creates a non-linear self blob canon expr from the passed in Value.
+  /// The new blob is associated with Symbase. New temp blobs from values are
+  /// only created by framework.
+  static CanonExpr *createSelfBlobCanonExpr(Value *Temp, unsigned Symbase);
 
 public:
   /// \brief Returns a new CanonExpr with identical src and dest types. All
@@ -68,14 +82,15 @@ public:
                                        int64_t Const = 0, int64_t Denom = 1,
                                        bool IsSignedDiv = false);
 
-  /// \brief Returns a new CanonExpr created from APInt Value
+  /// \brief Returns a new CanonExpr created from APInt Value.
   static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);
+
+  /// \brief Returns a self-blob canon expr. Level is the defined at level for
+  /// the blob. Level of -1 means non-linear blob.
+  static CanonExpr *createSelfBlobCanonExpr(unsigned Index, int Level = -1);
 
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
-
-  /// \brief Creates a non-linear self blob canon expr from the passed in Val.
-  static CanonExpr *createSelfBlobCanonExpr(Value *Val);
 
   /// \brief Calculates the gcd of two positive inputs.
   static int64_t gcd(int64_t A, int64_t B);
@@ -84,13 +99,22 @@ public:
   /// UINT_MAX]. Returns 0 if the blob is not present in the table.
   static unsigned findBlob(CanonExpr::BlobTy Blob);
 
+  /// \brief Returns symbase corresponding to Blob. Returns 0 for non-temp or
+  /// non-present blobs.
+  static unsigned findBlobSymbase(CanonExpr::BlobTy Blob);
+
   /// \brief Returns the index of Blob in the blob table. Blob is first
   /// inserted, if it isn't already present in the blob table. Index range is
   /// [1, UINT_MAX].
+  /// NOTE: New temp blobs can only be inserted by the framework.
   static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
 
   /// \brief Returns blob corresponding to BlobIndex.
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
+
+  /// \brief Returns symbase corresponding to BlobIndex. Returns zero for
+  /// non-temp blobs.
+  static unsigned getBlobSymbase(unsigned BlobIndex);
 
   /// \brief Prints blob.
   static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);

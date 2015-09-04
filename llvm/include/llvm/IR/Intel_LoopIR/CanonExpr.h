@@ -92,7 +92,9 @@ private:
 
 public:
   typedef const SCEV *BlobTy;
-  typedef SmallVector<BlobTy, 64> BlobTableTy;
+  typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
+  typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
+
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
   typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
@@ -123,7 +125,8 @@ private:
   // Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
 
-  // BlobTable - vector containing blobs for the function.
+  // BlobTable - vector containing blobs and corresponding symbases for the
+  // function.
   // TODO: Think about adding another vector sorted by blobs to provide faster
   // lookup for Blob -> Index.
   // Moved here from HIRParser to allow printer to print blobs without needing
@@ -165,18 +168,29 @@ protected:
   void destroy();
 
   /// \brief Implements find()/insert() functionality.
-  static unsigned findOrInsertBlobImpl(BlobTy Blob, bool Insert);
+  /// ReturnSymbase indicates whether to return blob index or symbase.
+  static unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
+                                       bool Insert, bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
   /// UINT_MAX]. Returns 0 if the blob is not present in the table.
   static unsigned findBlob(BlobTy Blob);
+
+  /// \brief Returns symbase corresponding to Blob. Returns 0 for non-temp or
+  /// non-present blobs.
+  static unsigned findBlobSymbase(BlobTy Blob);
+
   /// \brief Returns the index of Blob in the blob table. Blob is first
   /// inserted, if it isn't already present in the blob table. Index range is
   /// [1, UINT_MAX].
-  static unsigned findOrInsertBlob(BlobTy Blob);
+  static unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
 
-  /// \brief Returns blob corresponding to BlobIndex.
-  static BlobTy getBlob(unsigned BlobIndex);
+  /// \brief Returns blob corresponding to Index.
+  static BlobTy getBlob(unsigned Index);
+
+  /// \brief Returns symbase corresponding to Index. Returns 0 for non-temp
+  /// non-present blobs.
+  static unsigned getBlobSymbase(unsigned Index);
 
   /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
   /// functionality.
@@ -233,7 +247,8 @@ public:
   /// \brief Returns true if the canon expr is hiding a trunc.
   bool isTrunc() const;
 
-  /// \brief Returns true if the canon expr is hiding a pointer to pointer bitcast.
+  /// \brief Returns true if the canon expr is hiding a pointer to pointer
+  /// bitcast.
   bool isPtrToPtrCast() const;
 
   /// \brief Sets the extension type (signed or unsigned) for canon expr. This

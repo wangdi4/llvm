@@ -13,8 +13,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
+
+#include "llvm/Analysis/ScalarEvolution.h"
+
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
@@ -89,12 +93,25 @@ unsigned CanonExprUtils::findBlob(CanonExpr::BlobTy Blob) {
   return CanonExpr::findBlob(Blob);
 }
 
+unsigned CanonExprUtils::findBlobSymbase(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findBlobSymbase(Blob);
+}
+
+unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob,
+                                          unsigned Symbase) {
+  return CanonExpr::findOrInsertBlob(Blob, Symbase);
+}
+
 unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findOrInsertBlob(Blob);
+  return CanonExpr::findOrInsertBlob(Blob, 0);
 }
 
 CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
+}
+
+unsigned CanonExprUtils::getBlobSymbase(unsigned BlobIndex) {
+  return CanonExpr::getBlobSymbase(BlobIndex);
 }
 
 void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
@@ -115,7 +132,7 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
 
 CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
                                              unsigned *NewBlobIndex) {
-  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+  return getHIRParser()->createBlob(Val, 0, Insert, NewBlobIndex);
 }
 
 CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
@@ -169,14 +186,29 @@ CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val) {
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
+                                                   unsigned Symbase) {
   unsigned Index;
 
-  getHIRParser()->createBlob(Val, true, &Index);
-  auto CE = createCanonExpr(Val->getType());
-  CE->addBlob(Index, 1);
-  CE->setNonLinear();
+  getHIRParser()->createBlob(Temp, Symbase, true, &Index);
+  auto CE = createSelfBlobCanonExpr(Index, -1);
 
+  return CE;
+}
+
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
+  auto Blob = getBlob(Index);
+
+  auto CE = createCanonExpr(Blob->getType());
+  CE->addBlob(Index, 1);
+
+  if (-1 == Level) {
+    CE->setNonLinear();
+  } else {
+    assert(Level >= 0 && "Invalid level!");
+    CE->setDefinedAtLevel(Level);
+  }
+ 
   return CE;
 }
 

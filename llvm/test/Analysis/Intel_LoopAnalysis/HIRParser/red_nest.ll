@@ -8,10 +8,10 @@
 ; CHECK-NEXT: %t.034.out = %t.034
 ; CHECK-NEXT: %0 = (@A)[0][i2][i1]
 ; CHECK-NEXT: %1 = (@B)[0][i2][i1]
-; CHECK-NEXT: %t.034 = %t.034.out + %0
-; CHECK-NEXT: %call = @foo1(%t.034.out + %0)
+; CHECK-NEXT: %t.034 = %0 + %t.034.out  +  %1
+; CHECK-NEXT: %call = @foo1(%0 + %t.034.out)
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %r.035 = %t.034.out + %0
+; CHECK-NEXT: %r.035 = %0 + %t.034.out
 ; CHECK: END LOOP
 
 

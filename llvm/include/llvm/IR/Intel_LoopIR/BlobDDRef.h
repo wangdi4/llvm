@@ -17,12 +17,12 @@
 #define LLVM_IR_INTEL_LOOPIR_BLOBDDREF_H
 
 #include "llvm/IR/Intel_LoopIR/DDRef.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 namespace llvm {
 
 namespace loopopt {
 
-class CanonExpr;
 class RegDDRef;
 class HLDDNode;
 
@@ -32,11 +32,11 @@ class HLDDNode;
 /// present due to blobs.
 class BlobDDRef : public DDRef {
 private:
-  const CanonExpr *CExpr;
+  CanonExpr *CE;
   RegDDRef *ParentDDRef;
 
 protected:
-  explicit BlobDDRef(int SB, const CanonExpr *CE);
+  explicit BlobDDRef(unsigned Index, int Level);
   virtual ~BlobDDRef() override {}
 
   /// \brief Copy constructor used by cloning.
@@ -51,6 +51,11 @@ protected:
   /// \brief Sets the parent DDRef of BlobDDRef.
   void setParentDDRef(RegDDRef *Ref) { ParentDDRef = Ref; }
 
+  /// Restrict access to base class's public member. Blob DDRef can be modified
+  /// to represent a different blob using the interface replaceBlob(). The
+  /// symbase is automatically replaced.
+  using DDRef::setSymBase;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;
@@ -63,7 +68,7 @@ public:
   /// Value *getLLVMValue() const override { return nullptr; }
 
   /// \brief Returns the canonical form associated with the blob.
-  const CanonExpr *getCanonExpr() const { return CExpr; }
+  const CanonExpr *getCanonExpr() const { return CE; }
 
   /// \brief Returns the RegDDRef this is attached to.
   RegDDRef *getParentDDRef() { return ParentDDRef; }
@@ -78,6 +83,16 @@ public:
   /// ways except the following:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
+
+  /// \brief Used to represent a different blob by replacing the existing blob
+  /// index with the new one. Symbase is automatically updated.
+  void replaceBlob(unsigned NewIndex);
+
+  /// \brief Sets defined at level for the blob.
+  void setDefinedAtLevel(unsigned Level) { CE->setDefinedAtLevel(Level); }
+
+  /// \brief Marks the blob as non-linear.
+  void setNonLinear() { CE->setNonLinear(); }
 
   /// \brief Verifies BlobDDRef integrity.
   virtual void verify() const override;

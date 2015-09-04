@@ -10,6 +10,22 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements the HIRParser pass.
+// HIR is parsed on a region by region basis. Parsing is divided into two phases
+// for maximum efficiency. The goal of parsing is to produce minimal HIR
+// necessary to generate correct code. The two phases are described below-
+//
+// 1) In phase1 we visit all the HLNodes in the region and parse their operands.
+// We only parse essential HLInsts in this phase. Essential HLInsts are the ones
+// which cannot be eliminated by parsing at all, e.g. loads and stores. These
+// HLInsts form the basis of parsing the rest of HLInsts in phase2. Phase1
+// populates two data structures for use in phase2, a) A set of symbases
+// required by the essential HLInsts and b) A map of lval symbases and
+// associated HLInsts.
+//
+// 2) Using the two data structures populated by phase1, phase2 parses the rest
+// of the required HLInsts and erases useless HLInsts. This process is recursive
+// as parsing HLInsts associated with a set of required symbases can expose
+// additional required symbases.
 //
 //===----------------------------------------------------------------------===//
 
@@ -92,10 +108,10 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
-void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, bool Insert,
-                                 unsigned *NewBlobIndex) {
+void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase,
+                                 bool Insert, unsigned *NewBlobIndex) {
   if (Insert) {
-    unsigned BlobIndex = CanonExprUtils::findOrInsertBlob(Blob);
+    unsigned BlobIndex = CanonExprUtils::findOrInsertBlob(Blob, Symbase);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -103,13 +119,13 @@ void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, bool Insert,
   }
 }
 
-CanonExpr::BlobTy HIRParser::createBlob(Value *Val, bool Insert,
-                                        unsigned *NewBlobIndex) {
+CanonExpr::BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase,
+                                        bool Insert, unsigned *NewBlobIndex) {
   assert(Val && "Value cannot be null!");
 
   auto Blob = SE->getUnknown(Val);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, Symbase, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -119,7 +135,7 @@ CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
   Type *Int64Type = IntegerType::get(getContext(), 64);
   auto Blob = SE->getConstant(Int64Type, Val, false);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -131,7 +147,7 @@ CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
 
   auto Blob = SE->getAddExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -143,7 +159,7 @@ CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -155,7 +171,7 @@ CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
 
   auto Blob = SE->getMulExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -167,7 +183,7 @@ CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -180,7 +196,7 @@ CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
 
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -193,7 +209,7 @@ CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
 
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -206,7 +222,7 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
 
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -219,10 +235,10 @@ unsigned HIRParser::getSymBaseForConstants() const {
   return ScalarSA->getSymBaseForConstants();
 }
 
-struct HIRParser::Visitor {
+struct HIRParser::Phase1Visitor {
   HIRParser *HIRP;
 
-  Visitor(HIRParser *Parser) : HIRP(Parser) {}
+  Phase1Visitor(HIRParser *Parser) : HIRP(Parser) {}
 
   void visit(HLRegion *Reg) { HIRP->parse(Reg); }
   void postVisit(HLRegion *Reg) { HIRP->postParse(Reg); }
@@ -236,7 +252,7 @@ struct HIRParser::Visitor {
   void visit(HLSwitch *Switch) { HIRP->parse(Switch); }
   void postVisit(HLSwitch *Switch) { HIRP->postParse(Switch); }
 
-  void visit(HLInst *HInst) { HIRP->parse(HInst); }
+  void visit(HLInst *HInst) { HIRP->parse(HInst, true, 0); }
   void visit(HLLabel *Label) { HIRP->parse(Label); }
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
 
@@ -265,6 +281,30 @@ public:
 
   bool found() const { return Found; }
   bool isDone() const { return found(); }
+};
+
+class HIRParser::BaseSCEVCreater : public SCEVParameterRewriter {
+private:
+  HIRParser &HIRP;
+  ScalarEvolution &SE;
+
+public:
+  BaseSCEVCreater(HIRParser &HIRP, ScalarEvolution &SE, ValueToValueMap &M)
+      : SCEVParameterRewriter(SE, M, false), HIRP(HIRP), SE(SE) {}
+
+  const SCEV *visitUnknown(const SCEVUnknown *UnknownSCEV) override {
+    if (HIRP.isTempBlob(UnknownSCEV)) {
+      const Value *Val = UnknownSCEV->getValue();
+
+      const Value *BaseVal = HIRP.ScalarSA->getBaseScalar(Val);
+
+      if (BaseVal != Val) {
+        return SE.getUnknown(const_cast<Value *>(BaseVal));
+      }
+    }
+
+    return UnknownSCEV;
+  }
 };
 
 class HIRParser::BlobLevelSetter {
@@ -353,13 +393,8 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
     OS << " /u ";
     printBlob(OS, UDivSCEV->getRHS());
     OS << ")";
-  } else if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    if (isTempBlob(Blob)) {
-      auto Temp = ScalarSA->getBaseScalar(UnknownSCEV->getValue());
-      Temp->printAsOperand(OS, false);
-    } else {
-      OS << *Blob;
-    }
+  } else if (isa<SCEVUnknown>(Blob)) {
+    OS << *Blob;
   } else {
     llvm_unreachable("Unknown Blob type!");
   }
@@ -384,24 +419,6 @@ bool HIRParser::isPolyBlobDef(const Instruction *Inst) const {
   return false;
 }
 
-bool HIRParser::isBlobDef(const Instruction *Inst) const {
-
-  if (SE->isSCEVable(Inst->getType())) {
-    auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
-    if (isa<SCEVUnknown>(SC)) {
-      return true;
-    } else if (isPolyBlobDef(Inst)) {
-      return true;
-    }
-  } else {
-    // If it isn't SCEVable we cannot eliminate it, so we mark it as a blob
-    // definition.
-    return true;
-  }
-
-  return false;
-}
-
 bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
   auto Symbase = ScalarSA->getScalarSymbase(Inst);
 
@@ -412,38 +429,20 @@ bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
   return false;
 }
 
-bool HIRParser::isRequired(const Instruction *Inst) const {
+bool HIRParser::isEssential(const Instruction *Inst) const {
+  bool Ret = false;
 
-  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst)) {
-    return true;
-
+  // TODO: Add exception handling and other miscellaneous instruction types
+  // later.
+  if (isa<LoadInst>(Inst) || isa<StoreInst>(Inst) || isa<CallInst>(Inst)) {
+    Ret = true;
   } else if (isRegionLiveOut(Inst)) {
-    return true;
-
-  } else if (auto CInst = dyn_cast<CmpInst>(Inst)) {
-    if (hasPropagableUses(CInst)) {
-      return false;
-    }
-
-    return true;
+    Ret = true;
+  } else if (!SE->isSCEVable(Inst->getType())) {
+    Ret = true;
   }
 
-  return isBlobDef(Inst);
-}
-
-bool HIRParser::hasPropagableUses(const CmpInst *CInst) const {
-
-  for (auto I = CInst->user_begin(), E = CInst->user_end(); I != E; ++I) {
-    if (auto UseInst = dyn_cast<Instruction>(*I)) {
-      if (!isa<BranchInst>(UseInst) && !isa<SelectInst>(UseInst)) {
-        return false;
-      }
-    } else {
-      assert(false && "Use is not an instruction!");
-    }
-  }
-
-  return true;
+  return Ret;
 }
 
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
@@ -493,14 +492,30 @@ void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
+unsigned HIRParser::findOrInsertBlobWrapper(CanonExpr::BlobTy Blob,
+                                            unsigned *SymbasePtr) {
+  unsigned Symbase = 0;
+
+  if (isTempBlob(Blob)) {
+    auto Temp = cast<SCEVUnknown>(Blob)->getValue();
+    Symbase = ScalarSA->getOrAssignScalarSymbase(Temp);
+  }
+
+  if (SymbasePtr) {
+    *SymbasePtr = Symbase;
+  }
+
+  return CanonExprUtils::findOrInsertBlob(Blob, Symbase);
+}
+
 void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
                                  unsigned NestingLevel) {
   unsigned DefLevel = 0;
   HLLoop *HLoop;
 
   auto Temp = TempBlobSCEV->getValue();
-  auto Symbase = ScalarSA->getOrAssignScalarSymbase(Temp);
-  auto Index = CanonExprUtils::findOrInsertBlob(TempBlobSCEV);
+  unsigned Symbase;
+  auto Index = findOrInsertBlobWrapper(TempBlobSCEV, &Symbase);
 
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
     auto Lp = LI->getLoopFor(Inst->getParent());
@@ -528,6 +543,9 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
   // Cache blob level for later reuse in population of BlobDDRefs for this
   // RegDDRef.
   addTempBlobEntry(Index, NestingLevel, DefLevel);
+
+  // Add blob symbase as required.
+  RequiredSymbases.insert(Symbase);
 }
 
 void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
@@ -545,20 +563,27 @@ void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
       *Multiplier = getSCEVConstantValue(ConstSCEV);
 
       auto NewBlob = SE->getUDivExactExpr(Blob, ConstSCEV);
-      *Index = CanonExprUtils::findOrInsertBlob(NewBlob);
+      *Index = findOrInsertBlobWrapper(NewBlob);
 
       return;
     }
   }
 
   *Multiplier = 1;
-  *Index = CanonExprUtils::findOrInsertBlob(Blob);
+  *Index = findOrInsertBlobWrapper(Blob);
 }
 
 void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
                           unsigned IVLevel) {
   int64_t Multiplier;
   unsigned Index;
+
+  // Empty map used to satisfy parent class's constructor argument.
+  ValueToValueMap M;
+
+  // Create base version of the blob.
+  BaseSCEVCreater BSC(*this, *(this->SE), M);
+  Blob = BSC.visit(Blob);
 
   breakConstantMultiplierBlob(Blob, &Multiplier, &Index);
 
@@ -690,19 +715,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
     auto Blob = CanonExprUtils::getBlob(I->first);
     assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
 
-    auto Symbase =
-        ScalarSA->getOrAssignScalarSymbase(cast<SCEVUnknown>(Blob)->getValue());
-    auto CE = CanonExprUtils::createCanonExpr(Blob->getType());
-
-    CE->addBlob(I->first, 1);
-
-    if (-1 == I->second) {
-      CE->setNonLinear();
-    } else {
-      CE->setDefinedAtLevel(I->second);
-    }
-
-    auto BRef = DDRefUtils::createBlobDDRef(Symbase, CE);
+    auto BRef = DDRefUtils::createBlobDDRef(I->first, I->second);
     Ref->addBlobDDRef(BRef);
   }
 }
@@ -853,26 +866,6 @@ void HIRParser::collectStrides(Type *GEPType,
   Strides.push_back(ElementSize);
 }
 
-const GEPOperator *HIRParser::findGEPOperator(const PHINode *PtrPhi) const {
-
-  for (unsigned I = 0, E = PtrPhi->getNumIncomingValues(); I != E; ++I) {
-    auto GEPInst = dyn_cast<GetElementPtrInst>(PtrPhi->getIncomingValue(I));
-
-    if (!GEPInst) {
-      continue;
-    }
-
-    if (LI->getLoopFor(GEPInst->getParent()) !=
-        LI->getLoopFor(PtrPhi->getParent())) {
-      continue;
-    }
-
-    return cast<GEPOperator>(GEPInst);
-  }
-
-  llvm_unreachable("Coundn't find GEP Operator for pointer phi!");
-}
-
 unsigned HIRParser::getBitElementSize(Type *Ty) const {
   assert(isa<PointerType>(Ty) && "Invalid type!");
 
@@ -890,6 +883,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   auto SC = SE->getSCEV(const_cast<PHINode *>(BasePhi));
   unsigned BitElementSize = getBitElementSize(BasePhi->getType());
   unsigned ElementSize = BitElementSize / 8;
+  bool IsInBounds = false;
 
   // If the base is linear, we separate it into a pointer base and a linear
   // offset. The linear offset is then moved into the index.
@@ -919,6 +913,10 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       // Normalize with repsect to element size.
       IndexCE->setDenominator(IndexCE->getDenominator() * ElementSize, true);
     }
+
+    // Use no wrap flags to set inbounds property.
+    IsInBounds = (RecSCEV->getNoWrapFlags(SCEV::FlagNUW) ||
+                  RecSCEV->getNoWrapFlags(SCEV::FlagNSW));
   }
 
   // Non-linear base is parsed as base + zero offset: (%p)[0].
@@ -938,17 +936,14 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     assert((2 == GEPOp->getNumOperands()) &&
            "Unexpected number of GEP operands!");
 
-    SC = SE->getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
-    parseRecursive(SC, IndexCE, Level, true);
-  } else {
-    // If we traced back to phi without encountering GEPOperator, search for it
-    // in the phi operands.
-    GEPOp = findGEPOperator(BasePhi);
+    auto OffsetSC = SE->getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
+    parseRecursive(OffsetSC, IndexCE, Level, true);
+    IsInBounds = GEPOp->isInBounds();
   }
 
   Ref->setBaseCE(BaseCE);
   Ref->addDimension(IndexCE, StrideCE);
-  Ref->setInBounds(GEPOp->isInBounds());
+  Ref->setInBounds(IsInBounds);
 
   return Ref;
 }
@@ -1114,10 +1109,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   RegDDRef *Ref;
 
-  if (!isRequired(Inst)) {
-    return nullptr;
-
-  } else if (isa<StoreInst>(Inst)) {
+  if (isa<StoreInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level);
   } else {
     Ref = createScalarDDRef(Inst, Level, true);
@@ -1140,28 +1132,35 @@ unsigned HIRParser::getNumRvalOperands(HLInst *HInst) {
   return NumRvalOp;
 }
 
-void HIRParser::parse(HLInst *HInst) {
+void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   RegDDRef *Ref;
   bool HasLval = false;
   auto Inst = HInst->getLLVMInstruction();
-  unsigned Level = CurLevel;
+  unsigned Level;
 
   assert(!Inst->getType()->isVectorTy() && "Vector types not supported!");
 
-  if (HInst->isInPreheaderOrPostexit()) {
-    --Level;
+  if (IsPhase1) {
+    Level = CurLevel;
+
+    if (HInst->isInPreheaderOrPostexit()) {
+      --Level;
+    }
+  } else {
+    Level = Phase2Level;
   }
 
-  /// Process lval
+  // Process lval
   if (HInst->hasLval()) {
     HasLval = true;
 
-    Ref = createLvalDDRef(Inst, Level);
-
-    if (!Ref) {
-      /// Eliminate useless instructions.
-      EraseSet.push_back(HInst);
+    if (IsPhase1 && !isEssential(Inst)) {
+      // Postpone the processing of this instruction to Phase2.
+      auto Symbase = ScalarSA->getOrAssignScalarSymbase(Inst);
+      UnclassifiedSymbaseInsts[Symbase].push_back(std::make_pair(HInst, Level));
       return;
+    } else {
+      Ref = createLvalDDRef(Inst, Level);
     }
 
     HInst->setLvalDDRef(Ref);
@@ -1169,7 +1168,7 @@ void HIRParser::parse(HLInst *HInst) {
 
   unsigned NumRvalOp = getNumRvalOperands(HInst);
 
-  /// Process rvals
+  // Process rvals
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
     if (isa<SelectInst>(Inst) && (I == 0)) {
@@ -1198,10 +1197,54 @@ void HIRParser::parse(HLInst *HInst) {
   }
 }
 
-void HIRParser::eraseUselessNodes() {
-  for (auto &I : EraseSet) {
-    HLNodeUtils::erase(I);
+void HIRParser::phase1Parse(HLNode *Node) {
+  Phase1Visitor PV(this);
+  HLNodeUtils::visit(PV, Node);
+}
+
+void HIRParser::phase2Parse() {
+
+  // Keep iterating through required symbases until the container is empty.
+  // Additional symbases might be added during parsing.
+  while (!RequiredSymbases.empty()) {
+
+    auto SymIt = RequiredSymbases.begin();
+    auto Symbase = *SymIt;
+    auto SymInstIt = UnclassifiedSymbaseInsts.find(Symbase);
+
+    // Symbase has already been processed.
+    if (SymInstIt == UnclassifiedSymbaseInsts.end()) {
+      RequiredSymbases.erase(SymIt);
+      continue;
+    }
+
+    // Parse instructions associated with this symbase. This can lead to the
+    // discovery of additional required symbases.
+    for (auto InstIt = SymInstIt->second.begin(),
+              EndIt = SymInstIt->second.end();
+         InstIt != EndIt; ++InstIt) {
+      parse(InstIt->first, false, InstIt->second);
+    }
+
+    // Erase symbase entry after processing.
+    UnclassifiedSymbaseInsts.erase(SymInstIt);
+
+    // Cannot use SymIt here as it might have been invalidated with an insertion
+    // into the set during parsing.
+    RequiredSymbases.erase(Symbase);
   }
+
+  // Erase the leftover unclassified HLInsts as they are not required.
+  for (auto SymIt = UnclassifiedSymbaseInsts.begin(),
+            E = UnclassifiedSymbaseInsts.end();
+       SymIt != E; ++SymIt) {
+    for (auto InstIt = SymIt->second.begin(), EndIt = SymIt->second.end();
+         InstIt != EndIt; ++InstIt) {
+      HLNodeUtils::erase(InstIt->first);
+    }
+  }
+
+  UnclassifiedSymbaseInsts.clear();
 }
 
 bool HIRParser::runOnFunction(Function &F) {
@@ -1214,10 +1257,18 @@ bool HIRParser::runOnFunction(Function &F) {
 
   HLUtils::setHIRParser(this);
 
-  Visitor PV(this);
-  HLNodeUtils::visitAll(PV);
+  // We parse one region at a time to preserve CurRegion during phase2.
+  for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
+    assert(UnclassifiedSymbaseInsts.empty() &&
+           "UnclassifiedSymbaseInsts is not empty!");
+    assert(RequiredSymbases.empty() && "RequiredSymbases is not empty!");
 
-  eraseUselessNodes();
+    // Start phase 1 of parsing.
+    phase1Parse(I);
+
+    // Start phase 2 of parsing.
+    phase2Parse();
+  }
 
   return false;
 }
@@ -1227,8 +1278,9 @@ void HIRParser::releaseMemory() {
   DDRefUtils::destroyAll();
   CanonExprUtils::destroyAll();
 
-  EraseSet.clear();
   CurTempBlobLevelMap.clear();
+  UnclassifiedSymbaseInsts.clear();
+  RequiredSymbases.clear();
 }
 
 LLVMContext &HIRParser::getContext() const { return Func->getContext(); }
@@ -1241,6 +1293,5 @@ void HIRParser::print(raw_ostream &OS, const Module *M) const {
   HIR->printWithIRRegion(OS);
 }
 
-void HIRParser::verifyAnalysis() const {
-
-}
+// Verification is done by HIRVerifier.
+void HIRParser::verifyAnalysis() const {}

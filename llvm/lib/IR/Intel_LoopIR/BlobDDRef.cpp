@@ -13,23 +13,35 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/ErrorHandling.h"
+
+#include "llvm/Analysis/ScalarEvolution.h"
+
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
-#include "llvm/Support/ErrorHandling.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
 
-BlobDDRef::BlobDDRef(int SB, const CanonExpr *CE)
-    : DDRef(DDRef::BlobDDRefVal, SB), CExpr(CE), ParentDDRef(nullptr) {}
+BlobDDRef::BlobDDRef(unsigned Index, int Level)
+    : DDRef(DDRef::BlobDDRefVal, 0), ParentDDRef(nullptr) {
+
+  unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
+
+  CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
+
+  setSymBase(Symbase);
+}
 
 BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)
     : DDRef(BlobDDRefObj), ParentDDRef(nullptr) {
 
   /// Clone the Canon Expression linked to this BlobDDRef
-  assert(BlobDDRefObj.CExpr && " Canon Expr for BlobDDRefObj cannot be null");
-  CExpr = BlobDDRefObj.CExpr->clone();
+  assert(BlobDDRefObj.CE && " Canon Expr for BlobDDRefObj cannot be null");
+  CE = BlobDDRefObj.CE->clone();
 }
 
 BlobDDRef *BlobDDRef::clone() const {
@@ -41,7 +53,6 @@ BlobDDRef *BlobDDRef::clone() const {
 }
 
 void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
-  auto CE = getCanonExpr();
   CE ? CE->print(OS, Detailed) : (void)(OS << CE);
   OS << " ";
   DDRef::print(OS, Detailed);
@@ -60,14 +71,25 @@ void BlobDDRef::setHLDDNode(HLDDNode *HNode) {
   llvm_unreachable("Should not set HLDDNode via blob DDRef");
 }
 
-void BlobDDRef::verify() const {
-  const CanonExpr *CE = getCanonExpr();
+void BlobDDRef::replaceBlob(unsigned NewIndex) {
+  unsigned OldIndex = CE->getSingleBlobIndex();
+  unsigned NewSymbase = CanonExprUtils::getBlobSymbase(NewIndex);
 
+  CE->replaceBlob(OldIndex, NewIndex);
+  setSymBase(NewSymbase);
+}
+
+void BlobDDRef::verify() const {
   assert(CE != nullptr && "Canon Expr for BlobDDRefObj cannot be NULL");
 
   CE->verify();
 
   assert(isSelfBlob() && "BlobDDRefs should represent a self blob");
+
+  unsigned Index = CE->getSingleBlobIndex();
+  unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
+
+  assert((getSymBase() == Symbase) && "blob index/symbase mismatch!");
 
   DDRef::verify();
 }

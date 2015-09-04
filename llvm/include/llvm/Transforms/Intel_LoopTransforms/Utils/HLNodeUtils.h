@@ -240,7 +240,7 @@ private:
 
   /// \brief Implements domination/post-domination functionality.
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
-                                    bool PostDomination, bool StrictDomination);
+                            bool PostDomination, bool StrictDomination);
 
 public:
   /// \brief Returns the first dummy instruction added for the function.
@@ -727,16 +727,20 @@ public:
                                            const HLNode *Node = nullptr);
   static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
 
-  /// \brief Returns true if Node1 can be proven to dominate Node2, otherwise conservatively returns false.
+  /// \brief Returns true if Node1 can be proven to dominate Node2, otherwise
+  /// conservatively returns false.
   static bool dominates(const HLNode *Node1, const HLNode *Node2);
 
-  /// \brief This is identical to dominates() except the case where Node1 == Node2, in which case it return false.
+  /// \brief This is identical to dominates() except the case where Node1 ==
+  /// Node2, in which case it return false.
   static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
 
-  /// \brief Returns true if Node1 can be proven to post-dominate Node2, otherwise conservatively returns false.
+  /// \brief Returns true if Node1 can be proven to post-dominate Node2,
+  /// otherwise conservatively returns false.
   static bool postDominates(const HLNode *Node1, const HLNode *Node2);
 
-  /// \brief This is identical to postDominates() except the case where Node1 == Node2, in which case it return false.
+  /// \brief This is identical to postDominates() except the case where Node1 ==
+  /// Node2, in which case it return false.
   static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
 
   /// \brief Returns true if Parent contains Node.

@@ -102,13 +102,11 @@ protected:
 
   /// \brief Returns true if Pred is TRUE or FALSE.
   static bool isPredicateTrueOrFalse(PredicateTy Pred) {
-    return Pred == PredicateTy::FCMP_TRUE ||
-           Pred == PredicateTy::FCMP_FALSE;
+    return Pred == PredicateTy::FCMP_TRUE || Pred == PredicateTy::FCMP_FALSE;
   }
 
   /// \brief Pretty prints predicates.
-  static void printPredicate(formatted_raw_ostream &OS,
-                             PredicateTy Pred);
+  static void printPredicate(formatted_raw_ostream &OS, PredicateTy Pred);
 
   /// \brief Virtual Clone Implementation
   /// This function populates the GotoList with Goto branching within the

@@ -736,8 +736,8 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   HLContainerTy::iterator It2(const_cast<HLNode *>(Node2));
 
   HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
-  visit<HLNodeUtils::CloneVisitor>(CloneVisit, It1, std::next(It2), false,
-                                   true, true);
+  visit<HLNodeUtils::CloneVisitor>(CloneVisit, It1, std::next(It2), false, true,
+                                   true);
   CloneVisit.postVisitUpdate();
 }
 

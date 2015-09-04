@@ -26,8 +26,8 @@ SymbaseAssignment *HLUtils::SA(nullptr);
 
 RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
 
-BlobDDRef *DDRefUtils::createBlobDDRef(int SB, const CanonExpr *CE) {
-  return new BlobDDRef(SB, CE);
+BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
+  return new BlobDDRef(Index, Level);
 }
 
 void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
@@ -38,16 +38,26 @@ unsigned DDRefUtils::getNewSymBase() {
   return getSymbaseAssignment()->getNewSymBase();
 }
 
-RegDDRef *DDRefUtils::createSelfBlobRef(Value *Val) {
-  // Create a non-linear self-blob canon expr.
-  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val);
-
+RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
   unsigned Symbase = DDRefUtils::getNewSymBase();
 
+  // Create a non-linear self-blob canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Temp, Symbase);
+
   // Register new lval with HIRParser for printing.
-  getHIRParser()->insertHIRLval(Val, Symbase);
+  getHIRParser()->insertHIRLval(Temp, Symbase);
 
   // Create a RegDDRef with the new symbase and canon expr.
+  auto Ref = DDRefUtils::createRegDDRef(Symbase);
+  Ref->setSingleCanonExpr(CE);
+
+  return Ref;
+}
+
+RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
+  unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
+
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);
 

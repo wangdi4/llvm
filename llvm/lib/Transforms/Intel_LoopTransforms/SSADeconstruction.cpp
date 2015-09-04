@@ -64,15 +64,16 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<ScalarEvolution>();
+    // TODO: Consider using SE->forgetLoop()/SE->forgetValue() rather than
+    // invalidating scalar evolution analysis completely.
     AU.addRequired<RegionIdentification>();
     AU.addRequired<SCCFormation>();
 
+    AU.setPreservesCFG();
+
     // We need to preserve all the analysis computed for HIR.
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addPreserved<ScalarEvolution>();
     AU.addPreserved<RegionIdentification>();
+    AU.addPreserved<SCCFormation>();
   }
 
 private:
@@ -119,7 +120,6 @@ private:
   void deconstructSSAForRegions();
 
 private:
-  ScalarEvolution *SE;
   RegionIdentification *RI;
   SCCFormation *SCCF;
 
@@ -132,7 +132,6 @@ private:
 char SSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
@@ -466,7 +465,6 @@ void SSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool SSADeconstruction::runOnFunction(Function &F) {
-  SE = &getAnalysis<ScalarEvolution>();
   RI = &getAnalysis<RegionIdentification>();
   SCCF = &getAnalysis<SCCFormation>();
 

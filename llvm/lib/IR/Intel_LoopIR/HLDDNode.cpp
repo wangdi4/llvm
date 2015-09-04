@@ -156,7 +156,8 @@ void HLDDNode::verify() const {
       continue;
     }
 
-    assert((*I)->getHLDDNode() == this && "DDRef is attached to a different node");
+    assert((*I)->getHLDDNode() == this &&
+           "DDRef is attached to a different node");
     (*I)->verify();
   }
 

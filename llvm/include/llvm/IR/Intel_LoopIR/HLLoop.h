@@ -192,8 +192,7 @@ public:
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
-  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                           PredicateTy NewPred);
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.

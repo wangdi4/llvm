@@ -14,7 +14,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_IR_INTEL_LOOPIR_HIRVERIFIER_H
 #define LLVM_IR_INTEL_LOOPIR_HIRVERIFIER_H
 
@@ -26,12 +25,11 @@ class HLNode;
 
 namespace HIRVerifier {
 
-  /// \brief Verifies a specific node integrity.
-  void verifyNode(const HLNode *N, bool Recursive = true);
+/// \brief Verifies a specific node integrity.
+void verifyNode(const HLNode *N, bool Recursive = true);
 
-  /// \brief Verifies all nodes of HIR.
-  void verifyAll();
-
+/// \brief Verifies all nodes of HIR.
+void verifyAll();
 }
 
 } // End namespace loopopt
@@ -39,4 +37,3 @@ namespace HIRVerifier {
 } // End namespace llvm
 
 #endif
-

@@ -203,8 +203,7 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
   return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1,
-                        RegDDRef *Ref2) {
+void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
   assert((Pred != PredicateTy::FCMP_FALSE) &&
          (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
@@ -257,8 +256,7 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
   Predicates.erase(PredI);
 }
 
-void HLIf::replacePredicate(const_pred_iterator CPredI,
-                            PredicateTy NewPred) {
+void HLIf::replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   *PredI = NewPred;
@@ -288,11 +286,12 @@ RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
 void HLIf::verify() const {
   bool ContainsTrueFalsePred = false;
 
-  assert(getNumPredicates() > 0 && "HLIf should contain at least one predicate");
+  assert(getNumPredicates() > 0 &&
+         "HLIf should contain at least one predicate");
 
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
     assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I)) &&
-        "Invalid predicate value, should be one of PredicateTy");
+           "Invalid predicate value, should be one of PredicateTy");
 
     bool IsBooleanPred = isPredicateTrueOrFalse(*I);
     ContainsTrueFalsePred = ContainsTrueFalsePred || IsBooleanPred;
@@ -301,9 +300,9 @@ void HLIf::verify() const {
       auto *DDRefLhs = getPredicateOperandDDRef(I, true);
       auto *DDRefRhs = getPredicateOperandDDRef(I, false);
 
-      assert(DDRefLhs != nullptr &&
-             DDRefRhs != nullptr &&
-             "DDRefs should exist for every non FCMP_TRUE/FCMP_FALSE predicate");
+      assert(
+          DDRefLhs != nullptr && DDRefRhs != nullptr &&
+          "DDRefs should exist for every non FCMP_TRUE/FCMP_FALSE predicate");
     }
   }
 

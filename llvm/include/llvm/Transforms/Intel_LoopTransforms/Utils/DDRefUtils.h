@@ -38,23 +38,29 @@ private:
   DDRefUtils() = delete;
 
   friend class HIRParser;
+  friend class HLNodeUtils;
 
   /// \brief Destroys all DDRefs. Called during HIR cleanup.
   static void destroyAll();
 
-  /// \brief Returns a new BlobDDRef.
-  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE);
+  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
+  /// Value. Temp blobs from values are only created by framework.
+  static RegDDRef *createSelfBlobRef(Value *Temp);
 
 public:
   /// \brief Returns a new RegDDRef.
   static RegDDRef *createRegDDRef(int SB);
 
+  /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
+  /// defined at level for the blob. Level of -1 means non-linear blob.
+  static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);
+
+  /// \brief Returns a new RegDDRef representing blob with Index. Level is the
+  /// defined at level for the blob. Level of -1 means non-linear blob.
+  static RegDDRef *createSelfBlobRef(unsigned Index, int Level = -1);
+
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
-
-  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
-  /// Val.
-  static RegDDRef *createSelfBlobRef(Value *Val);
 
   /// \brief Returns a new symbase.
   static unsigned getNewSymBase();

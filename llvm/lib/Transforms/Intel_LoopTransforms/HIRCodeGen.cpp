@@ -232,10 +232,9 @@ private:
         // Blobs represented by an scevunknowns whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobIdx = CanonExprUtils::findBlob(S);
-        assert(BlobIdx && CG.BlobIdxToSymbase.count(BlobIdx) &&
-               "Invalid blob found");
-        unsigned BlobSymBase = CG.BlobIdxToSymbase[BlobIdx];
+        unsigned BlobSymBase = CanonExprUtils::findBlobSymbase(S);
+        assert(BlobSymBase && "Invalid symbase");
+
         std::string TempName = CG.getTempName(BlobSymBase);
         AllocaInst *TempAddr = CG.getNamedValue(TempName, S->getType());
         // Be careful to use scevexpanders builder, not CGVisitor's
@@ -301,54 +300,6 @@ private:
     // gets an allocation for name of type T, creating a new allocation
     // if necessary. Allocation is a alloca at function entry
     AllocaInst *getNamedValue(const Twine &Name, Type *T);
-
-    typedef SmallDenseMap<unsigned, unsigned, 64> BlobIdxMap;
-    // All blobs correspond to a symbase. Map blob indices to said
-    // symbases since many functions only see CE's and blob indices, but
-    // not refs
-    BlobIdxMap BlobIdxToSymbase;
-
-    // Populates a map of Blob indices to symbase
-    class BlobToSymbaseMapper {
-    private:
-      BlobIdxMap &BlobToSymbase;
-      // adds single blob from CE to map with symbase
-      void addBlobFromCE(const CanonExpr *CE, unsigned SymBase) {
-        unsigned BlobIdx = CE->getSingleBlobIndex();
-        if (!BlobToSymbase.count(BlobIdx)) {
-          BlobToSymbase[BlobIdx] = SymBase;
-        } else {
-          // TODO: this is more properly done in verifier. Remove once
-          // implemented
-          assert(BlobToSymbase[BlobIdx] == SymBase);
-        }
-      }
-
-    public:
-      BlobToSymbaseMapper(BlobIdxMap &CurMap) : BlobToSymbase(CurMap) {}
-      bool skipRecursion(HLNode *Node) { return false; }
-      void visit(HLNode *Node) {}
-      void postVisit(HLNode *Node) {}
-      void visit(HLDDNode *Node) {
-        for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-          if ((*I)->isScalarRef()) {
-            CanonExpr *CE = (*I)->getSingleCanonExpr();
-            if (CE->isSelfBlob()) {
-              addBlobFromCE(CE, (*I)->getSymBase());
-              // no need to look at blobs on this ddref
-              continue;
-            }
-          }
-
-          for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
-               BRefI != BRefE; ++BRefI) {
-            addBlobFromCE((*BRefI)->getCanonExpr(), (*BRefI)->getSymBase());
-          }
-        }
-      }
-      void postVisit(HLDDNode *Node) {}
-      bool isDone() { return false; }
-    };
   };
 
 public:
@@ -489,8 +440,6 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
       llvm_unreachable("failed to cg IV or blob");
     Res = ConstantInt::getSigned(Ty, C0);
   }
-  if (CE->getDenominator() != 1)
-    llvm_unreachable("unimplemented CE denom");
 
   if (Denom != 1) {
     DenomVal = ConstantInt::getSigned(Ty, Denom);
@@ -657,11 +606,6 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(F->getContext(), "region", F);
   Builder->SetInsertPoint(RegionEntry);
-
-  // Keep maps of Blob Ids to Symbase independent of region
-  BlobIdxToSymbase.clear();
-  BlobToSymbaseMapper Mapper(BlobIdxToSymbase);
-  HLNodeUtils::visit(Mapper, R, true, true);
 
   initializeLiveIn(R);
 

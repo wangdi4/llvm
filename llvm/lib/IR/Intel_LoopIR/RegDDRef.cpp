@@ -295,7 +295,8 @@ void RegDDRef::verify() const {
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
     (*I)->verify();
-    assert((*I)->getParentDDRef() == this && "Child blob DDRefs should have this RegDDRef as a parent");
+    assert((*I)->getParentDDRef() == this &&
+           "Child blob DDRefs should have this RegDDRef as a parent");
   }
 
   assert((!isSelfBlob() || BlobDDRefs.size() == 0) &&

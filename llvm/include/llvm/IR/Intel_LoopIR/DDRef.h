@@ -97,8 +97,8 @@ public:
   Type *getDestType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
-  unsigned int getSymBase() const { return SymBase; };
-  void setSymBase(unsigned int Sbase) { SymBase = Sbase; }
+  unsigned getSymBase() const { return SymBase; };
+  void setSymBase(unsigned Sbase) { SymBase = Sbase; }
 
   /// \brief Return an ID for the concrete type of this object.
   ///

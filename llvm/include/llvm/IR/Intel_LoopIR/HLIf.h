@@ -38,7 +38,8 @@ public:
   typedef PredicateContainerTy::iterator pred_iterator;
   typedef PredicateContainerTy::const_iterator const_pred_iterator;
   typedef PredicateContainerTy::reverse_iterator reverse_pred_iterator;
-  typedef PredicateContainerTy::const_reverse_iterator const_reverse_pred_iterator;
+  typedef PredicateContainerTy::const_reverse_iterator
+      const_reverse_pred_iterator;
 
   /// Iterators to iterate over then/else children nodes
   typedef ChildNodeTy::iterator then_iterator;
