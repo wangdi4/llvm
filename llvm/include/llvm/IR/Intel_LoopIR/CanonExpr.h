@@ -20,6 +20,7 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 #include <stdint.h>
 #include <utility>
@@ -334,48 +335,6 @@ public:
     return false;
   }
 
-  // TODO:
-  // Extend later for non-constant, e.g. based on UpperBound canon
-  /// \brief return true if non-zero
-  bool isKnownNonZERO() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val != 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if non-positive
-  bool isKnownNonPositive() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val < 1) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if non-negative
-  bool isKnownNonNegative() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val >= 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if negative
-  bool isKnownNegative() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val < 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if positive
-  bool isKnownPositive() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val > 0) {
-      return true;
-    }
-    return false;
-  }
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
   void setConstant(int64_t Val) { Const = Val; }

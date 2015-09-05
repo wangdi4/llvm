@@ -41,6 +41,7 @@ class HIRParser;
 /// It contains a bunch of static member functions which manipulate HLNodes.
 /// It does not store any state.
 ///
+
 class HLNodeUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
@@ -243,6 +244,22 @@ private:
                             bool PostDomination, bool StrictDomination);
 
 public:
+  /// \brief return true if non-zero
+  static bool isKnownNonZero(const CanonExpr *CE,
+                             const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if non-positive
+  static bool isKnownNonPositive(const CanonExpr *CE,
+                                 const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if non-negative
+  static bool isKnownNonNegative(const CanonExpr *CE,
+                                 const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if negative
+  static bool isKnownNegative(const CanonExpr *CE,
+                              const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if positive
+  static bool isKnownPositive(const CanonExpr *CE,
+                              const HLLoop *ParentLoop = nullptr);
+
   /// \brief Returns the first dummy instruction added for the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
 

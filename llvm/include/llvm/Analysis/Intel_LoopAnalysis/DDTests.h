@@ -477,6 +477,9 @@ private:
     void dump(raw_ostream &OS) const;
   };
 
+  unsigned CommonLevels, SrcLevels, MaxLevels;
+  HLLoop *DeepestLoop;
+
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables
   /// CommonLevels, SrcLevels, and MaxLevels.
@@ -528,8 +531,6 @@ private:
   ///     f - 6
   ///     g - 7 = MaxLevels
   void establishNestingLevels(const DDRef *Src, const DDRef *Dst);
-
-  unsigned CommonLevels, SrcLevels, MaxLevels;
 
   /// mapSrcLoop - Given one of the loops containing the source, return
   /// its level index in our numbering scheme.

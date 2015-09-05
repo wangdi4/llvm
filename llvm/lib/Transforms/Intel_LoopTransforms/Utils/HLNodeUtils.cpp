@@ -15,7 +15,9 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Support/Debug.h"
 
+#define DEBUG_TYPE "hlnode-utils"
 using namespace llvm;
 using namespace loopopt;
 
@@ -2074,4 +2076,186 @@ void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
   assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is out of range.");
   LoopLevelVisitor LoopVisit(Loops, Level);
   HLNodeUtils::visit<LoopLevelVisitor>(LoopVisit, const_cast<HLNode *>(Node));
+}
+
+// Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in
+// UB.
+// If the coeff could be  0, then we might end up with DV equals *
+// e.g.
+// If  UB = N  - 1 (UB cannot start with negative numbers in our framework),
+// it implies N is at least 1
+// Offset indicates the constant in CanonExpr. e.g. 3 as in  2 * i + 3
+// then the coeff  2 * N is positive
+
+static bool getMaxMinCoeffVal(int64_t Coeff, unsigned BlobIdx, int64_t Offset1,
+                              int64_t UBCoeff, unsigned UBBlobIdx,
+                              int64_t Offset2, int64_t *Val) {
+
+#ifndef NDEBUG
+
+  DEBUG(dbgs() << "\n\t in getMaxMinCoeffVal: input args " << Coeff << " "
+               << BlobIdx << " " << Offset1 << " " << UBCoeff << " "
+               << UBBlobIdx << " " << Offset2);
+#endif
+
+  if (BlobIdx != UBBlobIdx || UBCoeff == 0) {
+    return false;
+  }
+
+  //  max/min value of UB =  - Offset2 / UBCoeff
+  int64_t BlobVal = -Offset2 / UBCoeff;
+
+  //  Substitute value in Blob
+
+  *Val = Coeff * BlobVal + Offset1;
+  return true;
+}
+
+// Get possible Max/Minimum  value of canon.
+// Only handles single Blob + constant - No support for IV now
+// If known, return true and Value.
+// *IsMax=true returned indicates if Val is to be used as the Max
+// or Min.
+
+enum VALType : unsigned { IsConstant, IsMax, IsMin };
+
+static bool getMaxMinValue(const CanonExpr *CE, int64_t *Val, VALType *ValType,
+                           const HLLoop *ParentLoop) {
+
+  const HLLoop *Loop;
+  *ValType = VALType::IsConstant;
+
+  if (CE->isNonLinear()) {
+    return false;
+  }
+
+  if (CE->isConstant(Val)) {
+    return true;
+  }
+
+  // Handles single blob + constant for now
+
+  if (ParentLoop == nullptr || CE->numBlobs() != 1 || CE->hasIV() ||
+      CE->getDenominator() != 1) {
+    return false;
+  }
+
+  int64_t Coeff = CE->getSingleBlobCoeff();
+  unsigned BlobIdx = CE->getSingleBlobIndex();
+
+  assert(Coeff != 0 && "Blob cannot be zero here");
+
+  for (Loop = ParentLoop; Loop != nullptr; Loop = Loop->getParentLoop()) {
+
+    if (Loop->isUnknown()) {
+      return false;
+    }
+
+    const CanonExpr *UB = Loop->getUpperCanonExpr();
+
+    if (UB->numBlobs() != 1 || UB->hasIV()) {
+      return false;
+    }
+
+    int64_t UBCoeff = UB->getSingleBlobCoeff();
+    unsigned UBBlobIdx = UB->getSingleBlobIndex();
+
+    // Notice that for A[ (2 *n +3)* i + 4]
+    // Coeff = 2,  blob = n,  constant = 3
+    // 4 is not being passed to here. The caller in DD Test
+    // extracts 2 * n + 3 to form another canonexpr for the coeff
+    // In  Upper bound (e.g. in the form 3 *N +4, our  LB is never negative),
+    // positive coef (3) indicates what the min value of N could be
+    // negative coef (e.g. as in 4 - 3 *N) indicates what the max value of N
+    // could be.
+    // Based on the UB,
+    // postive / negative coeff in incoming CanonExpr determines if max or min
+    // value can be computed1
+    //  Coeff of N in  UB        Coeff in CanonExpr
+    //  0                        NA
+    //                           0      Is Constant
+    //  > 0                      > 0    min value
+    //  > 0                      < 0    max value
+    //  < 0                      > 0    max value
+    //  < 0                      < 0    min value
+
+    if ((UBCoeff > 0 && (Coeff > 0)) || (UBCoeff < 0 && (Coeff < 0))) {
+      *ValType = VALType::IsMin;
+    } else {
+      *ValType = VALType::IsMax;
+    }
+
+    if (getMaxMinCoeffVal(Coeff, BlobIdx, CE->getConstant(), UBCoeff, UBBlobIdx,
+                          UB->getConstant(), Val)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool HLNodeUtils::isKnownPositive(const CanonExpr *CE,
+                                  const HLLoop *ParentLoop) {
+
+  int64_t Val;
+  VALType ValType;
+
+  // If Min value is > 0  or IsConstant, then we can compare
+  // Notice the checking is done by using  !IsMax
+  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
+      ValType != VALType::IsMax && (Val > 0)) {
+    return true;
+  }
+  return false;
+}
+
+bool HLNodeUtils::isKnownNonNegative(const CanonExpr *CE,
+                                     const HLLoop *ParentLoop) {
+
+  int64_t Val;
+  VALType ValType;
+
+  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
+      ValType != VALType::IsMax && (Val >= 0)) {
+    return true;
+  }
+  return false;
+}
+
+bool HLNodeUtils::isKnownNegative(const CanonExpr *CE,
+                                  const HLLoop *ParentLoop) {
+
+  int64_t Val;
+  VALType ValType;
+  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
+      ValType != VALType::IsMin && (Val < 0)) {
+    return true;
+  }
+  return false;
+}
+
+bool HLNodeUtils::isKnownNonPositive(const CanonExpr *CE,
+                                     const HLLoop *ParentLoop) {
+
+  int64_t Val;
+  VALType ValType;
+
+  if (getMaxMinValue(CE, &Val, &ValType, ParentLoop) &&
+      ValType != VALType::IsMin && (Val < 1)) {
+    return true;
+  }
+  return false;
+}
+
+bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
+                                 const HLLoop *ParentLoop) {
+
+  int64_t Val;
+  if (CE->isConstant(&Val) && Val != 0) {
+    return true;
+  }
+  if (isKnownPositive(CE, ParentLoop) || isKnownNegative(CE, ParentLoop)) {
+    return true;
+  }
+  return false;
 }
