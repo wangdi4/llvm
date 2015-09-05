@@ -3126,10 +3126,17 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              size_t lengths,
                                              cl_int* errcode_ret)
 {
-	if (errcode_ret != NULL)
-	{
-		*errcode_ret = CL_INVALID_OPERATION;
-	}
-	return CL_INVALID_HANDLE;
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clCreateProgramWithIL);
+        apiLogger << "cl_context context" << context << "const void* il" << il << "size_t lengths" << lengths << "cl_int * errcode_ret" << errcode_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("errcode_ret", errcode_ret, false, false);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+    }
 }
 SET_ALIAS(clCreateProgramWithIL);

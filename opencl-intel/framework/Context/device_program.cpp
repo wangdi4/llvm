@@ -142,6 +142,9 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
     case CL_PROG_BIN_EXECUTABLE_LLVM:
         clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
         break;
+    case CL_PROG_BIN_COMPILED_SPIRV:
+        clBinaryType = CL_PROGRAM_BINARY_TYPE_SPIRV;
+        break;
     default:
         if (piBinaryStatus)
         {
@@ -679,6 +682,15 @@ bool DeviceProgram::CheckProgramBinary(size_t uiBinSize, const void *pBinary, cl
             *pBinaryType = CL_PROG_BIN_COMPILED_SPIR;
 
         return CL_DEV_SUCCEEDED(m_pDevice->GetDeviceAgent()->clDevCheckProgramBinary(uiBinSize, pBinary));
+    }
+
+    //check if it is SPIRV object
+    if (sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiBinSize && _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)pBinary)[0])
+    {
+        if( pBinaryType )
+            *pBinaryType = CL_PROG_BIN_COMPILED_SPIRV;
+
+        return true;
     }
 
     return false;

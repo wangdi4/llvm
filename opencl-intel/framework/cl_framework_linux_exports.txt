@@ -11,6 +11,7 @@
         clCreateKernelsInProgram;
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
+        clCreateProgramWithIL;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
