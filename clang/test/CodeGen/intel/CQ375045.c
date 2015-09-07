@@ -5,7 +5,7 @@
 // CHECK-LABEL: @main
 int main(int argc, char **argv) {
   // CHECK: [[RHS:%.+]] = sext i8
-  // CHECK: [[AND:%.+]] = and i{{16|32}} %conv, {{15|31}}
+  // CHECK: [[AND:%.+]] = and i{{16|32}} [[RHS]], {{15|31}}
   // CHECK: [[RES:%.+]] = shl i{{16|32}} %{{.+}}, [[AND]]
   // CHECK: ret i{{16|32}} [[RES]]
   return argc << argv[0][0];
