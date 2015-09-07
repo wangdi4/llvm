@@ -36,7 +36,7 @@ add_executable( ${TARGET} ${TARGET_SOURCES} )
 
 if (NOT WIN32)
   if( ANDROID )
-    target_link_libraries( ${TARGET} c++ )
+    target_link_libraries( ${TARGET} gnustl_shared )
     set_property(TARGET ${TARGET} APPEND_STRING PROPERTY LINK_FLAGS " -pie")
   endif( ANDROID )
   target_link_libraries( ${TARGET}  cl_sys_utils task_executor${BUILD_PLATFORM} googletest ${PTHREAD_LIB})

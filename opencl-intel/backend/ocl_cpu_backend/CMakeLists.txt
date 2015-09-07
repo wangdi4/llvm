@@ -422,7 +422,7 @@ target_link_libraries (${TARGET_NAME}
 
 if(ANDROID)
     # dynamic link with STL library
-     target_link_libraries(${TARGET_NAME} c++)
+     target_link_libraries(${TARGET_NAME} gnustl_shared)
 endif(ANDROID)
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")

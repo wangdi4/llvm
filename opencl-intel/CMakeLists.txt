@@ -602,3 +602,7 @@ else(APPLE)
 
     
 endif(APPLE)
+
+if(ANDROID)
+  install(FILES ${STL_LIBRARIES_PATH}/libgnustl_shared.so DESTINATION bin)
+endif(ANDROID)

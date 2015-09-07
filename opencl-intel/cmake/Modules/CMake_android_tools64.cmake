@@ -273,9 +273,8 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX
 #-------------------------------------------------
 # My add Rami - End
 #-------------------------------------------------
-
-set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lc++" )
 add_definitions( -D GTEST_USE_OWN_TR1_TUPLE=1 )
+set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lstdc++ -lgnustl_shared" )
 
 set( NO_UNDEFINED ON CACHE BOOL "Don't allow undefined symbols" )
 if( NO_UNDEFINED )
