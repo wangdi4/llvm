@@ -494,12 +494,16 @@ KEYWORD(__thiscall                  , KEYALL)
 KEYWORD(__vectorcall                , KEYALL)
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - keyword fixes for iclang.
-KEYWORD(__forceinline               , KEYALL)
 KEYWORD(__unaligned                 , KEYALL)
 #else
-KEYWORD(__forceinline               , KEYMS)
 KEYWORD(__unaligned                 , KEYMS)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ375085: allow to use __forceinline modifier even in non-MS mode.
+KEYWORD(__forceinline               , KEYALL)
+#else
+KEYWORD(__forceinline               , KEYMS)
+#endif //INTEL_CUSTOMIZATION
 KEYWORD(__super                     , KEYMS)
 
 // OpenCL address space qualifiers
