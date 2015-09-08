@@ -560,7 +560,7 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
 }
 
 const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
-                                                    size_t uiBinarySize )
+                                                    size_t uiBinarySize ) const
 {
 
     std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
