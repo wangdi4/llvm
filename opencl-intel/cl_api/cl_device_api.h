@@ -30,16 +30,16 @@ File Name:  cl_device_api.h
 #include "cl_kernel_arg_type.h"
 #include "common_dev_limits.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <cassert>
 #include "CL/cl.h"
 
 #define IN
 #define OUT
 #define INOUT
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //!< ------------------------------------------------------------------------------
 //!< Program container definition.
@@ -679,6 +679,10 @@ typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
     \retval     CL_DEV_ERROR_FAIL        If function failed to figure the IDs of the devices.
 */
 typedef cl_dev_err_code (fn_clDevInitDeviceAgent)(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 /*!
  \interface IOCLFrameworkCallbacks
@@ -1619,7 +1623,3 @@ public:
     virtual void ReleaseWorkerWGContext(WGContextBase* wgContext) = 0;
 
 };
-
-#ifdef __cplusplus
-}
-#endif

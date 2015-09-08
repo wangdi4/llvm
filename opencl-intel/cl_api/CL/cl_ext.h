@@ -272,6 +272,21 @@ typedef CL_API_ENTRY cl_int
     size_t*                     /* param_value_size_ret */ ) CL_EXT_SUFFIX__VERSION_1_2;
 
 extern CL_API_ENTRY cl_int CL_API_CALL
+clSetAcceleratorInfoINTEL
+(
+    cl_accelerator_intel        /* accelerator */,
+    cl_accelerator_info_intel   /* param_name */,
+    size_t                      /* param_value_size */,
+    void*                       /* param_value */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+typedef CL_API_ENTRY cl_int
+    (CL_API_CALL *clSetAcceleratorInfoINTEL_fn)(
+    cl_accelerator_intel        /* accelerator */,
+    cl_accelerator_info_intel   /* param_name */,
+    size_t                      /* param_value_size */,
+    void*                       /* param_value */ ) CL_EXT_SUFFIX__VERSION_1_2;
+
+extern CL_API_ENTRY cl_int CL_API_CALL
 clRetainAcceleratorINTEL(
     cl_accelerator_intel        /* accelerator */ ) CL_EXT_SUFFIX__VERSION_1_2;
 

@@ -59,12 +59,14 @@ typedef enum
     OPENCL_INVALID = 0,
     OPENCL_1_1     = 11,
     OPENCL_1_2     = 12,
-    OPENCL_2_0     = 20
+    OPENCL_2_0     = 20,
+    OPENCL_2_1     = 21
 } OclVersion;
 
 #define INTEL_OPENCL_1_1_PVER_STR "OpenCL 1.1 "
 #define INTEL_OPENCL_1_2_PVER_STR "OpenCL 1.2 "
 #define INTEL_OPENCL_2_0_PVER_STR "OpenCL 2.0 "
+#define INTEL_OPENCL_2_1_PVER_STR "OpenCL 2.1 "
 
 
 // default device type, which will be picked by the

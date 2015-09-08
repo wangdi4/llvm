@@ -123,7 +123,7 @@ void SystemInfo::GetModuleDirectory( char* szModuleDir, size_t strLen)
 // (modulePtr must be address of method belongs to the loaded library)
 ////////////////////////////////////////////////////////////////////
   ifstream ifs( "/proc/self/maps", ifstream::in);
-  if (ifs == NULL) {
+  if (!ifs.good()) {
     szModuleDir[0] = 0;
     return;
   }

@@ -559,6 +559,20 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
                                         CL_DEV_INVALID_BUILD_OPTIONS);
 }
 
+const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
+                                                    size_t uiBinarySize ) const
+{
+
+    std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
+    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext,
+                                    [](const DiagnosticInfo& diag)
+                                    {
+                                        throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
+                                    });
+
+    return strTargetTriple;
+}
+
 void UpdateTargetTriple(llvm::Module *pModule)
 {
   std::string triple = pModule->getTargetTriple();
