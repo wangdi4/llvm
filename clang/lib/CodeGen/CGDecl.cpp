@@ -12,6 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
+#ifdef INTEL_CUSTOMIZATION
+#include "intel/CGCilkPlusRuntime.h"
+#endif
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
@@ -1014,6 +1017,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     EnsureInsertPoint();
 
     if (!DidCallStackSave) {
+#ifdef INTEL_CUSTOMIZATION
+      if (!(CurCGCilkImplicitSyncInfo &&
+            CurCGCilkImplicitSyncInfo->needsImplicitSync())) {
+#endif // INTEL_CUSTOMIZATION
       // Save the stack.
       llvm::Value *Stack = CreateTempAlloca(Int8PtrTy, "saved_stack");
 
@@ -1027,19 +1034,59 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       // Push a cleanup block and restore the stack there.
       // FIXME: in general circumstances, this should be an EH cleanup.
       pushStackRestore(NormalCleanup, Stack);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
     }
-
     llvm::Value *elementCount;
     QualType elementType;
     std::tie(elementCount, elementType) = getVLASize(Ty);
+#ifdef INTEL_CUSTOMIZATION
+    if (CurCGCilkImplicitSyncInfo &&
+        CurCGCilkImplicitSyncInfo->needsImplicitSync()) {
+      llvm::Type *TypeParams[] = {CGM.SizeTy};
+      llvm::FunctionType *FnTy = llvm::FunctionType::get(
+          CGM.VoidPtrTy, TypeParams, /*isVarArg*/ false);
+      llvm::Constant *F = CGM.CreateBuiltinFunction(FnTy, "malloc");
 
+      uint64_t TypeSize =
+          getContext().getTypeSizeInChars(elementType).getQuantity();
+      llvm::Value *VLASize =
+          Builder.CreateMul(llvm::ConstantInt::get(CGM.SizeTy, TypeSize),
+                            elementCount, "sizeof_val");
+      llvm::Value *Args[] = {VLASize};
+      llvm::Value *VLA = EmitRuntimeCall(F, Args);
+      QualType PtrTy = getContext().getPointerType(elementType);
+      VLA = Builder.CreatePointerBitCastOrAddrSpaceCast(VLA, ConvertType(PtrTy),
+                                                        "vla_ptr");
+      DeclPtr = VLA;
+
+      llvm::Type *TypeParams2[] = {CGM.VoidPtrTy};
+      llvm::FunctionType *FnTy2 =
+          llvm::FunctionType::get(CGM.VoidTy, TypeParams2, /*isVarArg*/ false);
+      auto F2 = CGM.CreateBuiltinFunction(FnTy2, "free");
+
+      FunctionArgList Args2;
+      ImplicitParamDecl Dst(CGM.getContext(), /*DC=*/nullptr, SourceLocation(),
+                            /*Id=*/nullptr, CGM.getContext().VoidPtrTy);
+      Args2.push_back(&Dst);
+
+      const CGFunctionInfo &FI = CGM.getTypes().arrangeFreeFunctionDeclaration(
+          CGM.getContext().VoidTy, Args2, FunctionType::ExtInfo(),
+          /*isVariadic=*/false);
+
+      EHStack.pushCleanup<CallCleanupFunction>(NormalAndEHCleanup, F2, &FI, &D);
+    } else {
+#endif // INTEL_CUSTOMIZATION
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
-
     // Allocate memory for the array.
     llvm::AllocaInst *vla = Builder.CreateAlloca(llvmTy, elementCount, "vla");
     vla->setAlignment(alignment.getQuantity());
 
     DeclPtr = vla;
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   llvm::Value *&DMEntry = LocalDeclMap[&D];

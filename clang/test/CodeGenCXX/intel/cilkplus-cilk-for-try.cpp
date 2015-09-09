@@ -23,7 +23,7 @@ void test_cilk_for_try_cilk_spawn() {
   // CHECK-NOT: call void @__cilk_parent_prologue
   // CHECK: call void @__cilkrts_cilk_for_32({{.*}} [[helper1:@__cilk_for_helper[0-9]*]]
 
-  // CHECK: define internal void [[helper1]](
+  // CHECK: define internal void [[helper1]]
   // CHECK: call void @__cilk_parent_prologue
   //
   // First implicit sync before entering the try-block
@@ -104,7 +104,7 @@ void test2() {
   // CHECK1: call void @{{.*}}cilk_for_exceptions{{.*}}anchor
   // CHECK1-NEXT: ret void
   //
-  // CHECK1: define internal void @[[Helper]](
+  // CHECK1: define internal void @[[Helper]]
   // CHECK1: call void @__cilk_parent_prologue
   //
   // CHECK1: invoke void @__cilk_sync

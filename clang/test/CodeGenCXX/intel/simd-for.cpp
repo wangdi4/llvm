@@ -1,8 +1,6 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s     -o - | FileCheck %s
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s -O2 -o - | FileCheck --check-prefix=CHECKO2 %s
 
-// XFAIL: *
-
 void anchor(int) throw();
 void touch(float) throw();
 void touch(float*) throw();
@@ -19,7 +17,7 @@ void test_private_variables1() {
   }
   // CHECK: call void @{{.*}}anchor
   // CHECK-NOT: getelementptr
-  // CHECK-NEXT: load float*
+  // CHECK-NEXT: load float, float*
   // CHECK-NEXT: call void @{{.*}}touch
   // CHECK-NEXT: call void @{{.*}}anchor
 
@@ -33,7 +31,7 @@ void test_private_variables1() {
   }
   // CHECK: call void @{{.*}}anchor
   // CHECK-NOT: getelementptr
-  // CHECK-NEXT: load float**
+  // CHECK-NEXT: load float*, float**
   // CHECK-NEXT: call void @{{.*}}touch
   // CHECK-NEXT: call void @{{.*}}anchor
 }
@@ -90,7 +88,7 @@ void test_private_variables3() {
   }
   anchor(303);
   // CHECK: call void @{{.*}}anchor
-  // CHECK: call void @{{.+}}
+  // CHECK: call {{.*}}@{{.+}}
   // CHECK: call void @{{.*}}anchor
   // CHECK-NEXT: call void @{{.*}}touch
   // CHECK-NEXT: call void @{{.*}}anchor
@@ -115,7 +113,7 @@ void test_firstprivate_variables1() {
     anchor(602);
   }
   // CHECK: call void @{{.*}}anchor
-  // CHECK-NEXT: load float*
+  // CHECK-NEXT: load float, float*
   // CHECK-NOT: getelementptr
   // CHECK-NEXT: call void @{{.*}}touch
   // CHECK-NEXT: call void @{{.*}}anchor
@@ -128,7 +126,7 @@ void test_firstprivate_variables1() {
     anchor(604);
   }
   // CHECK: call void @{{.*}}anchor
-  // CHECK-NEXT: load float**
+  // CHECK-NEXT: load float*, float**
   // CHECK-NOT: getelementptr
   // CHECK-NEXT: call void @{{.*}}touch
   // CHECK-NEXT: call void @{{.*}}anchor
@@ -219,9 +217,7 @@ void check(){
   for (int i = 0; i < 111; i++)
     lastX.change(i);
 
-  // CHECK: entry:
   // CHECK-NOT: %agg-temp.i{{[1-9]*}} = alloca %class.Private
   // CHECK-NOT: %agg-temp.i = alloca %class.Private
-  // CHECK: if.then:
 
 }

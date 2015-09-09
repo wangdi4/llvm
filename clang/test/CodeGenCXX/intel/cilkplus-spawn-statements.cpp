@@ -108,7 +108,7 @@ void test1() {
 
   // CHECK-CILK1: call i8* @llvm.frameaddress
   // CHECK-CILK1: call i8* @llvm.stacksave
-  // CHECK-CILK1: call i32 @llvm.eh.sjlj.setjmp
+  // CHECK-CILK1: call {{.*}}@{{.*}}setjmp
   // CHECK-CILK1: br i1 {{%[0-9]+}}, label %{{.*}}, label %{{.*}}
   // CHECK-CILK1: call void @[[HelperName:.+cilk_spawn_helper.*]](
   // CHECK-CILK1-NEXT: br label %{{.*}}
@@ -122,12 +122,12 @@ void test1() {
 // CHECK-CILK1: %{{.*}} = alloca %__cilkrts_stack_frame
 
 // CHECK-CILK1: call void @{{.*}}Foo
-// CHECK-CILK1-NEXT: call void @__cilk_helper_prologue(%__cilkrts_stack_frame*
-// CHECK-CILK1-NEXT: {{call|invoke}} {{.*}} @_Z1f3Foo(%struct.Foo*
+// CHECK-CILK1-NEXT: call void @__cilk_helper_prologue(%__cilkrts_stack_frame
+// CHECK-CILK1-NEXT: {{call|invoke}} {{.*}} @_Z1f3Foo(%struct.Foo
 
-// CHECK-CILK1: call void @_ZN3FooD1Ev(%struct.Foo*
+// CHECK-CILK1: call void @_ZN3FooD1Ev(%struct.Foo
 
-// CHECK-CILK1: call void @__cilk_helper_epilogue(%__cilkrts_stack_frame*
+// CHECK-CILK1: call void @__cilk_helper_epilogue(%__cilkrts_stack_frame
 // CHECK-CILK1-NEXT: ret void
 
 // CHECK-CILK1: attributes #[[AttributeNum]] = {{.*}} noinline
