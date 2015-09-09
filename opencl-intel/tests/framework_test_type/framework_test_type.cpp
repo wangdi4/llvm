@@ -169,6 +169,11 @@ TEST(FrameworkTestType, Test_GenerateBinaryFile)
     EXPECT_TRUE(GenerateBinaryFile());
 }
 
+TEST(CL21, Test_CloneKernel)
+{
+    EXPECT_TRUE(CloneKernel());
+}
+
 TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
 {
     // GenerateBinaryFile before clCheckCPUArchForJIT
