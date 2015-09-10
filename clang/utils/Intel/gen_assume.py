@@ -21,7 +21,8 @@ XMLToFeature = {
   "MONITOR" : "GENERIC_IA32",
   "RDTSCP" : "GENERIC_IA32",
   "AVX512F/KNCNI" : "AVX512F",
-  "AVX512PF/KNCNI" : "AVX512PF"
+  "AVX512PF/KNCNI" : "AVX512PF",
+  "FXSR" : "FXSAVE"
 }
 
 allIntrinsics = Set([])
@@ -107,7 +108,7 @@ def handleMacro(line, inFile, outFile):
     line = inFile.readline()
     if not line.strip().endswith('\\'): break
     outFile.write(line)
-  outFile.write(line.rstrip())
+  outFile.write(line.rstrip().rstrip(';'))
   outFile.write(')\n')
 
 def parseDataXML(xmlfile):

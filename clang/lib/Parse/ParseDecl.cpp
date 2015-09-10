@@ -434,7 +434,8 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
   // These may refer to the function arguments, but need to be parsed early to
   // participate in determining whether it's a redeclaration.
   std::unique_ptr<ParseScope> PrototypeScope;
-  if (AttrName->isStr("enable_if") && D && D->isFunctionDeclarator()) {
+  if (normalizeAttrName(AttrName->getName()) == "enable_if" &&
+      D && D->isFunctionDeclarator()) {
     DeclaratorChunk::FunctionTypeInfo FTI = D->getFunctionTypeInfo();
     PrototypeScope.reset(new ParseScope(this, Scope::FunctionPrototypeScope |
                                         Scope::FunctionDeclarationScope |
@@ -455,7 +456,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
   // If the attribute isn't known, we will not attempt to parse any
   // arguments.
   if (!hasAttribute(AttrSyntax::Declspec, nullptr, AttrName,
-                    getTargetInfo().getTriple(), getLangOpts())) {
+                    getTargetInfo(), getLangOpts())) {
     // Eat the left paren, then skip to the ending right paren.
     ConsumeParen();
     SkipUntil(tok::r_paren);
@@ -1430,6 +1431,13 @@ bool Parser::DiagnoseProhibitedCXX11Attribute() {
     SkipUntil(tok::r_square);
     assert(Tok.is(tok::r_square) && "isCXX11AttributeSpecifier lied");
     SourceLocation EndLoc = ConsumeBracket();
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(BeginLoc, diag::warn_attributes_not_allowed)
+        << SourceRange(BeginLoc, EndLoc);
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(BeginLoc, diag::err_attributes_not_allowed)
       << SourceRange(BeginLoc, EndLoc);
     return true;
@@ -1451,12 +1459,27 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
 
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(Loc, diag::warn_attributes_not_allowed)
+        << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
+        << FixItHint::CreateRemoval(AttrRange);
+    else
+#endif // INTEL_CUSTOMIZATION
   Diag(Loc, diag::err_attributes_not_allowed)
     << FixItHint::CreateInsertionFromRange(CorrectLocation, AttrRange)
     << FixItHint::CreateRemoval(AttrRange);
 }
 
 void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+    if (getLangOpts().IntelCompat)
+      Diag(attrs.Range.getBegin(), diag::warn_attributes_not_allowed)
+        << attrs.Range;
+    else
+#endif // INTEL_CUSTOMIZATION
   Diag(attrs.Range.getBegin(), diag::err_attributes_not_allowed)
     << attrs.Range;
 }
@@ -1465,6 +1488,13 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &attrs) {
   AttributeList *AttrList = attrs.getList();
   while (AttrList) {
     if (AttrList->isCXX11Attribute()) {
+#ifdef INTEL_CUSTOMIZATION
+      // CQ#370092 - emit a warning, not error in IntelCompat mode
+      if (getLangOpts().IntelCompat)
+        Diag(AttrList->getLoc(), diag::warn_attribute_not_type_attr) 
+          << AttrList->getName();
+      else
+#endif // INTEL_CUSTOMIZATION
       Diag(AttrList->getLoc(), diag::err_attribute_not_type_attr) 
         << AttrList->getName();
       AttrList->setInvalid();
@@ -2252,8 +2282,7 @@ void Parser::ParseSpecifierQualifierList(DeclSpec &DS, AccessSpecifier AS,
   if (isTypeSpecifier(DSC) && !DS.hasTypeSpecifier()) {
     Diag(Tok, diag::err_expected_type);
     DS.SetTypeSpecError();
-  } else if (Specs == DeclSpec::PQ_None && !DS.getNumProtocolQualifiers() &&
-             !DS.hasAttributes()) {
+  } else if (Specs == DeclSpec::PQ_None && !DS.hasAttributes()) {
     Diag(Tok, diag::err_typename_requires_specqual);
     if (!DS.hasTypeSpecifier())
       DS.SetTypeSpecError();
@@ -2710,6 +2739,7 @@ Parser::DiagnoseMissingSemiAfterTagDefinition(DeclSpec &DS, AccessSpecifier AS,
 /// [C11]   alignment-specifier declaration-specifiers[opt]
 /// [GNU]   attributes declaration-specifiers[opt]
 /// [Clang] '__module_private__' declaration-specifiers[opt]
+/// [ObjC1] '__kindof' declaration-specifiers[opt]
 ///
 ///       storage-class-specifier: [C99 6.7.1]
 ///         'typedef'
@@ -2753,6 +2783,18 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     bool isStorageClass = false;
     const char *PrevSpec = nullptr;
     unsigned DiagID = 0;
+
+    // HACK: MSVC doesn't consider _Atomic to be a keyword and its STL
+    // implementation for VS2013 uses _Atomic as an identifier for one of the
+    // classes in <atomic>.
+    //
+    // A typedef declaration containing _Atomic<...> is among the places where
+    // the class is used.  If we are currently parsing such a declaration, treat
+    // the token as an identifier.
+    if (getLangOpts().MSVCCompat && Tok.is(tok::kw__Atomic) &&
+        DS.getStorageClassSpec() == clang::DeclSpec::SCS_typedef &&
+        !DS.hasTypeSpecifier() && GetLookAheadToken(1).is(tok::less))
+      Tok.setKind(tok::identifier);
 
     SourceLocation Loc = Tok.getLocation();
 
@@ -2994,12 +3036,6 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       DS.SetRangeEnd(Tok.getAnnotationEndLoc());
       ConsumeToken(); // The typename
 
-      // Objective-C supports syntax of the form 'id<proto1,proto2>' where 'id'
-      // is a specific typedef and 'itf<proto1,proto2>' where 'itf' is an
-      // Objective-C interface.
-      if (Tok.is(tok::less) && getLangOpts().ObjC1)
-        ParseObjCProtocolQualifiers(DS);
-
       continue;
     }
 
@@ -3105,11 +3141,19 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       DS.SetRangeEnd(Tok.getLocation());
       ConsumeToken(); // The identifier
 
-      // Objective-C supports syntax of the form 'id<proto1,proto2>' where 'id'
-      // is a specific typedef and 'itf<proto1,proto2>' where 'itf' is an
-      // Objective-C interface.
-      if (Tok.is(tok::less) && getLangOpts().ObjC1)
-        ParseObjCProtocolQualifiers(DS);
+      // Objective-C supports type arguments and protocol references
+      // following an Objective-C object or object pointer
+      // type. Handle either one of them.
+      if (Tok.is(tok::less) && getLangOpts().ObjC1) {
+        SourceLocation NewEndLoc;
+        TypeResult NewTypeRep = parseObjCTypeArgsAndProtocolQualifiers(
+                                  Loc, TypeRep, /*consumeLastToken=*/true,
+                                  NewEndLoc);
+        if (NewTypeRep.isUsable()) {
+          DS.UpdateTypeRep(NewTypeRep.get());
+          DS.SetRangeEnd(NewEndLoc);
+        }
+      }
 
       // Need to support trailing type qualifiers (e.g. "id<p> const").
       // If a type specifier follows, it will be diagnosed elsewhere.
@@ -3188,6 +3232,13 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw__Nullable:
     case tok::kw__Null_unspecified:
       ParseNullabilityTypeSpecifiers(DS.getAttributes());
+      continue;
+
+    // Objective-C 'kindof' types.
+    case tok::kw___kindof:
+      DS.getAttributes().addNew(Tok.getIdentifierInfo(), Loc, nullptr, Loc,
+                                nullptr, 0, AttributeList::AS_Keyword);
+      (void)ConsumeToken();
       continue;
 
     // storage-class-specifier
@@ -3540,10 +3591,19 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       if (DS.hasTypeSpecifier() || !getLangOpts().ObjC1)
         goto DoneWithDeclSpec;
 
-      if (!ParseObjCProtocolQualifiers(DS))
-        Diag(Loc, diag::warn_objc_protocol_qualifier_missing_id)
-          << FixItHint::CreateInsertion(Loc, "id")
-          << SourceRange(Loc, DS.getSourceRange().getEnd());
+      SourceLocation StartLoc = Tok.getLocation();
+      SourceLocation EndLoc;
+      TypeResult Type = parseObjCProtocolQualifierType(EndLoc);
+      if (Type.isUsable()) {
+        if (DS.SetTypeSpecType(DeclSpec::TST_typename, StartLoc, StartLoc,
+                               PrevSpec, DiagID, Type.get(),
+                               Actions.getASTContext().getPrintingPolicy()))
+          Diag(StartLoc, DiagID) << PrevSpec;
+        
+        DS.SetRangeEnd(EndLoc);
+      } else {
+        DS.SetTypeSpecError();
+      }
 
       // Need to support trailing type qualifiers (e.g. "id<p> const").
       // If a type specifier follows, it will be diagnosed elsewhere.
@@ -4473,6 +4533,8 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw__Nullable:
   case tok::kw__Null_unspecified:
 
+  case tok::kw___kindof:
+
   case tok::kw___private:
   case tok::kw___local:
   case tok::kw___global:
@@ -4655,6 +4717,8 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw__Nonnull:
   case tok::kw__Nullable:
   case tok::kw__Null_unspecified:
+
+  case tok::kw___kindof:
 
   case tok::kw___private:
   case tok::kw___local:
@@ -4893,10 +4957,31 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
       ParseNullabilityTypeSpecifiers(DS.getAttributes());
       continue;
 
+    // Objective-C 'kindof' types.
+    case tok::kw___kindof:
+      DS.getAttributes().addNew(Tok.getIdentifierInfo(), Loc, nullptr, Loc,
+                                nullptr, 0, AttributeList::AS_Keyword);
+      (void)ConsumeToken();
+      continue;
+
     case tok::kw___attribute:
       if (AttrReqs & AR_GNUAttributesParsedAndRejected)
+#ifdef INTEL_CUSTOMIZATION
+      // This brace is necessary to suppress a warning suggesting brace
+      // insertion to avoid ambiguouse 'else'.
+      {
+#endif // INTEL_CUSTOMIZATION
         // When GNU attributes are expressly forbidden, diagnose their usage.
+#ifdef INTEL_CUSTOMIZATION
+        // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
+        if (getLangOpts().IntelCompat)
+          Diag(Tok, diag::warn_attributes_not_allowed);
+        else
+#endif // INTEL_CUSTOMIZATION
         Diag(Tok, diag::err_attributes_not_allowed);
+#ifdef INTEL_CUSTOMIZATION
+      }
+#endif // INTEL_CUSTOMIZATION
 
       // Parse the attributes even if they are rejected to ensure that error
       // recovery is graceful.

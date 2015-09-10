@@ -109,14 +109,16 @@ namespace {
     WCHARSUPPORT = 0x04000,
     HALFSUPPORT = 0x08000,
     KEYCONCEPTS = 0x10000,
+    KEYOBJC2    = 0x20000,
+    KEYZVECTOR  = 0x40000,
 #ifdef INTEL_CUSTOMIZATION
-    KEYCILKPLUS = 0x20000,
-    KEYFLOAT128 = 0x40000,
-    KEYRESTRICT = 0x80000,
-    KEYMSASM = 0x100000,
-    KEYBASES = 0x100000,
+    KEYCILKPLUS = 0x80000,
+    KEYFLOAT128 = 0x100000,
+    KEYRESTRICT = 0x200000,
+    KEYMSASM = 0x4000000,
+    KEYBASES = 0x8000000,
 #endif  // INTEL_CUSTOMIZATION
-    KEYALL = (0x1fffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0x1fffff
+    KEYALL = (0xfffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
 
@@ -165,6 +167,7 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // in non-arc mode.
   if (LangOpts.ObjC2 && (Flags & KEYARC)) return KS_Enabled;
   if (LangOpts.ConceptsTS && (Flags & KEYCONCEPTS)) return KS_Enabled;
+  if (LangOpts.ObjC2 && (Flags & KEYOBJC2)) return KS_Enabled;
   if (LangOpts.CPlusPlus && (Flags & KEYCXX11)) return KS_Future;
   return KS_Disabled;
 }

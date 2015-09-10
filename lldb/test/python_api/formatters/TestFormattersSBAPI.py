@@ -19,6 +19,7 @@ class SBFormattersAPITestCase(TestBase):
         self.setTearDownCleanup()
         self.formatters()
 
+    @expectedFailureFreeBSD("llvm.org/pr24282 Empty2 fails")
     @python_api_test
     @dwarf_test
     def test_with_dwarf_formatters_api(self):
@@ -45,7 +46,7 @@ class SBFormattersAPITestCase(TestBase):
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
@@ -302,13 +303,17 @@ class SBFormattersAPITestCase(TestBase):
         self.assertTrue(summary.IsValid(), "no summary found for foo* when one was in place")
         self.assertTrue(summary.GetData() == "hello static world", "wrong summary found for foo*")
 
+        self.expect("frame variable e1", substrs=["I am an empty Empty1 {}"])
+        self.expect("frame variable e2", substrs=["I am an empty Empty2"])
+        self.expect("frame variable e2", substrs=["I am an empty Empty2 {}"], matching=False)
+
     def force_synth_off(self):
         """Test that one can have the public API return non-synthetic SBValues if desired"""
         self.runCmd("file no_synth", CURRENT_EXECUTABLE_SET)
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,

@@ -24,9 +24,12 @@ namespace lld {
 namespace coff {
 
 using llvm::LTOModule;
+using llvm::COFF::IMAGE_FILE_MACHINE_UNKNOWN;
+using llvm::COFF::MachineTypes;
 using llvm::object::Archive;
 using llvm::object::COFFObjectFile;
 using llvm::object::COFFSymbolRef;
+using llvm::object::coff_section;
 
 class Chunk;
 class Defined;
@@ -47,9 +50,11 @@ public:
   // Returns symbols defined by this file.
   virtual std::vector<SymbolBody *> &getSymbols() = 0;
 
-  // Reads a file (constructors don't do that). Returns an error if a
-  // file is broken.
-  virtual std::error_code parse() = 0;
+  // Reads a file (the constructor doesn't do that).
+  virtual void parse() = 0;
+
+  // Returns the CPU type this file was compiled to.
+  virtual MachineTypes getMachineType() { return IMAGE_FILE_MACHINE_UNKNOWN; }
 
   // Returns a short, human-friendly filename. If this is a member of
   // an archive file, a returned value includes parent's filename.
@@ -62,8 +67,15 @@ public:
   // Returns .drectve section contents if exist.
   StringRef getDirectives() { return StringRef(Directives).trim(); }
 
+  // Each file has a unique index. The index number is used to
+  // resolve ties in symbol resolution.
+  int Index;
+  static int NextIndex;
+
 protected:
-  InputFile(Kind K, MemoryBufferRef M) : MB(M), FileKind(K) {}
+  InputFile(Kind K, MemoryBufferRef M)
+      : Index(NextIndex++), MB(M), FileKind(K) {}
+
   MemoryBufferRef MB;
   std::string Directives;
 
@@ -77,12 +89,12 @@ class ArchiveFile : public InputFile {
 public:
   explicit ArchiveFile(MemoryBufferRef M) : InputFile(ArchiveKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == ArchiveKind; }
-  std::error_code parse() override;
+  void parse() override;
 
   // Returns a memory buffer for a given symbol. An empty memory buffer
   // is returned if we have already returned the same memory buffer.
   // (So that we don't instantiate same members more than once.)
-  ErrorOr<MemoryBufferRef> getMember(const Archive::Symbol *Sym);
+  MemoryBufferRef getMember(const Archive::Symbol *Sym);
 
   std::vector<Lazy *> &getLazySymbols() { return LazySymbols; }
 
@@ -95,7 +107,7 @@ private:
   std::unique_ptr<Archive> File;
   std::string Filename;
   std::vector<Lazy *> LazySymbols;
-  std::set<const char *> Seen;
+  std::map<uint64_t, std::atomic_flag> Seen;
   llvm::MallocAllocator Alloc;
 };
 
@@ -104,7 +116,8 @@ class ObjectFile : public InputFile {
 public:
   explicit ObjectFile(MemoryBufferRef M) : InputFile(ObjectKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == ObjectKind; }
-  std::error_code parse() override;
+  void parse() override;
+  MachineTypes getMachineType() override;
   std::vector<Chunk *> &getChunks() { return Chunks; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
 
@@ -117,9 +130,18 @@ public:
   // Returns the underying COFF file.
   COFFObjectFile *getCOFFObj() { return COFFObj.get(); }
 
+  // True if this object file is compatible with SEH.
+  // COFF-specific and x86-only.
+  bool SEHCompat = false;
+
+  // The list of safe exception handlers listed in .sxdata section.
+  // COFF-specific and x86-only.
+  std::set<SymbolBody *> SEHandlers;
+
 private:
-  std::error_code initializeChunks();
-  std::error_code initializeSymbols();
+  void initializeChunks();
+  void initializeSymbols();
+  void initializeSEH();
 
   Defined *createDefined(COFFSymbolRef Sym, const void *Aux, bool IsFirst);
   Undefined *createUndefined(COFFSymbolRef Sym);
@@ -127,6 +149,7 @@ private:
 
   std::unique_ptr<COFFObjectFile> COFFObj;
   llvm::BumpPtrAllocator Alloc;
+  const coff_section *SXData = nullptr;
 
   // List of all chunks defined by this file. This includes both section
   // chunks and non-section chunks for common symbols.
@@ -160,7 +183,7 @@ public:
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
 
 private:
-  std::error_code parse() override;
+  void parse() override;
 
   std::vector<SymbolBody *> SymbolBodies;
   llvm::BumpPtrAllocator Alloc;
@@ -174,12 +197,13 @@ public:
   explicit BitcodeFile(MemoryBufferRef M) : InputFile(BitcodeKind, M) {}
   static bool classof(const InputFile *F) { return F->kind() == BitcodeKind; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
+  MachineTypes getMachineType() override;
 
   LTOModule *getModule() const { return M.get(); }
   LTOModule *releaseModule() { return M.release(); }
 
 private:
-  std::error_code parse() override;
+  void parse() override;
 
   std::vector<SymbolBody *> SymbolBodies;
   llvm::BumpPtrAllocator Alloc;

@@ -2227,18 +2227,26 @@ enum CXCursorKind {
 
   /** \brief OpenMP taskgroup directive.
    */
-  CXCursor_OMPTaskgroupDirective          = 254,
+  CXCursor_OMPTaskgroupDirective         = 254,
 
   /** \brief OpenMP cancellation point directive.
    */
-  CXCursor_OMPCancellationPointDirective  = 255,
+  CXCursor_OMPCancellationPointDirective = 255,
+
+  /** \brief OpenMP cancel directive.
+   */
+  CXCursor_OMPCancelDirective            = 256,
+
+  /** \brief OpenMP target data directive.
+   */
+  CXCursor_OMPTargetDataDirective        = 257,
 
 #ifdef INTEL_CUSTOMIZATION
-  CXCursor_CilkRankedStmt                = 256,
+  CXCursor_CilkRankedStmt                = 258,
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
 #else
-  CXCursor_LastStmt                    = CXCursor_OMPCancellationPointDirective,
-#endif  /* INTEL_CUSTOMIZATION */
+  CXCursor_LastStmt                      = CXCursor_OMPTargetDataDirective,
+#endif /* INTEL_CUSTOMIZATION */
 
   /**
    * \brief Cursor that represents the translation unit itself.

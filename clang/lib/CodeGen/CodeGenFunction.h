@@ -613,14 +613,6 @@ public:
   /// write the current selector value into this alloca.
   llvm::AllocaInst *EHSelectorSlot;
 
-  /// Entering and leaving an SEH __try / __finally scope causes stores to this
-  /// slot.
-  llvm::Value *ChildAbnormalTerminationSlot = nullptr;
-
-  /// The SEH __abnormal_termination() intrinsic lowers down to loads from this
-  /// slot from a parent function.
-  llvm::Value *AbnormalTerminationSlot = nullptr;
-
   /// A stack of exception code slots. Entering an __except block pushes a slot
   /// on the stack and leaving pops one. The __exception_code() intrinsic loads
   /// a value from the top of the stack.
@@ -962,6 +954,7 @@ public:
 
   llvm::BasicBlock *getEHResumeBlock(bool isCleanup);
   llvm::BasicBlock *getEHDispatchBlock(EHScopeStack::stable_iterator scope);
+  llvm::BasicBlock *getMSVCDispatchBlock(EHScopeStack::stable_iterator scope);
 
   /// An object to manage conditionally-evaluated expressions.
   class ConditionalEvaluation {
@@ -1185,7 +1178,7 @@ private:
   DeclMapTy LocalDeclMap;
 
   /// Track escaped local variables with auto storage. Used during SEH
-  /// outlining to produce a call to llvm.frameescape.
+  /// outlining to produce a call to llvm.localescape.
   llvm::DenseMap<llvm::AllocaInst *, int> EscapedLocals;
 
   /// LabelMap - This keeps track of the LLVM basic block for each C label.
@@ -1623,8 +1616,8 @@ public:
   void EmitMustTailThunk(const CXXMethodDecl *MD, llvm::Value *AdjustedThisPtr,
                          llvm::Value *Callee);
 
-  /// GenerateThunk - Generate a thunk for the given method.
-  void GenerateThunk(llvm::Function *Fn, const CGFunctionInfo &FnInfo,
+  /// Generate a thunk for the given method.
+  void generateThunk(llvm::Function *Fn, const CGFunctionInfo &FnInfo,
                      GlobalDecl GD, const ThunkInfo &Thunk);
 
   llvm::Function *GenerateVarArgsThunk(llvm::Function *Fn,
@@ -2349,8 +2342,6 @@ public:
   void EmitIndirectGotoStmt(const IndirectGotoStmt &S);
   void EmitIfStmt(const IfStmt &S);
 
-  void EmitCondBrHints(llvm::LLVMContext &Context, llvm::BranchInst *CondBr,
-                       ArrayRef<const Attr *> Attrs);
   void EmitWhileStmt(const WhileStmt &S,
                      ArrayRef<const Attr *> Attrs = None);
   void EmitDoStmt(const DoStmt &S, ArrayRef<const Attr *> Attrs = None);
@@ -2399,13 +2390,13 @@ public:
 
   /// Scan the outlined statement for captures from the parent function. For
   /// each capture, mark the capture as escaped and emit a call to
-  /// llvm.framerecover. Insert the framerecover result into the LocalDeclMap.
+  /// llvm.localrecover. Insert the localrecover result into the LocalDeclMap.
   void EmitCapturedLocals(CodeGenFunction &ParentCGF, const Stmt *OutlinedStmt,
                           bool IsFilter);
 
   /// Recovers the address of a local in a parent function. ParentVar is the
   /// address of the variable used in the immediate parent function. It can
-  /// either be an alloca or a call to llvm.framerecover if there are nested
+  /// either be an alloca or a call to llvm.localrecover if there are nested
   /// outlined functions. ParentFP is the frame pointer of the outermost parent
   /// frame.
   llvm::Value *recoverAddrOfEscapedLocal(CodeGenFunction &ParentCGF,
@@ -2562,9 +2553,11 @@ public:
   void EmitOMPOrderedDirective(const OMPOrderedDirective &S);
   void EmitOMPAtomicDirective(const OMPAtomicDirective &S);
   void EmitOMPTargetDirective(const OMPTargetDirective &S);
+  void EmitOMPTargetDataDirective(const OMPTargetDataDirective &S);
   void EmitOMPTeamsDirective(const OMPTeamsDirective &S);
   void
   EmitOMPCancellationPointDirective(const OMPCancellationPointDirective &S);
+  void EmitOMPCancelDirective(const OMPCancelDirective &S);
 
   /// \brief Emit inner loop of the worksharing/simd construct.
   ///
@@ -2582,10 +2575,12 @@ public:
       const llvm::function_ref<void(CodeGenFunction &)> &BodyGen,
       const llvm::function_ref<void(CodeGenFunction &)> &PostIncGen);
 
+  JumpDest getOMPCancelDestination(OpenMPDirectiveKind Kind);
+
 private:
 
   /// Helpers for the OpenMP loop directives.
-  void EmitOMPLoopBody(const OMPLoopDirective &D);
+  void EmitOMPLoopBody(const OMPLoopDirective &D, JumpDest LoopExit);
   void EmitOMPSimdInit(const OMPLoopDirective &D);
   void EmitOMPSimdFinal(const OMPLoopDirective &D);
   /// \brief Emit code for the worksharing loop-based directive.
@@ -2597,6 +2592,8 @@ private:
                            OMPPrivateScope &LoopScope, bool Ordered,
                            llvm::Value *LB, llvm::Value *UB, llvm::Value *ST,
                            llvm::Value *IL, llvm::Value *Chunk);
+  /// \brief Emit code for sections directive.
+  OpenMPDirectiveKind EmitSections(const OMPExecutableDirective &S);
 
 public:
 
@@ -3055,17 +3052,16 @@ public:
   /// scalar type, returning the result.
   llvm::Value *EmitScalarExpr(const Expr *E , bool IgnoreResultAssign = false);
 
-  /// EmitScalarConversion - Emit a conversion from the specified type to the
-  /// specified destination type, both of which are LLVM scalar types.
+  /// Emit a conversion from the specified type to the specified destination
+  /// type, both of which are LLVM scalar types.
   llvm::Value *EmitScalarConversion(llvm::Value *Src, QualType SrcTy,
-                                    QualType DstTy);
+                                    QualType DstTy, SourceLocation Loc);
 
-  /// EmitComplexToScalarConversion - Emit a conversion from the specified
-  /// complex type to the specified destination type, where the destination type
-  /// is an LLVM scalar type.
+  /// Emit a conversion from the specified complex type to the specified
+  /// destination type, where the destination type is an LLVM scalar type.
   llvm::Value *EmitComplexToScalarConversion(ComplexPairTy Src, QualType SrcTy,
-                                             QualType DstTy);
-
+                                             QualType DstTy,
+                                             SourceLocation Loc);
 
   /// EmitAggExpr - Emit the computation of the specified expression
   /// of aggregate type.  The result is computed into the given slot,
@@ -3246,6 +3242,10 @@ public:
   /// conditional branch to it, for the -ftrapv checks.
   void EmitTrapCheck(llvm::Value *Checked);
 
+  /// \brief Emit a call to trap or debugtrap and attach function attribute
+  /// "trap-func-name" if specified.
+  llvm::CallInst *EmitTrapCall(llvm::Intrinsic::ID IntrID);
+
   /// \brief Create a check for a function parameter that may potentially be
   /// declared as non-null.
   void EmitNonNullArgCheck(RValue RV, QualType ArgType, SourceLocation ArgLoc,
@@ -3296,51 +3296,76 @@ private:
                                   SourceLocation Loc);
 
 public:
+#ifndef NDEBUG
+  // Determine whether the given argument is an Objective-C method
+  // that may have type parameters in its signature.
+  static bool isObjCMethodWithTypeParams(const ObjCMethodDecl *method) {
+    const DeclContext *dc = method->getDeclContext();
+    if (const ObjCInterfaceDecl *classDecl= dyn_cast<ObjCInterfaceDecl>(dc)) {
+      return classDecl->getTypeParamListAsWritten();
+    }
+
+    if (const ObjCCategoryDecl *catDecl = dyn_cast<ObjCCategoryDecl>(dc)) {
+      return catDecl->getTypeParamList();
+    }
+
+    return false;
+  }
+
+  template<typename T>
+  static bool isObjCMethodWithTypeParams(const T *) { return false; }
+#endif
+
   /// EmitCallArgs - Emit call arguments for a function.
   template <typename T>
   void EmitCallArgs(CallArgList &Args, const T *CallArgTypeInfo,
-                    CallExpr::const_arg_iterator ArgBeg,
-                    CallExpr::const_arg_iterator ArgEnd,
+                    llvm::iterator_range<CallExpr::const_arg_iterator> ArgRange,
                     const FunctionDecl *CalleeDecl = nullptr,
                     unsigned ParamsToSkip = 0) {
     SmallVector<QualType, 16> ArgTypes;
-    CallExpr::const_arg_iterator Arg = ArgBeg;
+    CallExpr::const_arg_iterator Arg = ArgRange.begin();
 
     assert((ParamsToSkip == 0 || CallArgTypeInfo) &&
            "Can't skip parameters if type info is not provided");
     if (CallArgTypeInfo) {
+#ifndef NDEBUG
+      bool isGenericMethod = isObjCMethodWithTypeParams(CallArgTypeInfo);
+#endif
+
       // First, use the argument types that the type info knows about
       for (auto I = CallArgTypeInfo->param_type_begin() + ParamsToSkip,
                 E = CallArgTypeInfo->param_type_end();
            I != E; ++I, ++Arg) {
-        assert(Arg != ArgEnd && "Running over edge of argument list!");
-        assert(
-            ((*I)->isVariablyModifiedType() ||
-             getContext()
-                     .getCanonicalType((*I).getNonReferenceType())
-                     .getTypePtr() ==
-                 getContext().getCanonicalType(Arg->getType()).getTypePtr()) &&
-            "type mismatch in call argument!");
+        assert(Arg != ArgRange.end() && "Running over edge of argument list!");
+        assert((isGenericMethod ||
+                ((*I)->isVariablyModifiedType() ||
+                 (*I).getNonReferenceType()->isObjCRetainableType() ||
+                 getContext()
+                         .getCanonicalType((*I).getNonReferenceType())
+                         .getTypePtr() ==
+                     getContext()
+                         .getCanonicalType((*Arg)->getType())
+                         .getTypePtr())) &&
+               "type mismatch in call argument!");
         ArgTypes.push_back(*I);
       }
     }
 
     // Either we've emitted all the call args, or we have a call to variadic
     // function.
-    assert(
-        (Arg == ArgEnd || !CallArgTypeInfo || CallArgTypeInfo->isVariadic()) &&
-        "Extra arguments in non-variadic function!");
+    assert((Arg == ArgRange.end() || !CallArgTypeInfo ||
+            CallArgTypeInfo->isVariadic()) &&
+           "Extra arguments in non-variadic function!");
 
     // If we still have any arguments, emit them using the type of the argument.
-    for (; Arg != ArgEnd; ++Arg)
-      ArgTypes.push_back(getVarArgType(*Arg));
+    for (auto *A : llvm::make_range(Arg, ArgRange.end()))
+      ArgTypes.push_back(getVarArgType(A));
 
-    EmitCallArgs(Args, ArgTypes, ArgBeg, ArgEnd, CalleeDecl, ParamsToSkip);
+    EmitCallArgs(Args, ArgTypes, ArgRange, CalleeDecl, ParamsToSkip);
   }
 
   void EmitCallArgs(CallArgList &Args, ArrayRef<QualType> ArgTypes,
-                    CallExpr::const_arg_iterator ArgBeg,
-                    CallExpr::const_arg_iterator ArgEnd,
+                    llvm::iterator_range<CallExpr::const_arg_iterator> ArgRange,
                     const FunctionDecl *CalleeDecl = nullptr,
                     unsigned ParamsToSkip = 0);
 

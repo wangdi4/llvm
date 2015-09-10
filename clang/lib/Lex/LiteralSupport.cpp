@@ -637,7 +637,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
           break;
 
         if (!isFPConstant) {
-          // Allow i8, i16, i32, i64, and i128.
+          // Allow i8, i16, i32, and i64.
           switch (s[1]) {
           case '8':
             s += 2; // i8 suffix
@@ -647,9 +647,6 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
             if (s[2] == '6') {
               s += 3; // i16 suffix
               MicrosoftInteger = 16;
-            } else if (s[2] == '2' && s[3] == '8') {
-              s += 4; // i128 suffix
-              MicrosoftInteger = 128;
             }
             break;
           case '3':

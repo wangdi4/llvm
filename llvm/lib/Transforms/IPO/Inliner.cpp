@@ -265,6 +265,7 @@ unsigned Inliner::getInlineThreshold(CallSite CS) const {
   // would decrease the threshold.
   Function *Caller = CS.getCaller();
   bool OptSize = Caller && !Caller->isDeclaration() &&
+                 // FIXME: Use Function::optForSize().
                  Caller->hasFnAttribute(Attribute::OptimizeForSize);
   if (!(InlineLimit.getNumOccurrences() > 0) && OptSize &&
       OptSizeThreshold < thres)
@@ -469,8 +470,9 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         // If this is a direct call to an external function, we can never inline
         // it.  If it is an indirect call, inlining may resolve it to be a
         // direct call, so we keep it.
-        if (CS.getCalledFunction() && CS.getCalledFunction()->isDeclaration())
-          continue;
+        if (Function *Callee = CS.getCalledFunction())
+          if (Callee->isDeclaration())
+            continue;
         
         CallSites.push_back(std::make_pair(CS, -1));
       }
@@ -481,7 +483,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
   // If there are no calls in this function, exit early.
   if (CallSites.empty())
     return false;
-  
+
   // Now that we have all of the call sites, move the ones to functions in the
   // current SCC to the end of the list.
   unsigned FirstCallInSCC = CallSites.size();
@@ -591,7 +593,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         DEBUG(dbgs() << "    -> Deleting dead function: "
               << Callee->getName() << "\n");
         CallGraphNode *CalleeNode = CG[Callee];
-        
+
         // Remove any call graph edges from the callee to its callees.
         CalleeNode->removeAllCalledFunctions();
         
@@ -647,8 +649,8 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
 
   // Scan for all of the functions, looking for ones that should now be removed
   // from the program.  Insert the dead ones in the FunctionsToRemove set.
-  for (auto I : CG) {
-    CallGraphNode *CGN = I.second;
+  for (const auto &I : CG) {
+    CallGraphNode *CGN = I.second.get();
     Function *F = CGN->getFunction();
     if (!F || F->isDeclaration())
       continue;

@@ -106,6 +106,10 @@ public:
                                      QualType DestTy) override;
 
   bool EmitBadCastCall(CodeGenFunction &CGF) override;
+  bool canEmitAvailableExternallyVTable(
+      const CXXRecordDecl *RD) const override {
+    return false;
+  }
 
   llvm::Value *
   GetVirtualBaseClassOffset(CodeGenFunction &CGF, llvm::Value *This,
@@ -851,8 +855,14 @@ namespace {
 struct CallEndCatchMSVC : EHScopeStack::Cleanup {
   CallEndCatchMSVC() {}
   void Emit(CodeGenFunction &CGF, Flags flags) override {
-    CGF.EmitNounwindRuntimeCall(
-        CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_endcatch));
+    if (CGF.CGM.getCodeGenOpts().NewMSEH) {
+      llvm::BasicBlock *BB = CGF.createBasicBlock("catchret.dest");
+      CGF.Builder.CreateCatchRet(BB);
+      CGF.EmitBlock(BB);
+    } else {
+      CGF.EmitNounwindRuntimeCall(
+          CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_endcatch));
+    }
   }
 };
 }
@@ -862,24 +872,36 @@ void MicrosoftCXXABI::emitBeginCatch(CodeGenFunction &CGF,
   // In the MS ABI, the runtime handles the copy, and the catch handler is
   // responsible for destruction.
   VarDecl *CatchParam = S->getExceptionDecl();
-  llvm::Value *Exn = CGF.getExceptionFromSlot();
-  llvm::Function *BeginCatch =
-      CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_begincatch);
-
+  llvm::Value *Exn = nullptr;
+  llvm::Function *BeginCatch = nullptr;
+  bool NewEH = CGF.CGM.getCodeGenOpts().NewMSEH;
+  if (!NewEH) {
+    Exn = CGF.getExceptionFromSlot();
+    BeginCatch = CGF.CGM.getIntrinsic(llvm::Intrinsic::eh_begincatch);
+  }
   // If this is a catch-all or the catch parameter is unnamed, we don't need to
   // emit an alloca to the object.
   if (!CatchParam || !CatchParam->getDeclName()) {
-    llvm::Value *Args[2] = {Exn, llvm::Constant::getNullValue(CGF.Int8PtrTy)};
-    CGF.EmitNounwindRuntimeCall(BeginCatch, Args);
+    if (!NewEH) {
+      llvm::Value *Args[2] = {Exn, llvm::Constant::getNullValue(CGF.Int8PtrTy)};
+      CGF.EmitNounwindRuntimeCall(BeginCatch, Args);
+    }
     CGF.EHStack.pushCleanup<CallEndCatchMSVC>(NormalCleanup);
     return;
   }
 
   CodeGenFunction::AutoVarEmission var = CGF.EmitAutoVarAlloca(*CatchParam);
-  llvm::Value *ParamAddr =
-      CGF.Builder.CreateBitCast(var.getObjectAddress(CGF), CGF.Int8PtrTy);
-  llvm::Value *Args[2] = {Exn, ParamAddr};
-  CGF.EmitNounwindRuntimeCall(BeginCatch, Args);
+  if (!NewEH) {
+    llvm::Value *ParamAddr =
+        CGF.Builder.CreateBitCast(var.getObjectAddress(CGF), CGF.Int8PtrTy);
+    llvm::Value *Args[2] = {Exn, ParamAddr};
+    CGF.EmitNounwindRuntimeCall(BeginCatch, Args);
+  } else {
+    llvm::BasicBlock *CatchPadBB =
+        CGF.Builder.GetInsertBlock()->getSinglePredecessor();
+    auto *CPI = cast<llvm::CatchPadInst>(CatchPadBB->getFirstNonPHI());
+    CPI->setArgOperand(1, var.getObjectAddress(CGF));
+  }
   CGF.EHStack.pushCleanup<CallEndCatchMSVC>(NormalCleanup);
   CGF.EmitAutoVarCleanups(var);
 }
@@ -1466,20 +1488,27 @@ void MicrosoftCXXABI::emitVTableBitSetEntries(VPtrInfo *Info,
 
   llvm::NamedMDNode *BitsetsMD =
       CGM.getModule().getOrInsertNamedMetadata("llvm.bitsets");
-  CharUnits PointerWidth = getContext().toCharUnitsFromBits(
-      getContext().getTargetInfo().getPointerWidth(0));
 
-  // FIXME: Add blacklisting scheme.
+  // The location of the first virtual function pointer in the virtual table,
+  // aka the "address point" on Itanium. This is at offset 0 if RTTI is
+  // disabled, or sizeof(void*) if RTTI is enabled.
+  CharUnits AddressPoint =
+      getContext().getLangOpts().RTTIData
+          ? getContext().toCharUnitsFromBits(
+                getContext().getTargetInfo().getPointerWidth(0))
+          : CharUnits::Zero();
 
   if (Info->PathToBaseWithVPtr.empty()) {
-    BitsetsMD->addOperand(
-        CGM.CreateVTableBitSetEntry(VTable, PointerWidth, RD));
+    if (!CGM.IsCFIBlacklistedRecord(RD))
+      BitsetsMD->addOperand(
+          CGM.CreateVTableBitSetEntry(VTable, AddressPoint, RD));
     return;
   }
 
   // Add a bitset entry for the least derived base belonging to this vftable.
-  BitsetsMD->addOperand(CGM.CreateVTableBitSetEntry(
-      VTable, PointerWidth, Info->PathToBaseWithVPtr.back()));
+  if (!CGM.IsCFIBlacklistedRecord(Info->PathToBaseWithVPtr.back()))
+    BitsetsMD->addOperand(CGM.CreateVTableBitSetEntry(
+        VTable, AddressPoint, Info->PathToBaseWithVPtr.back()));
 
   // Add a bitset entry for each derived class that is laid out at the same
   // offset as the least derived base.
@@ -1497,14 +1526,15 @@ void MicrosoftCXXABI::emitVTableBitSetEntries(VPtrInfo *Info,
       Offset = VBI->second.VBaseOffset;
     if (!Offset.isZero())
       return;
-    BitsetsMD->addOperand(
-        CGM.CreateVTableBitSetEntry(VTable, PointerWidth, DerivedRD));
+    if (!CGM.IsCFIBlacklistedRecord(DerivedRD))
+      BitsetsMD->addOperand(
+          CGM.CreateVTableBitSetEntry(VTable, AddressPoint, DerivedRD));
   }
 
   // Finally do the same for the most derived class.
-  if (Info->FullOffsetInMDC.isZero())
+  if (Info->FullOffsetInMDC.isZero() && !CGM.IsCFIBlacklistedRecord(RD))
     BitsetsMD->addOperand(
-        CGM.CreateVTableBitSetEntry(VTable, PointerWidth, RD));
+        CGM.CreateVTableBitSetEntry(VTable, AddressPoint, RD));
 }
 
 void MicrosoftCXXABI::emitVTableDefinitions(CodeGenVTables &CGVT,
@@ -1707,7 +1737,7 @@ static const CXXRecordDecl *getClassAtVTableLocation(ASTContext &Ctx,
   for (auto &&B : RD->bases()) {
     const CXXRecordDecl *Base = B.getType()->getAsCXXRecordDecl();
     CharUnits BaseOffset = Layout.getBaseClassOffset(Base);
-    if (BaseOffset <= Offset && BaseOffset > MaxBaseOffset) {
+    if (BaseOffset <= Offset && BaseOffset >= MaxBaseOffset) {
       MaxBase = Base;
       MaxBaseOffset = BaseOffset;
     }
@@ -1715,7 +1745,7 @@ static const CXXRecordDecl *getClassAtVTableLocation(ASTContext &Ctx,
   for (auto &&B : RD->vbases()) {
     const CXXRecordDecl *Base = B.getType()->getAsCXXRecordDecl();
     CharUnits BaseOffset = Layout.getVBaseClassOffset(Base);
-    if (BaseOffset <= Offset && BaseOffset > MaxBaseOffset) {
+    if (BaseOffset <= Offset && BaseOffset >= MaxBaseOffset) {
       MaxBase = Base;
       MaxBaseOffset = BaseOffset;
     }
@@ -3795,9 +3825,7 @@ MicrosoftCXXABI::getAddrOfCXXCtorClosure(const CXXConstructorDecl *CD,
   CodeGenFunction::RunCleanupsScope Cleanups(CGF);
 
   const auto *FPT = CD->getType()->castAs<FunctionProtoType>();
-  ConstExprIterator ArgBegin(ArgVec.data()),
-      ArgEnd(ArgVec.data() + ArgVec.size());
-  CGF.EmitCallArgs(Args, FPT, ArgBegin, ArgEnd, CD, IsCopy ? 1 : 0);
+  CGF.EmitCallArgs(Args, FPT, llvm::makeArrayRef(ArgVec), CD, IsCopy ? 1 : 0);
 
   // Insert any ABI-specific implicit constructor arguments.
   unsigned ExtraArgs = addImplicitConstructorArgs(CGF, CD, Ctor_Complete,

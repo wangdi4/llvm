@@ -170,7 +170,8 @@ public:
     MSVC,
     Itanium,
     Cygnus,
-    LastEnvironmentType = Cygnus
+    AMDOpenCL,
+    LastEnvironmentType = AMDOpenCL
   };
   enum ObjectFormatType {
     UnknownObjectFormat,
@@ -568,6 +569,22 @@ public:
   /// \returns A new triple with a 64-bit architecture or an unknown
   ///          architecture if no such variant can be found.
   llvm::Triple get64BitArchVariant() const;
+
+  /// Form a triple with a big endian variant of the current architecture.
+  ///
+  /// This can be used to move across "families" of architectures where useful.
+  ///
+  /// \returns A new triple with a big endian architecture or an unknown
+  ///          architecture if no such variant can be found.
+  llvm::Triple getBigEndianArchVariant() const;
+
+  /// Form a triple with a little endian variant of the current architecture.
+  ///
+  /// This can be used to move across "families" of architectures where useful.
+  ///
+  /// \returns A new triple with a little endian architecture or an unknown
+  ///          architecture if no such variant can be found.
+  llvm::Triple getLittleEndianArchVariant() const;
 
   /// Get the (LLVM) name of the minimum ARM CPU for the arch we are targeting.
   ///
