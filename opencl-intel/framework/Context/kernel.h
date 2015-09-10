@@ -237,8 +237,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return SharedPtr<Kernel>(new Kernel(pProgram, psKernelName, szNumDevices));
         }
 
-
-
         /******************************************************************************************
         * Function:     GetInfo    
         * Description:    get object specific information (inherited from OCLObject) the function 

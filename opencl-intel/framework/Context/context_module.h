@@ -176,6 +176,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int GetProgramBuildInfo(cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
         // kernel methods
         virtual cl_kernel CreateKernel(cl_program clProgram, const char * pscKernelName, cl_int * piErr);
+        virtual cl_kernel CloneKernel(cl_kernel source_kernel, cl_int * pErr);
         virtual cl_int CreateKernelsInProgram(cl_program clProgram, cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
         virtual cl_int RetainKernel(cl_kernel clKernel);
         virtual cl_int ReleaseKernel(cl_kernel clKernel);
