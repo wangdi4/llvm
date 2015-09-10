@@ -41,6 +41,7 @@
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -135,6 +136,9 @@ namespace {
                                      PHINode *IndVar, SCEVExpander &Rewriter);
 
     void SinkUnusedInvariants(Loop *L);
+
+    Value *ExpandSCEVIfNeeded(SCEVExpander &Rewriter, const SCEV *S, Loop *L,
+                              Instruction *InsertPt, Type *Ty);
   };
 }
 
@@ -496,6 +500,18 @@ struct RewritePhi {
 };
 }
 
+Value *IndVarSimplify::ExpandSCEVIfNeeded(SCEVExpander &Rewriter, const SCEV *S,
+                                          Loop *L, Instruction *InsertPt,
+                                          Type *ResultTy) {
+  // Before expanding S into an expensive LLVM expression, see if we can use an
+  // already existing value as the expansion for S.
+  if (Value *RetValue = Rewriter.findExistingExpansion(S, InsertPt, L))
+    return RetValue;
+
+  // We didn't find anything, fall back to using SCEVExpander.
+  return Rewriter.expandCodeFor(S, ResultTy, InsertPt);
+}
+
 //===----------------------------------------------------------------------===//
 // RewriteLoopExitValues - Optimize IV users outside the loop.
 // As a side effect, reduces the amount of IV processing within the loop.
@@ -628,7 +644,9 @@ void IndVarSimplify::RewriteLoopExitValues(Loop *L, SCEVExpander &Rewriter) {
             continue;
         }
 
-        Value *ExitVal = Rewriter.expandCodeFor(ExitValue, PN->getType(), Inst);
+        bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L, Inst);
+        Value *ExitVal =
+            ExpandSCEVIfNeeded(Rewriter, ExitValue, L, Inst, PN->getType());
 
         DEBUG(dbgs() << "INDVARS: RLEV: AfterLoopVal = " << *ExitVal << '\n'
                      << "  LoopVal = " << *Inst << "\n");
@@ -637,7 +655,6 @@ void IndVarSimplify::RewriteLoopExitValues(Loop *L, SCEVExpander &Rewriter) {
           DeadInsts.push_back(ExitVal);
           continue;
         }
-        bool HighCost = Rewriter.isHighCostExpansion(ExitValue, L);
 
         // Collect all the candidate PHINodes to be rewritten.
         RewritePhiSet.push_back(

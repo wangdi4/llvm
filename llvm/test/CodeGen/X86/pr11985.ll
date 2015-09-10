@@ -9,7 +9,7 @@ out:                                              ; preds = %entry
   %add = fadd float %a, %b
   ret float %add
 ; CHECK: foo
-; CHECK: movw .L{{.*}}+20(%rip), %{{.*}}
+; CHECK: {{movw|movzwl}} .L{{.*}}+20(%rip), %{{.*}}
 ; CHECK: movl .L{{.*}}+16(%rip), %{{.*}}
 ; CHECK: movq .L{{.*}}+8(%rip), %{{.*}}
 ; CHECK: movq .L{{.*}}(%rip), %{{.*}}

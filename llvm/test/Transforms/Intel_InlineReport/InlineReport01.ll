@@ -6,9 +6,13 @@
 ; CHECK-NEXT: Option Values:
 ; CHECK-NEXT: inline-threshold:
 ; CHECK-NEXT: inlinehint-threshold:
+; CHECK-NEXT: inlinecold-threshold:
+; CHECK-NEXT: inlineoptsize-threshold:
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
+
+; CHECK: DEAD STATIC FUNC: foo
 
 ; CHECK: COMPILE FUNC: main
 ; CHECK-NEXT: INLINE: foo
@@ -22,7 +26,6 @@ entry:
   ret i32 %call
 }
 
-; CHECK: DEAD STATIC FUNC: foo
 
 ; Function Attrs: alwaysinline nounwind uwtable
 define internal i32 @foo() #0 {
@@ -32,7 +35,7 @@ entry:
 
 ; CHECK: End Inlining Report
 
-attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { alwaysinline nounwind uwtable "less-precise-fpmad"="false" "no-frame-pointer-elim"="true" "no-frame-pointer-elim-non-leaf" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
 

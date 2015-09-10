@@ -14,9 +14,7 @@
 #ifndef LLVM_ANALYSIS_INLINECOST_H
 #define LLVM_ANALYSIS_INLINECOST_H
 
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Analysis/CallGraphSCCPass.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/CallGraphSCCPass.h" // INTEL 
 #include <cassert>
 #include <climits>
 
@@ -76,7 +74,7 @@ typedef enum {
    NinlrIndirect,
    NinlrIndirectBranch,
    NinlrBlockAddress,
-   NinlrCallsFramescape,
+   NinlrCallsLocalEscape,
    NinlrNeverInline,
    NinlrIntrinsic,
    NinlrOuterInlining,
@@ -115,10 +113,8 @@ extern bool IsNotInlinedReason(InlineReportTypes::InlineReason Reason);
 /// based on the information available for a particular callsite. They can be
 /// directly tested to determine if inlining should occur given the cost and
 /// threshold for this cost metric.
-#ifdef INTEL_CUSTOMIZATION
-/// The Intel version is augmented with the InlineReason, which is the 
-/// principal reason that a call site was or was not inlined. 
-#endif // INTEL_CUSTOMIZATION
+/// INTEL The Intel version is augmented with the InlineReason, which is the 
+/// INTEL principal reason that a call site was or was not inlined. 
 
 class InlineCost {
   enum SentinelValues {
@@ -132,19 +128,13 @@ class InlineCost {
   /// \brief The adjusted threshold against which this cost was computed.
   const int Threshold;
 
-#ifdef INTEL_CUSTOMIZATION 
-  InlineReportTypes::InlineReason Reason; 
-#endif // INTEL_CUSTOMIZATION
+  InlineReportTypes::InlineReason Reason; // INTEL
 
   // Trivial constructor, interesting logic in the factory functions below.
 
-#ifdef INTEL_CUSTOMIZATION 
   InlineCost(int Cost, int Threshold, InlineReportTypes::InlineReason Reason 
     = InlineReportTypes::NinlrNoReason) : Cost(Cost), Threshold(Threshold), 
-    Reason(Reason) {}
-#else 
-  InlineCost(int Cost, int Threshold) : Cost(Cost), Threshold(Threshold) {}
-#endif // INTEL_CUSTOMIZATION
+    Reason(Reason) {} // INTEL 
 
 public:
   static InlineCost get(int Cost, int Threshold) {
@@ -242,12 +232,8 @@ public:
   InlineCost getInlineCost(CallSite CS, Function *Callee, int Threshold);
 
   /// \brief Minimal filter to detect invalid constructs for inlining.
-#ifdef INTEL_CUSTOMIZATION
   bool isInlineViable(Function &Callee, 
-    InlineReportTypes::InlineReason& Reason);
-#else
-  bool isInlineViable(Function &Callee);
-#endif // INTEL_CUSTOMIZATION
+    InlineReportTypes::InlineReason& Reason); // INTEL
 };
 
 }

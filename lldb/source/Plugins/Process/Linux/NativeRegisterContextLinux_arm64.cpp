@@ -193,6 +193,15 @@ NativeRegisterContextLinux_arm64::GetRegisterSet (uint32_t set_index) const
     return nullptr;
 }
 
+uint32_t
+NativeRegisterContextLinux_arm64::GetUserRegisterCount() const
+{
+    uint32_t count = 0;
+    for (uint32_t set_index = 0; set_index < k_num_register_sets; ++set_index)
+        count += g_reg_sets_arm64[set_index].num_registers;
+    return count;
+}
+
 Error
 NativeRegisterContextLinux_arm64::ReadRegister (const RegisterInfo *reg_info, RegisterValue &reg_value)
 {
@@ -242,22 +251,7 @@ NativeRegisterContextLinux_arm64::ReadRegister (const RegisterInfo *reg_info, Re
     // Get pointer to m_fpr variable and set the data from it.
     assert (reg_info->byte_offset < sizeof m_fpr);
     uint8_t *src = (uint8_t *)&m_fpr + reg_info->byte_offset;
-    switch (reg_info->byte_size)
-    {
-        case 2:
-            reg_value.SetUInt16(*(uint16_t *)src);
-            break;
-        case 4:
-            reg_value.SetUInt32(*(uint32_t *)src);
-            break;
-        case 8:
-            reg_value.SetUInt64(*(uint64_t *)src);
-            break;
-        default:
-            assert(false && "Unhandled data size.");
-            error.SetErrorStringWithFormat ("unhandled byte size: %" PRIu32, reg_info->byte_size);
-            break;
-    }
+    reg_value.SetFromMemoryData(reg_info, src, reg_info->byte_size, eByteOrderLittle, error);
 
     return error;
 }
@@ -721,29 +715,23 @@ Error
 NativeRegisterContextLinux_arm64::ReadHardwareDebugInfo(unsigned int &watch_count,
                                                         unsigned int &break_count)
 {
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess());
-    if (!process_sp)
-        return Error("NativeProcessProtocol is NULL");
-    NativeProcessLinux *const process_p = reinterpret_cast<NativeProcessLinux*>(process_sp.get());
     ::pid_t tid = m_thread.GetID();
 
-    return process_p->DoOperation([&] {
-        int regset = NT_ARM_HW_WATCH;
-        struct iovec ioVec;
-        struct user_hwdebug_state dreg_state;
-        Error error;
+    int regset = NT_ARM_HW_WATCH;
+    struct iovec ioVec;
+    struct user_hwdebug_state dreg_state;
+    Error error;
 
-        ioVec.iov_base = &dreg_state;
-        ioVec.iov_len = sizeof (dreg_state);
-        error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
-        watch_count = dreg_state.dbg_info & 0xff;
+    ioVec.iov_base = &dreg_state;
+    ioVec.iov_len = sizeof (dreg_state);
+    error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
+    watch_count = dreg_state.dbg_info & 0xff;
 
-        regset = NT_ARM_HW_BREAK;
-        error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
-        break_count = dreg_state.dbg_info & 0xff;
+    regset = NT_ARM_HW_BREAK;
+    error = NativeProcessLinux::PtraceWrapper(PTRACE_GETREGSET, tid, &regset, &ioVec, ioVec.iov_len);
+    break_count = dreg_state.dbg_info & 0xff;
 
-        return error;
-    });
+    return error;
 }
 
 Error
@@ -752,33 +740,26 @@ NativeRegisterContextLinux_arm64::WriteHardwareDebugRegs(lldb::addr_t *addr_buf,
                                                          int type,
                                                          int count)
 {
-    NativeProcessProtocolSP process_sp (m_thread.GetProcess());
-    if (!process_sp)
-        return Error("NativeProcessProtocol is NULL");
-    NativeProcessLinux *const process_p = reinterpret_cast<NativeProcessLinux*>(process_sp.get());
+    struct iovec ioVec;
+    struct user_hwdebug_state dreg_state;
+    Error error;
 
-    return process_p->DoOperation([&] {
-        struct iovec ioVec;
-        struct user_hwdebug_state dreg_state;
-        Error error;
+    memset (&dreg_state, 0, sizeof (dreg_state));
+    ioVec.iov_base = &dreg_state;
+    ioVec.iov_len = sizeof (dreg_state);
 
-        memset (&dreg_state, 0, sizeof (dreg_state));
-        ioVec.iov_base = &dreg_state;
-        ioVec.iov_len = sizeof (dreg_state);
+    if (type == 0)
+        type = NT_ARM_HW_WATCH;
+    else
+        type = NT_ARM_HW_BREAK;
 
-        if (type == 0)
-            type = NT_ARM_HW_WATCH;
-        else
-            type = NT_ARM_HW_BREAK;
+    for (int i = 0; i < count; i++)
+    {
+        dreg_state.dbg_regs[i].addr = addr_buf[i];
+        dreg_state.dbg_regs[i].ctrl = cntrl_buf[i];
+    }
 
-        for (int i = 0; i < count; i++)
-        {
-            dreg_state.dbg_regs[i].addr = addr_buf[i];
-            dreg_state.dbg_regs[i].ctrl = cntrl_buf[i];
-        }
-
-        return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(), &type, &ioVec, ioVec.iov_len);
-    });
+    return NativeProcessLinux::PtraceWrapper(PTRACE_SETREGSET, m_thread.GetID(), &type, &ioVec, ioVec.iov_len);
 }
 
 Error

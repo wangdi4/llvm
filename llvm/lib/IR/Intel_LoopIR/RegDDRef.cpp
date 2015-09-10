@@ -1,4 +1,4 @@
-//===- RegDDRef.cpp - Implements the RegDDRef class ---------*- C++ -*-===//
+//===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -15,6 +15,9 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
@@ -34,6 +37,11 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   /// Copy inbounds attribute
   if (RegDDRefObj.isInBounds()) {
     setInBounds(true);
+  }
+
+  /// Copy AddressOf flag.
+  if (RegDDRefObj.isAddressOf()) {
+    setAddressOf(true);
   }
 
   /// Loop over CanonExprs
@@ -63,7 +71,8 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
   }
 }
 
-RegDDRef::GEPInfo::GEPInfo() : BaseCE(nullptr), InBounds(false) {}
+RegDDRef::GEPInfo::GEPInfo()
+    : BaseCE(nullptr), InBounds(false), AddressOf(false) {}
 RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
@@ -74,33 +83,48 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-void RegDDRef::print(formatted_raw_ostream &OS) const {
+void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
+  bool HasGEP = hasGEPInfo();
 
-  if (hasGEPInfo()) {
-    OS << "(";
-    CE = getBaseCE();
-    CE ? CE->print(OS) : (void)(OS << CE);
-    OS << ")";
-  }
+  bool printSymbase = Detailed && !isConstant();
 
-  for (auto I = canon_rbegin(), E = canon_rend(); I != E; I++) {
-    if (hasGEPInfo()) {
-      OS << "[";
+  // Do not print linear forms for scalar lvals
+  if (isLval() && !HasGEP && !Detailed) {
+    CanonExprUtils::printScalar(OS, getSymBase(), Detailed);
+  } else {
+    if (HasGEP) {
+      if (isAddressOf()) {
+        OS << "&(";
+      }
+
+      OS << "(";
+      CE = getBaseCE();
+      CE ? CE->print(OS, Detailed) : (void)(OS << CE);
+      OS << ")";
     }
 
-    *I ? (*I)->print(OS) : (void)(OS << *I);
+    for (auto I = canon_rbegin(), E = canon_rend(); I != E; I++) {
+      if (hasGEPInfo()) {
+        OS << "[";
+      }
 
-    if (hasGEPInfo()) {
-      OS << "]";
+      *I ? (*I)->print(OS, Detailed) : (void)(OS << *I);
+
+      if (HasGEP) {
+        OS << "]";
+      }
+    }
+
+    if (isAddressOf()) {
+      OS << ")";
     }
   }
-}
 
-void RegDDRef::detailedPrint(formatted_raw_ostream &OS) const {
-  print(OS);
-
-  OS << " Symbase: " << getSymBase();
+  if (printSymbase) {
+    OS << " ";
+    DDRef::print(OS, Detailed);
+  }
 }
 
 bool RegDDRef::isLval() const {
@@ -135,17 +159,19 @@ bool RegDDRef::isFake() const {
   return false;
 }
 
-bool RegDDRef::isSimpleRef() const {
+bool RegDDRef::isScalarRef() const {
 
   // Check GEP and Single CanonExpr
-  if (!hasGEPInfo())
-    return isSingleCanonExpr();
+  if (!hasGEPInfo()) {
+    assert(isSingleCanonExpr() && "Scalar ref has more than one dimension!");
+    return true;
+  }
 
   return false;
 }
 
 bool RegDDRef::isIntConstant(int64_t *Val) const {
-  if (!isSimpleRef())
+  if (!isScalarRef())
     return false;
 
   const CanonExpr *CE = getSingleCanonExpr();
@@ -186,6 +212,34 @@ void RegDDRef::removeDimension(unsigned DimensionNum) {
 
   CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
   getStrides().erase(getStrides().begin() + (DimensionNum - 1));
+}
+
+void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
+  assert(BlobRef && "Blob DDRef is null!");
+  assert(!BlobRef->getParentDDRef() &&
+         "BlobRef is already attached to a RegDDRef!");
+
+  BlobDDRefs.push_back(BlobRef);
+  BlobRef->setParentDDRef(this);
+}
+
+RegDDRef::blob_iterator
+RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
+  blob_iterator BlobI(blob_begin());
+  std::advance(BlobI, std::distance<const_blob_iterator>(BlobI, CBlobI));
+  return BlobI;
+}
+
+BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
+  assert((CBlobI != blob_cend()) && "End iterator is not a valid input!");
+
+  auto BlobI = getNonConstBlobIterator(CBlobI);
+  auto BRef = *BlobI;
+
+  BlobDDRefs.erase(BlobI);
+
+  BRef->setParentDDRef(nullptr);
+  return BRef;
 }
 
 void RegDDRef::updateBlobDDRefs() {

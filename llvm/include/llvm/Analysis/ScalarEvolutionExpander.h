@@ -81,7 +81,14 @@ namespace llvm {
     bool LSRMode;
 
     typedef IRBuilder<true, TargetFolder> BuilderType;
+#if INTEL_CUSTOMIZATION
+protected:
+#endif
     BuilderType Builder;
+
+#if INTEL_CUSTOMIZATION
+private:
+#endif
 
 #ifndef NDEBUG
     const char *DebugType;
@@ -101,6 +108,10 @@ namespace llvm {
 #endif
     }
 
+#if INTEL_CUSTOMIZATION
+    virtual ~SCEVExpander() {}
+#endif
+
 #ifndef NDEBUG
     void setDebugType(const char* s) { DebugType = s; }
 #endif
@@ -117,9 +128,13 @@ namespace llvm {
 
     /// \brief Return true for expressions that may incur non-trivial cost to
     /// evaluate at runtime.
-    bool isHighCostExpansion(const SCEV *Expr, Loop *L) {
+    /// 'At' is an optional parameter which specifies point in code where user
+    /// is going to expand this expression. Sometimes this knowledge can lead to
+    /// a more accurate cost estimation.
+    bool isHighCostExpansion(const SCEV *Expr, Loop *L,
+                             const Instruction *At = nullptr) {
       SmallPtrSet<const SCEV *, 8> Processed;
-      return isHighCostExpansionHelper(Expr, L, Processed);
+      return isHighCostExpansionHelper(Expr, L, At, Processed);
     }
 
     /// \brief This method returns the canonical induction variable of the
@@ -193,11 +208,20 @@ namespace llvm {
 
     void setChainedPhi(PHINode *PN) { ChainedPhis.insert(PN); }
 
+    /// \brief Try to find LLVM IR value for 'S' available at the point 'At'.
+    // 'L' is a hint which tells in which loop to look for the suitable value.
+    // On success return value which is equivalent to the expanded 'S' at point
+    // 'At'. Return nullptr if value was not found.
+    // Note that this function does not perform exhaustive search. I.e if it
+    // didn't find any value it does not mean that there is no such value.
+    Value *findExistingExpansion(const SCEV *S, const Instruction *At, Loop *L);
+
   private:
     LLVMContext &getContext() const { return SE.getContext(); }
 
     /// \brief Recursive helper function for isHighCostExpansion.
     bool isHighCostExpansionHelper(const SCEV *S, Loop *L,
+                                   const Instruction *At,
                                    SmallPtrSetImpl<const SCEV *> &Processed);
 
     /// \brief Insert the specified binary operator, doing a small amount
@@ -222,6 +246,9 @@ namespace llvm {
                           const SCEV *const *op_end,
                           PointerType *PTy, Type *Ty, Value *V);
 
+#if INTEL_CUSTOMIZATION
+    virtual
+#endif
     Value *expand(const SCEV *S);
 
     /// \brief Insert code to directly compute the specified SCEV expression
@@ -255,6 +282,9 @@ namespace llvm {
 
     Value *visitUMaxExpr(const SCEVUMaxExpr *S);
 
+#if INTEL_CUSTOMIZATION
+    virtual
+#endif
     Value *visitUnknown(const SCEVUnknown *S) {
       return S->getValue();
     }

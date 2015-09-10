@@ -1,4 +1,4 @@
-//===--- CanonExprUtils.cpp - Implements CanonExprUtils class ----- C++ -*-===//
+//===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -23,6 +23,8 @@
 
 using namespace llvm;
 using namespace loopopt;
+
+HIRParser *HLUtils::HIRPar(nullptr);
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, unsigned Level,
                                            int64_t Const, int64_t Denom) {
@@ -75,15 +77,112 @@ int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   return ((A * B) / gcd(A, B));
 }
 
+unsigned CanonExprUtils::findBlob(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findBlob(Blob);
+}
+
+unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findOrInsertBlob(Blob);
+}
+
+CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
+  return CanonExpr::getBlob(BlobIndex);
+}
+
+void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
+                               bool Detailed) {
+  getHIRParser()->printBlob(OS, Blob, Detailed);
+}
+
+void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase,
+                                 bool Detailed) {
+  getHIRParser()->printScalar(OS, Symbase, Detailed);
+}
+
+bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
+  return getHIRParser()->isConstantIntBlob(Blob, Val);
+}
+
+bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
+  return getHIRParser()->isTempBlob(Blob);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
+                                             unsigned *NewBlobIndex) {
+  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
+                                             unsigned *NewBlobIndex) {
+  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createAddBlob(CanonExpr::BlobTy LHS,
+                                                CanonExpr::BlobTy RHS,
+                                                bool Insert,
+                                                unsigned *NewBlobIndex) {
+  return getHIRParser()->createAddBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createMinusBlob(CanonExpr::BlobTy LHS,
+                                                  CanonExpr::BlobTy RHS,
+                                                  bool Insert,
+                                                  unsigned *NewBlobIndex) {
+  return getHIRParser()->createMinusBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createMulBlob(CanonExpr::BlobTy LHS,
+                                                CanonExpr::BlobTy RHS,
+                                                bool Insert,
+                                                unsigned *NewBlobIndex) {
+  return getHIRParser()->createMulBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createUDivBlob(CanonExpr::BlobTy LHS,
+                                                 CanonExpr::BlobTy RHS,
+                                                 bool Insert,
+                                                 unsigned *NewBlobIndex) {
+  return getHIRParser()->createUDivBlob(LHS, RHS, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createTruncateBlob(CanonExpr::BlobTy Blob,
+                                                     Type *Ty, bool Insert,
+                                                     unsigned *NewBlobIndex) {
+  return getHIRParser()->createTruncateBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createZeroExtendBlob(CanonExpr::BlobTy Blob,
+                                                       Type *Ty, bool Insert,
+                                                       unsigned *NewBlobIndex) {
+  return getHIRParser()->createZeroExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
+                                                       Type *Ty, bool Insert,
+                                                       unsigned *NewBlobIndex) {
+  return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val) {
+  unsigned Index;
+
+  getHIRParser()->createBlob(Val, true, &Index);
+  auto CE = createCanonExpr(Val->getType());
+  CE->addBlob(Index, 1);
+  CE->setNonLinear();
+
+  return CE;
+}
+
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
-  return (CE1->getLLVMType() == CE2->getLLVMType());
+  return (CE1->getType() == CE2->getType());
 }
 
 bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
-  // Match the types
+  // Match the types.
   if (!isTypeEqual(CE1, CE2))
     return false;
 
@@ -92,24 +191,39 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
     return false;
   }
 
-  // Check the Blobs
-  if (CE1->BlobCoeffs.size() != CE2->BlobCoeffs.size())
+  // Check the number of blobs.
+  if (CE1->numBlobs() != CE2->numBlobs())
     return false;
 
-  // Check the IV's
-  for (unsigned Level = 1; Level < MaxLoopNestLevel; Level++) {
-    bool IsCE1BlobCoeff = false, IsCE2BlobCoeff = false;
-    if (CE1->getIVCoeff(Level, &IsCE1BlobCoeff) !=
-        CE2->getIVCoeff(Level, &IsCE2BlobCoeff))
-      return false;
+  auto IVIt1 = CE1->iv_begin();
+  auto IVIt2 = CE2->iv_begin();
+  auto End1 = CE1->iv_end();
+  auto End2 = CE2->iv_end();
 
-    if (IsCE1BlobCoeff != IsCE2BlobCoeff)
+  // Check the IV's.
+  for (; IVIt1 != End1 && IVIt2 != End2; ++IVIt1, ++IVIt2) {
+    if ((IVIt1->Index != IVIt2->Index) || (IVIt1->Coeff != IVIt2->Coeff)) {
       return false;
+    }
   }
 
-  // Iterate through the blobs as both have same size
-  for (auto I1 = CE1->blob_cbegin(), End = CE1->blob_cend(),
-            I2 = CE2->blob_cbegin();
+  // If CE1 has some IV iterators left check whether they are all zeroes.
+  for (; IVIt1 != End1; ++IVIt1) {
+    if (IVIt1->Coeff) {
+      return false;
+    }
+  }
+
+  // If CE2 has some IV iterators left check whether they are all zeroes.
+  for (; IVIt2 != End2; ++IVIt2) {
+    if (IVIt2->Coeff) {
+      return false;
+    }
+  }
+
+  // Iterate through the blobs as both have same size.
+  for (auto I1 = CE1->blob_begin(), End = CE1->blob_end(),
+            I2 = CE2->blob_begin();
        I1 != End; ++I1, ++I2) {
 
     if ((I1->Index != I2->Index) || (I1->Coeff != I2->Coeff))
@@ -127,175 +241,57 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
+  bool CreatedAuxCE = false;
 
-  // Process the denoms
+  // Process the denoms.
   int64_t Denom1 = Result->getDenominator();
   int64_t Denom2 = CE2->getDenominator();
   int NewDenom = lcm(Denom1, Denom2);
 
   if (NewDenom != Denom1) {
-    // Do not simplify while multipying as this is intermediate result of add.
-    multiplyByConstantImpl(Result, NewDenom / Denom1, false, false);
+    // Do not simplify while multiplying as this is an intermediate result of
+    // add.
+    Result->multiplyByConstantImpl(NewDenom / Denom1, false);
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
     NewCE2 = CE2->clone();
-    // Do not simplify while multipying as this is intermediate result of add.
-    multiplyByConstantImpl(NewCE2, NewDenom / Denom2, false, false);
+    // Do not simplify while multiplying as this is an intermediate result of
+    // add.
+    NewCE2->multiplyByConstantImpl(NewDenom / Denom2, false);
+    CreatedAuxCE = true;
   }
 
   Result->setDenominator(NewDenom);
 
-  // Add the IV's
-  // We process the NewCE2 IV's as Result gets updated
-  int64_t Level = 1;
-  for (auto I = NewCE2->iv_cbegin(), End = NewCE2->iv_cend(); I != End;
-       ++I, ++Level) {
+  // Add NewCE2's IVs to Result.
+  for (auto I = NewCE2->iv_begin(), End = NewCE2->iv_end(); I != End; ++I) {
     if (I->Coeff == 0)
       continue;
 
-    bool isResultIVBlobCoeff;
-    int64_t ResultIVBlobCoeff = Result->getIVCoeff(Level, &isResultIVBlobCoeff);
-
-    // Result/CE1 doesn't have IV
-    if (ResultIVBlobCoeff == 0) {
-      Result->setIVCoeff(Level, I->Coeff, I->IsBlobCoeff);
-      continue;
-    }
-
-    if ((!I->IsBlobCoeff) && (!isResultIVBlobCoeff)) {
-      // Result and NewCE2 have constant Coeff
-      Result->addIV(Level, I->Coeff);
-    } else {
-      // Handle cases when either of them is a blob
-      HIRParser *HIRP = getHIRParserPtr();
-      CanonExpr::BlobTy Blob1 = isResultIVBlobCoeff
-                                    ? Result->getBlob(ResultIVBlobCoeff)
-                                    : HIRP->createBlob(ResultIVBlobCoeff);
-
-      CanonExpr::BlobTy Blob2 = I->IsBlobCoeff ? NewCE2->getBlob(I->Coeff)
-                                               : HIRP->createBlob(I->Coeff);
-      CanonExpr::BlobTy ResultBlob = HIRP->createAddBlob(Blob1, Blob2, false);
-      int64_t BlobConst;
-      if (HIRP->isConstIntBlob(ResultBlob, &BlobConst)) {
-        Result->setIVCoeff(Level, BlobConst, false);
-      } else {
-        unsigned ResultBIndex = HIRP->findOrInsertBlob(ResultBlob);
-        Result->setIVCoeff(Level, ResultBIndex, true);
-      }
-    }
+    Result->addIV(NewCE2->getLevel(I), I->Index, I->Coeff);
   }
 
-  // Process the Blobs
-  for (auto I = NewCE2->blob_cbegin(), End = NewCE2->blob_cend(); I != End;
-       ++I) {
-
+  // Add NewCE2's Blobs to Result.
+  for (auto I = NewCE2->blob_begin(), End = NewCE2->blob_end(); I != End; ++I) {
     if (I->Coeff == 0)
       continue;
 
-    // Add this blob to Result
-    // The addBlob method will automatically take care if no blob exist
     Result->addBlob(I->Index, I->Coeff);
   }
 
-  // Add the constant
+  // Add the constant.
   Result->setConstant(Result->getConstant() + NewCE2->getConstant());
 
   // Simplify resulting canon expr before returning.
-  simplify(Result);
+  Result->simplify();
+
+  // Destroy auxiliary canon expr.
+  if (CreatedAuxCE) {
+    NewCE2->destroy();
+  }
 
   return Result;
-}
-
-void CanonExprUtils::multiplyIVByConstant(CanonExpr *CE, unsigned Level,
-                                          int64_t Val) {
-  assert(CE && " CanonExpr is null ");
-
-  // Identity multiplication
-  if (Val == 1)
-    return;
-
-  // Remove the IV for multp. by 0
-  if (Val == 0) {
-    CE->removeIV(Level);
-    return;
-  }
-
-  bool IsBlobCoeff;
-  int64_t Coeff = CE->getIVCoeff(Level, &IsBlobCoeff);
-
-  // Zero coefficient
-  if (Coeff == 0)
-    return;
-
-  if (!IsBlobCoeff) {
-    // IV doesn't have Blob Coeff
-    CE->setIVCoeff(Level, Coeff * Val, false);
-    return;
-  }
-
-  // IV is a blob coeff
-  CanonExpr::BlobTy ValBlob = getHIRParserPtr()->createBlob(Val);
-  unsigned CEBIndex;
-  getHIRParserPtr()->createMulBlob(CE->getBlob(Coeff), ValBlob, true,
-                                   &CEBIndex);
-  CE->setIVCoeff(Level, CEBIndex, true);
-}
-
-CanonExpr *CanonExprUtils::multiplyByConstantImpl(CanonExpr *CE1, int64_t Val,
-                                                  bool CreateNewCE,
-                                                  bool Simplify) {
-
-  assert(CE1 && " Canon Expr parameter is null!");
-
-  CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
-
-  // Multiplying by constant is equivalent to clearing the canon expr.
-  if (Val == 0) {
-    Result->clear();
-    return Result;
-  }
-
-  // Simplify instead of multiplying, if possible.
-  if (Simplify) {
-    int64_t Denom = Result->getDenominator();
-    int64_t GCD = gcd(llabs(Val), Denom);
-
-    if (GCD != 1) {
-      Result->setDenominator(Denom / GCD);
-      Val = Val / GCD;
-    }
-  }
-
-  // Result will be the same for multiply by 1
-  if (Val == 1)
-    return Result;
-
-  // Multiply Val by IVCoeff, BlobCoeffs and Const
-  int64_t Level = 1;
-  for (auto I = Result->iv_begin(), End = Result->iv_end(); I != End;
-       ++I, ++Level) {
-    multiplyIVByConstant(Result, Level, Val);
-  }
-
-  for (auto I = Result->blob_begin(), End = Result->blob_end(); I != End; ++I) {
-    Result->setBlobCoeff(I->Index, (I->Coeff * Val));
-  }
-
-  Result->setConstant(Result->getConstant() * Val);
-
-  return Result;
-}
-
-CanonExpr *CanonExprUtils::multiplyByConstant(CanonExpr *CE1, int64_t Val,
-                                              bool CreateNewCE) {
-
-  return multiplyByConstantImpl(CE1, Val, CreateNewCE, true);
-}
-
-CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
-  // Result = -CE1
-  return multiplyByConstant(CE1, -1, CreateNewCE);
 }
 
 CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
@@ -305,96 +301,35 @@ CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
 
   CanonExpr *Result;
 
-  // If Blob IV Coeffs exist it is better to clone CE2, to avoid
-  // any temp Blob creates during the negate operation
-  bool BlobExist = CE2->hasBlobIVCoeffs() || CE1->hasBlobIVCoeffs();
-
-  if (CreateNewCE || BlobExist) {
-    // -CE2 , Result = -CE2 + CE1
-    CanonExpr *NewCE2 = CE2->clone();
-    Result = negate(NewCE2, false);
+  if (CreateNewCE) {
+    // Result = -CE2 + CE1
+    Result = CE2->clone();
+    Result->negate();
     Result = add(Result, CE1, false);
   } else {
     // -(-CE1+CE2) => CE1-CE2
-    // Here, we avoid cloning as no blob exist
-    // Thus, no temp Blobs are created for negation
-    Result = negate(CE1, false);
+    // Here, we avoid cloning by doing negation twice.
+    Result = CE1;
+    Result->negate();
     Result = add(Result, CE2, false);
-    Result = negate(Result, false);
+    Result->negate();
   }
 
   return Result;
 }
 
-int64_t CanonExprUtils::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
-  if (CurrentGCD == -1) {
-    CurrentGCD = llabs(Num);
+CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
+  assert(CE1 && " Canon Expr is null!");
+
+  CanonExpr *Result;
+
+  if (CreateNewCE) {
+    Result = CE1->clone();
   } else {
-    CurrentGCD = gcd(CurrentGCD, llabs(Num));
+    Result = CE1;
   }
 
-  return CurrentGCD;
-}
+  Result->negate();
 
-void CanonExprUtils::simplify(CanonExpr *CE) {
-  int64_t Denom, C0, NumeratorGCD = -1, CommonGCD;
-
-  // Don't handle blob coeffs for now.
-  if (CE->hasBlobIVCoeffs()) {
-    return;
-  }
-
-  // Nothing to simplify...
-  if ((Denom = CE->getDenominator()) == 1) {
-    return;
-  }
-
-  // Cannot simplify any further.
-  if ((C0 = CE->getConstant()) == 1) {
-    return;
-  } else if (C0) {
-    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, C0);
-  }
-
-  // Calculate gcd of all the iv and blob coefficients.
-  for (auto I = CE->iv_cbegin(), E = CE->iv_cend(); I != E; ++I) {
-    if (!I->Coeff) {
-      continue;
-    }
-    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
-  }
-  for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
-    NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
-  }
-
-  // Numerator is zero, nothing to simplify...
-  if (NumeratorGCD == -1) {
-    return;
-  }
-
-  // Get common gcd of numerator and denominator.
-  CommonGCD = gcd(NumeratorGCD, Denom);
-
-  // Cannot simplify any further.
-  if (CommonGCD == 1) {
-    return;
-  }
-
-  // Divide numerator and denominator by common gcd.
-  CE->setDenominator(Denom / CommonGCD);
-  CE->setConstant(C0 / CommonGCD);
-
-  unsigned Level = 1;
-
-  for (auto I = CE->iv_cbegin(), E = CE->iv_cend(); I != E; ++I, ++Level) {
-    if (!I->Coeff) {
-      continue;
-    }
-
-    CE->setIVCoeff(Level, (I->Coeff / CommonGCD), false);
-  }
-
-  for (auto I = CE->blob_cbegin(), E = CE->blob_cend(); I != E; ++I) {
-    CE->setBlobCoeff(I->Index, (I->Coeff / CommonGCD));
-  }
+  return Result;
 }

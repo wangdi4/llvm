@@ -14,6 +14,7 @@
 #include "clang/Lex/HeaderSearch.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/IdentifierTable.h"
+#include "clang/Frontend/PCHContainerOperations.h"
 #include "clang/Lex/ExternalPreprocessorSource.h"
 #include "clang/Lex/HeaderMap.h"
 #include "clang/Lex/HeaderSearchOptions.h"
@@ -126,8 +127,9 @@ std::string HeaderSearch::getModuleFileName(Module *Module) {
 
 std::string HeaderSearch::getModuleFileName(StringRef ModuleName,
                                             StringRef ModuleMapPath) {
-  // If we don't have a module cache path, we can't do anything.
-  if (ModuleCachePath.empty()) 
+  // If we don't have a module cache path or aren't supposed to use one, we
+  // can't do anything.
+  if (ModuleCachePath.empty() || !LangOpts.ImplicitModules) 
     return std::string();
 
   SmallString<256> Result(ModuleCachePath);
@@ -151,7 +153,8 @@ std::string HeaderSearch::getModuleFileName(StringRef ModuleName,
     auto FileName = llvm::sys::path::filename(ModuleMapPath);
 
     llvm::hash_code Hash =
-        llvm::hash_combine(DirName.lower(), FileName.lower());
+      llvm::hash_combine(DirName.lower(), FileName.lower(),
+                         HSOpts->ModuleFormat);
 
     SmallString<128> HashStr;
     llvm::APInt(64, size_t(Hash)).toStringUnsigned(HashStr, /*Radix*/36);
@@ -532,9 +535,13 @@ const FileEntry *DirectoryLookup::DoFrameworkLookup(
       // Load this framework module. If that succeeds, find the suggested module
       // for this header, if any.
       bool IsSystem = getDirCharacteristic() != SrcMgr::C_User;
-      if (HS.loadFrameworkModule(ModuleName, TopFrameworkDir, IsSystem)) {
-        *SuggestedModule = HS.findModuleForHeader(FE);
-      }
+      HS.loadFrameworkModule(ModuleName, TopFrameworkDir, IsSystem);
+
+      // FIXME: This can find a module not part of ModuleName, which is
+      // important so that we're consistent about whether this header
+      // corresponds to a module. Possibly we should lock down framework modules
+      // so that this is not possible.
+      *SuggestedModule = HS.findModuleForHeader(FE);
     } else {
       *SuggestedModule = HS.findModuleForHeader(FE);
     }
@@ -991,7 +998,8 @@ HeaderFileInfo &HeaderSearch::getFileInfo(const FileEntry *FE) {
   return HFI;
 }
 
-bool HeaderSearch::tryGetFileInfo(const FileEntry *FE, HeaderFileInfo &Result) const {
+bool HeaderSearch::tryGetFileInfo(const FileEntry *FE,
+                                  HeaderFileInfo &Result) const {
   if (FE->getUID() >= FileInfo.size())
     return false;
   const HeaderFileInfo &HFI = FileInfo[FE->getUID()];
@@ -1024,7 +1032,7 @@ void HeaderSearch::MarkFileModuleHeader(const FileEntry *FE,
 
   HeaderFileInfo &HFI = FileInfo[FE->getUID()];
   HFI.isModuleHeader = true;
-  HFI.isCompilingModuleHeader = isCompilingModuleHeader;
+  HFI.isCompilingModuleHeader |= isCompilingModuleHeader;
   HFI.setHeaderRole(Role);
 }
 
@@ -1054,15 +1062,16 @@ bool HeaderSearch::ShouldEnterIncludeFile(Preprocessor &PP,
   // Next, check to see if the file is wrapped with #ifndef guards.  If so, and
   // if the macro that guards it is defined, we know the #include has no effect.
   if (const IdentifierInfo *ControllingMacro
-      = FileInfo.getControllingMacro(ExternalLookup))
-    // If the include file is part of a module, and we already know what its
-    // controlling macro is, then we've already parsed it and can safely just
-    // make it visible. This saves us needing to switch into the visibility
-    // state of the module just to check whether the macro is defined within it.
-    if (M || PP.isMacroDefined(ControllingMacro)) {
+      = FileInfo.getControllingMacro(ExternalLookup)) {
+    // If the header corresponds to a module, check whether the macro is already
+    // defined in that module rather than checking in the current set of visible
+    // modules.
+    if (M ? PP.isMacroDefinedInLocalModule(ControllingMacro, M)
+          : PP.isMacroDefined(ControllingMacro)) {
       ++NumMultiIncludeFileOptzn;
       return false;
     }
+  }
 
   // Increment the number of times this file has been included.
   ++FileInfo.NumIncludes;
@@ -1238,6 +1247,9 @@ Module *HeaderSearch::loadFrameworkModule(StringRef Name,
   // Try to load a module map file.
   switch (loadModuleMapFile(Dir, IsSystem, /*IsFramework*/true)) {
   case LMM_InvalidModuleMap:
+    // Try to infer a module map from the framework directory.
+    if (HSOpts->ImplicitModuleMaps)
+      ModMap.inferFrameworkModule(Dir, IsSystem, /*Parent=*/nullptr);
     break;
 
   case LMM_AlreadyLoaded:
@@ -1245,15 +1257,10 @@ Module *HeaderSearch::loadFrameworkModule(StringRef Name,
     return nullptr;
 
   case LMM_NewlyLoaded:
-    return ModMap.findModule(Name);
+    break;
   }
 
-
-  // Try to infer a module map from the framework directory.
-  if (HSOpts->ImplicitModuleMaps)
-    return ModMap.inferFrameworkModule(Name, Dir, IsSystem, /*Parent=*/nullptr);
-
-  return nullptr;
+  return ModMap.findModule(Name);
 }
 
 

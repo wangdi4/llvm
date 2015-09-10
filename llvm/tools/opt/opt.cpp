@@ -326,6 +326,7 @@ int main(int argc, char **argv) {
   initializeRewriteSymbolsPass(Registry);
   initializeWinEHPreparePass(Registry);
   initializeDwarfEHPreparePass(Registry);
+  initializeSjLjEHPreparePass(Registry);
 
 #ifdef INTEL_CUSTOMIZATION
   initializeFeatureOutlinerPass(Registry);

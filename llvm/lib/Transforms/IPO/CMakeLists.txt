@@ -3,6 +3,7 @@ add_llvm_library(LLVMipo
   BarrierNoopPass.cpp
   ConstantMerge.cpp
   DeadArgumentElimination.cpp
+  ElimAvailExtern.cpp
   ExtractGV.cpp
   FunctionAttrs.cpp
   GlobalDCE.cpp
@@ -11,7 +12,7 @@ add_llvm_library(LLVMipo
   IPO.cpp
   InlineAlways.cpp
 #ifdef INTEL_CUSTOMIZATION
-  InlineReport.cpp
+  InlineReport.cpp 
 #endif // INTEL_CUSTOMIZATION
   InlineSimple.cpp
   Inliner.cpp

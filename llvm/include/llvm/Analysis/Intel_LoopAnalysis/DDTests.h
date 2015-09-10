@@ -68,6 +68,31 @@ namespace loopopt {
 typedef unsigned char DVType;
 typedef DVType DVectorTy[MaxLoopNestLevel];
 
+// Print DV from level 1 to Level
+void printDV(const DVType *DV, unsigned Level, raw_ostream &OS);
+
+struct DV {
+  enum DVelement {
+    NONE = 0,
+    LT = 1,
+    EQ = 2,
+    LE = 3,
+    GT = 4,
+    NE = 5,
+    GE = 6,
+    ALL = 7
+  };
+};
+	
+// Is  DV all ( = = = .. =)?
+bool isDValEQ(const DVType *DV);
+	
+// Is DV imply INDEP for level L on
+// e.g.  DV = (< *)	 implies INDEP for innermost loop
+// In this example, isDVIndepFromLevel(&DV, 2) return true
+	
+bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
+	
 class Dependences {
 public:
   Dependences(DDRef *Source, DDRef *Destination)
@@ -78,7 +103,6 @@ public:
   /// has a direction (or perhaps a union of several directions), and
   /// perhaps a distance.
   struct DVEntry {
-    enum { NONE = 0, LT = 1, EQ = 2, LE = 3, GT = 4, NE = 5, GE = 6, ALL = 7 };
     DVType Direction : 3; // Init to ALL, then refine.
     bool Scalar : 1;      // Init to true.
     bool PeelFirst : 1;   // Peeling the first iteration will break dependence.
@@ -86,7 +110,7 @@ public:
     bool Splitable : 1; // Splitting the loop will break dependence.
     const CanonExpr *Distance; // NULL implies no distance available.
     DVEntry()
-        : Direction(ALL), Scalar(true), PeelFirst(false), PeelLast(false),
+        : Direction(DV::ALL), Scalar(true), PeelFirst(false), PeelLast(false),
           Splitable(false), Distance(nullptr) {}
   };
 
@@ -97,34 +121,6 @@ public:
   /// getDst - Returns the destination instruction for this dependence.
   ///
   DDRef *getDst() const { return Dst; }
-
-#if 0
-		
-    /// isInput - Returns true if this is an input dependence.
-    ///
-    bool isInput() const;
-
-    /// isOutput - Returns true if this is an output dependence.
-    ///
-    bool isOutput() const;
-
-    /// isFlow - Returns true if this is a flow (aka true) dependence.
-    ///
-    bool isFlow() const;
-
-    /// isAnti - Returns true if this is an anti dependence.
-    ///
-    bool isAnti() const;
-
-    /// isOrdered - Returns true if dependence is Output, Flow, or Anti
-    ///
-    bool isOrdered() const { return isOutput() || isFlow() || isAnti(); }
-
-    /// isUnordered - Returns true if dependence is Input
-    ///
-    bool isUnordered() const { return isInput(); }
-
-#endif
 
   /// isLoopIndependent - Returns true if this is a loop-independent
   /// dependence.
@@ -151,7 +147,7 @@ public:
 
   /// getDirection - Returns the direction associated with a particular
   /// level.
-  virtual unsigned getDirection(unsigned Level) const { return DVEntry::ALL; }
+  virtual unsigned getDirection(unsigned Level) const { return DV::ALL; }
 
   /// getDistance - Returns the distance (or NULL) associated with a
   /// particular level.
@@ -191,6 +187,10 @@ private:
 /// (for output, flow, and anti dependences), the dependence implies an
 /// ordering, where the source must precede the destination; in contrast,
 /// input dependences are unordered.
+
+/// The class has more information that  put in the DD Edge which contains
+/// the DV.  These detail info are avaiable through calls to Depends
+
 class FullDependences : public Dependences {
 public:
   FullDependences(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned Levels);
@@ -261,10 +261,6 @@ private:
 /// DDtest - This class is the main dependence-analysis driver.
 ///
 
-// class DDtest : public FunctionPass {
-//  void operator=(const DDtest &) LLVM_DELETED_FUNCTION;
-//  DDtest(const DDtest &) LLVM_DELETED_FUNCTION;
-
 class DDtest {
 
 public:
@@ -276,7 +272,7 @@ public:
   /// FullDependence) with as much information as can be gleaned.
 
   std::unique_ptr<Dependences> depends(DDRef *SrcDDRef, DDRef *DstDDRef,
-                                       const DVectorTy &inputDV,
+                                       const DVectorTy &InputDV,
                                        bool fromFusion = false);
 
   /// findDependences  - return true if there is a dependence, otherwise INDEP
@@ -333,6 +329,7 @@ public:
   ///
   /// breaks the dependence and allows us to vectorize/parallelize
   /// both loops.
+
   const CanonExpr *getSplitIteration(const Dependences &Dep, unsigned Level);
 
   //
@@ -351,8 +348,6 @@ public:
 
   // Construct all 0
   void initDV(DVectorTy &inputDV);
-  // Print DV from level 1 to Level
-  void printDV(DVType *DV, unsigned Level, raw_ostream &OS) const;
 
 private:
   //    AliasAnalysis *AA;
@@ -640,8 +635,9 @@ private:
   /// Returns true if dependence disproved.
   /// Can sometimes refine direction vectors.
   bool testMIV(const CanonExpr *Src, const CanonExpr *Dst,
-               const SmallBitVector &Loops, FullDependences &Result,
-               const HLLoop *SrcParentLoop, const HLLoop *DstParentLoop);
+               const DVectorTy &InputDV, const SmallBitVector &Loops,
+               FullDependences &Result, const HLLoop *SrcParentLoop,
+               const HLLoop *DstParentLoop);
 
   /// strongSIVtest - Tests the strong SIV subscript pair (Src and Dst)
   /// for dependence.
@@ -757,8 +753,9 @@ private:
   /// Marks the result as inconsistent.
   /// Computes directions.
   bool banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
-                       const SmallBitVector &Loops, FullDependences &Result,
-                       const HLLoop *SrcLoop, const HLLoop *DstLoop);
+                       const DVectorTy &InputDV, const SmallBitVector &Loops,
+                       FullDependences &Result, const HLLoop *SrcLoop,
+                       const HLLoop *DstLoop);
 
   /// collectCoefficientInfo - Walks through the subscript,
   /// collecting each coefficient, the associated loop bounds,
@@ -845,12 +842,13 @@ private:
   unsigned exploreDirections(unsigned Level, CoefficientInfo *A,
                              CoefficientInfo *B, BoundInfo *Bound,
                              const SmallBitVector &Loops,
-                             unsigned &DepthExpanded, const CanonExpr *Delta);
+                             unsigned &DepthExpanded, const CanonExpr *Delta,
+                             const DVectorTy &InputDV);
 
   /// testBounds - Returns true iff the current bounds are plausible.
   ///
   bool testBounds(DVType DirKind, unsigned Level, BoundInfo *Bound,
-                  const CanonExpr *Delta);
+                  const CanonExpr *Delta, const DVectorTy &InputDV);
 
   /// findBoundsALL - Computes the upper and lower bounds for level K
   /// using the * direction. Records them in Bound.

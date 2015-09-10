@@ -18,8 +18,8 @@ body:
  - id:           0
    name:         entry
    instructions:
-     # CHECK:      - IMUL32rri8
-     # CHECK-NEXT: - RETQ
-     - IMUL32rri8
-     - ' RETQ '
+     # CHECK:      MOV32rr
+     # CHECK-NEXT: RETQ
+     - '%eax = MOV32rr %eax'
+     - ' RETQ %eax'
 ...

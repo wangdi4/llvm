@@ -1,8 +1,10 @@
-; RUN: llc -x86-asm-syntax=intel < %s | FileCheck %s
-; CHECK: .syntax_intel prefix
-define i32 @test(i32 %a) {
+; RUN: llc -x86-asm-syntax=intel < %s | FileCheck %s -check-prefix=INTEL
+; RUN: llc -x86-asm-syntax=att < %s | FileCheck %s -check-prefix=ATT
+
+; INTEL: .intel_syntax noprefix
+; ATT-NOT: .intel_syntax noprefix
+target triple = "x86_64-unknown-unknown"
+define i32 @test() {
 entry:
-; 	CHECK-LABEL: test:
-	%tmp3 = mul i32 %a, 31
-	ret i32 %tmp3
+  ret i32 0
 }

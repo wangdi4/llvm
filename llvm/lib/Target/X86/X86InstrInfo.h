@@ -342,11 +342,6 @@ public:
                                       MachineBasicBlock::iterator InsertPt,
                                       MachineInstr *LoadMI) const override;
 
-  /// canFoldMemoryOperand - Returns true if the specified load / store is
-  /// folding is possible.
-  bool canFoldMemoryOperand(const MachineInstr *,
-                            ArrayRef<unsigned>) const override;
-
   /// unfoldMemoryOperand - Separate a single instruction which folded a load or
   /// a store or a load and a store into two or more instruction. If this is
   /// possible, returns true as well as the new instructions by reference.
@@ -405,6 +400,10 @@ public:
   /// a few instructions in each direction it assumes it's not safe.
   bool isSafeToClobberEFLAGS(MachineBasicBlock &MBB,
                              MachineBasicBlock::iterator I) const;
+
+  /// True if MI has a condition code def, e.g. EFLAGS, that is
+  /// not marked dead.
+  bool hasLiveCondCodeDef(MachineInstr *MI) const;
 
   static bool isX86_64ExtendedReg(const MachineOperand &MO) {
     if (!MO.isReg()) return false;
@@ -499,6 +498,12 @@ public:
                                   const MachineRegisterInfo *MRI,
                                   unsigned &FoldAsLoadDefReg,
                                   MachineInstr *&DefMI) const override;
+
+  std::pair<unsigned, unsigned>
+  decomposeMachineOperandsTargetFlags(unsigned TF) const override;
+
+  ArrayRef<std::pair<unsigned, const char *>>
+  getSerializableDirectMachineOperandTargetFlags() const override;
 
 private:
   MachineInstr * convertToThreeAddressWithLEA(unsigned MIOpc,

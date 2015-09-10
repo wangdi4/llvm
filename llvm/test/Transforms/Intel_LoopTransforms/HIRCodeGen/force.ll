@@ -8,14 +8,28 @@
 ; 
 ; CHECK: region:
 ; CHECK-NEXT: store i64 0, i64* %i1
-; CHECK-NEXT: br label %loop
+; CHECK-NEXT: br label %[[L1Label:loop.[0-9]+]]
 
-; CHECK: loop:
+; CHECK: [[L1Label]]:
+; check iv load is loaded
 ; CHECK-NEXT: load{{.*}} %i1
-; CHECK: store{{.*}} %i1
-; CHECK: br{{.*}} label %loop, label %afterloop
 
-; CHECK: afterloop:
+; load B[] and store it into a memslot for symbase of lval temp
+; CHECK: [[GEP:%.*]] = getelementptr {{.*}} @B
+; CHECK-NEXT: [[GEPLOAD:%.*]] = load{{.*}} [[GEP]]
+; CHECK-NEXT: store i32 [[GEPLOAD]], i32* [[TEMPSLOT:.*]]
+
+; get addr of A[], load memslot from earlier and stored loaded 
+; value at that addr
+; CHECK-DAG: [[GEP:%.*]] = getelementptr {{.*}} @A
+; CHECK-DAG: [[TEMPLOAD:%t.*]] = load i32, i32* [[TEMPSLOT]]
+; CHECK-NEXT: store i32 [[TEMPLOAD]], i32* [[GEP]]
+
+; a value for iv is stored
+; CHECK: store{{.*}} %i1
+; CHECK: br{{.*}} label %[[L1Label]], label %after[[L1Label]]
+
+; CHECK: after[[L1Label]]:
 ; CHECK-NEXT: br label %for.end
 
 ; ModuleID = 'test.cpp'

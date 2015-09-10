@@ -1,4 +1,4 @@
-//===------ DDRef.h - Data dependency node in HIR ---------------*- C++ -*-===//
+//===------ DDRef.h - Data dependency node in HIR -------*- C++ -*---------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -65,15 +65,13 @@ protected:
 public:
   /// Virtual Clone Method
   virtual DDRef *clone() const = 0;
+  /// \brief Dumps DDRef.
+  void dump(bool Detailed) const;
   /// \brief Dumps DDRef in a simple format.
   void dump() const;
-  /// \brief Dumps DDRef in a more extensive format.
-  void detailedDump() const;
-  /// \brief Prints DDRef in a simple format.
-  virtual void print(formatted_raw_ostream &OS) const = 0;
 
-  /// \brief Prints DDRef in a more extensive format.
-  virtual void detailedPrint(formatted_raw_ostream &OS) const = 0;
+  /// \brief Prints DDRef in a simple format.
+  virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
   /// \brief Returns the HLDDNode this DDRef is attached to.
   virtual HLDDNode *getHLDDNode() const = 0;
@@ -85,7 +83,14 @@ public:
   /// virtual Value *getLLVMValue() const = 0;
 
   /// \brief Returns the LLVM type.
-  Type *getLLVMType() const;
+  Type *getType() const;
+
+  /// \brief Returns the element type associated with this DDRef.
+  /// Examples in the form of (incoming type -> returned types)-
+  /// 1) [100 x [100 x float]] -> float
+  /// 2) int* -> int*
+  /// TODO: extend to handle struct types.
+  Type *getElementType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned int getSymBase() const { return SymBase; };

@@ -25,6 +25,7 @@
 #include "llvm/Analysis/RegionPass.h"
 #include "isl/ctx.h"
 
+#include <list>
 #include <forward_list>
 #include <deque>
 
@@ -51,6 +52,7 @@ struct isl_space;
 struct isl_ast_build;
 struct isl_constraint;
 struct isl_pw_multi_aff;
+struct isl_schedule;
 
 namespace polly {
 
@@ -75,8 +77,9 @@ public:
   /// @param ElementType    The type of the elements stored in the array.
   /// @param IslCtx         The isl context used to create the base pointer id.
   /// @param DimensionSizes A vector containing the size of each dimension.
+  /// @param IsPHI          Is this a PHI node specific array info object.
   ScopArrayInfo(Value *BasePtr, Type *ElementType, isl_ctx *IslCtx,
-                const SmallVector<const SCEV *, 4> &DimensionSizes);
+                const SmallVector<const SCEV *, 4> &DimensionSizes, bool IsPHI);
 
   /// @brief Destructor to free the isl id of the base pointer.
   ~ScopArrayInfo();
@@ -105,6 +108,18 @@ public:
   /// @brief Return the isl id for the base pointer.
   __isl_give isl_id *getBasePtrId() const;
 
+  /// @brief Is this array info modeling special PHI node memory?
+  ///
+  /// During code generation of PHI nodes, there is a need for two kinds of
+  /// virtual storage. The normal one as it is used for all scalar dependences,
+  /// where the result of the PHI node is stored and later loaded from as well
+  /// as a second one where the incoming values of the PHI nodes are stored
+  /// into and reloaded when the PHI is executed. As both memories use the
+  /// original PHI node as virtual base pointer, we have this additional
+  /// attribute to distinguish the PHI node specific array modeling from the
+  /// normal scalar array modeling.
+  bool isPHI() const { return IsPHI; };
+
   /// @brief Dump a readable representation to stderr.
   void dump() const;
 
@@ -130,6 +145,9 @@ private:
 
   /// @brief The sizes of each dimension.
   SmallVector<const SCEV *, 4> DimensionSizes;
+
+  /// @brief Is this PHI node specific storage?
+  bool IsPHI;
 };
 
 /// @brief Represent memory accesses in statements.
@@ -422,13 +440,11 @@ public:
 
   /// Create the ScopStmt from a BasicBlock.
   ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
-           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
+           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops);
 
   /// Create an overapproximating ScopStmt for the region @p R.
   ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion, Region &R,
-           SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
+           SmallVectorImpl<Loop *> &NestLoops);
 
 private:
   /// Polyhedral description
@@ -457,36 +473,6 @@ private:
   /// A pair of statement and iteration vector (S, (5,3)) is called statement
   /// instance.
   isl_set *Domain;
-
-  /// The schedule map describes the execution order of the statement
-  /// instances.
-  ///
-  /// A statement and its iteration domain do not give any information about the
-  /// order in time in which the different statement instances are executed.
-  /// This information is provided by the schedule.
-  ///
-  /// The schedule maps every instance of each statement into a multi
-  /// dimensional schedule space. This space can be seen as a multi
-  /// dimensional clock.
-  ///
-  /// Example:
-  ///
-  /// <S,(5,4)>  may be mapped to (5,4) by this schedule:
-  ///
-  /// s0 = i (Year of execution)
-  /// s1 = j (Day of execution)
-  ///
-  /// or to (9, 20) by this schedule:
-  ///
-  /// s0 = i + j (Year of execution)
-  /// s1 = 20 (Day of execution)
-  ///
-  /// The order statement instances are executed is defined by the
-  /// schedule vectors they are mapped to. A statement instance
-  /// <A, (i, j, ..)> is executed before a statement instance <B, (i', ..)>, if
-  /// the schedule vector of A is lexicographic smaller than the schedule
-  /// vector of B.
-  isl_map *Schedule;
 
   /// The memory accesses of this statement.
   ///
@@ -530,7 +516,6 @@ private:
   __isl_give isl_set *addLoopBoundsToDomain(__isl_take isl_set *Domain,
                                             TempScop &tempScop);
   __isl_give isl_set *buildDomain(TempScop &tempScop, const Region &CurRegion);
-  void buildSchedule(SmallVectorImpl<unsigned> &ScheduleVec);
 
   /// @brief Create the accesses for instructions in @p Block.
   ///
@@ -612,7 +597,6 @@ public:
   ///
   /// @return The schedule function of this ScopStmt.
   __isl_give isl_map *getSchedule() const;
-  void setSchedule(__isl_take isl_map *Schedule);
 
   /// @brief Get an isl string representing this schedule.
   std::string getScheduleStr() const;
@@ -679,7 +663,6 @@ public:
 
   unsigned getNumParams() const;
   unsigned getNumIterators() const;
-  unsigned getNumSchedule() const;
 
   Scop *getParent() { return &Parent; }
   const Scop *getParent() const { return &Parent; }
@@ -747,8 +730,13 @@ public:
   /// @brief Vector of minimal/maximal accesses to different arrays.
   using MinMaxVectorTy = SmallVector<MinMaxAccessTy, 4>;
 
-  /// @brief Vector of minimal/maximal access vectors one for each alias group.
-  using MinMaxVectorVectorTy = SmallVector<MinMaxVectorTy *, 4>;
+  /// @brief Pair of minimal/maximal access vectors representing
+  /// read write and read only accesses
+  using MinMaxVectorPairTy = std::pair<MinMaxVectorTy, MinMaxVectorTy>;
+
+  /// @brief Vector of pair of minimal/maximal access vectors representing
+  /// non read only and read only accesses for each alias group.
+  using MinMaxVectorPairVectorTy = SmallVector<MinMaxVectorPairTy, 4>;
 
 private:
   Scop(const Scop &) = delete;
@@ -765,7 +753,7 @@ private:
   /// Max loop depth.
   unsigned MaxLoopDepth;
 
-  typedef std::deque<ScopStmt> StmtSet;
+  typedef std::list<ScopStmt> StmtSet;
   /// The statements in this Scop.
   StmtSet Stmts;
 
@@ -786,9 +774,13 @@ private:
   /// Constraints on parameters.
   isl_set *Context;
 
-  typedef MapVector<const Value *, std::unique_ptr<ScopArrayInfo>>
-      ArrayInfoMapTy;
+  typedef MapVector<std::pair<const Value *, int>,
+                    std::unique_ptr<ScopArrayInfo>> ArrayInfoMapTy;
   /// @brief A map to remember ScopArrayInfo objects for all base pointers.
+  ///
+  /// As PHI nodes may have two array info objects associated, we add a flag
+  /// that distinguishes between the PHI node specific ArrayInfo object
+  /// and the normal one.
   ArrayInfoMapTy ScopArrayInfoMap;
 
   /// @brief The assumptions under which this scop was built.
@@ -799,6 +791,42 @@ private:
   /// assumed context records the assumptions taken during the construction of
   /// this scop and that need to be code generated as a run-time test.
   isl_set *AssumedContext;
+
+  /// @brief The schedule of the SCoP
+  ///
+  /// The schedule of the SCoP describes the execution order of the statements
+  /// in the scop by assigning each statement instance a possibly
+  /// multi-dimensional execution time. The schedule is stored as a tree of
+  /// schedule nodes.
+  ///
+  /// The most common nodes in a schedule tree are so-called band nodes. Band
+  /// nodes map statement instances into a multi dimensional schedule space.
+  /// This space can be seen as a multi-dimensional clock.
+  ///
+  /// Example:
+  ///
+  /// <S,(5,4)>  may be mapped to (5,4) by this schedule:
+  ///
+  /// s0 = i (Year of execution)
+  /// s1 = j (Day of execution)
+  ///
+  /// or to (9, 20) by this schedule:
+  ///
+  /// s0 = i + j (Year of execution)
+  /// s1 = 20 (Day of execution)
+  ///
+  /// The order statement instances are executed is defined by the
+  /// schedule vectors they are mapped to. A statement instance
+  /// <A, (i, j, ..)> is executed before a statement instance <B, (i', ..)>, if
+  /// the schedule vector of A is lexicographic smaller than the schedule
+  /// vector of B.
+  ///
+  /// Besides band nodes, schedule trees contain additional nodes that specify
+  /// a textual ordering between two subtrees or filter nodes that filter the
+  /// set of statement instances that will be scheduled in a subtree. There
+  /// are also several other nodes. A full description of the different nodes
+  /// in a schedule tree is given in the isl manual.
+  isl_schedule *Schedule;
 
   /// @brief The set of minimal/maximal accesses for each alias group.
   ///
@@ -813,12 +841,19 @@ private:
   ///
   /// During code generation we will create a runtime alias check for each alias
   /// group to ensure the SCoP is executed in an alias free environment.
-  MinMaxVectorVectorTy MinMaxAliasGroups;
+  MinMaxVectorPairVectorTy MinMaxAliasGroups;
+
+  /// @brief Scop constructor; used by static createFromTempScop
+  Scop(Region &R, ScalarEvolution &SE, isl_ctx *ctx, unsigned MaxLoopDepth);
+
+  /// @brief Initialize this ScopInfo using a TempScop object.
+  void initFromTempScop(TempScop &TempScop, LoopInfo &LI, ScopDetection &SD);
 
   /// Create the static control part with a region, max loop depth of this
   /// region and parameters used in this region.
-  Scop(TempScop &TempScop, LoopInfo &LI, ScalarEvolution &SE, ScopDetection &SD,
-       isl_ctx *ctx);
+  static Scop *createFromTempScop(TempScop &TempScop, LoopInfo &LI,
+                                  ScalarEvolution &SE, ScopDetection &SD,
+                                  isl_ctx *ctx);
 
   /// @brief Check if a basic block is trivial.
   ///
@@ -850,18 +885,37 @@ private:
   /// @param tempScop   The temp SCoP we use as model.
   /// @param CurRegion  The SCoP region.
   /// @param NestLoops  A vector of all surrounding loops.
-  /// @param Schedule   The position of the new statement as schedule.
-  void addScopStmt(BasicBlock *BB, Region *R, TempScop &tempScop,
-                   const Region &CurRegion, SmallVectorImpl<Loop *> &NestLoops,
-                   SmallVectorImpl<unsigned> &Schedule);
+  ScopStmt *addScopStmt(BasicBlock *BB, Region *R, TempScop &tempScop,
+                        const Region &CurRegion,
+                        SmallVectorImpl<Loop *> &NestLoops);
 
-  /// Build the Scop and Statement with precalculated scop information.
-  void buildScop(TempScop &TempScop, const Region &CurRegion,
-                 // Loops in Scop containing CurRegion
-                 SmallVectorImpl<Loop *> &NestLoops,
-                 // The schedule numbers
-                 SmallVectorImpl<unsigned> &Schedule, LoopInfo &LI,
-                 ScopDetection &SD);
+  /// @brief Create the ScopStmt for a BasicBlock and return its schedule.
+  ///
+  /// Returns null if the BB is trivial and no stmt has been created.
+  ///
+  /// @param BB         The basic block we build the statement for.
+  /// @param tempScop   The temp SCoP we use as model.
+  /// @param CurRegion  The SCoP region.
+  /// @param NestLoops  A vector of all surrounding loops.
+  ///
+  /// @return The ScopStmt's schedule.
+  __isl_give isl_schedule *buildBBScopStmt(BasicBlock *BB, TempScop &tempScop,
+                                           const Region &CurRegion,
+                                           SmallVectorImpl<Loop *> &NestLoops);
+
+  /// @brief Build Scop and ScopStmts from a given TempScop.
+  ///
+  /// @param TempScop  The temporary scop that is translated into an actual
+  ///                  scop.
+  /// @param CurRegion The subregion of the current scop that we are currently
+  ///                  translating.
+  /// @param NestLoop  The set of loops that surround the current subregion.
+  /// @param LI        The LoopInfo object.
+  /// @param SD        The ScopDetection object.
+  __isl_give isl_schedule *buildScop(TempScop &TempScop,
+                                     const Region &CurRegion,
+                                     SmallVectorImpl<Loop *> &NestLoops,
+                                     LoopInfo &LI, ScopDetection &SD);
 
   /// @name Helper function for printing the Scop.
   ///
@@ -938,18 +992,6 @@ public:
   /// @return The maximum depth of the loop.
   inline unsigned getMaxLoopDepth() const { return MaxLoopDepth; }
 
-  /// @brief Get the schedule dimension number of this Scop.
-  ///
-  /// @return The schedule dimension number of this Scop.
-  inline unsigned getScheduleDim() const {
-    unsigned maxScheduleDim = 0;
-
-    for (const ScopStmt &Stmt : *this)
-      maxScheduleDim = std::max(maxScheduleDim, Stmt.getNumSchedule());
-
-    return maxScheduleDim;
-  }
-
   /// @brief Mark the SCoP as optimized by the scheduler.
   void markAsOptimized() { IsOptimized = true; }
 
@@ -990,15 +1032,8 @@ public:
   /// @returns True if __no__ error occurred, false otherwise.
   bool buildAliasGroups(AliasAnalysis &AA);
 
-  //// @brief Drop all constant dimensions from statment schedules.
-  ///
-  ///  Schedule dimensions that are constant accross the scop do not carry
-  ///  any information, but would cost compile time due to the increased number
-  ///  of schedule dimensions. To not pay this cost, we remove them.
-  void dropConstantScheduleDims();
-
   /// @brief Return all alias groups for this SCoP.
-  const MinMaxVectorVectorTy &getAliasGroups() const {
+  const MinMaxVectorPairVectorTy &getAliasGroups() const {
     return MinMaxAliasGroups;
   }
 
@@ -1038,12 +1073,18 @@ public:
   /// @brief Return the (possibly new) ScopArrayInfo object for @p Access.
   ///
   /// @param ElementType The type of the elements stored in this array.
+  /// @param IsPHI       Is this ScopArrayInfo object modeling special
+  ///                    PHI node storage.
   const ScopArrayInfo *
   getOrCreateScopArrayInfo(Value *BasePtr, Type *ElementType,
-                           const SmallVector<const SCEV *, 4> &Sizes);
+                           const SmallVector<const SCEV *, 4> &Sizes,
+                           bool IsPHI = false);
 
   /// @brief Return the cached ScopArrayInfo object for @p BasePtr.
-  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr);
+  ///
+  /// @param BasePtr The base pointer the object has been stored for
+  /// @param IsPHI   Are we looking for special PHI storage.
+  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr, bool IsPHI = false);
 
   void setContext(isl_set *NewContext);
 
@@ -1064,7 +1105,7 @@ public:
   isl_ctx *getIslCtx() const;
 
   /// @brief Get a union set containing the iteration domains of all statements.
-  __isl_give isl_union_set *getDomains();
+  __isl_give isl_union_set *getDomains() const;
 
   /// @brief Get a union map of all may-writes performed in the SCoP.
   __isl_give isl_union_map *getMayWrites();
@@ -1079,7 +1120,20 @@ public:
   __isl_give isl_union_map *getReads();
 
   /// @brief Get the schedule of all the statements in the SCoP.
-  __isl_give isl_union_map *getSchedule();
+  __isl_give isl_union_map *getSchedule() const;
+
+  /// @brief Get a schedule tree describing the schedule of all statements.
+  __isl_give isl_schedule *getScheduleTree() const;
+
+  /// @brief Update the current schedule
+  ///
+  /// @brief NewSchedule The new schedule (given as a flat union-map).
+  void setSchedule(__isl_take isl_union_map *NewSchedule);
+
+  /// @brief Update the current schedule
+  ///
+  /// @brief NewSchedule The new schedule (given as schedule tree).
+  void setScheduleTree(__isl_take isl_schedule *NewSchedule);
 
   /// @brief Intersects the domains of all statements in the SCoP.
   ///

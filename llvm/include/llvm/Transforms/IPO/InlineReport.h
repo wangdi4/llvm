@@ -16,6 +16,7 @@
 #ifndef LLVM_TRANSFORMS_IPO_INLINEREPORT_H
 #define LLVM_TRANSFORMS_IPO_INLINEREPORT_H
 
+#include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/CallGraphReport.h"
 #include "llvm/Analysis/CallGraphSCCPass.h"
 #include "llvm/Analysis/InlineCost.h"
@@ -186,7 +187,8 @@ private:
   InlineReportCallSiteVector CallSites;
 };
 
-typedef std::map<Function*, InlineReportFunction*> InlineReportFunctionMap;
+typedef MapVector<Function*, InlineReportFunction*> 
+  InlineReportFunctionMap;
 typedef std::map<Instruction*, InlineReportCallSite*>
   InlineReportInstructionCallSiteMap;
 
@@ -197,9 +199,10 @@ class InlineReport : public CallGraphReport {
 public:
 
   explicit InlineReport(unsigned MyLevel, int MyInlineLimit, 
-    int MyHintThreshold, int MyColdThreshold) : Level(MyLevel), 
-    InlineLimit(MyInlineLimit), HintThreshold(MyHintThreshold), 
-    ColdThreshold(MyColdThreshold) , ActiveInlineInstruction(nullptr) {};
+    int MyHintThreshold, int MyColdThreshold, int MyOptSizeThreshold) : 
+    Level(MyLevel), InlineLimit(MyInlineLimit), HintThreshold(MyHintThreshold), 
+    ColdThreshold(MyColdThreshold), OptSizeThreshold(MyOptSizeThreshold),
+    ActiveInlineInstruction(nullptr) {};
   virtual ~InlineReport(void); 
   InlineReport(const InlineReport&) = delete; 
   void operator=(const InlineReport&) = delete; 
@@ -272,11 +275,12 @@ private:
 
   /// \brief The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level, 
-  /// InlineLimit, HintThreshold, and ColdThreshold.
+  /// InlineLimit, HintThreshold, ColdThreshold, and OptSizeThreshold.
   unsigned Level;
   int InlineLimit; 
   int HintThreshold;
   int ColdThreshold; 
+  int OptSizeThreshold; 
 
   // \brief The instruction for the call site currently being inlined 
   Instruction* ActiveInlineInstruction; 
