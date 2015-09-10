@@ -1627,13 +1627,13 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
     }
     memData->m_count = 0;
     memData->m_clMemHandle = this;
-    
+
     SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin(); 
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
         cl_context ctx = itr->first;        
         cl_mem memObj  = NULL;
-       
+
         switch( m_dimCount )
         {
         case 2:                         
@@ -1664,7 +1664,7 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
                 &errCode);
             break;
         };
-        
+
         if( ( CL_SUCCESS == errCode ) &&
             ( memObj != NULL ) )
         {
@@ -2054,7 +2054,7 @@ cl_int CrtContext::CreateSubBuffer(
 
     CrtMemObject* parentBuf = ((CrtMemObject*)(parent_buffer->object));
     CrtBuffer* buffer = new CrtBuffer(parentBuf, flags, this);           
-            
+
     errCode = buffer->Create(bufObj, buffer_create_type, buffer_create_info);
     if( CL_SUCCESS != errCode )
     {
@@ -2787,7 +2787,7 @@ cl_int SyncManager::PrepareToExecute(
     cl_uint numReqCalls     = 0;
     cl_context dstContext   = NULL;
     cl_uint j                = 0;
-    
+
     if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
         ( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
     {
@@ -3137,7 +3137,7 @@ cl_int CrtContext::CreateGLImage(
     CrtMemObject**          memObj)
 {
     cl_int errCode = CL_SUCCESS;
-   
+
     CrtGLImage* image = new CrtGLImage(
         dim_count,
         flags,
