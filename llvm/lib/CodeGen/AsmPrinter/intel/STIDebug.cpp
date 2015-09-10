@@ -378,8 +378,26 @@ typedef std::vector<STIType *> STITypeTable;
 //===----------------------------------------------------------------------===//
 // STITypeMap
 //===----------------------------------------------------------------------===//
-typedef DenseMap<const MDNode *, STIType *> TypeMap;
-typedef DenseMap<const STIType *, TypeMap> TypeScopedMap;
+typedef DenseMap<const MDNode *, STIType *> STITypeMap;
+typedef DenseMap<const STIType *, STITypeMap> STITypeScopedMap;
+typedef DenseMap<const STIType *, STIType *> STIDclToDefTypeMap;
+
+class TypeInfo {
+public:
+  STIType *getClassType() const { return _classType; }
+  bool isStatic() const { return _isStatic; }
+  bool isDcl() const { return _isDcl; }
+
+  TypeInfo() : _classType(nullptr), _isStatic(false), _isDcl(false) {}
+  TypeInfo(STIType *classType, bool isStatic)
+      : _classType(classType), _isStatic(isStatic), _isDcl(false) {}
+  TypeInfo(bool isDcl) : _classType(nullptr), _isStatic(false), _isDcl(isDcl) {}
+
+private:
+  STIType *_classType;
+  bool _isStatic;
+  bool _isDcl;
+};
 
 typedef DenseMap<const MachineInstr *, MCSymbol *> LabelMap;
 
@@ -695,9 +713,9 @@ private:
   STITypeTable _typeTable;
   STIStringTable _stringTable;
   STIChecksumTable _checksumTable;
-  STIScopeMap _ScopeMap;
-  TypeScopedMap _typeMap;
-  TypeMap _dclTypeMap;
+  STIScopeMap _scopeMap;
+  STITypeScopedMap _typeMap;
+  STIDclToDefTypeMap _defTypeMap;
   STIType *_voidType;
   STIType *_vbpType;
   unsigned int _blockNumber;
@@ -748,10 +766,9 @@ protected:
   bool hasScope(const MDNode *llvmNode) const;
   STIScope *getScope(const MDNode *llvmNode);
   void addScope(const MDNode *llvmNode, STIScope *object);
-  TypeScopedMap *getTypeMap();
-  const TypeScopedMap *getTypeMap() const;
-  TypeMap *getDclTypeMap();
-  const TypeMap *getDclTypeMap() const;
+  STITypeMap *getTypeMap(const STIType *classType);
+  STIDclToDefTypeMap *getDefTypeMap();
+  const STIDclToDefTypeMap *getDefTypeMap() const;
   ClassInfoMap *getClassInfoMap();
   const ClassInfoMap *getClassInfoMap() const;
   StringNameMap *getStringNameMap();
@@ -820,25 +837,28 @@ protected:
   STISymbolBlock *createSymbolBlock(const DILexicalBlockBase *LB);
   STIChecksumEntry *getOrCreateChecksum(StringRef path);
 
-  STIType *createType(const DIType *llvmType, STIType *classType = nullptr,
-                      bool isStatic = false);
-  STIType *createTypeBasic(const DIBasicType *llvmType);
-  STIType *createTypePointer(const DIDerivedType *llvmType);
-  STIType *createTypeModifier(const DIDerivedType *llvmType);
-  STIType *createTypeArray(const DICompositeType *llvmType);
-  STIType *createTypeStructure(const DICompositeType *llvmType,
-                               bool isDcl = false);
-  STIType *createTypeEnumeration(const DICompositeType *llvmType);
-  STIType *createTypeSubroutine(const DISubroutineType *llvmType,
-                                STIType *classType = nullptr,
-                                bool isStatic = false);
+#define X(NAME, TYPE)                                                          \
+  STIType *create##NAME(const TYPE *, const TypeInfo info = TypeInfo());
+  X(Type, DIType)
+  X(TypeBasic, DIBasicType)
+  X(TypePointer, DIDerivedType)
+  X(TypeModifier, DIDerivedType)
+  X(TypeArray, DICompositeType)
+  X(TypeStructure, DICompositeType)
+  X(TypeEnumeration, DICompositeType)
+  X(TypeSubroutine, DISubroutineType)
+  X(SymbolUserDefined, DIDerivedType)
+#undef X
   uint64_t getBaseTypeSize(const DIDerivedType *Ty) const;
+
+  template<typename T>
+  T *createAndMap(const DIType *llvmType, const TypeInfo &info);
 
   STIType *getVoidType() const;
   STIType *getVbpType() const;
   unsigned getPointerSizeInBits() const;
 
-  STIType *createSymbolUserDefined(const DIDerivedType *llvmType);
+  void fixSymbolUserDefined(STISymbolUserDefined *type) const;
 
   void layout();
   void emit();
@@ -947,8 +967,9 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter) :
     _typeTable          (),
     _stringTable        (),
     _checksumTable      (),
-    _ScopeMap           (),
+    _scopeMap           (),
     _typeMap            (),
+    _defTypeMap         (),
     _voidType           (nullptr),
     _vbpType            (nullptr),
     _blockNumber        (0),
@@ -1215,26 +1236,28 @@ const STIChecksumTable *STIDebugImpl::getChecksumTable() const {
 }
 
 bool STIDebugImpl::hasScope(const MDNode *llvmNode) const {
-  return _ScopeMap.count(llvmNode);
+  return _scopeMap.count(llvmNode);
 }
 
 STIScope *STIDebugImpl::getScope(const MDNode *llvmNode) {
   assert(hasScope(llvmNode) && "LLVM node has no STI object mapped yet!");
-  return _ScopeMap[llvmNode];
+  return _scopeMap[llvmNode];
 }
 
 void STIDebugImpl::addScope(const MDNode *llvmNode, STIScope *object) {
   assert(!hasScope(llvmNode) && "LLVM node already mapped to STI object!");
-  _ScopeMap[llvmNode] = object;
+  _scopeMap[llvmNode] = object;
 }
 
-TypeScopedMap *STIDebugImpl::getTypeMap() { return &_typeMap; }
+STITypeMap *STIDebugImpl::getTypeMap(const STIType *classType) {
+  return &_typeMap[classType];
+}
 
-const TypeScopedMap *STIDebugImpl::getTypeMap() const { return &_typeMap; }
+STIDclToDefTypeMap *STIDebugImpl::getDefTypeMap() { return &_defTypeMap; }
 
-TypeMap *STIDebugImpl::getDclTypeMap() { return &_dclTypeMap; }
-
-const TypeMap *STIDebugImpl::getDclTypeMap() const { return &_dclTypeMap; }
+const STIDclToDefTypeMap *STIDebugImpl::getDefTypeMap() const {
+  return &_defTypeMap;
+}
 
 STIDebugImpl::ClassInfoMap *STIDebugImpl::getClassInfoMap() {
   return &_classInfoMap;
@@ -1504,21 +1527,22 @@ toPrimitive(dwarf::TypeKind encoding, uint32_t byteSize,
   return primitive;
 }
 
-STIType *STIDebugImpl::createTypeBasic(const DIBasicType *llvmType) {
+STIType *STIDebugImpl::createTypeBasic(const DIBasicType *llvmType,
+                                       const TypeInfo info) {
+  STITypeBasic *type = createAndMap<STITypeBasic>(llvmType, info);
   unsigned int encoding = llvmType->getEncoding();
   dwarf::TypeKind typeKind = static_cast<dwarf::TypeKind>(encoding);
   uint64_t sizeInBytes = llvmType->getSizeInBits() >> 3;
-  STITypeBasic *type;
   bool isLong = false;
 
   if (llvmType->getName().count("long")) {
     isLong = true;
   }
 
-  type = STITypeBasic::create();
   type->setPrimitive(toPrimitive(typeKind, sizeInBytes, isLong));
   type->setSizeInBits(llvmType->getSizeInBits());
 
+  getTypeTable()->push_back(type);
   return type;
 }
 
@@ -1526,8 +1550,9 @@ template <typename T> T* STIDebugImpl::resolve(TypedDINodeRef<T> ref) const {
   return ref.resolve(getTypeIdentifierMap());
 }
 
-STIType *STIDebugImpl::createTypePointer(const DIDerivedType *llvmType) {
-  STITypePointer *type;
+STIType *STIDebugImpl::createTypePointer(const DIDerivedType *llvmType,
+                                         const TypeInfo info) {
+  STITypePointer *type = createAndMap<STITypePointer>(llvmType, info);
   STIType *classType = nullptr;
   STIType *pointerTo = nullptr;
   unsigned tag = llvmType->getTag();
@@ -1547,8 +1572,6 @@ STIType *STIDebugImpl::createTypePointer(const DIDerivedType *llvmType) {
     }
   }
 
-  type = STITypePointer::create();
-
   type->setPointerTo(pointerTo);
 
   if (sizeInBits == 0) {
@@ -1560,31 +1583,43 @@ STIType *STIDebugImpl::createTypePointer(const DIDerivedType *llvmType) {
   type->setIsRValueReference(tag == dwarf::DW_TAG_rvalue_reference_type);
   type->setPtrToMemberType(ptrToMemberType);
 
+  getTypeTable()->push_back(type);
   return type;
 }
 
-STIType *STIDebugImpl::createTypeModifier(const DIDerivedType *llvmType) {
-  STITypeModifier *type;
+STIType *STIDebugImpl::createTypeModifier(const DIDerivedType *llvmType,
+                                          const TypeInfo info) {
+  STITypeModifier *type = createAndMap<STITypeModifier>(llvmType, info);
   STIType *qualifiedType;
 
   qualifiedType = createType(resolve(llvmType->getBaseType()));
 
-  type = STITypeModifier::create();
   type->setQualifiedType(qualifiedType);
   type->setIsConstant(llvmType->getTag() == dwarf::DW_TAG_const_type);
   type->setIsVolatile(llvmType->getTag() == dwarf::DW_TAG_volatile_type);
   type->setIsUnaligned(false);
   type->setSizeInBits(qualifiedType->getSizeInBits());
 
+  getTypeTable()->push_back(type);
   return type;
 }
 
-STIType *STIDebugImpl::createSymbolUserDefined(const DIDerivedType *llvmType) {
+STIType *STIDebugImpl::createSymbolUserDefined(const DIDerivedType *llvmType,
+                                               const TypeInfo info) {
   STISymbolUserDefined *symbol;
   STIType *userDefinedType;
 
   DIType *derivedType = resolve(llvmType->getBaseType());
   userDefinedType = createType(derivedType);
+
+  STITypeMap *TM = getTypeMap(info.getClassType());
+  auto res = TM->insert(std::make_pair(llvmType, userDefinedType));
+  if (!res.second) {
+    // (We must get into a loop). User defined symbol was already created.
+    // Do not create S_UDT twice, just return the derived type.
+    assert(res.first->second == userDefinedType);
+    return userDefinedType;
+  }
 
   if (userDefinedType->getKind() == STI_OBJECT_KIND_TYPE_STRUCTURE) {
     STITypeStructure *pType = static_cast<STITypeStructure *>(userDefinedType);
@@ -1610,7 +1645,8 @@ STIType *STIDebugImpl::createSymbolUserDefined(const DIDerivedType *llvmType) {
   return userDefinedType;
 }
 
-STIType *STIDebugImpl::createTypeArray(const DICompositeType *llvmType) {
+STIType *STIDebugImpl::createTypeArray(const DICompositeType *llvmType,
+                                       const TypeInfo info) {
   STITypeArray *type = nullptr;
   STIType *elementType;
   bool undefinedSubrange = false;
@@ -1639,17 +1675,15 @@ STIType *STIDebugImpl::createTypeArray(const DICompositeType *llvmType) {
       undefinedSubrange = true;
     }
 
-    type = STITypeArray::create();
+    type = (i==0) ? createAndMap<STITypeArray>(llvmType, info)
+                  : STITypeArray::create();
     type->setElementType(elementType);
     type->setLength(createNumericUnsignedInt(elementLength * Count));
 
     elementType = type;
     elementLength *= Count;
 
-    if (i != 0) {
-      // FIXME
-      const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(type);
-    }
+    getTypeTable()->push_back(type);
   }
 
   assert((undefinedSubrange ||
@@ -1912,33 +1946,38 @@ ClassInfo &STIDebugImpl::collectClassInfo(const DICompositeType *llvmType) {
 }
 
 STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
-                                           bool isDcl) {
+                                           const TypeInfo info) {
   STITypeFieldList *fieldType = nullptr;
   int16_t prop = 0;
   int32_t size = 0;
   STITypeVShape *vshapeType = nullptr;
   STITypePointer *virtualTableType = nullptr;
   STITypeStructure *type = nullptr;
+  STIType *dclType = nullptr;
 
-  if (llvmType->isForwardDecl()) {
-    isDcl = true;
-  }
-
-  if (!llvmType->getName().empty()) {
-    STIType *classType = getClassScope(resolve(llvmType->getScope()));
-    if (classType) {
-      assert(classType->getKind() == STI_OBJECT_KIND_TYPE_STRUCTURE &&
-             "unknown containing type");
-      prop = prop | PROP_ISNESTED;
-      STITypeStructure *pType = static_cast<STITypeStructure *>(classType);
-      pType->setProperty(pType->getProperty() | PROP_CNESTED);
-    }
-  }
+  bool isDcl = info.isDcl() || llvmType->isForwardDecl();
 
   if (isDcl) {
+    type = createAndMap<STITypeStructure>(llvmType, info);
     prop = prop | PROP_FWDREF;
   } else {
-    STIType *dclType = createType(llvmType); // Force creating a declaration.
+    if (llvmType->getName().empty()) {
+      type = createAndMap<STITypeStructure>(llvmType, info);
+      dclType = type;
+    } else {
+      dclType = createType(llvmType, TypeInfo(true)); // Force creating a declaration.
+
+      if (getDefTypeMap()->find(dclType) != getDefTypeMap()->end()) {
+        // Record definition was already created and mapped, just return dclRtpe.
+        return dclType;
+      }
+
+      type = STITypeStructure::create();
+      // Map record declaration to its definition.
+      auto res = getDefTypeMap()->insert(std::make_pair(dclType, type));
+      assert(res.second && "Failed to insert record definition type");
+    }
+
     fieldType = STITypeFieldList::create();
 
     ClassInfo &info = collectClassInfo(llvmType);
@@ -2022,8 +2061,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
         bitfieldType->setSize(Size);
         bitfieldType->setType(memberBaseType);
 
-        const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-            bitfieldType); // FIXME
+        getTypeTable()->push_back(bitfieldType);
 
         OffsetInBytes += FieldOffset >> 3;
         memberBaseType = bitfieldType;
@@ -2054,9 +2092,8 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
 
         unsigned attribute =
             getFunctionAttribute(subprogram, llvmType, introduced);
-        STIType *methodtype =
-            createType(resolve(subprogram->getType()->getRef()),
-                       dclType, isStatic);
+        STIType *methodtype = createType(subprogram->getType(),
+                                         TypeInfo(dclType, isStatic));
 
         unsigned virtuality = subprogram->getVirtuality();
         unsigned virtualIndex = subprogram->getVirtualIndex();
@@ -2086,9 +2123,8 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
 
           unsigned attribute =
               getFunctionAttribute(subprogram, llvmType, introduced);
-          STIType *methodtype =
-              createType(resolve(subprogram->getType()->getRef()),
-                         dclType, isStatic);
+          STIType *methodtype = createType(subprogram->getType(),
+                                           TypeInfo(dclType, isStatic));
 
           unsigned virtuality = subprogram->getVirtuality();
           unsigned virtualIndex = subprogram->getVirtualIndex();
@@ -2105,8 +2141,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
           methodList->getList().push_back(entry);
         }
 
-        const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-            methodList); // FIXME
+        getTypeTable()->push_back(methodList);
 
         // Create LF_METHOD entry
         STITypeMethod *method = STITypeMethod::create();
@@ -2123,8 +2158,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
       vshapeType = STITypeVShape::create();
       vshapeType->setCount(info.vMethodsCount);
 
-      const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-          vshapeType); // FIXME
+      getTypeTable()->push_back(vshapeType);
 
       if (info.vFuncTab) {
         // Create VFUNCTAB
@@ -2136,17 +2170,28 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
         virtualTableType->setPointerTo(vshapeType);
         vFuncTab->setType(virtualTableType);
 
-        const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-            virtualTableType); // FIXME
+        getTypeTable()->push_back(virtualTableType);
 
         fieldType->setVFuncTab(vFuncTab);
       }
     }
 
-    const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-        fieldType); // FIXME
+    getTypeTable()->push_back(fieldType);
 
     size = (uint32_t)(llvmType->getSizeInBits() >> 3);
+
+    if (!llvmType->getName().empty()) {
+      STIType *classType = getClassScope(resolve(llvmType->getScope()));
+      if (classType) {
+        assert(classType->getKind() == STI_OBJECT_KIND_TYPE_STRUCTURE &&
+                "unknown containing type");
+        prop = prop | PROP_ISNESTED;
+        STITypeStructure *pType = static_cast<STITypeStructure *>(classType);
+        //TODO: this way we are attaching this property only to declaration record.
+        //      How to attach it to definition record?
+        pType->setProperty(pType->getProperty() | PROP_CNESTED);
+      }
+    }
   }
 #if 0
     DICompositeType *ContainingType(resolve(CTy.getContainingType()));
@@ -2160,8 +2205,6 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
         Tag == dwarf::DW_TAG_structure_type || Tag == dwarf::DW_TAG_union_type)
       addTemplateParams(Buffer, CTy.getTemplateParams());
 #endif
-
-  type = STITypeStructure::create();
 
   switch (llvmType->getTag()) {
 #define X(TAG, TYPE)                                                           \
@@ -2189,7 +2232,7 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
 
   type->setCount(isDcl ? 0 : llvmType->getElements().size());
 
-  type->setProperty(prop); //  FIXME: property
+  type->setProperty(type->getProperty() | prop); //  FIXME: property
 
   type->setFieldType(fieldType);
 
@@ -2202,19 +2245,26 @@ STIType *STIDebugImpl::createTypeStructure(const DICompositeType *llvmType,
 
   type->setSizeInBits(llvmType->getSizeInBits());
 
-  if (!isDcl && !llvmType->getName().empty()) {
-    STISymbolUserDefined *symbol = STISymbolUserDefined::create();
-    symbol->setDefinedType(type);
-    symbol->setName(fullCLassName);
+  if (!isDcl) {
+    if(!llvmType->getName().empty()) {
+      STISymbolUserDefined *symbol = STISymbolUserDefined::create();
+      symbol->setDefinedType(type);
+      symbol->setName(fullCLassName);
 
-    getOrCreateScope(resolve(llvmType->getScope()))->add(symbol);
+      getOrCreateScope(resolve(llvmType->getScope()))->add(symbol);
+    }
+    // Add the record definition to the type table.
+    getTypeTable()->push_back(type);
+    return dclType;
   }
 
+  getTypeTable()->push_back(type);
   return type;
 }
 
-STIType *STIDebugImpl::createTypeEnumeration(const DICompositeType *llvmType) {
-  STITypeEnumeration *type;
+STIType *STIDebugImpl::createTypeEnumeration(const DICompositeType *llvmType,
+                                             const TypeInfo info) {
+  STITypeEnumeration *type = createAndMap<STITypeEnumeration>(llvmType, info);
   STITypeFieldList *fieldType = nullptr;
   STIType *elementType = nullptr;
   unsigned elementCount = 0;
@@ -2265,11 +2315,8 @@ STIType *STIDebugImpl::createTypeEnumeration(const DICompositeType *llvmType) {
       fieldType->getEnumerators().push_back(enumeratorType);
     }
 
-    // FIXME
-    const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(fieldType);
+    getTypeTable()->push_back(fieldType);
   }
-
-  type = STITypeEnumeration::create();
 
   type->setCount(elementCount); // TODO: is this right?
 
@@ -2283,16 +2330,18 @@ STIType *STIDebugImpl::createTypeEnumeration(const DICompositeType *llvmType) {
 
   type->setSizeInBits(llvmType->getSizeInBits());
 
+  getTypeTable()->push_back(type);
   return type;
 }
 
-STIType *STIDebugImpl::createTypeSubroutine(const DISubroutineType *llvmType,
-                                            STIType *classType, bool isStatic) {
-  STITypeProcedure *procedureType;
+STIType *STIDebugImpl::createTypeSubroutine(
+    const DISubroutineType *llvmType, const TypeInfo info) {
+
+  STITypeProcedure *procedureType =
+      createAndMap<STITypeProcedure>(llvmType, info);
   STITypeArgumentList *argListType;
   int callingConvention = NEAR_C; // FIXME:
 
-  procedureType = STITypeProcedure::create();
   argListType = STITypeArgumentList::create();
 
   procedureType->setCallingConvention(callingConvention);
@@ -2304,10 +2353,10 @@ STIType *STIDebugImpl::createTypeSubroutine(const DISubroutineType *llvmType,
   procedureType->setReturnType(createType(RTy));
 
   unsigned firstArgIndex = 1;
-  if (classType) {
+  if (info.getClassType()) {
     // This is a member function, initialize: classType, thisType, thisAdjust
-    procedureType->setClassType(classType);
-    if (!isStatic) {
+    procedureType->setClassType(info.getClassType());
+    if (!info.isStatic()) {
       assert(Elements.size() >= 2 &&
              "Expect at least return value and 'this' argument");
       procedureType->setThisType(createType(resolve(Elements[1])));
@@ -2353,9 +2402,9 @@ STIType *STIDebugImpl::createTypeSubroutine(const DISubroutineType *llvmType,
       addFlag(Buffer, dwarf::DW_AT_rvalue_reference);
 #endif
 
-  const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-      argListType); // FIXME
+  getTypeTable()->push_back(argListType);
 
+  getTypeTable()->push_back(procedureType);
   return procedureType;
 }
 
@@ -2393,8 +2442,8 @@ STIType *STIDebugImpl::getVbpType() const {
 
 unsigned STIDebugImpl::getPointerSizeInBits() const { return _ptrSizeInBits; }
 
-STIType *STIDebugImpl::createType(const DIType *llvmType, STIType *classType,
-                                  bool isStatic) {
+STIType *STIDebugImpl::createType(const DIType *llvmType,
+                                  const TypeInfo info) {
   STIType *type;
   unsigned int tag;
 
@@ -2402,61 +2451,18 @@ STIType *STIDebugImpl::createType(const DIType *llvmType, STIType *classType,
     return getVoidType();
   }
 
-  TypeMap *dclTM = const_cast<STIDebugImpl *>(this)->getDclTypeMap(); // FIXME
-  TypeMap::iterator dclItr = dclTM->find(llvmType);
-  TypeMap &TM1 =
-      (*const_cast<STIDebugImpl *>(this)->getTypeMap())[classType]; // FIXME
-  TypeMap::iterator itr = TM1.find(llvmType);
-
-  if (itr != TM1.end()) {
-    if (itr->second != nullptr) {
-      return itr->second;
-    }
-
-    if (dclItr != dclTM->end()) {
-      if (dclItr->second != nullptr) {
-        return dclItr->second;
-      }
-    }
-
-    dclTM->insert(std::make_pair(llvmType, nullptr)); // FIXME
-
-    switch (llvmType->getTag()) {
-#define X(TAG, HANDLER, TYPE)                                                  \
-  case dwarf::TAG:                                                             \
-    type = HANDLER(cast<TYPE>(llvmType), true);                                \
-    dclItr = dclTM->find(llvmType);                                            \
-    assert(dclItr != dclTM->end() && "Type should be in map by now!");         \
-    if (dclItr->second == nullptr) {                                           \
-      dclItr->second = type;                                                   \
-      const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(type);       \
-    }                                                                          \
-    if (dclItr->second != type) {                                              \
-      /* need to delete type! */                                               \
-      delete type;                                                             \
-    }                                                                          \
-    return dclItr->second;
-
-      X(DW_TAG_class_type,     createTypeStructure, DICompositeType);
-      X(DW_TAG_structure_type, createTypeStructure, DICompositeType);
-      X(DW_TAG_union_type,     createTypeStructure, DICompositeType);
-#undef X
-    default:
-      break;
-    }
-  } else {
-    TM1.insert(std::make_pair(llvmType, nullptr)); // FIXME
+  // Check if we already have this type created.
+  STITypeMap *TM = getTypeMap(info.getClassType());
+  auto itr = TM->find(llvmType);
+  if (itr != TM->end()) {
+    return itr->second;
   }
 
   tag = llvmType->getTag();
   switch (tag) {
 #define X(TAG, HANDLER, TYPE)                                                  \
   case dwarf::TAG:                                                             \
-    type = HANDLER(cast<TYPE>(llvmType));                                      \
-    break
-#define X1(TAG, HANDLER, TYPE)                                                 \
-  case dwarf::TAG:                                                             \
-    type = HANDLER(cast<TYPE>(llvmType), classType, isStatic);                 \
+    type = HANDLER(cast<TYPE>(llvmType), info);                                \
     break
     X(DW_TAG_array_type, createTypeArray, DICompositeType);
     X(DW_TAG_class_type, createTypeStructure, DICompositeType);
@@ -2472,8 +2478,7 @@ STIType *STIDebugImpl::createType(const DIType *llvmType, STIType *classType,
     X(DW_TAG_const_type, createTypeModifier, DIDerivedType);
     X(DW_TAG_volatile_type, createTypeModifier, DIDerivedType);
     X(DW_TAG_typedef, createSymbolUserDefined, DIDerivedType);
-    X1(DW_TAG_subroutine_type, createTypeSubroutine, DISubroutineType);
-#undef X1
+    X(DW_TAG_subroutine_type, createTypeSubroutine, DISubroutineType);
 #undef X
   case dwarf::DW_TAG_restrict_type:
     // There's no point creating an IR representation for "restrict" until STI
@@ -2487,25 +2492,22 @@ STIType *STIDebugImpl::createType(const DIType *llvmType, STIType *classType,
     break;
   }
 
-  TypeMap &TM2 = (*const_cast<STIDebugImpl *>(this)->getTypeMap())[classType];
-  itr = TM2.find(llvmType); // FIXME
-  assert(itr != TM2.end() && "Type should be in map by now!");
-  if (itr->second == nullptr) {
-    itr->second = type;
-    if (tag != dwarf::DW_TAG_typedef) {
-      const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(
-          type); // FIXME
-    }
-  }
-  if (itr->second != type) {
-    // need to delete type!
-    // Howver, type of typedef is already added to deferent in the type table.
-    if (tag != dwarf::DW_TAG_typedef) {
-      delete type;
-    }
-  }
+  // Sanity code, check that we already mapped this type.
+  auto res = getTypeMap(info.getClassType())->insert(std::make_pair(llvmType,
+                                                                    type));
+  assert(!res.second && res.first->second == type &&
+          "type expected to be in map already.");
 
-  return itr->second;
+  return type;
+}
+
+template<typename T>
+T *STIDebugImpl::createAndMap(const DIType *llvmType, const TypeInfo &info) {
+  T* type = T::create();
+  STITypeMap *TM = getTypeMap(info.getClassType());
+  auto res = TM->insert(std::make_pair(llvmType, type));
+  assert(res.second && "Trying to create type more than once.");
+  return type;
 }
 
 STIScope *STIDebugImpl::getOrCreateScope(const DIScope* llvmScope) {
@@ -2669,8 +2671,8 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 
   STIType *classType = getClassScope(resolve(SP->getScope()));
   bool isStatic = isStaticMethod(linkageName);
-  STIType *procedureType = createType(
-      resolve(SP->getType()->getRef()), classType, isStatic);
+  STIType *procedureType = createType(SP->getType(),
+                                      TypeInfo(classType, isStatic));
 
   STISymbolFrameProc *frame = STISymbolFrameProc::create();
 
@@ -2686,8 +2688,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
     funcIDType->setParentClassType(classType);
     funcIDType->setName(SP->getName());
 
-    // FIXME: When emitting a PDB file, this does NOT go in the types section!
-    const_cast<STIDebugImpl *>(this)->getTypeTable()->push_back(funcIDType);
+    getTypeTable()->push_back(funcIDType);
 
     procedure->setType(funcIDType);
     procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32_ID : S_GPROC32_ID);
@@ -3219,6 +3220,12 @@ void STIDebugImpl::collectRoutineInfo() {
 
     processed.insert(IV);
   }
+}
+
+void STIDebugImpl::fixSymbolUserDefined(STISymbolUserDefined *type) const {
+   auto itr = getDefTypeMap()->find(type->getDefinedType());
+   if (itr != getDefTypeMap()->end())
+     type->setDefinedType(itr->second);
 }
 
 void STIDebugImpl::layout() {
@@ -4038,6 +4045,7 @@ void STIDebugImpl::walkSymbol(const STISymbol *symbol) const {
   case STI_OBJECT_KIND_SYMBOL_USER_DEFINED: {
     const STISymbolUserDefined *userDefined;
     userDefined = static_cast<const STISymbolUserDefined *>(symbol);
+    fixSymbolUserDefined(const_cast<STISymbolUserDefined *>(userDefined));
     emitSymbolUserDefined(userDefined);
   } break;
 
