@@ -67,12 +67,14 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// passed in. It returns true if that super register is dead
   /// just prior to OrigMI, and false if not.
   bool getSuperRegDestIfDead(MachineInstr *OrigMI,
+                             MVT::SimpleValueType OrigDestVT,
                              unsigned &SuperDestReg) const;
 
   /// \brief Change the MachineInstr MI into the equivalent extending load
   /// to 32 bit register if it is safe to do so.  Return the replacement
   /// instruction if OK, otherwise return nullptr.
   MachineInstr *tryReplaceLoad(unsigned New32BitOpcode,
+                               MVT::SimpleValueType OrigDestVT,
                                MachineInstr *MI) const;
 
 public:
@@ -110,10 +112,22 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 }
 
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
+                                            MVT::SimpleValueType OrigDestVT,
                                             unsigned &SuperDestReg) const {
 
   unsigned OrigDestReg = MI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, MVT::i32);
+
+  // Make sure that the sub-register that this instruction has as its
+  // destination is the lowest order sub-register of the super-register.
+  // If it isn't, then the register isn't really dead even if the
+  // super-register is considered dead.
+  // This test works because getX86SubSuperRegister returns the low portion
+  // register by default when getting a sub-register, so if that doesn't
+  // match the original destination register, then the original destination
+  // register must not have been the low register portion of that size.
+  if (getX86SubSuperRegister(SuperDestReg, OrigDestVT) != OrigDestReg)
+    return false;
 
   MachineBasicBlock::LivenessQueryResult NewDestLQR =
     MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
@@ -123,10 +137,11 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
 }
 
 MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,
+                                              MVT::SimpleValueType OrigDestVT,
                                               MachineInstr *MI) const {
-
   unsigned NewDestReg;
-  if (!getSuperRegDestIfDead(MI, NewDestReg))
+
+  if (!getSuperRegDestIfDead(MI, OrigDestVT, NewDestReg))
     return nullptr;
 
   // Safe to change the instruction.
@@ -181,7 +196,7 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       // in a very tight loop and not optimizing for size. This takes
       // an extra byte to encode, and provides limited performance upside.
       if (IsSingleBBLoop && !OptForSize)
-        NewMI = tryReplaceLoad(X86::MOVZX32rm8, MI);
+        NewMI = tryReplaceLoad(X86::MOVZX32rm8, MVT::i8, MI);
       break;
 
     case X86::MOV16rm:
@@ -189,7 +204,7 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       // Code size is the same, and there is sometimes a perf advantage
       // from eliminating a false dependence on the upper portion of
       // the register.
-      NewMI = tryReplaceLoad(X86::MOVZX32rm16, MI);
+      NewMI = tryReplaceLoad(X86::MOVZX32rm16, MVT::i16, MI);
       break;
 
     default:
