@@ -300,7 +300,8 @@ public:
   AliasResult alias(const MemoryLocation &LocA,
                     const MemoryLocation &LocB) override;
   ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                           const MemoryLocation &Loc) override;
+                           const MemoryLocation &Loc,        // INTEL
+                           AliasAnalysis *AAChain) override; // INTEL
   ModRefInfo getModRefInfo(ImmutableCallSite CS1,
                            ImmutableCallSite CS2) override {
     return AliasAnalysis::getModRefInfo(CS1, CS2);
@@ -874,7 +875,8 @@ AliasResult GlobalsModRef::alias(const MemoryLocation &LocA,
 }
 
 ModRefInfo GlobalsModRef::getModRefInfo(ImmutableCallSite CS,
-                                        const MemoryLocation &Loc) {
+                                        const MemoryLocation &Loc,  // INTEL
+                                        AliasAnalysis *AAChain) {   // INTEL
   unsigned Known = MRI_ModRef;
 
   // If we are asking for mod/ref info of a direct call with a pointer to a
@@ -890,5 +892,5 @@ ModRefInfo GlobalsModRef::getModRefInfo(ImmutableCallSite CS,
 
   if (Known == MRI_NoModRef)
     return MRI_NoModRef; // No need to query other mod/ref analyses
-  return ModRefInfo(Known & AliasAnalysis::getModRefInfo(CS, Loc));
+  return ModRefInfo(Known & AliasAnalysis::getModRefInfo(CS, Loc, AAChain)); // INTEL
 }

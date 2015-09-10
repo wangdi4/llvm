@@ -81,6 +81,7 @@ void initializeAliasAnalysisCounterPass(PassRegistry&);
 void initializeAliasDebuggerPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlwaysInlinerPass(PassRegistry&);
+void initializeAndersensPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeSampleProfileLoaderPass(PassRegistry&);

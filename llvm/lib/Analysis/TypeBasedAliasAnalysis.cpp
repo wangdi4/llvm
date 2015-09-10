@@ -307,7 +307,8 @@ namespace {
     FunctionModRefBehavior getModRefBehavior(ImmutableCallSite CS) override;
     FunctionModRefBehavior getModRefBehavior(const Function *F) override;
     ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                             const MemoryLocation &Loc) override;
+                             const MemoryLocation &Loc,         // INTEL
+                             AliasAnalysis *AAChain) override;  // INTEL
     ModRefInfo getModRefInfo(ImmutableCallSite CS1,
                              ImmutableCallSite CS2) override;
   };
@@ -515,9 +516,10 @@ TypeBasedAliasAnalysis::getModRefBehavior(const Function *F) {
 }
 
 ModRefInfo TypeBasedAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
-                                                 const MemoryLocation &Loc) {
+                                    const MemoryLocation &Loc,  // INTEL
+                                    AliasAnalysis *AAChain) {   // INTEL
   if (!EnableTBAA)
-    return AliasAnalysis::getModRefInfo(CS, Loc);
+    return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 
   if (const MDNode *L = Loc.AATags.TBAA)
     if (const MDNode *M =
@@ -525,7 +527,7 @@ ModRefInfo TypeBasedAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
       if (!Aliases(L, M))
         return MRI_NoModRef;
 
-  return AliasAnalysis::getModRefInfo(CS, Loc);
+  return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 }
 
 ModRefInfo TypeBasedAliasAnalysis::getModRefInfo(ImmutableCallSite CS1,

@@ -95,6 +95,10 @@ static cl::opt<bool> EnableLoopDistribute(
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimizations passes"));
 
+//***INTEL - Andersen AliasAnalysis
+static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(false),
+    cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
     "enable-non-lto-gmr", cl::init(false), cl::Hidden,
     cl::desc(
@@ -260,6 +264,13 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createReassociatePass());           // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
+
+#ifdef INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensPass()); // Andersen's IP alias analysis
+  }
+#endif
+
   MPM.add(createLICMPass());                  // Hoist loop invariants
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
   MPM.add(createInstructionCombiningPass());
@@ -294,6 +305,12 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
+#ifdef INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensPass()); // Andersen's IP alias analysis
+  }
+#endif
+
   MPM.add(createLICMPass());
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);

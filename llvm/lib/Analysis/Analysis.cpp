@@ -25,6 +25,7 @@ void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeAAEvalPass(Registry);
   initializeAliasDebuggerPass(Registry);
   initializeAliasSetPrinterPass(Registry);
+  initializeAndersensPass(Registry); // INTEL
   initializeNoAAPass(Registry);
   initializeBasicAliasAnalysisPass(Registry);
   initializeBlockFrequencyInfoWrapperPassPass(Registry);

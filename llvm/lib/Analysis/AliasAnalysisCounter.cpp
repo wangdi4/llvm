@@ -110,7 +110,8 @@ namespace {
                       const MemoryLocation &LocB) override;
 
     ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                             const MemoryLocation &Loc) override;
+                             const MemoryLocation &Loc,        // INTEL
+                             AliasAnalysis *AAChain) override; // INTEL
     ModRefInfo getModRefInfo(ImmutableCallSite CS1,
                              ImmutableCallSite CS2) override {
       return AliasAnalysis::getModRefInfo(CS1,CS2);
@@ -152,8 +153,10 @@ AliasResult AliasAnalysisCounter::alias(const MemoryLocation &LocA,
 }
 
 ModRefInfo AliasAnalysisCounter::getModRefInfo(ImmutableCallSite CS,
-                                               const MemoryLocation &Loc) {
-  ModRefInfo R = getAnalysis<AliasAnalysis>().getModRefInfo(CS, Loc);
+                                          const MemoryLocation &Loc, // INTEL
+                                          AliasAnalysis *AAChain) {  // INTEL
+  ModRefInfo R = getAnalysis<AliasAnalysis>().getModRefInfo( // INTEL
+      CS, Loc, AAChain); // INTEL
 
   const char *MRString = nullptr;
   switch (R) {

@@ -104,9 +104,10 @@ namespace {
     }
 
     ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                             const MemoryLocation &Loc) override {
+                             const MemoryLocation &Loc,         // INTEL
+                             AliasAnalysis *AAChain) override { // INTEL
       assert(Vals.find(Loc.Ptr) != Vals.end() && "Never seen value in AA before");
-      return AliasAnalysis::getModRefInfo(CS, Loc);
+      return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
     }
 
     ModRefInfo getModRefInfo(ImmutableCallSite CS1,

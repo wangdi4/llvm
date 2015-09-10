@@ -606,7 +606,8 @@ bool BasicAliasAnalysis::doInitialization(Module &M) {
 /// say much about this query.  We do, however, use simple "address taken"
 /// analysis on local objects.
 ModRefInfo BasicAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
-                                             const MemoryLocation &Loc) {
+                                         const MemoryLocation &Loc, // INTEL
+                                         AliasAnalysis *AAChain) {  // INTEL
   assert(notDifferentParent(CS.getInstruction(), Loc.Ptr) &&
          "AliasAnalysis query involving multiple functions!");
 
@@ -642,7 +643,8 @@ ModRefInfo BasicAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
       // is impossible to alias the pointer we're checking.  If not, we have to
       // assume that the call could touch the pointer, even though it doesn't
       // escape.
-      if (!isNoAlias(MemoryLocation(*CI), MemoryLocation(Object))) {
+      AliasAnalysis *CurAA = AAChain ? AAChain : this; // INTEL
+      if (!CurAA->isNoAlias(MemoryLocation(*CI), MemoryLocation(Object))) { // INTEL
         PassedAsArg = true;
         break;
       }
@@ -659,7 +661,7 @@ ModRefInfo BasicAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
     return MRI_NoModRef;
 
   // The AliasAnalysis base class has some smarts, lets use them.
-  return AliasAnalysis::getModRefInfo(CS, Loc);
+  return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 }
 
 ModRefInfo BasicAliasAnalysis::getModRefInfo(ImmutableCallSite CS1,
