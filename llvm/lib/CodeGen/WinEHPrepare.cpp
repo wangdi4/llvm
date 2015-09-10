@@ -405,8 +405,19 @@ bool WinEHPrepare::runOnFunction(Function &Fn) {
     return prepareExplicitEH(Fn);
 
   // No need to prepare functions that lack landing pads.
+#if !INTEL_CUSTOMIZATION
   if (LPads.empty())
     return false;
+#else // INTEL_CUSTOMIZATION
+  if (LPads.empty()) {
+    // If the function had an MSVC personality, but it did not contain any
+    // landing pads or the landing pads were removed as being unreachable
+    // change the personality to something neutral.
+    assert(Resumes.empty());
+    Fn.setPersonalityFn(nullptr);
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
