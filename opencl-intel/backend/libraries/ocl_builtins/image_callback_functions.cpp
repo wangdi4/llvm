@@ -65,8 +65,12 @@ ALIGN16 const constant uint4 i4uint16Max = {USHRT_MAX, USHRT_MAX, USHRT_MAX, USH
 ALIGN16 const constant float4 BorderColorAlphaFloat = {0.0f, 0.0f, 0.0f, 1.0f};
 ALIGN16 const constant int4 BorderColorAlphaInt = {0, 0, 0, 1};
 
-// Clamp Border color used for CL_DEPTH
-ALIGN16 const constant float4 BorderColorDepthFloat = {1.0f, 1.0f, 1.0f, 1.0f};
+// Clamp Border color used for CL_DEPTH.
+// As conformance 2.0 tests evolve over time the value on the border
+// may change. The last time expected value on the border was changed from
+// (float4) 1.0 to (float4) 0.0. History shows that this value set incorrectly
+// was a root cause for conformance depth image validation failures several times.
+ALIGN16 const constant float4 BorderColorDepthFloat = {0.0f, 0.0f, 0.0f, 0.0f};
 
 ALIGN16 const constant uint4 BorderColorAlphaUint = {0, 0, 0, 1};
 ALIGN16 const constant float f4SignMask[] = {-0.f, -0.f, -0.f, -0.f};
