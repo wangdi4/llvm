@@ -17,7 +17,7 @@
 #define LLVM_ANAYSIS_VPO_WREGIONUTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 
 namespace llvm  { 
@@ -104,6 +104,109 @@ public:
   static void setLoopInfo(WRNVecLoopNode *WRNLoop, LoopInfo *LI);
 
 };
+
+
+/// \brief This class is used to visit WRegionNode or WRContainerTy
+/// recursively.
+///
+/// The forward/backward traversal works even if the current iterator is
+/// invalidated (removed/replaced) as the next/prev iterator is saved so it
+/// should work for most transformations. Specialized traversals might be needed
+/// otherwise.
+///
+/// Visitor (template class WV) needs to implement:
+///
+/// 1) void preVisit() function for action done to each WRegionNode 
+///    before visiting its children.
+/// 2) void postVisit() functions for action done to each WRegionNode 
+///    after visiting its children.
+/// 3) bool quitVisit() for early termination of the traversal.
+///
+/// Sample visitor class:
+///
+/// struct Visitor {
+///   void preVisit(WRegionNode* W)  { errs() << "preVisit node " 
+///                                           << W->getNumber() << "\n"; }
+///   void postVisit(WRegionNode* W) { errs() << "postVisit node " 
+///                                           << W->getNumber() << "\n"; }
+///   bool quitVisit(WRegionNode* W) { return false; }
+/// };
+///
+template <typename WV> class WRNVisitor {
+private:
+  WV &Visitor;
+
+public:
+  WRNVisitor(WV &V) : Visitor(V) {}
+
+  /// \brief Visits WRegionNode recursively.
+  /// Returns true to indicate that early termination has occurred.
+  /// Forward==true:  call forwardVisit()  to recurse into children.
+  /// Forward==false: call backwardVisit() to recurse into children.
+  bool visit(WRegionNode *W, bool Forward);
+
+  /// \brief Visits WRegionNodes in the WRContainerTy in the forward direction.
+  /// Returns true to indicate that early termination has occurred.
+  bool forwardVisit(WRContainerTy *C);
+
+  /// \brief Visits WRegionNodes in the WRContainerTy in the backward direction.
+  /// Returns true to indicate that early termination has occurred.
+  bool backwardVisit(WRContainerTy *C);
+};
+
+template <typename WV>
+bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
+  for (auto I = C->begin(), Next = I, E = C->end(); I != E; I = Next) {
+    ++Next;
+    if (visit(I, true))
+      return true;
+  }
+  return false;
+}
+
+template <typename WV>
+bool WRNVisitor<WV>::backwardVisit(WRContainerTy *C) {
+  for (auto RI = C->rbegin(), RNext = RI, RE=C->rend(); RI != RE; RI = RNext) {
+    ++RNext;
+    if (visit(&(*RI), false)) 
+      return true;
+  }
+  return false;
+}
+
+template <typename WV>
+bool WRNVisitor<WV>::visit(WRegionNode *W, bool Forward) {
+
+  // Execute user-defined action on W before visiting W's children
+  Visitor.preVisit(W);
+
+  if (Visitor.quitVisit(W)) 
+    return true;  // early exit
+
+  if (W->hasChildren()) {
+    bool Ret;
+    if (Forward) {
+      Ret = forwardVisit(&(W->getChildren()));
+    }
+    else {
+      Ret = backwardVisit(&(W->getChildren()));
+    }
+    if (Ret)
+      return true;
+  }
+
+  // Execute user-defined action on W after visiting W's children
+  Visitor.postVisit(W);
+
+  /*
+  if (Visitor.quitVisit(W)) 
+    return true;  // early exit
+  */
+
+  return false;
+}
+
+
 
 } // End VPO Namespace
 

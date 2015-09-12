@@ -40,10 +40,11 @@ public:
   typedef SmallPtrSet<const BasicBlock *, 32> VecCandBBlockSetTy;
   typedef VecCandBBlockSetTy::const_iterator const_bb_iterator;
 
-protected:
-
+  // This constructor moved to public to make it accessible from VecNodeVisitor
   /// LLVM IR Constructor
   VectorCandidate(WRNVecLoopNode *WRN);
+
+protected:
 
   /// HIR Constructor
   VectorCandidate(HLNode* HLN);

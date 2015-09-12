@@ -29,6 +29,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VPO/Vecopt/CandidateIdent/VPOVecCandIdentify.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/VPO/Vecopt/Passes.h"
 
@@ -83,18 +84,31 @@ void IdentifyVectorCandidates::identifyVectorCandidates()
   }
 }
 
-void IdentifyVectorCandidates::identifyExplicitCandidates()
-{
-  //DEBUG(dbgs() << "\nENG: Idenitfy Vector Candidates\n");
-  // Walk the the top-level WRN graph nodes.
-  // Replace with WRN vistor once its implemented
-  for (auto I = WR->begin(), E = WR->end(); I != E;  ++I) {
- 
-    if (WRNVecLoopNode *WRN = dyn_cast<WRNVecLoopNode>(I)) {
+//
+// Use with the WRNVisitor class (in WRegionUtils.h) to walk the WRGraph
+// (DFS) and put WRNVecLoopNodes in VecCandidates.
+// TODO: Vec owner should review this and modify as needed
+// 
+class VecNodeVisitor {
+public:
+  IdentifyVectorCandidates::VecCandidatesTy &VecCandidates;
+  VecNodeVisitor(IdentifyVectorCandidates::VecCandidatesTy &VC) : VecCandidates(VC) {}
+  void preVisit(WRegionNode* W)  {} 
+  void postVisit(WRegionNode* W) { 
+    if (WRNVecLoopNode *WRN = dyn_cast<WRNVecLoopNode>(W)) {
       VectorCandidate *VC = new VectorCandidate(WRN);
       VecCandidates.push_back(VC);
     }
   }
+  bool quitVisit(WRegionNode* W) { return false; }
+};
+
+void IdentifyVectorCandidates::identifyExplicitCandidates()
+{
+  //DEBUG(dbgs() << "\nENG: Idenitfy Vector Candidates\n");
+  VecNodeVisitor Visitor(VecCandidates);
+  WRNVisitor<VecNodeVisitor> VecCandidateVisitor(Visitor);
+  VecCandidateVisitor.forwardVisit(WR->getWRGraph());
 }
 
 void IdentifyVectorCandidates::releaseMemory() {
