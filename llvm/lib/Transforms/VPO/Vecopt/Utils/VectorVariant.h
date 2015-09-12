@@ -1,3 +1,6 @@
+#ifndef __VECTOR_VARIANT__
+#define __VECTOR_VARIANT__
+
 #include <vector>
 #include <sstream>
 #include <cctype>
@@ -237,3 +240,5 @@ private:
 };
 
 }
+
+#endif // __VECTOR_VARIANT__

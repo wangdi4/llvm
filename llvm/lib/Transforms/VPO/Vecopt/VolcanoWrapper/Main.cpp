@@ -657,7 +657,7 @@ private:
       assert(StoredValue->getType() == Loaded->getType() &&
              "stored value not of the same type as loaded value");
       Loaded->replaceAllUsesWith(StoredValue);
-      Store->removeFromParent();
+      Store->eraseFromParent();
       return true;
     }
     // This isn't a store, but one of its users may be (we follow only certain
@@ -952,7 +952,7 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   fpm.add(resolver);
   fpm.add(new CollapseOuterLoop());
   fpm.add(createLoopUnrollPass());
-  //  fpm.add(new RemoveTempScalarizingAllocas());
+  fpm.add(new RemoveTempScalarizingAllocas());
   fpm.add(new ScatterGatherScalarizer()); // TODO: remove when CG can scalarize
 
   // Final cleaning up
