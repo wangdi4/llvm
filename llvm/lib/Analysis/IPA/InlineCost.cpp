@@ -1167,8 +1167,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically.
-  bool OnlyOneCallAndLocalLinkage = F.hasLocalLinkage() && F.hasOneUse() &&
-    &F == CS.getCalledFunction();
+  // INTEL CQ370998: Added link once ODR linkage case. 
+  bool OnlyOneCallAndLocalLinkage = (F.hasLocalLinkage() ||         // INTEL 
+                                     F.hasLinkOnceODRLinkage()) &&  // INTEL
+                                     F.hasOneUse() &&               // INTEL 
+                                     &F == CS.getCalledFunction();  // INTEL 
   if (OnlyOneCallAndLocalLinkage) { // INTEL 
     Cost += InlineConstants::LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall); // INTEL 
