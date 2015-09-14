@@ -144,6 +144,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clCompileProgram = (KHRpfn_clCompileProgram)GET_ALIAS(clCompileProgram);
     ICDDispatchTable.clLinkProgram = (KHRpfn_clLinkProgram)GET_ALIAS(clLinkProgram);
     ICDDispatchTable.clUnloadCompiler = (KHRpfn_clUnloadCompiler)GET_ALIAS(clUnloadCompiler);
+    ICDDispatchTable.clUnloadPlatformCompiler = (KHRpfn_clUnloadPlatformCompiler)GET_ALIAS(clUnloadPlatformCompiler);
     ICDDispatchTable.clGetProgramInfo = (KHRpfn_clGetProgramInfo)GET_ALIAS(clGetProgramInfo);
     ICDDispatchTable.clGetProgramBuildInfo = (KHRpfn_clGetProgramBuildInfo)GET_ALIAS(clGetProgramBuildInfo);
     ICDDispatchTable.clCreateKernel = (KHRpfn_clCreateKernel)GET_ALIAS(clCreateKernel);

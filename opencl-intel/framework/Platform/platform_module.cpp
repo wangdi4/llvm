@@ -253,6 +253,21 @@ cl_err_code PlatformModule::GetPlatformIDs(cl_uint uiNumEntries,
     return CL_SUCCESS;
 }
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// PlatformModule::UnloadPlatformCompiler
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code PlatformModule::UnloadPlatformCompiler(cl_platform_id platform)
+{
+    LOG_INFO(TEXT("Enter UnloadPlatformCompiler. platform=%d"), platform);
+
+    if ( false == CheckPlatformId(platform) )
+    {
+        LOG_ERROR(TEXT("%s"), TEXT("false == CheckPlatformId(platform)"));
+        return CL_INVALID_PLATFORM;
+    }
+
+    return CL_SUCCESS;
+}
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // PlatformModule::GetPlatformInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
