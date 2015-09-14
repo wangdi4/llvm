@@ -2862,6 +2862,13 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
   // be converted to an rvalue of type "pointer to char"; a wide
   // string literal can be converted to an rvalue of type "pointer
   // to wchar_t" (C++ 4.2p2).
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
+  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
+    while (auto *CondOp =
+            dyn_cast<AbstractConditionalOperator>(From->IgnoreParens()))
+      From = CondOp->getTrueExpr()->IgnoreParenImpCasts();
+#endif // INTEL_CUSTOMIZATION
   if (StringLiteral *StrLit = dyn_cast<StringLiteral>(From->IgnoreParens()))
     if (const PointerType *ToPtrType = ToType->getAs<PointerType>())
       if (const BuiltinType *ToPointeeType
