@@ -60,6 +60,7 @@ DECLARE_ALIAS(clBuildProgram);
 DECLARE_ALIAS(clCompileProgram);
 DECLARE_ALIAS(clLinkProgram);
 DECLARE_ALIAS(clUnloadCompiler);
+DECLARE_ALIAS(clUnloadPlatformCompiler);
 DECLARE_ALIAS(clGetProgramInfo);
 DECLARE_ALIAS(clGetProgramBuildInfo);
 DECLARE_ALIAS(clCreateKernel);
