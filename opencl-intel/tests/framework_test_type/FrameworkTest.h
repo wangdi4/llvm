@@ -152,4 +152,5 @@ bool clCheckVectorizingDim1And2AndUniteWG(int progIndex, bool hasLocalWGSize);
 bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, bool hasLocalWGSize);
 void clBuildOptionsTest();
 void clShutdownSVMTest();
+bool UnloadPlatformCompiler();
 //#define CUDA_DEVICE
