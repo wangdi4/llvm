@@ -31,7 +31,6 @@ namespace llvm {
   //
   Pass *createGlobalsModRefPass();
 
-  //===--------------------------------------------------------------------===//
   //
   // createAliasDebugger - This pass helps debug clients of AA
   //
@@ -43,6 +42,13 @@ namespace llvm {
   // alias analysis implementation responds.
   //
   ModulePass *createAliasAnalysisCounterPass();
+
+  //===--------------------------------------------------------------------===//
+  // INTEL
+  // INTEL createAndersensPass - This pass implements Andersen's
+  // INTEL interprocedural alias analysis.
+  // INTEL
+  ModulePass *createAndersensPass();                             // INTEL
 
   //===--------------------------------------------------------------------===//
   //

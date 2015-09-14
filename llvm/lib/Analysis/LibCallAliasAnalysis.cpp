@@ -122,7 +122,8 @@ LibCallAliasAnalysis::AnalyzeLibCallDetails(const LibCallFunctionInfo *FI,
 // specified memory object.
 //
 ModRefInfo LibCallAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
-                                               const MemoryLocation &Loc) {
+                                       const MemoryLocation &Loc, // INTEL
+                                       AliasAnalysis *AAChain) {  // INTEL
   ModRefInfo MRInfo = MRI_ModRef;
 
   // If this is a direct call to a function that LCI knows about, get the
@@ -138,5 +139,5 @@ ModRefInfo LibCallAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
   }
   
   // The AliasAnalysis base class has some smarts, lets use them.
-  return (ModRefInfo)(MRInfo | AliasAnalysis::getModRefInfo(CS, Loc));
+  return (ModRefInfo)(MRInfo | AliasAnalysis::getModRefInfo(CS, Loc, AAChain)); // INTEL
 }

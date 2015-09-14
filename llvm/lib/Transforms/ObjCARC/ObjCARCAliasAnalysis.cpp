@@ -134,9 +134,10 @@ ObjCARCAliasAnalysis::getModRefBehavior(const Function *F) {
 }
 
 ModRefInfo ObjCARCAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
-                                               const MemoryLocation &Loc) {
+                                      const MemoryLocation &Loc, // INTEL
+                                      AliasAnalysis *AAChain) {  // INTEL
   if (!EnableARCOpts)
-    return AliasAnalysis::getModRefInfo(CS, Loc);
+    return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 
   switch (GetBasicARCInstKind(CS.getInstruction())) {
   case ARCInstKind::Retain:
@@ -155,7 +156,7 @@ ModRefInfo ObjCARCAliasAnalysis::getModRefInfo(ImmutableCallSite CS,
     break;
   }
 
-  return AliasAnalysis::getModRefInfo(CS, Loc);
+  return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 }
 
 ModRefInfo ObjCARCAliasAnalysis::getModRefInfo(ImmutableCallSite CS1,

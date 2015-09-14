@@ -85,7 +85,8 @@ ModRefInfo AliasAnalysis::getModRefInfo(Instruction *I,
 }
 
 ModRefInfo AliasAnalysis::getModRefInfo(ImmutableCallSite CS,
-                                        const MemoryLocation &Loc) {
+                                        const MemoryLocation &Loc, // INTEL
+                                        AliasAnalysis *AAChain) {  // INTEL
   assert(AA && "AA didn't call InitializeAliasAnalysis in its run method!");
 
   auto MRB = getModRefBehavior(CS);
@@ -108,7 +109,8 @@ ModRefInfo AliasAnalysis::getModRefInfo(ImmutableCallSite CS,
         unsigned ArgIdx = std::distance(CS.arg_begin(), AI);
         MemoryLocation ArgLoc =
             MemoryLocation::getForArgument(CS, ArgIdx, *TLI);
-        if (!isNoAlias(ArgLoc, Loc)) {
+        AliasAnalysis *CurAA = AAChain ? AAChain : this; // INTEL
+        if (!CurAA->isNoAlias(ArgLoc, Loc)) {            // INTEL
           ModRefInfo ArgMask = getArgModRefInfo(CS, ArgIdx);
           doesAlias = true;
           AllArgsMask = ModRefInfo(AllArgsMask | ArgMask);
@@ -130,7 +132,7 @@ ModRefInfo AliasAnalysis::getModRefInfo(ImmutableCallSite CS,
 
   // Otherwise, fall back to the next AA in the chain. But we can merge
   // in any mask we've managed to compute.
-  return ModRefInfo(AA->getModRefInfo(CS, Loc) & Mask);
+  return ModRefInfo(AA->getModRefInfo(CS, Loc, AAChain) & Mask); // INTEL
 }
 
 ModRefInfo AliasAnalysis::getModRefInfo(ImmutableCallSite CS1,
