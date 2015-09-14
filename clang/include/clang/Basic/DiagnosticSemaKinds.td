@@ -2072,6 +2072,16 @@ def err_aligned_attribute_argument_not_int : Error<
   "'aligned' attribute requires integer constant">;
 def err_align_value_attribute_argument_not_int : Error<
   "'align_value' attribute requires integer constant">;
+//if INTEL_CUSTOMIZATION
+// CQ#375011
+def err_alloc_size_attribute_argument_not_int : Error<
+  "'alloc_size' attribute requires integer constant">;
+def warn_attribute_requires_integer_param_type : Warning<
+  "%0 attribute requires an integer function parameter">,
+  InGroup<IgnoredAttributes>;
+def note_param_index_specified_here : Note<
+  "parameter's index specified here">;
+//endif INTEL_CUSTOMIZATION
 def err_alignas_attribute_wrong_decl_type : Error<
   "%0 attribute cannot be applied to a %select{function parameter|"
   "variable with 'register' storage class|'catch' variable|bit-field}1">;
