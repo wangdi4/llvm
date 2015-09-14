@@ -551,6 +551,9 @@ private:
   Instruction *MatchBSwap(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
+#if INTEL_CUSTOMIZATION
+  void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+#endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);
