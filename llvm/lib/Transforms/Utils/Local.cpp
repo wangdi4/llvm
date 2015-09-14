@@ -1253,10 +1253,44 @@ static bool markAliveBlocks(Function &F,
   return Changed;
 }
 
+#if INTEL_CUSTOMIZATION
+// Remove a BasicBlock from the DominatorTree.  If the block has children
+// in the tree they are also by definition unreachable so remove them too.
+// If the block isn't found in the tree, it is likely because we have already
+// removed its parent node.
+//
+// The Reachable parameter is only used for debug purposes.  This helper
+// routine is called from removeUnreachableBlocks, which has populated
+// the Reachable set with all the blocks which are reachable from the
+// entry point of the function being pruned.  If the dominator tree has
+// been properly maintained, all of the children of an unreachable node
+// will also be unreachable, but the dominator tree is not directly linked
+// to the IR, so it can be out of date.  Removing reachable nodes from the
+// dominator tree can lead to bugs whose root cause is not immediately
+// obvious, but checking for that condition here will provide an early
+// warning of incorrect data structures.
+static void
+removeUnreachableNode(DominatorTree *DT, BasicBlock *BB,
+                      const SmallPtrSetImpl<BasicBlock*>& Reachable) {
+  auto *Node = DT->getNode(BB);
+  if (!Node)
+    return;
+  assert(!Reachable.count(BB));
+  while (Node->getNumChildren())
+    removeUnreachableNode(DT, Node->getChildren().back()->getBlock(),
+                          Reachable);
+  DT->eraseNode(BB);
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// removeUnreachableBlocksFromFn - Remove blocks that are not reachable, even
 /// if they are in a dead cycle.  Return true if a change was made, false
 /// otherwise.
+#if INTEL_CUSTOMIZATION
+bool llvm::removeUnreachableBlocks(Function &F, DominatorTree *DT) {
+#else
 bool llvm::removeUnreachableBlocks(Function &F) {
+#endif // INTEL_CUSTOMIZATION
   SmallPtrSet<BasicBlock*, 128> Reachable;
   bool Changed = markAliveBlocks(F, Reachable);
 
@@ -1277,6 +1311,10 @@ bool llvm::removeUnreachableBlocks(Function &F) {
       if (Reachable.count(*SI))
         (*SI)->removePredecessor(BB);
     BB->dropAllReferences();
+#if INTEL_CUSTOMIZATION
+    if (DT)
+      removeUnreachableNode(DT, BB, Reachable);
+#endif // INTEL_CUSTOMIZATION
   }
 
   for (Function::iterator I = ++F.begin(); I != F.end();)
