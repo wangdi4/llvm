@@ -15,6 +15,7 @@
 
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "WRegionUtils"
 
@@ -32,10 +33,10 @@ WRegionNode *WRegionUtils::createWRegion(
 {
   WRegionNode *W = nullptr;
 
-  if (DirString == "dir.parallel") {
+  if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_PARALLEL)) {
     W = new WRNParallelNode();
   }
-  else if (DirString == "dir.simd") {
+  else if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_SIMD)) {
     W = new WRNVecLoopNode();
   }
   // TODO: complete the list for all WRegionNodeKinds
@@ -51,9 +52,8 @@ bool WRegionUtils::isEndDirective(
   StringRef DirString
 )
 {
-  if ((DirString == "dir.end.parallel") ||
-      (DirString == "dir.simd.end") ||     // This should be removed after fix in SIMDCloning 
-      (DirString == "dir.end.simd")) {
+  if ((DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_PARALLEL)) ||
+      (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_SIMD))) {
     // TODO: complete the list for all WRegionNodeKinds
     return true;
   }

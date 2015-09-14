@@ -986,7 +986,10 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
                                             BasicBlock *EntryBlock)
 {
   // Insert directive indicating the beginning of a SIMD loop.
-  CallInst *SIMDBeginCall = VPOUtils::createDirectiveCall(M, "dir.simd");
+  CallInst *SIMDBeginCall =
+      VPOUtils::createDirectiveCall(
+          M, VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_SIMD));
+
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
 
   // Now, split into its own basic block and insert the remaining intrinsics
@@ -998,31 +1001,51 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
   Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
                                   V.getVlen());
   CallInst *VlenCall =
-      VPOUtils::createDirectiveQualOpndCall(M, "dir.qual.simd.vlen", VL);
+      VPOUtils::createDirectiveQualOpndCall(
+          M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_SIMDLEN), VL);
   VlenCall->insertAfter(SIMDBeginCall);
 
-  // Add directive for linear parameters
-  SmallVector<Value*, 4> VarCallArgs;
+  // Add directives for linear and vector parameters. Otherwise, the parameter
+  // is uniform by default. Vector parameters can be marked as private.
+  SmallVector<Value*, 4> LinearVars;
+  SmallVector<Value*, 4> PrivateVars;
   Function::ArgumentListType &ArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
   Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
   std::vector<VectorKind> ParmKinds = V.getParameters();
 
   for (; ArgListIt != ArgListEnd; ++ArgListIt) {
+
     unsigned ParmIdx = ArgListIt->getArgNo();
+
     if (ParmKinds[ParmIdx].isLinear()) {
-      VarCallArgs.push_back(ArgListIt); 
+      LinearVars.push_back(ArgListIt); 
+    }
+
+    if (ParmKinds[ParmIdx].isVector()) {
+      PrivateVars.push_back(ArgListIt); 
     }
   }
 
-  if (VarCallArgs.size() > 0) {
+  if (LinearVars.size() > 0) {
     CallInst *LinearCall =
-        VPOUtils::createDirectiveQualOpndListCall(M, "dir.qual.simd.linear",
-                                                  VarCallArgs);
+        VPOUtils::createDirectiveQualOpndListCall(
+            M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_LINEAR),
+                                         LinearVars);
     LinearCall->insertAfter(VlenCall);
   }
 
-  CallInst *QualEndCall = VPOUtils::createDirectiveQualCall(M, "dir.qual.end");
+  if (PrivateVars.size() > 0) {
+    CallInst *PrivateCall =
+        VPOUtils::createDirectiveQualOpndListCall(
+            M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_PRIVATE),
+                                         PrivateVars);
+    PrivateCall->insertAfter(VlenCall);
+  }
+
+  CallInst *QualEndCall =
+      VPOUtils::createDirectiveQualCall(
+          M, VPOUtils::getClauseString(VPOUtils::QUAL_LIST_END));
   QualEndCall->insertBefore(BeginRegionBlock->getTerminator());
 }
 
@@ -1041,7 +1064,9 @@ void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
 
   BranchInst::Create(ReturnBlock, EndDirectiveBlock);
 
-  CallInst *SIMDEndCall = VPOUtils::createDirectiveCall(M, "dir.simd.end");
+  CallInst *SIMDEndCall =
+      VPOUtils::createDirectiveCall(
+          M, VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_SIMD));
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
