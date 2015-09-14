@@ -2876,9 +2876,23 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
               // We don't allow UTF literals to be implicitly converted
               break;
             case StringLiteral::Ascii:
+#ifdef INTEL_CUSTOMIZATION
+              // Fix for CQ375353: Allow casting of const char[] to void* in
+              // intel ms compat mode.
+              if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
+                  ToPointeeType->getKind() == BuiltinType::Void)
+                return true;
+#endif // INTEL_CUSTOMIZATION
               return (ToPointeeType->getKind() == BuiltinType::Char_U ||
                       ToPointeeType->getKind() == BuiltinType::Char_S);
             case StringLiteral::Wide:
+#ifdef INTEL_CUSTOMIZATION
+              // Fix for CQ375353: Allow casting of const char[] to void* in
+              // intel ms compat mode.
+              if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
+                  ToPointeeType->getKind() == BuiltinType::Void)
+                return true;
+#endif // INTEL_CUSTOMIZATION
               return ToPointeeType->isWideCharType();
           }
         }
