@@ -15,7 +15,7 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
-#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -160,31 +160,23 @@ bool RegDDRef::isLval() const {
 
   assert(HNode && "DDRef is not attached to any node!");
 
-  if (auto HInst = dyn_cast<HLInst>(HNode)) {
-    return (HInst->getLvalDDRef() == this);
-  }
-
-  return false;
+  return HNode->isLval(this);
 }
 
-bool RegDDRef::isRval() const { return !isLval(); }
+bool RegDDRef::isRval() const { 
+  auto HNode = getHLDDNode();
+
+  assert(HNode && "DDRef is not attached to any node!");
+
+  return HNode->isRval(this);
+}
 
 bool RegDDRef::isFake() const {
   auto HNode = getHLDDNode();
 
   assert(HNode && "DDRef is not attached to any node!");
 
-  if (auto HInst = dyn_cast<HLInst>(HNode)) {
-    for (auto I = HInst->fake_ddref_begin(), E = HInst->fake_ddref_end();
-         I != E; I++) {
-
-      if ((*I) == this) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  return HNode->isFake(this);
 }
 
 bool RegDDRef::isScalarRef() const {

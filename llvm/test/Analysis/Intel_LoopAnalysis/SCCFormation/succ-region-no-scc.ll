@@ -1,10 +1,10 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-regions | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-region-identification | FileCheck %s
 
 ; Check formation of two regions
 ; CHECK: Region 1
 ; CHECK: Region 2
 
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-sccs | FileCheck --check-prefix=SCC %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck --check-prefix=SCC %s
 
 ; Check formation of two SCCs in the first region and nothing in the second
 ; SCC: Region 1

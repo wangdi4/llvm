@@ -29,15 +29,16 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-sccs"
+#define DEBUG_TYPE "hir-scc-formation"
 
-INITIALIZE_PASS_BEGIN(SCCFormation, "hir-sccs", "HIR SCC Formation", false,
-                      true)
+INITIALIZE_PASS_BEGIN(SCCFormation, "hir-scc-formation", "HIR SCC Formation",
+                      false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
-INITIALIZE_PASS_END(SCCFormation, "hir-sccs", "HIR SCC Formation", false, true)
+INITIALIZE_PASS_END(SCCFormation, "hir-scc-formation", "HIR SCC Formation",
+                    false, true)
 
 char SCCFormation::ID = 0;
 

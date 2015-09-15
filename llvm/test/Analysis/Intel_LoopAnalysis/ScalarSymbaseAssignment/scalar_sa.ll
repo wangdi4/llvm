@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-scalar-sa | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-scalar-symbase-assignment | FileCheck %s
 
 ; Check region liveins/liveouts
 ; CHECK: Region 1

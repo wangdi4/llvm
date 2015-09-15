@@ -100,6 +100,15 @@ public:
 
   /// \brief Verifies DDRefs attached to the node.
   virtual void verify() const override;
+
+  /// \brief Returns true if Ref is the lval DDRef of this node.
+  bool isLval(const RegDDRef *Ref) const;
+
+  /// \brief Returns true if Ref is a rval DDRef of this node.
+  bool isRval(const RegDDRef *Ref) const;
+
+  /// \brief Returns true if Ref is a fake DDRef attached to this node.
+  bool isFake(const RegDDRef *Ref) const;
 };
 
 } // End namespace loopopt

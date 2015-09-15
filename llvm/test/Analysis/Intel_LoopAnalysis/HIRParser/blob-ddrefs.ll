@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; Check parsing output for the temp blobs
 ; CHECK: DO i64 i1 = 0, %n + -1

@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the load of %A is parsed correctly as a 2 dimentional array.
 ; CHECK: DO i1 = 0, 63, 1

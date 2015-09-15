@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -S | FileCheck %s
 
 ; Check that an unnamed value's (%0 here) copy is provided an appropriate name.
 ; CHECK: %0

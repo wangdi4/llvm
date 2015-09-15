@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; Check that the upper for i2 loop is parsed as linear defined at level 1.
 ; CHECK: DO i64 i2 = 0, %0 + -1

@@ -20,7 +20,6 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 #include <stdint.h>
 #include <utility>

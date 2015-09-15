@@ -763,10 +763,6 @@ public:
   /// \brief Returns true if Parent contains Node.
   static bool contains(const HLNode *Parent, const HLNode *Node);
 
-  /// \brief Check if 1st HLNode contains 2nd HLNode
-  static bool HLParentContainsHIRNode(const HLNode *HLParent,
-                                      const HLNode *HIRnode);
-
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned Level,

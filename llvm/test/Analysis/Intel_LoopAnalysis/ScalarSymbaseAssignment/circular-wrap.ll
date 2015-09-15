@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-scalar-sa | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-scalar-symbase-assignment | FileCheck %s
 
 ; ; Check region liveins
 ; CHECK: LiveIns:

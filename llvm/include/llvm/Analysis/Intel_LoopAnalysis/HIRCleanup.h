@@ -34,7 +34,7 @@ class HLLabel;
 
 class HIRCleanup : public FunctionPass {
 public:
-  typedef SmallPtrSet<HLLabel *, 64> RequiredLabelsTy;
+  typedef SmallVector<HLLabel *, 64> RequiredLabelsTy;
 
 private:
   /// HIR - pointer to HIRCreation pass.

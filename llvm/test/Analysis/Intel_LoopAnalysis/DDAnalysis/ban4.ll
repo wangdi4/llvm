@@ -2,7 +2,7 @@
 ;    for (long int j = 0; j < 20; j++) 
 ;      A[30*i + 500*j] =  A[i - 500*j + 11];
 
-; RUN:  opt < %s  -loop-simplify  -hir-de-ssa | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
 
 ; CHECK: 'Data Dependence Analysis' for function 'sub8'
 ; CHECK-DAG: (@A)[0][i1 + -500 * i2 + 11] FLOW (<= =)

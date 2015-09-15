@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa -HIRCG -force-HIRCG -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
 
 ; Verify that the gep for %A is CG'd correctly.
 ; CHECK: region:

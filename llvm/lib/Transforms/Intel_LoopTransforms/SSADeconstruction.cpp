@@ -46,7 +46,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#define DEBUG_TYPE "hir-de-ssa"
+#define DEBUG_TYPE "hir-ssa-deconstruction"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -64,12 +64,12 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    // TODO: Consider using SE->forgetLoop()/SE->forgetValue() rather than
-    // invalidating scalar evolution analysis completely.
+    AU.addRequired<ScalarEvolution>();
     AU.addRequired<RegionIdentification>();
     AU.addRequired<SCCFormation>();
 
     AU.setPreservesCFG();
+    AU.addPreserved<ScalarEvolution>();
 
     // We need to preserve all the analysis computed for HIR.
     AU.addPreserved<RegionIdentification>();
@@ -114,12 +114,13 @@ private:
                           StringRef Name);
 
   /// \brief Deconstructs phi by inserting copies.
-  void deconstructPhi(const PHINode *Phi);
+  void deconstructPhi(PHINode *Phi);
 
   /// \brief Performs SSA deconstruction on the regions.
   void deconstructSSAForRegions();
 
 private:
+  ScalarEvolution *SE;
   RegionIdentification *RI;
   SCCFormation *SCCF;
 
@@ -130,12 +131,12 @@ private:
 }
 
 char SSADeconstruction::ID = 0;
-INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
-                      false, false)
+INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-ssa-deconstruction",
+                      "HIR SSA Deconstruction", false, false)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
-INITIALIZE_PASS_END(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
-                    false, false)
+INITIALIZE_PASS_END(SSADeconstruction, "hir-ssa-deconstruction",
+                    "HIR SSA Deconstruction", false, false)
 
 FunctionPass *llvm::createSSADeconstructionPass() {
   return new SSADeconstruction();
@@ -214,10 +215,13 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   Instruction *CopyInst = nullptr;
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
-       UserIt != EndIt; ++UserIt) {
+       UserIt != EndIt;) {
     assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
-
     auto UserInst = cast<Instruction>(*UserIt);
+
+    Use &Us = UserIt.getUse();
+    // Increment it before it gets invalidated later in the iteration.
+    ++UserIt;
 
     // Handle a SCC phi.
     if (SCCNodes) {
@@ -322,7 +326,10 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
     }
 
     // Replace liveout use by copy.
-    UserIt.getUse().set(CopyInst);
+    Us.set(CopyInst);
+
+    // Invalidate cached SCEV of the user, if any.
+    SE->forgetValue(UserInst);
   }
 }
 
@@ -369,7 +376,7 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
-void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
+void SSADeconstruction::deconstructPhi(PHINode *Phi) {
   SmallString<32> Name;
 
   // Phi is part of SCC
@@ -432,10 +439,10 @@ void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.
-    attachMetadata(const_cast<PHINode *>(Phi), Name.str(), true);
+    attachMetadata(Phi, Name.str(), true);
 
-    processPhiLiveins(const_cast<PHINode *>(Phi), nullptr, Name.str());
-    processPhiLiveouts(const_cast<PHINode *>(Phi), nullptr, Name.str());
+    processPhiLiveins(Phi, nullptr, Name.str());
+    processPhiLiveouts(Phi, nullptr, Name.str());
   }
 }
 
@@ -456,7 +463,7 @@ void SSADeconstruction::deconstructSSAForRegions() {
            ++Inst) {
         if (auto Phi = dyn_cast<PHINode>(Inst)) {
           if (!SCCF->isLinear(Phi)) {
-            deconstructPhi(Phi);
+            deconstructPhi(const_cast<PHINode *>(Phi));
           }
         }
       }
@@ -465,6 +472,7 @@ void SSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool SSADeconstruction::runOnFunction(Function &F) {
+  SE = &getAnalysis<ScalarEvolution>();
   RI = &getAnalysis<RegionIdentification>();
   SCCF = &getAnalysis<SCCFormation>();
 

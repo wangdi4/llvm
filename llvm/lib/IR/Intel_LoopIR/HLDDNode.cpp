@@ -163,3 +163,41 @@ void HLDDNode::verify() const {
 
   HLNode::verify();
 }
+
+bool HLDDNode::isLval(const RegDDRef *Ref) const {
+  assert ((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  const HLInst *HInst = dyn_cast<HLInst>(this);
+
+  if (!HInst) {
+    return false;
+  }
+
+  return (HInst->getLvalDDRef() == Ref);
+}
+
+bool HLDDNode::isRval(const RegDDRef *Ref) const {
+  return !isLval(Ref);
+}
+
+bool HLDDNode::isFake(const RegDDRef *Ref) const {
+  assert ((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  const HLInst *HInst = dyn_cast<HLInst>(this);
+
+  if (!HInst) {
+    return false;
+  }
+
+  for (auto I = HInst->fake_ddref_begin(), E = HInst->fake_ddref_end();
+       I != E; I++) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+

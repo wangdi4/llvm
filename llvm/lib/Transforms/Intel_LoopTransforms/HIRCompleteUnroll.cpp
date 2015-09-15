@@ -323,7 +323,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
   if (Loop->hasPreheader() || Loop->hasPostexit())
     return false;
 
-  assert((Loop->getNumChildren() > 0) && " Loop has no child.");
+  //assert((Loop->getNumChildren() > 0) && " Loop has no child.");
 
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   assert(UBRef && " Loop UpperBound not found.");

@@ -1,4 +1,4 @@
-; RUN:  opt < %s  -loop-simplify  -hir-de-ssa | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 

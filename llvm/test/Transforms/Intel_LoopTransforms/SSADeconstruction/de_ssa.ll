@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -S | FileCheck %s
 
 ; CHECK: a.addr.014
 ; CHECK-NEXT: a.addr.014.out

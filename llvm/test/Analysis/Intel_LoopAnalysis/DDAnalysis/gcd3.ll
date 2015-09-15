@@ -2,7 +2,7 @@
 ;        a[2 *n * i] =   a[2 *n * i+ 1] ; 
 ;    }
 
-; RUN:  opt < %s  -loop-simplify  -hir-de-ssa | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
 ; CHECK: 'Data Dependence Analysis' for function 'sub8'
 ; CHECK:  (@a)[0][2 * %n * i1] OUTPUT (*)
 

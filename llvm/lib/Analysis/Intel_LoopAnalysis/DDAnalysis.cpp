@@ -178,7 +178,8 @@ void DDAnalysis::releaseMemory() {
 void DDAnalysis::verifyAnalysis() const {
   if (HIRVerify) {
     HIRVerifier::verifyAll();
-    DEBUG(dbgs() << "Verification of HIR done" << "\n");
+    DEBUG(dbgs() << "Verification of HIR done"
+                 << "\n");
   }
 }
 

@@ -2,7 +2,7 @@
 ;        a[ - 2*n * i +4 ] = a[  -2 *n * i -5 ] +1; 
 ;   }
 
-; RUN:  opt < %s  -loop-simplify  -hir-de-ssa | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
  
 ; CHECK: 'Data Dependence Analysis' for function 'sub8'
 ; CHECK:  (%a)[-2 * %n * i1 + 4] OUTPUT (*)

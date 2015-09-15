@@ -29,13 +29,13 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-scalar-sa"
+#define DEBUG_TYPE "hir-scalar-symbase-assignment"
 
-INITIALIZE_PASS_BEGIN(ScalarSymbaseAssignment, "hir-scalar-sa",
+INITIALIZE_PASS_BEGIN(ScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                       "HIR Scalar Symbase Assignment", false, true)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
-INITIALIZE_PASS_END(ScalarSymbaseAssignment, "hir-scalar-sa",
+INITIALIZE_PASS_END(ScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                     "HIR Scalar Symbase Assignment", false, true)
 
 char ScalarSymbaseAssignment::ID = 0;

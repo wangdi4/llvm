@@ -2,7 +2,7 @@
 ;    for (long int j = 1; j <= 10; j++) 
 ;      A[10*i + j] = A[10*i + j - 1] ;;
 
-; RUN:  opt < %s  -loop-simplify  -hir-de-ssa | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
+; RUN:  opt < %s  -loop-simplify  -hir-ssa-deconstruction | opt  -dda  -dda-verify=Region  -analyze  | FileCheck %s 
 ; CHECK: 'Data Dependence Analysis' for function 'sub8'
 ; CHECK-DAG:  FLOW (<= <>)
 
