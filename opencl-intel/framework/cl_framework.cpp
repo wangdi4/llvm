@@ -3209,6 +3209,14 @@ SET_ALIAS(clCreateProgramWithIL);
 cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
                                     cl_int* errcode_ret)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        if (errcode_ret != NULL)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCloneKernel);
