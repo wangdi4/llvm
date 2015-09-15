@@ -53,6 +53,7 @@ enum DDVerificationLevel {
   Innermost
 };
 
+// Data Structure for keeping track of symbase to memory references.
 typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
 
 class DDAnalysis : public FunctionPass {
@@ -199,7 +200,7 @@ public:
   }
 
   void print(raw_ostream &OS) const { G->print(OS); }
-  // todo visit all refs in CurNode, prining outgoing edges whose sink is
+  // todo visit all refs in CurNode, printing outgoing edges whose sink is
   // also in curnode
   void dump() const { G->dump(); }
 };

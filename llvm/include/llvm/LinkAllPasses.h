@@ -202,6 +202,7 @@ namespace {
       (void) llvm::createHIRParserPass();
       (void) llvm::createSymbaseAssignmentPass();
       (void) llvm::createDDAnalysisPass();
+      (void) llvm::createHIRLocalityAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
       (void) llvm::createHIRGeneralUnrollPass();

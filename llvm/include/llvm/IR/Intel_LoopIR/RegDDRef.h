@@ -121,6 +121,11 @@ protected:
   /// \brief Returns non-const iterator version of CBlobI.
   blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
+  /// \brief Returns true if the Position is within the dimension range.
+  bool isDimensionValid(unsigned Pos) const {
+    return (Pos > 0 && Pos <= getNumDimensions()) ? true : false;
+  }
+
   /// \brief Implements getBase*Type() functionality.
   Type *getBaseTypeImpl(bool IsSrc) const;
 
@@ -200,6 +205,7 @@ public:
     assert(getNumDimensions() == 1);
     return *(canon_begin());
   }
+
   const CanonExpr *getSingleCanonExpr() const {
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
@@ -346,6 +352,22 @@ public:
 
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);
+
+  /// \brief Returns the stride canon expr of this DDRef at specified
+  /// position. Position must be within [1, getNumDimensions()].
+  CanonExpr *getDimensionStride(unsigned DimensionNum) const {
+    if (isScalarRef())
+      return nullptr;
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
+    return getStrides()[DimensionNum - 1];
+  }
+
+  /// \brief Returns the canon expr (dimension) of this DDRef at specified
+  /// position. DimensionNum must be within [1, getNumDimensions()].
+  CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
+    return CanonExprs[DimensionNum - 1];
+  }
 
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.

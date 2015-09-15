@@ -68,6 +68,7 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -190,10 +191,13 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
+  // Locality Analysis pointer.
+  HIRLocalityAnalysis *LA;
   unsigned CurrentTripThreshold;
   unsigned UnrollFactor;
 
@@ -221,6 +225,7 @@ char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "HIRGeneralUnroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "HIRGeneralUnroll", "HIR General Unroll",
                     false, false)
@@ -233,6 +238,8 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
+
+  LA = &getAnalysis<HIRLocalityAnalysis>();
 
   // Do an early exit if Trip Threshold is less than 1
   // TODO: Check if we want give some feedback to user
@@ -328,6 +335,7 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   // Update the OrigLoop to remainder loop.
   processRemainderLoop(OrigLoop, IsConstLoop, TripCount, NewUB);
 
+  LA->markLoopModified(OrigLoop);
   // TODO: Mark loops as modified for DD
 }
 

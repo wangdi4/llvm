@@ -81,8 +81,7 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
-  unsigned TemporalLocalityWt;
-  unsigned SpatialLocalityWt;
+  // This flag indicates if the loop is innermost or not.
   bool IsInnermost;
   Type *IVType;
 
@@ -250,8 +249,12 @@ public:
 
   /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
-  ///  directly stored so use with caution.
+  /// directly stored so use with caution.
   const CanonExpr *getTripCountCanonExpr() const;
+
+  /// \brief Returns true if this is a constant trip count loop and sets the
+  /// trip count in TripCnt parameter only if the loop is constant trip loop.
+  bool isConstTripLoop(int64_t *TripCnt = nullptr) const;
 
   /// \brief Returns true if this is a do loop.
   bool isDo() const {
@@ -276,16 +279,8 @@ public:
 
   /// \brief Returns the nesting level of the loop.
   unsigned getNestingLevel() const { return NestingLevel; }
-  /// \brief Returns true if this is the innermost loop in the loopnest.
+  /// \brief Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const { return IsInnermost; }
-  /// \brief Returns the temporal locality wt of the loop.
-  unsigned getTemporalLocalityWt() const { return TemporalLocalityWt; }
-  /// \brief Returns the spatial locality wt of the loop.
-  unsigned getSpatialLocalityWt() const { return SpatialLocalityWt; }
-  /// \brief Sets the temporal locality wt of the loop.
-  void setTemporalLocalityWt(unsigned Weight);
-  /// \brief Returns the spatial locality wt of the loop.
-  void setSpatialLocalityWt(unsigned Weight);
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }

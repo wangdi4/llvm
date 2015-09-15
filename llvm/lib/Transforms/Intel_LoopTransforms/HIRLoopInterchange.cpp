@@ -141,7 +141,8 @@ bool HIRLoopInterchange::runOnFunction(Function &F) {
 // This function will be deleted later
 // The exact formula will be returned from some Util
 static unsigned getLoopCost(HLLoop *Loop) {
-  return Loop->getTemporalLocalityWt() + Loop->getSpatialLocalityWt();
+  // LoopAnalysis needs to be called from this pass.
+  return 0;
 }
 
 void HIRLoopInterchange::processLoop(HLLoop *Loop, DDAnalysis *DDA) {

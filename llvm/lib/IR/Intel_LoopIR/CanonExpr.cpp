@@ -252,6 +252,10 @@ void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   }
 }
 
+void CanonExpr::multiplyDenominator(int64_t Val, bool Simplify) {
+  setDenominator(Denominator * Val, Simplify);
+}
+
 bool CanonExpr::isExtImpl(bool IsSigned, bool IsTrunc) const {
   if (SrcTy == DestTy) {
     return false;
@@ -300,6 +304,13 @@ unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
 }
 
 bool CanonExpr::hasIV() const { return numIVImpl(true, false); }
+
+bool CanonExpr::hasIV(unsigned Level) const {
+
+  int64_t Coeff = 0;
+  getIVCoeff(Level, nullptr, &Coeff);
+  return (Coeff ? true : false);
+}
 
 unsigned CanonExpr::numIVs() const { return numIVImpl(false, false); }
 

@@ -281,6 +281,13 @@ public:
   /// \brief Mark this canon expr as non-linear.
   void setNonLinear() { DefinedAtLevel = -1; }
 
+  /// \brief Returns true if the canon expr is linear at level and does not
+  /// have IV at given level.
+  bool isInvariantAtLevel(unsigned Level) const {
+    return (isLinearAtLevel() && (DefinedAtLevel < (int)(Level)) &&
+            !hasIV(Level));
+  }
+
   /// IV iterator methods
   iv_iterator iv_begin() { return IVCoeffs.begin(); }
   const_iv_iterator iv_begin() const { return IVCoeffs.begin(); }
@@ -337,7 +344,12 @@ public:
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
+  /// \brief Sets the constant additive of the canon expr.
   void setConstant(int64_t Val) { Const = Val; }
+
+  /// \brief Adds a constant value (Val) to the existing constant additive
+  /// of the canon expr.
+  void addConstant(int64_t Val) { Const += Val; }
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
@@ -346,6 +358,10 @@ public:
   /// If Simplifiy is set, we call simplify() on the canon expr after setting
   /// the denominator.
   void setDenominator(int64_t Val, bool Simplify = false);
+
+  /// \brief Multiplies the constant value (Val) with the existing denominator
+  /// of the canon expr. The new denominator equals (Old denominator * Val).
+  void multiplyDenominator(int64_t Val, bool Simplify = false);
 
   /// \brief Returns true if the division in the canon expr is a signed
   /// division.
@@ -357,6 +373,8 @@ public:
 
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
+  /// \brief Returns true if this contains IV at the given Level.
+  bool hasIV(unsigned Level) const;
   /// \brief Returns the number of non-zero IVs in the canon expr.
   unsigned numIVs() const;
 

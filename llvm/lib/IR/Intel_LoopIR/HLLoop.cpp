@@ -17,6 +17,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
@@ -71,8 +72,8 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), TemporalLocalityWt(0), SpatialLocalityWt(0),
-      IsInnermost(HLLoopObj.IsInnermost), IVType(HLLoopObj.IVType) {
+      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost),
+      IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
 
@@ -87,9 +88,6 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
-
-  setTemporalLocalityWt(HLLoopObj.getTemporalLocalityWt());
-  setSpatialLocalityWt(HLLoopObj.getSpatialLocalityWt());
 
   // Avoid cloning children and preheader/postexit.
   if (!CloneChildren)
@@ -161,10 +159,6 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     {
       indent(OS, Depth);
       OS << "+ NumExits: " << getNumExits() << "\n";
-      indent(OS, Depth);
-      OS << "+ TemporalLocalityWt: " << getTemporalLocalityWt() << "\n";
-      indent(OS, Depth);
-      OS << "+ SpatialLocalityWt: " << getSpatialLocalityWt() << "\n";
     }
 
     {
@@ -235,14 +229,6 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 void HLLoop::setNumExits(unsigned NumEx) {
   assert(NumEx && "Number of exits cannot be zero!");
   NumExits = NumEx;
-}
-
-void HLLoop::setTemporalLocalityWt(unsigned Weight) {
-  TemporalLocalityWt = Weight;
-}
-
-void HLLoop::setSpatialLocalityWt(unsigned Weight) {
-  SpatialLocalityWt = Weight;
 }
 
 unsigned
@@ -465,8 +451,23 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
 }
 
 const CanonExpr *HLLoop::getTripCountCanonExpr() const {
-  /// TODO implement later
-  return nullptr;
+
+  if (isUnknown() || !getStrideDDRef()->isConstant())
+    return nullptr;
+
+  // UB and LB should be scalar refs in the current design.
+  assert(getUpperDDRef()->isScalarRef() && getLowerDDRef()->isScalarRef() &&
+         " Upper Bound and Lower Bound should be terminal or constant.");
+
+  int64_t StrideConst = getStrideCanonExpr()->getConstant();
+
+  // TripCount Canon Expr = (UB-LB+Stride)/Stride;
+  CanonExpr *Result = CanonExprUtils::subtract(
+      const_cast<CanonExpr *>(getUpperCanonExpr()), getLowerCanonExpr(), true);
+  Result->addConstant(StrideConst);
+  Result->multiplyDenominator(StrideConst, true);
+
+  return Result;
 }
 
 unsigned HLLoop::getNumOperandsInternal() const {
@@ -533,6 +534,17 @@ HLNode *HLLoop::getLastChild() {
   }
 
   return nullptr;
+}
+
+bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+
+  const CanonExpr *TripCExpr = getTripCountCanonExpr();
+  if (TripCExpr && TripCExpr->isConstant(TripCnt)) {
+    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
+    return true;
+  }
+
+  return false;
 }
 
 void HLLoop::verify() const {

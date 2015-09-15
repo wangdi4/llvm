@@ -234,8 +234,7 @@ void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
 }
 
 void RegDDRef::removeDimension(unsigned DimensionNum) {
-  assert(DimensionNum && "DimensionNum cannot be zero!");
-  assert(DimensionNum <= getNumDimensions() && "DimensionNum is out of range!");
+  assert(isDimensionValid(DimensionNum) && "DimensionNum is out of range!");
   assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
 
   CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
