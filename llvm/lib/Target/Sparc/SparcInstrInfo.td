@@ -408,13 +408,16 @@ let DecoderMethod = "DecodeLoadInt" in {
   defm LD   : LoadA<"ld",   0b000000, 0b010000, load,        IntRegs, i32>;
 }
 
+let DecoderMethod = "DecodeLoadIntPair" in
+  defm LDD : LoadA<"ldd", 0b000011, 0b010011, load, IntPair, v2i32>;
+
 // Section B.2 - Load Floating-point Instructions, p. 92
 let DecoderMethod = "DecodeLoadFP" in
-  defm LDF   : Load<"ld",  0b100000, load, FPRegs,  f32>;
+  defm LDF   : LoadA<"ld",  0b100000, 0b110000, load, FPRegs,  f32>;
 let DecoderMethod = "DecodeLoadDFP" in
-  defm LDDF  : Load<"ldd", 0b100011, load, DFPRegs, f64>;
+  defm LDDF  : LoadA<"ldd", 0b100011, 0b110011, load, DFPRegs, f64>;
 let DecoderMethod = "DecodeLoadQFP" in
-  defm LDQF  : Load<"ldq", 0b100010, load, QFPRegs, f128>,
+  defm LDQF  : LoadA<"ldq", 0b100010, 0b110010, load, QFPRegs, f128>,
                Requires<[HasV9, HasHardQuad]>;
 
 // Section B.4 - Store Integer Instructions, p. 95
@@ -424,13 +427,16 @@ let DecoderMethod = "DecodeStoreInt" in {
   defm ST    : StoreA<"st",  0b000100, 0b010100, store,         IntRegs, i32>;
 }
 
+let DecoderMethod = "DecodeStoreIntPair" in
+  defm STD   : StoreA<"std", 0b000111, 0b010111, store, IntPair, v2i32>;
+
 // Section B.5 - Store Floating-point Instructions, p. 97
 let DecoderMethod = "DecodeStoreFP" in
-  defm STF   : Store<"st",  0b100100, store,         FPRegs,  f32>;
+  defm STF   : StoreA<"st",  0b100100, 0b110100, store,         FPRegs,  f32>;
 let DecoderMethod = "DecodeStoreDFP" in
-  defm STDF  : Store<"std", 0b100111, store,         DFPRegs, f64>;
+  defm STDF  : StoreA<"std", 0b100111, 0b110111, store,         DFPRegs, f64>;
 let DecoderMethod = "DecodeStoreQFP" in
-  defm STQF  : Store<"stq", 0b100110, store,         QFPRegs, f128>,
+  defm STQF  : StoreA<"stq", 0b100110, 0b110110, store,         QFPRegs, f128>,
                Requires<[HasV9, HasHardQuad]>;
 
 // Section B.8 - SWAP Register with Memory Instruction
@@ -536,6 +542,7 @@ let Defs = [ICC] in
 let Uses = [ICC] in
   defm SUBC   : F3_12np <"subx", 0b001100>;
 
+// cmp (from Section A.3) is a specialized alias for subcc
 let Defs = [ICC], rd = 0 in {
   def CMPrr   : F3_1<2, 0b010100,
                      (outs), (ins IntRegs:$rs1, IntRegs:$rs2),
@@ -559,12 +566,12 @@ let Defs = [Y, ICC] in {
 }
 
 // Section B.19 - Divide Instructions, p. 115
-let Defs = [Y] in {
+let Uses = [Y], Defs = [Y] in {
   defm UDIV : F3_12np<"udiv", 0b001110>;
   defm SDIV : F3_12np<"sdiv", 0b001111>;
 }
 
-let Defs = [Y, ICC] in {
+let Uses = [Y], Defs = [Y, ICC] in {
   defm UDIVCC : F3_12np<"udivcc", 0b011110>;
   defm SDIVCC : F3_12np<"sdivcc", 0b011111>;
 }
@@ -827,6 +834,20 @@ let hasSideEffects = 1, rd = 0, rs1 = 0b01111, rs2 = 0 in
 let rd = 0 in
   def UNIMP : F2_1<0b000, (outs), (ins i32imm:$imm22),
                   "unimp $imm22", []>;
+
+// Section B.32 - Flush Instruction Memory
+let rd = 0 in {
+  def FLUSHrr : F3_1<2, 0b111011, (outs), (ins MEMrr:$addr),
+                       "flush $addr", []>;
+  def FLUSHri : F3_2<2, 0b111011, (outs), (ins MEMri:$addr),
+                       "flush $addr", []>;
+
+  // The no-arg FLUSH is only here for the benefit of the InstAlias
+  // "flush", which cannot seem to use FLUSHrr, due to the inability
+  // to construct a MEMrr with fixed G0 registers.
+  let rs1 = 0, rs2 = 0 in
+    def FLUSH   : F3_1<2, 0b111011, (outs), (ins), "flush %g0", []>;
+}
 
 // Section B.33 - Floating-point Operate (FPop) Instructions
 
@@ -1206,8 +1227,8 @@ let Predicates = [HasV9] in {
 // the top 32-bits before using it.  To do this clearing, we use a SRLri X,0.
 let rs1 = 0 in
   def POPCrr : F3_1<2, 0b101110,
-                    (outs IntRegs:$dst), (ins IntRegs:$src),
-                    "popc $src, $dst", []>, Requires<[HasV9]>;
+                    (outs IntRegs:$rd), (ins IntRegs:$rs2),
+                    "popc $rs2, $rd", []>, Requires<[HasV9]>;
 def : Pat<(ctpop i32:$src),
           (POPCrr (SRLri $src, 0))>;
 
@@ -1311,6 +1332,18 @@ def : Pat<(i32 (atomic_load ADDRri:$src)), (LDri ADDRri:$src)>;
 // atomic_store_32 val, addr -> store val, addr
 def : Pat<(atomic_store ADDRrr:$dst, i32:$val), (STrr ADDRrr:$dst, $val)>;
 def : Pat<(atomic_store ADDRri:$dst, i32:$val), (STri ADDRri:$dst, $val)>;
+
+// extract_vector
+def : Pat<(vector_extract (v2i32 IntPair:$Rn), 0),
+          (i32 (EXTRACT_SUBREG IntPair:$Rn, sub_even))>;
+def : Pat<(vector_extract (v2i32 IntPair:$Rn), 1),
+          (i32 (EXTRACT_SUBREG IntPair:$Rn, sub_odd))>;
+
+// build_vector
+def : Pat<(build_vector (i32 IntRegs:$a1), (i32 IntRegs:$a2)),
+          (INSERT_SUBREG
+	    (INSERT_SUBREG (v2i32 (IMPLICIT_DEF)), (i32 IntRegs:$a1), sub_even),
+            (i32 IntRegs:$a2), sub_odd)>;
 
 
 include "SparcInstr64Bit.td"

@@ -1,4 +1,5 @@
-; RUN: llc -O0 < %s | FileCheck %s
+;;***INTEL
+; RUN: llc -O0 -debug-emit-dwarf-attr-count < %s | FileCheck %s
 ; Radar 10464995
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.7.2"
@@ -15,7 +16,7 @@ entry:
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!22}
 
-!0 = !DICompileUnit(language: DW_LANG_C99, producer: "clang version 3.1 (trunk 144833)", isOptimized: false, emissionKind: 0, file: !21, enums: !1, retainedTypes: !1, subprograms: !3, globals: !11, imports:  !1)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, producer: "clang version 3.1 (trunk 144833)", isOptimized: false, emissionKind: 0, file: !21, enums: !1, retainedTypes: !1, subprograms: !3, globals: !11, imports:  !1)
 !1 = !{}
 !3 = !{!5}
 !5 = !DISubprogram(name: "bar", line: 4, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, file: !21, scope: !6, type: !7, function: void ()* @bar)

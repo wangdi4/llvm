@@ -87,6 +87,7 @@ GDBRemoteCommunicationClient::GDBRemoteCommunicationClient() :
     m_supports_qXfer_features_read (eLazyBoolCalculate),
     m_supports_augmented_libraries_svr4_read (eLazyBoolCalculate),
     m_supports_jThreadExtendedInfo (eLazyBoolCalculate),
+    m_supports_jLoadedDynamicLibrariesInfos (eLazyBoolCalculate),
     m_supports_qProcessInfoPID (true),
     m_supports_qfProcessInfo (true),
     m_supports_qUserName (true),
@@ -654,6 +655,24 @@ GDBRemoteCommunicationClient::GetThreadExtendedInfoSupported ()
 }
 
 bool
+GDBRemoteCommunicationClient::GetLoadedDynamicLibrariesInfosSupported ()
+{
+    if (m_supports_jLoadedDynamicLibrariesInfos == eLazyBoolCalculate)
+    {
+        StringExtractorGDBRemote response;
+        m_supports_jLoadedDynamicLibrariesInfos = eLazyBoolNo;
+        if (SendPacketAndWaitForResponse("jGetLoadedDynamicLibrariesInfos:", response, false) == PacketResult::Success)
+        {
+            if (response.IsOKResponse())
+            {
+                m_supports_jLoadedDynamicLibrariesInfos = eLazyBoolYes;
+            }
+        }
+    }
+    return m_supports_jLoadedDynamicLibrariesInfos;
+}
+
+bool
 GDBRemoteCommunicationClient::GetxPacketSupported ()
 {
     if (m_supports_x == eLazyBoolCalculate)
@@ -763,7 +782,7 @@ GDBRemoteCommunicationClient::SendPacketAndWaitForResponse
     Log *log (ProcessGDBRemoteLog::GetLogIfAllCategoriesSet (GDBR_LOG_PROCESS));
 
     // In order to stop async notifications from being processed in the middle of the
-    // send/recieve sequence Hijack the broadcast. Then rebroadcast any events when we are done.
+    // send/receive sequence Hijack the broadcast. Then rebroadcast any events when we are done.
     static Listener hijack_listener("lldb.NotifyHijacker");
     HijackBroadcaster(&hijack_listener, eBroadcastBitGdbReadThreadGotNotify);    
 
@@ -859,10 +878,10 @@ GDBRemoteCommunicationClient::SendPacketAndWaitForResponse
         }
     }
 
-    // Remove our Hijacking listner from the broadcast.
+    // Remove our Hijacking listener from the broadcast.
     RestoreBroadcaster();
 
-    // If a notification event occured, rebroadcast since it can now be processed safely.  
+    // If a notification event occurred, rebroadcast since it can now be processed safely.
     EventSP event_sp;
     if (hijack_listener.GetNextEvent(event_sp))
         BroadcastEvent(event_sp);
@@ -1037,8 +1056,8 @@ GDBRemoteCommunicationClient::SendContinuePacketAndWaitForResponse
     // may change if we are interrupted and we continue after an async packet...
     std::string continue_packet(payload, packet_length);
 
-    const auto sigstop_signo = process->GetUnixSignals().GetSignalNumberFromName("SIGSTOP");
-    const auto sigint_signo = process->GetUnixSignals().GetSignalNumberFromName("SIGINT");
+    const auto sigstop_signo = process->GetUnixSignals()->GetSignalNumberFromName("SIGSTOP");
+    const auto sigint_signo = process->GetUnixSignals()->GetSignalNumberFromName("SIGINT");
 
     bool got_async_packet = false;
     
@@ -1113,7 +1132,7 @@ GDBRemoteCommunicationClient::SendContinuePacketAndWaitForResponse
                             {
                                 continue_after_async = false;
 
-                                // We didn't get a a SIGINT or SIGSTOP, so try for a
+                                // We didn't get a SIGINT or SIGSTOP, so try for a
                                 // very brief time (1 ms) to get another stop reply
                                 // packet to make sure it doesn't get in the way
                                 StringExtractorGDBRemote extra_stop_reply_packet;
@@ -2274,7 +2293,8 @@ GDBRemoteCommunicationClient::Detach (bool keep_stopped)
             const int packet_len = ::snprintf(packet, sizeof(packet), "qSupportsDetachAndStayStopped:");
             assert (packet_len < (int)sizeof(packet));
             StringExtractorGDBRemote response;
-            if (SendPacketAndWaitForResponse (packet, packet_len, response, false) == PacketResult::Success)
+            if (SendPacketAndWaitForResponse (packet, packet_len, response, false) == PacketResult::Success
+                  && response.IsOKResponse())
             {
                 m_supports_detach_stay_stopped = eLazyBoolYes;        
             }
@@ -2292,7 +2312,7 @@ GDBRemoteCommunicationClient::Detach (bool keep_stopped)
         else
         {
             StringExtractorGDBRemote response;
-            PacketResult packet_result = SendPacketAndWaitForResponse ("D1", 1, response, false);
+            PacketResult packet_result = SendPacketAndWaitForResponse ("D1", 2, response, false);
             if (packet_result != PacketResult::Success)
                 error.SetErrorString ("Sending extended disconnect packet failed.");
         }

@@ -5,8 +5,8 @@
 
 define void @test_load_store(half* %in, half* %out) {
 ; CHECK-LABEL: test_load_store:
-; CHECK: movw (%rdi), [[TMP:%[a-z0-9]+]]
-; CHECK: movw [[TMP]], (%rsi)
+; CHECK: {{movw|movzwl}} (%rdi), %{{e?}}[[TMP:[abcd]]]x
+; CHECK: movw %[[TMP]]x, (%rsi)
   %val = load half, half* %in
   store half %val, half* %out
   ret void

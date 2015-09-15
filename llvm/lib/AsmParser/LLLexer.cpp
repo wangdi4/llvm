@@ -524,6 +524,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(undef);
   KEYWORD(null);
   KEYWORD(to);
+  KEYWORD(caller);
   KEYWORD(tail);
   KEYWORD(musttail);
   KEYWORD(target);
@@ -593,6 +594,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(attributes);
 
   KEYWORD(alwaysinline);
+  KEYWORD(argmemonly);
   KEYWORD(builtin);
   KEYWORD(byval);
   KEYWORD(inalloca);
@@ -748,6 +750,12 @@ lltok::Kind LLLexer::LexIdentifier() {
   INSTKEYWORD(extractvalue,   ExtractValue);
   INSTKEYWORD(insertvalue,    InsertValue);
   INSTKEYWORD(landingpad,     LandingPad);
+  INSTKEYWORD(cleanupret,     CleanupRet);
+  INSTKEYWORD(catchret,       CatchRet);
+  INSTKEYWORD(catchpad,     CatchPad);
+  INSTKEYWORD(terminatepad, TerminatePad);
+  INSTKEYWORD(cleanuppad,   CleanupPad);
+  INSTKEYWORD(catchendpad,  CatchEndPad);
 #undef INSTKEYWORD
 
 #define DWKEYWORD(TYPE, TOKEN)                                                 \

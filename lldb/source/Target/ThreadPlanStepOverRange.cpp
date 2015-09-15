@@ -368,27 +368,22 @@ ThreadPlanStepOverRange::DoPlanExplainsStop (Event *event_ptr)
     {
         StopReason reason = stop_info_sp->GetStopReason();
 
-        switch (reason)
+        if (reason == eStopReasonTrace)
         {
-        case eStopReasonTrace:
             return_value = true;
-            break;
-        case eStopReasonBreakpoint:
+        }
+        else if (reason == eStopReasonBreakpoint)
+        {
             if (NextRangeBreakpointExplainsStop(stop_info_sp))
                 return_value = true;
             else
                 return_value = false;
-            break;
-        case eStopReasonWatchpoint:
-        case eStopReasonSignal:
-        case eStopReasonException:
-        case eStopReasonExec:
-        case eStopReasonThreadExiting:
-        default:
+        }
+        else
+        {
             if (log)
                 log->PutCString ("ThreadPlanStepInRange got asked if it explains the stop for some reason other than step.");
             return_value = false;
-            break;
         }
     }
     else
@@ -430,7 +425,7 @@ ThreadPlanStepOverRange::DoWillResume (lldb::StateType resume_state, bool curren
                             const InlineFunctionInfo *inline_info = frame_block->GetInlinedFunctionInfo();
                             const char *name;
                             if (inline_info)
-                                name = inline_info->GetName().AsCString();
+                                name = inline_info->GetName(frame_block->CalculateSymbolContextFunction()->GetLanguage()).AsCString();
                             else
                                 name = "<unknown-notinlined>";
                             

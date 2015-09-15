@@ -196,6 +196,7 @@ const char *Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case MSVC: return "msvc";
   case Itanium: return "itanium";
   case Cygnus: return "cygnus";
+  case AMDOpenCL: return "amdopencl";
   }
 
   llvm_unreachable("Invalid EnvironmentType!");
@@ -430,6 +431,7 @@ static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
     .StartsWith("msvc", Triple::MSVC)
     .StartsWith("itanium", Triple::Itanium)
     .StartsWith("cygnus", Triple::Cygnus)
+    .StartsWith("amdopencl", Triple::AMDOpenCL)
     .Default(Triple::UnknownEnvironment);
 }
 
@@ -1161,6 +1163,122 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::hsail:   T.setArch(Triple::hsail64);   break;
   case Triple::spir:    T.setArch(Triple::spir64);    break;
   case Triple::wasm32:  T.setArch(Triple::wasm64);    break;
+  }
+  return T;
+}
+
+Triple Triple::getBigEndianArchVariant() const {
+  Triple T(*this);
+  switch (getArch()) {
+  case Triple::UnknownArch:
+  case Triple::amdgcn:
+  case Triple::amdil64:
+  case Triple::amdil:
+  case Triple::hexagon:
+  case Triple::hsail64:
+  case Triple::hsail:
+  case Triple::kalimba:
+  case Triple::le32:
+  case Triple::le64:
+  case Triple::msp430:
+  case Triple::nvptx64:
+  case Triple::nvptx:
+  case Triple::r600:
+  case Triple::shave:
+  case Triple::spir64:
+  case Triple::spir:
+  case Triple::wasm32:
+  case Triple::wasm64:
+  case Triple::x86:
+  case Triple::x86_64:
+  case Triple::xcore:
+
+  // ARM is intentionally unsupported here, changing the architecture would
+  // drop any arch suffixes.
+  case Triple::arm:
+  case Triple::thumb:
+    T.setArch(UnknownArch);
+    break;
+
+  case Triple::aarch64_be:
+  case Triple::armeb:
+  case Triple::bpfeb:
+  case Triple::mips64:
+  case Triple::mips:
+  case Triple::ppc64:
+  case Triple::ppc:
+  case Triple::sparc:
+  case Triple::sparcv9:
+  case Triple::systemz:
+  case Triple::tce:
+  case Triple::thumbeb:
+    // Already big endian.
+    break;
+
+  case Triple::aarch64: T.setArch(Triple::aarch64_be); break;
+  case Triple::bpfel:   T.setArch(Triple::bpfeb);      break;
+  case Triple::mips64el:T.setArch(Triple::mips64);     break;
+  case Triple::mipsel:  T.setArch(Triple::mips);       break;
+  case Triple::ppc64le: T.setArch(Triple::ppc64);      break;
+  case Triple::sparcel: T.setArch(Triple::sparc);      break;
+  }
+  return T;
+}
+
+Triple Triple::getLittleEndianArchVariant() const {
+  Triple T(*this);
+  switch (getArch()) {
+  case Triple::UnknownArch:
+  case Triple::ppc:
+  case Triple::sparcv9:
+  case Triple::systemz:
+  case Triple::tce:
+
+  // ARM is intentionally unsupported here, changing the architecture would
+  // drop any arch suffixes.
+  case Triple::armeb:
+  case Triple::thumbeb:
+    T.setArch(UnknownArch);
+    break;
+
+  case Triple::aarch64:
+  case Triple::amdgcn:
+  case Triple::amdil64:
+  case Triple::amdil:
+  case Triple::arm:
+  case Triple::bpfel:
+  case Triple::hexagon:
+  case Triple::hsail64:
+  case Triple::hsail:
+  case Triple::kalimba:
+  case Triple::le32:
+  case Triple::le64:
+  case Triple::mips64el:
+  case Triple::mipsel:
+  case Triple::msp430:
+  case Triple::nvptx64:
+  case Triple::nvptx:
+  case Triple::ppc64le:
+  case Triple::r600:
+  case Triple::shave:
+  case Triple::sparcel:
+  case Triple::spir64:
+  case Triple::spir:
+  case Triple::thumb:
+  case Triple::wasm32:
+  case Triple::wasm64:
+  case Triple::x86:
+  case Triple::x86_64:
+  case Triple::xcore:
+    // Already little endian.
+    break;
+
+  case Triple::aarch64_be: T.setArch(Triple::aarch64);  break;
+  case Triple::bpfeb:      T.setArch(Triple::bpfel);    break;
+  case Triple::mips64:     T.setArch(Triple::mips64el); break;
+  case Triple::mips:       T.setArch(Triple::mipsel);   break;
+  case Triple::ppc64:      T.setArch(Triple::ppc64le);  break;
+  case Triple::sparc:      T.setArch(Triple::sparcel);  break;
   }
   return T;
 }

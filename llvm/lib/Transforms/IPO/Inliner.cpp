@@ -33,9 +33,7 @@
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
 using namespace llvm;
-#ifdef INTEL_CUSTOMIZATION
-using namespace InlineReportTypes;
-#endif // INTEL_CUSTOMIZATION
+using namespace InlineReportTypes; // INTEL 
 
 #define DEBUG_TYPE "inline"
 
@@ -83,26 +81,22 @@ ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
               cl::desc("Threshold for inlining functions with cold attribute"));
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
-const int OptSizeThreshold = 75;
+#ifdef INTEL_CUSTOMIZATION
+static cl::opt<int>
+OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(75),
+              cl::desc("Threshold for inlining functions with -Os"));
+#endif // INTEL_CUSTOMIZATION
 
 Inliner::Inliner(char &ID)
-#ifdef INTEL_CUSTOMIZATION
   : CallGraphSCCPass(ID), InlineThreshold(InlineLimit), InsertLifetime(true),
-    Report(IntelInlineReportLevel, InlineLimit, HintThreshold, ColdThreshold) 
-    {} 
-#else
-  : CallGraphSCCPass(ID), InlineThreshold(InlineLimit), InsertLifetime(true) {}
-#endif // INTEL_CUSTOMIZATION
+    Report(IntelInlineReportLevel, InlineLimit, HintThreshold, // INTEL 
+    ColdThreshold, OptSizeThreshold) {} // INTEL 
 Inliner::Inliner(char &ID, int Threshold, bool InsertLifetime)
   : CallGraphSCCPass(ID), InlineThreshold(InlineLimit.getNumOccurrences() > 0 ?
                                           InlineLimit : Threshold),
-#ifdef INTEL_CUSTOMIZATION
     InsertLifetime(InsertLifetime),  
-    Report(IntelInlineReportLevel, InlineLimit, HintThreshold, ColdThreshold) 
-    {}
-#else
-    InsertLifetime(InsertLifetime) {}
-#endif // INTEL_CUSTOMIZATION
+    Report(IntelInlineReportLevel, InlineLimit, HintThreshold, // INTEL 
+    ColdThreshold, OptSizeThreshold) {} // INTEL 
 
 /// For this class, we declare that we require and preserve the call graph.
 /// If the derived class implements this method, it should
@@ -158,11 +152,8 @@ static void AdjustCallerSSPLevel(Function *Caller, Function *Callee) {
 /// available from other functions inlined into the caller.  If we are able to
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
-#ifdef INTEL_CUSTOMIZATION 
-static InlineReason InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
-#else
-static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
-#endif // INTEL_CUSTOMIZATION
+static InlineReason InlineCallIfPossible(CallSite CS, // INTEL 
+                                 InlineFunctionInfo &IFI, // INTEL 
                                  InlinedArrayAllocasTy &InlinedArrayAllocas,
                                  int InlineHistory, bool InsertLifetime) {
   Function *Callee = CS.getCalledFunction();
@@ -175,9 +166,6 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
   if (IR != InlrNoReason) {
     return IR;
   } 
-#else 
-  if (!InlineFunction(CS, IFI, InsertLifetime))
-    return false;
 #endif // INTEL_CUSTOMIZATION
 
   AdjustCallerSSPLevel(Caller, Callee);
@@ -218,11 +206,7 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
   // keeping track of the inline history for each alloca in the
   // InlinedArrayAllocas but this isn't likely to be a significant win.
   if (InlineHistory != -1)  // Only do merging for top-level call sites in SCC.
-#ifdef INTEL_CUSTOMIZATION 
-    return InlrNoReason;  
-#else 
-    return true;
-#endif // INTEL_CUSTOMIZATION
+    return InlrNoReason; // INTEL 
   
   // Loop over all the allocas we have so far and see if they can be merged with
   // a previously inlined alloca.  If not, remember that we had it.
@@ -301,34 +285,31 @@ static bool InlineCallIfPossible(CallSite CS, InlineFunctionInfo &IFI,
     UsedAllocas.insert(AI);
   }
   
-#ifdef INTEL_CUSTOMIZATION 
-  return InlrNoReason;  
-#else 
-  return true;
-#endif // INTEL_CUSTOMIZATION
+  return InlrNoReason; // INTEL 
 }
 
 unsigned Inliner::getInlineThreshold(CallSite CS) const {
-  int thres = InlineThreshold; // -inline-threshold or else selected by
-                               // overall opt level
+  int Threshold = InlineThreshold; // -inline-threshold or else selected by
+                                   // overall opt level
 
   // If -inline-threshold is not given, listen to the optsize attribute when it
   // would decrease the threshold.
   Function *Caller = CS.getCaller();
   bool OptSize = Caller && !Caller->isDeclaration() &&
+                 // FIXME: Use Function::optForSize().
                  Caller->hasFnAttribute(Attribute::OptimizeForSize);
   if (!(InlineLimit.getNumOccurrences() > 0) && OptSize &&
-      OptSizeThreshold < thres)
-    thres = OptSizeThreshold;
+      OptSizeThreshold < Threshold)
+    Threshold = OptSizeThreshold;
 
   // Listen to the inlinehint attribute when it would increase the threshold
   // and the caller does not need to minimize its size.
   Function *Callee = CS.getCalledFunction();
   bool InlineHint = Callee && !Callee->isDeclaration() &&
                     Callee->hasFnAttribute(Attribute::InlineHint);
-  if (InlineHint && HintThreshold > thres &&
+  if (InlineHint && HintThreshold > Threshold &&
       !Caller->hasFnAttribute(Attribute::MinSize))
-    thres = HintThreshold;
+    Threshold = HintThreshold;
 
   // Listen to the cold attribute when it would decrease the threshold.
   bool ColdCallee = Callee && !Callee->isDeclaration() &&
@@ -338,10 +319,10 @@ unsigned Inliner::getInlineThreshold(CallSite CS) const {
   // do not use the default cold threshold even if it is smaller.
   if ((InlineLimit.getNumOccurrences() == 0 ||
        ColdThreshold.getNumOccurrences() > 0) && ColdCallee &&
-      ColdThreshold < thres)
-    thres = ColdThreshold;
+      ColdThreshold < Threshold)
+    Threshold = ColdThreshold;
 
-  return thres;
+  return Threshold;
 }
 
 static void emitAnalysis(CallSite CS, const Twine &Msg) {
@@ -360,9 +341,7 @@ bool Inliner::shouldInline(CallSite CS) {
           << ", Call: " << *CS.getInstruction() << "\n");
     emitAnalysis(CS, Twine(CS.getCalledFunction()->getName()) +
                          " should always be inlined (cost=always)");
-#ifdef INTEL_CUSTOMIZATION
-    getReport().setReasonIsInlined(CS, InlrAlwaysInline); 
-#endif // INTEL_CUSTOMIZATION
+    getReport().setReasonIsInlined(CS, InlrAlwaysInline); // INTEL 
     return true;
   }
   
@@ -371,9 +350,7 @@ bool Inliner::shouldInline(CallSite CS) {
           << ", Call: " << *CS.getInstruction() << "\n");
     emitAnalysis(CS, Twine(CS.getCalledFunction()->getName() +
                            " should never be inlined (cost=never)"));
-#ifdef INTEL_CUSTOMIZATION
-    getReport().setReasonNotInlined(CS, NinlrNeverInline);
-#endif // INTEL_CUSTOMIZATION
+    getReport().setReasonNotInlined(CS, NinlrNeverInline); // INTEL 
     return false;
   }
   
@@ -387,9 +364,7 @@ bool Inliner::shouldInline(CallSite CS) {
                          Twine(IC.getCost()) + ", threshold=" +
                          Twine(IC.getCostDelta() + IC.getCost()) + ")");
   
-#ifdef INTEL_CUSTOMIZATION
-    getReport().setReasonNotInlined(CS, IC); 
-#endif // INTEL_CUSTOMIZATION
+    getReport().setReasonNotInlined(CS, IC); // INTEL 
     return false;
   }
   
@@ -461,10 +436,8 @@ bool Inliner::shouldInline(CallSite CS) {
                     CS.getCalledFunction()->getName() +
                     " increases the cost of inlining " +
                     CS.getCaller()->getName() + " in other contexts"));
-#ifdef INTEL_CUSTOMIZATION
-      IC.setInlineReason(NinlrOuterInlining);
-      getReport().setReasonNotInlined(CS, IC, TotalSecondaryCost); 
-#endif // INTEL_CUSTOMIZATION
+      IC.setInlineReason(NinlrOuterInlining); // INTEL 
+      getReport().setReasonNotInlined(CS, IC, TotalSecondaryCost); // INTEL 
       return false;
     }
   }
@@ -476,9 +449,7 @@ bool Inliner::shouldInline(CallSite CS) {
       CS, CS.getCalledFunction()->getName() + Twine(" can be inlined into ") +
               CS.getCaller()->getName() + " with cost=" + Twine(IC.getCost()) +
               " (threshold=" + Twine(IC.getCostDelta() + IC.getCost()) + ")");
-#ifdef INTEL_CUSTOMIZATION
-  getReport().setReasonIsInlined(CS, IC); 
-#endif // INTEL_CUSTOMIZATION
+  getReport().setReasonIsInlined(CS, IC); // INTEL 
   return true;
 }
 
@@ -503,9 +474,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
   const TargetLibraryInfo *TLI = TLIP ? &TLIP->getTLI() : nullptr;
   AliasAnalysis *AA = &getAnalysis<AliasAnalysis>();
 
-#ifdef INTEL_CUSTOMIZATION 
-  CG.registerCGReport(&Report); 
-#endif // INTEL_CUSTOMIZATION
+  CG.registerCGReport(&Report); // INTEL 
 
   SmallPtrSet<Function*, 8> SCCFunctions;
   DEBUG(dbgs() << "Inliner visiting SCC:");
@@ -530,66 +499,44 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
     Function *F = Node->getFunction();
     if (!F) continue;
 
-#ifdef INTEL_CUSTOMIZATION
-    getReport().addFunction(F, &CG.getModule()); 
-#endif // INTEL_CUSTOMIZATION
+    getReport().addFunction(F, &CG.getModule()); // INTEL 
 
     for (BasicBlock &BB : *F)
       for (Instruction &I : BB) {
         CallSite CS(cast<Value>(&I));
-#ifdef INTEL_CUSTOMIZATION
         // If this isn't a call, or it is a call to an intrinsic, it can
         // never be inlined.
-        if (!CS) {
+        if (!CS)     // INTEL - Split out compound checks for inlining report
           continue;
-        } 
-        if (getReport().getCallSite(CS) == nullptr) { 
-          getReport().addCallSite(F, &CS, &CG.getModule()); 
-        } 
-        if (isa<IntrinsicInst>(I)) {
-            getReport().setReasonNotInlined(CS, NinlrIntrinsic); 
-            continue; 
-        } 
-        // If this is a direct call to an external function, we can never inline
-        // it.  If it is an indirect call, inlining may resolve it to be a
-        // direct call, so we keep it.
-        if (CS.getCalledFunction() && CS.getCalledFunction()->isDeclaration()) {
-          getReport().setReasonNotInlined(CS, NinlrExtern); 
-          continue; 
-        } 
 
-        CallSites.push_back(std::make_pair(CS, -1));
-#else
-        // If this isn't a call, or it is a call to an intrinsic, it can
-        // never be inlined.
-        if (!CS || isa<IntrinsicInst>(I))
-          continue;
+        if (getReport().getCallSite(CS) == nullptr) {             // INTEL
+          getReport().addCallSite(F, &CS, &CG.getModule());       // INTEL
+        }                                                         // INTEL
+        if (isa<IntrinsicInst>(I)) {                              // INTEL
+            getReport().setReasonNotInlined(CS, NinlrIntrinsic);  // INTEL
+            continue;
+        }                                                         // INTEL
 
         // If this is a direct call to an external function, we can never inline
         // it.  If it is an indirect call, inlining may resolve it to be a
         // direct call, so we keep it.
-        if (CS.getCalledFunction() && CS.getCalledFunction()->isDeclaration())
-          continue;
-
+        if (Function *Callee = CS.getCalledFunction())
+          if (Callee->isDeclaration()) {                      // INTEL
+            getReport().setReasonNotInlined(CS, NinlrExtern); // INTEL 
+            continue;
+            }                                                 // INTEL
         CallSites.push_back(std::make_pair(CS, -1));
-#endif // INTEL_CUSTOMIZATION
-
       }
   }
 
   DEBUG(dbgs() << ": " << CallSites.size() << " call sites.\n");
 
   // If there are no calls in this function, exit early.
-#ifdef INTEL_CUSTOMIZATION 
-  if (CallSites.empty()) { 
-    getReport().makeAllNotCurrent(); 
+  if (CallSites.empty()) { // INTEL 
+    getReport().makeAllNotCurrent(); // INTEL 
     return false;
-  } 
-#else      
-  if (CallSites.empty())
-    return false;
-#endif // INTEL_CUSTOMIZATION
-  
+  } // INTEL 
+
   // Now that we have all of the call sites, move the ones to functions in the
   // current SCC to the end of the list.
   unsigned FirstCallInSCC = CallSites.size();
@@ -624,27 +571,26 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
       if (isInstructionTriviallyDead(CS.getInstruction(), TLI)) {
         DEBUG(dbgs() << "    -> Deleting dead call: "
                      << *CS.getInstruction() << "\n");
-#ifdef INTEL_CUSTOMIZATION
-        getReport().setReasonNotInlined(CS, NinlrDeleted); 
-#endif // INTEL_CUSTOMIZATION
+        getReport().setReasonNotInlined(CS, NinlrDeleted); // INTEL 
         // Update the call graph by deleting the edge from Callee to Caller.
         CG[Caller]->removeCallEdgeFor(CS);
         CS.getInstruction()->eraseFromParent();
         ++NumCallsDeleted;
       } else {
         // We can only inline direct calls to non-declarations.
+        if (!Callee || Callee->isDeclaration()) { // INTEL 
 #ifdef INTEL_CUSTOMIZATION
-        if (!Callee) {
-          getReport().setReasonNotInlined(CS, NinlrIndirect); 
-          continue;
-        } 
-        if (Callee->isDeclaration()) {
-          getReport().setReasonNotInlined(CS, NinlrExtern); 
-          continue;
-        } 
-#else 
-        if (!Callee || Callee->isDeclaration()) continue;
+          if (!Callee) {
+            getReport().setReasonNotInlined(CS, NinlrIndirect); 
+            continue;
+          } 
+          if (Callee->isDeclaration()) {
+            getReport().setReasonNotInlined(CS, NinlrExtern); 
+            continue;
+          } 
 #endif // INTEL_CUSTOMIZATION
+          continue; // INTEL 
+        } 
     
         // If this call site was obtained by inlining another function, verify
         // that the include path for the function did not include the callee
@@ -653,15 +599,11 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         // infinitely inline.
         int InlineHistoryID = CallSites[CSi].second;
         if (InlineHistoryID != -1 &&
-            InlineHistoryIncludes(Callee, InlineHistoryID, InlineHistory))
-#ifdef INTEL_CUSTOMIZATION
-            {
-            getReport().setReasonNotInlined(CS, NinlrRecursive); 
-#endif // INTEL_CUSTOMIZATION
+            InlineHistoryIncludes(Callee, InlineHistoryID, // INTEL 
+            InlineHistory)) { // INTEL 
+            getReport().setReasonNotInlined(CS, NinlrRecursive); // INTEL 
             continue;
-#ifdef INTEL_CUSTOMIZATION
-            } 
-#endif // INTEL_CUSTOMIZATION
+        } // INTEL 
         
         LLVMContext &CallerCtx = Caller->getContext();
 
@@ -688,9 +630,6 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         getReport().setActiveInlineInstruction(nullptr); 
         if (IsNotInlinedReason(Reason)) { 
           getReport().setReasonNotInlined(CS, Reason); 
-#else 
-        if (!InlineCallIfPossible(CS, InlineInfo, InlinedArrayAllocas,
-                                  InlineHistoryID, InsertLifetime)) {
 #endif // INTEL_CUSTOMIZATION
           emitOptimizationRemarkMissed(CallerCtx, DEBUG_TYPE, *Caller, DLoc,
                                        Twine(Callee->getName() +
@@ -705,10 +644,8 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
             CallerCtx, DEBUG_TYPE, *Caller, DLoc,
             Twine(Callee->getName() + " inlined into " + Caller->getName()));
 
-#ifdef INTEL_CUSTOMIZATION
-        getReport().inlineCallSite(NI, IRCS, &CG.getModule(), Callee, 
-          InlineInfo); 
-#endif // INTEL_CUSTOMIZATION
+        getReport().inlineCallSite(NI, IRCS, &CG.getModule(), Callee, // INTEL 
+          InlineInfo); // INTEL 
         // If inlining this function gave us any new call sites, throw them
         // onto our worklist to process.  They are useful inline candidates.
         if (!InlineInfo.InlinedCalls.empty()) {
@@ -734,9 +671,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
           CG[Callee]->getNumReferences() == 0) {
         DEBUG(dbgs() << "    -> Deleting dead function: "
               << Callee->getName() << "\n");
-#ifdef INTEL_CUSTOMIZATION
-        getReport().setDead(Callee); 
-#endif // INTEL_CUSTOMIZATION
+        getReport().setDead(Callee); // INTEL 
 
         CallGraphNode *CalleeNode = CG[Callee];
 
@@ -744,15 +679,11 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         CalleeNode->removeAllCalledFunctions();
         
         // Removing the node for callee from the call graph and delete it.
-#ifdef INTEL_CUSTOMIZATION
-        // Deletion is dereferred until the end of inlining becuase the 
-        // inline report maintains pointers to all of the functions for
-        // which it is generating report information. 
-        Function* F = CG.removeFunctionFromModule(CalleeNode);
-        addDeletableFunction(F); 
-#else
-        delete CG.removeFunctionFromModule(CalleeNode);
-#endif // INTEL_CUSTOMIZATION
+        // INTEL Deletion is dereferred until the end of inlining because the 
+        // INTEL inline report maintains pointers to all of the functions for
+        // INTEL which it is generating report information. 
+        Function* F = CG.removeFunctionFromModule(CalleeNode); // INTEL 
+        addDeletableFunction(F); // INTEL 
         ++NumDeleted;
       }
 
@@ -781,12 +712,10 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 /// processing to avoid breaking the SCC traversal.
 bool Inliner::doFinalization(CallGraph &CG) {
 #ifdef INTEL_CUSTOMIZATION
-  bool ReturnValue = removeDeadFunctions(CG);
+  bool ReturnValue = removeDeadFunctions(CG); 
   getReport().print(); 
   removeDeletableFunctions(); 
   return ReturnValue; 
-#else 
-  return removeDeadFunctions(CG);
 #endif // INTEL_CUSTOMIZATION
 }
 
@@ -823,8 +752,8 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
 
   // Scan for all of the functions, looking for ones that should now be removed
   // from the program.  Insert the dead ones in the FunctionsToRemove set.
-  for (auto I : CG) {
-    CallGraphNode *CGN = I.second;
+  for (const auto &I : CG) {
+    CallGraphNode *CGN = I.second.get();
     Function *F = CGN->getFunction();
     if (!F || F->isDeclaration())
       continue;
@@ -908,8 +837,6 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
     // Don't delete the function, as it may be needed by the inlining report
     Function* F = CG.removeFunctionFromModule(CGN);
     addDeletableFunction(F); 
-#else 
-    delete CG.removeFunctionFromModule(CGN);
 #endif // INTEL_CUSTOMIZATION
     ++NumDeleted;
   }

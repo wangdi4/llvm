@@ -18,9 +18,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_CLONING_H
 #define LLVM_TRANSFORMS_UTILS_CLONING_H
 
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/Analysis/InlineCost.h" 
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Analysis/InlineCost.h" // INTEL
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/ValueHandle.h"
@@ -48,6 +46,7 @@ class LoopInfo;
 class AllocaInst;
 class AliasAnalysis;
 class AssumptionCacheTracker;
+class DominatorTree;
 
 /// CloneModule - Return an exact copy of the specified module
 ///
@@ -209,11 +208,10 @@ public:
   /// get copied into the caller.
   SmallVector<AllocaInst *, 4> StaticAllocas;
 
-#ifdef INTEL_CUSTOMIZATION
-  /// OriginalCalls - InlineFunction fills this in with callsites that were
-  /// cloned from the callee.  This is only filled in if CG is non-null.
-  SmallVector<const Value*, 8> OriginalCalls;
-#endif // INTEL_CUSTOMIZATION
+  /// INTEL OriginalCalls - InlineFunction fills this in with callsites that 
+  /// INTEL were cloned from the callee.  This is only filled in if CG is 
+  /// INTEL non-null.
+  SmallVector<const Value*, 8> OriginalCalls; // INTEL
 
   /// InlinedCalls - InlineFunction fills this in with callsites that were
   /// inlined from the callee.  This is only filled in if CG is non-null.
@@ -221,9 +219,7 @@ public:
 
   void reset() {
     StaticAllocas.clear();
-#ifdef INTEL_CUSTOMIZATION
-    OriginalCalls.clear();
-#endif // INTEL_CUSTOMIZATION
+    OriginalCalls.clear(); // INTEL
     InlinedCalls.clear();
   }
 };
@@ -254,14 +250,22 @@ InlineReportTypes::InlineReason InlineFunction(InvokeInst *II,
 InlineReportTypes::InlineReason InlineFunction(CallSite CS, 
                     InlineFunctionInfo &IFI,
                     bool InsertLifetime = true);
-#else 
-bool InlineFunction(CallInst *C, InlineFunctionInfo &IFI,
-                    bool InsertLifetime = true);
-bool InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI,
-                    bool InsertLifetime = true);
-bool InlineFunction(CallSite CS, InlineFunctionInfo &IFI,
-                    bool InsertLifetime = true);
 #endif // INTEL_CUSTOMIZATION
+
+/// \brief Clones a loop \p OrigLoop.  Returns the loop and the blocks in \p
+/// Blocks.
+///
+/// Updates LoopInfo and DominatorTree assuming the loop is dominated by block
+/// \p LoopDomBB.  Insert the new blocks before block specified in \p Before.
+Loop *cloneLoopWithPreheader(BasicBlock *Before, BasicBlock *LoopDomBB,
+                             Loop *OrigLoop, ValueToValueMapTy &VMap,
+                             const Twine &NameSuffix, LoopInfo *LI,
+                             DominatorTree *DT,
+                             SmallVectorImpl<BasicBlock *> &Blocks);
+
+/// \brief Remaps instructions in \p Blocks using the mapping in \p VMap.
+void remapInstructionsInBlocks(const SmallVectorImpl<BasicBlock *> &Blocks,
+                               ValueToValueMapTy &VMap);
 
 } // End llvm namespace
 

@@ -101,7 +101,7 @@ public:
 
 private:
   PassManagerBase *PM;
-  AnalysisID StartAfter;
+  AnalysisID StartBefore, StartAfter;
   AnalysisID StopAfter;
   bool Started;
   bool Stopped;
@@ -119,9 +119,6 @@ protected:
 
   /// Default setting for -enable-tail-merge on this target.
   bool EnableTailMerge;
-
-  /// Default setting for -enable-shrink-wrap on this target.
-  bool EnableShrinkWrap;
 
 public:
   TargetPassConfig(TargetMachine *tm, PassManagerBase &pm);
@@ -142,16 +139,24 @@ public:
 
   CodeGenOpt::Level getOptLevel() const { return TM->getOptLevel(); }
 
-  /// setStartStopPasses - Set the StartAfter and StopAfter passes to allow
-  /// running only a portion of the normal code-gen pass sequence.  If the
-  /// Start pass ID is zero, then compilation will begin at the normal point;
-  /// otherwise, clear the Started flag to indicate that passes should not be
-  /// added until the starting pass is seen.  If the Stop pass ID is zero,
-  /// then compilation will continue to the end.
-  void setStartStopPasses(AnalysisID Start, AnalysisID Stop) {
-    StartAfter = Start;
-    StopAfter = Stop;
-    Started = (StartAfter == nullptr);
+  /// Set the StartAfter, StartBefore and StopAfter passes to allow running only
+  /// a portion of the normal code-gen pass sequence.
+  ///
+  /// If the StartAfter and StartBefore pass ID is zero, then compilation will
+  /// begin at the normal point; otherwise, clear the Started flag to indicate
+  /// that passes should not be added until the starting pass is seen.  If the
+  /// Stop pass ID is zero, then compilation will continue to the end.
+  ///
+  /// This function expects that at least one of the StartAfter or the
+  /// StartBefore pass IDs is null.
+  void setStartStopPasses(AnalysisID StartBefore, AnalysisID StartAfter,
+                          AnalysisID StopAfter) {
+    if (StartAfter)
+      assert(!StartBefore && "Start after and start before passes are given");
+    this->StartBefore = StartBefore;
+    this->StartAfter = StartAfter;
+    this->StopAfter = StopAfter;
+    Started = (StartAfter == nullptr) && (StartBefore == nullptr);
   }
 
   void setDisableVerify(bool Disable) { setOpt(DisableVerify, Disable); }
@@ -181,9 +186,6 @@ public:
 
   /// Return true if the optimized regalloc pipeline is enabled.
   bool getOptimizeRegAlloc() const;
-
-  /// Return true if shrink wrapping is enabled.
-  bool getEnableShrinkWrap() const;
 
   /// Return true if the default global register allocator is in use and
   /// has not be overriden on the command line with '-regalloc=...'
@@ -353,6 +355,14 @@ protected:
   /// Add a pass to perform basic verification of the machine function if
   /// verification is enabled.
   void addVerifyPass(const std::string &Banner);
+
+  /// Create an instance of ShrinkWrap using the runShrinkWrap predicate
+  /// function.  
+  FunctionPass *createShrinkWrapPass();
+  
+  /// Predicate function passed to a ShrinkWrap object to determine if shrink
+  /// wrapping should be run on a MachineFunction.
+  virtual bool runShrinkWrap(const MachineFunction &Fn) const;
 };
 } // namespace llvm
 
@@ -603,7 +613,7 @@ namespace llvm {
   /// createSjLjEHPreparePass - This pass adapts exception handling code to use
   /// the GCC-style builtin setjmp/longjmp (sjlj) to handling EH control flow.
   ///
-  FunctionPass *createSjLjEHPreparePass(const TargetMachine *TM);
+  FunctionPass *createSjLjEHPreparePass();
 
   /// LocalStackSlotAllocation - This pass assigns local frame indices to stack
   /// slots relative to one another and allocates base registers to access them

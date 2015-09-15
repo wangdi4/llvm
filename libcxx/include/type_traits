@@ -219,8 +219,8 @@ _LIBCPP_BEGIN_NAMESPACE_STD
 template <class>
 struct __void_t { typedef void type; };
 
-template <class T>
-struct __identity { typedef T type; };
+template <class _Tp>
+struct __identity { typedef _Tp type; };
 
 template <class _Tp, bool>
 struct _LIBCPP_TYPE_VIS_ONLY __dependent_type : public _Tp {};
@@ -474,7 +474,7 @@ template <class _Tp> struct _LIBCPP_TYPE_VIS_ONLY is_function
 // template <class _Tp, class _Up> struct __libcpp_is_member_function_pointer<_Tp _Up::*> : public is_function<_Tp> {};
 // 
 
-template <class _MP, bool _IsMemberFuctionPtr, bool _IsMemberObjectPtr>
+template <class _MP, bool _IsMemberFunctionPtr, bool _IsMemberObjectPtr>
 struct __member_pointer_traits_imp
 {  // forward declaration; specializations later
 };
@@ -2917,6 +2917,9 @@ template <class _Tp> struct __libcpp_trivial_destructor
 template <class _Tp> struct _LIBCPP_TYPE_VIS_ONLY is_trivially_destructible
     : public __libcpp_trivial_destructor<typename remove_all_extents<_Tp>::type> {};
 
+template <class _Tp> struct _LIBCPP_TYPE_VIS_ONLY is_trivially_destructible<_Tp[]>
+    : public false_type {};
+
 #endif
 
 // is_nothrow_constructible
@@ -3240,6 +3243,10 @@ template <class _Tp> struct __libcpp_nothrow_destructor
 
 template <class _Tp> struct _LIBCPP_TYPE_VIS_ONLY is_nothrow_destructible
     : public __libcpp_nothrow_destructor<typename remove_all_extents<_Tp>::type> {};
+
+template <class _Tp>
+struct _LIBCPP_TYPE_VIS_ONLY is_nothrow_destructible<_Tp[]>
+    : public false_type {};
 
 #endif
 

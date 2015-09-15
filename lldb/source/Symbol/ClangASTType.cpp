@@ -2084,7 +2084,7 @@ ClangASTType::RemoveFastQualifiers () const
     if (m_type)
     {
         clang::QualType qual_type(GetQualType());
-        qual_type.getQualifiers().removeFastQualifiers();
+        qual_type.removeLocalFastQualifiers();
         return ClangASTType (m_ast, qual_type);
     }
     return ClangASTType();
@@ -4080,8 +4080,9 @@ ClangASTType::GetIndexOfChildMemberWithName (const char *name,
                         clang::DeclarationName decl_name(&ident_ref);
                         
                         clang::CXXBasePaths paths;
-                        if (cxx_record_decl->lookupInBases(clang::CXXRecordDecl::FindOrdinaryMember,
-                                                           decl_name.getAsOpaquePtr(),
+                        if (cxx_record_decl->lookupInBases([decl_name](const clang::CXXBaseSpecifier *specifier, clang::CXXBasePath &path) {
+                                                               return clang::CXXRecordDecl::FindOrdinaryMember(specifier, path, decl_name);
+                                                           },
                                                            paths))
                         {
                             clang::CXXBasePaths::const_paths_iterator path, path_end = paths.end();
@@ -5354,7 +5355,9 @@ ClangASTType::SetObjCSuperClass (const ClangASTType &superclass_clang_type)
         clang::ObjCInterfaceDecl *super_interface_decl = superclass_clang_type.GetAsObjCInterfaceDecl ();
         if (class_interface_decl && super_interface_decl)
         {
-            class_interface_decl->setSuperClass(super_interface_decl);
+
+            class_interface_decl->setSuperClass(
+                    m_ast->getTrivialTypeSourceInfo(m_ast->getObjCInterfaceType(super_interface_decl)));
             return true;
         }
     }
@@ -5918,7 +5921,7 @@ ClangASTType::CompleteTagDeclarationDefinition ()
         {
             clang::EnumDecl *enum_decl = enum_type->getDecl();
             
-            if (enum_decl)
+            if (enum_decl && !enum_decl->isCompleteDefinition())
             {
                 /// TODO This really needs to be fixed.
                 

@@ -35,7 +35,7 @@ char MachineModuleInfo::ID = 0;
 MachineModuleInfoImpl::~MachineModuleInfoImpl() {}
 
 namespace llvm {
-class MMIAddrLabelMapCallbackPtr : CallbackVH {
+class MMIAddrLabelMapCallbackPtr final : CallbackVH {
   MMIAddrLabelMap *Map;
 public:
   MMIAddrLabelMapCallbackPtr() : Map(nullptr) {}
@@ -207,8 +207,8 @@ bool MachineModuleInfo::doInitialization(Module &M) {
 
   ObjFileMMI = nullptr;
   CurCallSite = 0;
-  CallsEHReturn = 0;
-  CallsUnwindInit = 0;
+  CallsEHReturn = false;
+  CallsUnwindInit = false;
   DbgInfoAvailable = UsesVAFloatArgument = UsesMorestackAddr = false;
   // Always emit some info, by default "no personality" info.
   Personalities.push_back(nullptr);
@@ -247,8 +247,8 @@ void MachineModuleInfo::EndFunction() {
   TypeInfos.clear();
   FilterIds.clear();
   FilterEnds.clear();
-  CallsEHReturn = 0;
-  CallsUnwindInit = 0;
+  CallsEHReturn = false;
+  CallsUnwindInit = false;
   VariableDbgInfos.clear();
 }
 
@@ -320,7 +320,10 @@ void MachineModuleInfo::addPersonality(MachineBasicBlock *LandingPad,
                                        const Function *Personality) {
   LandingPadInfo &LP = getOrCreateLandingPadInfo(LandingPad);
   LP.Personality = Personality;
+  addPersonality(Personality);
+}
 
+void MachineModuleInfo::addPersonality(const Function *Personality) {
   for (unsigned i = 0; i < Personalities.size(); ++i)
     if (Personalities[i] == Personality)
       return;
