@@ -184,6 +184,8 @@ public:
 
     llvm::Module* ParseModuleIR(llvm::MemoryBuffer* pIRBuffer);
 
+    llvm::Module* ParseSPIRVModule(llvm::MemoryBuffer* pIRBuffer);
+
     const std::string GetBitcodeTargetTriple(const void* pBinary, size_t uiBinarySize) const;
 
     virtual void SetObjectCache(ObjectCodeCache* pCache) = 0;

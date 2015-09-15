@@ -16,9 +16,6 @@ File Name:  Compiler.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
-#include <memory>
-#include <vector>
-#include <string>
 #include "cl_types.h"
 #include "cl_config.h"
 #include "cpu_dev_limits.h"
@@ -38,6 +35,7 @@ File Name:  Compiler.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SPIRV.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -54,11 +52,14 @@ File Name:  Compiler.cpp
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Linker/Linker.h"
-using std::string;
 
+#include <memory>
+#include <vector>
+#include <string>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 void dumpModule(llvm::Module& m){
@@ -431,6 +432,21 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
         throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
     return pModuleOrErr.get();
+}
+
+llvm::Module* Compiler::ParseSPIRVModule(llvm::MemoryBuffer* pIRBuffer)
+{
+    // Parse SPIRV
+    llvm::Module * retM;
+    std::string errMsg;
+    std::stringstream inputStream(pIRBuffer->getBuffer().str(), std::ios_base::in);
+
+    bool success = llvm::ReadSPRV(*m_pLLVMContext, inputStream, retM, errMsg);
+    if ( !success )
+    {
+        throw Exceptions::CompilerException(std::string("Failed to parse SPIR-V: ") + errMsg, CL_DEV_INVALID_BINARY);
+    }
+    return retM;
 }
 
 // RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
