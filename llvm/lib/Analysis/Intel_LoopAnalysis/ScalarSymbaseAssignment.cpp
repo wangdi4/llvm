@@ -64,9 +64,6 @@ void ScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
 unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
   BaseTemps.push_back(Temp);
 
-  // Map symbase to Value, only needed for printing lval DDRefs.
-  insertHIRLval(Temp, getMaxScalarSymbase());
-
   return getMaxScalarSymbase();
 }
 
@@ -103,25 +100,27 @@ unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  const Value *RetVal;
+  const Value *RetVal = nullptr;
 
   assert((Symbase > getSymBaseForConstants()) && "Symbase is out of range!");
 
   if (Symbase <= getMaxScalarSymbase()) {
     RetVal = BaseTemps[Symbase - getSymBaseForConstants() - 1];
-  }
-  // Symbase can be out of range for new temps created by HIR transformations.
-  else {
+  } else {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Symbase can be out of range for new temps created by HIR transformations.
+    // These temps are registered by framework utils for printing in debug mode.
     auto It = ScalarLvalSymbases.find(Symbase);
     assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
     RetVal = It->second;
+#else
+    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
+    // maintained in debug mode for printing.
+    llvm_unreachable("Couldn't find base temp!");
+#endif
   }
 
   return RetVal;
-#else
-  return nullptr;
-#endif
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
