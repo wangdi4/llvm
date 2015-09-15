@@ -269,10 +269,15 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         s_ver = OPENCL_VERSION_1_2;
         return OPENCL_VERSION_1_2;
     }
-    if ("2.0" == ver)
+    else if ("2.0" == ver)
     {
         s_ver = OPENCL_VERSION_2_0;
         return OPENCL_VERSION_2_0;
+    }
+    else if ("2.1" == ver)
+    {
+        s_ver = OPENCL_VERSION_2_1;
+        return OPENCL_VERSION_2_1;
     }
     // else look in registry/etc
 #ifdef _WIN32
@@ -291,6 +296,11 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
         {
             s_ver = OPENCL_VERSION_2_0;
             return OPENCL_VERSION_2_0;
+        }
+    case 3:
+        {
+            s_ver = OPENCL_VERSION_2_1;
+            return OPENCL_VERSION_2_1;
         }
     default:
 #ifdef _WIN32

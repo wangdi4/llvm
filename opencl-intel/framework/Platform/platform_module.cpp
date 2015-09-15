@@ -180,22 +180,30 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
     }
 
-    if (pConfig->GetOpenCLVersion() == OPENCL_VERSION_1_2)
+    switch(pConfig->GetOpenCLVersion())
     {
-#ifdef _WIN32
-        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
-#else
-        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
-#endif
-    }
-    else
-    {
+        case OPENCL_VERSION_2_0:
 #ifdef _WIN32
         m_vPlatformVersionStr = "OpenCL 2.0 WINDOWS";
 #else
         m_vPlatformVersionStr = "OpenCL 2.0 LINUX";
 #endif
-    }   
+        break;
+        case OPENCL_VERSION_2_1:
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 2.1 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 2.1 LINUX";
+#endif
+        break;
+        default:
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
+#endif
+        break;
+    }
 
     return clErr;
 
