@@ -154,4 +154,5 @@ void clBuildOptionsTest();
 void clShutdownSVMTest();
 bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
+bool Timers();
 //#define CUDA_DEVICE
