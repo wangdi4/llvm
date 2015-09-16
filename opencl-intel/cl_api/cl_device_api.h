@@ -675,6 +675,12 @@ typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
                         );
 
 
+//! This function return timestamp for device.
+/*!
+    \retval     timestamp for device
+*/
+typedef cl_ulong (fn_clDevGetDeviceTimer)();
+
 //! This function initializes device agent internal data. This function should be called prior to any device agent calls.
 /*!
     \retval     CL_DEV_SUCCESS          If function is executed successfully.

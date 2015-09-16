@@ -330,6 +330,51 @@ cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
 SET_ALIAS(clGetPlatformInfo);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// clGetHostTimer
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int CL_API_CALL clGetHostTimer(cl_device_id device,
+                                  cl_ulong* host_timestamp)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetHostTimer");
+        apiLogger << "cl_device_id device" << device << "cl_ulong* host_timestamp" << host_timestamp;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("host_timestamp", host_timestamp, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+    }
+}
+SET_ALIAS(clGetHostTimer);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// clGetDeviceAndHostTimer
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int CL_API_CALL clGetDeviceAndHostTimer(cl_device_id device,
+                                           cl_ulong* device_timestamp,
+                                           cl_ulong* host_timestamp)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetDeviceAndHostTimer");
+        apiLogger << "cl_device_id device" << device << "cl_ulong* device_timestamp" << device_timestamp <<
+            "cl_ulong* host_timestamp" << host_timestamp;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("host_timestamp",   host_timestamp,   false, true);
+        provider.AddParam("device_timestamp", device_timestamp, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+    }
+}
+SET_ALIAS(clGetDeviceAndHostTimer);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Device APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -130,3 +130,5 @@ EXPORTS
 	clCreatePipeINTEL
 	clGetPipeInfo
 	clCreateCommandQueueWithProperties
+	clGetHostTimer;
+	clGetDeviceAndHostTimer;

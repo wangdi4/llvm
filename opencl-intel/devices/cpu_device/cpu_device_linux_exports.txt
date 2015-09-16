@@ -2,6 +2,7 @@
     global:
         clDevCreateDeviceInstance;
         clDevGetDeviceInfo;
+        clDevGetDeviceTimer;
         clDevErr2Txt;
 	clDevGetAvailableDeviceList;
 	clDevInitDeviceAgent;

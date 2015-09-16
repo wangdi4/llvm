@@ -170,6 +170,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void DeviceClosed()  { --m_activeDeviceCount; }
         long GetActiveDeviceCount() const { return m_activeDeviceCount; }
         void WaitForAllDevices() { while (m_activeDeviceCount > 0) { Intel::OpenCL::Utils::hw_pause(); }; }
+        cl_err_code GetHostTimer(cl_device_id device, cl_ulong* host_timestamp);
+        cl_err_code GetDeviceAndHostTimer(cl_device_id device, cl_ulong* device_timestamp, cl_ulong* host_timestamp);
 
     private:
 

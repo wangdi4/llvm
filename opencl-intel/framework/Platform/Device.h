@@ -150,6 +150,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_uint       GetMaxWorkItemDimensions()  const = 0;
         virtual const size_t* GetMaxWorkItemSizes()       const = 0;
         virtual bool          GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const = 0;
+        virtual cl_ulong      GetDeviceTimer() const = 0;
  
         /**
          * Atomically test whether a default device queue does not exist for this FissionableDevice and if not, set that it exists
@@ -282,6 +283,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t                      GetMaxWorkGroupSize()       const { return m_CL_DEVICE_MAX_WORK_GROUP_SIZE; }
         cl_uint                     GetMaxWorkItemDimensions()  const { return m_CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS; }
         const size_t*               GetMaxWorkItemSizes()       const { return m_CL_DEVICE_MAX_WORK_ITEM_SIZES; }
+        cl_ulong                    GetDeviceTimer() const;
         bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
                                                                     { 
                                                                         *svm_cap = m_CL_DEVICE_SVM_CAPABILITIES; 
@@ -333,7 +335,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
         * Author:        Uri Levy
         * Date:            December 2008
         ******************************************************************************************/
-        cl_err_code InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDeviceInfo* pFnClDevGetDeviceInfo, unsigned int devId);
+        cl_err_code InitDevice(const char*             psDeviceAgentDllPath,
+                               fn_clDevGetDeviceInfo*  pFnClDevGetDeviceInfo,
+                               fn_clDevGetDeviceTimer* pFnClDevGetDeviceTimer,
+                               unsigned int devId);
 
         ///////////////////////////////////////////////////////////////////////////////////////////
         // callback functions
@@ -363,6 +368,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // Pointer to the device GetInfo function.
         fn_clDevGetDeviceInfo*                      m_pFnClDevGetDeviceInfo;
+        fn_clDevGetDeviceTimer*                     m_pFnClDevGetDeviceTimer;
 
         cl_int                                      m_iNextClientId;        // hold the next client logger id
 
@@ -442,6 +448,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         size_t                      GetMaxWorkGroupSize()       const { return m_pRootDevice->GetMaxWorkGroupSize(); }
         cl_uint                     GetMaxWorkItemDimensions()  const { return m_pRootDevice->GetMaxWorkItemDimensions(); }
         const size_t*               GetMaxWorkItemSizes()       const { return m_pRootDevice->GetMaxWorkItemSizes(); }
+        cl_ulong                    GetDeviceTimer()            const { return m_pRootDevice->GetDeviceTimer(); }
         bool                        GetSVMCapabilities(cl_device_svm_capabilities *svm_cap) const 
                                                                       { return m_pRootDevice->GetSVMCapabilities(svm_cap); }
 

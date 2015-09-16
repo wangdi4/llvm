@@ -83,6 +83,11 @@ void Device::Cleanup( bool bIsTerminate )
     delete this;
 }
 
+cl_ulong Device::GetDeviceTimer() const
+{
+    return m_pFnClDevGetDeviceTimer();
+}
+
 cl_err_code    Device::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
 {
     LOG_DEBUG(TEXT("Enter Device::GetInfo (param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
@@ -183,6 +188,13 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
         return CL_ERR_DEVICE_INIT_FAIL;
     }
 
+    // Get pointer to the GetTimer function
+    fn_clDevGetDeviceTimer*    pFnClDevGetDeviceTimer = (fn_clDevGetDeviceTimer*)dlModule.GetFunctionPtrByName("clDevGetDeviceTimer");
+    if (NULL == pFnClDevGetDeviceTimer)
+    {
+        return CL_ERR_DEVICE_INIT_FAIL;
+    }
+
     fn_clDevGetAvailableDeviceList* pFnClDevGetAvailableDeviceList = (fn_clDevGetAvailableDeviceList*)dlModule.GetFunctionPtrByName("clDevGetAvailableDeviceList");
     if (NULL == pFnClDevGetAvailableDeviceList)
     {
@@ -231,7 +243,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
             break;
         }
 
-        clErr = pDevice->InitDevice(psDeviceAgentDllPath, pFnClDevGetDeviceInfo, deviceIdsList[i]);
+        clErr = pDevice->InitDevice(psDeviceAgentDllPath, pFnClDevGetDeviceInfo, pFnClDevGetDeviceTimer, deviceIdsList[i]);
         if (CL_FAILED(clErr))
         {
             clErrRet = clErr;
@@ -246,7 +258,7 @@ cl_err_code Device::CreateAndInitAllDevicesOfDeviceType(const char * psDeviceAge
     return clErrRet;
 }
 
-cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDeviceInfo* pFnClDevGetDeviceInfo, unsigned int devId)
+cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDeviceInfo* pFnClDevGetDeviceInfo, fn_clDevGetDeviceTimer* pFnClDevGetDeviceTimer, unsigned int devId)
 {
     LogDebugA("Device::InitDevice enter. pwcDllPath=%s", psDeviceAgentDllPath);
 
@@ -260,6 +272,7 @@ cl_err_code Device::InitDevice(const char * psDeviceAgentDllPath, fn_clDevGetDev
     }
 
     m_pFnClDevGetDeviceInfo = pFnClDevGetDeviceInfo;
+    m_pFnClDevGetDeviceTimer = pFnClDevGetDeviceTimer;
     m_devId = devId;
 
     m_stMaxLocalMemorySize = 0;
