@@ -1,5 +1,8 @@
-; RUN: opt -S -Oz < %s | FileCheck %s -check-prefix=OZ
-; RUN: opt -S -O2 < %s | FileCheck %s -check-prefix=O2
+; INTEL: Changing the default for -inlineoptsize-threshold to 25 caused this 
+; INTEL: Test to fail. Now passing the expected value of 75 manually to get 
+; INTEL: the test to pass again.
+; RUN: opt -S -inlineoptsize-threshold=75 -Oz < %s | FileCheck %s -check-prefix=OZ
+; RUN: opt -S -O2  -inlineoptsize-threshold=75 < %s | FileCheck %s -check-prefix=O2
 
 ; The inline threshold for a function with the optsize attribute is currently
 ; the same as the global inline threshold for -Os. Check that the optsize

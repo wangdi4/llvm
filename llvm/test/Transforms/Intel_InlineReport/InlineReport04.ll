@@ -15,8 +15,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: DEAD STATIC FUNC: foo
 
-; CHECK: COMPILE FUNC: fred 
-; CHECK-NEXT: INLINE: foo
+; CHECK: COMPILE FUNC: A fred 
+; CHECK-NEXT: INLINE: L foo
 ; CHECK-SAME: (8,11)
 ; CHECK-SAME: <<Callee is always inline>>
 

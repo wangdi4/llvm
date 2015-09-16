@@ -73,10 +73,10 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtNone, nullptr,
   // InlrAlwaysInline,
   InlPrtSimple, "Callee is always inline",
-  // InlrSingleBasicBlock,
-  InlPrtCost, "Callee is single basic block",
   // InlrSingleLocalCall,
   InlPrtCost, "Callee has single callsite and local linkage",
+  // InlrSingleBasicBlock,
+  InlPrtCost, "Callee is single basic block",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
   // InlrVectorBonus,
@@ -261,6 +261,14 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) 
 {
   if (getCallee() != nullptr) { 
+    // Flag call sites as:
+    //   L: local linkage 
+    //   O: ODR (one definition rule) 
+    //   X: available externally (and generally not emitted) 
+    //   A: some other alternative
+    llvm::errs() << (getCallee()->hasLocalLinkage() ? "L " :
+      (getCallee()->hasLinkOnceODRLinkage() ? "O " :
+      (getCallee()->hasAvailableExternallyLinkage() ? "X " : "A ")));
     llvm::errs() << getCallee()->getName(); 
   } 
   if (Level & InlineReportOptions::File) { 
@@ -589,8 +597,17 @@ void InlineReport::print(void) const {
     if (IRF->getDead()) {
       llvm::errs() << "DEAD STATIC FUNC: " << F->getName() << "\n\n";
     }
-    else { 
-      llvm::errs() << "COMPILE FUNC: " << F->getName() << "\n";
+    else if (!F->isDeclaration()) {
+      // Flag routines as:
+      //   L: local linkage 
+      //   O: ODR (one definition rule) 
+      //   X: available externally (and generally not emitted) 
+      //   A: some other alternative
+      llvm::errs() << "COMPILE FUNC: "
+        << (F->hasLocalLinkage() ? "L " :
+          (F->hasLinkOnceODRLinkage() ? "O " :
+          (F->hasAvailableExternallyLinkage() ? "X " : "A ")))
+        << F->getName() << "\n";
       InlineReportFunction* IRF = Mit->second;
       IRF->print(Level); 
       llvm::errs() << "\n"; 

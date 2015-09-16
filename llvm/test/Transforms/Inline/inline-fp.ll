@@ -1,4 +1,6 @@
-; RUN: opt -S -inline < %s | FileCheck %s
+; INTEL We need to pass -inlineoptsize-threshold=75 explicitly now in this
+; INTEL test, because we have changed the default value in xmain.  
+; RUN: opt -S -inline -inlineoptsize-threshold=75 < %s | FileCheck %s
 ; Make sure that soft float implementations are calculated as being more expensive
 ; to the inliner.
 

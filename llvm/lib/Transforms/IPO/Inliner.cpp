@@ -82,8 +82,9 @@ ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 #ifdef INTEL_CUSTOMIZATION
+// CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int>
-OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(75),
+OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(15),
               cl::desc("Threshold for inlining functions with -Os"));
 #endif // INTEL_CUSTOMIZATION
 
