@@ -372,7 +372,6 @@ int READ_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __gl
   {
     const uint base_idx = extract_index(reserve_id);
     __global char const * src = p->base + size_of_packet * advance(p, base_idx, index);
-    //__builtin_memcpy((private void*)data, (private const void*)(src), size_of_packet);
     private void *vd = (private void *)((void*)data);
     private void const *vs = (private void const *)((void const *)src);
     __builtin_memcpy(vd, vs, size_of_packet);
@@ -451,7 +450,6 @@ int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_p
         private void *vd = (private void *)((void*)data);
         private void const *vs = (private void const *)((void const *)(p->base + head * size_of_packet));
         __builtin_memcpy(vd, vs, size_of_packet);
-        //__builtin_memcpy((void*)data, (const void*)(p->base + head * size_of_packet), size_of_packet);
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
         intel_unlock_pipe_read( p );
         retVal = 0;
@@ -510,7 +508,6 @@ int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_
         private void *vd = (private void *)((void*)(p->base + tail * size_of_packet));
         private void const *vs = (private void const *)((void const *)data);
         __builtin_memcpy(vd, vs, size_of_packet);
-        //__builtin_memcpy((void*)(p->base + tail * size_of_packet), (const void*)data, size_of_packet);
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_all_svm_devices);
         intel_unlock_pipe_write( p );
         retVal = 0;
