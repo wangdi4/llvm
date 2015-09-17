@@ -2967,6 +2967,11 @@ def err_uninitialized_member_in_ctor : Error<
 def err_default_arg_makes_ctor_special : Error<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">;
+//#ifdef INTEL_CUSTOMIZATION
+def warn_default_arg_makes_ctor_special : Warning<
+  "addition of default argument on redeclaration makes this constructor a "
+  "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
+//#endif
 
 def err_use_of_default_argument_to_function_declared_later : Error<
   "use of default argument to function %0 that is declared later in class %1">;
@@ -4066,6 +4071,12 @@ def warn_missing_variable_declarations : Warning<
 def err_static_data_member_reinitialization :
   Error<"static data member %0 already has an initializer">;
 def err_redefinition : Error<"redefinition of %0">;
+// if INTEL_CUSTOMIZATION
+// CQ#373258 - allow class member typedef redefinition in IntelCompat mode.
+def ext_intel_member_typedef_redefinition : ExtWarn<
+  "class member typedef redefinition is an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_alias_after_tentative :
   Error<"alias definition of %0 after tentative definition">;
 def err_alias_is_definition :
@@ -4157,6 +4168,17 @@ def warn_weak_import : Warning <
 def ext_static_non_static : Extension<
   "redeclaring non-static %0 as static is a Microsoft extension">,
   InGroup<MicrosoftRedeclareStatic>;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#369830 - static declaration of functions is treated differently.
+def ext_intel_static_non_static : Extension<
+  "redeclaring non-static %0 as static is an Intel extension">,
+  InGroup<IntelCompat>;
+def ext_intel_non_static_static : Extension<
+  "redeclaring static %0 as non-static is an Intel extension">,
+  InGroup<IntelCompat>;
+def ext_intel_static_block_func : Extension<
+  "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_non_static_static : Error<
   "non-static declaration of %0 follows static declaration">;
 def err_extern_non_extern : Error<
@@ -4776,6 +4798,12 @@ def err_illegal_decl_array_of_functions : Error<
   "'%0' declared as array of functions of type %1">;
 def err_illegal_decl_array_incomplete_type : Error<
   "array has incomplete element type %0">;
+//if INTEL_CUSTOMIZATION
+  // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
+def ext_intel_array_incomplete_type : Extension<
+  "array with incomplete element type %0 is an Intel extension">,
+  InGroup<IntelCompat>;
+//endif INTEL_CUSTOMIZATION
 def err_illegal_message_expr_incomplete_type : Error<
   "Objective-C message has incomplete result type %0">;
 def err_illegal_decl_array_of_references : Error<
@@ -5744,6 +5772,13 @@ def err_conditional_ambiguous : Error<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">;
+//#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ375472.
+def warn_conditional_ambiguous : Warning<
+  "conditional expression is ambiguous; "
+  "%diff{$ can be converted to $ and vice versa|"
+  "types can be convert to each other}0,1">, InGroup<IntelCompat>;
+//#endif //INTEL_CUSTOMIZATION
 def err_conditional_ambiguous_ovl : Error<
   "conditional expression is ambiguous; %diff{$ and $|types}0,1 "
   "can be converted to several common types">;

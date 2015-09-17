@@ -667,6 +667,15 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     if (NewSM != OldSM) {
       ParmVarDecl *NewParam = New->getParamDecl(New->getMinRequiredArguments());
       assert(NewParam->hasDefaultArg());
+#ifdef INTEL_CUSTOMIZATION
+      // Fix for CQ375076: Althreat application failed with error addition of
+      // default argument on redeclaration makes this constructor a default
+      // constructor
+      if (getLangOpts().IntelCompat)
+        Diag(NewParam->getLocation(), diag::warn_default_arg_makes_ctor_special)
+            << NewParam->getDefaultArgRange() << NewSM;
+      else
+#endif //INTEL_CUSTOMIZATION
       Diag(NewParam->getLocation(), diag::err_default_arg_makes_ctor_special)
         << NewParam->getDefaultArgRange() << NewSM;
       Diag(Old->getLocation(), diag::note_previous_declaration);
@@ -3239,6 +3248,12 @@ Sema::BuildBaseInitializer(QualType BaseType, TypeSourceInfo *BaseTInfo,
   //   mem-initializer-list can initialize a base class using any
   //   name that denotes that base class type.
   bool Dependent = BaseType->isDependentType() || Init->isTypeDependent();
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375134: do not try to perform base constructor search in
+  // templates until real instantiation.
+  if (getLangOpts().IntelCompat)
+    Dependent = Dependent || ClassDecl->isDependentType();
+#endif // INTEL_CUSTOMIZATION
 
   SourceRange InitRange = Init->getSourceRange();
   if (EllipsisLoc.isValid()) {
@@ -12792,7 +12807,10 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #ifdef INTEL_CUSTOMIZATION
-      }
+      // Fix for CQ#374679: Several negative tests are failed after promotion
+      // due to patches allowing too permissive xmain's behavior.
+      } else if (!D.isFunctionDefinition())
+        Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #endif // INTEL_CUSTOMIZATION
     }
 

@@ -1,3 +1,5 @@
+// REQUIRES: llvm-backend
+// The special IL0 backend version of the test is in the il0-backend subfolder.
 // CQ#366961
 // RUN: %clang_cc1 -fintel-compatibility --extended_float_types -emit-llvm %s -o - | FileCheck %s
 

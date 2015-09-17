@@ -3652,9 +3652,10 @@ static void TryReferenceListInitialization(Sema &S,
     if (DestType->isRValueReferenceType() ||
 #ifdef INTEL_CUSTOMIZATION
         // CQ#364712 - allow non-const non-volatile lvalue reference bind to
-        // temporary in IntelMSCompat mode.
-        ((S.getLangOpts().IntelMSCompat || T1Quals.hasConst()) &&
-         !T1Quals.hasVolatile()))
+        // temporary of structure or class types in IntelMSCompat mode.
+        (!T1Quals.hasVolatile() &&
+         (T1Quals.hasConst() ||
+          (S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType()))))
 #else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
 #endif // INTEL_CUSTOMIZATION
@@ -4173,7 +4174,7 @@ static void TryReferenceInitializationCore(Sema &S,
       // CQ#364712 - allow non-const lvalue reference bind to temporary in
       // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
       if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
-          InitCategory.isLValue())
+          InitCategory.isLValue() || !T1->isStructureOrClassType())
 #endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
@@ -7295,8 +7296,15 @@ bool InitializationSequence::Diagnose(Sema &S,
   // Fix for CQ#236476: Static variable is referenced in two separate routines
   // in iclang
   case FK_StaticLabelAddress:
-    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-        << Args[0]->getSourceRange();
+    // Fix for CQ#374664: After promotion xmain becomes too strict on
+    // initialization of static variable with label address.
+    DeclContext *DC = S.getFunctionLevelDeclContext();
+    while (isa<RecordDecl>(DC))
+      DC = DC->getParent();
+    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
+      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic())
+        S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+            << Args[0]->getSourceRange();
     break;
 #endif // INTEL_CUSTOMIZATION
   }

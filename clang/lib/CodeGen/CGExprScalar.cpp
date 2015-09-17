@@ -2063,7 +2063,11 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
       if (!eltSize.isOne())
         size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
 
+#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
+      return CGF.EmitIntelSizeof(TypeToSize, size);
+#else
       return size;
+#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
     }
   } else if (E->getKind() == UETT_OpenMPRequiredSimdAlign) {
     auto Alignment =
@@ -2076,7 +2080,12 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
 
   // If this isn't sizeof(vla), the result must be constant; use the constant
   // folding logic so we don't have to duplicate it here.
+#if defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
+  auto Size = Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
+  return CGF.EmitIntelSizeof(TypeToSize, Size);
+#else
   return Builder.getInt(E->EvaluateKnownConstInt(CGF.getContext()));
+#endif // defined (INTEL_CUSTOMIZATION) && defined(INTEL_SPECIFIC_IL0_BACKEND)
 }
 
 Value *ScalarExprEmitter::VisitUnaryReal(const UnaryOperator *E) {
@@ -2752,6 +2761,14 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
+#ifdef INTEL_CUSTOMIZATION
+#ifndef INTEL_SPECIFIC_IL0_BACKEND
+  // Fix for CQ375045: xmain's bitwise shift show results that are differ from
+  // results of icc/gcc
+  if (CGF.getLangOpts().IntelCompat)
+    RHS = Builder.CreateAnd(RHS, RHS->getType()->getScalarSizeInBits() - 1);
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
 
   bool SanitizeBase = CGF.SanOpts.has(SanitizerKind::ShiftBase) &&
                       Ops.Ty->hasSignedIntegerRepresentation();
