@@ -1015,6 +1015,20 @@ cl_int CL_API_CALL clBuildProgram(cl_program           program,
 }
 SET_ALIAS(clBuildProgram);
 
+cl_int CL_API_CALL clUnloadPlatformCompiler(cl_platform_id platform)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clUnloadPlatformCompiler);
+        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, UnloadPlatformCompiler(platform));
+    }
+}
+SET_ALIAS(clUnloadPlatformCompiler);
+
 cl_int CL_API_CALL clUnloadCompiler(void)
 {
     if (g_pUserLogger->IsApiLoggingEnabled())

@@ -140,6 +140,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int GetDeviceIDs(cl_platform_id clPlatform, cl_device_type clDeviceType, cl_uint uiNumEntries, cl_device_id* pclDevices, cl_uint* puiNumDevices);
         virtual cl_int GetDeviceInfo(cl_device_id  clDevice, cl_device_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet);
         virtual cl_int UnloadCompiler(void);
+        virtual cl_err_code UnloadPlatformCompiler(cl_platform_id pclPlatforms);
         virtual cl_int GetGLContextInfo(const cl_context_properties * properties, cl_gl_context_info param_name, size_t param_value_size, void *param_value, size_t *param_value_size_ret);
 #if defined (DX_MEDIA_SHARING)
         virtual cl_int GetDeviceIDsFromD3D(cl_platform_id platform, cl_uint num_media_adapters, int *media_adapters_type, void** media_adapters,

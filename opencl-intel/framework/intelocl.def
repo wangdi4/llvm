@@ -39,6 +39,7 @@ EXPORTS
 	clReleaseProgram
 	clBuildProgram
 	clUnloadCompiler
+	clUnloadPlatformCompiler
 	clGetProgramInfo
 	clGetProgramBuildInfo
 	clCreateKernel
