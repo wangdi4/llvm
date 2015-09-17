@@ -5741,6 +5741,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleCilkVecLengthAttr(S, D, Attr);
     break;
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // FIXME: Unless TableGen is able to recognize IL0-specific guards, don't
+  // forget to add every attribute appearing here to the #else section below!
   case AttributeList::AT_AvoidFalseShare:
     handleAvoidFalseShareAttr  (S, D, Attr); break;
   case AttributeList::AT_Allocate:
@@ -5751,6 +5753,21 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBNDLegacyAttr  (S, D, Attr); break;
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
+#else
+  // FIXME: No longer need this section as soon as TableGen is able to recognize
+  // IL0-specific guards. Currently attributes below are treated as known, but
+  // unhandled, which leads to assertion failure in 'default' section of switch
+  // in non-IL0 configuration. Related to CQ#375594.
+  case AttributeList::AT_AvoidFalseShare:
+  case AttributeList::AT_Allocate:
+  case AttributeList::AT_GCCStruct:
+  case AttributeList::AT_BNDLegacy:
+  case AttributeList::AT_BNDVarSize:
+    S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
+                              ? diag::warn_unhandled_ms_attribute_ignored
+                              : diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   }
