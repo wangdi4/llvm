@@ -3126,6 +3126,15 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              size_t lengths,
                                              cl_int* errcode_ret)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        if (errcode_ret != NULL)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateProgramWithIL);
