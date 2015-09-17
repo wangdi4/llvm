@@ -1,4 +1,4 @@
-; RUN: opt -inline -inline-report=1 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
+; RUN: opt -inline -inline-report=33 -inline-threshold=50 -inlinehint-threshold=100 -inlinecold-threshold=25 -inlineoptsize-threshold=10 < %s -S 2>&1 | FileCheck %s
 
 ; Generated with clang -c -S -emit-llvm sm1.c 
 
@@ -14,8 +14,8 @@ target triple = "x86_64-unknown-linux-gnu"
 
 ; CHECK: DEAD STATIC FUNC: foo
 
-; CHECK: COMPILE FUNC: main
-; CHECK-NEXT: INLINE: foo
+; CHECK: COMPILE FUNC: A main
+; CHECK-NEXT: INLINE: L foo
 
 ; Function Attrs: nounwind uwtable
 define i32 @main() #0 {

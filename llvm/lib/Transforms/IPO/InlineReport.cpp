@@ -255,20 +255,28 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 } 
 
 ///
+/// \brief Print the linkage info for a function 'F' as a single letter,
+/// if the 'Level' specifies InlineReportOptions::Linkage. 
+/// For an explanation of the meaning of these letters, see InlineReport.h. 
+///
+static void printFunctionLinkage(unsigned Level, Function* F)
+{
+  if (!(Level & InlineReportOptions::Linkage)) { 
+    return;
+  } 
+  llvm::errs() << (F->hasLocalLinkage() ? "L " :
+    (F->hasLinkOnceODRLinkage() ? "O " :
+    (F->hasAvailableExternallyLinkage() ? "X " : "A ")));
+} 
+
+///
 /// \brief Print the callee name, and if non-zero, the line and column 
 /// number of the call site 
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) 
 {
   if (getCallee() != nullptr) { 
-    // Flag call sites as:
-    //   L: local linkage 
-    //   O: ODR (one definition rule) 
-    //   X: available externally (and generally not emitted) 
-    //   A: some other alternative
-    llvm::errs() << (getCallee()->hasLocalLinkage() ? "L " :
-      (getCallee()->hasLinkOnceODRLinkage() ? "O " :
-      (getCallee()->hasAvailableExternallyLinkage() ? "X " : "A ")));
+    printFunctionLinkage(Level, getCallee()); 
     llvm::errs() << getCallee()->getName(); 
   } 
   if (Level & InlineReportOptions::File) { 
@@ -598,16 +606,9 @@ void InlineReport::print(void) const {
       llvm::errs() << "DEAD STATIC FUNC: " << F->getName() << "\n\n";
     }
     else if (!F->isDeclaration()) {
-      // Flag routines as:
-      //   L: local linkage 
-      //   O: ODR (one definition rule) 
-      //   X: available externally (and generally not emitted) 
-      //   A: some other alternative
-      llvm::errs() << "COMPILE FUNC: "
-        << (F->hasLocalLinkage() ? "L " :
-          (F->hasLinkOnceODRLinkage() ? "O " :
-          (F->hasAvailableExternallyLinkage() ? "X " : "A ")))
-        << F->getName() << "\n";
+      llvm::errs() << "COMPILE FUNC: ";
+      printFunctionLinkage(Level, F); 
+      llvm::errs() << F->getName() << "\n";
       InlineReportFunction* IRF = Mit->second;
       IRF->print(Level); 
       llvm::errs() << "\n"; 
