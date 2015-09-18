@@ -383,8 +383,10 @@ bool WinEHPrepare::runOnFunction(Function &Fn) {
     return false;
 
 #if INTEL_CUSTOMIZATION
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
   // Avoid outlining unreachable code.
-  removeUnreachableBlocks(Fn);
+  removeUnreachableBlocks(Fn, DT);
 #endif // INTEL_CUSTOMIZATION
 
   SmallVector<LandingPadInst *, 4> LPads;
@@ -419,7 +421,10 @@ bool WinEHPrepare::runOnFunction(Function &Fn) {
   }
 #endif // INTEL_CUSTOMIZATION
 
+#if !INTEL_CUSTOMIZATION
+  // This is initialized earlier if INTEL_CUSTOMIZATION is defined.
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#endif // INTEL_CUSTOMIZATION
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   // If there were any landing pads, prepareExceptionHandlers will make changes.
@@ -584,8 +589,14 @@ void WinEHPrepare::findSEHEHReturnPoints(
       if (!CatchHandler->getSinglePredecessor()) {
         DEBUG(dbgs() << "splitting EH return edge from " << BB->getName()
                      << " to " << CatchHandler->getName() << '\n');
+#if INTEL_CUSTOMIZATION
+        BBI = CatchHandler = SplitCriticalEdge(
+            BB, std::find(succ_begin(BB), succ_end(BB), CatchHandler),
+            CriticalEdgeSplittingOptions(DT));
+#else // !INTEL_CUSTOMIZATION
         BBI = CatchHandler = SplitCriticalEdge(
             BB, std::find(succ_begin(BB), succ_end(BB), CatchHandler));
+#endif // !INTEL_CUSTOMIZATION
       }
       EHReturnBlocks.insert(CatchHandler);
     }
@@ -974,8 +985,22 @@ bool WinEHPrepare::prepareExceptionHandlers(
     }
     IndirectBrInst *Branch =
         IndirectBrInst::Create(Recover, ReturnTargets.size(), LPadBB);
-    for (BasicBlock *Target : ReturnTargets)
+    for (BasicBlock *Target : ReturnTargets) {
       Branch->addDestination(Target);
+#if INTEL_CUSTOMIZATION
+      // We've just changed the function control flow, so we need to
+      // update the dominator tree.  Any nodes that have become unreachable
+      // will be removed later.  For now, we just need to reconnect the live
+      // blocks.  We can achieve this by setting the branch target's immediate
+      // dominator to the first block that dominates both the landing pad and
+      // the target.  This will be the landing pad itself if it previously
+      // dominated the target (possibly with intermediate blocks).  However,
+      // if the target is shared with other landing pads, the dominator will be
+      // something higher in the tree.
+      auto *NewIDom = DT->findNearestCommonDominator(Target, LPadBB);
+      DT->changeImmediateDominator(Target, NewIDom);
+#endif // INTEL_CUSTOMIZATION
+    }
 
     if (!isAsynchronousEHPersonality(Personality)) {
       // C++ EH must repopulate the targets later to handle the case of
@@ -1023,6 +1048,12 @@ bool WinEHPrepare::prepareExceptionHandlers(
     }
     for (BasicBlock *Target : ReturnTargets) {
       Branch->addDestination(Target);
+#if INTEL_CUSTOMIZATION
+      // Update the dominator tree to reflect the new path to this target.
+      auto *NewIDom = DT->findNearestCommonDominator(Target,
+                                                     Branch->getParent());
+      DT->changeImmediateDominator(Target, NewIDom);
+#endif // INTEL_CUSTOMIZATION
       // The target may be a block that we excepted to get pruned.
       // If it is, it may contain a call to llvm.eh.endcatch.
       if (CheckedTargets.insert(Target)) {
@@ -1043,7 +1074,11 @@ bool WinEHPrepare::prepareExceptionHandlers(
   F.addFnAttr("wineh-parent", F.getName());
 
   // Delete any blocks that were only used by handlers that were outlined above.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
   removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
 
   BasicBlock *Entry = &F.getEntryBlock();
   IRBuilder<> Builder(F.getParent()->getContext());
@@ -1848,8 +1883,14 @@ WinEHCatchDirector::handleEndCatch(ValueToValueMapTy &VMap,
   if (!Branch || !Branch->isUnconditional()) {
     // We're interrupting the cloning process at this location, so the
     // const_cast we're doing here will not cause a problem.
+#if INTEL_CUSTOMIZATION
+    ContinueBB = SplitBlock(const_cast<BasicBlock *>(ParentBB),
+                            const_cast<Instruction *>(cast<Instruction>(Next)),
+                            DT);
+#else // !INTEL_CUSTOMIZATION
     ContinueBB = SplitBlock(const_cast<BasicBlock *>(ParentBB),
                             const_cast<Instruction *>(cast<Instruction>(Next)));
+#endif // !INTEL_CUSTOMIZATION
   } else {
     ContinueBB = Branch->getSuccessor(0);
   }
@@ -3041,7 +3082,11 @@ bool WinEHPrepare::prepareExplicitEH(Function &F) {
   // Remove unreachable blocks.  It is not valuable to assign them a color and
   // their existence can trick us into thinking values are alive when they are
   // not.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
   removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
 
   BasicBlock *EntryBlock = &F.getEntryBlock();
 
@@ -3244,7 +3289,12 @@ bool WinEHPrepare::prepareExplicitEH(Function &F) {
           if (!II->getNormalDest()->getSinglePredecessor()) {
             unsigned SuccNum = GetSuccessorNumber(BB, II->getNormalDest());
             assert(isCriticalEdge(II, SuccNum) && "Expected a critical edge!");
+#if INTEL_CUSTOMIZATION
+            BasicBlock *NewBlock = SplitCriticalEdge(II, SuccNum, 
+                                     CriticalEdgeSplittingOptions(DT));
+#else // !INTEL_CUSTOMIZATION
             BasicBlock *NewBlock = SplitCriticalEdge(II, SuccNum);
+#endif // !INTEL_CUSTOMIZATION
             assert(NewBlock && "Unable to split critical edge.");
             // Update the color mapping for the newly split edge.
             std::set<BasicBlock *> &ColorsForUsingBB =
@@ -3325,7 +3375,11 @@ bool WinEHPrepare::prepareExplicitEH(Function &F) {
 
   // We might have some unreachable blocks after cleaning up some impossible
   // control flow.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
   removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
 
   // Recolor the CFG to verify that all is well.
   for (BasicBlock &BB : F) {
