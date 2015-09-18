@@ -626,7 +626,7 @@ uint64_t HIRLocalityAnalysis::computeSpatialTrip(const RegDDRef *Ref,
   // TODO: Assuming currently only Int/Float type, extend later.
   // getPrimitiveSizeInBits returns 0 for pointer type. TODO: Need to
   // investigate target machine information, later.
-  const uint ElemPerCacheLine =
+  const unsigned ElemPerCacheLine =
       Ref->getDestType()->isIntegerTy() ? IntsPerCacheLine : FloatsPerCacheLine;
   // We need to guard with max as equation may produce negative value, depending
   // upon the parameters.
