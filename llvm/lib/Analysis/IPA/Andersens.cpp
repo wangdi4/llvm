@@ -4359,8 +4359,8 @@ void IntelModRef::applyNonLocalLocClosure(FunctionRecord *FR)
     bool ModContainsNLL = FR->isModNonLocalLoc();
     bool RefContainsNLL = FR->isRefNonLocalLoc();
 
-    for (auto I = FR->AndersenModRefInfo.Map.begin(), E = FR->AndersenModRefInfo.Map.end();
-        I != E; ++I) {
+    for (auto I = FR->AndersenModRefInfo.Map.begin(), 
+      E = FR->AndersenModRefInfo.Map.end(); I != E; ++I) {
         if (ModContainsNLL && RefContainsNLL) {
             break;
         }
@@ -4371,16 +4371,16 @@ void IntelModRef::applyNonLocalLocClosure(FunctionRecord *FR)
                 ModContainsNLL = true;
 
                 DEBUG_WITH_TYPE("imr-propagate", errs() << 
-                                "Adding NonLocalLoc to MOD set of:  " << 
-                                FR->F->getName());
+                  "Closure: Adding NonLocalLoc to MOD set of: " <<
+                  FR->F->getName() << "\n");
             }
             if (!RefContainsNLL && (I->second & MRI_Ref)) {
                 FR->addRefNonLocalLoc();
                 RefContainsNLL = true;
 
                 DEBUG_WITH_TYPE("imr-propagate", errs() << 
-                                "Adding NonLocalLoc to REF set of: "
-                                << FR->F->getName());
+                  "Closure: Adding NonLocalLoc to REF set of: " <<
+                  FR->F->getName() << "\n");
             }
         }
     }
@@ -4392,7 +4392,7 @@ bool IntelModRef::isGlobalEscape(const Value *V) const
     if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
         // If the symbol is visible outside the compilation unit, treat the
         // function as accesing a non-local-loc
-        if (GV->isDiscardableIfUnused()) {
+        if (GV->hasExternalLinkage()) {
             return true;
         }
     }

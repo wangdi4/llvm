@@ -1,4 +1,6 @@
-; RUN: opt -S -Oz %s | FileCheck %s
+; INTEL We need to pass -inlineoptsize-threshold=75 explicitly now, because
+; INTEL we have changed the default value on xmain. 
+; RUN: opt -S -Oz -inlineoptsize-threshold=75 %s | FileCheck %s
 
 @a = global i32 4
 
