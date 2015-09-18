@@ -335,6 +335,11 @@ SET_ALIAS(clGetPlatformInfo);
 cl_int CL_API_CALL clGetHostTimer(cl_device_id device,
                                   cl_ulong* host_timestamp)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         ApiLogger apiLogger("clGetHostTimer");
@@ -357,6 +362,11 @@ cl_int CL_API_CALL clGetDeviceAndHostTimer(cl_device_id device,
                                            cl_ulong* device_timestamp,
                                            cl_ulong* host_timestamp)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         ApiLogger apiLogger("clGetDeviceAndHostTimer");
