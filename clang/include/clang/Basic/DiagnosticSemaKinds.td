@@ -1197,6 +1197,12 @@ def err_exception_spec_not_parsed : Error<
 // C++ access checking
 def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
+//#ifdef INTEL_CUSTOMIZATION
+// Fix for CQ373961: redeclaration of class member with different access.
+def warn_class_redeclared_with_different_access : Warning<
+  "%0 redeclared with '%1' access">,
+  AccessControl, InGroup<RedeclaredClassMember>;
+//#endif //INTEL_CUSTOMIZATION
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
 def ext_ms_using_declaration_inaccessible : ExtWarn<
