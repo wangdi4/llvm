@@ -28,21 +28,19 @@ using namespace vpo;
 /// and return a pointer to it. Otherwise; return nullptr.
 WRegionNode *WRegionUtils::createWRegion(
   StringRef DirString,
-  BasicBlock *EntryBB
+  BasicBlock *EntryBB,
+  LoopInfo *LI
 )
 {
   WRegionNode *W = nullptr;
 
   if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_PARALLEL)) {
-    W = new WRNParallelNode();
+    W = new WRNParallelNode(EntryBB);
   }
   else if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_SIMD)) {
-    W = new WRNVecLoopNode();
+    W = new WRNVecLoopNode(EntryBB, LI);
   }
   // TODO: complete the list for all WRegionNodeKinds
-
-  if (W)
-    W->setEntryBBlock(EntryBB);
 
   return W;
 }
@@ -158,12 +156,4 @@ void WRegionUtils::insertWRegionNode(
   WRContainer.insert(InsertionPoint, W);
 
   return;
-}
-
-void WRegionUtils::setLoopInfo(
-  WRNVecLoopNode *WRNLoop,
-  LoopInfo* LI
-)
-{
-  WRNLoop->setLoopInfo(LI);
 }

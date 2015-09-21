@@ -18,6 +18,9 @@
 #define LLVM_TRANSFORM_VPO_UTILS_VPOUTILS_H
 
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Analysis/LoopInfo.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
 #include <unordered_map>
 
 namespace llvm {
@@ -26,6 +29,8 @@ class Value;
 class Module;
 class Function;
 class Type;
+class BasicBlock;
+class Loop;
 class LoopInfo;
 class DominatorTree;
 class StringRef;
@@ -249,6 +254,9 @@ public:
     /// \brief Returns a floating point or integer constant depending on Ty.
     template <typename T>
     static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
+
+    /// \brief Returns Loop in LoopInfo corresponding to the WRN's EntryBB
+    static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *WRNEntryBB);
 };
 
 } // End vpo namespace

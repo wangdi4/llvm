@@ -28,10 +28,11 @@ using namespace llvm::vpo;
 
 unsigned WRegionNode::UniqueNum(0);
 
-WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID)  {
+WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB) : 
+  SubClassID(SCID), EntryBBlock(BB) 
+{
   setNextNumber();
   setParent(nullptr);
-  setEntryBBlock(nullptr);
   setExitBBlock(nullptr);
   setBBlockSet(nullptr);
   setIsFromHIR(false);
@@ -41,7 +42,8 @@ WRegionNode::WRegionNode(WRegionNode *W)
     : SubClassID(W->SubClassID) {
   setNextNumber();   // can't reuse the same number; get a new one
   setParent(W->getParent());
-  setEntryBBlock(W->getEntryBBlock()); setExitBBlock(W->getExitBBlock());
+  setEntryBBlock(W->getEntryBBlock()); 
+  setExitBBlock(W->getExitBBlock());
   setBBlockSet(W->getBBlockSet());
   setIsFromHIR(W->getIsFromHIR());
   //TODO: add code to copy Children?

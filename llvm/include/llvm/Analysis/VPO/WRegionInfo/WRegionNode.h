@@ -90,7 +90,7 @@ private:
 protected:
 
   /// \brief constructors
-  WRegionNode(unsigned SCID);
+  WRegionNode(unsigned SCID, BasicBlock *BB);
   WRegionNode(WRegionNode *W);
 
   // copy constructor not needed (at least for now)

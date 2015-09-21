@@ -74,7 +74,8 @@ public:
   /// \brief Returns a new node derived from WRegionNode node that
   /// matches the construct type based on DirString. 
   //  (eg create a WRNParRegion node if DirString is "dir.parallel")
-  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB);
+  static WRegionNode *createWRegion(StringRef DirString, 
+                                    BasicBlock *EntryBB, LoopInfo *LI);
 
   /// Utilities to handle directives & clauses 
 
@@ -99,10 +100,6 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
-
-  /// brief Sets the loop info for given WRNVecLoopNode
-  static void setLoopInfo(WRNVecLoopNode *WRNLoop, LoopInfo *LI);
-
 };
 
 

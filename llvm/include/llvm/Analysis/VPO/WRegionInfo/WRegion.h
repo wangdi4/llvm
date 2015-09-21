@@ -25,6 +25,7 @@
 namespace llvm {
 
 class LoopInfo;
+class Loop;
 
 namespace vpo {
 
@@ -42,7 +43,7 @@ private:
   WRContainerTy Children;
 
 protected:
-  WRegion(unsigned SCID);
+  WRegion(unsigned SCID, BasicBlock *BB);
   WRegion(WRegionNode *W);
 
 public:
@@ -147,7 +148,7 @@ class WRNParallelNode : public WRegion
     void setProcBind(VPOProcBindKind P)  { ProcBindType = P; }
 
   public:
-    WRNParallelNode();
+    WRNParallelNode(BasicBlock *BB);
     WRNParallelNode(WRNParallelNode *W);
     //WRNParallelNode(const WRNParallelNode &W);  // copy constructor
 
@@ -199,7 +200,7 @@ class WRNParallelLoopNode : public WRegion
     void setProcBind(VPOProcBindKind P)  { ProcBindType = P; }
 
   public:
-    WRNParallelLoopNode();
+    WRNParallelLoopNode(BasicBlock *BB);
     WRNParallelLoopNode(WRNParallelLoopNode *W);
     //WRNParallelLoopNode(const WRNParallelLoopNode &W);  // copy constructor
 
@@ -238,7 +239,8 @@ class WRNVecLoopNode : public WRegion
     int                Safelen;  
     int                Collapse;
     bool               IsAutoVec;
-    LoopInfo           *Loop;
+    LoopInfo           *LI;
+    Loop               *Lp;
 
   protected:
     void setPriv(PrivateClause *P)      { Priv = P;         }
@@ -250,14 +252,12 @@ class WRNVecLoopNode : public WRegion
     void setSafelen(int N)              { Safelen = N;      }
     void setCollapse(int N)             { Collapse = N;     }
     void setIsAutoVec(bool Flag)        { IsAutoVec = Flag; }
-    void setLoopInfo(LoopInfo *L)       { Loop = L;         }
-
-    // Need to set some fields externally.  
-    friend class WRegionUtils;
+    void setLoopInfo(LoopInfo *L)       { LI = L;           }
+    void setLoop(Loop *L)               { Lp = L;           }
 
   public:
 
-    WRNVecLoopNode();
+    WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
     WRNVecLoopNode(WRNVecLoopNode *W);
     //WRNVecLoopNode(const WRNVecLoopNode &W);  // copy constructor
 
@@ -271,7 +271,8 @@ class WRNVecLoopNode : public WRegion
     int  getSafelen()       const { return Safelen;   }
     int  getCollapse()      const { return Collapse;  }
     bool getIsAutoVec()     const { return IsAutoVec; }
-    LoopInfo *getLoopInfo() const { return Loop;      }
+    LoopInfo *getLoopInfo() const { return LI;      }
+    Loop *getLoop()         const { return Lp;      }
     
     void print(formatted_raw_ostream &OS, unsigned Depth) const ;
 

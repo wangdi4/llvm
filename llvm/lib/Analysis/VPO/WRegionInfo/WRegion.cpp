@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -25,7 +26,7 @@ using namespace llvm::vpo;
 //
 
 // constructors
-WRegion::WRegion(unsigned SCID) : WRegionNode(SCID) {}
+WRegion::WRegion(unsigned SCID, BasicBlock *BB) : WRegionNode(SCID, BB) {}
 WRegion::WRegion(WRegionNode *W) : WRegionNode(W)   {}
 
 
@@ -54,7 +55,8 @@ void WRegion::printChildren(formatted_raw_ostream &OS, unsigned Depth) const {
 //
 
 // constructor
-WRNParallelNode::WRNParallelNode() : WRegion(WRegionNode::WRNParallel)
+WRNParallelNode::WRNParallelNode(BasicBlock *BB) : 
+  WRegion(WRegionNode::WRNParallel, BB)
 {
   setShared(nullptr);
   setPriv(nullptr);
@@ -103,7 +105,8 @@ void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 //
 
 // constructor
-WRNVecLoopNode::WRNVecLoopNode() : WRegion(WRegionNode::WRNVecLoop)
+WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) : 
+  WRegion(WRegionNode::WRNVecLoop, BB), LI(Li)
 {
   setPriv(nullptr);
   setLpriv(nullptr);
@@ -114,7 +117,10 @@ WRNVecLoopNode::WRNVecLoopNode() : WRegion(WRegionNode::WRNVecLoop)
   setSafelen(0);
   setCollapse(0);
   setIsAutoVec(false);
-  setLoopInfo(nullptr);
+
+  Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
@@ -130,6 +136,7 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
   setCollapse(W->getCollapse());
   setIsAutoVec(W->getIsAutoVec());
   setLoopInfo(W->getLoopInfo());
+  setLoop(W->getLoop());
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 

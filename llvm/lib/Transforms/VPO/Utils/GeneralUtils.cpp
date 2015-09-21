@@ -55,3 +55,21 @@ Constant* VPOUtils::getConstantValue(Type *Ty, LLVMContext &Context, T Val)
 
   return ConstVal;
 }
+
+Loop * VPOUtils::getLoopFromLoopInfo(
+  LoopInfo* LI,
+  BasicBlock *WRNEntryBB
+)
+{
+  // The loop header BB is the successor BB of the WRN's entry BB
+  BasicBlock *LoopHeaderBB = *(succ_begin(WRNEntryBB));
+  Loop *Lp = LI->getLoopFor(LoopHeaderBB);
+#if 0
+  dbgs() << "Checking BB for Loop:\n" << *LoopHeaderBB << "\n";
+  if (Lp) {
+    dbgs() << "Found Loop: " << *Lp << "\n";
+  }
+#endif
+  return Lp;
+}
+
