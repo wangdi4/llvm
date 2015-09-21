@@ -243,6 +243,9 @@ public:
     /// \brief Returns strings corresponding to OpenMP clauses.
     static StringRef getClauseString(int Id);
 
+    /// \brief Removes calls to directive intrinsics.
+    static void stripDirectives(Function &F);
+
     /// \brief Returns a floating point or integer constant depending on Ty.
     template <typename T>
     static Constant* getConstantValue(Type *Ty, LLVMContext &Context, T Val);
