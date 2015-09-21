@@ -90,6 +90,7 @@ ENUM_LANGOPT(FPModel, IntelFPModel, 32, static_cast<IntelFPModel>(IFP_Fast|IFP_F
         "Active float data precision")
 LANGOPT(AlignMac68k      , 1, 0, 
         "Enables or disables default mac68k alignment")
+LANGOPT(FormatExtensions  , 1, 0, "FreeBSD format extensions")
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, 

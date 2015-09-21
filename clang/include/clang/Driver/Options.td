@@ -223,6 +223,8 @@ def fp_model : Separate<["-"], "fp-model">, Flags<[CC1Option]>, HelpText<"Contro
 def malign_mac68k : Flag<["-"], "malign-mac68k">, Flags<[CC1Option]>, HelpText<"Sets default alignment to mac68k">;
 def i_version : Flag<["--"], "i-version">, Flags<[CC1Option]>;
 def intel : Flag<["-"], "intel">, Flags<[CC1Option]>;
+def fformat_extensions: Flag<["-"], "fformat-extensions">, Group<f_Group>, Flags<[CC1Option]>,
+  HelpText<"Enable FreeBSD kernel specific format string extensions">;
 //#endif  // INTEL_SPECIFIC_IL0_BACKEND
 //#endif  // INTEL_CUSTOMIZATION
 
