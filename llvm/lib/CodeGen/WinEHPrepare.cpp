@@ -904,7 +904,29 @@ bool WinEHPrepare::prepareExceptionHandlers(
     // Split the block after the landingpad instruction so that it is just a
     // call to llvm.eh.actions followed by indirectbr.
     assert(!isa<PHINode>(LPadBB->begin()) && "lpad phi not removed");
+#if INTEL_CUSTOMIZATION
+    BasicBlock *Remainder = SplitBlock(LPadBB, LPad->getNextNode(), DT);
+
+    // The call to SplitBlock reassigns all nodes dominated by the original
+    // landing pad to the split remainder.  However, this isn't suitable to
+    // what we're doing here because we're about to make the split remainder
+    // unreachable.  For now, we'll just reassign those nodes back to the
+    // landing pad block.  Some of these nodes will become unreachable, but
+    // those will be pruned from the dominator tree when we call 
+    // removeUnreachableBlocks().  Anything that is dominated by the
+    // remainder block before we delete its terminator will either be
+    // unreachable or will be dominated by LPadBB after we insert the
+    // indirect branch instruction and its targets.
+    auto *DeadNode = DT->getNode(Remainder);
+    auto *LPadNode = DT->getNode(LPadBB);
+    assert(LPadNode && DeadNode);
+    while (DeadNode->getNumChildren()) {
+      auto *Child = DeadNode->getChildren().back();
+      DT->changeImmediateDominator(Child, LPadNode);
+    }
+#else // !INTEL_CUSTOMIZATION
     SplitBlock(LPadBB, LPad->getNextNode(), DT);
+#endif // !INTEL_CUSTOMIZATION
     // Erase the branch inserted by the split so we can insert indirectbr.
     LPadBB->getTerminator()->eraseFromParent();
 
