@@ -698,13 +698,13 @@ struct HLNodeUtils::CloneVisitor {
                LabelMapTy *LMap)
       : CloneContainer(Container), GotoList(GList), LabelMap(LMap) {}
 
-  void visit(HLNode *Node) {
+  void visit(const HLNode *Node) {
     CloneContainer->push_back(Node->cloneImpl(GotoList, LabelMap));
   }
 
-  void postVisit(HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
+  bool skipRecursion(const HLNode *Node) { return false; }
   void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
 };
 
@@ -734,12 +734,8 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
     return;
   }
 
-  HLContainerTy::iterator It1(const_cast<HLNode *>(Node1));
-  HLContainerTy::iterator It2(const_cast<HLNode *>(Node2));
-
   HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
-  visit<HLNodeUtils::CloneVisitor>(CloneVisit, It1, std::next(It2), false, true,
-                                   true);
+  visit<false>(CloneVisit, Node1, Node2);
   CloneVisit.postVisitUpdate();
 }
 
@@ -807,7 +803,7 @@ void HLNodeUtils::updateLoopInfoRecursively(HLContainerTy::iterator First,
                                             HLContainerTy::iterator Last) {
 
   HLNodeUtils::LoopFinderUpdater LoopUpdater(false);
-  visit<HLNodeUtils::LoopFinderUpdater>(LoopUpdater, First, Last);
+  visit(LoopUpdater, First, Last);
 }
 
 void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
@@ -1109,7 +1105,7 @@ bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
                                    HLContainerTy::iterator Last) {
   HLNodeUtils::LoopFinderUpdater LoopFinder(true);
 
-  visit<HLNodeUtils::LoopFinderUpdater>(LoopFinder, First, Last);
+  visit(LoopFinder, First, Last);
 
   return LoopFinder.foundLoop();
 }
@@ -1543,11 +1539,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
 struct HLNodeUtils::TopSorter {
   unsigned TopSortNum;
   void visit(HLNode *Node) {
-    if (isa<HLRegion>(Node)) {
-      TopSortNum = 0;
-    }
     TopSortNum += 50;
     Node->setTopSortNum(TopSortNum);
+  }
+
+  void visit(HLRegion *Region) {
+    TopSortNum = 0;
+    visit(static_cast<HLNode *>(Region));
   }
 
   void postVisit(HLNode *) {}
@@ -1586,14 +1584,14 @@ bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
 // TODO: handle intrinsics/calls/exception handling semantics.
 struct StructuredFlowChecker {
   bool IsPDom;
-  HLNode *TargetNode;
+  const HLNode *TargetNode;
   bool IsStructured;
   bool IsDone;
 
-  StructuredFlowChecker(bool PDom, HLNode *TNode)
+  StructuredFlowChecker(bool PDom, const HLNode *TNode)
       : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {}
 
-  void visit(HLNode *Node) {
+  void visit(const HLNode *Node) {
     if (Node == TargetNode) {
       IsDone = true;
       return;
@@ -1627,9 +1625,9 @@ struct StructuredFlowChecker {
     }
   }
 
-  void postVisit(HLNode *) {}
+  void postVisit(const HLNode *) {}
   bool isDone() { return (IsDone || !IsStructured); }
-  bool skipRecursion(HLNode *Node) { return false; }
+  bool skipRecursion(const HLNode *Node) { return false; }
   bool isStructured() { return IsStructured; }
 };
 
@@ -1733,10 +1731,9 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
     return true;
   }
 
-  StructuredFlowChecker SFC(PostDomination, const_cast<HLNode *>(TargetNode));
+  StructuredFlowChecker SFC(PostDomination, TargetNode);
   // Doesn't recurse into loops.
-  visit(SFC, const_cast<HLNode *>(FirstNode), const_cast<HLNode *>(LastNode),
-        true, false, true);
+  visit<true, false>(SFC, FirstNode, LastNode);
 
   return SFC.isStructured();
 }
@@ -1987,18 +1984,18 @@ const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
 struct SwitchCallVisitor {
   bool IsSwitch, IsCall;
 
-  void visit(HLSwitch *Switch) { IsSwitch = true; }
+  void visit(const HLSwitch *Switch) { IsSwitch = true; }
 
-  void visit(HLInst *Inst) {
+  void visit(const HLInst *Inst) {
     if (Inst->isCallInst()) {
       IsCall = true;
     }
   }
 
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *) {}
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *) {}
   bool isDone() { return (IsSwitch || IsCall); }
-  bool skipRecursion(HLNode *Node) { return false; }
+  bool skipRecursion(const HLNode *Node) { return false; }
   SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
 };
 
@@ -2007,8 +2004,11 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
                                   bool RecurseInsideLoops) {
   assert(NodeStart && NodeEnd && " Node Start/End is null.");
   SwitchCallVisitor SCVisit;
-  HLNodeUtils::visit(SCVisit, const_cast<HLNode *>(NodeStart),
-                     const_cast<HLNode *>(NodeEnd), true, RecurseInsideLoops);
+  if (RecurseInsideLoops) {
+    HLNodeUtils::visit<true, true>(SCVisit, NodeStart, NodeEnd);
+  } else {
+    HLNodeUtils::visit<true, false>(SCVisit, NodeStart, NodeEnd);
+  }
   return (SCVisit.IsSwitch || SCVisit.IsCall);
 }
 
@@ -2016,27 +2016,27 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
 struct InnermostLoopVisitor {
 
   SmallVectorImpl<const HLLoop *> *InnerLoops;
-  HLNode *SkipNode;
+  const HLNode *SkipNode;
 
   InnermostLoopVisitor(SmallVectorImpl<const HLLoop *> *Loops)
-      : InnerLoops(Loops) {}
+      : InnerLoops(Loops), SkipNode(nullptr) {}
 
-  void visit(HLLoop *L) {
+  void visit(const HLLoop *L) {
     if (L->isInnermost()) {
       InnerLoops->push_back(L);
       SkipNode = L;
     }
   }
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *Node) {}
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return (Node == SkipNode); }
+  bool skipRecursion(const HLNode *Node) { return (Node == SkipNode); }
 };
 
 void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
   assert(Loops && " Loops parameter is null.");
   InnermostLoopVisitor LoopVisit(Loops);
-  HLNodeUtils::visitAll<InnermostLoopVisitor>(LoopVisit);
+  HLNodeUtils::visitAll(LoopVisit);
 }
 
 // Visitor to gather loops with specified level.
@@ -2044,28 +2044,28 @@ struct LoopLevelVisitor {
 
   SmallVectorImpl<const HLLoop *> *Loops;
   unsigned Level;
-  HLNode *SkipNode;
+  const HLNode *SkipNode;
 
   LoopLevelVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer, unsigned Lvl)
-      : Loops(LoopContainer), Level(Lvl) {}
+      : Loops(LoopContainer), Level(Lvl), SkipNode(nullptr) {}
 
-  void visit(HLLoop *L) {
+  void visit(const HLLoop *L) {
     if (L->getNestingLevel() == Level) {
       Loops->push_back(L);
       SkipNode = L;
     }
   }
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *Node) {}
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return (Node == SkipNode); }
+  bool skipRecursion(const HLNode *Node) { return (Node == SkipNode); }
 };
 
 void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
   assert(Loops && " Loops parameter is null.");
   // Level 1 denotes outermost loops
   LoopLevelVisitor LoopVisit(Loops, 1);
-  HLNodeUtils::visitAll<LoopLevelVisitor>(LoopVisit);
+  HLNodeUtils::visitAll(LoopVisit);
 }
 
 void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
@@ -2075,7 +2075,7 @@ void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
   assert(Loops && " Loops parameter is null.");
   assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is out of range.");
   LoopLevelVisitor LoopVisit(Loops, Level);
-  HLNodeUtils::visit<LoopLevelVisitor>(LoopVisit, const_cast<HLNode *>(Node));
+  HLNodeUtils::visit(LoopVisit, Node);
 }
 
 // Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in

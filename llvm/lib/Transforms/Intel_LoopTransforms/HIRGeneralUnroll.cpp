@@ -288,7 +288,7 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
   // Loop should be normalized before this pass
   // TODO: Call isLoopNormalize() when available?
 
-  //assert((Loop->getNumChildren() > 0) && " Loop has no child.");
+  // assert((Loop->getNumChildren() > 0) && " Loop has no child.");
 
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   if (!UBRef)
@@ -385,7 +385,7 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop) {
 
     CanonExprVisitor CEVisit(UnrollLoop->getNestingLevel(), UnrollFactor,
                              UnrollCnt);
-    HLNodeUtils::visit<CanonExprVisitor>(CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visit(CEVisit, CurFirstChild, CurLastChild);
   }
 }
 

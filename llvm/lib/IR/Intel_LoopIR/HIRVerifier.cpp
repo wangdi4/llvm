@@ -30,21 +30,21 @@ public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
   static void verifyAll();
 
-  void visit(HLNode *Node) { Node->verify(); }
+  void visit(const HLNode *Node) { Node->verify(); }
 
-  void postVisit(HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
+  bool skipRecursion(const HLNode *Node) { return false; }
 };
 }
 }
 
-void HIRVerifier::verifyNode(const HLNode *N, bool Recursive) {
+template <bool Recursive> void HIRVerifier::verifyNode(const HLNode *N) {
   HIRVerifierImpl V;
-  HLNodeUtils::visit<HIRVerifierImpl>(V, const_cast<HLNode *>(N), Recursive);
+  HLNodeUtils::visit<Recursive>(V, N);
 }
 
 void HIRVerifier::verifyAll() {
   HIRVerifierImpl V;
-  HLNodeUtils::visitAll<HIRVerifierImpl>(V);
+  HLNodeUtils::visitAll(V);
 }

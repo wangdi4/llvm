@@ -25,6 +25,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
 namespace llvm {
 
 class Function;
@@ -41,7 +43,6 @@ class HIRParser;
 /// It contains a bunch of static member functions which manipulate HLNodes.
 /// It does not store any state.
 ///
-
 class HLNodeUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
@@ -442,11 +443,12 @@ public:
                             const HLNode *Node2 = nullptr);
 
   /// \brief Visits the passed in HLNode.
-  template <typename HV>
-  static void visit(HV &Visitor, HLNode *Node, bool Recursive = true,
-                    bool RecurseInsideLoops = true, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-    V.visit(Node, Recursive, RecurseInsideLoops, Forward);
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, NodeTy *Node) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visit(Node);
   }
 
   /// \brief Visits HLNodes in the range [begin, end). The direction is
@@ -454,44 +456,36 @@ public:
   /// specified using Recursive flag and Recursion inside HLLoops is
   /// specified using RecurseInsideLoops (which is only used when
   /// Recursive flag is set).
-  template <typename HV>
-  static void visit(HV &Visitor, HLContainerTy::iterator Begin,
-                    HLContainerTy::iterator End, bool Recursive = true,
-                    bool RecurseInsideLoops = true, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-
-    if (Forward) {
-      V.forwardVisit(Begin, End, Recursive, RecurseInsideLoops);
-    } else {
-      V.backwardVisit(Begin, End, Recursive, RecurseInsideLoops);
-    }
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin,
+                    ilist_iterator<NodeTy> End) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visitRange(Begin, End);
   }
 
   /// \brief Visits HLNodes in the range [begin, end]. The direction is
   /// specified using Forward flag. This is overloaded to have begin and
   /// end as HLNode parameters.
-  template <typename HV>
-  static void visit(HV &Visitor, HLNode *Begin, HLNode *End,
-                    bool Recursive = true, bool RecurseInsideLoops = true,
-                    bool Forward = true) {
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    HLContainerTy::iterator BeginIter(Begin);
-    HLContainerTy::iterator EndIter(End);
-    visit(Visitor, BeginIter, std::next(EndIter), Recursive, RecurseInsideLoops,
-          Forward);
+    ilist_iterator<NodeTy> BeginIter(Begin);
+    ilist_iterator<NodeTy> EndIter(End);
+    visit<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
+                                                  std::next(EndIter));
   }
 
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
-  template <typename HV>
-  static void visitAll(HV &Visitor, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-
-    if (Forward) {
-      V.forwardVisitAll(getHIRParser());
-    } else {
-      V.backwardVisitAll(getHIRParser());
-    }
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV>
+  static void visitAll(HV &Visitor) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visitRange(getHIRParser()->hir_begin(), getHIRParser()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.

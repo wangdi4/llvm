@@ -253,7 +253,7 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   SymToRefs RefMap;
   DDRefGatherer Gatherer(&RefMap);
 
-  HLNodeUtils::visit(Gatherer, Node, true, true, true);
+  HLNodeUtils::visit(Gatherer, Node);
 
   DEBUG(dbgs() << "Building graph for:\n");
   DEBUG(dumpSymBaseMap(RefMap));

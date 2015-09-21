@@ -98,7 +98,7 @@ bool HIRDummyTransformation::runOnFunction(Function &F) {
                << "\n");
 
   NodeVisitor V;
-  HLNodeUtils::visitAll<NodeVisitor>(V);
+  HLNodeUtils::visitAll(V);
 
   return false;
 }

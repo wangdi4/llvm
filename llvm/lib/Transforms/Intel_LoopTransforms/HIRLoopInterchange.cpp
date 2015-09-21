@@ -456,7 +456,7 @@ bool HIRLoopInterchange::legalForInterchange(HLLoop *Loop, DDAnalysis *DDAP) {
 
   WalkHIR WHIR(DDG, Loop, true, 0, 0);
 
-  HLNodeUtils::visit(WHIR, Loop, true, true, true);
+  HLNodeUtils::visit(WHIR, Loop);
 
   DEBUG(dbgs() << "\nStart, End level\n" << WHIR.StartLevel << " "
                << WHIR.EndLevel);

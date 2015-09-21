@@ -747,11 +747,11 @@ struct LoopVisitor {
   LoopVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer)
       : Loops(LoopContainer) {}
 
-  void visit(HLLoop *L) { Loops->push_back(L); }
-  void visit(HLNode *Node) {}
-  void postVisit(HLNode *Node) {}
+  void visit(const HLLoop *L) { Loops->push_back(L); }
+  void visit(const HLNode *Node) {}
+  void postVisit(const HLNode *Node) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *N) { return false; }
+  bool skipRecursion(const HLNode *N) { return false; }
 };
 
 // This is a high level routine to compute different locality.
@@ -783,7 +783,7 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *L, bool EnableCache) {
   // Collect all the loops inside the loop nest.
   SmallVector<const HLLoop *, 16> Loops;
   LoopVisitor LoopVisit(&Loops);
-  HLNodeUtils::visit<LoopVisitor>(LoopVisit, const_cast<HLLoop *>(L));
+  HLNodeUtils::visit(LoopVisit, L);
 
   initConstTripCache(&Loops);
 
@@ -875,7 +875,7 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
 
   SmallVector<const HLLoop *, 16> Loops;
   LoopVisitor LoopVisit(&Loops);
-  HLNodeUtils::visit<LoopVisitor>(LoopVisit, const_cast<HLLoop *>(L));
+  HLNodeUtils::visit(LoopVisit, L);
 
   // Store all the Loop Locality Information.
   for (auto Iter = Loops.begin(), End = Loops.end(); Iter != End; ++Iter) {

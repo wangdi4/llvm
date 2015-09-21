@@ -69,15 +69,15 @@ public:
 
 class DDRefGatherer {
 private:
-  void addRef(DDRef *Ref) {
+  void addRef(const DDRef *Ref) {
     unsigned int SymBase = (Ref)->getSymBase();
     SymToRefs[SymBase].push_back(Ref);
   }
 
 public:
   DDRefGatherer() {}
-  void visit(HLNode *Node) {}
-  void visit(HLDDNode *Node) {
+  void visit(const HLNode *Node) {}
+  void visit(const HLDDNode *Node) {
     for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
       if (!*I) {
         continue;
@@ -92,11 +92,11 @@ public:
       }
     }
   }
-  void postVisit(HLNode *) {}
-  void postVisit(HLDDNode *) {}
+  void postVisit(const HLNode *) {}
+  void postVisit(const HLDDNode *) {}
   bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
-  std::map<unsigned, SmallVector<DDRef *, 16>> SymToRefs;
+  bool skipRecursion(const HLNode *Node) { return false; }
+  std::map<unsigned, SmallVector<const DDRef *, 16>> SymToRefs;
 };
 }
 
@@ -210,14 +210,14 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
   DDRefGatherer G;
-  HLNodeUtils::visitAll(G, HIRP);
+  HLNodeUtils::visitAll(G);
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";
   FOS << "\n";
 
   for (auto SymVecPair = G.SymToRefs.begin(), Last = G.SymToRefs.end();
        SymVecPair != Last; ++SymVecPair) {
-    SmallVector<DDRef *, 16> &RefVec = SymVecPair->second;
+    auto &RefVec = SymVecPair->second;
     FOS << "Symbase ";
     FOS << SymVecPair->first;
     FOS << ":\n";

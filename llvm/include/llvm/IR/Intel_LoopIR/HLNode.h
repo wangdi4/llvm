@@ -178,6 +178,10 @@ public:
   virtual void verify() const;
 };
 
+template <typename T>
+using IsHLNodeTy =
+    typename std::enable_if<std::is_base_of<HLNode, T>::value>::type;
+
 } // End loopopt namespace
 /// \brief traits for iplist<HLNode>
 ///

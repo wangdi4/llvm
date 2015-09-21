@@ -26,7 +26,7 @@ class HLNode;
 namespace HIRVerifier {
 
 /// \brief Verifies a specific node integrity.
-void verifyNode(const HLNode *N, bool Recursive = true);
+template <bool Recursive> void verifyNode(const HLNode *N);
 
 /// \brief Verifies all nodes of HIR.
 void verifyAll();
