@@ -326,7 +326,7 @@ public:
     for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
          ++I, ++RegionIdx) {
       if ((!HIRDebugRegion &&
-              (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
+           (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
           (RegionIdx == HIRDebugRegion)) {
         DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
         DEBUG(I->dump(true));
@@ -912,15 +912,16 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
   return nullptr;
 }
 
-Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
+Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
   // CG the operands
   SmallVector<Value *, 6> Ops;
-  for (auto R = I->op_ddref_begin(), E = I->op_ddref_end(); R != E; ++R) {
+  for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
+       ++R) {
     Ops.push_back(visitRegDDRef(*R));
   }
 
   // create the inst
-  Instruction *Inst = const_cast<Instruction *>(I->getLLVMInstruction());
+  Instruction *Inst = const_cast<Instruction *>(HInst->getLLVMInstruction());
   if (isa<StoreInst>(Inst) || isa<LoadInst>(Inst)) {
     // We could be loading rhs and storing it into a lhs tmp or mem location
     // or directly storing rhs into lhs tmp/mem location
@@ -931,12 +932,30 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
     Builder->CreateStore(Res, Ops[0]);
   } else if (CallInst *Call = dyn_cast<CallInst>(Inst)) {
     Value *LVal = Ops[0];
-    // Turns Operands vector into function args vector by removing lval
-    Ops.erase(Ops.begin());
+    SmallVector<std::pair<unsigned, MDNode *>, 6> MDs;
+
+    // TODO: copy 'tail' marker.
+
+    if (HInst->hasLval()) {
+      // Turns Operands vector into function args vector by removing lval
+      // TODO: Separate this logic from framework's implementation of putting
+      // lval as the first operand.
+      Ops.erase(Ops.begin());
+    }
 
     // TODO twine for call?
-    Value *Res = Builder->CreateCall(Call->getCalledFunction(), Ops);
-    Builder->CreateStore(Res, LVal);
+    CallInst *ResCall = Builder->CreateCall(Call->getCalledFunction(), Ops);
+
+    // Copy all metadata over to new call instruction.
+    // TODO: Investigate whether this is an ok thing to do in general.
+    Call->getAllMetadata(MDs);
+    for (auto I = MDs.begin(), E = MDs.end(); I != E; ++I) {
+      ResCall->setMetadata(I->first, I->second);
+    }
+
+    if (HInst->hasLval()) {
+      Builder->CreateStore(ResCall, LVal);
+    }
   } else if (CastInst *Cast = dyn_cast<CastInst>(Inst)) {
     assert(Ops.size() == 2 && "invalid cast");
 
@@ -951,13 +970,13 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
     Value *TVal = Ops[3];
     Value *FVal = Ops[4];
     if (CmpLHS->getType()->isIntegerTy()) {
-      Pred =
-          Builder->CreateICmp(I->getPredicate(), CmpLHS, CmpRHS,
-                              "hir.selcmp." + std::to_string(I->getNumber()));
+      Pred = Builder->CreateICmp(HInst->getPredicate(), CmpLHS, CmpRHS,
+                                 "hir.selcmp." +
+                                     std::to_string(HInst->getNumber()));
     } else if (CmpLHS->getType()->isFloatTy()) {
-      Pred =
-          Builder->CreateFCmp(I->getPredicate(), CmpLHS, CmpRHS,
-                              "hir.selcmp." + std::to_string(I->getNumber()));
+      Pred = Builder->CreateFCmp(HInst->getPredicate(), CmpLHS, CmpRHS,
+                                 "hir.selcmp." +
+                                     std::to_string(HInst->getNumber()));
     } else {
       llvm_unreachable("unknown predicate type in HIRCG");
     }

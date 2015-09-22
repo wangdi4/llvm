@@ -157,7 +157,6 @@ private:
   void parse(HLLabel *Label) {}
   void parse(HLGoto *Goto) {}
 
-
   /// \brief Implements phase1 of parsing.
   void phase1Parse(HLNode *Node);
 
@@ -167,9 +166,9 @@ private:
   /// \brief Returns the number of rval operands of HInst.
   static unsigned getNumRvalOperands(HLInst *HInst);
 
-  /// \brief Returns true if this instruction has a polynomial representation
-  /// and should be parsed as a blob (1 * t).
-  bool isPolyBlobDef(const Instruction *Inst) const;
+  /// \brief Returns true if Val has a polynomial representation and therefore
+  /// should be parsed as a blob (1 * t).
+  bool isPolyBlobDef(const Value *Val) const;
 
   /// \brief Returns true if this instruction has a user outside the region.
   bool isRegionLiveOut(const Instruction *Inst) const;
@@ -221,9 +220,11 @@ private:
   void parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0);
 
-  /// \brief Parses SCEV into CanonExpr.
+  /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
+  /// are at the top of the tree and UnderCast is true if we are under a cast
+  /// type SCEV.
   void parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
-                      bool IsTop);
+                      bool IsTop = true, bool UnderCast = false);
 
   /// \brief Forces incoming value to be parsed as a blob.
   void parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level);

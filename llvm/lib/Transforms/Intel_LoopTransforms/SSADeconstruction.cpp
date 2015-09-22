@@ -11,12 +11,16 @@
 //
 // This file Deconstructs SSA for HIR. It inserts copies for livein/liveout
 // values to SCC and non-SCC phis. Metadata nodes are attached to the
-// livein/liveout copies, to the SCC root node and non-SCC phi node. The livein
+// livein/liveout copies, to the SCC nodes and non-SCC phi node. The livein
 // copies are assigned the same metadata kind node as the root/phi node so that
 // they can all be assigned the same symbase by ScalarSymbaseAssignment pass.
 //
 // Liveout copies require metadata to indicate to ScalarEvolution analysis to
 // not trace through them.
+//
+// Non-phi SCC nodes also require metadata to indicate to ScalarEvolution
+// analysis to not trace through them because that can cause live-range
+// violations. A different live range metadata type is used for these nodes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -77,12 +81,21 @@ public:
   }
 
 private:
+  enum MetadataType {
+    LiveInType,
+    LiveOutType,
+    LiveRangeType,
+  };
+
   /// \brief Attaches a string metadata node to instruction. This will be used
   /// by ScalarSymbaseAssignment to assign symbases. The metadata kind used for
   /// livein/liveout values is different because livein copies need to be
   /// assigned the same aymbase as other values in SCC whereas liveout copies
-  /// don't.
-  void attachMetadata(Instruction *Inst, StringRef Name, bool IsLivein) const;
+  /// don't. Live range type is used to indicate live range violation and
+  /// suppress traceback during SCEV creation.
+  void attachMetadata(Instruction *Inst, StringRef Name,
+                      MetadataType MType) const;
+
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
 
@@ -143,16 +156,18 @@ FunctionPass *llvm::createSSADeconstructionPass() {
 }
 
 void SSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
-                                       bool IsLivein) const {
+                                       MetadataType MType) const {
   Twine NewName(Name, ".de.ssa");
 
   Metadata *Args[] = {MDString::get(Inst->getContext(), NewName.str())};
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
-  if (IsLivein) {
+  if (MType == LiveInType) {
     Inst->setMetadata("in.de.ssa", Node);
-  } else {
+  } else if (MType == LiveOutType) {
     Inst->setMetadata("out.de.ssa", Node);
+  } else {
+    Inst->setMetadata("live.range.de.ssa", Node);
   }
 }
 
@@ -163,7 +178,7 @@ Instruction *SSADeconstruction::createCopy(Value *Val, StringRef Name,
   auto CInst =
       CastInst::Create(Instruction::BitCast, Val, Val->getType(), NewName);
 
-  attachMetadata(CInst, Name, IsLivein);
+  attachMetadata(CInst, Name, IsLivein ? LiveInType : LiveOutType);
 
   return CInst;
 }
@@ -370,7 +385,7 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   if (Val->hasName()) {
     VOS << Val->getName();
   } else {
-    Val->printAsOperand(VOS, false);
+    VOS << "hir.copy";
   }
 
   return VOS.str();
@@ -402,13 +417,20 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
         processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                            Name.str());
+      } else {
+        // Attach live range type metadata to suppress SCEV traceback.
+        attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
+                       LiveRangeType);
+        // Tell SCEV to reparse the instruction.
+        SE->forgetValue(const_cast<Instruction *>(SCCInst));
       }
     }
 
     if (LiveinCopyInserted) {
       // Attach metadata to the root node to connect the SCC to its livein
       // copies.
-      attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(), true);
+      attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(),
+                     LiveInType);
     }
 
   } else {
@@ -439,7 +461,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.
-    attachMetadata(Phi, Name.str(), true);
+    attachMetadata(Phi, Name.str(), LiveInType);
 
     processPhiLiveins(Phi, nullptr, Name.str());
     processPhiLiveouts(Phi, nullptr, Name.str());

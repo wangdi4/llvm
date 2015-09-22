@@ -2,10 +2,11 @@
 
 ; Check that an unnamed value's (%0 here) copy is provided an appropriate name.
 ; CHECK: %0
-; CHECK-NEXT: %0.out
+; CHECK-NEXT: hir.copy.out
 ; CHECK-SAME: out.de.ssa
 ; CHECK: output.1.in.1
 ; CHECK-SAME: in.de.ssa
+; CHECK: live.range.de.ssa
 ; CHECK: output.1.in
 ; CHECK-SAME: in.de.ssa
 ; CHECK: output.1

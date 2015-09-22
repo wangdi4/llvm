@@ -5,6 +5,7 @@
 ; CHECK-SAME: out.de.ssa
 ; CHECK: output.1.in.1
 ; CHECK-SAME: in.de.ssa
+; CHECK: live.range.de.ssa
 ; CHECK: output.1.in
 ; CHECK-SAME: in.de.ssa
 ; CHECK: output.1

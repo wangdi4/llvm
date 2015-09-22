@@ -285,11 +285,12 @@ public:
 
 class HIRParser::BaseSCEVCreater : public SCEVParameterRewriter {
 private:
-  HIRParser &HIRP;
+  const HIRParser &HIRP;
   ScalarEvolution &SE;
 
 public:
-  BaseSCEVCreater(HIRParser &HIRP, ScalarEvolution &SE, ValueToValueMap &M)
+  BaseSCEVCreater(const HIRParser &HIRP, ScalarEvolution &SE,
+                  ValueToValueMap &M)
       : SCEVParameterRewriter(SE, M, false), HIRP(HIRP), SE(SE) {}
 
   const SCEV *visitUnknown(const SCEVUnknown *UnknownSCEV) override {
@@ -400,20 +401,21 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
   }
 }
 
-bool HIRParser::isPolyBlobDef(const Instruction *Inst) const {
+bool HIRParser::isPolyBlobDef(const Value *Val) const {
 
-  if (SE->isSCEVable(Inst->getType())) {
-    auto SC = SE->getSCEV(const_cast<Instruction *>(Inst));
+  if (!SE->isSCEVable(Val->getType())) {
+    return false;
+  }
 
-    // Instructions containing non-affine(polynomial) addRecs are made
-    // blobs.
-    PolynomialFinder PF;
-    SCEVTraversal<PolynomialFinder> Searcher(PF);
-    Searcher.visitAll(SC);
+  auto SC = SE->getSCEV(const_cast<Value *>(Val));
 
-    if (PF.found()) {
-      return true;
-    }
+  // Non-affine(polynomial) addRecs are made blobs.
+  PolynomialFinder PF;
+  SCEVTraversal<PolynomialFinder> Searcher(PF);
+  Searcher.visitAll(SC);
+
+  if (PF.found()) {
+    return true;
   }
 
   return false;
@@ -605,39 +607,42 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
 // TODO: refine logic
 // TODO: handle IV as blobs.
 void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
-                               bool IsTop) {
+                               bool IsTop, bool UnderCast) {
 
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
-    assert(IsTop && "Can't handle constants embedded in the SCEV tree!");
     parseConstant(ConstSCEV, CE);
 
   } else if (isa<SCEVUnknown>(SC)) {
-    assert(IsTop && "Can't handle unknowns embedded in the SCEV tree!");
     parseBlob(SC, CE, Level);
 
-  } else if (isa<SCEVCastExpr>(SC)) {
-    assert(IsTop && "Can't handle casts embedded in the SCEV tree!");
-    // TODO: strip the topmost convert(s) by using SrcTy/DestTy.
-    parseBlob(SC, CE, Level);
+  } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
+    /* TODO: Enable in a later changeset.
+    if (IsTop && !UnderCast) {
+      CE->setSrcType(CastSCEV->getOperand()->getType());
+      CE->setExtType(isa<SCEVSignExtendExpr>(CastSCEV));
+      parseRecursive(CastSCEV->getOperand(), CE, Level, true, true);
+    }
+    else {*/
+    parseBlob(CastSCEV, CE, Level);
+    //}
 
   } else if (auto AddSCEV = dyn_cast<SCEVAddExpr>(SC)) {
-    assert(IsTop && "Can't handle adds embedded in the SCEV tree!");
-
     for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
-      parseRecursive(*I, CE, Level, true);
+      parseRecursive(*I, CE, Level, false, UnderCast);
     }
 
   } else if (isa<SCEVMulExpr>(SC)) {
-    assert(IsTop && "Can't handle multiplies embedded in the SCEV tree!");
     parseBlob(SC, CE, Level);
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(SC)) {
-    assert(IsTop && "Can't handle divisions embedded in the SCEV tree!");
-
-    // If the denominator is constant, move it into CE's denominator.
-    if (auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS())) {
-      parseDenominator(ConstDenomSCEV, CE);
-      parseRecursive(UDivSCEV->getLHS(), CE, Level, true);
+    if (IsTop) {
+      // If the denominator is constant, move it into CE's denominator.
+      if (auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS())) {
+        parseDenominator(ConstDenomSCEV, CE);
+        parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast);
+      } else {
+        parseBlob(SC, CE, Level);
+      }
     } else {
       parseBlob(SC, CE, Level);
     }
@@ -654,7 +659,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     auto BaseSCEV = RecSCEV->getOperand(0);
     auto StepSCEV = RecSCEV->getOperand(1);
 
-    parseRecursive(BaseSCEV, CE, Level, IsTop);
+    parseRecursive(BaseSCEV, CE, Level, false, UnderCast);
 
     // Set constant IV coeff
     if (isa<SCEVConstant>(StepSCEV)) {
@@ -667,11 +672,11 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     }
 
   } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
-    assert(IsTop && "Can't handle max embedded in the SCEV tree!");
+    // TODO: extend DDRef representation to handle min/max.
     parseBlob(SC, CE, Level);
 
   } else {
-    assert(false && "unexpected SCEV type!");
+    llvm_unreachable("Unexpected SCEV type!");
   }
 }
 
@@ -684,13 +689,12 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
   const SCEV *SC;
   CanonExpr *CE;
 
-  if (auto Inst = dyn_cast<Instruction>(Val)) {
-    // Parse polynomial blob definitions as (1 * blob)
-    if (isPolyBlobDef(Inst)) {
-      CE = CanonExprUtils::createCanonExpr(Val->getType());
-      parseAsBlob(Val, CE, Level);
-      return CE;
-    }
+  // Parse polynomial definition as (1 * blob) as CanonExpr has no
+  // repsresentation for them.
+  if (isPolyBlobDef(Val)) {
+    CE = CanonExprUtils::createCanonExpr(Val->getType());
+    parseAsBlob(Val, CE, Level);
+    return CE;
   }
 
   // Parse as blob if the type is not SCEVable.
@@ -701,7 +705,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
   } else {
     SC = SE->getSCEV(const_cast<Value *>(Val));
     CE = CanonExprUtils::createCanonExpr(SC->getType());
-    parseRecursive(SC, CE, Level, true);
+    parseRecursive(SC, CE, Level);
   }
 
   return CE;
@@ -754,7 +758,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level) {
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   auto CE = CanonExprUtils::createCanonExpr(BETC->getType());
 
-  parseRecursive(BETC, CE, Level, true);
+  parseRecursive(BETC, CE, Level);
   Ref->setSingleCanonExpr(CE);
 
   if (!CE->isSelfBlob()) {
@@ -907,8 +911,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
       BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
       IndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
-      parseRecursive(BaseSCEV, BaseCE, Level, true);
-      parseRecursive(OffsetSCEV, IndexCE, Level, true);
+      parseRecursive(BaseSCEV, BaseCE, Level);
+      parseRecursive(OffsetSCEV, IndexCE, Level);
 
       // Normalize with repsect to element size.
       IndexCE->setDenominator(IndexCE->getDenominator() * ElementSize, true);
@@ -937,7 +941,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
            "Unexpected number of GEP operands!");
 
     auto OffsetSC = SE->getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
-    parseRecursive(OffsetSC, IndexCE, Level, true);
+    parseRecursive(OffsetSC, IndexCE, Level);
     IsInBounds = GEPOp->isInBounds();
   }
 
@@ -1044,7 +1048,12 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
 
   // Try to get to the phi associated with this load/store.
   if (!IsAddressOf) {
-    if ((GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
+    auto GEPInst = dyn_cast<Instruction>(GEPVal);
+
+    // Do not cross the the live range indicator.
+    if ((!GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
+        (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
+
       BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());
     } else {
       BasePhi = dyn_cast<PHINode>(GEPVal);

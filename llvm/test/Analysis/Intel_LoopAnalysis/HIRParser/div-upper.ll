@@ -3,21 +3,19 @@
 ; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
-; TODO: fix the upper bound parsing.
-
 ; Check parsing output for the loop with division in upper
 ; CHECK: DO i1 = 0, 6, 1
 ; CHECK-NEXT: %add.out = %add
 ; CHECK-NEXT: %ii.0.out = %ii.0
 ; CHECK-NEXT: %add = %add  +  %ii.0.out
 ; CHECK-NEXT: %ii.0 = %ii.0  /  2
-; CHECK-NEXT: if (%add.out + 1 < %ii.0.out + %add)
+; CHECK-NEXT: if (%add.out + 1 < %add)
 ; CHECK-NEXT: {
-; CHECK-NEXT: DO i2 = 0, (%add.out + %ii.0.out + -1 * %add + -2)/u2, 1
+; CHECK-NEXT: DO i2 = 0, %add.out + -1 * %add + ((-2 + %ii.0.out) /u 2) + %ii.0.out, 1
 ; CHECK-NEXT: %4 = (%A)[2 * i2 + %add.out + 1]
 ; CHECK-NEXT: %5 = (%A)[2 * i2 + %add.out];
 ; CHECK-NEXT: %6 = (%A)[2 * i2 + %add.out + 2]
-; CHECK-NEXT: (%A)[i2 + %ii.0.out + %add + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6)
+; CHECK-NEXT: (%A)[i2 + %add + 1] = ((1 + (-1 * %5)) * %4) + -1 * (%6 * %6)
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP

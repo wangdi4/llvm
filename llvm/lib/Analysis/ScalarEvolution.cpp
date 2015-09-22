@@ -4098,6 +4098,11 @@ bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
   return (Inst->getMetadata("in.de.ssa") || 
     Inst->getMetadata("out.de.ssa"));
 }
+
+bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
+  return Inst->getMetadata("live.range.de.ssa");
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
@@ -4172,6 +4177,12 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // analysis depends on.
     if (!DT->isReachableFromEntry(I->getParent()))
       return getUnknown(V);
+
+    // INTEL - Suppress traceback for instructions indicating possible live
+    // range violation.
+    if (isHIRLiveRangeIndicator(I))
+      return getUnknown(V);
+
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V))
     Opcode = CE->getOpcode();
   else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
