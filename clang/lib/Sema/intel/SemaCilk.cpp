@@ -2895,7 +2895,7 @@ StmtResult Sema::ActOnCEANIfStmt(Stmt *S) {
         assert(LengthSet && "No length set for CEAN if stmt.");
         Length = Lengths.back();
       }
-      if (Length) {
+      if (Length && !CurContext->isDependentContext()) {
         OS << "cean.i." << Level << ".";
         VarDecl *VD = VarDecl::Create(
             Context, CurContext, SourceLocation(), SourceLocation(),
@@ -2940,13 +2940,19 @@ StmtResult Sema::ActOnCEANIfStmt(Stmt *S) {
         }
       }
     }
-    CEANExprSimplifier Simplifier(*this, RankCalc.getRank0Exprs());
-    Simplifier.Visit(E);
-    StmtResult Inits = ActOnCompoundStmt(SourceLocation(), SourceLocation(),
-                                         Simplifier.getDeclStmts(), false);
-    Res =
-        CilkRankedStmt::Create(Context, E->getLocStart(), E->getLocEnd(),
-                                     Lengths, Vars, Incs, S, Inits.get());
+    if (CurContext->isDependentContext())
+      Res = S;
+    else {
+      // Wrap into CilkRankedStmt only on the last step in template
+      // instantiation. Otherwise, we get several CilkRankedStmts above our
+      // If-Stmt, thus several nested loops later in the IR gen.
+      CEANExprSimplifier Simplifier(*this, RankCalc.getRank0Exprs());
+      Simplifier.Visit(E);
+      StmtResult Inits = ActOnCompoundStmt(SourceLocation(), SourceLocation(),
+                                           Simplifier.getDeclStmts(), false);
+      Res = CilkRankedStmt::Create(Context, E->getLocStart(), E->getLocEnd(),
+                                   Lengths, Vars, Incs, S, Inits.get());
+    }
   } else
     Res = S;
 
