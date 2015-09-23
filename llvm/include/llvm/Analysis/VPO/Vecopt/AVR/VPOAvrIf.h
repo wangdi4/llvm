@@ -135,6 +135,11 @@ public:
   unsigned getNumOperands() const;
 
 
+  /// \brief Returns the underlying LLVM compare instruction for this AvrIf.
+  const Instruction *getCompareInstruction() const {
+    return CompareInstruction;
+  }
+
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
 	     unsigned VerbosityLevel) const override;

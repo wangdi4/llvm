@@ -456,7 +456,9 @@ void PassManagerBuilder::populateModulePassManager(
   if (RunVPODriver) {
     MPM.add(createVPODriverPass());
   }
-  MPM.add(createVPOVectorizerPass());
+  if (RunVPOOCLVectorizer) {
+    MPM.add(createVPOVectorizerPass());
+  }
 #endif // INTEL_CUSTOMIZATION
 }
 

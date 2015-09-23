@@ -162,6 +162,9 @@ public:
 
   AVRPhi *clone() const override;
 
+  /// \brief Returns the LLVM Instruction
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
   /// \brief Prints the AVRPhi node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
@@ -397,7 +400,7 @@ public:
   LoopInfo *getLoopInfo() { return WRegionSimdNode->getLoopInfo(); }
 
   /// \brief Return WRegionSimdNode
-  WRNVecLoopNode *getWrnNode() { return WRegionSimdNode; }
+  WRNVecLoopNode *getWrnNode() const { return WRegionSimdNode; }
 
   /// \brief Returns Entry Basic Block of WRN Region
   BasicBlock *getEntryBBlock() const {
@@ -406,6 +409,13 @@ public:
   /// \brief Returns Entry Basic Block of WRN Region
   BasicBlock *getExitBBlock() const {
      return WRegionSimdNode->getExitBBlock();
+  }
+
+  /// \brief Return SIMD vector length
+  int getSimdVectorLength() const {
+    WRNVecLoopNode *WrnNode;
+    WrnNode = getWrnNode();
+    return WrnNode->getSimdlen();
   }
 
   // Methods for accessing and modifying WRegionSimdNode's basic block set.

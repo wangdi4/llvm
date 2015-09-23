@@ -26,24 +26,23 @@
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrGenerate.h"
 
+#include "llvm/Transforms/VPO/Vecopt/VPOAvrLLVMCodeGen.h"
+
 #define DEBUG_TYPE "VPODriver"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver",
-                      false, false)
+INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
+                      false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
-INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver",
-                    false, false)
+INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
+                    false)
 
 char VPODriver::ID = 0;
 
-FunctionPass *llvm::createVPODriverPass() {
-
-  return new VPODriver();
-}
+FunctionPass *llvm::createVPODriverPass() { return new VPODriver(); }
 
 VPODriver::VPODriver() : FunctionPass(ID) {
 
@@ -60,12 +59,12 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
 bool VPODriver::runOnFunction(Function &F) {
 
+  bool ret_val = false;
+
   // Set up a function pass manager so that we can run some cleanup transforms
   // on the LLVM IR after code gen.
   Module *M = F.getParent();
   legacy::FunctionPassManager FPM(M);
-
-  bool ret_val;
 
   DEBUG(errs() << "VPODriver: ");
   DEBUG(errs().write_escaped(F.getName()) << '\n');
@@ -74,11 +73,17 @@ bool VPODriver::runOnFunction(Function &F) {
   SC = &getAnalysis<ScalarEvolution>();
   AV = &getAnalysis<AVRGenerate>();
 
-  // Print results of AvrGenerate Pass
-  AV->dump();
+  for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
+    AVR *avr = I;
+    AVRCodeGen *SP;
 
-  // Invoke AVR->LLVM_IR Code Generation.
-  ret_val = AV->codeGen();
+    SP = new AVRCodeGen(avr, SC, LI, &F);
+    ret_val = ret_val | SP->vectorize();
+    delete SP;
+  }
+
+  // Print results of AvrGenerate Pass
+  DEBUG(AV->dump());
 
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
