@@ -41,7 +41,7 @@ static const char* sProg =
 	"kernel void SumIntsInLinkedList(global struct Node* pHead, global int* pResult)\n"
 	"{\n"
 	"	*pResult = 0;\n"
-	"	while (pHead != (void*)0)\n"
+	"	while (pHead != (global void*)0)\n"
 	"	{\n"
 	"		*pResult += pHead->m_num;\n"
 	"		pHead = pHead->m_pNext;\n"
