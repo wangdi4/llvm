@@ -63,7 +63,8 @@ namespace {
     }
 
     ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                             const MemoryLocation &Loc) override {
+                             const MemoryLocation &Loc,         // INTEL
+                             AliasAnalysis *AAChain) override { // INTEL
       return MRI_ModRef;
     }
     ModRefInfo getModRefInfo(ImmutableCallSite CS1,

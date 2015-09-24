@@ -63,7 +63,8 @@ namespace objcarc {
     FunctionModRefBehavior getModRefBehavior(ImmutableCallSite CS) override;
     FunctionModRefBehavior getModRefBehavior(const Function *F) override;
     ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                             const MemoryLocation &Loc) override;
+                             const MemoryLocation &Loc,        // INTEL
+                             AliasAnalysis *AAChain) override; // INTEL
     ModRefInfo getModRefInfo(ImmutableCallSite CS1,
                              ImmutableCallSite CS2) override;
   };

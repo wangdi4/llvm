@@ -981,8 +981,16 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // If the instruction is floating point, and the target says this operation is
     // expensive or the function has the "use-soft-float" attribute, this may
     // eventually become a library call.  Treat the cost as such.
+
     if (I->getType()->isFloatingPointTy()) {
       bool hasSoftFloatAttr = false;
+      // INTEL   CQ370998: Do not count loads and stores, as they do not get
+      // INTEL   transformed into calls. 
+      bool isLoadStore = false;   // INTEL 
+      if (isa<LoadInst>(I))  // INTEL 
+        isLoadStore = true;       // INTEL 
+      if (isa<StoreInst>(I)) // INTEL 
+        isLoadStore = true;       // INTEL 
 
       // If the function has the "use-soft-float" attribute, mark it as expensive.
       if (F.hasFnAttribute("use-soft-float")) {
@@ -992,8 +1000,9 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
           hasSoftFloatAttr = true;
       }
 
-      if (TTI.getFPOpCost(I->getType()) == TargetTransformInfo::TCC_Expensive ||
-          hasSoftFloatAttr)
+      if (TTI.getFPOpCost(I->getType()) 
+           == TargetTransformInfo::TCC_Expensive ||  // INTEL 
+          (hasSoftFloatAttr && !isLoadStore))        // INTEL 
         Cost += InlineConstants::CallPenalty;
     }
 
@@ -1167,8 +1176,11 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
 
   // If there is only one call of the function, and it has internal linkage,
   // the cost of inlining it drops dramatically.
-  bool OnlyOneCallAndLocalLinkage = F.hasLocalLinkage() && F.hasOneUse() &&
-    &F == CS.getCalledFunction();
+  // INTEL CQ370998: Added link once ODR linkage case. 
+  bool OnlyOneCallAndLocalLinkage = (F.hasLocalLinkage() ||         // INTEL 
+                                     F.hasLinkOnceODRLinkage()) &&  // INTEL
+                                     F.hasOneUse() &&               // INTEL 
+                                     &F == CS.getCalledFunction();  // INTEL 
   if (OnlyOneCallAndLocalLinkage) { // INTEL 
     Cost += InlineConstants::LastCallToStaticBonus;
     YesReasonVector.push_back(InlrSingleLocalCall); // INTEL 

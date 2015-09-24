@@ -280,7 +280,11 @@ bool replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
 /// \brief Remove all blocks that can not be reached from the function's entry.
 ///
 /// Returns true if any basic block was removed.
+#if INTEL_CUSTOMIZATION
+bool removeUnreachableBlocks(Function &F, DominatorTree *DT = nullptr);
+#else
 bool removeUnreachableBlocks(Function &F);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Combine the metadata of two instructions so that K can replace J
 ///

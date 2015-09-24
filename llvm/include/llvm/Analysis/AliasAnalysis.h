@@ -342,21 +342,37 @@ public:
     return (MRB & MRI_ModRef) && (MRB & FMRL_ArgumentPointees);
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  /// Starting point for ModRef queries that will pass itself
+  /// along the chained calls to allow for down-chain ModRef
+  /// queries to make use of AliasAnalysis information of elements 
+  /// earlier in the chain. 
+  ModRefInfo getModRefInfoBegin(ImmutableCallSite CS,
+    const MemoryLocation &Loc) {
+    return getModRefInfo(CS, Loc, this);
+  }
+
+
   /// getModRefInfo (for call sites) - Return information about whether
   /// a particular call site modifies or reads the specified memory location.
+  /// If subclass'd AA needs to make an AliasAnalysis query, use the passed 
+  /// in AAChain, if available, to enable all the AliasAnalysis queries to run. 
   virtual ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                                   const MemoryLocation &Loc);
+                                   const MemoryLocation &Loc,
+                                   AliasAnalysis *AAChain = nullptr);
+
+#endif  // INTEL_CUSTOMIZATION
 
   /// getModRefInfo (for call sites) - A convenience wrapper.
   ModRefInfo getModRefInfo(ImmutableCallSite CS, const Value *P,
                            uint64_t Size) {
-    return getModRefInfo(CS, MemoryLocation(P, Size));
+    return getModRefInfoBegin(CS, MemoryLocation(P, Size)); // INTEL
   }
 
   /// getModRefInfo (for calls) - Return information about whether
   /// a particular call modifies or reads the specified memory location.
   ModRefInfo getModRefInfo(const CallInst *C, const MemoryLocation &Loc) {
-    return getModRefInfo(ImmutableCallSite(C), Loc);
+    return getModRefInfoBegin(ImmutableCallSite(C), Loc); // INTEL
   }
 
   /// getModRefInfo (for calls) - A convenience wrapper.
@@ -367,7 +383,7 @@ public:
   /// getModRefInfo (for invokes) - Return information about whether
   /// a particular invoke modifies or reads the specified memory location.
   ModRefInfo getModRefInfo(const InvokeInst *I, const MemoryLocation &Loc) {
-    return getModRefInfo(ImmutableCallSite(I), Loc);
+    return getModRefInfoBegin(ImmutableCallSite(I), Loc); // INTEL
   }
 
   /// getModRefInfo (for invokes) - A convenience wrapper.

@@ -105,7 +105,8 @@ private:
   FunctionModRefBehavior getModRefBehavior(ImmutableCallSite CS) override;
   FunctionModRefBehavior getModRefBehavior(const Function *F) override;
   ModRefInfo getModRefInfo(ImmutableCallSite CS,
-                           const MemoryLocation &Loc) override;
+                           const MemoryLocation &Loc,        // INTEL
+                           AliasAnalysis *AAChain) override; // INTEL
   ModRefInfo getModRefInfo(ImmutableCallSite CS1,
                            ImmutableCallSite CS2) override;
 };
@@ -214,9 +215,10 @@ FunctionModRefBehavior ScopedNoAliasAA::getModRefBehavior(const Function *F) {
 }
 
 ModRefInfo ScopedNoAliasAA::getModRefInfo(ImmutableCallSite CS,
-                                          const MemoryLocation &Loc) {
+                                          const MemoryLocation &Loc, // INTEL
+                                          AliasAnalysis *AAChain) {  // INTEL
   if (!EnableScopedNoAlias)
-    return AliasAnalysis::getModRefInfo(CS, Loc);
+    return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 
   if (!mayAliasInScopes(Loc.AATags.Scope, CS.getInstruction()->getMetadata(
                                               LLVMContext::MD_noalias)))
@@ -227,7 +229,7 @@ ModRefInfo ScopedNoAliasAA::getModRefInfo(ImmutableCallSite CS,
           Loc.AATags.NoAlias))
     return MRI_NoModRef;
 
-  return AliasAnalysis::getModRefInfo(CS, Loc);
+  return AliasAnalysis::getModRefInfo(CS, Loc, AAChain); // INTEL
 }
 
 ModRefInfo ScopedNoAliasAA::getModRefInfo(ImmutableCallSite CS1,
