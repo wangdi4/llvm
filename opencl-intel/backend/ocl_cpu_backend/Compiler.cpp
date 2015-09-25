@@ -190,8 +190,13 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     {
         MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
 
-        if(flagName->getString() == "-g")
-            m_debugInfo = true;
+        // \[LLVM 3.6 UPGRADE\] Temporary disable all debug passes cause
+        // LLVM version and Clang version are different, and debugInfo is absent which leads
+        // to crashes in the optimizer
+        // Uncomment once Clang is able to provide correct debug metadata
+        // See https://jira01.devtools.intel.com/browse/CORC-38
+        // if(flagName->getString() == "-g")
+            // m_debugInfo = true;
         if(flagName->getString() == "-profiling")
             m_profiling = true;
         if(flagName->getString() == "-cl-opt-disable")
