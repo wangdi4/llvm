@@ -382,6 +382,12 @@ def err_pp_duplicate_name_in_arg_list : Error<
 def err_pp_stringize_not_parameter : Error<
   "'#' is not followed by a macro parameter">;
 def err_pp_malformed_ident : Error<"invalid #ident directive">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#372653.
+def warn_pp_malformed_ident :
+  Warning<"invalid #ident directive will be ignored">,
+  InGroup<IntelCompat>;
+// endif
 def err_pp_unterminated_conditional : Error<
   "unterminated conditional directive">;
 def pp_err_else_after_else : Error<"#else after #else">;
