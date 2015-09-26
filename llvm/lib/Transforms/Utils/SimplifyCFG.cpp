@@ -53,6 +53,7 @@ using namespace PatternMatch;
 
 #define DEBUG_TYPE "simplifycfg"
 
+#ifndef INTEL_CUSTOMIZATION
 // Chosen as 2 so as to be cheap, but still to have enough power to fold
 // a select, so the "clamp" idiom (of a min followed by a max) will be caught.
 // To catch this, we need to fold a compare and a select, hence '2' being the
@@ -60,6 +61,12 @@ using namespace PatternMatch;
 static cl::opt<unsigned>
 PHINodeFoldingThreshold("phi-node-folding-threshold", cl::Hidden, cl::init(2),
    cl::desc("Control the amount of phi node folding to perform (default = 2)"));
+#else
+// For X86 the amount of folding phi nodes 1 shows better performance.
+static cl::opt<unsigned>
+PHINodeFoldingThreshold("phi-node-folding-threshold", cl::Hidden, cl::init(1),
+   cl::desc("Control the amount of phi node folding to perform (default = 1)"));
+#endif
 
 static cl::opt<bool>
 DupRet("simplifycfg-dup-ret", cl::Hidden, cl::init(false),
