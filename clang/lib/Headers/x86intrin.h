@@ -42,6 +42,7 @@
 
 #include <prfchwintrin.h>
 
+#ifndef __INTEL_COMPILER
 #include <ammintrin.h>
 
 #include <fma4intrin.h>
@@ -49,6 +50,7 @@
 #include <xopintrin.h>
 
 #include <tbmintrin.h>
+#endif
 
 #include <f16cintrin.h>
 
