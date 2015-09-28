@@ -38,20 +38,21 @@ namespace loopopt {
 /// otherwise.
 ///
 /// The public wrapper functions are in HLNodeUtils.h.
-//
-/// Visitor (template class HV) needs to implement:
+///
+/// Visitor (template class HV derived from HLNodeVisitorBase)
+/// needs to implement:
 ///
 /// 1) Various visit( HLNodeType* ) functions.
 /// 2) Various postVisit( HLNodeType* ) functions for node types which
 ///    can contain other nodes. These are only needed for recursive walks and
 ///    are called after we finish visiting the children of the node.
-/// 3) bool isDone() for early termination of the traversal.
-/// 4) bool skipRecursion(HLNode *Node) for skipping recursion on Node. This is
-///    checked after visit() has been called on Node.
+/// 3) Optional: bool isDone() for early termination of the traversal.
+/// 4) Optional: bool skipRecursion(HLNode *Node) for skipping
+///    recursion on Node. This is checked after visit() has been called on Node.
 ///
 /// Sample visitor class:
 ///
-/// struct Visitor {
+/// struct Visitor final : public HLNodeVisitorBase {
 ///   HLNode *SkipNode;
 ///
 ///   void visit(HLRegion* Region) { errs() << "visited region!\n"; }
@@ -68,9 +69,9 @@ namespace loopopt {
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }
 ///
-///   bool isDone() { return false; }
+///   bool isDone() override { return false; }
 ///
-///   bool skipRecursion (HLNode *Node) { return Node == SkipNode; }
+///   bool skipRecursion override (HLNode *Node) { return Node == SkipNode; }
 /// };
 ///
 /// It is also possible to implement generic(catch-all) visit() functions for
@@ -78,25 +79,34 @@ namespace loopopt {
 /// an optimization only cares about loops, it can implement the visitor class
 /// as follows:
 ///
-/// struct Visitor {
+/// struct Visitor final : public HLNodeVisitorBase {
 ///   void visit(HLLoop* Loop) { // implementation here }
 ///   void postVisit(HLLoop* Loop) { // implementation here }
 ///
 ///   void visit(HLNode* Node) { } // Empty catch-all function for others
 ///   void postVisit(HLNode* Node) { } // Empty catch-all function for others
-///
-///   bool isDone() { return false; }
-///
-///   bool skipRecursion (HLNode *Node) { return false; }
 /// };
 ///
 /// Recursive parameter denotes if we want to visit inside the HLNodes
 /// such as HLIf and HLLoops. RecursiveInsideLoops parameter denotes
 /// whether we want to visit inside the loops or not and this parameter
 /// is only useful if Recursive parameter is true.
+
+struct HLNodeVisitorBase {
+  virtual bool isDone() const { return false; }
+  virtual bool skipRecursion(const HLNode *Node) const { return false; }
+};
+
 template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,
           bool Forward = true>
 class HLNodeVisitor {
+
+  // TODO: if C++14 would be available, std::is_final can be used
+  static_assert(
+    std::is_base_of<HLNodeVisitorBase, HV>::value,
+    "HV must be a final derivative of HLNodeVisitorBase"
+  );
+
 private:
   HV &Visitor;
 

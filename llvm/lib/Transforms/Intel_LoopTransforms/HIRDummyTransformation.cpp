@@ -61,7 +61,7 @@ public:
   }
 };
 
-struct NodeVisitor {
+struct NodeVisitor final : public HLNodeVisitorBase {
   int num;
 
   NodeVisitor() : num(0) {}
@@ -77,8 +77,6 @@ struct NodeVisitor {
 
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 }
 
@@ -86,6 +84,7 @@ char HIRDummyTransformation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDummyTransformation, "hir-dummy",
                       "HIR Dummy Transformation Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRDummyTransformation, "hir-dummy",
                     "HIR Dummy Transformation Pass", false, false)
 

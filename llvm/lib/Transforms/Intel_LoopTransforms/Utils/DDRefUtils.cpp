@@ -41,7 +41,7 @@ void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
 
 // TODO: Merge the DDRef visitor with other visitors.
 // Visitor to gather Memory DDRef and store it in the symbase.
-class MemRefGatherer {
+class MemRefGatherer final : public HLNodeVisitorBase {
 
 private:
   SymToMemRefTy &SymToMemRefs;
@@ -60,8 +60,6 @@ public:
   void postVisit(HLNode *Node) {}
   void postVisit(HLDDNode *Node) {}
   void visit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *) { return false; }
 
   void visit(HLDDNode *Node) {
     for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {

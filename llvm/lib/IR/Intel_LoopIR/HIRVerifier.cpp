@@ -25,16 +25,13 @@ using namespace llvm::loopopt;
 namespace llvm {
 namespace loopopt {
 
-class HIRVerifierImpl {
+class HIRVerifierImpl final : public HLNodeVisitorBase {
 public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
   static void verifyAll();
 
   void visit(const HLNode *Node) { Node->verify(); }
-
   void postVisit(const HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *Node) { return false; }
 };
 }
 }

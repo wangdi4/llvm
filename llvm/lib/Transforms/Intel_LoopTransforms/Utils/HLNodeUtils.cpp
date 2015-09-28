@@ -688,7 +688,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   return HInst;
 }
 
-struct HLNodeUtils::CloneVisitor {
+struct HLNodeUtils::CloneVisitor final : public HLNodeVisitorBase {
 
   HLContainerTy *CloneContainer;
   GotoContainerTy *GotoList;
@@ -703,8 +703,7 @@ struct HLNodeUtils::CloneVisitor {
   }
 
   void postVisit(const HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *Node) { return false; }
+
   void postVisitUpdate() { updateGotos(GotoList, LabelMap); }
 };
 
@@ -757,7 +756,7 @@ void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
 /// Under updater mode, it updates nesting level and innermost flag of
 /// involved loops. This mode is used during node insertion.
 ///
-struct HLNodeUtils::LoopFinderUpdater {
+struct HLNodeUtils::LoopFinderUpdater final : public HLNodeVisitorBase {
 
   bool FinderMode;
   bool FoundLoop;
@@ -778,14 +777,12 @@ struct HLNodeUtils::LoopFinderUpdater {
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
 
-  bool isDone() {
+  bool isDone() const override {
     if (FinderMode && FoundLoop) {
       return true;
     }
     return false;
   }
-
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 void HLNodeUtils::updateLoopInfo(HLLoop *Loop) {
@@ -1536,7 +1533,7 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
   return Succ;
 }
 
-struct HLNodeUtils::TopSorter {
+struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
   unsigned TopSortNum;
   void visit(HLNode *Node) {
     TopSortNum += 50;
@@ -1549,8 +1546,6 @@ struct HLNodeUtils::TopSorter {
   }
 
   void postVisit(HLNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
   TopSorter() : TopSortNum(0) {}
 };
 
@@ -1582,7 +1577,7 @@ bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
 // For post domination we care about single exit i.e. absence of jumps from
 // inside to outside the scope of interest.
 // TODO: handle intrinsics/calls/exception handling semantics.
-struct StructuredFlowChecker {
+struct StructuredFlowChecker final : public HLNodeVisitorBase {
   bool IsPDom;
   const HLNode *TargetNode;
   bool IsStructured;
@@ -1626,8 +1621,7 @@ struct StructuredFlowChecker {
   }
 
   void postVisit(const HLNode *) {}
-  bool isDone() { return (IsDone || !IsStructured); }
-  bool skipRecursion(const HLNode *Node) { return false; }
+  bool isDone() const override { return (IsDone || !IsStructured); }
   bool isStructured() { return IsStructured; }
 };
 
@@ -1981,7 +1975,7 @@ const HLLoop *HLNodeUtils::getParentLoopwithLevel(unsigned Level,
 }
 
 // Switch-Call Visitor to check if Switch or Call exists.
-struct SwitchCallVisitor {
+struct SwitchCallVisitor final : public HLNodeVisitorBase {
   bool IsSwitch, IsCall;
 
   void visit(const HLSwitch *Switch) { IsSwitch = true; }
@@ -1994,8 +1988,7 @@ struct SwitchCallVisitor {
 
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *) {}
-  bool isDone() { return (IsSwitch || IsCall); }
-  bool skipRecursion(const HLNode *Node) { return false; }
+  bool isDone() const override { return (IsSwitch || IsCall); }
   SwitchCallVisitor() : IsSwitch(false), IsCall(false) {}
 };
 
@@ -2013,7 +2006,7 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
 }
 
 // Visitor to gather innermost loops.
-struct InnermostLoopVisitor {
+struct InnermostLoopVisitor final : public HLNodeVisitorBase {
 
   SmallVectorImpl<const HLLoop *> *InnerLoops;
   const HLNode *SkipNode;
@@ -2029,8 +2022,10 @@ struct InnermostLoopVisitor {
   }
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *Node) { return (Node == SkipNode); }
+
+  bool skipRecursion(const HLNode *Node) const override {
+    return (Node == SkipNode);
+  }
 };
 
 void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
@@ -2040,7 +2035,7 @@ void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
 }
 
 // Visitor to gather loops with specified level.
-struct LoopLevelVisitor {
+struct LoopLevelVisitor final : public HLNodeVisitorBase {
 
   SmallVectorImpl<const HLLoop *> *Loops;
   unsigned Level;
@@ -2057,8 +2052,9 @@ struct LoopLevelVisitor {
   }
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *Node) { return (Node == SkipNode); }
+  bool skipRecursion(const HLNode *Node) const override {
+    return (Node == SkipNode);
+  }
 };
 
 void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {

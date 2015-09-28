@@ -548,12 +548,12 @@ bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
 }
 
 void HLLoop::verify() const {
-  bool allDDRefsAreNull =
+  bool AllDDRefsAreNull =
       (!getLowerDDRef() && !getUpperDDRef() && !getStrideDDRef());
-  bool allDDRefsAreNonNull =
+  bool AllDDRefsAreNonNull =
       (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
 
-  assert((allDDRefsAreNull || allDDRefsAreNonNull) &&
+  assert((AllDDRefsAreNull || AllDDRefsAreNonNull) &&
          "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
 
   if (Ztt) {

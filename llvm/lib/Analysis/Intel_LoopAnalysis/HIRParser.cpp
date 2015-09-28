@@ -235,7 +235,7 @@ unsigned HIRParser::getSymBaseForConstants() const {
   return ScalarSA->getSymBaseForConstants();
 }
 
-struct HIRParser::Phase1Visitor {
+struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   HIRParser *HIRP;
 
   Phase1Visitor(HIRParser *Parser) : HIRP(Parser) {}
@@ -255,9 +255,6 @@ struct HIRParser::Phase1Visitor {
   void visit(HLInst *HInst) { HIRP->parse(HInst, true, 0); }
   void visit(HLLabel *Label) { HIRP->parse(Label); }
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
-
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 class HIRParser::PolynomialFinder {

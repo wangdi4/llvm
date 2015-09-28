@@ -132,7 +132,7 @@ DDGraph DDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
 // symbase, assumes symbase of ddrefs is valid
 // TODO make this a general DDref walker? Already did this for
 // symbase assignement
-class DDRefGatherer {
+class DDRefGatherer final : public HLNodeVisitorBase {
 
 private:
   void visitDDNodeRefs(HLDDNode *Node);
@@ -145,8 +145,6 @@ public:
   void postVisit(HLDDNode *Node) {}
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
   void addRef(DDRef *Ref);
 };
 

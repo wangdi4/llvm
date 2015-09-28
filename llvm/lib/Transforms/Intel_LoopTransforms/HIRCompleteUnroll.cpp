@@ -105,7 +105,7 @@ static cl::opt<unsigned> CompleteUnrollTripThreshold(
 namespace {
 
 /// \brief Visitor to update the CanonExpr.
-class CanonExprVisitor {
+class CanonExprVisitor final : public HLNodeVisitorBase {
 private:
   unsigned Level;
   int64_t TripVal;
@@ -124,8 +124,6 @@ public:
     llvm_unreachable(" Node not supported for Complete Unrolling.");
   }
   void postVisit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 } // namespace

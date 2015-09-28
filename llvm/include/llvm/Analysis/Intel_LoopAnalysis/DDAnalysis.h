@@ -154,7 +154,7 @@ private:
 
   // Used to rebuild graphs for node/regions based on cl options
   // in DDA's runonPass for verification purposes.
-  class GraphVerifier {
+  class GraphVerifier final : public HLNodeVisitorBase {
   private:
     DDAnalysis *CurDDA;
     DDVerificationLevel CurLevel;
@@ -169,8 +169,6 @@ private:
 
     void visit(HLNode *Node) {}
     void postVisit(HLNode *Node) {}
-    bool isDone() { return false; }
-    bool skipRecursion(HLNode *Node) { return false; }
   };
 };
 

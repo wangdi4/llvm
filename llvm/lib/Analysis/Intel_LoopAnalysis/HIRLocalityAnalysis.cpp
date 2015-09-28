@@ -740,7 +740,7 @@ void HIRLocalityAnalysis::resetLocalityMap(const HLLoop *L) {
 }
 
 // Visitor to gather all loops.
-struct LoopVisitor {
+struct LoopVisitor final : public HLNodeVisitorBase {
 
   SmallVectorImpl<const HLLoop *> *Loops;
 
@@ -750,8 +750,6 @@ struct LoopVisitor {
   void visit(const HLLoop *L) { Loops->push_back(L); }
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *N) { return false; }
 };
 
 // This is a high level routine to compute different locality.

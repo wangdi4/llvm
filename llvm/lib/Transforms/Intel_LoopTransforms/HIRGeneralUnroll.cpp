@@ -93,7 +93,7 @@ static cl::opt<unsigned>
 
 /// \brief Visitor to update the CanonExpr.
 namespace {
-class CanonExprVisitor {
+class CanonExprVisitor final : public HLNodeVisitorBase {
 private:
   unsigned Level;
   unsigned UnrollFactor;
@@ -115,8 +115,6 @@ public:
     llvm_unreachable(" Node not supported for unrolling.");
   };
   void postVisit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 } // namespace

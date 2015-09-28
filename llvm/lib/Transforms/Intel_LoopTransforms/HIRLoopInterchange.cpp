@@ -318,7 +318,7 @@ static bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned StartLevel,
   return IsDVrefined;
 }
 
-struct WalkHIR {
+struct WalkHIR final : public HLNodeVisitorBase {
 
   raw_ostream &OS = dbgs();
   DDGraph DDG;
@@ -412,8 +412,7 @@ struct WalkHIR {
   }
 
   void postVisit(HLNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
+
   WalkHIR(DDGraph DDG, HLNode *CandidateLoop, bool RefineDV,
           unsigned int StartLevel, unsigned int EndLevel)
       : DDG(DDG), CandidateLoop(CandidateLoop), RefineDV(RefineDV),

@@ -41,7 +41,7 @@ FunctionPass *llvm::createSymbaseAssignmentPass() {
 }
 
 namespace {
-class SymbaseAssignmentVisitor {
+class SymbaseAssignmentVisitor final : public HLNodeVisitorBase {
 
 private:
   SymbaseAssignment *SA;
@@ -61,13 +61,11 @@ public:
   void visit(HLDDNode *Node);
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 // TODO shared with dda. move?
 
-class DDRefGatherer {
+class DDRefGatherer final : public HLNodeVisitorBase {
 private:
   void addRef(const DDRef *Ref) {
     unsigned int SymBase = (Ref)->getSymBase();
@@ -94,8 +92,7 @@ public:
   }
   void postVisit(const HLNode *) {}
   void postVisit(const HLDDNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(const HLNode *Node) { return false; }
+
   std::map<unsigned, SmallVector<const DDRef *, 16>> SymToRefs;
 };
 }
