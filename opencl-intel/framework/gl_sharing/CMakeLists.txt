@@ -10,6 +10,7 @@ set( TARGET_NAME gl_sharing )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+include_directories( ${CL_API_HEADERS} )
 # add a target named ${TARGET_NAME}
 add_library (${TARGET_NAME} STATIC ${TARGET_SOURCES})
 set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${RUNTIME_FOLDER_NAME} )

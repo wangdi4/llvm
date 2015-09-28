@@ -1,6 +1,7 @@
 set(TARGET_NAME OCLSamplePlugin)
 
 include_directories(${BACKEND_ROOT_DIR}/../cl_api)
+include_directories(${CL_API_HEADERS})
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend)
 include_directories(${BACKEND_ROOT_DIR}/ocl_cpu_backend/export ) #for plugins interface
 

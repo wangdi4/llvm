@@ -310,6 +310,7 @@ include_directories(
     ${OCL_CPU_BACKEND_DIR}
     ${OCL_CPU_BACKEND_DIR}/export
     ${BACKEND_ROOT_DIR}/../cl_api
+    ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/ocl_cpu_debugging/export
     ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
     ${BACKEND_ROOT_DIR}/arch_headers

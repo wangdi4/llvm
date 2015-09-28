@@ -37,6 +37,7 @@ include_directories (
   ../InterpreterPluggable
   ${BACKEND_ROOT_DIR}/validations/OCLBuiltins
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/validations/DataManager
   ${BACKEND_ROOT_DIR}/validations/Common
   ${BACKEND_ROOT_DIR}/validations/NEAT

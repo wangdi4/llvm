@@ -14,6 +14,7 @@ set( TARGET_NAME common_runtime )
 
 include_directories( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}/utils
+        ${CL_API_HEADERS}
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${OCL_BINARY_DIR}
         )

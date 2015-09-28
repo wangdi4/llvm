@@ -22,6 +22,7 @@ include_directories( AFTER
             ../cl_hw_utils/export
             ${CMAKE_SOURCE_DIR}/fe_compilers/clang_compiler
             ${LLVM_INCLUDE_DIRS}/cclang
+            ${CL_API_HEADERS}
             ${CMAKE_SOURCE_DIR}/tools/OCLProfiler/Inc
             )
 

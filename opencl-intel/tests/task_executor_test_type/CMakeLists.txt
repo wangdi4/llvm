@@ -25,6 +25,7 @@ set( TARGET task_executor_test_type )
 
 include_directories( AFTER
 	../../utils/cl_sys_utils/export
+    ${CL_API_HEADERS}
 	../../externals/gtest/include
 	../../utils/task_executor
             )

@@ -15,6 +15,7 @@ endif(WIN32)
 
 include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/../cl_api
+                    ${CL_API_HEADERS}
                     ${CMAKE_CURRENT_SOURCE_DIR}/../ImathLibd
                     ${CMAKE_CURRENT_SOURCE_DIR}/../Common
                     ${CMAKE_CURRENT_SOURCE_DIR}/Conformance

@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.8.7)
 
 include_directories(
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend/utils
   ${BACKEND_ROOT_DIR}/../utils/cl_sys_utils/export
   ${BACKEND_ROOT_DIR}/ocl_cpu_backend

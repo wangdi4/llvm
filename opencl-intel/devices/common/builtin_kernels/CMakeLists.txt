@@ -21,6 +21,7 @@ if (NOT WIN32)
 endif (NOT WIN32)
 
 include_directories( BEFORE ${HW_UTILS_HEADERS} 
+                     ${CL_API_HEADERS}
 					)
 
 					FIND_SOURCES()

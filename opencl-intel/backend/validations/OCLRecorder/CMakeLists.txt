@@ -67,6 +67,7 @@ include_directories(
   ${OCL_EXTERNAL_DIR}/tinyxml
   ${OCL_DATAMANAGER_DIR}
   ${OCL_NEAT_DIR}
+  ${CL_API_HEADERS}
   ${CMAKE_SOURCE_DIR}/backend/plugin_manager
 )
 message (STATUS DEBUG: LLVM_PATH_FE=${LLVM_PATH_FE})
