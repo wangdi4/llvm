@@ -64,7 +64,6 @@
 
 #include <stdint.h>
 #include <limits>
-#include <stdio.h>
 
 // Macros ---------------------------------------------------------------------
 
@@ -97,11 +96,8 @@ int singles2halfp(void *target, void *source, int numel)
     int hes;
     static int next;  // Little Endian adjustment
     static int checkieee = 1;  // Flag to check for IEEE754, Endian, and word size
-    double one = 1.0; // Used for checking IEEE754 floating point format
+    volatile double one = 1.0; // Used for checking IEEE754 floating point format
     UINT32_TYPE *ip; // Used for checking IEEE754 floating point format
-    
-    std::cout << std::numeric_limits<double>::is_iec559 << std::endl;
-    printf("one: %x, one+1: %x\n", *(UINT32_TYPE *)&one, *( ( ( UINT32_TYPE * )&one ) + 1 ) );
     
     if( checkieee ) { // 1st call, so check for IEEE754, Endian, and word size
         ip = (UINT32_TYPE *) &one;
@@ -194,7 +190,7 @@ int doubles2halfp(void *target, void *source, int numel)
     int hes;
     static int next;  // Little Endian adjustment
     static int checkieee = 1;  // Flag to check for IEEE754, Endian, and word size
-    double one = 1.0; // Used for checking IEEE754 floating point format
+    volatile double one = 1.0; // Used for checking IEEE754 floating point format
     UINT32_TYPE *ip; // Used for checking IEEE754 floating point format
     
     if( checkieee ) { // 1st call, so check for IEEE754, Endian, and word size
@@ -290,12 +286,9 @@ int halfp2singles(void *target, void *source, int numel)
     int e;
     static int next;  // Little Endian adjustment
     static int checkieee = 1;  // Flag to check for IEEE754, Endian, and word size
-    double one = 1.0; // Used for checking IEEE754 floating point format
+    volatile double one = 1.0; // Used for checking IEEE754 floating point format
     UINT32_TYPE *ip; // Used for checking IEEE754 floating point format
-    
-    std::cout << std::numeric_limits<double>::is_iec559 << std::endl;
-    printf("one: %x, one+1: %x\n", *(UINT32_TYPE *)&one, *( ( ( UINT32_TYPE * )&one ) + 1 ) );
-    
+
     if( checkieee ) { // 1st call, so check for IEEE754, Endian, and word size
         ip = (UINT32_TYPE *) &one;
         if( *ip ) { // If Big Endian, then no adjustment
@@ -378,7 +371,7 @@ int halfp2doubles(void *target, void *source, int numel)
     int e;
     static int next;  // Little Endian adjustment
     static int checkieee = 1;  // Flag to check for IEEE754, Endian, and word size
-    double one = 1.0; // Used for checking IEEE754 floating point format
+    volatile double one = 1.0; // Used for checking IEEE754 floating point format
     UINT32_TYPE *ip; // Used for checking IEEE754 floating point format
     
     if( checkieee ) { // 1st call, so check for IEEE754, Endian, and word size
