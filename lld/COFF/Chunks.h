@@ -1,4 +1,4 @@
-//===- Chunks.h -----------------------------------------------------------===//
+//===- Chunks.h -------------------------------------------------*- C++ -*-===//
 //
 //                             The LLVM Linker
 //
@@ -62,10 +62,10 @@ public:
 
   // The writer sets and uses the addresses.
   uint64_t getRVA() { return RVA; }
-  uint64_t getFileOff() { return FileOff; }
+  uint64_t getOutputSectionOff() { return OutputSectionOff; }
   uint32_t getAlign() { return Align; }
   void setRVA(uint64_t V) { RVA = V; }
-  void setFileOff(uint64_t V) { FileOff = V; }
+  void setOutputSectionOff(uint64_t V) { OutputSectionOff = V; }
 
   // Returns true if this has non-zero data. BSS chunks return
   // false. If false is returned, the space occupied by this chunk
@@ -101,8 +101,8 @@ protected:
   // The RVA of this chunk in the output. The writer sets a value.
   uint64_t RVA = 0;
 
-  // The offset from beginning of the output file. The writer sets a value.
-  uint64_t FileOff = 0;
+  // The offset from beginning of the output section. The writer sets a value.
+  uint64_t OutputSectionOff = 0;
 
   // The output section for this chunk.
   OutputSection *Out = nullptr;
@@ -182,6 +182,12 @@ public:
   // with other chunk by ICF, it points to another chunk,
   // and this chunk is considrered as dead.
   SectionChunk *Ptr;
+  int Outdegree = 0;
+  std::vector<SectionChunk *> Ins;
+
+  // The CRC of the contents as described in the COFF spec 4.5.5.
+  // Auxiliary Format 5: Section Definitions. Used for ICF.
+  uint32_t Checksum = 0;
 
 private:
   ArrayRef<uint8_t> getContents() const;

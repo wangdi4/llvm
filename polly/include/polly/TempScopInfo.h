@@ -33,6 +33,7 @@ namespace polly {
 class IRAccess {
 public:
   Value *BaseAddress;
+  Value *AccessValue;
 
   const SCEV *Offset;
 
@@ -58,21 +59,24 @@ public:
   ///
   /// @param IsPHI Are we modeling special PHI node accesses?
   explicit IRAccess(TypeKind Type, Value *BaseAddress, const SCEV *Offset,
-                    unsigned elemBytes, bool Affine, bool IsPHI = false)
-      : BaseAddress(BaseAddress), Offset(Offset), ElemBytes(elemBytes),
-        Type(Type), IsAffine(Affine), IsPHI(IsPHI) {}
+                    unsigned elemBytes, bool Affine, Value *AccessValue,
+                    bool IsPHI = false)
+      : BaseAddress(BaseAddress), AccessValue(AccessValue), Offset(Offset),
+        ElemBytes(elemBytes), Type(Type), IsAffine(Affine), IsPHI(IsPHI) {}
 
   explicit IRAccess(TypeKind Type, Value *BaseAddress, const SCEV *Offset,
                     unsigned elemBytes, bool Affine,
                     SmallVector<const SCEV *, 4> Subscripts,
-                    SmallVector<const SCEV *, 4> Sizes)
-      : BaseAddress(BaseAddress), Offset(Offset), ElemBytes(elemBytes),
-        Type(Type), IsAffine(Affine), IsPHI(false), Subscripts(Subscripts),
-        Sizes(Sizes) {}
+                    SmallVector<const SCEV *, 4> Sizes, Value *AccessValue)
+      : BaseAddress(BaseAddress), AccessValue(AccessValue), Offset(Offset),
+        ElemBytes(elemBytes), Type(Type), IsAffine(Affine), IsPHI(false),
+        Subscripts(Subscripts), Sizes(Sizes) {}
 
   enum TypeKind getType() const { return Type; }
 
   Value *getBase() const { return BaseAddress; }
+
+  Value *getAccessValue() const { return AccessValue; }
 
   const SCEV *getOffset() const { return Offset; }
 
@@ -114,9 +118,6 @@ public:
 };
 
 //===---------------------------------------------------------------------===//
-/// Types
-// The condition of a Basicblock, combine brcond with "And" operator.
-typedef SmallVector<Comparison, 4> BBCond;
 
 /// Maps from a loop to the affine function expressing its backedge taken count.
 /// The backedge taken count already enough to express iteration domain as we
@@ -125,9 +126,6 @@ typedef SmallVector<Comparison, 4> BBCond;
 /// an integer recurrence that starts at 0 and increments by one each time
 /// through the loop.
 typedef std::map<const Loop *, const SCEV *> LoopBoundMapType;
-
-/// Mapping BBs to its condition constrains
-typedef std::map<const BasicBlock *, BBCond> BBCondMapType;
 
 typedef std::vector<std::pair<IRAccess, Instruction *>> AccFuncSetType;
 typedef std::map<const BasicBlock *, AccFuncSetType> AccFuncMapType;
@@ -141,17 +139,13 @@ class TempScop {
   // The Region.
   Region &R;
 
-  // Remember the bounds of loops, to help us build iteration domain of BBs.
-  const BBCondMapType &BBConds;
-
   // Access function of bbs.
   AccFuncMapType &AccFuncMap;
 
   friend class TempScopInfo;
 
-  explicit TempScop(Region &r, BBCondMapType &BBCmps,
-                    AccFuncMapType &accFuncMap)
-      : R(r), BBConds(BBCmps), AccFuncMap(accFuncMap) {}
+  explicit TempScop(Region &r, AccFuncMapType &accFuncMap)
+      : R(r), AccFuncMap(accFuncMap) {}
 
 public:
   ~TempScop();
@@ -160,17 +154,6 @@ public:
   ///
   /// @return The maximum Region contained by this Scop.
   Region &getMaxRegion() const { return R; }
-
-  /// @brief Get the condition from entry block of the Scop to a BasicBlock
-  ///
-  /// @param BB The BasicBlock
-  ///
-  /// @return The condition from entry block of the Scop to a BB
-  ///
-  const BBCond *getBBCond(const BasicBlock *BB) const {
-    BBCondMapType::const_iterator at = BBConds.find(BB);
-    return at != BBConds.end() ? &(at->second) : 0;
-  }
 
   /// @brief Get all access functions in a BasicBlock
   ///
@@ -206,7 +189,7 @@ typedef std::map<const Region *, TempScop *> TempScopMapType;
 /// @brief The Function Pass to extract temporary information for Static control
 ///        part in llvm function.
 ///
-class TempScopInfo : public FunctionPass {
+class TempScopInfo : public RegionPass {
   //===-------------------------------------------------------------------===//
   TempScopInfo(const TempScopInfo &) = delete;
   const TempScopInfo &operator=(const TempScopInfo &) = delete;
@@ -223,15 +206,8 @@ class TempScopInfo : public FunctionPass {
   // Valid Regions for Scop
   ScopDetection *SD;
 
-  // For condition extraction support.
-  DominatorTree *DT;
-  PostDominatorTree *PDT;
-
   // Target data for element size computing.
   const DataLayout *TD;
-
-  // And also Remember the constrains for BBs
-  BBCondMapType BBConds;
 
   // Access function of statements (currently BasicBlocks) .
   AccFuncMapType AccFuncMap;
@@ -240,24 +216,11 @@ class TempScopInfo : public FunctionPass {
   // zero scev every time when we need it.
   const SCEV *ZeroOffset;
 
-  // Mapping regions to the corresponding Scop in current function.
-  TempScopMapType TempScops;
+  // The TempScop for this region.
+  TempScop *TempScopOfRegion;
 
   // Clear the context.
   void clear();
-
-  /// @brief Build condition constrains to BBs in a valid Scop.
-  ///
-  /// @param BB The BasicBlock to build condition constrains
-  /// @param R  The region for the current TempScop.
-  void buildCondition(BasicBlock *BB, Region &R);
-
-  // Build the affine function of the given condition
-  Comparison buildAffineCondition(Value &V, bool inverted);
-
-  // Return the temporary Scop information of Region R, where R must be a valid
-  // part of Scop
-  TempScop *getTempScop(Region &R);
 
   // Build the temprory information of Region R, where R must be a valid part
   // of Scop.
@@ -293,8 +256,9 @@ class TempScopInfo : public FunctionPass {
   /// @param R                  The SCoP region
   /// @param Functions          The access functions of the current BB
   /// @param NonAffineSubRegion The non affine sub-region @p PHI is in.
+  /// @param IsExitBlock        Flag to indicate that @p PHI is in the exit BB.
   void buildPHIAccesses(PHINode *PHI, Region &R, AccFuncSetType &Functions,
-                        Region *NonAffineSubRegion);
+                        Region *NonAffineSubRegion, bool IsExitBlock = false);
 
   /// @brief Build the access functions for the subregion @p SR.
   ///
@@ -307,25 +271,26 @@ class TempScopInfo : public FunctionPass {
   /// @param R                  The SCoP region.
   /// @param BB                 A basic block in @p R.
   /// @param NonAffineSubRegion The non affine sub-region @p BB is in.
+  /// @param IsExitBlock        Flag to indicate that @p BB is in the exit BB.
   void buildAccessFunctions(Region &R, BasicBlock &BB,
-                            Region *NonAffineSubRegion = nullptr);
+                            Region *NonAffineSubRegion = nullptr,
+                            bool IsExitBlock = false);
 
 public:
   static char ID;
-  explicit TempScopInfo() : FunctionPass(ID) {}
+  explicit TempScopInfo() : RegionPass(ID), TempScopOfRegion(nullptr) {}
   ~TempScopInfo();
 
-  /// @brief Get the temporay Scop information in LLVM IR represent
-  ///        for Region R.
+  /// @brief Get the temporay Scop information in LLVM IR for this region.
   ///
   /// @return The Scop information in LLVM IR represent.
-  TempScop *getTempScop(const Region *R) const;
+  TempScop *getTempScop() const;
 
-  /// @name FunctionPass interface
+  /// @name RegionPass interface
   //@{
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
   virtual void releaseMemory() { clear(); }
-  virtual bool runOnFunction(Function &F);
+  virtual bool runOnRegion(Region *R, RGPassManager &RGM);
   virtual void print(raw_ostream &OS, const Module *) const;
   //@}
 };

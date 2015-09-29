@@ -1092,6 +1092,8 @@ static int msan_dl_iterate_phdr_cb(__sanitizer_dl_phdr_info *info, SIZE_T size,
                                    void *data) {
   if (info) {
     __msan_unpoison(info, size);
+    if (info->dlpi_phdr && info->dlpi_phnum)
+      __msan_unpoison(info->dlpi_phdr, struct_ElfW_Phdr_sz * info->dlpi_phnum);
     if (info->dlpi_name)
       __msan_unpoison(info->dlpi_name, REAL(strlen)(info->dlpi_name) + 1);
   }
@@ -1333,6 +1335,28 @@ INTERCEPTOR(int, fork, void) {
   int pid = REAL(fork)();
   AfterFork();
   return pid;
+}
+
+INTERCEPTOR(int, openpty, int *amaster, int *aslave, char *name,
+            const void *termp, const void *winp) {
+  ENSURE_MSAN_INITED();
+  InterceptorScope interceptor_scope;
+  int res = REAL(openpty)(amaster, aslave, name, termp, winp);
+  if (!res) {
+    __msan_unpoison(amaster, sizeof(*amaster));
+    __msan_unpoison(aslave, sizeof(*aslave));
+  }
+  return res;
+}
+
+INTERCEPTOR(int, forkpty, int *amaster, char *name, const void *termp,
+            const void *winp) {
+  ENSURE_MSAN_INITED();
+  InterceptorScope interceptor_scope;
+  int res = REAL(forkpty)(amaster, name, termp, winp);
+  if (res != -1)
+    __msan_unpoison(amaster, sizeof(*amaster));
+  return res;
 }
 
 struct MSanInterceptorContext {
@@ -1599,6 +1623,8 @@ void InitializeInterceptors() {
   INTERCEPT_FUNCTION(__cxa_atexit);
   INTERCEPT_FUNCTION(shmat);
   INTERCEPT_FUNCTION(fork);
+  INTERCEPT_FUNCTION(openpty);
+  INTERCEPT_FUNCTION(forkpty);
 
   inited = 1;
 }

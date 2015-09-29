@@ -223,13 +223,6 @@ private:
   /// @return True if all blocks in R are valid, false otherwise.
   bool allBlocksValid(DetectionContext &Context) const;
 
-  /// @brief Check the exit block of a region is valid.
-  ///
-  /// @param Context The context of scop detection.
-  ///
-  /// @return True if the exit of R is valid, false otherwise.
-  bool isValidExit(DetectionContext &Context) const;
-
   /// @brief Check if a region is a Scop.
   ///
   /// @param Context The context of scop detection.
@@ -294,10 +287,23 @@ private:
   /// @return True if the loop is valid in the region.
   bool isValidLoop(Loop *L, DetectionContext &Context) const;
 
+  /// @brief Check if a region contains more than one loop.
+  ///
+  /// @param R The region to check
+  bool hasMoreThanOneLoop(Region *R) const;
+
   /// @brief Check if the function @p F is marked as invalid.
   ///
   /// @note An OpenMP subfunction will be marked as invalid.
   bool isValidFunction(llvm::Function &F);
+
+  /// @brief Can ISL compute the trip count of a loop.
+  ///
+  /// @param L The loop to check.
+  /// @param Context The context of scop detection.
+  ///
+  /// @return True if ISL can compute the trip count of the loop.
+  bool canUseISLTripCount(Loop *L, DetectionContext &Context) const;
 
   /// @brief Print the locations of all detected scops.
   void printLocations(llvm::Function &F);

@@ -35,7 +35,7 @@ INITIALIZE_PASS_BEGIN(SCCFormation, "hir-sccs", "HIR SCC Formation", false,
                       true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_END(SCCFormation, "hir-sccs", "HIR SCC Formation", false, true)
 
@@ -51,7 +51,7 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolution>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
@@ -381,7 +381,7 @@ bool SCCFormation::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolution>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   RI = &getAnalysis<RegionIdentification>();
 
   // Initialize to NO_SCC.

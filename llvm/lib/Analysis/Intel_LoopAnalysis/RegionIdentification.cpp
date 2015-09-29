@@ -35,7 +35,7 @@ INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-regions",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(RegionIdentification, "hir-regions",
                     "HIR Region Identification", false, true)
 
@@ -53,7 +53,7 @@ void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolution>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
 
 bool RegionIdentification::isSelfGenerable(const Loop &Lp,
@@ -160,7 +160,7 @@ void RegionIdentification::formRegions() {
 bool RegionIdentification::runOnFunction(Function &F) {
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolution>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   formRegions();
 

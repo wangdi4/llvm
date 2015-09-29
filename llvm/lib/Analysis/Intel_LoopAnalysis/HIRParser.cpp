@@ -37,7 +37,7 @@ using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(LoopFormation)
@@ -54,7 +54,7 @@ HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {
 void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
-  AU.addRequiredTransitive<ScalarEvolution>();
+  AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
   AU.addRequiredTransitive<ScalarSymbaseAssignment>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
@@ -1162,7 +1162,7 @@ void HIRParser::eraseUselessNodes() {
 
 bool HIRParser::runOnFunction(Function &F) {
   Func = &F;
-  SE = &getAnalysis<ScalarEvolution>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
   HIR = &getAnalysis<HIRCreation>();

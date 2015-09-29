@@ -54,6 +54,10 @@ struct Token {
   StringRef Value;
 };
 
+static bool isDecorated(StringRef Sym) {
+  return Sym.startswith("_") || Sym.startswith("@") || Sym.startswith("?");
+}
+
 class Lexer {
 public:
   explicit Lexer(StringRef S) : Buf(S) {}
@@ -109,7 +113,7 @@ private:
 
 class Parser {
 public:
-  explicit Parser(StringRef S, BumpPtrStringSaver *A) : Lex(S), Alloc(A) {}
+  explicit Parser(StringRef S, StringSaver *A) : Lex(S), Alloc(A) {}
 
   void parse() {
     do {
@@ -191,8 +195,12 @@ private:
       unget();
     }
 
-    if (Config->Machine == I386 && !E.Name.startswith("_@?"))
-      E.Name = Alloc->save("_" + E.Name);
+    if (Config->Machine == I386) {
+      if (!isDecorated(E.Name))
+        E.Name = Alloc->save("_" + E.Name);
+      if (!E.ExtName.empty() && !isDecorated(E.ExtName))
+        E.ExtName = Alloc->save("_" + E.ExtName);
+    }
 
     for (;;) {
       read();
@@ -270,12 +278,12 @@ private:
   Lexer Lex;
   Token Tok;
   std::vector<Token> Stack;
-  BumpPtrStringSaver *Alloc;
+  StringSaver *Alloc;
 };
 
 } // anonymous namespace
 
-void parseModuleDefs(MemoryBufferRef MB, BumpPtrStringSaver *Alloc) {
+void parseModuleDefs(MemoryBufferRef MB, StringSaver *Alloc) {
   Parser(MB.getBuffer(), Alloc).parse();
 }
 
