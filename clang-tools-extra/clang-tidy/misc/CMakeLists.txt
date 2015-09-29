@@ -10,6 +10,7 @@ add_clang_library(clangTidyMiscModule
   MacroParenthesesCheck.cpp
   MacroRepeatedSideEffectsCheck.cpp
   MiscTidyModule.cpp
+  MoveConstructorInitCheck.cpp
   NoexceptMoveConstructorCheck.cpp
   StaticAssertCheck.cpp
   SwappedArgumentsCheck.cpp
@@ -18,7 +19,6 @@ add_clang_library(clangTidyMiscModule
   UnusedParametersCheck.cpp
   UnusedRAIICheck.cpp
   UniqueptrResetReleaseCheck.cpp
-  UseOverrideCheck.cpp
 
   LINK_LIBS
   clangAST

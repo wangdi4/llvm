@@ -303,6 +303,18 @@ deprecated_HEADERS = \
 	include/isl/deprecated/val_int.h \
 	include/isl/deprecated/vec_int.h
 
+BUILT_SOURCES = gitversion.h
+
+CLEANFILES = \
+	gitversion.h
+
+DISTCLEANFILES = \
+	isl-uninstalled.sh \
+	isl-uninstalled.pc \
+	isl.pc \
+	isl.pc.in \
+	include/isl/stdint.h
+
 EXTRA_DIST = \
 	LICENSE \
 	isl_config_post.h \
@@ -317,6 +329,7 @@ EXTRA_DIST = \
 	isl_multi_apply_templ.c \
 	isl_multi_apply_set.c \
 	isl_multi_apply_union_set.c \
+	isl_multi_coalesce.c \
 	isl_multi_floor.c \
 	isl_multi_gist.c \
 	isl_multi_intersect.c \
@@ -369,3 +382,10 @@ install-data-local: $(srcdir)/isl.py
 		$(DESTDIR)$(libdir)/$$libisl-gdb.py; \
 	test -z "$(libdir)" || $(MKDIR_P) "$(DESTDIR)$(libdir)"; \
 	$(INSTALL_DATA) $(srcdir)/isl.py $(DESTDIR)$(libdir)/$$libisl-gdb.py; esac
+
+uninstall-local:
+	@libisl=`sed -ne "/^library_names=/{s/.*='//;s/'$$//;s/ .*//;p;}" \
+		 $(builddir)/libisl.la`; \
+	if test -n "$${libisl}"; then \
+		rm -f $(DESTDIR)$(libdir)/$$libisl-gdb.py; \
+	fi

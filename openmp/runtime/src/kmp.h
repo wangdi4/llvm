@@ -17,6 +17,8 @@
 #ifndef KMP_H
 #define KMP_H
 
+#include "kmp_config.h"
+
 /* #define BUILD_PARALLEL_ORDERED 1 */
 
 /* This fix replaces gettimeofday with clock_gettime for better scalability on
@@ -92,14 +94,6 @@ class kmp_stats_list;
 #include "kmp_i18n.h"
 
 #define KMP_HANDLE_SIGNALS (KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_WINDOWS || KMP_OS_DARWIN)
-
-#ifdef KMP_SETVERSION
-/*  from factory/Include, to get VERSION_STRING embedded for 'what'  */
-#include "kaiconfig.h"
-#include "eye.h"
-#include "own.h"
-#include "setversion.h"
-#endif
 
 #include "kmp_wrapper_malloc.h"
 #if KMP_OS_UNIX
@@ -3108,7 +3102,10 @@ extern int __kmp_fork_call( ident_t *loc, int gtid, enum fork_context_e fork_con
 #endif
                              );
 
-extern void __kmp_join_call( ident_t *loc, int gtid, enum fork_context_e fork_context
+extern void __kmp_join_call( ident_t *loc, int gtid
+#if OMPT_SUPPORT
+                           , enum fork_context_e fork_context
+#endif
 #if OMP_40_ENABLED
                            , int exit_teams = 0
 #endif

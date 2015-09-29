@@ -1,4 +1,4 @@
-//===- SymbolTable.h ------------------------------------------------------===//
+//===- SymbolTable.h --------------------------------------------*- C++ -*-===//
 //
 //                             The LLVM Linker
 //
@@ -16,7 +16,6 @@
 
 namespace lld {
 namespace elf2 {
-class Defined;
 struct Symbol;
 
 // SymbolTable is a bucket of all known symbols, including defined,
@@ -35,19 +34,51 @@ public:
 
   void addFile(std::unique_ptr<InputFile> File);
 
-  // Print an error message on undefined symbols.
-  void reportRemainingUndefines();
+  const ELFFileBase *getFirstELF() const {
+    if (!ObjectFiles.empty())
+      return ObjectFiles[0].get();
+    if (!SharedFiles.empty())
+      return SharedFiles[0].get();
+    return nullptr;
+  }
+
+  const llvm::DenseMap<StringRef, Symbol *> &getSymbols() const {
+    return Symtab;
+  }
+
+  const std::vector<std::unique_ptr<ObjectFileBase>> &getObjectFiles() const {
+    return ObjectFiles;
+  }
+
+  const std::vector<std::unique_ptr<SharedFileBase>> &getSharedFiles() const {
+    return SharedFiles;
+  }
+
+  SymbolBody *getEntrySym() const {
+    return EntrySym->getReplacement();
+  }
+
+private:
+  Symbol *insert(SymbolBody *New);
+  template <class ELFT> void addELFFile(ELFFileBase *File);
+  void addELFFile(ELFFileBase *File);
+  void addLazy(Lazy *New);
+  void addMemberFile(Lazy *Body);
+
+  template <class ELFT> void init();
+  template <class ELFT> void resolve(SymbolBody *Body);
+
+  std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
+
+  llvm::DenseMap<StringRef, Symbol *> Symtab;
+  llvm::BumpPtrAllocator Alloc;
 
   // The writer needs to infer the machine type from the object files.
   std::vector<std::unique_ptr<ObjectFileBase>> ObjectFiles;
 
-private:
-  void addObject(ObjectFileBase *File);
+  std::vector<std::unique_ptr<SharedFileBase>> SharedFiles;
 
-  void resolve(SymbolBody *Body);
-
-  llvm::DenseMap<StringRef, Symbol *> Symtab;
-  llvm::BumpPtrAllocator Alloc;
+  SymbolBody *EntrySym = nullptr;
 };
 
 } // namespace elf2

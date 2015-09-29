@@ -292,6 +292,18 @@ const internal::VariadicDynCastAllOfMatcher<Decl, NamedDecl> namedDecl;
 ///   matches "namespace {}" and "namespace test {}"
 const internal::VariadicDynCastAllOfMatcher<Decl, NamespaceDecl> namespaceDecl;
 
+/// \brief Matches a declaration of a namespace alias.
+///
+/// Given
+/// \code
+///   namespace test {}
+///   namespace alias = ::test;
+/// \endcode
+/// namespaceAliasDecl()
+///   matches "namespace alias" but not "namespace test"
+const internal::VariadicDynCastAllOfMatcher<Decl, NamespaceAliasDecl>
+    namespaceAliasDecl;
+
 /// \brief Matches C++ class declarations.
 ///
 /// Example matches \c X, \c Z
@@ -2038,7 +2050,8 @@ hasDeclaration(const internal::Matcher<Decl> &InnerMatcher) {
 
 /// \brief Matches on the implicit object argument of a member call expression.
 ///
-/// Example matches y.x() (matcher = callExpr(on(hasType(recordDecl(hasName("Y"))))))
+/// Example matches y.x()
+///   (matcher = memberCallExpr(on(hasType(recordDecl(hasName("Y"))))))
 /// \code
 ///   class Y { public: void x(); };
 ///   void z() { Y y; y.x(); }",
@@ -2138,7 +2151,7 @@ AST_MATCHER(ObjCMessageExpr, hasKeywordSelector) {
 
 /// \brief Matches when the selector has the specified number of arguments
 ///
-///  matcher = objCMessageExpr(numSelectorArgs(1));
+///  matcher = objCMessageExpr(numSelectorArgs(0));
 ///  matches self.bodyView in the code below
 ///
 ///  matcher = objCMessageExpr(numSelectorArgs(2));
@@ -2250,7 +2263,7 @@ AST_MATCHER_P(DeclaratorDecl, hasTypeLoc, internal::Matcher<TypeLoc>, Inner) {
 ///   class Y { public: void x(); };
 ///   void z() { Y* y; y->x(); }
 /// \endcode
-/// callExpr(on(hasType(asString("class Y *"))))
+/// memberCallExpr(on(hasType(asString("class Y *"))))
 ///   matches y->x()
 AST_MATCHER_P(QualType, asString, std::string, Name) {
   return Name == Node.getAsString();
@@ -2260,7 +2273,8 @@ AST_MATCHER_P(QualType, asString, std::string, Name) {
 /// matches the specified matcher.
 ///
 /// Example matches y->x()
-///     (matcher = callExpr(on(hasType(pointsTo(recordDecl(hasName("Y")))))))
+///   (matcher = memberCallExpr(on(hasType(pointsTo
+///      recordDecl(hasName("Y")))))))
 /// \code
 ///   class Y { public: void x(); };
 ///   void z() { Y *y; y->x(); }
@@ -2650,6 +2664,26 @@ AST_MATCHER(CXXCtorInitializer, isWritten) {
 ///   will match E(), but not match D(int).
 AST_MATCHER(CXXCtorInitializer, isBaseInitializer) {
   return Node.isBaseInitializer();
+}
+
+/// \brief Matches a constructor initializer if it is initializing a member, as
+/// opposed to a base.
+///
+/// Given
+/// \code
+///   struct B {};
+///   struct D : B {
+///     int I;
+///     D(int i) : I(i) {}
+///   };
+///   struct E : B {
+///     E() : B() {}
+///   };
+/// \endcode
+/// constructorDecl(hasAnyConstructorInitializer(isMemberInitializer()))
+///   will match D(int), but not match E().
+AST_MATCHER(CXXCtorInitializer, isMemberInitializer) {
+  return Node.isMemberInitializer();
 }
 
 /// \brief Matches any argument of a call expression or a constructor call
@@ -3924,6 +3958,20 @@ AST_MATCHER_P(ElaboratedType, namesType, internal::Matcher<QualType>,
   return InnerMatcher.matches(Node.getNamedType(), Finder, Builder);
 }
 
+/// \brief Matches types that represent the result of substituting a type for a
+/// template type parameter.
+///
+/// Given
+/// \code
+///   template <typename T>
+///   void F(T t) {
+///     int i = 1 + t;
+///   }
+/// \code
+///
+/// \c substTemplateTypeParmType() matches the type of 't' but not '1'
+AST_TYPE_MATCHER(SubstTemplateTypeParmType, substTemplateTypeParmType);
+
 /// \brief Matches declarations whose declaration context, interpreted as a
 /// Decl, matches \c InnerMatcher.
 ///
@@ -4177,6 +4225,64 @@ AST_MATCHER(CXXConstructorDecl, isMoveConstructor) {
 /// constructorDecl(isDefaultConstructor()) will match #1, but not #2 or #3.
 AST_MATCHER(CXXConstructorDecl, isDefaultConstructor) {
   return Node.isDefaultConstructor();
+}
+
+/// \brief Matches constructor and conversion declarations that are marked with
+/// the explicit keyword.
+///
+/// Given
+/// \code
+///   struct S {
+///     S(int); // #1
+///     explicit S(double); // #2
+///     operator int(); // #3
+///     explicit operator bool(); // #4
+///   };
+/// \endcode
+/// constructorDecl(isExplicit()) will match #2, but not #1.
+/// conversionDecl(isExplicit()) will match #4, but not #3.
+AST_POLYMORPHIC_MATCHER(isExplicit,
+                        AST_POLYMORPHIC_SUPPORTED_TYPES(CXXConstructorDecl,
+                                                        CXXConversionDecl)) {
+  return Node.isExplicit();
+}
+
+/// \brief Matches function and namespace declarations that are marked with
+/// the inline keyword.
+///
+/// Given
+/// \code
+///   inline void f();
+///   void g();
+///   namespace n {
+///   inline namespace m {}
+///   }
+/// \endcode
+/// functionDecl(isInline()) will match ::f().
+/// namespaceDecl(isInline()) will match n::m.
+AST_POLYMORPHIC_MATCHER(isInline,
+                        AST_POLYMORPHIC_SUPPORTED_TYPES(NamespaceDecl,
+                                                        FunctionDecl)) {
+  // This is required because the spelling of the function used to determine
+  // whether inline is specified or not differs between the polymorphic types.
+  if (const auto *FD = dyn_cast<FunctionDecl>(&Node))
+    return FD->isInlineSpecified();
+  else if (const auto *NSD = dyn_cast<NamespaceDecl>(&Node))
+    return NSD->isInline();
+  llvm_unreachable("Not a valid polymorphic type");
+}
+
+/// \brief Matches anonymous namespace declarations.
+///
+/// Given
+/// \code
+///   namespace n {
+///   namespace {} // #1
+///   }
+/// \endcode
+/// namespaceDecl(isAnonymous()) will match #1 but not ::n.
+AST_MATCHER(NamespaceDecl, isAnonymous) {
+  return Node.isAnonymousNamespace();
 }
 
 /// \brief If the given case statement does not use the GNU case range

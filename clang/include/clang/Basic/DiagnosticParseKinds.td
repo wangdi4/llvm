@@ -1057,10 +1057,6 @@ def x_warn_intel_pragma_extra_text : Warning<"extra text after expected end of p
   InGroup<IntelPragma>;
 def x_warn_intel_pragma_statement_precede : Warning<"this pragma must immediately precede a statement">,
   InGroup<IntelPragma>;
-def x_warn_intel_pragma_declaration_precede : Warning<"this pragma must immediately precede a declaration">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_statement_declaration_precede : Warning<"this pragma must immediately precede a declaration or statement">,
-  InGroup<IntelPragma>;
 def x_warn_intel_pragma_expected_string : Warning<"expected a string">,
   InGroup<IntelPragma>;
 def x_warn_intel_pragma_on_off_expected : Warning<"'on' or 'off' expected">,
@@ -1121,8 +1117,6 @@ def err_omp_expected_punc : Error<
   "expected ',' or ')' in '%0' %select{clause|directive}1">;
 def err_omp_unexpected_clause : Error<
   "unexpected OpenMP clause '%0' in directive '#pragma omp %1'">;
-def err_omp_more_one_clause : Error<
-  "directive '#pragma omp %0' cannot contain more than one '%1' clause">;
 def err_omp_immediate_directive : Error<
   "'#pragma omp %0' cannot be an immediate substatement">;
 def err_omp_expected_identifier_for_critical : Error<

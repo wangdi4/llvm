@@ -5063,6 +5063,11 @@ public:
   }
   SourceLocation getLocStart() const LLVM_READONLY { return SourceLocation(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return SourceLocation(); }
+  
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == TypoExprClass;
+  }
+
 };
 #ifdef INTEL_CUSTOMIZATION
 /// CEANIndexExpr - CEAN index triplet.

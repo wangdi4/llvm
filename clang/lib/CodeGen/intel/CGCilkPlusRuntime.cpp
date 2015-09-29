@@ -187,8 +187,7 @@ public:
     return Ty;
   }
   enum {
-    flags,
-    size,
+    flags, size,
     call_parent,
     worker,
     except_data,
@@ -229,6 +228,11 @@ GetCilkStackFrame(clang::CodeGen::CodeGenFunction &CGF) {
   return nullptr;
 }
 
+static Value *
+Get_Address_As_VoidPt (LLVMContext &Ctx, CGBuilderTy &B, Value *A){
+  return B.CreateBitOrPointerCast(A, TypeBuilder<void *, false>::get(Ctx));
+}
+
 static llvm::PointerType *
 GetCilkStackFramePtr(clang::CodeGen::CodeGenFunction &CGF) {
   return llvm::PointerType::getUnqual(GetCilkStackFrame(CGF));
@@ -257,21 +261,21 @@ Get__cilkrts_leave_frame(clang::CodeGen::CodeGenFunction &CGF) {
       GetCilkFuncTy(CGF), "__cilkrts_leave_frame"));
 }
 
-static Value *GEP(CGBuilderTy &B, Value *Base, int field) {
-  return B.CreateConstInBoundsGEP2_32(nullptr, Base, 0, field);
+static Address GEP(CGBuilderTy &B, Address Base, int field) {
+  return B.CreateStructGEP(Base, field, CharUnits::Zero());
 }
 
-static void StoreField(CGBuilderTy &B, Value *Val, Value *Dst, int field) {
+static void StoreField(CGBuilderTy &B, Value *Val, Address Dst, int field) {
   B.CreateStore(Val, GEP(B, Dst, field));
 }
 
-static Value *LoadField(CGBuilderTy &B, Value *Src, int field) {
+static Value *LoadField(CGBuilderTy &B, Address Src, int field) {
   return B.CreateLoad(GEP(B, Src, field));
 }
 
 /// \brief Emit inline assembly code to save the floating point
 /// state, for x86 Only.
-static void EmitSaveFloatingPointState(CGBuilderTy &B, Value *SF) {
+static void EmitSaveFloatingPointState(CGBuilderTy &B, Address SF) {
   typedef void(AsmPrototype)(uint32_t *, uint16_t *);
   llvm::FunctionType *FTy =
       TypeBuilder<AsmPrototype, false>::get(B.getContext());
@@ -281,10 +285,10 @@ static void EmitSaveFloatingPointState(CGBuilderTy &B, Value *SF) {
                               "*m,*m,~{dirflag},~{fpsr},~{flags}",
                               /*sideeffects*/ true);
 
-  Value *mxcsrField = GEP(B, SF, StackFrameBuilder::mxcsr);
-  Value *fpcsrField = GEP(B, SF, StackFrameBuilder::fpcsr);
+  Address mxcsrField = GEP(B, SF, StackFrameBuilder::mxcsr);
+  Address fpcsrField = GEP(B, SF, StackFrameBuilder::fpcsr);
 
-  B.CreateCall(Asm, {mxcsrField, fpcsrField});
+  B.CreateCall(Asm, {mxcsrField.getPointer(), fpcsrField.getPointer()});
 }
 
 /// \brief Helper to find a function with the given name, creating it if it
@@ -338,7 +342,7 @@ static void registerSpawnFunction(CodeGenFunction &CGF, llvm::Function *Fn) {
 }
 
 /// \brief Emit a call to the CILK_SETJMP function.
-static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Value *SF,
+static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Address SF,
                                 CodeGenFunction &CGF) {
   LLVMContext &Ctx = CGF.getLLVMContext();
 
@@ -353,18 +357,20 @@ static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Value *SF,
 
   // Get the JMP_BUFFER to store program state
   // Buffer is a void**.
-  Value *Buf = GEP(B, SF, StackFrameBuilder::ctx);
+  auto Buf = GEP(B, SF, StackFrameBuilder::ctx);
 
-  Value *FrameAddr = B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::frameaddress),
-                                  ConstantInt::get(Int32Ty, 0));
-  // Store the frame pointer in the JMPBUF_FP slot
-  Value *FrameSaveSlot = GEP(B, Buf, GetJmpBuf_FP(CGF));
+  // Store the frame pointer in the 0th slot
+  Value *FrameAddr =
+    B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::frameaddress),
+                 ConstantInt::get(Int32Ty, 0));
+
+  auto FrameSaveSlot = GEP(B, Buf, 0);
   B.CreateStore(FrameAddr, FrameSaveSlot);
 
   Value *StackAddr =
-      B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::stacksave), {});
-  // Store stack pointer in the JMPBUF_SP slot
-  Value *StackSaveSlot = GEP(B, Buf, GetJmpBuf_SP(CGF));
+    B.CreateCall(CGF.CGM.getIntrinsic(Intrinsic::stacksave), {});
+
+  auto StackSaveSlot = GEP(B, Buf, 2);
   B.CreateStore(StackAddr, StackSaveSlot);
 
   Buf = B.CreateBitCast(Buf, Int8PtrTy);
@@ -379,18 +385,18 @@ static CallInst *EmitCilkSetJmp(CGBuilderTy &B, Value *SF,
           llvm::FunctionType::get(Int32Ty, ArgTypes, /*isVarArg=*/true),
           "_setjmp3", ReturnsTwiceAttr);
       llvm::Value *Count = ConstantInt::get(Int32Ty, 0);
-      SetjmpCall = B.CreateCall(SetJmp3, {Buf, Count});
+      SetjmpCall = B.CreateCall(SetJmp3, {Buf.getPointer(), Count});
     } else {
       llvm::Type *ArgTypes[] = {Int8PtrTy};
       llvm::Constant *SetJmp = CGF.CGM.CreateRuntimeFunction(
           llvm::FunctionType::get(Int64Ty, ArgTypes, /*isVarArg=*/false),
           "setjmp", ReturnsTwiceAttr);
-      SetjmpCall = B.CreateCall(SetJmp, {Buf});
+      SetjmpCall = B.CreateCall(SetJmp, {Buf.getPointer()});
     }
   } else {
     // Call LLVM's EH setjmp, which is lightweight.
     Value *F = CGF.CGM.getIntrinsic(Intrinsic::eh_sjlj_setjmp);
-    SetjmpCall = B.CreateCall(F, Buf);
+    SetjmpCall = B.CreateCall(F, Buf.getPointer());
   }
   assert(SetjmpCall && "setjmp instruction must be defined");
   SetjmpCall->setCanReturnTwice();
@@ -413,14 +419,16 @@ static Function *Get__cilkrts_pop_frame(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
 
   // sf->worker->current_stack_frame = sf.call_parent;
   StoreField(B, LoadField(B, SF, StackFrameBuilder::call_parent),
-             LoadField(B, SF, StackFrameBuilder::worker),
+             Address(LoadField(B, SF, StackFrameBuilder::worker),
+                     CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
              WorkerBuilder::current_stack_frame);
 
   // sf->call_parent = 0;
@@ -461,26 +469,30 @@ static Function *Get__cilkrts_detach(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                      CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
 
   // struct __cilkrts_worker *w = sf->worker;
-  Value *W = LoadField(B, SF, StackFrameBuilder::worker);
+  auto W = Address(LoadField(B, SF, StackFrameBuilder::worker),
+                   CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   // __cilkrts_stack_frame *volatile *tail = w->tail;
-  Value *Tail = LoadField(B, W, WorkerBuilder::tail);
+  auto Tail = Address(LoadField(B, W, WorkerBuilder::tail),
+                      CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   // sf->spawn_helper_pedigree = w->pedigree;
   StoreField(B, LoadField(B, W, WorkerBuilder::pedigree), SF,
              StackFrameBuilder::parent_pedigree);
 
   // sf->call_parent->parent_pedigree = w->pedigree;
-  Value *PSF =
-      B.CreateBitOrPointerCast(LoadField(B, SF, StackFrameBuilder::call_parent),
-                               GetCilkStackFramePtr(CGF));
-  StoreField(B, LoadField(B, W, WorkerBuilder::pedigree), PSF,
+  Value *CallP =
+     B.CreateBitOrPointerCast(LoadField(B, SF, StackFrameBuilder::call_parent),
+                              GetCilkStackFramePtr(CGF));
+  StoreField(B, LoadField(B, W, WorkerBuilder::pedigree),
+             Address(CallP, CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
              StackFrameBuilder::parent_pedigree);
 
   // w->pedigree.rank = 0;
@@ -492,15 +504,18 @@ static Function *Get__cilkrts_detach(CodeGenFunction &CGF) {
   }
 
   // w->pedigree.next = &sf->spawn_helper_pedigree;
-  StoreField(B, GEP(B, SF, StackFrameBuilder::parent_pedigree),
-             GEP(B, W, WorkerBuilder::pedigree), PedigreeBuilder::next);
+  StoreField(B,
+             GEP(B, SF, StackFrameBuilder::parent_pedigree).getPointer(),
+             GEP(B, W, WorkerBuilder::pedigree),
+             PedigreeBuilder::next);
 
   // *tail++ = sf->call_parent;
   B.CreateStore(LoadField(B, SF, StackFrameBuilder::call_parent), Tail);
-  Tail = B.CreateConstGEP1_32(Tail, 1);
+  Tail =
+      Address(B.CreateConstGEP1_32(Tail.getPointer(), 1), Tail.getAlignment());
 
   // w->tail = tail;
-  StoreField(B, Tail, W, WorkerBuilder::tail);
+  StoreField(B, Tail.getPointer(), W, WorkerBuilder::tail);
 
   // sf->flags |= CILK_FRAME_DETACHED;
   {
@@ -550,8 +565,10 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   LLVMContext &Ctx = CGF.getLLVMContext();
   assert((Fn->arg_size() == 2) && "unexpected function type");
-  Value *SF = Fn->arg_begin();
-  Value *ExnSlot = ++Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
+  auto ExnSlot = Address(++Fn->arg_begin(),
+                         CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn),
              *JumpTest = BasicBlock::Create(Ctx, "setjmp.test", Fn),
@@ -561,7 +578,7 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   // Entry
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(CGF, Entry);
 
     // if (sf->flags & CILK_FRAME_UNSYNCHED)
     Value *Flags = LoadField(B, SF, StackFrameBuilder::flags);
@@ -575,7 +592,7 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   // JumpTest
   {
-    CGBuilderTy B(JumpTest);
+    CGBuilderTy B(CGF, JumpTest);
     // if (!CILK_SETJMP(sf.ctx))
     Value *C = EmitCilkSetJmp(B, SF, CGF);
     C = B.CreateICmpEQ(C, Constant::getNullValue(C->getType()));
@@ -584,7 +601,7 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   // JumpIf
   {
-    CGBuilderTy B(JumpIf);
+    CGBuilderTy B(CGF, JumpIf);
 
     // sf->except_data = *ExnSlot;
     StoreField(B, B.CreateLoad(ExnSlot), SF, StackFrameBuilder::except_data);
@@ -596,13 +613,13 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
     StoreField(B, Flags, SF, StackFrameBuilder::flags);
 
     // __cilkrts_sync(&sf);
-    B.CreateCall(CILKRTS_FUNC(sync, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(sync, CGF), SF.getPointer());
     B.CreateBr(JumpCont);
   }
 
   // JumpCont
   {
-    CGBuilderTy B(JumpCont);
+    CGBuilderTy B(CGF, JumpCont);
 
     // sf->flags &= ~CILK_FRAME_EXCEPTING;
     Value *Flags = LoadField(B, SF, StackFrameBuilder::flags);
@@ -617,15 +634,15 @@ static Function *GetCilkExceptingSyncFn(CodeGenFunction &CGF) {
 
   // Exit
   {
-    CGBuilderTy B(Exit);
+    CGBuilderTy B(CGF, Exit);
 
     // ++sf.worker->pedigree.rank;
-    Value *Rank = LoadField(B, SF, StackFrameBuilder::worker);
+    auto Rank = Address(LoadField(B, SF, StackFrameBuilder::worker),
+                        CharUnits::fromQuantity(CGF.PointerAlignInBytes));
     Rank = GEP(B, Rank, WorkerBuilder::pedigree);
     Rank = GEP(B, Rank, PedigreeBuilder::rank);
     B.CreateStore(B.CreateAdd(B.CreateLoad(Rank),
-                              ConstantInt::get(
-                                  Rank->getType()->getPointerElementType(), 1)),
+                              ConstantInt::get(Rank.getElementType(), 1)),
                   Rank);
     B.CreateRetVoid();
   }
@@ -673,7 +690,8 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "cilk.sync.test", Fn),
              *SaveState = BasicBlock::Create(Ctx, "cilk.sync.savestate", Fn),
@@ -686,7 +704,7 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
 
   // Entry
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(CGF, Entry);
 
     // if (sf->flags & CILK_FRAME_UNSYNCHED)
     Value *Flags = LoadField(B, SF, StackFrameBuilder::flags);
@@ -699,12 +717,15 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
 
   // SaveState
   {
-    CGBuilderTy B(SaveState);
+    CGBuilderTy B(CGF, SaveState);
 
     // sf.parent_pedigree = sf.worker->pedigree;
-    StoreField(B, LoadField(B, LoadField(B, SF, StackFrameBuilder::worker),
-                            WorkerBuilder::pedigree),
-               SF, StackFrameBuilder::parent_pedigree);
+    StoreField(
+        B,
+        LoadField(B, Address(LoadField(B, SF, StackFrameBuilder::worker),
+                             CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
+                  WorkerBuilder::pedigree),
+        SF, StackFrameBuilder::parent_pedigree);
 
     // if (!CILK_SETJMP(sf.ctx))
     Value *C = EmitCilkSetJmp(B, SF, CGF);
@@ -714,16 +735,16 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
 
   // SyncCall
   {
-    CGBuilderTy B(SyncCall);
+    CGBuilderTy B(CGF, SyncCall);
 
     // __cilkrts_sync(&sf);
-    B.CreateCall(CILKRTS_FUNC(sync, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(sync, CGF), SF.getPointer());
     B.CreateBr(Exit);
   }
 
   // Excepting
   {
-    CGBuilderTy B(Excepting);
+    CGBuilderTy B(CGF, Excepting);
     if (CGF.CGM.getLangOpts().Exceptions) {
       Value *Flags = LoadField(B, SF, StackFrameBuilder::flags);
       Flags = B.CreateAnd(
@@ -738,22 +759,23 @@ static Function *GetCilkSyncFn(CodeGenFunction &CGF) {
 
   // Rethrow
   if (CGF.CGM.getLangOpts().Exceptions) {
-    CGBuilderTy B(Rethrow);
-    B.CreateCall(CILKRTS_FUNC(rethrow, CGF), SF)->setDoesNotReturn();
+    CGBuilderTy B(CGF, Rethrow);
+    B.CreateCall(CILKRTS_FUNC(rethrow, CGF), SF.getPointer())
+        ->setDoesNotReturn();
     B.CreateUnreachable();
   }
 
   // Exit
   {
-    CGBuilderTy B(Exit);
+    CGBuilderTy B(CGF, Exit);
 
     // ++sf.worker->pedigree.rank;
-    Value *Rank = LoadField(B, SF, StackFrameBuilder::worker);
+    auto Rank = Address(LoadField(B, SF, StackFrameBuilder::worker),
+                        CharUnits::fromQuantity(CGF.PointerAlignInBytes));
     Rank = GEP(B, Rank, WorkerBuilder::pedigree);
     Rank = GEP(B, Rank, PedigreeBuilder::rank);
     B.CreateStore(B.CreateAdd(B.CreateLoad(Rank),
-                              ConstantInt::get(
-                                  Rank->getType()->getPointerElementType(), 1)),
+                              ConstantInt::get(Rank.getElementType(), 1)),
                   Rank);
     B.CreateRetVoid();
   }
@@ -785,10 +807,11 @@ static Function *GetCilkResetWorkerFn(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
 
   // sf->worker = 0;
   StoreField(B, Constant::getNullValue(
@@ -828,7 +851,8 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "", Fn);
   BasicBlock *SlowPath = BasicBlock::Create(Ctx, "", Fn);
@@ -842,7 +866,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   // Block  (Entry)
   CallInst *W = 0;
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(CGF, Entry);
     W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF), {});
     Value *Cond = B.CreateICmpEQ(W, ConstantPointerNull::get(WorkerPtrTy));
     B.CreateCondBr(Cond, SlowPath, FastPath);
@@ -850,7 +874,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   // Block  (SlowPath)
   CallInst *Wslow = 0;
   {
-    CGBuilderTy B(SlowPath);
+    CGBuilderTy B(CGF, SlowPath);
     Wslow = B.CreateCall(CILKRTS_FUNC(bind_thread_1, CGF), {});
     llvm::Type *Ty = SFTy->getElementType(StackFrameBuilder::flags);
     StoreField(B, ConstantInt::get(Ty, CILK_FRAME_LAST | CILK_FRAME_VERSION),
@@ -859,7 +883,7 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   }
   // Block  (FastPath)
   {
-    CGBuilderTy B(FastPath);
+    CGBuilderTy B(CGF, FastPath);
     llvm::Type *Ty = SFTy->getElementType(StackFrameBuilder::flags);
     StoreField(B, ConstantInt::get(Ty, CILK_FRAME_VERSION), SF,
                StackFrameBuilder::flags);
@@ -867,18 +891,21 @@ static Function *Get__cilkrts_enter_frame_1(CodeGenFunction &CGF) {
   }
   // Block  (Cont)
   {
-    CGBuilderTy B(Cont);
+    CGBuilderTy B(CGF, Cont);
     Value *Wfast = W;
     PHINode *W = B.CreatePHI(WorkerPtrTy, 2);
     W->addIncoming(Wslow, SlowPath);
     W->addIncoming(Wfast, FastPath);
 
-    StoreField(B, LoadField(B, W, WorkerBuilder::current_stack_frame), SF,
-               StackFrameBuilder::call_parent);
+    StoreField(B, LoadField(B, Address(W, CharUnits::fromQuantity(
+                                              CGF.PointerAlignInBytes)),
+                            WorkerBuilder::current_stack_frame),
+               SF, StackFrameBuilder::call_parent);
 
     StoreField(B, W, SF, StackFrameBuilder::worker);
-    SF = B.CreateBitOrPointerCast(SF, TypeBuilder<void *, false>::get(Ctx));
-    StoreField(B, SF, W, WorkerBuilder::current_stack_frame);
+    StoreField(B, Get_Address_As_VoidPt(Ctx, B, SF.getPointer()),
+               Address(W, CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
+               WorkerBuilder::current_stack_frame);
 
     B.CreateRetVoid();
   }
@@ -909,22 +936,28 @@ static Function *Get__cilkrts_enter_frame_fast_1(CodeGenFunction &CGF) {
     return Fn;
 
   LLVMContext &Ctx = CGF.getLLVMContext();
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "", Fn);
 
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
   Value *W = B.CreateCall(CILKRTS_FUNC(get_tls_worker, CGF), {});
   StructType *SFTy = GetCilkStackFrame(CGF);
   llvm::Type *Ty = SFTy->getElementType(StackFrameBuilder::flags);
 
-  StoreField(B, ConstantInt::get(Ty, CILK_FRAME_VERSION), SF,
-             StackFrameBuilder::flags);
-  StoreField(B, LoadField(B, W, WorkerBuilder::current_stack_frame), SF,
-             StackFrameBuilder::call_parent);
+  StoreField(B,
+    ConstantInt::get(Ty, CILK_FRAME_VERSION),
+    SF, StackFrameBuilder::flags);
+  StoreField(
+      B,
+      LoadField(B, Address(W, CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
+                WorkerBuilder::current_stack_frame),
+      SF, StackFrameBuilder::call_parent);
   StoreField(B, W, SF, StackFrameBuilder::worker);
-  SF = B.CreateBitOrPointerCast(SF, TypeBuilder<void *, false>::get(Ctx));
-  StoreField(B, SF, W, WorkerBuilder::current_stack_frame);
+  StoreField(B, Get_Address_As_VoidPt(Ctx, B, SF.getPointer()),
+             Address(W, CharUnits::fromQuantity(CGF.PointerAlignInBytes)),
+             WorkerBuilder::current_stack_frame);
 
   B.CreateRetVoid();
 
@@ -949,13 +982,14 @@ static Function *GetCilkParentPrologue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
 
   // __cilkrts_enter_frame_1(sf)
-  B.CreateCall(CILKRTS_FUNC(enter_frame_1, CGF), SF);
+  B.CreateCall(CILKRTS_FUNC(enter_frame_1, CGF), SF.getPointer());
 
   B.CreateRetVoid();
 
@@ -982,7 +1016,8 @@ static Function *GetCilkParentEpilogue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn),
              *B1 = BasicBlock::Create(Ctx, "", Fn),
@@ -990,10 +1025,10 @@ static Function *GetCilkParentEpilogue(CodeGenFunction &CGF) {
 
   // Entry
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(CGF, Entry);
 
     // __cilkrts_pop_frame(sf)
-    B.CreateCall(CILKRTS_FUNC(pop_frame, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(pop_frame, CGF), SF.getPointer());
 
     // if (sf->flags != CILK_FRAME_VERSION)
     Value *Flags = LoadField(B, SF, StackFrameBuilder::flags);
@@ -1004,16 +1039,16 @@ static Function *GetCilkParentEpilogue(CodeGenFunction &CGF) {
 
   // B1
   {
-    CGBuilderTy B(B1);
+    CGBuilderTy B(CGF, B1);
 
     // __cilkrts_leave_frame(sf);
-    B.CreateCall(CILKRTS_FUNC(leave_frame, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(leave_frame, CGF), SF.getPointer());
     B.CreateBr(Exit);
   }
 
   // Exit
   {
-    CGBuilderTy B(Exit);
+    CGBuilderTy B(CGF, Exit);
     B.CreateRetVoid();
   }
 
@@ -1042,7 +1077,7 @@ static llvm::Function *GetCilkHelperPrologue(CodeGenFunction &CGF) {
   Value *SF = Fn->arg_begin();
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
-  CGBuilderTy B(Entry);
+  CGBuilderTy B(CGF, Entry);
 
   // __cilkrts_enter_frame_fast_1(sf);
   B.CreateCall(CILKRTS_FUNC(enter_frame_fast_1, CGF), SF);
@@ -1076,7 +1111,8 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
   // If we get here we need to add the function body
   LLVMContext &Ctx = CGF.getLLVMContext();
 
-  Value *SF = Fn->arg_begin();
+  auto SF = Address(Fn->arg_begin(),
+                    CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 
   BasicBlock *Entry = BasicBlock::Create(Ctx, "entry", Fn);
   BasicBlock *Body = BasicBlock::Create(Ctx, "body", Fn);
@@ -1084,7 +1120,7 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
 
   // Entry
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(CGF, Entry);
 
     // if (sf->worker)
     Value *C = B.CreateIsNotNull(LoadField(B, SF, StackFrameBuilder::worker));
@@ -1093,20 +1129,20 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
 
   // Body
   {
-    CGBuilderTy B(Body);
+    CGBuilderTy B(CGF, Body);
 
     // __cilkrts_pop_frame(sf);
-    B.CreateCall(CILKRTS_FUNC(pop_frame, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(pop_frame, CGF), SF.getPointer());
 
     // __cilkrts_leave_frame(sf);
-    B.CreateCall(CILKRTS_FUNC(leave_frame, CGF), SF);
+    B.CreateCall(CILKRTS_FUNC(leave_frame, CGF), SF.getPointer());
 
     B.CreateBr(Exit);
   }
 
   // Exit
   {
-    CGBuilderTy B(Exit);
+    CGBuilderTy B(CGF, Exit);
     B.CreateRetVoid();
   }
 
@@ -1117,21 +1153,26 @@ static llvm::Function *GetCilkHelperEpilogue(CodeGenFunction &CGF) {
 
 static const char *stack_frame_name = "__cilkrts_sf";
 
-static llvm::Value *LookupStackFrame(CodeGenFunction &CGF) {
-  return CGF.CurFn->getValueSymbolTable().lookup(stack_frame_name);
+static Address LookupStackFrame(CodeGenFunction &CGF) {
+  if (auto *V = CGF.CurFn->getValueSymbolTable().lookup(stack_frame_name)) {
+    auto *AI = cast<AllocaInst>(V);
+    return Address(AI, CharUnits::fromQuantity(AI->getAlignment()));
+  }
+  return Address::invalid();
 }
 
 /// \brief Create the __cilkrts_stack_frame for the spawning function.
-static llvm::Value *CreateStackFrame(CodeGenFunction &CGF) {
-  assert(!LookupStackFrame(CGF) && "already created the stack frame");
+static Address CreateStackFrame(CodeGenFunction &CGF) {
+  assert(!LookupStackFrame(CGF).isValid() && "already created the stack frame");
 
   llvm::Type *SFTy = GetCilkStackFrame(CGF);
   llvm::AllocaInst *SF = CGF.CreateTempAlloca(SFTy);
+  SF->setAlignment(CGF.PointerAlignInBytes);
   SF->setName(stack_frame_name);
   if (CGF.getTarget().getTriple().isKnownWindowsMSVCEnvironment() &&
       (CGF.getTarget().getTriple().getArch() == llvm::Triple::x86_64))
     SF->setAlignment(16); // XMM inside JMP_BUFFER requirement on WIN-64
-  return SF;
+  return Address(SF, CharUnits::fromQuantity(CGF.PointerAlignInBytes));
 }
 
 namespace {
@@ -1199,8 +1240,8 @@ namespace CodeGen {
 
 void CodeGenFunction::EmitCilkSpawnDecl(const CilkSpawnDecl *D) {
   // Get the __cilkrts_stack_frame
-  Value *SF = LookupStackFrame(*this);
-  assert(SF && "null stack frame unexpected");
+  Address SF = LookupStackFrame(*this);
+  assert(SF.isValid() && "null stack frame unexpected");
 
   BasicBlock *Entry = createBasicBlock("cilk.spawn.savestate"),
              *Body = createBasicBlock("cilk.spawn.helpercall"),
@@ -1208,7 +1249,7 @@ void CodeGenFunction::EmitCilkSpawnDecl(const CilkSpawnDecl *D) {
 
   EmitBlock(Entry);
   {
-    CGBuilderTy B(Entry);
+    CGBuilderTy B(*this, Entry);
 
     // Need to save state before spawning
     Value *C = EmitCilkSetJmp(B, SF, *this);
@@ -1250,7 +1291,7 @@ void CodeGenFunction::EmitCilkSpawnExpr(const CilkSpawnExpr *E) {
 }
 
 static void maybeCleanupBoundTemporary(CodeGenFunction &CGF,
-                                       llvm::Value *ReceiverTmp,
+                                       Address ReceiverTmp,
                                        QualType InitTy) {
   const RecordType *RT =
       InitTy->getBaseElementTypeUnsafe()->getAs<RecordType>();
@@ -1280,17 +1321,17 @@ llvm::Function *CodeGenFunction::EmitSpawnCapturedStmt(const CapturedStmt &S,
 
   LValue CapStruct = InitCapturedStruct(S);
   SmallVector<Value *, 3> Args;
-  Args.push_back(CapStruct.getAddress());
+  Args.push_back(CapStruct.getAddress().getPointer());
 
   QualType ReceiverTmpType;
-  llvm::Value *ReceiverTmp = 0;
+  Address ReceiverTmp = Address::invalid();
   if (ReceiverDecl) {
     assert(CD->getNumParams() >= 2 && "receiver parameter expected");
-    Args.push_back(GetAddrOfLocalVar(ReceiverDecl));
+    Args.push_back(GetAddrOfLocalVar(ReceiverDecl).getPointer());
     if (CD->getNumParams() == 3) {
       ReceiverTmpType = CD->getParam(2)->getType()->getPointeeType();
       ReceiverTmp = CreateMemTemp(ReceiverTmpType);
-      Args.push_back(ReceiverTmp);
+      Args.push_back(ReceiverTmp.getPointer());
     }
   }
 
@@ -1305,7 +1346,7 @@ llvm::Function *CodeGenFunction::EmitSpawnCapturedStmt(const CapturedStmt &S,
 
   // If this statement binds a temporary to a reference, then destroy the
   // temporary at the end of the reference's lifetime.
-  if (ReceiverTmp)
+  if (ReceiverTmp.isValid())
     maybeCleanupBoundTemporary(*this, ReceiverTmp, ReceiverTmpType);
 
   return F;
@@ -1315,8 +1356,9 @@ llvm::Function *CodeGenFunction::EmitSpawnCapturedStmt(const CapturedStmt &S,
 void CGCilkPlusRuntime::EmitCilkSync(CodeGenFunction &CGF) {
   // Elide the sync if there is no stack frame initialized for this function.
   // This will happen if function only contains _Cilk_sync but no _Cilk_spawn.
-  if (llvm::Value *SF = LookupStackFrame(CGF))
-    CGF.EmitCallOrInvoke(GetCilkSyncFn(CGF), SF);
+  auto SF = LookupStackFrame(CGF);
+  if (SF.isValid())
+    CGF.EmitCallOrInvoke(GetCilkSyncFn(CGF), SF.getPointer());
 }
 
 namespace {
@@ -1327,13 +1369,13 @@ namespace {
 /// #endif
 ///   __cilk_helper_epilogue(sf);
 class SpawnHelperStackFrameCleanup : public EHScopeStack::Cleanup {
-  llvm::Value *SF;
+  Address SF;
 
 public:
-  SpawnHelperStackFrameCleanup(llvm::Value *SF) : SF(SF) {}
+  SpawnHelperStackFrameCleanup(Address SF) : SF(SF) { }
   void Emit(CodeGenFunction &CGF, Flags F) {
     if (F.isForEHCleanup()) {
-      llvm::Value *Exn = CGF.getExceptionFromSlot();
+      auto Exn = CGF.getExceptionFromSlot();
 
       // sf->flags |=CILK_FRAME_EXCEPTING;
       llvm::Value *Flags = LoadField(CGF.Builder, SF, StackFrameBuilder::flags);
@@ -1345,35 +1387,36 @@ public:
     }
 
     // __cilk_helper_epilogue(sf);
-    CGF.Builder.CreateCall(GetCilkHelperEpilogue(CGF), SF);
+    CGF.Builder.CreateCall(GetCilkHelperEpilogue(CGF), SF.getPointer());
   }
 };
 
 /// \brief Cleanup for a spawn parent stack frame.
 ///   __cilk_parent_epilogue(sf);
 class SpawnParentStackFrameCleanup : public EHScopeStack::Cleanup {
-  llvm::Value *SF;
+  Address SF;
 
 public:
-  SpawnParentStackFrameCleanup(llvm::Value *SF) : SF(SF) {}
+  SpawnParentStackFrameCleanup(Address SF) : SF(SF) { }
   void Emit(CodeGenFunction &CGF, Flags F) {
-    CGF.Builder.CreateCall(GetCilkParentEpilogue(CGF), SF);
+    CGF.Builder.CreateCall(GetCilkParentEpilogue(CGF), SF.getPointer());
   }
 };
 
 /// \brief Cleanup to ensure parent stack frame is synced.
 struct ImplicitSyncCleanup : public EHScopeStack::Cleanup {
-  llvm::Value *SF;
+  Address SF;
 
 public:
-  ImplicitSyncCleanup(llvm::Value *SF) : SF(SF) {}
+  ImplicitSyncCleanup(Address SF) : SF(SF) { }
   void Emit(CodeGenFunction &CGF, Flags F) {
     if (F.isForEHCleanup()) {
-      llvm::Value *ExnSlot = CGF.getExceptionSlot();
-      assert(ExnSlot && "null exception handler slot");
-      CGF.Builder.CreateCall(GetCilkExceptingSyncFn(CGF), {SF, ExnSlot});
+      auto ExnSlot = CGF.getExceptionSlot();
+      assert(ExnSlot.isValid() && "null exception handler slot");
+      CGF.Builder.CreateCall(GetCilkExceptingSyncFn(CGF),
+                             {SF.getPointer(), ExnSlot.getPointer()});
     } else
-      CGF.EmitCallOrInvoke(GetCilkSyncFn(CGF), SF);
+      CGF.EmitCallOrInvoke(GetCilkSyncFn(CGF), SF.getPointer());
   }
 };
 
@@ -1383,14 +1426,14 @@ public:
 /// release it in the end. This function should be only called once prior to
 /// processing function parameters.
 void CGCilkPlusRuntime::EmitCilkParentStackFrame(CodeGenFunction &CGF) {
-  llvm::Value *SF = CreateStackFrame(CGF);
+  auto SF = CreateStackFrame(CGF);
 
   // Need to initialize it by adding the prologue
   // to the top of the spawning function
   {
     assert(CGF.AllocaInsertPt && "not initializied");
-    CGBuilderTy Builder(CGF.AllocaInsertPt);
-    Builder.CreateCall(GetCilkParentPrologue(CGF), SF);
+    CGBuilderTy Builder(CGF, CGF.AllocaInsertPt);
+    Builder.CreateCall(GetCilkParentPrologue(CGF), SF.getPointer());
   }
 
   // Push cleanups associated to this stack frame initialization.
@@ -1400,12 +1443,12 @@ void CGCilkPlusRuntime::EmitCilkParentStackFrame(CodeGenFunction &CGF) {
 /// \brief Emit code to create a Cilk stack frame for the helper function and
 /// release it in the end.
 void CGCilkPlusRuntime::EmitCilkHelperStackFrame(CodeGenFunction &CGF) {
-  llvm::Value *SF = CreateStackFrame(CGF);
+  auto SF = CreateStackFrame(CGF);
 
   // Initialize the worker to null. If this worker is still null on exit,
   // then there is no stack frame constructed for spawning and there is no need
   // to cleanup this stack frame.
-  CGF.Builder.CreateCall(GetCilkResetWorkerFn(CGF), SF);
+  CGF.Builder.CreateCall(GetCilkResetWorkerFn(CGF), SF.getPointer());
 
   // Push cleanups associated to this stack frame initialization.
   CGF.EHStack.pushCleanup<SpawnHelperStackFrameCleanup>(NormalAndEHCleanup, SF);
@@ -1415,8 +1458,8 @@ void CGCilkPlusRuntime::EmitCilkHelperStackFrame(CodeGenFunction &CGF) {
 /// emitted on exit.
 void CGCilkPlusRuntime::pushCilkImplicitSyncCleanup(CodeGenFunction &CGF) {
   // Get the __cilkrts_stack_frame
-  Value *SF = LookupStackFrame(CGF);
-  assert(SF && "null stack frame unexpected");
+  auto SF = LookupStackFrame(CGF);
+  assert(SF.isValid() && "null stack frame unexpected");
 
   CGF.EHStack.pushCleanup<ImplicitSyncCleanup>(NormalAndEHCleanup, SF);
 }
@@ -1425,11 +1468,11 @@ void CGCilkPlusRuntime::pushCilkImplicitSyncCleanup(CodeGenFunction &CGF) {
 /// This include the initialization of the helper stack frame and the detach.
 void CGCilkPlusRuntime::EmitCilkHelperPrologue(CodeGenFunction &CGF) {
   // Get the __cilkrts_stack_frame
-  Value *SF = LookupStackFrame(CGF);
-  assert(SF && "null stack frame unexpected");
+  auto SF = LookupStackFrame(CGF);
+  assert(SF.isValid() && "null stack frame unexpected");
 
   // Initialize the stack frame and detach
-  CGF.Builder.CreateCall(GetCilkHelperPrologue(CGF), SF);
+  CGF.Builder.CreateCall(GetCilkHelperPrologue(CGF), SF.getPointer());
 }
 
 /// \brief A utility function for finding the enclosing CXXTryStmt if exists.
