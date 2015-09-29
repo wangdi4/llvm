@@ -94,9 +94,9 @@ set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
 
 if ( BUILD_X64 )
-  set ( SPIR_TRIPLE spir64-unknown-uknown )
+  set ( SPIR_TRIPLE spir64-unknown-unknown )
 else ( BUILD_X64 )
-  set ( SPIR_TRIPLE spir-unknown-uknown )
+  set ( SPIR_TRIPLE spir-unknown-unknown )
 endif ( BUILD_X64 )
 
 add_custom_command( TARGET ${TARGET}
