@@ -853,11 +853,9 @@ storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
 
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(FI),
-                            MachineMemOperand::MOStore,
-                            MFI.getObjectSize(FI),
-                            Align);
+  MachineMemOperand *MMO = MF.getMachineMemOperand(
+      MachinePointerInfo::getFixedStack(MF, FI), MachineMemOperand::MOStore,
+      MFI.getObjectSize(FI), Align);
 
   switch (RC->getSize()) {
     case 4:
@@ -1043,12 +1041,9 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   MachineFunction &MF = *MBB.getParent();
   MachineFrameInfo &MFI = *MF.getFrameInfo();
   unsigned Align = MFI.getObjectAlignment(FI);
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(
-                    MachinePointerInfo::getFixedStack(FI),
-                            MachineMemOperand::MOLoad,
-                            MFI.getObjectSize(FI),
-                            Align);
+  MachineMemOperand *MMO = MF.getMachineMemOperand(
+      MachinePointerInfo::getFixedStack(MF, FI), MachineMemOperand::MOLoad,
+      MFI.getObjectSize(FI), Align);
 
   switch (RC->getSize()) {
   case 4:
@@ -1675,8 +1670,7 @@ isProfitableToIfCvt(MachineBasicBlock &MBB,
   }
 
   // Attempt to estimate the relative costs of predication versus branching.
-  unsigned UnpredCost = Probability.getNumerator() * NumCycles;
-  UnpredCost /= Probability.getDenominator();
+  unsigned UnpredCost = Probability.scale(NumCycles);
   UnpredCost += 1; // The branch itself
   UnpredCost += Subtarget.getMispredictionPenalty() / 10;
 
@@ -1693,13 +1687,8 @@ isProfitableToIfCvt(MachineBasicBlock &TMBB,
     return false;
 
   // Attempt to estimate the relative costs of predication versus branching.
-  unsigned TUnpredCost = Probability.getNumerator() * TCycles;
-  TUnpredCost /= Probability.getDenominator();
-
-  uint32_t Comp = Probability.getDenominator() - Probability.getNumerator();
-  unsigned FUnpredCost = Comp * FCycles;
-  FUnpredCost /= Probability.getDenominator();
-
+  unsigned TUnpredCost = Probability.scale(TCycles);
+  unsigned FUnpredCost = Probability.getCompl().scale(FCycles);
   unsigned UnpredCost = TUnpredCost + FUnpredCost;
   UnpredCost += 1; // The branch itself
   UnpredCost += Subtarget.getMispredictionPenalty() / 10;
@@ -4053,8 +4042,8 @@ void ARMBaseInstrInfo::expandLoadStackGuardBase(MachineBasicBlock::iterator MI,
     MIB = BuildMI(MBB, MI, DL, get(LoadOpc), Reg);
     MIB.addReg(Reg, RegState::Kill).addImm(0);
     unsigned Flag = MachineMemOperand::MOLoad | MachineMemOperand::MOInvariant;
-    MachineMemOperand *MMO = MBB.getParent()->
-        getMachineMemOperand(MachinePointerInfo::getGOT(), Flag, 4, 4);
+    MachineMemOperand *MMO = MBB.getParent()->getMachineMemOperand(
+        MachinePointerInfo::getGOT(*MBB.getParent()), Flag, 4, 4);
     MIB.addMemOperand(MMO);
     AddDefaultPred(MIB);
   }

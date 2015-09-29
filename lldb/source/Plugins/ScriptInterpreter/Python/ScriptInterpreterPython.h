@@ -128,7 +128,7 @@ public:
 
     ScriptInterpreterPython (CommandInterpreter &interpreter);
 
-    ~ScriptInterpreterPython ();
+    ~ScriptInterpreterPython() override;
 
     bool
     Interrupt() override;
@@ -434,10 +434,10 @@ public:
     // PluginInterface protocol
     //------------------------------------------------------------------
     virtual lldb_private::ConstString
-    GetPluginName();
+    GetPluginName() override;
     
     virtual uint32_t
-    GetPluginVersion();
+    GetPluginVersion() override;
 
 protected:
 
@@ -495,7 +495,7 @@ public:
                 FILE *out = NULL,
                 FILE *err = NULL);
         
-    	~Locker ();
+        ~Locker () override;
 
 	private:
         
@@ -585,6 +585,6 @@ protected:
 };
 } // namespace lldb_private
 
-#endif // #ifdef LLDB_DISABLE_PYTHON
+#endif // LLDB_DISABLE_PYTHON
 
-#endif // #ifndef LLDB_PLUGINS_SCRIPTINTERPRETER_PYTHON_SCRIPTINTERPRETERPYTHON_H
+#endif // LLDB_PLUGINS_SCRIPTINTERPRETER_PYTHON_SCRIPTINTERPRETERPYTHON_H

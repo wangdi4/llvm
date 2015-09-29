@@ -14,7 +14,10 @@
 
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/RegAllocRegistry.h"
 #include "llvm/IR/IRPrintingPasses.h"
@@ -215,7 +218,7 @@ TargetPassConfig::TargetPassConfig(TargetMachine *tm, PassManagerBase &pm)
     : ImmutablePass(ID), PM(&pm), StartBefore(nullptr), StartAfter(nullptr),
       StopAfter(nullptr), Started(true), Stopped(false),
       AddingMachinePasses(false), TM(tm), Impl(nullptr), Initialized(false),
-      DisableVerify(false), EnableTailMerge(true) {
+      DisableVerify(false), EnableTailMerge(true) { 
 
   Impl = new PassConfigImpl();
 
@@ -537,8 +540,9 @@ void TargetPassConfig::addMachinePasses() {
   addPostRegAlloc();
 
   // Insert prolog/epilog code.  Eliminate abstract frame index references...
-  if (getOptLevel() != CodeGenOpt::None)
-    addPass(createShrinkWrapPass());
+  if (getOptLevel() != CodeGenOpt::None) 
+    addPass(&ShrinkWrapID);
+
   addPass(&PrologEpilogCodeInserterID);
 
   /// Add passes that optimize machine instructions after register allocation.
@@ -700,7 +704,8 @@ void TargetPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
   addPass(&PHIEliminationID, false);
   addPass(&TwoAddressInstructionPassID, false);
 
-  addPass(RegAllocPass);
+  if (RegAllocPass)
+    addPass(RegAllocPass);
 }
 
 /// Add standard target-independent passes that are tightly coupled with
@@ -731,25 +736,27 @@ void TargetPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
   // PreRA instruction scheduling.
   addPass(&MachineSchedulerID);
 
-  // Add the selected register allocation pass.
-  addPass(RegAllocPass);
+  if (RegAllocPass) {
+    // Add the selected register allocation pass.
+    addPass(RegAllocPass);
 
-  // Allow targets to change the register assignments before rewriting.
-  addPreRewrite();
+    // Allow targets to change the register assignments before rewriting.
+    addPreRewrite();
 
-  // Finally rewrite virtual registers.
-  addPass(&VirtRegRewriterID);
+    // Finally rewrite virtual registers.
+    addPass(&VirtRegRewriterID);
 
-  // Perform stack slot coloring and post-ra machine LICM.
-  //
-  // FIXME: Re-enable coloring with register when it's capable of adding
-  // kill markers.
-  addPass(&StackSlotColoringID);
+    // Perform stack slot coloring and post-ra machine LICM.
+    //
+    // FIXME: Re-enable coloring with register when it's capable of adding
+    // kill markers.
+    addPass(&StackSlotColoringID);
 
-  // Run post-ra machine LICM to hoist reloads / remats.
-  //
-  // FIXME: can this move into MachineLateOptimization?
-  addPass(&PostRAMachineLICMID);
+    // Run post-ra machine LICM to hoist reloads / remats.
+    //
+    // FIXME: can this move into MachineLateOptimization?
+    addPass(&PostRAMachineLICMID);
+  }
 }
 
 //===---------------------------------------------------------------------===//

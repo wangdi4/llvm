@@ -23,17 +23,17 @@ _start:
 # CHECK-NEXT:   Type: Executable (0x2)
 # CHECK-NEXT:   Machine: EM_PPC (0x14)
 # CHECK-NEXT:   Version: 1
-# CHECK-NEXT:   Entry: 0x401000
+# CHECK-NEXT:   Entry: 0x1000
 # CHECK-NEXT:   ProgramHeaderOffset: 0x34
-# CHECK-NEXT:   SectionHeaderOffset: 0x1010
+# CHECK-NEXT:   SectionHeaderOffset: 0x1058
 # CHECK-NEXT:   Flags [ (0x0)
 # CHECK-NEXT:   ]
 # CHECK-NEXT:   HeaderSize: 52
 # CHECK-NEXT:   ProgramHeaderEntrySize: 32
 # CHECK-NEXT:   ProgramHeaderCount: 1
 # CHECK-NEXT:   SectionHeaderEntrySize: 40
-# CHECK-NEXT:   SectionHeaderCount: 4
-# CHECK-NEXT:    StringTableSectionIndex: 0
+# CHECK-NEXT:   SectionHeaderCount: 6
+# CHECK-NEXT:    StringTableSectionIndex: 5
 # CHECK-NEXT: }
 # CHECK-NEXT: Sections [
 # CHECK-NEXT:   Section {
@@ -52,7 +52,7 @@ _start:
 # CHECK-NEXT:   }
 # CHECK-NEXT:   Section {
 # CHECK-NEXT:     Index: 1
-# CHECK-NEXT:     Name:  (0)
+# CHECK-NEXT:     Name: .text
 # CHECK-NEXT:     Type: SHT_PROGBITS (0x1)
 # CHECK-NEXT:     Flags [ (0x6)
 # CHECK-NEXT:       SHF_ALLOC (0x2)
@@ -63,39 +63,67 @@ _start:
 # CHECK-NEXT:     Size: 12
 # CHECK-NEXT:     Link: 0
 # CHECK-NEXT:     Info: 0
-# CHECK-NEXT:     AddressAlignment: 0
+# CHECK-NEXT:     AddressAlignment: 4
 # CHECK-NEXT:     EntrySize: 0
 # CHECK-NEXT:   }
 # CHECK-NEXT:   Section {
 # CHECK-NEXT:     Index: 2
-# CHECK-NEXT:     Name:  (0)
+# CHECK-NEXT:     Name: .data
 # CHECK-NEXT:     Type: SHT_PROGBITS (0x1)
 # CHECK-NEXT:     Flags [ (0x3)
 # CHECK-NEXT:       SHF_ALLOC (0x2)
 # CHECK-NEXT:       SHF_WRITE (0x1)
 # CHECK-NEXT:     ]
-# CHECK-NEXT:     Address: 0x2000
-# CHECK-NEXT:     Offset: 0x0
+# CHECK-NEXT:     Address: 0x100C
+# CHECK-NEXT:     Offset: 0x100C
 # CHECK-NEXT:     Size: 0
 # CHECK-NEXT:     Link: 0
 # CHECK-NEXT:     Info: 0
-# CHECK-NEXT:     AddressAlignment: 0
+# CHECK-NEXT:     AddressAlignment: 4
 # CHECK-NEXT:     EntrySize: 0
 # CHECK-NEXT:   }
 # CHECK-NEXT:   Section {
 # CHECK-NEXT:     Index: 3
-# CHECK-NEXT:     Name:  (0)
+# CHECK-NEXT:     Name: .bss
 # CHECK-NEXT:     Type: SHT_NOBITS (0x8)
 # CHECK-NEXT:     Flags [ (0x3)
 # CHECK-NEXT:       SHF_ALLOC (0x2)
 # CHECK-NEXT:       SHF_WRITE (0x1)
 # CHECK-NEXT:     ]
-# CHECK-NEXT:     Address: 0x2000
-# CHECK-NEXT:     Offset: 0x0
+# CHECK-NEXT:     Address: 0x100C
+# CHECK-NEXT:     Offset: 0x100C
 # CHECK-NEXT:     Size: 0
 # CHECK-NEXT:     Link: 0
 # CHECK-NEXT:     Info: 0
-# CHECK-NEXT:     AddressAlignment: 0
+# CHECK-NEXT:     AddressAlignment: 4
+# CHECK-NEXT:     EntrySize: 0
+# CHECK-NEXT:   }
+# CHECK-NEXT:   Section {
+# CHECK-NEXT:     Index: 4
+# CHECK-NEXT:     Name: .symtab
+# CHECK-NEXT:     Type: SHT_SYMTAB
+# CHECK-NEXT:     Flags [
+# CHECK-NEXT:     ]
+# CHECK-NEXT:     Address: 0x0
+# CHECK-NEXT:     Offset: 0x100C
+# CHECK-NEXT:     Size: 32
+# CHECK-NEXT:     Link: 5
+# CHECK-NEXT:     Info: 1
+# CHECK-NEXT:     AddressAlignment: 4
+# CHECK-NEXT:     EntrySize: 16
+# CHECK-NEXT:   }
+# CHECK-NEXT:   Section {
+# CHECK-NEXT:     Index: 5
+# CHECK-NEXT:     Name: .strtab
+# CHECK-NEXT:     Type: SHT_STRTAB (0x3)
+# CHECK-NEXT:     Flags [ (0x0)
+# CHECK-NEXT:     ]
+# CHECK-NEXT:     Address: 0x0
+# CHECK-NEXT:     Offset: 0x102C
+# CHECK-NEXT:     Size: 41
+# CHECK-NEXT:     Link: 0
+# CHECK-NEXT:     Info: 0
+# CHECK-NEXT:     AddressAlignment: 1
 # CHECK-NEXT:     EntrySize: 0
 # CHECK-NEXT:   }
 # CHECK-NEXT: ]
@@ -105,8 +133,8 @@ _start:
 # CHECK-NEXT:     Offset: 0x0
 # CHECK-NEXT:     VirtualAddress: 0x400000
 # CHECK-NEXT:     PhysicalAddress: 0x400000
-# CHECK-NEXT:     FileSize: 4272
-# CHECK-NEXT:     MemSize: 4272
+# CHECK-NEXT:     FileSize: 4424
+# CHECK-NEXT:     MemSize: 4424
 # CHECK-NEXT:     Flags [ (0x5)
 # CHECK-NEXT:       PF_R (0x4)
 # CHECK-NEXT:       PF_X (0x1)

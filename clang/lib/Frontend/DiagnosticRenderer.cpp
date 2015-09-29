@@ -399,13 +399,7 @@ void DiagnosticRenderer::emitSingleMacroExpansion(
     const SourceManager &SM) {
   // Find the spelling location for the macro definition. We must use the
   // spelling location here to avoid emitting a macro backtrace for the note.
-  SourceLocation SpellingLoc = Loc;
-
-  // If this is the expansion of a macro argument, point the caret at the
-  // use of the argument in the definition of the macro, not the expansion.
-  if (SM.isMacroArgExpansion(Loc))
-    SpellingLoc = SM.getImmediateExpansionRange(Loc).first;
-  SpellingLoc = SM.getSpellingLoc(SpellingLoc);
+  SourceLocation SpellingLoc = SM.getSpellingLoc(Loc);
 
   // Map the ranges into the FileID of the diagnostic location.
   SmallVector<CharSourceRange, 4> SpellingRanges;
@@ -421,6 +415,38 @@ void DiagnosticRenderer::emitSingleMacroExpansion(
 
   emitDiagnostic(SpellingLoc, DiagnosticsEngine::Note, Message.str(),
                  SpellingRanges, None, &SM);
+}
+
+static bool checkRangeForMacroArgExpansion(CharSourceRange Range,
+                                           const SourceManager &SM) {
+  SourceLocation BegLoc = Range.getBegin(), EndLoc = Range.getEnd();
+  while (BegLoc != EndLoc) {
+    if (!SM.isMacroArgExpansion(BegLoc))
+      return false;
+    BegLoc.getLocWithOffset(1);
+  }
+
+  return SM.isMacroArgExpansion(BegLoc);
+}
+
+/// A helper function to check if the current ranges are all inside
+/// the macro expansions.
+static bool checkRangesForMacroArgExpansion(SourceLocation Loc,
+                                            ArrayRef<CharSourceRange> Ranges,
+                                            const SourceManager &SM) {
+  assert(Loc.isMacroID() && "Must be a macro expansion!");
+
+  SmallVector<CharSourceRange, 4> SpellingRanges;
+  mapDiagnosticRanges(Loc, Ranges, SpellingRanges, &SM);
+
+  if (!SM.isMacroArgExpansion(Loc))
+    return false;
+
+  for (auto I = SpellingRanges.begin(), E = SpellingRanges.end(); I != E; ++I)
+    if (!checkRangeForMacroArgExpansion(*I, SM))
+      return false;
+
+  return true;
 }
 
 /// \brief Recursively emit notes for each macro expansion and caret
@@ -443,11 +469,30 @@ void DiagnosticRenderer::emitMacroExpansions(SourceLocation Loc,
 
   // Produce a stack of macro backtraces.
   SmallVector<SourceLocation, 8> LocationStack;
+  unsigned IgnoredEnd = 0;
   while (Loc.isMacroID()) {
-    LocationStack.push_back(Loc);
+    // If this is the expansion of a macro argument, point the caret at the
+    // use of the argument in the definition of the macro, not the expansion.
+    if (SM.isMacroArgExpansion(Loc))
+      LocationStack.push_back(SM.getImmediateExpansionRange(Loc).first);
+    else
+      LocationStack.push_back(Loc);
+
+    if (checkRangesForMacroArgExpansion(Loc, Ranges, SM))
+      IgnoredEnd = LocationStack.size();
+
     Loc = SM.getImmediateMacroCallerLoc(Loc);
+
+    // Once the location no longer points into a macro, try stepping through
+    // the last found location.  This sometimes produces additional useful
+    // backtraces.
+    if (Loc.isFileID())
+      Loc = SM.getImmediateMacroCallerLoc(LocationStack.back());
     assert(!Loc.isInvalid() && "must have a valid source location here");
   }
+
+  LocationStack.erase(LocationStack.begin(),
+                      LocationStack.begin() + IgnoredEnd);
 
   unsigned MacroDepth = LocationStack.size();
   unsigned MacroLimit = DiagOpts->MacroBacktraceLimit;

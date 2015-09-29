@@ -96,7 +96,12 @@ void CompilerInstance::setSourceManager(SourceManager *Value) {
 
 void CompilerInstance::setPreprocessor(Preprocessor *Value) { PP = Value; }
 
-void CompilerInstance::setASTContext(ASTContext *Value) { Context = Value; }
+void CompilerInstance::setASTContext(ASTContext *Value) {
+  Context = Value;
+
+  if (Context && Consumer)
+    getASTConsumer().Initialize(getASTContext());
+}
 
 void CompilerInstance::setSema(Sema *S) {
   TheSema.reset(S);
@@ -104,6 +109,9 @@ void CompilerInstance::setSema(Sema *S) {
 
 void CompilerInstance::setASTConsumer(std::unique_ptr<ASTConsumer> Value) {
   Consumer = std::move(Value);
+
+  if (Context && Consumer)
+    getASTConsumer().Initialize(getASTContext());
 }
 
 void CompilerInstance::setCodeCompletionConsumer(CodeCompleteConsumer *Value) {
@@ -331,7 +339,7 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
 
   PP->setPreprocessedOutput(getPreprocessorOutputOpts().ShowCPP);
 
-  if (PP->getLangOpts().Modules)
+  if (PP->getLangOpts().Modules && PP->getLangOpts().ImplicitModules)
     PP->getHeaderSearchInfo().setModuleCachePath(getSpecificModuleCachePath());
 
   // Handle generating dependencies, if requested.
@@ -354,17 +362,19 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
 
   // Handle generating header include information, if requested.
   if (DepOpts.ShowHeaderIncludes)
-    AttachHeaderIncludeGen(*PP);
+    AttachHeaderIncludeGen(*PP, DepOpts.ExtraDeps);
   if (!DepOpts.HeaderIncludeOutputFile.empty()) {
     StringRef OutputPath = DepOpts.HeaderIncludeOutputFile;
     if (OutputPath == "-")
       OutputPath = "";
-    AttachHeaderIncludeGen(*PP, /*ShowAllHeaders=*/true, OutputPath,
+    AttachHeaderIncludeGen(*PP, DepOpts.ExtraDeps,
+                           /*ShowAllHeaders=*/true, OutputPath,
                            /*ShowDepth=*/false);
   }
 
   if (DepOpts.PrintShowIncludes) {
-    AttachHeaderIncludeGen(*PP, /*ShowAllHeaders=*/false, /*OutputPath=*/"",
+    AttachHeaderIncludeGen(*PP, DepOpts.ExtraDeps,
+                           /*ShowAllHeaders=*/false, /*OutputPath=*/"",
                            /*ShowDepth=*/true, /*MSStyle=*/true);
   }
 }
@@ -383,10 +393,11 @@ std::string CompilerInstance::getSpecificModuleCachePath() {
 
 void CompilerInstance::createASTContext() {
   Preprocessor &PP = getPreprocessor();
-  Context = new ASTContext(getLangOpts(), PP.getSourceManager(),
-                           PP.getIdentifierTable(), PP.getSelectorTable(),
-                           PP.getBuiltinInfo());
+  auto *Context = new ASTContext(getLangOpts(), PP.getSourceManager(),
+                                 PP.getIdentifierTable(), PP.getSelectorTable(),
+                                 PP.getBuiltinInfo());
   Context->InitBuiltinTypes(getTarget());
+  setASTContext(Context);
 }
 
 // ExternalASTSource
@@ -911,6 +922,7 @@ static bool compileModuleImpl(CompilerInstance &ImportingInstance,
   FrontendOpts.OutputFile = ModuleFileName.str();
   FrontendOpts.DisableFree = false;
   FrontendOpts.GenerateGlobalModuleIndex = false;
+  FrontendOpts.BuildingImplicitModule = true;
   FrontendOpts.Inputs.clear();
   InputKind IK = getSourceInputKindFromOptions(*Invocation->getLangOpts());
 
@@ -1152,6 +1164,7 @@ static void pruneModuleCache(const HeaderSearchOptions &HSOpts) {
   struct stat StatBuf;
   llvm::SmallString<128> TimestampFile;
   TimestampFile = HSOpts.ModuleCachePath;
+  assert(!TimestampFile.empty());
   llvm::sys::path::append(TimestampFile, "modules.timestamp");
 
   // Try to stat() the timestamp file.
@@ -1230,8 +1243,8 @@ void CompilerInstance::createModuleManager() {
 
     // If we're implicitly building modules but not currently recursively
     // building a module, check whether we need to prune the module cache.
-    if (getLangOpts().ImplicitModules &&
-        getSourceManager().getModuleBuildStack().empty() &&
+    if (getSourceManager().getModuleBuildStack().empty() &&
+        !getPreprocessor().getHeaderSearchInfo().getModuleCachePath().empty() &&
         getHeaderSearchOpts().ModuleCachePruneInterval > 0 &&
         getHeaderSearchOpts().ModuleCachePruneAfter > 0) {
       pruneModuleCache(getHeaderSearchOpts());
@@ -1245,7 +1258,7 @@ void CompilerInstance::createModuleManager() {
       ReadTimer = llvm::make_unique<llvm::Timer>("Reading modules",
                                                  *FrontendTimerGroup);
     ModuleManager = new ASTReader(
-        getPreprocessor(), *Context, getPCHContainerReader(),
+        getPreprocessor(), getASTContext(), getPCHContainerReader(),
         Sysroot.empty() ? "" : Sysroot.c_str(), PPOpts.DisablePCHValidation,
         /*AllowASTWithCompilerErrors=*/false,
         /*AllowConfigurationMismatch=*/false,
@@ -1261,10 +1274,8 @@ void CompilerInstance::createModuleManager() {
     getASTContext().setExternalSource(ModuleManager);
     if (hasSema())
       ModuleManager->InitializeSema(getSema());
-    if (hasASTConsumer()) {
-      getASTConsumer().Initialize(getASTContext());
+    if (hasASTConsumer())
       ModuleManager->StartTranslationUnit(&getASTConsumer());
-    }
 
     if (TheDependencyFileGenerator)
       TheDependencyFileGenerator->AttachToASTReader(*ModuleManager);
@@ -1598,6 +1609,8 @@ void CompilerInstance::makeModuleVisible(Module *Mod,
 
 GlobalModuleIndex *CompilerInstance::loadGlobalModuleIndex(
     SourceLocation TriggerLoc) {
+  if (getPreprocessor().getHeaderSearchInfo().getModuleCachePath().empty())
+    return nullptr;
   if (!ModuleManager)
     createModuleManager();
   // Can't do anything if we don't have the module manager.

@@ -81,8 +81,11 @@ void Fuzzer::PrintStats(const char *Where, size_t Cov, const char *End) {
   if (!Options.Verbosity) return;
   size_t Seconds = secondsSinceProcessStartUp();
   size_t ExecPerSec = (Seconds ? TotalNumberOfRuns / Seconds : 0);
-  Printf("#%zd\t%s cov %zd bits %zd units %zd exec/s %zd %s", TotalNumberOfRuns,
-         Where, Cov, TotalBits(), Corpus.size(), ExecPerSec, End);
+  Printf("#%zd\t%s cov: %zd bits: %zd units: %zd exec/s: %zd",
+         TotalNumberOfRuns, Where, Cov, TotalBits(), Corpus.size(), ExecPerSec);
+  if (TotalNumberOfExecutedTraceBasedMutations)
+    Printf(" tbm: %zd", TotalNumberOfExecutedTraceBasedMutations);
+  Printf("%s", End);
 }
 
 void Fuzzer::RereadOutputCorpus() {
@@ -133,6 +136,8 @@ void Fuzzer::ShuffleAndMinimize() {
       U.clear();
       size_t Last = std::min(First + Options.MaxLen, C.size());
       U.insert(U.begin(), C.begin() + First, C.begin() + Last);
+      if (Options.OnlyASCII)
+        ToASCII(U);
       size_t NewCoverage = RunOne(U);
       if (NewCoverage) {
         MaxCov = NewCoverage;
@@ -253,11 +258,7 @@ void Fuzzer::WriteToOutputCorpus(const Unit &U) {
   WriteToFile(U, Path);
   if (Options.Verbosity >= 2)
     Printf("Written to %s\n", Path.c_str());
-#ifdef DEBUG
-  if (Options.OnlyASCII)
-    for (auto X : U)
-      assert(isprint(X) || isspace(X));
-#endif
+  assert(!Options.OnlyASCII || IsASCII(U));
 }
 
 void Fuzzer::WriteUnitToFileWithPrefix(const Unit &U, const char *Prefix) {
@@ -310,15 +311,27 @@ void Fuzzer::MutateAndTestOne(Unit *U) {
     U->resize(NewSize);
     RunOneAndUpdateCorpus(*U);
     size_t NumTraceBasedMutations = StopTraceRecording();
-    for (size_t j = 0; j < NumTraceBasedMutations; j++) {
-      ApplyTraceBasedMutation(j, U);
-      RunOneAndUpdateCorpus(*U);
+    size_t TBMWidth =
+        std::min((size_t)Options.TBMWidth, NumTraceBasedMutations);
+    size_t TBMDepth =
+        std::min((size_t)Options.TBMDepth, NumTraceBasedMutations);
+    Unit BackUp = *U;
+    for (size_t w = 0; w < TBMWidth; w++) {
+      *U = BackUp;
+      for (size_t d = 0; d < TBMDepth; d++) {
+        TotalNumberOfExecutedTraceBasedMutations++;
+        ApplyTraceBasedMutation(USF.GetRand()(NumTraceBasedMutations), U);
+        RunOneAndUpdateCorpus(*U);
+      }
     }
   }
 }
 
-void Fuzzer::Loop(size_t NumIterations) {
-  for (size_t i = 1; i <= NumIterations; i++) {
+void Fuzzer::Loop() {
+  for (auto &U: Options.Dictionary)
+    USF.GetMD().AddWordToDictionary(U.data(), U.size());
+
+  while (true) {
     for (size_t J1 = 0; J1 < Corpus.size(); J1++) {
       SyncCorpus();
       RereadOutputCorpus();
