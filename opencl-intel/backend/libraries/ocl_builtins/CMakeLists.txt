@@ -159,6 +159,8 @@ endif()
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
+    # [LLVM UPGRADE 3.6] The triple is supposed to be:
+    # set (TRIPLE i686-pc-win32-gnu-elf)
     set (TRIPLE i686-pc-win32-gnu)
   else ()
     set (TRIPLE x86_64-pc-win32-gnu-elf)
@@ -234,7 +236,8 @@ set (LLVM_LINK_PARAMS -f)
 # llc parameters
 set (LLC_PARAMS -filetype=obj)
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
+  # "-stack-alignment" and "-force-align-stack" options should be in consistency with EngineBuilder options in Compiler.cpp
+  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static -stack-alignment=32 -force-align-stack)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=large -relocation-model=pic)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -256,7 +259,6 @@ function( compile_ocl COMPILE_OPTIONS OUTPUT_FILE_VAR PROC INPUT_FILE OUTPUT_DIR
 
   get_filename_component (NAME ${INPUT_FILE} NAME_WE )
   set (OUTPUT_FILE ${NAME}${OCL_OUTPUT_EXTENSION} )
-  message (STATUS "compile_ocl COMPILE_OPTIONS: ${COMPILE_OPTIONS}")
 
   add_custom_command (OUTPUT ${OUTPUT_DIR}/${OUTPUT_FILE}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${OUTPUT_DIR}
@@ -313,14 +315,10 @@ function( add_ocl_library OUTPUT_FILE_VAR PRECOMPILED_OUTPUT_FILE_VAR TARGET_NAM
   endforeach (FILE)
   
   if(NOT (${FILES_OCL_12} STREQUAL "IGNORE"))
-    message (STATUS "yes FILES_OCL_12")
     foreach (FILE ${FILES_OCL_12})
-      message (STATUS "add_ocl_library compiling file as OpenCL C 1.2... ${FILE}")
       compile_ocl( "${CLANG_CL12_COMPILER_PARAMS}" TMP_RTL ${PROC} ${FILE} ${OUTPUT_DIR})
       list (APPEND TMP_FILES ${TMP_RTL})
     endforeach (FILE)   
-  else()
-    message (STATUS "no FILES_OCL_12")
   endif()
 
   if(${USE_OPT})
