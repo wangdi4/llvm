@@ -159,11 +159,9 @@ endif()
 # LLVM triple is per OS and Arch (keep consistent with SetTargetTriple() in Compiler.cpp)
 if (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    # [LLVM UPGRADE 3.6] The triple is supposed to be:
-    # set (TRIPLE i686-pc-win32-gnu-elf)
     set (TRIPLE i686-pc-win32-gnu)
   else ()
-    set (TRIPLE x86_64-pc-win32-gnu-elf)
+    set (TRIPLE x86_64-pc-win32-gnu)
   endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
 else (WIN32)
   if (CMAKE_SIZEOF_VOID_P EQUAL 4)
@@ -229,15 +227,19 @@ set (LLVM_OPT_PARAMS -scalarrepl -functionattrs)
 
 # images optimization options
 set (LLVM_IMAGES_OPT_PARAMS -builtin-import -builtin-call-to-inst -O3)
+# adding "-elf" postfix to the triple for Win32 to codegen ELF with llc later (to be consistent with Backend Materializer)
+if (WIN32)
+  set (LLVM_IMAGES_OPT_PARAMS ${LLVM_IMAGES_OPT_PARAMS} -mtriple=${TRIPLE}-elf)
+endif()
 
 # llvm-link parameters
 set (LLVM_LINK_PARAMS -f)
 
 # llc parameters
-set (LLC_PARAMS -filetype=obj)
+# "-stack-alignment" and "-force-align-stack" options should be in consistency with EngineBuilder options in Compiler.cpp
+set (LLC_PARAMS -filetype=obj -stack-alignment=32 -force-align-stack)
 if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # "-stack-alignment" and "-force-align-stack" options should be in consistency with EngineBuilder options in Compiler.cpp
-  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static -stack-alignment=32 -force-align-stack)
+  set (LLC_PARAMS ${LLC_PARAMS} -code-model=default -relocation-model=static)
 else (CMAKE_SIZEOF_VOID_P EQUAL 4)
   set (LLC_PARAMS ${LLC_PARAMS} -code-model=large -relocation-model=pic)
 endif (CMAKE_SIZEOF_VOID_P EQUAL 4)
