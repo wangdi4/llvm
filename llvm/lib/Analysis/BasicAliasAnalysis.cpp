@@ -65,6 +65,47 @@ static const unsigned MaxLookupSearchDepth = 6;
 //===----------------------------------------------------------------------===//
 // Useful predicates
 //===----------------------------------------------------------------------===//
+#if INTEL_CUSTOMIZATION
+// The following code is to enhances the escape analysis for heap objects.
+// Given an example as follows.
+//
+// void foo(int no_alias *p, int *q)
+// int *m = malloc(...);
+// *p = m;
+// ... *q;
+// }
+//
+// The compiler should detect that *m and *q have no overlap.
+//
+// The utility returns true if the value V which is malloc call
+// does not assign to anywhere except the no-alias argument pointer.
+// In the above example, the value V represents the malloc call.
+static bool isNonEscapingAllocObj(const Value *V) {
+  if (isNoAliasCall(V))
+    return !PointerMayBeCaptured(V, false, true, true);
+
+  return false;
+}
+
+// The utility returns true if the Value V is the load of argument
+// which is not marked as no-alias. In the above example, the value
+// V represents the argument pointer q.
+static bool isEscapeArgDereference(const Value *V) {
+  if (!isa<LoadInst>(V))
+    return false;
+  const LoadInst *LD = dyn_cast<LoadInst>(V);
+  const Value *V1 = LD->getPointerOperand();
+  V1 = V1->stripPointerCasts();
+
+  if (const Argument *A = dyn_cast<Argument>(V1)) {
+    if (A->hasNoAliasAttr()) {
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+#endif
 
 /// Returns true if the pointer is to a function-local object that never
 /// escapes from the function.
@@ -1312,6 +1353,19 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       return NoAlias;
     if (isEscapeSource(O2) && isNonEscapingLocalObject(O1))
       return NoAlias;
+
+#if INTEL_CUSTOMIZATION
+    //
+    // Given *p and *q, where p is a malloc call which is only assigned to
+    // some no-alias argument pointer and q is argument pointer
+    // which is not marked with no-alias, the compiler should conclude
+    // that *p and *q does not overlap.
+    //
+    if (isEscapeArgDereference(O1) && isNonEscapingAllocObj(O2))
+      return NoAlias;
+    if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
+      return NoAlias;
+#endif
   }
 
   // If the size of one access is larger than the entire object on the other
