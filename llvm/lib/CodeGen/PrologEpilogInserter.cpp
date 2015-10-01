@@ -706,6 +706,10 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
                           Offset, MaxAlign);
   }
 
+#ifdef INTEL_CUSTOMIZATION
+  std::vector<int> ObjectsToAllocate;
+#endif // INTEL_CUSTOMIZATION
+
   // Then assign frame offsets to stack objects that are not used to spill
   // callee saved registers.
   for (unsigned i = 0, e = MFI->getObjectIndexEnd(); i != e; ++i) {
@@ -723,8 +727,24 @@ void PEI::calculateFrameObjectOffsets(MachineFunction &Fn) {
     if (ProtectedObjs.count(i))
       continue;
 
+#ifdef INTEL_CUSTOMIZATION
+    // Add the objects that we need to allocate to our working set.
+    ObjectsToAllocate.push_back(i);
+#else
     AdjustStackOffset(MFI, i, StackGrowsDown, Offset, MaxAlign);
+#endif // INTEL_CUSTOMIZATION
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Give the targets a chance to order the objects the way they like it.
+  if (Fn.getTarget().getOptLevel() != CodeGenOpt::None &&
+      Fn.getTarget().Options.StackSymbolOrdering)
+    TFI.orderFrameObjects(Fn, ObjectsToAllocate);
+  
+  // Now walk the objects and actually assign base offsets to them.
+  for (auto &object : ObjectsToAllocate)
+    AdjustStackOffset(MFI, object, StackGrowsDown, Offset, MaxAlign);    
+#endif // INTEL_CUSTOMIZATION
 
   // Make sure the special register scavenging spill slot is closest to the
   // stack pointer.

@@ -297,6 +297,19 @@ public:
   virtual bool canUseAsEpilogue(const MachineBasicBlock &MBB) const {
     return true;
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  /// Order the symbols in the local stack frame.
+  /// The list of objects that we want to order is in \p objectsToAllocate as
+  /// indices into the MachineFrameInfo. The array can be reordered in any way
+  /// upon return. The contents of the array, however, may not be modified (i.e.
+  /// only their order may be changed).
+  /// By default, just maintain the original order.
+  virtual void orderFrameObjects(const MachineFunction &MF,
+                                 std::vector<int> &objectsToAllocate) const {
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
 };
 
 } // End llvm namespace

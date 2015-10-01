@@ -28,6 +28,7 @@ $_TI1H = comdat any
 
 
 ; CHECK-LABEL: "?test1@@YAXXZ":
+; CHECK: movq $-2, [[local_offs:[0-9]+]](%rsp)
 ; CHECK:             .seh_handlerdata
 ; CHECK-NEXT:        .long   ("$cppxdata$?test1@@YAXXZ")@IMGREL
 ; CHECK-NEXT: .align 4
@@ -39,7 +40,7 @@ $_TI1H = comdat any
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   2
 ; CHECK-NEXT:        .long   ("$ip2state$?test1@@YAXXZ")@IMGREL
-; CHECK-NEXT:        .long   32
+; CHECK-NEXT:        .long   [[local_offs]]
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   1
 ; CHECK-NEXT:"$stateUnwindMap$?test1@@YAXXZ":
@@ -91,6 +92,7 @@ entry:
 }
 
 ; CHECK-LABEL: "?test2@@YAX_N@Z":
+; CHECK: movq $-2, [[local_offs2:[0-9]+]](%rsp)
 ; CHECK:             .seh_handlerdata
 ; CHECK-NEXT:        .long   ("$cppxdata$?test2@@YAX_N@Z")@IMGREL
 ; CHECK-NEXT: .align 4
@@ -102,7 +104,7 @@ entry:
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   4
 ; CHECK-NEXT:        .long   ("$ip2state$?test2@@YAX_N@Z")@IMGREL
-; CHECK-NEXT:        .long   40
+; CHECK-NEXT:        .long   [[local_offs2]]
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   1
 ; CHECK-NEXT:"$stateUnwindMap$?test2@@YAX_N@Z":

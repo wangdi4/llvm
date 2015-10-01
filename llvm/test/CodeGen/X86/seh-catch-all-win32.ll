@@ -72,7 +72,7 @@ entry:
 ; CHECK: movl %esp, [[reg_offs]](%ebp)
 ; CHECK: movl $L__ehtable$main,
 ; 	EH state 0
-; CHECK: movl $0, -16(%ebp)
+; CHECK: movl $0, [[id_off:[-0-9]+]](%ebp)
 ; CHECK: calll _crash
 ; CHECK: popl %esi
 ; CHECK: popl %edi
@@ -83,7 +83,7 @@ entry:
 ; CHECK: movl -24(%ebp), %esp
 ; 	EH state -1
 ; CHECK: movl [[code_offs]](%ebp), %[[code:[a-z]+]]
-; CHECK: movl $-1, -16(%ebp)
+; CHECK: movl $-1, [[id_off]](%ebp)
 ; CHECK-DAG: movl %[[code]], 4(%esp)
 ; CHECK-DAG: movl $_str, (%esp)
 ; CHECK: calll _printf

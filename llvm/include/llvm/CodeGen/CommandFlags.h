@@ -177,6 +177,13 @@ DisableTailCalls("disable-tail-calls",
                  cl::desc("Never emit tail calls"),
                  cl::init(false));
 
+#ifdef INTEL_CUSTOMIZATION
+cl::opt<bool>
+StackSymbolOrdering("stack-symbol-ordering",
+                    cl::desc("Order local stack symbols."),
+                    cl::init(true));
+#endif // INTEL_CUSTOMIZATION
+
 cl::opt<unsigned>
 OverrideStackAlignment("stack-alignment",
                        cl::desc("Override default stack alignment"),
@@ -259,6 +266,9 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.NoZerosInBSS = DontPlaceZerosInBSS;
   Options.GuaranteedTailCallOpt = EnableGuaranteedTailCallOpt;
   Options.StackAlignmentOverride = OverrideStackAlignment;
+#ifdef INTEL_CUSTOMIZATION
+  Options.StackSymbolOrdering = StackSymbolOrdering;
+#endif // INTEL_CUSTOMIZATION
   Options.PositionIndependentExecutable = EnablePIE;
   Options.UseInitArray = !UseCtors;
   Options.DataSections = DataSections;

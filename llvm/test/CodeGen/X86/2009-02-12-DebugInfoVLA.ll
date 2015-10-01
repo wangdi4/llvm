@@ -6,13 +6,13 @@ target triple = "i386-apple-darwin9"
 define signext i8 @foo(i8* %s1) nounwind ssp {
 
 ; Make sure we generate:
-;  movq	-40(%rbp), %rsp
+;  movq	-<some-offset>(%rbp), %rsp
 ; Instead of:
-;  movq	-40(%rbp), %rax
+;  movq	-<some-offset>(%rbp), %rax
 ;  movq	%rax, %rsp
 
 ; CHECK-LABEL: @foo
-; CHECK: movq	-40(%rbp), %rsp
+; CHECK: movq	-{{[0-9]+}}(%rbp), %rsp
 
 entry:
   %s1_addr = alloca i8*                           ; <i8**> [#uses=2]
