@@ -7,10 +7,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/DataFormatters/CXXFormatterFunctions.h"
+#include "lldb/DataFormatters/Cocoa.h"
 
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
+#include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/DataFormatters/TypeSynthetic.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Process.h"
@@ -26,7 +27,6 @@ public:
     NSIndexPathSyntheticFrontEnd (lldb::ValueObjectSP valobj_sp) :
     SyntheticChildrenFrontEnd (*valobj_sp.get()),
     m_ptr_size(0),
-    m_ast_ctx(nullptr),
     m_uint_star_type()
     {
         m_ptr_size = m_backend.GetTargetSP()->GetArchitecture().GetAddressByteSize();
@@ -49,11 +49,15 @@ public:
     {
         m_impl.Clear();
         
-        m_ast_ctx = ClangASTContext::GetASTContext(m_backend.GetClangType().GetASTContext());
-        if (!m_ast_ctx)
+        TypeSystem* type_system = m_backend.GetCompilerType().GetTypeSystem();
+        if (!type_system)
             return false;
-        
-        m_uint_star_type = m_ast_ctx->GetPointerSizedIntType(false);
+
+        ClangASTContext *ast = m_backend.GetExecutionContextRef().GetTargetSP()->GetScratchClangASTContext();
+        if (!ast)
+            return false;
+
+        m_uint_star_type = ast->GetPointerSizedIntType(false);
         
         static ConstString g__indexes("_indexes");
         static ConstString g__length("_length");
@@ -176,7 +180,7 @@ protected:
         }
         
         lldb::ValueObjectSP
-        GetIndexAtIndex (size_t idx, const ClangASTType& desired_type)
+        GetIndexAtIndex (size_t idx, const CompilerType& desired_type)
         {
             if (idx >= GetNumIndexes())
                 return nullptr;
@@ -206,7 +210,7 @@ protected:
           }
 
           lldb::ValueObjectSP
-          GetIndexAtIndex (size_t idx, const ClangASTType& desired_type)
+          GetIndexAtIndex (size_t idx, const CompilerType& desired_type)
           {
               std::pair<uint64_t, bool> value(_indexAtPositionForInlinePayload(idx));
               if (!value.second)
@@ -224,7 +228,7 @@ protected:
                   v = Value(scalar);
               }
 
-              v.SetClangType(desired_type);
+              v.SetCompilerType(desired_type);
 
               StreamString idx_name;
               idx_name.Printf("[%" PRIu64 "]", (uint64_t)idx);
@@ -321,8 +325,7 @@ protected:
     } m_impl;
     
     uint32_t m_ptr_size;
-    ClangASTContext* m_ast_ctx;
-    ClangASTType m_uint_star_type;
+    CompilerType m_uint_star_type;
 };
 
 namespace lldb_private {

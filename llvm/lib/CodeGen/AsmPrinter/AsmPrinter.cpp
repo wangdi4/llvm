@@ -1203,6 +1203,20 @@ bool AsmPrinter::doFinalization(Module &M) {
 
     // Emit the directives as assignments aka .set:
     OutStreamer->EmitAssignment(Name, lowerConstant(Alias.getAliasee()));
+
+    // If the aliasee does not correspond to a symbol in the output, i.e. the
+    // alias is not of an object or the aliased object is private, then set the
+    // size of the alias symbol from the type of the alias. We don't do this in
+    // other situations as the alias and aliasee having differing types but same
+    // size may be intentional.
+    const GlobalObject *BaseObject = Alias.getBaseObject();
+    if (MAI->hasDotTypeDotSizeDirective() && Alias.getValueType()->isSized() &&
+        (!BaseObject || BaseObject->hasPrivateLinkage())) {
+      const DataLayout &DL = M.getDataLayout();
+      uint64_t Size = DL.getTypeAllocSize(Alias.getValueType());
+      OutStreamer->emitELFSize(cast<MCSymbolELF>(Name),
+                               MCConstantExpr::create(Size, OutContext));
+    }
   }
 
   GCModuleInfo *MI = getAnalysisIfAvailable<GCModuleInfo>();
@@ -2490,7 +2504,8 @@ void AsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
   }
 
   // Print the main label for the block.
-  if (MBB.pred_empty() || isBlockOnlyReachableByFallthrough(&MBB)) {
+  if (MBB.pred_empty() ||
+      (isBlockOnlyReachableByFallthrough(&MBB) && !MBB.isEHFuncletEntry())) {
     if (isVerbose()) {
       // NOTE: Want this comment at start of line, don't emit with AddComment.
       OutStreamer->emitRawComment(" BB#" + Twine(MBB.getNumber()) + ":", false);
@@ -2528,7 +2543,7 @@ bool AsmPrinter::
 isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB) const {
   // If this is a landing pad, it isn't a fall through.  If it has no preds,
   // then nothing falls through to it.
-  if (MBB->isLandingPad() || MBB->pred_empty())
+  if (MBB->isEHPad() || MBB->pred_empty())
     return false;
 
   // If there isn't exactly one predecessor, it can't be a fall through.

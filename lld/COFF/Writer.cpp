@@ -37,8 +37,7 @@ using namespace lld;
 using namespace lld::coff;
 
 static const int PageSize = 4096;
-static const int FileAlignment = 512;
-static const int SectionAlignment = 4096;
+static const int SectorSize = 512;
 static const int DOSStubSize = 64;
 static const int NumberfOfDataDirectory = 16;
 
@@ -160,8 +159,6 @@ void OutputSection::setFileOffset(uint64_t Off) {
   if (Header.SizeOfRawData == 0)
     return;
   Header.PointerToRawData = Off;
-  for (Chunk *C : Chunks)
-    C->setFileOff(C->getFileOff() + Off);
 }
 
 void OutputSection::addChunk(Chunk *C) {
@@ -170,11 +167,11 @@ void OutputSection::addChunk(Chunk *C) {
   uint64_t Off = Header.VirtualSize;
   Off = RoundUpToAlignment(Off, C->getAlign());
   C->setRVA(Off);
-  C->setFileOff(Off);
+  C->setOutputSectionOff(Off);
   Off += C->getSize();
   Header.VirtualSize = Off;
   if (C->hasData())
-    Header.SizeOfRawData = RoundUpToAlignment(Off, FileAlignment);
+    Header.SizeOfRawData = RoundUpToAlignment(Off, SectorSize);
 }
 
 void OutputSection::addPermissions(uint32_t C) {
@@ -368,21 +365,24 @@ void Writer::createMiscChunks() {
 void Writer::createImportTables() {
   if (Symtab->ImportFiles.empty())
     return;
+
+  // Initialize DLLOrder so that import entries are ordered in
+  // the same order as in the command line. (That affects DLL
+  // initialization order, and this ordering is MSVC-compatible.)
+  for (ImportFile *File : Symtab->ImportFiles) {
+    std::string DLL = StringRef(File->DLLName).lower();
+    if (Config->DLLOrder.count(DLL) == 0)
+      Config->DLLOrder[DLL] = Config->DLLOrder.size();
+  }
+
   OutputSection *Text = createSection(".text");
   for (ImportFile *File : Symtab->ImportFiles) {
-    for (SymbolBody *B : File->getSymbols()) {
-      auto *Import = dyn_cast<DefinedImportData>(B);
-      if (!Import) {
-        // Linker-created function thunks for DLL symbols are added to
-        // .text section.
-        Text->addChunk(cast<DefinedImportThunk>(B)->getChunk());
-        continue;
-      }
-      if (Config->DelayLoads.count(Import->getDLLName().lower())) {
-        DelayIdata.add(Import);
-      } else {
-        Idata.add(Import);
-      }
+    if (DefinedImportThunk *Thunk = File->ThunkSym)
+      Text->addChunk(Thunk->getChunk());
+    if (Config->DelayLoads.count(StringRef(File->DLLName).lower())) {
+      DelayIdata.add(File->ImpSym);
+    } else {
+      Idata.add(File->ImpSym);
     }
   }
   if (!Idata.empty()) {
@@ -507,15 +507,14 @@ void Writer::createSymbolAndStringTable() {
   // We position the symbol table to be adjacent to the end of the last section.
   uint64_t FileOff =
       LastSection->getFileOff() +
-      RoundUpToAlignment(LastSection->getRawSize(), FileAlignment);
+      RoundUpToAlignment(LastSection->getRawSize(), SectorSize);
   if (!OutputSymtab.empty()) {
     PointerToSymbolTable = FileOff;
     FileOff += OutputSymtab.size() * sizeof(coff_symbol16);
   }
   if (!Strtab.empty())
     FileOff += Strtab.size() + 4;
-  FileSize = SizeOfHeaders +
-             RoundUpToAlignment(FileOff - SizeOfHeaders, FileAlignment);
+  FileSize = RoundUpToAlignment(FileOff, SectorSize);
 }
 
 // Visits all sections to assign incremental, non-overlapping RVAs and
@@ -526,9 +525,9 @@ void Writer::assignAddresses() {
                   sizeof(coff_section) * OutputSections.size();
   SizeOfHeaders +=
       Config->is64() ? sizeof(pe32plus_header) : sizeof(pe32_header);
-  SizeOfHeaders = RoundUpToAlignment(SizeOfHeaders, PageSize);
+  SizeOfHeaders = RoundUpToAlignment(SizeOfHeaders, SectorSize);
   uint64_t RVA = 0x1000; // The first page is kept unmapped.
-  uint64_t FileOff = SizeOfHeaders;
+  FileSize = SizeOfHeaders;
   // Move DISCARDABLE (or non-memory-mapped) sections to the end of file because
   // the loader cannot handle holes.
   std::stable_partition(
@@ -539,13 +538,11 @@ void Writer::assignAddresses() {
     if (Sec->getName() == ".reloc")
       addBaserels(Sec);
     Sec->setRVA(RVA);
-    Sec->setFileOffset(FileOff);
+    Sec->setFileOffset(FileSize);
     RVA += RoundUpToAlignment(Sec->getVirtualSize(), PageSize);
-    FileOff += RoundUpToAlignment(Sec->getRawSize(), FileAlignment);
+    FileSize += RoundUpToAlignment(Sec->getRawSize(), SectorSize);
   }
   SizeOfImage = SizeOfHeaders + RoundUpToAlignment(RVA - 0x1000, PageSize);
-  FileSize = SizeOfHeaders +
-             RoundUpToAlignment(FileOff - SizeOfHeaders, FileAlignment);
 }
 
 template <typename PEHeaderTy> void Writer::writeHeader() {
@@ -584,8 +581,8 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
   Buf += sizeof(*PE);
   PE->Magic = Config->is64() ? PE32Header::PE32_PLUS : PE32Header::PE32;
   PE->ImageBase = Config->ImageBase;
-  PE->SectionAlignment = SectionAlignment;
-  PE->FileAlignment = FileAlignment;
+  PE->SectionAlignment = PageSize;
+  PE->FileAlignment = SectorSize;
   PE->MajorImageVersion = Config->MajorImageVersion;
   PE->MinorImageVersion = Config->MinorImageVersion;
   PE->MajorOperatingSystemVersion = Config->MajorOSVersion;
@@ -692,9 +689,10 @@ template <typename PEHeaderTy> void Writer::writeHeader() {
 }
 
 void Writer::openFile(StringRef Path) {
-  std::error_code EC = FileOutputBuffer::create(Path, FileSize, Buffer,
-                                                FileOutputBuffer::F_executable);
-  error(EC, Twine("failed to open ") + Path);
+  ErrorOr<std::unique_ptr<FileOutputBuffer>> BufferOrErr =
+      FileOutputBuffer::create(Path, FileSize, FileOutputBuffer::F_executable);
+  error(BufferOrErr, Twine("failed to open ") + Path);
+  Buffer = std::move(*BufferOrErr);
 }
 
 void Writer::fixSafeSEHSymbols() {
@@ -708,13 +706,14 @@ void Writer::fixSafeSEHSymbols() {
 void Writer::writeSections() {
   uint8_t *Buf = Buffer->getBufferStart();
   for (OutputSection *Sec : OutputSections) {
+    uint8_t *SecBuf = Buf + Sec->getFileOff();
     // Fill gaps between functions in .text with INT3 instructions
     // instead of leaving as NUL bytes (which can be interpreted as
     // ADD instructions).
     if (Sec->getPermissions() & IMAGE_SCN_CNT_CODE)
-      memset(Buf + Sec->getFileOff(), 0xCC, Sec->getRawSize());
+      memset(SecBuf, 0xCC, Sec->getRawSize());
     for (Chunk *C : Sec->getChunks())
-      C->writeTo(Buf);
+      C->writeTo(SecBuf);
   }
 }
 

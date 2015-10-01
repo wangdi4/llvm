@@ -105,24 +105,47 @@ uptr stoptheworld_tracer_pid = 0;
 // writing to the same log file.
 uptr stoptheworld_tracer_ppid = 0;
 
-static DieCallbackType InternalDieCallback, UserDieCallback;
-void SetDieCallback(DieCallbackType callback) {
-  InternalDieCallback = callback;
-}
-void SetUserDieCallback(DieCallbackType callback) {
-  UserDieCallback = callback;
+static const int kMaxNumOfInternalDieCallbacks = 5;
+static DieCallbackType InternalDieCallbacks[kMaxNumOfInternalDieCallbacks];
+
+bool AddDieCallback(DieCallbackType callback) {
+  for (int i = 0; i < kMaxNumOfInternalDieCallbacks; i++) {
+    if (InternalDieCallbacks[i] == nullptr) {
+      InternalDieCallbacks[i] = callback;
+      return true;
+    }
+  }
+  return false;
 }
 
-DieCallbackType GetDieCallback() {
-  return InternalDieCallback;
+bool RemoveDieCallback(DieCallbackType callback) {
+  for (int i = 0; i < kMaxNumOfInternalDieCallbacks; i++) {
+    if (InternalDieCallbacks[i] == callback) {
+      internal_memmove(&InternalDieCallbacks[i], &InternalDieCallbacks[i + 1],
+                       sizeof(InternalDieCallbacks[0]) *
+                           (kMaxNumOfInternalDieCallbacks - i - 1));
+      InternalDieCallbacks[kMaxNumOfInternalDieCallbacks - 1] = nullptr;
+      return true;
+    }
+  }
+  return false;
+}
+
+static DieCallbackType UserDieCallback;
+void SetUserDieCallback(DieCallbackType callback) {
+  UserDieCallback = callback;
 }
 
 void NORETURN Die() {
   if (UserDieCallback)
     UserDieCallback();
-  if (InternalDieCallback)
-    InternalDieCallback();
-  internal__exit(1);
+  for (int i = kMaxNumOfInternalDieCallbacks - 1; i >= 0; i--) {
+    if (InternalDieCallbacks[i])
+      InternalDieCallbacks[i]();
+  }
+  if (common_flags()->abort_on_error)
+    Abort();
+  internal__exit(common_flags()->exitcode);
 }
 
 static CheckFailedCallbackType CheckFailedCallback;
@@ -138,6 +161,23 @@ void NORETURN CheckFailed(const char *file, int line, const char *cond,
   Report("Sanitizer CHECK failed: %s:%d %s (%lld, %lld)\n", file, line, cond,
                                                             v1, v2);
   Die();
+}
+
+void NORETURN ReportMmapFailureAndDie(uptr size, const char *mem_type,
+                                      error_t err) {
+  static int recursion_count;
+  if (recursion_count) {
+    // The Report() and CHECK calls below may call mmap recursively and fail.
+    // If we went into recursion, just die.
+    RawWrite("ERROR: Failed to mmap\n");
+    Die();
+  }
+  recursion_count++;
+  Report("ERROR: %s failed to "
+         "allocate 0x%zx (%zd) bytes of %s (error code: %d)\n",
+         SanitizerToolName, size, size, mem_type, err);
+  DumpProcessMap();
+  UNREACHABLE("unable to mmap");
 }
 
 bool ReadFileToBuffer(const char *file_name, char **buff, uptr *buff_size,

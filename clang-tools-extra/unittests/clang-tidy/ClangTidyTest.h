@@ -17,7 +17,6 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
-#include "gtest/gtest.h"
 #include <map>
 
 namespace clang {
@@ -34,6 +33,10 @@ private:
   std::unique_ptr<ASTConsumer> CreateASTConsumer(CompilerInstance &Compiler,
                                                  StringRef File) override {
     Context.setSourceManager(&Compiler.getSourceManager());
+    Context.setCurrentFile(File);
+    Context.setASTContext(&Compiler.getASTContext());
+
+    Check.registerMatchers(&Finder);
     Check.registerPPCallbacks(Compiler);
     return Finder.newASTConsumer();
   }
@@ -57,9 +60,6 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
       ClangTidyGlobalOptions(), Options));
   ClangTidyDiagnosticConsumer DiagConsumer(Context);
   T Check("test-check", &Context);
-  ast_matchers::MatchFinder Finder;
-  Check.registerMatchers(&Finder);
-  Context.setCurrentFile(Filename.str());
 
   std::vector<std::string> ArgCXX11(1, "clang-tidy");
   ArgCXX11.push_back("-fsyntax-only");
@@ -67,6 +67,8 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
   ArgCXX11.push_back("-Iinclude");
   ArgCXX11.insert(ArgCXX11.end(), ExtraArgs.begin(), ExtraArgs.end());
   ArgCXX11.push_back(Filename.str());
+
+  ast_matchers::MatchFinder Finder;
   llvm::IntrusiveRefCntPtr<FileManager> Files(
       new FileManager(FileSystemOptions()));
   tooling::ToolInvocation Invocation(
@@ -77,14 +79,12 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
                               FileContent.second);
   }
   Invocation.setDiagnosticConsumer(&DiagConsumer);
-  bool Result = Invocation.run();
-  if (!Result) {
+  if (!Invocation.run()) {
     std::string ErrorText;
     for (const auto &Error : Context.getErrors()) {
       ErrorText += Error.Message.Message + "\n";
     }
-    ADD_FAILURE() << ErrorText;
-    return "";
+    llvm::report_fatal_error(ErrorText);
   }
 
   DiagConsumer.finish();

@@ -242,6 +242,9 @@ static Instruction *propagateMetadata(Instruction *I, ArrayRef<Value *> VL) {
       case LLVMContext::MD_fpmath:
         MD = MDNode::getMostGenericFPMath(MD, IMD);
         break;
+      case LLVMContext::MD_nontemporal:
+        MD = MDNode::intersect(MD, IMD);
+        break;
       }
     }
     I->setMetadata(Kind, MD);
@@ -3076,11 +3079,11 @@ struct SLPVectorizer : public FunctionPass {
     if (skipOptnoneFunction(F))
       return false;
 
-    SE = &getAnalysis<ScalarEvolution>();
+    SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
     TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
     auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
     TLI = TLIP ? &TLIP->getTLI() : nullptr;
-    AA = &getAnalysis<AliasAnalysis>();
+    AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
@@ -3141,8 +3144,8 @@ struct SLPVectorizer : public FunctionPass {
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     FunctionPass::getAnalysisUsage(AU);
     AU.addRequired<AssumptionCacheTracker>();
-    AU.addRequired<ScalarEvolution>();
-    AU.addRequired<AliasAnalysis>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<AAResultsWrapperPass>();
     AU.addRequired<TargetTransformInfoWrapperPass>();
     AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<DominatorTreeWrapperPass>();
@@ -4050,10 +4053,10 @@ bool SLPVectorizer::vectorizeStoreChains(BoUpSLP &R) {
 char SLPVectorizer::ID = 0;
 static const char lv_name[] = "SLP Vectorizer";
 INITIALIZE_PASS_BEGIN(SLPVectorizer, SV_NAME, lv_name, false, false)
-INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopSimplify)
 INITIALIZE_PASS_END(SLPVectorizer, SV_NAME, lv_name, false, false)
 

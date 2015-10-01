@@ -28,7 +28,7 @@ MCObjectStreamer::MCObjectStreamer(MCContext &Context, MCAsmBackend &TAB,
                                    MCCodeEmitter *Emitter_)
     : MCStreamer(Context),
       Assembler(new MCAssembler(Context, TAB, *Emitter_,
-                                *TAB.createObjectWriter(OS), OS)),
+                                *TAB.createObjectWriter(OS))),
       EmitEHFrame(true), EmitDebugFrame(false) {}
 
 MCObjectStreamer::~MCObjectStreamer() {
@@ -276,7 +276,6 @@ void MCObjectStreamer::EmitInstToFragment(const MCInst &Inst,
   raw_svector_ostream VecOS(Code);
   getAssembler().getEmitter().encodeInstruction(Inst, VecOS, IF->getFixups(),
                                                 STI);
-  VecOS.flush();
   IF->getContents().append(Code.begin(), Code.end());
 }
 

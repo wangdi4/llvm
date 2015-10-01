@@ -21,4 +21,4 @@
 type = Library
 name = Intel_LoopIR
 parent = Libraries
-required_libraries = Analysis Core IPA Support Target
+required_libraries = Analysis Core Support Target

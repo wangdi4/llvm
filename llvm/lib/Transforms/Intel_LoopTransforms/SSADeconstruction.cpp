@@ -63,14 +63,14 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<ScalarEvolution>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<RegionIdentification>();
     AU.addRequired<SCCFormation>();
 
     // We need to preserve all the analysis computed for HIR.
     AU.addPreserved<DominatorTreeWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
-    AU.addPreserved<ScalarEvolution>();
+    AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<RegionIdentification>();
   }
 
@@ -121,7 +121,7 @@ private:
 char SSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
@@ -424,7 +424,7 @@ void SSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool SSADeconstruction::runOnFunction(Function &F) {
-  SE = &getAnalysis<ScalarEvolution>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   RI = &getAnalysis<RegionIdentification>();
   SCCF = &getAnalysis<SCCFormation>();
 

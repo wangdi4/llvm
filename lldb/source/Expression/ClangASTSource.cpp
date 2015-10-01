@@ -18,7 +18,7 @@
 #include "lldb/Expression/ClangExpression.h"
 #include "lldb/Expression/ClangModulesDeclVendor.h"
 #include "lldb/Symbol/ClangASTContext.h"
-#include "lldb/Symbol/ClangNamespaceDecl.h"
+#include "lldb/Symbol/CompilerDeclContext.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/SymbolVendor.h"
 #include "lldb/Symbol/TaggedASTType.h"
@@ -125,11 +125,10 @@ ClangASTSource::FindExternalVisibleDeclsByName
         }
         break;
 
-    // Operator names.  Not important for now.
+    // Operator names.
     case DeclarationName::CXXOperatorName:
     case DeclarationName::CXXLiteralOperatorName:
-      SetNoExternalVisibleDeclsForName(decl_ctx, clang_decl_name);
-      return false;
+        break;
 
     // Using directives found in this context.
     // Tell Sema we didn't find any or we'll end up getting asked a *lot*.
@@ -253,7 +252,7 @@ ClangASTSource::CompleteType (TagDecl *tag_decl)
                 if (log)
                     log->Printf("      CTD[%u] Searching namespace %s in module %s",
                                 current_id,
-                                i->second.GetNamespaceDecl()->getNameAsString().c_str(),
+                                i->second.GetName().AsCString(),
                                 i->first->GetFileSpec().GetFilename().GetCString());
 
                 TypeList types;
@@ -272,12 +271,12 @@ ClangASTSource::CompleteType (TagDecl *tag_decl)
                     if (!type)
                         continue;
 
-                    ClangASTType clang_type (type->GetClangFullType());
+                    CompilerType clang_type (type->GetFullCompilerType ());
 
                     if (!clang_type)
                         continue;
 
-                    const TagType *tag_type = clang_type.GetQualType()->getAs<TagType>();
+                    const TagType *tag_type = ClangASTContext::GetQualType(clang_type)->getAs<TagType>();
 
                     if (!tag_type)
                         continue;
@@ -295,7 +294,7 @@ ClangASTSource::CompleteType (TagDecl *tag_decl)
 
             SymbolContext null_sc;
             ConstString name(tag_decl->getName().str().c_str());
-            ClangNamespaceDecl namespace_decl;
+            CompilerDeclContext namespace_decl;
 
             const ModuleList &module_list = m_target->GetImages();
 
@@ -311,12 +310,12 @@ ClangASTSource::CompleteType (TagDecl *tag_decl)
                 if (!type)
                     continue;
 
-                ClangASTType clang_type (type->GetClangFullType());
+                CompilerType clang_type (type->GetFullCompilerType ());
 
                 if (!clang_type)
                     continue;
 
-                const TagType *tag_type = clang_type.GetQualType()->getAs<TagType>();
+                const TagType *tag_type = ClangASTContext::GetQualType(clang_type)->getAs<TagType>();
 
                 if (!tag_type)
                     continue;
@@ -402,7 +401,7 @@ ClangASTSource::GetCompleteObjCInterface (clang::ObjCInterfaceDecl *interface_de
     if (!complete_type_sp)
         return NULL;
 
-    TypeFromUser complete_type = TypeFromUser(complete_type_sp->GetClangFullType());
+    TypeFromUser complete_type = TypeFromUser(complete_type_sp->GetFullCompilerType ());
     lldb::clang_type_t complete_opaque_type = complete_type.GetOpaqueQualType();
 
     if (!complete_opaque_type)
@@ -599,7 +598,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context)
             if (log)
                 log->Printf("  CAS::FEVD[%u] Searching namespace %s in module %s",
                             current_id,
-                            i->second.GetNamespaceDecl()->getNameAsString().c_str(),
+                            i->second.GetName().AsCString(),
                             i->first->GetFileSpec().GetFilename().GetCString());
 
             FindExternalVisibleDecls(context,
@@ -619,7 +618,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context)
     }
     else
     {
-        ClangNamespaceDecl namespace_decl;
+        CompilerDeclContext namespace_decl;
 
         if (log)
             log->Printf("  CAS::FEVD[%u] Searching the root namespace", current_id);
@@ -648,7 +647,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context)
 void
 ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
                                           lldb::ModuleSP module_sp,
-                                          ClangNamespaceDecl &namespace_decl,
+                                          CompilerDeclContext &namespace_decl,
                                           unsigned int current_id)
 {
     assert (m_ast_context);
@@ -676,7 +675,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
 
     if (module_sp && namespace_decl)
     {
-        ClangNamespaceDecl found_namespace_decl;
+        CompilerDeclContext found_namespace_decl;
 
         SymbolVendor *symbol_vendor = module_sp->GetSymbolVendor();
 
@@ -688,7 +687,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
 
             if (found_namespace_decl)
             {
-                context.m_namespace_map->push_back(std::pair<lldb::ModuleSP, ClangNamespaceDecl>(module_sp, found_namespace_decl));
+                context.m_namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(module_sp, found_namespace_decl));
 
                 if (log)
                     log->Printf("  CAS::FEVD[%u] Found namespace %s in module %s",
@@ -710,7 +709,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
             if (!image)
                 continue;
 
-            ClangNamespaceDecl found_namespace_decl;
+            CompilerDeclContext found_namespace_decl;
 
             SymbolVendor *symbol_vendor = image->GetSymbolVendor();
 
@@ -723,7 +722,7 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
 
             if (found_namespace_decl)
             {
-                context.m_namespace_map->push_back(std::pair<lldb::ModuleSP, ClangNamespaceDecl>(image, found_namespace_decl));
+                context.m_namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(image, found_namespace_decl));
 
                 if (log)
                     log->Printf("  CAS::FEVD[%u] Found namespace %s in module %s",
@@ -747,38 +746,42 @@ ClangASTSource::FindExternalVisibleDecls (NameSearchContext &context,
 
         bool found_a_type = false;
         
-        if (types.GetSize())
+        if (size_t num_types = types.GetSize())
         {
-            lldb::TypeSP type_sp = types.GetTypeAtIndex(0);
-
-            if (log)
+            for (size_t ti = 0; ti < num_types; ++ti)
             {
-                const char *name_string = type_sp->GetName().GetCString();
-
-                log->Printf("  CAS::FEVD[%u] Matching type found for \"%s\": %s",
-                            current_id,
-                            name.GetCString(),
-                            (name_string ? name_string : "<anonymous>"));
-            }
-
-            ClangASTType full_type = type_sp->GetClangFullType();
-
-            ClangASTType copied_clang_type (GuardedCopyType(full_type));
-
-            if (!copied_clang_type)
-            {
+                lldb::TypeSP type_sp = types.GetTypeAtIndex(ti);
+                
                 if (log)
-                    log->Printf("  CAS::FEVD[%u] - Couldn't export a type",
-                                current_id);
-
+                {
+                    const char *name_string = type_sp->GetName().GetCString();
+                    
+                    log->Printf("  CAS::FEVD[%u] Matching type found for \"%s\": %s",
+                                current_id,
+                                name.GetCString(),
+                                (name_string ? name_string : "<anonymous>"));
+                }
+                
+                CompilerType full_type = type_sp->GetFullCompilerType();
+                
+                CompilerType copied_clang_type (GuardedCopyType(full_type));
+                
+                if (!copied_clang_type)
+                {
+                    if (log)
+                        log->Printf("  CAS::FEVD[%u] - Couldn't export a type",
+                                    current_id);
+                    
+                    continue;
+                }
+                
+                context.AddTypeDecl(copied_clang_type);
+                
+                found_a_type = true;
                 break;
             }
-
-            context.AddTypeDecl(copied_clang_type);
-            
-            found_a_type = true;
         }
-        
+
         if (!found_a_type)
         {
             // Try the modules next.
@@ -1205,12 +1208,11 @@ ClangASTSource::FindObjCMethodDecls (NameSearchContext &context)
             if (!sc.function)
                 continue;
 
-            DeclContext *function_ctx = sc.function->GetClangDeclContext();
-
-            if (!function_ctx)
+            CompilerDeclContext function_decl_ctx = sc.function->GetDeclContext();
+            if (!function_decl_ctx)
                 continue;
 
-            ObjCMethodDecl *method_decl = dyn_cast<ObjCMethodDecl>(function_ctx);
+            ObjCMethodDecl *method_decl = ClangASTContext::DeclContextGetAsObjCMethodDecl(function_decl_ctx);
 
             if (!method_decl)
                 continue;
@@ -1773,7 +1775,7 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
             log->Printf("CompleteNamespaceMap[%u] on (ASTContext*)%p Searching for namespace %s in namespace %s",
                         current_id, static_cast<void*>(m_ast_context),
                         name.GetCString(),
-                        parent_map->begin()->second.GetNamespaceDecl()->getDeclName().getAsString().c_str());
+                        parent_map->begin()->second.GetName().AsCString());
         else
             log->Printf("CompleteNamespaceMap[%u] on (ASTContext*)%p Searching for namespace %s",
                         current_id, static_cast<void*>(m_ast_context),
@@ -1786,10 +1788,10 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
              i != e;
              ++i)
         {
-            ClangNamespaceDecl found_namespace_decl;
+            CompilerDeclContext found_namespace_decl;
 
             lldb::ModuleSP module_sp = i->first;
-            ClangNamespaceDecl module_parent_namespace_decl = i->second;
+            CompilerDeclContext module_parent_namespace_decl = i->second;
 
             SymbolVendor *symbol_vendor = module_sp->GetSymbolVendor();
 
@@ -1803,7 +1805,7 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
             if (!found_namespace_decl)
                 continue;
 
-            namespace_map->push_back(std::pair<lldb::ModuleSP, ClangNamespaceDecl>(module_sp, found_namespace_decl));
+            namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(module_sp, found_namespace_decl));
 
             if (log)
                 log->Printf("  CMN[%u] Found namespace %s in module %s",
@@ -1817,7 +1819,7 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
         const ModuleList &target_images = m_target->GetImages();
         Mutex::Locker modules_locker(target_images.GetMutex());
 
-        ClangNamespaceDecl null_namespace_decl;
+        CompilerDeclContext null_namespace_decl;
 
         for (size_t i = 0, e = target_images.GetSize(); i < e; ++i)
         {
@@ -1826,7 +1828,7 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
             if (!image)
                 continue;
 
-            ClangNamespaceDecl found_namespace_decl;
+            CompilerDeclContext found_namespace_decl;
 
             SymbolVendor *symbol_vendor = image->GetSymbolVendor();
 
@@ -1840,7 +1842,7 @@ ClangASTSource::CompleteNamespaceMap (ClangASTImporter::NamespaceMapSP &namespac
             if (!found_namespace_decl)
                 continue;
 
-            namespace_map->push_back(std::pair<lldb::ModuleSP, ClangNamespaceDecl>(image, found_namespace_decl));
+            namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(image, found_namespace_decl));
 
             if (log)
                 log->Printf("  CMN[%u] Found namespace %s in module %s",
@@ -1855,19 +1857,27 @@ NamespaceDecl *
 ClangASTSource::AddNamespace (NameSearchContext &context, ClangASTImporter::NamespaceMapSP &namespace_decls)
 {
     if (!namespace_decls)
-        return NULL;
+        return nullptr;
 
-    const ClangNamespaceDecl &namespace_decl = namespace_decls->begin()->second;
+    const CompilerDeclContext &namespace_decl = namespace_decls->begin()->second;
 
-    Decl *copied_decl = m_ast_importer->CopyDecl(m_ast_context, namespace_decl.GetASTContext(), namespace_decl.GetNamespaceDecl());
+    clang::ASTContext *src_ast = ClangASTContext::DeclContextGetClangASTContext(namespace_decl);
+    if (!src_ast)
+        return nullptr;
+    clang::NamespaceDecl *src_namespace_decl = ClangASTContext::DeclContextGetAsNamespaceDecl(namespace_decl);
+
+    if (!src_namespace_decl)
+        return nullptr;
+
+    Decl *copied_decl = m_ast_importer->CopyDecl(m_ast_context, src_ast, src_namespace_decl);
 
     if (!copied_decl)
-        return NULL;
+        return nullptr;
 
     NamespaceDecl *copied_namespace_decl = dyn_cast<NamespaceDecl>(copied_decl);
 
     if (!copied_namespace_decl)
-        return NULL;
+        return nullptr;
 
     context.m_decls.push_back(copied_namespace_decl);
 
@@ -1876,43 +1886,51 @@ ClangASTSource::AddNamespace (NameSearchContext &context, ClangASTImporter::Name
     return dyn_cast<NamespaceDecl>(copied_decl);
 }
 
-ClangASTType
-ClangASTSource::GuardedCopyType (const ClangASTType &src_type)
+CompilerType
+ClangASTSource::GuardedCopyType (const CompilerType &src_type)
 {
+    ClangASTContext *src_ast = llvm::dyn_cast_or_null<ClangASTContext>(src_type.GetTypeSystem());
+    if (src_ast == nullptr)
+        return CompilerType();
+
     ClangASTMetrics::RegisterLLDBImport();
 
     SetImportInProgress(true);
 
-    QualType copied_qual_type = m_ast_importer->CopyType (m_ast_context, src_type.GetASTContext(), src_type.GetQualType());
+    QualType copied_qual_type = m_ast_importer->CopyType (m_ast_context, src_ast->getASTContext(), ClangASTContext::GetQualType(src_type));
 
     SetImportInProgress(false);
 
     if (copied_qual_type.getAsOpaquePtr() && copied_qual_type->getCanonicalTypeInternal().isNull())
         // this shouldn't happen, but we're hardening because the AST importer seems to be generating bad types
         // on occasion.
-        return ClangASTType();
+        return CompilerType();
 
-    return ClangASTType(m_ast_context, copied_qual_type);
+    return CompilerType(m_ast_context, copied_qual_type);
 }
 
 clang::NamedDecl *
-NameSearchContext::AddVarDecl(const ClangASTType &type)
+NameSearchContext::AddVarDecl(const CompilerType &type)
 {
     assert (type && "Type for variable must be valid!");
 
     if (!type.IsValid())
         return NULL;
 
+    ClangASTContext* lldb_ast = llvm::dyn_cast<ClangASTContext>(type.GetTypeSystem());
+    if (!lldb_ast)
+        return NULL;
+    
     IdentifierInfo *ii = m_decl_name.getAsIdentifierInfo();
 
-    clang::ASTContext *ast = type.GetASTContext();
+    clang::ASTContext *ast = lldb_ast->getASTContext();
 
     clang::NamedDecl *Decl = VarDecl::Create(*ast,
                                              const_cast<DeclContext*>(m_decl_context),
                                              SourceLocation(),
                                              SourceLocation(),
                                              ii,
-                                             type.GetQualType(),
+                                             ClangASTContext::GetQualType(type),
                                              0,
                                              SC_Static);
     m_decls.push_back(Decl);
@@ -1921,7 +1939,7 @@ NameSearchContext::AddVarDecl(const ClangASTType &type)
 }
 
 clang::NamedDecl *
-NameSearchContext::AddFunDecl (const ClangASTType &type, bool extern_c)
+NameSearchContext::AddFunDecl (const CompilerType &type, bool extern_c)
 {
     assert (type && "Type for variable must be valid!");
 
@@ -1930,12 +1948,16 @@ NameSearchContext::AddFunDecl (const ClangASTType &type, bool extern_c)
 
     if (m_function_types.count(type))
         return NULL;
+    
+    ClangASTContext* lldb_ast = llvm::dyn_cast<ClangASTContext>(type.GetTypeSystem());
+    if (!lldb_ast)
+        return NULL;
 
     m_function_types.insert(type);
 
-    QualType qual_type (type.GetQualType());
+    QualType qual_type (ClangASTContext::GetQualType(type));
 
-    clang::ASTContext *ast = type.GetASTContext();
+    clang::ASTContext *ast = lldb_ast->getASTContext();
 
     const bool isInlineSpecified = false;
     const bool hasWrittenPrototype = true;
@@ -1952,11 +1974,14 @@ NameSearchContext::AddFunDecl (const ClangASTType &type, bool extern_c)
                                           false);
     }
 
+    // Pass the identifier info for functions the decl_name is needed for operators
+    clang::DeclarationName decl_name = m_decl_name.getNameKind() == DeclarationName::Identifier ? m_decl_name.getAsIdentifierInfo() : m_decl_name;
+
     clang::FunctionDecl *func_decl = FunctionDecl::Create (*ast,
                                                            context,
                                                            SourceLocation(),
                                                            SourceLocation(),
-                                                           m_decl_name.getAsIdentifierInfo(),
+                                                           decl_name,
                                                            qual_type,
                                                            NULL,
                                                            SC_Extern,
@@ -2018,15 +2043,15 @@ NameSearchContext::AddGenericFunDecl()
                                                                                 ArrayRef<QualType>(),                                        // argument types
                                                                                 proto_info));
 
-    return AddFunDecl(ClangASTType (m_ast_source.m_ast_context, generic_function_type), true);
+    return AddFunDecl(CompilerType (m_ast_source.m_ast_context, generic_function_type), true);
 }
 
 clang::NamedDecl *
-NameSearchContext::AddTypeDecl(const ClangASTType &clang_type)
+NameSearchContext::AddTypeDecl(const CompilerType &clang_type)
 {
     if (clang_type)
     {
-        QualType qual_type = clang_type.GetQualType();
+        QualType qual_type = ClangASTContext::GetQualType(clang_type);
 
         if (const TypedefType *typedef_type = llvm::dyn_cast<TypedefType>(qual_type))
         {

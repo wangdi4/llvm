@@ -127,7 +127,6 @@ int main(int argc, char **argv) {
   initializeIPO(Registry);
   initializeAnalysis(Registry);
   initializeIntel_LoopAnalysis(Registry);   //***INTEL
-  initializeIPA(Registry);
   initializeTransformUtils(Registry);
   initializeIntel_LoopTransforms(Registry); //***INTEL
   initializeInstCombine(Registry);
