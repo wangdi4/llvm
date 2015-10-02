@@ -15,6 +15,7 @@
 #ifndef LLVM_TRANSFORMS_UTILS_LOCAL_H
 #define LLVM_TRANSFORMS_UTILS_LOCAL_H
 
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
@@ -40,7 +41,6 @@ class DataLayout;
 class TargetLibraryInfo;
 class TargetTransformInfo;
 class DIBuilder;
-class AliasAnalysis;
 class DominatorTree;
 
 template<typename T> class SmallVectorImpl;
@@ -280,7 +280,11 @@ bool replaceDbgDeclareForAlloca(AllocaInst *AI, Value *NewAllocaAddress,
 /// \brief Remove all blocks that can not be reached from the function's entry.
 ///
 /// Returns true if any basic block was removed.
+#if INTEL_CUSTOMIZATION
+bool removeUnreachableBlocks(Function &F, DominatorTree *DT = nullptr);
+#else
 bool removeUnreachableBlocks(Function &F);
+#endif // INTEL_CUSTOMIZATION
 
 /// \brief Combine the metadata of two instructions so that K can replace J
 ///
@@ -291,6 +295,10 @@ void combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> Kn
 /// the given edge.  Returns the number of replacements made.
 unsigned replaceDominatedUsesWith(Value *From, Value *To, DominatorTree &DT,
                                   const BasicBlockEdge &Edge);
+/// \brief Replace each use of 'From' with 'To' if that use is dominated by
+/// the given BasicBlock. Returns the number of replacements made.
+unsigned replaceDominatedUsesWith(Value *From, Value *To, DominatorTree &DT,
+                                  const BasicBlock *BB);
 } // End llvm namespace
 
 #endif

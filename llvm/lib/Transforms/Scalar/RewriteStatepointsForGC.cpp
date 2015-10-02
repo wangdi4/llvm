@@ -14,6 +14,7 @@
 
 #include "llvm/Pass.h"
 #include "llvm/Analysis/CFG.h"
+#include "llvm/Analysis/InstructionSimplify.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/ADT/Statistic.h"
@@ -45,10 +46,6 @@
 #define DEBUG_TYPE "rewrite-statepoints-for-gc"
 
 using namespace llvm;
-
-// Print tracing output
-static cl::opt<bool> TraceLSP("trace-rewrite-statepoints", cl::Hidden,
-                              cl::init(false));
 
 // Print the liveset found at the insert location
 static cl::opt<bool> PrintLiveSet("spp-print-liveset", cl::Hidden,
@@ -276,14 +273,12 @@ static void analyzeParsePointLiveness(
     // Note: This output is used by several of the test cases
     // The order of elements in a set is not stable, put them in a vec and sort
     // by name
-    SmallVector<Value *, 64> temp;
-    temp.insert(temp.end(), liveset.begin(), liveset.end());
-    std::sort(temp.begin(), temp.end(), order_by_name);
+    SmallVector<Value *, 64> Temp;
+    Temp.insert(Temp.end(), liveset.begin(), liveset.end());
+    std::sort(Temp.begin(), Temp.end(), order_by_name);
     errs() << "Live Variables:\n";
-    for (Value *V : temp) {
-      errs() << " " << V->getName(); // no newline
-      V->dump();
-    }
+    for (Value *V : Temp)
+      dbgs() << " " << V->getName() << " " << *V << "\n";
   }
   if (PrintLiveSetSize) {
     errs() << "Safepoint For: " << CS.getCalledValue()->getName() << "\n";
@@ -292,7 +287,35 @@ static void analyzeParsePointLiveness(
   result.liveset = liveset;
 }
 
-static Value *findBaseDefiningValue(Value *I);
+static bool isKnownBaseResult(Value *V);
+namespace {
+/// A single base defining value - An immediate base defining value for an
+/// instruction 'Def' is an input to 'Def' whose base is also a base of 'Def'.
+/// For instructions which have multiple pointer [vector] inputs or that
+/// transition between vector and scalar types, there is no immediate base
+/// defining value.  The 'base defining value' for 'Def' is the transitive
+/// closure of this relation stopping at the first instruction which has no
+/// immediate base defining value.  The b.d.v. might itself be a base pointer,
+/// but it can also be an arbitrary derived pointer. 
+struct BaseDefiningValueResult {
+  /// Contains the value which is the base defining value.
+  Value * const BDV;
+  /// True if the base defining value is also known to be an actual base
+  /// pointer.
+  const bool IsKnownBase;
+  BaseDefiningValueResult(Value *BDV, bool IsKnownBase)
+    : BDV(BDV), IsKnownBase(IsKnownBase) {
+#ifndef NDEBUG
+    // Check consistency between new and old means of checking whether a BDV is
+    // a base.
+    bool MustBeBase = isKnownBaseResult(BDV);
+    assert(!MustBeBase || MustBeBase == IsKnownBase);
+#endif
+  }
+};
+}
+
+static BaseDefiningValueResult findBaseDefiningValue(Value *I);
 
 /// Return a base defining value for the 'Index' element of the given vector
 /// instruction 'I'.  If Index is null, returns a BDV for the entire vector
@@ -303,7 +326,7 @@ static Value *findBaseDefiningValue(Value *I);
 /// vector returned is a BDV (and possibly a base) of the entire vector 'I'.
 /// If the later, the return pointer is a BDV (or possibly a base) for the
 /// particular element in 'I'.  
-static std::pair<Value *, bool>
+static BaseDefiningValueResult
 findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
   assert(I->getType()->isVectorTy() &&
          cast<VectorType>(I->getType())->getElementType()->isPointerTy() &&
@@ -314,7 +337,7 @@ findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
 
   if (isa<Argument>(I))
     // An incoming argument to the function is a base pointer
-    return std::make_pair(I, true);
+    return BaseDefiningValueResult(I, true);
 
   // We shouldn't see the address of a global as a vector value?
   assert(!isa<GlobalVariable>(I) &&
@@ -325,7 +348,7 @@ findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
   if (isa<UndefValue>(I))
     // utterly meaningless, but useful for dealing with partially optimized
     // code.
-    return std::make_pair(I, true);
+    return BaseDefiningValueResult(I, true);
 
   // Due to inheritance, this must be _after_ the global variable and undef
   // checks
@@ -333,11 +356,11 @@ findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
     assert(!isa<GlobalVariable>(I) && !isa<UndefValue>(I) &&
            "order of checks wrong!");
     assert(Con->isNullValue() && "null is the only case which makes sense");
-    return std::make_pair(Con, true);
+    return BaseDefiningValueResult(Con, true);
   }
   
   if (isa<LoadInst>(I))
-    return std::make_pair(I, true);
+    return BaseDefiningValueResult(I, true);
   
   // For an insert element, we might be able to look through it if we know
   // something about the indexes.
@@ -346,17 +369,26 @@ findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
       Value *InsertIndex = IEI->getOperand(2);
       // This index is inserting the value, look for its BDV
       if (InsertIndex == Index)
-        return std::make_pair(findBaseDefiningValue(IEI->getOperand(1)), false);
+        return findBaseDefiningValue(IEI->getOperand(1));
       // Both constant, and can't be equal per above. This insert is definitely
       // not relevant, look back at the rest of the vector and keep trying.
       if (isa<ConstantInt>(Index) && isa<ConstantInt>(InsertIndex))
         return findBaseDefiningValueOfVector(IEI->getOperand(0), Index);
     }
+
+    // If both inputs to the insertelement are known bases, then so is the
+    // insertelement itself.  NOTE: This should be handled within the generic
+    // base pointer inference code and after http://reviews.llvm.org/D12583,
+    // will be.  However, when strengthening asserts I needed to add this to
+    // keep an existing test passing which was 'working'. FIXME
+    if (findBaseDefiningValue(IEI->getOperand(0)).IsKnownBase &&
+        findBaseDefiningValue(IEI->getOperand(1)).IsKnownBase)
+      return BaseDefiningValueResult(IEI, true);
     
     // We don't know whether this vector contains entirely base pointers or
     // not.  To be conservatively correct, we treat it as a BDV and will
     // duplicate code as needed to construct a parallel vector of bases.
-    return std::make_pair(IEI, false);
+    return BaseDefiningValueResult(IEI, false);
   }
 
   if (isa<ShuffleVectorInst>(I))
@@ -365,88 +397,45 @@ findBaseDefiningValueOfVector(Value *I, Value *Index = nullptr) {
     // duplicate code as needed to construct a parallel vector of bases.
     // TODO: There a number of local optimizations which could be applied here
     // for particular sufflevector patterns.
-    return std::make_pair(I, false);
+    return BaseDefiningValueResult(I, false);
 
   // A PHI or Select is a base defining value.  The outer findBasePointer
   // algorithm is responsible for constructing a base value for this BDV.
   assert((isa<SelectInst>(I) || isa<PHINode>(I)) &&
          "unknown vector instruction - no base found for vector element");
-  return std::make_pair(I, false);
+  return BaseDefiningValueResult(I, false);
 }
 
-static bool isKnownBaseResult(Value *V);
-
 /// Helper function for findBasePointer - Will return a value which either a)
-/// defines the base pointer for the input or b) blocks the simple search
-/// (i.e. a PHI or Select of two derived pointers)
-static Value *findBaseDefiningValue(Value *I) {
+/// defines the base pointer for the input, b) blocks the simple search
+/// (i.e. a PHI or Select of two derived pointers), or c) involves a change
+/// from pointer to vector type or back.
+static BaseDefiningValueResult findBaseDefiningValue(Value *I) {
   if (I->getType()->isVectorTy())
-    return findBaseDefiningValueOfVector(I).first;
+    return findBaseDefiningValueOfVector(I);
   
   assert(I->getType()->isPointerTy() &&
          "Illegal to ask for the base pointer of a non-pointer type");
 
-  // This case is a bit of a hack - it only handles extracts from vectors which
-  // trivially contain only base pointers or cases where we can directly match
-  // the index of the original extract element to an insertion into the vector.
-  // See note inside the function for how to improve this.
-  if (auto *EEI = dyn_cast<ExtractElementInst>(I)) {
-    Value *VectorOperand = EEI->getVectorOperand();
-    Value *Index = EEI->getIndexOperand();
-    std::pair<Value *, bool> pair =
-      findBaseDefiningValueOfVector(VectorOperand, Index);
-    Value *VectorBase = pair.first;
-    if (VectorBase->getType()->isPointerTy())
-      // We found a BDV for this specific element with the vector.  This is an
-      // optimization, but in practice it covers most of the useful cases
-      // created via scalarization.
-      return VectorBase;
-    else {
-      assert(VectorBase->getType()->isVectorTy());
-      if (pair.second)
-        // If the entire vector returned is known to be entirely base pointers,
-        // then the extractelement is valid base for this value.
-        return EEI;
-      else {
-        // Otherwise, we have an instruction which potentially produces a
-        // derived pointer and we need findBasePointers to clone code for us
-        // such that we can create an instruction which produces the
-        // accompanying base pointer.
-        // Note: This code is currently rather incomplete.  We don't currently
-        // support the general form of shufflevector of insertelement.
-        // Conceptually, these are just 'base defining values' of the same
-        // variety as phi or select instructions.  We need to update the
-        // findBasePointers algorithm to insert new 'base-only' versions of the
-        // original instructions. This is relative straight forward to do, but
-        // the case which would motivate the work hasn't shown up in real
-        // workloads yet.  
-        assert((isa<PHINode>(VectorBase) || isa<SelectInst>(VectorBase)) &&
-               "need to extend findBasePointers for generic vector"
-               "instruction cases");
-        return VectorBase;
-      }
-    }
-  }
-
   if (isa<Argument>(I))
     // An incoming argument to the function is a base pointer
     // We should have never reached here if this argument isn't an gc value
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   if (isa<GlobalVariable>(I))
     // base case
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   // inlining could possibly introduce phi node that contains
   // undef if callee has multiple returns
   if (isa<UndefValue>(I))
     // utterly meaningless, but useful for dealing with
     // partially optimized code.
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   // Due to inheritance, this must be _after_ the global variable and undef
   // checks
-  if (Constant *Con = dyn_cast<Constant>(I)) {
+  if (isa<Constant>(I)) {
     assert(!isa<GlobalVariable>(I) && !isa<UndefValue>(I) &&
            "order of checks wrong!");
     // Note: Finding a constant base for something marked for relocation
@@ -457,9 +446,9 @@ static Value *findBaseDefiningValue(Value *I) {
     // off a potentially null value and have proven it null.  We also use
     // null pointers in dead paths of relocation phis (which we might later
     // want to find a base pointer for).
-    assert(isa<ConstantPointerNull>(Con) &&
+    assert(isa<ConstantPointerNull>(I) &&
            "null is the only case which makes sense");
-    return Con;
+    return BaseDefiningValueResult(I, true);
   }
 
   if (CastInst *CI = dyn_cast<CastInst>(I)) {
@@ -472,7 +461,9 @@ static Value *findBaseDefiningValue(Value *I) {
   }
 
   if (isa<LoadInst>(I))
-    return I; // The value loaded is an gc base itself
+    // The value loaded is an gc base itself
+    return BaseDefiningValueResult(I, true);
+  
 
   if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(I))
     // The base of this GEP is the base
@@ -506,7 +497,7 @@ static Value *findBaseDefiningValue(Value *I) {
   // pointers.  This should probably be generalized via attributes to support
   // both source language and internal functions.
   if (isa<CallInst>(I) || isa<InvokeInst>(I))
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   // I have absolutely no idea how to implement this part yet.  It's not
   // necessarily hard, I just haven't really looked at it yet.
@@ -516,7 +507,7 @@ static Value *findBaseDefiningValue(Value *I) {
     // A CAS is effectively a atomic store and load combined under a
     // predicate.  From the perspective of base pointers, we just treat it
     // like a load.
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   assert(!isa<AtomicRMWInst>(I) && "Xchg handled above, all others are "
                                    "binary ops which don't apply to pointers");
@@ -525,12 +516,38 @@ static Value *findBaseDefiningValue(Value *I) {
   // stack, but in either case, this is simply a field load.  As a result,
   // this is a defining definition of the base just like a load is.
   if (isa<ExtractValueInst>(I))
-    return I;
+    return BaseDefiningValueResult(I, true);
 
   // We should never see an insert vector since that would require we be
   // tracing back a struct value not a pointer value.
   assert(!isa<InsertValueInst>(I) &&
          "Base pointer for a struct is meaningless");
+
+  // An extractelement produces a base result exactly when it's input does.
+  // We may need to insert a parallel instruction to extract the appropriate
+  // element out of the base vector corresponding to the input. Given this,
+  // it's analogous to the phi and select case even though it's not a merge.
+  if (auto *EEI = dyn_cast<ExtractElementInst>(I)) {
+    Value *VectorOperand = EEI->getVectorOperand();
+    Value *Index = EEI->getIndexOperand();
+    auto VecResult = findBaseDefiningValueOfVector(VectorOperand, Index);
+    Value *VectorBase = VecResult.BDV;
+    if (VectorBase->getType()->isPointerTy())
+      // We found a BDV for this specific element with the vector.  This is an
+      // optimization, but in practice it covers most of the useful cases
+      // created via scalarization. Note: The peephole optimization here is
+      // currently needed for correctness since the general algorithm doesn't
+      // yet handle insertelements.  That will change shortly.
+      return BaseDefiningValueResult(VectorBase, VecResult.IsKnownBase);
+    else {
+      assert(VectorBase->getType()->isVectorTy());
+      // Otherwise, we have an instruction which potentially produces a
+      // derived pointer and we need findBasePointers to clone code for us
+      // such that we can create an instruction which produces the
+      // accompanying base pointer.
+      return BaseDefiningValueResult(I, VecResult.IsKnownBase);
+    }
+  }
 
   // The last two cases here don't return a base pointer.  Instead, they
   // return a value which dynamically selects from among several base
@@ -538,14 +555,14 @@ static Value *findBaseDefiningValue(Value *I) {
   // the caller to resolve these.
   assert((isa<SelectInst>(I) || isa<PHINode>(I)) &&
          "missing instruction case in findBaseDefiningValing");
-  return I;
+  return BaseDefiningValueResult(I, false);
 }
 
 /// Returns the base defining value for this value.
 static Value *findBaseDefiningValueCached(Value *I, DefiningValueMapTy &Cache) {
   Value *&Cached = Cache[I];
   if (!Cached) {
-    Cached = findBaseDefiningValue(I);
+    Cached = findBaseDefiningValue(I).BDV;
     DEBUG(dbgs() << "fBDV-cached: " << I->getName() << " -> "
                  << Cached->getName() << "\n");
   }
@@ -569,7 +586,7 @@ static Value *findBaseOrBDV(Value *I, DefiningValueMapTy &Cache) {
 /// Given the result of a call to findBaseDefiningValue, or findBaseOrBDV,
 /// is it known to be a base pointer?  Or do we need to continue searching.
 static bool isKnownBaseResult(Value *V) {
-  if (!isa<PHINode>(V) && !isa<SelectInst>(V)) {
+  if (!isa<PHINode>(V) && !isa<SelectInst>(V) && !isa<ExtractElementInst>(V)) {
     // no recursion possible
     return true;
   }
@@ -615,7 +632,18 @@ public:
   void dump() const { print(dbgs()); dbgs() << '\n'; }
   
   void print(raw_ostream &OS) const {
-    OS << status << " (" << base << " - "
+    switch (status) {
+    case Unknown:
+      OS << "U";
+      break;
+    case Base:
+      OS << "B";
+      break;
+    case Conflict:
+      OS << "C";
+      break;
+    };
+    OS << " (" << base << " - "
        << (base ? base->getName() : "nullptr") << "): ";
   }
 
@@ -623,13 +651,16 @@ private:
   Status status;
   Value *base; // non null only if status == base
 };
+}
 
-inline raw_ostream &operator<<(raw_ostream &OS, const BDVState &State) {
+#ifndef NDEBUG
+static raw_ostream &operator<<(raw_ostream &OS, const BDVState &State) {
   State.print(OS);
   return OS;
 }
+#endif
 
-
+namespace {
 typedef DenseMap<Value *, BDVState> ConflictStateMapTy;
 // Values of type BDVState form a lattice, and this is a helper
 // class that implementes the meet operation.  The meat of the meet
@@ -687,6 +718,8 @@ private:
   }
 };
 }
+
+
 /// For a given value or instruction, figure out what base ptr it's derived
 /// from.  For gc objects, this is simply itself.  On success, returns a value
 /// which is the base pointer.  (This is reliable and can be used for
@@ -722,7 +755,7 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
 
 #ifndef NDEBUG
   auto isExpectedBDVType = [](Value *BDV) {
-    return isa<PHINode>(BDV) || isa<SelectInst>(BDV);
+    return isa<PHINode>(BDV) || isa<SelectInst>(BDV) || isa<ExtractElementInst>(BDV);
   };
 #endif
 
@@ -754,10 +787,16 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
       if (PHINode *Phi = dyn_cast<PHINode>(Current)) {
         for (Value *InVal : Phi->incoming_values())
           visitIncomingValue(InVal);
-      } else {
-        SelectInst *Sel = cast<SelectInst>(Current);
+      } else if (SelectInst *Sel = dyn_cast<SelectInst>(Current)) {
         visitIncomingValue(Sel->getTrueValue());
         visitIncomingValue(Sel->getFalseValue());
+      } else if (auto *EE = dyn_cast<ExtractElementInst>(Current)) {
+        visitIncomingValue(EE->getVectorOperand());
+      } else {
+        // There are two classes of instructions we know we don't handle.
+        assert(isa<ShuffleVectorInst>(Current) ||
+               isa<InsertElementInst>(Current));
+        llvm_unreachable("unimplemented instruction case");
       }
     }
     // The frontier of visited instructions are the ones we might need to
@@ -768,14 +807,12 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
     }
   }
 
-  if (TraceLSP) {
-    errs() << "States after initialization:\n";
-    for (auto Pair : states)
-      dbgs() << " " << Pair.second << " for " << Pair.first << "\n";
+#ifndef NDEBUG
+  DEBUG(dbgs() << "States after initialization:\n");
+  for (auto Pair : states) {
+    DEBUG(dbgs() << " " << Pair.second << " for " << *Pair.first << "\n");
   }
-
-  // TODO: come back and revisit the state transitions around inputs which
-  // have reached conflict state.  The current version seems too conservative.
+#endif
 
   // Return a phi state for a base defining value.  We'll generate a new
   // base state for known bases and expect to find a cached state otherwise.
@@ -809,9 +846,16 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
       if (SelectInst *select = dyn_cast<SelectInst>(v)) {
         calculateMeet.meetWith(getStateForInput(select->getTrueValue()));
         calculateMeet.meetWith(getStateForInput(select->getFalseValue()));
-      } else
-        for (Value *Val : cast<PHINode>(v)->incoming_values())
+      } else if (PHINode *Phi = dyn_cast<PHINode>(v)) {
+        for (Value *Val : Phi->incoming_values())
           calculateMeet.meetWith(getStateForInput(Val));
+      } else {
+        // The 'meet' for an extractelement is slightly trivial, but it's still
+        // useful in that it drives us to conflict if our input is.
+        auto *EE = cast<ExtractElementInst>(v);
+        calculateMeet.meetWith(getStateForInput(EE->getVectorOperand()));
+      }
+
 
       BDVState oldState = states[v];
       BDVState newState = calculateMeet.getResult();
@@ -825,12 +869,13 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
     assert(oldSize == states.size() || progress);
   }
 
-  if (TraceLSP) {
-    errs() << "States after meet iteration:\n";
-    for (auto Pair : states)
-      dbgs() << " " << Pair.second << " for " << Pair.first << "\n";
+#ifndef NDEBUG
+  DEBUG(dbgs() << "States after meet iteration:\n");
+  for (auto Pair : states) {
+    DEBUG(dbgs() << " " << Pair.second << " for " << *Pair.first << "\n");
   }
-
+#endif
+  
   // Insert Phis for all conflicts
   // We want to keep naming deterministic in the loop that follows, so
   // sort the keys before iteration.  This is useful in allowing us to
@@ -848,6 +893,24 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
     BDVState State = states[I];
     assert(!isKnownBaseResult(I) && "why did it get added?");
     assert(!State.isUnknown() && "Optimistic algorithm didn't complete!");
+
+    // extractelement instructions are a bit special in that we may need to
+    // insert an extract even when we know an exact base for the instruction.
+    // The problem is that we need to convert from a vector base to a scalar
+    // base for the particular indice we're interested in.
+    if (State.isBase() && isa<ExtractElementInst>(I) &&
+        isa<VectorType>(State.getBase()->getType())) {
+      auto *EE = cast<ExtractElementInst>(I);
+      // TODO: In many cases, the new instruction is just EE itself.  We should
+      // exploit this, but can't do it here since it would break the invariant
+      // about the BDV not being known to be a base.
+      auto *BaseInst = ExtractElementInst::Create(State.getBase(),
+                                                  EE->getIndexOperand(),
+                                                  "base_ee", EE);
+      BaseInst->setMetadata("is_base_value", MDNode::get(I->getContext(), {}));
+      states[I] = BDVState(BDVState::Base, BaseInst);
+    }
+    
     if (!State.isConflict())
       continue;
 
@@ -861,20 +924,55 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
         std::string Name = I->hasName() ?
            (I->getName() + ".base").str() : "base_phi";
         return PHINode::Create(I->getType(), NumPreds, Name, I);
+      } else if (SelectInst *Sel = dyn_cast<SelectInst>(I)) {
+        // The undef will be replaced later
+        UndefValue *Undef = UndefValue::get(Sel->getType());
+        std::string Name = I->hasName() ?
+          (I->getName() + ".base").str() : "base_select";
+        return SelectInst::Create(Sel->getCondition(), Undef,
+                                  Undef, Name, Sel);
+      } else {
+        auto *EE = cast<ExtractElementInst>(I);
+        UndefValue *Undef = UndefValue::get(EE->getVectorOperand()->getType());
+        std::string Name = I->hasName() ?
+          (I->getName() + ".base").str() : "base_ee";
+        return ExtractElementInst::Create(Undef, EE->getIndexOperand(), Name,
+                                          EE);
       }
-      SelectInst *Sel = cast<SelectInst>(I);
-      // The undef will be replaced later
-      UndefValue *Undef = UndefValue::get(Sel->getType());
-      std::string Name = I->hasName() ?
-         (I->getName() + ".base").str() : "base_select";
-      return SelectInst::Create(Sel->getCondition(), Undef,
-                                Undef, Name, Sel);
     };
     Instruction *BaseInst = MakeBaseInstPlaceholder(I);
     // Add metadata marking this as a base value
     BaseInst->setMetadata("is_base_value", MDNode::get(I->getContext(), {}));
     states[I] = BDVState(BDVState::Conflict, BaseInst);
   }
+
+  // Returns a instruction which produces the base pointer for a given
+  // instruction.  The instruction is assumed to be an input to one of the BDVs
+  // seen in the inference algorithm above.  As such, we must either already
+  // know it's base defining value is a base, or have inserted a new
+  // instruction to propagate the base of it's BDV and have entered that newly
+  // introduced instruction into the state table.  In either case, we are
+  // assured to be able to determine an instruction which produces it's base
+  // pointer. 
+  auto getBaseForInput = [&](Value *Input, Instruction *InsertPt) {
+    Value *BDV = findBaseOrBDV(Input, cache);
+    Value *Base = nullptr;
+    if (isKnownBaseResult(BDV)) {
+      Base = BDV;
+    } else {
+      // Either conflict or base.
+      assert(states.count(BDV));
+      Base = states[BDV].getBase();
+    }
+    assert(Base && "can't be null");
+    // The cast is needed since base traversal may strip away bitcasts
+    if (Base->getType() != Input->getType() &&
+        InsertPt) {
+      Base = new BitCastInst(Base, Input->getType(), "cast",
+                             InsertPt);
+    }
+    return Base;
+  };
 
   // Fixup all the inputs of the new PHIs
   for (auto Pair : states) {
@@ -906,15 +1004,9 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
         if (blockIndex != -1) {
           Value *oldBase = basephi->getIncomingValue(blockIndex);
           basephi->addIncoming(oldBase, InBB);
+          
 #ifndef NDEBUG
-          Value *base = findBaseOrBDV(InVal, cache);
-          if (!isKnownBaseResult(base)) {
-            // Either conflict or base.
-            assert(states.count(base));
-            base = states[base].getBase();
-            assert(base != nullptr && "unknown BDVState!");
-          }
-
+          Value *Base = getBaseForInput(InVal, nullptr);
           // In essence this assert states: the only way two
           // values incoming from the same basic block may be
           // different is by being different bitcasts of the same
@@ -922,55 +1014,99 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
           // findBaseOrBDV to return an llvm::Value of the correct
           // type (and still remain pure).  This will remove the
           // need to add bitcasts.
-          assert(base->stripPointerCasts() == oldBase->stripPointerCasts() &&
+          assert(Base->stripPointerCasts() == oldBase->stripPointerCasts() &&
                  "sanity -- findBaseOrBDV should be pure!");
 #endif
           continue;
         }
 
-        // Find either the defining value for the PHI or the normal base for
-        // a non-phi node
-        Value *base = findBaseOrBDV(InVal, cache);
-        if (!isKnownBaseResult(base)) {
-          // Either conflict or base.
-          assert(states.count(base));
-          base = states[base].getBase();
-          assert(base != nullptr && "unknown BDVState!");
-        }
-        assert(base && "can't be null");
-        // Must use original input BB since base may not be Instruction
-        // The cast is needed since base traversal may strip away bitcasts
-        if (base->getType() != basephi->getType()) {
-          base = new BitCastInst(base, basephi->getType(), "cast",
-                                 InBB->getTerminator());
-        }
-        basephi->addIncoming(base, InBB);
+        // Find the instruction which produces the base for each input.  We may
+        // need to insert a bitcast in the incoming block.
+        // TODO: Need to split critical edges if insertion is needed
+        Value *Base = getBaseForInput(InVal, InBB->getTerminator());
+        basephi->addIncoming(Base, InBB);
       }
       assert(basephi->getNumIncomingValues() == NumPHIValues);
-    } else {
-      SelectInst *basesel = cast<SelectInst>(state.getBase());
-      SelectInst *sel = cast<SelectInst>(v);
+    } else if (SelectInst *BaseSel = dyn_cast<SelectInst>(state.getBase())) {
+      SelectInst *Sel = cast<SelectInst>(v);
       // Operand 1 & 2 are true, false path respectively. TODO: refactor to
       // something more safe and less hacky.
       for (int i = 1; i <= 2; i++) {
-        Value *InVal = sel->getOperand(i);
-        // Find either the defining value for the PHI or the normal base for
-        // a non-phi node
-        Value *base = findBaseOrBDV(InVal, cache);
-        if (!isKnownBaseResult(base)) {
-          // Either conflict or base.
-          assert(states.count(base));
-          base = states[base].getBase();
-          assert(base != nullptr && "unknown BDVState!");
-        }
-        assert(base && "can't be null");
-        // Must use original input BB since base may not be Instruction
-        // The cast is needed since base traversal may strip away bitcasts
-        if (base->getType() != basesel->getType()) {
-          base = new BitCastInst(base, basesel->getType(), "cast", basesel);
-        }
-        basesel->setOperand(i, base);
+        Value *InVal = Sel->getOperand(i);
+        // Find the instruction which produces the base for each input.  We may
+        // need to insert a bitcast.
+        Value *Base = getBaseForInput(InVal, BaseSel);
+        BaseSel->setOperand(i, Base);
       }
+    } else {
+      auto *BaseEE = cast<ExtractElementInst>(state.getBase());
+      Value *InVal = cast<ExtractElementInst>(v)->getVectorOperand();
+      // Find the instruction which produces the base for each input.  We may
+      // need to insert a bitcast.
+      Value *Base = getBaseForInput(InVal, BaseEE);
+      BaseEE->setOperand(0, Base);
+    }
+  }
+
+  // Now that we're done with the algorithm, see if we can optimize the 
+  // results slightly by reducing the number of new instructions needed. 
+  // Arguably, this should be integrated into the algorithm above, but 
+  // doing as a post process step is easier to reason about for the moment.
+  DenseMap<Value *, Value *> ReverseMap;
+  SmallPtrSet<Instruction *, 16> NewInsts;
+  SmallSetVector<AssertingVH<Instruction>, 16> Worklist;
+  // Note: We need to visit the states in a deterministic order.  We uses the
+  // Keys we sorted above for this purpose.  Note that we are papering over a
+  // bigger problem with the algorithm above - it's visit order is not
+  // deterministic.  A larger change is needed to fix this.
+  for (auto Key : Keys) {
+    Value *V = Key;
+    auto State = states[Key];
+    Value *Base = State.getBase();
+    assert(V && Base);
+    assert(!isKnownBaseResult(V) && "why did it get added?");
+    assert(isKnownBaseResult(Base) &&
+           "must be something we 'know' is a base pointer");
+    if (!State.isConflict())
+      continue;
+
+    ReverseMap[Base] = V;
+    if (auto *BaseI = dyn_cast<Instruction>(Base)) {
+      NewInsts.insert(BaseI);
+      Worklist.insert(BaseI);
+    }
+  }
+  auto ReplaceBaseInstWith = [&](Value *BDV, Instruction *BaseI,
+                                 Value *Replacement) {
+    // Add users which are new instructions (excluding self references)
+    for (User *U : BaseI->users())
+      if (auto *UI = dyn_cast<Instruction>(U))
+        if (NewInsts.count(UI) && UI != BaseI)
+          Worklist.insert(UI);
+    // Then do the actual replacement
+    NewInsts.erase(BaseI);
+    ReverseMap.erase(BaseI);
+    BaseI->replaceAllUsesWith(Replacement);
+    BaseI->eraseFromParent();
+    assert(states.count(BDV));
+    assert(states[BDV].isConflict() && states[BDV].getBase() == BaseI);
+    states[BDV] = BDVState(BDVState::Conflict, Replacement);
+  };
+  const DataLayout &DL = cast<Instruction>(def)->getModule()->getDataLayout();
+  while (!Worklist.empty()) {
+    Instruction *BaseI = Worklist.pop_back_val();
+    assert(NewInsts.count(BaseI));
+    Value *Bdv = ReverseMap[BaseI];
+    if (auto *BdvI = dyn_cast<Instruction>(Bdv))
+      if (BaseI->isIdenticalTo(BdvI)) {
+        DEBUG(dbgs() << "Identical Base: " << *BaseI << "\n");
+        ReplaceBaseInstWith(Bdv, BaseI, Bdv);
+        continue;
+      }
+    if (Value *V = SimplifyInstruction(BaseI, DL)) {
+      DEBUG(dbgs() << "Base " << *BaseI << " simplified to " << *V << "\n");
+      ReplaceBaseInstWith(Bdv, BaseI, V);
+      continue;
     }
   }
 
@@ -981,20 +1117,15 @@ static Value *findBasePointer(Value *I, DefiningValueMapTy &cache) {
     Value *v = item.first;
     Value *base = item.second.getBase();
     assert(v && base);
-    assert(!isKnownBaseResult(v) && "why did it get added?");
 
-    if (TraceLSP) {
-      std::string fromstr =
-          cache.count(v) ? (cache[v]->hasName() ? cache[v]->getName() : "")
-                         : "none";
-      errs() << "Updating base value cache"
-             << " for: " << (v->hasName() ? v->getName() : "")
-             << " from: " << fromstr
-             << " to: " << (base->hasName() ? base->getName() : "") << "\n";
-    }
+    std::string fromstr =
+      cache.count(v) ? (cache[v]->hasName() ? cache[v]->getName() : "")
+                     : "none";
+    DEBUG(dbgs() << "Updating base value cache"
+          << " for: " << (v->hasName() ? v->getName() : "")
+          << " from: " << fromstr
+          << " to: " << (base->hasName() ? base->getName() : "") << "\n");
 
-    assert(isKnownBaseResult(base) &&
-           "must be something we 'know' is a base pointer");
     if (cache.count(v)) {
       // Once we transition from the BDV relation being store in the cache to
       // the base relation being stored, it must be stable
@@ -2416,6 +2547,37 @@ bool RewriteStatepointsForGC::runOnFunction(Function &F) {
       MadeChange = true;
       FoldSingleEntryPHINodes(&BB);
     }
+
+  // Before we start introducing relocations, we want to tweak the IR a bit to
+  // avoid unfortunate code generation effects.  The main example is that we 
+  // want to try to make sure the comparison feeding a branch is after any
+  // safepoints.  Otherwise, we end up with a comparison of pre-relocation
+  // values feeding a branch after relocation.  This is semantically correct,
+  // but results in extra register pressure since both the pre-relocation and
+  // post-relocation copies must be available in registers.  For code without
+  // relocations this is handled elsewhere, but teaching the scheduler to
+  // reverse the transform we're about to do would be slightly complex.
+  // Note: This may extend the live range of the inputs to the icmp and thus
+  // increase the liveset of any statepoint we move over.  This is profitable
+  // as long as all statepoints are in rare blocks.  If we had in-register
+  // lowering for live values this would be a much safer transform.
+  auto getConditionInst = [](TerminatorInst *TI) -> Instruction* {
+    if (auto *BI = dyn_cast<BranchInst>(TI))
+      if (BI->isConditional())
+        return dyn_cast<Instruction>(BI->getCondition());
+    // TODO: Extend this to handle switches
+    return nullptr;
+  };
+  for (BasicBlock &BB : F) {
+    TerminatorInst *TI = BB.getTerminator();
+    if (auto *Cond = getConditionInst(TI))
+      // TODO: Handle more than just ICmps here.  We should be able to move
+      // most instructions without side effects or memory access.  
+      if (isa<ICmpInst>(Cond) && Cond->hasOneUse()) {
+        MadeChange = true;
+        Cond->moveBefore(TI);
+      }
+  }
 
   MadeChange |= insertParsePoints(F, DT, this, ParsePointNeeded);
   return MadeChange;

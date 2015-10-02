@@ -641,11 +641,12 @@ def expectedFailureCompiler(compiler, compiler_version=None, bugnumber=None):
 # @expectedFailureAll, xfail for all platform/compiler/arch,
 # @expectedFailureAll(compiler='gcc'), xfail for gcc on all platform/architecture
 # @expectedFailureAll(bugnumber, ["linux"], "gcc", ['>=', '4.9'], ['i386']), xfail for gcc>=4.9 on linux with i386
-def expectedFailureAll(bugnumber=None, oslist=None, compiler=None, compiler_version=None, archs=None):
+def expectedFailureAll(bugnumber=None, oslist=None, compiler=None, compiler_version=None, archs=None, triple=None):
     def fn(self):
         return ((oslist is None or self.getPlatform() in oslist) and
                 (compiler is None or (compiler in self.getCompiler() and self.expectedCompilerVersion(compiler_version))) and
-                self.expectedArch(archs))
+                self.expectedArch(archs) and
+                (triple is None or re.match(triple, lldb.DBG.GetSelectedPlatform().GetTriple())))
     return expectedFailure(fn, bugnumber)
 
 # to XFAIL a specific clang versions, try this
@@ -663,11 +664,6 @@ def expectedFailureArch(arch, bugnumber=None):
     def fn(self):
         return arch in self.getArchitecture()
     return expectedFailure(fn, bugnumber)
-
-def skipUnlessArch(arch):
-    def fn(self):
-        return not self.getArchitecture() in arch 
-    return expectedFailure(fn, None)
 
 def expectedFailurei386(bugnumber=None):
     return expectedFailureArch('i386', bugnumber)
@@ -703,6 +699,18 @@ def expectedFailureWindows(bugnumber=None, compilers=None):
 def expectedFailureHostWindows(bugnumber=None, compilers=None):
     return expectedFailureHostOS(['windows'], bugnumber, compilers)
 
+def matchAndroid(api_levels=None, archs=None):
+    def match(self):
+        if not target_is_android():
+            return False
+        if archs is not None and self.getArchitecture() not in archs:
+            return False
+        if api_levels is not None and android_device_api() not in api_levels:
+            return False
+        return True
+    return match
+
+
 def expectedFailureAndroid(bugnumber=None, api_levels=None, archs=None):
     """ Mark a test as xfail for Android.
 
@@ -713,15 +721,7 @@ def expectedFailureAndroid(bugnumber=None, api_levels=None, archs=None):
         arch - A sequence of architecture names specifying the architectures
             for which a test is expected to fail. None means all architectures.
     """
-    def fn(self):
-        if target_is_android():
-            if archs is not None and self.getArchitecture() not in archs:
-                return False
-            if api_levels is not None and android_device_api() not in api_levels:
-                return False
-            return True
-
-    return expectedFailure(fn, bugnumber)
+    return expectedFailure(matchAndroid(api_levels, archs), bugnumber)
 
 # if the test passes on the first try, we're done (success)
 # if the test fails once, then passes on the second try, raise an ExpectedFailure
@@ -789,6 +789,9 @@ def expectedFlakeyClang(bugnumber=None, compiler_version=None):
 # @expectedFlakeyGcc('bugnumber', ['<=', '3.4'])
 def expectedFlakeyGcc(bugnumber=None, compiler_version=None):
     return expectedFlakeyCompiler('gcc', compiler_version, bugnumber)
+
+def expectedFlakeyAndroid(bugnumber=None, api_levels=None, archs=None):
+    return expectedFlakey(matchAndroid(api_levels, archs), bugnumber)
 
 def skipIfRemote(func):
     """Decorate the item to skip tests if testing remotely."""
@@ -945,6 +948,24 @@ def skipUnlessHostPlatform(oslist):
     return unittest2.skipUnless(getHostPlatform() in oslist,
                                 "requires on of %s" % (", ".join(oslist)))
 
+def skipUnlessArch(archlist):
+    """Decorate the item to skip tests unless running on one of the listed architectures."""
+    def myImpl(func):
+        if isinstance(func, type) and issubclass(func, unittest2.TestCase):
+            raise Exception("@skipUnlessArch can only be used to decorate a test method")
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            self = args[0]
+            if self.getArchitecture() not in archlist:
+                self.skipTest("skipping for architecture %s (requires one of %s)" % 
+                    (self.getArchitecture(), ", ".join(archlist)))
+            else:
+                func(*args, **kwargs)
+        return wrapper
+
+    return myImpl
+
 def skipIfPlatform(oslist):
     """Decorate the item to skip tests if running on one of the listed platforms."""
     return unittest2.skipIf(getPlatform() in oslist,
@@ -1048,12 +1069,14 @@ def skipIfi386(func):
             func(*args, **kwargs)
     return wrapper
 
-def skipIfTargetAndroid(api_levels=None):
+def skipIfTargetAndroid(api_levels=None, archs=None):
     """Decorator to skip tests when the target is Android.
 
     Arguments:
         api_levels - The API levels for which the test should be skipped. If
             it is None, then the test will be skipped for all API levels.
+        arch - A sequence of architecture names specifying the architectures
+            for which a test is skipped. None means all architectures.
     """
     def myImpl(func):
         if isinstance(func, type) and issubclass(func, unittest2.TestCase):
@@ -1063,14 +1086,9 @@ def skipIfTargetAndroid(api_levels=None):
         def wrapper(*args, **kwargs):
             from unittest2 import case
             self = args[0]
-            if target_is_android():
-                if api_levels:
-                    device_api = android_device_api()
-                    if device_api and (device_api in api_levels):
-                        self.skipTest(
-                            "skip on Android target with API %d" % device_api)
-                else:
-                    self.skipTest("skip on Android target")
+            if matchAndroid(api_levels, archs)(self):
+                self.skipTest("skiped on Android target with API %d and architecture %s" %
+                        (android_device_api(), self.getArchitecture()))
             func(*args, **kwargs)
         return wrapper
     return myImpl
@@ -1181,8 +1199,7 @@ class Base(unittest2.TestCase):
         if doCleanup and not lldb.skip_build_and_cleanup:
             # First, let's do the platform-specific cleanup.
             module = builder_module()
-            if not module.cleanup():
-                raise Exception("Don't know how to do cleanup")
+            module.cleanup()
 
             # Subclass might have specific cleanup function defined.
             if getattr(cls, "classCleanup", None):
@@ -1371,6 +1388,7 @@ class Base(unittest2.TestCase):
         # initially.  If the test errored/failed, the session info
         # (self.session) is then dumped into a session specific file for
         # diagnosis.
+        self.__cleanup_errored__ = False
         self.__errored__    = False
         self.__failed__     = False
         self.__expected__   = False
@@ -1602,9 +1620,6 @@ class Base(unittest2.TestCase):
 
         self.disableLogChannelsForCurrentTest()
 
-        # Decide whether to dump the session info.
-        self.dumpSessionInfo()
-
     # =========================================================
     # Various callbacks to allow introspection of test progress
     # =========================================================
@@ -1616,6 +1631,14 @@ class Base(unittest2.TestCase):
             # False because there's no need to write "ERROR" to the stderr twice.
             # Once by the Python unittest framework, and a second time by us.
             print >> sbuf, "ERROR"
+
+    def markCleanupError(self):
+        """Callback invoked when an error occurs while a test is cleaning up."""
+        self.__cleanup_errored__ = True
+        with recording(self, False) as sbuf:
+            # False because there's no need to write "CLEANUP_ERROR" to the stderr twice.
+            # Once by the Python unittest framework, and a second time by us.
+            print >> sbuf, "CLEANUP_ERROR"
 
     def markFailure(self):
         """Callback invoked when a failure (test assertion failure) occurred."""
@@ -1715,6 +1738,9 @@ class Base(unittest2.TestCase):
         if self.__errored__:
             pairs = lldb.test_result.errors
             prefix = 'Error'
+        if self.__cleanup_errored__:
+            pairs = lldb.test_result.cleanup_errors
+            prefix = 'CleanupError'
         elif self.__failed__:
             pairs = lldb.test_result.failures
             prefix = 'Failure'
@@ -1769,7 +1795,17 @@ class Base(unittest2.TestCase):
         else:
             # success!  (and we don't want log files) delete log files
             for log_file in log_files_for_this_test:
-                os.unlink(log_file)
+                try:
+                    os.unlink(log_file)
+                except:
+                    # We've seen consistent unlink failures on Windows, perhaps because the
+                    # just-created log file is being scanned by anti-virus.  Empirically, this
+                    # sleep-and-retry approach allows tests to succeed much more reliably.
+                    # Attempts to figure out exactly what process was still holding a file handle
+                    # have failed because running instrumentation like Process Monitor seems to
+                    # slow things down enough that the problem becomes much less consistent.
+                    time.sleep(0.5)
+                    os.unlink(log_file)
 
     # ====================================================
     # Config. methods supported through a plugin interface

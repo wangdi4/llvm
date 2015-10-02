@@ -73,10 +73,10 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtNone, nullptr,
   // InlrAlwaysInline,
   InlPrtSimple, "Callee is always inline",
-  // InlrSingleBasicBlock,
-  InlPrtCost, "Callee is single basic block",
   // InlrSingleLocalCall,
   InlPrtCost, "Callee has single callsite and local linkage",
+  // InlrSingleBasicBlock,
+  InlPrtCost, "Callee is single basic block",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
   // InlrVectorBonus,
@@ -255,12 +255,28 @@ void InlineReportCallSite::printOuterCostAndThreshold(void) {
 } 
 
 ///
+/// \brief Print the linkage info for a function 'F' as a single letter,
+/// if the 'Level' specifies InlineReportOptions::Linkage. 
+/// For an explanation of the meaning of these letters, see InlineReport.h. 
+///
+static void printFunctionLinkage(unsigned Level, Function* F)
+{
+  if (!(Level & InlineReportOptions::Linkage)) { 
+    return;
+  } 
+  llvm::errs() << (F->hasLocalLinkage() ? "L " :
+    (F->hasLinkOnceODRLinkage() ? "O " :
+    (F->hasAvailableExternallyLinkage() ? "X " : "A ")));
+} 
+
+///
 /// \brief Print the callee name, and if non-zero, the line and column 
 /// number of the call site 
 ///
 void InlineReportCallSite::printCalleeNameModuleLineCol(unsigned Level) 
 {
   if (getCallee() != nullptr) { 
+    printFunctionLinkage(Level, getCallee()); 
     llvm::errs() << getCallee()->getName(); 
   } 
   if (Level & InlineReportOptions::File) { 
@@ -589,8 +605,10 @@ void InlineReport::print(void) const {
     if (IRF->getDead()) {
       llvm::errs() << "DEAD STATIC FUNC: " << F->getName() << "\n\n";
     }
-    else { 
-      llvm::errs() << "COMPILE FUNC: " << F->getName() << "\n";
+    else if (!F->isDeclaration()) {
+      llvm::errs() << "COMPILE FUNC: ";
+      printFunctionLinkage(Level, F); 
+      llvm::errs() << F->getName() << "\n";
       InlineReportFunction* IRF = Mit->second;
       IRF->print(Level); 
       llvm::errs() << "\n"; 

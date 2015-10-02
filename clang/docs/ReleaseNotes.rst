@@ -11,8 +11,8 @@ Written by the `LLVM Team <http://llvm.org/>`_
 .. warning::
 
    These are in-progress notes for the upcoming Clang 3.8 release. You may
-   prefer the `Clang 3.6 Release Notes
-   <http://llvm.org/releases/3.6.0/tools/clang/docs/ReleaseNotes.html>`_.
+   prefer the `Clang 3.7 Release Notes
+   <http://llvm.org/releases/3.7.0/tools/clang/docs/ReleaseNotes.html>`_.
 
 Introduction
 ============
@@ -54,7 +54,7 @@ Improvements to Clang's diagnostics
 
 Clang's diagnostics are constantly being improved to catch more issues,
 explain them more clearly, and provide more accurate source information
-about them. The improvements since the 3.5 release include:
+about them. The improvements since the 3.7 release include:
 
 -  ...
 

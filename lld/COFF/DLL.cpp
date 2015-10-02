@@ -50,8 +50,8 @@ public:
   }
 
   void writeTo(uint8_t *Buf) override {
-    write16le(Buf + FileOff, Hint);
-    memcpy(Buf + FileOff + 2, Name.data(), Name.size());
+    write16le(Buf + OutputSectionOff, Hint);
+    memcpy(Buf + OutputSectionOff + 2, Name.data(), Name.size());
   }
 
 private:
@@ -66,7 +66,7 @@ public:
   size_t getSize() const override { return ptrSize(); }
 
   void writeTo(uint8_t *Buf) override {
-    write32le(Buf + FileOff, HintName->getRVA());
+    write32le(Buf + OutputSectionOff, HintName->getRVA());
   }
 
   Chunk *HintName;
@@ -84,9 +84,9 @@ public:
     // An import-by-ordinal slot has MSB 1 to indicate that
     // this is import-by-ordinal (and not import-by-name).
     if (Config->is64()) {
-      write64le(Buf + FileOff, (1ULL << 63) | Ordinal);
+      write64le(Buf + OutputSectionOff, (1ULL << 63) | Ordinal);
     } else {
-      write32le(Buf + FileOff, (1ULL << 31) | Ordinal);
+      write32le(Buf + OutputSectionOff, (1ULL << 31) | Ordinal);
     }
   }
 
@@ -100,7 +100,7 @@ public:
   size_t getSize() const override { return sizeof(ImportDirectoryTableEntry); }
 
   void writeTo(uint8_t *Buf) override {
-    auto *E = (coff_import_directory_table_entry *)(Buf + FileOff);
+    auto *E = (coff_import_directory_table_entry *)(Buf + OutputSectionOff);
     E->ImportLookupTableRVA = LookupTab->getRVA();
     E->NameRVA = DLLName->getRVA();
     E->ImportAddressTableRVA = AddressTab->getRVA();
@@ -124,14 +124,19 @@ private:
   size_t Size;
 };
 
-static std::map<StringRef, std::vector<DefinedImportData *>>
+static std::vector<std::vector<DefinedImportData *>>
 binImports(const std::vector<DefinedImportData *> &Imports) {
   // Group DLL-imported symbols by DLL name because that's how
   // symbols are layed out in the import descriptor table.
-  std::map<StringRef, std::vector<DefinedImportData *>> M;
+  auto Less = [](const std::string &A, const std::string &B) {
+    return Config->DLLOrder[A] < Config->DLLOrder[B];
+  };
+  std::map<std::string, std::vector<DefinedImportData *>,
+           bool(*)(const std::string &, const std::string &)> M(Less);
   for (DefinedImportData *Sym : Imports)
-    M[Sym->getDLLName()].push_back(Sym);
+    M[Sym->getDLLName().lower()].push_back(Sym);
 
+  std::vector<std::vector<DefinedImportData *>> V;
   for (auto &P : M) {
     // Sort symbols by name for each group.
     std::vector<DefinedImportData *> &Syms = P.second;
@@ -139,8 +144,9 @@ binImports(const std::vector<DefinedImportData *> &Imports) {
               [](DefinedImportData *A, DefinedImportData *B) {
                 return A->getName() < B->getName();
               });
+    V.push_back(std::move(Syms));
   }
-  return M;
+  return V;
 }
 
 // Export table
@@ -156,7 +162,7 @@ public:
   }
 
   void writeTo(uint8_t *Buf) override {
-    auto *E = (delay_import_directory_table_entry *)(Buf + FileOff);
+    auto *E = (delay_import_directory_table_entry *)(Buf + OutputSectionOff);
     E->Attributes = 1;
     E->Name = DLLName->getRVA();
     E->ModuleHandle = ModuleHandle->getRVA();
@@ -219,10 +225,10 @@ public:
   size_t getSize() const override { return sizeof(ThunkX64); }
 
   void writeTo(uint8_t *Buf) override {
-    memcpy(Buf + FileOff, ThunkX64, sizeof(ThunkX64));
-    write32le(Buf + FileOff + 36, Imp->getRVA() - RVA - 40);
-    write32le(Buf + FileOff + 43, Desc->getRVA() - RVA - 47);
-    write32le(Buf + FileOff + 48, Helper->getRVA() - RVA - 52);
+    memcpy(Buf + OutputSectionOff, ThunkX64, sizeof(ThunkX64));
+    write32le(Buf + OutputSectionOff + 36, Imp->getRVA() - RVA - 40);
+    write32le(Buf + OutputSectionOff + 43, Desc->getRVA() - RVA - 47);
+    write32le(Buf + OutputSectionOff + 48, Helper->getRVA() - RVA - 52);
   }
 
   Defined *Imp = nullptr;
@@ -238,10 +244,10 @@ public:
   size_t getSize() const override { return sizeof(ThunkX86); }
 
   void writeTo(uint8_t *Buf) override {
-    memcpy(Buf + FileOff, ThunkX86, sizeof(ThunkX86));
-    write32le(Buf + FileOff + 3, Imp->getRVA() + Config->ImageBase);
-    write32le(Buf + FileOff + 8, Desc->getRVA() + Config->ImageBase);
-    write32le(Buf + FileOff + 13, Helper->getRVA() - RVA - 17);
+    memcpy(Buf + OutputSectionOff, ThunkX86, sizeof(ThunkX86));
+    write32le(Buf + OutputSectionOff + 3, Imp->getRVA() + Config->ImageBase);
+    write32le(Buf + OutputSectionOff + 8, Desc->getRVA() + Config->ImageBase);
+    write32le(Buf + OutputSectionOff + 13, Helper->getRVA() - RVA - 17);
   }
 
   void getBaserels(std::vector<Baserel> *Res) override {
@@ -262,9 +268,9 @@ public:
 
   void writeTo(uint8_t *Buf) override {
     if (Config->is64()) {
-      write64le(Buf + FileOff, Thunk->getRVA() + Config->ImageBase);
+      write64le(Buf + OutputSectionOff, Thunk->getRVA() + Config->ImageBase);
     } else {
-      write32le(Buf + FileOff, Thunk->getRVA() + Config->ImageBase);
+      write32le(Buf + OutputSectionOff, Thunk->getRVA() + Config->ImageBase);
     }
   }
 
@@ -290,7 +296,7 @@ public:
   }
 
   void writeTo(uint8_t *Buf) override {
-    auto *E = (export_directory_table_entry *)(Buf + FileOff);
+    auto *E = (export_directory_table_entry *)(Buf + OutputSectionOff);
     E->NameRVA = DLLName->getRVA();
     E->OrdinalBase = 0;
     E->AddressTableEntries = MaxOrdinal + 1;
@@ -316,7 +322,7 @@ public:
   void writeTo(uint8_t *Buf) override {
     for (Export &E : Config->Exports) {
       auto *D = cast<Defined>(E.Sym->repl());
-      write32le(Buf + FileOff + E.Ordinal * 4, D->getRVA());
+      write32le(Buf + OutputSectionOff + E.Ordinal * 4, D->getRVA());
     }
   }
 
@@ -330,7 +336,7 @@ public:
   size_t getSize() const override { return Chunks.size() * 4; }
 
   void writeTo(uint8_t *Buf) override {
-    uint8_t *P = Buf + FileOff;
+    uint8_t *P = Buf + OutputSectionOff;
     for (Chunk *C : Chunks) {
       write32le(P, C->getRVA());
       P += 4;
@@ -347,7 +353,7 @@ public:
   size_t getSize() const override { return Size * 2; }
 
   void writeTo(uint8_t *Buf) override {
-    uint8_t *P = Buf + FileOff;
+    uint8_t *P = Buf + OutputSectionOff;
     for (Export &E : Config->Exports) {
       if (E.Noname)
         continue;
@@ -393,13 +399,11 @@ std::vector<Chunk *> IdataContents::getChunks() {
 }
 
 void IdataContents::create() {
-  std::map<StringRef, std::vector<DefinedImportData *>> Map =
-      binImports(Imports);
+  std::vector<std::vector<DefinedImportData *>> V = binImports(Imports);
 
   // Create .idata contents for each DLL.
-  for (auto &P : Map) {
-    StringRef Name = P.first;
-    std::vector<DefinedImportData *> &Syms = P.second;
+  for (std::vector<DefinedImportData *> &Syms : V) {
+    StringRef Name = Syms[0]->getDLLName();
 
     // Create lookup and address tables. If they have external names,
     // we need to create HintName chunks to store the names.
@@ -467,13 +471,11 @@ uint64_t DelayLoadContents::getDirSize() {
 
 void DelayLoadContents::create(Defined *H) {
   Helper = H;
-  std::map<StringRef, std::vector<DefinedImportData *>> Map =
-      binImports(Imports);
+  std::vector<std::vector<DefinedImportData *>> V = binImports(Imports);
 
   // Create .didat contents for each DLL.
-  for (auto &P : Map) {
-    StringRef Name = P.first;
-    std::vector<DefinedImportData *> &Syms = P.second;
+  for (std::vector<DefinedImportData *> &Syms : V) {
+    StringRef Name = Syms[0]->getDLLName();
 
     // Create the delay import table header.
     if (!DLLNames.count(Name))
@@ -537,7 +539,7 @@ EdataContents::EdataContents() {
   std::vector<Chunk *> Names;
   for (Export &E : Config->Exports)
     if (!E.Noname)
-      Names.push_back(new StringChunk(E.ExtDLLName));
+      Names.push_back(new StringChunk(E.ExportName));
   auto *NameTab = new NamePointersChunk(Names);
   auto *OrdinalTab = new ExportOrdinalChunk(Names.size());
   auto *Dir = new ExportDirectoryChunk(MaxOrdinal, Names.size(), DLLName,

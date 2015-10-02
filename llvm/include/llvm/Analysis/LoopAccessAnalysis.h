@@ -29,7 +29,6 @@ namespace llvm {
 
 class Value;
 class DataLayout;
-class AliasAnalysis;
 class ScalarEvolution;
 class Loop;
 class SCEV;
@@ -384,7 +383,7 @@ public:
                       bool UseDependencies);
 
   /// \brief Returns the checks that generateChecks created.
-  const SmallVectorImpl<PointerCheck> &getChecks() const { return Checks; }
+  const SmallVector<PointerCheck, 4> &getChecks() const { return Checks; }
 
   /// \brief Decide if we need to add a check between two groups of pointers,
   /// according to needsChecking.

@@ -129,11 +129,27 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
   if (getX86SubSuperRegister(SuperDestReg, OrigDestVT) != OrigDestReg)
     return false;
 
-  MachineBasicBlock::LivenessQueryResult NewDestLQR =
+  MachineBasicBlock::LivenessQueryResult LQR =
     MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
                                              SuperDestReg, MI);
 
-  return NewDestLQR == MachineBasicBlock::LQR_Dead;
+  if (LQR != MachineBasicBlock::LQR_Dead)
+    return false;
+
+  if (OrigDestVT == MVT::i8) {
+    // In the case of byte registers, we also have to check that the upper
+    // byte register is also dead. That is considered to be independent of
+    // whether the super-register is dead.
+    unsigned UpperByteReg =
+      getX86SubSuperRegister(SuperDestReg, MVT::i8, true);
+
+    LQR = MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
+                                                   UpperByteReg, MI);
+    if (LQR != MachineBasicBlock::LQR_Dead)
+      return false;
+  }
+
+  return true;
 }
 
 MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,

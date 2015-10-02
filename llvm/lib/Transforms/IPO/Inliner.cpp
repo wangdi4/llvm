@@ -18,6 +18,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/InlineCost.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
@@ -82,8 +83,9 @@ ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
 #ifdef INTEL_CUSTOMIZATION
+// CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int>
-OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(75),
+OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(15),
               cl::desc("Threshold for inlining functions with -Os"));
 #endif // INTEL_CUSTOMIZATION
 
@@ -102,8 +104,8 @@ Inliner::Inliner(char &ID, int Threshold, bool InsertLifetime)
 /// If the derived class implements this method, it should
 /// always explicitly call the implementation here.
 void Inliner::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<AliasAnalysis>();
   AU.addRequired<AssumptionCacheTracker>();
+  AU.addRequired<TargetLibraryInfoWrapperPass>();
   CallGraphSCCPass::getAnalysisUsage(AU);
 }
 
@@ -152,17 +154,25 @@ static void AdjustCallerSSPLevel(Function *Caller, Function *Callee) {
 /// available from other functions inlined into the caller.  If we are able to
 /// inline this call site we attempt to reuse already available allocas or add
 /// any new allocas to the set if not possible.
-static InlineReason InlineCallIfPossible(CallSite CS, // INTEL 
-                                 InlineFunctionInfo &IFI, // INTEL 
+static InlineReason
+            InlineCallIfPossible(Pass &P, CallSite CS, InlineFunctionInfo &IFI,
                                  InlinedArrayAllocasTy &InlinedArrayAllocas,
                                  int InlineHistory, bool InsertLifetime) {
   Function *Callee = CS.getCalledFunction();
   Function *Caller = CS.getCaller();
 
+  // We need to manually construct BasicAA directly in order to disable
+  // its use of other function analyses.
+  BasicAAResult BAR(createLegacyPMBasicAAResult(P, *Callee));
+
+  // Construct our own AA results for this function. We do this manually to
+  // work around the limitations of the legacy pass manager.
+  AAResults AAR(createLegacyPMAAResults(P, *Callee, BAR));
+
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
 #ifdef INTEL_CUSTOMIZATION     
-  InlineReason IR = InlineFunction(CS, IFI, InsertLifetime); 
+  InlineReason IR = InlineFunction(CS, IFI, &AAR, InsertLifetime); 
   if (IR != InlrNoReason) {
     return IR;
   } 
@@ -470,9 +480,7 @@ static bool InlineHistoryIncludes(Function *F, int InlineHistoryID,
 bool Inliner::runOnSCC(CallGraphSCC &SCC) {
   CallGraph &CG = getAnalysis<CallGraphWrapperPass>().getCallGraph();
   AssumptionCacheTracker *ACT = &getAnalysis<AssumptionCacheTracker>();
-  auto *TLIP = getAnalysisIfAvailable<TargetLibraryInfoWrapperPass>();
-  const TargetLibraryInfo *TLI = TLIP ? &TLIP->getTLI() : nullptr;
-  AliasAnalysis *AA = &getAnalysis<AliasAnalysis>();
+  auto &TLI = getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   CG.registerCGReport(&Report); // INTEL 
 
@@ -547,7 +555,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 
   
   InlinedArrayAllocasTy InlinedArrayAllocas;
-  InlineFunctionInfo InlineInfo(&CG, AA, ACT);
+  InlineFunctionInfo InlineInfo(&CG, ACT);
 
   // Now that we have all of the call sites, loop over them and inline them if
   // it looks profitable to do so.
@@ -568,7 +576,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
       // just delete the call instead of trying to inline it, regardless of
       // size.  This happens because IPSCCP propagates the result out of the
       // call and then we're left with the dead call.
-      if (isInstructionTriviallyDead(CS.getInstruction(), TLI)) {
+      if (isInstructionTriviallyDead(CS.getInstruction(), &TLI)) {
         DEBUG(dbgs() << "    -> Deleting dead call: "
                      << *CS.getInstruction() << "\n");
         getReport().setReasonNotInlined(CS, NinlrDeleted); // INTEL 
@@ -625,7 +633,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         InlineReportCallSite* IRCS = getReport().getCallSite(CS);
         Instruction* NI = CS.getInstruction();
         getReport().setActiveInlineInstruction(NI); 
-        InlineReason Reason = InlineCallIfPossible(CS, InlineInfo, 
+        InlineReason Reason = InlineCallIfPossible(*this, CS, InlineInfo, 
           InlinedArrayAllocas, InlineHistoryID, InsertLifetime);
         getReport().setActiveInlineInstruction(nullptr); 
         if (IsNotInlinedReason(Reason)) { 

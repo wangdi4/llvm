@@ -150,6 +150,7 @@ def llvm_anyptr_ty     : LLVMAnyPointerType<llvm_i8_ty>;          // (space)i8*
 def llvm_empty_ty      : LLVMType<OtherVT>;                       // { }
 def llvm_descriptor_ty : LLVMPointerType<llvm_empty_ty>;          // { }*
 def llvm_metadata_ty   : LLVMType<MetadataVT>;                    // !{...}
+def llvm_token_ty      : LLVMType<token>;                         // token
 
 def llvm_x86mmx_ty     : LLVMType<x86mmx>;
 def llvm_ptrx86mmx_ty  : LLVMPointerType<llvm_x86mmx_ty>;         // <1 x i64>*
@@ -435,6 +436,11 @@ def int_eh_begincatch : Intrinsic<[], [llvm_ptr_ty, llvm_ptr_ty],
                                   [NoCapture<0>, NoCapture<1>]>;
 def int_eh_endcatch : Intrinsic<[], []>;
 
+// eh.exceptionpointer returns the pointer to the exception caught by
+// the given `catchpad`.
+def int_eh_exceptionpointer : Intrinsic<[llvm_anyptr_ty], [llvm_token_ty],
+                                        [IntrNoMem]>;
+
 // Represents the list of actions to take when an exception is thrown.
 def int_eh_actions : Intrinsic<[llvm_ptr_ty], [llvm_vararg_ty], []>;
 
@@ -648,6 +654,19 @@ def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
 
 def int_has_feature : Intrinsic<[llvm_i1_ty], [llvm_i64_ty], [IntrNoMem]>;
+
+// Intrinsic generated for the sizeof operand in source code.
+// The given constant (first argument) is the size of the data type of the
+// getelementptr constant (passed as second argument).
+// Varargs are used because otherwise we would need some kind of (pointer) cast
+// of the second operand, which does constant folding on creation and may lose
+// information about the original data type.
+// Currently it is emitted by clang front-end in the IL0 backend mode only, and
+// translated into EXPR_SIZEOF in IL0.
+def int_intel_sizeof : Intrinsic<[llvm_anyint_ty],
+                                 [LLVMMatchType<0>, llvm_vararg_ty],
+                                 [IntrNoMem], "llvm.intel.sizeof">;
+
 //#endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"

@@ -280,9 +280,21 @@ Do the actual fork and call the microtask in the relevant number of threads.
 void
 __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
 {
-  KMP_STOP_EXPLICIT_TIMER(OMP_serial);
-  KMP_COUNT_BLOCK(OMP_PARALLEL);
   int         gtid = __kmp_entry_gtid();
+
+#if (KMP_STATS_ENABLED)  
+  int inParallel = __kmpc_in_parallel(loc);
+  if (inParallel)
+  {
+      KMP_COUNT_BLOCK(OMP_NESTED_PARALLEL);
+  }
+  else
+  {
+      KMP_STOP_EXPLICIT_TIMER(OMP_serial);
+      KMP_COUNT_BLOCK(OMP_PARALLEL);
+  }
+#endif
+
   // maybe to save thr_state is enough here
   {
     va_list     ap;
@@ -318,7 +330,11 @@ __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
 #if INCLUDE_SSC_MARKS
     SSC_MARK_JOINING();
 #endif
-    __kmp_join_call( loc, gtid, fork_context_intel );
+    __kmp_join_call( loc, gtid
+#if OMPT_SUPPORT
+        , fork_context_intel
+#endif
+    );
 
     va_end( ap );
 
@@ -329,7 +345,10 @@ __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
     }
 #endif
   }
-  KMP_START_EXPLICIT_TIMER(OMP_serial);
+#if (KMP_STATS_ENABLED)  
+  if (!inParallel)
+      KMP_START_EXPLICIT_TIMER(OMP_serial);
+#endif
 }
 
 #if OMP_40_ENABLED
@@ -370,6 +389,8 @@ __kmpc_fork_teams(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
     va_list     ap;
     va_start(   ap, microtask );
 
+    KMP_COUNT_BLOCK(OMP_TEAMS);
+
     // remember teams entry point and nesting level
     this_thr->th.th_teams_microtask = microtask;
     this_thr->th.th_teams_level = this_thr->th.th_team->t.t_level; // AC: can be >0 on host
@@ -404,7 +425,11 @@ __kmpc_fork_teams(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
             ap
 #endif
             );
-    __kmp_join_call( loc, gtid, fork_context_intel );
+    __kmp_join_call( loc, gtid
+#if OMPT_SUPPORT
+        , fork_context_intel
+#endif
+    );
 
 #if OMPT_SUPPORT
     if (ompt_status & ompt_status_track) {
@@ -715,8 +740,10 @@ __kmpc_master(ident_t *loc, kmp_int32 global_tid)
     if( ! TCR_4( __kmp_init_parallel ) )
         __kmp_parallel_initialize();
 
-    if( KMP_MASTER_GTID( global_tid ))
+    if( KMP_MASTER_GTID( global_tid )) {
+        KMP_START_EXPLICIT_TIMER(OMP_master);
         status = 1;
+    }
 
 #if OMPT_SUPPORT && OMPT_TRACE
     if (status) {
@@ -764,6 +791,7 @@ __kmpc_end_master(ident_t *loc, kmp_int32 global_tid)
     KC_TRACE( 10, ("__kmpc_end_master: called T#%d\n", global_tid ) );
 
     KMP_DEBUG_ASSERT( KMP_MASTER_GTID( global_tid ));
+    KMP_STOP_EXPLICIT_TIMER(OMP_master);
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t  *this_thr        = __kmp_threads[ global_tid ];
@@ -1386,6 +1414,9 @@ __kmpc_single(ident_t *loc, kmp_int32 global_tid)
 {
     KMP_COUNT_BLOCK(OMP_SINGLE);
     kmp_int32 rc = __kmp_enter_single( global_tid, loc, TRUE );
+    if(rc == TRUE) {
+        KMP_START_EXPLICIT_TIMER(OMP_single);
+    }
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t *this_thr        = __kmp_threads[ global_tid ];
@@ -1427,6 +1458,7 @@ void
 __kmpc_end_single(ident_t *loc, kmp_int32 global_tid)
 {
     __kmp_exit_single( global_tid );
+    KMP_STOP_EXPLICIT_TIMER(OMP_single);
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t *this_thr        = __kmp_threads[ global_tid ];
@@ -2191,7 +2223,6 @@ int
 __kmpc_test_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
 {
     KMP_COUNT_BLOCK(OMP_test_lock);
-    KMP_TIME_BLOCK(OMP_test_lock);
 
 #if KMP_USE_DYNAMIC_LOCK
     int rc;

@@ -314,7 +314,7 @@ public:
     DEBUG(F.dump());
 
     this->F = &F;
-    SE = &getAnalysis<ScalarEvolution>();
+    SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
     auto HIRP = &getAnalysis<HIRParser>();
 
     moveDummyInstructions();
@@ -355,8 +355,8 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
 
-    // AU.addRequiredTransitive<ScalarEvolution>();
-    AU.addRequired<ScalarEvolution>();
+    // AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRParser>();
   }
 
@@ -374,7 +374,7 @@ FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 
 char HIRCodeGen::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 

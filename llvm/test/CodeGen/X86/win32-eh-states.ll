@@ -102,12 +102,20 @@ eh.resume:                                        ; preds = %catch.dispatch.4
 ; CHECK: calll _may_throw
 
 ; CHECK-LABEL: _f.catch:
-; CHECK: movl $4, Lf$frame_escape_{{[0-9]+.*}}
+; if INTEL_CUSTOMIZATION
+; CHECK: movl $3, Lf$frame_escape_{{[0-9]+.*}}
+; else
+; NOT-CHECK: movl $4, Lf$frame_escape_{{[0-9]+.*}}
+; endif
 ; CHECK: movl $4, (%esp)
 ; CHECK: calll _may_throw
 
 ; CHECK-LABEL: _f.catch.1:
-; CHECK: movl $3, Lf$frame_escape_{{[0-9]+.*}}
+; if INTEL_CUSTOMIZATION
+; CHECK: movl $2, Lf$frame_escape_{{[0-9]+.*}}
+; else
+; NOT-CHECK: movl $3, Lf$frame_escape_{{[0-9]+.*}}
+; endif
 ; CHECK: movl $3, (%esp)
 ; CHECK: calll _may_throw
 

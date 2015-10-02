@@ -1393,7 +1393,7 @@ void AsmMatcherInfo::buildInfo() {
       if (CGI->TheDef->getValueAsBit("isCodeGenOnly"))
         continue;
 
-      std::unique_ptr<MatchableInfo> II(new MatchableInfo(*CGI));
+      auto II = llvm::make_unique<MatchableInfo>(*CGI);
 
       II->initialize(*this, SingletonRegisters, AsmVariantNo, RegisterPrefix);
 
@@ -1420,7 +1420,7 @@ void AsmMatcherInfo::buildInfo() {
             .startswith( MatchPrefix))
         continue;
 
-      std::unique_ptr<MatchableInfo> II(new MatchableInfo(std::move(Alias)));
+      auto II = llvm::make_unique<MatchableInfo>(std::move(Alias));
 
       II->initialize(*this, SingletonRegisters, AsmVariantNo, RegisterPrefix);
 
@@ -1489,7 +1489,7 @@ void AsmMatcherInfo::buildInfo() {
         II->TheDef->getValueAsString("TwoOperandAliasConstraint");
       if (Constraint != "") {
         // Start by making a copy of the original matchable.
-        std::unique_ptr<MatchableInfo> AliasII(new MatchableInfo(*II));
+        auto AliasII = llvm::make_unique<MatchableInfo>(*II);
 
         // Adjust it to be a two-operand alias.
         AliasII->formTwoOperandAlias(Constraint);
@@ -1974,7 +1974,7 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
       continue;
 
     // Add the row to the table.
-    ConversionTable.push_back(ConversionRow);
+    ConversionTable.push_back(std::move(ConversionRow));
   }
 
   // Finish up the converter driver function.
@@ -1994,10 +1994,8 @@ static void emitConvertFuncs(CodeGenTarget &Target, StringRef ClassName,
 
   // Output the instruction conversion kind enum.
   OS << "enum InstructionConversionKind {\n";
-  for (SetVector<std::string>::const_iterator
-         i = InstructionConversionKinds.begin(),
-         e = InstructionConversionKinds.end(); i != e; ++i)
-    OS << "  " << *i << ",\n";
+  for (const std::string &Signature : InstructionConversionKinds)
+    OS << "  " << Signature << ",\n";
   OS << "  CVT_NUM_SIGNATURES\n";
   OS << "};\n\n";
 

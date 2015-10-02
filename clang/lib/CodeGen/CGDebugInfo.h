@@ -52,6 +52,7 @@ class CGDebugInfo {
   friend class SaveAndRestoreLocation;
   CodeGenModule &CGM;
   const CodeGenOptions::DebugInfoKind DebugKind;
+  bool DebugTypeExtRefs;
   llvm::DIBuilder DBuilder;
   llvm::DICompileUnit *TheCU = nullptr;
   SourceLocation CurLoc;
@@ -280,6 +281,9 @@ public:
                          SourceLocation ScopeLoc, QualType FnType,
                          llvm::Function *Fn, CGBuilderTy &Builder);
 
+  /// Emit debug info for a function declaration.
+  void EmitFunctionDecl(GlobalDecl GD, SourceLocation Loc, QualType FnType);
+
   /// Constructs the debug code for exiting a function.
   void EmitFunctionEnd(CGBuilderTy &Builder);
 
@@ -342,6 +346,9 @@ public:
 
   /// Emit an Objective-C interface type standalone debug info.
   llvm::DIType *getOrCreateInterfaceType(QualType Ty, SourceLocation Loc);
+
+  /// Emit standalone debug info for a type.
+  llvm::DIType *getOrCreateStandaloneType(QualType Ty, SourceLocation Loc);
 
   void completeType(const EnumDecl *ED);
   void completeType(const RecordDecl *RD);
@@ -502,13 +509,16 @@ private:
                      SourceLocation TemporaryLocation);
 
   llvm::DebugLoc OriginalLocation;
-  CodeGenFunction &CGF;
+  CodeGenFunction *CGF;
 
 public:
   /// Set the location to the (valid) TemporaryLocation.
   ApplyDebugLocation(CodeGenFunction &CGF, SourceLocation TemporaryLocation);
   ApplyDebugLocation(CodeGenFunction &CGF, const Expr *E);
   ApplyDebugLocation(CodeGenFunction &CGF, llvm::DebugLoc Loc);
+  ApplyDebugLocation(ApplyDebugLocation &&Other) : CGF(Other.CGF) {
+    Other.CGF = nullptr;
+  }
 
   ~ApplyDebugLocation();
 

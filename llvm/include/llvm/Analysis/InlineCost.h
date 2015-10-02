@@ -58,8 +58,8 @@ typedef enum {
    InlrFirst, // Just a marker placed before the first inlining reason
    InlrNoReason,
    InlrAlwaysInline,
-   InlrSingleBasicBlock,
    InlrSingleLocalCall,
+   InlrSingleBasicBlock,
    InlrEmptyFunction,
    InlrVectorBonus,
    InlrProfitable,

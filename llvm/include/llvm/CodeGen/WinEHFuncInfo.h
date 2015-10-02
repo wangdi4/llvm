@@ -14,11 +14,13 @@
 #ifndef LLVM_CODEGEN_WINEHFUNCINFO_H
 #define LLVM_CODEGEN_WINEHFUNCINFO_H
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TinyPtrVector.h"
-#include "llvm/ADT/DenseMap.h"
 
 namespace llvm {
+class AllocaInst;
 class BasicBlock;
 class Constant;
 class Function;
@@ -27,6 +29,7 @@ class InvokeInst;
 class IntrinsicInst;
 class LandingPadInst;
 class MCSymbol;
+class MachineBasicBlock;
 class Value;
 
 enum ActionType { Catch, Cleanup };
@@ -115,42 +118,128 @@ void parseEHActions(const IntrinsicInst *II,
 
 struct WinEHUnwindMapEntry {
   int ToState;
-  Function *Cleanup;
+  const Value *Cleanup;
+};
+
+typedef PointerUnion<const BasicBlock *, MachineBasicBlock *> MBBOrBasicBlock;
+typedef PointerUnion<const Value *, MachineBasicBlock *> ValueOrMBB;
+
+/// Similar to WinEHUnwindMapEntry, but supports SEH filters.
+struct SEHUnwindMapEntry {
+  /// If unwinding continues through this handler, transition to the handler at
+  /// this state. This indexes into SEHUnwindMap.
+  int ToState = -1;
+
+  /// Holds the filter expression function.
+  const Function *Filter = nullptr;
+
+  /// Holds the __except or __finally basic block.
+  MBBOrBasicBlock Handler;
 };
 
 struct WinEHHandlerType {
   int Adjectives;
   GlobalVariable *TypeDescriptor;
   int CatchObjRecoverIdx;
-  Function *Handler;
+  ValueOrMBB Handler;
 };
 
 struct WinEHTryBlockMapEntry {
-  int TryLow;
-  int TryHigh;
+  int TryLow = -1;
+  int TryHigh = -1;
+  int CatchHigh = -1;
   SmallVector<WinEHHandlerType, 1> HandlerArray;
 };
 
 struct WinEHFuncInfo {
   DenseMap<const Function *, const LandingPadInst *> RootLPad;
   DenseMap<const Function *, const InvokeInst *> LastInvoke;
+#if !INTEL_CUSTOMIZATION
   DenseMap<const Function *, int> HandlerEnclosedState;
+#endif // !INTEL_CUSTOMIZATION
   DenseMap<const Function *, bool> LastInvokeVisited;
-  DenseMap<const LandingPadInst *, int> LandingPadStateMap;
+  DenseMap<const Instruction *, int> EHPadStateMap;
   DenseMap<const Function *, int> CatchHandlerParentFrameObjIdx;
   DenseMap<const Function *, int> CatchHandlerParentFrameObjOffset;
   DenseMap<const Function *, int> CatchHandlerMaxState;
   DenseMap<const Function *, int> HandlerBaseState;
+#if INTEL_CUSTOMIZATION
+  // When we calculate EH states for a function (and its outlined handlers)
+  // we maintain a stack (WinEHNumbering::HandlerStack) of catch/cleanup
+  // handlers which are reachable from the last call site processed. When a
+  // new call site is processed, we compare the handler actions for that
+  // call site (as described by the llvm.eh.actions intrinsic for the call
+  // site's landing pad) to the current stack.  Any handler not in the call
+  // site's action set is popped from the stack and any handler for the call
+  // site that is not already on the stack is pushed on.
+  //
+  // Ordinarily, we calculate EH state numbers for a handler when it is popped
+  // from the stack and associate an EH state (the lowest state of code it
+  // encloses) with the handler.  However, when we process code that contains
+  // nested try-catch blocks there will be circumstances when a handler
+  // must be popped from the active handler stack before its last use (because
+  // it is unreachable from some nested call site).
+  //
+  // The following code is a typical example:
+  //
+  // void f() {
+  //   try {
+  //     one();
+  //     try {
+  //       two();
+  //     } catch (...) { // f.catch.1
+  //     }
+  //     three();
+  //   } catch (int) { // f.catch
+  //   }
+  // }
+  //
+  // In this case, the f.catch handler will be pushed to the active stack
+  // at the 'one()' call site, popped from the active stack at the 'two()'
+  // call site and pushed again at the 'three()' call site.
+  //
+  // In order to correctly compute the EH states, we must recognize that
+  // the handler is not ready to be processed the first time it is popped
+  // from the stack. To handle this case, we maintain a list of "deferred"
+  // handlers.  That is, handlers which are not reachable from the current
+  // call site but which are still logically active.
+  //
+  // A handler is deferred if the last invoke from which the handler is
+  // reachable has not yet been processed or if the state it encloses is lower
+  // than the current visible state (the maximum of the state of the handler
+  // at the top of the active stack or the base state of the function/funclet
+  // being processed).
+  //
+  // Handlers are removed from the deferred vector when they become active.
+  // When we finish calculating EH states for a function/funclet, the deferred
+  // handler vector is examined and any deferred handler whose enclosed state
+  // exceeds the current visible state is removed from the vector and
+  // EH states are calculated for the handler.
+  //
+  // The vector of deferred handlers is kept sorted by the EH state which the
+  // handler encloses, so that the handler at the back of the vector represents
+  // the highest EH state that is currently deferred.  This is used when
+  // computing the unwind state.
+  //
+  // The elements of the vector are a pair composed of the handler function and
+  // the EH state which that handler encloses.
+  SmallVector<std::pair<const Function *, int>, 4> DeferredHandlers;
+#endif // INTEL_CUSTOMIZATION
   SmallVector<WinEHUnwindMapEntry, 4> UnwindMap;
   SmallVector<WinEHTryBlockMapEntry, 4> TryBlockMap;
+  SmallVector<SEHUnwindMapEntry, 4> SEHUnwindMap;
   SmallVector<std::pair<MCSymbol *, int>, 4> IPToStateList;
   int UnwindHelpFrameIdx = INT_MAX;
   int UnwindHelpFrameOffset = -1;
   unsigned NumIPToStateFuncsVisited = 0;
 
+  int getLastStateNumber() const { return UnwindMap.size() - 1; }
+
   /// localescape index of the 32-bit EH registration node. Set by
   /// WinEHStatePass and used indirectly by SEH filter functions of the parent.
   int EHRegNodeEscapeIndex = INT_MAX;
+  const AllocaInst *EHRegNode = nullptr;
+  int EHRegNodeFrameIndex = INT_MAX;
 
   WinEHFuncInfo() {}
 };
@@ -161,5 +250,7 @@ struct WinEHFuncInfo {
 void calculateWinCXXEHStateNumbers(const Function *ParentFn,
                                    WinEHFuncInfo &FuncInfo);
 
+void calculateSEHStateNumbers(const Function *ParentFn,
+                              WinEHFuncInfo &FuncInfo);
 }
 #endif // LLVM_CODEGEN_WINEHFUNCINFO_H

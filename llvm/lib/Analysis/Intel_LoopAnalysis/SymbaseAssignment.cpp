@@ -150,7 +150,7 @@ char SymbaseAssignment::ID = 0;
 
 INITIALIZE_PASS_BEGIN(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                       true)
-INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                     true)
@@ -168,13 +168,13 @@ void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
   AU.addRequired<HIRParser>();
-  AU.addRequired<AliasAnalysis>();
+  AU.addRequired<AAResultsWrapperPass>();
 }
 
 bool SymbaseAssignment::runOnFunction(Function &F) {
 
   this->F = &F;
-  auto AA = &getAnalysis<AliasAnalysis>();
+  auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   HIRP = &getAnalysis<HIRParser>();
 
   HLUtils::setSymbaseAssignment(this);

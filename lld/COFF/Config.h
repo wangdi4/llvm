@@ -1,4 +1,4 @@
-//===- Config.h -----------------------------------------------------------===//
+//===- Config.h -------------------------------------------------*- C++ -*-===//
 //
 //                             The LLVM Linker
 //
@@ -36,13 +36,16 @@ static const auto I386 = llvm::COFF::IMAGE_FILE_MACHINE_I386;
 struct Export {
   StringRef Name;       // N in /export:N or /export:E=N
   StringRef ExtName;    // E in /export:E=N
-  StringRef ExtDLLName; // Symbol name written to a DLL export table
-  StringRef ExtLibName; // Symbol name written to a import library
   Undefined *Sym = nullptr;
   uint16_t Ordinal = 0;
   bool Noname = false;
   bool Data = false;
   bool Private = false;
+
+  // True if this /export option was in .drectves section.
+  bool Directives = false;
+  StringRef SymbolName;
+  StringRef ExportName; // Name in DLL
 
   bool operator==(const Export &E) {
     return (Name == E.Name && ExtName == E.ExtName &&
@@ -78,6 +81,7 @@ struct Configuration {
   StringRef Implib;
   std::vector<Export> Exports;
   std::set<std::string> DelayLoads;
+  std::map<std::string, int> DLLOrder;
   Undefined *DelayLoadHelper = nullptr;
 
   // Used for SafeSEH.
@@ -86,6 +90,12 @@ struct Configuration {
 
   // Used for /opt:icf
   bool ICF = false;
+
+  // Used for /opt:lldlto=N
+  unsigned LTOOptLevel = 2;
+
+  // Used for /opt:lldltojobs=N
+  unsigned LTOJobs = 1;
 
   // Used for /merge:from=to (e.g. /merge:.rdata=.text)
   std::map<StringRef, StringRef> Merge;

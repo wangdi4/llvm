@@ -59,8 +59,7 @@ public:
     // Pass NULL for "process" if the ProcessProperties are to be the global copy
     ProcessProperties (lldb_private::Process *process);
 
-    virtual
-    ~ProcessProperties();
+    ~ProcessProperties() override;
     
     bool
     GetDisableMemoryCache() const;
@@ -414,22 +413,22 @@ public:
         OptionParsingStarting ();
     }
     
-    ~ProcessLaunchCommandOptions ()
+    ~ProcessLaunchCommandOptions() override
     {
     }
     
     Error
-    SetOptionValue (uint32_t option_idx, const char *option_arg);
+    SetOptionValue (uint32_t option_idx, const char *option_arg) override;
     
     void
-    OptionParsingStarting ()
+    OptionParsingStarting() override
     {
         launch_info.Clear();
         disable_aslr = eLazyBoolCalculate;
     }
     
     const OptionDefinition*
-    GetDefinitions ()
+    GetDefinitions() override
     {
         return g_option_table;
     }
@@ -793,7 +792,7 @@ public:
     
     static ConstString &GetStaticBroadcasterClass ();
 
-    virtual ConstString &GetBroadcasterClass() const
+    ConstString &GetBroadcasterClass() const override
     {
         return GetStaticBroadcasterClass();
     }
@@ -823,13 +822,13 @@ public:
             ProcessEventData ();
             ProcessEventData (const lldb::ProcessSP &process, lldb::StateType state);
 
-            virtual ~ProcessEventData();
+            ~ProcessEventData() override;
 
             static const ConstString &
             GetFlavorString ();
 
-            virtual const ConstString &
-            GetFlavor () const;
+            const ConstString &
+            GetFlavor() const override;
 
             lldb::ProcessSP
             GetProcessSP() const
@@ -869,11 +868,11 @@ public:
                 return m_interrupted;
             }
 
-            virtual void
-            Dump (Stream *s) const;
+            void
+            Dump(Stream *s) const override;
 
-            virtual void
-            DoOnRemoval (Event *event_ptr);
+            void
+            DoOnRemoval(Event *event_ptr) override;
 
             static const Process::ProcessEventData *
             GetEventDataFromEvent (const Event *event_ptr);
@@ -956,13 +955,13 @@ public:
     /// Construct with a shared pointer to a target, and the Process listener.
     /// Uses the Host UnixSignalsSP by default.
     //------------------------------------------------------------------
-    Process(Target &target, Listener &listener);
+    Process(lldb::TargetSP target_sp, Listener &listener);
 
     //------------------------------------------------------------------
     /// Construct with a shared pointer to a target, the Process listener,
     /// and the appropriate UnixSignalsSP for the process.
     //------------------------------------------------------------------
-    Process(Target &target, Listener &listener, const lldb::UnixSignalsSP &unix_signals_sp);
+    Process(lldb::TargetSP target_sp, Listener &listener, const lldb::UnixSignalsSP &unix_signals_sp);
 
     //------------------------------------------------------------------
     /// Destructor.
@@ -970,8 +969,7 @@ public:
     /// The destructor is virtual since this class is designed to be
     /// inherited from by the plug-in instance.
     //------------------------------------------------------------------
-    virtual
-    ~Process();
+    ~Process() override;
 
     //------------------------------------------------------------------
     /// Find a Process plug-in that can debug \a module using the
@@ -992,7 +990,7 @@ public:
     /// @see Process::CanDebug ()
     //------------------------------------------------------------------
     static lldb::ProcessSP
-    FindPlugin (Target &target, 
+    FindPlugin (lldb::TargetSP target_sp,
                 const char *plugin_name, 
                 Listener &listener, 
                 const FileSpec *crash_file_path);
@@ -1043,7 +1041,7 @@ public:
     ///     debug the executable, \b false otherwise.
     //------------------------------------------------------------------
     virtual bool
-    CanDebug (Target &target,
+    CanDebug (lldb::TargetSP target,
               bool plugin_specified_by_name) = 0;
 
 
@@ -1434,7 +1432,7 @@ public:
     Signal (int signal);
 
     void
-    SetUnixSignals(const lldb::UnixSignalsSP &signals_sp);
+    SetUnixSignals(lldb::UnixSignalsSP &&signals_sp);
 
     const lldb::UnixSignalsSP &
     GetUnixSignals();
@@ -1849,7 +1847,7 @@ public:
     Target &
     GetTarget ()
     {
-        return m_target;
+        return *m_target_sp.lock();
     }
 
     //------------------------------------------------------------------
@@ -1862,7 +1860,7 @@ public:
     const Target &
     GetTarget () const
     {
-        return m_target;
+        return *m_target_sp.lock();
     }
 
     //------------------------------------------------------------------
@@ -3081,29 +3079,29 @@ public:
     //------------------------------------------------------------------
     // lldb::ExecutionContextScope pure virtual functions
     //------------------------------------------------------------------
-    virtual lldb::TargetSP
-    CalculateTarget ();
+    lldb::TargetSP
+    CalculateTarget()  override;
     
-    virtual lldb::ProcessSP
-    CalculateProcess ()
+    lldb::ProcessSP
+    CalculateProcess() override
     {
         return shared_from_this();
     }
     
-    virtual lldb::ThreadSP
-    CalculateThread ()
+    lldb::ThreadSP
+    CalculateThread() override
     {
         return lldb::ThreadSP();
     }
     
-    virtual lldb::StackFrameSP
-    CalculateStackFrame ()
+    lldb::StackFrameSP
+    CalculateStackFrame() override
     {
         return lldb::StackFrameSP();
     }
 
-    virtual void
-    CalculateExecutionContext (ExecutionContext &exe_ctx);
+    void
+    CalculateExecutionContext(ExecutionContext &exe_ctx) override;
     
     void
     SetSTDIOFileDescriptor (int file_descriptor);
@@ -3265,14 +3263,14 @@ protected:
     public:
         AttachCompletionHandler (Process *process, uint32_t exec_count);
 
-        virtual
-        ~AttachCompletionHandler() 
+        ~AttachCompletionHandler() override
         {
         }
         
-        virtual EventActionResult PerformAction (lldb::EventSP &event_sp);
-        virtual EventActionResult HandleBeingInterrupted ();
-        virtual const char *GetExitString();
+        EventActionResult PerformAction(lldb::EventSP &event_sp) override;
+        EventActionResult HandleBeingInterrupted() override;
+        const char *GetExitString() override;
+
     private:
         uint32_t m_exec_count;
         std::string m_exit_string;
@@ -3317,7 +3315,7 @@ protected:
     //------------------------------------------------------------------
     // Member variables
     //------------------------------------------------------------------
-    Target &                    m_target;               ///< The target that owns this process.
+    std::weak_ptr<Target>       m_target_sp;            ///< The target that owns this process.
     ThreadSafeValue<lldb::StateType>  m_public_state;
     ThreadSafeValue<lldb::StateType>  m_private_state; // The actual state of our process
     Broadcaster                 m_private_state_broadcaster;  // This broadcaster feeds state changed events into the private state thread's listener.
@@ -3489,15 +3487,15 @@ protected:
     void
     LoadOperatingSystemPlugin(bool flush);
 private:
+
     //------------------------------------------------------------------
     // For Process only
     //------------------------------------------------------------------
     void ControlPrivateStateThread (uint32_t signal);
     
     DISALLOW_COPY_AND_ASSIGN (Process);
-
 };
 
 } // namespace lldb_private
 
-#endif  // liblldb_Process_h_
+#endif // liblldb_Process_h_
