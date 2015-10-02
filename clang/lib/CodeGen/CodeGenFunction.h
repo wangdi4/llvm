@@ -307,10 +307,9 @@ public:
 
       virtual bool emitSafelen(CodeGenFunction *CGF) const;
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-      virtual void emitIntelIntrinsic(CodeGenFunction *CGF,
-                                      CodeGenModule *CGM,
-                                      llvm::Value *LoopIndex,
-                                      llvm::Value *LoopCount) const;
+      void emitIntelIntrinsic(CodeGenFunction *CGF, CodeGenModule *CGM,
+                              Address LoopIndex,
+                              llvm::Value *LoopCount) const override;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
       virtual bool walkLocalVariablesToEmit(
                       CodeGenFunction *CGF,
