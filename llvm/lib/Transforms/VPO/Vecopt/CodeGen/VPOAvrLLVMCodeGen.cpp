@@ -156,7 +156,9 @@ bool AVRCodeGen::loopIsHandled() {
   if (!TripCount) {
     errs() << "VPO_OPTREPORT: Vectorization failed: "
               "failed to compute loop trip count\n";
+#ifndef NDEBUG
     L->dump();
+#endif
   }
 
   VL = AWrn->getSimdVectorLength();
@@ -231,6 +233,9 @@ void AVRCodeGen::createEmptyLoop() {
       ConstantInt::get(IntegerType::get(F->getContext(), 1), 1));
   ReplaceInstWithInst(Term, VecBodyBranch);
   Builder.SetInsertPoint(cast<Instruction>(NextIdx));
+
+  // Inform SCEV analysis to forget original loop
+  SE->forgetLoop(OrigLoop);
 }
 
 Value *AVRCodeGen::getVectorValue(Value *V) {

@@ -51,10 +51,15 @@ VPODriver::VPODriver() : FunctionPass(ID) {
 
 void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
 
-  AU.setPreservesAll();
+  // TODO: We do not preserve loopinfo as we remove loops, create new
+  // loops. Same holds for Scalar Evolution which needs to be computed
+  // for newly created loops. For now only mark AVRGenerate as
+  // preserved.
+  // AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<AVRGenerate>();
   AU.addRequired<ScalarEvolution>();
+  AU.addPreserved<AVRGenerate>();
 }
 
 bool VPODriver::runOnFunction(Function &F) {
