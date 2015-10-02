@@ -54,8 +54,10 @@ private:
   /// suppressed for dummy instructions so we use NoFolder class instead.
   typedef IRBuilder<true, NoFolder> DummyIRBuilderTy;
   static DummyIRBuilderTy *DummyIRBuilder;
-  /// \brief Points to first dummy instruction created in the function.
+  /// \brief Points to first dummy instruction of the function.
   static Instruction *FirstDummyInst;
+  /// \brief Points to last dummy instruction of the function.
+  static Instruction *LastDummyInst;
 
   friend class HIRCreation;
   friend class HIRCleanup;
@@ -67,8 +69,8 @@ private:
   struct LoopFinderUpdater;
   struct TopSorter;
 
-  /// \brief Initializes FirstDummyInst for the function.
-  static void setFirstDummyInst(Instruction *Inst);
+  /// \brief Updates first and last dummy inst of the function.
+  static void setFirstAndLastDummyInst(Instruction *Inst);
 
   /// \brief Initializes static members for this function.
   static void initialize(Function &F);
@@ -261,8 +263,11 @@ public:
   static bool isKnownPositive(const CanonExpr *CE,
                               const HLLoop *ParentLoop = nullptr);
 
-  /// \brief Returns the first dummy instruction added for the function.
+  /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
+
+  /// \brief Returns the last dummy instruction of the function.
+  static Instruction *getLastDummyInst() { return LastDummyInst; }
 
   /// \brief Returns a new HLSwitch.
   static HLSwitch *createHLSwitch(RegDDRef *ConditionRef);

@@ -23,6 +23,7 @@ using namespace loopopt;
 
 HLNodeUtils::DummyIRBuilderTy *HLNodeUtils::DummyIRBuilder(nullptr);
 Instruction *HLNodeUtils::FirstDummyInst(nullptr);
+Instruction *HLNodeUtils::LastDummyInst(nullptr);
 
 HLRegion *HLNodeUtils::createHLRegion(IRRegion *IRReg) {
   return new HLRegion(IRReg);
@@ -67,10 +68,12 @@ HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
 
 void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
 
-void HLNodeUtils::setFirstDummyInst(Instruction *Inst) {
+void HLNodeUtils::setFirstAndLastDummyInst(Instruction *Inst) {
   if (!FirstDummyInst) {
     FirstDummyInst = Inst;
   }
+
+  LastDummyInst = Inst;
 }
 
 void HLNodeUtils::initialize(Function &F) {
@@ -79,6 +82,7 @@ void HLNodeUtils::initialize(Function &F) {
   DummyIRBuilder->SetInsertPoint(F.getEntryBlock().getTerminator());
 
   FirstDummyInst = nullptr;
+  LastDummyInst = nullptr;
 }
 
 void HLNodeUtils::destroyAll() {
@@ -126,7 +130,7 @@ void HLNodeUtils::checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
 
 HLInst *HLNodeUtils::createLvalHLInst(Instruction *Inst, RegDDRef *LvalRef) {
 
-  setFirstDummyInst(Inst);
+  setFirstAndLastDummyInst(Inst);
 
   auto HInst = createHLInst(Inst);
 

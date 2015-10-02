@@ -65,7 +65,6 @@ class HIRCodeGen : public FunctionPass {
 private:
   ScalarEvolution *SE;
   Function *F;
-  BasicBlock::InstListType DummyInstList;
 
   // This does the real work of llvm ir cg
   // Uses IRBuilder to generate LLVM IR for each HIR construct
@@ -317,8 +316,6 @@ public:
     SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
     auto HIRP = &getAnalysis<HIRParser>();
 
-    moveDummyInstructions();
-
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
@@ -359,11 +356,6 @@ public:
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<HIRParser>();
   }
-
-  /// \brief Moves all the dummy instructions created by HIR transformations to
-  /// an internal list, to be erased later on. This is done to avoid erasing
-  /// alloca instructions inseted by CG in the function entry bblock.
-  void moveDummyInstructions();
 
   /// \brief Erases all the dummy instructions.
   void eraseDummyInstructions();
@@ -1057,25 +1049,18 @@ Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {
       ConstantInt::getSigned(const_cast<Type *>(V->getType()), Coeff), V);
 }
 
-void HIRCodeGen::moveDummyInstructions() {
-  auto Inst = HLNodeUtils::getFirstDummyInst();
+void HIRCodeGen::eraseDummyInstructions() {
 
-  if (!Inst) {
+  auto FirstInst = HLNodeUtils::getFirstDummyInst();
+  auto LastInst = HLNodeUtils::getLastDummyInst();
+
+  if (!FirstInst) {
     return;
   }
 
-  auto BB = Inst->getParent();
-  auto &BBInstList = BB->getInstList();
-  auto TermInst = BB->getTerminator();
-  auto FirstIt = BasicBlock::iterator(Inst);
-  auto LastIt = BasicBlock::iterator(TermInst);
-
-  // Dummy instructions are inserted before the terminator of the bblock so we
-  // need to move all the instructions upto the terminator.
-  DummyInstList.splice(DummyInstList.begin(), BBInstList, FirstIt, LastIt);
-}
-
-void HIRCodeGen::eraseDummyInstructions() {
-  // clear() calls delete on the nodes.
-  DummyInstList.clear();
+  for (auto I = BasicBlock::iterator(FirstInst),
+            E = std::next(BasicBlock::iterator(LastInst));
+       I != E;) {
+    I = I->eraseFromParent();
+  }
 }
