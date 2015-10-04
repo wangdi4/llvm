@@ -1,5 +1,10 @@
-; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops=true -analyze < %s | FileCheck %s --check-prefix=INNERMOST
-; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops=true -analyze < %s | FileCheck %s --check-prefix=ALL
+; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine-branches \
+; RUN:     -polly-allow-nonaffine-loops=true -polly-detect-unprofitable \
+; RUN:     -analyze < %s | FileCheck %s --check-prefix=INNERMOST
+; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine \
+; RUN:     -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops=true \
+; RUN:     -polly-detect-unprofitable -analyze < %s | FileCheck %s \
+; RUN:     --check-prefix=ALL
 ;
 ; INNERMOST:    Function: f
 ; INNERMOST:    Region: %bb9---%bb17
@@ -14,7 +19,11 @@
 ; INNERMOST:    Statements {
 ; INNERMOST:      Stmt_bb11
 ; INNERMOST:            Domain :=
-; INNERMOST:                [N] -> { Stmt_bb11[i0] : i0 >= 0 and N >= 1 and i0 <= -1 + N };
+; INNERMOST:                [N] -> { Stmt_bb11[i0] :
+; INNERMOST-DAG:                i0 >= 0
+; INNERMOST-DAG:              and
+; INNERMOST-DAG:                i0 <= -1 + N
+; INNERMOST:                  }
 ; INNERMOST:            Schedule :=
 ; INNERMOST:                [N] -> { Stmt_bb11[i0] -> [i0] };
 ; INNERMOST:            ReadAccess := [Reduction Type: +] [Scalar: 0]
@@ -33,17 +42,21 @@
 ; ALL:    Alias Groups (0):
 ; ALL:        n/a
 ; ALL:    Statements {
-; ALL:      Stmt_(bb4 => bb17)
+; ALL:      Stmt_bb4__TO__bb17
 ; ALL:            Domain :=
-; ALL:                { Stmt_(bb4 => bb17)[i0] : i0 >= 0 and i0 <= 1023 };
+; ALL:                { Stmt_bb4__TO__bb17[i0] :
+; ALL-DAG:               i0 >= 0
+; ALL-DAG:             and
+; ALL-DAG:               i0 <= 1023
+; ALL:                }
 ; ALL:            Schedule :=
-; ALL:                { Stmt_(bb4 => bb17)[i0] -> [i0] };
+; ALL:                { Stmt_bb4__TO__bb17[i0] -> [i0] };
 ; ALL:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
-; ALL:                { Stmt_(bb4 => bb17)[i0] -> MemRef_A[i0] };
+; ALL:                { Stmt_bb4__TO__bb17[i0] -> MemRef_A[i0] };
 ; ALL:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
-; ALL:                { Stmt_(bb4 => bb17)[i0] -> MemRef_A[o0] : o0 <= 2147483645 and o0 >= 0 };
+; ALL:                { Stmt_bb4__TO__bb17[i0] -> MemRef_A[o0] : o0 <= 2147483645 and o0 >= 0 };
 ; ALL:            MayWriteAccess := [Reduction Type: NONE] [Scalar: 0]
-; ALL:                { Stmt_(bb4 => bb17)[i0] -> MemRef_A[o0] : o0 <= 2147483645 and o0 >= 0 };
+; ALL:                { Stmt_bb4__TO__bb17[i0] -> MemRef_A[o0] : o0 <= 2147483645 and o0 >= 0 };
 ; ALL:    }
 ;
 ;    void f(int *A, int N) {

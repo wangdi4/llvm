@@ -467,6 +467,8 @@ void MCStreamer::EmitWinEHHandlerData() {
     report_fatal_error("Chained unwind areas can't have handlers!");
 }
 
+void MCStreamer::EmitSyntaxDirective() {}
+
 void MCStreamer::EmitWinCFIPushReg(unsigned Register) {
   EnsureValidWinFrameInfo();
 
@@ -476,8 +478,6 @@ void MCStreamer::EmitWinCFIPushReg(unsigned Register) {
   WinEH::Instruction Inst = Win64EH::Instruction::PushNonVol(Label, Register);
   CurrentWinFrameInfo->Instructions.push_back(Inst);
 }
-
-void MCStreamer::EmitSyntaxDirective(){}
 
 void MCStreamer::EmitWinCFISetFrame(unsigned Register, unsigned Offset) {
   EnsureValidWinFrameInfo();

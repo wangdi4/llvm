@@ -91,9 +91,13 @@ math/half_sqrt.cl
 math/hypot.cl
 math/clc_ldexp.cl
 math/ldexp.cl
+math/log.cl
 math/log10.cl
 math/log1p.cl
+math/log2.cl
 math/mad.cl
+math/native_log.cl
+math/native_log2.cl
 math/tables.cl
 math/clc_nextafter.cl
 math/nextafter.cl
@@ -102,6 +106,8 @@ math/sin.cl
 math/sincos.cl
 math/sincos_helpers.cl
 math/sinpi.cl
+math/clc_sqrt.cl
+math/sqrt.cl
 math/tan.cl
 relational/all.cl
 relational/any.cl

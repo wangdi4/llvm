@@ -20,6 +20,7 @@ namespace llvm {
   class Use;
   class Instruction;
   class DominatorTree;
+  class OrderedBasicBlock;
 
   /// PointerMayBeCaptured - Return true if this pointer value may be captured
   /// by the enclosing function (which is required to exist).  This routine can
@@ -28,9 +29,11 @@ namespace llvm {
   /// counts as capturing it or not.  The boolean StoreCaptures specified
   /// whether storing the value (or part of it) into memory anywhere
   /// automatically counts as capturing it or not.
-  bool PointerMayBeCaptured(const Value *V,
-                            bool ReturnCaptures,
-                            bool StoreCaptures);
+  bool PointerMayBeCaptured(
+      const Value *V, bool ReturnCaptures, bool StoreCaptures,
+      // The flag IgnoreNoAliasArgStCaptures is ON means that the analysis
+      // will ignore the store to the  no-alias argument pointer.
+      bool IgnoreNoAliasArgStCaptures = false);
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a
@@ -41,10 +44,12 @@ namespace llvm {
   /// it or not.  The boolean StoreCaptures specified whether storing the value
   /// (or part of it) into memory anywhere automatically counts as capturing it
   /// or not. Captures by the provided instruction are considered if the
-  /// final parameter is true.
+  /// final parameter is true. An ordered basic block in \p OBB could be used
+  /// to speed up capture-tracker queries.
   bool PointerMayBeCapturedBefore(const Value *V, bool ReturnCaptures,
                                   bool StoreCaptures, const Instruction *I,
-                                  DominatorTree *DT, bool IncludeI = false);
+                                  DominatorTree *DT, bool IncludeI = false,
+                                  OrderedBasicBlock *OBB = nullptr);
 
   /// This callback is used in conjunction with PointerMayBeCaptured. In
   /// addition to the interface here, you'll need to provide your own getters

@@ -19,6 +19,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/ilist.h"
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/CodeGen/DAGCombine.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
@@ -31,7 +32,6 @@
 
 namespace llvm {
 
-class AliasAnalysis;
 class MachineConstantPoolValue;
 class MachineFunction;
 class MDNode;
@@ -281,6 +281,7 @@ public:
   void clear();
 
   MachineFunction &getMachineFunction() const { return *MF; }
+  const DataLayout &getDataLayout() const { return MF->getDataLayout(); }
   const TargetMachine &getTarget() const { return TM; }
   const TargetSubtargetInfo &getSubtarget() const { return MF->getSubtarget(); }
   const TargetLowering &getTargetLoweringInfo() const { return *TLI; }
@@ -320,6 +321,14 @@ public:
   allnodes_iterator allnodes_end() { return AllNodes.end(); }
   ilist<SDNode>::size_type allnodes_size() const {
     return AllNodes.size();
+  }
+
+  iterator_range<allnodes_iterator> allnodes() {
+    return iterator_range<allnodes_iterator>(allnodes_begin(), allnodes_end());
+  }
+  iterator_range<allnodes_const_iterator> allnodes() const {
+    return iterator_range<allnodes_const_iterator>(allnodes_begin(),
+                                                   allnodes_end());
   }
 
   /// Return the root tag of the SelectionDAG.
@@ -678,7 +687,7 @@ public:
                   SDValue N3, SDValue N4);
   SDValue getNode(unsigned Opcode, SDLoc DL, EVT VT, SDValue N1, SDValue N2,
                   SDValue N3, SDValue N4, SDValue N5);
-  
+
   // Specialize again based on number of operands for nodes with a VTList
   // rather than a single VT.
   SDValue getNode(unsigned Opcode, SDLoc DL, SDVTList VTs);
@@ -892,6 +901,12 @@ public:
   /// the target's desired shift amount type.
   SDValue getShiftAmountOperand(EVT LHSTy, SDValue Op);
 
+  /// Expand the specified \c ISD::VAARG node as the Legalize pass would.
+  SDValue expandVAArg(SDNode *Node);
+
+  /// Expand the specified \c ISD::VACOPY node as the Legalize pass would.
+  SDValue expandVACopy(SDNode *Node);
+
   /// *Mutate* the specified node in-place to have the
   /// specified operands.  If the resultant node already exists in the DAG,
   /// this does not modify the specified node, instead it returns the node that
@@ -1063,6 +1078,10 @@ public:
     // target info.
     switch (Opcode) {
     case ISD::ADD:
+    case ISD::SMIN:
+    case ISD::SMAX:
+    case ISD::UMIN:
+    case ISD::UMAX:
     case ISD::MUL:
     case ISD::MULHU:
     case ISD::MULHS:
@@ -1079,6 +1098,8 @@ public:
     case ISD::ADDE:
     case ISD::FMINNUM:
     case ISD::FMAXNUM:
+    case ISD::FMINNAN:
+    case ISD::FMAXNAN:
       return true;
     default: return false;
     }

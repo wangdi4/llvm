@@ -35,9 +35,9 @@
 #define INTEL_LOOPANALYSIS_SYMBASE
 
 #include "llvm/Pass.h"
+
 namespace llvm {
 
-class AliasAnalysis;
 class Function;
 namespace loopopt {
 

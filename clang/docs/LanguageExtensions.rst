@@ -415,7 +415,7 @@ dash indicates that an operation is not accepted according to a corresponding
 specification.
 
 ============================== ======= ======= ======= =======
-         Opeator               OpenCL  AltiVec   GCC    NEON
+         Operator              OpenCL  AltiVec   GCC    NEON
 ============================== ======= ======= ======= =======
 []                               yes     yes     yes     --
 unary operators +, --            yes     yes     yes     --
@@ -1540,6 +1540,33 @@ takes no arguments and produces a void result.
 
 Query for this feature with ``__has_builtin(__builtin_unreachable)``.
 
+``__builtin_unpredictable``
+---------------------------
+
+``__builtin_unpredictable`` is used to indicate that a branch condition is
+unpredictable by hardware mechanisms such as branch prediction logic.
+
+**Syntax**:
+
+.. code-block:: c++
+
+    __builtin_unpredictable(long long)
+
+**Example of use**:
+
+.. code-block:: c++
+
+  if (__builtin_unpredictable(x > 0)) {
+     foo();
+  }
+
+**Description**:
+
+The ``__builtin_unpredictable()`` builtin is expected to be used with control
+flow conditions such as in ``if`` and ``switch`` statements.
+
+Query for this feature with ``__has_builtin(__builtin_unpredictable)``.
+
 ``__sync_swap``
 ---------------
 
@@ -1714,6 +1741,9 @@ The macros ``__ATOMIC_RELAXED``, ``__ATOMIC_CONSUME``, ``__ATOMIC_ACQUIRE``,
 ``__ATOMIC_RELEASE``, ``__ATOMIC_ACQ_REL``, and ``__ATOMIC_SEQ_CST`` are
 provided, with values corresponding to the enumerators of C11's
 ``memory_order`` enumeration.
+
+(Note that Clang additionally provides GCC-compatible ``__atomic_*``
+builtins)
 
 Low-level ARM exclusive memory builtins
 ---------------------------------------
@@ -1990,11 +2020,23 @@ iterations. Full unrolling is only possible if the loop trip count is known at
 compile time. Partial unrolling replicates the loop body within the loop and
 reduces the trip count.
 
+If ``unroll(enable)`` is specified the unroller will attempt to fully unroll the
+loop if the trip count is known at compile time. If the fully unrolled code size
+is greater than an internal limit the loop will be partially unrolled up to this
+limit. If the trip count is not known at compile time the loop will be partially
+unrolled with a heuristically chosen unroll factor.
+
+.. code-block:: c++
+
+  #pragma clang loop unroll(enable)
+  for(...) {
+    ...
+  }
+
 If ``unroll(full)`` is specified the unroller will attempt to fully unroll the
-loop if the trip count is known at compile time. If the loop count is not known
-or the fully unrolled code size is greater than the limit specified by the
-`-pragma-unroll-threshold` command line option the loop will be partially
-unrolled subject to the same limit.
+loop if the trip count is known at compile time identically to
+``unroll(enable)``. However, with ``unroll(full)`` the loop will not be unrolled
+if the loop count is not known at compile time.
 
 .. code-block:: c++
 
@@ -2006,7 +2048,7 @@ unrolled subject to the same limit.
 The unroll count can be specified explicitly with ``unroll_count(_value_)`` where
 _value_ is a positive integer. If this value is greater than the trip count the
 loop will be fully unrolled. Otherwise the loop is partially unrolled subject
-to the `-pragma-unroll-threshold` limit.
+to the same code size limit as with ``unroll(enable)``.
 
 .. code-block:: c++
 

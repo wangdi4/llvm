@@ -41,13 +41,10 @@ attributes #1 = { alwaysinline nounwind uwtable "less-precise-fpmad"="false" "no
 !llvm.module.flags = !{!7, !8}
 !llvm.ident = !{!9}
 
-!0 = !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 3.7.0 (trunk 967) (llvm/branches/ltoprof 992)", isOptimized: false, runtimeVersion: 0, emissionKind: 2, enums: !2, retainedTypes: !2, subprograms: !3, globals: !2, imports: !2)
+!0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1)
 !1 = !DIFile(filename: "sm1.c", directory: "/users/rcox2/rgSmall")
-!2 = !{}
-!3 = !{!4, !6}
-!4 = !DISubprogram(name: "fred", scope: !1, file: !1, line: 6, type: !5, isLocal: false, isDefinition: true, scopeLine: 7, isOptimized: false, function: i32 ()* @fred, variables: !2)
-!5 = !DISubroutineType(types: !2)
-!6 = !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, type: !5, isLocal: true, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, function: i32 ()* @foo, variables: !2)
+!4 = !DISubprogram(name: "fred", scope: !1, file: !1, line: 6, isLocal: false, isDefinition: true, scopeLine: 7, isOptimized: false, function: i32 ()* @fred)
+!6 = !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, isLocal: true, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, function: i32 ()* @foo)
 !7 = !{i32 2, !"Dwarf Version", i32 4}
 !8 = !{i32 2, !"Debug Info Version", i32 3}
 !9 = !{!"clang version 3.7.0 (trunk 967) (llvm/branches/ltoprof 992)"}

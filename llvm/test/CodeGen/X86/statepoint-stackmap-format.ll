@@ -16,8 +16,8 @@ define i1 @test(i32 addrspace(1)* %ptr_base, i32 %arg)
 ; alloca?
 ; CHECK: subq	$40, %rsp
 ; CHECK: movq	$0,   24(%rsp)
-; CHECK: movq	%rdi, 16(%rsp)
-; CHECK: movq	%rax, 8(%rsp)
+; CHECK: movq	%rdi, [[OFF1:[0-9]*]](%rsp)
+; CHECK: movq	%rax, [[OFF2:[0-9]*]](%rsp)
 ; CHECK: callq return_i1
 ; CHECK: addq	$40, %rsp
 ; CHECK: retq
@@ -45,8 +45,8 @@ define i1 @test_derived_arg(i32 addrspace(1)* %ptr_base,
 ; alloca?
 ; CHECK: subq	$40, %rsp
 ; CHECK: movq	$0,   24(%rsp)
-; CHECK: movq	%rdi, 16(%rsp)
-; CHECK: movq	%rsi, 8(%rsp)
+; CHECK: movq	%rdi, [[OFF1]](%rsp)
+; CHECK: movq	%rsi, [[OFF2]](%rsp)
 ; CHECK: callq return_i1
 ; CHECK: addq	$40, %rsp
 ; CHECK: retq
@@ -123,11 +123,11 @@ declare i32 addrspace(1)* @llvm.experimental.gc.relocate.p1i32(i32, i32, i32) #3
 ; CHECK: .byte	8
 ; CHECK: .short	0
 ; CHECK: .long	2
-; Direct Spill Slot [RSP+0]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
+; CHECK: .long	[[OFF1]]
 ; SmallConstant  (0)
 ; CHECK: .byte	4
 ; CHECK: .byte	8
@@ -143,26 +143,26 @@ declare i32 addrspace(1)* @llvm.experimental.gc.relocate.p1i32(i32, i32, i32) #3
 ; CHECK: .byte	8
 ; CHECK: .short	0
 ; CHECK: .long	0
-; Direct Spill Slot [RSP+16]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
-; Direct Spill Slot [RSP+8]
+; CHECK: .long	[[OFF1]]
+; Direct Spill Slot [RSP+OFF2]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	8
-; Direct Spill Slot [RSP+16]
+; CHECK: .long	[[OFF2]]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
-; Direct Spill Slot [RSP+16]
+; CHECK: .long	[[OFF1]]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
+; CHECK: .long	[[OFF1]]
 
 ; No Padding or LiveOuts
 ; CHECK: .short	0
@@ -192,11 +192,11 @@ declare i32 addrspace(1)* @llvm.experimental.gc.relocate.p1i32(i32, i32, i32) #3
 ; CHECK: .byte	8
 ; CHECK: .short	0
 ; CHECK: .long	2
-; Direct Spill Slot [RSP+0]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
+; CHECK: .long	[[OFF1]]
 ; SmallConstant  (0)
 ; CHECK: .byte	4
 ; CHECK: .byte	8
@@ -212,26 +212,26 @@ declare i32 addrspace(1)* @llvm.experimental.gc.relocate.p1i32(i32, i32, i32) #3
 ; CHECK: .byte	8
 ; CHECK: .short	0
 ; CHECK: .long	0
-; Direct Spill Slot [RSP+16]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
-; Direct Spill Slot [RSP+8]
+; CHECK: .long	[[OFF1]]
+; Direct Spill Slot [RSP+OFF2]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	8
-; Direct Spill Slot [RSP+16]
+; CHECK: .long	[[OFF2]]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
-; Direct Spill Slot [RSP+16]
+; CHECK: .long	[[OFF1]]
+; Direct Spill Slot [RSP+OFF1]
 ; CHECK: .byte	2
 ; CHECK: .byte	8
 ; CHECK: .short	7
-; CHECK: .long	16
+; CHECK: .long	[[OFF1]]
 
 ; No Padding or LiveOuts
 ; CHECK: .short	0

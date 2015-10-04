@@ -27,11 +27,11 @@
 #include "lldb/Core/ThreadSafeValue.h"
 #include "lldb/Host/HostThread.h"
 #include "lldb/lldb-private-forward.h"
+#include "lldb/Utility/StringExtractor.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Thread.h"
 
 #include "GDBRemoteCommunicationClient.h"
-#include "Utility/StringExtractor.h"
 #include "GDBRemoteRegisterContext.h"
 
 namespace lldb_private {
@@ -46,7 +46,7 @@ public:
     // Constructors and Destructors
     //------------------------------------------------------------------
     static lldb::ProcessSP
-    CreateInstance (Target& target, 
+    CreateInstance (lldb::TargetSP target_sp,
                     Listener &listener,
                     const FileSpec *crash_file_path);
 
@@ -68,7 +68,7 @@ public:
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
-    ProcessGDBRemote(Target& target, Listener &listener);
+    ProcessGDBRemote(lldb::TargetSP target_sp, Listener &listener);
 
     virtual
     ~ProcessGDBRemote();
@@ -77,7 +77,7 @@ public:
     // Check if a given Process
     //------------------------------------------------------------------
     bool
-    CanDebug (Target &target, bool plugin_specified_by_name) override;
+    CanDebug (lldb::TargetSP target_sp, bool plugin_specified_by_name) override;
 
     CommandObject *
     GetPluginCommandObject() override;
@@ -152,6 +152,9 @@ public:
     void
     RefreshStateAfterStop() override;
 
+    void
+    SetUnixSignals(const lldb::UnixSignalsSP &signals_sp);
+
     //------------------------------------------------------------------
     // Process Queries
     //------------------------------------------------------------------
@@ -160,6 +163,9 @@ public:
 
     lldb::addr_t
     GetImageInfoAddress() override;
+
+    void
+    WillPublicStop () override;
 
     //------------------------------------------------------------------
     // Process Memory
@@ -246,6 +252,9 @@ public:
 
     void
     ModulesDidLoad (ModuleList &module_list) override;
+
+    StructuredData::ObjectSP
+    GetLoadedDynamicLibrariesInfos (lldb::addr_t image_list_address, lldb::addr_t image_count) override;
 
 protected:
     friend class ThreadGDBRemote;
@@ -349,6 +358,7 @@ protected:
     Mutex m_last_stop_packet_mutex;
     GDBRemoteDynamicRegisterInfo m_register_info;
     Broadcaster m_async_broadcaster;
+    Listener m_async_listener;
     HostThread m_async_thread;
     Mutex m_async_thread_state_mutex;
     typedef std::vector<lldb::tid_t> tid_collection;
@@ -356,7 +366,8 @@ protected:
     typedef std::map<lldb::addr_t, lldb::addr_t> MMapMap;
     typedef std::map<uint32_t, std::string> ExpeditedRegisterMap;
     tid_collection m_thread_ids; // Thread IDs for all threads. This list gets updated after stopping
-    StructuredData::ObjectSP m_threads_info_sp; // Stop info for all threads if "jThreadsInfo" packet is supported
+    StructuredData::ObjectSP m_jstopinfo_sp; // Stop info only for any threads that have valid stop infos
+    StructuredData::ObjectSP m_jthreadsinfo_sp; // Full stop info, expedited registers and memory for all threads if "jThreadsInfo" packet is supported
     tid_collection m_continue_c_tids;                  // 'c' for continue
     tid_sig_collection m_continue_C_tids; // 'C' for continue with signal
     tid_collection m_continue_s_tids;                  // 's' for step
@@ -369,7 +380,7 @@ protected:
     bool m_destroy_tried_resuming;
     lldb::CommandObjectSP m_command_sp;
     int64_t m_breakpoint_pc_offset;
-    lldb::tid_t m_initial_tid; // The inital thread ID, given by stub on attach
+    lldb::tid_t m_initial_tid; // The initial thread ID, given by stub on attach
 
     bool
     HandleNotifyPacket(StringExtractorGDBRemote &packet);
@@ -393,7 +404,10 @@ protected:
     lldb::StateType
     SetThreadStopInfo (StringExtractor& stop_packet);
 
-    lldb::StateType
+    bool
+    GetThreadStopInfoFromJSON (ThreadGDBRemote *thread, const StructuredData::ObjectSP &thread_infos_sp);
+
+    lldb::ThreadSP
     SetThreadStopInfo (StructuredData::Dictionary *thread_dict);
 
     lldb::ThreadSP
@@ -442,7 +456,7 @@ protected:
     GetLoadedModuleList (GDBLoadedModuleInfoList &);
 
     lldb::ModuleSP
-    LoadModuleAtAddress (const FileSpec &file, lldb::addr_t base_addr);
+    LoadModuleAtAddress (const FileSpec &file, lldb::addr_t base_addr, bool value_is_offset);
 
 private:
     //------------------------------------------------------------------

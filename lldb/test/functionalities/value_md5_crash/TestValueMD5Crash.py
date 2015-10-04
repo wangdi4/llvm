@@ -20,6 +20,7 @@ class ValueMD5CrashTestCase(TestBase):
         self.doThings()
 
     @dwarf_test
+    @expectedFailureWindows("llvm.org/pr24663")
     def test_with_dwarf_and_run_command(self):
         """Verify that the hash computing logic for ValueObject's values can't crash us."""
         self.buildDwarf()
@@ -37,7 +38,7 @@ class ValueMD5CrashTestCase(TestBase):
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
@@ -48,7 +49,8 @@ class ValueMD5CrashTestCase(TestBase):
         value.SetPreferDynamicValue(lldb.eDynamicCanRunTarget)
         
         v = value.GetValue()
-        self.assertTrue(value.GetTypeName() == "B *", "a is a B*")
+        type_name = value.GetTypeName()
+        self.assertTrue(type_name == "B *", "a is a B*")
         
         self.runCmd("next")
         self.runCmd("process kill")

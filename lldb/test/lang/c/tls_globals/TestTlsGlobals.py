@@ -20,6 +20,7 @@ class TlsGlobalTestCase(TestBase):
 
     @dwarf_test
     @unittest2.expectedFailure("rdar://7796742")
+    @skipIfWindows # TLS works differently on Windows, this would need to be implemented separately.
     def test_with_dwarf(self):
         """Test thread-local storage."""
         self.buildDwarf()
@@ -44,7 +45,7 @@ class TlsGlobalTestCase(TestBase):
 
         line1 = line_number('main.c', '// thread breakpoint')
         lldbutil.run_break_set_by_file_and_line (self, "main.c", line1, num_expected_locations=1, loc_exact=True)
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.runCmd("process status", "Get process status")
@@ -65,7 +66,7 @@ class TlsGlobalTestCase(TestBase):
         # Continue on the main thread
         line2 = line_number('main.c', '// main breakpoint')
         lldbutil.run_break_set_by_file_and_line (self, "main.c", line2, num_expected_locations=1, loc_exact=True)
-        self.runCmd("continue", RUN_FAILED)
+        self.runCmd("continue", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.runCmd("process status", "Get process status")

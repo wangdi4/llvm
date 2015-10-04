@@ -22,6 +22,7 @@ class ThreadExitTestCase(TestBase):
 
     @expectedFailureDarwin("llvm.org/pr15824") # thread states not properly maintained
     @expectedFailureFreeBSD("llvm.org/pr18190") # thread states not properly maintained
+    @expectedFailureWindows("llvm.org/pr24681")
     @dwarf_test
     def test_with_dwarf(self):
         """Test thread exit handling."""
@@ -56,7 +57,7 @@ class ThreadExitTestCase(TestBase):
                        "4: file = 'main.cpp', line = %d, exact_match = 0, locations = 1" % self.break_4])
 
         # Run the program.
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint 1.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT + " 1",

@@ -53,9 +53,6 @@ void initializeInstrumentation(PassRegistry&);
 /// initializeAnalysis - Initialize all passes linked into the Analysis library.
 void initializeAnalysis(PassRegistry&);
 
-/// initializeIPA - Initialize all passes linked into the IPA library.
-void initializeIPA(PassRegistry&);
-
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeCodeGen(PassRegistry&);
 
@@ -76,23 +73,21 @@ void initializeAAEvalPass(PassRegistry&);
 void initializeAddDiscriminatorsPass(PassRegistry&);
 void initializeADCEPass(PassRegistry&);
 void initializeBDCEPass(PassRegistry&);
-void initializeAliasAnalysisAnalysisGroup(PassRegistry&);
-void initializeAliasAnalysisCounterPass(PassRegistry&);
-void initializeAliasDebuggerPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlwaysInlinerPass(PassRegistry&);
+void initializeAndersensPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeSampleProfileLoaderPass(PassRegistry&);
 void initializeAlignmentFromAssumptionsPass(PassRegistry&);
 void initializeBarrierNoopPass(PassRegistry&);
-void initializeBasicAliasAnalysisPass(PassRegistry&);
+void initializeBasicAAWrapperPassPass(PassRegistry&);
 void initializeCallGraphWrapperPassPass(PassRegistry &);
 void initializeBlockExtractorPassPass(PassRegistry&);
-void initializeBlockFrequencyInfoPass(PassRegistry&);
+void initializeBlockFrequencyInfoWrapperPassPass(PassRegistry&);
 void initializeBoundsCheckingPass(PassRegistry&);
 void initializeBranchFolderPassPass(PassRegistry&);
-void initializeBranchProbabilityInfoPass(PassRegistry&);
+void initializeBranchProbabilityInfoWrapperPassPass(PassRegistry&);
 void initializeBreakCriticalEdgesPass(PassRegistry&);
 void initializeCallGraphPrinterPass(PassRegistry&);
 void initializeCallGraphViewerPass(PassRegistry&);
@@ -100,7 +95,7 @@ void initializeCFGOnlyPrinterPass(PassRegistry&);
 void initializeCFGOnlyViewerPass(PassRegistry&);
 void initializeCFGPrinterPass(PassRegistry&);
 void initializeCFGSimplifyPassPass(PassRegistry&);
-void initializeCFLAliasAnalysisPass(PassRegistry&);
+void initializeCFLAAWrapperPassPass(PassRegistry&);
 void initializeForwardControlFlowIntegrityPass(PassRegistry&);
 void initializeFlattenCFGPassPass(PassRegistry&);
 void initializeStructurizeCFGPass(PassRegistry&);
@@ -130,6 +125,7 @@ void initializeDominatorTreeWrapperPassPass(PassRegistry&);
 void initializeEarlyIfConverterPass(PassRegistry&);
 void initializeEdgeBundlesPass(PassRegistry&);
 void initializeExpandPostRAPass(PassRegistry&);
+void initializeAAResultsWrapperPassPass(PassRegistry &);
 void initializeGCOVProfilerPass(PassRegistry&);
 void initializeInstrProfilingPass(PassRegistry&);
 void initializeAddressSanitizerPass(PassRegistry&);
@@ -140,6 +136,7 @@ void initializeSanitizerCoverageModulePass(PassRegistry&);
 void initializeDataFlowSanitizerPass(PassRegistry&);
 void initializeScalarizerPass(PassRegistry&);
 void initializeEarlyCSELegacyPassPass(PassRegistry &);
+void initializeEliminateAvailableExternallyPass(PassRegistry&);
 void initializeExpandISelPseudosPass(PassRegistry&);
 void initializeFunctionAttrsPass(PassRegistry&);
 void initializeGCMachineCodeAnalysisPass(PassRegistry&);
@@ -147,7 +144,7 @@ void initializeGCModuleInfoPass(PassRegistry&);
 void initializeGVNPass(PassRegistry&);
 void initializeGlobalDCEPass(PassRegistry&);
 void initializeGlobalOptPass(PassRegistry&);
-void initializeGlobalsModRefPass(PassRegistry&);
+void initializeGlobalsAAWrapperPassPass(PassRegistry&);
 void initializeIPCPPass(PassRegistry&);
 void initializeIPSCCPPass(PassRegistry&);
 void initializeIVUsersPass(PassRegistry&);
@@ -164,7 +161,6 @@ void initializeJumpThreadingPass(PassRegistry&);
 void initializeLCSSAPass(PassRegistry&);
 void initializeLICMPass(PassRegistry&);
 void initializeLazyValueInfoPass(PassRegistry&);
-void initializeLibCallAliasAnalysisPass(PassRegistry&);
 void initializeLintPass(PassRegistry&);
 void initializeLiveDebugVariablesPass(PassRegistry&);
 void initializeLiveIntervalsPass(PassRegistry&);
@@ -219,7 +215,7 @@ void initializeMergeFunctionsPass(PassRegistry&);
 void initializeModuleDebugInfoPrinterPass(PassRegistry&);
 void initializeNaryReassociatePass(PassRegistry&);
 void initializeNoAAPass(PassRegistry&);
-void initializeObjCARCAliasAnalysisPass(PassRegistry&);
+void initializeObjCARCAAWrapperPassPass(PassRegistry&);
 void initializeObjCARCAPElimPass(PassRegistry&);
 void initializeObjCARCExpandPass(PassRegistry&);
 void initializeObjCARCContractPass(PassRegistry&);
@@ -257,8 +253,8 @@ void initializeSCCPPass(PassRegistry&);
 void initializeSROAPass(PassRegistry&);
 void initializeSROA_DTPass(PassRegistry&);
 void initializeSROA_SSAUpPass(PassRegistry&);
-void initializeScalarEvolutionAliasAnalysisPass(PassRegistry&);
-void initializeScalarEvolutionPass(PassRegistry&);
+void initializeSCEVAAWrapperPassPass(PassRegistry&);
+void initializeScalarEvolutionWrapperPassPass(PassRegistry&);
 void initializeShrinkWrapPass(PassRegistry &);
 void initializeSimpleInlinerPass(PassRegistry&);
 void initializeShadowStackGCLoweringPass(PassRegistry&);  
@@ -285,8 +281,8 @@ void initializeTargetTransformInfoWrapperPassPass(PassRegistry &);
 void initializeTargetLibraryInfoWrapperPassPass(PassRegistry &);
 void initializeAssumptionCacheTrackerPass(PassRegistry &);
 void initializeTwoAddressInstructionPassPass(PassRegistry&);
-void initializeTypeBasedAliasAnalysisPass(PassRegistry&);
-void initializeScopedNoAliasAAPass(PassRegistry&);
+void initializeTypeBasedAAWrapperPassPass(PassRegistry&);
+void initializeScopedNoAliasAAWrapperPassPass(PassRegistry&);
 void initializeUnifyFunctionExitNodesPass(PassRegistry&);
 void initializeUnreachableBlockElimPass(PassRegistry&);
 void initializeUnreachableMachineBlockElimPass(PassRegistry&);
@@ -311,12 +307,10 @@ void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+// Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
-#endif  // INTEL_CUSTOMIZATION
-void initializeLoopDistributePass(PassRegistry&);
-
-#if INTEL_CUSTOMIZATION // HIR passes
+// HIR Passes
 void initializeRegionIdentificationPass(PassRegistry&);
 void initializeSCCFormationPass(PassRegistry&);
 void initializeScalarSymbaseAssignmentPass(PassRegistry&);
@@ -326,7 +320,6 @@ void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
-
 void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
@@ -335,6 +328,9 @@ void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
+void initializeLoopDistributePass(PassRegistry&);
+void initializeSjLjEHPreparePass(PassRegistry&);
+void initializeDemandedBitsPass(PassRegistry&);
 }
 
 #endif

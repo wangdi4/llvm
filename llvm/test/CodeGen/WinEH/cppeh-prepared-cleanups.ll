@@ -28,8 +28,10 @@ $_TI1H = comdat any
 
 
 ; CHECK-LABEL: "?test1@@YAXXZ":
+; CHECK: movq $-2, [[local_offs:[0-9]+]](%rsp)
 ; CHECK:             .seh_handlerdata
 ; CHECK-NEXT:        .long   ("$cppxdata$?test1@@YAXXZ")@IMGREL
+; CHECK-NEXT: .align 4
 ; CHECK-NEXT:"$cppxdata$?test1@@YAXXZ":
 ; CHECK-NEXT:        .long   429065506
 ; CHECK-NEXT:        .long   1
@@ -38,7 +40,7 @@ $_TI1H = comdat any
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   2
 ; CHECK-NEXT:        .long   ("$ip2state$?test1@@YAXXZ")@IMGREL
-; CHECK-NEXT:        .long   32
+; CHECK-NEXT:        .long   [[local_offs]]
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   1
 ; CHECK-NEXT:"$stateUnwindMap$?test1@@YAXXZ":
@@ -58,7 +60,7 @@ entry:
   %ehselector.slot = alloca i32
   store i32 0, i32* %tmp
   %0 = bitcast i32* %tmp to i8*
-  call void (...) @llvm.frameescape()
+  call void (...) @llvm.localescape()
   store volatile i64 -2, i64* %unwindhelp
   %1 = bitcast i64* %unwindhelp to i8*
   call void @llvm.eh.unwindhelp(i8* %1)
@@ -90,8 +92,10 @@ entry:
 }
 
 ; CHECK-LABEL: "?test2@@YAX_N@Z":
+; CHECK: movq $-2, [[local_offs2:[0-9]+]](%rsp)
 ; CHECK:             .seh_handlerdata
 ; CHECK-NEXT:        .long   ("$cppxdata$?test2@@YAX_N@Z")@IMGREL
+; CHECK-NEXT: .align 4
 ; CHECK-NEXT:"$cppxdata$?test2@@YAX_N@Z":
 ; CHECK-NEXT:        .long   429065506
 ; CHECK-NEXT:        .long   2
@@ -100,7 +104,7 @@ entry:
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   4
 ; CHECK-NEXT:        .long   ("$ip2state$?test2@@YAX_N@Z")@IMGREL
-; CHECK-NEXT:        .long   40
+; CHECK-NEXT:        .long   [[local_offs2]]
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   1
 ; CHECK-NEXT:"$stateUnwindMap$?test2@@YAX_N@Z":
@@ -126,7 +130,7 @@ define void @"\01?test2@@YAX_N@Z"(i1 zeroext %b) #2 personality i8* bitcast (i32
   %s1 = alloca %struct.S, align 1
   %frombool = zext i1 %b to i8
   store i8 %frombool, i8* %b.addr, align 1
-  call void (...) @llvm.frameescape(%struct.S* %s, %struct.S* %s1)
+  call void (...) @llvm.localescape(%struct.S* %s, %struct.S* %s1)
   call void @"\01?may_throw@@YAXXZ"()
   invoke void @"\01?may_throw@@YAXXZ"()
           to label %invoke.cont unwind label %lpad1
@@ -188,17 +192,17 @@ entry:
 }
 
 ; Function Attrs: nounwind
-declare void @llvm.frameescape(...) #4
+declare void @llvm.localescape(...) #4
 
 ; Function Attrs: nounwind readnone
-declare i8* @llvm.framerecover(i8*, i8*, i32) #6
+declare i8* @llvm.localrecover(i8*, i8*, i32) #6
 
 ; Function Attrs: nounwind
 declare void @llvm.eh.unwindhelp(i8*) #4
 
 define internal void @"\01?test2@@YAX_N@Z.cleanup"(i8*, i8*) #7 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
 entry:
-  %s.i8 = call i8* @llvm.framerecover(i8* bitcast (void (i1)* @"\01?test2@@YAX_N@Z" to i8*), i8* %1, i32 0)
+  %s.i8 = call i8* @llvm.localrecover(i8* bitcast (void (i1)* @"\01?test2@@YAX_N@Z" to i8*), i8* %1, i32 0)
   %s = bitcast i8* %s.i8 to %struct.S*
   call void @"\01??_DS@@QEAA@XZ"(%struct.S* %s) #4
   invoke void @llvm.donothing()
@@ -215,7 +219,7 @@ stub:                                             ; preds = %entry
 
 define internal void @"\01?test2@@YAX_N@Z.cleanup1"(i8*, i8*) #7 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
 entry:
-  %s1.i8 = call i8* @llvm.framerecover(i8* bitcast (void (i1)* @"\01?test2@@YAX_N@Z" to i8*), i8* %1, i32 1)
+  %s1.i8 = call i8* @llvm.localrecover(i8* bitcast (void (i1)* @"\01?test2@@YAX_N@Z" to i8*), i8* %1, i32 1)
   %s1 = bitcast i8* %s1.i8 to %struct.S*
   call void @"\01??_DS@@QEAA@XZ"(%struct.S* %s1) #4
   invoke void @llvm.donothing()

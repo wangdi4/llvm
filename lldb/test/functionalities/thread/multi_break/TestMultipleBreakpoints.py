@@ -23,6 +23,7 @@ class MultipleBreakpointTestCase(TestBase):
     @expectedFailureDarwin("llvm.org/pr15824") # thread states not properly maintained
     @expectedFailureFreeBSD("llvm.org/pr18190") # thread states not properly maintained
     @expectedFailureLinux("llvm.org/pr15824") # thread states not properly maintained
+    @expectedFailureWindows("llvm.org/pr24668") # Breakpoints not resolved correctly
     @dwarf_test
     def test_with_dwarf(self):
         """Test simultaneous breakpoints in multiple threads."""
@@ -48,7 +49,7 @@ class MultipleBreakpointTestCase(TestBase):
             substrs = ["1: file = 'main.cpp', line = %d, locations = 1" % self.breakpoint])
 
         # Run the program.
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         # The breakpoint may be hit in either thread 2 or thread 3.

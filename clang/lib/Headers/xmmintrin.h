@@ -577,6 +577,12 @@ _mm_loadr_ps(const float *__p)
 }
 
 static __inline__ __m128 __DEFAULT_FN_ATTRS
+_mm_undefined_ps()
+{
+  return (__m128)__builtin_ia32_undef128();
+}
+
+static __inline__ __m128 __DEFAULT_FN_ATTRS
 _mm_set_ss(float __w)
 {
   return (__m128){ __w, 0, 0, 0 };
@@ -923,6 +929,11 @@ _mm_movemask_ps(__m128 __a)
 {
   return __builtin_ia32_movmskps(__a);
 }
+
+
+#ifdef _MSC_VER
+#define _MM_ALIGN16 __declspec(align(16))
+#endif
 
 #define _MM_SHUFFLE(z, y, x, w) (((z) << 6) | ((y) << 4) | ((x) << 2) | (w))
 

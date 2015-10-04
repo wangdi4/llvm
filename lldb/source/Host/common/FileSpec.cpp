@@ -107,7 +107,7 @@ FileSpec::ResolveUsername (llvm::SmallVectorImpl<char> &path)
         return;
     
     llvm::StringRef path_str(path.data(), path.size());
-    size_t slash_pos = path_str.find_first_of("/", 1);
+    size_t slash_pos = path_str.find('/', 1);
     if (slash_pos == 1 || path.size() == 1)
     {
         // A path of ~/ resolves to the current user's home dir
@@ -787,6 +787,28 @@ FileSpec::GetFileType () const
         return eFileTypeUnknown;
     }
     return eFileTypeInvalid;
+}
+
+bool
+FileSpec::IsSymbolicLink () const
+{
+    char resolved_path[PATH_MAX];
+    if (!GetPath (resolved_path, sizeof (resolved_path)))
+        return false;
+
+#ifdef _WIN32
+    auto attrs = ::GetFileAttributes (resolved_path);
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    return (attrs & FILE_ATTRIBUTE_REPARSE_POINT);
+#else
+    struct stat file_stats;
+    if (::lstat (resolved_path, &file_stats) != 0)
+        return false;
+
+    return (file_stats.st_mode & S_IFMT) == S_IFLNK;
+#endif
 }
 
 uint32_t

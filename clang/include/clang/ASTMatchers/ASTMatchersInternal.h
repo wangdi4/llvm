@@ -140,8 +140,7 @@ public:
   };
 
   /// \brief Add a binding from an id to a node.
-  void setBinding(const std::string &Id,
-                  const ast_type_traits::DynTypedNode &DynNode) {
+  void setBinding(StringRef Id, const ast_type_traits::DynTypedNode &DynNode) {
     if (Bindings.empty())
       Bindings.emplace_back();
     for (BoundNodesMap &Binding : Bindings)
@@ -282,6 +281,7 @@ public:
   };
   static DynTypedMatcher
   constructVariadic(VariadicOperator Op,
+                    ast_type_traits::ASTNodeKind SupportedKind,
                     std::vector<DynTypedMatcher> InnerMatchers);
 
   /// \brief Get a "true" matcher for \p NodeKind.
@@ -668,16 +668,14 @@ private:
     return matchesDecl(Node.getDecl(), Finder, Builder);
   }
 
-  /// \brief Extracts the CXXRecordDecl or EnumDecl of a QualType and returns
-  /// whether the inner matcher matches on it.
+  /// \brief Extracts the TagDecl of a QualType and returns whether the inner
+  /// matcher matches on it.
   bool matchesSpecialized(const QualType &Node, ASTMatchFinder *Finder,
                           BoundNodesTreeBuilder *Builder) const {
     /// FIXME: Add other ways to convert...
     if (Node.isNull())
       return false;
-    if (const EnumType *AsEnum = dyn_cast<EnumType>(Node.getTypePtr()))
-      return matchesDecl(AsEnum->getDecl(), Finder, Builder);
-    return matchesDecl(Node->getAsCXXRecordDecl(), Finder, Builder);
+    return matchesDecl(Node->getAsTagDecl(), Finder, Builder);
   }
 
   /// \brief Gets the TemplateDecl from a TemplateSpecializationType
@@ -754,7 +752,7 @@ const bool IsBaseType<T>::value;
 ///   at least one ancestor matched.
 ///
 /// FIXME: Currently we only allow Stmt and Decl nodes to start a traversal.
-/// In the future, we wan to implement this for all nodes for which it makes
+/// In the future, we want to implement this for all nodes for which it makes
 /// sense. In the case of matchesAncestorOf, we'll want to implement it for
 /// all nodes, as all nodes have ancestors.
 class ASTMatchFinder {
@@ -1138,7 +1136,8 @@ public:
 
   template <typename T> operator Matcher<T>() const {
     return DynTypedMatcher::constructVariadic(
-               Op, getMatchers<T>(llvm::index_sequence_for<Ps...>()))
+               Op, ast_type_traits::ASTNodeKind::getFromNodeKind<T>(),
+               getMatchers<T>(llvm::index_sequence_for<Ps...>()))
         .template unconditionalConvertTo<T>();
   }
 
@@ -1192,8 +1191,10 @@ BindableMatcher<T> makeAllOfComposite(
   std::vector<DynTypedMatcher> DynMatchers(PI(InnerMatchers.begin()),
                                            PI(InnerMatchers.end()));
   return BindableMatcher<T>(
-      DynTypedMatcher::constructVariadic(DynTypedMatcher::VO_AllOf,
-                                         std::move(DynMatchers))
+      DynTypedMatcher::constructVariadic(
+          DynTypedMatcher::VO_AllOf,
+          ast_type_traits::ASTNodeKind::getFromNodeKind<T>(),
+          std::move(DynMatchers))
           .template unconditionalConvertTo<T>());
 }
 

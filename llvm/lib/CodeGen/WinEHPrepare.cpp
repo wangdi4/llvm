@@ -23,6 +23,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/ADT/TinyPtrVector.h"
+#include "llvm/Analysis/CFG.h"
 #include "llvm/Analysis/LibCallSemantics.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/CodeGen/WinEHFuncInfo.h"
@@ -106,8 +107,8 @@ private:
                                 LandingPadInst *OutlinedLPad,
                                 const LandingPadInst *OriginalLPad,
                                 FrameVarInfoMap &VarInfo);
-  Function *createHandlerFunc(Type *RetTy, const Twine &Name, Module *M,
-                              Value *&ParentFP);
+  Function *createHandlerFunc(Function *ParentFn, Type *RetTy,
+                              const Twine &Name, Module *M, Value *&ParentFP);
   bool outlineHandler(ActionHandler *Action, Function *SrcFn,
                       LandingPadInst *LPad, BasicBlock *StartBB,
                       FrameVarInfoMap &VarInfo);
@@ -120,6 +121,18 @@ private:
                            BasicBlock *EndBB);
 
   void processSEHCatchHandler(CatchHandler *Handler, BasicBlock *StartBB);
+  void insertPHIStores(PHINode *OriginalPHI, AllocaInst *SpillSlot);
+  void
+  insertPHIStore(BasicBlock *PredBlock, Value *PredVal, AllocaInst *SpillSlot,
+                 SmallVectorImpl<std::pair<BasicBlock *, Value *>> &Worklist);
+  AllocaInst *insertPHILoads(PHINode *PN, Function &F);
+  void replaceUseWithLoad(Value *V, Use &U, AllocaInst *&SpillSlot,
+                          DenseMap<BasicBlock *, Value *> &Loads, Function &F);
+  void demoteNonlocalUses(Value *V, std::set<BasicBlock *> &ColorsForBB,
+                          Function &F);
+  bool prepareExplicitEH(Function &F,
+                         SmallVectorImpl<BasicBlock *> &EntryBlocks);
+  void colorFunclets(Function &F, SmallVectorImpl<BasicBlock *> &EntryBlocks);
 
   Triple TheTriple;
 
@@ -155,11 +168,15 @@ private:
   // outlined but before the outlined code is pruned from the parent function.
   DenseMap<const BasicBlock *, BasicBlock *> LPadTargetBlocks;
 
-  // Map from outlined handler to call to llvm.frameaddress(1). Only used for
+  // Map from outlined handler to call to parent local address. Only used for
   // 32-bit EH.
   DenseMap<Function *, Value *> HandlerToParentFP;
 
   AllocaInst *SEHExceptionCodeSlot = nullptr;
+
+  std::map<BasicBlock *, std::set<BasicBlock *>> BlockColors;
+  std::map<BasicBlock *, std::set<BasicBlock *>> FuncletBlocks;
+  std::map<BasicBlock *, std::set<BasicBlock *>> FuncletChildren;
 };
 
 class WinEHFrameVariableMaterializer : public ValueMaterializer {
@@ -361,48 +378,68 @@ FunctionPass *llvm::createWinEHPass(const TargetMachine *TM) {
 }
 
 bool WinEHPrepare::runOnFunction(Function &Fn) {
+  if (!Fn.hasPersonalityFn())
+    return false;
+
   // No need to prepare outlined handlers.
   if (Fn.hasFnAttribute("wineh-parent"))
     return false;
 
-#if INTEL_CUSTOMIZATION
   // Classify the personality to see what kind of preparation we need.
-  if (!Fn.hasPersonalityFn())
-    return false;
-
   Personality = classifyEHPersonality(Fn.getPersonalityFn());
 
   // Do nothing if this is not an MSVC personality.
   if (!isMSVCEHPersonality(Personality))
     return false;
 
+#if INTEL_CUSTOMIZATION
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+
   // Avoid outlining unreachable code.
-  removeUnreachableBlocks(Fn);
+  removeUnreachableBlocks(Fn, DT);
 #endif // INTEL_CUSTOMIZATION
 
   SmallVector<LandingPadInst *, 4> LPads;
   SmallVector<ResumeInst *, 4> Resumes;
+  SmallVector<BasicBlock *, 4> EntryBlocks;
+  bool ForExplicitEH = false;
   for (BasicBlock &BB : Fn) {
-    if (auto *LP = BB.getLandingPadInst())
+    Instruction *First = BB.getFirstNonPHI();
+    if (auto *LP = dyn_cast<LandingPadInst>(First)) {
       LPads.push_back(LP);
+    } else if (First->isEHPad()) {
+      if (!ForExplicitEH)
+        EntryBlocks.push_back(&Fn.getEntryBlock());
+      if (!isa<CatchEndPadInst>(First) && !isa<CleanupEndPadInst>(First))
+        EntryBlocks.push_back(&BB);
+      ForExplicitEH = true;
+    }
     if (auto *Resume = dyn_cast<ResumeInst>(BB.getTerminator()))
       Resumes.push_back(Resume);
   }
 
+  if (ForExplicitEH)
+    return prepareExplicitEH(Fn, EntryBlocks);
+
   // No need to prepare functions that lack landing pads.
+#if !INTEL_CUSTOMIZATION
   if (LPads.empty())
     return false;
+#else // INTEL_CUSTOMIZATION
+  if (LPads.empty()) {
+    // If the function had an MSVC personality, but it did not contain any
+    // landing pads or the landing pads were removed as being unreachable
+    // change the personality to something neutral.
+    assert(Resumes.empty());
+    Fn.setPersonalityFn(nullptr);
+    return false;
+  }
+#endif // INTEL_CUSTOMIZATION
 
 #if !INTEL_CUSTOMIZATION
-  // Classify the personality to see what kind of preparation we need.
-  Personality = classifyEHPersonality(Fn.getPersonalityFn());
-
-  // Do nothing if this is not an MSVC personality.
-  if (!isMSVCEHPersonality(Personality))
-    return false;
-#endif // !INTEL_CUSTOMIZATION
-
+  // This is initialized earlier if INTEL_CUSTOMIZATION is defined.
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#endif // INTEL_CUSTOMIZATION
   LibInfo = &getAnalysis<TargetLibraryInfoWrapperPass>().getTLI();
 
   // If there were any landing pads, prepareExceptionHandlers will make changes.
@@ -562,13 +599,19 @@ void WinEHPrepare::findSEHEHReturnPoints(
     BasicBlock *NextBB;
     Constant *Selector;
     if (isSelectorDispatch(BB, CatchHandler, Selector, NextBB)) {
-      // Split the edge if there is a phi node. Returning from EH to a phi node
-      // is just as impossible as having a phi after an indirectbr.
-      if (isa<PHINode>(CatchHandler->begin())) {
+      // Split the edge if there are multiple predecessors. This creates a place
+      // where we can insert EH recovery code.
+      if (!CatchHandler->getSinglePredecessor()) {
         DEBUG(dbgs() << "splitting EH return edge from " << BB->getName()
                      << " to " << CatchHandler->getName() << '\n');
+#if INTEL_CUSTOMIZATION
+        BBI = CatchHandler = SplitCriticalEdge(
+            BB, std::find(succ_begin(BB), succ_end(BB), CatchHandler),
+            CriticalEdgeSplittingOptions(DT));
+#else // !INTEL_CUSTOMIZATION
         BBI = CatchHandler = SplitCriticalEdge(
             BB, std::find(succ_begin(BB), succ_end(BB), CatchHandler));
+#endif // !INTEL_CUSTOMIZATION
       }
       EHReturnBlocks.insert(CatchHandler);
     }
@@ -645,6 +688,26 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
   // identifyEHBlocks() should have been called before this function.
   assert(!NormalBlocks.empty());
 
+  // Try to avoid demoting EH pointer and selector values. They get in the way
+  // of our pattern matching.
+  SmallPtrSet<Instruction *, 10> EHVals;
+  for (BasicBlock &BB : F) {
+    LandingPadInst *LP = BB.getLandingPadInst();
+    if (!LP)
+      continue;
+    EHVals.insert(LP);
+    for (User *U : LP->users()) {
+      auto *EI = dyn_cast<ExtractValueInst>(U);
+      if (!EI)
+        continue;
+      EHVals.insert(EI);
+      for (User *U2 : EI->users()) {
+        if (auto *PN = dyn_cast<PHINode>(U2))
+          EHVals.insert(PN);
+      }
+    }
+  }
+
   SetVector<Argument *> ArgsToDemote;
   SetVector<Instruction *> InstrsToDemote;
   for (BasicBlock &BB : F) {
@@ -679,6 +742,7 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
         }
 
 #if !INTEL_CUSTOMIZATION
+        // Don't demote EH values.
         auto *OpI = cast<Instruction>(Op);
 #else // INTEL_CUSTOMIZATION
         auto *OpI = dyn_cast<Instruction>(Op);
@@ -694,6 +758,10 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
           continue;
         }
 #endif // INTEL_CUSTOMIZATION
+
+        if (EHVals.count(OpI))
+          continue;
+
         BasicBlock *OpBB = OpI->getParent();
         // If a value is produced and consumed in the same BB, we don't need to
         // demote it.
@@ -851,7 +919,29 @@ bool WinEHPrepare::prepareExceptionHandlers(
     // Split the block after the landingpad instruction so that it is just a
     // call to llvm.eh.actions followed by indirectbr.
     assert(!isa<PHINode>(LPadBB->begin()) && "lpad phi not removed");
+#if INTEL_CUSTOMIZATION
+    BasicBlock *Remainder = SplitBlock(LPadBB, LPad->getNextNode(), DT);
+
+    // The call to SplitBlock reassigns all nodes dominated by the original
+    // landing pad to the split remainder.  However, this isn't suitable to
+    // what we're doing here because we're about to make the split remainder
+    // unreachable.  For now, we'll just reassign those nodes back to the
+    // landing pad block.  Some of these nodes will become unreachable, but
+    // those will be pruned from the dominator tree when we call 
+    // removeUnreachableBlocks().  Anything that is dominated by the
+    // remainder block before we delete its terminator will either be
+    // unreachable or will be dominated by LPadBB after we insert the
+    // indirect branch instruction and its targets.
+    auto *DeadNode = DT->getNode(Remainder);
+    auto *LPadNode = DT->getNode(LPadBB);
+    assert(LPadNode && DeadNode);
+    while (DeadNode->getNumChildren()) {
+      auto *Child = DeadNode->getChildren().back();
+      DT->changeImmediateDominator(Child, LPadNode);
+    }
+#else // !INTEL_CUSTOMIZATION
     SplitBlock(LPadBB, LPad->getNextNode(), DT);
+#endif // !INTEL_CUSTOMIZATION
     // Erase the branch inserted by the split so we can insert indirectbr.
     LPadBB->getTerminator()->eraseFromParent();
 
@@ -879,7 +969,8 @@ bool WinEHPrepare::prepareExceptionHandlers(
     LPad->replaceAllUsesWith(UndefValue::get(LPad->getType()));
 
     // Rewrite uses of the exception pointer to loads of an alloca.
-    for (Instruction *E : SEHCodeUses) {
+    while (!SEHCodeUses.empty()) {
+      Instruction *E = SEHCodeUses.pop_back_val();
       SmallVector<Use *, 4> Uses;
       for (Use &U : E->uses())
         Uses.push_back(&U);
@@ -887,13 +978,10 @@ bool WinEHPrepare::prepareExceptionHandlers(
         auto *I = cast<Instruction>(U->getUser());
         if (isa<ResumeInst>(I))
           continue;
-        LoadInst *LI;
         if (auto *Phi = dyn_cast<PHINode>(I))
-          LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false,
-                            Phi->getIncomingBlock(*U)->getTerminator());
+          SEHCodeUses.push_back(Phi);
         else
-          LI = new LoadInst(SEHExceptionCodeSlot, "sehcode", false, I);
-        U->set(LI);
+          U->set(new LoadInst(SEHExceptionCodeSlot, "sehcode", false, I));
       }
       E->replaceAllUsesWith(UndefValue::get(E->getType()));
       E->eraseFromParent();
@@ -934,8 +1022,22 @@ bool WinEHPrepare::prepareExceptionHandlers(
     }
     IndirectBrInst *Branch =
         IndirectBrInst::Create(Recover, ReturnTargets.size(), LPadBB);
-    for (BasicBlock *Target : ReturnTargets)
+    for (BasicBlock *Target : ReturnTargets) {
       Branch->addDestination(Target);
+#if INTEL_CUSTOMIZATION
+      // We've just changed the function control flow, so we need to
+      // update the dominator tree.  Any nodes that have become unreachable
+      // will be removed later.  For now, we just need to reconnect the live
+      // blocks.  We can achieve this by setting the branch target's immediate
+      // dominator to the first block that dominates both the landing pad and
+      // the target.  This will be the landing pad itself if it previously
+      // dominated the target (possibly with intermediate blocks).  However,
+      // if the target is shared with other landing pads, the dominator will be
+      // something higher in the tree.
+      auto *NewIDom = DT->findNearestCommonDominator(Target, LPadBB);
+      DT->changeImmediateDominator(Target, NewIDom);
+#endif // INTEL_CUSTOMIZATION
+    }
 
     if (!isAsynchronousEHPersonality(Personality)) {
       // C++ EH must repopulate the targets later to handle the case of
@@ -983,6 +1085,12 @@ bool WinEHPrepare::prepareExceptionHandlers(
     }
     for (BasicBlock *Target : ReturnTargets) {
       Branch->addDestination(Target);
+#if INTEL_CUSTOMIZATION
+      // Update the dominator tree to reflect the new path to this target.
+      auto *NewIDom = DT->findNearestCommonDominator(Target,
+                                                     Branch->getParent());
+      DT->changeImmediateDominator(Target, NewIDom);
+#endif // INTEL_CUSTOMIZATION
       // The target may be a block that we excepted to get pruned.
       // If it is, it may contain a call to llvm.eh.endcatch.
       if (CheckedTargets.insert(Target)) {
@@ -1003,23 +1111,27 @@ bool WinEHPrepare::prepareExceptionHandlers(
   F.addFnAttr("wineh-parent", F.getName());
 
   // Delete any blocks that were only used by handlers that were outlined above.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
   removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
 
   BasicBlock *Entry = &F.getEntryBlock();
   IRBuilder<> Builder(F.getParent()->getContext());
   Builder.SetInsertPoint(Entry->getFirstInsertionPt());
 
   Function *FrameEscapeFn =
-      Intrinsic::getDeclaration(M, Intrinsic::frameescape);
+      Intrinsic::getDeclaration(M, Intrinsic::localescape);
   Function *RecoverFrameFn =
-      Intrinsic::getDeclaration(M, Intrinsic::framerecover);
+      Intrinsic::getDeclaration(M, Intrinsic::localrecover);
   SmallVector<Value *, 8> AllocasToEscape;
 
-  // Scan the entry block for an existing call to llvm.frameescape. We need to
+  // Scan the entry block for an existing call to llvm.localescape. We need to
   // keep escaping those objects.
   for (Instruction &I : F.front()) {
     auto *II = dyn_cast<IntrinsicInst>(&I);
-    if (II && II->getIntrinsicID() == Intrinsic::frameescape) {
+    if (II && II->getIntrinsicID() == Intrinsic::localescape) {
       auto Args = II->arg_operands();
       AllocasToEscape.append(Args.begin(), Args.end());
       II->eraseFromParent();
@@ -1028,7 +1140,7 @@ bool WinEHPrepare::prepareExceptionHandlers(
   }
 
   // Finally, replace all of the temporary allocas for frame variables used in
-  // the outlined handlers with calls to llvm.framerecover.
+  // the outlined handlers with calls to llvm.localrecover.
   for (auto &VarInfoEntry : FrameVarInfo) {
     Value *ParentVal = VarInfoEntry.first;
     TinyPtrVector<AllocaInst *> &Allocas = VarInfoEntry.second;
@@ -1049,7 +1161,7 @@ bool WinEHPrepare::prepareExceptionHandlers(
       llvm::Value *FP = HandlerToParentFP[HandlerFn];
       assert(FP);
 
-      // FIXME: Sink this framerecover into the blocks where it is used.
+      // FIXME: Sink this localrecover into the blocks where it is used.
       Builder.SetInsertPoint(TempAlloca);
       Builder.SetCurrentDebugLocation(TempAlloca->getDebugLoc());
       Value *RecoverArgs[] = {
@@ -1071,7 +1183,7 @@ bool WinEHPrepare::prepareExceptionHandlers(
     }
   } // End for each FrameVarInfo entry.
 
-  // Insert 'call void (...)* @llvm.frameescape(...)' at the end of the entry
+  // Insert 'call void (...)* @llvm.localescape(...)' at the end of the entry
   // block.
   Builder.SetInsertPoint(&F.getEntryBlock().back());
   Builder.CreateCall(FrameEscapeFn, AllocasToEscape);
@@ -1400,14 +1512,15 @@ void WinEHPrepare::addStubInvokeToHandlerIfNeeded(Function *Handler) {
 
 // FIXME: Consider sinking this into lib/Target/X86 somehow. TargetLowering
 // usually doesn't build LLVM IR, so that's probably the wrong place.
-Function *WinEHPrepare::createHandlerFunc(Type *RetTy, const Twine &Name,
-                                          Module *M, Value *&ParentFP) {
+Function *WinEHPrepare::createHandlerFunc(Function *ParentFn, Type *RetTy,
+                                          const Twine &Name, Module *M,
+                                          Value *&ParentFP) {
   // x64 uses a two-argument prototype where the parent FP is the second
   // argument. x86 uses no arguments, just the incoming EBP value.
   LLVMContext &Context = M->getContext();
+  Type *Int8PtrType = Type::getInt8PtrTy(Context);
   FunctionType *FnType;
   if (TheTriple.getArch() == Triple::x86_64) {
-    Type *Int8PtrType = Type::getInt8PtrTy(Context);
     Type *ArgTys[2] = {Int8PtrType, Int8PtrType};
     FnType = FunctionType::get(RetTy, ArgTys, false);
   } else {
@@ -1424,9 +1537,13 @@ Function *WinEHPrepare::createHandlerFunc(Type *RetTy, const Twine &Name,
     assert(M);
     Function *FrameAddressFn =
         Intrinsic::getDeclaration(M, Intrinsic::frameaddress);
-    Value *Args[1] = {ConstantInt::get(Type::getInt32Ty(Context), 1)};
-    ParentFP = CallInst::Create(FrameAddressFn, Args, "parent_fp",
-                                &Handler->getEntryBlock());
+    Function *RecoverFPFn =
+        Intrinsic::getDeclaration(M, Intrinsic::x86_seh_recoverfp);
+    IRBuilder<> Builder(&Handler->getEntryBlock());
+    Value *EBP =
+        Builder.CreateCall(FrameAddressFn, {Builder.getInt32(1)}, "ebp");
+    Value *ParentI8Fn = Builder.CreateBitCast(ParentFn, Int8PtrType);
+    ParentFP = Builder.CreateCall(RecoverFPFn, {ParentI8Fn, EBP});
   }
   return Handler;
 }
@@ -1442,10 +1559,10 @@ bool WinEHPrepare::outlineHandler(ActionHandler *Action, Function *SrcFn,
   Value *ParentFP;
   Function *Handler;
   if (Action->getType() == Catch) {
-    Handler = createHandlerFunc(Int8PtrType, SrcFn->getName() + ".catch", M,
+    Handler = createHandlerFunc(SrcFn, Int8PtrType, SrcFn->getName() + ".catch", M,
                                 ParentFP);
   } else {
-    Handler = createHandlerFunc(Type::getVoidTy(Context),
+    Handler = createHandlerFunc(SrcFn, Type::getVoidTy(Context),
                                 SrcFn->getName() + ".cleanup", M, ParentFP);
   }
   Handler->setPersonalityFn(SrcFn->getPersonalityFn());
@@ -1671,9 +1788,8 @@ void LandingPadMap::remapEHValues(ValueToValueMapTy &VMap, Value *EHPtrValue,
     VMap[Extract] = SelectorValue;
 }
 
-static bool isFrameAddressCall(const Value *V) {
-  return match(const_cast<Value *>(V),
-               m_Intrinsic<Intrinsic::frameaddress>(m_SpecificInt(0)));
+static bool isLocalAddressCall(const Value *V) {
+  return match(const_cast<Value *>(V), m_Intrinsic<Intrinsic::localaddress>());
 }
 
 CloningDirector::CloningAction WinEHCloningDirectorBase::handleInstruction(
@@ -1715,9 +1831,9 @@ CloningDirector::CloningAction WinEHCloningDirectorBase::handleInstruction(
   if (match(Inst, m_Intrinsic<Intrinsic::eh_typeid_for>()))
     return handleTypeIdFor(VMap, Inst, NewBB);
 
-  // When outlining llvm.frameaddress(i32 0), remap that to the second argument,
+  // When outlining llvm.localaddress(), remap that to the second argument,
   // which is the FP of the parent.
-  if (isFrameAddressCall(Inst)) {
+  if (isLocalAddressCall(Inst)) {
     VMap[Inst] = ParentFP;
     return CloningDirector::SkipInstruction;
   }
@@ -1804,8 +1920,14 @@ WinEHCatchDirector::handleEndCatch(ValueToValueMapTy &VMap,
   if (!Branch || !Branch->isUnconditional()) {
     // We're interrupting the cloning process at this location, so the
     // const_cast we're doing here will not cause a problem.
+#if INTEL_CUSTOMIZATION
+    ContinueBB = SplitBlock(const_cast<BasicBlock *>(ParentBB),
+                            const_cast<Instruction *>(cast<Instruction>(Next)),
+                            DT);
+#else // !INTEL_CUSTOMIZATION
     ContinueBB = SplitBlock(const_cast<BasicBlock *>(ParentBB),
                             const_cast<Instruction *>(cast<Instruction>(Next)));
+#endif // !INTEL_CUSTOMIZATION
   } else {
     ContinueBB = Branch->getSuccessor(0);
   }
@@ -2037,7 +2159,7 @@ Value *WinEHFrameVariableMaterializer::materializeValueFor(Value *V) {
   // If we're asked to materialize a static alloca, we temporarily create an
   // alloca in the outlined function and add this to the FrameVarInfo map.  When
   // all the outlining is complete, we'll replace these temporary allocas with
-  // calls to llvm.framerecover.
+  // calls to llvm.localrecover.
   if (auto *AV = dyn_cast<AllocaInst>(V)) {
     assert(AV->isStaticAlloca() &&
            "cannot materialize un-demoted dynamic alloca");
@@ -2067,7 +2189,7 @@ void WinEHFrameVariableMaterializer::escapeCatchObject(Value *V) {
   // of a catch parameter, add a sentinel to the multimap to indicate that it's
   // used from another handler. This will prevent us from trying to sink the
   // alloca into the handler and ensure that the catch parameter is present in
-  // the call to llvm.frameescape.
+  // the call to llvm.localescape.
   FrameVarInfo[V].push_back(getCatchObjectSentinel());
 }
 
@@ -2201,7 +2323,7 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
       // Under some circumstances optimized IR will flow unconditionally into a
       // handler block without checking the selector.  This can only happen if
       // the landing pad has a catch-all handler and the handler for the
-      // preceeding catch clause is identical to the catch-call handler
+      // preceding catch clause is identical to the catch-call handler
       // (typically an empty catch).  In this case, the handler must be shared
       // by all remaining clauses.
       if (isa<ConstantPointerNull>(
@@ -2309,16 +2431,16 @@ static void createCleanupHandler(LandingPadActions &Actions,
 static CallSite matchOutlinedFinallyCall(BasicBlock *BB,
                                          Instruction *MaybeCall) {
   // Look for finally blocks that Clang has already outlined for us.
-  //   %fp = call i8* @llvm.frameaddress(i32 0)
+  //   %fp = call i8* @llvm.localaddress()
   //   call void @"fin$parent"(iN 1, i8* %fp)
-  if (isFrameAddressCall(MaybeCall) && MaybeCall != BB->getTerminator())
+  if (isLocalAddressCall(MaybeCall) && MaybeCall != BB->getTerminator())
     MaybeCall = MaybeCall->getNextNode();
   CallSite FinallyCall(MaybeCall);
   if (!FinallyCall || FinallyCall.arg_size() != 2)
     return CallSite();
   if (!match(FinallyCall.getArgument(0), m_SpecificInt(1)))
     return CallSite();
-  if (!isFrameAddressCall(FinallyCall.getArgument(1)))
+  if (!isLocalAddressCall(FinallyCall.getArgument(1)))
     return CallSite();
   return FinallyCall;
 }
@@ -2481,40 +2603,43 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
           MaybeCall = MaybeCall->getNextNode();
       }
 
-      // Look for outlined finally calls.
-      if (CallSite FinallyCall = matchOutlinedFinallyCall(BB, MaybeCall)) {
-        Function *Fin = FinallyCall.getCalledFunction();
-        assert(Fin && "outlined finally call should be direct");
-        auto *Action = new CleanupHandler(BB);
-        Action->setHandlerBlockOrFunc(Fin);
-        Actions.insertCleanupHandler(Action);
-        CleanupHandlerMap[BB] = Action;
-        DEBUG(dbgs() << "  Found frontend-outlined finally call to "
-                     << Fin->getName() << " in block "
-                     << Action->getStartBlock()->getName() << "\n");
+      // Look for outlined finally calls on x64, since those happen to match the
+      // prototype provided by the runtime.
+      if (TheTriple.getArch() == Triple::x86_64) {
+        if (CallSite FinallyCall = matchOutlinedFinallyCall(BB, MaybeCall)) {
+          Function *Fin = FinallyCall.getCalledFunction();
+          assert(Fin && "outlined finally call should be direct");
+          auto *Action = new CleanupHandler(BB);
+          Action->setHandlerBlockOrFunc(Fin);
+          Actions.insertCleanupHandler(Action);
+          CleanupHandlerMap[BB] = Action;
+          DEBUG(dbgs() << "  Found frontend-outlined finally call to "
+                       << Fin->getName() << " in block "
+                       << Action->getStartBlock()->getName() << "\n");
 
-        // Split the block if there were more interesting instructions and look
-        // for finally calls in the normal successor block.
-        BasicBlock *SuccBB = BB;
-        if (FinallyCall.getInstruction() != BB->getTerminator() &&
-            FinallyCall.getInstruction()->getNextNode() !=
-                BB->getTerminator()) {
-          SuccBB =
-              SplitBlock(BB, FinallyCall.getInstruction()->getNextNode(), DT);
-        } else {
-          if (FinallyCall.isInvoke()) {
+          // Split the block if there were more interesting instructions and
+          // look for finally calls in the normal successor block.
+          BasicBlock *SuccBB = BB;
+          if (FinallyCall.getInstruction() != BB->getTerminator() &&
+              FinallyCall.getInstruction()->getNextNode() !=
+                  BB->getTerminator()) {
             SuccBB =
-                cast<InvokeInst>(FinallyCall.getInstruction())->getNormalDest();
+                SplitBlock(BB, FinallyCall.getInstruction()->getNextNode(), DT);
           } else {
-            SuccBB = BB->getUniqueSuccessor();
-            assert(SuccBB &&
-                   "splitOutlinedFinallyCalls didn't insert a branch");
+            if (FinallyCall.isInvoke()) {
+              SuccBB = cast<InvokeInst>(FinallyCall.getInstruction())
+                           ->getNormalDest();
+            } else {
+              SuccBB = BB->getUniqueSuccessor();
+              assert(SuccBB &&
+                     "splitOutlinedFinallyCalls didn't insert a branch");
+            }
           }
+          BB = SuccBB;
+          if (BB == EndBB)
+            return;
+          continue;
         }
-        BB = SuccBB;
-        if (BB == EndBB)
-          return;
-        continue;
       }
     }
 
@@ -2592,7 +2717,37 @@ struct WinEHNumbering {
   SmallPtrSet<const Function *, 4> VisitedHandlers;
 
   int currentEHNumber() const {
+#if INTEL_CUSTOMIZATION
+    // CurrentBaseState is the base EH state for any code inside the handler
+    // whose EH state we are calculating (or -1 if we are calculating EH
+    // states for the parent function) whereas ActionHandler::getEHState()
+    // returns the lowest state of code that unwinds to that handler (which
+    // we sometimes call the enclosed EH state). If a catch handler contains
+    // an invoke which unwinds to a handler that is not nested within the
+    // current handler, the enclosed EH state of the top handler on the stack
+    // will be lower than the base EH state of the handler we are processing.
+    //
+    // For example:
+    //
+    // void f() {
+    //   Obj o; // Enters EH state = 0
+    //   try { // Enters EH state = 1
+    //     may_throw();
+    //   } catch (...) { // Enter EH state = 2
+    //     may_throw_too();
+    //   } // Returns to EH state = 0
+    // }
+    //
+    // In the code above, the invoke of may_throw_too() unwinds to a cleanup
+    // handler which destructs 'o'.  That handler has an enclosed state of 0
+    // but that can't be the state at the may_throw_too() callsite because
+    // it is lower than the base state for the catch handler.
+    return HandlerStack.empty() ? CurrentBaseState 
+                                : std::max(HandlerStack.back()->getEHState(),
+                                           CurrentBaseState);
+#else // !INTEL_CUSTOMIZATION
     return HandlerStack.empty() ? CurrentBaseState : HandlerStack.back()->getEHState();
+#endif // !INTEL_CUSTOMIZATION
   }
 
   void createUnwindMapEntry(int ToState, ActionHandler *AH);
@@ -2601,19 +2756,60 @@ struct WinEHNumbering {
   void processCallSite(MutableArrayRef<std::unique_ptr<ActionHandler>> Actions,
                        ImmutableCallSite CS);
   void popUnmatchedActions(int FirstMismatch);
+#if INTEL_CUSTOMIZATION
+  void insertDeferredHandler(const Function *F, int EnclosedState);
+#endif // INTEL_CUSTOMIZATION
   void calculateStateNumbers(const Function &F);
   void findActionRootLPads(const Function &F);
 };
 }
 
-void WinEHNumbering::createUnwindMapEntry(int ToState, ActionHandler *AH) {
+static int addUnwindMapEntry(WinEHFuncInfo &FuncInfo, int ToState,
+                             const Value *V) {
   WinEHUnwindMapEntry UME;
   UME.ToState = ToState;
-  if (auto *CH = dyn_cast_or_null<CleanupHandler>(AH))
-    UME.Cleanup = cast<Function>(CH->getHandlerBlockOrFunc());
-  else
-    UME.Cleanup = nullptr;
+  UME.Cleanup = V;
   FuncInfo.UnwindMap.push_back(UME);
+  return FuncInfo.getLastStateNumber();
+}
+
+static void addTryBlockMapEntry(WinEHFuncInfo &FuncInfo, int TryLow,
+                                int TryHigh, int CatchHigh,
+                                ArrayRef<const CatchPadInst *> Handlers) {
+  WinEHTryBlockMapEntry TBME;
+  TBME.TryLow = TryLow;
+  TBME.TryHigh = TryHigh;
+  TBME.CatchHigh = CatchHigh;
+  assert(TBME.TryLow <= TBME.TryHigh);
+  for (const CatchPadInst *CPI : Handlers) {
+    WinEHHandlerType HT;
+    Constant *TypeInfo = cast<Constant>(CPI->getArgOperand(0));
+    if (TypeInfo->isNullValue()) {
+      HT.Adjectives = 0x40;
+      HT.TypeDescriptor = nullptr;
+    } else {
+      auto *GV = cast<GlobalVariable>(TypeInfo->stripPointerCasts());
+      // Selectors are always pointers to GlobalVariables with 'struct' type.
+      // The struct has two fields, adjectives and a type descriptor.
+      auto *CS = cast<ConstantStruct>(GV->getInitializer());
+      HT.Adjectives =
+          cast<ConstantInt>(CS->getAggregateElement(0U))->getZExtValue();
+      HT.TypeDescriptor =
+          cast<GlobalVariable>(CS->getAggregateElement(1)->stripPointerCasts());
+    }
+    HT.Handler = CPI->getNormalDest();
+    // FIXME: Pass CPI->getArgOperand(1).
+    HT.CatchObjRecoverIdx = -1;
+    TBME.HandlerArray.push_back(HT);
+  }
+  FuncInfo.TryBlockMap.push_back(TBME);
+}
+
+void WinEHNumbering::createUnwindMapEntry(int ToState, ActionHandler *AH) {
+  Value *V = nullptr;
+  if (auto *CH = dyn_cast_or_null<CleanupHandler>(AH))
+    V = cast<Function>(CH->getHandlerBlockOrFunc());
+  addUnwindMapEntry(FuncInfo, ToState, V);
 }
 
 void WinEHNumbering::createTryBlockMapEntry(int TryLow, int TryHigh,
@@ -2630,7 +2826,8 @@ void WinEHNumbering::createTryBlockMapEntry(int TryLow, int TryHigh,
       continue;
     int N;
     for (N = 0; N < NumHandlers; ++N) {
-      if (Entry.HandlerArray[N].Handler != Handlers[N]->getHandlerBlockOrFunc())
+      if (Entry.HandlerArray[N].Handler.get<const Value *>() !=
+          Handlers[N]->getHandlerBlockOrFunc())
         break; // breaks out of inner loop
     }
     // If all the handlers match, this is what we were looking for.
@@ -2741,20 +2938,57 @@ void WinEHNumbering::processCallSite(
     // Various conditions can lead to a handler being popped from the
     // stack and re-pushed later.  That shouldn't create a new state.
     // FIXME: Can code optimization lead to re-used handlers?
+#if !INTEL_CUSTOMIZATION
     if (FuncInfo.HandlerEnclosedState.count(Handler)) {
       // If we already assigned the state enclosed by this handler re-use it.
       Actions[I]->setEHState(FuncInfo.HandlerEnclosedState[Handler]);
       continue;
     }
+#else // INTEL_CUSTOMIZATION
+    // Look for this handler in the deferred handler container.
+    auto It = FuncInfo.DeferredHandlers.begin();
+    while (It != FuncInfo.DeferredHandlers.end()) {
+      if (It->first == Handler) {
+        break;
+      }
+      ++It;
+    }
+    // If this is a deferred handler, keep the state we previously
+    // assigned to it.
+    if (It != FuncInfo.DeferredHandlers.end()) {
+      int EnclosedState = It->second;
+      // The handler is active again, so remove it from the deferred container.
+      FuncInfo.DeferredHandlers.erase(It);
+      // Keep the previous state of the handler when we push this action.
+      Actions[I]->setEHState(EnclosedState);
+      HandlerStack.push_back(std::move(Actions[I]));
+      LastActionWasCatch = CurrActionIsCatch;
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
     const LandingPadInst* RootLPad = FuncInfo.RootLPad[Handler];
     if (CurrActionIsCatch && LastActionWasCatch && RootLPad == LastRootLPad) {
       DEBUG(dbgs() << "setEHState for handler to " << currentEHNumber() << "\n");
       Actions[I]->setEHState(currentEHNumber());
     } else {
+#if INTEL_CUSTOMIZATION
+      int UnwindState = currentEHNumber();
+      if (!FuncInfo.DeferredHandlers.empty()) {
+        int DeferredState = FuncInfo.DeferredHandlers.back().second;
+        if (DeferredState > UnwindState)
+          UnwindState = DeferredState;
+      }
+      DEBUG(dbgs() << "createUnwindMapEntry(" << UnwindState << ", ");
+#else  // !INTEL_CUSTOMIZATION
       DEBUG(dbgs() << "createUnwindMapEntry(" << currentEHNumber() << ", ");
+#endif // !INTEL_CUSTOMIZATION
       print_name(Actions[I]->getHandlerBlockOrFunc());
       DEBUG(dbgs() << ") with EH state " << NextState << "\n");
+#if INTEL_CUSTOMIZATION
+      createUnwindMapEntry(UnwindState, Actions[I].get());
+#else  // !INTEL_CUSTOMIZATION
       createUnwindMapEntry(currentEHNumber(), Actions[I].get());
+#endif // !INTEL_CUSTOMIZATION
       DEBUG(dbgs() << "setEHState for handler to " << NextState << "\n");
       Actions[I]->setEHState(NextState);
       NextState++;
@@ -2813,6 +3047,45 @@ void WinEHNumbering::popUnmatchedActions(int FirstMismatch) {
     }
   }
 
+#if INTEL_CUSTOMIZATION
+  // When we assign base states and calculate state numbers for popped handlers
+  // we need to put all the popped handlers into the deferred state so that
+  // the earlier popped handlers see the later popped handlers.
+  for (CatchHandler *CH : PoppedCatches)
+    insertDeferredHandler(cast<Function>(CH->getHandlerBlockOrFunc()),
+                          CH->getEHState());
+  // Go through the list again and process any handlers that are ready.
+  for (CatchHandler *CH : PoppedCatches) {
+    auto *F = cast<Function>(CH->getHandlerBlockOrFunc());
+    if (FuncInfo.LastInvokeVisited[F] &&
+        currentEHNumber() <= CH->getEHState()) {
+      auto It = FuncInfo.DeferredHandlers.begin();
+      while (It != FuncInfo.DeferredHandlers.end()) {
+        if (It->first == F) {
+          break;
+        }
+        ++It;
+      }
+      // If our handler wasn't in the deferred list, it means that it got
+      // processed while we were calculating states for an earlier popped
+      // handler.
+      if (It == FuncInfo.DeferredHandlers.end())
+        continue;
+      // If the handler was in the deferred list, remove it and process it.
+      FuncInfo.DeferredHandlers.erase(It);
+      DEBUG(dbgs() << "Assigning base state " << NextState << " to ");
+      print_name(F);
+      DEBUG(dbgs() << '\n');
+      FuncInfo.HandlerBaseState[F] = NextState;
+      DEBUG(dbgs() << "createUnwindMapEntry(" << CH->getEHState()
+                    << ", null) at EH state = " << currentEHNumber() << '\n');
+      createUnwindMapEntry(CH->getEHState(), nullptr);
+      ++NextState;
+      calculateStateNumbers(*F);
+    }
+    delete CH;
+  }
+#else  // !INTEL_CUSTOMIZATION
   for (CatchHandler *CH : PoppedCatches) {
     if (auto *F = dyn_cast<Function>(CH->getHandlerBlockOrFunc())) {
       if (FuncInfo.LastInvokeVisited[F]) {
@@ -2834,7 +3107,25 @@ void WinEHNumbering::popUnmatchedActions(int FirstMismatch) {
     }
     delete CH;
   }
+#endif // !INTEL_CUSTOMIZATION
 }
+
+#if INTEL_CUSTOMIZATION
+void WinEHNumbering::insertDeferredHandler(const Function *F,
+                                           int EnclosedState) {
+  // We need the deferred handler vector to be sorted by EH state which it
+  // encloses.  This is going to be inefficient, but the vector should always
+  // be very small.
+  auto *It = FuncInfo.DeferredHandlers.begin();
+  auto *End = FuncInfo.DeferredHandlers.end();
+  while (It != End) {
+    if (It->second > EnclosedState)
+      break;
+    ++It;
+  }
+  FuncInfo.DeferredHandlers.insert(It, std::make_pair(F, EnclosedState));
+}
+#endif // INTEL_CUSTOMIZATION
 
 void WinEHNumbering::calculateStateNumbers(const Function &F) {
   auto I = VisitedHandlers.insert(&F);
@@ -2869,7 +3160,7 @@ void WinEHNumbering::calculateStateNumbers(const Function &F) {
       continue;
     processCallSite(ActionList, II);
     ActionList.clear();
-    FuncInfo.LandingPadStateMap[LPI] = currentEHNumber();
+    FuncInfo.EHPadStateMap[LPI] = currentEHNumber();
     DEBUG(dbgs() << "Assigning state " << currentEHNumber()
                   << " to landing pad at " << LPI->getParent()->getName()
                   << '\n');
@@ -2882,6 +3173,39 @@ void WinEHNumbering::calculateStateNumbers(const Function &F) {
                << " to " << F.getName() << '\n');
   FuncInfo.CatchHandlerMaxState[&F] = NextState - 1;
 
+#if INTEL_CUSTOMIZATION
+  if (!FuncInfo.DeferredHandlers.empty()) {
+    DEBUG(dbgs() << "Checking deferred handlers at state " << currentEHNumber()
+                 << '\n');
+    auto It = FuncInfo.DeferredHandlers.rend();
+    while (!FuncInfo.DeferredHandlers.empty()) {
+      const Function *F;
+      int EnclosedState;
+      std::tie(F, EnclosedState) = FuncInfo.DeferredHandlers.back();
+      if (currentEHNumber() <= EnclosedState) {
+        FuncInfo.DeferredHandlers.pop_back();
+        DEBUG(dbgs() << "Assigning base state " << NextState << " to ");
+        DEBUG(print_name(F));
+        DEBUG(dbgs() << '\n');
+        FuncInfo.HandlerBaseState[F] = NextState;
+        DEBUG(dbgs() << "createUnwindMapEntry(" << currentEHNumber()
+                     << ", null)\n");
+        createUnwindMapEntry(currentEHNumber(), nullptr);
+        ++NextState;
+        calculateStateNumbers(*F);
+      } else {
+        DEBUG(dbgs() << "Still deferring handling of ");
+        DEBUG(print_name(F));
+        DEBUG(dbgs() << " because current state (" << currentEHNumber()
+                     << ") exceeds handler state (" << EnclosedState << ").\n");
+        // The deferred handler list is sorted by enclosed state, so if this
+        // handler is still deferred, any others in the vector will be too.
+        break;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   CurrentBaseState = OldBaseState;
 }
 
@@ -2889,10 +3213,46 @@ void WinEHNumbering::calculateStateNumbers(const Function &F) {
 // but it is necessary to identify the root landing pad associated
 // with each action before we start assigning state numbers.
 void WinEHNumbering::findActionRootLPads(const Function &F) {
+#if INTEL_CUSTOMIZATION
+  // The check below was basically copied from calculateStateNumbers().
+  // That routine should only process a function once (although the current
+  // algorithm should ensure that without this initial check).  In this
+  // routine, however, we do want to process the function every time we
+  // see it (which for handler functions means every time it appears in a
+  // landing pads action list).  This is necessary in order to correctly
+  // identify the last invoke associated with an action handler in cases
+  // where the handler's last invoke appears in a handler that is reachable
+  // from multiple places.  The following is an example:
+  //
+  // void f() {
+  //   try {
+  //     try {
+  //       Obj o;
+  //       g();
+  //     } catch (int) {  // f.catch.1
+  //       h();
+  //     }
+  //   } catch (...) {} // f.catch
+  // }
+  //
+  // In this case we'll visit f.catch.1 when processing the landing pad
+  // associated with the invoke of 'o' constructor and then again when
+  // processing the landing pad associated with the invoke of g().  The f.catch
+  // handler is reachable from the landing pads for the o constructor, g(), h()
+  // and the 'o' destructor. The numbering algorithm requires that we recognize
+  // h() [as reached from the 'o' destructor] as the last invoke that can reach
+  // f.catch but if we don't enter this routine after the first time we see
+  // f.catch.1 we will incorrectly designate the 'o' destructor as the last
+  // invoke that reaches the outer handler.
+  //
+  // The 'continue' condition below the comment that begins "Don't replace the
+  // root landing pad..." ensures that setting the LastInvoke for a handler
+  // will be the only effect of processing a function more than once.
+#else  // !INTEL_CUSTOMIZATION
   auto I = VisitedHandlers.insert(&F);
   if (!I.second)
     return; // We've already visited this handler, don't revisit it.
-
+#endif // !INTEL_CUSTOMIZATION
   SmallVector<std::unique_ptr<ActionHandler>, 4> ActionList;
   for (const BasicBlock &BB : F) {
     const auto *II = dyn_cast<InvokeInst>(BB.getTerminator());
@@ -2933,10 +3293,228 @@ void WinEHNumbering::findActionRootLPads(const Function &F) {
   }
 }
 
+static const CatchPadInst *getSingleCatchPadPredecessor(const BasicBlock *BB) {
+  for (const BasicBlock *PredBlock : predecessors(BB))
+    if (auto *CPI = dyn_cast<CatchPadInst>(PredBlock->getFirstNonPHI()))
+      return CPI;
+  return nullptr;
+}
+
+/// Find all the catchpads that feed directly into the catchendpad. Frontends
+/// using this personality should ensure that each catchendpad and catchpad has
+/// one or zero catchpad predecessors.
+///
+/// The following C++ generates the IR after it:
+///   try {
+///   } catch (A) {
+///   } catch (B) {
+///   }
+///
+/// IR:
+///   %catchpad.A
+///     catchpad [i8* A typeinfo]
+///         to label %catch.A unwind label %catchpad.B
+///   %catchpad.B
+///     catchpad [i8* B typeinfo]
+///         to label %catch.B unwind label %endcatches
+///   %endcatches
+///     catchendblock unwind to caller
+void findCatchPadsForCatchEndPad(
+    const BasicBlock *CatchEndBB,
+    SmallVectorImpl<const CatchPadInst *> &Handlers) {
+  const CatchPadInst *CPI = getSingleCatchPadPredecessor(CatchEndBB);
+  while (CPI) {
+    Handlers.push_back(CPI);
+    CPI = getSingleCatchPadPredecessor(CPI->getParent());
+  }
+  // We've pushed these back into reverse source order.  Reverse them to get
+  // the list back into source order.
+  std::reverse(Handlers.begin(), Handlers.end());
+}
+
+// Given BB which ends in an unwind edge, return the EHPad that this BB belongs
+// to. If the unwind edge came from an invoke, return null.
+static const BasicBlock *getEHPadFromPredecessor(const BasicBlock *BB) {
+  const TerminatorInst *TI = BB->getTerminator();
+  if (isa<InvokeInst>(TI))
+    return nullptr;
+  if (isa<CatchPadInst>(TI) || isa<CatchEndPadInst>(TI) ||
+      isa<TerminatePadInst>(TI))
+    return BB;
+  if (auto *CEPI = dyn_cast<CleanupEndPadInst>(TI))
+    return CEPI->getCleanupPad()->getParent();
+  return cast<CleanupReturnInst>(TI)->getCleanupPad()->getParent();
+}
+
+static void calculateExplicitCXXStateNumbers(WinEHFuncInfo &FuncInfo,
+                                             const BasicBlock &BB,
+                                             int ParentState) {
+  assert(BB.isEHPad());
+  const Instruction *FirstNonPHI = BB.getFirstNonPHI();
+  // All catchpad instructions will be handled when we process their
+  // respective catchendpad instruction.
+  if (isa<CatchPadInst>(FirstNonPHI))
+    return;
+
+  if (isa<CatchEndPadInst>(FirstNonPHI)) {
+    SmallVector<const CatchPadInst *, 2> Handlers;
+    findCatchPadsForCatchEndPad(&BB, Handlers);
+    const BasicBlock *FirstTryPad = Handlers.front()->getParent();
+    int TryLow = addUnwindMapEntry(FuncInfo, ParentState, nullptr);
+    FuncInfo.EHPadStateMap[Handlers.front()] = TryLow;
+    for (const BasicBlock *PredBlock : predecessors(FirstTryPad))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitCXXStateNumbers(FuncInfo, *PredBlock, TryLow);
+    int CatchLow = addUnwindMapEntry(FuncInfo, ParentState, nullptr);
+
+    // catchpads are separate funclets in C++ EH due to the way rethrow works.
+    // In SEH, they aren't, so no invokes will unwind to the catchendpad.
+    FuncInfo.EHPadStateMap[FirstNonPHI] = CatchLow;
+    int TryHigh = CatchLow - 1;
+    for (const BasicBlock *PredBlock : predecessors(&BB))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitCXXStateNumbers(FuncInfo, *PredBlock, CatchLow);
+    int CatchHigh = FuncInfo.getLastStateNumber();
+    addTryBlockMapEntry(FuncInfo, TryLow, TryHigh, CatchHigh, Handlers);
+    DEBUG(dbgs() << "TryLow[" << FirstTryPad->getName() << "]: " << TryLow
+                 << '\n');
+    DEBUG(dbgs() << "TryHigh[" << FirstTryPad->getName() << "]: " << TryHigh
+                 << '\n');
+    DEBUG(dbgs() << "CatchHigh[" << FirstTryPad->getName() << "]: " << CatchHigh
+                 << '\n');
+  } else if (isa<CleanupPadInst>(FirstNonPHI)) {
+    int CleanupState = addUnwindMapEntry(FuncInfo, ParentState, &BB);
+    FuncInfo.EHPadStateMap[FirstNonPHI] = CleanupState;
+    DEBUG(dbgs() << "Assigning state #" << CleanupState << " to BB "
+                 << BB.getName() << '\n');
+    for (const BasicBlock *PredBlock : predecessors(&BB))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitCXXStateNumbers(FuncInfo, *PredBlock, CleanupState);
+  } else if (isa<TerminatePadInst>(FirstNonPHI)) {
+    report_fatal_error("Not yet implemented!");
+  } else {
+    llvm_unreachable("unexpected EH Pad!");
+  }
+}
+
+static int addSEHHandler(WinEHFuncInfo &FuncInfo, int ParentState,
+                          const Function *Filter, const BasicBlock *Handler) {
+  SEHUnwindMapEntry Entry;
+  Entry.ToState = ParentState;
+  Entry.Filter = Filter;
+  Entry.Handler = Handler;
+  FuncInfo.SEHUnwindMap.push_back(Entry);
+  return FuncInfo.SEHUnwindMap.size() - 1;
+}
+
+static void calculateExplicitSEHStateNumbers(WinEHFuncInfo &FuncInfo,
+                                             const BasicBlock &BB,
+                                             int ParentState) {
+  assert(BB.isEHPad());
+  const Instruction *FirstNonPHI = BB.getFirstNonPHI();
+  // All catchpad instructions will be handled when we process their
+  // respective catchendpad instruction.
+  if (isa<CatchPadInst>(FirstNonPHI))
+    return;
+
+  if (isa<CatchEndPadInst>(FirstNonPHI)) {
+    // Extract the filter function and the __except basic block and create a
+    // state for them.
+    SmallVector<const CatchPadInst *, 1> Handlers;
+    findCatchPadsForCatchEndPad(&BB, Handlers);
+    assert(Handlers.size() == 1 &&
+           "SEH doesn't have multiple handlers per __try");
+    const CatchPadInst *CPI = Handlers.front();
+    const BasicBlock *CatchPadBB = CPI->getParent();
+    const Function *Filter =
+        cast<Function>(CPI->getArgOperand(0)->stripPointerCasts());
+    int TryState =
+        addSEHHandler(FuncInfo, ParentState, Filter, CPI->getNormalDest());
+
+    // Everything in the __try block uses TryState as its parent state.
+    FuncInfo.EHPadStateMap[CPI] = TryState;
+    DEBUG(dbgs() << "Assigning state #" << TryState << " to BB "
+                 << CatchPadBB->getName() << '\n');
+    for (const BasicBlock *PredBlock : predecessors(CatchPadBB))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitSEHStateNumbers(FuncInfo, *PredBlock, TryState);
+
+    // Everything in the __except block unwinds to ParentState, just like code
+    // outside the __try.
+    FuncInfo.EHPadStateMap[FirstNonPHI] = ParentState;
+    DEBUG(dbgs() << "Assigning state #" << ParentState << " to BB "
+                 << BB.getName() << '\n');
+    for (const BasicBlock *PredBlock : predecessors(&BB))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitSEHStateNumbers(FuncInfo, *PredBlock, ParentState);
+  } else if (isa<CleanupPadInst>(FirstNonPHI)) {
+    int CleanupState =
+        addSEHHandler(FuncInfo, ParentState, /*Filter=*/nullptr, &BB);
+    FuncInfo.EHPadStateMap[FirstNonPHI] = CleanupState;
+    DEBUG(dbgs() << "Assigning state #" << CleanupState << " to BB "
+                 << BB.getName() << '\n');
+    for (const BasicBlock *PredBlock : predecessors(&BB))
+      if ((PredBlock = getEHPadFromPredecessor(PredBlock)))
+        calculateExplicitSEHStateNumbers(FuncInfo, *PredBlock, CleanupState);
+  } else if (isa<TerminatePadInst>(FirstNonPHI)) {
+    report_fatal_error("Not yet implemented!");
+  } else {
+    llvm_unreachable("unexpected EH Pad!");
+  }
+}
+
+/// Check if the EH Pad unwinds to caller.  Cleanups are a little bit of a
+/// special case because we have to look at the cleanupret instruction that uses
+/// the cleanuppad.
+static bool doesEHPadUnwindToCaller(const Instruction *EHPad) {
+  auto *CPI = dyn_cast<CleanupPadInst>(EHPad);
+  if (!CPI)
+    return EHPad->mayThrow();
+
+  // This cleanup does not return or unwind, so we say it unwinds to caller.
+  if (CPI->use_empty())
+    return true;
+
+  const Instruction *User = CPI->user_back();
+  if (auto *CRI = dyn_cast<CleanupReturnInst>(User))
+    return CRI->unwindsToCaller();
+  return cast<CleanupEndPadInst>(User)->unwindsToCaller();
+}
+
+void llvm::calculateSEHStateNumbers(const Function *ParentFn,
+                                    WinEHFuncInfo &FuncInfo) {
+  // Don't compute state numbers twice.
+  if (!FuncInfo.SEHUnwindMap.empty())
+    return;
+
+  for (const BasicBlock &BB : *ParentFn) {
+    if (!BB.isEHPad() || !doesEHPadUnwindToCaller(BB.getFirstNonPHI()))
+      continue;
+    calculateExplicitSEHStateNumbers(FuncInfo, BB, -1);
+  }
+}
+
 void llvm::calculateWinCXXEHStateNumbers(const Function *ParentFn,
                                          WinEHFuncInfo &FuncInfo) {
   // Return if it's already been done.
-  if (!FuncInfo.LandingPadStateMap.empty())
+  if (!FuncInfo.EHPadStateMap.empty())
+    return;
+
+  bool IsExplicit = false;
+  for (const BasicBlock &BB : *ParentFn) {
+    if (!BB.isEHPad())
+      continue;
+    const Instruction *FirstNonPHI = BB.getFirstNonPHI();
+    // Skip cleanupendpads; they are exits, not entries.
+    if (isa<CleanupEndPadInst>(FirstNonPHI))
+      continue;
+    if (!doesEHPadUnwindToCaller(FirstNonPHI))
+      continue;
+    calculateExplicitCXXStateNumbers(FuncInfo, BB, -1);
+    IsExplicit = true;
+  }
+
+  if (IsExplicit)
     return;
 
   WinEHNumbering Num(FuncInfo);
@@ -2950,4 +3528,511 @@ void llvm::calculateWinCXXEHStateNumbers(const Function *ParentFn,
   // be pushed on the stack as a result of clearing the stack.
   while (!Num.HandlerStack.empty())
     Num.processCallSite(None, ImmutableCallSite());
+}
+
+void WinEHPrepare::colorFunclets(Function &F,
+                                 SmallVectorImpl<BasicBlock *> &EntryBlocks) {
+  SmallVector<std::pair<BasicBlock *, BasicBlock *>, 16> Worklist;
+  BasicBlock *EntryBlock = &F.getEntryBlock();
+
+  // Build up the color map, which maps each block to its set of 'colors'.
+  // For any block B, the "colors" of B are the set of funclets F (possibly
+  // including a root "funclet" representing the main function), such that
+  // F will need to directly contain B or a copy of B (where the term "directly
+  // contain" is used to distinguish from being "transitively contained" in
+  // a nested funclet).
+  // Use a CFG walk driven by a worklist of (block, color) pairs.  The "color"
+  // sets attached during this processing to a block which is the entry of some
+  // funclet F is actually the set of F's parents -- i.e. the union of colors
+  // of all predecessors of F's entry.  For all other blocks, the color sets
+  // are as defined above.  A post-pass fixes up the block color map to reflect
+  // the same sense of "color" for funclet entries as for other blocks.
+
+  Worklist.push_back({EntryBlock, EntryBlock});
+
+  while (!Worklist.empty()) {
+    BasicBlock *Visiting;
+    BasicBlock *Color;
+    std::tie(Visiting, Color) = Worklist.pop_back_val();
+    Instruction *VisitingHead = Visiting->getFirstNonPHI();
+    if (VisitingHead->isEHPad() && !isa<CatchEndPadInst>(VisitingHead) &&
+        !isa<CleanupEndPadInst>(VisitingHead)) {
+      // Mark this as a funclet head as a member of itself.
+      FuncletBlocks[Visiting].insert(Visiting);
+      // Queue exits with the parent color.
+      for (User *Exit : VisitingHead->users()) {
+        for (BasicBlock *Succ :
+             successors(cast<Instruction>(Exit)->getParent())) {
+          if (BlockColors[Succ].insert(Color).second) {
+            Worklist.push_back({Succ, Color});
+          }
+        }
+      }
+      // Handle CatchPad specially since its successors need different colors.
+      if (CatchPadInst *CatchPad = dyn_cast<CatchPadInst>(VisitingHead)) {
+        // Visit the normal successor with the color of the new EH pad, and
+        // visit the unwind successor with the color of the parent.
+        BasicBlock *NormalSucc = CatchPad->getNormalDest();
+        if (BlockColors[NormalSucc].insert(Visiting).second) {
+          Worklist.push_back({NormalSucc, Visiting});
+        }
+        BasicBlock *UnwindSucc = CatchPad->getUnwindDest();
+        if (BlockColors[UnwindSucc].insert(Color).second) {
+          Worklist.push_back({UnwindSucc, Color});
+        }
+        continue;
+      }
+      // Switch color to the current node, except for terminate pads which
+      // have no bodies and only unwind successors and so need their successors
+      // visited with the color of the parent.
+      if (!isa<TerminatePadInst>(VisitingHead))
+        Color = Visiting;
+    } else {
+      // Note that this is a member of the given color.
+      FuncletBlocks[Color].insert(Visiting);
+      TerminatorInst *Terminator = Visiting->getTerminator();
+      if (isa<CleanupReturnInst>(Terminator) ||
+          isa<CatchReturnInst>(Terminator) ||
+          isa<CleanupEndPadInst>(Terminator)) {
+        // These block's successors have already been queued with the parent
+        // color.
+        continue;
+      }
+    }
+    for (BasicBlock *Succ : successors(Visiting)) {
+      if (isa<CatchEndPadInst>(Succ->getFirstNonPHI())) {
+        // The catchendpad needs to be visited with the parent's color, not
+        // the current color.  This will happen in the code above that visits
+        // any catchpad unwind successor with the parent color, so we can
+        // safely skip this successor here.
+        continue;
+      }
+      if (BlockColors[Succ].insert(Color).second) {
+        Worklist.push_back({Succ, Color});
+      }
+    }
+  }
+
+  // The processing above actually accumulated the parent set for this
+  // funclet into the color set for its entry; use the parent set to
+  // populate the children map, and reset the color set to include just
+  // the funclet itself (no instruction can target a funclet entry except on
+  // that transitions to the child funclet).
+  for (BasicBlock *FuncletEntry : EntryBlocks) {
+    std::set<BasicBlock *> &ColorMapItem = BlockColors[FuncletEntry];
+    for (BasicBlock *Parent : ColorMapItem)
+      FuncletChildren[Parent].insert(FuncletEntry);
+    ColorMapItem.clear();
+    ColorMapItem.insert(FuncletEntry);
+  }
+}
+
+bool WinEHPrepare::prepareExplicitEH(
+    Function &F, SmallVectorImpl<BasicBlock *> &EntryBlocks) {
+  // Remove unreachable blocks.  It is not valuable to assign them a color and
+  // their existence can trick us into thinking values are alive when they are
+  // not.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
+  removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
+
+  // Determine which blocks are reachable from which funclet entries.
+  colorFunclets(F, EntryBlocks);
+
+  // Strip PHI nodes off of EH pads.
+  SmallVector<PHINode *, 16> PHINodes;
+  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
+    BasicBlock *BB = FI++;
+    if (!BB->isEHPad())
+      continue;
+    for (BasicBlock::iterator BI = BB->begin(), BE = BB->end(); BI != BE;) {
+      Instruction *I = BI++;
+      auto *PN = dyn_cast<PHINode>(I);
+      // Stop at the first non-PHI.
+      if (!PN)
+        break;
+
+      AllocaInst *SpillSlot = insertPHILoads(PN, F);
+      if (SpillSlot)
+        insertPHIStores(PN, SpillSlot);
+
+      PHINodes.push_back(PN);
+    }
+  }
+
+  for (auto *PN : PHINodes) {
+    // There may be lingering uses on other EH PHIs being removed
+    PN->replaceAllUsesWith(UndefValue::get(PN->getType()));
+    PN->eraseFromParent();
+  }
+
+  // Turn all inter-funclet uses of a Value into loads and stores.
+  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
+    BasicBlock *BB = FI++;
+    std::set<BasicBlock *> &ColorsForBB = BlockColors[BB];
+    for (BasicBlock::iterator BI = BB->begin(), BE = BB->end(); BI != BE;) {
+      Instruction *I = BI++;
+      // Funclets are permitted to use static allocas.
+      if (auto *AI = dyn_cast<AllocaInst>(I))
+        if (AI->isStaticAlloca())
+          continue;
+
+      demoteNonlocalUses(I, ColorsForBB, F);
+    }
+  }
+  // Also demote function parameters used in funclets.
+  std::set<BasicBlock *> &ColorsForEntry = BlockColors[&F.getEntryBlock()];
+  for (Argument &Arg : F.args())
+    demoteNonlocalUses(&Arg, ColorsForEntry, F);
+
+  // We need to clone all blocks which belong to multiple funclets.  Values are
+  // remapped throughout the funclet to propogate both the new instructions
+  // *and* the new basic blocks themselves.
+  for (BasicBlock *FuncletPadBB : EntryBlocks) {
+    std::set<BasicBlock *> &BlocksInFunclet = FuncletBlocks[FuncletPadBB];
+
+    std::map<BasicBlock *, BasicBlock *> Orig2Clone;
+    ValueToValueMapTy VMap;
+    for (BasicBlock *BB : BlocksInFunclet) {
+      std::set<BasicBlock *> &ColorsForBB = BlockColors[BB];
+      // We don't need to do anything if the block is monochromatic.
+      size_t NumColorsForBB = ColorsForBB.size();
+      if (NumColorsForBB == 1)
+        continue;
+
+      // Create a new basic block and copy instructions into it!
+      BasicBlock *CBB =
+          CloneBasicBlock(BB, VMap, Twine(".for.", FuncletPadBB->getName()));
+      // Insert the clone immediately after the original to ensure determinism
+      // and to keep the same relative ordering of any funclet's blocks.
+      CBB->insertInto(&F, BB->getNextNode());
+
+      // Add basic block mapping.
+      VMap[BB] = CBB;
+
+      // Record delta operations that we need to perform to our color mappings.
+      Orig2Clone[BB] = CBB;
+    }
+
+    // Update our color mappings to reflect that one block has lost a color and
+    // another has gained a color.
+    for (auto &BBMapping : Orig2Clone) {
+      BasicBlock *OldBlock = BBMapping.first;
+      BasicBlock *NewBlock = BBMapping.second;
+
+      BlocksInFunclet.insert(NewBlock);
+      BlockColors[NewBlock].insert(FuncletPadBB);
+
+      BlocksInFunclet.erase(OldBlock);
+      BlockColors[OldBlock].erase(FuncletPadBB);
+    }
+
+    // Loop over all of the instructions in the function, fixing up operand
+    // references as we go.  This uses VMap to do all the hard work.
+    for (BasicBlock *BB : BlocksInFunclet)
+      // Loop over all instructions, fixing each one as we find it...
+      for (Instruction &I : *BB)
+        RemapInstruction(&I, VMap, RF_IgnoreMissingEntries);
+  }
+
+  // Remove implausible terminators and replace them with UnreachableInst.
+  for (auto &Funclet : FuncletBlocks) {
+    BasicBlock *FuncletPadBB = Funclet.first;
+    std::set<BasicBlock *> &BlocksInFunclet = Funclet.second;
+    Instruction *FirstNonPHI = FuncletPadBB->getFirstNonPHI();
+    auto *CatchPad = dyn_cast<CatchPadInst>(FirstNonPHI);
+    auto *CleanupPad = dyn_cast<CleanupPadInst>(FirstNonPHI);
+
+    for (BasicBlock *BB : BlocksInFunclet) {
+      TerminatorInst *TI = BB->getTerminator();
+      // CatchPadInst and CleanupPadInst can't transfer control to a ReturnInst.
+      bool IsUnreachableRet = isa<ReturnInst>(TI) && (CatchPad || CleanupPad);
+      // The token consumed by a CatchReturnInst must match the funclet token.
+      bool IsUnreachableCatchret = false;
+      if (auto *CRI = dyn_cast<CatchReturnInst>(TI))
+        IsUnreachableCatchret = CRI->getCatchPad() != CatchPad;
+      // The token consumed by a CleanupReturnInst must match the funclet token.
+      bool IsUnreachableCleanupret = false;
+      if (auto *CRI = dyn_cast<CleanupReturnInst>(TI))
+        IsUnreachableCleanupret = CRI->getCleanupPad() != CleanupPad;
+      // The token consumed by a CleanupEndPadInst must match the funclet token.
+      bool IsUnreachableCleanupendpad = false;
+      if (auto *CEPI = dyn_cast<CleanupEndPadInst>(TI))
+        IsUnreachableCleanupendpad = CEPI->getCleanupPad() != CleanupPad;
+      if (IsUnreachableRet || IsUnreachableCatchret ||
+          IsUnreachableCleanupret || IsUnreachableCleanupendpad) {
+        new UnreachableInst(BB->getContext(), TI);
+        TI->eraseFromParent();
+      }
+    }
+  }
+
+  // Clean-up some of the mess we made by removing useles PHI nodes, trivial
+  // branches, etc.
+  for (Function::iterator FI = F.begin(), FE = F.end(); FI != FE;) {
+    BasicBlock *BB = FI++;
+    SimplifyInstructionsInBlock(BB);
+    ConstantFoldTerminator(BB, /*DeleteDeadConditions=*/true);
+    MergeBlockIntoPredecessor(BB);
+  }
+
+  // We might have some unreachable blocks after cleaning up some impossible
+  // control flow.
+#if INTEL_CUSTOMIZATION
+  removeUnreachableBlocks(F, DT);
+#else
+  removeUnreachableBlocks(F);
+#endif // INTEL_CUSTOMIZATION
+
+  // Recolor the CFG to verify that all is well.
+  for (BasicBlock &BB : F) {
+    size_t NumColors = BlockColors[&BB].size();
+    assert(NumColors == 1 && "Expected monochromatic BB!");
+    if (NumColors == 0)
+      report_fatal_error("Uncolored BB!");
+    if (NumColors > 1)
+      report_fatal_error("Multicolor BB!");
+    bool EHPadHasPHI = BB.isEHPad() && isa<PHINode>(BB.begin());
+    assert(!EHPadHasPHI && "EH Pad still has a PHI!");
+    if (EHPadHasPHI)
+      report_fatal_error("EH Pad still has a PHI!");
+  }
+
+  BlockColors.clear();
+  FuncletBlocks.clear();
+  FuncletChildren.clear();
+
+  return true;
+}
+
+// TODO: Share loads when one use dominates another, or when a catchpad exit
+// dominates uses (needs dominators).
+AllocaInst *WinEHPrepare::insertPHILoads(PHINode *PN, Function &F) {
+  BasicBlock *PHIBlock = PN->getParent();
+  AllocaInst *SpillSlot = nullptr;
+
+  if (isa<CleanupPadInst>(PHIBlock->getFirstNonPHI())) {
+    // Insert a load in place of the PHI and replace all uses.
+    SpillSlot = new AllocaInst(PN->getType(), nullptr,
+                               Twine(PN->getName(), ".wineh.spillslot"),
+                               F.getEntryBlock().begin());
+    Value *V = new LoadInst(SpillSlot, Twine(PN->getName(), ".wineh.reload"),
+                            PHIBlock->getFirstInsertionPt());
+    PN->replaceAllUsesWith(V);
+    return SpillSlot;
+  }
+
+  DenseMap<BasicBlock *, Value *> Loads;
+  for (Value::use_iterator UI = PN->use_begin(), UE = PN->use_end();
+       UI != UE;) {
+    Use &U = *UI++;
+    auto *UsingInst = cast<Instruction>(U.getUser());
+    BasicBlock *UsingBB = UsingInst->getParent();
+    if (UsingBB->isEHPad()) {
+      // Use is on an EH pad phi.  Leave it alone; we'll insert loads and
+      // stores for it separately.
+      assert(isa<PHINode>(UsingInst));
+      continue;
+    }
+    replaceUseWithLoad(PN, U, SpillSlot, Loads, F);
+  }
+  return SpillSlot;
+}
+
+// TODO: improve store placement.  Inserting at def is probably good, but need
+// to be careful not to introduce interfering stores (needs liveness analysis).
+// TODO: identify related phi nodes that can share spill slots, and share them
+// (also needs liveness).
+void WinEHPrepare::insertPHIStores(PHINode *OriginalPHI,
+                                   AllocaInst *SpillSlot) {
+  // Use a worklist of (Block, Value) pairs -- the given Value needs to be
+  // stored to the spill slot by the end of the given Block.
+  SmallVector<std::pair<BasicBlock *, Value *>, 4> Worklist;
+
+  Worklist.push_back({OriginalPHI->getParent(), OriginalPHI});
+
+  while (!Worklist.empty()) {
+    BasicBlock *EHBlock;
+    Value *InVal;
+    std::tie(EHBlock, InVal) = Worklist.pop_back_val();
+
+    PHINode *PN = dyn_cast<PHINode>(InVal);
+    if (PN && PN->getParent() == EHBlock) {
+      // The value is defined by another PHI we need to remove, with no room to
+      // insert a store after the PHI, so each predecessor needs to store its
+      // incoming value.
+      for (unsigned i = 0, e = PN->getNumIncomingValues(); i < e; ++i) {
+        Value *PredVal = PN->getIncomingValue(i);
+
+        // Undef can safely be skipped.
+        if (isa<UndefValue>(PredVal))
+          continue;
+
+        insertPHIStore(PN->getIncomingBlock(i), PredVal, SpillSlot, Worklist);
+      }
+    } else {
+      // We need to store InVal, which dominates EHBlock, but can't put a store
+      // in EHBlock, so need to put stores in each predecessor.
+      for (BasicBlock *PredBlock : predecessors(EHBlock)) {
+        insertPHIStore(PredBlock, InVal, SpillSlot, Worklist);
+      }
+    }
+  }
+}
+
+void WinEHPrepare::insertPHIStore(
+    BasicBlock *PredBlock, Value *PredVal, AllocaInst *SpillSlot,
+    SmallVectorImpl<std::pair<BasicBlock *, Value *>> &Worklist) {
+
+  if (PredBlock->isEHPad() &&
+      !isa<CleanupPadInst>(PredBlock->getFirstNonPHI())) {
+    // Pred is unsplittable, so we need to queue it on the worklist.
+    Worklist.push_back({PredBlock, PredVal});
+    return;
+  }
+
+  // Otherwise, insert the store at the end of the basic block.
+  new StoreInst(PredVal, SpillSlot, PredBlock->getTerminator());
+}
+
+// TODO: Share loads for same-funclet uses (requires dominators if funclets
+// aren't properly nested).
+void WinEHPrepare::demoteNonlocalUses(Value *V,
+                                      std::set<BasicBlock *> &ColorsForBB,
+                                      Function &F) {
+  // Tokens can only be used non-locally due to control flow involving
+  // unreachable edges.  Don't try to demote the token usage, we'll simply
+  // delete the cloned user later.
+  if (isa<CatchPadInst>(V) || isa<CleanupPadInst>(V))
+    return;
+
+  DenseMap<BasicBlock *, Value *> Loads;
+  AllocaInst *SpillSlot = nullptr;
+  for (Value::use_iterator UI = V->use_begin(), UE = V->use_end(); UI != UE;) {
+    Use &U = *UI++;
+    auto *UsingInst = cast<Instruction>(U.getUser());
+    BasicBlock *UsingBB = UsingInst->getParent();
+
+    // Is the Use inside a block which is colored the same as the Def?
+    // If so, we don't need to escape the Def because we will clone
+    // ourselves our own private copy.
+    std::set<BasicBlock *> &ColorsForUsingBB = BlockColors[UsingBB];
+    if (ColorsForUsingBB == ColorsForBB)
+      continue;
+
+    replaceUseWithLoad(V, U, SpillSlot, Loads, F);
+  }
+  if (SpillSlot) {
+    // Insert stores of the computed value into the stack slot.
+    // We have to be careful if I is an invoke instruction,
+    // because we can't insert the store AFTER the terminator instruction.
+    BasicBlock::iterator InsertPt;
+    if (isa<Argument>(V)) {
+      InsertPt = F.getEntryBlock().getTerminator();
+    } else if (isa<TerminatorInst>(V)) {
+      auto *II = cast<InvokeInst>(V);
+      // We cannot demote invoke instructions to the stack if their normal
+      // edge is critical. Therefore, split the critical edge and create a
+      // basic block into which the store can be inserted.
+      if (!II->getNormalDest()->getSinglePredecessor()) {
+        unsigned SuccNum =
+            GetSuccessorNumber(II->getParent(), II->getNormalDest());
+        assert(isCriticalEdge(II, SuccNum) && "Expected a critical edge!");
+#if INTEL_CUSTOMIZATION
+        BasicBlock *NewBlock = SplitCriticalEdge(II, SuccNum,
+                                 CriticalEdgeSplittingOptions(DT));
+#else // !INTEL_CUSTOMIZATION
+        BasicBlock *NewBlock = SplitCriticalEdge(II, SuccNum);
+#endif // !INTEL_CUSTOMIZATION
+        assert(NewBlock && "Unable to split critical edge.");
+        // Update the color mapping for the newly split edge.
+        std::set<BasicBlock *> &ColorsForUsingBB = BlockColors[II->getParent()];
+        BlockColors[NewBlock] = ColorsForUsingBB;
+        for (BasicBlock *FuncletPad : ColorsForUsingBB)
+          FuncletBlocks[FuncletPad].insert(NewBlock);
+      }
+      InsertPt = II->getNormalDest()->getFirstInsertionPt();
+    } else {
+      InsertPt = cast<Instruction>(V);
+      ++InsertPt;
+      // Don't insert before PHI nodes or EH pad instrs.
+      for (; isa<PHINode>(InsertPt) || InsertPt->isEHPad(); ++InsertPt)
+        ;
+    }
+    new StoreInst(V, SpillSlot, InsertPt);
+  }
+}
+
+void WinEHPrepare::replaceUseWithLoad(Value *V, Use &U, AllocaInst *&SpillSlot,
+                                      DenseMap<BasicBlock *, Value *> &Loads,
+                                      Function &F) {
+  // Lazilly create the spill slot.
+  if (!SpillSlot)
+    SpillSlot = new AllocaInst(V->getType(), nullptr,
+                               Twine(V->getName(), ".wineh.spillslot"),
+                               F.getEntryBlock().begin());
+
+  auto *UsingInst = cast<Instruction>(U.getUser());
+  if (auto *UsingPHI = dyn_cast<PHINode>(UsingInst)) {
+    // If this is a PHI node, we can't insert a load of the value before
+    // the use.  Instead insert the load in the predecessor block
+    // corresponding to the incoming value.
+    //
+    // Note that if there are multiple edges from a basic block to this
+    // PHI node that we cannot have multiple loads.  The problem is that
+    // the resulting PHI node will have multiple values (from each load)
+    // coming in from the same block, which is illegal SSA form.
+    // For this reason, we keep track of and reuse loads we insert.
+    BasicBlock *IncomingBlock = UsingPHI->getIncomingBlock(U);
+    if (auto *CatchRet =
+            dyn_cast<CatchReturnInst>(IncomingBlock->getTerminator())) {
+      // Putting a load above a catchret and use on the phi would still leave
+      // a cross-funclet def/use.  We need to split the edge, change the
+      // catchret to target the new block, and put the load there.
+      BasicBlock *PHIBlock = UsingInst->getParent();
+      BasicBlock *NewBlock = SplitEdge(IncomingBlock, PHIBlock);
+      // SplitEdge gives us:
+      //   IncomingBlock:
+      //     ...
+      //     br label %NewBlock
+      //   NewBlock:
+      //     catchret label %PHIBlock
+      // But we need:
+      //   IncomingBlock:
+      //     ...
+      //     catchret label %NewBlock
+      //   NewBlock:
+      //     br label %PHIBlock
+      // So move the terminators to each others' blocks and swap their
+      // successors.
+      BranchInst *Goto = cast<BranchInst>(IncomingBlock->getTerminator());
+      Goto->removeFromParent();
+      CatchRet->removeFromParent();
+      IncomingBlock->getInstList().push_back(CatchRet);
+      NewBlock->getInstList().push_back(Goto);
+      Goto->setSuccessor(0, PHIBlock);
+      CatchRet->setSuccessor(NewBlock);
+      // Update the color mapping for the newly split edge.
+      std::set<BasicBlock *> &ColorsForPHIBlock = BlockColors[PHIBlock];
+      BlockColors[NewBlock] = ColorsForPHIBlock;
+      for (BasicBlock *FuncletPad : ColorsForPHIBlock)
+        FuncletBlocks[FuncletPad].insert(NewBlock);
+      // Treat the new block as incoming for load insertion.
+      IncomingBlock = NewBlock;
+    }
+    Value *&Load = Loads[IncomingBlock];
+    // Insert the load into the predecessor block
+    if (!Load)
+      Load = new LoadInst(SpillSlot, Twine(V->getName(), ".wineh.reload"),
+                          /*Volatile=*/false, IncomingBlock->getTerminator());
+
+    U.set(Load);
+  } else {
+    // Reload right before the old use.
+    auto *Load = new LoadInst(SpillSlot, Twine(V->getName(), ".wineh.reload"),
+                              /*Volatile=*/false, UsingInst);
+    U.set(Load);
+  }
 }

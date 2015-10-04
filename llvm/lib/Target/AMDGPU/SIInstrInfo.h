@@ -39,12 +39,6 @@ private:
                                          unsigned SubIdx,
                                          const TargetRegisterClass *SubRC) const;
 
-  unsigned split64BitImm(SmallVectorImpl<MachineInstr *> &Worklist,
-                         MachineBasicBlock::iterator MI,
-                         MachineRegisterInfo &MRI,
-                         const TargetRegisterClass *RC,
-                         const MachineOperand &Op) const;
-
   void swapOperands(MachineBasicBlock::iterator Inst) const;
 
   void splitScalar64BitUnaryOp(SmallVectorImpl<MachineInstr *> &Worklist,
@@ -58,7 +52,9 @@ private:
   void splitScalar64BitBFE(SmallVectorImpl<MachineInstr *> &Worklist,
                            MachineInstr *Inst) const;
 
-  void addDescImplicitUseDef(const MCInstrDesc &Desc, MachineInstr *MI) const;
+  void addUsersToMoveToVALUWorklist(
+    unsigned Reg, MachineRegisterInfo &MRI,
+    SmallVectorImpl<MachineInstr *> &Worklist) const;
 
   bool checkInstOffsetsDoNotOverlap(MachineInstr *MIa,
                                     MachineInstr *MIb) const;
@@ -125,9 +121,6 @@ public:
                              unsigned &SrcOpIdx1,
                              unsigned &SrcOpIdx2) const override;
 
-  bool isTriviallyReMaterializable(const MachineInstr *MI,
-                                   AliasAnalysis *AA = nullptr) const;
-
   bool areMemAccessesTriviallyDisjoint(
     MachineInstr *MIa, MachineInstr *MIb,
     AliasAnalysis *AA = nullptr) const override;
@@ -137,12 +130,14 @@ public:
                               unsigned DstReg, unsigned SrcReg) const override;
   bool isMov(unsigned Opcode) const override;
 
-  bool isSafeToMoveRegClassDefs(const TargetRegisterClass *RC) const override;
-
   bool FoldImmediate(MachineInstr *UseMI, MachineInstr *DefMI,
                      unsigned Reg, MachineRegisterInfo *MRI) const final;
 
   unsigned getMachineCSELookAheadLimit() const override { return 500; }
+
+  MachineInstr *convertToThreeAddress(MachineFunction::iterator &MBB,
+                                      MachineBasicBlock::iterator &MI,
+                                      LiveVariables *LV) const override;
 
   bool isSALU(uint16_t Opcode) const {
     return get(Opcode).TSFlags & SIInstrFlags::SALU;

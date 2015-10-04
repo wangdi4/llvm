@@ -92,65 +92,78 @@ public:
   /// \brief Iterates over a filtered subrange of clauses applied to a
   /// directive.
   ///
-  /// This iterator visits only those declarations that meet some run-time
-  /// criteria.
-  template <class FilterPredicate> class filtered_clause_iterator {
-  protected:
-    ArrayRef<OMPClause *>::const_iterator Current;
+  /// This iterator visits only clauses of type SpecificClause.
+  template <typename SpecificClause>
+  class specific_clause_iterator
+      : public llvm::iterator_adaptor_base<
+            specific_clause_iterator<SpecificClause>,
+            ArrayRef<OMPClause *>::const_iterator, std::forward_iterator_tag,
+            const SpecificClause *, ptrdiff_t, const SpecificClause *,
+            const SpecificClause *> {
     ArrayRef<OMPClause *>::const_iterator End;
-    FilterPredicate Pred;
+
     void SkipToNextClause() {
-      while (Current != End && !Pred(*Current))
-        ++Current;
+      while (this->I != End && !isa<SpecificClause>(*this->I))
+        ++this->I;
     }
 
   public:
-    typedef const OMPClause *value_type;
-    filtered_clause_iterator() : Current(), End() {}
-    filtered_clause_iterator(ArrayRef<OMPClause *> Arr, FilterPredicate Pred)
-        : Current(Arr.begin()), End(Arr.end()), Pred(std::move(Pred)) {
+    explicit specific_clause_iterator(ArrayRef<OMPClause *> Clauses)
+        : specific_clause_iterator::iterator_adaptor_base(Clauses.begin()),
+          End(Clauses.end()) {
       SkipToNextClause();
     }
-    value_type operator*() const { return *Current; }
-    value_type operator->() const { return *Current; }
-    filtered_clause_iterator &operator++() {
-      ++Current;
+
+    const SpecificClause *operator*() const {
+      return cast<SpecificClause>(*this->I);
+    }
+    const SpecificClause *operator->() const { return **this; }
+
+    specific_clause_iterator &operator++() {
+      ++this->I;
       SkipToNextClause();
       return *this;
     }
-
-    filtered_clause_iterator operator++(int) {
-      filtered_clause_iterator tmp(*this);
-      ++(*this);
-      return tmp;
-    }
-
-    bool operator!() { return Current == End; }
-    explicit operator bool() { return Current != End; }
-    bool empty() const { return Current == End; }
   };
 
-  template <typename Fn>
-  filtered_clause_iterator<Fn> getFilteredClauses(Fn &&fn) const {
-    return filtered_clause_iterator<Fn>(clauses(), std::move(fn));
-  }
-  struct ClauseKindFilter {
-    OpenMPClauseKind Kind;
-    bool operator()(const OMPClause *clause) const {
-      return clause->getClauseKind() == Kind;
-    }
-  };
-  filtered_clause_iterator<ClauseKindFilter>
-  getClausesOfKind(OpenMPClauseKind Kind) const {
-    return getFilteredClauses(ClauseKindFilter{Kind});
+  template <typename SpecificClause>
+  static llvm::iterator_range<specific_clause_iterator<SpecificClause>>
+  getClausesOfKind(ArrayRef<OMPClause *> Clauses) {
+    return {specific_clause_iterator<SpecificClause>(Clauses),
+            specific_clause_iterator<SpecificClause>(
+                llvm::makeArrayRef(Clauses.end(), 0))};
   }
 
-  /// \brief Gets a single clause of the specified kind \a K associated with the
+  template <typename SpecificClause>
+  llvm::iterator_range<specific_clause_iterator<SpecificClause>>
+  getClausesOfKind() const {
+    return getClausesOfKind<SpecificClause>(clauses());
+  }
+
+  /// Gets a single clause of the specified kind associated with the
   /// current directive iff there is only one clause of this kind (and assertion
   /// is fired if there is more than one clause is associated with the
-  /// directive). Returns nullptr if no clause of kind \a K is associated with
+  /// directive). Returns nullptr if no clause of this kind is associated with
   /// the directive.
-  const OMPClause *getSingleClause(OpenMPClauseKind K) const;
+  template <typename SpecificClause>
+  const SpecificClause *getSingleClause() const {
+    auto Clauses = getClausesOfKind<SpecificClause>();
+
+    if (Clauses.begin() != Clauses.end()) {
+      assert(std::next(Clauses.begin()) == Clauses.end() &&
+             "There are at least 2 clauses of the specified kind");
+      return *Clauses.begin();
+    }
+    return nullptr;
+  }
+
+  /// Returns true if the current directive has one or more clauses of a
+  /// specific kind.
+  template <typename SpecificClause>
+  bool hasClausesOfKind() const {
+    auto Clauses = getClausesOfKind<SpecificClause>();
+    return Clauses.begin() != Clauses.end();
+  }
 
   /// \brief Returns starting location of directive kind.
   SourceLocation getLocStart() const { return StartLoc; }
@@ -195,7 +208,7 @@ public:
 
   child_range children() {
     if (!hasAssociatedStmt())
-      return child_range();
+      return child_range(child_iterator(), child_iterator());
     Stmt **ChildStorage = reinterpret_cast<Stmt **>(getClauses().end());
     return child_range(ChildStorage, ChildStorage + NumChildren);
   }
@@ -311,11 +324,26 @@ class OMPLoopDirective : public OMPExecutableDirective {
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
   }
 
+  /// \brief Get the private counters storage.
+  MutableArrayRef<Expr *> getPrivateCounters() {
+    Expr **Storage = reinterpret_cast<Expr **>(&*std::next(
+        child_begin(), getArraysOffset(getDirectiveKind()) + CollapsedNum));
+    return MutableArrayRef<Expr *>(Storage, CollapsedNum);
+  }
+
+  /// \brief Get the updates storage.
+  MutableArrayRef<Expr *> getInits() {
+    Expr **Storage = reinterpret_cast<Expr **>(
+        &*std::next(child_begin(),
+                    getArraysOffset(getDirectiveKind()) + 2 * CollapsedNum));
+    return MutableArrayRef<Expr *>(Storage, CollapsedNum);
+  }
+
   /// \brief Get the updates storage.
   MutableArrayRef<Expr *> getUpdates() {
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
-                    getArraysOffset(getDirectiveKind()) + CollapsedNum));
+                    getArraysOffset(getDirectiveKind()) + 3 * CollapsedNum));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
   }
 
@@ -323,7 +351,7 @@ class OMPLoopDirective : public OMPExecutableDirective {
   MutableArrayRef<Expr *> getFinals() {
     Expr **Storage = reinterpret_cast<Expr **>(
         &*std::next(child_begin(),
-                    getArraysOffset(getDirectiveKind()) + 2 * CollapsedNum));
+                    getArraysOffset(getDirectiveKind()) + 4 * CollapsedNum));
     return MutableArrayRef<Expr *>(Storage, CollapsedNum);
   }
 
@@ -357,8 +385,9 @@ protected:
   /// \brief Children number.
   static unsigned numLoopChildren(unsigned CollapsedNum,
                                   OpenMPDirectiveKind Kind) {
-    return getArraysOffset(Kind) +
-           3 * CollapsedNum; // Counters, Updates and Finals
+    return getArraysOffset(Kind) + 5 * CollapsedNum; // Counters,
+                                                     // PrivateCounters, Inits,
+                                                     // Updates and Finals
   }
 
   void setIterationVariable(Expr *IV) {
@@ -414,6 +443,8 @@ protected:
     *std::next(child_begin(), NextUpperBoundOffset) = NUB;
   }
   void setCounters(ArrayRef<Expr *> A);
+  void setPrivateCounters(ArrayRef<Expr *> A);
+  void setInits(ArrayRef<Expr *> A);
   void setUpdates(ArrayRef<Expr *> A);
   void setFinals(ArrayRef<Expr *> A);
 
@@ -453,6 +484,10 @@ public:
     Expr *NUB;
     /// \brief Counters Loop counters.
     SmallVector<Expr *, 4> Counters;
+    /// \brief PrivateCounters Loop counters.
+    SmallVector<Expr *, 4> PrivateCounters;
+    /// \brief Expressions for loop counters inits for CodeGen.
+    SmallVector<Expr *, 4> Inits;
     /// \brief Expressions for loop counters update for CodeGen.
     SmallVector<Expr *, 4> Updates;
     /// \brief Final loop counter values for GodeGen.
@@ -484,10 +519,14 @@ public:
       NLB = nullptr;
       NUB = nullptr;
       Counters.resize(Size);
+      PrivateCounters.resize(Size);
+      Inits.resize(Size);
       Updates.resize(Size);
       Finals.resize(Size);
       for (unsigned i = 0; i < Size; ++i) {
         Counters[i] = nullptr;
+        PrivateCounters[i] = nullptr;
+        Inits[i] = nullptr;
         Updates[i] = nullptr;
         Finals[i] = nullptr;
       }
@@ -582,6 +621,18 @@ public:
 
   ArrayRef<Expr *> counters() const {
     return const_cast<OMPLoopDirective *>(this)->getCounters();
+  }
+
+  ArrayRef<Expr *> private_counters() { return getPrivateCounters(); }
+
+  ArrayRef<Expr *> private_counters() const {
+    return const_cast<OMPLoopDirective *>(this)->getPrivateCounters();
+  }
+
+  ArrayRef<Expr *> inits() { return getInits(); }
+
+  ArrayRef<Expr *> inits() const {
+    return const_cast<OMPLoopDirective *>(this)->getInits();
   }
 
   ArrayRef<Expr *> updates() { return getUpdates(); }
@@ -1798,6 +1849,64 @@ public:
   }
 };
 
+/// \brief This represents '#pragma omp target data' directive.
+///
+/// \code
+/// #pragma omp target data device(0) if(a) map(b[:])
+/// \endcode
+/// In this example directive '#pragma omp target data' has clauses 'device'
+/// with the value '0', 'if' with condition 'a' and 'map' with array
+/// section 'b[:]'.
+///
+class OMPTargetDataDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  /// \brief Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param NumClauses The number of clauses.
+  ///
+  OMPTargetDataDirective(SourceLocation StartLoc, SourceLocation EndLoc,
+                         unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass, 
+                               OMPD_target_data, StartLoc, EndLoc, NumClauses,
+                               1) {}
+
+  /// \brief Build an empty directive.
+  ///
+  /// \param NumClauses Number of clauses.
+  ///
+  explicit OMPTargetDataDirective(unsigned NumClauses)
+      : OMPExecutableDirective(this, OMPTargetDataDirectiveClass, 
+                               OMPD_target_data, SourceLocation(),
+                               SourceLocation(), NumClauses, 1) {}
+
+public:
+  /// \brief Creates directive with a list of \a Clauses.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  /// \param Clauses List of clauses.
+  /// \param AssociatedStmt Statement, associated with the directive.
+  ///
+  static OMPTargetDataDirective *
+  Create(const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+         ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt);
+
+  /// \brief Creates an empty directive with the place for \a N clauses.
+  ///
+  /// \param C AST context.
+  /// \param N The number of clauses.
+  ///
+  static OMPTargetDataDirective *CreateEmpty(const ASTContext &C, unsigned N,
+                                             EmptyShell);
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPTargetDataDirectiveClass;
+  }
+};
+
 /// \brief This represents '#pragma omp teams' directive.
 ///
 /// \code
@@ -1911,6 +2020,63 @@ public:
 
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == OMPCancellationPointDirectiveClass;
+  }
+};
+
+/// \brief This represents '#pragma omp cancel' directive.
+///
+/// \code
+/// #pragma omp cancel for
+/// \endcode
+///
+/// In this example a cancel is created for innermost 'for' region.
+class OMPCancelDirective : public OMPExecutableDirective {
+  friend class ASTStmtReader;
+  OpenMPDirectiveKind CancelRegion;
+  /// \brief Build directive with the given start and end location.
+  ///
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending location of the directive.
+  ///
+  OMPCancelDirective(SourceLocation StartLoc, SourceLocation EndLoc)
+      : OMPExecutableDirective(this, OMPCancelDirectiveClass, OMPD_cancel,
+                               StartLoc, EndLoc, 0, 0),
+        CancelRegion(OMPD_unknown) {}
+
+  /// \brief Build an empty directive.
+  ///
+  explicit OMPCancelDirective()
+      : OMPExecutableDirective(this, OMPCancelDirectiveClass, OMPD_cancel,
+                               SourceLocation(), SourceLocation(), 0, 0),
+        CancelRegion(OMPD_unknown) {}
+
+  /// \brief Set cancel region for current cancellation point.
+  /// \param CR Cancellation region.
+  void setCancelRegion(OpenMPDirectiveKind CR) { CancelRegion = CR; }
+
+public:
+  /// \brief Creates directive.
+  ///
+  /// \param C AST context.
+  /// \param StartLoc Starting location of the directive kind.
+  /// \param EndLoc Ending Location of the directive.
+  ///
+  static OMPCancelDirective *Create(const ASTContext &C,
+                                    SourceLocation StartLoc,
+                                    SourceLocation EndLoc,
+                                    OpenMPDirectiveKind CancelRegion);
+
+  /// \brief Creates an empty directive.
+  ///
+  /// \param C AST context.
+  ///
+  static OMPCancelDirective *CreateEmpty(const ASTContext &C, EmptyShell);
+
+  /// \brief Get cancellation region for the current cancellation point.
+  OpenMPDirectiveKind getCancelRegion() const { return CancelRegion; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == OMPCancelDirectiveClass;
   }
 };
 

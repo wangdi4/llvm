@@ -9,14 +9,24 @@
 // The same goes for "moviAsm".
 
 // RUN: %clang -target shave -c -### %s -Icommon 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=movicompile
-// movicompile: moviCompile" "-DMYRIAD2"
-// movicompile: moviAsm" "-no6thSlotCompression" "-cv:myriad2" "-noSPrefixing" "-a" "-i:common" "-elf"
+// RUN:   | FileCheck %s -check-prefix=MOVICOMPILE
+// MOVICOMPILE: moviCompile" "-DMYRIAD2" "-mcpu=myriad2" "-S" "-I" "common"
+// MOVICOMPILE: moviAsm" "-no6thSlotCompression" "-cv:myriad2" "-noSPrefixing" "-a" "-i:common" "-elf"
 
 // RUN: %clang -target shave -c -### %s -DEFINE_ME -UNDEFINE_ME 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=defines
-// defines: "-D" "EFINE_ME" "-U" "NDEFINE_ME"
+// RUN:   | FileCheck %s -check-prefix=DEFINES
+// DEFINES: "-D" "EFINE_ME" "-U" "NDEFINE_ME"
 
 // RUN: %clang -target shave -c -### %s -Icommon -iquote quotepath -isystem syspath 2>&1 \
-// RUN:   | FileCheck %s -check-prefix=includes
-// includes: "-iquote" "quotepath" "-isystem" "syspath"
+// RUN:   | FileCheck %s -check-prefix=INCLUDES
+// INCLUDES: "-iquote" "quotepath" "-isystem" "syspath"
+
+// RUN: %clang -target shave -c -### %s -g -fno-inline-functions \
+// RUN: -fno-inline-functions-called-once -Os -Wall -MF dep.d \
+// RUN: -ffunction-sections 2>&1 | FileCheck %s -check-prefix=PASSTHRU_OPTIONS
+// PASSTHRU_OPTIONS: "-g" "-fno-inline-functions" "-fno-inline-functions-called-once"
+// PASSTHRU_OPTIONS: "-Os" "-Wall" "-MF" "dep.d" "-ffunction-sections"
+
+// RUN: %clang -target shave -c %s -o foo.o -### -MD -MF dep.d 2>&1 \
+// RUN:   | FileCheck %s -check-prefix=MDMF
+// MDMF: "-S" "-MD" "-MF" "dep.d" "-MT" "foo.o"

@@ -247,7 +247,7 @@ static StoreInst *findSafeStoreForStoreStrongContraction(LoadInst *Load,
 
     // Ok, now we know we have not seen a store yet. See if Inst can write to
     // our load location, if it can not, just ignore the instruction.
-    if (!(AA->getModRefInfo(Inst, Loc) & AliasAnalysis::Mod))
+    if (!(AA->getModRefInfo(Inst, Loc) & MRI_Mod))
       continue;
 
     Store = dyn_cast<StoreInst>(Inst);
@@ -511,10 +511,10 @@ bool ObjCARCContract::runOnFunction(Function &F) {
     return false;
 
   Changed = false;
-  AA = &getAnalysis<AliasAnalysis>();
+  AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
 
-  PA.setAA(&getAnalysis<AliasAnalysis>());
+  PA.setAA(&getAnalysis<AAResultsWrapperPass>().getAAResults());
 
   DEBUG(llvm::dbgs() << "**** ObjCARC Contract ****\n");
 
@@ -629,13 +629,13 @@ bool ObjCARCContract::runOnFunction(Function &F) {
 char ObjCARCContract::ID = 0;
 INITIALIZE_PASS_BEGIN(ObjCARCContract, "objc-arc-contract",
                       "ObjC ARC contraction", false, false)
-INITIALIZE_AG_DEPENDENCY(AliasAnalysis)
+INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_END(ObjCARCContract, "objc-arc-contract",
                     "ObjC ARC contraction", false, false)
 
 void ObjCARCContract::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<AliasAnalysis>();
+  AU.addRequired<AAResultsWrapperPass>();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.setPreservesCFG();
 }

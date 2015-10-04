@@ -315,7 +315,7 @@ bool FeatureOutliner::appendFeatureString(
   if (Features.none())
     return false;
     
-  for (int i = 0; i < Features.size(); ++i) {
+  for (unsigned i = 0; i < Features.size(); ++i) {
     if (!Features[i])
       continue;
 
@@ -470,7 +470,7 @@ bool FeatureOutliner::runOnModule(Module &M) {
       }
 
       // Update the available features.
-      for (int i = 0; i < NewFeatures.size(); ++i) {
+      for (unsigned i = 0; i < NewFeatures.size(); ++i) {
           if (!NewFeatures[i])
             continue;
 

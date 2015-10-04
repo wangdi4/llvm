@@ -280,20 +280,34 @@ Do the actual fork and call the microtask in the relevant number of threads.
 void
 __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
 {
-  KMP_STOP_EXPLICIT_TIMER(OMP_serial);
-  KMP_COUNT_BLOCK(OMP_PARALLEL);
   int         gtid = __kmp_entry_gtid();
+
+#if (KMP_STATS_ENABLED)  
+  int inParallel = __kmpc_in_parallel(loc);
+  if (inParallel)
+  {
+      KMP_COUNT_BLOCK(OMP_NESTED_PARALLEL);
+  }
+  else
+  {
+      KMP_STOP_EXPLICIT_TIMER(OMP_serial);
+      KMP_COUNT_BLOCK(OMP_PARALLEL);
+  }
+#endif
+
   // maybe to save thr_state is enough here
   {
     va_list     ap;
     va_start(   ap, microtask );
 
 #if OMPT_SUPPORT
+    int tid = __kmp_tid_from_gtid( gtid );
     kmp_info_t *master_th = __kmp_threads[ gtid ];
     kmp_team_t *parent_team = master_th->th.th_team;
-    int tid = __kmp_tid_from_gtid( gtid );
-    parent_team->t.t_implicit_task_taskdata[tid].
-        ompt_task_info.frame.reenter_runtime_frame = __builtin_frame_address(0);
+    if (ompt_status & ompt_status_track) {
+       parent_team->t.t_implicit_task_taskdata[tid].
+           ompt_task_info.frame.reenter_runtime_frame = __builtin_frame_address(0);
+    }
 #endif
 
 #if INCLUDE_SSC_MARKS
@@ -316,7 +330,11 @@ __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
 #if INCLUDE_SSC_MARKS
     SSC_MARK_JOINING();
 #endif
-    __kmp_join_call( loc, gtid );
+    __kmp_join_call( loc, gtid
+#if OMPT_SUPPORT
+        , fork_context_intel
+#endif
+    );
 
     va_end( ap );
 
@@ -327,7 +345,10 @@ __kmpc_fork_call(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
     }
 #endif
   }
-  KMP_START_EXPLICIT_TIMER(OMP_serial);
+#if (KMP_STATS_ENABLED)  
+  if (!inParallel)
+      KMP_START_EXPLICIT_TIMER(OMP_serial);
+#endif
 }
 
 #if OMP_40_ENABLED
@@ -368,9 +389,20 @@ __kmpc_fork_teams(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
     va_list     ap;
     va_start(   ap, microtask );
 
+    KMP_COUNT_BLOCK(OMP_TEAMS);
+
     // remember teams entry point and nesting level
     this_thr->th.th_teams_microtask = microtask;
     this_thr->th.th_teams_level = this_thr->th.th_team->t.t_level; // AC: can be >0 on host
+
+#if OMPT_SUPPORT
+    kmp_team_t *parent_team = this_thr->th.th_team;
+    int tid = __kmp_tid_from_gtid( gtid );
+    if (ompt_status & ompt_status_track) {
+        parent_team->t.t_implicit_task_taskdata[tid].
+           ompt_task_info.frame.reenter_runtime_frame = __builtin_frame_address(0);
+    }
+#endif
 
     // check if __kmpc_push_num_teams called, set default number of teams otherwise
     if ( this_thr->th.th_teams_size.nteams == 0 ) {
@@ -393,7 +425,19 @@ __kmpc_fork_teams(ident_t *loc, kmp_int32 argc, kmpc_micro microtask, ...)
             ap
 #endif
             );
-    __kmp_join_call( loc, gtid );
+    __kmp_join_call( loc, gtid
+#if OMPT_SUPPORT
+        , fork_context_intel
+#endif
+    );
+
+#if OMPT_SUPPORT
+    if (ompt_status & ompt_status_track) {
+        parent_team->t.t_implicit_task_taskdata[tid].
+           ompt_task_info.frame.reenter_runtime_frame = NULL;
+    }
+#endif
+
     this_thr->th.th_teams_microtask = NULL;
     this_thr->th.th_teams_level = 0;
     *(kmp_int64*)(&this_thr->th.th_teams_size) = 0L;
@@ -696,15 +740,18 @@ __kmpc_master(ident_t *loc, kmp_int32 global_tid)
     if( ! TCR_4( __kmp_init_parallel ) )
         __kmp_parallel_initialize();
 
-    if( KMP_MASTER_GTID( global_tid ))
+    if( KMP_MASTER_GTID( global_tid )) {
+        KMP_START_EXPLICIT_TIMER(OMP_master);
         status = 1;
+    }
 
 #if OMPT_SUPPORT && OMPT_TRACE
     if (status) {
-        kmp_info_t  *this_thr        = __kmp_threads[ global_tid ];
-        kmp_team_t  *team            = this_thr -> th.th_team;
         if ((ompt_status == ompt_status_track_callback) &&
             ompt_callbacks.ompt_callback(ompt_event_master_begin)) {
+            kmp_info_t  *this_thr        = __kmp_threads[ global_tid ];
+            kmp_team_t  *team            = this_thr -> th.th_team;
+
             int  tid = __kmp_tid_from_gtid( global_tid );
             ompt_callbacks.ompt_callback(ompt_event_master_begin)(
                 team->t.ompt_team_info.parallel_id,
@@ -744,6 +791,7 @@ __kmpc_end_master(ident_t *loc, kmp_int32 global_tid)
     KC_TRACE( 10, ("__kmpc_end_master: called T#%d\n", global_tid ) );
 
     KMP_DEBUG_ASSERT( KMP_MASTER_GTID( global_tid ));
+    KMP_STOP_EXPLICIT_TIMER(OMP_master);
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t  *this_thr        = __kmp_threads[ global_tid ];
@@ -1366,6 +1414,9 @@ __kmpc_single(ident_t *loc, kmp_int32 global_tid)
 {
     KMP_COUNT_BLOCK(OMP_SINGLE);
     kmp_int32 rc = __kmp_enter_single( global_tid, loc, TRUE );
+    if(rc == TRUE) {
+        KMP_START_EXPLICIT_TIMER(OMP_single);
+    }
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t *this_thr        = __kmp_threads[ global_tid ];
@@ -1407,6 +1458,7 @@ void
 __kmpc_end_single(ident_t *loc, kmp_int32 global_tid)
 {
     __kmp_exit_single( global_tid );
+    KMP_STOP_EXPLICIT_TIMER(OMP_single);
 
 #if OMPT_SUPPORT && OMPT_TRACE
     kmp_info_t *this_thr        = __kmp_threads[ global_tid ];
@@ -2171,7 +2223,6 @@ int
 __kmpc_test_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
 {
     KMP_COUNT_BLOCK(OMP_test_lock);
-    KMP_TIME_BLOCK(OMP_test_lock);
 
 #if KMP_USE_DYNAMIC_LOCK
     int rc;
@@ -2322,7 +2373,7 @@ __kmpc_test_nest_lock( ident_t *loc, kmp_int32 gtid, void **user_lock )
 static __forceinline void
 __kmp_enter_critical_section_reduce_block( ident_t * loc, kmp_int32 global_tid, kmp_critical_name * crit ) {
 
-    // this lock was visible to a customer and to the thread profiler as a serial overhead span
+    // this lock was visible to a customer and to the threading profile tool as a serial overhead span
     //            (although it's used for an internal purpose only)
     //            why was it visible in previous implementation?
     //            should we keep it visible in new reduce block?
@@ -2518,7 +2569,7 @@ __kmpc_reduce_nowait(
         //        and be more in line with sense of NOWAIT
         //AT: TO DO: do epcc test and compare times
 
-        // this barrier should be invisible to a customer and to the thread profiler
+        // this barrier should be invisible to a customer and to the threading profile tool
         //              (it's neither a terminating barrier nor customer's code, it's used for an internal purpose)
 #if USE_ITT_NOTIFY
         __kmp_threads[global_tid]->th.th_ident = loc;
@@ -2671,7 +2722,7 @@ __kmpc_reduce(
     } else if( TEST_REDUCTION_METHOD( packed_reduction_method, tree_reduce_block ) ) {
 
         //case tree_reduce_block:
-        // this barrier should be visible to a customer and to the thread profiler
+        // this barrier should be visible to a customer and to the threading profile tool
         //              (it's a terminating barrier on constructs if NOWAIT not specified)
 #if USE_ITT_NOTIFY
         __kmp_threads[global_tid]->th.th_ident = loc; // needed for correct notification of frames
@@ -2717,7 +2768,7 @@ __kmpc_end_reduce( ident_t *loc, kmp_int32 global_tid, kmp_critical_name *lck ) 
 
     packed_reduction_method = __KMP_GET_REDUCTION_METHOD( global_tid );
 
-    // this barrier should be visible to a customer and to the thread profiler
+    // this barrier should be visible to a customer and to the threading profile tool
     //              (it's a terminating barrier on constructs if NOWAIT not specified)
 
     if( packed_reduction_method == critical_reduce_block ) {

@@ -118,7 +118,7 @@ private:
                                    SValBuilder &Builder) const {
     return definitelyReturnedError(RetSym, State, Builder, true);
   }
-                                                 
+
   /// Mark an AllocationPair interesting for diagnostic reporting.
   void markInteresting(BugReport *R, const AllocationPair &AP) const {
     R->markInteresting(AP.first);
@@ -136,7 +136,6 @@ private:
 
   public:
     SecKeychainBugVisitor(SymbolRef S) : Sym(S) {}
-    ~SecKeychainBugVisitor() override {}
 
     void Profile(llvm::FoldingSetNodeID &ID) const override {
       static int X = 0;
@@ -283,7 +282,7 @@ void MacOSKeychainAPIChecker::checkPreStmt(const CallExpr *CE,
   const FunctionDecl *FD = C.getCalleeDecl(CE);
   if (!FD || FD->getKind() != Decl::Function)
     return;
-  
+
   StringRef funName = C.getCalleeName(FD);
   if (funName.empty())
     return;

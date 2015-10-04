@@ -18,13 +18,15 @@
 #include "InefficientAlgorithmCheck.h"
 #include "MacroParenthesesCheck.h"
 #include "MacroRepeatedSideEffectsCheck.h"
+#include "MoveConstructorInitCheck.h"
 #include "NoexceptMoveConstructorCheck.h"
 #include "StaticAssertCheck.h"
 #include "SwappedArgumentsCheck.h"
 #include "UndelegatedConstructor.h"
 #include "UniqueptrResetReleaseCheck.h"
+#include "UnusedAliasDeclsCheck.h"
+#include "UnusedParametersCheck.h"
 #include "UnusedRAIICheck.h"
-#include "UseOverrideCheck.h"
 
 namespace clang {
 namespace tidy {
@@ -48,6 +50,8 @@ public:
         "misc-macro-parentheses");
     CheckFactories.registerCheck<MacroRepeatedSideEffectsCheck>(
         "misc-macro-repeated-side-effects");
+    CheckFactories.registerCheck<MoveConstructorInitCheck>(
+        "misc-move-constructor-init");
     CheckFactories.registerCheck<NoexceptMoveConstructorCheck>(
         "misc-noexcept-move-constructor");
     CheckFactories.registerCheck<StaticAssertCheck>(
@@ -58,8 +62,11 @@ public:
         "misc-undelegated-constructor");
     CheckFactories.registerCheck<UniqueptrResetReleaseCheck>(
         "misc-uniqueptr-reset-release");
+    CheckFactories.registerCheck<UnusedAliasDeclsCheck>(
+        "misc-unused-alias-decls");
+    CheckFactories.registerCheck<UnusedParametersCheck>(
+        "misc-unused-parameters");
     CheckFactories.registerCheck<UnusedRAIICheck>("misc-unused-raii");
-    CheckFactories.registerCheck<UseOverrideCheck>("misc-use-override");
   }
 };
 
