@@ -108,7 +108,7 @@ def handleMacro(line, inFile, outFile):
     line = inFile.readline()
     if not line.strip().endswith('\\'): break
     outFile.write(line)
-  outFile.write(line.rstrip())
+  outFile.write(line.rstrip().rstrip(';'))
   outFile.write(')\n')
 
 def parseDataXML(xmlfile):

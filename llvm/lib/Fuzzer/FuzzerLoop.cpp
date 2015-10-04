@@ -14,6 +14,7 @@
 #include <algorithm>
 
 namespace fuzzer {
+static const size_t kMaxUnitSizeToPrint = 4096;
 
 // Only one Fuzzer per process.
 static Fuzzer *F;
@@ -49,7 +50,7 @@ void Fuzzer::DeathCallback() {
   Printf("DEATH:\n");
   Print(CurrentUnit, "\n");
   PrintUnitInASCIIOrTokens(CurrentUnit, "\n");
-  WriteToCrash(CurrentUnit, "crash-");
+  WriteUnitToFileWithPrefix(CurrentUnit, "crash-");
 }
 
 void Fuzzer::StaticAlarmCallback() {
@@ -68,9 +69,10 @@ void Fuzzer::AlarmCallback() {
     Printf("ALARM: working on the last Unit for %zd seconds\n", Seconds);
     Printf("       and the timeout value is %d (use -timeout=N to change)\n",
            Options.UnitTimeoutSec);
-    Print(CurrentUnit, "\n");
+    if (CurrentUnit.size() <= kMaxUnitSizeToPrint)
+      Print(CurrentUnit, "\n");
     PrintUnitInASCIIOrTokens(CurrentUnit, "\n");
-    WriteToCrash(CurrentUnit, "timeout-");
+    WriteUnitToFileWithPrefix(CurrentUnit, "timeout-");
     exit(1);
   }
 }
@@ -79,8 +81,11 @@ void Fuzzer::PrintStats(const char *Where, size_t Cov, const char *End) {
   if (!Options.Verbosity) return;
   size_t Seconds = secondsSinceProcessStartUp();
   size_t ExecPerSec = (Seconds ? TotalNumberOfRuns / Seconds : 0);
-  Printf("#%zd\t%s cov %zd bits %zd units %zd exec/s %zd %s", TotalNumberOfRuns,
-         Where, Cov, TotalBits(), Corpus.size(), ExecPerSec, End);
+  Printf("#%zd\t%s cov: %zd bits: %zd units: %zd exec/s: %zd",
+         TotalNumberOfRuns, Where, Cov, TotalBits(), Corpus.size(), ExecPerSec);
+  if (TotalNumberOfExecutedTraceBasedMutations)
+    Printf(" tbm: %zd", TotalNumberOfExecutedTraceBasedMutations);
+  Printf("%s", End);
 }
 
 void Fuzzer::RereadOutputCorpus() {
@@ -113,14 +118,14 @@ void Fuzzer::RereadOutputCorpus() {
 
 void Fuzzer::ShuffleAndMinimize() {
   size_t MaxCov = 0;
-  bool PreferSmall =
-      (Options.PreferSmallDuringInitialShuffle == 1 ||
-       (Options.PreferSmallDuringInitialShuffle == -1 && rand() % 2));
+  bool PreferSmall = (Options.PreferSmallDuringInitialShuffle == 1 ||
+                      (Options.PreferSmallDuringInitialShuffle == -1 &&
+                       USF.GetRand().RandBool()));
   if (Options.Verbosity)
     Printf("PreferSmall: %d\n", PreferSmall);
   PrintStats("READ  ", 0);
   std::vector<Unit> NewCorpus;
-  std::random_shuffle(Corpus.begin(), Corpus.end());
+  std::random_shuffle(Corpus.begin(), Corpus.end(), USF.GetRand());
   if (PreferSmall)
     std::stable_sort(
         Corpus.begin(), Corpus.end(),
@@ -131,6 +136,8 @@ void Fuzzer::ShuffleAndMinimize() {
       U.clear();
       size_t Last = std::min(First + Options.MaxLen, C.size());
       U.insert(U.begin(), C.begin() + First, C.begin() + Last);
+      if (Options.OnlyASCII)
+        ToASCII(U);
       size_t NewCoverage = RunOne(U);
       if (NewCoverage) {
         MaxCov = NewCoverage;
@@ -157,17 +164,22 @@ size_t Fuzzer::RunOne(const Unit &U) {
   auto UnitStopTime = system_clock::now();
   auto TimeOfUnit =
       duration_cast<seconds>(UnitStopTime - UnitStartTime).count();
-  if (TimeOfUnit > TimeOfLongestUnitInSeconds) {
+  if (TimeOfUnit > TimeOfLongestUnitInSeconds &&
+      TimeOfUnit >= Options.ReportSlowUnits) {
     TimeOfLongestUnitInSeconds = TimeOfUnit;
-    Printf("Longest unit: %zd s:\n", TimeOfLongestUnitInSeconds);
-    Print(U, "\n");
+    Printf("Slowest unit: %zd s:\n", TimeOfLongestUnitInSeconds);
+    if (U.size() <= kMaxUnitSizeToPrint)
+      Print(U, "\n");
+    WriteUnitToFileWithPrefix(U, "slow-unit-");
   }
   return Res;
 }
 
-void Fuzzer::RunOneAndUpdateCorpus(const Unit &U) {
+void Fuzzer::RunOneAndUpdateCorpus(Unit &U) {
   if (TotalNumberOfRuns >= Options.MaxNumberOfRuns)
     return;
+  if (Options.OnlyASCII)
+    ToASCII(U);
   ReportNewCoverage(RunOne(U), U);
 }
 
@@ -246,13 +258,17 @@ void Fuzzer::WriteToOutputCorpus(const Unit &U) {
   WriteToFile(U, Path);
   if (Options.Verbosity >= 2)
     Printf("Written to %s\n", Path.c_str());
+  assert(!Options.OnlyASCII || IsASCII(U));
 }
 
-void Fuzzer::WriteToCrash(const Unit &U, const char *Prefix) {
+void Fuzzer::WriteUnitToFileWithPrefix(const Unit &U, const char *Prefix) {
   std::string Path = Prefix + Hash(U);
   WriteToFile(U, Path);
-  Printf("CRASHED; file written to %s\nBase64: ", Path.c_str());
-  PrintFileAsBase64(Path);
+  Printf("Test unit written to %s\n", Path.c_str());
+  if (U.size() <= kMaxUnitSizeToPrint) {
+    Printf("Base64: ");
+    PrintFileAsBase64(Path);
+  }
 }
 
 void Fuzzer::SaveCorpus() {
@@ -295,15 +311,27 @@ void Fuzzer::MutateAndTestOne(Unit *U) {
     U->resize(NewSize);
     RunOneAndUpdateCorpus(*U);
     size_t NumTraceBasedMutations = StopTraceRecording();
-    for (size_t j = 0; j < NumTraceBasedMutations; j++) {
-      ApplyTraceBasedMutation(j, U);
-      RunOneAndUpdateCorpus(*U);
+    size_t TBMWidth =
+        std::min((size_t)Options.TBMWidth, NumTraceBasedMutations);
+    size_t TBMDepth =
+        std::min((size_t)Options.TBMDepth, NumTraceBasedMutations);
+    Unit BackUp = *U;
+    for (size_t w = 0; w < TBMWidth; w++) {
+      *U = BackUp;
+      for (size_t d = 0; d < TBMDepth; d++) {
+        TotalNumberOfExecutedTraceBasedMutations++;
+        ApplyTraceBasedMutation(USF.GetRand()(NumTraceBasedMutations), U);
+        RunOneAndUpdateCorpus(*U);
+      }
     }
   }
 }
 
-void Fuzzer::Loop(size_t NumIterations) {
-  for (size_t i = 1; i <= NumIterations; i++) {
+void Fuzzer::Loop() {
+  for (auto &U: Options.Dictionary)
+    USF.GetMD().AddWordToDictionary(U.data(), U.size());
+
+  while (true) {
     for (size_t J1 = 0; J1 < Corpus.size(); J1++) {
       SyncCorpus();
       RereadOutputCorpus();

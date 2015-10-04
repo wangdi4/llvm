@@ -37,7 +37,7 @@ class TypeCompletionTestCase(TestBase):
 
         lldbutil.run_break_set_by_source_regexp (self, "// Set break point at this line.")
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
@@ -47,11 +47,9 @@ class TypeCompletionTestCase(TestBase):
         # This is the function to remove the custom formats in order to have a
         # clean slate for the next test case.
         def cleanup():
-            self.runCmd('type category enable gnu-libstdc++', check=False)
-            self.runCmd('type category enable libcxx', check=False)
+            self.runCmd('type category enable -l c++', check=False)
 
-        self.runCmd('type category disable gnu-libstdc++', check=False)
-        self.runCmd('type category disable libcxx', check=False)
+        self.runCmd('type category disable -l c++', check=False)
 
         # Execute the cleanup function during test case tear down.
         self.addTearDownHook(cleanup)
@@ -115,8 +113,7 @@ class TypeCompletionTestCase(TestBase):
         self.assertTrue(string.IsValid(), 'std::string should be valid')
         self.assertFalse(string.IsTypeComplete(), 'std::string complete but it should not be')
 
-        self.runCmd('type category enable gnu-libstdc++', check=False)
-        self.runCmd('type category enable libcxx', check=False)
+        self.runCmd('type category enable -l c++', check=False)
         self.runCmd('frame variable guy --show-types')
 
         p_vector = self.dbg.GetSelectedTarget().GetProcess().GetSelectedThread().GetSelectedFrame().FindVariable('p')

@@ -28,6 +28,7 @@
 #include "lldb/Host/ThreadLauncher.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
+#include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
 #include "lldb/Target/ABI.h"
 #include "lldb/Target/DynamicLoader.h"
@@ -115,6 +116,7 @@ g_properties[] =
     { "stop-on-sharedlibrary-events" , OptionValue::eTypeBoolean, true, false, NULL, NULL, "If true, stop when a shared library is loaded or unloaded." },
     { "detach-keeps-stopped" , OptionValue::eTypeBoolean, true, false, NULL, NULL, "If true, detach will attempt to keep the process stopped." },
     { "memory-cache-line-size" , OptionValue::eTypeUInt64, false, 512, NULL, NULL, "The memory cache line size" },
+    { "optimization-warnings" , OptionValue::eTypeBoolean, false, true, NULL, NULL, "If true, warn when stopped in code that is optimized where stepping and variable availability may not behave as expected." },
     {  NULL                  , OptionValue::eTypeInvalid, false, 0, NULL, NULL, NULL  }
 };
 
@@ -126,7 +128,8 @@ enum {
     ePropertyPythonOSPluginPath,
     ePropertyStopOnSharedLibraryEvents,
     ePropertyDetachKeepsStopped,
-    ePropertyMemCacheLineSize
+    ePropertyMemCacheLineSize,
+    ePropertyWarningOptimization
 };
 
 ProcessProperties::ProcessProperties (lldb_private::Process *process) :
@@ -261,6 +264,13 @@ ProcessProperties::SetDetachKeepsStopped (bool stop)
 {
     const uint32_t idx = ePropertyDetachKeepsStopped;
     m_collection_sp->SetPropertyAtIndexAsBoolean(NULL, idx, stop);
+}
+
+bool
+ProcessProperties::GetWarningsOptimization () const
+{
+    const uint32_t idx = ePropertyWarningOptimization;
+    return m_collection_sp->GetPropertyAtIndexAsBoolean (NULL, idx, g_properties[idx].default_uint_value != 0);
 }
 
 void
@@ -638,7 +648,7 @@ ProcessInstanceInfoMatch::Clear()
 }
 
 ProcessSP
-Process::FindPlugin (Target &target, const char *plugin_name, Listener &listener, const FileSpec *crash_file_path)
+Process::FindPlugin (lldb::TargetSP target_sp, const char *plugin_name, Listener &listener, const FileSpec *crash_file_path)
 {
     static uint32_t g_process_unique_id = 0;
 
@@ -650,10 +660,10 @@ Process::FindPlugin (Target &target, const char *plugin_name, Listener &listener
         create_callback  = PluginManager::GetProcessCreateCallbackForPluginName (const_plugin_name);
         if (create_callback)
         {
-            process_sp = create_callback(target, listener, crash_file_path);
+            process_sp = create_callback(target_sp, listener, crash_file_path);
             if (process_sp)
             {
-                if (process_sp->CanDebug(target, true))
+                if (process_sp->CanDebug(target_sp, true))
                 {
                     process_sp->m_process_unique_id = ++g_process_unique_id;
                 }
@@ -666,10 +676,10 @@ Process::FindPlugin (Target &target, const char *plugin_name, Listener &listener
     {
         for (uint32_t idx = 0; (create_callback = PluginManager::GetProcessCreateCallbackAtIndex(idx)) != NULL; ++idx)
         {
-            process_sp = create_callback(target, listener, crash_file_path);
+            process_sp = create_callback(target_sp, listener, crash_file_path);
             if (process_sp)
             {
-                if (process_sp->CanDebug(target, false))
+                if (process_sp->CanDebug(target_sp, false))
                 {
                     process_sp->m_process_unique_id = ++g_process_unique_id;
                     break;
@@ -692,18 +702,18 @@ Process::GetStaticBroadcasterClass ()
 //----------------------------------------------------------------------
 // Process constructor
 //----------------------------------------------------------------------
-Process::Process(Target &target, Listener &listener) :
-    Process(target, listener, Host::GetUnixSignals ())
+Process::Process(lldb::TargetSP target_sp, Listener &listener) :
+    Process(target_sp, listener, UnixSignals::Create(HostInfo::GetArchitecture()))
 {
     // This constructor just delegates to the full Process constructor,
     // defaulting to using the Host's UnixSignals.
 }
 
-Process::Process(Target &target, Listener &listener, const UnixSignalsSP &unix_signals_sp) :
+Process::Process(lldb::TargetSP target_sp, Listener &listener, const UnixSignalsSP &unix_signals_sp) :
     ProcessProperties (this),
     UserID (LLDB_INVALID_PROCESS_ID),
-    Broadcaster (&(target.GetDebugger()), Process::GetStaticBroadcasterClass().AsCString()),
-    m_target (target),
+    Broadcaster (&(target_sp->GetDebugger()), Process::GetStaticBroadcasterClass().AsCString()),
+    m_target_sp (target_sp),
     m_public_state (eStateUnloaded),
     m_private_state (eStateUnloaded),
     m_private_state_broadcaster (NULL, "lldb.process.internal_state_broadcaster"),
@@ -754,6 +764,8 @@ Process::Process(Target &target, Listener &listener, const UnixSignalsSP &unix_s
     m_force_next_event_delivery (false),
     m_last_broadcast_state (eStateInvalid),
     m_destroy_in_process (false),
+    m_can_interpret_function_calls(false),
+    m_warnings_issued (),
     m_can_jit(eCanJITDontKnow)
 {
     CheckInWithManager ();
@@ -763,14 +775,14 @@ Process::Process(Target &target, Listener &listener, const UnixSignalsSP &unix_s
         log->Printf ("%p Process::Process()", static_cast<void*>(this));
 
     if (!m_unix_signals_sp)
-        m_unix_signals_sp.reset (new UnixSignals ());
+        m_unix_signals_sp = std::make_shared<UnixSignals>();
 
     SetEventName (eBroadcastBitStateChanged, "state-changed");
     SetEventName (eBroadcastBitInterrupt, "interrupt");
     SetEventName (eBroadcastBitSTDOUT, "stdout-available");
     SetEventName (eBroadcastBitSTDERR, "stderr-available");
     SetEventName (eBroadcastBitProfileData, "profile-data-available");
-    
+
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlStop  , "control-stop"  );
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlPause , "control-pause" );
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlResume, "control-resume");
@@ -1145,6 +1157,7 @@ Process::HandleProcessStateChangedEvent (const EventSP &event_sp,
                         // Prefer a thread that has just completed its plan over another thread as current thread.
                         ThreadSP plan_thread;
                         ThreadSP other_thread;
+                        
                         const size_t num_threads = thread_list.GetSize();
                         size_t i;
                         for (i = 0; i < num_threads; ++i)
@@ -1157,10 +1170,22 @@ Process::HandleProcessStateChangedEvent (const EventSP &event_sp,
                                 case eStopReasonNone:
                                     break;
 
+                                 case eStopReasonSignal:
+                                {
+                                    // Don't select a signal thread if we weren't going to stop at that
+                                    // signal.  We have to have had another reason for stopping here, and
+                                    // the user doesn't want to see this thread.
+                                    uint64_t signo = thread->GetStopInfo()->GetValue();
+                                    if (process_sp->GetUnixSignals()->GetShouldStop(signo))
+                                    {
+                                        if (!other_thread)
+                                            other_thread = thread;
+                                    }
+                                    break;
+                                }
                                 case eStopReasonTrace:
                                 case eStopReasonBreakpoint:
                                 case eStopReasonWatchpoint:
-                                case eStopReasonSignal:
                                 case eStopReasonException:
                                 case eStopReasonExec:
                                 case eStopReasonThreadExiting:
@@ -1454,12 +1479,7 @@ Process::SetExitStatus (int status, const char *cstr)
     else
         m_exit_string.clear();
 
-    // When we exit, we no longer need to the communication channel
-    m_stdio_communication.Disconnect();
-    m_stdio_communication.StopReadThread();
-    m_stdin_forward = false;
-
-    // And we don't need the input reader anymore as well
+    // When we exit, we don't need the input reader anymore
     if (m_process_input_reader)
     {
         m_process_input_reader->SetIsDone(true);
@@ -1510,7 +1530,7 @@ Process::SetProcessExitStatus (void *callback_baton,
             {
                 const char *signal_cstr = NULL;
                 if (signo)
-                    signal_cstr = process_sp->GetUnixSignals().GetSignalAsCString (signo);
+                    signal_cstr = process_sp->GetUnixSignals()->GetSignalAsCString(signo);
 
                 process_sp->SetExitStatus (exit_status, signal_cstr);
             }
@@ -2070,7 +2090,7 @@ const lldb::ABISP &
 Process::GetABI()
 {
     if (!m_abi_sp)
-        m_abi_sp = ABI::FindPlugin(m_target.GetArchitecture());
+        m_abi_sp = ABI::FindPlugin(GetTarget().GetArchitecture());
     return m_abi_sp;
 }
 
@@ -2250,22 +2270,22 @@ Process::CreateBreakpointSite (const BreakpointLocationSP &owner, bool use_hardw
             load_addr = ResolveIndirectFunction (&symbol_address, error);
             if (!error.Success() && show_error)
             {
-                m_target.GetDebugger().GetErrorFile()->Printf ("warning: failed to resolve indirect function at 0x%" PRIx64 " for breakpoint %i.%i: %s\n",
-                                                               symbol->GetLoadAddress(&m_target),
-                                                               owner->GetBreakpoint().GetID(),
-                                                               owner->GetID(),
-                                                               error.AsCString() ? error.AsCString() : "unknown error");
+                GetTarget().GetDebugger().GetErrorFile()->Printf ("warning: failed to resolve indirect function at 0x%" PRIx64 " for breakpoint %i.%i: %s\n",
+                                                                   symbol->GetLoadAddress(&GetTarget()),
+                                                                   owner->GetBreakpoint().GetID(),
+                                                                   owner->GetID(),
+                                                                   error.AsCString() ? error.AsCString() : "unknown error");
                 return LLDB_INVALID_BREAK_ID;
             }
             Address resolved_address(load_addr);
-            load_addr = resolved_address.GetOpcodeLoadAddress (&m_target);
+            load_addr = resolved_address.GetOpcodeLoadAddress (&GetTarget());
             owner->SetIsIndirect(true);
         }
         else
-            load_addr = owner->GetAddress().GetOpcodeLoadAddress (&m_target);
+            load_addr = owner->GetAddress().GetOpcodeLoadAddress (&GetTarget());
     }
     else
-        load_addr = owner->GetAddress().GetOpcodeLoadAddress (&m_target);
+        load_addr = owner->GetAddress().GetOpcodeLoadAddress (&GetTarget());
     
     if (load_addr != LLDB_INVALID_ADDRESS)
     {
@@ -2298,11 +2318,11 @@ Process::CreateBreakpointSite (const BreakpointLocationSP &owner, bool use_hardw
                     if (show_error)
                     {
                         // Report error for setting breakpoint...
-                        m_target.GetDebugger().GetErrorFile()->Printf ("warning: failed to set breakpoint site at 0x%" PRIx64 " for breakpoint %i.%i: %s\n",
-                                                                       load_addr,
-                                                                       owner->GetBreakpoint().GetID(),
-                                                                       owner->GetID(),
-                                                                       error.AsCString() ? error.AsCString() : "unknown error");
+                        GetTarget().GetDebugger().GetErrorFile()->Printf ("warning: failed to set breakpoint site at 0x%" PRIx64 " for breakpoint %i.%i: %s\n",
+                                                                           load_addr,
+                                                                           owner->GetBreakpoint().GetID(),
+                                                                           owner->GetID(),
+                                                                           error.AsCString() ? error.AsCString() : "unknown error");
                     }
                 }
             }
@@ -2360,9 +2380,9 @@ Process::RemoveBreakpointOpcodesFromBuffer (addr_t bp_addr, size_t size, uint8_t
 size_t
 Process::GetSoftwareBreakpointTrapOpcode (BreakpointSite* bp_site)
 {
-    PlatformSP platform_sp (m_target.GetPlatform());
+    PlatformSP platform_sp (GetTarget().GetPlatform());
     if (platform_sp)
-        return platform_sp->GetSoftwareBreakpointTrapOpcode (m_target, bp_site);
+        return platform_sp->GetSoftwareBreakpointTrapOpcode (GetTarget(), bp_site);
     return 0;
 }
 
@@ -2829,6 +2849,7 @@ Process::WriteMemory (addr_t addr, const void *buf, size_t size, Error &error)
                     size_t intersect_size;
                     size_t opcode_offset;
                     const bool intersects = bp->IntersectsRange(addr, size, &intersect_addr, &intersect_size, &opcode_offset);
+                    UNUSED_IF_ASSERT_DISABLED(intersects);
                     assert(intersects);
                     assert(addr <= intersect_addr && intersect_addr < addr + size);
                     assert(addr < intersect_addr + intersect_size && intersect_addr + intersect_size <= addr + size);
@@ -2998,6 +3019,13 @@ Process::SetCanJIT (bool can_jit)
     m_can_jit = (can_jit ? eCanJITYes : eCanJITNo);
 }
 
+void
+Process::SetCanRunCode (bool can_run_code)
+{
+    SetCanJIT(can_run_code);
+    m_can_interpret_function_calls = can_run_code;
+}
+
 Error
 Process::DeallocateMemory (addr_t ptr)
 {
@@ -3027,6 +3055,11 @@ Process::ReadModuleFromMemory (const FileSpec& file_spec,
                                lldb::addr_t header_addr,
                                size_t size_to_read)
 {
+    Log *log = lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_HOST);
+    if (log)
+    {
+        log->Printf ("Process::ReadModuleFromMemory reading %s binary from memory", file_spec.GetPath().c_str());
+    }
     ModuleSP module_sp (new Module (file_spec, ArchSpec()));
     if (module_sp)
     {
@@ -3127,7 +3160,7 @@ Process::Launch (ProcessLaunchInfo &launch_info)
     m_process_input_reader.reset();
     m_stop_info_override_callback = NULL;
 
-    Module *exe_module = m_target.GetExecutableModulePointer();
+    Module *exe_module = GetTarget().GetExecutableModulePointer();
     if (exe_module)
     {
         char local_exec_file_path[PATH_MAX];
@@ -3474,7 +3507,7 @@ Process::Attach (ProcessAttachInfo &attach_info)
             else
             {
                 ProcessInstanceInfoList process_infos;
-                PlatformSP platform_sp (m_target.GetPlatform ());
+                PlatformSP platform_sp (GetTarget().GetPlatform ());
                 
                 if (platform_sp)
                 {
@@ -3576,7 +3609,7 @@ Process::CompleteAttach ()
     
     if (process_arch.IsValid())
     {
-        m_target.SetArchitecture(process_arch);
+        GetTarget().SetArchitecture(process_arch);
         if (log)
         {
             const char *triple_str = process_arch.GetTriple().getTriple().c_str ();
@@ -3588,19 +3621,19 @@ Process::CompleteAttach ()
 
     // We just attached.  If we have a platform, ask it for the process architecture, and if it isn't
     // the same as the one we've already set, switch architectures.
-    PlatformSP platform_sp (m_target.GetPlatform ());
+    PlatformSP platform_sp (GetTarget().GetPlatform ());
     assert (platform_sp.get());
     if (platform_sp)
     {
-        const ArchSpec &target_arch = m_target.GetArchitecture();
+        const ArchSpec &target_arch = GetTarget().GetArchitecture();
         if (target_arch.IsValid() && !platform_sp->IsCompatibleArchitecture (target_arch, false, NULL))
         {
             ArchSpec platform_arch;
             platform_sp = platform_sp->GetPlatformForArchitecture (target_arch, &platform_arch);
             if (platform_sp)
             {
-                m_target.SetPlatform (platform_sp);
-                m_target.SetArchitecture(platform_arch);
+                GetTarget().SetPlatform (platform_sp);
+                GetTarget().SetArchitecture(platform_arch);
                 if (log)
                     log->Printf ("Process::%s switching platform to %s and architecture to %s based on info from attach", __FUNCTION__, platform_sp->GetName().AsCString (""), platform_arch.GetTriple().getTriple().c_str ());
             }
@@ -3610,9 +3643,9 @@ Process::CompleteAttach ()
             ProcessInstanceInfo process_info;
             platform_sp->GetProcessInfo (GetID(), process_info);
             const ArchSpec &process_arch = process_info.GetArchitecture();
-            if (process_arch.IsValid() && !m_target.GetArchitecture().IsExactMatch(process_arch))
+            if (process_arch.IsValid() && !GetTarget().GetArchitecture().IsExactMatch(process_arch))
             {
-                m_target.SetArchitecture (process_arch);
+                GetTarget().SetArchitecture (process_arch);
                 if (log)
                     log->Printf ("Process::%s switching architecture to %s based on info the platform retrieved for pid %" PRIu64, __FUNCTION__, process_arch.GetTriple().getTriple().c_str (), GetID ());
             }
@@ -3627,7 +3660,7 @@ Process::CompleteAttach ()
         dyld->DidAttach();
         if (log)
         {
-            ModuleSP exe_module_sp = m_target.GetExecutableModule ();
+            ModuleSP exe_module_sp = GetTarget().GetExecutableModule ();
             log->Printf ("Process::%s after DynamicLoader::DidAttach(), target executable is %s (using %s plugin)",
                          __FUNCTION__,
                          exe_module_sp ? exe_module_sp->GetFileSpec().GetPath().c_str () : "<none>",
@@ -3643,7 +3676,7 @@ Process::CompleteAttach ()
         system_runtime->DidAttach();
         if (log)
         {
-            ModuleSP exe_module_sp = m_target.GetExecutableModule ();
+            ModuleSP exe_module_sp = GetTarget().GetExecutableModule ();
             log->Printf ("Process::%s after SystemRuntime::DidAttach(), target executable is %s (using %s plugin)",
                          __FUNCTION__,
                          exe_module_sp ? exe_module_sp->GetFileSpec().GetPath().c_str () : "<none>",
@@ -3653,7 +3686,7 @@ Process::CompleteAttach ()
 
     m_os_ap.reset (OperatingSystem::FindPlugin (this, NULL));
     // Figure out which one is the executable, and set that in our target:
-    const ModuleList &target_modules = m_target.GetImages();
+    const ModuleList &target_modules = GetTarget().GetImages();
     Mutex::Locker modules_locker(target_modules.GetMutex());
     size_t num_modules = target_modules.GetSize();
     ModuleSP new_executable_module_sp;
@@ -3663,17 +3696,17 @@ Process::CompleteAttach ()
         ModuleSP module_sp (target_modules.GetModuleAtIndexUnlocked (i));
         if (module_sp && module_sp->IsExecutable())
         {
-            if (m_target.GetExecutableModulePointer() != module_sp.get())
+            if (GetTarget().GetExecutableModulePointer() != module_sp.get())
                 new_executable_module_sp = module_sp;
             break;
         }
     }
     if (new_executable_module_sp)
     {
-        m_target.SetExecutableModule (new_executable_module_sp, false);
+        GetTarget().SetExecutableModule (new_executable_module_sp, false);
         if (log)
         {
-            ModuleSP exe_module_sp = m_target.GetExecutableModule ();
+            ModuleSP exe_module_sp = GetTarget().GetExecutableModule ();
             log->Printf ("Process::%s after looping through modules, target executable is %s",
                          __FUNCTION__,
                          exe_module_sp ? exe_module_sp->GetFileSpec().GetPath().c_str () : "<none>");
@@ -3887,7 +3920,7 @@ Process::HaltForDestroyOrDetach(lldb::EventSP &exit_event_sp)
     {
         Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
         if (log)
-            log->Printf("Process::Destroy() About to halt.");
+            log->Printf("Process::%s() About to halt.", __FUNCTION__);
         error = Halt();
         if (error.Success())
         {
@@ -4082,29 +4115,29 @@ Process::Signal (int signal)
 }
 
 void
-Process::SetUnixSignals (const UnixSignalsSP &signals_sp)
+Process::SetUnixSignals(UnixSignalsSP &&signals_sp)
 {
     assert (signals_sp && "null signals_sp");
     m_unix_signals_sp = signals_sp;
 }
 
-UnixSignals &
+const lldb::UnixSignalsSP &
 Process::GetUnixSignals ()
 {
     assert (m_unix_signals_sp && "null m_unix_signals_sp");
-    return *m_unix_signals_sp;
+    return m_unix_signals_sp;
 }
 
 lldb::ByteOrder
 Process::GetByteOrder () const
 {
-    return m_target.GetArchitecture().GetByteOrder();
+    return GetTarget().GetArchitecture().GetByteOrder();
 }
 
 uint32_t
 Process::GetAddressByteSize () const
 {
-    return m_target.GetArchitecture().GetAddressByteSize();
+    return GetTarget().GetArchitecture().GetAddressByteSize();
 }
 
 
@@ -4121,6 +4154,10 @@ Process::ShouldBroadcastEvent (Event *event_ptr)
         case eStateExited:
         case eStateUnloaded:
             m_stdio_communication.SynchronizeWithReadThread();
+            m_stdio_communication.Disconnect();
+            m_stdio_communication.StopReadThread();
+            m_stdin_forward = false;
+
             // fall-through
         case eStateConnected:
         case eStateAttaching:
@@ -4511,7 +4548,7 @@ Process::HandlePrivateEvent (EventSP &event_sp)
                 // events) and we do need the IO handler to be pushed and popped
                 // correctly.
                 
-                if (is_hijacked || m_target.GetDebugger().IsHandlingEvents() == false)
+                if (is_hijacked || GetTarget().GetDebugger().IsHandlingEvents() == false)
                     PopProcessIOHandler ();
             }
         }
@@ -4713,7 +4750,12 @@ Process::ProcessEventData::DoOnRemoval (Event *event_ptr)
     
     // If we're stopped and haven't restarted, then do the StopInfo actions here:
     if (m_state == eStateStopped && ! m_restarted)
-    {        
+    {
+        // Let process subclasses know we are about to do a public stop and
+        // do anything they might need to in order to speed up register and
+        // memory accesses.
+        process_sp->WillPublicStop();
+
         ThreadList &curr_thread_list = process_sp->GetThreadList();
         uint32_t num_threads = curr_thread_list.GetSize();
         uint32_t idx;
@@ -4946,13 +4988,13 @@ Process::ProcessEventData::SetUpdateStateOnRemoval (Event *event_ptr)
 lldb::TargetSP
 Process::CalculateTarget ()
 {
-    return m_target.shared_from_this();
+    return m_target_sp.lock();
 }
 
 void
 Process::CalculateExecutionContext (ExecutionContext &exe_ctx)
 {
-    exe_ctx.SetTargetPtr (&m_target);
+    exe_ctx.SetTargetPtr (&GetTarget());
     exe_ctx.SetProcessPtr (this);
     exe_ctx.SetThreadPtr(NULL);
     exe_ctx.SetFramePtr (NULL);
@@ -5280,7 +5322,7 @@ Process::ProcessIOHandlerIsActive ()
 {
     IOHandlerSP io_handler_sp (m_process_input_reader);
     if (io_handler_sp)
-        return m_target.GetDebugger().IsTopIOHandler (io_handler_sp);
+        return GetTarget().GetDebugger().IsTopIOHandler (io_handler_sp);
     return false;
 }
 bool
@@ -5294,7 +5336,7 @@ Process::PushProcessIOHandler ()
             log->Printf("Process::%s pushing IO handler", __FUNCTION__);
 
         io_handler_sp->SetIsDone(false);
-        m_target.GetDebugger().PushIOHandler (io_handler_sp);
+        GetTarget().GetDebugger().PushIOHandler (io_handler_sp);
         return true;
     }
     return false;
@@ -5305,7 +5347,7 @@ Process::PopProcessIOHandler ()
 {
     IOHandlerSP io_handler_sp (m_process_input_reader);
     if (io_handler_sp)
-        return m_target.GetDebugger().PopIOHandler (io_handler_sp);
+        return GetTarget().GetDebugger().PopIOHandler (io_handler_sp);
     return false;
 }
 
@@ -6507,6 +6549,63 @@ Process::ModulesDidLoad (ModuleList &module_list)
         LanguageRuntimeSP language_runtime_sp = pair.second;
         if (language_runtime_sp)
             language_runtime_sp->ModulesDidLoad(module_list);
+    }
+}
+
+void
+Process::PrintWarning (uint64_t warning_type, void *repeat_key, const char *fmt, ...)
+{
+    bool print_warning = true;
+
+    StreamSP stream_sp = GetTarget().GetDebugger().GetAsyncOutputStream();
+    if (stream_sp.get() == nullptr)
+        return;
+    if (warning_type == eWarningsOptimization
+        && GetWarningsOptimization() == false)
+    {
+        return;
+    }
+
+    if (repeat_key != nullptr)
+    {
+        WarningsCollection::iterator it = m_warnings_issued.find (warning_type);
+        if (it == m_warnings_issued.end())
+        {
+            m_warnings_issued[warning_type] = WarningsPointerSet();
+            m_warnings_issued[warning_type].insert (repeat_key);
+        }
+        else
+        {
+            if (it->second.find (repeat_key) != it->second.end())
+            {
+                print_warning = false;
+            }
+            else
+            {
+                it->second.insert (repeat_key);
+            }
+        }
+    }
+
+    if (print_warning)
+    {
+        va_list args;
+        va_start (args, fmt);
+        stream_sp->PrintfVarArg (fmt, args);
+        va_end (args);
+    }
+}
+
+void
+Process::PrintWarningOptimization (const SymbolContext &sc)
+{
+    if (GetWarningsOptimization() == true
+        && sc.module_sp.get() 
+        && sc.module_sp->GetFileSpec().GetFilename().IsEmpty() == false
+        && sc.function
+        && sc.function->GetIsOptimized() == true)
+    {
+        PrintWarning (Process::Warnings::eWarningsOptimization, sc.module_sp.get(), "%s was compiled with optimization - stepping may behave oddly; variables may not be available.\n", sc.module_sp->GetFileSpec().GetFilename().GetCString());
     }
 }
 

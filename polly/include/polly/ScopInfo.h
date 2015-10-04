@@ -21,8 +21,11 @@
 #define POLLY_SCOP_INFO_H
 
 #include "polly/ScopDetection.h"
+#include "polly/Support/SCEVAffinator.h"
+
 #include "llvm/ADT/MapVector.h"
 #include "llvm/Analysis/RegionPass.h"
+#include "isl/aff.h"
 #include "isl/ctx.h"
 
 #include <forward_list>
@@ -50,7 +53,9 @@ struct isl_union_map;
 struct isl_space;
 struct isl_ast_build;
 struct isl_constraint;
+struct isl_pw_aff;
 struct isl_pw_multi_aff;
+struct isl_schedule;
 
 namespace polly {
 
@@ -59,8 +64,8 @@ class Scop;
 class ScopStmt;
 class ScopInfo;
 class TempScop;
-class SCEVAffFunc;
 class Comparison;
+class SCEVAffFunc;
 
 /// @brief A class to store information about arrays in the SCoP.
 ///
@@ -75,8 +80,11 @@ public:
   /// @param ElementType    The type of the elements stored in the array.
   /// @param IslCtx         The isl context used to create the base pointer id.
   /// @param DimensionSizes A vector containing the size of each dimension.
+  /// @param IsPHI          Is this a PHI node specific array info object.
+  /// @param S              The scop this array object belongs to.
   ScopArrayInfo(Value *BasePtr, Type *ElementType, isl_ctx *IslCtx,
-                const SmallVector<const SCEV *, 4> &DimensionSizes);
+                const SmallVector<const SCEV *, 4> &DimensionSizes, bool IsPHI,
+                Scop *S);
 
   /// @brief Destructor to free the isl id of the base pointer.
   ~ScopArrayInfo();
@@ -84,13 +92,27 @@ public:
   /// @brief Return the base pointer.
   Value *getBasePtr() const { return BasePtr; }
 
+  /// @brief For indirect accesses return the origin SAI of the BP, else null.
+  const ScopArrayInfo *getBasePtrOriginSAI() const { return BasePtrOriginSAI; }
+
+  /// @brief The set of derived indirect SAIs for this origin SAI.
+  const SmallPtrSetImpl<ScopArrayInfo *> &getDerivedSAIs() const {
+    return DerivedSAIs;
+  };
+
   /// @brief Return the number of dimensions.
   unsigned getNumberOfDimensions() const { return DimensionSizes.size(); }
 
-  /// @brief Return the size of dimension @p dim.
+  /// @brief Return the size of dimension @p dim as SCEV*.
   const SCEV *getDimensionSize(unsigned dim) const {
     assert(dim < getNumberOfDimensions() && "Invalid dimension");
     return DimensionSizes[dim];
+  }
+
+  /// @brief Return the size of dimension @p dim as isl_pw_aff.
+  __isl_give isl_pw_aff *getDimensionSizePw(unsigned dim) const {
+    assert(dim < getNumberOfDimensions() && "Invalid dimension");
+    return isl_pw_aff_copy(DimensionSizesPw[dim - 1]);
   }
 
   /// @brief Get the type of the elements stored in this array.
@@ -105,11 +127,25 @@ public:
   /// @brief Return the isl id for the base pointer.
   __isl_give isl_id *getBasePtrId() const;
 
+  /// @brief Is this array info modeling special PHI node memory?
+  ///
+  /// During code generation of PHI nodes, there is a need for two kinds of
+  /// virtual storage. The normal one as it is used for all scalar dependences,
+  /// where the result of the PHI node is stored and later loaded from as well
+  /// as a second one where the incoming values of the PHI nodes are stored
+  /// into and reloaded when the PHI is executed. As both memories use the
+  /// original PHI node as virtual base pointer, we have this additional
+  /// attribute to distinguish the PHI node specific array modeling from the
+  /// normal scalar array modeling.
+  bool isPHI() const { return IsPHI; };
+
   /// @brief Dump a readable representation to stderr.
   void dump() const;
 
   /// @brief Print a readable representation to @p OS.
-  void print(raw_ostream &OS) const;
+  ///
+  /// @param SizeAsPwAff Print the size as isl_pw_aff
+  void print(raw_ostream &OS, bool SizeAsPwAff = false) const;
 
   /// @brief Access the ScopArrayInfo associated with an access function.
   static const ScopArrayInfo *
@@ -119,6 +155,16 @@ public:
   static const ScopArrayInfo *getFromId(__isl_take isl_id *Id);
 
 private:
+  void addDerivedSAI(ScopArrayInfo *DerivedSAI) {
+    DerivedSAIs.insert(DerivedSAI);
+  }
+
+  /// @brief For indirect accesses this is the SAI of the BP origin.
+  const ScopArrayInfo *BasePtrOriginSAI;
+
+  /// @brief For origin SAIs the set of derived indirect SAIs.
+  SmallPtrSet<ScopArrayInfo *, 2> DerivedSAIs;
+
   /// @brief The base pointer.
   Value *BasePtr;
 
@@ -128,8 +174,14 @@ private:
   /// @brief The isl id for the base pointer.
   isl_id *Id;
 
-  /// @brief The sizes of each dimension.
+  /// @brief The sizes of each dimension as SCEV*.
   SmallVector<const SCEV *, 4> DimensionSizes;
+
+  /// @brief The sizes of each dimension as isl_pw_aff.
+  SmallVector<isl_pw_aff *, 4> DimensionSizesPw;
+
+  /// @brief Is this PHI node specific storage?
+  bool IsPHI;
 };
 
 /// @brief Represent memory accesses in statements.
@@ -210,10 +262,18 @@ private:
   ReductionType RedType = RT_NONE;
 
   /// @brief The access instruction of this memory access.
-  Instruction *Inst;
+  Instruction *AccessInstruction;
+
+  /// @brief The value associated with this memory access.
+  ///
+  ///  - For real memory accesses it is the loaded result or the stored value.
+  ///  - For straigt line scalar accesses it is the access instruction itself.
+  ///  - For PHI operand accesses it is the operand value.
+  ///
+  Value *AccessValue;
 
   /// Updated access relation read from JSCOP file.
-  isl_map *newAccessRelation;
+  isl_map *NewAccessRelation;
 
   /// @brief A unique identifier for this memory access.
   ///
@@ -302,7 +362,7 @@ public:
   bool isWrite() const { return isMustWrite() || isMayWrite(); }
 
   /// @brief Check if a new access relation was imported or set by a pass.
-  bool hasNewAccessRelation() const { return newAccessRelation; }
+  bool hasNewAccessRelation() const { return NewAccessRelation; }
 
   /// @brief Return the newest access relation of this access.
   ///
@@ -326,6 +386,9 @@ public:
   /// @brief Get an isl string representing the access function read from IR.
   std::string getOriginalAccessRelationStr() const;
 
+  /// @brief Get an isl string representing a new access function, if available.
+  std::string getNewAccessRelationStr() const;
+
   /// @brief Get the base address of this access (e.g. A for A[i+j]).
   Value *getBaseAddr() const { return BaseAddr; }
 
@@ -343,8 +406,11 @@ public:
 
   const std::string &getBaseName() const { return BaseName; }
 
+  /// @brief Return the access value of this memory access.
+  Value *getAccessValue() const { return AccessValue; }
+
   /// @brief Return the access instruction of this memory access.
-  Instruction *getAccessInstruction() const { return Inst; }
+  Instruction *getAccessInstruction() const { return AccessInstruction; }
 
   /// Get the stride of this memory access in the specified Schedule. Schedule
   /// is a map from the statement to a schedule where the innermost dimension is
@@ -378,7 +444,7 @@ public:
   ReductionType getReductionType() const { return RedType; }
 
   /// @brief Set the updated access relation read from JSCOP file.
-  void setNewAccessRelation(__isl_take isl_map *newAccessRelation);
+  void setNewAccessRelation(__isl_take isl_map *NewAccessRelation);
 
   /// @brief Mark this a reduction like access
   void markAsReductionLike(ReductionType RT) { RedType = RT; }
@@ -422,13 +488,11 @@ public:
 
   /// Create the ScopStmt from a BasicBlock.
   ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion,
-           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
+           BasicBlock &bb, SmallVectorImpl<Loop *> &NestLoops);
 
   /// Create an overapproximating ScopStmt for the region @p R.
   ScopStmt(Scop &parent, TempScop &tempScop, const Region &CurRegion, Region &R,
-           SmallVectorImpl<Loop *> &NestLoops,
-           SmallVectorImpl<unsigned> &ScheduleVec);
+           SmallVectorImpl<Loop *> &NestLoops);
 
 private:
   /// Polyhedral description
@@ -457,36 +521,6 @@ private:
   /// A pair of statement and iteration vector (S, (5,3)) is called statement
   /// instance.
   isl_set *Domain;
-
-  /// The schedule map describes the execution order of the statement
-  /// instances.
-  ///
-  /// A statement and its iteration domain do not give any information about the
-  /// order in time in which the different statement instances are executed.
-  /// This information is provided by the schedule.
-  ///
-  /// The schedule maps every instance of each statement into a multi
-  /// dimensional schedule space. This space can be seen as a multi
-  /// dimensional clock.
-  ///
-  /// Example:
-  ///
-  /// <S,(5,4)>  may be mapped to (5,4) by this schedule:
-  ///
-  /// s0 = i (Year of execution)
-  /// s1 = j (Day of execution)
-  ///
-  /// or to (9, 20) by this schedule:
-  ///
-  /// s0 = i + j (Year of execution)
-  /// s1 = 20 (Day of execution)
-  ///
-  /// The order statement instances are executed is defined by the
-  /// schedule vectors they are mapped to. A statement instance
-  /// <A, (i, j, ..)> is executed before a statement instance <B, (i', ..)>, if
-  /// the schedule vector of A is lexicographic smaller than the schedule
-  /// vector of B.
-  isl_map *Schedule;
 
   /// The memory accesses of this statement.
   ///
@@ -523,14 +557,10 @@ private:
 
   /// Build the statement.
   //@{
-  __isl_give isl_set *buildConditionSet(const Comparison &Cmp);
-  __isl_give isl_set *addConditionsToDomain(__isl_take isl_set *Domain,
-                                            TempScop &tempScop,
-                                            const Region &CurRegion);
-  __isl_give isl_set *addLoopBoundsToDomain(__isl_take isl_set *Domain,
-                                            TempScop &tempScop);
-  __isl_give isl_set *buildDomain(TempScop &tempScop, const Region &CurRegion);
-  void buildSchedule(SmallVectorImpl<unsigned> &ScheduleVec);
+  void addConditionsToDomain(TempScop &tempScop, const Region &CurRegion);
+  void addLoopBoundsToDomain(TempScop &tempScop);
+  void addLoopTripCountToDomain(const Loop *L);
+  void buildDomain(TempScop &tempScop, const Region &CurRegion);
 
   /// @brief Create the accesses for instructions in @p Block.
   ///
@@ -612,7 +642,6 @@ public:
   ///
   /// @return The schedule function of this ScopStmt.
   __isl_give isl_map *getSchedule() const;
-  void setSchedule(__isl_take isl_map *Schedule);
 
   /// @brief Get an isl string representing this schedule.
   std::string getScheduleStr() const;
@@ -679,7 +708,6 @@ public:
 
   unsigned getNumParams() const;
   unsigned getNumIterators() const;
-  unsigned getNumSchedule() const;
 
   Scop *getParent() { return &Parent; }
   const Scop *getParent() const { return &Parent; }
@@ -696,6 +724,9 @@ public:
   ///
   /// @param NewDomain The new statement domain.
   void restrictDomain(__isl_take isl_set *NewDomain);
+
+  /// @brief Compute the isl representation for the SCEV @p E in this stmt.
+  __isl_give isl_pw_aff *getPwAff(const SCEV *E);
 
   /// @brief Get the loop for a dimension.
   ///
@@ -747,13 +778,19 @@ public:
   /// @brief Vector of minimal/maximal accesses to different arrays.
   using MinMaxVectorTy = SmallVector<MinMaxAccessTy, 4>;
 
-  /// @brief Vector of minimal/maximal access vectors one for each alias group.
-  using MinMaxVectorVectorTy = SmallVector<MinMaxVectorTy *, 4>;
+  /// @brief Pair of minimal/maximal access vectors representing
+  /// read write and read only accesses
+  using MinMaxVectorPairTy = std::pair<MinMaxVectorTy, MinMaxVectorTy>;
+
+  /// @brief Vector of pair of minimal/maximal access vectors representing
+  /// non read only and read only accesses for each alias group.
+  using MinMaxVectorPairVectorTy = SmallVector<MinMaxVectorPairTy, 4>;
 
 private:
   Scop(const Scop &) = delete;
   const Scop &operator=(const Scop &) = delete;
 
+  DominatorTree &DT;
   ScalarEvolution *SE;
 
   /// The underlying Region.
@@ -761,6 +798,9 @@ private:
 
   /// Flag to indicate that the scheduler actually optimized the SCoP.
   bool IsOptimized;
+
+  /// @brief True if the underlying region has a single exiting block.
+  bool HasSingleExitEdge;
 
   /// Max loop depth.
   unsigned MaxLoopDepth;
@@ -783,12 +823,22 @@ private:
   /// @brief A map from basic blocks to SCoP statements.
   DenseMap<BasicBlock *, ScopStmt *> StmtMap;
 
+  /// @brief A map from basic blocks to their domains.
+  DenseMap<BasicBlock *, isl_set *> DomainMap;
+
   /// Constraints on parameters.
   isl_set *Context;
 
-  typedef MapVector<const Value *, std::unique_ptr<ScopArrayInfo>>
-      ArrayInfoMapTy;
+  /// @brief The affinator used to translate SCEVs to isl expressions.
+  SCEVAffinator Affinator;
+
+  typedef MapVector<std::pair<const Value *, int>,
+                    std::unique_ptr<ScopArrayInfo>> ArrayInfoMapTy;
   /// @brief A map to remember ScopArrayInfo objects for all base pointers.
+  ///
+  /// As PHI nodes may have two array info objects associated, we add a flag
+  /// that distinguishes between the PHI node specific ArrayInfo object
+  /// and the normal one.
   ArrayInfoMapTy ScopArrayInfoMap;
 
   /// @brief The assumptions under which this scop was built.
@@ -799,6 +849,42 @@ private:
   /// assumed context records the assumptions taken during the construction of
   /// this scop and that need to be code generated as a run-time test.
   isl_set *AssumedContext;
+
+  /// @brief The schedule of the SCoP
+  ///
+  /// The schedule of the SCoP describes the execution order of the statements
+  /// in the scop by assigning each statement instance a possibly
+  /// multi-dimensional execution time. The schedule is stored as a tree of
+  /// schedule nodes.
+  ///
+  /// The most common nodes in a schedule tree are so-called band nodes. Band
+  /// nodes map statement instances into a multi dimensional schedule space.
+  /// This space can be seen as a multi-dimensional clock.
+  ///
+  /// Example:
+  ///
+  /// <S,(5,4)>  may be mapped to (5,4) by this schedule:
+  ///
+  /// s0 = i (Year of execution)
+  /// s1 = j (Day of execution)
+  ///
+  /// or to (9, 20) by this schedule:
+  ///
+  /// s0 = i + j (Year of execution)
+  /// s1 = 20 (Day of execution)
+  ///
+  /// The order statement instances are executed is defined by the
+  /// schedule vectors they are mapped to. A statement instance
+  /// <A, (i, j, ..)> is executed before a statement instance <B, (i', ..)>, if
+  /// the schedule vector of A is lexicographic smaller than the schedule
+  /// vector of B.
+  ///
+  /// Besides band nodes, schedule trees contain additional nodes that specify
+  /// a textual ordering between two subtrees or filter nodes that filter the
+  /// set of statement instances that will be scheduled in a subtree. There
+  /// are also several other nodes. A full description of the different nodes
+  /// in a schedule tree is given in the isl manual.
+  isl_schedule *Schedule;
 
   /// @brief The set of minimal/maximal accesses for each alias group.
   ///
@@ -813,12 +899,40 @@ private:
   ///
   /// During code generation we will create a runtime alias check for each alias
   /// group to ensure the SCoP is executed in an alias free environment.
-  MinMaxVectorVectorTy MinMaxAliasGroups;
+  MinMaxVectorPairVectorTy MinMaxAliasGroups;
+
+  /// @brief Scop constructor; used by static createFromTempScop
+  Scop(Region &R, ScalarEvolution &SE, DominatorTree &DT, isl_ctx *ctx,
+       unsigned MaxLoopDepth);
+
+  /// @brief Initialize this ScopInfo using a TempScop object.
+  void initFromTempScop(TempScop &TempScop, LoopInfo &LI, ScopDetection &SD,
+                        AliasAnalysis &AA);
 
   /// Create the static control part with a region, max loop depth of this
   /// region and parameters used in this region.
-  Scop(TempScop &TempScop, LoopInfo &LI, ScalarEvolution &SE, ScopDetection &SD,
-       isl_ctx *ctx);
+  static Scop *createFromTempScop(TempScop &TempScop, LoopInfo &LI,
+                                  ScalarEvolution &SE, ScopDetection &SD,
+                                  AliasAnalysis &AA, DominatorTree &DT,
+                                  isl_ctx *ctx);
+
+  /// @brief Compute the branching constraints for each basic block in @p R.
+  ///
+  /// @param R  The region we currently build branching conditions for.
+  /// @param LI The LoopInfo analysis to obtain the number of iterators.
+  /// @param SD The ScopDetection analysis to identify non-affine sub-regions.
+  /// @param DT The dominator tree of the current function.
+  void buildDomainsWithBranchConstraints(Region *R, LoopInfo &LI,
+                                         ScopDetection &SD, DominatorTree &DT);
+
+  /// @brief Compute the domain for each basic block in @p R.
+  ///
+  /// @param R  The region we currently traverse.
+  /// @param LI The LoopInfo analysis to argue about the number of iterators.
+  /// @param SD The ScopDetection analysis to identify non-affine sub-regions.
+  /// @param DT The dominator tree of the current function.
+  void buildDomains(Region *R, LoopInfo &LI, ScopDetection &SD,
+                    DominatorTree &DT);
 
   /// @brief Check if a basic block is trivial.
   ///
@@ -831,8 +945,14 @@ private:
   /// @return True if the basic block is trivial, otherwise false.
   static bool isTrivialBB(BasicBlock *BB, TempScop &tempScop);
 
+  /// @brief Add parameter constraints to @p C that imply a non-empty domain.
+  __isl_give isl_set *addNonEmptyDomainConstraints(__isl_take isl_set *C) const;
+
   /// @brief Build the Context of the Scop.
   void buildContext();
+
+  /// @brief Add user provided parameter constraints to context.
+  void addUserContext();
 
   /// @brief Add the bounds of the parameters to the context.
   void addParameterBounds();
@@ -850,18 +970,37 @@ private:
   /// @param tempScop   The temp SCoP we use as model.
   /// @param CurRegion  The SCoP region.
   /// @param NestLoops  A vector of all surrounding loops.
-  /// @param Schedule   The position of the new statement as schedule.
-  void addScopStmt(BasicBlock *BB, Region *R, TempScop &tempScop,
-                   const Region &CurRegion, SmallVectorImpl<Loop *> &NestLoops,
-                   SmallVectorImpl<unsigned> &Schedule);
+  ScopStmt *addScopStmt(BasicBlock *BB, Region *R, TempScop &tempScop,
+                        const Region &CurRegion,
+                        SmallVectorImpl<Loop *> &NestLoops);
 
-  /// Build the Scop and Statement with precalculated scop information.
-  void buildScop(TempScop &TempScop, const Region &CurRegion,
-                 // Loops in Scop containing CurRegion
-                 SmallVectorImpl<Loop *> &NestLoops,
-                 // The schedule numbers
-                 SmallVectorImpl<unsigned> &Schedule, LoopInfo &LI,
-                 ScopDetection &SD);
+  /// @brief Create the ScopStmt for a BasicBlock and return its schedule.
+  ///
+  /// Returns null if the BB is trivial and no stmt has been created.
+  ///
+  /// @param BB         The basic block we build the statement for.
+  /// @param tempScop   The temp SCoP we use as model.
+  /// @param CurRegion  The SCoP region.
+  /// @param NestLoops  A vector of all surrounding loops.
+  ///
+  /// @return The ScopStmt's schedule.
+  __isl_give isl_schedule *buildBBScopStmt(BasicBlock *BB, TempScop &tempScop,
+                                           const Region &CurRegion,
+                                           SmallVectorImpl<Loop *> &NestLoops);
+
+  /// @brief Build Scop and ScopStmts from a given TempScop.
+  ///
+  /// @param TempScop  The temporary scop that is translated into an actual
+  ///                  scop.
+  /// @param CurRegion The subregion of the current scop that we are currently
+  ///                  translating.
+  /// @param NestLoop  The set of loops that surround the current subregion.
+  /// @param LI        The LoopInfo object.
+  /// @param SD        The ScopDetection object.
+  __isl_give isl_schedule *buildScop(TempScop &TempScop,
+                                     const Region &CurRegion,
+                                     SmallVectorImpl<Loop *> &NestLoops,
+                                     LoopInfo &LI, ScopDetection &SD);
 
   /// @name Helper function for printing the Scop.
   ///
@@ -938,18 +1077,6 @@ public:
   /// @return The maximum depth of the loop.
   inline unsigned getMaxLoopDepth() const { return MaxLoopDepth; }
 
-  /// @brief Get the schedule dimension number of this Scop.
-  ///
-  /// @return The schedule dimension number of this Scop.
-  inline unsigned getScheduleDim() const {
-    unsigned maxScheduleDim = 0;
-
-    for (const ScopStmt &Stmt : *this)
-      maxScheduleDim = std::max(maxScheduleDim, Stmt.getNumSchedule());
-
-    return maxScheduleDim;
-  }
-
   /// @brief Mark the SCoP as optimized by the scheduler.
   void markAsOptimized() { IsOptimized = true; }
 
@@ -970,6 +1097,22 @@ public:
   /// @return The assumed context of this Scop.
   __isl_give isl_set *getAssumedContext() const;
 
+  /// @brief Get the runtime check context for this Scop.
+  ///
+  /// The runtime check context contains all constraints that have to
+  /// hold at runtime for the optimized version to be executed.
+  ///
+  /// @return The runtime check context of this Scop.
+  __isl_give isl_set *getRuntimeCheckContext() const;
+
+  /// @brief Return true if the optimized SCoP can be executed.
+  ///
+  /// In addition to the runtime check context this will also utilize the domain
+  /// constraints to decide it the optimized version can actually be executed.
+  ///
+  /// @returns True if the optimized SCoP can be executed.
+  bool hasFeasibleRuntimeContext() const;
+
   /// @brief Add assumptions to assumed context.
   ///
   /// The assumptions added will be assumed to hold during the execution of the
@@ -985,20 +1128,16 @@ public:
   ///            to hold.
   void addAssumption(__isl_take isl_set *Set);
 
+  /// @brief Build the alias checks for this SCoP.
+  void buildAliasChecks(AliasAnalysis &AA);
+
   /// @brief Build all alias groups for this SCoP.
   ///
   /// @returns True if __no__ error occurred, false otherwise.
   bool buildAliasGroups(AliasAnalysis &AA);
 
-  //// @brief Drop all constant dimensions from statment schedules.
-  ///
-  ///  Schedule dimensions that are constant accross the scop do not carry
-  ///  any information, but would cost compile time due to the increased number
-  ///  of schedule dimensions. To not pay this cost, we remove them.
-  void dropConstantScheduleDims();
-
   /// @brief Return all alias groups for this SCoP.
-  const MinMaxVectorVectorTy &getAliasGroups() const {
+  const MinMaxVectorPairVectorTy &getAliasGroups() const {
     return MinMaxAliasGroups;
   }
 
@@ -1038,17 +1177,26 @@ public:
   /// @brief Return the (possibly new) ScopArrayInfo object for @p Access.
   ///
   /// @param ElementType The type of the elements stored in this array.
+  /// @param IsPHI       Is this ScopArrayInfo object modeling special
+  ///                    PHI node storage.
   const ScopArrayInfo *
   getOrCreateScopArrayInfo(Value *BasePtr, Type *ElementType,
-                           const SmallVector<const SCEV *, 4> &Sizes);
+                           const SmallVector<const SCEV *, 4> &Sizes,
+                           bool IsPHI = false);
 
   /// @brief Return the cached ScopArrayInfo object for @p BasePtr.
-  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr);
+  ///
+  /// @param BasePtr The base pointer the object has been stored for
+  /// @param IsPHI   Are we looking for special PHI storage.
+  const ScopArrayInfo *getScopArrayInfo(Value *BasePtr, bool IsPHI = false);
 
   void setContext(isl_set *NewContext);
 
   /// @brief Align the parameters in the statement to the scop context
   void realignParams();
+
+  /// @brief Return true if the underlying region has a single exiting block.
+  bool hasSingleExitEdge() const { return HasSingleExitEdge; }
 
   /// @brief Print the static control part.
   ///
@@ -1063,8 +1211,21 @@ public:
   /// @return The isl context of this static control part.
   isl_ctx *getIslCtx() const;
 
+  /// @brief Compute the isl representation for the SCEV @p
+  ///
+  /// @param Domain An (optional) domain in which the isl_pw_aff is computed.
+  ///               SCEVs known to not reference any loops in the SCoP can be
+  ///               passed without a @p Domain.
+  __isl_give isl_pw_aff *getPwAff(const SCEV *E,
+                                  __isl_keep isl_set *Domain = nullptr);
+
+  /// @brief Return the non-loop carried conditions on the domain of @p Stmt.
+  ///
+  /// @param Stmt The statement for which the conditions should be returned.
+  __isl_give isl_set *getDomainConditions(ScopStmt *Stmt);
+
   /// @brief Get a union set containing the iteration domains of all statements.
-  __isl_give isl_union_set *getDomains();
+  __isl_give isl_union_set *getDomains() const;
 
   /// @brief Get a union map of all may-writes performed in the SCoP.
   __isl_give isl_union_map *getMayWrites();
@@ -1079,12 +1240,33 @@ public:
   __isl_give isl_union_map *getReads();
 
   /// @brief Get the schedule of all the statements in the SCoP.
-  __isl_give isl_union_map *getSchedule();
+  __isl_give isl_union_map *getSchedule() const;
+
+  /// @brief Get a schedule tree describing the schedule of all statements.
+  __isl_give isl_schedule *getScheduleTree() const;
+
+  /// @brief Update the current schedule
+  ///
+  /// @brief NewSchedule The new schedule (given as a flat union-map).
+  void setSchedule(__isl_take isl_union_map *NewSchedule);
+
+  /// @brief Update the current schedule
+  ///
+  /// @brief NewSchedule The new schedule (given as schedule tree).
+  void setScheduleTree(__isl_take isl_schedule *NewSchedule);
 
   /// @brief Intersects the domains of all statements in the SCoP.
   ///
   /// @return true if a change was made
   bool restrictDomains(__isl_take isl_union_set *Domain);
+
+  /// @brief Get the depth of a loop relative to the outermost loop in the Scop.
+  ///
+  /// This will return
+  ///    0 if @p L is an outermost loop in the SCoP
+  ///   >0 for other loops in the SCoP
+  ///   -1 if @p L is nullptr or there is no outermost loop in the SCoP
+  int getRelativeLoopDepth(const Loop *L) const;
 };
 
 /// @brief Print Scop scop to raw_ostream O.

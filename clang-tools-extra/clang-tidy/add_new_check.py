@@ -34,9 +34,10 @@ def adapt_cmake(module_path, check_name_camel):
     cpp_found = False
     file_added = False
     for line in lines:
-      if not file_added and (line.endswith('.cpp') or cpp_found):
+      cpp_line = line.endswith('.cpp')
+      if (not file_added) and (cpp_line or cpp_found):
         cpp_found = True
-        if line.strip() > cpp_file:
+        if (line.strip() > cpp_file) or (not cpp_line):
           f.write('  ' + cpp_file + '\n')
           file_added = True
       f.write(line + '\n')
@@ -183,8 +184,7 @@ def write_test(module_path, module, check_name):
                           check_name_dashes + '.cpp')
   with open(filename, 'w') as f:
     f.write(
-"""// RUN: $(dirname %%s)/check_clang_tidy.sh %%s %(check_name_dashes)s %%t
-// REQUIRES: shell
+"""// RUN: %%python %%S/check_clang_tidy.py %%s %(check_name_dashes)s %%t
 
 // FIXME: Add something that triggers the check here.
 void f();

@@ -56,7 +56,7 @@ syn keyword llvmKeyword sspstrong tail target thread_local to triple
 syn keyword llvmKeyword unnamed_addr unordered uwtable volatile weak weak_odr
 syn keyword llvmKeyword x86_fastcallcc x86_stdcallcc x86_thiscallcc
 syn keyword llvmKeyword x86_64_sysvcc x86_64_win64cc zeroext uselistorder
-syn keyword llvmKeyword uselistorder_bb
+syn keyword llvmKeyword uselistorder_bb musttail
 
 " Obsolete keywords.
 syn keyword llvmError  getresult begin end
@@ -84,10 +84,10 @@ syn match   llvmConstant /\<DW_LANG_[a-zA-Z0-9_]\+\>/
 syn match   llvmConstant /\<DW_VIRTUALITY_[a-z_]\+\>/
 syn match   llvmConstant /\<DIFlag[A-Za-z]\+\>/
 
-" Syntax-highlight dejagnu test commands.
-syn match  llvmSpecialComment /;\s*RUN:.*$/
+" Syntax-highlight lit test commands and bug numbers.
 syn match  llvmSpecialComment /;\s*PR\d*\s*$/
-syn match  llvmSpecialComment /;\s*END\.\s*$/
+syn match  llvmSpecialComment /;\s*REQUIRES:.*$/
+syn match  llvmSpecialComment /;\s*RUN:.*$/
 syn match  llvmSpecialComment /;\s*XFAIL:.*$/
 
 if version >= 508 || !exists("did_c_syn_inits")

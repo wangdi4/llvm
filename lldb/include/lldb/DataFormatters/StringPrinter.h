@@ -14,6 +14,8 @@
 
 #include "lldb/Core/DataExtractor.h"
 
+#include <functional>
+
 namespace lldb_private {
     namespace formatters
     {
@@ -38,7 +40,8 @@ namespace lldb_private {
             m_source_size(0),
             m_needs_zero_termination(true),
             m_escape_non_printables(true),
-            m_ignore_max_length(false)
+            m_ignore_max_length(false),
+            m_zero_is_terminator(true)
             {
             }
             
@@ -136,6 +139,19 @@ namespace lldb_private {
             }
             
             ReadStringAndDumpToStreamOptions&
+            SetBinaryZeroIsTerminator (bool e)
+            {
+                m_zero_is_terminator = e;
+                return *this;
+            }
+            
+            bool
+            GetBinaryZeroIsTerminator () const
+            {
+                return m_zero_is_terminator;
+            }
+            
+            ReadStringAndDumpToStreamOptions&
             SetEscapeNonPrintables (bool e)
             {
                 m_escape_non_printables = e;
@@ -171,6 +187,7 @@ namespace lldb_private {
             bool m_needs_zero_termination;
             bool m_escape_non_printables;
             bool m_ignore_max_length;
+            bool m_zero_is_terminator;
         };
         
         class ReadBufferAndDumpToStreamOptions
@@ -183,11 +200,14 @@ namespace lldb_private {
             m_prefix_token(0),
             m_quote('"'),
             m_source_size(0),
-            m_escape_non_printables(true)
+            m_escape_non_printables(true),
+            m_zero_is_terminator(true)
             {
             }
             
             ReadBufferAndDumpToStreamOptions (ValueObject& valobj);
+            
+            ReadBufferAndDumpToStreamOptions (const ReadStringAndDumpToStreamOptions& options);
             
             ReadBufferAndDumpToStreamOptions&
             SetData (DataExtractor d)
@@ -267,6 +287,19 @@ namespace lldb_private {
                 return m_escape_non_printables;
             }
             
+            ReadBufferAndDumpToStreamOptions&
+            SetBinaryZeroIsTerminator (bool e)
+            {
+                m_zero_is_terminator = e;
+                return *this;
+            }
+            
+            bool
+            GetBinaryZeroIsTerminator () const
+            {
+                return m_zero_is_terminator;
+            }
+            
         private:
             DataExtractor m_data;
             Stream* m_stream;
@@ -274,15 +307,102 @@ namespace lldb_private {
             char m_quote;
             uint32_t m_source_size;
             bool m_escape_non_printables;
+            bool m_zero_is_terminator;
         };
         
-        template <StringElementType element_type>
-        bool
-        ReadStringAndDumpToStream (ReadStringAndDumpToStreamOptions options);
-        
-        template <StringElementType element_type>
-        bool
-        ReadBufferAndDumpToStream (ReadBufferAndDumpToStreamOptions options);
+        class StringPrinter
+        {
+        public:
+            // I can't use a std::unique_ptr for this because the Deleter is a template argument there
+            // and I want the same type to represent both pointers I want to free and pointers I don't need
+            // to free - which is what this class essentially is
+            // It's very specialized to the needs of this file, and not suggested for general use
+            template <typename T = uint8_t, typename U = char, typename S = size_t>
+            struct StringPrinterBufferPointer
+            {
+            public:
+                
+                typedef std::function<void(const T*)> Deleter;
+                
+                StringPrinterBufferPointer (std::nullptr_t ptr) :
+                m_data(nullptr),
+                m_size(0),
+                m_deleter()
+                {}
+                
+                StringPrinterBufferPointer(const T* bytes, S size, Deleter deleter = nullptr) :
+                m_data(bytes),
+                m_size(size),
+                m_deleter(deleter)
+                {}
+                
+                StringPrinterBufferPointer(const U* bytes, S size, Deleter deleter = nullptr) :
+                m_data((T*)bytes),
+                m_size(size),
+                m_deleter(deleter)
+                {}
+                
+                StringPrinterBufferPointer(StringPrinterBufferPointer&& rhs) :
+                m_data(rhs.m_data),
+                m_size(rhs.m_size),
+                m_deleter(rhs.m_deleter)
+                {
+                    rhs.m_data = nullptr;
+                }
+                
+                StringPrinterBufferPointer(const StringPrinterBufferPointer& rhs) :
+                m_data(rhs.m_data),
+                m_size(rhs.m_size),
+                m_deleter(rhs.m_deleter)
+                {
+                    rhs.m_data = nullptr; // this is why m_data has to be mutable
+                }
+                
+                const T*
+                GetBytes () const
+                {
+                    return m_data;
+                }
+                
+                const S
+                GetSize () const
+                {
+                    return m_size;
+                }
+                
+                ~StringPrinterBufferPointer ()
+                {
+                    if (m_data && m_deleter)
+                        m_deleter(m_data);
+                    m_data = nullptr;
+                }
+                
+                StringPrinterBufferPointer&
+                operator = (const StringPrinterBufferPointer& rhs)
+                {
+                    if (m_data && m_deleter)
+                        m_deleter(m_data);
+                    m_data = rhs.m_data;
+                    m_size = rhs.m_size;
+                    m_deleter = rhs.m_deleter;
+                    rhs.m_data = nullptr;
+                    return *this;
+                }
+                
+            private:
+                mutable const T* m_data;
+                size_t m_size;
+                Deleter m_deleter;
+            };
+            
+            template <StringElementType element_type>
+            static bool
+            ReadStringAndDumpToStream (const ReadStringAndDumpToStreamOptions& options);
+            
+            template <StringElementType element_type>
+            static bool
+            ReadBufferAndDumpToStream (const ReadBufferAndDumpToStreamOptions& options);
+        };
         
     } // namespace formatters
 } // namespace lldb_private

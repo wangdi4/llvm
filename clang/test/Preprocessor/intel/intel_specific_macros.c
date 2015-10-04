@@ -32,3 +32,7 @@
 
 // RUN: %clang_cc1 -x c++ -E -dM -fintel-compatibility < %s | FileCheck -check-prefix CHECK_GNUG_2 %s
 // CHECK_GNUG_2-NOT: #define __GNUG__
+
+// CQ#373889
+// RUN: %clang_cc1 -E -dM -fintel-compatibility -triple x86_64-none-linux -x c++ < %s | FileCheck -check-prefix CHECK_BOOL %s
+// CHECK_BOOL: #define _BOOL 1

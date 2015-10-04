@@ -443,8 +443,11 @@ ExprResult InitListChecker::PerformEmptyInit(Sema &SemaRef,
         if (!VerifyOnly) {
           SemaRef.Diag(CtorDecl->getLocation(),
                        diag::warn_invalid_initializer_from_system_header);
-          SemaRef.Diag(Entity.getDecl()->getLocation(),
-                       diag::note_used_in_initialization_here);
+          if (Entity.getKind() == InitializedEntity::EK_Member)
+            SemaRef.Diag(Entity.getDecl()->getLocation(),
+                         diag::note_used_in_initialization_here);
+          else if (Entity.getKind() == InitializedEntity::EK_ArrayElement)
+            SemaRef.Diag(Loc, diag::note_used_in_initialization_here);
         }
       }
     }
@@ -2372,14 +2375,12 @@ InitListChecker::CheckDesignatedInitializer(const InitializedEntity &Entity,
       return true;
     }
   } else {
-    // Make sure the bit-widths and signedness match.
-    if (DesignatedStartIndex.getBitWidth() > DesignatedEndIndex.getBitWidth())
-      DesignatedEndIndex
-        = DesignatedEndIndex.extend(DesignatedStartIndex.getBitWidth());
-    else if (DesignatedStartIndex.getBitWidth() <
-             DesignatedEndIndex.getBitWidth())
-      DesignatedStartIndex
-        = DesignatedStartIndex.extend(DesignatedEndIndex.getBitWidth());
+    unsigned DesignatedIndexBitWidth =
+      ConstantArrayType::getMaxSizeBits(SemaRef.Context);
+    DesignatedStartIndex =
+      DesignatedStartIndex.extOrTrunc(DesignatedIndexBitWidth);
+    DesignatedEndIndex =
+      DesignatedEndIndex.extOrTrunc(DesignatedIndexBitWidth);
     DesignatedStartIndex.setIsUnsigned(true);
     DesignatedEndIndex.setIsUnsigned(true);
   }
@@ -3654,9 +3655,10 @@ static void TryReferenceListInitialization(Sema &S,
     if (DestType->isRValueReferenceType() ||
 #ifdef INTEL_CUSTOMIZATION
         // CQ#364712 - allow non-const non-volatile lvalue reference bind to
-        // temporary in IntelMSCompat mode.
-        ((S.getLangOpts().IntelMSCompat || T1Quals.hasConst()) &&
-         !T1Quals.hasVolatile()))
+        // temporary of structure or class types in IntelMSCompat mode.
+        (!T1Quals.hasVolatile() &&
+         (T1Quals.hasConst() ||
+          (S.getLangOpts().IntelMSCompat && T1->isStructureOrClassType()))))
 #else
         (T1Quals.hasConst() && !T1Quals.hasVolatile()))
 #endif // INTEL_CUSTOMIZATION
@@ -4175,7 +4177,7 @@ static void TryReferenceInitializationCore(Sema &S,
       // CQ#364712 - allow non-const lvalue reference bind to temporary in
       // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
       if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
-          InitCategory.isLValue())
+          InitCategory.isLValue() || !T1->isStructureOrClassType())
 #endif // INTEL_CUSTOMIZATION
       Sequence.SetFailed(InitCategory.isLValue()
         ? (RefRelationship == Sema::Ref_Related
@@ -5133,10 +5135,8 @@ void InitializationSequence::InitializeFrom(Sema &S,
 }
 
 InitializationSequence::~InitializationSequence() {
-  for (SmallVectorImpl<Step>::iterator Step = Steps.begin(),
-                                          StepEnd = Steps.end();
-       Step != StepEnd; ++Step)
-    Step->Destroy();
+  for (auto &S : Steps)
+    S.Destroy();
 }
 
 //===----------------------------------------------------------------------===//
@@ -5975,6 +5975,9 @@ static void CheckMoveOnConstruction(Sema &S, const Expr *InitExpr,
   if (!InitExpr)
     return;
 
+  if (!S.ActiveTemplateInstantiations.empty())
+    return;
+
   QualType DestType = InitExpr->getType();
   if (!DestType->isRecordType())
     return;
@@ -5990,24 +5993,6 @@ static void CheckMoveOnConstruction(Sema &S, const Expr *InitExpr,
       return;
 
     InitExpr = CCE->getArg(0)->IgnoreImpCasts();
-
-    // Remove implicit temporary and constructor nodes.
-    if (const MaterializeTemporaryExpr *MTE =
-            dyn_cast<MaterializeTemporaryExpr>(InitExpr)) {
-      InitExpr = MTE->GetTemporaryExpr()->IgnoreImpCasts();
-      while (const CXXConstructExpr *CCE =
-                 dyn_cast<CXXConstructExpr>(InitExpr)) {
-        if (isa<CXXTemporaryObjectExpr>(CCE))
-          return;
-        if (CCE->getNumArgs() == 0)
-          return;
-        if (CCE->getNumArgs() > 1 && !isa<CXXDefaultArgExpr>(CCE->getArg(1)))
-          return;
-        InitExpr = CCE->getArg(0);
-      }
-      InitExpr = InitExpr->IgnoreImpCasts();
-      DiagID = diag::warn_redundant_move_on_return;
-    }
   }
 
   // Find the std::move call and get the argument.
@@ -6032,14 +6017,20 @@ static void CheckMoveOnConstruction(Sema &S, const Expr *InitExpr,
     if (!VD || !VD->hasLocalStorage())
       return;
 
-    if (!VD->getType()->isRecordType())
+    QualType SourceType = VD->getType();
+    if (!SourceType->isRecordType())
       return;
 
-    if (DiagID == 0) {
-      DiagID = S.Context.hasSameUnqualifiedType(DestType, VD->getType())
-                   ? diag::warn_pessimizing_move_on_return
-                   : diag::warn_redundant_move_on_return;
+    if (!S.Context.hasSameUnqualifiedType(DestType, SourceType)) {
+      return;
     }
+
+    // If we're returning a function parameter, copy elision
+    // is not possible.
+    if (isa<ParmVarDecl>(VD))
+      DiagID = diag::warn_redundant_move_on_return;
+    else
+      DiagID = diag::warn_pessimizing_move_on_return;
   } else {
     DiagID = diag::warn_pessimizing_move_on_initialization;
     const Expr *ArgStripped = Arg->IgnoreImplicit()->IgnoreParens();
@@ -7025,6 +7016,7 @@ bool InitializationSequence::Diagnose(Sema &S,
                           diag::err_typecheck_nonviable_condition_incomplete,
                                Args[0]->getType(), Args[0]->getSourceRange()))
         S.Diag(Kind.getLocation(), diag::err_typecheck_nonviable_condition)
+          << (Entity.getKind() == InitializedEntity::EK_Result)
           << Args[0]->getType() << Args[0]->getSourceRange()
           << DestType.getNonReferenceType();
 
@@ -7308,8 +7300,15 @@ bool InitializationSequence::Diagnose(Sema &S,
   // Fix for CQ#236476: Static variable is referenced in two separate routines
   // in iclang
   case FK_StaticLabelAddress:
-    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-        << Args[0]->getSourceRange();
+    // Fix for CQ#374664: After promotion xmain becomes too strict on
+    // initialization of static variable with label address.
+    DeclContext *DC = S.getFunctionLevelDeclContext();
+    while (isa<RecordDecl>(DC))
+      DC = DC->getParent();
+    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
+      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic())
+        S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+            << Args[0]->getSourceRange();
     break;
 #endif // INTEL_CUSTOMIZATION
   }

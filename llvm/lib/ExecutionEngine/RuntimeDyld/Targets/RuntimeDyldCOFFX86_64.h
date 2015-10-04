@@ -119,8 +119,7 @@ public:
     symbol_iterator Symbol = RelI->getSymbol();
     if (Symbol == Obj.symbol_end())
       report_fatal_error("Unknown symbol in relocation");
-    section_iterator SecI(Obj.section_end());
-    Symbol->getSection(SecI);
+    section_iterator SecI = *Symbol->getSection();
     // If there is no section, this must be an external reference.
     const bool IsExtern = SecI == Obj.section_end();
 
@@ -155,8 +154,10 @@ public:
       break;
     }
 
-    StringRef TargetName;
-    Symbol->getName(TargetName);
+    ErrorOr<StringRef> TargetNameOrErr = Symbol->getName();
+    if (std::error_code EC = TargetNameOrErr.getError())
+      report_fatal_error(EC.message());
+    StringRef TargetName = *TargetNameOrErr;
 
     DEBUG(dbgs() << "\t\tIn Section " << SectionID << " Offset " << Offset
                  << " RelType: " << RelType << " TargetName: " << TargetName

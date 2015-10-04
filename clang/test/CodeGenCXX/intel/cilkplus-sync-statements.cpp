@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// XFAIL: win
 
 #define BIG_NUM 30
 int global = 0;
@@ -45,7 +46,7 @@ void test1() {
 
   // CHECK: call i8* @llvm.frameaddress
   // CHECK: call i8* @llvm.stacksave
-  // CHECK: call i32 @llvm.eh.sjlj.setjmp
+  // CHECK: call {{.*}}@{{.*}}setjmp
   // CHECK: br i1 {{%[0-9]+}}, label %{{.*}}, label %{{.*}}
 
   // CHECK: invoke void @__cilkrts_sync(%__cilkrts_stack_frame* %__cilkrts_sf)
@@ -82,7 +83,7 @@ void test2() {
 
   // CHECK: call i8* @llvm.frameaddress
   // CHECK: call i8* @llvm.stacksave
-  // CHECK: call i32 @llvm.eh.sjlj.setjmp
+  // CHECK: call {{.*}}@{{.*}}setjmp
   // CHECK: br i1 {{%[0-9]+}}, label %{{.*}}, label %{{.*}}
 
   // CHECK: invoke void @__cilkrts_sync(%__cilkrts_stack_frame* %__cilkrts_sf)

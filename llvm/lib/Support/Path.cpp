@@ -661,8 +661,16 @@ bool is_absolute(const Twine &path) {
   return rootDir && rootName;
 }
 
-bool is_relative(const Twine &path) {
-  return !is_absolute(path);
+bool is_relative(const Twine &path) { return !is_absolute(path); }
+
+StringRef remove_leading_dotslash(StringRef Path) {
+  // Remove leading "./" (or ".//" or "././" etc.)
+  while (Path.size() > 2 && Path[0] == '.' && is_separator(Path[1])) {
+    Path = Path.substr(2);
+    while (Path.size() > 0 && is_separator(Path[0]))
+      Path = Path.substr(1);
+  }
+  return Path;
 }
 
 } // end namespace path
@@ -785,12 +793,13 @@ std::error_code make_absolute(SmallVectorImpl<char> &path) {
                    "occurred above!");
 }
 
-std::error_code create_directories(const Twine &Path, bool IgnoreExisting) {
+std::error_code create_directories(const Twine &Path, bool IgnoreExisting,
+                                   perms Perms) {
   SmallString<128> PathStorage;
   StringRef P = Path.toStringRef(PathStorage);
 
   // Be optimistic and try to create the directory
-  std::error_code EC = create_directory(P, IgnoreExisting);
+  std::error_code EC = create_directory(P, IgnoreExisting, Perms);
   // If we succeeded, or had any error other than the parent not existing, just
   // return it.
   if (EC != errc::no_such_file_or_directory)
@@ -802,10 +811,10 @@ std::error_code create_directories(const Twine &Path, bool IgnoreExisting) {
   if (Parent.empty())
     return EC;
 
-  if ((EC = create_directories(Parent)))
+  if ((EC = create_directories(Parent, IgnoreExisting, Perms)))
       return EC;
 
-  return create_directory(P, IgnoreExisting);
+  return create_directory(P, IgnoreExisting, Perms);
 }
 
 std::error_code copy_file(const Twine &From, const Twine &To) {
@@ -889,8 +898,7 @@ std::error_code is_other(const Twine &Path, bool &Result) {
 }
 
 void directory_entry::replace_filename(const Twine &filename, file_status st) {
-  SmallString<128> path(Path.begin(), Path.end());
-  path::remove_filename(path);
+  SmallString<128> path = path::parent_path(Path);
   path::append(path, filename);
   Path = path.str();
   Status = st;
@@ -940,7 +948,8 @@ file_magic identify_magic(StringRef Magic) {
       break;
     case '!':
       if (Magic.size() >= 8)
-        if (memcmp(Magic.data(),"!<arch>\n",8) == 0)
+        if (memcmp(Magic.data(), "!<arch>\n", 8) == 0 ||
+            memcmp(Magic.data(), "!<thin>\n", 8) == 0)
           return file_magic::archive;
       break;
 

@@ -28,6 +28,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/JamCRC.h"
 
 using namespace clang;
 
@@ -185,7 +186,9 @@ public:
 
     // Anonymous tags are already numbered.
     if (const TagDecl *Tag = dyn_cast<TagDecl>(ND)) {
-      if (Tag->getName().empty() && !Tag->getTypedefNameForAnonDecl())
+      if (!Tag->hasNameForLinkage() &&
+          !getASTContext().getDeclaratorForUnnamedTagDecl(Tag) &&
+          !getASTContext().getTypedefNameForUnnamedTagDecl(Tag))
         return false;
     }
 
@@ -732,7 +735,6 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
     llvm::raw_svector_ostream Stream(TemplateMangling);
     MicrosoftCXXNameMangler Extra(Context, Stream);
     Extra.mangleTemplateInstantiationName(TD, *TemplateArgs);
-    Stream.flush();
 
     mangleSourceName(TemplateMangling);
     return;
@@ -798,10 +800,17 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       }
 
       llvm::SmallString<64> Name("<unnamed-type-");
-      if (TD->hasDeclaratorForAnonDecl()) {
-        // Anonymous types with no tag or typedef get the name of their
+      if (DeclaratorDecl *DD =
+              Context.getASTContext().getDeclaratorForUnnamedTagDecl(TD)) {
+        // Anonymous types without a name for linkage purposes have their
         // declarator mangled in if they have one.
-        Name += TD->getDeclaratorForAnonDecl()->getName();
+        Name += DD->getName();
+      } else if (TypedefNameDecl *TND =
+                     Context.getASTContext().getTypedefNameForUnnamedTagDecl(
+                         TD)) {
+        // Anonymous types without a name for linkage purposes have their
+        // associate typedef mangled in if they have one.
+        Name += TND->getName();
       } else {
         // Otherwise, number the types using a $S prefix.
         Name += "$S";
@@ -1235,11 +1244,23 @@ void MicrosoftCXXNameMangler::mangleTemplateArg(const TemplateDecl *TD,
         return;
       }
       if (MPT->isMemberDataPointer()) {
-        mangleMemberDataPointer(RD, nullptr);
-        return;
+        if (isa<ClassTemplateDecl>(TD)) {
+          mangleMemberDataPointer(RD, nullptr);
+          return;
+        }
+        // nullptr data pointers are always represented with a single field
+        // which is initialized with either 0 or -1.  Why -1?  Well, we need to
+        // distinguish the case where the data member is at offset zero in the
+        // record.
+        // However, we are free to use 0 *if* we would use multiple fields for
+        // non-nullptr member pointers.
+        if (!RD->nullFieldOffsetIsZero()) {
+          mangleIntegerLiteral(llvm::APSInt::get(-1), /*IsBoolean=*/false);
+          return;
+        }
       }
     }
-    Out << "$0A@";
+    mangleIntegerLiteral(llvm::APSInt::getUnsigned(0), /*IsBoolean=*/false);
     break;
   }
   case TemplateArgument::Expression:
@@ -1631,7 +1652,8 @@ void MicrosoftCXXNameMangler::mangleType(const FunctionProtoType *T, Qualifiers,
 }
 void MicrosoftCXXNameMangler::mangleType(const FunctionNoProtoType *T,
                                          Qualifiers, SourceRange) {
-  llvm_unreachable("Can't mangle K&R function prototypes");
+  Out << "$$A6";
+  mangleFunctionType(T);
 }
 
 void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
@@ -1639,7 +1661,7 @@ void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
                                                  bool ForceThisQuals) {
   // <function-type> ::= <this-cvr-qualifiers> <calling-convention>
   //                     <return-type> <argument-list> <throw-spec>
-  const FunctionProtoType *Proto = cast<FunctionProtoType>(T);
+  const FunctionProtoType *Proto = dyn_cast<FunctionProtoType>(T);
 
   SourceRange Range;
   if (D) Range = D->getSourceRange();
@@ -1710,7 +1732,7 @@ void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
     }
     Out << '@';
   } else {
-    QualType ResultType = Proto->getReturnType();
+    QualType ResultType = T->getReturnType();
     if (const auto *AT =
             dyn_cast_or_null<AutoType>(ResultType->getContainedAutoType())) {
       Out << '?';
@@ -1728,7 +1750,12 @@ void MicrosoftCXXNameMangler::mangleFunctionType(const FunctionType *T,
   // <argument-list> ::= X # void
   //                 ::= <type>+ @
   //                 ::= <type>* Z # varargs
-  if (Proto->getNumParams() == 0 && !Proto->isVariadic()) {
+  if (!Proto) {
+    // Function types without prototypes can arise when mangling a function type
+    // within an overloadable function in C. We mangle these as the absence of
+    // any parameter types (not even an empty parameter list).
+    Out << '@';
+  } else if (Proto->getNumParams() == 0 && !Proto->isVariadic()) {
     Out << 'X';
   } else {
     // Happens for function pointer type arguments for example.
@@ -2087,13 +2114,9 @@ void MicrosoftCXXNameMangler::mangleType(const VectorType *T, Qualifiers Quals,
   Out << "@@";
 }
 
-void MicrosoftCXXNameMangler::mangleType(const ExtVectorType *T, Qualifiers,
-                                         SourceRange Range) {
-  DiagnosticsEngine &Diags = Context.getDiags();
-  unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-    "cannot mangle this extended vector type yet");
-  Diags.Report(Range.getBegin(), DiagID)
-    << Range;
+void MicrosoftCXXNameMangler::mangleType(const ExtVectorType *T,
+                                         Qualifiers Quals, SourceRange Range) {
+  mangleType(static_cast<const VectorType *>(T), Quals, Range);
 }
 void MicrosoftCXXNameMangler::mangleType(const DependentSizedExtVectorType *T,
                                          Qualifiers, SourceRange Range) {
@@ -2699,28 +2722,6 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
   // N.B. The length is in terms of bytes, not characters.
   Mangler.mangleNumber(SL->getByteLength() + SL->getCharByteWidth());
 
-  // We will use the "Rocksoft^tm Model CRC Algorithm" to describe the
-  // properties of our CRC:
-  //   Width  : 32
-  //   Poly   : 04C11DB7
-  //   Init   : FFFFFFFF
-  //   RefIn  : True
-  //   RefOut : True
-  //   XorOut : 00000000
-  //   Check  : 340BC6D9
-  uint32_t CRC = 0xFFFFFFFFU;
-
-  auto UpdateCRC = [&CRC](char Byte) {
-    for (unsigned i = 0; i < 8; ++i) {
-      bool Bit = CRC & 0x80000000U;
-      if (Byte & (1U << i))
-        Bit = !Bit;
-      CRC <<= 1;
-      if (Bit)
-        CRC ^= 0x04C11DB7U;
-    }
-  };
-
   auto GetLittleEndianByte = [&Mangler, &SL](unsigned Index) {
     unsigned CharByteWidth = SL->getCharByteWidth();
     uint32_t CodeUnit = SL->getCodeUnit(Index / CharByteWidth);
@@ -2736,22 +2737,19 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
   };
 
   // CRC all the bytes of the StringLiteral.
+  llvm::JamCRC JC;
   for (unsigned I = 0, E = SL->getByteLength(); I != E; ++I)
-    UpdateCRC(GetLittleEndianByte(I));
+    JC.update(GetLittleEndianByte(I));
 
   // The NUL terminator byte(s) were not present earlier,
   // we need to manually process those bytes into the CRC.
   for (unsigned NullTerminator = 0; NullTerminator < SL->getCharByteWidth();
        ++NullTerminator)
-    UpdateCRC('\x00');
-
-  // The literature refers to the process of reversing the bits in the final CRC
-  // output as "reflection".
-  CRC = llvm::reverseBits(CRC);
+    JC.update('\x00');
 
   // <encoded-crc>: The CRC is encoded utilizing the standard number mangling
   // scheme.
-  Mangler.mangleNumber(CRC);
+  Mangler.mangleNumber(JC.getCRC());
 
   // <encoded-string>: The mangled name also contains the first 32 _characters_
   // (including null-terminator bytes) of the StringLiteral.

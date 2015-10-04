@@ -27,6 +27,7 @@
 #include "isl/map.h"
 #include "isl/printer.h"
 #include "isl/set.h"
+#include "isl/union_map.h"
 #include "json/reader.h"
 #include "json/writer.h"
 #include <memory>
@@ -260,10 +261,15 @@ bool JSONImporter::runOnScop(Scop &S) {
     return false;
   }
 
+  auto ScheduleMap = isl_union_map_empty(S.getParamSpace());
   for (ScopStmt &Stmt : S) {
     if (NewSchedule.find(&Stmt) != NewSchedule.end())
-      Stmt.setSchedule(NewSchedule[&Stmt]);
+      ScheduleMap = isl_union_map_add_map(ScheduleMap, NewSchedule[&Stmt]);
+    else
+      ScheduleMap = isl_union_map_add_map(ScheduleMap, Stmt.getSchedule());
   }
+
+  S.setSchedule(ScheduleMap);
 
   int statementIdx = 0;
   for (ScopStmt &Stmt : S) {
@@ -333,12 +339,6 @@ bool JSONImporter::runOnScop(Scop &S) {
       if (!isl_map_has_equal_space(currentAccessMap, newAccessMap)) {
         errs() << "JScop file contains access function with incompatible "
                << "dimensions\n";
-        isl_map_free(currentAccessMap);
-        isl_map_free(newAccessMap);
-        return false;
-      }
-      if (isl_map_dim(newAccessMap, isl_dim_out) != 1) {
-        errs() << "New access map in JScop file should be single dimensional\n";
         isl_map_free(currentAccessMap);
         isl_map_free(newAccessMap);
         return false;

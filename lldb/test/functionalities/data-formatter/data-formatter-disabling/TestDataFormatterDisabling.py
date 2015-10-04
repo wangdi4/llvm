@@ -20,6 +20,7 @@ class DataFormatterDisablingTestCase(TestBase):
         self.data_formatter_commands()
 
     @dwarf_test
+    @expectedFailureWindows("llvm.org/pr24462") # Data formatters have problems on Windows
     def test_with_dwarf_and_run_command(self):
         """Test data formatter commands."""
         self.buildDwarf()
@@ -37,7 +38,7 @@ class DataFormatterDisablingTestCase(TestBase):
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
@@ -54,7 +55,7 @@ class DataFormatterDisablingTestCase(TestBase):
 
         #self.runCmd('type category enable system VectorTypes libcxx gnu-libstdc++ CoreGraphics CoreServices AppKit CoreFoundation objc default', check=False)
 
-        self.expect('type category list', substrs = ['system is enabled', 'gnu-libstdc++ is enabled', 'AppKit is enabled'])
+        self.expect('type category list', substrs = ['system is enabled',])
 
         self.expect("frame variable numbers",
             substrs = ['[0] = 1', '[3] = 1234'])
@@ -69,23 +70,23 @@ class DataFormatterDisablingTestCase(TestBase):
 
         self.expect('frame variable string1', matching=False, substrs = ['hello world'])
 
-        self.expect('type category list', substrs = ['system is not enabled', 'gnu-libstdc++ is not enabled', 'AppKit is not enabled'])
+        self.expect('type category list', substrs = ['system is not enabled',])
         
         # now enable and check that we are back to normal
         self.runCmd("type category enable *")
 
-        self.expect('type category list', substrs = ['system is enabled', 'gnu-libstdc++ is enabled', 'AppKit is enabled'])
+        self.expect('type category list', substrs = ['system is enabled'])
 
         self.expect("frame variable numbers",
             substrs = ['[0] = 1', '[3] = 1234'])
 
         self.expect('frame variable string1', substrs = ['hello world'])
 
-        self.expect('type category list', substrs = ['system is enabled', 'gnu-libstdc++ is enabled', 'AppKit is enabled'])
+        self.expect('type category list', substrs = ['system is enabled'])
 
         # last check - our cleanup will re-enable everything
         self.runCmd('type category disable *')
-        self.expect('type category list', substrs = ['system is not enabled', 'gnu-libstdc++ is not enabled', 'AppKit is not enabled'])
+        self.expect('type category list', substrs = ['system is not enabled'])
 
 
 if __name__ == '__main__':

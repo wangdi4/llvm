@@ -74,6 +74,7 @@ set(orig_files
   unwind.h
   vadefs.h
   varargs.h
+  vecintrin.h
   xopintrin.h
   )
 

@@ -22,6 +22,8 @@
 #include "clang/Basic/TargetOptions.h"
 #include "clang/Basic/VersionTuple.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
+#include "llvm/ADT/APInt.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
@@ -73,7 +75,9 @@ protected:
   unsigned char MinGlobalAlign;
   unsigned char MaxAtomicPromoteWidth, MaxAtomicInlineWidth;
   unsigned short MaxVectorAlign;
-  const char *DescriptionString;
+  unsigned short MaxTLSAlign;
+  unsigned short SimdDefaultAlign;
+  const char *DataLayoutString;
   const char *UserLabelPrefix;
   const char *MCountName;
   const llvm::fltSemantics *HalfFormat, *FloatFormat, *DoubleFormat,
@@ -399,6 +403,10 @@ public:
 
   /// \brief Return the maximum vector alignment supported for the given target.
   unsigned getMaxVectorAlign() const { return MaxVectorAlign; }
+  /// \brief Return default simd alignment for the given target. Generally, this
+  /// value is type-specific, but this alignment can be used for most of the
+  /// types for the given target.
+  unsigned getSimdDefaultAlign() const { return SimdDefaultAlign; }
 
   /// \brief Return the size of intmax_t and uintmax_t for this target, in bits.
   unsigned getIntMaxTWidth() const {
@@ -556,6 +564,7 @@ public:
       int Min;
       int Max;
     } ImmRange;
+    llvm::SmallSet<int, 4> ImmSet;
 
     std::string ConstraintStr;  // constraint: "=rm"
     std::string Name;           // Operand name: [foo] with no []'s.
@@ -591,8 +600,10 @@ public:
     bool requiresImmediateConstant() const {
       return (Flags & CI_ImmediateConstant) != 0;
     }
-    int getImmConstantMin() const { return ImmRange.Min; }
-    int getImmConstantMax() const { return ImmRange.Max; }
+    bool isValidAsmImmediate(const llvm::APInt &Value) const {
+      return (Value.sge(ImmRange.Min) && Value.sle(ImmRange.Max)) ||
+             ImmSet.count(Value.getZExtValue()) != 0;
+    }
 
     void setIsReadWrite() { Flags |= CI_ReadWrite; }
     void setEarlyClobber() { Flags |= CI_EarlyClobber; }
@@ -603,6 +614,20 @@ public:
       Flags |= CI_ImmediateConstant;
       ImmRange.Min = Min;
       ImmRange.Max = Max;
+    }
+    void setRequiresImmediate(llvm::ArrayRef<int> Exacts) {
+      Flags |= CI_ImmediateConstant;
+      for (int Exact : Exacts)
+        ImmSet.insert(Exact);
+    }
+    void setRequiresImmediate(int Exact) {
+      Flags |= CI_ImmediateConstant;
+      ImmSet.insert(Exact);
+    }
+    void setRequiresImmediate() {
+      Flags |= CI_ImmediateConstant;
+      ImmRange.Min = INT_MIN;
+      ImmRange.Max = INT_MAX;
     }
 
     /// \brief Indicate that this is an input operand that is tied to
@@ -616,9 +641,6 @@ public:
       // Don't copy Name or constraint string.
     }
   };
-
-  // Validate the contents of the __builtin_cpu_supports(const char*) argument.
-  virtual bool validateCpuSupports(StringRef Name) const { return false; }
 
   // validateOutputConstraint, validateInputConstraint - Checks that
   // a constraint is valid and provides information about it.
@@ -644,6 +666,10 @@ public:
                              std::string &/*SuggestedModifier*/) const {
     return true;
   }
+  virtual bool
+  validateAsmConstraint(const char *&Name,
+                        TargetInfo::ConstraintInfo &info) const = 0;
+
   bool resolveSymbolicName(const char *&Name,
                            ConstraintInfo *OutputConstraints,
                            unsigned NumOutputs, unsigned &Index) const;
@@ -658,24 +684,23 @@ public:
     return std::string(1, *Constraint);
   }
 
+  /// \brief Returns a string of target-specific clobbers, in LLVM format.
+  virtual const char *getClobbers() const = 0;
+
   /// \brief Returns true if NaN encoding is IEEE 754-2008.
   /// Only MIPS allows a different encoding.
   virtual bool isNan2008() const {
     return true;
   }
 
-  /// \brief Returns a string of target-specific clobbers, in LLVM format.
-  virtual const char *getClobbers() const = 0;
-
-
   /// \brief Returns the target triple of the primary target.
   const llvm::Triple &getTriple() const {
     return Triple;
   }
 
-  const char *getTargetDescription() const {
-    assert(DescriptionString);
-    return DescriptionString;
+  const char *getDataLayoutString() const {
+    assert(DataLayoutString && "Uninitialized DataLayoutString!");
+    return DataLayoutString;
   }
 
   struct GCCRegAlias {
@@ -721,10 +746,13 @@ public:
   /// language options which change the target configuration.
   virtual void adjust(const LangOptions &Opts);
 
-  /// \brief Get the default set of target features for the CPU;
-  /// this should include all legal feature strings on the target.
-  virtual void getDefaultFeatures(llvm::StringMap<bool> &Features) const {
-  }
+  /// \brief Initialize the map with the default set of target features for the
+  /// CPU this should include all legal feature strings on the target.
+  ///
+  /// \return False on error (invalid features).
+  virtual bool initFeatureMap(llvm::StringMap<bool> &Features,
+                              DiagnosticsEngine &Diags, StringRef CPU,
+                              std::vector<std::string> &FeatureVec) const;
 
   /// \brief Get the ABI currently in use.
   virtual StringRef getABI() const { return StringRef(); }
@@ -755,23 +783,6 @@ public:
     return false;
   }
 
-  /// \brief Use this specified C++ ABI.
-  ///
-  /// \return False on error (invalid C++ ABI name).
-  bool setCXXABI(llvm::StringRef name) {
-    TargetCXXABI ABI;
-    if (!ABI.tryParse(name)) return false;
-    return setCXXABI(ABI);
-  }
-
-  /// \brief Set the C++ ABI to be used by this implementation.
-  ///
-  /// \return False on error (ABI not valid on this target)
-  virtual bool setCXXABI(TargetCXXABI ABI) {
-    TheCXXABI = ABI;
-    return true;
-  }
-
   /// \brief Enable or disable a specific target feature;
   /// the feature name must be valid.
   virtual void setFeatureEnabled(llvm::StringMap<bool> &Features,
@@ -798,6 +809,10 @@ public:
   virtual bool hasFeature(StringRef Feature) const {
     return false;
   }
+
+  // \brief Validate the contents of the __builtin_cpu_supports(const char*)
+  // argument.
+  virtual bool validateCpuSupports(StringRef Name) const { return false; }
   
   // \brief Returns maximal number of args passed in registers.
   unsigned getRegParmMax() const {
@@ -810,9 +825,19 @@ public:
     return TLSSupported;
   }
 
+  /// \brief Return the maximum alignment (in bits) of a TLS variable
+  ///
+  /// Gets the maximum alignment (in bits) of a TLS variable on this target.
+  /// Returns zero if there is no such constraint.
+  unsigned short getMaxTLSAlign() const {
+    return MaxTLSAlign;
+  }
+
   /// \brief Whether the target supports SEH __try.
   bool isSEHTrySupported() const {
-    return getTriple().isOSWindows();
+    return getTriple().isOSWindows() &&
+           (getTriple().getArch() == llvm::Triple::x86 ||
+            getTriple().getArch() == llvm::Triple::x86_64);
   }
 
   /// \brief Return true if {|} are normal characters in the asm string.
@@ -909,8 +934,6 @@ protected:
     Addl = nullptr;
     NumAddl = 0;
   }
-  virtual bool validateAsmConstraint(const char *&Name,
-                                     TargetInfo::ConstraintInfo &info) const= 0;
 };
 
 }  // end namespace clang

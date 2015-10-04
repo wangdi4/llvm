@@ -109,6 +109,19 @@ protected:
   /// extension and achieve better bitpacking with MSVC.
   unsigned SymbolContents : 2;
 
+  /// The alignment of the symbol, if it is 'common', or -1.
+  ///
+  /// The alignment is stored as log2(align) + 1.  This allows all values from
+  /// 0 to 2^31 to be stored which is every power of 2 representable by an
+  /// unsigned.
+  enum : unsigned { NumCommonAlignmentBits = 5 };
+  unsigned CommonAlignLog2 : NumCommonAlignmentBits;
+
+  /// The Flags field is used by object file implementations to store
+  /// additional per symbol information which is not easily classified.
+  enum : unsigned { NumFlagsBits = 16 };
+  mutable uint32_t Flags : NumFlagsBits;
+
   /// Index field, for use by the object file implementation.
   mutable uint32_t Index = 0;
 
@@ -122,15 +135,6 @@ protected:
     /// If non-null, the value for a variable symbol.
     const MCExpr *Value;
   };
-
-  /// The alignment of the symbol, if it is 'common', or -1.
-  //
-  // FIXME: Pack this in with other fields?
-  unsigned CommonAlign = -1U;
-
-  /// The Flags field is used by object file implementations to store
-  /// additional per symbol information which is not easily classified.
-  mutable uint32_t Flags = 0;
 
 protected: // MCContext creates and uniques these.
   friend class MCExpr;
@@ -148,7 +152,8 @@ protected: // MCContext creates and uniques these.
   MCSymbol(SymbolKind Kind, const StringMapEntry<bool> *Name, bool isTemporary)
       : IsTemporary(isTemporary), IsRedefinable(false), IsUsed(false),
         IsRegistered(false), IsExternal(false), IsPrivateExtern(false),
-        Kind(Kind), IsUsedInReloc(false), SymbolContents(SymContentsUnset) {
+        Kind(Kind), IsUsedInReloc(false), SymbolContents(SymContentsUnset),
+        CommonAlignLog2(0), Flags(0) {
     Offset = 0;
     SectionOrFragmentAndHasName.setInt(!!Name);
     if (Name)
@@ -174,7 +179,7 @@ private:
 
   MCSymbol(const MCSymbol &) = delete;
   void operator=(const MCSymbol &) = delete;
-  MCSection *getSectionPtr() const {
+  MCSection *getSectionPtr(bool SetUsed = true) const {
     if (MCFragment *F = getFragment())
       return F->getParent();
     const auto &SectionOrFragment = SectionOrFragmentAndHasName.getPointer();
@@ -182,7 +187,7 @@ private:
     MCSection *Section = SectionOrFragment.dyn_cast<MCSection *>();
     if (Section || !isVariable())
       return Section;
-    return Section = getVariableValue()->findAssociatedSection();
+    return Section = getVariableValue(SetUsed)->findAssociatedSection();
   }
 
   /// \brief Get a reference to the name field.  Requires that we have a name
@@ -218,7 +223,7 @@ public:
 
   /// isUsed - Check if this is used.
   bool isUsed() const { return IsUsed; }
-  void setUsed(bool Value) const { IsUsed = Value; }
+  void setUsed(bool Value) const { IsUsed |= Value; }
 
   /// \brief Check if this symbol is redefinable.
   bool isRedefinable() const { return IsRedefinable; }
@@ -243,22 +248,28 @@ public:
   /// isDefined - Check if this symbol is defined (i.e., it has an address).
   ///
   /// Defined symbols are either absolute or in some section.
-  bool isDefined() const { return getSectionPtr() != nullptr; }
+  bool isDefined(bool SetUsed = true) const {
+    return getSectionPtr(SetUsed) != nullptr;
+  }
 
   /// isInSection - Check if this symbol is defined in some section (i.e., it
   /// is defined but not absolute).
-  bool isInSection() const { return isDefined() && !isAbsolute(); }
+  bool isInSection(bool SetUsed = true) const {
+    return isDefined(SetUsed) && !isAbsolute(SetUsed);
+  }
 
   /// isUndefined - Check if this symbol undefined (i.e., implicitly defined).
-  bool isUndefined() const { return !isDefined(); }
+  bool isUndefined(bool SetUsed = true) const { return !isDefined(SetUsed); }
 
   /// isAbsolute - Check if this is an absolute symbol.
-  bool isAbsolute() const { return getSectionPtr() == AbsolutePseudoSection; }
+  bool isAbsolute(bool SetUsed = true) const {
+    return getSectionPtr(SetUsed) == AbsolutePseudoSection;
+  }
 
   /// Get the section associated with a defined, non-absolute symbol.
-  MCSection &getSection() const {
-    assert(isInSection() && "Invalid accessor!");
-    return *getSectionPtr();
+  MCSection &getSection(bool SetUsed = true) const {
+    assert(isInSection(SetUsed) && "Invalid accessor!");
+    return *getSectionPtr(SetUsed);
   }
 
   /// Mark the symbol as defined in the section \p S.
@@ -290,10 +301,10 @@ public:
     return SymbolContents == SymContentsVariable;
   }
 
-  /// getVariableValue() - Get the value for variable symbols.
-  const MCExpr *getVariableValue() const {
+  /// getVariableValue - Get the value for variable symbols.
+  const MCExpr *getVariableValue(bool SetUsed = true) const {
     assert(isVariable() && "Invalid accessor!");
-    IsUsed = true;
+    IsUsed |= SetUsed;
     return Value;
   }
 
@@ -338,14 +349,20 @@ public:
   void setCommon(uint64_t Size, unsigned Align) {
     assert(getOffset() == 0);
     CommonSize = Size;
-    CommonAlign = Align;
     SymbolContents = SymContentsCommon;
+
+    assert((!Align || isPowerOf2_32(Align)) &&
+           "Alignment must be a power of 2");
+    unsigned Log2Align = Log2_32(Align) + 1;
+    assert(Log2Align < (1U << NumCommonAlignmentBits) &&
+           "Out of range alignment");
+    CommonAlignLog2 = Log2Align;
   }
 
   ///  Return the alignment of a 'common' symbol.
   unsigned getCommonAlignment() const {
     assert(isCommon() && "Not a 'common' symbol!");
-    return CommonAlign;
+    return CommonAlignLog2 ? (1U << (CommonAlignLog2 - 1)) : 0;
   }
 
   /// Declare this symbol as being 'common'.
@@ -356,7 +373,7 @@ public:
   bool declareCommon(uint64_t Size, unsigned Align) {
     assert(isCommon() || getOffset() == 0);
     if(isCommon()) {
-      if(CommonSize != Size || CommonAlign != Align)
+      if(CommonSize != Size || getCommonAlignment() != Align)
        return true;
     } else
       setCommon(Size, Align);
@@ -392,10 +409,14 @@ protected:
   uint32_t getFlags() const { return Flags; }
 
   /// Set the (implementation defined) symbol flags.
-  void setFlags(uint32_t Value) const { Flags = Value; }
+  void setFlags(uint32_t Value) const {
+    assert(Value < (1U << NumFlagsBits) && "Out of range flags");
+    Flags = Value;
+  }
 
   /// Modify the flags via a mask
   void modifyFlags(uint32_t Value, uint32_t Mask) const {
+    assert(Value < (1U << NumFlagsBits) && "Out of range flags");
     Flags = (Flags & ~Mask) | Value;
   }
 };

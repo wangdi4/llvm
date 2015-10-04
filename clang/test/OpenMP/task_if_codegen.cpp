@@ -1,6 +1,7 @@
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -triple x86_64-apple-darwin10 -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -triple x86_64-apple-darwin10 -emit-pch -o %t %s
 // RUN: %clang_cc1 -fopenmp -x c++ -triple x86_64-apple-darwin10 -std=c++11 -include-pch %t -verify %s -emit-llvm -o - | FileCheck --check-prefix=CHECK %s
+// REQUIRES: x86-registered-target
 // expected-no-diagnostics
 #ifndef HEADER
 #define HEADER
@@ -22,7 +23,7 @@ int Arg;
 void gtid_test() {
 // CHECK:  call void {{.+}} @__kmpc_fork_call(%{{.+}}* @{{.+}}, i{{.+}} 1, {{.+}}* [[GTID_TEST_REGION1:@.+]] to void
 #pragma omp parallel
-#pragma omp task if (false)
+#pragma omp task if (task: false)
   gtid_test();
 // CHECK: ret void
 }
@@ -44,13 +45,13 @@ void gtid_test() {
 
 template <typename T>
 int tmain(T Arg) {
-#pragma omp task if (true)
+#pragma omp task if (task: true)
   fn1();
 #pragma omp task if (false)
   fn2();
 #pragma omp task if (Arg)
   fn3();
-#pragma omp task if (Arg) depend(in : Arg)
+#pragma omp task if (task: Arg) depend(in : Arg)
   fn4();
 #pragma omp task if (Arg) depend(out : Arg)
   fn5();
