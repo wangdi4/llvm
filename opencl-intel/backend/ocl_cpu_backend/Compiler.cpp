@@ -78,6 +78,10 @@ void dumpModule(llvm::Module& m){
 #endif
 }
 
+TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
+  return InitTargetOptionsFromCodeGenFlags();
+}
+
 /*
  * Utility methods
  */
@@ -248,6 +252,7 @@ void Compiler::Init()
 /**
  * Initialize the global options
  */
+
 void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 {
     if( s_globalStateInitialized )
