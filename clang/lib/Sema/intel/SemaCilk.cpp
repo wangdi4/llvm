@@ -3491,7 +3491,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
           R.resolveKind();
           ExprResult MemberExpr = BuildMemberReferenceExpr(
               Return, BaseType, Args[2]->getExprLoc(), false, SS,
-              SourceLocation(), 0, R, 0, true);
+              SourceLocation(), 0, R, 0, S, true);
           if (MemberExpr.isInvalid())
             return ExprError();
           CallArgs.clear();
@@ -3597,7 +3597,7 @@ ExprResult Sema::ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
         R.resolveKind();
         ExprResult MemberExpr = BuildMemberReferenceExpr(
             Args[0], BaseType, Args[2]->getExprLoc(), false, SS,
-            SourceLocation(), 0, R, 0, true);
+            SourceLocation(), 0, R, 0, S, true);
         if (MemberExpr.isInvalid())
           return ExprError();
         CallArgs.clear();

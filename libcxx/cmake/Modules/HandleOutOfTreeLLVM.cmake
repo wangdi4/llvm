@@ -42,11 +42,15 @@ macro(find_llvm_parts)
   endif()
 
   if (NOT EXISTS ${LLVM_MAIN_SRC_DIR})
-    message(FATAL_ERROR "Not found: ${LLVM_MAIN_SRC_DIR}")
+    set(LLVM_FOUND OFF)
+    message(WARNING "Not found: ${LLVM_MAIN_SRC_DIR}")
+    return()
   endif()
 
   if(NOT EXISTS ${LLVM_CMAKE_PATH})
-    message(FATAL_ERROR "Not found: ${LLVM_CMAKE_PATH}")
+    set(LLVM_FOUND OFF)
+    message(WARNING "Not found: ${LLVM_CMAKE_PATH}")
+    return()
   endif()
 
   list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_PATH}")
@@ -73,6 +77,12 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   if (NOT DEFINED LLVM_INCLUDE_TESTS)
     set(LLVM_INCLUDE_TESTS ${LLVM_FOUND})
   endif()
+  if (NOT DEFINED LLVM_INCLUDE_DOCS)
+    set(LLVM_INCLUDE_DOCS ${LLVM_FOUND})
+  endif()
+  if (NOT DEFINED LLVM_ENABLE_SPHINX)
+    set(LLVM_ENABLE_SPHINX OFF)
+  endif()
 
   # Required LIT Configuration ------------------------------------------------
   # Define the default arguments to use with 'lit', and an option for the user
@@ -89,6 +99,14 @@ if (CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     set(cmake_3_2_USES_TERMINAL)
   else()
     set(cmake_3_2_USES_TERMINAL USES_TERMINAL)
+  endif()
+
+  # Required doc configuration
+  if (LLVM_ENABLE_SPHINX)
+    message(STATUS "Sphinx enabled.")
+    find_package(Sphinx REQUIRED)
+  else()
+    message(STATUS "Sphinx disabled.")
   endif()
 
   # Add LLVM Functions --------------------------------------------------------

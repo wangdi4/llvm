@@ -214,7 +214,7 @@ void InitTlsSize() {
 
 #if (defined(__x86_64__) || defined(__i386__) || defined(__mips__) \
     || defined(__aarch64__)) \
-    && SANITIZER_LINUX
+    && SANITIZER_LINUX && !SANITIZER_ANDROID
 // sizeof(struct thread) from glibc.
 static atomic_uintptr_t kThreadDescriptorSize;
 
@@ -326,13 +326,13 @@ uptr ThreadSelf() {
 
 #if !SANITIZER_GO
 static void GetTls(uptr *addr, uptr *size) {
-#if SANITIZER_LINUX
-# if defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+#if SANITIZER_LINUX && !SANITIZER_ANDROID
+# if defined(__x86_64__) || defined(__i386__)
   *addr = ThreadSelf();
   *size = GetTlsSize();
   *addr -= *size;
   *addr += ThreadDescriptorSize();
-# elif defined(__mips__)
+# elif defined(__mips__) || defined(__aarch64__)
   *addr = ThreadSelf();
   *size = GetTlsSize();
 # else
@@ -352,6 +352,9 @@ static void GetTls(uptr *addr, uptr *size) {
     *addr = (uptr) dtv[2];
     *size = (*addr == 0) ? 0 : ((uptr) segbase[0] - (uptr) dtv[2]);
   }
+#elif SANITIZER_ANDROID
+  *addr = 0;
+  *size = 0;
 #else
 # error "Unknown OS"
 #endif
@@ -535,7 +538,8 @@ uptr GetRSS() {
 // Starting with the L release, syslog() works and is preferable to
 // __android_log_write.
 #if SANITIZER_LINUX
-#if SANITIZER_ANDROID && __ANDROID_API__ < 21
+
+#if SANITIZER_ANDROID
 static atomic_uint8_t android_log_initialized;
 
 void AndroidLogInit() {
@@ -545,17 +549,19 @@ void AndroidLogInit() {
 static bool IsSyslogAvailable() {
   return atomic_load(&android_log_initialized, memory_order_acquire);
 }
-
-static void WriteOneLineToSyslog(const char *s) {
-  __android_log_write(ANDROID_LOG_INFO, NULL, s);
-}
 #else
 void AndroidLogInit() {}
 
 static bool IsSyslogAvailable() { return true; }
+#endif  // SANITIZER_ANDROID
 
-static void WriteOneLineToSyslog(const char *s) { syslog(LOG_INFO, "%s", s); }
+static void WriteOneLineToSyslog(const char *s) {
+#if SANITIZER_ANDROID &&__ANDROID_API__ < 21
+  __android_log_write(ANDROID_LOG_INFO, NULL, s);
+#else
+  syslog(LOG_INFO, "%s", s);
 #endif
+}
 
 void WriteToSyslog(const char *buffer) {
   if (!IsSyslogAvailable())

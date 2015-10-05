@@ -3,7 +3,7 @@
 // CHECK-LINE: main
 int main()
 {
-  // CHECK: store i32 0, i32* %{{[^,]+}}, !dbg ![[PROLOGUE:[0-9]+]]
+  // CHECK: store i32 0, i32* %{{.+}}, !dbg ![[PROLOGUE:[0-9]+]]
   return 0;
 }
 

@@ -115,8 +115,8 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
     // Call __cilkrts_cilk_for_*(helper, captures, count, grainsize);
     SmallVector<llvm::Value *, 4> Args(4);
     Args[0] = Builder.CreateBitCast(Helper, FTy->getParamType(0));
-    Args[1] =
-        Builder.CreatePointerCast(CapStruct.getAddress(), FTy->getParamType(1));
+    Args[1] = Builder.CreatePointerCast(CapStruct.getAddress().getPointer(),
+                                        FTy->getParamType(1));
     Args[2] = LoopCount;
     Args[3] = Grainsize ? Grainsize
                         : llvm::Constant::getNullValue(FTy->getParamType(3));
@@ -125,12 +125,15 @@ CodeGenFunction::EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize) {
 
     // Update the Loop Control Variable
     if (!isa<DeclStmt>(S.getInit())) {
-      llvm::Value *LCVAddr = LocalDeclMap.lookup(S.getLoopControlVar());
-      if(!LCVAddr){
-        if(CGCilkForStmtInfo *CFCSI = dyn_cast<CGCilkForStmtInfo>(CapturedStmtInfo))
-          LCVAddr = CFCSI->getInnerLoopControlVarAddr();
-      }
-      assert(LCVAddr && "missing inner loop control variable address");
+      Address LCVAddr = Address::invalid();
+      auto I = LocalDeclMap.find(S.getLoopControlVar());
+      if (I != LocalDeclMap.end())
+        LCVAddr = I->second;
+      else if (CGCilkForStmtInfo *CFCSI =
+                   dyn_cast<CGCilkForStmtInfo>(CapturedStmtInfo))
+        LCVAddr = CFCSI->getInnerLoopControlVarAddr();
+      assert(LCVAddr.getPointer() &&
+             "missing inner loop control variable address");
       llvm::Value *LCVValue = Builder.CreateLoad(LCVAddr);
 
       bool IsAdd = true;
@@ -188,18 +191,19 @@ void CodeGenFunction::EmitCilkForHelperBody(const Stmt *S) {
       reinterpret_cast<CGCilkForStmtInfo*>(CapturedStmtInfo);
   const CilkForStmt &CilkFor = CilkForInfo->getCilkForStmt();
   const CapturedDecl *CD = CilkFor.getBody()->getCapturedDecl();
-  llvm::Value *Low = LocalDeclMap.lookup(CD->getParam(1));
-  llvm::Value *High = LocalDeclMap.lookup(CD->getParam(2));
+  auto Low = LocalDeclMap.find(CD->getParam(1))->second;
+  auto High = LocalDeclMap.find(CD->getParam(2))->second;
 
   // Find the type for the index variable.
-  llvm::Type *VarType = Low->getType();
+  llvm::Type *VarType = Low.getPointer()->getType();
   assert(VarType->isPointerTy() && "pointer type expected");
   VarType = cast<llvm::PointerType>(VarType)->getElementType();
   assert((VarType->isIntegerTy(32) || VarType->isIntegerTy(64))
          && "unexpected type size");
 
-  llvm::Value *Index = CreateTempAlloca(VarType, "__index.addr");
-  High = Builder.CreatePointerCast(High, Index->getType());
+  auto Index = CreateDefaultAlignTempAlloca(VarType, "__index.addr");
+  High = Address(Builder.CreatePointerCast(High.getPointer(), Index.getType()),
+                 High.getAlignment());
 
   JumpDest LoopExit = getJumpDestInCurrentScope("loop.end");
   RunCleanupsScope LoopScope(*this);
@@ -219,7 +223,7 @@ void CodeGenFunction::EmitCilkForHelperBody(const Stmt *S) {
     // corresponding inner copy so that any reference to the loop control
     // variable will reference its inner adjusted copy instead and this
     // correction allows nested _Cilk_for statements.
-    llvm::Value *Addr = Emission.getAllocatedAddress();
+    auto Addr = Emission.getAllocatedAddress();
     CilkForInfo->setInnerLoopControlVarAddr(Addr);
 
     // Emit the adjustment on the inner loop control variable.
@@ -305,11 +309,13 @@ CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) 
   if (Info->getReceiverDecl()) {
     assert(CGF.CurFn->arg_size() >= 2);
     llvm::Function::arg_iterator A = CGF.CurFn->arg_begin();
-    Info->setReceiverAddr(++A);
+    Info->setReceiverAddr(
+        Address(++A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
 
     // Similarly, save the receiver temporary address if it exists.
     if (++A != CGF.CurFn->arg_end())
-      Info->setReceiverTmp(A);
+      Info->setReceiverTmp(
+          Address(A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
   }
 
   CGF.CGM.getCilkPlusRuntime().EmitCilkHelperStackFrame(CGF);
@@ -317,12 +323,11 @@ CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) 
 }
 
 void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
-                                            LValue CapStruct,
-                                            llvm::Value *LoopIndex,
+                                            LValue CapStruct, Address LoopIndex,
                                             bool IsLastIter) {
   // Emit call to the helper function.
   SmallVector<llvm::Value *, 3> HelperArgs;
-  HelperArgs.push_back(CapStruct.getAddress());
+  HelperArgs.push_back(CapStruct.getAddress().getPointer());
   HelperArgs.push_back(Builder.CreateLoad(LoopIndex));
 
   llvm::Value *LastIter = 0;
@@ -342,7 +347,8 @@ void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
 }
 
 void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
-    llvm::Value *&LoopIndex, llvm::Value *&LoopCount) {
+                                             Address &LoopIndex,
+                                             llvm::Value *&LoopCount) {
   // Emit the initialization.
   CGF.EmitStmt(this->getInit());
 
@@ -351,11 +357,13 @@ void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
       this->getStmt())->getLoopControlVar();
   assert(LoopControlVar && "invalid loop control variable");
 
-  DeclRefExpr DRE(const_cast<VarDecl*>(LoopControlVar),
-      /*RefersToEnclosingVariableOrCapture=*/true,
-      LoopControlVar->getType().getNonReferenceType(), VK_LValue, SourceLocation());
-  llvm::Value *ControlVarAddr = CGF.EmitDeclRefLValue(&DRE).getAddress();
-  assert(ControlVarAddr && "invalid loop control variable address");
+  DeclRefExpr DRE(const_cast<VarDecl *>(LoopControlVar),
+                  /*RefersToEnclosingVariableOrCapture=*/true,
+                  LoopControlVar->getType().getNonReferenceType(), VK_LValue,
+                  SourceLocation());
+  auto ControlVarAddr = CGF.EmitDeclRefLValue(&DRE).getAddress();
+  assert(ControlVarAddr.getPointer() &&
+         "invalid loop control variable address");
 
   LCVAddr = ControlVarAddr;
   LCVInitVal = CGF.Builder.CreateLoad(ControlVarAddr, "__init");
@@ -365,11 +373,11 @@ void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
   assert(LCVStrideVal->getType()->isIntegerTy() && "invalid stride type");
 
   LoopCount = CGF.EmitAnyExpr(getLoopCount()).getScalarVal();
-  LoopIndex = CGF.CreateTempAlloca(LoopCount->getType(), "__index.addr");
+  LoopIndex = CGF.CreateMemTemp(getLoopCount()->getType(), "__index.addr");
 }
 
 void CodeGenFunction::CGPragmaSimd::emitIncrement(CodeGenFunction &CGF,
-                                     llvm::Value *IndexVar) const {
+                                                  Address IndexVar) const {
   llvm::Value *Index = CGF.Builder.CreateLoad(IndexVar, "__index");
   llvm::Value *Stride
     = CGF.Builder.CreateSExtOrTrunc(LCVStrideVal, Index->getType());
@@ -446,15 +454,15 @@ public:
       addop("COMPLEX").addop(RVal.getComplexVal().first).addop(
           RVal.getComplexVal().second);
     } else {
-      addop("AGGREGATE").addop(RVal.getAggregateAddr());
+      addop("AGGREGATE").addop(RVal.getAggregatePointer());
     }
     return *this;
   }
   IntelPragmaBuilder &addop(LValue LVal, CodeGenFunction *CGF) {
     if (LVal.isSimple()) {
-      addop("SIMPLE").addop(LVal.getAddress());
+      addop("SIMPLE").addop(LVal.getPointer());
     } else if (LVal.isVectorElt()) {
-      addop("VECTOR_ELT").addop(LVal.getVectorAddr()).addop(
+      addop("VECTOR_ELT").addop(LVal.getVectorPointer()).addop(
           LVal.getVectorIdx());
     } else if (LVal.isExtVectorElt()) {
       RValue RVal = CGF->EmitLoadOfExtVectorElementLValue(LVal);
@@ -468,8 +476,9 @@ public:
   ArrayRef<llvm::Value *> getops() { return Ops; }
 };
 
-void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
-    CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
+void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(
+    CodeGenFunction *CGF, CodeGenModule *CGM, Address LoopIndex,
+    llvm::Value *LoopCount) const {
   IntelPragmaBuilder P(CGM->getLLVMContext());
   P.addop("SIMD_LOOP");
   const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
@@ -517,7 +526,7 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
   }
 
   auto One = llvm::ConstantInt::get(LoopCount->getType(), 1);
-  P.addop("LINEAR").addop(LoopIndex).addop(One);
+  P.addop("LINEAR").addop(LoopIndex.getPointer()).addop(One);
   CGF->EmitRuntimeCall(CGM->getIntrinsic(llvm::Intrinsic::intel_pragma),
                        P.getops());
 }
@@ -554,7 +563,7 @@ void CodeGenFunction::EmitPragmaSimd(CodeGenFunction::CGPragmaSimdWrapper &W) {
     DI->EmitLexicalBlockStart(Builder, W.getForLoc());
 
   // Emit the for-loop.
-  llvm::Value *LoopIndex = 0;
+  Address LoopIndex = Address::invalid();
   llvm::Value *LoopCount = 0;
 
   // Emit the loop control variable and cache its initial value and the
@@ -739,12 +748,11 @@ static void EmitUpdateExpr(CodeGenFunction &CGF, const Expr *UpdateExpr,
   // Emit a loop for the current level of the array.
   const ConstantArrayType *Array = CGF.getContext().getAsConstantArrayType(T);
   assert(Array && "array update without the array type");
-  llvm::Value *IndexVar = CGF.GetAddrOfLocalVar(ArrayIndexes[Index]);
-  assert(IndexVar && "Array index variable not loaded");
+  auto IndexVar = CGF.GetAddrOfLocalVar(ArrayIndexes[Index]);
+  assert(IndexVar.getPointer() && "Array index variable not loaded");
 
   // Initialize this index variable to zero.
-  llvm::Type *SizeType = CGF.ConvertType(CGF.getContext().getSizeType());
-  llvm::Value *Zero = llvm::Constant::getNullValue(SizeType);
+  llvm::Value *Zero = llvm::Constant::getNullValue(CGF.SizeTy);
   CGF.Builder.CreateStore(Zero, IndexVar);
 
   llvm::BasicBlock *ForCond = CGF.createBasicBlock("for.cond");
@@ -794,13 +802,12 @@ static void EmitUpdateExpr(CodeGenFunction &CGF, const Expr *UpdateExpr,
 
 // Walker for '#pragma simd'
 bool CodeGenFunction::CGPragmaSimd::walkLocalVariablesToEmit(
-                        CodeGenFunction *CGF, 
-                        CGSIMDForStmtInfo *Info) const {
+    CodeGenFunction *CGF, CGSIMDForStmtInfo *Info) const {
   const SIMDForStmt &SS = *(cast<SIMDForStmt>(Info->getStmt()));
   const CapturedDecl *CD = SS.getBody()->getCapturedDecl();
   ImplicitParamDecl *IPD =  CD->getParam(1);
   bool isSignedLoopIndex = IPD->getType()->hasSignedIntegerRepresentation();
-  llvm::Value *LoopIndex = CGF->LocalDeclMap.lookup(IPD);
+  auto LoopIndex = CGF->LocalDeclMap.find(IPD)->second;
   bool RequiresUpdate = false;
 
   // Emit all SIMD local variables and update the codegen info.
@@ -813,11 +820,12 @@ bool CodeGenFunction::CGPragmaSimd::walkLocalVariablesToEmit(
     VarDecl *SIMDVar = I->getSIMDVar();
     VarDecl *LocalVar = I->getLocalVar();
 
-    CGF->LocalDeclMap[LocalVar] = 0;
+    if (CGF->LocalDeclMap.count(LocalVar) > 0)
+      CGF->LocalDeclMap.erase(LocalVar);
     CGF->EmitAutoVarDecl(*LocalVar);
 
-    llvm::Value *Addr = CGF->GetAddrOfLocalVar(LocalVar);
-    assert(Addr && "null address");
+    auto Addr = CGF->GetAddrOfLocalVar(LocalVar);
+    assert(Addr.getPointer() && "null address");
     Info->updateLocalAddr(SIMDVar, Addr);
 
     if (I->isLinear()) {
@@ -912,13 +920,13 @@ void CodeGenFunction::EmitSIMDForHelperBody(const Stmt *S) {
       if (RequiresUpdate) {
         const SIMDForStmt *SimdFor = cast<SIMDForStmt>(Info->getStmt());
         const CapturedDecl *CD = SimdFor->getBody()->getCapturedDecl();
-        llvm::Value *IsLastIter = LocalDeclMap.lookup(CD->getParam(2));
+        auto IsLastIter = LocalDeclMap.find(CD->getParam(2))->second;
         RunCleanupsScope UpdateScope(*this);
         llvm::BasicBlock *UpdateBody = createBasicBlock("update.body");
         llvm::BasicBlock *UpdateExit = createBasicBlock("update.exit");
 
-        IsLastIter = Builder.CreateIsNotNull(Builder.CreateLoad(IsLastIter));
-        Builder.CreateCondBr(IsLastIter, UpdateBody, UpdateExit);
+        auto *Compare = Builder.CreateIsNotNull(Builder.CreateLoad(IsLastIter));
+        Builder.CreateCondBr(Compare, UpdateBody, UpdateExit);
 
         EmitBlock(UpdateBody);
         // Update expressions update a SIMD variable, do not replace those uses
@@ -949,7 +957,7 @@ void CodeGenFunction::EmitSIMDForHelperBody(const Stmt *S) {
 namespace {
 class NonCEANExprEmitter : public StmtVisitor<NonCEANExprEmitter, void> {
   CodeGenFunction &CGF;
-  llvm::DenseMap<Expr *, llvm::AllocaInst *> ExprTemps;
+  llvm::DenseMap<Expr *, Address> ExprTemps;
 public:
   void VisitCEANIndexExpr(CEANIndexExpr *E) { }
   void VisitDeclRefExpr(DeclRefExpr *E) { }
@@ -958,11 +966,11 @@ public:
     QualType RefTy = E->isGLValue() ?
                             CGF.getContext().getLValueReferenceType(OrigTy) :
                             CGF.getContext().getRValueReferenceType(OrigTy);
-    llvm::AllocaInst *Temp = CGF.CreateMemTemp(RefTy);
+    auto Temp = CGF.CreateMemTemp(RefTy);
     RValue RVal = CGF.EmitReferenceBindingToExpr(E);
-    LValue LVal = CGF.MakeNaturalAlignAddrLValue(Temp, RefTy);
+    LValue LVal = CGF.MakeAddrLValue(Temp, RefTy);
     CGF.EmitStoreThroughLValue(RVal, LVal, false);
-    ExprTemps[E] = Temp;
+    ExprTemps.insert(std::make_pair(E, Temp));
   }
   void VisitStmt(Stmt *S) {
     for (Stmt::child_iterator I = S->child_begin(), E = S->child_end();
@@ -1122,7 +1130,8 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         const CXXConstructorDecl *CCD = CCE->getConstructor();
         RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
         EmitCXXConstructorCall(CCD, Ctor_Complete, false, false,
-                               This.getScalarVal(), CCE);
+                               Address(This.getScalarVal(), getPointerAlign()),
+                               CCE);
       } else if (isa<CXXMemberCallExpr>(S.getAttribs()[0].Value)) {
         const CXXMemberCallExpr *CMCE =
             cast<CXXMemberCallExpr>(S.getAttribs()[0].Value);
@@ -1130,8 +1139,9 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
           const CXXDestructorDecl *CDD =
               cast<CXXDestructorDecl>(CMCE->getMethodDecl());
           RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-          EmitCXXDestructorCall(CDD, Dtor_Complete, false, false,
-                                This.getScalarVal());
+          EmitCXXDestructorCall(
+              CDD, Dtor_Complete, false, false,
+              Address(This.getScalarVal(), getPointerAlign()));
         } else {
           ReturnValueSlot RVS;
           EmitCXXMemberCallExpr(
@@ -1151,8 +1161,9 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         const CXXConstructorDecl *CCD = CCE->getConstructor();
         RValue NumElements = EmitAnyExprToTemp(S.getAttribs()[2].Value);
         RValue ArrayPtr = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-        EmitCXXAggrConstructorCall(CCD, NumElements.getScalarVal(),
-                                   ArrayPtr.getScalarVal(), CCE);
+        EmitCXXAggrConstructorCall(
+            CCD, NumElements.getScalarVal(),
+            Address(ArrayPtr.getScalarVal(), getPointerAlign()), CCE);
       } else if (isa<DeclRefExpr>(S.getAttribs()[0].Value)) {
         DRE = cast<DeclRefExpr>(S.getAttribs()[0].Value);
         if (isa<CXXDestructorDecl>(DRE->getDecl())) {

@@ -492,16 +492,12 @@ static void trackRegDefsUses(const MachineInstr *MI, BitVector &ModifiedRegs,
 }
 
 static bool inBoundsForPair(bool IsUnscaled, int Offset, int OffsetStride) {
-  if (!IsUnscaled && (Offset > 63 || Offset < -64))
-    return false;
-  if (IsUnscaled) {
-    // Convert the byte-offset used by unscaled into an "element" offset used
-    // by the scaled pair load/store instructions.
-    int ElemOffset = Offset / OffsetStride;
-    if (ElemOffset > 63 || ElemOffset < -64)
-      return false;
-  }
-  return true;
+  // Convert the byte-offset used by unscaled into an "element" offset used
+  // by the scaled pair load/store instructions.
+  if (IsUnscaled)
+    Offset /= OffsetStride;
+
+  return Offset <= 63 && Offset >= -64;
 }
 
 // Do alignment, specialized to power of 2 and for signed ints,
@@ -661,7 +657,7 @@ AArch64LoadStoreOpt::findMatchingInsn(MachineBasicBlock::iterator I,
         // first and the second alias with the first, we can combine the first
         // into the second.
         if (!ModifiedRegs[getLdStRegOp(FirstMI).getReg()] &&
-            !(FirstMI->mayLoad() && UsedRegs[getLdStRegOp(FirstMI).getReg()]) &&
+            !(MayLoad && UsedRegs[getLdStRegOp(FirstMI).getReg()]) &&
             !mayAlias(FirstMI, MemInsns, TII)) {
           Flags.setMergeForward(true);
           return MBBI;
@@ -988,15 +984,15 @@ bool AArch64LoadStoreOpt::optimizeBlock(MachineBasicBlock &MBB) {
       MachineBasicBlock::iterator Paired =
           findMatchingInsn(MBBI, Flags, ScanLimit);
       if (Paired != E) {
+        ++NumPairCreated;
+        if (isUnscaledLdSt(MI))
+          ++NumUnscaledPairCreated;
+
         // Merge the loads into a pair. Keeping the iterator straight is a
         // pain, so we let the merge routine tell us what the next instruction
         // is after it's done mucking about.
         MBBI = mergePairedInsns(MBBI, Paired, Flags);
-
         Modified = true;
-        ++NumPairCreated;
-        if (isUnscaledLdSt(MI))
-          ++NumUnscaledPairCreated;
         break;
       }
       ++MBBI;

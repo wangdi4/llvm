@@ -79,12 +79,12 @@ int main(int argc, char **argv)
   #pragma vector nontemporal (i, aaa)
 // CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* %i, metadata !"LVALUE", metadata !"SIMPLE", metadata i32* %aaa)
   #pragma vector nontemporal (i  aaa)
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* getelementptr inbounds ([10 x i32], [10 x i32]* @array, i32 0, {{i64|i32}} 0))
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* getelementptr inbounds ([10 x i32], [10 x i32]* @array, i{{64|32}} 0, {{i64|i32}} 0))
   #pragma vector nontemporal (array)
-// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* getelementptr inbounds ([10 x i32], [10 x i32]* @array, i32 0, {{i64|i32}} 0))
+// CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* getelementptr inbounds ([10 x i32], [10 x i32]* @array, i{{64|32}} 0, {{i64|i32}} 0))
   #pragma vector nontemporal (array, 1+2) // expected-warning {{invalid expression in pragma will be ignored}}
 // CHECK-NEXT: %{{[0-9]+}} = load i32, i32* %i, align 4
-// CHECK: %{{.+}} = getelementptr inbounds [10 x i32], [10 x i32]* @array, i32 0, i{{32|64}} %{{.+}}
+// CHECK: %{{.+}} = getelementptr inbounds [10 x i32], [10 x i32]* @array, i{{64|32}} 0, i{{32|64}} %{{.+}}
 // CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL", metadata !"LVALUE", metadata !"SIMPLE", metadata i32* %{{.+}})
   #pragma vector nontemporal (array[i])
 // CHECK-NEXT: call void (metadata, ...) @llvm.intel.pragma(metadata !"LOOP_VECTOR", metadata !"NONTEMPORAL")

@@ -1441,62 +1441,87 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       BalancedDelimiterTracker T(*this, tok::l_square);
       T.consumeOpen();
       Loc = T.getOpenLocation();
-      ExprResult Idx;
+      ExprResult Idx, Length;
+      SourceLocation ColonLoc;
 #ifdef INTEL_CUSTOMIZATION
-      ExprResult CEANLength, CEANStride;
-      bool IsCEAN = false;
-      SourceLocation ColonLoc1, ColonLoc2;
-      {
-        ColonProtectionRAIIObject CPRAII(*this);
-        if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
-          Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
-          Idx = ParseBraceInitializer();
-        } else if (Tok.is(tok::colon)) {
-          // '[' ':'
-          IsCEAN = true;
-          ColonLoc1 = ConsumeToken();
-          if (Tok.isNot(tok::r_square)) {
-            CEANLength = ParseExpression();
-          }
-        } else {
-          Idx = ParseExpression();
-          if (Tok.is(tok::colon)) {
-            // '[' <expr> ':'
+      if (!Actions.IsOpenMPCEANAllowed()) {
+        ExprResult CEANLength, CEANStride;
+        bool IsCEAN = false;
+        SourceLocation ColonLoc1, ColonLoc2;
+        {
+          ColonProtectionRAIIObject CPRAII(*this);
+          if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+            Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
+            Idx = ParseBraceInitializer();
+          } else if (Tok.is(tok::colon)) {
+            // '[' ':'
             IsCEAN = true;
             ColonLoc1 = ConsumeToken();
-            // <length>
-            if (Tok.isNot(tok::colon) && Tok.isNot(tok::r_square)) {
+            if (Tok.isNot(tok::r_square)) {
               CEANLength = ParseExpression();
             }
-            // ':' <stride>
+          } else {
+            Idx = ParseExpression();
             if (Tok.is(tok::colon)) {
-              ColonLoc2 = ConsumeToken();
-              CEANStride = ParseExpression();
+              // '[' <expr> ':'
+              IsCEAN = true;
+              ColonLoc1 = ConsumeToken();
+              // <length>
+              if (Tok.isNot(tok::colon) && Tok.isNot(tok::r_square)) {
+                CEANLength = ParseExpression();
+              }
+              // ':' <stride>
+              if (Tok.is(tok::colon)) {
+                ColonLoc2 = ConsumeToken();
+                CEANStride = ParseExpression();
+              }
             }
           }
         }
-      }
-      if (IsCEAN && !Idx.isInvalid() &&
-          !CEANLength.isInvalid() && !CEANStride.isInvalid()) {
+        if (IsCEAN && !Idx.isInvalid() && !CEANLength.isInvalid() &&
+            !CEANStride.isInvalid()) {
           Idx = Actions.ActOnCEANIndexExpr(getCurScope(), LHS.get(), Idx.get(),
                                            ColonLoc1, CEANLength.get(),
                                            ColonLoc2, CEANStride.get());
-      }
-#else
+        }
+      } else {
+#endif  // INTEL_CUSTOMIZATION
       if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
         Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
         Idx = ParseBraceInitializer();
+      } else if (getLangOpts().OpenMP) {
+        ColonProtectionRAIIObject RAII(*this);
+        // Parse [: or [ expr or [ expr :
+        if (!Tok.is(tok::colon)) {
+          // [ expr
+          Idx = ParseExpression();
+        }
+        if (Tok.is(tok::colon)) {
+          // Consume ':'
+          ColonLoc = ConsumeToken();
+          if (Tok.isNot(tok::r_square))
+            Length = ParseExpression();
+        }
       } else
         Idx = ParseExpression();
+#ifdef INTEL_CUSTOMIZATION
+      }
 #endif  // INTEL_CUSTOMIZATION
       SourceLocation RLoc = Tok.getLocation();
 
-      if (!LHS.isInvalid() && !Idx.isInvalid() && Tok.is(tok::r_square)) {
-        LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.get(), Loc,
-                                              Idx.get(), RLoc);
+      if (!LHS.isInvalid() && !Idx.isInvalid() && !Length.isInvalid() &&
+          Tok.is(tok::r_square)) {
+        if (ColonLoc.isValid()) {
+          LHS = Actions.ActOnOMPArraySectionExpr(LHS.get(), Loc, Idx.get(),
+                                                 ColonLoc, Length.get(), RLoc);
+        } else {
+          LHS = Actions.ActOnArraySubscriptExpr(getCurScope(), LHS.get(), Loc,
+                                                Idx.get(), RLoc);
+        }
       } else {
         (void)Actions.CorrectDelayedTyposInExpr(LHS);
         (void)Actions.CorrectDelayedTyposInExpr(Idx);
+        (void)Actions.CorrectDelayedTyposInExpr(Length);
         LHS = ExprError();
         Idx = ExprError();
       }
@@ -3037,7 +3062,7 @@ ExprResult Parser::ParseBlockLiteralExpression() {
                                              /*RestrictQualifierLoc=*/NoLoc,
                                              /*MutableLoc=*/NoLoc,
                                              EST_None,
-                                             /*ESpecLoc=*/NoLoc,
+                                             /*ESpecRange=*/SourceRange(),
                                              /*Exceptions=*/nullptr,
                                              /*ExceptionRanges=*/nullptr,
                                              /*NumExceptions=*/0,

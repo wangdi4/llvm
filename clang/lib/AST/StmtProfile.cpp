@@ -18,6 +18,7 @@
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/StmtVisitor.h"
 #include "llvm/ADT/FoldingSet.h"
 using namespace clang;
@@ -288,6 +289,11 @@ void OMPClauseProfiler::VisitOMPSafelenClause(const OMPSafelenClause *C) {
     Profiler->VisitStmt(C->getSafelen());
 }
 
+void OMPClauseProfiler::VisitOMPSimdlenClause(const OMPSimdlenClause *C) {
+  if (C->getSimdlen())
+    Profiler->VisitStmt(C->getSimdlen());
+}
+
 void OMPClauseProfiler::VisitOMPCollapseClause(const OMPCollapseClause *C) {
   if (C->getNumForLoops())
     Profiler->VisitStmt(C->getNumForLoops());
@@ -384,6 +390,9 @@ void OMPClauseProfiler::VisitOMPReductionClause(
 }
 void OMPClauseProfiler::VisitOMPLinearClause(const OMPLinearClause *C) {
   VisitOMPClauseList(C);
+  for (auto *E : C->privates()) {
+    Profiler->VisitStmt(E);
+  }
   for (auto *E : C->inits()) {
     Profiler->VisitStmt(E);
   }
@@ -697,6 +706,10 @@ void StmtProfiler::VisitPragmaStmt(const PragmaStmt *S) {
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
 #endif  // INTEL_CUSTOMIZATION
+
+void StmtProfiler::VisitOMPArraySectionExpr(const OMPArraySectionExpr *S) {
+  VisitExpr(S);
+}
 
 void StmtProfiler::VisitCallExpr(const CallExpr *S) {
   VisitExpr(S);

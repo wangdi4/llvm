@@ -17,7 +17,6 @@ class ExprSyscallTestCase(TestBase):
         self.buildDsym()
         self.expr_syscall()
 
-    @expectedFailureAll("llvm.org/pr23659", oslist=["linux"], archs=["i386", "x86_64"])
     @dwarf_test
     def test_setpgid_with_dwarf(self):
         self.buildDwarf()
@@ -61,7 +60,7 @@ class ExprSyscallTestCase(TestBase):
 
         # send the process a signal
         process.SendAsyncInterrupt()
-        while listener.WaitForEvent(1, event):
+        while listener.WaitForEvent(2, event):
             pass
 
         # as a result the process should stop

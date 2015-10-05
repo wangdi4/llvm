@@ -1,4 +1,4 @@
-//===- Writer.h -----------------------------------------------------------===//
+//===- Writer.h -------------------------------------------------*- C++ -*-===//
 //
 //                             The LLVM Linker
 //
@@ -13,7 +13,6 @@
 namespace lld {
 namespace elf2 {
 
-class OutputSection;
 class SymbolTable;
 
 template <class ELFT>
