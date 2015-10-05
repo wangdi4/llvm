@@ -32,6 +32,7 @@ namespace llvm {
 
 class FunctionType;
 class LLVMContext;
+class DISubprogram;
 
 template<> struct ilist_traits<Argument>
   : public SymbolTableListTraits<Argument, Function> {
@@ -293,6 +294,16 @@ public:
     addFnAttr(Attribute::ReadOnly);
   }
 
+  /// @brief Determine if the call can access memmory only using pointers based
+  /// on its arguments.
+  bool onlyAccessesArgMemory() const {
+    return AttributeSets.hasAttribute(AttributeSet::FunctionIndex,
+                                      Attribute::ArgMemOnly);
+  }
+  void setOnlyAccessesArgMemory() {
+    addFnAttr(Attribute::ArgMemOnly);
+  }
+  
   /// @brief Determine if the function cannot return.
   bool doesNotReturn() const {
     return AttributeSets.hasAttribute(AttributeSet::FunctionIndex,
@@ -383,6 +394,16 @@ public:
   }
   void setOnlyReadsMemory(unsigned n) {
     addAttribute(n, Attribute::ReadOnly);
+  }
+
+  /// Optimize this function for minimum size (-Oz).
+  bool optForMinSize() const {
+    return hasFnAttribute(Attribute::MinSize);
+  };
+  
+  /// Optimize this function for size (-Os) or minimum size (-Oz).
+  bool optForSize() const {
+    return hasFnAttribute(Attribute::OptimizeForSize) || optForMinSize();
   }
 
   /// copyAttributesFrom - copy all additional attributes (those not needed to
@@ -503,10 +524,6 @@ public:
   Constant *getPrologueData() const;
   void setPrologueData(Constant *PrologueData);
 
-  /// Print the function to an output stream with an optional
-  /// AssemblyAnnotationWriter.
-  void print(raw_ostream &OS, AssemblyAnnotationWriter *AAW = nullptr) const;
-
   /// viewCFG - This function is meant for use from the debugger.  You can just
   /// say 'call F->viewCFG()' and a ghostview window should pop up from the
   /// program, displaying the CFG of the current function with the code for each
@@ -585,6 +602,17 @@ public:
   ///
   /// Drop all metadata from \c this not included in \c KnownIDs.
   void dropUnknownMetadata(ArrayRef<unsigned> KnownIDs);
+
+  /// \brief Set the attached subprogram.
+  ///
+  /// Calls \a setMetadata() with \a LLVMContext::MD_dbg.
+  void setSubprogram(DISubprogram *SP);
+
+  /// \brief Get the attached subprogram.
+  ///
+  /// Calls \a getMetadata() with \a LLVMContext::MD_dbg and casts the result
+  /// to \a DISubprogram.
+  DISubprogram *getSubprogram() const;
 
 private:
   // Shadow Value::setValueSubclassData with a private forwarding method so that

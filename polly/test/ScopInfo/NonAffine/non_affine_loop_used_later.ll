@@ -15,55 +15,44 @@
 ; CHECK:        n/a
 ; CHECK:    Statements {
 ; CHECK:      Stmt_bb2
-; CHECK:            Domain :=
-; CHECK:                [N] -> { Stmt_bb2[i0] : i0 >= 0 and N >= 1 and i0 <= N; Stmt_bb2[0] : N <= 0 };
-; CHECK:            Schedule :=
-; CHECK:                [N] -> { Stmt_bb2[i0] -> [i0, 0] };
-; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_bb2[i0] -> MemRef_j_0[] };
+; CHECK:                [N] -> { Stmt_bb2[i0] -> MemRef_j_0__phi[] };
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb2[i0] -> MemRef_j_0[] };
-; CHECK:      Stmt_(bb4 => bb18)
-; CHECK:            Domain :=
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] : i0 >= 0 and N >= 1 and i0 <= -1 + N };
+; CHECK:      Stmt_bb4__TO__bb18
 ; CHECK:            Schedule :=
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> [i0, 1] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> [i0, 1] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_A[i0] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_A[i0] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_j_0[] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_0[] };
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_j_2[] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_A[i0] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_A[i0] };
 ; CHECK:            MayWriteAccess := [Reduction Type: NONE] [Scalar: 0]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_A[i0] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_A[i0] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_smax[] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_smax[] };
 ; CHECK:            MayWriteAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_(bb4 => bb18)[i0] -> MemRef_j_2[] };
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK:      Stmt_bb18
-; CHECK:            Domain :=
-; CHECK:                [N] -> { Stmt_bb18[i0] : i0 >= 0 and N >= 1 and i0 <= -1 + N };
 ; CHECK:            Schedule :=
 ; CHECK:                [N] -> { Stmt_bb18[i0] -> [i0, 2] };
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb18[i0] -> MemRef_j_2[] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_bb18[i0] -> MemRef_j_2[] };
+; CHECK:                [N] -> { Stmt_bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
 ; CHECK:                [N] -> { Stmt_bb18[i0] -> MemRef_A[o0] : o0 >= -2147483648 and o0 <= 2147483645 };
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 0]
 ; CHECK:                [N] -> { Stmt_bb18[i0] -> MemRef_A[i0] };
 ; CHECK:      Stmt_bb23
-; CHECK:            Domain :=
-; CHECK:                [N] -> { Stmt_bb23[i0] : i0 >= 0 and N >= 1 and i0 <= -1 + N };
 ; CHECK:            Schedule :=
 ; CHECK:                [N] -> { Stmt_bb23[i0] -> [i0, 3] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb23[i0] -> MemRef_j_2[] };
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_bb23[i0] -> MemRef_j_0[] };
+; CHECK:                [N] -> { Stmt_bb23[i0] -> MemRef_j_0__phi[] };
 ; CHECK:    }
 ;
 ;    void f(int *A, int N, int M) {

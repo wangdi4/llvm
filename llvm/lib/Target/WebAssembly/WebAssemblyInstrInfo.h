@@ -19,17 +19,24 @@
 #include "WebAssemblyRegisterInfo.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
+#define GET_INSTRINFO_HEADER
+#include "WebAssemblyGenInstrInfo.inc"
+
 namespace llvm {
 
 class WebAssemblySubtarget;
 
-class WebAssemblyInstrInfo final {
+class WebAssemblyInstrInfo final : public WebAssemblyGenInstrInfo {
   const WebAssemblyRegisterInfo RI;
 
 public:
   explicit WebAssemblyInstrInfo(const WebAssemblySubtarget &STI);
 
   const WebAssemblyRegisterInfo &getRegisterInfo() const { return RI; }
+
+  void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+                   DebugLoc DL, unsigned DestReg, unsigned SrcReg,
+                   bool KillSrc) const override;
 };
 
 } // end namespace llvm

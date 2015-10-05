@@ -113,7 +113,10 @@ bool AVRCodeGen::loopIsHandled() {
   ConstantInt *StrideValue;
 
   // Only handle constant integer stride of 1 for now
-  if (!isInductionPHI(const_cast<PHINode *>(PhiInst), SE, StrideValue) ||
+  InductionDescriptor ID;
+  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst),
+                                           SE, ID) ||
+      !(StrideValue = ID.getStepValue()) ||
       !StrideValue->equalsInt(1)) {
     return false;
   }

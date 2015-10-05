@@ -832,6 +832,11 @@ void CovAfterFork(int child_pid) {
   coverage_data.AfterFork(child_pid);
 }
 
+static void MaybeDumpCoverage() {
+  if (common_flags()->coverage)
+    __sanitizer_cov_dump();
+}
+
 void InitializeCoverage(bool enabled, const char *dir) {
   if (coverage_enabled)
     return;  // May happen if two sanitizer enable coverage in the same process.
@@ -840,6 +845,7 @@ void InitializeCoverage(bool enabled, const char *dir) {
   coverage_data.Init();
   if (enabled) coverage_data.Enable();
   if (!common_flags()->coverage_direct) Atexit(__sanitizer_cov_dump);
+  AddDieCallback(MaybeDumpCoverage);
 }
 
 void ReInitializeCoverage(bool enabled, const char *dir) {
@@ -931,7 +937,9 @@ SANITIZER_INTERFACE_ATTRIBUTE
 uptr __sanitizer_update_counter_bitset_and_clear_counters(u8 *bitset) {
   return coverage_data.Update8bitCounterBitsetAndClearCounters(bitset);
 }
-// Default empty implementation (weak). Users should redefine it.
+// Default empty implementations (weak). Users should redefine them.
 SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
 void __sanitizer_cov_trace_cmp() {}
+SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
+void __sanitizer_cov_trace_switch() {}
 }  // extern "C"

@@ -55,7 +55,7 @@ namespace intel {
       virtual void getAnalysisUsage(AnalysisUsage &AU) const {
         AU.setPreservesAll();
         AU.addRequired<WIAnalysis>();
-        AU.addRequired<BranchProbabilityInfo>();
+        AU.addRequired<BranchProbabilityInfoWrapperPass>();
       }
 
     public:

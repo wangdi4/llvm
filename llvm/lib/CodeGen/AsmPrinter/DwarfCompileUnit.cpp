@@ -8,6 +8,7 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCStreamer.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
@@ -15,6 +16,13 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 
 namespace llvm {
+
+//***INTEL
+static cl::opt<bool> EmitPubnamesWithLocals(
+        "debug-emit-pubnames-with-locals",
+        cl::Hidden,
+        cl::desc("Add local symbol names to the .debug_pubnames section"),
+        cl::init(false));
 
 DwarfCompileUnit::DwarfCompileUnit(unsigned UID, const DICompileUnit *Node,
                                    AsmPrinter *A, DwarfDebug *DW,
@@ -141,7 +149,7 @@ DIE *DwarfCompileUnit::getOrCreateGlobalVariableDIE(
 
   if (!GV->isDefinition())
     addFlag(*VariableDIE, dwarf::DW_AT_declaration);
-  else
+  else if (!GV->isLocalToUnit() || EmitPubnamesWithLocals) //***INTEL
     addGlobalName(GV->getName(), *VariableDIE, DeclContext);
 
   // Add location.
@@ -151,28 +159,32 @@ DIE *DwarfCompileUnit::getOrCreateGlobalVariableDIE(
     DIELoc *Loc = new (DIEValueAllocator) DIELoc;
     const MCSymbol *Sym = Asm->getSymbol(Global);
     if (Global->isThreadLocal()) {
-      // FIXME: Make this work with -gsplit-dwarf.
-      unsigned PointerSize = Asm->getDataLayout().getPointerSize();
-      assert((PointerSize == 4 || PointerSize == 8) &&
-             "Add support for other sizes if necessary");
-      // Based on GCC's support for TLS:
-      if (!DD->useSplitDwarf()) {
-        // 1) Start with a constNu of the appropriate pointer size
-        addUInt(*Loc, dwarf::DW_FORM_data1,
-                PointerSize == 4 ? dwarf::DW_OP_const4u : dwarf::DW_OP_const8u);
-        // 2) containing the (relocated) offset of the TLS variable
-        //    within the module's TLS block.
-        addExpr(*Loc, dwarf::DW_FORM_udata,
-                Asm->getObjFileLowering().getDebugThreadLocalSymbol(Sym));
+      if (Asm->TM.Options.EmulatedTLS) {
+        // TODO: add debug info for emulated thread local mode.
       } else {
-        addUInt(*Loc, dwarf::DW_FORM_data1, dwarf::DW_OP_GNU_const_index);
-        addUInt(*Loc, dwarf::DW_FORM_udata,
-                DD->getAddressPool().getIndex(Sym, /* TLS */ true));
+        // FIXME: Make this work with -gsplit-dwarf.
+        unsigned PointerSize = Asm->getDataLayout().getPointerSize();
+        assert((PointerSize == 4 || PointerSize == 8) &&
+               "Add support for other sizes if necessary");
+        // Based on GCC's support for TLS:
+        if (!DD->useSplitDwarf()) {
+          // 1) Start with a constNu of the appropriate pointer size
+          addUInt(*Loc, dwarf::DW_FORM_data1,
+                  PointerSize == 4 ? dwarf::DW_OP_const4u : dwarf::DW_OP_const8u);
+          // 2) containing the (relocated) offset of the TLS variable
+          //    within the module's TLS block.
+          addExpr(*Loc, dwarf::DW_FORM_udata,
+                  Asm->getObjFileLowering().getDebugThreadLocalSymbol(Sym));
+        } else {
+          addUInt(*Loc, dwarf::DW_FORM_data1, dwarf::DW_OP_GNU_const_index);
+          addUInt(*Loc, dwarf::DW_FORM_udata,
+                  DD->getAddressPool().getIndex(Sym, /* TLS */ true));
+        }
+        // 3) followed by an OP to make the debugger do a TLS lookup.
+        addUInt(*Loc, dwarf::DW_FORM_data1,
+                DD->useGNUTLSOpcode() ? dwarf::DW_OP_GNU_push_tls_address
+                                      : dwarf::DW_OP_form_tls_address);
       }
-      // 3) followed by an OP to make the debugger do a TLS lookup.
-      addUInt(*Loc, dwarf::DW_FORM_data1,
-              DD->useGNUTLSOpcode() ? dwarf::DW_OP_GNU_push_tls_address
-                                    : dwarf::DW_OP_form_tls_address);
     } else {
       DD->addArangeLabel(SymbolCU(this, Sym));
       addOpAddress(*Loc, Sym);
@@ -809,7 +821,8 @@ void DwarfCompileUnit::applySubprogramAttributesToDefinition(
   auto *SPDecl = SP->getDeclaration();
   auto *Context = resolve(SPDecl ? SPDecl->getScope() : SP->getScope());
   applySubprogramAttributes(SP, SPDie, includeMinimalInlineScopes());
-  addGlobalName(SP->getName(), SPDie, Context);
+  if (!SP->isLocalToUnit() || EmitPubnamesWithLocals) //***INTEL
+    addGlobalName(SP->getName(), SPDie, Context);
 }
 
 bool DwarfCompileUnit::isDwoUnit() const {

@@ -36,7 +36,14 @@ typedef enum {
   SameLine = 4,   // Put the reasons and the call site on the same lime
   LineCol = 8,    // Print the line and column of the call sites
                   //   if we had appropriate source position information
-  File = 16       // Print the file of the call sites 
+  File = 16,      // Print the file of the call sites 
+  Linkage = 32    // Print linkage info for routines and call sites:
+                  //   L: local (F.hasLocalLinkage()) 
+                  //   O: link once ODR (one definition rule) 
+                  //     (F.hasLinkOnceODRLinkage()) 
+                  //   X: available externally (and generally not emitted)
+                  //     (F.hasAvailableExternallyLinkage()) 
+                  //   A: alternate (something other than L, O, or X)
 } InlineReportOptions; 
 
 } 
@@ -199,9 +206,10 @@ class InlineReport : public CallGraphReport {
 public:
 
   explicit InlineReport(unsigned MyLevel, int MyInlineLimit, 
-    int MyHintThreshold, int MyColdThreshold) : Level(MyLevel), 
-    InlineLimit(MyInlineLimit), HintThreshold(MyHintThreshold), 
-    ColdThreshold(MyColdThreshold) , ActiveInlineInstruction(nullptr) {};
+    int MyHintThreshold, int MyColdThreshold, int MyOptSizeThreshold) : 
+    Level(MyLevel), InlineLimit(MyInlineLimit), HintThreshold(MyHintThreshold), 
+    ColdThreshold(MyColdThreshold), OptSizeThreshold(MyOptSizeThreshold),
+    ActiveInlineInstruction(nullptr) {};
   virtual ~InlineReport(void); 
   InlineReport(const InlineReport&) = delete; 
   void operator=(const InlineReport&) = delete; 
@@ -274,11 +282,12 @@ private:
 
   /// \brief The Level is specified by the option -inline-report=N.
   /// See llvm/lib/Transforms/IPO/Inliner.cpp for details on Level, 
-  /// InlineLimit, HintThreshold, and ColdThreshold.
+  /// InlineLimit, HintThreshold, ColdThreshold, and OptSizeThreshold.
   unsigned Level;
   int InlineLimit; 
   int HintThreshold;
   int ColdThreshold; 
+  int OptSizeThreshold; 
 
   // \brief The instruction for the call site currently being inlined 
   Instruction* ActiveInlineInstruction; 

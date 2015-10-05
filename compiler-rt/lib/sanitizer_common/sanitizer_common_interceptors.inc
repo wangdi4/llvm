@@ -39,6 +39,22 @@
 
 #include <stdarg.h>
 
+#if SANITIZER_INTERCEPTOR_HOOKS
+#define CALL_WEAK_INTERCEPTOR_HOOK(f, ...)                                     \
+  do {                                                                         \
+    if (f)                                                                     \
+      f(__VA_ARGS__);                                                          \
+  } while (false);
+#define DECLARE_WEAK_INTERCEPTOR_HOOK(f, ...)                                  \
+  extern "C" {                                                                 \
+  SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE void f(__VA_ARGS__);  \
+  } // extern "C"
+#else
+#define DECLARE_WEAK_INTERCEPTOR_HOOK(f, ...)
+#define CALL_WEAK_INTERCEPTOR_HOOK(f, ...)
+
+#endif  // SANITIZER_INTERCEPTOR_HOOKS
+
 #if SANITIZER_WINDOWS && !defined(va_copy)
 #define va_copy(dst, src) ((dst) = (src))
 #endif // _WIN32
@@ -118,6 +134,14 @@
 #define COMMON_INTERCEPTOR_GET_TLS_RANGE(begin, end) *begin = *end = 0;
 #endif
 
+#ifndef COMMON_INTERCEPTOR_ACQUIRE
+#define COMMON_INTERCEPTOR_ACQUIRE(ctx, u) {}
+#endif
+
+#ifndef COMMON_INTERCEPTOR_RELEASE
+#define COMMON_INTERCEPTOR_RELEASE(ctx, u) {}
+#endif
+
 struct FileMetadata {
   // For open_memstream().
   char **addr;
@@ -188,9 +212,14 @@ static inline int CharCmpX(unsigned char c1, unsigned char c2) {
   return (c1 == c2) ? 0 : (c1 < c2) ? -1 : 1;
 }
 
+DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strcmp, uptr called_pc,
+                              const char *s1, const char *s2)
+
 INTERCEPTOR(int, strcmp, const char *s1, const char *s2) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, strcmp, s1, s2);
+  CALL_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strcmp, GET_CALLER_PC(), s1,
+                             s2);
   unsigned char c1, c2;
   uptr i;
   for (i = 0;; i++) {
@@ -203,11 +232,16 @@ INTERCEPTOR(int, strcmp, const char *s1, const char *s2) {
   return CharCmpX(c1, c2);
 }
 
+DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strncmp, uptr called_pc,
+                              const char *s1, const char *s2, uptr n)
+
 INTERCEPTOR(int, strncmp, const char *s1, const char *s2, uptr size) {
   if (COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED)
     return internal_strncmp(s1, s2, size);
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, strncmp, s1, s2, size);
+  CALL_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_strncmp, GET_CALLER_PC(), s1,
+                             s2, size);
   unsigned char c1 = 0, c2 = 0;
   uptr i;
   for (i = 0; i < size; i++) {
@@ -360,6 +394,48 @@ INTERCEPTOR(char *, strpbrk, const char *s1, const char *s2) {
 #define INIT_STRPBRK COMMON_INTERCEPT_FUNCTION(strpbrk);
 #else
 #define INIT_STRPBRK
+#endif
+
+#if SANITIZER_INTERCEPT_MEMCMP
+
+DECLARE_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_memcmp, uptr called_pc,
+                              const void *s1, const void *s2, uptr n)
+
+INTERCEPTOR(int, memcmp, const void *a1, const void *a2, uptr size) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, memcmp, a1, a2, size);
+  if (COMMON_INTERCEPTOR_NOTHING_IS_INITIALIZED)
+    return internal_memcmp(a1, a2, size);
+  CALL_WEAK_INTERCEPTOR_HOOK(__sanitizer_weak_hook_memcmp, GET_CALLER_PC(), a1,
+                             a2, size);
+  if (common_flags()->intercept_memcmp) {
+    if (common_flags()->strict_memcmp) {
+      // Check the entire regions even if the first bytes of the buffers are
+      // different.
+      COMMON_INTERCEPTOR_READ_RANGE(ctx, a1, size);
+      COMMON_INTERCEPTOR_READ_RANGE(ctx, a2, size);
+      // Fallthrough to REAL(memcmp) below.
+    } else {
+      unsigned char c1 = 0, c2 = 0;
+      const unsigned char *s1 = (const unsigned char*)a1;
+      const unsigned char *s2 = (const unsigned char*)a2;
+      uptr i;
+      for (i = 0; i < size; i++) {
+        c1 = s1[i];
+        c2 = s2[i];
+        if (c1 != c2) break;
+      }
+      COMMON_INTERCEPTOR_READ_RANGE(ctx, s1, Min(i + 1, size));
+      COMMON_INTERCEPTOR_READ_RANGE(ctx, s2, Min(i + 1, size));
+      return CharCmpX(c1, c2);
+    }
+  }
+  return REAL(memcmp(a1, a2, size));
+}
+
+#define INIT_MEMCMP COMMON_INTERCEPT_FUNCTION(memcmp)
+#else
+#define INIT_MEMCMP
 #endif
 
 #if SANITIZER_INTERCEPT_MEMCHR
@@ -2649,7 +2725,7 @@ INTERCEPTOR(SIZE_T, wcsnrtombs, char *dest, const wchar_t **src, SIZE_T nms,
   // its metadata. See
   // https://code.google.com/p/address-sanitizer/issues/detail?id=321.
   SIZE_T res = REAL(wcsnrtombs)(dest, src, nms, len, ps);
-  if (res != (SIZE_T) - 1 && dest && src) {
+  if (res != ((SIZE_T)-1) && dest && src) {
     SIZE_T write_cnt = res + !*src;
     COMMON_INTERCEPTOR_WRITE_RANGE(ctx, dest, write_cnt);
   }
@@ -2659,6 +2735,28 @@ INTERCEPTOR(SIZE_T, wcsnrtombs, char *dest, const wchar_t **src, SIZE_T nms,
 #define INIT_WCSNRTOMBS COMMON_INTERCEPT_FUNCTION(wcsnrtombs);
 #else
 #define INIT_WCSNRTOMBS
+#endif
+
+
+#if SANITIZER_INTERCEPT_WCRTOMB
+INTERCEPTOR(SIZE_T, wcrtomb, char *dest, wchar_t src, void *ps) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, wcrtomb, dest, src, ps);
+  if (ps) COMMON_INTERCEPTOR_READ_RANGE(ctx, ps, mbstate_t_sz);
+  // FIXME: under ASan the call below may write to freed memory and corrupt
+  // its metadata. See
+  // https://code.google.com/p/address-sanitizer/issues/detail?id=321.
+  SIZE_T res = REAL(wcrtomb)(dest, src, ps);
+  if (res != ((SIZE_T)-1) && dest) {
+    SIZE_T write_cnt = res;
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, dest, write_cnt);
+  }
+  return res;
+}
+
+#define INIT_WCRTOMB COMMON_INTERCEPT_FUNCTION(wcrtomb);
+#else
+#define INIT_WCRTOMB
 #endif
 
 #if SANITIZER_INTERCEPT_TCGETATTR
@@ -4671,7 +4769,7 @@ INTERCEPTOR(__sanitizer_FILE *, freopen, const char *path, const char *mode,
             __sanitizer_FILE *fp) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, freopen, path, mode, fp);
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, path, REAL(strlen)(path) + 1);
+  if (path) COMMON_INTERCEPTOR_READ_RANGE(ctx, path, REAL(strlen)(path) + 1);
   COMMON_INTERCEPTOR_READ_RANGE(ctx, mode, REAL(strlen)(mode) + 1);
   COMMON_INTERCEPTOR_FILE_CLOSE(ctx, fp);
   __sanitizer_FILE *res = REAL(freopen)(path, mode, fp);
@@ -4702,7 +4800,7 @@ INTERCEPTOR(__sanitizer_FILE *, freopen64, const char *path, const char *mode,
             __sanitizer_FILE *fp) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, freopen64, path, mode, fp);
-  COMMON_INTERCEPTOR_READ_RANGE(ctx, path, REAL(strlen)(path) + 1);
+  if (path) COMMON_INTERCEPTOR_READ_RANGE(ctx, path, REAL(strlen)(path) + 1);
   COMMON_INTERCEPTOR_READ_RANGE(ctx, mode, REAL(strlen)(mode) + 1);
   COMMON_INTERCEPTOR_FILE_CLOSE(ctx, fp);
   __sanitizer_FILE *res = REAL(freopen64)(path, mode, fp);
@@ -4831,15 +4929,14 @@ INTERCEPTOR(int, fflush, __sanitizer_FILE *fp) {
 INTERCEPTOR(int, fclose, __sanitizer_FILE *fp) {
   void *ctx;
   COMMON_INTERCEPTOR_ENTER(ctx, fclose, fp);
-  if (fp) {
-    COMMON_INTERCEPTOR_FILE_CLOSE(ctx, fp);
-    const FileMetadata *m = GetInterceptorMetadata(fp);
-    if (m) {
-      COMMON_INTERCEPTOR_INITIALIZE_RANGE(*m->addr, *m->size);
-      DeleteInterceptorMetadata(fp);
-    }
+  COMMON_INTERCEPTOR_FILE_CLOSE(ctx, fp);
+  const FileMetadata *m = GetInterceptorMetadata(fp);
+  int res = REAL(fclose)(fp);
+  if (m) {
+    COMMON_INTERCEPTOR_INITIALIZE_RANGE(*m->addr, *m->size);
+    DeleteInterceptorMetadata(fp);
   }
-  return REAL(fclose)(fp);
+  return res;
 }
 #define INIT_FCLOSE COMMON_INTERCEPT_FUNCTION(fclose);
 #else
@@ -4922,7 +5019,7 @@ static void MlockIsUnsupported() {
   static atomic_uint8_t printed;
   if (atomic_exchange(&printed, 1, memory_order_relaxed))
     return;
-  VPrintf(1, "INFO: %s ignores mlock/mlockall/munlock/munlockall\n",
+  VPrintf(1, "%s ignores mlock/mlockall/munlock/munlockall\n",
           SanitizerToolName);
 }
 
@@ -4965,29 +5062,31 @@ struct WrappedCookie {
 static uptr wrapped_read(void *cookie, char *buf, uptr size) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(3);
   WrappedCookie *wrapped_cookie = (WrappedCookie *)cookie;
-  return wrapped_cookie->real_io_funcs.read(wrapped_cookie->real_cookie, buf,
-                                            size);
+  __sanitizer_cookie_io_read real_read = wrapped_cookie->real_io_funcs.read;
+  return real_read ? real_read(wrapped_cookie->real_cookie, buf, size) : 0;
 }
 
 static uptr wrapped_write(void *cookie, const char *buf, uptr size) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(3);
   WrappedCookie *wrapped_cookie = (WrappedCookie *)cookie;
-  return wrapped_cookie->real_io_funcs.write(wrapped_cookie->real_cookie, buf,
-                                             size);
+  __sanitizer_cookie_io_write real_write = wrapped_cookie->real_io_funcs.write;
+  return real_write ? real_write(wrapped_cookie->real_cookie, buf, size) : size;
 }
 
 static int wrapped_seek(void *cookie, u64 *offset, int whence) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(3);
   COMMON_INTERCEPTOR_INITIALIZE_RANGE(offset, sizeof(*offset));
   WrappedCookie *wrapped_cookie = (WrappedCookie *)cookie;
-  return wrapped_cookie->real_io_funcs.seek(wrapped_cookie->real_cookie, offset,
-                                            whence);
+  __sanitizer_cookie_io_seek real_seek = wrapped_cookie->real_io_funcs.seek;
+  return real_seek ? real_seek(wrapped_cookie->real_cookie, offset, whence)
+                   : -1;
 }
 
 static int wrapped_close(void *cookie) {
   COMMON_INTERCEPTOR_UNPOISON_PARAM(1);
   WrappedCookie *wrapped_cookie = (WrappedCookie *)cookie;
-  int res = wrapped_cookie->real_io_funcs.close(wrapped_cookie->real_cookie);
+  __sanitizer_cookie_io_close real_close = wrapped_cookie->real_io_funcs.close;
+  int res = real_close ? real_close(wrapped_cookie->real_cookie) : 0;
   InternalFree(wrapped_cookie);
   return res;
 }
@@ -5011,6 +5110,82 @@ INTERCEPTOR(__sanitizer_FILE *, fopencookie, void *cookie, const char *mode,
 #define INIT_FOPENCOOKIE
 #endif  // SANITIZER_INTERCEPT_FOPENCOOKIE
 
+#if SANITIZER_INTERCEPT_SEM
+INTERCEPTOR(int, sem_init, void *s, int pshared, unsigned value) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_init, s, pshared, value);
+  int res = REAL(sem_init)(s, pshared, value);
+  return res;
+}
+
+INTERCEPTOR(int, sem_destroy, void *s) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_destroy, s);
+  int res = REAL(sem_destroy)(s);
+  return res;
+}
+
+INTERCEPTOR(int, sem_wait, void *s) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_wait, s);
+  int res = COMMON_INTERCEPTOR_BLOCK_REAL(sem_wait)(s);
+  if (res == 0) {
+    COMMON_INTERCEPTOR_ACQUIRE(ctx, (uptr)s);
+  }
+  return res;
+}
+
+INTERCEPTOR(int, sem_trywait, void *s) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_trywait, s);
+  int res = COMMON_INTERCEPTOR_BLOCK_REAL(sem_trywait)(s);
+  if (res == 0) {
+    COMMON_INTERCEPTOR_ACQUIRE(ctx, (uptr)s);
+  }
+  return res;
+}
+
+INTERCEPTOR(int, sem_timedwait, void *s, void *abstime) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_timedwait, s, abstime);
+  COMMON_INTERCEPTOR_READ_RANGE(ctx, abstime, struct_timespec_sz);
+  int res = COMMON_INTERCEPTOR_BLOCK_REAL(sem_timedwait)(s, abstime);
+  if (res == 0) {
+    COMMON_INTERCEPTOR_ACQUIRE(ctx, (uptr)s);
+  }
+  return res;
+}
+
+INTERCEPTOR(int, sem_post, void *s) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_post, s);
+  COMMON_INTERCEPTOR_RELEASE(ctx, (uptr)s);
+  int res = REAL(sem_post)(s);
+  return res;
+}
+
+INTERCEPTOR(int, sem_getvalue, void *s, int *sval) {
+  void *ctx;
+  COMMON_INTERCEPTOR_ENTER(ctx, sem_getvalue, s, sval);
+  int res = REAL(sem_getvalue)(s, sval);
+  if (res == 0) {
+    COMMON_INTERCEPTOR_ACQUIRE(ctx, (uptr)s);
+    COMMON_INTERCEPTOR_WRITE_RANGE(ctx, sval, sizeof(*sval));
+  }
+  return res;
+}
+#define INIT_SEM                                                               \
+  COMMON_INTERCEPT_FUNCTION(sem_init);                                         \
+  COMMON_INTERCEPT_FUNCTION(sem_destroy);                                      \
+  COMMON_INTERCEPT_FUNCTION(sem_wait);                                         \
+  COMMON_INTERCEPT_FUNCTION(sem_trywait);                                      \
+  COMMON_INTERCEPT_FUNCTION(sem_timedwait);                                    \
+  COMMON_INTERCEPT_FUNCTION(sem_post);                                         \
+  COMMON_INTERCEPT_FUNCTION(sem_getvalue);
+#else
+#define INIT_SEM
+#endif // SANITIZER_INTERCEPT_SEM
+
 static void InitializeCommonInterceptors() {
   static u64 metadata_mem[sizeof(MetadataHashMap) / sizeof(u64) + 1];
   interceptor_metadata_map = new((void *)&metadata_mem) MetadataHashMap();
@@ -5025,6 +5200,7 @@ static void InitializeCommonInterceptors() {
   INIT_STRSPN;
   INIT_STRPBRK;
   INIT_MEMCHR;
+  INIT_MEMCMP;
   INIT_MEMRCHR;
   INIT_READ;
   INIT_PREAD;
@@ -5090,6 +5266,7 @@ static void InitializeCommonInterceptors() {
   INIT_MBSNRTOWCS;
   INIT_WCSTOMBS;
   INIT_WCSNRTOMBS;
+  INIT_WCRTOMB;
   INIT_TCGETATTR;
   INIT_REALPATH;
   INIT_CANONICALIZE_FILE_NAME;
@@ -5179,4 +5356,5 @@ static void InitializeCommonInterceptors() {
   INIT_TIMERFD;
   INIT_MLOCKX;
   INIT_FOPENCOOKIE;
+  INIT_SEM;
 }

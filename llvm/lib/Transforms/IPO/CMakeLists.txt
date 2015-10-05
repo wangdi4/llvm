@@ -3,6 +3,7 @@ add_llvm_library(LLVMipo
   BarrierNoopPass.cpp
   ConstantMerge.cpp
   DeadArgumentElimination.cpp
+  ElimAvailExtern.cpp
   ExtractGV.cpp
   FunctionAttrs.cpp
   GlobalDCE.cpp
@@ -22,6 +23,7 @@ add_llvm_library(LLVMipo
   PartialInlining.cpp
   PassManagerBuilder.cpp
   PruneEH.cpp
+  SampleProfile.cpp
   StripDeadPrototypes.cpp
   StripSymbols.cpp
 

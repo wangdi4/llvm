@@ -14,7 +14,8 @@
 
 
 #include "sanitizer_platform.h"
-#if SANITIZER_LINUX && (defined(__x86_64__) || defined(__mips__))
+#if SANITIZER_LINUX && (defined(__x86_64__) || defined(__mips__) || \
+                        defined(__aarch64__))
 
 #include "sanitizer_stoptheworld.h"
 
@@ -27,9 +28,15 @@
 #include <sys/prctl.h> // for PR_* definitions
 #include <sys/ptrace.h> // for PTRACE_* definitions
 #include <sys/types.h> // for pid_t
+#include <sys/uio.h> // for iovec
+#include <elf.h> // for NT_PRSTATUS
 #if SANITIZER_ANDROID && defined(__arm__)
 # include <linux/user.h>  // for pt_regs
 #else
+# ifdef __aarch64__
+// GLIBC 2.20+ sys/user does not include asm/ptrace.h
+#  include <asm/ptrace.h>
+# endif
 # include <sys/user.h>  // for user_regs_struct
 #endif
 #include <sys/wait.h> // for signal-related stuff
@@ -204,27 +211,6 @@ static ThreadSuspender *thread_suspender_instance = NULL;
 static const int kSyncSignals[] = { SIGABRT, SIGILL, SIGFPE, SIGSEGV, SIGBUS,
                                     SIGXCPU, SIGXFSZ };
 
-static DieCallbackType old_die_callback;
-
-// Signal handler to wake up suspended threads when the tracer thread dies.
-static void TracerThreadSignalHandler(int signum, void *siginfo, void *uctx) {
-  SignalContext ctx = SignalContext::Create(siginfo, uctx);
-  VPrintf(1, "Tracer caught signal %d: addr=0x%zx pc=0x%zx sp=0x%zx\n",
-      signum, ctx.addr, ctx.pc, ctx.sp);
-  ThreadSuspender *inst = thread_suspender_instance;
-  if (inst != NULL) {
-    if (signum == SIGABRT)
-      inst->KillAllThreads();
-    else
-      inst->ResumeAllThreads();
-    SetDieCallback(old_die_callback);
-    old_die_callback = NULL;
-    thread_suspender_instance = NULL;
-    atomic_store(&inst->arg->done, 1, memory_order_relaxed);
-  }
-  internal__exit((signum == SIGABRT) ? 1 : 2);
-}
-
 static void TracerThreadDieCallback() {
   // Generally a call to Die() in the tracer thread should be fatal to the
   // parent process as well, because they share the address space.
@@ -237,10 +223,24 @@ static void TracerThreadDieCallback() {
     inst->KillAllThreads();
     thread_suspender_instance = NULL;
   }
-  if (old_die_callback)
-    old_die_callback();
-  SetDieCallback(old_die_callback);
-  old_die_callback = NULL;
+}
+
+// Signal handler to wake up suspended threads when the tracer thread dies.
+static void TracerThreadSignalHandler(int signum, void *siginfo, void *uctx) {
+  SignalContext ctx = SignalContext::Create(siginfo, uctx);
+  VPrintf(1, "Tracer caught signal %d: addr=0x%zx pc=0x%zx sp=0x%zx\n",
+      signum, ctx.addr, ctx.pc, ctx.sp);
+  ThreadSuspender *inst = thread_suspender_instance;
+  if (inst != NULL) {
+    if (signum == SIGABRT)
+      inst->KillAllThreads();
+    else
+      inst->ResumeAllThreads();
+    RAW_CHECK(RemoveDieCallback(TracerThreadDieCallback));
+    thread_suspender_instance = NULL;
+    atomic_store(&inst->arg->done, 1, memory_order_relaxed);
+  }
+  internal__exit((signum == SIGABRT) ? 1 : 2);
 }
 
 // Size of alternative stack for signal handlers in the tracer thread.
@@ -260,8 +260,7 @@ static int TracerThread(void* argument) {
   tracer_thread_argument->mutex.Lock();
   tracer_thread_argument->mutex.Unlock();
 
-  old_die_callback = GetDieCallback();
-  SetDieCallback(TracerThreadDieCallback);
+  RAW_CHECK(AddDieCallback(TracerThreadDieCallback));
 
   ThreadSuspender thread_suspender(internal_getppid(), tracer_thread_argument);
   // Global pointer for the signal handler.
@@ -295,7 +294,7 @@ static int TracerThread(void* argument) {
     thread_suspender.ResumeAllThreads();
     exit_code = 0;
   }
-  SetDieCallback(old_die_callback);
+  RAW_CHECK(RemoveDieCallback(TracerThreadDieCallback));
   thread_suspender_instance = NULL;
   atomic_store(&tracer_thread_argument->done, 1, memory_order_relaxed);
   return exit_code;
@@ -469,6 +468,11 @@ typedef pt_regs regs_struct;
 typedef struct user regs_struct;
 #define REG_SP regs[EF_REG29]
 
+#elif defined(__aarch64__)
+typedef struct user_pt_regs regs_struct;
+#define REG_SP sp
+#define ARCH_IOVEC_FOR_GETREGSET
+
 #else
 #error "Unsupported architecture"
 #endif // SANITIZER_ANDROID && defined(__arm__)
@@ -479,8 +483,18 @@ int SuspendedThreadsList::GetRegistersAndSP(uptr index,
   pid_t tid = GetThreadID(index);
   regs_struct regs;
   int pterrno;
-  if (internal_iserror(internal_ptrace(PTRACE_GETREGS, tid, NULL, &regs),
-                       &pterrno)) {
+#ifdef ARCH_IOVEC_FOR_GETREGSET
+  struct iovec regset_io;
+  regset_io.iov_base = &regs;
+  regset_io.iov_len = sizeof(regs_struct);
+  bool isErr = internal_iserror(internal_ptrace(PTRACE_GETREGSET, tid,
+                                (void*)NT_PRSTATUS, (void*)&regset_io),
+                                &pterrno);
+#else
+  bool isErr = internal_iserror(internal_ptrace(PTRACE_GETREGS, tid, NULL,
+                                &regs), &pterrno);
+#endif
+  if (isErr) {
     VReport(1, "Could not get registers from thread %d (errno %d).\n", tid,
             pterrno);
     return -1;
@@ -496,4 +510,5 @@ uptr SuspendedThreadsList::RegisterCount() {
 }
 }  // namespace __sanitizer
 
-#endif  // SANITIZER_LINUX && (defined(__x86_64__) || defined(__mips__))
+#endif  // SANITIZER_LINUX && (defined(__x86_64__) || defined(__mips__)
+        // || defined(__aarch64__)

@@ -15,6 +15,7 @@
 #ifndef LLVM_LIB_TRANSFORMS_INSTCOMBINE_INSTCOMBINEINTERNAL_H
 #define LLVM_LIB_TRANSFORMS_INSTCOMBINE_INSTCOMBINEINTERNAL_H
 
+#include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetFolder.h"
@@ -180,6 +181,8 @@ private:
   // Mode in which we are running the combiner.
   const bool MinimizeSize;
 
+  AliasAnalysis *AA;
+
   // Required analyses.
   // FIXME: These can never be null and should be references.
 #if INTEL_CUSTOMIZATION
@@ -198,7 +201,8 @@ private:
 
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy *Builder,
-               bool MinimizeSize, AssumptionCache *AC, TargetLibraryInfo *TLI,
+               bool MinimizeSize, AliasAnalysis *AA,
+               AssumptionCache *AC, TargetLibraryInfo *TLI,
 #if INTEL_CUSTOMIZATION
                TargetTransformInfo *TTI,
 #endif
@@ -207,7 +211,7 @@ public:
 #if INTEL_CUSTOMIZATION
         TTI(TTI),
 #endif // INTEL_CUSTOMIZATION
-        AC(AC), TLI(TLI), DT(DT), DL(DL), LI(LI), MadeIRChange(false) {}
+        AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL), LI(LI), MadeIRChange(false) {}
 
   /// \brief Run the combiner over the entire worklist until it is empty.
   ///
@@ -371,6 +375,11 @@ private:
 
   /// \brief Try to optimize a sequence of instructions checking if an operation
   /// on LHS and RHS overflows.
+  ///
+  /// If this overflow check is done via one of the overflow check intrinsics,
+  /// then CtxI has to be the call instruction calling that intrinsic.  If this
+  /// overflow check is done by arithmetic followed by a compare, then CtxI has
+  /// to be the arithmetic instruction.
   ///
   /// If a simplification is possible, stores the simplified result of the
   /// operation in OperationResult and result of the overflow check in
@@ -563,6 +572,9 @@ private:
   Instruction *MatchBSwap(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
+#if INTEL_CUSTOMIZATION
+  void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+#endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 
   Value *EvaluateInDifferentType(Value *V, Type *Ty, bool isSigned);

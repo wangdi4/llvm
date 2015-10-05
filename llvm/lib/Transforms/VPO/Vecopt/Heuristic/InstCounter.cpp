@@ -33,7 +33,7 @@ namespace intel {
 char WeightedInstCounter::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
@@ -689,7 +689,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
 
   std::vector<Loop*> WorkList;
   LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  ScalarEvolution *SI = &getAnalysis<ScalarEvolution>();
+  ScalarEvolution *SI = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   // Add all the top-level loops to the worklist
   for (LoopInfo::iterator L = LI->begin(), LE = LI->end(); L != LE; ++L)

@@ -277,13 +277,14 @@ FUNCTIONS.ios	    := divmodsi4 udivmodsi4 mulosi4 mulodi4 muloti4 \
 FUNCTIONS.ios.i386    := $(FUNCTIONS.ios) \
                          divsi3 udivsi3
 FUNCTIONS.ios.x86_64  := $(FUNCTIONS.ios.i386)
-FUNCTIONS.ios.arm64   := mulsc3 muldc3 divsc3 divdc3 $(ATOMIC_FUNCTIONS)
+FUNCTIONS.ios.arm64   := mulsc3 muldc3 divsc3 divdc3 udivti3 umodti3 \
+                         $(ATOMIC_FUNCTIONS)
 
 FUNCTIONS.osx	:= mulosi4 mulodi4 muloti4 $(ATOMIC_FUNCTIONS) $(FP16_FUNCTIONS)
 
 FUNCTIONS.profile_osx := GCDAProfiling InstrProfiling InstrProfilingBuffer \
                          InstrProfilingFile InstrProfilingPlatformDarwin \
-                         InstrProfilingRuntime
+                         InstrProfilingRuntime InstrProfilingUtil
 FUNCTIONS.profile_ios := $(FUNCTIONS.profile_osx)
 
 FUNCTIONS.asan_osx_dynamic := $(AsanFunctions) $(AsanCXXFunctions) \
@@ -466,7 +467,9 @@ CCKEXT_ARM64_FUNCTIONS := \
 	divdc3 \
 	divsc3 \
 	muldc3 \
-	mulsc3
+	mulsc3 \
+	udivti3 \
+	umodti3
 
 FUNCTIONS.cc_kext.armv7 := $(CCKEXT_ARMVFP_FUNCTIONS)
 FUNCTIONS.cc_kext.armv7k := $(CCKEXT_ARMVFP_FUNCTIONS)

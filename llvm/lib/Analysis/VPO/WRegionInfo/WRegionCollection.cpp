@@ -39,7 +39,7 @@ INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
                                      "VPO Work-Region Collection", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
                                      "VPO Work-Region Collection", false, true)
@@ -57,7 +57,7 @@ WRegionCollection::WRegionCollection() : FunctionPass(ID) {
 void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<ScalarEvolution>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
 }
 
@@ -235,7 +235,7 @@ bool WRegionCollection::runOnFunction(Function &F) {
   this->Func = &F;
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolution>();
+  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
   // CFG Restructuring, which puts directives into standalone basic blocks.

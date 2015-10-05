@@ -200,6 +200,7 @@ EXE ?= a.out
 ifneq "$(DYLIB_NAME)" ""
 	ifeq "$(OS)" "Darwin"
 		DYLIB_FILENAME = lib$(DYLIB_NAME).dylib
+		DYLIB_EXECUTABLE_PATH ?= @executable_path
 	else ifeq "$(OS)" "Windows_NT"
 		DYLIB_FILENAME = $(DYLIB_NAME).dll
 	else
@@ -251,7 +252,9 @@ endif
 # Android specific options
 #----------------------------------------------------------------------
 ifeq "$(OS)" "Android"
-    LDFLAGS += -pie
+    ifdef PIE
+        LDFLAGS += -pie
+    endif
     replace_with = $(if $(findstring clang,$(1)), \
                         $(subst clang,$(2),$(1)), \
                         $(if $(findstring gcc,$(1)), \
@@ -450,7 +453,7 @@ $(DYLIB_OBJECTS) : CFLAGS += -DCOMPILING_LLDB_TEST_DLL
 
 $(DYLIB_FILENAME) : $(DYLIB_OBJECTS)
 ifeq "$(OS)" "Darwin"
-	$(LD) $(DYLIB_OBJECTS) $(LDFLAGS) -install_name "@executable_path/$(DYLIB_FILENAME)" -dynamiclib -o "$(DYLIB_FILENAME)"
+	$(LD) $(DYLIB_OBJECTS) $(LDFLAGS) -install_name "$(DYLIB_EXECUTABLE_PATH)/$(DYLIB_FILENAME)" -dynamiclib -o "$(DYLIB_FILENAME)"
 ifneq "$(MAKE_DSYM)" "NO"
 ifneq "$(DS)" ""
 	"$(DS)" $(DSFLAGS) "$(DYLIB_FILENAME)"
@@ -471,8 +474,10 @@ endif
 # files by replacing all .c files with .d.
 #----------------------------------------------------------------------
 PREREQS := $(OBJECTS:.o=.d)
+DWOS := $(OBJECTS:.o=.dwo)
 ifneq "$(DYLIB_NAME)" ""
 	DYLIB_PREREQS := $(DYLIB_OBJECTS:.o=.d)
+	DYLIB_DWOS := $(DYLIB_OBJECTS:.o=.dwo)
 endif
 
 #----------------------------------------------------------------------
@@ -530,19 +535,23 @@ endif
 dsym:	$(DSYM)
 all:	$(EXE) $(DSYM)
 clean::
-	$(RM) "$(EXE)" $(OBJECTS) $(PREREQS) $(PREREQS:.d=.d.tmp) $(ARCHIVE_NAME) $(ARCHIVE_OBJECTS)
+	$(RM) $(OBJECTS) $(PREREQS) $(PREREQS:.d=.d.tmp) $(DWOS) $(ARCHIVE_NAME) $(ARCHIVE_OBJECTS)
 ifneq "$(DYLIB_NAME)" ""
 	$(RM) -r $(DYLIB_FILENAME).dSYM
-	$(RM) $(DYLIB_OBJECTS) $(DYLIB_PREREQS) $(DYLIB_PREREQS:.d=.d.tmp) $(DYLIB_FILENAME) $(DYLIB_FILENAME).debug
+	$(RM) $(DYLIB_OBJECTS) $(DYLIB_PREREQS) $(DYLIB_PREREQS:.d=.d.tmp) $(DYLIB_DWOS) $(DYLIB_FILENAME) $(DYLIB_FILENAME).debug
 endif
 ifneq "$(DSYM)" ""
 	$(RM) -r "$(DSYM)"
 endif
 ifeq "$(OS)" "Windows_NT"
+# http://llvm.org/pr24589
+	IF EXIST "$(EXE)" del "$(EXE)"
 	$(RM) $(wildcard *.manifest *.pdb *.ilk)
-  ifneq "$(DYLIB_NAME)" ""
+ifneq "$(DYLIB_NAME)" ""
 	$(RM) $(DYLIB_NAME).lib $(DYLIB_NAME).exp
-  endif
+endif
+else
+	$(RM) "$(EXE)"
 endif
 
 #----------------------------------------------------------------------

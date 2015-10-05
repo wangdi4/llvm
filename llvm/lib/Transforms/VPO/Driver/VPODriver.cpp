@@ -58,7 +58,7 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   // AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<AVRGenerate>();
-  AU.addRequired<ScalarEvolution>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
   AU.addPreserved<AVRGenerate>();
 }
 
@@ -75,7 +75,7 @@ bool VPODriver::runOnFunction(Function &F) {
   DEBUG(errs().write_escaped(F.getName()) << '\n');
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SC = &getAnalysis<ScalarEvolution>();
+  SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   AV = &getAnalysis<AVRGenerate>();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {

@@ -236,7 +236,8 @@ public:
   /// Whether the definition of this global may be discarded if it is not used
   /// in its compilation unit.
   static bool isDiscardableIfUnused(LinkageTypes Linkage) {
-    return isLinkOnceLinkage(Linkage) || isLocalLinkage(Linkage);
+    return isLinkOnceLinkage(Linkage) || isLocalLinkage(Linkage) ||
+           isAvailableExternallyLinkage(Linkage);
   }
 
   /// Whether the definition of this global may be replaced by something
@@ -252,10 +253,9 @@ public:
   /// mistake: when working at the IR level use mayBeOverridden instead as it
   /// knows about ODR semantics.
   static bool isWeakForLinker(LinkageTypes Linkage)  {
-    return Linkage == AvailableExternallyLinkage || Linkage == WeakAnyLinkage ||
-           Linkage == WeakODRLinkage || Linkage == LinkOnceAnyLinkage ||
-           Linkage == LinkOnceODRLinkage || Linkage == CommonLinkage ||
-           Linkage == ExternalWeakLinkage;
+    return Linkage == WeakAnyLinkage || Linkage == WeakODRLinkage ||
+           Linkage == LinkOnceAnyLinkage || Linkage == LinkOnceODRLinkage ||
+           Linkage == CommonLinkage || Linkage == ExternalWeakLinkage;
   }
 
   bool hasExternalLinkage() const { return isExternalLinkage(Linkage); }
@@ -347,6 +347,12 @@ public:
       return true;
 
     return isDeclaration();
+  }
+
+  /// Returns true if this global's definition will be the one chosen by the
+  /// linker.
+  bool isStrongDefinitionForLinker() const {
+    return !(isDeclarationForLinker() || isWeakForLinker());
   }
 
   /// This method unlinks 'this' from the containing module, but does not delete

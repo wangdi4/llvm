@@ -58,6 +58,15 @@ FunctionPass *createEmitX86CodeToMemory();
 /// createX86PadShortFunctions - Return a pass that pads short functions
 /// with NOOPs. This will prevent a stall when returning on the Atom.
 FunctionPass *createX86PadShortFunctions();
+
+#if INTEL_CUSTOMIZATION
+/// createX86FixupBWInsts - Return a pass that selectively replaces
+/// certain byte and word instructions by equivalent 32 bit instructions,
+/// in order to eliminate partial register usage, false dependences on
+/// the upper portions of registers, and to save code size.
+FunctionPass *createX86FixupBWInsts();
+#endif // INTEL_CUSTOMIZATION
+
 /// createX86FixupLEAs - Return a a pass that selectively replaces
 /// certain instructions (like add, sub, inc, dec, some shifts,
 /// and some multiplies) by equivalent LEA instructions, in order

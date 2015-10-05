@@ -22,6 +22,7 @@ class BuiltinTrapTestCase(TestBase):
 
     @dwarf_test
     @expectedFailureAll("llvm.org/pr15936", compiler="gcc", compiler_version=["<=","4.6"])
+    @expectedFailureAll(archs="arm", compiler="gcc", triple=".*-android") # gcc generates incorrect linetable
     def test_with_dwarf_and_run_command(self):
         """Test that LLDB handles a function with __builtin_trap correctly."""
         self.buildDwarf()
@@ -43,7 +44,7 @@ class BuiltinTrapTestCase(TestBase):
                                                  num_expected_locations=1,
                                                  loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
@@ -54,7 +55,7 @@ class BuiltinTrapTestCase(TestBase):
         self.expect('bt', substrs = ['bar', 'main'])
 
         # go up one frame
-        self.runCmd("up", RUN_FAILED)
+        self.runCmd("up", RUN_SUCCEEDED)
 
         # evaluate a local
         self.expect('p foo', substrs = ['= 5'])

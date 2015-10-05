@@ -40,13 +40,10 @@ static const DeclRefExpr *FindBlockDeclRefExpr(const Stmt *S,
     if (BR->getDecl() == VD)
       return BR;
 
-  for (Stmt::const_child_iterator I = S->child_begin(), E = S->child_end();
-       I!=E; ++I)
-    if (const Stmt *child = *I) {
-      const DeclRefExpr *BR = FindBlockDeclRefExpr(child, VD);
-      if (BR)
+  for (const Stmt *Child : S->children())
+    if (Child)
+      if (const DeclRefExpr *BR = FindBlockDeclRefExpr(Child, VD))
         return BR;
-    }
 
   return nullptr;
 }
@@ -86,7 +83,7 @@ UndefCapturedBlockVarChecker::checkPostStmt(const BlockExpr *BE,
         SmallString<128> buf;
         llvm::raw_svector_ostream os(buf);
 
-        os << "Variable '" << VD->getName() 
+        os << "Variable '" << VD->getName()
            << "' is uninitialized when captured by block";
 
         auto R = llvm::make_unique<BugReport>(*BT, os.str(), N);

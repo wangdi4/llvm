@@ -26,6 +26,11 @@ class PHINode;
 class Region;
 class Pass;
 class BasicBlock;
+class StringRef;
+class DataLayout;
+class DominatorTree;
+class RegionInfo;
+class ScalarEvolution;
 }
 
 namespace polly {
@@ -51,19 +56,20 @@ llvm::Loop *castToLoop(const llvm::Region &R, llvm::LoopInfo &LI);
 bool hasInvokeEdge(const llvm::PHINode *PN);
 
 llvm::Value *getPointerOperand(llvm::Instruction &Inst);
-llvm::BasicBlock *createSingleExitEdge(llvm::Region *R, llvm::Pass *P);
 
-/// @brief Return the type of the access.
-llvm::Type *getAccessInstType(llvm::Instruction *AccInst);
-
-/// @brief Simplify the region in a SCoP to have a single unconditional entry
-///        edge and a single exit edge.
+/// @brief Simplify the region to have a single unconditional entry edge and a
+/// single exit edge.
 ///
-/// @param S  The SCoP that is simplified.
-/// @param P  The pass that is currently running.
+/// Although this function allows DT and RI to be null, regions only work
+/// properly if the DominatorTree (for Region::contains) and RegionInfo are kept
+/// up-to-date.
 ///
-/// @return The unique entering block for the region.
-llvm::BasicBlock *simplifyRegion(polly::Scop *S, llvm::Pass *P);
+/// @param R  The region to be simplified
+/// @param DT DominatorTree to be updated.
+/// @param LI LoopInfo to be updated.
+/// @param RI RegionInfo to be updated.
+void simplifyRegion(llvm::Region *R, llvm::DominatorTree *DT,
+                    llvm::LoopInfo *LI, llvm::RegionInfo *RI);
 
 /// @brief Split the entry block of a function to store the newly inserted
 ///        allocations outside of all Scops.
@@ -72,5 +78,26 @@ llvm::BasicBlock *simplifyRegion(polly::Scop *S, llvm::Pass *P);
 /// @param P          The pass that currently running.
 ///
 void splitEntryBlockForAlloca(llvm::BasicBlock *EntryBlock, llvm::Pass *P);
+
+/// @brief Wrapper for SCEVExpander extended to all Polly features.
+///
+/// This wrapper will internally call the SCEVExpander but also makes sure that
+/// all additional features not represented in SCEV (e.g., SDiv/SRem are not
+/// black boxes but can be part of the function) will be expanded correctly.
+///
+/// The parameters are the same as for the creation of a SCEVExpander as well
+/// as the call to SCEVExpander::expandCodeFor:
+///
+/// @param S    The current Scop.
+/// @param SE   The Scalar Evolution pass.
+/// @param DL   The module data layout.
+/// @param Name The suffix added to the new instruction names.
+/// @param E    The expression for which code is actually generated.
+/// @param Ty   The type of the resulting code.
+/// @param IP   The insertion point for the new code.
+llvm::Value *expandCodeFor(Scop &S, llvm::ScalarEvolution &SE,
+                           const llvm::DataLayout &DL, const char *Name,
+                           const llvm::SCEV *E, llvm::Type *Ty,
+                           llvm::Instruction *IP);
 }
 #endif

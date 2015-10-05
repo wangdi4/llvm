@@ -119,10 +119,10 @@ entry:
 ; CHECK: subq ${{[0-9]+}}, %rsp
 ;
 ; CHECK: vmovaps (%rdi), [[AVXREG:%ymm[0-9]+]]
-; CHECK: vmovups [[AVXREG]], (%rsp)
+; CHECK: vmovups [[AVXREG]], [[OFF:[0-9]*]](%rsp)
 ; CHECK: leaq {{[0-9]+}}(%rsp), %rdi
 ; CHECK: callq   _t5_helper1
-; CHECK: vmovups (%rsp), %ymm0
+; CHECK: vmovups [[OFF]](%rsp), %ymm0
 ; CHECK: callq   _t5_helper2
 ; CHECK: movl {{[0-9]+}}(%rsp), %eax
 }
