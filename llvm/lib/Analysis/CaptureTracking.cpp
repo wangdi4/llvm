@@ -35,15 +35,27 @@ bool CaptureTracker::shouldExplore(const Use *U) { return true; }
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
-    explicit SimpleCaptureTracker(bool ReturnCaptures)
-      : ReturnCaptures(ReturnCaptures), Captured(false) {}
+    explicit SimpleCaptureTracker(bool ReturnCaptures, bool IgnoreFlag)
+        : ReturnCaptures(ReturnCaptures), Captured(false),
+          IgnoreNoAliasArgStCaptured(IgnoreFlag) {}
 
     void tooManyUses() override { Captured = true; }
 
     bool captured(const Use *U) override {
       if (isa<ReturnInst>(U->getUser()) && !ReturnCaptures)
         return false;
-
+#if INTEL_CUSTOMIZATION
+      Instruction *I = cast<Instruction>(U->getUser());
+      if (I->getOpcode() == Instruction::Store) {
+        if (IgnoreNoAliasArgStCaptured) {
+          Value *V2 = I->getOperand(1);
+          V2 = V2->stripPointerCasts();
+          if (V2 && isNoAliasArgument(V2)) {
+            return false;
+          }
+        }
+      }
+#endif
       Captured = true;
       return true;
     }
@@ -51,6 +63,8 @@ namespace {
     bool ReturnCaptures;
 
     bool Captured;
+
+    bool IgnoreNoAliasArgStCaptured;
   };
 
   /// Only find pointer captures which happen before the given instruction. Uses
@@ -80,11 +94,12 @@ namespace {
       if (BB == BeforeHere->getParent()) {
         // 'I' dominates 'BeforeHere' => not safe to prune.
         //
-        // The value defined by an invoke dominates an instruction only if it
-        // dominates every instruction in UseBB. A PHI is dominated only if
-        // the instruction dominates every possible use in the UseBB. Since
+        // The value defined by an invoke/catchpad dominates an instruction only
+        // if it dominates every instruction in UseBB. A PHI is dominated only
+        // if the instruction dominates every possible use in the UseBB. Since
         // UseBB == BB, avoid pruning.
-        if (isa<InvokeInst>(BeforeHere) || isa<PHINode>(I) || I == BeforeHere)
+        if (isa<InvokeInst>(BeforeHere) || isa<CatchPadInst>(BeforeHere) ||
+            isa<PHINode>(I) || I == BeforeHere)
           return false;
         if (!OrderedBB->dominates(BeforeHere, I))
           return false;
@@ -158,8 +173,9 @@ namespace {
 /// counts as capturing it or not.  The boolean StoreCaptures specified whether
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
-bool llvm::PointerMayBeCaptured(const Value *V,
-                                bool ReturnCaptures, bool StoreCaptures) {
+bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                                bool StoreCaptures,
+                                bool IgnoreStoreCapturesByNoAliasArgument) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -169,7 +185,8 @@ bool llvm::PointerMayBeCaptured(const Value *V,
   // take advantage of this.
   (void)StoreCaptures;
 
-  SimpleCaptureTracker SCT(ReturnCaptures);
+  SimpleCaptureTracker SCT(ReturnCaptures,
+                           IgnoreStoreCapturesByNoAliasArgument);
   PointerMayBeCaptured(V, &SCT);
   return SCT.Captured;
 }

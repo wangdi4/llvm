@@ -6,13 +6,13 @@ target triple = "i386-apple-darwin9"
 define signext i8 @foo(i8* %s1) nounwind ssp {
 
 ; Make sure we generate:
-;  movq	-40(%rbp), %rsp
+;  movq	-<some-offset>(%rbp), %rsp
 ; Instead of:
-;  movq	-40(%rbp), %rax
+;  movq	-<some-offset>(%rbp), %rax
 ;  movq	%rax, %rsp
 
 ; CHECK-LABEL: @foo
-; CHECK: movq	-40(%rbp), %rsp
+; CHECK: movq	-{{[0-9]+}}(%rbp), %rsp
 
 entry:
   %s1_addr = alloca i8*                           ; <i8**> [#uses=2]
@@ -77,7 +77,7 @@ declare i64 @strlen(i8*) nounwind readonly
 declare void @llvm.stackrestore(i8*) nounwind
 
 !0 = !DILocalVariable(name: "s1", line: 2, arg: 1, scope: !1, file: !2, type: !6)
-!1 = !DISubprogram(name: "foo", linkageName: "foo", line: 2, isLocal: false, isDefinition: true, virtualIndex: 6, isOptimized: false, scope: !2, type: !3)
+!1 = distinct !DISubprogram(name: "foo", linkageName: "foo", line: 2, isLocal: false, isDefinition: true, virtualIndex: 6, isOptimized: false, scope: !2, type: !3)
 !2 = distinct !DICompileUnit(language: DW_LANG_C89, producer: "4.2.1 (Based on Apple Inc. build 5658) (LLVM build)", isOptimized: true, emissionKind: 0, file: !17, enums: !18, retainedTypes: !18)
 !3 = !DISubroutineType(types: !4)
 !4 = !{!5, !6}

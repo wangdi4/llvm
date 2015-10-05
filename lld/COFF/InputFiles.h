@@ -1,4 +1,4 @@
-//===- InputFiles.h -------------------------------------------------------===//
+//===- InputFiles.h ---------------------------------------------*- C++ -*-===//
 //
 //                             The LLVM Linker
 //
@@ -33,6 +33,8 @@ using llvm::object::coff_section;
 
 class Chunk;
 class Defined;
+class DefinedImportData;
+class DefinedImportThunk;
 class Lazy;
 class SymbolBody;
 class Undefined;
@@ -96,7 +98,7 @@ public:
   // (So that we don't instantiate same members more than once.)
   MemoryBufferRef getMember(const Archive::Symbol *Sym);
 
-  std::vector<Lazy *> &getLazySymbols() { return LazySymbols; }
+  llvm::MutableArrayRef<Lazy> getLazySymbols() { return LazySymbols; }
 
   // All symbols returned by ArchiveFiles are of Lazy type.
   std::vector<SymbolBody *> &getSymbols() override {
@@ -106,9 +108,8 @@ public:
 private:
   std::unique_ptr<Archive> File;
   std::string Filename;
-  std::vector<Lazy *> LazySymbols;
+  std::vector<Lazy> LazySymbols;
   std::map<uint64_t, std::atomic_flag> Seen;
-  llvm::MallocAllocator Alloc;
 };
 
 // .obj or .o file. This may be a member of an archive file.
@@ -182,13 +183,17 @@ public:
   static bool classof(const InputFile *F) { return F->kind() == ImportKind; }
   std::vector<SymbolBody *> &getSymbols() override { return SymbolBodies; }
 
+  DefinedImportData *ImpSym = nullptr;
+  DefinedImportThunk *ThunkSym = nullptr;
+  std::string DLLName;
+
 private:
   void parse() override;
 
   std::vector<SymbolBody *> SymbolBodies;
   llvm::BumpPtrAllocator Alloc;
   llvm::BumpPtrAllocator StringAllocAux;
-  llvm::BumpPtrStringSaver StringAlloc;
+  llvm::StringSaver StringAlloc;
 };
 
 // Used for LTO.
@@ -200,7 +205,7 @@ public:
   MachineTypes getMachineType() override;
 
   LTOModule *getModule() const { return M.get(); }
-  LTOModule *releaseModule() { return M.release(); }
+  std::unique_ptr<LTOModule> takeModule() { return std::move(M); }
 
 private:
   void parse() override;

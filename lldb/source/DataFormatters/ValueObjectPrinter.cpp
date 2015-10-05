@@ -176,7 +176,7 @@ ValueObjectPrinter::GetMostSpecializedValue ()
             }
         }
     }
-    m_clang_type = m_valobj->GetClangType();
+    m_clang_type = m_valobj->GetCompilerType();
     m_type_flags = m_clang_type.GetTypeInfo ();
     return true;
 }
@@ -457,6 +457,7 @@ DumpValueObjectOptions::PointerDepth::CanAllowExpansion (bool is_root,
                 return m_count > 0;
             return false;
     }
+    return false;
 }
 
 bool
@@ -471,6 +472,7 @@ DumpValueObjectOptions::PointerDepth::CanAllowExpansion () const
         case Mode::Never:
             return false;
     }
+    return false;
 }
 
 bool

@@ -106,6 +106,7 @@ def incremental : F<"incremental">;
 def no_incremental : F<"incremental:no">;
 def nologo : F<"nologo">;
 def throwingnew : F<"throwingnew">;
+def editandcontinue : F<"editandcontinue">;
 
 def delay : QF<"delay">;
 def errorreport : QF<"errorreport">;
@@ -116,5 +117,6 @@ def pdbaltpath : QF<"pdbaltpath">;
 def tlbid : QF<"tlbid">;
 def tlbout : QF<"tlbout">;
 def verbose_all : QF<"verbose">;
+def guardsym : QF<"guardsym">;
 
 defm wx : QB<"wx">;

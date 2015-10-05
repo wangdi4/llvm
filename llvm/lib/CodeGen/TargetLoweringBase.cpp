@@ -758,9 +758,7 @@ TargetLoweringBase::TargetLoweringBase(const TargetMachine &tm) : TM(tm) {
   SelectIsExpensive = false;
   HasMultipleConditionRegisters = false;
   HasExtractBitsInsn = false;
-  IntDivIsCheap = false;
   FsqrtIsCheap = false;
-  Pow2SDivIsCheap = false;
   JumpIsExpensive = JumpIsExpensiveOverride;
   PredictableSelectIsExpensive = false;
   MaskAndBranchFoldingIsLegal = false;
@@ -846,6 +844,9 @@ void TargetLoweringBase::initActions() {
 
   // Most targets ignore the @llvm.prefetch intrinsic.
   setOperationAction(ISD::PREFETCH, MVT::Other, Expand);
+
+  // Most targets also ignore the @llvm.readcyclecounter intrinsic.
+  setOperationAction(ISD::READCYCLECOUNTER, MVT::i64, Expand);
 
   // ConstantFP nodes default to expand.  Targets can either change this to
   // Legal, in which case all fp constants are legal, or use isFPImmLegal()
@@ -1152,7 +1153,7 @@ TargetLoweringBase::emitPatchPoint(MachineInstr *MI,
       Flags |= MachineMemOperand::MOVolatile;
     }
     MachineMemOperand *MMO = MF.getMachineMemOperand(
-        MachinePointerInfo::getFixedStack(FI), Flags,
+        MachinePointerInfo::getFixedStack(MF, FI), Flags,
         MF.getDataLayout().getPointerSize(), MFI.getObjectAlignment(FI));
     MIB->addMemOperand(MF, MMO);
 
@@ -1573,6 +1574,7 @@ int TargetLoweringBase::InstructionOpcodeToISD(unsigned Opcode) const {
   case Invoke:         return 0;
   case Resume:         return 0;
   case Unreachable:    return 0;
+  case CleanupEndPad:  return 0;
   case CleanupRet:     return 0;
   case CatchEndPad:  return 0;
   case CatchRet:       return 0;

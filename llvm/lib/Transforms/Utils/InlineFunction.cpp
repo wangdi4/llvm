@@ -54,16 +54,16 @@ PreserveAlignmentAssumptions("preserve-alignment-assumptions-during-inlining",
   cl::init(true), cl::Hidden,
   cl::desc("Convert align attributes to assumptions during inlining."));
 
-InlineReason llvm::InlineFunction(CallInst *CI, // INTEL 
-  InlineFunctionInfo &IFI, // INTEL
-  bool InsertLifetime) { // INTEL 
-  return InlineFunction(CallSite(CI), IFI, InsertLifetime);
+InlineReason                                                      // INTEL
+      llvm::InlineFunction(CallInst *CI, InlineFunctionInfo &IFI, // INTEL
+                                  AAResults *CalleeAAR, bool InsertLifetime) {
+  return InlineFunction(CallSite(CI), IFI, CalleeAAR, InsertLifetime);
 }
 
-InlineReason llvm::InlineFunction(InvokeInst *II, // INTEL 
-  InlineFunctionInfo &IFI, // INTEL 
-  bool InsertLifetime) { // INTEL 
-  return InlineFunction(CallSite(II), IFI, InsertLifetime);
+InlineReason
+     llvm::InlineFunction(InvokeInst *II, InlineFunctionInfo &IFI, // INTEL 
+                          AAResults *CalleeAAR, bool InsertLifetime) {
+  return InlineFunction(CallSite(II), IFI, CalleeAAR, InsertLifetime);
 }
 
 namespace {
@@ -332,6 +332,12 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
           CEPI->eraseFromParent();
           UpdatePHINodes(BB);
         }
+      } else if (auto *CEPI = dyn_cast<CleanupEndPadInst>(I)) {
+        if (CEPI->unwindsToCaller()) {
+          CleanupEndPadInst::Create(CEPI->getCleanupPad(), UnwindDest, CEPI);
+          CEPI->eraseFromParent();
+          UpdatePHINodes(BB);
+        }
       } else if (auto *TPI = dyn_cast<TerminatePadInst>(I)) {
         if (TPI->unwindsToCaller()) {
           SmallVector<Value *, 3> TerminatePadArgs;
@@ -341,21 +347,14 @@ static void HandleInlinedEHPad(InvokeInst *II, BasicBlock *FirstNewBlock,
           TPI->eraseFromParent();
           UpdatePHINodes(BB);
         }
-      } else if (auto *CPI = dyn_cast<CleanupPadInst>(I)) {
-        if (CPI->getNumOperands() == 0) {
-          CleanupPadInst::Create(CPI->getType(), {UnwindDest}, CPI->getName(),
-                                 CPI);
-          CPI->eraseFromParent();
-        }
       } else {
-        assert(isa<CatchPadInst>(I));
+        assert(isa<CatchPadInst>(I) || isa<CleanupPadInst>(I));
       }
     }
 
     if (auto *CRI = dyn_cast<CleanupReturnInst>(BB->getTerminator())) {
       if (CRI->unwindsToCaller()) {
-        CleanupReturnInst::Create(CRI->getContext(), CRI->getReturnValue(),
-                                  UnwindDest, CRI);
+        CleanupReturnInst::Create(CRI->getCleanupPad(), UnwindDest, CRI);
         CRI->eraseFromParent();
         UpdatePHINodes(BB);
       }
@@ -495,7 +494,7 @@ static void CloneAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap) {
 /// parameters with noalias metadata specifying the new scope, and tag all
 /// non-derived loads, stores and memory intrinsics with the new alias scopes.
 static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
-                                  const DataLayout &DL, AliasAnalysis *AA) {
+                                  const DataLayout &DL, AAResults *CalleeAAR) {
   if (!EnableNoAliasConversion)
     return;
 
@@ -580,8 +579,8 @@ static void AddAliasScopeMetadata(CallSite CS, ValueToValueMapTy &VMap,
           continue;
 
         IsFuncCall = true;
-        if (AA) {
-          FunctionModRefBehavior MRB = AA->getModRefBehavior(ICS);
+        if (CalleeAAR) {
+          FunctionModRefBehavior MRB = CalleeAAR->getModRefBehavior(ICS);
           if (MRB == FMRB_OnlyAccessesArgumentPointees ||
               MRB == FMRB_OnlyReadsArgumentPointees)
             IsArgMemOnlyCall = true;
@@ -1028,9 +1027,9 @@ static void fixupLineNumbers(Function *Fn, Function::iterator FI,
 /// INTEL The Intel version returns the principal reason the function was or 
 /// INTEL was not inlined at the call site.
 ///
-InlineReason llvm::InlineFunction(CallSite CS, // INTEL 
-  InlineFunctionInfo &IFI, // INTEL
-  bool InsertLifetime) { // INTEL 
+InlineReason                                                    // INTEL
+     llvm::InlineFunction(CallSite CS, InlineFunctionInfo &IFI, // INTEL
+                          AAResults *CalleeAAR, bool InsertLifetime) {
   Instruction *TheCall = CS.getInstruction();
   assert(TheCall->getParent() && TheCall->getParent()->getParent() &&
          "Instruction not in function!");
@@ -1169,7 +1168,7 @@ InlineReason llvm::InlineFunction(CallSite CS, // INTEL
     CloneAliasScopeMetadata(CS, VMap);
 
     // Add noalias metadata if necessary.
-    AddAliasScopeMetadata(CS, VMap, DL, IFI.AA);
+    AddAliasScopeMetadata(CS, VMap, DL, CalleeAAR);
 
     // FIXME: We could register any cloned assumptions instead of clearing the
     // whole function's cache.

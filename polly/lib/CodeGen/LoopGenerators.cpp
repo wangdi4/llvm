@@ -259,7 +259,13 @@ Function *ParallelLoopGenerator::createSubFnDefinition() {
   std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
   FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
   Function *SubFn = Function::Create(FT, Function::InternalLinkage,
-                                     F->getName() + ".polly.subfn", M);
+                                     F->getName() + "_polly_subfn", M);
+
+  // Certain backends (e.g., NVPTX) do not support '.'s in function names.
+  // Hence, we ensure that all '.'s are replaced by '_'s.
+  std::string FunctionName = SubFn->getName();
+  std::replace(FunctionName.begin(), FunctionName.end(), '.', '_');
+  SubFn->setName(FunctionName);
 
   // Do not run any polly pass on the new function.
   SubFn->addFnAttr(PollySkipFnAttr);
@@ -303,6 +309,7 @@ void ParallelLoopGenerator::extractValuesFromStruct(
   for (unsigned i = 0; i < OldValues.size(); i++) {
     Value *Address = Builder.CreateStructGEP(Ty, Struct, i);
     Value *NewValue = Builder.CreateLoad(Address);
+    NewValue->setName("polly.subfunc.arg." + OldValues[i]->getName());
     Map[OldValues[i]] = NewValue;
   }
 }
@@ -348,7 +355,7 @@ Value *ParallelLoopGenerator::createSubFn(Value *Stride, AllocaInst *StructData,
                                         "polly.par.hasNextScheduleBlock");
   Builder.CreateCondBr(HasNextSchedule, PreHeaderBB, ExitBB);
 
-  // Add code to to load the iv bounds for this set of iterations.
+  // Add code to load the iv bounds for this set of iterations.
   Builder.SetInsertPoint(PreHeaderBB);
   LB = Builder.CreateLoad(LBPtr, "polly.par.LB");
   UB = Builder.CreateLoad(UBPtr, "polly.par.UB");

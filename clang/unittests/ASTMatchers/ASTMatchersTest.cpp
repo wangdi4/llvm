@@ -919,6 +919,9 @@ TEST(TypeMatcher, MatchesClassType) {
 
   EXPECT_TRUE(
       matches("class A { public: A *a; class B {}; };", TypeAHasClassB));
+
+  EXPECT_TRUE(matchesC("struct S {}; void f(void) { struct S s; }",
+                       varDecl(hasType(namedDecl(hasName("S"))))));
 }
 
 TEST(Matcher, BindMatchedNodes) {
@@ -1418,6 +1421,13 @@ TEST(Callee, MatchesDeclarations) {
       matches("struct Y { operator int() const; }; int i = Y();", CallMethodX));
   EXPECT_TRUE(notMatches("struct Y { operator int() const; }; Y y = Y();",
                          CallMethodX));
+}
+
+TEST(ConversionDeclaration, IsExplicit) {
+  EXPECT_TRUE(matches("struct S { explicit operator int(); };",
+                      conversionDecl(isExplicit())));
+  EXPECT_TRUE(notMatches("struct S { operator int(); };",
+                         conversionDecl(isExplicit())));
 }
 
 TEST(Callee, MatchesMemberExpressions) {
@@ -1992,6 +2002,13 @@ TEST(ConstructorDeclaration, IsImplicit) {
                       methodDecl(isImplicit(), hasName("operator="))));
 }
 
+TEST(ConstructorDeclaration, IsExplicit) {
+  EXPECT_TRUE(matches("struct S { explicit S(int); };",
+                      constructorDecl(isExplicit())));
+  EXPECT_TRUE(notMatches("struct S { S(int); };",
+                         constructorDecl(isExplicit())));
+}
+
 TEST(ConstructorDeclaration, Kinds) {
   EXPECT_TRUE(matches("struct S { S(); };",
                       constructorDecl(isDefaultConstructor())));
@@ -2097,6 +2114,12 @@ TEST(HasAnyConstructorInitializer, IsBaseInitializer) {
   EXPECT_TRUE(notMatches(Code, constructorDecl(allOf(
     hasAnyConstructorInitializer(allOf(isBaseInitializer(), isWritten())),
     hasName("D")))));
+  EXPECT_TRUE(matches(Code, constructorDecl(allOf(
+    hasAnyConstructorInitializer(allOf(isMemberInitializer(), isWritten())),
+    hasName("D")))));
+  EXPECT_TRUE(notMatches(Code, constructorDecl(allOf(
+    hasAnyConstructorInitializer(allOf(isMemberInitializer(), isWritten())),
+    hasName("E")))));
 }
 
 TEST(Matcher, NewExpression) {
@@ -4311,6 +4334,18 @@ TEST(ElaboratedTypeNarrowing, namesType) {
     elaboratedType(elaboratedType(namesType(typedefType())))));
 }
 
+TEST(TypeMatching, MatchesSubstTemplateTypeParmType) {
+  const std::string code = "template <typename T>"
+                           "int F() {"
+                           "  return 1 + T();"
+                           "}"
+                           "int i = F<int>();";
+  EXPECT_FALSE(matches(code, binaryOperator(hasLHS(
+                                 expr(hasType(substTemplateTypeParmType()))))));
+  EXPECT_TRUE(matches(code, binaryOperator(hasRHS(
+                                expr(hasType(substTemplateTypeParmType()))))));
+}
+
 TEST(NNS, MatchesNestedNameSpecifiers) {
   EXPECT_TRUE(matches("namespace ns { struct A {}; } ns::A a;",
                       nestedNameSpecifier()));
@@ -4330,6 +4365,16 @@ TEST(NNS, MatchesNestedNameSpecifiers) {
 TEST(NullStatement, SimpleCases) {
   EXPECT_TRUE(matches("void f() {int i;;}", nullStmt()));
   EXPECT_TRUE(notMatches("void f() {int i;}", nullStmt()));
+}
+
+TEST(NS, Anonymous) {
+  EXPECT_TRUE(notMatches("namespace N {}", namespaceDecl(isAnonymous())));
+  EXPECT_TRUE(matches("namespace {}", namespaceDecl(isAnonymous())));
+}
+
+TEST(NS, Alias) {
+  EXPECT_TRUE(matches("namespace test {} namespace alias = ::test;",
+                      namespaceAliasDecl(hasName("alias"))));
 }
 
 TEST(NNS, MatchesTypes) {
@@ -4751,6 +4796,13 @@ TEST(TypeDefDeclMatcher, Match) {
                       typedefDecl(hasName("typedefDeclTest"))));
 }
 
+TEST(IsInlineMatcher, IsInline) {
+  EXPECT_TRUE(matches("void g(); inline void f();",
+                      functionDecl(isInline(), hasName("f"))));
+  EXPECT_TRUE(matches("namespace n { inline namespace m {} }",
+                      namespaceDecl(isInline(), hasName("m"))));
+}
+
 // FIXME: Figure out how to specify paths so the following tests pass on Windows.
 #ifndef LLVM_ON_WIN32
 
@@ -4836,6 +4888,9 @@ TEST(ObjCMessageExprMatcher, SimpleExprs) {
   EXPECT_TRUE(matchesObjC(
       Objc1String,
       objcMessageExpr(hasSelector("contents"), hasUnarySelector())));
+  EXPECT_TRUE(matchesObjC(
+      Objc1String,
+      objcMessageExpr(hasSelector("contents"), numSelectorArgs(0))));
   EXPECT_TRUE(matchesObjC(
       Objc1String,
       objcMessageExpr(matchesSelector("uppercase*"),

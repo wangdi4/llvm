@@ -185,6 +185,14 @@ bool llvm::isKnownNonZero(Value *V, const DataLayout &DL, unsigned Depth,
   return ::isKnownNonZero(V, DL, Depth, Query(AC, safeCxtI(V, CxtI), DT));
 }
 
+bool llvm::isKnownNonNegative(Value *V, const DataLayout &DL, unsigned Depth,
+                              AssumptionCache *AC, const Instruction *CxtI,
+                              const DominatorTree *DT) {
+  bool NonNegative, Negative;
+  ComputeSignBit(V, NonNegative, Negative, DL, Depth, AC, CxtI, DT);
+  return NonNegative;
+}
+
 static bool MaskedValueIsZero(Value *V, const APInt &Mask, const DataLayout &DL,
                               unsigned Depth, const Query &Q);
 
@@ -309,6 +317,53 @@ static void computeKnownBitsMul(Value *Op0, Value *Op1, bool NSW,
       // The product of two numbers with the same sign is non-negative.
       isKnownNonNegative = (isKnownNegativeOp1 && isKnownNegativeOp0) ||
         (isKnownNonNegativeOp1 && isKnownNonNegativeOp0);
+#if INTEL_CUSTOMIZATION
+      if (!isKnownNonNegative) {
+        // The product of (n * (n - 1)) or (n * (n + 1)) is always
+        // non-negative.
+        // Here are all the cases where adding 1 or -1 to a signed integer
+        // causes a change of the sign, including cases when allowing signed
+        // overflow.
+        //
+        // n         n + 1       n * (n + 1)
+        // -1        0           0
+        // MAXINT    -MAXINT-1   cannot happen, multiply would overflow.
+        //
+        // n         n - 1       n * (n - 1)
+        // 0         -1          0
+        // -MAXINT-1 MAXINT      cannot happen, multiply would overflow.
+        //
+        // In all other cases, n and (n [+-] 1) have the same sign, and
+        // therefore the multiplication is non-negative.  And as can be
+        // seen from above, the cases where the two values have different
+        // sign are either always getting a product of 0, or the product
+        // will overflow the multiplication itself, which cannot be the
+        // case, since the multipication is marked NSW.
+        //
+        Value *AddOp = nullptr;
+        Value *OtherOp = nullptr;
+
+        if (Operator::getOpcode(Op0) == Instruction::Add) {
+          AddOp = Op0;
+          OtherOp = Op1;
+        } else if (Operator::getOpcode(Op1) == Instruction::Add) {
+          AddOp = Op1;
+          OtherOp = Op0;
+        }
+
+        if (AddOp) {
+          auto AddI = dyn_cast<Operator>(AddOp);
+          Value *AddOp0 = AddI->getOperand(0);
+          Value *AddOp1 = AddI->getOperand(1);
+          ConstantInt *Op1CI = dyn_cast<ConstantInt>(AddOp1);
+          bool isAddOp1Const1 = Op1CI &&
+            (Op1CI->isOne() || Op1CI->isMinusOne());
+
+          if (AddOp0 == OtherOp && isAddOp1Const1)
+            isKnownNonNegative = true;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       // The product of a negative number and a non-negative number is either
       // negative or zero.
       if (!isKnownNonNegative)
@@ -2935,20 +2990,44 @@ static bool isDereferenceableFromAttribute(const Value *V, const DataLayout &DL,
   return isDereferenceableFromAttribute(V, Offset, Ty, DL, CtxI, DT, TLI);
 }
 
-/// Return true if Value is always a dereferenceable pointer.
-///
+static bool isAligned(const Value *Base, APInt Offset, unsigned Align,
+                      const DataLayout &DL) {
+  APInt BaseAlign(Offset.getBitWidth(), 0);
+  if (const AllocaInst *AI = dyn_cast<AllocaInst>(Base))
+    BaseAlign = AI->getAlignment();
+  else if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(Base))
+    BaseAlign = GV->getAlignment();
+  else if (const Argument *A = dyn_cast<Argument>(Base))
+    BaseAlign = A->getParamAlignment();
+
+  if (!BaseAlign) {
+    Type *Ty = Base->getType()->getPointerElementType();
+    BaseAlign = DL.getABITypeAlignment(Ty);
+  }
+
+  APInt Alignment(Offset.getBitWidth(), Align);
+
+  assert(Alignment.isPowerOf2() && "must be a power of 2!");
+  return BaseAlign.uge(Alignment) && !(Offset & (Alignment-1));
+}
+
+static bool isAligned(const Value *Base, unsigned Align, const DataLayout &DL) {
+  APInt Offset(DL.getTypeStoreSizeInBits(Base->getType()), 0);
+  return isAligned(Base, Offset, Align, DL);
+}
+
 /// Test if V is always a pointer to allocated and suitably aligned memory for
 /// a simple load or store.
-static bool isDereferenceablePointer(const Value *V, const DataLayout &DL,
-                                     const Instruction *CtxI,
-                                     const DominatorTree *DT,
-                                     const TargetLibraryInfo *TLI,
-                                     SmallPtrSetImpl<const Value *> &Visited) {
+static bool isDereferenceableAndAlignedPointer(
+    const Value *V, unsigned Align, const DataLayout &DL,
+    const Instruction *CtxI, const DominatorTree *DT,
+    const TargetLibraryInfo *TLI, SmallPtrSetImpl<const Value *> &Visited) {
   // Note that it is not safe to speculate into a malloc'd region because
   // malloc may return null.
 
-  // These are obviously ok.
-  if (isa<AllocaInst>(V)) return true;
+  // These are obviously ok if aligned.
+  if (isa<AllocaInst>(V))
+    return isAligned(V, Align, DL);
 
   // It's not always safe to follow a bitcast, for example:
   //   bitcast i8* (alloca i8) to i32*
@@ -2963,21 +3042,22 @@ static bool isDereferenceablePointer(const Value *V, const DataLayout &DL,
     if (STy->isSized() && DTy->isSized() &&
         (DL.getTypeStoreSize(STy) >= DL.getTypeStoreSize(DTy)) &&
         (DL.getABITypeAlignment(STy) >= DL.getABITypeAlignment(DTy)))
-      return isDereferenceablePointer(BC->getOperand(0), DL, CtxI,
-                                      DT, TLI, Visited);
+      return isDereferenceableAndAlignedPointer(BC->getOperand(0), Align, DL,
+                                                CtxI, DT, TLI, Visited);
   }
 
   // Global variables which can't collapse to null are ok.
   if (const GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-    return !GV->hasExternalWeakLinkage();
+    if (!GV->hasExternalWeakLinkage())
+      return isAligned(V, Align, DL);
 
   // byval arguments are okay.
   if (const Argument *A = dyn_cast<Argument>(V))
     if (A->hasByValAttr())
-      return true;
-    
+      return isAligned(V, Align, DL);
+
   if (isDereferenceableFromAttribute(V, DL, CtxI, DT, TLI))
-    return true;
+    return isAligned(V, Align, DL);
 
   // For GEPs, determine if the indexing lands within the allocated object.
   if (const GEPOperator *GEP = dyn_cast<GEPOperator>(V)) {
@@ -2985,61 +3065,79 @@ static bool isDereferenceablePointer(const Value *V, const DataLayout &DL,
     Type *Ty = VTy->getPointerElementType();
     const Value *Base = GEP->getPointerOperand();
 
-    // Conservatively require that the base pointer be fully dereferenceable.
+    // Conservatively require that the base pointer be fully dereferenceable
+    // and aligned.
     if (!Visited.insert(Base).second)
       return false;
-    if (!isDereferenceablePointer(Base, DL, CtxI,
-                                  DT, TLI, Visited))
+    if (!isDereferenceableAndAlignedPointer(Base, Align, DL, CtxI, DT, TLI,
+                                            Visited))
       return false;
-    
+
     APInt Offset(DL.getPointerTypeSizeInBits(VTy), 0);
     if (!GEP->accumulateConstantOffset(DL, Offset))
       return false;
-    
-    // Check if the load is within the bounds of the underlying object.
+
+    // Check if the load is within the bounds of the underlying object
+    // and offset is aligned.
     uint64_t LoadSize = DL.getTypeStoreSize(Ty);
     Type *BaseType = Base->getType()->getPointerElementType();
-    return (Offset + LoadSize).ule(DL.getTypeAllocSize(BaseType));
+    assert(isPowerOf2_32(Align) && "must be a power of 2!");
+    return (Offset + LoadSize).ule(DL.getTypeAllocSize(BaseType)) && 
+           !(Offset & APInt(Offset.getBitWidth(), Align-1));
   }
 
   // For gc.relocate, look through relocations
   if (const IntrinsicInst *I = dyn_cast<IntrinsicInst>(V))
     if (I->getIntrinsicID() == Intrinsic::experimental_gc_relocate) {
       GCRelocateOperands RelocateInst(I);
-      return isDereferenceablePointer(RelocateInst.getDerivedPtr(), DL, CtxI,
-                                      DT, TLI, Visited);
+      return isDereferenceableAndAlignedPointer(
+          RelocateInst.getDerivedPtr(), Align, DL, CtxI, DT, TLI, Visited);
     }
 
   if (const AddrSpaceCastInst *ASC = dyn_cast<AddrSpaceCastInst>(V))
-    return isDereferenceablePointer(ASC->getOperand(0), DL, CtxI,
-                                    DT, TLI, Visited);
+    return isDereferenceableAndAlignedPointer(ASC->getOperand(0), Align, DL,
+                                              CtxI, DT, TLI, Visited);
 
   // If we don't know, assume the worst.
   return false;
 }
 
-bool llvm::isDereferenceablePointer(const Value *V, const DataLayout &DL,
-                                    const Instruction *CtxI,
-                                    const DominatorTree *DT,
-                                    const TargetLibraryInfo *TLI) {
+bool llvm::isDereferenceableAndAlignedPointer(const Value *V, unsigned Align,
+                                              const DataLayout &DL,
+                                              const Instruction *CtxI,
+                                              const DominatorTree *DT,
+                                              const TargetLibraryInfo *TLI) {
   // When dereferenceability information is provided by a dereferenceable
   // attribute, we know exactly how many bytes are dereferenceable. If we can
   // determine the exact offset to the attributed variable, we can use that
   // information here.
   Type *VTy = V->getType();
   Type *Ty = VTy->getPointerElementType();
+
+  // Require ABI alignment for loads without alignment specification
+  if (Align == 0)
+    Align = DL.getABITypeAlignment(Ty);
+
   if (Ty->isSized()) {
     APInt Offset(DL.getTypeStoreSizeInBits(VTy), 0);
     const Value *BV = V->stripAndAccumulateInBoundsConstantOffsets(DL, Offset);
-    
+
     if (Offset.isNonNegative())
-      if (isDereferenceableFromAttribute(BV, Offset, Ty, DL,
-                                         CtxI, DT, TLI))
+      if (isDereferenceableFromAttribute(BV, Offset, Ty, DL, CtxI, DT, TLI) &&
+          isAligned(BV, Offset, Align, DL))
         return true;
   }
 
   SmallPtrSet<const Value *, 32> Visited;
-  return ::isDereferenceablePointer(V, DL, CtxI, DT, TLI, Visited);
+  return ::isDereferenceableAndAlignedPointer(V, Align, DL, CtxI, DT, TLI,
+                                              Visited);
+}
+
+bool llvm::isDereferenceablePointer(const Value *V, const DataLayout &DL,
+                                    const Instruction *CtxI,
+                                    const DominatorTree *DT,
+                                    const TargetLibraryInfo *TLI) {
+  return isDereferenceableAndAlignedPointer(V, 1, DL, CtxI, DT, TLI);
 }
 
 bool llvm::isSafeToSpeculativelyExecute(const Value *V,
@@ -3092,7 +3190,8 @@ bool llvm::isSafeToSpeculativelyExecute(const Value *V,
         LI->getParent()->getParent()->hasFnAttribute(Attribute::SanitizeThread))
       return false;
     const DataLayout &DL = LI->getModule()->getDataLayout();
-    return isDereferenceablePointer(LI->getPointerOperand(), DL, CtxI, DT, TLI);
+    return isDereferenceableAndAlignedPointer(
+        LI->getPointerOperand(), LI->getAlignment(), DL, CtxI, DT, TLI);
   }
   case Instruction::Call: {
     if (const IntrinsicInst *II = dyn_cast<IntrinsicInst>(Inst)) {
@@ -3155,6 +3254,7 @@ bool llvm::isSafeToSpeculativelyExecute(const Value *V,
   case Instruction::CatchEndPad:
   case Instruction::CatchRet:
   case Instruction::CleanupPad:
+  case Instruction::CleanupEndPad:
   case Instruction::CleanupRet:
   case Instruction::TerminatePad:
     return false; // Misc instructions which have effects
@@ -3174,9 +3274,12 @@ bool llvm::isKnownNonNull(const Value *V, const TargetLibraryInfo *TLI) {
   if (const Argument *A = dyn_cast<Argument>(V))
     return A->hasByValOrInAllocaAttr() || A->hasNonNullAttr();
 
-  // Global values are not null unless extern weak.
+  // A global variable in address space 0 is non null unless extern weak.
+  // Other address spaces may have null as a valid address for a global,
+  // so we can't assume anything.
   if (const GlobalValue *GV = dyn_cast<GlobalValue>(V))
-    return !GV->hasExternalWeakLinkage();
+    return !GV->hasExternalWeakLinkage() &&
+           GV->getType()->getAddressSpace() == 0;
 
   // A Load tagged w/nonnull metadata is never null. 
   if (const LoadInst *LI = dyn_cast<LoadInst>(V))
@@ -3324,6 +3427,67 @@ OverflowResult llvm::computeOverflowForUnsignedAdd(Value *LHS, Value *RHS,
   }
 
   return OverflowResult::MayOverflow;
+}
+
+static OverflowResult computeOverflowForSignedAdd(
+    Value *LHS, Value *RHS, AddOperator *Add, const DataLayout &DL,
+    AssumptionCache *AC, const Instruction *CxtI, const DominatorTree *DT) {
+  if (Add && Add->hasNoSignedWrap()) {
+    return OverflowResult::NeverOverflows;
+  }
+
+  bool LHSKnownNonNegative, LHSKnownNegative;
+  bool RHSKnownNonNegative, RHSKnownNegative;
+  ComputeSignBit(LHS, LHSKnownNonNegative, LHSKnownNegative, DL, /*Depth=*/0,
+                 AC, CxtI, DT);
+  ComputeSignBit(RHS, RHSKnownNonNegative, RHSKnownNegative, DL, /*Depth=*/0,
+                 AC, CxtI, DT);
+
+  if ((LHSKnownNonNegative && RHSKnownNegative) ||
+      (LHSKnownNegative && RHSKnownNonNegative)) {
+    // The sign bits are opposite: this CANNOT overflow.
+    return OverflowResult::NeverOverflows;
+  }
+
+  // The remaining code needs Add to be available. Early returns if not so.
+  if (!Add)
+    return OverflowResult::MayOverflow;
+
+  // If the sign of Add is the same as at least one of the operands, this add
+  // CANNOT overflow. This is particularly useful when the sum is
+  // @llvm.assume'ed non-negative rather than proved so from analyzing its
+  // operands.
+  bool LHSOrRHSKnownNonNegative =
+      (LHSKnownNonNegative || RHSKnownNonNegative);
+  bool LHSOrRHSKnownNegative = (LHSKnownNegative || RHSKnownNegative);
+  if (LHSOrRHSKnownNonNegative || LHSOrRHSKnownNegative) {
+    bool AddKnownNonNegative, AddKnownNegative;
+    ComputeSignBit(Add, AddKnownNonNegative, AddKnownNegative, DL,
+                   /*Depth=*/0, AC, CxtI, DT);
+    if ((AddKnownNonNegative && LHSOrRHSKnownNonNegative) ||
+        (AddKnownNegative && LHSOrRHSKnownNegative)) {
+      return OverflowResult::NeverOverflows;
+    }
+  }
+
+  return OverflowResult::MayOverflow;
+}
+
+OverflowResult llvm::computeOverflowForSignedAdd(AddOperator *Add,
+                                                 const DataLayout &DL,
+                                                 AssumptionCache *AC,
+                                                 const Instruction *CxtI,
+                                                 const DominatorTree *DT) {
+  return ::computeOverflowForSignedAdd(Add->getOperand(0), Add->getOperand(1),
+                                       Add, DL, AC, CxtI, DT);
+}
+
+OverflowResult llvm::computeOverflowForSignedAdd(Value *LHS, Value *RHS,
+                                                 const DataLayout &DL,
+                                                 AssumptionCache *AC,
+                                                 const Instruction *CxtI,
+                                                 const DominatorTree *DT) {
+  return ::computeOverflowForSignedAdd(LHS, RHS, nullptr, DL, AC, CxtI, DT);
 }
 
 bool llvm::isGuaranteedToTransferExecutionToSuccessor(const Instruction *I) {
@@ -3545,7 +3709,7 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
       // returns the RHS.
       Ordered = true;
       if (LHSSafe)
-        // LHS is non-NaN, so RHS is NaN.
+        // LHS is non-NaN, so if RHS is NaN then NaN will be returned.
         NaNBehavior = SPNB_RETURNS_NAN;
       else if (RHSSafe)
         NaNBehavior = SPNB_RETURNS_OTHER;
@@ -3557,7 +3721,7 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
       // An unordered comparison will return true when given a NaN, so it
       // returns the LHS.
       if (LHSSafe)
-        // LHS is non-NaN.
+        // LHS is non-NaN, so if RHS is NaN then non-NaN will be returned.
         NaNBehavior = SPNB_RETURNS_OTHER;
       else if (RHSSafe)
         NaNBehavior = SPNB_RETURNS_NAN;
@@ -3634,13 +3798,25 @@ static SelectPatternResult matchSelectPattern(CmpInst::Predicate Pred,
   return {SPF_UNKNOWN, SPNB_NA, false};
 }
 
-static Constant *lookThroughCast(CmpInst *CmpI, Value *V1, Value *V2,
-                                 Instruction::CastOps *CastOp) {
+static Value *lookThroughCast(CmpInst *CmpI, Value *V1, Value *V2,
+                              Instruction::CastOps *CastOp) {
   CastInst *CI = dyn_cast<CastInst>(V1);
   Constant *C = dyn_cast<Constant>(V2);
-  if (!CI || !C)
+  CastInst *CI2 = dyn_cast<CastInst>(V2);
+  if (!CI)
     return nullptr;
   *CastOp = CI->getOpcode();
+
+  if (CI2) {
+    // If V1 and V2 are both the same cast from the same type, we can look
+    // through V1.
+    if (CI2->getOpcode() == CI->getOpcode() &&
+        CI2->getSrcTy() == CI->getSrcTy())
+      return CI2->getOperand(0);
+    return nullptr;
+  } else if (!C) {
+    return nullptr;
+  }
 
   if (isa<SExtInst>(CI) && CmpI->isSigned()) {
     Constant *T = ConstantExpr::getTrunc(C, CI->getSrcTy());
@@ -3701,11 +3877,11 @@ SelectPatternResult llvm::matchSelectPattern(Value *V,
 
   // Deal with type mismatches.
   if (CastOp && CmpLHS->getType() != TrueVal->getType()) {
-    if (Constant *C = lookThroughCast(CmpI, TrueVal, FalseVal, CastOp))
+    if (Value *C = lookThroughCast(CmpI, TrueVal, FalseVal, CastOp))
       return ::matchSelectPattern(Pred, FMF, CmpLHS, CmpRHS,
                                   cast<CastInst>(TrueVal)->getOperand(0), C,
                                   LHS, RHS);
-    if (Constant *C = lookThroughCast(CmpI, FalseVal, TrueVal, CastOp))
+    if (Value *C = lookThroughCast(CmpI, FalseVal, TrueVal, CastOp))
       return ::matchSelectPattern(Pred, FMF, CmpLHS, CmpRHS,
                                   C, cast<CastInst>(FalseVal)->getOperand(0),
                                   LHS, RHS);
