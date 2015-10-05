@@ -17,6 +17,12 @@ class CL21 : public ::CL_base
 
 protected:
 
+    // clEnqueueSVMMigrateMem
+
+    void EnqueueSVMMigrateMem_Positive() const;
+
+    void EnqueueSVMMigrateMem_Negative() const;
+
     // clSetDefaultDeviceCommandQueue
 
     void SetDefaultDeviceCommandQueueOOO() const;
