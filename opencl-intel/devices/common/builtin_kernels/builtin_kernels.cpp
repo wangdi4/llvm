@@ -23,8 +23,6 @@
 ///////////////////////////////////////////////////////////
 
 
-#include "stdafx.h"
-
 #include "builtin_kernels.h"
 #include <assert.h>
 #include <cl_sys_defines.h>

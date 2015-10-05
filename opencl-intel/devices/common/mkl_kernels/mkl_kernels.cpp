@@ -23,8 +23,6 @@
 ///////////////////////////////////////////////////////////
 
 
-#include "stdafx.h"
-
 #include "export/mkl_builtins.h"
 #include <cl_dynamic_lib.h>
 
