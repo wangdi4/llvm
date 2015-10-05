@@ -2643,6 +2643,119 @@ cl_err_code FillMemObjCommand::CommandDone()
 /******************************************************************
  *
  ******************************************************************/
+MigrateSVMMemCommand::MigrateSVMMemCommand(
+    const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
+    ContextModule*         pContextModule,
+    cl_mem_migration_flags clFlags,
+    cl_uint                uNumMemObjects,
+    const void**           pMemObjects,
+    const size_t*          sizes):
+    Command(cmdQueue), m_pMemObjects(pMemObjects),
+    m_pSizes(sizes), m_pContextModule( pContextModule )
+{
+    assert( 0 != uNumMemObjects );
+    assert( NULL != pMemObjects );
+    assert( NULL != pContextModule );
+
+    memset( &m_migrateCmdParams, 0, sizeof(cl_dev_cmd_param_migrate));
+    m_migrateCmdParams.flags    = clFlags;
+    m_migrateCmdParams.mem_num  = uNumMemObjects;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+MigrateSVMMemCommand::~MigrateSVMMemCommand()
+{
+    if (NULL != m_migrateCmdParams.memObjs)
+    {
+        delete [] m_migrateCmdParams.memObjs;
+        m_migrateCmdParams.memObjs = NULL;
+    }
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateSVMMemCommand::Init()
+{
+    // Allocate
+    m_migrateCmdParams.memObjs = new IOCLDevMemoryObject*[m_migrateCmdParams.mem_num];
+
+    if (NULL == m_migrateCmdParams.memObjs)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    MemoryObject::MemObjUsage access = (0 != (m_migrateCmdParams.flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED)) ?
+                            MemoryObject::WRITE_ENTIRE : MemoryObject::READ_ONLY; // use READ_ONLY for optimization
+
+    SharedPtr<Context> pQueueContext = m_pContextModule->GetContext(m_pCommandQueue->GetParentHandle());
+    for (cl_uint i = 0; i < m_migrateCmdParams.mem_num; i++)
+    {
+        SharedPtr<SVMBuffer> pMemObj = pQueueContext->GetSVMBufferContainingAddr(const_cast<void*>(m_pMemObjects[i]));
+        if (0 == pMemObj)
+        {
+            return CL_INVALID_VALUE;
+        }
+        if (NULL != m_pSizes && !pMemObj->IsContainedInBuffer(m_pMemObjects[i], m_pSizes[i]))
+        {
+            return CL_INVALID_VALUE;
+        }
+
+        cl_err_code cl_err = pMemObj->CreateDeviceResource(m_pDevice);
+        if (CL_FAILED(cl_err))
+        {
+            return cl_err;
+        }
+
+        cl_err = GetMemObjectDescriptor(pMemObj, &( m_migrateCmdParams.memObjs[i]));
+        if (CL_FAILED(cl_err))
+        {
+            return cl_err;
+        }
+
+        AddToMemoryObjectArgList(m_MemOclObjects, pMemObj, access);
+    }
+
+    // Initialize GPA data
+    GPA_InitCommand();
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateSVMMemCommand::Execute()
+{
+    cl_err_code res = AcquireMemoryObjects(m_MemOclObjects);
+    if ( CL_SUCCESS != res )
+    {
+        return res;
+    }
+
+    prepare_command_descriptor(CL_DEV_CMD_SVM_MIGRATE, &m_migrateCmdParams, sizeof(cl_dev_cmd_param_migrate));
+
+    LogDebugA("Command - EXECUTE: %s (Id: %d)", GetCommandName(), m_Event->GetId());
+
+    // Sending 1 command to the target device
+    cl_dev_cmd_desc* cmdPList[1] = {&m_DevCmd};
+    cl_dev_err_code errDev = m_pDevice->GetDeviceAgent()->clDevCommandListExecute(m_clDevCmdListId, cmdPList, 1);
+    return CL_DEV_SUCCEEDED(errDev) ? CL_SUCCESS : CL_OUT_OF_RESOURCES;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
+cl_err_code MigrateSVMMemCommand::CommandDone()
+{
+    RelinquishMemoryObjects(m_MemOclObjects);
+    return CL_SUCCESS;
+}
+
+/******************************************************************
+ *
+ ******************************************************************/
 MigrateMemObjCommand::MigrateMemObjCommand(
         const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
         ocl_entry_points *     pOclEntryPoints,

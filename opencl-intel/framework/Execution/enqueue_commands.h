@@ -1213,7 +1213,42 @@ namespace Intel { namespace OpenCL { namespace Framework {
         const void**                m_ppArgsMemLoc;
     };
 
-    
+
+    class MigrateSVMMemCommand : public Command
+    {
+
+    public:
+        MigrateSVMMemCommand(
+            const SharedPtr<IOclCommandQueueBase>&  cmdQueue,
+            ContextModule*         pContextModule,
+            cl_mem_migration_flags clFlags,
+            cl_uint                uNumMemObjects,
+            const void**           pMemObject,
+            const size_t*          sizes
+        );
+
+        virtual                         ~MigrateSVMMemCommand();
+
+        virtual cl_command_type         GetCommandType()   const  { return CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS; }
+        virtual ECommandExecutionType   GetExecutionType() const  { return DEVICE_EXECUTION_TYPE; }
+        virtual const char*             GetCommandName()   const  { return "CL_COMMAND_MIGRATE_SVM_MEM_OBJECTS"; }
+
+        virtual cl_err_code             Init();
+        virtual cl_err_code             Execute();
+        virtual cl_err_code             CommandDone();
+
+        // GPA related functions
+        virtual const char*             GPA_GetCommandName() const { return "Migrate SVM Memory Object"; }
+
+    protected:
+
+        const void**                m_pMemObjects;      // used temporary to pass info from contructor to init()
+        const size_t*               m_pSizes;
+        ContextModule*              m_pContextModule;
+
+        cl_dev_cmd_param_migrate    m_migrateCmdParams;
+    };
+
     /******************************************************************
      * 
      ******************************************************************/

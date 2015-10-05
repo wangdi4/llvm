@@ -242,6 +242,7 @@ void FrameworkProxy::InitOCLEntryPoints()
 	ICDDispatchTable.clEnqueueSVMMemcpy = (KHRpfn_clEnqueueSVMMemcpy)GET_ALIAS(clEnqueueSVMMemcpy);
 	ICDDispatchTable.clEnqueueSVMMemFill = (KHRpfn_clEnqueueSVMMemFill)GET_ALIAS(clEnqueueSVMMemFill);
 	ICDDispatchTable.clEnqueueSVMMap = (KHRpfn_clEnqueueSVMMap)GET_ALIAS(clEnqueueSVMMap);
+	ICDDispatchTable.clEnqueueSVMMigrateMem = (KHRpfn_clEnqueueSVMMigrateMem)GET_ALIAS(clEnqueueSVMMigrateMem);
 	ICDDispatchTable.clEnqueueSVMUnmap = (KHRpfn_clEnqueueSVMUnmap)GET_ALIAS(clEnqueueSVMUnmap);
 	ICDDispatchTable.clSetKernelArgSVMPointer = (KHRpfn_clSetKernelArgSVMPointer)GET_ALIAS(clSetKernelArgSVMPointer);
 	ICDDispatchTable.clSetKernelExecInfo = (KHRpfn_clSetKernelExecInfo)GET_ALIAS(clSetKernelExecInfo);

@@ -110,8 +110,8 @@
 
         clCreateCommandQueueWithProperties;
         clCreateSamplerWithProperties;
-
         clSetDefaultDeviceCommandQueue;
+        clEnqueueSVMMigrateMem;
 
     local:
         *;

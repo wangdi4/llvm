@@ -3044,6 +3044,62 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
     return CL_SUCCESS;
 }
 
+cl_err_code ExecutionModule::EnqueueSVMMigrateMem(cl_command_queue clCommandQueue,
+                                             cl_uint num_svm_pointers,
+                                             const void**     svm_pointers,
+                                             const size_t*    sizes,
+                                             cl_mem_migration_flags flags,
+                                             cl_uint uiNumEventsInWaitList,
+                                             const cl_event*  pEventWaitList,
+                                             cl_event*        pEvent,
+                                             ApiLogger*       apiLogger)
+{
+    if (!(flags & CL_MIGRATE_MEM_OBJECT_HOST) &&
+        !(flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
+    {
+        return CL_INVALID_VALUE;
+    }
+    if ((NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList))
+    {
+        return CL_INVALID_EVENT_WAIT_LIST;
+    }
+    if (0 == num_svm_pointers || NULL == svm_pointers)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    SharedPtr<IOclCommandQueueBase> pQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
+    if (NULL == pQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    MigrateSVMMemCommand* pMigrateSVMCommand = new MigrateSVMMemCommand(pQueue, m_pContextModule, flags,
+                                                                    num_svm_pointers, svm_pointers, sizes);
+
+    if (NULL == pMigrateSVMCommand)
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    cl_err_code err = pMigrateSVMCommand->Init();
+    if (CL_FAILED(err))
+    {
+        delete pMigrateSVMCommand;
+        return err;
+    }
+
+    err = pMigrateSVMCommand->EnqueueSelf(/*Blocking*/CL_FALSE, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
+    if(CL_FAILED(err))
+    {
+        // Enqueue failed, free resources
+        pMigrateSVMCommand->CommandDone();
+        delete pMigrateSVMCommand;
+    }
+
+    return err;
+}
+
 cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_bool bBlockingCopy, void* pDstPtr, const void* pSrcPtr, size_t size, cl_uint uiNumEventsInWaitList,
     const cl_event* pEventWaitList, cl_event* pEvent, ApiLogger* apiLogger)
 {

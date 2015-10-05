@@ -193,7 +193,8 @@ fnDispatcherCommandCreate_t* TaskDispatcher::m_vCommands[] =
     &NativeFunction::Create,        //    CL_DEV_CMD_EXEC_NATIVE,
     &FillMemObject::Create,         //    CL_DEV_CMD_FILL_BUFFER
     &FillMemObject::Create,         //    CL_DEV_CMD_FILL_IMAGE
-    &MigrateMemObject::Create       //  CL_DEV_CMD_MIGRATE
+    &MigrateMemObject::Create,      //    CL_DEV_CMD_MIGRATE
+    &MigrateMemObject::Create       //    CL_DEV_CMD_SVM_MIGRATE
 };
 
 // Constructor/Dispatcher

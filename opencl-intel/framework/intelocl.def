@@ -134,3 +134,4 @@ EXPORTS
 	clGetDeviceAndHostTimer;
 	clSetDefaultDeviceCommandQueue
 	clCloneKernel
+	clEnqueueSVMMigrateMem
