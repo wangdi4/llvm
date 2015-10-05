@@ -517,10 +517,9 @@ template<bool preserveNames = true, typename T = ConstantFolder,
 class IRBuilder : public IRBuilderBase, public Inserter {
   T Folder;
 public:
-  IRBuilder(LLVMContext &C, const T &F, const Inserter &I = Inserter(),
+  IRBuilder(LLVMContext &C, const T &F, Inserter I = Inserter(),
             MDNode *FPMathTag = nullptr)
-    : IRBuilderBase(C, FPMathTag), Inserter(I), Folder(F) {
-  }
+      : IRBuilderBase(C, FPMathTag), Inserter(std::move(I)), Folder(F) {}
 
   explicit IRBuilder(LLVMContext &C, MDNode *FPMathTag = nullptr)
     : IRBuilderBase(C, FPMathTag), Folder() {
@@ -578,12 +577,15 @@ public:
   //===--------------------------------------------------------------------===//
 
 private:
-  /// \brief Helper to add branch weight metadata onto an instruction.
+  /// \brief Helper to add branch weight and unpredictable metadata onto an
+  /// instruction.
   /// \returns The annotated instruction.
   template <typename InstTy>
-  InstTy *addBranchWeights(InstTy *I, MDNode *Weights) {
+  InstTy *addBranchMetadata(InstTy *I, MDNode *Weights, MDNode *Unpredictable) {
     if (Weights)
       I->setMetadata(LLVMContext::MD_prof, Weights);
+    if (Unpredictable)
+      I->setMetadata(LLVMContext::MD_unpredictable, Unpredictable);
     return I;
   }
 
@@ -620,18 +622,20 @@ public:
   /// \brief Create a conditional 'br Cond, TrueDest, FalseDest'
   /// instruction.
   BranchInst *CreateCondBr(Value *Cond, BasicBlock *True, BasicBlock *False,
-                           MDNode *BranchWeights = nullptr) {
-    return Insert(addBranchWeights(BranchInst::Create(True, False, Cond),
-                                   BranchWeights));
+                           MDNode *BranchWeights = nullptr,
+                           MDNode *Unpredictable = nullptr) {
+    return Insert(addBranchMetadata(BranchInst::Create(True, False, Cond),
+                                    BranchWeights, Unpredictable));
   }
 
   /// \brief Create a switch instruction with the specified value, default dest,
   /// and with a hint for the number of cases that will be added (for efficient
   /// allocation).
   SwitchInst *CreateSwitch(Value *V, BasicBlock *Dest, unsigned NumCases = 10,
-                           MDNode *BranchWeights = nullptr) {
-    return Insert(addBranchWeights(SwitchInst::Create(V, Dest, NumCases),
-                                   BranchWeights));
+                           MDNode *BranchWeights = nullptr,
+                           MDNode *Unpredictable = nullptr) {
+    return Insert(addBranchMetadata(SwitchInst::Create(V, Dest, NumCases),
+                                    BranchWeights, Unpredictable));
   }
 
   /// \brief Create an indirect branch instruction with the specified address
@@ -670,6 +674,40 @@ public:
 
   ResumeInst *CreateResume(Value *Exn) {
     return Insert(ResumeInst::Create(Exn));
+  }
+
+  CleanupReturnInst *CreateCleanupRet(CleanupPadInst *CleanupPad,
+                                      BasicBlock *UnwindBB = nullptr) {
+    return Insert(CleanupReturnInst::Create(CleanupPad, UnwindBB));
+  }
+
+  CatchEndPadInst *CreateCleanupEndPad(CleanupPadInst *CleanupPad,
+                                       BasicBlock *UnwindBB = nullptr) {
+    return Insert(CleanupEndPadInst::Create(CleanupPad, UnwindBB));
+  }
+
+  CatchPadInst *CreateCatchPad(BasicBlock *NormalDest, BasicBlock *UnwindDest,
+                               ArrayRef<Value *> Args, const Twine &Name = "") {
+    return Insert(CatchPadInst::Create(NormalDest, UnwindDest, Args), Name);
+  }
+
+  CatchEndPadInst *CreateCatchEndPad(BasicBlock *UnwindBB = nullptr) {
+    return Insert(CatchEndPadInst::Create(Context, UnwindBB));
+  }
+
+  TerminatePadInst *CreateTerminatePad(BasicBlock *UnwindBB = nullptr,
+                                       ArrayRef<Value *> Args = {},
+                                       const Twine &Name = "") {
+    return Insert(TerminatePadInst::Create(Context, UnwindBB, Args), Name);
+  }
+
+  CleanupPadInst *CreateCleanupPad(ArrayRef<Value *> Args,
+                                   const Twine &Name = "") {
+    return Insert(CleanupPadInst::Create(Context, Args), Name);
+  }
+
+  CatchReturnInst *CreateCatchRet(CatchPadInst *CatchPad, BasicBlock *BB) {
+    return Insert(CatchReturnInst::Create(CatchPad, BB));
   }
 
   UnreachableInst *CreateUnreachable() {
@@ -1326,9 +1364,11 @@ public:
                                 const Twine &Name = "") {
     if (V->getType() == DestTy)
       return V;
-    if (V->getType()->isPointerTy() && DestTy->isIntegerTy())
+    if (V->getType()->getScalarType()->isPointerTy() &&
+        DestTy->getScalarType()->isIntegerTy())
       return CreatePtrToInt(V, DestTy, Name);
-    if (V->getType()->isIntegerTy() && DestTy->isPointerTy())
+    if (V->getType()->getScalarType()->isIntegerTy() &&
+        DestTy->getScalarType()->isPointerTy())
       return CreateIntToPtr(V, DestTy, Name);
 
     return CreateBitCast(V, DestTy, Name);
@@ -1382,47 +1422,61 @@ public:
     return CreateICmp(ICmpInst::ICMP_SLE, LHS, RHS, Name);
   }
 
-  Value *CreateFCmpOEQ(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_OEQ, LHS, RHS, Name);
+  Value *CreateFCmpOEQ(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_OEQ, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpOGT(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_OGT, LHS, RHS, Name);
+  Value *CreateFCmpOGT(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_OGT, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpOGE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_OGE, LHS, RHS, Name);
+  Value *CreateFCmpOGE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_OGE, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpOLT(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_OLT, LHS, RHS, Name);
+  Value *CreateFCmpOLT(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_OLT, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpOLE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_OLE, LHS, RHS, Name);
+  Value *CreateFCmpOLE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_OLE, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpONE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_ONE, LHS, RHS, Name);
+  Value *CreateFCmpONE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_ONE, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpORD(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_ORD, LHS, RHS, Name);
+  Value *CreateFCmpORD(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_ORD, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpUNO(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_UNO, LHS, RHS, Name);
+  Value *CreateFCmpUNO(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_UNO, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpUEQ(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_UEQ, LHS, RHS, Name);
+  Value *CreateFCmpUEQ(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_UEQ, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpUGT(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_UGT, LHS, RHS, Name);
+  Value *CreateFCmpUGT(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_UGT, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpUGE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_UGE, LHS, RHS, Name);
+  Value *CreateFCmpUGE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_UGE, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpULT(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_ULT, LHS, RHS, Name);
+  Value *CreateFCmpULT(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_ULT, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpULE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_ULE, LHS, RHS, Name);
+  Value *CreateFCmpULE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_ULE, LHS, RHS, Name, FPMathTag);
   }
-  Value *CreateFCmpUNE(Value *LHS, Value *RHS, const Twine &Name = "") {
-    return CreateFCmp(FCmpInst::FCMP_UNE, LHS, RHS, Name);
+  Value *CreateFCmpUNE(Value *LHS, Value *RHS, const Twine &Name = "",
+                       MDNode *FPMathTag = nullptr) {
+    return CreateFCmp(FCmpInst::FCMP_UNE, LHS, RHS, Name, FPMathTag);
   }
 
   Value *CreateICmp(CmpInst::Predicate P, Value *LHS, Value *RHS,
@@ -1433,11 +1487,12 @@ public:
     return Insert(new ICmpInst(P, LHS, RHS), Name);
   }
   Value *CreateFCmp(CmpInst::Predicate P, Value *LHS, Value *RHS,
-                    const Twine &Name = "") {
+                    const Twine &Name = "", MDNode *FPMathTag = nullptr) {
     if (Constant *LC = dyn_cast<Constant>(LHS))
       if (Constant *RC = dyn_cast<Constant>(RHS))
         return Insert(Folder.CreateFCmp(P, LC, RC), Name);
-    return Insert(new FCmpInst(P, LHS, RHS), Name);
+    return Insert(AddFPMathAttributes(new FCmpInst(P, LHS, RHS),
+                                      FPMathTag, FMF), Name);
   }
 
   //===--------------------------------------------------------------------===//
@@ -1449,7 +1504,7 @@ public:
     return Insert(PHINode::Create(Ty, NumReservedValues), Name);
   }
 
-  CallInst *CreateCall(Value *Callee, ArrayRef<Value *> Args,
+  CallInst *CreateCall(Value *Callee, ArrayRef<Value *> Args = None,
                        const Twine &Name = "") {
     return Insert(CallInst::Create(Callee, Args), Name);
   }

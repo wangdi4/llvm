@@ -75,6 +75,7 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::OCLEvent:         ID = PREDEF_TYPE_EVENT_ID;        break;
   case BuiltinType::BuiltinFn:
                                 ID = PREDEF_TYPE_BUILTIN_FN; break;
+  case BuiltinType::OMPArraySection:  ID = PREDEF_TYPE_OMP_ARRAY_SECTION; break;
 
   }
 
@@ -234,6 +235,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   // redeclarable.
   case Decl::ImplicitParam:
   case Decl::ParmVar:
+  case Decl::ObjCTypeParam:
     return false;
   }
 

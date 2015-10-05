@@ -97,11 +97,11 @@ static void AddImplicitIncludePTH(MacroBuilder &Builder, Preprocessor &PP,
 /// \brief Add an implicit \#include using the original file used to generate
 /// a PCH file.
 static void AddImplicitIncludePCH(MacroBuilder &Builder, Preprocessor &PP,
-                                  const PCHContainerOperations &PCHContainerOps,
+                                  const PCHContainerReader &PCHContainerRdr,
                                   StringRef ImplicitIncludePCH) {
   std::string OriginalFile =
       ASTReader::getOriginalSourceFile(ImplicitIncludePCH, PP.getFileManager(),
-                                       PCHContainerOps, PP.getDiagnostics());
+                                       PCHContainerRdr, PP.getDiagnostics());
   if (OriginalFile.empty())
     return;
 
@@ -601,7 +601,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
     if (!LangOpts.IntelCompat)
-#endif  // not INTEL_SPECIFIC_IL0_BACKEND
+#endif  // !INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
     Builder.defineMacro("__GNUG__", "4");
     Builder.defineMacro("__GXX_WEAK__");
@@ -615,6 +615,13 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("_NATIVE_WCHAR_T_DEFINED");
     }
   }
+
+#ifdef INTEL_CUSTOMIZATION
+  // In IntelCompat mode define _BOOL macro on all non-Windows platforms.
+  // CQ#373889.
+  if (LangOpts.Bool && !LangOpts.MicrosoftExt && LangOpts.IntelCompat)
+    Builder.defineMacro("_BOOL");
+#endif // INTEL_CUSTOMIZATION
 
   if (LangOpts.Optimize)
     Builder.defineMacro("__OPTIMIZE__");
@@ -937,7 +944,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
 ///
 void clang::InitializePreprocessor(
     Preprocessor &PP, const PreprocessorOptions &InitOpts,
-    const PCHContainerOperations &PCHContainerOps,
+    const PCHContainerReader &PCHContainerRdr,
     const FrontendOptions &FEOpts) {
   const LangOptions &LangOpts = PP.getLangOpts();
   std::string PredefineBuffer;
@@ -997,7 +1004,7 @@ void clang::InitializePreprocessor(
 
   // Process -include-pch/-include-pth directives.
   if (!InitOpts.ImplicitPCHInclude.empty())
-    AddImplicitIncludePCH(Builder, PP, PCHContainerOps,
+    AddImplicitIncludePCH(Builder, PP, PCHContainerRdr,
                           InitOpts.ImplicitPCHInclude);
   if (!InitOpts.ImplicitPTHInclude.empty())
     AddImplicitIncludePTH(Builder, PP, InitOpts.ImplicitPTHInclude);

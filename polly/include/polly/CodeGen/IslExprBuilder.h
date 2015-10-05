@@ -17,7 +17,8 @@
 #include "isl/ast.h"
 
 namespace llvm {
-class SCEVExpander;
+class DataLayout;
+class ScalarEvolution;
 }
 
 namespace polly {
@@ -80,6 +81,7 @@ class IslExprBuilder {
 public:
   /// @brief A map from isl_ids to llvm::Values.
   typedef llvm::MapVector<isl_id *, llvm::Value *> IDToValueTy;
+  typedef llvm::DenseMap<const llvm::Value *, llvm::Value *> ValueToValueMap;
 
   /// @brief Construct an IslExprBuilder.
   ///
@@ -91,13 +93,12 @@ public:
   ///                  variables (identified by an isl_id). The IDTOValue map
   ///                  specifies the LLVM-IR Values that correspond to these
   ///                  parameters and variables.
-  /// @param Expander  A SCEVExpander to create the indices for multi
-  ///                  dimensional accesses.
-  IslExprBuilder(PollyIRBuilder &Builder, IDToValueTy &IDToValue,
-                 llvm::SCEVExpander &Expander, llvm::DominatorTree &DT,
+  IslExprBuilder(Scop &S, PollyIRBuilder &Builder, IDToValueTy &IDToValue,
+                 ValueToValueMap &GlobalMap, const llvm::DataLayout &DL,
+                 llvm::ScalarEvolution &SE, llvm::DominatorTree &DT,
                  llvm::LoopInfo &LI)
-      : Builder(Builder), IDToValue(IDToValue), Expander(Expander), DT(DT),
-        LI(LI) {}
+      : S(S), Builder(Builder), IDToValue(IDToValue), GlobalMap(GlobalMap),
+        DL(DL), SE(SE), DT(DT), LI(LI) {}
 
   /// @brief Create LLVM-IR for an isl_ast_expr[ession].
   ///
@@ -124,12 +125,14 @@ public:
   llvm::IntegerType *getType(__isl_keep isl_ast_expr *Expr);
 
 private:
+  Scop &S;
+
   PollyIRBuilder &Builder;
   IDToValueTy &IDToValue;
+  ValueToValueMap &GlobalMap;
 
-  /// @brief A SCEVExpander to translate dimension sizes to llvm values.
-  llvm::SCEVExpander &Expander;
-
+  const llvm::DataLayout &DL;
+  llvm::ScalarEvolution &SE;
   llvm::DominatorTree &DT;
   llvm::LoopInfo &LI;
 

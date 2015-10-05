@@ -4,6 +4,7 @@
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -std=c++11 -DLAMBDA -triple %itanium_abi_triple -emit-llvm %s -o - | FileCheck -check-prefix=LAMBDA %s
 // RUN: %clang_cc1 -verify -fopenmp -x c++ -fblocks -DBLOCKS -triple %itanium_abi_triple -emit-llvm %s -o - | FileCheck -check-prefix=BLOCKS %s
 // expected-no-diagnostics
+// REQUIRES: x86-registered-target
 #ifndef HEADER
 #define HEADER
 
@@ -17,6 +18,7 @@ struct S {
 };
 
 volatile double g;
+volatile double &g1 = g;
 
 // CHECK: [[S_FLOAT_TY:%.+]] = type { float }
 // CHECK: [[CAP_MAIN_TY:%.+]] = type { i8 }
@@ -29,7 +31,7 @@ T tmain() {
   T t_var = T();
   T vec[] = {1, 2};
   S<T> s_arr[] = {1, 2};
-  S<T> var(3);
+  S<T> &var = test;
 #pragma omp parallel
 #pragma omp for private(t_var, vec, s_arr, s_arr, var, var)
   for (int i = 0; i < 2; ++i) {
@@ -48,14 +50,15 @@ int main() {
   // LAMBDA: define{{.*}} internal{{.*}} void [[OUTER_LAMBDA]](
   // LAMBDA: call {{.*}}void {{.+}} @__kmpc_fork_call({{.+}}, i32 1, {{.+}}* [[OMP_REGION:@.+]] to {{.+}}, i8* %{{.+}})
 #pragma omp parallel
-#pragma omp for private(g)
+#pragma omp for private(g, g1)
   for (int i = 0; i < 2; ++i) {
     // LAMBDA: define{{.*}} internal{{.*}} void [[OMP_REGION]](i32* %{{.+}}, i32* %{{.+}}, %{{.+}}* [[ARG:%.+]])
     // LAMBDA: [[G_PRIVATE_ADDR:%.+]] = alloca double,
     // LAMBDA: store %{{.+}}* [[ARG]], %{{.+}}** [[ARG_REF:%.+]],
     g = 1;
+    g1 = 1;
     // LAMBDA: call {{.*}}void @__kmpc_for_static_init_4(
-    // LAMBDA: store volatile double 1.0{{.+}}, double* [[G_PRIVATE_ADDR]],
+    // LAMBDA: store double 1.0{{.+}}, double* [[G_PRIVATE_ADDR]],
     // LAMBDA: [[G_PRIVATE_ADDR_REF:%.+]] = getelementptr inbounds %{{.+}}, %{{.+}}* [[ARG:%.+]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
     // LAMBDA: store double* [[G_PRIVATE_ADDR]], double** [[G_PRIVATE_ADDR_REF]]
     // LAMBDA: call{{.*}} void [[INNER_LAMBDA:@.+]](%{{.+}}* [[ARG]])
@@ -64,10 +67,11 @@ int main() {
       // LAMBDA: define {{.+}} void [[INNER_LAMBDA]](%{{.+}}* [[ARG_PTR:%.+]])
       // LAMBDA: store %{{.+}}* [[ARG_PTR]], %{{.+}}** [[ARG_PTR_REF:%.+]],
       g = 2;
+      g1 = 2;
       // LAMBDA: [[ARG_PTR:%.+]] = load %{{.+}}*, %{{.+}}** [[ARG_PTR_REF]]
       // LAMBDA: [[G_PTR_REF:%.+]] = getelementptr inbounds %{{.+}}, %{{.+}}* [[ARG_PTR]], i{{[0-9]+}} 0, i{{[0-9]+}} 0
       // LAMBDA: [[G_REF:%.+]] = load double*, double** [[G_PTR_REF]]
-      // LAMBDA: store volatile double 2.0{{.+}}, double* [[G_REF]]
+      // LAMBDA: store double 2.0{{.+}}, double* [[G_REF]]
     }();
   }
   }();
@@ -80,14 +84,15 @@ int main() {
   // BLOCKS: define{{.*}} internal{{.*}} void {{.+}}(i8*
   // BLOCKS: call {{.*}}void {{.+}} @__kmpc_fork_call({{.+}}, i32 1, {{.+}}* [[OMP_REGION:@.+]] to {{.+}}, i8* {{.+}})
 #pragma omp parallel
-#pragma omp for private(g)
+#pragma omp for private(g, g1)
   for (int i = 0; i < 2; ++i) {
     // BLOCKS: define{{.*}} internal{{.*}} void [[OMP_REGION]](i32* %{{.+}}, i32* %{{.+}}, %{{.+}}* [[ARG:%.+]])
     // BLOCKS: [[G_PRIVATE_ADDR:%.+]] = alloca double,
     // BLOCKS: store %{{.+}}* [[ARG]], %{{.+}}** [[ARG_REF:%.+]],
     g = 1;
+    g1 = 1;
     // BLOCKS: call {{.*}}void @__kmpc_for_static_init_4(
-    // BLOCKS: store volatile double 1.0{{.+}}, double* [[G_PRIVATE_ADDR]],
+    // BLOCKS: store double 1.0{{.+}}, double* [[G_PRIVATE_ADDR]],
     // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
     // BLOCKS: double* [[G_PRIVATE_ADDR]]
     // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
@@ -96,8 +101,9 @@ int main() {
     ^{
       // BLOCKS: define {{.+}} void {{@.+}}(i8*
       g = 2;
+      g1 = 2;
       // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
-      // BLOCKS: store volatile double 2.0{{.+}}, double*
+      // BLOCKS: store double 2.0{{.+}}, double*
       // BLOCKS-NOT: [[G]]{{[[^:word:]]}}
       // BLOCKS: ret
     }();
@@ -109,7 +115,7 @@ int main() {
   int t_var = 0;
   int vec[] = {1, 2};
   S<float> s_arr[] = {1, 2};
-  S<float> var(3);
+  S<float> &var = test;
 #pragma omp parallel
 #pragma omp for private(t_var, vec, s_arr, s_arr, var, var)
   for (int i = 0; i < 2; ++i) {

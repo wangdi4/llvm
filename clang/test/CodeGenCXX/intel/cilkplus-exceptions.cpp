@@ -7,7 +7,8 @@
 // RUN: FileCheck -check-prefix=CHECK_SYNC_JUMP --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_MISC_IMP_SYNC --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_INIT --input-file=%t-noopt %s
-// XFAIL: *
+// XFAIL: win
+
 namespace stack_frame_cleanup {
   extern void touch();
 
@@ -31,7 +32,7 @@ namespace stack_frame_cleanup {
 
   void parent_stack_frame_test() {
     test_f1<int, 23>();
-    // CHECK_PARENT: define {{.*}} @_ZN19stack_frame_cleanup7test_f1IiLi23EEEvv
+    // CHECK_PARENT: define {{.*}}@{{.*}}test_f1
     // CHECK_PARENT: alloca %__cilkrts_stack_frame
     // CHECK_PARENT-NEXT: call void @__cilk_parent_prologue
     // CHECK_PARENT: invoke void @__cilk_spawn_helper
@@ -57,20 +58,20 @@ namespace stack_frame_cleanup {
     // CHECK_HELPER_F1: call void @__cilk_reset_worker
     //
     // Call C's constructor
-    // CHECK_HELPER_F1: invoke void @_ZN19stack_frame_cleanup1CC1Ev
+    // CHECK_HELPER_F1: invoke {{.*}}@{{.*}}stack_frame_cleanup
     //
     // CHECK_HELPER_F1: call void @__cilk_helper_prologue
-    // CHECK_HELPER_F1-NEXT: invoke void @_ZN19stack_frame_cleanup2f1INS_1CEEEvT_
+    // CHECK_HELPER_F1-NEXT: invoke {{.*}}@{{.*}}stack_frame_cleanup
     //
     // * Normal exit *
     //
     // Call C's destructor
-    // CHECK_HELPER_F1: call void @_ZN19stack_frame_cleanup1CD1Ev
+    // CHECK_HELPER_F1: call {{.*}}@{{.*}}stack_frame_cleanup
     // CHECK_HELPER_F1: call void @__cilk_helper_epilogue
     //
     // * Exit due to exception *
     //
-    // CHECK_HELPER_F1: call void @_ZN19stack_frame_cleanup1CD1Ev
+    // CHECK_HELPER_F1: call {{.*}}@{{.*}}stack_frame_cleanup
     // CHECK_HELPER_F1-NEXT: br label
     // CHECK_HELPER_F1: call void @__cilk_helper_epilogue
   }
@@ -83,9 +84,9 @@ namespace stack_frame_cleanup {
     //
     // CHECK_HELPER_F2: define internal void @[[Helper]]
     // CHECK_HELPER_F2: [[REG:%[a-zA-Z0-9]+]] = getelementptr inbounds %struct
-    // CHECK_HELPER_F2-NEXT: load i32** [[REG]]
+    // CHECK_HELPER_F2-NEXT: load i32*, i32** [[REG]]
     // CHECK_HELPER_F2-NEXT: call void @__cilk_helper_prologue
-    // CHECK_HELPER_F2-NEXT: [[RET_REG:%[a-zA-Z0-9]+]] = invoke i32 @_ZN19stack_frame_cleanup2f2IiEET_S1_
+    // CHECK_HELPER_F2-NEXT: [[RET_REG:%[a-zA-Z0-9]+]] = invoke {{.*}}@{{.*}}stack_frame_cleanup
     //
     // * Normal exit *
     //
@@ -105,7 +106,7 @@ namespace stack_frame_cleanup {
     } catch (...) {
     }
 out: return;
-    // CHECK_SYNC_JUMP: define void @_ZN19stack_frame_cleanup{{[0-9]+}}test3Ev
+    // CHECK_SYNC_JUMP: define {{.*}}@{{.*}}test3
     //
     // * Implicit sync while entering the try block
     //
@@ -132,7 +133,7 @@ out: return;
       } catch (...) {
       }
     }
-    // CHECK_SYNC_JUMP: define void @_ZN19stack_frame_cleanup{{[0-9]+}}test4Ev
+    // CHECK_SYNC_JUMP: define {{.*}}@{{.*}}test4
     //
     // * Implicit sync while entering the try block
     //
@@ -159,7 +160,7 @@ out: return;
       } catch (...) {
       }
     }
-    // CHECK_SYNC_JUMP: define void @_ZN19stack_frame_cleanup{{[0-9]+}}test5Ev
+    // CHECK_SYNC_JUMP: define {{.*}}@{{.*}}test5
     //
     // * Implicit sync while entering the try block
     //
@@ -193,9 +194,9 @@ void test1() {
   }
 
   test1_anchor();
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test1Ev
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test1
   //
-  // CHECK_IMPLICIT_SYNC: call void @_ZN27implicit_sync_elision_basic12test1_anchorEv
+  // CHECK_IMPLICIT_SYNC: call {{.*}}@{{.*}}test1_anchor
   // CHECK_IMPLICIT_SYNC-NEXT: call void @__cilk_parent_epilogue
   // CHECK_IMPLICIT_SYNC-NEXT: ret void
 }
@@ -211,8 +212,8 @@ void test2() {
   }
 
   test2_anchor();
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test2Ev
-  // CHECK_IMPLICIT_SYNC: call void @_ZN27implicit_sync_elision_basic12test2_anchorEv
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test2
+  // CHECK_IMPLICIT_SYNC: call {{.*}}@{{.*}}test2_anchor
   // CHECK_IMPLICIT_SYNC-NEXT: invoke void @__cilk_sync
   // CHECK_IMPLICIT_SYNC: call void @__cilk_parent_epilogue
   // CHECK_IMPLICIT_SYNC-NEXT: ret void
@@ -229,8 +230,8 @@ void test3() {
   }
 
   test3_anchor();
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test3Ev
-  // CHECK_IMPLICIT_SYNC: call void @_ZN27implicit_sync_elision_basic12test3_anchorEv
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test3
+  // CHECK_IMPLICIT_SYNC: call {{.*}}@{{.*}}test3_anchor
   // CHECK_IMPLICIT_SYNC-NEXT: invoke void @__cilk_sync
   // CHECK_IMPLICIT_SYNC: call void @__cilk_parent_epilogue
   // CHECK_IMPLICIT_SYNC-NEXT: ret void
@@ -251,8 +252,8 @@ void test4() {
   }
 
   test4_anchor();
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test4Ev
-  // CHECK_IMPLICIT_SYNC: call void @_ZN27implicit_sync_elision_basic12test4_anchorEv
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test4
+  // CHECK_IMPLICIT_SYNC: call void {{.*}}@{{.*}}test4_anchor
   // CHECK_IMPLICIT_SYNC-NEXT: call void @__cilk_parent_epilogue
   // CHECK_IMPLICIT_SYNC-NEXT: ret void
 }
@@ -264,8 +265,8 @@ void test5() {
   } catch (...) {
     _Cilk_spawn bar();
   }
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test5Ev
-  // CHECK_IMPLICIT_SYNC: invoke void @_ZN27implicit_sync_elision_basic3fooEv()
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test5
+  // CHECK_IMPLICIT_SYNC: invoke {{.*}}@{{.*}}foo
   // CHECK_IMPLICIT_SYNC-NOT: call void @__cilk_sync
   // CHECK_IMPLICIT_SYNC: call i8* @__cxa_begin_catch
 }
@@ -286,8 +287,8 @@ void test6() {
     _Cilk_spawn bar();
     bar();
   }
-  // CHECK_IMPLICIT_SYNC: define void @_ZN27implicit_sync_elision_basic5test6Ev
-  // CHECK_IMPLICIT_SYNC: call void @_ZN27implicit_sync_elision_basic12test6_anchorEv
+  // CHECK_IMPLICIT_SYNC: define {{.*}}@{{.*}}test6
+  // CHECK_IMPLICIT_SYNC: call {{.*}}@{{.*}}test6_anchor
   // CHECK_IMPLICIT_SYNC-NEXT: br
 }
 } // namespace
@@ -303,17 +304,17 @@ void entering_any_try_block() {
 
   try { bar(); } catch (...) { }
 
-  // CHECK_MISC_IMP_SYNC: define void @_ZN4misc22entering_any_try_blockEv
+  // CHECK_MISC_IMP_SYNC: define {{.*}}@{{.*}}entering_any_try_block
   // CHECK_MISC_IMP_SYNC: invoke void @__cilk_sync
-  // CHECK_MISC_IMP_SYNC: call void @_ZN4misc3barEv
+  // CHECK_MISC_IMP_SYNC: call {{.*}}@{{.*}}bar
 }
 
 void entering_spawning_try_block() {
   try { foo(); _Cilk_spawn bar(); } catch (...) { }
 
-  // CHECK_MISC_IMP_SYNC: define void @_ZN4misc27entering_spawning_try_blockEv
+  // CHECK_MISC_IMP_SYNC: define {{.*}}@{{.*}}entering_spawning_try_block
   // CHECK_MISC_IMP_SYNC: invoke void @__cilk_sync
-  // CHECK_MISC_IMP_SYNC: call void @_ZN4misc3fooEv
+  // CHECK_MISC_IMP_SYNC: call {{.*}}@{{.*}}foo
 }
 
 void entering_nested_try_block() {
@@ -324,11 +325,11 @@ void entering_nested_try_block() {
     try { baz(); } catch (...) { }
   } catch (...) { }
 
-  // CHECK_MISC_IMP_SYNC: define void @_ZN4misc25entering_nested_try_blockEv
+  // CHECK_MISC_IMP_SYNC: define {{.*}}@{{.*}}entering_nested_try_block
   // CHECK_MISC_IMP_SYNC: invoke void @__cilk_sync
-  // CHECK_MISC_IMP_SYNC: call void @_ZN4misc3barEv
+  // CHECK_MISC_IMP_SYNC: call {{.*}}@{{.*}}bar
   // CHECK_MISC_IMP_SYNC-NEXT: invoke void @__cilk_sync
-  // CHECK_MISC_IMP_SYNC: call void @_ZN4misc3bazEv
+  // CHECK_MISC_IMP_SYNC: call {{.*}}@{{.*}}baz
 }
 
 namespace spawn_variable_initialization {
@@ -346,16 +347,16 @@ void test_value() {
   try {
     Class c = _Cilk_spawn makeClass();
   } catch (...) { }
-  // CHECK_INIT: define void @{{.*}}spawn_variable_initialization{{.*}}test_valueEv()
+  // CHECK_INIT: define {{.*}}@{{.*}}test_value
   // CHECK_INIT: invoke void @__cilk_spawn_helper
   // CHECK_INIT-NOT: ret
   //
   // Normal exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT-NOT: ret
   //
   // Exceptional exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT: ret
 }
 
@@ -364,18 +365,18 @@ void test_rvalue_ref() {
     Class &&c = _Cilk_spawn makeClass();
     maybeThrow();
   } catch (...) { }
-  // CHECK_INIT: define void @{{.*}}spawn_variable_initialization{{.*}}test_rvalue_refEv()
+  // CHECK_INIT: define {{.*}}@{{.*}}test_rvalue_ref
   // CHECK_INIT: invoke void @__cilk_spawn_helper
   // CHECK_INIT-NOT: ret
   //
   // CHECK_INIT: invoke void @{{.*}}spawn_variable_initialization{{.*}}maybeThrow
   //
   // Normal exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT-NOT: ret
   //
   // Exceptional exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT: ret
 }
 
@@ -384,14 +385,14 @@ void test_const_ref() {
     const Class &c = _Cilk_spawn makeClass();
     maybeThrow();
   } catch (...) { }
-  // CHECK_INIT: define void @{{.*}}spawn_variable_initialization{{.*}}test_const_refEv()
+  // CHECK_INIT: define {{.*}}@{{.*}}test_const_ref
   // CHECK_INIT: invoke void @__cilk_spawn_helper
   // CHECK_INIT-NOT: ret
   //
   // CHECK_INIT: invoke void @{{.*}}spawn_variable_initialization{{.*}}maybeThrow
   //
   // Normal exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT-NOT: ret
   //
   // Exceptional exit:
@@ -404,16 +405,16 @@ void test_no_destruct_uninitialized() {
   try {
     Class &&c = _Cilk_spawn makeClass();
   } catch (...) { }
-  // CHECK_INIT: define void @{{.*}}spawn_variable_initialization{{.*}}test_no_destruct_uninitialized
+  // CHECK_INIT: define {{.*}}@{{.*}}test_no_destruct_uninitialized
   // CHECK_INIT: invoke void @__cilk_spawn_helper
   // CHECK_INIT-NOT: ret
   //
   // Normal exit:
-  // CHECK_INIT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT: call void @{{.*}}ClassD1
   // CHECK_INIT-NOT: ret
   //
   // Exceptional exit:
-  // CHECK_INIT-NOT: call void @{{.*}}ClassD1Ev
+  // CHECK_INIT-NOT: call void @{{.*}}ClassD1
   // CHECK_INIT: ret
 }
 
@@ -430,13 +431,13 @@ void test_bind_to_base_type() {
   try {
     Base &&c = _Cilk_spawn makeDerived();
   } catch (...) { }
-  // CHECK_INIT: define void @{{.*}}spawn_variable_initialization{{.*}}test_bind_to_base_type
+  // CHECK_INIT: define {{.*}}@{{.*}}test_bind_to_base_type
   // CHECK_INIT: alloca {{.*}}Base"*
   // CHECK_INIT: alloca {{.*}}Derived"
   // CHECK_INIT: invoke void @__cilk_spawn_helper
   // CHECK_INIT-NOT: ret
   //
-  // CHECK_INIT: call void @{{.*}}DerivedD1Ev
+  // CHECK_INIT: call void @{{.*}}DerivedD1
 }
 
 } // namespace spawn_variable_initialization

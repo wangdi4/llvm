@@ -15,6 +15,7 @@
 #include "clang/AST/ASTDiagnostic.h"
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/ExprObjC.h"
+#include "clang/AST/ExprOpenMP.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
@@ -724,10 +725,7 @@ MSAsmStmt::MSAsmStmt(const ASTContext &C, SourceLocation asmloc,
 }
 
 static StringRef copyIntoContext(const ASTContext &C, StringRef str) {
-  size_t size = str.size();
-  char *buffer = new (C) char[size];
-  memcpy(buffer, str.data(), size);
-  return StringRef(buffer, size);
+  return str.copy(C);
 }
 
 void MSAsmStmt::initialize(const ASTContext &C, StringRef asmstr,
@@ -822,7 +820,7 @@ SourceLocation ObjCAtTryStmt::getLocEnd() const {
 CXXTryStmt *CXXTryStmt::Create(const ASTContext &C, SourceLocation tryLoc,
                                Stmt *tryBlock, ArrayRef<Stmt*> handlers) {
   std::size_t Size = sizeof(CXXTryStmt);
-  Size += ((handlers.size() + 1) * sizeof(Stmt));
+  Size += ((handlers.size() + 1) * sizeof(Stmt *));
 
   void *Mem = C.Allocate(Size, llvm::alignOf<CXXTryStmt>());
   return new (Mem) CXXTryStmt(tryLoc, tryBlock, handlers);
@@ -831,7 +829,7 @@ CXXTryStmt *CXXTryStmt::Create(const ASTContext &C, SourceLocation tryLoc,
 CXXTryStmt *CXXTryStmt::Create(const ASTContext &C, EmptyShell Empty,
                                unsigned numHandlers) {
   std::size_t Size = sizeof(CXXTryStmt);
-  Size += ((numHandlers + 1) * sizeof(Stmt));
+  Size += ((numHandlers + 1) * sizeof(Stmt *));
 
   void *Mem = C.Allocate(Size, llvm::alignOf<CXXTryStmt>());
   return new (Mem) CXXTryStmt(Empty, numHandlers);
@@ -1086,7 +1084,7 @@ CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
                            CapturedDecl *CD,
                            RecordDecl *RD)
   : Stmt(CapturedStmtClass), NumCaptures(Captures.size()),
-    CapDecl(CD), Kind(Kind), TheRecordDecl(RD) {  //***INTEL
+    CapDeclAndKind(CD, Kind), TheRecordDecl(RD) {
   assert( S && "null captured statement");
   assert(CD && "null captured declaration for captured statement");
   assert(RD && "null record declaration for captured statement");
@@ -1106,7 +1104,7 @@ CapturedStmt::CapturedStmt(Stmt *S, CapturedRegionKind Kind,
 
 CapturedStmt::CapturedStmt(EmptyShell Empty, unsigned NumCaptures)
   : Stmt(CapturedStmtClass, Empty), NumCaptures(NumCaptures),
-    CapDecl(nullptr), Kind(CR_Default), TheRecordDecl(nullptr) {  //***INTEL
+    CapDeclAndKind(nullptr, CR_Default), TheRecordDecl(nullptr) {
   getStoredStmts()[NumCaptures] = nullptr;
 }
 
@@ -1358,7 +1356,7 @@ CilkRankedStmt *CilkRankedStmt::CreateEmpty(const ASTContext &C, unsigned N,
 
 #endif  // INTEL_CUSTOMIZATION
 
-StmtRange OMPClause::children() {
+OMPClause::child_range OMPClause::children() {
   switch(getClauseKind()) {
   default : break;
 #define OPENMP_CLAUSE(Name, Class)                                       \
@@ -1507,10 +1505,16 @@ OMPSharedClause *OMPSharedClause::CreateEmpty(const ASTContext &C,
   return new (Mem) OMPSharedClause(N);
 }
 
+void OMPLinearClause::setPrivates(ArrayRef<Expr *> PL) {
+  assert(PL.size() == varlist_size() &&
+         "Number of privates is not the same as the preallocated buffer");
+  std::copy(PL.begin(), PL.end(), varlist_end());
+}
+
 void OMPLinearClause::setInits(ArrayRef<Expr *> IL) {
   assert(IL.size() == varlist_size() &&
          "Number of inits is not the same as the preallocated buffer");
-  std::copy(IL.begin(), IL.end(), varlist_end());
+  std::copy(IL.begin(), IL.end(), getPrivates().end());
 }
 
 void OMPLinearClause::setUpdates(ArrayRef<Expr *> UL) {
@@ -1525,19 +1529,20 @@ void OMPLinearClause::setFinals(ArrayRef<Expr *> FL) {
   std::copy(FL.begin(), FL.end(), getUpdates().end());
 }
 
-OMPLinearClause *
-OMPLinearClause::Create(const ASTContext &C, SourceLocation StartLoc,
-                        SourceLocation LParenLoc, SourceLocation ColonLoc,
-                        SourceLocation EndLoc, ArrayRef<Expr *> VL,
-                        ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep) {
+OMPLinearClause *OMPLinearClause::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation LParenLoc,
+    OpenMPLinearClauseKind Modifier, SourceLocation ModifierLoc,
+    SourceLocation ColonLoc, SourceLocation EndLoc, ArrayRef<Expr *> VL,
+    ArrayRef<Expr *> PL, ArrayRef<Expr *> IL, Expr *Step, Expr *CalcStep) {
   // Allocate space for 4 lists (Vars, Inits, Updates, Finals) and 2 expressions
   // (Step and CalcStep).
   void *Mem = C.Allocate(llvm::RoundUpToAlignment(sizeof(OMPLinearClause),
                                                   llvm::alignOf<Expr *>()) +
-                         (4 * VL.size() + 2) * sizeof(Expr *));
-  OMPLinearClause *Clause = new (Mem)
-      OMPLinearClause(StartLoc, LParenLoc, ColonLoc, EndLoc, VL.size());
+                         (5 * VL.size() + 2) * sizeof(Expr *));
+  OMPLinearClause *Clause = new (Mem) OMPLinearClause(
+      StartLoc, LParenLoc, Modifier, ModifierLoc, ColonLoc, EndLoc, VL.size());
   Clause->setVarRefs(VL);
+  Clause->setPrivates(PL);
   Clause->setInits(IL);
   // Fill update and final expressions with zeroes, they are provided later,
   // after the directive construction.
@@ -1556,7 +1561,7 @@ OMPLinearClause *OMPLinearClause::CreateEmpty(const ASTContext &C,
   // (Step and CalcStep).
   void *Mem = C.Allocate(llvm::RoundUpToAlignment(sizeof(OMPLinearClause),
                                                   llvm::alignOf<Expr *>()) +
-                         (4 * NumVars + 2) * sizeof(Expr *));
+                         (5 * NumVars + 2) * sizeof(Expr *));
   return new (Mem) OMPLinearClause(NumVars);
 }
 
@@ -1686,6 +1691,19 @@ void OMPLoopDirective::setCounters(ArrayRef<Expr *> A) {
   std::copy(A.begin(), A.end(), getCounters().begin());
 }
 
+void OMPLoopDirective::setPrivateCounters(ArrayRef<Expr *> A) {
+  assert(A.size() == getCollapsedNumber() && "Number of loop private counters "
+                                             "is not the same as the collapsed "
+                                             "number");
+  std::copy(A.begin(), A.end(), getPrivateCounters().begin());
+}
+
+void OMPLoopDirective::setInits(ArrayRef<Expr *> A) {
+  assert(A.size() == getCollapsedNumber() &&
+         "Number of counter inits is not the same as the collapsed number");
+  std::copy(A.begin(), A.end(), getInits().begin());
+}
+
 void OMPLoopDirective::setUpdates(ArrayRef<Expr *> A) {
   assert(A.size() == getCollapsedNumber() &&
          "Number of counter updates is not the same as the collapsed number");
@@ -1790,18 +1808,6 @@ OMPDependClause *OMPDependClause::CreateEmpty(const ASTContext &C, unsigned N) {
   return new (Mem) OMPDependClause(N);
 }
 
-const OMPClause *
-OMPExecutableDirective::getSingleClause(OpenMPClauseKind K) const {
-  auto &&I = getClausesOfKind(K);
-
-  if (I) {
-    auto *Clause = *I;
-    assert(!++I && "There are at least 2 clauses of the specified kind");
-    return Clause;
-  }
-  return nullptr;
-}
-
 OMPParallelDirective *OMPParallelDirective::Create(
                                               const ASTContext &C,
                                               SourceLocation StartLoc,
@@ -1851,6 +1857,8 @@ OMPSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setInit(Exprs.Init);
   Dir->setInc(Exprs.Inc);
   Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   return Dir;
@@ -1897,6 +1905,8 @@ OMPForDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setNextLowerBound(Exprs.NLB);
   Dir->setNextUpperBound(Exprs.NUB);
   Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   return Dir;
@@ -1943,6 +1953,8 @@ OMPForSimdDirective::Create(const ASTContext &C, SourceLocation StartLoc,
   Dir->setNextLowerBound(Exprs.NLB);
   Dir->setNextUpperBound(Exprs.NUB);
   Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   return Dir;
@@ -2098,6 +2110,8 @@ OMPParallelForDirective *OMPParallelForDirective::Create(
   Dir->setNextLowerBound(Exprs.NLB);
   Dir->setNextUpperBound(Exprs.NUB);
   Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   return Dir;
@@ -2142,6 +2156,8 @@ OMPParallelForSimdDirective *OMPParallelForSimdDirective::Create(
   Dir->setNextLowerBound(Exprs.NLB);
   Dir->setNextUpperBound(Exprs.NUB);
   Dir->setCounters(Exprs.Counters);
+  Dir->setPrivateCounters(Exprs.PrivateCounters);
+  Dir->setInits(Exprs.Inits);
   Dir->setUpdates(Exprs.Updates);
   Dir->setFinals(Exprs.Finals);
   return Dir;
@@ -2293,6 +2309,26 @@ OMPCancellationPointDirective::CreateEmpty(const ASTContext &C, EmptyShell) {
   return new (Mem) OMPCancellationPointDirective();
 }
 
+OMPCancelDirective *
+OMPCancelDirective::Create(const ASTContext &C, SourceLocation StartLoc,
+                           SourceLocation EndLoc,
+                           OpenMPDirectiveKind CancelRegion) {
+  unsigned Size = llvm::RoundUpToAlignment(sizeof(OMPCancelDirective),
+                                           llvm::alignOf<Stmt *>());
+  void *Mem = C.Allocate(Size);
+  OMPCancelDirective *Dir = new (Mem) OMPCancelDirective(StartLoc, EndLoc);
+  Dir->setCancelRegion(CancelRegion);
+  return Dir;
+}
+
+OMPCancelDirective *OMPCancelDirective::CreateEmpty(const ASTContext &C,
+                                                    EmptyShell) {
+  unsigned Size = llvm::RoundUpToAlignment(sizeof(OMPCancelDirective),
+                                           llvm::alignOf<Stmt *>());
+  void *Mem = C.Allocate(Size);
+  return new (Mem) OMPCancelDirective();
+}
+
 OMPFlushDirective *OMPFlushDirective::Create(const ASTContext &C,
                                              SourceLocation StartLoc,
                                              SourceLocation EndLoc,
@@ -2390,6 +2426,30 @@ OMPTargetDirective *OMPTargetDirective::CreateEmpty(const ASTContext &C,
   void *Mem =
       C.Allocate(Size + sizeof(OMPClause *) * NumClauses + sizeof(Stmt *));
   return new (Mem) OMPTargetDirective(NumClauses);
+}
+
+OMPTargetDataDirective *OMPTargetDataDirective::Create(
+    const ASTContext &C, SourceLocation StartLoc, SourceLocation EndLoc,
+    ArrayRef<OMPClause *> Clauses, Stmt *AssociatedStmt) {
+  void *Mem =
+      C.Allocate(llvm::RoundUpToAlignment(sizeof(OMPTargetDataDirective),
+                                          llvm::alignOf<OMPClause *>()) +
+                 sizeof(OMPClause *) * Clauses.size() + sizeof(Stmt *));
+  OMPTargetDataDirective *Dir =
+      new (Mem) OMPTargetDataDirective(StartLoc, EndLoc, Clauses.size());
+  Dir->setClauses(Clauses);
+  Dir->setAssociatedStmt(AssociatedStmt);
+  return Dir;
+}
+
+OMPTargetDataDirective *OMPTargetDataDirective::CreateEmpty(const ASTContext &C,
+                                                            unsigned N,
+                                                            EmptyShell) {
+  void *Mem =
+      C.Allocate(llvm::RoundUpToAlignment(sizeof(OMPTargetDataDirective),
+                                          llvm::alignOf<OMPClause *>()) +
+                 sizeof(OMPClause *) * N + sizeof(Stmt *));
+  return new (Mem) OMPTargetDataDirective(N);
 }
 
 OMPTeamsDirective *OMPTeamsDirective::Create(const ASTContext &C,

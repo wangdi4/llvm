@@ -40,7 +40,6 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/Support/CrashRecoveryContext.h"
 using namespace clang;
 using namespace sema;
 
@@ -149,10 +148,6 @@ void Sema::addImplicitTypedef(StringRef Name, QualType T) {
 }
 
 void Sema::Initialize() {
-  // Tell the AST consumer about this Sema object.
-  Consumer.Initialize(Context);
-
-  // FIXME: Isn't this redundant with the initialization above?
   if (SemaConsumer *SC = dyn_cast<SemaConsumer>(&Consumer))
     SC->InitializeSema(*this);
 
@@ -164,6 +159,9 @@ void Sema::Initialize() {
   // This needs to happen after ExternalSemaSource::InitializeSema(this) or we
   // will not be able to merge any duplicate __va_list_tag decls correctly.
   VAListTagName = PP.getIdentifierInfo("__va_list_tag");
+
+  if (!TUScope)
+    return;
 
   // Initialize predefined 128-bit integer types, if needed.
   if (Context.getTargetInfo().hasInt128Type()) {
@@ -252,6 +250,31 @@ void Sema::Initialize() {
   DeclarationName BuiltinVaList = &Context.Idents.get("__builtin_va_list");
   if (IdResolver.begin(BuiltinVaList) == IdResolver.end())
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ#367961: clang does not support automatically-aligned dynamic
+  // allocation via <aligned_new> header.
+  if (PP.getLangOpts().IntelCompat && PP.getLangOpts().CPlusPlus) {
+    auto *StdNamespace = getOrCreateStdNamespace();
+    auto *AlignValT = &Context.Idents.get("align_val_t");
+    LookupResult R(*this, AlignValT, SourceLocation(), LookupTagName);
+    LookupQualifiedName(R, StdNamespace);
+    if (R.empty()) {
+      auto *AlignValTTy = EnumDecl::Create(
+          Context, StdNamespace, SourceLocation(), SourceLocation(), AlignValT,
+          /*PrevDecl=*/nullptr, /*IsScoped=*/true,
+          /*IsScopedUsingClassTag=*/true, /*IsFixed=*/true);
+      auto BestType = Context.getSizeType();
+      AlignValTTy->setIntegerType(BestType);
+      AlignValTTy->completeDefinition(BestType, BestType,
+                                      /*NumPositiveBits=*/0,
+                                      /*NumNegativeBits=*/0);
+      StdNamespace->addDecl(AlignValTTy);
+    }
+    if (StdNamespace->isImplicit())
+      PushOnScopeChains(StdNamespace, TUScope);
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 Sema::~Sema() {
@@ -762,6 +785,9 @@ if (!optLevelDecls.empty()) {
   // write out the lists to the AST file (if any).
   assert(DelayedDefaultedMemberExceptionSpecs.empty());
   assert(DelayedExceptionSpecChecks.empty());
+
+  // All dllexport classes should have been processed already.
+  assert(DelayedDllExportClasses.empty());
 
   // Remove file scoped decls that turned out to be used.
   UnusedFileScopedDecls.erase(

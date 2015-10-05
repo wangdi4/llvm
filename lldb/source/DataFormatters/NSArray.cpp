@@ -7,13 +7,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "lldb/DataFormatters/CXXFormatterFunctions.h"
+#include "lldb/DataFormatters/Cocoa.h"
 
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Stream.h"
 #include "lldb/Core/ValueObject.h"
 #include "lldb/Core/ValueObjectConstResult.h"
+#include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/Host/Endian.h"
 #include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
@@ -66,7 +67,7 @@ namespace  lldb_private {
             
             ExecutionContextRef m_exe_ctx_ref;
             uint8_t m_ptr_size;
-            ClangASTType m_id_type;
+            CompilerType m_id_type;
             std::vector<lldb::ValueObjectSP> m_children;
         };
         
@@ -195,7 +196,7 @@ namespace  lldb_private {
             uint8_t m_ptr_size;
             uint64_t m_items;
             lldb::addr_t m_data_ptr;
-            ClangASTType m_id_type;
+            CompilerType m_id_type;
             std::vector<lldb::ValueObjectSP> m_children;
         };
         
@@ -300,7 +301,7 @@ m_children()
     {
         clang::ASTContext *ast = valobj_sp->GetExecutionContextRef().GetTargetSP()->GetScratchClangASTContext()->getASTContext();
         if (ast)
-            m_id_type = ClangASTType(ast, ast->ObjCBuiltinIdTy);
+            m_id_type = CompilerType(ast, ast->ObjCBuiltinIdTy);
         if (valobj_sp->GetProcessSP())
             m_ptr_size = valobj_sp->GetProcessSP()->GetAddressByteSize();
     }
@@ -530,9 +531,13 @@ lldb_private::formatters::NSArrayISyntheticFrontEnd::NSArrayISyntheticFrontEnd (
 {
     if (valobj_sp)
     {
-        clang::ASTContext *ast = valobj_sp->GetClangType().GetASTContext();
-        if (ast)
-            m_id_type = ClangASTType(ast, ast->ObjCBuiltinIdTy);
+        CompilerType type = valobj_sp->GetCompilerType();
+        if (type)
+        {
+            ClangASTContext *ast = valobj_sp->GetExecutionContextRef().GetTargetSP()->GetScratchClangASTContext();
+            if (ast)
+                m_id_type = CompilerType(ast->getASTContext(), ast->getASTContext()->ObjCBuiltinIdTy);
+        }
     }
 }
 
@@ -622,7 +627,7 @@ SyntheticChildrenFrontEnd* lldb_private::formatters::NSArraySyntheticFrontEndCre
     if (!runtime)
         return NULL;
     
-    ClangASTType valobj_type(valobj_sp->GetClangType());
+    CompilerType valobj_type(valobj_sp->GetCompilerType());
     Flags flags(valobj_type.GetTypeInfo());
     
     if (flags.IsClear(eTypeIsPointer))

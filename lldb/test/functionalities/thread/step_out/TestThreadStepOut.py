@@ -51,6 +51,7 @@ class ThreadStepOutTestCase(TestBase):
     @skipIfLinux                              # Test occasionally times out on the Linux build bot
     @expectedFailureLinux("llvm.org/pr23477") # Test occasionally times out on the Linux build bot
     @expectedFailureFreeBSD("llvm.org/pr19347")
+    @expectedFailureWindows("llvm.org/pr24681")
     @dwarf_test
     def test_python_with_dwarf(self):
         """Test thread step out on one thread via Python API (dwarf)."""
@@ -113,7 +114,7 @@ class ThreadStepOutTestCase(TestBase):
             substrs = ["1: file = 'main.cpp', line = %d, exact_match = 0, locations = 1" % self.breakpoint])
 
         # Run the program.
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # Get the target process
         self.inferior_target = self.dbg.GetSelectedTarget()

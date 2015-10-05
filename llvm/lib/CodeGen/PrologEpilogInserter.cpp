@@ -71,8 +71,9 @@ private:
   // stack frame indexes.
   unsigned MinCSFrameIndex, MaxCSFrameIndex;
 
-  // Save and Restore blocks of the current function.
-  MachineBasicBlock *SaveBlock;
+  // Save and Restore blocks of the current function. Typically there is a
+  // single save block, unless Windows EH funclets are involved.
+  SmallVector<MachineBasicBlock *, 1> SaveBlocks;
   SmallVector<MachineBasicBlock *, 4> RestoreBlocks;
 
   // Flag to control whether to use the register scavenger to resolve
@@ -82,7 +83,8 @@ private:
 
   void calculateSets(MachineFunction &Fn);
   void calculateCallsInformation(MachineFunction &Fn);
-  void calculateCalleeSavedRegisters(MachineFunction &Fn);
+  void assignCalleeSavedSpillSlots(MachineFunction &Fn,
+                                   const BitVector &SavedRegs);
   void insertCSRSpillsAndRestores(MachineFunction &Fn);
   void calculateFrameObjectOffsets(MachineFunction &Fn);
   void replaceFrameIndices(MachineFunction &Fn);
@@ -92,7 +94,7 @@ private:
   void insertPrologEpilogCode(MachineFunction &Fn);
 
   // Convenience for recognizing return blocks.
-  bool isReturnBlock(MachineBasicBlock *MBB);
+  bool isReturnBlock(const MachineBasicBlock *MBB) const;
 };
 } // namespace
 
@@ -127,7 +129,7 @@ void PEI::getAnalysisUsage(AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
-bool PEI::isReturnBlock(MachineBasicBlock* MBB) {
+bool PEI::isReturnBlock(const MachineBasicBlock* MBB) const {
   return (MBB && !MBB->empty() && MBB->back().isReturn());
 }
 
@@ -141,20 +143,25 @@ void PEI::calculateSets(MachineFunction &Fn) {
 
   // Use the points found by shrink-wrapping, if any.
   if (MFI->getSavePoint()) {
-    SaveBlock = MFI->getSavePoint();
+    SaveBlocks.push_back(MFI->getSavePoint());
     assert(MFI->getRestorePoint() && "Both restore and save must be set");
-    RestoreBlocks.push_back(MFI->getRestorePoint());
+    MachineBasicBlock *RestoreBlock = MFI->getRestorePoint();
+    // If RestoreBlock does not have any successor and is not a return block
+    // then the end point is unreachable and we do not need to insert any
+    // epilogue.
+    if (!RestoreBlock->succ_empty() || isReturnBlock(RestoreBlock))
+      RestoreBlocks.push_back(RestoreBlock);
     return;
   }
 
   // Save refs to entry and return blocks.
-  SaveBlock = Fn.begin();
-  for (MachineFunction::iterator MBB = Fn.begin(), E = Fn.end();
-       MBB != E; ++MBB)
-    if (isReturnBlock(MBB))
-      RestoreBlocks.push_back(MBB);
-
-  return;
+  SaveBlocks.push_back(Fn.begin());
+  for (MachineBasicBlock &MBB : Fn) {
+    if (MBB.isEHFuncletEntry())
+      SaveBlocks.push_back(&MBB);
+    if (isReturnBlock(&MBB))
+      RestoreBlocks.push_back(&MBB);
+  }
 }
 
 /// StackObjSet - A set of stack object indexes
@@ -178,13 +185,12 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
   // instructions.
   calculateCallsInformation(Fn);
 
-  // Allow the target machine to make some adjustments to the function
-  // e.g. UsedPhysRegs before calculateCalleeSavedRegisters.
-  TFI->processFunctionBeforeCalleeSavedScan(Fn, RS);
+  // Determine which of the registers in the callee save list should be saved.
+  BitVector SavedRegs;
+  TFI->determineCalleeSaves(Fn, SavedRegs, RS);
 
-  // Scan the function for modified callee saved registers and insert spill code
-  // for any callee saved registers that are modified.
-  calculateCalleeSavedRegisters(Fn);
+  // Insert spill code for any callee saved registers that are modified.
+  assignCalleeSavedSpillSlots(Fn, SavedRegs);
 
   // Determine placement of CSR spill/restore code:
   // place all spills in the entry block, all restores in return blocks.
@@ -232,6 +238,7 @@ bool PEI::runOnMachineFunction(MachineFunction &Fn) {
   }
 
   delete RS;
+  SaveBlocks.clear();
   RestoreBlocks.clear();
   return true;
 }
@@ -290,39 +297,27 @@ void PEI::calculateCallsInformation(MachineFunction &Fn) {
   }
 }
 
-
-/// calculateCalleeSavedRegisters - Scan the function for modified callee saved
-/// registers.
-void PEI::calculateCalleeSavedRegisters(MachineFunction &F) {
-  const TargetRegisterInfo *RegInfo = F.getSubtarget().getRegisterInfo();
-  const TargetFrameLowering *TFI = F.getSubtarget().getFrameLowering();
-  MachineFrameInfo *MFI = F.getFrameInfo();
-
-  // Get the callee saved register list...
-  const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&F);
-
+void PEI::assignCalleeSavedSpillSlots(MachineFunction &F,
+                                      const BitVector &SavedRegs) {
   // These are used to keep track the callee-save area. Initialize them.
   MinCSFrameIndex = INT_MAX;
   MaxCSFrameIndex = 0;
 
-  // Early exit for targets which have no callee saved registers.
-  if (!CSRegs || CSRegs[0] == 0)
+  if (SavedRegs.empty())
     return;
 
-  // In Naked functions we aren't going to save any registers.
-  if (F.getFunction()->hasFnAttribute(Attribute::Naked))
-    return;
+  const TargetRegisterInfo *RegInfo = F.getSubtarget().getRegisterInfo();
+  const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&F);
 
   std::vector<CalleeSavedInfo> CSI;
   for (unsigned i = 0; CSRegs[i]; ++i) {
     unsigned Reg = CSRegs[i];
-    // Functions which call __builtin_unwind_init get all their registers saved.
-    if (F.getRegInfo().isPhysRegUsed(Reg) || F.getMMI().callsUnwindInit()) {
-      // If the reg is modified, save it!
+    if (SavedRegs.test(Reg))
       CSI.push_back(CalleeSavedInfo(Reg));
-    }
   }
 
+  const TargetFrameLowering *TFI = F.getSubtarget().getFrameLowering();
+  MachineFrameInfo *MFI = F.getFrameInfo();
   if (!TFI->assignCalleeSavedSpillSlots(F, RegInfo, CSI)) {
     // If target doesn't implement this, use generic code.
 
@@ -453,18 +448,20 @@ void PEI::insertCSRSpillsAndRestores(MachineFunction &Fn) {
   MachineBasicBlock::iterator I;
 
   // Spill using target interface.
-  I = SaveBlock->begin();
-  if (!TFI->spillCalleeSavedRegisters(*SaveBlock, I, CSI, TRI)) {
-    for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
-      // Insert the spill to the stack frame.
-      unsigned Reg = CSI[i].getReg();
-      const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
-      TII.storeRegToStackSlot(*SaveBlock, I, Reg, true, CSI[i].getFrameIdx(),
-                              RC, TRI);
+  for (MachineBasicBlock *SaveBlock : SaveBlocks) {
+    I = SaveBlock->begin();
+    if (!TFI->spillCalleeSavedRegisters(*SaveBlock, I, CSI, TRI)) {
+      for (unsigned i = 0, e = CSI.size(); i != e; ++i) {
+        // Insert the spill to the stack frame.
+        unsigned Reg = CSI[i].getReg();
+        const TargetRegisterClass *RC = TRI->getMinimalPhysRegClass(Reg);
+        TII.storeRegToStackSlot(*SaveBlock, I, Reg, true, CSI[i].getFrameIdx(),
+                                RC, TRI);
+      }
     }
+    // Update the live-in information of all the blocks up to the save point.
+    updateLiveness(Fn);
   }
-  // Update the live-in information of all the blocks up to the save point.
-  updateLiveness(Fn);
 
   // Restore using target interface.
   for (MachineBasicBlock *MBB : RestoreBlocks) {
@@ -778,7 +775,8 @@ void PEI::insertPrologEpilogCode(MachineFunction &Fn) {
   const TargetFrameLowering &TFI = *Fn.getSubtarget().getFrameLowering();
 
   // Add prologue to the function...
-  TFI.emitPrologue(Fn, *SaveBlock);
+  for (MachineBasicBlock *SaveBlock : SaveBlocks)
+    TFI.emitPrologue(Fn, *SaveBlock);
 
   // Add epilogue to restore the callee-save registers in each exiting block.
   for (MachineBasicBlock *RestoreBlock : RestoreBlocks)
@@ -788,8 +786,10 @@ void PEI::insertPrologEpilogCode(MachineFunction &Fn) {
   // we've been asked for it.  This, when linked with a runtime with support
   // for segmented stacks (libgcc is one), will result in allocating stack
   // space in small chunks instead of one large contiguous block.
-  if (Fn.shouldSplitStack())
-    TFI.adjustForSegmentedStacks(Fn, *SaveBlock);
+  if (Fn.shouldSplitStack()) {
+    for (MachineBasicBlock *SaveBlock : SaveBlocks)
+      TFI.adjustForSegmentedStacks(Fn, *SaveBlock);
+  }
 
   // Emit additional code that is required to explicitly handle the stack in
   // HiPE native code (if needed) when loaded in the Erlang/OTP runtime. The
@@ -797,7 +797,8 @@ void PEI::insertPrologEpilogCode(MachineFunction &Fn) {
   // different conditional check and another BIF for allocating more stack
   // space.
   if (Fn.getFunction()->getCallingConv() == CallingConv::HiPE)
-    TFI.adjustForHiPEPrologue(Fn, *SaveBlock);
+    for (MachineBasicBlock *SaveBlock : SaveBlocks)
+      TFI.adjustForHiPEPrologue(Fn, *SaveBlock);
 }
 
 /// replaceFrameIndices - Replace all MO_FrameIndex operands with physical
@@ -1033,12 +1034,8 @@ PEI::scavengeFrameVirtualRegs(MachineFunction &Fn) {
           // Replace this reference to the virtual register with the
           // scratch register.
           assert (ScratchReg && "Missing scratch register!");
-          MachineRegisterInfo &MRI = Fn.getRegInfo();
           Fn.getRegInfo().replaceRegWith(Reg, ScratchReg);
           
-          // Make sure MRI now accounts this register as used.
-          MRI.setPhysRegUsed(ScratchReg);
-
           // Because this instruction was processed by the RS before this
           // register was allocated, make sure that the RS now records the
           // register as being used.

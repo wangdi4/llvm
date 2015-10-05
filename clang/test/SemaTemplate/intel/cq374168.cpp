@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fsyntax-only -verify -fintel-compatibility %s
-// expected-no-diagnostics
 
 #define size2 5
 template <typename T, int size1>
@@ -12,7 +11,7 @@ struct B {
 };
 
 template <>
-void B<char, 4>::foo<int, 5>(A<char, 5> i) { ; }
+void B<char, 4>::foo<int, 5>(A<char, 5> i) { ; } // expected-error {{template specialization requires 'template<>'}}
 
 void foo() {
   A<char, size2> i;

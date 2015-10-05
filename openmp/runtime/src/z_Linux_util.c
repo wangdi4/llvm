@@ -60,12 +60,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 
-// For non-x86 architecture
-#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64)
-# include <stdbool.h>
-# include <ffi.h>
-#endif
-
 /* ------------------------------------------------------------------------ */
 /* ------------------------------------------------------------------------ */
 
@@ -684,7 +678,7 @@ __kmp_launch_worker( void *thr )
 #endif /* KMP_BLOCK_SIGNALS */
     void *exit_val;
 #if KMP_OS_LINUX || KMP_OS_FREEBSD
-    void *padding = 0;
+    void * volatile padding = 0;
 #endif
     int gtid;
 
@@ -1012,8 +1006,13 @@ __kmp_create_worker( int gtid, kmp_info_t *th, size_t stack_size )
                           );
             }; // if
 
-            /* Set stack size for this thread now. */
-            stack_size += gtid * __kmp_stkoffset;
+            /* Set stack size for this thread now. 
+             * The multiple of 2 is there because on some machines, requesting an unusual stacksize
+             * causes the thread to have an offset before the dummy alloca() takes place to create the
+             * offset.  Since we want the user to have a sufficient stacksize AND support a stack offset, we 
+             * alloca() twice the offset so that the upcoming alloca() does not eliminate any premade
+             * offset, and also gives the user the stack space they requested for all threads */
+            stack_size += gtid * __kmp_stkoffset * 2;
 
             KA_TRACE( 10, ( "__kmp_create_worker: T#%d, default stacksize = %lu bytes, "
                             "__kmp_stksize = %lu bytes, final stacksize = %lu bytes\n",
@@ -1114,10 +1113,7 @@ __kmp_create_monitor( kmp_info_t *th )
     pthread_attr_t      thread_attr;
     size_t              size;
     int                 status;
-    int                 caller_gtid;
     int                 auto_adj_size = FALSE;
-
-    caller_gtid = __kmp_get_gtid();
 
     KA_TRACE( 10, ("__kmp_create_monitor: try to create monitor\n" ) );
 
@@ -1689,7 +1685,7 @@ __kmp_suspend_uninitialize_thread( kmp_info_t *th )
 template <class C>
 static inline void __kmp_suspend_template( int th_gtid, C *flag )
 {
-    KMP_TIME_BLOCK(USER_suspend);
+    KMP_TIME_DEVELOPER_BLOCK(USER_suspend);
     kmp_info_t *th = __kmp_threads[th_gtid];
     int status;
     typename C::flag_t old_spin;
@@ -1827,6 +1823,7 @@ void __kmp_suspend_oncore(int th_gtid, kmp_flag_oncore *flag) {
 template <class C>
 static inline void __kmp_resume_template( int target_gtid, C *flag )
 {
+    KMP_TIME_DEVELOPER_BLOCK(USER_resume);
     kmp_info_t *th = __kmp_threads[target_gtid];
     int status;
 
@@ -1901,7 +1898,6 @@ void __kmp_resume_oncore(int target_gtid, kmp_flag_oncore *flag) {
 void
 __kmp_resume_monitor()
 {
-    KMP_TIME_BLOCK(USER_resume);
     int status;
 #ifdef KMP_DEBUG
     int gtid = TCR_4(__kmp_init_gtid) ? __kmp_get_gtid() : -1;
@@ -2615,51 +2611,23 @@ __kmp_get_load_balance( int max )
 
 #endif // USE_LOAD_BALANCE
 
-
-#if KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64 || KMP_ARCH_AARCH64)
-
-int __kmp_invoke_microtask( microtask_t pkfn, int gtid, int tid, int argc,
-        void *p_argv[] )
-{
-    int argc_full = argc + 2;
-    int i;
-    ffi_cif cif;
-    ffi_type *types[argc_full];
-    void *args[argc_full];
-    void *idp[2];
-
-    /* We're only passing pointers to the target. */
-    for (i = 0; i < argc_full; i++)
-        types[i] = &ffi_type_pointer;
-
-    /* Ugly double-indirection, but that's how it goes... */
-    idp[0] = &gtid;
-    idp[1] = &tid;
-    args[0] = &idp[0];
-    args[1] = &idp[1];
-
-    for (i = 0; i < argc; i++)
-        args[2 + i] = &p_argv[i];
-
-    if (ffi_prep_cif(&cif, FFI_DEFAULT_ABI, argc_full,
-                &ffi_type_void, types) != FFI_OK)
-        abort();
-
-    ffi_call(&cif, (void (*)(void))pkfn, NULL, args);
-
-    return 1;
-}
-
-#endif // KMP_COMPILER_GCC && !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_ARCH_PPC64)
-
-#if KMP_ARCH_PPC64 || KMP_ARCH_AARCH64
+#if !(KMP_ARCH_X86 || KMP_ARCH_X86_64 || KMP_MIC)
 
 // we really only need the case with 1 argument, because CLANG always build
 // a struct of pointers to shared variables referenced in the outlined function
 int
 __kmp_invoke_microtask( microtask_t pkfn,
                         int gtid, int tid,
-                        int argc, void *p_argv[] ) {
+                        int argc, void *p_argv[] 
+#if OMPT_SUPPORT
+                        , void **exit_frame_ptr
+#endif
+) 
+{
+#if OMPT_SUPPORT
+  *exit_frame_ptr = __builtin_frame_address(0);
+#endif
+
   switch (argc) {
   default:
     fprintf(stderr, "Too many args to microtask: %d!\n", argc);
@@ -2728,6 +2696,10 @@ __kmp_invoke_microtask( microtask_t pkfn,
             p_argv[11], p_argv[12], p_argv[13], p_argv[14]);
     break;
   }
+
+#if OMPT_SUPPORT
+  *exit_frame_ptr = 0;
+#endif
 
   return 1;
 }

@@ -188,9 +188,8 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
       BasicBlock *BB = SI->getParent();
 
       // Remove entries from PHI nodes which we no longer branch to...
-      for (unsigned i = 0, e = SI->getNumSuccessors(); i != e; ++i) {
+      for (BasicBlock *Succ : SI->successors()) {
         // Found case matching a constant operand?
-        BasicBlock *Succ = SI->getSuccessor(i);
         if (Succ == TheOnlyDest)
           TheOnlyDest = nullptr; // Don't modify the first branch to TheOnlyDest
         else
@@ -229,6 +228,11 @@ bool llvm::ConstantFoldTerminator(BasicBlock *BB, bool DeleteDeadConditions,
                         createBranchWeights(SICase->getValue().getZExtValue(),
                                             SIDef->getValue().getZExtValue()));
       }
+
+      // Update make.implicit metadata to the newly-created conditional branch.
+      MDNode *MakeImplicitMD = SI->getMetadata(LLVMContext::MD_make_implicit);
+      if (MakeImplicitMD)
+        NewBr->setMetadata(LLVMContext::MD_make_implicit, MakeImplicitMD);
 
       // Delete the old switch.
       SI->eraseFromParent();
@@ -283,8 +287,9 @@ bool llvm::isInstructionTriviallyDead(Instruction *I,
                                       const TargetLibraryInfo *TLI) {
   if (!I->use_empty() || isa<TerminatorInst>(I)) return false;
 
-  // We don't want the landingpad instruction removed by anything this general.
-  if (isa<LandingPadInst>(I))
+  // We don't want the landingpad-like instructions removed by anything this
+  // general.
+  if (I->isEHPad())
     return false;
 
   // We don't want debug info removed by anything this general, unless
@@ -869,6 +874,11 @@ bool llvm::EliminateDuplicatePHINodes(BasicBlock *BB) {
       PN->replaceAllUsesWith(*Inserted.first);
       PN->eraseFromParent();
       Changed = true;
+
+      // The RAUW can change PHIs that we already visited. Start over from the
+      // beginning.
+      PHISet.clear();
+      I = BB->begin();
     }
   }
 
@@ -900,13 +910,10 @@ static unsigned enforceKnownAlignment(Value *V, unsigned Align,
 
   if (auto *GO = dyn_cast<GlobalObject>(V)) {
     // If there is a large requested alignment and we can, bump up the alignment
-    // of the global.
-    if (GO->isDeclaration())
-      return Align;
-    // If the memory we set aside for the global may not be the memory used by
-    // the final program then it is impossible for us to reliably enforce the
-    // preferred alignment.
-    if (GO->isWeakForLinker())
+    // of the global.  If the memory we set aside for the global may not be the
+    // memory used by the final program then it is impossible for us to reliably
+    // enforce the preferred alignment.
+    if (!GO->isStrongDefinitionForLinker())
       return Align;
 
     if (GO->getAlignment() >= PrefAlign)
@@ -1288,7 +1295,7 @@ bool llvm::removeUnreachableBlocks(Function &F) {
 
 void llvm::combineMetadata(Instruction *K, const Instruction *J, ArrayRef<unsigned> KnownIDs) {
   SmallVector<std::pair<unsigned, MDNode *>, 4> Metadata;
-  K->dropUnknownMetadata(KnownIDs);
+  K->dropUnknownNonDebugMetadata(KnownIDs);
   K->getAllMetadataOtherThanDebugLoc(Metadata);
   for (unsigned i = 0, n = Metadata.size(); i < n; ++i) {
     unsigned Kind = Metadata[i].first;
@@ -1342,6 +1349,26 @@ unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
       DEBUG(dbgs() << "Replace dominated use of '"
             << From->getName() << "' as "
             << *To << " in " << *U << "\n");
+      ++Count;
+    }
+  }
+  return Count;
+}
+
+unsigned llvm::replaceDominatedUsesWith(Value *From, Value *To,
+                                        DominatorTree &DT,
+                                        const BasicBlock *BB) {
+  assert(From->getType() == To->getType());
+
+  unsigned Count = 0;
+  for (Value::use_iterator UI = From->use_begin(), UE = From->use_end();
+       UI != UE;) {
+    Use &U = *UI++;
+    auto *I = cast<Instruction>(U.getUser());
+    if (DT.dominates(BB, I->getParent())) {
+      U.set(To);
+      DEBUG(dbgs() << "Replace dominated use of '" << From->getName() << "' as "
+                   << *To << " in " << *U << "\n");
       ++Count;
     }
   }

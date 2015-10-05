@@ -83,11 +83,10 @@ void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
 
   Token *Toks = (Token *) Allocator.Allocate(sizeof(Token) * (Size + 2),
                                              llvm::alignOf<Token>());
-  auto StartLoc = Toks[0].getLocation();
   Token &GsBeginTok = Toks[0];
   GsBeginTok.startToken();
   GsBeginTok.setKind(tok::annot_pragma_cilk_grainsize_begin);
-  GsBeginTok.setLocation(StartLoc);
+  GsBeginTok.setLocation(FirstToken.getLocation());
 
   SourceLocation EndLoc = Size ? CachedToks.back().getLocation()
                                : GrainsizeLoc;

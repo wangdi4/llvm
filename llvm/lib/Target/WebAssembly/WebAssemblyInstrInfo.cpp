@@ -24,5 +24,16 @@ using namespace llvm;
 
 #define DEBUG_TYPE "wasm-instr-info"
 
+#define GET_INSTRINFO_CTOR_DTOR
+#include "WebAssemblyGenInstrInfo.inc"
+
 WebAssemblyInstrInfo::WebAssemblyInstrInfo(const WebAssemblySubtarget &STI)
     : RI(STI.getTargetTriple()) {}
+
+void WebAssemblyInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
+                                       MachineBasicBlock::iterator I,
+                                       DebugLoc DL, unsigned DestReg,
+                                       unsigned SrcReg, bool KillSrc) const {
+  BuildMI(MBB, I, DL, get(WebAssembly::COPY), DestReg)
+      .addReg(SrcReg, KillSrc ? RegState::Kill : 0);
+}

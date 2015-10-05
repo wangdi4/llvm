@@ -198,6 +198,13 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
   if (Fn.hasAddressTaken())
     return false;
 
+  // Don't touch naked functions. The assembly might be using an argument, or
+  // otherwise rely on the frame layout in a way that this analysis will not
+  // see.
+  if (Fn.hasFnAttribute(Attribute::Naked)) {
+    return false;
+  }
+
   // Okay, we know we can transform this function if safe.  Scan its body
   // looking for calls marked musttail or calls to llvm.vastart.
   for (Function::iterator BB = Fn.begin(), E = Fn.end(); BB != E; ++BB) {
@@ -326,7 +333,18 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
 /// instead.
 bool DAE::RemoveDeadArgumentsFromCallers(Function &Fn)
 {
-  if (Fn.isDeclaration() || Fn.mayBeOverridden())
+  // We cannot change the arguments if this TU does not define the function or
+  // if the linker may choose a function body from another TU, even if the
+  // nominal linkage indicates that other copies of the function have the same
+  // semantics. In the below example, the dead load from %p may not have been
+  // eliminated from the linker-chosen copy of f, so replacing %p with undef
+  // in callers may introduce undefined behavior.
+  //
+  // define linkonce_odr void @f(i32* %p) {
+  //   %v = load i32 %p
+  //   ret void
+  // }
+  if (!Fn.isStrongDefinitionForLinker())
     return false;
 
   // Functions with local linkage should already have been handled, except the
@@ -334,17 +352,10 @@ bool DAE::RemoveDeadArgumentsFromCallers(Function &Fn)
   if (Fn.hasLocalLinkage() && !Fn.getFunctionType()->isVarArg())
     return false;
 
-  // If a function seen at compile time is not necessarily the one linked to
-  // the binary being built, it is illegal to change the actual arguments
-  // passed to it. These functions can be captured by isWeakForLinker().
-  // *NOTE* that mayBeOverridden() is insufficient for this purpose as it
-  // doesn't include linkage types like AvailableExternallyLinkage and
-  // LinkOnceODRLinkage. Take link_odr* as an example, it indicates a set of
-  // *EQUIVALENT* globals that can be merged at link-time. However, the
-  // semantic of *EQUIVALENT*-functions includes parameters. Changing
-  // parameters breaks this assumption.
-  //
-  if (Fn.isWeakForLinker())
+  // Don't touch naked functions. The assembly might be using an argument, or
+  // otherwise rely on the frame layout in a way that this analysis will not
+  // see.
+  if (Fn.hasFnAttribute(Attribute::Naked))
     return false;
 
   if (Fn.use_empty())
@@ -541,6 +552,14 @@ void DAE::SurveyFunction(const Function &F) {
   // Functions with inalloca parameters are expecting args in a particular
   // register and memory layout.
   if (F.getAttributes().hasAttrSomewhere(Attribute::InAlloca)) {
+    MarkLive(F);
+    return;
+  }
+
+  // Don't touch naked functions. The assembly might be using an argument, or
+  // otherwise rely on the frame layout in a way that this analysis will not
+  // see.
+  if (F.hasFnAttribute(Attribute::Naked)) {
     MarkLive(F);
     return;
   }

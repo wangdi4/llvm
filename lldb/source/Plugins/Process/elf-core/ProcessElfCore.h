@@ -10,7 +10,7 @@
 //  2) The ELF file's PT_NOTE and PT_LOAD segments describes the program's
 //     address space and thread contexts.
 //  3) PT_NOTE segment contains note entries which describes a thread context.
-//  4) PT_LOAD segment describes a valid contigous range of process address
+//  4) PT_LOAD segment describes a valid contiguous range of process address
 //     space.
 //===----------------------------------------------------------------------===//
 
@@ -37,7 +37,7 @@ public:
     // Constructors and Destructors
     //------------------------------------------------------------------
     static lldb::ProcessSP
-    CreateInstance (lldb_private::Target& target,
+    CreateInstance (lldb::TargetSP target_sp,
                     lldb_private::Listener &listener,
                     const lldb_private::FileSpec *crash_file_path);
 
@@ -56,9 +56,9 @@ public:
     //------------------------------------------------------------------
     // Constructors and Destructors
     //------------------------------------------------------------------
-    ProcessElfCore(lldb_private::Target& target,
-                    lldb_private::Listener &listener,
-                    const lldb_private::FileSpec &core_file);
+    ProcessElfCore(lldb::TargetSP target_sp,
+                   lldb_private::Listener &listener,
+                   const lldb_private::FileSpec &core_file);
 
     virtual
     ~ProcessElfCore();
@@ -66,7 +66,7 @@ public:
     //------------------------------------------------------------------
     // Check if a given Process
     //------------------------------------------------------------------
-    bool CanDebug(lldb_private::Target &target, bool plugin_specified_by_name) override;
+    bool CanDebug(lldb::TargetSP target_sp, bool plugin_specified_by_name) override;
 
     //------------------------------------------------------------------
     // Creating a new process, or attaching to an existing one

@@ -52,7 +52,7 @@ void check() {
 
   // CHECK: %{{.+}} = load i32, i32* %{{.+}}
   // CHECK-NEXT: %{{.+}} = sext i32 %{{.+}} to i64
-  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i32 0, i64 %{{.+}}
+  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i64 0, i64 %{{.+}}
   // CHECK-NEXT: %{{.+}} = load i8*, i8** %{{.+}}
   // CHECK-NEXT: %{{.+}} = load %{{.+}}*, %{{.+}}** %{{.+}}
   // CHECK-NEXT: %{{.+}} = getelementptr inbounds %{{.+}}, %{{.+}} %{{.+}}, i32 0, i32 0
@@ -62,7 +62,7 @@ void check() {
   // CHECK: %{{.+}} = load i32, i32* %{{.+}}
   // CHECK-NEXT: %{{.+}} = load i32, i32* %{{.+}}
   // CHECK-NEXT: %{{.+}} = sext i32 %{{.+}} to i64
-  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i32 0, i64 %{{.+}}
+  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i64 0, i64 %{{.+}}
   // CHECK-NEXT: %{{.+}} = load i8*, i8** %{{.+}}
   // CHECK-NEXT: %{{.+}} = sext i32 %{{.+}} to i6
   // CHECK-NEXT: %{{.+}} = getelementptr inbounds i8, i8* %{{.+}}, i64 %{{.+}}
@@ -72,7 +72,7 @@ void check() {
   // CHECK: %{{.+}} = load i32, i32* %{{.+}}
   // CHECK-NEXT: %{{.+}} = load i32, i32* %{{.+}}
   // CHECK-NEXT: %{{.+}} = sext i32 %{{.+}} to i6
-  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i32 0, i64 %{{.+}}
+  // CHECK-NEXT: %{{.+}} = getelementptr inbounds [0 x i8*], [0 x i8*]* @{{.+}}, i64 0, i64 %{{.+}}
   // CHECK-NEXT: %{{.+}} = load i8*, i8** %{{.+}}
   // CHECK-NEXT: %{{.+}} = sext i32 %{{.+}} to i64
   // CHECK-NEXT: %{{.+}} = getelementptr inbounds i8, i8* %{{.+}}, i64 %{{.+}}

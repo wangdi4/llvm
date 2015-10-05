@@ -20,7 +20,7 @@ llvm::Value *CodeGenModule::getBuiltinIntelLibFunction(const FunctionDecl *FD,
                                                        unsigned BuiltinID) {
   // Get the name, skip over the __builtin_ prefix (if necessary).
   GlobalDecl D(FD);
-  StringRef Name = Context.BuiltinInfo.GetName(BuiltinID);
+  StringRef Name = Context.BuiltinInfo.getName(BuiltinID);
 
   llvm::FunctionType *Ty =
     cast<llvm::FunctionType>(getTypes().ConvertType(FD->getType()));

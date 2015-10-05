@@ -22,8 +22,7 @@ class ObjCModulesTestCase(TestBase):
         self.expr()
 
     @dwarf_test
-    @skipIfFreeBSD
-    @skipIfLinux
+    @skipUnlessDarwin
     @unittest2.expectedFailure("rdar://20416388")
     def test_expr_with_dwarf(self):
         self.buildDwarf()
@@ -50,7 +49,7 @@ class ObjCModulesTestCase(TestBase):
         # Break inside the foo function which takes a bar_ptr argument.
         lldbutil.run_break_set_by_file_and_line (self, "main.m", self.line, num_expected_locations=1, loc_exact=True)
 
-        self.runCmd("run", RUN_FAILED)
+        self.runCmd("run", RUN_SUCCEEDED)
 
         # The stop reason of the thread should be breakpoint.
         self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,

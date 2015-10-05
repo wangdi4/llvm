@@ -20,10 +20,10 @@ class StopHookForMultipleThreadsTestCase(TestBase):
         self.stop_hook_multiple_threads()
 
     @dwarf_test
-    @expectedFailureFreeBSD("llvm.org/pr15037")
+    @expectedFlakeyFreeBSD("llvm.org/pr15037")
     @expectedFlakeyLinux("llvm.org/pr15037") # stop hooks sometimes fail to fire on Linux
-    @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
-    @skipIfFreeBSD # llvm.org/pr22784
+    @expectedFailureHostWindows("llvm.org/pr22274: need a pexpect replacement for windows")
+    @skipIfFreeBSD # Can cause an indefinite hang in dotest.py on FreeBSD
     def test_stop_hook_multiple_threads_with_dwarf(self):
         """Test that lldb stop-hook works for multiple threads."""
         self.buildDwarf(dictionary=self.d)
@@ -49,11 +49,22 @@ class StopHookForMultipleThreadsTestCase(TestBase):
         prompt = "(lldb) "
 
         # So that the child gets torn down after the test.
-        self.child = pexpect.spawn('%s %s %s' % (lldbtest_config.lldbExec, self.lldbOption, exe))
+        self.child = pexpect.spawn('%s %s' % (lldbtest_config.lldbExec, self.lldbOption))
         child = self.child
         # Turn on logging for what the child sends back.
         if self.TraceOn():
             child.logfile_read = sys.stdout
+
+        if lldb.remote_platform:
+            child.expect_exact(prompt)
+            child.sendline('platform select %s' % lldb.remote_platform.GetName())
+            child.expect_exact(prompt)
+            child.sendline('platform connect %s' % lldb.platform_url)
+            child.expect_exact(prompt)
+            child.sendline('platform settings -w %s' % lldb.remote_platform_working_dir)
+
+        child.expect_exact(prompt)
+        child.sendline('target create %s' % exe)
 
         # Set the breakpoint, followed by the target stop-hook commands.
         child.expect_exact(prompt)
