@@ -845,6 +845,8 @@ void HIRLocalityAnalysis::verifyLocality(const HLLoop *L) {
     // Compare the cached value with newly computed value.
     uint64_t CachedLoc = LocalityMap[L]->getLocalityValue();
     computeLocality(L, false);
+
+    (void)CachedLoc;
     assert((CachedLoc != LocalityMap[L]->getLocalityValue()) &&
            " Cached locality information not consistent.");
   }

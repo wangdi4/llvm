@@ -2,7 +2,7 @@
 
 ; Check that an unnamed value's (%0 here) copy is provided an appropriate name.
 ; CHECK: %0
-; CHECK-NEXT: hir.copy.out
+; CHECK-NEXT: hir.de.ssa.copy0.out
 ; CHECK-SAME: out.de.ssa
 ; CHECK: output.1.in.1
 ; CHECK-SAME: in.de.ssa

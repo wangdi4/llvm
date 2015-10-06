@@ -89,6 +89,7 @@ void BlobDDRef::verify() const {
   unsigned Index = CE->getSingleBlobIndex();
   unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
 
+  (void)Symbase;
   assert((getSymBase() == Symbase) && "blob index/symbase mismatch!");
 
   DDRef::verify();

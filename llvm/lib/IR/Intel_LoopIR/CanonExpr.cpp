@@ -908,6 +908,7 @@ void CanonExpr::verify() const {
 
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = CanonExpr::getBlob(I->Index);
+    (void)B;
     assert(B->getType() == getSrcType() &&
            "Types of all blobs should match canon expr type!");
   }

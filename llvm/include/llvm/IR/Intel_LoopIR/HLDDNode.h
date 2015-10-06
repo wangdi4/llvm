@@ -88,6 +88,14 @@ public:
   reverse_ddref_iterator ddref_rend();
   const_reverse_ddref_iterator ddref_rend() const;
 
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const HLNode *Node) {
+    return (Node->getHLNodeID() == HLNode::HLLoopVal) ||
+           (Node->getHLNodeID() == HLNode::HLIfVal) ||
+           (Node->getHLNodeID() == HLNode::HLInstVal) ||
+           (Node->getHLNodeID() == HLNode::HLSwitchVal);
+  }
+
   /// DDRef acess methods
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 

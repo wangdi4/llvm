@@ -61,7 +61,7 @@ class SSADeconstruction : public FunctionPass {
 public:
   static char ID;
 
-  SSADeconstruction() : FunctionPass(ID), ModifiedIR(false) {
+  SSADeconstruction() : FunctionPass(ID), ModifiedIR(false), NamingCounter(0) {
     initializeSSADeconstructionPass(*PassRegistry::getPassRegistry());
   }
 
@@ -77,6 +77,12 @@ public:
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<RegionIdentification>();
     AU.addPreserved<SCCFormation>();
+  }
+
+  void releaseMemory() override {
+    ModifiedIR = false;
+    NamingCounter = 0;
+    ProcessedSSCs.clear();
   }
 
 private:
@@ -106,7 +112,7 @@ private:
                                      StringRef Name);
 
   /// \brief Constructs name to be used for Val.
-  static StringRef constructName(const Value *Val, SmallString<32> &Name);
+  StringRef constructName(const Value *Val, SmallString<32> &Name);
 
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
@@ -137,6 +143,7 @@ private:
   SCCFormation *SCCF;
 
   bool ModifiedIR;
+  unsigned NamingCounter;
   RegionIdentification::iterator CurRegIt;
   SmallPtrSet<SCCFormation::SCCTy *, 32> ProcessedSSCs;
 };
@@ -145,6 +152,7 @@ private:
 char SSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-ssa-deconstruction",
                       "HIR SSA Deconstruction", false, false)
+INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(SSADeconstruction, "hir-ssa-deconstruction",
@@ -384,7 +392,10 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   if (Val->hasName()) {
     VOS << Val->getName();
   } else {
-    VOS << "hir.copy";
+    // This string has to be unique across SCCs as it is used to assign
+    // symbases. A longer name is used to avoid risk of name conflict with any
+    // other instructions.
+    VOS << "hir.de.ssa.copy" << NamingCounter++;
   }
 
   return VOS.str();
@@ -403,6 +414,8 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
     ProcessedSSCs.insert(PhiSCC);
 
+    bool IsLinear = SCCF->isLinear(Phi);
+
     bool LiveinCopyInserted = false;
     constructName(PhiSCC->Root, Name);
 
@@ -414,9 +427,17 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
                               Name.str()) ||
             LiveinCopyInserted;
 
-        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                           Name.str());
-      } else {
+        // Liveout copies are not needed for linear SCCs as they cannot cause
+        // live range violation.
+        if (!IsLinear) {
+          processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
+                             Name.str());
+        }
+
+      }
+      // Linear SCCs cannot cause live range violation.
+      else if (!IsLinear) {
+
         // Attach live range type metadata to suppress SCEV traceback.
         attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
                        LiveRangeType);
@@ -463,7 +484,10 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     attachMetadata(Phi, Name.str(), LiveInType);
 
     processPhiLiveins(Phi, nullptr, Name.str());
-    processPhiLiveouts(Phi, nullptr, Name.str());
+
+    if (!SCCF->isLinear(Phi)) {
+      processPhiLiveouts(Phi, nullptr, Name.str());
+    }
   }
 }
 
@@ -483,9 +507,7 @@ void SSADeconstruction::deconstructSSAForRegions() {
       for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
            ++Inst) {
         if (auto Phi = dyn_cast<PHINode>(Inst)) {
-          if (!SCCF->isLinear(Phi)) {
-            deconstructPhi(const_cast<PHINode *>(Phi));
-          }
+          deconstructPhi(const_cast<PHINode *>(Phi));
         }
       }
     }

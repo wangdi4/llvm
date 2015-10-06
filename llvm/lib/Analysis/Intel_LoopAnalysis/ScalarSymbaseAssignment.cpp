@@ -73,7 +73,7 @@ void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
          (Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
-
+  (void)Ret;
   assert(Ret.second && "Attempt to overwrite Temp symbase!");
 }
 
@@ -198,6 +198,12 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
 
       if (It != StrSymbaseMap.end()) {
         Symbase = It->getValue();
+
+        // Insert into TempSymbaseMap so that the base temp can be retrieved
+        // using getBaseScalar().
+        if (Assign && !getTempSymbase(Inst)) {
+          insertTempSymbase(Inst, Symbase);
+        }
       } else {
         if (Assign) {
           Symbase = getOrAssignTempSymbase(Inst);
@@ -299,11 +305,14 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
         insertTempSymbase(*SCCInstIt, Symbase);
       }
 
-      if (auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt)) {
-        if (!SCCLiveInProcessed &&
-            processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
-          SCCLiveInProcessed = true;
-        }
+      if (SCCLiveInProcessed) {
+        continue;
+      }
+      
+      auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt);
+
+      if (SCCPhiInst && processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
+        SCCLiveInProcessed = true;
       }
     }
   }

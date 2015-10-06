@@ -311,6 +311,7 @@ void HLInst::addFakeDDRef(RegDDRef *RDDRef) {
 void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   HLDDNode *Node;
 
+  (void)Node;
   assert(RDDRef && "Cannot remove null fake DDRef!");
   assert(RDDRef->isFake() && "RDDRef is not a fake DDRef!");
   assert((Node = RDDRef->getHLDDNode()) && isa<HLInst>(Node) &&

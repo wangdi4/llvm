@@ -134,6 +134,7 @@ bool DDRef::isSelfBlob() const {
   if (auto Ref = dyn_cast<RegDDRef>(this)) {
     return Ref->isScalarRef() && Ref->getSingleCanonExpr()->isSelfBlob();
   } else if (auto Ref = dyn_cast<BlobDDRef>(this)) {
+    (void)Ref;
     assert(Ref->getCanonExpr()->isSelfBlob() && "Blob DDRef is not a self blob!");
     return true;
   }

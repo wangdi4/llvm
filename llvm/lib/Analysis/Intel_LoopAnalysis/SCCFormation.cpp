@@ -79,11 +79,6 @@ bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
     return false;
   }
 
-  // Is linear?
-  if (isLinear(Node)) {
-    return false;
-  }
-
   return true;
 }
 
@@ -117,11 +112,6 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Phi SCCs do not have anything to do with calls.
   if (isa<CallInst>(Node)) {
-    return false;
-  }
-
-  // Ignore linear uses.
-  if (isLinear(Node)) {
     return false;
   }
 
@@ -269,7 +259,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
 
   // Mark it as visited.
   auto Ret = VisitedNodes.insert(std::make_pair(Node, Index));
-
+  (void)Ret;
   assert((Ret.second == true) && "Node has already been visited!");
 
   for (auto SuccIter = getFirstSucc(Node); SuccIter != getLastSucc(Node);

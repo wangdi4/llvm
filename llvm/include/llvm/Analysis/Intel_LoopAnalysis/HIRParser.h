@@ -49,6 +49,7 @@ namespace loopopt {
 class ScalarSymbaseAssignment;
 class LoopFormation;
 class HLNode;
+class HLDDNode;
 class HLRegion;
 class HLLoop;
 class HLIf;
@@ -95,6 +96,9 @@ private:
   /// Func - The function we are operating on.
   Function *Func;
 
+  /// CurNode - The node we are operating on.
+  HLDDNode *CurNode;
+
   /// CurRegion - The region we are operating on.
   HLRegion *CurRegion;
 
@@ -119,15 +123,11 @@ private:
   /// DDRef. Level of -1 denotes non-linear blobs.
   SmallDenseMap<unsigned, int, 8> CurTempBlobLevelMap;
 
-  /// PolynomialFinder - Used to find non-affine(polynomial) sub-SCEVs in an
-  /// SCEV.
-  class PolynomialFinder;
-
-  /// BaseSCEVCreater - Creates a base version of SCEV by replacing values by
+  /// BaseSCEVCreator - Creates a base version of SCEV by replacing values by
   /// base values. Base value is representative of a symbase. This is to create
   /// a 1:1 mapping between blob index and symbase eliminating comparison issues
   /// between different blob indices associated with the same symbase.
-  class BaseSCEVCreater;
+  class BaseSCEVCreator;
 
   /// BlobLevelSetter - Used to set blob levels in the canon expr.
   class BlobLevelSetter;
@@ -138,6 +138,15 @@ private:
   /// \brief Visits HIR and calls HIRParser's parse*() utilities. Parsing for
   /// non-essential HLInsts is postponed for phase2. Refer to isEssential().
   struct Phase1Visitor;
+
+  /// \brief Returns the node being parsed.
+  HLDDNode *getCurNode() const { return CurNode; }
+
+  /// \brief Sets the node being parsed.
+  void setCurNode(HLDDNode *Node) { CurNode = Node; }
+
+  /// \brief Returns the instruction which best represents the current node.
+  const Instruction* getCurInst() const;
 
   /// Phase1 parser functions
   /// parse(HLInst *, ...) is the only function used during phase2.
@@ -150,7 +159,7 @@ private:
   void parse(HLIf *If);
   void postParse(HLIf *If) {}
 
-  void parse(HLSwitch *Switch) { assert(false && "Switch not handled yet!"); }
+  void parse(HLSwitch *Switch); 
   void postParse(HLSwitch *Switch) {}
 
   void parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level);
@@ -165,10 +174,6 @@ private:
 
   /// \brief Returns the number of rval operands of HInst.
   static unsigned getNumRvalOperands(HLInst *HInst);
-
-  /// \brief Returns true if Val has a polynomial representation and therefore
-  /// should be parsed as a blob (1 * t).
-  bool isPolyBlobDef(const Value *Val) const;
 
   /// \brief Returns true if this instruction has a user outside the region.
   bool isRegionLiveOut(const Instruction *Inst) const;

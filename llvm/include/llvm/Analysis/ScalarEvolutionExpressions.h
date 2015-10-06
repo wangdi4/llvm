@@ -629,8 +629,7 @@ namespace llvm {
       return SE.getUMaxExpr(Operands);
     }
 
-    // INTEL: HIRParser derives from this class and overrides this function.
-    virtual const SCEV *visitUnknown(const SCEVUnknown *Expr) { 
+    const SCEV *visitUnknown(const SCEVUnknown *Expr) { 
       Value *V = Expr->getValue();
       if (Map.count(V)) {
         Value *NV = Map[V];

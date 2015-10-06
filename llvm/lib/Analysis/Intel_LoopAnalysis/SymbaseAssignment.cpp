@@ -138,9 +138,7 @@ void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
       continue;
     }
 
-    if ((*I)->isConstant()) {
-      (*I)->setSymBase(SA->getSymBaseForConstants());
-    } else if ((*I)->getBaseCE()) {
+    if ((*I)->getBaseCE()) {
       addToAST(*I);
     }
   }

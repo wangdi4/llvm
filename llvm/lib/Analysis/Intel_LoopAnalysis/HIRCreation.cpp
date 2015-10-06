@@ -257,9 +257,10 @@ void HIRCreation::create() {
 
     CurRegion = HLNodeUtils::createHLRegion(I);
 
-    auto LastNode =
+    HLNode *LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
 
+    (void)LastNode;
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
 
     setExitBBlock();

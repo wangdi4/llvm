@@ -31,7 +31,9 @@ class RegDDRef;
 /// \brief High level node representing a LLVM instruction
 class HLInst : public HLDDNode {
 private:
-  const Instruction *Inst;
+  // Neither the pointer nor the Instruction object pointed to can be modified
+  // once HLInst has been constructed.
+  const Instruction *const Inst;
   HLInst *SafeRednSucc;
   // Only used for Cmp and Select instructions.
   PredicateTy CmpOrSelectPred;

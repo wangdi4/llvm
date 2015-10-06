@@ -63,7 +63,8 @@ char HIRParser::ID = 0;
 
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
-HIRParser::HIRParser() : FunctionPass(ID), CurLevel(0) {
+HIRParser::HIRParser()
+    : FunctionPass(ID), CurNode(nullptr), CurRegion(nullptr), CurLevel(0) {
   initializeHIRParserPass(*PassRegistry::getPassRegistry());
 }
 
@@ -74,6 +75,36 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarSymbaseAssignment>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
+}
+
+const Instruction *HIRParser::getCurInst() const {
+  if (auto HLoop = dyn_cast<HLLoop>(CurNode)) {
+    auto Lp = HLoop->getLLVMLoop();
+    auto Latch = Lp->getLoopLatch();
+
+    auto Term = Latch->getTerminator();
+    auto BrInst = dyn_cast<BranchInst>(Term);
+
+    assert(BrInst && "Loop latch is not a branch!");
+
+    return cast<Instruction>(BrInst->getCondition());
+
+  } else if (auto HInst = dyn_cast<HLInst>(CurNode)) {
+    return HInst->getLLVMInstruction();
+
+  } else if (auto If = dyn_cast<HLIf>(CurNode)) {
+    auto BB = HIR->getSrcBBlock(If);
+    auto Term = BB->getTerminator();
+    auto BrInst = dyn_cast<BranchInst>(Term);
+
+    return cast<Instruction>(BrInst->getCondition());
+
+  } else if (auto Switch = dyn_cast<HLSwitch>(CurNode)) {
+    auto BB = HIR->getSrcBBlock(Switch);
+    return BB->getTerminator();
+  }
+
+  llvm_unreachable("Unexpected CurNode type!");
 }
 
 void HIRParser::insertHIRLval(const Value *Lval, unsigned Symbase) {
@@ -257,53 +288,254 @@ struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
   void visit(HLGoto *Goto) { HIRP->parse(Goto); }
 };
 
-class HIRParser::PolynomialFinder {
+class HIRParser::BaseSCEVCreator
+    : public SCEVVisitor<BaseSCEVCreator, const SCEV *> {
 private:
-  bool Found;
+  const HIRParser *HIRP;
 
 public:
-  PolynomialFinder() : Found(false) {}
-  ~PolynomialFinder() {}
+  BaseSCEVCreator(const HIRParser *HIRP) : HIRP(HIRP) {}
 
-  bool follow(const SCEV *SC) {
+  const SCEV *visitConstant(const SCEVConstant *Const) { return Const; }
 
-    if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      if (!RecSCEV->isAffine()) {
-        Found = true;
-      }
-    }
-
-    return !Found;
+  const SCEV *visitTruncateExpr(const SCEVTruncateExpr *Trunc) {
+    const SCEV *Operand = visit(Trunc->getOperand());
+    return HIRP->SE->getTruncateExpr(Operand, Trunc->getType());
   }
 
-  bool found() const { return Found; }
-  bool isDone() const { return found(); }
-};
+  const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
+    const SCEV *Operand = visit(ZExt->getOperand());
+    return HIRP->SE->getZeroExtendExpr(Operand, ZExt->getType());
+  }
 
-class HIRParser::BaseSCEVCreater : public SCEVParameterRewriter {
-private:
-  const HIRParser &HIRP;
-  ScalarEvolution &SE;
+  const SCEV *visitSignExtendExpr(const SCEVSignExtendExpr *SExt) {
+    const SCEV *Operand = visit(SExt->getOperand());
+    return HIRP->SE->getSignExtendExpr(Operand, SExt->getType());
+  }
 
-public:
-  BaseSCEVCreater(const HIRParser &HIRP, ScalarEvolution &SE,
-                  ValueToValueMap &M)
-      : SCEVParameterRewriter(SE, M, false), HIRP(HIRP), SE(SE) {}
+  const SCEV *visitAddExpr(const SCEVAddExpr *Add) {
+    SmallVector<const SCEV *, 2> Operands;
 
-  const SCEV *visitUnknown(const SCEVUnknown *UnknownSCEV) override {
-    if (HIRP.isTempBlob(UnknownSCEV)) {
-      const Value *Val = UnknownSCEV->getValue();
+    for (int I = 0, E = Add->getNumOperands(); I < E; ++I) {
+      Operands.push_back(visit(Add->getOperand(I)));
+    }
 
-      const Value *BaseVal = HIRP.ScalarSA->getBaseScalar(Val);
+    return HIRP->SE->getAddExpr(Operands);
+  }
+
+  const SCEV *visitMulExpr(const SCEVMulExpr *Mul) {
+    SmallVector<const SCEV *, 2> Operands;
+
+    for (int I = 0, E = Mul->getNumOperands(); I < E; ++I) {
+      Operands.push_back(visit(Mul->getOperand(I)));
+    }
+
+    return HIRP->SE->getMulExpr(Operands);
+  }
+
+  const SCEV *visitUDivExpr(const SCEVUDivExpr *UDiv) {
+    return HIRP->SE->getUDivExpr(visit(UDiv->getLHS()), visit(UDiv->getRHS()));
+  }
+
+  const SCEV *visitSMaxExpr(const SCEVSMaxExpr *SMax) {
+    SmallVector<const SCEV *, 2> Operands;
+
+    for (int I = 0, E = SMax->getNumOperands(); I < E; ++I) {
+      Operands.push_back(visit(SMax->getOperand(I)));
+    }
+
+    return HIRP->SE->getSMaxExpr(Operands);
+  }
+
+  const SCEV *visitUMaxExpr(const SCEVUMaxExpr *UMax) {
+    SmallVector<const SCEV *, 2> Operands;
+
+    for (int I = 0, E = UMax->getNumOperands(); I < E; ++I) {
+      Operands.push_back(visit(UMax->getOperand(I)));
+    }
+
+    return HIRP->SE->getUMaxExpr(Operands);
+  }
+
+  /// Returns the SCEVUnknown version of the value which represents this AddRec.
+  const SCEV *visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
+    Instruction *OrigInst = nullptr;
+    SCEVConstant *ConstAdditive = nullptr;
+    const Instruction *CurInst = HIRP->getCurInst();
+    bool ParsingUpper = isa<HLLoop>(HIRP->getCurNode());
+
+    OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), AddRec,
+                            ParsingUpper ? &ConstAdditive : nullptr);
+    assert(OrigInst && "Instuction corresponding to linear SCEV not found!");
+
+    auto NewSCEV = HIRP->SE->getUnknown(OrigInst);
+
+    if (ConstAdditive) {
+      NewSCEV = HIRP->SE->getAddExpr(ConstAdditive, NewSCEV);
+    }
+
+    // Convert value to base value before returning.
+    return visit(NewSCEV);
+  }
+
+  /// Returns the SCEV of the base value associated with the incoming SCEV's
+  /// value.
+  const SCEV *visitUnknown(const SCEVUnknown *Unknown) {
+    if (HIRP->isTempBlob(Unknown)) {
+      const Value *Val = Unknown->getValue();
+
+      const Value *BaseVal = HIRP->ScalarSA->getBaseScalar(Val);
 
       if (BaseVal != Val) {
-        return SE.getUnknown(const_cast<Value *>(BaseVal));
+        return HIRP->SE->getUnknown(const_cast<Value *>(BaseVal));
       }
     }
 
-    return UnknownSCEV;
+    return Unknown;
   }
+
+  const SCEV *visitCouldNotCompute(const SCEVCouldNotCompute *Expr) {
+    llvm_unreachable("SCEVCouldNotCompute encountered!");
+  }
+
+  // Recursive function to trace back from the current instruction to find an
+  // instruction which can represent AddRec, with a possible constant
+  // difference. We are trying to reverse engineer SCEV analysis here.
+  Instruction *findOrigInst(Instruction *CurInst, const SCEVAddRecExpr *AddRec,
+                            SCEVConstant **ConstAdditive) const;
+
+  /// Returns true if NewAddRec can replace OrigAddRec in the SCEV tree with an
+  /// optional constant additive. To replace OrigAddRec, NewAddRec should have
+  /// identical operands (except the fist operand) and have identical or
+  /// stronger wrap flags. ConstAdditive is required to handle backedge taken
+  /// count.
+  bool isReplacable(const SCEVAddRecExpr *OrigAddRec,
+                    const SCEVAddRecExpr *NewAddRec,
+                    SCEVConstant **ConstAdditive) const;
 };
+
+Instruction *
+HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst,
+                                         const SCEVAddRecExpr *AddRec,
+                                         SCEVConstant **ConstAdditive) const {
+
+  if (HIRP->SE->isSCEVable(CurInst->getType())) {
+    auto CurSCEV = HIRP->SE->getSCEV(CurInst);
+
+    if (isReplacable(AddRec, dyn_cast<SCEVAddRecExpr>(CurSCEV),
+                     ConstAdditive)) {
+      return CurInst;
+    }
+  }
+
+  auto ParentBB = CurInst->getParent();
+
+  // Is this a phi node that occurs in loop header?
+  bool IsHeaderPhi = isa<PHINode>(CurInst) &&
+                     (HIRP->LI->getLoopFor(ParentBB)->getHeader() == ParentBB);
+
+  for (auto I = CurInst->op_begin(), E = CurInst->op_end(); I != E; ++I) {
+
+    auto OPInst = dyn_cast<Instruction>(I);
+
+    if (!OPInst) {
+      continue;
+    }
+
+    // Avoid cycles while tracing back.
+    if (IsHeaderPhi &&
+        HIRP->LI->getLoopFor(ParentBB) ==
+            HIRP->LI->getLoopFor(OPInst->getParent())) {
+      continue;
+    }
+
+    // Limit trace back to these instruction types. They roughly correspond to
+    // instruction types in SE->createSCEV().
+    if (!isa<BinaryOperator>(OPInst) && !isa<CastInst>(OPInst) &&
+        !isa<GetElementPtrInst>(OPInst) && !isa<PHINode>(OPInst) &&
+        !isa<SelectInst>(OPInst)) {
+      continue;
+    }
+
+    auto OrigInst = findOrigInst(OPInst, AddRec, ConstAdditive);
+
+    if (OrigInst) {
+      return OrigInst;
+    }
+  }
+
+  return nullptr;
+}
+
+bool HIRParser::BaseSCEVCreator::isReplacable(
+    const SCEVAddRecExpr *OrigAddRec, const SCEVAddRecExpr *NewAddRec,
+    SCEVConstant **ConstAdditive) const {
+
+  if (!NewAddRec) {
+    return false;
+  }
+
+  // We got an exact match.
+  if (NewAddRec == OrigAddRec) {
+    return true;
+  }
+
+  // Not an exact match, continue matching loop and operands.
+
+  if (NewAddRec->getLoop() != OrigAddRec->getLoop()) {
+    return false;
+  }
+
+  if (NewAddRec->getNumOperands() != OrigAddRec->getNumOperands()) {
+    return false;
+  }
+
+  if (NewAddRec->getOperand(0) != OrigAddRec->getOperand(0)) {
+
+    if (!ConstAdditive) {
+      return false;
+    }
+
+    auto DiffSCEV = HIRP->SE->getMinusSCEV(OrigAddRec->getOperand(0),
+                                           NewAddRec->getOperand(0));
+
+    if (!isa<SCEVConstant>(DiffSCEV)) {
+      return false;
+
+    } else {
+      *ConstAdditive = const_cast<SCEVConstant *>(cast<SCEVConstant>(DiffSCEV));
+    }
+  }
+
+  for (unsigned I = 1, E = NewAddRec->getNumOperands(); I < E; ++I) {
+    if (NewAddRec->getOperand(I) != OrigAddRec->getOperand(I)) {
+      return false;
+    }
+  }
+
+  // Now we look for identical or stricter wrap flags on NewAddRec.
+
+  // If OrigAddRec has NUW, NewAddRec should have it too.
+  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
+      !NewAddRec->getNoWrapFlags(SCEV::FlagNUW)) {
+    return false;
+  }
+
+  // If OrigAddRec has NSW, NewAddRec should have it too.
+  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
+      !NewAddRec->getNoWrapFlags(SCEV::FlagNSW)) {
+    return false;
+  }
+
+  // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
+  if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
+      !NewAddRec->getNoWrapFlags((SCEV::NoWrapFlags)(
+          SCEV::FlagNUW || SCEV::FlagNSW || SCEV::FlagNW))) {
+    return false;
+  }
+
+  return true;
+}
 
 class HIRParser::BlobLevelSetter {
 private:
@@ -373,7 +605,7 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
       OS << "umax(";
       OpStr = ", ";
     } else {
-      assert(false && "Blob contains AddRec!");
+      llvm_unreachable("Blob contains AddRec!");
     }
 
     for (auto I = NArySCEV->op_begin(), E = NArySCEV->op_end(); I != E; ++I) {
@@ -396,26 +628,6 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
   } else {
     llvm_unreachable("Unknown Blob type!");
   }
-}
-
-bool HIRParser::isPolyBlobDef(const Value *Val) const {
-
-  if (!SE->isSCEVable(Val->getType())) {
-    return false;
-  }
-
-  auto SC = SE->getSCEV(const_cast<Value *>(Val));
-
-  // Non-affine(polynomial) addRecs are made blobs.
-  PolynomialFinder PF;
-  SCEVTraversal<PolynomialFinder> Searcher(PF);
-  Searcher.visitAll(SC);
-
-  if (PF.found()) {
-    return true;
-  }
-
-  return false;
 }
 
 bool HIRParser::isRegionLiveOut(const Instruction *Inst) const {
@@ -577,11 +789,8 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   int64_t Multiplier;
   unsigned Index;
 
-  // Empty map used to satisfy parent class's constructor argument.
-  ValueToValueMap M;
-
   // Create base version of the blob.
-  BaseSCEVCreater BSC(*this, *(this->SE), M);
+  BaseSCEVCreator BSC(this);
   Blob = BSC.visit(Blob);
 
   breakConstantMultiplierBlob(Blob, &Multiplier, &Index);
@@ -601,8 +810,6 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   LevelSetter.visitAll(Blob);
 }
 
-// TODO: refine logic
-// TODO: handle IV as blobs.
 void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                                bool IsTop, bool UnderCast) {
 
@@ -645,27 +852,31 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     }
 
   } else if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    assert(RecSCEV->isAffine() && "Non-affine AddRecs not expected!");
 
     auto Lp = RecSCEV->getLoop();
     auto HLoop = LF->findHLLoop(Lp);
 
-    assert(HLoop && "Non-HIR loop IVs not handled!");
+    if (!RecSCEV->isAffine() || !HLoop ||
+        !HLNodeUtils::contains(HLoop, CurNode)) {
+      parseBlob(SC, CE, Level);
 
-    // Break linear addRec into base and step
-    auto BaseSCEV = RecSCEV->getOperand(0);
-    auto StepSCEV = RecSCEV->getOperand(1);
+    } else {
 
-    parseRecursive(BaseSCEV, CE, Level, false, UnderCast);
+      // Break linear addRec into base and step.
+      auto BaseSCEV = RecSCEV->getOperand(0);
+      auto StepSCEV = RecSCEV->getOperand(1);
 
-    // Set constant IV coeff
-    if (isa<SCEVConstant>(StepSCEV)) {
-      auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
-      CE->addIV(HLoop->getNestingLevel(), 0, Coeff);
-    }
-    // Set blob IV coeff
-    else {
-      parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel());
+      parseRecursive(BaseSCEV, CE, Level, false, UnderCast);
+
+      // Set constant IV coeff.
+      if (isa<SCEVConstant>(StepSCEV)) {
+        auto Coeff = getSCEVConstantValue(cast<SCEVConstant>(StepSCEV));
+        CE->addIV(HLoop->getNestingLevel(), 0, Coeff);
+      }
+      // Set blob IV coeff.
+      else {
+        parseBlob(StepSCEV, CE, Level, HLoop->getNestingLevel());
+      }
     }
 
   } else if (isa<SCEVSMaxExpr>(SC) || isa<SCEVUMaxExpr>(SC)) {
@@ -685,14 +896,6 @@ void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
   const SCEV *SC;
   CanonExpr *CE;
-
-  // Parse polynomial definition as (1 * blob) as CanonExpr has no
-  // repsresentation for them.
-  if (isPolyBlobDef(Val)) {
-    CE = CanonExprUtils::createCanonExpr(Val->getType());
-    parseAsBlob(Val, CE, Level);
-    return CE;
-  }
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
@@ -714,6 +917,7 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   for (auto I = CurTempBlobLevelMap.begin(), E = CurTempBlobLevelMap.end();
        I != E; ++I) {
     auto Blob = CanonExprUtils::getBlob(I->first);
+    (void)Blob;
     assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
 
     auto BRef = DDRefUtils::createBlobDDRef(I->first, I->second);
@@ -766,6 +970,8 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level) {
 }
 
 void HIRParser::parse(HLLoop *HLoop) {
+
+  setCurNode(HLoop);
 
   auto Lp = HLoop->getLLVMLoop();
   assert(Lp && "HLLoop doesn't contain LLVM loop!");
@@ -826,6 +1032,8 @@ void HIRParser::parse(HLIf *If) {
   CmpInst::Predicate Pred;
   RegDDRef *LHSDDRef, *RHSDDRef;
 
+  setCurNode(If);
+
   auto SrcBB = HIR->getSrcBBlock(If);
   assert(SrcBB && "Could not find If's src basic block!");
 
@@ -839,9 +1047,36 @@ void HIRParser::parse(HLIf *If) {
   If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
 }
 
+void HIRParser::parse(HLSwitch *Switch) {
+  RegDDRef *CaseValRef = nullptr;
+  unsigned CaseNum = 1;
+
+  setCurNode(Switch);
+
+  auto SrcBB = HIR->getSrcBBlock(Switch);
+  assert(SrcBB && "Could not find If's src basic block!");
+
+  // For some reason switch case values cannot be accessed using the const
+  // object.
+  SwitchInst *SInst =
+      const_cast<SwitchInst *>(cast<SwitchInst>(SrcBB->getTerminator()));
+
+  Value *CondVal = SInst->getCondition();
+
+  auto CondRef = createScalarDDRef(CondVal, CurLevel, false);
+
+  Switch->setConditionDDRef(CondRef);
+
+  for (auto I = SInst->case_begin(), E = SInst->case_end(); I != E;
+       ++I, ++CaseNum) {
+    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel, false);
+    Switch->setCaseValueDDRef(CaseValRef, CaseNum);
+  }
+}
+
 void HIRParser::collectStrides(Type *GEPType,
                                SmallVectorImpl<uint64_t> &Strides) {
-  assert(isa<PointerType>(GEPType));
+  assert(isa<PointerType>(GEPType) && "GEP is not a pointer type!");
   GEPType = cast<PointerType>(GEPType)->getElementType();
 
   // Collect number of elements in each dimension
@@ -967,7 +1202,7 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
   // Check that the number of GEP operands match with the number of strides we
   // have collected.
   assert((Count == GEPNumOp) &&
-         "Number of subscripts snd strides do not match!");
+         "Number of subscripts and strides do not match!");
 
   for (auto I = GEPNumOp; I > 0; --I, --Count) {
     auto IndexCE = parse(GEPOp->getOperand(I), Level);
@@ -1145,6 +1380,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   unsigned Level;
 
   assert(!Inst->getType()->isVectorTy() && "Vector types not supported!");
+
+  setCurNode(HInst);
 
   if (IsPhase1) {
     Level = CurLevel;

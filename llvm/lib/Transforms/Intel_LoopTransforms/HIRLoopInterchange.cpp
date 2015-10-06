@@ -1,5 +1,5 @@
 //===----- Interchange.cpp - Permutations of HIR loops ------*- C++ -*-----===//
-//
+// 
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
@@ -209,9 +209,8 @@ static bool ignoreAntiEdge(const DDEdge *Edge, const DVType *DV) {
     RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
     unsigned Direction = DV[0];
     if (RegRef->isScalarRef() && Direction == DV::LT) {
-      raw_ostream &OS = dbgs();
       DEBUG(dbgs() << "\n\tANTI edge for Temp dropped");
-      DEBUG(dbgs() << "\t"; Edge->print(OS));
+      DEBUG(dbgs() << "\t"; Edge->print(dbgs()));
       return true;
     }
   }

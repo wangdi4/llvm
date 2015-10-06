@@ -113,6 +113,7 @@ void HLNodeUtils::checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
   if (LvalRef) {
     bool SameType = DestTy ? (LvalRef->getDestType() == DestTy)
                            : (LvalRef->getDestType() == RvalRef->getDestType());
+    (void)SameType;
     assert(SameType && "Operand types do not match!");
   }
 }
@@ -123,6 +124,7 @@ void HLNodeUtils::checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
 
   auto ElTy = OpRef1->getDestType();
 
+  (void)ElTy;
   assert((ElTy == OpRef2->getDestType()) && "Operand types do not match!");
   assert((!LvalRef || (ElTy == LvalRef->getDestType())) &&
          "Operand types do not match!");

@@ -290,6 +290,7 @@ static const HLLoop *getLoop(const CanonExpr *CE, const HLLoop *parentLoop) {
       assert(!IVfound && "found more than 1 iv");
       IVLevel = CE->getLevel(CurIVPair);
       IVfound = true;
+      (void)IVfound;
     }
   }
 
@@ -4467,9 +4468,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  New code added here for temps with more precision  in DV
 
   DDtest DA;
-  raw_ostream &OS = dbgs();
   bool isTemp = false;
-
+  
   DA.initDV(forwardDV);
   DA.initDV(backwardDV);
 
@@ -4478,7 +4478,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
   } else {
-    DEBUG(Result->dump(OS));
+    DEBUG(Result->dump(dbgs()));
   }
 
   // Independent?
@@ -4656,8 +4656,8 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
     if (forwardDV[0] != DV::NONE || backwardDV[0] != DV::NONE) {
       // If either forward or backward DV is filled, okay to return
-      DEBUG(dbgs() << "\nforward DV: "; printDV(forwardDV, Levels, OS));
-      DEBUG(dbgs() << "\nbackward DV: "; printDV(backwardDV, Levels, OS));
+      DEBUG(dbgs() << "\nforward DV: "; printDV(forwardDV, Levels, dbgs()));
+      DEBUG(dbgs() << "\nbackward DV: "; printDV(backwardDV, Levels, dbgs()));
       return true;
     }
   }
@@ -4677,9 +4677,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       forwardDV[II - 1] = Result->getDirection(II);
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          printDV(forwardDV, Result->getLevels(), OS));
+          printDV(forwardDV, Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          printDV(backwardDV, Result->getLevels(), OS));
+          printDV(backwardDV, Result->getLevels(), dbgs()));
     return true;
   }
 
@@ -4702,9 +4702,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
       }
     }
     DEBUG(dbgs() << "\nforward DV: ";
-          printDV(forwardDV, Result->getLevels(), OS));
+          printDV(forwardDV, Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
-          printDV(backwardDV, Result->getLevels(), OS));
+          printDV(backwardDV, Result->getLevels(), dbgs()));
     return true;
   }
 
@@ -4724,9 +4724,9 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   DEBUG(dbgs() << "\nforward DV: ";
-        printDV(forwardDV, Result->getLevels(), OS));
+        printDV(forwardDV, Result->getLevels(), dbgs()));
   DEBUG(dbgs() << "\nbackward DV: ";
-        printDV(backwardDV, Result->getLevels(), OS));
+        printDV(backwardDV, Result->getLevels(), dbgs()));
 
   return true;
 }

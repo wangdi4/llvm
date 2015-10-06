@@ -553,6 +553,8 @@ void HLLoop::verify() const {
   bool AllDDRefsAreNonNull =
       (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
 
+  (void)AllDDRefsAreNull;
+  (void)AllDDRefsAreNonNull;
   assert((AllDDRefsAreNull || AllDDRefsAreNonNull) &&
          "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
 

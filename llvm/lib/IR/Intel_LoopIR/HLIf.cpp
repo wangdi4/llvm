@@ -300,6 +300,8 @@ void HLIf::verify() const {
       auto *DDRefLhs = getPredicateOperandDDRef(I, true);
       auto *DDRefRhs = getPredicateOperandDDRef(I, false);
 
+      (void)DDRefLhs;
+      (void)DDRefRhs;
       assert(
           DDRefLhs != nullptr && DDRefRhs != nullptr &&
           "DDRefs should exist for every non FCMP_TRUE/FCMP_FALSE predicate");
