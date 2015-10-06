@@ -10910,6 +10910,12 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
 
   // Builtin functions cannot be defined.
   if (unsigned BuiltinID = FD->getBuiltinID()) {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ374883: redefinition of builtin function is not allowed.
+    if (getLangOpts().IntelCompat)
+      FD->getIdentifier()->revertBuiltin();
+    else
+#endif // INTEL_CUSTOMIZATION
     if (!Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID) &&
         !Context.BuiltinInfo.isPredefinedRuntimeFunction(BuiltinID)) {
       Diag(FD->getLocation(), diag::err_builtin_definition) << FD;
