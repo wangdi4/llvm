@@ -1029,12 +1029,16 @@ unsigned DDtest::mapSrcLoop(const HLLoop *SrcLoop) const {
 
 // Given one of the loops containing the destination,
 // return its level index in our numbering scheme.
+unsigned DDtest::mapDstLoop(unsigned NestingLevel) const {
+  if (NestingLevel > CommonLevels)
+    return NestingLevel - CommonLevels + SrcLevels;
+  else
+    return NestingLevel;
+}
+
 unsigned DDtest::mapDstLoop(const HLLoop *DstLoop) const {
   unsigned D = DstLoop->getNestingLevel();
-  if (D > CommonLevels)
-    return D - CommonLevels + SrcLevels;
-  else
-    return D;
+  return mapDstLoop(D);
 }
 
 #if 0
@@ -1154,7 +1158,7 @@ bool DDtest::checkDstSubscript(const CanonExpr *Dst, const HLLoop *LoopNest,
     for (auto CurIVPair = Dst->iv_begin(), E = Dst->iv_end(); CurIVPair != E;
          ++CurIVPair) {
       if (Dst->getIVConstCoeff(CurIVPair)) {
-        Loops.set(Dst->getLevel(CurIVPair));
+        Loops.set(mapDstLoop(Dst->getLevel(CurIVPair)));
       }
     }
   }
@@ -4692,7 +4696,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     unsigned SrcNum = SrcHIR->getTopSortNum();
     unsigned DstNum = DstHIR->getTopSortNum();
     DEBUG(dbgs() << "\nTopSortNum: " << SrcNum << " " << DstNum);
-    if (DstNum <= SrcNum) {
+    if (SrcNum <= DstNum) {
       for (unsigned II = 1; II <= Result->getLevels(); ++II) {
         forwardDV[II - 1] = Result->getDirection(II);
       }

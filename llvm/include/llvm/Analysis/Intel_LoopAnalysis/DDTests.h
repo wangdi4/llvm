@@ -539,6 +539,7 @@ private:
   /// mapDstLoop - Given one of the loops containing the destination,
   /// return its level index in our numbering scheme.
   unsigned mapDstLoop(const HLLoop *DstLoop) const;
+  unsigned mapDstLoop(unsigned NestingLevel) const;
 
   /// isLoopInvariant - Returns true if Expression is loop invariant
   /// in LoopNest.
