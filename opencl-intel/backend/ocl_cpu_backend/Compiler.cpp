@@ -263,12 +263,6 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
-    // OpenCL assumes stack is aligned
-    // We are forcing LLVM to align the stack
-    args.push_back("-force-align-stack");
-    // SSE requires maximum alignment of parameters of 16 bytes
-    // AVX requires maximum alignment of parameters of 32 bytes
-    args.push_back("-stack-alignment=32");
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {
