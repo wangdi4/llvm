@@ -4,10 +4,7 @@
 ;CHECK: '_ZGVxM4v_vec_search'
 ;CHECK: AVR_WRN
 ;CHECK-NEXT: AVR_LABEL:    simd.begin.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive(metadata !7)
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive.qual.opnd.i32(metadata !8, i32 4)
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive.qual(metadata !9)
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop
+;CHECK: AVR_FBRANCH:  br label %simd.loop
 ;CHECK-NEXT: AVR_LOOP:
 ;CHECK-NEXT: AVR_LABEL:    simd.loop
 ;CHECK-NEXT: AVR_PHI:      %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
@@ -53,7 +50,7 @@
 ;CHECK-NEXT: AVR_IF:       %vlcond = icmp ult i32 %indvar, 4
 ;CHECK-NEXT: AVR_FBRANCH:  br i1 %vlcond, label %simd.loop, label %simd.end.region
 ;CHECK-NEXT: AVR_LABEL:    simd.end.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive(metadata !10)
+;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive
 ;CHECK-NEXT: AVR_FBRANCH:  br label %return
 ;CHECK-NEXT: AVR_LABEL:    return
 ;CHECK-NEXT: AVR_ASSIGN:   %cast = bitcast i32* %veccast to <4 x i32>*
@@ -64,10 +61,7 @@
 ;CHECK:'_ZGVxN4v_vec_search'
 ;CHECK: AVR_WRN
 ;CHECK-NEXT: AVR_LABEL:    simd.begin.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive(metadata !7)
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive.qual.opnd.i32(metadata !8, i32 4)
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive.qual(metadata !9)
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop
+;CHECK: AVR_FBRANCH:  br label %simd.loop
 ;CHECK-NEXT: AVR_LOOP:
 ;CHECK-NEXT: AVR_LABEL:    simd.loop
 ;CHECK-NEXT: AVR_PHI:      %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
@@ -104,7 +98,7 @@
 ;CHECK-NEXT: AVR_IF:       %vlcond = icmp ult i32 %indvar, 4
 ;CHECK-NEXT: AVR_FBRANCH:  br i1 %vlcond, label %simd.loop, label %simd.end.region
 ;CHECK-NEXT: AVR_LABEL:    simd.end.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive(metadata !10)
+;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive
 ;CHECK-NEXT: AVR_FBRANCH:  br label %return
 ;CHECK-NEXT: AVR_LABEL:    return
 ;CHECK-NEXT: AVR_ASSIGN:   %cast = bitcast i32* %veccast to <4 x i32>*
