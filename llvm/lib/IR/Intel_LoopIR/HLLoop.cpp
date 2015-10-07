@@ -376,8 +376,7 @@ void HLLoop::setZtt(HLIf *ZttIf) {
   }
 
   assert((!ZttIf->hasThenChildren() && !ZttIf->hasElseChildren()) &&
-         "Ztt "
-         "cannot have any children!");
+         "Ztt cannot have any children!");
 
   Ztt = ZttIf;
 
@@ -450,7 +449,7 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
   return const_cast<HLLoop *>(this)->getStrideCanonExpr();
 }
 
-const CanonExpr *HLLoop::getTripCountCanonExpr() const {
+CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   if (isUnknown() || !getStrideDDRef()->isConstant())
     return nullptr;
@@ -459,15 +458,32 @@ const CanonExpr *HLLoop::getTripCountCanonExpr() const {
   assert(getUpperDDRef()->isScalarRef() && getLowerDDRef()->isScalarRef() &&
          " Upper Bound and Lower Bound should be terminal or constant.");
 
-  int64_t StrideConst = getStrideCanonExpr()->getConstant();
+  CanonExpr *Result = nullptr;
+  const CanonExpr *UBCE = getUpperCanonExpr();
+  // For normalized loop, TC = (UB+1).
+  if (isNormalized()) {
+    Result = UBCE->clone();
+    Result->addConstant(1);
+    return Result;
+  }
 
   // TripCount Canon Expr = (UB-LB+Stride)/Stride;
-  CanonExpr *Result = CanonExprUtils::subtract(
-      const_cast<CanonExpr *>(getUpperCanonExpr()), getLowerCanonExpr(), true);
+  int64_t StrideConst = getStrideCanonExpr()->getConstant();
+  Result = CanonExprUtils::subtract(const_cast<CanonExpr *>(UBCE),
+                                    getLowerCanonExpr(), true);
   Result->addConstant(StrideConst);
   Result->multiplyDenominator(StrideConst, true);
-
   return Result;
+}
+
+RegDDRef *HLLoop::getTripCountDDRef() const {
+
+  // TODO: handle blob ddref inside lb/ub.
+  CanonExpr *TripCE = getTripCountCanonExpr();
+  RegDDRef *TripRef =
+      DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymBase(), TripCE);
+
+  return TripRef;
 }
 
 unsigned HLLoop::getNumOperandsInternal() const {
@@ -536,15 +552,57 @@ HLNode *HLLoop::getLastChild() {
   return nullptr;
 }
 
-bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+bool HLLoop::isNormalized() const {
+  if (isUnknown())
+    return false;
 
-  const CanonExpr *TripCExpr = getTripCountCanonExpr();
-  if (TripCExpr && TripCExpr->isConstant(TripCnt)) {
-    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
-    return true;
+  int64_t LBConst = 0, StepConst = 0;
+
+  if (!getLowerDDRef()->isIntConstant(&LBConst) ||
+      !getStrideDDRef()->isIntConstant(&StepConst)) {
+    return false;
   }
 
-  return false;
+  if (LBConst != 0 || StepConst != 1) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+
+  bool RetVal = false;
+  CanonExpr *TripCExpr = getTripCountCanonExpr();
+  if (TripCExpr && TripCExpr->isConstant(TripCnt)) {
+    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
+    RetVal = true;
+  }
+
+  // Free the canon expr.
+  if (TripCExpr) {
+    CanonExprUtils::destroy(TripCExpr);
+  }
+
+  return RetVal;
+}
+
+// This will create the Ztt for the loop.
+void HLLoop::createZtt(bool IsOverwrite) {
+
+  assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
+  // Don't generate Ztt for Const trip loops.
+  RegDDRef *TripRef = getTripCountDDRef();
+  assert(TripRef && " Trip Count DDRef is null.");
+  if (TripRef->getSingleCanonExpr()->isConstant()) {
+    DDRefUtils::destroy(TripRef);
+    return;
+  }
+
+  // (Trip > 0)
+  RegDDRef *ZeroDD = DDRefUtils::createConstDDRef(TripRef->getDestType(), 0);
+  HLIf *ZttIf = HLNodeUtils::createHLIf(CmpInst::ICMP_UGT, TripRef, ZeroDD);
+  setZtt(ZttIf);
 }
 
 void HLLoop::verify() const {
@@ -559,7 +617,9 @@ void HLLoop::verify() const {
          "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
 
   if (Ztt) {
-    Ztt->verify();
+    // TODO: Change the Ztt verification as DDRef's get moved when we call
+    // setZtt().
+    // Ztt->verify();
   }
 
   for (auto I = pre_begin(), E = pre_end(); I != E; ++I) {

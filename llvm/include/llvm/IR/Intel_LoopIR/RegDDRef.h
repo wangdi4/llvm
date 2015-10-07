@@ -37,8 +37,7 @@ class HLDDNode;
 class RegDDRef : public DDRef {
 public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
-  /// subscript
-  /// having its own canonical form.
+  /// subscript having its own canonical form.
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;

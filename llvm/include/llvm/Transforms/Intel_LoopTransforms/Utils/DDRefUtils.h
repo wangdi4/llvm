@@ -65,6 +65,14 @@ public:
   /// \brief Returns a new RegDDRef.
   static RegDDRef *createRegDDRef(int SB);
 
+  /// \brief Creates a new DDRef with single canon expr CE.
+  static RegDDRef *createScalarRegDDRef(int SB, CanonExpr *CE);
+
+  /// \brief Returns a new constant RegDDRef from a int value.
+  /// This routine will automatically create a single canon expr from the val
+  /// and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
+
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
   /// defined at level for the blob. Level of -1 means non-linear blob.
   static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);

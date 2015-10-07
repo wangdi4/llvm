@@ -107,7 +107,7 @@ public:
   unsigned getDDRefID() const { return SubClassID; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of DDRef
-  enum DDRefVal { ConstDDRefVal, RegDDRefVal, BlobDDRefVal };
+  enum DDRefVal { RegDDRefVal, BlobDDRefVal };
 
   /// \brief Returns true if the DDRef represents a self-blob.
   bool isSelfBlob() const;

@@ -744,6 +744,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   CloneVisit.postVisitUpdate();
 }
 
+// Used for cloning a sequence of nodes from Node1 to Node2.
 void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
                                 const HLNode *Node1, const HLNode *Node2) {
   assert(Node1 && !isa<HLRegion>(Node1) &&
@@ -751,6 +752,8 @@ void HLNodeUtils::cloneSequence(HLContainerTy *CloneContainer,
   assert((!Node2 || !isa<HLRegion>(Node2)) &&
          " Node 2 - Region Cloning is not allowed.");
   assert(CloneContainer && " Clone Container is null.");
+  assert((!Node2 || (Node1->getParent() == Node2->getParent())) &&
+         " Parent of Node1 and Node2 don't match.");
   cloneSequenceImpl(CloneContainer, Node1, Node2);
 }
 
@@ -2030,7 +2033,7 @@ struct InnermostLoopVisitor final : public HLNodeVisitorBase {
   void postVisit(const HLNode *Node) {}
 
   bool skipRecursion(const HLNode *Node) const override {
-    return (Node == SkipNode);
+    return (SkipNode && (Node == SkipNode));
   }
 };
 
@@ -2059,7 +2062,7 @@ struct LoopLevelVisitor final : public HLNodeVisitorBase {
   void visit(const HLNode *Node) {}
   void postVisit(const HLNode *Node) {}
   bool skipRecursion(const HLNode *Node) const override {
-    return (Node == SkipNode);
+    return (SkipNode && (Node == SkipNode));
   }
 };
 

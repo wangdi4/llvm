@@ -159,6 +159,10 @@ public:
   /// \brief Removes and returns the Ztt for HLLoop.
   HLIf *removeZtt();
 
+  /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
+  /// indicates to overwrite existing Ztt or not.
+  void createZtt(bool IsOverwrite = true);
+
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
     assert(hasZtt() && "Ztt is absent!");
@@ -250,7 +254,11 @@ public:
   /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
   /// directly stored so use with caution.
-  const CanonExpr *getTripCountCanonExpr() const;
+  CanonExpr *getTripCountCanonExpr() const;
+
+  /// \brief Returns Trip Count DDRef of this loop.
+  /// Note, this will create a new DDRef in each call.
+  RegDDRef *getTripCountDDRef() const;
 
   /// \brief Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.
@@ -271,6 +279,11 @@ public:
 
   /// \brief Returns true if this is an unknown loop.
   bool isUnknown() const { return !getUpperDDRef(); }
+
+  /// \brief Returns true if loop is normalized.
+  /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
+  // constant.
+  bool isNormalized() const;
 
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }

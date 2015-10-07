@@ -309,7 +309,7 @@ bool CanonExpr::hasIV(unsigned Level) const {
 
   int64_t Coeff = 0;
   getIVCoeff(Level, nullptr, &Coeff);
-  return (Coeff ? true : false);
+  return Coeff;
 }
 
 unsigned CanonExpr::numIVs() const { return numIVImpl(false, false); }

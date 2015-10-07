@@ -83,7 +83,8 @@ public:
                                        bool IsSignedDiv = false);
 
   /// \brief Returns a new CanonExpr created from APInt Value.
-  static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);
+  static CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal,
+                                    int Level = 0);
 
   /// \brief Returns a self-blob canon expr. Level is the defined at level for
   /// the blob. Level of -1 means non-linear blob.

@@ -817,7 +817,7 @@ private:
   const CanonExpr *getMulExpr(const CanonExpr *CE1, const CanonExpr *CE2);
 
   /// return CE from apint
-  const CanonExpr *getConstantfromAPInt(const APInt &apint);
+  const CanonExpr *getConstantfromAPInt(Type *Ty, const APInt &apint);
 
   /// return CE from int with type
   const CanonExpr *getConstantWithType(Type *SrcTy, Type *DestTy, bool IsSExt,
