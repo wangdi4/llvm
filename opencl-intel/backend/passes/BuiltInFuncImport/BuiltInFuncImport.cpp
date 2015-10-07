@@ -213,17 +213,17 @@ namespace intel {
       // Allow removal of function from module after it is inlined
       pDstFunction->setLinkage(GlobalVariable::LinkOnceODRLinkage);
 
-	  // Workaround for current LLVM issue: LLVM merges attributes of pDstFunction
-	  // with pSrcFunction, possibly causing a collision between readonly
-	  // and readnone attributes
-	  if (pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone) &&
-		  pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly)) {
-		AttrBuilder B;
-		B.addAttribute(Attribute::ReadOnly);
-		pDstFunction->removeAttributes(AttributeSet::FunctionIndex,
-							AttributeSet::get(pDstFunction->getContext(),
-							AttributeSet::FunctionIndex, B));
-	  }
+      // Workaround for current LLVM issue: LLVM merges attributes of pDstFunction
+      // with pSrcFunction, possibly causing a collision between readonly
+      // and readnone attributes
+      if (pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadNone) &&
+       pDstFunction->getAttributes().hasAttribute(AttributeSet::FunctionIndex, Attribute::ReadOnly)) {
+        AttrBuilder B;
+        B.addAttribute(Attribute::ReadOnly);
+        pDstFunction->removeAttributes(AttributeSet::FunctionIndex,
+                                       AttributeSet::get(pDstFunction->getContext(),
+                                       AttributeSet::FunctionIndex, B));
+      }
 
       // There is no need to map the arguments anymore.
       for (Function::arg_iterator it = pSrcFunction->arg_begin(), e = pSrcFunction->arg_end(); it != e; ++it) {
