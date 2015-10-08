@@ -6,6 +6,7 @@
 
 # set that name of the main output file as a target name
 set( TARGET_NAME cl_logger )
+include_directories( ${CL_API_HEADERS} )
 
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()

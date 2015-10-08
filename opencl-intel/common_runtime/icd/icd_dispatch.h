@@ -57,7 +57,7 @@
 #include <windows.h>
 #include <d3d9.h>
 #include <d3d10_1.h>
-#include <CL/cl_d3d9.h>
+#include <CL/cl_dx9_media_sharing.h>
 #include <CL/cl_d3d10.h>
 #include <CL/cl_d3d11.h>
 #endif

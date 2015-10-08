@@ -22,6 +22,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/backend/validations/Common/
   ${CMAKE_SOURCE_DIR}/backend/name_mangling/
   ${CMAKE_SOURCE_DIR}/cl_api
+  ${CL_API_HEADERS}
   ${CMAKE_SOURCE_DIR}/backend/dynamic_lib
 )
 

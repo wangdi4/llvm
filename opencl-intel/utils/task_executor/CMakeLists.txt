@@ -18,6 +18,7 @@ endif (WIN32 AND NOT BUILD_X64)
 
 include_directories( BEFORE 
         .
+        ${CL_API_HEADERS}
         ${OCL_BINARY_DIR}
  )
 

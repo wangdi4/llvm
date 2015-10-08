@@ -46,6 +46,7 @@ include_directories(
     ${LLVM_FE_INCLUDE_DIRS}/cclang
     ${BACKEND_ROOT_DIR}/../externals/gtest/include
     ${BACKEND_ROOT_DIR}/../cl_api
+    ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/external/tinyxml
     ${BACKEND_ROOT_DIR}/plugin_manager
     ${BACKEND_ROOT_DIR}/dynamic_lib

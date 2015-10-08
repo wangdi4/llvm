@@ -530,6 +530,7 @@ include_directories( BEFORE
 # Framework IDE Folders Names
 set_property( GLOBAL PROPERTY USE_FOLDERS ON )
 set( FRAMEWORK_FOLDER_NAME      Framework )
+set( CL_API_HEADERS             ${CMAKE_SOURCE_DIR}/framework/icd/inc)
 set( API_FOLDER_NAME            ${FRAMEWORK_FOLDER_NAME}/API )
 set( DEVICES_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Devices )
 set( RUNTIME_FOLDER_NAME        ${FRAMEWORK_FOLDER_NAME}/Runtime )

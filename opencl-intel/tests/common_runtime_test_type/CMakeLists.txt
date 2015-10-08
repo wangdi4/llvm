@@ -10,6 +10,7 @@ include (../../cmake_utils/CMakeFuncs.txt)
 set( TARGET common_runtime_test_type )
 
 include_directories( ../../externals/gtest/include
+                     ${CL_API_HEADERS}
                      ${CMAKE_CURRENT_SOURCE_DIR}/common )
 
 #set( IGNORE_FILES clBuildCubinProgram|clBuildProgram.cpp|clCreateCudaKernel|clCreateKernelCpuGpu|clCreateQueue )

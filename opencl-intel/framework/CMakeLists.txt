@@ -13,6 +13,7 @@ endif (NOT WIN32)
 include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export
+        ${CL_API_HEADERS}
         ${CMAKE_CURRENT_SOURCE_DIR}/icd
         ${CMAKE_CURRENT_SOURCE_DIR}/gl_sharing
         ${CMAKE_CURRENT_SOURCE_DIR}/Platform

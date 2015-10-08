@@ -7,6 +7,8 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME common_runtime_utils )
 
+include_directories( ${CL_API_HEADERS} )
+
 set(FILES_TO_COPY
 		${CMAKE_SHARED_LIBRARY_PREFIX}${TARGET_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX}
 		)

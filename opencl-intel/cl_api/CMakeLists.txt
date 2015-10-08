@@ -1,7 +1,5 @@
-file(GLOB EXTERNAL_HEADERS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CL/*.h*)
-set( OCL_HEADERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CL)
-
-install( DIRECTORY CL/ DESTINATION include/CL/ PATTERN *.h* )
+message( STATUS ${CL_API_HEADERS} )
+install( DIRECTORY ${CL_API_HEADERS}/CL/ DESTINATION include/CL/ PATTERN ".git" EXCLUDE PATTERN *.h )
 
 if (NOT WIN32)
   # disable warnings inherited from external componennts

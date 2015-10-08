@@ -55,6 +55,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/OCLBuiltins
   ${VALIDATIONS_ROOT}/../external/tinyxml
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CL_API_HEADERS}
   ${VALIDATIONS_ROOT}/../ocl_cpu_backend
   ${VALIDATIONS_ROOT}/../ocl_cpu_backend/export
   ${BACKEND_ROOT_DIR}/utils

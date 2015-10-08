@@ -133,6 +133,7 @@ include_directories( AFTER
             ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}
             ${OCL_BINARY_DIR}
             ${CMAKE_BINARY_DIR}/include
+            ${CL_API_HEADERS}
             )
 
 if (WIN32)
