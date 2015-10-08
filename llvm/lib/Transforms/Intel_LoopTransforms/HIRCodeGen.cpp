@@ -861,11 +861,14 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
 }
 
 Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
-  llvm_unreachable("untested hircg for switch");
 
   Value *CondV = visitRegDDRef(S->getConditionDDRef());
-  BasicBlock *DefaultBlock = BasicBlock::Create(F->getContext(), "default");
-  BasicBlock *EndBlock = BasicBlock::Create(F->getContext(), "switch.end");
+  SmallString<10> SwitchName("hir.sw." + std::to_string(S->getNumber()));
+
+  BasicBlock *DefaultBlock =
+      BasicBlock::Create(F->getContext(), SwitchName + ".default");
+  BasicBlock *EndBlock =
+      BasicBlock::Create(F->getContext(), SwitchName + ".end");
 
   SwitchInst *LLVMSwitch =
       Builder->CreateSwitch(CondV, DefaultBlock, S->getNumCases());
@@ -886,7 +889,8 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
     // assert its a constant or rely on verifier?
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
-    BasicBlock *CaseBlock = BasicBlock::Create(F->getContext(), "switch.case");
+    BasicBlock *CaseBlock = BasicBlock::Create(
+        F->getContext(), SwitchName + ".case." + std::to_string(I - 1));
     F->getBasicBlockList().push_back(CaseBlock);
     Builder->SetInsertPoint(CaseBlock);
 
