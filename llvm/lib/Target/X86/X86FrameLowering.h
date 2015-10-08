@@ -123,7 +123,7 @@ public:
   /// \p MBB will be correctly handled by the target.
   bool canUseAsEpilogue(const MachineBasicBlock &MBB) const override;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// Order the symbols in the local stack.
   /// We want to place the local stack objects in some sort of sensible order.
   /// The heuristic we use is to try and pack them according to static number
@@ -164,7 +164,7 @@ private:
                                            DebugLoc DL, int64_t Offset,
                                            bool InEpilogue) const;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// Class used by orderFrameObjects to help sort the stack objects.
   class X86FrameSortingObject {
   public:

@@ -23,9 +23,7 @@
 #include "llvm/Target/TargetSubtargetInfo.h"
 #include <string>
 
-#ifdef INTEL_CUSTOMIZATION
-#include "llvm/ADT/StringSwitch.h"
-#endif  //INTEL_CUSTOMIZATION
+#include "llvm/ADT/StringSwitch.h"                   // INTEL
 
 #define GET_SUBTARGETINFO_HEADER
 #include "X86GenSubtargetInfo.inc"
@@ -515,7 +513,7 @@ public:
     return TargetSubtargetInfo::ANTIDEP_CRITICAL;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // This is basically taken from clang's X86TargetInfo::hasFeature
   // I have no idea why X86Subtarget doesn't have this.
 
@@ -563,7 +561,7 @@ public:
       .Case("xop", false)
       .Default(false);
   }
-#endif  //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 };
 

@@ -2197,7 +2197,7 @@ X86TargetLowering::LowerReturn(SDValue Chain,
         DAG.getRegister(RetValReg, getPointerTy(DAG.getDataLayout())));
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // When main() is defined with a void return type, it is 
   // expected to return 0;
   if (RVLocs.empty() && MF.getName() == "main") {
@@ -3583,7 +3583,7 @@ X86TargetLowering::IsEligibleForTailCallOptimization(SDValue Callee,
   if (CallerF->getReturnType()->isX86_FP80Ty() && !RetTy->isX86_FP80Ty())
     return false;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // void main() actually returns an int, so it should not participate
   // in tail call optimization.
   if (CallerF->getReturnType()->isVoidTy() && CallerF->getName() == "main")
@@ -23735,7 +23735,7 @@ static SDValue PerformCMOVCombine(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// MulOptCompute returns PowerOfTwoPlusOne if Num = 2^C+1
 /// PowerOfTwoMinuOne if Num = 2^C-1, or NoMulOpt otherwise
 
@@ -23777,7 +23777,7 @@ static SDValue PerformMulCombine(SDNode *N, SelectionDAG &DAG,
   uint64_t MulAmt = C->getZExtValue();
   if (isPowerOf2_64(MulAmt) || MulAmt == 3 || MulAmt == 5 || MulAmt == 9)
     return SDValue();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   int64_t SignMulAmt = C->getSExtValue();
   int NumSign = SignMulAmt > 0 ? 1 : -1;
   switch (MulOptCompute(SignMulAmt)) {
