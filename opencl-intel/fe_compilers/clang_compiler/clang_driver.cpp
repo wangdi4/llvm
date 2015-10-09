@@ -149,6 +149,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     }
 
     options << " -pch-cpu";
+    options << " -mstackrealign";
     std::stringstream optionsEx;
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();
