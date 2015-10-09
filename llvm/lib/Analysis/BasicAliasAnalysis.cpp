@@ -105,7 +105,7 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
 
 /// Returns true if the pointer is to a function-local object that never
 /// escapes from the function.
@@ -1096,7 +1096,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       }
     }
   }
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
+
   // Statically, we can see that the base objects are the same, but the
   // pointers have dynamic offsets which we can't resolve. And none of our
   // little tricks above worked.
@@ -1284,7 +1285,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       SameOperand = true;
     }
   }
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
 
   // Strip off any casts if they exist.
   V1 = V1->stripPointerCasts();
@@ -1366,7 +1367,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       return NoAlias;
     if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
       return NoAlias;
-#endif // INTEL
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If the size of one access is larger than the entire object on the other

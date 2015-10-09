@@ -649,7 +649,7 @@ def int_bitset_test : Intrinsic<[llvm_i1_ty], [llvm_ptr_ty, llvm_metadata_ty],
 //===----------------------------------------------------------------------===//
 // Target-specific intrinsics
 //===----------------------------------------------------------------------===//
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def int_intel_pragma : Intrinsic<[], [ llvm_metadata_ty, llvm_vararg_ty ], [],
                                  "llvm.intel.pragma">;
 
@@ -667,7 +667,7 @@ def int_intel_sizeof : Intrinsic<[llvm_anyint_ty],
                                  [LLVMMatchType<0>, llvm_vararg_ty],
                                  [IntrNoMem], "llvm.intel.sizeof">;
 
-//#endif INTEL_CUSTOMIZATION
+// endif INTEL_CUSTOMIZATION
 
 include "llvm/IR/IntrinsicsPowerPC.td"
 include "llvm/IR/IntrinsicsX86.td"
