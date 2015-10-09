@@ -190,14 +190,16 @@ static void SetupSerializedDiagnostics(DiagnosticOptions *DiagOpts,
 void CompilerInstance::createDiagnostics(DiagnosticConsumer *Client,
                                          bool ShouldOwnClient) {
   Diagnostics = createDiagnostics(&getDiagnosticOpts(), Client,
-                                  ShouldOwnClient, &getCodeGenOpts());
+                                  ShouldOwnClient, &getCodeGenOpts(), // INTEL
+                                  getLangOpts().IntelCompat); // INTEL
 }
 
 IntrusiveRefCntPtr<DiagnosticsEngine>
 CompilerInstance::createDiagnostics(DiagnosticOptions *Opts,
                                     DiagnosticConsumer *Client,
                                     bool ShouldOwnClient,
-                                    const CodeGenOptions *CodeGenOpts) {
+                                    const CodeGenOptions *CodeGenOpts, // INTEL
+                                    bool IntelCompat) { // INTEL
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
   IntrusiveRefCntPtr<DiagnosticsEngine>
       Diags(new DiagnosticsEngine(DiagID, Opts));
@@ -222,7 +224,8 @@ CompilerInstance::createDiagnostics(DiagnosticOptions *Opts,
                                Opts->DiagnosticSerializationFile);
   
   // Configure our handling of diagnostics.
-  ProcessWarningOptions(*Diags, *Opts);
+  ProcessWarningOptions(*Diags, *Opts, // INTEL
+                        /*ReportDiags=*/true, IntelCompat); // INTEL
 
   return Diags;
 }
