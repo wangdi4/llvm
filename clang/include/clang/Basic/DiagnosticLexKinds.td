@@ -546,6 +546,11 @@ def ext_pp_line_zero : Extension<
   InGroup<GNUZeroLineDirective>;
 def err_pp_line_invalid_filename : Error<
   "invalid filename for #line directive">;
+// ifdef INTEL_CUSTOMIZATION
+def warn_pp_line_invalid_filename : Warning<
+  "expected a file name">,
+  InGroup<UnknownPragmas>;
+// endif INTEL_CUSTOMIZATION
 def warn_pp_line_decimal : Warning<
   "%select{#line|GNU line marker}0 directive interprets number as decimal, not octal">;
 def err_pp_line_digit_sequence : Error<
