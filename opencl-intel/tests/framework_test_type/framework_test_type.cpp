@@ -497,6 +497,11 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
+TEST(CL21, Test_CreateProgramWithIL)
+{
+    CreateProgramWithIL();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE

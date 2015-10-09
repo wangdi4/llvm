@@ -601,6 +601,70 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
     }
     return clErrRet;
 }
+cl_program ContextModule::CreateProgramWithIL(cl_context              clContext,
+                                              const unsigned char*    pIL,
+                                              size_t                  length,
+                                              cl_int*                 pErrcodeRet)
+{
+    LOG_INFO(TEXT("CreateProgramWithIL enter. clContext=%d, pIL=%d, szLength=%d, pErrcodeRet=%d"),
+        clContext, pIL, length, pErrcodeRet);
+
+    if (0 == length || NULL == pIL)
+    {
+        // invalid value
+        LOG_ERROR(TEXT("%s"), TEXT("0 == length || NULL == pIL"));
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    cl_err_code clErrRet = CL_SUCCESS;
+    // get the context from the contexts map list
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
+    if (NULL == pContext)
+    {
+        LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext, &pContext, clErrRet);
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    SharedPtr<Program> pProgram;
+    clErrRet = pContext->CreateProgramWithIL(pIL, length, &pProgram);
+    if (CL_FAILED(clErrRet))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = clErrRet;
+        }
+        pContext->NotifyError("clCreateProgramWithIL failed", &clErrRet, sizeof(cl_int));
+        if (pProgram)
+        {
+            pContext->RemoveProgram(pProgram->GetHandle());
+            pProgram->Release();
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErrRet = m_mapPrograms.AddObject(pProgram, false);
+    if (CL_FAILED(clErrRet))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = clErrRet;
+        }
+        pContext->NotifyError("clCreateProgramWithIL failed", &clErrRet, sizeof(cl_int));
+        pContext->RemoveProgram(pProgram->GetHandle());
+        pProgram->Release();
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pProgram->GetHandle();
+}
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
 //////////////////////////////////////////////////////////////////////////

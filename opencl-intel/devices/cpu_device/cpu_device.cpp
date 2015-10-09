@@ -1316,6 +1316,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_IL_VERSION ):
+        {
+            const char* il_version = "SPIR-V_1.0";
+            *pinternalRetunedValueSize = strlen(il_version) + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, *pinternalRetunedValueSize, il_version);
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DRIVER_VERSION ):
         {
             int major = 0;

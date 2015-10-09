@@ -34,6 +34,7 @@
 #include "Device.h"
 #include "program_with_source.h"
 #include "program_with_binary.h"
+#include "program_with_il.h"
 #include "program_builtin_kernels.h"
 #include "program_for_link.h"
 #include "program_service.h"
@@ -392,6 +393,38 @@ cl_err_code Context::GetInfo(cl_int param_name, size_t param_value_size, void *p
     }
 
     return CL_SUCCESS;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Context::CreateProgramWithIL
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Context::CreateProgramWithIL(const unsigned char* pIL, const size_t length, SharedPtr<Program>* ppProgram)
+{
+    LOG_DEBUG(TEXT("CreateProgramWithSource enter. pIL=%d, length=%d, ppProgram=%d"), pIL, length, ppProgram);
+
+    // check input parameters
+    if (NULL == ppProgram)
+    {
+        LOG_ERROR(TEXT("%s"), TEXT("NULL == ppProgram; return CL_INVALID_VALUE"));
+        return CL_INVALID_VALUE;
+    }
+    cl_err_code clErrRet = CL_SUCCESS;
+    // create new program object
+    SharedPtr<Program> pProgram = ProgramWithIL::Allocate(this, pIL, length, &clErrRet);
+    if (NULL == pProgram)
+    {
+        if (CL_SUCCESS != clErrRet)
+        {
+            return clErrRet;
+        }
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+    pProgram->SetLoggerClient(GET_LOGGER_CLIENT);
+
+    // add program object to programs map list
+    m_mapPrograms.AddObject(pProgram);
+    *ppProgram = pProgram;
+    return clErrRet;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
