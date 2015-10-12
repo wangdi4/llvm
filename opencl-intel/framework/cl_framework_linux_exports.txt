@@ -75,6 +75,8 @@
         clSetEventCallback;
         clSetMemObjectDestructorCallback;
         clSetUserEventStatus;
+        clGetHostTimer;
+        clGetDeviceAndHostTimer;
         clCompileProgram;
         clCreateImage;
         clCreateProgramWithBuiltInKernels;

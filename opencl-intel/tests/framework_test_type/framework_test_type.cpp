@@ -502,6 +502,11 @@ TEST(CL21, Test_CreateProgramWithIL)
     CreateProgramWithIL();
 }
 
+TEST(CL21, Test_Timers)
+{
+    Timers();
+}
+
 CommandLineOption<std::string> deviceOption("--device_type");
 
 #ifdef INCLUDE_MIC_DEVICE

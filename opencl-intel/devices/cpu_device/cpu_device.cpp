@@ -503,6 +503,11 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
 }
 
 // Device entry points
+cl_ulong CPUDevice::clDevGetDeviceTimer()
+{
+    return Intel::OpenCL::Utils::HostTime();
+}
+
 //Device Information function prototypes
 //
 /************************************************************************************************************************
@@ -2460,6 +2465,14 @@ extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN    dev_id,
                             )
 {
     return CPUDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
+}
+
+/************************************************************************************************************************
+   clDevGetDeviceTimer
+**************************************************************************************************************************/
+extern "C" cl_ulong clDevGetDeviceTimer()
+{
+    return CPUDevice::clDevGetDeviceTimer();
 }
 
 /************************************************************************************************************************

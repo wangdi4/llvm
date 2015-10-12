@@ -43,6 +43,7 @@
 #include <string>
 #include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -737,6 +738,40 @@ private:
 bool operator==( void* p, const ParentDeviceWrapper& me )
 {
     return (p == (*me).GetPtr());
+}
+
+cl_err_code PlatformModule::GetHostTimer(cl_device_id device, cl_ulong* host_timestamp)
+{
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (0 == pDevice)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    if (NULL == host_timestamp)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    *host_timestamp = Intel::OpenCL::Utils::HostTime();
+
+    return CL_SUCCESS;
+}
+
+cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device, cl_ulong* device_timestamp, cl_ulong* host_timestamp)
+{
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (0 == pDevice)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    if ((NULL == host_timestamp) || (NULL == device_timestamp))
+    {
+        return CL_INVALID_VALUE;
+    }
+    *host_timestamp = Intel::OpenCL::Utils::HostTime();
+    *device_timestamp = pDevice->GetDeviceTimer();
+
+    return CL_SUCCESS;
 }
 
 cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
