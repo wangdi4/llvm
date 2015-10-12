@@ -26,11 +26,12 @@
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
-	struct CLANG_DEV_INFO
-	{
-		const char *sExtensionStrings;      // A string for device supported extensions
-		bool        bImageSupport;          // Does the device support images?
-		bool        bDoubleSupport;         // Does the device support 64 bit FP?
-		bool        bEnableSourceLevelProfiling; // Enable source level profiling
-	};
+  struct CLANG_DEV_INFO
+  {
+    const char *sExtensionStrings;      // A string for device supported extensions
+    bool        bImageSupport;          // Does the device support images?
+    bool        bDoubleSupport;         // Does the device support 64 bit FP?
+    bool        bEnableSourceLevelProfiling; // Enable source level profiling
+  };
+
 }}}
