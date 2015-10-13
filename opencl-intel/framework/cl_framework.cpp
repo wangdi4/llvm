@@ -3176,6 +3176,7 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
 
+
 cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              const void* il,
                                              size_t lengths,
@@ -3204,3 +3205,29 @@ cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
     }
 }
 SET_ALIAS(clCreateProgramWithIL);
+
+cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
+                                    cl_int* errcode_ret)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        if (errcode_ret != NULL)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clCloneKernel);
+        apiLogger << "const cl_kernel source_kernel" << source_kernel << "cl_int* errcode_ret" << errcode_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("errcode_ret", errcode_ret, false, false);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+    }
+}
+SET_ALIAS(clCloneKernel);

@@ -155,4 +155,5 @@ void clShutdownSVMTest();
 bool UnloadPlatformCompiler();
 void CreateProgramWithIL();
 bool Timers();
+bool CloneKernel();
 //#define CUDA_DEVICE

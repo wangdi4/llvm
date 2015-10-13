@@ -103,6 +103,7 @@
         clSetKernelArgSVMPointer;
         clSetKernelExecInfo;
 
+        clCloneKernel;
         clCreatePipe;
         clCreatePipeINTEL;
         clGetPipeInfo;
