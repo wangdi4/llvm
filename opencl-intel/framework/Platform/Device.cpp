@@ -675,7 +675,7 @@ void FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue* command_queue )
 
 OclCommandQueue* FissionableDevice::GetDefaultDeviceQueue()
 {
-    if(DefaultDeviceQueueExists())
+    if(m_default_command_queue)
     {
         return m_default_command_queue;
     }

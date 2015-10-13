@@ -171,8 +171,6 @@ namespace Intel { namespace OpenCL { namespace Framework {
             return m_default_command_queue.test_and_set(NULL, command_queue);
         }
 
-        bool DefaultDeviceQueueExists()    { return m_DefaultDeviceQueueExists; }
-
     protected:
 
         FissionableDevice(_cl_platform_id_int* platform) :

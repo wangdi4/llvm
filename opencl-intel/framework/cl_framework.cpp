@@ -3236,6 +3236,11 @@ cl_int CL_API_CALL clSetDefaultDeviceCommandQueue(cl_context context,
                                                   cl_device_id device,
                                                   cl_command_queue command_queue)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clSetDefaultCommandQueue);

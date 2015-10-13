@@ -275,7 +275,6 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
 
 cl_err_code OclCommandQueue::SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice)
 {
-    pDevice->TestAndSetDefaultDeviceQueueExists();
     pDevice->SetDefaultDeviceQueue(this);
     return pDevice->GetDeviceAgent()->clDevSetDefaultCommandList(m_clDevCmdListId);
 }
