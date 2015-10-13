@@ -35,7 +35,7 @@ define i64 @g(i32 %i) nounwind {
 ; Next we set up the memset call, and then undo it.
 ; CHECK:      subl   $20, %esp
 ; CHECK-NOT:         {{[^ ,]*}}, %esp
-; CHECK:      calll  memset
+; CHECK:      calll  _intel_fast_memset ;INTEL
 ; CHECK-NEXT: addl   $32, %esp
 ; CHECK-NOT:         {{[^ ,]*}}, %esp
 ;

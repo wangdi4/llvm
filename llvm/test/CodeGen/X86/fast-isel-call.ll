@@ -39,7 +39,7 @@ define void @test3(i8* %a) {
 ; CHECK:   movl	{{.*}}, (%esp)
 ; CHECK:   movl	$0, 4(%esp)
 ; CHECK:   movl	$100, 8(%esp)
-; CHECK:   calll {{.*}}memset
+; CHECK:   calll {{.*}}_intel_fast_memset ;INTEL
 }
 
 declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture, i32, i32, i1) nounwind
@@ -51,5 +51,5 @@ define void @test4(i8* %a, i8* %b) {
 ; CHECK:   movl	{{.*}}, (%esp)
 ; CHECK:   movl	{{.*}}, 4(%esp)
 ; CHECK:   movl	$100, 8(%esp)
-; CHECK:   calll {{.*}}memcpy
+; CHECK:   calll {{.*}}_intel_fast_memcpy ;INTEL
 }

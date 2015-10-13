@@ -21,7 +21,7 @@ return:                                           ; No predecessors!
 
 declare void @llvm.memcpy.p0i8.p0i8.i64(i8* nocapture, i8* nocapture, i64, i32, i1) nounwind
 
-; I386: calll {{_?}}memcpy
+; I386: calll {{_?}}_intel_fast_memcpy ;INTEL
 
 ; CORE2: movabsq
 ; CORE2: movabsq

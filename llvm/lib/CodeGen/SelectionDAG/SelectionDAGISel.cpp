@@ -451,7 +451,15 @@ bool SelectionDAGISel::runOnMachineFunction(MachineFunction &mf) {
 
   SplitCriticalSideEffectEdges(const_cast<Function &>(Fn));
 
+#if INTEL_CUSTOMIZATION
+  // SelectionDAG uses LibInfo to determine if library functions
+  // such as memcpy, for which we want to use libirc implementations,
+  // are available in the targeted environment depending upon whether
+  // or not it is freestanding.
+  CurDAG->init(*MF, LibInfo);
+#else
   CurDAG->init(*MF);
+#endif // INTEL_CUSTOMIZATION
   FuncInfo->set(Fn, *MF, CurDAG);
 
   if (UseMBPI && OptLevel != CodeGenOpt::None)
