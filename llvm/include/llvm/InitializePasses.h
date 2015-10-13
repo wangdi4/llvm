@@ -75,7 +75,7 @@ void initializeADCEPass(PassRegistry&);
 void initializeBDCEPass(PassRegistry&);
 void initializeAliasSetPrinterPass(PassRegistry&);
 void initializeAlwaysInlinerPass(PassRegistry&);
-void initializeAndersensPass(PassRegistry&); // INTEL
+void initializeAndersensAAWrapperPassPass(PassRegistry&); // INTEL
 void initializeArgPromotionPass(PassRegistry&);
 void initializeAtomicExpandPass(PassRegistry&);
 void initializeSampleProfileLoaderPass(PassRegistry&);
