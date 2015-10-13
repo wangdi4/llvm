@@ -87,6 +87,7 @@ public:
 
     virtual cl_dev_err_code init();
 
+    virtual cl_dev_err_code SetDefaultCommandList(const SharedPtr<ITaskList> IN list);
     virtual cl_dev_err_code createCommandList( cl_dev_cmd_list_props IN props, ITEDevice* IN pDevice, SharedPtr<ITaskList>* OUT list);
     virtual cl_dev_err_code commandListExecute( const SharedPtr<ITaskList>& IN list, cl_dev_cmd_desc* IN *cmds, cl_uint IN count);
 

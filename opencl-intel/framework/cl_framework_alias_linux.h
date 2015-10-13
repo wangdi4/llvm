@@ -145,4 +145,5 @@ DECLARE_ALIAS(clCreateProgramWithIL);
 DECLARE_ALIAS(clGetHostTimer);
 DECLARE_ALIAS(clGetDeviceAndHostTimer);
 DECLARE_ALIAS(clCloneKernel);
+DECLARE_ALIAS(clSetDefaultDeviceCommandQueue);
 }}}

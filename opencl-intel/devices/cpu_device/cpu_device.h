@@ -118,6 +118,7 @@ public:
     cl_dev_err_code clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id);
 
     // Device entry points
+    cl_dev_err_code clDevSetDefaultCommandList(cl_dev_cmd_list IN list);
     cl_dev_err_code clDevCreateCommandList( cl_dev_cmd_list_props IN props, cl_dev_subdevice_id IN subdevice_id, cl_dev_cmd_list* OUT list);
     void* clDevGetCommandListPtr(cl_dev_cmd_list IN list);
     cl_dev_err_code clDevFlushCommandList( cl_dev_cmd_list IN list);

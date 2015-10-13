@@ -3231,3 +3231,21 @@ cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
     }
 }
 SET_ALIAS(clCloneKernel);
+
+cl_int CL_API_CALL clSetDefaultDeviceCommandQueue(cl_context context,
+                                                  cl_device_id device,
+                                                  cl_command_queue command_queue)
+{
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clSetDefaultCommandQueue);
+        apiLogger << "cl_context context" << context << "cl_device_id device" << device << "cl_command_queue" << command_queue;
+        OutputParamsValueProvider provider(apiLogger);
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, SetDefaultDeviceCommandQueue(context, device, command_queue));
+    }
+}
+SET_ALIAS(clSetDefaultDeviceCommandQueue);

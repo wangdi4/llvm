@@ -132,4 +132,5 @@ EXPORTS
 	clCreateCommandQueueWithProperties
 	clGetHostTimer;
 	clGetDeviceAndHostTimer;
+	clSetDefaultDeviceCommandQueue
 	clCloneKernel

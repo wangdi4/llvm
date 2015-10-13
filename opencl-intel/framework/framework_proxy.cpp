@@ -135,6 +135,7 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clReleaseSampler = (KHRpfn_clReleaseSampler)GET_ALIAS(clReleaseSampler);
     ICDDispatchTable.clGetSamplerInfo = (KHRpfn_clGetSamplerInfo)GET_ALIAS(clGetSamplerInfo);
     ICDDispatchTable.clCreateProgramWithSource = (KHRpfn_clCreateProgramWithSource)GET_ALIAS(clCreateProgramWithSource);
+    ICDDispatchTable.clSetDefaultDeviceCommandQueue = (KHRpfn_clSetDefaultDeviceCommandQueue)GET_ALIAS(clSetDefaultDeviceCommandQueue);
     ICDDispatchTable.clCreateProgramWithBinary = (KHRpfn_clCreateProgramWithBinary)GET_ALIAS(clCreateProgramWithBinary);
     ICDDispatchTable.clCreateProgramWithBuiltInKernels = (KHRpfn_clCreateProgramWithBuiltInKernels)GET_ALIAS(clCreateProgramWithBuiltInKernels);
     ICDDispatchTable.clCreateProgramWithIL = (KHRpfn_clCreateProgramWithIL)GET_ALIAS(clCreateProgramWithIL);	

@@ -1103,6 +1103,7 @@ public:
             CL_DEV_SUCCESS              The command queue successfully created
             CL_DEV_INVALID_VALUE        If the subdevice_id is invalid
     */
+    virtual cl_dev_err_code clDevSetDefaultCommandList( cl_dev_cmd_list IN list ) = 0;
     virtual cl_dev_err_code clDevReleaseSubdevice(  cl_dev_subdevice_id IN subdevice_id
                                                    ) = 0;
 

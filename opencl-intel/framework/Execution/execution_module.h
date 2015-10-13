@@ -83,6 +83,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_queue    CreateCommandQueue      ( cl_context clContext, cl_device_id clDevice, const cl_command_queue_properties* clQueueProperties, cl_int* pErrRet );
         cl_err_code         RetainCommandQueue      ( cl_command_queue clCommandQueue);
         cl_err_code         ReleaseCommandQueue     ( cl_command_queue clCommandQueue);
+        cl_err_code         SetDefaultDeviceCommandQueue( cl_context context, cl_device_id device, cl_command_queue command_queue);
         cl_err_code         GetCommandQueueInfo     ( cl_command_queue clCommandQueue, cl_command_queue_info clParamName, size_t szParamValueSize, void* pParamValue, size_t* pszParamValueSizeRet );
         cl_err_code         SetCommandQueueProperty ( cl_command_queue clCommandQueue, cl_command_queue_properties clProperties, cl_bool bEnable, cl_command_queue_properties* pclOldProperties);
         cl_err_code         Flush                   ( cl_command_queue clCommandQueue);

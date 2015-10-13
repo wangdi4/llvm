@@ -504,6 +504,7 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
 {
     cl_err_code ret = CL_SUCCESS;
     cl_dev_err_code dev_ret = CL_DEV_SUCCESS;
+    m_default_command_queue = NULL;
     //identify the partition mode and translate to device enum
     cl_dev_partition_prop partitionMode;
 
@@ -663,6 +664,22 @@ cl_err_code FissionableDevice::FissionDevice(const cl_device_partition_property*
         return CL_INVALID_VALUE;
     }
     return CL_DEVICE_PARTITION_FAILED;
+}
+
+
+void FissionableDevice::SetDefaultDeviceQueue(OclCommandQueue* command_queue )
+{
+    assert(command_queue);
+    m_default_command_queue = command_queue;
+}
+
+OclCommandQueue* FissionableDevice::GetDefaultDeviceQueue()
+{
+    if(DefaultDeviceQueueExists())
+    {
+        return m_default_command_queue;
+    }
+    return CL_INVALID_HANDLE;
 }
 
 bool FissionableDevice::IsImageFormatSupported(const cl_image_format& clImgFormat, cl_mem_flags clMemFlags, cl_mem_object_type clMemObjType) const

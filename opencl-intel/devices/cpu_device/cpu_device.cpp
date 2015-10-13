@@ -1926,6 +1926,13 @@ void* CPUDevice::clDevGetCommandListPtr(cl_dev_cmd_list IN list)
     return internalList.pCmd_list.GetPtr();
 }
 
+
+cl_dev_err_code CPUDevice::clDevSetDefaultCommandList(cl_dev_cmd_list IN list)
+{
+    assert(NULL != list);
+    cl_dev_internal_cmd_list* pList = static_cast<cl_dev_internal_cmd_list*>(list);
+    return m_pTaskDispatcher->SetDefaultCommandList(pList->pCmd_list);
+}
 // Execution commands
 /****************************************************************************************************************
  clDevCreateCommandList

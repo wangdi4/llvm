@@ -128,6 +128,21 @@ size_t OclCommandQueue::GetInfoInternal(cl_int iParamName, void* pBuf, size_t sz
                 *(cl_command_queue_properties*)pBuf = ((iOutOfOrder) | ( iProfilingEn<<1 ));
                 return sizeof(cl_command_queue_properties); 
             }
+        case CL_QUEUE_DEVICE_DEFAULT:
+            {
+                assert(szBuf >= sizeof(cl_command_queue));
+                if (szBuf < sizeof(cl_command_queue))
+                {
+                    return 0;
+                }
+                OclCommandQueue* device_queue = m_pDefaultDevice->GetDefaultDeviceQueue();
+                if(NULL != device_queue)
+                    *(cl_command_queue*)pBuf = device_queue->GetHandle();
+                else
+                    return 0;
+
+                return sizeof(cl_command_queue);
+            }
         default:
             return 0;
     }
@@ -256,6 +271,14 @@ cl_bool OclCommandQueue::EnableOutOfOrderExecMode( cl_bool bEnabled )
  }
 
  ocl_gpa_data* OclCommandQueue::GetGPAData() const { return m_pContext->GetGPAData(); }
+
+
+cl_err_code OclCommandQueue::SetDefaultOnDevice(SharedPtr<FissionableDevice> pDevice)
+{
+    pDevice->TestAndSetDefaultDeviceQueueExists();
+    pDevice->SetDefaultDeviceQueue(this);
+    return pDevice->GetDeviceAgent()->clDevSetDefaultCommandList(m_clDevCmdListId);
+}
 
 cl_err_code OclCommandQueue::CancelAll()
 {

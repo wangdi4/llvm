@@ -111,6 +111,8 @@
         clCreateCommandQueueWithProperties;
         clCreateSamplerWithProperties;
 
+        clSetDefaultDeviceCommandQueue;
+
     local:
         *;
 };

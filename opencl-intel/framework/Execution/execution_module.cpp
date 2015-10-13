@@ -151,6 +151,38 @@ cl_err_code ExecutionModule::Release(bool bTerminate)
     return CL_SUCCESS;
 }
 
+cl_err_code ExecutionModule::SetDefaultDeviceCommandQueue(
+                cl_context            context,
+                cl_device_id          device,
+                cl_command_queue      command_queue
+                )
+{
+    SharedPtr<Context> pContext = m_pContextModule->GetContext(context);
+    if (NULL == pContext)
+    {
+        return CL_INVALID_CONTEXT;
+    }
+
+    SharedPtr<FissionableDevice> pDevice = pContext->GetDevice(device);
+    if (NULL == pDevice)
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    SharedPtr<DeviceQueue> pCommandQueue = GetCommandQueue(command_queue).DynamicCast<DeviceQueue>();
+    if (NULL == pCommandQueue)
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    cl_int ret_code = pCommandQueue->SetDefaultOnDevice(pDevice);
+    if (CL_FAILED(ret_code))
+    {
+        return ret_code;
+    }
+
+    return CL_SUCCESS;
+}
 /******************************************************************
  *
  ******************************************************************/

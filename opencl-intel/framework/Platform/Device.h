@@ -46,6 +46,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
     // Froward declarations
     class Device;
     class PlatformModule;
+    class OclCommandQueue;
 
     /**********************************************************************************************
     * Class name:    FissionableDevice
@@ -121,6 +122,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_context_properties GetD3DDevType() const { return m_iD3DDevType; }
 #endif
 
+        cl_int GetDeviceQueue(SharedPtr<OclCommandQueue> device_queue);
         /**
          * @param clImgFormat   a cl_image_format
          * @param clMemFlags    cl_mem_flags for image usage information
@@ -157,6 +159,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * @return whether a default device queue did not exist 
          */
 
+        void SetDefaultDeviceQueue(OclCommandQueue* command_queue);
+        OclCommandQueue* GetDefaultDeviceQueue();
         /**
          * Set that a default device queue does not exists any more for this FissionableDevice
          */
@@ -166,6 +170,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         {
             return m_default_command_queue.test_and_set(NULL, command_queue);
         }
+
+        bool DefaultDeviceQueueExists()    { return m_DefaultDeviceQueueExists; }
 
     protected:
 

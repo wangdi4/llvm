@@ -333,6 +333,11 @@ bool TaskDispatcher::isThreadAffinityRequired()
 #endif
 }
 
+cl_dev_err_code TaskDispatcher::SetDefaultCommandList(const SharedPtr<ITaskList> IN list)
+{
+    m_pDefaultQueue = list;
+    return CL_DEV_SUCCESS;
+}
 /*******************************************************************************************************************
 createCommandList
     Description
