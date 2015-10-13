@@ -13558,6 +13558,7 @@ SDValue X86TargetLowering::EmitCmp(SDValue Op0, SDValue Op1, unsigned X86CC,
 
   if ((Op0.getValueType() == MVT::i8 || Op0.getValueType() == MVT::i16 ||
        Op0.getValueType() == MVT::i32 || Op0.getValueType() == MVT::i64)) {
+#if !INTEL_CUSTOMIZATION
     // Do the comparison at i32 if it's smaller, besides the Atom case.
     // This avoids subregister aliasing issues. Keep the smaller reference
     // if we're optimizing for size, however, as that'll allow better folding
@@ -13570,6 +13571,7 @@ SDValue X86TargetLowering::EmitCmp(SDValue Op0, SDValue Op1, unsigned X86CC,
       Op0 = DAG.getNode(ExtendOp, dl, MVT::i32, Op0);
       Op1 = DAG.getNode(ExtendOp, dl, MVT::i32, Op1);
     }
+#endif // !INTEL_CUSTOMIZATION
     // Use SUB instead of CMP to enable CSE between SUB and CMP.
     SDVTList VTs = DAG.getVTList(Op0.getValueType(), MVT::i32);
     SDValue Sub = DAG.getNode(X86ISD::SUB, dl, VTs,
