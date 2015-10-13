@@ -6,6 +6,7 @@
 #include <map>
 #include <test_common.h>
 #include "cl_user_logger.h"
+#include "CL21.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -167,11 +168,6 @@ TEST(FrameworkTestType, Test_clJITLoadTest)
 TEST(FrameworkTestType, Test_GenerateBinaryFile)
 {
     EXPECT_TRUE(GenerateBinaryFile());
-}
-
-TEST(CL21, Test_CloneKernel)
-{
-    EXPECT_TRUE(CloneKernel());
 }
 
 TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
@@ -502,15 +498,54 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
-TEST(CL21, Test_CreateProgramWithIL)
+/////////////////////////////////////////////////////////////////////
+//////////////      CL21 tests.        //////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+TEST(CL21_depr, Test_Timers)
+{
+    Timers();
+}
+
+TEST(CL21_depr, Test_CloneKernel)
+{
+    EXPECT_TRUE(CloneKernel());
+}
+
+TEST(CL21_depr, Test_CreateProgramWithIL)
 {
     CreateProgramWithIL();
 }
 
-TEST(CL21, Test_Timers)
+TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO)
 {
-    Timers();
+    SetDefaultDeviceCommandQueueOOO();
 }
+
+TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO_Profiling)
+{
+    SetDefaultDeviceCommandQueueOOO_Profiling();
+}
+
+TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO_SubDevice)
+{
+    SetDefaultDeviceCommandQueueOOO_SubDevice();
+}
+
+TEST_F(CL21, clSetDefaultDeviceCommandQueue_Get_Default_Queue_Query)
+{
+    SetDefaultDeviceCommandQueue_Get_Default_Queue_Query();
+}
+
+TEST_F(CL21, clSetDefaultDeviceCommandQueue_Negative)
+{
+    SetDefaultDeviceCommandQueue_Negative();
+}
+
+/////////////////////////////////////////////////////////////////////
+//////////////   End of CL21 tests.    //////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
 
 CommandLineOption<std::string> deviceOption("--device_type");
 
