@@ -11,7 +11,7 @@ entry:
 	ret i8* %a
         
 ; LINUX-LABEL: test1:
-; LINUX: _intel_fast_memcpy ;INTEL
+; LINUX: memcpy
 }
 
 ; Variable memcpy's should lower to calls.
@@ -23,7 +23,7 @@ entry:
 	ret i8* %tmp14
         
 ; LINUX-LABEL: test2:
-; LINUX: _intel_fast_memcpy ;INTEL
+; LINUX: memcpy
 }
 
 ; Large constant memcpy's should lower to a call when optimizing for size.
@@ -37,7 +37,7 @@ entry:
   tail call void @llvm.memcpy.p0i8.p0i8.i64(i8* %A, i8* %B, i64 64, i32 1, i1 false)
   ret void
 ; LINUX-LABEL: test3:
-; LINUX: _intel_fast_memcpy ;INTEL
+; LINUX: memcpy
 
 ; DARWIN-LABEL: test3:
 ; DARWIN-NOT: memcpy

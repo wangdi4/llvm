@@ -22,7 +22,6 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
@@ -2395,18 +2394,7 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MCI->getSourceAddressSpace() > 255 || MCI->getDestAddressSpace() > 255)
       return false;
 
-#if INTEL_CUSTOMIZATION
-printf("\n\nSGM  FAST  CPY\n\n");
-    // Determine the function name to use based upon whether or not
-    // the corresponding standard library function is available in the
-    // targeted environment.
-    RTLIB::Libcall libcall = LibInfo->has(LibFunc::memcpy) ?
-                             RTLIB::INTEL_MEMCPY : RTLIB::MEMCPY;
-    const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 2);
-#else
     return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 2);
-#endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::memset: {
     const MemSetInst *MSI = cast<MemSetInst>(II);
@@ -2421,18 +2409,7 @@ printf("\n\nSGM  FAST  CPY\n\n");
     if (MSI->getDestAddressSpace() > 255)
       return false;
 
-#if INTEL_CUSTOMIZATION
-printf("\n\nSGM  FAST  SET\n\n");
-    // Determine the function name to use based upon whether or not
-    // the corresponding standard library function is available in the
-    // targeted environment.
-    RTLIB::Libcall libcall = LibInfo->has(LibFunc::memset) ?
-                             RTLIB::INTEL_MEMSET : RTLIB::MEMSET;
-    const char *libFn = TLI.getLibcallName(libcall);
-    return lowerCallTo(II, libFn, II->getNumArgOperands() - 2);
-#else
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
-#endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::stackprotector: {
     // Emit code to store the stack guard onto the stack.

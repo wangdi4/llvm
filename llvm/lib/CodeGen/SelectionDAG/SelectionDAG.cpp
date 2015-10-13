@@ -19,7 +19,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -934,13 +933,11 @@ SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOpt::Level OL)
   DbgInfo = new SDDbgInfo();
 }
 
-void SelectionDAG::init(MachineFunction &mf,
-                        const TargetLibraryInfo *libInfo) { // INTEL
+void SelectionDAG::init(MachineFunction &mf) {
   MF = &mf;
   TLI = getSubtarget().getTargetLowering();
   TSI = getSubtarget().getSelectionDAGInfo();
   Context = &mf.getFunction()->getContext();
-  TLibI = libInfo; // INTEL
 }
 
 SelectionDAG::~SelectionDAG() {
@@ -4577,21 +4574,12 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, SDLoc dl, SDValue Dst,
   Entry.Node = Src; Args.push_back(Entry);
   Entry.Node = Size; Args.push_back(Entry);
   // FIXME: pass in SDLoc
-
-#if INTEL_CUSTOMIZATION
-  // Determine the RTL::Libcall to use based upon whether or not
-  // the corresponding standard library function is available in the
-  // targeted environment.
-  RTLIB::Libcall libcall = TLibI->has(LibFunc::memcpy) ?
-                           RTLIB::INTEL_MEMCPY : RTLIB::MEMCPY;
-#endif // INTEL_CUSTOMIZATION
-
   TargetLowering::CallLoweringInfo CLI(*this);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
-      .setCallee(TLI->getLibcallCallingConv(libcall), // INTEL
+      .setCallee(TLI->getLibcallCallingConv(RTLIB::MEMCPY),
                  Type::getVoidTy(*getContext()),
-                 getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
+                 getExternalSymbol(TLI->getLibcallName(RTLIB::MEMCPY),
                                    TLI->getPointerTy(getDataLayout())),
                  std::move(Args), 0)
       .setDiscardResult()
@@ -4704,21 +4692,12 @@ SDValue SelectionDAG::getMemset(SDValue Chain, SDLoc dl, SDValue Dst,
   Args.push_back(Entry);
 
   // FIXME: pass in SDLoc
-
-#if INTEL_CUSTOMIZATION
-  // Determine the RTL::Libcall to use based upon whether or not
-  // the corresponding standard library function is available in the
-  // targeted environment.
-  RTLIB::Libcall libcall = TLibI->has(LibFunc::memset) ?
-                           RTLIB::INTEL_MEMSET : RTLIB::MEMSET;
-#endif // INTEL_CUSTOMIZATION
-
   TargetLowering::CallLoweringInfo CLI(*this);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
-      .setCallee(TLI->getLibcallCallingConv(libcall), // INTEL
+      .setCallee(TLI->getLibcallCallingConv(RTLIB::MEMSET),
                  Type::getVoidTy(*getContext()),
-                 getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
+                 getExternalSymbol(TLI->getLibcallName(RTLIB::MEMSET),
                                    TLI->getPointerTy(getDataLayout())),
                  std::move(Args), 0)
       .setDiscardResult()

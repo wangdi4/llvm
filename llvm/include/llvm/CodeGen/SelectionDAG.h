@@ -180,15 +180,6 @@ class SelectionDAG {
   const TargetMachine &TM;
   const TargetSelectionDAGInfo *TSI;
   const TargetLowering *TLI;
-
-#if INTEL_CUSTOMIZATION
-  /// The Intel compiler uses libirc implementations of library functions
-  /// such as memcpy/set unless a freestanding environment is targeted.
-  /// TargetLibraryInfo is used to determine the availability of
-  /// standard library functions in the targeted environment.
-  const TargetLibraryInfo *TLibI;
-#endif // INTEL_CUSTOMIZATION
-
   MachineFunction *MF;
   LLVMContext *Context;
   CodeGenOpt::Level OptLevel;
@@ -283,7 +274,7 @@ public:
   ~SelectionDAG();
 
   /// Prepare this SelectionDAG to process code in the given MachineFunction.
-  void init(MachineFunction &mf, const TargetLibraryInfo *TLibI); // INTEL
+  void init(MachineFunction &mf);
 
   /// Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
