@@ -1,6 +1,6 @@
 ; RUN_x: opt -debug-info -S %s | FileCheck %s
 ; Temporary disable this test.
-; TODO: enable it as soon as clang is produce compatible debug info.
+; TODO: enable it as soon as clang is upgraded to 3.6 too.
 
 ;; This test was generated using the following cl code with this command:
 ;;  clang -cc1 -x cl -emit-llvm -include opencl_.h -I <Path-TO>\clang_headers\ -g -O0 -o -

@@ -1,5 +1,4 @@
-; [LLVM 3.6 UPGRADE] FIXME: Temprorary disable this test. Enable as soon as clang
-;                           is able to produce compatible debug info.
+; [LLVM 3.6 UPGRADE] FIXME: Disable this test until clang is upgraded to 3.6 too.
 ; RUN_x: opt -B-DuplicateCalledKernels -verify -S < %s | FileCheck %s
 
 ;;*****************************************************************************

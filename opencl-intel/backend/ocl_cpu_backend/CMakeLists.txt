@@ -5,9 +5,6 @@ if( NOT DEFINED LLVM_PATH_FE )
 endif()
 set (LLVM_FE_INCLUDE_DIRS ${LLVM_PATH_FE}/include)
 
-set (TARGET_NAME ValidationTests)
-
-
 set(TARGET_NAME OclCpuBackEnd${BUILD_PLATFORM})
 project(${TARGET_NAME})
 
