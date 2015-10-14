@@ -85,7 +85,8 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
         }
         else if ( _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)pBinary)[0] )
         {
-            printf("Create BE program with IL is not implemented! FILE: %s, LINE: %d", __FILE__, __LINE__);
+            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+            GetProgramBuilder()->ParseSPIRVProgram(spProgram.get());
         }
         else
         {

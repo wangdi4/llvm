@@ -54,6 +54,7 @@ BitCodeContainer::~BitCodeContainer()
         // the cleanup() call is commented out.
         // context.cleanup();
     }
+    // TODO: Check if the memory reffered by m_pBuffer is to be revoked manually here
 }
 
 const void* BitCodeContainer::GetCode() const

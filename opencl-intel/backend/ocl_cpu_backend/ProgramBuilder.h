@@ -67,6 +67,11 @@ public:
      */
     void ParseProgram(Program* pProgram);
 
+    /**
+     * Parses the given program from SPIR-V representation
+     */
+    void ParseSPIRVProgram(Program* pProgram);
+
 protected:
 
     virtual Compiler* GetCompiler() = 0;
