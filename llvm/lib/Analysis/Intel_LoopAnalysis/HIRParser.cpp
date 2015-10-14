@@ -304,7 +304,20 @@ public:
   }
 
   const SCEV *visitZeroExtendExpr(const SCEVZeroExtendExpr *ZExt) {
-    const SCEV *Operand = visit(ZExt->getOperand());
+    const SCEV *Operand = ZExt->getOperand();
+
+    // In some cases we have a value for zero extension of linear SCEV but not
+    // the linear SCEV itself because the original src code IV has been widened
+    // by induction variable simplification. So we look for such values here.
+    auto AddRec = dyn_cast<SCEVAddRecExpr>(Operand);
+
+    if (AddRec && AddRec->isAffine()) {
+      if (auto SubSCEV = getSubstituteSCEV(ZExt)) {
+        return SubSCEV;
+      }
+    }
+
+    Operand = visit(ZExt->getOperand());
     return HIRP->SE->getZeroExtendExpr(Operand, ZExt->getType());
   }
 
@@ -359,23 +372,10 @@ public:
 
   /// Returns the SCEVUnknown version of the value which represents this AddRec.
   const SCEV *visitAddRecExpr(const SCEVAddRecExpr *AddRec) {
-    Instruction *OrigInst = nullptr;
-    SCEVConstant *ConstAdditive = nullptr;
-    const Instruction *CurInst = HIRP->getCurInst();
-    bool ParsingUpper = isa<HLLoop>(HIRP->getCurNode());
+    const SCEV *SubSCEV = getSubstituteSCEV(AddRec);
+    assert(SubSCEV && "Instuction corresponding to linear SCEV not found!");
 
-    OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), AddRec,
-                            ParsingUpper ? &ConstAdditive : nullptr);
-    assert(OrigInst && "Instuction corresponding to linear SCEV not found!");
-
-    auto NewSCEV = HIRP->SE->getUnknown(OrigInst);
-
-    if (ConstAdditive) {
-      NewSCEV = HIRP->SE->getAddExpr(ConstAdditive, NewSCEV);
-    }
-
-    // Convert value to base value before returning.
-    return visit(NewSCEV);
+    return SubSCEV;
   }
 
   /// Returns the SCEV of the base value associated with the incoming SCEV's
@@ -398,32 +398,55 @@ public:
     llvm_unreachable("SCEVCouldNotCompute encountered!");
   }
 
-  // Recursive function to trace back from the current instruction to find an
-  // instruction which can represent AddRec, with a possible constant
-  // difference. We are trying to reverse engineer SCEV analysis here.
-  Instruction *findOrigInst(Instruction *CurInst, const SCEVAddRecExpr *AddRec,
+  /// Returns a substitute SCEV for SC. Returns null if it cannot do so.
+  const SCEV *getSubstituteSCEV(const SCEV *SC);
+
+  /// Recursive function to trace back from the current instruction to find an
+  /// instruction which can represent SC, with a possible constant
+  /// difference. We are trying to reverse engineer SCEV analysis here.
+  Instruction *findOrigInst(Instruction *CurInst, const SCEV *SC,
                             SCEVConstant **ConstAdditive) const;
 
-  /// Returns true if NewAddRec can replace OrigAddRec in the SCEV tree with an
-  /// optional constant additive. To replace OrigAddRec, NewAddRec should have
-  /// identical operands (except the fist operand) and have identical or
-  /// stronger wrap flags. ConstAdditive is required to handle backedge taken
-  /// count.
-  bool isReplacable(const SCEVAddRecExpr *OrigAddRec,
-                    const SCEVAddRecExpr *NewAddRec,
+  /// Returns true if NewSCEV can replace OrigSCEV in the SCEV tree with an
+  /// optional constant additive. To replace a linear AddRec type OrigSCEV,
+  /// NewSCEV should have identical operands (except the fist operand) and have
+  /// identical or stronger wrap flags. ConstAdditive is required to handle
+  /// backedge taken count.
+  bool isReplacable(const SCEV *OrigSCEV, const SCEV *NewSCEV,
                     SCEVConstant **ConstAdditive) const;
 };
 
+const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
+  Instruction *OrigInst = nullptr;
+  SCEVConstant *ConstAdditive = nullptr;
+  const Instruction *CurInst = HIRP->getCurInst();
+  bool ParsingUpper = isa<HLLoop>(HIRP->getCurNode());
+
+  OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), SC,
+                          ParsingUpper ? &ConstAdditive : nullptr);
+
+  if (!OrigInst) {
+    return nullptr;
+  }
+
+  auto NewSCEV = HIRP->SE->getUnknown(OrigInst);
+
+  if (ConstAdditive) {
+    NewSCEV = HIRP->SE->getAddExpr(ConstAdditive, NewSCEV);
+  }
+
+  // Convert value to base value before returning.
+  return visit(NewSCEV);
+}
+
 Instruction *
-HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst,
-                                         const SCEVAddRecExpr *AddRec,
+HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst, const SCEV *SC,
                                          SCEVConstant **ConstAdditive) const {
 
   if (HIRP->SE->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->SE->getSCEV(CurInst);
 
-    if (isReplacable(AddRec, dyn_cast<SCEVAddRecExpr>(CurSCEV),
-                     ConstAdditive)) {
+    if (isReplacable(SC, CurSCEV, ConstAdditive)) {
       return CurInst;
     }
   }
@@ -457,7 +480,7 @@ HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst,
       continue;
     }
 
-    auto OrigInst = findOrigInst(OPInst, AddRec, ConstAdditive);
+    auto OrigInst = findOrigInst(OPInst, SC, ConstAdditive);
 
     if (OrigInst) {
       return OrigInst;
@@ -468,16 +491,19 @@ HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst,
 }
 
 bool HIRParser::BaseSCEVCreator::isReplacable(
-    const SCEVAddRecExpr *OrigAddRec, const SCEVAddRecExpr *NewAddRec,
+    const SCEV *OrigSCEV, const SCEV *NewSCEV,
     SCEVConstant **ConstAdditive) const {
 
-  if (!NewAddRec) {
-    return false;
+  // We got an exact match.
+  if (NewSCEV == OrigSCEV) {
+    return true;
   }
 
-  // We got an exact match.
-  if (NewAddRec == OrigAddRec) {
-    return true;
+  auto OrigAddRec = dyn_cast<SCEVAddRecExpr>(OrigSCEV);
+  auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSCEV);
+
+  if (!OrigAddRec || !NewAddRec) {
+    return false;
   }
 
   // Not an exact match, continue matching loop and operands.
@@ -530,7 +556,7 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
   if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
       !NewAddRec->getNoWrapFlags((SCEV::NoWrapFlags)(
-          SCEV::FlagNUW || SCEV::FlagNSW || SCEV::FlagNW))) {
+          SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
     return false;
   }
 
@@ -820,15 +846,33 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     parseBlob(SC, CE, Level);
 
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
-    /* TODO: Enable in a later changeset.
+
+    // Look ahead and check if this zero extension cast contains a non-generable
+    // IV inside. We need to parse the top most convert as a blob to aviod cases
+    // where the linear SCEV has no corresponding value associated with it due
+    // to IV widening.
+    if (isa<SCEVZeroExtendExpr>(CastSCEV)) {
+      const SCEV *Operand = CastSCEV->getOperand();
+      auto RecSCEV = dyn_cast<SCEVAddRecExpr>(Operand);
+
+      if (RecSCEV && RecSCEV->isAffine()) {
+        auto Lp = RecSCEV->getLoop();
+        auto HLoop = LF->findHLLoop(Lp);
+
+        if (!HLoop || !HLNodeUtils::contains(HLoop, CurNode)) {
+          parseBlob(CastSCEV, CE, Level);
+          return;
+        }
+      }
+    }
+
     if (IsTop && !UnderCast) {
       CE->setSrcType(CastSCEV->getOperand()->getType());
       CE->setExtType(isa<SCEVSignExtendExpr>(CastSCEV));
       parseRecursive(CastSCEV->getOperand(), CE, Level, true, true);
+    } else {
+      parseBlob(CastSCEV, CE, Level);
     }
-    else {*/
-    parseBlob(CastSCEV, CE, Level);
-    //}
 
   } else if (auto AddSCEV = dyn_cast<SCEVAddExpr>(SC)) {
     for (auto I = AddSCEV->op_begin(), E = AddSCEV->op_end(); I != E; ++I) {
@@ -894,18 +938,43 @@ void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
 }
 
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
-  const SCEV *SC;
-  CanonExpr *CE;
+  CanonExpr *CE = nullptr;
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
   if (!SE->isSCEVable(Val->getType())) {
     CE = CanonExprUtils::createCanonExpr(Val->getType());
     parseAsBlob(Val, CE, Level);
+
   } else {
-    SC = SE->getSCEV(const_cast<Value *>(Val));
-    CE = CanonExprUtils::createCanonExpr(SC->getType());
-    parseRecursive(SC, CE, Level);
+
+    // For cast instructions which cast from loop IV's type to some other type,
+    // we want to explicitly hide the cast and parse the value in IV's type.
+    // This allows more opportunities for canon expr merging. Consider the
+    // following cast-
+    // %idxprom = sext i32 %i.01 to i64
+    // Here %i.01 is the loop IV whose SCEV looks like this:
+    // {0,+,1}<nuw><nsw><%for.body> (i32 type)
+    // The SCEV of %idxprom doesn't have a cast and it looks like this:
+    // {0,+,1}<nuw><nsw><%for.body> (i64 type)
+    // We instead want %idxprom to be considered as a cast: sext i32
+    // {0,+,1}<nuw><nsw><%for.body> to i64
+    auto CI = dyn_cast<CastInst>(Val);
+    auto ParentLoop = getCurNode()->getParentLoop();
+    bool UnderCast = false;
+
+    if (CI && ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()) &&
+        (isa<SExtInst>(CI) || isa<ZExtInst>(CI) || isa<TruncInst>(CI))) {
+      Val = CI->getOperand(0);
+      CE = CanonExprUtils::createExtCanonExpr(CI->getSrcTy(), CI->getDestTy(),
+                                              isa<SExtInst>(CI));
+      UnderCast = true;
+    } else {
+      CE = CanonExprUtils::createCanonExpr(Val->getType());
+    }
+
+    auto SC = SE->getSCEV(const_cast<Value *>(Val));
+    parseRecursive(SC, CE, Level, true, UnderCast);
   }
 
   return CE;
@@ -925,23 +994,24 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   }
 }
 
-RegDDRef *HIRParser::createLowerDDRef(const SCEV *BETC) {
-  auto CE = CanonExprUtils::createCanonExpr(BETC->getType());
+RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
+  auto CE = CanonExprUtils::createCanonExpr(IVType);
   auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
   Ref->setSingleCanonExpr(CE);
 
   return Ref;
 }
 
-RegDDRef *HIRParser::createStrideDDRef(const SCEV *BETC) {
-  auto CE = CanonExprUtils::createCanonExpr(BETC->getType(), 0, 1);
+RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
+  auto CE = CanonExprUtils::createCanonExpr(IVType, 0, 1);
   auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
   Ref->setSingleCanonExpr(CE);
 
   return Ref;
 }
 
-RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level) {
+RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
+                                      Type *IVType) {
   const Value *Val;
 
   clearTempBlobLevelMap();
@@ -957,9 +1027,22 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level) {
   auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
-  auto CE = CanonExprUtils::createCanonExpr(BETC->getType());
+  auto CE = CanonExprUtils::createCanonExpr(IVType);
+  auto BETCType = BETC->getType();
 
-  parseRecursive(BETC, CE, Level);
+  // If there is a type mismatch, make upper the same type as IVType.
+  if (BETCType != IVType) {
+    if (IVType->getPrimitiveSizeInBits() > BETCType->getPrimitiveSizeInBits()) {
+      BETC = SE->getZeroExtendExpr(BETC, IVType);
+    } else {
+      BETC = SE->getTruncateExpr(BETC, IVType);
+    }
+  }
+
+  // We pass underCast as 'true' as we don't want to hide the topmost cast for
+  // upper.
+  parseRecursive(BETC, CE, Level, true, true);
+
   Ref->setSingleCanonExpr(CE);
 
   if (!CE->isSelfBlob()) {
@@ -975,6 +1058,7 @@ void HIRParser::parse(HLLoop *HLoop) {
 
   auto Lp = HLoop->getLLVMLoop();
   assert(Lp && "HLLoop doesn't contain LLVM loop!");
+  auto IVType = HLoop->getIVType();
 
   // Upper should be parsed after imcrementing level.
   CurLevel++;
@@ -983,15 +1067,15 @@ void HIRParser::parse(HLLoop *HLoop) {
     auto BETC = SE->getBackedgeTakenCount(Lp);
 
     // Initialize Lower to 0.
-    auto LowerRef = createLowerDDRef(BETC);
+    auto LowerRef = createLowerDDRef(IVType);
     HLoop->setLowerDDRef(LowerRef);
 
     // Initialize Stride to 1.
-    auto StrideRef = createStrideDDRef(BETC);
+    auto StrideRef = createStrideDDRef(IVType);
     HLoop->setStrideDDRef(StrideRef);
 
     // Set the upper bound
-    auto UpperRef = createUpperDDRef(BETC, CurLevel);
+    auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
   }
 }
@@ -1533,7 +1617,7 @@ const DataLayout &HIRParser::getDataLayout() const {
 }
 
 void HIRParser::print(raw_ostream &OS, const Module *M) const {
-  HIR->printWithIRRegion(OS);
+  HIR->printWithFrameworkDetails(OS);
 }
 
 // Verification is done by HIRVerifier.

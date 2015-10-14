@@ -4,9 +4,9 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; Check parsing output for reduction chain in the loopnest
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-SAME: DO_LOOP
-; CHECK: DO i2 = 0, %m + -1
+; CHECK: DO i2 = 0, zext.i32.i64((-1 + %m))
 ; CHECK-SAME: DO_LOOP
 ; CHECK-NEXT: %t.034.out = %t.034
 ; CHECK-NEXT: %0 = (@A)[0][i2][i1]

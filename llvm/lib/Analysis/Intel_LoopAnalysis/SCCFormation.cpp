@@ -451,37 +451,39 @@ SCCFormation::end(RegionIdentification::const_iterator RegIt) const {
   return RegionSCCs.end();
 }
 
-void SCCFormation::print(raw_ostream &OS, const Module *M) const {
-
-  auto RegBegin = RI->begin();
+void SCCFormation::print(raw_ostream &OS,
+                         RegionIdentification::const_iterator RegIt) const {
+  unsigned Count = 1;
   bool FirstSCC = true;
-  unsigned Count;
+  auto RegBegin = RI->begin();
+
+  for (auto SCCIt = begin(RegIt), SCCEndIt = end(RegIt); SCCIt != SCCEndIt;
+       ++SCCIt, ++Count) {
+    if (FirstSCC) {
+      OS << "\nRegion " << RegIt - RegBegin + 1;
+      FirstSCC = false;
+    }
+
+    OS << "\n   SCC" << Count << ": ";
+    for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
+         InstI != InstE; ++InstI) {
+      if (InstI != (*SCCIt)->Nodes.begin()) {
+        OS << " -> ";
+      }
+      (*InstI)->printAsOperand(OS, false);
+    }
+  }
+  // Add a newline only if we printed anything.
+  if (!FirstSCC) {
+    OS << "\n";
+  }
+}
+
+void SCCFormation::print(raw_ostream &OS, const Module *M) const {
 
   for (auto RegIt = RI->begin(), RegEndIt = RI->end(); RegIt != RegEndIt;
        ++RegIt) {
-    FirstSCC = true;
-
-    for (auto SCCIt = begin(RegIt), SCCEndIt = end(RegIt); SCCIt != SCCEndIt;
-         ++SCCIt, ++Count) {
-      if (FirstSCC) {
-        OS << "\nRegion " << RegIt - RegBegin + 1;
-        Count = 1;
-        FirstSCC = false;
-      }
-
-      OS << "\n   SCC" << Count << ": ";
-      for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
-           InstI != InstE; ++InstI) {
-        if (InstI != (*SCCIt)->Nodes.begin()) {
-          OS << " -> ";
-        }
-        (*InstI)->printAsOperand(OS, false);
-      }
-    }
-    // Add a newline only if we printed anything.
-    if (!FirstSCC) {
-      OS << "\n";
-    }
+    print(OS, RegIt);
   }
 }
 

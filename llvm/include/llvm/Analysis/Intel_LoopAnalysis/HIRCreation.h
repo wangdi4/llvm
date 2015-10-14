@@ -117,7 +117,7 @@ private:
   void create();
 
   /// \brief Contains implementation for print().
-  void printImpl(raw_ostream &OS, bool printIRRegion) const;
+  void printImpl(raw_ostream &OS, bool FrameworkDetais) const;
 
 public:
   static char ID; // Pass identification
@@ -127,8 +127,9 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  /// \brief Prints the contained IRRegion along with the HLRegion.
-  void printWithIRRegion(raw_ostream &OS) const;
+  /// \brief Prints framework details along with HLRegion like IRRegion and
+  /// SCCs.
+  void printWithFrameworkDetails(raw_ostream &OS) const;
   void verifyAnalysis() const override;
 
   /// Region iterator methods

@@ -354,9 +354,9 @@ static const HLLoop *getSecondLoop(const CanonExpr *CE,
 const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
                                   const CanonExpr *DstConst) {
 
+  // TODO: look into src/dest type mismatches. Ignoring for now.
   CanonExpr *CE =
-      CanonExprUtils::subtract(const_cast<CanonExpr *>(SrcConst),
-                               const_cast<CanonExpr *>(DstConst), true);
+      CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
   push(CE);
 
   return CE;
@@ -365,8 +365,8 @@ const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
 const CanonExpr *DDtest::getAdd(const CanonExpr *SrcConst,
                                 const CanonExpr *DstConst) {
 
-  CanonExpr *CE = CanonExprUtils::add(const_cast<CanonExpr *>(SrcConst),
-                                      const_cast<CanonExpr *>(DstConst), true);
+  // TODO: look into src/dest type mismatches. Ignoring for now.
+  CanonExpr *CE = CanonExprUtils::cloneAndAdd(SrcConst, DstConst, true);
   push(CE);
 
   return CE;
@@ -383,7 +383,7 @@ bool DDtest::areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
 
 const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
 
-  CanonExpr *CE2 = CanonExprUtils::negate(const_cast<CanonExpr *>(CE), true);
+  CanonExpr *CE2 = CanonExprUtils::cloneAndNegate(CE);
 
   push(CE2);
 
@@ -538,7 +538,7 @@ const CanonExpr *DDtest::Constraint::getC() const {
 const CanonExpr *DDtest::Constraint::getD() const {
   assert(Kind == Distance && "Kind should be Distance");
 
-  return CanonExprUtils::negate(const_cast<CanonExpr *>(C), true);
+  return CanonExprUtils::cloneAndNegate(C);
 }
 
 // Returns the loop associated with this constraint.
@@ -571,8 +571,8 @@ void DDtest::Constraint::setDistance(const CanonExpr *D,
   //      (Type, ivlevel, constval, denom)
   A = CanonExprUtils::createExtCanonExpr(D->getSrcType(), D->getDestType(),
                                          D->isSExt(), 0, 1, 1);
-  B = CanonExprUtils::negate(const_cast<CanonExpr *>(A), true);
-  C = CanonExprUtils::negate(const_cast<CanonExpr *>(D), true);
+  B = CanonExprUtils::cloneAndNegate(A);
+  C = CanonExprUtils::cloneAndNegate(D);
 
   AssociatedLoop = CurLoop;
 }

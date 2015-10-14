@@ -82,7 +82,7 @@ public:
   void releaseMemory() override {
     ModifiedIR = false;
     NamingCounter = 0;
-    ProcessedSSCs.clear();
+    ProcessedSCCs.clear();
   }
 
 private:
@@ -145,7 +145,7 @@ private:
   bool ModifiedIR;
   unsigned NamingCounter;
   RegionIdentification::iterator CurRegIt;
-  SmallPtrSet<SCCFormation::SCCTy *, 32> ProcessedSSCs;
+  SmallPtrSet<SCCFormation::SCCTy *, 32> ProcessedSCCs;
 };
 }
 
@@ -408,11 +408,11 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
   if (auto PhiSCC = getPhiSCC(Phi)) {
 
     // Return if this SCC has been processed already.
-    if (ProcessedSSCs.count(PhiSCC)) {
+    if (ProcessedSCCs.count(PhiSCC)) {
       return;
     }
 
-    ProcessedSSCs.insert(PhiSCC);
+    ProcessedSCCs.insert(PhiSCC);
 
     bool IsLinear = SCCF->isLinear(Phi);
 

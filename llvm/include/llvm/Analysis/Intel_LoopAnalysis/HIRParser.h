@@ -249,13 +249,13 @@ private:
   void populateBlobDDRefs(RegDDRef *Ref);
 
   /// \brief Returns a RegDDRef representing loop lower (constant 0).
-  RegDDRef *createLowerDDRef(const SCEV *BETC);
+  RegDDRef *createLowerDDRef(Type *IVType);
 
   /// \brief Returns a RegDDRef representing loop stride (constant 1).
-  RegDDRef *createStrideDDRef(const SCEV *BETC);
+  RegDDRef *createStrideDDRef(Type *IVType);
 
   /// \brief Returns a RegDDRef representing loop upper.
-  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level);
+  RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
   /// \brief collects strides for an ArrayType in the Strides vector.
   void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides);

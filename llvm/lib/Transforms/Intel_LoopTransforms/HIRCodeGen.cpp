@@ -749,13 +749,8 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   if (!StartVal || !Alloca)
     llvm_unreachable("Failed to CG IV");
 
-  // TODO remove this and enable assert
-  if (StartVal->getType() != L->getIVType()) {
-    StartVal = Builder->CreateZExt(StartVal, L->getIVType());
-  }
-
-  //  assert(StartVal->getType() == L->getType() &&
-  //         "IVtype does match start type");
+  assert(StartVal->getType() == L->getIVType() &&
+         "IVtype does not match start type");
 
   Builder->CreateStore(StartVal, Alloca);
 
@@ -765,17 +760,10 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 
   Value *Upper = visitRegDDRef(L->getUpperDDRef());
 
-  if (StepVal->getType() != L->getIVType()) {
-    StepVal = Builder->CreateZExt(StepVal, L->getIVType());
-  }
-
-  if (Upper->getType() != L->getIVType()) {
-    Upper = Builder->CreateZExt(Upper, L->getIVType());
-  }
-  //  assert(StepVal->getType() == L->getType() &&
-  //         "IVtype does match stepval type");
-  //  assert(Upper->getType() == L->getType() &&
-  //         "IVtype does match upper type");
+  assert(StepVal->getType() == L->getIVType() &&
+         "IVtype does not match stepval type");
+  assert(Upper->getType() == L->getIVType() &&
+         "IVtype does not match upper type");
 
   std::string LName = "loop." + std::to_string(L->getNumber());
   BasicBlock *LoopBB = BasicBlock::Create(F->getContext(), LName, F);

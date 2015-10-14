@@ -4,7 +4,7 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that polynomial phi pase is parsed correctly.
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %add.ptr.out = %add.ptr
 ; CHECK-NEXT: (%add.ptr.out)[0] = i1
 ; CHECK-NEXT: %add.ptr = &((%add.ptr)[i1])

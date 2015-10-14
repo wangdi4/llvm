@@ -412,7 +412,7 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
 
     // Diff the CanonExprs.
     const CanonExpr *Result =
-        CanonExprUtils::subtract(const_cast<CanonExpr *>(Ref1CE), Ref2CE, true);
+        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
 
     // Result should not have any IV's or blobs.
     if (Result->hasBlob() || Result->hasIV())
@@ -525,7 +525,7 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
   CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
 
   // Diff the CanonExprs.
-  const CanonExpr *Result = CanonExprUtils::subtract(Ref1CE, Ref2CE, true);
+  const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
 
   // TODO: Being conservative with Denom.
   if (Result->getDenominator() > 1)

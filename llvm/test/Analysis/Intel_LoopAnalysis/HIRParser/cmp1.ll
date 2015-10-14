@@ -4,13 +4,13 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop verifying that the compare instruction is parsed correctly.
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %small.030.out = %small.030
 ; CHECK-NEXT: %0 = (%A)[i1]
 ; CHECK-NEXT: %1 = (%B)[i1]
 ; CHECK-NEXT: %cmp3 = %0 < %1
 ; CHECK-NEXT: %tobool = %small.030.out != 0
-; CHECK-NEXT: %small.030 = zext.i1.i8(%cmp3)  ||  zext.i1.i8(%tobool)
+; CHECK-NEXT: %small.030 = %cmp3  ||  %tobool
 ; CHECK-NEXT: if (%small.030 == 0)
 ; CHECK: (%B)[i1] = %0
 ; CHECK: (%A)[i1] = %1

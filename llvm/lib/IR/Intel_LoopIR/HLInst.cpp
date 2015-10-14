@@ -151,7 +151,7 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       OS << "(";
     }
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
-    FInst->getCalledFunction()->printAsOperand(OS, false);
+    FInst->getCalledValue()->printAsOperand(OS, false);
     OS << "(";
   } else if (isa<SelectInst>(Inst)) {
     OS << "(";

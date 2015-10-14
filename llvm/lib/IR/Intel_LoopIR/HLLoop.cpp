@@ -469,8 +469,7 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   // TripCount Canon Expr = (UB-LB+Stride)/Stride;
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
-  Result = CanonExprUtils::subtract(const_cast<CanonExpr *>(UBCE),
-                                    getLowerCanonExpr(), true);
+  Result = CanonExprUtils::cloneAndSubtract(UBCE, getLowerCanonExpr());
   Result->addConstant(StrideConst);
   Result->multiplyDenominator(StrideConst, true);
   return Result;
@@ -553,8 +552,9 @@ HLNode *HLLoop::getLastChild() {
 }
 
 bool HLLoop::isNormalized() const {
-  if (isUnknown())
+  if (isUnknown()) {
     return false;
+  }
 
   int64_t LBConst = 0, StepConst = 0;
 

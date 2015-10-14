@@ -4,8 +4,8 @@
 ; CHECK: LiveIns
 ; CHECK-SAME: %indvars.iv22(0)
 
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: DO i2 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: (%A)[%indvars.iv22 * i2] = i1 + i2
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %indvars.iv22 = i1  +  1

@@ -66,6 +66,10 @@ private:
   /// only created by framework.
   static CanonExpr *createSelfBlobCanonExpr(Value *Temp, unsigned Symbase);
 
+  /// \brief Implements add()/cloneAndAdd() functionality.
+  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                            bool CreateNewCE, bool IgnoreDestType);
+
 public:
   /// \brief Returns a new CanonExpr with identical src and dest types. All
   /// canon exprs are created linear.
@@ -194,28 +198,34 @@ public:
   static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                        bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the sum of these canon
-  /// exprs. Result = CE1+CE2
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
+  /// \brief Modifies and returns CE1 to reflect sum of CE1 and CE2.
+  /// CE1 = CE1 + CE2
   /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
-  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool CreateNewCE = false, bool IgnoreDestType = false);
+  static void add(CanonExpr *CE1, const CanonExpr *CE2,
+                  bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the difference of these
-  /// canon exprs. Result = CE1 - CE2
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
+  /// \brief Returns a canon expr which represents the sum of CE1 and CE2.
+  /// Result = CE1 + CE2
   /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
-  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool CreateNewCE = false,
-                             bool IgnoreDestType = false);
+  static CanonExpr *cloneAndAdd(const CanonExpr *CE1, const CanonExpr *CE2,
+                                bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the negation of given
-  /// canon expr. Result = -CE1
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *negate(CanonExpr *CE1, bool CreateNewCE = false);
+  /// \brief Modifies and returns CE1 to reflect difference of CE1 and CE2.
+  /// CE1 = CE1 - CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static void subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                       bool IgnoreDestType = false);
+
+  /// \brief Returns a canon expr which represents the difference of CE1 and
+  /// CE2.
+  /// Result = CE1 - CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static CanonExpr *cloneAndSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                                     bool IgnoreDestType = false);
+
+  /// \brief Returns a canon expr which represents the negation of CE.
+  /// Result = -CE
+  static CanonExpr *cloneAndNegate(const CanonExpr *CE);
 };
 
 } // End namespace loopopt

@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/SCCFormation.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -34,6 +35,7 @@ INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
+INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
@@ -53,6 +55,8 @@ void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTree>();
   AU.addRequiredTransitive<RegionIdentification>();
+  // Only used for printing.
+  AU.addRequiredTransitive<SCCFormation>();
 }
 
 const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
@@ -298,20 +302,29 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  printImpl(OS, false);
+  printImpl(OS, HIRPrinterDetailed);
 }
 
-void HIRCreation::printWithIRRegion(raw_ostream &OS) const {
+void HIRCreation::printWithFrameworkDetails(raw_ostream &OS) const {
   printImpl(OS, true);
 }
 
-void HIRCreation::printImpl(raw_ostream &OS, bool printIRRegion) const {
+void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   formatted_raw_ostream FOS(OS);
+  auto RegBegin = RI->begin();
+  auto SCCF = &getAnalysis<SCCFormation>();
+  unsigned Offset = 0;
 
-  for (auto I = begin(), E = end(); I != E; ++I) {
+  for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {
+
+    // Print SCCs in hir-parser output and in detailed mode.
+    if (FrameworkDetails) {
+      SCCF->print(OS, RegBegin + Offset);
+    }
+
     FOS << "\n";
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
-    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion, HIRPrinterDetailed);
+    (cast<HLRegion>(I))->print(FOS, 0, FrameworkDetails, HIRPrinterDetailed);
   }
   FOS << "\n";
 }

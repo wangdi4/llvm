@@ -1,10 +1,10 @@
 ; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loopnest verifying that there is not self-recursive definition.
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %.pre = (%A)[i1]
 ; CHECK-NEXT: %0 = %.pre
-; CHECK-NEXT: DO i2 = 0, %n + -1
+; CHECK-NEXT: DO i2 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-NEXT: %1 = (%B)[i2]
 ; CHECK-NEXT: %0 = %0  +  %1
 ; CHECK-NEXT: (%A)[i1] = %0

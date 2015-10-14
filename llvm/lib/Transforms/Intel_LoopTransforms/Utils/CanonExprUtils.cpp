@@ -13,7 +13,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
 
@@ -44,7 +43,7 @@ CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
                        IsSignedDiv);
 }
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal, 
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal,
                                            int Level) {
   // make apint into a CanonExpr
   int64_t Val = APVal.getSExtValue();
@@ -208,7 +207,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
     assert(Level >= 0 && "Invalid level!");
     CE->setDefinedAtLevel(Level);
   }
- 
+
   return CE;
 }
 
@@ -243,23 +242,19 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
   // Match the types.
-  if (!isTypeEqual(CE1, CE2, IgnoreDestType))
+  if (!mergeable(CE1, CE2, IgnoreDestType)) {
     return false;
+  }
 
   if ((CE1->Const != CE2->Const) ||
       (CE1->getDenominator() != CE2->getDenominator())) {
     return false;
   }
 
-  // Check division type for non-unit denominator.
-  if ((CE1->getDenominator() != 1) &&
-      (CE1->isSignedDiv() != CE2->isSignedDiv())) {
+  // Check the number of blobs.
+  if (CE1->numBlobs() != CE2->numBlobs()) {
     return false;
   }
-
-  // Check the number of blobs.
-  if (CE1->numBlobs() != CE2->numBlobs())
-    return false;
 
   auto IVIt1 = CE1->iv_begin();
   auto IVIt2 = CE2->iv_begin();
@@ -299,8 +294,8 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   return true;
 }
 
-CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
-                               bool CreateNewCE, bool IgnoreDestType) {
+CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                                   bool CreateNewCE, bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
   assert(mergeable(CE1, CE2, IgnoreDestType) && " Canon Expr type mismatch!");
@@ -365,42 +360,46 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   return Result;
 }
 
-CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                                    bool CreateNewCE, bool IgnoreDestType) {
+void CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
+                         bool IgnoreDestType) {
+  addImpl(CE1, CE2, false, IgnoreDestType);
+}
 
+CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
+                                       const CanonExpr *CE2,
+                                       bool IgnoreDestType) {
+  return addImpl(const_cast<CanonExpr *>(CE1), CE2, true, IgnoreDestType);
+}
+
+void CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                                    bool IgnoreDestType) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  CanonExpr *Result;
+  // Here, we avoid cloning by doing negation twice.
+  // -(-CE1+CE2) => CE1-CE2
+  CE1->negate();
+  add(CE1, CE2, IgnoreDestType);
+  CE1->negate();
+}
 
-  if (CreateNewCE) {
-    // Result = -CE2 + CE1
-    Result = CE2->clone();
-    Result->negate();
-    Result = add(Result, CE1, false, IgnoreDestType);
-    Result->setDestType(CE1->getDestType());
-  } else {
-    // -(-CE1+CE2) => CE1-CE2
-    // Here, we avoid cloning by doing negation twice.
-    Result = CE1;
-    Result->negate();
-    Result = add(Result, CE2, false, IgnoreDestType);
-    Result->negate();
-  }
+CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
+                                            const CanonExpr *CE2,
+                                            bool IgnoreDestType) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+
+  // Result = -CE2 + CE1
+  CanonExpr *Result = cloneAndNegate(CE2);
+  add(Result, CE1, IgnoreDestType);
+
+  Result->setDestType(CE1->getDestType());
 
   return Result;
 }
 
-CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
-  assert(CE1 && " Canon Expr is null!");
+CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
+  assert(CE && " Canon Expr is null!");
 
-  CanonExpr *Result;
-
-  if (CreateNewCE) {
-    Result = CE1->clone();
-  } else {
-    Result = CE1;
-  }
-
+  CanonExpr *Result = CE->clone();
   Result->negate();
 
   return Result;
