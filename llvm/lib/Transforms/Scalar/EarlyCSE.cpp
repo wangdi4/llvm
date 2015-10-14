@@ -18,6 +18,10 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/AssumptionCache.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#if INTEL_CUSTOMIZATION
+// For EH personality support
+#include "llvm/Analysis/LibCallSemantics.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/DataLayout.h"
@@ -62,6 +66,15 @@ struct SimpleValue {
   }
 
   static bool canHandle(Instruction *Inst) {
+#if INTEL_CUSTOMIZATION
+    // WinEHPrepare uses llvm.eh.typeid.for to identify catch handlers and the
+    // types they can accept.  Don't CSE this intrinsic in functions that
+    // have an MSVC personality function.
+    if (auto *II = dyn_cast<IntrinsicInst>(Inst))
+      if (II->getIntrinsicID() == Intrinsic::eh_typeid_for &&
+          isParentFnEHPersonalityMSVC(II))
+        return false;
+#endif // INTEL_CUSTOMIZATION
     // This can only handle non-void readnone functions.
     if (CallInst *CI = dyn_cast<CallInst>(Inst))
       return CI->doesNotAccessMemory() && !CI->getType()->isVoidTy();
@@ -212,6 +225,16 @@ struct CallValue {
     // Don't value number anything that returns void.
     if (Inst->getType()->isVoidTy())
       return false;
+
+#if INTEL_CUSTOMIZATION
+    // WinEHPrepare uses llvm.eh.typeid.for to identify catch handlers and the
+    // types they can accept.  Don't CSE this intrinsic in functions that
+    // have an MSVC personality function.
+    if (auto *II = dyn_cast<IntrinsicInst>(Inst))
+      if (II->getIntrinsicID() == Intrinsic::eh_typeid_for &&
+          isParentFnEHPersonalityMSVC(II))
+        return false;
+#endif // INTEL_CUSTOMIZATION
 
     CallInst *CI = dyn_cast<CallInst>(Inst);
     if (!CI || !CI->onlyReadsMemory())
