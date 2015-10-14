@@ -215,8 +215,21 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 {
     try
     {
-        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program should not has been loaded from cache");
+        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
         pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
+    }
+    catch(Exceptions::CompilerException& e)
+    {
+        throw Exceptions::DeviceBackendExceptionBase(e.what());
+    }
+}
+
+void ProgramBuilder::ParseSPIRVProgram(Program* pProgram)
+{
+    try
+    {
+        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
+        pProgram->SetModule(GetCompiler()->ParseSPIRVModule(Utils::GetProgramMemoryBuffer(pProgram)));
     }
     catch(Exceptions::CompilerException& e)
     {
