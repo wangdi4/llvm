@@ -153,6 +153,9 @@ void FrameworkProxy::InitOCLEntryPoints()
     ICDDispatchTable.clReleaseKernel = (KHRpfn_clReleaseKernel)GET_ALIAS(clReleaseKernel);
     ICDDispatchTable.clSetKernelArg = (KHRpfn_clSetKernelArg)GET_ALIAS(clSetKernelArg);
     ICDDispatchTable.clGetKernelInfo = (KHRpfn_clGetKernelInfo)GET_ALIAS(clGetKernelInfo);
+    ICDDispatchTable.clCloneKernel = (KHRpfn_clCloneKernel)GET_ALIAS(clCloneKernel);
+    ICDDispatchTable.clGetHostTimer = (KHRpfn_clGetHostTimer)GET_ALIAS(clGetHostTimer);
+    ICDDispatchTable.clGetDeviceAndHostTimer = (KHRpfn_clGetDeviceAndHostTimer)GET_ALIAS(clGetDeviceAndHostTimer);
     ICDDispatchTable.clGetKernelWorkGroupInfo = (KHRpfn_clGetKernelWorkGroupInfo)GET_ALIAS(clGetKernelWorkGroupInfo);
     ICDDispatchTable.clWaitForEvents = (KHRpfn_clWaitForEvents)GET_ALIAS(clWaitForEvents);
     ICDDispatchTable.clGetEventInfo = (KHRpfn_clGetEventInfo)GET_ALIAS(clGetEventInfo);
