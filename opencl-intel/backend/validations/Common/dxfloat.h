@@ -43,8 +43,10 @@
 //    0                             0.0
 //
 //-----------------------------------------------------------------------------
+#include <llvm/Support/DataTypes.h>      // LLVM data types
+#include <llvm/Support/Compiler.h>
+
 #include <limits>
-#include "llvm/Support/DataTypes.h"      // LLVM data types
 #include <iostream>
 
 #ifndef DX_FLOAT_H
@@ -325,18 +327,4 @@ inline std::ostream& operator << (std::ostream& os, const CFloat16& val)
     return os << float(val);
 }
 
-namespace std{
-
-template<>
-inline CFloat16 numeric_limits<CFloat16>::infinity()  throw ()
-{ return CFloat16::GetPInf();
-}
-
-template<>
-inline CFloat16 numeric_limits<CFloat16>::quiet_NaN()  throw ()
-{ return CFloat16::GetNaN();
-}
-
-}
 #endif
-

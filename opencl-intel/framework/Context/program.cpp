@@ -713,7 +713,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
         SharedPtr<Kernel> pKernel;
 		clErrRet = CreateKernel(ppKernelNames[i], &pKernel);
         
-		if (CL_FAILED(clErrRet) || NULL == pKernel)
+		if (CL_FAILED(clErrRet) || 0 == pKernel)
 		{
 			for (size_t k = 0; k < szNumKernels; ++k)
 			{
@@ -726,7 +726,7 @@ cl_err_code Program::CreateAllKernels(cl_uint uiNumKernels, cl_kernel * pclKerne
 			}
 			delete[] ppKernelNames;
 			delete[] pszKernelNameLengths;
-            if (NULL != pKernel)
+            if (0 != pKernel)
             {
                 m_pKernels.ReleaseObject((_cl_kernel_int*)pKernel->GetHandle());
             }

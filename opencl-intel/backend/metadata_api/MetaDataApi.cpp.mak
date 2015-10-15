@@ -10,6 +10,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 namespace Intel
 {
+std::map<llvm::Metadata *, UserSet> g_metaDataApiUtilsUseMap;
+
 <%utils:iterate_structs args="typename">
 <%type=schema[typename]%>
 ///
@@ -107,21 +109,24 @@ void ${class_name(typename)}::discardChanges()
 
 ///
 // Generates the new MDNode hierarchy for the given structure
-llvm::Value* ${class_name(typename)}::generateNode(llvm::LLVMContext& context) const
+llvm::Metadata* ${class_name(typename)}::generateNode(llvm::LLVMContext& context) const
 {
-    llvm::SmallVector< llvm::Value*, 5> args;
+    llvm::SmallVector< llvm::Metadata*, 5> args;
 
-    llvm::Value* pIDNode = _Mybase::generateNode(context);
+    llvm::Metadata* pIDNode = _Mybase::generateNode(context);
     if( NULL != pIDNode )
     {
         args.push_back(pIDNode);
     }
 
     <%utils:iterate_struct_elements parent="${type}" args="element">
-    args.push_back( ${member_name(element)}.generateNode(context));\
+    args.push_back(${member_name(element)}.generateNode(context));
     </%utils:iterate_struct_elements>
 
-    return llvm::MDNode::get(context, args);
+    llvm::MDNode * pNode = llvm::MDNode::get(context, args);
+    updateMetadataUseMapping(pNode, args);
+
+    return pNode;
 }
 
 ///
@@ -138,7 +143,7 @@ void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNo
     // check that we could save the new information to the given node without regenerating it
     if( !compatibleWith(pNode) )
     {
-        pNode->replaceAllUsesWith(generateNode(context));
+        metadataRAUW(pNode, generateNode(context));
         return;
     }
 
@@ -149,7 +154,7 @@ void ${class_name(typename)}::save(llvm::LLVMContext& context, llvm::MDNode* pNo
 
 <%utils:iterate_struct_elements parent="${type}" args="element">
 %if schema[element['metatype']]['is_container'] == False:
-llvm::Value* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode) const
+llvm::Metadata* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode) const
 %else:
 llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MDNode* pParentNode) const
 %endif
@@ -189,10 +194,12 @@ llvm::MDNode* ${class_name(typename)}::get${element['name']}Node( const llvm::MD
 // dtor
 MetaDataUtils::~MetaDataUtils()
 {
+    // clear the usage mapping
+    g_metaDataApiUtilsUseMap.clear();
     assert(!dirty() && "There were changes in the metadata hierarchy. Either save or discardChanges should be called");
 }
 
-bool isNamedNode(const llvm::Value* pNode, const char* name)
+bool isNamedNode(const llvm::Metadata* pNode, const char* name)
 {
     const llvm::MDNode* pMDNode = llvm::dyn_cast<llvm::MDNode>(pNode);
 

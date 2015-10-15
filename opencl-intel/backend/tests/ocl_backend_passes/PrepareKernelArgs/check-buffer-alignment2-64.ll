@@ -52,12 +52,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = metadata !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
-!1 = metadata !{metadata !"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
-!2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none", metadata !"none", metadata !"none", metadata !"none", metadata !"none", metadata !"none"}
-!3 = metadata !{metadata !"kernel_arg_type", metadata !"My_struct1", metadata !"char2", metadata !"int", metadata !"short8", metadata !"char", metadata !"int*"}
-!4 = metadata !{metadata !"kernel_arg_type_qual", metadata !"", metadata !"", metadata !"", metadata !"", metadata !"", metadata !""}
-!5 = metadata !{metadata !"kernel_arg_name", metadata !"arg1", metadata !"arg2", metadata !"arg3", metadata !"arg4", metadata !"arg5", metadata !"arg6"}
-!6 = metadata !{i32 1, i32 0}
-!7 = metadata !{i32 0, i32 0}
-!8 = metadata !{}
+!0 = !{void (%struct.struct1*, <2 x i8>, i32, <8 x i16>, i8, i32*)* @t1, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space", i32 0, i32 0, i32 0, i32 0, i32 0, i32 0}
+!2 = !{!"kernel_arg_access_qual", !"none", !"none", !"none", !"none", !"none", !"none"}
+!3 = !{!"kernel_arg_type", !"My_struct1", !"char2", !"int", !"short8", !"char", !"int*"}
+!4 = !{!"kernel_arg_type_qual", !"", !"", !"", !"", !"", !""}
+!5 = !{!"kernel_arg_name", !"arg1", !"arg2", !"arg3", !"arg4", !"arg5", !"arg6"}
+!6 = !{i32 1, i32 0}
+!7 = !{i32 0, i32 0}
+!8 = !{}

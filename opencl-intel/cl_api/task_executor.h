@@ -211,7 +211,7 @@ public:
 
     PREPARE_SHARED_PTR(IThreadLibTaskGroup)
 
-    virtual ~IThreadLibTaskGroup() { }
+    virtual ~IThreadLibTaskGroup() GCC_NOEXCEPT_BUG_WORKAROUND {}
 
     /**
      * Status of the IThreadLibTaskGroup
@@ -228,7 +228,6 @@ public:
      * @return the status of this IThreadLibTaskGroup after the wait has been completed
      */
     virtual TaskGroupStatus Wait() = 0;
-    
 };
 
 /**

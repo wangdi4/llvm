@@ -212,7 +212,7 @@ int main(int argc, char** argv)
 #ifdef _WIN32
         fprintf(stderr, "ClErrTxt error: %ws\n", ClErrTxt(err.err()));
 #else
-        fprintf(stderr, "ClErrTxt error: %ls\n", ClErrTxt(err.err()));
+        fprintf(stderr, "ClErrTxt error: %s\n", ClErrTxt(err.err()));
 #endif // _WIN32
         rc = 1;
     }

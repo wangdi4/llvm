@@ -4059,20 +4059,20 @@ cl_int CL_API_CALL clGetKernelInfo(
     cl_sampler_info     param_name,
     size_t              param_value_size,
     void *              param_value,
-    size_t *            param_value_size_ret)
+    size_t *            param_value_size_ret )
 {
     cl_int retCode = CL_SUCCESS;
-    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
+    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>( ( ( _cl_kernel_crt* )kernel )->object );
 
     size_t  pValueSize = 0;
-    switch(param_name)
+    switch( param_name )
     {
         case CL_KERNEL_REFERENCE_COUNT:
             {
-                pValueSize = sizeof( (cl_uint)crtKernel->m_refCount );
-                if (param_value && param_value_size >= pValueSize)
+                pValueSize = sizeof( ( cl_uint )crtKernel->m_refCount );
+                if( param_value && param_value_size >= pValueSize )
                 {
-                    *((cl_uint*)param_value) = crtKernel->m_refCount;
+                    *( ( cl_uint* )param_value ) = crtKernel->m_refCount;
                 }
 
                 if( param_value_size_ret )
@@ -4083,10 +4083,10 @@ cl_int CL_API_CALL clGetKernelInfo(
             break;
         case CL_KERNEL_CONTEXT:
             {
-                pValueSize = sizeof(cl_context);
-                if (param_value && param_value_size >= pValueSize)
+                pValueSize = sizeof( cl_context );
+                if( param_value && param_value_size >= pValueSize )
                 {
-                    *((cl_context*)param_value) = crtKernel->m_programCRT->m_contextCRT->m_context_handle;
+                    *( ( cl_context* )param_value ) = crtKernel->m_programCRT->m_contextCRT->m_context_handle;
                 }
 
                 if( param_value_size_ret )
@@ -4097,10 +4097,10 @@ cl_int CL_API_CALL clGetKernelInfo(
             break;
         case CL_KERNEL_PROGRAM:
             {
-                pValueSize = sizeof(cl_program);
-                if (param_value && param_value_size >= pValueSize)
+                pValueSize = sizeof( cl_program );
+                if( param_value && param_value_size >= pValueSize )
                 {
-                    *((cl_program*)param_value) = crtKernel->m_programCRT->m_program_handle;
+                    *( ( cl_program* )param_value ) = crtKernel->m_programCRT->m_program_handle;
                 }
 
                 if( param_value_size_ret )
@@ -4115,11 +4115,11 @@ cl_int CL_API_CALL clGetKernelInfo(
                 cl_kernel kernelObj = crtKernel->m_ContextToKernel.begin()->second;
                 // Forward call
                 retCode = kernelObj->dispatch->clGetKernelInfo(
-                                    kernelObj,
-                                    param_name,
-                                    param_value_size,
-                                    param_value,
-                                    param_value_size_ret);
+                    kernelObj,
+                    param_name,
+                    param_value_size,
+                    param_value,
+                    param_value_size_ret );
             }
             break;
     }
@@ -4145,7 +4145,7 @@ cl_int CL_API_CALL clSetKernelArg(
     CTX_KRN_MAP::iterator       itr;
     std::string paramT;
 
-    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
+    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>( ( ( _cl_kernel_crt* )kernel )->object );
     cl_kernel kernelDevObj = crtKernel->m_ContextToKernel.begin()->second;
 
     paramT.resize( MAX_STRLEN );

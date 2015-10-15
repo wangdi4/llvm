@@ -130,8 +130,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
-  m_DT = &getAnalysis<DominatorTree>();
-  assert(m_DT && "Unable to get DominatorTree pass");
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  assert(m_DT && "Unable to get DominatorTreeWrapperPass pass");
   m_PDT = &getAnalysis<PostDominatorTree>();
   assert(m_PDT && "Unable to get PostDominatorTree pass");
   m_LI = &getAnalysis<LoopInfo>();
@@ -537,17 +537,17 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
         continue;
       }
 
-      // look at the uses
-      for (Value::use_iterator useItr = defInst->use_begin();
-          useItr != defInst->use_end();
+      // look at the users
+      for (Value::user_iterator useItr = defInst->user_begin();
+          useItr != defInst->user_end();
           ++useItr) {
 
-        Instruction *useInst = dyn_cast<Instruction>(*useItr);
-        if (!useInst) {
+        Instruction *userInst = dyn_cast<Instruction>(*useItr);
+        if (!userInst) {
           continue;
         }
 
-        BasicBlock *useBlk = useInst->getParent();
+        BasicBlock *useBlk = userInst->getParent();
         if (useBlk == defBlk) {
           // local def-use, not related to control-dependence
           continue; // check the next use
@@ -562,13 +562,13 @@ void WIAnalysis::updateCfDependency(const TerminatorInst *inst) {
           // For now we'll mark a usage in every join/partial join as random
           // We might change it in the future.
 
-          updateDepMap(useInst, WIAnalysis::RANDOM);
+          updateDepMap(userInst, WIAnalysis::RANDOM);
 
         }
         else {
           // Mark each usage not in the influence region as random
           if (! m_influenceRegion.count(useBlk)){
-            updateDepMap(useInst, WIAnalysis::RANDOM);
+            updateDepMap(userInst, WIAnalysis::RANDOM);
           }
         }
       }
@@ -590,8 +590,8 @@ void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy 
     m_deps[inst] = dep;
     // Register for update all of the dependent values of this updated
     // instruction.
-    Value::const_use_iterator useItr = inst->use_begin();
-    Value::const_use_iterator useEnd  = inst->use_end();
+    Value::const_user_iterator useItr = inst->user_begin();
+    Value::const_user_iterator useEnd  = inst->user_end();
     for (; useItr != useEnd; ++useItr) {
       m_pChangedNew->insert(*useItr);
     }
@@ -951,6 +951,7 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const CastInst* inst) {
   case Instruction::FPExt:
   case Instruction::PtrToInt:
   case Instruction::IntToPtr:
+  case Instruction::AddrSpaceCast: // [LLVM 3.6 UPGRADE] TODO: make sure this line is functionally correct
   case Instruction::UIToFP:
   case Instruction::FPToUI:
   case Instruction::FPToSI:

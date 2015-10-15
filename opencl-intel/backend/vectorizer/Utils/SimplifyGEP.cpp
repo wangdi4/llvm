@@ -12,7 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/ADT/SmallVector.h"
 #include <vector>
 
@@ -37,7 +37,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
 
   bool SimplifyGEP::runOnFunction(Function &F) {
     // obtain TagetData of the module
-    m_pDL = getAnalysisIfAvailable<DataLayout>();
+    m_pDL = &getAnalysisIfAvailable<DataLayoutPass>()->getDataLayout();
 
     // Obtain WIAnalysis of the function
     m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -145,7 +145,7 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
       // Now remove old iterValue, as we assure that its only usage was the old PhiNode.
       pIterValue->eraseFromParent();
 
-      std::vector<Value*> phiNodeUsages(pPhiNode->use_begin(), pPhiNode->use_end());
+      std::vector<Value*> phiNodeUsages(pPhiNode->user_begin(), pPhiNode->user_end());
       for (std::vector<Value*>::iterator ui = phiNodeUsages.begin(), ue = phiNodeUsages.end(); ui != ue; ++ui) {
         GetElementPtrInst *pOldGep = dyn_cast<GetElementPtrInst>(*ui);
         if (pOldGep) {

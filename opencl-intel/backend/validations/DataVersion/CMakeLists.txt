@@ -6,6 +6,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/DataManager
   ${VALIDATIONS_ROOT}/NEAT
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CL_API_HEADERS}
 )
 
 # Set useful variable for all header files to manipulate them all together.

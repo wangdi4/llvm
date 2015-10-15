@@ -503,6 +503,11 @@ extern "C" cl_dev_err_code clDevCreateDeviceInstance(  cl_uint      dev_id,
 }
 
 // Device entry points
+cl_ulong CPUDevice::clDevGetDeviceTimer()
+{
+    return Intel::OpenCL::Utils::HostTime();
+}
+
 //Device Information function prototypes
 //
 /************************************************************************************************************************
@@ -1316,6 +1321,21 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
             return CL_DEV_SUCCESS;
         }
+        case( CL_DEVICE_IL_VERSION ):
+        {
+            const char* il_version = "SPIR-V_1.0";
+            *pinternalRetunedValueSize = strlen(il_version) + 1;
+            if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
+            {
+                return CL_DEV_INVALID_VALUE;
+            }
+            //if OUT paramVal is NULL it should be ignored
+            if(NULL != paramVal)
+            {
+                STRCPY_S((char*)paramVal, *pinternalRetunedValueSize, il_version);
+            }
+            return CL_DEV_SUCCESS;
+        }
         case( CL_DRIVER_VERSION ):
         {
             int major = 0;
@@ -1862,7 +1882,7 @@ cl_dev_err_code CPUDevice::clDevPartition(  cl_dev_partition_prop IN props, cl_u
     {
         cl_dev_internal_subdevice_id& subdevId = *(cl_dev_internal_subdevice_id*)subdevice_ids[i];
         subdevId.pSubDevice = m_pTaskDispatcher->GetRootDevice()->CreateSubDevice(subdevId.num_compute_units, &subdevId);
-        if (NULL == subdevId.pSubDevice)
+        if (0 == subdevId.pSubDevice)
         {
             for (size_t j = 0; j < i; j++)
             {
@@ -2133,7 +2153,7 @@ cl_dev_err_code CPUDevice::clDevCommandListWaitCompletion(cl_dev_cmd_list IN lis
     te_wait_result res = pList->pCmd_list->WaitForCompletion(pTaskToWait);
 
     cl_dev_err_code retVal;
-    if ( NULL != pTaskToWait )
+    if ( 0 != pTaskToWait )
     {
         // Try to wait for command
         if ( (!pTaskToWait->IsCompleted() && (TE_WAIT_COMPLETED == res)) || TE_WAIT_NOT_SUPPORTED == res)
@@ -2445,6 +2465,14 @@ extern "C" cl_dev_err_code clDevGetDeviceInfo(  unsigned int IN    dev_id,
                             )
 {
     return CPUDevice::clDevGetDeviceInfo(dev_id, param, valSize, paramVal, paramValSizeRet);
+}
+
+/************************************************************************************************************************
+   clDevGetDeviceTimer
+**************************************************************************************************************************/
+extern "C" cl_ulong clDevGetDeviceTimer()
+{
+    return CPUDevice::clDevGetDeviceTimer();
 }
 
 /************************************************************************************************************************

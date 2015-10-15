@@ -24,6 +24,7 @@ File Name: CPUCompiler.h
 
 #include <assert.h>
 #include <string>
+#include <memory>
 
 namespace llvm {
     class ExecutionEngine;

@@ -7,6 +7,15 @@
 # set that name of the main output file as a target name
 set( TARGET_NAME Execution )
 
+# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+# this warning occur when processing externals/itt/include/ittnotify.h
+# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+# function that not use in every build target.
+# Disable warning about converting null pointer to long int.
+if (NOT WIN32)
+    add_definitions( "-Wno-unused-function -Wno-conversion-null" )
+endif(NOT Win32)
+
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 

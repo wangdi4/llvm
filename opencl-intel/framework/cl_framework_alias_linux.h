@@ -142,4 +142,7 @@ DECLARE_ALIAS(clCreatePipeINTEL);
 DECLARE_ALIAS(clGetPipeInfo);
 DECLARE_ALIAS(clCreateCommandQueueWithProperties);
 DECLARE_ALIAS(clCreateProgramWithIL);
+DECLARE_ALIAS(clGetHostTimer);
+DECLARE_ALIAS(clGetDeviceAndHostTimer);
+DECLARE_ALIAS(clCloneKernel);
 }}}

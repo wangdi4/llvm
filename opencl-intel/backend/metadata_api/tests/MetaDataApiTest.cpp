@@ -35,12 +35,12 @@ TEST(MetaDataTest, basic)
     //parse the test ir file into a module
     //
     llvm::LLVMContext context;
-    llvm::Module* pModule = NULL;
+    std::unique_ptr<llvm::Module> pModule;
     llvm::SMDiagnostic errDiagnostic;
-    pModule = llvm::ParseIRFile("metadatatest.ll", errDiagnostic, context);
+    pModule = llvm::parseIRFile("metadatatest.ll", errDiagnostic, context);
     //
     // read the kernels and print their names
-    MetaDataUtils moduleMD(pModule);
+    MetaDataUtils moduleMD(pModule.release());
 
     MetaDataUtils::KernelsList::iterator i = moduleMD.begin_Kernels();
     MetaDataUtils::KernelsList::iterator e = moduleMD.end_Kernels();

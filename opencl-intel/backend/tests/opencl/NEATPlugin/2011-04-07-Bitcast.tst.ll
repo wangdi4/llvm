@@ -11,5 +11,5 @@ entry:
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (float addrspace(1)*, float addrspace(1)*, i32)* @BitcastPointer, metadata !1, metadata !1, metadata !"", metadata !"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const", metadata !"opencl_bitcast_locals_anchor"}
-!1 = metadata !{i32 0, i32 0, i32 0}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*, i32)* @BitcastPointer, !1, !1, !"", !"float __attribute__((address_space(1))) *, float __attribute__((address_space(1))) *, uint const", !"opencl_bitcast_locals_anchor"}
+!1 = !{i32 0, i32 0, i32 0}

@@ -78,23 +78,21 @@ void CPUBuiltinLibrary::Load()
     snprintf(szRTLibSvmlSharedName, MAX_PATH, "%sclbltfnshared.rtl", szModuleName);
 #endif
     // load particular (not shared) RTL optimized for one architecture
-    llvm::OwningPtr<llvm::MemoryBuffer> rtlBuffer(m_pRtlBuffer);
-    llvm::error_code ret = llvm::MemoryBuffer::getFile(szRTLibName, rtlBuffer);
-    if( !rtlBuffer  || ret.value() != 0)
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferOrErr = llvm::MemoryBuffer::getFile(szRTLibName);
+    if(!rtlBufferOrErr)
     {
         throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the builtins rtl library"));
     }
-    m_pRtlBuffer = rtlBuffer.take();
+    m_pRtlBuffer = rtlBufferOrErr.get().release();
 
     // on KNC we don't have shared (common) library
     if (m_cpuId.GetCPU() != MIC_KNC) {
-        llvm::OwningPtr<llvm::MemoryBuffer> rtlBufferSvmlShared(m_pRtlBufferSvmlShared);
         // on CPU load shared RTL to memory, it will be linked with the particular (not shared) RTL
-        ret = llvm::MemoryBuffer::getFile(szRTLibSvmlSharedName, rtlBufferSvmlShared);
-        if( !rtlBufferSvmlShared || ret.value() != 0)   {
+        llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> rtlBufferSvmlSharedOrErr = llvm::MemoryBuffer::getFile(szRTLibSvmlSharedName);
+        if(!rtlBufferSvmlSharedOrErr)   {
             throw Exceptions::DeviceBackendExceptionBase(std::string("Failed to load the shared builtins rtl library"));
         }
-        m_pRtlBufferSvmlShared = rtlBufferSvmlShared.take();
+        m_pRtlBufferSvmlShared = rtlBufferSvmlSharedOrErr.get().release();
     }
 }
 

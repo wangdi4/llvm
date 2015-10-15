@@ -22,9 +22,10 @@ File Name:  ImageCallbackLibrary.h
 #include "CPUDetect.h"
 #include "CPUCompiler.h"
 #include "StaticObjectLoader.h"
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "cl_utils.h"
+
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -230,7 +231,7 @@ public:
     */
     ImageCallbackLibrary(Intel::CPUId cpuId, CPUCompiler* compiler):
       m_CpuId(cpuId), m_ImageFunctions(NULL), m_Compiler(compiler),
-      m_pRtlBuffer(NULL), m_pLoader(new StaticObjectLoader)
+      m_pRtlBuffer(nullptr), m_pLoader(new StaticObjectLoader)
     { }
 
     /**
@@ -270,15 +271,14 @@ private:
     // to enable MICSupport
     CPUCompiler* m_Compiler;
     // pointer to library Rtl Buffer. Owned by this class
-    llvm::OwningPtr<llvm::MemoryBuffer> m_pRtlBuffer;
+    std::unique_ptr<llvm::MemoryBuffer> m_pRtlBuffer;
 
     // Pointer to OCL implementation of llvm::ObjectCache used to load from disk
     // object files which have been statically compiled (i.e. by MCJIT or llc)
-    llvm::OwningPtr<StaticObjectLoader> m_pLoader;
+    std::unique_ptr<StaticObjectLoader> m_pLoader;
 
     // Pointer to CompiledModule instance (contains ExecutionEngine)
-    llvm::OwningPtr<CompiledModule> m_pCompiledModule;
-
+    std::unique_ptr<CompiledModule> m_pCompiledModule;
 
 private:
     // Disable copy ctor and assignment operator

@@ -247,7 +247,7 @@ cl_err_code Command::NotifyCmdStatusChanged(cl_dev_cmd_id clCmdId, cl_int iCmdSt
 
 cl_err_code    Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pMemObj, IOCLDevMemoryObject* *ppMemObj)
 {
-    if (NULL == pMemObj)
+    if (0 == pMemObj)
     {
         ppMemObj = NULL;
     }
@@ -263,7 +263,7 @@ cl_err_code    Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pM
         // No Event was created, we have the descriptor
         if ( CL_NOT_READY == res )
         {
-            assert( NULL != pObjEvent);
+            assert( 0 != pObjEvent);
             m_Event->AddDependentOn(pObjEvent);
         }
     }
@@ -275,7 +275,7 @@ cl_err_code    Command::GetMemObjectDescriptor(const SharedPtr<MemoryObject>& pM
 inline
 cl_err_code Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, const SharedPtr<FissionableDevice>& pDev  )
 {
-    assert( NULL != arg.pMemObj );
+    assert( 0 != arg.pMemObj );
     SharedPtr<OclEvent> mem_event = NULL;
     // initialize arg.access_rights_realy_used to be arg.access_rights (It can change to READ_WRITE during LockOnDevice() operation)
     arg.access_rights_realy_used = arg.access_rights;
@@ -286,12 +286,12 @@ cl_err_code Command::AcquireSingleMemoryObject( MemoryObjectArg& arg, const Shar
         return errCode;
     }
 
-    if (NULL != mem_event)
+    if (0 != mem_event)
     {
         m_Event->AddDependentOn( mem_event );
     }
 
-    return (NULL != mem_event) ? CL_NOT_READY : errCode;
+    return (0 != mem_event) ? CL_NOT_READY : errCode;
 }
 
 cl_err_code Command::AcquireMemoryObjects( MemoryObjectArgList& argList, const SharedPtr<FissionableDevice>& pDev )
@@ -303,7 +303,7 @@ cl_err_code Command::AcquireMemoryObjects( MemoryObjectArgList& argList, const S
 
     m_memory_objects_acquired = true;
 
-    const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
+    const SharedPtr<FissionableDevice>& targetDevice = (0==pDev)?m_pDevice:pDev;
 
     cl_err_code retErrCode = CL_SUCCESS;
     cl_err_code errCode = CL_SUCCESS;
@@ -333,7 +333,7 @@ void Command::RelinquishMemoryObjects( MemoryObjectArgList& argList, const Share
 
     m_memory_objects_acquired = false;
     
-    const SharedPtr<FissionableDevice>& targetDevice = (NULL==pDev)?m_pDevice:pDev;
+    const SharedPtr<FissionableDevice>& targetDevice = (0==pDev)?m_pDevice:pDev;
 
     MemoryObjectArgList::const_iterator it     = argList.begin();
     MemoryObjectArgList::const_iterator it_end = argList.end();
@@ -831,7 +831,7 @@ MapMemObjCommand::~MapMemObjCommand()
     }
     
     // In case that the map command run on different device that enqueued than change the device to m_pActualMappingDevice in order to release the command object from the device it created.
-    if ((m_pActualMappingDevice != m_pDevice) && (NULL != m_pActualMappingDevice))
+    if ((m_pActualMappingDevice != m_pDevice) && (0 != m_pActualMappingDevice))
     {
         m_pDevice = m_pActualMappingDevice;
         m_pActualMappingDevice = NULL;
@@ -1140,7 +1140,7 @@ UnmapMemObjectCommand::~UnmapMemObjectCommand()
     }
 
     // In case that the unmap command run on different device that enqueued than change the device to m_pActualMappingDevice in order to release the command object from the device it created.
-    if ((m_pActualMappingDevice != m_pDevice) && (NULL != m_pActualMappingDevice))
+    if ((m_pActualMappingDevice != m_pDevice) && (0 != m_pActualMappingDevice))
     {
         m_pDevice = m_pActualMappingDevice;
         m_pActualMappingDevice = NULL;
@@ -2695,7 +2695,7 @@ cl_err_code MigrateMemObjCommand::Init()
     for (cl_uint i = 0; i < m_migrateCmdParams.mem_num; i++)
     {
         const SharedPtr<MemoryObject>& pMemObj = m_pContextModule->GetMemoryObject(m_pMemObjects[i]);
-        if (NULL == pMemObj)
+        if (0 == pMemObj)
         {
             return CL_INVALID_MEM_OBJECT;
         }
@@ -2783,7 +2783,7 @@ PrePostFixRuntimeCommand::PrePostFixRuntimeCommand(
     m_force_error_return(CL_SUCCESS),
     m_error_event(ErrorQueueEvent::Allocate(cmdQueue->GetParentHandle())), m_task(RuntimeCommandTask::Allocate())
 {
-    assert( NULL != m_relatedUserCommand );
+    assert( 0 != m_relatedUserCommand );
 
     m_commandType = relatedUserCommand->GetCommandType();
     

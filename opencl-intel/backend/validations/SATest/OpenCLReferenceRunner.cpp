@@ -63,6 +63,7 @@ File Name:  OpenCLReferenceRunner.cpp
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Mutex.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #define DEBUG_TYPE "OpenCLReferenceRunner"
 #include "llvm/Support/Debug.h"
@@ -90,7 +91,7 @@ using namespace llvm;
 
 static const size_t MAX_LOCAL_MEMORY_SIZE = 30000;
 // mutex for RunKernel to be thread-safe
-static ManagedStatic<sys::Mutex> InterpreterLock;
+static ManagedStatic<sys::Mutex> g_interpreterLock;
 
 extern "C" void initOCLBuiltinsAsync();
 extern "C" void initOCLBuiltinsAtomic();
@@ -447,7 +448,8 @@ void OpenCLReferenceRunner::ReadKernelArgs(
         // Obtain kernel function from annotation
         MDNode *elt = metadata->getOperand(k);
 
-        m_pKernel = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+        Constant * globVal = mdconst::extract<Function>(elt->getOperand(0));
+        m_pKernel = cast<Function>(globVal->stripPointerCasts());
         if ( NULL == m_pKernel )
         {
             continue;   // Not a function pointer
@@ -862,8 +864,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
 {
     assert(pKernelConfig != NULL && "There is no kernel to run!");
 
-    // acquire lock this method is not thread safe
-    InterpreterLock->acquire();
+    sys::ScopedLock scopedLock(*g_interpreterLock);
 
     BufferContainerList input;
     ReadInputBuffer(pKernelConfig, &input,
@@ -975,12 +976,18 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     // this should be called prior to creating EngineBuilder
     LLVMLinkInInterpreterPluggable();
 
-    EngineBuilder builder(m_pModule);
-    builder.setEngineKind(EngineKind::Interpreter);
-
     // initialize interpreters
     for(uint64_t idx = 0; idx < totalLocalWIs; ++idx)
     {
+        // GCC 4.7.3 denies to compile temporary (i.e. rvalue) std::unique_ptr<Module) passed
+        // to the EngineBuilder ctor. So, create an lvalue std::unique_ptr and pass it to the
+        // std::move instead
+        // [LLVM 3.6 UPGRADE} TODO: calling ExecutionEngine::create moves ownership of
+        // llvm::Module from EngineBuilder to ExecutionEngine and we lose control over Module lifetime.
+        // Need to figure out a way of creating ExecutionEngine instances without llvm::Module cloning.
+        EngineBuilder builder(std::unique_ptr<Module>(CloneModule(m_pModule)));
+        builder.setEngineKind(EngineKind::Interpreter);
+
         // Create interpreter instance.
         ExecutionEngine * pExecEngine = builder.create();
         if (0 == pExecEngine)
@@ -1142,8 +1149,7 @@ void OpenCLReferenceRunner::RunKernel( IRunResult * runResult,
     {
         delete [] (int8_t*)(*I).second;
     }
-
-    // release lock
-    InterpreterLock->release();
+    
+    (void)scopedLock;
 }
 

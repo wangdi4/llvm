@@ -45,10 +45,10 @@ public:
 
     /// create - Create an interpreter ExecutionEngine. This can never fail.
     ///
-    static ExecutionEngine *create(Module *M, std::string *ErrorStr = 0);
+    static ExecutionEngine *create(std::unique_ptr<Module> M, std::string *ErrorStr = nullptr);
 
-    InterpreterPluggable(Module *M)
-        : Interpreter(M), m_stillRunning(false), m_needToExecutePreMethod(true)
+    InterpreterPluggable(std::unique_ptr<Module> M)
+        : Interpreter(std::move(M)), m_stillRunning(false), m_needToExecutePreMethod(true)
     {
     }
     /// run - Start execution with the specified function and arguments.

@@ -58,6 +58,6 @@ entry:
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @global_scope, metadata !1}
-!1 = metadata !{metadata !"argument_attribute", i32 0}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
+!0 = !{void (i32 addrspace(1)*)* @global_scope, !1}
+!1 = !{!"argument_attribute", i32 0}
+!2 = !{!"-cl-std=CL1.2"}

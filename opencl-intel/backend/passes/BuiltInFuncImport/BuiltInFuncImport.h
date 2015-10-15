@@ -56,7 +56,12 @@ namespace intel {
     }
   };
 
-  /// This pass imports built-in functions from source module to destination module.
+  /// TODO: [LLVM 3.6 UPGRADE] Refactor/simplify this pass.
+  //        The ModuleLinker is able to link lazily loaded modules w\o parsing them
+  //        as a whole although it can only link a couple of modules at a time.
+  //        Anyway linking-in of multiple built-in modules could be achieved by running
+  //        the linker in a loop one built-in module after another untill everything
+  //        used by a destination module is linked in.
   class BIImport : public ModulePass {
   protected:
     // Type used to hold a vector of Functions and augment it during traversal.

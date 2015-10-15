@@ -13,7 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "FakeExtractInsert.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -262,10 +262,10 @@ void FuncResolver::CFInstruction(std::vector<Instruction*> insts, Value* pred) {
     PHINode* phi = PHINode::Create(insts[i]->getType(), 2, "phi", footer->getFirstNonPHI());
 
     // replace all users which are not skipped (this will create a broken module)
-    std::vector<Value*> users(insts[i]->use_begin(), insts[i]->use_end());
-    for (std::vector<Value*>::iterator it = users.begin(), e = users.end(); it != e; ++it) {
+    std::vector<Value*> users(insts[i]->user_begin(), insts[i]->user_end());
+    for (Value * val : users) {
       // If the user is an instruction
-      Instruction* user = dyn_cast<Instruction>(*it);
+      Instruction* user = dyn_cast<Instruction>(val);
       V_ASSERT(user && "a non-instruction user");
       // If the user is in this block, don't change it.
       if (user->getParent() != body) {
@@ -342,7 +342,7 @@ void FuncResolver::resolveLoadVector(CallInst* caller, unsigned align) {
   // Cast the ptr back to its original form
   PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
-  Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
+  Ptr = CastInst::CreatePointerCast(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
   Value *Ret = UndefValue::get(VT);
 
@@ -464,7 +464,7 @@ void FuncResolver::resolveStoreVector(CallInst* caller, unsigned align) {
   // Cast the ptr back to its original form
   PointerType *InPT = cast<PointerType>(Ptr->getType());
   PointerType *SclPtrTy = PointerType::get(Elem, InPT->getAddressSpace());
-  Ptr = new BitCastInst(Ptr, SclPtrTy, "ptrTypeCast", caller);
+  Ptr = CastInst::CreatePointerCast(Ptr, SclPtrTy, "ptrTypeCast", caller);
 
   for (unsigned i=0; i< NumElem; ++i) {
     V_STAT(m_unresolvedStoreCtr++;)

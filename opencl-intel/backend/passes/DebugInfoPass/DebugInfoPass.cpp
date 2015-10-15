@@ -20,14 +20,14 @@ File Name:  DebugInfoPass.cpp
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
+
 #include <llvm/Pass.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/DebugInfo.h>
-
-#include "CompilationUtils.h"
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/IntrinsicInst.h>
 
 #include <list>
 #include <vector>
@@ -104,7 +104,7 @@ private:
     // Insert a call to the "declara local" builtin before the given call,
     // using that call's arguments (assuming it's a llvm.dbg.declare)
     //
-    void insertDbgDeclaraLocalCall(CallInst* call_instr, const FunctionContext& fContext);
+    void insertDbgDeclaraLocalCall(DbgDeclareInst* call_instr, const FunctionContext& fContext);
 
     // Extract the subprogram descriptor metadata for the function. Return
     // the address to its metadata.
@@ -115,7 +115,7 @@ private:
     // address the pointer points to. This is used to pass the address of
     // metadata nodes to native builtins.
     //
-    Value* makeAddressValueFromPointer(void* ptr);
+    Value* makeAddressValueFromPointer(Metadata * ptr) const;
 
     // Extract the number of the C source line from which this instruction was
     // compiled.
@@ -235,21 +235,23 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // Arguments of this builtin:
     // 1. Pointer to the variable alloca
     // 2. Address of the metadata for variable
-    // 3-5. global IDs for dimensions 0-2
+    // 3. Address of the metadata for complex expression
+    // 4-6. global IDs for dimensions 0-2
     //
-    vector<Type*> local_params;
-    local_params.push_back(pointer_i8);
-    local_params.push_back(i64);
-    for (int i = 0; i < 3; ++i)
-        local_params.push_back(i64);
-    FunctionType* local_functype = FunctionType::get(void_type, local_params, false);
+    vector<Type*> declare_params;
+    declare_params.push_back(pointer_i8);
+    for (int i = 0; i < 5; ++i)
+      declare_params.push_back(i64);
+    FunctionType* local_functype = FunctionType::get(void_type, declare_params, false);
     Function::Create(local_functype, Function::ExternalLinkage,
         BUILTIN_DBG_DECLARE_LOCAL_NAME, m_pModule);
 
     // BUILTIN_DBG_DECLARE_GLOBAL_NAME
     // Arguments: similar to BUILTIN_DBG_DECLARE_LOCAL_NAME
-    //
-    Function::Create(local_functype, Function::ExternalLinkage,
+    // except it doesn't have complex expression
+    declare_params.pop_back();
+    FunctionType* global_functype = FunctionType::get(void_type, declare_params, false);
+    Function::Create(global_functype, Function::ExternalLinkage,
         BUILTIN_DBG_DECLARE_GLOBAL_NAME, m_pModule);
 
     // BUILTIN_DBG_ENTER_FUNCTION_NAME
@@ -258,8 +260,7 @@ void DebugInfoPass::addDebugBuiltinDeclarations()
     // 2-4. global IDs for dimensions 0-2
     //
     vector<Type*> enter_params;
-    enter_params.push_back(i64);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 4; ++i)
         enter_params.push_back(i64);
     FunctionType* enter_functype = FunctionType::get(void_type, enter_params, false);
     Function::Create(enter_functype, Function::ExternalLinkage,
@@ -395,15 +396,12 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
             // 2. Return instruction, before which a builtin call will be
             //    inserted.
             //
-            if (CallInst* call_instr = dyn_cast<CallInst>(instr_iter)) {
-                Function* called_func = call_instr->getCalledFunction();
-                if (called_func->getName() == "llvm.dbg.declare") {
-                    // The new call is inserted before the existing call, and
-                    // the existing call is scheduled for removal.
-                    //
-                    insertDbgDeclaraLocalCall(call_instr, fContext);
-                    instrs_to_remove.push_back(call_instr);
-                }
+            if (DbgDeclareInst * dbgDeclareInst = dyn_cast<DbgDeclareInst>(instr_iter)) {
+                // The new call is inserted before the existing call, and
+                // the existing call is scheduled for removal.
+                //
+                insertDbgDeclaraLocalCall(dbgDeclareInst, fContext);
+                instrs_to_remove.push_back(dbgDeclareInst);
             }
             else if (ReturnInst* ret_instr = dyn_cast<ReturnInst>(instr_iter)) {
                 insertDbgExitFunctionCall(ret_instr, pFunc, fContext);
@@ -422,14 +420,9 @@ void DebugInfoPass::addDebugCallsToFunction(Function* pFunc, const FunctionConte
 
 Value* DebugInfoPass::extractSubprogramDescriptorMetadata(Function* pFunc)
 {
-    for (DebugInfoFinder::iterator sp_i = m_DbgInfoFinder.subprogram_begin(),
-         sp_end = m_DbgInfoFinder.subprogram_end();
-         sp_i != sp_end; ++sp_i) {
-        MDNode* sp_mdn = *sp_i;
-        DISubprogram subprogram_descriptor(sp_mdn);
-
-        if (subprogram_descriptor.describes(pFunc)) {
-            return makeAddressValueFromPointer(static_cast<void*>(sp_mdn));
+    for (DISubprogram const & subprogDIE : m_DbgInfoFinder.subprograms()) {
+        if (subprogDIE.describes(pFunc)) {
+            return makeAddressValueFromPointer(subprogDIE);
         }
     }
 
@@ -437,7 +430,7 @@ Value* DebugInfoPass::extractSubprogramDescriptorMetadata(Function* pFunc)
 }
 
 
-Value* DebugInfoPass::makeAddressValueFromPointer(void* ptr)
+Value* DebugInfoPass::makeAddressValueFromPointer(Metadata * ptr) const
 {
     uint64_t addr = reinterpret_cast<uint64_t>(ptr);
     return ConstantInt::get(
@@ -470,16 +463,10 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
 
     // Generate the builtin call for each global var in the module
     //
-    for (DebugInfoFinder::iterator gv_i = m_DbgInfoFinder.global_variable_begin(),
-         gv_end = m_DbgInfoFinder.global_variable_end();
-         gv_i != gv_end; ++gv_i) {
+    for (DIGlobalVariable const & diGlobalVar : m_DbgInfoFinder.global_variables()) {
 	
-        MDNode* gv_metadata = *gv_i;
-
         // Take the var address from the metadata as a Value, and bitcast it
         // to i8*.
-        //
-        DIGlobalVariable diGlobalVar(gv_metadata);
         assert(diGlobalVar.Verify());
         Value* var_ref = diGlobalVar.getGlobal();
 
@@ -489,22 +476,23 @@ void DebugInfoPass::insertDbgDeclareGlobalCalls(Function* pFunc, const FunctionC
         if (!var_ref->getType()->isPointerTy())
             continue;
 
-        BitCastInst* var_addr = new BitCastInst(var_ref, pointer_i8, "var_addr",
+        CastInst* var_addr = CastInst::CreatePointerCast(var_ref, pointer_i8, "var_addr",
             fContext.original_first_instr);
 
-        MDNode *mdn = MDNode::get(*m_llvm_context, ConstantInt::getAllOnesValue(IntegerType::getInt1Ty(*m_llvm_context)));
+        MDNode *mdn = MDNode::get(*m_llvm_context, 
+            ConstantAsMetadata::get(ConstantInt::getAllOnesValue(IntegerType::getInt1Ty(*m_llvm_context))));
         var_addr->setMetadata("dbg_declare_inst", mdn);
 
         // The metadata itself is passed as an address
-        //
-        Value* metadata_addr = makeAddressValueFromPointer(
-            static_cast<void*>(gv_metadata));
+        Value* metadata_addr = makeAddressValueFromPointer(diGlobalVar);
 
         vector<Value*> params;
         params.push_back(var_addr);
         params.push_back(metadata_addr);
         for (int i = 0; i <= 2; ++i)
             params.push_back(fContext.gids[i]);
+        // [LLVM 3.6 UPGRADE] FIXME: Most likely the new call site mist be additionally handled somewhere else
+        // to properly handle the Metadata/Value split.
         CallInst::Create(declare_global_func, params, "",
             fContext.original_first_instr);
     }
@@ -529,44 +517,35 @@ void DebugInfoPass::insertDbgStoppointCall(Instruction* instr, const FunctionCon
     Function* stoppoint_func = m_pModule->getFunction(BUILTIN_DBG_STOPPOINT_NAME);
     assert(stoppoint_func);
     vector<Value*> params;
-    params.push_back(makeAddressValueFromPointer(static_cast<void*>(mdn)));
+    params.push_back(makeAddressValueFromPointer(mdn));
     for (int i = 0; i <= 2; ++i)
         params.push_back(fContext.gids[i]);
     CallInst::Create(stoppoint_func, params, "", instr);
 }
 
 
-void DebugInfoPass::insertDbgDeclaraLocalCall(CallInst* call_instr, const FunctionContext& fContext)
+void DebugInfoPass::insertDbgDeclaraLocalCall(DbgDeclareInst* dbgDeclInstr, const FunctionContext& fContext)
 {
-    // Expect llvm.dbg.declare here, with two metadata arguments
-    //
-    assert(call_instr->getNumArgOperands() == 2);
-
-    // The first argument is an alloca for the variable wrapped into metadata.
+    // The first argument is an alloca for the variable.
     // Take the alloca from the metadata and cast it to i8*
-    //
-    MDNode* md_var = cast<MDNode>(call_instr->getArgOperand(0));
-    assert(md_var->getNumOperands() == 1);
-    Value* var_ref = md_var->getOperand(0);
     Type* pointer_i8 = IntegerType::getInt8PtrTy(*m_llvm_context);
-    BitCastInst* var_ref_cast = new BitCastInst(var_ref, pointer_i8, "",
-        call_instr);
-
-    //The second argument is the metadata description of the variable. Pass its
-    // address as an integral argument.
-    //
-    MDNode* md_description = cast<MDNode>(call_instr->getArgOperand(1));
-    Value* metadata_addr = makeAddressValueFromPointer(
-        static_cast<void*>(md_description));
+    CastInst* var_ref_cast = CastInst::CreatePointerCast(dbgDeclInstr->getAddress(), pointer_i8,
+                                                         "", dbgDeclInstr);
+    // Pass address of metadata description of the variable as an integral argument.
+    Value* var_metadata_addr = makeAddressValueFromPointer(dbgDeclInstr->getVariable());
+    // Pass the metadata description of the complex expression address as an integral
+    // argument.
+    Value* expr_metadata_addr = makeAddressValueFromPointer(dbgDeclInstr->getExpression());
 
     Function* declare_local_func = m_pModule->getFunction(BUILTIN_DBG_DECLARE_LOCAL_NAME);
     assert(declare_local_func);
     vector<Value*> params;
     params.push_back(var_ref_cast);
-    params.push_back(metadata_addr);
-    for (int i = 0; i <= 2; ++i)
+    params.push_back(var_metadata_addr);
+    params.push_back(expr_metadata_addr);
+    for (int i = 0; i < 3; ++i)
         params.push_back(fContext.gids[i]);
-    CallInst::Create(declare_local_func, params, "", call_instr);
+    CallInst::Create(declare_local_func, params, "", dbgDeclInstr);
 }
 
 

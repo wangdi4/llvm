@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt -presucf=false -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
+; RUN: opt -presucf=false -O3 -inline-threshold=4096 -inline -lowerswitch -mergereturn -loop-simplify -phicanon -predicate -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; ModuleID = 'branches.cl'
@@ -200,13 +200,13 @@ define void @nestedUnBranchedUnBranchDivBranch(i32 addrspace(1)* nocapture %res,
 !opencl.kernels = !{!0, !2, !3, !4, !5}
 !opencl.compiler.options = !{!6}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnLoop, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
-!2 = metadata !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnBranch, metadata !1}
-!3 = metadata !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnBranchI, metadata !1}
-!4 = metadata !{void (i32 addrspace(1)*, i32)* @divBranchedUnBranch, metadata !1}
-!5 = metadata !{void (i32 addrspace(1)*, i32)* @nestedUnBranchedUnBranchDivBranch, metadata !1}
-!6 = metadata !{metadata !"-cl-std=CL1.2"}
-!7 = metadata !{metadata !"int", metadata !8}
-!8 = metadata !{metadata !"omnipotent char", metadata !9}
-!9 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnLoop, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3}
+!2 = !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnBranch, !1}
+!3 = !{void (i32 addrspace(1)*, i32)* @divBranchNestedUnBranchI, !1}
+!4 = !{void (i32 addrspace(1)*, i32)* @divBranchedUnBranch, !1}
+!5 = !{void (i32 addrspace(1)*, i32)* @nestedUnBranchedUnBranchDivBranch, !1}
+!6 = !{!"-cl-std=CL1.2"}
+!7 = !{!"int", !8}
+!8 = !{!"omnipotent char", !9}
+!9 = !{!"Simple C/C++ TBAA", null}

@@ -43,6 +43,7 @@
 #include <string>
 #include "cl_local_array.h"
 #include "cl_shared_ptr.hpp"
+#include "cl_sys_info.h"
 
 using namespace Intel::OpenCL::Utils;
 using namespace Intel::OpenCL::Framework;
@@ -138,7 +139,7 @@ cl_err_code PlatformModule::InitDevices(const vector<string>& devices, const str
         // assign device in the objects map
         m_mapDevices.AddObject(devicesList[ui]);
         
-        if ((NULL == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
+        if ((0 == m_pDefaultDevice) && (defaultDevice != "") && (defaultDevice == devices[ui]))
         {
             m_pDefaultDevice = devicesList[ui];
         }
@@ -180,22 +181,30 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
     }
 
-    if (pConfig->GetOpenCLVersion() == OPENCL_VERSION_1_2)
+    switch(pConfig->GetOpenCLVersion())
     {
-#ifdef _WIN32
-        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
-#else
-        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
-#endif
-    }
-    else
-    {
+        case OPENCL_VERSION_2_0:
 #ifdef _WIN32
         m_vPlatformVersionStr = "OpenCL 2.0 WINDOWS";
 #else
         m_vPlatformVersionStr = "OpenCL 2.0 LINUX";
 #endif
-    }   
+        break;
+        case OPENCL_VERSION_2_1:
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 2.1 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 2.1 LINUX";
+#endif
+        break;
+        default:
+#ifdef _WIN32
+        m_vPlatformVersionStr = "OpenCL 1.2 WINDOWS";
+#else
+        m_vPlatformVersionStr = "OpenCL 1.2 LINUX";
+#endif
+        break;
+    }
 
     return clErr;
 
@@ -414,7 +423,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
     {
         return CL_DEVICE_NOT_FOUND;
     }
-    if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == NULL)
+    if (clDeviceType == CL_DEVICE_TYPE_DEFAULT && m_pDefaultDevice == 0)
     {
         return CL_DEVICE_NOT_FOUND;
     }
@@ -440,7 +449,7 @@ cl_int    PlatformModule::GetDeviceIDs(cl_platform_id clPlatform,
 
     for (cl_uint ui=0; ui<uiNumDevices; ++ui)
     {
-        if (NULL != ppDevices[ui])
+        if (0 != ppDevices[ui])
         {
             if ((clDeviceType & CL_DEVICE_TYPE_DEFAULT) &&
                 ppDevices[ui]->GetId() == m_pDefaultDevice->GetId())
@@ -535,7 +544,7 @@ cl_int    PlatformModule::GetDeviceInfo(cl_device_id clDevice,
 
     default:
         pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int*)clDevice).DynamicCast<FissionableDevice>();
-        if (NULL == pDevice)
+        if (0 == pDevice)
         {
             return CL_INVALID_DEVICE;
         }
@@ -592,7 +601,7 @@ cl_int PlatformModule::UnloadCompiler(void)
     for (cl_uint ui=0; ui<m_mapDevices.Count(); ++ui)
     {
         SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetObjectByIndex(ui).DynamicCast<FissionableDevice>();
-        if (NULL != pDevice)
+        if (0 != pDevice)
         {
             pDevice->GetDeviceAgent()->clDevUnloadCompiler();
         }
@@ -713,7 +722,7 @@ public:
 
     cl_err_code CreateRootDevice()
     {
-        m_bNeedToCreateDevice = ((NULL != m_pParentDevice) && (NULL == m_pParentDevice->GetDeviceAgent()));
+        m_bNeedToCreateDevice = ((0 != m_pParentDevice) && (NULL == m_pParentDevice->GetDeviceAgent()));
         return (m_bNeedToCreateDevice ? m_pParentDevice->GetRootDevice()->CreateInstance() : CL_SUCCESS);
     }
 
@@ -731,6 +740,40 @@ bool operator==( void* p, const ParentDeviceWrapper& me )
     return (p == (*me).GetPtr());
 }
 
+cl_err_code PlatformModule::GetHostTimer(cl_device_id device, cl_ulong* host_timestamp)
+{
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (0 == pDevice)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    if (NULL == host_timestamp)
+    {
+        return CL_INVALID_VALUE;
+    }
+
+    *host_timestamp = Intel::OpenCL::Utils::HostTime();
+
+    return CL_SUCCESS;
+}
+
+cl_err_code PlatformModule::GetDeviceAndHostTimer(cl_device_id device, cl_ulong* device_timestamp, cl_ulong* host_timestamp)
+{
+    SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
+    if (0 == pDevice)
+    {
+        return CL_INVALID_DEVICE;
+    }
+    if ((NULL == host_timestamp) || (NULL == device_timestamp))
+    {
+        return CL_INVALID_VALUE;
+    }
+    *host_timestamp = Intel::OpenCL::Utils::HostTime();
+    *device_timestamp = pDevice->GetDeviceTimer();
+
+    return CL_SUCCESS;
+}
+
 cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_device_partition_property *properties, cl_uint num_entries, cl_device_id *out_devices, cl_uint *num_devices)
 {
     OclAutoMutex CS(&m_deviceFissionMutex);    
@@ -738,7 +781,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     tNumDevices = 0;
     SharedPtr<OCLObject<_cl_device_id_int, _cl_platform_id_int> > pParent_obj = m_mapDevices.GetOCLObject((_cl_device_id_int*)device);
     
-    if (NULL == pParent_obj)
+    if (0 == pParent_obj)
     {
         return CL_INVALID_DEVICE;
     }
@@ -831,7 +874,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
     for (cl_uint i = 0; i < numSubdevicesToCreate; ++i)
     {
         pNewDevices[i] = SubDevice::Allocate(pParentDevice, sizes[i], subdevice_ids[i], properties);
-        if (NULL == pNewDevices[i])
+        if (0 == pNewDevices[i])
         {
             for (cl_uint j = 0; j < i; ++j)
             {
@@ -873,7 +916,7 @@ cl_err_code PlatformModule::clCreateSubDevices(cl_device_id device, const cl_dev
 cl_err_code PlatformModule::clReleaseDevice(cl_device_id device)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (NULL == pDevice)
+    if (0 == pDevice)
     {
         return CL_INVALID_DEVICE;
     }
@@ -905,7 +948,7 @@ void PlatformModule::RemoveAllDevices(bool preserve_user_handles)
 cl_err_code PlatformModule::clRetainDevice(cl_device_id device)
 {
     SharedPtr<FissionableDevice> pDevice = m_mapDevices.GetOCLObject((_cl_device_id_int *)device).DynamicCast<FissionableDevice>();
-    if (NULL == pDevice)
+    if (0 == pDevice)
     {
         return CL_INVALID_DEVICE;
     }

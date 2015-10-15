@@ -25,7 +25,7 @@ namespace intel {
 char LoopStridedCodeMotion::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
 OCL_INITIALIZE_PASS_END(LoopStridedCodeMotion, "cl-loop-stride", "move strided values out of loops", false, false)
 
@@ -42,7 +42,7 @@ bool LoopStridedCodeMotion::runOnLoop(Loop *L, LPPassManager &LPM) {
   if (!L->isLoopSimplifyForm()) return false;
 
 
-  m_DT = &getAnalysis<DominatorTree>();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
@@ -278,7 +278,7 @@ Value *LoopStridedCodeMotion::getVectorStrideIfNeeded(Instruction *I,
 
 
 bool hasUserInSet(Value *v, SmallPtrSet<Value *, 16>& s) {
-  for (Value::use_iterator useIt = v->use_begin(), useE = v->use_end();
+  for (Value::user_iterator useIt = v->user_begin(), useE = v->user_end();
       useIt != useE; ++useIt) {
     if (s.count(*useIt)) return true;
   }
@@ -288,7 +288,7 @@ bool hasUserInSet(Value *v, SmallPtrSet<Value *, 16>& s) {
 
 void LoopStridedCodeMotion::ObtainNonHoistedUsers(Value *v,
                                                 SmallVectorImpl<User *> &vec) {
-  for (Value::use_iterator useIt = v->use_begin(), useE = v->use_end();
+  for (Value::user_iterator useIt = v->user_begin(), useE = v->user_end();
       useIt != useE; ++useIt) {
     if (!m_instToMoveSet.count(*useIt)) vec.push_back(*useIt);
   }

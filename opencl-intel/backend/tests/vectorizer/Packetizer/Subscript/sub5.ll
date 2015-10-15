@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -subscript  -subscript-v4i8  -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -O3 -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=4 -subscript  -subscript-v4i8  -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; Check masked scatter/gather of chars
@@ -32,5 +32,5 @@ define void @kernel(i8* nocapture %A, i64 %k) nounwind {
 
 declare i32 @_Z13get_global_idj(...)
 
-!0 = metadata !{metadata !"omnipotent char", metadata !1}
-!1 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{!"omnipotent char", !1}
+!1 = !{!"Simple C/C++ TBAA", null}

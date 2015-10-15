@@ -13,9 +13,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/GlobalValue.h>
-#include <llvm/Support/InstIterator.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/ADT/ValueMap.h>
+#include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <set>
 #include <assert.h>
@@ -87,7 +87,7 @@ namespace intel {
         pPtrType = PointerType::get(pPtrType->getElementType(), targetSpace);
         argTypes.push_back(pPtrType);
         // Induce conversion from original parameter to that of target type
-        BitCastInst *pInducedBitcast = new BitCastInst(pArg, pPtrType,
+        CastInst *pInducedBitcast = CastInst::CreatePointerCast(pArg, pPtrType,
                                                        "AddrSpace", pCallInstr);
         assocDebugLocWith(pInducedBitcast, pCallInstr);
         params.push_back(pInducedBitcast);

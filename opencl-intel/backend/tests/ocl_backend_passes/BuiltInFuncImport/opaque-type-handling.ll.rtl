@@ -22,7 +22,7 @@ entry:
   br i1 %cmp, label %if.end, label %if.then
 
 if.then:                                          ; preds = %entry
-  %0 = bitcast %opencl.pipe_t addrspace(1)* %p to i32*
+  %0 = addrspacecast %opencl.pipe_t addrspace(1)* %p to i32*
   store i32 %packet, i32* %0, align 4
   br label %if.end
 

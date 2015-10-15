@@ -114,8 +114,13 @@ void ImplicitGlobalIdPass::insertComputeGlobalIds(Function* pFunc)
       DIVariable div = m_pDIB->createLocalVariable(
           dwarf::DW_TAG_auto_variable, scope, StringRef(gid_name.str()),
           DIFile(0), 1, gid_di_type, true, DIDescriptor::FlagArtificial, 0);
+      // LLVM 3.6 UPGRADE: TODO: uncomment the line below if the new DIVariable
+      // does need dwarf::DW_OP_deref expression
       Instruction *gid_declare =
-          m_pDIB->insertDeclare(gid_alloca, div, insert_before);
+          m_pDIB->insertDeclare(gid_alloca, div,
+                                //m_pDIB->createExpression(dwarf::DW_OP_deref),
+                                m_pDIB->createExpression(),
+                                insert_before);
       gid_declare->setDebugLoc(loc);
       if (!functionHasBarriers) {
         runOnBasicBlock(i, gid_alloca, insert_before);
@@ -153,14 +158,9 @@ bool ImplicitGlobalIdPass::getBBScope(const BasicBlock& BB, DIDescriptor& scope_
     return false;
 }
 
-DIType ImplicitGlobalIdPass::getOrCreateUlongDIType()
+DIType const& ImplicitGlobalIdPass::getOrCreateUlongDIType() const
 {
-    for (DebugInfoFinder::iterator t_i = m_DbgInfoFinder.type_begin(),
-         t_end = m_DbgInfoFinder.type_end();
-         t_i != t_end; ++t_i) {
-        MDNode* t_mdn = *t_i;
-        DIType t(t_mdn);
-
+    for ( DIType const& t: m_DbgInfoFinder.types()) {
         if (t.getName() == "long unsigned int") {
             return t;
         }

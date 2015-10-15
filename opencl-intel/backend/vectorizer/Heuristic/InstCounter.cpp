@@ -34,7 +34,7 @@ char WeightedInstCounter::ID = 0;
 OCL_INITIALIZE_PASS_BEGIN(WeightedInstCounter, "winstcounter", "Weighted Instruction Counter", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_DEPENDENCY(PostDominanceFrontier)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
@@ -43,7 +43,7 @@ OCL_INITIALIZE_PASS_END(WeightedInstCounter, "winstcounter", "Weighted Instructi
 char VectorizationPossibilityPass::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(VectorizationPossibilityPass, "vectorpossible", "Check whether vectorization is possible", false, false)
 
@@ -580,8 +580,8 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     return estimateCall(called);
 
   // GEP and PHI nodes are free
-  // NOTE: In the GEP case this is it not entirelly true because it may result in LEA
-  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I))
+  // NOTE: In the GEP case this is it not entirely true because it may result in LEA
+  if (isa<GetElementPtrInst>(I) || isa<PHINode>(I) || isa<AllocaInst>(I) || isa<BitCastInst>(I) || isa<AddrSpaceCastInst>(I))
     return NOOP_WEIGHT;
 
   // Shuffles/extracts/inserts are mostly representative
@@ -642,7 +642,7 @@ int WeightedInstCounter::getInstructionWeight(Instruction *I, DenseMap<Instructi
     // So if this insert is a part of a broadcast then simply don't count it.
     // The broadcast weight will be counted at ShuffleVectorInst.
     if (insertInst->hasOneUse()) {
-      User * userInst = insertInst->use_back();
+      User * userInst = insertInst->user_back();
       if(ShuffleVectorInst * shuffleInst = dyn_cast<ShuffleVectorInst>(userInst)) {
         if (isa<ConstantAggregateZero>(shuffleInst->getMask()))
            return NOOP_WEIGHT;
@@ -741,7 +741,7 @@ void WeightedInstCounter::estimateIterations(Function &F,
         Count = SI->getSmallConstantTripCount(LI->getLoopFor(Latch), Latch);
     }
     else if (Latch)
-      Count = SI->getSmallConstantTripCount(L, Latch);
+      Count = SI->getSmallConstantTripCount(L);
 
     // getSmallConstantTripCount() returns 0 for non-constant trip counts
     // and on error conditions. In this case guess and hope for the best.
@@ -767,7 +767,6 @@ void WeightedInstCounter::
   // frontier.
 
   PostDominanceFrontier* PDF = &getAnalysis<PostDominanceFrontier>();
-  PostDominanceFrontier::DomSetMapType ControlDepMap;
 
   //Debug output
   if (enableDebugPrints)
@@ -1066,7 +1065,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
   // it should be cheap.
   for (std::vector<Instruction*>::iterator I = ExpensiveGEP.begin(), E = ExpensiveGEP.end();
     I != E; ++I) {
-    for (Instruction::use_iterator U = (*I)->use_begin(), UE = (*I)->use_end();
+    for (Instruction::user_iterator U = (*I)->user_begin(), UE = (*I)->user_end();
         U != UE; ++U)
     {
       if (Instruction* User = dyn_cast<Instruction>(*U))
@@ -1080,7 +1079,7 @@ void WeightedInstCounter::estimateMemOpCosts(Function &F, DenseMap<Instruction*,
 
   for (std::vector<Instruction*>::iterator I = CheapGEP.begin(), E = CheapGEP.end();
     I != E; I++) {
-    for (Instruction::use_iterator U = (*I)->use_begin(), UE = (*I)->use_end();
+    for (Instruction::user_iterator U = (*I)->user_begin(), UE = (*I)->user_end();
         U != UE; ++U)
     {
       if (Instruction* User = dyn_cast<Instruction>(*U))
@@ -1097,7 +1096,7 @@ void WeightedInstCounter::addUsersToWorklist(Instruction *I,
                                 std::vector<Instruction*> &WorkList) const
 {
   // Find all users, add them to the worklist if they haven't been visited yet
-  for (Instruction::use_iterator U = I->use_begin(), UE = I->use_end();
+  for (Instruction::user_iterator U = I->user_begin(), UE = I->user_end();
        U != UE; U++)
     if (Instruction* User = dyn_cast<Instruction>(*U))
       if (Visited.find(User) == Visited.end())
@@ -1172,7 +1171,7 @@ void WeightedInstCounter::countPerBlockHeuristics(std::map<BasicBlock*, int>* pr
 
 bool VectorizationPossibilityPass::runOnFunction(Function & F)
 {
-  DominatorTree &DT = getAnalysis<DominatorTree>();
+  DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   RuntimeServices* services = getAnalysis<BuiltinLibInfo>().getRuntimeServices();
   m_canVectorize = CanVectorizeImpl::canVectorize(F, DT, services);
   return false;
@@ -1365,7 +1364,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
   for ( CompilationUtils::FunctionSet::iterator fi = oclFunction.begin(), fe = oclFunction.end(); fi != fe; ++fi ) {
     Function *F = *fi;
-    for (Function::use_iterator ui = F->use_begin(), ue = F->use_end(); ui != ue; ++ui ) {
+    for (Function::user_iterator ui = F->user_begin(), ue = F->user_end(); ui != ue; ++ui ) {
       CallInst *CI = dyn_cast<CallInst> (*ui);
       if (!CI) continue;
       Function *pCallingFunc = CI->getParent()->getParent();
@@ -1381,7 +1380,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* services) {
   Module *pM = F.getParent();
-  bool isPointer64 = (pM->getPointerSize() == Module::Pointer64);
+  bool isPointer64 = pM->getDataLayout()->getPointerSizeInBits(0) == 64;
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
 

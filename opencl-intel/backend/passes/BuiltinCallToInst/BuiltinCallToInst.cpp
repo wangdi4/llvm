@@ -9,7 +9,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 #include "VectorizerUtils.h"
 #include "OCLPassSupport.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
 
 extern "C" {

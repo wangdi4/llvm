@@ -64,9 +64,9 @@ declare i32 @_Z12get_local_idj(i32) nounwind readnone
 
 !opencl.kernels = !{!0, !1, !2, !3, !4, !5}
 
-!0 = metadata !{void (i32 addrspace(1)* , i32 )* @variable_gid}
-!1 = metadata !{void (i32 addrspace(1)* , i32 )* @variable_lid}
-!2 = metadata !{void (i32 addrspace(1)* )* @out_of_range_gid}
-!3 = metadata !{void (i32 addrspace(1)* )* @out_of_range_lid}
-!4 = metadata !{void (i32 addrspace(1)* )* @in_range_gid}
-!5 = metadata !{void (i32 addrspace(1)* )* @in_range_lid}
+!0 = !{void (i32 addrspace(1)* , i32 )* @variable_gid}
+!1 = !{void (i32 addrspace(1)* , i32 )* @variable_lid}
+!2 = !{void (i32 addrspace(1)* )* @out_of_range_gid}
+!3 = !{void (i32 addrspace(1)* )* @out_of_range_lid}
+!4 = !{void (i32 addrspace(1)* )* @in_range_gid}
+!5 = !{void (i32 addrspace(1)* )* @in_range_lid}

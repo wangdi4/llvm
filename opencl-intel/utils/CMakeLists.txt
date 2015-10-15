@@ -5,12 +5,17 @@ set(LLVM_PATH ${LLVM_PATH_FE})
 find_package(LLVM REQUIRED)
 
 message( STATUS "Frontend LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+
+if (NOT WIN32)
+  # disable warnings inherited from external componennts
+  add_definitions(-Wno-attributes)
+endif (NOT WIN32)
+
 add_subdirectory( cl_hw_utils )
 add_subdirectory( cl_logger )
 add_subdirectory( cl_sys_utils )
 add_subdirectory( CLElfLib )
 add_subdirectory( cache_binary_handler )
-add_subdirectory( tinyXML2 )
 
 if(WIN32)
     add_subdirectory( dyn_cl_sys_utils )

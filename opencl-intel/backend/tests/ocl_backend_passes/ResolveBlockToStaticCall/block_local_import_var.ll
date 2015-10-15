@@ -94,7 +94,7 @@ declare i64 @get_global_id(i32) nounwind readnone
 !opencl.kernels = !{!0}
 !opencl.build.options = !{!2}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @kernel_scope, metadata !1}
-!1 = metadata !{metadata !"argument_attribute", i32 0}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
+!0 = !{void (i32 addrspace(1)*)* @kernel_scope, !1}
+!1 = !{!"argument_attribute", i32 0}
+!2 = !{!"-cl-std=CL1.2"}
 

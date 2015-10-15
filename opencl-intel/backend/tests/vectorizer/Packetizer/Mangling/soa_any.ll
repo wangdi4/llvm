@@ -1,4 +1,4 @@
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify -S -o - %s \
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -O3 -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -verify -S -o - %s \
 ; RUN: | FileCheck %s
 
 ; ModuleID = 'run_any.cl'
@@ -53,5 +53,5 @@ declare void @foo(<4 x i32>)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_any, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}
+!0 = !{void (<4 x i8>, <4 x i8>, <4 x i8>, <4 x i8>)* @run_any, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3, i32 3, i32 3}

@@ -226,7 +226,7 @@ const char* CPUDeviceConfig::GetExtensions() const
         }
 
         // OpenCL 2.0 extensions
-        if (OPENCL_VERSION_2_0 == GetOpenCLVersion())
+        if (OPENCL_VERSION_2_0 == GetOpenCLVersion() || OPENCL_VERSION_2_1 == GetOpenCLVersion())
         {
             m_extensions += OCL_EXT_KHR_IMAGE2D_FROM_BUFFER " ";
         }

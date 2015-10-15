@@ -4,24 +4,23 @@
 
 ; CHECK: @func
 ; CHECK: %0 = bitcast i32 addrspace(1)* %add.ptr to i32 addrspace(1)*
-; CHECK: %1 = bitcast i32 addrspace(1)* %0 to i32 addrspace(4)*
+; CHECK: %1 = addrspacecast i32 addrspace(1)* %0 to i32 addrspace(4)*
 ; CHECK: %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
 ; CHECK: store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx, align 4
 ; CHECK: %10 = load i32 addrspace(4)** %arrayidx10, align 4
-; CHECK: %11 = ptrtoint i32 addrspace(4)* %10 to i32
-; CHECK: %12 = inttoptr i32 %11 to i32 addrspace(4)*
-; CHECK: %13 = load i32 addrspace(4)** %arrayidx12, align 4
-; CHECK: %14 = bitcast i32 addrspace(4)* %13 to i8 addrspace(4)*
-; CHECK: call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %14)
-; CHECK: %19 = load i32 addrspace(4)** %arrayidx26, align 4
-; CHECK: %20 = bitcast i32 addrspace(4)* %19 to float addrspace(4)*
-; CHECK: %add.ptr27 = getelementptr inbounds float addrspace(4)* %20, i32 10
+; CHECK: %11 = bitcast i32 addrspace(4)* %10 to i32 addrspace(4)*
+; CHECK: %12 = load i32 addrspace(4)** %arrayidx12, align 4
+; CHECK: %13 = bitcast i32 addrspace(4)* %12 to i8 addrspace(4)*
+; CHECK: call i8 addrspace(1)* @_Z9to_globalPKU3AS4v(i8 addrspace(4)* %13)
+; CHECK: %18 = load i32 addrspace(4)** %arrayidx26, align 4
+; CHECK: %19 = bitcast i32 addrspace(4)* %18 to float addrspace(4)*
+; CHECK: %add.ptr27 = getelementptr inbounds float addrspace(4)* %19, i32 10
 ; CHECK: %call28 = call float @_Z5fractfPU3AS4f(float %param, float addrspace(4)* %add.ptr27)
 ; CHECK: ret
 
-; BUGBUG: !1 = metadata !{metadata !2, metadata !3}																BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !2 = metadata !{metadata !"gen_addr_space_pointer_counter", i32 0}			BUGBUG in Metadata (CQ CSSD100017034)
-; BUGBUG: !3 = metadata !{metadata !"gen_addr_space_pointer_warnings"}						BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !1 = !{!2, !3}																BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !2 = !{!"gen_addr_space_pointer_counter", i32 0}			BUGBUG in Metadata (CQ CSSD100017034)
+; BUGBUG: !3 = !{!"gen_addr_space_pointer_warnings"}						BUGBUG in Metadata (CQ CSSD100017034)
 
 define void @test1(i32 addrspace(4)* %a) nounwind {
 entry:
@@ -65,14 +64,14 @@ for.body:                                         ; preds = %for.cond
 
 if.then:                                          ; preds = %for.body
   %add.ptr = getelementptr inbounds i32 addrspace(1)* %pGlobal, i32 %i.0
-  %0 = bitcast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
+  %0 = addrspacecast i32 addrspace(1)* %add.ptr to i32 addrspace(4)*
   %arrayidx = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %0, i32 addrspace(4)** %arrayidx, align 4
   br label %if.end
 
 if.else:                                          ; preds = %for.body
   %add.ptr1 = getelementptr inbounds i32 addrspace(3)* %pLocal, i32 %i.0
-  %1 = bitcast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
+  %1 = addrspacecast i32 addrspace(3)* %add.ptr1 to i32 addrspace(4)*
   %arrayidx2 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   store i32 addrspace(4)* %1, i32 addrspace(4)** %arrayidx2, align 4
   br label %if.end
@@ -94,7 +93,7 @@ if.end:                                           ; preds = %if.else, %if.then
   store i32 8, i32 addrspace(4)* %arrayidx7, align 4
   %arrayidx8 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
   %6 = load i32 addrspace(4)** %arrayidx8, align 4
-  %7 = bitcast i32 addrspace(4)* %6 to i32 addrspace(1)*
+  %7 = addrspacecast i32 addrspace(4)* %6 to i32 addrspace(1)*
   %arrayidx9 = getelementptr inbounds i32 addrspace(1)* %7, i32 3
   store i32 3, i32 addrspace(1)* %arrayidx9, align 4
   %arrayidx10 = getelementptr inbounds [10 x i32 addrspace(4)*]* %ptrs, i32 0, i32 %i.0
@@ -155,9 +154,9 @@ declare float @_Z5fractfPU3AS4f(float, float addrspace(4)*)
 !opencl.kernels = !{!0}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
-!1 = metadata !{metadata !"argument_attribute", i32 0, i32 0, i32 0}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{void (i32 addrspace(1)*, i32 addrspace(3)*, float)* @func}
+!1 = !{!"argument_attribute", i32 0, i32 0, i32 0}
+!2 = !{!"-cl-std=CL2.0"}
 
 ;;  -----  BasicCasesArray.cl   -------
 ;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 BasicCasesArray.cl -o BasicCasesArrayTmp.ll

@@ -25,7 +25,7 @@
 #include "icd/icd_dispatch.h"
 
 #ifdef _WIN32
-#include <CL/cl_d3d9.h>
+#include <CL/cl_dx9_media_sharing.h>
 #else
 #ifdef LIBVA_SHARING
 #include <CL/IntelPublic/va_ext.h>

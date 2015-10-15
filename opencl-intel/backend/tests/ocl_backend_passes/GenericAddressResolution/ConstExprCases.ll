@@ -24,7 +24,7 @@
 
 define void @const_bitcast(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %0 = load i32 addrspace(4)* bitcast ([1 x i32] addrspace(3)* @const_bitcast.loc to i32 addrspace(4)*), align 4
+  %0 = load i32 addrspace(4)* addrspacecast ([1 x i32] addrspace(3)* @const_bitcast.loc to i32 addrspace(4)*), align 4
   %arrayidx = getelementptr inbounds i32 addrspace(1)* %dst, i32 0
   store i32 %0, i32 addrspace(1)* %arrayidx, align 4
   ret void
@@ -32,7 +32,7 @@ entry:
 
 define void @const_gep(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %0 = load i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2), align 4
+  %0 = load i32 addrspace(4)* getelementptr inbounds (i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_gep.loc to i32 addrspace(4)*), i32 2), align 4
   %arrayidx = getelementptr inbounds i32 addrspace(1)* %dst, i32 0
   store i32 %0, i32 addrspace(1)* %arrayidx, align 4
   ret void
@@ -40,7 +40,7 @@ entry:
 
 define void @const_select(i32 addrspace(1)* %dst) nounwind {
 entry:
-  %0 = load i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* bitcast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)), align 4
+  %0 = load i32 addrspace(4)* select (i1 icmp ne (i32 ptrtoint ([5 x i32] addrspace(3)* @const_select.loc1 to i32), i32 0), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc1 to i32 addrspace(4)*), i32 addrspace(4)* addrspacecast ([5 x i32] addrspace(3)* @const_select.loc2 to i32 addrspace(4)*)), align 4
   %arrayidx = getelementptr inbounds i32 addrspace(1)* %dst, i32 0
   store i32 %0, i32 addrspace(1)* %arrayidx, align 4
   ret void
@@ -49,9 +49,9 @@ entry:
 !opencl.kernels = !{!0, !1, !2}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @const_bitcast}
-!1 = metadata !{void (i32 addrspace(1)*)* @const_gep}
-!2 = metadata !{void (i32 addrspace(1)*)* @const_select}
+!0 = !{void (i32 addrspace(1)*)* @const_bitcast}
+!1 = !{void (i32 addrspace(1)*)* @const_gep}
+!2 = !{void (i32 addrspace(1)*)* @const_select}
 
 ;; ----- ConstExprCases.cl -----
 ;; Command line: clang.exe -cc1 -cl-std=CL2.0 -emit-llvm -O0 -x cl -I <clang_headers> -include opencl_.h  -D__OPENCL_C_VERSION__=200 ConstExprCases.cl -o ConstExprCasesTmp.ll

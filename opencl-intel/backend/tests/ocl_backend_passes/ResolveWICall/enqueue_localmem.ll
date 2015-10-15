@@ -18,4 +18,4 @@ define void @enqueue_kernel_localmem(%opencl.queue_t addrspace(1)* %q, %struct.n
 declare i32 @_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz(%opencl.queue_t addrspace(1)*, i32, %struct.ndrange_t* byval, void (i8 addrspace(3)*, ...)*, i32, ...)
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

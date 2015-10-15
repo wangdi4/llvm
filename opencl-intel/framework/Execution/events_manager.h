@@ -75,7 +75,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             SharedPtr<EventClass> GetEventClass(cl_event clEvent)
             {
                 SharedPtr<OCLObject<_cl_event_int> > pOclObject = m_mapEvents.GetOCLObject((_cl_event_int*)clEvent);
-                if (NULL == pOclObject)
+                if (0 == pOclObject)
                 {
                     return NULL;
                 }

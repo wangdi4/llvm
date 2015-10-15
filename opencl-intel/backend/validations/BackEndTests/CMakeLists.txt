@@ -6,6 +6,7 @@ include_directories(
 ${LLVM_INCLUDE_DIRS}
 ${BACKEND_ROOT_DIR}/../externals/gtest/include
 ${BACKEND_ROOT_DIR}/../cl_api
+${CL_API_HEADERS}
 ${BACKEND_ROOT_DIR}/utils
 ${BACKEND_ROOT_DIR}/ocl_cpu_backend
 ${BACKEND_ROOT_DIR}/validations/Common      

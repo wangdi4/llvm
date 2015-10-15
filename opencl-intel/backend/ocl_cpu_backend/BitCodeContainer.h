@@ -21,6 +21,8 @@ File Name:  BitCodeContainer.h
 #include "cl_types.h"
 #include "llvm/ADT/StringRef.h"
 
+#include <memory>
+
 // forward decl
 namespace llvm { class MemoryBuffer; }
 
@@ -48,12 +50,12 @@ public:
     void   SetModule( void* pModule);
 
     /**
-     * Retun the LLVM Module as a plain pointer
+     * Return the LLVM Module as a plain pointer
      */
     void*  GetModule() const;
 
     /**
-     * Retunrs the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
+     * Returns the serialized bitcode buffer as a plain pointer (convert to LLVM MemoryBuffer)
      */
     void* GetMemoryBuffer() const;
 
@@ -64,7 +66,7 @@ public:
 
 private:
     void*  m_pModule;
-    llvm::MemoryBuffer* m_pBuffer;
+    std::unique_ptr<llvm::MemoryBuffer> m_pBuffer;
 
     // Klockwork Issue
     BitCodeContainer ( const BitCodeContainer& x );

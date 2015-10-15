@@ -140,6 +140,21 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                             SharedPtr<Program>*     OUT ppProgram);
 
         /******************************************************************************************
+        * Function:     CreateProgramWithIL
+        * Description:  creates new program object with IL(SPIR-V) attached
+        * Arguments:    pIL       [in]  pointer to IL binary
+        *               length    [in]  length of memory pointed by pIL
+        *               ppProgram [out] pointer to Program object
+        * Return value: CL_OUT_OF_HOST_MEMORY if not enough memory for allocate Program object
+        *               CL_SUCCESS            if no errors ocured
+        *               CL_INVALID_VALUE      if memory pIL pointed to is invalid IL(SPIR-V) binary
+        * Author:       Vlad Romanov
+        * Date:         September 2015
+        ******************************************************************************************/
+        cl_err_code CreateProgramWithIL(const unsigned char* IN  pIL,
+                                        const size_t         IN  length,
+                                        SharedPtr<Program>*  OUT ppProgram);
+        /******************************************************************************************
         * Function:     CreateProgramWithBinary    
         * Description:  creates new program object with binaries
         * Arguments:    

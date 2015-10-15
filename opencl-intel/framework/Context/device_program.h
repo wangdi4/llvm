@@ -49,6 +49,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DEVICE_PROGRAM_LINKED,          // Linked IR
         DEVICE_PROGRAM_LINK_FAILED,     // Linking failed
         DEVICE_PROGRAM_LOADED_IR,       // Loaded IR
+        DEVICE_PROGRAM_SPIRV,           // Compiled SPIRV
         DEVICE_PROGRAM_BE_BUILDING,     // Currently building with BE compiler
         DEVICE_PROGRAM_BUILD_DONE,      // Build complete, executable code ready
         DEVICE_PROGRAM_CUSTOM_BINARY,   // Program contains device specific binary

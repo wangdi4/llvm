@@ -14,8 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/InstIterator.h"
 
 extern "C" {
   void* createOclFunctionAttrsPass() {
@@ -49,7 +49,7 @@ namespace intel{
     if (CompilationUtils::getCLVersionFromModuleOrDefault(*F.getParent()) ==
         OclVersion::CL_VER_2_0)
       return true;
-    for (Function::const_use_iterator U = F.use_begin(), UE = F.use_end();
+    for (Function::const_user_iterator U = F.user_begin(), UE = F.user_end();
          U != UE; ++U)
       if (isa<CallInst>(*U))
         return true;

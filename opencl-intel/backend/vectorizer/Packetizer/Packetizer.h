@@ -91,8 +91,8 @@ public:
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
     AU.addRequired<BuiltinLibInfo>();
-    AU.addRequired<DataLayout>();
-    AU.addPreserved<DataLayout>();
+    AU.addRequired<DataLayoutPass>();
+    AU.addPreserved<DataLayoutPass>();
   }
 
 private:
@@ -500,7 +500,7 @@ private:
   bool UseScatterGather;
 
   /// @brief DataLayout of processed module
-  DataLayout *m_pDL;
+  DataLayout const* m_pDL;
 
   /// @brief counter of cases when packetizing is cancelled because of shufflevector instruction
   int m_shuffleCtr;

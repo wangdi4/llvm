@@ -100,6 +100,6 @@ TEST(NEATValue, ExpandIntervalTest) {
     IntervalError<float>::ExpandFPInterval(&facc_min, &facc_max, error);
     NEATValue test_acc((float)facc_min, (float)facc_max);
 
-    bool res_acc = TestNeatAcc<double>(NEATValue(0.0f), test_acc, facc, error, NULL, NULL);
+    bool res_acc = TestNeatAcc<double>(NEATValue(0.0f), test_acc, facc, error, 0, 0);
     EXPECT_TRUE(res_acc);
 }

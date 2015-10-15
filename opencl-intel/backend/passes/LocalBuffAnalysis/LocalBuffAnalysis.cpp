@@ -12,7 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "common_dev_limits.h"
 
 #include "llvm/IR/Instructions.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constant.h"
 #include "llvm/IR/DataLayout.h"
 
@@ -55,7 +55,7 @@ namespace intel{
 
       // declaring variables for debugging purposes shouldn't affect local buffers.
       if (MDNode *mdn = inst->getMetadata("dbg_declare_inst")) {
-        if (cast<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
+        if (mdconst::extract<ConstantInt>(mdn->getOperand(0))->isAllOnesValue()) {
             return;
         }
       }
@@ -65,9 +65,8 @@ namespace intel{
       // Add pLocalVal to the set of local values used by pFunc
       m_localUsageMap[pFunc].insert(pLocalVal);
     } else if ( isa<Constant>(user) ) {
-      Value::use_iterator it;
       // Recursievly locate all users of the constant value
-      for ( it = user->use_begin(); it != user->use_end(); ++it ) {
+      for ( Value::user_iterator it = user->user_begin(); it != user->user_end(); ++it ) {
         updateLocalsMap(pLocalVal, *it);
       }
     }  else {
@@ -91,7 +90,7 @@ namespace intel{
       }
 
       // If we reached here, then pVal is a global value that was originally a local value
-      for ( GlobalValue::use_iterator ui = pVal->use_begin(), ue = pVal->use_end(); ui != ue; ++ui ) {
+      for ( GlobalValue::user_iterator ui = pVal->user_begin(), ue = pVal->user_end(); ui != ue; ++ui ) {
         updateLocalsMap(pVal, *ui);
       }
     } // Find globals done

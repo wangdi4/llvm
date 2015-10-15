@@ -79,7 +79,7 @@ protected:
     // Returns the Id node given the parent MDNode
     // Id node is always a first operand of the parent node and
     // should be stored as MDString
-    llvm::Value* getIdNode(const llvm::MDNode* pNode) const
+    llvm::Metadata* getIdNode(const llvm::MDNode* pNode) const
     {
         if( NULL == pNode)
         {
@@ -115,7 +115,7 @@ protected:
             m_id.save(context, getIdNode(pNode));
     }
 
-    llvm::Value* generateNode(llvm::LLVMContext &context) const
+    llvm::Metadata* generateNode(llvm::LLVMContext &context) const
     {
         return m_id.generateNode(context);
     }
@@ -238,7 +238,7 @@ public:
             m_ptr->discardChanges();
     }
 
-    llvm::Value* generateNode(llvm::LLVMContext& context) const
+    llvm::Metadata* generateNode(llvm::LLVMContext& context) const
     {
         if(m_ptr)
             return m_ptr->generateNode(context);
@@ -260,7 +260,7 @@ struct MDValueTraits<MetaObjectHandle<T>, void>
 {
     typedef MetaObjectHandle<T> value_type;
 
-    static value_type load(llvm::Value* pNode)
+    static value_type load(llvm::Metadata* pNode)
     {
         if (NULL == pNode) {
           return MetaObjectHandle<T>(new T());
@@ -271,7 +271,7 @@ struct MDValueTraits<MetaObjectHandle<T>, void>
         }
     }
 
-    static llvm::Value* generateValue(llvm::LLVMContext& context, const value_type& val)
+    static llvm::Metadata* generateValue(llvm::LLVMContext& context, const value_type& val)
     {
         return val->generateNode(context);
     }
@@ -286,7 +286,7 @@ struct MDValueTraits<MetaObjectHandle<T>, void>
         val->discardChanges();
     }
 
-    static void save( llvm::LLVMContext& context, llvm::Value* trgt, const value_type& val)
+    static void save( llvm::LLVMContext& context, llvm::Metadata* trgt, const value_type& val)
     {
         val->save(context, llvm::cast<llvm::MDNode>(trgt));
     }

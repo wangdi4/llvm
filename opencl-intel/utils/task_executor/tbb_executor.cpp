@@ -153,7 +153,7 @@ void out_of_order_executor_task::operator()()
         /* We still have a proble in case the user calls clFinish from one thread and then enqueues a command from another thread - the second command will wait until the SyncTask of the 
             clFinish is completed, although it could be executed without waiting. However, this is a rare case and we won't handle it for now. */
         SharedPtr<ITaskBase> pTask = GetTask();
-        while (NULL != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
+        while (0 != pTask && NULL == dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
             ExecuteContainerBody functor(pTask, *m_list);
             if (pTask->GetNDRangeChildrenTaskGroup() != NULL)
@@ -169,7 +169,7 @@ void out_of_order_executor_task::operator()()
             }
             pTask = GetTask();
         }
-        if (NULL != pTask && NULL != dynamic_cast<SyncTask*>(pTask.GetPtr()))
+        if (0 != pTask && NULL != dynamic_cast<SyncTask*>(pTask.GetPtr()))
         {
             // synchronization point
             m_list->WaitForAllCommands();
@@ -341,7 +341,7 @@ TBBTaskExecutor::CreateRootDevice( const RootDeviceCreationParam& device_desc, v
     // Create root device
     SharedPtr<TEDevice> root = TEDevice::Allocate( device, user_data, my_observer, *this );
 
-    if (NULL == root)
+    if (0 == root)
     {
         LOG_ERROR(TEXT("%s"), "Root device allocation failed"); // make gcc happy
     }

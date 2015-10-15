@@ -153,4 +153,7 @@ bool clCheckVectorizingOnAllDimAndCantUniteWG(int progIndex, bool oddDimention, 
 void clBuildOptionsTest();
 void clShutdownSVMTest();
 bool UnloadPlatformCompiler();
+void CreateProgramWithIL();
+bool Timers();
+bool CloneKernel();
 //#define CUDA_DEVICE

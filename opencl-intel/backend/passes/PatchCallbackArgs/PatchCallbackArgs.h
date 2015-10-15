@@ -33,7 +33,6 @@ public:
   virtual const char *getPassName() const { return "PatchCallbackArgs"; }
   bool runOnModule(Module &M);
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<DataLayout>();
     AU.addRequired<ImplicitArgsAnalysis>();
   }
 };

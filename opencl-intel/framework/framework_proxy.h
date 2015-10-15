@@ -173,6 +173,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         void SetDllUnloadingState( bool value ) { m_bIgnoreAtExit = value; }
         bool isDllUnloadingState() const        { return m_bIgnoreAtExit; }
         void AtExitTrigger( Intel::OpenCL::Utils::at_exit_dll_callback_fn cb );
+        const OCLConfig* GetOCLConfig(){ return m_pConfig; };
 
     private:
         /******************************************************************************************

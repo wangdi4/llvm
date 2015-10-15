@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "NameMangleAPI.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Module.h"
 
@@ -98,7 +98,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
 
   if (isOpaquePtrPair(argType, rootType)) {
     //incase of pointer to opaque type bitcast
-    return new BitCastInst(arg, rootType, "bitcast.opaque.ptr", CI);
+    return CastInst::CreatePointerCast(arg, rootType, "bitcast.opaque.ptr", CI);
   }
 
   if (isa<PointerType>(argType)) {
@@ -118,7 +118,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
 
     // Check the 2 users are really a store and the function call.
     Value *retVal = NULL;
-    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i) {
+    for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i) {
       // Check for store instruction
       if (StoreInst *storeInst = dyn_cast<StoreInst>(*i)) {
         // Only a single store is expected...
@@ -129,6 +129,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
         if (retVal->getType() != rootType) return NULL;
       }
       // Support the bitcast-shuffle-store pattern (for width-3 vectors)
+      // [LLVM 3.6 UPGRADE] TODO: add support for addrspacecast instruction.
       else if (is3Vector && isa<BitCastInst>(*i)) {
         // Only a single store is expected...
         if (retVal) return NULL;
@@ -136,7 +137,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
         BitCastInst* bitCastInst = cast<BitCastInst>(*i);
         // The bitcast must have one user, which is a store
         if (!bitCastInst->hasOneUse()) return NULL;
-        StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->use_back());
+        StoreInst *storeInst = dyn_cast<StoreInst>(bitCastInst->user_back());
         if (!storeInst) return NULL;
 
         // The store value must be the result of a shuffle
@@ -171,6 +172,7 @@ Value *VectorizerUtils::RootInputArgument(Value *arg, Type *rootType, CallInst *
     valInChain.push_back(currVal);
     // Check for the "simple" BitCast and ZExt/SExt cases
     if ((inst = dyn_cast<BitCastInst>(currVal)) ||
+      (inst = dyn_cast<AddrSpaceCastInst>(currVal)) ||
       (inst = dyn_cast<ZExtInst>(currVal)) ||
       (inst = dyn_cast<SExtInst>(currVal)))
     {
@@ -276,7 +278,7 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
 
     // Check the 2 users are really a load and the function call.
     Value *rootRetVal = NULL;
-    for (Value::use_iterator i = allocator->use_begin(), e = allocator->use_end(); i != e; ++i)
+    for (Value::user_iterator i = allocator->user_begin(), e = allocator->user_end(); i != e; ++i)
     {
       if (LoadInst *loadInst = dyn_cast<LoadInst>(*i))
       {
@@ -318,8 +320,8 @@ Value *VectorizerUtils::RootReturnValue(Value *retVal, Type *rootType, CallInst 
     instructionsToCrawl.erase(instToTest);
 
     // Scan all descendants, looking for retval users
-    Value::use_iterator ui, ue;
-    for (ui = instToTest->use_begin(), ue = instToTest->use_end(); ui != ue; ++ui)
+    Value::user_iterator ui, ue;
+    for (ui = instToTest->user_begin(), ue = instToTest->user_end(); ui != ue; ++ui)
     {
       Instruction *userInst = dyn_cast<Instruction>(*ui);
       assert(NULL != userInst && "Instruction's user is not an instruction. Unexpected");
@@ -488,7 +490,7 @@ Value *VectorizerUtils::getCastedArgIfNeeded(Value *inputVal, Type *targetType, 
 
   if (isOpaquePtrPair(sourceType,targetType))
   {
-    return new BitCastInst(inputVal, targetType, "bitcast.opaque.ptr", insertPoint);
+    return CastInst::CreatePointerCast(inputVal, targetType, "bitcast.opaque.ptr", insertPoint);
   }
 
   // no support for case when not the same type ans source is a pointer

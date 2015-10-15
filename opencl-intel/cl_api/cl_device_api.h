@@ -61,6 +61,7 @@ enum cl_prog_binary_type
     CL_PROG_BIN_PTX,                //!< Container holds NVidia PTX intermediate
     CL_PROG_BIN_CUBIN,              //!< Container holds NVidia CUBbinary
     CL_PROG_BIN_COMPILED_SPIR,      //!< Container holds compiled SPIR intermediate
+    CL_PROG_BIN_COMPILED_SPIRV,     //!< Container holds compiled SPIRV intermediate
     CL_PROG_BIN_LINKED_SPIR,        //!< Container holds linked SPIR intermediate
     CL_PROG_BIN_CUSTOM,             //!< Container holds custom device binary
     CL_PROG_BIN_BUILT_OBJECT        //!< Container holds already built ocl program (JIT and IR)
@@ -152,6 +153,7 @@ struct cl_prog_program
     \brief This header signal LLVM bitcode stream
 */
 #define _CL_LLVM_BITCODE_MASK_        "BC"
+#define _CL_SPIRV_MAGIC_NUMBER_       0x07230203
 
 /*! \def _CL_OBJECT_BITCODE_MASK_
     \brief This header signal object binary bitcode stream
@@ -672,6 +674,12 @@ typedef cl_dev_err_code (fn_clDevGetAvailableDeviceList)(
                         size_t*   OUT deviceIdsListSizeRet
                         );
 
+
+//! This function return timestamp for device.
+/*!
+    \retval     timestamp for device
+*/
+typedef cl_ulong (fn_clDevGetDeviceTimer)();
 
 //! This function initializes device agent internal data. This function should be called prior to any device agent calls.
 /*!

@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "CompilationUtils.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace Intel::OpenCL::DeviceBackend;
 
@@ -131,8 +131,8 @@ namespace intel {
       //Save the new value of this instruction
       m_specialValues[pInst] = newRelation;
       //Register for update all of the dependent values of this updated instruction.
-      Value::use_iterator ui = pInst->use_begin();
-      Value::use_iterator ue  = pInst->use_end();
+      Value::user_iterator ui = pInst->user_begin();
+      Value::user_iterator ue  = pInst->user_end();
       for (; ui != ue; ++ui) {
         m_changed.insert(*ui);
       }
@@ -379,8 +379,8 @@ namespace intel {
     Function::arg_iterator argIter = pFunc->arg_begin();
     for (unsigned int i = 0; i < numOfArgs; ++i, ++argIter) {
       Argument* pArg = &*argIter;
-      for ( Value::use_iterator ui = pFunc->use_begin(),
-          ue = pFunc->use_end(); ui != ue; ++ui ) {
+      for ( Value::user_iterator ui = pFunc->user_begin(),
+          ue = pFunc->user_end(); ui != ue; ++ui ) {
 
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
         // usage of pFunc can be a global variable!
@@ -423,7 +423,7 @@ namespace intel {
            fi != fe; ++fi) {
         Function *pFunc = *fi;
         bool isRoot = true;
-        for (Value::use_iterator ui = pFunc->use_begin(), ue = pFunc->use_end();
+        for (Value::user_iterator ui = pFunc->user_begin(), ue = pFunc->user_end();
              ui != ue; ++ui) {
           if ( !isa<CallInst>(*ui) ) {
             //Something other than CallInst is using function!

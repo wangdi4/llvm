@@ -252,9 +252,10 @@ namespace intel {
 
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
-    m_pSizeT = (m_pModule->getPointerSize() == Module::Pointer64)? 
-                                          Type::getInt64Ty(*m_pLLVMContext): 
-                                          Type::getInt32Ty(*m_pLLVMContext);
+    unsigned pointerSizeInBits = M.getDataLayout()->getPointerSizeInBits(0);
+    assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
+           "Unsupported pointer size");
+    m_pSizeT = IntegerType::get(*m_pLLVMContext, pointerSizeInBits);
     m_builtinModuleList = getAnalysis<BuiltinLibInfo>().getBuiltinModules();
     assert(!m_builtinModuleList.empty() && "Builtin module were not initialized!");
 

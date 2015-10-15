@@ -27,8 +27,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
-#include "llvm/Analysis/Verifier.h"
-#include "llvm/Assembly/PrintModulePass.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/IR/IRPrintingPasses.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/Support/Casting.h"
 
@@ -80,7 +80,7 @@ llvm::ModulePass *createPrintIRPass(int option, int optionLocation, std::string 
 llvm::ModulePass* createDebugInfoPass();
 llvm::ModulePass *createReduceAlignmentPass();
 llvm::ModulePass* createProfilingInfoPass();
-llvm::Pass *createSmartGVNPass(bool, unsigned int);
+llvm::Pass *createSmartGVNPass(bool);
 #endif
 llvm::ModulePass* createSinCosFoldPass();
 llvm::ModulePass *createResolveWICallPass();
@@ -103,7 +103,6 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
                          bool UnitAtATime,
                          bool UnrollLoops,
                          int rtLoopUnrollFactor,
-                         bool SimplifyLibCalls,
                          bool allowAllocaModificationOpt,
                          bool isDBG,
                          bool HasGatherScatter) {
@@ -132,8 +131,6 @@ createStandardLLVMPasses(llvm::PassManagerBase *PM,
     sroaArrSize = -1;
   // Break up aggregate allocas
   PM->add(llvm::createScalarReplAggregatesPass(256, true, -1, sroaArrSize, 64));
-  if (SimplifyLibCalls)
-    PM->add(llvm::createSimplifyLibCallsPass()); // Library Call Optimizations
   PM->add(llvm::createEarlyCSEPass());           // Catch trivial redundancies
   PM->add(llvm::createInstructionSimplifierPass());
   PM->add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
@@ -220,7 +217,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 #endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
-  PM.add(new llvm::DataLayout(M));
+  PM.add(new llvm::DataLayoutPass);
   PM.add(createOclSyncFunctionAttrsPass());
   if (isOcl20) {
     // OCL2.0 resolve block to static call
@@ -295,7 +292,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 
   createStandardLLVMPasses(
       &PM, OptLevel,
-      UnitAtATime, UnrollLoops, rtLoopUnrollFactor, false, allowAllocaModificationOpt,
+      UnitAtATime, UnrollLoops, rtLoopUnrollFactor, allowAllocaModificationOpt,
       debugType != intel::None, HasGatherScatter);
   // check function pointers calls are gone after standard optimizations
   // if not compilation will fail
@@ -313,17 +310,15 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
                                         bool isOcl20,
                                         bool UnrollLoops) {
   bool isProfiling = pConfig->GetProfilingFlag();
-  bool DisableSimplifyLibCalls = true;
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
   // Tune the maximum size of the basic block for memory dependency analysis
   // utilized by GVN.
-  unsigned int memDependencyBBThreshold = HasGatherScatter ? 500 : 100;
   DebuggingServiceType debugType = getDebuggingServiceType(pConfig->GetDebugInfoFlag());
 #ifndef __APPLE__
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
-  PM.add(new llvm::DataLayout(M));
+  PM.add(new llvm::DataLayoutPass);
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
@@ -407,7 +402,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   // to optimize redundancy introduced by those passes
   if ( debugType == intel::None ) {
     PM.add(llvm::createInstructionCombiningPass());
-    PM.add(createSmartGVNPass(false, memDependencyBBThreshold));
+    PM.add(createSmartGVNPass(false));
   }
 #ifndef __APPLE__
   // The debugType enum and isProfiling flag are mutually exclusive, with precedence
@@ -517,10 +512,6 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
   if (debugType == intel::None) {
     PM.add(llvm::createArgumentPromotionPass());    // Scalarize uninlined fn args
-
-    if (!DisableSimplifyLibCalls) {
-      PM.add(llvm::createSimplifyLibCallsPass());   // Library Call Optimizations
-    }
     PM.add(llvm::createInstructionCombiningPass()); // Cleanup for scalarrepl.
     PM.add(llvm::createDeadStoreEliminationPass()); // Delete dead stores
     PM.add(llvm::createAggressiveDCEPass());        // Delete dead instructions
@@ -548,7 +539,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
     PM.add(llvm::createDeadStoreEliminationPass());       // Eliminated dead stores
     PM.add(llvm::createEarlyCSEPass());
-    PM.add(createSmartGVNPass(true, memDependencyBBThreshold)); // GVN with "no load" heuristic
+    PM.add(createSmartGVNPass(true)); // GVN with "no load" heuristic
 
 #ifdef _DEBUG
     PM.add(llvm::createVerifierPass());
@@ -572,7 +563,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
 
       PM.add(llvm::createDeadCodeEliminationPass());        // Delete dead instructions
       PM.add(llvm::createInstructionCombiningPass());       // Instruction combining
-      PM.add(createSmartGVNPass(false, memDependencyBBThreshold));
+      PM.add(createSmartGVNPass(false));
 #ifdef _DEBUG
       PM.add(llvm::createVerifierPass());
 #endif

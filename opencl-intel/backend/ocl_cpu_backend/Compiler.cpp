@@ -16,9 +16,6 @@ File Name:  Compiler.cpp
 
 \*****************************************************************************/
 #define NOMINMAX
-#include <memory>
-#include <vector>
-#include <string>
 #include "cl_types.h"
 #include "cl_config.h"
 #include "cpu_dev_limits.h"
@@ -36,7 +33,9 @@ File Name:  Compiler.cpp
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SPIRV.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -52,17 +51,15 @@ File Name:  Compiler.cpp
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/CodeGen/CommandFlags.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/Linker.h"
-using std::string;
+#include "llvm/Linker/Linker.h"
 
+#include <memory>
+#include <vector>
+#include <string>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-
-namespace llvm
-{
-  extern bool DisablePrettyStackTrace;
-}
+using std::string;
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 void dumpModule(llvm::Module& m){
@@ -194,8 +191,13 @@ CompilerBuildOptions::CompilerBuildOptions( llvm::Module* pModule):
     {
         MDString* flagName = dyn_cast<MDString>(flag->getOperand(i));
 
-        if(flagName->getString() == "-g")
-            m_debugInfo = true;
+        // \[LLVM 3.6 UPGRADE\] Temporary disable all debug passes cause
+        // LLVM version and Clang version are different, and debugInfo is absent which leads
+        // to crashes in the optimizer
+        // Uncomment once Clang is able to provide correct debug metadata
+        // See https://jira01.devtools.intel.com/browse/CORC-38
+        // if(flagName->getString() == "-g")
+            // m_debugInfo = true;
         if(flagName->getString() == "-profiling")
             m_profiling = true;
         if(flagName->getString() == "-cl-opt-disable")
@@ -226,8 +228,10 @@ bool Compiler::s_globalStateInitialized = false;
  */
 void Compiler::Init()
 {
-    //TODO: Add handling of failure of MT init
-    llvm::llvm_start_multithreaded();
+    // [LLVM 3.6 UPGRADE] llvm_start_multithreaded was removed from LLVM.
+    // http://reviews.llvm.org/rL211285 states this function is no op since
+    // r211277.
+    // http://reviews.llvm.org/rL211277
     // Initialize LLVM for X86 target.
     LLVMInitializeX86TargetInfo();
     LLVMInitializeX86Target();
@@ -285,7 +289,10 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 
     llvm::cl::ParseCommandLineOptions(argv.size(), &argv[0]);
 
-    llvm::DisablePrettyStackTrace = config.DisableStackDump();
+    if (!config.DisableStackDump())
+    {
+        llvm::EnablePrettyStackTrace();
+    }
 
     s_globalStateInitialized = true;
 }
@@ -419,60 +426,72 @@ llvm::Module* Compiler::ParseModuleIR(llvm::MemoryBuffer* pIRBuffer)
     //
     // Parse the module IR
     //
-    std::string strErr;
-    llvm::Module* pModule = llvm::ParseBitcodeFile( pIRBuffer, *m_pLLVMContext, &strErr);
-    if ( NULL == pModule || !strErr.empty())
+    llvm::ErrorOr<llvm::Module*> pModuleOrErr = llvm::parseBitcodeFile( pIRBuffer->getMemBufferRef(), *m_pLLVMContext );
+    if ( !pModuleOrErr )
     {
-        throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + strErr, CL_DEV_INVALID_BINARY);
+        throw Exceptions::CompilerException(std::string("Failed to parse IR: ") + pModuleOrErr.getError().message(), CL_DEV_INVALID_BINARY);
     }
-    return pModule;
+    return pModuleOrErr.get();
+}
+
+llvm::Module* Compiler::ParseSPIRVModule(llvm::MemoryBuffer* pIRBuffer)
+{
+    // Parse SPIRV
+    llvm::Module * retM;
+    std::string errMsg;
+    std::stringstream inputStream(pIRBuffer->getBuffer().str(), std::ios_base::in);
+
+    bool success = llvm::ReadSPRV(*m_pLLVMContext, inputStream, retM, errMsg);
+    if ( !success )
+    {
+        throw Exceptions::CompilerException(std::string("Failed to parse SPIR-V: ") + errMsg, CL_DEV_INVALID_BINARY);
+    }
+    return retM;
 }
 
 // RTL builtin modules consist of two libraries. The first is shared across all HW architectures and the second one is optimized for a specific HW architecture.
 // NOTE: There is no shared library for KNC so it has the optimized one only.
 void Compiler::LoadBuiltinModules(BuiltinLibrary* pLibrary, llvm::SmallVector<llvm::Module*, 2>& builtinsModules) const
 {
-    llvm::MemoryBuffer* pRtlBuffer(pLibrary->GetRtlBuffer());
-    assert(pRtlBuffer && "pRtlBuffer is NULL pointer");
-    std::auto_ptr<llvm::Module> spModule(llvm::getLazyBitcodeModule(pRtlBuffer, *m_pLLVMContext));
+    std::unique_ptr<llvm::MemoryBuffer> rtlBuffer(std::move(pLibrary->GetRtlBuffer()));
+    assert(rtlBuffer && "pRtlBuffer is NULL pointer");
+    llvm::ErrorOr<llvm::Module*> spModuleOrErr(llvm::getLazyBitcodeModule( std::move(rtlBuffer), *m_pLLVMContext ));
 
-    if ( NULL == spModule.get())
+    if ( !spModuleOrErr )
     {
         // Failed to load runtime library
-        spModule.reset( new llvm::Module("dummy", *m_pLLVMContext));
-        if ( NULL == spModule.get() )
+        spModuleOrErr = llvm::ErrorOr<llvm::Module*>( new llvm::Module("dummy", *m_pLLVMContext) );
+        if ( !spModuleOrErr )
         {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
     }
     else
     {
-        spModule->setModuleIdentifier("RTLibrary");
+        spModuleOrErr.get()->setModuleIdentifier("RTLibrary");
     }
 
-    builtinsModules.push_back(spModule.get());
+    builtinsModules.push_back(spModuleOrErr.get());
 
     // on KNC we don't have shared (common) library, so skip loading
     if (pLibrary->GetCPU() != MIC_KNC) {
         // the shared RTL is loaded here
-        llvm::MemoryBuffer* pRtlBufferSvmlShared(pLibrary->GetRtlBufferSvmlShared());
-        std::auto_ptr<llvm::Module> spModuleSvmlShared(llvm::getLazyBitcodeModule(pRtlBufferSvmlShared, *m_pLLVMContext));
+        llvm::ErrorOr<llvm::Module*> spModuleSvmlSharedOrErr(llvm::getLazyBitcodeModule(
+                    std::move(pLibrary->GetRtlBufferSvmlShared()), *m_pLLVMContext));
 
-        if ( NULL == spModuleSvmlShared.get()) {
+        if ( !spModuleSvmlSharedOrErr ) {
             throw Exceptions::CompilerException("Failed to allocate/parse buitin module");
         }
 
         // on both 64-bit and 32-bit platform the same shared RTL contatinig platform independent byte code is used,
         // so set triple and data layout for shared RTL from particular RTL in order to avoid warnings from linker.
-        spModuleSvmlShared.get()->setTargetTriple(spModule.get()->getTargetTriple());
-        spModuleSvmlShared.get()->setDataLayout(spModule.get()->getDataLayout());
+        spModuleSvmlSharedOrErr.get()->setTargetTriple(spModuleOrErr.get()->getTargetTriple());
+        spModuleSvmlSharedOrErr.get()->setDataLayout(spModuleOrErr.get()->getDataLayout());
 
-        builtinsModules.push_back(spModuleSvmlShared.release());
+        builtinsModules.push_back(spModuleSvmlSharedOrErr.get());
     }
 
-    UpdateTargetTriple(spModule.get());
-
-    spModule.release();
+    UpdateTargetTriple(spModuleOrErr.get());
 }
 
 bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult) const
@@ -491,7 +510,9 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
             MDNode *mdNode = pNode->getOperand(mdNodeId);
             for (unsigned i = 0; i < mdNode->getNumOperands(); ++i)
             {
-                if (mdNode->getOperand(i)->getName() == "cl_images")
+                ValueAsMetadata *vAm = dyn_cast<ValueAsMetadata>(mdNode->getOperand(i));
+                assert(vAm && "MetadataAsValue is expected");
+                if (vAm->getValue()->getName() == "cl_images")
                 {
                     pResult->LogS() << "Images are not supported on given device.\n";
                     return false;
@@ -499,6 +520,7 @@ bool Compiler::isProgramValid(llvm::Module* pModule, ProgramBuildResult* pResult
             }
         }
     }
+
     return true;
 }
 
@@ -559,17 +581,16 @@ void Compiler::validateVectorizerMode(llvm::raw_ostream& log) const
 }
 
 const std::string Compiler::GetBitcodeTargetTriple( const void* pBinary,
-                                                    size_t uiBinarySize )
+                                                    size_t uiBinarySize ) const
 {
-    std::string strErr;
 
-    std::auto_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
-    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer.get(), *m_pLLVMContext, &strErr);
+    std::unique_ptr<MemoryBuffer> spIRBuffer(MemoryBuffer::getMemBuffer(StringRef(static_cast<const char*>(pBinary), uiBinarySize), "", false));
+    std::string strTargetTriple = llvm::getBitcodeTargetTriple(spIRBuffer->getMemBufferRef(), *m_pLLVMContext,
+                                    [](const DiagnosticInfo& diag)
+                                    {
+                                        throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode!"), CL_DEV_INVALID_BINARY);
+                                    });
 
-    if (!strErr.empty())
-    {
-        throw Exceptions::CompilerException(std::string("Failed to get target triple from bitcode: ") + strErr, CL_DEV_INVALID_BINARY);
-    }
     return strTargetTriple;
 }
 

@@ -15,9 +15,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/GlobalValue.h>
-#include <llvm/Support/InstIterator.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/ADT/ValueMap.h>
+#include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <llvm/Transforms/Utils/ValueMapper.h>
 #include <assert.h>
@@ -57,12 +57,12 @@ namespace intel {
   void GenericAddressStaticResolution::fixUpPointerUsages(Instruction *pNewInstr, Instruction *pOldInstr) {
     SmallVector<Instruction*,16> uses;
     // Iterate through usages of original instruction
-    for (Value::use_iterator use_it = pOldInstr->use_begin(), 
-                             use_end = pOldInstr->use_end();
-                             use_it != use_end; use_it++) {
-      Instruction *pUse = dyn_cast<Instruction>(*use_it);
-      assert(pUse && "All uses of instruction should be instructions!");
-      uses.push_back(pUse);
+    for (Value::user_iterator user_it = pOldInstr->user_begin(), 
+                              user_end = pOldInstr->user_end();
+                              user_it != user_end; user_it++) {
+      Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+      assert(pUserInst && "All uses of instruction should be instructions!");
+      uses.push_back(pUserInst);
     }
     for (unsigned useIdx = 0; useIdx < uses.size(); useIdx++) {
       Instruction *pUse = uses[useIdx];
@@ -73,9 +73,9 @@ namespace intel {
         if (IS_ADDR_SPACE_GENERIC(ptr_it->second)) {
           const PointerType *pSrcType = cast<PointerType>(pNewInstr->getType());
           // Induce conversion from named type to generic one
-          BitCastInst *pInducedBitcast = new BitCastInst(pNewInstr, 
+          CastInst *pInducedBitcast = CastInst::CreatePointerCast(pNewInstr,
                                                 PointerType::get(
-                                                    pSrcType->getElementType(), 
+                                                    pSrcType->getElementType(),
                                                     OCLAddressSpace::Generic),
                                                     pOldInstr->getName(), pOldInstr);
           // Replace uses of original instruction with bitcast
@@ -149,8 +149,9 @@ namespace intel {
                                        pInstr->getName(), pInstr);
           break;
         }
-        case Instruction::BitCast : {
-          pNewInstr = new BitCastInst(pPrevValue,
+        case Instruction::AddrSpaceCast :
+        case Instruction::BitCast       : {
+          pNewInstr = CastInst::CreatePointerCast(pPrevValue,
                                       PointerType::get(pDestType->getElementType(), space),
                                       pInstr->getName(), pInstr);
 
@@ -183,8 +184,8 @@ namespace intel {
       // Original bitcast to from generic to integer: produce named-to-integer
 
       // At first - find a resolution for source value
-      assert(pInstr->getOpcode() == Instruction::BitCast &&
-             "Only Bitcast can convert pointer with named space to another named space or integer");
+      assert((pInstr->getOpcode() == Instruction::BitCast || pInstr->getOpcode() == Instruction::AddrSpaceCast) &&
+             "Only Bitcast/AddrSpaceCast can convert pointer with named space to another named space or integer");
       pPrevValue = getResolvedOperand(pPrevValue, space);
       assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
       // Then - generate the instruction
@@ -195,7 +196,7 @@ namespace intel {
         emitWarning("Illegal conversion from generic address space pointer",
                      pInstr, m_pModule, m_pLLVMContext);
       }
-      pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+      pNewInstr = CastInst::CreatePointerCast(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
     } else if (!pDestType || !IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
       // The only reasons for that case are:
       // - BitCast from named addr-space pointer to non-pointer
@@ -207,8 +208,9 @@ namespace intel {
       assert(pPrevValue && "Cannot reach this point without resolved value for GAS pointer!");
       // Then - generate the instruction
       switch (pInstr->getOpcode()) {
-        case Instruction::BitCast:
-          pNewInstr = new BitCastInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
+        case Instruction::AddrSpaceCast :
+        case Instruction::BitCast       :
+          pNewInstr = CastInst::CreatePointerCast(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
           break;
         case Instruction::IntToPtr:
           pNewInstr = new IntToPtrInst(pPrevValue, pInstr->getType(), pInstr->getName(), pInstr);
@@ -263,8 +265,8 @@ namespace intel {
       case Instruction::AtomicCmpXchg : {
         AtomicCmpXchgInst *pCmpXchg = cast<AtomicCmpXchgInst>(pInstr);
         AtomicCmpXchgInst *pNewCmpXchg = new AtomicCmpXchgInst(
-                                          pNewValue, pCmpXchg->getCompareOperand(), 
-                                          pCmpXchg->getNewValOperand(), pCmpXchg->getOrdering(),
+                                          pNewValue, pCmpXchg->getCompareOperand(), pCmpXchg->getNewValOperand(),
+                                          pCmpXchg->getSuccessOrdering(), pCmpXchg->getFailureOrdering(),
                                           pCmpXchg->getSynchScope(), pCmpXchg);
         pNewCmpXchg->setVolatile(pCmpXchg->isVolatile());
         pNewInstr = pNewCmpXchg;
@@ -594,17 +596,17 @@ namespace intel {
         assert(pOrigPtrType && IS_ADDR_SPACE_GENERIC(pOrigPtrType->getAddressSpace()) &&
                "Argument of original function should be a GAS pointer!");
         // Produce and insert bitcast
-        BitCastInst *pNewBitCast = new BitCastInst(new_arg_it, pOrigPtrType, 
+        CastInst *pNewBitCast = CastInst::CreatePointerCast(new_arg_it, pOrigPtrType,
                                                    new_arg_it->getName(),
                                                    pNewFunc->getEntryBlock().begin());
         // Replace usages of the argument with those of bitcast
         SmallVector<Instruction*,16> uses;
-        for (Value::use_iterator use_it = new_arg_it->use_begin(), 
-                                 use_end = new_arg_it->use_end();
-                                 use_it != use_end; use_it++) {
-          Instruction *pUse = dyn_cast<Instruction>(*use_it);
-          if (pUse && pUse != pNewBitCast) {
-            uses.push_back(pUse);
+        for (Value::user_iterator user_it = new_arg_it->user_begin(), 
+                                  user_end = new_arg_it->user_end();
+                                  user_it != user_end; user_it++) {
+          Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+          if (pUserInst && pUserInst != pNewBitCast) {
+            uses.push_back(pUserInst);
           }
         }
         for (unsigned idx = 0; idx < uses.size(); idx++) {
@@ -640,12 +642,13 @@ namespace intel {
         switch (pCE->getOpcode()) {
           case Instruction::IntToPtr :
             // IntToPtr case: enforce target addr space type on the result
-            return ConstantExpr::getIntToPtr(pCE->getOperand(0), 
+            return ConstantExpr::getIntToPtr(pCE->getOperand(0),
                                         PointerType::get(pPtrType->getElementType(), space));
             break;
-          case Instruction::BitCast :
+          case Instruction::AddrSpaceCast :
+          case Instruction::BitCast       :
             // Bitcast case: modify BitCast expression towards target addr space type
-            return ConstantExpr::getPointerCast(pCE->getOperand(0), 
+            return ConstantExpr::getPointerCast(pCE->getOperand(0),
                                             PointerType::get(pPtrType->getElementType(), space));
             break;
           case Instruction::GetElementPtr : {

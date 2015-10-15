@@ -92,8 +92,8 @@ extern "C" LLVM_BACKEND_API unsigned long long cpu_get_time_counter()
 // usage of the function forward declaration prior to the function definition is because "__noinline__" attribute cannot appear with definition 
 extern "C" LLVM_BACKEND_API int opencl_printf(const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
 extern "C" LLVM_BACKEND_API int opencl_snprintf(char* outstr, size_t size, const char* format, char* args, ICLDevBackendDeviceAgentCallback* pCallback, void* pHandle);
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_local(void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
-extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_global(void* addr, uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_local(void* addr, uint64_t var_metadata_addr, uint64_t expr_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
+extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_declare_global(void* addr, uint64_t var_metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_stoppoint(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_enter_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;
 extern "C" LLVM_BACKEND_API LLVM_BACKEND_NOINLINE_PRE void __opencl_dbg_exit_function(uint64_t metadata_addr, uint64_t gid0, uint64_t gid1, uint64_t gid2) LLVM_BACKEND_NOINLINE_POST;

@@ -38,6 +38,6 @@ define void @ashr_add_shl(float addrspace(1)* nocapture %a) nounwind {
 !opencl.kernels = !{!0}
 !opencl.compiler.options = !{!2}
 
-!0 = metadata !{null, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
+!0 = !{null, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3}
+!2 = !{!"-cl-std=CL1.2"}

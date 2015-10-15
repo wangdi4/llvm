@@ -13,6 +13,7 @@ set(TARGET_SOURCE_FILES
 include_directories( AFTER
     ${CMAKE_SOURCE_DIR}/utils/CLElfLib
     ${CMAKE_SOURCE_DIR}/cl_api
+    ${CL_API_HEADERS}
 )
 
 if (WIN32)

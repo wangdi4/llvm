@@ -70,7 +70,7 @@ static void host_struct_kernel_arg_internal(
     karg.position.s[2] = 1.25f;
     karg.position.s[3] = 2.25f;
     karg.size = data_size;
-    for (int i = 0; i < ROTATION_SIZE; ++i)
+    for (unsigned i = 0; i < ROTATION_SIZE; ++i)
         karg.rotation[i] = float(i);
 
     cl::Buffer buf_kernel_arg(context,

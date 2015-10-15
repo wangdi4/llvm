@@ -21,8 +21,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Value.h"
-#include "llvm/Support/InstIterator.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 
 #include <map>
@@ -177,7 +177,7 @@ private:
       // Analysis pass preserve all
       AU.setPreservesAll();
       AU.addRequired<SoaAllocaAnalysis>();
-      AU.addRequired<DominatorTree>();
+      AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<LoopInfo>();
       AU.addRequired<BuiltinLibInfo>();

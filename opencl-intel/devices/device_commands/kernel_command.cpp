@@ -110,7 +110,7 @@ void KernelCommand::SubmitCommands(CommandSubmitionLists* pNewCommands)
 
 void KernelCommand::Launch()
 {
-    assert(GetParentTaskGroup() != NULL && "Launch shouldn't be called for KernelCommands enqueued from the host");
+    assert(GetParentTaskGroup() != 0 && "Launch shouldn't be called for KernelCommands enqueued from the host");
     GetList()->Spawn(GetMyTaskBase(), *GetParentTaskGroup());
 }
 
@@ -279,7 +279,7 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
 
     DeviceCommand* pCmd = reinterpret_cast<DeviceCommand*>(event);
     const SharedPtr<ITaskList>& pList = pCmd->GetList();
-    if ( ((NULL!=pList)  && !pList->IsProfilingEnabled()) || pCmd->IsUserCommand() )
+    if ( ((0!=pList)  && !pList->IsProfilingEnabled()) || pCmd->IsUserCommand() )
     {
         return;
     }
@@ -293,7 +293,7 @@ void KernelCommand::CaptureEventProfilingInfo(clk_event_t event, clk_profiling_i
 queue_t KernelCommand::GetDefaultQueueForDevice() const
 {
     // Redirect to parenet
-    if ( NULL == m_parent )
+    if ( 0 == m_parent )
     {
         return NULL;
     }

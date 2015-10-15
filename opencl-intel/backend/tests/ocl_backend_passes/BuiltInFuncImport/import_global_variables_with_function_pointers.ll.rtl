@@ -17,6 +17,6 @@ entry:
   %idxprom = sext i32 %samplerIndex to i64
   %arrayidx = getelementptr [1 x <4 x i32> (i8*, <4 x i32>)*] addrspace(2)* @coord_translate_i_callback, i64 0, i64 %idxprom
   %0 = load <4 x i32> (i8*, <4 x i32>)* addrspace(2)* %arrayidx, align 8
-  %1 = bitcast <4 x i32> (i8*, <4 x i32>)* %0 to i8 addrspace(2)*
+  %1 = addrspacecast <4 x i32> (i8*, <4 x i32>)* %0 to i8 addrspace(2)*
   ret i8 addrspace(2)* %1
 }

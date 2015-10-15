@@ -50,7 +50,7 @@ public:
   /// @param AU - usage of analysis.
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<LoopWIAnalysis>();
-      AU.addRequired<DominatorTree>();
+      AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
       AU.setPreservesCFG();
   };

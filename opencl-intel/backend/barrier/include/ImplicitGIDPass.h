@@ -13,8 +13,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Constants.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DerivedTypes.h>
-#include <llvm/DebugInfo.h>
-#include <llvm/DIBuilder.h>
+#include <llvm/IR/DebugInfo.h>
+#include <llvm/IR/DIBuilder.h>
 
 #include <vector>
 
@@ -68,7 +68,7 @@ namespace intel {
 
     /// @brief Gets or create unsigned long debug info tyoe
     /// returns DIType unsigned long DIType
-    DIType getOrCreateUlongDIType();
+    DIType const& getOrCreateUlongDIType() const;
 
     /// @brief Iterates instructions in a basic block and tries to find the first
     ///  instruction with scope and loc information and return these.
@@ -89,7 +89,7 @@ namespace intel {
     Module* m_pModule;
 
     /// This holds the debug info builder
-    std::auto_ptr<DIBuilder> m_pDIB;
+    std::unique_ptr<DIBuilder> m_pDIB;
 
     /// This holds the processed module context
     LLVMContext* m_pContext;

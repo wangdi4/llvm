@@ -14,8 +14,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Attributes.h"
-#include "llvm/Support/CFG.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 
 #include <sstream>
@@ -48,7 +48,7 @@ namespace intel {
 
     m_pContext = &M.getContext();
     //Initialize the side of size_t
-    m_uiSizeT = M.getPointerSize()*32;
+    m_uiSizeT = M.getDataLayout()->getPointerSizeInBits(0);
     m_sizeTType = IntegerType::get(*m_pContext, m_uiSizeT);
     m_I32Type = IntegerType::get(*m_pContext, 32);
     m_LocalIdAllocTy = PointerType::get(ArrayType::get(m_sizeTType, MaxNumDims), 0);
@@ -87,9 +87,9 @@ namespace intel {
         fe = functionsWithSync.end(); fi != fe; ++fi ) {
       Function* pFuncToFix = *fi;
 
-      //Run over old uses of pFuncToFix and prepare parameters as needed.
-      for ( Value::use_iterator ui = pFuncToFix->use_begin(),
-          ue = pFuncToFix->use_end(); ui != ue; ++ui ) {
+      //Run over old users of pFuncToFix and prepare parameters as needed.
+      for ( Value::user_iterator ui = pFuncToFix->user_begin(),
+          ue = pFuncToFix->user_end(); ui != ue; ++ui ) {
         CallInst *pCallInst = dyn_cast<CallInst>(*ui);
         if ( !pCallInst ) continue;
         //Handle call instruction operands and return value, if needed.
@@ -182,7 +182,7 @@ namespace intel {
     for (unsigned I = 0; I < TIDFuncNames.size(); ++I) {
       Function *F = M.getFunction(TIDFuncNames[I]);
       if (!F) continue;
-      for (Function::use_iterator ui = F->use_begin(), ue = F->use_end();
+      for (Function::user_iterator ui = F->user_begin(), ue = F->user_end();
            ui != ue; ++ui) {
         CallInst *CI = dyn_cast<CallInst>(*ui);
         if (!CI) continue;
@@ -199,12 +199,12 @@ namespace intel {
     // 2. Functions which are direct caller of functions described in 1. or (recursively) functions defined in this line which do not contain sync instructions
     for (unsigned WorkListIdx = 0; WorkListIdx < Worklist.size(); ++WorkListIdx) {
       Function *CalledF = Worklist[WorkListIdx];
-      for (Function::use_iterator UI = CalledF->use_begin(), UE = CalledF->use_end();
+      for (Function::user_iterator UI = CalledF->user_begin(), UE = CalledF->user_end();
            UI != UE; ++UI) {
 
         // OCL2.0. handle constant expression with bitcast of function pointer
         if(ConstantExpr *CE = dyn_cast<ConstantExpr>(*UI)) {
-          if(CE->getOpcode() == Instruction::BitCast &&
+          if((CE->getOpcode() == Instruction::BitCast || CE->getOpcode() == Instruction::AddrSpaceCast) &&
             CE->getType()->isPointerTy()){
             ConstBitcastsToPatch[CE] = CalledF;
             continue;
@@ -270,7 +270,7 @@ namespace intel {
           "expected to find patched function in map");
         Function *PatchedF = OldF2PatchedF[CalledF];
         // this case happens when global block variable is used
-        Constant *newCE = ConstantExpr::getBitCast(PatchedF, CE->getType());
+        Constant *newCE = ConstantExpr::getPointerCast(PatchedF, CE->getType());
         CE->replaceAllUsesWith(newCE);
     }
 }
@@ -346,8 +346,8 @@ namespace intel {
       unsigned int offset = m_pDataPerValue->getOffset(pAllocaInst);
       userInsts.clear();
       //Save all user instructions in a container before start handling them!
-      for ( Instruction::use_iterator ui = pAllocaInst->use_begin(),
-        ue = pAllocaInst->use_end(); ui != ue; ++ui ) {
+      for ( Instruction::user_iterator ui = pAllocaInst->user_begin(),
+        ue = pAllocaInst->user_end(); ui != ue; ++ui ) {
           Instruction *pUserInst = dyn_cast<Instruction>(*ui);
           assert( pUserInst && "uses of alloca instruction is not an instruction!" );
           userInsts.insert(pUserInst);
@@ -417,8 +417,8 @@ namespace intel {
 
       TInstructionSet userInsts;
       //Save all uses of pInst and add them to a container before start handling them!
-      for (Instruction::use_iterator ui = pInst->use_begin(),
-                                     ue = pInst->use_end();
+      for (Instruction::user_iterator ui = pInst->user_begin(),
+                                      ue = pInst->user_end();
            ui != ue; ++ui) {
           Instruction *pUserInst = cast<Instruction>(*ui);
           if (pInst->getParent() == pUserInst->getParent()) {
@@ -478,8 +478,8 @@ namespace intel {
 
       TInstructionSet userInsts;
       //Save all uses of pInst and add them to a container before start handling them!
-      for ( Instruction::use_iterator ui = pInst->use_begin(),
-        ue = pInst->use_end(); ui != ue; ++ui ) {
+      for ( Instruction::user_iterator ui = pInst->user_begin(),
+        ue = pInst->user_end(); ui != ue; ++ui ) {
           Instruction *pUserInst = dyn_cast<Instruction>(*ui);
           assert( pUserInst && "uses of special instruction is not an instruction!" );
           if ( pInst->getParent() == pUserInst->getParent() && !isa<PHINode>(pUserInst) ) {
@@ -1033,8 +1033,8 @@ namespace intel {
     assert( (!m_pDataPerValue->isOneBitElementType(pOriginalArg) ||
       !isa<VectorType>(pOriginalArg->getType())) && "pOriginalArg with base type i1!");
     TInstructionSet userInsts;
-    for ( Value::use_iterator ui = pOriginalArg->use_begin(),
-      ue = pOriginalArg->use_end(); ui != ue; ++ui) {
+    for ( Value::user_iterator ui = pOriginalArg->user_begin(),
+      ue = pOriginalArg->user_end(); ui != ue; ++ui) {
         Instruction *pUserInst = dyn_cast<Instruction>(*ui);
         userInsts.insert(pUserInst);
     }

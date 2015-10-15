@@ -169,6 +169,11 @@ TEST(FrameworkTestType, Test_GenerateBinaryFile)
     EXPECT_TRUE(GenerateBinaryFile());
 }
 
+TEST(CL21, Test_CloneKernel)
+{
+    EXPECT_TRUE(CloneKernel());
+}
+
 TEST(FrameworkTestType, Test_clCheckCPUArchForJIT)
 {
     // GenerateBinaryFile before clCheckCPUArchForJIT
@@ -495,6 +500,16 @@ TEST(FrameworkTestType, Test_clBuildOptions)
 TEST(FrameworkTestType, Test_clShutdownSVMTest)
 {
     clShutdownSVMTest();
+}
+
+TEST(CL21, Test_CreateProgramWithIL)
+{
+    CreateProgramWithIL();
+}
+
+TEST(CL21, Test_Timers)
+{
+    Timers();
 }
 
 CommandLineOption<std::string> deviceOption("--device_type");

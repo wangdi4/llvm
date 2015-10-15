@@ -99,10 +99,10 @@ if.end:                                           ; preds = %if.then, %entry
 !opencl.kernels = !{!0, !2, !4, !5}
 !opencl.compiler.options = !{!6}
 
-!0 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @test_consecutive, metadata !1}
-!1 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3}
-!2 = metadata !{void (float addrspace(1)*, float addrspace(1)*, i32)* @test_consecutive_masked, metadata !3}
-!3 = metadata !{metadata !"image_access_qualifier", i32 3, i32 3, i32 3}
-!4 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @test_uniform, metadata !1}
-!5 = metadata !{void (float addrspace(1)*, float addrspace(1)*)* @test_uniform_masked, metadata !1}
-!6 = metadata !{metadata !"-cl-std=CL1.2"}
+!0 = !{void (float addrspace(1)*, float addrspace(1)*)* @test_consecutive, !1}
+!1 = !{!"image_access_qualifier", i32 3, i32 3}
+!2 = !{void (float addrspace(1)*, float addrspace(1)*, i32)* @test_consecutive_masked, !3}
+!3 = !{!"image_access_qualifier", i32 3, i32 3, i32 3}
+!4 = !{void (float addrspace(1)*, float addrspace(1)*)* @test_uniform, !1}
+!5 = !{void (float addrspace(1)*, float addrspace(1)*)* @test_uniform_masked, !1}
+!6 = !{!"-cl-std=CL1.2"}

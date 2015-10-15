@@ -17,4 +17,4 @@ entry:
 declare void @_Z28capture_event_profiling_info13ocl_clk_eventiPU3AS1m(%opencl.clk_event_t*, i32, i64 addrspace(1)*)
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL2.0"}
+!2 = !{!"-cl-std=CL2.0"}

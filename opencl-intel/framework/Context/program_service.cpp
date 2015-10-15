@@ -431,7 +431,8 @@ bool DeviceBuildTask::Execute()
     }
 
     // If we are building library no need for device build
-    if (m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_EXECUTABLE)
+    if (m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_EXECUTABLE &&
+            m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_SPIRV)
     {
         SetComplete(CL_BUILD_SUCCESS);
         return true;
@@ -1391,6 +1392,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
             }
         case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
+        case DEVICE_PROGRAM_SPIRV:
             {
                 // Building from linked or custom binary
                 bNeedToBuild = true;

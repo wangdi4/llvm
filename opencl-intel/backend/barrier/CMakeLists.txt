@@ -6,6 +6,7 @@ include_directories(BEFORE "include")
 include_directories(
     ${LLVM_INCLUDE_DIRS}
     ${BACKEND_ROOT_DIR}/../cl_api 
+    ${CL_API_HEADERS}
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/passes/BuiltinLibInfo

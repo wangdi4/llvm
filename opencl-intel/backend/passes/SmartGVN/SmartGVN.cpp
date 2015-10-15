@@ -25,7 +25,9 @@ File Name:  SmartGVN.cpp
 #include <llvm/Transforms/Scalar.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/DataLayout.h>
+#include <llvm/IR/Dominators.h>
 #include <llvm/Analysis/Passes.h>
+#include <llvm/Analysis/MemoryDependenceAnalysis.h>
 #include <llvm/Support/CommandLine.h>
 
 using namespace llvm;
@@ -42,7 +44,8 @@ cl::desc("The percentage of load instructions in a basic block which disables "
 
 namespace intel {
 
-SmartGVN::SmartGVN(bool doNoLoadAnalysis, unsigned int memDependencyBBThreshold) : ModulePass(ID), noLoadAnalysis(doNoLoadAnalysis), memoryDependencyAnalysisThreshold(memDependencyBBThreshold)
+SmartGVN::SmartGVN(bool doNoLoadAnalysis) :
+  ModulePass(ID), noLoadAnalysis(doNoLoadAnalysis)
 {}
 
 bool SmartGVN::runOnModule(Module &M)
@@ -63,10 +66,10 @@ bool SmartGVN::runOnModule(Module &M)
 
   { // With NoLoads option on - it will not hoist loads out of the loops.
     PassManager pm;
-    pm.add(new DataLayout(&M));
+    pm.add(new DataLayoutPass());
     pm.add(llvm::createBasicAliasAnalysisPass());
-    pm.add(new llvm::DominatorTree());
-    pm.add(llvm::createMemoryDependenceAnalysisPass(memoryDependencyAnalysisThreshold));
+    pm.add(new llvm::DominatorTreeWrapperPass());
+    pm.add(new llvm::MemoryDependenceAnalysis());
     pm.add(llvm::createGVNPass(GVNNoLoads));
     pm.run(M);
   }
@@ -112,9 +115,9 @@ OCL_INITIALIZE_PASS(SmartGVN, "SmartGVN", "Smart GVN", false, false)
 } // Namespace intel
 
 extern "C" {
-llvm::ModulePass *createSmartGVNPass(bool doNoLoadAnalysis, unsigned int memDependencyBBThreshold)
+llvm::ModulePass *createSmartGVNPass(bool doNoLoadAnalysis)
 {
-  return new intel::SmartGVN(doNoLoadAnalysis, memDependencyBBThreshold);
+  return new intel::SmartGVN(doNoLoadAnalysis);
 }
 }
 

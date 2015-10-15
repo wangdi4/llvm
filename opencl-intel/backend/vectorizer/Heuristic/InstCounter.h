@@ -16,7 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/PostDominators.h"
-#include "llvm/Analysis/Dominators.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringMap.h"
 
@@ -40,7 +40,7 @@ namespace intel {
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.addRequired<ScalarEvolution>();
       AU.addRequired<LoopInfo>();
-      AU.addRequired<DominatorTree>();
+      AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<PostDominanceFrontier>();
       AU.addRequired<BuiltinLibInfo>();
@@ -228,7 +228,7 @@ public:
     bool runOnFunction(Function &F);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<DominatorTree>();
+      AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }
 

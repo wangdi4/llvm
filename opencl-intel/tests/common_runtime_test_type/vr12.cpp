@@ -64,37 +64,86 @@ TEST_F(VR12, CallbackGPUError)
   cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)ocl_descriptor.platforms[0], 0};
   ASSERT_NO_FATAL_FAILURE(createContext(&ocl_descriptor.context, properties, 2, ocl_descriptor.devices, NULL, NULL));
 
-  // vreate and build program for CPU and GPU
-  ASSERT_NO_FATAL_FAILURE(createProgramWithSourceFromKernelName(&ocl_descriptor.program, ocl_descriptor.context,
-    "gpu_error_kernel.cl"));
-
-  cl_int errcode_ret = clBuildProgram (ocl_descriptor.program, 2, ocl_descriptor.devices, NULL, notify_callback, 0);	
-
-  // active waiting for CPU
-  cl_build_status build_status = CL_BUILD_IN_PROGRESS;
-  while(build_status == CL_BUILD_IN_PROGRESS)
+  bool cl_khr_fp64_on_gpu,
+       cl_khr_fp16_on_gpu,
+       cl_khr_fp64_on_cpu,
+       cl_khr_fp16_on_cpu;
+    
+  isExtensionSupportedOnDevice("cl_khr_fp64", 0, &cl_khr_fp64_on_cpu);
+  isExtensionSupportedOnDevice("cl_khr_fp16", 0, &cl_khr_fp16_on_cpu);
+  isExtensionSupportedOnDevice("cl_khr_fp64", 1, &cl_khr_fp64_on_gpu);
+  isExtensionSupportedOnDevice("cl_khr_fp16", 1, &cl_khr_fp16_on_gpu);
+    
+  if (cl_khr_fp64_on_cpu && !cl_khr_fp64_on_gpu)
   {
-    sleepMS(100);
-    ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[0],
-      CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
-    ASSERT_NE(CL_BUILD_ERROR, build_status);
-  }
+    // create and build program for CPU and GPU
+    ASSERT_NO_FATAL_FAILURE(createProgramWithSourceFromKernelName(&ocl_descriptor.program, ocl_descriptor.context,
+      "gpu_error_kernel.cl"));
 
-  // active waiting for GPU
-  build_status = CL_BUILD_IN_PROGRESS;
-  while(build_status == CL_BUILD_IN_PROGRESS)
-  {
-    sleepMS(100);
-    ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[1], 
-      CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
-   if(isAccelerator()){ //not suported on MIC
-		 ASSERT_NE(CL_BUILD_ERROR, build_status);
-	}
-   else{
-		ASSERT_NE(CL_BUILD_SUCCESS, build_status);
-	}
+    cl_int errcode_ret = clBuildProgram (ocl_descriptor.program, 2, ocl_descriptor.devices, NULL, notify_callback, 0);	
+
+    // active waiting for CPU
+    cl_build_status build_status = CL_BUILD_IN_PROGRESS;
+    while(build_status == CL_BUILD_IN_PROGRESS)
+    {
+      sleepMS(100);
+      ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[0],
+        CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
+      ASSERT_NE(CL_BUILD_ERROR, build_status);
+    }
+
+    // active waiting for GPU
+    build_status = CL_BUILD_IN_PROGRESS;
+    while(build_status == CL_BUILD_IN_PROGRESS)
+    {
+      sleepMS(100);
+      ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[1], 
+        CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
+      if(isAccelerator()){ //not suported on MIC
+        ASSERT_NE(CL_BUILD_ERROR, build_status);
+      }
+      else{
+        ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+      }
+    }
   }
-  
+  else if (cl_khr_fp16_on_gpu && !cl_khr_fp16_on_cpu)
+  {
+    // create and build program for CPU and GPU
+    ASSERT_NO_FATAL_FAILURE(createProgramWithSourceFromKernelName(&ocl_descriptor.program, ocl_descriptor.context,
+      "cpu_error_kernel.cl"));
+
+    cl_int errcode_ret = clBuildProgram (ocl_descriptor.program, 2, ocl_descriptor.devices, NULL, notify_callback, 0);	
+
+    // active waiting for GPU
+    cl_build_status build_status = CL_BUILD_IN_PROGRESS;
+    while(build_status == CL_BUILD_IN_PROGRESS)
+    {
+      sleepMS(100);
+      ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[1],
+        CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
+      ASSERT_NE(CL_BUILD_ERROR, build_status);
+    }
+
+    // active waiting for CPU
+    build_status = CL_BUILD_IN_PROGRESS;
+    while(build_status == CL_BUILD_IN_PROGRESS)
+    {
+      sleepMS(100);
+      ASSERT_NO_FATAL_FAILURE(getProgramBuildInfo(ocl_descriptor.program, ocl_descriptor.devices[0], 
+        CL_PROGRAM_BUILD_STATUS, sizeof(cl_build_status), &build_status, NULL));
+      if(isAccelerator()){ //not suported on MIC
+        ASSERT_NE(CL_BUILD_ERROR, build_status);
+      }
+      else{
+        ASSERT_NE(CL_BUILD_SUCCESS, build_status);
+      }
+    }
+  }
+  else
+  {
+    return;
+  }
 
   // check how many times callback has been triggered
   size_t iterationLimit = 100;

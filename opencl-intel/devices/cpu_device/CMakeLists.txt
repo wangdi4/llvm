@@ -9,6 +9,16 @@ set( TARGET_NAME cpu_device${BUILD_PLATFORM} )
 
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCLDEVICE_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
+# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+# this warning occur when processing externals/itt/include/ittnotify.h
+# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+# function that not use in every build target.
+if (NOT WIN32)
+     # disable warnings inherited from external componennts
+     add_definitions( "-Wno-unused-function" )
+     add_definitions( "-Wno-attributes" )
+endif(NOT Win32)
+
 if (NOT WIN32)
     set(HW_UTILS_HEADERS ${OCL_SOURCE_DIR}/utils/cl_hw_utils/export)
     set(HW_UTILS_PROJ_NAME cl_hw_utils)
@@ -19,6 +29,7 @@ include_directories( BEFORE ${OCL_SOURCE_DIR}/backend/ocl_cpu_backend/export
                             ${OCL_SOURCE_DIR}/cl_api
                             ${HW_UTILS_HEADERS} 
                             ${OCL_BINARY_DIR}
+                            ${CL_API_HEADERS}
                             ../common/builtin_kernels
                     )
 

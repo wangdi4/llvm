@@ -111,7 +111,7 @@ bool ScalarizeFunction::scanFunctionCall(CallInst *CI, funcRootsVect &rootVals)
       //Sort usages (which are assumed to be all extractvalue's) by index
 
       rets.resize(cast<VectorType>(SFRT)->getNumElements());
-      for (Value::use_iterator ui = CI->use_begin(), ue = CI->use_end(); ui!=ue;
+      for (Value::user_iterator ui = CI->user_begin(), ue = CI->user_end(); ui!=ue;
           ++ui) {
         unsigned idx = cast<ExtractValueInst>(*ui)->getIndices()[0];
         V_ASSERT(0 == rets[idx]);

@@ -17,9 +17,10 @@ File Name:  CompiledModule.h
 \*****************************************************************************/
 #pragma once
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/IR/Module.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+
+#include <memory>
 
 namespace llvm {
   class Function;
@@ -44,7 +45,7 @@ public:
 
   /// Looks up a function pointer (to compiled code) in the ExecutionEngine
   void* getPointerToFunction(llvm::Function* func) {
-      return m_EE->getPointerToFunction(func);
+    return reinterpret_cast<void*>(m_EE->getFunctionAddress(func->getName().str()));
   }
 
 private:
@@ -52,7 +53,7 @@ private:
   llvm::Module* m_Mod;
 
   // Freed automatically at destruction
-  llvm::OwningPtr<llvm::ExecutionEngine> m_EE;
+  std::unique_ptr<llvm::ExecutionEngine> m_EE;
 };
 
 }}}

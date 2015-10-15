@@ -601,6 +601,70 @@ cl_err_code ContextModule::GetContextInfo(cl_context      context,
     }
     return clErrRet;
 }
+cl_program ContextModule::CreateProgramWithIL(cl_context              clContext,
+                                              const unsigned char*    pIL,
+                                              size_t                  length,
+                                              cl_int*                 pErrcodeRet)
+{
+    LOG_INFO(TEXT("CreateProgramWithIL enter. clContext=%d, pIL=%d, szLength=%d, pErrcodeRet=%d"),
+        clContext, pIL, length, pErrcodeRet);
+
+    if (0 == length || NULL == pIL)
+    {
+        // invalid value
+        LOG_ERROR(TEXT("%s"), TEXT("0 == length || NULL == pIL"));
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_VALUE;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    cl_err_code clErrRet = CL_SUCCESS;
+    // get the context from the contexts map list
+    SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
+    if (NULL == pContext)
+    {
+        LOG_ERROR(TEXT("m_mapContexts.GetOCLObject(%d, %d) = %d"), clContext, &pContext, clErrRet);
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = CL_INVALID_CONTEXT;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    SharedPtr<Program> pProgram;
+    clErrRet = pContext->CreateProgramWithIL(pIL, length, &pProgram);
+    if (CL_FAILED(clErrRet))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = clErrRet;
+        }
+        pContext->NotifyError("clCreateProgramWithIL failed", &clErrRet, sizeof(cl_int));
+        if (pProgram)
+        {
+            pContext->RemoveProgram(pProgram->GetHandle());
+            pProgram->Release();
+        }
+        return CL_INVALID_HANDLE;
+    }
+    clErrRet = m_mapPrograms.AddObject(pProgram, false);
+    if (CL_FAILED(clErrRet))
+    {
+        if (NULL != pErrcodeRet)
+        {
+            *pErrcodeRet = clErrRet;
+        }
+        pContext->NotifyError("clCreateProgramWithIL failed", &clErrRet, sizeof(cl_int));
+        pContext->RemoveProgram(pProgram->GetHandle());
+        pProgram->Release();
+        return CL_INVALID_HANDLE;
+    }
+    if (NULL != pErrcodeRet)
+    {
+        *pErrcodeRet = CL_SUCCESS;
+    }
+    return pProgram->GetHandle();
+}
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateProgramWithSource
 //////////////////////////////////////////////////////////////////////////
@@ -1167,6 +1231,74 @@ cl_kernel ContextModule::CreateKernel(cl_program clProgram,
 
     return CL_INVALID_HANDLE;
 }
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::CloneKernel
+//////////////////////////////////////////////////////////////////////////
+cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel,
+                                     cl_int * pErr)
+{
+    LOG_INFO(TEXT("ContextModule::CloneKernel enter. source_kernel=%d"), source_kernel);
+    SharedPtr<Kernel> pSrcKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)source_kernel).DynamicCast<Kernel>();
+    if (NULL == pSrcKernel)
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), source_kernel, &pSrcKernel);
+        if(NULL != pErr)
+            *pErr = CL_INVALID_KERNEL;
+        return CL_INVALID_HANDLE;
+    }
+
+    SharedPtr<Program> pProgram = pSrcKernel->GetProgram();
+    // create new kernel
+    SharedPtr<Kernel> pNewKernel = NULL;
+    cl_err_code clErrRet = pProgram->CreateKernel(pSrcKernel->GetName(), &pNewKernel);
+    if (CL_SUCCESS != clErrRet)
+    {
+        if(NULL != pErr)
+            *pErr = CL_ERR_OUT(clErrRet);
+        return CL_INVALID_HANDLE;
+    }
+
+    size_t numOfArgs = pSrcKernel->GetKernelArgsCount();
+    for(size_t i = 0; i < numOfArgs; ++i)
+    {
+        const KernelArg* src_arg = pSrcKernel->GetKernelArg(i);
+        if(src_arg->IsValid())
+        {
+            size_t valueSize = src_arg->GetSize();
+            std::vector<char> value(valueSize);
+            src_arg->GetValue(valueSize, &value[0]);
+            if(src_arg->IsSvmPtr())
+            {
+                char* backingStore = (char*)(*(SVMPointerArg**)&value[0])->GetBackingStoreData();
+                pNewKernel->SetKernelArg(i, valueSize, backingStore, true/*IsSvmPtr*/);
+            }
+            else
+                pNewKernel->SetKernelArg(i, valueSize, &value[0], false/*IsSvmPtr*/);
+        }
+    }
+
+    pNewKernel->SetSvmFineGrainSystem(pSrcKernel->IsSvmFineGrainSystem());
+    std::vector<SharedPtr<SVMBuffer> > svmBuffers;
+    pSrcKernel->GetNonArgSvmBuffers(svmBuffers);
+    pNewKernel->SetNonArgSvmBuffers(svmBuffers);
+
+
+    if (NULL != pNewKernel)
+    {
+        // add new kernel to the context module's kernels list
+        m_mapKernels.AddObject(pNewKernel, false);
+        if (NULL != pErr)
+        {
+            *pErr = CL_SUCCESS;
+        }
+        // return handle
+        return pNewKernel->GetHandle();
+    }
+    assert(0);
+
+    return CL_INVALID_HANDLE;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::CreateKernelsInProgram
 //////////////////////////////////////////////////////////////////////////

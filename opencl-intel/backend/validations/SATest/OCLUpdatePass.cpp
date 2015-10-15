@@ -323,7 +323,7 @@ namespace Validation {
         ConstantExpr::use_iterator itCE = pCE->use_begin();
         while( itCE != pCE->use_end() )
         {
-            Use &W = itCE.getUse();
+            Use &W = *itCE;
             User* pLclUser = W.getUser();
 
             ConstantExpr* pLclCE = dyn_cast<ConstantExpr>(pLclUser);
@@ -404,7 +404,7 @@ namespace Validation {
             GetElementPtrInst* pLocalAddr =
                 GetElementPtrInst::Create(pLocalMem, ConstantInt::get(IntegerType::get(*m_pLLVMContext, 32), m_sInfo.stTotalImplSize), "", pFirstInst);
             // Now add bitcast to required/original pointer type
-            CastInst* pBitCast = CastInst::Create(Instruction::BitCast, pLocalAddr, pLclBuff->getType(), "", pFirstInst);
+            CastInst* pBitCast = CastInst::CreatePointerCast(pLocalAddr, pLclBuff->getType(), "", pFirstInst);
             // Advance total implicit size
             m_sInfo.stTotalImplSize += ADJUST_SIZE_TO_MAXIMUM_ALIGN(uiArraySize);
 
@@ -412,7 +412,7 @@ namespace Validation {
             // Now we need to check all uses
             while ( itVal != pLclBuff->use_end() )
             {
-                Use &U = itVal.getUse();
+                Use &U = *itVal;
                 if (ConstantExpr *pCE = dyn_cast<ConstantExpr>(U.getUser()))
                 {
                     if ( ChangeConstantExpression(pLclBuff, pCE, pBitCast, pBitCast)  )
@@ -651,7 +651,7 @@ namespace Validation {
 
             // bitcast from generic i8* address to a pointer to the argument's type
             //
-            BitCastInst* cast_instr = new BitCastInst(gep_instr, PointerType::getUnqual(argtype), "", pCall);
+            BitCastInst* cast_instr = CastInst::CreatePointerCast(gep_instr, PointerType::getUnqual(argtype), "", pCall);
 
             // store argument into address. Alignment forced to 1 to make vector
             // stores safe.
@@ -700,10 +700,10 @@ namespace Validation {
         SmallVector<Value*, 4> params;
         // push original parameters
         // Need bitcast to a general pointer
-        CastInst* pBCDst = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+        CastInst* pBCDst = CastInst::CreatePointerCast(pCall->getArgOperand(0),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCDst);
-        CastInst* pBCSrc = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(1),
+        CastInst* pBCSrc = CastInst::CreatePointerCast(pCall->getArgOperand(1),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCSrc);
         params.push_back(pCall->getArgOperand(2));
@@ -758,13 +758,13 @@ namespace Validation {
     void OCLReferenceKernelUpdate::UpdatePrefetch(llvm::CallInst* pCall)
     {
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         // Create new call instruction with extended parameters
         SmallVector<Value*, 4> params;
         // push original parameters
         // Need bitcast to a general pointer
-        CastInst* pBCPtr = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+        CastInst* pBCPtr = CastInst::CreatePointerCast(pCall->getArgOperand(0),
             PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
         params.push_back(pBCPtr);
         // Put number of elements
@@ -982,7 +982,7 @@ namespace Validation {
             argIt++;
         }
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         newArgsVec.push_back(PointerType::get(m_struct_WorkDim, 0));
 //        newArgsVec.push_back(PointerType::get(m_pModule->getTypeByName("struct.WorkDim"), 0));
@@ -1138,7 +1138,7 @@ namespace Validation {
         }
 
 
-        for (Value::use_iterator it = pFunc->use_begin(), e = pFunc->use_end();
+        for (Value::user_iterator it = pFunc->user_begin(), e = pFunc->user_end();
             it != e; ++it)
         {
             CallInst *CI = dyn_cast<CallInst>(*it);
@@ -1204,7 +1204,7 @@ namespace Validation {
     void OCLReferenceKernelUpdate::AddWIInfoDeclarations()
     {
         // Detect size_t size
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
         /*
         struct sLocalId 
         {
@@ -1246,7 +1246,7 @@ namespace Validation {
         if ( m_bAsyncCopyDecl )
             return;
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         //event_t async_work_group_copy(void* pDst, void* pSrc, size_t numElem, event_t event,
         //							   size_t elemSize, LLVMExecMultipleWIWithBarrier* *ppExec);
@@ -1311,7 +1311,7 @@ namespace Validation {
         if ( m_bPrefetchDecl )
             return;
 
-        unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+        unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
         std::vector<Type*> params;
         // Source Pointer

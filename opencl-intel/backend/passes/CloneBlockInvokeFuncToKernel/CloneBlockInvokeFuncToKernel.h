@@ -34,7 +34,7 @@ namespace intel {
 
       llvm::Module      *m_pModule;
       llvm::LLVMContext *m_pContext;
-      llvm::DataLayout  *m_pTD;
+      const llvm::DataLayout *m_pTD;
 
   }; // struct CloneBlockInvokeFuncToKernel
 

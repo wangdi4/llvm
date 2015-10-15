@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Packetizer.h"
 #include "VectorizerUtils.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Constants.h"
 
 namespace intel {

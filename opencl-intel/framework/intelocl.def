@@ -33,6 +33,7 @@ EXPORTS
 	clReleaseSampler
 	clGetSamplerInfo
 	clCreateProgramWithSource
+	clCreateProgramWithIL
 	clCreateProgramWithBinary
 	clCreateProgramWithBuiltInKernels
 	clRetainProgram
@@ -129,3 +130,6 @@ EXPORTS
 	clCreatePipeINTEL
 	clGetPipeInfo
 	clCreateCommandQueueWithProperties
+	clGetHostTimer;
+	clGetDeviceAndHostTimer;
+	clCloneKernel

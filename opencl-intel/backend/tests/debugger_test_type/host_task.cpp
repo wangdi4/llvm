@@ -45,8 +45,6 @@ static void host_task_internal(
     }
 
     int data_size = 4;
-    int ndrange_global_size = 4;
-    int ndrange_local_size = 1;
 
     cl::Buffer buf_in(context,
         CL_MEM_READ_ONLY | CL_MEM_ALLOC_HOST_PTR,

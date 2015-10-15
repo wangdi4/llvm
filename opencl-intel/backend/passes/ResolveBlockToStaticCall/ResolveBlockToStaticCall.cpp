@@ -9,11 +9,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "ResolveBlockToStaticCall.h"
 #include "OCLPassSupport.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/CallSite.h"
+#include "llvm/IR/CallSite.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/SmallSet.h"
@@ -78,9 +78,9 @@ static bool IsGEPBlockInvokeAccess(const GetElementPtrInst *GEP){
 static Value *findSingleUsedInst(Instruction* inst, const unsigned opcode) {
   Value * res = 0;
   int32_t cnt = 0;
-  for(Value::use_iterator use = inst->use_begin(), E = inst->use_end();
-    use != E; ++use) {
-      Instruction * inst = cast<Instruction>(*use);
+  for(Value::user_iterator user = inst->user_begin(), E = inst->user_end();
+    user != E; ++user) {
+      Instruction * inst = cast<Instruction>(*user);
       if(inst->getOpcode() == opcode){
         res = inst;
         if(++cnt > 1)
@@ -96,9 +96,9 @@ static GetElementPtrInst *findSingleGEPBlockInvokeAccess(Instruction* inst) {
   GetElementPtrInst * res = 0;
   int32_t cnt = 0;
 
-  for(Value::use_iterator use = inst->use_begin(), E = inst->use_end();
-    use != E; ++use) {
-      GetElementPtrInst * GEP = dyn_cast<GetElementPtrInst>(*use);
+  for(Value::user_iterator user = inst->user_begin(), E = inst->user_end();
+    user != E; ++user) {
+      GetElementPtrInst * GEP = dyn_cast<GetElementPtrInst>(*user);
       if(GEP && IsGEPBlockInvokeAccess(GEP)) {
         res = GEP;
         if(++cnt > 1)
@@ -142,7 +142,7 @@ namespace intel {
     {
       DEBUG(dbgs() << "Processing: " << *I << "\n");
 
-      if(!value_visited.insert(I)){
+      if(!value_visited.insert(I).second){
         assert(0 && "Should not be here."
           "Visited the same value more than once");
         break;
@@ -153,6 +153,10 @@ namespace intel {
       if(BitCastInst *BCI = dyn_cast<BitCastInst>(I)) {
         // look thru bitcast
         I = BCI->getOperand(0);
+        continue;
+      }
+      if(AddrSpaceCastInst *ASCI = dyn_cast<AddrSpaceCastInst>(I)) {
+        I = ASCI->getOperand(0);
         continue;
       }
       // %7 = load i8** %5
@@ -225,7 +229,7 @@ namespace intel {
       // store i8*
       //    bitcast (i32 (i8*, i32)* @__kernel_scope_block_invoke to i8*), i8** %block.invoke
       else if(ConstantExpr *CE = dyn_cast<ConstantExpr>(I)) {
-        if (!(CE->getOpcode() == Instruction::BitCast))
+        if (!CE->getOpcode() == Instruction::BitCast && !CE->getOpcode() == Instruction::AddrSpaceCast)
           // expected bitcast in constant expression
           // observations from clang's generated code
           break;

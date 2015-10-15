@@ -24,6 +24,9 @@
 // or any other notice embedded in Materials by Intel or Intel�s suppliers or licensors
 // in any way.
 /////////////////////////////////////////////////////////////////////////
+#ifdef WIN32
+#define CL_DX9_MEDIA_SHARING_INTEL_EXT
+#endif /*WIN32*/
 
 #include "cl_utils.h"
 #include "cl_sys_info.h"
@@ -40,10 +43,9 @@ using namespace Intel::OpenCL;
 #ifdef WIN32
 #include <windows.h>
 #include <intrin.h>
-#define CL_DX9_MEDIA_SHARING_INTEL_EXT
 #include <CL/cl_d3d11.h>
 #include <CL/cl_d3d10.h>
-#include <CL/cl_d3d9.h>
+#include <CL/cl_dx9_media_sharing.h>
 
 bool clIsNumaAvailable()
 {

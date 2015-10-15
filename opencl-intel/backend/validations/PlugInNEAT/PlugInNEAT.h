@@ -20,13 +20,13 @@ File Name:  PlugInNEAT.h
 #ifndef LLI_PLUGIN_NEAT_H
 #define LLI_PLUGIN_NEAT_H
 
+#include "llvm/IR/CallSite.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/InstVisitor.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/Support/CallSite.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/InstVisitor.h"
 #include "llvm/Support/raw_ostream.h"
 #include "InterpreterPlugIn.h"
 
@@ -116,7 +116,7 @@ namespace llvm {
         std::map<Value *, NEATGenericValue> Values; // LLVM values used in this invocation
         // todo: decide what to do with VarArgs
         //std::vector<NEATGenericValue>  VarArgs; // Values passed through an ellipsis
-        AllocaHolderHandle    Allocas;    // Track memory allocated by alloca
+        AllocaHolder Allocas;    // Track memory allocated by alloca
     };
 
     /// Function creates NEAT "mirror" of OCL program inputs

@@ -330,6 +330,61 @@ cl_int CL_API_CALL clGetPlatformInfo(cl_platform_id platform,
 SET_ALIAS(clGetPlatformInfo);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+// clGetHostTimer
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int CL_API_CALL clGetHostTimer(cl_device_id device,
+                                  cl_ulong* host_timestamp)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetHostTimer");
+        apiLogger << "cl_device_id device" << device << "cl_ulong* host_timestamp" << host_timestamp;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("host_timestamp", host_timestamp, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetHostTimer(device, host_timestamp));
+    }
+}
+SET_ALIAS(clGetHostTimer);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// clGetDeviceAndHostTimer
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_int CL_API_CALL clGetDeviceAndHostTimer(cl_device_id device,
+                                           cl_ulong* device_timestamp,
+                                           cl_ulong* host_timestamp)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetDeviceAndHostTimer");
+        apiLogger << "cl_device_id device" << device << "cl_ulong* device_timestamp" << device_timestamp <<
+            "cl_ulong* host_timestamp" << host_timestamp;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("host_timestamp",   host_timestamp,   false, true);
+        provider.AddParam("device_timestamp", device_timestamp, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(PLATFORM_MODULE, cl_int, GetDeviceAndHostTimer(device, device_timestamp, host_timestamp));
+    }
+}
+SET_ALIAS(clGetDeviceAndHostTimer);
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Device APIs
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -480,7 +535,7 @@ cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  co
 									  cl_command_queue_properties properties, 
 									  cl_int *                    errcode_ret)
 {
-    const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, NULL };
+    const cl_command_queue_properties propertiesArr[] = { CL_QUEUE_PROPERTIES, properties, 0 };
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clCreateCommandQueue);
@@ -3121,15 +3176,58 @@ cl_command_queue CL_API_CALL clCreateCommandQueueWithProperties(cl_context conte
 }
 SET_ALIAS(clCreateCommandQueueWithProperties);
 
+
 cl_program CL_API_CALL clCreateProgramWithIL(cl_context context,
                                              const void* il,
                                              size_t lengths,
                                              cl_int* errcode_ret)
 {
-	if (errcode_ret != NULL)
-	{
-		*errcode_ret = CL_INVALID_OPERATION;
-	}
-	return CL_INVALID_HANDLE;
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        if (errcode_ret != NULL)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clCreateProgramWithIL);
+        apiLogger << "cl_context context" << context << "const void* il" << il << "size_t lengths" << lengths << "cl_int * errcode_ret" << errcode_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("errcode_ret", errcode_ret, false, false);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_program, CreateProgramWithIL(context, (const unsigned char*)il, lengths, errcode_ret));
+    }
 }
 SET_ALIAS(clCreateProgramWithIL);
+
+cl_kernel CL_API_CALL clCloneKernel(cl_kernel source_kernel,
+                                    cl_int* errcode_ret)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        if (errcode_ret != NULL)
+        {
+            *errcode_ret = CL_INVALID_OPERATION;
+        }
+        return CL_INVALID_HANDLE;
+    }
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clCloneKernel);
+        apiLogger << "const cl_kernel source_kernel" << source_kernel << "cl_int* errcode_ret" << errcode_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("errcode_ret", errcode_ret, false, false);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_kernel, CloneKernel(source_kernel, errcode_ret));
+    }
+}
+SET_ALIAS(clCloneKernel);

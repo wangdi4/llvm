@@ -279,9 +279,9 @@ declare void @SvmlThunk(i8*)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (i16 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i16 addrspace(1)*, i8 addrspace(3)*, %struct.WorkDim*, i64*, %struct.PaddedDimId*, %struct.PaddedDimId*, i64*, i64, i8*, i64*)* @test_fn, metadata !1, metadata !1, metadata !"", metadata !"short __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, short __attribute__((address_space(1))) *", metadata !"opencl_test_fn_locals_anchor", metadata !2, metadata !3, metadata !4, metadata !5, metadata !""}
-!1 = metadata !{i32 0, i32 0, i32 0}
-!2 = metadata !{i32 1, i32 1, i32 1, i32 1}
-!3 = metadata !{i32 3, i32 3, i32 3, i32 3}
-!4 = metadata !{metadata !"short*", metadata !"uint*", metadata !"uint*", metadata !"short*"}
-!5 = metadata !{metadata !"src", metadata !"offsets", metadata !"alignmentOffsets", metadata !"results"}
+!0 = !{void (i16 addrspace(1)*, i32 addrspace(1)*, i32 addrspace(1)*, i16 addrspace(1)*, i8 addrspace(3)*, %struct.WorkDim*, i64*, %struct.PaddedDimId*, %struct.PaddedDimId*, i64*, i64, i8*, i64*)* @test_fn, !1, !1, !"", !"short __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, uint __attribute__((address_space(1))) *, short __attribute__((address_space(1))) *", !"opencl_test_fn_locals_anchor", !2, !3, !4, !5, !""}
+!1 = !{i32 0, i32 0, i32 0}
+!2 = !{i32 1, i32 1, i32 1, i32 1}
+!3 = !{i32 3, i32 3, i32 3, i32 3}
+!4 = !{!"short*", !"uint*", !"uint*", !"short*"}
+!5 = !{!"src", !"offsets", !"alignmentOffsets", !"results"}

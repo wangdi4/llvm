@@ -359,7 +359,7 @@
     },
     "vec_type_hint":{
                     "is_container":     false,
-                    "type":             "llvm::UndefValue"
+                    "type":             "llvm::ConstantAsMetadata"
                 },
     "int_list":  {
                     "is_container":     true,

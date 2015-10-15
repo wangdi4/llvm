@@ -423,9 +423,10 @@ OCLKernelArgumentsList OpenCLKernelArgumentsParser::KernelArgumentsParser(const 
     for (uint32_t k = 0, e = metadata->getNumOperands(); k != e; ++k)
     {
         // Obtain kernel function from annotation
-        llvm::MDNode *elt = metadata->getOperand(k);
+        MDNode *elt = metadata->getOperand(k);
 
-        m_pKernel = dyn_cast<Function>(elt->getOperand(0)->stripPointerCasts());
+        Constant * globVal = mdconst::extract<Function>(elt->getOperand(0));
+        m_pKernel = cast<Function>(globVal->stripPointerCasts());
         if ( m_pKernel->getName().str() != kernelName)
         {
             continue;

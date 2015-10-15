@@ -14,7 +14,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OclTune.h"
 
 #include "llvm/IR/Attributes.h"
-#include "llvm/Support/ValueHandle.h"
+#include "llvm/IR/ValueHandle.h"
 #include "llvm/ADT/SetVector.h"
 
 #include <sstream>
@@ -44,13 +44,13 @@ namespace intel{
   }
 
   bool PrepareKernelArgs::runOnModule(Module &M) {
-    m_DL = getAnalysisIfAvailable<DataLayout>();
+    m_DL = M.getDataLayout();
     m_pModule = &M;
     m_pLLVMContext = &M.getContext();
     Intel::MetaDataUtils mdUtils(&M);
     m_mdUtils = &mdUtils;
     m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-    m_PtrSizeInBytes = M.getPointerSize() * 4;
+    m_PtrSizeInBytes = M.getDataLayout()->getPointerSize(0);
     m_IAA->initDuringRun(m_PtrSizeInBytes * 8);
     m_SizetTy = IntegerType::get(*m_pLLVMContext, m_PtrSizeInBytes*8);
     m_I32Ty = Type::getInt32Ty(*m_pLLVMContext);
@@ -124,14 +124,14 @@ namespace intel{
         // %myStruct = bitcast i8* to MyStruct*
         // foo(..., %myStruct, ...)
 
-        Value* pBitCast = builder.CreateBitCast(pGEP, callIt->getType());
-        pArg = pBitCast;
+        Value* pPointerCast = builder.CreatePointerCast(pGEP, callIt->getType());
+        pArg = pPointerCast;
         //TODO: Remove this #ifndef when apple pass local memory buffer size instead of pointer to buffer
 #ifndef __APPLE__
       } else if (arg.type == CL_KRNL_ARG_PTR_LOCAL) {
         // The argument is actually the size of the buffer
-        Value *pBitCast = builder.CreateBitCast(pGEP, PointerType::get(m_SizetTy, 0));
-        LoadInst *BufferSize = builder.CreateLoad(pBitCast);
+        Value *pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(m_SizetTy, 0));
+        LoadInst *BufferSize = builder.CreateLoad(pPointerCast);
         // TODO: when buffer size is 0, we might want to set dummy address for debugging!
         AllocaInst *Allocation = builder.CreateAlloca(m_I8Ty, BufferSize);
         // Set alignment of buffer to type size.
@@ -146,7 +146,7 @@ namespace intel{
           Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
         }
         Allocation->setAlignment(Alignment);
-        pArg = builder.CreateBitCast(Allocation, callIt->getType());
+        pArg = builder.CreatePointerCast(Allocation, callIt->getType());
 #endif
       } else if (arg.type == CL_KRNL_ARG_PTR_BLOCK_LITERAL) {
           pArg = pGEP;
@@ -161,8 +161,8 @@ namespace intel{
         // %vec = load int4 * %pVec {, align <alignment> }
         // foo(..., vec, ...)
 
-        Value* pBitCast = builder.CreateBitCast(pGEP, PointerType::get(callIt->getType(), 0));
-        LoadInst* pLoad = builder.CreateLoad(pBitCast);
+        Value* pPointerCast = builder.CreatePointerCast(pGEP, PointerType::get(callIt->getType(), 0));
+        LoadInst* pLoad = builder.CreateLoad(pPointerCast);
         size_t alignment = TypeAlignment::getAlignment(arg);
         if (alignment > 0) {
           pLoad->setAlignment(TypeAlignment::getAlignment(arg));
@@ -227,10 +227,10 @@ namespace intel{
           // TODO: we should choose the min required alignment size
           slmBuffer->setAlignment(TypeAlignment::MAX_ALIGNMENT);
           // move argument up over the lower side padding.
-          Value* castBuf = builder.CreateBitCast(slmBuffer,
-            PointerType::get(m_I8Ty, 3));
+          Value* castBuf = builder.CreatePointerCast(slmBuffer,
+                                                     PointerType::get(m_I8Ty, 3));
           pArg = builder.CreateGEP(castBuf,
-            ConstantInt::get(m_I32Ty, STACK_PADDING_BUFFER));
+                                   ConstantInt::get(m_I32Ty, STACK_PADDING_BUFFER));
         }
       }
         break;
@@ -310,7 +310,7 @@ namespace intel{
         // %0 = getelementptr i8* %pBuffer, i32 currOffset
         Value *pGEP = builder.CreateGEP(pArgsBuffer,
                                         ConstantInt::get(m_I32Ty, currOffset));
-        pArg = builder.CreateBitCast(pGEP, callIt->getType());
+        pArg = builder.CreatePointerCast(pGEP, callIt->getType());
         WGInfo = pArg;
         // Advance the pArgsBuffer offset based on the size
         currOffset += implicitArgProp.m_size;

@@ -34,7 +34,8 @@ BitCodeContainer::~BitCodeContainer()
     if(m_pModule) 
     {
         llvm::Module* pModule = static_cast<llvm::Module*>(m_pModule);
-        llvm::LLVMContext& context = pModule->getContext();
+        // [LLVM 3.6 UPGRADE] FIXME: see FIXME below on why it is commented out.
+        // llvm::LLVMContext& context = pModule->getContext();
         delete pModule;
 
         // Unused metadata nodes are left alive during deletion of Module
@@ -47,10 +48,13 @@ BitCodeContainer::~BitCodeContainer()
         // cleanup() was added to LLVMContext and is called to find and free memory by unused Metadata nodes
         // see ticket CSSD100018078 for details or contact Oleg
         // oleg: clean up unused MDNodes in LLVMContext
-        context.cleanup();
-    }
 
-    delete m_pBuffer;
+        // [LLVM 3.6 UPGRADE] FIXME: The patch that provides cleanup() functionality was
+        // refined during upgrade and wasn't applied, in order to compile the file
+        // the cleanup() call is commented out.
+        // context.cleanup();
+    }
+    // TODO: Check if the memory reffered by m_pBuffer is to be revoked manually here
 }
 
 const void* BitCodeContainer::GetCode() const
@@ -75,7 +79,7 @@ void*  BitCodeContainer::GetModule() const
 
 void* BitCodeContainer::GetMemoryBuffer() const
 {
-    return m_pBuffer;
+    return m_pBuffer.get();
 }
 
 void BitCodeContainer::Release()

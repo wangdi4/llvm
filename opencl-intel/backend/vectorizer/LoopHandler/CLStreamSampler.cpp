@@ -35,7 +35,7 @@ char intel::CLStreamSampler::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopWIAnalysis)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLStreamSampler, "cl-stream-sampler", "replace read,write image built-ins in loops with stream samplers if possible", false, false)
 
@@ -54,7 +54,7 @@ bool CLStreamSampler::runOnLoop(Loop *L, LPPassManager &LPM) {
   m_header = m_curLoop->getHeader();
   m_context = &m_header->getContext();
   m_M = m_header->getParent()->getParent();
-  m_DT = &getAnalysis<DominatorTree>();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_WIAnalysis = &getAnalysis<LoopWIAnalysis>();
   m_preHeader = m_curLoop->getLoopPreheader();
   m_latch = m_curLoop->getLoopLatch();
@@ -260,8 +260,8 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
     }
 
     // The pointer has 2 users
-    Value *user1 = *(AI->use_begin());
-    Value *user2 = *(++(AI->use_begin()));
+    Value *user1 = *(AI->user_begin());
+    Value *user2 = *(++(AI->user_begin()));
     LoadInst *load = NULL;
     if (user1 == readImgCall) {
       load = dyn_cast<LoadInst>(user2);
@@ -278,7 +278,7 @@ void CLStreamSampler::CollectReadImgAttributes(CallInst *readImgCall) {
 
 void CLStreamSampler::hoistReadImgCalls() {
   // Obtain the stream read from the runtime module.
-  bool isPointer64 = (m_M->getPointerSize() == Module::Pointer64);
+  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
   Function *LibReadSteamFunc = m_rtServices->getReadStream(isPointer64);
   if (!LibReadSteamFunc) return;
   Function * readStreamFunc = getLibraryFunc(LibReadSteamFunc);
@@ -407,7 +407,7 @@ Value *CLStreamSampler::getStreamSize(unsigned width) {
 
 void CLStreamSampler::sinkWriteImgCalls() {
   // Obtain the stream write from the runtime module.
-  bool isPointer64 = (m_M->getPointerSize() == Module::Pointer64);
+  bool isPointer64 = m_M->getDataLayout()->getPointerSizeInBits(0) == 64;
   Function *LibWriteStreamFunc = m_rtServices->getWriteStream(isPointer64);
   if (!LibWriteStreamFunc) return;
   Function * writeStreamFunc = getLibraryFunc(LibWriteStreamFunc);
@@ -629,7 +629,7 @@ void CLStreamSampler::generateAllocasForStream(unsigned width,
 void CLStreamSampler::removeRedundantPHI(PHINode *PN) {
   if (!PN->hasOneUse()) return;
 
-  Instruction *user = dyn_cast<Instruction>(*(PN->use_begin()));
+  Instruction *user = dyn_cast<Instruction>(*(PN->user_begin()));
   Value *latchVal = PN->getIncomingValueForBlock(m_latch);
   if (!user || user != latchVal || !user->hasOneUse()) return;
 

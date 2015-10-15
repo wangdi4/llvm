@@ -67,7 +67,7 @@ cl_dev_err_code CPUCompileService::CheckProgramBinary(const void* pBinary,
     // check if it is LLVM BC (such as SPIR 1.2)
     if (!memcmp(_CL_LLVM_BITCODE_MASK_, pBinary, sizeof(_CL_LLVM_BITCODE_MASK_)-1))
     {
-        std::string strTargetTriple = const_cast<Compiler*>(m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
+        std::string strTargetTriple = (m_programBuilder.GetCompiler())->GetBitcodeTargetTriple(pBinary, uiBinarySize);
 
         if (strTargetTriple.substr(0, 4) == "spir" && strTargetTriple != SPIR_TARGET_TRIPLE)
             return CL_DEV_INVALID_BINARY;

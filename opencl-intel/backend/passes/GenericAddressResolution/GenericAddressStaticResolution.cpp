@@ -13,9 +13,9 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include <llvm/IR/Intrinsics.h>
 #include <llvm/IR/IntrinsicInst.h>
 #include <llvm/IR/GlobalValue.h>
-#include <llvm/Support/InstIterator.h>
+#include <llvm/IR/InstIterator.h>
 #include <llvm/Support/raw_ostream.h>
-#include <llvm/ADT/ValueMap.h>
+#include <llvm/IR/ValueMap.h>
 #include <llvm/Transforms/Utils/Cloning.h>
 #include <assert.h>
 
@@ -81,7 +81,37 @@ namespace intel {
 
   void GenericAddressStaticResolution::analyzeGASPointers(TFunctionList::const_iterator curFuncIt) {
 
-    // Collect GAS pointers initializations in the function (together with their uses' tree)
+      for (inst_iterator inst_it = inst_begin(*curFuncIt),
+           inst_it_end = inst_end(*curFuncIt);
+	       inst_it != inst_it_end;) {
+
+        Instruction *pInstr = &(*inst_it++);
+
+        if (IntToPtrInst* pIntToPtr = dyn_cast<IntToPtrInst>(pInstr)){
+          if (PtrToIntInst* pPtrToInt = dyn_cast<PtrToIntInst>(pIntToPtr->getOperand(0))){
+            Type* dstTy = pIntToPtr->getDestTy();
+            CastInst* castInst = CastInst::CreatePointerCast(pPtrToInt->getOperand(0), dstTy, "", pPtrToInt);
+            pIntToPtr->replaceAllUsesWith(castInst);
+            pIntToPtr->eraseFromParent();
+            if(pPtrToInt->user_empty())
+              pPtrToInt->eraseFromParent();
+            continue;
+          }
+        }
+        for (unsigned idx = 0; idx < pInstr->getNumOperands(); idx++) {
+          if (ConstantExpr *pPtrToInt = dyn_cast<ConstantExpr>(pInstr->getOperand(idx)))
+            if (Instruction::IntToPtr == pPtrToInt->getOpcode())
+              if (ConstantExpr* pIntToPtr = dyn_cast<ConstantExpr>(pPtrToInt->getOperand(0)))
+                if (Instruction::PtrToInt == pIntToPtr->getOpcode()){
+                  Type *dstType = pPtrToInt->getType();
+                  Constant* newConstant = ConstantExpr::getPointerCast(pIntToPtr->getOperand(0), dstType);
+                  pPtrToInt->replaceAllUsesWith(newConstant);
+                }
+        }
+      }
+
+
+  // Collect GAS pointers initializations in the function (together with their uses' tree)
     for (inst_iterator inst_it = inst_begin(*curFuncIt), 
                        inst_it_end = inst_end(*curFuncIt); 
                        inst_it != inst_it_end; inst_it++) {
@@ -100,7 +130,7 @@ namespace intel {
       const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType()); 
       if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
         unsigned opCode = pInstr->getOpcode();
-        if (opCode == Instruction::BitCast || opCode == Instruction::GetElementPtr) {
+        if (opCode == Instruction::BitCast || opCode == Instruction::AddrSpaceCast || opCode == Instruction::GetElementPtr) {
           const PointerType *pSrcPtrType = dyn_cast<PointerType>(pInstr->getOperand(0)->getType());
           if (pSrcPtrType && isSinglePtr(pSrcPtrType) && 
               !IS_ADDR_SPACE_GENERIC(pSrcPtrType->getAddressSpace())) {
@@ -230,7 +260,8 @@ namespace intel {
         break;
       }
       // Bitcast may or may not generate new GAS pointer - analyze further
-      case Instruction::BitCast : {
+      case Instruction::AddrSpaceCast :
+      case Instruction::BitCast       : {
         // Filter-out Bitcasts which don't propagate GAS pointer
         const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType());
         if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
@@ -250,12 +281,12 @@ namespace intel {
         break;
     }
     if (toPropagate) {
-      for (Value::use_iterator use_it = pInstr->use_begin(), 
-                               use_end = pInstr->use_end();
-                               use_it != use_end; use_it++) {
-        Instruction *pUse = dyn_cast<Instruction>(*use_it);
-        assert(pUse && "All uses of instruction should be instructions!");
-        addGASInstr(pUse, space);
+      for (Value::user_iterator user_it = pInstr->user_begin(), 
+                                user_end = pInstr->user_end();
+                                user_it != user_end; user_it++) {
+        Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
+        assert(pUserInst && "All uses of instruction should be instructions!");
+        addGASInstr(pUserInst, space);
       }
     }
   }
@@ -368,6 +399,7 @@ namespace intel {
       // 1. Prepare replacements with named addr space pointers
       switch (pInstr->getOpcode()) {
         case Instruction::IntToPtr      :
+        case Instruction::AddrSpaceCast :
         case Instruction::BitCast       :
         case Instruction::GetElementPtr :
           changed |= resolveInstructionConvert(pInstr, space);
@@ -420,6 +452,7 @@ namespace intel {
           // For instruction which doesn't produce a pointer: replace uses with new value
           pOldInstr->replaceAllUsesWith(pNewVal);
           break;
+        case Instruction::AddrSpaceCast :
         case Instruction::BitCast       :
         case Instruction::IntToPtr      : 
         case Instruction::GetElementPtr : {

@@ -23,8 +23,8 @@ File Name:  Prefetch.h
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/GlobalVariable.h"
+#include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
-#include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
@@ -103,7 +103,7 @@ namespace intel{
         AU.addRequired<ScalarEvolution>();
         AU.addRequired<BranchProbabilityInfo>();
         AU.addPreserved<BranchProbabilityInfo>();
-        AU.addRequired<DominatorTree>();
+        AU.addRequired<DominatorTreeWrapperPass>();
         AU.setPreservesCFG();
       }
 

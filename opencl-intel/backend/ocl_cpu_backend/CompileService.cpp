@@ -27,8 +27,6 @@ File Name:  CompileService.cpp
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Path.h"
-#include "llvm/Support/PathV1.h"
-#include "llvm/Support/PathV2.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/FormattedStream.h"
@@ -84,6 +82,11 @@ cl_dev_err_code CompileService::CreateProgram( const void* pBinary,
         {
             spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
             GetProgramBuilder()->ParseProgram(spProgram.get());
+        }
+        else if ( _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)pBinary)[0] )
+        {
+            spProgram->SetBitCodeContainer(new BitCodeContainer(pBinaryData, uiBinaryDataSize, "main"));
+            GetProgramBuilder()->ParseSPIRVProgram(spProgram.get());
         }
         else
         {
@@ -159,15 +162,15 @@ cl_dev_err_code CompileService::DumpCodeContainer( const ICLDevBackendCodeContai
         }
         else
         {
-            std::string err;
-            llvm::raw_fd_ostream ostr(fname.c_str(), err);
-            if(err.empty())
+            std::error_code ec;
+            llvm::raw_fd_ostream ostr(fname.c_str(), ec, llvm::sys::fs::F_RW);
+            if(!ec)
             {
                 ((llvm::Module*)pContainer->GetModule())->print(ostr, 0);
             }
             else
             {
-                throw Exceptions::DeviceBackendExceptionBase(std::string("Can't open the dump file ") + fname + ":" + err);
+                throw Exceptions::DeviceBackendExceptionBase(std::string("Can't open the dump file ") + fname + ":" + ec.message());
             }
         }
         return CL_DEV_SUCCESS;

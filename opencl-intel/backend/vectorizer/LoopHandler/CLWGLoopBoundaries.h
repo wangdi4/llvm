@@ -16,6 +16,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <set>
 

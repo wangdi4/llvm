@@ -4,7 +4,7 @@
 #include "VectorizerUtils.h"
 #include "Logger.h"
 
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/IR/Constants.h"
 
@@ -74,7 +74,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(RetTy->getScalarType(), 0);
-    Ptr = new BitCastInst(Ptr, PtrTy, "ptrTypeCast", caller);
+    Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
 
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
 
@@ -121,7 +121,7 @@ bool MICResolver::TargetSpecificResolve(CallInst* caller) {
 
     // Remove address space from pointer type
     PtrTy = PointerType::get(DataTy->getScalarType(), 0);
-    Ptr = new BitCastInst(Ptr, PtrTy, "ptrTypeCast", caller);
+    Ptr = CastInst::CreatePointerCast(Ptr, PtrTy, "ptrTypeCast", caller);
 
     Type *IndTy = IntegerType::get(caller->getContext(), 32);
 

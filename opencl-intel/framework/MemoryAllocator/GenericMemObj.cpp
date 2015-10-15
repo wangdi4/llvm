@@ -132,7 +132,7 @@ cl_err_code GenericMemObject::Initialize(
                                cl_rt_memobj_creation_flags    creation_flags
                                )
 {
-    assert(NULL == m_pParentObject); // Should never be called for sub mem objects!
+    assert(0 == m_pParentObject); // Should never be called for sub mem objects!
 
     m_clFlags = clMemFlags;
     m_pHostPtr = pHostPtr;
@@ -837,7 +837,7 @@ cl_err_code GenericMemObject::GetImageInfo(cl_image_info clParamName, size_t szP
     const void * pValue = NULL;
     size_t    stZero = 0;
     cl_uint uiZero = 0;
-    cl_mem imageBuffer = GetParent() != NULL ? const_cast<_cl_mem_int*>(GetParent()->GetHandle()) : CL_INVALID_HANDLE;
+    cl_mem imageBuffer = GetParent() != 0 ? const_cast<_cl_mem_int*>(GetParent()->GetHandle()) : CL_INVALID_HANDLE;
 
     switch (clParamName)
     {

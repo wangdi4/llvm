@@ -101,7 +101,7 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
 {
   m_pModule = &M;
   m_pContext = &M.getContext();
-  m_pTD = getAnalysisIfAvailable<DataLayout>();
+  m_pTD = M.getDataLayout();
   if(!m_pTD)
     return false;
   Intel::MetaDataUtils MDU(&M);
@@ -164,31 +164,47 @@ bool CloneBlockInvokeFuncToKernel::runOnModule(Module &M)
     //
     // Updating of metadata with new kernel
     //
-    // Derived from llvm/tools/clang/lib/CodeGen/CodeGenFunction::EmitOpenCLKernelMetadata()
+    // TDerived from llvm/tools/clang/lib/CodeGen/CodeGenFunction::EmitOpenCLKernelMetadata()
     // Example of metadata for kernel:
     // !opencl.kernels = !{!0}
     // !0 = metadata !{void (i32 addrspace(1)*)* @enqueue_simple_block, metadata !1}
     // !1 = metadata !{metadata !"argument_attribute", i32 0}
+    //
+    // [LLVM 3.6 UPGRADE] Seems the comment above is not correct because SPIR 1.2
+    // of "__kernel void test(__global float* arg)" looks like this:
+    // !opencl.kernels = !{!0}
+    // !0 = metadata !{void (float addrspace(1)*)* @test, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5, metadata !6}
+    // !1 = metadata !{metadata !"kernel_arg_addr_space", i32 1}
+    // !2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none"}
+    // !3 = metadata !{metadata !"kernel_arg_type", metadata !"float*"}
+    // !4 = metadata !{metadata !"kernel_arg_type_qual", metadata !""}
+    // !5 = metadata !{metadata !"kernel_arg_base_type", metadata !"float*"}
+    // !6 = metadata !{metadata !"kernel_arg_name", metadata !"arg"}
+    //
+    // FIXME: The right way is to use MetaDataUtils to handle this instead of the two lines below.
+    OpenCLKernelMetadata->addOperand(
+      llvm::MDNode::get(Context, llvm::ConstantAsMetadata::getConstant(NewFn)));
+    // So I have no idea about the impact of the lecacy code below.
 
-    llvm::SmallVector <llvm::Value*, 2> kernelMDArgs;
-    kernelMDArgs.push_back(NewFn);
-
-    llvm::SmallVector<llvm::Value*, 5> kernelArgsAttr;
-    kernelArgsAttr.push_back(llvm::MDString::get(Context, "argument_attribute"));
-
-    Function::ArgumentListType::iterator argIt = NewFn->getArgumentList().begin();
-    while ( argIt != NewFn->getArgumentList().end() ) {
-          const int argAttr = 0;
-          // !!! image types and sampler types are not handled properly
-          // !!! they should not get here
-          kernelArgsAttr.push_back(Builder.getInt32(argAttr)); // i32 0
-          ++argIt;
-    }
-
-    kernelMDArgs.push_back(llvm::MDNode::get(Context, kernelArgsAttr));
-    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
-
-    OpenCLKernelMetadata->addOperand(kernelMDNode);
+//    llvm::SmallVector <llvm::Value*, 2> kernelMDArgs;
+//    kernelMDArgs.push_back(NewFn);
+//
+//    llvm::SmallVector<llvm::Value*, 5> kernelArgsAttr;
+//    kernelArgsAttr.push_back(llvm::MDString::get(Context, "argument_attribute"));
+//
+//    Function::ArgumentListType::iterator argIt = NewFn->getArgumentList().begin();
+//    while ( argIt != NewFn->getArgumentList().end() ) {
+//          const int argAttr = 0;
+//          // !!! image types and sampler types are not handled properly
+//          // !!! they should not get here
+//          kernelArgsAttr.push_back(Builder.getInt32(argAttr)); // i32 0
+//          ++argIt;
+//    }
+//
+//    kernelMDArgs.push_back(llvm::MDNode::get(Context, kernelArgsAttr));
+//    llvm::MDNode *kernelMDNode = llvm::MDNode::get(Context, kernelMDArgs);
+//
+//    OpenCLKernelMetadata->addOperand(kernelMDNode);
     Changed = true;
   }
   if (Changed)
@@ -237,32 +253,32 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 
   // search for specific bitcast
   // example bitcast i8* %.block_descriptor to <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, i64, i32 addrspace(1)*, i32 }>*
-  for(Argument::use_iterator AI = blockLiteralPtr->use_begin(),
-    E = blockLiteralPtr->use_end(); AI != E; ++AI){
+  for(Argument::user_iterator AI = blockLiteralPtr->user_begin(),
+    E = blockLiteralPtr->user_end(); AI != E; ++AI){
 
-      BitCastInst *pBC = dyn_cast<BitCastInst>(*AI);
-      if(!pBC)
-        continue;
+    if(!(isa<BitCastInst>(*AI) || isa<AddrSpaceCastInst>(*AI)))
+      continue;
+    CastInst *pBC = cast<CastInst>(*AI);
 
-      PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
-      if(!pPTy)
-        continue;
+    PointerType *pPTy = dyn_cast<PointerType>(pBC->getDestTy());
+    if(!pPTy)
+      continue;
 
-      StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
-      if(!pStructBlockLiteralTy)
-        continue;
+    StructType * pStructBlockLiteralTy = dyn_cast<StructType>(pPTy->getPointerElementType());
+    if(!pStructBlockLiteralTy)
+      continue;
 
 #ifndef NDEBUG
-      unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
-      PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
-      assert( pBlockDescPtr && "expected pointer field");
+    unsigned int const BLOCK_DESCRIPTOR_INDX = 4;
+    PointerType *pBlockDescPtr = dyn_cast<PointerType>(pStructBlockLiteralTy->getElementType(BLOCK_DESCRIPTOR_INDX));
+    assert( pBlockDescPtr && "expected pointer field");
 
-      StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
-      assert( pBlockDescTy && "expected struct");
+    StructType * pBlockDescTy = dyn_cast<StructType>(pBlockDescPtr->getPointerElementType());
+    assert( pBlockDescTy && "expected struct");
 #endif
 
-      //block_literal itself
-      return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+    //block_literal itself
+    return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
   }
 
   assert(0 && "did not find bitcast to struct");

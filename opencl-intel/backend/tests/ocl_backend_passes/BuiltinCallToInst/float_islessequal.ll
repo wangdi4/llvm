@@ -151,14 +151,14 @@ attributes #2 = { nounwind readnone }
 !opencl.compiler.options = !{!6}
 !opencl.enable.FP_CONTRACT = !{}
 
-!0 = metadata !{void (float*, float*, i32*)* @foo_float}
-!1 = metadata !{void (<2 x float>*, <2 x float>*, <2 x i32>*)* @foo_float2}
-!2 = metadata !{void (<3 x float>*, <3 x float>*, <3 x i32>*)* @foo_float3}
-!3 = metadata !{void (<4 x float>*, <4 x float>*, <4 x i32>*)* @foo_float4}
-!4 = metadata !{void (<8 x float>*, <8 x float>*, <8 x i32>*)* @foo_float8}
-!5 = metadata !{void (<16 x float>*, <16 x float>*, <16 x i32>*)* @foo_float16}
-!6 = metadata !{metadata !"-cl-std=CL1.2"}
-!7 = metadata !{metadata !"float", metadata !8}
-!8 = metadata !{metadata !"omnipotent char", metadata !9}
-!9 = metadata !{metadata !"Simple C/C++ TBAA"}
-!10 = metadata !{metadata !"int", metadata !8}
+!0 = !{void (float*, float*, i32*)* @foo_float}
+!1 = !{void (<2 x float>*, <2 x float>*, <2 x i32>*)* @foo_float2}
+!2 = !{void (<3 x float>*, <3 x float>*, <3 x i32>*)* @foo_float3}
+!3 = !{void (<4 x float>*, <4 x float>*, <4 x i32>*)* @foo_float4}
+!4 = !{void (<8 x float>*, <8 x float>*, <8 x i32>*)* @foo_float8}
+!5 = !{void (<16 x float>*, <16 x float>*, <16 x i32>*)* @foo_float16}
+!6 = !{!"-cl-std=CL1.2"}
+!7 = !{!"float", !8}
+!8 = !{!"omnipotent char", !9}
+!9 = !{!"Simple C/C++ TBAA"}
+!10 = !{!"int", !8}

@@ -18,4 +18,4 @@ define void @enqueue_kernel_events(%opencl.queue_t* %q, %opencl.ndrange_t* %nd, 
 
 
 !opencl.compiler.options = !{!2}
-!2 = metadata !{metadata !"-cl-std=CL1.2"}
+!2 = !{!"-cl-std=CL1.2"}

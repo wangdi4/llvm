@@ -4,13 +4,13 @@
 
 ; CHECK: @testldst
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: @__ocl_masked_load_double8
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: @__ocl_masked_store_double8
 ; CHECK: sext
-; CHECK: bitcast
+; CHECK: addrspacecast
 ; CHECK: ret
 
 declare i32 @_Z13get_global_idj(i32) nounwind

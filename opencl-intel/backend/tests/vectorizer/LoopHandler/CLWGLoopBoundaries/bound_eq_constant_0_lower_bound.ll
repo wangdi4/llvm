@@ -34,6 +34,6 @@ declare i32 @_Z13get_global_idj(i32)
 
 !opencl.kernels = !{!0}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @program}
+!0 = !{void (i32 addrspace(1)*)* @program}
 
 

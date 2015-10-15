@@ -10,7 +10,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 
 #include "OCLPassSupport.h"
 #include "InitializePasses.h"
-#include "llvm/Support/InstIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
@@ -120,7 +120,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
 
   bool SoaAllocaAnalysis::isSupportedAlloca(const AllocaInst *pAI, bool isVectorBasedType,
       unsigned int arrayNestedLevel, std::set<const Value*> &visited) {
-    std::vector<const Value*> usages(pAI->use_begin(), pAI->use_end());
+    std::vector<const Value*> usages(pAI->user_begin(), pAI->user_end());
     visited.clear();
     visited.insert(pAI);
     while (!usages.empty()) {
@@ -135,7 +135,7 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         if (pGEP->getNumIndices() <= arrayNestedLevel+1) {
           // These are allowed instructions that result in pointers,
           // so need to check their usages too.
-          usages.insert(usages.end(), usage->use_begin(), usage->use_end());
+          usages.insert(usages.end(), usage->user_begin(), usage->user_end());
           continue;
         }
         // Cannot support GEP with last index for vector type!
@@ -156,18 +156,19 @@ OCL_INITIALIZE_PASS(SoaAllocaAnalysis, "SoaAllocaAnalysis", "SoaAllocaAnalysis p
         // so only need to continue checking other usages.
         continue;
       }
-      else if (const BitCastInst *BC = dyn_cast<BitCastInst>(usage)) {
+      else if (isa<BitCastInst>(usage) || isa<AddrSpaceCastInst>(usage)) {
+        const CastInst *BC = dyn_cast<CastInst>(usage);
         // Bitcast on alloca with vector based type is not supported.
         // Only Bitcast of alloca instruction is supported.
         if (!isVectorBasedType && BC->getOperand(0) == pAI) {
-          for(Value::const_use_iterator ui = BC->use_begin(), ue = BC->use_end(); ui!= ue; ++ui) {
-            // Only BitCastInst with users that are only memset are supported.
-            if(!isSupportedMemset(dyn_cast<CallInst>(*ui))) {
+          for(const User *U : BC->users()) {
+            // Only CastInst with users that are only memset are supported.
+            if(!isSupportedMemset(dyn_cast<CallInst>(U))) {
               V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");
               return false;
             }
           }
-          visited.insert(usage->use_begin(), usage->use_end());
+          visited.insert(usage->user_begin(), usage->user_end());
           continue;
         }
         V_PRINT(soa_alloca_stat, "SoaAllocaAnalysis: alloca with unsupported bitcast usage (" << *usage << ")\n");

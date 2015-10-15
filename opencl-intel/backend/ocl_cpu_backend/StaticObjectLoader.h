@@ -18,11 +18,11 @@ File Name:  StaticObjectLoader.h
 #pragma once
 
 
-#include "llvm/ADT/OwningPtr.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/MemoryBuffer.h"
+
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -31,7 +31,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 class StaticObjectLoader : public llvm::ObjectCache {
 
-  typedef llvm::DenseMap<const llvm::Module*, const llvm::MemoryBuffer* > ModuleMemBuffers;
+  typedef llvm::DenseMap<const llvm::Module*, std::unique_ptr<llvm::MemoryBuffer>> ModuleMemBuffers;
   typedef llvm::DenseMap<const llvm::Module*, std::string> ModuleStringMap;
 
   // Map of modules to buffers containing object files which have been been
@@ -47,23 +47,15 @@ class StaticObjectLoader : public llvm::ObjectCache {
   }
 
   llvm::MemoryBuffer* readObject(llvm::StringRef Location) {
-    llvm::OwningPtr<llvm::MemoryBuffer> MemBuf;
-    llvm::MemoryBuffer::getFile(Location, MemBuf);
-    return MemBuf.take();
+    llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> memBufOrErr = llvm::MemoryBuffer::getFile(Location);
+    return memBufOrErr.get().release();
   }
 
 public:
 
   StaticObjectLoader()  { }
 
-  virtual ~StaticObjectLoader() {
-    // Delete all the in-memory static object copies owned by this class
-    ModuleMemBuffers::iterator i = StaticObjects.begin();
-    ModuleMemBuffers::iterator e = StaticObjects.end();
-    for (; i != e; ++i) {
-      delete i->second;
-    }
-  }
+  virtual ~StaticObjectLoader() { }
 
   /// addLocation - Adds a mapping between a module and a path on the filesystem
   /// from where the object file for the given module should be loaded,
@@ -74,9 +66,9 @@ public:
     Paths[M] = ObjectFilePath;
     if (exists(ObjectFilePath)) {
       // A file exists at ObjectFilePath, so read it now and save it for later retrieval via getObject
-      llvm::OwningPtr<const llvm::MemoryBuffer> StaticObject(
+        std::unique_ptr<llvm::MemoryBuffer> StaticObject(
         readObject(ObjectFilePath));
-      StaticObjects.insert(std::make_pair(M, StaticObject.take()));
+      StaticObjects.insert(std::make_pair(M, std::move(StaticObject)));
     }
   }
 
@@ -84,10 +76,11 @@ public:
   /// file.
   virtual void addPreCompiled(const llvm::Module* M,
                               const llvm::MemoryBuffer* MemBuff) {
-    StaticObjects.insert(std::make_pair(M, MemBuff));
+    StaticObjects.insert(std::make_pair(M, (std::unique_ptr<llvm::MemoryBuffer>(
+                        const_cast<llvm::MemoryBuffer*>(MemBuff)))));
   }
 
-  virtual void notifyObjectCompiled(const llvm::Module*, const llvm::MemoryBuffer*) {
+  virtual void notifyObjectCompiled(const llvm::Module*, llvm::MemoryBufferRef) {
     // A module has been compiled and the resulting object is in a MemoryBuffer
     assert(0 && "TODO: implement module compiled notification handler");
   }
@@ -95,12 +88,12 @@ public:
   /// getObject - Returns a pointer to a pre-compiled object buffer previously
   /// added to the cache (with addLocation or notifyCompiledObject) or 0 if the
   /// Module pointer M is not associated with a statically compiled object.
-  virtual const llvm::MemoryBuffer* getObject(const llvm::Module* M) {
+  virtual std::unique_ptr<llvm::MemoryBuffer> getObject(const llvm::Module* M) {
     ModuleMemBuffers::iterator i = StaticObjects.find(M);
     if (i == StaticObjects.end()) {
       return 0;
     } else {
-      return i->second;
+      return std::move(i->second);
     }
   }
 };

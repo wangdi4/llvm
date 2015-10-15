@@ -26,7 +26,7 @@ declare <16 x float> @_Z6sincosDv16_fPU3AS1S_(<16 x float>, <16 x float> addrspa
 
 !opencl.compiler.options = !{!0}
 
-!0 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{!"-cl-std=CL2.0"}
 
 ; CHECK:        define void @check_sincos_float
 ; CHECK:        entry:

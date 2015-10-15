@@ -28,10 +28,10 @@ define internal void @__enqueue_simple_block2_block_invoke(i8* %.block_descripto
 ; CHECK: !opencl.kernels = !{!0, !2, !4, !5}
 !opencl.kernels = !{!0, !2}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @enqueue_simple_block, metadata !1}
-!1 = metadata !{metadata !"argument_attribute", i32 0}
-!2 = metadata !{void (i32 addrspace(1)*, float addrspace(1)*)* @enqueue_simple_block2, metadata !3}
-!3 = metadata !{metadata !"argument_attribute", i32 0, i32 0}
+!0 = !{void (i32 addrspace(1)*)* @enqueue_simple_block, !1}
+!1 = !{!"argument_attribute", i32 0}
+!2 = !{void (i32 addrspace(1)*, float addrspace(1)*)* @enqueue_simple_block2, !3}
+!3 = !{!"argument_attribute", i32 0, i32 0}
 
-; CHECK: !4 = metadata !{void (i8*)* @__.kernel__enqueue_simple_block_block_invoke
-; CHECK: !5 = metadata !{void (i8*, float addrspace(1)*)* @__.kernel__enqueue_simple_block2_block_invoke
+; CHECK: !4 = !{void (i8*)* @__.kernel__enqueue_simple_block_block_invoke
+; CHECK: !5 = !{void (i8*, float addrspace(1)*)* @__.kernel__enqueue_simple_block2_block_invoke

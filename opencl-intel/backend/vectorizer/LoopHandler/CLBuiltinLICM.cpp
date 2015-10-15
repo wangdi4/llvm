@@ -14,7 +14,7 @@ namespace intel {
 char intel::CLBuiltinLICM::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTree)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_END(CLBuiltinLICM, "CLBuiltinLICM", "hoist known uniform openCL builtins out of loops", false, false)
@@ -33,7 +33,7 @@ bool CLBuiltinLICM::runOnLoop(Loop *L, LPPassManager &LPM) {
   m_preHeader = L->getLoopPreheader();
   m_curLoop = L;
   m_header = m_curLoop->getHeader();
-  m_DT = &getAnalysis<DominatorTree>();
+  m_DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   m_changed = false;
 
   // recursively scan the loop according to the dominator tree order.

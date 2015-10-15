@@ -88,7 +88,7 @@ static void convertSampler(uint32_t* inOutSampler) {
 
 // this function returns vector of order numbers of "sampler_t" arguments of kernel
 static std::vector<unsigned int> FindSamplers(llvm::NamedMDNode* metadata, std::string kernelNameIn) {
-
+    // TODO: use MetaDataUtils instead of the manual traversal of metadata below
     std::vector<unsigned int> res;
 
     // return empty vector if there are no metadata
@@ -101,9 +101,9 @@ static std::vector<unsigned int> FindSamplers(llvm::NamedMDNode* metadata, std::
 
         // if elt is NULL we can't find "sampler_t" so return the empty vector
         if((NULL != elt) && (NULL != elt->getOperand(0))) {
-            llvm::Function* pKernel =  llvm::dyn_cast<llvm::Function>(elt->getOperand(0)->stripPointerCasts());
+            llvm::Function* pKernel =  llvm::mdconst::dyn_extract<llvm::Function>(elt->getOperand(0));
             assert(pKernel  && "FindSamplers : kernel pointer is NULL");
-            std::string kernelName = pKernel->getName().str();
+            std::string kernelName = pKernel->stripPointerCasts()->getName().str();
             // skip if it is not the kernel we want to scan
             if(kernelNameIn != kernelName)
                 continue;

@@ -35,7 +35,7 @@
 #if defined (DX_MEDIA_SHARING)
 #include <d3d9.h>
 #include <basetsd.h>
-#include "CL\cl_d3d9.h"
+#include "CL\cl_dx9_media_sharing.h"
 #if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
 #endif
@@ -163,6 +163,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int GetContextInfo(cl_context context, cl_context_info param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret);
         // program methods
         virtual cl_program CreateProgramWithSource(cl_context clContext, cl_uint uiCount, const char ** ppcStrings, const size_t * szLengths, cl_int * pErrcodeRet);
+        virtual cl_program CreateProgramWithIL(cl_context clContext, const unsigned char* pIL, size_t length, cl_int* pErrcodeRet);
         virtual cl_program CreateProgramWithBinary(cl_context clContext, cl_uint uiNumDevices, const cl_device_id * pclDeviceList, const size_t * pszLengths, const unsigned char ** ppBinaries, cl_int * piBinaryStatus, cl_int * pErrRet);
         virtual cl_program CreateProgramWithBuiltInKernels(cl_context clContext, cl_uint uiNumDevices, const cl_device_id *  pclDeviceList, const char *szKernelNames, cl_int *pErrcodeRet);
 
@@ -175,6 +176,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         virtual cl_int GetProgramBuildInfo(cl_program clProgram, cl_device_id clDevice, cl_program_info clParamName, size_t szParamValueSize, void * pParamValue, size_t * pszParamValueSizeRet);
         // kernel methods
         virtual cl_kernel CreateKernel(cl_program clProgram, const char * pscKernelName, cl_int * piErr);
+        virtual cl_kernel CloneKernel(cl_kernel source_kernel, cl_int * pErr);
         virtual cl_int CreateKernelsInProgram(cl_program clProgram, cl_uint uiNumKernels, cl_kernel * pclKernels, cl_uint * puiNumKernelsRet);
         virtual cl_int RetainKernel(cl_kernel clKernel);
         virtual cl_int ReleaseKernel(cl_kernel clKernel);
@@ -356,7 +358,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
             (void*)clContext, clFlags, clImageFormat->image_channel_data_type, clImageFormat->image_channel_order, szImageWidth, szImageHeight, szImageDepth, szImageRowPitch, szImageSlicePitch, pHostPtr, pErrcodeRet);
 
         SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)clContext).DynamicCast<Context>();
-        if (NULL == pContext)
+        if (0 == pContext)
         {
             LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), clContext);
             if (NULL != pErrcodeRet)
@@ -539,7 +541,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
 
     SharedPtr<Context> pContext = m_mapContexts.GetOCLObject((_cl_context_int*)context).DynamicCast<Context>();
 
-    if (NULL == pContext)
+    if (0 == pContext)
     {
         LOG_ERROR(TEXT("m_pContexts->GetOCLObject(%d) = NULL"), context);
         if (NULL != pErrcodeRet)
@@ -550,7 +552,7 @@ cl_mem ContextModule::CreateImageBuffer(cl_context context, cl_mem_flags clFlags
     }
 
     SharedPtr<GenericMemObject> pBuffer = m_mapMemObjects.GetOCLObject((_cl_mem_int*)buffer).DynamicCast<GenericMemObject>();
-    if (CL_FAILED(clErr) || NULL == pBuffer)
+    if (CL_FAILED(clErr) || 0 == pBuffer)
     {
         LOG_ERROR(TEXT("GetOCLObject(%d, %d) returned %s"), buffer, &pBuffer, ClErrTxt(clErr));
         if (pErrcodeRet)

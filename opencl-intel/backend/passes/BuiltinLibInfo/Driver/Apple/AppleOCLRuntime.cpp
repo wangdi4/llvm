@@ -24,7 +24,7 @@ const char RTModuleStr [] =
 "\
 \n\
 ; ModuleID = 'vectorizer_inner_rt.ll'\n\
-target datalayout = \"e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a64:64:64-f80:128:128-n8:16:32\"\n\
+target datalayout = \"e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-f80:128:128-n8:16:32\"\n\
 target triple = \"i386-applecl-darwin11\"\n\
 \n\
 %struct._image2d_t = type opaque\n\
@@ -145,12 +145,12 @@ AppleOpenclRuntime::AppleOpenclRuntime(llvm::SmallVector<Module*, 2> runtimeModu
     ++preVecPtr;
   }
 
-  MemoryBuffer *MB = MemoryBuffer::getMemBuffer(RTModuleStr);
+  auto MB = MemoryBuffer::getMemBuffer(RTModuleStr);
   SMDiagnostic Err1;
   assert(!m_runtimeModulesList.empty() && "Builtin module list is empty!");
   const Module* runtimeModule = m_runtimeModulesList.front(); 
   LLVMContext &Context1 = runtimeModule->getContext();
-  m_innerRTModule = ParseIR(MB, Err1, Context1);
+  m_innerRTModule = parseIR(MB->getMemBufferRef(), Err1, Context1);
 
   std::string fakeReadImgName = Mangler::getFakeBuiltinName(APPLE_READ_IMG_NAME);
   m_readImageEntry = findBuiltinFunction(fakeReadImgName);

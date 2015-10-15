@@ -21,7 +21,7 @@ declare <16 x float> @_Z3powDv16_fS_(<16 x float>, <16 x float>)
 
 !opencl.compiler.options = !{!0}
 
-!0 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{!"-cl-std=CL2.0"}
 
 ; CHECK:        define void @check_pow_float
 ; CHECK:        entry:

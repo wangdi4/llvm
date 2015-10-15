@@ -17,11 +17,12 @@ if( INCLUDE_MKL )
 	endif(WIN32)
     add_definitions( -D__INCLUDE_MKL__ )
 	
-    if( USE_OMP2TBB )
-        message(STATUS "Including OMP2TBB library" )
-        add_definitions(-D__OMP2TBB__)
-        add_subdirectory( common/omp2tbb )
-    endif()
+    # [Protex IP] Do not use omp2tbb.
+    #if( USE_OMP2TBB )
+    #message(STATUS "Including OMP2TBB library" )
+    #add_definitions(-D__OMP2TBB__)
+    #add_subdirectory( common/omp2tbb )
+    #endif()
 	
     if (ADDR EQUAL 64)
         set ( ICC_ARCH_DIR intel64 )
@@ -36,6 +37,16 @@ endif( INCLUDE_MKL)
 add_subdirectory( common/builtin_kernels)
 add_subdirectory( cpu_device )
 add_subdirectory( device_commands )
+
+# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+# this warning occur when processing externals/itt/include/ittnotify.h
+# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+# function that not use in every build target.
+if (NOT WIN32)
+     # disable warnings inherited from external componennts
+     add_definitions( "-Wno-unused-function" )
+     add_definitions( "-Wno-attributes" )
+endif(NOT Win32)
 
 if ( INCLUDE_MIC_DEVICE )
     add_subdirectory( mic_device )

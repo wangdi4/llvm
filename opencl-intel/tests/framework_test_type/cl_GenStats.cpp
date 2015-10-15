@@ -128,7 +128,7 @@ static bool CheckStats () {
 
   while (getline(testRes, str).good()) {
     if (str.length() > 0 && *str.begin() == '!' &&
-        str.find("= metadata !{metadata !\"Vectorizer@CanVect\", i32 1}")
+        str.find("= !{!\"Vectorizer@CanVect\", i32 1}")
           != string::npos) {
       res = true;
       break;

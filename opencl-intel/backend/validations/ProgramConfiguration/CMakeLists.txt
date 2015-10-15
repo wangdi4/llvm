@@ -11,6 +11,7 @@ include_directories(
   ${VALIDATIONS_ROOT}/Common
   ${VALIDATIONS_ROOT}/../external/tinyxml
   ${BACKEND_ROOT_DIR}/../cl_api
+  ${CL_API_HEADERS}
   ${VALIDATIONS_ROOT}/OCLKernelDataGenerator
   ${VALIDATIONS_ROOT}/OpenCLKernelArgumentsParser
 )

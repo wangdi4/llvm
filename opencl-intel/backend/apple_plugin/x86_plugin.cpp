@@ -37,7 +37,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringMap.h"
 
-#include "llvm/Analysis/Verifier.h"
+#include "llvm/IR/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -131,7 +131,7 @@ int alloc_kernels_info(CFMutableDictionaryRef *info,
     return 0;
   }
   // Create the DataLayout structure from the Module's arch info.
-  DataLayout DL(M);
+  DataLayout & DL = *M->getDataLayout();
 
   Intel::MetaDataUtils::KernelsList::const_iterator iter = mdUtils.begin_Kernels(), end = mdUtils.end_Kernels();
   for(unsigned int i=0; iter != end; ++iter, ++i) {
@@ -450,7 +450,7 @@ static void cld_replace_uses(Value* From, Value* To, Instruction* AfterPos) {
   // the __local storage.
   // ConstantExpr *CE = dyn_cast<ConstantExpr>(From);
 
-  for (Value::use_iterator ui = From->use_begin(), ue = From->use_end();
+  for (Value::user_iterator ui = From->user_begin(), ue = From->user_end();
        ui != ue; ) {
     User* UserOp = *ui++;
 
@@ -515,7 +515,7 @@ Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
                          bool debug, bool vector) {
   LLVMContext &CTX = M->getContext();
   Type *I32Ty = Type::getInt32Ty(CTX);
-  Type *SizeTy = IntegerType::get(CTX, DL.getPointerSizeInBits());
+  Type *SizeTy = IntegerType::get(CTX, DL.getPointerSizeInBits(0));
 
   // Create a wrapper function which will loop over the kernel in the
   // x-dimension, with the following prototype:
@@ -654,7 +654,7 @@ Function *cld_genwrapper(Module *M, DataLayout &DL, Function *kf,
   Function *F = M->getFunction("get_global_id");
   if (F)
   {
-    for (Value::use_iterator ui = F->use_begin(), ue = F->use_end();
+    for (Value::user_iterator ui = F->user_begin(), ue = F->user_end();
          ui != ue; ) {
       User* UserOp = *ui++;
       if (!isa<CallInst>(UserOp))

@@ -10,6 +10,15 @@ set( TARGET_NAME Context )
 FIND_SOURCES()
 CALCULATE_TARGET_SOURCES()
 
+# [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
+# this warning occur when processing externals/itt/include/ittnotify.h
+# since it contain __itt_id __itt_id_make(void*, long long unsigned int)
+# function that not use in every build target.
+# There are ~50 cases of NULL conversion, so disable it too.
+if (NOT WIN32)
+    add_definitions( "-Wno-unused-function -Wno-conversion-null" )
+endif(NOT Win32)
+
 include_directories( 
             ${LLVM_INCLUDE_DIRS}/cclang/cl_headers
             ${CMAKE_SOURCE_DIR}/utils/cl_sys_utils/export

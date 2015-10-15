@@ -1,5 +1,5 @@
 ; RUN: llvm-as %s -o %t.bc
-; RUN: opt  -runtimelib %p/../../Full/runtime.bc -std-compile-opts -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -subscript -verify %t.bc -S -o %t1.ll
+; RUN: opt  -runtimelib %p/../../Full/runtime.bc -O3 -inline-threshold=4096 -inline -lowerswitch -scalarize -mergereturn -loop-simplify -phicanon -predicate -mem2reg -dce -packetize -packet-size=16 -subscript -verify %t.bc -S -o %t1.ll
 ; RUN: FileCheck %s --input-file=%t1.ll
 
 ; Check uniform masked scatter/gather of unsigned int when index is 64bit
@@ -44,5 +44,5 @@ Entry5:                                       ; preds = %Entry3, %Entry4
 
 declare i64 @_Z13get_global_idj(...)
 
-!0 = metadata !{metadata !"omnipotent char", metadata !1}
-!1 = metadata !{metadata !"Simple C/C++ TBAA", null}
+!0 = !{!"omnipotent char", !1}
+!1 = !{!"Simple C/C++ TBAA", null}

@@ -202,13 +202,12 @@ void ProgramBuilder::DumpModuleStats(llvm::Module* pModule)
               );
         }
         // dump IR with stats
-        std::string ErrorInfo;
-        raw_fd_ostream IRFD(fileName.c_str(), ErrorInfo,
-            raw_fd_ostream::F_Binary);
-        if (ErrorInfo.empty())
+        std::error_code ec;
+        raw_fd_ostream IRFD(fileName.c_str(), ec, llvm::sys::fs::F_RW);
+        if (!ec)
           pModule->print(IRFD, 0);
         else
-          throw Exceptions::CompilerException(ErrorInfo.c_str());
+          throw Exceptions::CompilerException(ec.message());
     }
 }
 
@@ -216,8 +215,21 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
 {
     try
     {
-        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program should not has been loaded from cache");
+        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
         pProgram->SetModule( GetCompiler()->ParseModuleIR( Utils::GetProgramMemoryBuffer(pProgram)));
+    }
+    catch(Exceptions::CompilerException& e)
+    {
+        throw Exceptions::DeviceBackendExceptionBase(e.what());
+    }
+}
+
+void ProgramBuilder::ParseSPIRVProgram(Program* pProgram)
+{
+    try
+    {
+        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
+        pProgram->SetModule(GetCompiler()->ParseSPIRVModule(Utils::GetProgramMemoryBuffer(pProgram)));
     }
     catch(Exceptions::CompilerException& e)
     {
@@ -417,6 +429,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       if (!kernelAttributes.str().empty()) kernelAttributes << " ";
       kernelAttributes << "vec_type_hint(";
 
+      // TODO: Enable MetaDataApi support for the code below.
       // Temporal patch - MetaDataApi doesn't support this for now
       // so dig down to get the signedness from the metadata
       // Expected metadata format for vec_type_hint:
@@ -426,9 +439,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
       MDNode *FuncInfo = NULL;
       for (int i = 0, e = MDArgInfo->getNumOperands(); i < e; i++) {
         FuncInfo = MDArgInfo->getOperand(i);
-        Value *field0 = FuncInfo->getOperand(0)->stripPointerCasts();
 
-        if(func == dyn_cast<Function>(field0))
+        if(func == llvm::mdconst::dyn_extract<llvm::Function>(
+                    FuncInfo->getOperand(0))->stripPointerCasts())
           break;
       }
       assert(FuncInfo && "Couldn't find this kernel in the kernel list");
@@ -450,7 +463,9 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         throw Exceptions::CompilerException("Internal Error. MDVecTHint is NULL");
 
       // Look for operand 2 - isSigned
-      ConstantInt *isSigned = dyn_cast<ConstantInt>(MDVecTHint->getOperand(2));
+      ValueAsMetadata * vAm = dyn_cast<ValueAsMetadata>(MDVecTHint->getOperand(2));
+      assert(vAm && "MetadataAsValue is expected");
+      ConstantInt *isSigned = dyn_cast<ConstantInt>(vAm->getValue());
       assert(isSigned && "isSigned should be a constant integer value");
 
       if (isSigned && isSigned->isZero())
@@ -511,7 +526,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     // Kernel should keep size of pointer specified inside module
     // to allow cross-platform compilation
-    unsigned int ptrSizeInBytes = pModule->getPointerSize()*4;
+    unsigned int ptrSizeInBytes = pModule->getDataLayout()->getPointerSize(0);
     pProps->SetPointerSize(ptrSizeInBytes);
 
     pProps->SetHasDebugInfo(buildOptions.GetDebugInfoFlag());

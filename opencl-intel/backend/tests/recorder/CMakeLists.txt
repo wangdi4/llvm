@@ -16,6 +16,7 @@ endif(WIN32)
 #include dirs
 include_directories( ${OCL_SOURCE_DIR}/externals/gtest/include
   ${OCL_SOURCE_DIR}/cl_api
+  ${CL_API_HEADERS}
   ${OCL_SOURCE_DIR}/tests/framework_test_type/
   ${OCL_SOURCE_DIR}/utils/cl_sys_utils/export
 )

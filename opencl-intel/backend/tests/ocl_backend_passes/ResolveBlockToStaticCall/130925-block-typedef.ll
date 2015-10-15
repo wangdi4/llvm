@@ -134,13 +134,13 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!9}
 
-!0 = metadata !{void (i32 addrspace(1)*)* @block_typedef_reassign, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
-!1 = metadata !{metadata !"kernel_arg_addr_space", i32 1}
-!2 = metadata !{metadata !"kernel_arg_access_qual", metadata !"none"}
-!3 = metadata !{metadata !"kernel_arg_type", metadata !"int*"}
-!4 = metadata !{metadata !"kernel_arg_type_qual", metadata !""}
-!5 = metadata !{metadata !"kernel_arg_name", metadata !"res"}
-!6 = metadata !{i32 1, i32 0}
-!7 = metadata !{i32 2, i32 0}
-!8 = metadata !{}
-!9 = metadata !{metadata !"-cl-std=CL2.0"}
+!0 = !{void (i32 addrspace(1)*)* @block_typedef_reassign, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space", i32 1}
+!2 = !{!"kernel_arg_access_qual", !"none"}
+!3 = !{!"kernel_arg_type", !"int*"}
+!4 = !{!"kernel_arg_type_qual", !""}
+!5 = !{!"kernel_arg_name", !"res"}
+!6 = !{i32 1, i32 0}
+!7 = !{i32 2, i32 0}
+!8 = !{}
+!9 = !{!"-cl-std=CL2.0"}

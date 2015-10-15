@@ -11,6 +11,7 @@
         clCreateKernelsInProgram;
         clCreateProgramWithBinary;
         clCreateProgramWithSource;
+        clCreateProgramWithIL;
         clCreateSampler;
         clEnqueueBarrier;
         clEnqueueCopyBuffer;
@@ -74,6 +75,8 @@
         clSetEventCallback;
         clSetMemObjectDestructorCallback;
         clSetUserEventStatus;
+        clGetHostTimer;
+        clGetDeviceAndHostTimer;
         clCompileProgram;
         clCreateImage;
         clCreateProgramWithBuiltInKernels;
@@ -100,6 +103,7 @@
         clSetKernelArgSVMPointer;
         clSetKernelExecInfo;
 
+        clCloneKernel;
         clCreatePipe;
         clCreatePipeINTEL;
         clGetPipeInfo;

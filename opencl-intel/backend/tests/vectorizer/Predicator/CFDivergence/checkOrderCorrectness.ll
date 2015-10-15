@@ -56,7 +56,7 @@ if.end8:                                          ; preds = %if.then7, %if.then3
 
 if.else:                                          ; preds = %if.end
   %5 = load i32* %c, align 4
-  %call9 = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* bitcast ([13 x i8]* @.str to i8 addrspace(2)*), i32 %5)
+  %call9 = call i32 (i8 addrspace(2)*, ...)* @printf(i8 addrspace(2)* addrspacecast ([13 x i8]* @.str to i8 addrspace(2)*), i32 %5)
   br label %if.end10
 
 if.end10:                                         ; preds = %if.else, %if.end8
@@ -83,12 +83,12 @@ entry:
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = metadata !{void ()* @testKernel, metadata !1, metadata !2, metadata !3, metadata !4, metadata !5}
-!1 = metadata !{metadata !"kernel_arg_addr_space"}
-!2 = metadata !{metadata !"kernel_arg_access_qual"}
-!3 = metadata !{metadata !"kernel_arg_type"}
-!4 = metadata !{metadata !"kernel_arg_type_qual"}
-!5 = metadata !{metadata !"kernel_arg_name"}
-!6 = metadata !{i32 1, i32 0}
-!7 = metadata !{i32 0, i32 0}
-!8 = metadata !{}
+!0 = !{void ()* @testKernel, !1, !2, !3, !4, !5}
+!1 = !{!"kernel_arg_addr_space"}
+!2 = !{!"kernel_arg_access_qual"}
+!3 = !{!"kernel_arg_type"}
+!4 = !{!"kernel_arg_type_qual"}
+!5 = !{!"kernel_arg_name"}
+!6 = !{i32 1, i32 0}
+!7 = !{i32 0, i32 0}
+!8 = !{}

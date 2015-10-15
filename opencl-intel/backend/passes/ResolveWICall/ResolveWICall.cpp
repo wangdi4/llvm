@@ -12,11 +12,11 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "CallbackDesc.h"
 
-#include "llvm/Support/InstIterator.h"
 #include "llvm/IR/DataLayout.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/IR/IRBuilder.h"
 
 #include <algorithm>
 
@@ -53,7 +53,7 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      unsigned PointerSize = getAnalysis<DataLayout>().getPointerSizeInBits();
+      unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
       m_IAA->initDuringRun(PointerSize);
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
@@ -310,7 +310,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-    DataLayout DL(m_pModule);
+    DataLayout const &DL = *m_pModule->getDataLayout();
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -368,7 +368,7 @@ namespace intel {
 
       // bitcast from generic i8* address to a pointer to the argument's type
       //
-      BitCastInst *cast_instr = new BitCastInst(gep_instr, PointerType::getUnqual(argtype), "", pCall);
+      CastInst *cast_instr = CastInst::CreatePointerCast(gep_instr, PointerType::getUnqual(argtype), "", pCall);
 
       // store argument into address. Alignment forced to 1 to make vector
       // stores safe.
@@ -410,15 +410,15 @@ namespace intel {
 
   void ResolveWICall::updatePrefetch(llvm::CallInst *pCall) {
 
-    DataLayout DL(m_pModule);
+    DataLayout const& DL = *m_pModule->getDataLayout();
 
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
     // push original parameters
     // Need bitcast to a general pointer
-    CastInst *pBCPtr = CastInst::Create(Instruction::BitCast, pCall->getArgOperand(0),
+    CastInst *pBCPtr = CastInst::CreatePointerCast(pCall->getArgOperand(0),
       PointerType::get(IntegerType::get(*m_pLLVMContext, 8), 0), "", pCall);
     params.push_back(pBCPtr);
     // Put number of elements
@@ -456,7 +456,7 @@ namespace intel {
       return;
     }
 
-    unsigned int uiSizeT = m_pModule->getPointerSize()*32;
+    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
 
     std::vector<Type*> params;
     // Source Pointer
@@ -660,7 +660,7 @@ namespace intel {
     Type *PtrTy = cast<PointerType>(NewParamTy)->getElementType();
     // pointer type is struct
     if (PtrTy->isStructTy()) {
-      *it = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy, "",
+      *it = CastInst::CreatePointerCast(NewParam, ExpectedArgTy, "",
                              pCall);
       continue;
     }
@@ -672,7 +672,7 @@ namespace intel {
     // double pointer points to structure
     Type *PPtrTy = cast<PointerType>(PtrTy)->getElementType();
     if (PPtrTy->isStructTy()) {
-      NewParam = CastInst::Create(Instruction::BitCast, NewParam, ExpectedArgTy,
+      NewParam = CastInst::CreatePointerCast(NewParam, ExpectedArgTy,
                                   "", pCall);
       continue;
     }
@@ -686,7 +686,7 @@ namespace intel {
   Value *ret = CI;
   if (pCall->getType() != CI->getType()) {
     if (isPointerToStructType(pCall->getType()))
-      ret = CastInst::Create(Instruction::BitCast, CI, pCall->getType(), "",
+      ret = CastInst::CreatePointerCast(CI, pCall->getType(), "",
                              pCall);
     else
       assert(0 && "Should not get here. Unsupported type of return value");
@@ -778,10 +778,9 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     m_ExtExecDecls.insert(type);
   }
   unsigned ResolveWICall::getPointerSize() const {
-    switch (m_pModule->getPointerSize()) {
-    default: assert(false && "unknown pointer size"); return 0;
-    case Module::Pointer32: return 32;
-    case Module::Pointer64: return 64;
-    }
+    unsigned pointerSizeInBits = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
+           "Unsopported pointer size");
+    return pointerSizeInBits;
   }
 } // namespace intel
