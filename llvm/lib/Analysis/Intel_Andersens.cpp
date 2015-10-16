@@ -867,8 +867,21 @@ AndersensAAResult::AndersensAAResult(const DataLayout &DL,
                                  const TargetLibraryInfo &TLI)
     : AAResultBase(TLI), DL(DL) {}
 
+// Partial data of AndersensAAResult is copied here. Once Andersens
+// points-to analysis is done, only GraphNodes, ValueNodes, ObjectNodes,
+// ReturnNodes and VarargNodes are used by interface routines like 
+// alias, pointsToConstantMemory etc  and PrintNode that is called from
+// interface routines. IndirectCallList is copied for future 
+// use to implement indirect-call conversion. 
+//
 AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
-    : AAResultBase(std::move(Arg)), DL(Arg.DL) {}
+    : AAResultBase(std::move(Arg)), DL(Arg.DL),
+      IndirectCallList(std::move(Arg.IndirectCallList)),
+      GraphNodes(std::move(Arg.GraphNodes)),
+      ValueNodes(std::move(Arg.ValueNodes)),
+      ObjectNodes(std::move(Arg.ObjectNodes)),
+      ReturnNodes(std::move(Arg.ReturnNodes)),
+      VarargNodes(std::move(Arg.VarargNodes)) {}
 
 
 /*static*/ AndersensAAResult
