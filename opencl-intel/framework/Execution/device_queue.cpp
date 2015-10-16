@@ -26,10 +26,7 @@ using namespace Intel::OpenCL::Framework;
 
 cl_err_code DeviceQueue::Initialize()
 {
-	if (m_bIsDefault && !m_pDefaultDevice->TestAndSetDefaultDeviceQueueExists())
-	{
-		return CL_INVALID_COMMAND_QUEUE;
-	}
+    m_pDefaultDevice->SetOrReturnDefaultQueue(this);
 	const cl_dev_subdevice_id subdevice_id = m_pContext->GetSubdeviceId(m_clDefaultDeviceHandle);
 	const int props = CL_DEV_LIST_ENABLE_OOO |
 					  (m_bProfilingEnabled ? CL_DEV_LIST_PROFILING : 0) |

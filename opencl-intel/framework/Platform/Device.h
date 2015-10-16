@@ -156,12 +156,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
          * Atomically test whether a default device queue does not exist for this FissionableDevice and if not, set that it exists
          * @return whether a default device queue did not exist 
          */
-        bool TestAndSetDefaultDeviceQueueExists() { return m_DefaultDeviceQueueExists.test_and_set(0, 1) == 0; } 
 
         /**
          * Set that a default device queue does not exists any more for this FissionableDevice
          */
-        void SetDefaultDeviceQueueNotExists() { m_DefaultDeviceQueueExists = 0; }
+        void SetDefaultDeviceQueueNotExists() { m_default_command_queue = NULL; }
+
+        OclCommandQueue* SetOrReturnDefaultQueue(OclCommandQueue* command_queue = NULL)
+        {
+            return m_default_command_queue.test_and_set(NULL, command_queue);
+        }
 
     protected:
 
@@ -190,7 +194,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_context_properties m_iD3DDevType;
 
         Intel::OpenCL::Utils::OclMutex          m_devMutex;
-        Intel::OpenCL::Utils::AtomicCounter     m_DefaultDeviceQueueExists;
+        Intel::OpenCL::Utils::AtomicPointer<OclCommandQueue> m_default_command_queue;
 
     };
 

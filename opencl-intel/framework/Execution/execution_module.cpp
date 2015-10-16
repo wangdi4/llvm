@@ -181,6 +181,19 @@ cl_command_queue ExecutionModule::CreateCommandQueue(
             {
                 if (queueProps & CL_QUEUE_ON_DEVICE)
                 {
+                    if (queueProps & CL_QUEUE_ON_DEVICE_DEFAULT)
+                    {
+                        // Check if command queue already exist on device...
+                        SharedPtr<FissionableDevice> pDevice = pContext->GetDevice(clDevice);
+                        SharedPtr<OclCommandQueue> pDefaultQueue = pDevice->SetOrReturnDefaultQueue();
+                        if(pDefaultQueue)
+                        {
+                            if (pErrRet) *pErrRet = errVal;
+                            pDefaultQueue->Retain();
+                            return pDefaultQueue->GetHandle();
+                        }
+
+                    }
                     pCommandQueue = DeviceQueue::Allocate(pContext, clDevice, queueProps, m_pEventsManager, queueProps & CL_QUEUE_PROFILING_ENABLE, queueProps & CL_QUEUE_ON_DEVICE_DEFAULT, uiQueueSize);
                 }
                 else
