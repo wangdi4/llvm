@@ -594,7 +594,7 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     {
         for (size_t i = 0; i < numKernels; ++i)
         {
-            errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, NULL, pszNameSizes + i);
+            errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, NULL, 0, NULL, pszNameSizes + i);
             if (CL_FAILED(errRet))
             {
                 delete[] devKernels;
@@ -608,7 +608,7 @@ cl_err_code DeviceProgram::GetKernelNames(char **ppNames, size_t *pszNameSizes, 
     for (size_t i = 0; i < numKernels; ++i)
     {
         size_t kernelNameSize;
-        errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, pszNameSizes[i], ppNames[i], &kernelNameSize);
+        errRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(devKernels[i], CL_DEV_KERNEL_NAME, 0, NULL, pszNameSizes[i], ppNames[i], &kernelNameSize);
         if (CL_FAILED(errRet))
         {
             delete[] devKernels;

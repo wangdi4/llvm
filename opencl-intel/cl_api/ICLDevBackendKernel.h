@@ -71,6 +71,28 @@ public:
      */
     virtual size_t GetPrivateMemorySize() const = 0;
 
+    /** @returns the max possible SG size.
+     */
+    virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const = 0;
+
+    /** @returns the number of SGs will be generated for specified local work sizes.
+     */
+    virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const = 0;
+
+    /** @returns the number of SGs will be generated for specified local work sizes.
+     */
+    virtual void GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const = 0;
+
+    /** @returns the maximum number of sub-groups that may make up each work-group to execute kernel.
+     */
+    virtual size_t GetMaxNumSubGroups() const = 0;
+
+    /**
+     * @returns the required sub-group size that was declared during kernel compilation.
+     *  0 when this attribute is not present.
+     */
+    virtual size_t GetRequiredSubGroupSize() const = 0;
+
     /** @returns the max. possible WG size with respect to the specified limits.
      */
     virtual size_t GetMaxWorkGroupSize(size_t const maxWGSize, size_t const maxWGPrivateSize) const = 0;
