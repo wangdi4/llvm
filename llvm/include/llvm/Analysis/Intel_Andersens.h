@@ -37,13 +37,17 @@
 
 namespace llvm {
 
+// Forward declaration for use within AndersensAAResult class
+class IntelModRefImpl;
+class IntelModRef;
+
 /// An alias analysis result set for Andersens points-to.
 ///
 /// This focuses on handling aliasing properties using Andersens points-to.
 class AndersensAAResult : public AAResultBase<AndersensAAResult>, 
                           private InstVisitor<AndersensAAResult> {
   friend AAResultBase<AndersensAAResult>;
-
+  friend IntelModRefImpl;
   struct BitmapKeyInfo;
 
   struct Node;
@@ -202,6 +206,32 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
     }
   };
+
+  // Helper class for Intel style mod/ref sets. This is the external module
+  // interface used by the AndersensAAResult.
+  class IntelModRef {
+  public:
+    IntelModRef(AndersensAAResult *AnderAA);
+    ~IntelModRef();
+
+    void runAnalysis(Module &M);
+    ModRefInfo getModRefInfo(ImmutableCallSite CS, const MemoryLocation &Loc);
+
+  private:
+    // Pointer to implementation idiom
+    IntelModRefImpl *Impl;
+  };
+
+  std::unique_ptr<IntelModRef> IMR;
+  // Interface for IntelModRef collection.
+  enum {
+    PointsToValue = 0x1,
+    PointsToNonLocalLoc = 0x2,
+    PointsToBottom = 0x4
+  };
+
+  unsigned getPointsToSet(const Value *V,
+    std::vector<llvm::Value*>& PtVec);
 
   // List of callbacks for Values being tracked by this analysis.
   std::set<AndersensDeletionCallbackHandle> AndersensHandles;
