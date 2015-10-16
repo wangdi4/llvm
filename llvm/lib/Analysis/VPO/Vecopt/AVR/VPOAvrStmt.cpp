@@ -9,15 +9,13 @@
 //
 //   Source file:
 //   ------------
-//   VPOAvrFunction.cpp -- Implements the Abstract Vector Representation (AVR)
+//   VPOAvrStmt.cpp -- Implements the Abstract Vector Representation (AVR)
 //   statement nodes.
 //
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/IR/CFG.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmt.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -28,8 +26,8 @@ using namespace llvm::vpo;
 
 
 //----------AVR Assign Implementation----------//
-AVRAssign::AVRAssign(Instruction * Inst)
-  : AVR(AVR::AVRAssignNode), Instruct(Inst) {}
+AVRAssign::AVRAssign(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRAssign *AVRAssign::clone() const {
   return nullptr;
@@ -37,32 +35,11 @@ AVRAssign *AVRAssign::clone() const {
 
 void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
                       unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_ASSIGN: ";
-    Instruct->print(OS); 
-    OS << "\n" ;
-  }
-}
-
-void AVRAssign::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------AVR Label Implementation----------//
-AVRLabel::AVRLabel(BasicBlock *SourceB)
-  : AVR(AVR::AVRLabelNode), SourceBlock(SourceB) {}
+AVRLabel::AVRLabel(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRLabel *AVRLabel::clone() const {
   return nullptr;
@@ -70,19 +47,11 @@ AVRLabel *AVRLabel::clone() const {
 
 void AVRLabel::print(formatted_raw_ostream &OS, unsigned Depth,
                      unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent <<"AVR_LABEL:    " << this->SourceBlock->getName() << "\n";
-  }
-}
-
-void AVRLabel::codeGen() {
 }
 
 //----------AVR Phi Implementation----------//
-AVRPhi::AVRPhi(Instruction * Inst)
-  : AVR(AVR::AVRPhiNode), Instruct(Inst) {}
+AVRPhi::AVRPhi(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRPhi *AVRPhi::clone() const {
   return nullptr;
@@ -90,32 +59,11 @@ AVRPhi *AVRPhi::clone() const {
 
 void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
                      unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_PHI:    ";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
-}
-
-void AVRPhi::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------AVR Call Implementation----------//
-AVRCall::AVRCall(Instruction * Inst)
-  : AVR(AVR::AVRCallNode), Instruct(Inst) {}
+AVRCall::AVRCall(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRCall *AVRCall::clone() const {
   return nullptr;
@@ -123,32 +71,11 @@ AVRCall *AVRCall::clone() const {
 
 void AVRCall::print(formatted_raw_ostream &OS, unsigned Depth,
                     unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent <<"AVR_CALL:   ";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
-}
-
-void AVRCall::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------AVR FBranch Implementation----------//
-AVRFBranch::AVRFBranch(Instruction * Inst)
-  : AVR(AVR::AVRFBranchNode), Instruct(Inst) {}
+AVRFBranch::AVRFBranch(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRFBranch *AVRFBranch::clone() const {
   return nullptr;
@@ -156,32 +83,11 @@ AVRFBranch *AVRFBranch::clone() const {
 
 void AVRFBranch::print(formatted_raw_ostream &OS, unsigned Depth,
                        unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_FBRANCH:";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
-}
-
-void AVRFBranch::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------AVR BackEdge Implementation----------//
-AVRBackEdge::AVRBackEdge(Instruction * Inst)
-  : AVR(AVR::AVRFBranchNode), Instruct(Inst) {}
+AVRBackEdge::AVRBackEdge(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRBackEdge *AVRBackEdge::clone() const {
   return nullptr;
@@ -189,32 +95,11 @@ AVRBackEdge *AVRBackEdge::clone() const {
 
 void AVRBackEdge::print(formatted_raw_ostream &OS, unsigned Depth,
                         unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_BACKEDGE:";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
-}
-
-void AVRBackEdge::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------AVR Entry Implementation----------//
-AVREntry::AVREntry(Instruction * Inst)
-  : AVR(AVR::AVREntryNode), Instruct(Inst) {}
+AVREntry::AVREntry(unsigned SCID)
+  : AVR(SCID) {}
 
 AVREntry *AVREntry::clone() const {
   return nullptr;
@@ -222,33 +107,11 @@ AVREntry *AVREntry::clone() const {
 
 void AVREntry::print(formatted_raw_ostream &OS, unsigned Depth,
                      unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0 ) {
-    OS << Indent <<"AVR_ENTRY: ";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
 }
-
-void AVREntry::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
-}
-
 
 //----------AVR Return Implementation----------//
-AVRReturn::AVRReturn(Instruction * Inst)
-  : AVR(AVR::AVRReturnNode), Instruct(Inst) {}
+AVRReturn::AVRReturn(unsigned SCID)
+  : AVR(SCID) {}
 
 AVRReturn *AVRReturn::clone() const {
   return nullptr;
@@ -256,27 +119,6 @@ AVRReturn *AVRReturn::clone() const {
 
 void AVRReturn::print(formatted_raw_ostream &OS, unsigned Depth,
                       unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_RETURN: ";
-    Instruct->print(OS);
-    OS << "\n" ;
-  }
-}
-
-void AVRReturn::codeGen() {
-  Instruction *inst;
-
-  DEBUG(Instruct->dump());
-  inst = Instruct->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
 }
 
 //----------------------------------------------------------------------------//

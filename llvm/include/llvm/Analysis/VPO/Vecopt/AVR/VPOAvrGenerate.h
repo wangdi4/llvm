@@ -18,8 +18,9 @@
 #define LLVM_ANALYSIS_VPO_AVR_GENERATE_H
 
 #include "llvm/Pass.h"
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtils.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtils.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtilsIR.h"
 
 namespace llvm { // LLVM Namespace
 

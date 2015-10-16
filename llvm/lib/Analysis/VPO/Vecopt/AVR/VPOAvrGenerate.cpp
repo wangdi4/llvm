@@ -138,7 +138,7 @@ void AVRGenerate::buildAvrsForVectorCandidates()
 
 AVR* AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB, AVR *InsertionPos)
 {
-  AVR *NewNode = AVRUtils::createAVRLabel(BB);
+  AVR *NewNode = AVRUtilsIR::createAVRLabelIR(BB);
  
   // First BB of loop, function, split is inserted as first child
   if (isa<AVRLoop>(InsertionPos) || isa<AVRFunction>(InsertionPos) ||
@@ -155,20 +155,20 @@ AVR* AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB, AVR *InsertionPos)
 
     switch(I->getOpcode()) {
       case Instruction::Call:
-        NewNode = AVRUtils::createAVRCall(I);
+        NewNode = AVRUtilsIR::createAVRCallIR(I);
         break;
       case Instruction::PHI:
-        NewNode = AVRUtils::createAVRPhi(I);
+        NewNode = AVRUtilsIR::createAVRPhiIR(I);
         break;
       case Instruction::Br:
-        NewNode = AVRUtils::createAVRFBranch(I);
+        NewNode = AVRUtilsIR::createAVRFBranchIR(I);
         break;
       //case Instruction::BackEdge:
         //break;
       //case Instruction::Entry:
         //break;
       case Instruction::Ret:
-        NewNode = AVRUtils::createAVRReturn(I);
+        NewNode = AVRUtilsIR::createAVRReturnIR(I);
         break;
       case Instruction::ICmp:
       case Instruction::FCmp:
@@ -179,7 +179,7 @@ AVR* AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB, AVR *InsertionPos)
       //case Instruction::Loop:
         //break;
       default:
-        NewNode = AVRUtils::createAVRAssign(I);
+        NewNode = AVRUtilsIR::createAVRAssignIR(I);
     }
 
     AVRUtils::insertAVRAfter(InsertionPos, NewNode);
@@ -269,8 +269,8 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
     BasicBlock *LoopLatchBB = Lp->getLoopLatch();
     assert(LoopLatchBB &&  "Loop Latch BB not found!");
 
-    AVR *AvrLbl = AVRUtils::getAvrLabelForBB(I, AvrFunction); 
-    AVR *AvrTerm = AVRUtils::getAvrBranchForTerm(LoopLatchBB->getTerminator(), 
+    AVR *AvrLbl = AVRUtilsIR::getAvrLabelForBB(I, AvrFunction); 
+    AVR *AvrTerm = AVRUtilsIR::getAvrBranchForTerm(LoopLatchBB->getTerminator(), 
                                                  AvrFunction);
     if (AvrLbl && AvrTerm) {
 
@@ -307,8 +307,8 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
     BasicBlock *LoopLatchBB = Lp->getLoopLatch();
     assert(LoopLatchBB &&  "Loop Latch BB not found!");
 
-    AVR *AvrLbl = AVRUtils::getAvrLabelForBB(LoopHeaderBB, AvrWrn); 
-    AVR *AvrTerm = AVRUtils::getAvrBranchForTerm(LoopLatchBB->getTerminator(), 
+    AVR *AvrLbl = AVRUtilsIR::getAvrLabelForBB(LoopHeaderBB, AvrWrn); 
+    AVR *AvrTerm = AVRUtilsIR::getAvrBranchForTerm(LoopLatchBB->getTerminator(), 
                                                  AvrWrn);
     if (AvrLbl && AvrTerm) {
 

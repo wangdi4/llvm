@@ -46,12 +46,9 @@ namespace vpo {  // VPO Vectorizer Namespace
 /// An AVRAssign node represents an assignment found in LLVM IR or LoopOpt HIR.
 class AVRAssign : public AVR {
 
-private:
-  Instruction *Instruct;
-
 protected:
   /// \brief AVRAssign Object Constructor.
-  AVRAssign(Instruction *Instr);
+  AVRAssign(unsigned SCID);
 
   /// \brief AVRAssign Object Destructor.
   virtual ~AVRAssign() override {}
@@ -67,9 +64,6 @@ protected:
 
 public:
 
-  /// \brief Returns the LLVM Instruction
-  const Instruction *getLLVMInstruction() const { return Instruct; }
-
   /// \brief Returns the specified operand value.
   const Value *getOperand(unsigned OperandNumber);
 
@@ -80,15 +74,13 @@ public:
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRAssignNode;
+    return (Node->getAVRID() > AVR::AVRAssignNode &&
+            Node->getAVRID() < AVR::AVRAssignLastNode);
   }
 
   /// \brief Prints the AVRAssign node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Assign.
-  void codeGen() override;
 
 };
 
@@ -96,24 +88,19 @@ public:
 /// \brief TODO
 class AVRLabel : public AVR {
 
-private:
-  BasicBlock *SourceBlock;
-
 protected:
 
-  AVRLabel(BasicBlock *SourceB);
+  AVRLabel(unsigned SCID);
   virtual ~AVRLabel() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
-  ///\brief returns BasicBlock assoicated with this Label.
-  BasicBlock *getSourceBBlock () const { return SourceBlock; }
-
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRLabelNode;
+    return (Node->getAVRID() > AVR::AVRLabelNode &&
+            Node->getAVRID() < AVR::AVRLabelLastNode);
   }
 
   AVRLabel *clone() const override;
@@ -121,9 +108,6 @@ public:
   /// \brief Prints the AVRLabel node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Label.
-  void codeGen() override;
 
 };
 
@@ -139,14 +123,11 @@ class AVRPhi : public AVR {
 
 private:
 
-  /// \brief Pointer to original LLVM Instruction
-  Instruction *Instruct;
-
   // TODO: Add member data
 
 protected:
 
-  AVRPhi(Instruction *Inst);
+  AVRPhi(unsigned SCID);
   virtual ~AVRPhi() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -157,22 +138,18 @@ public:
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRPhiNode;
+    return (Node->getAVRID() > AVR::AVRPhiNode &&
+            Node->getAVRID() < AVR::AVRPhiLastNode);
   }
 
   AVRPhi *clone() const override;
 
-  /// \brief Returns the LLVM Instruction
-  const Instruction *getLLVMInstruction() const { return Instruct; }
-
   /// \brief Prints the AVRPhi node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Phi.
-  void codeGen() override;
-
 };
+
+
 
 
 //----------AVR Call Node----------//
@@ -180,11 +157,10 @@ public:
 class AVRCall : public AVR {
 
 private:
-  Instruction *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVRCall(Instruction *Inst);
+  AVRCall(unsigned SCID);
   virtual ~AVRCall() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -195,7 +171,8 @@ public:
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRCallNode;
+    return (Node->getAVRID() > AVR::AVRCallNode &&
+            Node->getAVRID() < AVR::AVRCallLastNode);
   }
 
   AVRCall *clone() const override;
@@ -204,9 +181,6 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
 
-  /// \brief Code generation for AVR Call.
-  void codeGen() override;
-
 };
 
 //----------AVR Fbranch Node----------//
@@ -214,11 +188,10 @@ public:
 class AVRFBranch : public AVR {
 
 private:
-  Instruction *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVRFBranch(Instruction *Inst);
+  AVRFBranch(unsigned SCID);
   virtual ~AVRFBranch() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -227,12 +200,10 @@ protected:
 public:
   // TODO: Add Member Functions
 
-  /// \brief Returns FBranch Instruction
-  const Instruction *getLLVMInstruction() const { return Instruct; }
-
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRFBranchNode;
+    return (Node->getAVRID() > AVR::AVRFBranchNode &&
+            Node->getAVRID() < AVR::AVRFBranchLastNode);
   }
 
   AVRFBranch *clone() const override;
@@ -240,9 +211,6 @@ public:
   /// \brief Prints the AVRFBranch node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Forward branch.
-  void codeGen() override;
 
 };
 
@@ -252,11 +220,10 @@ public:
 class AVRBackEdge : public AVR {
 
 private:
-  Instruction *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVRBackEdge(Instruction *Inst);
+  AVRBackEdge(unsigned SCID);
   virtual ~AVRBackEdge() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -267,7 +234,8 @@ public:
 
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRBackEdgeNode;
+    return (Node->getAVRID() > AVR::AVRBackEdgeNode &&
+            Node->getAVRID() < AVR::AVRBackEdgeLastNode);
   }
 
   AVRBackEdge *clone() const override;
@@ -275,9 +243,6 @@ public:
   /// \brief Prints the AVRBackEdge node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Backedge.
-  void codeGen() override;
 
 };
 
@@ -287,11 +252,10 @@ public:
 class AVREntry : public AVR {
 
 private:
-  Instruction *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVREntry(Instruction *Inst);
+  AVREntry(unsigned SCID);
   virtual ~AVREntry() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -301,7 +265,8 @@ protected:
 public:
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVREntryNode;
+    return (Node->getAVRID() > AVR::AVREntryNode &&
+            Node->getAVRID() < AVR::AVREntryLastNode);
   }
 
   AVREntry *clone() const override;
@@ -310,9 +275,6 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
 
-  /// \brief Code generation for AVR Entry.
-  void codeGen() override;
-
 };
 
 //----------AVR Return Node----------//
@@ -320,11 +282,10 @@ public:
 class AVRReturn : public AVR {
 
 private:
-  Instruction *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVRReturn(Instruction *Inst);
+  AVRReturn(unsigned SCID);
   virtual ~AVRReturn() override {}
 
   // TODO: Add Member Functions
@@ -334,7 +295,8 @@ protected:
 public:
   ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRReturnNode;
+    return (Node->getAVRID() > AVR::AVRReturnNode &&
+            Node->getAVRID() < AVR::AVRReturnLastNode);
   }
 
   AVRReturn *clone() const override;
@@ -342,9 +304,6 @@ public:
   /// \brief Prints the AVRReturn node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              unsigned VerbosityLevel) const override;
-
-  /// \brief Code generation for AVR Return.
-  void codeGen() override;
 
 };
 
@@ -511,7 +470,7 @@ public:
              unsigned VerbosityLevel) const override;
 
   /// \brief Code generation for AVR Return.
-  void codeGen() override;
+  void codeGen();
 
 };
 

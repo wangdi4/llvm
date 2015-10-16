@@ -27,8 +27,8 @@ bool AVRCodeGen::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   int VL = 0;
-  AVRFBranch *LoopBackEdge = nullptr;
-  AVRPhi *InductionPhi = nullptr;
+  AVRFBranchIR *LoopBackEdge = nullptr;
+  AVRPhiIR *InductionPhi = nullptr;
   AVRIf *InductionCmp = nullptr;
 
   // We expect avr to be a AVRWrn node
@@ -51,21 +51,21 @@ bool AVRCodeGen::loopIsHandled() {
     return false;
   }
 
-  // Currently we only handle AVRAssign, AVRPhi, AVRIf,
-  // AVRFBranch, AVRLabel. We alse expect to see one AVRIf
+  // Currently we only handle AVRAssignIR, AVRPhiIR, AVRIf,
+  // AVRFBranchIR, AVRLabelIR. We alse expect to see one AVRIf
   // for the induction var compare, one branch for loop
-  // backedge and one AVRPhi for loop induction variable.
-  // AVRLabels are ignored for now.
+  // backedge and one AVRPhiIR for loop induction variable.
+  // AVRLabelIRs are ignored for now.
   for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); Itr != E;
        ++Itr) {
-    if (isa<AVRAssign>(Itr) || isa<AVRLabel>(Itr)) {
+    if (isa<AVRAssignIR>(Itr) || isa<AVRLabelIR>(Itr)) {
       continue;
-    } else if (isa<AVRPhi>(Itr)) {
+    } else if (isa<AVRPhiIR>(Itr)) {
       if (InductionPhi) {
         return false;
       }
 
-      InductionPhi = dyn_cast<AVRPhi>(Itr);
+      InductionPhi = dyn_cast<AVRPhiIR>(Itr);
       continue;
     } else if (isa<AVRIf>(Itr)) {
       if (InductionCmp) {
@@ -74,12 +74,12 @@ bool AVRCodeGen::loopIsHandled() {
 
       InductionCmp = dyn_cast<AVRIf>(Itr);
       continue;
-    } else if (isa<AVRFBranch>(Itr)) {
+    } else if (isa<AVRFBranchIR>(Itr)) {
       if (LoopBackEdge) {
         return false;
       }
 
-      LoopBackEdge = dyn_cast<AVRFBranch>(Itr);
+      LoopBackEdge = dyn_cast<AVRFBranchIR>(Itr);
       continue;
     } else {
       return false;
@@ -87,7 +87,7 @@ bool AVRCodeGen::loopIsHandled() {
   }
 
   assert(ALoop && "Expected AVRLoop!");
-  assert(InductionPhi && "Expected AVRPhi for Induction Variable!");
+  assert(InductionPhi && "Expected AVRPhiIR for Induction Variable!");
   assert(InductionCmp && "Expected AVRIf for loop exit check!");
 
   const PHINode *PhiInst;
@@ -622,14 +622,14 @@ bool AVRCodeGen::vectorize() {
        ++Itr) {
     // Only widen assign and phis. Branch and compares are implicitly
     // handled. Other AVR types are not handled currently.
-    if (AVRAssign *AssignAvr = dyn_cast<AVRAssign>(Itr)) {
+    if (AVRAssignIR *AssignAvr = dyn_cast<AVRAssignIR>(Itr)) {
       Instruction *Inst;
 
       Inst = const_cast<Instruction *>(AssignAvr->getLLVMInstruction());
       vectorizeInstruction(Inst);
     }
 
-    if (AVRPhi *PhiAvr = dyn_cast<AVRPhi>(Itr)) {
+    if (AVRPhiIR *PhiAvr = dyn_cast<AVRPhiIR>(Itr)) {
       Instruction *Inst;
 
       Inst = const_cast<Instruction *>(PhiAvr->getLLVMInstruction());

@@ -69,38 +69,14 @@ public:
   /// \brief Returns a new AVRFunction node.
   static AVRFunction *createAVRFunction(Function *OrigF, const LoopInfo *LpInfo);
 
-  /// \brief Returns a new AVRFunction node.
+  /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop(const Loop *Lp);
 
-  /// \brief Returns a new AVRFunction node.
+  /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop(WRNVecLoopNode *WrnSimdNode);
 
   /// \brief Returns a new AVRWrn node.
   static AVRWrn *createAVRWrn(WRNVecLoopNode *WrnSimdNode);
-
-  /// \brief Returns a new AVRAssign node.
-  static AVRAssign *createAVRAssign(Instruction *Inst);
-
-  /// \brief Returns a new AVRLabel node.
-  static AVRLabel *createAVRLabel(BasicBlock *Block);
-
-  /// \brief Returns a new AVRPhi node.
-  static AVRPhi *createAVRPhi(Instruction *Inst);
-
-  /// \brief Returns a new AVRCall node.
-  static AVRCall *createAVRCall(Instruction *Inst);
-
-  /// \brief Returns a new AVRFBranch node.
-  static AVRFBranch *createAVRFBranch(Instruction *Inst);
-
-  /// \brief Returns a new AVRBackEdge node.
-  static AVRBackEdge *createAVRBackEdge(Instruction *Inst);
-
-  /// \brief Returns a new AVREntry node.
-  static AVREntry *createAVREntry(Instruction *Inst);
-
-  /// \brief Returns a new AVREntry node.
-  static AVRReturn *createAVRReturn(Instruction *Inst);
 
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop();
@@ -163,14 +139,6 @@ public:
   static void replace(AVR *OldNode, AVR *NewNode);
 
   // Search Utilities
-
-  /// \brief Search Avr and its children and return AVRLabel corresponding
-  /// to specified BB if found, nullptr if not found.
-  static AVRLabel *getAvrLabelForBB(BasicBlock* BB, AVR* Avr);
-
-  /// \brief Search Avr and its children and return AVRFbranch corresponding
-  /// to specified Terminator if found, nullptr if not found.
-  static AVRFBranch *getAvrBranchForTerm(Instruction* Terminator, AVR *Avr);
 
   /// \breif Retrun a pointer the AVR's children conatiner, nullptr otherwise.
   static AVRContainerTy *getAvrChildren(AVR *Avr);

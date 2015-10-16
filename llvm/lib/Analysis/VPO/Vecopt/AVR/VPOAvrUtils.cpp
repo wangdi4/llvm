@@ -37,38 +37,6 @@ AVRWrn *AVRUtils::createAVRWrn(WRNVecLoopNode *WrnSimdNode) {
   return new AVRWrn(WrnSimdNode);
 }
 
-AVRAssign *AVRUtils::createAVRAssign(Instruction *Inst) {
-  return new AVRAssign(Inst);
-}
-
-AVRLabel *AVRUtils::createAVRLabel(BasicBlock *Block) {
-  return new AVRLabel(Block);
-}
-
-AVRPhi *AVRUtils::createAVRPhi(Instruction *Inst) {
-  return new AVRPhi(Inst);
-}
-
-AVRCall *AVRUtils::createAVRCall(Instruction *Inst) {
-  return new AVRCall(Inst);
-}
-
-AVRFBranch *AVRUtils::createAVRFBranch(Instruction *Inst) {
-  return new AVRFBranch(Inst);
-}
-
-AVRBackEdge *AVRUtils::createAVRBackEdge(Instruction *Inst) {
-  return new AVRBackEdge(Inst);
-}
-
-AVREntry *AVRUtils::createAVREntry(Instruction *Inst) {
-  return new AVREntry(Inst);
-}
-
-AVRReturn *AVRUtils::createAVRReturn(Instruction *Inst) {
-  return new AVRReturn(Inst);
-}
-
 AVRIf *AVRUtils::createAVRIf(Instruction *Inst) {
   return new AVRIf(Inst);
 }
@@ -263,58 +231,6 @@ void AVRUtils::remove(AvrItr Begin, AvrItr End) {
 }
 
 // Search Utilities
-
-AVRLabel *AVRUtils::getAvrLabelForBB(BasicBlock *BB, AVR *ParentNode) {
-
-  assert(BB && "Missing Basic Block!");
-  assert(ParentNode && "Missing Avr Node!");
-
-  AVRLabel *AvrLabelNode = nullptr;
-  AVRContainerTy *Children = getAvrChildren(ParentNode);
-
-  if (Children) {
-    for (auto I = Children->begin(), E = Children->end(); I != E; ++I) {
-      AvrLabelNode = AVRUtils::getAvrLabelForBB(BB, I);
-      if (AvrLabelNode)
-	return AvrLabelNode; // Found Node
-    }
-  }
-  else {
-    if (AVRLabel *AvrLb = dyn_cast<AVRLabel>(ParentNode)) {
-      if (AvrLb->getSourceBBlock() == BB) {
-        AvrLabelNode = AvrLb;
-      }
-    }
-  }
-
-  return AvrLabelNode;
-}
-
-AVRFBranch *AVRUtils::getAvrBranchForTerm(Instruction *Terminator, AVR *ParentNode) {
-
-  assert(Terminator && "Missing Basic Block terminator!");
-  assert(ParentNode && "Missing Avr Node!");
-
-  AVRFBranch *AvrBNode = nullptr;
-  AVRContainerTy *Children = getAvrChildren(ParentNode);
-
-  if (Children) {
-    for (auto I = Children->begin(), E = Children->end(); I != E; ++I) {
-      AvrBNode = AVRUtils::getAvrBranchForTerm(Terminator, I);
-      if (AvrBNode)
-	return AvrBNode; // Found Node
-    }
-  }
-  else {
-    if (AVRFBranch *AvrB = dyn_cast<AVRFBranch>(ParentNode)) {
-      if (AvrB->getLLVMInstruction() == Terminator) {
-        AvrBNode = AvrB;
-      }
-    }
-  }
-
-  return AvrBNode;
-}
 
 AVRContainerTy *AVRUtils::getAvrChildren(AVR *Avr) {
 
