@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fms-compatibility -fintel-compatibility -triple=i686-windows-msvc %s -emit-llvm -o - | FileCheck %s
+// REQUIRES: llvm-backend
 
 int main(void)
 {
