@@ -601,6 +601,13 @@ def fargument_noalias : Flag<["-"], "fargument-noalias">,
 // CQ#373517 - compilation fails with 'redefinition of default argument'.
 def fpermissive_args : Flag<["-"], "fpermissive-args">,
   HelpText<"Allows to redefine default arguments">;
+// CQ371729: Incompatible name mangling.
+def gnu_mangling_for_simd_types : Flag<["--"], "gnu_mangling_for_simd_types">,
+  HelpText<"Turn on GNU mangling for vector types">;
+def no_gnu_mangling_for_simd_types : Flag<["--"], "no_gnu_mangling_for_simd_types">,
+  HelpText<"Turn off GNU mangling for vector types">;
+def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
+  HelpText<"Emulate GNU C++ABI version">;
 // endif INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

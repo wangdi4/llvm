@@ -69,6 +69,16 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(DC))
     return getEffectiveDeclContext(CD);
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  if (D->getASTContext().getLangOpts().IntelCompat &&
+      D->getASTContext().getLangOpts().GNUFABIVersion == 1) {
+    if (DC->isExternCContext())
+      return getEffectiveDeclContext(cast<Decl>(DC));
+    return DC;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (const auto *VD = dyn_cast<VarDecl>(D))
     if (VD->isExternC())
       return VD->getASTContext().getTranslationUnitDecl();
@@ -465,6 +475,15 @@ void CXXNameMangler::mangle(const NamedDecl *D) {
   // <mangled-name> ::= _Z <encoding>
   //            ::= <data name>
   //            ::= <special-name>
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  if (!getASTContext().getLangOpts().IntelCompat ||
+      !getEffectiveDeclContext(D)->isTranslationUnit() ||
+      ((!FD || !FD->isExternC()) && (!VD || !VD->isExternC())) ||
+      getASTContext().getLangOpts().GNUFABIVersion != 1)
+#endif // INTEL_CUSTOMIZATION
   Out << "_Z";
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(FD);
@@ -942,6 +961,10 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //   static void foo();
       // This naming convention is the same as that followed by GCC,
       // though it shouldn't actually matter.
+#ifdef INTEL_CUSTOMIZATION
+      // CQ371729: Incompatible name mangling.
+      if (!getASTContext().getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
           getEffectiveDeclContext(ND)->isFileContext())
         Out << 'L';
@@ -1877,6 +1900,19 @@ static bool isTypeSubstitutable(Qualifiers Quals, const Type *Ty) {
 }
 
 void CXXNameMangler::mangleType(QualType T) {
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  bool MangleM64 = false;
+  auto &LangOpts = getASTContext().getLangOpts();
+  if (LangOpts.IntelCompat && T->isVectorType()) {
+    if (auto *TDTy = T->getAs<TypedefType>()) {
+      MangleM64 = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->isStr(
+                      "__m64") &&
+                  (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4);
+    }
+  }
+  if (!MangleM64) {
+#endif // INTEL_CUSTOMIZATION
   // If our type is instantiation-dependent but not dependent, we mangle
   // it as it was written in the source, removing any top-level sugar. 
   // Otherwise, use the canonical type.
@@ -1913,6 +1949,9 @@ void CXXNameMangler::mangleType(QualType T) {
       T = Desugared;
     } while (true);
   }
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
   SplitQualType split = T.split();
   Qualifiers quals = split.Quals;
   const Type *ty = split.Ty;
@@ -1937,6 +1976,15 @@ void CXXNameMangler::mangleType(QualType T) {
     // the unqualified type might be.
     mangleType(QualType(ty, 0));
   } else {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (MangleM64) {
+      if (LangOpts.GNUMangling && LangOpts.GNUFABIVersion < 4)
+        Out << "U8__vectori";
+      else if (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4)
+        Out << "Dv2_i";
+    } else {
+#endif // INTEL_CUSTOMIZATION
     switch (ty->getTypeClass()) {
 #define ABSTRACT_TYPE(CLASS, PARENT)
 #define NON_CANONICAL_TYPE(CLASS, PARENT) \
@@ -1949,6 +1997,9 @@ void CXXNameMangler::mangleType(QualType T) {
       break;
 #include "clang/AST/TypeNodes.def"
     }
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Add the substitution.
@@ -2371,6 +2422,14 @@ void CXXNameMangler::mangleType(const VectorType *T) {
       mangleNeonVectorType(T);
     return;
   }
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  auto &LangOpts = getASTContext().getLangOpts();
+  if (LangOpts.IntelCompat && LangOpts.GNUMangling &&
+      LangOpts.GNUFABIVersion < 4)
+    Out << "U8__vector";
+  else
+#endif // INTEL_CUSTOMIZATION
   Out << "Dv" << T->getNumElements() << '_';
   if (T->getVectorKind() == VectorType::AltiVecPixel)
     Out << 'p';
@@ -3132,6 +3191,12 @@ recurse:
     const UnaryOperator *UO = cast<UnaryOperator>(E);
     mangleOperatorName(UnaryOperator::getOverloadedOperator(UO->getOpcode()),
                        /*Arity=*/1);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat &&
+        UnaryOperator::isPrefix(UO->getOpcode()))
+      Out << "_";
+#endif // INTEL_CUSTOMIZATION
     mangleExpression(UO->getSubExpr());
     break;
   }
@@ -3616,6 +3681,12 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     // an expression. We compensate for it here to produce the correct mangling.
     ValueDecl *D = A.getAsDecl();
     bool compensateMangling = !A.getParamTypeForDecl()->isReferenceType();
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat &&
+        getASTContext().getLangOpts().GNUFABIVersion == 1)
+      compensateMangling = true;
+#endif // INTEL_CUSTOMIZATION
     if (compensateMangling) {
       Out << 'X';
       mangleOperatorName(OO_Amp, 1);
@@ -3624,6 +3695,19 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     Out << 'L';
     // References to external entities use the mangled name; if the name would
     // not normally be manged then mangle it as unqualified.
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const VarDecl *VD = dyn_cast<VarDecl>(D);
+    if (getASTContext().getLangOpts().IntelCompat &&
+        getASTContext().getLangOpts().GNUFABIVersion == 2 && (VD || FD)) {
+      Out << "Z";
+      if (FD)
+        mangleFunctionEncoding(FD);
+      else
+        mangleName(VD);
+    } else
+#endif // INTEL_CUSTOMIZATION
     mangle(D);
     Out << 'E';
 
@@ -3641,6 +3725,12 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
   }
   case TemplateArgument::Pack: {
     //  <template-arg> ::= J <template-arg>* E
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat)
+      Out << 'I';
+    else
+#endif // INTEL_CUSTOMIZATION
     Out << 'J';
     for (const auto &P : A.pack_elements())
       mangleTemplateArg(P);

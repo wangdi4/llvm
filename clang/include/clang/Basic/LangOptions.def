@@ -81,6 +81,9 @@ LANGOPT(Restrict         , 1, 0,
 // CQ#373517: compilation fails with 'redefinition of default argument'.
 LANGOPT(PermissiveArgs   , 1, 0,
         "Allows to redefine default arguments")
+// CQ371729: Incompatible name mangling.
+LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
+LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")
