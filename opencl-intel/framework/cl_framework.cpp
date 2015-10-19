@@ -2827,6 +2827,11 @@ cl_int CL_API_CALL clEnqueueSVMMigrateMem(cl_command_queue command_queue,
                                           const cl_event*  event_wait_list,
                                           cl_event*        event)
 {
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
     if (g_pUserLogger->IsApiLoggingEnabled())
     {
         START_LOG_API(clEnqueueSVMMigrateMem);
