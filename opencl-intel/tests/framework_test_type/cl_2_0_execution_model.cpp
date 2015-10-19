@@ -204,10 +204,6 @@ bool cl20ExecutionModel()
 		CheckException(L"clCreateCommandQueueWithProperties", CL_SUCCESS, iRet);
 		CHECK_COND(L"clCreateCommandQueueWithProperties", NULL != queue);
 
-		// check that a second default queue can't be created for the same device
-		clCreateCommandQueueWithProperties(context, device, defaultProps, &iRet);
-		CheckException(L"clCreateCommandQueueWithProperties", CL_INVALID_COMMAND_QUEUE, iRet);
-
 		iRet = clGetCommandQueueInfo(queue, CL_QUEUE_SIZE, sizeof(uiQueueSize), &uiQueueSize, &szQueueSizeSize);
 		CheckException(L"clGetCommandQueueInfo", CL_SUCCESS, iRet);
 		CheckException(L"clGetCommandQueueInfo", sizeof(uiQueueSize), szQueueSizeSize);
