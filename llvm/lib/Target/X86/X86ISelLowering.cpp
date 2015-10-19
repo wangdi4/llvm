@@ -3922,6 +3922,7 @@ bool X86::isCalleePop(CallingConv::ID CallingConv,
   }
 }
 
+#if !INTEL_CUSTOMIZATION
 /// \brief Return true if the condition is an unsigned comparison operation.
 static bool isX86CCUnsigned(unsigned X86CC) {
   switch (X86CC) {
@@ -3939,6 +3940,7 @@ static bool isX86CCUnsigned(unsigned X86CC) {
   }
   llvm_unreachable("covered switch fell through?!");
 }
+#endif // !INTEL_CUSTOMIZATION
 
 /// Do a one-to-one translation of a ISD::CondCode to the X86-specific
 /// condition code, returning the condition code and the LHS/RHS of the
