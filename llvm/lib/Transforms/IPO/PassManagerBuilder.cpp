@@ -25,6 +25,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -99,9 +100,11 @@ static cl::opt<bool> EnableLoopDistribute(
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimizations passes"));
 
-// INTEL - Andersen AliasAnalysis
-static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(false),
+#ifdef INTEL_CUSTOMIZATION
+// Andersen AliasAnalysis
+static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
     "enable-non-lto-gmr", cl::init(false), cl::Hidden,
@@ -267,13 +270,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createReassociatePass());           // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
-
-#if INTEL_CUSTOMIZATION
-  // if (EnableAndersen) {
-  //   MPM.add(createAndersensPass()); // Andersen's IP alias analysis
-  // }
-#endif // INTEL_CUSTOMIZATION
-
   MPM.add(createLICMPass());                  // Hoist loop invariants
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
   MPM.add(createInstructionCombiningPass());
@@ -309,9 +305,9 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
 #if INTEL_CUSTOMIZATION
-  // if (EnableAndersen) {
-  //   MPM.add(createAndersensPass()); // Andersen's IP alias analysis
-  // }
+  if (EnableAndersen) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(createLICMPass());
