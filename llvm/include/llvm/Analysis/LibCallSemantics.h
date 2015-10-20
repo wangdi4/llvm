@@ -36,6 +36,13 @@ class InvokeInst;
   /// Unknown.
   EHPersonality classifyEHPersonality(const Value *Pers);
 
+#if INTEL_CUSTOMIZATION
+  /// \brief See if the parent function in which an Instruction lives has an
+  /// MSVC exception handling personality function.  If the Instruction is
+  /// not part of a Function, this routine will return false.
+  bool isParentFnEHPersonalityMSVC(const Instruction *I);
+#endif // INTEL_CUSTOMIZATION
+
   /// \brief Returns true if this personality function catches asynchronous
   /// exceptions.
   inline bool isAsynchronousEHPersonality(EHPersonality Pers) {

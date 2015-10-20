@@ -182,6 +182,22 @@ bool Pattern::ParsePattern(StringRef PatternStr,
          (PatternStr.back() == ' ' || PatternStr.back() == '\t'))
     PatternStr = PatternStr.substr(0, PatternStr.size()-1);
 
+#if INTEL_CUSTOMIZATION
+  // Ignore ;INTEL at the end of the line.  We allow this specially for
+  // marking CHECK lines where some other INTEL_CUSTOMIZATION needed
+  // to cause the unit test to be changed.
+  StringRef IntelCommentString = StringRef(";INTEL");
+  if (PatternStr.endswith(IntelCommentString)) {
+    PatternStr = PatternStr.drop_back(IntelCommentString.size());
+
+    // After matching this we once again have to remove trailing whitespace
+    // if there is any.
+    while (!PatternStr.empty() &&
+           (PatternStr.back() == ' ' || PatternStr.back() == '\t'))
+      PatternStr = PatternStr.substr(0, PatternStr.size()-1);
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Check that there is something on the line.
   if (PatternStr.empty()) {
     SM.PrintMessage(PatternLoc, SourceMgr::DK_Error,

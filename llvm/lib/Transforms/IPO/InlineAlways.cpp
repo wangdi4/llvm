@@ -39,7 +39,7 @@ namespace {
 class AlwaysInliner : public Inliner {
   InlineCostAnalysis *ICA;
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
   // This is used to enable/disable standard inliner pass for
   // AlwaysInline attribute and perform it only for inline functions
   // specifically marked with "INTEL_ALWAYS_INLINE".
@@ -51,7 +51,7 @@ public:
   AlwaysInliner() : Inliner(ID, -2000000000, /*InsertLifetime*/ true),
                     ICA(nullptr) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
@@ -59,12 +59,12 @@ public:
   AlwaysInliner(bool InsertLifetime)
       : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
     Il0BackendMode = false;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
   AlwaysInliner(bool InsertLifetime, bool Il0BackendMode)
       : Inliner(ID, -2000000000, InsertLifetime), ICA(nullptr) {
     initializeAlwaysInlinerPass(*PassRegistry::getPassRegistry());
@@ -81,7 +81,7 @@ public:
 
   using llvm::Pass::doFinalization;
   bool doFinalization(CallGraph &CG) override {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     bool ReturnValue = removeDeadFunctions(CG, /*AlwaysInlineOnly=*/ true);
     getReport().print();
     removeDeletableFunctions();
@@ -108,7 +108,7 @@ Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime) {
   return new AlwaysInliner(InsertLifetime);
 }
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
 Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime, bool Il0BackendMode) {
   return new AlwaysInliner(InsertLifetime, Il0BackendMode);
 }
@@ -129,7 +129,7 @@ Pass *llvm::createAlwaysInlinerPass(bool InsertLifetime, bool Il0BackendMode) {
 InlineCost AlwaysInliner::getInlineCost(CallSite CS) {
   Function *Callee = CS.getCalledFunction();
 
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_IL0_BACKEND
   // Only specially marked functions are inlined here.
   // The rest always_inline functions are processed by the IL0 backend.
   // This is necessary due to current CilkPlus implementation, where front-end

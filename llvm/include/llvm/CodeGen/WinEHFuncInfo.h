@@ -154,13 +154,77 @@ struct WinEHTryBlockMapEntry {
 struct WinEHFuncInfo {
   DenseMap<const Function *, const LandingPadInst *> RootLPad;
   DenseMap<const Function *, const InvokeInst *> LastInvoke;
+#if !INTEL_CUSTOMIZATION
   DenseMap<const Function *, int> HandlerEnclosedState;
+#endif // !INTEL_CUSTOMIZATION
   DenseMap<const Function *, bool> LastInvokeVisited;
   DenseMap<const Instruction *, int> EHPadStateMap;
   DenseMap<const Function *, int> CatchHandlerParentFrameObjIdx;
   DenseMap<const Function *, int> CatchHandlerParentFrameObjOffset;
   DenseMap<const Function *, int> CatchHandlerMaxState;
   DenseMap<const Function *, int> HandlerBaseState;
+#if INTEL_CUSTOMIZATION
+  // When we calculate EH states for a function (and its outlined handlers)
+  // we maintain a stack (WinEHNumbering::HandlerStack) of catch/cleanup
+  // handlers which are reachable from the last call site processed. When a
+  // new call site is processed, we compare the handler actions for that
+  // call site (as described by the llvm.eh.actions intrinsic for the call
+  // site's landing pad) to the current stack.  Any handler not in the call
+  // site's action set is popped from the stack and any handler for the call
+  // site that is not already on the stack is pushed on.
+  //
+  // Ordinarily, we calculate EH state numbers for a handler when it is popped
+  // from the stack and associate an EH state (the lowest state of code it
+  // encloses) with the handler.  However, when we process code that contains
+  // nested try-catch blocks there will be circumstances when a handler
+  // must be popped from the active handler stack before its last use (because
+  // it is unreachable from some nested call site).
+  //
+  // The following code is a typical example:
+  //
+  // void f() {
+  //   try {
+  //     one();
+  //     try {
+  //       two();
+  //     } catch (...) { // f.catch.1
+  //     }
+  //     three();
+  //   } catch (int) { // f.catch
+  //   }
+  // }
+  //
+  // In this case, the f.catch handler will be pushed to the active stack
+  // at the 'one()' call site, popped from the active stack at the 'two()'
+  // call site and pushed again at the 'three()' call site.
+  //
+  // In order to correctly compute the EH states, we must recognize that
+  // the handler is not ready to be processed the first time it is popped
+  // from the stack. To handle this case, we maintain a list of "deferred"
+  // handlers.  That is, handlers which are not reachable from the current
+  // call site but which are still logically active.
+  //
+  // A handler is deferred if the last invoke from which the handler is
+  // reachable has not yet been processed or if the state it encloses is lower
+  // than the current visible state (the maximum of the state of the handler
+  // at the top of the active stack or the base state of the function/funclet
+  // being processed).
+  //
+  // Handlers are removed from the deferred vector when they become active.
+  // When we finish calculating EH states for a function/funclet, the deferred
+  // handler vector is examined and any deferred handler whose enclosed state
+  // exceeds the current visible state is removed from the vector and
+  // EH states are calculated for the handler.
+  //
+  // The vector of deferred handlers is kept sorted by the EH state which the
+  // handler encloses, so that the handler at the back of the vector represents
+  // the highest EH state that is currently deferred.  This is used when
+  // computing the unwind state.
+  //
+  // The elements of the vector are a pair composed of the handler function and
+  // the EH state which that handler encloses.
+  SmallVector<std::pair<const Function *, int>, 4> DeferredHandlers;
+#endif // INTEL_CUSTOMIZATION
   SmallVector<WinEHUnwindMapEntry, 4> UnwindMap;
   SmallVector<WinEHTryBlockMapEntry, 4> TryBlockMap;
   SmallVector<SEHUnwindMapEntry, 4> SEHUnwindMap;

@@ -76,7 +76,12 @@ catchendblock:                                    ; preds = %catch, %catch.2, %c
 ; X86: retl
 
 ; X86: [[catch1bb:LBB0_[0-9]+]]: # %catch{{$}}
-; X86: addl $12, %ebp
+
+; EHRegNodeFrameIndex could be allocated anywhere, so we won't
+; know the exact amount by which we need to adjust ebp. It'll be either
+; 12 or 16 depending on whether "local" is allocated first or second.
+; X86: addl $1{{[26]}}, %ebp
+
 ; X86: subl $8, %esp
 ; X86: movl $1, -{{[0-9]+}}(%ebp)
 ; X86: leal -[[local_offs]](%ebp), %[[addr_reg:[a-z]+]]
@@ -88,7 +93,12 @@ catchendblock:                                    ; preds = %catch, %catch.2, %c
 ; X86-NEXT: retl
 
 ; X86: [[catch2bb:LBB0_[0-9]+]]: # %catch.2{{$}}
-; X86: addl $12, %ebp
+
+; EHRegNodeFrameIndex could be allocated anywhere, so we won't
+; know the exact amount by which we need to adjust ebp. It'll be either
+; 12 or 16 depending on whether "local" is allocated first or second.
+; X86: addl $1{{[26]}}, %ebp
+
 ; X86: subl $8, %esp
 ; X86: movl $1, -{{[0-9]+}}(%ebp)
 ; X86: leal -[[local_offs]](%ebp), %[[addr_reg:[a-z]+]]

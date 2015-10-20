@@ -256,6 +256,8 @@ attributes #5 = { noreturn }
 !0 = !{i32 1, !"PIC Level", i32 2}
 !1 = !{!"clang version 3.7.0 (trunk 236059)"}
 
+; CHECK-LABEL: "?test@@YAXXZ":
+; CHECK: movq $-2, [[local_offs:[0-9]+]](%rsp)
 ; CHECK-LABEL: "$cppxdata$?test@@YAXXZ":
 ; CHECK-NEXT: 	.long	429065506
 ; CHECK-NEXT: 	.long
@@ -264,7 +266,7 @@ attributes #5 = { noreturn }
 ; CHECK-NEXT: 	.long	("$tryMap$?test@@YAXXZ")@IMGREL
 ; CHECK-NEXT: 	.long
 ; CHECK-NEXT: 	.long	("$ip2state$?test@@YAXXZ")@IMGREL
-; CHECK-NEXT: 	.long	40
+; CHECK-NEXT: 	.long	[[local_offs]]
 ; CHECK-NEXT: 	.long	0
 ; CHECK-NEXT: 	.long	1
 ; CHECK: "$stateUnwindMap$?test@@YAXXZ":

@@ -44,3 +44,15 @@ bool llvm::canSimplifyInvokeNoUnwind(const Function *F) {
   // implies that the function does not throw synchronous exceptions.
   return !isAsynchronousEHPersonality(Personality);
 }
+
+#if INTEL_CUSTOMIZATION
+bool llvm::isParentFnEHPersonalityMSVC(const Instruction *I) {
+  auto *BB = I->getParent();
+  auto *F = BB ? BB->getParent() : nullptr;
+  if (!F || !F->hasPersonalityFn())
+    return false;
+
+  EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
+  return isMSVCEHPersonality(Personality);
+}
+#endif // INTEL_CUSTOMIZATION

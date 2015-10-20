@@ -67,6 +67,7 @@ try.cont.split:                                   ; preds = %lpad1
 }
 
 ; CHECK-LABEL: main:
+; CHECK: movq $-2, [[local_offs:[0-9]+]](%rsp)
 ; CHECK:        .seh_handlerdata
 ; CHECK:        .long   ($cppxdata$main)@IMGREL
 
@@ -123,7 +124,7 @@ stub:                                             ; preds = %entry
 ; CHECK-NEXT:         .long   ($tryMap$main)@IMGREL
 ; CHECK-NEXT:         .long   3
 ; CHECK-NEXT:         .long   ($ip2state$main)@IMGREL
-; CHECK-NEXT:         .long   40
+; CHECK-NEXT:         .long   [[local_offs]]
 ; CHECK-NEXT:         .long   0
 ; CHECK-NEXT:         .long   1
 

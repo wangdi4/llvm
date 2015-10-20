@@ -130,7 +130,11 @@ try.cont8:                                        ; preds = %lpad2, %try.cont
 ; X64-NEXT:          .long   ("$stateUnwindMap$?f@@YAXXZ")@IMGREL
 ; X64-NEXT:          .long   2
 ; X64-NEXT:          .long   ("$tryMap$?f@@YAXXZ")@IMGREL
-; X64-NEXT:          .long   6
+; if INTEL_CUSTOMIZATION
+; X64-NEXT:          .long   5
+; else
+; NOT-X64-NEXT:          .long   6
+; endif
 ; X64-NEXT:          .long   ("$ip2state$?f@@YAXXZ")@IMGREL
 ; X64-NEXT:          .long   32
 ; X64-NEXT:          .long   0
@@ -153,9 +157,17 @@ try.cont8:                                        ; preds = %lpad2, %try.cont
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   0
+; if INTEL_CUSTOMIZATION
+; CHECK-NEXT:        .long   1
+; else
+; NOT-CHECK-NEXT:        .long   0
+; endif
 ; CHECK-NEXT:        .long   0
+; if INTEL_CUSTOMIZATION
 ; CHECK-NEXT:        .long   0
-; CHECK-NEXT:        .long   -1
+; else
+; NOT-CHECK-NEXT:        .long   -1
+; endif
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:"$tryMap$?f@@YAXXZ":
 ; CHECK-NEXT:        .long   1
@@ -184,8 +196,10 @@ try.cont8:                                        ; preds = %lpad2, %try.cont
 ; X64-NEXT:"$ip2state$?f@@YAXXZ":
 ; X64-NEXT:        .long   .Lfunc_begin0
 ; X64-NEXT:        .long   2
-; X64-NEXT:        .long   .Ltmp0
-; X64-NEXT:        .long   0
+; if !INTEL_CUSTOMIZATION
+; NOT-X64-NEXT:        .long   .Ltmp0
+; NOT-X64-NEXT:        .long   0
+; endif !INTEL_CUSTOMIZATION
 ; X64-NEXT:        .long   .Lfunc_begin1
 ; X64-NEXT:        .long   3
 ; X64-NEXT:        .long   .Lfunc_begin2

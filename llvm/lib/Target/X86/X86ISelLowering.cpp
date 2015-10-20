@@ -2197,7 +2197,7 @@ X86TargetLowering::LowerReturn(SDValue Chain,
         DAG.getRegister(RetValReg, getPointerTy(DAG.getDataLayout())));
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // When main() is defined with a void return type, it is 
   // expected to return 0;
   if (RVLocs.empty() && MF.getName() == "main") {
@@ -3583,7 +3583,7 @@ X86TargetLowering::IsEligibleForTailCallOptimization(SDValue Callee,
   if (CallerF->getReturnType()->isX86_FP80Ty() && !RetTy->isX86_FP80Ty())
     return false;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // void main() actually returns an int, so it should not participate
   // in tail call optimization.
   if (CallerF->getReturnType()->isVoidTy() && CallerF->getName() == "main")
@@ -3922,6 +3922,7 @@ bool X86::isCalleePop(CallingConv::ID CallingConv,
   }
 }
 
+#if !INTEL_CUSTOMIZATION
 /// \brief Return true if the condition is an unsigned comparison operation.
 static bool isX86CCUnsigned(unsigned X86CC) {
   switch (X86CC) {
@@ -3939,6 +3940,7 @@ static bool isX86CCUnsigned(unsigned X86CC) {
   }
   llvm_unreachable("covered switch fell through?!");
 }
+#endif // !INTEL_CUSTOMIZATION
 
 /// Do a one-to-one translation of a ISD::CondCode to the X86-specific
 /// condition code, returning the condition code and the LHS/RHS of the
@@ -13558,6 +13560,7 @@ SDValue X86TargetLowering::EmitCmp(SDValue Op0, SDValue Op1, unsigned X86CC,
 
   if ((Op0.getValueType() == MVT::i8 || Op0.getValueType() == MVT::i16 ||
        Op0.getValueType() == MVT::i32 || Op0.getValueType() == MVT::i64)) {
+#if !INTEL_CUSTOMIZATION
     // Do the comparison at i32 if it's smaller, besides the Atom case.
     // This avoids subregister aliasing issues. Keep the smaller reference
     // if we're optimizing for size, however, as that'll allow better folding
@@ -13570,6 +13573,7 @@ SDValue X86TargetLowering::EmitCmp(SDValue Op0, SDValue Op1, unsigned X86CC,
       Op0 = DAG.getNode(ExtendOp, dl, MVT::i32, Op0);
       Op1 = DAG.getNode(ExtendOp, dl, MVT::i32, Op1);
     }
+#endif // !INTEL_CUSTOMIZATION
     // Use SUB instead of CMP to enable CSE between SUB and CMP.
     SDVTList VTs = DAG.getVTList(Op0.getValueType(), MVT::i32);
     SDValue Sub = DAG.getNode(X86ISD::SUB, dl, VTs,
@@ -23735,7 +23739,7 @@ static SDValue PerformCMOVCombine(SDNode *N, SelectionDAG &DAG,
   return SDValue();
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// MulOptCompute returns PowerOfTwoPlusOne if Num = 2^C+1
 /// PowerOfTwoMinuOne if Num = 2^C-1, or NoMulOpt otherwise
 
@@ -23777,7 +23781,7 @@ static SDValue PerformMulCombine(SDNode *N, SelectionDAG &DAG,
   uint64_t MulAmt = C->getZExtValue();
   if (isPowerOf2_64(MulAmt) || MulAmt == 3 || MulAmt == 5 || MulAmt == 9)
     return SDValue();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   int64_t SignMulAmt = C->getSExtValue();
   int NumSign = SignMulAmt > 0 ? 1 : -1;
   switch (MulOptCompute(SignMulAmt)) {

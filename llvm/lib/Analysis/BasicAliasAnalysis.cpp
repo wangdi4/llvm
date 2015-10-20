@@ -65,6 +65,47 @@ static const unsigned MaxLookupSearchDepth = 6;
 //===----------------------------------------------------------------------===//
 // Useful predicates
 //===----------------------------------------------------------------------===//
+#if INTEL_CUSTOMIZATION
+// The following code is to enhances the escape analysis for heap objects.
+// Given an example as follows.
+//
+// void foo(int no_alias *p, int *q)
+// int *m = malloc(...);
+// *p = m;
+// ... *q;
+// }
+//
+// The compiler should detect that *m and *q have no overlap.
+//
+// The utility returns true if the value V which is malloc call
+// does not assign to anywhere except the no-alias argument pointer.
+// In the above example, the value V represents the malloc call.
+static bool isNonEscapingAllocObj(const Value *V) {
+  if (isNoAliasCall(V))
+    return !PointerMayBeCaptured(V, false, true, true);
+
+  return false;
+}
+
+// The utility returns true if the Value V is the load of argument
+// which is not marked as no-alias. In the above example, the value
+// V represents the argument pointer q.
+static bool isEscapeArgDereference(const Value *V) {
+  if (!isa<LoadInst>(V))
+    return false;
+  const LoadInst *LD = dyn_cast<LoadInst>(V);
+  const Value *V1 = LD->getPointerOperand();
+  V1 = V1->stripPointerCasts();
+
+  if (const Argument *A = dyn_cast<Argument>(V1)) {
+    if (A->hasNoAliasAttr()) {
+      return false;
+    }
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Returns true if the pointer is to a function-local object that never
 /// escapes from the function.
@@ -808,7 +849,9 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
                                     const AAMDNodes &V1AAInfo, const Value *V2,
                                     uint64_t V2Size, const AAMDNodes &V2AAInfo,
                                     const Value *UnderlyingV1,
-                                    const Value *UnderlyingV2) {
+                                    const Value *UnderlyingV2,
+                                    bool SameOperand // INTEL
+                                    ) {
   int64_t GEP1BaseOffset;
   bool GEP1MaxLookupReached;
   SmallVector<VariableGEPIndex, 4> GEP1VariableIndices;
@@ -1035,6 +1078,26 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       return NoAlias;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Given the references *p and *q in different type and their base objects are
+  // the same, the compiler cannot simply rely on TBAA for further
+  // disambiguation since p or q might be type casted from the same pointer.
+  // However, given two expressions %1->f1 and %1->f2, where the flag
+  // SameOperand indicates both are GEP instructions, we can rely on the 
+  // TBAA to determine whether they are overlapped or not.
+  //
+  if (SameOperand && UnderlyingV1 == UnderlyingV2) {
+    PointerType *PtrTyp = dyn_cast<PointerType>(UnderlyingV1->getType());
+    if (PtrTyp) {
+      Type *ElemTyp = PtrTyp->getElementType();
+      StructType *STy = dyn_cast<StructType>(&*ElemTyp);
+      if (STy) {
+        return MayAlias;
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Statically, we can see that the base objects are the same, but the
   // pointers have dynamic offsets which we can't resolve. And none of our
   // little tricks above worked.
@@ -1205,6 +1268,25 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
   if (V1Size == 0 || V2Size == 0)
     return NoAlias;
 
+  bool SameOperand = false; // INTEL
+
+#if INTEL_CUSTOMIZATION
+  // Here the flag SameOperand is introduced to help the code in routine
+  // aliasGEP for better alias analysis given the case of V1:p->f1 and V2:p->f2.
+  // The compiler may not know that V2 is GEP instruction in routine aliasGEP
+  // since V2 is applied with stripPointerCasts. The V2 will be changed if
+  // all the indices of GEP is 0.
+  const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1);
+  const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2);
+  if (GEP1 && GEP2) {
+    const Value *GEP1BaseOperand = GEP1->getPointerOperand();
+    const Value *GEP2BaseOperand = GEP2->getPointerOperand();
+    if (GEP1BaseOperand == GEP2BaseOperand) {
+      SameOperand = true;
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // Strip off any casts if they exist.
   V1 = V1->stripPointerCasts();
   V2 = V2->stripPointerCasts();
@@ -1273,6 +1355,19 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       return NoAlias;
     if (isEscapeSource(O2) && isNonEscapingLocalObject(O1))
       return NoAlias;
+
+#if INTEL_CUSTOMIZATION
+    //
+    // Given *p and *q, where p is a malloc call which is only assigned to
+    // some no-alias argument pointer and q is argument pointer
+    // which is not marked with no-alias, the compiler should conclude
+    // that *p and *q does not overlap.
+    //
+    if (isEscapeArgDereference(O1) && isNonEscapingAllocObj(O2))
+      return NoAlias;
+    if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
+      return NoAlias;
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If the size of one access is larger than the entire object on the other
@@ -1303,8 +1398,8 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
     std::swap(V1AAInfo, V2AAInfo);
   }
   if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
-    AliasResult Result =
-        aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo, O1, O2);
+    AliasResult Result = aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo,
+                                  O1, O2, SameOperand); // INTEL
     if (Result != MayAlias)
       return AliasCache[Locs] = Result;
   }
