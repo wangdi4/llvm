@@ -731,6 +731,11 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
     LandingPadInst *LP = BB.getLandingPadInst();
     if (!LP)
       continue;
+#if INTEL_CUSTOMIZATION
+    // If either of the values in the aggregate returned by the landing pad is
+    // extracted and stored to memory, promote the stored value to a register.
+    promoteLandingPadValues(LP);
+#endif // INTEL_CUSTOMIZATION
     EHVals.insert(LP);
     for (User *U : LP->users()) {
       auto *EI = dyn_cast<ExtractValueInst>(U);
@@ -803,9 +808,17 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
         // demote it.
         if (OpBB == &BB)
           continue;
-        bool IsOpNormalBB = NormalBlocks.count(OpBB);
         bool IsOpEHBB = EHBlocks.count(OpBB);
+#if INTEL_CUSTOMIZATION
+        // FIXME: This is extremely pessimistic.  It demotes all
+        //        values used in exception handlers.  What we really
+        //        want to do is figure out whether the value is used in
+        //        different handlers.
+        if (IsEHBB || IsOpEHBB) {
+#else  // !INTEL_CUSTOMIZATION
+        bool IsOpNormalBB = NormalBlocks.count(OpBB);
         if (IsNormalBB != IsOpNormalBB || IsEHBB != IsOpEHBB) {
+#endif // !INTEL_CUSTOMIZATION
           DEBUG({
             dbgs() << "Demoting instruction live in-out from EH:\n";
             dbgs() << "Instr: " << *OpI << '\n';
@@ -926,9 +939,11 @@ bool WinEHPrepare::prepareExceptionHandlers(
     if (LPadHasActionList)
       continue;
 
+#if !INTEL_CUSTOMIZATION // This happens in demoteValuesLiveAcrossHandlers now.
     // If either of the values in the aggregate returned by the landing pad is
     // extracted and stored to memory, promote the stored value to a register.
     promoteLandingPadValues(LPad);
+#endif // !INTEL_CUSTOMIZATION
 
     LandingPadActions Actions;
     mapLandingPadBlocks(LPad, Actions);
@@ -3384,7 +3399,6 @@ void WinEHNumbering::calculateStateNumbers(const Function &F) {
   if (!FuncInfo.DeferredHandlers.empty()) {
     DEBUG(dbgs() << "Checking deferred handlers at state " << currentEHNumber()
                  << '\n');
-    auto It = FuncInfo.DeferredHandlers.rend();
     while (!FuncInfo.DeferredHandlers.empty()) {
       const Function *F;
       int EnclosedState;
