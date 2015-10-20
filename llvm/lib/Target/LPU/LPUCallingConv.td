@@ -15,21 +15,24 @@
 // Return Value Calling Conventions
 //===----------------------------------------------------------------------===//
 
-// Note: C0 is control output, C1 is control input
+// WARNING: These assignments are "known" somewhat in LPUAsmPrinter.cpp
 
 // LPU 64-bit C return-value convention using registers
 def RetCC_Reg_LPU : CallingConv<[
-  CCIfType<[i32,i64,f32,f64], CCAssignToReg<[R2, R3]>>,
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64], CCAssignToReg<[R0, R1]>>,
   CCAssignToStack<8, 8>
 ]>;
 
 // LPU 64-bit C Calling convention using registers
 def CC_Reg_LPU : CallingConv<[
-  CCIfType<[i32,i64,f32,f64],
-        CCAssignToReg<[R4, R5, R6, R7, R8, R9, R10, R11,
-                       R12, R13, R14, R15, R16, R17, R18, R19]>>,
+  CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64],
+        CCAssignToReg<[R0, R1, R2, R3, R4, R5, R6, R7,
+                       R8, R9, R10, R11, R12, R13, R14, R15]>>,
   CCAssignToStack<8, 8>
 ]>;
+
+/*
+Need to re-think LIC handling
 
 // LPU 64-bit C return-value convention using LICs
 def RetCC_LIC_LPU : CallingConv<[
@@ -44,3 +47,4 @@ def CC_LIC_LPU : CallingConv<[
                        C12, C13, C14, C15, C16, C17, C18, C19]>>,
   CCAssignToStack<8, 8>
 ]>;
+*/

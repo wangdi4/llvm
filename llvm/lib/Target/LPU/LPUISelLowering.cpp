@@ -55,6 +55,8 @@ const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
 LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     : TargetLowering(TM) {
 
+  const LPUSubtarget& ST = TM.getSubtarget<LPUSubtarget>();
+
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
   addRegisterClass(MVT::i1,   &LPU::I1RRegClass);
@@ -80,6 +82,14 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
 
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
+    // If this type is generally supported
+    bool isTypeSupported =
+      ( (VT == MVT::i1 && ST.hasI1()) ||
+        (VT == MVT::i8 && ST.hasI8()) ||
+        (VT == MVT::i16 && ST.hasI16()) ||
+        (VT == MVT::i32 && ST.hasI32()) ||
+        (VT == MVT::i64 && ST.hasI64()) );
+
     setOperationAction(ISD::BR_CC,            VT,    Expand);
     setOperationAction(ISD::SELECT_CC,        VT,    Expand);
 
@@ -105,11 +115,12 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::ROTL,             VT,    Expand);
     setOperationAction(ISD::ROTR,             VT,    Expand);
     // Implement these?
-    setOperationAction(ISD::CTPOP,            VT,    Expand);
-    setOperationAction(ISD::CTTZ,             VT,    Expand);
-    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    Expand);
-    setOperationAction(ISD::CTLZ,             VT,    Expand);
-    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    Expand);
+    LegalizeAction action = (isTypeSupported && ST.hasBitOp()) ? Legal : Expand;
+    setOperationAction(ISD::CTPOP,            VT,    action);
+    setOperationAction(ISD::CTTZ,             VT,    action);
+    setOperationAction(ISD::CTTZ_ZERO_UNDEF,  VT,    action);
+    setOperationAction(ISD::CTLZ,             VT,    action);
+    setOperationAction(ISD::CTLZ_ZERO_UNDEF,  VT,    action);
 
     setOperationAction(ISD::DYNAMIC_STACKALLOC,VT,   Expand);
   }
@@ -162,6 +173,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setCondCodeAction(ISD::SETUNE, MVT::f80, Expand);
   */
 
+  // No direct conversions to/from small integers and floating point
   setOperationAction(ISD::UINT_TO_FP, MVT::i1, Promote);
   setOperationAction(ISD::UINT_TO_FP, MVT::i8, Promote);
   setOperationAction(ISD::UINT_TO_FP, MVT::i16, Promote);
@@ -179,54 +191,83 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setOperationAction(ISD::FP_TO_SINT, MVT::i16, Promote);
 
   // Allow full FP literals
+  setOperationAction(ISD::ConstantFP, MVT::f16, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f32, Legal);
   setOperationAction(ISD::ConstantFP, MVT::f64, Legal);
 
 /*  These are to enable as CG work is done
-  // Allow specialized integer operations (popc, ctlz, cttz)
-  for (MVT VT : MVT::integer_valuetypes()) {
-    setOperationAction(ISD::CTPOP, VT, Legal);
-    setOperationAction(ISD::CTLZ, VT, Legal);
-    setOperationAction(ISD::CTTZ, VT, Legal);
-  }
-
   // Short float
   setOperationAction(ISD::FP16_TO_FP, MVT::f32, Expand);
   setOperationAction(ISD::FP_TO_FP16, MVT::f32, Expand);
 */
 
-  // Allow various FP operations
+  if (ST.hasF16()) {
+    setOperationAction(ISD::FADD, MVT::f16, Legal);
+    setOperationAction(ISD::FSUB, MVT::f16, Legal);
+    setOperationAction(ISD::FMUL, MVT::f16, Legal);
+    if (ST.hasFMA()) {
+      setOperationAction(ISD::FMA,  MVT::f16, Legal);
+    }
+    setOperationAction(ISD::FDIV, MVT::f16, Legal);
+    setOperationAction(ISD::FREM, MVT::f16, Expand);
+    setOperationAction(ISD::FNEG, MVT::f16, Legal);
+    setOperationAction(ISD::FABS, MVT::f16, Legal);
+  }
+
+  setOperationAction(ISD::FNEG,  MVT::f32, Legal);
+  setOperationAction(ISD::FNEG,  MVT::f64, Legal);
   setOperationAction(ISD::FABS,  MVT::f32, Legal);
   setOperationAction(ISD::FABS,  MVT::f64, Legal);
-  setOperationAction(ISD::FSQRT, MVT::f32, Legal);
-  setOperationAction(ISD::FSQRT, MVT::f64, Legal);
-  setOperationAction(ISD::FLOG,  MVT::f32, Legal);
-  setOperationAction(ISD::FLOG,  MVT::f64, Legal);
-  setOperationAction(ISD::FLOG2, MVT::f32, Legal);
-  setOperationAction(ISD::FLOG2, MVT::f64, Legal);
-  setOperationAction(ISD::FEXP,  MVT::f32, Legal);
-  setOperationAction(ISD::FEXP,  MVT::f64, Legal);
-  setOperationAction(ISD::FEXP2, MVT::f32, Legal);
-  setOperationAction(ISD::FEXP2, MVT::f64, Legal);
-  setOperationAction(ISD::FSIN,  MVT::f32, Legal);
-  setOperationAction(ISD::FSIN,  MVT::f64, Legal);
-  setOperationAction(ISD::FCOS,  MVT::f32, Legal);
-  setOperationAction(ISD::FCOS,  MVT::f64, Legal);
-  //setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Legal);
-  //setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Legal);
-  //setOperationAction(ISD::FREM,  MVT::f32, Legal);
-  //setOperationAction(ISD::FREM,  MVT::f64, Legal);
-  //setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
-  //setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
-  //setOperationAction(ISD::FCEIL, MVT::f32, Legal);
-  //setOperationAction(ISD::FCEIL, MVT::f64, Legal);
-  //setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
-  //setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
-  //setOperationAction(ISD::FRINT, MVT::f32, Legal);
-  //setOperationAction(ISD::FRINT, MVT::f64, Legal);
-  //setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
-  //setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
 
+  // Allow various FP operations (temporarily.)
+  // The intent is these will be provided via a math library
+  if (ST.hasMath0()) {
+    // Order from ISDOpcodes.h
+    //setOperationAction(ISD::FREM,  MVT::f32, Legal);
+    //setOperationAction(ISD::FREM,  MVT::f64, Legal);
+    //setOperationAction(ISD::FCOPYSIGN,  MVT::f32, Legal);
+    //setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Legal);
+    //setOperationAction(ISD::FGETSIGN,  MVT::f32, Legal);
+    //setOperationAction(ISD::FGETSIGN,  MVT::f64, Legal);
+    setOperationAction(ISD::FSQRT, MVT::f32, Legal);
+    setOperationAction(ISD::FSQRT, MVT::f64, Legal);
+    setOperationAction(ISD::FSIN,  MVT::f32, Legal);
+    setOperationAction(ISD::FSIN,  MVT::f64, Legal);
+    setOperationAction(ISD::FCOS,  MVT::f32, Legal);
+    setOperationAction(ISD::FCOS,  MVT::f64, Legal);
+    //setOperationAction(ISD::FPOWI, MVT::f32, Legal);
+    //setOperationAction(ISD::FPOWI, MVT::f64, Legal);
+    //setOperationAction(ISD::FPOW,  MVT::f32, Legal);
+    //setOperationAction(ISD::FPOW,  MVT::f64, Legal);
+    setOperationAction(ISD::FLOG,  MVT::f32, Legal);
+    setOperationAction(ISD::FLOG,  MVT::f64, Legal);
+    setOperationAction(ISD::FLOG2, MVT::f32, Legal);
+    setOperationAction(ISD::FLOG2, MVT::f64, Legal);
+    //setOperationAction(ISD::FLOG10,MVT::f32, Legal);
+    //setOperationAction(ISD::FLOG10,MVT::f64, Legal);
+    setOperationAction(ISD::FEXP,  MVT::f32, Legal);
+    setOperationAction(ISD::FEXP,  MVT::f64, Legal);
+    setOperationAction(ISD::FEXP2, MVT::f32, Legal);
+    setOperationAction(ISD::FEXP2, MVT::f64, Legal);
+    //setOperationAction(ISD::FCEIL, MVT::f32, Legal);
+    //setOperationAction(ISD::FCEIL, MVT::f64, Legal);
+    //setOperationAction(ISD::FTRUNC,MVT::f32, Legal);
+    //setOperationAction(ISD::FTRUNC,MVT::f64, Legal);
+    //setOperationAction(ISD::FRINT, MVT::f32, Legal);
+    //setOperationAction(ISD::FRINT, MVT::f64, Legal);
+    //setOperationAction(ISD::FNEARBYINT,MVT::f32, Legal);
+    //setOperationAction(ISD::FNEARBYINT,MVT::f64, Legal);
+    //setOperationAction(ISD::FROUND,MVT::f32, Legal);
+    //setOperationAction(ISD::FROUND,MVT::f64, Legal);
+    //setOperationAction(ISD::FFLOOR,MVT::f32, Legal);
+    //setOperationAction(ISD::FFLOOR,MVT::f64, Legal);
+    //setOperationAction(ISD::FMINNUM, MVT::f32, Legal);
+    //setOperationAction(ISD::FMINNUM, MVT::f64, Legal);
+    //setOperationAction(ISD::FMAXNUM, MVT::f32, Legal);
+    //setOperationAction(ISD::FMAXNUM, MVT::f64, Legal);
+    //setOperationAction(ISD::FSINCOS, MVT::f32, Legal);
+    //setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
+  }
 
   //  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
   //  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);

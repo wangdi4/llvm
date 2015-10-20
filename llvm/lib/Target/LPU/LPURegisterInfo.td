@@ -30,10 +30,11 @@ class LPUReg<string n> : Register<n> {
 
 def FP : LPUReg<"%fp">;  // preserved (conventional FP)
 def SP : LPUReg<"%sp">;  // stack pointer
+def TP : LPUReg<"%tp">;  // thread base
 def RA : LPUReg<"%ra">;  // return addr
 
 def GLOBALREG : RegisterClass<"LPU", [i64], 64,
-    (add FP, SP, RA)>;
+    (add FP, SP, TP, RA)>;
 
 
 def IGN : LPUReg<"%ign">; // Ignored (always writeable, never readable)
