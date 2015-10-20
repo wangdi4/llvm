@@ -95,6 +95,9 @@ public:
   typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
   typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
 
+  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
+  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
+
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
   typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
@@ -113,6 +116,8 @@ public:
   typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
   typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator;
 
+  static const unsigned INVALID_BLOB_INDEX = 0;
+
 private:
   /// \brief Copy constructor; only used for cloning.
   CanonExpr(const CanonExpr &);
@@ -127,11 +132,13 @@ private:
 
   // BlobTable - vector containing blobs and corresponding symbases for the
   // function.
-  // TODO: Think about adding another vector sorted by blobs to provide faster
-  // lookup for Blob -> Index.
   // Moved here from HIRParser to allow printer to print blobs without needing
   // the parser.
   static BlobTableTy BlobTable;
+
+  // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
+  // faster lookup.
+  static BlobToIndexTy BlobToIndexMap;
 
   // SrcTy and DestTy hide one level of casting applied on top of the canonical
   // form.
@@ -150,12 +157,6 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
-  /// \brief Internal method to check blob index range.
-  static bool isBlobIndexValid(unsigned Index);
-
-  /// \brief Internal method to check level range.
-  static bool isLevelValid(unsigned Level);
-
 protected:
   CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
             int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
@@ -167,17 +168,24 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
+  /// \brief Internal method to check blob index range.
+  static bool isBlobIndexValid(unsigned Index);
+
+  /// \brief Internal method to check level range.
+  static bool isLevelValid(unsigned Level);
+
   /// \brief Implements find()/insert() functionality.
   /// ReturnSymbase indicates whether to return blob index or symbase.
   static unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
                                        bool Insert, bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
+  /// table.
   static unsigned findBlob(BlobTy Blob);
 
-  /// \brief Returns symbase corresponding to Blob. Returns 0 for non-temp or
-  /// non-present blobs.
+  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
+  /// non-temp or non-present blobs.
   static unsigned findBlobSymbase(BlobTy Blob);
 
   /// \brief Returns the index of Blob in the blob table. Blob is first
@@ -188,8 +196,8 @@ protected:
   /// \brief Returns blob corresponding to Index.
   static BlobTy getBlob(unsigned Index);
 
-  /// \brief Returns symbase corresponding to Index. Returns 0 for non-temp
-  /// non-present blobs.
+  /// \brief Returns symbase corresponding to Index. Returns invalid value for
+  /// non-temp non-present blobs.
   static unsigned getBlobSymbase(unsigned Index);
 
   /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
@@ -404,8 +412,8 @@ public:
   void setIVCoeff(iv_iterator IVI, unsigned Index, int64_t Coeff);
 
   /// \brief Returns the blob coefficient associated with an IV at a particular
-  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns 0 if there is
-  /// no blob coeff.
+  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns invalid value if
+  /// there is no blob coeff.
   unsigned getIVBlobCoeff(unsigned Lvl) const;
   /// \brief Iterator version of getIVBlobCoeff().
   unsigned getIVBlobCoeff(const_iv_iterator ConstIVIter) const;

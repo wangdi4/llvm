@@ -166,7 +166,7 @@ CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
   Type *Int64Type = IntegerType::get(getContext(), 64);
   auto Blob = SE->getConstant(Int64Type, Val, false);
 
-  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -174,11 +174,11 @@ CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
 CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
                                            CanonExpr::BlobTy RHS, bool Insert,
                                            unsigned *NewBlobIndex) {
-  assert(LHS && RHS && "Blob cannot by null!");
+  assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getAddExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -186,11 +186,11 @@ CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
 CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
                                              CanonExpr::BlobTy RHS, bool Insert,
                                              unsigned *NewBlobIndex) {
-  assert(LHS && RHS && "Blob cannot by null!");
+  assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
 
-  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -198,11 +198,11 @@ CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
 CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
                                            CanonExpr::BlobTy RHS, bool Insert,
                                            unsigned *NewBlobIndex) {
-  assert(LHS && RHS && "Blob cannot by null!");
+  assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getMulExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -210,11 +210,11 @@ CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
 CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
                                             CanonExpr::BlobTy RHS, bool Insert,
                                             unsigned *NewBlobIndex) {
-  assert(LHS && RHS && "Blob cannot by null!");
+  assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
 
-  insertBlobHelper(Blob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return Blob;
 }
@@ -222,12 +222,12 @@ CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
 CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
                                                 Type *Ty, bool Insert,
                                                 unsigned *NewBlobIndex) {
-  assert(Blob && "Blob cannot by null!");
-  assert(Ty && "Type cannot by null!");
+  assert(Blob && "Blob cannot be null!");
+  assert(Ty && "Type cannot be null!");
 
   auto NewBlob = SE->getTruncateExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -235,12 +235,12 @@ CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
 CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
                                                   Type *Ty, bool Insert,
                                                   unsigned *NewBlobIndex) {
-  assert(Blob && "Blob cannot by null!");
-  assert(Ty && "Type cannot by null!");
+  assert(Blob && "Blob cannot be null!");
+  assert(Ty && "Type cannot be null!");
 
   auto NewBlob = SE->getZeroExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return NewBlob;
 }
@@ -248,22 +248,18 @@ CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
 CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
                                                   Type *Ty, bool Insert,
                                                   unsigned *NewBlobIndex) {
-  assert(Blob && "Blob cannot by null!");
-  assert(Ty && "Type cannot by null!");
+  assert(Blob && "Blob cannot be null!");
+  assert(Ty && "Type cannot be null!");
 
   auto NewBlob = SE->getSignExtendExpr(Blob, Ty);
 
-  insertBlobHelper(NewBlob, 0, Insert, NewBlobIndex);
+  insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return NewBlob;
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {
   return ScalarSA->getMaxScalarSymbase();
-}
-
-unsigned HIRParser::getSymBaseForConstants() const {
-  return ScalarSA->getSymBaseForConstants();
 }
 
 struct HIRParser::Phase1Visitor final : public HLNodeVisitorBase {
@@ -731,7 +727,7 @@ void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
 
 unsigned HIRParser::findOrInsertBlobWrapper(CanonExpr::BlobTy Blob,
                                             unsigned *SymbasePtr) {
-  unsigned Symbase = 0;
+  unsigned Symbase = INVALID_SYMBASE;
 
   if (isTempBlob(Blob)) {
     auto Temp = cast<SCEVUnknown>(Blob)->getValue();
@@ -995,18 +991,12 @@ void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
 }
 
 RegDDRef *HIRParser::createLowerDDRef(Type *IVType) {
-  auto CE = CanonExprUtils::createCanonExpr(IVType);
-  auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
-  Ref->setSingleCanonExpr(CE);
-
+  auto Ref = DDRefUtils::createConstDDRef(IVType, 0);
   return Ref;
 }
 
 RegDDRef *HIRParser::createStrideDDRef(Type *IVType) {
-  auto CE = CanonExprUtils::createCanonExpr(IVType, 0, 1);
-  auto Ref = DDRefUtils::createRegDDRef(getSymBaseForConstants());
-  Ref->setSingleCanonExpr(CE);
-
+  auto Ref = DDRefUtils::createConstDDRef(IVType, 1);
   return Ref;
 }
 

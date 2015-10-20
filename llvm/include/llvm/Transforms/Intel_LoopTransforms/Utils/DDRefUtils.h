@@ -63,10 +63,10 @@ private:
 
 public:
   /// \brief Returns a new RegDDRef.
-  static RegDDRef *createRegDDRef(int SB);
+  static RegDDRef *createRegDDRef(unsigned SB);
 
   /// \brief Creates a new DDRef with single canon expr CE.
-  static RegDDRef *createScalarRegDDRef(int SB, CanonExpr *CE);
+  static RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
 
   /// \brief Returns a new constant RegDDRef from a int value.
   /// This routine will automatically create a single canon expr from the val
@@ -92,7 +92,7 @@ public:
   static void dumpMemRefMap(SymToMemRefTy *RefMap);
 
   /// \brief Returns a new symbase.
-  static unsigned getNewSymBase();
+  static unsigned getNewSymbase();
 
   /// \brief Returns true if the two DDRefs, Ref1 and Ref2, are equal.
   /// IgnoreDestType parameter is only used for base destination type comparison

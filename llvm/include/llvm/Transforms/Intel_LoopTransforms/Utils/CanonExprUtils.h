@@ -20,6 +20,7 @@
 #include "llvm/Support/Compiler.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 #include <set>
@@ -101,11 +102,11 @@ public:
   static int64_t gcd(int64_t A, int64_t B);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  /// UINT_MAX]. Returns invalid value if the blob is not present in the table.
   static unsigned findBlob(CanonExpr::BlobTy Blob);
 
-  /// \brief Returns symbase corresponding to Blob. Returns 0 for non-temp or
-  /// non-present blobs.
+  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
+  /// non-temp or non-present blobs.
   static unsigned findBlobSymbase(CanonExpr::BlobTy Blob);
 
   /// \brief Returns the index of Blob in the blob table. Blob is first
@@ -117,8 +118,8 @@ public:
   /// \brief Returns blob corresponding to BlobIndex.
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
-  /// \brief Returns symbase corresponding to BlobIndex. Returns zero for
-  /// non-temp blobs.
+  /// \brief Returns symbase corresponding to BlobIndex. Returns invalid value
+  /// for non-temp blobs.
   static unsigned getBlobSymbase(unsigned BlobIndex);
 
   /// \brief Prints blob.

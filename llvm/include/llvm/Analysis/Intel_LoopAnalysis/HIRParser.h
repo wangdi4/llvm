@@ -146,7 +146,7 @@ private:
   void setCurNode(HLDDNode *Node) { CurNode = Node; }
 
   /// \brief Returns the instruction which best represents the current node.
-  const Instruction* getCurInst() const;
+  const Instruction *getCurInst() const;
 
   /// Phase1 parser functions
   /// parse(HLInst *, ...) is the only function used during phase2.
@@ -159,7 +159,7 @@ private:
   void parse(HLIf *If);
   void postParse(HLIf *If) {}
 
-  void parse(HLSwitch *Switch); 
+  void parse(HLSwitch *Switch);
   void postParse(HLSwitch *Switch) {}
 
   void parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level);
@@ -353,8 +353,8 @@ private:
   /// \brief Prints blob.
   void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
 
-  /// \brief Checks if the blob is constant or not
-  /// If blob is constant, sets the return value in Val
+  /// \brief Checks if the blob is constant or not.
+  /// If blob is constant, sets the return value in Val.
   bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const;
 
   /// \brief Returns true if this is a temp blob.
@@ -385,9 +385,6 @@ public:
   }
   HIRCreation::reverse_iterator hir_rend() { return HIR->rend(); }
   HIRCreation::const_reverse_iterator hir_rend() const { return HIR->rend(); }
-
-  /// \brief Returns symbase representing constants.
-  unsigned getSymBaseForConstants() const;
 };
 
 } // End namespace loopopt

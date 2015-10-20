@@ -149,8 +149,8 @@ public:
 };
 
 void DDRefGatherer::addRef(DDRef *Ref) {
-  unsigned int SymBase = (Ref)->getSymBase();
-  (*RefMap)[SymBase].push_back(Ref);
+  unsigned Symbase = (Ref)->getSymbase();
+  (*RefMap)[Symbase].push_back(Ref);
 }
 
 void DDRefGatherer::visit(HLDDNode *Node) {
@@ -232,7 +232,7 @@ void DDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
+void DDAnalysis::dumpSymbaseMap(SymToRefs &RefMap) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     std::vector<DDRef *> &RefVec = SymVecPair->second;
@@ -254,7 +254,7 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   HLNodeUtils::visit(Gatherer, Node);
 
   DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(dumpSymBaseMap(RefMap));
+  DEBUG(dumpSymbaseMap(RefMap));
   DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -333,4 +333,4 @@ void DDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
   }
 }
 
-unsigned int DDAnalysis::getNewSymBase() { return SA->getNewSymBase(); }
+unsigned DDAnalysis::getNewSymbase() { return SA->getNewSymbase(); }

@@ -28,13 +28,13 @@ using namespace llvm::loopopt;
 
 std::set<DDRef *> DDRef::Objs;
 
-DDRef::DDRef(unsigned SCID, int SB) : SubClassID(SCID), SymBase(SB) {
+DDRef::DDRef(unsigned SCID, unsigned SB) : SubClassID(SCID), Symbase(SB) {
 
   Objs.insert(this);
 }
 
 DDRef::DDRef(const DDRef &DDRefObj)
-    : SubClassID(DDRefObj.SubClassID), SymBase(DDRefObj.SymBase) {
+    : SubClassID(DDRefObj.SubClassID), Symbase(DDRefObj.Symbase) {
 
   Objs.insert(this);
 }
@@ -143,7 +143,7 @@ Type *DDRef::getSrcType() const { return getTypeImpl(true); }
 Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
-  OS << "{sb:" << getSymBase() << "}";
+  OS << "{sb:" << getSymbase() << "}";
 }
 
 bool DDRef::isSelfBlob() const {
@@ -159,5 +159,5 @@ bool DDRef::isSelfBlob() const {
 }
 
 void DDRef::verify() const {
-  assert(getSymBase() != 0 && "Symbase should not be zero");
+  assert(getSymbase() != 0 && "Symbase should not be zero");
 }

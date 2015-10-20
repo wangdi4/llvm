@@ -26,6 +26,8 @@ using namespace loopopt;
 
 std::set<CanonExpr *> CanonExpr::Objs;
 CanonExpr::BlobTableTy CanonExpr::BlobTable;
+CanonExpr::BlobToIndexTy CanonExpr::BlobToIndexMap;
+const unsigned CanonExpr::INVALID_BLOB_INDEX;
 
 CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
     : Index(Indx), Coeff(Coef) {}
@@ -43,7 +45,7 @@ CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
   setDenominator(Denom);
 
   /// Start with size = capcity
-  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(0, 0));
+  IVCoeffs.resize(IVCoeffs.capacity(), BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
 }
 
 CanonExpr::CanonExpr(const CanonExpr &CE)
@@ -68,6 +70,7 @@ void CanonExpr::destroyAll() {
 
   Objs.clear();
   BlobTable.clear();
+  BlobToIndexMap.clear();
 }
 
 CanonExpr *CanonExpr::clone() const {
@@ -127,7 +130,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      if (I->Index) {
+      if (I->Index != INVALID_BLOB_INDEX) {
         CanonExprUtils::printBlob(OS, getBlob(I->Index));
         OS << " * ";
       }
@@ -178,33 +181,60 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 }
 
+// Used to keep BlobToIndexMap sorted by blob address.
+struct BlobPtrCompareLess {
+  bool operator()(const CanonExpr::BlobPtrIndexPairTy &B1,
+                  const CanonExpr::BlobPtrIndexPairTy &B2) {
+    return B1.first < B2.first;
+  }
+};
+
+// Used to keep BlobToIndexMap sorted by blob address.
+struct BlobPtrCompareEqual {
+  bool operator()(const CanonExpr::BlobPtrIndexPairTy &B1,
+                  const CanonExpr::BlobPtrIndexPairTy &B2) {
+    return B1.first == B2.first;
+  }
+};
+
 unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
                                          bool Insert, bool ReturnSymbase) {
   assert(Blob && "Blob is null!");
 
-  for (auto I = BlobTable.begin(), E = BlobTable.end(); I != E; ++I) {
-    if (I->first == Blob) {
-      return ReturnSymbase ? I->second : (I - BlobTable.begin() + 1);
-    }
+  BlobPtrIndexPairTy BlobPair(Blob, INVALID_BLOB_INDEX);
+
+  auto I = std::lower_bound(BlobToIndexMap.begin(), BlobToIndexMap.end(),
+                            BlobPair, BlobPtrCompareLess());
+
+  if ((I != BlobToIndexMap.end()) && BlobPtrCompareEqual()(*I, BlobPair)) {
+    assert((getBlob(I->second) == I->first) &&
+           "Inconsistent blob index mapping encountered!");
+    return ReturnSymbase ? getBlobSymbase(I->second) : I->second;
   }
 
   if (Insert) {
-    assert((!CanonExprUtils::isTempBlob(Blob) || (Symbase > 0)) &&
-           "Invalid Blob/Symbase combination!");
+    assert(
+        (!CanonExprUtils::isTempBlob(Blob) || (Symbase > CONSTANT_SYMBASE)) &&
+        "Invalid Blob/Symbase combination!");
 
     BlobTable.push_back(std::make_pair(Blob, Symbase));
+
+    // Store blob ptr and index mapping for faster lookup.
+    BlobToIndexMap.insert(I, BlobPtrIndexPairTy(Blob, BlobTable.size()));
+
     return BlobTable.size();
   }
 
-  return 0;
+  return ReturnSymbase ? INVALID_SYMBASE : INVALID_BLOB_INDEX;
 }
 
 unsigned CanonExpr::findBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, 0, false, false);
+  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, false);
+  ;
 }
 
 unsigned CanonExpr::findBlobSymbase(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, 0, false, true);
+  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, true);
 }
 
 unsigned CanonExpr::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
@@ -212,7 +242,7 @@ unsigned CanonExpr::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
 }
 
 bool CanonExpr::isBlobIndexValid(unsigned Index) {
-  return ((Index > 0) && (Index <= BlobTable.size()));
+  return ((Index > INVALID_BLOB_INDEX) && (Index <= BlobTable.size()));
 }
 
 bool CanonExpr::isLevelValid(unsigned Level) {
@@ -329,7 +359,7 @@ void CanonExpr::getIVCoeff(unsigned Lvl, unsigned *Index,
 
   if (IVCoeffs.size() < Lvl) {
     if (Index) {
-      *Index = 0;
+      *Index = INVALID_BLOB_INDEX;
     }
     if (Coeff) {
       *Coeff = 0;
@@ -366,11 +396,11 @@ unsigned CanonExpr::getIVBlobCoeff(const_iv_iterator ConstIVIter) const {
 }
 
 bool CanonExpr::hasIVBlobCoeff(unsigned Lvl) const {
-  return getIVBlobCoeff(Lvl);
+  return getIVBlobCoeff(Lvl) != INVALID_BLOB_INDEX;
 }
 
 bool CanonExpr::hasIVBlobCoeff(const_iv_iterator ConstIVIter) const {
-  return getIVBlobCoeff(ConstIVIter);
+  return getIVBlobCoeff(ConstIVIter) != INVALID_BLOB_INDEX;
 }
 
 int64_t CanonExpr::getIVConstCoeff(unsigned Lvl) const {
@@ -396,7 +426,7 @@ void CanonExpr::resizeIVCoeffsToMax(unsigned Lvl) {
   assert(isLevelValid(Lvl) && "Level is out of bounds!");
 
   if (IVCoeffs.size() < Lvl) {
-    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(0, 0));
+    IVCoeffs.resize(MaxLoopNestLevel, BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
   }
 }
 
@@ -404,7 +434,8 @@ void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
                               bool OverwriteIndex, bool OverwriteCoeff) {
 
   assert(isLevelValid(Lvl) && "Level is out of bounds!");
-  assert((!Index || isBlobIndexValid(Index)) && "Blob Index is invalid!");
+  assert(((Index == INVALID_BLOB_INDEX) || isBlobIndexValid(Index)) &&
+         "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -435,7 +466,7 @@ void CanonExpr::setIVBlobCoeff(iv_iterator IVI, unsigned Index) {
 }
 
 void CanonExpr::setIVConstCoeff(unsigned Lvl, int64_t Coeff) {
-  setIVInternal(Lvl, 0, Coeff, false, true);
+  setIVInternal(Lvl, INVALID_BLOB_INDEX, Coeff, false, true);
 }
 
 void CanonExpr::setIVConstCoeff(iv_iterator IVI, int64_t Coeff) {
@@ -446,7 +477,8 @@ void CanonExpr::setIVConstCoeff(iv_iterator IVI, int64_t Coeff) {
 void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
   assert(isLevelValid(Lvl) && "Level is out of bounds!");
-  assert((!Index || isBlobIndexValid(Index)) && "Blob Index is invalid!");
+  assert(((Index == INVALID_BLOB_INDEX) || isBlobIndexValid(Index)) &&
+         "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -460,13 +492,13 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   // At least one of the indices is non-zero here.
   if (IVCoeffs[Lvl - 1].Index != Index) {
     BlobTy AddBlob, MulBlob1 = nullptr, MulBlob2 = nullptr;
-    unsigned NewIndex = 0;
+    unsigned NewIndex = INVALID_BLOB_INDEX;
     int64_t NewCoeff = 1;
 
     // Create a mul blob from new index/coeff.
     MulBlob1 = CanonExprUtils::createBlob(Coeff, false);
 
-    if (Index) {
+    if (Index != INVALID_BLOB_INDEX) {
       MulBlob1 = CanonExprUtils::createMulBlob(MulBlob1, getBlob(Index), true,
                                                &NewIndex);
     }
@@ -475,7 +507,7 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
     if (IVCoeffs[Lvl - 1].Coeff) {
       MulBlob2 = CanonExprUtils::createBlob(IVCoeffs[Lvl - 1].Coeff, false);
 
-      if (IVCoeffs[Lvl - 1].Index) {
+      if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
         MulBlob2 = CanonExprUtils::createMulBlob(
             MulBlob2, getBlob(IVCoeffs[Lvl - 1].Index), false);
       }
@@ -490,11 +522,11 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
       // set it as a constant coefficient.
       // For example: (%b + 2) + (-%b) = 2
       if (CanonExprUtils::isConstantIntBlob(AddBlob, &NewCoeff)) {
-        NewIndex = 0;
+        NewIndex = INVALID_BLOB_INDEX;
       }
     }
 
-    assert(((NewCoeff == 1) || (NewIndex == 0)) &&
+    assert(((NewCoeff == 1) || (NewIndex == INVALID_BLOB_INDEX)) &&
            "Unexpected merge condition!");
 
     // Set new index and coefficient.
@@ -506,7 +538,7 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
     // If coefficient becomes zero, zero out index as well.
     if (!IVCoeffs[Lvl - 1].Coeff) {
-      IVCoeffs[Lvl - 1].Index = 0;
+      IVCoeffs[Lvl - 1].Index = INVALID_BLOB_INDEX;
     }
   }
 }
@@ -529,12 +561,12 @@ void CanonExpr::removeIV(unsigned Lvl) {
     return;
   }
 
-  IVCoeffs[Lvl - 1].Index = 0;
+  IVCoeffs[Lvl - 1].Index = INVALID_BLOB_INDEX;
   IVCoeffs[Lvl - 1].Coeff = 0;
 }
 
 void CanonExpr::removeIV(iv_iterator IVI) {
-  IVI->Index = 0;
+  IVI->Index = INVALID_BLOB_INDEX;
   IVI->Coeff = 0;
 }
 
@@ -555,7 +587,7 @@ void CanonExpr::replaceIVByConstant(unsigned Lvl, int64_t Val) {
 
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
-  if (IVCoeffs[Lvl - 1].Index) {
+  if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
     /// IV has a blob index coefficient.
     addBlob(IVCoeffs[Lvl - 1].Index, NewVal);
   } else {
@@ -685,6 +717,8 @@ void CanonExpr::removeBlob(blob_iterator BlobI) { BlobCoeffs.erase(BlobI); }
 
 void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
 
+  assert((NewIndex != INVALID_BLOB_INDEX) && "NewIndex is invalid!");
+
   int64_t Coeff;
   bool found = false;
   BlobIndexToCoeff Blob(OldIndex, 0);
@@ -729,7 +763,7 @@ void CanonExpr::clearIVs() {
   // Assign zeros rather than clearing to keep the size same otherwise a
   // reallocation will happen on the addition of the next IV to this CanonExpr.
   // Refer to the logic in resizeIVCoeffsToMax().
-  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(0, 0));
+  IVCoeffs.assign(IVCoeffs.size(), BlobIndexToCoeff(INVALID_BLOB_INDEX, 0));
 }
 
 void CanonExpr::shift(unsigned Lvl, int64_t Val) {
@@ -742,7 +776,7 @@ void CanonExpr::shift(unsigned Lvl, int64_t Val) {
   int64_t NewVal = IVCoeffs[Lvl - 1].Coeff * Val;
 
   /// Handle blob coefficient of IV.
-  if (IVCoeffs[Lvl - 1].Index) {
+  if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
     addBlob(IVCoeffs[Lvl - 1].Index, NewVal);
   }
   /// Handle constant coefficient of IV.
@@ -766,7 +800,7 @@ void CanonExpr::extractBlobIndices(SmallVectorImpl<unsigned> &Indices) {
 
   /// Push all blobs from IVCoeffs which haven't already been inserted.
   for (auto &I : IVCoeffs) {
-    if (I.Index) {
+    if (I.Index != INVALID_BLOB_INDEX) {
       Inserted = false;
 
       /// Check whether it has already been inserted.

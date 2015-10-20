@@ -29,9 +29,9 @@ using namespace loopopt;
 
 SymbaseAssignment *HLUtils::SA(nullptr);
 
-RegDDRef *DDRefUtils::createRegDDRef(int SB) { return new RegDDRef(SB); }
+RegDDRef *DDRefUtils::createRegDDRef(unsigned SB) { return new RegDDRef(SB); }
 
-RegDDRef *DDRefUtils::createScalarRegDDRef(int SB, CanonExpr *CE) {
+RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   assert(CE && " CanonExpr is null.");
   RegDDRef *RegDD = createRegDDRef(SB);
   RegDD->addDimension(CE, nullptr);
@@ -39,8 +39,7 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(int SB, CanonExpr *CE) {
 }
 
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
-  RegDDRef *NewRegDD =
-      createRegDDRef(getSymbaseAssignment()->getSymBaseForConstants());
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val);
   NewRegDD->setSingleCanonExpr(CE);
 
@@ -66,8 +65,8 @@ private:
     // Ignore Scalar Refs
     if (!RegDD || RegDD->isScalarRef())
       return;
-    unsigned SymBase = (RegDD)->getSymBase();
-    SymToMemRefs[SymBase].push_back(RegDD);
+    unsigned Symbase = (RegDD)->getSymbase();
+    SymToMemRefs[Symbase].push_back(RegDD);
   }
 
 public:
@@ -108,12 +107,12 @@ void DDRefUtils::dumpMemRefMap(SymToMemRefTy *RefMap) {
   }
 }
 
-unsigned DDRefUtils::getNewSymBase() {
-  return getSymbaseAssignment()->getNewSymBase();
+unsigned DDRefUtils::getNewSymbase() {
+  return getSymbaseAssignment()->getNewSymbase();
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
-  unsigned Symbase = DDRefUtils::getNewSymBase();
+  unsigned Symbase = DDRefUtils::getNewSymbase();
 
   // Create a non-linear self-blob canon expr.
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Temp, Symbase);
@@ -132,7 +131,7 @@ bool DDRefUtils::areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2) {
 
   assert(Ref1 && Ref2 && "Ref1/Ref2 parameter is null.");
 
-  if ((Ref1->getSymBase() != Ref2->getSymBase()))
+  if ((Ref1->getSymbase() != Ref2->getSymbase()))
     return false;
 
   // Additional check. Ideally, symbase match should be equal blobs.
@@ -145,7 +144,7 @@ bool DDRefUtils::areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
                               bool IgnoreDestType) {
 
   // Match the symbase. Type checking is done inside the CEUtils.
-  if ((Ref1->getSymBase() != Ref2->getSymBase()))
+  if ((Ref1->getSymbase() != Ref2->getSymbase()))
     return false;
 
   // Check if one is memory ref and other is not.

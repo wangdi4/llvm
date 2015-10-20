@@ -54,7 +54,7 @@ enum DDVerificationLevel {
 };
 
 // Data Structure for keeping track of symbase to memory references.
-typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
+typedef std::map<unsigned, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
 
 class DDAnalysis : public FunctionPass {
 public:
@@ -124,7 +124,7 @@ public:
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
   // \brief Returns a new unused symbase ID.
-  unsigned int getNewSymBase();
+  unsigned getNewSymbase();
   void releaseMemory() override;
 
   void verifyAnalysis() const override;
@@ -150,7 +150,7 @@ private:
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
   void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
-  void dumpSymBaseMap(SymToRefs &RefMap);
+  void dumpSymbaseMap(SymToRefs &RefMap);
 
   // Used to rebuild graphs for node/regions based on cl options
   // in DDA's runonPass for verification purposes.

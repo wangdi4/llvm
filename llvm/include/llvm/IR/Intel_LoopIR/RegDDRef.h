@@ -85,7 +85,7 @@ private:
   HLDDNode *Node;
 
 protected:
-  RegDDRef(int SB);
+  RegDDRef(unsigned SB);
 
   /// Calling delete on a null pointer has no effect.
   virtual ~RegDDRef() override { delete GepInfo; }

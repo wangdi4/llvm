@@ -480,7 +480,7 @@ RegDDRef *HLLoop::getTripCountDDRef() const {
   // TODO: handle blob ddref inside lb/ub.
   CanonExpr *TripCE = getTripCountCanonExpr();
   RegDDRef *TripRef =
-      DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymBase(), TripCE);
+      DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
 
   return TripRef;
 }

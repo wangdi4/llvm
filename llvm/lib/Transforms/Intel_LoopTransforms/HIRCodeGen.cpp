@@ -231,10 +231,10 @@ private:
         // Blobs represented by an scevunknowns whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymBase = CanonExprUtils::findBlobSymbase(S);
-        assert(BlobSymBase && "Invalid symbase");
+        unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
+        assert(BlobSymbase && "Invalid symbase");
 
-        std::string TempName = CG.getTempName(BlobSymBase);
+        std::string TempName = CG.getTempName(BlobSymbase);
         AllocaInst *TempAddr = CG.getNamedValue(TempName, S->getType());
         // Be careful to use scevexpanders builder, not CGVisitor's
         // otherwise some insertions may be in wrong place.
@@ -287,13 +287,13 @@ private:
     }
 
     // Temps are named in format of tN where N is the symbase
-    std::string getTempName(unsigned SymBase) {
-      return "t" + std::to_string(SymBase);
+    std::string getTempName(unsigned Symbase) {
+      return "t" + std::to_string(Symbase);
     }
 
     std::string getTempName(RegDDRef *Ref) {
       assert(!Ref->hasGEPInfo() && "Non scalar ref accessed as scalar");
-      return getTempName(Ref->getSymBase());
+      return getTempName(Ref->getSymbase());
     }
 
     // gets an allocation for name of type T, creating a new allocation
@@ -480,7 +480,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
   DEBUG(Ref->dump());
-  DEBUG(dbgs() << " Symbase: " << Ref->getSymBase() << " \n");
+  DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
   if (Ref->isScalarRef()) {
     return visitScalar(Ref);

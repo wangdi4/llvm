@@ -27,13 +27,13 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 BlobDDRef::BlobDDRef(unsigned Index, int Level)
-    : DDRef(DDRef::BlobDDRefVal, 0), ParentDDRef(nullptr) {
+    : DDRef(DDRef::BlobDDRefVal, INVALID_SYMBASE), ParentDDRef(nullptr) {
 
   unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
 
   CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
 
-  setSymBase(Symbase);
+  setSymbase(Symbase);
 }
 
 BlobDDRef::BlobDDRef(const BlobDDRef &BlobDDRefObj)
@@ -76,7 +76,7 @@ void BlobDDRef::replaceBlob(unsigned NewIndex) {
   unsigned NewSymbase = CanonExprUtils::getBlobSymbase(NewIndex);
 
   CE->replaceBlob(OldIndex, NewIndex);
-  setSymBase(NewSymbase);
+  setSymbase(NewSymbase);
 }
 
 void BlobDDRef::verify() const {
@@ -90,7 +90,7 @@ void BlobDDRef::verify() const {
   unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
 
   (void)Symbase;
-  assert((getSymBase() == Symbase) && "blob index/symbase mismatch!");
+  assert((getSymbase() == Symbase) && "blob index/symbase mismatch!");
 
   DDRef::verify();
 }

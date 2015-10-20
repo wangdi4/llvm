@@ -21,7 +21,9 @@
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;

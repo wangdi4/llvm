@@ -23,7 +23,7 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-RegDDRef::RegDDRef(int SB)
+RegDDRef::RegDDRef(unsigned SB)
     : DDRef(DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
 
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
@@ -93,7 +93,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
 
   // Do not print linear forms for scalar lvals
   if (isLval() && !HasGEP && !Detailed) {
-    CanonExprUtils::printScalar(OS, getSymBase());
+    CanonExprUtils::printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
       if (isAddressOf()) {

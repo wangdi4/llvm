@@ -69,7 +69,7 @@ unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
 
 void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                 unsigned Symbase) {
-  assert((Symbase > getSymBaseForConstants()) &&
+  assert((Symbase > CONSTANT_SYMBASE) &&
          (Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
@@ -96,16 +96,16 @@ unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
     return Iter->second;
   }
 
-  return 0;
+  return INVALID_SYMBASE;
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
   const Value *RetVal = nullptr;
 
-  assert((Symbase > getSymBaseForConstants()) && "Symbase is out of range!");
+  assert((Symbase > CONSTANT_SYMBASE) && "Symbase is out of range!");
 
   if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[Symbase - getSymBaseForConstants() - 1];
+    RetVal = BaseTemps[Symbase - CONSTANT_SYMBASE - 1];
   } else {
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
     // Symbase can be out of range for new temps created by HIR transformations.
@@ -133,12 +133,8 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
   }
 }
 
-unsigned ScalarSymbaseAssignment::getSymBaseForConstants() const {
-  return CONSTANT_SYMBASE;
-}
-
 unsigned ScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + getSymBaseForConstants();
+  return BaseTemps.size() + CONSTANT_SYMBASE;
 }
 
 void ScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
@@ -184,7 +180,7 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
   unsigned Symbase;
 
   if (isConstant(Scalar)) {
-    return getSymBaseForConstants();
+    return CONSTANT_SYMBASE;
   }
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {

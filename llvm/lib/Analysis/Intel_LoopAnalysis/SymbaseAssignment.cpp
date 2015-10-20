@@ -68,8 +68,8 @@ public:
 class DDRefGatherer final : public HLNodeVisitorBase {
 private:
   void addRef(const DDRef *Ref) {
-    unsigned int SymBase = (Ref)->getSymBase();
-    SymToRefs[SymBase].push_back(Ref);
+    unsigned Symbase = (Ref)->getSymbase();
+    SymToRefs[Symbase].push_back(Ref);
   }
 
 public:
@@ -111,7 +111,7 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
     }
   } else {
     assert(Ref->isScalarRef() && "DDRef is in an inconsistent state!");
-    assert(Ref->getSymBase() && "Scalar DDRef was not assigned a symbase!");
+    assert(Ref->getSymbase() && "Scalar DDRef was not assigned a symbase!");
   }
   return nullptr;
 }
@@ -153,13 +153,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                     true)
 
-unsigned int SymbaseAssignment::getSymBaseForConstants() const {
-  return HIRP->getSymBaseForConstants();
-}
-
-void SymbaseAssignment::initializeMaxSymBase() {
-  MaxSymBase = HIRP->getMaxScalarSymbase();
-  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymBase << " \n");
+void SymbaseAssignment::initializeMaxSymbase() {
+  MaxSymbase = HIRP->getMaxScalarSymbase();
+  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
 }
 
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -176,7 +172,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
 
   HLUtils::setSymbaseAssignment(this);
-  initializeMaxSymBase();
+  initializeMaxSymbase();
 
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
@@ -185,8 +181,8 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
   // Each ref in a set gets the same symbase
   for (auto &AliasSet : AST) {
-    int CurSymBase = getNewSymBase();
-    DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymBase
+    unsigned CurSymbase = getNewSymbase();
+    DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
                  << "\n");
 
     for (auto AV : AliasSet) {
@@ -195,7 +191,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
       for (auto CurRef : Refs) {
         DEBUG(CurRef->dump());
         DEBUG(dbgs() << "\n");
-        CurRef->setSymBase(CurSymBase);
+        CurRef->setSymbase(CurSymbase);
       }
     }
   }

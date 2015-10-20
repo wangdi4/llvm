@@ -47,10 +47,10 @@ private:
   static std::set<DDRef *> Objs;
 
   const unsigned char SubClassID;
-  unsigned int SymBase;
+  unsigned Symbase;
 
 protected:
-  DDRef(unsigned SCID, int SB);
+  DDRef(unsigned SCID, unsigned SB);
   DDRef(const DDRef &DDRefObj);
   virtual ~DDRef() {}
 
@@ -97,8 +97,8 @@ public:
   Type *getDestType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
-  unsigned getSymBase() const { return SymBase; };
-  void setSymBase(unsigned Sbase) { SymBase = Sbase; }
+  unsigned getSymbase() const { return Symbase; };
+  void setSymbase(unsigned SB) { Symbase = SB; }
 
   /// \brief Return an ID for the concrete type of this object.
   ///

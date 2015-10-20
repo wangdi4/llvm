@@ -54,7 +54,7 @@ protected:
   /// Restrict access to base class's public member. Blob DDRef can be modified
   /// to represent a different blob using the interface replaceBlob(). The
   /// symbase is automatically replaced.
-  using DDRef::setSymBase;
+  using DDRef::setSymbase;
 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
