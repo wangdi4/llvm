@@ -3917,7 +3917,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           S.Diag(FTI.Params[0].IdentLoc,
                  diag::err_ident_list_in_fn_declaration);
           D.setInvalidType(true);
-          }
+          } // INTEL
           // Recover by creating a K&R-style function type.
           T = Context.getFunctionNoProtoType(T, EI);
           break;
