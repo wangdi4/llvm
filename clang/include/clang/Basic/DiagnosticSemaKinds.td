@@ -2924,6 +2924,12 @@ def err_void_param_qualified : Error<
   "'void' as parameter must not have type qualifiers">;
 def err_ident_list_in_fn_declaration : Error<
   "a parameter list without types is only allowed in a function definition">;
+// if INTEL_CUSTOMIZATION
+// CQ#376510: Same as err_ident_list_in_fn_declaration, but a warning.
+def warn_ident_list_in_fn_declaration: Warning<
+  err_ident_list_in_fn_declaration.Text>,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_param_not_declared : Extension<
   "parameter %0 was not declared, defaulting to type 'int'">;
 def err_param_default_argument : Error<
