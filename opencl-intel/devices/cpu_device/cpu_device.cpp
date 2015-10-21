@@ -554,8 +554,12 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
         pinternalRetunedValueSize = &internalRetunedValueSize;
     }
 
-    static const char sOpenCL12Str[] = "OpenCL 1.2 ", sOpenCL20Str[] = "OpenCL 2.0 ";
-    static const char sOpenCLC12Str[] = "OpenCL C 1.2 ", sOpenCLC20Str[] = "OpenCL C 2.0 ";
+    static const char sOpenCL12Str[] = "OpenCL 1.2 ",
+                      sOpenCL20Str[] = "OpenCL 2.0 ",
+                      sOpenCL21Str[] = "OpenCL 2.1 ";
+
+    static const char sOpenCLC12Str[] = "OpenCL C 1.2 ",
+                      sOpenCLC20Str[] = "OpenCL C 2.0 ";
     switch (param)
     {
         case( CL_DEVICE_TYPE):
@@ -1309,7 +1313,22 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             }
         case( CL_DEVICE_VERSION):
         {
-            *pinternalRetunedValueSize = strlen(OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str) + strlen(BUILDVERSIONSTR) + 1;
+            const char* openclVerStr = nullptr;
+            switch(ver)
+            {
+                case OPENCL_VERSION_1_2:
+                    openclVerStr = sOpenCL12Str;
+                    break;
+                case OPENCL_VERSION_2_0:
+                    openclVerStr = sOpenCL20Str;
+                    break;
+                case OPENCL_VERSION_2_1:
+                    openclVerStr = sOpenCL21Str;
+                    break;
+                default:
+                    assert("Unknown OpenCL version.");
+            }
+            *pinternalRetunedValueSize = strlen(openclVerStr) + strlen(BUILDVERSIONSTR) + 1;
             if(NULL != paramVal && valSize < *pinternalRetunedValueSize)
             {
                 return CL_DEV_INVALID_VALUE;
@@ -1317,7 +1336,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                SPRINTF_S((char*)paramVal, valSize, "%s%s", OPENCL_VERSION_1_2 == ver ? sOpenCL12Str : sOpenCL20Str, BUILDVERSIONSTR);
+                SPRINTF_S((char*)paramVal, valSize, "%s%s", openclVerStr, BUILDVERSIONSTR);
             }
             return CL_DEV_SUCCESS;
         }
