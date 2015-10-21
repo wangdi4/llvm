@@ -157,6 +157,9 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
+  // The flag is set if expression contains UndefValue term
+  bool IsUndefined;
+
 protected:
   CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
             int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
@@ -231,6 +234,9 @@ protected:
   /// \brief Implements is*Ext() and isTrunc() functionality.
   bool isExtImpl(bool IsSigned, bool IsTrunc) const;
 
+  /// \brief Marks this expressions as undefined.
+  void setUndefined(bool Undefined = true) { this->IsUndefined = Undefined; }
+
 public:
   CanonExpr *clone() const;
   /// \brief Dumps CanonExpr.
@@ -279,12 +285,15 @@ public:
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
+
   /// \brief Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
   bool isLinearAtLevel() const { return (DefinedAtLevel >= 0); }
+
   /// \brief Returns true if some blob in the canon expr is defined in
   /// the current loop level.
   bool isNonLinear() const { return (DefinedAtLevel == -1); }
+
   /// \brief Mark this canon expr as non-linear.
   void setNonLinear() { DefinedAtLevel = -1; }
 
@@ -320,7 +329,8 @@ public:
   /// \brief Returns true if constant integer and its value, otherwise false
   bool isConstant(int64_t *Val = nullptr) const {
 
-    bool result = !(hasIV() || hasBlob() || (getDenominator() != 1));
+    bool result =
+        !(isUndefined() || hasIV() || hasBlob() || (getDenominator() != 1));
 
     if (result && Val != nullptr) {
       *Val = getConstant();
@@ -340,6 +350,7 @@ public:
     }
     return false;
   }
+
   /// \brief return true if the CanonExpr is one
   bool isOne() const {
     int64_t Val;
@@ -348,6 +359,9 @@ public:
     }
     return false;
   }
+
+  /// \brief Returns true if this expression contains undefined terms.
+  bool isUndefined() const { return IsUndefined; }
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }

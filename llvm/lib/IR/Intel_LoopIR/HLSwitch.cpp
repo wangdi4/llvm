@@ -293,9 +293,4 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   CaseBegin.erase(CaseBegin.begin() + CaseNum - 1);
 }
 
-void HLSwitch::verify() const {
-  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
-    assert((*I != nullptr) && "Null DDRefs are not allowed for HLSwitch");
-  }
-  HLDDNode::verify();
-}
+void HLSwitch::verify() const { HLDDNode::verify(); }

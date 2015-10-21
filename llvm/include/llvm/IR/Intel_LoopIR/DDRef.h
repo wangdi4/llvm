@@ -112,6 +112,9 @@ public:
   /// \brief Returns true if the DDRef represents a self-blob.
   bool isSelfBlob() const;
 
+  /// \brief Returns true if this DDRef contains undefined canon expressions.
+  bool isUndefined() const;
+
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;
 };

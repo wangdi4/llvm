@@ -139,6 +139,21 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
+bool HIRParser::isUndefBlob(const CanonExpr::BlobTy Blob) const {
+  Value *V = nullptr;
+
+  if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    V = UnknownSCEV->getValue();
+  } else if (auto *ConstantSCEV = dyn_cast<SCEVConstant>(Blob)) {
+    V = ConstantSCEV->getValue();
+  } else {
+    return false;
+  }
+
+  assert(V && "Blob should have a value");
+  return isa<UndefValue>(V);
+}
+
 void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase,
                                  bool Insert, unsigned *NewBlobIndex) {
   if (Insert) {
@@ -551,8 +566,8 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
 
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
   if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
-      !NewAddRec->getNoWrapFlags((SCEV::NoWrapFlags)(
-          SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
+      !NewAddRec->getNoWrapFlags(
+          (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
     return false;
   }
 
@@ -684,6 +699,10 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
 
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
+  if (isUndefBlob(ConstSCEV)) {
+    CE->setUndefined();
+  }
+
   auto Const = getSCEVConstantValue(ConstSCEV);
 
   if (IsDenom) {
@@ -777,13 +796,19 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
   // RegDDRef.
   addTempBlobEntry(Index, NestingLevel, DefLevel);
 
+  // Basically this is not so good place to handle UndefValues, but this is done
+  // here to avoid additional traverse of SCEV to found undefined its parts.
+  if (isUndefBlob(TempBlobSCEV)) {
+    CE->setUndefined();
+  }
+
   // Add blob symbase as required.
   RequiredSymbases.insert(Symbase);
 }
 
 void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
                                             int64_t *Multiplier,
-                                            unsigned *Index) {
+                                            CanonExpr::BlobTy *NewBlob) {
 
   if (auto MulSCEV = dyn_cast<SCEVMulExpr>(Blob)) {
     for (auto I = MulSCEV->op_begin(), E = MulSCEV->op_end(); I != E; ++I) {
@@ -794,16 +819,14 @@ void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
       }
 
       *Multiplier = getSCEVConstantValue(ConstSCEV);
-
-      auto NewBlob = SE->getUDivExactExpr(Blob, ConstSCEV);
-      *Index = findOrInsertBlobWrapper(NewBlob);
-
+      *NewBlob = SE->getUDivExactExpr(Blob, ConstSCEV);
       return;
     }
   }
 
   *Multiplier = 1;
-  *Index = findOrInsertBlobWrapper(Blob);
+  *NewBlob = Blob;
+  return;
 }
 
 void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
@@ -815,7 +838,10 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   BaseSCEVCreator BSC(this);
   Blob = BSC.visit(Blob);
 
-  breakConstantMultiplierBlob(Blob, &Multiplier, &Index);
+  CanonExpr::BlobTy NewBlob;
+  breakConstantMultiplierBlob(Blob, &Multiplier, &NewBlob);
+
+  Index = findOrInsertBlobWrapper(NewBlob);
 
   if (IVLevel) {
     assert(!CE->hasIVConstCoeff(IVLevel) && !CE->hasIVBlobCoeff(IVLevel) &&
@@ -834,13 +860,10 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
 
 void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
                                bool IsTop, bool UnderCast) {
-
   if (auto ConstSCEV = dyn_cast<SCEVConstant>(SC)) {
     parseConstant(ConstSCEV, CE);
-
   } else if (isa<SCEVUnknown>(SC)) {
     parseBlob(SC, CE, Level);
-
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
 
     // Look ahead and check if this zero extension cast contains a non-generable
@@ -1071,39 +1094,38 @@ void HIRParser::parse(HLLoop *HLoop) {
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
-                             CmpInst::Predicate *Pred, RegDDRef **LHSDDRef,
+                             PredicateTy *Pred, RegDDRef **LHSDDRef,
                              RegDDRef **RHSDDRef) {
 
-  *LHSDDRef = *RHSDDRef = nullptr;
-
-  if (auto ConstVal = dyn_cast<Constant>(Cond)) {
-    if (ConstVal->isOneValue()) {
-      *Pred = CmpInst::Predicate::FCMP_TRUE;
-      return;
-    } else if (ConstVal->isZeroValue()) {
-      *Pred = CmpInst::Predicate::FCMP_FALSE;
-      return;
-    } else {
-      llvm_unreachable("Unexpected conditional branch value");
-    }
-  } else if (auto CInst = dyn_cast<CmpInst>(Cond)) {
+  if (auto CInst = dyn_cast<CmpInst>(Cond)) {
     *Pred = CInst->getPredicate();
-
-    if ((*Pred == CmpInst::Predicate::FCMP_TRUE) ||
-        (*Pred == CmpInst::Predicate::FCMP_FALSE)) {
-      return;
-    }
 
     *LHSDDRef = createRvalDDRef(CInst, 0, Level);
     *RHSDDRef = createRvalDDRef(CInst, 1, Level);
 
+    return;
+  }
+
+  if (isa<UndefValue>(Cond)) {
+    *Pred = UNDEFINED_PREDICATE;
+  } else if (auto ConstVal = dyn_cast<Constant>(Cond)) {
+    if (ConstVal->isOneValue()) {
+      *Pred = PredicateTy::FCMP_TRUE;
+    } else if (ConstVal->isZeroValue()) {
+      *Pred = PredicateTy::FCMP_FALSE;
+    } else {
+      llvm_unreachable("Unexpected conditional branch value");
+    }
   } else {
     llvm_unreachable("Unexpected i1 value type!");
   }
+
+  *LHSDDRef = createUndefDDRef(Cond->getType());
+  *RHSDDRef = createUndefDDRef(Cond->getType());
 }
 
 void HIRParser::parse(HLIf *If) {
-  CmpInst::Predicate Pred;
+  PredicateTy Pred;
   RegDDRef *LHSDDRef, *RHSDDRef;
 
   setCurNode(If);
@@ -1137,13 +1159,13 @@ void HIRParser::parse(HLSwitch *Switch) {
 
   Value *CondVal = SInst->getCondition();
 
-  auto CondRef = createScalarDDRef(CondVal, CurLevel, false);
+  auto CondRef = createScalarDDRef(CondVal, CurLevel);
 
   Switch->setConditionDDRef(CondRef);
 
   for (auto I = SInst->case_begin(), E = SInst->case_end(); I != E;
        ++I, ++CaseNum) {
-    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel, false);
+    CaseValRef = createScalarDDRef(I.getCaseValue(), CurLevel);
     Switch->setCaseValueDDRef(CaseValRef, CaseNum);
   }
 }
@@ -1385,8 +1407,15 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
   return Ref;
 }
 
-RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
-                                       bool IsLval) {
+RegDDRef *HIRParser::createUndefDDRef(Type *Type) {
+  RegDDRef *Ref = DDRefUtils::createRegDDRef(CONSTANT_SYMBASE);
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Type);
+  CE->setUndefined();
+  Ref->setSingleCanonExpr(CE);
+  return Ref;
+}
+
+RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level) {
   CanonExpr *CE;
 
   clearTempBlobLevelMap();
@@ -1415,7 +1444,7 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
   } else if (isa<GEPOperator>(OpVal)) {
     Ref = createGEPDDRef(OpVal, Level);
   } else {
-    Ref = createScalarDDRef(OpVal, Level, false);
+    Ref = createScalarDDRef(OpVal, Level);
   }
 
   return Ref;
@@ -1427,7 +1456,7 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   if (isa<StoreInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level);
   } else {
-    Ref = createScalarDDRef(Inst, Level, true);
+    Ref = createScalarDDRef(Inst, Level);
   }
 
   return Ref;
@@ -1489,7 +1518,7 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
   for (unsigned I = 0; I < NumRvalOp; ++I) {
 
     if (isa<SelectInst>(Inst) && (I == 0)) {
-      CmpInst::Predicate Pred;
+      PredicateTy Pred;
       RegDDRef *LHSDDRef, *RHSDDRef;
 
       parseCompare(Inst->getOperand(0), Level, &Pred, &LHSDDRef, &RHSDDRef);

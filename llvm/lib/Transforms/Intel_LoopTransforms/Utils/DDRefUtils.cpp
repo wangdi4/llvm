@@ -63,8 +63,10 @@ private:
 
   void addMemRef(RegDDRef *RegDD) {
     // Ignore Scalar Refs
-    if (!RegDD || RegDD->isScalarRef())
+    if (RegDD->isScalarRef()) {
       return;
+    }
+
     unsigned Symbase = (RegDD)->getSymbase();
     SymToMemRefs[Symbase].push_back(RegDD);
   }

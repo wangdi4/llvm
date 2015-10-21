@@ -135,6 +135,9 @@ public:
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(CanonExpr::BlobTy Blob);
 
+  /// \brief Returns true if Blob is a UndefValue.
+  static bool isUndefBlob(const CanonExpr::BlobTy Blob);
+
   /// \brief Returns a new blob created from passed in Val.
   static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
                                       unsigned *NewBlobIndex = nullptr);

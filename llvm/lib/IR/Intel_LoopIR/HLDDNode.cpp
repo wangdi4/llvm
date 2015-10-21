@@ -116,7 +116,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
   }
 
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
-    if ((*I) == nullptr || (*I)->isConstant()) {
+    if ((*I)->isConstant()) {
       continue;
     }
 
@@ -127,6 +127,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
     }
     OS << "<REG> ";
     (*I)->print(OS, true);
+
     OS << "\n";
     for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
       indent(OS, Depth);
@@ -152,10 +153,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
 
 void HLDDNode::verify() const {
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
-    if (!*I) {
-      continue;
-    }
-
+    assert((*I) != nullptr && "null ddref found in the list");
     assert((*I)->getHLDDNode() == this &&
            "DDRef is attached to a different node");
     (*I)->verify();
@@ -165,7 +163,7 @@ void HLDDNode::verify() const {
 }
 
 bool HLDDNode::isLval(const RegDDRef *Ref) const {
-  assert ((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
 
   const HLInst *HInst = dyn_cast<HLInst>(this);
 
@@ -176,12 +174,10 @@ bool HLDDNode::isLval(const RegDDRef *Ref) const {
   return (HInst->getLvalDDRef() == Ref);
 }
 
-bool HLDDNode::isRval(const RegDDRef *Ref) const {
-  return !isLval(Ref);
-}
+bool HLDDNode::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
 
 bool HLDDNode::isFake(const RegDDRef *Ref) const {
-  assert ((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
 
   const HLInst *HInst = dyn_cast<HLInst>(this);
 
@@ -189,8 +185,8 @@ bool HLDDNode::isFake(const RegDDRef *Ref) const {
     return false;
   }
 
-  for (auto I = HInst->fake_ddref_begin(), E = HInst->fake_ddref_end();
-       I != E; I++) {
+  for (auto I = HInst->fake_ddref_begin(), E = HInst->fake_ddref_end(); I != E;
+       ++I) {
 
     if ((*I) == Ref) {
       return true;
@@ -199,5 +195,3 @@ bool HLDDNode::isFake(const RegDDRef *Ref) const {
 
   return false;
 }
-
-

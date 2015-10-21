@@ -17,6 +17,7 @@
 #include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Support/ErrorHandling.h"
 
@@ -131,6 +132,10 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
+bool CanonExprUtils::isUndefBlob(const CanonExpr::BlobTy Blob) {
+  return getHIRParser()->isUndefBlob(Blob);
+}
+
 CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
                                              unsigned *NewBlobIndex) {
   return getHIRParser()->createBlob(Val, 0, Insert, NewBlobIndex);
@@ -200,6 +205,8 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
   auto Blob = getBlob(Index);
 
+  assert(isTempBlob(Blob) && "Unexpected temp blob!");
+
   auto CE = createCanonExpr(Blob->getType());
   CE->addBlob(Index, 1);
 
@@ -208,6 +215,10 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
   } else {
     assert(Level >= 0 && "Invalid level!");
     CE->setDefinedAtLevel(Level);
+  }
+
+  if (isUndefBlob(Blob)) {
+    CE->setUndefined();
   }
 
   return CE;
@@ -374,7 +385,7 @@ CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
 }
 
 void CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                                    bool IgnoreDestType) {
+                              bool IgnoreDestType) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   // Here, we avoid cloning by doing negation twice.

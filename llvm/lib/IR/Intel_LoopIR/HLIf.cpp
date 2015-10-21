@@ -290,21 +290,21 @@ void HLIf::verify() const {
          "HLIf should contain at least one predicate");
 
   for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
-    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I)) &&
+    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
+            *I == UNDEFINED_PREDICATE) &&
            "Invalid predicate value, should be one of PredicateTy");
 
     bool IsBooleanPred = isPredicateTrueOrFalse(*I);
     ContainsTrueFalsePred = ContainsTrueFalsePred || IsBooleanPred;
 
-    if (!IsBooleanPred) {
+    if (IsBooleanPred) {
       auto *DDRefLhs = getPredicateOperandDDRef(I, true);
       auto *DDRefRhs = getPredicateOperandDDRef(I, false);
 
       (void)DDRefLhs;
       (void)DDRefRhs;
-      assert(
-          DDRefLhs != nullptr && DDRefRhs != nullptr &&
-          "DDRefs should exist for every non FCMP_TRUE/FCMP_FALSE predicate");
+      assert(DDRefLhs->isUndefined() && DDRefRhs->isUndefined() &&
+             "DDRefs should be undefined for FCMP_TRUE/FCMP_FALSE predicate");
     }
   }
 

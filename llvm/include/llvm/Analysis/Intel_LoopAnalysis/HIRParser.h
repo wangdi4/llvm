@@ -215,10 +215,10 @@ private:
                         unsigned NestingLevel);
 
   /// \brief Breaks multiplication blobs such as (2 * n) into multiplier 2 and
-  /// new blob n, otherwise sets the multiplier to 1. Also returns the index for
-  /// the new or the orignal blob, as applicable.
+  /// new blob n, otherwise sets the multiplier to 1. Also returns new or
+  /// the orignal blob, as applicable.
   void breakConstantMultiplierBlob(CanonExpr::BlobTy Blob, int64_t *Multiplier,
-                                   unsigned *Index);
+                                   CanonExpr::BlobTy *NewBlob);
 
   /// \brief Parses a blob into CE. If IVLevel is non-zero, blob is parsed as an
   /// IV coeff.
@@ -282,8 +282,11 @@ private:
   /// \brief Returns a RegDDRef containing GEPInfo.
   RegDDRef *createGEPDDRef(const Value *Val, unsigned Level);
 
+  /// \brief Returns a RegDDRef representing this Null value.
+  RegDDRef *createUndefDDRef(Type *Type);
+
   /// \brief Returns a RegDDRef representing this scalar value.
-  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level, bool isLval);
+  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level);
 
   /// \brief Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,
@@ -359,6 +362,9 @@ private:
 
   /// \brief Returns true if this is a temp blob.
   bool isTempBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Returns true if this is an UndefValue blob.
+  bool isUndefBlob(const CanonExpr::BlobTy Blob) const;
 
 public:
   static char ID; // Pass identification

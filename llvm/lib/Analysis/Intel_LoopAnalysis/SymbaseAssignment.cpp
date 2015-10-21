@@ -117,8 +117,10 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
 }
 
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  if (Ref->isScalarRef())
+  if (Ref->isScalarRef()) {
     return;
+  }
+
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
@@ -134,10 +136,6 @@ void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
 void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-    if (!*I) {
-      continue;
-    }
-
     if ((*I)->getBaseCE()) {
       addToAST(*I);
     }

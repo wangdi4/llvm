@@ -41,6 +41,9 @@ static cl::opt<bool>
     InsertLabels("hir-dummy-label", cl::init(false), cl::Hidden,
                  cl::desc("Insert label before each instruction"));
 
+static cl::opt<bool> MarkModified("hir-dummy-cg", cl::init(false), cl::Hidden,
+                                  cl::desc("Mark all HIR regions as modified"));
+
 namespace {
 
 class HIRDummyTransformation : public HIRTransformPass {
@@ -62,16 +65,22 @@ public:
 };
 
 struct NodeVisitor final : public HLNodeVisitorBase {
-  int num;
+  int Num;
 
-  NodeVisitor() : num(0) {}
+  NodeVisitor() : Num(0) {}
 
   void visit(HLInst *I) {
     if (InsertLabels) {
-      HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(num++));
+      HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(Num++));
       HLNodeUtils::insertBefore(I, Label);
 
       I->getParentRegion()->setGenCode(true);
+    }
+  }
+
+  void visit(HLRegion *R) {
+    if (MarkModified) {
+      R->setGenCode(true);
     }
   }
 
@@ -95,7 +104,6 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 bool HIRDummyTransformation::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
                << "\n");
-
   NodeVisitor V;
   HLNodeUtils::visitAll(V);
 

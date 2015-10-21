@@ -464,8 +464,7 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin,
-                    ilist_iterator<NodeTy> End) {
+  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
   }

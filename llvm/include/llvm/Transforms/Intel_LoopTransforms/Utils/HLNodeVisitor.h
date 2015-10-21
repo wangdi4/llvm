@@ -92,6 +92,10 @@ namespace loopopt {
 /// whether we want to visit inside the loops or not and this parameter
 /// is only useful if Recursive parameter is true.
 
+template <typename T>
+using IsHLNodeTy =
+    typename std::enable_if<std::is_base_of<HLNode, T>::value>::type;
+
 struct HLNodeVisitorBase {
   virtual bool isDone() const { return false; }
   virtual bool skipRecursion(const HLNode *Node) const { return false; }
@@ -102,10 +106,8 @@ template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,
 class HLNodeVisitor {
 
   // TODO: if C++14 would be available, std::is_final can be used
-  static_assert(
-    std::is_base_of<HLNodeVisitorBase, HV>::value,
-    "HV must be a final derivative of HLNodeVisitorBase"
-  );
+  static_assert(std::is_base_of<HLNodeVisitorBase, HV>::value,
+                "HV must be a final derivative of HLNodeVisitorBase");
 
 private:
   HV &Visitor;
@@ -238,8 +240,9 @@ private:
   /// \brief Visits HLNodes in the specified direction in the range [begin,
   /// end).
   /// Returns true to indicate that early termination has occurred.
-  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
-  bool visitRange(ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+  template <typename NodeTy, template <typename> class It,
+            typename = IsHLNodeTy<NodeTy>>
+  bool visitRange(It<NodeTy> Begin, It<NodeTy> End) {
     if (Forward) {
       for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
 

@@ -387,22 +387,19 @@ void HLInst::verify() const {
   bool IsSelectCmpTrueFalse = (isa<SelectInst>(Inst) || isa<CmpInst>(Inst)) &&
                               isPredicateTrueOrFalse(CmpOrSelectPred);
 
-  // Number of operands to skip if instruction
-  // is Select or Cmp with True/False predicate
-  int Skip1 = 1;
-  int Skip2 = 2;
-  int C = 0;
-
-  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I, ++C) {
-    if (IsSelectCmpTrueFalse && (C == Skip1 || C == Skip2)) {
-      assert(*I == nullptr && "DDRefs for Select or Cmp Inst with "
-                              "True or False operands must be NULL");
-      continue;
-    }
-
-    assert(*I != nullptr && "DDRefs cannot be NULL except for "
-                            "Select or Cmp Inst with True or False predicate");
-  }
+  assert((CmpInst::isFPPredicate(CmpOrSelectPred) ||
+          CmpInst::isIntPredicate(CmpOrSelectPred) ||
+          CmpOrSelectPred == UNDEFINED_PREDICATE) &&
+         "Invalid predicate value, should be one of PredicateTy");
 
   HLDDNode::verify();
+
+  if (IsSelectCmpTrueFalse) {
+    const RegDDRef *R1 = getOperandDDRef(1);
+    const RegDDRef *R2 = getOperandDDRef(2);
+
+    assert(R1->isUndefined() && R2->isUndefined() &&
+           "DDRefs for Select or Cmp Instruction with "
+           "True or False predicate must be undefined");
+  }
 }

@@ -163,7 +163,7 @@ bool RegDDRef::isLval() const {
   return HNode->isLval(this);
 }
 
-bool RegDDRef::isRval() const { 
+bool RegDDRef::isRval() const {
   auto HNode = getHLDDNode();
 
   assert(HNode && "DDRef is not attached to any node!");
@@ -180,7 +180,6 @@ bool RegDDRef::isFake() const {
 }
 
 bool RegDDRef::isScalarRef() const {
-
   // Check GEP and Single CanonExpr
   if (!hasGEPInfo()) {
     assert(isSingleCanonExpr() && "Scalar ref has more than one dimension!");
@@ -191,15 +190,17 @@ bool RegDDRef::isScalarRef() const {
 }
 
 bool RegDDRef::isIntConstant(int64_t *Val) const {
-  if (!isScalarRef())
+  if (!isScalarRef()) {
     return false;
+  }
 
   const CanonExpr *CE = getSingleCanonExpr();
   if (!CE->isConstant())
     return false;
 
-  if (Val)
+  if (Val) {
     *Val = CE->getConstant();
+  }
 
   return true;
 }
@@ -280,6 +281,9 @@ void RegDDRef::updateBlobDDRefs() {
 }
 
 void RegDDRef::verify() const {
+  assert(getNumDimensions() > 0 &&
+         "RegDDRef should contain at least one CanonExpr");
+
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     (*I)->verify();
   }
@@ -298,5 +302,6 @@ void RegDDRef::verify() const {
   assert((!hasGEPInfo() || getNumDimensions() == getStrides().size()) &&
          "Stride should be for every dimension");
 
+  // Verify symbase value if this DDRef is defined
   DDRef::verify();
 }

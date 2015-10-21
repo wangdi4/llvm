@@ -21,8 +21,6 @@
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -116,7 +114,7 @@ Type *DDRef::getTypeImpl(bool IsSrc) const {
       // transformations want to access three different types involved here-
       // [1001 x float]*, float* and i32*. We are currently not storing the
       // intermediate float* type but it can be computed on the fly.
-      // 
+      //
       // TODO: Rethink the setup, if required.
       assert((!IsSrc || (I == NumDim)) && "Malformed DDRef!");
 
@@ -143,6 +141,9 @@ Type *DDRef::getSrcType() const { return getTypeImpl(true); }
 Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
+  if (isUndefined() && Detailed) {
+    OS << "{undefined} ";
+  }
   OS << "{sb:" << getSymbase() << "}";
 }
 
@@ -155,6 +156,27 @@ bool DDRef::isSelfBlob() const {
            "Blob DDRef is not a self blob!");
     return true;
   }
+  llvm_unreachable("Unknown DDRef kind!");
+}
+
+bool DDRef::isUndefined() const {
+  auto UndefCanonPredicate = [](const CanonExpr *CE) {
+    return CE->isUndefined();
+  };
+
+  if (auto Ref = dyn_cast<RegDDRef>(this)) {
+    if (Ref->hasGEPInfo() && UndefCanonPredicate(Ref->getBaseCE())) {
+      return true;
+    }
+
+    return std::any_of(Ref->canon_begin(), Ref->canon_end(),
+                       UndefCanonPredicate) ||
+           std::any_of(Ref->stride_begin(), Ref->stride_end(),
+                       UndefCanonPredicate);
+  } else if (auto Ref = dyn_cast<BlobDDRef>(this)) {
+    return UndefCanonPredicate(Ref->getCanonExpr());
+  }
+
   llvm_unreachable("Unknown DDRef kind!");
 }
 

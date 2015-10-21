@@ -16,6 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 #define LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/InstrTypes.h"
@@ -266,7 +267,9 @@ public:
 
   /// \brief Returns true if this is a do loop.
   bool isDo() const {
-    return (!IsDoWhile && (NumExits == 1) && getUpperDDRef());
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->isUndefined());
   }
 
   /// \brief Returns true if this is a do-while loop.
@@ -274,11 +277,17 @@ public:
 
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExit() const {
-    return (!IsDoWhile && (NumExits > 1) && getUpperDDRef());
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->isUndefined());
   }
 
   /// \brief Returns true if this is an unknown loop.
-  bool isUnknown() const { return !getUpperDDRef(); }
+  bool isUnknown() const {
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return UpperDDRef->isUndefined();
+  }
 
   /// \brief Returns true if loop is normalized.
   /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or

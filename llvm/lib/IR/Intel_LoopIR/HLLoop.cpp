@@ -56,9 +56,14 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   initialize();
   setNumExits(NumEx);
 
-  assert(((LowerDDRef && UpperDDRef && StrideDDRef) ||
-          (!LowerDDRef && !UpperDDRef && !StrideDDRef)) &&
-         "Inconsistent loop DDRefs!");
+  assert(LowerDDRef && UpperDDRef && StrideDDRef &&
+         "All DDRefs should be non null");
+  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
+           !getStrideDDRef()->isUndefined()) ||
+          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
+           getStrideDDRef()->isUndefined())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
@@ -175,7 +180,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   /// Print header
-  if (isDo() || isDoWhile() || isDoMultiExit()) {
+  if (getUpperDDRef() && (isDo() || isDoWhile() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -203,7 +208,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     }
 
     OS << "\n";
-  } else if (isUnknown()) {
+  } else if (!getUpperDDRef() || isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -606,21 +611,19 @@ void HLLoop::createZtt(bool IsOverwrite) {
 }
 
 void HLLoop::verify() const {
-  bool AllDDRefsAreNull =
-      (!getLowerDDRef() && !getUpperDDRef() && !getStrideDDRef());
-  bool AllDDRefsAreNonNull =
-      (getLowerDDRef() && getUpperDDRef() && getStrideDDRef());
+  HLDDNode::verify();
 
-  (void)AllDDRefsAreNull;
-  (void)AllDDRefsAreNonNull;
-  assert((AllDDRefsAreNull || AllDDRefsAreNonNull) &&
-         "Lower, Upper and Stride DDRefs should be all NULL or all non-NULL");
+  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
+           !getStrideDDRef()->isUndefined()) ||
+          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
+           getStrideDDRef()->isUndefined())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
-  if (Ztt) {
-    // TODO: Change the Ztt verification as DDRef's get moved when we call
-    // setZtt().
-    // Ztt->verify();
-  }
+  // TODO: Implement special case as ZTT's DDRefs are attached to node
+  // if (Ztt) {
+  //  Ztt->verify();
+  //}
 
   for (auto I = pre_begin(), E = pre_end(); I != E; ++I) {
     assert(isa<HLInst>(*I) && "All nodes in preheader must be HLInst");
@@ -635,6 +638,4 @@ void HLLoop::verify() const {
          "If it's not a top-level loop its nesting level should be +1");
   assert((getParentLoop() || getNestingLevel() == 1) &&
          "Top level loops should have 1st nesting level");
-
-  HLDDNode::verify();
 }
