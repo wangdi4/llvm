@@ -25,3 +25,31 @@ int main(void)
 // CHECK: [[T10:%.+]] = fdiv double [[T8]], [[T5]]
 }
 
+// CQ#377455: More complex case, that led to another fail
+
+extern double sqrt(double arg);
+
+struct quantum_reg_node_struct
+{
+    float _Complex amplitude;
+};
+
+typedef struct quantum_reg_node_struct quantum_reg_node;
+
+struct quantum_reg_struct
+{
+    quantum_reg_node *node;
+};
+
+typedef struct quantum_reg_struct quantum_reg;
+
+void quantum_bmeasure_bitpreserve(quantum_reg *reg)
+{
+    quantum_reg out;
+    out.node[0].amplitude = reg->node[0].amplitude * 1 / (float) sqrt(0);
+// CHECK: [[RES2_1:%.+]] = call double @"\01?sqrt@@YANN@Z"(double 0.000000e+00)
+// CHECK: [[RES2_2:%.+]] = fptrunc double [[RES2_1]] to float
+// CHECK: {{.+}} = fdiv float {{%.+}}, [[RES2_2]]
+// CHECK: {{.+}} = fdiv float {{%.+}}, [[RES2_2]]
+}
+

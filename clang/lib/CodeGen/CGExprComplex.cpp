@@ -773,40 +773,40 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
   llvm::Value *DSTr, *DSTi;
 
   if (LHSr->getType()->isFloatingPointTy()) {
-#if INTEL_CUSTOMIZATION
-    // compiler-rt library doesn't have Windows implementation of _Complex
-    // division functions (divdc) at the moment. Use standard FP math.
-    // CQ#372672.
-    //
-    // FIXME: This is a temporary fix; proper one should implement divdc for
-    // Windows.
-    if (CGF.getLangOpts().MSVCCompat && CGF.getLangOpts().IntelCompat) {
-      // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
-      llvm::Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
-      llvm::Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
-      llvm::Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
-
-      llvm::Value *Tmp4 = Builder.CreateFMul(RHSr, RHSr); // c*c
-      llvm::Value *Tmp5 = Builder.CreateFMul(RHSi, RHSi); // d*d
-      llvm::Value *Tmp6 = Builder.CreateFAdd(Tmp4, Tmp5); // cc+dd
-
-      llvm::Value *Tmp7 = Builder.CreateFMul(LHSi, RHSr); // b*c
-      llvm::Value *Tmp8 = Builder.CreateFMul(LHSr, RHSi); // a*d
-      llvm::Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
-
-      DSTr = Builder.CreateFDiv(Tmp3, Tmp6);
-      DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
-
-      return ComplexPairTy(DSTr, DSTi);
-    }
-#endif // INTEL_CUSTOMIZATION
-
     // If we have a complex operand on the RHS, we delegate to a libcall to
     // handle all of the complexities and minimize underflow/overflow cases.
     //
     // FIXME: We would be able to avoid the libcall in many places if we
     // supported imaginary types in addition to complex types.
     if (RHSi) {
+#if INTEL_CUSTOMIZATION
+      // compiler-rt library doesn't have Windows implementation of _Complex
+      // division functions (divdc) at the moment. Use standard FP math.
+      // CQ#372672.
+      //
+      // FIXME: This is a temporary fix; proper one should implement divdc for
+      //        Windows.
+      if (CGF.getLangOpts().MSVCCompat && CGF.getLangOpts().IntelCompat) {
+        // (a+ib) / (c+id) = ((ac+bd)/(cc+dd)) + i((bc-ad)/(cc+dd))
+        llvm::Value *Tmp1 = Builder.CreateFMul(LHSr, RHSr); // a*c
+        llvm::Value *Tmp2 = Builder.CreateFMul(LHSi, RHSi); // b*d
+        llvm::Value *Tmp3 = Builder.CreateFAdd(Tmp1, Tmp2); // ac+bd
+
+        llvm::Value *Tmp4 = Builder.CreateFMul(RHSr, RHSr); // c*c
+        llvm::Value *Tmp5 = Builder.CreateFMul(RHSi, RHSi); // d*d
+        llvm::Value *Tmp6 = Builder.CreateFAdd(Tmp4, Tmp5); // cc+dd
+
+        llvm::Value *Tmp7 = Builder.CreateFMul(LHSi, RHSr); // b*c
+        llvm::Value *Tmp8 = Builder.CreateFMul(LHSr, RHSi); // a*d
+        llvm::Value *Tmp9 = Builder.CreateFSub(Tmp7, Tmp8); // bc-ad
+
+        DSTr = Builder.CreateFDiv(Tmp3, Tmp6);
+        DSTi = Builder.CreateFDiv(Tmp9, Tmp6);
+
+        return ComplexPairTy(DSTr, DSTi);
+      }
+#endif // INTEL_CUSTOMIZATION
+
       BinOpInfo LibCallOp = Op;
       // If LHS was a real, supply a null imaginary part.
       if (!LHSi)
