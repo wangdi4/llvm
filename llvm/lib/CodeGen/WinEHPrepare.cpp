@@ -959,7 +959,13 @@ bool WinEHPrepare::prepareExceptionHandlers(
       // target.
       if (isAsynchronousEHPersonality(Personality)) {
         if (auto *CatchAction = dyn_cast<CatchHandler>(Action)) {
+#if INTEL_CUSTOMIZATION
+          // SEH actually wants to start processing catch handlers at the
+          // dispatch block.
+          processSEHCatchHandler(CatchAction, CatchAction->getDispatchBB());
+#else // !INTEL_CUSTOMIZATION
           processSEHCatchHandler(CatchAction, StartBB);
+#endif // !INTEL_CUSTOMIZATION
           continue;
         }
       }
@@ -2504,7 +2510,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
           // isn't important if some finally code before a catch-all is executed
           // out of line or after recovering from the exception.
           if (Personality == EHPersonality::MSVC_CXX)
+#if INTEL_CUSTOMIZATION
+            findCleanupHandlers(Actions, BB, Action->getDispatchBB());
+#else  // !INTEL_CUSTOMIZATION
             findCleanupHandlers(Actions, BB, BB);
+#endif // !INTEL_CUSTOMIZATION
         } else {
           // If an action was not found, it means that the control flows
           // directly into the catch-all handler and there is no cleanup code.
@@ -2512,7 +2522,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
           // Since this is a catch-all handler, the selector won't actually
           // appear in the code anywhere.  ExpectedSelector here is the constant
           // null ptr that we got from the landing pad instruction.
+#if INTEL_CUSTOMIZATION
+          Action = new CatchHandler(BB, BB, ExpectedSelector, nullptr);
+#else
           Action = new CatchHandler(BB, ExpectedSelector, nullptr);
+#endif // INTEL_CUSTOMIZATION
           CatchHandlerMap[BB] = Action;
         }
       }
@@ -2529,7 +2543,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
     assert(CatchAction);
 
     // See if there is any interesting code executed before the dispatch.
+#if INTEL_CUSTOMIZATION
+    findCleanupHandlers(Actions, BB, CatchAction->getDispatchBB());
+#else
     findCleanupHandlers(Actions, BB, CatchAction->getStartBlock());
+#endif // INTEL_CUSTOMIZATION
 
     // When the source program contains multiple nested try blocks the catch
     // handlers can get strung together in such a way that we can encounter
@@ -2607,7 +2625,11 @@ CatchHandler *WinEHPrepare::findCatchHandler(BasicBlock *BB,
   // look to see if it is a selector dispatch block.
   if (!CatchHandlerMap.count(BB)) {
     if (isSelectorDispatch(BB, CatchBlock, Selector, NextBB)) {
+#if INTEL_CUSTOMIZATION
+      CatchHandler *Action = new CatchHandler(BB, CatchBlock, Selector, NextBB);
+#else  // !INTEL_CUSTOMIZATION
       CatchHandler *Action = new CatchHandler(BB, Selector, NextBB);
+#endif // !INTEL_CUSTOMIZATION
       CatchHandlerMap[BB] = Action;
       return Action;
     }
@@ -2619,7 +2641,11 @@ CatchHandler *WinEHPrepare::findCatchHandler(BasicBlock *BB,
     if (isCatchBlock(BB)) {
       PointerType *Int8PtrTy = Type::getInt8PtrTy(BB->getContext());
       Constant *NullSelector = ConstantPointerNull::get(Int8PtrTy);
+#if INTEL_CUSTOMIZATION
+      CatchHandler *Action = new CatchHandler(BB, BB, NullSelector, nullptr);
+#else  // !INTEL_CUSTOMIZATION
       CatchHandler *Action = new CatchHandler(BB, NullSelector, nullptr);
+#endif // !INTEL_CUSTOMIZATION
       CatchHandlerMap[BB] = Action;
       return Action;
     }
@@ -2871,6 +2897,15 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
       Instruction *Inst = II;
       if (LPadMap && LPadMap->isLandingPadSpecificInst(Inst))
         continue;
+#if INTEL_CUSTOMIZATION
+      // It's possible for a extract instruction for the landing pad
+      // to get separated from the landing pad block.  We can still
+      // identify it as being an EH specific instruction.
+      if (auto *Extract = dyn_cast<ExtractValueInst>(Inst))
+        if (isa<LandingPadInst>(Extract->getAggregateOperand()))
+          continue;
+#endif // INTEL_CUSTOMIZATION
+
       // Unconditional branches fall through to this loop.
       if (Inst == Branch)
         continue;
@@ -2908,8 +2943,14 @@ void llvm::parseEHActions(
       int64_t EHObjIndexVal = EHObjIndex->getSExtValue();
       Constant *Handler = cast<Constant>(II->getArgOperand(I + 3));
       I += 4;
+#if INTEL_CUSTOMIZATION
+      auto CH = make_unique<CatchHandler>(/*DispatchBB=*/nullptr, 
+                                          /*StartBB=*/nullptr, Selector,
+                                          /*NextBB=*/nullptr);
+#else  // !INTEL_CUSTOMIZATION
       auto CH = make_unique<CatchHandler>(/*BB=*/nullptr, Selector,
                                           /*NextBB=*/nullptr);
+#endif // !INTEL_CUSTOMIZATION
       CH->setHandlerBlockOrFunc(Handler);
       CH->setExceptionVarIndex(EHObjIndexVal);
       Actions.push_back(std::move(CH));
