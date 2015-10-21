@@ -2818,6 +2818,42 @@ cl_int CL_API_CALL clEnqueueMigrateMemObjects(cl_command_queue command_queue,
 }
 SET_ALIAS(clEnqueueMigrateMemObjects);
 
+cl_int CL_API_CALL clEnqueueSVMMigrateMem(cl_command_queue command_queue,
+                                          cl_uint          num_svm_pointers,
+                                          const void**     svm_pointers,
+                                          const size_t*    sizes,
+                                          cl_mem_migration_flags flags,
+                                          cl_uint num_events_in_wait_list,
+                                          const cl_event*  event_wait_list,
+                                          cl_event*        event)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        START_LOG_API(clEnqueueSVMMigrateMem);
+        apiLogger << "cl_command_queue command_queue" << command_queue
+                  << "cl_uint num_svm_pointers" << num_svm_pointers
+                  << "const void** svm_pointers" << svm_pointers
+                  << "const size_t* sizes" << sizes
+                  << "cl_mem_migration_flags flags" << flags
+                  << "cl_uint num_events_in_wait_list" << num_events_in_wait_list
+                  << "const cl_event* event_wait_list" << event_wait_list
+                  << "cl_event* event" << event;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("event", event, true);
+        CALL_INSTRUMENTED_API_LOGGER(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, &apiLogger));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(EXECUTION_MODULE, cl_int, EnqueueSVMMigrateMem(command_queue, num_svm_pointers, svm_pointers, sizes, flags, num_events_in_wait_list, event_wait_list, event, NULL));
+    }
+}
+SET_ALIAS(clEnqueueSVMMigrateMem);
+
 cl_int CL_API_CALL clCompileProgram(cl_program program,
                                     cl_uint num_devices,
                                     const cl_device_id *device_list,

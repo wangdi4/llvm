@@ -285,6 +285,7 @@ enum cl_dev_cmd_type
     CL_DEV_CMD_FILL_BUFFER,         //!< Fill buffer
     CL_DEV_CMD_FILL_IMAGE,          //!< Fill image
     CL_DEV_CMD_MIGRATE,             //!< Migrate memory object
+    CL_DEV_CMD_SVM_MIGRATE,         //!< Migrate SVM memory object
     //--------------------
     CL_DEV_CMD_MAX_COMMAND_TYPE
 };
