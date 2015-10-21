@@ -1117,7 +1117,12 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
       llvm_unreachable("Unexpected conditional branch value");
     }
   } else {
-    llvm_unreachable("Unexpected i1 value type!");
+    // TODO: Add parsing of predicates linked with && and ||
+    assert(Cond->getType()->isIntegerTy(1) && "Cond should be an i1 type");
+    *Pred = PredicateTy::ICMP_NE;
+    *LHSDDRef = createScalarDDRef(Cond, Level);
+    *RHSDDRef = DDRefUtils::createConstDDRef(Cond->getType(), 0);
+    return;
   }
 
   *LHSDDRef = createUndefDDRef(Cond->getType());
