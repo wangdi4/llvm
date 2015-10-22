@@ -301,6 +301,13 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
       }
 #endif // INTEL_CUSTOMIZATION
     } else if (Info.requiresImmediateConstant() && !Info.allowsRegister()) {
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ377377: Constraints "I"|"J" expects an integer constant
+      // expression.
+      if (!getLangOpts().IntelCompat ||
+          !InputExpr->getType().isConstQualified() ||
+          !InputExpr->getType()->isIntegerType())
+#endif //INTEL_CUSTOMIZATION
       if (!InputExpr->isValueDependent()) {
         llvm::APSInt Result;
         if (!InputExpr->EvaluateAsInt(Result, Context))
