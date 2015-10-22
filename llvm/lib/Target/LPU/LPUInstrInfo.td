@@ -40,7 +40,13 @@ class Addr<int numArgs, string funcName, dag opInfo> :
     funcName, [],
     [SDNPWantParent]> { let MIOperandInfo = opInfo; }
 
-def ADDR_R : Addr<1, "SelectAddrReg", (ops i64)>;
+let PrintMethod = "printMemOperand" in {
+def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops i64:$base, i64:$offset)>;
+def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops i64:$base, i64imm:$offset)>;
+def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops i64:$base, i64:$offset)>;
+}
+def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
+def ADDR_R : Addr<1, "SelectAddrReg", (ops i64:$addr)>;
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
 def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
@@ -358,35 +364,115 @@ multiclass FCmpOp<string opStr, PatFrag opNodeOrd, PatFrag opNodeUnord,
   }
 }
 
-// This provides a full set of result register types.  Some are nonsensical
-// (e.g. LD8_F64 or LD32_I64)
 multiclass LdOp<string opStr, RegisterClass RC> {
-  def "" : FMTGEN<
+  let Predicates = [HasIndex] in {
+    def X : FMTGEN< // indexed reg+reg
+      (outs RC:$dst),
+      (ins ADDR_RX:$addr),
+      !strconcat(opStr, "x\t$dst, $addr"),
+      [(set RC:$dst, (load ADDR_RX:$addr))]>;
+  }
+
+  let Predicates = [HasDispl] in {
+    def D : FMTGEN< // normal literal displacement form (val+k)
+      (outs RC:$dst),
+      (ins ADDR_RI:$addr),
+      !strconcat(opStr, "d\t$dst, $addr"),
+      [(set RC:$dst, (load ADDR_RI:$addr))]>;
+    def R : FMTGEN< // non-indexed reg+reg
+      (outs RC:$dst),
+      (ins ADDR_RR:$addr),
+      !strconcat(opStr, "d\t$dst, $addr"),
+      [(set RC:$dst, (load ADDR_RR:$addr))]>;
+  }
+
+  def I : FMTGEN<  // e.g. ld of literal address - ld rx,sym
     (outs RC:$dst),
-    (ins I64:$addr),
+    (ins ADDR_I:$addr),
+    !strconcat(opStr, "\t$dst, $addr"),
+    [(set RC:$dst, (load ADDR_I:$addr))]>;
+  def "" : FMTGEN< // normal basereg form
+    (outs RC:$dst),
+    (ins ADDR_R:$addr),
     !strconcat(opStr, "\t$dst, $addr"),
     [(set RC:$dst, (load ADDR_R:$addr))]>;
 }
 
+// Ugly combinatorial issue between literal store data and addressing modes
 // TODO: How to handle store output flag?
 multiclass StOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpnd> {
-  def "" : FMTGEN<
-    (outs),  // How to handle output flag??
-    (ins I64:$addr, RC:$data),
-    !strconcat(opStr, "\t$addr, $data"),
-    [(store RC:$data, ADDR_R:$addr)]>;
+  let Predicates = [HasIndex] in {
+    def Xi : FMTGEN<
+      (outs),
+      (ins ADDR_RX:$addr, immOpnd:$data),
+      !strconcat(opStr, "x\t%ign,\t$addr, $data"),
+      [(store (opType immAny:$data), ADDR_RX:$addr)]>;
+    def X : FMTGEN<
+      (outs),
+      (ins ADDR_RX:$addr, RC:$data),
+      !strconcat(opStr, "x\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RX:$addr)]>;
+  }
+
+  let Predicates = [HasDispl] in {
+    def Di : FMTGEN<
+      (outs),
+      (ins ADDR_RI:$addr, immOpnd:$data),
+      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      [(store (opType immAny:$data), ADDR_RI:$addr)]>;
+    def D : FMTGEN<
+      (outs),
+      (ins ADDR_RI:$addr, RC:$data),
+      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RI:$addr)]>;
+    def Ri : FMTGEN<
+      (outs),
+      (ins ADDR_RR:$addr, immOpnd:$data),
+      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      [(store (opType immAny:$data), ADDR_RR:$addr)]>;
+    def R : FMTGEN<
+      (outs),
+      (ins ADDR_RR:$addr, RC:$data),
+      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RR:$addr)]>;
+  }
+
   def i : FMTGEN<
-    (outs),  // How to handle output flag??
-    (ins I64:$addr, immOpnd:$data),
-    !strconcat(opStr, "\t$addr, $data"),
+    (outs),
+    (ins ADDR_R:$addr, immOpnd:$data),
+    !strconcat(opStr, "\t%ign,\t$addr, $data"),
     [(store (opType immAny:$data), ADDR_R:$addr)]>;
+  def "" : FMTGEN<
+    (outs),
+    (ins ADDR_R:$addr, RC:$data),
+    !strconcat(opStr, "\t%ign,\t$addr, $data"),
+    [(store RC:$data, ADDR_R:$addr)]>;
 }
 
 multiclass FStOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpnd> {
+  let Predicates = [HasIndex] in {
+    def X : FMTGEN<
+      (outs),
+      (ins ADDR_RX:$addr, RC:$data),
+      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RX:$addr)]>;
+  }
+  let Predicates = [HasDispl] in {
+    def D : FMTGEN<
+      (outs),
+      (ins ADDR_RI:$addr, RC:$data),
+      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RI:$addr)]>;
+    def R : FMTGEN<
+      (outs),
+      (ins ADDR_RR:$addr, RC:$data),
+      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      [(store RC:$data, ADDR_RR:$addr)]>;
+  }
   def "" : FMTGEN<
-    (outs),  // How to handle output flag??
-    (ins I64:$addr, RC:$data),
-    !strconcat(opStr, "\t$addr, $data"),
+    (outs),
+    (ins ADDR_R:$addr, RC:$data),
+    !strconcat(opStr, "\t%ign,\t$addr, $data"),
     [(store RC:$data, ADDR_R:$addr)]>;
 }
 
@@ -659,12 +745,25 @@ defm LD32f : LdOp<"ld32", F32>;
 defm LD64  : LdOp<"ld64", I64>;
 defm LD64f : LdOp<"ld64", F64>;
 
-defm ST8   : StOp<"st8\t%ign,",  I8,  i8,  i8imm>;
-defm ST16  : StOp<"st16\t%ign,", I16, i16, i16imm>;
-defm ST32  : StOp<"st32\t%ign,", I32, i32, i32imm>;
-defm ST32f : FStOp<"st32\t%ign,", F32, f32, f32imm>;
-defm ST64  : StOp<"st64\t%ign,", I64, i64, i64imm>;
-defm ST64f : FStOp<"st64\t%ign,", F64, f64, f64imm>;
+defm ST8    : StOp<  "st8",   I8,  i8,  i8imm>;
+defm ST16   : StOp<  "st16",  I16, i16, i16imm>;
+defm ST32   : StOp<  "st32",  I32, i32, i32imm>;
+defm ST32f  : FStOp< "st32",  F32, f32, f32imm>;
+defm ST64   : StOp<  "st64",  I64, i64, i64imm>;
+defm ST64f  : FStOp< "st64",  F64, f64, f64imm>;
+// Displacement
+//defm STD8   : StdOp< "std8",  I8,  i8,  i8imm>;
+//defm STD16  : StdOp< "std16", I16, i16, i16imm>;
+//defm STD32  : StdOp< "std32", I32, i32, i32imm>;
+//defm STD32f : FStdOp<"std32", F32, f32, f32imm>;
+//defm STD64  : StdOp< "std64", I64, i64, i64imm>;
+//defm STD64f : FStdOp<"std64", F64, f64, f64imm>;
+// Indexed
+//defm STI16  : StiOp< "sti16", I16, i16, i16imm>;
+//defm STI32  : StiOp< "sti32", I32, i32, i32imm>;
+//defm STI32f : FStiOp<"sti32", F32, f32, f32imm>;
+//defm STI64  : StiOp< "sti64", I64, i64, i64imm>;
+//defm STI64f : FStiOp<"sti64", F64, f64, f64imm>;
 
 multiclass CopyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<

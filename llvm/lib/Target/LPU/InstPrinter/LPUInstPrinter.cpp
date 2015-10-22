@@ -23,9 +23,6 @@ using namespace llvm;
 #define DEBUG_TYPE "asm-printer"
 
 
-// Include the auto-generated portion of the assembly writer.
-#include "LPUGenAsmWriter.inc"
-
 // Pin the vtable to this file
 void LPUInstPrinter::anchor() {}
 
@@ -38,6 +35,9 @@ void LPUInstPrinter::printInst(const MCInst *MI, raw_ostream &O,
   printInstruction(MI, O);
   printAnnotation(O, Annot);
 }
+
+// Include the auto-generated portion of the assembly writer.
+#include "LPUGenAsmWriter.inc"
 
 void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
                                      raw_ostream &O, const char *Modifier) {
@@ -60,6 +60,15 @@ void LPUInstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
     assert(Op.isExpr() && "unknown operand kind in printOperand");
     O << *Op.getExpr(); // Branch targets...
   }
+}
+
+void LPUInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
+                                     raw_ostream &O, const char *Modifier) {
+  assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
+  // Load/Store memory operands -- $reg, $reg || $reg, $imm
+  printOperand(MI, OpNo, O);
+  O << ", ";
+  printOperand(MI, OpNo+1, O);
 }
 
   /*
