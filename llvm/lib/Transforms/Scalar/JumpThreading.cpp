@@ -88,6 +88,15 @@ namespace {
     DenseSet<std::pair<Value*, BasicBlock*> > RecursionSet;
 
     unsigned BBDupThreshold;
+#if INTEL_CUSTOMIZATION
+    // Jump threading performs several CFG simplifications that are not
+    // in themselves jump threading but rather are attempts to expose more jump
+    // threading opportunities. These simplifications can interfere with
+    // optimizations in the simplify CFG pass, specifically the if-to-switch
+    // conversion, so we suppress them when this pass is run prior to CFG
+    // simplification.
+    bool DoCFGSimplifications;
+#endif // INTEL_CUSTOMIZATION
 
     // RAII helper for updating the recursion stack.
     struct RecursionSetRemover {
@@ -104,7 +113,9 @@ namespace {
     };
   public:
     static char ID; // Pass identification
-    JumpThreading(int T = -1) : FunctionPass(ID) {
+    JumpThreading(int T = -1, bool AllowCFGSimps = true) :              // INTEL
+      FunctionPass(ID) {                                                // INTEL
+      DoCFGSimplifications = AllowCFGSimps;                             // INTEL
       BBDupThreshold = (T == -1) ? BBDuplicateThreshold : unsigned(T);
       initializeJumpThreadingPass(*PassRegistry::getPassRegistry());
     }
@@ -149,7 +160,10 @@ INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
 
 // Public interface to the Jump Threading pass
-FunctionPass *llvm::createJumpThreadingPass(int Threshold) { return new JumpThreading(Threshold); }
+FunctionPass *llvm::createJumpThreadingPass(int Threshold,              // INTEL
+                                            bool AllowCFGSimps) {       // INTEL
+  return new JumpThreading(Threshold, AllowCFGSimps);                   // INTEL
+}                                                                       // INTEL
 
 /// runOnFunction - Top level algorithm.
 ///
@@ -202,6 +216,7 @@ bool JumpThreading::runOnFunction(Function &F) {
       // empty", we can replace uses of it with uses of the successor and make
       // this dead.
       if (BI && BI->isUnconditional() &&
+          DoCFGSimplifications &&                                       // INTEL
           BB != &BB->getParent()->getEntryBlock() &&
           // If the terminator is the only non-phi instruction, try to nuke it.
           BB->getFirstNonPHIOrDbg()->isTerminator()) {
@@ -676,6 +691,7 @@ bool JumpThreading::ProcessBlock(BasicBlock *BB) {
   if (BasicBlock *SinglePred = BB->getSinglePredecessor()) {
     const TerminatorInst *TI = SinglePred->getTerminator();
     if (!TI->isExceptional() && TI->getNumSuccessors() == 1 &&
+        DoCFGSimplifications &&                                         // INTEL
         SinglePred != BB && !hasAddressTakenAndUsed(BB)) {
       // If SinglePred was a loop header, BB becomes one.
       if (LoopHeaders.erase(SinglePred))
