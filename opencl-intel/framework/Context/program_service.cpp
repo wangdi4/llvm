@@ -486,6 +486,11 @@ bool DeviceBuildTask::Execute()
         return true;
     }
 
+    if (CL_PROGRAM_BINARY_TYPE_SPIRV == m_pDeviceProgram->GetBinaryTypeInternal())
+    {
+        m_pDeviceProgram->SetBinaryTypeInternal(CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
+    }
+
     m_pDeviceProgram->SetBuildLogInternal("Device build done\n");
     SetComplete(CL_BUILD_SUCCESS);
     return true;
