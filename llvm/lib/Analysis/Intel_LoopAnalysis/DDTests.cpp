@@ -355,8 +355,7 @@ const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
                                   const CanonExpr *DstConst) {
 
   // TODO: look into src/dest type mismatches. Ignoring for now.
-  CanonExpr *CE =
-      CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
+  CanonExpr *CE = CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
   push(CE);
 
   return CE;
@@ -1384,8 +1383,8 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
         return true;
       }
 
-      k1CE = Result.DV[Level].Distance = 
-             getConstantfromAPInt(Coeff->getDestType(),Distance);
+      k1CE = Result.DV[Level].Distance =
+          getConstantfromAPInt(Coeff->getDestType(), Distance);
 
       NewConstraint.setDistance(k1CE, CurLoop);
 
@@ -4474,7 +4473,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   DDtest DA;
   bool isTemp = false;
-  
+
   DA.initDV(forwardDV);
   DA.initDV(backwardDV);
 
@@ -4819,7 +4818,7 @@ void llvm::loopopt::printDV(const DVType *DV, unsigned Levels,
   OS << ")\n";
 }
 
-// Is  DV all ( = = = .. =)?
+/// Is  DV all ( = = = .. =)?
 bool llvm::loopopt::isDValEQ(const DVType *DV) {
 
   for (unsigned II = 1; II <= MaxLoopNestLevel; ++II) {
@@ -4834,9 +4833,9 @@ bool llvm::loopopt::isDValEQ(const DVType *DV) {
   return true;
 }
 
-// Is DV implying INDEP for level L to end?
-// e.g.  DV = (< *)	 implies INDEP for innermost loop
-// In this example, isDVIndepFromLevel(&DV, 2) return true
+/// Is DV implying INDEP for level L to end?
+/// e.g.  DV = (< *)	 implies INDEP for innermost loop
+/// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
 
   assert((FromLevel > 0 && FromLevel <= MaxLoopNestLevel) && "incorrect Level");
@@ -4858,6 +4857,34 @@ bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
   }
 
   return false;
+}
+
+/// Refine DV by calling demand driven DD. Return true when RefinedDV is
+/// set
+bool llvm::loopopt::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
+                             unsigned InnermostNestingLevel,
+                             unsigned OutermostNestingLevel,
+                             DVectorTy &RefinedDV, bool *IsIndependent) {
+
+  bool IsDVRefined = false;
+  *IsIndependent = false;
+  RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
+
+  if (RegDDref && !(RegDDref->isScalarRef())) {
+    DDtest DA;
+    DVectorTy InputDV;
+    DDtest::setInputDV(InputDV, InnermostNestingLevel, OutermostNestingLevel);
+    auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+    if (Result == nullptr) {
+      *IsIndependent = true;
+    }
+    for (unsigned I = 1; I <= Result->getLevels(); ++I) {
+      RefinedDV[I - 1] = Result->getDirection(I);
+      IsDVRefined = true;
+    }
+  }
+
+  return IsDVRefined;
 }
 
 #if 0

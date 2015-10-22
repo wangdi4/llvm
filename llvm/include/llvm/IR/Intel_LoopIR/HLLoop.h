@@ -157,8 +157,12 @@ public:
 
   /// \brief sets the Ztt for HLLoop.
   void setZtt(HLIf *ZttIf);
+
   /// \brief Removes and returns the Ztt for HLLoop.
   HLIf *removeZtt();
+
+  /// \brief Removes and returns the OrigLoop
+  const Loop *removeLLVMLoop();
 
   /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.
@@ -226,8 +230,10 @@ public:
   /// The second DDRef is associated with upper bound.
   RegDDRef *getUpperDDRef();
   const RegDDRef *getUpperDDRef() const;
+
   /// \brief Sets the DDRef associated with loop upper bound.
   void setUpperDDRef(RegDDRef *Ref);
+
   /// \brief Removes and returns the DDRef associated with loop upper bound.
   RegDDRef *removeUpperDDRef();
 
@@ -235,8 +241,13 @@ public:
   /// The third DDRef is associated with stride.
   RegDDRef *getStrideDDRef();
   const RegDDRef *getStrideDDRef() const;
+
+  /// \brief Sets the LLVM OrigLoop
+  void setLLVMLoop(const Loop *OrigLoop);
+
   /// \brief Sets the DDRef associated with loop stride.
   void setStrideDDRef(RegDDRef *Ref);
+
   /// \brief Removes and returns the DDRef associated with loop stride.
   RegDDRef *removeStrideDDRef();
 
@@ -463,6 +474,13 @@ public:
   /// loop lives in HIR (like parent, nesting level) are not copied. They will
   /// be updated by HLNode insertion/removal utilities.
   HLLoop *cloneEmptyLoop() const;
+
+  /// \brief - Clones the original loop without any of the children, preheader
+  /// and postexit nodes. This routines copies all the original loop properties
+  /// such as exits, ub, lb, strides, level. Data members that depend on where
+  //  the cloned loop lives in HIR (like parent, etc) are not copied. They will
+  /// be updated by HLNode insertion/removal utilities.
+  HLLoop *cloneCompleteEmptyLoop() const;
 
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;

@@ -246,6 +246,12 @@ private:
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                             bool PostDomination, bool StrictDomination);
 
+
+
+
+  /// \brief Move Loop Bounds, IVtype and ZTT, etc. from one loop to another
+  static void moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop);
+
 public:
   /// \brief return true if non-zero
   static bool isKnownNonZero(const CanonExpr *CE,
@@ -788,6 +794,22 @@ public:
   // unrolling.
   static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
                               bool RecurseInsideLoops = true);
+
+
+  /// \brief Returns true if Loop is a perfect Loop nest
+  /// and the innermost loop
+  static bool isPerfectLoopNest(const HLLoop *Loop,
+                                const HLLoop **InnermostLoop,
+                                bool AllowPrePostHdr = false,
+                                bool AllowTriangularLoop = false);
+
+
+  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
+  ///   Used by Interchange now. Could be used later for blocking
+  static void permuteLoopNests(HLLoop *Loop,
+                               SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation); 
+ 
+	
 };
 
 } // End namespace loopopt

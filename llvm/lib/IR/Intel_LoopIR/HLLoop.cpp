@@ -151,6 +151,14 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
   return NewHLLoop;
 }
 
+HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
+
+  // Call the Copy Constructor
+  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
+  NewHLLoop->setNestingLevel(getNestingLevel());
+  return NewHLLoop;
+}
+
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
   const RegDDRef *Ref;
@@ -363,6 +371,8 @@ void HLLoop::setStrideDDRef(RegDDRef *Ref) {
   setOperandDDRefImpl(Ref, 2);
 }
 
+void HLLoop::setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
+
 RegDDRef *HLLoop::removeStrideDDRef() {
   auto TRef = getStrideDDRef();
 
@@ -371,6 +381,16 @@ RegDDRef *HLLoop::removeStrideDDRef() {
   }
 
   return TRef;
+}
+
+const Loop *HLLoop::removeLLVMLoop() {
+  auto OrigLoop = getLLVMLoop();
+
+  if (OrigLoop) {
+    setLLVMLoop(nullptr);
+  }
+
+  return OrigLoop;
 }
 
 void HLLoop::setZtt(HLIf *ZttIf) {

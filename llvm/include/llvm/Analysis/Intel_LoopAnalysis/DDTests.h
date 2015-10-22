@@ -84,14 +84,20 @@ struct DV {
   };
 };
 
-// Is  DV all ( = = = .. =)?
+/// Is  DV all ( = = = .. =)?
 bool isDValEQ(const DVType *DV);
 
-// Is DV imply INDEP for level L on
-// e.g.  DV = (< *)	 implies INDEP for innermost loop
-// In this example, isDVIndepFromLevel(&DV, 2) return true
+/// Is DV imply INDEP for level L on
+/// e.g.  DV = (< *)	 implies INDEP for innermost loop
+/// In this example, isDVIndepFromLevel(&DV, 2) return true
 
 bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
+
+/// Refine DV by calling demand driven DD. Return true when RefineDV[] is set
+
+bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned InnermostNestingLevel,
+              unsigned OutermostNestingLevel, DVectorTy &RefinedDV,
+              bool *IsIndependent);
 
 class Dependences {
 public:

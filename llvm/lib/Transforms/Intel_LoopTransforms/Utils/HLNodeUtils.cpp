@@ -880,8 +880,7 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
 
   if (OrigContainer) {
     Distance = std::distance(First, Last);
-  }
-  else {
+  } else {
     assert(!First->getParent() &&
            "Node is already linked, please remove it first!!");
   }
@@ -1126,8 +1125,7 @@ void HLNodeUtils::removeInternal(HLContainerTy &Container,
 
     if (Erase) {
       destroy(Node);
-    }
-    else {
+    } else {
       /// Used to catch errors where user tries to insert an already linked
       /// node.
       Node->setParent(nullptr);
@@ -2259,4 +2257,106 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
     return true;
   }
   return false;
+}
+
+///  Check if Loop has perfect loop nests
+///  Default to allow pre and post header is false
+///  Default to allow Triangular loop is false with  exceptions
+///  made for first iteration
+bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
+                                    const HLLoop **InnermostLoop,
+                                    bool AllowPrePostHdr,
+                                    bool AllowTriangularLoop) {
+  bool FirstIter = true;
+  *InnermostLoop = nullptr;
+
+  assert(Loop && "Loop must not be nullptr");
+
+  for (const HLLoop *Lp = Loop; Lp != nullptr;
+       Lp = dyn_cast<HLLoop>(Lp->getFirstChild())) {
+    const CanonExpr *UpperBound;
+    if (!Lp || !Lp->isDo()) {
+      break;
+    }
+    if (!FirstIter && !AllowPrePostHdr &&
+        (Lp->hasPreheader() || Lp->hasPostexit())) {
+      break;
+    }
+
+    UpperBound = Lp->getUpperCanonExpr();
+    if (UpperBound->isNonLinear()) {
+      break;
+    }
+
+    if (!AllowTriangularLoop && !FirstIter && UpperBound->hasIV()) {
+      //  okay for outermost loop UB to have iv
+      break;
+    }
+
+    if (Lp->isInnermost()) {
+      if (FirstIter) {
+        return false;
+      }
+      *InnermostLoop = Lp;
+      return true;
+    }
+
+    if (Lp->getNumChildren() != 1) {
+      break;
+    }
+
+    FirstIter = false;
+  }
+
+  return false;
+}
+
+///  Move Ztt, Bounds DDRRef, OrigLoop, IvType
+void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
+
+  DstLoop->setIVType(SrcLoop->getIVType());
+  if (DstLoop->hasZtt()) {
+    DstLoop->removeZtt();
+  }
+  if (SrcLoop->hasZtt()) {
+    DstLoop->setZtt(SrcLoop->removeZtt());
+  }
+
+  // setLower etc. requires input DDRef not be attached to anything
+  DstLoop->setLowerDDRef(SrcLoop->removeLowerDDRef());
+  DstLoop->setUpperDDRef(SrcLoop->removeUpperDDRef());
+  DstLoop->setStrideDDRef(SrcLoop->removeStrideDDRef());
+  DstLoop->setLLVMLoop(SrcLoop->removeLLVMLoop());
+}
+
+/// Update Loop properties based on Input Permutations
+/// Used by Loop Interchange now. Might be useful for loop blocking later
+void HLNodeUtils::permuteLoopNests(
+    HLLoop *Loop, SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation) {
+
+  SmallVector<HLLoop *, MaxLoopNestLevel> LoopSaved;
+  HLLoop *DstLoop = Loop;
+
+  for (auto &I : LoopPermutation) {
+    HLLoop *LoopCopy = I->cloneCompleteEmptyLoop();
+    LoopSaved.push_back(LoopCopy);
+  }
+
+  for (auto I = LoopPermutation.begin(), E = LoopPermutation.end(); I != E;
+       ++I, DstLoop = dyn_cast<HLLoop>(DstLoop->getFirstChild())) {
+    HLLoop *SrcLoop = nullptr;
+    if (*I == DstLoop) {
+      continue;
+    }
+    assert(isa<HLLoop>(DstLoop) && "Perfect loop nest expected");
+    for (auto &L : LoopSaved) {
+      if ((*I)->getNestingLevel() == L->getNestingLevel()) {
+        SrcLoop = L;
+        break;
+      }
+    }
+    assert(SrcLoop && "Input Loop is null");
+    assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
+    moveProperties(SrcLoop, DstLoop);
+  }
 }
