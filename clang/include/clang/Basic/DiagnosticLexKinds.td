@@ -74,6 +74,11 @@ def ext_unterminated_char : ExtWarn<"missing terminating ' character">,
 def ext_empty_character : ExtWarn<"empty character constant">,
   InGroup<InvalidPPToken>;
 def err_unterminated_block_comment : Error<"unterminated /* comment">;
+//if INTEL_CUSTOMIZATION
+// CQ#368194 - emit a warning, not an error on unterminated block comment.
+def warn_unterminated_block_comment : Warning<
+  err_unterminated_block_comment.Text>, InGroup<Comment>;
+//endif INTEL_CUSTOMIZATION
 def err_invalid_character_to_charify : Error<
   "invalid argument to convert to character">;
 def err_unterminated___pragma : Error<"missing terminating ')' character">;
