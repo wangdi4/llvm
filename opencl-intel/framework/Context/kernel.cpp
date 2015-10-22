@@ -747,6 +747,37 @@ cl_err_code Kernel::SetKernelPrototype(const SKernelPrototype& sKernelPrototype,
     return CL_SUCCESS;
 }
 
+cl_err_code Kernel::SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg)
+{
+    KernelArg& clArg = m_vecArgs[uiIndex];
+    cl_err_code ret = CL_SUCCESS;
+
+    size_t valueSize = arg->GetSize();
+    std::vector<char> value(valueSize);
+    arg->GetValue(valueSize, &value[0]);
+    if(arg->IsLocalPtr())
+    {
+        m_totalLocalSize -= clArg.GetLocalBufferSize();
+        clArg.SetValue(valueSize, (void*)&value[0]);
+        m_totalLocalSize += clArg.GetLocalBufferSize();
+    }
+    else if(arg->IsSampler() || clArg.IsQueueId())
+        clArg.SetValue(clArg.GetSize(), &value[0]);
+    else if(clArg.IsImage())
+        clArg.SetValue(sizeof(cl_mem), &value[0]);
+    else if(arg->IsSvmPtr())
+    {
+        char* backingStore = (char*)(*(SVMPointerArg**)&value[0])->GetBackingStoreData();
+        return SetKernelArg(uiIndex, valueSize, backingStore, true/*IsSvmPtr*/);
+    }
+    else
+        return SetKernelArg(uiIndex, valueSize, &value[0], false/*IsSvmPtr*/);
+
+    ++m_numValidArgs;
+    clArg.SetValid();
+    return ret;
+}
+
 cl_err_code Kernel::SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr)
 {
     LOG_DEBUG(TEXT("Enter SetKernelArg (uiIndex=%d, szSize=%d, pValue=%d"), uiIndex, szSize, pValue);

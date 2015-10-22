@@ -1263,18 +1263,13 @@ cl_kernel ContextModule::CloneKernel(cl_kernel source_kernel,
     {
         const KernelArg* src_arg = pSrcKernel->GetKernelArg(i);
         if(src_arg->IsValid())
-        {
-            size_t valueSize = src_arg->GetSize();
-            std::vector<char> value(valueSize);
-            src_arg->GetValue(valueSize, &value[0]);
-            if(src_arg->IsSvmPtr())
+            if(CL_SUCCESS != pNewKernel->SetKernelArgInternal(i, src_arg))
             {
-                char* backingStore = (char*)(*(SVMPointerArg**)&value[0])->GetBackingStoreData();
-                pNewKernel->SetKernelArg(i, valueSize, backingStore, true/*IsSvmPtr*/);
+                assert("Unhandled type?");
+                if (NULL != pErr)
+                    *pErr = CL_INVALID_VALUE;
+                return CL_INVALID_HANDLE;
             }
-            else
-                pNewKernel->SetKernelArg(i, valueSize, &value[0], false/*IsSvmPtr*/);
-        }
     }
 
     pNewKernel->SetSvmFineGrainSystem(pSrcKernel->IsSvmFineGrainSystem());

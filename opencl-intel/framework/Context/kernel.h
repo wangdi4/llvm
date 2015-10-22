@@ -283,6 +283,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // create device kernels
         cl_err_code CreateDeviceKernels(DeviceProgram ** pDevicePrograms);
 
+        // set kernel argument without checks.
+        cl_err_code SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg);
         // set kernel argument
         cl_err_code SetKernelArg(cl_uint uiIndex, size_t szSize, const void * pValue, bool bIsSvmPtr = false);
 
