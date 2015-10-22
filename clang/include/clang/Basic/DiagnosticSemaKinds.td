@@ -4096,6 +4096,13 @@ def err_definition_of_explicitly_defaulted_member : Error<
 def err_redefinition_extern_inline : Error<
   "redefinition of a 'extern inline' function %0 is not supported in "
   "%select{C99 mode|C++}1">;
+// if INTEL_CUSTOMIZATION
+// CQ#377372 - allow to redefine extern inline functions in C++ mode
+def ext_intel_redefinition_extern_inline : ExtWarn<
+  "redefinition of a 'extern inline' function %0 in "
+  "C++ mode is an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 def note_deleted_dtor_no_operator_delete : Note<
   "virtual destructor requires an unambiguous, accessible 'operator delete'">;
