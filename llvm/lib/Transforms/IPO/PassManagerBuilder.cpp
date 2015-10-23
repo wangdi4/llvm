@@ -37,6 +37,12 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
+                   cl::desc("Run the early jump threading pass"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<bool>
 RunLoopVectorization("vectorize-loops", cl::Hidden,
                      cl::desc("Run the Loop vectorization passes"));
@@ -231,6 +237,8 @@ void PassManagerBuilder::populateModulePassManager(
 
     MPM.add(createInstructionCombiningPass());// Clean up after IPCP & DAE
     addExtensionsToPM(EP_Peephole, MPM);
+    if (EarlyJumpThreading)                         // INTEL
+      MPM.add(createJumpThreadingPass(-1, false));  // INTEL
     MPM.add(createCFGSimplificationPass());   // Clean up after IPCP & DAE
   }
 
