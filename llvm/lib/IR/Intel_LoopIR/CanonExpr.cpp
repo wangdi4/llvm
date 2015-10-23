@@ -790,34 +790,72 @@ void CanonExpr::shift(iv_iterator IVI, int64_t Val) {
   shift(getLevel(IVI), Val);
 }
 
-void CanonExpr::extractBlobIndices(SmallVectorImpl<unsigned> &Indices) {
+void CanonExpr::mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
+                                  SmallVectorImpl<unsigned> &Indices) {
+  for (auto &I : Blobs) {
+    unsigned Index = findBlob(I);
+    assert(Index && "Could not find index of temp blob!");
 
-  bool Inserted;
+    Indices.push_back(Index);
+  }
+}
+
+void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
+                                       bool MakeUnique,
+                                       bool NeedTempBlobs) const {
+
+  assert((!MakeUnique || Indices.empty()) &&
+         "Empty container expected for uniquing!");
 
   /// Push all blobs from BlobCoeffs.
   for (auto &I : BlobCoeffs) {
-    Indices.push_back(I.Index);
-  }
+    if (NeedTempBlobs) {
 
-  /// Push all blobs from IVCoeffs which haven't already been inserted.
-  for (auto &I : IVCoeffs) {
-    if (I.Index != INVALID_BLOB_INDEX) {
-      Inserted = false;
+      // Collect temp blobs inside this blob.
+      SmallVector<BlobTy, 6> TempBlobs;
 
-      /// Check whether it has already been inserted.
-      for (auto &J : Indices) {
-        if (BlobIndexCompareEqual()(BlobIndexToCoeff(J, 0),
-                                    BlobIndexToCoeff(I.Index, 0))) {
-          Inserted = true;
-          break;
-        }
-      }
+      CanonExprUtils::collectTempBlobs(getBlob(I.Index), TempBlobs);
+      mapBlobsToIndices(TempBlobs, Indices);
 
-      if (!Inserted) {
-        Indices.push_back(I.Index);
-      }
+    } else {
+      Indices.push_back(I.Index);
     }
   }
+
+  /// Push all blobs from IVCoeffs.
+  for (auto &I : IVCoeffs) {
+    if (I.Index == INVALID_BLOB_INDEX) {
+      continue;
+    }
+
+    if (NeedTempBlobs) {
+
+      // Collect temp blobs inside this blob.
+      SmallVector<BlobTy, 6> TempBlobs;
+
+      CanonExprUtils::collectTempBlobs(getBlob(I.Index), TempBlobs);
+      mapBlobsToIndices(TempBlobs, Indices);
+
+    } else {
+      Indices.push_back(I.Index);
+    }
+  }
+
+  if (MakeUnique) {
+    // Make the indices unique.
+    std::sort(Indices.begin(), Indices.end());
+    Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
+  }
+}
+
+void CanonExpr::collectBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                                   bool MakeUnique) const {
+  collectBlobIndicesImpl(Indices, MakeUnique, false);
+}
+
+void CanonExpr::collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                                       bool MakeUnique) const {
+  collectBlobIndicesImpl(Indices, MakeUnique, true);
 }
 
 int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
@@ -946,5 +984,9 @@ void CanonExpr::verify() const {
     (void)B;
     assert(B->getType() == getSrcType() &&
            "Types of all blobs should match canon expr type!");
+  }
+
+  if (!hasBlob() && !hasBlobIVCoeffs()) {
+    assert(!isNonLinear() && "CanonExpr with no blobs cannot be non-linear!");
   }
 }

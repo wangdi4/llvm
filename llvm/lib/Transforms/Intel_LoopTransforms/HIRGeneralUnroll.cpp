@@ -229,6 +229,12 @@ private:
   /// \brief Processes the Ztt for unrolling the loop.
   /// This will hoist out the Ztt and insert the loop inside it.
   void processZtt(HLLoop *OrigLoop);
+
+  /// \brief Updates bound DDRef by setting the correct defined at level and
+  /// adding a blob DDref for the newly created temp.
+  void updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
+                        unsigned DefLevel);
+
   /// \brief Creates the unrolled loop.
   HLLoop *createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
                            int64_t TripCount, int64_t NewBound,
@@ -445,12 +451,42 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
         DDRefUtils::createConstDDRef(Ref->getDestType(), UnrollFactor);
     TempInst = HLNodeUtils::createUDiv(Ref, UFDD, nullptr, "tgu");
   } else {
+    SmallVector<BlobDDRef *, 4> NewBlobRefs;
+
     // Use the same canon expr to generate the division.
     TripCE->multiplyDenominator(UnrollFactor, true);
+
+    // Update blob DDRefs.
+    Ref->updateBlobDDRefs(NewBlobRefs);
+
+    // If Ref was changed from self-blob(%t1) to (%t1/u8), a blob DDRef for %t1
+    // will be added.
+    assert((NewBlobRefs.size() <= 1) && "Unexpected new blob!");
+
+    // Set defined at level for the new blob ref.
+    if (!NewBlobRefs.empty()) {
+      // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
+      Ref->setSymbase(DDRefUtils::getNewSymbase());
+
+      NewBlobRefs[0]->setDefinedAtLevel(TripCE->getDefinedAtLevel());
+    }
+
     TempInst = HLNodeUtils::createCopyInst(Ref, nullptr, "tgu");
   }
   HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewRef = TempInst->getLvalDDRef();
+}
+
+void HIRGeneralUnroll::updateBoundDDRef(RegDDRef *BoundRef, unsigned BlobIndex,
+                                        unsigned DefLevel) {
+  // Set the defined at level.
+  BoundRef->getSingleCanonExpr()->setDefinedAtLevel(DefLevel);
+
+  // Overwrite symbase to a newly created one to avoid unnecessary DD edges.
+  BoundRef->setSymbase(DDRefUtils::getNewSymbase());
+
+  // Add blob DDRef for the temp in UB.
+  BoundRef->addBlobDDRef(BlobIndex, DefLevel);
 }
 
 HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
@@ -466,11 +502,18 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
   if (IsConstLoop) {
     NewLoop->getUpperCanonExpr()->setConstant(NewBound);
   } else {
+
     // Create 't-1' as new UB.
     assert(NewRef && " New Ref is null.");
     RegDDRef *NewUBRef = NewRef->clone();
     // Subtract 1.
     NewUBRef->getSingleCanonExpr()->addConstant(-1);
+
+    // Sets defined at level of bound ref to (nesting level - 1) as the UB temp
+    // is defined just before the loop.
+    updateBoundDDRef(NewUBRef, NewRef->getSelfBlobIndex(),
+                     OrigLoop->getNestingLevel() - 1);
+
     NewLoop->setUpperDDRef(NewUBRef);
     // Generate the Ztt.
     NewLoop->createZtt(false);
@@ -529,9 +572,16 @@ void HIRGeneralUnroll::processRemainderLoop(HLLoop *OrigLoop, bool IsConstLoop,
     CanonExpr *LBCE = OrigLBRef->getSingleCanonExpr();
     LBCE->setConstant((NewBound + 1) * UnrollFactor);
   } else {
+
     // Non-constant trip loop, lb = (UnrollFactor)*t.
     RegDDRef *NewLBRef = NewRef->clone();
     NewLBRef->getSingleCanonExpr()->multiplyByConstant(UnrollFactor);
+
+    // Sets the defined at level of new LB to (nesting level - 1) as the LB temp
+    // is defined just before the loop.
+    updateBoundDDRef(NewLBRef, NewRef->getSelfBlobIndex(),
+                     OrigLoop->getNestingLevel() - 1);
+
     OrigLoop->setLowerDDRef(NewLBRef);
     OrigLoop->createZtt(false);
   }

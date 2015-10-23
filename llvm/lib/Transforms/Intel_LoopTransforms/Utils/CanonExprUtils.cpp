@@ -132,6 +132,10 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
+bool CanonExprUtils::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) {
+  return getHIRParser()->isGuaranteedProperLinear(TempBlob);
+}
+
 bool CanonExprUtils::isUndefBlob(const CanonExpr::BlobTy Blob) {
   return getHIRParser()->isUndefBlob(Blob);
 }
@@ -190,6 +194,16 @@ CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
                                                        Type *Ty, bool Insert,
                                                        unsigned *NewBlobIndex) {
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
+}
+
+bool CanonExprUtils::contains(CanonExpr::BlobTy Blob,
+                              CanonExpr::BlobTy SubBlob) {
+  return getHIRParser()->contains(Blob, SubBlob);
+}
+
+void CanonExprUtils::collectTempBlobs(
+    CanonExpr::BlobTy Blob, SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) {
+  return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
 }
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
@@ -256,6 +270,12 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
 
   // Match the types.
   if (!mergeable(CE1, CE2, IgnoreDestType)) {
+    return false;
+  }
+
+  // Match defined at level.
+  if ((CE1->isNonLinear() != CE2->isNonLinear()) ||
+      (CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
     return false;
   }
 
@@ -361,6 +381,15 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
 
   // Add the constant.
   Result->setConstant(Result->getConstant() + NewCE2->getConstant());
+
+  // Update DefinedAtLevel.
+  if (NewCE2->isNonLinear()) {
+    Result->setNonLinear();
+
+  } else if (!Result->isNonLinear() &&
+             NewCE2->getDefinedAtLevel() > Result->getDefinedAtLevel()) {
+    Result->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
+  }
 
   // Simplify resulting canon expr before returning.
   Result->simplify();

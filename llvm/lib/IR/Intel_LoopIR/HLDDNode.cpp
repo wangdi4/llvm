@@ -107,12 +107,12 @@ void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
   bool printed = false;
-  bool isLoop = false;
+  bool IsLoop = false;
 
   // DD refs attached to Loop nodes require additional
   // "|" symbol to make listing nice
   if (isa<HLLoop>(this)) {
-    isLoop = true;
+    IsLoop = true;
   }
 
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
@@ -120,18 +120,24 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       continue;
     }
 
+    bool IsZttDDRef = false;
     indent(OS, Depth);
 
-    if (isLoop) {
+    if (IsLoop) {
       OS << "| ";
+
+      IsZttDDRef = cast<HLLoop>(this)->isZttOperandDDRef(*I);
     }
-    OS << "<REG> ";
+
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : (void)(OS << "<REG> ");
+
     (*I)->print(OS, true);
 
     OS << "\n";
+
     for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
       indent(OS, Depth);
-      if (isLoop) {
+      if (IsLoop) {
         OS << "| ";
       }
       OS << "<BLOB> ";
@@ -144,7 +150,7 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
 
   if (printed) {
     indent(OS, Depth);
-    if (isLoop) {
+    if (IsLoop) {
       OS << "| ";
     }
     OS << "\n";

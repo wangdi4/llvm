@@ -144,6 +144,7 @@ void CanonExprVisitor::visit(HLDDNode *Node) {
 /// processRegDDRef - Processes RegDDRef to call the Canon Exprs
 /// present inside it. This is an internal helper function.
 void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
+  SmallVector<BlobDDRef *, 6> BlobDDRefs;
 
   // Process CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
@@ -161,6 +162,9 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
        Iter != End; ++Iter) {
     processCanonExpr(*Iter);
   }
+
+  RegDD->updateBlobDDRefs(BlobDDRefs);
+  assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
 }
 
 /// Processes CanonExpr to replace IV by TripVal.
@@ -168,6 +172,11 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
   DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
   CExpr->replaceIVByConstant(Level, TripVal);
+
+  // TODO: update CE def level when TripVal is 0 and IV has a blob coeff. This
+  // applies to situations like this-
+  // Original CE: (i1 + i2*t1) {def:1)
+  // Modified CE: (i1) {def:0}
 }
 
 namespace {

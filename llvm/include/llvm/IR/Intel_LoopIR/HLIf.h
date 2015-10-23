@@ -100,6 +100,14 @@ protected:
   HLIf *cloneImpl(GotoContainerTy *GotoList,
                   LabelMapTy *LabelMap) const override;
 
+  /// \brief Implements print*Header() functionality. Loop parameter tells
+  /// whether we are printing a ZTT or a regular HLIf.
+  void printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
+                       const HLLoop *Loop) const;
+
+  /// \brief Prints this HLIf as a ZTT of Loop.
+  void printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const;
+
 public:
   /// Predicate iterator methods
   const_pred_iterator pred_begin() const { return Predicates.begin(); }
@@ -196,8 +204,7 @@ public:
   HLIf *clone() const override;
 
   /// \brief Prints HLIf header only: if (...condition...)
-  void printHeader(formatted_raw_ostream &OS, unsigned Depth,
-                   bool Detailed) const;
+  void printHeader(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// \brief Prints HLIf.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,

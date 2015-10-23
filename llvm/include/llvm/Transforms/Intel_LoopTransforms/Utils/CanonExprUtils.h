@@ -135,6 +135,9 @@ public:
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(CanonExpr::BlobTy Blob);
 
+  /// \brief Returns true if TempBlob always has a defined at level of zero.
+  static bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob);
+
   /// \brief Returns true if Blob is a UndefValue.
   static bool isUndefBlob(const CanonExpr::BlobTy Blob);
 
@@ -186,6 +189,13 @@ public:
   static CanonExpr::BlobTy
   createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
                        unsigned *NewBlobIndex = nullptr);
+
+  /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
+  static bool contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob);
+
+  /// \brief Returns all the temp blobs present in Blob via TempBlobs vector.
+  static void collectTempBlobs(CanonExpr::BlobTy Blob,
+                               SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
 
   /// \brief Returns true if the type of both Canon Expr matches.
   /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.

@@ -178,7 +178,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
       indent(OS, Depth);
       OS << "+ Ztt: ";
       if (hasZtt()) {
-        Ztt->printHeader(OS, 0, true);
+        Ztt->printZttHeader(OS, this);
       } else {
         OS << "No";
       }
@@ -313,6 +313,15 @@ RegDDRef *HLLoop::removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
   }
 
   return TRef;
+}
+
+bool HLLoop::isZttOperandDDRef(const RegDDRef *Ref) const {
+  assert(Ref->getHLDDNode() && (cast<HLLoop>(Ref->getHLDDNode()) == this) &&
+         "Ref does not belong to this loop!");
+
+  auto It = std::find(ztt_ddref_begin(), ztt_ddref_end(), Ref);
+
+  return (It != ztt_ddref_end());
 }
 
 RegDDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
@@ -500,12 +509,37 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   return Result;
 }
 
+void HLLoop::updateTripCountBlobDDRefs(RegDDRef *TripRef) const {
+  SmallVector<BlobDDRef *, 6> NewBlobRefs;
+
+  TripRef->updateBlobDDRefs(NewBlobRefs);
+
+  // No new blobs to update level for.
+  if (NewBlobRefs.empty()) {
+    return;
+  }
+
+  for (auto &I : NewBlobRefs) {
+    unsigned Index = I->getBlobIndex();
+    int Level = 0;
+
+    if (getUpperDDRef()->findBlobLevel(Index, &Level) ||
+        getLowerDDRef()->findBlobLevel(Index, &Level) ||
+        getStrideDDRef()->findBlobLevel(Index, &Level)) {
+      (Level == -1) ? I->setNonLinear() : I->setDefinedAtLevel(Level);
+    } else {
+      llvm_unreachable("Trip count blob not found in lower or stride DDRef!");
+    }
+  }
+}
+
 RegDDRef *HLLoop::getTripCountDDRef() const {
 
-  // TODO: handle blob ddref inside lb/ub.
   CanonExpr *TripCE = getTripCountCanonExpr();
   RegDDRef *TripRef =
       DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
+
+  updateTripCountBlobDDRefs(TripRef);
 
   return TripRef;
 }
@@ -639,6 +673,13 @@ void HLLoop::verify() const {
            getStrideDDRef()->isUndefined())) &&
          "Lower, Upper and Stride DDRefs "
          "should be all defined or all undefined");
+
+  assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop lower cannot be non-linear!");
+  assert(!getUpperDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop upper cannot be non-linear!");
+  assert(!getStrideDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop stride cannot be non-linear!");
 
   // TODO: Implement special case as ZTT's DDRefs are attached to node
   // if (Ztt) {

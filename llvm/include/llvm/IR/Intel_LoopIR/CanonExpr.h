@@ -203,6 +203,11 @@ protected:
   /// non-temp non-present blobs.
   static unsigned getBlobSymbase(unsigned Index);
 
+  /// \brief Maps blobs in Blobs to their corresponding indices and inserts them
+  /// in Indices.
+  static void mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
+                                SmallVectorImpl<unsigned> &Indices);
+
   /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
   /// functionality.
   unsigned numIVImpl(bool CheckIVPresence, bool CheckBlobCoeffs) const;
@@ -233,6 +238,10 @@ protected:
 
   /// \brief Implements is*Ext() and isTrunc() functionality.
   bool isExtImpl(bool IsSigned, bool IsTrunc) const;
+
+  /// \brief Implements collect*BlobIndices() functionality.
+  void collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
+                              bool MakeUnique, bool NeedTempBlobs) const;
 
   /// \brief Marks this expressions as undefined.
   void setUndefined(bool Undefined = true) { this->IsUndefined = Undefined; }
@@ -540,9 +549,17 @@ public:
   /// \brief Multiplies this canon expr by a blob.
   void multiplyByBlob(unsigned Index);
 
-  /// \brief Populates BlobIndices with all blobs contained in the CanonExpr
-  /// (including blob IV coeffs).
-  void extractBlobIndices(SmallVectorImpl<unsigned> &Indices);
+  /// \brief Populates Indices with all the blobs contained in the CanonExpr
+  /// (including blob IV coeffs). The blobs are sorted and uniqued if MakeUnique
+  /// is true.
+  void collectBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                          bool MakeUnique = true) const;
+
+  /// \brief Populates Indices with all the temp blobs contained in the
+  /// CanonExpr (including blob IV coeffs). The blobs are sorted and uniqued if
+  /// MakeUnique is true.
+  void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                              bool MakeUnique = true) const;
 
   /// \brief Simplifies canon expr by dividing numerator and denominator by
   /// common gcd.

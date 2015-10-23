@@ -92,7 +92,9 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 
   // Do not print linear forms for scalar lvals
-  if (isLval() && !HasGEP && !Detailed) {
+  // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
+  // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
+  if (getHLDDNode() && isLval() && !HasGEP && !Detailed) {
     CanonExprUtils::printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
@@ -243,6 +245,11 @@ void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
   BlobRef->setParentDDRef(this);
 }
 
+void RegDDRef::addBlobDDRef(unsigned Index, int Level) {
+  auto BRef = DDRefUtils::createBlobDDRef(Index, Level);
+  addBlobDDRef(BRef);
+}
+
 RegDDRef::blob_iterator
 RegDDRef::getNonConstBlobIterator(const_blob_iterator CBlobI) {
   blob_iterator BlobI(blob_begin());
@@ -262,27 +269,187 @@ BlobDDRef *RegDDRef::removeBlobDDRef(const_blob_iterator CBlobI) {
   return BRef;
 }
 
-void RegDDRef::updateBlobDDRefs() {
-  /* TODO implement when we have blob table
-    SmallVector<unsigned, 8> BlobIndices;
+void RegDDRef::removeAllBlobDDRefs() {
 
-    for(auto I = canon_begin(), E = canon_end(); I != E, I++) {
-      I->extractBlobIndices(BlobIndices);
+  while (!BlobDDRefs.empty()) {
+
+    auto BlobI = blob_cbegin();
+    removeBlobDDRef(BlobI);
+  }
+}
+
+void RegDDRef::removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices) {
+
+  // Iteratre through blob DDRefs.
+  for (auto It = blob_cbegin(); It != blob_cend();) {
+
+    unsigned Index = (*It)->getBlobIndex();
+
+    auto BlobIt =
+        std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
+
+    // This Blob DDRef is required, continue on to the next one.
+    if ((BlobIt != BlobIndices.end()) && (*BlobIt == Index)) {
+      // Remove index for the existing blob DDRef.
+      BlobIndices.erase(BlobIt);
+
+      ++It;
+      continue;
     }
 
-    if (hasGEPInfo()) {
-      if (auto CE = getBaseCE()) {
-        for(auto I = CE->blob_begin(), E = CE->blob_end(); I != E; I++) {
+    bool ResetToBegin = (It == blob_cbegin());
+    const_blob_iterator J(It);
 
-        }
+    // Save the previous iterator for recovering the next iterator to be
+    // processed after erasure. vector erase() invalidates all the iterators at
+    // and after the point of erasure.
+    if (!ResetToBegin) {
+      --It;
+    }
+
+    removeBlobDDRef(J);
+
+    // Get the next iterator to be processed.
+    if (!ResetToBegin) {
+      ++It;
+    } else {
+      It = blob_cbegin();
+    }
+  }
+}
+
+void RegDDRef::collectTempBlobIndices(
+    SmallVectorImpl<unsigned> &Indices) const {
+
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    (*I)->collectTempBlobIndices(Indices, false);
+  }
+
+  if (hasGEPInfo()) {
+    getBaseCE()->collectTempBlobIndices(Indices, false);
+
+    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
+      (*I)->collectTempBlobIndices(Indices, false);
+    }
+  }
+
+  // Make the indices unique.
+  std::sort(Indices.begin(), Indices.end());
+  Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
+}
+
+void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
+  SmallVector<unsigned, 8> BlobIndices;
+
+  if (isSelfBlob()) {
+    removeAllBlobDDRefs();
+
+    // We need to modify the symbase if this DDRef was turned into a self blob
+    // as the associated blob DDRef is removed.
+    // Here's an illustration of why this is required-
+    //
+    // Before modification DDRef looks like this-
+    // <REG> LINEAR i32 2 * %k {sb:4}
+    // <BLOB> LINEAR i32 %k {sb:8}
+    //
+    // After modification it looks like this-
+    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8 which
+    // is wrong.
+    //
+    unsigned SB = CanonExprUtils::getBlobSymbase(getSelfBlobIndex());
+    setSymbase(SB);
+    return;
+
+  } else if (isConstant()) {
+    removeAllBlobDDRefs();
+    setSymbase(CONSTANT_SYMBASE);
+    return;
+  }
+
+  collectTempBlobIndices(BlobIndices);
+
+  // Remove stale BlobDDRefs.
+  removeStaleBlobDDRefs(BlobIndices);
+
+  // Add new BlobDDRefs.
+  for (auto &I : BlobIndices) {
+    auto BRef = DDRefUtils::createBlobDDRef(I, 0);
+
+    addBlobDDRef(BRef);
+
+    // Defined at level is only applicable for instruction blobs. Other types
+    // (like globals, function paramaters) are always proper linear.
+    if (!CanonExprUtils::isGuaranteedProperLinear(CanonExprUtils::getBlob(I))) {
+      NewBlobs.push_back(BRef);
+    }
+  }
+}
+
+bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
+  assert(DefLevel && "DefLevel ptr should not be null!");
+
+  unsigned Index = 0;
+
+  if (isSelfBlob()) {
+    auto CE = getSingleCanonExpr();
+    Index = CE->getSingleBlobIndex();
+
+    if (Index == BlobIndex) {
+      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      return true;
+    }
+
+    return false;
+  }
+
+  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+    Index = (*I)->getBlobIndex();
+
+    if (Index == BlobIndex) {
+      auto CE = (*I)->getCanonExpr();
+      *DefLevel = CE->isNonLinear() ? -1 : CE->getDefinedAtLevel();
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void RegDDRef::checkBlobDDRefsConsistentcy() const {
+  SmallVector<unsigned, 8> BlobIndices;
+
+  collectTempBlobIndices(BlobIndices);
+
+  // Check that the DDRef constains a blob DDRef for each contained temp blob.
+  for (auto &BI : BlobIndices) {
+    bool BlobFound = false;
+
+    for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+      if (BI == (*I)->getBlobIndex()) {
+        BlobFound = true;
+        break;
       }
     }
-  */
+
+    assert(BlobFound && "Temp blob not found in blob DDRefs!");
+  }
+
+  // Look for stale blob DDRefs.
+  for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
+    unsigned Index = (*I)->getBlobIndex();
+
+    auto It = std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
+
+    assert(((It != BlobIndices.end()) && (*It == Index)) &&
+           "Stale blob DDRef found!");
+  }
 }
 
 void RegDDRef::verify() const {
+  bool IsConst = false;
+
   assert(getNumDimensions() > 0 &&
-         "RegDDRef should contain at least one CanonExpr");
+         "RegDDRef should contain at least one CanonExpr!");
 
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     (*I)->verify();
@@ -291,16 +458,26 @@ void RegDDRef::verify() const {
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
     (*I)->verify();
     assert((*I)->getParentDDRef() == this &&
-           "Child blob DDRefs should have this RegDDRef as a parent");
+           "Child blob DDRefs should have this RegDDRef as a parent!");
   }
 
-  assert((!isSelfBlob() || BlobDDRefs.size() == 0) &&
-         "Self-blobs couldn't contain any BlobDDRefs.");
+  if (isSelfBlob() || (IsConst = isConstant())) {
+    assert((BlobDDRefs.size() == 0) &&
+           "Self-blobs couldn't contain any BlobDDRefs!");
+
+    if (IsConst) {
+      assert((getSymbase() == CONSTANT_SYMBASE) &&
+             "Constant DDRef's symbase is incorrect!");
+    }
+
+  } else {
+    checkBlobDDRefsConsistentcy();
+  }
 
   assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
-         "GEP DDRefs should have a base canon expression");
+         "GEP DDRefs should have a base canon expression!");
   assert((!hasGEPInfo() || getNumDimensions() == getStrides().size()) &&
-         "Stride should be for every dimension");
+         "Stride should be present for every dimension!");
 
   // Verify symbase value if this DDRef is defined
   DDRef::verify();

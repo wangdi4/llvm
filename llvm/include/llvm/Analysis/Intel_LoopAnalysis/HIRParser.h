@@ -129,6 +129,9 @@ private:
   /// between different blob indices associated with the same symbase.
   class BaseSCEVCreator;
 
+  /// TempBlobCollector - Collects temp blobs within a blob.
+  class TempBlobCollector;
+
   /// BlobLevelSetter - Used to set blob levels in the canon expr.
   class BlobLevelSetter;
 
@@ -343,6 +346,13 @@ private:
 
   // TODO handle min/max blobs.
 
+  /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
+  bool contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob);
+
+  /// \brief Collects and returns temp blobs present inside Blob.
+  void collectTempBlobs(CanonExpr::BlobTy Blob,
+                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
+
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
 
@@ -362,6 +372,9 @@ private:
 
   /// \brief Returns true if this is a temp blob.
   bool isTempBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Returns true if TempBlob always has a defined at level of zero.
+  bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const;
 
   /// \brief Returns true if this is an UndefValue blob.
   bool isUndefBlob(const CanonExpr::BlobTy Blob) const;

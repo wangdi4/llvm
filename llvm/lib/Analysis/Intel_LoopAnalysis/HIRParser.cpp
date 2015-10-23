@@ -139,6 +139,14 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
+bool HIRParser::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const {
+  assert(isTempBlob(TempBlob) && "Not a temp blob!");
+
+  auto UnknownSCEV = cast<SCEVUnknown>(TempBlob);
+
+  return !isa<Instruction>(UnknownSCEV->getValue());
+}
+
 bool HIRParser::isUndefBlob(const CanonExpr::BlobTy Blob) const {
   Value *V = nullptr;
 
@@ -271,6 +279,44 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
   insertBlobHelper(NewBlob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
   return NewBlob;
+}
+
+bool HIRParser::contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob) {
+  assert(Blob && "Blob cannot be null!");
+  assert(SubBlob && "SubBlob cannot be null!");
+
+  return SE->hasOperand(Blob, SubBlob);
+}
+
+class HIRParser::TempBlobCollector {
+private:
+  const HIRParser *HIRP;
+  SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs;
+
+public:
+  TempBlobCollector(const HIRParser *HIRP,
+                    SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs)
+      : HIRP(HIRP), TempBlobs(TempBlobs) {}
+
+  ~TempBlobCollector() {}
+
+  bool follow(const SCEV *SC) const {
+
+    if (HIRP->isTempBlob(SC)) {
+      TempBlobs.push_back(SC);
+    }
+
+    return !isDone();
+  }
+
+  bool isDone() const { return false; }
+};
+
+void HIRParser::collectTempBlobs(
+    CanonExpr::BlobTy Blob, SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) {
+  TempBlobCollector TBC(this, TempBlobs);
+  SCEVTraversal<TempBlobCollector> Collector(TBC);
+  Collector.visitAll(Blob);
 }
 
 unsigned HIRParser::getMaxScalarSymbase() const {

@@ -139,6 +139,9 @@ protected:
   HLLoop *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
+  /// \brief Updates blob DDRefs for the passed in trip count DDRef.
+  void updateTripCountBlobDDRefs(RegDDRef *TripRef) const;
+
 public:
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -216,6 +219,9 @@ public:
   /// based on the IsLHS flag.
   RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                            bool IsLHS);
+
+  /// \brief Returns true if this Ref belongs to ztt.
+  bool isZttOperandDDRef(const RegDDRef *Ref) const;
 
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.

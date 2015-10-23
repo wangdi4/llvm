@@ -97,8 +97,8 @@ HLIf *HLIf::clone() const {
   return NewIf;
 }
 
-void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
-                       bool Detailed) const {
+void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
+                           const HLLoop *Loop) const {
 
   bool FirstPred = true;
   OS << "if (";
@@ -110,13 +110,15 @@ void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
       OS << " && ";
     }
 
-    Ref = getPredicateOperandDDRef(I, true);
-    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
+    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, true)
+               : getPredicateOperandDDRef(I, true);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     printPredicate(OS, *I);
 
-    Ref = getPredicateOperandDDRef(I, false);
-    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
+    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, false)
+               : getPredicateOperandDDRef(I, false);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     FirstPred = false;
   }
@@ -124,11 +126,19 @@ void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   OS << ")\n";
 }
 
+void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth) const {
+  printHeaderImpl(OS, Depth, nullptr);
+}
+
+void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
+  printHeaderImpl(OS, 0, Loop);
+}
+
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
 
   indent(OS, Depth);
-  printHeader(OS, Depth, false);
+  printHeader(OS, Depth);
 
   HLDDNode::print(OS, Depth, Detailed);
 

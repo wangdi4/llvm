@@ -128,6 +128,16 @@ protected:
   /// \brief Implements getBase*Type() functionality.
   Type *getBaseTypeImpl(bool IsSrc) const;
 
+  /// \brief Used by updateBlobDDRefs() to remove BlobDDRefs which are not
+  /// needed anymore. The required blobs are passed in through BlobIndices. The
+  /// function removes those blobs from BlobIndices whose BlobDDRef is already
+  /// attached to RegDDRef.
+  void removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices);
+
+  /// \brief Called by the verifier to check that the temp blobs contained in
+  /// the DDRef correspond to blob DDRefs attached to the DDRef.
+  void checkBlobDDRefsConsistentcy() const;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -372,18 +382,47 @@ public:
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
   void removeDimension(unsigned DimensionNum);
 
+  /// \brief Returns the index of the blob represented by this self-blob DDRef.
+  unsigned getSelfBlobIndex() const {
+    assert(isSelfBlob() && "DDRef is not a self blob!");
+    return getSingleCanonExpr()->getSingleBlobIndex();
+  }
+
   /// \brief Adds a blob DDRef to this DDRef.
   void addBlobDDRef(BlobDDRef *BlobRef);
+
+  /// \brief Creates a blob DDRef with passed in Index and Level and adds it to
+  /// this DDRef. Level of -1 means non-linear blob.
+  void addBlobDDRef(unsigned Index, int Level = -1);
 
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
-  /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in
-  /// the associated canon exprs. It will also remove BlobDDRefs associated
-  /// with blobs which aren't present in the canon exprs anymore.
-  /// It is the respoonsibility of the user to  call this function after
-  /// making changes to the DDRef.
-  void updateBlobDDRefs();
+  /// \brief Removes all blob DDRefs attached to this DDRef.
+  void removeAllBlobDDRefs();
+
+  /// \brief Collects all the unique temp blobs present in the DDRef by visiting
+  /// all the contained canon exprs.
+  void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const;
+
+  /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in the
+  /// associated canon exprs and populates NewBlobs with BlobDDRefs which have
+  /// been added by the utility and whose defined at level needs to be updated.
+  /// The utility will also remove BlobDDRefs associated with blobs which aren't
+  /// present in the canon exprs anymore. It also sets the correct symbase for
+  /// constant and self-blob DDRefs.
+  ///
+  /// NOTE: It is the responsibility of the user to call this utility after
+  /// making changes to the DDRef and update defined at levels for the new
+  /// blobs.
+  void updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs);
+
+  /// \brief Returns true if the blob is present in this DDRef and returns its
+  /// defined at level via DefLevel. DefLevel is expected to be non-null. -1 is
+  /// returned for non-linear blobs. The blob is searched in the blob DDRefs
+  /// attached to this DDRef. This function can be used to update defined at
+  /// levels for blobs which were copied from this DDRef to another DDRef.
+  bool findBlobLevel(unsigned BlobIndex, int *DefLevel) const;
 
   /// \brief Verifies RegDDRef integrity.
   virtual void verify() const override;

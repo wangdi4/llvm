@@ -64,11 +64,11 @@ public:
   virtual void print(formatted_raw_ostream &OS,
                      bool Detailed = false) const override;
 
-  /// TODO implementation
-  /// Value *getLLVMValue() const override { return nullptr; }
-
   /// \brief Returns the canonical form associated with the blob.
   const CanonExpr *getCanonExpr() const { return CE; }
+
+  /// \brief Returns the blob index associated with this BlobDDRef.
+  unsigned getBlobIndex() const { return CE->getSingleBlobIndex(); }
 
   /// \brief Returns the RegDDRef this is attached to.
   RegDDRef *getParentDDRef() { return ParentDDRef; }
