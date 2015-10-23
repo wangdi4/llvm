@@ -26,6 +26,7 @@
 namespace llvm {
 
 class Function;
+class SwitchInst;
 class DominatorTree;
 struct PostDominatorTree;
 
@@ -104,6 +105,9 @@ private:
 
   /// \brief Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
+
+  /// \brief Return true if the passed in BB post dominates all switch cases.
+  bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
 
   /// \brief Performs lexical (preorder) walk of the dominator tree for the
   /// region.

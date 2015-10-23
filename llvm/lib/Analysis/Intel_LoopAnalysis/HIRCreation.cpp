@@ -175,6 +175,21 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   return InsertionPos;
 }
 
+bool HIRCreation::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
+
+  if (!PDT->dominates(BB, SI->getDefaultDest())) {
+    return false;
+  }
+  
+  for(auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
+    if (!PDT->dominates(BB, I.getCaseSuccessor())) {
+      return false;
+    }
+  }
+  
+  return true;  
+}
+
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
                                           HLNode *InsertionPos) {
 
@@ -208,30 +223,33 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
         doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
         continue;
       }
-    }
-    /// Link switch's case children.
-    else if (auto SwitchTerm = dyn_cast<HLSwitch>(LastBBNode)) {
+
+    } else if (auto SwitchTerm = dyn_cast<HLSwitch>(LastBBNode)) {
+      /// Link switch's case children.
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
-      if (DomChildBB == SI->getDefaultDest()) {
-        doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
-        continue;
-      }
+      if (!postDominatesAllCases(SI, DomChildBB)) {
 
-      unsigned Count = 1;
-      bool isCaseChild = false;
-
-      for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
-           ++I, ++Count) {
-        if (DomChildBB == I.getCaseSuccessor()) {
-          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
-          isCaseChild = true;
-          break;
+        if (DomChildBB == SI->getDefaultDest()) {
+          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
+          continue;
         }
-      }
 
-      if (isCaseChild) {
-        continue;
+        unsigned Count = 1;
+        bool IsCaseChild = false;
+   
+        for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
+             ++I, ++Count) {
+          if (DomChildBB == I.getCaseSuccessor()) {
+            doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
+            IsCaseChild = true;
+            break;
+          }
+        }
+
+        if (IsCaseChild) {
+          continue;
+        }
       }
     }
 
@@ -319,7 +337,7 @@ void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
 
     // Print SCCs in hir-parser output and in detailed mode.
     if (FrameworkDetails) {
-      SCCF->print(OS, RegBegin + Offset);
+      SCCF->print(FOS, RegBegin + Offset);
     }
 
     FOS << "\n";
@@ -329,6 +347,4 @@ void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   FOS << "\n";
 }
 
-void HIRCreation::verifyAnalysis() const {
-  // TODO: Implement later
-}
+void HIRCreation::verifyAnalysis() const { }
