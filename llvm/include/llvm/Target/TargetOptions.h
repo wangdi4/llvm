@@ -67,9 +67,7 @@ namespace llvm {
           HonorSignDependentRoundingFPMathOption(false),
           NoZerosInBSS(false),
           GuaranteedTailCallOpt(false),
-#ifdef INTEL_CUSTOMIZATION
-          StackSymbolOrdering(true),
-#endif // INTEL_CUSTOMIZATION
+          StackSymbolOrdering(true),               // INTEL
           StackAlignmentOverride(0),
           EnableFastISel(false), PositionIndependentExecutable(false),
           UseInitArray(false), DisableIntegratedAS(false),
@@ -140,7 +138,7 @@ namespace llvm {
     /// as their parent function, etc.), using an alternate ABI if necessary.
     unsigned GuaranteedTailCallOpt : 1;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     /// StackSymbolOrdering - When true, this will allow CodeGen to order
     /// the local stack symbols (for code size, code locality, or any other
     /// heuristics). When false, the local symbols are left in whatever order

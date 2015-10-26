@@ -298,7 +298,7 @@ public:
     return true;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// Order the symbols in the local stack frame.
   /// The list of objects that we want to order is in \p objectsToAllocate as
   /// indices into the MachineFrameInfo. The array can be reordered in any way

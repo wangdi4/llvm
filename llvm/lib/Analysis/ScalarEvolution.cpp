@@ -4472,14 +4472,13 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
   case Instruction::BitCast:
 #if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || !isHIRCopyInst(cast<Instruction>(V))) {
-#endif
-      // BitCasts are no-op casts so we just eliminate the cast.
-      if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
-        return getSCEV(U->getOperand(0));
-#if INTEL_CUSTOMIZATION // HIR parsing
-    }
-#endif
+    if (isa<Instruction>(V) && isHIRCopyInst(cast<Instruction>(V)))
+      break;
+#endif // INTEL_CUSTOMIZATION
+
+    // BitCasts are no-op casts so we just eliminate the cast.
+    if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
+      return getSCEV(U->getOperand(0));
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can

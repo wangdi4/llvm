@@ -323,6 +323,6 @@ Value *GetIfCondition(BasicBlock *BB,
 Value *GetIfCondition(BasicBlock *BB, BasicBlock *&IfTrue,
                       BasicBlock *&IfFalse);
 } // End llvm namespace
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 #endif

@@ -2050,7 +2050,7 @@ bool X86FrameLowering::canUseAsEpilogue(const MachineBasicBlock &MBB) const {
   return !terminatorsNeedFlagsAsInput(MBB);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Order the symbols in the local stack.
 // We want to place the local stack objects in some sort of sensible order.
 // The heuristic we use is to try and pack them according to static number

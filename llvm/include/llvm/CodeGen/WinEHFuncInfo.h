@@ -61,10 +61,18 @@ private:
 
 class CatchHandler : public ActionHandler {
 public:
+#if INTEL_CUSTOMIZATION
+  CatchHandler(BasicBlock *DispatchBB, BasicBlock *StartBB, Constant *Selector,
+               BasicBlock *NextBB)
+      : ActionHandler(StartBB, ActionType::Catch), Selector(Selector),
+        DispatchBB(DispatchBB), NextBB(NextBB), ExceptionObjectVar(nullptr),
+      ExceptionObjectIndex(-1) {}
+#else  // !INTEL_CUSTOMIZATION
   CatchHandler(BasicBlock *BB, Constant *Selector, BasicBlock *NextBB)
       : ActionHandler(BB, ActionType::Catch), Selector(Selector),
       NextBB(NextBB), ExceptionObjectVar(nullptr),
       ExceptionObjectIndex(-1) {}
+#endif // !INTEL_CUSTOMIZATION
 
   // Method for support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const ActionHandler *H) {
@@ -72,6 +80,9 @@ public:
   }
 
   Constant *getSelector() const { return Selector; }
+#if INTEL_CUSTOMIZATION
+  BasicBlock *getDispatchBB() const { return DispatchBB; }
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *getNextBB() const { return NextBB; }
 
   const Value *getExceptionVar() { return ExceptionObjectVar; }
@@ -86,6 +97,9 @@ public:
 
 private:
   Constant *Selector;
+#if INTEL_CUSTOMIZATION
+  BasicBlock *DispatchBB;
+#endif // INTEL_CUSTOMIZATION
   BasicBlock *NextBB;
   // While catch handlers are being outlined the ExceptionObjectVar field will
   // be populated with the instruction in the parent frame that corresponds

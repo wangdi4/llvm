@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
  
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
 #ifndef LLVM_TRANSFORMS_IPO_INLINEREPORT_H
 #define LLVM_TRANSFORMS_IPO_INLINEREPORT_H

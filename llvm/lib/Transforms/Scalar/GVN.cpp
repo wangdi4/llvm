@@ -30,6 +30,10 @@
 #include "llvm/Analysis/ConstantFolding.h"
 #include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/Analysis/InstructionSimplify.h"
+#if INTEL_CUSTOMIZATION
+// For EH personality support
+#include "llvm/Analysis/LibCallSemantics.h"
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Analysis/MemoryDependenceAnalysis.h"
@@ -2299,6 +2303,17 @@ bool GVN::processInstruction(Instruction *I) {
   if (IntrinsicInst *IntrinsicI = dyn_cast<IntrinsicInst>(I))
     if (IntrinsicI->getIntrinsicID() == Intrinsic::assume)
       return processAssumeIntrinsic(IntrinsicI);
+
+#if INTEL_CUSTOMIZATION
+  // WinEHPrepare relies on the llvm.eh.typeid.for intrinsic to identify the
+  // types that can be caught by exception handlers.  For non-MSVC targets,
+  // eliminating this intrinsic call is beneficial, but for MSVC targets we
+  // can't allow it.
+  if (IntrinsicInst *IntrinsicI = dyn_cast<IntrinsicInst>(I))
+    if (IntrinsicI->getIntrinsicID() == Intrinsic::eh_typeid_for &&
+        isParentFnEHPersonalityMSVC(IntrinsicI))
+      return false;
+#endif // INTEL_CUSTOMIZATION
 
   if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
     if (processLoad(LI))
