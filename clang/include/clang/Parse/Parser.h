@@ -1431,6 +1431,11 @@ private:
 
     SourceRange Range;
   };
+#if INTEL_CUSTOMIZATION
+  // CQ#371799 - let #pragma unroll precede non-loop statements.
+  /// Save #pragma unroll as pending to be applied once any loop occurs.
+  ParsedAttributesWithRange PendingPragmaUnroll;
+#endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
                                           ParsingDeclSpec *DS = nullptr);

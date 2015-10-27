@@ -112,6 +112,17 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts, bool OnlyStatement,
 
   assert((Attrs.empty() || Res.isInvalid() || Res.isUsable()) &&
          "attributes on empty statement");
+
+#if INTEL_CUSTOMIZATION
+  // CQ#371799 - let #pragma unroll precede non-loop statements.
+  // Apply pending unroll attribute once a loop is parsed.
+  if (getLangOpts().IntelCompat && Res.isUsable()) {
+    auto StClass = Res.get()->getStmtClass();
+    if (StClass == Stmt::DoStmtClass || StClass == Stmt::WhileStmtClass ||
+        StClass == Stmt::ForStmtClass || StClass == Stmt::CXXForRangeStmtClass)
+      Attrs.takeAllFrom(PendingPragmaUnroll);
+  }
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (OnlyStatement && Res.isUsable() && isa<PragmaStmt>(Res.get())) {
     if (!Attrs.empty())
@@ -2008,6 +2019,16 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts, bool OnlyStatement,
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
                      Hint.PragmaNameLoc->Loc, ArgHints, 4,
                      AttributeList::AS_Pragma);
+#if INTEL_CUSTOMIZATION
+    // CQ#371799 - let #pragma unroll precede non-loop statements. Also fixes
+    // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
+    auto PragmaName = Hint.PragmaNameLoc->Ident->getName();
+    if (getLangOpts().IntelCompat &&
+        (PragmaName == "unroll" || PragmaName == "nounroll")) {
+      PendingPragmaUnroll.clear();
+      PendingPragmaUnroll.takeAllFrom(TempAttrs);
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Get the next statement.
