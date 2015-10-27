@@ -19,10 +19,6 @@ void CL21::EnqueueSVMMigrateMem_Positive() const
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clEnqueueSVMMigrateMem failed. ";
 
-    iRet = clEnqueueSVMMigrateMem(m_queue, svmBuffers.size(), &svmBuffers[0], &svmBuffers_sizes[0], 0, 0, NULL, NULL);
-    ASSERT_EQ(CL_SUCCESS, iRet)
-        << " clEnqueueSVMMigrateMem failed. ";
-
     iRet = clEnqueueSVMMigrateMem(m_queue, svmBuffers.size(), &svmBuffers[0], &svmBuffers_sizes[0], CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED, 0, NULL, NULL);
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clEnqueueSVMMigrateMem failed. ";
@@ -88,6 +84,11 @@ void CL21::EnqueueSVMMigrateMem_Negative() const
             &svmBuffers_sizes[0], CL_MIGRATE_MEM_OBJECT_HOST, 1, (cl_event*)&m_queue, NULL);
     ASSERT_EQ(CL_INVALID_EVENT_WAIT_LIST, iRet)
         << " clEnqueueSVMMigrateMem with invalid event failed. ";
+
+    iRet = clEnqueueSVMMigrateMem(m_queue, svmBuffers.size(), &svmBuffers[0], &svmBuffers_sizes[0], 0, 0, NULL, NULL);
+    ASSERT_EQ(CL_INVALID_VALUE, iRet)
+        << " clEnqueueSVMMigrateMem failed. ";
+
 
     clFinish(m_queue);
 }
