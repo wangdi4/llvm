@@ -564,6 +564,46 @@ TEST_F(CL21, clEnqueueSVMMigrateMem)
     EnqueueSVMMigrateMem_Positive();
 }
 
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE)
+{
+    GetKernelSubGroupInfo_MAX_SB_SIZE();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_SG_COUNT)
+{
+    GetKernelSubGroupInfo_SG_COUNT();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
+{
+    GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE_Negative)
+{
+    GetKernelSubGroupInfo_Negative();
+}
+
+TEST_F(CL21, clGetDeviceInfo_INDEPENDENT_PROGRESS)
+{
+    GetDeviceInfo_INDEPENDENT_PROGRESS();
+}
+
+TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
+{
+    GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_COMPILE_NUM_SUB_GROUPS)
+{
+    GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_MAX_NUM_SUB_GROUPS)
+{
+    GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////
