@@ -157,7 +157,7 @@ public:
 #if INTEL_CUSTOMIZATION
     ELFIAMCU,
     LastOSType = ELFIAMCU
-#endif // INTEL_CUSTOMIZATION
+#endif //INTEL_CUSTOMIZATION
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -437,7 +437,7 @@ public:
   bool isOSIAMCU() const {
     return getOS() == Triple::ELFIAMCU;
   }
-#endif INTEL_CUSTOMIZATION
+#endif //INTEL_CUSTOMIZATION
 
   bool isWindowsMSVCEnvironment() const {
     return getOS() == Triple::Win32 &&

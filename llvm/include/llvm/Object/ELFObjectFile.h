@@ -828,7 +828,7 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
 #if INTEL_CUSTOMIZATION
     case ELF::EM_IAMCU:
       return "ELF32-iamcu";
-#endif INTEL_CUSTOMIZATION
+#endif //INTEL_CUSTOMIZATION
     case ELF::EM_X86_64:
       return "ELF32-x86-64";
     case ELF::EM_ARM:

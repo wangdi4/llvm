@@ -180,7 +180,7 @@ const char *Triple::getOSTypeName(OSType Kind) {
   case PS4: return "ps4";
 #if INTEL_CUSTOMIZATION
   case ELFIAMCU: return "elfiamcu";
-#endif INTEL_CUSTOMIZATION
+#endif //INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid OSType");
