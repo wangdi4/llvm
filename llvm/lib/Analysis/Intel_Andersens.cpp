@@ -2482,6 +2482,11 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   Function::arg_iterator formal_end = F->arg_end();
   Function::arg_iterator last_formal = NULL;
 
+  // TODO: Ignore non-vararg functions if number of formals 
+  // doesn’t match with number of arguments of the call-site 
+  // to improve accuracy of points-to sets.   
+
+
   if (CS.getType()->isPointerTy()) {
     if (isa<PointerType>(F->getFunctionType()->getReturnType())) {
       AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
@@ -2491,7 +2496,9 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
     }
   }
 
-  for (; formal_itr != formal_end;) {
+  // CQ377744: Stop trying to map arguments and formals if 
+  // arg_itr or formal_itr reached an end.
+  for (; formal_itr != formal_end && arg_itr != arg_end;) {
     Argument* formal = formal_itr;
     Value* actual = *arg_itr;
     if (formal->getType()->isPointerTy()) {
