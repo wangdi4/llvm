@@ -40,7 +40,7 @@ using namespace InlineReportTypes; // INTEL
 
 STATISTIC(NumCallsAnalyzed, "Number of call sites analyzed");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 extern bool llvm::IsInlinedReason(InlineReason Reason) {
   return Reason > InlrFirst && Reason < InlrLast;
 }
@@ -1037,7 +1037,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
   return true;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 ///
 /// \brief Find the best inlining or non-inlining reason 
 ///
@@ -1301,7 +1301,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     if (!analyzeBlock(BB, EphValues)) {
       if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
           HasIndirectBr || HasFrameEscape) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (IsRecursiveCall) { 
           *ReasonAddr = NinlrRecursive; 
         } 
@@ -1373,7 +1373,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION 
+#if INTEL_CUSTOMIZATION 
   if (SingleBB) { 
     YesReasonVector.push_back(InlrSingleBasicBlock);
   } 
@@ -1395,7 +1395,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   else if (NumVectorInstructions <= NumInstructions / 2)
     Threshold -= (FiftyPercentVectorBonus - TenPercentVectorBonus);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (VectorBonus > 0) { 
     YesReasonVector.push_back(InlrVectorBonus); 
   } 
@@ -1487,7 +1487,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason; 
     if (isInlineViable(*Callee, Reason))  
       return llvm::InlineCost::getAlways(InlrAlwaysInline);
@@ -1512,7 +1512,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   if (Callee->mayBeOverridden() ||
       Callee->hasFnAttribute(Attribute::NoInline) // INTEL 
       || CS.isNoInline()) { // INTEL
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     if (Callee->mayBeOverridden()) { 
       return llvm::InlineCost::getNever(NinlrMayBeOverriden);
     } 
@@ -1529,7 +1529,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
         << "...\n");
 
   CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold, CS);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
   assert(Reason != InlrNoReason); 
@@ -1555,7 +1555,7 @@ bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL
     // blockaddresses.
     if (isa<IndirectBrInst>(BI->getTerminator()) 
       || BI->hasAddressTaken()) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (isa<IndirectBrInst>(BI->getTerminator())) { 
         Reason = NinlrIndirectBranch;
         return false;

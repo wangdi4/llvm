@@ -317,6 +317,53 @@ static void computeKnownBitsMul(Value *Op0, Value *Op1, bool NSW,
       // The product of two numbers with the same sign is non-negative.
       isKnownNonNegative = (isKnownNegativeOp1 && isKnownNegativeOp0) ||
         (isKnownNonNegativeOp1 && isKnownNonNegativeOp0);
+#if INTEL_CUSTOMIZATION
+      if (!isKnownNonNegative) {
+        // The product of (n * (n - 1)) or (n * (n + 1)) is always
+        // non-negative.
+        // Here are all the cases where adding 1 or -1 to a signed integer
+        // causes a change of the sign, including cases when allowing signed
+        // overflow.
+        //
+        // n         n + 1       n * (n + 1)
+        // -1        0           0
+        // MAXINT    -MAXINT-1   cannot happen, multiply would overflow.
+        //
+        // n         n - 1       n * (n - 1)
+        // 0         -1          0
+        // -MAXINT-1 MAXINT      cannot happen, multiply would overflow.
+        //
+        // In all other cases, n and (n [+-] 1) have the same sign, and
+        // therefore the multiplication is non-negative.  And as can be
+        // seen from above, the cases where the two values have different
+        // sign are either always getting a product of 0, or the product
+        // will overflow the multiplication itself, which cannot be the
+        // case, since the multipication is marked NSW.
+        //
+        Value *AddOp = nullptr;
+        Value *OtherOp = nullptr;
+
+        if (Operator::getOpcode(Op0) == Instruction::Add) {
+          AddOp = Op0;
+          OtherOp = Op1;
+        } else if (Operator::getOpcode(Op1) == Instruction::Add) {
+          AddOp = Op1;
+          OtherOp = Op0;
+        }
+
+        if (AddOp) {
+          auto AddI = dyn_cast<Operator>(AddOp);
+          Value *AddOp0 = AddI->getOperand(0);
+          Value *AddOp1 = AddI->getOperand(1);
+          ConstantInt *Op1CI = dyn_cast<ConstantInt>(AddOp1);
+          bool isAddOp1Const1 = Op1CI &&
+            (Op1CI->isOne() || Op1CI->isMinusOne());
+
+          if (AddOp0 == OtherOp && isAddOp1Const1)
+            isKnownNonNegative = true;
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       // The product of a negative number and a non-negative number is either
       // negative or zero.
       if (!isKnownNonNegative)

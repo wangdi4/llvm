@@ -30,6 +30,9 @@ add_llvm_library(LLVMAnalysis
   InlineCost.cpp
   InstCount.cpp
   InstructionSimplify.cpp
+#ifdef INTEL_CUSTOMIZATION
+  Intel_Andersens.cpp
+#endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
   IteratedDominanceFrontier.cpp

@@ -2050,6 +2050,83 @@ bool X86FrameLowering::canUseAsEpilogue(const MachineBasicBlock &MBB) const {
   return !terminatorsNeedFlagsAsInput(MBB);
 }
 
+#if INTEL_CUSTOMIZATION
+// Order the symbols in the local stack.
+// We want to place the local stack objects in some sort of sensible order.
+// The heuristic we use is to try and pack them according to static number
+// of uses and size of object in order to minimize code size.
+void X86FrameLowering::orderFrameObjects(
+    const MachineFunction &MF, std::vector<int> &ObjectsToAllocate) const {
+  int i;
+  const MachineFrameInfo *MFI = MF.getFrameInfo();
+
+  // Don't waste time if there's nothing to do.
+  if (ObjectsToAllocate.empty())
+    return;
+
+  // Create an array of all MFI objects. We won't need all of these
+  // objects, but we're going to create a full array of them to make
+  // it easier to index into when we're counting "uses" down below.
+  // We want to be able to easily/cheaply access an object by simply
+  // indexing into it, instead of having to search for it every time.
+  std::vector<X86FrameSortingObject> SortingObjects(MFI->getObjectIndexEnd());
+
+  // Walk the objects we care about and mark them as such in our working
+  // struct.
+  for (auto &Obj : ObjectsToAllocate) {
+    SortingObjects[Obj].IsValid = true;
+    SortingObjects[Obj].ObjectIndex = Obj;
+    SortingObjects[Obj].ObjectAlignment = MFI->getObjectAlignment(Obj);
+    // Set the size.
+    int ObjectSize = MFI->getObjectSize(Obj);
+    if (ObjectSize == 0)
+      // Variable size. Just use 4.
+      SortingObjects[Obj].ObjectSize = 4;
+    else      
+      SortingObjects[Obj].ObjectSize = ObjectSize;
+  }
+
+  // Count the number of uses for each object.
+  for (auto &MBB : MF) {
+    for (auto &MI : MBB) {
+      for (unsigned i = 0, e = MI.getNumOperands(); i != e; ++i) {
+        // Check to see if it's a local stack symbol.
+        if (!MI.getOperand(i).isFI())
+          continue;
+        int Index = MI.getOperand(i).getIndex();
+        // Check to see if it falls within our range, and is tagged
+        // to require ordering.
+        if (Index >= 0 && Index < MFI->getObjectIndexEnd() &&
+            SortingObjects[Index].IsValid)
+          SortingObjects[Index].ObjectNumUses++;
+      }
+    }
+  }
+
+  // Sort the objects using X86FrameSortingAlgorithm (see its comment for
+  // info).
+  std::sort(SortingObjects.begin(), SortingObjects.end(),
+            X86FrameSortingAlgorithm());
+
+  // Now modify the original list to represent the final order that
+  // we want. The order will depend on whether we're going to access them
+  // from the stack pointer or the frame pointer. For SP, the list should
+  // end up with the END containing objects that we want with smaller offsets.
+  // For FP, it should be flipped.
+  i = 0;
+  for (auto &Obj : SortingObjects) {
+    if (Obj.IsValid)
+      ObjectsToAllocate[i++] = Obj.ObjectIndex;
+    else
+      // All invalid items are sorted at the end, so it's safe to stop.
+      break;
+  }
+  // Flip it if we're accessing off of the FP.
+  if (!TRI->needsStackRealignment(MF) && hasFP(MF))
+    std::reverse(ObjectsToAllocate.begin(), ObjectsToAllocate.end());
+}
+#endif // INTEL_CUSTOMIZATION
+
 MachineBasicBlock::iterator X86FrameLowering::restoreWin32EHFrameAndBasePtr(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
     DebugLoc DL) const {

@@ -11,9 +11,7 @@ add_llvm_library(LLVMipo
   IPConstantPropagation.cpp
   IPO.cpp
   InlineAlways.cpp
-#ifdef INTEL_CUSTOMIZATION
-  InlineReport.cpp 
-#endif // INTEL_CUSTOMIZATION
+  InlineReport.cpp   # INTEL
   InlineSimple.cpp
   Inliner.cpp
   Internalize.cpp

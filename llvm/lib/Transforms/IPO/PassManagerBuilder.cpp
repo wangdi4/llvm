@@ -25,6 +25,7 @@
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ScopedNoAliasAA.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/Analysis/TypeBasedAliasAnalysis.h"
@@ -32,9 +33,15 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" //***INTEL - HIR passes
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR passes
 
 using namespace llvm;
+
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
+                   cl::desc("Run the early jump threading pass"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool>
 RunLoopVectorization("vectorize-loops", cl::Hidden,
@@ -95,13 +102,15 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
-//***INTEL - HIR passes
+// INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimizations passes"));
 
-//***INTEL - Andersen AliasAnalysis
-static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(false),
+#ifdef INTEL_CUSTOMIZATION
+// Andersen AliasAnalysis
+static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
+#endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
     "enable-non-lto-gmr", cl::init(false), cl::Hidden,
@@ -228,6 +237,8 @@ void PassManagerBuilder::populateModulePassManager(
 
     MPM.add(createInstructionCombiningPass());// Clean up after IPCP & DAE
     addExtensionsToPM(EP_Peephole, MPM);
+    if (EarlyJumpThreading)                         // INTEL
+      MPM.add(createJumpThreadingPass(-1, false));  // INTEL
     MPM.add(createCFGSimplificationPass());   // Clean up after IPCP & DAE
   }
 
@@ -267,13 +278,6 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createReassociatePass());           // Reassociate expressions
   // Rotate Loop - disable header duplication at -Oz
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
-
-#ifdef INTEL_CUSTOMIZATION
-  // if (EnableAndersen) {
-  //   MPM.add(createAndersensPass()); // Andersen's IP alias analysis
-  // }
-#endif
-
   MPM.add(createLICMPass());                  // Hoist loop invariants
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
   MPM.add(createInstructionCombiningPass());
@@ -308,11 +312,11 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createJumpThreadingPass());         // Thread jumps
   MPM.add(createCorrelatedValuePropagationPass());
   MPM.add(createDeadStoreEliminationPass());  // Delete dead stores
-#ifdef INTEL_CUSTOMIZATION
-  // if (EnableAndersen) {
-  //   MPM.add(createAndersensPass()); // Andersen's IP alias analysis
-  // }
-#endif
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    MPM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+#endif // INTEL_CUSTOMIZATION
 
   MPM.add(createLICMPass());
 
@@ -393,7 +397,7 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form. Disable header duplication at -Oz.
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
-  addLoopOptPasses(MPM); //***INTEL - HIR passes
+  addLoopOptPasses(MPM); // INTEL - HIR passes
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.

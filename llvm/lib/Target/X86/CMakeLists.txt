@@ -34,7 +34,7 @@ set(sources
   X86TargetTransformInfo.cpp
   X86VZeroUpper.cpp
   X86FixupLEAs.cpp
-  X86FixupBWInsts.cpp     # INTEL_CUSTOMIZATION
+  X86FixupBWInsts.cpp     # INTEL
   X86WinEHState.cpp
   )
 

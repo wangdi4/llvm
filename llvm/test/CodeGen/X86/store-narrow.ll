@@ -17,7 +17,7 @@ entry:
 ; X64: movb	%sil, (%rdi)
 
 ; X32-LABEL: test1:
-; X32: {{movb|movzbl}}	8(%esp), {{%al|%eax}}
+; X32: {{movb|movzbl}}	8(%esp), {{%al|%eax}}                 ;INTEL
 ; X32: movb	%al, (%{{.*}})
 }
 
@@ -34,7 +34,7 @@ entry:
 ; X64: movb	%sil, 1(%rdi)
 
 ; X32-LABEL: test2:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}
+; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
 ; X32: movb	%[[REG]]l, 1(%{{.*}})
 }
 
@@ -50,7 +50,7 @@ entry:
 ; X64: movw	%si, (%rdi)
 
 ; X32-LABEL: test3:
-; X32: {{movw|movzwl}}	8(%esp), {{%ax|%eax}}
+; X32: {{movw|movzwl}}	8(%esp), {{%ax|%eax}}                  ;INTEL
 ; X32: movw	%ax, (%{{.*}})
 }
 
@@ -67,7 +67,7 @@ entry:
 ; X64: movw	%si, 2(%rdi)
 
 ; X32-LABEL: test4:
-; X32: {{movw|movzwl}}	8(%esp), %{{e?}}[[REG:[abcd]]]x
+; X32: {{movw|movzwl}}	8(%esp), %{{e?}}[[REG:[abcd]]]x        ;INTEL
 ; X32: movw	%[[REG]]x, 2(%{{.*}})
 }
 
@@ -84,7 +84,7 @@ entry:
 ; X64: movw	%si, 2(%rdi)
 
 ; X32-LABEL: test5:
-; X32: {{movw|movzwl}}	8(%esp), %{{e?}}[[REG:[abcd]]]x
+; X32: {{movw|movzwl}}	8(%esp), %{{e?}}[[REG:[abcd]]]x       ;INTEL
 ; X32: movw	%[[REG]]x, 2(%{{.*}})
 }
 
@@ -102,8 +102,8 @@ entry:
 
 
 ; X32-LABEL: test6:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}
-; X32: movb	%[[REG]]l, 5(%{{.*}})
+; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
+; X32: movb	%[[REG]]l, 5(%{{.*}})                          ;INTEL
 }
 
 define i32 @test7(i64* nocapture %a0, i8 zeroext %a1, i32* %P2) nounwind {
@@ -121,8 +121,8 @@ entry:
 
 
 ; X32-LABEL: test7:
-; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}
-; X32: movb	%[[REG]]l, 5(%{{.*}})
+; X32: {{movb|movzbl}}	8(%esp), %{{e?}}[[REG:[abcd]]]{{x|l}}  ;INTEL
+; X32: movb	%[[REG]]l, 5(%{{.*}})                          ;INTEL
 }
 
 ; PR7833

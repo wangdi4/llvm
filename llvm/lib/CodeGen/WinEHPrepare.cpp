@@ -71,6 +71,35 @@ class LandingPadMap;
 typedef DenseMap<const BasicBlock *, CatchHandler *> CatchHandlerMapTy;
 typedef DenseMap<const BasicBlock *, CleanupHandler *> CleanupHandlerMapTy;
 
+#if INTEL_CUSTOMIZATION
+// This structure describes the locations to which a catch handler may return.
+//
+//   HandlerFn is the outlined handler function whose returns are described.
+//   Selector is the type descriptor for the exceptions this catch can handle.
+//   EHObjIdx is the frame escape index for the exception object with which
+//     this handler is called.
+//   Addrs is a set of one or more block addresses to which this handler may
+//     return.
+//
+// The handler may return to either the main parent function or another
+// catch handler within which this handler is nested, but all possible
+// return addresses for the handler must be in the same function/handler.
+// In almost all cases there will only be one entry in the Addrs set. 
+struct HandlerReturnInfo {
+  Function *HandlerFn;
+  Constant *Selector;
+  int EHObjIdx;
+  SetVector<BlockAddress *> Addrs;
+
+  HandlerReturnInfo(Function *F, Constant *S, int I, BlockAddress *A) 
+    : HandlerFn(F), Selector(S), EHObjIdx(I) {
+    Addrs.insert(A);
+  }
+};
+
+typedef SmallVector<HandlerReturnInfo, 4> HandlerReturnMapTy;
+#endif // INTEL_CUSTOMIZATION
+
 class WinEHPrepare : public FunctionPass {
 public:
   static char ID; // Pass identification, replacement for typeid.
@@ -101,8 +130,15 @@ private:
                              SetVector<BasicBlock *> &EHReturnBlocks);
   void findCXXEHReturnPoints(Function &F,
                              SetVector<BasicBlock *> &EHReturnBlocks);
+#if INTEL_CUSTOMIZATION
+  void getPossibleReturnTargets(Function *ParentF, CatchHandler *Handler,
+                                HandlerReturnMapTy &Targets);
+  void addCatchHandlers(IntrinsicInst *&Recover,
+                        const HandlerReturnMapTy &Handlers);
+#else  // !INTEL_CUSTOMIZATION
   void getPossibleReturnTargets(Function *ParentF, Function *HandlerF,
                                 SetVector<BasicBlock*> &Targets);
+#endif // !INTEL_CUSTOMIZATION
   void completeNestedLandingPad(Function *ParentFn,
                                 LandingPadInst *OutlinedLPad,
                                 const LandingPadInst *OriginalLPad,
@@ -695,6 +731,11 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
     LandingPadInst *LP = BB.getLandingPadInst();
     if (!LP)
       continue;
+#if INTEL_CUSTOMIZATION
+    // If either of the values in the aggregate returned by the landing pad is
+    // extracted and stored to memory, promote the stored value to a register.
+    promoteLandingPadValues(LP);
+#endif // INTEL_CUSTOMIZATION
     EHVals.insert(LP);
     for (User *U : LP->users()) {
       auto *EI = dyn_cast<ExtractValueInst>(U);
@@ -767,9 +808,17 @@ void WinEHPrepare::demoteValuesLiveAcrossHandlers(
         // demote it.
         if (OpBB == &BB)
           continue;
-        bool IsOpNormalBB = NormalBlocks.count(OpBB);
         bool IsOpEHBB = EHBlocks.count(OpBB);
+#if INTEL_CUSTOMIZATION
+        // FIXME: This is extremely pessimistic.  It demotes all
+        //        values used in exception handlers.  What we really
+        //        want to do is figure out whether the value is used in
+        //        different handlers.
+        if (IsEHBB || IsOpEHBB) {
+#else  // !INTEL_CUSTOMIZATION
+        bool IsOpNormalBB = NormalBlocks.count(OpBB);
         if (IsNormalBB != IsOpNormalBB || IsEHBB != IsOpEHBB) {
+#endif // !INTEL_CUSTOMIZATION
           DEBUG({
             dbgs() << "Demoting instruction live in-out from EH:\n";
             dbgs() << "Instr: " << *OpI << '\n';
@@ -890,9 +939,11 @@ bool WinEHPrepare::prepareExceptionHandlers(
     if (LPadHasActionList)
       continue;
 
+#if !INTEL_CUSTOMIZATION // This happens in demoteValuesLiveAcrossHandlers now.
     // If either of the values in the aggregate returned by the landing pad is
     // extracted and stored to memory, promote the stored value to a register.
     promoteLandingPadValues(LPad);
+#endif // !INTEL_CUSTOMIZATION
 
     LandingPadActions Actions;
     mapLandingPadBlocks(LPad, Actions);
@@ -908,7 +959,13 @@ bool WinEHPrepare::prepareExceptionHandlers(
       // target.
       if (isAsynchronousEHPersonality(Personality)) {
         if (auto *CatchAction = dyn_cast<CatchHandler>(Action)) {
+#if INTEL_CUSTOMIZATION
+          // SEH actually wants to start processing catch handlers at the
+          // dispatch block.
+          processSEHCatchHandler(CatchAction, CatchAction->getDispatchBB());
+#else // !INTEL_CUSTOMIZATION
           processSEHCatchHandler(CatchAction, StartBB);
+#endif // !INTEL_CUSTOMIZATION
           continue;
         }
       }
@@ -1070,13 +1127,81 @@ bool WinEHPrepare::prepareExceptionHandlers(
 
     // Add an indirect branch listing possible successors of the catch handlers.
     SetVector<BasicBlock *> ReturnTargets;
+#if INTEL_CUSTOMIZATION
+    // There is a case where the nesting of catch handlers in the IR does
+    // not directly correspond to the nesting of the handlers in the original
+    // source code.  This can be detected in the IR when an apparently nested
+    // handler returns to an address which is not the outlined body of the
+    // handler which appears to enclose it and instead returns directly to the
+    // enclosing handler's parent function.
+    //
+    // In such a case, the apparently nested handler actually encloses the
+    // handler in which it appears, though it may be obscured in terms of
+    // control flow.  A typical case comes from source like this:
+    //
+    //   void f() {
+    //     try {
+    //       try {
+    //         may_throw();
+    //       } catch (...) { // f.catch.2
+    //         throw;
+    //       }
+    //     } catch (...) { // f.catch.1
+    //       handle_exception();
+    //     }
+    //     do_something();
+    //   }
+    //
+    // In a case such as this, f.catch.1 is only reachable from the f.catch.2
+    // handler, but it returns to a block in the normal code of f().  For the
+    // purposes of EH state numbering, we must recognize that the try scope of
+    // f.catch.1 is a superset of the try scope of f.catch.2.  In order to
+    // expose this situation to the EH numbering code, we add any "hidden"
+    // catch handler to the llvm.eh.actions call associated with the parent
+    // landing pad.
+    HandlerReturnMapTy NestedReturnMap;
+#endif // INTEL_CUSTOMIZATION
     for (const auto &Action : ActionList) {
       if (auto *CA = dyn_cast<CatchHandler>(Action.get())) {
         Function *Handler = cast<Function>(CA->getHandlerBlockOrFunc());
+#if INTEL_CUSTOMIZATION
+        HandlerReturnMapTy HandlerReturnMap;
+        getPossibleReturnTargets(&F, CA, HandlerReturnMap);
+        for (auto &Entry : HandlerReturnMap) {
+          // If an apparently nested handler can return to this function and
+          // isn't already in the handler list, we will want to extend the
+          // recover action to include that handler. We just add the handler
+          // to NestedReturnMap here so that all such "nested" returns can be
+          // handled together when we've completely processed the current
+          // landing pad.  All of the block addresses in the Addrs set must
+          // refer to the same function, so it is sufficient to check just one.
+          if (Entry.HandlerFn != Handler)
+            if (Entry.Addrs.back()->getFunction() == &F)
+              NestedReturnMap.push_back(Entry);
+          // Regardless of where the return came from
+          for (auto *BA : Entry.Addrs) {
+            if (BA->getFunction() == &F)
+              ReturnTargets.insert(BA->getBasicBlock());
+          }
+        }
+#else // !INTEL_CUSTOMIZATION
         getPossibleReturnTargets(&F, Handler, ReturnTargets);
+#endif // !INTEL_CUSTOMIZATION
       }
     }
     ActionList.clear();
+
+#if INTEL_CUSTOMIZATION
+    // Update the Recover action with any "nested" handlers that return
+    // to this function.
+    if (!NestedReturnMap.empty()) {
+      // This call actually replaces the Recover instruction but the pointer
+      // argument is updated to reference the new instruction.
+      addCatchHandlers(Recover, NestedReturnMap);
+      NestedReturnMap.clear();
+    }
+#endif // INTEL_CUSTOMIZATION
+
     // Clear any targets we already knew about.
     for (unsigned int I = 0, E = Branch->getNumDestinations(); I < E; ++I) {
       BasicBlock *KnownTarget = Branch->getDestination(I);
@@ -1269,9 +1394,29 @@ void WinEHPrepare::promoteLandingPadValues(LandingPadInst *LPad) {
     RecursivelyDeleteTriviallyDeadInstructions(U);
 }
 
+#if !INTEL_CUSTOMIZATION
 void WinEHPrepare::getPossibleReturnTargets(Function *ParentF,
                                             Function *HandlerF,
                                             SetVector<BasicBlock*> &Targets) {
+#else // INTEL_CUSTOMIZATION
+static void insertHandlerReturnTarget(HandlerReturnMapTy &Targets,
+                                      Function *HandlerFn, Constant *Selector,
+                                      int EHObjIdx, BlockAddress *BA) {
+  for (auto &Entry : Targets) {
+    if (Entry.HandlerFn == HandlerFn) {
+      assert(Entry.Selector == Selector && Entry.EHObjIdx == EHObjIdx);
+      Entry.Addrs.insert(BA);
+      return;
+    }
+  }
+  Targets.push_back(HandlerReturnInfo(HandlerFn, Selector, EHObjIdx, BA));
+}
+
+void WinEHPrepare::getPossibleReturnTargets(Function *ParentF,
+                                            CatchHandler *Handler,
+                                            HandlerReturnMapTy &Targets) {
+  Function *HandlerF = cast<Function>(Handler->getHandlerBlockOrFunc());
+#endif // INTEL_CUSTOMIZATION
   for (BasicBlock &BB : *HandlerF) {
     // If the handler contains landing pads, check for any
     // handlers that may return directly to a block in the
@@ -1282,8 +1427,32 @@ void WinEHPrepare::getPossibleReturnTargets(Function *ParentF,
       parseEHActions(Recover, ActionList);
       for (const auto &Action : ActionList) {
         if (auto *CH = dyn_cast<CatchHandler>(Action.get())) {
+#if !INTEL_CUSTOMIZATION
           Function *NestedF = cast<Function>(CH->getHandlerBlockOrFunc());
           getPossibleReturnTargets(ParentF, NestedF, Targets);
+#else // INTEL_CUSTOMIZATION
+          // Find the return targets of the nested handler.
+          getPossibleReturnTargets(ParentF, CH, Targets);
+          // FIXME: This only handles targets that return to the parent
+          //        function.  Some extension is needed to handle other
+          //        levels of nesting such as nested handlers returning
+          //        to blocks within the handlers within which they are
+          //        nested.  Test cases should be created to see how this
+          //        is working.  A typical case might look like this:
+          //
+          //        void test() {
+          //          try {
+          //            may_throw();
+          //          } catch (...) {
+          //             try {
+          //               try_handle();
+          //             } catch (...) {
+          //               do_something();
+          //             }
+          //             definitely_handle();
+          //          }
+          //        }
+#endif // INTEL_CUSTOMIZATION
         }
       }
     }
@@ -1301,9 +1470,68 @@ void WinEHPrepare::getPossibleReturnTargets(Function *ParentF,
     if (BA->getFunction() != ParentF)
       continue;
 
+#if !INTEL_CUSTOMIZATION
     Targets.insert(BA->getBasicBlock());
+#else // INTEL_CUSTOMIZATION
+    insertHandlerReturnTarget(Targets, HandlerF, Handler->getSelector(),
+                              Handler->getExceptionVarIndex(), BA);
+#endif // INTEL_CUSTOMIZATION
   }
 }
+
+#if INTEL_CUSTOMIZATION
+// This routine replaces the llvm.eh.actions intrinsic call described by the
+// Recover argument with an equivalent call which includes all of the actions
+// in the existing call plus the catch handlers described by the Handlers
+// argument.  If all the handlers described by the Handlers argument are already
+// represented in the existing llvm.eh.actions call, nothing is changed.
+// Otherwise, the Recover argument pointer is updated to point to the new
+// call instruction, and the incoming call instruction is removed and deleted.
+void WinEHPrepare::addCatchHandlers(IntrinsicInst *&Recover,
+                                    const HandlerReturnMapTy &Handlers) {
+  Type *Int32Type = Type::getInt32Ty(Recover->getContext());
+  Function *ActionIntrin =
+      Intrinsic::getDeclaration(Recover->getParent()->getParent()->getParent(),
+                                Intrinsic::eh_actions);
+
+  // Build a new array of arguments.
+  SmallSet<Function *, 4> ExistingHandlers;
+  std::vector<Value *> ActionArgs;
+  // Start with the arguments to the old recover instruction.
+  for (Value *Arg : Recover->arg_operands()) {
+    ActionArgs.push_back(Arg);
+    if (auto *F = dyn_cast<Function>(Arg))
+      ExistingHandlers.insert(F);
+  }
+  // Add arguments for the new handlers
+  bool AddedHandlers = false;
+  for (auto &Entry : Handlers) {
+    Function *Handler = Entry.HandlerFn;
+    // If the recover action already contained this handler, don't add it again.
+    if (!ExistingHandlers.insert(Handler).second)
+      continue;
+    Constant *Selector = Entry.Selector;
+    int FrameEscapeIdx = Entry.EHObjIdx;
+    ActionArgs.push_back(ConstantInt::get(Int32Type, 1));
+    ActionArgs.push_back(Selector);
+    ActionArgs.push_back(ConstantInt::get(Int32Type, FrameEscapeIdx));
+    ActionArgs.push_back(Handler);
+    AddedHandlers = true;
+  }
+  // If all of the handlers we thought we needed to add were already there
+  // we can leave the existing recover call alone.
+  if (!AddedHandlers)
+    return;
+  // Otherwise, we need to construct a new recover call.
+  CallInst *NewRecover =
+      CallInst::Create(ActionIntrin, ActionArgs, "", Recover);
+  Recover->replaceAllUsesWith(NewRecover);
+  Recover->removeFromParent();
+  NewRecover->setName(Recover->getName());
+  delete Recover;
+  Recover = cast<IntrinsicInst>(NewRecover);
+}
+#endif // INTEL_CUSTOMIZATION
 
 void WinEHPrepare::completeNestedLandingPad(Function *ParentFn,
                                             LandingPadInst *OutlinedLPad,
@@ -2282,7 +2510,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
           // isn't important if some finally code before a catch-all is executed
           // out of line or after recovering from the exception.
           if (Personality == EHPersonality::MSVC_CXX)
+#if INTEL_CUSTOMIZATION
+            findCleanupHandlers(Actions, BB, Action->getDispatchBB());
+#else  // !INTEL_CUSTOMIZATION
             findCleanupHandlers(Actions, BB, BB);
+#endif // !INTEL_CUSTOMIZATION
         } else {
           // If an action was not found, it means that the control flows
           // directly into the catch-all handler and there is no cleanup code.
@@ -2290,7 +2522,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
           // Since this is a catch-all handler, the selector won't actually
           // appear in the code anywhere.  ExpectedSelector here is the constant
           // null ptr that we got from the landing pad instruction.
+#if INTEL_CUSTOMIZATION
+          Action = new CatchHandler(BB, BB, ExpectedSelector, nullptr);
+#else
           Action = new CatchHandler(BB, ExpectedSelector, nullptr);
+#endif // INTEL_CUSTOMIZATION
           CatchHandlerMap[BB] = Action;
         }
       }
@@ -2307,7 +2543,11 @@ void WinEHPrepare::mapLandingPadBlocks(LandingPadInst *LPad,
     assert(CatchAction);
 
     // See if there is any interesting code executed before the dispatch.
+#if INTEL_CUSTOMIZATION
+    findCleanupHandlers(Actions, BB, CatchAction->getDispatchBB());
+#else
     findCleanupHandlers(Actions, BB, CatchAction->getStartBlock());
+#endif // INTEL_CUSTOMIZATION
 
     // When the source program contains multiple nested try blocks the catch
     // handlers can get strung together in such a way that we can encounter
@@ -2385,7 +2625,11 @@ CatchHandler *WinEHPrepare::findCatchHandler(BasicBlock *BB,
   // look to see if it is a selector dispatch block.
   if (!CatchHandlerMap.count(BB)) {
     if (isSelectorDispatch(BB, CatchBlock, Selector, NextBB)) {
+#if INTEL_CUSTOMIZATION
+      CatchHandler *Action = new CatchHandler(BB, CatchBlock, Selector, NextBB);
+#else  // !INTEL_CUSTOMIZATION
       CatchHandler *Action = new CatchHandler(BB, Selector, NextBB);
+#endif // !INTEL_CUSTOMIZATION
       CatchHandlerMap[BB] = Action;
       return Action;
     }
@@ -2397,7 +2641,11 @@ CatchHandler *WinEHPrepare::findCatchHandler(BasicBlock *BB,
     if (isCatchBlock(BB)) {
       PointerType *Int8PtrTy = Type::getInt8PtrTy(BB->getContext());
       Constant *NullSelector = ConstantPointerNull::get(Int8PtrTy);
+#if INTEL_CUSTOMIZATION
+      CatchHandler *Action = new CatchHandler(BB, BB, NullSelector, nullptr);
+#else  // !INTEL_CUSTOMIZATION
       CatchHandler *Action = new CatchHandler(BB, NullSelector, nullptr);
+#endif // !INTEL_CUSTOMIZATION
       CatchHandlerMap[BB] = Action;
       return Action;
     }
@@ -2649,6 +2897,15 @@ void WinEHPrepare::findCleanupHandlers(LandingPadActions &Actions,
       Instruction *Inst = II;
       if (LPadMap && LPadMap->isLandingPadSpecificInst(Inst))
         continue;
+#if INTEL_CUSTOMIZATION
+      // It's possible for a extract instruction for the landing pad
+      // to get separated from the landing pad block.  We can still
+      // identify it as being an EH specific instruction.
+      if (auto *Extract = dyn_cast<ExtractValueInst>(Inst))
+        if (isa<LandingPadInst>(Extract->getAggregateOperand()))
+          continue;
+#endif // INTEL_CUSTOMIZATION
+
       // Unconditional branches fall through to this loop.
       if (Inst == Branch)
         continue;
@@ -2686,8 +2943,14 @@ void llvm::parseEHActions(
       int64_t EHObjIndexVal = EHObjIndex->getSExtValue();
       Constant *Handler = cast<Constant>(II->getArgOperand(I + 3));
       I += 4;
+#if INTEL_CUSTOMIZATION
+      auto CH = make_unique<CatchHandler>(/*DispatchBB=*/nullptr, 
+                                          /*StartBB=*/nullptr, Selector,
+                                          /*NextBB=*/nullptr);
+#else  // !INTEL_CUSTOMIZATION
       auto CH = make_unique<CatchHandler>(/*BB=*/nullptr, Selector,
                                           /*NextBB=*/nullptr);
+#endif // !INTEL_CUSTOMIZATION
       CH->setHandlerBlockOrFunc(Handler);
       CH->setExceptionVarIndex(EHObjIndexVal);
       Actions.push_back(std::move(CH));
@@ -3177,7 +3440,6 @@ void WinEHNumbering::calculateStateNumbers(const Function &F) {
   if (!FuncInfo.DeferredHandlers.empty()) {
     DEBUG(dbgs() << "Checking deferred handlers at state " << currentEHNumber()
                  << '\n');
-    auto It = FuncInfo.DeferredHandlers.rend();
     while (!FuncInfo.DeferredHandlers.empty()) {
       const Function *F;
       int EnclosedState;

@@ -68,7 +68,13 @@ $"\01??_R0H@8" = comdat any
 ; CHECK:   store i32* [[A_PTR]], i32** [[A_REGMEM]]
 ; CHECK:   [[B_PTR:\%.+]] = getelementptr inbounds %struct.SomeData, %struct.SomeData* [[TMPCAST]], i64 0, i32 1
 ; CHECK:   store i32* [[B_PTR]], i32** [[B_REGMEM]]
-; CHECK:   call void (...) @llvm.localescape(i32* %e, i32* %NumExceptions.020.reg2mem, [10 x i32]* [[EXCEPTIONVAL]], i32* %inc.reg2mem, i32* [[I_REGMEM]], i32** [[A_REGMEM]], i32** [[B_REGMEM]])
+; if INTEL_CUSTOMIZATION
+; // This change adds a value that is spilled within an exception handler.
+; // This isn't actually desirable, but avoiding it would require complex changes.
+; CHECK:       call void (...) @llvm.localescape(i32* %e, i32* [[TMP8_REGMEM:\%.+]], i32* %NumExceptions.020.reg2mem, [10 x i32]* %ExceptionVal, i32* %inc.reg2mem, i32* %i.019.reg2mem, i32** %a.reg2mem, i32** %b.reg2mem)
+; else  // !INTEL_CUSTOMIZATION
+; OLD-CHECK:   call void (...) @llvm.localescape(i32* %e, i32* %NumExceptions.020.reg2mem, [10 x i32]* [[EXCEPTIONVAL]], i32* %inc.reg2mem, i32* [[I_REGMEM]], i32** [[A_REGMEM]], i32** [[B_REGMEM]])
+; endif // !INTEL_CUSTOMIZATION
 ; CHECK:   br label %for.body
 
 ; Function Attrs: uwtable
@@ -194,27 +200,55 @@ eh.resume:                                        ; preds = %lpad
 ; CHECK: entry:
 ; CHECK:   [[RECOVER_E:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 0)
 ; CHECK:   [[E_PTR:\%.+]] = bitcast i8* [[RECOVER_E]] to i32*
-; CHECK:   [[RECOVER_NUMEXCEPTIONS:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 1)
+; if INTEL_CUSTOMIZATION
+; // This change adds a value that is spilled within an exception handler.
+; // This isn't actually desirable, but avoiding it would require complex changes.
+; // This additional value causes the escape index for each subsequent value to be renumbered.
+; CHECK:   [[RECOVER_TMP8:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 1)
+; CHECK:   [[TMP8_REGMEM:\%.+]] = bitcast i8* [[RECOVER_TMP8]] to i32*
+; CHECK:   [[RECOVER_NUMEXCEPTIONS:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 2)
 ; CHECK:   [[NUMEXCEPTIONS_REGMEM:\%.+]] = bitcast i8* [[RECOVER_NUMEXCEPTIONS]] to i32*
-; CHECK:   [[RECOVER_EXCEPTIONVAL:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 2)
+; CHECK:   [[RECOVER_EXCEPTIONVAL:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 3)
 ; CHECK:   [[EXCEPTIONVAL:\%.+]] = bitcast i8* [[RECOVER_EXCEPTIONVAL]] to [10 x i32]*
-; CHECK:   [[RECOVER_INC:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 3)
+; CHECK:   [[RECOVER_INC:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 4)
 ; CHECK:   [[INC_REGMEM:\%.+]] = bitcast i8* [[RECOVER_INC]] to i32*
-; CHECK:   [[RECOVER_I:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 4)
+; CHECK:   [[RECOVER_I:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 5)
 ; CHECK:   [[I_REGMEM:\%.+]] = bitcast i8* [[RECOVER_I]] to i32*
-; CHECK:   [[RECOVER_A:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 5)
+; CHECK:   [[RECOVER_A:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 6)
 ; CHECK:   [[A_REGMEM:\%.+]] = bitcast i8* [[RECOVER_A]] to i32**
-; CHECK:   [[RECOVER_B:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 6)
+; CHECK:   [[RECOVER_B:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 7)
+; else  // !INTEL_CUSTOMIZATION
+; OLD-CHECK:   [[RECOVER_NUMEXCEPTIONS:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 1)
+; OLD-CHECK:   [[NUMEXCEPTIONS_REGMEM:\%.+]] = bitcast i8* [[RECOVER_NUMEXCEPTIONS]] to i32*
+; OLD-CHECK:   [[RECOVER_EXCEPTIONVAL:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 2)
+; OLD-CHECK:   [[EXCEPTIONVAL:\%.+]] = bitcast i8* [[RECOVER_EXCEPTIONVAL]] to [10 x i32]*
+; OLD-CHECK:   [[RECOVER_INC:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 3)
+; OLD-CHECK:   [[INC_REGMEM:\%.+]] = bitcast i8* [[RECOVER_INC]] to i32*
+; OLD-CHECK:   [[RECOVER_I:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 4)
+; OLD-CHECK:   [[I_REGMEM:\%.+]] = bitcast i8* [[RECOVER_I]] to i32*
+; OLD-CHECK:   [[RECOVER_A:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 5)
+; OLD-CHECK:   [[A_REGMEM:\%.+]] = bitcast i8* [[RECOVER_A]] to i32**
+; OLD-CHECK:   [[RECOVER_B:\%.+]] = call i8* @llvm.localrecover(i8* bitcast (void ()* @"\01?test@@YAXXZ" to i8*), i8* %1, i32 6)
+; endif  // !INTEL_CUSTOMIZATION
 ; CHECK:   [[B_REGMEM:\%.+]] = bitcast i8* [[RECOVER_B]] to i32**
 ; CHECK:   [[E_I8PTR:\%.+]] = bitcast i32* [[E_PTR]] to i8*
-; CHECK:   [[TMP:\%.+]] = load i32, i32* [[E_PTR]], align 4
 ; CHECK:   [[NUMEXCEPTIONS_RELOAD:\%.+]] = load i32, i32* [[NUMEXCEPTIONS_REGMEM]]
 ; CHECK:   [[IDXPROM:\%.+]] = sext i32 [[NUMEXCEPTIONS_RELOAD]] to i64
 ; CHECK:   [[ARRAYIDX:\%.+]] = getelementptr inbounds [10 x i32], [10 x i32]* [[EXCEPTIONVAL]], i64 0, i64 [[IDXPROM]]
-; CHECK:   store i32 [[TMP]], i32* [[ARRAYIDX]], align 4
+; if INTEL_CUSTOMIZATION
+; // TMP was demoted to stack memory.
+; CHECK:   store i32 [[TMP_RELOAD:\%.+]], i32* [[ARRAYIDX]], align 4
+; else  // !INTEL_CUSTOMIZATION
+; OLD-CHECK:   store i32 [[TMP]], i32* [[ARRAYIDX]], align 4
+; endif  // !INTEL_CUSTOMIZATION
 ; CHECK:   [[NUMEXCEPTIONS_RELOAD:\%.+]] = load i32, i32* [[NUMEXCEPTIONS_REGMEM]]
 ; CHECK:   [[INC:\%.+]] = add nsw i32 [[NUMEXCEPTIONS_RELOAD]], 1
-; CHECK:   [[CMP:\%.+]] = icmp eq i32 [[TMP]], [[I_RELOAD]]
+; if INTEL_CUSTOMIZATION
+; // TMP was demoted to stack memory.
+; CHECK:   [[CMP:\%.+]] = icmp eq i32 [[TMP_RELOAD:\%.+]], [[I_RELOAD]]
+; else  // !INTEL_CUSTOMIZATION
+; OLD-CHECK:   [[CMP:\%.+]] = icmp eq i32 [[TMP]], [[I_RELOAD]]
+; endif  // !INTEL_CUSTOMIZATION
 ; CHECK:   br i1 [[CMP]], label %if.then, label %if.else
 ;
 ; CHECK: if.then:{{[ ]+}}; preds = %entry
@@ -229,7 +263,12 @@ eh.resume:                                        ; preds = %lpad
 ; CHECK: if.else:{{[ ]+}}; preds = %entry
 ; CHECK:   [[A_RELOAD:\%.+]] = load i32*, i32** [[A_REGMEM]]
 ; CHECK:   [[TMP2:\%.+]] = load i32, i32* [[A_RELOAD]], align 8
-; CHECK:   [[ADD2:\%.+]] = add nsw i32 [[TMP2]], [[TMP]]
+; if INTEL_CUSTOMIZATION
+; // TMP was demoted to stack memory.
+; CHECK:   [[ADD2:\%.+]] = add nsw i32 [[TMP2]], [[TMP_RELOAD:\%.+]]
+; else  // !INTEL_CUSTOMIZATION
+; OLD-CHECK:   [[ADD2:\%.+]] = add nsw i32 [[TMP2]], [[TMP]]
+; endif  // !INTEL_CUSTOMIZATION
 ; CHECK:   [[A_RELOAD:\%.+]] = load i32*, i32** [[A_REGMEM]]
 ; CHECK:   store i32 [[ADD2]], i32* [[A_RELOAD]], align 8
 ; CHECK:   br label %if.end

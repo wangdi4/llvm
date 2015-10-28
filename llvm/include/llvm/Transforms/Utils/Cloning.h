@@ -241,7 +241,7 @@ public:
 /// exists in the instruction stream.  Similarly this will inline a recursive
 /// function by one level.
 ///
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// The Intel version returns the InlineReason indicating the prinicipal 
 /// reason the function was or was not inlined. To determine if the function
 /// was or was not inlined, one can call IsInlinedReason(InlineReason) or 

@@ -30,6 +30,7 @@
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -372,6 +373,7 @@ char AAResultsWrapperPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AAResultsWrapperPass, "aa",
                       "Function Alias Analysis Results", false, true)
+INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)  // INTEL
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CFLAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
@@ -424,6 +426,10 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<CFLAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+#ifdef INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
+    AAR->addAAResult(WrapperPass->getResult());
+#endif     // INTEL_CUSTOMIZATION
 
   // Analyses don't mutate the IR, so return false.
   return false;
@@ -443,6 +449,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
 }
 
 AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
@@ -468,6 +475,10 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+#ifdef INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
+    AAR.addAAResult(WrapperPass->getResult());
+#endif     // INTEL_CUSTOMIZATION
 
   return AAR;
 }

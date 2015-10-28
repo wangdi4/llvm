@@ -157,15 +157,13 @@ define void @atomic_fetch_max8(i8 %x) nounwind {
 ; X64-LABEL:   atomic_fetch_max8:
 ; X32-LABEL:   atomic_fetch_max8:
   %t1 = atomicrmw max  i8* @sc8, i8 %x acquire
-; X64:       movsbl
-; X64:       movsbl
-; X64:       subl
+; X64:       movb     ;INTEL
+; X64:       subb     ;INTEL
 ; X64:       lock
 ; X64:       cmpxchgb
 
-; X32:       movsbl
-; X32:       movsbl
-; X32:       subl
+; X32:       movb     ;INTEL
+; X32:       subb     ;INTEL
 ; X32:       lock
 ; X32:       cmpxchgb
   ret void
@@ -177,15 +175,13 @@ define void @atomic_fetch_min8(i8 %x) nounwind {
 ; X64-LABEL:   atomic_fetch_min8:
 ; X32-LABEL:   atomic_fetch_min8:
   %t1 = atomicrmw min  i8* @sc8, i8 %x acquire
-; X64:       movsbl
-; X64:       movsbl
-; X64:       subl
+; X64:       movb     ;INTEL
+; X64:       subb     ;INTEL
 ; X64:       lock
 ; X64:       cmpxchgb
 
-; X32:       movsbl
-; X32:       movsbl
-; X32:       subl
+; X32:       movb     ;INTEL
+; X32:       subb     ;INTEL
 ; X32:       lock
 ; X32:       cmpxchgb
   ret void
@@ -197,15 +193,13 @@ define void @atomic_fetch_umax8(i8 %x) nounwind {
 ; X64-LABEL:   atomic_fetch_umax8:
 ; X32-LABEL:   atomic_fetch_umax8:
   %t1 = atomicrmw umax i8* @sc8, i8 %x acquire
-; X64:       movzbl
-; X64:       movzbl
-; X64:       subl
+; X64:       movb     ;INTEL
+; X64:       subb     ;INTEL
 ; X64:       lock
 ; X64:       cmpxchgb
 
-; X32:       movzbl
-; X32:       movzbl
-; X32:       subl
+; X32:       movb     ;INTEL
+; X32:       subb     ;INTEL
 ; X32:       lock
 ; X32:       cmpxchgb
   ret void
@@ -217,15 +211,13 @@ define void @atomic_fetch_umin8(i8 %x) nounwind {
 ; X64-LABEL:   atomic_fetch_umin8:
 ; X32-LABEL:   atomic_fetch_umin8:
   %t1 = atomicrmw umin i8* @sc8, i8 %x acquire
-; X64:       movzbl
-; X64:       movzbl
-; X64:       subl
+; X64:       movb      ;INTEL
+; X64:       subb      ;INTEL
 ; X64:       lock
 ; X64:       cmpxchgb
 
-; X32:       movzbl
-; X32:       movzbl
-; X32:       subl
+; X32:       movb      ;INTEL
+; X32:       subb      ;INTEL
 ; X32:       lock
 ; X32:       cmpxchgb
   ret void
