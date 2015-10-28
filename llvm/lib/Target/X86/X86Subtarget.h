@@ -399,6 +399,9 @@ public:
   bool isTargetNaCl() const { return TargetTriple.isOSNaCl(); }
   bool isTargetNaCl32() const { return isTargetNaCl() && !is64Bit(); }
   bool isTargetNaCl64() const { return isTargetNaCl() && is64Bit(); }
+#if INTEL_CUSTOMIZATION
+  bool isTargetMCU() const { return TargetTriple.isOSIAMCU(); }
+#endif //INTEL_CUSTOMIZATION
 
   bool isTargetWindowsMSVC() const {
     return TargetTriple.isWindowsMSVCEnvironment();

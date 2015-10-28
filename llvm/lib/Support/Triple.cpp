@@ -178,6 +178,9 @@ const char *Triple::getOSTypeName(OSType Kind) {
   case NVCL: return "nvcl";
   case AMDHSA: return "amdhsa";
   case PS4: return "ps4";
+#if INTEL_CUSTOMIZATION
+  case ELFIAMCU: return "elfiamcu";
+#endif INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid OSType");
@@ -430,6 +433,9 @@ static Triple::OSType parseOS(StringRef OSName) {
     .StartsWith("nvcl", Triple::NVCL)
     .StartsWith("amdhsa", Triple::AMDHSA)
     .StartsWith("ps4", Triple::PS4)
+#if INTEL_CUSTOMIZATION
+    .StartsWith("elfiamcu", Triple::ELFIAMCU)
+#endif //INTEL_CUSTOMIZATION
     .Default(Triple::UnknownOS);
 }
 
