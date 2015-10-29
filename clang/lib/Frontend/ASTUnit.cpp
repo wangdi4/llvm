@@ -1436,7 +1436,8 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
         // after parsing the preamble.
         getDiagnostics().Reset();
         ProcessWarningOptions(getDiagnostics(), 
-                              PreambleInvocation->getDiagnosticOpts());
+                              PreambleInvocation->getDiagnosticOpts(), // INTEL
+                              LangOpts->IntelCompat); // INTEL
         getDiagnostics().setNumWarnings(NumWarningsInPreamble);
 
         return llvm::MemoryBuffer::getMemBufferCopy(
@@ -1543,7 +1544,8 @@ ASTUnit::getMainBufferWithPrecompiledPreamble(
   
   // Clear out old caches and data.
   getDiagnostics().Reset();
-  ProcessWarningOptions(getDiagnostics(), Clang->getDiagnosticOpts());
+  ProcessWarningOptions(getDiagnostics(), Clang->getDiagnosticOpts(), // INTEL
+                        LangOpts->IntelCompat); // INTEL
   checkAndRemoveNonDriverDiags(StoredDiagnostics);
   TopLevelDecls.clear();
   TopLevelDeclsInPreamble.clear();
@@ -2044,7 +2046,9 @@ bool ASTUnit::Reparse(std::shared_ptr<PCHContainerOperations> PCHContainerOps,
 
   // Clear out the diagnostics state.
   getDiagnostics().Reset();
-  ProcessWarningOptions(getDiagnostics(), Invocation->getDiagnosticOpts());
+  ProcessWarningOptions(getDiagnostics(), // INTEL
+                        Invocation->getDiagnosticOpts(), // INTEL
+                        LangOpts->IntelCompat); // INTEL
   if (OverrideMainBuffer)
     getDiagnostics().setNumWarnings(NumWarningsInPreamble);
 
@@ -2358,7 +2362,8 @@ void ASTUnit::CodeComplete(
   CaptureDroppedDiagnostics Capture(true, 
                                     Clang->getDiagnostics(), 
                                     StoredDiagnostics);
-  ProcessWarningOptions(Diag, CCInvocation->getDiagnosticOpts());
+  ProcessWarningOptions(Diag, CCInvocation->getDiagnosticOpts(), // INTEL
+                        LangOpts.IntelCompat); // INTEL
   
   // Create the target instance.
   Clang->setTarget(TargetInfo::CreateTargetInfo(

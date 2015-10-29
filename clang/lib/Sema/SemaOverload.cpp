@@ -1517,6 +1517,18 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
       SCS.setAllToTypes(FromType);
       return true;
     }
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
+  } else if (S.getLangOpts().IntelCompat && S.getLangOpts().IntelMSCompat &&
+             FromType->isPointerType() &&
+             S.IsStringLiteralToNonConstPointerConversion(From, ToType)) {
+    SCS.First = ICK_Identity;
+    SCS.Second = ICK_Pointer_Conversion;
+    SCS.Third = ICK_Qualification;
+    SCS.QualificationIncludesObjCLifetime = false;
+    SCS.setAllToTypes(FromType);
+    return true;
+#endif // INTEL_CUSTOMIZATION
   } else if (FromType->isFunctionType() && argIsLValue) {
     // Function-to-pointer conversion (C++ 4.3).
     SCS.First = ICK_Function_To_Pointer;

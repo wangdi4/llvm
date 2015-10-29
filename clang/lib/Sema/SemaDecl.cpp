@@ -2622,7 +2622,10 @@ getNoteDiagForInvalidRedeclaration(const T *Old, const T *New) {
 static bool canRedefineFunction(const FunctionDecl *FD,
                                 const LangOptions& LangOpts) {
   return ((FD->hasAttr<GNUInlineAttr>() || LangOpts.GNUInline) &&
-          !LangOpts.CPlusPlus &&
+#if INTEL_CUSTOMIZATION
+          // CQ#377372 - allow to redefine functions in C++.
+          (!LangOpts.CPlusPlus || LangOpts.IntelCompat) &&
+#endif // INTEL_CUSTOMIZATION
           FD->isInlineSpecified() &&
           FD->getStorageClass() == SC_Extern);
 }
@@ -10788,8 +10791,17 @@ Sema::CheckForFunctionRedefinition(FunctionDecl *FD,
     if (!FD->isDefined(Definition))
       return;
 
-  if (canRedefineFunction(Definition, getLangOpts()))
+#if INTEL_CUSTOMIZATION
+  if (canRedefineFunction(Definition, getLangOpts())) {
+    if (getLangOpts().CPlusPlus) {
+      // CQ#377372 - show warning that we use Intel extension.
+      Diag(FD->getLocation(), diag::ext_intel_redefinition_extern_inline)
+          << FD->getDeclName();
+      Diag(Definition->getLocation(), diag::note_previous_definition);
+    }
     return;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we don't have a visible definition of the function, and it's inline or
   // a template, skip the new definition.
@@ -10910,6 +10922,12 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
 
   // Builtin functions cannot be defined.
   if (unsigned BuiltinID = FD->getBuiltinID()) {
+#ifdef INTEL_CUSTOMIZATION
+    // Fix for CQ374883: redefinition of builtin function is not allowed.
+    if (getLangOpts().IntelCompat)
+      FD->getIdentifier()->revertBuiltin();
+    else
+#endif // INTEL_CUSTOMIZATION
     if (!Context.BuiltinInfo.isPredefinedLibFunction(BuiltinID) &&
         !Context.BuiltinInfo.isPredefinedRuntimeFunction(BuiltinID)) {
       Diag(FD->getLocation(), diag::err_builtin_definition) << FD;

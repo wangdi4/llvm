@@ -4170,6 +4170,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-help-pragma");
   }
   Args.AddAllArgs(CmdArgs, options::OPT_fp_model);
+  Args.AddLastArg(CmdArgs, options::OPT_fformat_extensions);
 #endif //INTEL_SPECIFIC_IL0_BACKEND
 
   // -fvisibility= and -fvisibility-ms-compat are of a piece.

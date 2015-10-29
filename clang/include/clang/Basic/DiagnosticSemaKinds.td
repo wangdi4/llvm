@@ -1168,6 +1168,12 @@ def err_exception_spec_not_parsed : Error<
 // C++ access checking
 def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
+// if INTEL_CUSTOMIZATION
+// Fix for CQ373961: redeclaration of class member with different access.
+def warn_class_redeclared_with_different_access : Warning<
+  "%0 redeclared with '%1' access">,
+  AccessControl, InGroup<RedeclaredClassMember>;
+// endif //INTEL_CUSTOMIZATION
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
 def ext_ms_using_declaration_inaccessible : ExtWarn<
@@ -1207,6 +1213,12 @@ def err_access_dtor_vbase :
     Error<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,
     AccessControl;
+// if INTEL_CUSTOMIZATION
+def warn_access_dtor_vbase :
+    Warning<"inherited virtual base class %1 has "
+    "%select{private|protected}2 destructor">,
+    AccessControl, InGroup<PrivateVBaseDtor>;
+// endif INTEL_CUSTOMIZATION
 def err_access_dtor_temp :
     Error<"temporary of type %0 has %select{private|protected}1 destructor">,
     AccessControl;
@@ -2048,6 +2060,16 @@ def err_aligned_attribute_argument_not_int : Error<
   "'aligned' attribute requires integer constant">;
 def err_align_value_attribute_argument_not_int : Error<
   "'align_value' attribute requires integer constant">;
+//if INTEL_CUSTOMIZATION
+// CQ#375011
+def err_alloc_size_attribute_argument_not_int : Error<
+  "'alloc_size' attribute requires integer constant">;
+def warn_attribute_requires_integer_param_type : Warning<
+  "%0 attribute requires an integer function parameter">,
+  InGroup<IgnoredAttributes>;
+def note_param_index_specified_here : Note<
+  "parameter's index specified here">;
+//endif INTEL_CUSTOMIZATION
 def err_alignas_attribute_wrong_decl_type : Error<
   "%0 attribute cannot be applied to a %select{function parameter|"
   "variable with 'register' storage class|'catch' variable|bit-field}1">;
@@ -2902,6 +2924,12 @@ def err_void_param_qualified : Error<
   "'void' as parameter must not have type qualifiers">;
 def err_ident_list_in_fn_declaration : Error<
   "a parameter list without types is only allowed in a function definition">;
+// if INTEL_CUSTOMIZATION
+// CQ#376510: Same as err_ident_list_in_fn_declaration, but a warning.
+def warn_ident_list_in_fn_declaration: Warning<
+  err_ident_list_in_fn_declaration.Text>,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_param_not_declared : Extension<
   "parameter %0 was not declared, defaulting to type 'int'">;
 def err_param_default_argument : Error<
@@ -2943,11 +2971,11 @@ def err_uninitialized_member_in_ctor : Error<
 def err_default_arg_makes_ctor_special : Error<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">;
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-//#endif
+// endif
 
 def err_use_of_default_argument_to_function_declared_later : Error<
   "use of default argument to function %0 that is declared later in class %1">;
@@ -4068,6 +4096,13 @@ def err_definition_of_explicitly_defaulted_member : Error<
 def err_redefinition_extern_inline : Error<
   "redefinition of a 'extern inline' function %0 is not supported in "
   "%select{C99 mode|C++}1">;
+// if INTEL_CUSTOMIZATION
+// CQ#377372 - allow to redefine extern inline functions in C++ mode
+def ext_intel_redefinition_extern_inline : ExtWarn<
+  "redefinition of a 'extern inline' function %0 in "
+  "C++ mode is an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 def note_deleted_dtor_no_operator_delete : Note<
   "virtual destructor requires an unambiguous, accessible 'operator delete'">;
@@ -4432,6 +4467,15 @@ def warn_cxx98_compat_goto_into_protected_scope : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_switch_into_protected_scope : Error<
   "cannot jump from switch statement to this case label">;
+// if INTEL_CUSTOMIZATION
+// CQ370802 - allows bypassing var init in switch statement if IntelCompat
+def warn_switch_into_protected_scope : Warning<
+  "jump from switch statement to this case label bypasses variable initialization">,
+  InGroup<IntelCompat>;
+// CQ370802 - allows indirect goto to const address if IntelCompat
+def warn_indirect_goto_with_const_expr : Warning<
+  "expr in 'goto *expr' is constant">, InGroup<IntelCompat>;
+// endif  // INTEL_CUSTOMIZATION
 def warn_cxx98_compat_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label is incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
@@ -4439,6 +4483,11 @@ def err_indirect_goto_without_addrlabel : Error<
   "indirect goto in function with no address-of-label expressions">;
 def err_indirect_goto_in_protected_scope : Error<
   "cannot jump from this indirect goto statement to one of its possible targets">;
+// if INTEL_CUSTOMIZATION
+// CQ370802 - allows indirect got to any places
+def warn_indirect_goto_in_protected_scope : Warning<
+  err_indirect_goto_in_protected_scope.Text>, InGroup<IntelCompat>;
+// endif  // INTEL_CUSTOMIZATION
 def warn_cxx98_compat_indirect_goto_in_protected_scope : Warning<
   "jump from this indirect goto statement to one of its possible targets "
   "is incompatible with C++98">, InGroup<CXX98Compat>, DefaultIgnore;
@@ -5748,13 +5797,13 @@ def err_conditional_ambiguous : Error<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">;
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 // Fix for CQ375472.
 def warn_conditional_ambiguous : Warning<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">, InGroup<IntelCompat>;
-//#endif //INTEL_CUSTOMIZATION
+// endif //INTEL_CUSTOMIZATION
 def err_conditional_ambiguous_ovl : Error<
   "conditional expression is ambiguous; %diff{$ and $|types}0,1 "
   "can be converted to several common types">;

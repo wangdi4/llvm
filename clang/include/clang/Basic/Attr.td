@@ -386,6 +386,17 @@ def Aligned : InheritableAttr {
   let Documentation = [Undocumented];
 }
 
+//#ifdef INTEL_CUSTOMIZATION
+// CQ#375011 - 'alloc_size' attribute is not recognized.
+def AllocSize : InheritableAttr {
+  let Spellings = [GNU<"alloc_size">];
+  let Args = [AlignedArgument<"Size", 0>, AlignedArgument<"SizeByProduct", 1>];
+  let Subjects = SubjectList<[Function, CXXMethod], WarnDiag,
+                             "ExpectedFunctionOrMethod">;
+  let Documentation = [Undocumented];
+}
+//#endif // INTEL_CUSTOMIZATION
+
 def AlignValue : Attr {
   let Spellings = [
     // Unfortunately, this is semantically an assertion, not a directive

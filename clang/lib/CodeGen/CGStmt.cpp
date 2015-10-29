@@ -1697,6 +1697,14 @@ llvm::Value* CodeGenFunction::EmitAsmInput(
     llvm::APSInt Result;
     if (InputExpr->EvaluateAsInt(Result, getContext()))
       return llvm::ConstantInt::get(getLLVMContext(), Result);
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ377377: Constraints "I"|"J" expects an integer constant
+      // expression.
+    else if (getLangOpts().IntelCompat &&
+             InputExpr->getType().isConstQualified() &&
+             InputExpr->getType()->isIntegerType())
+      return EmitScalarExpr(InputExpr);
+#endif //INTEL_CUSTOMIZATION
     assert(!Info.requiresImmediateConstant() &&
            "Required-immediate inlineasm arg isn't constant?");
   }

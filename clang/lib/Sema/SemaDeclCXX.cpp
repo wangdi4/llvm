@@ -4442,6 +4442,23 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#376362: "Classic" icc allows private destructors in base classes and
+    // so should we.
+    if (getLangOpts().IntelCompat) {
+      if (CheckDestructorAccess(
+          ClassDecl->getLocation(), Dtor,
+          PDiag(diag::warn_access_dtor_vbase)
+          << Context.getTypeDeclType(ClassDecl) << VBase.getType(),
+          Context.getTypeDeclType(ClassDecl)) ==
+        AR_accessible) {
+        CheckDerivedToBaseConversion(
+          Context.getTypeDeclType(ClassDecl), VBase.getType(),
+          diag::warn_access_dtor_vbase, 0, ClassDecl->getLocation(),
+          SourceRange(), DeclarationName(), nullptr);
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (CheckDestructorAccess(
             ClassDecl->getLocation(), Dtor,
             PDiag(diag::err_access_dtor_vbase)

@@ -1026,6 +1026,12 @@ void Preprocessor::HandleLineDirective(Token &Tok) {
   if (StrTok.is(tok::eod))
     ; // ok
   else if (StrTok.isNot(tok::string_literal)) {
+#if INTEL_CUSTOMIZATION
+    // CQ#375723. Emit a warning instead of an error.
+    if (getLangOpts().IntelCompat)
+      Diag(StrTok, diag::warn_pp_line_invalid_filename);
+    else
+#endif // INTEL_CUSTOMZIATION
     Diag(StrTok, diag::err_pp_line_invalid_filename);
     return DiscardUntilEndOfDirective();
   } else if (StrTok.hasUDSuffix()) {
@@ -1249,7 +1255,14 @@ void Preprocessor::HandleIdentSCCSDirective(Token &Tok) {
   // If the token kind isn't a string, it's a malformed directive.
   if (StrTok.isNot(tok::string_literal) &&
       StrTok.isNot(tok::wide_string_literal)) {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#372653 - just ignore malformed #ident directive.
+    if (getLangOpts().IntelCompat)
+      Diag(StrTok, diag::warn_pp_malformed_ident);
+    else
+#else
     Diag(StrTok, diag::err_pp_malformed_ident);
+#endif // INTEL_CUSTOMIZATION
     if (StrTok.isNot(tok::eod))
       DiscardUntilEndOfDirective();
     return;

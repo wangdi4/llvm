@@ -3227,6 +3227,112 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   return;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// Verify that attribute's argument can specify an index of function's parameter
+//   1. Check that it is integer constant expression
+//   2. Check value bounds: positive, not greater than number of function params
+//   3. Check function parameter's type: integer type is required
+//   4. Check that attribute is not applied to 'this' implicit first param (C++)
+// Returns false on success.
+static bool VerifyAttributeArg(Sema &S, FunctionDecl *FD,
+                               const AttributeList &Attr, unsigned ArgIndex,
+                               bool DeclHasImplicitThisParam) {
+  Expr *Arg = Attr.getArgAsExpr(ArgIndex);
+  // 1. Check the argument's expression - constant integer is required.
+  llvm::APSInt ArgValue;
+  ExprResult Res = S.VerifyIntegerConstantExpression(
+      Arg, &ArgValue, diag::err_alloc_size_attribute_argument_not_int,
+      /*AllowFold*/ false);
+
+  if (Res.isInvalid())
+    return true;
+
+  // 2. Check the value's bounds. Function parameters are counted from one.
+  unsigned ArgValueUpperBound = FD->getNumParams() + DeclHasImplicitThisParam;
+  unsigned FuncParamIndex = ArgValue.getExtValue();
+  if (FuncParamIndex < 1 || FuncParamIndex > ArgValueUpperBound) {
+    S.Diag(Arg->getExprLoc(), diag::err_attribute_argument_out_of_bounds)
+        << Attr.getName() << ArgIndex + 1;
+    return true;
+  }
+
+  // 3. Check that function's argument with the given index has an integer type.
+  --FuncParamIndex;
+  if (DeclHasImplicitThisParam) {
+    // 4. Check that it isn't implicit 'this' parameter.
+    if (FuncParamIndex == 0) {
+      S.Diag(Attr.getLoc(), diag::err_attribute_invalid_implicit_this_argument)
+          << Attr.getName();
+      return true;
+    }
+    --FuncParamIndex;
+  }
+  ParmVarDecl *FuncParamDecl = FD->getParamDecl(FuncParamIndex);
+  assert(FuncParamDecl && "Function's parameter decl is nullptr!");
+  if (!FuncParamDecl->getType()->isIntegerType()) {
+    S.Diag(FuncParamDecl->getLocation(),
+           diag::warn_attribute_requires_integer_param_type)
+        << Attr.getName() << FuncParamDecl->getSourceRange();
+    S.Diag(Arg->getExprLoc(), diag::note_param_index_specified_here);
+    return true;
+  }
+
+  return false;
+}
+
+// CQ#375011 - 'alloc_size' attribute is not supported.
+// The 'alloc_size' attribute is used to tell the compiler that the function
+// return value points to memory, where the size is given by one or two of the
+// functions parameters.
+// The allocated size is either the value of the single function argument or the
+// product of the two function arguments. Argument numbering starts at one.
+// FIXME: No code gen support for this attribute currently (attr is ignored).
+static void handleAllocSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  // Indicate that attribute is ill-formed and should not be applied to decl.
+  // Used in attempt to diagnose as many problems as possible in one pass.
+  bool ShouldBeIgnored = false;
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  // 'alloc_size' should not be applied to non-function.
+  if (!FD) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_wrong_decl_type)
+        << Attr.getName() << ExpectedFunctionOrMethod;
+    return;
+  }
+
+  // Check that function returns a pointer.
+  if (!FD->getReturnType()->isPointerType()) {
+    S.Diag(FD->getLocation(), diag::warn_attribute_return_pointers_only)
+        << Attr.getName() << FD->getReturnTypeSourceRange();
+    ShouldBeIgnored = true;
+  }
+
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1) ||
+      !checkAttributeAtMostNumArgs(S, Attr, 2))
+    return;
+
+  // Determine the upper bound of arguments' values. Function parameters are
+  // counted from one. In C++ 'this' implicit parameter also counts.
+  CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
+  bool HasImplicitThisParam = (MD && MD->isInstance());
+
+  // Verify the arguments.
+  for (unsigned ArgIndex = 0; ArgIndex < Attr.getNumArgs(); ++ArgIndex) {
+    if (VerifyAttributeArg(S, FD, Attr, ArgIndex, HasImplicitThisParam))
+      ShouldBeIgnored = true;
+  }
+
+  // If the attribute is ill-formed, we are done. Don't apply it to decl.
+  if (ShouldBeIgnored)
+    return;
+
+  Expr *FirstArg = Attr.getArgAsExpr(0);
+  Expr *SecondArg = Attr.getNumArgs() > 1 ? Attr.getArgAsExpr(1) : nullptr;
+  D->addAttr(::new (S.Context)
+             AllocSizeAttr(Attr.getRange(), S.Context, true, FirstArg, true,
+                           SecondArg, Attr.getAttributeSpellingListIndex()));
+}
+#endif // INTEL_CUSTOMIZATION
+
 static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 #ifdef INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
@@ -5116,6 +5222,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     // Type attributes are handled elsewhere; silently move on.
     assert(Attr.isTypeAttr() && "Non-type attribute not handled");
     break;
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#375011 - 'alloc_size' attribute is not supported.
+  case AttributeList::AT_AllocSize:
+    handleAllocSizeAttr(S, D, Attr);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_Interrupt:
     handleInterruptAttr(S, D, Attr);
     break;
@@ -5629,6 +5741,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleCilkVecLengthAttr(S, D, Attr);
     break;
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // FIXME: Unless TableGen is able to recognize IL0-specific guards, don't
+  // forget to add every attribute appearing here to the #else section below!
   case AttributeList::AT_AvoidFalseShare:
     handleAvoidFalseShareAttr  (S, D, Attr); break;
   case AttributeList::AT_Allocate:
@@ -5639,6 +5753,21 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBNDLegacyAttr  (S, D, Attr); break;
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
+#else
+  // FIXME: No longer need this section as soon as TableGen is able to recognize
+  // IL0-specific guards. Currently attributes below are treated as known, but
+  // unhandled, which leads to assertion failure in 'default' section of switch
+  // in non-IL0 configuration. Related to CQ#375594.
+  case AttributeList::AT_AvoidFalseShare:
+  case AttributeList::AT_Allocate:
+  case AttributeList::AT_GCCStruct:
+  case AttributeList::AT_BNDLegacy:
+  case AttributeList::AT_BNDVarSize:
+    S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
+                              ? diag::warn_unhandled_ms_attribute_ignored
+                              : diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   }

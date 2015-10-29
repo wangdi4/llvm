@@ -769,6 +769,10 @@ def IntelCompat : DiagGroup<"intel-compat">;
 // A warning group for warnings about Intel MS compatibility extensions that are
 // not planned for clang/llvm trunk. CQ#367312.
 def IntelMSCompat : DiagGroup<"intel-ms-compat">;
+
+// Warning group for err_access_dtor_vbase error that we converted to a warning.
+// CQ#376362.
+def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;
 // endif INTEL_CUSTOMIZATION
 
 // Warnings group for warnings about Microsoft extensions.

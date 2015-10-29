@@ -74,6 +74,11 @@ def ext_unterminated_char : ExtWarn<"missing terminating ' character">,
 def ext_empty_character : ExtWarn<"empty character constant">,
   InGroup<InvalidPPToken>;
 def err_unterminated_block_comment : Error<"unterminated /* comment">;
+//if INTEL_CUSTOMIZATION
+// CQ#368194 - emit a warning, not an error on unterminated block comment.
+def warn_unterminated_block_comment : Warning<
+  err_unterminated_block_comment.Text>, InGroup<Comment>;
+//endif INTEL_CUSTOMIZATION
 def err_invalid_character_to_charify : Error<
   "invalid argument to convert to character">;
 def err_unterminated___pragma : Error<"missing terminating ')' character">;
@@ -382,6 +387,12 @@ def err_pp_duplicate_name_in_arg_list : Error<
 def err_pp_stringize_not_parameter : Error<
   "'#' is not followed by a macro parameter">;
 def err_pp_malformed_ident : Error<"invalid #ident directive">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#372653.
+def warn_pp_malformed_ident :
+  Warning<"invalid #ident directive will be ignored">,
+  InGroup<IntelCompat>;
+// endif
 def err_pp_unterminated_conditional : Error<
   "unterminated conditional directive">;
 def pp_err_else_after_else : Error<"#else after #else">;
@@ -540,6 +551,11 @@ def ext_pp_line_zero : Extension<
   InGroup<GNUZeroLineDirective>;
 def err_pp_line_invalid_filename : Error<
   "invalid filename for #line directive">;
+// ifdef INTEL_CUSTOMIZATION
+def warn_pp_line_invalid_filename : Warning<
+  "expected a file name">,
+  InGroup<UnknownPragmas>;
+// endif INTEL_CUSTOMIZATION
 def warn_pp_line_decimal : Warning<
   "%select{#line|GNU line marker}0 directive interprets number as decimal, not octal">;
 def err_pp_line_digit_sequence : Error<

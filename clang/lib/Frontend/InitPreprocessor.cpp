@@ -672,7 +672,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     llvm::APInt Int = Float.bitcastToAPInt();
     int LongDoubleSize = Int.getBitWidth();
     Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+    Builder.defineMacro("__I__", "1j");
   }
+  if (LangOpts.CilkPlus)
+    Builder.defineMacro("__cilk", "200");
 #endif // INTEL_CUSTOMIZATION
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
@@ -923,11 +926,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     //   version of the OpenMP API that the implementation support.
     Builder.defineMacro("_OPENMP", "201307");
   }
-#ifdef INTEL_CUSTOMIZATION
-  Builder.defineMacro("__I__", "1j");
-  if (LangOpts.CilkPlus)
-    Builder.defineMacro("__cilk", "200");
-#endif  // INTEL_CUSTOMIZATION
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX

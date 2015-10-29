@@ -834,6 +834,29 @@ bool Sema::CheckCXXThrowOperand(SourceLocation ThrowLoc,
 QualType Sema::getCurrentThisType() {
   DeclContext *DC = getFunctionLevelDeclContext();
   QualType ThisTy = CXXThisTypeOverride;
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#374503 (invalid use of this) - if a class is defined inside the method
+  // of the other class, we should be able to use 'this' keyword. For example:
+  // class Base {
+  //   void foo() {
+  //     struct Local {
+  //       char d[sizeof(*this)];
+  //     };
+  //   }
+  // };
+  // Formally we can use the keyword 'this', and it must
+  // refer to the object, which method is called.
+  if (getLangOpts().IntelCompat) {
+    if (CXXRecordDecl *RecordDecl = dyn_cast<CXXRecordDecl>(DC)) {
+      if (FunctionDecl *FD = RecordDecl->isLocalClass()) {
+        if (CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(FD)) {
+          if (method->isInstance() && !method->getParent()->isLambda())
+            ThisTy = method->getThisType(Context);
+        }
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (CXXMethodDecl *method = dyn_cast<CXXMethodDecl>(DC)) {
     if (method && method->isInstance())
       ThisTy = method->getThisType(Context);
@@ -2862,6 +2885,13 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
   // be converted to an rvalue of type "pointer to char"; a wide
   // string literal can be converted to an rvalue of type "pointer
   // to wchar_t" (C++ 4.2p2).
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
+  if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
+    while (auto *CondOp =
+            dyn_cast<AbstractConditionalOperator>(From->IgnoreParens()))
+      From = CondOp->getTrueExpr()->IgnoreParenImpCasts();
+#endif // INTEL_CUSTOMIZATION
   if (StringLiteral *StrLit = dyn_cast<StringLiteral>(From->IgnoreParens()))
     if (const PointerType *ToPtrType = ToType->getAs<PointerType>())
       if (const BuiltinType *ToPointeeType
@@ -2876,9 +2906,23 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
               // We don't allow UTF literals to be implicitly converted
               break;
             case StringLiteral::Ascii:
+#ifdef INTEL_CUSTOMIZATION
+              // Fix for CQ375353: Allow casting of const char[] to void* in
+              // intel ms compat mode.
+              if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
+                  ToPointeeType->getKind() == BuiltinType::Void)
+                return true;
+#endif // INTEL_CUSTOMIZATION
               return (ToPointeeType->getKind() == BuiltinType::Char_U ||
                       ToPointeeType->getKind() == BuiltinType::Char_S);
             case StringLiteral::Wide:
+#ifdef INTEL_CUSTOMIZATION
+              // Fix for CQ375353: Allow casting of const char[] to void* in
+              // intel ms compat mode.
+              if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
+                  ToPointeeType->getKind() == BuiltinType::Void)
+                return true;
+#endif // INTEL_CUSTOMIZATION
               return ToPointeeType->isWideCharType();
           }
         }
