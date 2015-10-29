@@ -1463,7 +1463,9 @@ STIRegID STIDebugImpl::toSTIRegID(unsigned int llvmID) const {
 
 #undef MAP
   default:
+#ifndef NDEBUG
     printf("ERROR: Unrecognized register number %u!\n", llvmID);
+#endif
     assert(llvmID != llvmID); // unrecognized llvm register number
     break;
   }
@@ -2536,6 +2538,9 @@ STIScope *STIDebugImpl::getOrCreateScope(const DIScope* llvmScope) {
   } else if (const DILexicalBlockBase* llvmLexicalBlock =
         dyn_cast<DILexicalBlockBase>(llvmScope)) {
     STISymbolBlock *block = createSymbolBlock(llvmLexicalBlock);
+    if (block == nullptr)
+      // Could not create STI symbol block, return null.
+      return nullptr;
     scope = block->getScope();
     addScope(llvmScope, scope);
   }
@@ -2589,12 +2594,8 @@ STIType *STIDebugImpl::getClassScope(const DIScope* llvmScope) {
 
 STISymbolVariable *STIDebugImpl::createSymbolVariable(
     const DILocalVariable *DIV, unsigned int frameIndex, const MachineInstr *DVInsn) {
-  STISymbolVariable *variable;
+  STISymbolVariable *variable = nullptr;
   STILocation *location = nullptr;
-
-  variable = STISymbolVariable::create();
-  variable->setName(DIV->getName());
-  variable->setType(createType(resolve(DIV->getType())));
 
   if (frameIndex != ~0U) {
     unsigned int regnum;
@@ -2642,7 +2643,13 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
     }
   }
 
-  variable->setLocation(location);
+  if (location) {
+    // Create variable only if it has a valid location.
+    variable = STISymbolVariable::create();
+    variable->setName(DIV->getName());
+    variable->setType(createType(resolve(DIV->getType())));
+    variable->setLocation(location);
+  }
 
   return variable;
 }
@@ -2747,6 +2754,10 @@ STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
   block = STISymbolBlock::create();
 
   LexicalScope *Scope = _lexicalScopes.findLexicalScope(LB);
+  if (!Scope)
+    // Lexical block has no lexical scope created, skip it by returning null.
+    return nullptr;
+
   const SmallVectorImpl<InsnRange> &Ranges = Scope->getRanges();
   assert(!Ranges.empty() && "Handle Block with empty range ");
   // assert(Ranges.size() == 1 && "Handle Block with more than one range");
@@ -3196,12 +3207,14 @@ void STIDebugImpl::collectRoutineInfo() {
     // This prevents us from crashing later when we try to insert the variable
     // into the scope.
     //
-    LexicalScope *scope = _lexicalScopes.findLexicalScope(info.Loc);
+    STIScope *scope = getOrCreateScope(llvmVar->getScope());
     if (!scope)
       continue;
 
     variable = createSymbolVariable(llvmVar, info.Slot);
-    getOrCreateScope(llvmVar->getScope())->add(variable, llvmVar->getArg());
+    if (!variable)
+      continue;
+    scope->add(variable, llvmVar->getArg());
   }
 
   for (const VariableHistoryInfo &info : _valueHistory) {
@@ -3214,9 +3227,19 @@ void STIDebugImpl::collectRoutineInfo() {
     if (Ranges.empty())
       continue;
 
+    // Ignore this variable if we can't identify the scope it belongs to.
+    // This prevents us from crashing later when we try to insert the variable
+    // into the scope.
+    //
+    STIScope *scope = getOrCreateScope(IV.first->getScope());
+    if (!scope)
+      continue;
+
     const MachineInstr *MInsn = Ranges.front().first;
     variable = createSymbolVariable(IV.first, ~0, MInsn); // FIXME: params
-    getOrCreateScope(IV.first->getScope())->add(variable, IV.first->getArg());
+    if (!variable)
+      continue;
+    scope->add(variable, IV.first->getArg());
 
     processed.insert(IV);
   }
@@ -3775,10 +3798,8 @@ void STIDebugImpl::emitSymbolConstant(const STISymbolConstant *symbol) const {
 }
 
 void STIDebugImpl::emitSymbolVariable(const STISymbolVariable *variable) const {
-  if (variable->getLocation() == nullptr) {
-    //assert(!"Variable with no location");
-    return;
-  }
+  assert(variable->getLocation() && "Variable with no location");
+    
   STISymbolID symbolID = variable->getLocation()->getSymbolID();
   uint32_t type = variable->getType()->getIndex();
   int reg = variable->getLocation()->getReg();
