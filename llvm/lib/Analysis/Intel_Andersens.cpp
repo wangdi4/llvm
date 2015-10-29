@@ -1222,11 +1222,35 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
-  if (isa<PointerType>(SI.getOperand(0)->getType()))
-    // store P1, P2  -->  <Store/P2/P1>
-    Constraints.push_back(Constraint(Constraint::Store,
-                                     getNode(SI.getOperand(1)),
-                                     getNode(SI.getOperand(0))));
+  ConstantExpr *CE;
+
+  if (isa<PointerType>(SI.getOperand(0)->getType())) {
+    // CQ377860: So far, “value to store” operand of “Instruction::Store”
+    // is treated as either “value” or constant expression. But, it is 
+    // possible that “value to store” operand of “Instruction::Store” 
+    // can be “Instruction::Select” instruction when “Instruction::Select”
+    // is constant expression.
+    //
+    // Ex: store void (i8*)* select (i1 icmp eq (void (i8*)* inttoptr 
+    // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)** %18
+    if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
+        (CE->getOpcode() == Instruction::Select)) {
+      // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
+      unsigned SIN = getNode(SI.getOperand(1));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(1))));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(2))));
+    }
+    else {
+      // store P1, P2  -->  <Store/P2/P1>
+      Constraints.push_back(Constraint(Constraint::Store,
+                                       getNode(SI.getOperand(1)),
+                                       getNode(SI.getOperand(0))));
+    }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
