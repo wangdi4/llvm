@@ -3170,7 +3170,7 @@ static Expr *BuildFloatingLiteral(Sema &S, NumericLiteralParser &Literal,
   return FloatingLiteral::Create(S.Context, Val, isExact, Ty, Loc);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc, bool IsCheckRange) {
 #else
 bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
@@ -3193,7 +3193,7 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
     return true;
 
   bool ValueIsPositive = ValueAPS.isStrictlyPositive();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#366562. If it is pragma unroll in IntelCompat mode (IsCheckRange set to
   // false), don't test the value since we will NOT emit any diagnostics anyway.
   if (IsCheckRange)
@@ -3206,19 +3206,6 @@ bool Sema::CheckLoopHintExpr(Expr *E, SourceLocation Loc) {
 
   return false;
 }
-
-#ifdef INTEL_CUSTOMIZATION
-bool Sema::IsExprValueOutOfStrictlyPositive32BitIntRange(Expr *E) {
-  llvm::APSInt ValueAPS;
-  ExprResult R = VerifyIntegerConstantExpression(E, &ValueAPS);
-
-  if (R.isInvalid())
-   return false;
-
-  bool ValueIsPositive = ValueAPS.isStrictlyPositive();
-  return !ValueIsPositive || ValueAPS.getActiveBits() > 31;
-}
-#endif // INTEL_CUSTOMIZATION
 
 ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   // Fast path for a single digit (which is quite common).  A single digit

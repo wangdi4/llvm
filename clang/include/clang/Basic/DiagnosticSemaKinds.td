@@ -597,6 +597,12 @@ def err_pragma_loop_compatibility : Error<
   "%select{incompatible|duplicate}0 directives '%1' and '%2'">;
 def err_pragma_loop_precedes_nonloop : Error<
   "expected a for, while, or do-while loop to follow '%0'">;
+// if INTEL_CUSTOMIZATION
+// CQ#366562 - allow #pragma unroll with non-positive or too large argument.
+def warn_pragma_unroll_invalid_factor_ignored : Warning<
+  "unrolling factor '%0' is %select{negative|too large}1 and will be ignored">,
+  InGroup<Pragmas>;
+// endif INTEL_CUSTOMIZATION
 
 /// Objective-C parser diagnostics
 def err_duplicate_class_def : Error<

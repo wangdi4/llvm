@@ -79,18 +79,31 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
       // #pragma unroll N
       Option = LoopHintAttr::UnrollCount;
       State = LoopHintAttr::Numeric;
-#ifdef INTEL_CUSTOMIZATION
-      // CQ#366562 - let pragma unroll value in IntelCompat mode be out of
-      // strictly positive 32-bit integer range (don't check the range here).
-      // If it's pragma unroll and IntelCompat mode, we should verify that the
-      // value is strictly positive 32-bit integer...
-      if (S.getLangOpts().IntelCompat &&
-          S.IsExprValueOutOfStrictlyPositive32BitIntRange(ValueExpr)) {
-        // ... and if it isn't, act like there were no arguments to pragma
-        // unroll.
-        Option = LoopHintAttr::Unroll;
-        State = LoopHintAttr::Enable;
-        ValueExpr = nullptr;
+#if INTEL_CUSTOMIZATION
+      // CQ#366562 - let #pragma unroll value be out of striclty positive 32-bit
+      // integer range: disable unrolling if value is 0, otherwise treat this
+      // like #pragma unroll without argument.
+      if (S.getLangOpts().IntelCompat) {
+        llvm::APSInt Val;
+        ExprResult Res = S.VerifyIntegerConstantExpression(ValueExpr, &Val);
+        if (Res.isInvalid())
+          return nullptr;
+
+        bool ValueIsPositive = Val.isStrictlyPositive();
+        if (!ValueIsPositive || Val.getActiveBits() > 31) {
+          if (Val.getBoolValue()) {
+            // Non-zero (negative or too large) value: just ignore the argument.
+            S.Diag(ValueExpr->getExprLoc(),
+                   diag::warn_pragma_unroll_invalid_factor_ignored)
+                << Val.toString(10) << ValueIsPositive;
+            State = LoopHintAttr::Enable;
+          } else {
+            // #pragma unroll(0) disables unrolling.
+            State = LoopHintAttr::Disable;
+          }
+          Option = LoopHintAttr::Unroll;
+          ValueExpr = nullptr;
+        }
       }
 #endif // INTEL_CUSTOMIZATION
     } else {
@@ -116,25 +129,8 @@ static Attr *handleLoopHintAttr(Sema &S, Stmt *St, const AttributeList &A,
         Option == LoopHintAttr::InterleaveCount ||
         Option == LoopHintAttr::UnrollCount) {
       assert(ValueExpr && "Attribute must have a valid value expression.");
-#ifdef INTEL_CUSTOMIZATION
-      // CQ#366562 - let pragma unroll value in IntelCompat mode be out of
-      // strictly positive 32-bit integer range (don't check the range here).
-      bool IsCheckRange = !S.getLangOpts().IntelCompat || !PragmaUnroll;
-      if (S.CheckLoopHintExpr(ValueExpr, St->getLocStart(), IsCheckRange))
-        return nullptr;
-      // If it's pragma unroll and IntelCompat mode and the above test passed,
-      // we should verify that the value is strictly positive 32-bit integer...
-      if (!IsCheckRange &&
-          S.IsExprValueOutOfStrictlyPositive32BitIntRange(ValueExpr)) {
-        // ... and if it isn't, act like there were no arguments to pragma
-        // unroll.
-        Option = LoopHintAttr::Unroll;
-        ValueExpr = nullptr;
-      }
-#else
       if (S.CheckLoopHintExpr(ValueExpr, St->getLocStart()))
         return nullptr;
-#endif // INTEL_CUSTOMIZATION
       State = LoopHintAttr::Numeric;
     } else if (Option == LoopHintAttr::Vectorize ||
                Option == LoopHintAttr::Interleave ||
