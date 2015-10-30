@@ -1548,6 +1548,22 @@ static void handleTLSModelAttr(Sema &S, Decl *D,
     return;
   }
 
+#if INTEL_CUSTOMIZATION
+  VarDecl *VD = dyn_cast<VarDecl>(D);
+  if (VD && VD->getTLSKind() == 0) {
+    // CQ#376466: Clang should emit a warning, not an error, if 'tls_model'
+    // attibute is applied to the non-tls variable. The check is moved here
+    // from handleCommonAttributeFeatures().
+    if (S.getLangOpts().IntelCompat)
+      S.Diag(Attr.getLoc(), diag::warn_attribute_wrong_decl_type)
+          << Attr.getName() << ExpectedTLSVar;
+    else
+      S.Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type)
+          << Attr.getName() << ExpectedTLSVar;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   D->addAttr(::new (S.Context)
              TLSModelAttr(Attr.getRange(), S.Context, Model,
                           Attr.getAttributeSpellingListIndex()));

@@ -430,7 +430,7 @@ def AlwaysInline : InheritableAttr {
 
 def TLSModel : InheritableAttr {
   let Spellings = [GCC<"tls_model">];
-  let Subjects = SubjectList<[TLSVar], ErrorDiag, "ExpectedTLSVar">;
+  let Subjects = SubjectList<[Var], ErrorDiag, "ExpectedTLSVar">; // INTEL
   let Args = [StringArgument<"Model">];
   let Documentation = [TLSModelDocs];
 }
