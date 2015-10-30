@@ -1399,7 +1399,27 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
 /// reasonable.
 void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
-  if (F == NULL) {
+  // CQ377893: It is possible that getCalledFunction returns nullptr
+  // even for direct calls. It happens when getCalledValue is not 
+  // direct callee.
+  //
+  // Ex:  extern set_family* sf_new();
+  //      ...
+  //     = sf_new(total_size, cub );  // Notice mismatch  args and formals
+  //
+  // IR:
+  // %call35 = call %struct.set_family* bitcast (%struct.set_family* (...)* 
+  //  @sf_new to %struct.set_family* (i32, i32)*)(i32 %total_size.0, i32 %14)
+  //
+  // Callee can be found by parsing getCalledValue but it may not be 
+  // useful due to mismatch of args and formals. Decided to go conservative. 
+  //
+  if (F == nullptr && isa<ConstantExpr>(CS.getCalledValue())) {
+    AddConstraintsForInitActualsToUniversalSet(CS);
+    return; 
+  }
+
+  if (F == nullptr) {
     // Handle Indirect calls differently
     IndirectCallList.push_back(CS);
     return; 
