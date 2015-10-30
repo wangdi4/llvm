@@ -1056,7 +1056,7 @@ float4 load_pixel_RGBA_SNORM_INT8(__private void* pPixel)
 {
     char4 pixel = vload4(0, (__private char*)pPixel);
     float4 converted = convert_float4(pixel) / SNORM_INT8_FACTOR;
-    return max(-1.f, converted);
+    return max((float4)-1.f, converted);
 }
 
 float4 load_pixel_RG_SNORM_INT8(__private void* pPixel)
@@ -1096,7 +1096,7 @@ float4 load_pixel_RGBA_SNORM_INT16(__private void* pPixel)
 {
     short4 pixel = vload4(0, (__private short*)pPixel);
     float4 converted = convert_float4(pixel) / SNORM_INT16_FACTOR;
-    return max(-1.f, converted);
+    return max((float4)-1.f, converted);
 }
 
 float4 load_pixel_RG_SNORM_INT16(__private void* pPixel)

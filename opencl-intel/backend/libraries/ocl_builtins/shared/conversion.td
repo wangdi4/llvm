@@ -627,7 +627,7 @@ OclBuiltinImpl sse42_cvt_v4f32_v4u32 = OclBuiltinImpl<convert_f32,[v4u32, v8u32]
     flo = convert_$ReturnType(tlo);
     thi = as_$Arg0igentype($Arg0VarName >> 16);
     fhi = convert_$ReturnType(thi);
-    return mad(65536.0f, fhi, flo);
+    return mad(($ReturnType)65536.0f, fhi, flo);
   }]>;
 
 OclBuiltinImpl sse42_cvt_f32_u32_u64_expand = OclBuiltinImpl<convert_f32,[v16u32], 0, Expand_default>;
