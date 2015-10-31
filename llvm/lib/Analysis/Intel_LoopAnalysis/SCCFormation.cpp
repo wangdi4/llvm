@@ -29,15 +29,16 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-sccs"
+#define DEBUG_TYPE "hir-scc-formation"
 
-INITIALIZE_PASS_BEGIN(SCCFormation, "hir-sccs", "HIR SCC Formation", false,
-                      true)
+INITIALIZE_PASS_BEGIN(SCCFormation, "hir-scc-formation", "HIR SCC Formation",
+                      false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
-INITIALIZE_PASS_END(SCCFormation, "hir-sccs", "HIR SCC Formation", false, true)
+INITIALIZE_PASS_END(SCCFormation, "hir-scc-formation", "HIR SCC Formation",
+                    false, true)
 
 char SCCFormation::ID = 0;
 
@@ -78,11 +79,6 @@ bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
     return false;
   }
 
-  // Is linear?
-  if (isLinear(Node)) {
-    return false;
-  }
-
   return true;
 }
 
@@ -116,11 +112,6 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Phi SCCs do not have anything to do with calls.
   if (isa<CallInst>(Node)) {
-    return false;
-  }
-
-  // Ignore linear uses.
-  if (isLinear(Node)) {
     return false;
   }
 
@@ -268,7 +259,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
 
   // Mark it as visited.
   auto Ret = VisitedNodes.insert(std::make_pair(Node, Index));
-
+  (void)Ret;
   assert((Ret.second == true) && "Node has already been visited!");
 
   for (auto SuccIter = getFirstSucc(Node); SuccIter != getLastSucc(Node);
@@ -460,37 +451,39 @@ SCCFormation::end(RegionIdentification::const_iterator RegIt) const {
   return RegionSCCs.end();
 }
 
-void SCCFormation::print(raw_ostream &OS, const Module *M) const {
-
-  auto RegBegin = RI->begin();
+void SCCFormation::print(raw_ostream &OS,
+                         RegionIdentification::const_iterator RegIt) const {
+  unsigned Count = 1;
   bool FirstSCC = true;
-  unsigned Count;
+  auto RegBegin = RI->begin();
+
+  for (auto SCCIt = begin(RegIt), SCCEndIt = end(RegIt); SCCIt != SCCEndIt;
+       ++SCCIt, ++Count) {
+    if (FirstSCC) {
+      OS << "\nRegion " << RegIt - RegBegin + 1;
+      FirstSCC = false;
+    }
+
+    OS << "\n   SCC" << Count << ": ";
+    for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
+         InstI != InstE; ++InstI) {
+      if (InstI != (*SCCIt)->Nodes.begin()) {
+        OS << " -> ";
+      }
+      (*InstI)->printAsOperand(OS, false);
+    }
+  }
+  // Add a newline only if we printed anything.
+  if (!FirstSCC) {
+    OS << "\n";
+  }
+}
+
+void SCCFormation::print(raw_ostream &OS, const Module *M) const {
 
   for (auto RegIt = RI->begin(), RegEndIt = RI->end(); RegIt != RegEndIt;
        ++RegIt) {
-    FirstSCC = true;
-
-    for (auto SCCIt = begin(RegIt), SCCEndIt = end(RegIt); SCCIt != SCCEndIt;
-         ++SCCIt, ++Count) {
-      if (FirstSCC) {
-        OS << "\nRegion " << RegIt - RegBegin + 1;
-        Count = 1;
-        FirstSCC = false;
-      }
-
-      OS << "\n   SCC" << Count << ": ";
-      for (auto InstI = (*SCCIt)->Nodes.begin(), InstE = (*SCCIt)->Nodes.end();
-           InstI != InstE; ++InstI) {
-        if (InstI != (*SCCIt)->Nodes.begin()) {
-          OS << " -> ";
-        }
-        (*InstI)->printAsOperand(OS, false);
-      }
-    }
-    // Add a newline only if we printed anything.
-    if (!FirstSCC) {
-      OS << "\n";
-    }
+    print(OS, RegIt);
   }
 }
 

@@ -28,16 +28,16 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-loops"
+#define DEBUG_TYPE "hir-loop-formation"
 
-INITIALIZE_PASS_BEGIN(LoopFormation, "hir-loops", "HIR Loop Formation", false,
-                      true)
+INITIALIZE_PASS_BEGIN(LoopFormation, "hir-loop-formation", "HIR Loop Formation",
+                      false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass);
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(HIRCleanup)
-INITIALIZE_PASS_END(LoopFormation, "hir-loops", "HIR Loop Formation", false,
-                    true)
+INITIALIZE_PASS_END(LoopFormation, "hir-loop-formation", "HIR Loop Formation",
+                    false, true)
 
 char LoopFormation::ID = 0;
 

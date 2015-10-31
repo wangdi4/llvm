@@ -53,7 +53,8 @@ enum DDVerificationLevel {
   Innermost
 };
 
-typedef std::map<unsigned int, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
+// Data Structure for keeping track of symbase to memory references.
+typedef std::map<unsigned, std::vector<llvm::loopopt::DDRef *>> SymToRefs;
 
 class DDAnalysis : public FunctionPass {
 public:
@@ -123,11 +124,13 @@ public:
   //  DirectionVector* input_dv, DirectionVector* output_dv);
 
   // \brief Returns a new unused symbase ID.
-  unsigned int getNewSymBase();
+  unsigned getNewSymbase();
   void releaseMemory() override;
+
+  void verifyAnalysis() const override;
+
   // TODO
   // void print(raw_stream &OS, const Module* = nullptr) const override;
-  // void verifyAnalysis() const override;
   //
 
   // init_incremental_rebuild(HLNode*)
@@ -147,11 +150,11 @@ private:
 
   bool edgeNeeded(DDRef *Ref1, DDRef *Ref2, bool InputEdgesReq);
   void setInputDV(DVectorTy &DV, HLNode *Node, DDRef *Ref1, DDRef *Ref2);
-  void dumpSymBaseMap(SymToRefs &RefMap);
+  void dumpSymbaseMap(SymToRefs &RefMap);
 
   // Used to rebuild graphs for node/regions based on cl options
   // in DDA's runonPass for verification purposes.
-  class GraphVerifier {
+  class GraphVerifier final : public HLNodeVisitorBase {
   private:
     DDAnalysis *CurDDA;
     DDVerificationLevel CurLevel;
@@ -166,8 +169,6 @@ private:
 
     void visit(HLNode *Node) {}
     void postVisit(HLNode *Node) {}
-    bool isDone() { return false; }
-    bool skipRecursion(HLNode *Node) { return false; }
   };
 };
 
@@ -197,7 +198,7 @@ public:
   }
 
   void print(raw_ostream &OS) const { G->print(OS); }
-  // todo visit all refs in CurNode, prining outgoing edges whose sink is
+  // todo visit all refs in CurNode, printing outgoing edges whose sink is
   // also in curnode
   void dump() const { G->dump(); }
 };

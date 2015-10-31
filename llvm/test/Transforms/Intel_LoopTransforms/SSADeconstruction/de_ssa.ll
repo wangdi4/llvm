@@ -1,11 +1,11 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa -S | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -S | FileCheck %s
 
 ; CHECK: a.addr.014
-; CHECK-SAME: in.de.ssa
 ; CHECK-NEXT: a.addr.014.out
 ; CHECK-SAME: out.de.ssa
 ; CHECK: output.1.in.1
 ; CHECK-SAME: in.de.ssa
+; CHECK: live.range.de.ssa
 ; CHECK: output.1.in
 ; CHECK-SAME: in.de.ssa
 ; CHECK: output.1

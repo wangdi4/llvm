@@ -20,6 +20,9 @@
 
 #include "llvm/Support/Compiler.h"
 
+// Required for accessing INVALID_SYMBASE and CONSTANT_SYMBASE.
+#include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
+
 namespace llvm {
 
 namespace loopopt {

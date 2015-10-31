@@ -1,9 +1,9 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that a GEP (polynomial) blob is parsed correctly.
-; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %p.addr.07 = &((%p.addr.07)[i1])
-; CHECK-NEXT: (%p.addr.07)[i1] = i1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
+; CHECK-NEXT: %add.ptr = &((%add.ptr)[i1])
+; CHECK-NEXT: (%add.ptr)[0] = i1
 ; CHECK-NEXT: END LOOP
 
 ; ModuleID = 'poly-ptr1.c'

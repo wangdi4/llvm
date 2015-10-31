@@ -854,18 +854,40 @@ void PMDataManager::verifyPreservedAnalysis(Pass *P) {
 #ifdef NDEBUG
   return;
 #endif
+
+#if INTEL_CUSTOMIZATION
+  // See INTEL_CUSTOMIZATION below
+  const PassInfo *PI = TPM->findAnalysisPassInfo(P->getPassID());
+  if (!PI || PI->isAnalysis()) {
+    return;
+  }
+#endif //INTEL_CUSTOMIZATION
+
   AnalysisUsage *AnUsage = TPM->findAnalysisUsage(P);
   const AnalysisUsage::VectorType &PreservedSet = AnUsage->getPreservedSet();
 
   // Verify preserved analysis
-  for (AnalysisUsage::VectorType::const_iterator I = PreservedSet.begin(),
-         E = PreservedSet.end(); I != E; ++I) {
-    AnalysisID AID = *I;
-    if (Pass *AP = findAnalysisPass(AID, true)) {
-      TimeRegion PassTimer(getPassTimer(AP));
-      AP->verifyAnalysis();
+#if INTEL_CUSTOMIZATION
+  // CATEGORY: A stability fix that doesn't affect non-IA performance
+  // BUG: The PreservedSet doesn't include passes which were marked
+  //      as preserved by setPreservesAll(); As a result not all
+  //      preserved passes will be verified.
+  for (auto I = AvailableAnalysis.begin(), E = AvailableAnalysis.end();
+            I != E; ++I) {
+    AnalysisID AID = I->first;
+
+    if (!AnUsage->getPreservesAll()) {
+      if (std::find(PreservedSet.begin(), PreservedSet.end(), AID) ==
+          PreservedSet.end()) {
+        continue;
+      }
     }
+
+    Pass *AP = I->second;
+    TimeRegion PassTimer(getPassTimer(AP));
+    AP->verifyAnalysis();
   }
+#endif //INTEL_CUSTOMIZATION
 }
 
 /// Remove Analysis not preserved by Pass P

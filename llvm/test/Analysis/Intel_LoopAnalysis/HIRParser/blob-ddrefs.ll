@@ -1,13 +1,13 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; Check parsing output for the temp blobs
-; CHECK: DO i64 i1 = 0, %n + -1
+; CHECK: DO i64 i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK: <BLOB> LINEAR i32 %n
 ; CHECK: <BLOB> LINEAR i32* %B
 ; CHECK: <BLOB> LINEAR i32* %C
 ; CHECK: <BLOB> LINEAR i32* %A
-; CHECK: <BLOB> NON-LINEAR i32 %0
-; CHECK: <BLOB> NON-LINEAR i32 %1
+; CHECK-DAG: <BLOB> NON-LINEAR i32 %0
+; CHECK-DAG: <BLOB> NON-LINEAR i32 %1
 
 ; ModuleID = 'non-linear-blobs.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

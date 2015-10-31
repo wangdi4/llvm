@@ -1,4 +1,4 @@
-; RUN: opt -analyze -symbase < %s | FileCheck -debug %s
+; RUN: opt -analyze -disable-basicaa -symbase < %s | FileCheck %s
 ; Without an AA impl, both array refs should be in same symbase
 ; CHECK-DAG: {{.*@B.*\[.*}} {sb:[[Base1:[0-9]+]]}
 ; CHECK-DAG: {{.*@A.*\[.*}} {sb:[[Base1]]}

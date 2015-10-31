@@ -20,11 +20,14 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+
+#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include <vector>
 #include <map>
@@ -62,6 +65,11 @@ static cl::opt<bool>
     forceDDA("force-DDA", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
+static cl::opt<bool>
+    HIRVerify("hir-verify",
+              cl::desc("Verify HIR after each transformation (default=true)"),
+              cl::init(true));
+
 FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
 char DDAnalysis::ID = 0;
@@ -95,7 +103,7 @@ bool DDAnalysis::runOnFunction(Function &F) {
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
     GraphVerifier V(this, CurLevel);
-    HLNodeUtils::visitAll(&V);
+    HLNodeUtils::visitAll(V);
   }
 
   return false;
@@ -124,7 +132,7 @@ DDGraph DDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
 // symbase, assumes symbase of ddrefs is valid
 // TODO make this a general DDref walker? Already did this for
 // symbase assignement
-class DDRefGatherer {
+class DDRefGatherer final : public HLNodeVisitorBase {
 
 private:
   void visitDDNodeRefs(HLDDNode *Node);
@@ -137,14 +145,12 @@ public:
   void postVisit(HLDDNode *Node) {}
   void visit(HLNode *Node) {}
   void visit(HLDDNode *Node);
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
   void addRef(DDRef *Ref);
 };
 
 void DDRefGatherer::addRef(DDRef *Ref) {
-  unsigned int SymBase = (Ref)->getSymBase();
-  (*RefMap)[SymBase].push_back(Ref);
+  unsigned Symbase = (Ref)->getSymbase();
+  (*RefMap)[Symbase].push_back(Ref);
 }
 
 void DDRefGatherer::visit(HLDDNode *Node) {
@@ -165,6 +171,14 @@ void DDRefGatherer::visit(HLDDNode *Node) {
 void DDAnalysis::releaseMemory() {
   GraphValidityMap.clear();
   FunctionDDGraph.clear();
+}
+
+void DDAnalysis::verifyAnalysis() const {
+  if (HIRVerify) {
+    HIRVerifier::verifyAll();
+    DEBUG(dbgs() << "Verification of HIR done"
+                 << "\n");
+  }
 }
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
@@ -218,7 +232,7 @@ void DDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DDAnalysis::dumpSymBaseMap(SymToRefs &RefMap) {
+void DDAnalysis::dumpSymbaseMap(SymToRefs &RefMap) {
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     std::vector<DDRef *> &RefVec = SymVecPair->second;
@@ -237,10 +251,10 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   SymToRefs RefMap;
   DDRefGatherer Gatherer(&RefMap);
 
-  HLNodeUtils::visit(&Gatherer, Node, true, true, true);
+  HLNodeUtils::visit(Gatherer, Node);
 
   DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(dumpSymBaseMap(RefMap));
+  DEBUG(dumpSymbaseMap(RefMap));
   DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
@@ -319,4 +333,4 @@ void DDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
   }
 }
 
-unsigned int DDAnalysis::getNewSymBase() { return SA->getNewSymBase(); }
+unsigned DDAnalysis::getNewSymbase() { return SA->getNewSymbase(); }

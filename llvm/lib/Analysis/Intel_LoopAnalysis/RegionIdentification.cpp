@@ -20,6 +20,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
+#include "llvm/Support/Debug.h"
+
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
@@ -29,14 +31,14 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-regions"
+#define DEBUG_TYPE "hir-region-identification"
 
-INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-regions",
+INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_END(RegionIdentification, "hir-regions",
+INITIALIZE_PASS_END(RegionIdentification, "hir-region-identification",
                     "HIR Region Identification", false, true)
 
 char RegionIdentification::ID = 0;
@@ -59,22 +61,53 @@ void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
 bool RegionIdentification::isSelfGenerable(const Loop &Lp,
                                            unsigned LoopnestDepth) const {
 
-  // Loop is not in a handleable form.
-  if (!Lp.isLoopSimplifyForm()) {
-    return false;
-  }
-
   // At least one of this loop's subloops reach MaxLoopNestLevel so we cannot
   // generate this loop.
   if (LoopnestDepth > MaxLoopNestLevel) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loopnest is more than "
+                 << MaxLoopNestLevel << " deep.\n");
+    return false;
+  }
+
+  // Loop is not in a handleable form.
+  if (!Lp.isLoopSimplifyForm()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop structure is not handleable.\n");
+    return false;
+  }
+
+  // Don't handle multi-exit loops for now.
+  if (!Lp.getExitingBlock()) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Multi-exit loops currently not supported.\n");
     return false;
   }
 
   // Don't handle unknown loops for now.
   if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
     return false;
   }
 
+  // Check that the loop backedge is a conditional branch.
+  auto LatchBB = Lp.getLoopLatch();
+
+  auto Term = LatchBB->getTerminator();
+  auto BrInst = dyn_cast<BranchInst>(Term);
+
+  if (!BrInst) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-branch instrcutions in loop latch "
+                    "currently not supported.\n");
+    return false;
+  }
+
+  if (BrInst->isUnconditional()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Unconditional branch instrcutions in "
+                    "loop latch currently not supported.\n");
+    return false;
+  }
+
+  // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
     // Skip this bblock as it has been checked by an inner loop.
@@ -83,14 +116,46 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     }
 
     if ((*I)->isLandingPad()) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                      "supported.\n");
       return false;
     }
 
-    auto Term = (*I)->getTerminator();
+    Term = (*I)->getTerminator();
 
-    if (isa<IndirectBrInst>(Term) || isa<InvokeInst>(Term) ||
-        isa<ResumeInst>(Term)) {
+    if (isa<IndirectBrInst>(Term)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Indirect branches currently not "
+                      "supported.\n");
       return false;
+    }
+
+    if (isa<InvokeInst>(Term) || isa<ResumeInst>(Term)) {
+      DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Exception handling currently not "
+                      "supported.\n");
+      return false;
+    }
+
+    for (auto InstIt = (*I)->begin(), EndIt = (*I)->end(); InstIt != EndIt;
+         ++InstIt) {
+      if (InstIt->getType()->isVectorTy()) {
+        DEBUG(dbgs()
+              << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
+        return false;
+      }
+
+      if (auto GEPInst = dyn_cast<GetElementPtrInst>(InstIt)) {
+        auto SrcTy = GEPInst->getSourceElementType();
+
+        while (auto ArrTy = dyn_cast<ArrayType>(SrcTy)) {
+          SrcTy = ArrTy->getElementType();
+        }
+
+        if (SrcTy->isStructTy()) {
+          DEBUG(dbgs()
+                << "LOOPOPT_OPTREPORT: Struct GEPs currently not supported.\n");
+          return false;
+        }
+      }
     }
   }
 

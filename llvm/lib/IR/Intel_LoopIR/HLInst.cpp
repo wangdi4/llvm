@@ -32,7 +32,7 @@ void HLInst::initialize() {
 
 HLInst::HLInst(Instruction *In)
     : HLDDNode(HLNode::HLInstVal), Inst(In), SafeRednSucc(nullptr),
-      CmpOrSelectPred(CmpInst::Predicate::FCMP_TRUE) {
+      CmpOrSelectPred(PredicateTy::FCMP_TRUE) {
   assert(Inst && "LLVM Instruction for HLInst cannot be null!");
   initialize();
 }
@@ -123,11 +123,15 @@ bool HLInst::checkSeparator(formatted_raw_ostream &OS, bool Print) const {
         llvm_unreachable("Unexpected binary operator!");
       }
     }
+  } else if (isa<CmpInst>(Inst)) {
+    if (Print) {
+      printPredicate(OS, CmpOrSelectPred);
+    }
   } else {
     if (!isa<CallInst>(Inst)) {
       Ret = false;
     }
-    if (Print) {
+    if (Print && !isa<SelectInst>(Inst)) {
       OS << ",  ";
     }
   }
@@ -147,10 +151,12 @@ void HLInst::printBeginOpcode(formatted_raw_ostream &OS,
       OS << "(";
     }
   } else if (auto FInst = dyn_cast<CallInst>(Inst)) {
-    FInst->getCalledFunction()->printAsOperand(OS, false);
+    FInst->getCalledValue()->printAsOperand(OS, false);
+    OS << "(";
+  } else if (isa<SelectInst>(Inst)) {
     OS << "(";
   } else if (!HasSeparator && !isa<LoadInst>(Inst) && !isa<StoreInst>(Inst) &&
-             !isa<GetElementPtrInst>(Inst)) {
+             !isa<GetElementPtrInst>(Inst) && !isa<CmpInst>(Inst)) {
     OS << Inst->getOpcodeName() << " ";
   }
 }
@@ -187,6 +193,16 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
       }
     } else {
       *I ? (*I)->print(OS, false) : (void)(OS << *I);
+
+      if (isa<SelectInst>(Inst)) {
+        if (Count == 1) {
+          printPredicate(OS, CmpOrSelectPred);
+        } else if (Count == 2) {
+          OS << ") ? ";
+        } else if (Count == 3) {
+          OS << " : ";
+        }
+      }
     }
   }
 
@@ -295,6 +311,7 @@ void HLInst::addFakeDDRef(RegDDRef *RDDRef) {
 void HLInst::removeFakeDDRef(RegDDRef *RDDRef) {
   HLDDNode *Node;
 
+  (void)Node;
   assert(RDDRef && "Cannot remove null fake DDRef!");
   assert(RDDRef->isFake() && "RDDRef is not a fake DDRef!");
   assert((Node = RDDRef->getHLDDNode()) && isa<HLInst>(Node) &&
@@ -364,4 +381,25 @@ bool HLInst::isInPostexit() const { return isInPreheaderPostexitImpl(false); }
 
 bool HLInst::isInPreheaderOrPostexit() const {
   return (isInPreheader() || isInPostexit());
+}
+
+void HLInst::verify() const {
+  bool IsSelectCmpTrueFalse = (isa<SelectInst>(Inst) || isa<CmpInst>(Inst)) &&
+                              isPredicateTrueOrFalse(CmpOrSelectPred);
+
+  assert((CmpInst::isFPPredicate(CmpOrSelectPred) ||
+          CmpInst::isIntPredicate(CmpOrSelectPred) ||
+          CmpOrSelectPred == UNDEFINED_PREDICATE) &&
+         "Invalid predicate value, should be one of PredicateTy");
+
+  HLDDNode::verify();
+
+  if (IsSelectCmpTrueFalse) {
+    const RegDDRef *R1 = getOperandDDRef(1);
+    const RegDDRef *R2 = getOperandDDRef(2);
+
+    assert(R1->isUndefined() && R2->isUndefined() &&
+           "DDRefs for Select or Cmp Instruction with "
+           "True or False predicate must be undefined");
+  }
 }
