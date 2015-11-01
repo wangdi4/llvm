@@ -58,6 +58,20 @@ void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
 
+const GEPOperator *
+RegionIdentification::getBaseGEPOp(const GEPOperator *GEPOp) const {
+
+  if (!GEPOp) {
+    return nullptr;
+  }
+
+  while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
+    GEPOp = TempGEPOp;
+  }
+
+  return GEPOp;
+}
+
 bool RegionIdentification::isSelfGenerable(const Loop &Lp,
                                            unsigned LoopnestDepth) const {
 
@@ -86,6 +100,17 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
   if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
     DEBUG(dbgs()
           << "LOOPOPT_OPTREPORT: Unknown loops currently not supported.\n");
+    return false;
+  }
+
+  auto BETC = SE->getBackedgeTakenCount(&Lp);
+
+  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer. This can cause
+  // issues in HIR.
+  // TODO: look into SCEV analysis logic.
+  if (isa<PointerType>(BETC->getType())) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Pointer backedge count type not supported.\n");
     return false;
   }
 
@@ -143,11 +168,23 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
 
-      if (auto GEPInst = dyn_cast<GetElementPtrInst>(InstIt)) {
-        auto SrcTy = GEPInst->getSourceElementType();
+      const GEPOperator *GEPOp = nullptr;
 
-        while (auto ArrTy = dyn_cast<ArrayType>(SrcTy)) {
-          SrcTy = ArrTy->getElementType();
+      if ((GEPOp = dyn_cast<GEPOperator>(InstIt))) {
+        GEPOp = getBaseGEPOp(GEPOp);
+      } else if (auto LInst = dyn_cast<LoadInst>(InstIt)) {
+        GEPOp = dyn_cast<GEPOperator>(LInst->getPointerOperand());
+        GEPOp = getBaseGEPOp(GEPOp);
+      } else if (auto SInst = dyn_cast<StoreInst>(InstIt)) {
+        GEPOp = dyn_cast<GEPOperator>(SInst->getPointerOperand());
+        GEPOp = getBaseGEPOp(GEPOp);
+      }
+
+      if (GEPOp) {
+        auto SrcTy = GEPOp->getSourceElementType();
+
+        while (auto SeqTy = dyn_cast<SequentialType>(SrcTy)) {
+          SrcTy = SeqTy->getElementType();
         }
 
         if (SrcTy->isStructTy()) {

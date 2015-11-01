@@ -30,6 +30,8 @@ class Loop;
 class LoopInfo;
 class DominatorTree;
 class ScalarEvolution;
+class GetElementPtrInst;
+class GEPOperator;
 
 namespace loopopt {
 
@@ -61,6 +63,12 @@ private:
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
+
+  /// \brief Returns the base(earliest) GEP operator in case of multiple GEPs
+  /// associated with a load/store.
+  /// This is used for temporarily suppressing struct GEPs until we can handle
+  /// them in HIR.
+  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
 
   /// \brief Returns true if Lp appears to be generable without looking at the
   /// sub loops.

@@ -1222,7 +1222,7 @@ void HIRParser::parse(HLSwitch *Switch) {
 }
 
 void HIRParser::collectStrides(Type *GEPType,
-                               SmallVectorImpl<uint64_t> &Strides) {
+                               SmallVectorImpl<uint64_t> &Strides) const {
   assert(isa<PointerType>(GEPType) && "GEP is not a pointer type!");
   GEPType = cast<PointerType>(GEPType)->getElementType();
 
@@ -1232,10 +1232,11 @@ void HIRParser::collectStrides(Type *GEPType,
     Strides.push_back(GEPArrType->getNumElements());
   }
 
-  assert((GEPType->isIntegerTy() || GEPType->isFloatingPointTy()) &&
+  assert((GEPType->isIntegerTy() || GEPType->isFloatingPointTy() ||
+          GEPType->isPointerTy()) &&
          "Unexpected GEP type!");
 
-  auto ElementSize = GEPType->getPrimitiveSizeInBits() / 8;
+  auto ElementSize = getDataLayout().getTypeSizeInBits(GEPType) / 8;
 
   // Multiply number of elements in each dimension by the size of each element
   // in the dimension.
@@ -1331,33 +1332,78 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   return Ref;
 }
 
+const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
+
+  while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
+    GEPOp = TempGEPOp;
+  }
+
+  return GEPOp;
+}
+
 RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
                                            unsigned Level) {
   SmallVector<uint64_t, 9> Strides;
 
   auto Ref = DDRefUtils::createRegDDRef(0);
 
-  auto BaseCE = parse(GEPOp->getPointerOperand(), Level);
+  const GEPOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
+  auto BaseCE = parse(BaseGEPOp->getPointerOperand(), Level);
   Ref->setBaseCE(BaseCE);
 
-  collectStrides(GEPOp->getPointerOperandType(), Strides);
+  collectStrides(BaseGEPOp->getPointerOperandType(), Strides);
 
-  // Ignore base pointer operand.
-  unsigned GEPNumOp = GEPOp->getNumOperands() - 1;
   unsigned Count = Strides.size();
+  const GEPOperator *TempGEPOp = GEPOp;
+  bool FirstGEP = true;
+
+  // Consider the following sequence of GEPs-
+  // %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x
+  // i32]]* @B, i64 0, i64 %i
+  // %arrayidx5 = getelementptr inbounds [100 x i32], [100 x i32]* %arrayidx,
+  // i64 0, i64 %j
+  //
+  // %0 = load i32, i32* %arrayidx5, align 4
+  //
+  // This is how the dimensions are created-
+  // 1) Start processing %arrayidx5's operands in reverse and create one
+  // dimension each for %j and 0.
+  // 2) Start processing %arrayidx's operands in reverse. The last index %i is
+  // added to the last dimension created while processing %arrayidx5's operands (0).
+  // 3) Create additional dimension for the 0 operand.
+  //
+  // The parsed DDRef looks like this- (@B][0][%i][%j]
+  do {
+    // Ignore base pointer operand.
+    unsigned GEPNumOp = TempGEPOp->getNumOperands() - 1;
+    bool LastGEPIndex = true;
+
+    // Process GEP operands in reverse order (from lowest to highest dimension).
+    for (auto I = GEPNumOp; I > 0; --I) {
+      // If this is the last GEP index of a previous GEP, we add it to the last
+      // created index CE.
+      if (!FirstGEP && LastGEPIndex) {
+        CanonExpr *IndexCE = Ref->getDimensionIndex(Ref->getNumDimensions());
+        auto SC = SE->getSCEV(const_cast<Value *>(TempGEPOp->getOperand(I)));
+
+        parseRecursive(SC, IndexCE, Level, IndexCE->isZero());
+      } else {
+        // Create additional dimension for each encountered GEP index.
+        CanonExpr *IndexCE = parse(TempGEPOp->getOperand(I), Level);
+        CanonExpr *StrideCE = CanonExprUtils::createCanonExpr(
+            IndexCE->getDestType(), 0, Strides[Count - 1]);
+        Ref->addDimension(IndexCE, StrideCE);
+        --Count;
+      }
+      LastGEPIndex = false;
+    }
+
+    FirstGEP = false;
+  } while ((TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
 
   // Check that the number of GEP operands match with the number of strides we
   // have collected.
-  assert((Count == GEPNumOp) &&
-         "Number of subscripts and strides do not match!");
-
-  for (auto I = GEPNumOp; I > 0; --I, --Count) {
-    auto IndexCE = parse(GEPOp->getOperand(I), Level);
-
-    auto StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0,
-                                                    Strides[Count - 1]);
-    Ref->addDimension(IndexCE, StrideCE);
-  }
+  assert((Count == 0) && "Number of subscripts and strides do not match!");
 
   Ref->setInBounds(GEPOp->isInBounds());
 
@@ -1393,6 +1439,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
   const Value *GEPVal = nullptr;
   const PHINode *BasePhi = nullptr;
   const GEPOperator *GEPOp = nullptr;
+  bool IsGEP = false;
   bool IsAddressOf = false;
   RegDDRef *Ref = nullptr;
   Type *DestTy = nullptr;
@@ -1403,20 +1450,14 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     GEPVal = SInst->getPointerOperand();
   } else if (auto LInst = dyn_cast<LoadInst>(Val)) {
     GEPVal = LInst->getPointerOperand();
-  } else if (auto GEPInst = dyn_cast<GetElementPtrInst>(Val)) {
-    GEPVal = GEPInst->getPointerOperand();
-    BasePhi = dyn_cast<PHINode>(GEPVal);
-    GEPOp = cast<GEPOperator>(GEPInst);
-    IsAddressOf = true;
-  } else if ((GEPOp = dyn_cast<GEPOperator>(Val))) {
-    GEPVal = GEPOp->getPointerOperand();
-    BasePhi = dyn_cast<PHINode>(GEPVal);
+  } else if ((IsGEP = isa<GEPOperator>(Val)) || isa<BitCastInst>(Val)) {
+    GEPVal = Val;
     IsAddressOf = true;
   } else {
     llvm_unreachable("Unexpected instruction!");
   }
 
-  // In some cases float* is converted into int32* before loading/storing. This
+  // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
   if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
     if (!SE->isHIRCopyInst(BCInst)) {
@@ -1425,18 +1466,16 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
     }
   }
 
-  // Try to get to the phi associated with this load/store.
-  if (!IsAddressOf) {
-    auto GEPInst = dyn_cast<Instruction>(GEPVal);
+  // Try to get to the phi associated with this GEP.
+  auto GEPInst = dyn_cast<Instruction>(GEPVal);
 
-    // Do not cross the the live range indicator.
-    if ((!GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
-        (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
+  // Do not cross the live range indicator for GEP uses (load/store/bitcast).
+  if ((IsGEP || !GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
+      (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
 
-      BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());
-    } else {
-      BasePhi = dyn_cast<PHINode>(GEPVal);
-    }
+    BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());
+  } else {
+    BasePhi = dyn_cast<PHINode>(GEPVal);
   }
 
   if (BasePhi) {
@@ -1489,10 +1528,14 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                                      unsigned Level) {
   RegDDRef *Ref;
   auto OpVal = Inst->getOperand(OpNum);
+  const BitCastInst *BCInst = nullptr;
 
   if (isa<LoadInst>(Inst) || isa<GetElementPtrInst>(Inst)) {
     Ref = createGEPDDRef(Inst, Level);
   } else if (isa<GEPOperator>(OpVal)) {
+    Ref = createGEPDDRef(OpVal, Level);
+  } else if ((BCInst = dyn_cast<BitCastInst>(OpVal)) &&
+             isa<GEPOperator>(BCInst->getOperand(0))) {
     Ref = createGEPDDRef(OpVal, Level);
   } else {
     Ref = createScalarDDRef(OpVal, Level);

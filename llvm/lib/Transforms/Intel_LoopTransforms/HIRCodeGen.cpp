@@ -915,7 +915,7 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     Value *Res = Builder->CreateBinOp(BOp->getOpcode(), Ops[1], Ops[2]);
     Builder->CreateStore(Res, Ops[0]);
   } else if (CallInst *Call = dyn_cast<CallInst>(Inst)) {
-    Value *LVal = Ops[0];
+    Value *LVal = nullptr;
     SmallVector<std::pair<unsigned, MDNode *>, 6> MDs;
 
     // TODO: copy 'tail' marker.
@@ -924,6 +924,7 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
       // Turns Operands vector into function args vector by removing lval
       // TODO: Separate this logic from framework's implementation of putting
       // lval as the first operand.
+      LVal = Ops[0];
       Ops.erase(Ops.begin());
     }
 

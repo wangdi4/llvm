@@ -103,7 +103,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       if (PrintBaseCast) {
-        OS << "*(" << *getBaseDestType() << ")";
+        OS << "(" << *getBaseDestType() << ")";
       }
 
       OS << "(";

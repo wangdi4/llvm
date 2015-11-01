@@ -261,15 +261,15 @@ private:
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
   /// \brief collects strides for an ArrayType in the Strides vector.
-  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides);
-
-  /// \brief Looks for GEPOperator associated with this pointer Phi in the phi
-  /// operands.
-  const GEPOperator *findGEPOperator(const PHINode *PtrPhi) const;
+  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides) const;
 
   /// \brief Returns the size of the contained type in bits. Incoming type is
   /// expected to be a pointer type.
   unsigned getBitElementSize(Type *Ty) const;
+
+  /// \brief Returns the base(earliest) GEP in case there are multiple GEPs
+  /// associated with this load/store.
+  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
 
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
