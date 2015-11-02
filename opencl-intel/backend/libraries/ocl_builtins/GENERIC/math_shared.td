@@ -249,8 +249,8 @@ OclBuiltinImpl ilogb_impl_f32 = OclBuiltinImpl<ilogb, [v3f32, v4f32, v8f32, v16f
     res1.u -= factor.u;
     res3.u -= factor.u;
     res1.i = select(res3.i, res1.i, isNotDenorm.i);
-    res1.i = select(res1.i, INT_MAX, isNaNorINF.i);
-    res1.i = select(res1.i, INT_MIN, isZero.i);
+    res1.i = select(res1.i, ($Arg0igentype)INT_MAX, isNaNorINF.i);
+    res1.i = select(res1.i, ($Arg0igentype)INT_MIN, isZero.i);
     return as_$Arg0igentype(res1.u);
   }]>;
 

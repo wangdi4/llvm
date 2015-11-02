@@ -141,7 +141,7 @@ OclBuiltinImpl soa_length2_f64 = OclBuiltinImpl<soa_length2 , dp_fp_soa_types, 0
       $Arg0VecType overflow_p0_x = $Arg0VarName * expMinus600;
       $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
       $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y;
-      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)exp600, overflow_mask );
       sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
@@ -149,7 +149,7 @@ OclBuiltinImpl soa_length2_f64 = OclBuiltinImpl<soa_length2 , dp_fp_soa_types, 0
       $Arg0VecType underflow_p0_x = $Arg0VarName * exp700;
       $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
       $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y;
-      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)expMinus700, underflow_mask );
       sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
@@ -182,7 +182,7 @@ OclBuiltinImpl soa_length3_f64 = OclBuiltinImpl<soa_length3 , dp_fp_soa_types, 0
       $Arg0VecType overflow_p0_y = $Arg1VarName * expMinus600;
       $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
       $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z;
-      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)exp600, overflow_mask );
       sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
@@ -191,7 +191,7 @@ OclBuiltinImpl soa_length3_f64 = OclBuiltinImpl<soa_length3 , dp_fp_soa_types, 0
       $Arg0VecType underflow_p0_y = $Arg1VarName * exp700;
       $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
       $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z;
-      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)expMinus700, underflow_mask );
       sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
@@ -226,7 +226,7 @@ OclBuiltinImpl soa_length4_f64 = OclBuiltinImpl<soa_length4 , dp_fp_soa_types, 0
       $Arg0VecType overflow_p0_z = $Arg2VarName * expMinus600;
       $Arg0VecType overflow_p0_w = $Arg3VarName * expMinus600;
       $Arg0VecType overflow_sum = overflow_p0_x * overflow_p0_x + overflow_p0_y * overflow_p0_y + overflow_p0_z * overflow_p0_z + overflow_p0_w * overflow_p0_w;
-      sum_multiplier = select( sum_multiplier, exp600, overflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)exp600, overflow_mask );
       sum = select( sum, overflow_sum, overflow_mask);
     }
     if ( intel_movemask(underflow_mask) )
@@ -236,7 +236,7 @@ OclBuiltinImpl soa_length4_f64 = OclBuiltinImpl<soa_length4 , dp_fp_soa_types, 0
       $Arg0VecType underflow_p0_z = $Arg2VarName * exp700;
       $Arg0VecType underflow_p0_w = $Arg3VarName * exp700;
       $Arg0VecType underflow_sum = underflow_p0_x * underflow_p0_x + underflow_p0_y * underflow_p0_y + underflow_p0_z * underflow_p0_z + underflow_p0_w * underflow_p0_w;
-      sum_multiplier = select( sum_multiplier, expMinus700, underflow_mask );
+      sum_multiplier = select( sum_multiplier, ($Arg0VecType)expMinus700, underflow_mask );
       sum = select( sum, underflow_sum, underflow_mask);
     }
     return sqrt( sum ) * sum_multiplier;
