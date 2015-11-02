@@ -49,6 +49,13 @@ BBDuplicateThreshold("jump-threading-threshold",
           cl::desc("Max block size to duplicate for jump threading"),
           cl::init(6), cl::Hidden);
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+JumpThreadLoopHeader("jump-thread-loop-header",
+                     cl::desc("Jump thread through loop header blocks"),
+                     cl::init(false), cl::Hidden);
+#endif // INTEL_CUSTOMIZATION
+
 namespace {
   // These are at global scope so static functions can use them too.
   typedef SmallVectorImpl<std::pair<Constant*, BasicBlock*> > PredValueInfo;
@@ -529,6 +536,29 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
         BasicBlock *PredBB = PN->getIncomingBlock(i);
         Value *LHS = PN->getIncomingValue(i);
         Value *RHS = Cmp->getOperand(1)->DoPHITranslation(BB, PredBB);
+
+#if INTEL_CUSTOMIZATION
+        // When BB is a loop header, LHS can be derived from a Value, %V,
+        // computed in BB during a prior iteration of the loop. We have to be
+        // careful to avoid trying to simplify a comparison based on a RHS also
+        // derived from %V but from the current loop iteration. It is
+        // computationally expensive to detect this situation, because %V can be
+        // arbitrarily far back in the expression tree for LHS. So
+        // conservatively suppress this optimization when BB is a loop header.
+        //
+        // Note that the problem is provably confined to loop headers. In order
+        // for LHS to be derived from %V defined in BB, BB must dominate PredBB,
+        // which makes PredBB-->BB a backedge and BB a member of LoopHeaders.
+        //
+        // Caution! This requires LoopHeaders to be kept up-to-date for
+        // correctness. Practically speaking, this isn't a new requirement
+        // given the number of failures that occured when first allowing jump
+        // threading across loop headers. But this check makes the requirement
+        // explicit and intentional.
+        if (isa<Instruction>(LHS) && isa<Instruction>(RHS) &&
+            LoopHeaders.count(BB))
+          continue;
+#endif // INTEL_CUSTOMIZATION
 
         Value *Res = SimplifyCmpInst(Cmp->getPredicate(), LHS, RHS, DL);
         if (!Res) {
@@ -1120,7 +1150,7 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                                            Instruction *CxtI) {
   // If threading this would thread across a loop header, don't even try to
   // thread the edge.
-  if (LoopHeaders.count(BB))
+  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader)                   // INTEL
     return false;
 
   PredValueInfoTy PredValues;
@@ -1395,7 +1425,7 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
 
   // If threading this would thread across a loop header, don't thread the edge.
   // See the comments above FindLoopHeaders for justifications and caveats.
-  if (LoopHeaders.count(BB)) {
+  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader) {                 // INTEL
     DEBUG(dbgs() << "  Not threading across loop header BB '" << BB->getName()
           << "' to dest BB '" << SuccBB->getName()
           << "' - it might create an irreducible loop!\n");
@@ -1467,6 +1497,49 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
   // PHI nodes for NewBB now.
   AddPHINodeEntriesForMappedBlock(SuccBB, BB, NewBB, ValueMapping);
 
+#if INTEL_CUSTOMIZATION
+  // This piece of code was moved verbatim from below. We need to replace the
+  // Pred-->BB CFG arc with Pred-->NewBB before we do the SSA rewrite in order
+  // to correctly handle threading across loop headers. For example,
+  //
+  // BB:
+  //     %x = phi i32 [ %y, PredBB ] ...
+  //     %a = ... %x ...
+  //     %y = ...
+  //     %b = ... %y ...
+  //
+  // NewBB will look like this after cloning, phi translation, & remapping
+  // operands and prior to the SSA rewrite:
+  //
+  // NewBB:
+  //     %a.1 = ... %y ...
+  //     %y.1 = ...
+  //     %b.1 = ... %y.1 ...
+  //
+  // Based on the CFG, the SSAUpdater code needs to rewrite the use of %y to
+  // use the original value (%y), the cloned value (%y.1), or some phi derived
+  // value. Without the PredBB-->NewBB edge, the SSAUpdater thinks NewBB has
+  // no predecessors and replaces %y with undef.
+  //
+  // This situation is only possible when BB is a loop header.
+  // Proof: As we remap operands in NewBB, uses of instructions from BB get
+  //        remapped to use the corresponding instructions from NewBB. The
+  //        exception is when the use comes from phi translation, i.e. when
+  //        the incoming phi value from PredBB is an instruction from BB. In
+  //        order for that to happen, BB must dominate PredBB. That makes
+  //        PredBB-->BB a backedge, which puts BB in the LoopHeaders set.
+  //
+  // Ok, NewBB is good to go.  Update the terminator of PredBB to jump to
+  // NewBB instead of BB.  This eliminates predecessors from BB, which requires
+  // us to simplify any PHI nodes in BB.
+  TerminatorInst *PredTerm = PredBB->getTerminator();
+  for (unsigned i = 0, e = PredTerm->getNumSuccessors(); i != e; ++i)
+    if (PredTerm->getSuccessor(i) == BB) {
+      BB->removePredecessor(PredBB, true);
+      PredTerm->setSuccessor(i, NewBB);
+    }
+#endif // INTEL_CUSTOMIZATION
+
   // If there were values defined in BB that are used outside the block, then we
   // now have to update all uses of the value to use either the original value,
   // the cloned value, or some PHI derived value.  This can require arbitrary
@@ -1505,7 +1578,7 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
     DEBUG(dbgs() << "\n");
   }
 
-
+#if !INTEL_CUSTOMIZATION
   // Ok, NewBB is good to go.  Update the terminator of PredBB to jump to
   // NewBB instead of BB.  This eliminates predecessors from BB, which requires
   // us to simplify any PHI nodes in BB.
@@ -1515,6 +1588,7 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
       BB->removePredecessor(PredBB, true);
       PredTerm->setSuccessor(i, NewBB);
     }
+#endif // !INTEL_CUSTOMIZATION
 
   // At this point, the IR is fully up to date and consistent.  Do a quick scan
   // over the new instructions and zap any that are constants or dead.  This
@@ -1538,12 +1612,37 @@ bool JumpThreading::DuplicateCondBranchOnPHIIntoPred(BasicBlock *BB,
   // If BB is a loop header, then duplicating this block outside the loop would
   // cause us to transform this into an irreducible loop, don't do this.
   // See the comments above FindLoopHeaders for justifications and caveats.
-  if (LoopHeaders.count(BB)) {
+  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader) {                 // INTEL
     DEBUG(dbgs() << "  Not duplicating loop header '" << BB->getName()
           << "' into predecessor block '" << PredBBs[0]->getName()
           << "' - it might create an irreducible loop!\n");
     return false;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Another problem with performing this optimization on a loop header is
+  // that the transformed code can end up identical to the original code,
+  // which would prevent the optimization pass from ever converging! This
+  // happens in cases like this:
+  //
+  //    bb1:
+  //      br label %bb2
+  //    bb2:
+  //      %x = phi i1 [ %x, %bb2 ], [ true, %bb1 ]
+  //      br i1 %x, label %bb2, label %bb3
+  //
+  // After duplicating bb2 into bb1 and doing PHI translation & instruction
+  // simplification, bb1 ends up looking exactly the same. So suppress this
+  // optimization on single basic block loops for safety.
+  pred_iterator PB = pred_begin(BB), PE = pred_end(BB);
+  for (pred_iterator PI = PB; PI != PE; ++PI)
+    if (*PI == BB) {
+      DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
+            << "' into predecessor block '" << PredBBs[0]->getName()
+            << "' - it might prevent jump threading from converging!\n");
+      return false;
+    }
+#endif // INTEL_CUSTOMIZATION
 
   unsigned DuplicationCost = getJumpThreadDuplicationCost(BB, BBDupThreshold);
   if (DuplicationCost > BBDupThreshold) {
