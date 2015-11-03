@@ -100,6 +100,11 @@ TargetLowering::makeLibCall(SelectionDAG &DAG,
     Entry.isZExt = !shouldSignExtendTypeInLibCall(Ops[i].getValueType(), isSigned);
     Args.push_back(Entry);
   }
+
+#if INTEL_CUSTOMIZATION
+  markInRegArguments(DAG, Args);
+#endif //INTEL_CUSTOMIZATION
+
   if (LC == RTLIB::UNKNOWN_LIBCALL)
     report_fatal_error("Unsupported library call operation!");
   SDValue Callee = DAG.getExternalSymbol(getLibcallName(LC),

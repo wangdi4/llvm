@@ -2411,6 +2411,15 @@ public:
 
   };
 
+#if INTEL_CUSTOMIZATION
+  // Mark inreg arguments for lib-calls. For normal calls this is done by
+  // the frontend ABI code.
+  virtual void markInRegArguments(SelectionDAG &DAG, 
+                 TargetLowering::ArgListTy &Args) const {
+    return;
+  }
+#endif //INTEL_CUSTOMIZATION
+
   /// This function lowers an abstract call to a function into an actual call.
   /// This returns a pair of operands.  The first element is the return value
   /// for the function (if RetTy is not VoidTy).  The second element is the
