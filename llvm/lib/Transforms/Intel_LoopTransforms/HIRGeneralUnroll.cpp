@@ -199,7 +199,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRParser>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
@@ -215,7 +214,7 @@ private:
 
   /// \brief Main method to be invoked after all the innermost loops
   /// are gathered.
-  void processGeneralUnroll(SmallVectorImpl<const HLLoop *> &CandidateLoops);
+  void processGeneralUnroll(SmallVectorImpl<HLLoop *> &CandidateLoops);
   /// \brief Determines if Unrolling is profitable for the given Loop.
   bool isProfitable(const HLLoop *Loop, bool *IsConstLoop, int64_t *TripCount);
   /// \brief High level method which gives call to other sub-methods.
@@ -226,9 +225,6 @@ private:
   void processRemainderLoop(HLLoop *OrigLoop, bool IsConstLoop,
                             int64_t TripCount, int64_t NewBound,
                             const RegDDRef *NewRef);
-  /// \brief Processes the Ztt for unrolling the loop.
-  /// This will hoist out the Ztt and insert the loop inside it.
-  void processZtt(HLLoop *OrigLoop);
 
   /// \brief Updates bound DDRef by setting the correct defined at level and
   /// adding a blob DDref for the newly created temp.
@@ -276,8 +272,8 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
     return false;
 
   // Gather the innermost loops as candidates.
-  SmallVector<const HLLoop *, 64> CandidateLoops;
-  HLNodeUtils::gatherInnermostLoops(&CandidateLoops);
+  SmallVector<HLLoop *, 64> CandidateLoops;
+  HLNodeUtils::gatherInnermostLoops(CandidateLoops);
 
   processGeneralUnroll(CandidateLoops);
 
@@ -289,7 +285,7 @@ void HIRGeneralUnroll::releaseMemory() {}
 /// processGeneralUnroll - Main routine to perform unrolling.
 /// First, performs cost analysis and then do the transformation.
 void HIRGeneralUnroll::processGeneralUnroll(
-    SmallVectorImpl<const HLLoop *> &CandidateLoops) {
+    SmallVectorImpl<HLLoop *> &CandidateLoops) {
 
   int64_t TripCount = 0;
   bool isConstantLoop = false;
@@ -297,12 +293,12 @@ void HIRGeneralUnroll::processGeneralUnroll(
   for (auto Iter = CandidateLoops.begin(), End = CandidateLoops.end();
        Iter != End; ++Iter, TripCount = 0, isConstantLoop = false) {
 
-    const HLLoop *Loop = (*Iter);
+    HLLoop *Loop = (*Iter);
 
     // Perform a cost/profitability analysis on the loop
     // If all conditions are met, unroll it.
     if (isProfitable(Loop, &isConstantLoop, &TripCount)) {
-      transformLoop(const_cast<HLLoop *>(Loop), isConstantLoop, TripCount);
+      transformLoop(Loop, isConstantLoop, TripCount);
       IsUnrollTriggered = true;
       LoopsGenUnrolled++;
     }
@@ -387,8 +383,7 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   DEBUG(OrigLoop->dump());
 
   // Extract Ztt and add it outside the loop.
-  // TODO: Check Const Trip loop should not have Ztt.
-  processZtt(OrigLoop);
+  HLNodeUtils::hoistZtt(OrigLoop);
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollFactor)' for
   // non-constant trip loops. For const trip loops calculate the bound.
@@ -410,19 +405,6 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops ");
   DEBUG(UnrollLoop->dump());
-}
-
-// This will hoist out the Ztt and insert the loop inside it.
-void HIRGeneralUnroll::processZtt(HLLoop *OrigLoop) {
-
-  if (!OrigLoop->hasZtt()) {
-    return;
-  }
-
-  DEBUG(dbgs() << "Extracting Ztt \n");
-  HLIf *Ztt = OrigLoop->removeZtt();
-  assert(!Ztt->hasElseChildren() && " Ztt should not have else children.");
-  HLNodeUtils::moveAsFirstChild(Ztt, OrigLoop, true);
 }
 
 void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,

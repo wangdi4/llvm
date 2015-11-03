@@ -105,7 +105,7 @@ void HIRLocalityAnalysis::checkLocality() {
   // For any changes, please run the llvm-lit tests
   // to check for any breakage.
   SmallVector<const HLLoop *, 16> Loops;
-  HLNodeUtils::gatherOutermostLoops(&Loops);
+  HLNodeUtils::gatherOutermostLoops(Loops);
   for (auto &I : Loops) {
     SmallVector<LoopLocalityPair, 16> LoopLocality;
     sortedLocalityLoops(I, LoopLocality);
@@ -119,7 +119,6 @@ void HIRLocalityAnalysis::releaseMemory() {
     delete I.second;
   }
   LocalityMap.clear();
-  LoopModificationMap.clear();
   // Below are redundant clears.
   RefGroups.clear();
   ConstTripCache.clear();
@@ -411,8 +410,7 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
            " CanonExpr type mismatch.");
 
     // Diff the CanonExprs.
-    const CanonExpr *Result =
-        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+    const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
 
     // Result should not have any IV's or blobs.
     if (Result->hasBlob() || Result->hasIV())
@@ -739,29 +737,17 @@ void HIRLocalityAnalysis::resetLocalityMap(const HLLoop *L) {
   }
 }
 
-// Visitor to gather all loops.
-struct LoopVisitor final : public HLNodeVisitorBase {
-
-  SmallVectorImpl<const HLLoop *> *Loops;
-
-  LoopVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer)
-      : Loops(LoopContainer) {}
-
-  void visit(const HLLoop *L) { Loops->push_back(L); }
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-};
-
 // This is a high level routine to compute different locality.
-void HIRLocalityAnalysis::computeLocality(const HLLoop *L, bool EnableCache) {
+void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
+                                          bool EnableCache) {
 
   // Check if the Loop locality is valid from past computation.
-  if (!isLoopModified(L) && EnableCache)
+  if (!isLoopModified(Loop) && EnableCache)
     return;
 
   // Get the Symbase to Memory References.
   SymToMemRefTy MemRefMap;
-  DDRefUtils::gatherMemRefs(L, MemRefMap);
+  DDRefUtils::gatherMemRefs(Loop, MemRefMap);
 
   // Debugging
   DEBUG(DDRefUtils::dumpMemRefMap(&MemRefMap));
@@ -779,16 +765,15 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *L, bool EnableCache) {
   DEBUG(dbgs() << " End\n");
 
   // Collect all the loops inside the loop nest.
-  SmallVector<const HLLoop *, 16> Loops;
-  LoopVisitor LoopVisit(&Loops);
-  HLNodeUtils::visit(LoopVisit, L);
+  SmallVector<const HLLoop *, 16> LoopVec;
+  HLNodeUtils::gatherAllLoops(Loop, LoopVec);
 
-  initConstTripCache(&Loops);
+  initConstTripCache(&LoopVec);
 
   // For each loop, we create a reference group based on the sorted Memory Ref
   // Mapping, then compute the temporal reuse and spatial locality. The
   // Reference groups are based on per loop basis.
-  for (auto Iter = Loops.begin(), End = Loops.end(); Iter != End; ++Iter) {
+  for (auto Iter = LoopVec.begin(), End = LoopVec.end(); Iter != End; ++Iter) {
 
     const HLLoop *CurLoop = *Iter;
 
@@ -836,18 +821,18 @@ uint64_t HIRLocalityAnalysis::getLocalityValue(const HLLoop *Loop) {
   return LI->getLocalityValue();
 }
 
-void HIRLocalityAnalysis::verifyLocality(const HLLoop *L) {
+void HIRLocalityAnalysis::verifyLocality(const HLLoop *Loop) {
 
   // If Loop is modified, then we cannot do a cache check (verify).
-  if (isLoopModified(L)) {
-    computeLocality(L, false);
+  if (isLoopModified(Loop)) {
+    computeLocality(Loop, false);
   } else {
     // Compare the cached value with newly computed value.
-    uint64_t CachedLoc = LocalityMap[L]->getLocalityValue();
-    computeLocality(L, false);
+    uint64_t CachedLoc = LocalityMap[Loop]->getLocalityValue();
+    computeLocality(Loop, false);
 
     (void)CachedLoc;
-    assert((CachedLoc != LocalityMap[L]->getLocalityValue()) &&
+    assert((CachedLoc != LocalityMap[Loop]->getLocalityValue()) &&
            " Cached locality information not consistent.");
   }
 }
@@ -856,9 +841,10 @@ void HIRLocalityAnalysis::verifyLocality(const HLLoop *L) {
 // Note that the topmost Loop level must be passed to this method, similar
 // to loop interchange use case.
 void HIRLocalityAnalysis::sortedLocalityLoops(
-    const HLLoop *L, SmallVectorImpl<LoopLocalityPair> &LoopLocality) {
+    const HLLoop *OutermostLoop,
+    SmallVectorImpl<LoopLocalityPair> &LoopLocality) {
 
-  assert(L && " Loop parameter is null.");
+  assert(OutermostLoop && " Loop parameter is null.");
   assert(LoopLocality.empty() && "LoopLocality vector is non-empty.");
 
 // Compute the locality for the entire loop nest, if necessary.
@@ -867,22 +853,22 @@ void HIRLocalityAnalysis::sortedLocalityLoops(
 // done for testing.
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   // Debug mode.
-  verifyLocality(L);
+  verifyLocality(OutermostLoop);
 #else
   // Optimized mode.
-  computeLocality(L, true);
+  computeLocality(OutermostLoop, true);
 #endif
 
   SmallVector<const HLLoop *, 16> Loops;
-  LoopVisitor LoopVisit(&Loops);
-  HLNodeUtils::visit(LoopVisit, L);
+  HLNodeUtils::gatherAllLoops(OutermostLoop, Loops);
 
   // Store all the Loop Locality Information.
   for (auto Iter = Loops.begin(), End = Loops.end(); Iter != End; ++Iter) {
-    const HLLoop *L = *Iter;
-    assert(LocalityMap.count(L) && " Locality information for loop not found.");
-    LocalityInfo *LI = LocalityMap[L];
-    LoopLocality.push_back(std::make_pair(L, LI->getLocalityValue()));
+    const HLLoop *CurLoop = *Iter;
+    assert(LocalityMap.count(CurLoop) &&
+           " Locality information for loop not found.");
+    LocalityInfo *LI = LocalityMap[CurLoop];
+    LoopLocality.push_back(std::make_pair(CurLoop, LI->getLocalityValue()));
   }
 
   std::sort(LoopLocality.begin(), LoopLocality.end(), compareLocalityValue());

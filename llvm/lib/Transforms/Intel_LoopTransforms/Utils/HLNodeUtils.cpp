@@ -1211,6 +1211,20 @@ void HLNodeUtils::remove(HLNode *Node) {
   removeImpl(It, std::next(It), nullptr);
 }
 
+void HLNodeUtils::remove(HLContainerTy *Container, HLNode *Node1,
+                         HLNode *Node2) {
+  assert(Node1 && Node2 && " Node1 or Node 2 cannot be null.");
+  assert(Container && " Clone Container is null.");
+  assert(!isa<HLRegion>(Node1) && !isa<HLRegion>(Node2) &&
+         " Node1 or Node2 cannot be a HLRegion.");
+  assert((Node1->getParent() == Node2->getParent()) &&
+         " Parent of Node1 and Node2 don't match.");
+
+  HLContainerTy::iterator ItStart(Node1);
+  HLContainerTy::iterator ItEnd(Node2);
+  removeImpl(ItStart, std::next(ItEnd), Container);
+}
+
 void HLNodeUtils::erase(HLContainerTy::iterator First,
                         HLContainerTy::iterator Last) {
   removeImpl(First, Last, nullptr, true);
@@ -2008,75 +2022,6 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
   return (SCVisit.IsSwitch || SCVisit.IsCall);
 }
 
-// Visitor to gather innermost loops.
-struct InnermostLoopVisitor final : public HLNodeVisitorBase {
-
-  SmallVectorImpl<const HLLoop *> *InnerLoops;
-  const HLNode *SkipNode;
-
-  InnermostLoopVisitor(SmallVectorImpl<const HLLoop *> *Loops)
-      : InnerLoops(Loops), SkipNode(nullptr) {}
-
-  void visit(const HLLoop *L) {
-    if (L->isInnermost()) {
-      InnerLoops->push_back(L);
-      SkipNode = L;
-    }
-  }
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-
-  bool skipRecursion(const HLNode *Node) const override {
-    return (SkipNode && (Node == SkipNode));
-  }
-};
-
-void HLNodeUtils::gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
-  assert(Loops && " Loops parameter is null.");
-  InnermostLoopVisitor LoopVisit(Loops);
-  HLNodeUtils::visitAll(LoopVisit);
-}
-
-// Visitor to gather loops with specified level.
-struct LoopLevelVisitor final : public HLNodeVisitorBase {
-
-  SmallVectorImpl<const HLLoop *> *Loops;
-  unsigned Level;
-  const HLNode *SkipNode;
-
-  LoopLevelVisitor(SmallVectorImpl<const HLLoop *> *LoopContainer, unsigned Lvl)
-      : Loops(LoopContainer), Level(Lvl), SkipNode(nullptr) {}
-
-  void visit(const HLLoop *L) {
-    if (L->getNestingLevel() == Level) {
-      Loops->push_back(L);
-      SkipNode = L;
-    }
-  }
-  void visit(const HLNode *Node) {}
-  void postVisit(const HLNode *Node) {}
-  bool skipRecursion(const HLNode *Node) const override {
-    return (SkipNode && (Node == SkipNode));
-  }
-};
-
-void HLNodeUtils::gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops) {
-  assert(Loops && " Loops parameter is null.");
-  // Level 1 denotes outermost loops
-  LoopLevelVisitor LoopVisit(Loops, 1);
-  HLNodeUtils::visitAll(LoopVisit);
-}
-
-void HLNodeUtils::gatherLoopswithLevel(const HLNode *Node,
-                                       SmallVectorImpl<const HLLoop *> *Loops,
-                                       unsigned Level) {
-  assert(Node && " Node is null.");
-  assert(Loops && " Loops parameter is null.");
-  assert(Level > 0 && Level <= MaxLoopNestLevel && " Level is out of range.");
-  LoopLevelVisitor LoopVisit(Loops, Level);
-  HLNodeUtils::visit(LoopVisit, Node);
-}
-
 // Useful to detect if A(2 * N *I) will not be A(0) based on symbolic in
 // UB.
 // If the coeff could be  0, then we might end up with DV equals *
@@ -2359,4 +2304,18 @@ void HLNodeUtils::permuteLoopNests(
     assert(DstLoop != SrcLoop && "Dst, Src loop cannot be equal");
     moveProperties(SrcLoop, DstLoop);
   }
+}
+
+HLIf *HLNodeUtils::hoistZtt(HLLoop *Loop) {
+
+  if (!Loop->hasZtt()) {
+    return nullptr;
+  }
+
+  HLIf *Ztt = Loop->removeZtt();
+  assert(!Ztt->hasElseChildren() && !Ztt->hasThenChildren() &&
+         " Ztt should not have then/else children.");
+  HLNodeUtils::insertBefore(Loop, Ztt);
+  HLNodeUtils::moveAsFirstChild(Ztt, Loop, true);
+  return Ztt;
 }

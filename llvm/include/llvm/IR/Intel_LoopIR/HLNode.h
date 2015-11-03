@@ -67,7 +67,7 @@ private:
   /// Global number used for assigning unique numbers to HLNodes.
   static unsigned GlobalNum;
 
-  /// ID to differentitate bwtween concrete subclasses.
+  /// ID to differentiate between concrete subclasses.
   const unsigned char SubClassID;
   /// Lexical parent of HLNode.
   HLNode *Parent;

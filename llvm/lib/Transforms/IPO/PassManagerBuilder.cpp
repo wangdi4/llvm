@@ -627,6 +627,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   PM.add(createSSADeconstructionPass());
 
+  PM.add(createHIROptPredicatePass());
   PM.add(createHIRCompleteUnrollPass());
   PM.add(createHIRGeneralUnrollPass());
 

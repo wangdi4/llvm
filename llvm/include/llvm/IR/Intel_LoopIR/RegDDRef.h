@@ -122,7 +122,7 @@ protected:
 
   /// \brief Returns true if the Position is within the dimension range.
   bool isDimensionValid(unsigned Pos) const {
-    return (Pos > 0 && Pos <= getNumDimensions()) ? true : false;
+    return (Pos > 0 && Pos <= getNumDimensions());
   }
 
   /// \brief Implements getBase*Type() functionality.

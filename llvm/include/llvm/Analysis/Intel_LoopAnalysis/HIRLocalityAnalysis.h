@@ -47,6 +47,7 @@ class HIRLocalityAnalysis : public FunctionPass {
 
 private:
   // Symbolic constant to denote unknown 'N' trip count.
+  // TODO: Revisit this for scaling known loops.
   const unsigned SymbolicConst = 20;
 
   // number of cache lines =
@@ -88,7 +89,7 @@ private:
   };
 
   // Maintains the Locality information in a map for the loops.
-  SmallDenseMap<const HLLoop *, LocalityInfo *, 64> LocalityMap;
+  SmallDenseMap<const HLLoop *, LocalityInfo *, 16> LocalityMap;
 
   // First argument is the HLLoop and second argument
   // tells if the loop was modified or not. True indicates it was
@@ -201,7 +202,7 @@ public:
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, locality of the loop and all its parents loops
   /// needs to recomputed.
-  void markLoopModified(const HLLoop *L);
+  void markLoopModified(const HLLoop *Loop);
 
   /// \brief Returns the loop cost of the specified loop.
   uint64_t getLocalityValue(const HLLoop *Loop);
@@ -209,7 +210,7 @@ public:
   /// \brief Returns a sorted list of loops from lower to higher (where higher
   /// is better) based on locality value.
   void sortedLocalityLoops(
-      const HLLoop *L,
+      const HLLoop *OutermostLoop,
       SmallVectorImpl<std::pair<const HLLoop *, uint64_t>> &LoopLocality);
 };
 

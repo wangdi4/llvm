@@ -225,7 +225,7 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVfound = 0;
-  assert(IVnum > 0 && IVnum <= MaxLoopNestLevel && "IVnum not within range");
+  assert(HLNodeUtils::isLoopLevelValid(IVnum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -4838,7 +4838,7 @@ bool llvm::loopopt::isDValEQ(const DVType *DV) {
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
 
-  assert((FromLevel > 0 && FromLevel <= MaxLoopNestLevel) && "incorrect Level");
+  assert(HLNodeUtils::isLoopLevelValid(FromLevel) && "incorrect Level");
 
   for (unsigned II = 1; II <= FromLevel - 1; ++II) {
     unsigned Direction = DV[II - 1];

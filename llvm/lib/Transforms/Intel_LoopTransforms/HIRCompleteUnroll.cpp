@@ -92,7 +92,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
-#define DEBUG_TYPE "hir-completeunroll"
+#define DEBUG_TYPE "hir-complete-unroll"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -210,7 +210,6 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRParser>();
     AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
@@ -221,10 +220,10 @@ private:
 
   unsigned CurrentTripThreshold;
   // Storage for Outermost Loops.
-  SmallVector<const HLLoop *, 64> OuterLoops;
+  SmallVector<HLLoop *, 64> OuterLoops;
   /// Storage for loops which will be transformed.
   /// The ordering inside the container is from inner to outer.
-  SmallVector<std::pair<const HLLoop *, LoopData *>, 32> TransformLoops;
+  SmallVector<std::pair<HLLoop *, LoopData *>, 32> TransformLoops;
 
   /// \brief Performs cost analysis to determine if a loop
   /// is eligible for complete unrolling. If loop meets all the criteria,
@@ -240,7 +239,7 @@ private:
 
   /// \brief Processes a HLLoop to check if it candidate for transformation.
   /// ChildTripCnt denotes the trip count of the children.
-  bool processLoop(const HLLoop *Loop, int64_t *ChildTripCnt);
+  bool processLoop(HLLoop *Loop, int64_t *ChildTripCnt);
 
   /// \brief Routine to drive the transformation of candidate loops.
   void transformLoops();
@@ -248,12 +247,11 @@ private:
 }
 
 char HIRCompleteUnroll::ID = 0;
-INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "HIRCompleteUnroll",
+INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
                       "HIR Complete Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
-INITIALIZE_PASS_END(HIRCompleteUnroll, "HIRCompleteUnroll",
+INITIALIZE_PASS_END(HIRCompleteUnroll, "hir-complete-unroll",
                     "HIR Complete Unroll", false, false)
 
 FunctionPass *llvm::createHIRCompleteUnrollPass(int Threshold) {
@@ -272,7 +270,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
     return false;
 
   // Gather the outermost loops
-  HLNodeUtils::gatherOutermostLoops(&OuterLoops);
+  HLNodeUtils::gatherOutermostLoops(OuterLoops);
 
   processCompleteUnroll();
 
@@ -294,11 +292,11 @@ void HIRCompleteUnroll::processCompleteUnroll() {
   transformLoops();
 }
 
-bool HIRCompleteUnroll::processLoop(const HLLoop *Loop, int64_t *TotalTripCnt) {
+bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
 
   // Gather the immediate children.
-  SmallVector<const HLLoop *, 8> ChildLoops;
-  HLNodeUtils::gatherLoopswithLevel(Loop, &ChildLoops,
+  SmallVector<HLLoop *, 8> ChildLoops;
+  HLNodeUtils::gatherLoopswithLevel(Loop, ChildLoops,
                                     Loop->getNestingLevel() + 1);
 
   bool ChildValid = true;
@@ -387,7 +385,7 @@ void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from innermost to outermost.
   for (auto &I : TransformLoops) {
-    transformLoop(const_cast<HLLoop *>(I.first), I.second);
+    transformLoop(I.first, I.second);
   }
 }
 

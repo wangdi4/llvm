@@ -2,7 +2,7 @@
 ; with statement , a[i] = a[n*i].
 ; This test should not produce any remainder loop.
 
-REQUIRES: disable
+; REQUIRES: disable
 
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 ; HIR Check.
