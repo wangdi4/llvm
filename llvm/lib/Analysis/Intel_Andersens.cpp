@@ -1222,11 +1222,35 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
-  if (isa<PointerType>(SI.getOperand(0)->getType()))
-    // store P1, P2  -->  <Store/P2/P1>
-    Constraints.push_back(Constraint(Constraint::Store,
-                                     getNode(SI.getOperand(1)),
-                                     getNode(SI.getOperand(0))));
+  ConstantExpr *CE;
+
+  if (isa<PointerType>(SI.getOperand(0)->getType())) {
+    // CQ377860: So far, “value to store” operand of “Instruction::Store”
+    // is treated as either “value” or constant expression. But, it is 
+    // possible that “value to store” operand of “Instruction::Store” 
+    // can be “Instruction::Select” instruction when “Instruction::Select”
+    // is constant expression.
+    //
+    // Ex: store void (i8*)* select (i1 icmp eq (void (i8*)* inttoptr 
+    // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)** %18
+    if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
+        (CE->getOpcode() == Instruction::Select)) {
+      // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
+      unsigned SIN = getNode(SI.getOperand(1));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(1))));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(2))));
+    }
+    else {
+      // store P1, P2  -->  <Store/P2/P1>
+      Constraints.push_back(Constraint(Constraint::Store,
+                                       getNode(SI.getOperand(1)),
+                                       getNode(SI.getOperand(0))));
+    }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -1375,7 +1399,27 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
 /// reasonable.
 void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
-  if (F == NULL) {
+  // CQ377893: It is possible that getCalledFunction returns nullptr
+  // even for direct calls. It happens when getCalledValue is not 
+  // direct callee.
+  //
+  // Ex:  extern set_family* sf_new();
+  //      ...
+  //     = sf_new(total_size, cub );  // Notice mismatch  args and formals
+  //
+  // IR:
+  // %call35 = call %struct.set_family* bitcast (%struct.set_family* (...)* 
+  //  @sf_new to %struct.set_family* (i32, i32)*)(i32 %total_size.0, i32 %14)
+  //
+  // Callee can be found by parsing getCalledValue but it may not be 
+  // useful due to mismatch of args and formals. Decided to go conservative. 
+  //
+  if (F == nullptr && isa<ConstantExpr>(CS.getCalledValue())) {
+    AddConstraintsForInitActualsToUniversalSet(CS);
+    return; 
+  }
+
+  if (F == nullptr) {
     // Handle Indirect calls differently
     IndirectCallList.push_back(CS);
     return; 
@@ -2482,6 +2526,11 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   Function::arg_iterator formal_end = F->arg_end();
   Function::arg_iterator last_formal = NULL;
 
+  // TODO: Ignore non-vararg functions if number of formals 
+  // doesn’t match with number of arguments of the call-site 
+  // to improve accuracy of points-to sets.   
+
+
   if (CS.getType()->isPointerTy()) {
     if (isa<PointerType>(F->getFunctionType()->getReturnType())) {
       AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
@@ -2491,7 +2540,9 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
     }
   }
 
-  for (; formal_itr != formal_end;) {
+  // CQ377744: Stop trying to map arguments and formals if 
+  // arg_itr or formal_itr reached an end.
+  for (; formal_itr != formal_end && arg_itr != arg_end;) {
     Argument* formal = formal_itr;
     Value* actual = *arg_itr;
     if (formal->getType()->isPointerTy()) {
@@ -3613,6 +3664,14 @@ namespace llvm {
 
     // Build the mod-ref set for the function
     void collectFunction(Function *F);
+    
+    // Update the DirectModRef set based on the actions of the Instrution
+    void collectInstruction(Instruction *I, ModRefMap *DirectModRef);
+
+    // Update the DirectModRef set based on the Value, using the specified
+    // mask value for whether to treat the variable as modified or referenced.
+    void collectValue(Value *V, ModRefMap *DirectModRef,
+        unsigned mask = MRI_ModRef);
 
     // Check if the function contains something that will cause the ModRef
     // sets to be BOTTOM
@@ -3724,88 +3783,7 @@ void IntelModRefImpl::collectFunction(Function *F)
 
     ModRefMap DirectModRef;
     for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-        if (LoadInst *LI = dyn_cast<LoadInst>(&*(I))) {
-            Value *ValOperand = LI->getPointerOperand();
-            bool Changed = DirectModRef.addRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "REF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (StoreInst *SI = dyn_cast<StoreInst>(&(*I))) {
-            Value *PtrOperand = SI->getPointerOperand();
-            bool Changed = DirectModRef.addMod(PtrOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *PtrOperand << "\n\n");
-            }
-
-            // Consider the rest of the operands as Loads.
-            Value *ValOperand = SI->getValueOperand();
-            if (isInterestingPointer(ValOperand)) {
-                bool Changed = DirectModRef.addRef(ValOperand);
-                if (Changed) {
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                    "REF: " << *ValOperand << "\n\n");
-                }
-            }
-            continue;
-        }
-        else if (BitCastInst *BC = dyn_cast<BitCastInst>(&(*I))) {
-            Value *ValOperand = BC->getOperand(0);
-            bool Changed = DirectModRef.addRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MODREF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(&(*I))) {
-            Value *ValOperand = ACX->getPointerOperand();
-            bool Changed = DirectModRef.addModRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MODREF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(&(*I))) {
-            Value *ValOperand = AWMW->getPointerOperand();
-            bool Changed = DirectModRef.addMod(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (isInterestingPointer(&(*I))) {
-            Value *ValPtr = &(*I);
-            bool Changed = DirectModRef.addMod(ValPtr);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *ValPtr << "\n\n");
-            }
-        }
-
-        if (CallSite CS = CallSite(&(*I))) {
-            // Collect all the values passed
-            int ArgNo = 0;
-            for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
-                AI != AE; ++AI, ++ArgNo) {
-                if (isInterestingPointer(*AI)) {
-                    bool Changed = DirectModRef.addRef(*AI);
-                    if (Changed) {
-                        DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                        DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                        "REF: " << *(*AI) << "\n\n");
-                    }
-                }
-            }
-        }
+        collectInstruction(&(*I), &DirectModRef);
     }
 
     DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
@@ -3819,6 +3797,123 @@ void IntelModRefImpl::collectFunction(Function *F)
     // Prune modref sets to just be the set we want to track
     pruneModRefSets(&FR);
 }
+
+// Collect pointers (and points-to aliases) for each pointer directly
+// modified or referenced in the instruction.
+void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef)
+{
+    if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+        Value *ValOperand = LI->getPointerOperand();
+        bool Changed = DirectModRef->addRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "REF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        Value *PtrOperand = SI->getPointerOperand();
+        bool Changed = DirectModRef->addMod(PtrOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *PtrOperand << "\n\n");
+        }
+
+        // Consider the rest of the operands as Loads.
+        Value *ValOperand = SI->getValueOperand();
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        return;
+    }
+    else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
+        Value *ValOperand = BC->getOperand(0);
+        bool Changed = DirectModRef->addRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
+        Value *ValOperand = ACX->getPointerOperand();
+        bool Changed = DirectModRef->addModRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(I)) {
+        Value *ValOperand = AWMW->getPointerOperand();
+        bool Changed = DirectModRef->addMod(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (isInterestingPointer(I)) {
+        Value *ValPtr = I;
+        bool Changed = DirectModRef->addMod(ValPtr);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *ValPtr << "\n\n");
+        }
+    }
+
+    if (CallSite CS = CallSite(I)) {
+        // Collect all the values passed
+        int ArgNo = 0;
+        for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
+            AI != AE; ++AI, ++ArgNo) {
+            if (isInterestingPointer(*AI)) {
+                bool Changed = DirectModRef->addRef(*AI);
+                if (Changed) {
+                    DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+                    DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                        "REF: " << *(*AI) << "\n\n");
+                }
+            }
+        }
+    }
+}
+
+// Collect pointers (and points-to aliases) for each pointer directly
+// modified or referenced as a Value sub-expression of an instruction.
+void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
+    unsigned mask)
+{
+    ConstantExpr *CE;
+
+    if ((CE = dyn_cast<ConstantExpr>(V)) &&
+        (CE->getOpcode() == Instruction::Select)) {
+        // cq377680: Handle case where store operand is a SelectInst choosing
+        // between two constant memory pointers:
+        //
+        // Ex:
+        //   store void (i8*)*
+        //     select (i1 icmp eq
+        //         (void (i8*)* inttoptr  (i64 3 to void (i8*)*),
+        //          void (i8*)* @DeleteScriptLimitCallback),
+        //       void (i8*)* @Tcl_Free, 
+        //       void (i8*)* @DeleteScriptLimitCallback),
+        //     void (i8*)** %18
+        Value *ValOperand = CE->getOperand(1);
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        ValOperand = CE->getOperand(2);
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+    }
+    else if (isInterestingPointer(V)) {
+        bool Changed = DirectModRef->addModRef(V, mask);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF(" << mask << "): " << *V << "\n\n");
+        }
+    }
+}
+
 
 // Check if there is something about the routine that will cause ModRef
 // sets to always be bottom.
