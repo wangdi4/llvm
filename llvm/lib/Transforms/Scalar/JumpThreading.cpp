@@ -262,17 +262,29 @@ static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
                                              unsigned Threshold) {
   /// Ignore PHI nodes, these will be flattened when duplication happens.
   BasicBlock::const_iterator I = BB->getFirstNonPHI();
+#if INTEL_CUSTOMIZATION
+  const TerminatorInst *Term = BB->getTerminator();
+  unsigned Size = 0, TermWeight = 0;
+
+  // Threading through a switch statement is particularly profitable.  If this
+  // block ends in a switch, decrease its cost to make it more likely to happen.
+  if (isa<SwitchInst>(Term))
+    TermWeight = 6;
+
+  // The same holds for indirect branches, but slightly more so.
+  if (isa<IndirectBrInst>(Term))
+    TermWeight = 8;
+#endif // INTEL_CUSTOMIZATION
 
   // FIXME: THREADING will delete values that are just used to compute the
   // branch, so they shouldn't count against the duplication cost.
 
   // Sum up the cost of each instruction until we get to the terminator.  Don't
   // include the terminator because the copy won't include it.
-  unsigned Size = 0;
   for (; !isa<TerminatorInst>(I); ++I) {
 
     // Stop scanning the block if we've reached the threshold.
-    if (Size > Threshold)
+    if (Size > Threshold + TermWeight)                                  // INTEL
       return Size;
 
     // Debugger intrinsics don't incur code size.
@@ -305,17 +317,7 @@ static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
         Size += 1;
     }
   }
-
-  // Threading through a switch statement is particularly profitable.  If this
-  // block ends in a switch, decrease its cost to make it more likely to happen.
-  if (isa<SwitchInst>(I))
-    Size = Size > 6 ? Size-6 : 0;
-
-  // The same holds for indirect branches, but slightly more so.
-  if (isa<IndirectBrInst>(I))
-    Size = Size > 8 ? Size-8 : 0;
-
-  return Size;
+  return (Size > TermWeight) ? Size - TermWeight : 0;                   // INTEL
 }
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
