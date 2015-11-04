@@ -411,7 +411,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, LoopData *LD) {
     HLNodeUtils::insertBefore(Loop, &LoopBody);
 
     CanonExprVisitor CEVisit(Loop->getNestingLevel(), TripVal);
-    HLNodeUtils::visit(CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
   }
 
   Loop->getParentRegion()->setGenCode();

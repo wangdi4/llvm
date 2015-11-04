@@ -533,8 +533,8 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin,
-                    ilist_iterator<NodeTy> End) {
+  static void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
+                         ilist_iterator<NodeTy> End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
   }
@@ -545,12 +545,13 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  static void visit(HV &Visitor, NodeTy *Begin, NodeTy *End) {
+  static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
     ilist_iterator<NodeTy> BeginIter(Begin);
     ilist_iterator<NodeTy> EndIter(End);
-    visit<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
-                                                  std::next(EndIter));
+    EndIter++;
+    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
+                                                       EndIter);
   }
 
   /// \brief Visits all HLNodes in the HIR. The direction is specified using

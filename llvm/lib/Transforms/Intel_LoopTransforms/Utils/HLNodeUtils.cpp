@@ -740,7 +740,7 @@ void HLNodeUtils::cloneSequenceImpl(HLContainerTy *CloneContainer,
   }
 
   HLNodeUtils::CloneVisitor CloneVisit(CloneContainer, &GotoList, &LabelMap);
-  visit<false>(CloneVisit, Node1, Node2);
+  visitRange<false>(CloneVisit, Node1, Node2);
   CloneVisit.postVisitUpdate();
 }
 
@@ -809,7 +809,7 @@ void HLNodeUtils::updateLoopInfoRecursively(HLContainerTy::iterator First,
                                             HLContainerTy::iterator Last) {
 
   HLNodeUtils::LoopFinderUpdater LoopUpdater(false);
-  visit(LoopUpdater, First, Last);
+  visitRange(LoopUpdater, First, Last);
 }
 
 void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
@@ -1108,7 +1108,7 @@ bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
                                    HLContainerTy::iterator Last) {
   HLNodeUtils::LoopFinderUpdater LoopFinder(true);
 
-  visit(LoopFinder, First, Last);
+  visitRange(LoopFinder, First, Last);
 
   return LoopFinder.foundLoop();
 }
@@ -1744,7 +1744,7 @@ bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
 
   StructuredFlowChecker SFC(PostDomination, TargetNode);
   // Doesn't recurse into loops.
-  visit<true, false>(SFC, FirstNode, LastNode);
+  visitRange<true, false>(SFC, FirstNode, LastNode);
 
   return SFC.isStructured();
 }
@@ -2015,9 +2015,9 @@ bool HLNodeUtils::hasSwitchOrCall(const HLNode *NodeStart,
   assert(NodeStart && NodeEnd && " Node Start/End is null.");
   SwitchCallVisitor SCVisit;
   if (RecurseInsideLoops) {
-    HLNodeUtils::visit<true, true>(SCVisit, NodeStart, NodeEnd);
+    HLNodeUtils::visitRange<true, true>(SCVisit, NodeStart, NodeEnd);
   } else {
-    HLNodeUtils::visit<true, false>(SCVisit, NodeStart, NodeEnd);
+    HLNodeUtils::visitRange<true, false>(SCVisit, NodeStart, NodeEnd);
   }
   return (SCVisit.IsSwitch || SCVisit.IsCall);
 }

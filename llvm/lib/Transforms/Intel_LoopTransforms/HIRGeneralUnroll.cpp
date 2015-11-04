@@ -531,7 +531,7 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop) {
 
     CanonExprVisitor CEVisit(UnrollLoop->getNestingLevel(), UnrollFactor,
                              UnrollCnt);
-    HLNodeUtils::visit(CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
   }
 }
 

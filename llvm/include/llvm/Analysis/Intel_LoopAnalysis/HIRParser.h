@@ -394,9 +394,9 @@ public:
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }
-  HIRCreation::const_iterator hir_begin() const { return HIR->begin(); }
+  HIRCreation::const_iterator hir_cbegin() const { return HIR->begin(); }
   HIRCreation::iterator hir_end() { return HIR->end(); }
-  HIRCreation::const_iterator hir_end() const { return HIR->end(); }
+  HIRCreation::const_iterator hir_cend() const { return HIR->end(); }
 
   HIRCreation::reverse_iterator hir_rbegin() { return HIR->rbegin(); }
   HIRCreation::const_reverse_iterator hir_rbegin() const {

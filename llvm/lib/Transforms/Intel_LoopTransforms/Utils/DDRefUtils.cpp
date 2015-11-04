@@ -54,61 +54,6 @@ void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 
 void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
 
-// TODO: Merge the DDRef visitor with other visitors.
-// Visitor to gather Memory DDRef and store it in the symbase.
-class MemRefGatherer final : public HLNodeVisitorBase {
-
-private:
-  SymToMemRefTy &SymToMemRefs;
-
-  void addMemRef(RegDDRef *RegDD) {
-    // Ignore Scalar Refs
-    if (RegDD->isScalarRef()) {
-      return;
-    }
-
-    unsigned Symbase = (RegDD)->getSymbase();
-    SymToMemRefs[Symbase].push_back(RegDD);
-  }
-
-public:
-  MemRefGatherer(SymToMemRefTy &SymToMemPtr) : SymToMemRefs(SymToMemPtr) {}
-
-  void postVisit(HLNode *Node) {}
-  void postVisit(HLDDNode *Node) {}
-  void visit(HLNode *Node) {}
-
-  void visit(HLDDNode *Node) {
-    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-      if (!(*I)->isConstant()) {
-        addMemRef(*I);
-      }
-    }
-  }
-};
-
-void DDRefUtils::gatherMemRefs(const HLNode *Node, SymToMemRefTy &SymToMemRef) {
-  assert(Node && " Node is null.");
-  MemRefGatherer MGatherer(SymToMemRef);
-  HLNodeUtils::visit(MGatherer, const_cast<HLNode *>(Node));
-}
-
-// This is just for testing
-void DDRefUtils::dumpMemRefMap(SymToMemRefTy *RefMap) {
-  assert(RefMap && " SymToMemRef is null.");
-  for (auto SymVecPair = RefMap->begin(), Last = RefMap->end();
-       SymVecPair != Last; ++SymVecPair) {
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-    DEBUG(dbgs() << "Symbase " << SymVecPair->first << " contains: \n");
-    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      DEBUG(dbgs() << "\t");
-      DEBUG((*Ref)->dump());
-      DEBUG(dbgs() << " -> isWrite:" << (*Ref)->isLval());
-      DEBUG(dbgs() << "\n");
-    }
-  }
-}
-
 unsigned DDRefUtils::getNewSymbase() {
   return getSymbaseAssignment()->getNewSymbase();
 }

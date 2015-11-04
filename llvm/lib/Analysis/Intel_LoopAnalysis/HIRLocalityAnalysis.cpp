@@ -55,6 +55,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -257,11 +258,11 @@ bool compareMemRef(const RegDDRef *A, const RegDDRef *B) {
   return true;
 }
 
-void HIRLocalityAnalysis::sortMemRefs(SymToMemRefTy *MemRefMap) {
+void HIRLocalityAnalysis::sortMemRefs(SymToMemRefTy &MemRefMap) {
 
   // Sorts the memory reference based on the comparison provided
   // by compareMemRef.
-  for (auto SymVecPair = MemRefMap->begin(), Last = MemRefMap->end();
+  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
     std::sort(RefVec.begin(), RefVec.end(), compareMemRef);
@@ -272,10 +273,10 @@ bool areEqualRef(RegDDRef *Reg1, RegDDRef *Reg2) {
   return DDRefUtils::areEqual(Reg1, Reg2);
 }
 
-void HIRLocalityAnalysis::removeDuplicates(SymToMemRefTy *MemRefMap) {
+void HIRLocalityAnalysis::removeDuplicates(SymToMemRefTy &MemRefMap) {
 
   // Removes the duplicates by comparing the Ref's in sorted order.
-  for (auto SymVecPair = MemRefMap->begin(), Last = MemRefMap->end();
+  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
     SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
 
@@ -307,7 +308,7 @@ bool HIRLocalityAnalysis::isLoopInvariant(const RegDDRef *RegDD,
 }
 
 void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
-                                                 SymToMemRefTy *MemRefMap) {
+                                                 SymToMemRefTy &MemRefMap) {
 
   // We need to find invariant DDRefs and compute a temporal locality
   // based on the loop's trip count.
@@ -317,7 +318,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
   LocalityInfo *LI = LocalityMap[Loop];
 
   // Compute Temp. Invariant Locality.
-  for (auto SymVecPair = MemRefMap->begin(), Last = MemRefMap->end();
+  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
 
     SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
@@ -342,17 +343,17 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
 // Removes the empty Symbases from the list.
 // This is needed since the invariant DDRef will be removed from
 // the list.
-void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy *MemRefMap) {
+void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy &MemRefMap) {
 
   // Note, we need to check map end since the elements
   // are deleted.
-  for (auto SymVecPair = MemRefMap->begin(); SymVecPair != MemRefMap->end();) {
+  for (auto SymVecPair = MemRefMap.begin(); SymVecPair != MemRefMap.end();) {
 
     SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
     if (RefVec.empty()) {
       auto EraseIt = SymVecPair;
       SymVecPair++;
-      MemRefMap->erase(EraseIt);
+      MemRefMap.erase(EraseIt);
     } else {
       SymVecPair++;
     }
@@ -448,13 +449,13 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
 // Group 1 : B[J][I], B[J][I-1], B[J][I+1]
 // Group 2 : B[J-1][I]
 // Group 3 : B[J+1][I]
-void HIRLocalityAnalysis::createRefGroups(SymToMemRefTy *MemRefMap,
+void HIRLocalityAnalysis::createRefGroups(SymToMemRefTy &MemRefMap,
                                           unsigned Level) {
 
   // Incremented whenever a new group is created.
   unsigned MaxGroupNo = 0;
 
-  for (auto SymVecPair = MemRefMap->begin(), Last = MemRefMap->end();
+  for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
 
     // Keep track of the new groups to match existing DDRefs.
@@ -747,21 +748,21 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
 
   // Get the Symbase to Memory References.
   SymToMemRefTy MemRefMap;
-  DDRefUtils::gatherMemRefs(Loop, MemRefMap);
+  MemRefGatherer::gather(Loop, MemRefMap);
 
   // Debugging
-  DEBUG(DDRefUtils::dumpMemRefMap(&MemRefMap));
+  DEBUG(dumpRefMap(MemRefMap));
 
   // Sort the Memory References.
-  sortMemRefs(&MemRefMap);
+  sortMemRefs(MemRefMap);
   DEBUG(dbgs() << " After sorting\n");
-  DEBUG(DDRefUtils::dumpMemRefMap(&MemRefMap));
+  DEBUG(dumpRefMap(MemRefMap));
 
   // Remove duplicate memory references.
-  removeDuplicates(&MemRefMap);
+  removeDuplicates(MemRefMap);
 
   DEBUG(dbgs() << " After sorting and removing dups\n");
-  DEBUG(DDRefUtils::dumpMemRefMap(&MemRefMap));
+  DEBUG(dumpRefMap(MemRefMap));
   DEBUG(dbgs() << " End\n");
 
   // Collect all the loops inside the loop nest.
@@ -784,16 +785,16 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
     // Clear the LocalityInfo if exists or create a new one.
     resetLocalityMap(CurLoop);
 
-    computeTempInvLocality(CurLoop, &LoopMemRefMap);
+    computeTempInvLocality(CurLoop, LoopMemRefMap);
 
     // Remove the empty entries inside symbase since loop invariant entries
     // are erased by temp invariant locality pass.
-    clearEmptySlots(&LoopMemRefMap);
+    clearEmptySlots(LoopMemRefMap);
 
-    DEBUG(DDRefUtils::dumpMemRefMap(&LoopMemRefMap));
+    DEBUG(dumpRefMap(LoopMemRefMap));
 
     // Create Groupings based on index.
-    createRefGroups(&LoopMemRefMap, CurLoop->getNestingLevel());
+    createRefGroups(LoopMemRefMap, CurLoop->getNestingLevel());
     DEBUG(printRefGroups());
 
     computeTempReuseLocality(CurLoop);
