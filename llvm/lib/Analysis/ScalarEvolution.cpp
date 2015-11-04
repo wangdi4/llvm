@@ -4114,6 +4114,11 @@ bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
   return (Inst->getMetadata("in.de.ssa") || 
     Inst->getMetadata("out.de.ssa"));
 }
+
+bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
+  return Inst->getMetadata("live.range.de.ssa");
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 SCEV::NoWrapFlags ScalarEvolution::getNoWrapFlagsFromUB(const Value *V) {
@@ -4189,6 +4194,12 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     // analysis depends on.
     if (!DT.isReachableFromEntry(I->getParent()))
       return getUnknown(V);
+
+    // INTEL - Suppress traceback for instructions indicating possible live
+    // range violation.
+    if (isHIRLiveRangeIndicator(I))
+      return getUnknown(V);
+
   } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(V))
     Opcode = CE->getOpcode();
   else if (ConstantInt *CI = dyn_cast<ConstantInt>(V))
@@ -4470,15 +4481,11 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-#if INTEL_CUSTOMIZATION // HIR parsing
     // Suppress traceback for copy instructions inserted by HIR.
-    if (isa<Instruction>(V) && isHIRCopyInst(cast<Instruction>(V)))
-      break;
-#endif // INTEL_CUSTOMIZATION
-
-    // BitCasts are no-op casts so we just eliminate the cast.
-    if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
-      return getSCEV(U->getOperand(0));
+    if (!isa<Instruction>(V) || !isHIRCopyInst(cast<Instruction>(V))) // INTEL 
+      // BitCasts are no-op casts so we just eliminate the cast.
+      if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
+        return getSCEV(U->getOperand(0));
     break;
 
   // It's tempting to handle inttoptr and ptrtoint as no-ops, however this can

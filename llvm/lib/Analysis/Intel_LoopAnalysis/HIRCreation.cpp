@@ -19,6 +19,7 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/SCCFormation.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
@@ -34,6 +35,7 @@ INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
+INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
 
 char HIRCreation::ID = 0;
@@ -53,6 +55,8 @@ void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTree>();
   AU.addRequiredTransitive<RegionIdentification>();
+  // Only used for printing.
+  AU.addRequiredTransitive<SCCFormation>();
 }
 
 const BasicBlock *HIRCreation::getSrcBBlock(HLIf *If) const {
@@ -171,6 +175,21 @@ HLNode *HIRCreation::populateInstSequence(BasicBlock *BB,
   return InsertionPos;
 }
 
+bool HIRCreation::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
+
+  if (!PDT->dominates(BB, SI->getDefaultDest())) {
+    return false;
+  }
+  
+  for(auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
+    if (!PDT->dominates(BB, I.getCaseSuccessor())) {
+      return false;
+    }
+  }
+  
+  return true;  
+}
+
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
                                           HLNode *InsertionPos) {
 
@@ -204,30 +223,33 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
         doPreOrderRegionWalk(DomChildBB, IfTerm->getLastElseChild());
         continue;
       }
-    }
-    /// Link switch's case children.
-    else if (auto SwitchTerm = dyn_cast<HLSwitch>(LastBBNode)) {
+
+    } else if (auto SwitchTerm = dyn_cast<HLSwitch>(LastBBNode)) {
+      /// Link switch's case children.
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
-      if (DomChildBB == SI->getDefaultDest()) {
-        doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
-        continue;
-      }
+      if (!postDominatesAllCases(SI, DomChildBB)) {
 
-      unsigned Count = 1;
-      bool isCaseChild = false;
-
-      for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
-           ++I, ++Count) {
-        if (DomChildBB == I.getCaseSuccessor()) {
-          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
-          isCaseChild = true;
-          break;
+        if (DomChildBB == SI->getDefaultDest()) {
+          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
+          continue;
         }
-      }
 
-      if (isCaseChild) {
-        continue;
+        unsigned Count = 1;
+        bool IsCaseChild = false;
+   
+        for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
+             ++I, ++Count) {
+          if (DomChildBB == I.getCaseSuccessor()) {
+            doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
+            IsCaseChild = true;
+            break;
+          }
+        }
+
+        if (IsCaseChild) {
+          continue;
+        }
       }
     }
 
@@ -257,9 +279,10 @@ void HIRCreation::create() {
 
     CurRegion = HLNodeUtils::createHLRegion(I);
 
-    auto LastNode =
+    HLNode *LastNode =
         doPreOrderRegionWalk(CurRegion->getEntryBBlock(), CurRegion);
 
+    (void)LastNode;
     assert(isa<HLRegion>(LastNode->getParent()) && "Invalid last region node!");
 
     setExitBBlock();
@@ -297,24 +320,31 @@ void HIRCreation::releaseMemory() {
 }
 
 void HIRCreation::print(raw_ostream &OS, const Module *M) const {
-  printImpl(OS, false);
+  printImpl(OS, HIRPrinterDetailed);
 }
 
-void HIRCreation::printWithIRRegion(raw_ostream &OS) const {
+void HIRCreation::printWithFrameworkDetails(raw_ostream &OS) const {
   printImpl(OS, true);
 }
 
-void HIRCreation::printImpl(raw_ostream &OS, bool printIRRegion) const {
+void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   formatted_raw_ostream FOS(OS);
+  auto RegBegin = RI->begin();
+  auto SCCF = &getAnalysis<SCCFormation>();
+  unsigned Offset = 0;
 
-  for (auto I = begin(), E = end(); I != E; ++I) {
+  for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {
+
+    // Print SCCs in hir-parser output and in detailed mode.
+    if (FrameworkDetails) {
+      SCCF->print(FOS, RegBegin + Offset);
+    }
+
     FOS << "\n";
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
-    (cast<HLRegion>(I))->print(FOS, 0, printIRRegion, HIRPrinterDetailed);
+    (cast<HLRegion>(I))->print(FOS, 0, FrameworkDetails, HIRPrinterDetailed);
   }
   FOS << "\n";
 }
 
-void HIRCreation::verifyAnalysis() const {
-  // TODO: Implement later
-}
+void HIRCreation::verifyAnalysis() const { }

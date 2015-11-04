@@ -83,16 +83,22 @@ struct DV {
     ALL = 7
   };
 };
-	
-// Is  DV all ( = = = .. =)?
+
+/// Is  DV all ( = = = .. =)?
 bool isDValEQ(const DVType *DV);
-	
-// Is DV imply INDEP for level L on
-// e.g.  DV = (< *)	 implies INDEP for innermost loop
-// In this example, isDVIndepFromLevel(&DV, 2) return true
-	
+
+/// Is DV imply INDEP for level L on
+/// e.g.  DV = (< *)	 implies INDEP for innermost loop
+/// In this example, isDVIndepFromLevel(&DV, 2) return true
+
 bool isDVIndepFromLevel(const DVType *DV, unsigned FromLevel);
-	
+
+/// Refine DV by calling demand driven DD. Return true when RefineDV[] is set
+
+bool refineDV(DDRef *SrcDDRef, DDRef *DstDDRef, unsigned InnermostNestingLevel,
+              unsigned OutermostNestingLevel, DVectorTy &RefinedDV,
+              bool *IsIndependent);
+
 class Dependences {
 public:
   Dependences(DDRef *Source, DDRef *Destination)
@@ -336,6 +342,11 @@ public:
   // Reverse Direction vector
   //
   void reverseDV(const DVectorTy &inputDV, DVectorTy &outputDV) const;
+
+  // Returns last level in DV .e.g.  (= = =) return 3
+
+  static unsigned int lastLevelInDV(const DVType *DV);
+
   //
   // Fill in input direction vector for demand driven DD
   // startLevel, toLevel
@@ -343,11 +354,11 @@ public:
   // will fill in (= = *)
   // which is testing for innermost loop only
 
-  void setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
-                  const unsigned int endLevel) const;
+  static void setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
+                         const unsigned int endLevel);
 
   // Construct all 0
-  void initDV(DVectorTy &inputDV);
+  static void initDV(DVectorTy &inputDV);
 
 private:
   //    AliasAnalysis *AA;
@@ -472,6 +483,9 @@ private:
     void dump(raw_ostream &OS) const;
   };
 
+  unsigned CommonLevels, SrcLevels, MaxLevels;
+  HLLoop *DeepestLoop;
+
   /// establishNestingLevels - Examines the loop nesting of the Src and Dst
   /// instructions and establishes their shared loops. Sets the variables
   /// CommonLevels, SrcLevels, and MaxLevels.
@@ -524,8 +538,6 @@ private:
   ///     g - 7 = MaxLevels
   void establishNestingLevels(const DDRef *Src, const DDRef *Dst);
 
-  unsigned CommonLevels, SrcLevels, MaxLevels;
-
   /// mapSrcLoop - Given one of the loops containing the source, return
   /// its level index in our numbering scheme.
   unsigned mapSrcLoop(const HLLoop *SrcLoop) const;
@@ -533,6 +545,7 @@ private:
   /// mapDstLoop - Given one of the loops containing the destination,
   /// return its level index in our numbering scheme.
   unsigned mapDstLoop(const HLLoop *DstLoop) const;
+  unsigned mapDstLoop(unsigned NestingLevel) const;
 
   /// isLoopInvariant - Returns true if Expression is loop invariant
   /// in LoopNest.
@@ -796,7 +809,8 @@ private:
   const CanonExpr *getAdd(const CanonExpr *SrcConst, const CanonExpr *DstConst);
 
   /// return true if 2 CE are equal
-  bool areCEequal(const CanonExpr *CE1, const CanonExpr *CE2) const;
+  bool areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                  bool IgnoreDestType = false) const;
 
   /// return negation of CE
   const CanonExpr *getNegative(const CanonExpr *CE);
@@ -809,11 +823,11 @@ private:
   const CanonExpr *getMulExpr(const CanonExpr *CE1, const CanonExpr *CE2);
 
   /// return CE from apint
-  const CanonExpr *getConstantfromAPInt(const APInt &apint);
+  const CanonExpr *getConstantfromAPInt(Type *Ty, const APInt &apint);
 
   /// return CE from int with type
-  const CanonExpr *getConstantwithType(Type *Ty, int64_t Val,
-                                       bool isSigned = true);
+  const CanonExpr *getConstantWithType(Type *SrcTy, Type *DestTy, bool IsSExt,
+                                       int64_t Val);
 
   /// CE1 / CE2
   const CanonExpr *getUDivExpr(const CanonExpr *CE1, const CanonExpr *CE2);

@@ -42,8 +42,15 @@ class Value;
 class Function;
 class Instruction;
 class MDString;
+class PHINode;
 
 namespace loopopt {
+
+/// Invalid symbase.
+const unsigned INVALID_SYMBASE = 0;
+
+/// Symbase for constants.
+const unsigned CONSTANT_SYMBASE = 1;
 
 class SCCFormation;
 
@@ -77,9 +84,6 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
-  /// Symbase for constants.
-  const unsigned CONSTANT_SYMBASE = 1;
-
   /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
   bool isRegionLiveOut(RegionIdentification::iterator RegIt,
                        const Instruction *Inst) const;
@@ -98,7 +102,8 @@ private:
   /// symbase.
   unsigned insertBaseTemp(const Value *Temp);
 
-  /// \brief Inserts temp-symbase pair into the map. Symbase cannot be zero.
+  /// \brief Inserts temp-symbase pair into the map. Symbase cannot be
+  /// INVALID_SYMBASE or CONSTANT_SYMBASE.
   void insertTempSymbase(const Value *Temp, unsigned Symbase);
 
   /// \brief Returns the MDString node attached to Inst, if any, else returns
@@ -109,7 +114,7 @@ private:
   /// it exists, else assigns a new symbase.
   unsigned getOrAssignTempSymbase(const Value *Temp);
 
-  /// \brief Returns Temp's symbase if it exists, else returns zero.
+  /// \brief Returns Temp's symbase if it exists, else returns INVALID_SYMBASE.
   unsigned getTempSymbase(const Value *Temp) const;
 
   /// \brief Implements getOrAssignScalarSymbase() functionality.
@@ -141,9 +146,6 @@ public:
   /// \brief Returns the base scalar associated with Scalar, if any, else
   /// returns the same scalar. It is only used for printing.
   const Value *getBaseScalar(const Value *Scalar) const;
-
-  /// \brief Returns a symbase representing a constant.
-  unsigned getSymBaseForConstants() const;
 
   /// \brief Returns the max symbase assigned to any scalar.
   unsigned getMaxScalarSymbase() const;

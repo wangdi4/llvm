@@ -3816,6 +3816,59 @@ GetCaseResults(SwitchInst *SI, ConstantInt *CaseVal, BasicBlock *CaseDest,
   return Res.size() > 0;
 }
 
+#if INTEL_CUSTOMIZATION
+/// Try to determine the resulting values in PHI nodes in the common destination
+/// basic block, *CommonDest, for one of the case destinations CaseDest.
+static bool
+GetCaseResultPHIValues(SwitchInst *SI, BasicBlock *CaseDest,
+                       BasicBlock **CommonDest,
+                       SmallVectorImpl<std::pair<PHINode *, Value *>> &Res) {
+  // The block from which we enter the common destination.
+  BasicBlock *Pred = SI->getParent();
+ 
+  // If CaseDest has PHI node, then it is the common destination block. 
+  // Otherwise, if CaseDest has an unconditional branch and no other 
+  // meaningful instructions, then its successor should be the common 
+  // destination block.
+  for (BasicBlock::iterator I = CaseDest->begin(), E = CaseDest->end();
+                            I != E; ++I) {
+    if (TerminatorInst *T = dyn_cast<TerminatorInst>(I)) {
+      if (T->getNumSuccessors() != 1)
+        return false;
+      Pred = CaseDest;
+      CaseDest = T->getSuccessor(0);
+    } else if (isa<DbgInfoIntrinsic>(I)) {
+      // Skip debug intrinsic.
+      continue;
+    } else if (isa<PHINode>(I)) {
+      break;
+    } else {
+      return false;
+    }
+  }
+
+  if (!*CommonDest)
+    *CommonDest = CaseDest;
+  
+  // If this case's destination block doesn't match the given common
+  // destination block, we don't need to get its results.
+  if (*CommonDest != CaseDest)
+    return false;
+
+  // Collect case results from phi nodes in the common destination block.
+  BasicBlock::iterator I = CaseDest->begin();
+  while (PHINode *PHI = dyn_cast<PHINode>(I)) {
+    int Idx = PHI->getBasicBlockIndex(Pred);
+    assert(Idx != -1 && "Wrong predecessor");
+
+    Res.push_back(std::make_pair(PHI, PHI->getIncomingValue(Idx)));
+    ++I;
+  }
+  
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 // Helper function used to add CaseVal to the list of cases that generate
 // Result.
 static void MapCaseToResult(ConstantInt *CaseVal,
@@ -3970,6 +4023,78 @@ static bool SwitchToSelect(SwitchInst *SI, IRBuilder<> &Builder,
   // The switch couldn't be converted into a select.
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Try to remove cases that have same results as the default case in the 
+/// PHI nodes at the common destination basic block.
+static bool EliminateRedundantCases(SwitchInst *SI) {
+  bool Modified = false;
+
+  // Remove cases that have the same successor as the default case.
+  for (auto C = SI->case_end(), E = SI->case_begin(); C != E;) {
+    --C;
+    if (C.getCaseSuccessor() == SI->getDefaultDest()) {
+      C.getCaseSuccessor()->removePredecessor(SI->getParent());
+      SI->removeCase(C);
+      Modified = true;
+    }
+  }
+
+  SmallVector<std::pair<PHINode *, Value *>, 4> DefaultResults;
+  BasicBlock *DefaultDest = nullptr;
+
+  // Try to get PHI node results for the default case. If this fails, then stop 
+  // this optimization.
+  if (!GetCaseResultPHIValues(SI, SI->getDefaultDest(), &DefaultDest,
+                              DefaultResults))
+    return false;
+  
+  SmallVector<std::pair<PHINode *, Value *>, 4> CaseResults;
+  SmallVector<SwitchInst::CaseIt, 2> CasesToBeRemoved;
+
+  // Loop through all cases, trying to get PHI node results for each case. If
+  // this case goes to the same destination block and generates same values
+  // as the default case, then it's safe to remove this case.
+  for (auto C = SI->case_begin(), E = SI->case_end(); C != E; ++C) {
+    CaseResults.clear();
+    if (!GetCaseResultPHIValues(SI, C.getCaseSuccessor(), &DefaultDest, 
+                                CaseResults)) 
+      continue;
+   
+    // Check if this case has the same number of results as the default case.
+    if (CaseResults.size() != DefaultResults.size()) 
+      continue;
+
+    bool Match = true;
+    auto CaseResIt = CaseResults.begin(), CaseResEnd = CaseResults.end();
+    auto DefaultResIt = DefaultResults.begin();
+    while (CaseResIt != CaseResEnd) {
+      // Compare the result values.
+      if (CaseResIt->first != DefaultResIt->first || 
+          CaseResIt->second != DefaultResIt->second) {
+        Match = false;
+        break;
+      }
+      ++CaseResIt;
+      ++DefaultResIt;
+    }
+  
+    // This case is redundant.
+    if (Match) 
+      CasesToBeRemoved.push_back(C);
+  }
+
+  // Remove all redundant cases.
+  for (auto C = CasesToBeRemoved.rbegin(), 
+            E = CasesToBeRemoved.rend(); C != E; ++C) {
+    C->getCaseSuccessor()->removePredecessor(SI->getParent());
+    SI->removeCase(*C);
+    Modified = true;
+  }
+
+  return Modified;
+}
+#endif // INTEL_CUSTOMIZATION
 
 namespace {
   /// This class represents a lookup table that can be used to replace a switch.
@@ -4606,6 +4731,13 @@ bool SimplifyCFGOpt::SimplifySwitch(SwitchInst *SI, IRBuilder<> &Builder) {
       if (FoldValueComparisonIntoPredecessors(SI, Builder))
         return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Try to eliminate cases that have the same results as the default case
+  // and no side effects.
+  if (EliminateRedundantCases(SI))
+    return SimplifyCFG(BB, TTI, BonusInstThreshold, AC) | true;
+#endif // INTEL_CUSTOMIZATION
 
   // Try to transform the switch into an icmp and a branch.
   if (TurnSwitchRangeIntoICmp(SI, Builder))

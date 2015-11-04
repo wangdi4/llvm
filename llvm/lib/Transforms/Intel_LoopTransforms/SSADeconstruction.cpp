@@ -11,12 +11,16 @@
 //
 // This file Deconstructs SSA for HIR. It inserts copies for livein/liveout
 // values to SCC and non-SCC phis. Metadata nodes are attached to the
-// livein/liveout copies, to the SCC root node and non-SCC phi node. The livein
+// livein/liveout copies, to the SCC nodes and non-SCC phi node. The livein
 // copies are assigned the same metadata kind node as the root/phi node so that
 // they can all be assigned the same symbase by ScalarSymbaseAssignment pass.
 //
 // Liveout copies require metadata to indicate to ScalarEvolution analysis to
 // not trace through them.
+//
+// Non-phi SCC nodes also require metadata to indicate to ScalarEvolution
+// analysis to not trace through them because that can cause live-range
+// violations. A different live range metadata type is used for these nodes.
 //
 //===----------------------------------------------------------------------===//
 
@@ -24,6 +28,7 @@
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/SmallString.h"
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
@@ -45,7 +50,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
-#define DEBUG_TYPE "hir-de-ssa"
+#define DEBUG_TYPE "hir-ssa-deconstruction"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -56,7 +61,7 @@ class SSADeconstruction : public FunctionPass {
 public:
   static char ID;
 
-  SSADeconstruction() : FunctionPass(ID), ModifiedIR(false) {
+  SSADeconstruction() : FunctionPass(ID), ModifiedIR(false), NamingCounter(0) {
     initializeSSADeconstructionPass(*PassRegistry::getPassRegistry());
   }
 
@@ -68,42 +73,67 @@ public:
     AU.addRequired<SCCFormation>();
 
     // We need to preserve all the analysis computed for HIR.
-    AU.addPreserved<DominatorTreeWrapperPass>();
-    AU.addPreserved<LoopInfoWrapperPass>();
+    AU.setPreservesCFG();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<RegionIdentification>();
+    AU.addPreserved<SCCFormation>();
+  }
+
+  void releaseMemory() override {
+    ModifiedIR = false;
+    NamingCounter = 0;
+    ProcessedSCCs.clear();
   }
 
 private:
+  enum MetadataType {
+    LiveInType,
+    LiveOutType,
+    LiveRangeType,
+  };
+
   /// \brief Attaches a string metadata node to instruction. This will be used
   /// by ScalarSymbaseAssignment to assign symbases. The metadata kind used for
   /// livein/liveout values is different because livein copies need to be
   /// assigned the same aymbase as other values in SCC whereas liveout copies
-  /// don't.
-  void attachMetadata(Instruction *Inst, StringRef Name, bool IsLivein) const;
+  /// don't. Live range type is used to indicate live range violation and
+  /// suppress traceback during SCEV creation.
+  void attachMetadata(Instruction *Inst, StringRef Name,
+                      MetadataType MType) const;
+
   /// \brief Returns a copy of Val.
   Instruction *createCopy(Value *Val, StringRef Name, bool IsLivein) const;
+
   /// \brief Inserts copy of Val at the end of BB.
   void insertCopyAsLastInst(Value *Val, BasicBlock *BB, StringRef Name);
+
   /// \brief Inserts copy of Inst at the first insertion point of BB.
   Instruction *insertCopyAsFirstInst(Instruction *Inst, BasicBlock *BB,
                                      StringRef Name);
+
+  /// \brief Constructs name to be used for Val.
+  StringRef constructName(const Value *Val, SmallString<32> &Name);
+
   /// \brief Returns the SCC this phi belongs to, if any, otherwise returns
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
+
   /// \brief Inserts copies of Phi operands livein to the SCC. If SCCNodes is
   /// null, Phi is treated as a standalone phi and all operands are considered
-  /// livein.
-  void processPhiLiveins(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
+  /// livein. Returns true if a livein copy was inserted.
+  bool processPhiLiveins(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
                          StringRef Name);
+
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
   /// described in the function definition.
   void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
                           StringRef Name);
+
   /// \brief Deconstructs phi by inserting copies.
-  void deconstructPhi(const PHINode *Phi);
+  void deconstructPhi(PHINode *Phi);
+
   /// \brief Performs SSA deconstruction on the regions.
   void deconstructSSAForRegions();
 
@@ -113,45 +143,49 @@ private:
   SCCFormation *SCCF;
 
   bool ModifiedIR;
+  unsigned NamingCounter;
   RegionIdentification::iterator CurRegIt;
-  SmallPtrSet<SCCFormation::SCCTy *, 32> ProcessedSSCs;
+  SmallPtrSet<SCCFormation::SCCTy *, 32> ProcessedSCCs;
 };
 }
 
 char SSADeconstruction::ID = 0;
-INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
-                      false, false)
+INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-ssa-deconstruction",
+                      "HIR SSA Deconstruction", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
-INITIALIZE_PASS_END(SSADeconstruction, "hir-de-ssa", "HIR SSA Deconstruction",
-                    false, false)
+INITIALIZE_PASS_END(SSADeconstruction, "hir-ssa-deconstruction",
+                    "HIR SSA Deconstruction", false, false)
 
 FunctionPass *llvm::createSSADeconstructionPass() {
   return new SSADeconstruction();
 }
 
 void SSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
-                                       bool IsLivein) const {
+                                       MetadataType MType) const {
+  Twine NewName(Name, ".de.ssa");
 
-  Metadata *Args[] = {
-      MDString::get(Inst->getContext(), Twine(Name, ".de.ssa").str())};
+  Metadata *Args[] = {MDString::get(Inst->getContext(), NewName.str())};
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
-  if (IsLivein) {
+  if (MType == LiveInType) {
     Inst->setMetadata("in.de.ssa", Node);
-  } else {
+  } else if (MType == LiveOutType) {
     Inst->setMetadata("out.de.ssa", Node);
+  } else {
+    Inst->setMetadata("live.range.de.ssa", Node);
   }
 }
 
 Instruction *SSADeconstruction::createCopy(Value *Val, StringRef Name,
                                            bool IsLivein) const {
+  Twine NewName(Name, (IsLivein ? ".in" : ".out"));
 
-  auto CInst = CastInst::Create(Instruction::BitCast, Val, Val->getType(),
-                                Name + (IsLivein ? ".in" : ".out"));
+  auto CInst =
+      CastInst::Create(Instruction::BitCast, Val, Val->getType(), NewName);
 
-  attachMetadata(CInst, Name, IsLivein);
+  attachMetadata(CInst, Name, IsLivein ? LiveInType : LiveOutType);
 
   return CInst;
 }
@@ -203,10 +237,13 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   Instruction *CopyInst = nullptr;
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
-       UserIt != EndIt; ++UserIt) {
+       UserIt != EndIt;) {
     assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
-
     auto UserInst = cast<Instruction>(*UserIt);
+
+    Use &Us = UserIt.getUse();
+    // Increment it before it gets invalidated later in the iteration.
+    ++UserIt;
 
     // Handle a SCC phi.
     if (SCCNodes) {
@@ -311,13 +348,17 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
     }
 
     // Replace liveout use by copy.
-    UserIt.getUse().set(CopyInst);
+    Us.set(CopyInst);
+
+    // Invalidate cached SCEV of the user, if any.
+    SE->forgetValue(UserInst);
   }
 }
 
-void SSADeconstruction::processPhiLiveins(PHINode *Phi,
+bool SSADeconstruction::processPhiLiveins(PHINode *Phi,
                                           SCCFormation::SCCNodesTy *SCCNodes,
                                           StringRef Name) {
+  bool Ret = false;
 
   // Insert a copy in the predecessor bblock for each phi operand which
   // lies outside the SCC(livein values).
@@ -338,33 +379,80 @@ void SSADeconstruction::processPhiLiveins(PHINode *Phi,
 
     // Insert copy.
     insertCopyAsLastInst(PhiOp, Phi->getIncomingBlock(I), Name);
+    Ret = true;
   }
+
+  return Ret;
 }
 
-void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
+StringRef SSADeconstruction::constructName(const Value *Val,
+                                           SmallString<32> &Name) {
+  raw_svector_ostream VOS(Name);
+
+  if (Val->hasName()) {
+    VOS << Val->getName();
+  } else {
+    // This string has to be unique across SCCs as it is used to assign
+    // symbases. A longer name is used to avoid risk of name conflict with any
+    // other instructions.
+    VOS << "hir.de.ssa.copy" << NamingCounter++;
+  }
+
+  return VOS.str();
+}
+
+void SSADeconstruction::deconstructPhi(PHINode *Phi) {
+  SmallString<32> Name;
+
   // Phi is part of SCC
   if (auto PhiSCC = getPhiSCC(Phi)) {
 
     // Return if this SCC has been processed already.
-    if (ProcessedSSCs.count(PhiSCC)) {
+    if (ProcessedSCCs.count(PhiSCC)) {
       return;
     }
 
-    ProcessedSSCs.insert(PhiSCC);
-    StringRef Name = PhiSCC->Root->getName();
+    ProcessedSCCs.insert(PhiSCC);
 
-    // Attach metadata to the root node to connect the SCC to its livein copies.
-    attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name, true);
+    bool IsLinear = SCCF->isLinear(Phi);
+
+    bool LiveinCopyInserted = false;
+    constructName(PhiSCC->Root, Name);
 
     for (auto const &SCCInst : PhiSCC->Nodes) {
 
       if (auto SCCPhiInst = dyn_cast<PHINode>(SCCInst)) {
-        processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                          Name);
-        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                           Name);
+        LiveinCopyInserted =
+            processPhiLiveins(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
+                              Name.str()) ||
+            LiveinCopyInserted;
+
+        // Liveout copies are not needed for linear SCCs as they cannot cause
+        // live range violation.
+        if (!IsLinear) {
+          processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
+                             Name.str());
+        }
+
+      }
+      // Linear SCCs cannot cause live range violation.
+      else if (!IsLinear) {
+
+        // Attach live range type metadata to suppress SCEV traceback.
+        attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
+                       LiveRangeType);
+        // Tell SCEV to reparse the instruction.
+        SE->forgetValue(const_cast<Instruction *>(SCCInst));
       }
     }
+
+    if (LiveinCopyInserted) {
+      // Attach metadata to the root node to connect the SCC to its livein
+      // copies.
+      attachMetadata(const_cast<Instruction *>(PhiSCC->Root), Name.str(),
+                     LiveInType);
+    }
+
   } else {
     // This is a standalone phi such as the one which occurs at an if-else join.
     // Deconstruct all the operands.
@@ -390,11 +478,16 @@ void SSADeconstruction::deconstructPhi(const PHINode *Phi) {
     // }
     //
 
-    // Attach metadata to Phi to connect it to its copies.
-    attachMetadata(const_cast<PHINode *>(Phi), Phi->getName(), true);
+    constructName(Phi, Name);
 
-    processPhiLiveins(const_cast<PHINode *>(Phi), nullptr, Phi->getName());
-    processPhiLiveouts(const_cast<PHINode *>(Phi), nullptr, Phi->getName());
+    // Attach metadata to Phi to connect it to its copies.
+    attachMetadata(Phi, Name.str(), LiveInType);
+
+    processPhiLiveins(Phi, nullptr, Name.str());
+
+    if (!SCCF->isLinear(Phi)) {
+      processPhiLiveouts(Phi, nullptr, Name.str());
+    }
   }
 }
 
@@ -414,9 +507,7 @@ void SSADeconstruction::deconstructSSAForRegions() {
       for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
            ++Inst) {
         if (auto Phi = dyn_cast<PHINode>(Inst)) {
-          if (!SCCF->isLinear(Phi)) {
-            deconstructPhi(Phi);
-          }
+          deconstructPhi(const_cast<PHINode *>(Phi));
         }
       }
     }

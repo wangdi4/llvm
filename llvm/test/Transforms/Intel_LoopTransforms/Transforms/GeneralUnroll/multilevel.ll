@@ -1,8 +1,20 @@
 
 ; Test case for HIR General Unrolling for multi-level loops
 ; where unrolling happens only for innermost loop.
- 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s | FileCheck %s 
+
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -HIRCG -S < %s 2>&1 | FileCheck %s
+; HIR Check
+; CHECK: BEGIN REGION { modified }
+; Check unrolling of innermost loop.
+; CHECK: DO i2 = 0, 67, 1
+; CHECK-NEXT: (@A)[0][i1 + 16 * i2 + -1];
+; CHECK: END LOOP
+; Remainder loop.
+; CHECK-NEXT: DO i2 = 544, 549, 1
+; CHECK-NEXT: (@A)[0][i1 + 2 * i2 + -1]
+; CHECK: END LOOP
+
+; Codegen Check. 
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.

@@ -37,7 +37,7 @@ HLDDNode::ddref_iterator HLDDNode::ddref_begin() {
   HLLoop *HLoop;
 
   /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
+  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
     return RegDDRefs.end();
   }
   return RegDDRefs.begin();
@@ -57,7 +57,7 @@ HLDDNode::reverse_ddref_iterator HLDDNode::ddref_rbegin() {
   HLLoop *HLoop;
 
   /// Skip null DDRefs for unknown loops
-  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknownLoop()) {
+  if ((HLoop = dyn_cast<HLLoop>(this)) && HLoop->isUnknown()) {
     return RegDDRefs.rend();
   }
   return RegDDRefs.rbegin();
@@ -107,34 +107,41 @@ void HLDDNode::print(formatted_raw_ostream &OS, unsigned Depth,
 
 void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
   bool printed = false;
-  bool isLoop = false;
+  bool IsLoop = false;
 
   // DD refs attached to Loop nodes require additional
   // "|" symbol to make listing nice
   if (isa<HLLoop>(this)) {
-    isLoop = true;
+    IsLoop = true;
   }
 
-  for (auto it = ddref_begin(); it != ddref_end(); it++) {
-    if ((*it) == nullptr || (*it)->isConstant()) {
+  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
+    if ((*I)->isConstant()) {
       continue;
     }
 
+    bool IsZttDDRef = false;
     indent(OS, Depth);
 
-    if (isLoop) {
+    if (IsLoop) {
       OS << "| ";
+
+      IsZttDDRef = cast<HLLoop>(this)->isZttOperandDDRef(*I);
     }
-    OS << "<REG> ";
-    (*it)->print(OS, true);
+
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : (void)(OS << "<REG> ");
+
+    (*I)->print(OS, true);
+
     OS << "\n";
-    for (auto blob = (*it)->blob_cbegin(); blob != (*it)->blob_cend(); blob++) {
+
+    for (auto B = (*I)->blob_cbegin(), BE = (*I)->blob_cend(); B != BE; ++B) {
       indent(OS, Depth);
-      if (isLoop) {
+      if (IsLoop) {
         OS << "| ";
       }
       OS << "<BLOB> ";
-      (*blob)->print(OS, true);
+      (*B)->print(OS, true);
       OS << "\n";
     }
 
@@ -143,9 +150,54 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
 
   if (printed) {
     indent(OS, Depth);
-    if (isLoop) {
+    if (IsLoop) {
       OS << "| ";
     }
     OS << "\n";
   }
+}
+
+void HLDDNode::verify() const {
+  for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
+    assert((*I) != nullptr && "null ddref found in the list");
+    assert((*I)->getHLDDNode() == this &&
+           "DDRef is attached to a different node");
+    (*I)->verify();
+  }
+
+  HLNode::verify();
+}
+
+bool HLDDNode::isLval(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  const HLInst *HInst = dyn_cast<HLInst>(this);
+
+  if (!HInst) {
+    return false;
+  }
+
+  return (HInst->getLvalDDRef() == Ref);
+}
+
+bool HLDDNode::isRval(const RegDDRef *Ref) const { return !isLval(Ref); }
+
+bool HLDDNode::isFake(const RegDDRef *Ref) const {
+  assert((this == Ref->getHLDDNode()) && "Ref does not belong to this node!");
+
+  const HLInst *HInst = dyn_cast<HLInst>(this);
+
+  if (!HInst) {
+    return false;
+  }
+
+  for (auto I = HInst->fake_ddref_begin(), E = HInst->fake_ddref_end(); I != E;
+       ++I) {
+
+    if ((*I) == Ref) {
+      return true;
+    }
+  }
+
+  return false;
 }

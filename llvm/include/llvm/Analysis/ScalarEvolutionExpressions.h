@@ -629,7 +629,7 @@ namespace llvm {
       return SE.getUMaxExpr(Operands);
     }
 
-    const SCEV *visitUnknown(const SCEVUnknown *Expr) {
+    const SCEV *visitUnknown(const SCEVUnknown *Expr) { 
       Value *V = Expr->getValue();
       if (Map.count(V)) {
         Value *NV = Map[V];

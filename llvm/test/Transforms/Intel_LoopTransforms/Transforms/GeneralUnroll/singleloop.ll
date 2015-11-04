@@ -2,7 +2,17 @@
 ; Test for General unrolling with single level loop
 ; with statement , a[i] = a[n*i].
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -HIRCG -S < %s 2>&1 | FileCheck %s
+; HIR Check
+; CHECK: BEGIN REGION { modified }
+; CHECK: DO i1 = 0, 34, 1
+; CHECK: (@a)[0][8 * {{.*}}(%n) * i1 + 7 * {{.*}}(%n)] 
+; CHECK: END LOOP
+; CHECK-NEXT: DO i1 = 280, 283, 1
+; CHECK: (@a)[0][i1]
+; CHECK-NEXT: END LOOP
+
+; Codegen check.
 ; CHECK: entry
 
 ; terminator of entry bblock should point to new unrolled region.

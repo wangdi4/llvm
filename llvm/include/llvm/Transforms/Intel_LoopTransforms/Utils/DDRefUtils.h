@@ -16,6 +16,8 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFUTILS_H
 
+#include <map>
+
 #include "llvm/Support/Compiler.h"
 
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
@@ -27,37 +29,76 @@ namespace llvm {
 
 namespace loopopt {
 
+// Data Structure to store mapping of symbase to memory references.
+typedef std::map<unsigned int, SmallVector<llvm::loopopt::RegDDRef *, 32>>
+    SymToMemRefTy;
+
 /// \brief Defines utilities for DDRef class
 ///
 /// It contains a bunch of static member functions which manipulate DDRefs.
 /// It does not store any state.
-///
 class DDRefUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
   DDRefUtils() = delete;
 
   friend class HIRParser;
+  friend class HLNodeUtils;
 
   /// \brief Destroys all DDRefs. Called during HIR cleanup.
   static void destroyAll();
 
-  /// \brief Returns a new BlobDDRef.
-  static BlobDDRef *createBlobDDRef(int SB, const CanonExpr *CE);
+  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
+  /// Value. Temp blobs from values are only created by framework.
+  static RegDDRef *createSelfBlobRef(Value *Temp);
+
+  /// \brief Return true if RegDDRef1 equals RegDDRef2.
+  /// This routine compares the symbase, type and each of the canon exprs
+  /// inside the references.
+  static bool areEqualImpl(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                           bool IgnoreDestType);
+
+  /// \brief Returns true if BlobDDRef1 equals BlobDDRef2.
+  static bool areEqualImpl(const BlobDDRef *Ref1, const BlobDDRef *Ref2);
 
 public:
   /// \brief Returns a new RegDDRef.
-  static RegDDRef *createRegDDRef(int SB);
+  static RegDDRef *createRegDDRef(unsigned SB);
+
+  /// \brief Creates a new DDRef with single canon expr CE.
+  static RegDDRef *createScalarRegDDRef(unsigned SB, CanonExpr *CE);
+
+  /// \brief Returns a new constant RegDDRef from a int value.
+  /// This routine will automatically create a single canon expr from the val
+  /// and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(Type *Ty, int64_t Val);
+
+  /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
+  /// defined at level for the blob. Level of -1 means non-linear blob.
+  static BlobDDRef *createBlobDDRef(unsigned Index, int Level = -1);
+
+  /// \brief Returns a new RegDDRef representing blob with Index. Level is the
+  /// defined at level for the blob. Level of -1 means non-linear blob.
+  static RegDDRef *createSelfBlobRef(unsigned Index, int Level = -1);
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
 
-  /// \brief Creates a non-linear self blob scalar RegDDRef from the passed in
-  /// Val.
-  static RegDDRef *createSelfBlobRef(Value *Val);
+  /// \brief Gathers the memory reference inside the Node and stores them
+  /// in the SymToMemRef map.
+  static void gatherMemRefs(const HLNode *Node, SymToMemRefTy &SymToMemRef);
+
+  /// \brief Prints out the SymToMemRef map.
+  static void dumpMemRefMap(SymToMemRefTy *RefMap);
 
   /// \brief Returns a new symbase.
-  static unsigned getNewSymBase();
+  static unsigned getNewSymbase();
+
+  /// \brief Returns true if the two DDRefs, Ref1 and Ref2, are equal.
+  /// IgnoreDestType parameter is only used for base destination type comparison
+  /// of RegDDRef. This parameter is ignored in all other cases.
+  static bool areEqual(const DDRef *Ref1, const DDRef *Ref2,
+                       bool IgnoreDestType = false);
 };
 
 } // End namespace loopopt

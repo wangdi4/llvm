@@ -156,7 +156,10 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
+  /// \brief Prints SCCs for all regions.
   void print(raw_ostream &OS, const Module * = nullptr) const override;
+  /// \brief Prints SCCs for a region.
+  void print(raw_ostream &OS, RegionIdentification::const_iterator RegIt) const;
   void verifyAnalysis() const override;
 
   /// \brief Returns true is the Node has linear SCEV.

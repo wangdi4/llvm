@@ -41,7 +41,7 @@ FunctionPass *llvm::createSymbaseAssignmentPass() {
 }
 
 namespace {
-class SymbaseAssignmentVisitor {
+class SymbaseAssignmentVisitor final : public HLNodeVisitorBase {
 
 private:
   SymbaseAssignment *SA;
@@ -61,24 +61,26 @@ public:
   void visit(HLDDNode *Node);
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 // TODO shared with dda. move?
 
-class DDRefGatherer {
+class DDRefGatherer final : public HLNodeVisitorBase {
 private:
-  void addRef(DDRef *Ref) {
-    unsigned int SymBase = (Ref)->getSymBase();
-    SymToRefs[SymBase].push_back(Ref);
+  void addRef(const DDRef *Ref) {
+    unsigned Symbase = (Ref)->getSymbase();
+    SymToRefs[Symbase].push_back(Ref);
   }
 
 public:
   DDRefGatherer() {}
-  void visit(HLNode *Node) {}
-  void visit(HLDDNode *Node) {
+  void visit(const HLNode *Node) {}
+  void visit(const HLDDNode *Node) {
     for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
+      if (!*I) {
+        continue;
+      }
+
       if (!(*I)->isConstant()) {
         addRef(*I);
         for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
@@ -88,11 +90,10 @@ public:
       }
     }
   }
-  void postVisit(HLNode *) {}
-  void postVisit(HLDDNode *) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
-  std::map<unsigned, SmallVector<DDRef *, 16>> SymToRefs;
+  void postVisit(const HLNode *) {}
+  void postVisit(const HLDDNode *) {}
+
+  std::map<unsigned, SmallVector<const DDRef *, 16>> SymToRefs;
 };
 }
 
@@ -110,14 +111,16 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
     }
   } else {
     assert(Ref->isScalarRef() && "DDRef is in an inconsistent state!");
-    assert(Ref->getSymBase() && "Scalar DDRef was not assigned a symbase!");
+    assert(Ref->getSymbase() && "Scalar DDRef was not assigned a symbase!");
   }
   return nullptr;
 }
 
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  if (Ref->isScalarRef())
+  if (Ref->isScalarRef()) {
     return;
+  }
+
   Value *Ptr = getRefPtr(Ref);
   assert(Ptr && "Could not find Value* ptr for mem load store ref");
   DEBUG(dbgs() << "Got ptr " << *Ptr << "\n");
@@ -133,9 +136,7 @@ void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
 
 void SymbaseAssignmentVisitor::visit(HLDDNode *Node) {
   for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-    if ((*I)->isConstant()) {
-      (*I)->setSymBase(SA->getSymBaseForConstants());
-    } else if ((*I)->getBaseCE()) {
+    if ((*I)->getBaseCE()) {
       addToAST(*I);
     }
   }
@@ -150,13 +151,9 @@ INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(SymbaseAssignment, "symbase", "Symbase Assignment", false,
                     true)
 
-unsigned int SymbaseAssignment::getSymBaseForConstants() const {
-  return HIRP->getSymBaseForConstants();
-}
-
-void SymbaseAssignment::initializeMaxSymBase() {
-  MaxSymBase = HIRP->getMaxScalarSymbase();
-  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymBase << " \n");
+void SymbaseAssignment::initializeMaxSymbase() {
+  MaxSymbase = HIRP->getMaxScalarSymbase();
+  DEBUG(dbgs() << "Initialized max symbase to " << MaxSymbase << " \n");
 }
 
 void SymbaseAssignment::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -173,17 +170,17 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
 
   HLUtils::setSymbaseAssignment(this);
-  initializeMaxSymBase();
+  initializeMaxSymbase();
 
   SymbaseAssignmentVisitor SV(this, AA, HIRP);
 
-  HLNodeUtils::visitAll(&SV);
+  HLNodeUtils::visitAll(SV);
   AliasSetTracker &AST = SV.AST;
 
   // Each ref in a set gets the same symbase
   for (auto &AliasSet : AST) {
-    int CurSymBase = getNewSymBase();
-    DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymBase
+    unsigned CurSymbase = getNewSymbase();
+    DEBUG(dbgs() << "Assigned following refs to Symbase " << CurSymbase
                  << "\n");
 
     for (auto AV : AliasSet) {
@@ -192,7 +189,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
       for (auto CurRef : Refs) {
         DEBUG(CurRef->dump());
         DEBUG(dbgs() << "\n");
-        CurRef->setSymBase(CurSymBase);
+        CurRef->setSymbase(CurSymbase);
       }
     }
   }
@@ -202,14 +199,14 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
   DDRefGatherer G;
-  HLNodeUtils::visitAll(&G, HIRP);
+  HLNodeUtils::visitAll(G);
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";
   FOS << "\n";
 
   for (auto SymVecPair = G.SymToRefs.begin(), Last = G.SymToRefs.end();
        SymVecPair != Last; ++SymVecPair) {
-    SmallVector<DDRef *, 16> &RefVec = SymVecPair->second;
+    auto &RefVec = SymVecPair->second;
     FOS << "Symbase ";
     FOS << SymVecPair->first;
     FOS << ":\n";

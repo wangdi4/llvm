@@ -84,6 +84,8 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -103,7 +105,7 @@ static cl::opt<unsigned> CompleteUnrollTripThreshold(
 namespace {
 
 /// \brief Visitor to update the CanonExpr.
-class CanonExprVisitor {
+class CanonExprVisitor final : public HLNodeVisitorBase {
 private:
   unsigned Level;
   int64_t TripVal;
@@ -122,8 +124,6 @@ public:
     llvm_unreachable(" Node not supported for Complete Unrolling.");
   }
   void postVisit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 
 } // namespace
@@ -144,6 +144,7 @@ void CanonExprVisitor::visit(HLDDNode *Node) {
 /// processRegDDRef - Processes RegDDRef to call the Canon Exprs
 /// present inside it. This is an internal helper function.
 void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
+  SmallVector<BlobDDRef *, 6> BlobDDRefs;
 
   // Process CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
@@ -161,6 +162,9 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
        Iter != End; ++Iter) {
     processCanonExpr(*Iter);
   }
+
+  RegDD->updateBlobDDRefs(BlobDDRefs);
+  assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
 }
 
 /// Processes CanonExpr to replace IV by TripVal.
@@ -168,6 +172,11 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
   DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
   CExpr->replaceIVByConstant(Level, TripVal);
+
+  // TODO: update CE def level when TripVal is 0 and IV has a blob coeff. This
+  // applies to situations like this-
+  // Original CE: (i1 + i2*t1) {def:1)
+  // Modified CE: (i1) {def:0}
 }
 
 namespace {
@@ -202,9 +211,14 @@ public:
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
+  // Locality Analysis pointer.
+  HIRLocalityAnalysis *LA;
+
   unsigned CurrentTripThreshold;
   // Storage for Outermost Loops.
   SmallVector<const HLLoop *, 64> OuterLoops;
@@ -237,6 +251,8 @@ char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "HIRCompleteUnroll",
                       "HIR Complete Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "HIRCompleteUnroll",
                     "HIR Complete Unroll", false, false)
 
@@ -247,6 +263,8 @@ FunctionPass *llvm::createHIRCompleteUnrollPass(int Threshold) {
 bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
+
+  LA = &getAnalysis<HIRLocalityAnalysis>();
 
   // Do an early exit if Trip Threshold is less than 1
   // TODO: Check if we want give some feedback to user
@@ -312,7 +330,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
   if (Loop->hasPreheader() || Loop->hasPostexit())
     return false;
 
-  assert((Loop->getNumChildren() > 0) && " Loop has no child.");
+  // assert((Loop->getNumChildren() > 0) && " Loop has no child.");
 
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   assert(UBRef && " Loop UpperBound not found.");
@@ -395,10 +413,11 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, LoopData *LD) {
     HLNodeUtils::insertBefore(Loop, &LoopBody);
 
     CanonExprVisitor CEVisit(Loop->getNestingLevel(), TripVal);
-    HLNodeUtils::visit<CanonExprVisitor>(&CEVisit, CurFirstChild, CurLastChild);
+    HLNodeUtils::visit(CEVisit, CurFirstChild, CurLastChild);
   }
 
   Loop->getParentRegion()->setGenCode();
+  LA->markLoopModified(Loop);
   // TODO: Mark loops as modified for DD
 
   // Delete the original loop.

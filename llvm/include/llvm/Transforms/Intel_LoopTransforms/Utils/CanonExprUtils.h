@@ -20,6 +20,7 @@
 #include "llvm/Support/Compiler.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 #include <set>
@@ -42,6 +43,7 @@ private:
   CanonExprUtils() = delete;
 
   friend class HIRParser;
+  friend class DDRefUtils;
 
   /// Keeps track of objects of the CanonExpr class.
   static std::set<CanonExpr *> GlobalCanonExprs;
@@ -52,42 +54,79 @@ private:
   /// \brief Calculates the lcm of two positive inputs.
   static int64_t lcm(int64_t A, int64_t B);
 
-public:
-  /// \brief Returns a new CanonExpr. All canon exprs are created linear.
-  static CanonExpr *createCanonExpr(Type *Typ, unsigned Level = 0,
-                                    int64_t Const = 0, int64_t Denom = 1);
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't already present in the blob table. Index range is
+  /// [1, UINT_MAX]. There is a 1-1 mapping of temp blob index and symbase. This
+  /// information is stored in the blob table. This interface is private
+  /// because only the framework is allowed to create temp blobs for insertion
+  /// in the blob table.
+  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob, unsigned Symbase);
 
-  /// \brief Returns a new CanonExpr created from APInt Value
-  static CanonExpr *createCanonExpr(const APInt &APVal, int Level = 0);
+  /// \brief Creates a non-linear self blob canon expr from the passed in Value.
+  /// The new blob is associated with Symbase. New temp blobs from values are
+  /// only created by framework.
+  static CanonExpr *createSelfBlobCanonExpr(Value *Temp, unsigned Symbase);
+
+  /// \brief Implements add()/cloneAndAdd() functionality.
+  static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                            bool CreateNewCE, bool IgnoreDestType);
+
+public:
+  /// \brief Returns a new CanonExpr with identical src and dest types. All
+  /// canon exprs are created linear.
+  static CanonExpr *createCanonExpr(Type *Ty, unsigned Level = 0,
+                                    int64_t Const = 0, int64_t Denom = 1,
+                                    bool IsSignedDiv = false);
+
+  /// \brief Returns a new CanonExpr with zero or sign extension. All canon
+  /// exprs are created linear.
+  /// Note: Overloading createCanonExpr() causes ambiguous calls for constant
+  /// arguments.
+  static CanonExpr *createExtCanonExpr(Type *SrcType, Type *DestType,
+                                       bool IsSExt, unsigned Level = 0,
+                                       int64_t Const = 0, int64_t Denom = 1,
+                                       bool IsSignedDiv = false);
+
+  /// \brief Returns a new CanonExpr created from APInt Value.
+  static CanonExpr *createCanonExpr(Type *Ty, const APInt &APVal,
+                                    int Level = 0);
+
+  /// \brief Returns a self-blob canon expr. Level is the defined at level for
+  /// the blob. Level of -1 means non-linear blob.
+  static CanonExpr *createSelfBlobCanonExpr(unsigned Index, int Level = -1);
 
   /// \brief Destroys the passed in CanonExpr.
   static void destroy(CanonExpr *CE);
-
-  /// \brief Creates a non-linear self blob canon expr from the passed in Val.
-  static CanonExpr *createSelfBlobCanonExpr(Value *Val);
 
   /// \brief Calculates the gcd of two positive inputs.
   static int64_t gcd(int64_t A, int64_t B);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  /// UINT_MAX]. Returns invalid value if the blob is not present in the table.
   static unsigned findBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
+  /// non-temp or non-present blobs.
+  static unsigned findBlobSymbase(CanonExpr::BlobTy Blob);
 
   /// \brief Returns the index of Blob in the blob table. Blob is first
   /// inserted, if it isn't already present in the blob table. Index range is
   /// [1, UINT_MAX].
+  /// NOTE: New temp blobs can only be inserted by the framework.
   static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
 
   /// \brief Returns blob corresponding to BlobIndex.
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
+  /// \brief Returns symbase corresponding to BlobIndex. Returns invalid value
+  /// for non-temp blobs.
+  static unsigned getBlobSymbase(unsigned BlobIndex);
+
   /// \brief Prints blob.
-  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                        bool Detailed = false);
+  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
 
   /// \brief Prints scalar corresponding to symbase.
-  static void printScalar(raw_ostream &OS, unsigned Symbase,
-                          bool Detailed = false);
+  static void printScalar(raw_ostream &OS, unsigned Symbase);
 
   /// \brief Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
@@ -95,6 +134,12 @@ public:
 
   /// \brief Returns true if Blob is a temp.
   static bool isTempBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns true if TempBlob always has a defined at level of zero.
+  static bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob);
+
+  /// \brief Returns true if Blob is a UndefValue.
+  static bool isUndefBlob(const CanonExpr::BlobTy Blob);
 
   /// \brief Returns a new blob created from passed in Val.
   static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
@@ -145,31 +190,56 @@ public:
   createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
                        unsigned *NewBlobIndex = nullptr);
 
-  /// \brief Returns true if the type of both Canon Expr matches
-  static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2);
+  /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
+  static bool contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob);
+
+  /// \brief Returns all the temp blobs present in Blob via TempBlobs vector.
+  static void collectTempBlobs(CanonExpr::BlobTy Blob,
+                               SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
+
+  /// \brief Returns true if the type of both Canon Expr matches.
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                          bool IgnoreDestType = false);
+
+  /// \brief Returns true if CE1 and CE2 can be merged (added/subtracted etc).
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
+                        bool IgnoreDestType = false);
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
-  static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2);
+  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
+  static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                       bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the sum of these canon
-  /// exprs. Result = CE1+CE2
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
-                        bool CreateNewCE = false);
+  /// \brief Modifies and returns CE1 to reflect sum of CE1 and CE2.
+  /// CE1 = CE1 + CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static void add(CanonExpr *CE1, const CanonExpr *CE2,
+                  bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the difference of these
-  /// canon exprs. Result = CE1 - CE2
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                             bool CreateNewCE = false);
+  /// \brief Returns a canon expr which represents the sum of CE1 and CE2.
+  /// Result = CE1 + CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static CanonExpr *cloneAndAdd(const CanonExpr *CE1, const CanonExpr *CE2,
+                                bool IgnoreDestType = false);
 
-  /// \brief Returns a canon expr which represents the negation of given
-  /// canon expr. Result = -CE1
-  /// If CreateNewCE is true, results in a new canon expr.
-  /// If CreateNewCE is false, it updates the input canon expr.
-  static CanonExpr *negate(CanonExpr *CE1, bool CreateNewCE = false);
+  /// \brief Modifies and returns CE1 to reflect difference of CE1 and CE2.
+  /// CE1 = CE1 - CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static void subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                       bool IgnoreDestType = false);
+
+  /// \brief Returns a canon expr which represents the difference of CE1 and
+  /// CE2.
+  /// Result = CE1 - CE2
+  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  static CanonExpr *cloneAndSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
+                                     bool IgnoreDestType = false);
+
+  /// \brief Returns a canon expr which represents the negation of CE.
+  /// Result = -CE
+  static CanonExpr *cloneAndNegate(const CanonExpr *CE);
 };
 
 } // End namespace loopopt

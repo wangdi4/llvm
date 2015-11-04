@@ -615,6 +615,10 @@ namespace llvm {
     /// isHIRCopyInst - Returns true if this instruction is a copy instruction
     /// inserted by HIR framework.
     bool isHIRCopyInst(const Instruction *Inst) const; 
+
+    /// isHIRLiveRangeIndicator - Returns true if this instruction is a live
+    /// range indicator for HIR.
+    bool isHIRLiveRangeIndicator(const Instruction *Inst) const;
 #endif
 
     /// isSCEVable - Test if values of the given type are analyzable within
