@@ -18,7 +18,6 @@
 #define LLVM_ANALYSIS_VPO_AVR_STMT_IR_H
 
 #include "llvm/IR/Instruction.h"
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmt.h"
 
 namespace llvm { // LLVM Namespace

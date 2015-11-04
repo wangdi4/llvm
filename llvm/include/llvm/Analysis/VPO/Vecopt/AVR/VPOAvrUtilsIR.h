@@ -17,8 +17,8 @@
 #ifndef LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmtIR.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIfIR.h"
 
 namespace llvm { // LLVM Namespace
 
@@ -61,6 +61,9 @@ public:
 
   /// \brief Returns a new AVRReturnIR node.
   static AVRReturnIR *createAVRReturnIR(Instruction *Inst);
+
+  /// \brief Returns a new AVRIfIR node.
+  static AVRIfIR *createAVRIfIR(Instruction *Inst);
 
   // Search Utilities
 

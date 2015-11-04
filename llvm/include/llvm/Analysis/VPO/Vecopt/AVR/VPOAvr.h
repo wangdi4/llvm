@@ -117,56 +117,7 @@ public:
   /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
 
-  /// \brief Enumeration for the concrete subclasses of AVR.
-  /// 
-  /// Note that for each of the statement kinds, we have a variant for each of
-  /// the IR kinds that the AL supports - for LLVM IR, HIR so on. For each of
-  /// the statement kinds, the enum values are delimited by a value that is used
-  /// for the base class for that AVR kind and the value with Last. As an example,
-  /// the enum values for an assignment statement for different IRs will fall in
-  /// the range AVRAssignNode and AVRAssignLastNode. We need to ensure that this
-  /// ordering is maintained for things to work correctly.
-  enum AVRVal {
-    AVRLoopNode,
-    AVRFunctionNode,
-    AVRIfNode,
-
-    AVRAssignNode,
-    AVRAssignIRNode,
-    AVRAssignLastNode,
-
-    AVRExprNode,
-
-    AVRLabelNode,
-    AVRLabelIRNode,
-    AVRLabelLastNode,
-
-    AVRPhiNode,
-    AVRPhiIRNode,
-    AVRPhiLastNode,
-
-    AVRCallNode,
-    AVRCallIRNode,
-    AVRCallLastNode,
-
-    AVRFBranchNode,
-    AVRFBranchIRNode,
-    AVRFBranchLastNode,
-
-    AVRBackEdgeNode,
-    AVRBackEdgeIRNode,
-    AVRBackEdgeLastNode,
-
-    AVREntryNode,
-    AVREntryIRNode,
-    AVREntryLastNode,
-
-    AVRReturnNode,
-    AVRReturnIRNode,
-    AVRReturnLastNode,
-
-    AVRWrnNode
-  };
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrKinds.h"
 
 };
 

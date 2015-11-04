@@ -38,6 +38,9 @@ char AVRGenerate::ID = 0;
 static cl::opt<bool>AvrStressTest("avr-stress-test", cl::init(false),
   cl::desc("Construct full Avrs for stress testing"));
 
+static cl::opt<bool>AvrHIRTest("avr-hir-test", cl::init(false),
+  cl::desc("Construct Avrs for HIR testing"));
+
 
 FunctionPass *llvm::createAVRGeneratePass() { return new AVRGenerate(); }
 
@@ -58,6 +61,95 @@ void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<IdentifyVectorCandidates>();
+  AU.addRequiredTransitive<HIRParser>();
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitInst(HLInst *I)
+{
+  return AVRUtilsHIR::createAVRAssignHIR(I);
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitLabel(HLLabel *L)
+{
+  return AVRUtilsHIR::createAVRLabelHIR(L);
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitGoto(HLGoto *G)
+{
+  return AVRUtilsHIR::createAVRFBranchHIR(G);
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitLoop(HLLoop *L)
+{
+  AVRLoop *ALoop;
+
+  ALoop = AVRUtils::createAVRLoop((const Loop *)nullptr);
+  
+  // Visit loop children
+  for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
+    AVR *ChildAVR;
+
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(ALoop, nullptr, ChildAVR, LastChild);
+  }
+
+#if 0
+  formatted_raw_ostream OS(dbgs());
+
+  ALoop->print(OS, 1, 1);
+#endif
+
+  return ALoop;
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitRegion(HLRegion *R)
+{
+  AVRWrn *AWrn;
+  
+  // TODO - for now use AVRWrn to represent a region. AVR generation
+  // for HIR will change once we figure out how SIMD/AUTOVEC intrinsics
+  // are represented and what we consider as potential vectorization
+  // candidates.
+  AWrn = AVRUtils::createAVRWrn(nullptr);
+
+  // Visit region children
+  for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AWrn, nullptr, ChildAVR, LastChild);
+  }
+  
+  return (AVR *) AWrn;
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitIf(HLIf *HIf)
+{
+  AVRIf *AIf;
+
+  AIf = AVRUtilsHIR::createAVRIfHIR(HIf);
+
+  // Visit then children
+  for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
+                        true /* then_child */);
+  }
+
+  // Visit else children
+  for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
+                        false /* then_child */);
+  }
+
+  return AIf;
+}
+
+AVR *AVRGenerate::AVRGenerateVisitor::visitSwitch(HLSwitch *S)
+{
+  return (AVR *) nullptr;
 }
 
 bool AVRGenerate::runOnFunction(Function &F)
@@ -65,18 +157,32 @@ bool AVRGenerate::runOnFunction(Function &F)
   VC = &getAnalysis<IdentifyVectorCandidates>();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  auto HIRP = &getAnalysis<HIRParser>();
 
   setLLVMFunction(&F);
 
-  // Build the base Abstract Layer representation. 
-  buildAbstractLayer();
+  if (AvrHIRTest == false) {
+    // Build the base Abstract Layer representation. 
+    buildAbstractLayer();
+    
+    // Optimize the abstract layer representation by indentifying and marking loops.
+    formAvrLoops();
+    
+    // Optimize the abstract layer represenation by identifying and marking
+    // if/splits
+    formAvrSplits();
+  }
+  else {
+    AVRGenerateVisitor AG;
+    
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
+      DEBUG(errs() << "Starting AVR gen for \n");
+      DEBUG(I->dump());
+      AVRList.push_back(AG.visit(I));
+    }
 
-  // Optimize the abstract layer representation by indentifying and marking loops.
-  formAvrLoops();
-
-  // Optimize the abstract layer represenation by identifying and marking
-  // if/splits
-  formAvrSplits();
+    DEBUG(dump());
+  }
 
   return false;
 }
@@ -172,7 +278,7 @@ AVR* AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB, AVR *InsertionPos)
         break;
       case Instruction::ICmp:
       case Instruction::FCmp:
-        NewNode = AVRUtils::createAVRIf(I);
+        NewNode = AVRUtilsIR::createAVRIfIR(I);
         // TODO: Recursively build body
         //       This is not quite correct, need to properly set predication
         break;

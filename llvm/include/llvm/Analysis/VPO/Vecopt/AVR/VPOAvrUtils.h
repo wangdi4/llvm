@@ -81,16 +81,18 @@ public:
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop();
 
-  /// \brief Returns a new AVRIf node.
-  static AVRIf *createAVRIf(Instruction *Inst);
-
   /// \brief Returns a new AVRExpr node.
   static AVRExpr *createAVRExpr();
 
   // Insertion Utilities
 
   /// \brief Standard Insert Utility
-  static void insertAVR(AVR *Parent, AvrItr Postion, AvrItr NewAvr, InsertType Itype);
+  /// The then_child is only meaningful when the parent is an AVR If and
+  /// is used to indicate whether to use then children or else children
+  /// to insert NewAvr. The value of then_child is ignored for other parent
+  /// kinds.
+  static void insertAVR(AVR *Parent, AvrItr Postion, AvrItr NewAvr,
+                        InsertType Itype, bool then_child = true);
 
   /// \brief Inserts NewAvr node as the first child in Parent avr.
   static void insertFirstChildAVR(AVR *Parent, AvrItr NewAvr);

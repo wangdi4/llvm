@@ -139,12 +139,13 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (VerbosityLevel > 0) {
 
-    OS << Indent <<"AVR_WRN\n";
+    OS << Indent <<"AVR_WRN:\n";
 
     Depth++;
     for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
       Itr->print(OS, Depth, VerbosityLevel);
     }
+    // OS << Indent <<"END_AVR_WRN\n";
   }
 }
 

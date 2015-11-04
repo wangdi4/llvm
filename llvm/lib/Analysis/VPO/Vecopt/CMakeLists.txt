@@ -19,9 +19,13 @@ add_llvm_library(LLVMVecopt_Analysis
   AVR/VPOAvrLoop.cpp
   AVR/VPOAvrStmt.cpp
   AVR/VPOAvrStmtIR.cpp
+  AVR/VPOAvrStmtHIR.cpp
   AVR/VPOAvrIf.cpp
+  AVR/VPOAvrIfIR.cpp
+  AVR/VPOAvrIfHIR.cpp
   AVR/VPOAvrUtils.cpp
   AVR/VPOAvrUtilsIR.cpp
+  AVR/VPOAvrUtilsHIR.cpp
   CandidateIdent/VPOVecCandIdentify.cpp
   CandidateIdent/VPOVectorCandidate.cpp
 )

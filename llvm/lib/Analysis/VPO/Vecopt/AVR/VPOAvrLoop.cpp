@@ -59,6 +59,8 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
       Itr->print(OS, Depth, VerbosityLevel);
     }
+
+    // OS << Indent  <<"END_AVR_LOOP\n";
   }
 }
 

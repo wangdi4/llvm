@@ -33,12 +33,12 @@ AVRLoop *AVRUtils::createAVRLoop(const Loop *Lp) {
 }
 
 AVRWrn *AVRUtils::createAVRWrn(WRNVecLoopNode *WrnSimdNode) {
-  assert(WrnSimdNode && "WrnSimdNode is empty!");
-  return new AVRWrn(WrnSimdNode);
-}
+  // TODO - for now we create an AVRWrn for every HIR region node by
+  // passing a null WrnSimdNode. This assert is suppressed until we
+  // figure how WRN analysis works with HIR.
+  // assert(WrnSimdNode && "WrnSimdNode is empty!");
 
-AVRIf *AVRUtils::createAVRIf(Instruction *Inst) {
-  return new AVRIf(Inst);
+  return new AVRWrn(WrnSimdNode);
 }
 
 
@@ -96,7 +96,8 @@ void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
 
 }
 
-void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr, InsertType Itype) {
+void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
+                         InsertType Itype, bool then_child) {
 
   assert(Parent && "Parent is null.");
 
@@ -110,10 +111,12 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr, InsertType Ityp
     Children = &(ALoop->Children);
   }
   else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
-    llvm_unreachable("VPO: AVR_SPLIT Insertion not supported.\n");
-    // TODO: Split Support
-    Children = &(AIf->ThenChildren);
-    Children = &(AIf->ElseChildren);
+    if (then_child) {
+      Children = &(AIf->ThenChildren);
+    }
+    else {
+      Children = &(AIf->ElseChildren);
+    }
   } 
   else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     Children = &(AWrn->Children);

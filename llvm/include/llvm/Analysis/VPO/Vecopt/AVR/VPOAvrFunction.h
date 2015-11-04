@@ -17,6 +17,11 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_FUNCTION_H
 #define LLVM_ANALYSIS_VPO_AVR_LUNCTION_H
 
+#include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/CFG.h"
+
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
 namespace llvm { // LLVM Namespace

@@ -55,6 +55,10 @@ AVRReturnIR *AVRUtilsIR::createAVRReturnIR(Instruction *Inst) {
   return new AVRReturnIR(Inst);
 }
 
+AVRIfIR *AVRUtilsIR::createAVRIfIR(Instruction *Inst) {
+  return new AVRIfIR(Inst);
+}
+
 // Search Utilities
 
 AVRLabelIR *AVRUtilsIR::getAvrLabelForBB(BasicBlock *BB, AVR *ParentNode) {

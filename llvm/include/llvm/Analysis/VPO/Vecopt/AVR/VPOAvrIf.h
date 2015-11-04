@@ -46,20 +46,14 @@ private:
   IfChildrenTy ThenChildren;
   /// Container that holds IF children in 'Else' branch
   IfChildrenTy ElseChildren;
-  /// If comparison instruction
-  Instruction *CompareInstruction;
 
 protected:
 
-  AVRIf(Instruction *CompareInst);
-  AVRIf (const AVRIf &AVRIf);
+  AVRIf(unsigned SCID);
   virtual ~AVRIf() override {}
 
   /// \brief Sets up state object.
   void initialize();
-
-  // TODO: Get Predicate
-  // TODO: Get Conjuntion
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
@@ -129,24 +123,14 @@ public:
  
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRIfNode;
-  }
-  /// \brief Returns the number of operands for this instruction.
-  unsigned getNumOperands() const;
-
-
-  /// \brief Returns the underlying LLVM compare instruction for this AvrIf.
-  const Instruction *getCompareInstruction() const {
-    return CompareInstruction;
+    return (Node->getAVRID() > AVR::AVRIfNode &&
+            Node->getAVRID() < AVR::AVRIfLastNode);
   }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
 	     unsigned VerbosityLevel) const override;
 
-
-  /// \brief Code generation for AVR IF
-  void codeGen()  override;
 };
 
 } // End VPO Vectorizer Namespace

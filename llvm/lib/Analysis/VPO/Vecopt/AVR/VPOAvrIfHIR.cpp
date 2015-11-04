@@ -9,44 +9,37 @@
 //
 //   Source file:
 //   ------------
-//   VPOAvrIf.cpp -- Implements the Abstract Vector Representation (AVR)
-//   if node.
+//   VPOAvrIfHIR.cpp -- Implements the Abstract Vector Representation (AVR)
+//   if node for HIR.
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIf.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIfHIR.h"
 
 #define DEBUG_TYPE "avr-if-node"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRIf::AVRIf(unsigned SCID)
-  : AVR(SCID) {}
+AVRIfHIR::AVRIfHIR(HLIf *CompInst)
+  : AVRIf(AVR::AVRIfHIRNode), CompareInstruction(CompInst) {}
 
-AVRIf *AVRIf::clone() const {
+AVRIfHIR *AVRIfHIR::clone() const {
   return nullptr;
 }
 
-void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
+void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                   unsigned VerbosityLevel) const {
   std::string Indent(Depth * TabLength, ' ');
 
   if (VerbosityLevel > 0) { 
-    for (auto Itr = then_begin(), E = then_end(); Itr != E; ++Itr) { 
-      Itr->print(OS, Depth + 1, VerbosityLevel);
-    }
-
-    if (hasElseChildren()) {
-
-      OS << Indent << "ELSE:     ";
-      OS << "\n";
-      
-      for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) { 
-        Itr->print(OS, Depth + 1, VerbosityLevel);
-      }
-    }
-    
-    // OS << Indent << "END_AVR_IF\n";
+    OS << Indent << "AVR_IF: ";
+    CompareInstruction->printHeader(OS, 0, false);
+    OS << "\n";
   }
+
+  AVRIf::print(OS, Depth, VerbosityLevel);
+}
+
+void AVRIfHIR::codeGen() {
 }

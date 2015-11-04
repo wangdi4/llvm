@@ -21,6 +21,22 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtils.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtilsIR.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrUtilsHIR.h"
+
+#include "llvm/IR/Intel_LoopIR/HLSwitch.h"
+#include "llvm/IR/Intel_LoopIR/HLLoop.h"
+#include "llvm/IR/Intel_LoopIR/HLRegion.h"
+#include "llvm/IR/Intel_LoopIR/HLIf.h"
+#include "llvm/IR/Intel_LoopIR/HLInst.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
+
+using namespace llvm::loopopt;
 
 namespace llvm { // LLVM Namespace
 
@@ -96,6 +112,20 @@ private:
 
   /// \brief Removes AVRWrn nodes from the constructed abstract layer list.
   void cleanupAvrWrnNodes();
+
+  class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
+  public:
+    AVR *visitRegion(HLRegion *R);
+    AVR *visitLoop(HLLoop *L);
+    AVR *visitIf(HLIf *I);
+
+    AVR *visitSwitch(HLSwitch *S);
+
+    AVR *visitInst(HLInst *I);
+
+    AVR *visitGoto(HLGoto *G);
+    AVR *visitLabel(HLLabel *L);
+  };
 
 public:
 
