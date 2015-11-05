@@ -1605,6 +1605,34 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(cl_uint*)paramVal = 0;    // preferred alignment is aligned to the natural size of the type
             }
             return CL_DEV_SUCCESS;
+        case CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS:
+            if (ver >= OPENCL_VERSION_2_1)
+            {
+                *pinternalRetunedValueSize = sizeof(cl_bool);
+                if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                if (NULL != paramVal)
+                {
+                    *(cl_bool*)paramVal = CL_FALSE;
+                }
+                return CL_DEV_SUCCESS;
+            }
+        case CL_DEVICE_MAX_NUM_SUB_GROUPS:
+            if (ver >= OPENCL_VERSION_2_1)
+            {
+                *pinternalRetunedValueSize = sizeof(cl_uint);
+                if (NULL != paramVal && valSize < *pinternalRetunedValueSize)
+                {
+                    return CL_DEV_INVALID_VALUE;
+                }
+                if (NULL != paramVal)
+                {
+                    *(cl_uint*)paramVal = 1;
+                }
+                return CL_DEV_SUCCESS;
+            }
         default:
             return CL_DEV_INVALID_VALUE;
     };
@@ -2365,11 +2393,17 @@ cl_dev_err_code CPUDevice::clDevGetProgramKernels( cl_dev_program IN prog, cl_ui
 clDevGetKernelInfo
     Call programService to get kernel info
 **********************************************************************************************************************/
-cl_dev_err_code CPUDevice::clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
-                    void* OUT value, size_t* OUT valueSizeRet )
+cl_dev_err_code CPUDevice::clDevGetKernelInfo(cl_dev_kernel      IN  kernel,
+                                              cl_dev_kernel_info IN  param,
+                                              size_t             IN  input_value_size,
+                                              const void*        IN  input_value,
+                                              size_t             IN  value_size,
+                                              void*              OUT value,
+                                              size_t*            OUT value_size_ret)
 {
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("clDevGetKernelInfo Function enter"));
-    return (cl_dev_err_code)m_pProgramService->GetKernelInfo(kernel, param, valueSize,value,valueSizeRet );
+    return (cl_dev_err_code)m_pProgramService->GetKernelInfo(kernel, param, input_value_size,
+                                                             input_value, value_size, value, value_size_ret);
 }
 
 /*******************************************************************************************************************
