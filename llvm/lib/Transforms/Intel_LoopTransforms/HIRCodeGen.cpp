@@ -152,6 +152,11 @@ private:
     /// \brief Generates a bool value for predicate in HLIf
     Value *generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P);
 
+    // \brief Creates and returns icmp or fcmp instuction(depending on lhs type)
+    // at current IP
+    Value *createCmpInst(CmpInst::Predicate P, Value *LHS, Value *RHS,
+                         const Twine &Name);
+
     // \brief Return a value for blob corresponding to BlobIdx
     Value *getBlobValue(int BlobIdx) {
       // SCEVExpander instruction generator references the insertion point's
@@ -266,6 +271,11 @@ private:
     // after HIRCG's cfg modification
     SmallDenseMap<HLRegion *, Instruction *, 16> RegionTerminators;
     SmallDenseMap<HLRegion *, BasicBlock *, 16> RegionSucc;
+
+    // CG splits entry block in two, creating a new bblock which should
+    // still be considered part of region, as it contains values from incoming
+    // LLVM IR for that HLRegion.
+    SmallDenseMap<HLRegion *, BasicBlock *, 16> RegionEntrySplitBlock;
 
     // \brief Creates a stack allocation of size with name at entry of
     // current func. used for allocs that we expect to regisiterize
@@ -385,7 +395,21 @@ Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
   return Val;
 }
 
-// TODO support Denominator
+Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
+                                            Value *RHS, const Twine &Name) {
+  Value *CmpInst = nullptr;
+
+  assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
+  if (LHS->getType()->isIntegerTy()) {
+    CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
+  } else if (LHS->getType()->isFloatTy()) {
+    CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
+  } else {
+    llvm_unreachable("unknown predicate type in HIRCG");
+  }
+  return CmpInst;
+}
+
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr,
         *DenomVal = nullptr;
@@ -482,6 +506,8 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   DEBUG(Ref->dump());
   DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
+  assert(!Ref->isUndefined() && "undef operands not supported");
+
   if (Ref->isScalarRef()) {
     return visitScalar(Ref);
   }
@@ -523,16 +549,19 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   return GEPVal;
 }
 
-void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *R) {
-  for (auto I = R->live_out_begin(), E = R->live_out_end(); I != E; ++I) {
+void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
+
+  BasicBlock *SuccBBlock = RegionSucc[Region];
+  BasicBlock *NewRegionBlock = RegionEntrySplitBlock[Region];
+  for (auto I = Region->live_out_begin(), E = Region->live_out_end(); I != E;
+       ++I) {
+
     DEBUG(dbgs() << "Symbase " << I->first
                  << " is liveout with tracked value ");
     DEBUG(I->second->dump());
     DEBUG(dbgs() << " \n");
-    DEBUG(R->getSuccBBlock()->dump());
+    DEBUG(SuccBBlock->dump());
 
-    // BasicBlock *SuccBBlock = R->getSuccBBlock();
-    BasicBlock *SuccBBlock = RegionSucc[R];
     BasicBlock::iterator IP = SuccBBlock->getFirstInsertionPt();
     Builder->SetInsertPoint(IP);
 
@@ -549,7 +578,13 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *R) {
       if (Instruction *Inst = dyn_cast<Instruction>(LiveOutUse.getUser())) {
         BasicBlock *UseParentBBlock = Inst->getParent();
         // Might need to constrain this to only uses outside ANY HIR region?
-        if (!R->containsBBlock(UseParentBBlock)) {
+
+        // Use is in the now split entry bblock's second half, consider it
+        // part of hlregion and skip it, lest the use precede the def
+        if (NewRegionBlock == UseParentBBlock) {
+          continue;
+        }
+        if (!Region->containsBBlock(UseParentBBlock)) {
           if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
             if (UseParentBBlock == SuccBBlock) {
               // uses in succ bblock must be handled differently if user itself
@@ -574,10 +609,12 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *R) {
 
     // create load before region terminator and add it as
     // incoming value to successor bblock phi
-    Builder->SetInsertPoint(RegionTerminators[R]);
+    Instruction *RegionTerminator = RegionTerminators[Region];
+    BasicBlock *LastRegionBBlock = RegionTerminator->getParent();
+    Builder->SetInsertPoint(RegionTerminator);
     for (auto I = PhiUsers.begin(), E = PhiUsers.end(); I != E; ++I) {
       Value *InRegionLoad = Builder->CreateLoad(SymSlot);
-      (*I)->addIncoming(InRegionLoad, RegionTerminators[R]->getParent());
+      (*I)->addIncoming(InRegionLoad, LastRegionBBlock);
     }
   }
 }
@@ -621,6 +658,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   BasicBlock *EntrySecondHalf =
       SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
+  RegionEntrySplitBlock[R] = EntrySecondHalf;
 
   Instruction *Term = EntryFirstHalf->getTerminator();
   BasicBlock::iterator ii(Term);
@@ -645,36 +683,25 @@ Value *HIRCodeGen::CGVisitor::generatePredicate(HLIf *HIf,
                                                 HLIf::const_pred_iterator P) {
   Value *CurPred = nullptr;
   Value *LHSVal, *RHSVal;
+
   RegDDRef *LHSRef = HIf->getPredicateOperandDDRef(P, true);
   RegDDRef *RHSRef = HIf->getPredicateOperandDDRef(P, false);
 
-  if (!LHSRef || !RHSRef) {
-    // FCMP_TRUE predicates have no refs but we still need some operands
-    assert(!RHSRef && !LHSRef && "Pred ref missing");
-    LHSVal = ConstantFP::get(F->getContext(), APFloat(1.0));
-    if (*P == CmpInst::FCMP_TRUE) {
-      RHSVal = ConstantFP::get(F->getContext(), APFloat(1.0));
-    } else if (*P == CmpInst::FCMP_FALSE) {
-      RHSVal = ConstantFP::get(F->getContext(), APFloat(0.0));
-    } else {
-      llvm_unreachable("unexpected predicate");
-    }
-  } else {
-    LHSVal = visitRegDDRef(LHSRef);
-    RHSVal = visitRegDDRef(RHSRef);
+  // For undef predicate, we don't need to CG operands since end result
+  // is undef anyway.
+  if (*P == UNDEFINED_PREDICATE) {
+    // TODO icmp/fcmp with nonvector args return a boolean, i1 but
+    // vector types would require cmp to return vector of i1
+    return UndefValue::get(IntegerType::get(F->getContext(), 1));
   }
+
+  LHSVal = visitRegDDRef(LHSRef);
+  RHSVal = visitRegDDRef(RHSRef);
   assert(LHSVal->getType() == RHSVal->getType() &&
          "HLIf predicate type mismatch");
 
-  if (LHSVal->getType()->isIntegerTy()) {
-    CurPred = Builder->CreateICmp(
-        *P, LHSVal, RHSVal, "hir.cmp." + std::to_string(HIf->getNumber()));
-  } else if (LHSVal->getType()->isFloatTy()) {
-    CurPred = Builder->CreateFCmp(
-        *P, LHSVal, RHSVal, "hir.cmp." + std::to_string(HIf->getNumber()));
-  } else {
-    llvm_unreachable("unknown predicate type in HIRCG");
-  }
+  CurPred = createCmpInst(*P, LHSVal, RHSVal,
+                          "hir.cmp." + std::to_string(HIf->getNumber()));
 
   return CurPred;
 }
@@ -949,24 +976,22 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
 
     Builder->CreateStore(Res, Ops[0]);
   } else if (isa<SelectInst>(Inst)) {
-    Value *Pred;
     Value *CmpLHS = Ops[1];
     Value *CmpRHS = Ops[2];
     Value *TVal = Ops[3];
     Value *FVal = Ops[4];
-    if (CmpLHS->getType()->isIntegerTy()) {
-      Pred = Builder->CreateICmp(HInst->getPredicate(), CmpLHS, CmpRHS,
-                                 "hir.selcmp." +
-                                     std::to_string(HInst->getNumber()));
-    } else if (CmpLHS->getType()->isFloatTy()) {
-      Pred = Builder->CreateFCmp(HInst->getPredicate(), CmpLHS, CmpRHS,
-                                 "hir.selcmp." +
-                                     std::to_string(HInst->getNumber()));
-    } else {
-      llvm_unreachable("unknown predicate type in HIRCG");
-    }
+
+    Value *Pred =
+        createCmpInst(HInst->getPredicate(), CmpLHS, CmpRHS,
+                      "hir.selcmp." + std::to_string(HInst->getNumber()));
     Value *NewSel = Builder->CreateSelect(Pred, TVal, FVal);
     Builder->CreateStore(NewSel, Ops[0]);
+  } else if (isa<CmpInst>(Inst)) {
+
+    Value *CmpVal =
+        createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
+                      "hir.cmp." + std::to_string(HInst->getNumber()));
+    Builder->CreateStore(CmpVal, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
