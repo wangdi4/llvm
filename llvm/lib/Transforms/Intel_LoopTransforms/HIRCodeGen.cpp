@@ -831,13 +831,13 @@ BasicBlock *HIRCodeGen::CGVisitor::getBBlockForLabel(HLLabel *L) {
   if (InternalLabels.count(L))
     return InternalLabels[L];
 
-  BasicBlock *LabelBB = BasicBlock::Create(F->getContext(), L->getName(), F);
+  BasicBlock *LabelBB =
+      BasicBlock::Create(F->getContext(), "hir." + L->getName(), F);
   InternalLabels[L] = LabelBB;
   return LabelBB;
 }
 
 Value *HIRCodeGen::CGVisitor::visitLabel(HLLabel *L) {
-  llvm_unreachable("untested cg for hllabel");
   // if we see label it must be internal, and it must be unique
   BasicBlock *LabelBBlock = getBBlockForLabel(L);
   assert(LabelBBlock->empty() && "label already in use");
@@ -849,11 +849,11 @@ Value *HIRCodeGen::CGVisitor::visitLabel(HLLabel *L) {
 }
 
 Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
-  llvm_unreachable("untested cg for hlgoto");
   // get basic block for G's target
   BasicBlock *TargetBBlock = G->getTargetBBlock();
 
   if (TargetBBlock) {
+    llvm_unreachable("untested cg for external hlgoto");
     HLRegion *R = G->getParentRegion();
     if (R->live_out_begin() != R->live_out_end())
       llvm_unreachable("Unsupported liveout for multiexit region");
@@ -867,7 +867,9 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
   // create a br to target, ending this block
   Builder->CreateBr(TargetBBlock);
 
-  BasicBlock *ContBB = BasicBlock::Create(F->getContext(), "goto.cont", F);
+  BasicBlock *ContBB = BasicBlock::Create(
+      F->getContext(), "hir.goto." + std::to_string(G->getNumber()) + ".cont",
+      F);
 
   // set insertion point there, but nodes visited are dead code,
   // until a label is reached.
