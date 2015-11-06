@@ -55,6 +55,24 @@ protected:
 
     void GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS() const;
 
+    // zero sized enqueue
+
+    void ZeroSized_clEnqueueReadBuffer() const;
+
+    void ZeroSized_clEnqueueWriteBuffer() const;
+
+    void ZeroSized_clEnqueueNDRangeKernel() const;
+
+    void ZeroSized_clEnqueueCopyBuffer() const;
+
+    void ZeroSized_clEnqueueSVMFree() const;
+
+    void ZeroSized_clEnqueueSVMFree_Negative() const;
+
+    void ZeroSized_clEnqueueSVMMemcpy() const;
+
+    void ZeroSized_clEnqueueSVMMemFill() const;
+
     void Init()
     {
         ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, ::CL_base::GetOCLVersion()) <<

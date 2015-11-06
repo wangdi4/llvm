@@ -604,6 +604,46 @@ TEST_F(CL21, clGetKernelWorkGroupInfo_MAX_NUM_SUB_GROUPS)
     GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
 }
 
+TEST_F(CL21, clZeroSized_clEnqueueReadBuffer)
+{
+    ZeroSized_clEnqueueReadBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueWriteBuffer)
+{
+    ZeroSized_clEnqueueWriteBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueNDRangeKernel)
+{
+    ZeroSized_clEnqueueNDRangeKernel();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueCopyBuffer)
+{
+    ZeroSized_clEnqueueCopyBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMFree)
+{
+    ZeroSized_clEnqueueSVMFree();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMFree_Negative)
+{
+    ZeroSized_clEnqueueSVMFree_Negative();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMMemcpy)
+{
+    ZeroSized_clEnqueueSVMMemcpy();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMMemFill)
+{
+    ZeroSized_clEnqueueSVMMemFill();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////

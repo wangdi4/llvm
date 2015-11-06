@@ -917,6 +917,12 @@ cl_err_code ExecutionModule::EnqueueReadBuffer(cl_command_queue clCommandQueue, 
         return CL_INVALID_VALUE;
     }
 
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
+        && 0 == szCb)
+    {
+        return CL_INVALID_VALUE;
+    }
+
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
     {
@@ -1090,6 +1096,13 @@ cl_err_code ExecutionModule::EnqueueWriteBuffer(cl_command_queue clCommandQueue,
     {
         return CL_INVALID_VALUE;
     }
+
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
+        && 0 == szCb)
+    {
+        return CL_INVALID_VALUE;
+    }
+
 
     SharedPtr<IOclCommandQueueBase> pCommandQueue = GetCommandQueue(clCommandQueue).DynamicCast<IOclCommandQueueBase>();
     if (NULL == pCommandQueue)
@@ -1398,6 +1411,12 @@ cl_err_code ExecutionModule::EnqueueCopyBuffer(
     if (NULL == pCommandQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
+        && 0 == szCb)
+    {
+        return CL_INVALID_VALUE;
     }
 
     SharedPtr<MemoryObject> pSrcBuffer = m_pContextModule->GetMemoryObject(clSrcBuffer);
@@ -1952,18 +1971,26 @@ cl_err_code ExecutionModule::EnqueueNDRangeKernel(
         return CL_INVALID_WORK_DIMENSION;
     }
 
-    if ( NULL == cpszGlobalWorkSize )
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
     {
-            return CL_INVALID_GLOBAL_WORK_SIZE;
-    }
+        if( NULL == cpszGlobalWorkSize )
+        {
+                return CL_INVALID_GLOBAL_WORK_SIZE;
+        }
 
-    for ( cl_uint ui = 0; ui < uiWorkDim; ui++ )
+        for ( cl_uint ui = 0; ui < uiWorkDim; ui++ )
+        {
+          LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %u"), ui, cpszGlobalWorkSize[ui]);
+          if ( cpszGlobalWorkSize[ui] == 0 )
+          {
+            return CL_INVALID_GLOBAL_WORK_SIZE;
+          }
+        }
+    }
+    const size_t zero_size[] = {0, 0, 0};
+    if( nullptr == cpszGlobalWorkSize )
     {
-      LOG_DEBUG(TEXT("EnqueueNDRangeKernel global worksize dim #%u = %u"), ui, cpszGlobalWorkSize[ui]);
-      if ( cpszGlobalWorkSize[ui] == 0 )
-      {
-        return CL_INVALID_GLOBAL_WORK_SIZE;
-      }
+        cpszGlobalWorkSize = zero_size;
     }
 
     // TODO: Check for optimization
@@ -3004,9 +3031,20 @@ cl_int ExecutionModule::EnqueueSVMFree(cl_command_queue clCommandQueue, cl_uint 
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    if (0 == uiNumSvmPointers || NULL == pSvmPointers)
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
     {
-        return CL_INVALID_VALUE;
+        if (0 == uiNumSvmPointers || nullptr == pSvmPointers)
+        {
+            return CL_INVALID_VALUE;
+        }
+    }
+    else
+    {
+        if ((0 == uiNumSvmPointers && nullptr != pSvmPointers) ||
+            (0 != uiNumSvmPointers && nullptr == pSvmPointers))
+        {
+            return CL_INVALID_VALUE;
+        }
     }
     for (cl_uint i = 0; i < uiNumSvmPointers; i++)
     {
@@ -3109,10 +3147,16 @@ cl_int ExecutionModule::EnqueueSVMMemcpy(cl_command_queue clCommandQueue, cl_boo
     {
         return CL_INVALID_COMMAND_QUEUE;
     }
-    if (NULL == pDstPtr || NULL == pSrcPtr || 0 == size)
+    if (NULL == pDstPtr || NULL == pSrcPtr)
     {
         return CL_INVALID_VALUE;
     }
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
+            && 0 == size)
+    {
+        return CL_INVALID_VALUE;
+    }
+
     if (((char*)pDstPtr >= (char*)pSrcPtr && (char*)pDstPtr < (char*)pSrcPtr + size) || ((char*)pSrcPtr >= (char*)pDstPtr && (char*)pSrcPtr < (char*)pDstPtr + size))
     {
         return CL_MEM_COPY_OVERLAP;
@@ -3193,6 +3237,12 @@ cl_int ExecutionModule::EnqueueSVMMemFill(cl_command_queue clCommandQueue, void*
     if (NULL == pQueue)
     {
         return CL_INVALID_COMMAND_QUEUE;
+    }
+
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1
+            && 0 == size)
+    {
+        return CL_INVALID_VALUE;
     }
 
     cl_err_code err = CheckEventList(pQueue, uiNumEventsInWaitList, pEventWaitList);
