@@ -143,3 +143,12 @@ EXPORTS
     clSetKernelExecInfo;
     clGetKernelSubGroupInfoKHR;
 
+     ; OpenCL 2.1 API
+    clCloneKernel;
+    clCreateProgramWithIL;
+    clEnqueueSVMMigrateMem;
+    clGetDeviceAndHostTimer;
+    clGetHostTimer;
+    clGetKernelSubGroupInfo;
+    clSetDefaultDeviceCommandQueue;        
+

@@ -102,7 +102,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
     size_t stParamSize;
 
     // Test Kernel information
-    cl_int rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &stParamSize);
+    cl_int rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, 0, NULL, &stParamSize);
     if ( CL_DEV_FAILED(rc) )
     {
         printf("pclDevGetKernelInfo failed[CL_DEV_KERNEL_PROTOTYPE] <%X>\n", rc);
@@ -119,7 +119,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
 
     // Get required size
     size_t stReqdWGSize[3];
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE_REQUIRED,
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE_REQUIRED, 0, NULL,
         sizeof(stReqdWGSize), stReqdWGSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
@@ -137,7 +137,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
     }
 
     // Get optimal size
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE,
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_WG_SIZE, 0, NULL,
         sizeof(stParamSize), &stParamSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
@@ -153,7 +153,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
 
     // Implicit local memory size
     cl_ulong ullLocalSize;
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, NULL,
         sizeof(cl_ulong), &ullLocalSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
@@ -169,7 +169,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
 
     // private memory size
     cl_ulong ullPrivateSize = 0;
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PRIVATE_SIZE, sizeof(cl_ulong), &ullPrivateSize, NULL);
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_PRIVATE_SIZE, 0, NULL, sizeof(cl_ulong), &ullPrivateSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
         printf("pclDevGetKernelInfo[CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE] failed <%X>\n", rc);
@@ -179,7 +179,7 @@ bool BuildFromBinary_test(const char* szDLLName, unsigned int uiTotal, const cha
 
     // Get maximum size
     size_t stWGMaxSize = 0;
-    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
+    rc = dev_entry->clDevGetKernelInfo(id, CL_DEV_KERNEL_MAX_WG_SIZE, 0, NULL, sizeof(stWGMaxSize), &stWGMaxSize, NULL);
     if ( CL_DEV_FAILED(rc) )
     {
         printf("pclDevGetKernelInfo[CL_DEV_KERNEL_WG_SIZE] failed <%X>\n", rc);

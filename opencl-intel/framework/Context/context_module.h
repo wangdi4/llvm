@@ -247,6 +247,10 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
         // pipes
 
+        cl_int GetKernelSubGroupInfo(cl_kernel kernel, cl_device_id device,
+                                     cl_kernel_sub_group_info param_name, size_t input_value_size,
+                                     const void* input_value, size_t param_value_size,
+                                     void* param_value, size_t* param_value_size_ret);
         cl_mem CreatePipe(cl_context context, cl_mem_flags flags, cl_uint uiPipePacketSize,    cl_uint uiPipeMaxPackets, const cl_pipe_properties* pProperties, void* pHostPtr, size_t* pSizeRet,
             cl_int* piErrcodeRet);
 

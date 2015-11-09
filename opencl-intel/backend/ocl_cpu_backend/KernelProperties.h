@@ -95,6 +95,15 @@ public:
     virtual size_t GetMaxWorkGroupSize(size_t const wgSizeUpperBound,
                                        size_t const wgPrivateMemSizeUpperBound) const;
 
+    virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const;
+
+    virtual void GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const;
+
+    virtual size_t GetMaxNumSubGroups() const;
+
+    virtual size_t GetRequiredSubGroupSize() const;
+
+    virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const;
     /**
      * @returns the required minimum group size factorial
      *  1 when no minimum is required

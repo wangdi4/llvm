@@ -440,7 +440,7 @@ llvm::Module* Compiler::ParseSPIRVModule(llvm::MemoryBuffer* pIRBuffer)
     std::string errMsg;
     std::stringstream inputStream(pIRBuffer->getBuffer().str(), std::ios_base::in);
 
-    bool success = llvm::ReadSPRV(*m_pLLVMContext, inputStream, retM, errMsg);
+    bool success = llvm::ReadSPIRV(*m_pLLVMContext, inputStream, retM, errMsg);
     if ( !success )
     {
         throw Exceptions::CompilerException(std::string("Failed to parse SPIR-V: ") + errMsg, CL_DEV_INVALID_BINARY);

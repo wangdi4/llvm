@@ -259,6 +259,33 @@ namespace Intel { namespace OpenCL { namespace Framework {
 
 
         /******************************************************************************************
+        * Function:      GetSubGroupInfo
+        *
+        * Description:   returns information about the kernel object that may be specific to a
+        *                device
+        *
+        * Arguments:     device                [in]    identifies a specific device in the list of
+        *                                              devices associated with
+        *                iParamName            [in]    parameter's name
+        *                szParamValueSize      [in]    parameter's value size (in bytes)
+        *                input_value_size      [in]    input value's size
+        *                input_value           [in]    input value's value
+        *                pParamValue           [out]   parameter's value
+        *                pszParamValueSizeRet  [out]   parameter's value return size
+        * Return value:  CL_INVALID_DEVICE - device is not valid device
+        *                CL_INVALID_VALUE  - iParamName is not valid parameter
+        *                CL_SUCCESS        - operation succeeded
+        * Author:        Vlad Romanov
+        * Date:          October 2015
+        ******************************************************************************************/
+        cl_err_code GetSubGroupInfo(const       SharedPtr<FissionableDevice>& device,
+                                    cl_int      iParamName,
+                                    size_t      szParamValueSize,
+                                    size_t      input_value_size,
+                                    const void* input_value,
+                                    void *      pParamValue,
+                                    size_t*     pszParamValueSizeRet);
+        /******************************************************************************************
         * Function:     GetWorkGroupInfo    
         * Description:    returns information about the kernel object that may be specific to a 
         *                device

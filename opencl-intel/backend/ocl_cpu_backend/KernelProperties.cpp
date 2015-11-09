@@ -20,6 +20,7 @@ File Name:  KernelProperties.cpp
 #include "exceptions.h"
 #include <string.h>
 #include <algorithm>
+#include <iostream>
 
 namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
@@ -178,6 +179,53 @@ size_t KernelProperties::GetBarrierBufferSize() const
 size_t KernelProperties::GetPrivateMemorySize() const
 {
     return m_privateMemorySize;
+}
+
+size_t KernelProperties::GetRequiredSubGroupSize() const
+{
+    std::cerr << __FUNCTION__ << " is not implemented!"
+              << __FILE__ << ":" << __LINE__ << std::endl;
+    return 0;
+}
+
+size_t KernelProperties::GetMaxNumSubGroups() const
+{
+    std::cerr << __FUNCTION__ << " is not implemented!"
+              << __FILE__ << ":" << __LINE__ << std::endl;
+    return 1;
+}
+
+size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const
+{
+    std::cerr << __FUNCTION__ << " is not implemented!"
+              << __FILE__ << ":" << __LINE__ << std::endl;
+    return 1;
+}
+
+void KernelProperties::GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const
+{
+    std::cerr << __FUNCTION__ << " is not implemented!"
+              << __FILE__ << ":" << __LINE__ << std::endl;
+
+    if(nullptr != WGSizes)
+    {
+        if(1 == desiredSGCount)
+            for(size_t i = 0; i < size; ++i)
+                WGSizes[i] = 1;
+        else
+            for(size_t i = 0; i < size; ++i)
+                WGSizes[i] = 0;
+    }
+}
+
+size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
+{
+    std::cerr << __FUNCTION__ << " is not implemented!"
+              << __FILE__ << ":" << __LINE__ << std::endl;
+    size_t maxSGSize = 1;
+    for(size_t i = 0; i < size; ++i)
+        maxSGSize *= WGSizes[i];
+    return maxSGSize;
 }
 
 unsigned int KernelProperties::GetMinGroupSizeFactorial() const

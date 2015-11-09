@@ -206,11 +206,11 @@ OclBuiltinImpl soa_normalize2_f64 = OclBuiltinImpl<soa_normalize2 , dp_fp_soa_ty
         double$VecLength t_of_x, t_of_y;
 
         long$VecLength is_inf_mask = isinf( t_x );
-        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        t_of_x = select( copysign(($Arg0VecType)0.0, $Arg0VarName), copysign(($Arg0VecType)1.0, $Arg0VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_y );
-        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        t_of_y = select( copysign(($Arg1VecType)0.0, $Arg1VarName), copysign(($Arg1VecType)1.0, $Arg1VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         t_x = select(t_x, t_of_x, still_overflow_mask);
@@ -302,15 +302,15 @@ OclBuiltinImpl soa_normalize3_f64 = OclBuiltinImpl<soa_normalize3 , dp_fp_soa_ty
         double$VecLength t_of_x, t_of_y, t_of_z;
 
         long$VecLength is_inf_mask = isinf( t_x );
-        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        t_of_x = select( copysign(($Arg0VecType)0.0, $Arg0VarName), copysign(($Arg0VecType)1.0, $Arg0VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_y );
-        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        t_of_y = select( copysign(($Arg1VecType)0.0, $Arg1VarName), copysign(($Arg1VecType)1.0, $Arg1VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_z );
-        t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
+        t_of_z = select( copysign(($Arg2VecType)0.0, $Arg2VarName), copysign(($Arg2VecType)1.0, $Arg2VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         t_x = select(t_x, t_of_x, still_overflow_mask);
@@ -414,19 +414,19 @@ OclBuiltinImpl soa_normalize4_f64 = OclBuiltinImpl<soa_normalize4 , dp_fp_soa_ty
         double$VecLength t_of_x, t_of_y, t_of_z, t_of_w;
 
         long$VecLength is_inf_mask = isinf( t_x );
-        t_of_x = select( copysign(0.0, $Arg0VarName), copysign(1.0, $Arg0VarName), is_inf_mask);
+        t_of_x = select( copysign(($Arg0VecType)0.0, $Arg0VarName), copysign(($Arg0VecType)1.0, $Arg0VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_y );
-        t_of_y = select( copysign(0.0, $Arg1VarName), copysign(1.0, $Arg1VarName), is_inf_mask);
+        t_of_y = select( copysign(($Arg1VecType)0.0, $Arg1VarName), copysign(($Arg1VecType)1.0, $Arg1VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_z );
-        t_of_z = select( copysign(0.0, $Arg2VarName), copysign(1.0, $Arg2VarName), is_inf_mask);
+        t_of_z = select( copysign(($Arg2VecType)0.0, $Arg2VarName), copysign(($Arg2VecType)1.0, $Arg2VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         is_inf_mask = isinf( t_w );
-        t_of_w = select( copysign(0.0, $Arg3VarName), copysign(1.0, $Arg3VarName), is_inf_mask);
+        t_of_w = select( copysign(($Arg3VecType)0.0, $Arg3VarName), copysign(($Arg3VecType)1.0, $Arg3VarName), is_inf_mask);
         stil_overflow_total = select( stil_overflow_total, stil_overflow_total + 1.0, is_inf_mask);
 
         t_x = select(t_x, t_of_x, still_overflow_mask);

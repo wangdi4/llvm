@@ -856,7 +856,19 @@ int NDRange::Init(size_t region[], unsigned int &dimCount)
     unsigned int memObjCount = 0;
     const cl_mem_obj_descriptor** memArgs = NULL;
 #endif
-    m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
+    bool zero_enqueue = false;
+    for (unsigned int i = 0; i < cmdParams->work_dim; ++i)
+    {
+        if(!cmdParams->glb_wrk_size[i])
+        {
+            zero_enqueue = true;
+            break;
+        }
+    }
+    if(!zero_enqueue)
+    {
+        m_pRunner->PrepareKernelArguments(pLockedParams, memArgs, memObjCount);
+    }
 
     // if logger is enabled, always print local work size from BE
     if (NULL != g_pUserLogger && g_pUserLogger->IsApiLoggingEnabled())

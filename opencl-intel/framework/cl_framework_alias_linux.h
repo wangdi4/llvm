@@ -147,4 +147,5 @@ DECLARE_ALIAS(clGetDeviceAndHostTimer);
 DECLARE_ALIAS(clCloneKernel);
 DECLARE_ALIAS(clSetDefaultDeviceCommandQueue);
 DECLARE_ALIAS(clEnqueueSVMMigrateMem);
+DECLARE_ALIAS(clGetKernelSubGroupInfo);
 }}}

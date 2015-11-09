@@ -117,7 +117,7 @@ bool KernelExecute_Dot_Test(const char* prog_file)
 
     // Query device argument parameters
     cl_dev_dispatch_buffer_prop dispatch_prop;
-    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, 0, NULL, sizeof(dispatch_prop), &dispatch_prop, NULL);
     if (CL_DEV_FAILED(iRes))
     {
         memObjA->clDevMemObjRelease();
@@ -264,7 +264,7 @@ bool KernelExecute_Lcl_Mem_Test(const char* prog_file)
     cl_dev_dispatch_buffer_prop dispatch_prop;
 
     // Query device argument parameters
-    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, 0, NULL, sizeof(dispatch_prop), &dispatch_prop, NULL);
     if (CL_DEV_FAILED(iRes))
     {
         memObjA->clDevMemObjRelease();
@@ -414,7 +414,7 @@ bool KernelExecute_Math_Test(const char* prog_file)
     cl_dev_dispatch_buffer_prop dispatch_prop;
 
     // Query device argument parameters
-    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, sizeof(dispatch_prop), &dispatch_prop, NULL);
+    iRes = dev_entry->clDevGetKernelInfo(kernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, 0, NULL, sizeof(dispatch_prop), &dispatch_prop, NULL);
     if (CL_DEV_FAILED(iRes))
     {
         memObjA->clDevMemObjRelease();

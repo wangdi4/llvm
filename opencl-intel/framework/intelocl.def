@@ -135,3 +135,4 @@ EXPORTS
 	clSetDefaultDeviceCommandQueue
 	clCloneKernel
 	clEnqueueSVMMigrateMem
+	clGetKernelSubGroupInfo

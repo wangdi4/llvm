@@ -93,8 +93,13 @@ public:
     cl_dev_err_code GetProgramKernels( cl_dev_program IN prog, cl_uint IN num_kernels, cl_dev_kernel* OUT kernels,
                          cl_uint* OUT numKernelsRet );
 
-    cl_dev_err_code GetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
-                    void* OUT value, size_t* OUT valueSizeRet ) const;
+    cl_dev_err_code GetKernelInfo(cl_dev_kernel      IN  kernel,
+                                  cl_dev_kernel_info IN  param,
+                                  size_t             IN  input_value_size,
+                                  const void*        IN  input_value,
+                                  size_t             IN  value_size,
+                                  void*              OUT value,
+                                  size_t*            OUT valueSizeRet) const;
 
     cl_dev_err_code GetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size) const;
 

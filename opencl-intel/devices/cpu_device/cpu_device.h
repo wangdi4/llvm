@@ -145,8 +145,13 @@ public:
     cl_dev_err_code clDevGetProgramKernels( cl_dev_program IN prog, cl_uint IN numKernels, cl_dev_kernel* OUT kernels,
                 cl_uint* OUT numKernelsRet );
     cl_dev_err_code clDevGetGlobalVariableTotalSize( cl_dev_program IN prog, size_t* OUT size);
-    cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel, cl_dev_kernel_info IN param, size_t IN valueSize,
-                void* OUT value, size_t* OUT valueSizeRet );
+    cl_dev_err_code clDevGetKernelInfo(cl_dev_kernel      IN  kernel,
+                                       cl_dev_kernel_info IN  param,
+                                       size_t             IN  input_value_size,
+                                       const void*        IN  input_value,
+                                       size_t             IN  value_size,
+                                       void*              OUT value,
+                                       size_t*            OUT value_size_ret);
     cl_ulong        clDevGetPerformanceCounter();
     cl_dev_err_code clDevSetLogger(IOCLDevLogDescriptor *);
     void            clDevCloseDevice(void);

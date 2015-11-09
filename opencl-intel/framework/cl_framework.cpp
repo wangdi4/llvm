@@ -3290,3 +3290,45 @@ cl_int CL_API_CALL clSetDefaultDeviceCommandQueue(cl_context context,
     }
 }
 SET_ALIAS(clSetDefaultDeviceCommandQueue);
+
+cl_int CL_API_CALL clGetKernelSubGroupInfo(cl_kernel kernel,
+                                           cl_device_id device,
+                                           cl_kernel_sub_group_info param_name,
+                                           size_t input_value_size,
+                                           const void* input_value,
+                                           size_t param_value_size,
+                                           void* param_value,
+                                           size_t* param_value_size_ret)
+{
+    if (FrameworkProxy::Instance()->GetOCLConfig()->GetOpenCLVersion() < OPENCL_VERSION_2_1)
+    {
+        return CL_INVALID_OPERATION;
+    }
+
+    if (g_pUserLogger->IsApiLoggingEnabled())
+    {
+        ApiLogger apiLogger("clGetKernelSubGroupInfo");
+        apiLogger << "cl_kernel kernel" << kernel
+                  << "cl_device_id device" << device
+                  << "cl_kernel_sub_group_info param_name" << param_name
+                  << "size_t input_value_size" << input_value_size
+                  << "const void* input_value" << input_value
+                  << "size_t param_value_size" << param_value_size
+                  << "void* param_value" << param_value
+                  << "size_t* param_value_size_ret" << param_value_size_ret;
+        OutputParamsValueProvider provider(apiLogger);
+        provider.AddParam("param_value_size_ret", param_value_size_ret, false, true);
+        CALL_INSTRUMENTED_API_LOGGER(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+                                                                                   input_value_size, input_value,
+                                                                                   param_value_size, param_value,
+                                                                                   param_value_size_ret));
+    }
+    else
+    {
+        CALL_INSTRUMENTED_API(CONTEXT_MODULE, cl_int, GetKernelSubGroupInfo(kernel, device, param_name,
+                                                                            input_value_size, input_value,
+                                                                            param_value_size, param_value,
+                                                                            param_value_size_ret));
+    }
+}
+SET_ALIAS(clGetKernelSubGroupInfo);

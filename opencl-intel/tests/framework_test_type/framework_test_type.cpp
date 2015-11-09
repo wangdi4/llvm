@@ -564,6 +564,86 @@ TEST_F(CL21, clEnqueueSVMMigrateMem)
     EnqueueSVMMigrateMem_Positive();
 }
 
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE)
+{
+    GetKernelSubGroupInfo_MAX_SB_SIZE();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_SG_COUNT)
+{
+    GetKernelSubGroupInfo_SG_COUNT();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT)
+{
+    GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT();
+}
+
+TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE_Negative)
+{
+    GetKernelSubGroupInfo_Negative();
+}
+
+TEST_F(CL21, clGetDeviceInfo_INDEPENDENT_PROGRESS)
+{
+    GetDeviceInfo_INDEPENDENT_PROGRESS();
+}
+
+TEST_F(CL21, clGetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS)
+{
+    GetDeviceInfo_CL_DEVICE_MAX_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_COMPILE_NUM_SUB_GROUPS)
+{
+    GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clGetKernelWorkGroupInfo_MAX_NUM_SUB_GROUPS)
+{
+    GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueReadBuffer)
+{
+    ZeroSized_clEnqueueReadBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueWriteBuffer)
+{
+    ZeroSized_clEnqueueWriteBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueNDRangeKernel)
+{
+    ZeroSized_clEnqueueNDRangeKernel();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueCopyBuffer)
+{
+    ZeroSized_clEnqueueCopyBuffer();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMFree)
+{
+    ZeroSized_clEnqueueSVMFree();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMFree_Negative)
+{
+    ZeroSized_clEnqueueSVMFree_Negative();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMMemcpy)
+{
+    ZeroSized_clEnqueueSVMMemcpy();
+}
+
+TEST_F(CL21, clZeroSized_clEnqueueSVMMemFill)
+{
+    ZeroSized_clEnqueueSVMMemFill();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////

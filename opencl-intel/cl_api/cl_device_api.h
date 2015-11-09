@@ -307,25 +307,33 @@ enum cl_dev_binary_prop
  */
 enum cl_dev_kernel_info
 {
-    CL_DEV_KERNEL_NAME                  = 1,    //!< Specifies NULL terminated function name.
-    CL_DEV_KERNEL_PROTOTYPE,                    //!< Specifies a list of kernel arguments (prototype)
-                                                //!< as defined by cl_kernel_arg_type.
-    CL_DEV_KERNEL_MAX_WG_SIZE,                  //!< Returns the maximum work-group size that can be used to execute
-                                                //!< a kernel. The device agent uses resource requirements
-                                                //!< of the kernel to determine optimal work-group size.
-    CL_DEV_KERNEL_WG_SIZE,                      //!< Returns the work-group size that can be used to execute
-                                                //!< a kernel. The device agent uses resource requirements
-                                                //!< of the kernel to determine optimal work-group size.
-    CL_DEV_KERNEL_WG_SIZE_REQUIRED,             //!< Specifies the required work-group size as was declared during
-                                                //!< kernel compilation.
-    CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,          //!< Specifies size of implicit local memory buffers defined in kernel.
-    CL_DEV_KERNEL_PRIVATE_SIZE,                 //!< Specifies size of private memory required for
-                                                //!< execution of singe instance of a kernel
-    CL_DEV_KERNEL_ARG_INFO,                     //!< Specifies a list of kernel argument descriptors
-    CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,        //!< Specifies a list of indexes for arguments, which are memory objects
-    CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,   //!< Specifies properties of an argument buffer required for kernel execution
-    CL_DEV_KERNEL_ATTRIBUTES,                   //!< Specifies NULL terminated space separated string of kernel attributes
-    CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT   //!< Specifies if a kernel was compiled with support of non-uniform work-group size
+    CL_DEV_KERNEL_NAME                  = 1,        //!< Specifies NULL terminated function name.
+    CL_DEV_KERNEL_PROTOTYPE,                        //!< Specifies a list of kernel arguments (prototype)
+                                                    //!< as defined by cl_kernel_arg_type.
+    CL_DEV_KERNEL_MAX_WG_SIZE,                      //!< Returns the maximum work-group size that can be used to execute
+                                                    //!< a kernel. The device agent uses resource requirements
+                                                    //!< of the kernel to determine optimal work-group size.
+    CL_DEV_KERNEL_WG_SIZE,                          //!< Returns the work-group size that can be used to execute
+                                                    //!< a kernel. The device agent uses resource requirements
+                                                    //!< of the kernel to determine optimal work-group size.
+    CL_DEV_KERNEL_WG_SIZE_REQUIRED,                 //!< Specifies the required work-group size as was declared during
+                                                    //!< kernel compilation.
+    CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE,              //!< Specifies size of implicit local memory buffers defined in kernel.
+    CL_DEV_KERNEL_PRIVATE_SIZE,                     //!< Specifies size of private memory required for
+    CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS,               //!< Query the maximum number of sub-groups that may make up each
+                                                    //!< work-group to execute a kernel.
+    CL_DEV_KERNEL_COMPILE_NUM_SUB_GROUPS,           //!< Specifies sub-group size required by kernel.
+                                                    //!< execution of singe instance of a kernel
+    CL_DEV_KERNEL_ARG_INFO,                         //!< Specifies a list of kernel argument descriptors
+    CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES,            //!< Specifies a list of indexes for arguments, which are memory objects
+    CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,       //!< Specifies properties of an argument buffer required for kernel execution
+    CL_DEV_KERNEL_ATTRIBUTES,                       //!< Specifies NULL terminated space separated string of kernel attributes
+    CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT,      //!< Specifies if a kernel was compiled with support of non-uniform work-group size
+    CL_DEV_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,   //!< Returns the maximum sub-group size.
+    CL_DEV_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,      //!< Returns the number of sub-groups that will be presented.
+                                                    //!< in each work-group for a given local work size.
+    CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT    //!< Returns the local size that will generate the
+                                                    //!< requested number of sub - groups for the kernel.
 };
 
 /*! \enum cl_dev_partition_prop
@@ -1470,12 +1478,13 @@ public:
         \retval     CL_DEV_INVALID_KERNEL   If kernel identifier is not valid.
         \retval     CL_DEV_INVALID_VALUE    If value_size is not enough to store the identifiers or value is NULL and value_size is not 0.
     */
-    virtual cl_dev_err_code clDevGetKernelInfo( cl_dev_kernel IN kernel,
-                                            cl_dev_kernel_info IN param,
-                                            size_t IN value_size,
-                                            void* OUT value,
-                                            size_t* OUT value_size_ret
-                                            ) = 0;
+    virtual cl_dev_err_code clDevGetKernelInfo(cl_dev_kernel      IN  kernel,
+                                               cl_dev_kernel_info IN  param,
+                                               size_t             IN  input_value_size,
+                                               const void*        IN  input_value,
+                                               size_t             IN  value_size,
+                                               void*              OUT value,
+                                               size_t*            OUT value_size_ret) = 0;
 
     //! Retrieves current performance counter from the device.
     /*!

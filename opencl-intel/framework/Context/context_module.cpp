@@ -1617,6 +1617,44 @@ cl_int ContextModule::GetPipeInfo(cl_mem pipe, cl_pipe_info paramName, size_t sz
     return pPipe->GetPipeInfo(paramName, szParamValueSize, pParamValue, pszParamValueSizeRet);
 }
 
+
+//////////////////////////////////////////////////////////////////////////
+// ContextModule::GetKernelSubGroupInfo
+//////////////////////////////////////////////////////////////////////////
+cl_int ContextModule::GetKernelSubGroupInfo(cl_kernel kernel,
+                                            cl_device_id device,
+                                            cl_kernel_sub_group_info param_name,
+                                            size_t input_value_size,
+                                            const void* input_value,
+                                            size_t param_value_size,
+                                            void* param_value,
+                                            size_t* param_value_size_ret)
+{
+    LOG_INFO(TEXT("Enter GetKernelSubGroupInfo (kernel=%d, device=%d, param_name=%d, input_value_size=%d,\
+                                                input_value=%d, param_value_size=%d, param_value=%d,\
+                                                param_value_size_ret=%d)"),
+                    kernel, device, param_name, input_value_size, input_value,
+                    param_value_size, param_value, param_value_size_ret);
+
+    SharedPtr<Kernel> pKernel = m_mapKernels.GetOCLObject((_cl_kernel_int*)kernel).DynamicCast<Kernel>();
+    if (NULL == pKernel)
+    {
+        LOG_ERROR(TEXT("GetOCLObject(%d) returned NULL"), kernel);
+        return CL_INVALID_KERNEL;
+    }
+    SharedPtr<FissionableDevice> pDevice;
+    if ( NULL != device )
+    {
+        pDevice = m_pPlatformModule->GetDevice(device);
+        if (NULL == pDevice)
+        {
+            LOG_ERROR(TEXT("GetDevice(%d) returned NULL"), device);
+            return CL_INVALID_DEVICE;
+        }
+    }
+    return pKernel->GetSubGroupInfo(pDevice, param_name, param_value_size, input_value_size, input_value, param_value, param_value_size_ret);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // ContextModule::GetKernelInfo
 //////////////////////////////////////////////////////////////////////////

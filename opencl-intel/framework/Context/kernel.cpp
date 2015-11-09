@@ -90,7 +90,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
 
     // get kernel prototype
     size_t argsSize = 0;
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, &argsSize);
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, NULL, 0, NULL, &argsSize);
     if (CL_DEV_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
@@ -100,7 +100,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
 
     // Get kernel attributes
     size_t attrSize;
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, NULL, &attrSize);
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, NULL, 0, NULL, &attrSize);
     if (CL_DEV_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
@@ -116,7 +116,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         return;
     }
 
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, attrSize, kernelAttrs, NULL);
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_ATTRIBUTES, 0, NULL, attrSize, kernelAttrs, NULL);
     if (CL_DEV_FAILED(clErrRet))
     {
         LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
@@ -129,7 +129,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
     delete [] kernelAttrs;
 
     // Get argument buffer size
-    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES,
+    clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_DISPATCH_BUFFER_PROPERTIES, 0, NULL,
                                                                 sizeof(m_sKernelPrototype.m_dispatchBufferProperties), &m_sKernelPrototype.m_dispatchBufferProperties, NULL);
     if (CL_DEV_FAILED(clErrRet))
     {
@@ -143,7 +143,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
     if ( argsCount > 0)
     {
         m_sKernelPrototype.m_vArguments.resize(argsCount);
-        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 
+        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_PROTOTYPE, 0, NULL,
                                                                     argsCount*sizeof(cl_kernel_argument), &(m_sKernelPrototype.m_vArguments[0]), NULL);
         if (CL_DEV_FAILED(clErrRet))
         {
@@ -153,7 +153,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
         }
 
         // Get memory object arguments
-        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 0, NULL, &argsSize);
+        clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 0, NULL, 0, NULL, &argsSize);
         if (CL_DEV_FAILED(clErrRet))
         {
             LOG_ERROR(TEXT("Device->clDevGetKernelInfo failed kernel<%s>, ERR=%d"), pKernelName, clErrRet);
@@ -166,7 +166,7 @@ DeviceKernel::DeviceKernel(Kernel*                             pKernel,
             argsCount = argsSize / sizeof(unsigned int);
             assert(argsCount  <= CL_MAX_UINT32 && "Number or arguments is to high");
             m_sKernelPrototype.m_MemArgumentsIndx.resize(argsCount);
-            clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 
+            clErrRet = m_pDevice->GetDeviceAgent()->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MEMORY_OBJECT_INDEXES, 0, NULL,
                                                                 argsCount*sizeof(unsigned int), &(m_sKernelPrototype.m_MemArgumentsIndx[0]), NULL);
             if (CL_DEV_FAILED(clErrRet))
             {
@@ -201,24 +201,24 @@ bool DeviceKernel::CacheRequiredInfo()
     IOCLDeviceAgent* pDevAgent = m_pDevice->GetDeviceAgent();
     assert( NULL != pDevAgent );
 
-    err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MAX_WG_SIZE, sizeof(m_CL_KERNEL_WORK_GROUP_SIZE), &m_CL_KERNEL_WORK_GROUP_SIZE, NULL);
+    err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_MAX_WG_SIZE, 0, NULL, sizeof(m_CL_KERNEL_WORK_GROUP_SIZE), &m_CL_KERNEL_WORK_GROUP_SIZE, NULL);
     assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelWorkGroupSize failed" );
 
     if (CL_DEV_SUCCEEDED(err))
     {
-        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, sizeof(m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE), &m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE, NULL);
+        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, 0, NULL, sizeof(m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE), &m_CL_KERNEL_COMPILE_WORK_GROUP_SIZE, NULL);
         assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelCompileWorkGroupSize failed" );
     }
     
     if (CL_DEV_SUCCEEDED(err))
     {
-        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, sizeof(m_CL_KERNEL_LOCAL_MEM_SIZE), &m_CL_KERNEL_LOCAL_MEM_SIZE, NULL);
+        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, NULL, sizeof(m_CL_KERNEL_LOCAL_MEM_SIZE), &m_CL_KERNEL_LOCAL_MEM_SIZE, NULL);
         assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelLocalMemSize failed" );
     }
 
     if (CL_DEV_SUCCEEDED(err))
     {
-        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, sizeof(m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT), &m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, NULL);
+        err = pDevAgent->clDevGetKernelInfo(m_clDevKernel, CL_DEV_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, 0, NULL, sizeof(m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT), &m_CL_KERNEL_NON_UNIFORM_WG_SIZE_SUPPORT, NULL);
         assert( CL_DEV_SUCCEEDED(err) && "caching of GetKernelNonUniformWGSizeSupport failed" );
     }
 
@@ -465,6 +465,112 @@ cl_err_code Kernel::GetInfo(cl_int iParamName, size_t szParamValueSize, void * p
 
     return CL_SUCCESS;
 }
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Kernel::GetSubGroupInfo
+///////////////////////////////////////////////////////////////////////////////////////////////////
+cl_err_code Kernel::GetSubGroupInfo(const       SharedPtr<FissionableDevice>& device,
+                                    cl_int      iParamName,
+                                    size_t      szParamValueSize,
+                                    size_t      input_value_size,
+                                    const void* input_value,
+                                    void *      pParamValue,
+                                    size_t*     pszParamValueSizeRet)
+{
+    LOG_DEBUG(TEXT("Enter Kernel::GetSubGroupInfo (pDevice=%p, iParamName=%d,\
+                    szParamValueSize=%d, pParamValue=%d, pszParamValueSizeRet=%d)"),
+                    device.GetPtr(), iParamName, szParamValueSize,
+                    pParamValue, pszParamValueSizeRet);
+    assert("No context assigned to the kernel" && (NULL != m_pProgram) && (NULL != m_pContext));
+
+    FissionableDevice* pDevice = device.GetPtr();
+    // check input parameters
+    if ( (NULL == pDevice) && (m_szAssociatedDevices > 1) )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if ( NULL == pDevice )
+    {
+        pDevice = m_vpDeviceKernels[0]->GetDevice().GetPtr();
+    }
+    assert(NULL!=pDevice && "Device can't be detected");
+
+    cl_dev_kernel clDevKernel = GetDeviceKernelId(pDevice);
+    if ( CL_INVALID_HANDLE == clDevKernel )
+    {
+        return CL_INVALID_KERNEL;
+    }
+
+    cl_err_code clErr = CL_SUCCESS;
+    switch (iParamName)
+    {
+    case CL_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_MAX_SUB_GROUP_SIZE_FOR_NDRANGE,
+                                                              input_value_size,
+                                                              input_value,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
+    case CL_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE:
+        if(0 == input_value_size || nullptr == input_value)
+        {
+            return CL_INVALID_VALUE;
+        }
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_SUB_GROUP_COUNT_FOR_NDRANGE,
+                                                              input_value_size,
+                                                              input_value,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
+    case CL_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT,
+                                                              input_value_size,
+                                                              input_value,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
+    case CL_KERNEL_MAX_NUM_SUB_GROUPS:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS,
+                                                              0,
+                                                              NULL,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
+
+    case CL_KERNEL_COMPILE_NUM_SUB_GROUPS:
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel,
+                                                              CL_DEV_KERNEL_COMPILE_NUM_SUB_GROUPS,
+                                                              0,
+                                                              NULL,
+                                                              szParamValueSize,
+                                                              pParamValue,
+                                                              pszParamValueSizeRet);
+        break;
+    default:
+        clErr = CL_INVALID_VALUE;
+    }
+
+    if( (signed)CL_DEV_INVALID_KERNEL == clErr )
+    {
+        clErr = CL_INVALID_KERNEL;
+    }
+    if( (signed)CL_DEV_INVALID_VALUE == clErr )
+    {
+        clErr = CL_INVALID_VALUE;
+    }
+
+    return clErr;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::GetWorkGroupInfo
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -500,19 +606,19 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
     switch (iParamName)
     {
     case CL_KERNEL_WORK_GROUP_SIZE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_MAX_WG_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_MAX_WG_SIZE, 0, NULL, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
     case CL_KERNEL_COMPILE_WORK_GROUP_SIZE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE_REQUIRED, 0, NULL, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
     case CL_KERNEL_LOCAL_MEM_SIZE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_IMPLICIT_LOCAL_SIZE, 0, NULL, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
     case CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_WG_SIZE, 0, NULL, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
     case CL_KERNEL_PRIVATE_MEM_SIZE:
-        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_PRIVATE_SIZE, szParamValueSize, pParamValue, pszParamValueSizeRet);
+        clErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(clDevKernel, CL_DEV_KERNEL_PRIVATE_SIZE, 0, NULL, szParamValueSize, pParamValue, pszParamValueSizeRet);
         break;
 
     default:
@@ -688,7 +794,7 @@ cl_err_code Kernel::SetKernelArgumentInfo(const DeviceKernel* pDeviceKernel)
         clLocalArray<cl_kernel_argument_info>  argInfoArray(numArgs);
 
         cl_dev_err_code clDevErr = pDevice->GetDeviceAgent()->clDevGetKernelInfo(
-            pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, numArgs*sizeof(cl_kernel_argument_info), &argInfoArray[0], NULL);
+            pDeviceKernel->GetId(), CL_DEV_KERNEL_ARG_INFO, 0, NULL, numArgs*sizeof(cl_kernel_argument_info), &argInfoArray[0], NULL);
         if (CL_DEV_FAILED(clDevErr))
         {
             m_vArgumentsInfo.clear();
