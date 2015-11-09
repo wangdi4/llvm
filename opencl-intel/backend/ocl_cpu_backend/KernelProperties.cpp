@@ -202,22 +202,6 @@ size_t KernelProperties::GetNumberOfSubGroups(size_t size, const size_t* WGSizes
     return 1;
 }
 
-void KernelProperties::GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const
-{
-    std::cerr << __FUNCTION__ << " is not implemented!"
-              << __FILE__ << ":" << __LINE__ << std::endl;
-
-    if(nullptr != WGSizes)
-    {
-        if(1 == desiredSGCount)
-            for(size_t i = 0; i < size; ++i)
-                WGSizes[i] = 1;
-        else
-            for(size_t i = 0; i < size; ++i)
-                WGSizes[i] = 0;
-    }
-}
-
 size_t KernelProperties::GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const
 {
     std::cerr << __FUNCTION__ << " is not implemented!"
