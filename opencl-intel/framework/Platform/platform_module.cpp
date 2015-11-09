@@ -29,7 +29,6 @@
 #include "Device.h"
 #include "fe_compiler.h"
 
-#include <ocl_config.h>
 #ifdef WIN32
 #include <gl_shr_utils.h>
 #endif
@@ -72,6 +71,7 @@ PlatformModule::PlatformModule() : OCLObjectBase("PlatformModule")
     m_ppRootDevices        = NULL;
     m_uiRootDevicesCount   = 0;
     m_pOclEntryPoints      = NULL;
+    m_oclVersion           = OPENCL_VERSION_UNKNOWN;
     
     memset(&m_clPlatformId, 0, sizeof(m_clPlatformId));
     // initialize logger
@@ -181,6 +181,7 @@ cl_err_code    PlatformModule::Initialize(ocl_entry_points * pOclEntryPoints, OC
         LOG_CRITICAL(TEXT("%s"), TEXT("Failed to initialize devices compilers"));
     }
 
+    m_oclVersion = pConfig->GetOpenCLVersion();
     switch(pConfig->GetOpenCLVersion())
     {
         case OPENCL_VERSION_2_0:
@@ -296,7 +297,8 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
 
     cl_err_code clErr = CL_SUCCESS;
     size_t szParamSize = 0;
-    void * pValue = NULL;
+    cl_ulong value = 0;
+    void* pValue   = &value;
     char * pch = NULL,  *pNextToken;
     SharedPtr<Device> pDevice = NULL;
     bool bRes = true;
@@ -363,6 +365,13 @@ cl_int    PlatformModule::GetPlatformInfo(cl_platform_id clPlatform,
         pValue = (void*)pcPlatformICDSuffixKhr;
         szParamSize = strlen((char*)pcPlatformICDSuffixKhr) + 1;
         break;
+    case CL_PLATFORM_HOST_TIMER_RESOLUTION:
+        if (m_oclVersion >= OPENCL_VERSION_2_1)
+        {
+            *(cl_ulong*)pValue = (cl_ulong)ProfilingTimerResolution();
+            szParamSize = sizeof(cl_ulong);
+            break;
+        }
     default:
         return CL_INVALID_VALUE;
     }
