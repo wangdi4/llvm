@@ -1018,6 +1018,82 @@ SET_ALIAS( clGetDeviceInfo );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL
+clGetDeviceAndHostTimer( cl_device_id device,
+                         cl_ulong     *device_timestamp,
+                         cl_ulong     *host_timestamp )
+{
+    cl_int errCode = CL_SUCCESS;
+
+    CrtDeviceInfo *devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( device );
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        errCode = CL_INVALID_DEVICE;
+    }
+
+    if( errCode == CL_SUCCESS )
+    {
+        if( NULL == devInfo )
+        {
+            errCode = CL_INVALID_DEVICE;
+        }
+        else if( ( NULL == device_timestamp ) || ( NULL == host_timestamp ) )
+        {
+            errCode = CL_INVALID_VALUE;
+        }
+        else
+        {
+            // TODO: Reopen the following code after CPU runtime has done in its dispatch table
+            //errCode = devInfo->m_origDispatchTable.clGetDeviceAndHostTimer( device,
+            //                                                                device_timestamp,
+            //                                                                host_timestamp );
+        }
+    }
+
+    return errCode;
+}
+SET_ALIAS( clGetDeviceAndHostTimer );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL
+clGetHostTimer( cl_device_id device,
+                cl_ulong     *host_timestamp )
+{
+    cl_int errCode = CL_SUCCESS;
+
+    CrtDeviceInfo *devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( device );
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        errCode = CL_INVALID_DEVICE;
+    }
+
+    if( errCode == CL_SUCCESS )
+    {
+        if( NULL == devInfo )
+        {
+            errCode = CL_INVALID_DEVICE;
+        }
+        else if( NULL == host_timestamp )
+        {
+            errCode = CL_INVALID_VALUE;
+        }
+        else
+        {
+            // TODO: Reopen the following code after CPU runtime has done in its dispatch table
+            //errCode = devInfo->m_origDispatchTable.clGetHostTimer( device,
+            //                                                       host_timestamp );
+        }
+    }
+
+    return errCode;
+}
+SET_ALIAS( clGetHostTimer );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 cl_command_queue CL_API_CALL clCreateCommandQueue(cl_context                  context,
                                                   cl_device_id                device,
                                                   cl_command_queue_properties properties,
@@ -1346,12 +1422,16 @@ inline cl_int CL_API_CALL EnqueueReadWriteBuffer(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
+
     if( read_command )
     {
         if( crtBuffer->m_flags & ( CL_MEM_HOST_NO_ACCESS | CL_MEM_HOST_WRITE_ONLY ) )
@@ -1390,7 +1470,7 @@ inline cl_int CL_API_CALL EnqueueReadWriteBuffer(
             const_cast<void*>(ptr),
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
     else
     {
@@ -1403,7 +1483,7 @@ inline cl_int CL_API_CALL EnqueueReadWriteBuffer(
             ptr,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
 
     if( errCode == CL_SUCCESS && event )
@@ -1558,11 +1638,14 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( read_command )
@@ -1608,7 +1691,7 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
             const_cast<void*>(ptr),
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
     else
     {
@@ -1626,7 +1709,7 @@ cl_int CL_API_CALL EnqueueReadWriteBufferRect(
             ptr,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
 
     if( errCode == CL_SUCCESS && event )
@@ -1802,11 +1885,14 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyBufferRect(
@@ -1822,7 +1908,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferRect(
         dst_slice_pitch,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if (errCode == CL_SUCCESS && event)
     {
@@ -1919,11 +2005,14 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyBuffer(
@@ -1935,7 +2024,7 @@ cl_int CL_API_CALL clEnqueueCopyBuffer(
         cb,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if (errCode == CL_SUCCESS && event)
     {
@@ -2098,11 +2187,14 @@ void * CL_API_CALL clEnqueueMapBuffer(
         }
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( !crtBuffer->isInteropObject() )
@@ -2125,7 +2217,7 @@ void * CL_API_CALL clEnqueueMapBuffer(
                 crtBuffer->m_pUsrPtr,
                 numOutEvents,
                 outEvents,
-                &crtEvent->m_eventDEV);
+                crtEvent ? &crtEvent->m_eventDEV : NULL );
         }
         else
         {
@@ -2136,7 +2228,7 @@ void * CL_API_CALL clEnqueueMapBuffer(
                     queue,
                     numOutEvents,
                     outEvents,
-                    &crtEvent->m_eventDEV);
+                    crtEvent ? &crtEvent->m_eventDEV : NULL );
             }
 
             if ( blocking_map )
@@ -2162,7 +2254,7 @@ void * CL_API_CALL clEnqueueMapBuffer(
                 cb,
                 numOutEvents,
                 outEvents,
-                &crtEvent->m_eventDEV,
+                crtEvent ? &crtEvent->m_eventDEV : NULL,
                 &errCode);
     }
 
@@ -2181,8 +2273,11 @@ void * CL_API_CALL clEnqueueMapBuffer(
         }
         else
         {
-            crtEvent->Release();
-            crtEvent->DecPendencyCnt();
+            if( crtEvent )
+            {
+                crtEvent->Release();
+                crtEvent->DecPendencyCnt();
+            }
         }
     }
 
@@ -2347,11 +2442,14 @@ void * CL_API_CALL clEnqueueMapImage(
         }
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( !crtImage->isInteropObject() )
@@ -2397,7 +2495,7 @@ void * CL_API_CALL clEnqueueMapImage(
                 ptr,
                 numOutEvents,
                 outEvents,
-                &crtEvent->m_eventDEV);
+                crtEvent ? &crtEvent->m_eventDEV : NULL );
         }
         else
         {
@@ -2408,7 +2506,7 @@ void * CL_API_CALL clEnqueueMapImage(
                 queue,
                 numOutEvents,
                 outEvents,
-                &crtEvent->m_eventDEV);
+                crtEvent ? &crtEvent->m_eventDEV : NULL );
             }
 
             if ( blocking_map )
@@ -2436,7 +2534,7 @@ void * CL_API_CALL clEnqueueMapImage(
             image_slice_pitch,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV,
+            crtEvent ? &crtEvent->m_eventDEV : NULL,
             &errCode);
     }
 
@@ -2453,8 +2551,11 @@ void * CL_API_CALL clEnqueueMapImage(
     }
     else
     {
-        crtEvent->Release();
-        crtEvent->DecPendencyCnt();
+        if( crtEvent )
+        {
+            crtEvent->Release();
+            crtEvent->DecPendencyCnt();
+        }
     }
 
 FINISH:
@@ -2550,11 +2651,14 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     // Book keeping only for Non-Interop memory objects
@@ -2602,7 +2706,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
                     mapped_ptr,
                     numOutEvents,
                     outEvents,
-                    &crtEvent->m_eventDEV);
+                    crtEvent ? &crtEvent->m_eventDEV : NULL );
             }
             else
             {
@@ -2618,7 +2722,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
                     crtBuffer->m_pUsrPtr,
                     numOutEvents,
                     outEvents,
-                    &crtEvent->m_eventDEV);
+                    crtEvent ? &crtEvent->m_eventDEV : NULL );
             }
         }
         else if( event )
@@ -2628,7 +2732,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
                 queue,
                 numOutEvents,
                 outEvents,
-                &crtEvent->m_eventDEV);
+                crtEvent ? &crtEvent->m_eventDEV : NULL );
         }
     }
     else
@@ -2639,7 +2743,7 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
             mapped_ptr,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
 
     if (errCode == CL_SUCCESS && event)
@@ -2655,8 +2759,11 @@ cl_int CL_API_CALL clEnqueueUnmapMemObject(
     }
     else
     {
-        crtEvent->Release();
-        crtEvent->DecPendencyCnt();
+        if( crtEvent )
+        {
+            crtEvent->Release();
+            crtEvent->DecPendencyCnt();
+        }
     }
 
 FINISH:
@@ -2941,6 +3048,61 @@ cl_program CL_API_CALL clCreateProgramWithSource( cl_context         context ,
     return SharedProgram;
 }
 SET_ALIAS( clCreateProgramWithSource );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_program CL_API_CALL clCreateProgramWithIL( cl_context    context,
+                                              const void *  il,
+                                              size_t        lengths,
+                                              cl_int *      errcode_ret )
+{
+    cl_int errCode = CL_SUCCESS;
+    _cl_program_crt* SharedProgram = NULL;
+    CrtProgram* pgm = NULL;
+    CrtContext* ctx = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        errCode = CL_INVALID_DEVICE;
+        goto FINISH;
+    }
+    
+    if( 0 == lengths || NULL == il )
+    {
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }
+    
+    ctx = ((CrtContext*)((_cl_context_crt*)context)->object);
+
+    //Shared context.
+    errCode = ctx->CreateProgramWithIL( il ,
+                                        lengths ,
+                                        &pgm );
+    if( CL_SUCCESS == errCode )
+    {
+        SharedProgram = new _cl_program_crt;
+        if( SharedProgram == NULL )
+        {
+            pgm->Release();
+            pgm->DecPendencyCnt();
+            errCode = CL_OUT_OF_HOST_MEMORY;
+        }
+        else
+        {
+            pgm->m_program_handle = ( cl_program ) SharedProgram;
+            SharedProgram->object = (void *) pgm;
+        }
+    }
+
+FINISH:
+    if( errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+    return SharedProgram;
+}
+SET_ALIAS( clCreateProgramWithIL );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -4054,6 +4216,34 @@ SET_ALIAS( clCreateKernel );
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_kernel CL_API_CALL clCloneKernel( 
+    cl_kernel source_kernel, 
+    cl_int *        errcode_ret )
+{
+    cl_int errCode = CL_SUCCESS;
+    cl_kernel clonedKernel = NULL;
+
+    if( source_kernel )
+    {
+        clonedKernel = ( ( SOCLEntryPointsTable* )source_kernel )->icdDispatch->clCloneKernel(
+            source_kernel,
+            errcode_ret );
+    }
+    else
+    {
+        errCode = CL_INVALID_KERNEL;
+    }
+
+    if( errcode_ret )
+    {
+        *errcode_ret = errCode;
+    }
+    return clonedKernel;
+}
+SET_ALIAS( clCloneKernel );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 cl_int CL_API_CALL clGetKernelInfo(
     cl_kernel           kernel,
     cl_sampler_info     param_name,
@@ -4404,6 +4594,71 @@ cl_int CL_API_CALL clGetKernelSubGroupInfoKHR(
     return errCode;
 }
 SET_ALIAS( clGetKernelSubGroupInfoKHR );
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clGetKernelSubGroupInfo(
+    cl_kernel                kernel,
+    cl_device_id             device,
+    cl_kernel_sub_group_info param_name,
+    size_t                   input_value_size,
+    const void *             input_value,
+    size_t                   param_value_size,
+    void *                   param_value,
+    size_t *                 param_value_size_ret )
+{
+    cl_int errCode = CL_SUCCESS;
+    cl_context devCtx = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        return CL_INVALID_DEVICE;
+    }
+    CrtKernel* crtKernel = reinterpret_cast<CrtKernel*>( ( ( _cl_kernel_crt* )kernel )->object );
+
+    if( NULL == device )
+    {
+        if( crtKernel->m_programCRT->m_buildContexts.size() > 1 )
+        {
+            return CL_INVALID_DEVICE;
+        }
+        devCtx = crtKernel->m_programCRT->m_buildContexts[0];
+    }
+    else
+    {
+        devCtx = crtKernel->m_programCRT->m_contextCRT->m_DeviceToContext[device];
+    }
+    if( NULL == devCtx )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if( crtKernel->m_ContextToKernel.find( devCtx ) ==
+        crtKernel->m_ContextToKernel.end() )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    if( devCtx->dispatch->clGetKernelSubGroupInfo == NULL )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    errCode = devCtx->dispatch->clGetKernelSubGroupInfo(
+        crtKernel->m_ContextToKernel[devCtx],
+        device,
+        param_name,
+        input_value_size,
+        input_value,
+        param_value_size,
+        param_value,
+        param_value_size_ret );
+
+    return errCode;
+}
+SET_ALIAS( clGetKernelSubGroupInfo );
+
 
 /// ------------------------------------------------------------------------------
 ///
@@ -5193,11 +5448,14 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent( queue );
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     targetContext = queue->m_contextCRT->m_DeviceToContext[queue->m_device];
@@ -5225,7 +5483,7 @@ cl_int CL_API_CALL clEnqueueNDRangeKernel(
         local_work_size,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( ( errCode == CL_SUCCESS ) && event )
     {
@@ -5313,12 +5571,16 @@ cl_int CL_API_CALL clEnqueueTask(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
+
     crtKernel = reinterpret_cast<CrtKernel*>(((_cl_kernel_crt*)kernel)->object);
     if (!crtKernel)
     {
@@ -5338,7 +5600,7 @@ cl_int CL_API_CALL clEnqueueTask(
         crtKernel->m_ContextToKernel[ targetContext ],
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV );
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( errCode == CL_SUCCESS && event )
     {
@@ -5541,11 +5803,14 @@ cl_int CL_API_CALL EnqueueMarkerOrBarrierWithWaitList(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( cmdType == CL_COMMAND_MARKER )
@@ -5554,7 +5819,7 @@ cl_int CL_API_CALL EnqueueMarkerOrBarrierWithWaitList(
             queue->m_cmdQueueDEV,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
     else
     {
@@ -5562,7 +5827,7 @@ cl_int CL_API_CALL EnqueueMarkerOrBarrierWithWaitList(
             queue->m_cmdQueueDEV,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
 
     if (errCode == CL_SUCCESS && event)
@@ -5697,11 +5962,14 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if (num_mem_objects > 0)
@@ -5731,7 +5999,7 @@ cl_int CL_API_CALL clEnqueueNativeKernel(
         args_mem_loc,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if (errCode == CL_SUCCESS && event)
     {
@@ -5984,11 +6252,14 @@ inline cl_int CL_API_CALL EnqueueReadWriteImage(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( read_command )
@@ -6031,7 +6302,7 @@ inline cl_int CL_API_CALL EnqueueReadWriteImage(
             const_cast<void*>(ptr),
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
     else
     {
@@ -6046,7 +6317,7 @@ inline cl_int CL_API_CALL EnqueueReadWriteImage(
             ptr,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
     }
 
     if (errCode == CL_SUCCESS && event)
@@ -6223,11 +6494,14 @@ cl_int CL_API_CALL clEnqueueCopyImage(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyImage(
@@ -6239,7 +6513,7 @@ cl_int CL_API_CALL clEnqueueCopyImage(
         region,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if (errCode == CL_SUCCESS && event)
     {
@@ -6348,11 +6622,14 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if (!crtEvent)
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyImageToBuffer(
@@ -6364,7 +6641,7 @@ cl_int CL_API_CALL clEnqueueCopyImageToBuffer(
         dst_offset,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if (errCode == CL_SUCCESS && event)
     {
@@ -6472,11 +6749,14 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueCopyBufferToImage(
@@ -6488,7 +6768,7 @@ cl_int CL_API_CALL clEnqueueCopyBufferToImage(
         region,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( ( errCode == CL_SUCCESS ) && event )
     {
@@ -6590,11 +6870,14 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueFillBuffer(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueFillBuffer(
@@ -6606,7 +6889,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueFillBuffer(
         cb,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( ( errCode == CL_SUCCESS ) && event )
     {
@@ -6716,11 +6999,14 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueFillImage( cl_command_queue  command_qu
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueFillImage(
@@ -6731,7 +7017,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueFillImage( cl_command_queue  command_qu
         region,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( ( errCode == CL_SUCCESS ) && event )
     {
@@ -6840,11 +7126,14 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueMigrateMemObjects(
@@ -6854,7 +7143,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueMigrateMemObjects(
         flags,
         numOutEvents,
         outEvents,
-        &crtEvent->m_eventDEV);
+        crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( ( errCode == CL_SUCCESS ) && event )
     {
@@ -7667,11 +7956,14 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(queue);
-    if( !crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( queue );
+        if( !crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if (num_objects > 0)
@@ -7700,7 +7992,7 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
             crt_mem_list,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
         break;
     case CL_COMMAND_RELEASE_GL_OBJECTS:
         errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueReleaseGLObjects(
@@ -7709,7 +8001,7 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
             crt_mem_list,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
         break;
 #ifdef _WIN32
     case CL_COMMAND_ACQUIRE_DX9_OBJECTS_INTEL:
@@ -7719,7 +8011,7 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
             crt_mem_list,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
         break;
     case CL_COMMAND_RELEASE_DX9_OBJECTS_INTEL:
         errCode = ( (SOCLEntryPointsTable*)queue->m_cmdQueueDEV )->crtDispatch->clEnqueueReleaseDX9ObjectsINTEL(
@@ -7728,7 +8020,7 @@ cl_int CL_API_CALL EnqueueAcquireReleaseInteropObjects(
             crt_mem_list,
             numOutEvents,
             outEvents,
-            &crtEvent->m_eventDEV);
+            crtEvent ? &crtEvent->m_eventDEV : NULL );
         break;
 #endif
     default:
@@ -9284,6 +9576,12 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
         }
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clGetPlatformIDs ) );
     }
+
+    // This is temporary until ICD is updated to include clone kernel
+    if( funcname && !strcmp( funcname, "clCloneKernelINTEL" ) )
+    {
+        return ( ( void* )( ptrdiff_t )GET_ALIAS( clCloneKernel ) );
+    }
 #ifdef _WIN32
     if( funcname && !strcmp( funcname, "clGetDeviceIDsFromDX9INTEL" ) )
     {
@@ -9601,7 +9899,7 @@ cl_int CL_API_CALL clEnqueueSVMFree(
                                                         user_data,
                                                         numOutEvents,
                                                         outEvents,
-                                                        &crtEvent->m_eventDEV );
+                                                        event ? &crtEvent->m_eventDEV : NULL );
         if( CL_SUCCESS != errCode )
         {
             goto FINISH;
@@ -9765,11 +10063,14 @@ cl_int CL_API_CALL clEnqueueSVMMemcpy(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent(crtQueue);
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( crtQueue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( blocking_copy )
@@ -9790,7 +10091,7 @@ cl_int CL_API_CALL clEnqueueSVMMemcpy(
                                                     size,
                                                     numOutEvents,
                                                     outEvents,
-                                                    &crtEvent->m_eventDEV );
+                                                    crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( CL_SUCCESS == errCode && event )
     {
@@ -9882,11 +10183,14 @@ cl_int CL_API_CALL clEnqueueSVMMemFill(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent( crtQueue );
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( crtQueue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = crtQueue->m_cmdQueueDEV->dispatch->clEnqueueSVMMemFill(
@@ -9897,7 +10201,7 @@ cl_int CL_API_CALL clEnqueueSVMMemFill(
                                                     size,
                                                     numOutEvents,
                                                     outEvents,
-                                                    &crtEvent->m_eventDEV );
+                                                    crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( CL_SUCCESS == errCode && event )
     {
@@ -9983,11 +10287,14 @@ cl_int CL_API_CALL clEnqueueSVMMap(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent( crtQueue );
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( crtQueue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     if( blocking_map )
@@ -10008,7 +10315,7 @@ cl_int CL_API_CALL clEnqueueSVMMap(
                                                     size,
                                                     numOutEvents,
                                                     outEvents,
-                                                    &crtEvent->m_eventDEV );
+                                                    crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( CL_SUCCESS == errCode && event )
     {
@@ -10091,11 +10398,14 @@ cl_int CL_API_CALL clEnqueueSVMUnmap(
         goto FINISH;
     }
 
-    crtEvent = new CrtEvent( crtQueue );
-    if( NULL == crtEvent )
+    if( event )
     {
-        errCode = CL_OUT_OF_HOST_MEMORY;
-        goto FINISH;
+        crtEvent = new CrtEvent( crtQueue );
+        if( NULL == crtEvent )
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
     }
 
     errCode = crtQueue->m_cmdQueueDEV->dispatch->clEnqueueSVMUnmap(
@@ -10103,7 +10413,7 @@ cl_int CL_API_CALL clEnqueueSVMUnmap(
                                                     svm_ptr,
                                                     numOutEvents,
                                                     outEvents,
-                                                    &crtEvent->m_eventDEV );
+                                                    crtEvent ? &crtEvent->m_eventDEV : NULL );
 
     if( CL_SUCCESS == errCode && event )
     {
@@ -10131,6 +10441,113 @@ FINISH:
     return errCode;
 }
 SET_ALIAS( clEnqueueSVMUnmap );
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+CL_API_ENTRY cl_int CL_API_CALL clEnqueueSVMMigrateMem(
+    cl_command_queue        command_queue,
+    cl_uint                 num_svm_pointers,
+    const void **           svm_pointers,
+    const size_t *          sizes,
+    cl_mem_migration_flags  flags,
+    cl_uint                 num_events_in_wait_list,
+    const cl_event *        event_wait_list,
+    cl_event *              oclevent )
+{
+    cl_int errCode              = CL_SUCCESS;
+    CrtEvent *crtEvent          = NULL;
+    SyncManager *synchHelper    = NULL;
+    CrtQueue* queue             = NULL;
+    cl_event *outEvents         = NULL;
+    cl_uint numOutEvents        = 0;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        errCode = CL_INVALID_DEVICE;
+        goto FINISH;
+    }
+
+    if( NULL == command_queue )
+    {
+        errCode = CL_INVALID_COMMAND_QUEUE;
+        goto FINISH;
+    }
+
+    if( ( num_svm_pointers == 0 ) || ( svm_pointers == NULL ) )
+    {
+        errCode = CL_INVALID_VALUE;
+        goto FINISH;
+    }
+
+    queue = reinterpret_cast<CrtQueue*>(((_cl_command_queue_crt*)command_queue)->object);
+    if( NULL == queue )
+    {
+        errCode = CL_INVALID_COMMAND_QUEUE;
+        goto FINISH;
+    }
+
+    synchHelper = new SyncManager;
+    if( !synchHelper )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+    errCode = synchHelper->PrepareToExecute(
+        queue,
+        num_events_in_wait_list,
+        event_wait_list,
+        &numOutEvents,
+        &outEvents);
+
+    if( CL_SUCCESS != errCode )
+    {
+        goto FINISH;
+    }
+
+    crtEvent = new CrtEvent(queue);
+    if( !crtEvent )
+    {
+        errCode = CL_OUT_OF_HOST_MEMORY;
+        goto FINISH;
+    }
+
+    errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueSVMMigrateMem(
+        queue->m_cmdQueueDEV,
+        num_svm_pointers,
+        svm_pointers,
+        sizes,
+        flags,
+        numOutEvents,
+        outEvents,
+        &crtEvent->m_eventDEV );
+
+    if( ( errCode == CL_SUCCESS ) && oclevent )
+    {
+        _cl_event_crt* event_handle = new _cl_event_crt;
+        if (!event_handle)
+        {
+            errCode = CL_OUT_OF_HOST_MEMORY;
+            goto FINISH;
+        }
+        event_handle->object = (void*)crtEvent;
+        *oclevent = event_handle;
+    }
+FINISH:
+    if( crtEvent && ( !oclevent || ( CL_SUCCESS != errCode ) ) )
+    {
+        crtEvent->Release();
+        crtEvent->DecPendencyCnt();
+    }
+    if( synchHelper )
+    {
+        synchHelper->Release(errCode);
+        delete synchHelper;
+    }
+    return errCode;
+
+}
+SET_ALIAS( clEnqueueSVMMigrateMem );
 
 /// ------------------------------------------------------------------------------
 ///
@@ -10323,3 +10740,43 @@ cl_int CL_API_CALL clGetPipeInfo(
     return errCode;
 }
 SET_ALIAS( clGetPipeInfo );
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int CL_API_CALL clSetDefaultDeviceCommandQueue(
+    cl_context context,
+    cl_device_id device,
+    cl_command_queue command_queue )
+{
+    CrtContext*             ctx = NULL;
+    CrtContextInfo*         ctxInfo = NULL;
+
+    if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+    {
+        return CL_INVALID_DEVICE;
+    }
+
+    ctxInfo = OCLCRT::crt_ocl_module.m_contextInfoGuard.GetValue( context );
+    if( NULL == ctxInfo )
+    {
+        return CL_INVALID_CONTEXT;
+    }
+    ctx = ( CrtContext* )( ctxInfo->m_object );
+    if( NULL == ctx )
+    {
+        return CL_INVALID_CONTEXT;
+    }
+    CrtDeviceInfo* devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( device );
+    if( NULL == devInfo )
+    {
+        return CL_INVALID_DEVICE;
+    }
+    if( NULL == command_queue )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    
+    return ctx->SetDefaultDeviceCommandQueue( device, command_queue );
+
+}
+SET_ALIAS( clSetDefaultDeviceCommandQueue );

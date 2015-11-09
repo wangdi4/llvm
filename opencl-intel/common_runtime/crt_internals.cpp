@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2014 Intel Corporation
+// Copyright (c) 2006-2015 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -1627,13 +1627,13 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
     }
     memData->m_count = 0;
     memData->m_clMemHandle = this;
-
+    
     SHARED_CTX_DISPATCH::iterator itr = m_pContext->m_contexts.begin(); 
     for( ;itr != m_pContext->m_contexts.end(); itr++ )
     {
         cl_context ctx = itr->first;        
         cl_mem memObj  = NULL;
-
+       
         switch( m_dimCount )
         {
         case 2:                         
@@ -1664,7 +1664,7 @@ cl_int CrtGLImage::Create(CrtMemObject**  imageObj)
                 &errCode);
             break;
         };
-
+        
         if( ( CL_SUCCESS == errCode ) &&
             ( memObj != NULL ) )
         {
@@ -2054,7 +2054,7 @@ cl_int CrtContext::CreateSubBuffer(
 
     CrtMemObject* parentBuf = ((CrtMemObject*)(parent_buffer->object));
     CrtBuffer* buffer = new CrtBuffer(parentBuf, flags, this);           
-
+            
     errCode = buffer->Create(bufObj, buffer_create_type, buffer_create_info);
     if( CL_SUCCESS != errCode )
     {
@@ -2180,6 +2180,31 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
             m_HostcommandQueues.push_back( queueDEV );
         }
     }
+    return errCode;
+}
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
+cl_int  CrtContext::SetDefaultDeviceCommandQueue(
+    cl_device_id                device,
+    cl_command_queue			command_queue )
+{
+    cl_int errCode = CL_SUCCESS;
+    CrtQueue* pCrtQueue = NULL;
+    
+    DEV_CTX_MAP::iterator itr = m_DeviceToContext.find( device );
+    if( itr == m_DeviceToContext.end() )
+    {
+        return CL_INVALID_DEVICE;
+    }
+    pCrtQueue = reinterpret_cast<CrtQueue*>( ( ( _cl_command_queue_crt* )command_queue )->object );
+
+    if( ( NULL == pCrtQueue ) || ( pCrtQueue->m_device != device ) )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    errCode = itr->second->dispatch->clSetDefaultDeviceCommandQueue( itr->second, device, pCrtQueue->m_cmdQueueDEV );
+
     return errCode;
 }
 /// ------------------------------------------------------------------------------
@@ -2491,6 +2516,57 @@ cl_int CrtContext::CreateProgramWithSource(
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
+cl_int CrtContext::CreateProgramWithIL(  
+    const void *        il,
+    size_t              lengths,
+    CrtProgram **       crtProgram )
+{
+
+    cl_int errCode = CL_SUCCESS;
+    CrtProgram *pCrtProgram = new CrtProgram(this);
+    if( !pCrtProgram )
+    {
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    DEV_CTX_MAP::iterator dev_itr = m_DeviceToContext.begin();
+    while( dev_itr != m_DeviceToContext.end() )
+    {
+        pCrtProgram->m_assocDevices.push_back( dev_itr->first );
+        dev_itr++;
+    }
+
+    SHARED_CTX_DISPATCH::iterator itr = m_contexts.begin();
+    for( ;itr != m_contexts.end(); itr++ )
+    {
+        cl_context ctx = itr->first;
+        cl_program pgmObj = ctx->dispatch->clCreateProgramWithIL( ctx, il, lengths, &errCode );
+        if (CL_SUCCESS == errCode)
+        {
+            pCrtProgram->m_ContextToProgram[ctx] = pgmObj;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    if( CL_SUCCESS == errCode )
+    {
+        *crtProgram = pCrtProgram;
+    }
+    else
+    {
+        // Release all previously allocated underlying program objects
+        pCrtProgram->Release();
+        pCrtProgram->DecPendencyCnt();
+    }
+    return errCode;
+}
+
+/// ------------------------------------------------------------------------------
+///
+/// ------------------------------------------------------------------------------
 cl_int CrtContext::CreateProgramWithBinary(
     cl_uint                 num_devices,
     const cl_device_id *    device_list,
@@ -2787,7 +2863,7 @@ cl_int SyncManager::PrepareToExecute(
     cl_uint numReqCalls     = 0;
     cl_context dstContext   = NULL;
     cl_uint j                = 0;
-
+    
     if( ( ( inEventWaitList == NULL ) && ( NumEventsInWaitList > 0 ) ) || 
         ( ( inEventWaitList != NULL ) && ( NumEventsInWaitList == 0 ) ) )
     {
@@ -3137,7 +3213,7 @@ cl_int CrtContext::CreateGLImage(
     CrtMemObject**          memObj)
 {
     cl_int errCode = CL_SUCCESS;
-
+   
     CrtGLImage* image = new CrtGLImage(
         dim_count,
         flags,
