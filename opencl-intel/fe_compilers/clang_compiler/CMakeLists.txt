@@ -103,7 +103,7 @@ if(WIN32)
     )
 else(WIN32)
     target_link_libraries( ${TARGET_NAME}
-            ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so
+            ${LLVM_LIBRARY_DIRS}/libcommon_clang${BUILD_PLATFORM}.so
     )
 endif(WIN32)
 
@@ -141,12 +141,12 @@ endif(WIN32)
 
 
 if(WIN32)
-    string(REPLACE "${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" LLVM_BINARY_DIR_FOR_INSTALL ${LLVM_LIBRARY_DIR})
+    string(REPLACE "${CMAKE_CFG_INTDIR}" "\${BUILD_TYPE}" LLVM_BINARY_DIR_FOR_INSTALL ${LLVM_LIBRARY_DIRS})
     install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}.dll DESTINATION bin )
     if(INSTALL_PDBS)
         install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}.pdb DESTINATION bin )
     endif(INSTALL_PDBS)
     install( FILES ${LLVM_BINARY_DIR_FOR_INSTALL}/common_clang${BUILD_PLATFORM}_stripped.pdb DESTINATION bin )
 else(WIN32)
-    install( FILES ${LLVM_LIBRARY_DIR}/libcommon_clang${BUILD_PLATFORM}.so DESTINATION bin )
+    install( FILES ${LLVM_LIBRARY_DIRS}/libcommon_clang${BUILD_PLATFORM}.so DESTINATION bin )
 endif(WIN32)
