@@ -848,6 +848,8 @@ BUILTIN(__atomic_xor_fetch_explicit_4, "iiD*ii", "tn")
 BUILTIN(__atomic_xor_fetch_explicit_8, "LLiLLiD*LLii", "tn")
 BUILTIN(__atomic_xor_fetch_explicit_16, "LLLiLLLiD*LLLii", "tn")
 
+BUILTIN(__memory_barrier, "v", "n")
+
 // Notify intrinsics
 BUILTIN(__notify_intrinsic, "vcC*vCD*", "n")
 BUILTIN(__notify_zc_intrinsic, "vcC*vCD*", "n")
