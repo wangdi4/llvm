@@ -121,6 +121,12 @@ class MCJIT : public ExecutionEngine {
              (FinalizedModules.count(M) != 0);
     }
 
+#ifdef INTEL_OPENCL
+    bool allModulesAreFinalized() {
+      return (AddedModules.size() == 0) && (LoadedModules.size() == 0);
+    }
+#endif // INTEL_OPENCL
+
     void markModuleAsLoaded(Module *M) {
       // This checks against logic errors in the MCJIT implementation.
       // This function should never be called with either a Module that MCJIT
