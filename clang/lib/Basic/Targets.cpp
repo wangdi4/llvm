@@ -2351,8 +2351,7 @@ public:
         HasAVX512DQ(false), HasAVX512BW(false), HasAVX512VL(false),
         HasSHA(false), HasCX16(false), CPU(CK_Generic), FPMath(FP_Default) {
     BigEndian = false;
-    LongDoubleFormat = Triple.isOSIAMCU() ? &llvm::APFloat::IEEEdouble
-                                          : &llvm::APFloat::x87DoubleExtended;
+    LongDoubleFormat = &llvm::APFloat::x87DoubleExtended;
   }
   unsigned getFloatEvalMethod() const override {
     // X87 evaluates with 80 bits "long double" precision.
@@ -3585,6 +3584,11 @@ public:
     PtrDiffType = SignedInt;
     IntPtrType = SignedInt;
     RegParmMax = 3;
+
+    if (getTriple().isOSIAMCU()) {
+      LongDoubleWidth = 64;
+      LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+    }
 
     // Use fpret for all types.
     RealTypeUsesObjCFPRet = ((1 << TargetInfo::Float) |
