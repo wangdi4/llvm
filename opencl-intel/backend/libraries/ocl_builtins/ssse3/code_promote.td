@@ -27,6 +27,33 @@
     return $ReturnVarName.s012;
   }];
 
+  // [LLVM 3.6 UPGRADE] This is a quick fix for
+  // CORC-208 - [Nightly] Pass Spir1.2_math_brute_force - math_kernel3.hypot_float3 did not validate
+  //
+  // The root cause is UB in hypot_impl_nr hypot(float4, float4) in case when
+  // float3 arguments get promoted to float4 arguments filling 4th component with undef value causing
+  // hypot(float3, float3) producing not bit-to-bit equal results between runs on the same input.
+  //
+  // The correct fix is to fill 4th component with a performance-tolerant value obtained from SVML docs
+  // that is special to every SVML function, so in ideal case every promotion to the bigger vector must
+  // be performed individually for every BI that requires it. Filed CORC-313.
+  //
+  // promote f(v3, v3) to v4. hypot code for float3 and double3
+  code Promote2_hypot_v3_to_v4 = [{
+    // According to SVML documentation performance-tolerant values for
+    // hypotf and hypot are in range [-10000.0, 10000.0] for both arguments.
+    // Choosing zero to avoid an additional constant load.
+    const $Arg0BaseType tolerant_value = 0.0;
+    $Arg0BaseType#4 n$Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s3 = tolerant_value;
+    $Arg1BaseType#4  n$Arg1VarName;
+    n$Arg1VarName.s012 = $Arg1VarName;
+    n$Arg1VarName.s3 = tolerant_value;
+    $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, n$Arg1VarName);
+    return $ReturnVarName.s012;
+  }];
+
   // promote f(v3, v3, v3) to v4. common code for float3 and double3
   code Promote3_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName;
