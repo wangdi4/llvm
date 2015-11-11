@@ -90,6 +90,19 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   return MayAlias;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+// Chaining methods to detect whether a value is escaped from the current
+// routine.
+bool AAResults::escapes(const Value *V) {
+  for (const auto &AA : AAs) {
+    auto Result = AA->escapes(V);
+    if (Result != true)
+      return Result;
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
+
 bool AAResults::pointsToConstantMemory(const MemoryLocation &Loc,
                                        bool OrLocal) {
   for (const auto &AA : AAs)

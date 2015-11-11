@@ -223,7 +223,10 @@ public:
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(V1, 1, V2, 1) == MustAlias;
   }
-
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V);
+#endif // INTEL_CUSTOMIZATION
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false);
@@ -572,6 +575,10 @@ public:
   /// \p OrLocal is true whether it points to a local alloca.
   virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
                                       bool OrLocal) = 0;
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  virtual bool escapes(const Value *V) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   /// @}
   //===--------------------------------------------------------------------===//
@@ -627,6 +634,13 @@ public:
                     const MemoryLocation &LocB) override {
     return Result.alias(LocA, LocB);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V) override { 
+    return Result.escapes(V); 
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool pointsToConstantMemory(const MemoryLocation &Loc,
                               bool OrLocal) override {
@@ -706,6 +720,13 @@ protected:
       return AAR ? AAR->pointsToConstantMemory(Loc, OrLocal)
                  : CurrentResult.pointsToConstantMemory(Loc, OrLocal);
     }
+#if INTEL_CUSTOMIZATION
+    // Returns true if the given value V is escaped.
+    bool escapes(const Value *V) 
+    {
+      return AAR ? AAR->escapes(V) : CurrentResult.escapes(V);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     ModRefInfo getArgModRefInfo(ImmutableCallSite CS, unsigned ArgIdx) {
       return AAR ? AAR->getArgModRefInfo(CS, ArgIdx) : CurrentResult.getArgModRefInfo(CS, ArgIdx);
@@ -753,6 +774,13 @@ public:
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal) {
     return false;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V) { 
+    return true; 
+  }
+#endif // INTEL_CUSTOMIZATION
 
   ModRefInfo getArgModRefInfo(ImmutableCallSite CS, unsigned ArgIdx) {
     return MRI_ModRef;

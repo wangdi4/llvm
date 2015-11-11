@@ -91,6 +91,8 @@ static cl::opt<bool> PrintAndersPointsTo("print-anders-points-to", cl::ReallyHid
 static cl::opt<bool> PrintAndersAliasQueries("print-anders-alias-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersModRefQueries("print-anders-modref-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersConstMemQueries("print-anders-const-mem-queries", cl::ReallyHidden);
+static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
+                                         cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
 
 static const unsigned SelfRep = (unsigned)-1;
@@ -379,9 +381,98 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
       IMR->runAnalysis(M);
   }
 
+  // The following code is the implementation of escape analysis,
+  /// which is treated as extended globals-mod-ref analysis.
+  // In the existing globals mod ref analysis, any non-address taken
+  // static variable is assumed to be not overlapped with any
+  // unknown reference. In the escape analysis, any non-escaped
+  // static variable is assumed to be not overlapped with any
+  // unknown reference. A static variable is escaped if it can be
+  // accessed by outside routines.
+  // Here we assume the points-to graph is created after the
+  // AndersenAA. Given a graph node Xn, let's assume there
+  // exits a points-to path from Node X1 to Node Xn. If Xn is escaped,
+  // it implies that there exists one graph node among X1.Xn-1 which
+  // can be accessed by outside routine.
+
+  // It collects the static variables into the map table
+  // NonEscapeStaticVars.
+  // This map table will be refined during the escape analysis.
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) {
+      for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+        Node *N1 = &GraphNodes[I];
+        Value *V = N1->getValue();
+        if (V && isa<GlobalValue>(V) && V == &GV &&
+            N1 == &GraphNodes[getObject(V)]) {
+          NonEscapeStaticVars[V] = I;
+        }
+      }
+    }
+  }
+
+  // It collects the graph nodes which meet the following criteria.
+  // 1) static variable represented by the graph node
+  //    occurs in more than one routine;
+  // 2) if the address of a static variable occurs as
+  //    the right hand side of store instruction, check whether the
+  //    store instruction's graph node is escaped or not. If it is
+  //    escaped, collects the static variable's graph
+  //    node into EscapedNodeSet.
+  // 3) if the value of a static variable occurs as
+  //    the right hand side of store instruction, check whether the
+  //    store instruction's graph node is escaped or not. If it is
+  //    escaped, it implies that the point-to set of the static variable
+  //    is escaped. It will collect those graph nodes into EscapedNodeSet.
+  //
+  NodeSetTy EscapedNodeSet;
+  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
+       I != E; ++I) {
+    SmallPtrSet<const PHINode *, 16> PhiUsers;
+    const Function *SingleAcessingFunction = nullptr;
+    const Value *V = I->getFirst();
+    bool LoadFlag = false;
+    bool PossibleEscape =
+        analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction, &LoadFlag);
+    if (PossibleEscape || SingleAcessingFunction == nullptr ||
+        LoadFlag == true) {
+      if (PossibleEscape) {
+        EscapedNodeSet.insert(&GraphNodes[I->second]);
+      } else if (LoadFlag == true) {
+        Node *AltN = &GraphNodes[I->second];
+        if (AltN->PointsTo) {
+          for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+               BI != BE; ++BI) {
+            EscapedNodeSet.insert(&GraphNodes[*BI]);
+          }
+        }
+      }
+    }
+  }
+  // Refine the NonEscapeStaticVars based on the set EscapedNodeSet
+  updateEscapeNodes(&EscapedNodeSet);
+
+  if (NonEscapeStaticVars.size() > 0) {
+    analyzePointsToGraph(&EscapedNodeSet);
+  }
+
+  // Dump the non-escaped static variablas
+  if (PrintNonEscapeCands) {
+    PrintNonEscapes();
+  }
+
   //return false;
 }
 
+void AndersensAAResult::PrintNonEscapes() const {
+  errs() << "Non-Escape-Static-Vars_Begin \n";
+  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
+       I != E; ++I) {
+    PrintNode(&GraphNodes[I->second]);
+    errs() << "\n";
+  }
+  errs() << "Non-Escape-Static-Vars_End \n";
+}
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
                                  const TargetLibraryInfo &TLI)
@@ -402,8 +493,8 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ObjectNodes(std::move(Arg.ObjectNodes)),
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
+      NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       IMR(std::move(Arg.IMR)) {}
-
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
@@ -550,12 +641,33 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " \n";
   }
 
-  if (N1->PointsTo->test(UniversalSet) || N2->PointsTo->test(UniversalSet)) {
+  if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
       if (PrintAndersAliasQueries) {
-          errs() << " One of them is Universal \n";
+        errs() << " both of them are Universal \n";
           errs() << " Alias_End \n";
       }
       return AAResultBase::alias(LocA, LocB);
+  }
+
+  // Using escape analysis to improve the precision
+  // of AndersenAA result.
+  if (!N1->intersectsIgnoring(N2, NullObject) &&
+      (((N1->PointsTo->test(UniversalSet) || pointsToSetEscapes(N1)) &&
+        !pointsToSetEscapes(N2)) ||
+       ((N2->PointsTo->test(UniversalSet) || pointsToSetEscapes(N2)) &&
+        !pointsToSetEscapes(N1)))) {
+    if (PrintAndersAliasQueries) {
+      errs() << " Result: NoAlias -- from escape analysis \n";
+      errs() << " Alias_End \n";
+    }
+    return NoAlias;
+  } else if (N1->PointsTo->test(UniversalSet) ||
+             N2->PointsTo->test(UniversalSet)) {
+    if (PrintAndersAliasQueries) {
+      errs() << " one of them is Universal and the other one escapes \n";
+      errs() << " Alias_End \n";
+    }
+    return AAResultBase::alias(LocA, LocB);
   }
 
   // Check to see if the two pointers are known to not alias. They don't alias
@@ -692,6 +804,255 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
       errs() << " ConstMem_End \n";
   }
   return true;
+}
+
+// Returns true if the given value V escapes
+bool AndersensAAResult::escapes(const Value *V) {
+  assert(V);
+  if (NonEscapeStaticVars.find(V) != NonEscapeStaticVars.end()) {
+    return false;
+  }
+  return true;
+}
+
+// Returns true if the given graph Node N escapes
+bool AndersensAAResult::graphNodeEscapes(Node *N) {
+  if (N == &GraphNodes[UniversalSet]) {
+    return true;
+  }
+  Value *V = N->getValue();
+  if (V == nullptr) {
+    return false;
+  }
+  return escapes(V);
+}
+
+// Returns true if the given graph Node N escapes.
+bool AndersensAAResult::pointsToSetEscapes(Node *N) {
+  if (N->PointsTo) {
+    for (SparseBitVector<>::iterator I = N->PointsTo->begin();
+         I != N->PointsTo->end(); ++I) {
+      if (graphNodeEscapes(&GraphNodes[*I])) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return true;
+  }
+}
+
+// It returns true if the graph node meets one of the following
+// creteria.
+// 1) The graph node does not hae a value
+// 2) The value in the graph node is a global value and has been
+//    determined to be escaped.
+// 3) The value in the graph node N is not global value and
+//    there exists graph node M which points to N.
+bool AndersensAAResult::graphNodePossiblyEscape(Node *AltN) {
+  Value *V = AltN->getValue();
+  if (!V) {
+    return true;
+  }
+  if (isa<GlobalValue>(V)) {
+    return escapes(V);
+  } else {
+    for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+      Node *N = &GraphNodes[I];
+      if (FindNode(I) != I) {
+        N = &GraphNodes[FindNode(I)];
+      }
+      if (N->PointsTo) {
+        for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+             BI != BE; ++BI) {
+          Node *Pointee = &GraphNodes[*BI];
+          if (Pointee->getValue() && V == Pointee->getValue()) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// It updates the map table NonEscapeStaticVars based on the
+// point-to graph.
+void AndersensAAResult::analyzePointsToGraph(NodeSetTy *EscapedNodeSet) {
+  Node *AltN, *CurN;
+
+  // Given a points-to graph, where p points to q which is in the
+  // set NonEscapeStaticVars, if p is likely to be escaped,
+  // q will be removed from the NonEscapeStaticVars and added
+  // to EscapedNodeSet.
+  for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+    AltN = &GraphNodes[I];
+    if (FindNode(I) != I) {
+      AltN = &GraphNodes[FindNode(I)];
+    }
+    if (AltN->PointsTo) {
+      bool Overlap = false;
+      for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+           BI != BE; ++BI) {
+        Node *Pointee = &GraphNodes[*BI];
+        for (auto EI = NonEscapeStaticVars.begin(),
+                  EE = NonEscapeStaticVars.end();
+             EI != EE; EI++) {
+          if (Pointee == &GraphNodes[EI->second]) {
+            Overlap = true;
+          }
+        }
+      }
+      if (Overlap &&
+          (pointsToSetEscapes(AltN) || graphNodePossiblyEscape(AltN))) {
+        for (auto BI = AltN->PointsTo->begin(); BI != AltN->PointsTo->end();
+             ++BI) {
+          CurN = &GraphNodes[*BI];
+          if (!graphNodeEscapes(CurN)) {
+            EscapedNodeSet->insert(CurN);
+          }
+        }
+      }
+    }
+  }
+
+  NodeSetTy NodeSet2, NodeSet3;
+  NodeSet2 = *EscapedNodeSet;
+
+  // Given a graph node N in EscapedNodeSet, the point-to set of N
+  // will be added inot the set EscapedNodeSet.
+  // This process iterattes until the set EscapedNodeSet does
+  // not change.
+  propagateEscapedPointsTo(EscapedNodeSet, &NodeSet2, &NodeSet3);
+
+  updateEscapeNodes(EscapedNodeSet);
+}
+
+// It updates the set updateEscapeNodes by the propatation along
+// the points-to graph.
+void AndersensAAResult::propagateEscapedPointsTo(NodeSetTy *NodeSet1,
+                                                 NodeSetTy *NodeSet2,
+                                                 NodeSetTy *NodeSet3) {
+
+  for (auto I = NodeSet2->begin(), E = NodeSet2->end(); I != E; I++) {
+    Node *N = *I;
+    if (N->PointsTo) {
+      for (auto BI = N->PointsTo->begin(); BI != N->PointsTo->end(); ++BI) {
+        Node *CurN = &GraphNodes[*BI];
+        if (!NodeSet1->count(CurN)) {
+          NodeSet3->insert(CurN);
+          NodeSet1->insert(CurN);
+        }
+      }
+    }
+  }
+
+  if (NodeSet3->size() > 0) {
+    NodeSet2->clear();
+    propagateEscapedPointsTo(NodeSet1, NodeSet3, NodeSet2);
+  }
+}
+
+// It updates the NonEscapeStaticVars based on the set EscapedNodeSet.
+void AndersensAAResult::updateEscapeNodes(NodeSetTy *EscapedNodeSet) {
+  for (auto I = EscapedNodeSet->begin(), E = EscapedNodeSet->end(); I != E;
+       I++) {
+    Node *AltN = *I;
+    Value *V = AltN->getValue();
+    if (V) {
+      NonEscapeStaticVars.erase(V);
+    }
+  }
+}
+
+// Returns true if any of the following conditions is satisfied.
+// 1) the address of a static variable occurs as
+//    the right hand side of store instruction, and the
+//    store instruction's graph node is escaped.
+// 2) The use of the global variable is not load, store, phi,
+//    bitcast, getelementptr, select and cmp.
+// 3) the variable occurs in more than one routine
+//
+// The flag LoadFlag is set to true if the following condition is
+// satisfied.
+//    the value of a static variable occurs as
+//    the right hand side of store instruction, and the
+//    store instruction's graph node is escaped.
+//
+bool AndersensAAResult::analyzeGlobalEscape(
+    const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
+    const Function **SingleAcessingFunction, bool *LoadFlag) {
+  const ConstantExpr *CE;
+  for (const Use &U : V->uses()) {
+    const User *UR = U.getUser();
+    CE = dyn_cast<ConstantExpr>(UR);
+    if (CE) {
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction, LoadFlag))
+        return true;
+    } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
+      if (*SingleAcessingFunction == nullptr) {
+        *SingleAcessingFunction = I->getParent()->getParent();
+      } else if (*SingleAcessingFunction != I->getParent()->getParent()) {
+        *SingleAcessingFunction = nullptr;
+        return true;
+      }
+      if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
+        if (LI->isVolatile()) {
+          return true;
+        }
+        CE = dyn_cast<ConstantExpr>(V);
+        if (LI->getOperand(0) == V && CE) {
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
+                                  LoadFlag)) {
+            *LoadFlag = true;
+          }
+        }
+      } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        if (SI->getOperand(0) == V) {
+          Value *V1 = SI->getOperand(1);
+          Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value *>(V1)))];
+          if (!N1 || pointsToSetEscapes(N1)) {
+            return true;
+          }
+        }
+        if (SI->isVolatile()) {
+          return true;
+        }
+
+      } else if (isa<BitCastInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (isa<GetElementPtrInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (isa<SelectInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
+        if (PhiUsers.insert(PN).second)
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction,
+                                  LoadFlag))
+            return true;
+      } else if (isa<CmpInst>(I)) {
+        ;
+      } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
+        if (MTI->isVolatile())
+          return true;
+      } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
+        if (MSI->isVolatile())
+          return true;
+      } else if (auto C = ImmutableCallSite(I)) {
+        if (!C.isCallee(&U))
+          return true;
+      } else {
+        return true;
+      }
+    } else if (const Constant *C = dyn_cast<Constant>(UR)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -3143,8 +3504,10 @@ void AndersensAAResult::PrintNode(const Node *N) const {
 
   if (V->hasName())
     errs() << V->getName();
-  else
-    errs() << "(unnamed:" << V <<")";
+  else {
+    //    errs() << "(unnamed:" << V <<") ";
+    V->printAsOperand(errs(), false);
+  }
 
   if (isa<GlobalValue>(V) || isa<AllocaInst>(V))
     if (N == &GraphNodes[getObject(V)])
@@ -3185,10 +3548,12 @@ void AndersensAAResult::PrintConstraints() const {
 void AndersensAAResult::PrintPointsToGraph() const {
   errs() << "Points-to graph:" << GraphNodes.size() << "\n";
   for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
+    errs() << "(" << i << "): ";
     const Node *N = &GraphNodes[i];
     if (FindNode(i) != i) {
       PrintNode(N);
-      errs() << "\t--> same as ";
+      errs() << "\t--> same as "
+             << "(" << FindNode(i) << ") ";
       PrintNode(&GraphNodes[FindNode(i)]);
       errs() << "\n";
     } else if (N->PointsTo) {
@@ -3202,6 +3567,7 @@ void AndersensAAResult::PrintPointsToGraph() const {
            ++bi) {
         if (!first)
           errs() << ", ";
+        errs() << "(" << *bi << "): ";
         PrintNode(&GraphNodes[*bi]);
         first = false;
       }
