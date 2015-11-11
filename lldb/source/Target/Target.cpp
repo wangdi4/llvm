@@ -31,10 +31,11 @@
 #include "lldb/Core/StreamString.h"
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/ValueObject.h"
-#include "lldb/Expression/ClangASTSource.h"
-#include "lldb/Expression/ClangPersistentVariables.h"
-#include "lldb/Expression/ClangUserExpression.h"
-#include "lldb/Expression/ClangModulesDeclVendor.h"
+#include "lldb/Expression/REPL.h"
+#include "lldb/Expression/UserExpression.h"
+#include "Plugins/ExpressionParser/Clang/ClangASTSource.h"
+#include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
+#include "Plugins/ExpressionParser/Clang/ClangModulesDeclVendor.h"
 #include "lldb/Host/FileSpec.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -46,6 +47,7 @@
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
+#include "lldb/Target/Language.h"
 #include "lldb/Target/LanguageRuntime.h"
 #include "lldb/Target/ObjCLanguageRuntime.h"
 #include "lldb/Target/Process.h"
@@ -54,6 +56,7 @@
 #include "lldb/Target/SystemRuntime.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/ThreadSpec.h"
+#include "lldb/Utility/LLDBAssert.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -84,10 +87,7 @@ Target::Target(Debugger &debugger, const ArchSpec &target_arch, const lldb::Plat
     m_process_sp (),
     m_search_filter_sp (),
     m_image_search_paths (ImageSearchPathsChanged, this),
-    m_scratch_ast_context_ap (),
-    m_scratch_ast_source_ap (),
     m_ast_importer_ap (),
-    m_persistent_variables (new ClangPersistentVariables),
     m_source_manager_ap(),
     m_stop_hooks (),
     m_stop_hook_next_id (0),
@@ -213,6 +213,69 @@ Target::GetProcessSP () const
     return m_process_sp;
 }
 
+lldb::REPLSP
+Target::GetREPL (Error &err, lldb::LanguageType language, const char *repl_options, bool can_create)
+{
+    if (language == eLanguageTypeUnknown)
+    {
+        std::set<LanguageType> repl_languages;
+        
+        Language::GetLanguagesSupportingREPLs(repl_languages);
+        
+        if (repl_languages.size() == 1)
+        {
+            language = *repl_languages.begin();
+        }
+        else if (repl_languages.size() == 0)
+        {
+            err.SetErrorStringWithFormat("LLDB isn't configured with support support for any REPLs.");
+            return REPLSP();
+        }
+        else
+        {
+            err.SetErrorStringWithFormat("Multiple possible REPL languages.  Please specify a language.");
+            return REPLSP();
+        }
+    }
+    
+    REPLMap::iterator pos = m_repl_map.find(language);
+    
+    if (pos != m_repl_map.end())
+    {
+        return pos->second;
+    }
+    
+    if (!can_create)
+    {
+        err.SetErrorStringWithFormat("Couldn't find an existing REPL for %s, and can't create a new one", Language::GetNameForLanguageType(language));
+        return lldb::REPLSP();
+    }
+    
+    Debugger *const debugger = nullptr;
+    lldb::REPLSP ret = REPL::Create(err, language, debugger, this, repl_options);
+    
+    if (ret)
+    {
+        m_repl_map[language] = ret;
+        return m_repl_map[language];
+    }
+    
+    if (err.Success())
+    {
+        err.SetErrorStringWithFormat("Couldn't create a REPL for %s", Language::GetNameForLanguageType(language));
+    }
+    
+    return lldb::REPLSP();
+}
+
+void
+Target::SetREPL (lldb::LanguageType language, lldb::REPLSP repl_sp)
+{
+    lldbassert(!m_repl_map.count(language));
+    
+    m_repl_map[language] = repl_sp;
+}
+
 void
 Target::Destroy()
 {
@@ -230,7 +293,6 @@ Target::Destroy()
     m_last_created_watchpoint.reset();
     m_search_filter_sp.reset();
     m_image_search_paths.Clear(notify);
-    m_persistent_variables->Clear();
     m_stop_hooks.clear();
     m_stop_hook_next_id = 0;
     m_suppress_stop_hooks = false;
@@ -1124,8 +1186,7 @@ Target::ClearModules(bool delete_locations)
     ModulesDidUnload (m_images, delete_locations);
     m_section_load_history.Clear();
     m_images.Clear();
-    m_scratch_ast_context_ap.reset();
-    m_scratch_ast_source_ap.reset();
+    m_scratch_type_system_map.Clear();
     m_ast_importer_ap.reset();
 }
 
@@ -1280,7 +1341,7 @@ Target::ModuleAdded (const ModuleList& module_list, const ModuleSP &module_sp)
 void
 Target::ModuleRemoved (const ModuleList& module_list, const ModuleSP &module_sp)
 {
-    // A module is being added to this target for the first time
+    // A module is being removed from this target.
     if (m_valid)
     {
         ModuleList my_module_list;
@@ -1891,54 +1952,160 @@ Target::ImageSearchPathsChanged
         target->SetExecutableModule (exe_module_sp, true);
 }
 
+TypeSystem *
+Target::GetScratchTypeSystemForLanguage (Error *error, lldb::LanguageType language, bool create_on_demand)
+{
+    if (!m_valid)
+        return nullptr;
+
+    if (error)
+    {
+        error->Clear();
+    }
+    
+    if (language == eLanguageTypeMipsAssembler // GNU AS and LLVM use it for all assembly code
+        || language == eLanguageTypeUnknown)
+    {
+        std::set<lldb::LanguageType> languages_for_types;
+        std::set<lldb::LanguageType> languages_for_expressions;
+        
+        Language::GetLanguagesSupportingTypeSystems(languages_for_types, languages_for_expressions);
+        
+        if (languages_for_expressions.count(eLanguageTypeC))
+        {
+            language = eLanguageTypeC; // LLDB's default.  Override by setting the target language.
+        }
+        else
+        {
+            if (languages_for_expressions.empty())
+            {
+                return nullptr;
+            }
+            else
+            {
+                language = *languages_for_expressions.begin();
+            }
+        }
+    }
+
+    return m_scratch_type_system_map.GetTypeSystemForLanguage(language, this, create_on_demand);
+}
+
+PersistentExpressionState *
+Target::GetPersistentExpressionStateForLanguage (lldb::LanguageType language)
+{
+    TypeSystem *type_system = GetScratchTypeSystemForLanguage(nullptr, language, true);
+    
+    if (type_system)
+    {
+        return type_system->GetPersistentExpressionState();
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
+UserExpression *
+Target::GetUserExpressionForLanguage(const char *expr,
+                                     const char *expr_prefix,
+                                     lldb::LanguageType language,
+                                     Expression::ResultType desired_type,
+                                     Error &error)
+{
+    Error type_system_error;
+    
+    TypeSystem *type_system = GetScratchTypeSystemForLanguage (&type_system_error, language);
+    UserExpression *user_expr = nullptr;
+    
+    if (!type_system)
+    {
+        error.SetErrorStringWithFormat("Could not find type system for language %s: %s", Language::GetNameForLanguageType(language), type_system_error.AsCString());
+        return nullptr;
+    }
+    
+    user_expr = type_system->GetUserExpression(expr, expr_prefix, language, desired_type);
+    if (!user_expr)
+        error.SetErrorStringWithFormat("Could not create an expression for language %s", Language::GetNameForLanguageType(language));
+    
+    return user_expr;
+}
+
+FunctionCaller *
+Target::GetFunctionCallerForLanguage (lldb::LanguageType language,
+                                      const CompilerType &return_type,
+                                      const Address& function_address,
+                                      const ValueList &arg_value_list,
+                                      const char *name,
+                                      Error &error)
+{
+    Error type_system_error;
+    TypeSystem *type_system = GetScratchTypeSystemForLanguage (&type_system_error, language);
+    FunctionCaller *persistent_fn = nullptr;
+    
+    if (!type_system)
+    {
+        error.SetErrorStringWithFormat("Could not find type system for language %s: %s", Language::GetNameForLanguageType(language), type_system_error.AsCString());
+        return persistent_fn;
+    }
+    
+    persistent_fn = type_system->GetFunctionCaller (return_type, function_address, arg_value_list, name);
+    if (!persistent_fn)
+        error.SetErrorStringWithFormat("Could not create an expression for language %s", Language::GetNameForLanguageType(language));
+    
+    return persistent_fn;
+}
+
+UtilityFunction *
+Target::GetUtilityFunctionForLanguage (const char *text,
+                                       lldb::LanguageType language,
+                                       const char *name,
+                                       Error &error)
+{
+    Error type_system_error;
+    TypeSystem *type_system = GetScratchTypeSystemForLanguage (&type_system_error, language);
+    UtilityFunction *utility_fn = nullptr;
+    
+    if (!type_system)
+    {
+        error.SetErrorStringWithFormat("Could not find type system for language %s: %s", Language::GetNameForLanguageType(language), type_system_error.AsCString());
+        return utility_fn;
+    }
+    
+    utility_fn = type_system->GetUtilityFunction (text, name);
+    if (!utility_fn)
+        error.SetErrorStringWithFormat("Could not create an expression for language %s", Language::GetNameForLanguageType(language));
+    
+    return utility_fn;
+}
+
 ClangASTContext *
 Target::GetScratchClangASTContext(bool create_on_demand)
 {
-    // Now see if we know the target triple, and if so, create our scratch AST context:
-    if (m_scratch_ast_context_ap.get() == NULL && m_arch.IsValid() && create_on_demand)
+    if (m_valid)
     {
-        m_scratch_ast_context_ap.reset (new ClangASTContext(m_arch.GetTriple().str().c_str()));
-        m_scratch_ast_source_ap.reset (new ClangASTSource(shared_from_this()));
-        m_scratch_ast_source_ap->InstallASTContext(m_scratch_ast_context_ap->getASTContext());
-        llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> proxy_ast_source(m_scratch_ast_source_ap->CreateProxy());
-        m_scratch_ast_context_ap->SetExternalSource(proxy_ast_source);
+        if (TypeSystem* type_system = GetScratchTypeSystemForLanguage(nullptr, eLanguageTypeC, create_on_demand))
+            return llvm::dyn_cast<ClangASTContext>(type_system);
     }
-    return m_scratch_ast_context_ap.get();
+    return nullptr;
 }
 
-TypeSystem*
-Target::GetTypeSystemForLanguage (lldb::LanguageType language)
-{
-    switch (language)
-    {
-        case lldb::eLanguageTypeC:
-        case lldb::eLanguageTypeC11:
-        case lldb::eLanguageTypeC89:
-        case lldb::eLanguageTypeC99:
-        case lldb::eLanguageTypeC_plus_plus:
-        case lldb::eLanguageTypeC_plus_plus_03:
-        case lldb::eLanguageTypeC_plus_plus_11:
-        case lldb::eLanguageTypeC_plus_plus_14:
-        case lldb::eLanguageTypeObjC:
-        case lldb::eLanguageTypeObjC_plus_plus:
-            return GetScratchClangASTContext(true);
-        default:
-            return nullptr;
-    }
-}
 
 ClangASTImporter *
 Target::GetClangASTImporter()
 {
-    ClangASTImporter *ast_importer = m_ast_importer_ap.get();
-    
-    if (!ast_importer)
+    if (m_valid)
     {
-        ast_importer = new ClangASTImporter();
-        m_ast_importer_ap.reset(ast_importer);
+        ClangASTImporter *ast_importer = m_ast_importer_ap.get();
+        
+        if (!ast_importer)
+        {
+            ast_importer = new ClangASTImporter();
+            m_ast_importer_ap.reset(ast_importer);
+        }
+        return ast_importer;
     }
-    
-    return ast_importer;
+    return nullptr;
 }
 
 void
@@ -2056,7 +2223,7 @@ Target::EvaluateExpression
     lldb::ExpressionVariableSP persistent_var_sp;
     // Only check for persistent variables the expression starts with a '$' 
     if (expr_cstr[0] == '$')
-        persistent_var_sp = m_persistent_variables->GetVariable (expr_cstr);
+        persistent_var_sp = GetScratchTypeSystemForLanguage(nullptr, eLanguageTypeC)->GetPersistentExpressionState()->GetVariable (expr_cstr);
 
     if (persistent_var_sp)
     {
@@ -2067,12 +2234,12 @@ Target::EvaluateExpression
     {
         const char *prefix = GetExpressionPrefixContentsAsCString();
         Error error;
-        execution_results = ClangUserExpression::Evaluate (exe_ctx, 
-                                                           options,
-                                                           expr_cstr,
-                                                           prefix, 
-                                                           result_valobj_sp,
-                                                           error);
+        execution_results = UserExpression::Evaluate (exe_ctx,
+                                                      options,
+                                                      expr_cstr,
+                                                      prefix,
+                                                      result_valobj_sp,
+                                                      error);
     }
     
     m_suppress_stop_hooks = old_suppress_value;
@@ -2080,10 +2247,41 @@ Target::EvaluateExpression
     return execution_results;
 }
 
-ClangPersistentVariables &
-Target::GetPersistentVariables()
+
+lldb::ExpressionVariableSP
+Target::GetPersistentVariable(const ConstString &name)
 {
-    return *m_persistent_variables;
+    lldb::ExpressionVariableSP variable_sp;
+    m_scratch_type_system_map.ForEach([this, name, &variable_sp](TypeSystem *type_system) -> bool
+    {
+        if (PersistentExpressionState *persistent_state = type_system->GetPersistentExpressionState())
+        {
+            variable_sp = persistent_state->GetVariable(name);
+
+            if (variable_sp)
+                return false;   // Stop iterating the ForEach
+        }
+        return true;    // Keep iterating the ForEach
+    });
+    return variable_sp;
+}
+
+lldb::addr_t
+Target::GetPersistentSymbol(const ConstString &name)
+{
+    lldb::addr_t address = LLDB_INVALID_ADDRESS;
+    
+    m_scratch_type_system_map.ForEach([this, name, &address](TypeSystem *type_system) -> bool
+    {
+        if (PersistentExpressionState *persistent_state = type_system->GetPersistentExpressionState())
+        {
+            address = persistent_state->LookupSymbol(name);
+            if (address != LLDB_INVALID_ADDRESS)
+                return false;   // Stop iterating the ForEach
+        }
+        return true;    // Keep iterating the ForEach
+    });
+    return address;
 }
 
 lldb::addr_t
@@ -2092,6 +2290,27 @@ Target::GetCallableLoadAddress (lldb::addr_t load_addr, AddressClass addr_class)
     addr_t code_addr = load_addr;
     switch (m_arch.GetMachine())
     {
+    case llvm::Triple::mips:
+    case llvm::Triple::mipsel:
+    case llvm::Triple::mips64:
+    case llvm::Triple::mips64el:
+        switch (addr_class)
+        {
+        case eAddressClassData:
+        case eAddressClassDebug:
+            return LLDB_INVALID_ADDRESS;
+
+        case eAddressClassUnknown:
+        case eAddressClassInvalid:
+        case eAddressClassCode:
+        case eAddressClassCodeAlternateISA:
+        case eAddressClassRuntime:
+            if ((code_addr & 2ull) || (addr_class == eAddressClassCodeAlternateISA))
+                code_addr |= 1ull;
+            break;
+        }
+        break;
+
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
         switch (addr_class)
@@ -2137,6 +2356,10 @@ Target::GetOpcodeLoadAddress (lldb::addr_t load_addr, AddressClass addr_class) c
     addr_t opcode_addr = load_addr;
     switch (m_arch.GetMachine())
     {
+    case llvm::Triple::mips:
+    case llvm::Triple::mipsel:
+    case llvm::Triple::mips64:
+    case llvm::Triple::mips64el:
     case llvm::Triple::arm:
     case llvm::Triple::thumb:
         switch (addr_class)
@@ -2925,9 +3148,6 @@ Target::Attach (ProcessAttachInfo &attach_info, Stream *stream)
         }
     }
 
-    ListenerSP hijack_listener_sp (new Listener ("lldb.Target.Attach.attach.hijack"));
-    attach_info.SetHijackListener (hijack_listener_sp);
-
     const ModuleSP old_exec_module_sp = GetExecutableModule ();
 
     // If no process info was specified, then use the target executable
@@ -2944,6 +3164,13 @@ Target::Attach (ProcessAttachInfo &attach_info, Stream *stream)
     }
 
     const auto platform_sp = GetDebugger ().GetPlatformList ().GetSelectedPlatform ();
+    ListenerSP hijack_listener_sp;
+    const bool async = attach_info.GetAsync();
+    if (async == false)
+    {
+        hijack_listener_sp.reset (new Listener ("lldb.Target.Attach.attach.hijack"));
+        attach_info.SetHijackListener (hijack_listener_sp);
+    }
 
     Error error;
     if (state != eStateConnected && platform_sp != nullptr && platform_sp->CanDebugProcess ())
@@ -2963,23 +3190,31 @@ Target::Attach (ProcessAttachInfo &attach_info, Stream *stream)
                 return error;
             }
         }
-        process_sp->HijackProcessEvents (hijack_listener_sp.get ());
+        if (hijack_listener_sp)
+            process_sp->HijackProcessEvents (hijack_listener_sp.get ());
         error = process_sp->Attach (attach_info);
     }
 
     if (error.Success () && process_sp)
     {
-        state = process_sp->WaitForProcessToStop (nullptr, nullptr, false, attach_info.GetHijackListener ().get (), stream);
-        process_sp->RestoreProcessEvents ();
-
-        if (state != eStateStopped)
+        if (async)
         {
-            const char *exit_desc = process_sp->GetExitDescription ();
-            if (exit_desc)
-                error.SetErrorStringWithFormat ("attach failed: %s", exit_desc);
-            else
-                error.SetErrorString ("attach failed: process did not stop (no such process or permission problem?)");
-            process_sp->Destroy (false);
+            process_sp->RestoreProcessEvents ();
+        }
+        else
+        {
+            state = process_sp->WaitForProcessToStop (nullptr, nullptr, false, attach_info.GetHijackListener ().get (), stream);
+            process_sp->RestoreProcessEvents ();
+
+            if (state != eStateStopped)
+            {
+                const char *exit_desc = process_sp->GetExitDescription ();
+                if (exit_desc)
+                    error.SetErrorStringWithFormat ("%s", exit_desc);
+                else
+                    error.SetErrorString ("process did not stop (no such process or permission problem?)");
+                process_sp->Destroy (false);
+            }
         }
     }
     return error;
@@ -3147,7 +3382,7 @@ g_properties[] =
     { "prefer-dynamic-value"               , OptionValue::eTypeEnum      , false, eDynamicDontRunTarget     , NULL, g_dynamic_value_types, "Should printed values be shown as their dynamic value." },
     { "enable-synthetic-value"             , OptionValue::eTypeBoolean   , false, true                      , NULL, NULL, "Should synthetic values be used by default whenever available." },
     { "skip-prologue"                      , OptionValue::eTypeBoolean   , false, true                      , NULL, NULL, "Skip function prologues when setting breakpoints by name." },
-    { "source-map"                         , OptionValue::eTypePathMap   , false, 0                         , NULL, NULL, "Source path remappings used to track the change of location between a source file when built, and "
+    { "source-map"                         , OptionValue::eTypePathMap   , false, 0                         , NULL, NULL, "Source path remappings are used to track the change of location between a source file when built, and "
       "where it exists on the current system.  It consists of an array of duples, the first element of each duple is "
       "some part (starting at the root) of the path to the file when it was built, "
       "and the second is where the remainder of the original build hierarchy is rooted on the local system.  "

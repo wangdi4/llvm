@@ -40,6 +40,7 @@
 #include "lldb/Core/Timer.h"
 #include "lldb/Core/Value.h"
 #include "lldb/DataFormatters/FormatManager.h"
+#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostThread.h"
 #include "lldb/Host/StringConvert.h"
 #include "lldb/Host/Symbols.h"
@@ -56,6 +57,7 @@
 #include "lldb/Interpreter/OptionGroupUInt64.h"
 #include "lldb/Interpreter/Property.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Target/ABI.h"
 #include "lldb/Target/DynamicLoader.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/TargetList.h"
@@ -513,6 +515,35 @@ ProcessGDBRemote::ParsePythonTargetDefinition(const FileSpec &target_definition_
     return false;
 }
 
+// If the remote stub didn't give us eh_frame or DWARF register numbers for a register,
+// see if the ABI can provide them.
+// DWARF and eh_frame register numbers are defined as a part of the ABI.
+static void
+AugmentRegisterInfoViaABI (RegisterInfo &reg_info, ConstString reg_name, ABISP abi_sp)
+{
+    if (reg_info.kinds[eRegisterKindEHFrame] == LLDB_INVALID_REGNUM
+        || reg_info.kinds[eRegisterKindDWARF] == LLDB_INVALID_REGNUM)
+    {
+        if (abi_sp)
+        {
+            RegisterInfo abi_reg_info;
+            if (abi_sp->GetRegisterInfoByName (reg_name, abi_reg_info))
+            {
+                if (reg_info.kinds[eRegisterKindEHFrame] == LLDB_INVALID_REGNUM
+                    && abi_reg_info.kinds[eRegisterKindEHFrame] != LLDB_INVALID_REGNUM)
+                {
+                    reg_info.kinds[eRegisterKindEHFrame] = abi_reg_info.kinds[eRegisterKindEHFrame];
+                }
+                if (reg_info.kinds[eRegisterKindDWARF] == LLDB_INVALID_REGNUM
+                    && abi_reg_info.kinds[eRegisterKindDWARF] != LLDB_INVALID_REGNUM)
+                {
+                    reg_info.kinds[eRegisterKindDWARF] = abi_reg_info.kinds[eRegisterKindDWARF];
+                }
+            }
+        }
+    }
+}
+
 static size_t
 SplitCommaSeparatedRegisterNumberString(const llvm::StringRef &comma_separated_regiter_numbers, std::vector<uint32_t> &regnums, int base)
 {
@@ -610,7 +641,7 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
                         LLDB_INVALID_REGNUM, // eh_frame reg num
                         LLDB_INVALID_REGNUM, // DWARF reg num
                         LLDB_INVALID_REGNUM, // generic reg num
-                        reg_num,             // stabs reg num
+                        reg_num,             // process plugin reg num
                         reg_num           // native register number
                     },
                     NULL,
@@ -714,6 +745,8 @@ ProcessGDBRemote::BuildDynamicRegisterInfo (bool force)
                     invalidate_regs.push_back(LLDB_INVALID_REGNUM);
                     reg_info.invalidate_regs = invalidate_regs.data();
                 }
+
+                AugmentRegisterInfoViaABI (reg_info, reg_name, GetABI ());
 
                 m_register_info.AddRegister(reg_info, reg_name, alt_name, set_name);
             }
@@ -972,11 +1005,11 @@ ProcessGDBRemote::DoLaunch (Module *exe_module, ProcessLaunchInfo &launch_info)
             {
                 // set to /dev/null unless redirected to a file above
                 if (!stdin_file_spec)
-                    stdin_file_spec.SetFile("/dev/null", false);
+                    stdin_file_spec.SetFile(FileSystem::DEV_NULL, false);
                 if (!stdout_file_spec)
-                    stdout_file_spec.SetFile("/dev/null", false);
+                    stdout_file_spec.SetFile(FileSystem::DEV_NULL, false);
                 if (!stderr_file_spec)
-                    stderr_file_spec.SetFile("/dev/null", false);
+                    stderr_file_spec.SetFile(FileSystem::DEV_NULL, false);
             }
             else if (platform_sp && platform_sp->IsHost())
             {
@@ -2012,6 +2045,10 @@ ProcessGDBRemote::SetThreadStopInfo (lldb::tid_t tid,
             if (!thread_sp->StopInfoIsUpToDate())
             {
                 thread_sp->SetStopInfo (StopInfoSP());
+                // If there's a memory thread backed by this thread, we need to use it to calcualte StopInfo.
+                ThreadSP memory_thread_sp = m_thread_list.FindThreadByProtocolID(thread_sp->GetProtocolID());
+                if (memory_thread_sp)
+                    thread_sp = memory_thread_sp;
 
                 if (exc_type != 0)
                 {
@@ -2069,6 +2106,8 @@ ProcessGDBRemote::SetThreadStopInfo (lldb::tid_t tid,
                             watch_id_t watch_id = LLDB_INVALID_WATCH_ID;
                             if (wp_addr != LLDB_INVALID_ADDRESS)
                             {
+                                if (wp_hit_addr != LLDB_INVALID_ADDRESS)
+                                    wp_addr = wp_hit_addr;
                                 WatchpointSP wp_sp = GetTarget().GetWatchpointList().FindByAddress(wp_addr);
                                 if (wp_sp)
                                 {
@@ -3005,14 +3044,8 @@ ProcessGDBRemote::DoReadMemory (addr_t addr, void *buf, size_t size, Error &erro
     char packet[64];
     int packet_len;
     bool binary_memory_read = m_gdb_comm.GetxPacketSupported();
-    if (binary_memory_read)
-    {
-        packet_len = ::snprintf (packet, sizeof(packet), "x0x%" PRIx64 ",0x%" PRIx64, (uint64_t)addr, (uint64_t)size);
-    }
-    else
-    {
-        packet_len = ::snprintf (packet, sizeof(packet), "m%" PRIx64 ",%" PRIx64, (uint64_t)addr, (uint64_t)size);
-    }
+    packet_len = ::snprintf(packet, sizeof(packet), "%c%" PRIx64 ",%" PRIx64,
+                            binary_memory_read ? 'x' : 'm', (uint64_t)addr, (uint64_t)size);
     assert (packet_len + 1 < (int)sizeof(packet));
     StringExtractorGDBRemote response;
     if (m_gdb_comm.SendPacketAndWaitForResponse(packet, packet_len, response, true) == GDBRemoteCommunication::PacketResult::Success)
@@ -3529,14 +3562,22 @@ ProcessGDBRemote::LaunchAndConnectToDebugserver (const ProcessInfo &process_info
         // Set hostname being NULL to do the reverse connect where debugserver
         // will bind to port zero and it will communicate back to us the port
         // that we will connect to
-        const char *hostname = NULL;
+        const char *hostname = nullptr;
         uint16_t port = 0;
 #endif
 
-        error = m_gdb_comm.StartDebugserverProcess (hostname,
-                                                    port,
+        StreamString url_str;
+        const char* url = nullptr;
+        if (hostname != nullptr)
+        {
+            url_str.Printf("%s:%u", hostname, port);
+            url = url_str.GetData();
+        }
+
+        error = m_gdb_comm.StartDebugserverProcess (url,
+                                                    GetTarget().GetPlatform().get(),
                                                     debugserver_launch_info,
-                                                    port);
+                                                    &port);
 
         if (error.Success ())
             m_debugserver_pid = debugserver_launch_info.GetProcessID();
@@ -4273,15 +4314,15 @@ struct GdbServerTargetInfo
 };
     
 bool
-ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemoteDynamicRegisterInfo &dyn_reg_info)
+ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemoteDynamicRegisterInfo &dyn_reg_info, ABISP abi_sp)
 {
     if (!feature_node)
         return false;
     
-    uint32_t prev_reg_num = 0;
+    uint32_t cur_reg_num = 0;
     uint32_t reg_offset = 0;
 
-    feature_node.ForEachChildElementWithName("reg", [&target_info, &dyn_reg_info, &prev_reg_num, &reg_offset](const XMLNode &reg_node) -> bool {
+    feature_node.ForEachChildElementWithName("reg", [&target_info, &dyn_reg_info, &cur_reg_num, &reg_offset, &abi_sp](const XMLNode &reg_node) -> bool {
         std::string gdb_group;
         std::string gdb_type;
         ConstString reg_name;
@@ -4301,14 +4342,14 @@ ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemot
                 LLDB_INVALID_REGNUM, // eh_frame reg num
                 LLDB_INVALID_REGNUM, // DWARF reg num
                 LLDB_INVALID_REGNUM, // generic reg num
-                prev_reg_num,        // stabs reg num
-                prev_reg_num         // native register number
+                cur_reg_num,        // process plugin reg num
+                cur_reg_num         // native register number
             },
             NULL,
             NULL
         };
         
-        reg_node.ForEachAttribute([&target_info, &gdb_group, &gdb_type, &reg_name, &alt_name, &set_name, &value_regs, &invalidate_regs, &encoding_set, &format_set, &reg_info, &prev_reg_num, &reg_offset](const llvm::StringRef &name, const llvm::StringRef &value) -> bool {
+        reg_node.ForEachAttribute([&target_info, &gdb_group, &gdb_type, &reg_name, &alt_name, &set_name, &value_regs, &invalidate_regs, &encoding_set, &format_set, &reg_info, &cur_reg_num, &reg_offset](const llvm::StringRef &name, const llvm::StringRef &value) -> bool {
             if (name == "name")
             {
                 reg_name.SetString(value);
@@ -4330,9 +4371,7 @@ ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemot
                 const uint32_t regnum = StringConvert::ToUInt32(value.data(), LLDB_INVALID_REGNUM, 0);
                 if (regnum != LLDB_INVALID_REGNUM)
                 {
-                    reg_info.kinds[eRegisterKindStabs] = regnum;
-                    reg_info.kinds[eRegisterKindLLDB] = regnum;
-                    prev_reg_num = regnum;
+                    reg_info.kinds[eRegisterKindProcessPlugin] = regnum;
                 }
             }
             else if (name == "offset")
@@ -4443,7 +4482,8 @@ ParseRegisters (XMLNode feature_node, GdbServerTargetInfo &target_info, GDBRemot
             reg_info.invalidate_regs = invalidate_regs.data();
         }
         
-        ++prev_reg_num;
+        ++cur_reg_num;
+        AugmentRegisterInfoViaABI (reg_info, reg_name, abi_sp);
         dyn_reg_info.AddRegister(reg_info, reg_name, alt_name, set_name);
         
         return true; // Keep iterating through all "reg" elements
@@ -4539,7 +4579,7 @@ ProcessGDBRemote::GetGDBServerRegisterInfo ()
             
             if (feature_node)
             {
-                ParseRegisters(feature_node, target_info, this->m_register_info);
+                ParseRegisters(feature_node, target_info, this->m_register_info, GetABI());
             }
             
             for (const auto &include : target_info.includes)
@@ -4557,7 +4597,7 @@ ProcessGDBRemote::GetGDBServerRegisterInfo ()
                 XMLNode include_feature_node = include_xml_document.GetRootElement("feature");
                 if (include_feature_node)
                 {
-                    ParseRegisters(include_feature_node, target_info, this->m_register_info);
+                    ParseRegisters(include_feature_node, target_info, this->m_register_info, GetABI());
                 }
             }
             this->m_register_info.Finalize(GetTarget().GetArchitecture());

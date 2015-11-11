@@ -1,5 +1,5 @@
 // RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %t
-// RUN: lld -flavor gnu2 %t -o %t2
+// RUN: ld.lld2 %t -o %t2
 // RUN: llvm-readobj -symbols -sections %t2 | FileCheck %s
 // REQUIRES: x86
 
@@ -45,30 +45,30 @@ hidden:
 .internal internal
 internal:
 
+// CHECK:      Name: foobar
+// CHECK-NEXT: Type: SHT_NOBITS
+// CHECK-NEXT: Flags [
+// CHECK-NEXT:   SHF_ALLOC
+// CHECK-NEXT: ]
+// CHECK-NEXT: Address: 0x10120
+
 // CHECK:      Name: .text
 // CHECK-NEXT: Type: SHT_PROGBITS
 // CHECK-NEXT: Flags [
 // CHECK-NEXT:   SHF_ALLOC
 // CHECK-NEXT:   SHF_EXECINSTR
 // CHECK-NEXT: ]
-// CHECK-NEXT: Address: 0x1000
+// CHECK-NEXT: Address: 0x1100
 
-// CHECK:      Name: .bss (14)
-// CHECK-NEXT: Type: SHT_NOBITS (0x8)
-// CHECK-NEXT: Flags [ (0x3)
-// CHECK-NEXT:   SHF_ALLOC (0x2)
-// CHECK-NEXT:   SHF_WRITE (0x1)
-// CHECK-NEXT: ]
-// CHECK-NEXT: Address: 0x1004
-// CHECK-NEXT: Offset: 0x1004
-// CHECK-NEXT: Size: 4
-
-// CHECK:      Name: foobar
+// CHECK:      Name: .bss
 // CHECK-NEXT: Type: SHT_NOBITS
 // CHECK-NEXT: Flags [
 // CHECK-NEXT:   SHF_ALLOC
+// CHECK-NEXT:   SHF_WRITE
 // CHECK-NEXT: ]
-// CHECK-NEXT: Address: 0x1008
+// CHECK-NEXT: Address: 0x12000
+// CHECK-NEXT: Offset: 0x2000
+// CHECK-NEXT: Size: 4
 
 // CHECK:      Symbols [
 // CHECK-NEXT:   Symbol {
@@ -80,9 +80,27 @@ internal:
 // CHECK-NEXT:     Other: 0
 // CHECK-NEXT:     Section: Undefined (0x0)
 // CHECK-NEXT:   }
+// CHECK-NEXT: Symbol {
+// CHECK-NEXT:     Name: hidden
+// CHECK-NEXT:     Value: 0x10128
+// CHECK-NEXT:     Size: 0
+// CHECK-NEXT:     Binding: Local
+// CHECK-NEXT:     Type: None
+// CHECK-NEXT:     Other: 2
+// CHECK-NEXT:     Section: foobar
+// CHECK-NEXT:   }
+// CHECK-NEXT:   Symbol {
+// CHECK-NEXT:     Name: internal
+// CHECK-NEXT:     Value: 0x10128
+// CHECK-NEXT:     Size: 0
+// CHECK-NEXT:     Binding: Local
+// CHECK-NEXT:     Type: None
+// CHECK-NEXT:     Other: 1
+// CHECK-NEXT:     Section: foobar
+// CHECK-NEXT:   }
 // CHECK-NEXT:   Symbol {
 // CHECK-NEXT:     Name: _start
-// CHECK-NEXT:     Value: 0x1000
+// CHECK-NEXT:     Value: 0x11000
 // CHECK-NEXT:     Size: 0
 // CHECK-NEXT:     Binding: Global (0x1)
 // CHECK-NEXT:     Type: Function
@@ -108,8 +126,17 @@ internal:
 // CHECK-NEXT:     Section: Undefined (0x0)
 // CHECK-NEXT:   }
 // CHECK-NEXT:   Symbol {
+// CHECK-NEXT:     Name: common
+// CHECK-NEXT:     Value: 0x12000
+// CHECK-NEXT:     Size: 4
+// CHECK-NEXT:     Binding: Global
+// CHECK-NEXT:     Type: Object
+// CHECK-NEXT:     Other: 0
+// CHECK-NEXT:     Section: .bss
+// CHECK-NEXT:   }
+// CHECK-NEXT:   Symbol {
 // CHECK-NEXT:     Name: foo
-// CHECK-NEXT:     Value: 0x1000
+// CHECK-NEXT:     Value: 0x11000
 // CHECK-NEXT:     Size: 0
 // CHECK-NEXT:     Binding: Weak (0x2)
 // CHECK-NEXT:     Type: Object
@@ -117,26 +144,8 @@ internal:
 // CHECK-NEXT:     Section: .text
 // CHECK-NEXT:   }
 // CHECK-NEXT:   Symbol {
-// CHECK-NEXT:     Name: common (34)
-// CHECK-NEXT:     Value: 0x1004
-// CHECK-NEXT:     Size: 4
-// CHECK-NEXT:     Binding: Global (0x1)
-// CHECK-NEXT:     Type: Object (0x1)
-// CHECK-NEXT:     Other: 0
-// CHECK-NEXT:     Section: .bss
-// CHECK-NEXT:   }
-// CHECK-NEXT:   Symbol {
-// CHECK-NEXT:     Name: zed
-// CHECK-NEXT:     Value: 0x1008
-// CHECK-NEXT:     Size: 0
-// CHECK-NEXT:     Binding: Global (0x1)
-// CHECK-NEXT:     Type: None
-// CHECK-NEXT:     Other: 0
-// CHECK-NEXT:     Section: foobar
-// CHECK-NEXT:   }
-// CHECK-NEXT:   Symbol {
 // CHECK-NEXT:     Name: protected
-// CHECK-NEXT:     Value: 0x1010
+// CHECK-NEXT:     Value: 0x10128
 // CHECK-NEXT:     Size: 0
 // CHECK-NEXT:     Binding: Global
 // CHECK-NEXT:     Type: None
@@ -144,18 +153,27 @@ internal:
 // CHECK-NEXT:     Section: foobar
 // CHECK-NEXT:   }
 // CHECK-NEXT:   Symbol {
-// CHECK-NEXT:     Name: zed3
-// CHECK-NEXT:     Value: 0x1010
-// CHECK-NEXT:     Size: 4
-// CHECK-NEXT:     Binding: Global
+// CHECK-NEXT:     Name: zed
+// CHECK-NEXT:     Value: 0x10120
+// CHECK-NEXT:     Size: 0
+// CHECK-NEXT:     Binding: Global (0x1)
 // CHECK-NEXT:     Type: None
 // CHECK-NEXT:     Other: 0
 // CHECK-NEXT:     Section: foobar
 // CHECK-NEXT:   }
 // CHECK-NEXT:   Symbol {
 // CHECK-NEXT:     Name: zed2
-// CHECK-NEXT:     Value: 0x100C
+// CHECK-NEXT:     Value: 0x10124
 // CHECK-NEXT:     Size: 0
+// CHECK-NEXT:     Binding: Global
+// CHECK-NEXT:     Type: None
+// CHECK-NEXT:     Other: 0
+// CHECK-NEXT:     Section: foobar
+// CHECK-NEXT:   }
+// CHECK-NEXT:   Symbol {
+// CHECK-NEXT:     Name: zed3
+// CHECK-NEXT:     Value: 0x10128
+// CHECK-NEXT:     Size: 4
 // CHECK-NEXT:     Binding: Global
 // CHECK-NEXT:     Type: None
 // CHECK-NEXT:     Other: 0

@@ -108,6 +108,11 @@ ISL_FILES= External/isl/basis_reduction_tab.c \
            External/isl/imath/imath.c \
            External/isl/imath/imrat.c
 
+External/isl/gitversion.h:
+	@echo '#define GIT_HEAD_ID "'`cat "${PROJ_SRC_DIR}/External/isl/GIT_HEAD_ID"`'"' > $@
+
+BUILT_SOURCES=External/isl/gitversion.h
+
 SOURCES= Polly.cpp \
          Support/GICHelper.cpp \
          Support/SCEVValidator.cpp \
@@ -121,7 +126,6 @@ SOURCES= Polly.cpp \
          Analysis/ScopInfo.cpp \
          Analysis/ScopGraphPrinter.cpp \
          Analysis/ScopPass.cpp \
-         Analysis/TempScopInfo.cpp \
          CodeGen/BlockGenerators.cpp \
          CodeGen/LoopGenerators.cpp \
          CodeGen/IRBuilder.cpp \
@@ -131,7 +135,6 @@ SOURCES= Polly.cpp \
          Transform/Canonicalization.cpp \
          Transform/CodePreparation.cpp \
          Transform/DeadCodeElimination.cpp \
-         Transform/IndependentBlocks.cpp \
          Transform/ScheduleOptimizer.cpp \
          ${GPGPU_FILES} \
          ${ISL_CODEGEN_FILES} \

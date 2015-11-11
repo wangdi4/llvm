@@ -87,9 +87,9 @@ AST_MATCHER_P(QualType, isSugarFor, Matcher<QualType>, SugarMatcher) {
 ///
 /// namedDecl(hasStdIteratorName()) matches \c I and \c CI.
 AST_MATCHER(NamedDecl, hasStdIteratorName) {
-  static const char *IteratorNames[] = {"iterator", "reverse_iterator",
-                                        "const_iterator",
-                                        "const_reverse_iterator"};
+  static const char *const IteratorNames[] = {"iterator", "reverse_iterator",
+                                              "const_iterator",
+                                              "const_reverse_iterator"};
 
   for (const char *Name : IteratorNames) {
     if (hasName(Name).matches(Node, Finder, Builder))
@@ -111,18 +111,20 @@ AST_MATCHER(NamedDecl, hasStdIteratorName) {
 /// recordDecl(hasStdContainerName()) matches \c vector and \c forward_list
 /// but not \c my_vec.
 AST_MATCHER(NamedDecl, hasStdContainerName) {
-  static const char *ContainerNames[] = {"array",         "deque",
-                                         "forward_list",  "list",
-                                         "vector",
+  static const char *const ContainerNames[] = {"array",         "deque",
+                                               "forward_list",  "list",
+                                               "vector",
 
-                                         "map",           "multimap",
-                                         "set",           "multiset",
+                                               "map",           "multimap",
+                                               "set",           "multiset",
 
-                                         "unordered_map", "unordered_multimap",
-                                         "unordered_set", "unordered_multiset",
+                                               "unordered_map",
+                                               "unordered_multimap",
+                                               "unordered_set",
+                                               "unordered_multiset",
 
-                                         "queue",         "priority_queue",
-                                         "stack"};
+                                               "queue",         "priority_queue",
+                                               "stack"};
 
   for (const char *Name : ContainerNames) {
     if (hasName(Name).matches(Node, Finder, Builder))
@@ -218,20 +220,24 @@ StatementMatcher makeIteratorDeclMatcher() {
 }
 
 StatementMatcher makeDeclWithNewMatcher() {
-  return declStmt(has(varDecl()),
-                  unless(has(varDecl(anyOf(
-                      unless(hasInitializer(ignoringParenImpCasts(newExpr()))),
-                      // FIXME: TypeLoc information is not reliable where CV
-                      // qualifiers are concerned so these types can't be
-                      // handled for now.
-                      hasType(pointerType(
-                          pointee(hasCanonicalType(hasLocalQualifiers())))),
+  return declStmt(
+             has(varDecl()),
+             unless(has(varDecl(anyOf(
+                 unless(hasInitializer(ignoringParenImpCasts(cxxNewExpr()))),
+                 // Skip declarations that are already using auto.
+                 anyOf(hasType(autoType()),
+                       hasType(pointerType(pointee(autoType())))),
+                 // FIXME: TypeLoc information is not reliable where CV
+                 // qualifiers are concerned so these types can't be
+                 // handled for now.
+                 hasType(pointerType(
+                     pointee(hasCanonicalType(hasLocalQualifiers())))),
 
-                      // FIXME: Handle function pointers. For now we ignore them
-                      // because the replacement replaces the entire type
-                      // specifier source range which includes the identifier.
-                      hasType(pointsTo(
-                          pointsTo(parenType(innerType(functionType()))))))))))
+                 // FIXME: Handle function pointers. For now we ignore them
+                 // because the replacement replaces the entire type
+                 // specifier source range which includes the identifier.
+                 hasType(pointsTo(
+                     pointsTo(parenType(innerType(functionType()))))))))))
       .bind(DeclWithNewId);
 }
 

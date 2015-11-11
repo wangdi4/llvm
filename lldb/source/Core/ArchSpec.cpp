@@ -602,7 +602,15 @@ ArchSpec::GetAddressByteSize() const
 {
     const CoreDefinition *core_def = FindCoreDefinition (m_core);
     if (core_def)
-        return core_def->addr_byte_size;
+    { 
+       if (core_def->machine == llvm::Triple::mips64 || core_def->machine == llvm::Triple::mips64el)
+       {  
+          // For N32/O32 applications Address size is 4 bytes.
+          if (m_flags & (eMIPSABI_N32 | eMIPSABI_O32))
+              return 4;
+       }
+       return core_def->addr_byte_size;
+    }
     return 0;
 }
 
@@ -836,9 +844,9 @@ ArchSpec::SetTriple (const char *triple_cstr, Platform *platform)
 void
 ArchSpec::MergeFrom(const ArchSpec &other)
 {
-    if (GetTriple().getVendor() == llvm::Triple::UnknownVendor && !TripleVendorWasSpecified())
+    if (TripleVendorIsUnspecifiedUnknown() && !other.TripleVendorIsUnspecifiedUnknown())
         GetTriple().setVendor(other.GetTriple().getVendor());
-    if (GetTriple().getOS() == llvm::Triple::UnknownOS && !TripleOSWasSpecified())
+    if (TripleOSIsUnspecifiedUnknown() && !other.TripleOSIsUnspecifiedUnknown())
         GetTriple().setOS(other.GetTriple().getOS());
     if (GetTriple().getArch() == llvm::Triple::UnknownArch)
         GetTriple().setArch(other.GetTriple().getArch());
@@ -1103,6 +1111,10 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
             return true;
         break;
 
+        // v. https://en.wikipedia.org/wiki/ARM_Cortex-M#Silicon_customization
+        // Cortex-M0 - ARMv6-M - armv6m
+        // Cortex-M3 - ARMv7-M - armv7m
+        // Cortex-M4 - ARMv7E-M - armv7em
     case ArchSpec::eCore_arm_armv7em:
         if (!enforce_exact_match)
         {
@@ -1118,6 +1130,10 @@ cores_match (const ArchSpec::Core core1, const ArchSpec::Core core2, bool try_in
         }
         break;
 
+        // v. https://en.wikipedia.org/wiki/ARM_Cortex-M#Silicon_customization
+        // Cortex-M0 - ARMv6-M - armv6m
+        // Cortex-M3 - ARMv7-M - armv7m
+        // Cortex-M4 - ARMv7E-M - armv7em
     case ArchSpec::eCore_arm_armv7m:
         if (!enforce_exact_match)
         {
@@ -1427,4 +1443,19 @@ ArchSpec::GetStopInfoOverrideCallback () const
     if (machine == llvm::Triple::arm)
         return StopInfoOverrideCallbackTypeARM;
     return NULL;
+}
+
+void
+ArchSpec::DumpTriple(Stream &s) const
+{
+    const llvm::Triple &triple = GetTriple();
+    llvm::StringRef arch_str = triple.getArchName();
+    llvm::StringRef vendor_str = triple.getVendorName();
+    llvm::StringRef os_str = triple.getOSName();
+
+    s.Printf("%s-%s-%s",
+             arch_str.empty() ? "*" : arch_str.str().c_str(),
+             vendor_str.empty() ? "*" : vendor_str.str().c_str(),
+             os_str.empty() ? "*" : os_str.str().c_str()
+             );
 }

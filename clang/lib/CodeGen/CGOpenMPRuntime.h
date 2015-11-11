@@ -154,6 +154,14 @@ private:
     // Call to kmp_int32 __kmpc_cancel(ident_t *loc, kmp_int32 global_tid,
     // kmp_int32 cncl_kind);
     OMPRTL__kmpc_cancel,
+
+    //
+    // Offloading related calls
+    //
+    // Call to int32_t __tgt_target(int32_t device_id, void *host_ptr, int32_t
+    // arg_num, void** args_base, void **args, size_t *arg_sizes, int32_t
+    // *arg_types);
+    OMPRTL__tgt_target,
   };
 
   /// \brief Values for bit flags used in the ident_t to describe the fields.
@@ -398,14 +406,15 @@ public:
   /// CapturedStruct.
   /// \param OutlinedFn Outlined function to be run in parallel threads. Type of
   /// this function is void(*)(kmp_int32 *, kmp_int32, struct context_vars*).
-  /// \param CapturedStruct A pointer to the record with the references to
+  /// \param CapturedVars A pointer to the record with the references to
   /// variables used in \a OutlinedFn function.
   /// \param IfCond Condition in the associated 'if' clause, if it was
   /// specified, nullptr otherwise.
   ///
   virtual void emitParallelCall(CodeGenFunction &CGF, SourceLocation Loc,
                                 llvm::Value *OutlinedFn,
-                                Address CapturedStruct, const Expr *IfCond);
+                                ArrayRef<llvm::Value *> CapturedVars,
+                                const Expr *IfCond);
 
   /// \brief Emits a critical region.
   /// \param CriticalName Name of the critical region.
@@ -448,17 +457,20 @@ public:
   /// ordered region.
   virtual void emitOrderedRegion(CodeGenFunction &CGF,
                                  const RegionCodeGenTy &OrderedOpGen,
-                                 SourceLocation Loc);
+                                 SourceLocation Loc, bool IsThreads);
 
   /// \brief Emit an implicit/explicit barrier for OpenMP threads.
   /// \param Kind Directive for which this implicit barrier call must be
   /// generated. Must be OMPD_barrier for explicit barrier generation.
-  /// \param CheckForCancel true if check for possible cancellation must be
-  /// performed, false otherwise.
+  /// \param EmitChecks true if need to emit checks for cancellation barriers.
+  /// \param ForceSimpleCall true simple barrier call must be emitted, false if
+  /// runtime class decides which one to emit (simple or with cancellation
+  /// checks).
   ///
   virtual void emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
                                OpenMPDirectiveKind Kind,
-                               bool CheckForCancel = true);
+                               bool EmitChecks = true,
+                               bool ForceSimpleCall = false);
 
   /// \brief Check if the specified \a ScheduleKind is static non-chunked.
   /// This kind of worksharing directive is emitted without outer loop.
@@ -653,9 +665,12 @@ public:
   /// \param InnermostKind Kind of innermost directive (for simple directives it
   /// is a directive itself, for combined - its innermost directive).
   /// \param CodeGen Code generation sequence for the \a D directive.
+  /// \param HasCancel true if region has inner cancel directive, false
+  /// otherwise.
   virtual void emitInlinedDirective(CodeGenFunction &CGF,
                                     OpenMPDirectiveKind InnermostKind,
-                                    const RegionCodeGenTy &CodeGen);
+                                    const RegionCodeGenTy &CodeGen,
+                                    bool HasCancel = false);
   /// \brief Emit a code for reduction clause. Next code should be emitted for
   /// reduction:
   /// \code
@@ -687,6 +702,7 @@ public:
   /// }
   /// \endcode
   ///
+  /// \param Privates List of private copies for original reduction arguments.
   /// \param LHSExprs List of LHS in \a ReductionOps reduction operations.
   /// \param RHSExprs List of RHS in \a ReductionOps reduction operations.
   /// \param ReductionOps List of reduction operations in form 'LHS binop RHS'
@@ -694,6 +710,7 @@ public:
   /// \param WithNowait true if parent directive has also nowait clause, false
   /// otherwise.
   virtual void emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
+                             ArrayRef<const Expr *> Privates,
                              ArrayRef<const Expr *> LHSExprs,
                              ArrayRef<const Expr *> RHSExprs,
                              ArrayRef<const Expr *> ReductionOps,
@@ -711,10 +728,36 @@ public:
                                          OpenMPDirectiveKind CancelRegion);
 
   /// \brief Emit code for 'cancel' construct.
+  /// \param IfCond Condition in the associated 'if' clause, if it was
+  /// specified, nullptr otherwise.
   /// \param CancelRegion Region kind for which the cancel must be emitted.
   ///
   virtual void emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
+                              const Expr *IfCond,
                               OpenMPDirectiveKind CancelRegion);
+
+  /// \brief Emit outilined function for 'target' directive.
+  /// \param D Directive to emit.
+  /// \param CodeGen Code generation sequence for the \a D directive.
+  virtual llvm::Value *
+  emitTargetOutlinedFunction(const OMPExecutableDirective &D,
+                             const RegionCodeGenTy &CodeGen);
+
+  /// \brief Emit the target offloading code associated with \a D. The emitted
+  /// code attempts offloading the execution to the device, an the event of
+  /// a failure it executes the host version outlined in \a OutlinedFn.
+  /// \param D Directive to emit.
+  /// \param OutlinedFn Host version of the code to be offloaded.
+  /// \param IfCond Expression evaluated in if clause associated with the target
+  /// directive, or null if no if clause is used.
+  /// \param Device Expression evaluated in device clause associated with the
+  /// target directive, or null if no device clause is used.
+  /// \param CapturedVars Values captured in the current region.
+  virtual void emitTargetCall(CodeGenFunction &CGF,
+                              const OMPExecutableDirective &D,
+                              llvm::Value *OutlinedFn, const Expr *IfCond,
+                              const Expr *Device,
+                              ArrayRef<llvm::Value *> CapturedVars);
 };
 
 } // namespace CodeGen

@@ -281,6 +281,7 @@ if( MSVC )
 
   set(msvc_warning_flags
     # Disabled warnings.
+    -wd4141 # Suppress ''modifier' : used more than once' (because of __forceinline combined with inline)
     -wd4146 # Suppress 'unary minus operator applied to unsigned type, result still unsigned'
     -wd4180 # Suppress 'qualifier applied to function type has no meaning; ignored'
     -wd4244 # Suppress ''argument' : conversion from 'type1' to 'type2', possible loss of data'
@@ -378,7 +379,8 @@ elseif( LLVM_COMPILER_IS_GCC_COMPATIBLE )
       endif()
     endif()
 
-    append_if(LLVM_ENABLE_PEDANTIC "-pedantic -Wno-long-long" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append_if(LLVM_ENABLE_PEDANTIC "-pedantic" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
+    append_if(LLVM_ENABLE_PEDANTIC "-Wno-long-long" CMAKE_C_FLAGS CMAKE_CXX_FLAGS)
     add_flag_if_supported("-Wcovered-switch-default" COVERED_SWITCH_DEFAULT_FLAG)
     append_if(USE_NO_UNINITIALIZED "-Wno-uninitialized" CMAKE_CXX_FLAGS)
     append_if(USE_NO_MAYBE_UNINITIALIZED "-Wno-maybe-uninitialized" CMAKE_CXX_FLAGS)

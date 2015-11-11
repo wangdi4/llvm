@@ -41,13 +41,14 @@ def main():
   extension = '.cpp'
   if (input_file_name.endswith('.c')):
     extension = '.c'
-    
+
   check_name = sys.argv[2]
   temp_file_name = sys.argv[3] + extension
 
   clang_tidy_extra_args = sys.argv[4:]
   if len(clang_tidy_extra_args) == 0:
-    clang_tidy_extra_args = ['--', '--std=c++11'] if extension == '.cpp' else ['--']
+    clang_tidy_extra_args = ['--', '--std=c++11'] if extension == '.cpp' \
+                       else ['--']
 
   with open(input_file_name, 'r') as input_file:
     input_text = input_file.read()
@@ -72,8 +73,12 @@ def main():
   args = ['clang-tidy', temp_file_name, '-fix', '--checks=-*,' + check_name] + \
         clang_tidy_extra_args
   print('Running ' + repr(args) + '...')
-  clang_tidy_output = \
-      subprocess.check_output(args, stderr=subprocess.STDOUT).decode()
+  try:
+    clang_tidy_output = \
+        subprocess.check_output(args, stderr=subprocess.STDOUT).decode()
+  except subprocess.CalledProcessError as e:
+    print('clang-tidy failed:\n' + e.output.decode())
+    raise
 
   print('------------------------ clang-tidy output -----------------------\n' +
         clang_tidy_output +
@@ -97,7 +102,7 @@ def main():
            '-check-prefix=CHECK-FIXES', '-strict-whitespace'],
           stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-      print('FileCheck failed:\n' + e.output)
+      print('FileCheck failed:\n' + e.output.decode())
       raise
 
   if has_check_messages:
@@ -110,7 +115,7 @@ def main():
            '-implicit-check-not={{warning|error}}:'],
           stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-      print('FileCheck failed:\n' + e.output)
+      print('FileCheck failed:\n' + e.output.decode())
       raise
 
 if __name__ == '__main__':

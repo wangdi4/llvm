@@ -15,6 +15,7 @@
 #include "lldb/Core/Log.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
+#include "lldb/Core/PluginManager.h"
 #include "lldb/Core/RegularExpression.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/StreamString.h"
@@ -23,18 +24,19 @@
 #include "lldb/Host/Symbols.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
 #include "lldb/Interpreter/ScriptInterpreter.h"
-#include "lldb/Symbol/ClangASTContext.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolContext.h"
+#include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/SymbolVendor.h"
+#include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/SectionLoadList.h"
 #include "lldb/Target/Target.h"
-#include "lldb/Symbol/SymbolFile.h"
 #include "Plugins/Language/CPlusPlus/CPlusPlusLanguage.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
+#include "lldb/Symbol/TypeMap.h"
 
 #include "Plugins/ObjectFile/JIT/ObjectFileJIT.h"
 
@@ -147,13 +149,12 @@ Module::Module (const ModuleSpec &module_spec) :
     m_object_mod_time (),
     m_objfile_sp (),
     m_symfile_ap (),
-    m_ast (new ClangASTContext),
+    m_type_system_map(),
     m_source_mappings (),
     m_sections_ap(),
     m_did_load_objfile (false),
     m_did_load_symbol_vendor (false),
     m_did_parse_uuid (false),
-    m_did_init_ast (false),
     m_file_has_changed (false),
     m_first_file_changed_log (false)
 {
@@ -251,13 +252,12 @@ Module::Module(const FileSpec& file_spec,
     m_object_mod_time (),
     m_objfile_sp (),
     m_symfile_ap (),
-    m_ast (new ClangASTContext),
+    m_type_system_map(),
     m_source_mappings (),
     m_sections_ap(),
     m_did_load_objfile (false),
     m_did_load_symbol_vendor (false),
     m_did_parse_uuid (false),
-    m_did_init_ast (false),
     m_file_has_changed (false),
     m_first_file_changed_log (false)
 {
@@ -297,13 +297,12 @@ Module::Module () :
     m_object_mod_time (),
     m_objfile_sp (),
     m_symfile_ap (),
-    m_ast (new ClangASTContext),
+    m_type_system_map(),
     m_source_mappings (),
     m_sections_ap(),
     m_did_load_objfile (false),
     m_did_load_symbol_vendor (false),
     m_did_parse_uuid (false),
-    m_did_init_ast (false),
     m_file_has_changed (false),
     m_first_file_changed_log (false)
 {
@@ -420,49 +419,7 @@ Module::GetUUID()
 TypeSystem *
 Module::GetTypeSystemForLanguage (LanguageType language)
 {
-    if (language != eLanguageTypeSwift)
-    {
-        // For now assume all languages except swift use the ClangASTContext for types
-        return &GetClangASTContext();
-    }
-    return nullptr;
-}
-
-ClangASTContext &
-Module::GetClangASTContext ()
-{
-    if (m_did_init_ast.load() == false)
-    {
-        Mutex::Locker locker (m_mutex);
-        if (m_did_init_ast.load() == false)
-        {
-            ObjectFile * objfile = GetObjectFile();
-            ArchSpec object_arch;
-            if (objfile && objfile->GetArchitecture(object_arch))
-            {
-                m_did_init_ast = true;
-
-                // LLVM wants this to be set to iOS or MacOSX; if we're working on
-                // a bare-boards type image, change the triple for llvm's benefit.
-                if (object_arch.GetTriple().getVendor() == llvm::Triple::Apple 
-                    && object_arch.GetTriple().getOS() == llvm::Triple::UnknownOS)
-                {
-                    if (object_arch.GetTriple().getArch() == llvm::Triple::arm || 
-                        object_arch.GetTriple().getArch() == llvm::Triple::aarch64 ||
-                        object_arch.GetTriple().getArch() == llvm::Triple::thumb)
-                    {
-                        object_arch.GetTriple().setOS(llvm::Triple::IOS);
-                    }
-                    else
-                    {
-                        object_arch.GetTriple().setOS(llvm::Triple::MacOSX);
-                    }
-                }
-                m_ast->SetArchitecture (object_arch);
-            }
-        }
-    }
-    return *m_ast;
+    return m_type_system_map.GetTypeSystemForLanguage(language, this, true);
 }
 
 void
@@ -965,7 +922,7 @@ Module::FindTypes_Impl (const SymbolContext& sc,
                         const CompilerDeclContext *parent_decl_ctx,
                         bool append,
                         size_t max_matches,
-                        TypeList& types)
+                        TypeMap& types)
 {
     Timer scoped_timer(__PRETTY_FUNCTION__, __PRETTY_FUNCTION__);
     if (sc.module_sp.get() == NULL || sc.module_sp.get() == this)
@@ -985,7 +942,11 @@ Module::FindTypesInNamespace (const SymbolContext& sc,
                               TypeList& type_list)
 {
     const bool append = true;
-    return FindTypes_Impl(sc, type_name, parent_decl_ctx, append, max_matches, type_list);
+    TypeMap types_map;
+    size_t num_types = FindTypes_Impl(sc, type_name, parent_decl_ctx, append, max_matches, types_map);
+    if (num_types > 0)
+        sc.SortTypeList(types_map, type_list);
+    return num_types;
 }
 
 lldb::TypeSP
@@ -1014,6 +975,7 @@ Module::FindTypes (const SymbolContext& sc,
     std::string type_basename;
     const bool append = true;
     TypeClass type_class = eTypeClassAny;
+    TypeMap typesmap;
     if (Type::GetTypeScopeAndBasename (type_name_cstr, type_scope, type_basename, type_class))
     {
         // Check if "name" starts with "::" which means the qualified type starts
@@ -1027,10 +989,10 @@ Module::FindTypes (const SymbolContext& sc,
             exact_match = true;
         }
         ConstString type_basename_const_str (type_basename.c_str());
-        if (FindTypes_Impl(sc, type_basename_const_str, NULL, append, max_matches, types))
+        if (FindTypes_Impl(sc, type_basename_const_str, NULL, append, max_matches, typesmap))
         {
-            types.RemoveMismatchedTypes (type_scope, type_basename, type_class, exact_match);
-            num_matches = types.GetSize();
+            typesmap.RemoveMismatchedTypes (type_scope, type_basename, type_class, exact_match);
+            num_matches = typesmap.GetSize();
         }
     }
     else
@@ -1040,18 +1002,18 @@ Module::FindTypes (const SymbolContext& sc,
         {
             // The "type_name_cstr" will have been modified if we have a valid type class
             // prefix (like "struct", "class", "union", "typedef" etc).
-            FindTypes_Impl(sc, ConstString(type_name_cstr), NULL, append, max_matches, types);
-            types.RemoveMismatchedTypes (type_class);
-            num_matches = types.GetSize();
+            FindTypes_Impl(sc, ConstString(type_name_cstr), NULL, append, max_matches, typesmap);
+            typesmap.RemoveMismatchedTypes (type_class);
+            num_matches = typesmap.GetSize();
         }
         else
         {
-            num_matches = FindTypes_Impl(sc, name, NULL, append, max_matches, types);
+            num_matches = FindTypes_Impl(sc, name, NULL, append, max_matches, typesmap);
         }
     }
-    
+    if (num_matches > 0)
+        sc.SortTypeList(typesmap, types);
     return num_matches;
-    
 }
 
 SymbolVendor*

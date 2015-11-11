@@ -18,12 +18,23 @@
 #include "DWARFDeclContext.h"
 #include "DWARFDIECollection.h"
 #include "DWARFFormValue.h"
-#include "DWARFLocationDescription.h"
-#include "DWARFLocationList.h"
 #include "SymbolFileDWARF.h"
 
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Symbol/TypeSystem.h"
+
+DIERef
+DWARFDIE::GetDIERef() const
+{
+    if (!IsValid())
+        return DIERef();
+
+    dw_offset_t cu_offset = m_cu->GetOffset();
+    if (m_cu->GetBaseObjOffset() != DW_INVALID_OFFSET)
+        cu_offset = m_cu->GetBaseObjOffset();
+    return DIERef(cu_offset, m_die->GetOffset());
+}
 
 dw_tag_t
 DWARFDIE::Tag() const
@@ -122,6 +133,15 @@ DWARFDIE::GetAttributeValueAsReference (const dw_attr_t attr, uint64_t fail_valu
         return fail_value;
 }
 
+uint64_t
+DWARFDIE::GetAttributeValueAsAddress (const dw_attr_t attr, uint64_t fail_value) const
+{
+    if (IsValid())
+        return m_die->GetAttributeValueAsAddress(GetDWARF(), GetCU(), attr, fail_value);
+    else
+        return fail_value;
+}
+
 
 DWARFDIE
 DWARFDIE::LookupDeepestBlock (lldb::addr_t file_addr) const
@@ -143,7 +163,7 @@ DWARFDIE::LookupDeepestBlock (lldb::addr_t file_addr) const
                 if (cu->ContainsDIEOffset(block_die->GetOffset()))
                     return DWARFDIE(cu, block_die);
                 else
-                    return DWARFDIE(dwarf->DebugInfo()->GetCompileUnitContainingDIE(block_die->GetOffset()), block_die);
+                    return DWARFDIE(dwarf->DebugInfo()->GetCompileUnitContainingDIE(DIERef(cu->GetOffset(), block_die->GetOffset())), block_die);
             }
         }
     }
@@ -156,11 +176,22 @@ DWARFDIE::GetID () const
     const dw_offset_t die_offset = GetOffset();
     if (die_offset != DW_INVALID_OFFSET)
     {
+        lldb::user_id_t id = 0;
         SymbolFileDWARF *dwarf = GetDWARF();
         if (dwarf)
-            return dwarf->MakeUserID(die_offset);
+            id = dwarf->MakeUserID(die_offset);
         else
-            return die_offset;
+            id = die_offset;
+
+        if (m_cu)
+        {
+            lldb::user_id_t cu_id = m_cu->GetID()&0xffffffff00000000ull;
+            assert ((id&0xffffffff00000000ull) == 0 ||
+                    (cu_id&0xffffffff00000000ll) == 0 ||
+                    (id&0xffffffff00000000ull) == (cu_id&0xffffffff00000000ll));
+            id |= cu_id;
+        }
+        return id;
     }
     return LLDB_INVALID_UID;
 }

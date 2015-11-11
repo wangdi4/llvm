@@ -13,20 +13,61 @@
 // C Includes
 // C++ Includes
 #include <functional>
+#include <memory>
+#include <set>
+#include <vector>
 
 // Other libraries and framework includes
 // Project includes
 #include "lldb/lldb-public.h"
-#include "lldb/Core/PluginInterface.h"
 #include "lldb/lldb-private.h"
+#include "lldb/Core/PluginInterface.h"
+#include "lldb/DataFormatters/DumpValueObjectOptions.h"
+#include "lldb/DataFormatters/FormatClasses.h"
+#include "lldb/DataFormatters/StringPrinter.h"
 
 namespace lldb_private {
     
-    class Language :
-    public PluginInterface
+class Language :
+public PluginInterface
+{
+public:
+    
+    class TypeScavenger
     {
     public:
+        class Result
+        {
+        public:
+            virtual bool
+            IsValid () = 0;
+            
+            virtual bool
+            DumpToStream (Stream& stream,
+                          bool print_help_if_available) = 0;
+            
+            virtual ~Result() = default;
+        };
         
+        typedef std::set<std::unique_ptr<Result>> ResultSet;
+        
+        virtual ~TypeScavenger () = default;
+        
+        size_t
+        Find (ExecutionContextScope *exe_scope,
+              const char *key,
+              ResultSet &results,
+              bool append = true);
+        
+    protected:
+        TypeScavenger () = default;
+        
+        virtual bool
+        Find_Impl (ExecutionContextScope *exe_scope,
+                   const char *key,
+                   ResultSet &results) = 0;
+    };
+
     ~Language() override;
     
     static Language*
@@ -39,9 +80,45 @@ namespace lldb_private {
     virtual lldb::LanguageType
     GetLanguageType () const = 0;
     
+    virtual bool
+    IsTopLevelFunction (Function& function);
+    
     virtual lldb::TypeCategoryImplSP
     GetFormatters ();
+    
+    virtual HardcodedFormatters::HardcodedFormatFinder
+    GetHardcodedFormats ();
+    
+    virtual HardcodedFormatters::HardcodedSummaryFinder
+    GetHardcodedSummaries ();
 
+    virtual HardcodedFormatters::HardcodedSyntheticFinder
+    GetHardcodedSynthetics ();
+    
+    virtual HardcodedFormatters::HardcodedValidatorFinder
+    GetHardcodedValidators ();
+
+    virtual std::vector<ConstString>
+    GetPossibleFormattersMatches (ValueObject& valobj, lldb::DynamicValueType use_dynamic);
+
+    virtual lldb_private::formatters::StringPrinter::EscapingHelper
+    GetStringPrinterEscapingHelper (lldb_private::formatters::StringPrinter::GetPrintableElementType);
+    
+    virtual std::unique_ptr<TypeScavenger>
+    GetTypeScavenger ();
+    
+    // if an individual data formatter can apply to several types and cross a language boundary
+    // it makes sense for individual languages to want to customize the printing of values of that
+    // type by appending proper prefix/suffix information in language-specific ways
+    virtual bool
+    GetFormatterPrefixSuffix (ValueObject& valobj, ConstString type_hint,
+                              std::string& prefix, std::string& suffix);
+    
+    // if a language has a custom format for printing variable declarations that it wants LLDB to honor
+    // it should return an appropriate closure here
+    virtual DumpValueObjectOptions::DeclPrintingHelper
+    GetDeclPrintingHelper ();
+    
     // These are accessors for general information about the Languages lldb knows about:
     
     static lldb::LanguageType
@@ -69,17 +146,23 @@ namespace lldb_private {
     static bool
     LanguageIsPascal (lldb::LanguageType language);
     
+    static void
+    GetLanguagesSupportingTypeSystems (std::set<lldb::LanguageType> &languages,
+                                       std::set<lldb::LanguageType> &languages_for_expressions);
 
-    protected:
-        //------------------------------------------------------------------
-        // Classes that inherit from Language can see and modify these
-        //------------------------------------------------------------------
-        
-        Language();
-    private:
-        
-        DISALLOW_COPY_AND_ASSIGN (Language);
-    };
+    static void
+    GetLanguagesSupportingREPLs (std::set<lldb::LanguageType> &languages);
+    
+protected:
+    //------------------------------------------------------------------
+    // Classes that inherit from Language can see and modify these
+    //------------------------------------------------------------------
+    
+    Language();
+private:
+    
+    DISALLOW_COPY_AND_ASSIGN (Language);
+};
     
 } // namespace lldb_private
 

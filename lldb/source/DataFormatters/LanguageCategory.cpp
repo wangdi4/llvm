@@ -26,116 +26,214 @@ using namespace lldb_private;
 
 LanguageCategory::LanguageCategory (lldb::LanguageType lang_type) :
     m_category_sp(),
-    m_format_cache()
+    m_hardcoded_formats(),
+    m_hardcoded_summaries(),
+    m_hardcoded_synthetics(),
+    m_hardcoded_validators(),
+    m_format_cache(),
+    m_enabled(false)
 {
     if (Language* language_plugin = Language::FindPlugin(lang_type))
+    {
         m_category_sp = language_plugin->GetFormatters();
-    if (m_category_sp)
-        m_category_sp->Enable(true, 1);
+        m_hardcoded_formats = language_plugin->GetHardcodedFormats();
+        m_hardcoded_summaries = language_plugin->GetHardcodedSummaries();
+        m_hardcoded_synthetics = language_plugin->GetHardcodedSynthetics();
+        m_hardcoded_validators = language_plugin->GetHardcodedValidators();
+    }
+    Enable();
 }
 
 bool
-LanguageCategory::Get (ValueObject& valobj,
-                       lldb::DynamicValueType dynamic,
-                       FormattersMatchVector matches,
+LanguageCategory::Get (FormattersMatchData& match_data,
                        lldb::TypeFormatImplSP& format_sp)
 {
     if (!m_category_sp)
         return false;
     
-    if (!m_category_sp->IsEnabled())
+    if (!IsEnabled())
         return false;
 
-    ConstString type_name = FormatManager::GetTypeForCache(valobj, dynamic);
-    if (type_name)
+    if (match_data.GetTypeForCache())
     {
-        if (m_format_cache.GetFormat(type_name, format_sp))
-            return true;
+        if (m_format_cache.GetFormat(match_data.GetTypeForCache(), format_sp))
+            return format_sp.get() != nullptr;
     }
-    bool result = m_category_sp->Get(valobj, matches, format_sp);
-    if (type_name && (!format_sp || !format_sp->NonCacheable()))
+
+    ValueObject& valobj(match_data.GetValueObject());
+    bool result = m_category_sp->Get(valobj, match_data.GetMatchesVector(), format_sp);
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
     {
-        m_format_cache.SetFormat(type_name, format_sp);
+        m_format_cache.SetFormat(match_data.GetTypeForCache(), format_sp);
     }
     return result;
 }
 
 bool
-LanguageCategory::Get (ValueObject& valobj,
-                       lldb::DynamicValueType dynamic,
-                       FormattersMatchVector matches,
+LanguageCategory::Get (FormattersMatchData& match_data,
                        lldb::TypeSummaryImplSP& format_sp)
 {
     if (!m_category_sp)
         return false;
     
-    if (!m_category_sp->IsEnabled())
+    if (!IsEnabled())
         return false;
 
-    ConstString type_name = FormatManager::GetTypeForCache(valobj, dynamic);
-    if (type_name)
+    if (match_data.GetTypeForCache())
     {
-        if (m_format_cache.GetSummary(type_name, format_sp))
-            return true;
+        if (m_format_cache.GetSummary(match_data.GetTypeForCache(), format_sp))
+            return format_sp.get() != nullptr;
     }
-    bool result = m_category_sp->Get(valobj, matches, format_sp);
-    if (type_name && (!format_sp || !format_sp->NonCacheable()))
+    
+    ValueObject& valobj(match_data.GetValueObject());
+    bool result = m_category_sp->Get(valobj, match_data.GetMatchesVector(), format_sp);
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
     {
-        m_format_cache.SetSummary(type_name, format_sp);
+        m_format_cache.SetSummary(match_data.GetTypeForCache(), format_sp);
     }
     return result;
 }
 
 bool
-LanguageCategory::Get (ValueObject& valobj,
-                       lldb::DynamicValueType dynamic,
-                       FormattersMatchVector matches,
+LanguageCategory::Get (FormattersMatchData& match_data,
                        lldb::SyntheticChildrenSP& format_sp)
 {
     if (!m_category_sp)
         return false;
     
-    if (!m_category_sp->IsEnabled())
+    if (!IsEnabled())
         return false;
 
-    ConstString type_name = FormatManager::GetTypeForCache(valobj, dynamic);
-    if (type_name)
+    if (match_data.GetTypeForCache())
     {
-        if (m_format_cache.GetSynthetic(type_name, format_sp))
-            return true;
+        if (m_format_cache.GetSynthetic(match_data.GetTypeForCache(), format_sp))
+            return format_sp.get() != nullptr;
     }
-    bool result = m_category_sp->Get(valobj, matches, format_sp);
-    if (type_name && (!format_sp || !format_sp->NonCacheable()))
+    
+    ValueObject& valobj(match_data.GetValueObject());
+    bool result = m_category_sp->Get(valobj, match_data.GetMatchesVector(), format_sp);
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
     {
-        m_format_cache.SetSynthetic(type_name, format_sp);
+        m_format_cache.SetSynthetic(match_data.GetTypeForCache(), format_sp);
     }
     return result;
 }
 
 bool
-LanguageCategory::Get (ValueObject& valobj,
-                       lldb::DynamicValueType dynamic,
-                       FormattersMatchVector matches,
+LanguageCategory::Get (FormattersMatchData& match_data,
                        lldb::TypeValidatorImplSP& format_sp)
 {
     if (!m_category_sp)
         return false;
 
-    if (!m_category_sp->IsEnabled())
+    if (!IsEnabled())
         return false;
 
-    ConstString type_name = FormatManager::GetTypeForCache(valobj, dynamic);
-    if (type_name)
+    if (match_data.GetTypeForCache())
     {
-        if (m_format_cache.GetValidator(type_name, format_sp))
-            return true;
+        if (m_format_cache.GetValidator(match_data.GetTypeForCache(), format_sp))
+            return format_sp.get() != nullptr;
     }
-    bool result = m_category_sp->Get(valobj, matches, format_sp);
-    if (type_name && (!format_sp || !format_sp->NonCacheable()))
+    
+    ValueObject& valobj(match_data.GetValueObject());
+    bool result = m_category_sp->Get(valobj, match_data.GetMatchesVector(), format_sp);
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
     {
-        m_format_cache.SetValidator(type_name, format_sp);
+        m_format_cache.SetValidator(match_data.GetTypeForCache(), format_sp);
     }
     return result;
+}
+
+bool
+LanguageCategory::GetHardcoded (FormatManager& fmt_mgr,
+                                FormattersMatchData& match_data,
+                                lldb::TypeFormatImplSP& format_sp)
+{
+    if (!IsEnabled())
+        return false;
+
+    ValueObject& valobj(match_data.GetValueObject());
+    lldb::DynamicValueType use_dynamic(match_data.GetDynamicValueType());
+    
+    for (auto& candidate : m_hardcoded_formats)
+    {
+        if ((format_sp = candidate(valobj, use_dynamic, fmt_mgr)))
+            break;
+    }
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
+    {
+        m_format_cache.SetFormat(match_data.GetTypeForCache(), format_sp);
+    }
+    return format_sp.get() != nullptr;
+}
+
+bool
+LanguageCategory::GetHardcoded (FormatManager& fmt_mgr,
+                                FormattersMatchData& match_data,
+                                lldb::TypeSummaryImplSP& format_sp)
+{
+    if (!IsEnabled())
+        return false;
+    
+    ValueObject& valobj(match_data.GetValueObject());
+    lldb::DynamicValueType use_dynamic(match_data.GetDynamicValueType());
+
+    for (auto& candidate : m_hardcoded_summaries)
+    {
+        if ((format_sp = candidate(valobj, use_dynamic, fmt_mgr)))
+            break;
+    }
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
+    {
+        m_format_cache.SetSummary(match_data.GetTypeForCache(), format_sp);
+    }
+    return format_sp.get() != nullptr;
+}
+
+bool
+LanguageCategory::GetHardcoded (FormatManager& fmt_mgr,
+                                FormattersMatchData& match_data,
+                                lldb::SyntheticChildrenSP& format_sp)
+{
+    if (!IsEnabled())
+        return false;
+
+    ValueObject& valobj(match_data.GetValueObject());
+    lldb::DynamicValueType use_dynamic(match_data.GetDynamicValueType());
+    
+    for (auto& candidate : m_hardcoded_synthetics)
+    {
+        if ((format_sp = candidate(valobj, use_dynamic, fmt_mgr)))
+            break;
+    }
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
+    {
+        m_format_cache.SetSynthetic(match_data.GetTypeForCache(), format_sp);
+    }
+    return format_sp.get() != nullptr;
+}
+
+bool
+LanguageCategory::GetHardcoded (FormatManager& fmt_mgr,
+                                FormattersMatchData& match_data,
+                                lldb::TypeValidatorImplSP& format_sp)
+{
+    if (!IsEnabled())
+        return false;
+
+    ValueObject& valobj(match_data.GetValueObject());
+    lldb::DynamicValueType use_dynamic(match_data.GetDynamicValueType());
+    
+    for (auto& candidate : m_hardcoded_validators)
+    {
+        if ((format_sp = candidate(valobj, use_dynamic, fmt_mgr)))
+            break;
+    }
+    if (match_data.GetTypeForCache() && (!format_sp || !format_sp->NonCacheable()))
+    {
+        m_format_cache.SetValidator(match_data.GetTypeForCache(), format_sp);
+    }
+    return format_sp.get() != nullptr;
 }
 
 lldb::TypeCategoryImplSP
@@ -149,6 +247,7 @@ LanguageCategory::Enable ()
 {
     if (m_category_sp)
         m_category_sp->Enable(true, TypeCategoryMap::Default);
+    m_enabled = true;
 }
 
 void
@@ -156,4 +255,11 @@ LanguageCategory::Disable ()
 {
     if (m_category_sp)
         m_category_sp->Disable();
+    m_enabled = false;
+}
+
+bool
+LanguageCategory::IsEnabled ()
+{
+    return m_enabled;
 }

@@ -1854,8 +1854,9 @@ CCAssignFn *ARMFastISel::CCAssignFnForCall(CallingConv::ID CC,
         return (Return ? RetCC_ARM_AAPCS_VFP: CC_ARM_AAPCS_VFP);
       else
         return (Return ? RetCC_ARM_AAPCS: CC_ARM_AAPCS);
-    } else
-        return (Return ? RetCC_ARM_APCS: CC_ARM_APCS);
+    } else {
+      return (Return ? RetCC_ARM_APCS: CC_ARM_APCS);
+    }
   case CallingConv::ARM_AAPCS_VFP:
     if (!isVarArg)
       return (Return ? RetCC_ARM_AAPCS_VFP: CC_ARM_AAPCS_VFP);
@@ -3049,7 +3050,7 @@ bool ARMFastISel::fastLowerArguments() {
     BuildMI(*FuncInfo.MBB, FuncInfo.InsertPt, DbgLoc,
             TII.get(TargetOpcode::COPY),
             ResultReg).addReg(DstReg, getKillRegState(true));
-    updateValueMap(I, ResultReg);
+    updateValueMap(&*I, ResultReg);
   }
 
   return true;

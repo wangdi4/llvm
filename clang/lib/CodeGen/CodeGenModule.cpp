@@ -87,8 +87,8 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
       VMContext(M.getContext()), TBAA(nullptr), TheTargetCodeGenInfo(nullptr),
       Types(*this), VTables(*this), ObjCRuntime(nullptr),
       OpenCLRuntime(nullptr), OpenMPRuntime(nullptr), CUDARuntime(nullptr),
-      DebugInfo(nullptr), ARCData(nullptr),
-      NoObjCARCExceptionsMetadata(nullptr), RRData(nullptr), PGOReader(nullptr),
+      DebugInfo(nullptr), ObjCData(nullptr),
+      NoObjCARCExceptionsMetadata(nullptr), PGOReader(nullptr),
       CFConstantStringClassRef(nullptr), ConstantStringClassRef(nullptr),
       NSConstantStringType(nullptr), NSConcreteGlobalBlock(nullptr),
       NSConcreteStackBlock(nullptr), BlockObjectAssign(nullptr),
@@ -142,9 +142,8 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
 
   Block.GlobalUniqueCount = 0;
 
-  if (C.getLangOpts().ObjCAutoRefCount)
-    ARCData = new ARCEntrypoints();
-  RRData = new RREntrypoints();
+  if (C.getLangOpts().ObjC1)
+    ObjCData = new ObjCEntrypoints();
 
   if (!CodeGenOpts.InstrProfileInput.empty()) {
     auto ReaderOrErr =
@@ -172,8 +171,7 @@ CodeGenModule::~CodeGenModule() {
   delete TheTargetCodeGenInfo;
   delete TBAA;
   delete DebugInfo;
-  delete ARCData;
-  delete RRData;
+  delete ObjCData;
 }
 
 void CodeGenModule::createObjCRuntime() {
@@ -398,6 +396,22 @@ void CodeGenModule::Release() {
     // Indicate that we want CodeView in the metadata.
     getModule().addModuleFlag(llvm::Module::Warning, "CodeView", 1);
   }
+  if (CodeGenOpts.OptimizationLevel > 0 && CodeGenOpts.StrictVTablePointers) {
+    // We don't support LTO with 2 with different StrictVTablePointers
+    // FIXME: we could support it by stripping all the information introduced
+    // by StrictVTablePointers.
+
+    getModule().addModuleFlag(llvm::Module::Error, "StrictVTablePointers",1);
+
+    llvm::Metadata *Ops[2] = {
+              llvm::MDString::get(VMContext, "StrictVTablePointers"),
+              llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(
+                  llvm::Type::getInt32Ty(VMContext), 1))};
+
+    getModule().addModuleFlag(llvm::Module::Require,
+                              "StrictVTablePointersRequirement",
+                              llvm::MDNode::get(VMContext, Ops));
+  }
   if (DebugInfo)
     // We support a single version in the linked module. The LLVM
     // parser will drop debug info with a different version number
@@ -473,12 +487,6 @@ llvm::MDNode *CodeGenModule::getTBAAStructInfo(QualType QTy) {
   return TBAA->getTBAAStructInfo(QTy);
 }
 
-llvm::MDNode *CodeGenModule::getTBAAStructTypeInfo(QualType QTy) {
-  if (!TBAA)
-    return nullptr;
-  return TBAA->getTBAAStructTypeInfo(QTy);
-}
-
 llvm::MDNode *CodeGenModule::getTBAAStructTagInfo(QualType BaseTy,
                                                   llvm::MDNode *AccessN,
                                                   uint64_t O) {
@@ -491,14 +499,24 @@ llvm::MDNode *CodeGenModule::getTBAAStructTagInfo(QualType BaseTy,
 /// and struct-path aware TBAA, the tag has the same format:
 /// base type, access type and offset.
 /// When ConvertTypeToTag is true, we create a tag based on the scalar type.
-void CodeGenModule::DecorateInstruction(llvm::Instruction *Inst,
-                                        llvm::MDNode *TBAAInfo,
-                                        bool ConvertTypeToTag) {
+void CodeGenModule::DecorateInstructionWithTBAA(llvm::Instruction *Inst,
+                                                llvm::MDNode *TBAAInfo,
+                                                bool ConvertTypeToTag) {
   if (ConvertTypeToTag && TBAA)
     Inst->setMetadata(llvm::LLVMContext::MD_tbaa,
                       TBAA->getTBAAScalarTagInfo(TBAAInfo));
   else
     Inst->setMetadata(llvm::LLVMContext::MD_tbaa, TBAAInfo);
+}
+
+void CodeGenModule::DecorateInstructionWithInvariantGroup(
+    llvm::Instruction *I, const CXXRecordDecl *RD) {
+  llvm::Metadata *MD = CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0));
+  auto *MetaDataNode = dyn_cast<llvm::MDNode>(MD);
+  // Check if we have to wrap MDString in MDNode.
+  if (!MetaDataNode)
+    MetaDataNode = llvm::MDNode::get(getLLVMContext(), MD);
+  I->setMetadata(llvm::LLVMContext::MD_invariant_group, MetaDataNode);
 }
 
 void CodeGenModule::Error(SourceLocation loc, StringRef message) {
@@ -760,6 +778,21 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   if (!hasUnwindExceptions(LangOpts))
     B.addAttribute(llvm::Attribute::NoUnwind);
 
+  if (LangOpts.getStackProtector() == LangOptions::SSPOn)
+    B.addAttribute(llvm::Attribute::StackProtect);
+  else if (LangOpts.getStackProtector() == LangOptions::SSPStrong)
+    B.addAttribute(llvm::Attribute::StackProtectStrong);
+  else if (LangOpts.getStackProtector() == LangOptions::SSPReq)
+    B.addAttribute(llvm::Attribute::StackProtectReq);
+
+  if (!D) {
+    F->addAttributes(llvm::AttributeSet::FunctionIndex,
+                     llvm::AttributeSet::get(
+                         F->getContext(),
+                         llvm::AttributeSet::FunctionIndex, B));
+    return;
+  }
+
   if (D->hasAttr<NakedAttr>()) {
     // Naked implies noinline: we should not be inlining such functions.
     B.addAttribute(llvm::Attribute::Naked);
@@ -784,13 +817,6 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
   if (D->hasAttr<MinSizeAttr>())
     B.addAttribute(llvm::Attribute::MinSize);
 
-  if (LangOpts.getStackProtector() == LangOptions::SSPOn)
-    B.addAttribute(llvm::Attribute::StackProtect);
-  else if (LangOpts.getStackProtector() == LangOptions::SSPStrong)
-    B.addAttribute(llvm::Attribute::StackProtectStrong);
-  else if (LangOpts.getStackProtector() == LangOptions::SSPReq)
-    B.addAttribute(llvm::Attribute::StackProtectReq);
-
   F->addAttributes(llvm::AttributeSet::FunctionIndex,
                    llvm::AttributeSet::get(
                        F->getContext(), llvm::AttributeSet::FunctionIndex, B));
@@ -801,10 +827,8 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
     F->addFnAttr(llvm::Attribute::NoInline);
 
     // OptimizeNone wins over OptimizeForSize, MinSize, AlwaysInline.
-    assert(!F->hasFnAttribute(llvm::Attribute::OptimizeForSize) &&
-           "OptimizeNone and OptimizeForSize on same function!");
-    assert(!F->hasFnAttribute(llvm::Attribute::MinSize) &&
-           "OptimizeNone and MinSize on same function!");
+    F->removeFnAttr(llvm::Attribute::OptimizeForSize);
+    F->removeFnAttr(llvm::Attribute::MinSize);
     assert(!F->hasFnAttribute(llvm::Attribute::AlwaysInline) &&
            "OptimizeNone and AlwaysInline on same function!");
 
@@ -835,12 +859,12 @@ void CodeGenModule::SetLLVMFunctionAttributesForDefinition(const Decl *D,
 
 void CodeGenModule::SetCommonAttributes(const Decl *D,
                                         llvm::GlobalValue *GV) {
-  if (const auto *ND = dyn_cast<NamedDecl>(D))
+  if (const auto *ND = dyn_cast_or_null<NamedDecl>(D))
     setGlobalVisibility(GV, ND);
   else
     GV->setVisibility(llvm::GlobalValue::DefaultVisibility);
 
-  if (D->hasAttr<UsedAttr>())
+  if (D && D->hasAttr<UsedAttr>())
     addUsedGlobal(GV);
 }
 
@@ -858,8 +882,9 @@ void CodeGenModule::setNonAliasAttributes(const Decl *D,
                                           llvm::GlobalObject *GO) {
   SetCommonAttributes(D, GO);
 
-  if (const SectionAttr *SA = D->getAttr<SectionAttr>())
-    GO->setSection(SA->getName());
+  if (D)
+    if (const SectionAttr *SA = D->getAttr<SectionAttr>())
+      GO->setSection(SA->getName());
 
   getTargetCodeGenInfo().setTargetAttributes(D, GO, *this);
 }
@@ -941,6 +966,20 @@ void CodeGenModule::SetFunctionAttributes(GlobalDecl GD, llvm::Function *F,
   if (FD->isReplaceableGlobalAllocationFunction())
     F->addAttribute(llvm::AttributeSet::FunctionIndex,
                     llvm::Attribute::NoBuiltin);
+
+  // If we are checking indirect calls and this is not a non-static member
+  // function, emit a bit set entry for the function type.
+  if (LangOpts.Sanitize.has(SanitizerKind::CFIICall) &&
+      !(isa<CXXMethodDecl>(FD) && !cast<CXXMethodDecl>(FD)->isStatic())) {
+    llvm::NamedMDNode *BitsetsMD =
+        getModule().getOrInsertNamedMetadata("llvm.bitsets");
+
+    llvm::Metadata *BitsetOps[] = {
+        CreateMetadataIdentifierForType(FD->getType()),
+        llvm::ConstantAsMetadata::get(F),
+        llvm::ConstantAsMetadata::get(llvm::ConstantInt::get(Int64Ty, 0))};
+    BitsetsMD->addOperand(llvm::MDTuple::get(getLLVMContext(), BitsetOps));
+  }
 }
 
 void CodeGenModule::addUsedGlobal(llvm::GlobalValue *GV) {
@@ -1243,7 +1282,7 @@ bool CodeGenModule::isInSanitizerBlacklist(llvm::Function *Fn,
   if (SanitizerBL.isBlacklistedFunction(Fn->getName()))
     return true;
   // Blacklist by location.
-  if (!Loc.isInvalid())
+  if (Loc.isValid())
     return SanitizerBL.isBlacklistedLocation(Loc);
   // If location is unknown, this may be a compiler-generated function. Assume
   // it's located in the main file.
@@ -2151,8 +2190,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   if (getLangOpts().CPlusPlus && getLangOpts().CUDAIsDevice
       && D->hasAttr<CUDASharedAttr>()) {
     if (InitExpr) {
-      Error(D->getLocation(),
-            "__shared__ variable cannot have an initialization.");
+      const auto *C = dyn_cast<CXXConstructExpr>(InitExpr);
+      if (C == nullptr || !C->getConstructor()->hasTrivialBody())
+        Error(D->getLocation(),
+              "__shared__ variable cannot have an initialization.");
     }
     Init = llvm::UndefValue::get(getTypes().ConvertType(ASTTy));
   } else if (!InitExpr) {
@@ -2346,7 +2387,7 @@ static bool isVarDeclStrongDefinition(const ASTContext &Context,
 
   // Declarations with a required alignment do not have common linakge in MSVC
   // mode.
-  if (Context.getLangOpts().MSVCCompat) {
+  if (Context.getTargetInfo().getCXXABI().isMicrosoft()) {
     if (D->hasAttr<AlignedAttr>())
       return true;
     QualType VarType = D->getType();
@@ -2649,8 +2690,7 @@ void CodeGenModule::EmitAliasDefinition(GlobalDecl GD) {
 
   // Create the new alias itself, but don't set a name yet.
   auto *GA = llvm::GlobalAlias::create(
-      cast<llvm::PointerType>(Aliasee->getType()),
-      llvm::Function::ExternalLinkage, "", Aliasee, &getModule());
+      DeclTy, 0, llvm::Function::ExternalLinkage, "", Aliasee, &getModule());
 
   if (Entry) {
     if (GA->getAliasee() == Entry) {
@@ -2786,7 +2826,7 @@ CodeGenModule::GetAddrOfConstantCFString(const StringLiteral *Literal) {
   // String pointer.
   llvm::Constant *C = nullptr;
   if (isUTF16) {
-    ArrayRef<uint16_t> Arr = llvm::makeArrayRef<uint16_t>(
+    auto Arr = llvm::makeArrayRef(
         reinterpret_cast<uint16_t *>(const_cast<char *>(Entry.first().data())),
         Entry.first().size() / 2);
     C = llvm::ConstantDataArray::get(VMContext, Arr);
@@ -3767,12 +3807,6 @@ llvm::Constant *CodeGenModule::EmitUuidofInitializer(StringRef Uuid) {
   return llvm::ConstantStruct::getAnon(Fields);
 }
 
-llvm::Constant *
-CodeGenModule::getAddrOfCXXCatchHandlerType(QualType Ty,
-                                            QualType CatchHandlerType) {
-  return getCXXABI().getAddrOfCXXCatchHandlerType(Ty, CatchHandlerType);
-}
-
 llvm::Constant *CodeGenModule::GetAddrOfRTTIDescriptor(QualType Ty,
                                                        bool ForEH) {
   // Return a bogus pointer if RTTI is disabled, unless it's for EH.
@@ -3824,12 +3858,8 @@ llvm::Metadata *CodeGenModule::CreateMetadataIdentifierForType(QualType T) {
 
 llvm::MDTuple *CodeGenModule::CreateVTableBitSetEntry(
     llvm::GlobalVariable *VTable, CharUnits Offset, const CXXRecordDecl *RD) {
-  std::string OutName;
-  llvm::raw_string_ostream Out(OutName);
-  getCXXABI().getMangleContext().mangleCXXVTableBitSet(RD, Out);
-
   llvm::Metadata *BitsetOps[] = {
-      llvm::MDString::get(getLLVMContext(), Out.str()),
+      CreateMetadataIdentifierForType(QualType(RD->getTypeForDecl(), 0)),
       llvm::ConstantAsMetadata::get(VTable),
       llvm::ConstantAsMetadata::get(
           llvm::ConstantInt::get(Int64Ty, Offset.getQuantity()))};

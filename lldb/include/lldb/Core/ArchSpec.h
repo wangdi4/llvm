@@ -65,7 +65,11 @@ public:
         eMIPSAse_mips16     = 0x00000400,   // MIPS16 ASE
         eMIPSAse_micromips  = 0x00000800,   // MICROMIPS ASE
         eMIPSAse_xpa        = 0x00001000,   // XPA ASE
-        eMIPSAse_mask       = 0x00001fff
+        eMIPSAse_mask       = 0x00001fff,
+        eMIPSABI_O32        = 0x00002000,
+        eMIPSABI_N32        = 0x00004000,
+        eMIPSABI_N64        = 0x00008000,
+        eMIPSABI_mask       = 0x000ff000
     };
 
     enum Core
@@ -337,9 +341,21 @@ public:
     }
 
     bool
+    TripleVendorIsUnspecifiedUnknown() const
+    {
+        return m_triple.getVendor() == llvm::Triple::UnknownVendor && m_triple.getVendorName().empty();
+    }
+
+    bool
     TripleOSWasSpecified() const
     {
         return !m_triple.getOSName().empty();
+    }
+
+    bool
+    TripleOSIsUnspecifiedUnknown() const
+    {
+        return m_triple.getOS() == llvm::Triple::UnknownOS && m_triple.getOSName().empty();
     }
 
     //------------------------------------------------------------------
@@ -479,6 +495,9 @@ public:
     {
         return m_triple;
     }
+
+    void
+    DumpTriple(Stream &s) const;
 
     //------------------------------------------------------------------
     /// Architecture tripple setter.

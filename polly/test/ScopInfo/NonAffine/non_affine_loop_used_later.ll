@@ -1,4 +1,10 @@
-; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-scops \
+; RUN:     -polly-allow-nonaffine -polly-allow-nonaffine-branches \
+; RUN:     -polly-allow-nonaffine-loops -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-scops -polly-allow-nonaffine \
+; RUN:     -polly-process-unprofitable=false \
+; RUN:     -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops \
+; RUN:     -analyze < %s | FileCheck %s --check-prefix=PROFIT
 ;
 ; Verify that we over approximate the read acces of A[j] in the last statement as j is
 ; computed in a non-affine loop we do not model.
@@ -7,7 +13,11 @@
 ; CHECK:    Region: %bb2---%bb24
 ; CHECK:    Max Loop Depth:  1
 ; CHECK:    Context:
-; CHECK:    [N] -> {  : N >= -2147483648 and N <= 2147483647 }
+; CHECK:    [N] -> {  :
+; CHECK-DAG:         N >= -2147483648
+; CHECK-DAG:       and
+; CHECK-DAG:         N <= 2147483647
+; CHECK:           }
 ; CHECK:    Assumed Context:
 ; CHECK:    [N] -> {  :  }
 ; CHECK:    p0: %N
@@ -23,10 +33,6 @@
 ; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> [i0, 1] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
 ; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_A[i0] };
-; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_0[] };
-; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
-; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 0]
 ; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_A[i0] };
 ; CHECK:            MayWriteAccess := [Reduction Type: NONE] [Scalar: 0]
@@ -34,6 +40,10 @@
 ; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_smax[] };
 ; CHECK:            MayWriteAccess := [Reduction Type: NONE] [Scalar: 1]
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_2__phi[] };
+; CHECK:            ReadAccess := [Reduction Type: NONE] [Scalar: 1]
+; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_0[] };
+; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb4__TO__bb18[i0] -> MemRef_j_2__phi[] };
 ; CHECK:      Stmt_bb18
 ; CHECK:            Schedule :=
@@ -54,6 +64,8 @@
 ; CHECK:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]
 ; CHECK:                [N] -> { Stmt_bb23[i0] -> MemRef_j_0__phi[] };
 ; CHECK:    }
+;
+; PROFIT-NOT: Statements
 ;
 ;    void f(int *A, int N, int M) {
 ;      int i = 0, j = 0;

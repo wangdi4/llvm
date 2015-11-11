@@ -109,6 +109,7 @@ math/sinpi.cl
 math/clc_sqrt.cl
 math/sqrt.cl
 math/tan.cl
+math/tanh.cl
 relational/all.cl
 relational/any.cl
 relational/bitselect.cl
@@ -133,3 +134,4 @@ shared/vload.cl
 shared/vstore.cl
 workitem/get_global_id.cl
 workitem/get_global_size.cl
+image/get_image_dim.cl

@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Symbols.h"
-#include "Chunks.h"
+#include "InputSection.h"
 #include "Error.h"
 #include "InputFiles.h"
 
@@ -40,38 +40,37 @@ template <class ELFT> int SymbolBody::compare(SymbolBody *Other) {
   if (L > R)
     return -Other->compare<ELFT>(this);
 
-  uint8_t LV = getMostConstrainingVisibility();
-  uint8_t RV = Other->getMostConstrainingVisibility();
-  MostConstrainingVisibility = getMinVisibility(LV, RV);
-  Other->MostConstrainingVisibility = MostConstrainingVisibility;
+  Visibility = Other->Visibility =
+      getMinVisibility(Visibility, Other->Visibility);
 
-  IsUsedInRegularObj |= Other->IsUsedInRegularObj;
-  Other->IsUsedInRegularObj |= IsUsedInRegularObj;
+  if (IsUsedInRegularObj || Other->IsUsedInRegularObj)
+    IsUsedInRegularObj = Other->IsUsedInRegularObj = true;
 
   if (L != R)
     return -1;
-
-  if (L.first && L.second) {
-    if (isCommon()) {
-      if (Other->isCommon()) {
-        auto *ThisC = cast<DefinedCommon<ELFT>>(this);
-        auto *OtherC = cast<DefinedCommon<ELFT>>(Other);
-        typename DefinedCommon<ELFT>::uintX_t MaxAlign =
-            std::max(ThisC->MaxAlignment, OtherC->MaxAlignment);
-        if (ThisC->Sym.st_size >= OtherC->Sym.st_size) {
-          ThisC->MaxAlignment = MaxAlign;
-          return 1;
-        }
-        OtherC->MaxAlignment = MaxAlign;
-        return -1;
-      }
+  if (!L.first || !L.second)
+    return 1;
+  if (isShared())
+    return -1;
+  if (Other->isShared())
+    return 1;
+  if (isCommon()) {
+    if (!Other->isCommon())
       return -1;
-    }
-    if (Other->isCommon())
+    auto *ThisC = cast<DefinedCommon<ELFT>>(this);
+    auto *OtherC = cast<DefinedCommon<ELFT>>(Other);
+    typename DefinedCommon<ELFT>::uintX_t MaxAlign =
+        std::max(ThisC->MaxAlignment, OtherC->MaxAlignment);
+    if (ThisC->Sym.st_size >= OtherC->Sym.st_size) {
+      ThisC->MaxAlignment = MaxAlign;
       return 1;
-    return 0;
+    }
+    OtherC->MaxAlignment = MaxAlign;
+    return -1;
   }
-  return 1;
+  if (Other->isCommon())
+    return 1;
+  return 0;
 }
 
 std::unique_ptr<InputFile> Lazy::getMember() {
@@ -83,6 +82,19 @@ std::unique_ptr<InputFile> Lazy::getMember() {
     return std::unique_ptr<InputFile>(nullptr);
 
   return createELFFile<ObjectFile>(MBRef);
+}
+
+template <class ELFT> static void doInitSymbols() {
+  DefinedAbsolute<ELFT>::IgnoreUndef.setBinding(STB_WEAK);
+  DefinedAbsolute<ELFT>::IgnoreUndef.setVisibility(STV_HIDDEN);
+  Undefined<ELFT>::Optional.setVisibility(STV_HIDDEN);
+}
+
+void lld::elf2::initSymbols() {
+  doInitSymbols<ELF32LE>();
+  doInitSymbols<ELF32BE>();
+  doInitSymbols<ELF64LE>();
+  doInitSymbols<ELF64BE>();
 }
 
 template int SymbolBody::compare<ELF32LE>(SymbolBody *Other);

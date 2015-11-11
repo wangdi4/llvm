@@ -11,6 +11,7 @@
 #define liblldb_Module_h_
 
 #include <atomic>
+
 #include "lldb/lldb-forward.h"
 #include "lldb/Core/ArchSpec.h"
 #include "lldb/Core/UUID.h"
@@ -18,6 +19,7 @@
 #include "lldb/Host/Mutex.h"
 #include "lldb/Host/TimeValue.h"
 #include "lldb/Symbol/SymbolContextScope.h"
+#include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Target/PathMappingList.h"
 
 namespace lldb_private {
@@ -100,8 +102,7 @@ public:
     //------------------------------------------------------------------
     /// Destructor.
     //------------------------------------------------------------------
-    virtual 
-    ~Module ();
+    ~Module() override;
 
     bool
     MatchesModuleSpec (const ModuleSpec &module_ref);
@@ -155,11 +156,11 @@ public:
     ///
     /// @see SymbolContextScope
     //------------------------------------------------------------------
-    virtual void
-    CalculateSymbolContext (SymbolContext* sc);
+    void
+    CalculateSymbolContext(SymbolContext* sc) override;
 
-    virtual lldb::ModuleSP
-    CalculateSymbolContextModule ();
+    lldb::ModuleSP
+    CalculateSymbolContextModule() override;
 
     void
     GetDescription (Stream *s,
@@ -208,10 +209,9 @@ public:
     ///
     /// @see SymbolContextScope
     //------------------------------------------------------------------
-    virtual void
-    DumpSymbolContext (Stream *s);
+    void
+    DumpSymbolContext(Stream *s) override;
 
-    
     //------------------------------------------------------------------
     /// Find a symbol in the object file's symbol table.
     ///
@@ -289,7 +289,6 @@ public:
     FindCompileUnits (const FileSpec &path,
                       bool append,
                       SymbolContextList &sc_list);
-    
 
     //------------------------------------------------------------------
     /// Find functions by name.
@@ -936,16 +935,12 @@ public:
     uint32_t
     ResolveSymbolContextsForFileSpec (const FileSpec &file_spec, uint32_t line, bool check_inlines, uint32_t resolve_scope, SymbolContextList& sc_list);
 
-
     void
     SetFileSpecAndObjectName (const FileSpec &file,
                               const ConstString &object_name);
 
     bool
     GetIsDynamicLinkEditor ();
-
-    ClangASTContext &
-    GetClangASTContext ();
 
     TypeSystem *
     GetTypeSystemForLanguage (lldb::LanguageType language);
@@ -1045,7 +1040,6 @@ public:
     bool
     RemapSourceFile (const char *path, std::string &new_path) const;
     
-    
     //------------------------------------------------------------------
     /// Prepare to do a function name lookup.
     ///
@@ -1119,14 +1113,13 @@ protected:
     lldb::SymbolVendorUP        m_symfile_ap;   ///< A pointer to the symbol vendor for this module.
     std::vector<lldb::SymbolVendorUP> m_old_symfiles; ///< If anyone calls Module::SetSymbolFileFileSpec() and changes the symbol file,
                                                       ///< we need to keep all old symbol files around in case anyone has type references to them
-    lldb::ClangASTContextUP     m_ast;          ///< The AST context for this module.
+    TypeSystemMap               m_type_system_map;    ///< A map of any type systems associated with this module
     PathMappingList             m_source_mappings; ///< Module specific source remappings for when you have debug info for a module that doesn't match where the sources currently are
     lldb::SectionListUP         m_sections_ap; ///< Unified section list for module that is used by the ObjectFile and and ObjectFile instances for the debug info
 
     std::atomic<bool>           m_did_load_objfile;
     std::atomic<bool>           m_did_load_symbol_vendor;
     std::atomic<bool>           m_did_parse_uuid;
-    std::atomic<bool>           m_did_init_ast;
     mutable bool                m_file_has_changed:1,
                                 m_first_file_changed_log:1;   /// See if the module was modified after it was initially opened.
 
@@ -1187,7 +1180,6 @@ protected:
     friend class SymbolFile;
 
 private:
-    
     Module (); // Only used internally by CreateJITModule ()
     
     size_t
@@ -1196,12 +1188,11 @@ private:
                     const CompilerDeclContext *parent_decl_ctx,
                     bool append, 
                     size_t max_matches,
-                    TypeList& types);
+                    TypeMap& types);
 
-    
     DISALLOW_COPY_AND_ASSIGN (Module);
 };
 
 } // namespace lldb_private
 
-#endif  // liblldb_Module_h_
+#endif // liblldb_Module_h_

@@ -258,7 +258,7 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorMemberCallExpr(
   } else {
     if (SanOpts.has(SanitizerKind::CFINVCall) &&
         MD->getParent()->isDynamicClass()) {
-      llvm::Value *VTable = GetVTablePtr(This, Int8PtrTy);
+      llvm::Value *VTable = GetVTablePtr(This, Int8PtrTy, MD->getParent());
       EmitVTablePtrCheckForCall(MD, VTable, CFITCK_NVCall, CE->getLocStart());
     }
 
@@ -1289,9 +1289,11 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
   Address allocation = Address::invalid();
   CallArgList allocatorArgs;
   if (allocator->isReservedGlobalPlacementOperator()) {
+    assert(E->getNumPlacementArgs() == 1);
+    const Expr *arg = *E->placement_arguments().begin();
+
     AlignmentSource alignSource;
-    allocation = EmitPointerWithAlignment(*E->placement_arguments().begin(),
-                                          &alignSource);
+    allocation = EmitPointerWithAlignment(arg, &alignSource);
 
     // The pointer expression will, in many cases, be an opaque void*.
     // In these cases, discard the computed alignment and use the
@@ -1299,6 +1301,14 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
     if (alignSource != AlignmentSource::Decl) {
       allocation = Address(allocation.getPointer(),
                            getContext().getTypeAlignInChars(allocType));
+    }
+
+    // Set up allocatorArgs for the call to operator delete if it's not
+    // the reserved global operator.
+    if (E->getOperatorDelete() &&
+        !E->getOperatorDelete()->isReservedGlobalPlacementOperator()) {
+      allocatorArgs.add(RValue::get(allocSize), getContext().getSizeType());
+      allocatorArgs.add(RValue::get(allocation.getPointer()), arg->getType());
     }
 
   } else {
@@ -1380,6 +1390,14 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
 
   llvm::Type *elementTy = ConvertTypeForMem(allocType);
   Address result = Builder.CreateElementBitCast(allocation, elementTy);
+
+  // Passing pointer through invariant.group.barrier to avoid propagation of
+  // vptrs information which may be included in previous type.
+  if (CGM.getCodeGenOpts().StrictVTablePointers &&
+      CGM.getCodeGenOpts().OptimizationLevel > 0 &&
+      allocator->isReservedGlobalPlacementOperator())
+    result = Address(Builder.CreateInvariantGroupBarrier(result.getPointer()),
+                     result.getAlignment());
 
   EmitNewInitializer(*this, E, allocType, elementTy, result, numElements,
                      allocSizeWithoutCookie);
@@ -1788,6 +1806,7 @@ static llvm::Value *EmitDynamicCastToNull(CodeGenFunction &CGF,
 
 llvm::Value *CodeGenFunction::EmitDynamicCast(Address ThisAddr,
                                               const CXXDynamicCastExpr *DCE) {
+  CGM.EmitExplicitCastExprType(DCE, this);
   QualType DestTy = DCE->getTypeAsWritten();
 
   if (DCE->isAlwaysNull())

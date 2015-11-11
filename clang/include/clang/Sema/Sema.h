@@ -1278,7 +1278,7 @@ public:
                                                 const FunctionProtoType *FPT);
   void UpdateExceptionSpec(FunctionDecl *FD,
                            const FunctionProtoType::ExceptionSpecInfo &ESI);
-  bool CheckSpecifiedExceptionType(QualType &T, const SourceRange &Range);
+  bool CheckSpecifiedExceptionType(QualType &T, SourceRange Range);
   bool CheckDistantExceptionSpec(QualType T);
   bool CheckEquivalentExceptionSpec(FunctionDecl *Old, FunctionDecl *New);
   bool CheckEquivalentExceptionSpec(
@@ -1799,6 +1799,10 @@ public:
   /// \brief The parser has left a submodule.
   void ActOnModuleEnd(SourceLocation DirectiveLoc, Module *Mod);
 
+  /// \brief Check if module import may be found in the current context,
+  /// emit error if not.
+  void diagnoseMisplacedModuleImport(Module *M, SourceLocation ImportLoc);
+
   /// \brief Create an implicit import of the given module at the given
   /// source location, for error recovery, if possible.
   ///
@@ -1980,7 +1984,9 @@ public:
                                       Expr *val);
   bool CheckEnumUnderlyingType(TypeSourceInfo *TI);
   bool CheckEnumRedeclaration(SourceLocation EnumLoc, bool IsScoped,
-                              QualType EnumUnderlyingTy, const EnumDecl *Prev);
+                              QualType EnumUnderlyingTy,
+                              bool EnumUnderlyingIsImplicit,
+                              const EnumDecl *Prev);
 
   /// Determine whether the body of an anonymous enumeration should be skipped.
   /// \param II The name of the first enumerator.
@@ -2058,6 +2064,22 @@ public:
                                 TypeSourceInfo *TInfo);
   bool isIncompatibleTypedef(TypeDecl *Old, TypedefNameDecl *New);
 
+  /// \brief Describes the kind of merge to perform for availability
+  /// attributes (including "deprecated", "unavailable", and "availability").
+  enum AvailabilityMergeKind {
+    /// \brief Don't merge availability attributes at all.
+    AMK_None,
+    /// \brief Merge availability attributes for a redeclaration, which requires
+    /// an exact match.
+    AMK_Redeclaration,
+    /// \brief Merge availability attributes for an override, which requires
+    /// an exact match or a weakening of constraints.
+    AMK_Override,
+    /// \brief Merge availability attributes for an implementation of
+    /// a protocol requirement.
+    AMK_ProtocolImplementation,
+  };
+
   /// Attribute merging methods. Return true if a new attribute was added.
   AvailabilityAttr *mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
                                           IdentifierInfo *Platform,
@@ -2066,7 +2088,7 @@ public:
                                           VersionTuple Obsoleted,
                                           bool IsUnavailable,
                                           StringRef Message,
-                                          bool Override,
+                                          AvailabilityMergeKind AMK,
                                           unsigned AttrSpellingListIndex);
   TypeVisibilityAttr *mergeTypeVisibilityAttr(Decl *D, SourceRange Range,
                                        TypeVisibilityAttr::VisibilityType Vis,
@@ -2094,19 +2116,6 @@ public:
                                 unsigned AttrSpellingListIndex);
   OptimizeNoneAttr *mergeOptimizeNoneAttr(Decl *D, SourceRange Range,
                                           unsigned AttrSpellingListIndex);
-
-  /// \brief Describes the kind of merge to perform for availability
-  /// attributes (including "deprecated", "unavailable", and "availability").
-  enum AvailabilityMergeKind {
-    /// \brief Don't merge availability attributes at all.
-    AMK_None,
-    /// \brief Merge availability attributes for a redeclaration, which requires
-    /// an exact match.
-    AMK_Redeclaration,
-    /// \brief Merge availability attributes for an override, which requires
-    /// an exact match or a weakening of constraints.
-    AMK_Override
-  };
 
   void mergeDeclAttributes(NamedDecl *New, Decl *Old,
                            AvailabilityMergeKind AMK = AMK_Redeclaration);
@@ -2431,11 +2440,13 @@ public:
                                             bool PartialOverloading = false);
 
   // Emit as a 'note' the specific overload candidate
-  void NoteOverloadCandidate(FunctionDecl *Fn, QualType DestType = QualType());
+  void NoteOverloadCandidate(FunctionDecl *Fn, QualType DestType = QualType(),
+                             bool TakingAddress = false);
 
-  // Emit as a series of 'note's all template and non-templates
-  // identified by the expression Expr
-  void NoteAllOverloadCandidates(Expr* E, QualType DestType = QualType());
+  // Emit as a series of 'note's all template and non-templates identified by
+  // the expression Expr
+  void NoteAllOverloadCandidates(Expr *E, QualType DestType = QualType(),
+                                 bool TakingAddress = false);
 
   /// Check the enable_if expressions on the given function. Returns the first
   /// failing attribute, or NULL if they were all successful.
@@ -2466,7 +2477,7 @@ public:
                       ExprResult &SrcExpr,
                       bool DoFunctionPointerConverion = false,
                       bool Complain = false,
-                      const SourceRange& OpRangeForComplaining = SourceRange(),
+                      SourceRange OpRangeForComplaining = SourceRange(),
                       QualType DestTypeForComplaining = QualType(),
                       unsigned DiagIDForComplaining = 0);
 
@@ -2919,7 +2930,8 @@ public:
   /// Adjust the calling convention of a method to be the ABI default if it
   /// wasn't specified explicitly.  This handles method types formed from
   /// function type typedefs and typename template arguments.
-  void adjustMemberFunctionCC(QualType &T, bool IsStatic);
+  void adjustMemberFunctionCC(QualType &T, bool IsStatic, bool IsCtorOrDtor,
+                              SourceLocation Loc);
 
   // Check if there is an explicit attribute, but only look through parens.
   // The intent is to look for an attribute on the current declarator, but not
@@ -3322,11 +3334,14 @@ public:
     BFRK_Check
   };
 
-  StmtResult ActOnCXXForRangeStmt(SourceLocation ForLoc, Stmt *LoopVar,
+  StmtResult ActOnCXXForRangeStmt(SourceLocation ForLoc,
+                                  SourceLocation CoawaitLoc,
+                                  Stmt *LoopVar,
                                   SourceLocation ColonLoc, Expr *Collection,
                                   SourceLocation RParenLoc,
                                   BuildForRangeKind Kind);
   StmtResult BuildCXXForRangeStmt(SourceLocation ForLoc,
+                                  SourceLocation CoawaitLoc,
                                   SourceLocation ColonLoc,
                                   Stmt *RangeDecl, Stmt *BeginEndDecl,
                                   Expr *Cond, Expr *Inc,
@@ -3775,7 +3790,7 @@ public:
     ActOnUnaryExprOrTypeTraitExpr(SourceLocation OpLoc,
                                   UnaryExprOrTypeTrait ExprKind,
                                   bool IsType, void *TyOrEx,
-                                  const SourceRange &ArgRange);
+                                  SourceRange ArgRange);
 
   ExprResult CheckPlaceholderExpr(Expr *E);
   bool CheckVecStepExpr(Expr *E);
@@ -3954,15 +3969,13 @@ public:
   /// __builtin_offsetof(type, a.b[123][456].c)
   ExprResult BuildBuiltinOffsetOf(SourceLocation BuiltinLoc,
                                   TypeSourceInfo *TInfo,
-                                  OffsetOfComponent *CompPtr,
-                                  unsigned NumComponents,
+                                  ArrayRef<OffsetOfComponent> Components,
                                   SourceLocation RParenLoc);
   ExprResult ActOnBuiltinOffsetOf(Scope *S,
                                   SourceLocation BuiltinLoc,
                                   SourceLocation TypeLoc,
                                   ParsedType ParsedArgTy,
-                                  OffsetOfComponent *CompPtr,
-                                  unsigned NumComponents,
+                                  ArrayRef<OffsetOfComponent> Components,
                                   SourceLocation RParenLoc);
 
   // __builtin_choose_expr(constExpr, expr1, expr2)
@@ -6605,12 +6618,6 @@ public:
 
   friend class ArgumentPackSubstitutionRAII;
 
-  /// \brief The stack of calls expression undergoing template instantiation.
-  ///
-  /// The top of this stack is used by a fixit instantiating unresolved
-  /// function calls to fix the AST to match the textual change it prints.
-  SmallVector<CallExpr *, 8> CallsUndergoingInstantiation;
-
   /// \brief For each declaration that involved template argument deduction, the
   /// set of diagnostics that were suppressed during that template argument
   /// deduction.
@@ -6732,7 +6739,7 @@ public:
         Sema &SemaRef, ActiveTemplateInstantiation::InstantiationKind Kind,
         SourceLocation PointOfInstantiation, SourceRange InstantiationRange,
         Decl *Entity, NamedDecl *Template = nullptr,
-        ArrayRef<TemplateArgument> TemplateArgs = ArrayRef<TemplateArgument>(),
+        ArrayRef<TemplateArgument> TemplateArgs = None,
         sema::TemplateDeductionInfo *DeductionInfo = nullptr);
 
     InstantiatingTemplate(const InstantiatingTemplate&) = delete;
@@ -7196,13 +7203,11 @@ public:
                    unsigned NumElts);
 
   DeclGroupPtrTy ActOnForwardProtocolDeclaration(SourceLocation AtProtoclLoc,
-                                        const IdentifierLocPair *IdentList,
-                                        unsigned NumElts,
+                                        ArrayRef<IdentifierLocPair> IdentList,
                                         AttributeList *attrList);
 
   void FindProtocolDeclaration(bool WarnOnDeclarations, bool ForObjCContainer,
-                               const IdentifierLocPair *ProtocolId,
-                               unsigned NumProtocols,
+                               ArrayRef<IdentifierLocPair> ProtocolId,
                                SmallVectorImpl<Decl *> &Protocols);
 
   /// Given a list of identifiers (and their locations), resolve the
@@ -7701,7 +7706,18 @@ public:
   void AddLaunchBoundsAttr(SourceRange AttrRange, Decl *D, Expr *MaxThreads,
                            Expr *MinBlocks, unsigned SpellingListIndex);
 
+  //===--------------------------------------------------------------------===//
+  // C++ Coroutines TS
+  //
+  ExprResult ActOnCoawaitExpr(SourceLocation KwLoc, Expr *E);
+  ExprResult ActOnCoyieldExpr(SourceLocation KwLoc, Expr *E);
+  StmtResult ActOnCoreturnStmt(SourceLocation KwLoc, Expr *E);
+
+  void CheckCompletedCoroutineBody(FunctionDecl *FD, Stmt *Body);
+
+  //===--------------------------------------------------------------------===//
   // OpenMP directives and clauses.
+  //
 private:
   void *VarDataSharingAttributesStack;
   /// \brief Initialization of data-sharing attributes stack.
@@ -7719,6 +7735,11 @@ public:
   /// \param Level Relative level of nested OpenMP construct for that the check
   /// is performed.
   bool isOpenMPPrivateVar(VarDecl *VD, unsigned Level);
+
+  /// \brief Check if the specified variable is captured  by 'target' directive.
+  /// \param Level Relative level of nested OpenMP construct for that the check
+  /// is performed.
+  bool isOpenMPTargetCapturedVar(VarDecl *VD, unsigned Level);
 
   ExprResult PerformOpenMPImplicitIntegerConversion(SourceLocation OpLoc,
                                                     Expr *Op);
@@ -7855,7 +7876,8 @@ public:
                                        SourceLocation EndLoc);
   /// \brief Called on well-formed '\#pragma omp ordered' after parsing of the
   /// associated statement.
-  StmtResult ActOnOpenMPOrderedDirective(Stmt *AStmt, SourceLocation StartLoc,
+  StmtResult ActOnOpenMPOrderedDirective(ArrayRef<OMPClause *> Clauses,
+                                         Stmt *AStmt, SourceLocation StartLoc,
                                          SourceLocation EndLoc);
   /// \brief Called on well-formed '\#pragma omp atomic' after parsing of the
   /// associated statement.
@@ -7883,7 +7905,8 @@ public:
                                         SourceLocation EndLoc,
                                         OpenMPDirectiveKind CancelRegion);
   /// \brief Called on well-formed '\#pragma omp cancel'.
-  StmtResult ActOnOpenMPCancelDirective(SourceLocation StartLoc,
+  StmtResult ActOnOpenMPCancelDirective(ArrayRef<OMPClause *> Clauses,
+                                        SourceLocation StartLoc,
                                         SourceLocation EndLoc,
                                         OpenMPDirectiveKind CancelRegion);
 
@@ -7988,6 +8011,12 @@ public:
   /// \brief Called on well-formed 'seq_cst' clause.
   OMPClause *ActOnOpenMPSeqCstClause(SourceLocation StartLoc,
                                      SourceLocation EndLoc);
+  /// \brief Called on well-formed 'threads' clause.
+  OMPClause *ActOnOpenMPThreadsClause(SourceLocation StartLoc,
+                                      SourceLocation EndLoc);
+  /// \brief Called on well-formed 'simd' clause.
+  OMPClause *ActOnOpenMPSIMDClause(SourceLocation StartLoc,
+                                   SourceLocation EndLoc);
 
   OMPClause *ActOnOpenMPVarListClause(
       OpenMPClauseKind Kind, ArrayRef<Expr *> Vars, Expr *TailExpr,
@@ -8275,19 +8304,23 @@ public:
                                                QualType LHSType,
                                                QualType RHSType);
 
-  /// Check assignment constraints and prepare for a conversion of the
-  /// RHS to the LHS type.
+  /// Check assignment constraints and optionally prepare for a conversion of
+  /// the RHS to the LHS type. The conversion is prepared for if ConvertRHS
+  /// is true.
   AssignConvertType CheckAssignmentConstraints(QualType LHSType,
                                                ExprResult &RHS,
-                                               CastKind &Kind);
+                                               CastKind &Kind,
+                                               bool ConvertRHS = true);
 
   // CheckSingleAssignmentConstraints - Currently used by
   // CheckAssignmentOperands, and ActOnReturnStmt. Prior to type checking,
-  // this routine performs the default function/array converions.
+  // this routine performs the default function/array converions, if ConvertRHS
+  // is true.
   AssignConvertType CheckSingleAssignmentConstraints(QualType LHSType,
                                                      ExprResult &RHS,
                                                      bool Diagnose = true,
-                                                     bool DiagnoseCFAudited = false);
+                                                     bool DiagnoseCFAudited = false,
+                                                     bool ConvertRHS = true);
 
   // \brief If the lhs type is a transparent union, check whether we
   // can initialize the transparent union with the given expression.
@@ -8607,7 +8640,36 @@ public:
 
   CUDAFunctionTarget IdentifyCUDATarget(const FunctionDecl *D);
 
+  enum CUDAFunctionPreference {
+    CFP_Never,      // Invalid caller/callee combination.
+    CFP_LastResort, // Lowest priority. Only in effect if
+                    // LangOpts.CUDADisableTargetCallChecks is true.
+    CFP_Fallback,   // Low priority caller/callee combination
+    CFP_Best,       // Preferred caller/callee combination
+  };
+
+  /// Identifies relative preference of a given Caller/Callee
+  /// combination, based on their host/device attributes.
+  /// \param Caller function which needs address of \p Callee.
+  ///               nullptr in case of global context.
+  /// \param Callee target function
+  ///
+  /// \returns preference value for particular Caller/Callee combination.
+  CUDAFunctionPreference IdentifyCUDAPreference(const FunctionDecl *Caller,
+                                                const FunctionDecl *Callee);
+
   bool CheckCUDATarget(const FunctionDecl *Caller, const FunctionDecl *Callee);
+
+  /// Finds a function in \p Matches with highest calling priority
+  /// from \p Caller context and erases all functions with lower
+  /// calling priority.
+  void EraseUnwantedCUDAMatches(const FunctionDecl *Caller,
+                                SmallVectorImpl<FunctionDecl *> &Matches);
+  void EraseUnwantedCUDAMatches(const FunctionDecl *Caller,
+                                SmallVectorImpl<DeclAccessPair> &Matches);
+  void EraseUnwantedCUDAMatches(
+      const FunctionDecl *Caller,
+      SmallVectorImpl<std::pair<DeclAccessPair, FunctionDecl *>> &Matches);
 
   /// Given a implicit special member, infer its CUDA target from the
   /// calls it needs to make to underlying base/field special members.
@@ -8831,8 +8893,10 @@ private:
   bool CheckSystemZBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
   bool CheckPPCBuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall);
-  
+
+  bool SemaBuiltinVAStartImpl(CallExpr *TheCall);
   bool SemaBuiltinVAStart(CallExpr *TheCall);
+  bool SemaBuiltinMSVAStart(CallExpr *TheCall);
   bool SemaBuiltinVAStartARM(CallExpr *Call);
   bool SemaBuiltinUnorderedCompare(CallExpr *TheCall);
   bool SemaBuiltinFPClassification(CallExpr *TheCall, unsigned NumArgs);
@@ -8851,6 +8915,7 @@ private:
   bool SemaBuiltinLongjmp(CallExpr *TheCall);
   bool SemaBuiltinSetjmp(CallExpr *TheCall);
   ExprResult SemaBuiltinAtomicOverloaded(ExprResult TheCallResult);
+  ExprResult SemaBuiltinNontemporalOverloaded(ExprResult TheCallResult);
   ExprResult SemaAtomicOpsOverloaded(ExprResult TheCallResult,
                                      AtomicExpr::AtomicOp Op);
   bool SemaBuiltinConstantArg(CallExpr *TheCall, int ArgNum,

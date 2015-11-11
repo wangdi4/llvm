@@ -351,6 +351,7 @@ ObjectFile::GetAddressClass (addr_t file_addr)
                     case eSectionTypeZeroFill:
                     case eSectionTypeDataObjCMessageRefs:
                     case eSectionTypeDataObjCCFStrings:
+                    case eSectionTypeGoSymtab:
                         return eAddressClassData;
                     case eSectionTypeDebug:
                     case eSectionTypeDWARFDebugAbbrev:
@@ -372,6 +373,8 @@ ObjectFile::GetAddressClass (addr_t file_addr)
                     case eSectionTypeDWARFAppleObjC:
                         return eAddressClassDebug;
                     case eSectionTypeEHFrame:
+                    case eSectionTypeARMexidx:
+                    case eSectionTypeARMextab:
                     case eSectionTypeCompactUnwind:
                         return eAddressClassRuntime;
                     case eSectionTypeELFSymbolTable:
@@ -602,15 +605,23 @@ ObjectFile::ClearSymtab ()
 }
 
 SectionList *
-ObjectFile::GetSectionList()
+ObjectFile::GetSectionList(bool update_module_section_list)
 {
     if (m_sections_ap.get() == nullptr)
     {
-        ModuleSP module_sp(GetModule());
-        if (module_sp)
+        if (update_module_section_list)
         {
-            lldb_private::Mutex::Locker locker(module_sp->GetMutex());
-            CreateSections(*module_sp->GetUnifiedSectionList());
+            ModuleSP module_sp(GetModule());
+            if (module_sp)
+            {
+                lldb_private::Mutex::Locker locker(module_sp->GetMutex());
+                CreateSections(*module_sp->GetUnifiedSectionList());
+            }
+        }
+        else
+        {
+            SectionList unified_section_list;
+            CreateSections(unified_section_list);
         }
     }
     return m_sections_ap.get();
