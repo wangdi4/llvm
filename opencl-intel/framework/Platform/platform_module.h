@@ -34,6 +34,7 @@
 #include "cl_shared_ptr.h"
 #include <Logger.h>
 #include <vector>
+#include <ocl_config.h>
 #if defined (DX_MEDIA_SHARING)
 #include "d3d9_definitions.h"
 #endif
@@ -225,6 +226,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         ocl_entry_points * m_pOclEntryPoints;
 
         ocl_gpa_data * m_pGPAData;
+
+        Intel::OpenCL::Utils::OPENCL_VERSION m_oclVersion;
 
         DECLARE_LOGGER_CLIENT;
 

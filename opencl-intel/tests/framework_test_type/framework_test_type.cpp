@@ -519,11 +519,6 @@ TEST_F(CL20, DoubleSetDefaultCommandQueue)
 //////////////      CL21 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-TEST(CL21_depr, Test_Timers)
-{
-    Timers();
-}
-
 TEST(CL21_depr, Test_CloneKernel)
 {
     EXPECT_TRUE(CloneKernel());
@@ -644,6 +639,30 @@ TEST_F(CL21, clZeroSized_clEnqueueSVMMemFill)
     ZeroSized_clEnqueueSVMMemFill();
 }
 
+TEST_F(CL21, Timers_GetPlatformInfo_DEVICE_TIMER_RESOLUTION)
+{
+    GetPlatformInfo_DEVICE_TIMER_RESOLUTION();
+}
+
+TEST_F(CL21, Timers_GetHostTimer_Negative)
+{
+    GetHostTimer_Negative();
+}
+
+TEST_F(CL21, Timers_GetDeviceAndHostTimer_Negative)
+{
+    GetDeviceAndHostTimer_Negative();
+}
+
+TEST_F(CL21, Timers_GetHostTimer)
+{
+    GetHostTimer();
+}
+
+TEST_F(CL21, Timers_GetDeviceAndHostTimer)
+{
+    GetDeviceAndHostTimer();
+}
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////

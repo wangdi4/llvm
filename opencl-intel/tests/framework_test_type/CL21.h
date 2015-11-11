@@ -73,6 +73,18 @@ protected:
 
     void ZeroSized_clEnqueueSVMMemFill() const;
 
+    // timers
+
+    void GetPlatformInfo_DEVICE_TIMER_RESOLUTION() const;
+
+    void GetHostTimer_Negative() const;
+
+    void GetDeviceAndHostTimer_Negative() const;
+
+    void GetHostTimer() const;
+
+    void GetDeviceAndHostTimer() const;
+
     void Init()
     {
         ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, ::CL_base::GetOCLVersion()) <<
