@@ -21,13 +21,7 @@ class SymbolFileDWARFDwo : public SymbolFileDWARF
 public:
     SymbolFileDWARFDwo(lldb::ObjectFileSP objfile, DWARFCompileUnit* dwarf_cu);
 
-    virtual
-    ~SymbolFileDWARFDwo() = default;
-    
-    const lldb_private::DWARFDataExtractor&
-    GetCachedSectionData(uint32_t got_flag,
-                         lldb::SectionType sect_type,
-                         lldb_private::DWARFDataExtractor &data) override;
+    ~SymbolFileDWARFDwo() override = default;
     
     lldb::CompUnitSP
     ParseCompileUnit(DWARFCompileUnit* dwarf_cu, uint32_t cu_idx) override;
@@ -38,7 +32,16 @@ public:
     DWARFCompileUnit*
     GetDWARFCompileUnit(lldb_private::CompileUnit *comp_unit) override;
 
+    lldb_private::DWARFExpression::LocationListFormat
+    GetLocationListFormat() const override;
+
+    lldb_private::TypeSystem*
+    GetTypeSystemForLanguage(lldb::LanguageType language) override;
+
 protected:
+    void
+    LoadSectionData (lldb::SectionType sect_type, lldb_private::DWARFDataExtractor& data) override;
+
     DIEToTypePtr&
     GetDIEToType() override;
 
@@ -51,8 +54,14 @@ protected:
     ClangTypeToDIE&
     GetForwardDeclClangTypeToDie() override;
 
+    lldb::TypeSP
+    FindDefinitionTypeForDWARFDeclContext (const DWARFDeclContext &die_decl_ctx) override;
+
+    SymbolFileDWARF*
+    GetBaseSymbolFile();
+
     lldb::ObjectFileSP m_obj_file_sp;
     DWARFCompileUnit* m_base_dwarf_cu;
 };
 
-#endif  // SymbolFileDWARFDwo_SymbolFileDWARFDwo_h_
+#endif // SymbolFileDWARFDwo_SymbolFileDWARFDwo_h_

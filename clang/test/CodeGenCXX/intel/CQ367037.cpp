@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-windows-msvc -fms-compatibility -fintel-ms-compatibility -emit-llvm -o - -std=c++11 -g -o - %s | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-windows-msvc -fms-compatibility -fintel-ms-compatibility -emit-llvm -o - -std=c++11 -debug-info-kind=limited -o - %s | FileCheck %s
 class Foo {
 public:
   virtual int getY() { return 0; }

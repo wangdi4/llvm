@@ -93,6 +93,8 @@ protected:
   unsigned RealTypeUsesObjCFPRet : 3;
   unsigned ComplexLongDoubleUsesFP2Ret : 1;
 
+  unsigned HasBuiltinMSVaList : 1;
+
   // TargetInfo Constructor.  Default initializes all fields.
   TargetInfo(const llvm::Triple &T);
 
@@ -109,9 +111,9 @@ public:
   virtual ~TargetInfo();
 
   /// \brief Retrieve the target options.
-  TargetOptions &getTargetOpts() const { 
+  TargetOptions &getTargetOpts() const {
     assert(TargetOpts && "Missing target options");
-    return *TargetOpts; 
+    return *TargetOpts;
   }
 
   ///===---- Target Data Type Query Methods -------------------------------===//
@@ -261,10 +263,11 @@ public:
   unsigned getTypeWidth(IntType T) const;
 
   /// \brief Return integer type with specified width.
-  IntType getIntTypeByWidth(unsigned BitWidth, bool IsSigned) const;
+  virtual IntType getIntTypeByWidth(unsigned BitWidth, bool IsSigned) const;
 
   /// \brief Return the smallest integer type with at least the specified width.
-  IntType getLeastIntTypeByWidth(unsigned BitWidth, bool IsSigned) const;
+  virtual IntType getLeastIntTypeByWidth(unsigned BitWidth,
+                                         bool IsSigned) const;
 
   /// \brief Return floating point type with specified width.
   RealType getRealTypeByWidth(unsigned BitWidth) const;
@@ -319,7 +322,9 @@ public:
   unsigned getLongLongAlign() const { return LongLongAlign; }
 
   /// \brief Determine whether the __int128 type is supported on this target.
-  virtual bool hasInt128Type() const { return getPointerWidth(0) >= 64; } // FIXME
+  virtual bool hasInt128Type() const {
+    return getPointerWidth(0) >= 64;
+  } // FIXME
 
   /// \brief Return the alignment that is suitable for storing any
   /// object with a fundamental alignment requirement.
@@ -517,8 +522,7 @@ public:
   /// Return information about target-specific builtins for
   /// the current primary target, and info about which builtins are non-portable
   /// across the current set of primary and secondary targets.
-  virtual void getTargetBuiltins(const Builtin::Info *&Records,
-                                 unsigned &NumRecords) const = 0;
+  virtual ArrayRef<Builtin::Info> getTargetBuiltins() const = 0;
 
   /// The __builtin_clz* and __builtin_ctz* built-in
   /// functions are specified to have undefined results for zero inputs, but
@@ -530,6 +534,10 @@ public:
   /// \brief Returns the kind of __builtin_va_list type that should be used
   /// with this target.
   virtual BuiltinVaListKind getBuiltinVaListKind() const = 0;
+
+  /// Returns whether or not type \c __builtin_ms_va_list type is
+  /// available on this target.
+  bool hasBuiltinMSVaList() const { return HasBuiltinMSVaList; }
 
   /// \brief Returns whether the passed in string is a valid clobber in an
   /// inline asm statement.
@@ -631,7 +639,7 @@ public:
     }
 
     /// \brief Indicate that this is an input operand that is tied to
-    /// the specified output operand. 
+    /// the specified output operand.
     ///
     /// Copy over the various constraint information from the output.
     void setTiedOperand(unsigned N, ConstraintInfo &Output) {
@@ -646,8 +654,7 @@ public:
   // a constraint is valid and provides information about it.
   // FIXME: These should return a real error instead of just true/false.
   bool validateOutputConstraint(ConstraintInfo &Info) const;
-  bool validateInputConstraint(ConstraintInfo *OutputConstraints,
-                               unsigned NumOutputs,
+  bool validateInputConstraint(MutableArrayRef<ConstraintInfo> OutputConstraints,
                                ConstraintInfo &info) const;
 
   virtual bool validateOutputSize(StringRef /*Constraint*/,
@@ -671,8 +678,8 @@ public:
                         TargetInfo::ConstraintInfo &info) const = 0;
 
   bool resolveSymbolicName(const char *&Name,
-                           ConstraintInfo *OutputConstraints,
-                           unsigned NumOutputs, unsigned &Index) const;
+                           ArrayRef<ConstraintInfo> OutputConstraints,
+                           unsigned &Index) const;
 
   // Constraint parm will be left pointing at the last character of
   // the constraint.  In practice, it won't be changed unless the
@@ -752,7 +759,7 @@ public:
   /// \return False on error (invalid features).
   virtual bool initFeatureMap(llvm::StringMap<bool> &Features,
                               DiagnosticsEngine &Diags, StringRef CPU,
-                              std::vector<std::string> &FeatureVec) const;
+                              const std::vector<std::string> &FeatureVec) const;
 
   /// \brief Get the ABI currently in use.
   virtual StringRef getABI() const { return StringRef(); }
@@ -798,6 +805,8 @@ public:
   ///
   /// The target may modify the features list, to change which options are
   /// passed onwards to the backend.
+  /// FIXME: This part should be fixed so that we can change handleTargetFeatures
+  /// to merely a TargetInfo initialization routine.
   ///
   /// \return  False on error.
   virtual bool handleTargetFeatures(std::vector<std::string> &Features,
@@ -813,7 +822,7 @@ public:
   // \brief Validate the contents of the __builtin_cpu_supports(const char*)
   // argument.
   virtual bool validateCpuSupports(StringRef Name) const { return false; }
-  
+
   // \brief Returns maximal number of args passed in registers.
   unsigned getRegParmMax() const {
     assert(RegParmMax < 7 && "RegParmMax value is larger than AST can handle");
@@ -897,7 +906,7 @@ public:
   };
 
   /// \brief Determines whether a given calling convention is valid for the
-  /// target. A calling convention can either be accepted, produce a warning 
+  /// target. A calling convention can either be accepted, produce a warning
   /// and be substituted with the default calling convention, or (someday)
   /// produce an error (such as using thiscall on a non-instance function).
   virtual CallingConvCheckResult checkCallingConvention(CallingConv CC) const {
@@ -925,14 +934,10 @@ protected:
   virtual enum IntType getPtrDiffTypeV(unsigned AddrSpace) const {
     return PtrDiffType;
   }
-  virtual void getGCCRegNames(const char * const *&Names,
-                              unsigned &NumNames) const = 0;
-  virtual void getGCCRegAliases(const GCCRegAlias *&Aliases,
-                                unsigned &NumAliases) const = 0;
-  virtual void getGCCAddlRegNames(const AddlRegName *&Addl,
-                                  unsigned &NumAddl) const {
-    Addl = nullptr;
-    NumAddl = 0;
+  virtual ArrayRef<const char *> getGCCRegNames() const = 0;
+  virtual ArrayRef<GCCRegAlias> getGCCRegAliases() const = 0;
+  virtual ArrayRef<AddlRegName> getGCCAddlRegNames() const {
+    return None;
   }
 };
 

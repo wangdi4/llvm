@@ -1,4 +1,4 @@
-//===--- ParseDeclCXX.cpp - C++ Declaration Parsing -----------------------===//
+//===--- ParseDeclCXX.cpp - C++ Declaration Parsing -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -26,6 +26,7 @@
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/SemaDiagnostic.h"
 #include "llvm/ADT/SmallString.h"
+
 using namespace clang;
 
 /// ParseNamespace - We know that the current token is a namespace keyword. This
@@ -118,7 +119,6 @@ Decl *Parser::ParseNamespace(unsigned Context,
     return ParseNamespaceAlias(NamespaceLoc, IdentLoc, Ident, DeclEnd);
   }
 
-
   BalancedDelimiterTracker T(*this, tok::l_brace);
   if (T.consumeOpen()) {
     if (Ident)
@@ -210,7 +210,8 @@ void Parser::ParseInnerNamespace(std::vector<SourceLocation> &IdentLoc,
                                  ParsedAttributes &attrs,
                                  BalancedDelimiterTracker &Tracker) {
   if (index == Ident.size()) {
-    while (Tok.isNot(tok::r_brace) && !isEofOrEom()) {
+    while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof) &&
+           !tryParseMisplacedModuleImport()) {
       ParsedAttributesWithRange attrs(AttrFactory);
       MaybeParseCXX11Attributes(attrs);
       MaybeParseMicrosoftAttributes(attrs);
@@ -2027,7 +2028,7 @@ void Parser::HandleMemberFunctionDeclDelays(Declarator& DeclaratorInfo,
 
     // Stash the exception-specification tokens in the late-pased method.
     LateMethod->ExceptionSpecTokens = FTI.ExceptionSpecTokens;
-    FTI.ExceptionSpecTokens = 0;
+    FTI.ExceptionSpecTokens = nullptr;
 
     // Push tokens for each parameter.  Those that do not have
     // defaults will be NULL.
@@ -3219,10 +3220,12 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
 
   if (TagDecl) {
     // While we still have something to read, read the member-declarations.
-    while (Tok.isNot(tok::r_brace) && !isEofOrEom())
+    while (Tok.isNot(tok::r_brace) && Tok.isNot(tok::eof) &&
+           !tryParseMisplacedModuleImport()) {
       // Each iteration of this loop reads one member-declaration.
       ParseCXXClassMemberDeclarationWithPragmas(
           CurAS, AccessAttrs, static_cast<DeclSpec::TST>(TagType), TagDecl);
+    }
     T.consumeClose();
   } else {
     SkipUntil(tok::r_brace);
@@ -3472,7 +3475,7 @@ Parser::tryParseExceptionSpecification(bool Delayed,
                     ExprResult &NoexceptExpr,
                     CachedTokens *&ExceptionSpecTokens) {
   ExceptionSpecificationType Result = EST_None;
-  ExceptionSpecTokens = 0;
+  ExceptionSpecTokens = nullptr;
   
   // Handle delayed parsing of exception-specifications.
   if (Delayed) {
@@ -3489,7 +3492,7 @@ Parser::tryParseExceptionSpecification(bool Delayed,
       // If this is a bare 'noexcept', we're done.
       if (IsNoexcept) {
         Diag(Tok, diag::warn_cxx98_compat_noexcept_decl);
-        NoexceptExpr = 0;
+        NoexceptExpr = nullptr;
         return EST_BasicNoexcept;
       }
       
@@ -3572,7 +3575,7 @@ Parser::tryParseExceptionSpecification(bool Delayed,
 }
 
 static void diagnoseDynamicExceptionSpecification(
-    Parser &P, const SourceRange &Range, bool IsNoexcept) {
+    Parser &P, SourceRange Range, bool IsNoexcept) {
   if (P.getLangOpts().CPlusPlus11) {
     const char *Replacement = IsNoexcept ? "noexcept" : "noexcept(false)";
     P.Diag(Range.getBegin(), diag::warn_exception_spec_deprecated) << Range;
@@ -3770,9 +3773,8 @@ static bool IsBuiltInOrStandardCXX11Attribute(IdentifierInfo *AttrName,
   case AttributeList::AT_CarriesDependency:
   case AttributeList::AT_Deprecated:
   case AttributeList::AT_FallThrough:
-  case AttributeList::AT_CXX11NoReturn: {
+  case AttributeList::AT_CXX11NoReturn:
     return true;
-  }
 
   default:
     return false;

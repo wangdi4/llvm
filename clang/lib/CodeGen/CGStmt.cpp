@@ -16,6 +16,7 @@
 #include "CodeGenModule.h"
 #include "TargetInfo.h"
 #include "clang/AST/StmtVisitor.h"
+#include "clang/Basic/Builtins.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Sema/LoopHint.h"
@@ -30,6 +31,7 @@
 #include "clang/Basic/CapturedStmt.h"
 #include "llvm/IR/TypeBuilder.h"
 #endif  // INTEL_CUSTOMIZATION
+#include "llvm/IR/MDBuilder.h"
 
 using namespace clang;
 using namespace CodeGen;
@@ -1556,6 +1558,22 @@ void CodeGenFunction::EmitSwitchStmt(const SwitchStmt &S) {
   EmitBlock(SwitchExit.getBlock(), true);
   incrementProfileCounter(&S);
 
+  // If the switch has a condition wrapped by __builtin_unpredictable,
+  // create metadata that specifies that the switch is unpredictable.
+  // Don't bother if not optimizing because that metadata would not be used.
+  if (CGM.getCodeGenOpts().OptimizationLevel != 0) {
+    if (const CallExpr *Call = dyn_cast<CallExpr>(S.getCond())) {
+      const Decl *TargetDecl = Call->getCalleeDecl();
+      if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+        if (FD->getBuiltinID() == Builtin::BI__builtin_unpredictable) {
+          llvm::MDBuilder MDHelper(getLLVMContext());
+          SwitchInsn->setMetadata(llvm::LLVMContext::MD_unpredictable,
+                                  MDHelper.createUnpredictable());
+        }
+      }
+    }
+  }
+
   if (SwitchWeights) {
     assert(SwitchWeights->size() == 1 + SwitchInsn->getNumCases() &&
            "switch weights do not match switch cases");
@@ -1607,9 +1625,7 @@ SimplifyConstraint(const char *Constraint, const TargetInfo &Target,
       assert(OutCons &&
              "Must pass output names to constraints with a symbolic name");
       unsigned Index;
-      bool result = Target.resolveSymbolicName(Constraint,
-                                               &(*OutCons)[0],
-                                               OutCons->size(), Index);
+      bool result = Target.resolveSymbolicName(Constraint, *OutCons, Index);
       assert(result && "Could not resolve symbolic name"); (void)result;
       Result += llvm::utostr(Index);
       break;
@@ -1772,8 +1788,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
       Name = GAS->getInputName(i);
     TargetInfo::ConstraintInfo Info(S.getInputConstraint(i), Name);
     bool IsValid =
-      getTarget().validateInputConstraint(OutputConstraintInfos.data(),
-                                          S.getNumOutputs(), Info);
+      getTarget().validateInputConstraint(OutputConstraintInfos, Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
 #ifdef INTEL_CUSTOMIZATION
     // CQ#371735 - allow use of registers for rvalues under 'm' constraint.

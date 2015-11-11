@@ -1,6 +1,8 @@
-"""Test the lldb public C++ api breakpoint callbacks.  """
+"""Test the lldb public C++ api breakpoint callbacks."""
 
-import os, re, StringIO
+import lldb_shared
+
+import os, re
 import unittest2
 from lldbtest import *
 import lldbutil
@@ -10,19 +12,10 @@ class SBBreakpointCallbackCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    def setUp(self):
-        TestBase.setUp(self)
-        self.lib_dir = os.environ["LLDB_LIB_DIR"]
-        self.implib_dir = os.environ["LLDB_IMPLIB_DIR"]
-        self.inferior = 'inferior_program'
-        if self.getLldbArchitecture() == self.getArchitecture():
-            self.buildProgram('inferior.cpp', self.inferior)
-            self.addTearDownHook(lambda: os.remove(self.inferior))
-
     @skipIfRemote
     @skipIfNoSBHeaders
+    @skipIfWindows # clang-cl does not support throw or catch (llvm.org/pr24538)
     @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.9"], archs=["x86_64"])
-    @expectedFailureWindows("llvm.org/pr24538") # clang-cl does not support throw or catch
     def test_breakpoint_callback(self):
         """Test the that SBBreakpoint callback is invoked when a breakpoint is hit. """
         self.build_and_test('driver.cpp test_breakpoint_callback.cpp',
@@ -30,8 +23,9 @@ class SBBreakpointCallbackCase(TestBase):
 
     @skipIfRemote
     @skipIfNoSBHeaders
+    @skipIfWindows # clang-cl does not support throw or catch (llvm.org/pr24538)
+    @expectedFlakeyFreeBSD
     @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.9"], archs=["x86_64"])
-    @expectedFailureWindows("llvm.org/pr24538") # clang-cl does not support throw or catch
     def test_sb_api_listener_event_description(self):
         """ Test the description of an SBListener breakpoint event is valid."""
         self.build_and_test('driver.cpp listener_test.cpp test_listener_event_description.cpp',
@@ -40,9 +34,10 @@ class SBBreakpointCallbackCase(TestBase):
 
     @skipIfRemote
     @skipIfNoSBHeaders
+    @skipIfWindows # clang-cl does not support throw or catch (llvm.org/pr24538)
+    @expectedFlakeyFreeBSD
     @expectedFlakeyLinux # Driver occasionally returns '1' as exit status
     @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.9"], archs=["x86_64"])
-    @expectedFailureWindows("llvm.org/pr24538") # clang-cl does not support throw or catch
     def test_sb_api_listener_event_process_state(self):
         """ Test that a registered SBListener receives events when a process
             changes state.
@@ -54,8 +49,9 @@ class SBBreakpointCallbackCase(TestBase):
 
     @skipIfRemote
     @skipIfNoSBHeaders
+    @skipIfWindows # clang-cl does not support throw or catch (llvm.org/pr24538)
+    @expectedFlakeyFreeBSD
     @expectedFailureAll("llvm.org/pr23139", oslist=["linux"], compiler="gcc", compiler_version=[">=","4.8"], archs=["x86_64"])
-    @expectedFailureWindows("llvm.org/pr24538") # clang-cl does not support throw or catch
     def test_sb_api_listener_resume(self):
         """ Test that a process can be resumed from a non-main thread. """
         self.build_and_test('driver.cpp listener_test.cpp test_listener_resume.cpp',
@@ -71,6 +67,12 @@ class SBBreakpointCallbackCase(TestBase):
         # still need to check architecture
         if self.getLldbArchitecture() != self.getArchitecture():
             self.skipTest("This test is only run if the target arch is the same as the lldb binary arch")
+
+        self.lib_dir = os.environ["LLDB_LIB_DIR"]
+        self.implib_dir = os.environ["LLDB_IMPLIB_DIR"]
+        self.inferior = 'inferior_program'
+        self.buildProgram('inferior.cpp', self.inferior)
+        self.addTearDownHook(lambda: os.remove(self.inferior))
 
         self.buildDriver(sources, test_name)
         self.addTearDownHook(lambda: os.remove(test_name))

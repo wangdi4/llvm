@@ -70,8 +70,8 @@ class CXXScopeSpec {
   NestedNameSpecifierLocBuilder Builder;
 
 public:
-  const SourceRange &getRange() const { return Range; }
-  void setRange(const SourceRange &R) { Range = R; }
+  SourceRange getRange() const { return Range; }
+  void setRange(SourceRange R) { Range = R; }
   void setBeginLoc(SourceLocation Loc) { Range.setBegin(Loc); }
   void setEndLoc(SourceLocation Loc) { Range.setEnd(Loc); }
   SourceLocation getBeginLoc() const { return Range.getBegin(); }
@@ -505,7 +505,7 @@ public:
   CXXScopeSpec &getTypeSpecScope() { return TypeScope; }
   const CXXScopeSpec &getTypeSpecScope() const { return TypeScope; }
 
-  const SourceRange &getSourceRange() const LLVM_READONLY { return Range; }
+  SourceRange getSourceRange() const LLVM_READONLY { return Range; }
   SourceLocation getLocStart() const LLVM_READONLY { return Range.getBegin(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return Range.getEnd(); }
 
@@ -1727,7 +1727,7 @@ public:
   }
 
   /// \brief Get the source range that spans this declarator.
-  const SourceRange &getSourceRange() const LLVM_READONLY { return Range; }
+  SourceRange getSourceRange() const LLVM_READONLY { return Range; }
   SourceLocation getLocStart() const LLVM_READONLY { return Range.getBegin(); }
   SourceLocation getLocEnd() const LLVM_READONLY { return Range.getEnd(); }
 
@@ -1747,7 +1747,7 @@ public:
   /// given declspec, unless its location is invalid. Adopts the range start if
   /// the current range start is invalid.
   void ExtendWithDeclSpec(const DeclSpec &DS) {
-    const SourceRange &SR = DS.getSourceRange();
+    SourceRange SR = DS.getSourceRange();
     if (Range.getBegin().isInvalid())
       Range.setBegin(SR.getBegin());
     if (!SR.getEnd().isInvalid())
@@ -2219,6 +2219,9 @@ public:
   /// declarator outside of a MemberContext because we won't know until
   /// redeclaration time if the decl is static.
   bool isStaticMember();
+
+  /// Returns true if this declares a constructor or a destructor.
+  bool isCtorOrDtor();
 
   void setRedeclaration(bool Val) { Redeclaration = Val; }
   bool isRedeclaration() const { return Redeclaration; }

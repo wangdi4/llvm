@@ -78,9 +78,8 @@ void CompilerInstance::setDiagnostics(DiagnosticsEngine *Value) {
   Diagnostics = Value;
 }
 
-void CompilerInstance::setTarget(TargetInfo *Value) {
-  Target = Value;
-}
+void CompilerInstance::setTarget(TargetInfo *Value) { Target = Value; }
+void CompilerInstance::setAuxTarget(TargetInfo *Value) { AuxTarget = Value; }
 
 void CompilerInstance::setFileManager(FileManager *Value) {
   FileMgr = Value;
@@ -315,7 +314,7 @@ void CompilerInstance::createPreprocessor(TranslationUnitKind TUKind) {
   PP = new Preprocessor(&getPreprocessorOpts(), getDiagnostics(), getLangOpts(),
                         getSourceManager(), *HeaderInfo, *this, PTHMgr,
                         /*OwnsHeaderSearch=*/true, TUKind);
-  PP->Initialize(getTarget());
+  PP->Initialize(getTarget(), getAuxTarget());
 
   // Note that this is different then passing PTHMgr to Preprocessor's ctor.
   // That argument is used as the IdentifierInfoLookup argument to
@@ -399,7 +398,7 @@ void CompilerInstance::createASTContext() {
   auto *Context = new ASTContext(getLangOpts(), PP.getSourceManager(),
                                  PP.getIdentifierTable(), PP.getSelectorTable(),
                                  PP.getBuiltinInfo());
-  Context->InitBuiltinTypes(getTarget());
+  Context->InitBuiltinTypes(getTarget(), getAuxTarget());
   setASTContext(Context);
 }
 
@@ -644,8 +643,10 @@ std::unique_ptr<llvm::raw_pwrite_stream> CompilerInstance::createOutputFile(
       llvm::sys::fs::status(OutputPath, Status);
       if (llvm::sys::fs::exists(Status)) {
         // Fail early if we can't write to the final destination.
-        if (!llvm::sys::fs::can_write(OutputPath))
+        if (!llvm::sys::fs::can_write(OutputPath)) {
+          Error = make_error_code(llvm::errc::operation_not_permitted);
           return nullptr;
+        }
 
         // Don't use a temporary if the output is a special file. This handles
         // things like '-o /dev/null'
@@ -728,7 +729,7 @@ bool CompilerInstance::InitializeSourceManager(const FrontendInputFile &Input,
   if (Input.isBuffer()) {
     SourceMgr.setMainFileID(SourceMgr.createFileID(
         std::unique_ptr<llvm::MemoryBuffer>(Input.getBuffer()), Kind));
-    assert(!SourceMgr.getMainFileID().isInvalid() &&
+    assert(SourceMgr.getMainFileID().isValid() &&
            "Couldn't establish MainFileID!");
     return true;
   }
@@ -779,7 +780,7 @@ bool CompilerInstance::InitializeSourceManager(const FrontendInputFile &Input,
     SourceMgr.overrideFileContents(File, std::move(SB));
   }
 
-  assert(!SourceMgr.getMainFileID().isInvalid() &&
+  assert(SourceMgr.getMainFileID().isValid() &&
          "Couldn't establish MainFileID!");
   return true;
 }
@@ -800,6 +801,13 @@ bool CompilerInstance::ExecuteAction(FrontendAction &Act) {
                                          getInvocation().TargetOpts));
   if (!hasTarget())
     return false;
+
+  // Create TargetInfo for the other side of CUDA compilation.
+  if (getLangOpts().CUDA && !getFrontendOpts().AuxTriple.empty()) {
+    std::shared_ptr<TargetOptions> TO(new TargetOptions);
+    TO->Triple = getFrontendOpts().AuxTriple;
+    setAuxTarget(TargetInfo::CreateTargetInfo(getDiagnostics(), TO));
+  }
 
   // Inform the target of the language options.
   //
@@ -1330,15 +1338,24 @@ bool CompilerInstance::loadModuleFile(StringRef FileName) {
                                                    std::move(Listener));
 
   // Try to load the module file.
-  if (ModuleManager->ReadAST(FileName, serialization::MK_ExplicitModule,
-                             SourceLocation(), ASTReader::ARR_None)
-          != ASTReader::Success)
-    return false;
-
+  switch (ModuleManager->ReadAST(FileName, serialization::MK_ExplicitModule,
+                                 SourceLocation(),
+                                 ASTReader::ARR_ConfigurationMismatch)) {
+  case ASTReader::Success:
   // We successfully loaded the module file; remember the set of provided
   // modules so that we don't try to load implicit modules for them.
   ListenerRef.registerAll();
   return true;
+
+  case ASTReader::ConfigurationMismatch:
+    // Ignore unusable module files.
+    getDiagnostics().Report(SourceLocation(), diag::warn_module_config_mismatch)
+        << FileName;
+    return true;
+
+  default:
+    return false;
+  }
 }
 
 ModuleLoadResult
@@ -1353,7 +1370,7 @@ CompilerInstance::loadModule(SourceLocation ImportLoc,
   // If we've already handled this import, just return the cached result.
   // This one-element cache is important to eliminate redundant diagnostics
   // when both the preprocessor and parser see the same import declaration.
-  if (!ImportLoc.isInvalid() && LastModuleImportLoc == ImportLoc) {
+  if (ImportLoc.isValid() && LastModuleImportLoc == ImportLoc) {
     // Make the named module visible.
     if (LastModuleImportResult && ModuleName != getLangOpts().CurrentModule &&
         ModuleName != getLangOpts().ImplementationOfModule)

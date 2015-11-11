@@ -163,6 +163,8 @@ public:
     return EmitCast(E->getCastKind(), E->getSubExpr(), E->getType());
   }
   ComplexPairTy VisitCastExpr(CastExpr *E) {
+    if (const auto *ECE = dyn_cast<ExplicitCastExpr>(E))
+      CGF.CGM.EmitExplicitCastExprType(ECE, &CGF);
     return EmitCast(E->getCastKind(), E->getSubExpr(), E->getType());
   }
   ComplexPairTy VisitCallExpr(const CallExpr *E);
@@ -1110,8 +1112,8 @@ ComplexPairTy ComplexExprEmitter::VisitInitListExpr(InitListExpr *E) {
 }
 
 ComplexPairTy ComplexExprEmitter::VisitVAArgExpr(VAArgExpr *E) {
-  Address ArgValue = CGF.EmitVAListRef(E->getSubExpr());
-  Address ArgPtr = CGF.EmitVAArg(ArgValue, E->getType());
+  Address ArgValue = Address::invalid();
+  Address ArgPtr = CGF.EmitVAArg(E, ArgValue);
 
   if (!ArgPtr.isValid()) {
     CGF.ErrorUnsupported(E, "complex va_arg expression");

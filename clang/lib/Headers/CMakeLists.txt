@@ -37,6 +37,10 @@ set(modified_files
   __wmmintrin_pclmul.h
   xtestintrin.h
   x86intrin.h
+  xsaveintrin.h
+  xsaveoptintrin.h
+  xsavecintrin.h
+  xsavesintrin.h  
   xmmintrin.h
   )
 
@@ -76,6 +80,7 @@ set(orig_files
   varargs.h
   vecintrin.h
   xopintrin.h
+  xtestintrin.h
   )
 
 set(intel_files ${modified_files} ${special_files})

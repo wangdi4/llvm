@@ -61,6 +61,11 @@ ABIInfo::getNaturalAlignIndirectInReg(QualType Ty, bool Realign) const {
                                       /*ByRef*/ false, Realign);
 }
 
+Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                             QualType Ty) const {
+  return Address::invalid();
+}
+
 ABIInfo::~ABIInfo() {}
 
 static CGCXXABI::RecordArgABI getRecordArgABI(const RecordType *RT,
@@ -624,7 +629,6 @@ ABIArgInfo WebAssemblyABIInfo::classifyArgumentType(QualType Ty) const {
     // though watch out for things like bitfields.
     if (const Type *SeltTy = isSingleElementStruct(Ty, getContext()))
       return ABIArgInfo::getDirect(CGT.ConvertType(QualType(SeltTy, 0)));
-    return getNaturalAlignIndirect(Ty);
   }
 
   // Otherwise just do the default thing.
@@ -792,12 +796,10 @@ class X86_32ABIInfo : public ABIInfo {
   static const unsigned MinABIStackAlignInBytes = 4;
 
   bool IsDarwinVectorABI;
-#if INTEL_CUSTOMIZATION
   bool IsRetSmallStructInRegABI;
   bool IsWin32StructABI;
   bool IsSoftFloatABI;
   bool IsMCUABI;
-#endif //INTEL_CUSTOMIZATION
   unsigned DefaultNumRegisterParameters;
 
   static bool isRegisterSize(unsigned Size) {
@@ -845,7 +847,6 @@ public:
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                     QualType Ty) const override;
 
-#if INTEL_CUSTOMIZATION
   X86_32ABIInfo(CodeGen::CodeGenTypes &CGT, bool DarwinVectorABI,
                 bool RetSmallStructInRegABI, bool Win32StructABI,
                 unsigned NumRegisterParameters, bool SoftFloatABI)
@@ -855,19 +856,16 @@ public:
       IsSoftFloatABI(SoftFloatABI),
       IsMCUABI(CGT.getTarget().getTriple().isOSIAMCU()),
       DefaultNumRegisterParameters(NumRegisterParameters) {}
-#endif //INTEL_CUSTOMIZATION
 };
 
 class X86_32TargetCodeGenInfo : public TargetCodeGenInfo {
 public:
-#if INTEL_CUSTOMIZATION
   X86_32TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, bool DarwinVectorABI,
                           bool RetSmallStructInRegABI, bool Win32StructABI,
                           unsigned NumRegisterParameters, bool SoftFloatABI)
       : TargetCodeGenInfo(new X86_32ABIInfo(
             CGT, DarwinVectorABI, RetSmallStructInRegABI, Win32StructABI,
             NumRegisterParameters, SoftFloatABI)) {}
-#endif //INTEL_CUSTOMIZATION
 
   static bool isStructReturnInRegABI(
       const llvm::Triple &Triple, const CodeGenOptions &Opts);
@@ -1095,9 +1093,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
     }
 
     // If specified, structs and unions are always indirect.
-#if INTEL_CUSTOMIZATION
     if (!IsRetSmallStructInRegABI && !RetTy->isAnyComplexType())
-#endif //INTEL_CUSTOMIZATION
       return getIndirectReturnResult(RetTy, State);
 
     // Small structures which are register sized are generally returned
@@ -1220,13 +1216,11 @@ X86_32ABIInfo::Class X86_32ABIInfo::classify(QualType Ty) const {
 bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
                                    bool &NeedsPadding) const {
   NeedsPadding = false;
-#if INTEL_CUSTOMIZATION
   if (!IsSoftFloatABI) {
     Class C = classify(Ty);
     if (C == Float)
       return false;
   }
-#endif //INTEL_CUSTOMIZATION
 
   unsigned Size = getContext().getTypeSize(Ty);
   unsigned SizeInRegs = (Size + 31) / 32;
@@ -1234,7 +1228,6 @@ bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
   if (SizeInRegs == 0)
     return false;
 
-#if INTEL_CUSTOMIZATION
   if (!IsMCUABI) {
     if (SizeInRegs > State.FreeRegs) {
       State.FreeRegs = 0;
@@ -1248,7 +1241,6 @@ bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
     if (SizeInRegs > State.FreeRegs || SizeInRegs > 2)
       return false;
   }
-#endif //INTEL_CUSTOMIZATION
 
   State.FreeRegs -= SizeInRegs;
 
@@ -1391,10 +1383,8 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     State.FreeSSERegs = 6;
   } else if (FI.getHasRegParm())
     State.FreeRegs = FI.getRegParm();
-#if INTEL_CUSTOMIZATION
   else if (IsMCUABI)
     State.FreeRegs = 3;
-#endif //INTEL_CUSTOMIZATION
   else
     State.FreeRegs = DefaultNumRegisterParameters;
 
@@ -1543,10 +1533,8 @@ bool X86_32TargetCodeGenInfo::isStructReturnInRegABI(
     return true;
   }
 
-#if INTEL_CUSTOMIZATION
   if (Triple.isOSDarwin() || Triple.isOSIAMCU())
     return true;
-#endif //INTEL_CUSTOMIZATION
 
   switch (Triple.getOS()) {
   case llvm::Triple::DragonFly:
@@ -1563,7 +1551,7 @@ bool X86_32TargetCodeGenInfo::isStructReturnInRegABI(
 void X86_32TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                                   llvm::GlobalValue *GV,
                                             CodeGen::CodeGenModule &CGM) const {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (FD->hasAttr<X86ForceAlignArgPointerAttr>()) {
       // Get the LLVM function.
       llvm::Function *Fn = cast<llvm::Function>(GV);
@@ -1774,6 +1762,8 @@ public:
 
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                     QualType Ty) const override;
+  Address EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                      QualType Ty) const override;
 
   bool has64BitPointers() const {
     return Has64BitPointers;
@@ -1908,13 +1898,11 @@ static std::string qualifyWindowsLibrary(llvm::StringRef Lib) {
 
 class WinX86_32TargetCodeGenInfo : public X86_32TargetCodeGenInfo {
 public:
-#if INTEL_CUSTOMIZATION
   WinX86_32TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT,
         bool DarwinVectorABI, bool RetSmallStructInRegABI, bool Win32StructABI,
         unsigned NumRegisterParameters)
     : X86_32TargetCodeGenInfo(CGT, DarwinVectorABI, RetSmallStructInRegABI,
         Win32StructABI, NumRegisterParameters, false) {}
-#endif //INTEL_CUSTOMIZATION
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override;
@@ -1935,7 +1923,7 @@ public:
 static void addStackProbeSizeTargetAttribute(const Decl *D,
                                              llvm::GlobalValue *GV,
                                              CodeGen::CodeGenModule &CGM) {
-  if (isa<FunctionDecl>(D)) {
+  if (D && isa<FunctionDecl>(D)) {
     if (CGM.getCodeGenOpts().StackProbeSize != 4096) {
       llvm::Function *Fn = cast<llvm::Function>(GV);
 
@@ -3359,6 +3347,14 @@ Address X86_64ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
   Address ResAddr = emitMergePHI(CGF, RegAddr, InRegBlock, MemAddr, InMemBlock,
                                  "vaarg.addr");
   return ResAddr;
+}
+
+Address X86_64ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                                   QualType Ty) const {
+  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*indirect*/ false,
+                          CGF.getContext().getTypeInfoInChars(Ty),
+                          CharUnits::fromQuantity(8),
+                          /*allowHigherAlign*/ false);
 }
 
 ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
@@ -4825,7 +4821,7 @@ public:
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override {
-    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
     if (!FD)
       return;
 
@@ -5386,7 +5382,7 @@ Address NVPTXABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
 void NVPTXTargetCodeGenInfo::
 setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                     CodeGen::CodeGenModule &M) const{
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD) return;
 
   llvm::Function *F = cast<llvm::Function>(GV);
@@ -5820,7 +5816,7 @@ public:
 void MSP430TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                                   llvm::GlobalValue *GV,
                                              CodeGen::CodeGenModule &M) const {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (const MSP430InterruptAttr *attr = FD->getAttr<MSP430InterruptAttr>()) {
       // Handle 'interrupt' attribute:
       llvm::Function *F = cast<llvm::Function>(GV);
@@ -5879,7 +5875,7 @@ public:
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override {
-    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
     if (!FD) return;
     llvm::Function *Fn = cast<llvm::Function>(GV);
     if (FD->hasAttr<Mips16Attr>()) {
@@ -6226,7 +6222,7 @@ public:
 
 void TCETargetCodeGenInfo::setTargetAttributes(
     const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &M) const {
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD) return;
 
   llvm::Function *F = cast<llvm::Function>(GV);
@@ -6408,7 +6404,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   const Decl *D,
   llvm::GlobalValue *GV,
   CodeGen::CodeGenModule &M) const {
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD)
     return;
 
@@ -7152,7 +7148,7 @@ static bool appendEnumType(SmallStringEnc &Enc, const EnumType *ET,
 /// This is done prior to appending the type's encoding.
 static void appendQualifier(SmallStringEnc &Enc, QualType QT) {
   // Qualifiers are emitted in alphabetical order.
-  static const char *Table[] = {"","c:","r:","cr:","v:","cv:","rv:","crv:"};
+  static const char *const Table[]={"","c:","r:","cr:","v:","cv:","rv:","crv:"};
   int Lookup = 0;
   if (QT.isConstQualified())
     Lookup += 1<<0;
@@ -7461,7 +7457,6 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
 
   case llvm::Triple::x86: {
     bool IsDarwinVectorABI = Triple.isOSDarwin();
-#if INTEL_CUSTOMIZATION
     bool RetSmallStructInRegABI =
         X86_32TargetCodeGenInfo::isStructReturnInRegABI(Triple, CodeGenOpts);
     bool IsWin32FloatStructABI = Triple.isOSWindows() && !Triple.isOSCygMing();
@@ -7476,7 +7471,6 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
                    IsWin32FloatStructABI, CodeGenOpts.NumRegisterParameters,
                    CodeGenOpts.FloatABI == "soft"));
     }
-#endif //INTEL_CUSTOMIZATION
   }
 
   case llvm::Triple::x86_64: {

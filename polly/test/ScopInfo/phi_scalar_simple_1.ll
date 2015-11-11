@@ -1,4 +1,11 @@
-; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-scops -analyze < %s | FileCheck %s
+;
+; The assumed context should be empty since the <nsw> flags on the IV
+; increments already guarantee that there is no wrap in the loop trip
+; count.
+;
+; CHECK:      Assumed Context:
+; CHECK-NEXT:   [N] -> {  :  }
 ;
 ;    int jd(int *restrict A, int x, int N) {
 ;      for (int i = 1; i < N; i++)

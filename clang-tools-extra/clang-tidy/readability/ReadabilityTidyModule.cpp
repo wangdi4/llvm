@@ -15,10 +15,12 @@
 #include "ElseAfterReturnCheck.h"
 #include "FunctionSizeCheck.h"
 #include "IdentifierNamingCheck.h"
+#include "InconsistentDeclarationParameterNameCheck.h"
 #include "NamedParameterCheck.h"
 #include "RedundantSmartptrGetCheck.h"
 #include "RedundantStringCStrCheck.h"
 #include "SimplifyBooleanExprCheck.h"
+#include "UniqueptrDeleteReleaseCheck.h"
 
 namespace clang {
 namespace tidy {
@@ -37,6 +39,10 @@ public:
         "readability-function-size");
     CheckFactories.registerCheck<IdentifierNamingCheck>(
         "readability-identifier-naming");
+    CheckFactories.registerCheck<InconsistentDeclarationParameterNameCheck>(
+        "readability-inconsistent-declaration-parameter-name");
+    CheckFactories.registerCheck<UniqueptrDeleteReleaseCheck>(
+        "readability-uniqueptr-delete-release");
     CheckFactories.registerCheck<readability::NamedParameterCheck>(
         "readability-named-parameter");
     CheckFactories.registerCheck<RedundantSmartptrGetCheck>(
