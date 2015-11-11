@@ -175,7 +175,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           S->push(W);
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
-        else if (WRegionUtils::isEndDirective(DirOrClauseStr)) {
+        else if (VPOUtils::isEndDirective(DirOrClauseStr)) {
           // The intrinsic represents an intel END directive
           // TODO: verify the END directive is the expected one
 

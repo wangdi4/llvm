@@ -323,9 +323,38 @@ public:
 
     /// \brief Returns Loop in LoopInfo corresponding to the WRN's EntryBB
     static Loop* getLoopFromLoopInfo(LoopInfo* LI, BasicBlock *WRNEntryBB);
+
+    /// Utilities to handle directives & clauses 
+
+    /// \brief Return true iff DirString corresponds to a directive that
+    /// begins a region (eg, DIR_OMP_PARALLEL, DIR_OMP_SIMD, etc.
+    static bool isBeginDirective(StringRef DirString);
+    static bool isBeginDirective(int DirID);
+
+    /// \brief Return true iff DirString corresponds to a directive that
+    /// ends a region (eg, DIR_OMP_END_PARALLEL, DIR_OMP_END_SIMD, etc.
+    static bool isEndDirective(StringRef DirString);
+    static bool isEndDirective(int DirID);
+
+    /// \brief Return true iff DirString corresponds to a directive that
+    /// begins or ends a region
+    static bool isBeginOrEndDirective(StringRef DirString);
+    static bool isBeginOrEndDirective(int DirID);
+
+    /// \brief Return true iff DirString corresponds to a stand-alone 
+    /// directive (doesn't begin or end a region). Eg: DIR_OMP_FLUSH
+    static bool isSoloDirective(StringRef DirString);
+    static bool isSoloDirective(int DirID);
+
+    /// \brief Return true iff DirString corresponds to DIR_QUAL_LIST_END,
+    /// the mandatory marker to end a directive
+    static bool isListEndDirective(StringRef DirString);
+    static bool isListEndDirective(int DirID);
+
 };
 
 } // End vpo namespace
 
 } // End llvm namespace
 #endif
+
