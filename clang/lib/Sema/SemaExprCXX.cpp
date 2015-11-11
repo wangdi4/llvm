@@ -1276,6 +1276,17 @@ static bool isLegalArrayNewInitializer(CXXNewExpr::InitializationStyle Style,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+static bool checkAlignArg(Sema &S, QualType AllocType) {
+  return S.Context.getLangOpts().IntelCompat && !AllocType->isDependentType() &&
+         S.Context.isAlignmentRequired(AllocType);
+}
+
+static bool checkAlignArg(Sema &S, QualType AllocType, MultiExprArg PlaceArgs) {
+  return checkAlignArg(S, AllocType) && (PlaceArgs.size() == 0);
+}
+#endif // INTEL_CUSTOMIZATION
+
 ExprResult
 Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
                   SourceLocation PlacementLParen,
@@ -1522,15 +1533,14 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
 
   FunctionDecl *OperatorNew = nullptr;
   FunctionDecl *OperatorDelete = nullptr;
-
+  bool AlignedNew = false; // INTEL
   if (!AllocType->isDependentType() &&
       !Expr::hasAnyTypeDependentArguments(PlacementArgs) &&
       FindAllocationFunctions(StartLoc,
                               SourceRange(PlacementLParen, PlacementRParen),
                               UseGlobal, AllocType, ArraySize, PlacementArgs,
-                              OperatorNew, OperatorDelete))
+                              OperatorNew, OperatorDelete, AlignedNew)) // INTEL
     return ExprError();
-
   // If this is an array allocation, compute whether the usual array
   // deallocation function for the type has a size_t parameter.
   bool UsualArrayDeleteWantsSize = false;
@@ -1539,6 +1549,12 @@ Sema::BuildCXXNew(SourceRange Range, bool UseGlobal,
       = doesUsualArrayDeleteWantSize(*this, StartLoc, AllocType);
 
   SmallVector<Expr *, 8> AllPlaceArgs;
+
+#if INTEL_CUSTOMIZATION
+  // CQ376359: overloaded operators 'new/delete' for aligned data
+  if (!AlignedNew)
+#endif // INTEL_CUSTOMIZATION
+
   if (OperatorNew) {
     const FunctionProtoType *Proto =
         OperatorNew->getType()->getAs<FunctionProtoType>();
@@ -1711,11 +1727,35 @@ bool Sema::CheckAllocatedType(QualType AllocType, SourceLocation Loc,
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// CQ376359: overloaded operators 'new/delete' for aligned data
+/// \brief Return the unique type for "std::align_val_t"
+static EnumDecl *getAlignTypeDecl(Sema &S) {
+  auto *AlignValT = &S.Context.Idents.get("align_val_t");
+  LookupResult R(S, AlignValT, SourceLocation(), Sema::LookupTagName);
+  S.LookupQualifiedName(R, S.getOrCreateStdNamespace());
+  assert(!R.empty() && "std::align_val_t was not defined");
+  return R.getAsSingle<EnumDecl>();
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Determine whether the given function is a non-placement
 /// deallocation function.
 static bool isNonPlacementDeallocationFunction(Sema &S, FunctionDecl *FD) {
   if (FD->isInvalidDecl())
     return false;
+
+#if INTEL_CUSTOMIZATION
+  // CQ376359: overloaded operators 'new/delete' for aligned data
+  if (S.Context.getLangOpts().IntelCompat &&
+      ((FD->getOverloadedOperator() == OO_Delete) ||
+       (FD->getOverloadedOperator() == OO_Array_Delete)) &&
+      (FD->getNumParams() == 2) &&
+      S.Context.hasSameUnqualifiedType(
+          FD->getParamDecl(1)->getType(),
+          QualType(getAlignTypeDecl(S)->getTypeForDecl(), 0)))
+    return true;
+#endif // INTEL_CUSTOMIZATION
 
   if (CXXMethodDecl *Method = dyn_cast<CXXMethodDecl>(FD))
     return Method->isUsualDeallocationFunction();
@@ -1738,7 +1778,8 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
                                    bool UseGlobal, QualType AllocType,
                                    bool IsArray, MultiExprArg PlaceArgs,
                                    FunctionDecl *&OperatorNew,
-                                   FunctionDecl *&OperatorDelete) {
+                                   FunctionDecl *&OperatorDelete, // INTEL
+                                   bool &AlignedNew) {            // INTEL
   // --- Choosing an allocation function ---
   // C++ 5.3.4p8 - 14 & 18
   // 1) If UseGlobal is true, only look in the global scope. Else, also look
@@ -1785,11 +1826,58 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
     DeclareGlobalNewDelete();
     DeclContext *TUDecl = Context.getTranslationUnitDecl();
     bool FallbackEnabled = IsArray && Context.getLangOpts().MSVCCompat;
+#ifdef INTEL_CUSTOMIZATION
+    // CQ376359: overloaded operators 'new/delete' for aligned data
+    bool AlignIsRequired = false;
+    // FIXME: here could be non-record types - see clang_getTypeDeclaration
+    if (AllocElemType->isRecordType()) {
+      RecordDecl *RD =
+          cast<RecordDecl>(AllocElemType->getAs<RecordType>()->getDecl());
+      AlignIsRequired = RD->hasAttr<AlignedAttr>();
+    }
+    if (!AlignIsRequired) {
+      unsigned Align = Context.getTypeAlignInChars(AllocElemType).getQuantity();
+      if (Align > 2 * sizeof(void *))
+        AlignIsRequired = true;
+    }
+    if (checkAlignArg(*this, AllocType, PlaceArgs) ||
+        (Context.getLangOpts().IntelCompat && AlignIsRequired &&
+         (PlaceArgs.size() == 0))) {
+      FallbackEnabled = true;
+      AllocArgs.resize(2);
+      AlignedNew = true;
+      EnumDecl *EnD = getAlignTypeDecl(*this);
+      Expr *Alignment = IntegerLiteral::Create(
+          Context,
+          llvm::APInt::getNullValue(Context.getTargetInfo().getPointerWidth(0)),
+          EnD->getIntegerType(), SourceLocation());
+      Alignment =
+          ImpCastExprToType(Alignment, QualType(EnD->getTypeForDecl(), 0),
+                            CK_IntegralCast)
+              .get();
+      AllocArgs[1] = Alignment; // possible align arg
+    }
+#endif // INTEL_CUSTOMIZATION
     if (FindAllocationOverload(StartLoc, Range, NewName, AllocArgs, TUDecl,
                                /*AllowMissing=*/FallbackEnabled, OperatorNew,
                                /*Diagnose=*/!FallbackEnabled)) {
       if (!FallbackEnabled)
         return true;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ376359: overloaded operators 'new/delete' for aligned data
+      AlignedNew = false;
+      if (checkAlignArg(*this, AllocType, PlaceArgs)) {
+        AllocArgs.resize(1);
+        if (FindAllocationOverload(StartLoc, Range, NewName, AllocArgs, TUDecl,
+                                   /*AllowMissing=*/true, OperatorNew,
+                                   /*Diagnose=*/false))
+          // MSVC will try to find operator new if operator new[] cannot be find
+          // (see below).
+          if (!(IsArray && Context.getLangOpts().MSVCCompat))
+            return true;
+      }
+      if (!OperatorNew) {
+#endif // INTEL_CUSTOMIZATION
 
       // MSVC will fall back on trying to find a matching global operator new
       // if operator new[] cannot be found.  Also, MSVC will leak by not
@@ -1800,6 +1888,10 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
       if (FindAllocationOverload(StartLoc, Range, NewName, AllocArgs, TUDecl,
                                /*AllowMissing=*/false, OperatorNew))
       return true;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ376359: overloaded operators 'new/delete' for aligned data
+      }
+#endif // INTEL_CUSTOMIZATION
     }
   }
 
@@ -2278,6 +2370,22 @@ FunctionDecl *Sema::FindUsualDeallocationFunction(SourceLocation StartLoc,
     assert(Matches[0]->getNumParams() == NumArgs &&
            "found an unexpected usual deallocation function");
   }
+#if INTEL_CUSTOMIZATION
+  // CQ376359: overloaded operators 'new/delete' for aligned data
+  else if (Context.getLangOpts().IntelCompat && Matches.size() == 2) {
+    if (Matches[0]->getNumParams() == 1)
+      Matches.erase(Matches.begin());
+    else
+      Matches.erase(Matches.begin() + 1);
+    assert(Matches[0]->getNumParams() == 2 &&
+           "found an unexpected usual deallocation function[1]");
+    assert(Context.hasSameUnqualifiedType(
+               Matches[0]->getParamDecl(1)->getType(),
+               QualType(getAlignTypeDecl(*this)->getTypeForDecl(), 0)) &&
+           "found an unexpected usual deallocation function[2]");
+    return Matches.front();
+  }
+#endif // INTEL_CUSTOMIZATION
 
   assert(Matches.size() == 1 &&
          "unexpectedly have multiple usual deallocation functions");
@@ -2305,6 +2413,22 @@ bool Sema::FindDeallocationFunction(SourceLocation StartLoc, CXXRecordDecl *RD,
     // deallocation function.
     if (isa<FunctionTemplateDecl>(ND))
       continue;
+
+#if INTEL_CUSTOMIZATION
+    // CQ376359: overloaded operators 'new/delete' for data required alignment
+    if (Context.getLangOpts().IntelCompat &&
+        (cast<CXXMethodDecl>(ND)->getNumParams() == 2) &&
+        Context.hasSameUnqualifiedType(
+            cast<CXXMethodDecl>(ND)->getParamDecl(1)->getType(),
+            QualType(getAlignTypeDecl(*this)->getTypeForDecl(), 0))) {
+      // FIXME: there could be another delete operator with 2 args
+      if (Matches.size() == 1 &&
+          (cast<CXXMethodDecl>(Matches[0].getDecl())->getNumParams() == 1))
+        Matches.erase(Matches.begin());
+      Matches.push_back(F.getPair());
+      continue;
+    }
+#endif // INTEL_CUSTOMIZATION
 
     if (cast<CXXMethodDecl>(ND)->isUsualDeallocationFunction())
       Matches.push_back(F.getPair());

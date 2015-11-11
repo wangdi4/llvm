@@ -1328,9 +1328,38 @@ llvm::Value *CodeGenFunction::EmitCXXNewExpr(const CXXNewExpr *E) {
     // The allocation size is the first argument.
     QualType sizeType = getContext().getSizeType();
     allocatorArgs.add(RValue::get(allocSize), sizeType);
-
-    // We start at 1 here because the first argument (the allocation size)
-    // has already been emitted.
+#if INTEL_CUSTOMIZATION
+    bool AlignIsRequired = false;
+    // FIXME: here could be non-record types - see clang_getTypeDeclaration
+    if (allocType->isRecordType()) {
+      RecordDecl *RD =
+          cast<RecordDecl>(allocType->getAs<RecordType>()->getDecl());
+      AlignIsRequired = RD->hasAttr<AlignedAttr>();
+    }
+    if (!AlignIsRequired) {
+      unsigned Align =
+          getContext().getTypeAlignInChars(allocType).getQuantity();
+      if (Align > 2 * sizeof(void *))
+        AlignIsRequired = true;
+    }
+    if (getContext().getLangOpts().IntelCompat &&
+        !allocType->isDependentType() &&
+        (E->placement_arguments().begin() == E->placement_arguments().end()) &&
+        (allocatorType->getNumParams() == 2) &&
+        (getContext().isAlignmentRequired(allocType) || AlignIsRequired)) {
+      QualType alignType = allocatorType->getParamType(1);
+      if (alignType->isEnumeralType())
+        // FIXME: check the name of the enum type
+        allocatorArgs.add(
+            RValue::get(llvm::ConstantInt::get(
+                ConvertType(alignType),
+                getContext().getTypeAlignInChars(allocType).getQuantity())),
+            alignType);
+    } else
+// FIXME: if we suppport placement arguments we have to change this code
+#endif // INTEL_CUSTOMIZATION
+      // We start at 1 here because the first argument (the allocation size)
+      // has already been emitted.
     EmitCallArgs(allocatorArgs, allocatorType, E->placement_arguments(),
                  /* CalleeDecl */ nullptr,
                  /*ParamsToSkip*/ 1);

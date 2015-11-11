@@ -4780,7 +4780,8 @@ public:
                                bool UseGlobal, QualType AllocType, bool IsArray,
                                MultiExprArg PlaceArgs,
                                FunctionDecl *&OperatorNew,
-                               FunctionDecl *&OperatorDelete);
+                               FunctionDecl *&OperatorDelete, // INTEL
+                               bool &AlignedNew);             // INTEL
   bool FindAllocationOverload(SourceLocation StartLoc, SourceRange Range,
                               DeclarationName Name, MultiExprArg Args,
                               DeclContext *Ctx,
