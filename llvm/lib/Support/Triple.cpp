@@ -25,6 +25,7 @@ const char *Triple::getArchTypeName(ArchType Kind) {
   case aarch64_be:  return "aarch64_be";
   case arm:         return "arm";
   case armeb:       return "armeb";
+  case avr:         return "avr";
   case bpfel:       return "bpfel";
   case bpfeb:       return "bpfeb";
   case hexagon:     return "hexagon";
@@ -79,6 +80,8 @@ const char *Triple::getArchTypePrefix(ArchType Kind) {
   case armeb:
   case thumb:
   case thumbeb:     return "arm";
+
+  case avr:         return "avr";
 
   case ppc64:
   case ppc64le:
@@ -230,6 +233,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
     .Case("arm64", aarch64) // "arm64" is an alias for "aarch64"
     .Case("arm", arm)
     .Case("armeb", armeb)
+    .Case("avr", avr)
     .StartsWith("bpf", BPFArch)
     .Case("mips", mips)
     .Case("mipsel", mipsel)
@@ -346,6 +350,7 @@ static Triple::ArchType parseArch(StringRef ArchName) {
     .Case("armeb", Triple::armeb)
     .Case("thumb", Triple::thumb)
     .Case("thumbeb", Triple::thumbeb)
+    .Case("avr", Triple::avr)
     .Case("msp430", Triple::msp430)
     .Cases("mips", "mipseb", "mipsallegrex", Triple::mips)
     .Cases("mipsel", "mipsallegrexel", Triple::mipsel)
@@ -578,14 +583,27 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
 /// This stores the string representation and parses the various pieces into
 /// enum members.
 Triple::Triple(const Twine &Str)
-    : Data(Str.str()),
-      Arch(parseArch(getArchName())),
-      SubArch(parseSubArch(getArchName())),
-      Vendor(parseVendor(getVendorName())),
-      OS(parseOS(getOSName())),
-      Environment(parseEnvironment(getEnvironmentName())),
-      ObjectFormat(parseFormat(getEnvironmentName())) {
-  if (ObjectFormat == Triple::UnknownObjectFormat)
+    : Data(Str.str()), Arch(UnknownArch), SubArch(NoSubArch),
+      Vendor(UnknownVendor), OS(UnknownOS), Environment(UnknownEnvironment),
+      ObjectFormat(UnknownObjectFormat) {
+  // Do minimal parsing by hand here.
+  SmallVector<StringRef, 4> Components;
+  StringRef(Data).split(Components, '-', /*MaxSplit*/ 3);
+  if (Components.size() > 0) {
+    Arch = parseArch(Components[0]);
+    SubArch = parseSubArch(Components[0]);
+    if (Components.size() > 1) {
+      Vendor = parseVendor(Components[1]);
+      if (Components.size() > 2) {
+        OS = parseOS(Components[2]);
+        if (Components.size() > 3) {
+          Environment = parseEnvironment(Components[3]);
+          ObjectFormat = parseFormat(Components[3]);
+        }
+      }
+    }
+  }
+  if (ObjectFormat == UnknownObjectFormat)
     ObjectFormat = getDefaultFormat(*this);
 }
 
@@ -630,7 +648,7 @@ std::string Triple::normalize(StringRef Str) {
 
   // Parse into components.
   SmallVector<StringRef, 4> Components;
-  Str.split(Components, "-");
+  Str.split(Components, '-');
 
   // If the first component corresponds to a known architecture, preferentially
   // use it for the architecture.  If the second component corresponds to a
@@ -1022,6 +1040,7 @@ static unsigned getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
   case llvm::Triple::UnknownArch:
     return 0;
 
+  case llvm::Triple::avr:
   case llvm::Triple::msp430:
     return 16;
 
@@ -1091,6 +1110,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::aarch64:
   case Triple::aarch64_be:
   case Triple::amdgcn:
+  case Triple::avr:
   case Triple::bpfel:
   case Triple::bpfeb:
   case Triple::msp430:
@@ -1145,6 +1165,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::UnknownArch:
   case Triple::arm:
   case Triple::armeb:
+  case Triple::avr:
   case Triple::hexagon:
   case Triple::kalimba:
   case Triple::msp430:
@@ -1201,6 +1222,7 @@ Triple Triple::getBigEndianArchVariant() const {
   case Triple::amdgcn:
   case Triple::amdil64:
   case Triple::amdil:
+  case Triple::avr:
   case Triple::hexagon:
   case Triple::hsail64:
   case Triple::hsail:
@@ -1273,6 +1295,7 @@ Triple Triple::getLittleEndianArchVariant() const {
   case Triple::amdil64:
   case Triple::amdil:
   case Triple::arm:
+  case Triple::avr:
   case Triple::bpfel:
   case Triple::hexagon:
   case Triple::hsail64:

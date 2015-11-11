@@ -208,7 +208,7 @@ namespace clang {
       auto &&PartialSpecializations = getPartialSpecializations(Common);
       ArrayRef<DeclID> LazySpecializations;
       if (auto *LS = Common->LazySpecializations)
-        LazySpecializations = ArrayRef<DeclID>(LS + 1, LS + 1 + LS[0]);
+        LazySpecializations = llvm::makeArrayRef(LS + 1, LS[0]);
 
       // Add a slot to the record for the number of specializations.
       unsigned I = Record.size();
@@ -260,7 +260,7 @@ void ASTDeclWriter::Visit(Decl *D) {
   // Source locations require array (variable-length) abbreviations.  The
   // abbreviation infrastructure requires that arrays are encoded last, so
   // we handle it here in the case of those classes derived from DeclaratorDecl
-  if (DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)){
+  if (DeclaratorDecl *DD = dyn_cast<DeclaratorDecl>(D)) {
     Writer.AddTypeSourceInfo(DD->getTypeSourceInfo(), Record);
   }
 
@@ -1522,20 +1522,21 @@ void ASTDeclWriter::VisitDeclContext(DeclContext *DC, uint64_t LexicalOffset,
   Record.push_back(VisibleOffset);
 }
 
-/// \brief Is this a local declaration (that is, one that will be written to
-/// our AST file)? This is the case for declarations that are neither imported
-/// from another AST file nor predefined.
-static bool isLocalDecl(ASTWriter &W, const Decl *D) {
-  if (D->isFromASTFile())
-    return false;
-  return W.getDeclID(D) >= NUM_PREDEF_DECL_IDS;
-}
-
 const Decl *ASTWriter::getFirstLocalDecl(const Decl *D) {
-  assert(isLocalDecl(*this, D) && "expected a local declaration");
+  /// \brief Is this a local declaration (that is, one that will be written to
+  /// our AST file)? This is the case for declarations that are neither imported
+  /// from another AST file nor predefined.
+  auto IsLocalDecl = [&](const Decl *D) -> bool {
+    if (D->isFromASTFile())
+      return false;
+    auto I = DeclIDs.find(D);
+    return (I == DeclIDs.end() || I->second >= NUM_PREDEF_DECL_IDS);
+  };
+
+  assert(IsLocalDecl(D) && "expected a local declaration");
 
   const Decl *Canon = D->getCanonicalDecl();
-  if (isLocalDecl(*this, Canon))
+  if (IsLocalDecl(Canon))
     return Canon;
 
   const Decl *&CacheEntry = FirstLocalDeclCache[Canon];
@@ -1543,7 +1544,7 @@ const Decl *ASTWriter::getFirstLocalDecl(const Decl *D) {
     return CacheEntry;
 
   for (const Decl *Redecl = D; Redecl; Redecl = Redecl->getPreviousDecl())
-    if (isLocalDecl(*this, Redecl))
+    if (IsLocalDecl(Redecl))
       D = Redecl;
   return CacheEntry = D;
 }
@@ -2100,7 +2101,7 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
     if (IDR == 0)
       IDR = NextDeclID++;
     
-    ID= IDR;
+    ID = IDR;
   }
 
   bool isReplacingADecl = ID < FirstDeclID;

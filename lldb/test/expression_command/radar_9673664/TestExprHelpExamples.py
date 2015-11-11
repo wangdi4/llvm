@@ -19,11 +19,10 @@ class Radar9673644TestCase(TestBase):
         self.main_source = "main.c"
         self.line = line_number(self.main_source, '// Set breakpoint here.')
 
-    @expectedFailureDarwin(15641319)
     @expectedFailureWindows("llvm.org/pr21765")
     def test_expr_commands(self):
         """The following expression commands should just work."""
-        self.buildDefault()
+        self.build()
 
         self.runCmd("file a.out", CURRENT_EXECUTABLE_SET)
 

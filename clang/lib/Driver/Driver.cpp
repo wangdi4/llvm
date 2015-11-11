@@ -11,6 +11,7 @@
 #include "InputInfo.h"
 #include "ToolChains.h"
 #include "clang/Basic/Version.h"
+#include "clang/Basic/VirtualFileSystem.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Action.h"
 #include "clang/Driver/Compilation.h"
@@ -46,9 +47,11 @@ using namespace clang;
 using namespace llvm::opt;
 
 Driver::Driver(StringRef ClangExecutable, StringRef DefaultTargetTriple,
-               DiagnosticsEngine &Diags)
-    : Opts(createDriverOptTable()), Diags(Diags), Mode(GCCMode),
-      SaveTemps(SaveTempsNone), ClangExecutable(ClangExecutable),
+               DiagnosticsEngine &Diags,
+               IntrusiveRefCntPtr<vfs::FileSystem> VFS)
+    : Opts(createDriverOptTable()), Diags(Diags), VFS(VFS), Mode(GCCMode),
+      SaveTemps(SaveTempsNone), LTOMode(LTOK_None),
+      ClangExecutable(ClangExecutable),
       SysRoot(DEFAULT_SYSROOT), UseStdLib(true),
       DefaultTargetTriple(DefaultTargetTriple),
       DriverTitle("clang LLVM compiler"), CCPrintOptionsFilename(nullptr),
@@ -57,8 +60,13 @@ Driver::Driver(StringRef ClangExecutable, StringRef DefaultTargetTriple,
       CCGenDiagnostics(false), CCCGenericGCCName(""), CheckInputsExist(true),
       CCCUsePCH(true), SuppressMissingInputWarning(false) {
 
+  // Provide a sane fallback if no VFS is specified.
+  if (!this->VFS)
+    this->VFS = vfs::getRealFileSystem();
+
   Name = llvm::sys::path::filename(ClangExecutable);
   Dir = llvm::sys::path::parent_path(ClangExecutable);
+  InstalledDir = Dir; // Provide a sensible default installed dir.
 
   // Compute the path to the resource directory.
   StringRef ClangResourceDir(CLANG_RESOURCE_DIR);
@@ -215,7 +223,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
       DAL->AddFlagArg(A, Opts->getOption(options::OPT_Z_Xlinker__no_demangle));
 
       // Add the remaining values as Xlinker arguments.
-      for (const StringRef Val : A->getValues())
+      for (StringRef Val : A->getValues())
         if (Val != "--no-demangle")
           DAL->AddSeparateArg(A, Opts->getOption(options::OPT_Xlinker), Val);
 
@@ -259,7 +267,7 @@ DerivedArgList *Driver::TranslateInputArgs(const InputArgList &Args) const {
     // Pick up inputs via the -- option.
     if (A->getOption().matches(options::OPT__DASH_DASH)) {
       A->claim();
-      for (const StringRef Val : A->getValues())
+      for (StringRef Val : A->getValues())
         DAL->append(MakeInputArg(*DAL, Opts, Val));
       continue;
     }
@@ -359,6 +367,31 @@ static llvm::Triple computeTargetTriple(StringRef DefaultTargetTriple,
   return Target;
 }
 
+// \brief Parse the LTO options and record the type of LTO compilation
+// based on which -f(no-)?lto(=.*)? option occurs last.
+void Driver::setLTOMode(const llvm::opt::ArgList &Args) {
+  LTOMode = LTOK_None;
+  if (!Args.hasFlag(options::OPT_flto, options::OPT_flto_EQ,
+                    options::OPT_fno_lto, false))
+    return;
+
+  StringRef LTOName("full");
+
+  const Arg *A = Args.getLastArg(options::OPT_flto_EQ);
+  if (A) LTOName = A->getValue();
+
+  LTOMode = llvm::StringSwitch<LTOKind>(LTOName)
+                .Case("full", LTOK_Full)
+                .Case("thin", LTOK_Thin)
+                .Default(LTOK_Unknown);
+
+  if (LTOMode == LTOK_Unknown) {
+    assert(A);
+    Diag(diag::err_drv_unsupported_option_argument) << A->getOption().getName()
+                                                    << A->getValue();
+  }
+}
+
 Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
   llvm::PrettyStackTraceString CrashInfo("Compilation construction");
 
@@ -413,6 +446,7 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
     // clang-cl targets MSVC-style Win32.
     llvm::Triple T(DefaultTargetTriple);
     T.setOS(llvm::Triple::Win32);
+    T.setVendor(llvm::Triple::PC);
     T.setEnvironment(llvm::Triple::MSVC);
     DefaultTargetTriple = T.str();
   }
@@ -440,6 +474,8 @@ Compilation *Driver::BuildCompilation(ArrayRef<const char *> ArgList) {
                     .Case("obj", SaveTempsObj)
                     .Default(SaveTempsCwd);
   }
+
+  setLTOMode(Args);
 
   std::unique_ptr<llvm::opt::InputArgList> UArgs =
       llvm::make_unique<InputArgList>(std::move(Args));
@@ -919,12 +955,15 @@ static unsigned PrintActions1(const Compilation &C, Action *A,
     } else
       AL = &A->getInputs();
 
-    const char *Prefix = "{";
-    for (Action *PreRequisite : *AL) {
-      os << Prefix << PrintActions1(C, PreRequisite, Ids);
-      Prefix = ", ";
-    }
-    os << "}";
+    if (AL->size()) {
+      const char *Prefix = "{";
+      for (Action *PreRequisite : *AL) {
+        os << Prefix << PrintActions1(C, PreRequisite, Ids);
+        Prefix = ", ";
+      }
+      os << "}";
+    } else
+      os << "{}";
   }
 
   unsigned Id = Ids.size();
@@ -950,8 +989,8 @@ static bool ContainsCompileOrAssembleAction(const Action *A) {
       isa<AssembleJobAction>(A))
     return true;
 
-  for (Action::const_iterator it = A->begin(), ie = A->end(); it != ie; ++it)
-    if (ContainsCompileOrAssembleAction(*it))
+  for (const Action *Input : *A)
+    if (ContainsCompileOrAssembleAction(Input))
       return true;
 
   return false;
@@ -992,9 +1031,7 @@ void Driver::BuildUniversalActions(const ToolChain &TC, DerivedArgList &Args,
 
   // Add in arch bindings for every top level action, as well as lipo and
   // dsymutil steps if needed.
-  for (unsigned i = 0, e = SingleActions.size(); i != e; ++i) {
-    Action *Act = SingleActions[i];
-
+  for (Action* Act : SingleActions) {
     // Make sure we can lipo this kind of output. If not (and it is an actual
     // output) then we disallow, since we can't create an output file with the
     // right name without overwriting it. We could remove this oddity by just
@@ -1244,6 +1281,18 @@ static std::unique_ptr<Action>
 buildCudaActions(const Driver &D, const ToolChain &TC, DerivedArgList &Args,
                  const Arg *InputArg, std::unique_ptr<Action> HostAction,
                  ActionList &Actions) {
+  // Figure out which NVPTX triple to use for device-side compilation based on
+  // whether host is 64-bit.
+  const char *DeviceTriple = TC.getTriple().isArch64Bit()
+                                 ? "nvptx64-nvidia-cuda"
+                                 : "nvptx-nvidia-cuda";
+  Arg *PartialCompilationArg = Args.getLastArg(options::OPT_cuda_host_only,
+                                               options::OPT_cuda_device_only);
+  // Host-only compilation case.
+  if (PartialCompilationArg &&
+      PartialCompilationArg->getOption().matches(options::OPT_cuda_host_only))
+    return std::unique_ptr<Action>(
+        new CudaHostAction(std::move(HostAction), {}, DeviceTriple));
 
   // Collect all cuda_gpu_arch parameters, removing duplicates.
   SmallVector<const char *, 4> GpuArchList;
@@ -1281,15 +1330,9 @@ buildCudaActions(const Driver &D, const ToolChain &TC, DerivedArgList &Args,
     }
   }
 
-  // Figure out which NVPTX triple to use for device-side compilation based on
-  // whether host is 64-bit.
-  const char *DeviceTriple = TC.getTriple().isArch64Bit()
-                                 ? "nvptx64-nvidia-cuda"
-                                 : "nvptx-nvidia-cuda";
-
   // Figure out what to do with device actions -- pass them as inputs to the
   // host action or run each of them independently.
-  bool DeviceOnlyCompilation = Args.hasArg(options::OPT_cuda_device_only);
+  bool DeviceOnlyCompilation = PartialCompilationArg != nullptr;
   if (PartialCompilation || DeviceOnlyCompilation) {
     // In case of partial or device-only compilation results of device actions
     // are not consumed by the host action device actions have to be added to
@@ -1322,7 +1365,7 @@ buildCudaActions(const Driver &D, const ToolChain &TC, DerivedArgList &Args,
   // Return a new host action that incorporates original host action and all
   // device actions.
   return std::unique_ptr<Action>(
-      new CudaHostAction(std::move(HostAction), DeviceActions));
+      new CudaHostAction(std::move(HostAction), DeviceActions, DeviceTriple));
 }
 
 void Driver::BuildActions(const ToolChain &TC, DerivedArgList &Args,
@@ -1422,11 +1465,8 @@ void Driver::BuildActions(const ToolChain &TC, DerivedArgList &Args,
       continue;
     }
 
-    phases::ID CudaInjectionPhase;
-    bool InjectCuda = (InputType == types::TY_CUDA &&
-                       !Args.hasArg(options::OPT_cuda_host_only));
-    CudaInjectionPhase = FinalPhase;
-    for (auto &Phase : PL)
+    phases::ID CudaInjectionPhase = FinalPhase;
+    for (const auto &Phase : PL)
       if (Phase <= FinalPhase && Phase == phases::Compile) {
         CudaInjectionPhase = Phase;
         break;
@@ -1458,7 +1498,7 @@ void Driver::BuildActions(const ToolChain &TC, DerivedArgList &Args,
       // Otherwise construct the appropriate action.
       Current = ConstructPhaseAction(TC, Args, Phase, std::move(Current));
 
-      if (InjectCuda && Phase == CudaInjectionPhase) {
+      if (InputType == types::TY_CUDA && Phase == CudaInjectionPhase) {
         Current = buildCudaActions(*this, TC, Args, InputArg,
                                    std::move(Current), Actions);
         if (!Current)
@@ -1555,7 +1595,7 @@ Driver::ConstructPhaseAction(const ToolChain &TC, const ArgList &Args,
                                                types::TY_LLVM_BC);
   }
   case phases::Backend: {
-    if (IsUsingLTO(Args)) {
+    if (isUsingLTO()) {
       types::ID Output =
           Args.hasArg(options::OPT_S) ? types::TY_LTO_IR : types::TY_LTO_BC;
       return llvm::make_unique<BackendJobAction>(std::move(Input), Output);
@@ -1574,10 +1614,6 @@ Driver::ConstructPhaseAction(const ToolChain &TC, const ArgList &Args,
   }
 
   llvm_unreachable("invalid phase in ConstructPhaseAction");
-}
-
-bool Driver::IsUsingLTO(const ArgList &Args) const {
-  return Args.hasFlag(options::OPT_flto, options::OPT_fno_lto, false);
 }
 
 void Driver::BuildJobs(Compilation &C) const {
@@ -2249,6 +2285,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
     case llvm::Triple::CUDA:
       TC = new toolchains::CudaToolChain(*this, Target, Args);
       break;
+    case llvm::Triple::PS4:
+      TC = new toolchains::PS4CPU(*this, Target, Args);
+      break;
     default:
       // Of these targets, Hexagon is the only one that might have
       // an OS of Linux, in which case it got handled above already.
@@ -2262,15 +2301,14 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       case llvm::Triple::xcore:
         TC = new toolchains::XCoreToolChain(*this, Target, Args);
         break;
-      case llvm::Triple::shave:
-        TC = new toolchains::SHAVEToolChain(*this, Target, Args);
-        break;
       case llvm::Triple::wasm32:
       case llvm::Triple::wasm64:
         TC = new toolchains::WebAssembly(*this, Target, Args);
         break;
       default:
-        if (Target.isOSBinFormatELF())
+        if (Target.getVendor() == llvm::Triple::Myriad)
+          TC = new toolchains::MyriadToolChain(*this, Target, Args);
+        else if (Target.isOSBinFormatELF())
           TC = new toolchains::Generic_ELF(*this, Target, Args);
         else if (Target.isOSBinFormatMachO())
           TC = new toolchains::MachO(*this, Target, Args);

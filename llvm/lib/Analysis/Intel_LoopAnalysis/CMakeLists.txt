@@ -11,5 +11,10 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   DDAnalysis.cpp
   SymbaseAssignment.cpp
   DDTests.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
   )
+
 add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen)

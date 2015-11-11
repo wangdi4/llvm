@@ -2,5 +2,11 @@ add_llvm_library(LLVMIntel_LoopUtils
   CanonExprUtils.cpp
   DDRefUtils.cpp
   HLNodeUtils.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms/Intel_LoopTransforms/Utils
   )
-add_dependencies(LLVMIntel_LoopUtils LLVMIntel_LoopIR)
+
+add_dependencies(LLVMIntel_LoopUtils intrinsics_gen)

@@ -1208,6 +1208,11 @@ static Instruction *matchDeMorgansLaws(BinaryOperator &I,
   auto Opcode = I.getOpcode();
   assert((Opcode == Instruction::And || Opcode == Instruction::Or) &&
          "Trying to match De Morgan's Laws with something other than and/or");
+  // Flip the logic operation.
+  if (Opcode == Instruction::And)
+    Opcode = Instruction::Or;
+  else
+    Opcode = Instruction::And;
 
   Value *Op0 = I.getOperand(0);
   Value *Op1 = I.getOperand(1);
@@ -1215,15 +1220,30 @@ static Instruction *matchDeMorgansLaws(BinaryOperator &I,
   if (Value *Op0NotVal = dyn_castNotVal(Op0))
     if (Value *Op1NotVal = dyn_castNotVal(Op1))
       if (Op0->hasOneUse() && Op1->hasOneUse()) {
-        // Flip the logic operation.
-        if (Opcode == Instruction::And)
-          Opcode = Instruction::Or;
-        else
-          Opcode = Instruction::And;
         Value *LogicOp = Builder->CreateBinOp(Opcode, Op0NotVal, Op1NotVal,
                                               I.getName() + ".demorgan");
         return BinaryOperator::CreateNot(LogicOp);
       }
+
+  // De Morgan's Law in disguise:
+  // (zext(bool A) ^ 1) & (zext(bool B) ^ 1) -> zext(~(A | B))
+  // (zext(bool A) ^ 1) | (zext(bool B) ^ 1) -> zext(~(A & B))
+  Value *A = nullptr;
+  Value *B = nullptr;
+  ConstantInt *C1 = nullptr;
+  if (match(Op0, m_OneUse(m_Xor(m_ZExt(m_Value(A)), m_ConstantInt(C1)))) &&
+      match(Op1, m_OneUse(m_Xor(m_ZExt(m_Value(B)), m_Specific(C1))))) {
+    // TODO: This check could be loosened to handle different type sizes.
+    // Alternatively, we could fix the definition of m_Not to recognize a not
+    // operation hidden by a zext?
+    if (A->getType()->isIntegerTy(1) && B->getType()->isIntegerTy(1) &&
+        C1->isOne()) {
+      Value *LogicOp = Builder->CreateBinOp(Opcode, A, B,
+                                            I.getName() + ".demorgan");
+      Value *Not = Builder->CreateNot(LogicOp);
+      return CastInst::CreateZExtOrBitCast(Not, I.getType());
+    }
+  }
 
   return nullptr;
 }
@@ -1468,14 +1488,15 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
         return ReplaceInstUsesWith(I, Res);
 
 
-  // fold (and (cast A), (cast B)) -> (cast (and A, B))
-  if (CastInst *Op0C = dyn_cast<CastInst>(Op0))
+  if (CastInst *Op0C = dyn_cast<CastInst>(Op0)) {
+    Value *Op0COp = Op0C->getOperand(0);
+    Type *SrcTy = Op0COp->getType();
+    // fold (and (cast A), (cast B)) -> (cast (and A, B))
     if (CastInst *Op1C = dyn_cast<CastInst>(Op1)) {
-      Type *SrcTy = Op0C->getOperand(0)->getType();
       if (Op0C->getOpcode() == Op1C->getOpcode() && // same cast kind ?
           SrcTy == Op1C->getOperand(0)->getType() &&
           SrcTy->isIntOrIntVectorTy()) {
-        Value *Op0COp = Op0C->getOperand(0), *Op1COp = Op1C->getOperand(0);
+        Value *Op1COp = Op1C->getOperand(0);
 
         // Only do this if the casts both really cause code to be generated.
         if (ShouldOptimizeCast(Op0C->getOpcode(), Op0COp, I.getType()) &&
@@ -1499,6 +1520,20 @@ Instruction *InstCombiner::visitAnd(BinaryOperator &I) {
               return CastInst::Create(Op0C->getOpcode(), Res, I.getType());
       }
     }
+
+    // If we are masking off the sign bit of a floating-point value, convert
+    // this to the canonical fabs intrinsic call and cast back to integer.
+    // The backend should know how to optimize fabs().
+    // TODO: This transform should also apply to vectors.
+    ConstantInt *CI;
+    if (isa<BitCastInst>(Op0C) && SrcTy->isFloatingPointTy() &&
+        match(Op1, m_ConstantInt(CI)) && CI->isMaxValue(true)) {
+      Module *M = I.getParent()->getParent()->getParent();
+      Function *Fabs = Intrinsic::getDeclaration(M, Intrinsic::fabs, SrcTy);
+      Value *Call = Builder->CreateCall(Fabs, Op0COp, "fabs");
+      return CastInst::CreateBitOrPointerCast(Call, I.getType());
+    }
+  }
 
   {
     Value *X = nullptr;
@@ -2219,120 +2254,19 @@ Instruction *InstCombiner::visitOr(BinaryOperator &I) {
   Value *A = nullptr, *B = nullptr;
   ConstantInt *C1 = nullptr, *C2 = nullptr;
 
-#if INTEL_CUSTOMIZATION
-  // Try to identify bswap when encountering an OR operation.
-  //
-  // To do a bswap. the 2 input values to the OR can be mask or shift or OR.
-  //
-  // case 1. masks can happen before shifts. check for
-  // ((A&Mask) >> B) | ((C&Mask) << D)
-  //
-  // case 2. shifts can also happen before the masks. so also check for 
-  // ((A>>B) & Mask) | ((C<<D) & Mask)
-  //
-  // case 3. 1 of the input values to the OR can also be an OR.
-  // A = A | ((B & Mask) << C)
-  //
-  // === case 1/2 ===
-  // e.g.
-  // uint64_t
-  // byteswap_64b_logn(uint64_t r) {
-  //     r = ((r & 0xFFFFFFFF00000000u)>>32) | ((r & 0x00000000FFFFFFFFu)<<32);
-  //     r = ((r & 0xFFFF0000FFFF0000u)>>16) | ((r & 0x0000FFFF0000FFFFu)<<16);
-  //     r = ((r & 0xFF00FF00FF00FF00u)>>8)  | ((r & 0x00FF00FF00FF00FFu) <<8);
-  //     return r;
-  // }
-  //
-  // === ******* Generated LLVM IR ******* ===
-  //
-  // define i64 @byteswap_64b_logn(i64 %r) #0 {
-  //   %1 = and i64 %r, -4294967296
-  //   %2 = lshr i64 %1, 32
-  //   %3 = and i64 %r, 4294967295
-  //   %4 = shl i64 %3, 32
-  //   %5 = or i64 %2, %4
-  //   %6 = and i64 %5, -281470681808896
-  //   %7 = lshr i64 %6, 16
-  //   %8 = and i64 %5, 281470681808895
-  //   %9 = shl i64 %8, 16
-  //   %10 = or i64 %7, %9
-  //   %11 = and i64 %10, -71777214294589696
-  //   %12 = lshr i64 %11, 8
-  //   %13 = and i64 %10, 71777214294589695
-  //   %14 = shl i64 %13, 8
-  //   %15 = or i64 %12, %14 //// HERE <------- operands can be masks or shifts.
-  //   ret i64 %15
-  // }
-  //
-  // === case 3 ===
-  // To do a bswap. 1 of the input values to the OR can also be OR.
-  //
-  // e.g.
-  // uint64_t
-  // byteswap_64b_n (uint64_t result) {
-  //    result = (((result& 0x00000000000000FFu) << 56)  |
-  //             ((result & 0xFF00000000000000u) >> 56)  |
-  //             ((result & 0x000000000000FF00u) << 40)  |
-  //             ((result & 0x00FF000000000000u) >> 40)  |
-  //             ((result & 0x0000000000FF0000u) << 24)  |
-  //             ((result & 0x0000FF0000000000u) >> 24)  |
-  //             ((result & 0x000000FF00000000u) >> 8)   |
-  //             ((result & 0x00000000FF000000u) << 8));
-  //    return result;
-  // }
-  //
-  // === ******* Generated LLVM IR ******* ===
-  //
-  // define i64 @byteswap_64b_n(i64 %result) #0 {
-  // entry:
-  //  %and = and i64 %result, 255
-  //  %shl = shl i64 %and, 56
-  //  %and1 = and i64 %result, -72057594037927936
-  //  %shr = lshr i64 %and1, 56
-  //  %or = or i64 %shl, %shr
-  //  %and2 = and i64 %result, 65280
-  //  %shl3 = shl i64 %and2, 40
-  //  %or4 = or i64 %or, %shl3
-  //  %and5 = and i64 %result, 71776119061217280
-  //  %shr6 = lshr i64 %and5, 40
-  //  %or7 = or i64 %or4, %shr6
-  //  %and8 = and i64 %result, 16711680
-  //  %shl9 = shl i64 %and8, 24
-  //  %or10 = or i64 %or7, %shl9
-  //  %and11 = and i64 %result, 280375465082880
-  //  %shr12 = lshr i64 %and11, 24
-  //  %or13 = or i64 %or10, %shr12
-  //  %and14 = and i64 %result, 1095216660480
-  //  %shr15 = lshr i64 %and14, 8
-  //  %or16 = or i64 %or13, %shr15
-  //  %and17 = and i64 %result, 4278190080
-  //  %shl18 = shl i64 %and17, 8
-  //  %or19 = or i64 %or16, %shl18
-  //  ret i64 %or19
-  // }
-  //
-  // The following logic tries to call MatchBSwap on any OR instruction
-  // with its operands being the cases mentioned above. i.e.
-  //
-  // case 1. 2 masks  (masks happen after shifts).
-  // case 2. 2 shifts (shifts happen after masks).
-  // case 3. 1 of the input values to the OR can also be an OR.
-  //
-  // This changes relies on MatchBSwap being able to detect bswap operation
-  // sequences. Instead of relying on IR pattern matching, MatchBSwap climbs
-  // up the IR and performs a byte level simulation of the operations 
-  // feeding to the OR instruction. It will detect bswap operations if
-  // the instructions sequence is actually doing a bswap.
-  if ((match(Op0, m_And(m_Value(), m_Value())) &&
-      match(Op1, m_And(m_Value(), m_Value()))) ||
-      (match(Op0, m_LogicalShift(m_Value(), m_Value())) &&
-      match(Op1, m_LogicalShift(m_Value(), m_Value()))) ||
-      match(Op0, m_Or(m_Value(), m_Value())) ||
-      match(Op1, m_Or(m_Value(), m_Value()))) {
+  // (A | B) | C  and  A | (B | C)                  -> bswap if possible.
+  bool OrOfOrs = match(Op0, m_Or(m_Value(), m_Value())) ||
+                 match(Op1, m_Or(m_Value(), m_Value()));
+  // (A >> B) | (C << D)  and  (A << B) | (B >> C)  -> bswap if possible.
+  bool OrOfShifts = match(Op0, m_LogicalShift(m_Value(), m_Value())) &&
+                    match(Op1, m_LogicalShift(m_Value(), m_Value()));
+  // (A & B) | (C & D)                              -> bswap if possible.
+  bool OrOfAnds = match(Op0, m_And(m_Value(), m_Value())) &&
+                  match(Op1, m_And(m_Value(), m_Value()));
+
+  if (OrOfOrs || OrOfShifts || OrOfAnds)
     if (Instruction *BSwap = MatchBSwap(I))
       return BSwap;
-  }
-#endif
 
   // (X^C)|Y -> (X|Y)^C iff Y&C == 0
   if (Op0->hasOneUse() &&

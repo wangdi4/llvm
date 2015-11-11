@@ -1,4 +1,4 @@
-//===-- CPlusPlusLanguage.h ----------------------------------------*- C++ -*-===//
+//===-- CPlusPlusLanguage.h -------------------------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -116,10 +116,10 @@ public:
         bool m_parse_error;
     };
 
-    virtual ~CPlusPlusLanguage() = default;
-    
-    CPlusPlusLanguage () = default;
-    
+    CPlusPlusLanguage() = default;
+
+    ~CPlusPlusLanguage() override = default;
+
     lldb::LanguageType
     GetLanguageType () const override
     {
@@ -128,6 +128,12 @@ public:
     
     lldb::TypeCategoryImplSP
     GetFormatters () override;
+    
+    HardcodedFormatters::HardcodedSummaryFinder
+    GetHardcodedSummaries () override;
+    
+    HardcodedFormatters::HardcodedSyntheticFinder
+    GetHardcodedSynthetics () override;
     
     //------------------------------------------------------------------
     // Static Functions
@@ -165,17 +171,16 @@ public:
     static uint32_t
     FindEquivalentNames(ConstString type_name, std::vector<ConstString>& equivalents);
 
-    
     //------------------------------------------------------------------
     // PluginInterface protocol
     //------------------------------------------------------------------
-    virtual ConstString
+    ConstString
     GetPluginName() override;
     
-    virtual uint32_t
+    uint32_t
     GetPluginVersion() override;
 };
     
 } // namespace lldb_private
 
-#endif  // liblldb_CPlusPlusLanguage_h_
+#endif // liblldb_CPlusPlusLanguage_h_

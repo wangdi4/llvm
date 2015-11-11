@@ -6,12 +6,14 @@ add_clang_library(clangTidyReadabilityModule
   ElseAfterReturnCheck.cpp
   FunctionSizeCheck.cpp
   IdentifierNamingCheck.cpp
+  InconsistentDeclarationParameterNameCheck.cpp
   NamedParameterCheck.cpp
   NamespaceCommentCheck.cpp
   ReadabilityTidyModule.cpp
   RedundantStringCStrCheck.cpp
   RedundantSmartptrGetCheck.cpp
   SimplifyBooleanExprCheck.cpp
+  UniqueptrDeleteReleaseCheck.cpp
 
   LINK_LIBS
   clangAST

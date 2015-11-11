@@ -18,9 +18,10 @@
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/State.h"
 #include "lldb/Core/StreamFile.h"
-#include "lldb/Expression/ClangUserExpression.h"
+#include "lldb/Expression/UserExpression.h"
 #include "lldb/Expression/IRDynamicChecks.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
+#include "lldb/Host/FileSystem.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/Pipe.h"
@@ -316,8 +317,12 @@ ProcessInstanceInfo::Dump (Stream &s, Platform *platform) const
         }
     }
 
-    if (m_arch.IsValid())                       
-        s.Printf ("   arch = %s\n", m_arch.GetTriple().str().c_str());
+    if (m_arch.IsValid())
+    {
+        s.Printf ("   arch = ");
+        m_arch.DumpTriple(s);
+        s.EOL();
+    }
 
     if (m_uid != UINT32_MAX)
     {
@@ -370,7 +375,10 @@ ProcessInstanceInfo::DumpAsTableRow (Stream &s, Platform *platform, bool show_ar
         const char *cstr;
         s.Printf ("%-6" PRIu64 " %-6" PRIu64 " ", m_pid, m_parent_pid);
 
-    
+        StreamString arch_strm;
+        if (m_arch.IsValid())
+            m_arch.DumpTriple(arch_strm);
+
         if (verbose)
         {
             cstr = platform->GetUserName (m_uid);
@@ -396,13 +404,14 @@ ProcessInstanceInfo::DumpAsTableRow (Stream &s, Platform *platform, bool show_ar
                 s.Printf ("%-10s ", cstr);
             else
                 s.Printf ("%-10u ", m_egid);
-            s.Printf ("%-24s ", m_arch.IsValid() ? m_arch.GetTriple().str().c_str() : "");
+
+            s.Printf ("%-24s ", arch_strm.GetString().c_str());
         }
         else
         {
             s.Printf ("%-10s %-24s ",
                       platform->GetUserName (m_euid),
-                      m_arch.IsValid() ? m_arch.GetTriple().str().c_str() : "");
+                      arch_strm.GetString().c_str());
         }
 
         if (verbose || show_args)
@@ -470,7 +479,7 @@ ProcessLaunchCommandOptions::SetOptionValue (uint32_t option_idx, const char *op
         case 'n':   // Disable STDIO
         {
             FileAction action;
-            const FileSpec dev_null{"/dev/null", false};
+            const FileSpec dev_null{FileSystem::DEV_NULL, false};
             if (action.Open(STDIN_FILENO, dev_null, true, false))
                 launch_info.AppendFileAction (action);
             if (action.Open(STDOUT_FILENO, dev_null, false, true))
@@ -804,6 +813,13 @@ Process::Process(lldb::TargetSP target_sp, Listener &listener, const UnixSignals
                                                      eBroadcastInternalStateControlResume);
     // We need something valid here, even if just the default UnixSignalsSP.
     assert (m_unix_signals_sp && "null m_unix_signals_sp after initialization");
+
+    // Allow the platform to override the default cache line size
+    OptionValueSP value_sp =
+        m_collection_sp->GetPropertyAtIndex(nullptr, true, ePropertyMemCacheLineSize)->GetValue();
+    uint32_t platform_cache_line_size = target_sp->GetPlatform()->GetDefaultMemoryCacheLineSize();
+    if (! value_sp->OptionWasSet() && platform_cache_line_size != 0)
+        value_sp->SetUInt64Value(platform_cache_line_size);
 }
 
 //----------------------------------------------------------------------
@@ -1917,6 +1933,7 @@ Process::LoadImage (const FileSpec &image_spec, Error &error)
                 expr_options.SetIgnoreBreakpoints(true);
                 expr_options.SetExecutionPolicy(eExecutionPolicyAlways);
                 expr_options.SetResultIsInternal(true);
+                expr_options.SetLanguage(eLanguageTypeC_plus_plus);
                 
                 StreamString expr;
                 expr.Printf(R"(
@@ -1939,12 +1956,12 @@ Process::LoadImage (const FileSpec &image_spec, Error &error)
                                         )";
                 lldb::ValueObjectSP result_valobj_sp;
                 Error expr_error;
-                ClangUserExpression::Evaluate (exe_ctx,
-                                               expr_options,
-                                               expr.GetData(),
-                                               prefix,
-                                               result_valobj_sp,
-                                               expr_error);
+                UserExpression::Evaluate (exe_ctx,
+                                          expr_options,
+                                          expr.GetData(),
+                                          prefix,
+                                          result_valobj_sp,
+                                          expr_error);
                 if (expr_error.Success())
                 {
                     error = result_valobj_sp->GetError();
@@ -2044,17 +2061,19 @@ Process::UnloadImage (uint32_t image_token)
                         expr_options.SetUnwindOnError(true);
                         expr_options.SetIgnoreBreakpoints(true);
                         expr_options.SetExecutionPolicy(eExecutionPolicyAlways);
+                        expr_options.SetLanguage(eLanguageTypeC_plus_plus);
+                        
                         StreamString expr;
                         expr.Printf("dlclose ((void *)0x%" PRIx64 ")", image_addr);
                         const char *prefix = "extern \"C\" int dlclose(void* handle);\n";
                         lldb::ValueObjectSP result_valobj_sp;
                         Error expr_error;
-                        ClangUserExpression::Evaluate (exe_ctx,
-                                                       expr_options,
-                                                       expr.GetData(),
-                                                       prefix,
-                                                       result_valobj_sp,
-                                                       expr_error);
+                        UserExpression::Evaluate (exe_ctx,
+                                                  expr_options,
+                                                  expr.GetData(),
+                                                  prefix,
+                                                  result_valobj_sp,
+                                                  expr_error);
                         if (result_valobj_sp->GetError().Success())
                         {
                             Scalar scalar;
@@ -3913,52 +3932,52 @@ Process::Halt (bool clear_thread_plans)
 }
 
 Error
-Process::HaltForDestroyOrDetach(lldb::EventSP &exit_event_sp)
+Process::StopForDestroyOrDetach(lldb::EventSP &exit_event_sp)
 {
     Error error;
     if (m_public_state.GetValue() == eStateRunning)
     {
         Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
         if (log)
-            log->Printf("Process::%s() About to halt.", __FUNCTION__);
-        error = Halt();
-        if (error.Success())
-        {
-            // Consume the halt event.
-            TimeValue timeout (TimeValue::Now());
-            timeout.OffsetWithSeconds(1);
-            StateType state = WaitForProcessToStop (&timeout, &exit_event_sp);
-            
-            // If the process exited while we were waiting for it to stop, put the exited event into
-            // the shared pointer passed in and return.  Our caller doesn't need to do anything else, since
-            // they don't have a process anymore...
-            
-            if (state == eStateExited || m_private_state.GetValue() == eStateExited)
-            {
-                if (log)
-                    log->Printf("Process::HaltForDestroyOrDetach() Process exited while waiting to Halt.");
-                return error;
-            }
-            else
-                exit_event_sp.reset(); // It is ok to consume any non-exit stop events
-    
-            if (state != eStateStopped)
-            {
-                if (log)
-                    log->Printf("Process::HaltForDestroyOrDetach() Halt failed to stop, state is: %s", StateAsCString(state));
-                // If we really couldn't stop the process then we should just error out here, but if the
-                // lower levels just bobbled sending the event and we really are stopped, then continue on.
-                StateType private_state = m_private_state.GetValue();
-                if (private_state != eStateStopped)
-                {
-                    return error;
-                }
-            }
-        }
-        else
+            log->Printf("Process::%s() About to stop.", __FUNCTION__);
+
+        ListenerSP listener_sp (new Listener("lldb.Process.StopForDestroyOrDetach.hijack"));
+        HijackProcessEvents(listener_sp.get());
+
+        SendAsyncInterrupt();
+
+        // Consume the interrupt event.
+        TimeValue timeout (TimeValue::Now());
+        timeout.OffsetWithSeconds(10);
+
+        StateType state = WaitForProcessToStop (&timeout, &exit_event_sp, true, listener_sp.get());
+
+        RestoreProcessEvents();
+
+        // If the process exited while we were waiting for it to stop, put the exited event into
+        // the shared pointer passed in and return.  Our caller doesn't need to do anything else, since
+        // they don't have a process anymore...
+
+        if (state == eStateExited || m_private_state.GetValue() == eStateExited)
         {
             if (log)
-                log->Printf("Process::HaltForDestroyOrDetach() Halt got error: %s", error.AsCString());
+                log->Printf("Process::%s() Process exited while waiting to stop.", __FUNCTION__);
+            return error;
+        }
+        else
+            exit_event_sp.reset(); // It is ok to consume any non-exit stop events
+
+        if (state != eStateStopped)
+        {
+            if (log)
+                log->Printf("Process::%s() failed to stop, state is: %s", __FUNCTION__, StateAsCString(state));
+            // If we really couldn't stop the process then we should just error out here, but if the
+            // lower levels just bobbled sending the event and we really are stopped, then continue on.
+            StateType private_state = m_private_state.GetValue();
+            if (private_state != eStateStopped)
+            {
+                return error;
+            }
         }
     }
     return error;
@@ -3977,7 +3996,7 @@ Process::Detach (bool keep_stopped)
     {
         if (DetachRequiresHalt())
         {
-            error = HaltForDestroyOrDetach (exit_event_sp);
+            error = StopForDestroyOrDetach (exit_event_sp);
             if (!error.Success())
             {
                 m_destroy_in_process = false;
@@ -4051,7 +4070,7 @@ Process::Destroy (bool force_kill)
         EventSP exit_event_sp;
         if (DestroyRequiresHalt())
         {
-            error = HaltForDestroyOrDetach(exit_event_sp);
+            error = StopForDestroyOrDetach(exit_event_sp);
         }
         
         if (m_public_state.GetValue() != eStateRunning)
@@ -5228,7 +5247,7 @@ public:
                                 break;
                             case 'i':
                                 if (StateIsRunningState(m_process->GetState()))
-                                    m_process->Halt();
+                                    m_process->SendAsyncInterrupt();
                                 break;
                         }
                     }
@@ -5253,8 +5272,8 @@ public:
         // Do only things that are safe to do in an interrupt context (like in
         // a SIGINT handler), like write 1 byte to a file descriptor. This will
         // interrupt the IOHandlerProcessSTDIO::Run() and we can look at the byte
-        // that was written to the pipe and then call m_process->Halt() from a
-        // much safer location in code.
+        // that was written to the pipe and then call m_process->SendAsyncInterrupt()
+        // from a much safer location in code.
         if (m_active)
         {
             char ch = 'i'; // Send 'i' for interrupt
@@ -5364,6 +5383,53 @@ Process::SettingsTerminate ()
     Thread::SettingsTerminate ();
 }
 
+namespace
+{
+    // RestorePlanState is used to record the "is private", "is master" and "okay to discard" fields of
+    // the plan we are running, and reset it on Clean or on destruction.
+    // It will only reset the state once, so you can call Clean and then monkey with the state and it
+    // won't get reset on you again.
+    
+    class RestorePlanState
+    {
+    public:
+        RestorePlanState (lldb::ThreadPlanSP thread_plan_sp) :
+            m_thread_plan_sp(thread_plan_sp),
+            m_already_reset(false)
+        {
+            if (m_thread_plan_sp)
+            {
+                m_private = m_thread_plan_sp->GetPrivate();
+                m_is_master = m_thread_plan_sp->IsMasterPlan();
+                m_okay_to_discard = m_thread_plan_sp->OkayToDiscard();
+            }
+        }
+        
+        ~RestorePlanState()
+        {
+            Clean();
+        }
+        
+        void
+        Clean ()
+        {
+            if (!m_already_reset && m_thread_plan_sp)
+            {
+                m_already_reset = true;
+                m_thread_plan_sp->SetPrivate(m_private);
+                m_thread_plan_sp->SetIsMasterPlan (m_is_master);
+                m_thread_plan_sp->SetOkayToDiscard(m_okay_to_discard);
+            }
+        }
+    private:
+        lldb::ThreadPlanSP m_thread_plan_sp;
+        bool m_already_reset;
+        bool m_private;
+        bool m_is_master;
+        bool m_okay_to_discard;
+    };
+}
+
 ExpressionResults
 Process::RunThreadPlan (ExecutionContext &exe_ctx,
                         lldb::ThreadPlanSP &thread_plan_sp,
@@ -5397,12 +5463,22 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         return eExpressionSetupError;
     }
 
+    // We need to change some of the thread plan attributes for the thread plan runner.  This will restore them
+    // when we are done:
+    
+    RestorePlanState thread_plan_restorer(thread_plan_sp);
+    
     // We rely on the thread plan we are running returning "PlanCompleted" if when it successfully completes.
     // For that to be true the plan can't be private - since private plans suppress themselves in the
     // GetCompletedPlan call. 
 
-    bool orig_plan_private = thread_plan_sp->GetPrivate();
     thread_plan_sp->SetPrivate(false);
+    
+    // The plans run with RunThreadPlan also need to be terminal master plans or when they are done we will end
+    // up asking the plan above us whether we should stop, which may give the wrong answer.
+    
+    thread_plan_sp->SetIsMasterPlan (true);
+    thread_plan_sp->SetOkayToDiscard(false);
 
     if (m_private_state.GetValue() != eStateStopped)
     {
@@ -5832,10 +5908,10 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                                         {
                                             if (log)
                                                 log->PutCString ("Process::RunThreadPlan(): execution completed successfully.");
-                                            // Now mark this plan as private so it doesn't get reported as the stop reason
-                                            // after this point.  
-                                            if (thread_plan_sp)
-                                                thread_plan_sp->SetPrivate (orig_plan_private);
+                                            
+                                            // Restore the plan state so it will get reported as intended when we are done.
+                                            thread_plan_restorer.Clean();
+                                            
                                             return_value = eExpressionCompleted;
                                         }
                                         else
@@ -5848,6 +5924,13 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                                                 return_value = eExpressionHitBreakpoint;
                                                 if (!options.DoesIgnoreBreakpoints())
                                                 {
+                                                    // Restore the plan state and then force Private to false.  We are
+                                                    // going to stop because of this plan so we need it to become a public
+                                                    // plan or it won't report correctly when we continue to its termination
+                                                    // later on.
+                                                    thread_plan_restorer.Clean();
+                                                    if (thread_plan_sp)
+                                                        thread_plan_sp->SetPrivate(false);
                                                     event_to_broadcast_sp = event_sp;
                                                 }
                                             }
@@ -6066,6 +6149,19 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                 m_public_state.SetValueNoLock(old_state);
         }
 
+        if (return_value != eExpressionCompleted && log)
+        {
+            // Print a backtrace into the log so we can figure out where we are:
+            StreamString s;
+            s.PutCString("Thread state after unsuccessful completion: \n");
+            thread->GetStackFrameStatus (s,
+                                         0,
+                                         UINT32_MAX,
+                                         true,
+                                         UINT32_MAX);
+            log->PutCString(s.GetData());
+
+        }
         // Restore the thread state if we are going to discard the plan execution.  There are three cases where this
         // could happen:
         // 1) The execution successfully completed
@@ -6154,7 +6250,8 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                             else
                                 ts.Printf("[ip unknown] ");
 
-                            lldb::StopInfoSP stop_info_sp = thread->GetStopInfo();
+                            // Show the private stop info here, the public stop info will be from the last natural stop.
+                            lldb::StopInfoSP stop_info_sp = thread->GetPrivateStopInfo();
                             if (stop_info_sp)
                             {
                                 const char *stop_desc = stop_info_sp->GetDescription();
@@ -6180,7 +6277,6 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                     log->Printf ("Process::RunThreadPlan: ExecutionInterrupted - discarding thread plans up to %p.",
                                  static_cast<void*>(thread_plan_sp.get()));
                 thread->DiscardThreadPlansUpToPlan (thread_plan_sp);
-                thread_plan_sp->SetPrivate (orig_plan_private);
             }
             else
             {
@@ -6197,7 +6293,6 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
             if (options.DoesUnwindOnError())
             {
                 thread->DiscardThreadPlansUpToPlan (thread_plan_sp);
-                thread_plan_sp->SetPrivate (orig_plan_private);
             }
         }
         else
@@ -6223,7 +6318,6 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                     if (log)
                         log->PutCString("Process::RunThreadPlan(): discarding thread plan 'cause unwind_on_error is set.");
                     thread->DiscardThreadPlansUpToPlan (thread_plan_sp);
-                    thread_plan_sp->SetPrivate (orig_plan_private);
                 }
             }
         }
@@ -6550,6 +6644,8 @@ Process::ModulesDidLoad (ModuleList &module_list)
         if (language_runtime_sp)
             language_runtime_sp->ModulesDidLoad(module_list);
     }
+
+    LoadOperatingSystemPlugin(false);
 }
 
 void

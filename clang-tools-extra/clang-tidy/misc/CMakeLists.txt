@@ -11,9 +11,13 @@ add_clang_library(clangTidyMiscModule
   MacroRepeatedSideEffectsCheck.cpp
   MiscTidyModule.cpp
   MoveConstructorInitCheck.cpp
+  NewDeleteOverloadsCheck.cpp
   NoexceptMoveConstructorCheck.cpp
+  NonCopyableObjects.cpp
+  SizeofContainerCheck.cpp
   StaticAssertCheck.cpp
   SwappedArgumentsCheck.cpp
+  ThrowByValueCatchByReferenceCheck.cpp
   UndelegatedConstructor.cpp
   UnusedAliasDeclsCheck.cpp
   UnusedParametersCheck.cpp
@@ -26,4 +30,5 @@ add_clang_library(clangTidyMiscModule
   clangBasic
   clangLex
   clangTidy
+  clangTidyUtils
   )

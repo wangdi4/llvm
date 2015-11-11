@@ -19,6 +19,7 @@
 #include "lldb/Core/ConstString.h"
 #include "lldb/Core/RegularExpression.h"
 #include "lldb/Target/StackFrame.h"
+#include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 
 using namespace lldb;
@@ -40,6 +41,17 @@ lldb_private::formatters::AddFormat (TypeCategoryImpl::SharedPointer category_sp
         category_sp->GetTypeFormatsContainer()->Add(type_name, format_sp);
 }
 
+void
+lldb_private::formatters::AddSummary(TypeCategoryImpl::SharedPointer category_sp,
+                                     TypeSummaryImplSP summary_sp,
+                                     ConstString type_name,
+                                     bool regex)
+{
+    if (regex)
+        category_sp->GetRegexTypeSummariesContainer()->Add(RegularExpressionSP(new RegularExpression(type_name.AsCString())),summary_sp);
+    else
+        category_sp->GetTypeSummariesContainer()->Add(type_name, summary_sp);
+}
 
 void
 lldb_private::formatters::AddStringSummary(TypeCategoryImpl::SharedPointer category_sp,
@@ -176,7 +188,8 @@ bool
 lldb_private::formatters::ExtractSummaryFromObjCExpression (ValueObject &valobj,
                                                             const char* target_type,
                                                             const char* selector,
-                                                            Stream &stream)
+                                                            Stream &stream,
+                                                            lldb::LanguageType lang_type)
 {
     if (!target_type || !*target_type)
         return false;
@@ -195,6 +208,8 @@ lldb_private::formatters::ExtractSummaryFromObjCExpression (ValueObject &valobj,
     options.SetCoerceToId(false);
     options.SetUnwindOnError(true);
     options.SetKeepInMemory(true);
+    options.SetLanguage(lldb::eLanguageTypeObjC_plus_plus);
+    options.SetResultIsInternal(true);
     options.SetUseDynamic(lldb::eDynamicCanRunTarget);
     
     target->EvaluateExpression(expr.GetData(),
@@ -203,7 +218,7 @@ lldb_private::formatters::ExtractSummaryFromObjCExpression (ValueObject &valobj,
                                options);
     if (!result_sp)
         return false;
-    stream.Printf("%s",result_sp->GetSummaryAsCString());
+    stream.Printf("%s",result_sp->GetSummaryAsCString(lang_type));
     return true;
 }
 
@@ -294,4 +309,17 @@ lldb_private::formatters::ExtractIndexFromString (const char* item_name)
     if (idx == ULONG_MAX)
         return UINT32_MAX;
     return idx;
+}
+
+lldb::addr_t
+lldb_private::formatters::GetArrayAddressOrPointerValue (ValueObject& valobj)
+{
+    lldb::addr_t data_addr = LLDB_INVALID_ADDRESS;
+
+    if (valobj.IsPointerType())
+        data_addr = valobj.GetValueAsUnsigned(0);
+    else if (valobj.IsArrayType())
+        data_addr = valobj.GetAddressOf();
+
+    return data_addr;
 }

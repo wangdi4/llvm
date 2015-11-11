@@ -58,6 +58,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/LibCallSemantics.h"    // For EHPersonality
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Atomic.h"
@@ -340,6 +341,17 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+    if (F->hasPersonalityFn()) {
+      EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
+
+      if (isFuncletEHPersonality(Personality)) {
+        ValueNodes.clear();
+        return;
+      }
+    }
+  }
+
   IndirectCallList.clear();
   IdentifyObjects(M);
   CollectConstraints(M);
@@ -618,6 +630,9 @@ volatile llvm::sys::cas_flag AndersensAAResult::Node::Counter = 0;
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                         const MemoryLocation &LocB)  {
+  if (ValueNodes.size() == 0) {
+      return AAResultBase::alias(LocA, LocB);
+  }
   NumAliasQuery++; 
   if (NumAliasQuery > MaxAliasQuery) {
       return AAResultBase::alias(LocA, LocB);
@@ -752,6 +767,11 @@ ModRefInfo AndersensAAResult::getModRefInfo(ImmutableCallSite CS1,
 ///
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
                                                bool OrLocal) {
+
+  if (ValueNodes.size() == 0) {
+    return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+  }
+
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
       return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
