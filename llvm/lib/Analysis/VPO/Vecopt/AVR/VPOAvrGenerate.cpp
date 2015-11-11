@@ -31,6 +31,7 @@ INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 INITIALIZE_PASS_DEPENDENCY(IdentifyVectorCandidates)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
