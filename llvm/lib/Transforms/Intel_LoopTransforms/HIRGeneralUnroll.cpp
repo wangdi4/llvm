@@ -206,6 +206,8 @@ public:
 private:
   // Locality Analysis pointer.
   HIRLocalityAnalysis *LA;
+  // DD Analysis pointer.
+  DDAnalysis *DD;
   unsigned CurrentTripThreshold;
   unsigned UnrollFactor;
   // TODO: Remove this when loop resource is added.
@@ -222,7 +224,7 @@ private:
   /// \brief Performs the actual unrolling.
   void processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop);
   /// \brief Processes the remainder loop and determines if it necessary.
-  void processRemainderLoop(HLLoop *OrigLoop, bool IsConstLoop,
+  void processRemainderLoop(HLLoop *&OrigLoop, bool IsConstLoop,
                             int64_t TripCount, int64_t NewBound,
                             const RegDDRef *NewRef);
 
@@ -264,6 +266,7 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
 
   LA = &getAnalysis<HIRLocalityAnalysis>();
+  DD = &getAnalysis<DDAnalysis>();
   IsUnrollTriggered = false;
 
   // Do an early exit if Trip Threshold is less than 1
@@ -400,8 +403,10 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   // Update the OrigLoop to remainder loop.
   processRemainderLoop(OrigLoop, IsConstLoop, TripCount, NewConstBound, NewRef);
 
-  LA->markLoopModified(OrigLoop);
-  // TODO: Mark loops as modified for DD
+  HLLoop *ModLoop = OrigLoop ? OrigLoop : UnrollLoop->getParentLoop();
+  if (ModLoop) {
+    LA->markLoopModified(ModLoop);
+  }
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops ");
   DEBUG(UnrollLoop->dump());
@@ -535,15 +540,18 @@ void HIRGeneralUnroll::processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop) {
   }
 }
 
-void HIRGeneralUnroll::processRemainderLoop(HLLoop *OrigLoop, bool IsConstLoop,
+void HIRGeneralUnroll::processRemainderLoop(HLLoop *&OrigLoop, bool IsConstLoop,
                                             int64_t TripCount, int64_t NewBound,
                                             const RegDDRef *NewRef) {
+  // Mark Loop bounds as modified.
+  DD->markLoopBoundsModified(OrigLoop);
 
   // Check if the Remainder Loop is necessary.
   // This condition occurs when the original constant Trip Count is divided by
   // UnrollFactor without a remainder.
   if (IsConstLoop && (TripCount % UnrollFactor == 0)) {
     HLNodeUtils::erase(OrigLoop);
+    OrigLoop = nullptr;
     return;
   }
 

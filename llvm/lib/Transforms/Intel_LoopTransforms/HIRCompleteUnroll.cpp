@@ -217,6 +217,8 @@ public:
 private:
   // Locality Analysis pointer.
   HIRLocalityAnalysis *LA;
+  // DD Analysis pointer.
+  DDAnalysis *DD;
 
   unsigned CurrentTripThreshold;
   // Storage for Outermost Loops.
@@ -232,7 +234,7 @@ private:
   bool isProfitable(const HLLoop *Loop, LoopData **LD, int64_t *ChildTripCnt);
 
   /// \brief Performs the complete unrolling transformation.
-  void transformLoop(HLLoop *Loop, LoopData *LD);
+  void transformLoop(HLLoop *&Loop, LoopData *LD);
 
   /// \brief Main routine to drive the complete unrolling transformation.
   void processCompleteUnroll();
@@ -263,6 +265,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
 
   LA = &getAnalysis<HIRLocalityAnalysis>();
+  DD = &getAnalysis<DDAnalysis>();
 
   // Do an early exit if Trip Threshold is less than 1
   // TODO: Check if we want give some feedback to user
@@ -389,7 +392,7 @@ void HIRCompleteUnroll::transformLoops() {
   }
 }
 
-void HIRCompleteUnroll::transformLoop(HLLoop *Loop, LoopData *LD) {
+void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
 
   // Guard against the scanning phase setting it appropriately.
   assert(Loop && LD && " Loop info (loop ptr or data) is null.");
@@ -415,11 +418,13 @@ void HIRCompleteUnroll::transformLoop(HLLoop *Loop, LoopData *LD) {
   }
 
   Loop->getParentRegion()->setGenCode();
+  // Mark loop as modified in all the analysis.
   LA->markLoopModified(Loop);
-  // TODO: Mark loops as modified for DD
+  DD->markLoopBodyModified(Loop);
 
   // Delete the original loop.
   HLNodeUtils::erase(Loop);
+  Loop = nullptr;
 }
 
 void HIRCompleteUnroll::releaseMemory() {
