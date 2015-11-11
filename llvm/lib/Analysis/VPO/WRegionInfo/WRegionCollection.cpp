@@ -134,17 +134,23 @@ void WRegionCollection::doPreOrderDomTreeVisit(
   //
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    IntrinsicInst* IntrinInst = dyn_cast<IntrinsicInst>(&*I);
+    IntrinsicInst* Call = dyn_cast<IntrinsicInst>(&*I);
 
-    if (IntrinInst) { 
-      if (IntrinInst->getIntrinsicID() == Intrinsic::intel_directive) {
+    if (Call) { 
+      Intrinsic::ID IntrinId=Call->getIntrinsicID();
 
-        StringRef DirString = VPOUtils::getDirectiveMetadataString(IntrinInst);
+      if (!VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
+        // Intrin is not intel_directive or intel_directive_qual*
+        continue; // TODO: break instead?
+      }
+
+      StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
+      if (IntrinId == Intrinsic::intel_directive) {
 
         // If the intrinsic represents an intel BEGIN directive, then
         // W is a pointer to an object for the corresponding WRN.
         // Otherwise, W is nullptr.
-        W = WRegionUtils::createWRegion(DirString, BB, LI);
+        W = WRegionUtils::createWRegion(DirOrClauseStr, BB, LI);
         if (W) {
           // DEBUG(dbgs() << "\n Starting New WRegion{\n");
 
@@ -169,8 +175,9 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           S->push(W);
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
-        else if (WRegionUtils::isEndDirective(DirString)) {
+        else if (WRegionUtils::isEndDirective(DirOrClauseStr)) {
           // The intrinsic represents an intel END directive
+          // TODO: verify the END directive is the expected one
 
           // DEBUG(dbgs() << "\n} Ending WRegion.\n");
           W = S->top(); 
@@ -184,17 +191,29 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
       }
-      else if (IntrinInst->getIntrinsicID() == 
-                              Intrinsic::intel_directive_qual) {
-        WRegionUtils::handleDirQual(IntrinInst, S->top());
-      }
-      else if (IntrinInst->getIntrinsicID() == 
-                              Intrinsic::intel_directive_qual_opnd) {
-        WRegionUtils::handleDirQualOpnd(IntrinInst, S->top());
-      }
-      else if (IntrinInst->getIntrinsicID() == 
-                              Intrinsic::intel_directive_qual_opndlist) {
-        WRegionUtils::handleDirQualOpndList(IntrinInst, S->top());
+      else {
+        // Process clauses below
+        W = S->top();
+        int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
+        if (IntrinId == Intrinsic::intel_directive_qual) {
+          // Handle clause with no arguments
+          assert (Call->getNumArgOperands()==1 && 
+                  "Bad number of opnds for intel_directive_qual");
+          W->handleQual(ClauseID);
+        }
+        else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
+          // Handle clause with one argument
+          assert (Call->getNumArgOperands()==2 && 
+                  "Bad number of opnds for intel_directive_qual_opnd");
+          Value *V = Call->getArgOperand(1);
+          W->handleQualOpnd(ClauseID, V);
+        }
+        else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
+          // Handle clause with argument list
+          assert (Call->getNumArgOperands()>=2 && 
+                  "Bad number of opnds for intel_directive_qual_opndlist");
+          W->handleQualOpndList(ClauseID, Call);
+        }
       }
 
 #if 0
@@ -208,7 +227,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
       }
 #endif
 
-    } // if (IntrinInst)
+    } // if (Call)
   } // for
 
   /// Walk over dominator children.
@@ -241,6 +260,9 @@ bool WRegionCollection::runOnFunction(Function &F) {
   // CFG Restructuring, which puts directives into standalone basic blocks.
   // It maintains DominatorTree and LoopInfo.
   VPOUtils::CFGRestructuring(F, DT, LI);
+
+  // Initialize maps from Directive/Clause strings to IDs
+  VPOUtils::initDirectiveAndClauseStringMap();
 
   DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
   WRGraph = new (WRContainerTy);

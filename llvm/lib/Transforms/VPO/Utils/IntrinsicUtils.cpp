@@ -32,15 +32,27 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-StringRef VPOUtils::getDirectiveMetadataString(CallInst *Call)
+bool VPOUtils::isIntelDirective(Intrinsic::ID Id)
 {
-    Function *CalledFunc = Call->getCalledFunction();
-    // For now, assert if this is not a call to llvm.intel.directive. Support
-    // will be added later for llvm.intel.directive.qual,
-    // llvm.intel.directive.qual.opnd, and llvm.intel.diretive.qual.opndlist.
-    assert(CalledFunc->isIntrinsic() &&
-           CalledFunc->getIntrinsicID() == Intrinsic::intel_directive &&
-           "Expected a call to the llvm.intel.directive(metadata) intrinsic");
+  return Id == Intrinsic::intel_directive;
+}
+
+bool VPOUtils::isIntelClause(Intrinsic::ID Id)
+{
+  return (Id == Intrinsic::intel_directive_qual ||
+          Id == Intrinsic::intel_directive_qual_opnd ||
+          Id == Intrinsic::intel_directive_qual_opndlist);
+}
+
+bool VPOUtils::isIntelDirectiveOrClause(Intrinsic::ID Id)
+{
+  return isIntelDirective(Id) || isIntelClause(Id);
+}
+
+StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call)
+{
+  assert(isIntelDirectiveOrClause(Call->getIntrinsicID())&&
+         "Expected a call to an llvm.intel.directive* intrinsic");
 
   Value *Operand = Call->getArgOperand(0);
   MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
@@ -150,10 +162,7 @@ void VPOUtils::stripDirectives(Function &F)
     IntrinsicInst *IntrinCall = dyn_cast<IntrinsicInst>(&*I);
     if (IntrinCall) {
       Intrinsic::ID Id = IntrinCall->getIntrinsicID();
-      if (Id == Intrinsic::intel_directive ||
-          Id == Intrinsic::intel_directive_qual ||
-          Id == Intrinsic::intel_directive_qual_opnd ||
-          Id == Intrinsic::intel_directive_qual_opndlist) {
+      if (isIntelDirectiveOrClause(Id)) {
         IntrinsicsToRemove.push_back(IntrinCall);
       }
     }

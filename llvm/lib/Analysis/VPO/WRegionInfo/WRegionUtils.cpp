@@ -33,16 +33,71 @@ WRegionNode *WRegionUtils::createWRegion(
 )
 {
   WRegionNode *W = nullptr;
+  int DirID = VPOUtils::getDirectiveID(DirString);
 
-  if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_PARALLEL)) {
-    W = new WRNParallelNode(EntryBB);
+  switch(DirID) {
+    // TODO: complete the list for all WRegionNodeKinds
+    case DIR_OMP_PARALLEL:
+      W = new WRNParallelNode(EntryBB);
+      break;
+    case DIR_OMP_SIMD:
+      W = new WRNVecLoopNode(EntryBB, LI);
+      break;
   }
-  else if (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_SIMD)) {
-    W = new WRNVecLoopNode(EntryBB, LI);
-  }
-  // TODO: complete the list for all WRegionNodeKinds
-
   return W;
+}
+
+bool WRegionUtils::isBeginDirective(
+  StringRef DirString
+)
+{
+  int DirID = VPOUtils::getDirectiveID(DirString);
+  return WRegionUtils::isBeginDirective(DirID);
+}
+
+bool WRegionUtils::isBeginDirective(
+  int DirID
+)
+{
+  switch(DirID) {
+    case DIR_OMP_PARALLEL:
+    case DIR_OMP_PARALLEL_LOOP:
+    case DIR_OMP_LOOP_SIMD:
+    case DIR_OMP_PARALLEL_LOOP_SIMD:
+    case DIR_OMP_SECTIONS:
+    case DIR_OMP_PARALLEL_SECTIONS:
+    case DIR_OMP_WORKSHARE:
+    case DIR_OMP_PARALLEL_WORKSHARE:
+    case DIR_OMP_SINGLE:
+    case DIR_OMP_TASK:
+    case DIR_OMP_MASTER:
+    case DIR_OMP_CRITICAL:
+    case DIR_OMP_ATOMIC:
+    case DIR_OMP_ORDERED:
+    case DIR_OMP_SIMD:
+    case DIR_OMP_TASKLOOP:
+    case DIR_OMP_TASKLOOP_SIMD:
+    case DIR_OMP_TARGET:
+    case DIR_OMP_TARGET_DATA:
+    case DIR_OMP_TARGET_UPDATE:
+    case DIR_OMP_TEAMS:
+    case DIR_OMP_TEAMS_DISTRIBUTE:
+    case DIR_OMP_TEAMS_SIMD:
+    case DIR_OMP_TEAMS_DISTRIBUTE_SIMD:
+    case DIR_OMP_DISTRIBUTE:
+    case DIR_OMP_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_DISTRIBUTE_SIMD:
+    case DIR_OMP_DISTRIBUTE_PARLOOP_SIMD:
+    case DIR_OMP_TARGET_TEAMS:
+    case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE:
+    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
+    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+      return true;
+  }
+  return false;
 }
 
 
@@ -50,39 +105,111 @@ bool WRegionUtils::isEndDirective(
   StringRef DirString
 )
 {
-  if ((DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_PARALLEL)) ||
-      (DirString == VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_SIMD))) {
-    // TODO: complete the list for all WRegionNodeKinds
-    return true;
+  int DirID = VPOUtils::getDirectiveID(DirString);
+  return WRegionUtils::isEndDirective(DirID);
+}
+
+bool WRegionUtils::isEndDirective(
+  int DirID
+)
+{
+  switch(DirID) {
+    case DIR_OMP_END_PARALLEL:
+    case DIR_OMP_END_PARALLEL_LOOP:
+    case DIR_OMP_END_LOOP_SIMD:
+    case DIR_OMP_END_PARALLEL_LOOP_SIMD:
+    case DIR_OMP_END_SECTIONS:
+    case DIR_OMP_END_PARALLEL_SECTIONS:
+    case DIR_OMP_END_WORKSHARE:
+    case DIR_OMP_END_PARALLEL_WORKSHARE:
+    case DIR_OMP_END_SINGLE:
+    case DIR_OMP_END_TASK:
+    case DIR_OMP_END_MASTER:
+    case DIR_OMP_END_CRITICAL:
+    case DIR_OMP_END_ATOMIC:
+    case DIR_OMP_END_ORDERED:
+    case DIR_OMP_END_SIMD:
+    case DIR_OMP_END_TASKLOOP:
+    case DIR_OMP_END_TASKLOOP_SIMD:
+    case DIR_OMP_END_TARGET:
+    case DIR_OMP_END_TARGET_DATA:
+    case DIR_OMP_END_TARGET_UPDATE:
+    case DIR_OMP_END_TEAMS:
+    case DIR_OMP_END_TEAMS_DISTRIBUTE:
+    case DIR_OMP_END_TEAMS_SIMD:
+    case DIR_OMP_END_TEAMS_DISTRIBUTE_SIMD:
+    case DIR_OMP_END_DISTRIBUTE:
+    case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_END_DISTRIBUTE_SIMD:
+    case DIR_OMP_END_DISTRIBUTE_PARLOOP_SIMD:
+    case DIR_OMP_END_TARGET_TEAMS:
+    case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE:
+    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
+    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_SIMD:
+    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+      return true;
   }
   return false;
 }
 
-void WRegionUtils::handleDirQual(
-  IntrinsicInst *Intrin, 
-  WRegionNode *W
-) 
+bool WRegionUtils::isBeginOrEndDirective(
+  StringRef DirString
+)
 {
-  // TODO: implement
-  return;
+  int DirID = VPOUtils::getDirectiveID(DirString);
+  return WRegionUtils::isBeginOrEndDirective(DirID);
 }
 
-void WRegionUtils::handleDirQualOpnd(
-  IntrinsicInst *Intrin, 
-  WRegionNode *W
-) 
+bool WRegionUtils::isBeginOrEndDirective(
+  int DirID
+)
 {
-  // TODO: implement
-  return;
+  return WRegionUtils::isBeginDirective(DirID) ||
+         WRegionUtils::isEndDirective(DirID);
 }
 
-void WRegionUtils::handleDirQualOpndList(
-  IntrinsicInst *Intrin, 
-  WRegionNode *W
-) 
+bool WRegionUtils::isSoloDirective(
+  StringRef DirString
+)
 {
-  // TODO: implement
-  return;
+  int DirID = VPOUtils::getDirectiveID(DirString);
+  return WRegionUtils::isSoloDirective(DirID);
+}
+
+bool WRegionUtils::isSoloDirective(
+  int DirID
+)
+{
+  switch(DirID) {
+    case DIR_OMP_SECTION:
+    case DIR_OMP_BARRIER:
+    case DIR_OMP_TASKWAIT:
+    case DIR_OMP_TASKYIELD:
+    case DIR_OMP_FLUSH:
+    case DIR_OMP_TARGET_ENTER_DATA:
+    case DIR_OMP_TARGET_EXIT_DATA:
+    case DIR_OMP_CANCEL:
+    case DIR_OMP_CANCELLATION_POINT:
+      return true;
+  }
+  return false;
+}
+
+bool WRegionUtils::isListEndDirective(
+  StringRef DirString
+)
+{
+  int DirID = VPOUtils::getDirectiveID(DirString);
+  return WRegionUtils::isListEndDirective(DirID);
+}
+
+bool WRegionUtils::isListEndDirective(
+  int DirID
+)
+{
+  return DirID == DIR_QUAL_LIST_END;
 }
 
 // Insertion Utilities

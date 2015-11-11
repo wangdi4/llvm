@@ -18,6 +18,7 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/StringRef.h"
 
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -26,13 +27,20 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/BasicBlock.h"
 
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
+
 #include <set>
+#include <unordered_map>
 
 namespace llvm {
 
 namespace vpo {
+
+extern std::unordered_map<int, StringRef> WRNName;
 
 typedef std::vector<const BasicBlock *> WRegionBSetTy;
 
@@ -116,6 +124,82 @@ protected:
   /// \brief Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
 
+
+  // The following three functions extract clause info from intrinsics.
+  // There are three such intrinsics: intel_directive_qual,  
+  // intel_directive_qual_opnd, and  intel_directive_qual_opndlist.
+  
+  /// \brief Update WRN for clauses with no operands.
+  void handleQual(int ClauseID);
+
+  /// \brief Update WRN for clauses with one operand.
+  void handleQualOpnd(int ClauseID, Value *V);
+
+  /// \brief Update WRN for clauses with operand list.
+  void handleQualOpndList(int ClauseID, IntrinsicInst* Call);
+
+  // Below are virtual functions to get/set clause information of the WRN.
+  // These routines should never be called; calling them indicates intention
+  // to access clause info for a WRN that does not allow such clause (eg, a 
+  // parallel construct does not take a collapse clause). These virtual 
+  // functions defined in the base class will all emit an error message.
+  // Note: The return stmt in the getters below prevent compiler warnings
+  //       when building the compiler.
+  void errorClause(StringRef ClauseName) const;
+  void errorClause(int ClauseID) const;
+
+  virtual void setAligned(AlignedClause *A)  {errorClause(QUAL_OMP_ALIGNED);  }
+  virtual AlignedClause *getAligned()  const {errorClause(QUAL_OMP_ALIGNED);
+                                              return nullptr;                 }
+  virtual void setCollapse(int N)            {errorClause(QUAL_OMP_COLLAPSE); }
+  virtual int getCollapse()            const {errorClause(QUAL_OMP_COLLAPSE);
+                                              return 0;                       }
+  virtual void setCopyin(CopyinClause *C)    {errorClause(QUAL_OMP_COPYIN);   }
+  virtual CopyinClause *getCopyin()    const {errorClause(QUAL_OMP_COPYIN);
+                                              return nullptr;                 }
+  virtual void setDefault(WRNDefaultKind T)  {errorClause("DEFAULT");         }
+  virtual WRNDefaultKind getDefault()  const {errorClause("DEFAULT");
+                                              return WRNDefaultAbsent;        }
+  virtual void setFpriv(FirstprivateClause *F)
+                          {errorClause(QUAL_OMP_FIRSTPRIVATE);                }
+  virtual FirstprivateClause *getFpriv()const
+                          {errorClause(QUAL_OMP_FIRSTPRIVATE); return nullptr;}
+
+  virtual void setIf(EXPR E)                 {errorClause(QUAL_OMP_IF);       }
+  virtual EXPR getIf()                 const {errorClause(QUAL_OMP_IF);
+                                              return nullptr;                 }
+  virtual void setLpriv(LastprivateClause *L)
+                          {errorClause(QUAL_OMP_LASTPRIVATE);                 }
+  virtual LastprivateClause *getLpriv()const
+                          {errorClause(QUAL_OMP_LASTPRIVATE); return nullptr; }
+
+  virtual void setLinear(LinearClause *L)    {errorClause(QUAL_OMP_LINEAR);   }
+  virtual LinearClause *getLinear()    const {errorClause(QUAL_OMP_LINEAR);
+                                              return nullptr;                 }
+  virtual void setNumThreads(EXPR E)       {errorClause(QUAL_OMP_NUM_THREADS);}
+  virtual EXPR getNumThreads()       const {errorClause(QUAL_OMP_NUM_THREADS);
+                                            return nullptr;                   }
+  virtual void setPriv(PrivateClause *P)     {errorClause(QUAL_OMP_PRIVATE);  }
+  virtual PrivateClause *getPriv()     const {errorClause(QUAL_OMP_PRIVATE);  
+                                              return nullptr;                 }
+  virtual void setProcBind(WRNProcBindKind P){errorClause("PROC_BIND");       }
+  virtual WRNProcBindKind setProcBind()const {errorClause("PROC_BIND");       
+                                              return WRNProcBindAbsent;       }
+  virtual void setRed(ReductionClause *R)    {errorClause("REDUCTION");       }
+  virtual ReductionClause *getRed()    const {errorClause("REDUCTION");       
+                                              return nullptr;}
+  virtual void setSafelen(int N)             {errorClause(QUAL_OMP_SAFELEN);  }
+  virtual int getSafelen()             const {errorClause(QUAL_OMP_SAFELEN);  
+                                              return 0;                       }
+  virtual void setShared(SharedClause *S)    {errorClause(QUAL_OMP_SHARED);   }
+  virtual SharedClause *getShared()    const {errorClause(QUAL_OMP_SHARED);
+                                              return nullptr;                 }
+  virtual void setSimdlen(int N)             {errorClause(QUAL_OMP_SIMDLEN);  }
+  virtual int getSimdlen()             const {errorClause(QUAL_OMP_SIMDLEN);
+                                              return 0;                       }
+  // TODO: complete the list as we implement more WRN kinds
+  
+
   /// Only these classes are allowed to create/modify/delete WRegionNode.
   friend class WRegionUtils;
   friend class WRegionCollection;  //temporary
@@ -176,11 +260,14 @@ public:
   /// \brief Returns the last child if it exists, otherwise returns null.
   WRegionNode *getLastChild();
 
-  /// \brief Return an ID for the concrete type of this object.
+  /// \brief Returns an ID for the concrete type of this object.
   ///
   /// This is used to implement the classof checks in LLVM and should't
   /// be used for any other purpose.
   unsigned getWRegionKindID() const { return SubClassID; }
+
+  /// \brief Returns the name for this WRN based on its SubClassID
+  StringRef getName() const;
 
   // Methods for BBlockSet
 
@@ -223,7 +310,7 @@ public:
   /// to outdated basic block set.
   void resetBBSetPtr() { BBlockSet = nullptr; }
 
-  // Derieved Class Enumeration
+  // Derived Class Enumeration
 
   /// \brief An enumeration to keep track of the concrete subclasses of 
   /// WRegionNode
@@ -233,6 +320,7 @@ public:
     WRNParallelLoop,
     WRNParallelSections,
     WRNTask,
+    WRNTaskLoop,
 
     // These don't require outlining:
     WRNVecLoop,

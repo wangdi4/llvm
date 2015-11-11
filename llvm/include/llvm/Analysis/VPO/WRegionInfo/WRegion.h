@@ -17,8 +17,8 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
 #define LLVM_ANALYSIS_VPO_WREGION_H
 
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionClause.h"
 #include <set>
 #include <iterator>
 
@@ -131,10 +131,10 @@ class WRNParallelNode : public WRegion
     FirstprivateClause     *Fpriv;
     ReductionClause        *Reduction;
     CopyinClause           *Copyin;
-    EXPR                   *IfExpr;
-    EXPR                   *NumThreads;
-    VPODefaultKind         DefaultType;    
-    VPOProcBindKind        ProcBindType;   
+    EXPR                   IfExpr;
+    EXPR                   NumThreads;
+    WRNDefaultKind         Default;    
+    WRNProcBindKind        ProcBind;   
 
   protected:
     void setShared(SharedClause *S)      { Shared = S;       }
@@ -142,31 +142,82 @@ class WRNParallelNode : public WRegion
     void setFpriv(FirstprivateClause *F) { Fpriv = F;        }
     void setRed(ReductionClause *R)      { Reduction = R;    }
     void setCopyin(CopyinClause *C)      { Copyin = C;       }
-    void setIf(EXPR *E)                  { IfExpr = E;       }
-    void setNumThreads(EXPR *E)          { NumThreads = E;   }
-    void setDefault(VPODefaultKind T)    { DefaultType = T;  }
-    void setProcBind(VPOProcBindKind P)  { ProcBindType = P; }
+    void setIf(EXPR E)                   { IfExpr = E;       }
+    void setNumThreads(EXPR E)           { NumThreads = E;   }
+    void setDefault(WRNDefaultKind D)    { Default = D;  }
+    void setProcBind(WRNProcBindKind P)  { ProcBind = P; }
 
   public:
     WRNParallelNode(BasicBlock *BB);
     WRNParallelNode(WRNParallelNode *W);
-    //WRNParallelNode(const WRNParallelNode &W);  // copy constructor
 
     SharedClause       * getShared()     const { return Shared;       }
     PrivateClause      * getPriv()       const { return Priv;         }
     FirstprivateClause * getFpriv()      const { return Fpriv;        }
     ReductionClause    * getRed()        const { return Reduction;    }
     CopyinClause       * getCopyin()     const { return Copyin;       }
-    EXPR               * getIf()         const { return IfExpr;       }
-    EXPR               * getNumThreads() const { return NumThreads;   }
-    VPODefaultKind     getDefault()      const { return DefaultType;  }
-    VPOProcBindKind    getProcBind()     const { return ProcBindType; }
+    EXPR               getIf()           const { return IfExpr;       }
+    EXPR               getNumThreads()   const { return NumThreads;   }
+    WRNDefaultKind     getDefault()      const { return Default;      }
+    WRNProcBindKind    getProcBind()     const { return ProcBind;     }
 
     void print(formatted_raw_ostream &OS, unsigned Depth) const ;
 
     /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
     static bool classof(const WRegionNode *W) {
       return W->getWRegionKindID() == WRegionNode::WRNParallel;
+    }
+};
+
+
+//
+// WRNParallelSectionsNode
+//
+// #pragma omp parallel sections
+//
+class WRNParallelSectionsNode : public WRegion
+{
+  private:
+    SharedClause           *Shared;
+    PrivateClause          *Priv;
+    FirstprivateClause     *Fpriv;
+    ReductionClause        *Reduction;
+    CopyinClause           *Copyin;
+    EXPR                   IfExpr;
+    EXPR                   NumThreads;
+    WRNDefaultKind         Default;    
+    WRNProcBindKind        ProcBind;   
+
+  protected:
+    void setShared(SharedClause *S)      { Shared = S;       }
+    void setPriv(PrivateClause *P)       { Priv = P;         }
+    void setFpriv(FirstprivateClause *F) { Fpriv = F;        }
+    void setRed(ReductionClause *R)      { Reduction = R;    }
+    void setCopyin(CopyinClause *C)      { Copyin = C;       }
+    void setIf(EXPR E)                   { IfExpr = E;       }
+    void setNumThreads(EXPR E)           { NumThreads = E;   }
+    void setDefault(WRNDefaultKind D)    { Default = D;      }
+    void setProcBind(WRNProcBindKind P)  { ProcBind = P;     }
+
+  public:
+    WRNParallelSectionsNode(BasicBlock *BB);
+    WRNParallelSectionsNode(WRNParallelSectionsNode *W);
+
+    SharedClause       * getShared()     const { return Shared;       }
+    PrivateClause      * getPriv()       const { return Priv;         }
+    FirstprivateClause * getFpriv()      const { return Fpriv;        }
+    ReductionClause    * getRed()        const { return Reduction;    }
+    CopyinClause       * getCopyin()     const { return Copyin;       }
+    EXPR               getIf()           const { return IfExpr;       }
+    EXPR               getNumThreads()   const { return NumThreads;   }
+    WRNDefaultKind     getDefault()      const { return Default;      }
+    WRNProcBindKind    getProcBind()     const { return ProcBind;     }
+
+    void print(formatted_raw_ostream &OS, unsigned Depth) const ;
+
+    /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
+    static bool classof(const WRegionNode *W) {
+      return W->getWRegionKindID() == WRegionNode::WRNParallelSections;
     }
 };
 
@@ -183,10 +234,15 @@ class WRNParallelLoopNode : public WRegion
     FirstprivateClause     *Fpriv;
     ReductionClause        *Reduction;
     CopyinClause           *Copyin;
-    EXPR                   *IfExpr;
-    EXPR                   *NumThreads;
-    VPODefaultKind         DefaultType;    
-    VPOProcBindKind        ProcBindType;   
+    EXPR                   IfExpr;
+    EXPR                   NumThreads;
+    WRNDefaultKind         Default;    
+    WRNProcBindKind        ProcBind;   
+    WRNScheduleKind        Schedule;
+    int                    Collapse;
+    bool                   Ordered;
+    LoopInfo               *LI;
+    Loop                   *Lp;
 
   protected:
     void setShared(SharedClause *S)      { Shared = S;       }
@@ -194,25 +250,34 @@ class WRNParallelLoopNode : public WRegion
     void setFpriv(FirstprivateClause *F) { Fpriv = F;        }
     void setRed(ReductionClause *R)      { Reduction = R;    }
     void setCopyin(CopyinClause *C)      { Copyin = C;       }
-    void setIf(EXPR *E)                  { IfExpr = E;       }
-    void setNumThreads(EXPR *E)          { NumThreads = E;   }
-    void setDefault(VPODefaultKind T)    { DefaultType = T;  }
-    void setProcBind(VPOProcBindKind P)  { ProcBindType = P; }
+    void setIf(EXPR E)                   { IfExpr = E;       }
+    void setNumThreads(EXPR E)           { NumThreads = E;   }
+    void setDefault(WRNDefaultKind D)    { Default = D;      }
+    void setProcBind(WRNProcBindKind P)  { ProcBind = P;     }
+    void setSchedule(WRNScheduleKind S)  { Schedule = S;     }
+    void setCollapse(int N)              { Collapse = N;     }
+    void setOrdered(bool Flag)           { Ordered = Flag;   }
+    void setLoopInfo(LoopInfo *L)        { LI = L;           }
+    void setLoop(Loop *L)                { Lp = L;           }
 
   public:
-    WRNParallelLoopNode(BasicBlock *BB);
+    WRNParallelLoopNode(BasicBlock *BB, LoopInfo *L);
     WRNParallelLoopNode(WRNParallelLoopNode *W);
-    //WRNParallelLoopNode(const WRNParallelLoopNode &W);  // copy constructor
 
     SharedClause       * getShared()     const { return Shared;       }
     PrivateClause      * getPriv()       const { return Priv;         }
     FirstprivateClause * getFpriv()      const { return Fpriv;        }
     ReductionClause    * getRed()        const { return Reduction;    }
     CopyinClause       * getCopyin()     const { return Copyin;       }
-    EXPR               * getIf()         const { return IfExpr;       }
-    EXPR               * getNumThreads() const { return NumThreads;   }
-    VPODefaultKind     getDefault()      const { return DefaultType;  }
-    VPOProcBindKind    getProcBind()     const { return ProcBindType; }
+    EXPR               getIf()           const { return IfExpr;       }
+    EXPR               getNumThreads()   const { return NumThreads;   }
+    WRNDefaultKind     getDefault()      const { return Default;      }
+    WRNProcBindKind    getProcBind()     const { return ProcBind;     }
+    WRNScheduleKind    getSchedule()     const { return Schedule;     }
+    int                getCollapse()     const { return Collapse;     }
+    bool               getOrdered()      const { return Ordered;      }
+    LoopInfo           *getLoopInfo()    const { return LI;           }
+    Loop               *getLoop()        const { return Lp;           }
 
     void print(formatted_raw_ostream &OS, unsigned Depth) const ;
 
@@ -230,14 +295,14 @@ class WRNParallelLoopNode : public WRegion
 class WRNVecLoopNode : public WRegion
 {
   private:
-    PrivateClause      *Priv;
-    LastprivateClause  *Lpriv;
-    ReductionClause    *Reduction;
-    LinearClause       *Linear;
-    AlignedClause      *Aligned;
-    int                Simdlen;  
-    int                Safelen;  
-    int                Collapse;
+    PrivateClause      *Priv;               // qualOpndList
+    LastprivateClause  *Lpriv;              // qualOpndList
+    ReductionClause    *Reduction;          // qualOpndList
+    LinearClause       *Linear;             // qualOpndList
+    AlignedClause      *Aligned;            // qualOpndList
+    int                Simdlen;             // qualOpnd
+    int                Safelen;             // qualOpnd
+    int                Collapse;            // qualOpnd
     bool               IsAutoVec;
     LoopInfo           *LI;
     Loop               *Lp;
@@ -261,11 +326,11 @@ class WRNVecLoopNode : public WRegion
     WRNVecLoopNode(WRNVecLoopNode *W);
     //WRNVecLoopNode(const WRNVecLoopNode &W);  // copy constructor
 
-    PrivateClause     * getPriv()    { return Priv;      }
-    LastprivateClause * getLpriv()   { return Lpriv;     }
-    ReductionClause   * getRed()     { return Reduction; }
-    LinearClause      * getLinear()  { return Linear;    }
-    AlignedClause     * getAligned() { return Aligned;   }
+    PrivateClause     * getPriv()    const { return Priv;      }
+    LastprivateClause * getLpriv()   const { return Lpriv;     }
+    ReductionClause   * getRed()     const { return Reduction; }
+    LinearClause      * getLinear()  const { return Linear;    }
+    AlignedClause     * getAligned() const { return Aligned;   }
 
     int  getSimdlen()       const { return Simdlen;   }
     int  getSafelen()       const { return Safelen;   }
@@ -275,7 +340,6 @@ class WRNVecLoopNode : public WRegion
     Loop *getLoop()         const { return Lp;      }
     
     void print(formatted_raw_ostream &OS, unsigned Depth) const ;
-
     /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
     static bool classof(const WRegionNode *W) {
       return W->getWRegionKindID() == WRegionNode::WRNVecLoop;

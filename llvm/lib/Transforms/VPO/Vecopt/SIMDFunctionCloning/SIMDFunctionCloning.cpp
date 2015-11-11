@@ -988,7 +988,7 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
   // Insert directive indicating the beginning of a SIMD loop.
   CallInst *SIMDBeginCall =
       VPOUtils::createDirectiveCall(
-          M, VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_SIMD));
+          M, VPOUtils::getDirectiveString(DIR_OMP_SIMD));
 
   SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
 
@@ -1002,7 +1002,7 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
                                   V.getVlen());
   CallInst *VlenCall =
       VPOUtils::createDirectiveQualOpndCall(
-          M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_SIMDLEN), VL);
+          M, VPOUtils::getClauseString(QUAL_OMP_SIMDLEN), VL);
   VlenCall->insertAfter(SIMDBeginCall);
 
   // Add directives for linear and vector parameters. Otherwise, the parameter
@@ -1030,7 +1030,7 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
   if (LinearVars.size() > 0) {
     CallInst *LinearCall =
         VPOUtils::createDirectiveQualOpndListCall(
-            M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_LINEAR),
+            M, VPOUtils::getClauseString(QUAL_OMP_LINEAR),
                                          LinearVars);
     LinearCall->insertAfter(VlenCall);
   }
@@ -1038,14 +1038,14 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
   if (PrivateVars.size() > 0) {
     CallInst *PrivateCall =
         VPOUtils::createDirectiveQualOpndListCall(
-            M, VPOUtils::getClauseString(VPOUtils::QUAL_OMP_PRIVATE),
+            M, VPOUtils::getClauseString(QUAL_OMP_PRIVATE),
                                          PrivateVars);
     PrivateCall->insertAfter(VlenCall);
   }
 
   CallInst *QualEndCall =
       VPOUtils::createDirectiveQualCall(
-          M, VPOUtils::getClauseString(VPOUtils::QUAL_LIST_END));
+          M, VPOUtils::getClauseString(QUAL_LIST_END));
   QualEndCall->insertBefore(BeginRegionBlock->getTerminator());
 }
 
@@ -1066,7 +1066,7 @@ void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
 
   CallInst *SIMDEndCall =
       VPOUtils::createDirectiveCall(
-          M, VPOUtils::getDirectiveString(VPOUtils::DIR_OMP_END_SIMD));
+          M, VPOUtils::getDirectiveString(DIR_OMP_END_SIMD));
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 

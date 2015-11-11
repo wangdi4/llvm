@@ -10,17 +10,21 @@
 //===----------------------------------------------------------------------===//
 //
 //   This file defines the classes that represent OpenMP clauses.
-//   //TODO: capitalize variable names
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 #define LLVM_ANALYSIS_VPO_WREGIONCLAUSE_H
 
 #include <vector>
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 namespace llvm {
 
 namespace vpo {
+
+class WRegionUtils;
 
 // for readability; VAR and EXPR match OpenMP4.1 specs
 typedef Value* VAR;
@@ -51,6 +55,7 @@ typedef Value* RDECL;
 //
 class Item 
 {
+  friend class WRegionUtils;
   private:
     VAR   OrigItem;  // original var 
     VAR   NewItem;   // new version (eg private) of the var
@@ -60,8 +65,8 @@ class Item
     EXPR  VlaSize;   // size of vla array can be an int expression
 
   protected:
-    Item(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      OrigItem(Orig), NewItem(Newv), ParmItem(Parm),
+    Item(VAR Orig) :
+      OrigItem(Orig), NewItem(nullptr), ParmItem(nullptr),
       IsNonpod(false), IsVla(false), VlaSize(nullptr) {}
     void setOrig(VAR V)          { OrigItem = V;    }
     void setNew(VAR V)           { NewItem = V;     }
@@ -88,12 +93,9 @@ class SharedItem : public Item
   private:
     bool  IsPassedDirectly;
 
-  protected:
-    SharedItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), IsPassedDirectly(false) {} 
-    void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
-
   public:
+    SharedItem(VAR Orig) : Item(Orig), IsPassedDirectly(false) {} 
+    void setIsPassedDirectly(bool Flag) { IsPassedDirectly = Flag; }
     bool getIsPassedDirectly() const { return IsPassedDirectly; }
 };
 
@@ -108,13 +110,11 @@ class PrivateItem : public Item
     RDECL Constructor;
     RDECL Destructor;
 
-  protected:
-    PrivateItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), Constructor(nullptr), Destructor(nullptr) {} 
+  public:
+    PrivateItem(VAR Orig) :
+      Item(Orig), Constructor(nullptr), Destructor(nullptr) {} 
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
-
-  public:
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor;  }
 };
@@ -130,13 +130,11 @@ class FirstprivateItem : public Item
     RDECL CopyConstructor;
     RDECL Destructor;
 
-  protected:
-    FirstprivateItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), CopyConstructor(nullptr), Destructor(nullptr) {} 
+  public:
+    FirstprivateItem(VAR Orig) :
+      Item(Orig), CopyConstructor(nullptr), Destructor(nullptr) {} 
     void setCopyConstructor(RDECL Cctor) { CopyConstructor = Cctor; }
     void setDestructor(RDECL Dtor)       { Destructor  = Dtor;      }
-
-  public:
     RDECL getCopyConstructor() const { return CopyConstructor; }
     RDECL getDestructor()      const { return Destructor;      }
 };
@@ -153,15 +151,12 @@ class LastprivateItem : public Item
     RDECL Destructor;
     RDECL Copy;
 
-  protected:
-    LastprivateItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), Constructor(nullptr), Destructor(nullptr), 
-      Copy(nullptr) {} 
+  public:
+    LastprivateItem(VAR Orig) : 
+      Item(Orig), Constructor(nullptr), Destructor(nullptr), Copy(nullptr) {} 
     void setConstructor(RDECL Ctor) { Constructor = Ctor; }
     void setDestructor(RDECL Dtor)  { Destructor  = Dtor; }
     void setCopy(RDECL Cpy)         { Copy = Cpy;         }
-
-  public:
     RDECL getConstructor() const { return Constructor; }
     RDECL getDestructor()  const { return Destructor; }
     RDECL getCopy()        const { return Copy; }
@@ -174,40 +169,36 @@ class LastprivateItem : public Item
 //
 class ReductionItem : public Item 
 {
-  typedef enum VPOReductionKind {
-    VPOReductionError = 0,
-    VPOReductionSum,
-    VPOReductionMult,
-    VPOReductionSub,
-    VPOReductionMax,
-    VPOReductionMin,
-    VPOReductionAnd,
-    VPOReductionOr,
-    VPOReductionBand,
-    VPOReductionBor,
-    VPOReductionIeor,
-    VPOReductionBxor,
-    VPOReductionEqv,
-    VPOReductionNeqv,
-    VPOReductionUdr   //user-defined reduction
-  } VPOReductionKind;
+  typedef enum WRNReductionKind {
+    WRNReductionError = 0,
+    WRNReductionSum,
+    WRNReductionMult,
+    WRNReductionSub,
+    WRNReductionMax,
+    WRNReductionMin,
+    WRNReductionAnd,
+    WRNReductionOr,
+    WRNReductionBand,
+    WRNReductionBor,
+    WRNReductionIeor,
+    WRNReductionBxor,
+    WRNReductionEqv,
+    WRNReductionNeqv,
+    WRNReductionUdr   //user-defined reduction
+  } WRNReductionKind;
 
   private:
-    VPOReductionKind type; // reduction operation
+    WRNReductionKind type; // reduction operation
     RDECL combiner;
     RDECL initializer;
 
-  protected:
-    ReductionItem(VPOReductionKind op=VPOReductionError, VAR Orig=nullptr,
-      VAR Newv=nullptr, VAR Parm=nullptr): Item(Orig, Newv, Parm),
-                     type(op), combiner(nullptr), initializer(nullptr) {}
-
-    void setType(VPOReductionKind op) { type = op;          }
+  public:
+    ReductionItem(VAR Orig, WRNReductionKind op=WRNReductionError): 
+      Item(Orig), type(op), combiner(nullptr), initializer(nullptr) {}
+    void setType(WRNReductionKind op) { type = op;          }
     void setCombiner(RDECL comb)      { combiner = comb;    }
     void setInitializer(RDECL init)   { initializer = init; }
-
-  public:
-    VPOReductionKind getType() const { return type;        }
+    WRNReductionKind getType() const { return type;        }
     RDECL getCombiner()        const { return combiner;    }
     RDECL getInitializer()     const { return initializer; }
 };
@@ -222,12 +213,9 @@ class CopyinItem : public Item
   private:
     RDECL Copy;
 
-  protected:
-    CopyinItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), Copy(nullptr) {} 
-    void setCopy(RDECL Cpy) { Copy = Cpy; }
-
   public:
+    CopyinItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
 
@@ -240,12 +228,9 @@ class CopyprivateItem : public Item
   private:
     RDECL Copy;
 
-  protected:
-    CopyprivateItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), Copy(nullptr) {} 
-    void setCopy(RDECL Cpy) { Copy = Cpy; }
-
   public:
+    CopyprivateItem(VAR Orig) : Item(Orig), Copy(nullptr) {} 
+    void setCopy(RDECL Cpy) { Copy = Cpy; }
     RDECL getCopy() const { return Copy; }
 };
 
@@ -260,12 +245,9 @@ class LinearItem : public Item
 
     // No need for ctor/dtor because OrigItem is either pointer or array base
 
-  protected:
-    LinearItem(VAR Orig=nullptr, VAR Newv=nullptr, VAR Parm=nullptr) :
-      Item(Orig, Newv, Parm), Step(0) {} 
-    void setStep(int S) { Step = S; }
-
   public:
+    LinearItem(VAR Orig) : Item(Orig), Step(0) {} 
+    void setStep(int S) { Step = S; }
     int getStep() const { return Step; }
 };
 
@@ -287,7 +269,7 @@ class DependItem
     EXPR  length;         // null if unspecified
     EXPR  stride;         // null if unspecified
 
-  protected:
+  public:
     DependItem(VAR V=nullptr) : base(V), isOut(false), isArraySection(false),
       lowerBound(nullptr), length(nullptr), stride(nullptr) {}
 
@@ -298,7 +280,6 @@ class DependItem
     void setLength(EXPR len)    { length = len;  }
     void setStride(EXPR str)    { stride = str;  }
 
-  public:
     VAR  getOrig()      const   { return base; }
     bool getIsOut()     const   { return isOut; }
     bool getIsArrSec()  const   { return isArraySection; }
@@ -314,12 +295,10 @@ class AlignedItem
     VAR   base;           // pointer or base of array
     int   alignment;      // 0 if unspecified
 
-  protected:
+  public:
     AlignedItem(VAR V=nullptr) : base(V), alignment(0) {}
     void setOrig(VAR V)      { base = V; }
     void setAlign(int align) { alignment = align; }
-
-  public:
     VAR  getOrig()  const { return base; }
     int  getAlign() const { return alignment; }
 };
@@ -331,28 +310,43 @@ class AlignedItem
 //            
 template <typename ClauseItem> class Clause
 {
+  friend class WRegionUtils;
   private:
-    typedef typename std::vector<ClauseItem> ItemArray;
-    typedef typename ItemArray::iterator     Iterator;
+    typedef typename std::vector<ClauseItem*>       ItemArray;
+    typedef typename ItemArray::iterator            Iterator;
+    typedef typename ItemArray::const_iterator      ConstIterator;
 
     ItemArray C;
+    int ClauseID;
 
   protected:
     // Create a new item for VAR V and append it to the clause
-    void add(VAR V) { ClauseItem item(V); C.push_back(item); }
+     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
 
   public:
-    int size()         const { return C.size();     }
-    int capacity()     const { return C.capacity(); }
-    Iterator begin()   const { return C.begin();    }
-    Iterator end()     const { return C.end();      }
-    ClauseItem front() const { return C.front();    }
-    ClauseItem back()  const { return C.back();     }
+    int getClauseID()        const { return ClauseID;     }
+    void setClauseID(int ID)       { ClauseID = ID;       }
+    int size()               const { return C.size();     }
+    int capacity()           const { return C.capacity(); }
+    ClauseItem front()       const { return C.front();    }
+    ClauseItem back()        const { return C.back();     }
+    ConstIterator begin()    const { return C.begin();    }
+    ConstIterator end()      const { return C.end();      }
+    Iterator begin()               { return C.begin();    }
+    Iterator end()                 { return C.end();      }
+
+    void print(formatted_raw_ostream &OS) const {
+      StringRef S = VPOUtils::getClauseName(getClauseID());
+      OS << S << " clause, size=" << size() << ": " ;
+      for (auto I=begin(); I != end(); ++I) {
+        OS << "(" << *((*I)->getOrig()) << ") ";
+      }
+    }
 
     // search the clause for 
     Iterator findOrig(VAR V) { 
       for (auto I=begin(); I != end(); ++I)
-        if (I->getOrig() == V) 
+        if ((*I)->getOrig() == V) 
           return I;
       return end();
     }
@@ -395,80 +389,79 @@ typedef std::vector<DependItem>::iterator       DependIter;
 typedef std::vector<AlignedItem>::iterator      AlignedIter;
 
 
-
 //
 // Support for other OMP clauses (not list-type)
 //            
 
-typedef enum VPODefaultKind {
-    VPODefaultFalse = 0,      // default clause not present
-    VPODefaultNone,           // default(none)
-    VPODefaultShared,         // default(shared)
-    VPODefaultPrivate,        // default(private) // Fortran only
-    VPODefaultFirstprivate    // default(firstprivate) //Fortran only
-} VPODefaultKind;
+typedef enum WRNDefaultKind {
+    WRNDefaultAbsent = 0,     // default clause not present
+    WRNDefaultNone,           // default(none)
+    WRNDefaultShared,         // default(shared)
+    WRNDefaultPrivate,        // default(private) // Fortran only
+    WRNDefaultFirstprivate    // default(firstprivate) //Fortran only
+} WRNDefaultKind;
 
-typedef enum VPOAtomicKind {
-    VPOAtomicUpdate = 0,
-    VPOAtomicRead,
-    VPOAtomicWrite,
-    VPOAtomicCapture
-} VPOAtomicKind;
+typedef enum WRNAtomicKind {
+    WRNAtomicUpdate = 0,
+    WRNAtomicRead,
+    WRNAtomicWrite,
+    WRNAtomicCapture
+} WRNAtomicKind;
 
-typedef enum VPOCancelKind {
-    VPOCancelError = 0,
-    VPOCancelParallel,
-    VPOCancelLoop,
-    VPOCancelSections,
-    VPOCancelTaskgroup,
-} VPOCancelKind;
+typedef enum WRNCancelKind {
+    WRNCancelError = 0,
+    WRNCancelParallel,
+    WRNCancelLoop,
+    WRNCancelSections,
+    WRNCancelTaskgroup,
+} WRNCancelKind;
 //
 // The values of the enums are used to invoke the RTL,
 // so do not change them
 //
-typedef enum VPOProcBindKind {
-    VPOProcBindFalse  = 0,   // proc_bind clause not present
-    VPOProcBindTrue   = 1,   // what is this for?
-    VPOProcBindMaster = 2,   // proc_bind(master)
-    VPOProcBindClose  = 3,   // proc_bind(close)
-    VPOProcBindSpread = 4    // proc_bind(srpead)
-} VPOProcBindKind;
+typedef enum WRNProcBindKind {
+    WRNProcBindAbsent = 0,   // proc_bind clause not present
+    WRNProcBindTrue   = 1,   // what is this for?
+    WRNProcBindMaster = 2,   // proc_bind(master)
+    WRNProcBindClose  = 3,   // proc_bind(close)
+    WRNProcBindSpread = 4    // proc_bind(srpead)
+} WRNProcBindKind;
 
 
 //
 // The values of the enums are used to invoke the RTL,
 // so do not change them
 //
-typedef enum VPOScheduleKind {
-    VPOScheduleCrewloop                = 18,
-    VPOScheduleStatic                  = 33,
-    VPOScheduleStaticEven              = 34,
-    VPOScheduleDynamic                 = 35,
-    VPOScheduleGuided                  = 36,
-    VPOScheduleRuntime                 = 37,
-    VPOScheduleAuto                    = 38,
-    VPOScheduleTrapezoidal             = 39,
-    VPOScheduleStaticGreedy            = 40,
-    VPOScheduleStaticBalanced          = 41,
-    VPOScheduleGUIDEDIterative         = 42,
-    VPOScheduleGUIDEDAnalytical        = 43,
+typedef enum WRNScheduleKind {
+    WRNScheduleCrewloop                = 18,
+    WRNScheduleStatic                  = 33,
+    WRNScheduleStaticEven              = 34,
+    WRNScheduleDynamic                 = 35,
+    WRNScheduleGuided                  = 36,
+    WRNScheduleRuntime                 = 37,
+    WRNScheduleAuto                    = 38,
+    WRNScheduleTrapezoidal             = 39,
+    WRNScheduleStaticGreedy            = 40,
+    WRNScheduleStaticBalanced          = 41,
+    WRNScheduleGUIDEDIterative         = 42,
+    WRNScheduleGUIDEDAnalytical        = 43,
 
-    VPOScheduleOrderedStatic           = 65,
-    VPOScheduleOrderedStaticEven       = 66,
-    VPOScheduleOrderedDynamic          = 67,
-    VPOScheduleOrderedGuided           = 68,
-    VPOScheduleOrderedRuntime          = 69,
-    VPOScheduleOrderedAuto             = 70,
+    WRNScheduleOrderedStatic           = 65,
+    WRNScheduleOrderedStaticEven       = 66,
+    WRNScheduleOrderedDynamic          = 67,
+    WRNScheduleOrderedGuided           = 68,
+    WRNScheduleOrderedRuntime          = 69,
+    WRNScheduleOrderedAuto             = 70,
 
-    VPOScheduleOrderedTrapezoidal      = 71,
-    VPOScheduleOrderedStaticGreedy     = 72,
-    VPOScheduleOrderedStaticBalanced   = 73,
-    VPOScheduleOrderedGuidedITerative  = 74,
-    VPOScheduleOrderedGuidedAnalytical = 75,
+    WRNScheduleOrderedTrapezoidal      = 71,
+    WRNScheduleOrderedStaticGreedy     = 72,
+    WRNScheduleOrderedStaticBalanced   = 73,
+    WRNScheduleOrderedGuidedITerative  = 74,
+    WRNScheduleOrderedGuidedAnalytical = 75,
 
-    VPOScheduleDistributeStatic        = 91,
-    VPOScheduleDistributeStaticEven    = 92
-} VPOScheduleKind;
+    WRNScheduleDistributeStatic        = 91,
+    WRNScheduleDistributeStaticEven    = 92
+} WRNScheduleKind;
 
 
 } // End namespace vpo

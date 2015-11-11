@@ -16,6 +16,7 @@
 // ===--------------------------------------------------------------------=== //
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -108,6 +109,8 @@ std::unordered_map<int, StringRef> VPOUtils::DirectiveStrings = {
     "DIR.OMP.END.TARGET.DATA" },
   { DIR_OMP_TARGET_UPDATE,
     "DIR.OMP.TARGET.UPDATE" },
+  { DIR_OMP_END_TARGET_UPDATE,
+    "DIR.OMP.END.TARGET.UPDATE" },
   { DIR_OMP_TEAMS,
     "DIR.OMP.TEAMS" },
   { DIR_OMP_END_TEAMS,
@@ -176,15 +179,25 @@ std::unordered_map<int, StringRef> VPOUtils::DirectiveStrings = {
     "DIR.OMP.CANCEL" },
   { DIR_OMP_CANCELLATION_POINT,
     "DIR.OMP.CANCELLATION.POINT" },
+  { DIR_QUAL_LIST_END,
+    "DIR.QUAL.LIST.END" }
 };
 
 std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
+  { QUAL_OMP_DEFAULT_NONE,
+    "QUAL.OMP.DEFAULT.NONE" },
+  { QUAL_OMP_DEFAULT_SHARED,
+    "QUAL.OMP.DEFAULT.SHARED" },
   { QUAL_OMP_DEFAULT_PRIVATE,
     "QUAL.OMP.DEFAULT.PRIVATE" },
   { QUAL_OMP_DEFAULT_FIRSTPRIVATE,
     "QUAL.OMP.DEFAULT.FIRSTPRIVATE" },
+  { QUAL_OMP_MERGEABLE,
+    "QUAL.OMP.MERGEABLE" },
   { QUAL_OMP_NOWAIT,
     "QUAL.OMP.NOWAIT" },
+  { QUAL_OMP_NOGROUP,
+    "QUAL.OMP.NOGROUP" },
   { QUAL_OMP_UNTIED,
     "QUAL.OMP.UNTIED" },
   { QUAL_OMP_READ,
@@ -203,52 +216,62 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "QUAL.OMP.CAPTURE" },
   { QUAL_OMP_CAPTURE_SEQ_CST,
     "QUAL.OMP.CAPTURE.SEQ.CST" },
-  { QUAL_OMP_MERGEABLE,
-    "QUAL.OMP.MERGEABLE" },
-  { QUAL_OMP_NOGROUP,
-    "QUAL.OMP.NOGROUP" },
-  { QUAL_OMP_PRIVATE,
-    "QUAL.OMP.PRIVATE" },
-  { QUAL_OMP_FIRSTPRIVATE,
-    "QUAL.OMP.FIRSTPRIVATE" },
-  { QUAL_OMP_LASTPRIVATE,
-    "QUAL.OMP.LASTPRIVATE" },
-  { QUAL_OMP_SHARED,
-    "QUAL.OMP.SHARED" },
-  { QUAL_OMP_COPYIN,
-    "QUAL.OMP.COPYIN" },
-  { QUAL_OMP_COPYPRIVATE,
-    "QUAL.OMP.COPYPRIVATE" },
-  { QUAL_OMP_TO,
-    "QUAL.OMP.TO" },
-  { QUAL_OMP_FROM,
-    "QUAL.OMP.FROM" },
-  { QUAL_OMP_LINEAR,
-    "QUAL.OMP.LINEAR" },
-  { QUAL_OMP_ALIGNED,
-    "QUAL.OMP.ALIGNED" },
-  { QUAL_OMP_FLUSH,
-    "QUAL.OMP.FLUSH" },
-  { QUAL_OMP_THREADPRIVATE,
-    "QUAL.OMP.THREADPRIVATE" },
+  { QUAL_OMP_SCHEDULE_AUTO,
+    "QUAL.OMP.SCHEDULE.AUTO" },
+  { QUAL_OMP_SCHEDULE_RUNTIME,
+    "QUAL.OMP.SCHEDULE.RUNTIME" },
+  { QUAL_OMP_PROC_BIND_MASTER,
+    "QUAL.OMP.PROC.BIND.MASTER" },
+  { QUAL_OMP_PROC_BIND_CLOSE,
+    "QUAL.OMP.PROC.BIND.CLOSE" },
+  { QUAL_OMP_PROC_BIND_SPREAD,
+    "QUAL.OMP.PROC.BIND.SPREAD" },
+
   { QUAL_OMP_IF,
     "QUAL.OMP.IF" },
-  { QUAL_OMP_NUM_THREADS,
-    "QUAL.OMP.NUM.THREADS" },
-  { QUAL_OMP_FINAL,
-    "QUAL.OMP.FINAL" },
   { QUAL_OMP_COLLAPSE,
     "QUAL.OMP.COLLAPSE" },
+  { QUAL_OMP_NUM_THREADS,
+    "QUAL.OMP.NUM.THREADS" },
   { QUAL_OMP_ORDERED,
     "QUAL.OMP.ORDERED" },
   { QUAL_OMP_SAFELEN,
     "QUAL.OMP.SAFELEN" },
   { QUAL_OMP_SIMDLEN,
     "QUAL.OMP.SIMDLEN" },
+  { QUAL_OMP_FINAL,
+    "QUAL.OMP.FINAL" },
   { QUAL_OMP_GRAINSIZE,
     "QUAL.OMP.GRAINSIZE" },
   { QUAL_OMP_NUM_TASKS,
     "QUAL.OMP.NUM.TASKS" },
+  { QUAL_OMP_PRIORITY,
+    "QUAL.OMP.PRIORITY" },
+  { QUAL_OMP_NUM_TEAMS,
+    "QUAL.OMP.NUM.TEAMS" },
+  { QUAL_OMP_THREAD_LIMIT,
+    "QUAL.OMP.THREAD.LIMIT" },
+  { QUAL_OMP_DIST_SCHEDULE_STATIC,
+    "QUAL.OMP.DIST.SCHEDULE.STATIC" },
+  { QUAL_OMP_SCHEDULE_STATIC,
+    "QUAL.OMP.SCHEDULE.STATIC" },
+  { QUAL_OMP_SCHEDULE_DYNAMIC,
+    "QUAL.OMP.SCHEDULE.DYNAMIC" },
+  { QUAL_OMP_SCHEDULE_GUIDED,
+    "QUAL.OMP.SCHEDULE.GUIDED" },
+
+  { QUAL_OMP_SHARED,
+    "QUAL.OMP.SHARED" },
+  { QUAL_OMP_PRIVATE,
+    "QUAL.OMP.PRIVATE" },
+  { QUAL_OMP_FIRSTPRIVATE,
+    "QUAL.OMP.FIRSTPRIVATE" },
+  { QUAL_OMP_LASTPRIVATE,
+    "QUAL.OMP.LASTPRIVATE" },
+  { QUAL_OMP_COPYIN,
+    "QUAL.OMP.COPYIN" },
+  { QUAL_OMP_COPYPRIVATE,
+    "QUAL.OMP.COPYPRIVATE" },
   { QUAL_OMP_REDUCTION_ADD,
     "QUAL.OMP.REDUCTION.ADD" },
   { QUAL_OMP_REDUCTION_SUB,
@@ -267,6 +290,18 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "QUAL.OMP.REDUCTION.BOR" },
   { QUAL_OMP_REDUCTION_UDR,
     "QUAL.OMP.REDUCTION.UDR" },
+  { QUAL_OMP_TO,
+    "QUAL.OMP.TO" },
+  { QUAL_OMP_FROM,
+    "QUAL.OMP.FROM" },
+  { QUAL_OMP_LINEAR,
+    "QUAL.OMP.LINEAR" },
+  { QUAL_OMP_ALIGNED,
+    "QUAL.OMP.ALIGNED" },
+  { QUAL_OMP_FLUSH,
+    "QUAL.OMP.FLUSH" },
+  { QUAL_OMP_THREADPRIVATE,
+    "QUAL.OMP.THREADPRIVATE" },
   { QUAL_OMP_MAP_TO,
     "QUAL.OMP.MAP.TO" },
   { QUAL_OMP_MAP_FROM,
@@ -279,23 +314,15 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "QUAL.OMP.DEPEND.OUT" },
   { QUAL_OMP_DEPEND_INOUT,
     "QUAL.OMP.DEPEND.INOUT" },
-  { QUAL_OMP_DIST_SCHEDULE_STATIC,
-    "QUAL.OMP.DIST.SCHEDULE.STATIC" },
-  { QUAL_OMP_SCHEDULE_STATIC,
-    "QUAL.OMP.SCHEDULE.STATIC" },
-  { QUAL_OMP_SCHEDULE_DYNAMIC,
-    "QUAL.OMP.SCHEDULE.DYNAMIC" },
-  { QUAL_OMP_SCHEDULE_GUIDED,
-    "QUAL.OMP.SCHEDULE.GUIDED" },
-  { QUAL_OMP_SCHEDULE_AUTO,
-    "QUAL.OMP.SCHEDULE.AUTO" },
-  { QUAL_OMP_SCHEDULE_RUNTIME,
-    "QUAL.OMP.SCHEDULE.RUNTIME" },
   { QUAL_OMP_NAME,
     "QUAL.OMP.NAME" },
   { QUAL_LIST_END,
-    "QUAL.LIST.END" },
+    "QUAL.LIST.END" }
 };
+
+StringMap<int> VPOUtils::DirectiveIDs;
+
+StringMap<int> VPOUtils::ClauseIDs;
 
 StringRef VPOUtils::getDirectiveString(int Id)
 {
@@ -305,4 +332,65 @@ StringRef VPOUtils::getDirectiveString(int Id)
 StringRef VPOUtils::getClauseString(int Id)
 {
   return VPOUtils::ClauseStrings[Id];
+}
+
+StringRef VPOUtils::getDirectiveName(int Id)
+{
+  return VPOUtils::DirectiveStrings[Id].substr(8); // skip "DIR_OMP_"
+}
+
+StringRef VPOUtils::getClauseName(int Id)
+{
+  return VPOUtils::ClauseStrings[Id].substr(9); // skip "QUAL_OMP_"
+}
+
+void VPOUtils::initDirectiveAndClauseStringMap()
+{
+  int Id; // an enum in OMP_DIRECTIVES or OMP_CLAUSES
+
+  // Initialize mapping from Directive string to ID.
+  // First enum in OMP_DIRECTIVES starts with 0
+  DirectiveIDs.clear();
+  for (Id=0; Id <= DIR_QUAL_LIST_END; ++Id) {
+    StringRef S = VPOUtils::getDirectiveString(Id);
+    DirectiveIDs.insert(std::make_pair(S, Id));
+  }
+
+  // Initialize mapping from Clause string to ID.
+  // First enum in OMP_CLAUSES starts with 0
+  ClauseIDs.clear();
+  for (Id=0; Id <= QUAL_LIST_END; ++Id) {
+    StringRef S = VPOUtils::getClauseString(Id);
+    ClauseIDs.insert(std::make_pair(S, Id));
+  }
+}
+
+bool VPOUtils::isOpenMPDirective(StringRef DirFullName)
+{
+  if (VPOUtils::DirectiveIDs.count(DirFullName)) {
+    return true;
+  }
+  return false;
+}
+
+bool VPOUtils::isOpenMPClause(StringRef ClauseFullName)
+{
+  if (VPOUtils::ClauseIDs.count(ClauseFullName)) {
+    return true;
+  }
+  return false;
+}
+
+int VPOUtils::getDirectiveID(StringRef DirFullName)
+{
+  assert(VPOUtils::isOpenMPDirective(DirFullName) && 
+         "Directive string not found");
+  return VPOUtils::DirectiveIDs[DirFullName];
+}
+
+int VPOUtils::getClauseID(StringRef ClauseFullName)
+{
+  assert(VPOUtils::isOpenMPClause(ClauseFullName) && 
+         "Clause string not found");
+  return VPOUtils::ClauseIDs[ClauseFullName];
 }

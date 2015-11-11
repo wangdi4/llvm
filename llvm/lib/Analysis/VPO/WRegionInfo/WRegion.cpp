@@ -13,7 +13,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/Constants.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 using namespace llvm;
@@ -65,8 +67,8 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB) :
   setCopyin(nullptr);
   setIf(nullptr);
   setNumThreads(nullptr);
-  setDefault(VPODefaultFalse);
-  setProcBind(VPOProcBindFalse);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
   DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
 }
 
@@ -89,14 +91,73 @@ WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegion(W)
 void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
   //TODO may need to have an extra parameter (or global) to add a fixed
   //    space for left margin at Depth=0
-  std::string SpaceString(Depth*2, ' ');
+  std::string Indent(Depth*2, ' ');
 
-  OS << SpaceString << "BEGIN WRNParallelNode<" << getNumber() << "> {\n";
+  OS << Indent << "BEGIN WRNParallelNode<" << getNumber() << "> {\n";
 
     // TODO: print data local to this ParRegion
     //       eg shared vars, priv vars, etc.
     printChildren(OS, Depth+1);
-  OS << SpaceString << "} END WRNParallelNode<" << getNumber() << ">\n";
+  OS << Indent << "} END WRNParallelNode<" << getNumber() << ">\n";
+}
+
+
+//
+// Methods for WRNParallelLoopNode
+//
+
+// constructor
+WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li) : 
+  WRegion(WRegionNode::WRNParallelLoop, BB), LI(Li)
+{
+  setShared(nullptr);
+  setPriv(nullptr);
+  setFpriv(nullptr);
+  setRed(nullptr);
+  setCopyin(nullptr);
+  setIf(nullptr);
+  setNumThreads(nullptr);
+  setDefault(WRNDefaultAbsent);
+  setProcBind(WRNProcBindAbsent);
+  setSchedule(WRNScheduleStaticEven);
+  setCollapse(0);
+  setOrdered(false);
+  Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
+  setLoop(L);
+
+  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() <<">\n");
+}
+
+WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W) : WRegion(W)
+{
+  setShared(W->getShared());
+  setPriv(W->getPriv());
+  setFpriv(W->getFpriv());
+  setRed(W->getRed());
+  setCopyin(W->getCopyin());
+  setIf(W->getIf());
+  setNumThreads(W->getNumThreads());
+  setDefault(W->getDefault());
+  setProcBind(W->getProcBind());
+  setSchedule(W->getSchedule());
+  setCollapse(W->getCollapse());
+  setOrdered(W->getOrdered());
+  setLoopInfo(W->getLoopInfo());
+  setLoop(W->getLoop());
+  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() <<">\n");
+}
+
+void WRNParallelLoopNode::
+print(formatted_raw_ostream &OS, unsigned Depth) const {
+  //TODO may need to have an extra parameter (or global) to add a fixed
+  //    space for left margin at Depth=0
+  std::string Indent(Depth*2, ' ');
+
+  OS << Indent << "BEGIN WRNParallelLoopNode<" << getNumber() << "> {\n";
+    // TODO: print data local to this ParRegion
+    //       eg shared vars, priv vars, etc.
+    printChildren(OS, Depth+1);
+  OS << Indent << "} END WRNParallelLoopNode<" << getNumber() << ">\n";
 }
 
 
@@ -140,30 +201,35 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
-
 void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const 
 {
-  std::string SpaceString(Depth*2, ' ');
-  OS << SpaceString << "BEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
+  std::string Indent(Depth*2, ' ');
+  OS << Indent << "BEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
 
   // TODO: print data local to this VecLoop 
 
-#if 1
-    DEBUG(dbgs()<< "EntryBB:"  << *getEntryBBlock());
-    DEBUG(dbgs()<< "\nExitBB:"  << *getExitBBlock());
-    DEBUG(dbgs()<< "\nBBlockSet dump:\n");
-    auto BBSet = getBBlockSet();
-    if (BBSet && !(BBSet->empty())) {
-      for (auto I=BBSet->begin(),E=BBSet->end(); I!=E; ++I) {
-        const BasicBlock *BB = *I;
-        DEBUG(dbgs() << *BB);
-      }
+  OS << Indent << "SIMDLEN clause: "  << getSimdlen() << "\n";
+
+  LinearClause *C=getLinear();
+  if (C) {
+    OS << Indent;
+    C->print(OS);
+  }
+
+  OS << Indent << "\nEntryBB:"  << *getEntryBBlock();
+  OS << Indent << "\nExitBB:"  << *getExitBBlock();
+  OS << Indent << "\nBBlockSet dump:\n";
+  auto BBSet = getBBlockSet();
+  if (BBSet && !(BBSet->empty())) {
+    for (auto I=BBSet->begin(),E=BBSet->end(); I!=E; ++I) {
+      const BasicBlock *BB = *I;
+      OS << Indent << *BB;
     }
-    else {
-      DEBUG(dbgs() << "No BBSet\n");
-    }
-#endif
+  }
+  else {
+    OS << Indent << "No BBSet\n";
+  }
 
   printChildren(OS, Depth+1);
-  OS << SpaceString << "} END WRNVecLoopNode<" << getNumber() << ">\n";
+  OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n";
 }
