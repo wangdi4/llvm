@@ -117,6 +117,7 @@ namespace {
     KEYRESTRICT = 0x200000,
     KEYMSASM = 0x4000000,
     KEYBASES = 0x8000000,
+    KEYNOINT128 = 0x10000000,
 #endif  // INTEL_CUSTOMIZATION
     KEYALL = (0xfffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -155,6 +156,8 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   // and C++11 modes only.
   if (LangOpts.IntelCompat && LangOpts.CPlusPlus11 && (Flags & KEYBASES))
     return KS_Extension;
+  if (!(LangOpts.IntelCompat && LangOpts.NoInt128) && (Flags & KEYNOINT128))
+    return KS_Enabled;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
   if (LangOpts.Half && (Flags & HALFSUPPORT)) return KS_Enabled;

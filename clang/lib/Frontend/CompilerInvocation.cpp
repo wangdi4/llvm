@@ -2012,6 +2012,12 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
     ParseLangArgs(*Res.getLangOpts(), Args, DashX, Diags);
     if (Res.getFrontendOpts().ProgramAction == frontend::RewriteObjC)
       Res.getLangOpts()->ObjCExceptions = 1;
+#ifdef INTEL_CUSTOMIZATION
+    // Disable __int128 keyword recognition in x86 mode.
+    if (Res.getLangOpts()->IntelCompat &&
+        llvm::Triple(Res.getTargetOpts().Triple).getArch() == llvm::Triple::x86)
+      Res.getLangOpts()->NoInt128 = 1;
+#endif
   }
   // FIXME: ParsePreprocessorArgs uses the FileManager to read the contents of
   // PCH file and find the original header name. Remove the need to do that in
