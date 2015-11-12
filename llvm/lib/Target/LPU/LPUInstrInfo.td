@@ -41,12 +41,12 @@ class Addr<int numArgs, string funcName, dag opInfo> :
     [SDNPWantParent]> { let MIOperandInfo = opInfo; }
 
 let PrintMethod = "printMemOperand" in {
-def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops i64:$base, i64:$offset)>;
-def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops i64:$base, i64imm:$offset)>;
-def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops i64:$base, i64:$offset)>;
+def ADDR_RX : Addr<2, "SelectAddrRegIdx", (ops I64:$base, I64:$offset)>;
+def ADDR_RI : Addr<2, "SelectAddrRegImm", (ops I64:$base, i64imm:$offset)>;
+def ADDR_RR : Addr<2, "SelectAddrRegReg", (ops I64:$base, I64:$offset)>;
 }
 def ADDR_I : Addr<1, "SelectAddrImm", (ops i64imm:$imm)>;
-def ADDR_R : Addr<1, "SelectAddrReg", (ops i64:$addr)>;
+def ADDR_R : Addr<1, "SelectAddrReg", (ops I64:$addr)>;
 
 def flog : SDNode<"ISD::FLOG", SDTFPUnaryOp>;
 def fexp : SDNode<"ISD::FEXP", SDTFPUnaryOp>;
@@ -90,12 +90,14 @@ def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_LPUCallSeqStart,
 def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
+let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i32imm:$amt),
                                "# ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i32imm:$amt1, i32imm:$amt2),
                             "# ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
+}
 
 def SDT_LPURet : SDTypeProfile<0, 0, []>;
 
@@ -405,12 +407,12 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpn
     def Xi : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, immOpnd:$data),
-      !strconcat(opStr, "x\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "x\t%ign, $addr, $data"),
       [(store (opType immAny:$data), ADDR_RX:$addr)]>;
     def X : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "x\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "x\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RX:$addr)]>;
   }
 
@@ -418,34 +420,34 @@ multiclass StOp<string opStr, RegisterClass RC, ValueType opType, Operand immOpn
     def Di : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, immOpnd:$data),
-      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store (opType immAny:$data), ADDR_RI:$addr)]>;
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RI:$addr)]>;
     def Ri : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, immOpnd:$data),
-      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store (opType immAny:$data), ADDR_RR:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, RC:$data),
-      !strconcat(opStr, "d\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RR:$addr)]>;
   }
 
   def i : FMTGEN<
     (outs),
     (ins ADDR_R:$addr, immOpnd:$data),
-    !strconcat(opStr, "\t%ign,\t$addr, $data"),
+    !strconcat(opStr, "\t%ign, $addr, $data"),
     [(store (opType immAny:$data), ADDR_R:$addr)]>;
   def "" : FMTGEN<
     (outs),
     (ins ADDR_R:$addr, RC:$data),
-    !strconcat(opStr, "\t%ign,\t$addr, $data"),
+    !strconcat(opStr, "\t%ign, $addr, $data"),
     [(store RC:$data, ADDR_R:$addr)]>;
 }
 
@@ -454,25 +456,25 @@ multiclass FStOp<string opStr, RegisterClass RC, ValueType opType, Operand immOp
     def X : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RX:$addr)]>;
   }
   let Predicates = [HasDispl] in {
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RI:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign,\t$addr, $data"),
+      !strconcat(opStr, "\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RR:$addr)]>;
   }
   def "" : FMTGEN<
     (outs),
     (ins ADDR_R:$addr, RC:$data),
-    !strconcat(opStr, "\t%ign,\t$addr, $data"),
+    !strconcat(opStr, "\t%ign, $addr, $data"),
     [(store RC:$data, ADDR_R:$addr)]>;
 }
 
@@ -751,19 +753,6 @@ defm ST32   : StOp<  "st32",  I32, i32, i32imm>;
 defm ST32f  : FStOp< "st32",  F32, f32, f32imm>;
 defm ST64   : StOp<  "st64",  I64, i64, i64imm>;
 defm ST64f  : FStOp< "st64",  F64, f64, f64imm>;
-// Displacement
-//defm STD8   : StdOp< "std8",  I8,  i8,  i8imm>;
-//defm STD16  : StdOp< "std16", I16, i16, i16imm>;
-//defm STD32  : StdOp< "std32", I32, i32, i32imm>;
-//defm STD32f : FStdOp<"std32", F32, f32, f32imm>;
-//defm STD64  : StdOp< "std64", I64, i64, i64imm>;
-//defm STD64f : FStdOp<"std64", F64, f64, f64imm>;
-// Indexed
-//defm STI16  : StiOp< "sti16", I16, i16, i16imm>;
-//defm STI32  : StiOp< "sti32", I32, i32, i32imm>;
-//defm STI32f : FStiOp<"sti32", F32, f32, f32imm>;
-//defm STI64  : StiOp< "sti64", I64, i64, i64imm>;
-//defm STI64f : FStiOp<"sti64", F64, f64, f64imm>;
 
 multiclass CopyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -937,63 +926,63 @@ def : Pat<(i16 (sext_inreg i16:$op1, i8)),
 // it shouldn't need to be masked...)
 
 def : Pat<(i64 (zext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 //  (AND64 $op1, 0xFFFFFFFF)>;  // gets "Type inference contradiction found, merging 'i32' into 'i64'
 def : Pat<(i64 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 //  (AND64 $op1, 0xFFFF)>;
 def : Pat<(i64 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 //  (AND64 $op1, 0xFF)>;
 def : Pat<(i64 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 //  (AND64 $op1, 1)>;
 
 def : Pat<(i32 (zext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 //  (AND32 $op1, 0xFFFF)>;
 def : Pat<(i32 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 //  (AND32 $op1, 0xFF)>;
 def : Pat<(i32 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 //  (AND32 $op1, 1)>;
 
 def : Pat<(i16 (zext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I16)>;
 //  (AND16 $op1, 0xFF)>;
 def : Pat<(i16 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I16)>;
 //  (AND16 $op1, 1)>;
 
 def : Pat<(i8 (zext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I8)>;
 //  (AND8 $op1, 1)>;
 
 // anyext are treated as zext
 def : Pat<(i64 (anyext i32:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 def : Pat<(i64 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I64)>;
 
 def : Pat<(i32 (anyext i16:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(i32 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 def : Pat<(i32 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I32)>;
 
 def : Pat<(i16 (anyext i8:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(i16 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I16)>;
 
 def : Pat<(i8 (anyext i1:$op1)),
-  (COPY_TO_REGCLASS $op1, ANYS)>;
+  (COPY_TO_REGCLASS $op1, I8)>;
 
 // Truncate
 def : Pat<(i32 (trunc i64:$op1)),
@@ -1039,15 +1028,20 @@ let isBranch=1, isTerminator=1 in {
     "bf\t$cond, $target",
     [(brcond (not I1:$cond), bb:$target)]>;
   // Unconditional branch
-  def BR : FMTGEN<(outs), (ins brtarget:$target),
-    "br\t$target",
-    [(br bb:$target)]>;
+  let isBarrier=1 in {
+    def BR : FMTGEN<(outs), (ins brtarget:$target),
+      "br\t$target",
+      [(br bb:$target)]>;
+  }
 }
 
 def : Pat<(brcond (i1 (xor I1:$cond, -1)), bb:$target),
           (BF I1:$cond, bb:$target)>;
 def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
           (BF I1:$cond, bb:$target)>;
+
+
+
 
 // Eventually
 //include "LPUIntrinsics.td"

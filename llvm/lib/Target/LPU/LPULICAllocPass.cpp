@@ -67,7 +67,7 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   // c0/c1 - control ouput/input
   // c2..c3 - up to 2 results
   // c4..c19 - up to 16 input params
-  const int FirstAllocatable = LPU::C20;
+  const int FirstAllocatable = 1;//LPU::C20;
   int nextLICAlloc = FirstAllocatable;
 
   // For a 1st cut, simply allocate a LIC ("physical register") for each
@@ -76,9 +76,9 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   // If we change to using LICs as a separate operand type, this is where
   // they would be introduced...
 
-  MRI->setPhysRegUsed(LPU::C0);
-  MRI->setPhysRegUsed(LPU::C1);
-  MRI->addLiveIn(LPU::C1);
+  //  MRI->setPhysRegUsed(LPU::C0);
+  //  MRI->setPhysRegUsed(LPU::C1);
+  //  MRI->addLiveIn(LPU::C1);
 
   // 1st pass - allocate LICs for each VR.
   // We also track through (and remove) copies
@@ -165,7 +165,7 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
         MRI->setPhysRegUsed(Dst);
         // If the source doesn't match the dest, AND the source isn't
         // an input or output, plan to map the Src to the Dst on the next sweep
-        if (Src != Dst && Src >= FirstAllocatable) {
+        if (Src != Dst && Src >= (unsigned)FirstAllocatable) {
           //printf("inserting %d => %d\n", Src, Dst);
           LICToLIC[Src] = Dst;
         }
@@ -220,11 +220,13 @@ bool LPULICAllocPass::runOnMachineFunction(MachineFunction &MF) {
   }
 
   // for any LICs that were used in C3..C19, mark as live in
+  /*
   for (unsigned reg=LPU::C3; reg<=LPU::C19; reg++) {
     if (MRI->isPhysRegUsed(reg)) {
       MRI->addLiveIn(reg);
     }
   }
+  */
 
   return Modified;
 }

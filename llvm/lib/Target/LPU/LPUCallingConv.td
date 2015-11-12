@@ -26,8 +26,8 @@ def RetCC_Reg_LPU : CallingConv<[
 // LPU 64-bit C Calling convention using registers
 def CC_Reg_LPU : CallingConv<[
   CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64],
-        CCAssignToReg<[R0, R1, R2, R3, R4, R5, R6, R7,
-                       R8, R9, R10, R11, R12, R13, R14, R15]>>,
+        CCAssignToReg<[R2, R3, R4, R5, R6, R7, R8, R9,
+                       R10, R11, R12, R13, R14, R15, R16, R17]>>,
   CCAssignToStack<8, 8>
 ]>;
 

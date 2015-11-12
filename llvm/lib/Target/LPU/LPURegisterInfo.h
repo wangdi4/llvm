@@ -23,12 +23,19 @@ namespace llvm {
 
 struct LPURegisterInfo : public LPUGenRegisterInfo {
 public:
-  LPURegisterInfo();
+  const TargetInstrInfo &TII;
+
+  LPURegisterInfo(const TargetInstrInfo &tii);
+
   /// Code Generation virtual methods...
   const MCPhysReg *
   getCalleeSavedRegs(const MachineFunction *MF = nullptr) const override;
 
   BitVector getReservedRegs(const MachineFunction &MF) const override;
+
+  void eliminateCallFramePseudoInstr(MachineFunction &MF,
+                                     MachineBasicBlock &MBB,
+                                     MachineBasicBlock::iterator I) const;
 
   void eliminateFrameIndex(MachineBasicBlock::iterator II,
                            int SPAdj, unsigned FIOperandNum,

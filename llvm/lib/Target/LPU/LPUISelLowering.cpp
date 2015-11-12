@@ -59,14 +59,14 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
 
   // Set up the register classes.
   // The actual allocation should depend on the context (serial vs. parallel)
-  addRegisterClass(MVT::i1,   &LPU::I1RRegClass);
-  addRegisterClass(MVT::i8,   &LPU::I8RRegClass);
-  addRegisterClass(MVT::i16,  &LPU::I16RRegClass);
-  addRegisterClass(MVT::i32,  &LPU::I32RRegClass);
-  addRegisterClass(MVT::i64,  &LPU::I64RRegClass);
-  addRegisterClass(MVT::f16,  &LPU::F16RRegClass);
-  addRegisterClass(MVT::f32,  &LPU::F32RRegClass);
-  addRegisterClass(MVT::f64,  &LPU::F64RRegClass);
+  addRegisterClass(MVT::i1,   &LPU::I1RegClass);
+  addRegisterClass(MVT::i8,   &LPU::I8RegClass);
+  addRegisterClass(MVT::i16,  &LPU::I16RegClass);
+  addRegisterClass(MVT::i32,  &LPU::I32RegClass);
+  addRegisterClass(MVT::i64,  &LPU::I64RegClass);
+  addRegisterClass(MVT::f16,  &LPU::F16RegClass);
+  addRegisterClass(MVT::f32,  &LPU::F32RegClass);
+  addRegisterClass(MVT::f64,  &LPU::F64RegClass);
 
   // Compute derived properties from the register classes
   computeRegisterProperties();
@@ -76,7 +76,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   // Division is expensive
   setIntDivIsCheap(false);
 
-//  setStackPointerRegisterToSaveRestore(LPU::SP);
+  setStackPointerRegisterToSaveRestore(LPU::SP);
   setBooleanContents(ZeroOrOneBooleanContent);
   setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 
@@ -229,6 +229,8 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     //setOperationAction(ISD::FCOPYSIGN,  MVT::f64, Legal);
     //setOperationAction(ISD::FGETSIGN,  MVT::f32, Legal);
     //setOperationAction(ISD::FGETSIGN,  MVT::f64, Legal);
+    if (ST.hasF16())
+      setOperationAction(ISD::FSQRT, MVT::f16, Legal);
     setOperationAction(ISD::FSQRT, MVT::f32, Legal);
     setOperationAction(ISD::FSQRT, MVT::f64, Legal);
     setOperationAction(ISD::FSIN,  MVT::f32, Legal);
@@ -269,9 +271,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     //setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
   }
 
-  //  setOperationAction(ISD::GlobalAddress,    MVT::i16,   Custom);
-  //  setOperationAction(ISD::ExternalSymbol,   MVT::i16,   Custom);
-  //  setOperationAction(ISD::BlockAddress,     MVT::i16,   Custom);
+  //  setOperationAction(ISD::GlobalAddress,    MVT::i64,   Custom);
+  //  setOperationAction(ISD::ExternalSymbol,   MVT::i64,   Custom);
+  //  setOperationAction(ISD::BlockAddress,     MVT::i64,   Custom);
 
   //  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
@@ -281,7 +283,7 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setOperationAction(ISD::VAARG,            MVT::Other, Expand);
   setOperationAction(ISD::VAEND,            MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
-  //  setOperationAction(ISD::JumpTable,        MVT::i16,   Expand);
+  //  setOperationAction(ISD::JumpTable,        MVT::i64,   Expand);
   */
 }
 
@@ -347,12 +349,27 @@ getRegForInlineAsmConstraint(const std::string &Constraint,
 }
 */
 
-bool LPUTargetLowering::isLegalICmpImmediate(int64_t Imm) const {
+bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
+  if (!VT1.isInteger() || !VT2.isInteger())
+    return false;
+  unsigned NumBits1 = VT1.getSizeInBits();
+  unsigned NumBits2 = VT2.getSizeInBits();
+  return NumBits1 > NumBits2;
+}
+
+bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
+  // Using a small op only references the relevant bits
   return true;
 }
 
-bool LPUTargetLowering::isLegalAddImmediate(int64_t Imm) const {
+bool LPUTargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
+  // Using a small op only references the relevant bits
   return true;
+}
+
+bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
+  EVT VT1 = Val.getValueType();
+  return (isZExtFree(VT1, VT2));
 }
 
 bool LPUTargetLowering::isNarrowingProfitable(EVT VT1, EVT VT2) const {
@@ -540,8 +557,19 @@ LPUTargetLowering::LowerCCCArguments(SDValue Chain,
     CCValAssign &VA = ArgLocs[i];
     if (VA.isRegLoc()) {
       // Arguments passed in registers
-      unsigned Reg = MF.addLiveIn(VA.getLocReg(), &LPU::ANYRRegClass);
-      SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, VA.getLocVT());
+      const TargetRegisterClass *tClass = NULL;
+      MVT tVT = VA.getValVT();
+      if      (tVT == MVT::i64) tClass = &LPU::I64RegClass;
+      else if (tVT == MVT::i32) tClass = &LPU::I32RegClass;
+      else if (tVT == MVT::i16) tClass = &LPU::I16RegClass;
+      else if (tVT == MVT::i8)  tClass = &LPU::I8RegClass;
+      else if (tVT == MVT::i1)  tClass = &LPU::I1RegClass;
+      else if (tVT == MVT::f64) tClass = &LPU::F64RegClass;
+      else if (tVT == MVT::f32) tClass = &LPU::F32RegClass;
+      else if (tVT == MVT::f16) tClass = &LPU::F16RegClass;
+      else llvm_unreachable("unknown arg type");
+      unsigned Reg = MF.addLiveIn(VA.getLocReg(), tClass);
+      SDValue ArgValue = DAG.getCopyFromReg(Chain, dl, Reg, tVT);
       InVals.push_back(ArgValue);
 
     } else {
@@ -791,49 +819,6 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
   return Chain;
 }
 
-SDValue LPUTargetLowering::LowerShifts(SDValue Op,
-                                          SelectionDAG &DAG) const {
-  unsigned Opc = Op.getOpcode();
-  SDNode* N = Op.getNode();
-  EVT VT = Op.getValueType();
-  SDLoc dl(N);
-
-  // Expand non-constant shifts to loops:
-  if (!isa<ConstantSDNode>(N->getOperand(1)))
-    switch (Opc) {
-    default: llvm_unreachable("Invalid shift opcode!");
-    case ISD::SHL:
-      return DAG.getNode(LPUISD::SHL, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    case ISD::SRA:
-      return DAG.getNode(LPUISD::SRA, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    case ISD::SRL:
-      return DAG.getNode(LPUISD::SRL, dl,
-                         VT, N->getOperand(0), N->getOperand(1));
-    }
-
-  uint64_t ShiftAmount = cast<ConstantSDNode>(N->getOperand(1))->getZExtValue();
-
-  // Expand the stuff into sequence of shifts.
-  // FIXME: for some shift amounts this might be done better!
-  // E.g.: foo >> (8 + N) => sxt(swpb(foo)) >> N
-  SDValue Victim = N->getOperand(0);
-
-  if (Opc == ISD::SRL && ShiftAmount) {
-    // Emit a special goodness here:
-    // srl A, 1 => clrc; rrc A
-    Victim = DAG.getNode(LPUISD::RRC, dl, VT, Victim);
-    ShiftAmount -= 1;
-  }
-
-  while (ShiftAmount--)
-    Victim = DAG.getNode((Opc == ISD::SHL ? LPUISD::RLA : LPUISD::RRA),
-                         dl, VT, Victim);
-
-  return Victim;
-}
-
 SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
                                                  SelectionDAG &DAG) const {
   const GlobalValue *GV = cast<GlobalAddressSDNode>(Op)->getGlobal();
@@ -862,219 +847,6 @@ SDValue LPUTargetLowering::LowerBlockAddress(SDValue Op,
   SDValue Result = DAG.getTargetBlockAddress(BA, getPointerTy());
 
   return DAG.getNode(LPUISD::Wrapper, dl, getPointerTy(), Result);
-}
-
-static SDValue EmitCMP(SDValue &LHS, SDValue &RHS, SDValue &TargetCC,
-                       ISD::CondCode CC,
-                       SDLoc dl, SelectionDAG &DAG) {
-  // FIXME: Handle bittests someday
-  assert(!LHS.getValueType().isFloatingPoint() && "We don't handle FP yet");
-
-  // FIXME: Handle jump negative someday
-  LPUCC::CondCodes TCC = LPUCC::COND_INVALID;
-  switch (CC) {
-  default: llvm_unreachable("Invalid integer condition!");
-  case ISD::SETEQ:
-    TCC = LPUCC::COND_E;     // aka COND_Z
-    // Minor optimization: if LHS is a constant, swap operands, then the
-    // constant can be folded into comparison.
-    if (LHS.getOpcode() == ISD::Constant)
-      std::swap(LHS, RHS);
-    break;
-  case ISD::SETNE:
-    TCC = LPUCC::COND_NE;    // aka COND_NZ
-    // Minor optimization: if LHS is a constant, swap operands, then the
-    // constant can be folded into comparison.
-    if (LHS.getOpcode() == ISD::Constant)
-      std::swap(LHS, RHS);
-    break;
-  case ISD::SETULE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETUGE:
-    // Turn lhs u>= rhs with lhs constant into rhs u< lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, C->getValueType(0));
-      TCC = LPUCC::COND_LO;
-      break;
-    }
-    TCC = LPUCC::COND_HS;    // aka COND_C
-    break;
-  case ISD::SETUGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETULT:
-    // Turn lhs u< rhs with lhs constant into rhs u>= lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, C->getValueType(0));
-      TCC = LPUCC::COND_HS;
-      break;
-    }
-    TCC = LPUCC::COND_LO;    // aka COND_NC
-    break;
-  case ISD::SETLE:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETGE:
-    // Turn lhs >= rhs with lhs constant into rhs < lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, C->getValueType(0));
-      TCC = LPUCC::COND_L;
-      break;
-    }
-    TCC = LPUCC::COND_GE;
-    break;
-  case ISD::SETGT:
-    std::swap(LHS, RHS);        // FALLTHROUGH
-  case ISD::SETLT:
-    // Turn lhs < rhs with lhs constant into rhs >= lhs+1, this allows us to
-    // fold constant into instruction.
-    if (const ConstantSDNode * C = dyn_cast<ConstantSDNode>(LHS)) {
-      LHS = RHS;
-      RHS = DAG.getConstant(C->getSExtValue() + 1, C->getValueType(0));
-      TCC = LPUCC::COND_GE;
-      break;
-    }
-    TCC = LPUCC::COND_L;
-    break;
-  }
-
-  TargetCC = DAG.getConstant(TCC, MVT::i8);
-  return DAG.getNode(LPUISD::CMP, dl, MVT::Glue, LHS, RHS);
-}
-
-
-SDValue LPUTargetLowering::LowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
-  SDValue Chain = Op.getOperand(0);
-  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
-  SDValue LHS   = Op.getOperand(2);
-  SDValue RHS   = Op.getOperand(3);
-  SDValue Dest  = Op.getOperand(4);
-  SDLoc dl  (Op);
-
-  SDValue TargetCC;
-  SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
-
-  return DAG.getNode(LPUISD::BR_CC, dl, Op.getValueType(),
-                     Chain, Dest, TargetCC, Flag);
-}
-
-SDValue LPUTargetLowering::LowerSETCC(SDValue Op, SelectionDAG &DAG) const {
-  SDValue LHS   = Op.getOperand(0);
-  SDValue RHS   = Op.getOperand(1);
-  SDLoc dl  (Op);
-
-  // If we are doing an AND and testing against zero, then the CMP
-  // will not be generated.  The AND (or BIT) will generate the condition codes,
-  // but they are different from CMP.
-  // FIXME: since we're doing a post-processing, use a pseudoinstr here, so
-  // lowering & isel wouldn't diverge.
-  bool andCC = false;
-  if (ConstantSDNode *RHSC = dyn_cast<ConstantSDNode>(RHS)) {
-    if (RHSC->isNullValue() && LHS.hasOneUse() &&
-        (LHS.getOpcode() == ISD::AND ||
-         (LHS.getOpcode() == ISD::TRUNCATE &&
-          LHS.getOperand(0).getOpcode() == ISD::AND))) {
-      andCC = true;
-    }
-  }
-  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(2))->get();
-  SDValue TargetCC;
-  SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
-
-  // Get the condition codes directly from the status register, if its easy.
-  // Otherwise a branch will be generated.  Note that the AND and BIT
-  // instructions generate different flags than CMP, the carry bit can be used
-  // for NE/EQ.
-  bool Invert = false;
-  bool Shift = false;
-  bool Convert = true;
-  switch (cast<ConstantSDNode>(TargetCC)->getZExtValue()) {
-   default:
-    Convert = false;
-    break;
-   case LPUCC::COND_HS:
-     // Res = SR & 1, no processing is required
-     break;
-   case LPUCC::COND_LO:
-     // Res = ~(SR & 1)
-     Invert = true;
-     break;
-   case LPUCC::COND_NE:
-     if (andCC) {
-       // C = ~Z, thus Res = SR & 1, no processing is required
-     } else {
-       // Res = ~((SR >> 1) & 1)
-       Shift = true;
-       Invert = true;
-     }
-     break;
-   case LPUCC::COND_E:
-     Shift = true;
-     // C = ~Z for AND instruction, thus we can put Res = ~(SR & 1), however,
-     // Res = (SR >> 1) & 1 is 1 word shorter.
-     break;
-  }
-  EVT VT = Op.getValueType();
-  SDValue One  = DAG.getConstant(1, VT);
-  if (Convert) {
-    SDValue SR = DAG.getCopyFromReg(DAG.getEntryNode(), dl, LPU::SR,
-                                    MVT::i16, Flag);
-    if (Shift)
-      // FIXME: somewhere this is turned into a SRL, lower it LPU specific?
-      SR = DAG.getNode(ISD::SRA, dl, MVT::i16, SR, One);
-    SR = DAG.getNode(ISD::AND, dl, MVT::i16, SR, One);
-    if (Invert)
-      SR = DAG.getNode(ISD::XOR, dl, MVT::i16, SR, One);
-    return SR;
-  } else {
-    SDValue Zero = DAG.getConstant(0, VT);
-    SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-    SmallVector<SDValue, 4> Ops;
-    Ops.push_back(One);
-    Ops.push_back(Zero);
-    Ops.push_back(TargetCC);
-    Ops.push_back(Flag);
-    return DAG.getNode(LPUISD::SELECT_CC, dl, VTs, Ops);
-  }
-}
-
-SDValue LPUTargetLowering::LowerSELECT_CC(SDValue Op,
-                                             SelectionDAG &DAG) const {
-  SDValue LHS    = Op.getOperand(0);
-  SDValue RHS    = Op.getOperand(1);
-  SDValue TrueV  = Op.getOperand(2);
-  SDValue FalseV = Op.getOperand(3);
-  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
-  SDLoc dl   (Op);
-
-  SDValue TargetCC;
-  SDValue Flag = EmitCMP(LHS, RHS, TargetCC, CC, dl, DAG);
-
-  SDVTList VTs = DAG.getVTList(Op.getValueType(), MVT::Glue);
-  SmallVector<SDValue, 4> Ops;
-  Ops.push_back(TrueV);
-  Ops.push_back(FalseV);
-  Ops.push_back(TargetCC);
-  Ops.push_back(Flag);
-
-  return DAG.getNode(LPUISD::SELECT_CC, dl, VTs, Ops);
-}
-
-SDValue LPUTargetLowering::LowerSIGN_EXTEND(SDValue Op,
-                                               SelectionDAG &DAG) const {
-  SDValue Val = Op.getOperand(0);
-  EVT VT      = Op.getValueType();
-  SDLoc dl(Op);
-
-  assert(VT == MVT::i16 && "Only support i16 for now!");
-
-  return DAG.getNode(ISD::SIGN_EXTEND_INREG, dl, VT,
-                     DAG.getNode(ISD::ANY_EXTEND, dl, VT, Val),
-                     DAG.getValueType(Val.getValueType()));
 }
 
 SDValue
@@ -1162,264 +934,9 @@ SDValue LPUTargetLowering::LowerJumpTable(SDValue Op,
                        getPointerTy(), Result);
 }
 
-/// getPostIndexedAddressParts - returns true by value, base pointer and
-/// offset pointer and addressing mode by reference if this node can be
-/// combined with a load / store to form a post-indexed load / store.
-bool LPUTargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
-                                                      SDValue &Base,
-                                                      SDValue &Offset,
-                                                      ISD::MemIndexedMode &AM,
-                                                      SelectionDAG &DAG) const {
-
-  LoadSDNode *LD = cast<LoadSDNode>(N);
-  if (LD->getExtensionType() != ISD::NON_EXTLOAD)
-    return false;
-
-  EVT VT = LD->getMemoryVT();
-  if (VT != MVT::i8 && VT != MVT::i16)
-    return false;
-
-  if (Op->getOpcode() != ISD::ADD)
-    return false;
-
-  if (ConstantSDNode *RHS = dyn_cast<ConstantSDNode>(Op->getOperand(1))) {
-    uint64_t RHSC = RHS->getZExtValue();
-    if ((VT == MVT::i16 && RHSC != 2) ||
-        (VT == MVT::i8 && RHSC != 1))
-      return false;
-
-    Base = Op->getOperand(0);
-    Offset = DAG.getConstant(RHSC, VT);
-    AM = ISD::POST_INC;
-    return true;
-  }
-
-  return false;
-}
 */
-
-/*
-bool LPUTargetLowering::isTruncateFree(Type *Ty1,
-                                          Type *Ty2) const {
-  if (!Ty1->isIntegerTy() || !Ty2->isIntegerTy())
-    return false;
-
-  return (Ty1->getPrimitiveSizeInBits() > Ty2->getPrimitiveSizeInBits());
-}
-*/
-bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
-  if (!VT1.isInteger() || !VT2.isInteger())
-    return false;
-  unsigned NumBits1 = VT1.getSizeInBits();
-  unsigned NumBits2 = VT2.getSizeInBits();
-  return NumBits1 > NumBits2;
-}
-/*
-bool LPUTargetLowering::isTruncateFree(EVT VT1, EVT VT2) const {
-  if (!VT1.isInteger() || !VT2.isInteger())
-    return false;
-
-  return (VT1.getSizeInBits() > VT2.getSizeInBits());
-}
-*/
-
-bool LPUTargetLowering::isZExtFree(Type *Ty1, Type *Ty2) const {
-  // Using a small op only references the relevant bits
-  return true;
-}
-
-bool LPUTargetLowering::isZExtFree(EVT VT1, EVT VT2) const {
-  // Using a small op only references the relevant bits
-  return true;
-}
-
-bool LPUTargetLowering::isZExtFree(SDValue Val, EVT VT2) const {
-  EVT VT1 = Val.getValueType();
-  return (isZExtFree(VT1, VT2));
-}
-
-/*
 
 //===----------------------------------------------------------------------===//
 //  Other Lowering Code
 //===----------------------------------------------------------------------===//
 
-MachineBasicBlock*
-LPUTargetLowering::EmitShiftInstr(MachineInstr *MI,
-                                     MachineBasicBlock *BB) const {
-  MachineFunction *F = BB->getParent();
-  MachineRegisterInfo &RI = F->getRegInfo();
-  DebugLoc dl = MI->getDebugLoc();
-  const TargetInstrInfo &TII =
-      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
-
-  unsigned Opc;
-  const TargetRegisterClass * RC;
-  switch (MI->getOpcode()) {
-  default: llvm_unreachable("Invalid shift opcode!");
-  case LPU::Shl8:
-   Opc = LPU::SHL8r1;
-   RC = &LPU::GR8RegClass;
-   break;
-  case LPU::Shl16:
-   Opc = LPU::SHL16r1;
-   RC = &LPU::GR16RegClass;
-   break;
-  case LPU::Sra8:
-   Opc = LPU::SAR8r1;
-   RC = &LPU::GR8RegClass;
-   break;
-  case LPU::Sra16:
-   Opc = LPU::SAR16r1;
-   RC = &LPU::GR16RegClass;
-   break;
-  case LPU::Srl8:
-   Opc = LPU::SAR8r1c;
-   RC = &LPU::GR8RegClass;
-   break;
-  case LPU::Srl16:
-   Opc = LPU::SAR16r1c;
-   RC = &LPU::GR16RegClass;
-   break;
-  }
-
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
-  MachineFunction::iterator I = BB;
-  ++I;
-
-  // Create loop block
-  MachineBasicBlock *LoopBB = F->CreateMachineBasicBlock(LLVM_BB);
-  MachineBasicBlock *RemBB  = F->CreateMachineBasicBlock(LLVM_BB);
-
-  F->insert(I, LoopBB);
-  F->insert(I, RemBB);
-
-  // Update machine-CFG edges by transferring all successors of the current
-  // block to the block containing instructions after shift.
-  RemBB->splice(RemBB->begin(), BB, std::next(MachineBasicBlock::iterator(MI)),
-                BB->end());
-  RemBB->transferSuccessorsAndUpdatePHIs(BB);
-
-  // Add adges BB => LoopBB => RemBB, BB => RemBB, LoopBB => LoopBB
-  BB->addSuccessor(LoopBB);
-  BB->addSuccessor(RemBB);
-  LoopBB->addSuccessor(RemBB);
-  LoopBB->addSuccessor(LoopBB);
-
-  unsigned ShiftAmtReg = RI.createVirtualRegister(&LPU::GR8RegClass);
-  unsigned ShiftAmtReg2 = RI.createVirtualRegister(&LPU::GR8RegClass);
-  unsigned ShiftReg = RI.createVirtualRegister(RC);
-  unsigned ShiftReg2 = RI.createVirtualRegister(RC);
-  unsigned ShiftAmtSrcReg = MI->getOperand(2).getReg();
-  unsigned SrcReg = MI->getOperand(1).getReg();
-  unsigned DstReg = MI->getOperand(0).getReg();
-
-  // BB:
-  // cmp 0, N
-  // je RemBB
-  BuildMI(BB, dl, TII.get(LPU::CMP8ri))
-    .addReg(ShiftAmtSrcReg).addImm(0);
-  BuildMI(BB, dl, TII.get(LPU::JCC))
-    .addMBB(RemBB)
-    .addImm(LPUCC::COND_E);
-
-  // LoopBB:
-  // ShiftReg = phi [%SrcReg, BB], [%ShiftReg2, LoopBB]
-  // ShiftAmt = phi [%N, BB],      [%ShiftAmt2, LoopBB]
-  // ShiftReg2 = shift ShiftReg
-  // ShiftAmt2 = ShiftAmt - 1;
-  BuildMI(LoopBB, dl, TII.get(LPU::PHI), ShiftReg)
-    .addReg(SrcReg).addMBB(BB)
-    .addReg(ShiftReg2).addMBB(LoopBB);
-  BuildMI(LoopBB, dl, TII.get(LPU::PHI), ShiftAmtReg)
-    .addReg(ShiftAmtSrcReg).addMBB(BB)
-    .addReg(ShiftAmtReg2).addMBB(LoopBB);
-  BuildMI(LoopBB, dl, TII.get(Opc), ShiftReg2)
-    .addReg(ShiftReg);
-  BuildMI(LoopBB, dl, TII.get(LPU::SUB8ri), ShiftAmtReg2)
-    .addReg(ShiftAmtReg).addImm(1);
-  BuildMI(LoopBB, dl, TII.get(LPU::JCC))
-    .addMBB(LoopBB)
-    .addImm(LPUCC::COND_NE);
-
-  // RemBB:
-  // DestReg = phi [%SrcReg, BB], [%ShiftReg, LoopBB]
-  BuildMI(*RemBB, RemBB->begin(), dl, TII.get(LPU::PHI), DstReg)
-    .addReg(SrcReg).addMBB(BB)
-    .addReg(ShiftReg2).addMBB(LoopBB);
-
-  MI->eraseFromParent();   // The pseudo instruction is gone now.
-  return RemBB;
-}
-
-MachineBasicBlock*
-LPUTargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
-                                                  MachineBasicBlock *BB) const {
-  unsigned Opc = MI->getOpcode();
-
-  if (Opc == LPU::Shl8 || Opc == LPU::Shl16 ||
-      Opc == LPU::Sra8 || Opc == LPU::Sra16 ||
-      Opc == LPU::Srl8 || Opc == LPU::Srl16)
-    return EmitShiftInstr(MI, BB);
-
-  const TargetInstrInfo &TII =
-      *getTargetMachine().getSubtargetImpl()->getInstrInfo();
-  DebugLoc dl = MI->getDebugLoc();
-
-  assert((Opc == LPU::Select16 || Opc == LPU::Select8) &&
-         "Unexpected instr type to insert");
-
-  // To "insert" a SELECT instruction, we actually have to insert the diamond
-  // control-flow pattern.  The incoming instruction knows the destination vreg
-  // to set, the condition code register to branch on, the true/false values to
-  // select between, and a branch opcode to use.
-  const BasicBlock *LLVM_BB = BB->getBasicBlock();
-  MachineFunction::iterator I = BB;
-  ++I;
-
-  //  thisMBB:
-  //  ...
-  //   TrueVal = ...
-  //   cmpTY ccX, r1, r2
-  //   jCC copy1MBB
-  //   fallthrough --> copy0MBB
-  MachineBasicBlock *thisMBB = BB;
-  MachineFunction *F = BB->getParent();
-  MachineBasicBlock *copy0MBB = F->CreateMachineBasicBlock(LLVM_BB);
-  MachineBasicBlock *copy1MBB = F->CreateMachineBasicBlock(LLVM_BB);
-  F->insert(I, copy0MBB);
-  F->insert(I, copy1MBB);
-  // Update machine-CFG edges by transferring all successors of the current
-  // block to the new block which will contain the Phi node for the select.
-  copy1MBB->splice(copy1MBB->begin(), BB,
-                   std::next(MachineBasicBlock::iterator(MI)), BB->end());
-  copy1MBB->transferSuccessorsAndUpdatePHIs(BB);
-  // Next, add the true and fallthrough blocks as its successors.
-  BB->addSuccessor(copy0MBB);
-  BB->addSuccessor(copy1MBB);
-
-  BuildMI(BB, dl, TII.get(LPU::JCC))
-    .addMBB(copy1MBB)
-    .addImm(MI->getOperand(3).getImm());
-
-  //  copy0MBB:
-  //   %FalseValue = ...
-  //   # fallthrough to copy1MBB
-  BB = copy0MBB;
-
-  // Update machine-CFG edges
-  BB->addSuccessor(copy1MBB);
-
-  //  copy1MBB:
-  //   %Result = phi [ %FalseValue, copy0MBB ], [ %TrueValue, thisMBB ]
-  //  ...
-  BB = copy1MBB;
-  BuildMI(*BB, BB->begin(), dl, TII.get(LPU::PHI),
-          MI->getOperand(0).getReg())
-    .addReg(MI->getOperand(2).getReg()).addMBB(copy0MBB)
-    .addReg(MI->getOperand(1).getReg()).addMBB(thisMBB);
-
-  MI->eraseFromParent();   // The pseudo instruction is gone now.
-  return BB;
-}
-*/

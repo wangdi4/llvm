@@ -22,16 +22,18 @@ class LPUFrameLowering : public TargetFrameLowering {
 
 public:
   explicit LPUFrameLowering()
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsDown, 2, -2, 2) {}
+    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp,
+                          /* align */ 16,
+                          /* local area offset */ 0,
+                          /* transient align */ 16) {}
 
   void emitPrologue(MachineFunction &MF) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 
-  void eliminateCallFramePseudoInstr(MachineFunction &MF,
-                                  MachineBasicBlock &MBB,
-                                  MachineBasicBlock::iterator I) const override;
-
   bool hasFP(const MachineFunction &MF) const override;
+
+  void processFunctionBeforeFrameFinalized(MachineFunction &MF,
+                                           RegScavenger *RS=nullptr) const override;
 };
 
 } // End llvm namespace

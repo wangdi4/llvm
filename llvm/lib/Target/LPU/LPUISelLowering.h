@@ -59,7 +59,6 @@ namespace llvm {
     /// DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
     /*
-    SDValue LowerShifts(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
@@ -80,24 +79,6 @@ namespace llvm {
                                  MVT VT) const override;
     */
 
-    /// Return true if the specified immediate is legal
-    /// icmp immediate, that is the target has icmp instructions which can
-    /// compare a register against the immediate without having to materialize
-    /// the immediate into a register.
-    bool isLegalICmpImmediate(int64_t Imm) const override;
-
-    /// Return true if the specified immediate is legal
-    /// add immediate, that is the target has add instructions which can
-    /// add a register and the immediate without having to materialize
-    /// the immediate into a register.
-    bool isLegalAddImmediate(int64_t Imm) const override;
-
-    /*
-    /// isTruncateFree - Return true if it's free to truncate a value of type
-    /// Ty1 to type Ty2. e.g. On msp430 it's free to truncate a i16 value in
-    /// register R15W to i8 by referencing its sub-register R15B.
-    bool isTruncateFree(Type *Ty1, Type *Ty2) const override;
-    */
     bool isTruncateFree(EVT VT1, EVT VT2) const override;
 
     /// isZExtFree - Return true if any actual instruction that defines a value
@@ -115,12 +96,7 @@ namespace llvm {
     /// Return true if it's profitable to narrow
     /// operations of type VT1 to VT2.
     bool isNarrowingProfitable(EVT VT1, EVT VT2) const override;
-    /*
-    MachineBasicBlock* EmitInstrWithCustomInserter(MachineInstr *MI,
-                                                   MachineBasicBlock *BB) const override;
-    MachineBasicBlock* EmitShiftInstr(MachineInstr *MI,
-                                      MachineBasicBlock *BB) const;
-    */
+
   private:
     /*
     SDValue LowerCCCCallTo(SDValue Chain, SDValue Callee,
@@ -162,13 +138,7 @@ namespace llvm {
                         const SmallVectorImpl<ISD::OutputArg> &Outs,
                         const SmallVectorImpl<SDValue> &OutVals,
                         SDLoc dl, SelectionDAG &DAG) const override;
-    /*
-    bool getPostIndexedAddressParts(SDNode *N, SDNode *Op,
-                                    SDValue &Base,
-                                    SDValue &Offset,
-                                    ISD::MemIndexedMode &AM,
-                                    SelectionDAG &DAG) const override;
-*/
+
   };
 } // namespace llvm
 

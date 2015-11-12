@@ -23,35 +23,31 @@ namespace llvm {
 class LPUMachineFunctionInfo : public MachineFunctionInfo {
 
   virtual void anchor();
-  /*
-  /// CalleeSavedFrameSize - Size of the callee-saved register portion of the
-  /// stack frame in bytes.
-  unsigned CalleeSavedFrameSize;
 
-  /// ReturnAddrIndex - FrameIndex for return slot.
-  int ReturnAddrIndex;
+  /// Holds for each function where on the stack the Frame Pointer must be
+  /// saved. This is used on Prologue and Epilogue to emit FP save/restore
+  int FPFrameIndex;
+
+  /// Holds for each function where on the stack the Return Address must be
+  /// saved. This is used on Prologue and Epilogue to emit RA save/restore
+  int RAFrameIndex;
 
   /// VarArgsFrameIndex - FrameIndex for start of varargs area.
   int VarArgsFrameIndex;
-  */
+
 public:
-  LPUMachineFunctionInfo() /* : CalleeSavedFrameSize(0) */ {}
-
   explicit LPUMachineFunctionInfo(MachineFunction &MF)
+    : FPFrameIndex(-1), RAFrameIndex(-1), VarArgsFrameIndex(-1) {}
  
-  // TODO: Add mapping from LIC to LIC depth
+  int getFPFrameIndex() const { return FPFrameIndex; }
+  void setFPFrameIndex(int Index) { FPFrameIndex = Index; }
 
-   /*: CalleeSavedFrameSize(0), ReturnAddrIndex(0) */ {}
-  /*
-  unsigned getCalleeSavedFrameSize() const { return CalleeSavedFrameSize; }
-  void setCalleeSavedFrameSize(unsigned bytes) { CalleeSavedFrameSize = bytes; }
+  int getRAFrameIndex() const { return RAFrameIndex; }
+  void setRAFrameIndex(int Index) { RAFrameIndex = Index; }
 
-  int getRAIndex() const { return ReturnAddrIndex; }
-  void setRAIndex(int Index) { ReturnAddrIndex = Index; }
-
-  int getVarArgsFrameIndex() const { return VarArgsFrameIndex;}
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
-  */
+
 };
 
 } // End llvm namespace

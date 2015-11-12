@@ -64,7 +64,7 @@ void LPUInstrInfo::anchor() {}
 
 LPUInstrInfo::LPUInstrInfo(LPUSubtarget &STI)
   : LPUGenInstrInfo(LPU::ADJCALLSTACKDOWN, LPU::ADJCALLSTACKUP),
-    RI() {}
+    RI(*this) {}
 
 void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator I, DebugLoc DL,

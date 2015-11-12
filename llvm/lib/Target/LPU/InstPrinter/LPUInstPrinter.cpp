@@ -67,7 +67,7 @@ void LPUInstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   assert((Modifier == nullptr || Modifier[0] == 0) && "No modifiers supported");
   // Load/Store memory operands -- $reg, $reg || $reg, $imm
   printOperand(MI, OpNo, O);
-  O << ", ";
+  O << ",";
   printOperand(MI, OpNo+1, O);
 }
 

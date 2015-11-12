@@ -261,7 +261,7 @@ void LPUAsmPrinter::emitParamList(const Function *F) {
   // This is a hack mostly taken from NVPTX.  This assumes successive
   // parameters go to successive registers, starting with the initial
   // value of paramReg.  This may be too simplistic for longer term.
-  int paramReg = 0;  // Params start in R0 - see LPUCallingConv.td
+  int paramReg = 2;  // Params start in R0 - see LPUCallingConv.td
   bool first = true;
   for (I = F->arg_begin(), E = F->arg_end(); I != E; ++I, paramIndex++) {
     Type *Ty = I->getType();

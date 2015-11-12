@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#define DEBUG_TYPE "frame-lower"
+
 #include "LPUFrameLowering.h"
 #include "LPUInstrInfo.h"
 #include "LPUMachineFunctionInfo.h"
@@ -23,219 +25,170 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Function.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Target/TargetOptions.h"
 
 using namespace llvm;
 
-bool LPUFrameLowering::hasFP(const MachineFunction &MF) const {
-  const MachineFrameInfo *MFI = MF.getFrameInfo();
-
-  return (MF.getTarget().Options.DisableFramePointerElim(MF) ||
-          MF.getFrameInfo()->hasVarSizedObjects() ||
-          MFI->isFrameAddressTaken());
-}
-
 void LPUFrameLowering::emitPrologue(MachineFunction &MF) const {
-  /*
-  MachineBasicBlock &MBB = MF.front();   // Prolog goes in entry BB
-  MachineFrameInfo *MFI = MF.getFrameInfo();
-  LPUMachineFunctionInfo *LPUFI = MF.getInfo<LPUMachineFunctionInfo>();
+  MachineBasicBlock &MBB = MF.front();
+  MachineFrameInfo *MFI  = MF.getFrameInfo();
+  LPUMachineFunctionInfo *LMFI  = MF.getInfo<LPUMachineFunctionInfo>();
   const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo *>(MF.getSubtarget().getInstrInfo());
-
+    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
   MachineBasicBlock::iterator MBBI = MBB.begin();
-  DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
+  DebugLoc dl = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
 
   // Get the number of bytes to allocate from the FrameInfo.
-  uint64_t StackSize = MFI->getStackSize();
+  unsigned StackSize     = MFI->getStackSize();
+  unsigned CallFrameSize = MFI->getMaxCallFrameSize();
 
-  uint64_t NumBytes = 0;
-  if (hasFP(MF)) {
-    // Calculate required stack adjustment
-    uint64_t FrameSize = StackSize - 2;
-    NumBytes = FrameSize - LPUFI->getCalleeSavedFrameSize();
+  // We are going to round CallFrameSize so that it is a multiple
+  // of 8 so that the RA can be stored at a correct offset
+  // Note that CallFrameSize is not initially a multiple of 8 because
+  // for varargs, we allow slots to be of size 4 for example and overflow
+  // arguments (not in registers after 8) can be of any size
+  CallFrameSize = (CallFrameSize + 15) & (-16);
 
-    // Get the offset of the stack slot for the EBP register... which is
-    // guaranteed to be the last slot by processFunctionBeforeFrameFinalized.
-    // Update the frame offset adjustment.
-    MFI->setOffsetAdjustment(-NumBytes);
+  // If this is a dynamic frame, the outbound arguments are allocated
+  // below the dynamic portion, and do not figure into the offsets
+  if (hasFP(MF))
+    CallFrameSize = 0;
 
-    // Save FP into the appropriate stack slot...
-    BuildMI(MBB, MBBI, DL, TII.get(LPU::PUSH16r))
-      .addReg(LPU::FP, RegState::Kill);
+  //// This seems like a fix???
+  ////  StackSize += CallFrameSize;
 
-    // Update FP with the new base value...
-    BuildMI(MBB, MBBI, DL, TII.get(LPU::MOV16rr), LPU::FP)
-      .addReg(LPU::SP);
+  DEBUG(errs() << "Stack info:\n"
+               << "StackSize  : " << StackSize << "\n"
+	      << "CallFrameSize : " << CallFrameSize << "\n");
 
-    // Mark the FramePtr as live-in in every block except the entry.
-    for (MachineFunction::iterator I = std::next(MF.begin()), E = MF.end();
-         I != E; ++I)
-      I->addLiveIn(LPU::FP);
+  if (StackSize == 0) return;
 
-  } else
-    NumBytes = StackSize - LPUFI->getCalleeSavedFrameSize();
+  // Adjust stack : sub sp, sp, imm
+  BuildMI(MBB, MBBI, dl, TII.get(LPU::SUB64i), LPU::SP)
+    .addReg(LPU::SP).addImm(StackSize);
 
-  // Skip the callee-saved push instructions.
-  while (MBBI != MBB.end() && (MBBI->getOpcode() == LPU::PUSH16r))
-    ++MBBI;
+  if (MFI->hasCalls()) {
+    assert(LMFI->getRAFrameIndex() != -1
+           && "No spill location for Return Address created.");
 
-  if (MBBI != MBB.end())
-    DL = MBBI->getDebugLoc();
+    // store64  stack_loc($sp), $ra
+    int RAOffset =
+      MFI->getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
+    assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
+    DEBUG(errs() << "RAOffset : " << RAOffset << "\n");
 
-  if (NumBytes) { // adjust stack pointer: SP -= numbytes
-    // If there is an SUB16ri of SP immediately before this instruction, merge
-    // the two.
-    //NumBytes -= mergeSPUpdates(MBB, MBBI, true);
-    // If there is an ADD16ri or SUB16ri of SP immediately after this
-    // instruction, merge the two instructions.
-    // mergeSPUpdatesDown(MBB, MBBI, &NumBytes);
-
-    if (NumBytes) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL, TII.get(LPU::SUB16ri), LPU::SP)
-        .addReg(LPU::SP).addImm(NumBytes);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
+    if (RAOffset >= (int)StackSize) {
+	assert(RAOffset < (int)StackSize && "Bad RA offset");
     }
+
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::ST64D))
+      .addReg(LPU::SP).addImm(RAOffset).addReg(LPU::RA);
   }
-  */
+
+  if (hasFP(MF)) {
+    assert(LMFI->getFPFrameIndex() != -1
+           && "No spill location found for Frame Pointer.");
+
+    // store64  stack_loc($sp), $fp
+    int FPOffset =
+      MFI->getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
+
+    assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
+    if (FPOffset >= (int)StackSize) {
+	DEBUG(errs() << "Stack FPOffset bug!\n"
+	      << "FPOffset : " << FPOffset << "\n"
+              << "StackSize  : " << StackSize << "\n"
+	      << "CallFrameSize : " << CallFrameSize << "\n");
+	assert(FPOffset < (int)StackSize && "Bad FP offset");
+    }
+
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::ST64D))
+      .addReg(LPU::SP).addImm(FPOffset).addReg(LPU::FP);
+
+    // move $fp, $sp
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::MOV64), LPU::FP)
+      .addReg(LPU::SP);
+  }
+
 }
 
 void LPUFrameLowering::emitEpilogue(MachineFunction &MF,
                                        MachineBasicBlock &MBB) const {
-  /*
-  const MachineFrameInfo *MFI = MF.getFrameInfo();
-  LPUMachineFunctionInfo *LPUFI = MF.getInfo<LPUMachineFunctionInfo>();
+  MachineBasicBlock::iterator MBBI = --MBB.end();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
+  DebugLoc dl = MBBI->getDebugLoc();
   const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo *>(MF.getSubtarget().getInstrInfo());
+    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
 
-  MachineBasicBlock::iterator MBBI = MBB.getLastNonDebugInstr();
-  unsigned RetOpcode = MBBI->getOpcode();
-  DebugLoc DL = MBBI->getDebugLoc();
+  // Get the number of bytes to allocate from the FrameInfo.
+  unsigned StackSize     = MFI->getStackSize();
+  unsigned CallFrameSize = MFI->getMaxCallFrameSize();
 
-  switch (RetOpcode) {
-  case LPU::RET:
-  case LPU::RETI: break;  // These are ok
-  default:
-    llvm_unreachable("Can only insert epilog into returning blocks");
-  }
+  CallFrameSize = (CallFrameSize + 15) & (-16);
 
-  // Get the number of bytes to allocate from the FrameInfo
-  uint64_t StackSize = MFI->getStackSize();
-  unsigned CSSize = LPUFI->getCalleeSavedFrameSize();
-  uint64_t NumBytes = 0;
+  // If this is a dynamic frame, the outbound arguments are allocated
+  // below the dynamic portion, and do not figure into the offsets
+  if (hasFP(MF))
+    CallFrameSize = 0;
 
+  if (StackSize == 0) return;
+
+  // if framepointer enabled, restore it and restore the
+  // stack pointer
   if (hasFP(MF)) {
-    // Calculate required stack adjustment
-    uint64_t FrameSize = StackSize - 2;
-    NumBytes = FrameSize - CSSize;
+    assert(   LMFI->getFPFrameIndex() != -1
+           && "No spill location found for Frame Pointer.");
 
-    // pop FP.
-    BuildMI(MBB, MBBI, DL, TII.get(LPU::POP16r), LPU::FP);
-  } else
-    NumBytes = StackSize - CSSize;
+    // move $sp, $fp
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::MOV64), LPU::SP)
+      .addReg(LPU::FP);
 
-  // Skip the callee-saved pop instructions.
-  while (MBBI != MBB.begin()) {
-    MachineBasicBlock::iterator PI = std::prev(MBBI);
-    unsigned Opc = PI->getOpcode();
-    if (Opc != LPU::POP16r && !PI->isTerminator())
-      break;
-    --MBBI;
+    int FPOffset =
+      MFI->getObjectOffset(LMFI->getFPFrameIndex()) + CallFrameSize;
+    assert(FPOffset%8 == 0 && "FP offset not multiple of 8");
+
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::LD64D), LPU::FP)
+      .addReg(LPU::SP).addImm(FPOffset);
   }
 
-  DL = MBBI->getDebugLoc();
+  if (MFI->hasCalls()) {
+    assert(   LMFI->getRAFrameIndex() != -1
+           && "No spill location for Return Address created.");
 
-  // If there is an ADD16ri or SUB16ri of SP immediately before this
-  // instruction, merge the two instructions.
-  //if (NumBytes || MFI->hasVarSizedObjects())
-  //  mergeSPUpdatesUp(MBB, MBBI, StackPtr, &NumBytes);
+    int RAOffset =
+      MFI->getObjectOffset(LMFI->getRAFrameIndex()) + CallFrameSize;
 
-  if (MFI->hasVarSizedObjects()) {
-    BuildMI(MBB, MBBI, DL,
-            TII.get(LPU::MOV16rr), LPU::SP).addReg(LPU::FP);
-    if (CSSize) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL,
-                TII.get(LPU::SUB16ri), LPU::SP)
-        .addReg(LPU::SP).addImm(CSSize);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
-    }
-  } else {
-    // adjust stack pointer back: SP += numbytes
-    if (NumBytes) {
-      MachineInstr *MI =
-        BuildMI(MBB, MBBI, DL, TII.get(LPU::ADD16ri), LPU::SP)
-        .addReg(LPU::SP).addImm(NumBytes);
-      // The SRW implicit def is dead.
-      MI->getOperand(3).setIsDead();
-    }
+    assert(RAOffset%8 == 0 && "RA offset not multiple of 8");
+
+    BuildMI(MBB, MBBI, dl, TII.get(LPU::LD64D), LPU::RA)
+      .addReg(LPU::SP).addImm(RAOffset);
   }
-  */
+
+  // Adjust stack : add sp, sp, imm
+  BuildMI(MBB, MBBI, dl, TII.get(LPU::ADD64i), LPU::SP)
+    .addReg(LPU::SP).addImm(StackSize);
+}
+
+bool LPUFrameLowering::hasFP(const MachineFunction &MF) const {
+  const MachineFrameInfo *MFI = MF.getFrameInfo();
+
+  // No frame pointer unless really needed...
+  return (//MF.getTarget().Options.DisableFramePointerElim(MF) ||
+          MF.getFrameInfo()->hasVarSizedObjects() ||
+          MFI->isFrameAddressTaken());
 }
 
 void LPUFrameLowering::
-eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
-                              MachineBasicBlock::iterator I) const {
-  /*
-  const LPUInstrInfo &TII =
-      *static_cast<const LPUInstrInfo *>(MF.getSubtarget().getInstrInfo());
-  unsigned StackAlign = getStackAlignment();
+processFunctionBeforeFrameFinalized(MachineFunction &MF,
+                                    RegScavenger *RS) const {
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  LPUMachineFunctionInfo *LMFI = MF.getInfo<LPUMachineFunctionInfo>();
 
-  if (!hasReservedCallFrame(MF)) {
-    // If the stack pointer can be changed after prologue, turn the
-    // adjcallstackup instruction into a 'sub SP, <amt>' and the
-    // adjcallstackdown instruction into 'add SP, <amt>'
-    // TODO: consider using push / pop instead of sub + store / add
-    MachineInstr *Old = I;
-    uint64_t Amount = Old->getOperand(0).getImm();
-    if (Amount != 0) {
-      // We need to keep the stack aligned properly.  To do this, we round the
-      // amount of space needed for the outgoing arguments up to the next
-      // alignment boundary.
-      Amount = (Amount+StackAlign-1)/StackAlign*StackAlign;
+  if (hasFP(MF))
+    LMFI->setFPFrameIndex(MFI->CreateSpillStackObject(8, 8));
 
-      MachineInstr *New = nullptr;
-      if (Old->getOpcode() == TII.getCallFrameSetupOpcode()) {
-        New = BuildMI(MF, Old->getDebugLoc(),
-                      TII.get(LPU::SUB16ri), LPU::SP)
-          .addReg(LPU::SP).addImm(Amount);
-      } else {
-        assert(Old->getOpcode() == TII.getCallFrameDestroyOpcode());
-        // factor out the amount the callee already popped.
-        uint64_t CalleeAmt = Old->getOperand(1).getImm();
-        Amount -= CalleeAmt;
-        if (Amount)
-          New = BuildMI(MF, Old->getDebugLoc(),
-                        TII.get(LPU::ADD16ri), LPU::SP)
-            .addReg(LPU::SP).addImm(Amount);
-      }
-
-      if (New) {
-        // The SRW implicit def is dead.
-        New->getOperand(3).setIsDead();
-
-        // Replace the pseudo instruction with a new instruction...
-        MBB.insert(I, New);
-      }
-    }
-  } else if (I->getOpcode() == TII.getCallFrameDestroyOpcode()) {
-    // If we are performing frame pointer elimination and if the callee pops
-    // something off the stack pointer, add it back.
-    if (uint64_t CalleeAmt = I->getOperand(1).getImm()) {
-      MachineInstr *Old = I;
-      MachineInstr *New =
-        BuildMI(MF, Old->getDebugLoc(), TII.get(LPU::SUB16ri),
-                LPU::SP).addReg(LPU::SP).addImm(CalleeAmt);
-      // The SRW implicit def is dead.
-      New->getOperand(3).setIsDead();
-
-      MBB.insert(I, New);
-    }
-  }
-
-  MBB.erase(I);
-  */
+  if (MFI->hasCalls())
+    LMFI->setRAFrameIndex(MFI->CreateSpillStackObject(8, 8));
 }
