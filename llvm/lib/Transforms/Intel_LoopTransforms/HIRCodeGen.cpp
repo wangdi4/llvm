@@ -259,12 +259,17 @@ private:
     IRBuilder<> *Builder;
     Pass *HIRCG;
 
-    // keep track of our mem allocs. Only IV atm
+    // keep track of our mem allocs. Only IV and temps atm
     std::map<std::string, AllocaInst *> NamedValues;
 
     // maps internal labels to bblocks. Needed if we encounter "goto Label"
     // before the label itself
     SmallDenseMap<HLLabel *, BasicBlock *, 16> InternalLabels;
+
+    // A stack of IV memory slots for current loop nest. Creating a load
+    // of value at CurIVValues[1] will return the IV for loop level 1 of
+    // current loop nest
+    SmallVector<Value *, MaxLoopNestLevel + 1> CurIVValues;
 
     // These are stored in HLRegion but become invalidated once CFG is
     // changed. They are required for liveout materialization, which occurs
@@ -632,6 +637,11 @@ void HIRCodeGen::CGVisitor::initializeLiveIn(HLRegion *R) {
 
 Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
+  assert(CurIVValues.empty() && "IV list not empty at region start");
+
+  // push back one null so iv for level 1 is at array position 1
+  // in other words, make this vector 1 indexed
+  CurIVValues.push_back(nullptr);
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(F->getContext(), "region", F);
   Builder->SetInsertPoint(RegionEntry);
@@ -676,6 +686,8 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   Value *Terminator = Builder->CreateBr(RegionSuccessor);
   RegionTerminators[R] = cast<Instruction>(Terminator);
   // DEBUG(F->dump());
+  // Remove null value used for indexing
+  CurIVValues.pop_back();
   return nullptr;
 }
 
@@ -771,6 +783,11 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   std::string IVName = getIVName(L);
   AllocaInst *Alloca = getNamedValue(IVName, L->getIVType());
 
+  // Keep a stack of IV values. CanonExpr CG needs to know types
+  // of loop IV itself, but this information is not available from
+  // CE
+  CurIVValues.push_back(Alloca);
+
   Value *StartVal = visitRegDDRef(L->getLowerDDRef());
 
   if (!StartVal || !Alloca)
@@ -823,6 +840,8 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   // set up postexit
   if (L->hasPostexit())
     llvm_unreachable("Unimpl CG for postexit");
+
+  CurIVValues.pop_back();
 
   return nullptr;
 }
@@ -1047,8 +1066,18 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
 Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
                                        CanonExpr::iv_iterator IVIt, Type *Ty) {
 
-  Value *IV =
-      Builder->CreateLoad(NamedValues[getIVName(CE->getLevel(IVIt), Ty)]);
+  // Load IV at given level from this loop nest
+  Value *IV = Builder->CreateLoad(CurIVValues[CE->getLevel(IVIt)]);
+
+  // IV type and Ty(CE src type) may not match, zext or trunc as needed
+  if (IV->getType() != Ty) {
+    if (Ty->getPrimitiveSizeInBits() >
+        IV->getType()->getPrimitiveSizeInBits()) {
+      IV = Builder->CreateZExt(IV, Ty);
+    } else {
+      IV = Builder->CreateTrunc(IV, Ty);
+    }
+  }
 
   // pairs are of form <Index, Coeff>.
   if (CE->getIVBlobCoeff(IVIt)) {
