@@ -13051,6 +13051,14 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
       NewTy->isDependentType() || OldTy->isDependentType())
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  // Don't emit any diagnostics on dependent types until real instantiation.
+  if (getLangOpts().IntelCompat &&
+      (New->isDependentContext() || Old->isDependentContext()))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Check if the return types are covariant
   QualType NewClassTy, OldClassTy;
 
@@ -13085,6 +13093,14 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
   //   If the return type of D::f differs from the return type of B::f, the 
   //   class type in the return type of D::f shall be complete at the point of
   //   declaration of D::f or shall be the class type D.
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  // If unqualified types are the same, don't check the completeness of type.
+  bool SameUnqualifiedTypes =
+      Context.hasSameUnqualifiedType(NewClassTy, OldClassTy);
+
+  if (!getLangOpts().IntelCompat || !SameUnqualifiedTypes)
+#endif // INTEL_CUSTOMIZATION
   if (const RecordType *RT = NewClassTy->getAs<RecordType>()) {
     if (!RT->isBeingDefined() &&
         RequireCompleteType(New->getLocation(), NewClassTy, 
@@ -13093,7 +13109,10 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
     return true;
   }
 
-  if (!Context.hasSameUnqualifiedType(NewClassTy, OldClassTy)) {
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  if (!SameUnqualifiedTypes) {
+#endif // INTEL_CUSTOMIZATION
     // Check if the new class derives from the old class.
     if (!IsDerivedFrom(NewClassTy, OldClassTy)) {
       Diag(New->getLocation(), diag::err_covariant_return_not_derived)
