@@ -1013,6 +1013,11 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
         createCmpInst(HInst->getPredicate(), Ops[1], Ops[2],
                       "hir.cmp." + std::to_string(HInst->getNumber()));
     Builder->CreateStore(CmpVal, Ops[0]);
+  } else if (isa<GetElementPtrInst>(Inst)) {
+    //Gep Instructions in LLVM may have any number of operands but the HIR 
+    //representation for them is always a single rhs ddref 
+    assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
+    Builder->CreateStore(Ops[1], Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
