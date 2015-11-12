@@ -22,6 +22,7 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
+#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/Analysis.h"
 #include "llvm/CodeGen/FastISel.h"
 #include "llvm/CodeGen/FunctionLoweringInfo.h"
@@ -2423,7 +2424,21 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MCI->getSourceAddressSpace() > 255 || MCI->getDestAddressSpace() > 255)
       return false;
 
+#if INTEL_CUSTOMIZATION
+    // Determine the function name to use based upon whether or not
+    // the corresponding standard library function is available in the
+    // targeted environment and Intel's libirc can be used.
+    MachineFunction *MF = FuncInfo.MF;
+    RTLIB::Libcall libcall = RTLIB::MEMCPY;
+    if (LibInfo->has(LibFunc::memcpy) &&
+        MF->getTarget().Options.IntelLibIRCAllowed) {
+      libcall = RTLIB::INTEL_MEMCPY;
+    }
+    const char *libFn = TLI.getLibcallName(libcall);
+    return lowerCallTo(II, libFn, II->getNumArgOperands() - 2);
+#else
     return lowerCallTo(II, "memcpy", II->getNumArgOperands() - 2);
+#endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::memset: {
     const MemSetInst *MSI = cast<MemSetInst>(II);
@@ -2438,7 +2453,21 @@ bool X86FastISel::fastLowerIntrinsicCall(const IntrinsicInst *II) {
     if (MSI->getDestAddressSpace() > 255)
       return false;
 
+#if INTEL_CUSTOMIZATION
+    // Determine the function name to use based upon whether or not
+    // the corresponding standard library function is available in the
+    // targeted environment and Intel's libirc can be used.
+    MachineFunction *MF = FuncInfo.MF;
+    RTLIB::Libcall libcall = RTLIB::MEMSET;
+    if (LibInfo->has(LibFunc::memset) &&
+        MF->getTarget().Options.IntelLibIRCAllowed) {
+      libcall = RTLIB::INTEL_MEMSET;
+    }
+    const char *libFn = TLI.getLibcallName(libcall);
+    return lowerCallTo(II, libFn, II->getNumArgOperands() - 2);
+#else
     return lowerCallTo(II, "memset", II->getNumArgOperands() - 2);
+#endif // INTEL_CUSTOMIZATION
   }
   case Intrinsic::stackprotector: {
     // Emit code to store the stack guard onto the stack.

@@ -20,6 +20,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Analysis/TargetLibraryInfo.h" // INTEL
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -910,11 +911,13 @@ SelectionDAG::SelectionDAG(const TargetMachine &tm, CodeGenOpt::Level OL)
   DbgInfo = new SDDbgInfo();
 }
 
-void SelectionDAG::init(MachineFunction &mf) {
+void SelectionDAG::init(MachineFunction &mf,
+                        const TargetLibraryInfo *libInfo) { // INTEL
   MF = &mf;
   TLI = getSubtarget().getTargetLowering();
   TSI = getSubtarget().getSelectionDAGInfo();
   Context = &mf.getFunction()->getContext();
+  TLibI = libInfo; // INTEL
 }
 
 SelectionDAG::~SelectionDAG() {
@@ -4607,12 +4610,24 @@ SDValue SelectionDAG::getMemcpy(SDValue Chain, SDLoc dl, SDValue Dst,
   Entry.Node = Src; Args.push_back(Entry);
   Entry.Node = Size; Args.push_back(Entry);
   // FIXME: pass in SDLoc
+
+#if INTEL_CUSTOMIZATION
+  // Determine the RTL::Libcall to use based upon whether or not
+  // the corresponding standard library function is available in the
+  // targeted environment and Intel's libirc can be used.
+  RTLIB::Libcall libcall = RTLIB::MEMCPY;
+  if (TLibI->has(LibFunc::memcpy) &&
+      MF->getTarget().Options.IntelLibIRCAllowed) {
+    libcall = RTLIB::INTEL_MEMCPY;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   TargetLowering::CallLoweringInfo CLI(*this);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
-      .setCallee(TLI->getLibcallCallingConv(RTLIB::MEMCPY),
+      .setCallee(TLI->getLibcallCallingConv(libcall), // INTEL
                  Type::getVoidTy(*getContext()),
-                 getExternalSymbol(TLI->getLibcallName(RTLIB::MEMCPY),
+                 getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
                                    TLI->getPointerTy(getDataLayout())),
                  std::move(Args), 0)
       .setDiscardResult()
@@ -4725,12 +4740,24 @@ SDValue SelectionDAG::getMemset(SDValue Chain, SDLoc dl, SDValue Dst,
   Args.push_back(Entry);
 
   // FIXME: pass in SDLoc
+
+#if INTEL_CUSTOMIZATION
+  // Determine the RTL::Libcall to use based upon whether or not
+  // the corresponding standard library function is available in the
+  // targeted environment and Intel's libirc can be used.
+  RTLIB::Libcall libcall = RTLIB::MEMSET;
+  if (TLibI->has(LibFunc::memset) &&
+      MF->getTarget().Options.IntelLibIRCAllowed) {
+    libcall = RTLIB::INTEL_MEMSET;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   TargetLowering::CallLoweringInfo CLI(*this);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
-      .setCallee(TLI->getLibcallCallingConv(RTLIB::MEMSET),
+      .setCallee(TLI->getLibcallCallingConv(libcall), // INTEL
                  Type::getVoidTy(*getContext()),
-                 getExternalSymbol(TLI->getLibcallName(RTLIB::MEMSET),
+                 getExternalSymbol(TLI->getLibcallName(libcall), // INTEL
                                    TLI->getPointerTy(getDataLayout())),
                  std::move(Args), 0)
       .setDiscardResult()
