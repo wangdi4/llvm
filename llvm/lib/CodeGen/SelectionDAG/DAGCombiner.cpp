@@ -1639,6 +1639,7 @@ SDValue DAGCombiner::visitADD(SDNode *N) {
   if (!VT.isVector() && SimplifyDemandedBits(SDValue(N, 0)))
     return SDValue(N, 0);
 
+/* LPU - disabled.  Interferes with patterns
   // fold (a+b) -> (a|b) iff a and b share no bits.
   if (VT.isInteger() && !VT.isVector()) {
     APInt LHSZero, LHSOne;
@@ -1656,6 +1657,7 @@ SDValue DAGCombiner::visitADD(SDNode *N) {
       }
     }
   }
+*/
 
   // fold (add x, shl(0 - y, n)) -> sub(x, shl(y, n))
   if (N1.getOpcode() == ISD::SHL &&
