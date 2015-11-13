@@ -148,9 +148,9 @@ static void replaceCL20AtomicTypes(std::string& s){
   // atomic_flag is typedef to atomic_int
   replaceAll(s, "atomic_flag",   "atomic_int");
   // memory_scope is typedef to uint
-  replaceAll(s, "memory_scope",  "uint");
+  replaceAll(s, "memory_scope",  "int");
   // memory_order is typedef to uint
-  replaceAll(s, "memory_order",  "uint");
+  replaceAll(s, "memory_order",  "int");
 }
 
 //returns true, if the following function prototypes are semantically the same
