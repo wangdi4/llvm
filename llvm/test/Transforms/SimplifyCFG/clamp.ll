@@ -1,4 +1,9 @@
 ; RUN: opt < %s -simplifycfg -S | FileCheck %s
+; INTEL - This test is marked as XFAIL because the change set from
+; the community that it was testing (LLVM revision 229099 - changing the
+; phi-node-folding-threshold from 1 to 2)) was #ifndefed out for xmain.
+; XFAIL: *
+; INTEL
 
 define float @clamp(float %a, float %b, float %c) {
 ; CHECK-LABEL: @clamp
