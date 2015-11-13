@@ -1,6 +1,5 @@
-; RUN: opt %loadPolly -polly-detect-unprofitable -basicaa -polly-parallel -polly-parallel-force -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST
-; RUN: opt %loadPolly -polly-detect-unprofitable -basicaa -polly-parallel -polly-parallel-force -polly-codegen -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
-; RUN: opt %loadPolly -polly-detect-unprofitable -basicaa -polly-parallel -polly-parallel-force -polly-codegen -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
+; RUN: opt %loadPolly -basicaa -polly-parallel -polly-parallel-force -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST
+; RUN: opt %loadPolly -basicaa -polly-parallel -polly-parallel-force -polly-codegen -S -verify-dom-info < %s | FileCheck %s -check-prefix=IR
 
 ; The interesting part of this test case is the instruction:
 ;   %tmp = bitcast i8* %call to i64**
@@ -11,6 +10,8 @@
 ; AST: #pragma omp parallel for
 ; AST: for (int c0 = 0; c0 < cols; c0 += 1)
 ; AST:   Stmt_for_body(c0);
+; AST: if (cols <= 0)
+; AST:   Stmt_for_body(0);
 
 ; IR: @foo_polly_subfn
 
@@ -41,6 +42,8 @@ end:
 ; AST: #pragma omp parallel for
 ; AST: for (int c0 = 0; c0 < cols; c0 += 1)
 ; AST:   Stmt_for_body(c0);
+; AST: if (cols <= 0)
+; AST:   Stmt_for_body(0);
 
 ; IR: @bar_polly_subfn
 

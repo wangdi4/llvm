@@ -34,7 +34,7 @@ public:
     //----------------------------------------------------------------------
     // Constructors and Destructors
     //----------------------------------------------------------------------
-    CompilerType (TypeSystem *type_system, void *type);
+    CompilerType (TypeSystem *type_system, lldb::opaque_compiler_type_t type);
     CompilerType (clang::ASTContext *ast_context, clang::QualType qual_type);
 
     CompilerType (const CompilerType &rhs) :
@@ -220,12 +220,12 @@ public:
     GetDisplayTypeName () const;
 
     uint32_t
-    GetTypeInfo (CompilerType *pointee_or_element_clang_type = NULL) const;
+    GetTypeInfo (CompilerType *pointee_or_element_compiler_type = NULL) const;
     
     lldb::LanguageType
     GetMinimumLanguage ();
 
-    void *
+    lldb::opaque_compiler_type_t
     GetOpaqueQualType() const
     {
         return m_type;
@@ -235,7 +235,7 @@ public:
     GetTypeClass () const;
     
     void
-    SetCompilerType (TypeSystem* type_system, void* type);
+    SetCompilerType (TypeSystem* type_system, lldb::opaque_compiler_type_t type);
     void
     SetCompilerType (clang::ASTContext *ast, clang::QualType qual_type);
 
@@ -272,14 +272,74 @@ public:
     TypeMemberFunctionImpl
     GetMemberFunctionAtIndex (size_t idx);
     
+    //----------------------------------------------------------------------
+    // If this type is a reference to a type (L value or R value reference),
+    // return a new type with the reference removed, else return the current
+    // type itself.
+    //----------------------------------------------------------------------
     CompilerType
     GetNonReferenceType () const;
 
+    //----------------------------------------------------------------------
+    // If this type is a pointer type, return the type that the pointer
+    // points to, else return an invalid type.
+    //----------------------------------------------------------------------
     CompilerType
     GetPointeeType () const;
     
+    //----------------------------------------------------------------------
+    // Return a new CompilerType that is a pointer to this type
+    //----------------------------------------------------------------------
     CompilerType
     GetPointerType () const;
+
+    //----------------------------------------------------------------------
+    // Return a new CompilerType that is a L value reference to this type if
+    // this type is valid and the type system supports L value references,
+    // else return an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    GetLValueReferenceType () const;
+
+    //----------------------------------------------------------------------
+    // Return a new CompilerType that is a R value reference to this type if
+    // this type is valid and the type system supports R value references,
+    // else return an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    GetRValueReferenceType () const;
+
+    //----------------------------------------------------------------------
+    // Return a new CompilerType adds a const modifier to this type if
+    // this type is valid and the type system supports const modifiers,
+    // else return an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    AddConstModifier () const;
+
+    //----------------------------------------------------------------------
+    // Return a new CompilerType adds a volatile modifier to this type if
+    // this type is valid and the type system supports volatile modifiers,
+    // else return an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    AddVolatileModifier () const;
+
+    //----------------------------------------------------------------------
+    // Return a new CompilerType adds a restrict modifier to this type if
+    // this type is valid and the type system supports restrict modifiers,
+    // else return an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    AddRestrictModifier () const;
+
+    //----------------------------------------------------------------------
+    // Create a typedef to this type using "name" as the name of the typedef
+    // this type is valid and the type system supports typedefs, else return
+    // an invalid type.
+    //----------------------------------------------------------------------
+    CompilerType
+    CreateTypedef (const char *name, const CompilerDeclContext &decl_ctx) const;
 
     // If the current object represents a typedef type, get the underlying type
     CompilerType
@@ -318,7 +378,6 @@ public:
 
     static lldb::BasicType
     GetBasicTypeEnumeration (const ConstString &name);
-
     //----------------------------------------------------------------------
     // If this type is an enumeration, iterate through all of its enumerators
     // using a callback. If the callback returns true, keep iterating, else
@@ -354,25 +413,25 @@ public:
 
     uint32_t
     GetIndexOfFieldWithName (const char* name,
-                             CompilerType* field_clang_type = NULL,
+                             CompilerType* field_compiler_type = NULL,
                              uint64_t *bit_offset_ptr = NULL,
                              uint32_t *bitfield_bit_size_ptr = NULL,
                              bool *is_bitfield_ptr = NULL) const;
     
     CompilerType
-    GetChildClangTypeAtIndex (ExecutionContext *exe_ctx,
-                              size_t idx,
-                              bool transparent_pointers,
-                              bool omit_empty_base_classes,
-                              bool ignore_array_bounds,
-                              std::string& child_name,
-                              uint32_t &child_byte_size,
-                              int32_t &child_byte_offset,
-                              uint32_t &child_bitfield_bit_size,
-                              uint32_t &child_bitfield_bit_offset,
-                              bool &child_is_base_class,
-                              bool &child_is_deref_of_parent,
-                              ValueObject *valobj) const;
+    GetChildCompilerTypeAtIndex (ExecutionContext *exe_ctx,
+                                 size_t idx,
+                                 bool transparent_pointers,
+                                 bool omit_empty_base_classes,
+                                 bool ignore_array_bounds,
+                                 std::string& child_name,
+                                 uint32_t &child_byte_size,
+                                 int32_t &child_byte_offset,
+                                 uint32_t &child_bitfield_bit_size,
+                                 uint32_t &child_bitfield_bit_offset,
+                                 bool &child_is_base_class,
+                                 bool &child_is_deref_of_parent,
+                                 ValueObject *valobj) const;
     
     // Lookup a child given a name. This function will match base class names
     // and member member names in "clang_type" only, not descendants.
@@ -396,6 +455,15 @@ public:
     CompilerType
     GetTemplateArgument (size_t idx,
                          lldb::TemplateArgumentKind &kind) const;
+    
+    CompilerType
+    GetTypeForFormatters () const;
+    
+    LazyBool
+    ShouldPrintAsOneLiner () const;
+    
+    bool
+    IsMeaninglessWithoutDynamicResolution () const;
     
     //------------------------------------------------------------------
     // Pointers & References
@@ -476,7 +544,7 @@ public:
         m_type_system = NULL;
     }
 private:
-    void* m_type;
+    lldb::opaque_compiler_type_t m_type;
     TypeSystem *m_type_system;
     
 };

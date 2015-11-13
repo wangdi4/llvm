@@ -118,12 +118,11 @@ collectParamDecls(const CXXConstructorDecl *Ctor,
 
 PassByValueCheck::PassByValueCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IncludeStyle(Options.get("IncludeStyle", "llvm") == "llvm" ?
-                   IncludeSorter::IS_LLVM : IncludeSorter::IS_Google) {}
+      IncludeStyle(IncludeSorter::parseIncludeStyle(
+          Options.get("IncludeStyle", "llvm"))) {}
 
 void PassByValueCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "IncludeStyle",
-                IncludeStyle == IncludeSorter::IS_LLVM ? "llvm" : "google");
+  Options.store(Opts, "IncludeStyle", IncludeSorter::toString(IncludeStyle));
 }
 
 void PassByValueCheck::registerMatchers(MatchFinder *Finder) {
@@ -131,14 +130,14 @@ void PassByValueCheck::registerMatchers(MatchFinder *Finder) {
   // provide any benefit to other languages, despite being benign.
   if (getLangOpts().CPlusPlus) {
     Finder->addMatcher(
-        constructorDecl(
+        cxxConstructorDecl(
             forEachConstructorInitializer(
-                ctorInitializer(
+                cxxCtorInitializer(
                     // Clang builds a CXXConstructExpr only whin it knows which
                     // constructor will be called. In dependent contexts a
                     // ParenListExpr is generated instead of a CXXConstructExpr,
                     // filtering out templates automatically for us.
-                    withInitializer(constructExpr(
+                    withInitializer(cxxConstructExpr(
                         has(declRefExpr(to(
                             parmVarDecl(
                                 hasType(qualType(
@@ -148,10 +147,10 @@ void PassByValueCheck::registerMatchers(MatchFinder *Finder) {
                                     anyOf(constRefType(),
                                           nonConstValueType()))))
                                 .bind("Param")))),
-                        hasDeclaration(constructorDecl(
+                        hasDeclaration(cxxConstructorDecl(
                             isCopyConstructor(), unless(isDeleted()),
                             hasDeclContext(
-                                recordDecl(isMoveConstructible())))))))
+                                cxxRecordDecl(isMoveConstructible())))))))
                     .bind("Initializer")))
             .bind("Ctor"),
         this);

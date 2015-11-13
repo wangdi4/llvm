@@ -17,7 +17,6 @@
 // Other libraries and framework includes
 // Project includes
 #include "lldb/lldb-private.h"
-#include "lldb/Core/ClangForward.h"
 #include "lldb/Core/DataBufferHeap.h"
 #include "lldb/Core/Error.h"
 #include "lldb/Core/Scalar.h"
@@ -137,7 +136,7 @@ public:
     GetCompilerType();
     
     void
-    SetCompilerType (const CompilerType &clang_type);
+    SetCompilerType (const CompilerType &compiler_type);
 
     ValueType
     GetValueType() const;
@@ -266,7 +265,7 @@ public:
     GetValueDefaultFormat ();
 
     uint64_t
-    GetValueByteSize (Error *error_ptr);
+    GetValueByteSize (Error *error_ptr, ExecutionContext *exe_ctx);
 
     Error
     GetValueAsData (ExecutionContext *exe_ctx, 
@@ -289,7 +288,7 @@ public:
 protected:
     Scalar          m_value;
     Vector          m_vector;
-    CompilerType    m_clang_type;
+    CompilerType    m_compiler_type;
     void *          m_context;
     ValueType       m_value_type;
     ContextType     m_context_type;

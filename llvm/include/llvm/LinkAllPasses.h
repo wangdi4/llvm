@@ -64,6 +64,7 @@ namespace {
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createAlignmentFromAssumptionsPass();
       (void) llvm::createAndersensAAWrapperPass(); // INTEL
+      (void)llvm::createNonLTOGlobalOptimizerPass(); // INTEL
       (void) llvm::createBasicAAWrapperPass();
       (void) llvm::createSCEVAAWrapperPass();
       (void) llvm::createTypeBasedAAWrapperPass();

@@ -21,7 +21,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/MC/MCTargetOptionsCommandFlags.h"
-#include "llvm//MC/SubtargetFeature.h"
+#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Host.h"
@@ -182,12 +182,22 @@ cl::opt<bool>
 StackSymbolOrdering("stack-symbol-ordering",
                     cl::desc("Order local stack symbols."),
                     cl::init(true));
+
+cl::opt<bool>
+IntelLibIRCAllowed("intel-libirc-allowed",
+                    cl::desc("Allow the generation of calls to libirc."),
+                    cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 cl::opt<unsigned>
 OverrideStackAlignment("stack-alignment",
                        cl::desc("Override default stack alignment"),
                        cl::init(0));
+
+cl::opt<bool>
+StackRealign("stackrealign",
+             cl::desc("Force align the stack to the minimum alignment"),
+             cl::init(false));
 
 cl::opt<std::string>
 TrapFuncName("trap-func", cl::Hidden,
@@ -268,6 +278,7 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.StackAlignmentOverride = OverrideStackAlignment;
 #ifdef INTEL_CUSTOMIZATION
   Options.StackSymbolOrdering = StackSymbolOrdering;
+  Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
   Options.PositionIndependentExecutable = EnablePIE;
   Options.UseInitArray = !UseCtors;
@@ -339,6 +350,10 @@ static inline void setFunctionAttributes(StringRef CPU, StringRef Features,
       NewAttrs = NewAttrs.addAttribute(Ctx, AttributeSet::FunctionIndex,
                                        "disable-tail-calls",
                                        toStringRef(DisableTailCalls));
+
+    if (StackRealign)
+      NewAttrs = NewAttrs.addAttribute(Ctx, AttributeSet::FunctionIndex,
+                                       "stackrealign");
 
     if (TrapFuncName.getNumOccurrences() > 0)
       for (auto &B : F)

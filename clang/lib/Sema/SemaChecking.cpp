@@ -529,7 +529,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
 
   // Since the target specific builtins for each arch overlap, only check those
   // of the arch we are compiling for.
-  if (BuiltinID >= Builtin::FirstTSBuiltin) {
+  if (Context.BuiltinInfo.isTSBuiltin(BuiltinID)) {
     switch (Context.getTargetInfo().getTriple().getArch()) {
       case llvm::Triple::arm:
       case llvm::Triple::armeb:
@@ -1037,6 +1037,8 @@ bool Sema::CheckX86BuiltinFunctionCall(unsigned BuiltinID, CallExpr *TheCall) {
   default: return false;
   case X86::BI__builtin_cpu_supports:
     return SemaBuiltinCpuSupports(TheCall);
+  case X86::BI__builtin_ms_va_start:
+    return SemaBuiltinMSVAStart(TheCall);
   case X86::BI_mm_prefetch: i = 1; l = 0; u = 3; break;
   case X86::BI__builtin_ia32_sha1rnds4: i = 2, l = 0; u = 3; break;
   case X86::BI__builtin_ia32_vpermil2pd:
@@ -1149,7 +1151,8 @@ static void CheckNonNullArgument(Sema &S,
                                  const Expr *ArgExpr,
                                  SourceLocation CallSiteLoc) {
   if (CheckNonNullExpr(S, ArgExpr))
-    S.Diag(CallSiteLoc, diag::warn_null_arg) << ArgExpr->getSourceRange();
+    S.DiagRuntimeBehavior(CallSiteLoc, ArgExpr,
+           S.PDiag(diag::warn_null_arg) << ArgExpr->getSourceRange());
 }
 
 bool Sema::GetFormatNSStringIdx(const FormatAttr *Format, unsigned &Idx) {
@@ -1642,6 +1645,12 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
       return ExprError();
     }
     ValType = AtomTy->getAs<AtomicType>()->getValueType();
+  } else if (Form != Load && Op != AtomicExpr::AO__atomic_load) {
+    if (ValType.isConstQualified()) {
+      Diag(DRE->getLocStart(), diag::err_atomic_op_needs_non_const_pointer)
+        << Ptr->getType() << Ptr->getSourceRange();
+      return ExprError();
+    }
   }
 
   // For an arithmetic operation, the implied arithmetic must be well-formed.
@@ -1679,9 +1688,6 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
     return ExprError();
   }
 
-  // FIXME: For any builtin other than a load, the ValType must not be
-  // const-qualified.
-
   switch (ValType.getObjCLifetime()) {
   case Qualifiers::OCL_None:
   case Qualifiers::OCL_ExplicitNone:
@@ -1713,6 +1719,10 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   QualType ByValType = ValType; // 'CP'
   if (!IsC11 && !IsN)
     ByValType = Ptr->getType();
+
+  // FIXME: __atomic_load allows the first argument to be a a pointer to const
+  // but not the second argument. We need to manually remove possible const
+  // qualifiers.
 
   // The first argument --- the pointer --- has a fixed type; we
   // deduce the types of the rest of the arguments accordingly.  Walk
@@ -2317,9 +2327,10 @@ bool Sema::CheckObjCString(Expr *Arg) {
   return false;
 }
 
-/// SemaBuiltinVAStart - Check the arguments to __builtin_va_start for validity.
-/// Emit an error and return true on failure, return false on success.
-bool Sema::SemaBuiltinVAStart(CallExpr *TheCall) {
+/// Check the arguments to '__builtin_va_start' or '__builtin_ms_va_start'
+/// for validity.  Emit an error and return true on failure; return false
+/// on success.
+bool Sema::SemaBuiltinVAStartImpl(CallExpr *TheCall) {
   Expr *Fn = TheCall->getCallee();
   if (TheCall->getNumArgs() > 2) {
     Diag(TheCall->getArg(2)->getLocStart(),
@@ -2395,6 +2406,48 @@ bool Sema::SemaBuiltinVAStart(CallExpr *TheCall) {
 
   TheCall->setType(Context.VoidTy);
   return false;
+}
+
+/// Check the arguments to '__builtin_va_start' for validity, and that
+/// it was called from a function of the native ABI.
+/// Emit an error and return true on failure; return false on success.
+bool Sema::SemaBuiltinVAStart(CallExpr *TheCall) {
+  // On x86-64 Unix, don't allow this in Win64 ABI functions.
+  // On x64 Windows, don't allow this in System V ABI functions.
+  // (Yes, that means there's no corresponding way to support variadic
+  // System V ABI functions on Windows.)
+  if (Context.getTargetInfo().getTriple().getArch() == llvm::Triple::x86_64) {
+    unsigned OS = Context.getTargetInfo().getTriple().getOS();
+    clang::CallingConv CC = CC_C;
+    if (const FunctionDecl *FD = getCurFunctionDecl())
+      CC = FD->getType()->getAs<FunctionType>()->getCallConv();
+    if ((OS == llvm::Triple::Win32 && CC == CC_X86_64SysV) ||
+        (OS != llvm::Triple::Win32 && CC == CC_X86_64Win64))
+      return Diag(TheCall->getCallee()->getLocStart(),
+                  diag::err_va_start_used_in_wrong_abi_function)
+             << (OS != llvm::Triple::Win32);
+  }
+  return SemaBuiltinVAStartImpl(TheCall);
+}
+
+/// Check the arguments to '__builtin_ms_va_start' for validity, and that
+/// it was called from a Win64 ABI function.
+/// Emit an error and return true on failure; return false on success.
+bool Sema::SemaBuiltinMSVAStart(CallExpr *TheCall) {
+  // This only makes sense for x86-64.
+  const llvm::Triple &TT = Context.getTargetInfo().getTriple();
+  Expr *Callee = TheCall->getCallee();
+  if (TT.getArch() != llvm::Triple::x86_64)
+    return Diag(Callee->getLocStart(), diag::err_x86_builtin_32_bit_tgt);
+  // Don't allow this in System V ABI functions.
+  clang::CallingConv CC = CC_C;
+  if (const FunctionDecl *FD = getCurFunctionDecl())
+    CC = FD->getType()->getAs<FunctionType>()->getCallConv();
+  if (CC == CC_X86_64SysV ||
+      (TT.getOS() != llvm::Triple::Win32 && CC != CC_X86_64Win64))
+    return Diag(Callee->getLocStart(),
+                diag::err_ms_va_start_used_in_sysv_function);
+  return SemaBuiltinVAStartImpl(TheCall);
 }
 
 bool Sema::SemaBuiltinVAStartARM(CallExpr *Call) {

@@ -11,6 +11,7 @@
 //  Objective-C++.
 //
 //===----------------------------------------------------------------------===//
+
 #include "clang/Sema/Lookup.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTMutationListener.h"
@@ -153,7 +154,7 @@ namespace {
     // by its using directives, transitively) as if they appeared in
     // the given effective context.
     void addUsingDirectives(DeclContext *DC, DeclContext *EffectiveDC) {
-      SmallVector<DeclContext*,4> queue;
+      SmallVector<DeclContext*, 4> queue;
       while (true) {
         for (auto UD : DC->using_directives()) {
           DeclContext *NS = UD->getNominatedNamespace();
@@ -204,7 +205,7 @@ namespace {
                                                UnqualUsingEntry::Comparator()));
     }
   };
-}
+} // end anonymous namespace
 
 // Retrieve the set of identifier namespaces that correspond to a
 // specific kind of name lookup.
@@ -387,6 +388,8 @@ static bool isPreferredLookupResult(Sema &S, Sema::LookupNameKind Kind,
     // If D has more default arguments, it is preferred.
     if (DMin != EMin)
       return DMin < EMin;
+    // FIXME: When we track visibility for default function arguments, check
+    // that we pick the declaration with more visible default arguments.
   }
 
   // Pick the template with more default template arguments.
@@ -394,9 +397,22 @@ static bool isPreferredLookupResult(Sema &S, Sema::LookupNameKind Kind,
     auto *ETD = cast<TemplateDecl>(EUnderlying);
     unsigned DMin = DTD->getTemplateParameters()->getMinRequiredArguments();
     unsigned EMin = ETD->getTemplateParameters()->getMinRequiredArguments();
-    // If D has more default arguments, it is preferred.
+    // If D has more default arguments, it is preferred. Note that default
+    // arguments (and their visibility) is monotonically increasing across the
+    // redeclaration chain, so this is a quick proxy for "is more recent".
     if (DMin != EMin)
       return DMin < EMin;
+    // If D has more *visible* default arguments, it is preferred. Note, an
+    // earlier default argument being visible does not imply that a later
+    // default argument is visible, so we can't just check the first one.
+    for (unsigned I = DMin, N = DTD->getTemplateParameters()->size();
+        I != N; ++I) {
+      if (!S.hasVisibleDefaultArgument(
+              ETD->getTemplateParameters()->getParam(I)) &&
+          S.hasVisibleDefaultArgument(
+              DTD->getTemplateParameters()->getParam(I)))
+        return true;
+    }
   }
 
   // For most kinds of declaration, it doesn't really matter which one we pick.
@@ -952,7 +968,7 @@ struct FindLocalExternScope {
   LookupResult &R;
   bool OldFindLocalExtern;
 };
-}
+} // end anonymous namespace
 
 bool Sema::CppLookupName(LookupResult &R, Scope *S) {
   assert(getLangOpts().CPlusPlus && "Can perform only C++ lookup");
@@ -2098,17 +2114,30 @@ bool Sema::LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
 ///
 /// @returns True if any decls were found (but possibly ambiguous)
 bool Sema::LookupInSuper(LookupResult &R, CXXRecordDecl *Class) {
+  // The access-control rules we use here are essentially the rules for
+  // doing a lookup in Class that just magically skipped the direct
+  // members of Class itself.  That is, the naming class is Class, and the
+  // access includes the access of the base.
   for (const auto &BaseSpec : Class->bases()) {
     CXXRecordDecl *RD = cast<CXXRecordDecl>(
         BaseSpec.getType()->castAs<RecordType>()->getDecl());
     LookupResult Result(*this, R.getLookupNameInfo(), R.getLookupKind());
 	Result.setBaseObjectType(Context.getRecordType(Class));
     LookupQualifiedName(Result, RD);
-    for (auto *Decl : Result)
-      R.addDecl(Decl);
+
+    // Copy the lookup results into the target, merging the base's access into
+    // the path access.
+    for (auto I = Result.begin(), E = Result.end(); I != E; ++I) {
+      R.addDecl(I.getDecl(),
+                CXXRecordDecl::MergeAccess(BaseSpec.getAccessSpecifier(),
+                                           I.getAccess()));
+    }
+
+    Result.suppressDiagnostics();
   }
 
   R.resolveKind();
+  R.setNamingClass(Class);
 
   return !R.empty();
 }
@@ -2160,7 +2189,7 @@ void Sema::DiagnoseAmbiguousLookup(LookupResult &Result) {
   case LookupResult::AmbiguousTagHiding: {
     Diag(NameLoc, diag::err_ambiguous_tag_hiding) << Name << LookupRange;
 
-    llvm::SmallPtrSet<NamedDecl*,8> TagDecls;
+    llvm::SmallPtrSet<NamedDecl*, 8> TagDecls;
 
     for (auto *D : Result)
       if (TagDecl *TD = dyn_cast<TagDecl>(D)) {
@@ -2206,7 +2235,7 @@ namespace {
     Sema::AssociatedClassSet &Classes;
     SourceLocation InstantiationLoc;
   };
-}
+} // end anonymous namespace
 
 static void
 addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType T);
@@ -3790,6 +3819,8 @@ void TypoCorrectionConsumer::addNamespaces(
       SSIsTemplate = T->getTypeClass() == Type::TemplateSpecialization;
   }
   for (const auto *TI : SemaRef.getASTContext().types()) {
+    if (!TI->isClassType() && isa<TemplateSpecializationType>(TI))
+      continue;
     if (CXXRecordDecl *CD = TI->getAsCXXRecordDecl()) {
       CD = CD->getCanonicalDecl();
       if (!CD->isDependentType() && !CD->isAnonymousStructOrUnion() &&
@@ -3890,7 +3921,8 @@ void TypoCorrectionConsumer::performQualifiedLookups() {
       // current correction candidate is the name of that class, then skip
       // it as it is unlikely a qualified version of the class' constructor
       // is an appropriate correction.
-      if (CXXRecordDecl *NSDecl = NSType ? NSType->getAsCXXRecordDecl() : 0) {
+      if (CXXRecordDecl *NSDecl = NSType ? NSType->getAsCXXRecordDecl() :
+                                           nullptr) {
         if (NSDecl->getIdentifier() == QR.getCorrectionAsIdentifierInfo())
           continue;
       }

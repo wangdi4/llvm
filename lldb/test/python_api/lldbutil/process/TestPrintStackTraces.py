@@ -19,15 +19,11 @@ class ThreadsStackTracesTestCase(TestBase):
         self.line = line_number('main.cpp', '// Set break point at this line.')
 
     @expectedFailureAll("llvm.org/pr23043", ["linux"], archs=["i386"]) # We are unable to produce a backtrace of the main thread when the thread is blocked in fgets
+    @expectedFailureWindows("llvm.org/pr24778")
     @python_api_test
     def test_stack_traces(self):
         """Test SBprocess and SBThread APIs with printing of the stack traces."""
-        self.buildDefault()
-        self.break_and_print_stacktraces()
-
-    def break_and_print_stacktraces(self):
-        """Break at main.cpp:68 and do a threads dump"""
-
+        self.build()
         exe = os.path.join(os.getcwd(), "a.out")
 
         target = self.dbg.CreateTarget(exe)

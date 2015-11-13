@@ -58,7 +58,7 @@ ValueObjectMemory::ValueObjectMemory (ExecutionContextScope *exe_scope,
     ValueObject(exe_scope),
     m_address (address),
     m_type_sp(type_sp),
-    m_clang_type()
+    m_compiler_type()
 {
     // Do not attempt to construct one of these objects with no variable!
     assert (m_type_sp.get() != NULL);
@@ -94,17 +94,17 @@ ValueObjectMemory::ValueObjectMemory (ExecutionContextScope *exe_scope,
     ValueObject(exe_scope),
     m_address (address),
     m_type_sp(),
-    m_clang_type(ast_type)
+    m_compiler_type(ast_type)
 {
     // Do not attempt to construct one of these objects with no variable!
-    assert (m_clang_type.GetTypeSystem());
-    assert (m_clang_type.GetOpaqueQualType());
+    assert (m_compiler_type.GetTypeSystem());
+    assert (m_compiler_type.GetOpaqueQualType());
     
     TargetSP target_sp (GetTargetSP());
 
     SetName (ConstString(name));
-//    m_value.SetContext(Value::eContextTypeClangType, m_clang_type.GetOpaqueQualType());
-    m_value.SetCompilerType(m_clang_type);
+//    m_value.SetContext(Value::eContextTypeClangType, m_compiler_type.GetOpaqueQualType());
+    m_value.SetCompilerType(m_compiler_type);
     lldb::addr_t load_address = m_address.GetLoadAddress (target_sp.get());
     if (load_address != LLDB_INVALID_ADDRESS)
     {
@@ -136,7 +136,7 @@ ValueObjectMemory::GetCompilerTypeImpl ()
 {
     if (m_type_sp)
         return m_type_sp->GetForwardCompilerType ();
-    return m_clang_type;
+    return m_compiler_type;
 }
 
 ConstString
@@ -144,7 +144,7 @@ ValueObjectMemory::GetTypeName()
 {
     if (m_type_sp)
         return m_type_sp->GetName();
-    return m_clang_type.GetConstTypeName();
+    return m_compiler_type.GetConstTypeName();
 }
 
 ConstString
@@ -152,16 +152,21 @@ ValueObjectMemory::GetDisplayTypeName()
 {
     if (m_type_sp)
         return m_type_sp->GetForwardCompilerType ().GetDisplayTypeName();
-    return m_clang_type.GetDisplayTypeName();
+    return m_compiler_type.GetDisplayTypeName();
 }
 
 size_t
-ValueObjectMemory::CalculateNumChildren()
+ValueObjectMemory::CalculateNumChildren(uint32_t max)
 {
     if (m_type_sp)
-        return m_type_sp->GetNumChildren(true);
+    {
+        auto child_count = m_type_sp->GetNumChildren(true);
+        return child_count <= max ? child_count : max;
+    }
+
     const bool omit_empty_base_classes = true;
-    return m_clang_type.GetNumChildren (omit_empty_base_classes);
+    auto child_count = m_compiler_type.GetNumChildren (omit_empty_base_classes);
+    return child_count <= max ? child_count : max;
 }
 
 uint64_t
@@ -169,7 +174,7 @@ ValueObjectMemory::GetByteSize()
 {
     if (m_type_sp)
         return m_type_sp->GetByteSize();
-    return m_clang_type.GetByteSize (nullptr);
+    return m_compiler_type.GetByteSize (nullptr);
 }
 
 lldb::ValueType
@@ -249,8 +254,8 @@ ValueObjectMemory::UpdateValue ()
                     value.SetContext(Value::eContextTypeLLDBType, m_type_sp.get());
                 else
                 {
-                    //value.SetContext(Value::eContextTypeClangType, m_clang_type.GetOpaqueQualType());
-                    value.SetCompilerType(m_clang_type);
+                    //value.SetContext(Value::eContextTypeClangType, m_compiler_type.GetOpaqueQualType());
+                    value.SetCompilerType(m_compiler_type);
                 }
 
                 m_error = value.GetValueAsData(&exe_ctx, m_data, 0, GetModule().get());

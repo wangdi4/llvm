@@ -223,7 +223,10 @@ public:
   bool isMustAlias(const Value *V1, const Value *V2) {
     return alias(V1, 1, V2, 1) == MustAlias;
   }
-
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V);
+#endif // INTEL_CUSTOMIZATION
   /// Checks whether the given location points to constant memory, or if
   /// \p OrLocal is true whether it points to a local alloca.
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal = false);
@@ -572,6 +575,10 @@ public:
   /// \p OrLocal is true whether it points to a local alloca.
   virtual bool pointsToConstantMemory(const MemoryLocation &Loc,
                                       bool OrLocal) = 0;
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  virtual bool escapes(const Value *V) = 0;
+#endif // INTEL_CUSTOMIZATION
 
   /// @}
   //===--------------------------------------------------------------------===//
@@ -627,6 +634,13 @@ public:
                     const MemoryLocation &LocB) override {
     return Result.alias(LocA, LocB);
   }
+
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V) override { 
+    return Result.escapes(V); 
+  }
+#endif // INTEL_CUSTOMIZATION
 
   bool pointsToConstantMemory(const MemoryLocation &Loc,
                               bool OrLocal) override {
@@ -706,6 +720,13 @@ protected:
       return AAR ? AAR->pointsToConstantMemory(Loc, OrLocal)
                  : CurrentResult.pointsToConstantMemory(Loc, OrLocal);
     }
+#if INTEL_CUSTOMIZATION
+    // Returns true if the given value V is escaped.
+    bool escapes(const Value *V) 
+    {
+      return AAR ? AAR->escapes(V) : CurrentResult.escapes(V);
+    }
+#endif // INTEL_CUSTOMIZATION
 
     ModRefInfo getArgModRefInfo(ImmutableCallSite CS, unsigned ArgIdx) {
       return AAR ? AAR->getArgModRefInfo(CS, ArgIdx) : CurrentResult.getArgModRefInfo(CS, ArgIdx);
@@ -754,13 +775,24 @@ public:
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  // Returns true if the given value V is escaped.
+  bool escapes(const Value *V) { 
+    return true; 
+  }
+#endif // INTEL_CUSTOMIZATION
+
   ModRefInfo getArgModRefInfo(ImmutableCallSite CS, unsigned ArgIdx) {
     return MRI_ModRef;
   }
 
   FunctionModRefBehavior getModRefBehavior(ImmutableCallSite CS) {
-    if (const Function *F = CS.getCalledFunction())
-      return getBestAAResults().getModRefBehavior(F);
+    if (!CS.hasOperandBundles())
+      // If CS has operand bundles then aliasing attributes from the function it
+      // calls do not directly apply to the CallSite.  This can be made more
+      // precise in the future.
+      if (const Function *F = CS.getCalledFunction())
+        return getBestAAResults().getModRefBehavior(F);
 
     return FMRB_UnknownModRefBehavior;
   }
@@ -1023,6 +1055,16 @@ public:
 };
 
 FunctionPass *createAAResultsWrapperPass();
+
+/// A wrapper pass around a callback which can be used to populate the
+/// AAResults in the AAResultsWrapperPass from an external AA.
+///
+/// The callback provided here will be used each time we prepare an AAResults
+/// object, and will receive a reference to the function wrapper pass, the
+/// function, and the AAResults object to populate. This should be used when
+/// setting up a custom pass pipeline to inject a hook into the AA results.
+ImmutablePass *createExternalAAWrapperPass(
+    std::function<void(Pass &, Function &, AAResults &)> Callback);
 
 /// A helper for the legacy pass manager to create a \c AAResults
 /// object populated to the best of our ability for a particular function when

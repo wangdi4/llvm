@@ -96,6 +96,7 @@ void initializeCFGOnlyViewerPass(PassRegistry&);
 void initializeCFGPrinterPass(PassRegistry&);
 void initializeCFGSimplifyPassPass(PassRegistry&);
 void initializeCFLAAWrapperPassPass(PassRegistry&);
+void initializeExternalAAWrapperPassPass(PassRegistry&);
 void initializeForwardControlFlowIntegrityPass(PassRegistry&);
 void initializeFlattenCFGPassPass(PassRegistry&);
 void initializeStructurizeCFGPass(PassRegistry&);
@@ -250,7 +251,7 @@ void initializeRegionViewerPass(PassRegistry&);
 void initializeRewriteStatepointsForGCPass(PassRegistry&);
 void initializeSafeStackPass(PassRegistry&);
 void initializeSCCPPass(PassRegistry&);
-void initializeSROAPass(PassRegistry&);
+void initializeSROALegacyPassPass(PassRegistry&);
 void initializeSROA_DTPass(PassRegistry&);
 void initializeSROA_SSAUpPass(PassRegistry&);
 void initializeSCEVAAWrapperPassPass(PassRegistry&);
@@ -308,6 +309,8 @@ void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
+// Pass for register promotion for non escaped block scope global variables.
+void initializeNonLTOGlobalOptPass(PassRegistry &);
 // Pass for setting implied Targets for intrinsics.
 void initializeFeatureOutlinerPass(PassRegistry&);
 // HIR Passes
@@ -332,6 +335,7 @@ void initializeHIRCodeGenPass(PassRegistry&);
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);
 void initializeDemandedBitsPass(PassRegistry&);
+void initializeFuncletLayoutPass(PassRegistry &);
 }
 
 #endif

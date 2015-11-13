@@ -17,6 +17,7 @@
 #include "clang/AST/ParentMap.h"
 #include "clang/Analysis/ProgramPoint.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
+#include "clang/StaticAnalyzer/Core/PathSensitive/DynamicTypeMap.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/raw_ostream.h"
@@ -147,7 +148,7 @@ ProgramStateRef CallEvent::invalidateRegions(unsigned BlockCount,
   SmallVector<SVal, 8> ValuesToInvalidate;
   RegionAndSymbolInvalidationTraits ETraits;
 
-  getExtraInvalidatedValues(ValuesToInvalidate);
+  getExtraInvalidatedValues(ValuesToInvalidate, &ETraits);
 
   // Indexes of arguments whose values will be preserved by the call.
   llvm::SmallSet<unsigned, 4> PreserveArgs;
@@ -402,8 +403,28 @@ const FunctionDecl *CXXInstanceCall::getDecl() const {
   return getSVal(CE->getCallee()).getAsFunctionDecl();
 }
 
-void CXXInstanceCall::getExtraInvalidatedValues(ValueList &Values) const {
-  Values.push_back(getCXXThisVal());
+void CXXInstanceCall::getExtraInvalidatedValues(ValueList &Values,
+                        RegionAndSymbolInvalidationTraits *ETraits) const {
+  SVal ThisVal = getCXXThisVal();
+  Values.push_back(ThisVal);
+
+  // Don't invalidate if the method is const and there are no mutable fields.
+  if (const CXXMethodDecl *D = cast_or_null<CXXMethodDecl>(getDecl())) {
+    if (!D->isConst())
+      return;
+    // Get the record decl for the class of 'This'. D->getParent() may return a
+    // base class decl, rather than the class of the instance which needs to be
+    // checked for mutable fields.
+    const Expr *Ex = getCXXThisExpr()->ignoreParenBaseCasts();
+    const CXXRecordDecl *ParentRecord = Ex->getType()->getAsCXXRecordDecl();
+    if (!ParentRecord || ParentRecord->hasMutableFields())
+      return;
+    // Preserve CXXThis.
+    const MemRegion *ThisRegion = ThisVal.getAsRegion();
+    assert(ThisRegion && "ThisValue was not a memory region");
+    ETraits->setTrait(ThisRegion->getBaseRegion(),
+      RegionAndSymbolInvalidationTraits::TK_PreserveContents);
+  }
 }
 
 SVal CXXInstanceCall::getCXXThisVal() const {
@@ -435,7 +456,7 @@ RuntimeDefinition CXXInstanceCall::getRuntimeDefinition() const {
     return RuntimeDefinition();
 
   // Do we know anything about the type of 'this'?
-  DynamicTypeInfo DynType = getState()->getDynamicTypeInfo(R);
+  DynamicTypeInfo DynType = getDynamicTypeInfo(getState(), R);
   if (!DynType.isValid())
     return RuntimeDefinition();
 
@@ -549,7 +570,8 @@ ArrayRef<ParmVarDecl*> BlockCall::parameters() const {
   return D->parameters();
 }
 
-void BlockCall::getExtraInvalidatedValues(ValueList &Values) const {
+void BlockCall::getExtraInvalidatedValues(ValueList &Values,
+                  RegionAndSymbolInvalidationTraits *ETraits) const {
   // FIXME: This also needs to invalidate captured globals.
   if (const MemRegion *R = getBlockRegion())
     Values.push_back(loc::MemRegionVal(R));
@@ -570,7 +592,8 @@ SVal CXXConstructorCall::getCXXThisVal() const {
   return UnknownVal();
 }
 
-void CXXConstructorCall::getExtraInvalidatedValues(ValueList &Values) const {
+void CXXConstructorCall::getExtraInvalidatedValues(ValueList &Values,
+                           RegionAndSymbolInvalidationTraits *ETraits) const {
   if (Data)
     Values.push_back(loc::MemRegionVal(static_cast<const MemRegion *>(Data)));
 }
@@ -612,7 +635,8 @@ ArrayRef<ParmVarDecl*> ObjCMethodCall::parameters() const {
 }
 
 void
-ObjCMethodCall::getExtraInvalidatedValues(ValueList &Values) const {
+ObjCMethodCall::getExtraInvalidatedValues(ValueList &Values,
+                  RegionAndSymbolInvalidationTraits *ETraits) const {
   Values.push_back(getReceiverSVal());
 }
 
@@ -800,7 +824,7 @@ RuntimeDefinition ObjCMethodCall::getRuntimeDefinition() const {
       if (!Receiver)
         return RuntimeDefinition();
 
-      DynamicTypeInfo DTI = getState()->getDynamicTypeInfo(Receiver);
+      DynamicTypeInfo DTI = getDynamicTypeInfo(getState(), Receiver);
       QualType DynType = DTI.getType();
       CanBeSubClassed = DTI.canBeASubClass();
       ReceiverT = dyn_cast<ObjCObjectPointerType>(DynType);

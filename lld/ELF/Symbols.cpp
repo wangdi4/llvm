@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Symbols.h"
-#include "Chunks.h"
+#include "InputSection.h"
 #include "Error.h"
 #include "InputFiles.h"
 
@@ -40,17 +40,19 @@ template <class ELFT> int SymbolBody::compare(SymbolBody *Other) {
   if (L > R)
     return -Other->compare<ELFT>(this);
 
-  uint8_t LV = getMostConstrainingVisibility();
-  uint8_t RV = Other->getMostConstrainingVisibility();
-  MostConstrainingVisibility = getMinVisibility(LV, RV);
-  Other->MostConstrainingVisibility = MostConstrainingVisibility;
+  Visibility = Other->Visibility =
+      getMinVisibility(Visibility, Other->Visibility);
 
-  IsUsedInRegularObj |= Other->IsUsedInRegularObj;
-  Other->IsUsedInRegularObj |= IsUsedInRegularObj;
+  if (IsUsedInRegularObj || Other->IsUsedInRegularObj)
+    IsUsedInRegularObj = Other->IsUsedInRegularObj = true;
 
   if (L != R)
     return -1;
   if (!L.first || !L.second)
+    return 1;
+  if (isShared())
+    return -1;
+  if (Other->isShared())
     return 1;
   if (isCommon()) {
     if (!Other->isCommon())
@@ -80,6 +82,19 @@ std::unique_ptr<InputFile> Lazy::getMember() {
     return std::unique_ptr<InputFile>(nullptr);
 
   return createELFFile<ObjectFile>(MBRef);
+}
+
+template <class ELFT> static void doInitSymbols() {
+  DefinedAbsolute<ELFT>::IgnoreUndef.setBinding(STB_WEAK);
+  DefinedAbsolute<ELFT>::IgnoreUndef.setVisibility(STV_HIDDEN);
+  Undefined<ELFT>::Optional.setVisibility(STV_HIDDEN);
+}
+
+void lld::elf2::initSymbols() {
+  doInitSymbols<ELF32LE>();
+  doInitSymbols<ELF32BE>();
+  doInitSymbols<ELF64LE>();
+  doInitSymbols<ELF64BE>();
 }
 
 template int SymbolBody::compare<ELF32LE>(SymbolBody *Other);

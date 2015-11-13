@@ -456,6 +456,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_sized_deallocation", "201309");
   if (LangOpts.ConceptsTS)
     Builder.defineMacro("__cpp_experimental_concepts", "1");
+  if (LangOpts.Coroutines)
+    Builder.defineMacro("__cpp_coroutines", "1");
 }
 
 static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -918,6 +920,10 @@ void clang::InitializePreprocessor(
 
   // Install things like __POWERPC__, __GNUC__, etc into the macro table.
   if (InitOpts.UsePredefines) {
+    if (LangOpts.CUDA && PP.getAuxTargetInfo())
+      InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
+                                 Builder);
+
     InitializePredefinedMacros(PP.getTargetInfo(), LangOpts, FEOpts, Builder);
 
     // Install definitions to make Objective-C++ ARC work well with various

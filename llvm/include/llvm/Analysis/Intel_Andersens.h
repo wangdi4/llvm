@@ -52,6 +52,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   struct Node;
 
+  typedef std::set<Node *> NodeSetTy;
+
   struct Constraint;
 
   struct PairKeyInfo;
@@ -186,6 +188,10 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // Whether to use SDT (UniteNodes can use it during solving, but not before)
   bool SDTActive;
 
+  // The data structure to record the static global variable
+  // which are not escaped from the current routine.
+  DenseMap<const Value *, unsigned> NonEscapeStaticVars;
+
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {
     AndersensAAResult &AAR;
@@ -199,6 +205,7 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
       // Remove it from ValueNodes so that points-to info is treated
       // it as UniversalSet if Value not found in ValueNodes. 
       AAR.ValueNodes.erase(Val);
+      AAR.NonEscapeStaticVars.erase(Val);
 
       // Clear the value handle, so that the object can be destroyed.
       setValPtr(nullptr);
@@ -254,7 +261,9 @@ public:
 
   // Chases pointers until we find a (constant global) or not.
   bool pointsToConstantMemory(const MemoryLocation &Loc, bool OrLocal);
-
+  // Returns true if the given value V does not escape from
+  // the current routine.
+  bool escapes(const Value *V);
 
 private:
   unsigned getNode(Value *V);
@@ -303,7 +312,26 @@ private:
   void IndirectCallActualsToFormals(CallSite CS, Function *F);
   void InitIndirectCallActualsToUniversalSet(CallSite CS);
   void AddEdgeInGraph(unsigned N1, unsigned N2);
-
+  // Return true if one of the point-to targets escapes
+  bool pointsToSetEscapes(Node *N);
+  // Return true if the value represented by the graph node N escapes
+  bool graphNodeEscapes(Node *N);
+  // Given a pointer P, if P escapes, the point-to set of P also escapes.
+  // The information will be propagated along the point-to chain.
+  void propagateEscapedPointsTo(NodeSetTy *NodeSet1, NodeSetTy *NodeSet2,
+                                NodeSetTy *NodeSet3);
+  void analyzePointsToGraph(NodeSetTy *EscapedNodeSet);
+  // Analyze whether the given global escapes or not
+  bool analyzeGlobalEscape(const Value *V,
+                           SmallPtrSet<const PHINode *, 16> PhiUsers,
+                           const Function **SinlgeAcessingFunction,
+                           bool *LoadFlag);
+  // Returns true if the value represented by the graph node N is
+  // likely to escape.
+  bool graphNodePossiblyEscape(Node *AltN);
+  // Updates the set NonEscapeStaticVars.
+  void updateEscapeNodes(NodeSetTy *EscapedNodeSet);
+  void PrintNonEscapes() const;
 
   void ProcessIndirectCall(CallSite CS);
   void ProcessIndirectCalls(void);

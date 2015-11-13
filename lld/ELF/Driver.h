@@ -10,40 +10,41 @@
 #ifndef LLD_ELF_DRIVER_H
 #define LLD_ELF_DRIVER_H
 
+#include "SymbolTable.h"
 #include "lld/Core/LLVM.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Option/ArgList.h"
 
 namespace lld {
 namespace elf2 {
 
-class LinkerDriver;
-extern LinkerDriver *Driver;
-
-class InputFile;
+extern class LinkerDriver *Driver;
 
 // Entry point of the ELF linker.
 void link(ArrayRef<const char *> Args);
 
-class ArgParser {
-public:
-  // Parses command line options.
-  llvm::opt::InputArgList parse(ArrayRef<const char *> Args);
-};
-
 class LinkerDriver {
 public:
-  void link(ArrayRef<const char *> Args);
+  void main(ArrayRef<const char *> Args);
+  void createFiles(llvm::opt::InputArgList &Args);
+  template <class ELFT> void link(llvm::opt::InputArgList &Args);
+
+  void addFile(StringRef Path);
 
 private:
-  ArgParser Parser;
+  template <template <class> class T>
+  std::unique_ptr<InputFile> createELFInputFile(MemoryBufferRef MB);
 
-  // Opens a file. Path has to be resolved already.
-  MemoryBufferRef openFile(StringRef Path);
-
-  // Driver is the owner of all opened files.
-  // InputFiles have MemoryBufferRefs to them.
+  llvm::BumpPtrAllocator Alloc;
+  bool WholeArchive = false;
+  std::vector<std::unique_ptr<InputFile>> Files;
+  std::vector<std::unique_ptr<ArchiveFile>> OwningArchives;
   std::vector<std::unique_ptr<MemoryBuffer>> OwningMBs;
 };
+
+// Parses command line options.
+llvm::opt::InputArgList parseArgs(llvm::BumpPtrAllocator *A,
+                                  ArrayRef<const char *> Args);
 
 // Create enum with OPT_xxx values for each option in Options.td
 enum {
@@ -52,6 +53,13 @@ enum {
 #include "Options.inc"
 #undef OPTION
 };
+
+// Parses a linker script. Calling this function updates the Symtab and Config.
+void readLinkerScript(llvm::BumpPtrAllocator *A, MemoryBufferRef MB);
+
+std::string findFromSearchPaths(StringRef Path);
+std::string searchLibrary(StringRef Path);
+std::string buildSysrootedPath(llvm::StringRef Dir, llvm::StringRef File);
 
 } // namespace elf2
 } // namespace lld

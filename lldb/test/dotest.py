@@ -20,19 +20,29 @@ Type:
 for available options.
 """
 
+from __future__ import print_function
+
+import lldb_shared
+
+import atexit
 import commands
+import importlib
 import os
 import dotest_args
 import errno
 import platform
 import progress
 import signal
+import socket
 import subprocess
 import sys
+import test_results
+from test_results import EventBuilder
 import inspect
 import unittest2
 import lldbtest_config
 
+import six
 
 def is_exe(fpath):
     """Returns true if fpath is an executable."""
@@ -82,7 +92,8 @@ validCategories = {
 'basic_process': 'Basic process execution sniff tests.',
 'cmdline' : 'Tests related to the LLDB command-line interface',
 'dyntype' : 'Tests related to dynamic type support',
-'stresstest' : 'Tests related to stressing lldb limits'
+'stresstest' : 'Tests related to stressing lldb limits',
+'flakey' : 'Flakey test cases, i.e. tests that do not reliably pass at each execution'
 }
 
 # The test suite.
@@ -107,6 +118,7 @@ just_do_benchmarks_test = False
 
 dont_do_dsym_test = False
 dont_do_dwarf_test = False
+dont_do_dwo_test = False
 
 # The blacklist is optional (-b blacklistFile) and allows a central place to skip
 # testclass's and/or testclass.testmethod's.
@@ -251,10 +263,21 @@ output_on_success = False
 no_multiprocess_test_runner = False
 test_runner_name = None
 
+# Test results handling globals
+results_filename = None
+results_port = None
+results_file_object = None
+results_formatter_name = None
+results_formatter_object = None
+results_formatter_options = None
+
+# The names of all tests. Used to assert we don't have two tests with the same base name.
+all_tests = set()
+
 def usage(parser):
     parser.print_help()
     if verbose > 0:
-        print """
+        print("""
 Examples:
 
 This is an example of using the -f option to pinpoint to a specific test class
@@ -362,7 +385,7 @@ o GDB_REMOTE_LOG: if defined, specifies the log file pathname for the
   'process.gdb-remote' subsystem with a default option of 'packets' if
   GDB_REMOTE_LOG_OPTION is not defined.
 
-"""
+""")
     sys.exit(0)
 
 
@@ -388,9 +411,9 @@ def validate_categories(categories):
         if category not in validCategories:
             category = unique_string_match(category, validCategories)
         if (category not in validCategories) or category == None:
-            print "fatal error: category '" + origCategory + "' is not a valid category"
-            print "if you have added a new category, please edit dotest.py, adding your new category to validCategories"
-            print "else, please specify one or more of the following: " + str(validCategories.keys())
+            print("fatal error: category '" + origCategory + "' is not a valid category")
+            print("if you have added a new category, please edit dotest.py, adding your new category to validCategories")
+            print("else, please specify one or more of the following: " + str(validCategories.keys()))
             sys.exit(1)
         result.append(category)
     return result
@@ -456,6 +479,7 @@ def parseOptionsAndInitTestdirs():
     global just_do_benchmarks_test
     global dont_do_dsym_test
     global dont_do_dwarf_test
+    global dont_do_dwo_test
     global blacklist
     global blacklistConfig
     global categoriesList
@@ -497,6 +521,10 @@ def parseOptionsAndInitTestdirs():
     global output_on_success
     global no_multiprocess_test_runner
     global test_runner_name
+    global results_filename
+    global results_formatter_name
+    global results_formatter_options
+    global results_port
 
     do_help = False
 
@@ -524,7 +552,7 @@ def parseOptionsAndInitTestdirs():
 
     # only print the args if being verbose (and parsable is off)
     if args.v and not args.q:
-        print sys.argv
+        print(sys.argv)
 
     if args.h:
         do_help = True
@@ -582,6 +610,8 @@ def parseOptionsAndInitTestdirs():
     # argparse makes sure we have correct options
     if args.N == 'dwarf':
         dont_do_dwarf_test = True
+    elif args.N == 'dwo':
+        dont_do_dwo_test = True
     elif args.N == 'dsym':
         dont_do_dsym_test = True
 
@@ -590,7 +620,7 @@ def parseOptionsAndInitTestdirs():
 
     if args.plus_a:
         if dont_do_python_api_test:
-            print "Warning: -a and +a can't both be specified! Using only -a"
+            print("Warning: -a and +a can't both be specified! Using only -a")
         else:
             just_do_python_api_test = True
 
@@ -602,7 +632,7 @@ def parseOptionsAndInitTestdirs():
             usage(parser)
         blacklistFile = args.b
         if not os.path.isfile(blacklistFile):
-            print 'Blacklist file:', blacklistFile, 'does not exist!'
+            print('Blacklist file:', blacklistFile, 'does not exist!')
             usage(parser)
         # Now read the blacklist contents and assign it to blacklist.
         execfile(blacklistFile, globals(), blacklistConfig)
@@ -613,7 +643,7 @@ def parseOptionsAndInitTestdirs():
             usage(parser)
         configFile = args.c
         if not os.path.isfile(configFile):
-            print 'Config file:', configFile, 'does not exist!'
+            print('Config file:', configFile, 'does not exist!')
             usage(parser)
 
     if args.d:
@@ -664,7 +694,7 @@ def parseOptionsAndInitTestdirs():
 
     if args.plus_m:
         if dont_do_lldbmi_test:
-            print "Warning: -m and +m can't both be specified! Using only -m"
+            print("Warning: -m and +m can't both be specified! Using only -m")
         else:
             just_do_lldbmi_test = True
 
@@ -699,7 +729,7 @@ def parseOptionsAndInitTestdirs():
         rdir = os.path.abspath(args.R)
         if os.path.exists(rdir):
             import shutil
-            print 'Removing tree:', rdir
+            print('Removing tree:', rdir)
             shutil.rmtree(rdir)
 
     if args.r:
@@ -707,7 +737,7 @@ def parseOptionsAndInitTestdirs():
             usage(parser)
         rdir = os.path.abspath(args.r)
         if os.path.exists(rdir):
-            print 'Relocated directory:', rdir, 'must not exist!'
+            print('Relocated directory:', rdir, 'must not exist!')
             usage(parser)
 
     if args.S:
@@ -782,12 +812,49 @@ def parseOptionsAndInitTestdirs():
     if args.test_runner_name:
         test_runner_name = args.test_runner_name
 
+    # Capture test results-related args.
+    if args.results_file:
+        results_filename = args.results_file
+
+    if args.results_port:
+        results_port = args.results_port
+
+    if args.results_file and args.results_port:
+        sys.stderr.write(
+            "only one of --results-file and --results-port should "
+            "be specified\n")
+        usage(args)
+
+    if args.results_formatter:
+        results_formatter_name = args.results_formatter
+    if args.results_formatter_options:
+        results_formatter_options = args.results_formatter_options
+
     if args.lldb_platform_name:
         lldb_platform_name = args.lldb_platform_name
     if args.lldb_platform_url:
         lldb_platform_url = args.lldb_platform_url
     if args.lldb_platform_working_dir:
         lldb_platform_working_dir = args.lldb_platform_working_dir
+
+    if args.event_add_entries and len(args.event_add_entries) > 0:
+        entries = {}
+        # Parse out key=val pairs, separated by comma
+        for keyval in args.event_add_entries.split(","):
+            key_val_entry = keyval.split("=")
+            if len(key_val_entry) == 2:
+                (key, val) = key_val_entry
+                val_parts = val.split(':')
+                if len(val_parts) > 1:
+                    (val, val_type) = val_parts
+                    if val_type == 'int':
+                        val = int(val)
+                entries[key] = val
+        # Tell the event builder to create all events with these
+        # key/val pairs in them.
+        if len(entries) > 0:
+            test_results.EventBuilder.add_entries_to_all_events(entries)
+
     # Gather all the dirs passed on the command line.
     if len(args.args) > 0:
         testdirs = map(os.path.abspath, args.args)
@@ -856,12 +923,12 @@ def parseOptionsAndInitTestdirs():
         if "pre_flight" in config:
             pre_flight = config["pre_flight"]
             if not callable(pre_flight):
-                print "fatal error: pre_flight is not callable, exiting."
+                print("fatal error: pre_flight is not callable, exiting.")
                 sys.exit(1)
         if "post_flight" in config:
             post_flight = config["post_flight"]
             if not callable(post_flight):
-                print "fatal error: post_flight is not callable, exiting."
+                print("fatal error: post_flight is not callable, exiting.")
                 sys.exit(1)
         if "lldbtest_remote_sandbox" in config:
             lldbtest_remote_sandbox = config["lldbtest_remote_sandbox"]
@@ -885,6 +952,105 @@ def getXcodeOutputPaths(lldbRootDirectory):
             result.append(outputPath)
 
     return result
+
+
+def createSocketToLocalPort(port):
+    def socket_closer(s):
+        """Close down an opened socket properly."""
+        s.shutdown(socket.SHUT_RDWR)
+        s.close()
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect(("localhost", port))
+    return (sock, lambda: socket_closer(sock))
+
+
+def setupTestResults():
+    """Sets up test results-related objects based on arg settings."""
+    global results_filename
+    global results_file_object
+    global results_formatter_name
+    global results_formatter_object
+    global results_formatter_options
+    global results_port
+
+    default_formatter_name = None
+    cleanup_func = None
+
+    if results_filename:
+        # Open the results file for writing.
+        if results_filename == 'stdout':
+            results_file_object = sys.stdout
+            cleanup_func = None
+        elif results_filename == 'stderr':
+            results_file_object = sys.stderr
+            cleanup_func = None
+        else:
+            results_file_object = open(results_filename, "w")
+            cleanup_func = results_file_object.close
+        default_formatter_name = "test_results.XunitFormatter"
+    elif results_port:
+        # Connect to the specified localhost port.
+        results_file_object, cleanup_func = createSocketToLocalPort(
+            results_port)
+        default_formatter_name = "test_results.RawPickledFormatter"
+
+    if results_file_object:
+        # We care about the formatter.  Choose user-specified or, if
+        # none specified, use the default for the output type.
+        if results_formatter_name:
+            formatter_name = results_formatter_name
+        else:
+            formatter_name = default_formatter_name
+
+        # Create an instance of the class.  First figure out the package/module.
+        components = formatter_name.split(".")
+        module = importlib.import_module(".".join(components[:-1]))
+
+        # Create the class name we need to load.
+        clazz = getattr(module, components[-1])
+
+        # Handle formatter options for the results formatter class.
+        formatter_arg_parser = clazz.arg_parser()
+        if results_formatter_options and len(results_formatter_options) > 0:
+            command_line_options = results_formatter_options
+        else:
+            command_line_options = []
+
+        formatter_options = formatter_arg_parser.parse_args(
+            command_line_options)
+
+        # Create the TestResultsFormatter given the processed options.
+        results_formatter_object = clazz(results_file_object, formatter_options)
+
+        # Start the results formatter session - we'll only have one
+        # during a given dotest process invocation.
+        initialize_event = EventBuilder.bare_event("initialize")
+        if isMultiprocessTestRunner():
+            if test_runner_name is not None and test_runner_name == "serial":
+                # Only one worker queue here.
+                worker_count = 1
+            else:
+                # Workers will be the number of threads specified.
+                worker_count = num_threads
+        else:
+            worker_count = 1
+        initialize_event["worker_count"] = worker_count
+
+        results_formatter_object.handle_event(initialize_event)
+
+        def shutdown_formatter():
+            # Tell the formatter to write out anything it may have
+            # been saving until the very end (e.g. xUnit results
+            # can't complete its output until this point).
+            results_formatter_object.send_terminate_as_needed()
+
+            # And now close out the output file-like object.
+            if cleanup_func is not None:
+                cleanup_func()
+
+        atexit.register(shutdown_formatter)
+
 
 def getOutputPaths(lldbRootDirectory):
     """
@@ -930,7 +1096,7 @@ def setupSysPath():
     else:
         scriptPath = os.path.dirname(os.path.realpath(__file__))
     if not scriptPath.endswith('test'):
-        print "This script expects to reside in lldb's test directory."
+        print("This script expects to reside in lldb's test directory.")
         sys.exit(-1)
 
     if rdir:
@@ -996,11 +1162,11 @@ def setupSysPath():
         lldbtest_config.lldbExec = which('lldb')
 
     if lldbtest_config.lldbExec and not is_exe(lldbtest_config.lldbExec):
-        print "'{}' is not a path to a valid executable".format(lldbtest_config.lldbExec)
-        del lldbtest_config.lldbExec
+        print("'{}' is not a path to a valid executable".format(lldbtest_config.lldbExec))
+        lldbtest_config.lldbExec = None
 
     if not lldbtest_config.lldbExec:
-        print "The 'lldb' executable cannot be located.  Some of the tests may not be run as a result."
+        print("The 'lldb' executable cannot be located.  Some of the tests may not be run as a result.")
         sys.exit(-1)
 
     lldbLibDir = os.path.dirname(lldbtest_config.lldbExec)  # confusingly, this is the "bin" directory
@@ -1008,8 +1174,8 @@ def setupSysPath():
     lldbImpLibDir = os.path.join(lldbLibDir, '..', 'lib') if sys.platform.startswith('win32') else lldbLibDir
     os.environ["LLDB_IMPLIB_DIR"] = lldbImpLibDir
     if not noHeaders:
-        print "LLDB library dir:", os.environ["LLDB_LIB_DIR"]
-        print "LLDB import library dir:", os.environ["LLDB_IMPLIB_DIR"]
+        print("LLDB library dir:", os.environ["LLDB_LIB_DIR"])
+        print("LLDB import library dir:", os.environ["LLDB_IMPLIB_DIR"])
         os.system('%s -v' % lldbtest_config.lldbExec)
 
     # Assume lldb-mi is in same place as lldb
@@ -1020,9 +1186,9 @@ def setupSysPath():
     if not lldbMiExec:
         dont_do_lldbmi_test = True
         if just_do_lldbmi_test:
-            print "The 'lldb-mi' executable cannot be located.  The lldb-mi tests can not be run as a result."
+            print("The 'lldb-mi' executable cannot be located.  The lldb-mi tests can not be run as a result.")
         else:
-            print "The 'lldb-mi' executable cannot be located.  Some of the tests may not be run as a result."
+            print("The 'lldb-mi' executable cannot be located.  Some of the tests may not be run as a result.")
     else:
         os.environ["LLDBMI_EXEC"] = lldbMiExec
 
@@ -1035,7 +1201,7 @@ def setupSysPath():
             pipe = subprocess.Popen([which("git"), "svn", "info", lldbRootDirectory], stdout = subprocess.PIPE)
             svn_info = pipe.stdout.read()
         if not noHeaders:
-            print svn_info
+            print(svn_info)
 
     global ignore
 
@@ -1045,7 +1211,7 @@ def setupSysPath():
         if os.path.isfile(os.path.join(candidatePath, 'lldb/__init__.py')):
             lldbPythonDir = candidatePath
         if not lldbPythonDir:
-            print 'Resources/Python/lldb/__init__.py was not found in ' + lldbFrameworkPath
+            print('Resources/Python/lldb/__init__.py was not found in ' + lldbFrameworkPath)
             sys.exit(-1)
     else:
         # The '-i' option is used to skip looking for lldb.py in the build tree.
@@ -1091,19 +1257,19 @@ def setupSysPath():
                         break
 
                 if not lldbPythonDir:
-                    print 'This script requires lldb.py to be in either ' + dbgPath + ',',
-                    print relPath + ', or ' + baiPath + '. Some tests might fail.'
+                    print('This script requires lldb.py to be in either ' + dbgPath + ',', end=' ')
+                    print(relPath + ', or ' + baiPath + '. Some tests might fail.')
             else:
-                print "Unable to load lldb extension module.  Possible reasons for this include:"
-                print "  1) LLDB was built with LLDB_DISABLE_PYTHON=1"
-                print "  2) PYTHONPATH and PYTHONHOME are not set correctly.  PYTHONHOME should refer to"
-                print "     the version of Python that LLDB built and linked against, and PYTHONPATH"
-                print "     should contain the Lib directory for the same python distro, as well as the"
-                print "     location of LLDB\'s site-packages folder."
-                print "  3) A different version of Python than that which was built against is exported in"
-                print "     the system\'s PATH environment variable, causing conflicts."
-                print "  4) The executable '%s' could not be found.  Please check " % lldbExecutable
-                print "     that it exists and is executable."
+                print("Unable to load lldb extension module.  Possible reasons for this include:")
+                print("  1) LLDB was built with LLDB_DISABLE_PYTHON=1")
+                print("  2) PYTHONPATH and PYTHONHOME are not set correctly.  PYTHONHOME should refer to")
+                print("     the version of Python that LLDB built and linked against, and PYTHONPATH")
+                print("     should contain the Lib directory for the same python distro, as well as the")
+                print("     location of LLDB\'s site-packages folder.")
+                print("  3) A different version of Python than that which was built against is exported in")
+                print("     the system\'s PATH environment variable, causing conflicts.")
+                print("  4) The executable '%s' could not be found.  Please check " % lldbExecutable)
+                print("     that it exists and is executable.")
 
     if lldbPythonDir:
         lldbPythonDir = os.path.normpath(lldbPythonDir)
@@ -1121,7 +1287,7 @@ def setupSysPath():
         # This is to locate the lldb.py module.  Insert it right after sys.path[0].
         sys.path[1:1] = [lldbPythonDir]
         if dumpSysPath:
-            print "sys.path:", sys.path
+            print("sys.path:", sys.path)
 
 def visit(prefix, dir, names):
     """Visitor function for os.path.walk(path, visit, arg)."""
@@ -1131,6 +1297,7 @@ def visit(prefix, dir, names):
     global filters
     global fs4all
     global excluded
+    global all_tests
 
     if set(dir.split(os.sep)).intersection(excluded):
         #print "Detected an excluded dir component: %s" % dir
@@ -1141,6 +1308,11 @@ def visit(prefix, dir, names):
             continue
 
         if '.py' == os.path.splitext(name)[1] and name.startswith(prefix):
+
+            if name in all_tests:
+                raise Exception("Found multiple tests with the name %s" % name)
+            all_tests.add(name)
+
             # Try to match the regexp pattern, if specified.
             if regexp:
                 import re
@@ -1261,10 +1433,10 @@ def checkDsymForUUIDIsNotOn():
     pipe = subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
     cmd_output = pipe.stdout.read()
     if cmd_output and "DBGFileMappedPaths = " in cmd_output:
-        print "%s =>" % ' '.join(cmd)
-        print cmd_output
-        print "Disable automatic lookup and caching of dSYMs before running the test suite!"
-        print "Exiting..."
+        print("%s =>" % ' '.join(cmd))
+        print(cmd_output)
+        print("Disable automatic lookup and caching of dSYMs before running the test suite!")
+        print("Exiting...")
         sys.exit(0)
 
 def exitTestSuite(exitCode = None):
@@ -1293,13 +1465,20 @@ if __name__ == "__main__":
     #
     parseOptionsAndInitTestdirs()
 
+    # Setup test results (test results formatter and output handling).
+    setupTestResults()
+
     # If we are running as the multiprocess test runner, kick off the
     # multiprocess test runner here.
     if isMultiprocessTestRunner():
         import dosep
         dosep.main(output_on_success, num_threads, multiprocess_test_subdir,
-                   test_runner_name)
+                   test_runner_name, results_formatter_object)
         raise Exception("should never get here")
+    elif is_inferior_test_runner:
+        # Shut off Ctrl-C processing in inferiors.  The parallel
+        # test runner handles this more holistically.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     setupSysPath()
     setupCrashInfoHook()
@@ -1317,27 +1496,27 @@ if __name__ == "__main__":
     lldb.DBG = lldb.SBDebugger.Create()
 
     if lldb_platform_name:
-        print "Setting up remote platform '%s'" % (lldb_platform_name)
+        print("Setting up remote platform '%s'" % (lldb_platform_name))
         lldb.remote_platform = lldb.SBPlatform(lldb_platform_name)
         if not lldb.remote_platform.IsValid():
-            print "error: unable to create the LLDB platform named '%s'." % (lldb_platform_name)
+            print("error: unable to create the LLDB platform named '%s'." % (lldb_platform_name))
             exitTestSuite(1)
         if lldb_platform_url:
             # We must connect to a remote platform if a LLDB platform URL was specified
-            print "Connecting to remote platform '%s' at '%s'..." % (lldb_platform_name, lldb_platform_url)
+            print("Connecting to remote platform '%s' at '%s'..." % (lldb_platform_name, lldb_platform_url))
             lldb.platform_url = lldb_platform_url
             platform_connect_options = lldb.SBPlatformConnectOptions(lldb_platform_url)
             err = lldb.remote_platform.ConnectRemote(platform_connect_options)
             if err.Success():
-                print "Connected."
+                print("Connected.")
             else:
-                print "error: failed to connect to remote platform using URL '%s': %s" % (lldb_platform_url, err)
+                print("error: failed to connect to remote platform using URL '%s': %s" % (lldb_platform_url, err))
                 exitTestSuite(1)
         else:
             lldb.platform_url = None
 
         if lldb_platform_working_dir:
-            print "Setting remote platform working directory to '%s'..." % (lldb_platform_working_dir)
+            print("Setting remote platform working directory to '%s'..." % (lldb_platform_working_dir))
             lldb.remote_platform.SetWorkingDirectory(lldb_platform_working_dir)
     
         lldb.remote_platform_working_dir = lldb_platform_working_dir
@@ -1349,11 +1528,12 @@ if __name__ == "__main__":
 
     target_platform = lldb.DBG.GetSelectedPlatform().GetTriple().split('-')[2]
 
-    # By default, both dsym and dwarf tests are performed.
-    # Use @dsym_test or @dwarf_test decorators, defined in lldbtest.py, to mark a test
-    # as a dsym or dwarf test.  Use '-N dsym' or '-N dwarf' to exclude dsym or dwarf
-    # tests from running.
-    dont_do_dsym_test = dont_do_dsym_test or "linux" in target_platform or "freebsd" in target_platform or "windows" in target_platform
+    # By default, both dsym, dwarf and dwo tests are performed.
+    # Use @dsym_test, @dwarf_test or @dwo_test decorators, defined in lldbtest.py, to mark a test as
+    # a dsym, dwarf or dwo test.  Use '-N dsym', '-N dwarf' or '-N dwo' to exclude dsym, dwarf or
+    # dwo tests from running.
+    dont_do_dsym_test = dont_do_dsym_test or any(platform in target_platform for platform in ["linux", "freebsd", "windows"])
+    dont_do_dwo_test = dont_do_dwo_test or any(platform in target_platform for platform in ["darwin", "macosx", "ios"])
 
     # Don't do debugserver tests on everything except OS X.
     dont_do_debugserver_test = "linux" in target_platform or "freebsd" in target_platform or "windows" in target_platform
@@ -1389,8 +1569,8 @@ if __name__ == "__main__":
             return repr(obj)
 
     if not noHeaders:
-        print "lldb.pre_flight:", getsource_if_available(lldb.pre_flight)
-        print "lldb.post_flight:", getsource_if_available(lldb.post_flight)
+        print("lldb.pre_flight:", getsource_if_available(lldb.pre_flight))
+        print("lldb.post_flight:", getsource_if_available(lldb.post_flight))
 
     # If either pre_flight or post_flight is defined, set lldb.test_remote to True.
     if lldb.pre_flight or lldb.post_flight:
@@ -1411,6 +1591,7 @@ if __name__ == "__main__":
     lldb.just_do_benchmarks_test = just_do_benchmarks_test
     lldb.dont_do_dsym_test = dont_do_dsym_test
     lldb.dont_do_dwarf_test = dont_do_dwarf_test
+    lldb.dont_do_dwo_test = dont_do_dwo_test
     lldb.dont_do_debugserver_test = dont_do_debugserver_test
     lldb.dont_do_llgs_test = dont_do_llgs_test
 
@@ -1461,9 +1642,9 @@ if __name__ == "__main__":
     where_to_save_session = os.getcwd()
     fname = os.path.join(sdir_name, "TestStarted-%d" % os.getpid())
     with open(fname, "w") as f:
-        print >> f, "Test started at: %s\n" % timestamp_started
-        print >> f, svn_info
-        print >> f, "Command invoked: %s\n" % getMyCommandLine()
+        print("Test started at: %s\n" % timestamp_started, file=f)
+        print(svn_info, file=f)
+        print("Command invoked: %s\n" % getMyCommandLine(), file=f)
 
     #
     # Invoke the default TextTestRunner to run the test suite, possibly iterating
@@ -1495,17 +1676,17 @@ if __name__ == "__main__":
                 cmd_output = pipe.stdout.read()
                 if cmd_output:
                     if "not found" in cmd_output:
-                        print "dropping %s from the compilers used" % c
+                        print("dropping %s from the compilers used" % c)
                         compilers.remove(i)
                     else:
                         compilers[i] = cmd_output.split('\n')[0]
-                        print "'xcrun -find %s' returning %s" % (c, compilers[i])
+                        print("'xcrun -find %s' returning %s" % (c, compilers[i]))
 
     if not parsable:
-        print "compilers=%s" % str(compilers)
+        print("compilers=%s" % str(compilers))
 
     if not compilers or len(compilers) == 0:
-        print "No eligible compiler found, exiting."
+        print("No eligible compiler found, exiting.")
         exitTestSuite(1)
 
     if isinstance(compilers, list) and len(compilers) >= 1:
@@ -1653,6 +1834,7 @@ if __name__ == "__main__":
                             self.progressbar = progress.ProgressWithEvents(stdout=self.stream,start=0,end=suite.countTestCases(),width=width-10)
                         except:
                             self.progressbar = None
+                    self.results_formatter = results_formatter_object
 
                 def _config_string(self, test):
                   compiler = getattr(test, "getCompiler", None)
@@ -1729,12 +1911,18 @@ if __name__ == "__main__":
                     if self.showAll:
                         self.stream.write(self.fmt % self.counter)
                     super(LLDBTestResult, self).startTest(test)
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_start(test))
 
                 def addSuccess(self, test):
                     global parsable
                     super(LLDBTestResult, self).addSuccess(test)
                     if parsable:
                         self.stream.write("PASS: LLDB (%s) :: %s\n" % (self._config_string(test), str(test)))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_success(test))
 
                 def addError(self, test, err):
                     global sdir_has_content
@@ -1746,6 +1934,9 @@ if __name__ == "__main__":
                         method()
                     if parsable:
                         self.stream.write("FAIL: LLDB (%s) :: %s\n" % (self._config_string(test), str(test)))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_error(test, err))
 
                 def addCleanupError(self, test, err):
                     global sdir_has_content
@@ -1757,6 +1948,10 @@ if __name__ == "__main__":
                         method()
                     if parsable:
                         self.stream.write("CLEANUP ERROR: LLDB (%s) :: %s\n" % (self._config_string(test), str(test)))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_cleanup_error(
+                                test, err))
 
                 def addFailure(self, test, err):
                     global sdir_has_content
@@ -1776,6 +1971,10 @@ if __name__ == "__main__":
                                 failuresPerCategory[category] = failuresPerCategory[category] + 1
                             else:
                                 failuresPerCategory[category] = 1
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_failure(test, err))
+
 
                 def addExpectedFailure(self, test, err, bugnumber):
                     global sdir_has_content
@@ -1787,6 +1986,10 @@ if __name__ == "__main__":
                         method(err, bugnumber)
                     if parsable:
                         self.stream.write("XFAIL: LLDB (%s) :: %s\n" % (self._config_string(test), str(test)))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_expected_failure(
+                            test, err, bugnumber))
 
                 def addSkip(self, test, reason):
                     global sdir_has_content
@@ -1798,6 +2001,9 @@ if __name__ == "__main__":
                         method()
                     if parsable:
                         self.stream.write("UNSUPPORTED: LLDB (%s) :: %s (%s) \n" % (self._config_string(test), str(test), reason))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_skip(test, reason))
 
                 def addUnexpectedSuccess(self, test, bugnumber):
                     global sdir_has_content
@@ -1809,6 +2015,11 @@ if __name__ == "__main__":
                         method(bugnumber)
                     if parsable:
                         self.stream.write("XPASS: LLDB (%s) :: %s\n" % (self._config_string(test), str(test)))
+                    if self.results_formatter:
+                        self.results_formatter.handle_event(
+                            EventBuilder.event_for_unexpected_success(
+                                test, bugnumber))
+
 
             if parsable:
                 v = 0
@@ -1849,12 +2060,12 @@ if __name__ == "__main__":
     os.chdir(where_to_save_session)
     fname = os.path.join(sdir_name, "TestFinished-%d" % os.getpid())
     with open(fname, "w") as f:
-        print >> f, "Test finished at: %s\n" % datetime.datetime.now().strftime("%Y-%m-%d-%H_%M_%S")
+        print("Test finished at: %s\n" % datetime.datetime.now().strftime("%Y-%m-%d-%H_%M_%S"), file=f)
 
     # Terminate the test suite if ${LLDB_TESTSUITE_FORCE_FINISH} is defined.
     # This should not be necessary now.
     if ("LLDB_TESTSUITE_FORCE_FINISH" in os.environ):
-        print "Terminating Test suite..."
+        print("Terminating Test suite...")
         subprocess.Popen(["/bin/sh", "-c", "kill %s; exit 0" % (os.getpid())])
 
     # Exiting.

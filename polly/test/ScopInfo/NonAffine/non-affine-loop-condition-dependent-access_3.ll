@@ -1,8 +1,8 @@
 ; RUN: opt %loadPolly -basicaa -polly-scops -polly-allow-nonaffine-branches \
-; RUN:     -polly-allow-nonaffine-loops=false -polly-detect-unprofitable \
+; RUN:     -polly-allow-nonaffine-loops=false \
 ; RUN:     -analyze < %s | FileCheck %s --check-prefix=INNERMOST
 ; RUN: opt %loadPolly -basicaa -polly-scops -polly-allow-nonaffine-branches \
-; RUN:     -polly-allow-nonaffine-loops=true -polly-detect-unprofitable \
+; RUN:     -polly-allow-nonaffine-loops=true \
 ; RUN:      -analyze < %s | FileCheck %s --check-prefix=INNERMOST
 ; RUN: opt %loadPolly -basicaa -polly-scops -polly-allow-nonaffine \
 ; RUN:     -polly-allow-nonaffine-branches -polly-allow-nonaffine-loops=true \
@@ -18,7 +18,19 @@
 ; INNERMOST:    Region: %bb15---%bb13
 ; INNERMOST:    Max Loop Depth:  1
 ; INNERMOST:    Context:
-; INNERMOST:      [p_0, p_1, p_2] -> {  : p_0 >= 0 and p_0 <= 2147483647 and p_1 >= 0 and p_1 <= 4096 and p_2 >= 0 and p_2 <= 4096 }
+; INNERMOST:      [p_0, p_1, p_2] -> {  :
+; INNERMOST-DAG:    p_0 >= 0
+; INNERMOST-DAG:      and
+; INNERMOST-DAG:    p_0 <= 2147483647
+; INNERMOST-DAG:      and
+; INNERMOST-DAG:    p_1 >= 0
+; INNERMOST-DAG:      and
+; INNERMOST-DAG:     p_1 <= 4096
+; INNERMOST-DAG:      and
+; INNERMOST-DAG:    p_2 >= 0
+; INNERMOST-DAG:      and
+; INNERMOST-DAG:     p_2 <= 4096
+; INNERMOST:                         }
 ; INNERMOST:    Assumed Context:
 ; INNERMOST:      [p_0, p_1, p_2] -> {  :  }
 ; INNERMOST:    p0: {0,+,{0,+,1}<nuw><nsw><%bb11>}<nuw><nsw><%bb13>
@@ -46,7 +58,7 @@
 ; INNERMOST:                [p_0, p_1, p_2] -> { Stmt_bb16[i0] -> MemRef_A[i0] };
 ; INNERMOST:      Stmt_bb26
 ; INNERMOST:            Domain :=
-; INNERMOST:                [p_0, p_1, p_2] -> { Stmt_bb26[] };
+; INNERMOST:                [p_0, p_1, p_2] -> { Stmt_bb26[] :  p_0 >= 0 };
 ; INNERMOST:            Schedule :=
 ; INNERMOST:                [p_0, p_1, p_2] -> { Stmt_bb26[] -> [1, 0] };
 ; INNERMOST:            MustWriteAccess :=  [Reduction Type: NONE] [Scalar: 1]

@@ -13,6 +13,9 @@ add_llvm_library(LLVMScalarOpts
   GVN.cpp
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
+#ifdef INTEL_CUSTOMIZATION
+  Intel_GlobalOpt.cpp
+#endif     // INTEL_CUSTOMIZATION
   JumpThreading.cpp
   LICM.cpp
   LoadCombine.cpp
