@@ -1181,6 +1181,11 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       return getNodeForConstantPointer(CE->getOperand(0));
     case Instruction::IntToPtr:
       return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
+      return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointer(CE->getOperand(0));
     default:
@@ -1210,6 +1215,11 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::GetElementPtr:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     case Instruction::IntToPtr:
+      return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
