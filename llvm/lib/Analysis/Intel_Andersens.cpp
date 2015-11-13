@@ -1264,7 +1264,8 @@ void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
 /// constraints and return true.  If this is a call to an unknown function,
 /// return false.
 bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) {
-  assert(F->isDeclaration() && "Not an external function!");
+  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden())
+         && "Not an external function!");
 
 
   // These functions don't induce any points-to constraints.
@@ -1808,7 +1809,8 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     if (AddConstraintsForExternalCall(CS, F)) {
       return;
     }
@@ -2895,7 +2897,8 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
 //
 void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
 
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     // TODO: Model Library calls like malloc here and change Graph
     InitIndirectCallActualsToUniversalSet(CS);
     return;
