@@ -4149,6 +4149,12 @@ void IntelModRefImpl::collectFunction(Function *F)
         return;
     }
 
+    // Don't collect for a weak function, because it may not be
+    // the function linked in.
+    if (F->mayBeOverridden()) {
+        return;
+    }
+
     DEBUG_WITH_TYPE("imr-ir", F->dump());
 
     DEBUG_WITH_TYPE("imr-collect",
@@ -4345,6 +4351,13 @@ IntelModRefImpl::FunctionRecord::BottomReasonsEnum IntelModRefImpl::isResolvable
 bool IntelModRefImpl::isResolvableCallee(const Function *F) const
 {
     if (!F) {
+        return false;
+    }
+
+    // If calling a weak definition function, we cannot know that a
+    // definition in this compilation unit will not be overridden,
+    // so treat the call as unresolvable.
+    if (F->mayBeOverridden()) {
         return false;
     }
 
