@@ -47,7 +47,7 @@ public:
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
 
 protected:
-  IRRegion(BasicBlock *Entry, RegionBBlocksTy BBlocks);
+  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);
   ~IRRegion() {}
 
   /// \brief Make class uncopyable.

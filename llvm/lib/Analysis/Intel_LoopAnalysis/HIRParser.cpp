@@ -1137,6 +1137,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
   }
+  // TODO: assert that SIMD loops are always DO loops. 
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,

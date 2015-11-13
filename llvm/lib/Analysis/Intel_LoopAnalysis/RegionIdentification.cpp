@@ -15,6 +15,7 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Dominators.h"
 
 #include "llvm/Analysis/LoopInfo.h"
@@ -199,11 +200,54 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
   return true;
 }
 
-void RegionIdentification::createRegion(const Loop &Lp) {
-  IRRegion *Reg = new IRRegion(
-      Lp.getHeader(),
-      IRRegion::RegionBBlocksTy(Lp.getBlocks().begin(), Lp.getBlocks().end()));
+bool RegionIdentification::isSIMDLoop(const Loop &Lp) const {
+  BasicBlock *PreheaderBB = Lp.getLoopPreheader();
 
+  // Check if the first instruction is a SIMD directive.
+  auto FirstInst = PreheaderBB->begin();
+  auto IntrinInst = dyn_cast<IntrinsicInst>(FirstInst);
+
+  if (!IntrinInst) {
+    return false;
+  }
+
+  Value *Op = IntrinInst->getOperand(0);
+  MetadataAsValue *MDVal = dyn_cast<MetadataAsValue>(Op);
+
+  if (!MDVal) {
+    return false;
+  }
+
+  auto MD = dyn_cast<MDNode>(MDVal->getMetadata());
+
+  if (!MD || (MD->getNumOperands() != 1)) {
+    return false;
+  }
+
+  MDString *MDStr = dyn_cast<MDString>(MD->getOperand(0));
+
+  // TODO: Replace string literal with the defined value when it is available.
+  if (!MDStr || !(MDStr->getString().equals("DIR.OMP.SIMD"))) {
+    return false;
+  }
+  
+  return true;
+}
+
+void RegionIdentification::createRegion(const Loop &Lp) {
+  IRRegion::RegionBBlocksTy BBlocks(Lp.getBlocks().begin(), Lp.getBlocks().end());
+  BasicBlock *EntryBB = nullptr;
+
+  if (isSIMDLoop(Lp)) {
+    // Include preheader in the region as it contains SIMD directives.
+    EntryBB = Lp.getLoopPreheader();
+    BBlocks.insert(EntryBB);
+  }
+  else {
+    EntryBB = Lp.getHeader();
+  }
+
+  IRRegion *Reg = new IRRegion(EntryBB, BBlocks);
   IRRegions.push_back(Reg);
 }
 

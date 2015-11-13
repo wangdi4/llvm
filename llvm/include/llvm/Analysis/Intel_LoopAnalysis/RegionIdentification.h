@@ -74,6 +74,9 @@ private:
   /// sub loops.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
 
+  /// \brief Returns true if Lp is a SIMD loop.
+  bool isSIMDLoop(const Loop &Lp) const;
+
   /// \brief Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
 

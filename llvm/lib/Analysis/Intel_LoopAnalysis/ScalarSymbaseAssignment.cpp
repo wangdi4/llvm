@@ -69,8 +69,8 @@ unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
 
 void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                 unsigned Symbase) {
-  assert((Symbase > CONSTANT_SYMBASE) &&
-         (Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
+  assert((Symbase > CONSTANT_SYMBASE) && (Symbase <= getMaxScalarSymbase()) &&
+         "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
   (void)Ret;
@@ -179,6 +179,8 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                                       bool Assign) {
   unsigned Symbase;
 
+  // TODO: assign constant symbase to metadata types as they do not cause data
+  // dependencies.
   if (isConstant(Scalar)) {
     return CONSTANT_SYMBASE;
   }
@@ -304,7 +306,7 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
       if (SCCLiveInProcessed) {
         continue;
       }
-      
+
       auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt);
 
       if (SCCPhiInst && processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
