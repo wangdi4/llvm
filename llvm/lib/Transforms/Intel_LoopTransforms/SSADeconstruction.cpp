@@ -127,9 +127,14 @@ private:
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
-  /// described in the function definition.
+  /// described in the function definition. MultipleRegionLiveouts indicates
+  /// whether multiple instructions in the SCC are live outside the region.
   void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
-                          StringRef Name);
+                          bool MultipleRegionLiveouts, StringRef Name);
+
+  /// \brief Returns true is this SCC has multiple instructions live outside the
+  /// region.
+  bool hasMultipleRegionLiveouts(SCCFormation::SCCNodesTy &SCCNodes) const;
 
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
@@ -232,9 +237,15 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
 
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            SCCFormation::SCCNodesTy *SCCNodes,
+                                           bool MultipleRegionLiveouts,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
+  bool IsLinear = false;
+
+  if (SCCNodes) {
+    IsLinear = SCCF->isLinear(Phi);
+  }
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
        UserIt != EndIt;) {
@@ -247,15 +258,22 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
 
     // Handle a SCC phi.
     if (SCCNodes) {
-      // Ignore if this value is region live-out.
-      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-        continue;
-      }
-
       // Check if the use is outside SCC.
       if (SCCNodes->count(UserInst)) {
         continue;
       }
+
+      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
+        // CG can only handle single region liveout value per symbase so we need
+        // to add a liveout copy(new symbase) to handle the case where multiple
+        // values in a SCC are live outside the region.
+        if (!MultipleRegionLiveouts) {
+          continue;
+        }
+      } else if (IsLinear) {
+        continue;
+      }
+
     } else {
       // If this phi is used in another phi in the same basic block, then we can
       // potentially have ordering issues with the insertion of livein copies
@@ -401,6 +419,30 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
+bool SSADeconstruction::hasMultipleRegionLiveouts(
+    SCCFormation::SCCNodesTy &SCCNodes) const {
+
+  bool LiveoutFound = false;
+
+  for (auto const &Inst : SCCNodes) {
+    for (auto UI = Inst->user_begin(), E = Inst->user_end(); UI != E; ++UI) {
+      assert(isa<Instruction>(*UI) && "Use is not an instruction!");
+      auto UserInst = cast<Instruction>(*UI);
+
+      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
+        if (!LiveoutFound) {
+          LiveoutFound = true;
+          break;
+        } else {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 void SSADeconstruction::deconstructPhi(PHINode *Phi) {
   SmallString<32> Name;
 
@@ -415,8 +457,9 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     ProcessedSCCs.insert(PhiSCC);
 
     bool IsLinear = SCCF->isLinear(Phi);
-
     bool LiveinCopyInserted = false;
+    bool MultipleRegionLiveouts = hasMultipleRegionLiveouts(PhiSCC->Nodes);
+
     constructName(PhiSCC->Root, Name);
 
     for (auto const &SCCInst : PhiSCC->Nodes) {
@@ -427,12 +470,8 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
                               Name.str()) ||
             LiveinCopyInserted;
 
-        // Liveout copies are not needed for linear SCCs as they cannot cause
-        // live range violation.
-        if (!IsLinear) {
-          processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                             Name.str());
-        }
+        processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
+                           MultipleRegionLiveouts, Name.str());
 
       }
       // Linear SCCs cannot cause live range violation.
@@ -486,7 +525,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     processPhiLiveins(Phi, nullptr, Name.str());
 
     if (!SCCF->isLinear(Phi)) {
-      processPhiLiveouts(Phi, nullptr, Name.str());
+      processPhiLiveouts(Phi, nullptr, false, Name.str());
     }
   }
 }

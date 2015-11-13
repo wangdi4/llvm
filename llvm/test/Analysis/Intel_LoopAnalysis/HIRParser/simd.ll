@@ -6,12 +6,12 @@
 ; CHECK-NEXT: @llvm.intel.directive.qual.opnd.i32(!9,  4)
 ; CHECK-NEXT: @llvm.intel.directive.qual(!10)
 ; CHECK-NEXT: DO i1 = 0, 3
-; CHECK-NEXT: %mask5 = (%vec_mask)[i1]
+; CHECK-NEXT: %mask5 = (%veccast.3)[i1]
 ; CHECK-NEXT: if (%mask5 != 0)
 ; CHECK-NEXT: {
-; CHECK-NEXT: %0 = (%vec_a.addr)[i1]
-; CHECK-NEXT: %1 = (%vec_b.addr)[i1]
-; CHECK-NEXT: (%vec_retval)[i1] = %0 + %1
+; CHECK-NEXT: %0 = (%veccast.1)[i1]
+; CHECK-NEXT: %1 = (%veccast.2)[i1]
+; CHECK-NEXT: (%veccast)[i1] = %0 + %1
 ; CHECK-NEXT: }
 ; CHECK-NEXT: END LOOP
 

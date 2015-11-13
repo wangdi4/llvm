@@ -87,6 +87,7 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
       OS << ", ";
     }
     I->second->printAsOperand(OS, false);
+    OS << "(sym:" << I->first << ")";
   }
 
   OS << "\n";

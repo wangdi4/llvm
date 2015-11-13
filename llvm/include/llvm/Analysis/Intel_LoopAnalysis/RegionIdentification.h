@@ -26,12 +26,15 @@ namespace llvm {
 
 class Value;
 class Function;
+class Instruction;
+class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;
+class SCEV;
 
 namespace loopopt {
 
@@ -87,6 +90,13 @@ private:
   /// \brief Identifies regions in the incoming LLVM IR.
   void formRegions();
 
+  /// \brief Returns true if Inst contains a type not supported by HIR.
+  bool containsUnsupportedTy(const Instruction *Inst) const;
+
+  /// \brief Returns IV definition PHINode of the loop.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
+
 public:
   static char ID; // Pass identification
   RegionIdentification();
@@ -109,6 +119,10 @@ public:
   const_reverse_iterator rend() const { return IRRegions.rend(); }
 
   unsigned getNumRegions() const { return IRRegions.size(); }
+
+  /// \brief Returns true if this type is supported. Currently returns false for
+  /// structure and function types.
+  bool isSupported(Type *Ty) const;
 };
 
 } // End namespace loopopt

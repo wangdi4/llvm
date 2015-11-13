@@ -248,7 +248,10 @@ protected:
 
 public:
   CanonExpr *clone() const;
+
   /// \brief Dumps CanonExpr.
+  void dump(bool Detailed) const;
+  /// \brief Dumps CanonExpr in a simple format.
   void dump() const;
   /// \brief Prints CanonExpr.
   void print(formatted_raw_ostream &OS, bool Detailed = false) const;

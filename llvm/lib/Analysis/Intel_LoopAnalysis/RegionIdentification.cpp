@@ -62,15 +62,94 @@ void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
 const GEPOperator *
 RegionIdentification::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
-  if (!GEPOp) {
-    return nullptr;
-  }
-
   while (auto TempGEPOp = dyn_cast<GEPOperator>(GEPOp->getPointerOperand())) {
     GEPOp = TempGEPOp;
   }
 
   return GEPOp;
+}
+
+bool RegionIdentification::isSupported(Type *Ty) const {
+
+  for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
+    if (SeqTy->isVectorTy()) {
+      return false;
+    }
+    Ty = SeqTy->getElementType();
+  }
+
+  if (Ty->isStructTy() || Ty->isFunctionTy()) {
+    return false;
+  }
+
+  return true;
+}
+
+bool RegionIdentification::containsUnsupportedTy(
+    const Instruction *Inst) const {
+
+  if (auto GEPOp = dyn_cast<GEPOperator>(Inst)) {
+    GEPOp = getBaseGEPOp(GEPOp);
+
+    if (!isSupported(GEPOp->getSourceElementType())) {
+      return true;
+    }
+  }
+
+  unsigned NumOp = Inst->getNumOperands();
+
+  // Skip checking the last operand of the call instruction which is the call
+  // itself. It has a function pointer type which we do not support right now
+  // but we do not want to throttle simple function calls.
+  if (isa<CallInst>(Inst)) {
+    --NumOp;
+  }
+
+  // Check instruction operands
+  for (unsigned I = 0; I < NumOp; ++I) {
+
+    if (const GEPOperator *GEPOp = dyn_cast<GEPOperator>(Inst->getOperand(I))) {
+      GEPOp = getBaseGEPOp(GEPOp);
+
+      if (!isSupported(GEPOp->getSourceElementType())) {
+        return true;
+      }
+
+    } else if (!isSupported(Inst->getOperand(I)->getType())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+const PHINode *
+RegionIdentification::findIVDefInHeader(const Loop &Lp,
+                                        const Instruction *Inst) const {
+
+  // Is this a phi node in the loop header?
+  if (Inst->getParent() == Lp.getHeader()) {
+    if (auto Phi = dyn_cast<PHINode>(Inst)) {
+      return Phi;
+    }
+  }
+
+  for (auto I = Inst->op_begin(), E = Inst->op_end(); I != E; ++I) {
+    if (auto OPInst = dyn_cast<Instruction>(I)) {
+      // Instruction lies outside the loop.
+      if (!Lp.contains(LI->getLoopFor(OPInst->getParent()))) {
+        continue;
+      }
+
+      auto IVNode = findIVDefInHeader(Lp, OPInst);
+
+      if (IVNode) {
+        return IVNode;
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 bool RegionIdentification::isSelfGenerable(const Loop &Lp,
@@ -104,17 +183,6 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  auto BETC = SE->getBackedgeTakenCount(&Lp);
-
-  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer. This can cause
-  // issues in HIR.
-  // TODO: look into SCEV analysis logic.
-  if (isa<PointerType>(BETC->getType())) {
-    DEBUG(dbgs()
-          << "LOOPOPT_OPTREPORT: Pointer backedge count type not supported.\n");
-    return false;
-  }
-
   // Check that the loop backedge is a conditional branch.
   auto LatchBB = Lp.getLoopLatch();
 
@@ -130,6 +198,32 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
   if (BrInst->isUnconditional()) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Unconditional branch instrcutions in "
                     "loop latch currently not supported.\n");
+    return false;
+  }
+
+  const Value *LatchVal = BrInst->getCondition();
+
+  auto LatchCmpInst = dyn_cast<Instruction>(LatchVal);
+
+  if (!LatchCmpInst) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Non-instruction latch condition "
+                    "currently not supported.\n");
+    return false;
+  }
+
+  auto IVNode = findIVDefInHeader(Lp, LatchCmpInst);
+
+  if (!IVNode) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
+    return false;
+  }
+
+  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
+  // which causes issues in HIR.
+  // TODO: look into SCEV analysis logic.
+  // TODO: extend HIR to handle pointer IVs.
+  if (isa<PointerType>(IVNode->getType())) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Pointer IV not supported.\n");
     return false;
   }
 
@@ -169,30 +263,10 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
 
-      const GEPOperator *GEPOp = nullptr;
-
-      if ((GEPOp = dyn_cast<GEPOperator>(InstIt))) {
-        GEPOp = getBaseGEPOp(GEPOp);
-      } else if (auto LInst = dyn_cast<LoadInst>(InstIt)) {
-        GEPOp = dyn_cast<GEPOperator>(LInst->getPointerOperand());
-        GEPOp = getBaseGEPOp(GEPOp);
-      } else if (auto SInst = dyn_cast<StoreInst>(InstIt)) {
-        GEPOp = dyn_cast<GEPOperator>(SInst->getPointerOperand());
-        GEPOp = getBaseGEPOp(GEPOp);
-      }
-
-      if (GEPOp) {
-        auto SrcTy = GEPOp->getSourceElementType();
-
-        while (auto SeqTy = dyn_cast<SequentialType>(SrcTy)) {
-          SrcTy = SeqTy->getElementType();
-        }
-
-        if (SrcTy->isStructTy()) {
-          DEBUG(dbgs()
-                << "LOOPOPT_OPTREPORT: Struct GEPs currently not supported.\n");
-          return false;
-        }
+      if (containsUnsupportedTy(InstIt)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointers "
+                        "currently not supported.\n");
+        return false;
       }
     }
   }

@@ -84,6 +84,9 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// RI - The region identification pass.
+  const RegionIdentification *RI;
+
   /// HIR - HIR for the function.
   HIRCreation *HIR;
 
@@ -137,6 +140,9 @@ private:
 
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
+
+  /// PointerBlobFinder - Used to find pointer type blobs.
+  class PointerBlobFinder;
 
   /// \brief Visits HIR and calls HIRParser's parse*() utilities. Parsing for
   /// non-essential HLInsts is postponed for phase2. Refer to isEssential().
@@ -235,7 +241,7 @@ private:
                       bool IsTop = true, bool UnderCast = false);
 
   /// \brief Forces incoming value to be parsed as a blob.
-  void parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level);
+  CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
 
   /// \brief Forms and returns a CanonExpr representing Val.
   CanonExpr *parse(const Value *Val, unsigned Level);
@@ -271,6 +277,9 @@ private:
   /// associated with this load/store.
   const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
 
+  /// \brief Finds pointer blobs in PtrSCEV.
+  const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
+
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOperator *GEPOp, unsigned Level);
@@ -282,8 +291,9 @@ private:
   /// \brief Creates a GEP RegDDRef for this GEPOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
 
-  /// \brief Returns a RegDDRef containing GEPInfo.
-  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level);
+  /// \brief Returns a RegDDRef containing GEPInfo. IsUse indicates whether this
+  /// is a definition or a use of GEP.
+  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
   /// \brief Returns a RegDDRef representing this Null value.
   RegDDRef *createUndefDDRef(Type *Type);
@@ -351,7 +361,7 @@ private:
 
   /// \brief Collects and returns temp blobs present inside Blob.
   void collectTempBlobs(CanonExpr::BlobTy Blob,
-                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
+                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) const;
 
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;

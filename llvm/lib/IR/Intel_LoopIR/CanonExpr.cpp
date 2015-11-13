@@ -80,10 +80,12 @@ CanonExpr *CanonExpr::clone() const {
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void CanonExpr::dump() const {
+void CanonExpr::dump(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS);
+  print(OS, Detailed);
 }
+
+void CanonExpr::dump() const { dump(false); }
 #endif
 
 void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {

@@ -210,9 +210,21 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
 
 bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
   SmallPtrSet<const BasicBlock *, 12> BBlocks;
+  Type *NodeTy = nullptr;
 
   for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
        InstIt != IEndIt; ++InstIt) {
+
+    // Check whether all the nodes have the same type. There can be type
+    // mismatch if we have traced through casts.
+    // TODO: is it worth tracing through casts?
+    if (!NodeTy) {
+      NodeTy = (*InstIt)->getType();
+
+    } else if (NodeTy != (*InstIt)->getType()) {
+      return false;
+    }
+
     if (isa<PHINode>(*InstIt)) {
 
       auto ParentBB = (*InstIt)->getParent();
@@ -307,15 +319,15 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
 
+      // Remove nodes not directly associated with the phi nodes.
+      removeIntermediateNodes(NewSCCNodes);
+
       if (isValidSCC(NewSCC)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(NewSCC);
 
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
-
-        // Remove nodes not directly associated with the phi nodes.
-        removeIntermediateNodes(NewSCCNodes);
 
       } else {
         // Not a valid SCC.

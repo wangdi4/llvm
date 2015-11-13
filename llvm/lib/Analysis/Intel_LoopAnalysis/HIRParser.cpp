@@ -37,6 +37,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/LoopFormation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -54,9 +55,10 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRParser, "hir-parser", "HIR Parser", false, true)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(HIRCreation)
 INITIALIZE_PASS_DEPENDENCY(LoopFormation)
+INITIALIZE_PASS_DEPENDENCY(ScalarSymbaseAssignment)
 INITIALIZE_PASS_END(HIRParser, "hir-parser", "HIR Parser", false, true)
 
 char HIRParser::ID = 0;
@@ -72,9 +74,10 @@ void HIRParser::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
-  AU.addRequiredTransitive<ScalarSymbaseAssignment>();
+  AU.addRequiredTransitive<RegionIdentification>();
   AU.addRequiredTransitive<HIRCreation>();
   AU.addRequiredTransitive<LoopFormation>();
+  AU.addRequiredTransitive<ScalarSymbaseAssignment>();
 }
 
 const Instruction *HIRParser::getCurInst() const {
@@ -313,7 +316,8 @@ public:
 };
 
 void HIRParser::collectTempBlobs(
-    CanonExpr::BlobTy Blob, SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) {
+    CanonExpr::BlobTy Blob,
+    SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) const {
   TempBlobCollector TBC(this, TempBlobs);
   SCEVTraversal<TempBlobCollector> Collector(TBC);
   Collector.visitAll(Blob);
@@ -368,14 +372,13 @@ public:
     // by induction variable simplification. So we look for such values here.
     auto AddRec = dyn_cast<SCEVAddRecExpr>(Operand);
 
-    if (AddRec && AddRec->isAffine()) {
+    if (AddRec) {
       if (auto SubSCEV = getSubstituteSCEV(ZExt)) {
         return SubSCEV;
       }
     }
 
-    Operand = visit(ZExt->getOperand());
-    return HIRP->SE->getZeroExtendExpr(Operand, ZExt->getType());
+    return HIRP->SE->getZeroExtendExpr(visit(Operand), ZExt->getType());
   }
 
   const SCEV *visitSignExtendExpr(const SCEVSignExtendExpr *SExt) {
@@ -386,7 +389,7 @@ public:
   const SCEV *visitAddExpr(const SCEVAddExpr *Add) {
     SmallVector<const SCEV *, 2> Operands;
 
-    for (int I = 0, E = Add->getNumOperands(); I < E; ++I) {
+    for (unsigned I = 0, E = Add->getNumOperands(); I < E; ++I) {
       Operands.push_back(visit(Add->getOperand(I)));
     }
 
@@ -395,8 +398,27 @@ public:
 
   const SCEV *visitMulExpr(const SCEVMulExpr *Mul) {
     SmallVector<const SCEV *, 2> Operands;
+    unsigned NumOp = Mul->getNumOperands();
 
-    for (int I = 0, E = Mul->getNumOperands(); I < E; ++I) {
+    // This is to catch cases like this-
+    //
+    // %126 = trunc i64 %indvars.iv857 to i32
+    //   -->  {0,+,2}<%for.body.525>
+    // %rem530815 = and i32 %126, 30
+    //   -->  (2 * (zext i4 {0,+,1}<%for.body.525> to i32))
+    //
+    // TODO: investigate SCEV representation of bitwise operators in detail.
+    if (NumOp == 2) {
+      auto ZExt = dyn_cast<SCEVZeroExtendExpr>(Mul->getOperand(1));
+
+      if (ZExt && isa<SCEVAddRecExpr>(ZExt->getOperand())) {
+        if (auto SubSCEV = getSubstituteSCEV(Mul)) {
+          return SubSCEV;
+        }
+      }
+    }
+
+    for (unsigned I = 0; I < NumOp; ++I) {
       Operands.push_back(visit(Mul->getOperand(I)));
     }
 
@@ -410,7 +432,7 @@ public:
   const SCEV *visitSMaxExpr(const SCEVSMaxExpr *SMax) {
     SmallVector<const SCEV *, 2> Operands;
 
-    for (int I = 0, E = SMax->getNumOperands(); I < E; ++I) {
+    for (unsigned I = 0, E = SMax->getNumOperands(); I < E; ++I) {
       Operands.push_back(visit(SMax->getOperand(I)));
     }
 
@@ -420,7 +442,7 @@ public:
   const SCEV *visitUMaxExpr(const SCEVUMaxExpr *UMax) {
     SmallVector<const SCEV *, 2> Operands;
 
-    for (int I = 0, E = UMax->getNumOperands(); I < E; ++I) {
+    for (unsigned I = 0, E = UMax->getNumOperands(); I < E; ++I) {
       Operands.push_back(visit(UMax->getOperand(I)));
     }
 
@@ -459,28 +481,40 @@ public:
   const SCEV *getSubstituteSCEV(const SCEV *SC);
 
   /// Recursive function to trace back from the current instruction to find an
-  /// instruction which can represent SC, with a possible constant
-  /// difference. We are trying to reverse engineer SCEV analysis here.
+  /// instruction which can represent SC with a combination of basic operations
+  /// like truncation, negation etc applied on top of the SCEV. We are trying to
+  /// reverse engineer SCEV analysis here.
   Instruction *findOrigInst(Instruction *CurInst, const SCEV *SC,
-                            SCEVConstant **ConstAdditive) const;
+                            bool *IsTruncation, bool *IsNegation,
+                            SCEVConstant **ConstMultiplier,
+                            SCEV **Additive) const;
 
-  /// Returns true if NewSCEV can replace OrigSCEV in the SCEV tree with an
-  /// optional constant additive. To replace a linear AddRec type OrigSCEV,
-  /// NewSCEV should have identical operands (except the fist operand) and have
-  /// identical or stronger wrap flags. ConstAdditive is required to handle
-  /// backedge taken count.
+  /// Returns true if NewSCEV can replace OrigSCEV in the SCEV tree with a
+  /// combination of basic operations like truncation, negation etc applied on
+  /// top of NewSCEV. To replace a linear AddRec type OrigSCEV, NewSCEV should
+  /// have identical operands (except the fist operand) and have identical or
+  /// stronger wrap flags.
   bool isReplacable(const SCEV *OrigSCEV, const SCEV *NewSCEV,
-                    SCEVConstant **ConstAdditive) const;
+                    bool *IsTruncation, bool *IsNegation,
+                    SCEVConstant **ConstMultiplier, SCEV **Additive) const;
+
+  /// Implements AddRec specific checks for replacement.
+  bool isReplacableAddRec(const SCEVAddRecExpr *OrigAddRec,
+                          const SCEVAddRecExpr *NewAddRec,
+                          SCEVConstant **ConstMultiplier,
+                          SCEV **Additive) const;
 };
 
 const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
   Instruction *OrigInst = nullptr;
-  SCEVConstant *ConstAdditive = nullptr;
+  SCEV *Additive = nullptr;
+  SCEVConstant *ConstMultiplier = nullptr;
+  bool IsNegation = false;
+  bool IsTruncation = false;
   const Instruction *CurInst = HIRP->getCurInst();
-  bool ParsingUpper = isa<HLLoop>(HIRP->getCurNode());
 
-  OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), SC,
-                          ParsingUpper ? &ConstAdditive : nullptr);
+  OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), SC, &IsTruncation,
+                          &IsNegation, &ConstMultiplier, &Additive);
 
   if (!OrigInst) {
     return nullptr;
@@ -488,31 +522,50 @@ const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
 
   auto NewSCEV = HIRP->SE->getUnknown(OrigInst);
 
-  if (ConstAdditive) {
-    NewSCEV = HIRP->SE->getAddExpr(ConstAdditive, NewSCEV);
+  if (IsTruncation) {
+    assert(!IsNegation && !ConstMultiplier && !Additive &&
+           "Unexpected substitute SCEV!");
+    NewSCEV = HIRP->SE->getTruncateExpr(NewSCEV, SC->getType());
+
+  } else {
+    // NOTE: The order of negation, multiplication and addition matters.
+    if (IsNegation) {
+      NewSCEV = HIRP->SE->getNegativeSCEV(NewSCEV);
+    }
+
+    if (ConstMultiplier) {
+      NewSCEV = HIRP->SE->getMulExpr(ConstMultiplier, NewSCEV);
+    }
+
+    if (Additive) {
+      NewSCEV = HIRP->SE->getAddExpr(Additive, NewSCEV);
+    }
   }
 
   // Convert value to base value before returning.
   return visit(NewSCEV);
 }
 
-Instruction *
-HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst, const SCEV *SC,
-                                         SCEVConstant **ConstAdditive) const {
+Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
+    Instruction *CurInst, const SCEV *SC, bool *IsTruncation, bool *IsNegation,
+    SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
   if (HIRP->SE->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->SE->getSCEV(CurInst);
 
-    if (isReplacable(SC, CurSCEV, ConstAdditive)) {
+    if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation, ConstMultiplier,
+                     Additive)) {
       return CurInst;
     }
   }
 
   auto ParentBB = CurInst->getParent();
+  Loop *Lp = nullptr;
 
   // Is this a phi node that occurs in loop header?
   bool IsHeaderPhi = isa<PHINode>(CurInst) &&
-                     (HIRP->LI->getLoopFor(ParentBB)->getHeader() == ParentBB);
+                     (Lp = HIRP->LI->getLoopFor(ParentBB)) &&
+                     (Lp->getHeader() == ParentBB);
 
   for (auto I = CurInst->op_begin(), E = CurInst->op_end(); I != E; ++I) {
 
@@ -537,7 +590,8 @@ HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst, const SCEV *SC,
       continue;
     }
 
-    auto OrigInst = findOrigInst(OPInst, SC, ConstAdditive);
+    auto OrigInst = findOrigInst(OPInst, SC, IsTruncation, IsNegation,
+                                 ConstMultiplier, Additive);
 
     if (OrigInst) {
       return OrigInst;
@@ -548,8 +602,8 @@ HIRParser::BaseSCEVCreator::findOrigInst(Instruction *CurInst, const SCEV *SC,
 }
 
 bool HIRParser::BaseSCEVCreator::isReplacable(
-    const SCEV *OrigSCEV, const SCEV *NewSCEV,
-    SCEVConstant **ConstAdditive) const {
+    const SCEV *OrigSCEV, const SCEV *NewSCEV, bool *IsTruncation,
+    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
   // We got an exact match.
   if (NewSCEV == OrigSCEV) {
@@ -559,12 +613,12 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
   auto OrigAddRec = dyn_cast<SCEVAddRecExpr>(OrigSCEV);
   auto NewAddRec = dyn_cast<SCEVAddRecExpr>(NewSCEV);
 
+  // TODO: extend for other SCEV types.
   if (!OrigAddRec || !NewAddRec) {
     return false;
   }
 
   // Not an exact match, continue matching loop and operands.
-
   if (NewAddRec->getLoop() != OrigAddRec->getLoop()) {
     return false;
   }
@@ -573,23 +627,97 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
     return false;
   }
 
-  if (NewAddRec->getOperand(0) != OrigAddRec->getOperand(0)) {
+  Type *NewType = NewAddRec->getType();
+  Type *OrigType = OrigAddRec->getType();
 
-    if (!ConstAdditive) {
+  // When a IV is ANDed with a constant whose value is (2^N - 1) it is
+  // transformed by SCEV into a truncated IV with type 'iN' and then zero
+  // extended again. For example-
+  // %rem82 = and i32 %add79, 31
+  // -->  (zext i5 {{0,+,1}<%for.cond.43.preheader>,+,1}<%for.inc.87> to i32)
+  //
+  // To catch this case we need to compare the truncated form of NewSCEV.
+  if (NewType != OrigType) {
+
+    if (!NewType->isIntegerTy() || !OrigType->isIntegerTy()) {
       return false;
     }
 
-    auto DiffSCEV = HIRP->SE->getMinusSCEV(OrigAddRec->getOperand(0),
-                                           NewAddRec->getOperand(0));
-
-    if (!isa<SCEVConstant>(DiffSCEV)) {
+    if (NewType->getPrimitiveSizeInBits() <
+        OrigType->getPrimitiveSizeInBits()) {
       return false;
-
-    } else {
-      *ConstAdditive = const_cast<SCEVConstant *>(cast<SCEVConstant>(DiffSCEV));
     }
+
+    NewAddRec =
+        cast<SCEVAddRecExpr>(HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
+
+    if (isReplacableAddRec(OrigAddRec, NewAddRec, nullptr, nullptr)) {
+      *IsTruncation = true;
+      return true;
+    }
+
+    return false;
   }
 
+  if (isReplacableAddRec(OrigAddRec, NewAddRec, ConstMultiplier, Additive)) {
+    return true;
+  }
+
+  // If the IV of an outer loop is used as the initial value of the inner loop
+  // it is negated during the backedge calculation for the inner loop.
+  // Negation is also used during min(a, b) construction. This pattern is found
+  // with a cmp and select instruction. min(a, b) is constructed as: (-1 + -1 *
+  // max(-a-1, -b-1)).
+  // Therefore, to find a substitute we need to test the negation too.
+  NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getNegativeSCEV(NewAddRec));
+
+  if (isReplacableAddRec(OrigAddRec, NewAddRec, ConstMultiplier, Additive)) {
+    *IsNegation = true;
+    return true;
+  }
+
+  return false;
+}
+
+bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
+    const SCEVAddRecExpr *OrigAddRec, const SCEVAddRecExpr *NewAddRec,
+    SCEVConstant **ConstMultiplier, SCEV **Additive) const {
+
+  const SCEVConstant *Mul = nullptr;
+  const SCEV *Add = nullptr;
+
+  // Get constant multiplier, if any.
+  if (NewAddRec->getOperand(1) != OrigAddRec->getOperand(1)) {
+
+    if (!ConstMultiplier) {
+      return false;
+    }
+
+    auto NewOp = dyn_cast<SCEVConstant>(NewAddRec->getOperand(1));
+    auto OrigOp = dyn_cast<SCEVConstant>(OrigAddRec->getOperand(1));
+
+    if (!NewOp || !OrigOp) {
+      return false;
+    }
+
+    Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
+        ConstantExpr::getSDiv(OrigOp->getValue(), NewOp->getValue()))));
+
+    NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getMulExpr(NewAddRec, Mul));
+  }
+
+  // Get invariant additive, if any.
+  if (NewAddRec->getOperand(0) != OrigAddRec->getOperand(0)) {
+
+    if (!Additive) {
+      return false;
+    }
+
+    Add = HIRP->SE->getMinusSCEV(OrigAddRec->getOperand(0),
+                                 NewAddRec->getOperand(0));
+  }
+
+  // Now match operands
   for (unsigned I = 1, E = NewAddRec->getNumOperands(); I < E; ++I) {
     if (NewAddRec->getOperand(I) != OrigAddRec->getOperand(I)) {
       return false;
@@ -615,6 +743,14 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
       !NewAddRec->getNoWrapFlags(
           (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
     return false;
+  }
+
+  if (Mul) {
+    *ConstMultiplier = const_cast<SCEVConstant *>(Mul);
+  }
+
+  if (Add) {
+    *Additive = const_cast<SCEV *>(Add);
   }
 
   return true;
@@ -684,7 +820,7 @@ void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
     } else if (isa<SCEVSMaxExpr>(NArySCEV)) {
       OS << "smax(";
       OpStr = ", ";
-    } else if (isa<SCEVSMaxExpr>(NArySCEV)) {
+    } else if (isa<SCEVUMaxExpr>(NArySCEV)) {
       OS << "umax(";
       OpStr = ", ";
     } else {
@@ -997,9 +1133,13 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   }
 }
 
-void HIRParser::parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level) {
+CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Val->getType());
   auto BlobSCEV = SE->getUnknown(const_cast<Value *>(Val));
+
   parseBlob(BlobSCEV, CE, Level);
+
+  return CE;
 }
 
 CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
@@ -1008,8 +1148,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
   if (!SE->isSCEVable(Val->getType())) {
-    CE = CanonExprUtils::createCanonExpr(Val->getType());
-    parseAsBlob(Val, CE, Level);
+    CE = parseAsBlob(Val, Level);
 
   } else {
 
@@ -1259,14 +1398,54 @@ unsigned HIRParser::getBitElementSize(Type *Ty) const {
   return getDataLayout().getTypeSizeInBits(ElTy);
 }
 
+class HIRParser::PointerBlobFinder {
+private:
+  const HIRParser *HIRP;
+  const SCEV *PtrBlob;
+  bool MultiplePtrBlobs;
+
+public:
+  PointerBlobFinder(const HIRParser *HIRP)
+      : HIRP(HIRP), PtrBlob(nullptr), MultiplePtrBlobs(false) {}
+  ~PointerBlobFinder() {}
+
+  bool follow(const SCEV *SC) {
+
+    if (HIRP->isTempBlob(SC) && isa<PointerType>(SC->getType())) {
+      if (!PtrBlob) {
+        PtrBlob = SC;
+      } else {
+        MultiplePtrBlobs = true;
+        PtrBlob = nullptr;
+      }
+    }
+
+    return !isDone();
+  }
+
+  bool isDone() const { return MultiplePtrBlobs; }
+
+  const SCEV *getPointerBlob() const { return PtrBlob; }
+};
+
+const SCEV *HIRParser::findPointerBlob(const SCEV *PtrSCEV) const {
+  PointerBlobFinder PBF(this);
+  SCEVTraversal<PointerBlobFinder> Finder(PBF);
+  Finder.visitAll(PtrSCEV);
+
+  return PBF.getPointerBlob();
+}
+
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
   CanonExpr *BaseCE = nullptr, *IndexCE = nullptr;
+  auto BaseTy = BasePhi->getType();
 
   auto Ref = DDRefUtils::createRegDDRef(0);
   auto SC = SE->getSCEV(const_cast<PHINode *>(BasePhi));
-  unsigned BitElementSize = getBitElementSize(BasePhi->getType());
+  const SCEV *BaseSCEV = nullptr;
+  unsigned BitElementSize = getBitElementSize(BaseTy);
   unsigned ElementSize = BitElementSize / 8;
   bool IsInBounds = false;
 
@@ -1286,8 +1465,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
   if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    if (RecSCEV->isAffine()) {
-      auto BaseSCEV = RecSCEV->getOperand(0);
+    if (RecSCEV->isAffine() && RI->isSupported(RecSCEV->getType()) &&
+        (BaseSCEV = findPointerBlob(RecSCEV))) {
       auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
       BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
@@ -1306,10 +1485,10 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
   // Non-linear base is parsed as base + zero offset: (%p)[0].
   if (!BaseCE) {
-    BaseCE = CanonExprUtils::createCanonExpr(BasePhi->getType());
-    parseAsBlob(BasePhi, BaseCE, Level);
+    BaseCE = parseAsBlob(BasePhi, Level);
 
-    auto OffsetType = Type::getIntNTy(getContext(), BitElementSize);
+    auto OffsetType = Type::getIntNTy(
+        getContext(), getDataLayout().getTypeSizeInBits(BaseTy));
     IndexCE = CanonExprUtils::createCanonExpr(OffsetType);
   }
 
@@ -1349,7 +1528,11 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
   auto Ref = DDRefUtils::createRegDDRef(0);
 
   const GEPOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
-  auto BaseCE = parse(BaseGEPOp->getPointerOperand(), Level);
+  auto BaseVal = BaseGEPOp->getPointerOperand();
+
+  // TODO: This can be improved by first checking if the original SCEV can be
+  // handled.
+  CanonExpr *BaseCE = parseAsBlob(BaseVal, Level);
   Ref->setBaseCE(BaseCE);
 
   collectStrides(BaseGEPOp->getPointerOperandType(), Strides);
@@ -1370,7 +1553,8 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
   // 1) Start processing %arrayidx5's operands in reverse and create one
   // dimension each for %j and 0.
   // 2) Start processing %arrayidx's operands in reverse. The last index %i is
-  // added to the last dimension created while processing %arrayidx5's operands (0).
+  // added to the last dimension created while processing %arrayidx5's operands
+  // (0).
   // 3) Create additional dimension for the 0 operand.
   //
   // The parsed DDRef looks like this- (@B][0][%i][%j]
@@ -1415,17 +1599,21 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
                                                  unsigned Level) {
 
   auto Ref = DDRefUtils::createRegDDRef(0);
+  auto GEPTy = GEPVal->getType();
+  unsigned BitElementSize = getBitElementSize(GEPTy);
+  auto OffsetTy =
+      Type::getIntNTy(getContext(), getDataLayout().getTypeSizeInBits(GEPTy));
 
-  auto BaseCE = parse(GEPVal, Level);
-  auto BitElementSize = getBitElementSize(GEPVal->getType());
-  auto OffsetType = Type::getIntNTy(getContext(), BitElementSize);
+  // TODO: This can be improved by first checking if the original SCEV can be
+  // handled.
+  auto BaseCE = parseAsBlob(GEPVal, Level);
+  Ref->setBaseCE(BaseCE);
 
   // Create Index of zero.
-  auto IndexCE = CanonExprUtils::createCanonExpr(OffsetType);
+  auto IndexCE = CanonExprUtils::createCanonExpr(OffsetTy);
   auto StrideCE =
-      CanonExprUtils::createCanonExpr(OffsetType, 0, BitElementSize / 8);
+      CanonExprUtils::createCanonExpr(OffsetTy, 0, BitElementSize / 8);
 
-  Ref->setBaseCE(BaseCE);
   Ref->addDimension(IndexCE, StrideCE);
 
   // Single element is always in bounds.
@@ -1436,47 +1624,36 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
 // NOTE: AddRec->delinearize() doesn't work with constant bound arrays.
 // TODO: handle struct GEPs.
-RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
-  const Value *GEPVal = nullptr;
+RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
+                                    bool IsUse) {
   const PHINode *BasePhi = nullptr;
   const GEPOperator *GEPOp = nullptr;
-  bool IsGEP = false;
-  bool IsAddressOf = false;
   RegDDRef *Ref = nullptr;
   Type *DestTy = nullptr;
 
   clearTempBlobLevelMap();
 
-  if (auto SInst = dyn_cast<StoreInst>(Val)) {
-    GEPVal = SInst->getPointerOperand();
-  } else if (auto LInst = dyn_cast<LoadInst>(Val)) {
-    GEPVal = LInst->getPointerOperand();
-  } else if ((IsGEP = isa<GEPOperator>(Val)) || isa<BitCastInst>(Val)) {
-    GEPVal = Val;
-    IsAddressOf = true;
-  } else {
-    llvm_unreachable("Unexpected instruction!");
-  }
-
   // In some cases float* is converted into i32* before loading/storing. This
   // info is propagated into the BaseCE dest type.
   if (auto BCInst = dyn_cast<BitCastInst>(GEPVal)) {
-    if (!SE->isHIRCopyInst(BCInst)) {
+    if (!SE->isHIRCopyInst(BCInst) &&
+        RI->isSupported(BCInst->getOperand(0)->getType())) {
       GEPVal = BCInst->getOperand(0);
       DestTy = BCInst->getDestTy();
     }
   }
 
-  // Try to get to the phi associated with this GEP.
   auto GEPInst = dyn_cast<Instruction>(GEPVal);
 
+  // Try to get to the phi associated with this GEP.
   // Do not cross the live range indicator for GEP uses (load/store/bitcast).
-  if ((IsGEP || !GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
+  if ((!IsUse || !GEPInst || !SE->isHIRLiveRangeIndicator(GEPInst)) &&
       (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
 
     BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());
-  } else {
-    BasePhi = dyn_cast<PHINode>(GEPVal);
+
+  } else if (GEPInst) {
+    BasePhi = dyn_cast<PHINode>(GEPInst);
   }
 
   if (BasePhi) {
@@ -1490,8 +1667,6 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *Val, unsigned Level) {
   if (DestTy) {
     Ref->setBaseDestType(DestTy);
   }
-
-  Ref->setAddressOf(IsAddressOf);
 
   populateBlobDDRefs(Ref);
 
@@ -1514,7 +1689,14 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level) {
   auto Symbase = ScalarSA->getOrAssignScalarSymbase(Val);
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
 
-  CE = parse(Val, Level);
+  // Force pointer values to be parsed as blobs. This is for handling lvals but
+  // pointer blobs can occur in loop upper as well. CG will have to do special
+  // processing for pointers contained in upper.
+  if (isa<PointerType>(Val->getType())) {
+    CE = parseAsBlob(Val, Level);
+  } else {
+    CE = parse(Val, Level);
+  }
 
   Ref->setSingleCanonExpr(CE);
 
@@ -1529,15 +1711,18 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
                                      unsigned Level) {
   RegDDRef *Ref;
   auto OpVal = Inst->getOperand(OpNum);
-  const BitCastInst *BCInst = nullptr;
 
-  if (isa<LoadInst>(Inst) || isa<GetElementPtrInst>(Inst)) {
-    Ref = createGEPDDRef(Inst, Level);
-  } else if (isa<GEPOperator>(OpVal)) {
-    Ref = createGEPDDRef(OpVal, Level);
-  } else if ((BCInst = dyn_cast<BitCastInst>(OpVal)) &&
-             isa<GEPOperator>(BCInst->getOperand(0))) {
-    Ref = createGEPDDRef(OpVal, Level);
+  if (auto LInst = dyn_cast<LoadInst>(Inst)) {
+    Ref = createGEPDDRef(LInst->getPointerOperand(), Level, true);
+
+  } else if (isa<GetElementPtrInst>(Inst)) {
+    Ref = createGEPDDRef(Inst, Level, false);
+    Ref->setAddressOf(true);
+
+  } else if (OpVal->getType()->isPointerTy()) {
+    Ref = createGEPDDRef(OpVal, Level, true);
+    Ref->setAddressOf(true);
+
   } else {
     Ref = createScalarDDRef(OpVal, Level);
   }
@@ -1548,8 +1733,8 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
 RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   RegDDRef *Ref;
 
-  if (isa<StoreInst>(Inst)) {
-    Ref = createGEPDDRef(Inst, Level);
+  if (auto SInst = dyn_cast<StoreInst>(Inst)) {
+    Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
   } else {
     Ref = createScalarDDRef(Inst, Level);
   }
@@ -1692,9 +1877,10 @@ bool HIRParser::runOnFunction(Function &F) {
   Func = &F;
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
+  RI = &getAnalysis<RegionIdentification>();
   HIR = &getAnalysis<HIRCreation>();
   LF = &getAnalysis<LoopFormation>();
+  ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
 
   HLUtils::setHIRParser(this);
 

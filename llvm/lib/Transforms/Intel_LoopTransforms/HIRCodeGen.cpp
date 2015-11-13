@@ -534,14 +534,15 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
-  if (Ref->isAddressOf())
-    return GEPVal;
-
   // Base CE could have different src and dest types in which case we need a
   // bitcast. Can occur from llvm's canonicalization of store/load of float
   // to int by bitcast
   if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
     GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+  }
+
+  if (Ref->isAddressOf()) {
+    return GEPVal;
   }
 
   // Ref is A[i], but meaning differs for lval vs rval. On rhs, we want the
@@ -977,7 +978,7 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     }
 
     // TODO twine for call?
-    CallInst *ResCall = Builder->CreateCall(Call->getCalledFunction(), Ops);
+    CallInst *ResCall = Builder->CreateCall(Call->getCalledValue(), Ops);
 
     // Copy all metadata over to new call instruction.
     // TODO: Investigate whether this is an ok thing to do in general.
