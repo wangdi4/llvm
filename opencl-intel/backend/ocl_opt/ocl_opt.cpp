@@ -82,6 +82,7 @@ void initializeOCLPasses(PassRegistry &Registry)
     intel::initializeGenericAddressDynamicResolutionPass(Registry);
     intel::initializeSpirMaterializerPass(Registry);
     intel::initializeObfuscationPass(Registry);
+    intel::initializeSubGroupAdaptationPass(Registry);
     intel::initializeLinearIdResolverPass(Registry);
     intel::initializePrepareKernelArgsPass(Registry);
     intel::initializeReduceAlignmentPass(Registry);

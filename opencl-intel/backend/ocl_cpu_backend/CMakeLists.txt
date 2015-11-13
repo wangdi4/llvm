@@ -377,6 +377,7 @@ set( BACKEND_PASSES
     UndefExternalFuncs
     KernelInfo
     Prefetch
+    SubGroupAdaptation
     LinearIdResolver
     Materialize
     ReduceAlignment

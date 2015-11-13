@@ -156,6 +156,59 @@ ndrange_t const_func __attribute__((overloadable))
   return T;
 }
 
+////////// - get_kernel_sub_group_count_for_ndrange
+uint __attribute__((overloadable)) __attribute__((always_inline))
+get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
+                                        void(^block)(void)) {
+  uint maxWGSize = get_kernel_work_group_size(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+      return 0;
+  else
+      return 1;
+}
+
+uint __attribute__((overloadable)) __attribute__((always_inline))
+  get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
+                                         void(^block)(local void *, ...)) {
+  uint maxWGSize = get_kernel_work_group_size(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+      return 0;
+  else
+      return 1;
+}
+
+////////// - get_kernel_max_sub_group_size_for_ndrange
+uint __attribute__((overloadable)) __attribute__((always_inline))
+  get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
+                                            void(^block)(void)) {
+  uint maxWGSize = get_kernel_work_group_size(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+      prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+      return 0;
+  else
+      return prod;
+}
+
+uint __attribute__((overloadable)) __attribute__((always_inline))
+  get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
+                                            void(^block)(local void *, ...)) {
+  uint maxWGSize = get_kernel_work_group_size(block);
+  size_t prod = 1;
+  for (unsigned int i = 0; i < ndrange.workDimension; ++i)
+       prod *= ndrange.localWorkSize[i];
+  if (prod > maxWGSize)
+      return 0;
+  else
+      return prod;
+}
 ////////// - retain_event, release_event, create_user_event, set_user_event_status, capture_event_profiling_info, is_valid_event
 extern void ocl20_retain_event(clk_event_t event, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))

@@ -39,12 +39,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   const std::string CompilationUtils::NAME_GET_LINEAR_GID = "get_global_linear_id";
   const std::string CompilationUtils::NAME_GET_LINEAR_LID = "get_local_linear_id";
+  const std::string CompilationUtils::NAME_GET_SUB_GROUP_ID = "get_sub_group_id";
+  const std::string CompilationUtils::NAME_GET_SUB_GROUP_LOCAL_ID = "get_sub_group_local_id";
 
   const std::string CompilationUtils::NAME_GET_WORK_DIM = "get_work_dim";
   const std::string CompilationUtils::NAME_GET_GLOBAL_SIZE = "get_global_size";
   const std::string CompilationUtils::NAME_GET_LOCAL_SIZE = "get_local_size";
+  const std::string CompilationUtils::NAME_GET_SUB_GROUP_SIZE = "get_sub_group_size";
+  const std::string CompilationUtils::NAME_GET_MAX_SUB_GROUP_SIZE = "get_max_sub_group_size";
   const std::string CompilationUtils::NAME_GET_ENQUEUED_LOCAL_SIZE = "get_enqueued_local_size";
   const std::string CompilationUtils::NAME_GET_NUM_GROUPS = "get_num_groups";
+  const std::string CompilationUtils::NAME_GET_NUM_SUB_GROUPS = "get_num_sub_groups";
+  const std::string CompilationUtils::NAME_GET_ENQUEUED_NUM_SUB_GROUPS = "get_enqueued_num_sub_groups";
   const std::string CompilationUtils::NAME_GET_GROUP_ID = "get_group_id";
   const std::string CompilationUtils::NAME_GET_GLOBAL_OFFSET = "get_global_offset";
   const std::string CompilationUtils::NAME_PRINTF = "printf";
@@ -59,6 +65,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_RESERVE_WRITE_PIPE = "work_group_reserve_write_pipe";
   const std::string CompilationUtils::NAME_WORK_GROUP_COMMIT_WRITE_PIPE = "work_group_commit_write_pipe";
 
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_READ_PIPE = "sub_group_reserve_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_READ_PIPE = "sub_group_commit_read_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_RESERVE_WRITE_PIPE = "sub_group_reserve_write_pipe";
+  const std::string CompilationUtils::NAME_SUB_GROUP_COMMIT_WRITE_PIPE = "sub_group_commit_write_pipe";
+
   const std::string CompilationUtils::NAME_MEM_FENCE = "mem_fence";
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
@@ -66,8 +77,12 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
   const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
 
+  const std::string CompilationUtils::NAME_GET_KERNEL_SG_COUNT_FOR_NDRANGE = "get_kernel_sub_group_count_for_ndrange";
+  const std::string CompilationUtils::NAME_GET_KERNEL_MAX_SG_SIZE_FOR_NDRANGE = "get_kernel_max_sub_group_size_for_ndrange";
+
   const std::string CompilationUtils::BARRIER_FUNC_NAME = "barrier";
   const std::string CompilationUtils::WG_BARRIER_FUNC_NAME = "work_group_barrier";
+  const std::string CompilationUtils::SG_BARRIER_FUNC_NAME = "sub_group_barrier";
 
   //work-group functions
   const std::string CompilationUtils::NAME_WORK_GROUP_ALL = "work_group_all";
@@ -83,6 +98,20 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
   const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
+  
+  //sub-group functions
+  const std::string CompilationUtils::NAME_SUB_GROUP_ALL = "sub_group_all";
+  const std::string CompilationUtils::NAME_SUB_GROUP_ANY = "sub_group_any";
+  const std::string CompilationUtils::NAME_SUB_GROUP_BROADCAST = "sub_group_broadcast";
+  const std::string CompilationUtils::NAME_SUB_GROUP_REDUCE_ADD = "sub_group_reduce_add";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD = "sub_group_scan_exclusive_add";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD = "sub_group_scan_inclusive_add";
+  const std::string CompilationUtils::NAME_SUB_GROUP_REDUCE_MIN = "sub_group_reduce_min";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN = "sub_group_scan_exclusive_min";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN = "sub_group_scan_inclusive_min";
+  const std::string CompilationUtils::NAME_SUB_GROUP_REDUCE_MAX = "sub_group_reduce_max";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX = "sub_group_scan_exclusive_max";
+  const std::string CompilationUtils::NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX = "sub_group_scan_inclusive_max";
 
   //Images
   const std::string CompilationUtils::OCL_IMG_PREFIX  = "opencl.image";
@@ -843,12 +872,20 @@ bool CompilationUtils::isGetLocalId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LID);
 }
 
+bool CompilationUtils::isGetSubGroupId(const std::string& S){
+	return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+}
+
 bool CompilationUtils::isGetGlobalLinearId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LINEAR_GID);
 }
 
 bool CompilationUtils::isGetLocalLinearId(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LINEAR_LID);
+}
+
+bool CompilationUtils::isGetSubGroupLocalID(const std::string& S){
+	return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 
 bool CompilationUtils::isGetGlobalSize(const std::string& S){
@@ -859,12 +896,28 @@ bool CompilationUtils::isGetLocalSize(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_LOCAL_SIZE);
 }
 
+bool CompilationUtils::isGetSubGroupSize(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_SIZE);
+}
+
+bool CompilationUtils::isGetMaxSubGroupSize(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_MAX_SUB_GROUP_SIZE);
+}
+
 bool CompilationUtils::isGetEnqueuedLocalSize(const std::string& S){
   return isMangleOf(S, NAME_GET_ENQUEUED_LOCAL_SIZE);
 }
 
 bool CompilationUtils::isGetNumGroups(const std::string& S){
   return isOptionalMangleOf(S, NAME_GET_NUM_GROUPS);
+}
+
+bool CompilationUtils::isGetNumSubGroups(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_NUM_SUB_GROUPS);
+}
+
+bool CompilationUtils::isGetEnqueuedNumSubGroups(const std::string& S){
+  return isOptionalMangleOf(S, NAME_GET_ENQUEUED_NUM_SUB_GROUPS);
 }
 
 bool CompilationUtils::isGetGroupId(const std::string& S){
@@ -897,6 +950,22 @@ bool CompilationUtils::isWorkGroupReserveWritePipe(const std::string& S){
 
 bool CompilationUtils::isWorkGroupCommitWritePipe(const std::string& S){
   return isMangleOf(S, NAME_WORK_GROUP_COMMIT_WRITE_PIPE);
+}
+
+bool CompilationUtils::isSubGroupReserveReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_READ_PIPE);
+}
+
+bool CompilationUtils::isSubGroupCommitReadPipe(const std::string& S){
+  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_READ_PIPE);
+}
+
+bool CompilationUtils::isSubGroupReserveWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_SUB_GROUP_RESERVE_WRITE_PIPE);
+}
+
+bool CompilationUtils::isSubGroupCommitWritePipe(const std::string& S){
+  return isMangleOf(S, NAME_SUB_GROUP_COMMIT_WRITE_PIPE);
 }
 
 bool CompilationUtils::isMemFence(const std::string& S){
@@ -937,8 +1006,24 @@ bool CompilationUtils::isWorkGroupAny(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_ANY);
 }
 
+bool CompilationUtils::isSubGroupAll(const std::string& S) {
+   return isMangleOf(S, NAME_SUB_GROUP_ALL);
+}
+
+bool CompilationUtils::isSubGroupAny(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_ANY);
+}
+
+bool CompilationUtils::isSubGroupBarrier(const std::string& S) {
+  return isMangleOf(S, SG_BARRIER_FUNC_NAME);
+}
+
 bool CompilationUtils::isWorkGroupBroadCast(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_BROADCAST);
+}
+
+bool CompilationUtils::isSubGroupBroadCast(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_BROADCAST);
 }
 
 bool CompilationUtils::isWorkGroupReduceAdd(const std::string& S) {
@@ -975,6 +1060,42 @@ bool CompilationUtils::isWorkGroupScanExclusiveMax(const std::string& S) {
 
 bool CompilationUtils::isWorkGroupScanInclusiveMax(const std::string& S) {
   return isMangleOf(S, NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isSubGroupReduceAdd(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_ADD);
+}
+
+bool CompilationUtils::isSubGroupScanExclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isSubGroupScanInclusiveAdd(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD);
+}
+
+bool CompilationUtils::isSubGroupReduceMin(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MIN);
+}
+
+bool CompilationUtils::isSubGroupScanExclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isSubGroupScanInclusiveMin(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN);
+}
+
+bool CompilationUtils::isSubGroupReduceMax(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_REDUCE_MAX);
+}
+
+bool CompilationUtils::isSubGroupScanExclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX);
+}
+
+bool CompilationUtils::isSubGroupScanInclusiveMax(const std::string& S) {
+  return isMangleOf(S, NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX);
 }
 
 bool CompilationUtils::hasWorkGroupFinalizePrefix(const std::string& S) {

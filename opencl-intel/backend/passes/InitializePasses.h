@@ -71,6 +71,7 @@ void initializeGenericAddressStaticResolutionPass(llvm::PassRegistry&);
 void initializeGenericAddressDynamicResolutionPass(llvm::PassRegistry&);
 void initializeSpirMaterializerPass(llvm::PassRegistry&);
 void initializeObfuscationPass(llvm::PassRegistry&);
+void initializeSubGroupAdaptationPass(llvm::PassRegistry&);
 void initializeLinearIdResolverPass(llvm::PassRegistry&);
 void initializePrepareKernelArgsPass(llvm::PassRegistry&);
 void initializeReduceAlignmentPass(llvm::PassRegistry&);

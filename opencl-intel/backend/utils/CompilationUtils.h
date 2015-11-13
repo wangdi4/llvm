@@ -146,10 +146,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isGetGlobalSize(const std::string&);
     static bool isGetLocalId(const std::string&);
     static bool isGetLocalSize(const std::string&);
+    static bool isGetSubGroupSize(const std::string&);
+    static bool isGetMaxSubGroupSize(const std::string&);
     static bool isGetEnqueuedLocalSize(const std::string&);
     static bool isGetGlobalLinearId(const std::string&);
     static bool isGetLocalLinearId(const std::string&);
+    static bool isGetSubGroupLocalID(const std::string&);
+    static bool isGetSubGroupId(const std::string&);
     static bool isGetNumGroups(const std::string&);
+    static bool isGetNumSubGroups(const std::string&);
+    static bool isGetEnqueuedNumSubGroups(const std::string&);
     static bool isGetGroupId(const std::string&);
     static bool isGlobalOffset(const std::string&);
     static bool isAsyncWorkGroupCopy(const std::string&);
@@ -158,6 +164,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupCommitReadPipe(const std::string&);
     static bool isWorkGroupReserveWritePipe(const std::string&);
     static bool isWorkGroupCommitWritePipe(const std::string&);
+    static bool isSubGroupReserveReadPipe(const std::string&);
+    static bool isSubGroupCommitReadPipe(const std::string&);
+    static bool isSubGroupReserveWritePipe(const std::string&);
+    static bool isSubGroupCommitWritePipe(const std::string&);
     static bool isWaitGroupEvents(const std::string&);
     static bool isPrefetch(const std::string&);
     static bool isMemFence(const std::string&);
@@ -183,7 +193,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isCaptureEventProfilingInfo(const std::string&);
     static bool isWorkGroupAll(const std::string&);
     static bool isWorkGroupAny(const std::string&);
+    static bool isSubGroupAll(const std::string&);
+    static bool isSubGroupAny(const std::string&);
+    static bool isSubGroupBarrier(const std::string&);
     static bool isWorkGroupBroadCast(const std::string&);
+    static bool isSubGroupBroadCast(const std::string&);
     static bool isWorkGroupReduceAdd(const std::string&);
     static bool isWorkGroupScanExclusiveAdd(const std::string&);
     static bool isWorkGroupScanInclusiveAdd(const std::string&);
@@ -194,6 +208,16 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isWorkGroupScanExclusiveMax(const std::string&);
     static bool isWorkGroupScanInclusiveMax(const std::string&);
     static bool hasWorkGroupFinalizePrefix(const std::string&);
+    static bool isSubGroupReduceAdd(const std::string&);
+    static bool isSubGroupScanExclusiveAdd(const std::string&);
+    static bool isSubGroupScanInclusiveAdd(const std::string&);
+    static bool isSubGroupReduceMin(const std::string&);
+    static bool isSubGroupScanExclusiveMin(const std::string&);
+    static bool isSubGroupScanInclusiveMin(const std::string&);
+    static bool isSubGroupReduceMax(const std::string&);
+    static bool isSubGroupScanExclusiveMax(const std::string&);
+    static bool isSubGroupScanInclusiveMax(const std::string&);
+    static bool hasSubGroupFinalizePrefix(const std::string&);
     static std::string appendWorkGroupFinalizePrefix(const std::string&);
     static std::string removeWorkGroupFinalizePrefix(const std::string&);
 
@@ -210,12 +234,18 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string NAME_GET_GID;
     static const std::string NAME_GET_LID;
+    static const std::string NAME_GET_SUB_GROUP_ID;
+    static const std::string NAME_GET_SUB_GROUP_LOCAL_ID;
 
     static const std::string NAME_GET_WORK_DIM;
     static const std::string NAME_GET_GLOBAL_SIZE;
     static const std::string NAME_GET_LOCAL_SIZE;
+    static const std::string NAME_GET_SUB_GROUP_SIZE;
+    static const std::string NAME_GET_MAX_SUB_GROUP_SIZE;
     static const std::string NAME_GET_ENQUEUED_LOCAL_SIZE;
     static const std::string NAME_GET_NUM_GROUPS;
+    static const std::string NAME_GET_NUM_SUB_GROUPS;
+    static const std::string NAME_GET_ENQUEUED_NUM_SUB_GROUPS;
     static const std::string NAME_GET_GROUP_ID;
     static const std::string NAME_GET_GLOBAL_OFFSET;
     static const std::string NAME_PRINTF;
@@ -230,6 +260,11 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WORK_GROUP_RESERVE_WRITE_PIPE;
     static const std::string NAME_WORK_GROUP_COMMIT_WRITE_PIPE;
 
+    static const std::string NAME_SUB_GROUP_RESERVE_READ_PIPE;
+    static const std::string NAME_SUB_GROUP_COMMIT_READ_PIPE;
+    static const std::string NAME_SUB_GROUP_RESERVE_WRITE_PIPE;
+    static const std::string NAME_SUB_GROUP_COMMIT_WRITE_PIPE;
+
     static const std::string NAME_MEM_FENCE;
     static const std::string NAME_READ_MEM_FENCE;
     static const std::string NAME_WRITE_MEM_FENCE;
@@ -239,6 +274,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string BARRIER_FUNC_NAME;
     static const std::string WG_BARRIER_FUNC_NAME;
+    static const std::string SG_BARRIER_FUNC_NAME;
 
     //work-group functions
     static const std::string NAME_WORK_GROUP_ALL;
@@ -254,6 +290,21 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static const std::string NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX;
     static const std::string NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX;
     static const std::string NAME_FINALIZE_WG_FUNCTION_PREFIX;
+
+    //sub-group functions
+    static const std::string NAME_SUB_GROUP_ALL;
+    static const std::string NAME_SUB_GROUP_ANY;
+    static const std::string NAME_SUB_GROUP_BROADCAST;
+    static const std::string NAME_SUB_GROUP_REDUCE_ADD;
+    static const std::string NAME_SUB_GROUP_SCAN_EXCLUSIVE_ADD;
+    static const std::string NAME_SUB_GROUP_SCAN_INCLUSIVE_ADD;
+    static const std::string NAME_SUB_GROUP_REDUCE_MIN;
+    static const std::string NAME_SUB_GROUP_SCAN_EXCLUSIVE_MIN;
+    static const std::string NAME_SUB_GROUP_SCAN_INCLUSIVE_MIN;
+    static const std::string NAME_SUB_GROUP_REDUCE_MAX;
+    static const std::string NAME_SUB_GROUP_SCAN_EXCLUSIVE_MAX;
+    static const std::string NAME_SUB_GROUP_SCAN_INCLUSIVE_MAX;
+    static const std::string NAME_FINALIZE_SG_FUNCTION_PREFIX;
 
     //images
     static const std::string OCL_IMG_PREFIX;
@@ -369,6 +420,9 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// uint get_kernel_preferred_work_group_size_multiple
     static const std::string NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE;
     static const std::string NAME_GET_KERNEL_PREFERRED_WG_SIZE_MULTIPLE_LOCAL;
+
+    static const std::string NAME_GET_KERNEL_SG_COUNT_FOR_NDRANGE;
+    static const std::string NAME_GET_KERNEL_MAX_SG_SIZE_FOR_NDRANGE;
 
     /// int enqueue_marker (
     ///     queue_t queue,
