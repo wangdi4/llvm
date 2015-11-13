@@ -589,15 +589,17 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     !6 = !{i32 2, i32 0}
     */
     NamedMDNode* namedMD = M.getNamedMetadata("opencl.ocl.version");
-    if(!namedMD || namedMD->getNumOperands() != 1)
-      return false;
+    // Metadata API uitls creates whole set of empty named metadata even if they are initially
+    // absent in a module. That is why the 'if' statement below checks if MDNode has operands.
+    if(!namedMD || namedMD->getNumOperands() == 0) return false;
+    assert(namedMD->getNumOperands() == 1 && "opencl.ocl.version must have single operand");
 
     MDNode * versionMD = cast<MDNode>(namedMD->getOperand(0));
-    assert(versionMD && versionMD->getNumOperands() == 2 && "opencl.ocl.version must have 2 operands");
+    assert(versionMD && versionMD->getNumOperands() == 2 && "this MDNode must have 2 operands");
 
     Metadata * majorMD = versionMD->getOperand(0);
     Metadata * minorMD = versionMD->getOperand(1);
-    assert(majorMD && minorMD && "opencl.ocl.version must contain non-null metadata values");
+    assert(majorMD && minorMD && "expected non-null metadata values");
 
     uint64_t major = mdconst::extract<ConstantInt>(majorMD)->getZExtValue();;
     uint64_t minor = mdconst::extract<ConstantInt>(minorMD)->getZExtValue();
