@@ -57,6 +57,10 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         assert(false && "Bad Value for -cl-std option");
       return CL_VER_VALS[I-B];
     }
+
+    static unsigned CLVersionToVal(uint64_t major, uint64_t minor) {
+      return major * 100 + minor * 10;
+    }
   }
 
   /// @brief  CompilationUtils class used to provide helper utilies that are
@@ -398,10 +402,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// Otherwise returns false
     static bool getCLVersionFromModule(const Module &M, unsigned &Result);
 
-    /// fetchCompilerOption - if an option with speefied prefix exists in
-    //  the module's metadata returns an entire option string (the fist was met),
+    /// fetchCompilerOption - if an option with specified prefix exists in
+    /// the module's metadata returns an entire option string (the fist was met),
     /// Otherwise returns an empty string. 
     static StringRef fetchCompilerOption(const Module &M, char const* prefix);
+
+    /// fetchCLVersionFromMetadata - obtain CL version from "!opencl.ocl.version"
+    /// named metadata
+    static bool fetchCLVersionFromMetadata(const Module &M, unsigned &Result);
 
     /// getCLVersionFromModuleOrDefault - Return the version in the module's metadata,
     /// if it exists, otherwise the default version
