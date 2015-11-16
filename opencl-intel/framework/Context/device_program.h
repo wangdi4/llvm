@@ -148,10 +148,9 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // Set device handle
         cl_err_code   SetDeviceHandleInternal(cl_dev_program programHandle);
 
+        bool CheckProgramBinary(size_t uiBinSize, const void* pBinary, cl_prog_binary_type* pBinaryType = nullptr);
+
     protected:
-
-        bool CheckProgramBinary(size_t uiBinSize, const void* pBinary, cl_prog_binary_type* pBinaryType = NULL);
-
         // Current program state
         EDeviceProgramState m_state;
         bool                m_bBuiltFromSource;

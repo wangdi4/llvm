@@ -7,90 +7,76 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, const char* szKernelNames, cl_int *piRet)
+ProgramWithBuiltInKernels::ProgramWithBuiltInKernels(SharedPtr<Context>            pContext,
+                                                     cl_uint                       uiNumDevices,
+                                                     SharedPtr<FissionableDevice>* pDevices,
+                                                     const char*                   szKernelNames,
+                                                     cl_int*                       piRet)
 	: Program(pContext), m_szKernelNames(szKernelNames)
 {
-	cl_int retError = CL_SUCCESS;
-	m_szNumAssociatedDevices = uiNumDevices;
-    m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
-    if (NULL == m_ppDevicePrograms)
-	{
-        if (NULL != piRet)
-	    {
-		    *piRet = CL_OUT_OF_HOST_MEMORY;
-	    }
-        return;
-	}
+    cl_int ret = CL_SUCCESS;
+    m_szNumAssociatedDevices = uiNumDevices;
 
-	size_t i;
-	bool bDeviceProgramCreated = false;
-	for (i = 0; (i<m_szNumAssociatedDevices) ; ++i)
-	{
-        m_ppDevicePrograms[i] = new DeviceProgram();
-        if (NULL == m_ppDevicePrograms[i])
+    try
+    {
+        m_ppDevicePrograms.resize(m_szNumAssociatedDevices);
+        bool bDeviceProgramCreated = false;
+        size_t i = 0;
+        for(i = 0; i < m_szNumAssociatedDevices; ++i)
         {
-			retError = CL_OUT_OF_HOST_MEMORY;
-			break;
+            unique_ptr<DeviceProgram>& pDevProgram = m_ppDevicePrograms[i];
+            pDevProgram.reset(new DeviceProgram());
+
+            cl_dev_program pDevProg;
+            cl_dev_err_code err = pDevices[i]->GetDeviceAgent()->clDevCreateBuiltInKernelProgram(szKernelNames, &pDevProg);
+            if ( CL_DEV_FAILED(err) && (CL_DEV_INVALID_KERNEL_NAME != err) )
+            {
+                ret = CL_OUT_OF_RESOURCES;
+                break;
+            }
+
+            pDevProgram->SetDevice(pDevices[i]);
+            pDevProgram->SetHandle(GetHandle());
+            pDevProgram->SetContext(pContext->GetHandle());
+
+            pDevProgram->SetStateInternal(DEVICE_PROGRAM_BUILTIN_KERNELS);
+            pDevProgram->SetDeviceHandleInternal(pDevProg);
+            bDeviceProgramCreated = true;
         }
 
-		cl_dev_program pDevProg;
-		cl_dev_err_code err = pDevices[i]->GetDeviceAgent()->clDevCreateBuiltInKernelProgram(szKernelNames, &pDevProg);
-		if ( CL_DEV_FAILED(err) && (CL_DEV_INVALID_KERNEL_NAME != err) )
-		{
-			retError = CL_OUT_OF_RESOURCES;
-			break;
-		}
+        if(!bDeviceProgramCreated)
+        {
+            // No device program is created, probably wrong names are provided
+            ret = CL_INVALID_VALUE;
+        }
 
-        m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
-        m_ppDevicePrograms[i]->SetHandle(GetHandle());
-        m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
+        if(CL_FAILED(ret))
+        {
+            for (size_t j = 0; j < i; ++j)
+            {
+                cl_dev_program pDevProg = m_ppDevicePrograms[j]->GetDeviceProgramHandle();
+                if(nullptr != pDevProg)
+                {
+                    pDevices[i]->GetDeviceAgent()->clDevReleaseProgram(pDevProg);
+                }
+            }
+        }
+        else
+        {
+            SetContextDevicesToProgramMappingInternal();
+        }
 
-        m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_BUILTIN_KERNELS);
-		m_ppDevicePrograms[i]->SetDeviceHandleInternal(pDevProg);
-		bDeviceProgramCreated = true;
-	}
-
-	if ( !bDeviceProgramCreated )
-	{
-		// No device program is created, probably wrong names are provided
-		retError = CL_INVALID_VALUE;
-	}
-
-	if ( CL_FAILED(retError) )
-	{
-		for (size_t j = 0; j < i; ++j)
-		{
-			cl_dev_program pDevProg = m_ppDevicePrograms[j]->GetDeviceProgramHandle();
-			if ( NULL != pDevProg )
-			{
-				pDevices[i]->GetDeviceAgent()->clDevReleaseProgram(pDevProg);
-			}
-			delete m_ppDevicePrograms[j];
-		}
-
-		delete[] m_ppDevicePrograms;
-		m_ppDevicePrograms = NULL;
-	}
-	else
-	{
-		SetContextDevicesToProgramMappingInternal();
-	}
+    }
+    catch(std::bad_alloc& e)
+    {
+        ret = CL_OUT_OF_HOST_MEMORY;
+    }
 
     if (piRet)
-	{
-		*piRet = retError;
-	}
+    {
+        *piRet = ret;
+    }
 }
 
 ProgramWithBuiltInKernels::~ProgramWithBuiltInKernels()
-{
-    if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
-    {
-        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-        {
-            delete m_ppDevicePrograms[i];
-        }
-        delete[] m_ppDevicePrograms;
-        m_ppDevicePrograms = NULL;
-	}
-}
+{}

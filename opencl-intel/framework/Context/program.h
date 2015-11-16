@@ -35,6 +35,8 @@
 #include <map>
 #include "device_program.h"
 #include "kernel.h"
+#include <vector>
+#include <memory>
 
 namespace Intel { namespace OpenCL { namespace Framework {
 	class Context;
@@ -96,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
 		cl_err_code   SetBuildLogInternal(cl_device_id clDevice, const char* szBuildLog);
 
         // Returns a read only pointer to internal source, used for build stages by program service
-        virtual const char*     GetSourceInternal() { return NULL; };
+        virtual const char*     GetSourceInternal() { return nullptr; };
 
         // set the program's build options
 		// Creates a copy of the input
@@ -143,7 +145,8 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceProgram*  GetDeviceProgram(cl_device_id clDeviceId);
 
         // Retrive an array of all device programs
-        DeviceProgram** GetProgramsForAllDevices() { return m_ppDevicePrograms;}
+        std::vector< unique_ptr<DeviceProgram> >& GetProgramsForAllDevices()
+        { return m_ppDevicePrograms; }
 
 	protected:
 		virtual ~Program();
@@ -151,7 +154,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         DeviceProgram*  InternalGetDeviceProgram(cl_device_id clDeviceId);
 
 		SharedPtr<Context>  m_pContext;
-		DeviceProgram**     m_ppDevicePrograms;
+		std::vector< unique_ptr<DeviceProgram> >     m_ppDevicePrograms;
 		cl_uint             m_szNumAssociatedDevices;
 
 		OCLObjectsMap<_cl_kernel_int>	m_pKernels;			// associated kernels
