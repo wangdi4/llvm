@@ -1,7 +1,7 @@
 ; Test for Complete Unrolling with call statement.
 ; There should not be any unrolling with call stmts in body.
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRCompleteUnroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -HIRCG -S < %s | FileCheck %s
 ; CHECK: entry
 ; CHECK-NOT: region
 

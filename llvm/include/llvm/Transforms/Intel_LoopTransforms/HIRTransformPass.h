@@ -19,6 +19,9 @@
 #include "llvm/Pass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+
 namespace llvm {
 
 namespace loopopt {

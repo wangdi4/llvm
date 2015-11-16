@@ -17,6 +17,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 using namespace llvm;
@@ -44,7 +45,6 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   initialize();
   OrigLoop->getExitingBlocks(Exits);
   setNumExits(Exits.size());
-	
 }
 
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -56,9 +56,14 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   initialize();
   setNumExits(NumEx);
 
-  assert(((LowerDDRef && UpperDDRef && StrideDDRef) ||
-          (!LowerDDRef && !UpperDDRef && !StrideDDRef)) &&
-         "Inconsistent loop DDRefs!");
+  assert(LowerDDRef && UpperDDRef && StrideDDRef &&
+         "All DDRefs should be non null");
+  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
+           !getStrideDDRef()->isUndefined()) ||
+          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
+           getStrideDDRef()->isUndefined())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
@@ -72,8 +77,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0),  TemporalLocalityWt(0), 
-      SpatialLocalityWt(0), IsInnermost(HLLoopObj.IsInnermost),
+      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost),
       IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
@@ -90,9 +94,6 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
   setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
 
-  setTemporalLocalityWt(HLLoopObj.getTemporalLocalityWt());
-  setSpatialLocalityWt(HLLoopObj.getSpatialLocalityWt());
-	
   // Avoid cloning children and preheader/postexit.
   if (!CloneChildren)
     return;
@@ -150,6 +151,14 @@ HLLoop *HLLoop::cloneEmptyLoop() const {
   return NewHLLoop;
 }
 
+HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
+
+  // Call the Copy Constructor
+  HLLoop *NewHLLoop = new HLLoop(*this, nullptr, nullptr, false);
+  NewHLLoop->setNestingLevel(getNestingLevel());
+  return NewHLLoop;
+}
+
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
   const RegDDRef *Ref;
@@ -163,15 +172,13 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     {
       indent(OS, Depth);
       OS << "+ NumExits: " << getNumExits() << "\n";
-      OS << "+ TemporalLocalityWt: " << getTemporalLocalityWt() << "\n";
-      OS << "+ SpatialLocalityWt: " << getSpatialLocalityWt() << "\n";
     }
 
     {
       indent(OS, Depth);
       OS << "+ Ztt: ";
       if (hasZtt()) {
-        Ztt->printHeader(OS, 0, true);
+        Ztt->printZttHeader(OS, this);
       } else {
         OS << "No";
       }
@@ -181,7 +188,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   /// Print header
-  if (isDoLoop() || isDoWhileLoop() || isDoMultiExitLoop()) {
+  if (getUpperDDRef() && (isDo() || isDoWhile() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -200,16 +207,16 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     OS.indent(IndentWidth);
-    if (isDoLoop()) {
+    if (isDo()) {
       OS << "<DO_LOOP>";
-    } else if (isDoWhileLoop()) {
+    } else if (isDoWhile()) {
       OS << "<DO_WHILE_LOOP>";
-    } else if (isDoMultiExitLoop()) {
+    } else if (isDoMultiExit()) {
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
 
     OS << "\n";
-  } else if (isUnknownLoop()) {
+  } else if (!getUpperDDRef() || isUnknown()) {
     OS << "+ UNKNOWN LOOP i" << NestingLevel << "\n";
   } else {
     llvm_unreachable("Unexpected loop type!");
@@ -237,14 +244,6 @@ void HLLoop::setNumExits(unsigned NumEx) {
   NumExits = NumEx;
 }
 
-void HLLoop::setTemporalLocalityWt(unsigned Weight) {
-  TemporalLocalityWt = Weight;
-}
-
-void HLLoop::setSpatialLocalityWt(unsigned Weight) {
-  SpatialLocalityWt = Weight;
-}
-
 unsigned
 HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
                                           bool IsLHS) const {
@@ -253,8 +252,7 @@ HLLoop::getZttPredicateOperandDDRefOffset(const_ztt_pred_iterator CPredI,
           Ztt->getPredicateOperandDDRefOffset(CPredI, IsLHS));
 }
 
-void HLLoop::addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
-                             RegDDRef *Ref2) {
+void HLLoop::addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->addPredicate(Pred, Ref1, Ref2);
 
@@ -287,7 +285,7 @@ void HLLoop::removeZttPredicate(const_ztt_pred_iterator CPredI) {
 }
 
 void HLLoop::replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                                 CmpInst::Predicate NewPred) {
+                                 PredicateTy NewPred) {
   assert(hasZtt() && "Ztt is absent!");
   Ztt->replacePredicate(CPredI, NewPred);
 }
@@ -315,6 +313,15 @@ RegDDRef *HLLoop::removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
   }
 
   return TRef;
+}
+
+bool HLLoop::isZttOperandDDRef(const RegDDRef *Ref) const {
+  assert(Ref->getHLDDNode() && (cast<HLLoop>(Ref->getHLDDNode()) == this) &&
+         "Ref does not belong to this loop!");
+
+  auto It = std::find(ztt_ddref_begin(), ztt_ddref_end(), Ref);
+
+  return (It != ztt_ddref_end());
 }
 
 RegDDRef *HLLoop::getLowerDDRef() { return getOperandDDRefImpl(0); }
@@ -373,6 +380,8 @@ void HLLoop::setStrideDDRef(RegDDRef *Ref) {
   setOperandDDRefImpl(Ref, 2);
 }
 
+void HLLoop::setLLVMLoop(const Loop *LLVMLoop) { OrigLoop = LLVMLoop; }
+
 RegDDRef *HLLoop::removeStrideDDRef() {
   auto TRef = getStrideDDRef();
 
@@ -383,6 +392,16 @@ RegDDRef *HLLoop::removeStrideDDRef() {
   return TRef;
 }
 
+const Loop *HLLoop::removeLLVMLoop() {
+  auto OrigLoop = getLLVMLoop();
+
+  if (OrigLoop) {
+    setLLVMLoop(nullptr);
+  }
+
+  return OrigLoop;
+}
+
 void HLLoop::setZtt(HLIf *ZttIf) {
   assert(!hasZtt() && "Attempt to overwrite ztt, use removeZtt instead!");
 
@@ -391,8 +410,7 @@ void HLLoop::setZtt(HLIf *ZttIf) {
   }
 
   assert((!ZttIf->hasThenChildren() && !ZttIf->hasElseChildren()) &&
-         "Ztt "
-         "cannot have any children!");
+         "Ztt cannot have any children!");
 
   Ztt = ZttIf;
 
@@ -437,7 +455,8 @@ CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
 }
 
 const CanonExpr *HLLoop::getLoopCanonExpr(const RegDDRef *Ref) const {
-  return const_cast<HLLoop *>(this)->getLoopCanonExpr(Ref);
+  return const_cast<HLLoop *>(this)
+      ->getLoopCanonExpr(const_cast<RegDDRef *>(Ref));
 }
 
 CanonExpr *HLLoop::getLowerCanonExpr() {
@@ -464,9 +483,65 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
   return const_cast<HLLoop *>(this)->getStrideCanonExpr();
 }
 
-const CanonExpr *HLLoop::getTripCountCanonExpr() const {
-  /// TODO implement later
-  return nullptr;
+CanonExpr *HLLoop::getTripCountCanonExpr() const {
+
+  if (isUnknown() || !getStrideDDRef()->isConstant())
+    return nullptr;
+
+  // UB and LB should be scalar refs in the current design.
+  assert(getUpperDDRef()->isScalarRef() && getLowerDDRef()->isScalarRef() &&
+         " Upper Bound and Lower Bound should be terminal or constant.");
+
+  CanonExpr *Result = nullptr;
+  const CanonExpr *UBCE = getUpperCanonExpr();
+  // For normalized loop, TC = (UB+1).
+  if (isNormalized()) {
+    Result = UBCE->clone();
+    Result->addConstant(1);
+    return Result;
+  }
+
+  // TripCount Canon Expr = (UB-LB+Stride)/Stride;
+  int64_t StrideConst = getStrideCanonExpr()->getConstant();
+  Result = CanonExprUtils::cloneAndSubtract(UBCE, getLowerCanonExpr());
+  Result->addConstant(StrideConst);
+  Result->multiplyDenominator(StrideConst, true);
+  return Result;
+}
+
+void HLLoop::updateTripCountBlobDDRefs(RegDDRef *TripRef) const {
+  SmallVector<BlobDDRef *, 6> NewBlobRefs;
+
+  TripRef->updateBlobDDRefs(NewBlobRefs);
+
+  // No new blobs to update level for.
+  if (NewBlobRefs.empty()) {
+    return;
+  }
+
+  for (auto &I : NewBlobRefs) {
+    unsigned Index = I->getBlobIndex();
+    int Level = 0;
+
+    if (getUpperDDRef()->findBlobLevel(Index, &Level) ||
+        getLowerDDRef()->findBlobLevel(Index, &Level) ||
+        getStrideDDRef()->findBlobLevel(Index, &Level)) {
+      (Level == -1) ? I->setNonLinear() : I->setDefinedAtLevel(Level);
+    } else {
+      llvm_unreachable("Trip count blob not found in lower or stride DDRef!");
+    }
+  }
+}
+
+RegDDRef *HLLoop::getTripCountDDRef() const {
+
+  CanonExpr *TripCE = getTripCountCanonExpr();
+  RegDDRef *TripRef =
+      DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
+
+  updateTripCountBlobDDRefs(TripRef);
+
+  return TripRef;
 }
 
 unsigned HLLoop::getNumOperandsInternal() const {
@@ -533,4 +608,95 @@ HLNode *HLLoop::getLastChild() {
   }
 
   return nullptr;
+}
+
+bool HLLoop::isNormalized() const {
+  if (isUnknown()) {
+    return false;
+  }
+
+  int64_t LBConst = 0, StepConst = 0;
+
+  if (!getLowerDDRef()->isIntConstant(&LBConst) ||
+      !getStrideDDRef()->isIntConstant(&StepConst)) {
+    return false;
+  }
+
+  if (LBConst != 0 || StepConst != 1) {
+    return false;
+  }
+
+  return true;
+}
+
+bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
+
+  bool RetVal = false;
+  CanonExpr *TripCExpr = getTripCountCanonExpr();
+  if (TripCExpr && TripCExpr->isConstant(TripCnt)) {
+    assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
+    RetVal = true;
+  }
+
+  // Free the canon expr.
+  if (TripCExpr) {
+    CanonExprUtils::destroy(TripCExpr);
+  }
+
+  return RetVal;
+}
+
+// This will create the Ztt for the loop.
+void HLLoop::createZtt(bool IsOverwrite) {
+
+  assert((!hasZtt() || IsOverwrite) && "Overwriting existing Ztt.");
+  // Don't generate Ztt for Const trip loops.
+  RegDDRef *TripRef = getTripCountDDRef();
+  assert(TripRef && " Trip Count DDRef is null.");
+  if (TripRef->getSingleCanonExpr()->isConstant()) {
+    DDRefUtils::destroy(TripRef);
+    return;
+  }
+
+  // (Trip > 0)
+  RegDDRef *ZeroDD = DDRefUtils::createConstDDRef(TripRef->getDestType(), 0);
+  HLIf *ZttIf = HLNodeUtils::createHLIf(CmpInst::ICMP_UGT, TripRef, ZeroDD);
+  setZtt(ZttIf);
+}
+
+void HLLoop::verify() const {
+  HLDDNode::verify();
+
+  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
+           !getStrideDDRef()->isUndefined()) ||
+          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
+           getStrideDDRef()->isUndefined())) &&
+         "Lower, Upper and Stride DDRefs "
+         "should be all defined or all undefined");
+
+  assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop lower cannot be non-linear!");
+  assert(!getUpperDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop upper cannot be non-linear!");
+  assert(!getStrideDDRef()->getSingleCanonExpr()->isNonLinear() &&
+         "Loop stride cannot be non-linear!");
+
+  // TODO: Implement special case as ZTT's DDRefs are attached to node
+  // if (Ztt) {
+  //  Ztt->verify();
+  //}
+
+  for (auto I = pre_begin(), E = pre_end(); I != E; ++I) {
+    assert(isa<HLInst>(*I) && "All nodes in preheader must be HLInst");
+  }
+
+  for (auto I = post_begin(), E = post_end(); I != E; ++I) {
+    assert(isa<HLInst>(*I) && "All nodes in postexit must be HLInst");
+  }
+
+  assert((!getParentLoop() ||
+          (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&
+         "If it's not a top-level loop its nesting level should be +1");
+  assert((getParentLoop() || getNestingLevel() == 1) &&
+         "Top level loops should have 1st nesting level");
 }

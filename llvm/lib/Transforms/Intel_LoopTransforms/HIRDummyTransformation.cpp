@@ -41,6 +41,9 @@ static cl::opt<bool>
     InsertLabels("hir-dummy-label", cl::init(false), cl::Hidden,
                  cl::desc("Insert label before each instruction"));
 
+static cl::opt<bool> MarkModified("hir-dummy-cg", cl::init(false), cl::Hidden,
+                                  cl::desc("Mark all HIR regions as modified"));
+
 namespace {
 
 class HIRDummyTransformation : public HIRTransformPass {
@@ -55,30 +58,34 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.setPreservesAll();
     AU.addRequiredTransitive<HIRParser>();
     AU.addRequiredTransitive<DDAnalysis>();
+    AU.setPreservesAll();
   }
 };
 
-struct NodeVisitor {
-  int num;
+struct NodeVisitor final : public HLNodeVisitorBase {
+  int Num;
 
-  NodeVisitor() : num(0) {}
+  NodeVisitor() : Num(0) {}
 
   void visit(HLInst *I) {
     if (InsertLabels) {
-      HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(num++));
+      HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(Num++));
       HLNodeUtils::insertBefore(I, Label);
 
       I->getParentRegion()->setGenCode(true);
     }
   }
 
+  void visit(HLRegion *R) {
+    if (MarkModified) {
+      R->setGenCode(true);
+    }
+  }
+
   void visit(HLNode *Node) {}
   void postVisit(HLNode *Node) {}
-  bool isDone() { return false; }
-  bool skipRecursion(HLNode *Node) { return false; }
 };
 }
 
@@ -86,6 +93,7 @@ char HIRDummyTransformation::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRDummyTransformation, "hir-dummy",
                       "HIR Dummy Transformation Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRDummyTransformation, "hir-dummy",
                     "HIR Dummy Transformation Pass", false, false)
 
@@ -96,9 +104,8 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 bool HIRDummyTransformation::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
                << "\n");
-
   NodeVisitor V;
-  HLNodeUtils::visitAll<NodeVisitor>(&V);
+  HLNodeUtils::visitAll(V);
 
   return false;
 }

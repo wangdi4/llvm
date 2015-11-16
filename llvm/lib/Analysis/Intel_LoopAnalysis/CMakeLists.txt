@@ -6,9 +6,15 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   HIRCreation.cpp
   HIRCleanup.cpp
   LoopFormation.cpp
+  HIRLocalityAnalysis.cpp
   HIRParser.cpp
   DDAnalysis.cpp
   SymbaseAssignment.cpp
   DDTests.cpp
+
+  ADDITIONAL_HEADER_DIRS
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis
+  ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis/Intel_LoopAnalysis
   )
+
 add_dependencies(LLVMIntel_LoopAnalysis intrinsics_gen)

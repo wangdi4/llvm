@@ -1,7 +1,12 @@
 ; Test for General Unrolling with call statement.
 ; There should not be any unrolling with call stmts in body.
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s | FileCheck %s
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -HIRCG -S < %s 2>&1 | FileCheck %s 
+; HIR Test.
+; Region should not be modified.
+; CHECK: REGION { }
+
+; Test codegen.
 ; CHECK: entry
 ; CHECK-NOT: region
 

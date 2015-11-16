@@ -3,9 +3,11 @@
 ; This test should not perform unrolling since the trip count
 ; doesn't meet the threshold.
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s | FileCheck %s
-; CHECK: entry
-; CHECK-NOT: region
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; HIR Test.
+; Region should not be modified.
+; CHECK: REGION { }
+
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

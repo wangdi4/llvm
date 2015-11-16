@@ -37,6 +37,12 @@
 
 using namespace llvm;
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+EarlyJumpThreading("early-jump-threading", cl::init(true), cl::Hidden,
+                   cl::desc("Run the early jump threading pass"));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<bool>
 RunLoopVectorization("vectorize-loops", cl::Hidden,
                      cl::desc("Run the Loop vectorization passes"));
@@ -101,13 +107,17 @@ static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimizations passes"));
 
 #ifdef INTEL_CUSTOMIZATION
+// register promotion for global vars at -O2 and above.
+static cl::opt<bool> EnableNonLTOGlobalVarOpt(
+    "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
+    cl::desc("Enable register promotion for global vars outside of the LTO."));
 // Andersen AliasAnalysis
 static cl::opt<bool> EnableAndersen("enable-andersen", cl::init(true),
     cl::Hidden, cl::desc("Enable Andersen's Alias Analysis"));
 #endif // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableNonLTOGlobalsModRef(
-    "enable-non-lto-gmr", cl::init(false), cl::Hidden,
+    "enable-non-lto-gmr", cl::init(true), cl::Hidden,
     cl::desc(
         "Enable the GlobalsModRef AliasAnalysis outside of the LTO pipeline."));
 
@@ -231,6 +241,8 @@ void PassManagerBuilder::populateModulePassManager(
 
     MPM.add(createInstructionCombiningPass());// Clean up after IPCP & DAE
     addExtensionsToPM(EP_Peephole, MPM);
+    if (EarlyJumpThreading)                         // INTEL
+      MPM.add(createJumpThreadingPass(-1, false));  // INTEL
     MPM.add(createCFGSimplificationPass());   // Clean up after IPCP & DAE
   }
 
@@ -272,6 +284,7 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
   MPM.add(createLICMPass());                  // Hoist loop invariants
   MPM.add(createLoopUnswitchPass(SizeLevel || OptLevel < 3));
+  MPM.add(createCFGSimplificationPass());
   MPM.add(createInstructionCombiningPass());
   MPM.add(createIndVarSimplifyPass());        // Canonicalize indvars
   MPM.add(createLoopIdiomPass());             // Recognize idioms like memset.
@@ -311,6 +324,11 @@ void PassManagerBuilder::populateModulePassManager(
 #endif // INTEL_CUSTOMIZATION
 
   MPM.add(createLICMPass());
+#if INTEL_CUSTOMIZATION
+  if (OptLevel >= 2 && EnableNonLTOGlobalVarOpt && EnableAndersen) {
+    MPM.add(createNonLTOGlobalOptimizerPass());
+  }
+#endif // INTEL_CUSTOMIZATION
 
   addExtensionsToPM(EP_ScalarOptimizerLate, MPM);
 
@@ -619,8 +637,8 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   PM.add(createSSADeconstructionPass());
 
-  PM.add(createHIRGeneralUnrollPass());
   PM.add(createHIRCompleteUnrollPass());
+  PM.add(createHIRGeneralUnrollPass());
 
   PM.add(createHIRCodeGenPass());
 

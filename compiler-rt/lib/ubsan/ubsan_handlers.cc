@@ -314,12 +314,14 @@ static bool looksLikeFloatCastOverflowDataV1(void *Data) {
                   sizeof(FilenameOrTypeDescriptor));
 
   // Heuristic: For float_cast_overflow, the TypeKind will be either TK_Integer
-  // (0x0) or TK_Float (0x1). Adding both bytes will be 0 or 1 (for BE or LE).
-  // If it were a filename, adding two printable characters will not yield such
-  // a value.
+  // (0x0), TK_Float (0x1) or TK_Unknown (0xff). If both types are known,
+  // adding both bytes will be 0 or 1 (for BE or LE). If it were a filename,
+  // adding two printable characters will not yield such a value. Otherwise,
+  // if one of them is 0xff, this is most likely TK_Unknown type descriptor.
   u16 MaybeFromTypeKind =
       FilenameOrTypeDescriptor[0] + FilenameOrTypeDescriptor[1];
-  return MaybeFromTypeKind < 2;
+  return MaybeFromTypeKind < 2 || FilenameOrTypeDescriptor[0] == 0xff ||
+         FilenameOrTypeDescriptor[1] == 0xff;
 }
 
 static void handleFloatCastOverflow(void *DataPtr, ValueHandle From,
@@ -470,6 +472,38 @@ void __ubsan::__ubsan_handle_nonnull_arg(NonNullArgData *Data) {
 void __ubsan::__ubsan_handle_nonnull_arg_abort(NonNullArgData *Data) {
   GET_REPORT_OPTIONS(true);
   handleNonNullArg(Data, Opts);
+  Die();
+}
+
+static void handleCFIBadIcall(CFIBadIcallData *Data, ValueHandle Function,
+                              ReportOptions Opts) {
+  SourceLocation Loc = Data->Loc.acquire();
+  if (ignoreReport(Loc, Opts))
+    return;
+
+  ScopedReport R(Opts, Loc);
+
+  Diag(Loc, DL_Error, "control flow integrity check for type %0 failed during "
+                      "indirect function call")
+      << Data->Type;
+
+  SymbolizedStackHolder FLoc(getSymbolizedLocation(Function));
+  const char *FName = FLoc.get()->info.function;
+  if (!FName)
+    FName = "(unknown)";
+  Diag(FLoc, DL_Note, "%0 defined here") << FName;
+}
+
+void __ubsan::__ubsan_handle_cfi_bad_icall(CFIBadIcallData *Data,
+                                           ValueHandle Function) {
+  GET_REPORT_OPTIONS(false);
+  handleCFIBadIcall(Data, Function, Opts);
+}
+
+void __ubsan::__ubsan_handle_cfi_bad_icall_abort(CFIBadIcallData *Data,
+                                                 ValueHandle Function) {
+  GET_REPORT_OPTIONS(true);
+  handleCFIBadIcall(Data, Function, Opts);
   Die();
 }
 

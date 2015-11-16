@@ -19,6 +19,7 @@ class SettingsCommandTestCase(TestBase):
         cls.RemoveTempFile("stderr.txt")
         cls.RemoveTempFile("stdout.txt")
 
+    @no_debug_info_test
     def test_apropos_should_also_search_settings_description(self):
         """Test that 'apropos' command should also search descriptions for the settings variables."""
 
@@ -27,6 +28,7 @@ class SettingsCommandTestCase(TestBase):
                        "environment variables",
                        "executable's environment"])
 
+    @no_debug_info_test
     def test_append_target_env_vars(self):
         """Test that 'append target.run-args' works."""
         # Append the env-vars.
@@ -39,6 +41,7 @@ class SettingsCommandTestCase(TestBase):
         self.expect('settings show target.env-vars',
             substrs = ['MY_ENV_VAR=YES'])
 
+    @no_debug_info_test
     def test_insert_before_and_after_target_run_args(self):
         """Test that 'insert-before/after target.run-args' works."""
         # Set the run-args first.
@@ -60,6 +63,7 @@ class SettingsCommandTestCase(TestBase):
                        '[3]: "b"',
                        '[4]: "c"'])
 
+    @no_debug_info_test
     def test_replace_target_run_args(self):
         """Test that 'replace target.run-args' works."""
         # Set the run-args and then replace the index-0 element.
@@ -77,6 +81,7 @@ class SettingsCommandTestCase(TestBase):
                        '[1]: "b"',
                        '[2]: "c"'])
 
+    @no_debug_info_test
     def test_set_prompt(self):
         """Test that 'set prompt' actually changes the prompt."""
 
@@ -94,6 +99,7 @@ class SettingsCommandTestCase(TestBase):
         # Use '-r' option to reset to the original default prompt.
         self.runCmd("settings clear prompt")
 
+    @no_debug_info_test
     def test_set_term_width(self):
         """Test that 'set term-width' actually changes the term-width."""
 
@@ -110,7 +116,7 @@ class SettingsCommandTestCase(TestBase):
     #rdar://problem/10712130
     def test_set_frame_format(self):
         """Test that 'set frame-format' with a backtick char in the format string works as well as fullpath."""
-        self.buildDefault()
+        self.build()
 
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
@@ -143,7 +149,7 @@ class SettingsCommandTestCase(TestBase):
 
     def test_set_auto_confirm(self):
         """Test that after 'set auto-confirm true', manual confirmation should not kick in."""
-        self.buildDefault()
+        self.build()
 
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
@@ -165,10 +171,10 @@ class SettingsCommandTestCase(TestBase):
         self.expect("settings show auto-confirm", SETTING_MSG("auto-confirm"),
             startstr = "auto-confirm (boolean) = false")
 
-    @skipUnlessArch(['x86-64', 'i386', 'i686'])
+    @skipUnlessArch(['x86_64', 'i386', 'i686'])
     def test_disassembler_settings(self):
         """Test that user options for the disassembler take effect."""
-        self.buildDefault()
+        self.build()
 
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
@@ -199,22 +205,10 @@ class SettingsCommandTestCase(TestBase):
         self.expect("disassemble -n numberfn",
             substrs = ["5ah"])
 
-    @skipUnlessDarwin
-    @dsym_test
-    def test_run_args_and_env_vars_with_dsym(self):
-        """Test that run-args and env-vars are passed to the launched process."""
-        self.buildDsym()
-        self.pass_run_args_and_env_vars()
-
-    @dwarf_test
     @expectedFailureWindows("llvm.org/pr24579")
-    def test_run_args_and_env_vars_with_dwarf(self):
+    def test_run_args_and_env_vars(self):
         """Test that run-args and env-vars are passed to the launched process."""
-        self.buildDwarf()
-        self.pass_run_args_and_env_vars()
-
-    def pass_run_args_and_env_vars(self):
-        """Test that run-args and env-vars are passed to the launched process."""
+        self.build()
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
 
@@ -244,7 +238,7 @@ class SettingsCommandTestCase(TestBase):
     @skipIfRemote # it doesn't make sense to send host env to remote target
     def test_pass_host_env_vars(self):
         """Test that the host env vars are passed to the launched process."""
-        self.buildDefault()
+        self.build()
 
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
@@ -277,7 +271,7 @@ class SettingsCommandTestCase(TestBase):
 
     def test_set_error_output_path(self):
         """Test that setting target.error/output-path for the launched process works."""
-        self.buildDefault()
+        self.build()
 
         exe = os.path.join(os.getcwd(), "a.out")
         self.runCmd("file " + exe, CURRENT_EXECUTABLE_SET)
@@ -328,6 +322,7 @@ class SettingsCommandTestCase(TestBase):
         self.expect(output, exe=False,
             startstr = "This message should go to standard out.")
 
+    @no_debug_info_test
     def test_print_dictionary_setting(self):
         self.runCmd ("settings clear target.env-vars")
         self.runCmd ("settings set target.env-vars [\"MY_VAR\"]=some-value")
@@ -335,6 +330,7 @@ class SettingsCommandTestCase(TestBase):
                      substrs = [ "MY_VAR=some-value" ])
         self.runCmd ("settings clear target.env-vars")
 
+    @no_debug_info_test
     def test_print_array_setting(self):
         self.runCmd ("settings clear target.run-args")
         self.runCmd ("settings set target.run-args gobbledy-gook")
@@ -342,6 +338,7 @@ class SettingsCommandTestCase(TestBase):
                      substrs = [ '[0]: "gobbledy-gook"' ])
         self.runCmd ("settings clear target.run-args")
 
+    @no_debug_info_test
     def test_settings_with_quotes (self):
         self.runCmd ("settings clear target.run-args")
         self.runCmd ("settings set target.run-args a b c")
@@ -368,6 +365,7 @@ class SettingsCommandTestCase(TestBase):
         self.expect ("settings show thread-format", 'thread-format (format-string) = "abc def   "')
         self.runCmd ('settings clear thread-format')
 
+    @no_debug_info_test
     def test_settings_with_trailing_whitespace (self):
         
         # boolean
@@ -407,9 +405,9 @@ class SettingsCommandTestCase(TestBase):
         self.runCmd("settings clear stop-disassembly-display", check=False)        
         # language
         self.runCmd ("settings set target.language c89")      # Set to known value
-        self.runCmd ("settings set target.language pascal ")    # Set to new value with trailing whitespace
+        self.runCmd ("settings set target.language go ")      # Set to new value with trailing whitespace
         self.expect ("settings show target.language", SETTING_MSG("target.language"),
-            startstr = "target.language (language) = pascal")
+            startstr = "target.language (language) = go")
         self.runCmd("settings clear target.language", check=False)
         # arguments
         self.runCmd ("settings set target.run-args 1 2 3")  # Set to known value
@@ -449,7 +447,8 @@ class SettingsCommandTestCase(TestBase):
                 SETTING_MSG("disassembly-format"),
                 substrs = [ 'disassembly-format (format-string) = "foo "'])
         self.runCmd("settings clear disassembly-format", check=False)
-        
+
+    @no_debug_info_test
     def test_all_settings_exist (self):
         self.expect ("settings show",
                      substrs = [ "auto-confirm",

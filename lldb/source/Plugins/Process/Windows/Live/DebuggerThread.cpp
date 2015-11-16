@@ -63,6 +63,7 @@ DebuggerThread::DebuggerThread(DebugDelegateSP debug_delegate)
     : m_debug_delegate(debug_delegate)
     , m_image_file(nullptr)
     , m_debugging_ended_event(nullptr)
+    , m_is_shutting_down(false)
     , m_pid_to_detach(0)
     , m_detached(false)
 {
@@ -194,6 +195,11 @@ DebuggerThread::StopDebugging(bool terminate)
         "StopDebugging('%s') called (inferior=%I64u).",
         (terminate ? "true" : "false"), pid);
 
+    // Set m_is_shutting_down to true if it was false.  Return if it was already true.
+    bool expected = false;
+    if (!m_is_shutting_down.compare_exchange_strong(expected, true))
+        return error;
+
     // Make a copy of the process, since the termination sequence will reset
     // DebuggerThread's internal copy and it needs to remain open for the Wait operation.
     HostProcess process_copy = m_process;
@@ -304,6 +310,7 @@ DebuggerThread::DebugLoop()
                         continue_status = DBG_CONTINUE;
                     else if (status == ExceptionResult::SendToApplication)
                         continue_status = DBG_EXCEPTION_NOT_HANDLED;
+
                     break;
                 }
                 case CREATE_THREAD_DEBUG_EVENT:
@@ -363,24 +370,30 @@ DebuggerThread::DebugLoop()
 ExceptionResult
 DebuggerThread::HandleExceptionEvent(const EXCEPTION_DEBUG_INFO &info, DWORD thread_id)
 {
+    if (m_is_shutting_down)
+    {
+        // A breakpoint that occurs while `m_pid_to_detach` is non-zero is a magic exception that
+        // we use simply to wake up the DebuggerThread so that we can close out the debug loop.
+        if (m_pid_to_detach != 0 && info.ExceptionRecord.ExceptionCode == EXCEPTION_BREAKPOINT)
+        {
+            WINLOG_IFANY(WINDOWS_LOG_EVENT | WINDOWS_LOG_EXCEPTION | WINDOWS_LOG_PROCESS,
+                            "Breakpoint exception is cue to detach from process 0x%x",
+                            m_pid_to_detach);
+            ::DebugActiveProcessStop(m_pid_to_detach);
+            m_detached = true;
+        }
+
+        // Don't perform any blocking operations while we're shutting down.  That will
+        // cause TerminateProcess -> WaitForSingleObject to time out.
+        return ExceptionResult::SendToApplication;
+    }
+
     bool first_chance = (info.dwFirstChance != 0);
 
     m_active_exception.reset(new ExceptionRecord(info.ExceptionRecord, thread_id));
     WINLOG_IFANY(WINDOWS_LOG_EVENT | WINDOWS_LOG_EXCEPTION,
                  "HandleExceptionEvent encountered %s chance exception 0x%x on thread 0x%x",
                  first_chance ? "first" : "second", info.ExceptionRecord.ExceptionCode, thread_id);
-
-    if (m_pid_to_detach != 0 && m_active_exception->GetExceptionCode() == EXCEPTION_BREAKPOINT) {
-        WINLOG_IFANY(WINDOWS_LOG_EVENT | WINDOWS_LOG_EXCEPTION | WINDOWS_LOG_PROCESS,
-                     "Breakpoint exception is cue to detach from process 0x%x",
-                     m_pid_to_detach);
-        if (::DebugActiveProcessStop(m_pid_to_detach)) {
-            m_detached = true;
-            return ExceptionResult::MaskException;
-        } else {
-            WINLOG_IFANY(WINDOWS_LOG_PROCESS, "Failed to detach, treating as a regular breakpoint");
-        }
-    }
 
     ExceptionResult result = m_debug_delegate->OnDebugException(first_chance,
                                                                 *m_active_exception);

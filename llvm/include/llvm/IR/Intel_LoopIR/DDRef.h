@@ -47,10 +47,10 @@ private:
   static std::set<DDRef *> Objs;
 
   const unsigned char SubClassID;
-  unsigned int SymBase;
+  unsigned Symbase;
 
 protected:
-  DDRef(unsigned SCID, int SB);
+  DDRef(unsigned SCID, unsigned SB);
   DDRef(const DDRef &DDRefObj);
   virtual ~DDRef() {}
 
@@ -61,6 +61,9 @@ protected:
 
   /// \brief Destroys the object.
   void destroy();
+
+  /// \brief Implements get*Type() functionality.
+  Type *getTypeImpl(bool IsSrc) const;
 
 public:
   /// Virtual Clone Method
@@ -82,19 +85,20 @@ public:
   /// storing it, if really needed.
   /// virtual Value *getLLVMValue() const = 0;
 
-  /// \brief Returns the LLVM type.
-  Type *getType() const;
-
-  /// \brief Returns the element type associated with this DDRef.
-  /// Examples in the form of (incoming type -> returned types)-
-  /// 1) [100 x [100 x float]] -> float
-  /// 2) int* -> int*
+  /// \brief Returns the src element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
+  /// [101 x float]]*, we will return float.
   /// TODO: extend to handle struct types.
-  Type *getElementType() const;
+  Type *getSrcType() const;
+  /// \brief Returns the dest element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
+  /// [101 x int32]]*, we will return int32.
+  /// TODO: extend to handle struct types.
+  Type *getDestType() const;
 
   /// \brief Returns the symbol number used to disambiguate references.
-  unsigned int getSymBase() const { return SymBase; };
-  void setSymBase(unsigned int Sbase) { SymBase = Sbase; }
+  unsigned getSymbase() const { return Symbase; };
+  void setSymbase(unsigned SB) { Symbase = SB; }
 
   /// \brief Return an ID for the concrete type of this object.
   ///
@@ -103,7 +107,16 @@ public:
   unsigned getDDRefID() const { return SubClassID; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of DDRef
-  enum DDRefVal { ConstDDRefVal, RegDDRefVal, BlobDDRefVal };
+  enum DDRefVal { RegDDRefVal, BlobDDRefVal };
+
+  /// \brief Returns true if the DDRef represents a self-blob.
+  bool isSelfBlob() const;
+
+  /// \brief Returns true if this DDRef contains undefined canon expressions.
+  bool isUndefined() const;
+
+  /// \brief Verifies DDRef integrity.
+  virtual void verify() const;
 };
 
 } // End loopopt namespace

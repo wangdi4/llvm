@@ -1,4 +1,8 @@
 ; RUN: opt %loadPolly -polly-scops -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-ast -analyze < %s | FileCheck %s --check-prefix=AST
+;
+; This only works after the post-dominator tree has been fixed.
+;
 ; XFAIL: *
 ;
 ;    void exception() __attribute__((noreturn));
@@ -18,7 +22,18 @@
 ; We should detect this kernel as a SCoP and derive run-time conditions such
 ; that the bound-checked blocks are not part of the optimized SCoP.
 
-; CHECK: Assumed Context
+; CHECK: Assumed Context:
+; CHECK:  [n] -> {  : n <= 100 }
+
+; AST: if (n <= 100)
+; AST:     for (int c0 = 0; c0 <= min(99, n - 1); c0 += 1)
+; AST:       Stmt_if_end_4(c0);
+;
+; AST-NOT: for
+; AST-NOT: Stmt
+;
+; AST: else
+; AST:     {  /* original code */ }
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

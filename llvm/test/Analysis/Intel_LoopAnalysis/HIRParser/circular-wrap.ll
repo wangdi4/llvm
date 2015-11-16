@@ -1,7 +1,10 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+
+; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; Check parsing output for the loop
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-SAME: DO_LOOP
 ; CHECK-NEXT: %c.addr.08.out = %c.addr.08
 ; CHECK-NEXT: %a.addr.010.out = %a.addr.010

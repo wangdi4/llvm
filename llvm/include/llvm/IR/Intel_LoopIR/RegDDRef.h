@@ -37,8 +37,7 @@ class HLDDNode;
 class RegDDRef : public DDRef {
 public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
-  /// subscript
-  /// having its own canonical form.
+  /// subscript having its own canonical form.
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
@@ -86,7 +85,7 @@ private:
   HLDDNode *Node;
 
 protected:
-  RegDDRef(int SB);
+  RegDDRef(unsigned SB);
 
   /// Calling delete on a null pointer has no effect.
   virtual ~RegDDRef() override { delete GepInfo; }
@@ -121,6 +120,24 @@ protected:
   /// \brief Returns non-const iterator version of CBlobI.
   blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
+  /// \brief Returns true if the Position is within the dimension range.
+  bool isDimensionValid(unsigned Pos) const {
+    return (Pos > 0 && Pos <= getNumDimensions()) ? true : false;
+  }
+
+  /// \brief Implements getBase*Type() functionality.
+  Type *getBaseTypeImpl(bool IsSrc) const;
+
+  /// \brief Used by updateBlobDDRefs() to remove BlobDDRefs which are not
+  /// needed anymore. The required blobs are passed in through BlobIndices. The
+  /// function removes those blobs from BlobIndices whose BlobDDRef is already
+  /// attached to RegDDRef.
+  void removeStaleBlobDDRefs(SmallVectorImpl<unsigned> &BlobIndices);
+
+  /// \brief Called by the verifier to check that the temp blobs contained in
+  /// the DDRef correspond to blob DDRefs attached to the DDRef.
+  void checkBlobDDRefsConsistentcy() const;
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -134,6 +151,18 @@ public:
 
   /// \brief Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
+
+  /// \brief Returns the src type of the base CanonExpr for GEP DDRefs, returns
+  /// null for non-GEP DDRefs.
+  Type *getBaseSrcType() const;
+  /// \brief Sets the src type of base CE of GEP DDRefs.
+  void setBaseSrcType(Type *SrcTy);
+
+  /// \brief Returns the dest type of the base CanonExpr for GEP DDRefs, returns
+  /// null for non-GEP DDRefs.
+  Type *getBaseDestType() const;
+  /// \brief Sets the dest type of base CE of GEP DDRefs.
+  void setBaseDestType(Type *DestTy);
 
   /// \brief Returns the canonical form of the subscript base.
   CanonExpr *getBaseCE() { return hasGEPInfo() ? GepInfo->BaseCE : nullptr; }
@@ -185,6 +214,7 @@ public:
     assert(getNumDimensions() == 1);
     return *(canon_begin());
   }
+
   const CanonExpr *getSingleCanonExpr() const {
     return const_cast<RegDDRef *>(this)->getSingleCanonExpr();
   }
@@ -332,22 +362,70 @@ public:
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);
 
+  /// \brief Returns the stride canon expr of this DDRef at specified
+  /// position. Position must be within [1, getNumDimensions()].
+  CanonExpr *getDimensionStride(unsigned DimensionNum) const {
+    if (isScalarRef())
+      return nullptr;
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
+    return getStrides()[DimensionNum - 1];
+  }
+
+  /// \brief Returns the canon expr (dimension) of this DDRef at specified
+  /// position. DimensionNum must be within [1, getNumDimensions()].
+  CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
+    return CanonExprs[DimensionNum - 1];
+  }
+
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
   void removeDimension(unsigned DimensionNum);
 
+  /// \brief Returns the index of the blob represented by this self-blob DDRef.
+  unsigned getSelfBlobIndex() const {
+    assert(isSelfBlob() && "DDRef is not a self blob!");
+    return getSingleCanonExpr()->getSingleBlobIndex();
+  }
+
   /// \brief Adds a blob DDRef to this DDRef.
   void addBlobDDRef(BlobDDRef *BlobRef);
+
+  /// \brief Creates a blob DDRef with passed in Index and Level and adds it to
+  /// this DDRef. Level of -1 means non-linear blob.
+  void addBlobDDRef(unsigned Index, int Level = -1);
 
   /// \brief Removes and returns blob DDRef corresponding to CBlobI iterator.
   BlobDDRef *removeBlobDDRef(const_blob_iterator CBlobI);
 
-  /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in
-  /// the associated canon exprs. It will also remove BlobDDRefs associated
-  /// with blobs which aren't present in the canon exprs anymore.
-  /// It is the respoonsibility of the user to  call this function after
-  /// making changes to the DDRef.
-  void updateBlobDDRefs();
+  /// \brief Removes all blob DDRefs attached to this DDRef.
+  void removeAllBlobDDRefs();
+
+  /// \brief Collects all the unique temp blobs present in the DDRef by visiting
+  /// all the contained canon exprs.
+  void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices) const;
+
+  /// \brief Updates BlobDDRefs for this DDRef by going through the blobs in the
+  /// associated canon exprs and populates NewBlobs with BlobDDRefs which have
+  /// been added by the utility and whose defined at level needs to be updated.
+  /// The utility will also remove BlobDDRefs associated with blobs which aren't
+  /// present in the canon exprs anymore. It also sets the correct symbase for
+  /// constant and self-blob DDRefs.
+  ///
+  /// NOTE: It is the responsibility of the user to call this utility after
+  /// making changes to the DDRef and update defined at levels for the new
+  /// blobs.
+  void updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs);
+
+  /// \brief Returns true if the blob is present in this DDRef and returns its
+  /// defined at level via DefLevel. DefLevel is expected to be non-null. -1 is
+  /// returned for non-linear blobs. The blob is searched in the blob DDRefs
+  /// attached to this DDRef. This function can be used to update defined at
+  /// levels for blobs which were copied from this DDRef to another DDRef.
+  bool findBlobLevel(unsigned BlobIndex, int *DefLevel) const;
+
+  /// \brief Verifies RegDDRef integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt
