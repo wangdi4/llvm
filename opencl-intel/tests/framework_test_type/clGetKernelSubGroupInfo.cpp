@@ -277,6 +277,14 @@ void CL21::GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT() const
     }
 
     {// Desired SG count is 1
+        size_t maxWGSize = 0;
+        iRet = clGetDeviceInfo(m_device,
+                               CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                               sizeof(maxWGSize),
+                               &maxWGSize,
+                               nullptr);
+        ASSERT_EQ(CL_SUCCESS, iRet) << " clGetDeviceInfo failed. ";
+
         size_t dummy_vec[] = {0, 0, 0};
         std::vector<size_t> local_work_sizes(dummy_vec, dummy_vec + sizeof(dummy_vec) / sizeof(size_t));
         size_t desired_SG_count = 1;
@@ -292,8 +300,11 @@ void CL21::GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT() const
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
         ASSERT_EQ(local_work_sizes.size() * sizeof(local_work_sizes[0]), returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
-        for(size_t i = 0; i < local_work_sizes.size(); ++i)
-            ASSERT_EQ(size_t(0), local_work_sizes[i])
+        ASSERT_EQ(size_t(maxWGSize), local_work_sizes[0])
+                << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
+        ASSERT_EQ(size_t(1),    local_work_sizes[1])
+                << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
+        ASSERT_EQ(size_t(1),    local_work_sizes[2])
                 << " clGetKernelSubGroupInfo failed. Expected and returned value differ. ";
     }
 
@@ -310,7 +321,7 @@ void CL21::GetKernelSubGroupInfo_LOCAL_SIZE_FOR_SG_COUNT() const
                                        &local_work_sizes[0],
                                        &returned_size);
         ASSERT_EQ(CL_SUCCESS, iRet) << " clGetKernelSubGroupInfo failed. ";
-        ASSERT_EQ(local_work_sizes.size() * sizeof(local_work_sizes[0]), returned_size)
+        ASSERT_EQ((size_t)0, returned_size)
             << " clGetKernelSubGroupInfo failed. Expected and returned sizes differ. ";
         for(size_t i = 0; i < local_work_sizes.size(); ++i)
             ASSERT_EQ(size_t(0), local_work_sizes[i])

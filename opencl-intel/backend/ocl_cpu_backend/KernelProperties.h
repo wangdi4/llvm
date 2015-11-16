@@ -97,8 +97,6 @@ public:
 
     virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const;
 
-    virtual void GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const;
-
     virtual size_t GetMaxNumSubGroups() const;
 
     virtual size_t GetRequiredSubGroupSize() const;
