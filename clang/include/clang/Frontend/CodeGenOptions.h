@@ -16,6 +16,7 @@
 
 #include "clang/Basic/Sanitizers.h"
 #include "llvm/Support/Regex.h"
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -136,6 +137,8 @@ public:
   /// The name of PDB file to emit MS debug info into.
   std::string MSOutputPdbFile;
 #endif //INTEL_CUSTOMIZATION
+
+  std::map<std::string, std::string> DebugPrefixMap;
 
   /// The ABI to use for passing floating point arguments.
   std::string FloatABI;

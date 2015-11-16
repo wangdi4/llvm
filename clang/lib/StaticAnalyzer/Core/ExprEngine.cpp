@@ -760,7 +760,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::MSPropertyRefExprClass:
     case Stmt::CXXUnresolvedConstructExprClass:
     case Stmt::DependentScopeDeclRefExprClass:
-    case Stmt::TypeTraitExprClass:
     case Stmt::ArrayTypeTraitExprClass:
     case Stmt::ExpressionTraitExprClass:
     case Stmt::UnresolvedLookupExprClass:
@@ -773,7 +772,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::SEHTryStmtClass:
     case Stmt::SEHExceptStmtClass:
     case Stmt::SEHLeaveStmtClass:
-    case Stmt::LambdaExprClass:
     case Stmt::SEHFinallyStmtClass: {
       const ExplodedNode *node = Bldr.generateSink(S, Pred, Pred->getState());
       Engine.addAbortedBlock(node, currBldrCtx->getBlock());
@@ -918,7 +916,8 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::CXXPseudoDestructorExprClass:
     case Stmt::SubstNonTypeTemplateParmExprClass:
     case Stmt::CXXNullPtrLiteralExprClass:
-    case Stmt::OMPArraySectionExprClass: {
+    case Stmt::OMPArraySectionExprClass:
+    case Stmt::TypeTraitExprClass: {
       Bldr.takeNodes(Pred);
       ExplodedNodeSet preVisit;
       getCheckerManager().runCheckersForPreStmt(preVisit, Pred, S, *this);
@@ -1031,6 +1030,17 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::CilkSpawnExprClass:
       llvm_unreachable("not implemented yet");
 #endif  // INTEL_CUSTOMIZATION
+    case Stmt::LambdaExprClass:
+      if (AMgr.options.shouldInlineLambdas()) {
+        Bldr.takeNodes(Pred);
+        VisitLambdaExpr(cast<LambdaExpr>(S), Pred, Dst);
+        Bldr.addNodes(Dst);
+      } else {
+        const ExplodedNode *node = Bldr.generateSink(S, Pred, Pred->getState());
+        Engine.addAbortedBlock(node, currBldrCtx->getBlock());
+      }
+      break;
+
     case Stmt::BinaryOperatorClass: {
       const BinaryOperator* B = cast<BinaryOperator>(S);
       if (B->isLogicalOp()) {
@@ -1792,47 +1802,24 @@ void ExprEngine::processSwitch(SwitchNodeBuilder& builder) {
     else
       V2 = V1;
 
-    // FIXME: Eventually we should replace the logic below with a range
-    //  comparison, rather than concretize the values within the range.
-    //  This should be easy once we have "ranges" for NonLVals.
+    ProgramStateRef StateCase;
+    if (Optional<NonLoc> NL = CondV.getAs<NonLoc>())
+      std::tie(StateCase, DefaultSt) =
+          DefaultSt->assumeWithinInclusiveRange(*NL, V1, V2);
+    else // UnknownVal
+      StateCase = DefaultSt;
 
-    do {
-      nonloc::ConcreteInt CaseVal(getBasicVals().getValue(V1));
-      DefinedOrUnknownSVal Res = svalBuilder.evalEQ(DefaultSt ? DefaultSt : state,
-                                               CondV, CaseVal);
+    if (StateCase)
+      builder.generateCaseStmtNode(I, StateCase);
 
-      // Now "assume" that the case matches.
-      if (ProgramStateRef stateNew = state->assume(Res, true)) {
-        builder.generateCaseStmtNode(I, stateNew);
-
-        // If CondV evaluates to a constant, then we know that this
-        // is the *only* case that we can take, so stop evaluating the
-        // others.
-        if (CondV.getAs<nonloc::ConcreteInt>())
-          return;
-      }
-
-      // Now "assume" that the case doesn't match.  Add this state
-      // to the default state (if it is feasible).
-      if (DefaultSt) {
-        if (ProgramStateRef stateNew = DefaultSt->assume(Res, false)) {
-          defaultIsFeasible = true;
-          DefaultSt = stateNew;
-        }
-        else {
-          defaultIsFeasible = false;
-          DefaultSt = nullptr;
-        }
-      }
-
-      // Concretize the next value in the range.
-      if (V1 == V2)
-        break;
-
-      ++V1;
-      assert (V1 <= V2);
-
-    } while (true);
+    // Now "assume" that the case doesn't match.  Add this state
+    // to the default state (if it is feasible).
+    if (DefaultSt)
+      defaultIsFeasible = true;
+    else {
+      defaultIsFeasible = false;
+      break;
+    }
   }
 
   if (!defaultIsFeasible)
@@ -1871,11 +1858,35 @@ void ExprEngine::VisitCommonDeclRefExpr(const Expr *Ex, const NamedDecl *D,
     // C permits "extern void v", and if you cast the address to a valid type,
     // you can even do things with it. We simply pretend
     assert(Ex->isGLValue() || VD->getType()->isVoidType());
-    SVal V = state->getLValue(VD, Pred->getLocationContext());
+    const LocationContext *LocCtxt = Pred->getLocationContext();
+    const Decl *D = LocCtxt->getDecl();
+    const auto *MD = D ? dyn_cast<CXXMethodDecl>(D) : nullptr;
+    const auto *DeclRefEx = dyn_cast<DeclRefExpr>(Ex);
+    SVal V;
+    bool CaptureByReference = false;
+    if (AMgr.options.shouldInlineLambdas() && DeclRefEx &&
+        DeclRefEx->refersToEnclosingVariableOrCapture() && MD &&
+        MD->getParent()->isLambda()) {
+      // Lookup the field of the lambda.
+      const CXXRecordDecl *CXXRec = MD->getParent();
+      llvm::DenseMap<const VarDecl *, FieldDecl *> LambdaCaptureFields;
+      FieldDecl *LambdaThisCaptureField;
+      CXXRec->getCaptureFields(LambdaCaptureFields, LambdaThisCaptureField);
+      const FieldDecl *FD = LambdaCaptureFields[VD];
+      Loc CXXThis =
+          svalBuilder.getCXXThis(MD, LocCtxt->getCurrentStackFrame());
+      SVal CXXThisVal = state->getSVal(CXXThis);
+      V = state->getLValue(FD, CXXThisVal);
+      if (FD->getType()->isReferenceType() &&
+          !VD->getType()->isReferenceType())
+        CaptureByReference = true;
+    } else {
+      V = state->getLValue(VD, LocCtxt);
+    }
 
     // For references, the 'lvalue' is the pointer address stored in the
     // reference region.
-    if (VD->getType()->isReferenceType()) {
+    if (VD->getType()->isReferenceType() || CaptureByReference) {
       if (const MemRegion *R = V.getAsRegion())
         V = state->getSVal(R);
       else

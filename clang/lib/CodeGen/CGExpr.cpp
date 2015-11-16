@@ -795,6 +795,16 @@ EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
   return isPre ? IncVal : InVal;
 }
 
+void CodeGenModule::EmitExplicitCastExprType(const ExplicitCastExpr *E,
+                                             CodeGenFunction *CGF) {
+  // Bind VLAs in the cast type.
+  if (CGF && E->getType()->isVariablyModifiedType())
+    CGF->EmitVariablyModifiedType(E->getType());
+
+  if (CGDebugInfo *DI = getModuleDebugInfo())
+    DI->EmitExplicitCastType(E->getType());
+}
+
 //===----------------------------------------------------------------------===//
 //                         LValue Expression Emission
 //===----------------------------------------------------------------------===//
@@ -810,9 +820,8 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
 
   // Casts:
   if (const CastExpr *CE = dyn_cast<CastExpr>(E)) {
-    // Bind VLAs in the cast type.
-    if (E->getType()->isVariablyModifiedType())
-      EmitVariablyModifiedType(E->getType());
+    if (const auto *ECE = dyn_cast<ExplicitCastExpr>(CE))
+      CGM.EmitExplicitCastExprType(ECE, this);
 
     switch (CE->getCastKind()) {
     // Non-converting casts (but not C's implicit conversion from void*).
@@ -829,7 +838,6 @@ Address CodeGenFunction::EmitPointerWithAlignment(const Expr *E,
         // If this is an explicit bitcast, and the source l-value is
         // opaque, honor the alignment of the casted-to type.
         if (isa<ExplicitCastExpr>(CE) &&
-            CE->getCastKind() == CK_BitCast &&
             InnerSource != AlignmentSource::Decl) {
           Addr = Address(Addr.getPointer(),
                          getNaturalPointeeTypeAlignment(E->getType(), Source));
@@ -1292,7 +1300,8 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(Address Addr, bool Volatile,
     llvm::MDNode *TBAAPath = CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo,
                                                       TBAAOffset);
     if (TBAAPath)
-      CGM.DecorateInstruction(Load, TBAAPath, false/*ConvertTypeToTag*/);
+      CGM.DecorateInstructionWithTBAA(Load, TBAAPath,
+                                      false /*ConvertTypeToTag*/);
   }
 
   bool NeedsBoolCheck =
@@ -1406,7 +1415,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
     llvm::MDNode *TBAAPath = CGM.getTBAAStructTagInfo(TBAABaseType, TBAAInfo,
                                                       TBAAOffset);
     if (TBAAPath)
-      CGM.DecorateInstruction(Store, TBAAPath, false/*ConvertTypeToTag*/);
+      CGM.DecorateInstructionWithTBAA(Store, TBAAPath,
+                                      false /*ConvertTypeToTag*/);
   }
 }
 
@@ -2074,7 +2084,10 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
     const Expr *Init = VD->getAnyInitializer(VD);
     if (Init && !isa<ParmVarDecl>(VD) && VD->getType()->isReferenceType() &&
         VD->isUsableInConstantExpressions(getContext()) &&
-        VD->checkInitIsICE()) {
+        VD->checkInitIsICE() &&
+        // Do not emit if it is private OpenMP variable.
+        !(E->refersToEnclosingVariableOrCapture() && CapturedStmtInfo &&
+          LocalDeclMap.count(VD))) {
       llvm::Constant *Val =
         CGM.EmitConstantValue(*VD->evaluateValue(), VD->getType(), this);
       assert(Val && "failed to emit reference constant expression");
@@ -2099,9 +2112,8 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
           }
           return MakeAddrLValue(it->second, T);
         }
-        else
 #ifdef INTEL_CUSTOMIZATION
-        {
+        else {
           // If referencing a loop control variable, then load its
           // corresponding inner loop control variable.
           if (CapturedStmtInfo->getKind() == CR_CilkFor) {
@@ -2132,15 +2144,19 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
           }
 // Otherwise load it from the captured struct.
 #endif  // INTEL_CUSTOMIZATION
-          return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
-                                         CapturedStmtInfo->getContextValue());
+        LValue CapLVal =
+            EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
+                                    CapturedStmtInfo->getContextValue());
+        return MakeAddrLValue(
+            Address(CapLVal.getPointer(), getContext().getDeclAlign(VD)),
+            CapLVal.getType(), AlignmentSource::Decl);
 #ifdef INTEL_CUSTOMIZATION
         }
 #endif  // INTEL_CUSTOMIZATION
       }
 
 #ifdef INTEL_CUSTOMIZATION
-      if (LocalDeclMap.count(VD) == 0) {
+      if (isa<BlockDecl>(CurCodeDecl) || LocalDeclMap.count(VD) == 0) {
 #endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
@@ -3203,7 +3219,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
         else
           tbaa = CGM.getTBAAInfo(type);
         if (tbaa)
-          CGM.DecorateInstruction(load, tbaa);
+          CGM.DecorateInstructionWithTBAA(load, tbaa);
       }
 
       mayAlias = false;
@@ -3535,6 +3551,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     // This must be a reinterpret_cast (or c-style equivalent).
     const auto *CE = cast<ExplicitCastExpr>(E);
 
+    CGM.EmitExplicitCastExprType(CE, this);
     LValue LV = EmitLValue(E->getSubExpr());
     Address V = Builder.CreateBitCast(LV.getAddress(),
                                       ConvertType(CE->getTypeAsWritten()));
@@ -3909,6 +3926,29 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
       Builder.CreateBr(Cont);
       EmitBlock(Cont);
     }
+  }
+
+  // If we are checking indirect calls and this call is indirect, check that the
+  // function pointer is a member of the bit set for the function type.
+  if (SanOpts.has(SanitizerKind::CFIICall) &&
+      (!TargetDecl || !isa<FunctionDecl>(TargetDecl))) {
+    SanitizerScope SanScope(this);
+
+    llvm::Value *BitSetName = llvm::MetadataAsValue::get(
+        getLLVMContext(),
+        CGM.CreateMetadataIdentifierForType(QualType(FnType, 0)));
+
+    llvm::Value *CastedCallee = Builder.CreateBitCast(Callee, Int8PtrTy);
+    llvm::Value *BitSetTest =
+        Builder.CreateCall(CGM.getIntrinsic(llvm::Intrinsic::bitset_test),
+                           {CastedCallee, BitSetName});
+
+    llvm::Constant *StaticData[] = {
+      EmitCheckSourceLocation(E->getLocStart()),
+      EmitCheckTypeDescriptor(QualType(FnType, 0)),
+    };
+    EmitCheck(std::make_pair(BitSetTest, SanitizerKind::CFIICall),
+              "cfi_bad_icall", StaticData, CastedCallee);
   }
 
   CallArgList Args;

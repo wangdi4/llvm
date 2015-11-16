@@ -121,9 +121,11 @@ static cl::opt<std::string> Config(
 static cl::opt<bool> DumpConfig(
     "dump-config",
     cl::desc("Dumps configuration in the YAML format to stdout. This option\n"
-             "should be used along with a file name (and '--' if the file is\n"
+             "can be used along with a file name (and '--' if the file is\n"
              "outside of a project with configured compilation database). The\n"
-             "configuration used for this file will be printed."),
+             "configuration used for this file will be printed.\n"
+             "Use along with -checks=* to include configuration of all\n"
+             "checks.\n"),
     cl::init(false), cl::cat(ClangTidyCategory));
 
 static cl::opt<bool> EnableCheckProfile(
@@ -345,10 +347,20 @@ static int clangTidyMain(int argc, const char **argv) {
   return 0;
 }
 
+// This anchor is used to force the linker to link the CERTModule.
+extern volatile int CERTModuleAnchorSource;
+static int LLVM_ATTRIBUTE_UNUSED CERTModuleAnchorDestination =
+    CERTModuleAnchorSource;
+
 // This anchor is used to force the linker to link the LLVMModule.
 extern volatile int LLVMModuleAnchorSource;
 static int LLVM_ATTRIBUTE_UNUSED LLVMModuleAnchorDestination =
     LLVMModuleAnchorSource;
+
+// This anchor is used to force the linker to link the CppCoreGuidelinesModule.
+extern volatile int CppCoreGuidelinesModuleAnchorSource;
+static int LLVM_ATTRIBUTE_UNUSED CppCoreGuidelinesModuleAnchorDestination =
+    CppCoreGuidelinesModuleAnchorSource;
 
 // This anchor is used to force the linker to link the GoogleModule.
 extern volatile int GoogleModuleAnchorSource;

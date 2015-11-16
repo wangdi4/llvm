@@ -161,8 +161,6 @@ public:
   void mangleSEHFinallyBlock(const NamedDecl *EnclosingDecl,
                              raw_ostream &Out) override;
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
-  void mangleCXXVTableBitSet(const CXXRecordDecl *RD,
-                             raw_ostream &Out) override;
 
 #ifdef INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
@@ -378,7 +376,8 @@ bool MicrosoftMangleContextImpl::shouldMangleCXXName(const NamedDecl *D) {
         DC = getEffectiveParentContext(DC);
 
     if (DC->isTranslationUnit() && D->getFormalLinkage() == InternalLinkage &&
-        !isa<VarTemplateSpecializationDecl>(D))
+        !isa<VarTemplateSpecializationDecl>(D) &&
+        D->getIdentifier() != nullptr)
       return false;
   }
 
@@ -814,7 +813,7 @@ void MicrosoftCXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       } else {
         // Otherwise, number the types using a $S prefix.
         Name += "$S";
-        Name += llvm::utostr(Context.getAnonymousStructId(TD));
+        Name += llvm::utostr(Context.getAnonymousStructId(TD) + 1);
       }
       Name += ">";
       mangleSourceName(Name.str());
@@ -1055,6 +1054,14 @@ void MicrosoftCXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO,
     DiagnosticsEngine &Diags = Context.getDiags();
     unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
       "cannot mangle this conditional operator yet");
+    Diags.Report(Loc, DiagID);
+    break;
+  }
+
+  case OO_Coawait: {
+    DiagnosticsEngine &Diags = Context.getDiags();
+    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+      "cannot mangle this operator co_await yet");
     Diags.Report(Loc, DiagID);
     break;
   }
@@ -1575,32 +1582,77 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   //                 ::= _W # wchar_t
   //                 ::= _Z # __float80 (Digital Mars)
   switch (T->getKind()) {
-  case BuiltinType::Void: Out << 'X'; break;
-  case BuiltinType::SChar: Out << 'C'; break;
-  case BuiltinType::Char_U: case BuiltinType::Char_S: Out << 'D'; break;
-  case BuiltinType::UChar: Out << 'E'; break;
-  case BuiltinType::Short: Out << 'F'; break;
-  case BuiltinType::UShort: Out << 'G'; break;
-  case BuiltinType::Int: Out << 'H'; break;
-  case BuiltinType::UInt: Out << 'I'; break;
-  case BuiltinType::Long: Out << 'J'; break;
-  case BuiltinType::ULong: Out << 'K'; break;
-  case BuiltinType::Float: Out << 'M'; break;
-  case BuiltinType::Double: Out << 'N'; break;
+  case BuiltinType::Void:
+    Out << 'X';
+    break;
+  case BuiltinType::SChar:
+    Out << 'C';
+    break;
+  case BuiltinType::Char_U:
+  case BuiltinType::Char_S:
+    Out << 'D';
+    break;
+  case BuiltinType::UChar:
+    Out << 'E';
+    break;
+  case BuiltinType::Short:
+    Out << 'F';
+    break;
+  case BuiltinType::UShort:
+    Out << 'G';
+    break;
+  case BuiltinType::Int:
+    Out << 'H';
+    break;
+  case BuiltinType::UInt:
+    Out << 'I';
+    break;
+  case BuiltinType::Long:
+    Out << 'J';
+    break;
+  case BuiltinType::ULong:
+    Out << 'K';
+    break;
+  case BuiltinType::Float:
+    Out << 'M';
+    break;
+  case BuiltinType::Double:
+    Out << 'N';
+    break;
   // TODO: Determine size and mangle accordingly
-  case BuiltinType::LongDouble: Out << 'O'; break;
-  case BuiltinType::LongLong: Out << "_J"; break;
-  case BuiltinType::ULongLong: Out << "_K"; break;
-  case BuiltinType::Int128: Out << "_L"; break;
-  case BuiltinType::UInt128: Out << "_M"; break;
-  case BuiltinType::Bool: Out << "_N"; break;
+  case BuiltinType::LongDouble:
+    Out << 'O';
+    break;
+  case BuiltinType::LongLong:
+    Out << "_J";
+    break;
+  case BuiltinType::ULongLong:
+    Out << "_K";
+    break;
+  case BuiltinType::Int128:
+    Out << "_L";
+    break;
+  case BuiltinType::UInt128:
+    Out << "_M";
+    break;
+  case BuiltinType::Bool:
+    Out << "_N";
+    break;
+  case BuiltinType::Char16:
+    Out << "_S";
+    break;
+  case BuiltinType::Char32:
+    Out << "_U";
+    break;
 #ifdef INTEL_CUSTOMIZATION
-  case BuiltinType::Float128: Out << "_Q"; break;
+  case BuiltinType::Float128:
+    Out << "_Q";
+    break;
 #endif  // INTEL_CUSTOMIZATION
-  case BuiltinType::Char16: Out << "_S"; break;
-  case BuiltinType::Char32: Out << "_U"; break;
   case BuiltinType::WChar_S:
-  case BuiltinType::WChar_U: Out << "_W"; break;
+  case BuiltinType::WChar_U:
+    Out << "_W";
+    break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
@@ -1609,28 +1661,81 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::Dependent:
     llvm_unreachable("placeholder types shouldn't get to name mangling");
 
-  case BuiltinType::ObjCId: Out << "PAUobjc_object@@"; break;
-  case BuiltinType::ObjCClass: Out << "PAUobjc_class@@"; break;
-  case BuiltinType::ObjCSel: Out << "PAUobjc_selector@@"; break;
+  case BuiltinType::ObjCId:
+    Out << "PAUobjc_object@@";
+    break;
+  case BuiltinType::ObjCClass:
+    Out << "PAUobjc_class@@";
+    break;
+  case BuiltinType::ObjCSel:
+    Out << "PAUobjc_selector@@";
+    break;
 
-  case BuiltinType::OCLImage1d: Out << "PAUocl_image1d@@"; break;
-  case BuiltinType::OCLImage1dArray: Out << "PAUocl_image1darray@@"; break;
-  case BuiltinType::OCLImage1dBuffer: Out << "PAUocl_image1dbuffer@@"; break;
-  case BuiltinType::OCLImage2d: Out << "PAUocl_image2d@@"; break;
-  case BuiltinType::OCLImage2dArray: Out << "PAUocl_image2darray@@"; break;
-  case BuiltinType::OCLImage3d: Out << "PAUocl_image3d@@"; break;
-  case BuiltinType::OCLSampler: Out << "PAUocl_sampler@@"; break;
-  case BuiltinType::OCLEvent: Out << "PAUocl_event@@"; break;
+  case BuiltinType::OCLImage1d:
+    Out << "PAUocl_image1d@@";
+    break;
+  case BuiltinType::OCLImage1dArray:
+    Out << "PAUocl_image1darray@@";
+    break;
+  case BuiltinType::OCLImage1dBuffer:
+    Out << "PAUocl_image1dbuffer@@";
+    break;
+  case BuiltinType::OCLImage2d:
+    Out << "PAUocl_image2d@@";
+    break;
+  case BuiltinType::OCLImage2dArray:
+    Out << "PAUocl_image2darray@@";
+    break;
+  case BuiltinType::OCLImage2dDepth:
+    Out << "PAUocl_image2ddepth@@";
+    break;
+  case BuiltinType::OCLImage2dArrayDepth:
+    Out << "PAUocl_image2darraydepth@@";
+    break;
+  case BuiltinType::OCLImage2dMSAA:
+    Out << "PAUocl_image2dmsaa@@";
+    break;
+  case BuiltinType::OCLImage2dArrayMSAA:
+    Out << "PAUocl_image2darraymsaa@@";
+    break;
+  case BuiltinType::OCLImage2dMSAADepth:
+    Out << "PAUocl_image2dmsaadepth@@";
+    break;
+  case BuiltinType::OCLImage2dArrayMSAADepth:
+    Out << "PAUocl_image2darraymsaadepth@@";
+    break;
+  case BuiltinType::OCLImage3d:
+    Out << "PAUocl_image3d@@";
+    break;
+  case BuiltinType::OCLSampler:
+    Out << "PAUocl_sampler@@";
+    break;
+  case BuiltinType::OCLEvent:
+    Out << "PAUocl_event@@";
+    break;
+  case BuiltinType::OCLClkEvent:
+    Out << "PAUocl_clkevent@@";
+    break;
+  case BuiltinType::OCLQueue:
+    Out << "PAUocl_queue@@";
+    break;
+  case BuiltinType::OCLNDRange:
+    Out << "PAUocl_ndrange@@";
+    break;
+  case BuiltinType::OCLReserveID:
+    Out << "PAUocl_reserveid@@";
+    break;
 
-  case BuiltinType::NullPtr: Out << "$$T"; break;
+  case BuiltinType::NullPtr:
+    Out << "$$T";
+    break;
 
   case BuiltinType::Half: {
     DiagnosticsEngine &Diags = Context.getDiags();
-    unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
-      "cannot mangle this built-in %0 type yet");
+    unsigned DiagID = Diags.getCustomDiagID(
+        DiagnosticsEngine::Error, "cannot mangle this built-in %0 type yet");
     Diags.Report(Range.getBegin(), DiagID)
-      << T->getName(Context.getASTContext().getPrintingPolicy())
-      << Range;
+        << T->getName(Context.getASTContext().getPrintingPolicy()) << Range;
     break;
   }
   }
@@ -2797,21 +2902,6 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
       MangleByte(0);
 
   Mangler.getStream() << '@';
-}
-
-void MicrosoftMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
-                                                       raw_ostream &Out) {
-  if (!RD->isExternallyVisible()) {
-    // This part of the identifier needs to be unique across all translation
-    // units in the linked program. The scheme fails if multiple translation
-    // units are compiled using the same relative source file path, or if
-    // multiple translation units are built from the same source file.
-    SourceManager &SM = getASTContext().getSourceManager();
-    Out << "[" << SM.getFileEntryForID(SM.getMainFileID())->getName() << "]";
-  }
-
-  MicrosoftCXXNameMangler mangler(*this, Out);
-  mangler.mangleName(RD);
 }
 
 #ifdef INTEL_CUSTOMIZATION

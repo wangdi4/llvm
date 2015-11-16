@@ -117,11 +117,10 @@ public:
     //------------------------------------------------------------------
     // OperatingSystem
     //------------------------------------------------------------------
-    static bool
-    RegisterPlugin (const ConstString &name,
-                    const char *description,
-                    OperatingSystemCreateInstance create_callback);
-    
+    static bool RegisterPlugin(const ConstString &name, const char *description,
+                               OperatingSystemCreateInstance create_callback,
+                               DebuggerInitializeCallback debugger_init_callback);
+
     static bool
     UnregisterPlugin (OperatingSystemCreateInstance create_callback);
     
@@ -420,6 +419,53 @@ public:
     static InstrumentationRuntimeCreateInstance
     GetInstrumentationRuntimeCreateCallbackForPluginName (const ConstString &name);
 
+    //------------------------------------------------------------------
+    // TypeSystem
+    //------------------------------------------------------------------
+    static bool
+    RegisterPlugin (const ConstString &name,
+                    const char *description,
+                    TypeSystemCreateInstance create_callback,
+                    TypeSystemEnumerateSupportedLanguages enumerate_languages_callback);
+
+    static bool
+    UnregisterPlugin (TypeSystemCreateInstance create_callback);
+
+    static TypeSystemCreateInstance
+    GetTypeSystemCreateCallbackAtIndex (uint32_t idx);
+
+    static TypeSystemCreateInstance
+    GetTypeSystemCreateCallbackForPluginName (const ConstString &name);
+    
+    static TypeSystemEnumerateSupportedLanguages
+    GetTypeSystemEnumerateSupportedLanguagesCallbackAtIndex (uint32_t idx);
+    
+    static TypeSystemEnumerateSupportedLanguages
+    GetTypeSystemEnumerateSupportedLanguagesCallbackForPluginName (const ConstString &name);
+    
+    //------------------------------------------------------------------
+    // REPL
+    //------------------------------------------------------------------
+    static bool
+    RegisterPlugin (const ConstString &name,
+                    const char *description,
+                    REPLCreateInstance create_callback,
+                    REPLEnumerateSupportedLanguages enumerate_languages_callback);
+    
+    static bool
+    UnregisterPlugin (REPLCreateInstance create_callback);
+    
+    static REPLCreateInstance
+    GetREPLCreateCallbackAtIndex (uint32_t idx);
+    
+    static REPLCreateInstance
+    GetREPLCreateCallbackForPluginName (const ConstString &name);
+    
+    static REPLEnumerateSupportedLanguages
+    GetREPLEnumerateSupportedLanguagesCallbackAtIndex (uint32_t idx);
+    
+    static REPLEnumerateSupportedLanguages
+    GetREPLSystemEnumerateSupportedLanguagesCallbackForPluginName (const ConstString &name);
     
     //------------------------------------------------------------------
     // Some plug-ins might register a DebuggerInitializeCallback
@@ -470,6 +516,23 @@ public:
                                       const lldb::OptionValuePropertiesSP &properties_sp,
                                       const ConstString &description,
                                       bool is_global_property);
+
+    static lldb::OptionValuePropertiesSP
+    GetSettingForJITLoaderPlugin (Debugger &debugger,
+                                   const ConstString &setting_name);
+
+    static bool
+    CreateSettingForJITLoaderPlugin (Debugger &debugger,
+                                     const lldb::OptionValuePropertiesSP &properties_sp,
+                                     const ConstString &description,
+                                     bool is_global_property);
+
+    static lldb::OptionValuePropertiesSP GetSettingForOperatingSystemPlugin(Debugger &debugger,
+                                                                            const ConstString &setting_name);
+
+    static bool CreateSettingForOperatingSystemPlugin(Debugger &debugger,
+                                                      const lldb::OptionValuePropertiesSP &properties_sp,
+                                                      const ConstString &description, bool is_global_property);
 };
 
 

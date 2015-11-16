@@ -1,6 +1,8 @@
 """Test the lldb public C++ api when doing multiple debug sessions simultaneously."""
 
-import os, re, StringIO
+import lldb_shared
+
+import os, re
 import unittest2
 from lldbtest import *
 import lldbutil
@@ -18,9 +20,10 @@ class TestMultipleSimultaneousDebuggers(TestBase):
 
     @skipIfi386
     @skipIfNoSBHeaders
-    @expectedFailureDarwin("llvm.org/pr20282") # intermittent
     @expectedFailureFreeBSD("llvm.org/pr20282")
     @expectedFailureLinux("llvm.org/pr20282")
+    @expectedFailureWindows # Test crashes
+    @expectedFlakeyDarwin()
     def test_multiple_debuggers(self):
         env = {self.dylibPath : self.getLLDBLibraryEnvVal()}
 

@@ -5,7 +5,7 @@ extern "C" {
 extern int printf(const char *restrict, ...);
 }
 
-struct Val {int x; void g(); };
+struct Val {int X; void g(); };
 
 struct MutableVal {
   void constFun(int) const;
@@ -13,7 +13,14 @@ struct MutableVal {
   void constFun(MutableVal &) const;
   void constParamFun(const MutableVal &) const;
   void nonConstParamFun(const MutableVal &);
-  int x;
+  int X;
+};
+
+struct NonTriviallyCopyable {
+  NonTriviallyCopyable() = default;
+  // Define this constructor to make this class non-trivially copyable.
+  NonTriviallyCopyable(const NonTriviallyCopyable& Ntc);
+  int X;
 };
 
 struct S {
@@ -21,6 +28,8 @@ struct S {
   typedef const MutableVal *const_iterator;
   const_iterator begin() const;
   const_iterator end() const;
+  const_iterator cbegin() const;
+  const_iterator cend() const;
   iterator begin();
   iterator end();
 };
@@ -32,7 +41,7 @@ struct T {
     iterator& operator ++();
     bool operator!=(const iterator &other);
     void insert(int);
-    int x;
+    int X;
   };
   iterator begin();
   iterator end();
@@ -48,19 +57,20 @@ struct U {
   };
   iterator begin();
   iterator end();
-  int x;
+  int X;
 };
 
 struct X {
-  S s;
-  T t;
-  U u;
+  S Ss;
+  T Tt;
+  U Uu;
   S getS();
 };
 
 template<typename ElemType>
-class dependent{
+class dependent {
  public:
+  dependent<ElemType>();
   struct iterator_base {
     const ElemType& operator*()const;
     iterator_base& operator ++();
@@ -180,7 +190,7 @@ struct RValueDerefContainer {
 namespace Macros {
 
 struct MacroStruct {
-  int arr[10];
+  int Arr[10];
 };
 static MacroStruct *MacroSt;
 #define CONT MacroSt->

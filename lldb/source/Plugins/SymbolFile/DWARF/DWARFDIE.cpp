@@ -18,12 +18,11 @@
 #include "DWARFDeclContext.h"
 #include "DWARFDIECollection.h"
 #include "DWARFFormValue.h"
-#include "DWARFLocationDescription.h"
-#include "DWARFLocationList.h"
 #include "SymbolFileDWARF.h"
 
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Symbol/TypeSystem.h"
 
 DIERef
 DWARFDIE::GetDIERef() const
@@ -186,8 +185,11 @@ DWARFDIE::GetID () const
 
         if (m_cu)
         {
-            assert ((id&0xffffffff00000000ull) == 0 || m_cu->GetOffset() == 0);
-            id |= ((lldb::user_id_t)m_cu->GetOffset()) << 32;
+            lldb::user_id_t cu_id = m_cu->GetID()&0xffffffff00000000ull;
+            assert ((id&0xffffffff00000000ull) == 0 ||
+                    (cu_id&0xffffffff00000000ll) == 0 ||
+                    (id&0xffffffff00000000ull) == (cu_id&0xffffffff00000000ll));
+            id |= cu_id;
         }
         return id;
     }

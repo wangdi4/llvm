@@ -197,14 +197,39 @@ private:
 /// \brief The information needed to describe a valid convertible usage
 /// of an array index or iterator.
 struct Usage {
+  enum UsageKind {
+    // Regular usages of the loop index (the ones not specified below). Some
+    // examples:
+    // \code
+    //   int X = 8 * Arr[i];
+    //               ^~~~~~
+    //   f(param1, param2, *It);
+    //                     ^~~
+    //   if (Vec[i].SomeBool) {}
+    //       ^~~~~~
+    // \endcode
+    UK_Default,
+    // Indicates whether this is an access to a member through the arrow
+    // operator on pointers or iterators.
+    UK_MemberThroughArrow,
+    // If the variable is being captured by a lambda, indicates whether the
+    // capture was done by value or by reference.
+    UK_CaptureByCopy,
+    UK_CaptureByRef
+  };
+  // The expression that is going to be converted. Null in case of lambda
+  // captures.
   const Expr *Expression;
-  bool IsArrow;
+
+  UsageKind Kind;
+
+  // Range that covers this usage.
   SourceRange Range;
 
   explicit Usage(const Expr *E)
-      : Expression(E), IsArrow(false), Range(Expression->getSourceRange()) {}
-  Usage(const Expr *E, bool IsArrow, SourceRange Range)
-      : Expression(E), IsArrow(IsArrow), Range(std::move(Range)) {}
+      : Expression(E), Kind(UK_Default), Range(Expression->getSourceRange()) {}
+  Usage(const Expr *E, UsageKind Kind, SourceRange Range)
+      : Expression(E), Kind(Kind), Range(std::move(Range)) {}
 };
 
 /// \brief A class to encapsulate lowering of the tool's confidence level.
@@ -389,14 +414,22 @@ private:
 /// index, if they exist.
 class VariableNamer {
 public:
+  // Supported naming styles.
+  enum NamingStyle {
+    NS_CamelBack,
+    NS_CamelCase,
+    NS_LowerCase,
+    NS_UpperCase,
+  };
+
   VariableNamer(StmtGeneratedVarNameMap *GeneratedDecls,
                 const StmtParentMap *ReverseAST, const clang::Stmt *SourceStmt,
                 const clang::VarDecl *OldIndex,
                 const clang::VarDecl *TheContainer,
-                const clang::ASTContext *Context)
+                const clang::ASTContext *Context, NamingStyle Style)
       : GeneratedDecls(GeneratedDecls), ReverseAST(ReverseAST),
         SourceStmt(SourceStmt), OldIndex(OldIndex), TheContainer(TheContainer),
-        Context(Context) {}
+        Context(Context), Style(Style) {}
 
   /// \brief Generate a new index name.
   ///
@@ -412,10 +445,14 @@ private:
   const clang::VarDecl *OldIndex;
   const clang::VarDecl *TheContainer;
   const clang::ASTContext *Context;
+  const NamingStyle Style;
 
   // Determine whether or not a declaration that would conflict with Symbol
   // exists in an outer context or in any statement contained in SourceStmt.
   bool declarationExists(llvm::StringRef Symbol);
+
+  // Concatenates two identifiers following the current naming style.
+  std::string AppendWithStyle(StringRef Str, StringRef Suffix) const;
 };
 
 } // namespace modernize

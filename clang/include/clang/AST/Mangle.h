@@ -144,9 +144,6 @@ public:
   /// across translation units so it can be used with LTO.
   virtual void mangleTypeName(QualType T, raw_ostream &) = 0;
 
-  virtual void mangleCXXVTableBitSet(const CXXRecordDecl *RD,
-                                     raw_ostream &) = 0;
-
 #ifdef INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   virtual void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) = 0;

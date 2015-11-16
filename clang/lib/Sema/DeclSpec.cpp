@@ -359,6 +359,11 @@ bool Declarator::isStaticMember() {
               getName().OperatorFunctionId.Operator));
 }
 
+bool Declarator::isCtorOrDtor() {
+  return (getName().getKind() == UnqualifiedId::IK_ConstructorName) ||
+         (getName().getKind() == UnqualifiedId::IK_DestructorName);
+}
+
 bool DeclSpec::hasTagDefinition() const {
   if (!TypeSpecOwned)
     return false;
@@ -963,7 +968,7 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
     FixItHint Hints[NumLocs];
     SourceLocation FirstLoc;
     for (unsigned I = 0; I != NumLocs; ++I) {
-      if (!ExtraLocs[I].isInvalid()) {
+      if (ExtraLocs[I].isValid()) {
         if (FirstLoc.isInvalid() ||
             PP.getSourceManager().isBeforeInTranslationUnit(ExtraLocs[I],
                                                             FirstLoc))
