@@ -1,7 +1,4 @@
 ; RUN: opt -S -O1 -enable-non-lto-gmr=true < %s | FileCheck %s
-; INTEL - This is marked XFAIL due to CQ 378683.
-; XFAIL: *
-; INTEL
 
 @a = common global i32 0, align 4
 
