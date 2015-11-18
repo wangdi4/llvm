@@ -592,7 +592,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     // Metadata API uitls creates whole set of empty named metadata even if they are initially
     // absent in a module. That is why the 'if' statement below checks if MDNode has operands.
     if(!namedMD || namedMD->getNumOperands() == 0) return false;
-    assert(namedMD->getNumOperands() == 1 && "opencl.ocl.version must have single operand");
 
     MDNode * versionMD = cast<MDNode>(namedMD->getOperand(0));
     assert(versionMD && versionMD->getNumOperands() == 2 && "this MDNode must have 2 operands");
