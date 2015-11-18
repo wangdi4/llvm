@@ -35,6 +35,8 @@ namespace vpo {   // VPO Vectorizer Namespace
 
 #define TabLength 2
 
+enum VerbosityLevel { PrintBase, PrintType, PrintNumber };
+
 class AVRLoop;
 
 /// \brief Abstract Vector Representation Node base class
@@ -51,13 +53,16 @@ private:
   /// \brief Make class uncopyable.
   void operator=(const AVR &) = delete;
 
-  /// AVR Subclass Identifier
+  /// SubClassID - AVR Subclass Identifier
   const unsigned char SubClassID;
 
-  /// Lexical parent of AVR
+  /// Parent - Lexical parent of this AVR
   AVR *Parent;
 
-  /// Unique ID for AVR node.
+  /// GlobalNumber - A global number used for assigning unique ID to each avr
+  static unsigned GlobalNumber;
+
+  /// Number - Unique ID for AVR node.
   unsigned Number;
 
   /// \brief Destroys all objects of this class. Only called after Vectorizer 
@@ -86,16 +91,26 @@ public:
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
 
-  /// Dumps AvrNode. 
+  /// \brief Dumps AvrNode. 
   void dump() const;
 
-  /// Dumps Avr Node at verbosity Level.
-  void dump(unsigned Level) const;
+  /// \brief Dumps Avr Node at verbosity Level.
+  void dump(VerbosityLevel VLevel) const;
 
-  /// Virtual print method. Derived classes should implement this routine.
+  /// \brief Virtual print method. Derived classes should implement this routine.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
-                     unsigned VerbosityLevel) const = 0;
+                     VerbosityLevel VLevel) const = 0;
                      
+  /// \brief Returns a StringRef for the type name of this node. 
+  virtual StringRef getAvrTypeName() const = 0;
+
+  /// \brief Returns a StringRef for the value name of this node.
+  /// The string will be w.r.t to underlying IR. 
+  virtual StringRef getAvrValueName() const = 0;
+
+  /// \brief Returns the Avr nodes's unique ID number
+  unsigned getNumber() const { return Number; }
+
   /// \brief Code generation for AVR.
   virtual void codeGen();
 
@@ -117,6 +132,7 @@ public:
   /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
 
+  // AvrKind subclass enumeration
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrKinds.h"
 
 };

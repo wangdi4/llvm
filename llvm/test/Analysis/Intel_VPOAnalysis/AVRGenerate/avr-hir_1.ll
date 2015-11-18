@@ -1,5 +1,5 @@
 ; RUN: opt < %s -avr-generate  -avr-hir-test -analyze | FileCheck %s
-;CHECK: AVR_LOOP
+;CHECK: LOOP
 ;CHECK: AVR_IF
 ;CHECK: ELSE
 ;CHECK: AVR_IF

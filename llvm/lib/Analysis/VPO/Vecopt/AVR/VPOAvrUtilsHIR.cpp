@@ -31,8 +31,8 @@ AVRLabelHIR *AVRUtilsHIR::createAVRLabelHIR(HLNode *Inst) {
   return new AVRLabelHIR(Inst);
 }
 
-AVRFBranchHIR *AVRUtilsHIR::createAVRFBranchHIR(HLNode *Inst) {
-  return new AVRFBranchHIR(Inst);
+AVRBranchHIR *AVRUtilsHIR::createAVRBranchHIR(HLNode *Inst) {
+  return new AVRBranchHIR(Inst);
 }
 
 AVRIfHIR *AVRUtilsHIR::createAVRIfHIR(HLIf *If) {

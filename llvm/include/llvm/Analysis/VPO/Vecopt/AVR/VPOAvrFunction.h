@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_FUNCTION_H
-#define LLVM_ANALYSIS_VPO_AVR_LUNCTION_H
+#define LLVM_ANALYSIS_VPO_AVR_FUNCTION_H
 
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Function.h"
@@ -160,7 +160,13 @@ public:
 
   /// \brief Prints Avr Function
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const override;
+                     VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Function Node and its children.
   // We have this under analysis for now. Clients call this from a 

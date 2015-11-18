@@ -27,7 +27,7 @@ bool AVRCodeGen::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
   AVRLoop *ALoop = nullptr;
   int VL = 0;
-  AVRFBranchIR *LoopBackEdge = nullptr;
+  AVRBranchIR *LoopBackEdge = nullptr;
   AVRPhiIR *InductionPhi = nullptr;
   AVRIf *InductionCmp = nullptr;
 
@@ -52,7 +52,7 @@ bool AVRCodeGen::loopIsHandled() {
   }
 
   // Currently we only handle AVRAssignIR, AVRPhiIR, AVRIf,
-  // AVRFBranchIR, AVRLabelIR. We alse expect to see one AVRIf
+  // AVRBranchIR, AVRLabelIR. We alse expect to see one AVRIf
   // for the induction var compare, one branch for loop
   // backedge and one AVRPhiIR for loop induction variable.
   // AVRLabelIRs are ignored for now.
@@ -74,12 +74,12 @@ bool AVRCodeGen::loopIsHandled() {
 
       InductionCmp = dyn_cast<AVRIf>(Itr);
       continue;
-    } else if (isa<AVRFBranchIR>(Itr)) {
+    } else if (isa<AVRBranchIR>(Itr)) {
       if (LoopBackEdge) {
         return false;
       }
 
-      LoopBackEdge = dyn_cast<AVRFBranchIR>(Itr);
+      LoopBackEdge = dyn_cast<AVRBranchIR>(Itr);
       continue;
     } else {
       return false;

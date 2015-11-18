@@ -22,37 +22,48 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRIfIR::AVRIfIR(Instruction *CompInst)
-  : AVRIf(AVR::AVRIfIRNode), CompareInstruction(CompInst) {}
+AVRIfIR::AVRIfIR(AVRBranch *ABranch)
+  : AVRIf(AVR::AVRIfIRNode), AvrBranch(ABranch) {
+
+  assert(ABranch->isConditional() && "Branch for AvrIf is non-conditional!");
+  Condition = AvrBranch->getCondition();
+}
 
 AVRIfIR *AVRIfIR::clone() const {
   return nullptr;
 }
 
 void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                  unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                  VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) { 
-    OS << Indent << "AVR_IF: ";
-    CompareInstruction->print(OS);
-    OS << "\n";
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      // Always print avr loop type name.
+    case PrintBase:
+      OS << getAvrTypeName();
+      OS << "( ";
+      OS << Condition->getAvrTypeName();
+      OS << Condition->getAvrValueName();
+      OS << " )\n";
+      OS << Indent << "{\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
-  AVRIf::print(OS, Depth, VerbosityLevel);
+  AVRIf::print(OS,Depth, VLevel);
 }
 
+StringRef AVRIfIR::getAvrValueName() const {
+  return StringRef("",0);
+}
 
 void AVRIfIR::codeGen() {
-  Instruction *inst;
-
-  DEBUG(CompareInstruction->dump());
-  inst = CompareInstruction->clone();
-
-  if (!inst->getType()->isVoidTy())
-    inst->setName(CompareInstruction->getName() + 
-                  ".VPOClone");
-
-  ReplaceInstWithInst(CompareInstruction, inst);
-  DEBUG(inst->dump());
 }
+

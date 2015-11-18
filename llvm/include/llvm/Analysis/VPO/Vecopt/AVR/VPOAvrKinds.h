@@ -57,10 +57,10 @@ enum AVRVal {
   AVRCallIRNode,
   AVRCallLastNode,
 
-  AVRFBranchNode,
-  AVRFBranchIRNode,
-  AVRFBranchHIRNode,
-  AVRFBranchLastNode,
+  AVRBranchNode,
+  AVRBranchIRNode,
+  AVRBranchHIRNode,
+  AVRBranchLastNode,
 
   AVRBackEdgeNode,
   AVRBackEdgeIRNode,
@@ -73,6 +73,14 @@ enum AVRVal {
   AVRReturnNode,
   AVRReturnIRNode,
   AVRReturnLastNode,
+
+  AVRCompareNode,
+  AVRCompareIRNode,
+  AVRCompareLastNode,
+
+  AVRSelectNode,
+  AVRSelectIRNode,
+  AVRSelectLastNode,
 
   AVRWrnNode
 };

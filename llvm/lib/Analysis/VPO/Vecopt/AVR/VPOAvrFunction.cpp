@@ -50,18 +50,41 @@ AVR *AVRFunction::getLastChild() {
 }
 
 void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
-                        unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                        VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0 ) {
+  std::string Indent((Depth * TabLength), ' ');
 
-    OS << Indent << "AVR_FUNCTION:\n";
+  OS << Indent;
 
-    Depth++;
-    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
-      Itr->print(OS, Depth, VerbosityLevel);
-    }
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << getAvrValueName() << "()\n";
+      OS << Indent << "{\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+
+  Depth++;
+
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
+    Itr->print(OS, Depth, VLevel);
+  }
+
+  OS << Indent << "}\n";
+}
+
+StringRef AVRFunction::getAvrTypeName() const {
+  return StringRef("FUNCTION ");
+}
+
+StringRef AVRFunction::getAvrValueName() const {
+  std::string IString(OriginalFunction->getName().str());
+  return StringRef(IString);
 }
 
 void AVRFunction::codeGen() {
@@ -70,3 +93,5 @@ void AVRFunction::codeGen() {
     Itr->codeGen();
   }
 }
+
+

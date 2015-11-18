@@ -30,9 +30,12 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRAssignIR : public AVRAssign {
 
 private:
+
+  /// Instruct - Original LLVM instruction.
   Instruction *Instruct;
 
 protected:
+
   /// \brief AVRAssignIR Object Constructor.
   AVRAssignIR(Instruction *Instr);
 
@@ -50,8 +53,14 @@ protected:
 
 public:
 
-  /// \brief Returns the LLVM Instruction
+  /// \brief Returns the LLVM instruction
   const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Returns the specified operand value.
+  const Value *getOperand(unsigned OperandNumber);
+
+  /// \brief Returns the number of operands for this instruction.
+  unsigned getNumOperands() const;
 
   AVRAssignIR *clone() const override;
 
@@ -62,10 +71,14 @@ public:
 
   /// \brief Prints the AVRAssignIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Assign.
   void codeGen();
+
 };
 
 
@@ -74,6 +87,8 @@ public:
 class AVRLabelIR : public AVRLabel {
 
 private:
+
+  /// SourceBlock - Basic Block of this label.
   BasicBlock *SourceBlock;
 
 protected:
@@ -85,6 +100,7 @@ protected:
   friend class AVRUtilsIR;
 
 public:
+
   ///\brief returns BasicBlock assoicated with this Label.
   BasicBlock *getSourceBBlock () const { return SourceBlock; }
 
@@ -97,7 +113,10 @@ public:
 
   /// \brief Prints the AVRLabelIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Label.
   void codeGen();
@@ -114,8 +133,6 @@ private:
   /// \brief Pointer to original LLVM Instruction
   Instruction *Instruct;
 
-  // TODO: Add member data
-
 protected:
 
   AVRPhiIR(Instruction *Inst);
@@ -125,9 +142,8 @@ protected:
   friend class AVRUtilsIR;
 
 public:
-  // TODO: Add member functions
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRPhiIRNode;
   }
@@ -139,10 +155,14 @@ public:
 
   /// \brief Prints the AVRPhiIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Phi.
   void codeGen();
+
 };
 
 
@@ -151,20 +171,24 @@ public:
 class AVRCallIR : public AVRCall {
 
 private:
+
+  /// Instruct - Original LLVM call instruction
   Instruction *Instruct;
-  // TODO: Add Member Data
 
 protected:
+
   AVRCallIR(Instruction *Inst);
   virtual ~AVRCallIR() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
-  // TODO: Add Member Functions
 public:
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Returns the LLVM Instruction
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRCallIRNode;
   }
@@ -173,7 +197,10 @@ public:
 
   /// \brief Prints the AVRCallIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Call.
   void codeGen();
@@ -181,37 +208,56 @@ public:
 };
 
 
-//----------AVR Fbranch Node for LLVM IR----------//
-/// \brief An abstract vector forward branch node for LLVM IR.
-class AVRFBranchIR : public AVRFBranch {
+//----------AVR Branch Node for LLVM IR----------//
+/// \brief An abstract vector branch node for LLVM IR.
+class AVRBranchIR : public AVRBranch {
 
 private:
+
+  /// Instruct - Original LLVM instruction.
   Instruction *Instruct;
-  // TODO: Add Member Data
+
+  /// ThenBBlock - If conditional branch, pointer to the true successor block.
+  BasicBlock *ThenBBlock;
+
+  /// ElseBBlock - If conditional branch, pointer to the false successor block.
+  BasicBlock *ElseBBlock;
 
 protected:
-  AVRFBranchIR(Instruction *Inst);
-  virtual ~AVRFBranchIR() override {}
+
+  /// \brief Create a new branch from LLVM branch instruction In  and
+  /// branch condition Cond (optional).
+  AVRBranchIR(Instruction *In, AVR *Cond = nullptr);
+
+  virtual ~AVRBranchIR() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
 public:
-  // TODO: Add Member Functions
 
-  /// \brief Returns FBranch Instruction
+  /// \brief Returns Branch Instruction
   const Instruction *getLLVMInstruction() const { return Instruct; }
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Returns ThenBBlock successor for conditional branch.
+  BasicBlock *getThenBBlock() const { return ThenBBlock; }
+
+  /// \brief Returns ElseBBlock successor for conditional branch.
+  BasicBlock *getElseBBlock() const { return ElseBBlock; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRFBranchIRNode;
+    return Node->getAVRID() == AVR::AVRBranchIRNode;
   }
 
-  AVRFBranchIR *clone() const override;
+  AVRBranchIR *clone() const override;
 
   /// \brief Prints the AVRFBranchIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Forward branch.
   void codeGen();
@@ -224,10 +270,12 @@ public:
 class AVRBackEdgeIR : public AVRBackEdge {
 
 private:
+
+  /// Instruct - Original LLVM instruction
   Instruction *Instruct;
-  // TODO: Add Member Data
 
 protected:
+
   AVRBackEdgeIR(Instruction *Inst);
   virtual ~AVRBackEdgeIR() override {}
 
@@ -235,9 +283,11 @@ protected:
   friend class AVRUtilsIR;
 
 public:
-  // TODO: Add Member Functions
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Returns Branch Instruction
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRBackEdgeIRNode;
   }
@@ -246,7 +296,10 @@ public:
 
   /// \brief Prints the AVRBackEdgeIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Backedge.
   void codeGen();
@@ -259,19 +312,24 @@ public:
 class AVREntryIR : public AVREntry {
 
 private:
+
+  /// Instruct - Original LLVM entry instruction.
   Instruction *Instruct;
-  // TODO: Add Member Data
 
 protected:
+
   AVREntryIR(Instruction *Inst);
   virtual ~AVREntryIR() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
-  // TODO: Add Member Functions
 public:
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+
+  /// \brief Returns Branch Instruction
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVREntryIRNode;
   }
@@ -280,7 +338,10 @@ public:
 
   /// \brief Prints the AVREntryIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Entry.
   void codeGen();
@@ -293,19 +354,24 @@ public:
 class AVRReturnIR : public AVRReturn {
 
 private:
+
+  /// Instruct - Original LLVM return instruction
   Instruction *Instruct;
-  // TODO: Add Member Data
 
 protected:
+
   AVRReturnIR(Instruction *Inst);
   virtual ~AVRReturnIR() override {}
 
-  // TODO: Add Member Functions
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
 public:
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+
+  /// \brief Returns Branch Instruction
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRReturnIRNode;
   }
@@ -314,7 +380,99 @@ public:
 
   /// \brief Prints the AVRReturnIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
+
+  /// \brief Code generation for AVR Return.
+  void codeGen();
+
+};
+
+//----------------------------------------------------------------------------//
+// AVR Select Node for LLVM
+//----------------------------------------------------------------------------//
+/// \brief An abstract vector select node. 
+///
+class AVRSelectIR : public AVRSelect {
+
+private:
+
+  /// Instruct - Originial LLVM Instruction
+  Instruction *Instruct;
+
+protected:
+
+  AVRSelectIR(Instruction *Inst, AVRCompare *AComp);
+  virtual ~AVRSelectIR() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsIR;
+
+public:
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRSelectIRNode;
+  }
+
+  /// \brief Returns the underlying LLVM instruction.
+  Instruction *getLLVMInstruction() { return Instruct; }
+
+  AVRSelectIR *clone() const override;
+
+  /// \brief Prints the AVRSelectIR node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
+
+  /// \brief Code generation for AVR Return.
+  void codeGen();
+
+};
+
+//----------------------------------------------------------------------------//
+// AVR Compare Node for LLVM
+//----------------------------------------------------------------------------//
+/// \brief An abstract vector select node. 
+///
+class AVRCompareIR : public AVRCompare {
+
+private:
+
+  /// Instruct - Originial LLVM select instruction
+  Instruction *Instruct;
+
+protected:
+
+  AVRCompareIR(Instruction *Inst);
+  virtual ~AVRCompareIR() override {}
+
+  // TODO: Add Member Functions
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsIR;
+
+public:
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRCompareIRNode;
+  }
+
+  /// \brief Returns the underlying LLVM instruction.
+  Instruction *getLLVMInstruction() { return Instruct; }
+
+  AVRCompareIR *clone() const override;
+
+  /// \brief Prints the AVRSelectIR node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Return.
   void codeGen();

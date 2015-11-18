@@ -24,7 +24,6 @@ using namespace llvm::vpo;
 
 // TODO: Properly define print routines.
 
-
 //----------AVR Assign Implementation----------//
 AVRAssign::AVRAssign(unsigned SCID)
   : AVR(SCID) {}
@@ -34,7 +33,10 @@ AVRAssign *AVRAssign::clone() const {
 }
 
 void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
-                      unsigned VerbosityLevel) const {
+                      VerbosityLevel VLevel) const {}
+
+StringRef AVRAssign::getAvrTypeName() const {
+  return StringRef("ASSIGN");
 }
 
 //----------AVR Label Implementation----------//
@@ -46,7 +48,10 @@ AVRLabel *AVRLabel::clone() const {
 }
 
 void AVRLabel::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
+                     VerbosityLevel VLevel) const {}
+
+StringRef AVRLabel::getAvrTypeName() const {
+  return StringRef("LABEL");
 }
 
 //----------AVR Phi Implementation----------//
@@ -58,7 +63,10 @@ AVRPhi *AVRPhi::clone() const {
 }
 
 void AVRPhi::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
+                   VerbosityLevel VLevel) const {}
+
+StringRef AVRPhi::getAvrTypeName() const {
+  return StringRef("PHI");
 }
 
 //----------AVR Call Implementation----------//
@@ -70,20 +78,48 @@ AVRCall *AVRCall::clone() const {
 }
 
 void AVRCall::print(formatted_raw_ostream &OS, unsigned Depth,
-                    unsigned VerbosityLevel) const {
+                    VerbosityLevel VLevel) const {}
+
+StringRef AVRCall::getAvrTypeName() const {
+  return StringRef("CALL");
 }
 
-//----------AVR FBranch Implementation----------//
-AVRFBranch::AVRFBranch(unsigned SCID)
+//----------------------------------------------------------------------------//
+// AVR Branch Node
+//----------------------------------------------------------------------------//
+AVRBranch::AVRBranch(AVRLabel *ALabel)
+  : AVR(AVR::AVRBranchNode), IsConditional(false), IsIndirect(false) {
+  addSuccessor(ALabel);
+}
+
+AVRBranch::AVRBranch(unsigned SCID, bool IsInd, AVR *Cond)
+  : AVR(SCID), IsIndirect(IsInd), Condition(Cond) {}
+
+AVRBranch::AVRBranch(unsigned SCID)
   : AVR(SCID) {}
 
-AVRFBranch *AVRFBranch::clone() const {
+AVRBranch *AVRBranch::clone() const {
   return nullptr;
 }
 
-void AVRFBranch::print(formatted_raw_ostream &OS, unsigned Depth,
-                       unsigned VerbosityLevel) const {
+void AVRBranch::print(formatted_raw_ostream &OS, unsigned Depth,
+                      VerbosityLevel VLevel) const {}
+
+StringRef AVRBranch::getAvrTypeName() const {
+  return StringRef("BRANCH");
 }
+
+
+StringRef AVRBranch::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+
+  assert(!IsConditional && getNumSuccessors() > 0 &&
+	 "Invalid Avr Branch");
+
+  return StringRef(Successors[0]->getAvrValueName());
+}
+
 
 //----------AVR BackEdge Implementation----------//
 AVRBackEdge::AVRBackEdge(unsigned SCID)
@@ -94,7 +130,10 @@ AVRBackEdge *AVRBackEdge::clone() const {
 }
 
 void AVRBackEdge::print(formatted_raw_ostream &OS, unsigned Depth,
-                        unsigned VerbosityLevel) const {
+                        VerbosityLevel VLevel) const {}
+
+StringRef AVRBackEdge::getAvrTypeName() const {
+  return StringRef("BACKEDGE");
 }
 
 //----------AVR Entry Implementation----------//
@@ -106,7 +145,10 @@ AVREntry *AVREntry::clone() const {
 }
 
 void AVREntry::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
+                     VerbosityLevel VLevel) const {}
+
+StringRef AVREntry::getAvrTypeName() const {
+  return StringRef("ENTRY");
 }
 
 //----------AVR Return Implementation----------//
@@ -118,8 +160,47 @@ AVRReturn *AVRReturn::clone() const {
 }
 
 void AVRReturn::print(formatted_raw_ostream &OS, unsigned Depth,
-                      unsigned VerbosityLevel) const {
+                      VerbosityLevel VLevel) const {}
+
+StringRef AVRReturn::getAvrTypeName() const {
+  return StringRef("RETURN");
 }
+
+//----------------------------------------------------------------------------//
+// AVR Select Node
+//----------------------------------------------------------------------------//
+AVRSelect::AVRSelect(unsigned SCID, AVR *AComp)
+  : AVR(SCID), Compare(AComp) {}
+
+AVRSelect *AVRSelect::clone() const {
+  return nullptr;
+}
+
+void AVRSelect::print(formatted_raw_ostream &OS, unsigned Depth,
+                      VerbosityLevel VLevel) const {}
+
+StringRef AVRSelect::getAvrTypeName() const {
+  return StringRef("SELECT");
+}
+
+
+//----------------------------------------------------------------------------//
+// AVR Compare Node
+//----------------------------------------------------------------------------//
+AVRCompare::AVRCompare(unsigned SCID)
+  : AVR(SCID) {}
+
+AVRCompare *AVRCompare::clone() const {
+  return nullptr;
+}
+
+void AVRCompare::print(formatted_raw_ostream &OS, unsigned Depth,
+                       VerbosityLevel VLevel) const {}
+
+StringRef AVRCompare::getAvrTypeName() const {
+  return StringRef("COMPARE");
+}
+
 
 //----------------------------------------------------------------------------//
 // AVR Wrn Node
@@ -131,22 +212,37 @@ AVRWrn *AVRWrn::clone() const {
   return nullptr;
 }
 
-
 void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
-                   unsigned VerbosityLevel) const {
+                   VerbosityLevel VLevel) const {
 
-  std::string Indent(Depth * TabLength, ' ');
+  std::string Indent((Depth * TabLength), ' ');
 
-  if (VerbosityLevel > 0) {
+  OS << Indent;
 
-    OS << Indent <<"AVR_WRN:\n";
-
-    Depth++;
-    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
-      Itr->print(OS, Depth, VerbosityLevel);
-    }
-    // OS << Indent <<"END_AVR_WRN\n";
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+
+  Depth++;
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
+    Itr->print(OS, Depth, VLevel);
+  }
+}
+
+StringRef AVRWrn::getAvrTypeName() const {
+  return StringRef("WRN");
+}
+
+StringRef AVRWrn::getAvrValueName() const {
+  return StringRef("",0);
 }
 
 void AVRWrn::codeGen() {

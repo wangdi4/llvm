@@ -30,14 +30,18 @@ AVRAssignHIR *AVRAssignHIR::clone() const {
 }
 
 void AVRAssignHIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                      unsigned VerbosityLevel) const {
+                      VerbosityLevel VLevel) const {
   std::string Indent(Depth * TabLength, ' ');
 
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_ASSIGN: ";
-    Instruct->print(OS, Depth); 
+  if (VLevel > PrintBase) {
+    OS << Indent << "AVR_ASSIGN:";
+    Instruct->print(OS, Depth);
     OS << "\n" ;
   }
+}
+
+StringRef AVRAssignHIR::getAvrValueName() const {
+  return StringRef("");
 }
 
 //----------AVR Label for HIR Implementation----------//
@@ -49,31 +53,39 @@ AVRLabelHIR *AVRLabelHIR::clone() const {
 }
 
 void AVRLabelHIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
+                     VerbosityLevel VLevel) const {
   std::string Indent(Depth * TabLength, ' ');
 
-  if (VerbosityLevel > 0) {
+  if (VLevel > PrintBase) {
     OS << Indent << "AVR_LABEL:";
     Instruct->print(OS, Depth);
     OS << "\n" ;
   }
 }
 
-//----------AVR FBranch for HIR Implementation----------//
-AVRFBranchHIR::AVRFBranchHIR(HLNode * Inst)
-  : AVRFBranch(AVR::AVRFBranchHIRNode), Instruct(Inst) {}
+StringRef AVRLabelHIR::getAvrValueName() const {
+  return StringRef("");
+}
 
-AVRFBranchHIR *AVRFBranchHIR::clone() const {
+//----------AVR Branch for HIR Implementation----------//
+AVRBranchHIR::AVRBranchHIR(HLNode * Inst)
+  : AVRBranch(AVR::AVRBranchHIRNode), Instruct(Inst) {}
+
+AVRBranchHIR *AVRBranchHIR::clone() const {
   return nullptr;
 }
 
-void AVRFBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                       unsigned VerbosityLevel) const {
+void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
+                       VerbosityLevel VLevel) const {
   std::string Indent(Depth * TabLength, ' ');
 
-  if (VerbosityLevel > 0) {
+  if (VLevel > PrintBase) {
     OS << Indent << "AVR_FBRANCH:";
     Instruct->print(OS, Depth);
     OS << "\n" ;
   }
+}
+
+StringRef AVRBranchHIR::getAvrValueName() const {
+  return StringRef("");
 }

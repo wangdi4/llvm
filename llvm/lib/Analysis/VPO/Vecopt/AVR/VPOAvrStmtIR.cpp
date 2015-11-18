@@ -32,14 +32,31 @@ AVRAssignIR *AVRAssignIR::clone() const {
 }
 
 void AVRAssignIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                      unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                        VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_ASSIGN: ";
-    Instruct->print(OS); 
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVRAssignIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVRAssignIR::codeGen() {
@@ -65,16 +82,30 @@ AVRLabelIR *AVRLabelIR::clone() const {
 }
 
 void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                     VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent <<"AVR_LABEL:    " << this->SourceBlock->getName() << "\n";
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 }
 
-void AVRLabelIR::codeGen() {
+StringRef AVRLabelIR::getAvrValueName() const {
+  return getSourceBBlock()->getName();
 }
+
+void AVRLabelIR::codeGen() {}
 
 //----------AVR Phi for LLVM IR Implementation----------//
 AVRPhiIR::AVRPhiIR(Instruction * Inst)
@@ -85,14 +116,31 @@ AVRPhiIR *AVRPhiIR::clone() const {
 }
 
 void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                     VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_PHI:    ";
-    Instruct->print(OS);
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVRPhiIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVRPhiIR::codeGen() {
@@ -118,14 +166,31 @@ AVRCallIR *AVRCallIR::clone() const {
 }
 
 void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                    unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                      VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent <<"AVR_CALL:   ";
-    Instruct->print(OS);
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVRCallIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVRCallIR::codeGen() {
@@ -142,26 +207,57 @@ void AVRCallIR::codeGen() {
   DEBUG(inst->dump());
 }
 
-//----------AVR FBranch for LLVM IR Implementation----------//
-AVRFBranchIR::AVRFBranchIR(Instruction * Inst)
-  : AVRFBranch(AVR::AVRFBranchIRNode), Instruct(Inst) {}
+//----------AVR Branch for LLVM IR Implementation----------//
+AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
+  : AVRBranch(AVR::AVRBranchIRNode, false, Cond), Instruct(In) { 
 
-AVRFBranchIR *AVRFBranchIR::clone() const {
-  return nullptr;
-}
+  if (BranchInst *BI = dyn_cast<BranchInst>(In)) {
 
-void AVRFBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                       unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_FBRANCH:";
-    Instruct->print(OS);
-    OS << "\n" ;
+    if (BI->isConditional()) {
+      setIsConditional(true);
+      ThenBBlock = BI->getSuccessor(0);
+      ElseBBlock = BI->getSuccessor(1);
+    }
+    else {
+      setIsConditional(false);
+    }
   }
 }
 
-void AVRFBranchIR::codeGen() {
+AVRBranchIR *AVRBranchIR::clone() const {
+  return nullptr;
+}
+
+void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
+                        VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+}
+
+StringRef AVRBranchIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+
+  Instruct->print(RSO);
+ 
+  return StringRef(IString);
+}
+
+void AVRBranchIR::codeGen() {
   Instruction *inst;
 
   DEBUG(Instruct->dump());
@@ -184,14 +280,31 @@ AVRBackEdgeIR *AVRBackEdgeIR::clone() const {
 }
 
 void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                        unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                          VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_BACKEDGE:";
-    Instruct->print(OS);
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVRBackEdgeIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVRBackEdgeIR::codeGen() {
@@ -217,14 +330,31 @@ AVREntryIR *AVREntryIR::clone() const {
 }
 
 void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                       VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0 ) {
-    OS << Indent <<"AVR_ENTRY: ";
-    Instruct->print(OS);
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVREntryIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVREntryIR::codeGen() {
@@ -250,14 +380,31 @@ AVRReturnIR *AVRReturnIR::clone() const {
 }
 
 void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                      unsigned VerbosityLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
+                        VerbosityLevel VLevel) const {
 
-  if (VerbosityLevel > 0) {
-    OS << Indent << "AVR_RETURN: ";
-    Instruct->print(OS);
-    OS << "\n" ;
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
+}
+
+StringRef AVRReturnIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
 }
 
 void AVRReturnIR::codeGen() {
@@ -274,3 +421,111 @@ void AVRReturnIR::codeGen() {
   DEBUG(inst->dump());
 }
 
+//----------------------------------------------------------------------------//
+// AVR Select Node for LLVM IR
+//----------------------------------------------------------------------------//
+AVRSelectIR::AVRSelectIR(Instruction * Inst, AVRCompare *AComp)
+  : AVRSelect(AVR::AVRSelectIRNode, AComp), Instruct(Inst) {}
+
+AVRSelectIR *AVRSelectIR::clone() const {
+  return nullptr;
+}
+
+void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
+                        VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+}
+
+StringRef AVRSelectIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
+}
+
+void AVRSelectIR::codeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}
+
+//----------------------------------------------------------------------------//
+// AVR Compare Node for LLVM IR
+//----------------------------------------------------------------------------//
+AVRCompareIR::AVRCompareIR(Instruction *Inst)
+  : AVRCompare(AVR::AVRCompareIRNode), Instruct(Inst) {
+
+  setIsCompareSelect(false);
+  setSelect(nullptr);
+  setBranch(nullptr);
+}
+
+AVRCompareIR *AVRCompareIR::clone() const {
+  return nullptr;
+}
+
+void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
+                         VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  OS << Indent;
+
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      OS << getAvrTypeName();
+    case PrintBase:
+      OS << "{" << getAvrValueName() << "}\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+}
+
+StringRef AVRCompareIR::getAvrValueName() const {
+  std::string IString;
+  llvm::raw_string_ostream RSO(IString);
+  Instruct->print(RSO);
+
+  return StringRef(IString);
+}
+
+void AVRCompareIR::codeGen() {
+  Instruction *inst;
+
+  DEBUG(Instruct->dump());
+  inst = Instruct->clone();
+
+  if (!inst->getType()->isVoidTy())
+    inst->setName(Instruct->getName() + 
+                  ".VPOClone");
+
+  ReplaceInstWithInst(Instruct, inst);
+  DEBUG(inst->dump());
+}

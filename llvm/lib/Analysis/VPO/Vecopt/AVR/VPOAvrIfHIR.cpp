@@ -29,16 +29,20 @@ AVRIfHIR *AVRIfHIR::clone() const {
 }
 
 void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                  unsigned VerbosityLevel) const {
+                     VerbosityLevel VLevel) const {
   std::string Indent(Depth * TabLength, ' ');
 
-  if (VerbosityLevel > 0) { 
+  if (VLevel > PrintBase) { 
     OS << Indent << "AVR_IF: ";
     CompareInstruction->printHeader(OS, 0, false);
     OS << "\n";
   }
 
-  AVRIf::print(OS, Depth, VerbosityLevel);
+  AVRIf::print(OS, Depth, VLevel);
+}
+
+StringRef AVRIfHIR::getAvrValueName() const {
+  return StringRef("",0);
 }
 
 void AVRIfHIR::codeGen() {

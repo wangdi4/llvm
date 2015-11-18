@@ -44,8 +44,8 @@ public:
   /// \brief Returns a new AVRLabelHIR node.
   static AVRLabelHIR *createAVRLabelHIR(HLNode *Inst);
 
-  /// \brief Returns a new AVRFBranchHIR node.
-  static AVRFBranchHIR *createAVRFBranchHIR(HLNode *Inst);
+  /// \brief Returns a new AVRBranchHIR node.
+  static AVRBranchHIR *createAVRBranchHIR(HLNode *Inst);
 
   /// \brief Returns a new AVRIfHIR node.
   static AVRIfHIR *createAVRIfHIR(HLIf *Inst);

@@ -45,7 +45,7 @@ protected:
   /// \brief Copy Constructor. 
   AVRAssignHIR (const AVRAssignHIR &AVRAssignHIR);
 
-  /// \bried Sets up state object.
+  /// \brief Sets up state object.
   void initialize();
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -65,11 +65,14 @@ public:
 
   /// \brief Prints the AVRAssignHIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 };
 
 //----------AVR Label Node for HIR----------//
-/// \brief TODO
+/// \brief Avr Label node for HIR.
 class AVRLabelHIR : public AVRLabel {
 
 private:
@@ -84,10 +87,10 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-  ///\brief returns HIR Instruction assoicated with this Label.
+  /// \brief returns HIR Instruction assoicated with this Label.
   const HLNode *getHIRInstruction () const { return Instruct; }
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRLabelHIRNode;
   }
@@ -96,20 +99,23 @@ public:
 
   /// \brief Prints the AVRLabelHIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 };
 
-//----------AVR Fbranch Node for HIR----------//
+//----------AVR Branch Node for HIR----------//
 /// \brief An abstract vector forward branch node for HIR.
-class AVRFBranchHIR : public AVRFBranch {
+class AVRBranchHIR : public AVRBranch {
 
 private:
   HLNode *Instruct;
   // TODO: Add Member Data
 
 protected:
-  AVRFBranchHIR(HLNode *Inst);
-  virtual ~AVRFBranchHIR() override {}
+  AVRBranchHIR(HLNode *Inst);
+  virtual ~AVRBranchHIR() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsHIR;
@@ -120,16 +126,19 @@ public:
   /// \brief Returns FBranch Instruction
   const HLNode *getHIRInstruction() const { return Instruct; }
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return Node->getAVRID() == AVR::AVRFBranchHIRNode;
+    return Node->getAVRID() == AVR::AVRBranchHIRNode;
   }
 
-  AVRFBranchHIR *clone() const override;
+  AVRBranchHIR *clone() const override;
 
   /// \brief Prints the AVRFBranchHIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 };
 
 } // End VPO Vectorizer Namespace

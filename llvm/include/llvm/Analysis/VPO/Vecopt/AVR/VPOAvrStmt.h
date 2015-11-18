@@ -19,9 +19,16 @@
 #include "llvm/IR/Instruction.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
+#include "llvm/IR/Instructions.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
+
+// Forward Declarations
+class AVRIf;
+class AVRBranch;
+class AVRLabel;
+class AVRCompare;
 
 // Eric: Think about this.
 // TODO: Need to combine Call, Assign, Label, Phi, Fbranch, BackEdge, Entry,
@@ -47,6 +54,7 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRAssign : public AVR {
 
 protected:
+
   /// \brief AVRAssign Object Constructor.
   AVRAssign(unsigned SCID);
 
@@ -56,7 +64,7 @@ protected:
   /// \brief Copy Constructor. 
   AVRAssign (const AVRAssign &AVRAssign);
 
-  /// \bried Sets up state object.
+  /// \brief Sets up state object.
   void initialize();
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -64,29 +72,34 @@ protected:
 
 public:
 
-  /// \brief Returns the specified operand value.
-  const Value *getOperand(unsigned OperandNumber);
-
-  /// \brief Returns the number of operands for this instruction.
-  unsigned getNumOperands() const;
-
   AVRAssign *clone() const override;
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRAssignNode &&
+    return (Node->getAVRID() >= AVR::AVRAssignNode &&
             Node->getAVRID() < AVR::AVRAssignLastNode);
   }
 
   /// \brief Prints the AVRAssign node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 
 //----------AVR Label Node----------//
 /// \brief TODO
 class AVRLabel : public AVR {
+
+private:
+
+  /// Terminator - Terminator avr for this label. 
+  AVR *Terminator;
 
 protected:
 
@@ -97,9 +110,16 @@ protected:
   friend class AVRUtils;
 
 public:
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+
+  /// \brief Returns the AVRBranch terminator for this label
+  AVR *getTerminator() { return Terminator; }
+
+  /// \brief Sets the terminator (AVRBranch) for this label
+  void setTerminator(AVR *AB) { Terminator = AB; } 
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRLabelNode &&
+    return (Node->getAVRID() >= AVR::AVRLabelNode &&
             Node->getAVRID() < AVR::AVRLabelLastNode);
   }
 
@@ -107,7 +127,13 @@ public:
 
   /// \brief Prints the AVRLabel node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 
@@ -121,10 +147,6 @@ class AVRExpr : public AVR{
 /// \brief TODO
 class AVRPhi : public AVR {
 
-private:
-
-  // TODO: Add member data
-
 protected:
 
   AVRPhi(unsigned SCID);
@@ -134,11 +156,10 @@ protected:
   friend class AVRUtils;
 
 public:
-  // TODO: Add member functions
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRPhiNode &&
+    return (Node->getAVRID() >= AVR::AVRPhiNode &&
             Node->getAVRID() < AVR::AVRPhiLastNode);
   }
 
@@ -146,10 +167,15 @@ public:
 
   /// \brief Prints the AVRPhi node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
+
 };
-
-
 
 
 //----------AVR Call Node----------//
@@ -157,9 +183,11 @@ public:
 class AVRCall : public AVR {
 
 private:
+
   // TODO: Add Member Data
 
 protected:
+
   AVRCall(unsigned SCID);
   virtual ~AVRCall() override {}
 
@@ -169,9 +197,9 @@ protected:
   // TODO: Add Member Functions
 public:
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRCallNode &&
+    return (Node->getAVRID() >= AVR::AVRCallNode &&
             Node->getAVRID() < AVR::AVRCallLastNode);
   }
 
@@ -179,38 +207,95 @@ public:
 
   /// \brief Prints the AVRCall node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 
-//----------AVR Fbranch Node----------//
-/// \brief An abstract vector forward branch node.
-class AVRFBranch : public AVR {
+//----------------------------------------------------------------------------//
+// AVR Branch Node
+//----------------------------------------------------------------------------//
+/// \brief An abstract vector branch node. AVRBranches are generated for 
+/// conditional, non-conditional, and indirect branches. For loop backedge 
+/// branches we also generate AVRBranch.
+class AVRBranch : public AVR {
 
 private:
-  // TODO: Add Member Data
+
+  /// IsConditional - True if branch is conditional
+  bool IsConditional;
+
+  /// IsIndirect - True if branch is indirect.
+  bool IsIndirect;
+
+  // TODO: Consolidate Successors/ThenBBlock/ElseBBlock.
+
+  /// Successors - Vector containing avr labels which are the labels of the
+  /// successor basic blocks of this branch.
+  SmallVector<AVRLabel *, 2> Successors;
+
+  /// Condition - If conditional branch, pointer to the AVR which generates the
+  /// true/false bit for conditional branch.
+  AVR *Condition;
 
 protected:
-  AVRFBranch(unsigned SCID);
-  virtual ~AVRFBranch() override {}
+
+  /// \brief Create a new non-conditional branch to AVRLabel AL.
+  AVRBranch(AVRLabel *AL);
+
+  /// \brief Subclass constructor
+  AVRBranch(unsigned SCID, bool IsInd, AVR *Cond);
+
+  /// \brief Subclass constructor
+  AVRBranch(unsigned SCID);
+
+  virtual ~AVRBranch() override {}
+
+  /// \brief Sets the conditional branch flag.
+  void setIsConditional(bool IC) { IsConditional = IC; }
+
+  /// \brief Sets the Avr Condition node for a conditional branch.
+  void setCondition(AVR* Cond) { Condition = Cond; }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
-  // TODO: Add Member Functions
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Add the AVRLabel of a successor BBlock to successor vector.
+  void addSuccessor(AVRLabel *AL) { Successors.push_back(AL); }
+
+  /// \brief Returns number of successors to this branch.
+  unsigned getNumSuccessors() const { return Successors.size(); }
+
+  /// \brief Returns the condition avr for conditional branch.
+  AVR *getCondition() { return Condition; }
+
+  /// \brief Returns true if the forward branch is conditional
+  bool isConditional() { return IsConditional; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRFBranchNode &&
-            Node->getAVRID() < AVR::AVRFBranchLastNode);
+    return (Node->getAVRID() >= AVR::AVRBranchNode &&
+            Node->getAVRID() < AVR::AVRBranchLastNode);
   }
 
-  AVRFBranch *clone() const override;
+  AVRBranch *clone() const override;
 
-  /// \brief Prints the AVRFBranch node.
+  /// \brief Prints the AVRBranch node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
 };
 
@@ -220,9 +305,11 @@ public:
 class AVRBackEdge : public AVR {
 
 private:
+
   // TODO: Add Member Data
 
 protected:
+
   AVRBackEdge(unsigned SCID);
   virtual ~AVRBackEdge() override {}
 
@@ -230,11 +317,12 @@ protected:
   friend class AVRUtils;
 
 public:
+
   // TODO: Add Member Functions
 
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRBackEdgeNode &&
+    return (Node->getAVRID() >= AVR::AVRBackEdgeNode &&
             Node->getAVRID() < AVR::AVRBackEdgeLastNode);
   }
 
@@ -242,7 +330,13 @@ public:
 
   /// \brief Prints the AVRBackEdge node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 
@@ -252,9 +346,11 @@ public:
 class AVREntry : public AVR {
 
 private:
+
   // TODO: Add Member Data
 
 protected:
+
   AVREntry(unsigned SCID);
   virtual ~AVREntry() override {}
 
@@ -263,9 +359,10 @@ protected:
 
   // TODO: Add Member Functions
 public:
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVREntryNode &&
+    return (Node->getAVRID() >= AVR::AVREntryNode &&
             Node->getAVRID() < AVR::AVREntryLastNode);
   }
 
@@ -273,7 +370,13 @@ public:
 
   /// \brief Prints the AVREntry node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 
@@ -282,9 +385,11 @@ public:
 class AVRReturn : public AVR {
 
 private:
+
   // TODO: Add Member Data
 
 protected:
+
   AVRReturn(unsigned SCID);
   virtual ~AVRReturn() override {}
 
@@ -293,9 +398,10 @@ protected:
   friend class AVRUtils;
 
 public:
-  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRReturnNode &&
+    return (Node->getAVRID() >= AVR::AVRReturnNode &&
             Node->getAVRID() < AVR::AVRReturnLastNode);
   }
 
@@ -303,9 +409,127 @@ public:
 
   /// \brief Prints the AVRReturn node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
+
+//----------------------------------------------------------------------------//
+// AVR Select Node
+//----------------------------------------------------------------------------//
+/// \brief An abstract vector select node. 
+///
+class AVRSelect : public AVR {
+private:
+
+  /// Compare - AVR Compare when part of compare - select.
+  AVR *Compare;
+
+protected:
+
+  AVRSelect(unsigned SCID, AVR *AComp);
+  virtual ~AVRSelect() override {}
+
+  // TODO: Add Member Functions
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() >= AVR::AVRSelectNode &&
+            Node->getAVRID() < AVR::AVRSelectLastNode);
+  }
+
+  AVRSelect *clone() const override;
+
+  /// \brief Prints the AVRSelect node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
+
+};
+
+//----------------------------------------------------------------------------//
+// AVR Compare Node
+//----------------------------------------------------------------------------//
+/// \brief An abstract vector compare node. During first traversal of LLVM IR,
+/// Vectorizer generates AVRCompare nodes for icmp/fcmp LLVM IR instructions 
+/// encountered.  Later in AVR optimization, this AVR Cmpare is converted to 
+/// AVRIf.
+//
+class AVRCompare : public AVR {
+
+private:
+
+  /// Select - AVR Select generated for this compare
+  AVRSelect *Select;
+
+  /// IsCompareSelect - True if compare is part of compare-select sequence.
+  bool IsCompareSelect;
+
+  /// AVR Branch generated for this compare
+  AVRBranch *Branch;
+
+protected:
+
+  AVRCompare(unsigned SCID);
+  virtual ~AVRCompare() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  /// \brief Sets the AVRBranch for this compare
+  void setBranch(AVRBranch* BR) { Branch = BR; }
+
+  /// \brief Sets IsCompareSelect bit.
+  void setIsCompareSelect(bool CS) { IsCompareSelect = CS; }
+
+  /// \brief Sets the AVRSelect for this compare node.
+  void setSelect(AVRSelect* ASelect) { Select = ASelect; }
+
+  /// \brief Returns true is this compare has a select
+  bool isCompareSelect() { return IsCompareSelect; }
+
+  /// \brief Returns the AvrSelect for this compare.
+  AVRSelect *getSelect() { return Select; }
+
+  /// \brief Returns branch generated for this compare
+  AVRBranch *getBranch() { return Branch; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() >= AVR::AVRCompareNode &&
+            Node->getAVRID() < AVR::AVRCompareLastNode);
+  }
+
+  AVRCompare *clone() const override;
+
+  /// \brief Prints the AVRCompare node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
+
+};
+
 
 //----------------------------------------------------------------------------//
 // AVR Wrn Node
@@ -467,7 +691,13 @@ public:
 
   /// \brief Prints the AVRWrn node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-             unsigned VerbosityLevel) const override;
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR Return.
   void codeGen();

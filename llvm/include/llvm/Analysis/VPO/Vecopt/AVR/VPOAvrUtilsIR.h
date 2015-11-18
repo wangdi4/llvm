@@ -38,6 +38,12 @@ public:
 
   // Creation Utilities
 
+  /// \brief Returns a new AVRCompareIR node.
+  static AVRCompareIR *createAVRCompareIR(Instruction *Inst);
+
+  /// \brief Returns a new AVRSelectIR node.
+  static AVRSelectIR *createAVRSelectIR(Instruction *Inst, AVRCompare *AComp);
+
   /// \brief Returns a new AVRAssignIR node.
   static AVRAssignIR *createAVRAssignIR(Instruction *Inst);
 
@@ -50,8 +56,8 @@ public:
   /// \brief Returns a new AVRCallIR node.
   static AVRCallIR *createAVRCallIR(Instruction *Inst);
 
-  /// \brief Returns a new AVRFBranchIR node.
-  static AVRFBranchIR *createAVRFBranchIR(Instruction *Inst);
+  /// \brief Returns a new AVRBranchIR node.
+  static AVRBranchIR *createAVRBranchIR(Instruction *Inst, AVR *Cond = nullptr);
 
   /// \brief Returns a new AVRBackEdgeIR node.
   static AVRBackEdgeIR *createAVRBackEdgeIR(Instruction *Inst);
@@ -63,17 +69,9 @@ public:
   static AVRReturnIR *createAVRReturnIR(Instruction *Inst);
 
   /// \brief Returns a new AVRIfIR node.
-  static AVRIfIR *createAVRIfIR(Instruction *Inst);
+  static AVRIfIR *createAVRIfIR(AVRBranch *ABranch);
 
   // Search Utilities
-
-  /// \brief Search Avr and its children and return AVRLabelIR corresponding
-  /// to specified BB if found, nullptr if not found.
-  static AVRLabelIR *getAvrLabelForBB(BasicBlock* BB, AVR* Avr);
-
-  /// \brief Search Avr and its children and return AVRFBranchIR corresponding
-  /// to specified Terminator if found, nullptr if not found.
-  static AVRFBranchIR *getAvrBranchForTerm(Instruction* Terminator, AVR *Avr);
 
 };
 

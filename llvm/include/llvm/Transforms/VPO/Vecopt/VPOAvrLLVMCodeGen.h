@@ -66,7 +66,7 @@ private:
   IRBuilder<> Builder;
 
   // Loop backedge
-  AVRFBranchIR *LoopBackEdge;
+  AVRBranchIR *LoopBackEdge;
 
   // Induction variable PHI
   AVRPhiIR *InductionPhi;
@@ -90,7 +90,7 @@ private:
   void setOrigLoop(Loop *L) { OrigLoop = L; }
   void setTripCount(unsigned int TC) { TripCount = TC; }
   void setVL(int V) { VL = V; }
-  void setLoopBackEdge(AVRFBranchIR *FB) { LoopBackEdge = FB; }
+  void setLoopBackEdge(AVRBranchIR *FB) { LoopBackEdge = FB; }
   void setInductionPhi(AVRPhiIR *P) { InductionPhi = P; }
   void setInductionCmp(AVRIf *C) { InductionCmp = C; }
   void setStartValue(Value *SV) { StartValue = SV; }

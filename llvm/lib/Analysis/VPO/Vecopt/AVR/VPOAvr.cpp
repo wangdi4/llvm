@@ -22,8 +22,11 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
+unsigned AVR::GlobalNumber(0);
+
 AVR::AVR(unsigned SCID)
-  : SubClassID(SCID), Parent(nullptr), Number(0) {}
+  : SubClassID(SCID), Parent(nullptr) 
+{ Number = GlobalNumber++; }
 
 void AVR::destroy() {
   delete this;
@@ -34,10 +37,10 @@ void AVR::codeGen()  {
 }
 
 void AVR::dump() const {
-  this->dump(1);
+  this->dump(PrintType);
 }
 
-void AVR::dump(unsigned VerbosityLevel) const {
+void AVR::dump(VerbosityLevel VLevel) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS, 1, VerbosityLevel);
+  print(OS, 1, VLevel);
 }

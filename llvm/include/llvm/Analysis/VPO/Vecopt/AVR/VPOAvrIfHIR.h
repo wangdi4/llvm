@@ -67,7 +67,10 @@ public:
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-	     unsigned VerbosityLevel) const override;
+	     VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR IF
   void codeGen()  override;

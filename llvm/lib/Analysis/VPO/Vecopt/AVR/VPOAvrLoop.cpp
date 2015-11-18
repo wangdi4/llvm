@@ -47,23 +47,44 @@ AVR *AVRLoop::getLastChild() {
 }
 
 void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
-                    unsigned VerbosityLevel) const {
+                    VerbosityLevel VLevel) const {
 
-  std::string Indent(Depth * TabLength, ' ');
+  std::string Indent((Depth * TabLength), ' ');
 
-  if (VerbosityLevel > 0 ) {
+  OS << Indent;
 
-    OS << Indent  <<"AVR_LOOP:\n";
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintType:
+      // Always print avr loop type name.
+    case PrintBase:
+      OS << getAvrTypeName();
+      // TODO: Add IV Info
+      OS << "( IV )\n";
+      OS << Indent << "{\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
 
-    Depth++;
-    for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
-      Itr->print(OS, Depth, VerbosityLevel);
-    }
+  Depth++; 
+  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) {
+    Itr->print(OS, Depth, VLevel);
 
     // OS << Indent  <<"END_AVR_LOOP\n";
   }
+
+  OS << Indent << "}\n";
 }
 
+StringRef AVRLoop::getAvrTypeName() const {
+  return StringRef("LOOP");
+}
+
+StringRef AVRLoop::getAvrValueName() const {
+  return StringRef("",0);
+}
 
 void AVRLoop::codeGen() {
 

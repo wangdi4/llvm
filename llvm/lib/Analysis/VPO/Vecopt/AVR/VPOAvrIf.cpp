@@ -28,25 +28,65 @@ AVRIf *AVRIf::clone() const {
   return nullptr;
 }
 
+AVR *AVRIf::getFirstElseChild() {
+
+  if (hasElseChildren()) {
+    return ElseChildren.begin();
+  }
+  return nullptr;
+}
+
+AVR *AVRIf::getLastElseChild() {
+
+  if (hasElseChildren()) {
+    return ElseChildren.end();
+  }
+  return nullptr;
+}
+
+AVR *AVRIf::getFirstThenChild() {
+
+  if (hasThenChildren()) {
+    return ThenChildren.begin();
+  }
+  return nullptr;
+}
+
+AVR *AVRIf::getLastThenChild() {
+
+  if (hasThenChildren()) {
+    return ThenChildren.end();
+  }
+  return nullptr;
+}
+
 void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
-                  unsigned VerbosityLevel) const {
+                  VerbosityLevel VLevel) const { 
+
   std::string Indent(Depth * TabLength, ' ');
-
-  if (VerbosityLevel > 0) { 
+  Depth++;
+  // Print Then-children
+  if (hasThenChildren()) {
     for (auto Itr = then_begin(), E = then_end(); Itr != E; ++Itr) { 
-      Itr->print(OS, Depth + 1, VerbosityLevel);
+      Itr->print(OS, Depth, VLevel);
     }
+  }
 
-    if (hasElseChildren()) {
+  OS << Indent << "}\n";
 
-      OS << Indent << "ELSE:     ";
-      OS << "\n";
-      
-      for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) { 
-        Itr->print(OS, Depth + 1, VerbosityLevel);
-      }
+  // Print Else-children
+  if (hasElseChildren()) {
+
+    OS << Indent << "ELSE {\n";
+ 
+    for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) { 
+      Itr->print(OS, Depth, VLevel);
     }
-    
-    // OS << Indent << "END_AVR_IF\n";
+    OS << Indent << "}\n";
   }
 }
+
+StringRef AVRIf::getAvrTypeName() const {
+  return StringRef("IF");
+}
+

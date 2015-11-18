@@ -17,13 +17,13 @@
 #define LLVM_ANALYSIS_VPO_AVR_IF_H
 
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrStmt.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
 
-/// \brief If node abstract vector representation
-///
-/// An AVRIf node represents an if-statement found in LLVM IR or LoopOpt HIR.
+/// \brief If node abstract vector representation. An AVRIf node represents an
+/// if-statement found in LLVM IR or LoopOpt HIR.
 class AVRIf : public AVR {
 public:
 
@@ -42,9 +42,10 @@ public:
 
 private:
 
-  /// Container that holds IF children in 'Then' branch
+  /// ThenChildren - Container that holds IF children in 'Then' branch.
   IfChildrenTy ThenChildren;
-  /// Container that holds IF children in 'Else' branch
+
+  /// ElseChildren - Container that holds IF children in 'Else' branch.
   IfChildrenTy ElseChildren;
 
 protected:
@@ -99,7 +100,7 @@ public:
   /// \brief Returns the first else child if it exists, otherwise
   /// returns null.
   AVR *getFirstElseChild();
-  const AVR *getFirstelseChild() const {
+  const AVR *getFirstElseChild() const {
     return const_cast<AVRIf *>(this)->getFirstElseChild();
   }
 
@@ -123,13 +124,19 @@ public:
  
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
-    return (Node->getAVRID() > AVR::AVRIfNode &&
+    return (Node->getAVRID() >= AVR::AVRIfNode &&
             Node->getAVRID() < AVR::AVRIfLastNode);
   }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-	     unsigned VerbosityLevel) const override;
+	     VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const = 0;
 
 };
 

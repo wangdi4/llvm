@@ -27,20 +27,25 @@ namespace vpo {  // VPO Vectorizer Namespace
 /// An AVRIfIR node represents an if-statement found in LLVM IR.
 class AVRIfIR : public AVRIf {
 private:
-  /// If comparison instruction
-  Instruction *CompareInstruction;
+
+  /// Condition - Avr which contains condition that conditional branch uses
+  /// to branch to Then and Else blocks.
+  AVR *Condition;
+
+  /// Branch - Conditional branch that jumps to then and else blocks.
+  AVRBranch *AvrBranch;
 
 protected:
 
-  AVRIfIR(Instruction *CompareInst);
+  /// \brief Construct an AVRIf from LLVM. 
+  AVRIfIR(AVRBranch *ABranch);  
+
+  /// \brief Copy Constructor
   AVRIfIR (const AVRIfIR &AVRIfIR);
   virtual ~AVRIfIR() override {}
 
   /// \brief Sets up state object.
   void initialize();
-
-  // TODO: Get Predicate
-  // TODO: Get Conjuntion
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
@@ -56,15 +61,18 @@ public:
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
 
+  /// \brief Returns the Conditional AvrBranch for AvrIf.
+  AVRBranch *getAvrBranch() const { return AvrBranch; }
 
-  /// \brief Returns the underlying LLVM compare instruction for this AvrIf.
-  const Instruction *getCompareInstruction() const {
-    return CompareInstruction;
-  }
+  /// \brief Returns the AVR Condition for AvrIf.
+  AVR *getCondition() const { return Condition; }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-	     unsigned VerbosityLevel) const override;
+	     VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the value name of this node.
+  virtual StringRef getAvrValueName() const override;
 
   /// \brief Code generation for AVR IF
   void codeGen()  override;
