@@ -2484,6 +2484,7 @@ CreateCopyOfByValArgument(SDValue Src, SDValue Dst, SDValue Chain,
 /// supports tail call optimization.
 static bool IsTailCallConvention(CallingConv::ID CC) {
   return (CC == CallingConv::Fast || CC == CallingConv::GHC ||
+          CC == CallingConv::X86_RegCall || // INTEL
           CC == CallingConv::HiPE || CC == CallingConv::HHVM);
 }
 
@@ -3972,6 +3973,10 @@ bool X86::isCalleePop(CallingConv::ID CallingConv,
   case CallingConv::X86_FastCall:
   case CallingConv::X86_ThisCall:
     return !is64Bit;
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall:
+    return TailCallOpt;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 

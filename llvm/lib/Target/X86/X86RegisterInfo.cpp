@@ -256,6 +256,12 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall:
+    assert(!Subtarget.isTargetKnownWindowsMSVC() &&
+           "Windows target not supported yet");
+    return Is64Bit ? CSR_64_RegCall_SaveList : CSR_32_RegCall_SaveList;
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_SaveList;
   case CallingConv::Cold:
@@ -318,6 +324,12 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
   }
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall:
+    assert(!Subtarget.isTargetKnownWindowsMSVC() &&
+           "Windows target not supported yet");
+    return Is64Bit ? CSR_64_RegCall_RegMask: CSR_32_RegCall_RegMask;
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_RegMask;
   case CallingConv::Cold:
