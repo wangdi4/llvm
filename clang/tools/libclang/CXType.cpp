@@ -523,6 +523,7 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(C);
       TCALLINGCONV(X86StdCall);
       TCALLINGCONV(X86FastCall);
+      TCALLINGCONV(X86RegCall); // INTEL
       TCALLINGCONV(X86ThisCall);
       TCALLINGCONV(X86Pascal);
       TCALLINGCONV(X86VectorCall);

@@ -859,6 +859,20 @@ not require callee-cleanup.  See the documentation for `__fastcall`_ on MSDN.
   }];
 }
 
+// if INTEL_CUSTOMIZATION
+def RegCallDocs : Documentation {
+  let Category = DocCatCallingConvs;
+  let Content = [{
+On 32-bit x86 targets, this attribute changes the calling convention
+to __regcall convenntion as specified in the Intel Vector
+Function ABI. This calling convention differs from the x86 ABI in
+that scalar arguments are passed in GPRs, the order of GPRs used
+differs from the x86-64 ABI, and all XMM/YMM registers are used for
+vector/FP arguments.
+  }];
+}
+// endif INTEL_CUSTOMIZATION
+
 def ThisCallDocs : Documentation {
   let Category = DocCatCallingConvs;
   let Content = [{

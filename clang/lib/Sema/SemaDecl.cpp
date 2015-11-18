@@ -8016,7 +8016,12 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         // Windows system headers sometimes accidentally use stdcall without
         // (void) parameters, so we relax this to a warning.
         int DiagID =
-            CC == CC_X86StdCall ? diag::warn_cconv_knr : diag::err_cconv_knr;
+#if INTEL_CUSTOMIZATION
+            // CQ367576: __regcall CC support
+            (CC == CC_X86StdCall) || (CC == CC_X86RegCall)
+                   ? diag::warn_cconv_knr
+                   : diag::err_cconv_knr;
+#endif
         Diag(NewFD->getLocation(), DiagID)
             << FunctionType::getNameForCallConv(CC);
       }

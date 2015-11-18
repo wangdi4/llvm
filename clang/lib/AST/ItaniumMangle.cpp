@@ -967,6 +967,17 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
           getEffectiveDeclContext(ND)->isFileContext())
         Out << 'L';
 
+#if INTEL_CUSTOMIZATION
+      if (getASTContext().getLangOpts().IntelCompat) {
+        if (auto FD = dyn_cast<FunctionDecl>(ND))
+          if (FD->getType()->castAs<FunctionProtoType>()->getCallConv () ==
+                clang::CC_X86RegCall) {
+            // 12 is the length of "__regcall3__" prefix
+            Out << II->getLength()+12 << "__regcall3__" << II->getName();
+            break;
+          }
+      }
+#endif // INTEL_CUSTOMIZATION
       mangleSourceName(II);
       break;
     }

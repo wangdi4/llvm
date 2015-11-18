@@ -3630,6 +3630,7 @@ public:
     attr_noreturn,
     attr_cdecl,
     attr_fastcall,
+    attr_regcall, // INTEL
     attr_stdcall,
     attr_thiscall,
     attr_pascal,

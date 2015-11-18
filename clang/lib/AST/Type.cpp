@@ -2638,6 +2638,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_C: return "cdecl";
   case CC_X86StdCall: return "stdcall";
   case CC_X86FastCall: return "fastcall";
+  case CC_X86RegCall: return "regcall"; // INTEL
   case CC_X86ThisCall: return "thiscall";
   case CC_X86Pascal: return "pascal";
   case CC_X86VectorCall: return "vectorcall";
@@ -3053,6 +3054,7 @@ bool AttributedType::isCallingConv() const {
   case attr_pcs_vfp:
   case attr_cdecl:
   case attr_fastcall:
+  case attr_regcall:  // INTEL
   case attr_stdcall:
   case attr_thiscall:
   case attr_vectorcall:

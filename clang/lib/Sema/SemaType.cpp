@@ -105,6 +105,7 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
 #define FUNCTION_TYPE_ATTRS_CASELIST \
     case AttributeList::AT_NoReturn: \
     case AttributeList::AT_CDecl: \
+    case AttributeList::AT_RegCall: \
     case AttributeList::AT_FastCall: \
     case AttributeList::AT_StdCall: \
     case AttributeList::AT_ThisCall: \
@@ -4486,6 +4487,10 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_CDecl;
   case AttributedType::attr_fastcall:
     return AttributeList::AT_FastCall;
+#if INTEL_CUSTOMIZATION
+  case AttributedType::attr_regcall:
+    return AttributeList::AT_RegCall;
+#endif // INTEL_CUSTOMIZATION
   case AttributedType::attr_stdcall:
     return AttributeList::AT_StdCall;
   case AttributedType::attr_thiscall:
@@ -5762,6 +5767,10 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
     return AttributedType::attr_cdecl;
   case AttributeList::AT_FastCall:
     return AttributedType::attr_fastcall;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_RegCall:
+    return AttributedType::attr_regcall;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_StdCall:
     return AttributedType::attr_stdcall;
   case AttributeList::AT_ThisCall:

@@ -3961,6 +3961,13 @@ static void handleCallConvAttr(Sema &S, Decl *D, const AttributeList &Attr) {
                FastCallAttr(Attr.getRange(), S.Context,
                             Attr.getAttributeSpellingListIndex()));
     return;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_RegCall:
+    D->addAttr(::new (S.Context)
+               RegCallAttr(Attr.getRange(), S.Context,
+                            Attr.getAttributeSpellingListIndex()));
+    return;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_StdCall:
     D->addAttr(::new (S.Context)
                StdCallAttr(Attr.getRange(), S.Context,
@@ -4040,6 +4047,7 @@ bool Sema::CheckCallingConvAttr(const AttributeList &attr, CallingConv &CC,
   switch (attr.getKind()) {
   case AttributeList::AT_CDecl: CC = CC_C; break;
   case AttributeList::AT_FastCall: CC = CC_X86FastCall; break;
+  case AttributeList::AT_RegCall: CC = CC_X86RegCall; break;  // INTEL
   case AttributeList::AT_StdCall: CC = CC_X86StdCall; break;
   case AttributeList::AT_ThisCall: CC = CC_X86ThisCall; break;
   case AttributeList::AT_Pascal: CC = CC_X86Pascal; break;
@@ -5620,6 +5628,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_StdCall:
   case AttributeList::AT_CDecl:
   case AttributeList::AT_FastCall:
+  case AttributeList::AT_RegCall: // INTEL
   case AttributeList::AT_ThisCall:
   case AttributeList::AT_Pascal:
   case AttributeList::AT_VectorCall:

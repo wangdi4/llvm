@@ -398,6 +398,14 @@ void MicrosoftCXXNameMangler::mangle(const NamedDecl *D, StringRef Prefix) {
 
   // <mangled-name> ::= ? <name> <type-encoding>
   Out << Prefix;
+#if INTEL_CUSTOMIZATION
+  if (getASTContext().getLangOpts().IntelCompat)
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+      const FunctionProtoType *FT = FD->getType()->castAs<FunctionProtoType>();
+      if (FT->getCallConv () == clang::CC_X86RegCall)
+        Out << "__regcall3__";
+    }
+#endif  // INTEL_CUSTOMIZATION
   mangleName(D);
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(FD, Context.shouldMangleDeclName(FD));
@@ -1962,6 +1970,11 @@ void MicrosoftCXXNameMangler::mangleCallingConvention(CallingConv CC) {
     case CC_X86StdCall: Out << 'G'; break;
     case CC_X86FastCall: Out << 'I'; break;
     case CC_X86VectorCall: Out << 'Q'; break;
+#if INTEL_CUSTOMIZATION
+    case CC_X86RegCall:
+      //Intel requires another kind of CC mangling (Out << "__regcall3__";)
+      break;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 void MicrosoftCXXNameMangler::mangleCallingConvention(const FunctionType *T) {

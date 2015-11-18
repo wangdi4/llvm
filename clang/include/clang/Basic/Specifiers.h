@@ -212,6 +212,7 @@ namespace clang {
     CC_C,           // __attribute__((cdecl))
     CC_X86StdCall,  // __attribute__((stdcall))
     CC_X86FastCall, // __attribute__((fastcall))
+    CC_X86RegCall, // INTEL __attribute__((regcall))
     CC_X86ThisCall, // __attribute__((thiscall))
     CC_X86VectorCall, // __attribute__((vectorcall))
     CC_X86Pascal,   // __attribute__((pascal))
@@ -230,6 +231,7 @@ namespace clang {
     switch (CC) {
     case CC_X86StdCall:
     case CC_X86FastCall:
+    case CC_X86RegCall: // INTEL
     case CC_X86ThisCall:
     case CC_X86Pascal:
     case CC_X86VectorCall:

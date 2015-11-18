@@ -674,6 +674,11 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_X86FastCall:
       OS << " __attribute__((fastcall))";
       break;
+#if INTEL_CUSTOMIZATION
+    case CC_X86RegCall:
+      OS << " __attribute__((regcall))";
+      break;
+#endif // INTEL_CUSTOMIZATION
     case CC_X86ThisCall:
       OS << " __attribute__((thiscall))";
       break;
@@ -1304,6 +1309,7 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
 
   case AttributedType::attr_cdecl: OS << "cdecl"; break;
   case AttributedType::attr_fastcall: OS << "fastcall"; break;
+  case AttributedType::attr_regcall: OS << "regcall"; break;  // INTEL
   case AttributedType::attr_stdcall: OS << "stdcall"; break;
   case AttributedType::attr_thiscall: OS << "thiscall"; break;
   case AttributedType::attr_vectorcall: OS << "vectorcall"; break;

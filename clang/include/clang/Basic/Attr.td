@@ -395,6 +395,11 @@ def AllocSize : InheritableAttr {
                              "ExpectedFunctionOrMethod">;
   let Documentation = [Undocumented];
 }
+def RegCall : InheritableAttr {
+  let Spellings = [GCC<"regcall">, Keyword<"__regcall">,
+                   Keyword<"_regcall">];
+  let Documentation = [RegCallDocs];
+}
 //#endif // INTEL_CUSTOMIZATION
 
 def AlignValue : Attr {
