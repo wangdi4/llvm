@@ -3092,11 +3092,6 @@ cl_err_code ExecutionModule::EnqueueSVMMigrateMem(cl_command_queue clCommandQueu
                                              cl_event*        pEvent,
                                              ApiLogger*       apiLogger)
 {
-    if (!(flags & CL_MIGRATE_MEM_OBJECT_HOST) &&
-        !(flags & CL_MIGRATE_MEM_OBJECT_CONTENT_UNDEFINED))
-    {
-        return CL_INVALID_VALUE;
-    }
     if ((NULL == pEventWaitList && uiNumEventsInWaitList > 0) || (NULL != pEventWaitList && 0 == uiNumEventsInWaitList))
     {
         return CL_INVALID_EVENT_WAIT_LIST;
