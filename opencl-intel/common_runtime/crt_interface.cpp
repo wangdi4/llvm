@@ -1044,10 +1044,9 @@ clGetDeviceAndHostTimer( cl_device_id device,
         }
         else
         {
-            // TODO: Reopen the following code after CPU runtime has done in its dispatch table
-            //errCode = devInfo->m_origDispatchTable.clGetDeviceAndHostTimer( device,
-            //                                                                device_timestamp,
-            //                                                                host_timestamp );
+            errCode = devInfo->m_origDispatchTable.clGetDeviceAndHostTimer( device,
+                                                                            device_timestamp,
+                                                                            host_timestamp );
         }
     }
 
@@ -1082,9 +1081,8 @@ clGetHostTimer( cl_device_id device,
         }
         else
         {
-            // TODO: Reopen the following code after CPU runtime has done in its dispatch table
-            //errCode = devInfo->m_origDispatchTable.clGetHostTimer( device,
-            //                                                       host_timestamp );
+            errCode = devInfo->m_origDispatchTable.clGetHostTimer( device,
+                                                                   host_timestamp );
         }
     }
 
@@ -1221,6 +1219,31 @@ cl_int CL_API_CALL clGetCommandQueueInfo(
             if (param_value && param_value_size >= pValueSize)
             {
                 *((cl_context*)param_value) = crtQueue->m_contextCRT->m_context_handle;
+            }
+
+            if( param_value_size_ret )
+            {
+                *param_value_size_ret = pValueSize;
+            }
+        }
+        break;
+    case CL_QUEUE_DEVICE_DEFAULT:
+        {
+            pValueSize = sizeof( cl_command_queue );
+            if( param_value && param_value_size >= pValueSize )
+            {
+                errCode = crtQueue->m_cmdQueueDEV->dispatch->clGetCommandQueueInfo(
+                    crtQueue->m_cmdQueueDEV,
+                    param_name,
+                    param_value_size,
+                    param_value,
+                    param_value_size_ret );
+                if( errCode == CL_SUCCESS )
+                {
+                    cl_command_queue dev_command_q = *( ( cl_command_queue* )param_value );
+                    cl_command_queue crt_handle = crtQueue->m_contextCRT->GetDevCommandQueue( dev_command_q );
+                    *( ( cl_command_queue* )param_value ) = crt_handle;
+                }
             }
 
             if( param_value_size_ret )
@@ -9612,8 +9635,6 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
         return ( ( void* )( ptrdiff_t )GET_ALIAS( GetCRTInfo ) );
     }
 #endif
-// no accelerators for Android
-#ifndef __ANDROID__
     if( funcname && !strcmp( funcname, "clCreateAcceleratorINTEL" ) )
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clCreateAcceleratorINTEL ) );
@@ -9634,7 +9655,6 @@ CLAPI_EXPORT void * CL_API_CALL clGetExtensionFunctionAddress(
     {
         return ( ( void* )( ptrdiff_t )GET_ALIAS( clReleaseAcceleratorINTEL ) );
     }
-#endif //__ANDROID__
 #ifdef _WIN32
     if( funcname && !strcmp( funcname, "clCreateProfiledProgramWithSourceINTEL" ) )
     {

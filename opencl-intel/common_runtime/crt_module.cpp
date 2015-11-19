@@ -206,12 +206,10 @@ crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId)
     inDeviceId->dispatch->clCreateSubDevices      = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clCreateSubDevices;
     inDeviceId->dispatch->clReleaseDevice         = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clReleaseDevice;
     inDeviceId->dispatch->clRetainDevice          = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clRetainDevice;
-    // device id dependent API. Add these two API here. It should be safe.
-    // TODO: Reopen the following code after CPU runtime has done in its dispatch table
-    //inDeviceId->dispatch->clGetDeviceAndHostTimer =
-    //    crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceAndHostTimer;
-    //inDeviceId->dispatch->clGetHostTimer = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetHostTimer;
-    //
+
+    inDeviceId->dispatch->clGetDeviceAndHostTimer = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetDeviceAndHostTimer;
+    inDeviceId->dispatch->clGetHostTimer          = crt_ocl_module.m_icdDispatchMgr.m_icdDispatchTable.clGetHostTimer;
+    
     return CRT_SUCCESS;
 }
 
