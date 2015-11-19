@@ -831,7 +831,15 @@ class X86_32ABIInfo : public ABIInfo {
   Class classify(QualType Ty) const;
   ABIArgInfo classifyReturnType(QualType RetTy, CCState &State) const;
   ABIArgInfo classifyArgumentType(QualType RetTy, CCState &State) const;
-  bool shouldUseInReg(QualType Ty, CCState &State, bool &NeedsPadding) const;
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Updates the number of available free registers, returns 
+  /// true if any registers were allocated.
+  bool updateFreeRegs(QualType Ty, CCState &State) const;
+  bool shouldAggregateUseDirect(QualType Ty, CCState &State, bool &InReg,
+    bool &NeedsPadding) const;
+  bool shouldPrimitiveUseInReg(QualType Ty, CCState &State) const;
+#endif //INTEL_CUSTOMIZATION
 
   /// \brief Rewrite the function info so that all memory arguments use
   /// inalloca.
@@ -992,10 +1000,12 @@ void X86_32TargetCodeGenInfo::addReturnRegisterOutputs(
 bool X86_32ABIInfo::shouldReturnTypeInRegister(QualType Ty,
                                                ASTContext &Context) const {
   uint64_t Size = Context.getTypeSize(Ty);
-
-  // Type must be register sized.
-  if (!isRegisterSize(Size))
-    return false;
+#if INTEL_CUSTOMIZATION
+  // For i386, type must be register sized.
+  // For the MCU ABI, it only needs to be <= 8-byte
+  if ((IsMCUABI && Size > 64) || (!IsMCUABI && !isRegisterSize(Size)))
+#endif //INTEL_CUSTOMIZATION
+   return false;
 
   if (Ty->isVectorType()) {
     // 64- and 128- bit vectors inside structures are not returned in
@@ -1042,7 +1052,10 @@ ABIArgInfo X86_32ABIInfo::getIndirectReturnResult(QualType RetTy, CCState &State
   // integer register.
   if (State.FreeRegs) {
     --State.FreeRegs;
-    return getNaturalAlignIndirectInReg(RetTy);
+#if INTEL_CUSTOMIZATION
+    if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+      return getNaturalAlignIndirectInReg(RetTy);
   }
   return getNaturalAlignIndirect(RetTy, /*ByVal=*/false);
 }
@@ -1182,7 +1195,10 @@ ABIArgInfo X86_32ABIInfo::getIndirectResult(QualType Ty, bool ByVal,
   if (!ByVal) {
     if (State.FreeRegs) {
       --State.FreeRegs; // Non-byval indirects just use one pointer.
-      return getNaturalAlignIndirectInReg(Ty);
+#if INTEL_CUSTOMIZATION
+      if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+        return getNaturalAlignIndirectInReg(Ty);
     }
     return getNaturalAlignIndirect(Ty, false);
   }
@@ -1213,9 +1229,7 @@ X86_32ABIInfo::Class X86_32ABIInfo::classify(QualType Ty) const {
   return Integer;
 }
 
-bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
-                                   bool &NeedsPadding) const {
-  NeedsPadding = false;
+bool X86_32ABIInfo::updateFreeRegs(QualType Ty, CCState &State) const {
   if (!IsSoftFloatABI) {
     Class C = classify(Ty);
     if (C == Float)
@@ -1243,25 +1257,45 @@ bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
   }
 
   State.FreeRegs -= SizeInRegs;
+  return true;
+}
+
+bool X86_32ABIInfo::shouldAggregateUseDirect(QualType Ty, CCState &State, 
+  bool &InReg, bool &NeedsPadding) const {
+  NeedsPadding = false;
+  InReg = !IsMCUABI;
+
+  if (!updateFreeRegs(Ty, State))
+    return false;
+
+  if (IsMCUABI)
+    return true;
 
   if (State.CC == llvm::CallingConv::X86_FastCall ||
       State.CC == llvm::CallingConv::X86_VectorCall) {
-    if (Size > 32)
-      return false;
-
-    if (Ty->isIntegralOrEnumerationType())
-      return true;
-
-    if (Ty->isPointerType())
-      return true;
-
-    if (Ty->isReferenceType())
-      return true;
-
-    if (State.FreeRegs)
+    if (getContext().getTypeSize(Ty) <= 32 && State.FreeRegs)
       NeedsPadding = true;
 
     return false;
+  }
+
+  return true;
+}
+
+bool X86_32ABIInfo::shouldPrimitiveUseInReg(QualType Ty, CCState &State) const {
+  if (!updateFreeRegs(Ty, State))
+    return false;
+
+  if (IsMCUABI)
+    return false;
+
+  if (State.CC == llvm::CallingConv::X86_FastCall ||
+      State.CC == llvm::CallingConv::X86_VectorCall) {
+    if (getContext().getTypeSize(Ty) > 32)
+      return false;
+
+    return (Ty->isIntegralOrEnumerationType() || Ty->isPointerType() || 
+        Ty->isReferenceType());
   }
 
   return true;
@@ -1317,12 +1351,16 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
     llvm::LLVMContext &LLVMContext = getVMContext();
     llvm::IntegerType *Int32 = llvm::Type::getInt32Ty(LLVMContext);
-    bool NeedsPadding;
-    if (shouldUseInReg(Ty, State, NeedsPadding)) {
+#if INTEL_CUSTOMIZATION
+    bool NeedsPadding, InReg;
+    if (shouldAggregateUseDirect(Ty, State, InReg, NeedsPadding)) {
       unsigned SizeInRegs = (getContext().getTypeSize(Ty) + 31) / 32;
       SmallVector<llvm::Type*, 3> Elements(SizeInRegs, Int32);
       llvm::Type *Result = llvm::StructType::get(LLVMContext, Elements);
-      return ABIArgInfo::getDirectInReg(Result);
+      if (InReg)
+        return ABIArgInfo::getDirectInReg(Result);
+      else
+        return ABIArgInfo::getDirect(Result);
     }
     llvm::IntegerType *PaddingType = NeedsPadding ? Int32 : nullptr;
 
@@ -1330,8 +1368,11 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
     // of those arguments will match the struct. This is important because the
     // LLVM backend isn't smart enough to remove byval, which inhibits many
     // optimizations.
+    // Don't do this for the MCU if there are still free integer registers
+    // (see X86_64 ABI for full explanation).
     if (getContext().getTypeSize(Ty) <= 4*32 &&
-        canExpandIndirectArgument(Ty, getContext()))
+        canExpandIndirectArgument(Ty, getContext()) &&
+        (!IsMCUABI || State.FreeRegs == 0))
       return ABIArgInfo::getExpandWithPadding(
           State.CC == llvm::CallingConv::X86_FastCall ||
               State.CC == llvm::CallingConv::X86_VectorCall,
@@ -1339,6 +1380,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
     return getIndirectResult(Ty, true, State);
   }
+#endif //INTEL_CUSTOMIZATION
 
   if (const VectorType *VT = Ty->getAs<VectorType>()) {
     // On Darwin, some vectors are passed in memory, we handle this by passing
@@ -1361,8 +1403,9 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   if (const EnumType *EnumTy = Ty->getAs<EnumType>())
     Ty = EnumTy->getDecl()->getIntegerType();
 
-  bool NeedsPadding;
-  bool InReg = shouldUseInReg(Ty, State, NeedsPadding);
+#if INTEL_CUSTOMIZATION
+  bool InReg = shouldPrimitiveUseInReg(Ty, State);
+#endif //INTEL_CUSTOMIZATION
 
   if (Ty->isPromotableIntegerType()) {
     if (InReg)
@@ -1376,15 +1419,17 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   CCState State(FI.getCallingConvention());
-  if (State.CC == llvm::CallingConv::X86_FastCall)
+#if INTEL_CUSTOMIZATION
+  if (IsMCUABI)
+    State.FreeRegs = 3;
+#endif //INTEL_CUSTOMIZATION
+  else if (State.CC == llvm::CallingConv::X86_FastCall)
     State.FreeRegs = 2;
   else if (State.CC == llvm::CallingConv::X86_VectorCall) {
     State.FreeRegs = 2;
     State.FreeSSERegs = 6;
   } else if (FI.getHasRegParm())
     State.FreeRegs = FI.getRegParm();
-  else if (IsMCUABI)
-    State.FreeRegs = 3;
   else
     State.FreeRegs = DefaultNumRegisterParameters;
 
@@ -1395,7 +1440,10 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     // return value was sret and put it in a register ourselves if appropriate.
     if (State.FreeRegs) {
       --State.FreeRegs;  // The sret parameter consumes a register.
-      FI.getReturnInfo().setInReg(true);
+#if INTEL_CUSTOMIZATION
+      if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+        FI.getReturnInfo().setInReg(true);
     }
   }
 
