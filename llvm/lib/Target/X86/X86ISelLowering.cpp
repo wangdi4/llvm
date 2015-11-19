@@ -2438,29 +2438,33 @@ enum StructReturnType {
   RegStructReturn,
   StackStructReturn
 };
+#if INTEL_CUSTOMIZATION
 static StructReturnType
-callIsStructReturn(const SmallVectorImpl<ISD::OutputArg> &Outs) {
+callIsStructReturn(const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsMCU) {
+#endif //INTEL_CUSTOMIZATION
   if (Outs.empty())
     return NotStructReturn;
 
   const ISD::ArgFlagsTy &Flags = Outs[0].Flags;
   if (!Flags.isSRet())
     return NotStructReturn;
-  if (Flags.isInReg())
+  if (Flags.isInReg() || IsMCU) //INTEL_CUSTOMIZATION
     return RegStructReturn;
   return StackStructReturn;
 }
 
 /// Determines whether a function uses struct return semantics.
+#if INTEL_CUSTOMIZATION
 static StructReturnType
-argsAreStructReturn(const SmallVectorImpl<ISD::InputArg> &Ins) {
+argsAreStructReturn(const SmallVectorImpl<ISD::InputArg> &Ins, bool IsMCU) {
+#endif //INTEL_CUSTOMIZATION
   if (Ins.empty())
     return NotStructReturn;
 
   const ISD::ArgFlagsTy &Flags = Ins[0].Flags;
   if (!Flags.isSRet())
     return NotStructReturn;
-  if (Flags.isInReg())
+  if (Flags.isInReg() || IsMCU) //INTEL_CUSTOMIZATION
     return RegStructReturn;
   return StackStructReturn;
 }
@@ -2892,9 +2896,11 @@ SDValue X86TargetLowering::LowerFormalArguments(
   } else {
     FuncInfo->setBytesToPopOnReturn(0); // Callee pops nothing.
     // If this is an sret function, the return should pop the hidden pointer.
+#if INTEL_CUSTOMIZATION
     if (!Is64Bit && !IsTailCallConvention(CallConv) &&
         !Subtarget->getTargetTriple().isOSMSVCRT() &&
-        argsAreStructReturn(Ins) == StackStructReturn)
+        argsAreStructReturn(Ins, Subtarget->isTargetMCU()) == StackStructReturn)
+#endif //INTEL_CUSTOMIZATION
       FuncInfo->setBytesToPopOnReturn(4);
   }
 
@@ -3016,7 +3022,9 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   MachineFunction &MF = DAG.getMachineFunction();
   bool Is64Bit        = Subtarget->is64Bit();
   bool IsWin64        = Subtarget->isCallingConvWin64(CallConv);
-  StructReturnType SR = callIsStructReturn(Outs);
+#if INTEL_CUSTOMIZATION
+  StructReturnType SR = callIsStructReturn(Outs, Subtarget->isTargetMCU());
+#endif //INTEL_CUSTOMIZATION
   bool IsSibcall      = false;
   X86MachineFunctionInfo *X86Info = MF.getInfo<X86MachineFunctionInfo>();
   auto Attr = MF.getFunction()->getFnAttribute("disable-tail-calls");
@@ -27587,7 +27595,7 @@ bool X86TargetLowering::isIntDivCheap(EVT VT, AttributeSet Attr) const {
   return OptSize && !VT.isVector();
 }
 
-#if INTEL_CUSTOMIZATION
+#ifndef INTEL_CUSTOMIZATION
 void X86TargetLowering::markInRegArguments(SelectionDAG &DAG,
        TargetLowering::ArgListTy& Args) const {
   // The MCU psABI requires some arguments to be passed in-register.
