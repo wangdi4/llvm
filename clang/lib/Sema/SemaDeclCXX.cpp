@@ -12875,7 +12875,10 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
 #ifdef INTEL_CUSTOMIZATION
       // Fix for CQ#374679: Several negative tests are failed after promotion
       // due to patches allowing too permissive xmain's behavior.
-      } else if (!D.isFunctionDefinition())
+      // Fix for CQ#376452: friend declaration specifying a default argument
+      // must be a definition.
+      } else if (!D.isFunctionDefinition() &&
+                 FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #endif // INTEL_CUSTOMIZATION
     }
