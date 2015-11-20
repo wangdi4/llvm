@@ -3609,7 +3609,9 @@ public:
     LongDoubleWidth = 96;
     LongDoubleAlign = 32;
     SuitableAlign = 128;
-    DataLayoutString = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
+    DataLayoutString = Triple.isOSIAMCU()
+                           ? "e-m:e-p:32:32-i64:32-f64:32-n8:16:32-a:0:32-S32"
+                           : "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
     IntPtrType = SignedInt;
