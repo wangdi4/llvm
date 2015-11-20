@@ -127,12 +127,7 @@ cl_int CPUDeviceConfig::GetVectorizerMode() const
 
 bool CPUDeviceConfig::IsSpirSupported() const
 {
-    // disabled only in Android
-#ifdef __ANDROID__
-    return false;
-#else
     return true;
-#endif
 }
 
 bool CPUDeviceConfig::IsGLDirectXSupported() const

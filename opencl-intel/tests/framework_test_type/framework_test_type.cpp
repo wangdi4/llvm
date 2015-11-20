@@ -8,6 +8,7 @@
 #include "cl_user_logger.h"
 #include "CL21.h"
 #include "CL20.h"
+#include "CL.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -499,6 +500,10 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
+TEST_F(CL, Test_CheckExtensions)
+{
+    CheckExtensions();
+}
 /////////////////////////////////////////////////////////////////////
 //////////////      CL20 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -558,7 +563,6 @@ TEST_F(CL21, clEnqueueSVMMigrateMem)
 {
     EnqueueSVMMigrateMem_Positive();
 }
-
 TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE)
 {
     GetKernelSubGroupInfo_MAX_SB_SIZE();
