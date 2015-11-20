@@ -370,6 +370,14 @@ private:
   void visitShuffleVectorInst(ShuffleVectorInst &AI);
   void visitLandingPadInst(LandingPadInst &AI);
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI);
+  void visitCatchPadInst(CatchPadInst &AI);
+  void visitCleanupPadInst(CleanupPadInst &AI);
+  void visitTerminatePadInst(TerminatePadInst &AI);
+  void visitCleanupReturnInst(CleanupReturnInst &AI);
+  void visitCatchReturnInst(CatchReturnInst &AI);
+  void visitCleanupEndPadInst(CleanupEndPadInst &AI);
+
+  void processWinEhOperands(Instruction &AI);
  
 };
 

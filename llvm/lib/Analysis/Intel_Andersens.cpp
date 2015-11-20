@@ -341,16 +341,6 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
-  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-    if (F->hasPersonalityFn()) {
-      EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
-
-      if (isFuncletEHPersonality(Personality)) {
-        ValueNodes.clear();
-        return;
-      }
-    }
-  }
 
   IndirectCallList.clear();
   IdentifyObjects(M);
@@ -1489,6 +1479,11 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
   case Instruction::Resume:
   case Instruction::IndirectBr:
   case Instruction::Fence:
+
+  // Syntax:
+  //     catchendpad unwind label <nextaction>
+  //     catchendpad unwind to caller
+  case Instruction::CatchEndPad:
     return;
 
   default:
@@ -1496,6 +1491,82 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
     errs() << "Unknown instruction: " << I;
     llvm_unreachable(0);
   }
+}
+
+// Treat args of WinEH instructions conservatively. 
+void AndersensAAResult::processWinEhOperands(Instruction &AI) {
+  for (unsigned Op = 0, NumOps = AI.getNumOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//      CatchReturn <value> unwind label %label
+//
+void AndersensAAResult::visitCatchReturnInst(CatchReturnInst &AI) {
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      <resultval> = catchpad <resultty> [<args>*]
+//          to label <normal label> unwind label <exception label>
+//
+void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getArgOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//     <resultval> = cleanuppad <resultty> [<args>*]
+//
+void AndersensAAResult::visitCleanupPadInst(CleanupPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      CleanupEndPad <type> <value> unwind label <continue>
+//
+void AndersensAAResult::visitCleanupEndPadInst(CleanupEndPadInst &AI) {
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      terminatepad [<args>*] unwind label <exception label>
+//      terminatepad [<args>*] unwind to caller
+//
+void AndersensAAResult::visitTerminatePadInst(TerminatePadInst &AI) {
+  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getArgOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//      cleanupret <type> <value> unwind label <continue>
+//      cleanupret <type> <value> unwind to caller
+//
+void AndersensAAResult::visitCleanupReturnInst(CleanupReturnInst &AI) {
+  processWinEhOperands(AI);
 }
 
 void AndersensAAResult::visitInsertValueInst(InsertValueInst &AI) {
