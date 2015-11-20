@@ -129,7 +129,9 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       IsZttDDRef = cast<HLLoop>(this)->isZttOperandDDRef(*I);
     }
 
-    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : (void)(OS << "<REG> ");
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : isLval(*I)
+                                                  ? (void)(OS << "<LVAL-REG> ")
+                                                  : (void)(OS << "<RVAL-REG> ");
 
     (*I)->print(OS, true);
 
@@ -140,6 +142,10 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       if (IsLoop) {
         OS << "| ";
       }
+
+      // Add extra indentation for blob ddrefs.
+      OS.indent(IndentWidth);
+
       OS << "<BLOB> ";
       (*B)->print(OS, true);
       OS << "\n";

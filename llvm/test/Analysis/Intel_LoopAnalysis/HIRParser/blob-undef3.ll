@@ -1,15 +1,15 @@
 ; Check HIR parsing of cases with undefined values in CanonExpr (Blob Coef in Mul)
 ; |   (%A)[0][i1] = 5 * i1 + undef * %0 + 1;
-; |   <REG> (LINEAR [5 x i32]* %A)[0][LINEAR i64 i1] {sb:0}
-; |   <BLOB> LINEAR [5 x i32]* %A {sb:12}
-; |   <REG> NON-LINEAR i32 5 * i1 + undef * %0 + 1 {undefined} {sb:9}
-; |   <BLOB> LINEAR i32 undef {undefined} {sb:13}
-; |   <BLOB> NON-LINEAR i32 %0 {sb:5}
+; |   <LVAL-REG> (LINEAR [5 x i32]* %A)[0][LINEAR i64 i1] {sb:0}
+; |      <BLOB> LINEAR [5 x i32]* %A {sb:12}
+; |   <RVAL-REG> NON-LINEAR i32 5 * i1 + undef * %0 + 1 {undefined} {sb:9}
+; |      <BLOB> LINEAR i32 undef {undefined} {sb:13}
+; |      <BLOB> NON-LINEAR i32 %0 {sb:5}
 
 ; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: ={{.*}}undef * %0{{.*}};
-; CHECK: <REG>{{.*}}undef * %0{{.*}} {undefined}
+; CHECK: <RVAL-REG>{{.*}}undef * %0{{.*}} {undefined}
 ; CHECK: <BLOB> LINEAR {{.*}} undef {undefined}
 
 ; ModuleID = '2.ll'

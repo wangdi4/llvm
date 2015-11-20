@@ -42,9 +42,9 @@ const int MaxLoopNestLevel = 9;
 /// This class represents the closed form as a linear equation in terms of
 /// induction variables and blobs. It is essentially an array of coefficients
 /// of induction variables and blobs. A blob is usually a non-inductive,
-/// loop invariant variable but is allowed to vary under some cases where a more
-/// generic representation is required. Blob exprs are represented using SCEVs
-/// and mapped to blob indexes.
+/// loop invariant variable but is allowed to vary under some cases where a
+/// more generic representation is required. Blob exprs are represented using
+/// SCEVs and mapped to blob indexes.
 /// The denominator is always stored as a positive value. If a client sets a
 /// negative denominator value, the numerator is negated instead.
 ///
@@ -66,7 +66,8 @@ const int MaxLoopNestLevel = 9;
 class CanonExpr {
 private:
   struct BlobIndexToCoeff {
-    /// Valid index range is [1, UINT_MAX]. If this is associated with an IV, 0
+    /// Valid index range is [1, UINT_MAX]. If this is associated with an IV,
+    /// 0
     /// implies a constant only coefficient.
     unsigned Index;
     int64_t Coeff;
@@ -140,8 +141,8 @@ private:
   // faster lookup.
   static BlobToIndexTy BlobToIndexMap;
 
-  // SrcTy and DestTy hide one level of casting applied on top of the canonical
-  // form.
+  // SrcTy and DestTy hide one level of casting applied on top of the
+  // canonical form.
   // If they are different, either both are integer types(regular canon exprs)
   // or pointer types(base canon exprs of GEP DDRefs).
   // Both types are identical in the absence of casting.
@@ -157,8 +158,8 @@ private:
   // Capture whether we are representing signed or unsigned division.
   bool IsSignedDiv;
 
-  // The flag is set if expression contains UndefValue term
-  bool IsUndefined;
+  // The flag is set if canon expr contains UndefValue.
+  bool ContainsUndef;
 
 protected:
   CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
@@ -203,17 +204,17 @@ protected:
   /// non-temp non-present blobs.
   static unsigned getBlobSymbase(unsigned Index);
 
-  /// \brief Maps blobs in Blobs to their corresponding indices and inserts them
-  /// in Indices.
+  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
+  /// them in Indices.
   static void mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
                                 SmallVectorImpl<unsigned> &Indices);
 
-  /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
-  /// functionality.
+  /// \brief Implements hasIV()/numIV() and
+  /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.
   unsigned numIVImpl(bool CheckIVPresence, bool CheckBlobCoeffs) const;
 
-  /// \brief Resizes IVCoeffs to max loopnest level if the passed in level goes
-  /// beyond the current size. This will avoid future reallocs.
+  /// \brief Resizes IVCoeffs to max loopnest level if the passed in level
+  /// goes beyond the current size. This will avoid future reallocs.
   void resizeIVCoeffsToMax(unsigned Lvl);
 
   /// \brief Sets blob/const coefficient of an IV at a particular loop level.
@@ -243,8 +244,14 @@ protected:
   void collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique, bool NeedTempBlobs) const;
 
-  /// \brief Marks this expressions as undefined.
-  void setUndefined(bool Undefined = true) { this->IsUndefined = Undefined; }
+  /// \brief Marks this canon expr as containing undefined value.
+  void setContainsUndef() { this->ContainsUndef = true; }
+
+  /// \brief Returns true if the canon expr represents a constant.
+  bool isConstInternal() const {
+    return (!containsUndef() && !hasIV() && !hasBlob() &&
+            (getDenominator() == 1));
+  }
 
 public:
   CanonExpr *clone() const;
@@ -338,26 +345,38 @@ public:
   reverse_blob_iterator blob_rend() { return BlobCoeffs.rend(); }
   const_reverse_blob_iterator blob_rend() const { return BlobCoeffs.rend(); }
 
-  /// \brief Returns true if constant integer and its value, otherwise false
-  bool isConstant(int64_t *Val = nullptr) const {
-
-    bool result =
-        !(isUndefined() || hasIV() || hasBlob() || (getDenominator() != 1));
-
-    if (result && Val != nullptr) {
-      *Val = getConstant();
-    }
-
-    return result;
+  /// \brief Returns true if canon expr represents any kind of constant.
+  bool isConstant() const {
+    return (isIntConstant() || isFPConstant() || isNull());
   }
-  /// \brief Returns true if this canon expr looks something like (1 * %t) i.e.
+
+  /// \brief Returns true if canon expr is a constant integer. Integer value
+  /// is returned in Val.
+  bool isIntConstant(int64_t *Val = nullptr) const;
+
+  /// \brief Returns true if canon expr represents a floating point constant.
+  bool isFPConstant() const;
+
+  /// \brief Returns true if canon expr represents null pointer value.
+  bool isNull() const;
+
+  /// \brief Returns true if this canon expr looks soemthing like (1 * %t).
+  /// This is a broader check than isSelfBlob() because it allows the blob to
+  /// be a FP constant or even metadata.
+  bool isStandAloneBlob() const {
+    return (!hasIV() && !getConstant() && (getDenominator() == 1) &&
+            (numBlobs() == 1) && (getSingleBlobCoeff() == 1));
+  }
+
+  /// \brief Returns true if this canon expr looks something like (1 * %t)
+  /// i.e.
   /// a single blob with a coefficient of 1.
   bool isSelfBlob() const;
 
   /// \brief return true if the CanonExpr is zero
   bool isZero() const {
     int64_t Val;
-    if (isConstant(&Val) && Val == 0) {
+    if (isIntConstant(&Val) && Val == 0) {
       return true;
     }
     return false;
@@ -366,14 +385,20 @@ public:
   /// \brief return true if the CanonExpr is one
   bool isOne() const {
     int64_t Val;
-    if (isConstant(&Val) && Val == 1) {
+    if (isIntConstant(&Val) && Val == 1) {
       return true;
     }
     return false;
   }
 
   /// \brief Returns true if this expression contains undefined terms.
-  bool isUndefined() const { return IsUndefined; }
+  bool containsUndef() const { return ContainsUndef; }
+  /// \brief Indicates that the canon expr does not contain undefined terms
+  /// anymore.
+  /// NOTE: Canon expr can internally maintain this flag by inspecting all the
+  /// blobs but not sure if it is worth implementing as it will unnecessarily
+  /// increase compile time.
+  void unsetContainsUndef() { ContainsUndef = false; }
 
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
@@ -400,7 +425,8 @@ public:
   /// division.
   bool isSignedDiv() const { return IsSignedDiv; }
 
-  /// \brief Sets the division type which can be either signed or unsigned. This
+  /// \brief Sets the division type which can be either signed or unsigned.
+  /// This
   /// is a no-op for unit denominator.
   void setDivisionType(bool SignedDiv) { IsSignedDiv = SignedDiv; }
 
@@ -437,9 +463,8 @@ public:
   /// \brief Iterator version of setIVCoeff().
   void setIVCoeff(iv_iterator IVI, unsigned Index, int64_t Coeff);
 
-  /// \brief Returns the blob coefficient associated with an IV at a particular
-  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns invalid value if
-  /// there is no blob coeff.
+  /// \brief Returns the blob coefficient associated with an IV at a
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns invalid value if there is no blob coeff.
   unsigned getIVBlobCoeff(unsigned Lvl) const;
   /// \brief Iterator version of getIVBlobCoeff().
   unsigned getIVBlobCoeff(const_iv_iterator ConstIVIter) const;
@@ -461,8 +486,8 @@ public:
   /// \brief Iterator version of getIVConstCoeff().
   int64_t getIVConstCoeff(const_iv_iterator ConstIVIter) const;
 
-  /// \brief Sets the constant coefficient associated with an IV at a particular
-  /// loop level. Lvl's range is [1, MaxLoopNestLevel]
+  /// \brief Sets the constant coefficient associated with an IV at a
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel].
   void setIVConstCoeff(unsigned Lvl, int64_t Coeff);
   /// \brief Iterator version of setIVConstCoeff().
   void setIVConstCoeff(iv_iterator IVI, int64_t Coeff);
@@ -472,11 +497,8 @@ public:
   /// \brief Iterator version of hasIVBlobCoeff().
   bool hasIVConstCoeff(const_iv_iterator ConstIVIter) const;
 
-  /// \brief Adds to the existing blob/constant IV coefficients at a particular
-  /// loop level. The new IV coefficient looks something like (C1 * b1 + C2 *
-  /// b2). Index can be set to zero if only a constant needs to be added. For
-  /// example if the canon expr looks like (2 * n) * i1 before change, it will
-  /// be modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3).
+  /// \brief Adds to the existing blob/constant IV coefficients at a
+  /// particular loop level. The new IV coefficient looks something like (C1 * b1 + C2 * b2). Index can be set to zero if only a constant needs to be added. For example if the canon expr looks like (2 * n) * i1 before change, it will be modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3).
   void addIV(unsigned Lvl, unsigned Index, int64_t Coeff);
   /// \brief Iterator version of addIV().
   void addIV(iv_iterator IVI, unsigned Index, int64_t Coeff);
@@ -540,7 +562,8 @@ public:
   /// \brief Clears all the IV coefficients from the CanonExpr.
   void clearIVs();
 
-  /// \brief Clears all the blobs (excluding blob IV coeffs) from the CanonExpr.
+  /// \brief Clears all the blobs (excluding blob IV coeffs) from the
+  /// CanonExpr.
   void clearBlobs() { BlobCoeffs.clear(); }
 
   /// \brief Shifts the canon expr by a constant offset at a particular loop
@@ -553,14 +576,14 @@ public:
   void multiplyByBlob(unsigned Index);
 
   /// \brief Populates Indices with all the blobs contained in the CanonExpr
-  /// (including blob IV coeffs). The blobs are sorted and uniqued if MakeUnique
-  /// is true.
+  /// (including blob IV coeffs). The blobs are sorted and uniqued if
+  /// MakeUnique is true.
   void collectBlobIndices(SmallVectorImpl<unsigned> &Indices,
                           bool MakeUnique = true) const;
 
   /// \brief Populates Indices with all the temp blobs contained in the
-  /// CanonExpr (including blob IV coeffs). The blobs are sorted and uniqued if
-  /// MakeUnique is true.
+  /// CanonExpr (including blob IV coeffs). The blobs are sorted and uniqued
+  /// if MakeUnique is true.
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique = true) const;
 

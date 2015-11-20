@@ -70,7 +70,7 @@ protected:
                   !std::is_convertible<T *, RefTy *>::value>::type * = 0) {}
 
   void addRefImpl(RefTy *Ref) {
-    if (!(Mode & UndefRefs) && Ref->isUndefined()) {
+    if (!(Mode & UndefRefs) && Ref->containsUndef()) {
       return;
     }
 

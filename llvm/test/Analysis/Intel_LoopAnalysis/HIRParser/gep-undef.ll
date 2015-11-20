@@ -1,14 +1,14 @@
 ; Check HIR parsing of cases with undefined values in GEP instruction
 ; |   (undef)[undef][sext.i32.i64(undef)] = 5 * i1;
-; |   <REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {undefined} {sb:0}
-; |   <BLOB> LINEAR i32 undef {undefined} {sb:10}
-; |   <BLOB> LINEAR [5 x i32]* undef {undefined} {sb:9}
-; |   <REG> LINEAR i32 5 * i1 {sb:4}
+; |   <LVAL-REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {undefined} {sb:0}
+; |      <BLOB> LINEAR i32 undef {undefined} {sb:10}
+; |      <BLOB> LINEAR [5 x i32]* undef {undefined} {sb:9}
+; |   <RVAL-REG> LINEAR i32 5 * i1 {sb:4}
 
 ; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: (undef)[undef][{{.*}}undef{{.*}}]
-; CHECK-NEXT: <REG>{{.*}}{undefined}
+; CHECK-NEXT: <LVAL-REG>{{.*}}{undefined}
 ; CHECK-NEXT: <BLOB>{{.*}}{undefined}
 ; CHECK-NEXT: <BLOB>{{.*}}{undefined}
 

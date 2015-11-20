@@ -58,12 +58,14 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 
   assert(LowerDDRef && UpperDDRef && StrideDDRef &&
          "All DDRefs should be non null");
-  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
-           !getStrideDDRef()->isUndefined()) ||
-          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
-           getStrideDDRef()->isUndefined())) &&
-         "Lower, Upper and Stride DDRefs "
-         "should be all defined or all undefined");
+  assert(
+      ((!getLowerDDRef()->containsUndef() &&
+        !getUpperDDRef()->containsUndef() &&
+        !getStrideDDRef()->containsUndef()) ||
+       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
+        getStrideDDRef()->containsUndef())) &&
+      "Lower, Upper and Stride DDRefs "
+      "should be all defined or all undefined");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
@@ -485,7 +487,7 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
 
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
-  if (isUnknown() || !getStrideDDRef()->isConstant())
+  if (isUnknown() || !getStrideDDRef()->isIntConstant())
     return nullptr;
 
   // UB and LB should be scalar refs in the current design.
@@ -633,7 +635,7 @@ bool HLLoop::isConstTripLoop(int64_t *TripCnt) const {
 
   bool RetVal = false;
   CanonExpr *TripCExpr = getTripCountCanonExpr();
-  if (TripCExpr && TripCExpr->isConstant(TripCnt)) {
+  if (TripCExpr && TripCExpr->isIntConstant(TripCnt)) {
     assert((!TripCnt || (*TripCnt != 0)) && " Zero Trip Loop found.");
     RetVal = true;
   }
@@ -653,7 +655,7 @@ void HLLoop::createZtt(bool IsOverwrite) {
   // Don't generate Ztt for Const trip loops.
   RegDDRef *TripRef = getTripCountDDRef();
   assert(TripRef && " Trip Count DDRef is null.");
-  if (TripRef->getSingleCanonExpr()->isConstant()) {
+  if (TripRef->getSingleCanonExpr()->isIntConstant()) {
     DDRefUtils::destroy(TripRef);
     return;
   }
@@ -667,12 +669,14 @@ void HLLoop::createZtt(bool IsOverwrite) {
 void HLLoop::verify() const {
   HLDDNode::verify();
 
-  assert(((!getLowerDDRef()->isUndefined() && !getUpperDDRef()->isUndefined() &&
-           !getStrideDDRef()->isUndefined()) ||
-          (getLowerDDRef()->isUndefined() && getUpperDDRef()->isUndefined() &&
-           getStrideDDRef()->isUndefined())) &&
-         "Lower, Upper and Stride DDRefs "
-         "should be all defined or all undefined");
+  assert(
+      ((!getLowerDDRef()->containsUndef() &&
+        !getUpperDDRef()->containsUndef() &&
+        !getStrideDDRef()->containsUndef()) ||
+       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
+        getStrideDDRef()->containsUndef())) &&
+      "Lower, Upper and Stride DDRefs "
+      "should be all defined or all undefined");
 
   assert(!getLowerDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop lower cannot be non-linear!");
@@ -680,6 +684,9 @@ void HLLoop::verify() const {
          "Loop upper cannot be non-linear!");
   assert(!getStrideDDRef()->getSingleCanonExpr()->isNonLinear() &&
          "Loop stride cannot be non-linear!");
+
+  assert(getUpperDDRef()->getSrcType()->isIntegerTy() &&
+         "Invalid loop upper type!");
 
   // TODO: Implement special case as ZTT's DDRefs are attached to node
   // if (Ztt) {

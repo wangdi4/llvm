@@ -104,7 +104,12 @@ static cl::opt<bool> EnableLoopDistribute(
 
 // INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
-                                 cl::desc("Runs loop optimizations passes"));
+                                 cl::desc("Runs loop optimization passes"));
+
+// INTEL
+static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
+    cl::init(false), cl::Hidden,
+    cl::desc("Enables loopopt framework without any transformation passes"));
 
 #ifdef INTEL_CUSTOMIZATION
 // Andersen AliasAnalysis
@@ -618,18 +623,20 @@ void PassManagerBuilder::addLoopOptCleanupPasses(
 
 void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
-  if (!RunLoopOpts || (OptLevel < 2)) {
+  if (!(RunLoopOpts || RunLoopOptFrameworkOnly) || (OptLevel < 2)) {
     return;
   }
 
-  // This pass "canonicalizes" loops and makes analysis easier.
-  PM.add(createLoopSimplifyPass());
+  if (!RunLoopOptFrameworkOnly) {
+    // This pass "canonicalizes" loops and makes analysis easier.
+    PM.add(createLoopSimplifyPass());
 
-  PM.add(createSSADeconstructionPass());
+    PM.add(createSSADeconstructionPass());
 
-  PM.add(createHIROptPredicatePass());
-  PM.add(createHIRCompleteUnrollPass());
-  PM.add(createHIRGeneralUnrollPass());
+    PM.add(createHIROptPredicatePass());
+    PM.add(createHIRCompleteUnrollPass());
+    PM.add(createHIRGeneralUnrollPass());
+  }
 
   PM.add(createHIRCodeGenPass());
 

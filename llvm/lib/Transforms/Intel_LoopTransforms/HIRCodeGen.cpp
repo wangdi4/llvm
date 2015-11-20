@@ -405,7 +405,8 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
   Value *CmpInst = nullptr;
 
   assert(P != UNDEFINED_PREDICATE && "invalid predicate for cmp/sel in HIRCG");
-  if (LHS->getType()->isIntegerTy()) {
+
+  if (LHS->getType()->isIntegerTy() || LHS->getType()->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
   } else if (LHS->getType()->isFloatTy()) {
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
@@ -422,6 +423,10 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   DEBUG(dbgs() << "cg for CE ");
   DEBUG(CE->dump());
   DEBUG(dbgs() << "\n");
+
+  if (CE->isNull()) {
+    return ConstantPointerNull::get(cast<PointerType>(CE->getSrcType()));
+  }
 
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
@@ -511,7 +516,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   DEBUG(Ref->dump());
   DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
-  assert(!Ref->isUndefined() && "undef operands not supported");
+  assert(!Ref->containsUndef() && "undef operands not supported");
 
   if (Ref->isScalarRef()) {
     return visitScalar(Ref);

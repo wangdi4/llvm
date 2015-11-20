@@ -530,7 +530,8 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
   if (Result->getDenominator() > 1)
     return false;
 
-  assert(Result->isConstant() && " Result is not constant for temporal reuse.");
+  assert(Result->isIntConstant() &&
+         " Result is not constant for temporal reuse.");
 
   int64_t Diff = Result->getConstant();
 

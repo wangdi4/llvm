@@ -197,14 +197,27 @@ public:
     GepInfo->AddressOf = IsAddressOf;
   }
 
-  /// \brief Returns true if this RegDDRef is a constant
+  /// \brief Returns true if this RegDDRef is a constant integer.
   /// Val parameter is the value associated inside the CanonExpr
   /// of this RegDDRef
-  bool isIntConstant(int64_t *Val = nullptr) const;
+  bool isIntConstant(int64_t *Val = nullptr) const {
+    return isScalarRef() && getSingleCanonExpr()->isIntConstant(Val);
+  }
 
-  /// \brief Returns true if this RegDDRef is constant
-  /// TODO: Add support for other types like float
-  bool isConstant() const { return isIntConstant(nullptr); }
+  /// \brief Returns true if this RegDDRef represents an FP constant.
+  bool isFPConstant() const {
+    return isScalarRef() && getSingleCanonExpr()->isFPConstant();
+  }
+
+  /// \brief Returns true if this RegDDRef represents null pointer.
+  bool isNull() const {
+    return isScalarRef() && getSingleCanonExpr()->isNull();
+  }
+
+  /// \brief Returns true if this RegDDRef is any kind of constant.
+  bool isConstant() const {
+    return (isIntConstant() || isFPConstant() || isNull());
+  }
 
   /// \brief Returns the number of dimensions of the DDRef.
   unsigned getNumDimensions() const { return CanonExprs.size(); }

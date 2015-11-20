@@ -150,7 +150,7 @@ bool HIRParser::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const {
   return !isa<Instruction>(UnknownSCEV->getValue());
 }
 
-bool HIRParser::isUndefBlob(const CanonExpr::BlobTy Blob) const {
+bool HIRParser::isUndefBlob(CanonExpr::BlobTy Blob) const {
   Value *V = nullptr;
 
   if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
@@ -163,6 +163,14 @@ bool HIRParser::isUndefBlob(const CanonExpr::BlobTy Blob) const {
 
   assert(V && "Blob should have a value");
   return isa<UndefValue>(V);
+}
+
+bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    return isa<ConstantFP>(UnknownSCEV->getValue());
+  }
+
+  return false;
 }
 
 void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase,
@@ -484,10 +492,10 @@ public:
   /// instruction which can represent SC with a combination of basic operations
   /// like truncation, negation etc applied on top of the SCEV. We are trying to
   /// reverse engineer SCEV analysis here.
-  Instruction *findOrigInst(Instruction *CurInst, const SCEV *SC,
-                            bool *IsTruncation, bool *IsNegation,
-                            SCEVConstant **ConstMultiplier,
-                            SCEV **Additive) const;
+  const Instruction *findOrigInst(const Instruction *CurInst, const SCEV *SC,
+                                  bool *IsTruncation, bool *IsNegation,
+                                  SCEVConstant **ConstMultiplier,
+                                  SCEV **Additive) const;
 
   /// Returns true if NewSCEV can replace OrigSCEV in the SCEV tree with a
   /// combination of basic operations like truncation, negation etc applied on
@@ -506,21 +514,20 @@ public:
 };
 
 const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
-  Instruction *OrigInst = nullptr;
+  const Instruction *OrigInst = nullptr;
   SCEV *Additive = nullptr;
   SCEVConstant *ConstMultiplier = nullptr;
   bool IsNegation = false;
   bool IsTruncation = false;
-  const Instruction *CurInst = HIRP->getCurInst();
 
-  OrigInst = findOrigInst(const_cast<Instruction *>(CurInst), SC, &IsTruncation,
-                          &IsNegation, &ConstMultiplier, &Additive);
+  OrigInst = findOrigInst(nullptr, SC, &IsTruncation, &IsNegation,
+                          &ConstMultiplier, &Additive);
 
   if (!OrigInst) {
     return nullptr;
   }
 
-  auto NewSCEV = HIRP->SE->getUnknown(OrigInst);
+  auto NewSCEV = HIRP->SE->getUnknown(const_cast<Instruction *>(OrigInst));
 
   if (IsTruncation) {
     assert(!IsNegation && !ConstMultiplier && !Additive &&
@@ -546,12 +553,15 @@ const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
   return visit(NewSCEV);
 }
 
-Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
-    Instruction *CurInst, const SCEV *SC, bool *IsTruncation, bool *IsNegation,
-    SCEVConstant **ConstMultiplier, SCEV **Additive) const {
+const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
+    const Instruction *CurInst, const SCEV *SC, bool *IsTruncation,
+    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
-  if (HIRP->SE->isSCEVable(CurInst->getType())) {
-    auto CurSCEV = HIRP->SE->getSCEV(CurInst);
+  // No need to check the SCEV of the current instruction itself.
+  if (!CurInst) {
+    CurInst = HIRP->getCurInst();
+  } else if (HIRP->SE->isSCEVable(CurInst->getType())) {
+    auto CurSCEV = HIRP->SE->getSCEV(const_cast<Instruction *>(CurInst));
 
     if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation, ConstMultiplier,
                      Additive)) {
@@ -882,7 +892,7 @@ int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
 void HIRParser::parseConstOrDenom(const SCEVConstant *ConstSCEV, CanonExpr *CE,
                                   bool IsDenom) {
   if (isUndefBlob(ConstSCEV)) {
-    CE->setUndefined();
+    CE->setContainsUndef();
   }
 
   auto Const = getSCEVConstantValue(ConstSCEV);
@@ -981,7 +991,7 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
   // Basically this is not so good place to handle UndefValues, but this is done
   // here to avoid additional traverse of SCEV to found undefined its parts.
   if (isUndefBlob(TempBlobSCEV)) {
-    CE->setUndefined();
+    CE->setContainsUndef();
   }
 
   // Add blob symbase as required.
@@ -1276,7 +1286,7 @@ void HIRParser::parse(HLLoop *HLoop) {
     auto UpperRef = createUpperDDRef(BETC, CurLevel, IVType);
     HLoop->setUpperDDRef(UpperRef);
   }
-  // TODO: assert that SIMD loops are always DO loops. 
+  // TODO: assert that SIMD loops are always DO loops.
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
@@ -1436,9 +1446,23 @@ const SCEV *HIRParser::findPointerBlob(const SCEV *PtrSCEV) const {
   return PBF.getPointerBlob();
 }
 
+Type *HIRParser::getPrimaryElementType(Type *PtrTy) const {
+  assert(isa<PointerType>(PtrTy) && "Unexpected type!");
+
+  Type *ElTy = cast<PointerType>(PtrTy)->getElementType();
+
+  // Recurse into array types, if any.
+  for (; ArrayType *ArrTy = dyn_cast<ArrayType>(ElTy);
+       ElTy = ArrTy->getElementType()) {
+  }
+
+  return ElTy;
+}
+
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
+  SmallVector<uint64_t, 9> Strides;
   CanonExpr *BaseCE = nullptr, *IndexCE = nullptr;
   auto BaseTy = BasePhi->getType();
 
@@ -1465,8 +1489,15 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
   if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    if (RecSCEV->isAffine() && RI->isSupported(RecSCEV->getType()) &&
+    // getPrimaryElementType() comparison is to gaurd against tracing through
+    // bitcasts.
+    if (RecSCEV->isAffine() && (getPrimaryElementType(RecSCEV->getType()) ==
+                                getPrimaryElementType(BasePhi->getType())) &&
         (BaseSCEV = findPointerBlob(RecSCEV))) {
+
+      // Collect extra dimensions, if any.
+      collectStrides(BaseSCEV->getType(), Strides);
+
       auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
       BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
@@ -1507,6 +1538,23 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
   Ref->setBaseCE(BaseCE);
   Ref->addDimension(IndexCE, StrideCE);
+
+  unsigned NumDims = Strides.size();
+
+  // Add zero indices for the extra dimensions.
+  // Extra dimensions are involved when the initial value of BasePhi is computed
+  // using an array like the following-
+  // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
+  // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
+  if (NumDims > 1) {
+    for (auto I = NumDims - 1; I > 0; --I) {
+      IndexCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType());
+      StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0,
+                                                 Strides[I - 1]);
+      Ref->addDimension(IndexCE, StrideCE);
+    }
+  }
+
   Ref->setInBounds(IsInBounds);
 
   return Ref;
@@ -1673,11 +1721,19 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
   return Ref;
 }
 
-RegDDRef *HIRParser::createUndefDDRef(Type *Type) {
+RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
+  Value *UndefVal = UndefValue::get(Ty);
+  CanonExpr::BlobTy Blob = SE->getUnknown(UndefVal);
+
   RegDDRef *Ref = DDRefUtils::createRegDDRef(CONSTANT_SYMBASE);
-  CanonExpr *CE = CanonExprUtils::createCanonExpr(Type);
-  CE->setUndefined();
+  CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty);
+
+  // Add an undef blob to the CE to maintain consistency.
+  parseBlob(Blob, CE, 0);
+  CE->setContainsUndef();
+
   Ref->setSingleCanonExpr(CE);
+
   return Ref;
 }
 
@@ -1692,8 +1748,14 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level) {
   // Force pointer values to be parsed as blobs. This is for handling lvals but
   // pointer blobs can occur in loop upper as well. CG will have to do special
   // processing for pointers contained in upper.
-  if (isa<PointerType>(Val->getType())) {
-    CE = parseAsBlob(Val, Level);
+  if (Val->getType()->isPointerTy()) {
+
+    // Create null CE to represent a null pointer.
+    if (isa<ConstantPointerNull>(Val)) {
+      CE = CanonExprUtils::createCanonExpr(Val->getType());
+    } else {
+      CE = parseAsBlob(Val, Level);
+    }
   } else {
     CE = parse(Val, Level);
   }
@@ -1719,7 +1781,8 @@ RegDDRef *HIRParser::createRvalDDRef(const Instruction *Inst, unsigned OpNum,
     Ref = createGEPDDRef(Inst, Level, false);
     Ref->setAddressOf(true);
 
-  } else if (OpVal->getType()->isPointerTy()) {
+  } else if (OpVal->getType()->isPointerTy() &&
+             !isa<ConstantPointerNull>(OpVal)) {
     Ref = createGEPDDRef(OpVal, Level, true);
     Ref->setAddressOf(true);
 

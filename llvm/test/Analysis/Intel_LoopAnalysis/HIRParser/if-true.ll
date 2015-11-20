@@ -1,13 +1,13 @@
 ; Check HIR parsing of IF instruction with TRUE predicate
 ; |   if (0 true 0)
-; |   <REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <REG> LINEAR i1 0 {undefined} {sb:1}
+; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
+; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
 
 ; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK:      if ({{.*}}true{{.*}})
-; CHECK:      <REG>{{.*}}{undefined}
-; CHECK-NEXT: <REG>{{.*}}{undefined}
+; CHECK:      <RVAL-REG>{{.*}}{undefined}
+; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}
 
 ; ModuleID = '2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

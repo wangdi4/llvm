@@ -141,7 +141,7 @@ Type *DDRef::getSrcType() const { return getTypeImpl(true); }
 Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
-  if (isUndefined() && Detailed) {
+  if (containsUndef() && Detailed) {
     OS << "{undefined} ";
   }
   OS << "{sb:" << getSymbase() << "}";
@@ -159,9 +159,9 @@ bool DDRef::isSelfBlob() const {
   llvm_unreachable("Unknown DDRef kind!");
 }
 
-bool DDRef::isUndefined() const {
+bool DDRef::containsUndef() const {
   auto UndefCanonPredicate = [](const CanonExpr *CE) {
-    return CE->isUndefined();
+    return CE->containsUndef();
   };
 
   if (auto Ref = dyn_cast<RegDDRef>(this)) {

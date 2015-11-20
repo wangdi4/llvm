@@ -1774,7 +1774,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
 
     auto UpperRef = Loop->getUpperDDRef();
 
-    if (!UpperRef->isConstant()) {
+    if (!UpperRef->isIntConstant()) {
       break;
     }
 
@@ -2073,7 +2073,7 @@ static bool getMaxMinValue(const CanonExpr *CE, int64_t *Val, VALType *ValType,
     return false;
   }
 
-  if (CE->isConstant(Val)) {
+  if (CE->isIntConstant(Val)) {
     return true;
   }
 
@@ -2195,7 +2195,7 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
                                  const HLLoop *ParentLoop) {
 
   int64_t Val;
-  if (CE->isConstant(&Val) && Val != 0) {
+  if (CE->isIntConstant(&Val) && (Val != 0)) {
     return true;
   }
   if (isKnownPositive(CE, ParentLoop) || isKnownNegative(CE, ParentLoop)) {

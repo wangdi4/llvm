@@ -53,6 +53,12 @@ namespace llvm {
   class SCEV;
   template<> struct FoldingSetTrait<SCEV>;
 
+#if INTEL_CUSTOMIZATION // HIR
+  extern const char* const HIR_LIVE_IN_STR;
+  extern const char* const HIR_LIVE_OUT_STR;
+  extern const char* const HIR_LIVE_RANGE_STR;
+#endif // INTEL_CUSTOMIZATION
+
   /// SCEV - This class represents an analyzed expression in the program.  These
   /// are opaque objects that the client is not allowed to do much with
   /// directly.
@@ -612,6 +618,14 @@ namespace llvm {
     LLVMContext &getContext() const { return F.getContext(); }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
+    /// isHIRLiveInCopy - Returns true if this instruction is a livein copy
+    /// instruction inserted by HIR framework.
+    bool isHIRLiveInCopy(const Instruction *Inst) const;
+
+    /// isHIRLiveOutCopy - Returns true if this instruction is a liveout copy
+    /// instruction inserted by HIR framework.
+    bool isHIRLiveOutCopy(const Instruction *Inst) const;
+
     /// isHIRCopyInst - Returns true if this instruction is a copy instruction
     /// inserted by HIR framework.
     bool isHIRCopyInst(const Instruction *Inst) const; 
@@ -619,7 +633,7 @@ namespace llvm {
     /// isHIRLiveRangeIndicator - Returns true if this instruction is a live
     /// range indicator for HIR.
     bool isHIRLiveRangeIndicator(const Instruction *Inst) const;
-#endif
+#endif  // INTEL_CUSTOMIZATION
 
     /// isSCEVable - Test if values of the given type are analyzable within
     /// the SCEV framework. This primarily includes integer types, and it

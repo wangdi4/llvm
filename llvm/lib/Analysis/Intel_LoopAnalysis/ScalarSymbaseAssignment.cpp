@@ -20,6 +20,8 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/ScalarEvolution.h"
+
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -160,7 +162,7 @@ MDString *
 ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   // We only care about livein copies here because unlike liveout copies, livein
   // copies need to be assigned the same symbase as other values in the SCC.
-  auto MDNode = Inst->getMetadata("in.de.ssa");
+  auto MDNode = Inst->getMetadata(HIR_LIVE_IN_STR);
 
   if (!MDNode) {
     return nullptr;

@@ -175,11 +175,11 @@ void SSADeconstruction::attachMetadata(Instruction *Inst, StringRef Name,
   MDNode *Node = MDNode::get(Inst->getContext(), Args);
 
   if (MType == LiveInType) {
-    Inst->setMetadata("in.de.ssa", Node);
+    Inst->setMetadata(HIR_LIVE_IN_STR, Node);
   } else if (MType == LiveOutType) {
-    Inst->setMetadata("out.de.ssa", Node);
+    Inst->setMetadata(HIR_LIVE_OUT_STR, Node);
   } else {
-    Inst->setMetadata("live.range.de.ssa", Node);
+    Inst->setMetadata(HIR_LIVE_RANGE_STR, Node);
   }
 }
 

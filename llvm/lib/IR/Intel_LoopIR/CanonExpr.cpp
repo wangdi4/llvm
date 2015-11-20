@@ -39,7 +39,7 @@ CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
                      bool IsSignedDiv)
     : SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv),
-      IsUndefined(false) {
+      ContainsUndef(false) {
 
   Objs.insert(this);
 
@@ -53,7 +53,7 @@ CanonExpr::CanonExpr(const CanonExpr &CE)
     : SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
       DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
-      IsSignedDiv(CE.IsSignedDiv), IsUndefined(CE.IsUndefined) {
+      IsSignedDiv(CE.IsSignedDiv), ContainsUndef(CE.ContainsUndef) {
 
   Objs.insert(this);
 }
@@ -263,10 +263,8 @@ unsigned CanonExpr::getBlobSymbase(unsigned Index) {
 }
 
 bool CanonExpr::isSelfBlob() const {
-  return (!hasIV() && (numBlobs() == 1) &&
-          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())) &&
-          (getSingleBlobCoeff() == 1) && !getConstant() &&
-          (getDenominator() == 1));
+  return (isStandAloneBlob() &&
+          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())));
 }
 
 void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
@@ -317,6 +315,33 @@ bool CanonExpr::isTrunc() const { return isExtImpl(false, true); }
 
 bool CanonExpr::isPtrToPtrCast() const {
   return ((SrcTy != DestTy) && SrcTy->isPointerTy());
+}
+
+bool CanonExpr::isIntConstant(int64_t *Val) const {
+  if (!getSrcType()->isIntegerTy() || !isConstInternal()) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = getConstant();
+  }
+
+  return true;
+}
+
+bool CanonExpr::isFPConstant() const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return CanonExprUtils::isConstantFPBlob(getBlob(getSingleBlobIndex()));
+}
+
+bool CanonExpr::isNull() const {
+  bool Ret = (getSrcType()->isPointerTy() && isConstInternal());
+  assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");
+
+  return Ret;
 }
 
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,

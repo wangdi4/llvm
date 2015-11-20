@@ -286,7 +286,7 @@ public:
   bool isDo() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->isUndefined());
+    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is a do-while loop.
@@ -296,14 +296,14 @@ public:
   bool isDoMultiExit() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->isUndefined());
+    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is an unknown loop.
   bool isUnknown() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return UpperDDRef->isUndefined();
+    return UpperDDRef->containsUndef();
   }
 
   /// \brief Returns true if loop is normalized.

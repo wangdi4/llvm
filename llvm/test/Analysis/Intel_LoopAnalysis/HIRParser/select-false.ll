@@ -1,15 +1,15 @@
 ; Check HIR parsing of select instruction with FALSE predicate 
 ; |   %sel = (0 false 0) ? i1 : 1;
-; |   <REG> NON-LINEAR i32 %sel {sb:6}
-; |   <REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <REG> LINEAR i1 0 {undefined} {sb:1}
-; |   <REG> LINEAR i32 i1 {sb:3}
+; |   <LVAL-REG> NON-LINEAR i32 %sel {sb:6}
+; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
+; |   <RVAL-REG> LINEAR i1 0 {undefined} {sb:1}
+; |   <RVAL-REG> LINEAR i32 i1 {sb:3}
 
 ; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK:      = ({{.*}}false{{.*}})
-; CHECK:      <REG>{{.*}}{undefined}
-; CHECK-NEXT: <REG>{{.*}}{undefined}
+; CHECK:      <RVAL-REG>{{.*}}{undefined}
+; CHECK-NEXT: <RVAL-REG>{{.*}}{undefined}
 
 ; ModuleID = '2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

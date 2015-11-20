@@ -191,22 +191,6 @@ bool RegDDRef::isScalarRef() const {
   return false;
 }
 
-bool RegDDRef::isIntConstant(int64_t *Val) const {
-  if (!isScalarRef()) {
-    return false;
-  }
-
-  const CanonExpr *CE = getSingleCanonExpr();
-  if (!CE->isConstant())
-    return false;
-
-  if (Val) {
-    *Val = CE->getConstant();
-  }
-
-  return true;
-}
-
 void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
   assert(Canon && "Canon is null!");
   assert((CanonExprs.empty() || Stride) && "Stride is null!");
@@ -342,7 +326,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
   SmallVector<unsigned, 8> BlobIndices;
 
   if (isSelfBlob()) {
-    removeAllBlobDDRefs();
+    unsigned SB = CanonExprUtils::getBlobSymbase(getSelfBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -353,16 +337,29 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
     // <BLOB> LINEAR i32 %k {sb:8}
     //
     // After modification it looks like this-
-    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8 which
+    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8
+    // which
     // is wrong.
     //
-    unsigned SB = CanonExprUtils::getBlobSymbase(getSelfBlobIndex());
-    setSymbase(SB);
-    return;
-
+    // We should not update symbase of lval DDRefs as lvals represent a store
+    // into that symbase. Changing it can affect correctness.
+    if (isLval()) {
+      if ((getSymbase() == SB)) {
+        removeAllBlobDDRefs();
+        return;
+      }
+    } else {
+      removeAllBlobDDRefs();
+      setSymbase(SB);
+      return;
+    }
   } else if (isConstant()) {
     removeAllBlobDDRefs();
-    setSymbase(CONSTANT_SYMBASE);
+
+    if (!isLval()) {
+      setSymbase(CONSTANT_SYMBASE);
+    }
+
     return;
   }
 
@@ -446,7 +443,7 @@ void RegDDRef::checkBlobDDRefsConsistentcy() const {
 }
 
 void RegDDRef::verify() const {
-  bool IsConst = false;
+  bool IsConst = isConstant();
 
   assert(getNumDimensions() > 0 &&
          "RegDDRef should contain at least one CanonExpr!");
@@ -461,17 +458,19 @@ void RegDDRef::verify() const {
            "Child blob DDRefs should have this RegDDRef as a parent!");
   }
 
-  if (isSelfBlob() || (IsConst = isConstant())) {
+  if (isSelfBlob() || IsConst) {
     assert((BlobDDRefs.size() == 0) &&
            "Self-blobs couldn't contain any BlobDDRefs!");
-
-    if (IsConst) {
-      assert((getSymbase() == CONSTANT_SYMBASE) &&
-             "Constant DDRef's symbase is incorrect!");
-    }
-
   } else {
     checkBlobDDRefsConsistentcy();
+  }
+
+  if (!IsConst || isLval()) {
+    assert((getSymbase() > CONSTANT_SYMBASE) && "DDRef has invalid symbase!");
+
+  } else {
+    assert((getSymbase() == CONSTANT_SYMBASE) &&
+           "Constant DDRef's symbase is incorrect!");
   }
 
   assert((!hasGEPInfo() || getBaseCE() != nullptr) &&

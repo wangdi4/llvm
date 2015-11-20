@@ -280,6 +280,11 @@ private:
   /// \brief Finds pointer blobs in PtrSCEV.
   const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
 
+  /// \brief Returns the primary element type of PtrTy. Primary element type is
+  /// the underlying type which this type is pointing to. For example, the
+  /// primary element type of both i32* && [100 x [100 x i32]]* is i32.
+  Type *getPrimaryElementType(Type *PtrTy) const;
+
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                   const GEPOperator *GEPOp, unsigned Level);
@@ -387,7 +392,10 @@ private:
   bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const;
 
   /// \brief Returns true if this is an UndefValue blob.
-  bool isUndefBlob(const CanonExpr::BlobTy Blob) const;
+  bool isUndefBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Returns true if Blob represents a constant FP value.
+  bool isConstantFPBlob(CanonExpr::BlobTy Blob) const;
 
 public:
   static char ID; // Pass identification

@@ -405,10 +405,10 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
 
   CanonExpr *CE = nullptr;
 
-  if (CE2->isConstant(&konst)) {
+  if (CE2->isIntConstant(&konst)) {
     CE = CE1->clone();
     CE->multiplyByConstant(konst);
-  } else if (CE1->isConstant(&konst)) {
+  } else if (CE1->isIntConstant(&konst)) {
     CE = CE2->clone();
     CE->multiplyByConstant(konst);
   } else {
@@ -447,10 +447,10 @@ const CanonExpr *DDtest::getUDivExpr(const CanonExpr *CE1,
   }
   int64_t konst1, konst2;
 
-  if (!(CE1->isConstant(&konst1))) {
+  if (!(CE1->isIntConstant(&konst1))) {
     return nullptr;
   }
-  if (!(CE2->isConstant(&konst2)) || konst2 == 0) {
+  if (!(CE2->isIntConstant(&konst2)) || konst2 == 0) {
     return nullptr;
   }
   const CanonExpr *CE = getConstantWithType(
@@ -470,7 +470,7 @@ const CanonExpr *DDtest::getSMaxExpr(const CanonExpr *CE1,
   const CanonExpr *delta = getMinus(CE1, CE2);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isConstant(&konst)) {
+  if (delta->isIntConstant(&konst)) {
     return ((konst > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -485,7 +485,7 @@ const CanonExpr *DDtest::getSMinExpr(const CanonExpr *CE1,
   const CanonExpr *delta = getMinus(CE2, CE1);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isConstant(&konst)) {
+  if (delta->isIntConstant(&konst)) {
     return ((konst > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -1363,8 +1363,8 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   const CanonExpr *k1CE;
 
   // Can we compute distance?
-  if (Coeff->isConstant(&k2)) {
-    if (Delta->isConstant(&k1)) {
+  if (Coeff->isIntConstant(&k2)) {
+    if (Delta->isIntConstant(&k1)) {
       APInt ConstDelta = llvm::APInt(64, k1, true);
       APInt ConstCoeff = llvm::APInt(64, k2, true);
       APInt Distance = ConstDelta; // these need to be initialized
@@ -1504,7 +1504,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   int64_t coeffValue;
   const CanonExpr *ConstCoeff = Coeff;
-  if (!(Coeff->isConstant(&coeffValue))) {
+  if (!(Coeff->isIntConstant(&coeffValue))) {
     return false;
   }
 
@@ -1545,7 +1545,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   const CanonExpr *ConstantDelta = Delta;
   int64_t deltaValue;
-  if (!(ConstantDelta->isConstant(&deltaValue))) {
+  if (!(ConstantDelta->isIntConstant(&deltaValue))) {
     return false;
   }
 
@@ -1744,8 +1744,8 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   NewConstraint.setLine(SrcCoeff, getNegative(DstCoeff), Delta, CurLoop);
 
   int64_t k1, k2, k3;
-  if (!(Delta->isConstant(&k1)) || !(SrcCoeff->isConstant(&k2)) ||
-      !(DstCoeff->isConstant(&k3))) {
+  if (!(Delta->isIntConstant(&k1)) || !(SrcCoeff->isIntConstant(&k2)) ||
+      !(DstCoeff->isIntConstant(&k3))) {
     return false;
   }
 
@@ -1774,7 +1774,7 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&k1)) {
+    if (UpperBound->isIntConstant(&k1)) {
       UM = llvm::APInt(64, k1, true);
       DEBUG(dbgs() << "\t    UM = " << UM << "\n");
       UMvalid = true;
@@ -1898,9 +1898,9 @@ static bool isRemainderZero(const CanonExpr *Dividend,
 
   int64_t k1, k2;
 
-  Dividend->isConstant(&k1);
+  Dividend->isIntConstant(&k1);
   APInt ConstDividend = llvm::APInt(64, k1, true);
-  Divisor->isConstant(&k2);
+  Divisor->isIntConstant(&k2);
   APInt ConstDivisor = llvm::APInt(64, k2, true);
   return ConstDividend.srem(ConstDivisor) == 0;
 }
@@ -1981,7 +1981,7 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   int64_t coeffValue;
   const CanonExpr *ConstCoeff = DstCoeff;
-  if (!(DstCoeff->isConstant(&coeffValue))) {
+  if (!(DstCoeff->isIntConstant(&coeffValue))) {
     return false;
   }
 
@@ -2030,7 +2030,7 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   // if SrcCoeff doesn't divide Delta, then no dependence
   int64_t k1;
-  if (Delta->isConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
+  if (Delta->isIntConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
     ++WeakZeroSIVindependence;
     ++WeakZeroSIVsuccesses;
     return true;
@@ -2105,7 +2105,7 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   const CanonExpr *ConstCoeff = SrcCoeff;
 
-  if (ConstCoeff->isConstant(&k1)) {
+  if (ConstCoeff->isIntConstant(&k1)) {
     return false;
   }
 
@@ -2153,7 +2153,7 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   // if SrcCoeff doesn't divide Delta, then no dependence
 
-  if (!(Delta->isConstant(&k1))) {
+  if (!(Delta->isIntConstant(&k1))) {
     return false;
   }
 
@@ -2192,9 +2192,9 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   int64_t deltaVal, srcCoeffVal, dstCoeffVal, ubVal;
 
-  if (!(Delta->isConstant(&deltaVal)) ||
-      !(SrcCoeff->isConstant(&srcCoeffVal)) ||
-      !(DstCoeff->isConstant(&dstCoeffVal))) {
+  if (!(Delta->isIntConstant(&deltaVal)) ||
+      !(SrcCoeff->isIntConstant(&srcCoeffVal)) ||
+      !(DstCoeff->isIntConstant(&dstCoeffVal))) {
     return false;
   }
 
@@ -2220,7 +2220,7 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   // SrcUM is perhaps unavailable, let's check
 
   if (const CanonExpr *UpperBound = SrcLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&ubVal)) {
+    if (UpperBound->isIntConstant(&ubVal)) {
       SrcUM = llvm::APInt(64, ubVal, true);
       DEBUG(dbgs() << "\t    SrcUM = " << SrcUM << "\n");
       SrcUMvalid = true;
@@ -2232,7 +2232,7 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = DstLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&ubVal)) {
+    if (UpperBound->isIntConstant(&ubVal)) {
       DstUM = llvm::APInt(64, ubVal, true);
       DEBUG(dbgs() << "\t    DstUM = " << DstUM << "\n");
       DstUMvalid = true;
@@ -2632,7 +2632,7 @@ static const CanonExpr *getConstantPart(const CanonExpr *Product) {
   // TODO: check blob of the form 10 * N and return 10
 
   int64_t k1;
-  if (Product->isConstant(&k1)) {
+  if (Product->isIntConstant(&k1)) {
     return Product;
   }
   return nullptr;
@@ -2748,7 +2748,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Refer to original code
 
   const CanonExpr *Constant = Delta;
-  if (!Constant || !(Constant->isConstant(&k1))) {
+  if (!Constant || !(Constant->isIntConstant(&k1))) {
     return false;
   }
 
@@ -2850,7 +2850,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     }
 
     Delta = getMinus(SrcCoeff, DstCoeff);
-    if (!Delta || !(Delta->isConstant(&k1))) {
+    if (!Delta || !(Delta->isIntConstant(&k1))) {
       continue;
     }
 

@@ -424,7 +424,7 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
   // Process for non-const trip loop.
   RegDDRef *Ref = OrigLoop->getTripCountDDRef();
   // New instruction should only be created for non-constant trip loops.
-  assert(!Ref->isConstant() && " Creating a new instruction for constant"
+  assert(!Ref->isIntConstant() && " Creating a new instruction for constant"
                                "trip loops should not occur.");
 
   // This will create a new instruction for calculating ub of unrolled loop
