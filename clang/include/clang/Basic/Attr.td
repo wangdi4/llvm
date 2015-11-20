@@ -1288,9 +1288,9 @@ def InitPriority : InheritableAttr {
 def Section : InheritableAttr {
   let Spellings = [GCC<"section">, Declspec<"allocate">];
   let Args = [StringArgument<"Name">];
-  let Subjects = SubjectList<[Function, GlobalVar,
-                              ObjCMethod, ObjCProperty], ErrorDiag,
-                             "ExpectedFunctionGlobalVarMethodOrProperty">;
+  //  let Subjects = SubjectList<[Function, GlobalVar, //INTEL
+  //                              ObjCMethod, ObjCProperty], ErrorDiag,  //INTEL
+  //                              "ExpectedFunctionGlobalVarMethodOrProperty">; //INTEL
   let Documentation = [SectionDocs];
 }
 

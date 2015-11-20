@@ -2748,6 +2748,24 @@ static void handleSectionAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   // argument.
   StringRef Str;
   SourceLocation LiteralLoc;
+
+#if INTEL_CUSTOMIZATION
+  // CQ#376502: Clang should emit a warning, not an error, if 'section'
+  // attibute is applied incorrectly. 'Section' attribute is expected to be
+  // applied to function, global variable, ObjC method or property. The check
+  // is moved here from include/clang/Basic/Attr.td.
+  if (!isFunctionOrMethod(D) && !isa<ObjCPropertyDecl>(D) &&
+      !(isa<VarDecl>(D) && cast<VarDecl>(D)->hasGlobalStorage())) {
+    if (S.getLangOpts().IntelCompat)
+      S.Diag(Attr.getLoc(), diag::warn_attribute_wrong_decl_type)
+          << Attr.getName() << ExpectedFunctionGlobalVarMethodOrProperty;
+    else
+      S.Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type)
+          << Attr.getName() << ExpectedFunctionGlobalVarMethodOrProperty;
+    return;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (!S.checkStringLiteralArgumentAttr(Attr, 0, Str, &LiteralLoc))
     return;
 
