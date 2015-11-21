@@ -188,6 +188,9 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // Whether to use SDT (UniteNodes can use it during solving, but not before)
   bool SDTActive;
 
+  // Skip doing Andersens Analysis if it finds unexpected Insts.
+  bool SkipAndersensAnalysis;
+
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
   DenseMap<const Value *, unsigned> NonEscapeStaticVars;

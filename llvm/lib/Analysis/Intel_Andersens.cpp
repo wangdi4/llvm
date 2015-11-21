@@ -96,6 +96,10 @@ static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
                                          cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
 
+// This option is used to find any new Instructions are added after
+// community pulldown.
+static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
+
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
 // Position of the function return node relative to the function node.
@@ -341,10 +345,20 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
-
+  SkipAndersensAnalysis = false;
   IndirectCallList.clear();
   IdentifyObjects(M);
   CollectConstraints(M);
+
+  if (SkipAndersensAnalysis) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints) {
+      errs() << " Constraints Dump: Skipping Analysis " << "\n";
+    }
+    return;
+  }
+
   if (PrintAndersConstraints) {
       errs() << " Constraints Dump " << "\n";
       PrintConstraints();
@@ -1487,9 +1501,16 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
     return;
 
   default:
-    // Is this something we aren't handling yet?
-    errs() << "Unknown instruction: " << I;
-    llvm_unreachable(0);
+    if (SkipAndersUnreachableAsserts) {
+      // Unknown instruction found.
+      SkipAndersensAnalysis = true;
+      return;
+    }
+    else {
+      // Is this something we aren't handling yet?
+      errs() << "Unknown instruction: " << I;
+      llvm_unreachable(0);
+    }
   }
 }
 
