@@ -29,7 +29,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetSubtargetInfo.h"
 using namespace llvm;
-/*
+
 MCSymbol *LPUMCInstLower::
 GetGlobalAddressSymbol(const MachineOperand &MO) const {
   switch (MO.getTargetFlags()) {
@@ -49,7 +49,7 @@ GetExternalSymbolSymbol(const MachineOperand &MO) const {
 
   return Printer.GetExternalSymbolSymbol(MO.getSymbolName());
 }
-
+/*
 MCSymbol *LPUMCInstLower::
 GetJumpTableSymbol(const MachineOperand &MO) const {
   const DataLayout *DL = Printer.TM.getSubtargetImpl()->getDataLayout();
@@ -83,6 +83,7 @@ GetConstantPoolIndexSymbol(const MachineOperand &MO) const {
   // Create a symbol for the name.
   return Ctx.GetOrCreateSymbol(Name.str());
 }
+*/
 
 MCSymbol *LPUMCInstLower::
 GetBlockAddressSymbol(const MachineOperand &MO) const {
@@ -111,7 +112,7 @@ LowerSymbolOperand(const MachineOperand &MO, MCSymbol *Sym) const {
                                    Ctx);
   return MCOperand::CreateExpr(Expr);
 }
-*/
+
 void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
@@ -155,21 +156,21 @@ void LPUMCInstLower::Lower(const MachineInstr *MI, MCInst &OutMI) const {
       MCOp = MCOperand::CreateExpr(MCSymbolRefExpr::Create(
                          MO.getMBB()->getSymbol(), Ctx));
       break;
-      /*
     case MachineOperand::MO_GlobalAddress:
       MCOp = LowerSymbolOperand(MO, GetGlobalAddressSymbol(MO));
       break;
     case MachineOperand::MO_ExternalSymbol:
       MCOp = LowerSymbolOperand(MO, GetExternalSymbolSymbol(MO));
       break;
+    case MachineOperand::MO_BlockAddress:
+      MCOp = LowerSymbolOperand(MO, GetBlockAddressSymbol(MO));
+      break;
+      /*
     case MachineOperand::MO_JumpTableIndex:
       MCOp = LowerSymbolOperand(MO, GetJumpTableSymbol(MO));
       break;
     case MachineOperand::MO_ConstantPoolIndex:
       MCOp = LowerSymbolOperand(MO, GetConstantPoolIndexSymbol(MO));
-      break;
-    case MachineOperand::MO_BlockAddress:
-      MCOp = LowerSymbolOperand(MO, GetBlockAddressSymbol(MO));
       break;
     case MachineOperand::MO_RegisterMask:
       continue;

@@ -84,11 +84,15 @@ def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 def SDT_LPUCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
 def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i32>,
                                         SDTCisVT<1, i32> ]>;
+def SDT_LPUWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
+                                               SDTCisPtrTy<0>]>;
 
 def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_LPUCallSeqStart,
                            [SDNPHasChain, SDNPOutGlue]>;
 def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
+def LPUWrapper : SDNode<"LPUISD::Wrapper", SDT_LPUWrapper>;
 
 let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i32imm:$amt),
@@ -108,7 +112,7 @@ def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs), (ins),
-    "ret %ra",
+    "ret\t%ra",
     [(LPURet)]>;
 
 multiclass MovOp<string opStr, RegisterClass RC, ValueType opType, Operand immOp,
@@ -1041,7 +1045,11 @@ def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
           (BF I1:$cond, bb:$target)>;
 
 
+// GlobalAddress, ExternalSymbol
 
+def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64i tglobaladdr:$src)>;
+def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64i texternalsym:$src)>;
+def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64i tblockaddress:$src)>;
 
 // Eventually
 //include "LPUIntrinsics.td"

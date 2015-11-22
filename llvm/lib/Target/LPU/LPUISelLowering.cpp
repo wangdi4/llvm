@@ -49,6 +49,7 @@ const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LPUISD::TailCall:           return "LPUISD::TailCall";
   case LPUISD::Ret:                return "LPUISD::Ret";
   case LPUISD::ThreadPointer:      return "LPUISD::ThreadPointer";
+  case LPUISD::Wrapper:            return "LPUISD::Wrapper";
   }
 }
 
@@ -271,9 +272,9 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     //setOperationAction(ISD::FSINCOS, MVT::f64, Legal);
   }
 
-  //  setOperationAction(ISD::GlobalAddress,    MVT::i64,   Custom);
-  //  setOperationAction(ISD::ExternalSymbol,   MVT::i64,   Custom);
-  //  setOperationAction(ISD::BlockAddress,     MVT::i64,   Custom);
+  setOperationAction(ISD::GlobalAddress,    MVT::i64,   Custom);
+  setOperationAction(ISD::ExternalSymbol,   MVT::i64,   Custom);
+  setOperationAction(ISD::BlockAddress,     MVT::i64,   Custom);
 
   //  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
@@ -287,24 +288,19 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   */
 }
 
-/*
+
 SDValue LPUTargetLowering::LowerOperation(SDValue Op,
                                              SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
-  case ISD::SHL: // FALLTHROUGH
-  case ISD::SRL:
-  case ISD::SRA:              return LowerShifts(Op, DAG);
   case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
-  case ISD::BlockAddress:     return LowerBlockAddress(Op, DAG);
   case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
-  case ISD::SETCC:            return LowerSETCC(Op, DAG);
-  case ISD::BR_CC:            return LowerBR_CC(Op, DAG);
-  case ISD::SELECT_CC:        return LowerSELECT_CC(Op, DAG);
-  case ISD::SIGN_EXTEND:      return LowerSIGN_EXTEND(Op, DAG);
+  case ISD::BlockAddress:     return LowerBlockAddress(Op, DAG);
+    /*
   case ISD::RETURNADDR:       return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:          return LowerVASTART(Op, DAG);
   case ISD::JumpTable:        return LowerJumpTable(Op, DAG);
+    */
   default:
     llvm_unreachable("unimplemented operand");
   }
@@ -314,6 +310,7 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
 //                       LPU Inline Assembly Support
 //===----------------------------------------------------------------------===//
 
+/*
 /// getConstraintType - Given a constraint letter, return the type of
 /// constraint it is for this target.
 TargetLowering::ConstraintType
@@ -818,6 +815,7 @@ LPUTargetLowering::LowerCallResult(SDValue Chain, SDValue InFlag,
 
   return Chain;
 }
+*/
 
 SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
                                                  SelectionDAG &DAG) const {
@@ -825,10 +823,9 @@ SDValue LPUTargetLowering::LowerGlobalAddress(SDValue Op,
   int64_t Offset = cast<GlobalAddressSDNode>(Op)->getOffset();
 
   // Create the TargetGlobalAddress node, folding in the constant offset.
-  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op),
-                                              getPointerTy(), Offset);
-  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op),
-                     getPointerTy(), Result);
+  SDValue Result = DAG.getTargetGlobalAddress(GV, SDLoc(Op), getPointerTy(),
+                                              Offset);
+  return DAG.getNode(LPUISD::Wrapper, SDLoc(Op), getPointerTy(), Result);
 }
 
 SDValue LPUTargetLowering::LowerExternalSymbol(SDValue Op,
@@ -836,7 +833,6 @@ SDValue LPUTargetLowering::LowerExternalSymbol(SDValue Op,
   SDLoc dl(Op);
   const char *Sym = cast<ExternalSymbolSDNode>(Op)->getSymbol();
   SDValue Result = DAG.getTargetExternalSymbol(Sym, getPointerTy());
-
   return DAG.getNode(LPUISD::Wrapper, dl, getPointerTy(), Result);
 }
 
@@ -844,11 +840,11 @@ SDValue LPUTargetLowering::LowerBlockAddress(SDValue Op,
                                                 SelectionDAG &DAG) const {
   SDLoc dl(Op);
   const BlockAddress *BA = cast<BlockAddressSDNode>(Op)->getBlockAddress();
-  SDValue Result = DAG.getTargetBlockAddress(BA, getPointerTy());
-
+  SDValue Result =  DAG.getTargetBlockAddress(BA, getPointerTy());
   return DAG.getNode(LPUISD::Wrapper, dl, getPointerTy(), Result);
 }
 
+/*
 SDValue
 LPUTargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
   MachineFunction &MF = DAG.getMachineFunction();

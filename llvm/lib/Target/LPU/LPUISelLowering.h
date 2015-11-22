@@ -26,7 +26,10 @@ namespace llvm {
       Call,
       TailCall,
       Ret,
-      ThreadPointer
+      ThreadPointer,
+      // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
+      // and TargetGlobalAddress
+      Wrapper
     };
   }
 
@@ -51,21 +54,17 @@ namespace llvm {
       }
     }
 
-    /*
     /// LowerOperation - Provide custom lowering hooks for some operations.
     SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
-    */
+
     /// getTargetNodeName - This method returns the name of a target specific
     /// DAG node.
     const char *getTargetNodeName(unsigned Opcode) const override;
-    /*
+
     SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerSIGN_EXTEND(SDValue Op, SelectionDAG &DAG) const;
+    /*
     SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
