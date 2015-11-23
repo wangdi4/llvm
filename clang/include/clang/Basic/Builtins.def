@@ -397,6 +397,12 @@ BUILTIN(__builtin_parityll, "iULLi", "nc")
 BUILTIN(__builtin_popcount  , "iUi"  , "nc")
 BUILTIN(__builtin_popcountl , "iULi" , "nc")
 BUILTIN(__builtin_popcountll, "iULLi", "nc")
+// if INTEL_CUSTOMIZATION
+// CQ#377481. Adding family of '__builtin_clrsb' builtins
+BUILTIN(__builtin_clrsb  , "ii"  , "nc")
+BUILTIN(__builtin_clrsbl , "iLi" , "nc")
+BUILTIN(__builtin_clrsbll, "iLLi", "nc")
+// endif INTEL_CUSTOMIZATION
 
 // FIXME: These type signatures are not correct for targets with int != 32-bits
 // or with ULL != 64-bits.
