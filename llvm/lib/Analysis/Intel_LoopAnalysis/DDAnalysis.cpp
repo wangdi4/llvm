@@ -101,9 +101,6 @@ bool DDAnalysis::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<SymbaseAssignment>();
 
-  // Compute TopSortNum - which is needed to determine forward or backward edges
-  HLNodeUtils::resetTopSortNum();
-
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];

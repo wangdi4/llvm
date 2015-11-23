@@ -14,10 +14,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
+
 #include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+
+#define DEBUG_TYPE "hir-verify"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -26,11 +30,35 @@ namespace llvm {
 namespace loopopt {
 
 class HIRVerifierImpl final : public HLNodeVisitorBase {
+  unsigned TopSortNum;
+
 public:
   static void verifyNode(const HLNode *N, bool Recursive = true);
   static void verifyAll();
 
-  void visit(const HLNode *Node) { Node->verify(); }
+  HIRVerifierImpl() : TopSortNum(0) {}
+
+  void visit(const HLNode *Node) {
+    unsigned CurrentTopSortNum = Node->getTopSortNum();
+    if (Node->getParent()) {
+      assert(Node->getParent()->getLexicalLastTopSortNum() >=
+                 CurrentTopSortNum &&
+             "Parent LexicalLastTopSortNum should "
+             "be bigger than every TopSortNum");
+    }
+
+    assert(CurrentTopSortNum > TopSortNum &&
+           "TopSortNum should be strictly monotonic");
+    TopSortNum = CurrentTopSortNum;
+
+    Node->verify();
+  }
+
+  void visit(const HLRegion *R) {
+    TopSortNum = 0;
+    visit(static_cast<const HLNode *>(R));
+  }
+
   void postVisit(const HLNode *Node) {}
 };
 }

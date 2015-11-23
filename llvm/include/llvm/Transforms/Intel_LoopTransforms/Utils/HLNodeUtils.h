@@ -60,6 +60,7 @@ private:
   static Instruction *LastDummyInst;
 
   friend class HIRCreation;
+  friend class HIRParser;
   friend class HIRCleanup;
   friend class LoopFormation;
 
@@ -67,7 +68,8 @@ private:
   struct CloneVisitor;
 
   struct LoopFinderUpdater;
-  struct TopSorter;
+
+  template <bool Force = true> struct TopSorter;
 
   template <typename T> static void checkHLLoopTy() {
     // Assert to check that the type is HLLoop. Type can be const or non-const.
@@ -314,6 +316,21 @@ private:
 
   /// \brief Move Loop Bounds, IVtype and ZTT, etc. from one loop to another
   static void moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop);
+
+  /// \brief Set TopSortNums for the first time
+  static void initTopSortNum();
+
+  /// \brief Called by the framework to update TopSortNum field for
+  /// a range of HLNodes
+  static void updateTopSortNum(const HLContainerTy &Container,
+                               HLContainerTy::iterator First,
+                               HLContainerTy::iterator Last);
+
+  /// \brief Evenly sets TopSortNumbers from a range (MinNum, MaxNum) to
+  /// subtrees [First, Last)
+  static void distributeTopSortNum(HLContainerTy::iterator First,
+                                   HLContainerTy::iterator Last,
+                                   unsigned MinNum, unsigned MaxNum);
 
 public:
   /// \brief return true if non-zero
@@ -788,9 +805,6 @@ public:
 
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
-
-  /// \brief Reset TopSortNum
-  static void resetTopSortNum();
 
   /// \brief Returns true if Node is in the top sort num range [FirstNode,
   /// LastNode].

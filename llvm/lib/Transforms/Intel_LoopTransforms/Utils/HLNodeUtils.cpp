@@ -15,6 +15,7 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+
 #include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "hlnode-utils"
@@ -817,7 +818,6 @@ void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
                                  HLContainerTy *OrigContainer,
                                  HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last) {
-
   if (!OrigContainer) {
     InsertContainer.insert(Pos, First);
   } else {
@@ -876,37 +876,49 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
                                   "regions!");
 
   assert(Parent && "Parent is missing!");
-  unsigned I = 0, Distance = 1;
+  unsigned Count = 1;
 
   if (OrigContainer) {
-    Distance = std::distance(First, Last);
+    Count = std::distance(First, Last);
   } else {
     assert(!First->getParent() &&
            "Node is already linked, please remove it first!!");
   }
 
+  // Update parent of topmost nodes. Inner nodes' parent remains the same.
+  unsigned I = 0;
+  for (auto It = First; I < Count; ++I, ++It) {
+    It->setParent(Parent);
+  }
+
+  HLContainerTy *InsertContainer = nullptr;
+
   if (auto Reg = dyn_cast<HLRegion>(Parent)) {
+    InsertContainer = &Reg->Children;
     insertInternal(Reg->Children, Pos, OrigContainer, First, Last);
   } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
+    InsertContainer = &Loop->Children;
     insertInternal(Loop->Children, Pos, OrigContainer, First, Last);
 
     if (UpdateSeparator) {
       if (Pos == Loop->ChildBegin) {
-        Loop->ChildBegin = std::prev(Pos, Distance);
+        Loop->ChildBegin = std::prev(Pos, Count);
       }
       if (PostExitSeparator && (Pos == Loop->PostexitBegin)) {
-        Loop->PostexitBegin = std::prev(Pos, Distance);
+        Loop->PostexitBegin = std::prev(Pos, Count);
       }
     }
 
   } else if (auto If = dyn_cast<HLIf>(Parent)) {
+    InsertContainer = &If->Children;
     insertInternal(If->Children, Pos, OrigContainer, First, Last);
 
     if (UpdateSeparator && (Pos == If->ElseBegin)) {
-      If->ElseBegin = std::prev(Pos, Distance);
+      If->ElseBegin = std::prev(Pos, Count);
     }
 
   } else if (auto Switch = dyn_cast<HLSwitch>(Parent)) {
+    InsertContainer = &Switch->Children;
     insertInternal(Switch->Children, Pos, OrigContainer, First, Last);
 
     // Update all the empty cases which are lexically before this one.
@@ -916,7 +928,7 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
       unsigned E = (CaseNum == -1) ? Switch->getNumCases() : CaseNum;
       for (unsigned I = 0; I < E; ++I) {
         if (Pos == Switch->CaseBegin[I]) {
-          Switch->CaseBegin[I] = std::prev(Pos, Distance);
+          Switch->CaseBegin[I] = std::prev(Pos, Count);
         }
       }
     }
@@ -925,13 +937,13 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
     llvm_unreachable("Unknown parent type!");
   }
 
-  // Update parent of topmost nodes. Inner nodes' parent remains the same.
-  for (auto It = Pos; I < Distance; ++I, It--) {
-    std::prev(It)->setParent(Parent);
-  }
+  assert(InsertContainer && "InsertContainer is null");
+
+  // Update TopSortNum
+  updateTopSortNum(*InsertContainer, First, Pos);
 
   // Update loop info for loops in this range.
-  updateLoopInfoRecursively(std::prev(Pos, Distance), Pos);
+  updateLoopInfoRecursively(std::prev(Pos, Count), Pos);
 }
 
 void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
@@ -1550,25 +1562,158 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
   return Succ;
 }
 
+// TopSortNum is a lexical number of an HLNode. The framework is responsible for
+// maintaining lexical numbering after node insertion.
+//
+// Example: 200,300,400,500 are the topsort numbers.
+//          (500) is a LexicalLastTopSortNum of all children
+//
+//          BEGIN REGION { }
+// <23:200(500)>    + DO i1 = 0, 1, 1   <DO_LOOP>
+// <24:300(500)>    |   + DO i2 = 0, 4, 1   <DO_LOOP>
+// <09:400(400)>    |   |   %0 = (@A)[0][i1 + 2 * i2 + -1];
+// <11:500(500)>    |   |   (@A)[0][i1 + 2 * i2] = %0;
+// <24:300(500)>    |   + END LOOP
+// <23:200(500)>    + END LOOP
+//          END REGION
+//
+// -- When HIR tree is just created, TopSortNums are all zero. In this state
+//    insertion does not involve numbers recalculation.
+// -- After HIR is completely parsed the initTopSortNum() is called. The call
+//    will set the sort numbers for all nodes with a fixed step (100).
+// -- After that point an insertion of nodes will invoke TopSortNums
+//    recalculation.
+//
+// After insertion:
+// 1) Check if First->Parent()'s TopSortNumber is not zero. If true, we assume
+//    that the TopSortNumbers are in order, except [First, Last] subtrees.
+// 2) Get last lexical number of the previous node.
+// 3) Get sort number of lexical next node.
+// 4) Evenly distribute (PrevNum, NextNum) range of numbers between
+//    inserted subtrees
+// 5) If it's not possible - number [First, Last] nodes with a fixed step 1 and
+//    move rest [Last+1, end()) forward until we get all nodes ordered.
+void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
+                                   HLContainerTy::iterator First,
+                                   HLContainerTy::iterator Last) {
+  if (isa<HLRegion>(First)) {
+    return;
+  }
+
+  HLNode *Parent = First->getParent();
+  assert(Parent && "Encountered detached HLNode");
+
+  // Return early if TopSortNums are not set yet
+  if (Parent->getTopSortNum() == 0) {
+    return;
+  }
+
+  bool hasPrevNode = Container.begin() != First;
+  unsigned PrevNum =
+      hasPrevNode ? First->getPrevNode()->getLexicalLastTopSortNum() : 0;
+  if (!PrevNum) {
+    PrevNum = Parent->getTopSortNum();
+  }
+
+  bool hasNextNode = Container.end() != Last;
+  unsigned NextNum = hasNextNode ? Last->getTopSortNum() : 0;
+  if (!NextNum) {
+    for (; Parent; Parent = Parent->getParent()) {
+      if (Parent->getNextNode()) {
+        NextNum = First->getParent()->getNextNode()->getTopSortNum();
+        break;
+      }
+    }
+  }
+
+  HLNodeUtils::distributeTopSortNum(First, Last, PrevNum, NextNum);
+}
+
+struct NodeCounter final : public HLNodeVisitorBase {
+  unsigned Count;
+  NodeCounter() : Count(0) {}
+
+  void visit(HLNode *Node) { Count++; }
+  void postVisit(HLNode *) {}
+};
+
+// The visitor that sets TopSortNums and LexicalLastTopSortNum from MinNum
+// with a fixed Step. If set, the numbering will be started AfterNode.
+//
+// Force:
+//  false - stop numbering if already in order
+//  true - update TopSortNum and LexicalLastTopSortNum for all nodes
+template <bool Force>
 struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
+  unsigned MinNum;
+  unsigned Step;
   unsigned TopSortNum;
+  const HLNode *AfterNode;
+  bool Stop;
+
+  TopSorter(unsigned MinNum, unsigned Step = 100,
+            const HLNode *AfterNode = nullptr)
+      : MinNum(MinNum), TopSortNum(MinNum), AfterNode(AfterNode),
+        Stop(false) {
+    this->Step = Step ? Step : 1;
+  }
+
   void visit(HLNode *Node) {
-    TopSortNum += 50;
-    Node->setTopSortNum(TopSortNum);
+    if (AfterNode) {
+      if (AfterNode == Node) {
+        AfterNode = nullptr;
+      }
+      return;
+    }
+
+    assert(TopSortNum < UINT_MAX - Step && "Overflow in TopSortNum");
+    TopSortNum += Step;
+
+    if (Force || TopSortNum >= Node->getTopSortNum()) {
+      Node->setTopSortNum(TopSortNum);
+      if (Force || TopSortNum >= Node->getLexicalLastTopSortNum()) {
+        Node->setLexicalLastTopSortNum(TopSortNum);
+      }
+    } else {
+      Stop = true;
+    }
   }
 
   void visit(HLRegion *Region) {
-    TopSortNum = 0;
+    TopSortNum = MinNum;
     visit(static_cast<HLNode *>(Region));
   }
 
+  bool isDone() const override { return Stop; }
+
   void postVisit(HLNode *) {}
-  TopSorter() : TopSortNum(0) {}
 };
 
-void HLNodeUtils::resetTopSortNum() {
-  HLNodeUtils::TopSorter TS;
+void HLNodeUtils::initTopSortNum() {
+  TopSorter<true> TS(0);
   HLNodeUtils::visitAll(TS);
+}
+
+void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
+                                       HLContainerTy::iterator Last,
+                                       unsigned MinNum, unsigned MaxNum) {
+  if (MaxNum) {
+    NodeCounter TC;
+    HLNodeUtils::visitRange(TC, First, Last);
+
+    assert(MinNum < MaxNum && "MinNum should be always less than MaxNum");
+
+    unsigned Step = (MaxNum - MinNum) / (TC.Count + 1);
+    TopSorter<true> TS(MinNum, Step);
+    HLNodeUtils::visitRange(TS, First, Last);
+    if (Step == 0) {
+      TopSorter<false> TS(MinNum + TC.Count, 1, std::prev(Last));
+      HLNodeUtils::visit(TS, First->getParentRegion());
+    }
+  } else {
+    TopSorter<true> TS(MinNum);
+    HLNodeUtils::visitRange(TS, First, Last);
+  }
 }
 
 bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,

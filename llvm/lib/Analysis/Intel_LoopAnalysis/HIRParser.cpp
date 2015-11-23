@@ -1960,6 +1960,8 @@ bool HIRParser::runOnFunction(Function &F) {
     phase2Parse();
   }
 
+  HLNodeUtils::initTopSortNum();
+
   return false;
 }
 
