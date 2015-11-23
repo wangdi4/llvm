@@ -102,6 +102,8 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     CachedFakeTopLevelModule(nullptr),
 #ifdef INTEL_CUSTOMIZATION
     CEANLevelCounter(0),
+    // Fix for CQ374244: non-template call of template function is ambiguous.
+    SuppressQualifiersOnTypeSubst(true),
 #endif  // INTEL_CUSTOMIZATION
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),

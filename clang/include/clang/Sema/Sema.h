@@ -2805,6 +2805,34 @@ public:
     return getLangOpts().OpenMP && CEANStack.back() == OpenMPCEANAllowed;
   }
   CEANSupportState GetCEANState() { return CEANStack.back(); }
+
+  // Fix for CQ374244: non-template call of template function is ambiguous.
+  /// \brief true if the qualifiers must be suppressed for types that should not
+  /// be qualified for template instantiation. false, if all types must be
+  /// qualified (for example, for type substitution on function parameters).
+  bool SuppressQualifiersOnTypeSubst;
+
+  /// \brief RAII object used to suppress/allow types qualification on type
+  /// sunstitution within a \c Sema object.
+  ///
+  class SuppressQualifiersOnTypeSubstRAII {
+    Sema &Self;
+    bool OldSuppressQualifiersOnTypeSubst;
+
+  public:
+    SuppressQualifiersOnTypeSubstRAII(
+        Sema &Self, bool NewSuppressQualifiersOnTypeSubst = false)
+        : Self(Self),
+          OldSuppressQualifiersOnTypeSubst(Self.SuppressQualifiersOnTypeSubst) {
+      Self.SuppressQualifiersOnTypeSubst = NewSuppressQualifiersOnTypeSubst;
+    }
+
+    ~SuppressQualifiersOnTypeSubstRAII() {
+      Self.SuppressQualifiersOnTypeSubst = OldSuppressQualifiersOnTypeSubst;
+    }
+  };
+
+  friend class SuppressQualifiersOnTypeSubstRAII;
 #endif  // INTEL_CUSTOMIZATION
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;

@@ -151,6 +151,14 @@ public:
   /// statement node appears at most once in its containing declaration.
   bool AlwaysRebuild() { return SemaRef.ArgumentPackSubstitutionIndex != -1; }
 
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ374244: non-template call of template function is ambiguous.
+  /// \brief true if the qualifiers must be suppressed for types that should not
+  /// be qualified for template instantiation. false, if all types must be
+  /// qualified (for example, for type substitution on function parameters).
+  bool SuppressQualifiers() { return SemaRef.SuppressQualifiersOnTypeSubst; }
+#endif  // INTEL_CUSTOMIZATION
+
   /// \brief Returns the location of the entity being transformed, if that
   /// information was not available elsewhere in the AST.
   ///
@@ -3934,6 +3942,10 @@ TreeTransform<Derived>::TransformQualifiedType(TypeLocBuilder &TLB,
   // Silently suppress qualifiers if the result type can't be qualified.
   // FIXME: this is the right thing for template instantiation, but
   // probably not for other clients.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ374244: non-template call of template function is ambiguous.
+  if (SuppressQualifiers())
+#endif  // INTEL_CUSTOMIZATION
   if (Result->isFunctionType() || Result->isReferenceType())
     return Result;
 
