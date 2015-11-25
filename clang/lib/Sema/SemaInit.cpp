@@ -4984,11 +4984,17 @@ void InitializationSequence::InitializeFrom(Sema &S,
       // Fix for CQ#369248: failed to compile gcc header tr1/regex.
       // Header file tr1/regex has bugs in version prior to GCC 5.0. GCC is able
       // to compile it, but emits error messages on class instantiation.
+      // Fix for CQ379037: xmain allows casting of StringRef to const char[2].
     } else if (S.getLangOpts().IntelCompat &&
                Kind.getKind() != InitializationKind::IK_Direct && Initializer &&
                !isa<InitListExpr>(Initializer) &&
                S.CurContext->isDependentContext() &&
-               S.ActiveTemplateInstantiations.empty()) {
+               S.ActiveTemplateInstantiations.empty() &&
+               (Initializer->getType()->isPointerType() ||
+                Initializer->getType()->isConstantArrayType()) &&
+               !Initializer->getType()->isDependentType() &&
+               !Initializer->getType()->isInstantiationDependentType() &&
+               S.SourceMgr.isInSystemHeader(Initializer->getExprLoc())) {
       AddArrayInitStep(DestType);
 #endif // INTEL_CUSTOMIZATION
     } else if (DestAT->getElementType()->isCharType())
