@@ -825,6 +825,10 @@ StringRef ELFObjectFile<ELFT>::getFileFormatName() const {
     switch (EF.getHeader()->e_machine) {
     case ELF::EM_386:
       return "ELF32-i386";
+#if INTEL_CUSTOMIZATION
+    case ELF::EM_IAMCU:
+      return "ELF32-iamcu";
+#endif //INTEL_CUSTOMIZATION
     case ELF::EM_X86_64:
       return "ELF32-x86-64";
     case ELF::EM_ARM:
@@ -871,6 +875,9 @@ unsigned ELFObjectFile<ELFT>::getArch() const {
   bool IsLittleEndian = ELFT::TargetEndianness == support::little;
   switch (EF.getHeader()->e_machine) {
   case ELF::EM_386:
+#if INTEL_CUSTOMIZATION
+  case ELF::EM_IAMCU:
+#endif //INTEL_CUSTOMIZATION
     return Triple::x86;
   case ELF::EM_X86_64:
     return Triple::x86_64;

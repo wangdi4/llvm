@@ -1,26 +1,58 @@
 // RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %s -o %ta.o
 // RUN: llvm-mc -filetype=obj -triple=i686-unknown-linux %s -o %tb.o
-// RUN: llvm-mc -filetype=obj -triple=arm-unknown-linux %s -o %tc.o
+// RUN: ld.lld2 -shared %tb.o -o %ti686.so
+// RUN: llvm-mc -filetype=obj -triple=aarch64-unknown-linux %s -o %tc.o
 
-// RUN: not lld -flavor gnu2 %ta.o %tb.o -o %t 2>&1 | \
+// RUN: not ld.lld2 %ta.o %tb.o -o %t 2>&1 | \
 // RUN:   FileCheck --check-prefix=A-AND-B %s
-// A-AND-B: a.o is incompatible with {{.*}}b.o
+// A-AND-B: b.o is incompatible with {{.*}}a.o
 
-// RUN: not lld -flavor gnu2 %tb.o %tc.o -o %t 2>&1 | \
+// RUN: not ld.lld2 %tb.o %tc.o -o %t 2>&1 | \
 // RUN:   FileCheck --check-prefix=B-AND-C %s
-// B-AND-C: b.o is incompatible with {{.*}}c.o
+// B-AND-C: c.o is incompatible with {{.*}}b.o
 
-// FIMME: create the .so ourselves once we are able to
-// RUN: not lld -flavor gnu2 %ta.o %p/Inputs/i686-simple-library.so -o %t 2>&1 | \
+// RUN: not ld.lld2 %ta.o %ti686.so -o %t 2>&1 | \
 // RUN:   FileCheck --check-prefix=A-AND-SO %s
-// A-AND-SO: a.o is incompatible with {{.*}}/Inputs/i686-simple-library.so
+// A-AND-SO: i686.so is incompatible with {{.*}}a.o
 
-// RUN: not lld -flavor gnu2 %tc.o %p/Inputs/i686-simple-library.so -o %t 2>&1 | \
+// RUN: not ld.lld2 %tc.o %ti686.so -o %t 2>&1 | \
 // RUN:   FileCheck --check-prefix=C-AND-SO %s
-// C-AND-SO: c.o is incompatible with {{.*}}/Inputs/i686-simple-library.so
+// C-AND-SO: i686.so is incompatible with {{.*}}c.o
 
-// RUN: not lld -flavor gnu2 %p/Inputs/i686-simple-library.so %tc.o -o %t 2>&1 | \
+// RUN: not ld.lld2 %ti686.so %tc.o -o %t 2>&1 | \
 // RUN:   FileCheck --check-prefix=SO-AND-C %s
-// SO-AND-C: /Inputs/i686-simple-library.so is incompatible with {{.*}}c.o
+// SO-AND-C: c.o is incompatible with {{.*}}i686.so
 
-// REQUIRES: x86,arm
+// RUN: not ld.lld2 -m elf64ppc %ta.o -o %t 2>&1 | \
+// RUN:   FileCheck --check-prefix=A-ONLY %s
+// A-ONLY: a.o is incompatible with elf64ppc
+
+// RUN: not ld.lld2 -m elf64ppc %tb.o -o %t 2>&1 | \
+// RUN:   FileCheck --check-prefix=B-ONLY %s
+// B-ONLY: b.o is incompatible with elf64ppc
+
+// RUN: not ld.lld2 -m elf64ppc %tc.o -o %t 2>&1 | \
+// RUN:   FileCheck --check-prefix=C-ONLY %s
+// C-ONLY: c.o is incompatible with elf64ppc
+
+// RUN: not ld.lld2 -m elf_i386 %tc.o %ti686.so -o %t 2>&1 | \
+// RUN:   FileCheck --check-prefix=C-AND-SO-I386 %s
+// C-AND-SO-I386: c.o is incompatible with elf_i386
+
+// RUN: not ld.lld2 -m elf_i386 %ti686.so %tc.o -o %t 2>&1 | \
+// RUN:   FileCheck --check-prefix=SO-AND-C-I386 %s
+// SO-AND-C-I386: c.o is incompatible with elf_i386
+
+
+// We used to fail to identify this incompatibility and crash trying to
+// read a 64 bit file as a 32 bit one.
+// RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/archive2.s -o %ta.o
+// RUN: llvm-ar rc %t.a %ta.o
+// RUN: llvm-mc -filetype=obj -triple=i686-linux %s -o %tb.o
+// RUN: not ld.lld2 %t.a %tb.o 2>&1 | FileCheck --check-prefix=ARCHIVE %s
+// ARCHIVE: a.o is incompatible with {{.*}}b.o
+.global _start
+_start:
+        .long foo
+
+// REQUIRES: x86,aarch64

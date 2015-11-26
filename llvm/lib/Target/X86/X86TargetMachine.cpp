@@ -73,11 +73,13 @@ static std::string computeDataLayout(const Triple &TT) {
   // Some ABIs align 64 bit integers and doubles to 64 bits, others to 32.
   if (TT.isArch64Bit() || TT.isOSWindows() || TT.isOSNaCl())
     Ret += "-i64:64";
+  else if (TT.isOSIAMCU())
+    Ret += "-i64:32-f64:32";
   else
     Ret += "-f64:32:64";
 
   // Some ABIs align long double to 128 bits, others to 32.
-  if (TT.isOSNaCl())
+  if (TT.isOSNaCl() || TT.isOSIAMCU())
     ; // No f80
   else if (TT.isArch64Bit() || TT.isOSDarwin())
     Ret += "-f80:128";
@@ -91,7 +93,7 @@ static std::string computeDataLayout(const Triple &TT) {
     Ret += "-n8:16:32";
 
   // The stack is aligned to 32 bits on some ABIs and 128 bits on others.
-  if (!TT.isArch64Bit() && TT.isOSWindows())
+  if ((!TT.isArch64Bit() && TT.isOSWindows()) || TT.isOSIAMCU())
     Ret += "-a:0:32-S32";
   else
     Ret += "-S128";
@@ -182,8 +184,9 @@ UseVZeroUpper("x86-use-vzeroupper", cl::Hidden,
 //===----------------------------------------------------------------------===//
 
 TargetIRAnalysis X86TargetMachine::getTargetIRAnalysis() {
-  return TargetIRAnalysis(
-      [this](Function &F) { return TargetTransformInfo(X86TTIImpl(this, F)); });
+  return TargetIRAnalysis([this](const Function &F) {
+    return TargetTransformInfo(X86TTIImpl(this, F));
+  });
 }
 
 
@@ -209,9 +212,7 @@ public:
   void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
-#ifdef INTEL_CUSTOMIZATION
-  void addCodeGenPrepare() override;
-#endif  //INTEL_CUSTOMIZATION
+  void addCodeGenPrepare() override;               // INTEL
   void addPreSched2() override;
 };
 } // namespace
@@ -273,17 +274,15 @@ void X86PassConfig::addPreEmitPass() {
     addPass(createX86IssueVZeroUpperPass());
 
   if (getOptLevel() != CodeGenOpt::None) {
-#if INTEL_CUSTOMIZATION
-    addPass(createX86FixupBWInsts());
-#endif // INTEL_CUSTOMIZATION
+    addPass(createX86FixupBWInsts());                // INTEL
     addPass(createX86PadShortFunctions());
     addPass(createX86FixupLEAs());
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void X86PassConfig::addCodeGenPrepare() {
   addPass(createFeatureOutlinerPass(TM));
   TargetPassConfig::addCodeGenPrepare();
 }
-#endif  //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION

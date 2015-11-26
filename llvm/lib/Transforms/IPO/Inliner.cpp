@@ -48,8 +48,7 @@ STATISTIC(NumMergedAllocas, "Number of allocas merged together");
 // if those would be more profitable and blocked inline steps.
 STATISTIC(NumCallerCallersAnalyzed, "Number of caller-callers analyzed");
 
-#ifdef INTEL_CUSTOMIZATION 
-
+#if INTEL_CUSTOMIZATION 
 ///
 /// \brief Inlining report level option
 ///
@@ -66,6 +65,7 @@ static cl::opt<unsigned>
 IntelInlineReportLevel("inline-report", cl::Hidden, cl::init(0), 
   cl::Optional, cl::desc("Print inline report"));
 #endif // INTEL_CUSTOMIZATION 
+
 static cl::opt<int>
 InlineLimit("inline-threshold", cl::Hidden, cl::init(225), cl::ZeroOrMore,
         cl::desc("Control the amount of inlining to perform (default = 225)"));
@@ -82,7 +82,7 @@ ColdThreshold("inlinecold-threshold", cl::Hidden, cl::init(225),
               cl::desc("Threshold for inlining functions with cold attribute"));
 
 // Threshold to use when optsize is specified (and there is no -inline-limit).
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ370998: Reduce the threshold from 75 to 15 to reduce code size.
 static cl::opt<int>
 OptSizeThreshold("inlineoptsize-threshold", cl::Hidden, cl::init(15),
@@ -171,7 +171,7 @@ static InlineReason
 
   // Try to inline the function.  Get the list of static allocas that were
   // inlined.
-#ifdef INTEL_CUSTOMIZATION     
+#if INTEL_CUSTOMIZATION     
   InlineReason IR = InlineFunction(CS, IFI, &AAR, InsertLifetime); 
   if (IR != InlrNoReason) {
     return IR;
@@ -260,6 +260,14 @@ static InlineReason
       DEBUG(dbgs() << "    ***MERGED ALLOCA: " << *AI << "\n\t\tINTO: "
                    << *AvailableAlloca << '\n');
       
+      // Move affected dbg.declare calls immediately after the new alloca to
+      // avoid the situation when a dbg.declare preceeds its alloca.
+      if (auto *L = LocalAsMetadata::getIfExists(AI))
+        if (auto *MDV = MetadataAsValue::getIfExists(AI->getContext(), L))
+          for (User *U : MDV->users())
+            if (DbgDeclareInst *DDI = dyn_cast<DbgDeclareInst>(U))
+              DDI->moveBefore(AvailableAlloca->getNextNode());
+
       AI->replaceAllUsesWith(AvailableAlloca);
 
       if (Align1 != Align2) {
@@ -587,7 +595,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
       } else {
         // We can only inline direct calls to non-declarations.
         if (!Callee || Callee->isDeclaration()) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           if (!Callee) {
             getReport().setReasonNotInlined(CS, NinlrIndirect); 
             continue;
@@ -629,7 +637,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
         }
 
         // Attempt to inline the function.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         InlineReportCallSite* IRCS = getReport().getCallSite(CS);
         Instruction* NI = CS.getInstruction();
         getReport().setActiveInlineInstruction(NI); 
@@ -719,7 +727,7 @@ bool Inliner::runOnSCC(CallGraphSCC &SCC) {
 /// Remove now-dead linkonce functions at the end of
 /// processing to avoid breaking the SCC traversal.
 bool Inliner::doFinalization(CallGraph &CG) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   bool ReturnValue = removeDeadFunctions(CG); 
   getReport().print(); 
   removeDeletableFunctions(); 
@@ -727,8 +735,7 @@ bool Inliner::doFinalization(CallGraph &CG) {
 #endif // INTEL_CUSTOMIZATION
 }
 
-#ifdef INTEL_CUSTOMIZATION
-
+#if INTEL_CUSTOMIZATION
 void Inliner::removeDeletableFunctions(void)
 {
   for (unsigned I = 0, E = DeletableFunctions.size(); I < E; ++I) { 
@@ -736,7 +743,6 @@ void Inliner::removeDeletableFunctions(void)
   } 
   DeletableFunctions.clear(); 
 }
-
 #endif // INTEL_CUSTOMIZATION
 
 /// Remove dead functions that are not included in DNR (Do Not Remove) list.
@@ -837,7 +843,7 @@ bool Inliner::removeDeadFunctions(CallGraph &CG, bool AlwaysInlineOnly) {
                                       FunctionsToRemove.end()),
                           FunctionsToRemove.end());
   for (CallGraphNode *CGN : FunctionsToRemove) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     Function* Callee = (CGN)->getFunction();
     getReport().addFunction(Callee, &CG.getModule()); 
     getReport().setDead(Callee); 

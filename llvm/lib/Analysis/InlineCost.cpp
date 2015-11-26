@@ -40,7 +40,7 @@ using namespace InlineReportTypes; // INTEL
 
 STATISTIC(NumCallsAnalyzed, "Number of call sites analyzed");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 extern bool llvm::IsInlinedReason(InlineReason Reason) {
   return Reason > InlrFirst && Reason < InlrLast;
 }
@@ -971,16 +971,16 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
       continue;
 
     // Skip ephemeral values.
-    if (EphValues.count(I))
+    if (EphValues.count(&*I))
       continue;
 
     ++NumInstructions;
     if (isa<ExtractElementInst>(I) || I->getType()->isVectorTy())
       ++NumVectorInstructions;
 
-    // If the instruction is floating point, and the target says this operation is
-    // expensive or the function has the "use-soft-float" attribute, this may
-    // eventually become a library call.  Treat the cost as such.
+    // If the instruction is floating point, and the target says this operation
+    // is expensive or the function has the "use-soft-float" attribute, this may
+    // eventually become a library call. Treat the cost as such.
 
     if (I->getType()->isFloatingPointTy()) {
       bool hasSoftFloatAttr = false;
@@ -992,7 +992,8 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
       if (isa<StoreInst>(I)) // INTEL 
         isLoadStore = true;       // INTEL 
 
-      // If the function has the "use-soft-float" attribute, mark it as expensive.
+      // If the function has the "use-soft-float" attribute, mark it as
+      // expensive.
       if (F.hasFnAttribute("use-soft-float")) {
         Attribute Attr = F.getFnAttribute("use-soft-float");
         StringRef Val = Attr.getValueAsString();
@@ -1011,7 +1012,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
     // all of the per-instruction logic. The visit tree returns true if we
     // consumed the instruction in any way, and false if the instruction's base
     // cost should count against inlining.
-    if (Base::visit(I))
+    if (Base::visit(&*I))
       ++NumInstructionsSimplified;
     else
       Cost += InlineConstants::InstrCost;
@@ -1037,7 +1038,7 @@ bool CallAnalyzer::analyzeBlock(BasicBlock *BB,
   return true;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 ///
 /// \brief Find the best inlining or non-inlining reason 
 ///
@@ -1240,15 +1241,15 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
        FAI != FAE; ++FAI, ++CAI) {
     assert(CAI != CS.arg_end());
     if (Constant *C = dyn_cast<Constant>(CAI))
-      SimplifiedValues[FAI] = C;
+      SimplifiedValues[&*FAI] = C;
 
     Value *PtrArg = *CAI;
     if (ConstantInt *C = stripAndComputeInBoundsConstantOffsets(PtrArg)) {
-      ConstantOffsetPtrs[FAI] = std::make_pair(PtrArg, C->getValue());
+      ConstantOffsetPtrs[&*FAI] = std::make_pair(PtrArg, C->getValue());
 
       // We can SROA any pointer arguments derived from alloca instructions.
       if (isa<AllocaInst>(PtrArg)) {
-        SROAArgValues[FAI] = PtrArg;
+        SROAArgValues[&*FAI] = PtrArg;
         SROAArgCosts[PtrArg] = 0;
       }
     }
@@ -1301,7 +1302,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     if (!analyzeBlock(BB, EphValues)) {
       if (IsRecursiveCall || ExposesReturnsTwice || HasDynamicAlloca ||
           HasIndirectBr || HasFrameEscape) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (IsRecursiveCall) { 
           *ReasonAddr = NinlrRecursive; 
         } 
@@ -1373,7 +1374,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION 
+#if INTEL_CUSTOMIZATION 
   if (SingleBB) { 
     YesReasonVector.push_back(InlrSingleBasicBlock);
   } 
@@ -1395,7 +1396,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   else if (NumVectorInstructions <= NumInstructions / 2)
     Threshold -= (FiftyPercentVectorBonus - TenPercentVectorBonus);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (VectorBonus > 0) { 
     YesReasonVector.push_back(InlrVectorBonus); 
   } 
@@ -1487,7 +1488,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   // Calls to functions with always-inline attributes should be inlined
   // whenever possible.
   if (CS.hasFnAttr(Attribute::AlwaysInline)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     InlineReason Reason = InlrNoReason; 
     if (isInlineViable(*Callee, Reason))  
       return llvm::InlineCost::getAlways(InlrAlwaysInline);
@@ -1512,7 +1513,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   if (Callee->mayBeOverridden() ||
       Callee->hasFnAttribute(Attribute::NoInline) // INTEL 
       || CS.isNoInline()) { // INTEL
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     if (Callee->mayBeOverridden()) { 
       return llvm::InlineCost::getNever(NinlrMayBeOverriden);
     } 
@@ -1529,7 +1530,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
         << "...\n");
 
   CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold, CS);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
   assert(Reason != InlrNoReason); 
@@ -1555,7 +1556,7 @@ bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL
     // blockaddresses.
     if (isa<IndirectBrInst>(BI->getTerminator()) 
       || BI->hasAddressTaken()) { // INTEL 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (isa<IndirectBrInst>(BI->getTerminator())) { 
         Reason = NinlrIndirectBranch;
         return false;
@@ -1567,9 +1568,8 @@ bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL
 #endif // INTEL_CUSTOMIZATION
     } // INTEL 
 
-    for (BasicBlock::iterator II = BI->begin(), IE = BI->end(); II != IE;
-         ++II) {
-      CallSite CS(II);
+    for (auto &II : *BI) {
+      CallSite CS(&II);
       if (!CS)
         continue;
 

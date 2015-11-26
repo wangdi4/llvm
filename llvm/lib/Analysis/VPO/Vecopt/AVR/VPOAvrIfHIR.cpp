@@ -34,7 +34,7 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   if (VLevel > PrintBase) { 
     OS << Indent << "AVR_IF: ";
-    CompareInstruction->printHeader(OS, 0, false);
+    CompareInstruction->printHeader(OS, 0);
     OS << "\n";
   }
 

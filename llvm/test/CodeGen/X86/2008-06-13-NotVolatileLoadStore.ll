@@ -3,7 +3,7 @@
 ; Check that they weren't turned off for all loads and stores!
 ; CHECK-LABEL: f:
 ; CHECK-NOT: movsd
-; CHECK: {{movw|movzwl}}
+; CHECK: {{movw|movzwl}}                  ;INTEL
 ; CHECK: addw
 
 @atomic = global double 0.000000e+00		; <double*> [#uses=1]

@@ -12,27 +12,15 @@ class CategoriesDataFormatterTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @skipUnlessDarwin
-    @dsym_test
-    def test_with_dsym_and_run_command(self):
-        """Test data formatter commands."""
-        self.buildDsym()
-        self.data_formatter_commands()
-
-    @dwarf_test
-    def test_with_dwarf_and_run_command(self):
-        """Test data formatter commands."""
-        self.buildDwarf()
-        self.data_formatter_commands()
-
     def setUp(self):
         # Call super's setUp().
         TestBase.setUp(self)
         # Find the line number to break at.
         self.line = line_number('main.cpp', '// Set break point at this line.')
 
-    def data_formatter_commands(self):
+    def test_with_run_command(self):
         """Test that that file and class static variables display correctly."""
+        self.build()
         self.runCmd("file a.out", CURRENT_EXECUTABLE_SET)
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
@@ -158,8 +146,6 @@ class CategoriesDataFormatterTestCase(TestBase):
 
         self.runCmd("type summary add Rectangle -w Category1 --summary-string \"Category1\"")
         self.runCmd("type summary add Rectangle -w Category2 --summary-string \"Category2\"")
-
-        self.runCmd("type category list")
 
         self.runCmd("type category enable Category2")
         self.runCmd("type category enable Category1")
@@ -302,7 +288,7 @@ class CategoriesDataFormatterTestCase(TestBase):
         
         # check that list commands work
         self.expect("type category list",
-                substrs = ['RectangleStarCategory is enabled'])
+                substrs = ['RectangleStarCategory (enabled)'])
 
         self.expect("type summary list",
                 substrs = ['ARectangleStar'])
@@ -312,7 +298,7 @@ class CategoriesDataFormatterTestCase(TestBase):
         
         # check that list commands work
         self.expect("type category list",
-                    substrs = ['CircleCategory is not enabled'])
+                    substrs = ['CircleCategory (disabled'])
 
         self.expect("frame variable c1 r_ptr",
                     substrs = ['AShape',

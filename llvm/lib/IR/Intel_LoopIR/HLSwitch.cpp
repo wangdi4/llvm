@@ -292,3 +292,5 @@ void HLSwitch::removeCase(unsigned CaseNum) {
   /// Erase the separator for this case.
   CaseBegin.erase(CaseBegin.begin() + CaseNum - 1);
 }
+
+void HLSwitch::verify() const { HLDDNode::verify(); }

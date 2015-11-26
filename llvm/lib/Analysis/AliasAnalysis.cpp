@@ -30,6 +30,7 @@
 #include "llvm/Analysis/CFLAliasAnalysis.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
 #include "llvm/Analysis/ObjCARCAliasAnalysis.h"
 #include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -88,6 +89,19 @@ AliasResult AAResults::alias(const MemoryLocation &LocA,
   }
   return MayAlias;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Chaining methods to detect whether a value is escaped from the current
+// routine.
+bool AAResults::escapes(const Value *V) {
+  for (const auto &AA : AAs) {
+    auto Result = AA->escapes(V);
+    if (Result != true)
+      return Result;
+  }
+  return true;
+}
+#endif // INTEL_CUSTOMIZATION
 
 bool AAResults::pointsToConstantMemory(const MemoryLocation &Loc,
                                        bool OrLocal) {
@@ -351,18 +365,51 @@ bool AAResults::canInstructionRangeModRef(const Instruction &I1,
                                           const ModRefInfo Mode) {
   assert(I1.getParent() == I2.getParent() &&
          "Instructions not in same basic block!");
-  BasicBlock::const_iterator I = &I1;
-  BasicBlock::const_iterator E = &I2;
+  BasicBlock::const_iterator I = I1.getIterator();
+  BasicBlock::const_iterator E = I2.getIterator();
   ++E;  // Convert from inclusive to exclusive range.
 
   for (; I != E; ++I) // Check every instruction in range
-    if (getModRefInfo(I, Loc) & Mode)
+    if (getModRefInfo(&*I, Loc) & Mode)
       return true;
   return false;
 }
 
 // Provide a definition for the root virtual destructor.
 AAResults::Concept::~Concept() {}
+
+namespace {
+/// A wrapper pass for external alias analyses. This just squirrels away the
+/// callback used to run any analyses and register their results.
+struct ExternalAAWrapperPass : ImmutablePass {
+  typedef std::function<void(Pass &, Function &, AAResults &)> CallbackT;
+
+  CallbackT CB;
+
+  static char ID;
+
+  ExternalAAWrapperPass() : ImmutablePass(ID) {
+    initializeExternalAAWrapperPassPass(*PassRegistry::getPassRegistry());
+  }
+  explicit ExternalAAWrapperPass(CallbackT CB)
+      : ImmutablePass(ID), CB(std::move(CB)) {
+    initializeExternalAAWrapperPassPass(*PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.setPreservesAll();
+  }
+};
+}
+
+char ExternalAAWrapperPass::ID = 0;
+INITIALIZE_PASS(ExternalAAWrapperPass, "external-aa", "External Alias Analysis",
+                false, true)
+
+ImmutablePass *
+llvm::createExternalAAWrapperPass(ExternalAAWrapperPass::CallbackT Callback) {
+  return new ExternalAAWrapperPass(std::move(Callback));
+}
 
 AAResultsWrapperPass::AAResultsWrapperPass() : FunctionPass(ID) {
   initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
@@ -372,8 +419,10 @@ char AAResultsWrapperPass::ID = 0;
 
 INITIALIZE_PASS_BEGIN(AAResultsWrapperPass, "aa",
                       "Function Alias Analysis Results", false, true)
+INITIALIZE_PASS_DEPENDENCY(AndersensAAWrapperPass)  // INTEL
 INITIALIZE_PASS_DEPENDENCY(BasicAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(CFLAAWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(ExternalAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(GlobalsAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ObjCARCAAWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(SCEVAAWrapperPass)
@@ -424,6 +473,16 @@ bool AAResultsWrapperPass::runOnFunction(Function &F) {
     AAR->addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = getAnalysisIfAvailable<CFLAAWrapperPass>())
     AAR->addAAResult(WrapperPass->getResult());
+#ifdef INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = getAnalysisIfAvailable<AndersensAAWrapperPass>())
+    AAR->addAAResult(WrapperPass->getResult());
+#endif     // INTEL_CUSTOMIZATION
+
+  // If available, run an external AA providing callback over the results as
+  // well.
+  if (auto *WrapperPass = getAnalysisIfAvailable<ExternalAAWrapperPass>())
+    if (WrapperPass->CB)
+      WrapperPass->CB(*this, F, *AAR);
 
   // Analyses don't mutate the IR, so return false.
   return false;
@@ -443,6 +502,7 @@ void AAResultsWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addUsedIfAvailable<GlobalsAAWrapperPass>();
   AU.addUsedIfAvailable<SCEVAAWrapperPass>();
   AU.addUsedIfAvailable<CFLAAWrapperPass>();
+  AU.addUsedIfAvailable<AndersensAAWrapperPass>(); // INTEL
 }
 
 AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
@@ -468,6 +528,10 @@ AAResults llvm::createLegacyPMAAResults(Pass &P, Function &F,
     AAR.addAAResult(WrapperPass->getResult());
   if (auto *WrapperPass = P.getAnalysisIfAvailable<CFLAAWrapperPass>())
     AAR.addAAResult(WrapperPass->getResult());
+#ifdef INTEL_CUSTOMIZATION
+  if (auto *WrapperPass = P.getAnalysisIfAvailable<AndersensAAWrapperPass>())
+    AAR.addAAResult(WrapperPass->getResult());
+#endif     // INTEL_CUSTOMIZATION
 
   return AAR;
 }

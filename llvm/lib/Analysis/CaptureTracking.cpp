@@ -35,9 +35,12 @@ bool CaptureTracker::shouldExplore(const Use *U) { return true; }
 
 namespace {
   struct SimpleCaptureTracker : public CaptureTracker {
-    explicit SimpleCaptureTracker(bool ReturnCaptures, bool IgnoreFlag)
+    explicit SimpleCaptureTracker(bool ReturnCaptures,
+                                  bool IgnoreFlag // INTEL
+                                  )
         : ReturnCaptures(ReturnCaptures), Captured(false),
-          IgnoreNoAliasArgStCaptured(IgnoreFlag) {}
+          IgnoreNoAliasArgStCaptured(IgnoreFlag // INTEL
+                                     ) {}
 
     void tooManyUses() override { Captured = true; }
 
@@ -55,7 +58,7 @@ namespace {
           }
         }
       }
-#endif
+#endif // INTEL
       Captured = true;
       return true;
     }
@@ -63,8 +66,7 @@ namespace {
     bool ReturnCaptures;
 
     bool Captured;
-
-    bool IgnoreNoAliasArgStCaptured;
+    bool IgnoreNoAliasArgStCaptured; // INTEL
   };
 
   /// Only find pointer captures which happen before the given instruction. Uses
@@ -173,9 +175,10 @@ namespace {
 /// counts as capturing it or not.  The boolean StoreCaptures specified whether
 /// storing the value (or part of it) into memory anywhere automatically
 /// counts as capturing it or not.
-bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
-                                bool StoreCaptures,
-                                bool IgnoreStoreCapturesByNoAliasArgument) {
+bool llvm::PointerMayBeCaptured(
+    const Value *V, bool ReturnCaptures, bool StoreCaptures,
+    bool IgnoreStoreCapturesByNoAliasArgument // INTEL
+    ) {
   assert(!isa<GlobalValue>(V) &&
          "It doesn't make sense to ask whether a global is captured.");
 
@@ -186,7 +189,8 @@ bool llvm::PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
   (void)StoreCaptures;
 
   SimpleCaptureTracker SCT(ReturnCaptures,
-                           IgnoreStoreCapturesByNoAliasArgument);
+                           IgnoreStoreCapturesByNoAliasArgument // INTEL
+                           );
   PointerMayBeCaptured(V, &SCT);
   return SCT.Captured;
 }

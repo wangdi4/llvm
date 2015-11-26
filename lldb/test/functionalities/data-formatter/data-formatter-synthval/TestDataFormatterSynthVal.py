@@ -12,29 +12,17 @@ class DataFormatterSynthValueTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @skipUnlessDarwin
-    @dsym_test
-    def test_with_dsym_and_run_command(self):
-        """Test using Python synthetic children provider to provide a value."""
-        self.buildDsym()
-        self.data_formatter_commands()
-
-    @skipIfFreeBSD # llvm.org/pr20545 bogus output confuses buildbot parser
-    @expectedFailureWindows("llvm.org/pr24462") # Data formatters have problems on Windows
-    @dwarf_test
-    def test_with_dwarf_and_run_command(self):
-        """Test using Python synthetic children provider to provide a value."""
-        self.buildDwarf()
-        self.data_formatter_commands()
-
     def setUp(self):
         # Call super's setUp().
         TestBase.setUp(self)
         # Find the line number to break at.
         self.line = line_number('main.cpp', 'break here')
 
-    def data_formatter_commands(self):
+    @skipIfFreeBSD # llvm.org/pr20545 bogus output confuses buildbot parser
+    @expectedFailureWindows("llvm.org/pr24462") # Data formatters have problems on Windows
+    def test_with_run_command(self):
         """Test using Python synthetic children provider to provide a value."""
+        self.build()
         self.runCmd("file a.out", CURRENT_EXECUTABLE_SET)
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=1, loc_exact=True)
@@ -78,6 +66,7 @@ class DataFormatterSynthValueTestCase(TestBase):
         # now set up the synth
         self.runCmd("script from myIntSynthProvider import *")
         self.runCmd("type synth add -l myIntSynthProvider myInt")
+        self.runCmd("type synth add -l myArraySynthProvider myArray")
         
         if self.TraceOn():
             print "x_val = %s; y_val = %s; z_val = %s" % (x_val(),y_val(),z_val())
@@ -96,6 +85,12 @@ class DataFormatterSynthValueTestCase(TestBase):
         self.runCmd("type summary add hasAnInt -s ${var.theInt}")
         hi = self.frame().FindVariable("hi")
         self.assertEqual(hi.GetSummary(), "42")
+
+        ma = self.frame().FindVariable("ma")
+        self.assertTrue(ma.IsValid())
+        self.assertEqual(ma.GetNumChildren(15), 15)
+        self.assertEqual(ma.GetNumChildren(16), 16)
+        self.assertEqual(ma.GetNumChildren(17), 16)
 
 if __name__ == '__main__':
     import atexit

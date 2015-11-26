@@ -77,6 +77,9 @@ public:
   /// ways except the following:
   ///   * The HLGoto has no parent
   HLGoto *clone() const override;
+
+  /// \brief Verifies HLGoto integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

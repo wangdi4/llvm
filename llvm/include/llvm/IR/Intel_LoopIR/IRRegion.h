@@ -107,7 +107,7 @@ public:
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
     auto Ret = LiveInSet.insert(std::make_pair(Symbase, InitVal));
-
+    (void)Ret;
     assert((Ret.second || ((Ret.first->first == Symbase) &&
                            (Ret.first->second == InitVal))) &&
            "Inconsistent livein value detected!");
@@ -116,6 +116,7 @@ public:
   /// \brief Adds a live-out temp (represented using Symbase) to the region.
   void addLiveOutTemp(const Value *Temp, unsigned Symbase) {
     auto Ret = LiveOutSet.insert(std::make_pair(Symbase, Temp));
+    (void)Ret;
     assert(Ret.second && "Liveout value already exists!");
   }
 

@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-loops | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-loop-formation | FileCheck %s
 
 ; Check that two unknown loops have been formed
 ; CHECK: UNKNOWN LOOP i1

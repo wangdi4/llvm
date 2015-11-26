@@ -68,15 +68,17 @@ ValueObjectCast::GetCompilerTypeImpl ()
 }
 
 size_t
-ValueObjectCast::CalculateNumChildren()
+ValueObjectCast::CalculateNumChildren(uint32_t max)
 {
-    return GetCompilerType().GetNumChildren (true);
+    auto children_count = GetCompilerType().GetNumChildren (true);
+    return children_count <= max ? children_count : max;
 }
 
 uint64_t
 ValueObjectCast::GetByteSize()
 {
-    return m_value.GetValueByteSize(NULL);
+    ExecutionContext exe_ctx (GetExecutionContextRef());
+    return m_value.GetValueByteSize(nullptr, &exe_ctx);
 }
 
 lldb::ValueType
@@ -97,9 +99,9 @@ ValueObjectCast::UpdateValue ()
         Value old_value(m_value);
         m_update_point.SetUpdated();
         m_value = m_parent->GetValue();
-        CompilerType clang_type (GetCompilerType());
-        //m_value.SetContext (Value::eContextTypeClangType, clang_type);
-        m_value.SetCompilerType (clang_type);
+        CompilerType compiler_type (GetCompilerType());
+        //m_value.SetContext (Value::eContextTypeClangType, compiler_type);
+        m_value.SetCompilerType (compiler_type);
         SetAddressTypeOfChildren(m_parent->GetAddressTypeOfChildren());
         if (!CanProvideValue())
         {

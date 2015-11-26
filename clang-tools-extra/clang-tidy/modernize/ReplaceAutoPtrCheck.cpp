@@ -21,8 +21,8 @@ namespace clang {
 namespace tidy {
 namespace modernize {
 
-const char AutoPtrTokenId[] = "AutoPrTokenId";
-const char AutoPtrOwnershipTransferId[] = "AutoPtrOwnershipTransferId";
+static const char AutoPtrTokenId[] = "AutoPrTokenId";
+static const char AutoPtrOwnershipTransferId[] = "AutoPtrOwnershipTransferId";
 
 /// \brief Matches expressions that are lvalues.
 ///
@@ -130,11 +130,12 @@ DeclarationMatcher makeAutoPtrUsingDeclMatcher() {
 ///   ~~~~^
 /// \endcode
 StatementMatcher makeTransferOwnershipExprMatcher() {
-  return anyOf(operatorCallExpr(allOf(hasOverloadedOperatorName("="),
-                                      callee(methodDecl(ofClass(AutoPtrDecl))),
-                                      hasArgument(1, MovableArgumentMatcher))),
-               constructExpr(allOf(hasType(AutoPtrType), argumentCountIs(1),
-                                   hasArgument(0, MovableArgumentMatcher))));
+  return anyOf(
+      cxxOperatorCallExpr(allOf(hasOverloadedOperatorName("="),
+                                callee(cxxMethodDecl(ofClass(AutoPtrDecl))),
+                                hasArgument(1, MovableArgumentMatcher))),
+      cxxConstructExpr(allOf(hasType(AutoPtrType), argumentCountIs(1),
+                             hasArgument(0, MovableArgumentMatcher))));
 }
 
 /// \brief Locates the \c auto_ptr token when it is referred by a \c TypeLoc.
@@ -188,13 +189,11 @@ static bool checkTokenIsAutoPtr(SourceLocation TokenStart,
 ReplaceAutoPtrCheck::ReplaceAutoPtrCheck(StringRef Name,
                                          ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IncludeStyle(Options.get("IncludeStyle", "llvm") == "llvm"
-                       ? IncludeSorter::IS_LLVM
-                       : IncludeSorter::IS_Google) {}
+      IncludeStyle(IncludeSorter::parseIncludeStyle(
+          Options.get("IncludeStyle", "llvm"))) {}
 
 void ReplaceAutoPtrCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "IncludeStyle",
-                IncludeStyle == IncludeSorter::IS_LLVM ? "llvm" : "google");
+  Options.store(Opts, "IncludeStyle", IncludeSorter::toString(IncludeStyle));
 }
 
 void ReplaceAutoPtrCheck::registerMatchers(MatchFinder *Finder) {

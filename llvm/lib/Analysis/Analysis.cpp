@@ -22,6 +22,7 @@ using namespace llvm;
 void llvm::initializeAnalysis(PassRegistry &Registry) {
   initializeAAEvalPass(Registry);
   initializeAliasSetPrinterPass(Registry);
+  initializeAndersensAAWrapperPassPass(Registry);  // INTEL
   initializeBasicAAWrapperPassPass(Registry);
   initializeBlockFrequencyInfoWrapperPassPass(Registry);
   initializeBranchProbabilityInfoWrapperPassPass(Registry);

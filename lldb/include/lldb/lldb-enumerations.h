@@ -146,6 +146,7 @@ namespace lldb {
         eFormatVectorOfUInt32,
         eFormatVectorOfSInt64,
         eFormatVectorOfUInt64,
+        eFormatVectorOfFloat16,
         eFormatVectorOfFloat32,
         eFormatVectorOfFloat64,
         eFormatVectorOfUInt128,
@@ -188,11 +189,11 @@ namespace lldb {
     //----------------------------------------------------------------------
     enum RegisterKind
     {
-        eRegisterKindEHFrame = 0, // the register numbers seen in eh_frame
-        eRegisterKindDWARF,       // the register numbers seen DWARF
-        eRegisterKindGeneric,     // insn ptr reg, stack ptr reg, etc not specific to any particular target
-        eRegisterKindStabs,       // the register numbers used in stabs debug format (referred to as "gcc" or "gdb" numbering)
-        eRegisterKindLLDB,        // lldb's internal register numbers
+        eRegisterKindEHFrame = 0,   // the register numbers seen in eh_frame
+        eRegisterKindDWARF,         // the register numbers seen DWARF
+        eRegisterKindGeneric,       // insn ptr reg, stack ptr reg, etc not specific to any particular target
+        eRegisterKindProcessPlugin, // num used by the process plugin - e.g. by the remote gdb-protocol stub program
+        eRegisterKindLLDB,          // lldb's internal register numbers
         kNumRegisterKinds
     };
 
@@ -616,7 +617,10 @@ namespace lldb {
         eSectionTypeELFRelocationEntries, // Elf SHT_REL or SHT_REL section
         eSectionTypeELFDynamicLinkInfo,   // Elf SHT_DYNAMIC section
         eSectionTypeEHFrame,
+        eSectionTypeARMexidx,
+        eSectionTypeARMextab,
         eSectionTypeCompactUnwind,        // compact unwind section in Mach-O, __TEXT,__unwind_info
+        eSectionTypeGoSymtab,
         eSectionTypeOther
     };
 

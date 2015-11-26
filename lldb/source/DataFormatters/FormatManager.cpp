@@ -9,25 +9,19 @@
 
 #include "lldb/DataFormatters/FormatManager.h"
 
+#include "llvm/ADT/STLExtras.h"
+
 // C Includes
 // C++ Includes
 // Other libraries and framework includes
 // Project includes
 
 #include "lldb/Core/Debugger.h"
-#include "lldb/DataFormatters/CF.h"
-#include "lldb/DataFormatters/Cocoa.h"
-#include "lldb/DataFormatters/CoreMedia.h"
-#include "lldb/DataFormatters/CXXFunctionPointer.h"
-#include "lldb/DataFormatters/VectorType.h"
+#include "lldb/Core/Log.h"
 #include "lldb/DataFormatters/FormattersHelpers.h"
 #include "lldb/DataFormatters/LanguageCategory.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Language.h"
-#include "lldb/Target/Platform.h"
-#include "llvm/ADT/STLExtras.h"
-
-#include <initializer_list>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -72,6 +66,7 @@ g_format_infos[] =
     { eFormatVectorOfUInt32 , '\0'  , "uint32_t[]"          },
     { eFormatVectorOfSInt64 , '\0'  , "int64_t[]"           },
     { eFormatVectorOfUInt64 , '\0'  , "uint64_t[]"          },
+    { eFormatVectorOfFloat16, '\0'  , "float16[]"           },
     { eFormatVectorOfFloat32, '\0'  , "float32[]"           },
     { eFormatVectorOfFloat64, '\0'  , "float64[]"           },
     { eFormatVectorOfUInt128, '\0'  , "uint128_t[]"         },
@@ -195,7 +190,7 @@ FormatManager::DisableAllCategories ()
 
 void
 FormatManager::GetPossibleMatches (ValueObject& valobj,
-                                   CompilerType clang_type,
+                                   CompilerType compiler_type,
                                    uint32_t reason,
                                    lldb::DynamicValueType use_dynamic,
                                    FormattersMatchVector& entries,
@@ -204,8 +199,8 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
                                    bool did_strip_typedef,
                                    bool root_level)
 {
-    clang_type = ClangASTContext::RemoveFastQualifiers(clang_type);
-    ConstString type_name(clang_type.GetConstTypeName());
+    compiler_type = compiler_type.GetTypeForFormatters();
+    ConstString type_name(compiler_type.GetConstTypeName());
     if (valobj.GetBitfieldBitSize() > 0)
     {
         StreamString sstring;
@@ -214,15 +209,19 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
         entries.push_back({bitfieldname,0,did_strip_ptr,did_strip_ref,did_strip_typedef});
         reason |= lldb_private::eFormatterChoiceCriterionStrippedBitField;
     }
-    entries.push_back({type_name,reason,did_strip_ptr,did_strip_ref,did_strip_typedef});
 
-    ConstString display_type_name(clang_type.GetDisplayTypeName());
-    if (display_type_name != type_name)
-        entries.push_back({display_type_name,reason,did_strip_ptr,did_strip_ref,did_strip_typedef});
-
-    for (bool is_rvalue_ref = true, j = true; j && clang_type.IsReferenceType(nullptr, &is_rvalue_ref); j = false)
+    if (!compiler_type.IsMeaninglessWithoutDynamicResolution())
     {
-        CompilerType non_ref_type = clang_type.GetNonReferenceType();
+        entries.push_back({type_name,reason,did_strip_ptr,did_strip_ref,did_strip_typedef});
+
+        ConstString display_type_name(compiler_type.GetDisplayTypeName());
+        if (display_type_name != type_name)
+            entries.push_back({display_type_name,reason,did_strip_ptr,did_strip_ref,did_strip_typedef});
+    }
+
+    for (bool is_rvalue_ref = true, j = true; j && compiler_type.IsReferenceType(nullptr, &is_rvalue_ref); j = false)
+    {
+        CompilerType non_ref_type = compiler_type.GetNonReferenceType();
         GetPossibleMatches(valobj,
                            non_ref_type,
                            reason | lldb_private::eFormatterChoiceCriterionStrippedPointerReference,
@@ -234,7 +233,7 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
         if (non_ref_type.IsTypedefType())
         {
             CompilerType deffed_referenced_type = non_ref_type.GetTypedefedType();
-            deffed_referenced_type = is_rvalue_ref ? ClangASTContext::GetRValueReferenceType(deffed_referenced_type) : ClangASTContext::GetLValueReferenceType(deffed_referenced_type);
+            deffed_referenced_type = is_rvalue_ref ? deffed_referenced_type.GetRValueReferenceType() : deffed_referenced_type.GetLValueReferenceType();
             GetPossibleMatches(valobj,
                                deffed_referenced_type,
                                reason | lldb_private::eFormatterChoiceCriterionNavigatedTypedefs,
@@ -246,9 +245,9 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
         }
     }
     
-    if (clang_type.IsPointerType())
+    if (compiler_type.IsPointerType())
     {
-        CompilerType non_ptr_type = clang_type.GetPointeeType();
+        CompilerType non_ptr_type = compiler_type.GetPointeeType();
         GetPossibleMatches(valobj,
                            non_ptr_type,
                            reason | lldb_private::eFormatterChoiceCriterionStrippedPointerReference,
@@ -287,9 +286,9 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
     }
         
     // try to strip typedef chains
-    if (clang_type.IsTypedefType())
+    if (compiler_type.IsTypedefType())
     {
-        CompilerType deffed_type = clang_type.GetTypedefedType();
+        CompilerType deffed_type = compiler_type.GetTypedefedType();
         GetPossibleMatches(valobj,
                            deffed_type,
                            reason | lldb_private::eFormatterChoiceCriterionNavigatedTypedefs,
@@ -303,15 +302,15 @@ FormatManager::GetPossibleMatches (ValueObject& valobj,
     if (root_level)
     {
         do {
-            if (!clang_type.IsValid())
+            if (!compiler_type.IsValid())
                 break;
             
-            CompilerType unqual_clang_ast_type = clang_type.GetFullyUnqualifiedType();
-            if (!unqual_clang_ast_type.IsValid())
+            CompilerType unqual_compiler_ast_type = compiler_type.GetFullyUnqualifiedType();
+            if (!unqual_compiler_ast_type.IsValid())
                 break;
-            if (unqual_clang_ast_type.GetOpaqueQualType() != clang_type.GetOpaqueQualType())
+            if (unqual_compiler_ast_type.GetOpaqueQualType() != compiler_type.GetOpaqueQualType())
                 GetPossibleMatches (valobj,
-                                    unqual_clang_ast_type,
+                                    unqual_compiler_ast_type,
                                     reason,
                                     use_dynamic,
                                     entries,
@@ -539,6 +538,7 @@ FormatManager::GetSingleItemFormat(lldb::Format vector_format)
         case eFormatVectorOfUInt128:
             return eFormatHex;
             
+        case eFormatVectorOfFloat16:
         case eFormatVectorOfFloat32:
         case eFormatVectorOfFloat64:
             return eFormatFloat;
@@ -562,6 +562,22 @@ FormatManager::ShouldPrintAsOneLiner (ValueObject& valobj)
     // no children, no party
     if (valobj.GetNumChildren() == 0)
         return false;
+    
+    // ask the type if it has any opinion about this
+    // eLazyBoolCalculate == no opinion; other values should be self explanatory
+    CompilerType compiler_type(valobj.GetCompilerType());
+    if (compiler_type.IsValid())
+    {
+        switch (compiler_type.ShouldPrintAsOneLiner())
+        {
+            case eLazyBoolNo:
+                return false;
+            case eLazyBoolYes:
+                return true;
+            case eLazyBoolCalculate:
+                break;
+        }
+    }
     
     size_t total_children_name_len = 0;
     
@@ -628,22 +644,12 @@ ConstString
 FormatManager::GetTypeForCache (ValueObject& valobj,
                                 lldb::DynamicValueType use_dynamic)
 {
-    if (use_dynamic == lldb::eNoDynamicValues)
+    ValueObjectSP valobj_sp = valobj.GetQualifiedRepresentationIfAvailable(use_dynamic, valobj.IsSynthetic());
+    if (valobj_sp && valobj_sp->GetCompilerType().IsValid())
     {
-        if (valobj.IsDynamic())
-        {
-            if (valobj.GetStaticValue())
-                return valobj.GetStaticValue()->GetQualifiedTypeName();
-            else
-                return ConstString();
-        }
-        else
-            return valobj.GetQualifiedTypeName();
+        if (!valobj_sp->GetCompilerType().IsMeaninglessWithoutDynamicResolution())
+            return valobj_sp->GetQualifiedTypeName();
     }
-    if (valobj.IsDynamic())
-        return valobj.GetQualifiedTypeName();
-    if (valobj.GetDynamicValue(use_dynamic))
-        return valobj.GetDynamicValue(use_dynamic)->GetQualifiedTypeName();
     return ConstString();
 }
 
@@ -651,6 +657,12 @@ std::vector<lldb::LanguageType>
 FormatManager::GetCandidateLanguages (ValueObject& valobj)
 {
     lldb::LanguageType lang_type = valobj.GetObjectRuntimeLanguage();
+    return GetCandidateLanguages(lang_type);
+}
+
+std::vector<lldb::LanguageType>
+FormatManager::GetCandidateLanguages (lldb::LanguageType lang_type)
+{
     switch (lang_type)
     {
         case lldb::eLanguageTypeC:
@@ -661,7 +673,7 @@ FormatManager::GetCandidateLanguages (ValueObject& valobj)
         case lldb::eLanguageTypeC_plus_plus_03:
         case lldb::eLanguageTypeC_plus_plus_11:
         case lldb::eLanguageTypeC_plus_plus_14:
-            return {lldb::eLanguageTypeC_plus_plus};
+            return {lldb::eLanguageTypeC_plus_plus, lldb::eLanguageTypeObjC};
         default:
             return {lang_type};
     }
@@ -680,30 +692,35 @@ FormatManager::GetCategoryForLanguage (lldb::LanguageType lang_type)
 }
 
 lldb::TypeFormatImplSP
-FormatManager::GetHardcodedFormat (ValueObject& valobj,
-                                   lldb::DynamicValueType use_dynamic)
+FormatManager::GetHardcodedFormat (FormattersMatchData& match_data)
 {
-    for (const auto& candidate: m_hardcoded_formats)
+    TypeFormatImplSP retval_sp;
+    
+    for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
     {
-        auto result = candidate(valobj,use_dynamic,*this);
-        if (result)
-            return result;
+        if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
+        {
+            if (lang_category->GetHardcoded(*this, match_data, retval_sp))
+                break;
+        }
     }
-    return nullptr;
+
+    return retval_sp;
 }
 
 lldb::TypeFormatImplSP
 FormatManager::GetFormat (ValueObject& valobj,
                           lldb::DynamicValueType use_dynamic)
 {
+    FormattersMatchData match_data(valobj, use_dynamic);
+    
     TypeFormatImplSP retval;
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TYPES));
-    ConstString valobj_type(GetTypeForCache(valobj, use_dynamic));
-    if (valobj_type)
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_DATAFORMATTERS));
+    if (match_data.GetTypeForCache())
     {
         if (log)
-            log->Printf("\n\n[FormatManager::GetFormat] Looking into cache for type %s", valobj_type.AsCString("<invalid>"));
-        if (m_format_cache.GetFormat(valobj_type,retval))
+            log->Printf("\n\n[FormatManager::GetFormat] Looking into cache for type %s", match_data.GetTypeForCache().AsCString("<invalid>"));
+        if (m_format_cache.GetFormat(match_data.GetTypeForCache(),retval))
         {
             if (log)
             {
@@ -717,18 +734,16 @@ FormatManager::GetFormat (ValueObject& valobj,
             log->Printf("[FormatManager::GetFormat] Cache search failed. Going normal route");
     }
     
-    FormattersMatchVector matches = GetPossibleMatches(valobj, use_dynamic);
-    
-    retval = m_categories_map.GetFormat(valobj, use_dynamic, matches);
+    retval = m_categories_map.GetFormat(match_data);
     if (!retval)
     {
         if (log)
             log->Printf("[FormatManager::GetFormat] Search failed. Giving language a chance.");
-        for (lldb::LanguageType lang_type : GetCandidateLanguages(valobj))
+        for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
         {
             if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
             {
-                if (lang_category->Get(valobj, use_dynamic, matches, retval))
+                if (lang_category->Get(match_data, retval))
                     break;
             }
         }
@@ -743,16 +758,16 @@ FormatManager::GetFormat (ValueObject& valobj,
     {
         if (log)
             log->Printf("[FormatManager::GetFormat] Search failed. Giving hardcoded a chance.");
-        retval = GetHardcodedFormat(valobj, use_dynamic);
+        retval = GetHardcodedFormat(match_data);
     }
     
-    if (valobj_type && (!retval || !retval->NonCacheable()))
+    if (match_data.GetTypeForCache() && (!retval || !retval->NonCacheable()))
     {
         if (log)
             log->Printf("[FormatManager::GetFormat] Caching %p for type %s",
                         static_cast<void*>(retval.get()),
-                        valobj_type.AsCString("<invalid>"));
-        m_format_cache.SetFormat(valobj_type,retval);
+                        match_data.GetTypeForCache().AsCString("<invalid>"));
+        m_format_cache.SetFormat(match_data.GetTypeForCache(),retval);
     }
     if (log && log->GetDebug())
         log->Printf("[FormatManager::GetFormat] Cache hits: %" PRIu64 " - Cache Misses: %" PRIu64, m_format_cache.GetCacheHits(), m_format_cache.GetCacheMisses());
@@ -760,30 +775,35 @@ FormatManager::GetFormat (ValueObject& valobj,
 }
 
 lldb::TypeSummaryImplSP
-FormatManager::GetHardcodedSummaryFormat (ValueObject& valobj,
-                                          lldb::DynamicValueType use_dynamic)
+FormatManager::GetHardcodedSummaryFormat (FormattersMatchData& match_data)
 {
-    for (const auto& candidate: m_hardcoded_summaries)
+    TypeSummaryImplSP retval_sp;
+    
+    for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
     {
-        auto result = candidate(valobj,use_dynamic,*this);
-        if (result)
-            return result;
+        if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
+        {
+            if (lang_category->GetHardcoded(*this, match_data, retval_sp))
+                break;
+        }
     }
-    return nullptr;
+    
+    return retval_sp;
 }
 
 lldb::TypeSummaryImplSP
 FormatManager::GetSummaryFormat (ValueObject& valobj,
                                  lldb::DynamicValueType use_dynamic)
 {
+    FormattersMatchData match_data(valobj, use_dynamic);
+    
     TypeSummaryImplSP retval;
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TYPES));
-    ConstString valobj_type(GetTypeForCache(valobj, use_dynamic));
-    if (valobj_type)
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_DATAFORMATTERS));
+    if (match_data.GetTypeForCache())
     {
         if (log)
-            log->Printf("\n\n[FormatManager::GetSummaryFormat] Looking into cache for type %s", valobj_type.AsCString("<invalid>"));
-        if (m_format_cache.GetSummary(valobj_type,retval))
+            log->Printf("\n\n[FormatManager::GetSummaryFormat] Looking into cache for type %s", match_data.GetTypeForCache().AsCString("<invalid>"));
+        if (m_format_cache.GetSummary(match_data.GetTypeForCache(),retval))
         {
             if (log)
             {
@@ -797,18 +817,16 @@ FormatManager::GetSummaryFormat (ValueObject& valobj,
             log->Printf("[FormatManager::GetSummaryFormat] Cache search failed. Going normal route");
     }
     
-    FormattersMatchVector matches = GetPossibleMatches(valobj, use_dynamic);
-    
-    retval = m_categories_map.GetSummaryFormat(valobj, use_dynamic, matches);
+    retval = m_categories_map.GetSummaryFormat(match_data);
     if (!retval)
     {
         if (log)
             log->Printf("[FormatManager::GetSummaryFormat] Search failed. Giving language a chance.");
-        for (lldb::LanguageType lang_type : GetCandidateLanguages(valobj))
+        for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
         {
             if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
             {
-                if (lang_category->Get(valobj, use_dynamic, matches, retval))
+                if (lang_category->Get(match_data, retval))
                     break;
             }
         }
@@ -823,16 +841,16 @@ FormatManager::GetSummaryFormat (ValueObject& valobj,
     {
         if (log)
             log->Printf("[FormatManager::GetSummaryFormat] Search failed. Giving hardcoded a chance.");
-        retval = GetHardcodedSummaryFormat(valobj, use_dynamic);
+        retval = GetHardcodedSummaryFormat(match_data);
     }
     
-    if (valobj_type && (!retval || !retval->NonCacheable()))
+    if (match_data.GetTypeForCache() && (!retval || !retval->NonCacheable()))
     {
         if (log)
             log->Printf("[FormatManager::GetSummaryFormat] Caching %p for type %s",
                         static_cast<void*>(retval.get()),
-                        valobj_type.AsCString("<invalid>"));
-        m_format_cache.SetSummary(valobj_type,retval);
+                        match_data.GetTypeForCache().AsCString("<invalid>"));
+        m_format_cache.SetSummary(match_data.GetTypeForCache(),retval);
     }
     if (log && log->GetDebug())
         log->Printf("[FormatManager::GetSummaryFormat] Cache hits: %" PRIu64 " - Cache Misses: %" PRIu64, m_format_cache.GetCacheHits(), m_format_cache.GetCacheMisses());
@@ -841,30 +859,35 @@ FormatManager::GetSummaryFormat (ValueObject& valobj,
 
 #ifndef LLDB_DISABLE_PYTHON
 lldb::SyntheticChildrenSP
-FormatManager::GetHardcodedSyntheticChildren (ValueObject& valobj,
-                                              lldb::DynamicValueType use_dynamic)
+FormatManager::GetHardcodedSyntheticChildren (FormattersMatchData& match_data)
 {
-    for (const auto& candidate: m_hardcoded_synthetics)
+    SyntheticChildrenSP retval_sp;
+    
+    for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
     {
-        auto result = candidate(valobj,use_dynamic,*this);
-        if (result)
-            return result;
+        if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
+        {
+            if (lang_category->GetHardcoded(*this, match_data, retval_sp))
+                break;
+        }
     }
-    return nullptr;
+    
+    return retval_sp;
 }
 
 lldb::SyntheticChildrenSP
 FormatManager::GetSyntheticChildren (ValueObject& valobj,
                                      lldb::DynamicValueType use_dynamic)
 {
+    FormattersMatchData match_data(valobj, use_dynamic);
+    
     SyntheticChildrenSP retval;
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TYPES));
-    ConstString valobj_type(GetTypeForCache(valobj, use_dynamic));
-    if (valobj_type)
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_DATAFORMATTERS));
+    if (match_data.GetTypeForCache())
     {
         if (log)
-            log->Printf("\n\n[FormatManager::GetSyntheticChildren] Looking into cache for type %s", valobj_type.AsCString("<invalid>"));
-        if (m_format_cache.GetSynthetic(valobj_type,retval))
+            log->Printf("\n\n[FormatManager::GetSyntheticChildren] Looking into cache for type %s", match_data.GetTypeForCache().AsCString("<invalid>"));
+        if (m_format_cache.GetSynthetic(match_data.GetTypeForCache(),retval))
         {
             if (log)
             {
@@ -878,18 +901,16 @@ FormatManager::GetSyntheticChildren (ValueObject& valobj,
             log->Printf("[FormatManager::GetSyntheticChildren] Cache search failed. Going normal route");
     }
     
-    FormattersMatchVector matches = GetPossibleMatches(valobj, use_dynamic);
-    
-    retval = m_categories_map.GetSyntheticChildren(valobj, use_dynamic, matches);
+    retval = m_categories_map.GetSyntheticChildren(match_data);
     if (!retval)
     {
         if (log)
             log->Printf("[FormatManager::GetSyntheticChildren] Search failed. Giving language a chance.");
-        for (lldb::LanguageType lang_type : GetCandidateLanguages(valobj))
+        for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
         {
             if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
             {
-                if (lang_category->Get(valobj, use_dynamic, matches, retval))
+                if (lang_category->Get(match_data, retval))
                     break;
             }
         }
@@ -904,16 +925,16 @@ FormatManager::GetSyntheticChildren (ValueObject& valobj,
     {
         if (log)
             log->Printf("[FormatManager::GetSyntheticChildren] Search failed. Giving hardcoded a chance.");
-        retval = GetHardcodedSyntheticChildren(valobj, use_dynamic);
+        retval = GetHardcodedSyntheticChildren(match_data);
     }
     
-    if (valobj_type && (!retval || !retval->NonCacheable()))
+    if (match_data.GetTypeForCache() && (!retval || !retval->NonCacheable()))
     {
         if (log)
             log->Printf("[FormatManager::GetSyntheticChildren] Caching %p for type %s",
                         static_cast<void*>(retval.get()),
-                        valobj_type.AsCString("<invalid>"));
-        m_format_cache.SetSynthetic(valobj_type,retval);
+                        match_data.GetTypeForCache().AsCString("<invalid>"));
+        m_format_cache.SetSynthetic(match_data.GetTypeForCache(),retval);
     }
     if (log && log->GetDebug())
         log->Printf("[FormatManager::GetSyntheticChildren] Cache hits: %" PRIu64 " - Cache Misses: %" PRIu64, m_format_cache.GetCacheHits(), m_format_cache.GetCacheMisses());
@@ -925,14 +946,15 @@ lldb::TypeValidatorImplSP
 FormatManager::GetValidator (ValueObject& valobj,
                              lldb::DynamicValueType use_dynamic)
 {
+    FormattersMatchData match_data(valobj, use_dynamic);
+    
     TypeValidatorImplSP retval;
-    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TYPES));
-    ConstString valobj_type(GetTypeForCache(valobj, use_dynamic));
-    if (valobj_type)
+    Log *log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_DATAFORMATTERS));
+    if (match_data.GetTypeForCache())
     {
         if (log)
-            log->Printf("\n\n[FormatManager::GetValidator] Looking into cache for type %s", valobj_type.AsCString("<invalid>"));
-        if (m_format_cache.GetValidator(valobj_type,retval))
+            log->Printf("\n\n[FormatManager::GetValidator] Looking into cache for type %s", match_data.GetTypeForCache().AsCString("<invalid>"));
+        if (m_format_cache.GetValidator(match_data.GetTypeForCache(),retval))
         {
             if (log)
             {
@@ -946,18 +968,16 @@ FormatManager::GetValidator (ValueObject& valobj,
             log->Printf("[FormatManager::GetValidator] Cache search failed. Going normal route");
     }
     
-    FormattersMatchVector matches = GetPossibleMatches(valobj, use_dynamic);
-    
-    retval = m_categories_map.GetValidator(valobj, use_dynamic, matches);
+    retval = m_categories_map.GetValidator(match_data);
     if (!retval)
     {
         if (log)
             log->Printf("[FormatManager::GetValidator] Search failed. Giving language a chance.");
-        for (lldb::LanguageType lang_type : GetCandidateLanguages(valobj))
+        for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
         {
             if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
             {
-                if (lang_category->Get(valobj, use_dynamic, matches, retval))
+                if (lang_category->Get(match_data, retval))
                     break;
             }
         }
@@ -972,16 +992,16 @@ FormatManager::GetValidator (ValueObject& valobj,
     {
         if (log)
             log->Printf("[FormatManager::GetValidator] Search failed. Giving hardcoded a chance.");
-        retval = GetHardcodedValidator(valobj, use_dynamic);
+        retval = GetHardcodedValidator(match_data);
     }
     
-    if (valobj_type && (!retval || !retval->NonCacheable()))
+    if (match_data.GetTypeForCache() && (!retval || !retval->NonCacheable()))
     {
         if (log)
             log->Printf("[FormatManager::GetValidator] Caching %p for type %s",
                         static_cast<void*>(retval.get()),
-                        valobj_type.AsCString("<invalid>"));
-        m_format_cache.SetValidator(valobj_type,retval);
+                        match_data.GetTypeForCache().AsCString("<invalid>"));
+        m_format_cache.SetValidator(match_data.GetTypeForCache(),retval);
     }
     if (log && log->GetDebug())
         log->Printf("[FormatManager::GetValidator] Cache hits: %" PRIu64 " - Cache Misses: %" PRIu64, m_format_cache.GetCacheHits(), m_format_cache.GetCacheMisses());
@@ -989,16 +1009,20 @@ FormatManager::GetValidator (ValueObject& valobj,
 }
 
 lldb::TypeValidatorImplSP
-FormatManager::GetHardcodedValidator (ValueObject& valobj,
-                                      lldb::DynamicValueType use_dynamic)
+FormatManager::GetHardcodedValidator (FormattersMatchData& match_data)
 {
-    for (const auto& candidate: m_hardcoded_validators)
+    TypeValidatorImplSP retval_sp;
+    
+    for (lldb::LanguageType lang_type : match_data.GetCandidateLanguages())
     {
-        auto result = candidate(valobj,use_dynamic,*this);
-        if (result)
-            return result;
+        if (LanguageCategory* lang_category = GetCategoryForLanguage(lang_type))
+        {
+            if (lang_category->GetHardcoded(*this, match_data, retval_sp))
+                break;
+        }
     }
-    return nullptr;
+    
+    return retval_sp;
 }
 
 FormatManager::FormatManager() :
@@ -1010,32 +1034,13 @@ FormatManager::FormatManager() :
     m_language_categories_mutex(Mutex::eMutexTypeRecursive),
     m_default_category_name(ConstString("default")),
     m_system_category_name(ConstString("system")), 
-    m_objc_category_name(ConstString("objc")),
-    m_corefoundation_category_name(ConstString("CoreFoundation")),
-    m_coregraphics_category_name(ConstString("CoreGraphics")),
-    m_coreservices_category_name(ConstString("CoreServices")),
-    m_vectortypes_category_name(ConstString("VectorTypes")),
-    m_appkit_category_name(ConstString("AppKit")),
-    m_coremedia_category_name(ConstString("CoreMedia")),
-    m_hardcoded_formats(),
-    m_hardcoded_summaries(),
-    m_hardcoded_synthetics(),
-    m_hardcoded_validators()
-    
+    m_vectortypes_category_name(ConstString("VectorTypes"))
 {
     LoadSystemFormatters();
-    LoadObjCFormatters();
-    LoadCoreMediaFormatters();
-    LoadHardcodedFormatters();
+    LoadVectorFormatters();
     
-    EnableCategory(m_objc_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_corefoundation_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_appkit_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_coreservices_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_coregraphics_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_coremedia_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_vectortypes_category_name,TypeCategoryMap::Last);
-    EnableCategory(m_system_category_name,TypeCategoryMap::Last);
+    EnableCategory(m_vectortypes_category_name,TypeCategoryMap::Last, lldb::eLanguageTypeObjC_plus_plus);
+    EnableCategory(m_system_category_name,TypeCategoryMap::Last, lldb::eLanguageTypeObjC_plus_plus);
 }
 
 void
@@ -1095,283 +1100,10 @@ FormatManager::LoadSystemFormatters()
 }
 
 void
-FormatManager::LoadObjCFormatters()
+FormatManager::LoadVectorFormatters()
 {
-    TypeSummaryImpl::Flags objc_flags;
-    objc_flags.SetCascades(false)
-    .SetSkipPointers(true)
-    .SetSkipReferences(true)
-    .SetDontShowChildren(true)
-    .SetDontShowValue(true)
-    .SetShowMembersOneLiner(false)
-    .SetHideItemNames(false);
-
-    TypeCategoryImpl::SharedPointer objc_category_sp = GetCategory(m_objc_category_name);
-    TypeCategoryImpl::SharedPointer appkit_category_sp = GetCategory(m_appkit_category_name);
-    TypeCategoryImpl::SharedPointer corefoundation_category_sp = GetCategory(m_corefoundation_category_name);
-    TypeCategoryImpl::SharedPointer coregraphics_category_sp = GetCategory(m_coregraphics_category_name);
-    TypeCategoryImpl::SharedPointer coreservices_category_sp = GetCategory(m_coreservices_category_name);
-    
-    lldb::TypeSummaryImplSP ObjC_BOOL_summary(new CXXFunctionSummaryFormat(objc_flags, lldb_private::formatters::ObjCBOOLSummaryProvider,""));
-    objc_category_sp->GetTypeSummariesContainer()->Add(ConstString("BOOL"),
-                                                 ObjC_BOOL_summary);
-    objc_category_sp->GetTypeSummariesContainer()->Add(ConstString("BOOL &"),
-                                                 ObjC_BOOL_summary);
-    objc_category_sp->GetTypeSummariesContainer()->Add(ConstString("BOOL *"),
-                                                 ObjC_BOOL_summary);
-
-#ifndef LLDB_DISABLE_PYTHON
-    // we need to skip pointers here since we are special casing a SEL* when retrieving its value
-    objc_flags.SetSkipPointers(true);
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCSELSummaryProvider<false>, "SEL summary provider", ConstString("SEL"), objc_flags);
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCSELSummaryProvider<false>, "SEL summary provider", ConstString("struct objc_selector"), objc_flags);
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCSELSummaryProvider<false>, "SEL summary provider", ConstString("objc_selector"), objc_flags);
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCSELSummaryProvider<true>, "SEL summary provider", ConstString("objc_selector *"), objc_flags);
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCSELSummaryProvider<true>, "SEL summary provider", ConstString("SEL *"), objc_flags);
-    
-    AddCXXSummary(objc_category_sp, lldb_private::formatters::ObjCClassSummaryProvider, "Class summary provider", ConstString("Class"), objc_flags);
-    
-    SyntheticChildren::Flags class_synth_flags;
-    class_synth_flags.SetCascades(true).SetSkipPointers(false).SetSkipReferences(false);
-    
-    AddCXXSynthetic(objc_category_sp, lldb_private::formatters::ObjCClassSyntheticFrontEndCreator, "Class synthetic children", ConstString("Class"), class_synth_flags);
-#endif // LLDB_DISABLE_PYTHON
-
-    objc_flags.SetSkipPointers(false);
-    objc_flags.SetCascades(true);
-    objc_flags.SetSkipReferences(false);
-    
-    AddStringSummary (objc_category_sp,
-                      "${var.__FuncPtr%A}",
-                      ConstString("__block_literal_generic"),
-                      objc_flags);
-
-    AddStringSummary(corefoundation_category_sp,
-                     "${var.years} years, ${var.months} months, ${var.days} days, ${var.hours} hours, ${var.minutes} minutes ${var.seconds} seconds",
-                     ConstString("CFGregorianUnits"),
-                     objc_flags);
-    AddStringSummary(corefoundation_category_sp,
-                     "location=${var.location} length=${var.length}",
-                     ConstString("CFRange"),
-                     objc_flags);
-
-    AddStringSummary(appkit_category_sp,
-                     "location=${var.location}, length=${var.length}",
-                     ConstString("NSRange"),
-                     objc_flags);
-    AddStringSummary(appkit_category_sp,
-                     "(${var.origin}, ${var.size}), ...",
-                     ConstString("NSRectArray"),
-                     objc_flags);
-    
-    AddOneLineSummary (appkit_category_sp,
-                       ConstString("NSPoint"),
-                       objc_flags);
-    AddOneLineSummary (appkit_category_sp,
-                       ConstString("NSSize"),
-                       objc_flags);
-    AddOneLineSummary (appkit_category_sp,
-                       ConstString("NSRect"),
-                       objc_flags);
-    
-    AddOneLineSummary (coregraphics_category_sp,
-                       ConstString("CGSize"),
-                       objc_flags);
-    AddOneLineSummary (coregraphics_category_sp,
-                       ConstString("CGPoint"),
-                       objc_flags);
-    AddOneLineSummary (coregraphics_category_sp,
-                       ConstString("CGRect"),
-                       objc_flags);
-    
-    AddStringSummary(coreservices_category_sp,
-                     "red=${var.red} green=${var.green} blue=${var.blue}",
-                     ConstString("RGBColor"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "(t=${var.top}, l=${var.left}, b=${var.bottom}, r=${var.right})",
-                     ConstString("Rect"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "(v=${var.v}, h=${var.h})",
-                     ConstString("Point"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "${var.month}/${var.day}/${var.year}  ${var.hour} :${var.minute} :${var.second} dayOfWeek:${var.dayOfWeek}",
-                     ConstString("DateTimeRect *"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "${var.ld.month}/${var.ld.day}/${var.ld.year} ${var.ld.hour} :${var.ld.minute} :${var.ld.second} dayOfWeek:${var.ld.dayOfWeek}",
-                     ConstString("LongDateRect"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "(x=${var.x}, y=${var.y})",
-                     ConstString("HIPoint"),
-                     objc_flags);
-    AddStringSummary(coreservices_category_sp,
-                     "origin=${var.origin} size=${var.size}",
-                     ConstString("HIRect"),
-                     objc_flags);
-    
-    TypeSummaryImpl::Flags appkit_flags;
-    appkit_flags.SetCascades(true)
-    .SetSkipPointers(false)
-    .SetSkipReferences(false)
-    .SetDontShowChildren(true)
-    .SetDontShowValue(false)
-    .SetShowMembersOneLiner(false)
-    .SetHideItemNames(false);
-
-    appkit_flags.SetDontShowChildren(false);
-    
-
-#ifndef LLDB_DISABLE_PYTHON
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("NSArray"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("NSMutableArray"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("__NSArrayI"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("__NSArrayM"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("__NSCFArray"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("CFArrayRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSArraySummaryProvider, "NSArray summary provider", ConstString("CFMutableArrayRef"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<false>, "NSDictionary summary provider", ConstString("NSDictionary"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<false>, "NSDictionary summary provider", ConstString("NSMutableDictionary"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<false>, "NSDictionary summary provider", ConstString("__NSCFDictionary"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<false>, "NSDictionary summary provider", ConstString("__NSDictionaryI"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<false>, "NSDictionary summary provider", ConstString("__NSDictionaryM"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<true>, "NSDictionary summary provider", ConstString("CFDictionaryRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSDictionarySummaryProvider<true>, "NSDictionary summary provider", ConstString("CFMutableDictionaryRef"), appkit_flags);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "NSSet summary", ConstString("NSSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "NSMutableSet summary", ConstString("NSMutableSet"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSSetSummaryProvider<true>, "CFSetRef summary", ConstString("CFSetRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSSetSummaryProvider<true>, "CFMutableSetRef summary", ConstString("CFMutableSetRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "__NSCFSet summary", ConstString("__NSCFSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "__NSSetI summary", ConstString("__NSSetI"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "__NSSetM summary", ConstString("__NSSetM"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "NSCountedSet summary", ConstString("NSCountedSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "NSMutableSet summary", ConstString("NSMutableSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "NSOrderedSet summary", ConstString("NSOrderedSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "__NSOrderedSetI summary", ConstString("__NSOrderedSetI"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSSetSummaryProvider<false>, "__NSOrderedSetM summary", ConstString("__NSOrderedSetM"), appkit_flags);
-
-    // AddSummary(appkit_category_sp, "${var.key%@} -> ${var.value%@}", ConstString("$_lldb_typegen_nspair"), appkit_flags);
-    
-    appkit_flags.SetDontShowChildren(true);
-    
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("__NSArrayM"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("__NSArrayI"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("NSArray"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("NSMutableArray"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(corefoundation_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("__NSCFArray"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(corefoundation_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("CFMutableArrayRef"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(corefoundation_category_sp, lldb_private::formatters::NSArraySyntheticFrontEndCreator, "NSArray synthetic children", ConstString("CFArrayRef"), ScriptedSyntheticChildren::Flags());
-
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("__NSDictionaryM"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("__NSDictionaryI"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("__NSCFDictionary"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("NSDictionary"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("NSMutableDictionary"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(corefoundation_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("CFDictionaryRef"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(corefoundation_category_sp, lldb_private::formatters::NSDictionarySyntheticFrontEndCreator, "NSDictionary synthetic children", ConstString("CFMutableDictionaryRef"), ScriptedSyntheticChildren::Flags());
-
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "NSSet synthetic children", ConstString("NSSet"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "__NSSetI synthetic children", ConstString("__NSSetI"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "__NSSetM synthetic children", ConstString("__NSSetM"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "NSMutableSet synthetic children", ConstString("NSMutableSet"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "NSOrderedSet synthetic children", ConstString("NSOrderedSet"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "__NSOrderedSetI synthetic children", ConstString("__NSOrderedSetI"), ScriptedSyntheticChildren::Flags());
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSSetSyntheticFrontEndCreator, "__NSOrderedSetM synthetic children", ConstString("__NSOrderedSetM"), ScriptedSyntheticChildren::Flags());
-
-    AddCXXSynthetic(appkit_category_sp, lldb_private::formatters::NSIndexPathSyntheticFrontEndCreator, "NSIndexPath synthetic children", ConstString("NSIndexPath"), ScriptedSyntheticChildren::Flags());
-    
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBagSummaryProvider, "CFBag summary provider", ConstString("CFBagRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBagSummaryProvider, "CFBag summary provider", ConstString("__CFBag"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBagSummaryProvider, "CFBag summary provider", ConstString("const struct __CFBag"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBagSummaryProvider, "CFBag summary provider", ConstString("CFMutableBagRef"), appkit_flags);
-    
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBinaryHeapSummaryProvider, "CFBinaryHeap summary provider", ConstString("CFBinaryHeapRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp,lldb_private::formatters::CFBinaryHeapSummaryProvider, "CFBinaryHeap summary provider", ConstString("__CFBinaryHeap"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("NSString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("CFStringRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("__CFString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("CFMutableStringRef"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("NSMutableString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("__NSCFConstantString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("__NSCFString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("NSCFConstantString"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("NSCFString"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSStringSummaryProvider, "NSString summary provider", ConstString("NSPathStore2"), appkit_flags);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSAttributedStringSummaryProvider, "NSAttributedString summary provider", ConstString("NSAttributedString"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSMutableAttributedStringSummaryProvider, "NSMutableAttributedString summary provider", ConstString("NSMutableAttributedString"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSMutableAttributedStringSummaryProvider, "NSMutableAttributedString summary provider", ConstString("NSConcreteMutableAttributedString"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSBundleSummaryProvider, "NSBundle summary provider", ConstString("NSBundle"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDataSummaryProvider<false>, "NSData summary provider", ConstString("NSData"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDataSummaryProvider<false>, "NSData summary provider", ConstString("NSConcreteData"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDataSummaryProvider<false>, "NSData summary provider", ConstString("NSConcreteMutableData"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDataSummaryProvider<false>, "NSData summary provider", ConstString("NSMutableData"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSDataSummaryProvider<false>, "NSData summary provider", ConstString("__NSCFData"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSDataSummaryProvider<true>, "NSData summary provider", ConstString("CFDataRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSDataSummaryProvider<true>, "NSData summary provider", ConstString("CFMutableDataRef"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSMachPortSummaryProvider, "NSMachPort summary provider", ConstString("NSMachPort"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSNotificationSummaryProvider, "NSNotification summary provider", ConstString("NSNotification"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSNotificationSummaryProvider, "NSNotification summary provider", ConstString("NSConcreteNotification"), appkit_flags);
-
-    AddStringSummary(appkit_category_sp, "domain: ${var._domain} - code: ${var._code}", ConstString("NSError"), appkit_flags);
-    AddStringSummary(appkit_category_sp,"name:${var.name%S} reason:${var.reason%S}",ConstString("NSException"),appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "NSNumber summary provider", ConstString("NSNumber"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "CFNumberRef summary provider", ConstString("CFNumberRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "NSNumber summary provider", ConstString("__NSCFBoolean"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "NSNumber summary provider", ConstString("__NSCFNumber"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "NSNumber summary provider", ConstString("NSCFBoolean"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSNumberSummaryProvider, "NSNumber summary provider", ConstString("NSCFNumber"), appkit_flags);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::RuntimeSpecificDescriptionSummaryProvider, "NSDecimalNumber summary provider", ConstString("NSDecimalNumber"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::RuntimeSpecificDescriptionSummaryProvider, "NSHost summary provider", ConstString("NSHost"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::RuntimeSpecificDescriptionSummaryProvider, "NSTask summary provider", ConstString("NSTask"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::RuntimeSpecificDescriptionSummaryProvider, "NSValue summary provider", ConstString("NSValue"), appkit_flags);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSURLSummaryProvider, "NSURL summary provider", ConstString("NSURL"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSURLSummaryProvider, "NSURL summary provider", ConstString("CFURLRef"), appkit_flags);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDateSummaryProvider, "NSDate summary provider", ConstString("NSDate"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDateSummaryProvider, "NSDate summary provider", ConstString("__NSDate"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDateSummaryProvider, "NSDate summary provider", ConstString("__NSTaggedDate"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSDateSummaryProvider, "NSDate summary provider", ConstString("NSCalendarDate"), appkit_flags);
-
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSTimeZoneSummaryProvider, "NSTimeZone summary provider", ConstString("NSTimeZone"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::NSTimeZoneSummaryProvider, "NSTimeZone summary provider", ConstString("CFTimeZoneRef"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSTimeZoneSummaryProvider, "NSTimeZone summary provider", ConstString("__NSTimeZone"), appkit_flags);
-
-    // CFAbsoluteTime is actually a double rather than a pointer to an object
-    // we do not care about the numeric value, since it is probably meaningless to users
-    appkit_flags.SetDontShowValue(true);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::CFAbsoluteTimeSummaryProvider, "CFAbsoluteTime summary provider", ConstString("CFAbsoluteTime"), appkit_flags);
-    appkit_flags.SetDontShowValue(false);
-    
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSIndexSetSummaryProvider, "NSIndexSet summary provider", ConstString("NSIndexSet"), appkit_flags);
-    AddCXXSummary(appkit_category_sp, lldb_private::formatters::NSIndexSetSummaryProvider, "NSIndexSet summary provider", ConstString("NSMutableIndexSet"), appkit_flags);
-
-    AddStringSummary(corefoundation_category_sp,
-                     "@\"${var.month%d}/${var.day%d}/${var.year%d} ${var.hour%d}:${var.minute%d}:${var.second}\"",
-                     ConstString("CFGregorianDate"),
-                     appkit_flags);
-    
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::CFBitVectorSummaryProvider, "CFBitVector summary provider", ConstString("CFBitVectorRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::CFBitVectorSummaryProvider, "CFBitVector summary provider", ConstString("CFMutableBitVectorRef"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::CFBitVectorSummaryProvider, "CFBitVector summary provider", ConstString("__CFBitVector"), appkit_flags);
-    AddCXXSummary(corefoundation_category_sp, lldb_private::formatters::CFBitVectorSummaryProvider, "CFBitVector summary provider", ConstString("__CFMutableBitVector"), appkit_flags);
-#endif // LLDB_DISABLE_PYTHON
-    
     TypeCategoryImpl::SharedPointer vectors_category_sp = GetCategory(m_vectortypes_category_name);
-
+    
     TypeSummaryImpl::Flags vector_flags;
     vector_flags.SetCascades(true)
     .SetSkipPointers(true)
@@ -1384,8 +1116,8 @@ FormatManager::LoadObjCFormatters()
     AddStringSummary(vectors_category_sp,
                      "${var.uint128}",
                      ConstString("builtin_type_vec128"),
-                     objc_flags);
-
+                     vector_flags);
+    
     AddStringSummary(vectors_category_sp,
                      "",
                      ConstString("float [4]"),
@@ -1438,85 +1170,4 @@ FormatManager::LoadObjCFormatters()
                      "",
                      ConstString("vBool32"),
                      vector_flags);
-}
-
-void
-FormatManager::LoadCoreMediaFormatters()
-{
-    TypeSummaryImpl::Flags cm_flags;
-    cm_flags.SetCascades(true)
-    .SetDontShowChildren(false)
-    .SetDontShowValue(false)
-    .SetHideItemNames(false)
-    .SetShowMembersOneLiner(false)
-    .SetSkipPointers(false)
-    .SetSkipReferences(false);
-    
-    TypeCategoryImpl::SharedPointer cm_category_sp = GetCategory(m_coremedia_category_name);
-
-#ifndef LLDB_DISABLE_PYTHON
-    AddCXXSummary(cm_category_sp, lldb_private::formatters::CMTimeSummaryProvider, "CMTime summary provider", ConstString("CMTime"), cm_flags);
-#endif // LLDB_DISABLE_PYTHON
-}
-
-void
-FormatManager::LoadHardcodedFormatters()
-{
-    {
-        // insert code to load formats here
-    }
-    {
-        // insert code to load summaries here
-        m_hardcoded_summaries.push_back(
-                                        [](lldb_private::ValueObject& valobj,
-                                            lldb::DynamicValueType,
-                                            FormatManager&) -> TypeSummaryImpl::SharedPointer {
-                                            static CXXFunctionSummaryFormat::SharedPointer formatter_sp(new CXXFunctionSummaryFormat(TypeSummaryImpl::Flags(), lldb_private::formatters::CXXFunctionPointerSummaryProvider, "Function pointer summary provider"));
-                                            if (valobj.GetCompilerType().IsFunctionPointerType())
-                                            {
-                                                return formatter_sp;
-                                            }
-                                            return nullptr;
-                                        });
-        m_hardcoded_summaries.push_back(
-                                         [](lldb_private::ValueObject& valobj,
-                                            lldb::DynamicValueType,
-                                            FormatManager& fmt_mgr) -> TypeSummaryImpl::SharedPointer {
-                                             static CXXFunctionSummaryFormat::SharedPointer formatter_sp(new CXXFunctionSummaryFormat(TypeSummaryImpl::Flags()
-                                                                                                                                      .SetCascades(true)
-                                                                                                                                      .SetDontShowChildren(true)
-                                                                                                                                      .SetHideItemNames(true)
-                                                                                                                                      .SetShowMembersOneLiner(true)
-                                                                                                                                      .SetSkipPointers(true)
-                                                                                                                                      .SetSkipReferences(false),
-                                                                                                                                      lldb_private::formatters::VectorTypeSummaryProvider,
-                                                                                                                                      "vector_type pointer summary provider"));
-                                             if (valobj.GetCompilerType().IsVectorType(nullptr, nullptr))
-                                             {
-                                                 if (fmt_mgr.GetCategory(fmt_mgr.m_vectortypes_category_name)->IsEnabled())
-                                                     return formatter_sp;
-                                             }
-                                             return nullptr;
-                                         });
-    }
-    {
-        // insert code to load synthetics here
-        m_hardcoded_synthetics.push_back(
-                                         [](lldb_private::ValueObject& valobj,
-                                            lldb::DynamicValueType,
-                                            FormatManager& fmt_mgr) -> SyntheticChildren::SharedPointer {
-                                             static CXXSyntheticChildren::SharedPointer formatter_sp(new CXXSyntheticChildren(SyntheticChildren::Flags().SetCascades(true).SetSkipPointers(true).SetSkipReferences(true).SetNonCacheable(true),
-                                                                                                                              "vector_type synthetic children",
-                                                                                                                              lldb_private::formatters::VectorTypeSyntheticFrontEndCreator));
-                                             if (valobj.GetCompilerType().IsVectorType(nullptr, nullptr))
-                                             {
-                                                 if (fmt_mgr.GetCategory(fmt_mgr.m_vectortypes_category_name)->IsEnabled())
-                                                     return formatter_sp;
-                                             }
-                                             return nullptr;
-                                         });
-    }
-    {
-        // insert code to load validators here
-    }
 }

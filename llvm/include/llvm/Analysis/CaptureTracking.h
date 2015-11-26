@@ -29,11 +29,14 @@ namespace llvm {
   /// counts as capturing it or not.  The boolean StoreCaptures specified
   /// whether storing the value (or part of it) into memory anywhere
   /// automatically counts as capturing it or not.
-  bool PointerMayBeCaptured(
-      const Value *V, bool ReturnCaptures, bool StoreCaptures,
-      // The flag IgnoreNoAliasArgStCaptures is ON means that the analysis
-      // will ignore the store to the  no-alias argument pointer.
-      bool IgnoreNoAliasArgStCaptures = false);
+  bool PointerMayBeCaptured(const Value *V, bool ReturnCaptures,
+                            bool StoreCaptures,
+#if INTEL_CUSTOMIZATION
+  // The flag IgnoreNoAliasArgStCaptures is ON means that the analysis
+  // will ignore the store to the  no-alias argument pointer.
+#endif                                                              // INTEL
+                            bool IgnoreNoAliasArgStCaptures = false // INTEL
+                            );
 
   /// PointerMayBeCapturedBefore - Return true if this pointer value may be
   /// captured by the enclosing function (which is required to exist). If a

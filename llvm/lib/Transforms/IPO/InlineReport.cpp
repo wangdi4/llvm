@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 
 #include "llvm/Transforms/IPO/InlineReport.h"
 #include "llvm/Transforms/IPO/InlinerPass.h"

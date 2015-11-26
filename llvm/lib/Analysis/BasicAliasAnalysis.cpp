@@ -105,7 +105,7 @@ static bool isEscapeArgDereference(const Value *V) {
   }
   return false;
 }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
 /// Returns true if the pointer is to a function-local object that never
 /// escapes from the function.
@@ -668,6 +668,49 @@ static bool isAssumeIntrinsic(ImmutableCallSite CS) {
   return false;
 }
 
+#ifndef NDEBUG
+static const Function *getParent(const Value *V) {
+  if (const Instruction *inst = dyn_cast<Instruction>(V))
+    return inst->getParent()->getParent();
+
+  if (const Argument *arg = dyn_cast<Argument>(V))
+    return arg->getParent();
+
+  return nullptr;
+}
+
+static bool notDifferentParent(const Value *O1, const Value *O2) {
+
+  const Function *F1 = getParent(O1);
+  const Function *F2 = getParent(O2);
+
+  return !F1 || !F2 || F1 == F2;
+}
+#endif
+
+AliasResult BasicAAResult::alias(const MemoryLocation &LocA,
+                                 const MemoryLocation &LocB) {
+  assert(notDifferentParent(LocA.Ptr, LocB.Ptr) &&
+         "BasicAliasAnalysis doesn't support interprocedural queries.");
+
+  // If we have a directly cached entry for these locations, we have recursed
+  // through this once, so just return the cached results. Notably, when this
+  // happens, we don't clear the cache.
+  auto CacheIt = AliasCache.find(LocPair(LocA, LocB));
+  if (CacheIt != AliasCache.end())
+    return CacheIt->second;
+
+  AliasResult Alias = aliasCheck(LocA.Ptr, LocA.Size, LocA.AATags, LocB.Ptr,
+                                 LocB.Size, LocB.AATags);
+  // AliasCache rarely has more than 1 or 2 elements, always use
+  // shrink_and_clear so it quickly returns to the inline capacity of the
+  // SmallDenseMap if it ever grows larger.
+  // FIXME: This should really be shrink_to_inline_capacity_and_clear().
+  AliasCache.shrink_and_clear();
+  VisitedPhiBBs.clear();
+  return Alias;
+}
+
 /// Checks to see if the specified callsite can clobber the specified memory
 /// object.
 ///
@@ -774,10 +817,9 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
   ConstantInt *C2 =
       dyn_cast<ConstantInt>(GEP2->getOperand(GEP2->getNumOperands() - 1));
 
-  // If the last (struct) indices aren't constants, we can't say anything.
-  // If they're identical, the other indices might be also be dynamically
-  // equal, so the GEPs can alias.
-  if (!C1 || !C2 || C1 == C2)
+  // If the last (struct) indices are constants and are equal, the other indices
+  // might be also be dynamically equal, so the GEPs can alias.
+  if (C1 && C2 && C1 == C2)
     return MayAlias;
 
   // Find the last-indexed type of the GEP, i.e., the type you'd get if
@@ -800,12 +842,49 @@ static AliasResult aliasSameBasePointerGEPs(const GEPOperator *GEP1,
     IntermediateIndices.push_back(GEP1->getOperand(i + 1));
   }
 
-  StructType *LastIndexedStruct =
-      dyn_cast<StructType>(GetElementPtrInst::getIndexedType(
-          GEP1->getSourceElementType(), IntermediateIndices));
+  auto *Ty = GetElementPtrInst::getIndexedType(
+    GEP1->getSourceElementType(), IntermediateIndices);
+  StructType *LastIndexedStruct = dyn_cast<StructType>(Ty);
 
-  if (!LastIndexedStruct)
+  if (isa<SequentialType>(Ty)) {
+    // We know that:
+    // - both GEPs begin indexing from the exact same pointer;
+    // - the last indices in both GEPs are constants, indexing into a sequential
+    //   type (array or pointer);
+    // - both GEPs only index through arrays prior to that.
+    //
+    // Because array indices greater than the number of elements are valid in
+    // GEPs, unless we know the intermediate indices are identical between
+    // GEP1 and GEP2 we cannot guarantee that the last indexed arrays don't
+    // partially overlap. We also need to check that the loaded size matches
+    // the element size, otherwise we could still have overlap.
+    const uint64_t ElementSize =
+        DL.getTypeStoreSize(cast<SequentialType>(Ty)->getElementType());
+    if (V1Size != ElementSize || V2Size != ElementSize)
+      return MayAlias;
+
+    for (unsigned i = 0, e = GEP1->getNumIndices() - 1; i != e; ++i)
+      if (GEP1->getOperand(i + 1) != GEP2->getOperand(i + 1))
+        return MayAlias;
+
+    // Now we know that the array/pointer that GEP1 indexes into and that
+    // that GEP2 indexes into must either precisely overlap or be disjoint.
+    // Because they cannot partially overlap and because fields in an array
+    // cannot overlap, if we can prove the final indices are different between
+    // GEP1 and GEP2, we can conclude GEP1 and GEP2 don't alias.
+    
+    // If the last indices are constants, we've already checked they don't
+    // equal each other so we can exit early.
+    if (C1 && C2)
+      return NoAlias;
+    if (isKnownNonEqual(GEP1->getOperand(GEP1->getNumOperands() - 1),
+                        GEP2->getOperand(GEP2->getNumOperands() - 1),
+                        DL))
+      return NoAlias;
     return MayAlias;
+  } else if (!LastIndexedStruct || !C1 || !C2) {
+    return MayAlias;
+  }
 
   // We know that:
   // - both GEPs begin indexing from the exact same pointer;
@@ -850,7 +929,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
                                     uint64_t V2Size, const AAMDNodes &V2AAInfo,
                                     const Value *UnderlyingV1,
                                     const Value *UnderlyingV2,
-                                    bool SameOperand) {
+                                    bool SameOperand // INTEL
+                                    ) {
   int64_t GEP1BaseOffset;
   bool GEP1MaxLookupReached;
   SmallVector<VariableGEPIndex, 4> GEP1VariableIndices;
@@ -1095,7 +1175,8 @@ AliasResult BasicAAResult::aliasGEP(const GEPOperator *GEP1, uint64_t V1Size,
       }
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
+
   // Statically, we can see that the base objects are the same, but the
   // pointers have dynamic offsets which we can't resolve. And none of our
   // little tricks above worked.
@@ -1266,7 +1347,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
   if (V1Size == 0 || V2Size == 0)
     return NoAlias;
 
-  bool SameOperand = false;
+  bool SameOperand = false; // INTEL
 
 #if INTEL_CUSTOMIZATION
   // Here the flag SameOperand is introduced to help the code in routine
@@ -1283,7 +1364,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       SameOperand = true;
     }
   }
-#endif
+#endif // INTEL_CUSTOMIZATION
 
   // Strip off any casts if they exist.
   V1 = V1->stripPointerCasts();
@@ -1365,7 +1446,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
       return NoAlias;
     if (isEscapeArgDereference(O2) && isNonEscapingAllocObj(O1))
       return NoAlias;
-#endif
+#endif // INTEL_CUSTOMIZATION
   }
 
   // If the size of one access is larger than the entire object on the other
@@ -1397,7 +1478,7 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
   }
   if (const GEPOperator *GV1 = dyn_cast<GEPOperator>(V1)) {
     AliasResult Result = aliasGEP(GV1, V1Size, V1AAInfo, V2, V2Size, V2AAInfo,
-                                  O1, O2, SameOperand);
+                                  O1, O2, SameOperand); // INTEL
     if (Result != MayAlias)
       return AliasCache[Locs] = Result;
   }
@@ -1468,7 +1549,7 @@ bool BasicAAResult::isValueEqualInPotentialCycles(const Value *V,
   // the Values cannot come from different iterations of a potential cycle the
   // phi nodes could be involved in.
   for (auto *P : VisitedPhiBBs)
-    if (isPotentiallyReachable(P->begin(), Inst, DT, LI))
+    if (isPotentiallyReachable(&P->front(), Inst, DT, LI))
       return false;
 
   return true;

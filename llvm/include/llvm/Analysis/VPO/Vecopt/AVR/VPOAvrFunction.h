@@ -41,7 +41,8 @@ public:
 
   /// List Container of AVRFunction's children nodes.
   typedef AVRContainerTy ChildrenTy;
-  typedef iplist<BasicBlock> BasicBlockListTy;
+  //  typedef iplist<BasicBlock> BasicBlockListTy;
+  typedef SymbolTableList<BasicBlock> BasicBlockListTy;
 
   /// Iterators to iterate over children nodes
   typedef ChildrenTy::iterator child_iterator;

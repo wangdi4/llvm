@@ -3,7 +3,6 @@
 ; Verifies nesting order is correct, and that correct ivs are 
 ; incremented in each loop
 
-;;;TODO change to use proper loop number regex's
 ; basic cg occurred
 ; CHECK: region:
 
@@ -13,23 +12,23 @@
 ;    afterloop 22
 ; afterloop 23
 
-; CHECK: loop.23
+; CHECK: [[L1:loop.[0-9]+]]
 ; Load of B should be in i1 loop
 ; CHECK: getelementptr{{.*}} @B
 
-; CHECK: loop.22
+; CHECK: [[L2:loop.[0-9]+]]
 
 ; Store of A should be in i2 loop
 ; CHECK: getelementptr{{.*}} @A
 ; increment of i2 occurs in i2 loop body
-; CHECK: store i64 %nextivloop.22
+; CHECK: store i64 %nextiv[[L2]]
 
 ; increment of i1 should occur after i2 loop, afterloop.22
-; CHECK: afterloop.22
-; CHECK: store i64 %nextivloop.23
+; CHECK: after[[L2]]
+; CHECK: store i64 %nextiv[[L1]]
 
 ; after i1 loop, we should have a jump to region successor
-; CHECK: afterloop.23:
+; CHECK: after[[L1]]:
 ; CHECK-NEXT: br label %for.end12.loopexit
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

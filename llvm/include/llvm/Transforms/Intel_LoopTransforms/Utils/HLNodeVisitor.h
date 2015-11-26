@@ -26,8 +26,6 @@
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-
 namespace llvm {
 
 namespace loopopt {
@@ -40,20 +38,21 @@ namespace loopopt {
 /// otherwise.
 ///
 /// The public wrapper functions are in HLNodeUtils.h.
-//
-/// Visitor (template class HV) needs to implement:
+///
+/// Visitor (template class HV derived from HLNodeVisitorBase)
+/// needs to implement:
 ///
 /// 1) Various visit( HLNodeType* ) functions.
 /// 2) Various postVisit( HLNodeType* ) functions for node types which
 ///    can contain other nodes. These are only needed for recursive walks and
 ///    are called after we finish visiting the children of the node.
-/// 3) bool isDone() for early termination of the traversal.
-/// 4) bool skipRecursion(HLNode *Node) for skipping recursion on Node. This is
-///    checked after visit() has been called on Node.
+/// 3) Optional: bool isDone() for early termination of the traversal.
+/// 4) Optional: bool skipRecursion(HLNode *Node) for skipping
+///    recursion on Node. This is checked after visit() has been called on Node.
 ///
 /// Sample visitor class:
 ///
-/// struct Visitor {
+/// struct Visitor final : public HLNodeVisitorBase {
 ///   HLNode *SkipNode;
 ///
 ///   void visit(HLRegion* Region) { errs() << "visited region!\n"; }
@@ -70,9 +69,9 @@ namespace loopopt {
 ///   void visit(HLGoto* Goto) { errs() << "visited goto!\n" }
 ///   void visit(HLInst* Inst) { errs() << "visited instruction!\n" }
 ///
-///   bool isDone() { return false; }
+///   bool isDone() override { return false; }
 ///
-///   bool skipRecursion (HLNode *Node) { return Node == SkipNode; }
+///   bool skipRecursion override (HLNode *Node) { return Node == SkipNode; }
 /// };
 ///
 /// It is also possible to implement generic(catch-all) visit() functions for
@@ -80,239 +79,195 @@ namespace loopopt {
 /// an optimization only cares about loops, it can implement the visitor class
 /// as follows:
 ///
-/// struct Visitor {
+/// struct Visitor final : public HLNodeVisitorBase {
 ///   void visit(HLLoop* Loop) { // implementation here }
 ///   void postVisit(HLLoop* Loop) { // implementation here }
 ///
 ///   void visit(HLNode* Node) { } // Empty catch-all function for others
 ///   void postVisit(HLNode* Node) { } // Empty catch-all function for others
-///
-///   bool isDone() { return false; }
-///
-///   bool skipRecursion (HLNode *Node) { return false; }
 /// };
 ///
-template <typename HV> class HLNodeVisitor {
+/// Recursive parameter denotes if we want to visit inside the HLNodes
+/// such as HLIf and HLLoops. RecursiveInsideLoops parameter denotes
+/// whether we want to visit inside the loops or not and this parameter
+/// is only useful if Recursive parameter is true.
+
+template <typename T>
+using IsHLNodeTy =
+    typename std::enable_if<std::is_base_of<HLNode, T>::value>::type;
+
+struct HLNodeVisitorBase {
+  virtual bool isDone() const { return false; }
+  virtual bool skipRecursion(const HLNode *Node) const { return false; }
+};
+
+template <typename HV, bool Recursive = true, bool RecurseInsideLoops = true,
+          bool Forward = true>
+class HLNodeVisitor {
+
+  // TODO: if C++14 would be available, std::is_final can be used
+  static_assert(std::is_base_of<HLNodeVisitorBase, HV>::value,
+                "HV must be a final derivative of HLNodeVisitorBase");
+
 private:
-  HV *Visitor;
+  HV &Visitor;
 
   friend class HLNodeUtils;
 
-  HLNodeVisitor(HV *V) : Visitor(V) {}
+  HLNodeVisitor(HV &V) : Visitor(V) {}
 
   /// \brief Contains the core logic to visit nodes and recurse further.
   /// Returns true to indicate that early termination has occurred.
-  /// Recursive parameter denotes if we want to visit inside the HLNodes
-  /// such as HLIf and HLLoops. RecursiveInsideLoops parameter denotes
-  /// whether we want to visit inside the loops or not and this parameter
-  /// is only useful if Recursive parameter is true.
-  bool visit(HLNode *Node, bool Recursive, bool RecurseInsideLoops,
-             bool Forward);
+  template <typename NodeTy, typename = IsHLNodeTy<NodeTy>>
+  bool visit(NodeTy *Node) {
+    bool Ret;
 
-  /// \brief Visits HLNodes in the forward direction in the range [begin, end).
+    if (auto Reg = dyn_cast<HLRegion>(Node)) {
+
+      Visitor.visit(Reg);
+
+      if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        Ret = visitRange(Reg->child_begin(), Reg->child_end());
+        if (Ret) {
+          return true;
+        }
+
+        Visitor.postVisit(Reg);
+      }
+    } else if (auto If = dyn_cast<HLIf>(Node)) {
+
+      Visitor.visit(If);
+
+      if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        Ret = Forward ? visitRange(If->then_begin(), If->then_end())
+                      : visitRange(If->else_begin(), If->else_end());
+
+        if (Ret) {
+          return true;
+        }
+
+        Ret = Forward ? visitRange(If->else_begin(), If->else_end())
+                      : visitRange(If->then_begin(), If->then_end());
+
+        if (Ret) {
+          return true;
+        }
+
+        Visitor.postVisit(If);
+      }
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+
+      Visitor.visit(Loop);
+
+      if (Recursive && RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
+          !Visitor.isDone()) {
+        Ret = Forward ? visitRange(Loop->pre_begin(), Loop->pre_end())
+                      : visitRange(Loop->post_begin(), Loop->post_end());
+
+        if (Ret) {
+          return true;
+        }
+
+        Ret = visitRange(Loop->child_begin(), Loop->child_end());
+
+        if (Ret) {
+          return true;
+        }
+
+        Ret = Forward ? visitRange(Loop->post_begin(), Loop->post_end())
+                      : visitRange(Loop->pre_begin(), Loop->pre_end());
+
+        if (Ret) {
+          return true;
+        }
+
+        Visitor.postVisit(Loop);
+      }
+    } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
+
+      Visitor.visit(Switch);
+
+      if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+
+        if (Forward) {
+          for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+            if (visitRange(Switch->case_child_begin(I),
+                           Switch->case_child_end(I))) {
+              return true;
+            }
+          }
+
+          if (visitRange(Switch->default_case_child_begin(),
+                         Switch->default_case_child_end())) {
+            return true;
+          }
+
+        } else {
+
+          if (visitRange(Switch->default_case_child_begin(),
+                         Switch->default_case_child_end())) {
+            return true;
+          }
+
+          for (unsigned I = Switch->getNumCases(), E = 0; I > E; --I) {
+            if (visitRange(Switch->case_child_begin(I),
+                           Switch->case_child_end(I))) {
+              return true;
+            }
+          }
+        }
+
+        Visitor.postVisit(Switch);
+      }
+    } else if (auto Label = dyn_cast<HLLabel>(Node)) {
+      Visitor.visit(Label);
+    } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
+      Visitor.visit(Goto);
+    } else if (auto Inst = dyn_cast<HLInst>(Node)) {
+      Visitor.visit(Inst);
+    } else {
+      llvm_unreachable("Unknown HLNode type!");
+    }
+
+    /// Visitor indicated that the traversal is done
+    if (Visitor.isDone()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// \brief Visits HLNodes in the specified direction in the range [begin,
+  /// end).
   /// Returns true to indicate that early termination has occurred.
-  bool forwardVisit(HLContainerTy::iterator Begin, HLContainerTy::iterator End,
-                    bool Recursive, bool RecurseInsideLoops);
+  template <typename NodeTy, template <typename> class It,
+            typename = IsHLNodeTy<NodeTy>>
+  bool visitRange(It<NodeTy> Begin, It<NodeTy> End) {
+    if (Forward) {
+      for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
 
-  /// \brief Visits HLNodes in the backward direction in the range [begin, end).
-  /// Returns true to indicate that early termination has occurred.
-  /// RecursiveInsideLoops parameter denotes whether we want to visit inside the
-  /// loops or not and this parameter
-  /// is only useful if Recursive parameter is true.
-  bool backwardVisit(HLContainerTy::iterator Begin, HLContainerTy::iterator End,
-                     bool Recursive, bool RecurseInsideLoops);
+        ++Next;
 
-  /// \brief Visits all HLNodes in the HIR in forward direction.
-  void forwardVisitAll(HIRParser *HIRP);
-  /// \brief Visits all HLNodes in the HIR in backward direction.
-  void backwardVisitAll(HIRParser *HIRP);
+        if (visit<NodeTy>(I)) {
+          return true;
+        }
+      }
+    } else {
+      std::reverse_iterator<decltype(Begin)> RI(End);
+      std::reverse_iterator<decltype(End)> RE(Begin);
+
+      for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
+
+        ++Next;
+
+        if (visit<NodeTy>(&(*I))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
 };
-
-template <typename HV>
-bool HLNodeVisitor<HV>::forwardVisit(HLContainerTy::iterator Begin,
-                                     HLContainerTy::iterator End,
-                                     bool Recursive, bool RecurseInsideLoops) {
-
-  for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
-
-    ++Next;
-
-    if (visit(I, Recursive, RecurseInsideLoops, true)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-template <typename HV>
-bool HLNodeVisitor<HV>::backwardVisit(HLContainerTy::iterator Begin,
-                                      HLContainerTy::iterator End,
-                                      bool Recursive, bool RecurseInsideLoops) {
-
-  HLContainerTy::reverse_iterator RI(End), RE(Begin);
-
-  /// Change direction and iterate backwards
-  for (auto RNext = RI; RI != RE; RI = RNext) {
-
-    ++RNext;
-
-    if (visit(&(*(RI)), Recursive, RecurseInsideLoops, false)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-template <typename HV>
-void HLNodeVisitor<HV>::forwardVisitAll(HIRParser *HIRP) {
-  forwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true, true);
-}
-
-template <typename HV>
-void HLNodeVisitor<HV>::backwardVisitAll(HIRParser *HIRP) {
-  backwardVisit(HIRP->hir_begin(), HIRP->hir_end(), true, true);
-}
-
-template <typename HV>
-bool HLNodeVisitor<HV>::visit(HLNode *Node, bool Recursive,
-                              bool RecurseInsideLoops, bool Forward) {
-
-  bool Ret;
-
-  if (auto Reg = dyn_cast<HLRegion>(Node)) {
-
-    Visitor->visit(Reg);
-
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
-      Ret = Forward ? forwardVisit(Reg->child_begin(), Reg->child_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(Reg->child_begin(), Reg->child_end(),
-                                    RecurseInsideLoops, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Visitor->postVisit(Reg);
-    }
-  } else if (auto If = dyn_cast<HLIf>(Node)) {
-
-    Visitor->visit(If);
-
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
-      Ret = Forward ? forwardVisit(If->then_begin(), If->then_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(If->else_begin(), If->else_end(),
-                                    RecurseInsideLoops, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Ret = Forward ? forwardVisit(If->else_begin(), If->else_end(),
-                                   RecurseInsideLoops, true)
-                    : backwardVisit(If->then_begin(), If->then_end(),
-                                    RecurseInsideLoops, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Visitor->postVisit(If);
-    }
-  } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
-
-    Visitor->visit(Loop);
-
-    if (Recursive && RecurseInsideLoops && !Visitor->skipRecursion(Node) &&
-        !Visitor->isDone()) {
-      Ret =
-          Forward
-              ? forwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true)
-              : backwardVisit(Loop->post_begin(), Loop->post_end(), true, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Ret = Forward ? forwardVisit(Loop->child_begin(), Loop->child_end(), true,
-                                   true)
-                    : backwardVisit(Loop->child_begin(), Loop->child_end(),
-                                    true, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Ret = Forward
-                ? forwardVisit(Loop->post_begin(), Loop->post_end(), true, true)
-                : backwardVisit(Loop->pre_begin(), Loop->pre_end(), true, true);
-
-      if (Ret) {
-        return true;
-      }
-
-      Visitor->postVisit(Loop);
-    }
-  } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
-
-    Visitor->visit(Switch);
-
-    if (Recursive && !Visitor->skipRecursion(Node) && !Visitor->isDone()) {
-
-      if (Forward) {
-        for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
-          if (forwardVisit(Switch->case_child_begin(I),
-                           Switch->case_child_end(I), RecurseInsideLoops,
-                           true)) {
-            return true;
-          }
-        }
-
-        if (forwardVisit(Switch->default_case_child_begin(),
-                         Switch->default_case_child_end(), RecurseInsideLoops,
-                         true)) {
-          return true;
-        }
-
-      } else {
-
-        if (backwardVisit(Switch->default_case_child_begin(),
-                          Switch->default_case_child_end(), RecurseInsideLoops,
-                          true)) {
-          return true;
-        }
-
-        for (unsigned I = Switch->getNumCases(), E = 0; I > E; --I) {
-          if (backwardVisit(Switch->case_child_begin(I),
-                            Switch->case_child_end(I), RecurseInsideLoops,
-                            true)) {
-            return true;
-          }
-        }
-      }
-
-      Visitor->postVisit(Switch);
-    }
-  } else if (auto Label = dyn_cast<HLLabel>(Node)) {
-    Visitor->visit(Label);
-  } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
-    Visitor->visit(Goto);
-  } else if (auto Inst = dyn_cast<HLInst>(Node)) {
-    Visitor->visit(Inst);
-  } else {
-    llvm_unreachable("Unknown HLNode type!");
-  }
-
-  /// Visitor indicated that the traversal is done
-  if (Visitor->isDone()) {
-    return true;
-  }
-
-  return false;
-}
 
 } // End namespace loopopt
 

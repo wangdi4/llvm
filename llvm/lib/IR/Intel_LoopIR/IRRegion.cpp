@@ -101,6 +101,7 @@ BasicBlock *IRRegion::getPredBBlock() const {
     PredI++;
     auto TempPredI = PredI;
 
+    (void)TempPredI;
     assert(!BBlocks.count(*PredI) &&
            "Both region predecessors lie inside the reigon!");
     assert((++TempPredI == pred_end(EntryBBlock)) &&
@@ -119,6 +120,7 @@ BasicBlock *IRRegion::getSuccBBlock() const {
     SuccI++;
     auto TempSuccI = SuccI;
 
+    (void)TempSuccI;
     assert(!BBlocks.count(*SuccI) &&
            "Both region successors lie inside the reigon!");
     assert((++TempSuccI == succ_end(ExitBBlock)) &&

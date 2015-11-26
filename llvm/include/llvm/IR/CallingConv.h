@@ -147,14 +147,23 @@ namespace CallingConv {
 
     /// \brief MSVC calling convention that passes vectors and vector aggregates
     /// in SSE registers.
-    X86_VectorCall = 80
+    X86_VectorCall = 80,
+
+    /// \brief Calling convention used by HipHop Virtual Machine (HHVM) to
+    /// perform calls to and from translation cache, and for calling PHP
+    /// functions.
+    /// HHVM calling convention supports tail/sibling call elimination.
+    HHVM = 81,
+
+    /// \brief HHVM calling convention for invoking C/C++ helpers.
+    HHVM_C = 82
 #if INTEL_CUSTOMIZATION
 
     /// \brief SVML for intel compiler
-    ,SVML = 81
+    ,SVML = 83
 
     /// Intel_regcall - The Intel __regcall Calling convention
-    ,Intel_regcall = 82
+    ,Intel_regcall = 84
 #endif // INTEL_CUSTOMIZATION
   };
 } // End CallingConv namespace

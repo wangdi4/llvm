@@ -25,6 +25,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
 namespace llvm {
 
 class Function;
@@ -52,11 +54,14 @@ private:
   /// suppressed for dummy instructions so we use NoFolder class instead.
   typedef IRBuilder<true, NoFolder> DummyIRBuilderTy;
   static DummyIRBuilderTy *DummyIRBuilder;
-  /// \brief Points to first dummy instruction created in the function.
+  /// \brief Points to first dummy instruction of the function.
   static Instruction *FirstDummyInst;
+  /// \brief Points to last dummy instruction of the function.
+  static Instruction *LastDummyInst;
 
   friend class HIRCreation;
   friend class HIRCleanup;
+  friend class LoopFormation;
 
   /// \brief Visitor for clone sequence.
   struct CloneVisitor;
@@ -64,11 +69,28 @@ private:
   struct LoopFinderUpdater;
   struct TopSorter;
 
-  /// \brief Initializes FirstDummyInst for the function.
-  static void setFirstDummyInst(Instruction *Inst);
+  /// \brief Updates first and last dummy inst of the function.
+  static void setFirstAndLastDummyInst(Instruction *Inst);
 
   /// \brief Initializes static members for this function.
   static void initialize(Function &F);
+
+  /// \brief Returns a new HLRegion. Only used by framework.
+  static HLRegion *createHLRegion(IRRegion *IRReg);
+
+  /// \brief Returns a new HLLabel. Only used by framework.
+  static HLLabel *createHLLabel(BasicBlock *SrcBB);
+
+  /// \brief Returns a new external HLGoto that branches outside of HLRegion.
+  /// Only used by framework.
+  static HLGoto *createHLGoto(BasicBlock *TargetBB);
+
+  /// \brief Returns a new HLInst. Only used by framework.
+  static HLInst *createHLInst(Instruction *In);
+
+  /// \brief Returns a new HLLoop created from an underlying LLVM loop. Only
+  /// used by framework.
+  static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
 
   /// \brief Destroys all HLNodes, called during framework cleanup.
   static void destroyAll();
@@ -80,7 +102,8 @@ private:
   static Value *createOneVal(Type *Ty);
 
   /// \brief Performs sanity checking on unary instruction operands.
-  static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef);
+  static void checkUnaryInstOperands(RegDDRef *LvalRef, RegDDRef *RvalRef,
+                                     Type *DestTy);
 
   /// \brief Performs sanity checking on binary instruction operands.
   static void checkBinaryInstOperands(RegDDRef *LvalRef, RegDDRef *OpRef1,
@@ -189,36 +212,81 @@ private:
                                  HLContainerTy::iterator Last, unsigned CaseNum,
                                  bool isFirstChild);
 
+  /// \brief Implements get*LexicalChild() functionality.
+  static const HLNode *getLexicalChildImpl(const HLNode *Parent,
+                                           const HLNode *Node, bool First);
+
+  /// \brief Returns true if the lexical link have structured flow between
+  /// Parent's first/last child and Node. The direction is dictated by
+  /// UpwardTraversal flag. TargetNode is used for early termination of the
+  /// traversal. Structured flow checks are different for domination and
+  /// post-domination.
+  static bool hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
+                                const HLNode *TargetNode, bool PostDomination,
+                                bool UpwardTraversal);
+
+  /// \brief Returns the outermost parent of Node1 which is safe to be used for
+  /// checking domination. We move up through constant trip count loops. Last
+  /// parent indicates the path used to reach to the parent.
+  static const HLNode *getOutermostSafeParent(const HLNode *Node1,
+                                              const HLNode *Node2,
+                                              bool PostDomination,
+                                              const HLNode **LastParent1);
+
+  /// \brief Internally used by domination utility to get to the common
+  /// dominating parent. Last parent indicates the path used to reach to the
+  /// parent.
+  static const HLNode *getCommonDominatingParent(const HLNode *Parent1,
+                                                 const HLNode *LastParent1,
+                                                 const HLNode *Node2,
+                                                 bool PostDomination,
+                                                 const HLNode **LastParent2);
+
+  /// \brief Implements domination/post-domination functionality.
+  static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
+                            bool PostDomination, bool StrictDomination);
+
+
+
+
+  /// \brief Move Loop Bounds, IVtype and ZTT, etc. from one loop to another
+  static void moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop);
+
 public:
+  /// \brief return true if non-zero
+  static bool isKnownNonZero(const CanonExpr *CE,
+                             const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if non-positive
+  static bool isKnownNonPositive(const CanonExpr *CE,
+                                 const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if non-negative
+  static bool isKnownNonNegative(const CanonExpr *CE,
+                                 const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if negative
+  static bool isKnownNegative(const CanonExpr *CE,
+                              const HLLoop *ParentLoop = nullptr);
+  /// \brief return true if positive
+  static bool isKnownPositive(const CanonExpr *CE,
+                              const HLLoop *ParentLoop = nullptr);
+
+  /// \brief Returns the first dummy instruction of the function.
   static Instruction *getFirstDummyInst() { return FirstDummyInst; }
 
-  /// \brief Returns a new HLRegion.
-  static HLRegion *createHLRegion(IRRegion *IRReg);
+  /// \brief Returns the last dummy instruction of the function.
+  static Instruction *getLastDummyInst() { return LastDummyInst; }
 
   /// \brief Returns a new HLSwitch.
   static HLSwitch *createHLSwitch(RegDDRef *ConditionRef);
 
-  /// \brief Returns a new HLLabel.
-  static HLLabel *createHLLabel(BasicBlock *SrcBB);
-
   /// \brief Returns a new HLLabel with custom name.
   static HLLabel *createHLLabel(const Twine &Name = "L");
-
-  /// \brief Returns a new external HLGoto that branches outside of HLRegion.
-  static HLGoto *createHLGoto(BasicBlock *TargetBB);
 
   /// \brief Returns a new HLGoto that branches to HLLabel.
   static HLGoto *createHLGoto(HLLabel *TargetL);
 
-  /// \brief Returns a new HLInst.
-  static HLInst *createHLInst(Instruction *In);
-
   /// \brief Returns a new HLIf.
   static HLIf *createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
                           RegDDRef *Ref2);
-
-  /// \brief Returns a new HLLoop created from an underlying LLVM loop.
-  static HLLoop *createHLLoop(const Loop *LLVMLoop, bool IsDoWh = false);
 
   /// \brief Returns a new HLLoop.
   static HLLoop *createHLLoop(HLIf *ZttIf = nullptr,
@@ -386,11 +454,12 @@ public:
                             const HLNode *Node2 = nullptr);
 
   /// \brief Visits the passed in HLNode.
-  template <typename HV>
-  static void visit(HV *Visitor, HLNode *Node, bool Recursive = true,
-                    bool RecurseInsideLoops = true, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-    V.visit(Node, Recursive, RecurseInsideLoops, Forward);
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, NodeTy *Node) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visit(Node);
   }
 
   /// \brief Visits HLNodes in the range [begin, end). The direction is
@@ -398,44 +467,35 @@ public:
   /// specified using Recursive flag and Recursion inside HLLoops is
   /// specified using RecurseInsideLoops (which is only used when
   /// Recursive flag is set).
-  template <typename HV>
-  static void visit(HV *Visitor, HLContainerTy::iterator Begin,
-                    HLContainerTy::iterator End, bool Recursive = true,
-                    bool RecurseInsideLoops = true, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-
-    if (Forward) {
-      V.forwardVisit(Begin, End, Recursive, RecurseInsideLoops);
-    } else {
-      V.backwardVisit(Begin, End, Recursive, RecurseInsideLoops);
-    }
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visitRange(Begin, End);
   }
 
   /// \brief Visits HLNodes in the range [begin, end]. The direction is
   /// specified using Forward flag. This is overloaded to have begin and
   /// end as HLNode parameters.
-  template <typename HV>
-  static void visit(HV *Visitor, HLNode *Begin, HLNode *End,
-                    bool Recursive = true, bool RecurseInsideLoops = true,
-                    bool Forward = true) {
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV, typename NodeTy,
+            typename = IsHLNodeTy<NodeTy>>
+  static void visit(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
-    HLContainerTy::iterator BeginIter(Begin);
-    HLContainerTy::iterator EndIter(End);
-    visit(Visitor, BeginIter, std::next(EndIter), Recursive, RecurseInsideLoops,
-          Forward);
+    ilist_iterator<NodeTy> BeginIter(Begin);
+    ilist_iterator<NodeTy> EndIter(End);
+    visit<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
+                                                  std::next(EndIter));
   }
 
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
   /// Forward flag.
-  template <typename HV>
-  static void visitAll(HV *Visitor, bool Forward = true) {
-    HLNodeVisitor<HV> V(Visitor);
-
-    if (Forward) {
-      V.forwardVisitAll(getHIRParser());
-    } else {
-      V.backwardVisitAll(getHIRParser());
-    }
+  template <bool Recursive = true, bool RecurseInsideLoops = true,
+            bool Forward = true, typename HV>
+  static void visitAll(HV &Visitor) {
+    HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
+    V.visitRange(getHIRParser()->hir_begin(), getHIRParser()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.
@@ -663,12 +723,50 @@ public:
   /// \brief Reset TopSortNum
   static void resetTopSortNum();
 
-  /// \brief HIR Strictly dominates
-  static bool strictlyDominates(HLNode *Node1, HLNode *Node2);
+  /// \brief Returns true if Node is in the top sort num range [FirstNode,
+  /// LastNode].
+  static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
+                                  const HLNode *LastNode);
 
-  /// \brief Check if DDRef is contained in Loop
-	static bool LoopContainsDDRef(const HLLoop *Loop, const DDRef *DDref);
-		
+  /// \brief Returns the first lexical child of the parent w.r.t Node. For
+  /// example, if parent is a loop and Node lies in postexit, the function will
+  /// return the first postexit node. If Node is null, it returns the absolute
+  /// first/last child in the parent's container.
+  /// Please note that this function internally uses top sort num so it must be
+  /// valid.
+  static const HLNode *getFirstLexicalChild(const HLNode *Parent,
+                                            const HLNode *Node = nullptr);
+  static HLNode *getFirstLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+
+  /// \brief Returns the last lexical child of the parent w.r.t Node. For
+  /// example, if parent is a loop and Node lies in postexit, the function will
+  /// return the last postexit node. If Node is null, it returns the absolute
+  /// first/last child in the parent's container.
+  /// Please note that this function internally uses top sort num so it must be
+  /// valid.
+  static const HLNode *getLastLexicalChild(const HLNode *Parent,
+                                           const HLNode *Node = nullptr);
+  static HLNode *getLastLexicalChild(HLNode *Parent, HLNode *Node = nullptr);
+
+  /// \brief Returns true if Node1 can be proven to dominate Node2, otherwise
+  /// conservatively returns false.
+  static bool dominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief This is identical to dominates() except the case where Node1 ==
+  /// Node2, in which case it return false.
+  static bool strictlyDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief Returns true if Node1 can be proven to post-dominate Node2,
+  /// otherwise conservatively returns false.
+  static bool postDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief This is identical to postDominates() except the case where Node1 ==
+  /// Node2, in which case it return false.
+  static bool strictlyPostDominates(const HLNode *Node1, const HLNode *Node2);
+
+  /// \brief Returns true if Parent contains Node.
+  static bool contains(const HLNode *Parent, const HLNode *Node);
+
   /// \brief get parent loop for certain level, nullptr could be returned
   /// if input is invalid
   static const HLLoop *getParentLoopwithLevel(unsigned Level,
@@ -696,6 +794,22 @@ public:
   // unrolling.
   static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
                               bool RecurseInsideLoops = true);
+
+
+  /// \brief Returns true if Loop is a perfect Loop nest
+  /// and the innermost loop
+  static bool isPerfectLoopNest(const HLLoop *Loop,
+                                const HLLoop **InnermostLoop,
+                                bool AllowPrePostHdr = false,
+                                bool AllowTriangularLoop = false);
+
+
+  /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
+  ///   Used by Interchange now. Could be used later for blocking
+  static void permuteLoopNests(HLLoop *Loop,
+                               SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation); 
+ 
+	
 };
 
 } // End namespace loopopt

@@ -1,17 +1,20 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+
+; This command checks that -hir-ssa-deconstruction invalidates SCEV so that the parser doesn't pick up the cached version. HIR output should be the same as for the above command.
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll 2>&1 | FileCheck %s
 
 ; Check parsing output for reduction chain in the loopnest
-; CHECK: DO i1 = 0, %n + -1
+; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
 ; CHECK-SAME: DO_LOOP
-; CHECK: DO i2 = 0, %m + -1
+; CHECK: DO i2 = 0, zext.i32.i64((-1 + %m))
 ; CHECK-SAME: DO_LOOP
 ; CHECK-NEXT: %t.034.out = %t.034
-; CHECK-NEXT: %0 = (@A)[i2][i1]
-; CHECK-NEXT: %1 = (@B)[i2][i1]
-; CHECK-NEXT: %t.034 = %t.034.out + %0
-; CHECK-NEXT: %call = @foo1(%t.034.out + %0)
+; CHECK-NEXT: %0 = (@A)[0][i2][i1]
+; CHECK-NEXT: %1 = (@B)[0][i2][i1]
+; CHECK-NEXT: %t.034 = %0 + %t.034.out  +  %1
+; CHECK-NEXT: %call = @foo1(%0 + %t.034.out)
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %r.035 = %t.034.out + %0
+; CHECK-NEXT: %r.035 = %0 + %t.034.out
 ; CHECK: END LOOP
 
 

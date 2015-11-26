@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-sccs | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck %s
 
 ; Check formation of one SCC
 ; CHECK: Region 1
