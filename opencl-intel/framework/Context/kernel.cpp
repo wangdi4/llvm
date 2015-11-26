@@ -640,9 +640,9 @@ cl_err_code    Kernel::GetWorkGroupInfo(const SharedPtr<FissionableDevice>& devi
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Kernel::CreateDeviceKernels
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-cl_err_code Kernel::CreateDeviceKernels(DeviceProgram** ppDevicePrograms)
+cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& ppDevicePrograms)
 {
-    if (NULL == ppDevicePrograms)
+    if (ppDevicePrograms.empty())
     {
         return CL_INVALID_VALUE;
     }

@@ -157,7 +157,7 @@ bool CompileTask::Execute()
         return true;
     }
 
-    m_pFECompiler->CompileProgram(m_pProg->GetSourceInternal(),
+    m_pFECompiler->CompileProgram(szSource,
                                   m_uiNumHeaders,
                                   m_pszHeaders,
                                   m_pszHeadersNames,
@@ -758,10 +758,10 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
     }
     else // Build for all devices
     {
-        DeviceProgram** pAllDevicePrograms = program->GetProgramsForAllDevices();
+        std::vector<unique_ptr<DeviceProgram>>& pAllDevicePrograms = program->GetProgramsForAllDevices();
         for ( cl_uint i = 0; i < uiNumDevices; ++i)
         {
-            ppDevicePrograms[i] = pAllDevicePrograms[i];
+            ppDevicePrograms[i] = pAllDevicePrograms[i].get();
         }
     }
 
@@ -998,10 +998,10 @@ cl_err_code ProgramService::LinkProgram(const SharedPtr<Program>&   program,
     }
     else // Build for all devices
     {
-        DeviceProgram** pAllDevicePrograms = program->GetProgramsForAllDevices();
+        std::vector<unique_ptr<DeviceProgram>>& pAllDevicePrograms = program->GetProgramsForAllDevices();
         for ( cl_uint i = 0; i < uiNumDevices; ++i)
         {
-            ppDevicePrograms[i] = pAllDevicePrograms[i];
+            ppDevicePrograms[i] = pAllDevicePrograms[i].get();
         }
     }
 
@@ -1270,10 +1270,10 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
     }
     else // Build for all devices
     {
-        DeviceProgram** pAllDevicePrograms = program->GetProgramsForAllDevices();
+        std::vector<unique_ptr<DeviceProgram>>& pAllDevicePrograms = program->GetProgramsForAllDevices();
         for ( cl_uint i = 0; i < uiNumDevices; ++i)
         {
-            ppDevicePrograms[i] = pAllDevicePrograms[i];
+            ppDevicePrograms[i] = pAllDevicePrograms[i].get();
         }
     }
 
@@ -1354,7 +1354,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
         case DEVICE_PROGRAM_BUILD_FAILED:
             {
                 // Possibly retrying a failed build - legal
-                if (NULL == program->GetSourceInternal())
+                if (nullptr == program->GetSourceInternal())
                 {
                     //invalid binaries are hopeless
                     //remember build options even if build will fail

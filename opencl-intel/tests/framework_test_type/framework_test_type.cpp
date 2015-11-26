@@ -529,11 +529,6 @@ TEST(CL21_depr, Test_CloneKernel)
     EXPECT_TRUE(CloneKernel());
 }
 
-TEST(CL21_depr, Test_CreateProgramWithIL)
-{
-    CreateProgramWithIL();
-}
-
 TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO)
 {
     SetDefaultDeviceCommandQueueOOO();
@@ -667,6 +662,32 @@ TEST_F(CL21, Timers_GetDeviceAndHostTimer)
 {
     GetDeviceAndHostTimer();
 }
+
+TEST_F(CL21, Test_CreateProgramWithIL)
+{
+    CreateProgramWithIL();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_Negative)
+{
+    CreateProgramWithIL_Negative();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
+{
+    CreateProgramWithIL_IL_VERSION();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
+{
+    CreateProgramWithIL_PROGRAM_IL();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
+{
+    CreateProgramWithIL_PROGRAM_IL_Negative();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL21 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////

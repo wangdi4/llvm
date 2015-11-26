@@ -8,60 +8,39 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramForLink::ProgramForLink(SharedPtr<Context> pContext, cl_uint uiNumDevices, SharedPtr<FissionableDevice>* pDevices, cl_int *piRet)
+ProgramForLink::ProgramForLink(SharedPtr<Context>            pContext,
+                               cl_uint                       uiNumDevices,
+                               SharedPtr<FissionableDevice>* pDevices,
+                               cl_int*                       piRet)
 : Program(pContext)
 {
+	cl_int ret = CL_SUCCESS;
 	m_szNumAssociatedDevices = uiNumDevices;
-    m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
-    if (NULL == m_ppDevicePrograms)
-	{
-        if (piRet)
-	    {
-		    *piRet = CL_OUT_OF_HOST_MEMORY;
-	    }
-        return;
-	}
 
+    try
+    {
+        m_ppDevicePrograms.resize(m_szNumAssociatedDevices);
 
-	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-	{
-        m_ppDevicePrograms[i] = new DeviceProgram();
-        if (NULL == m_ppDevicePrograms[i])
+        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
         {
-            for (size_t j = 0; j < i; ++j)
-            {
-                delete m_ppDevicePrograms[j];
-            }
-            delete[] m_ppDevicePrograms;
-            m_ppDevicePrograms = NULL;
+            unique_ptr<DeviceProgram>& pDevProgram = m_ppDevicePrograms[i];
+            pDevProgram.reset(new DeviceProgram());
 
-            if (piRet)
-	        {
-		        *piRet = CL_OUT_OF_HOST_MEMORY;
-	        }
-            return;
+            pDevProgram->SetDevice(pDevices[i]);
+            pDevProgram->SetHandle(GetHandle());
+            pDevProgram->SetContext(pContext->GetHandle());
         }
+    }
+    catch(std::bad_alloc& e)
+    {
+        ret = CL_OUT_OF_HOST_MEMORY;
+    }
 
-        m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
-        m_ppDevicePrograms[i]->SetHandle(GetHandle());
-        m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-	}
-
-	if (piRet)
-	{
-		*piRet = CL_SUCCESS;
-	}
+    if (piRet)
+    {
+        *piRet = ret;
+    }
 }
 
 ProgramForLink::~ProgramForLink()
-{
-    if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
-    {
-        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-        {
-            delete m_ppDevicePrograms[i];
-        }
-        delete[] m_ppDevicePrograms;
-        m_ppDevicePrograms = NULL;
-	}
-}
+{}

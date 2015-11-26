@@ -34,6 +34,7 @@
 
 #include "Device.h"
 #include "cl_sys_defines.h"
+#include <memory>
 //#include "svm_buffer.h"
 
 namespace Intel { namespace OpenCL { namespace Framework {
@@ -308,7 +309,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                         size_t *    pszParamValueSizeRet);
 
         // create device kernels
-        cl_err_code CreateDeviceKernels(DeviceProgram ** pDevicePrograms);
+        cl_err_code CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& pDevicePrograms);
 
         // set kernel argument without checks.
         cl_err_code SetKernelArgInternal(cl_uint uiIndex, const KernelArg* arg);
