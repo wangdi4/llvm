@@ -1,18 +1,12 @@
 add_lldb_library(lldbDataFormatters
-  CF.cpp
-  Cocoa.cpp
-  CoreMedia.cpp
   CXXFunctionPointer.cpp
   DataVisualization.cpp
+  DumpValueObjectOptions.cpp
   FormatCache.cpp
   FormatClasses.cpp
   FormatManager.cpp
   FormattersHelpers.cpp
   LanguageCategory.cpp
-  NSArray.cpp
-  NSDictionary.cpp
-  NSIndexPath.cpp
-  NSSet.cpp
   StringPrinter.cpp
   TypeCategory.cpp
   TypeCategoryMap.cpp

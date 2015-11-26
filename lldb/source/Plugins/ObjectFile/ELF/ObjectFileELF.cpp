@@ -1097,16 +1097,35 @@ ObjectFileELF::GetImageInfoAddress(Target *target)
             addr_t offset = i * dynsym_hdr->sh_entsize + GetAddressByteSize();
             return Address(dynsym_section_sp, offset);
         }
-        else if (symbol.d_tag == DT_MIPS_RLD_MAP && target)
+        // MIPS executables uses DT_MIPS_RLD_MAP_REL to support PIE. DT_MIPS_RLD_MAP exists in non-PIE.
+        else if ((symbol.d_tag == DT_MIPS_RLD_MAP || symbol.d_tag == DT_MIPS_RLD_MAP_REL) && target)
         {
             addr_t offset = i * dynsym_hdr->sh_entsize + GetAddressByteSize();
             addr_t dyn_base = dynsym_section_sp->GetLoadBaseAddress(target);
             if (dyn_base == LLDB_INVALID_ADDRESS)
                 return Address();
-            Address addr;
+
             Error error;
-            if (target->ReadPointerFromMemory(dyn_base + offset, false, error, addr))
-                return addr;
+            if (symbol.d_tag == DT_MIPS_RLD_MAP)
+            {
+                // DT_MIPS_RLD_MAP tag stores an absolute address of the debug pointer.
+                Address addr;
+                if (target->ReadPointerFromMemory(dyn_base + offset, false, error, addr))
+                    return addr;
+            }
+            if (symbol.d_tag == DT_MIPS_RLD_MAP_REL)
+            {
+                // DT_MIPS_RLD_MAP_REL tag stores the offset to the debug pointer, relative to the address of the tag.
+                uint64_t rel_offset;
+                rel_offset = target->ReadUnsignedIntegerFromMemory(dyn_base + offset, false, GetAddressByteSize(), UINT64_MAX, error);
+                if (error.Success() && rel_offset != UINT64_MAX)
+                {
+                    Address addr;
+                    addr_t debug_ptr_address = dyn_base + (offset - GetAddressByteSize()) + rel_offset;
+                    addr.SetOffset (debug_ptr_address);
+                    return addr;
+                }
+            }
         }
     }
 
@@ -1586,6 +1605,12 @@ ObjectFileELF::GetSectionHeaderInfo(SectionHeaderColl &section_headers,
                 }
             }
 
+            // Make any unknown triple components to be unspecified unknowns.
+            if (arch_spec.GetTriple().getVendor() == llvm::Triple::UnknownVendor)
+                arch_spec.GetTriple().setVendorName (llvm::StringRef());
+            if (arch_spec.GetTriple().getOS() == llvm::Triple::UnknownOS)
+                arch_spec.GetTriple().setOSName (llvm::StringRef());
+
             return section_headers.size();
         }
     }
@@ -1701,6 +1726,9 @@ ObjectFileELF::CreateSections(SectionList &unified_section_list)
             static ConstString g_sect_name_dwarf_debug_str_dwo (".debug_str.dwo");
             static ConstString g_sect_name_dwarf_debug_str_offsets_dwo (".debug_str_offsets.dwo");
             static ConstString g_sect_name_eh_frame (".eh_frame");
+            static ConstString g_sect_name_arm_exidx (".ARM.exidx");
+            static ConstString g_sect_name_arm_extab (".ARM.extab");
+            static ConstString g_sect_name_go_symtab (".gosymtab");
 
             SectionType sect_type = eSectionTypeOther;
 
@@ -1753,6 +1781,9 @@ ObjectFileELF::CreateSections(SectionList &unified_section_list)
             else if (name == g_sect_name_dwarf_debug_str_dwo)         sect_type = eSectionTypeDWARFDebugStr;
             else if (name == g_sect_name_dwarf_debug_str_offsets_dwo) sect_type = eSectionTypeDWARFDebugStrOffsets;
             else if (name == g_sect_name_eh_frame)                    sect_type = eSectionTypeEHFrame;
+            else if (name == g_sect_name_arm_exidx)                   sect_type = eSectionTypeARMexidx;
+            else if (name == g_sect_name_arm_extab)                   sect_type = eSectionTypeARMextab;
+            else if (name == g_sect_name_go_symtab)                   sect_type = eSectionTypeGoSymtab;
 
             switch (header.sh_type)
             {
@@ -1853,6 +1884,29 @@ ObjectFileELF::CreateSections(SectionList &unified_section_list)
         }
     }
 }
+
+// Find the arm/aarch64 mapping symbol character in the given symbol name. Mapping symbols have the
+// form of "$<char>[.<any>]*". Additionally we recognize cases when the mapping symbol prefixed by
+// an arbitrary string because if a symbol prefix added to each symbol in the object file with
+// objcopy then the mapping symbols are also prefixed.
+static char
+FindArmAarch64MappingSymbol(const char* symbol_name)
+{
+    if (!symbol_name)
+        return '\0';
+
+    const char* dollar_pos = ::strchr(symbol_name, '$');
+    if (!dollar_pos || dollar_pos[1] == '\0')
+        return '\0';
+
+    if (dollar_pos[2] == '\0' || dollar_pos[2] == '.')
+        return dollar_pos[1];
+    return '\0';
+}
+
+#define STO_MIPS_ISA            (3 << 6)
+#define STO_MICROMIPS           (2 << 6)
+#define IS_MICROMIPS(ST_OTHER)  (((ST_OTHER) & STO_MIPS_ISA) == STO_MICROMIPS)
 
 // private
 unsigned
@@ -1999,58 +2053,54 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
         {
             if (arch.GetMachine() == llvm::Triple::arm)
             {
-                if (symbol.getBinding() == STB_LOCAL && symbol_name && symbol_name[0] == '$')
+                if (symbol.getBinding() == STB_LOCAL)
                 {
-                    // These are reserved for the specification (e.g.: mapping
-                    // symbols). We don't want to add them to the symbol table.
-
+                    char mapping_symbol = FindArmAarch64MappingSymbol(symbol_name);
                     if (symbol_type == eSymbolTypeCode)
                     {
-                        llvm::StringRef symbol_name_ref(symbol_name);
-                        if (symbol_name_ref == "$a" || symbol_name_ref.startswith("$a."))
+                        switch (mapping_symbol)
                         {
-                            // $a[.<any>]* - marks an ARM instruction sequence
-                            m_address_class_map[symbol.st_value] = eAddressClassCode;
-                        }
-                        else if (symbol_name_ref == "$b" || symbol_name_ref.startswith("$b.") ||
-                                 symbol_name_ref == "$t" || symbol_name_ref.startswith("$t."))
-                        {
-                            // $b[.<any>]* - marks a THUMB BL instruction sequence
-                            // $t[.<any>]* - marks a THUMB instruction sequence
-                            m_address_class_map[symbol.st_value] = eAddressClassCodeAlternateISA;
-                        }
-                        else if (symbol_name_ref == "$d" || symbol_name_ref.startswith("$d."))
-                        {
-                            // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
-                            m_address_class_map[symbol.st_value] = eAddressClassData;
+                            case 'a':
+                                // $a[.<any>]* - marks an ARM instruction sequence
+                                m_address_class_map[symbol.st_value] = eAddressClassCode;
+                                break;
+                            case 'b':
+                            case 't':
+                                // $b[.<any>]* - marks a THUMB BL instruction sequence
+                                // $t[.<any>]* - marks a THUMB instruction sequence
+                                m_address_class_map[symbol.st_value] = eAddressClassCodeAlternateISA;
+                                break;
+                            case 'd':
+                                // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
+                                m_address_class_map[symbol.st_value] = eAddressClassData;
+                                break;
                         }
                     }
-                    continue;
+                    if (mapping_symbol)
+                        continue;
                 }
             }
             else if (arch.GetMachine() == llvm::Triple::aarch64)
             {
-                if (symbol.getBinding() == STB_LOCAL && symbol_name && symbol_name[0] == '$')
+                if (symbol.getBinding() == STB_LOCAL)
                 {
-                    // These are reserved for the specification (e.g.: mapping
-                    // symbols). We don't want to add them to the symbol table.
-
+                    char mapping_symbol = FindArmAarch64MappingSymbol(symbol_name);
                     if (symbol_type == eSymbolTypeCode)
                     {
-                        llvm::StringRef symbol_name_ref(symbol_name);
-                        if (symbol_name_ref == "$x" || symbol_name_ref.startswith("$x."))
+                        switch (mapping_symbol)
                         {
-                            // $x[.<any>]* - marks an A64 instruction sequence
-                            m_address_class_map[symbol.st_value] = eAddressClassCode;
-                        }
-                        else if (symbol_name_ref == "$d" || symbol_name_ref.startswith("$d."))
-                        {
-                            // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
-                            m_address_class_map[symbol.st_value] = eAddressClassData;
+                            case 'x':
+                                // $x[.<any>]* - marks an A64 instruction sequence
+                                m_address_class_map[symbol.st_value] = eAddressClassCode;
+                                break;
+                            case 'd':
+                                // $d[.<any>]* - marks a data item sequence (e.g. lit pool)
+                                m_address_class_map[symbol.st_value] = eAddressClassData;
+                                break;
                         }
                     }
-
-                    continue;
+                    if (mapping_symbol)
+                        continue;
                 }
             }
 
@@ -2075,6 +2125,37 @@ ObjectFileELF::ParseSymbols (Symtab *symtab,
                         // This address is ARM
                         m_address_class_map[symbol.st_value] = eAddressClassCode;
                     }
+                }
+            }
+
+            /*
+             * MIPS:
+             * The bit #0 of an address is used for ISA mode (1 for microMIPS, 0 for MIPS).
+             * This allows processer to switch between microMIPS and MIPS without any need
+             * for special mode-control register. However, apart from .debug_line, none of
+             * the ELF/DWARF sections set the ISA bit (for symbol or section). Use st_other
+             * flag to check whether the symbol is microMIPS and then set the address class
+             * accordingly.
+            */
+            const llvm::Triple::ArchType llvm_arch = arch.GetMachine();
+            if (llvm_arch == llvm::Triple::mips || llvm_arch == llvm::Triple::mipsel
+                || llvm_arch == llvm::Triple::mips64 || llvm_arch == llvm::Triple::mips64el)
+            {
+                if (IS_MICROMIPS(symbol.st_other))
+                    m_address_class_map[symbol.st_value] = eAddressClassCodeAlternateISA;
+                else if ((symbol.st_value & 1) && (symbol_type == eSymbolTypeCode))
+                {
+                    symbol.st_value = symbol.st_value & (~1ull);
+                    m_address_class_map[symbol.st_value] = eAddressClassCodeAlternateISA;
+                }
+                else
+                {
+                    if (symbol_type == eSymbolTypeCode)
+                        m_address_class_map[symbol.st_value] = eAddressClassCode;
+                    else if (symbol_type == eSymbolTypeData)
+                        m_address_class_map[symbol.st_value] = eAddressClassData;
+                    else
+                        m_address_class_map[symbol.st_value] = eAddressClassUnknown;
                 }
             }
         }

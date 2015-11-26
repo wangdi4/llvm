@@ -454,15 +454,15 @@ public:
       addop("COMPLEX").addop(RVal.getComplexVal().first).addop(
           RVal.getComplexVal().second);
     } else {
-      addop("AGGREGATE").addop(RVal.getAggregateAddr());
+      addop("AGGREGATE").addop(RVal.getAggregatePointer());
     }
     return *this;
   }
   IntelPragmaBuilder &addop(LValue LVal, CodeGenFunction *CGF) {
     if (LVal.isSimple()) {
-      addop("SIMPLE").addop(LVal.getAddress());
+      addop("SIMPLE").addop(LVal.getPointer());
     } else if (LVal.isVectorElt()) {
-      addop("VECTOR_ELT").addop(LVal.getVectorAddr()).addop(
+      addop("VECTOR_ELT").addop(LVal.getVectorPointer()).addop(
           LVal.getVectorIdx());
     } else if (LVal.isExtVectorElt()) {
       RValue RVal = CGF->EmitLoadOfExtVectorElementLValue(LVal);
@@ -476,8 +476,9 @@ public:
   ArrayRef<llvm::Value *> getops() { return Ops; }
 };
 
-void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
-    CodeGenModule *CGM, llvm::Value *LoopIndex, llvm::Value *LoopCount) const {
+void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(
+    CodeGenFunction *CGF, CodeGenModule *CGM, Address LoopIndex,
+    llvm::Value *LoopCount) const {
   IntelPragmaBuilder P(CGM->getLLVMContext());
   P.addop("SIMD_LOOP");
   const ArrayRef<Attr *> &Attrs = SimdFor->getSIMDAttrs();
@@ -525,7 +526,7 @@ void CodeGenFunction::CGPragmaSimd::emitIntelIntrinsic(CodeGenFunction *CGF,
   }
 
   auto One = llvm::ConstantInt::get(LoopCount->getType(), 1);
-  P.addop("LINEAR").addop(LoopIndex).addop(One);
+  P.addop("LINEAR").addop(LoopIndex.getPointer()).addop(One);
   CGF->EmitRuntimeCall(CGM->getIntrinsic(llvm::Intrinsic::intel_pragma),
                        P.getops());
 }
@@ -1129,7 +1130,8 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         const CXXConstructorDecl *CCD = CCE->getConstructor();
         RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
         EmitCXXConstructorCall(CCD, Ctor_Complete, false, false,
-                               This.getScalarVal(), CCE);
+                               Address(This.getScalarVal(), getPointerAlign()),
+                               CCE);
       } else if (isa<CXXMemberCallExpr>(S.getAttribs()[0].Value)) {
         const CXXMemberCallExpr *CMCE =
             cast<CXXMemberCallExpr>(S.getAttribs()[0].Value);
@@ -1137,8 +1139,9 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
           const CXXDestructorDecl *CDD =
               cast<CXXDestructorDecl>(CMCE->getMethodDecl());
           RValue This = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-          EmitCXXDestructorCall(CDD, Dtor_Complete, false, false,
-                                This.getScalarVal());
+          EmitCXXDestructorCall(
+              CDD, Dtor_Complete, false, false,
+              Address(This.getScalarVal(), getPointerAlign()));
         } else {
           ReturnValueSlot RVS;
           EmitCXXMemberCallExpr(
@@ -1158,8 +1161,9 @@ void CodeGenFunction::EmitPragmaStmt(const PragmaStmt &S) {
         const CXXConstructorDecl *CCD = CCE->getConstructor();
         RValue NumElements = EmitAnyExprToTemp(S.getAttribs()[2].Value);
         RValue ArrayPtr = EmitAnyExprToTemp(S.getAttribs()[1].Value);
-        EmitCXXAggrConstructorCall(CCD, NumElements.getScalarVal(),
-                                   ArrayPtr.getScalarVal(), CCE);
+        EmitCXXAggrConstructorCall(
+            CCD, NumElements.getScalarVal(),
+            Address(ArrayPtr.getScalarVal(), getPointerAlign()), CCE);
       } else if (isa<DeclRefExpr>(S.getAttribs()[0].Value)) {
         DRE = cast<DeclRefExpr>(S.getAttribs()[0].Value);
         if (isa<CXXDestructorDecl>(DRE->getDecl())) {

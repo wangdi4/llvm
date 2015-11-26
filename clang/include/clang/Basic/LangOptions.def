@@ -81,6 +81,9 @@ LANGOPT(Restrict         , 1, 0,
 // CQ#373517: compilation fails with 'redefinition of default argument'.
 LANGOPT(PermissiveArgs   , 1, 0,
         "Allows to redefine default arguments")
+// CQ371729: Incompatible name mangling.
+LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
+LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")
@@ -90,6 +93,7 @@ ENUM_LANGOPT(FPModel, IntelFPModel, 32, static_cast<IntelFPModel>(IFP_Fast|IFP_F
         "Active float data precision")
 LANGOPT(AlignMac68k      , 1, 0, 
         "Enables or disables default mac68k alignment")
+LANGOPT(FormatExtensions  , 1, 0, "FreeBSD format extensions")
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 #endif // INTEL_CUSTOMIZATION
 LANGOPT(MSVCCompat        , 1, 0, 
@@ -115,6 +119,7 @@ LANGOPT(LineComment       , 1, 0, "'//' comments")
 LANGOPT(Bool              , 1, 0, "bool, true, and false keywords")
 LANGOPT(Half              , 1, 0, "half keyword")
 LANGOPT(WChar             , 1, CPlusPlus, "wchar_t keyword")
+LANGOPT(DeclSpecKeyword   , 1, 0, "__declspec keyword")
 BENIGN_LANGOPT(DollarIdents   , 1, 1, "'$' in identifiers")
 BENIGN_LANGOPT(AsmPreprocessor, 1, 0, "preprocessor in asm mode")
 BENIGN_LANGOPT(GNUMode        , 1, 1, "GNU extensions")
@@ -142,6 +147,7 @@ LANGOPT(Freestanding, 1, 0, "freestanding implementation")
 LANGOPT(NoBuiltin         , 1, 0, "disable builtin functions")
 LANGOPT(NoMathBuiltin     , 1, 0, "disable math builtin functions")
 LANGOPT(GNUAsm            , 1, 1, "GNU-style inline assembly")
+LANGOPT(Coroutines        , 1, 0, "C++ coroutines")
 
 BENIGN_LANGOPT(ThreadsafeStatics , 1, 1, "thread-safe static initializers")
 LANGOPT(POSIXThreads      , 1, 0, "POSIX thread support")
@@ -171,6 +177,7 @@ COMPATIBLE_LANGOPT(NoInlineDefine    , 1, 0, "__NO_INLINE__ predefined macro")
 COMPATIBLE_LANGOPT(Deprecated        , 1, 0, "__DEPRECATED predefined macro")
 LANGOPT(FastMath          , 1, 0, "__FAST_MATH__ predefined macro")
 LANGOPT(FiniteMathOnly    , 1, 0, "__FINITE_MATH_ONLY__ predefined macro")
+LANGOPT(UnsafeFPMath      , 1, 0, "Unsafe Floating Point Math")
 
 BENIGN_LANGOPT(ObjCGCBitmapPrint , 1, 0, "printing of GC's bitmap layout for __weak/__strong ivars")
 
@@ -191,6 +198,8 @@ LANGOPT(OpenMPUseTLS      , 1, 0, "Use TLS for threadprivates or runtime calls")
 LANGOPT(CUDAIsDevice      , 1, 0, "Compiling for CUDA device")
 LANGOPT(CUDAAllowHostCallsFromHostDevice, 1, 0, "Allow host device functions to call host functions")
 LANGOPT(CUDADisableTargetCallChecks, 1, 0, "Disable checks for call targets (host, device, etc.)")
+LANGOPT(CUDATargetOverloads, 1, 0, "Enable function overloads based on CUDA target attributes")
+LANGOPT(CUDAUsesLibDevice , 1, 0, "Selectively link and internalize bitcode.")
 
 LANGOPT(AssumeSaneOperatorNew , 1, 1, "implicit __attribute__((malloc)) for C++'s new operators")
 LANGOPT(SizedDeallocation , 1, 0, "enable sized deallocation functions")

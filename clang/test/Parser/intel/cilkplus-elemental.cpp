@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcilkplus -std=c++11 -fsyntax-only -verify -Wall %s
+// RUN: %clang_cc1 -fcilkplus -std=c++11 -fsyntax-only -verify -Wall -fintel-compatibility %s
 
 class X {
   __attribute__((vector(linear(this)))) // OK

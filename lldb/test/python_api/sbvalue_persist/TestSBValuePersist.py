@@ -10,29 +10,12 @@ class SBValuePersistTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @skipUnlessDarwin
     @python_api_test
-    @dsym_test
-    def test_with_dsym(self):
+    @expectedFailureWindows("llvm.org/pr24772")
+    def test(self):
         """Test SBValue::Persist"""
-        self.buildDsym()
+        self.build()
         self.setTearDownCleanup()
-        self.doTest()
-
-    @python_api_test
-    @dwarf_test
-    def test_with_dwarf(self):
-        """Test SBValue::Persist"""
-        self.buildDwarf()
-        self.setTearDownCleanup()
-        self.doTest()
-
-    def setUp(self):
-        # Call super's setUp().
-        TestBase.setUp(self)
-
-    def doTest(self):
-        """Test SBValue::Persist"""
         self.runCmd("file a.out", CURRENT_EXECUTABLE_SET)
 
         lldbutil.run_break_set_by_source_regexp (self, "break here")

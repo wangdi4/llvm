@@ -1,7 +1,7 @@
-; RUN: opt %loadPolly -analyze -polly-detect-unprofitable -polly-ast -polly-vectorizer=polly < %s | \
+; RUN: opt %loadPolly -analyze -polly-ast -polly-vectorizer=polly < %s | \
 ; RUN:     FileCheck %s -check-prefix=AST
 
-; RUN: opt %loadPolly -polly-detect-unprofitable -polly-codegen -polly-vectorizer=polly -S < %s | \
+; RUN: opt %loadPolly -polly-codegen -polly-vectorizer=polly -S < %s | \
 ; RUN:     FileCheck %s
 ;
 ;    void foo(float *A) {
@@ -17,10 +17,10 @@ target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
 ; AST: #pragma simd
 ; AST: #pragma known-parallel
-; AST: for (int c0 = 0; c0 <= 16; c0 += 1) {
+; AST: for (int c0 = 0; c0 <= 15; c0 += 1) {
 ; AST:   if ((c0 - 1) % 2 == 0)
 ; AST:     Stmt_bb4(c0);
-; AST:   if (c0 <= 15 && c0 % 3 >= 1)
+; AST:   if (c0 % 3 >= 1)
 ; AST:     Stmt_bb11(c0);
 ; AST: }
 

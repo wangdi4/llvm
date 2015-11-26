@@ -6,6 +6,7 @@ set(PROFILE_SOURCES
   InstrProfilingBuffer.c
   InstrProfilingFile.c
   InstrProfilingPlatformDarwin.c
+  InstrProfilingPlatformLinux.c
   InstrProfilingPlatformOther.c
   InstrProfilingRuntime.cc
   InstrProfilingUtil.c)
@@ -13,7 +14,7 @@ set(PROFILE_SOURCES
 if(APPLE)
   add_compiler_rt_runtime(clang_rt.profile
     STATIC
-    OS osx
+    OS ${PROFILE_SUPPORTED_OS}
     ARCHS ${PROFILE_SUPPORTED_ARCH}
     SOURCES ${PROFILE_SOURCES}
     PARENT_TARGET profile)

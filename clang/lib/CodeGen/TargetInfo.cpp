@@ -61,6 +61,11 @@ ABIInfo::getNaturalAlignIndirectInReg(QualType Ty, bool Realign) const {
                                       /*ByRef*/ false, Realign);
 }
 
+Address ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                             QualType Ty) const {
+  return Address::invalid();
+}
+
 ABIInfo::~ABIInfo() {}
 
 static CGCXXABI::RecordArgABI getRecordArgABI(const RecordType *RT,
@@ -624,7 +629,6 @@ ABIArgInfo WebAssemblyABIInfo::classifyArgumentType(QualType Ty) const {
     // though watch out for things like bitfields.
     if (const Type *SeltTy = isSingleElementStruct(Ty, getContext()))
       return ABIArgInfo::getDirect(CGT.ConvertType(QualType(SeltTy, 0)));
-    return getNaturalAlignIndirect(Ty);
   }
 
   // Otherwise just do the default thing.
@@ -792,8 +796,10 @@ class X86_32ABIInfo : public ABIInfo {
   static const unsigned MinABIStackAlignInBytes = 4;
 
   bool IsDarwinVectorABI;
-  bool IsSmallStructInRegABI;
+  bool IsRetSmallStructInRegABI;
   bool IsWin32StructABI;
+  bool IsSoftFloatABI;
+  bool IsMCUABI;
   unsigned DefaultNumRegisterParameters;
 
   static bool isRegisterSize(unsigned Size) {
@@ -825,7 +831,15 @@ class X86_32ABIInfo : public ABIInfo {
   Class classify(QualType Ty) const;
   ABIArgInfo classifyReturnType(QualType RetTy, CCState &State) const;
   ABIArgInfo classifyArgumentType(QualType RetTy, CCState &State) const;
-  bool shouldUseInReg(QualType Ty, CCState &State, bool &NeedsPadding) const;
+
+#if INTEL_CUSTOMIZATION
+  /// \brief Updates the number of available free registers, returns 
+  /// true if any registers were allocated.
+  bool updateFreeRegs(QualType Ty, CCState &State) const;
+  bool shouldAggregateUseDirect(QualType Ty, CCState &State, bool &InReg,
+    bool &NeedsPadding) const;
+  bool shouldPrimitiveUseInReg(QualType Ty, CCState &State) const;
+#endif //INTEL_CUSTOMIZATION
 
   /// \brief Rewrite the function info so that all memory arguments use
   /// inalloca.
@@ -841,17 +855,25 @@ public:
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                     QualType Ty) const override;
 
-  X86_32ABIInfo(CodeGen::CodeGenTypes &CGT, bool d, bool p, bool w,
-                unsigned r)
-    : ABIInfo(CGT), IsDarwinVectorABI(d), IsSmallStructInRegABI(p),
-      IsWin32StructABI(w), DefaultNumRegisterParameters(r) {}
+  X86_32ABIInfo(CodeGen::CodeGenTypes &CGT, bool DarwinVectorABI,
+                bool RetSmallStructInRegABI, bool Win32StructABI,
+                unsigned NumRegisterParameters, bool SoftFloatABI)
+    : ABIInfo(CGT), IsDarwinVectorABI(DarwinVectorABI),
+      IsRetSmallStructInRegABI(RetSmallStructInRegABI), 
+      IsWin32StructABI(Win32StructABI),
+      IsSoftFloatABI(SoftFloatABI),
+      IsMCUABI(CGT.getTarget().getTriple().isOSIAMCU()),
+      DefaultNumRegisterParameters(NumRegisterParameters) {}
 };
 
 class X86_32TargetCodeGenInfo : public TargetCodeGenInfo {
 public:
-  X86_32TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT,
-      bool d, bool p, bool w, unsigned r)
-    :TargetCodeGenInfo(new X86_32ABIInfo(CGT, d, p, w, r)) {}
+  X86_32TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT, bool DarwinVectorABI,
+                          bool RetSmallStructInRegABI, bool Win32StructABI,
+                          unsigned NumRegisterParameters, bool SoftFloatABI)
+      : TargetCodeGenInfo(new X86_32ABIInfo(
+            CGT, DarwinVectorABI, RetSmallStructInRegABI, Win32StructABI,
+            NumRegisterParameters, SoftFloatABI)) {}
 
   static bool isStructReturnInRegABI(
       const llvm::Triple &Triple, const CodeGenOptions &Opts);
@@ -974,14 +996,16 @@ void X86_32TargetCodeGenInfo::addReturnRegisterOutputs(
 }
 
 /// shouldReturnTypeInRegister - Determine if the given type should be
-/// passed in a register (for the Darwin ABI).
+/// returned in a register (for the Darwin and MCU ABI).
 bool X86_32ABIInfo::shouldReturnTypeInRegister(QualType Ty,
                                                ASTContext &Context) const {
   uint64_t Size = Context.getTypeSize(Ty);
-
-  // Type must be register sized.
-  if (!isRegisterSize(Size))
-    return false;
+#if INTEL_CUSTOMIZATION
+  // For i386, type must be register sized.
+  // For the MCU ABI, it only needs to be <= 8-byte
+  if ((IsMCUABI && Size > 64) || (!IsMCUABI && !isRegisterSize(Size)))
+#endif //INTEL_CUSTOMIZATION
+   return false;
 
   if (Ty->isVectorType()) {
     // 64- and 128- bit vectors inside structures are not returned in
@@ -1028,7 +1052,10 @@ ABIArgInfo X86_32ABIInfo::getIndirectReturnResult(QualType RetTy, CCState &State
   // integer register.
   if (State.FreeRegs) {
     --State.FreeRegs;
-    return getNaturalAlignIndirectInReg(RetTy);
+#if INTEL_CUSTOMIZATION
+    if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+      return getNaturalAlignIndirectInReg(RetTy);
   }
   return getNaturalAlignIndirect(RetTy, /*ByVal=*/false);
 }
@@ -1079,7 +1106,7 @@ ABIArgInfo X86_32ABIInfo::classifyReturnType(QualType RetTy,
     }
 
     // If specified, structs and unions are always indirect.
-    if (!IsSmallStructInRegABI && !RetTy->isAnyComplexType())
+    if (!IsRetSmallStructInRegABI && !RetTy->isAnyComplexType())
       return getIndirectReturnResult(RetTy, State);
 
     // Small structures which are register sized are generally returned
@@ -1168,7 +1195,10 @@ ABIArgInfo X86_32ABIInfo::getIndirectResult(QualType Ty, bool ByVal,
   if (!ByVal) {
     if (State.FreeRegs) {
       --State.FreeRegs; // Non-byval indirects just use one pointer.
-      return getNaturalAlignIndirectInReg(Ty);
+#if INTEL_CUSTOMIZATION
+      if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+        return getNaturalAlignIndirectInReg(Ty);
     }
     return getNaturalAlignIndirect(Ty, false);
   }
@@ -1199,12 +1229,12 @@ X86_32ABIInfo::Class X86_32ABIInfo::classify(QualType Ty) const {
   return Integer;
 }
 
-bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
-                                   bool &NeedsPadding) const {
-  NeedsPadding = false;
-  Class C = classify(Ty);
-  if (C == Float)
-    return false;
+bool X86_32ABIInfo::updateFreeRegs(QualType Ty, CCState &State) const {
+  if (!IsSoftFloatABI) {
+    Class C = classify(Ty);
+    if (C == Float)
+      return false;
+  }
 
   unsigned Size = getContext().getTypeSize(Ty);
   unsigned SizeInRegs = (Size + 31) / 32;
@@ -1212,31 +1242,60 @@ bool X86_32ABIInfo::shouldUseInReg(QualType Ty, CCState &State,
   if (SizeInRegs == 0)
     return false;
 
-  if (SizeInRegs > State.FreeRegs) {
-    State.FreeRegs = 0;
-    return false;
+  if (!IsMCUABI) {
+    if (SizeInRegs > State.FreeRegs) {
+      State.FreeRegs = 0;
+      return false;
+    }
+  } else {
+    // The MCU psABI allows passing parameters in-reg even if there are
+    // earlier parameters that are passed on the stack. Also,
+    // it does not allow passing >8-byte structs in-register,
+    // even if there are 3 free registers available.
+    if (SizeInRegs > State.FreeRegs || SizeInRegs > 2)
+      return false;
   }
 
   State.FreeRegs -= SizeInRegs;
+  return true;
+}
+
+bool X86_32ABIInfo::shouldAggregateUseDirect(QualType Ty, CCState &State, 
+  bool &InReg, bool &NeedsPadding) const {
+  NeedsPadding = false;
+  InReg = !IsMCUABI;
+
+  if (!updateFreeRegs(Ty, State))
+    return false;
+
+  if (IsMCUABI)
+    return true;
 
   if (State.CC == llvm::CallingConv::X86_FastCall ||
       State.CC == llvm::CallingConv::X86_VectorCall) {
-    if (Size > 32)
-      return false;
-
-    if (Ty->isIntegralOrEnumerationType())
-      return true;
-
-    if (Ty->isPointerType())
-      return true;
-
-    if (Ty->isReferenceType())
-      return true;
-
-    if (State.FreeRegs)
+    if (getContext().getTypeSize(Ty) <= 32 && State.FreeRegs)
       NeedsPadding = true;
 
     return false;
+  }
+
+  return true;
+}
+
+bool X86_32ABIInfo::shouldPrimitiveUseInReg(QualType Ty, CCState &State) const {
+  if (!updateFreeRegs(Ty, State))
+    return false;
+
+  if (IsMCUABI)
+    return false;
+
+  if (State.CC == llvm::CallingConv::X86_FastCall ||
+      State.CC == llvm::CallingConv::X86_VectorCall) {
+    if (getContext().getTypeSize(Ty) > 32)
+      return false;
+
+    return (Ty->isIntegralOrEnumerationType() || Ty->isPointerType() || 
+        Ty->isReferenceType());
   }
 
   return true;
@@ -1292,12 +1351,16 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
     llvm::LLVMContext &LLVMContext = getVMContext();
     llvm::IntegerType *Int32 = llvm::Type::getInt32Ty(LLVMContext);
-    bool NeedsPadding;
-    if (shouldUseInReg(Ty, State, NeedsPadding)) {
+#if INTEL_CUSTOMIZATION
+    bool NeedsPadding, InReg;
+    if (shouldAggregateUseDirect(Ty, State, InReg, NeedsPadding)) {
       unsigned SizeInRegs = (getContext().getTypeSize(Ty) + 31) / 32;
       SmallVector<llvm::Type*, 3> Elements(SizeInRegs, Int32);
       llvm::Type *Result = llvm::StructType::get(LLVMContext, Elements);
-      return ABIArgInfo::getDirectInReg(Result);
+      if (InReg)
+        return ABIArgInfo::getDirectInReg(Result);
+      else
+        return ABIArgInfo::getDirect(Result);
     }
     llvm::IntegerType *PaddingType = NeedsPadding ? Int32 : nullptr;
 
@@ -1305,8 +1368,11 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
     // of those arguments will match the struct. This is important because the
     // LLVM backend isn't smart enough to remove byval, which inhibits many
     // optimizations.
+    // Don't do this for the MCU if there are still free integer registers
+    // (see X86_64 ABI for full explanation).
     if (getContext().getTypeSize(Ty) <= 4*32 &&
-        canExpandIndirectArgument(Ty, getContext()))
+        canExpandIndirectArgument(Ty, getContext()) &&
+        (!IsMCUABI || State.FreeRegs == 0))
       return ABIArgInfo::getExpandWithPadding(
           State.CC == llvm::CallingConv::X86_FastCall ||
               State.CC == llvm::CallingConv::X86_VectorCall,
@@ -1314,6 +1380,7 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
     return getIndirectResult(Ty, true, State);
   }
+#endif //INTEL_CUSTOMIZATION
 
   if (const VectorType *VT = Ty->getAs<VectorType>()) {
     // On Darwin, some vectors are passed in memory, we handle this by passing
@@ -1336,8 +1403,9 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
   if (const EnumType *EnumTy = Ty->getAs<EnumType>())
     Ty = EnumTy->getDecl()->getIntegerType();
 
-  bool NeedsPadding;
-  bool InReg = shouldUseInReg(Ty, State, NeedsPadding);
+#if INTEL_CUSTOMIZATION
+  bool InReg = shouldPrimitiveUseInReg(Ty, State);
+#endif //INTEL_CUSTOMIZATION
 
   if (Ty->isPromotableIntegerType()) {
     if (InReg)
@@ -1351,7 +1419,11 @@ ABIArgInfo X86_32ABIInfo::classifyArgumentType(QualType Ty,
 
 void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
   CCState State(FI.getCallingConvention());
-  if (State.CC == llvm::CallingConv::X86_FastCall)
+#if INTEL_CUSTOMIZATION
+  if (IsMCUABI)
+    State.FreeRegs = 3;
+#endif //INTEL_CUSTOMIZATION
+  else if (State.CC == llvm::CallingConv::X86_FastCall)
     State.FreeRegs = 2;
   else if (State.CC == llvm::CallingConv::X86_VectorCall) {
     State.FreeRegs = 2;
@@ -1368,7 +1440,10 @@ void X86_32ABIInfo::computeInfo(CGFunctionInfo &FI) const {
     // return value was sret and put it in a register ourselves if appropriate.
     if (State.FreeRegs) {
       --State.FreeRegs;  // The sret parameter consumes a register.
-      FI.getReturnInfo().setInReg(true);
+#if INTEL_CUSTOMIZATION
+      if (!IsMCUABI)
+#endif //INTEL_CUSTOMIZATION
+        FI.getReturnInfo().setInReg(true);
     }
   }
 
@@ -1506,7 +1581,7 @@ bool X86_32TargetCodeGenInfo::isStructReturnInRegABI(
     return true;
   }
 
-  if (Triple.isOSDarwin())
+  if (Triple.isOSDarwin() || Triple.isOSIAMCU())
     return true;
 
   switch (Triple.getOS()) {
@@ -1524,7 +1599,7 @@ bool X86_32TargetCodeGenInfo::isStructReturnInRegABI(
 void X86_32TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                                   llvm::GlobalValue *GV,
                                             CodeGen::CodeGenModule &CGM) const {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (FD->hasAttr<X86ForceAlignArgPointerAttr>()) {
       // Get the LLVM function.
       llvm::Function *Fn = cast<llvm::Function>(GV);
@@ -1735,6 +1810,8 @@ public:
 
   Address EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
                     QualType Ty) const override;
+  Address EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                      QualType Ty) const override;
 
   bool has64BitPointers() const {
     return Has64BitPointers;
@@ -1870,8 +1947,10 @@ static std::string qualifyWindowsLibrary(llvm::StringRef Lib) {
 class WinX86_32TargetCodeGenInfo : public X86_32TargetCodeGenInfo {
 public:
   WinX86_32TargetCodeGenInfo(CodeGen::CodeGenTypes &CGT,
-        bool d, bool p, bool w, unsigned RegParms)
-    : X86_32TargetCodeGenInfo(CGT, d, p, w, RegParms) {}
+        bool DarwinVectorABI, bool RetSmallStructInRegABI, bool Win32StructABI,
+        unsigned NumRegisterParameters)
+    : X86_32TargetCodeGenInfo(CGT, DarwinVectorABI, RetSmallStructInRegABI,
+        Win32StructABI, NumRegisterParameters, false) {}
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override;
@@ -1892,7 +1971,7 @@ public:
 static void addStackProbeSizeTargetAttribute(const Decl *D,
                                              llvm::GlobalValue *GV,
                                              CodeGen::CodeGenModule &CGM) {
-  if (isa<FunctionDecl>(D)) {
+  if (D && isa<FunctionDecl>(D)) {
     if (CGM.getCodeGenOpts().StackProbeSize != 4096) {
       llvm::Function *Fn = cast<llvm::Function>(GV);
 
@@ -3316,6 +3395,14 @@ Address X86_64ABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
   Address ResAddr = emitMergePHI(CGF, RegAddr, InRegBlock, MemAddr, InMemBlock,
                                  "vaarg.addr");
   return ResAddr;
+}
+
+Address X86_64ABIInfo::EmitMSVAArg(CodeGenFunction &CGF, Address VAListAddr,
+                                   QualType Ty) const {
+  return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*indirect*/ false,
+                          CGF.getContext().getTypeInfoInChars(Ty),
+                          CharUnits::fromQuantity(8),
+                          /*allowHigherAlign*/ false);
 }
 
 ABIArgInfo WinX86_64ABIInfo::classify(QualType Ty, unsigned &FreeSSERegs,
@@ -4782,7 +4869,7 @@ public:
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override {
-    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
     if (!FD)
       return;
 
@@ -5343,7 +5430,7 @@ Address NVPTXABIInfo::EmitVAArg(CodeGenFunction &CGF, Address VAListAddr,
 void NVPTXTargetCodeGenInfo::
 setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                     CodeGen::CodeGenModule &M) const{
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD) return;
 
   llvm::Function *F = cast<llvm::Function>(GV);
@@ -5777,7 +5864,7 @@ public:
 void MSP430TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                                   llvm::GlobalValue *GV,
                                              CodeGen::CodeGenModule &M) const {
-  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
     if (const MSP430InterruptAttr *attr = FD->getAttr<MSP430InterruptAttr>()) {
       // Handle 'interrupt' attribute:
       llvm::Function *F = cast<llvm::Function>(GV);
@@ -5836,7 +5923,7 @@ public:
 
   void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
                            CodeGen::CodeGenModule &CGM) const override {
-    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
     if (!FD) return;
     llvm::Function *Fn = cast<llvm::Function>(GV);
     if (FD->hasAttr<Mips16Attr>()) {
@@ -6183,7 +6270,7 @@ public:
 
 void TCETargetCodeGenInfo::setTargetAttributes(
     const Decl *D, llvm::GlobalValue *GV, CodeGen::CodeGenModule &M) const {
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD) return;
 
   llvm::Function *F = cast<llvm::Function>(GV);
@@ -6365,7 +6452,7 @@ void AMDGPUTargetCodeGenInfo::setTargetAttributes(
   const Decl *D,
   llvm::GlobalValue *GV,
   CodeGen::CodeGenModule &M) const {
-  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
   if (!FD)
     return;
 
@@ -7109,7 +7196,7 @@ static bool appendEnumType(SmallStringEnc &Enc, const EnumType *ET,
 /// This is done prior to appending the type's encoding.
 static void appendQualifier(SmallStringEnc &Enc, QualType QT) {
   // Qualifiers are emitted in alphabetical order.
-  static const char *Table[] = {"","c:","r:","cr:","v:","cv:","rv:","crv:"};
+  static const char *const Table[]={"","c:","r:","cr:","v:","cv:","rv:","crv:"};
   int Lookup = 0;
   if (QT.isConstQualified())
     Lookup += 1<<0;
@@ -7418,18 +7505,19 @@ const TargetCodeGenInfo &CodeGenModule::getTargetCodeGenInfo() {
 
   case llvm::Triple::x86: {
     bool IsDarwinVectorABI = Triple.isOSDarwin();
-    bool IsSmallStructInRegABI =
+    bool RetSmallStructInRegABI =
         X86_32TargetCodeGenInfo::isStructReturnInRegABI(Triple, CodeGenOpts);
     bool IsWin32FloatStructABI = Triple.isOSWindows() && !Triple.isOSCygMing();
 
     if (Triple.getOS() == llvm::Triple::Win32) {
       return *(TheTargetCodeGenInfo = new WinX86_32TargetCodeGenInfo(
-                   Types, IsDarwinVectorABI, IsSmallStructInRegABI,
+                   Types, IsDarwinVectorABI, RetSmallStructInRegABI,
                    IsWin32FloatStructABI, CodeGenOpts.NumRegisterParameters));
     } else {
       return *(TheTargetCodeGenInfo = new X86_32TargetCodeGenInfo(
-                   Types, IsDarwinVectorABI, IsSmallStructInRegABI,
-                   IsWin32FloatStructABI, CodeGenOpts.NumRegisterParameters));
+                   Types, IsDarwinVectorABI, RetSmallStructInRegABI,
+                   IsWin32FloatStructABI, CodeGenOpts.NumRegisterParameters,
+                   CodeGenOpts.FloatABI == "soft"));
     }
   }
 

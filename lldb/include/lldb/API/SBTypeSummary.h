@@ -12,8 +12,6 @@
 
 #include "lldb/API/SBDefines.h"
 
-#ifndef LLDB_DISABLE_PYTHON
-
 namespace lldb {
     class LLDB_API SBTypeSummaryOptions
     {
@@ -126,6 +124,9 @@ namespace lldb {
         operator = (const lldb::SBTypeSummary &rhs);
         
         bool
+        DoesPrintValue (lldb::SBValue value);
+        
+        bool
         IsEqualTo (lldb::SBTypeSummary &rhs);
 
         bool
@@ -159,7 +160,5 @@ namespace lldb {
     
     
 } // namespace lldb
-
-#endif // LLDB_DISABLE_PYTHON
 
 #endif // LLDB_SBTypeSummary_h_

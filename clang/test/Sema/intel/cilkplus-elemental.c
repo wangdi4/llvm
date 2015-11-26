@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -DGNU -fcilkplus -fsyntax-only -verify -Wall %s
-// RUN: %clang_cc1 -DMS  -fcilkplus -fsyntax-only -verify -Wall %s
+// RUN: %clang_cc1 -DGNU -fcilkplus -fsyntax-only -verify -Wall -fintel-compatibility %s
+// RUN: %clang_cc1 -DMS  -fcilkplus -fsyntax-only -verify -Wall -fintel-compatibility %s
 
 #ifdef GNU
 # define ATTR(x)  __attribute__((x))

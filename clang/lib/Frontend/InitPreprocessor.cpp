@@ -456,6 +456,8 @@ static void InitializeCPlusPlusFeatureTestMacros(const LangOptions &LangOpts,
     Builder.defineMacro("__cpp_sized_deallocation", "201309");
   if (LangOpts.ConceptsTS)
     Builder.defineMacro("__cpp_experimental_concepts", "1");
+  if (LangOpts.Coroutines)
+    Builder.defineMacro("__cpp_coroutines", "1");
 }
 
 static void InitializePredefinedMacros(const TargetInfo &TI,
@@ -672,7 +674,10 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     llvm::APInt Int = Float.bitcastToAPInt();
     int LongDoubleSize = Int.getBitWidth();
     Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
+    Builder.defineMacro("__I__", "1j");
   }
+  if (LangOpts.CilkPlus)
+    Builder.defineMacro("__cilk", "200");
 #endif // INTEL_CUSTOMIZATION
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
@@ -923,11 +928,6 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     //   version of the OpenMP API that the implementation support.
     Builder.defineMacro("_OPENMP", "201307");
   }
-#ifdef INTEL_CUSTOMIZATION
-  Builder.defineMacro("__I__", "1j");
-  if (LangOpts.CilkPlus)
-    Builder.defineMacro("__cilk", "200");
-#endif  // INTEL_CUSTOMIZATION
   // CUDA device path compilaton
   if (LangOpts.CUDAIsDevice) {
     // The CUDA_ARCH value is set for the GPU target specified in the NVPTX
@@ -960,6 +960,10 @@ void clang::InitializePreprocessor(
 
   // Install things like __POWERPC__, __GNUC__, etc into the macro table.
   if (InitOpts.UsePredefines) {
+    if (LangOpts.CUDA && PP.getAuxTargetInfo())
+      InitializePredefinedMacros(*PP.getAuxTargetInfo(), LangOpts, FEOpts,
+                                 Builder);
+
     InitializePredefinedMacros(PP.getTargetInfo(), LangOpts, FEOpts, Builder);
 
     // Install definitions to make Objective-C++ ARC work well with various

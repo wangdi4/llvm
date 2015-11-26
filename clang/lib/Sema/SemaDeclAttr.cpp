@@ -628,13 +628,10 @@ static bool checkAcquireOrderAttrCommon(Sema &S, Decl *D,
 
   // Check that this attribute only applies to lockable types.
   QualType QT = cast<ValueDecl>(D)->getType();
-  if (!QT->isDependentType()) {
-    const RecordType *RT = getRecordType(QT);
-    if (!RT || !RT->getDecl()->hasAttr<CapabilityAttr>()) {
-      S.Diag(Attr.getLoc(), diag::warn_thread_attribute_decl_not_lockable)
-        << Attr.getName();
-      return false;
-    }
+  if (!QT->isDependentType() && !typeHasCapability(S, QT)) {
+    S.Diag(Attr.getLoc(), diag::warn_thread_attribute_decl_not_lockable)
+      << Attr.getName();
+    return false;
   }
 
   // Check that all arguments are lockable objects.
@@ -1311,6 +1308,17 @@ void Sema::AddAssumeAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
             AssumeAlignedAttr(AttrRange, Context, E, OE, SpellingListIndex));
 }
 
+/// Normalize the attribute, __foo__ becomes foo.
+/// Returns true if normalization was applied.
+static bool normalizeName(StringRef &AttrName) {
+  if (AttrName.size() > 4 && AttrName.startswith("__") &&
+      AttrName.endswith("__")) {
+    AttrName = AttrName.drop_front(2).drop_back(2);
+    return true;
+  }
+  return false;
+}
+
 static void handleOwnershipAttr(Sema &S, Decl *D, const AttributeList &AL) {
   // This attribute must be applied to a function declaration. The first
   // argument to the attribute must be an identifier, the name of the resource,
@@ -1352,11 +1360,8 @@ static void handleOwnershipAttr(Sema &S, Decl *D, const AttributeList &AL) {
 
   IdentifierInfo *Module = AL.getArgAsIdent(0)->Ident;
 
-  // Normalize the argument, __foo__ becomes foo.
   StringRef ModuleName = Module->getName();
-  if (ModuleName.startswith("__") && ModuleName.endswith("__") &&
-      ModuleName.size() > 4) {
-    ModuleName = ModuleName.drop_front(2).drop_back(2);
+  if (normalizeName(ModuleName)) {
     Module = &S.PP.getIdentifierTable().get(ModuleName);
   }
 
@@ -1828,12 +1833,24 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
                                               VersionTuple Obsoleted,
                                               bool IsUnavailable,
                                               StringRef Message,
-                                              bool Override,
+                                              AvailabilityMergeKind AMK,
                                               unsigned AttrSpellingListIndex) {
   VersionTuple MergedIntroduced = Introduced;
   VersionTuple MergedDeprecated = Deprecated;
   VersionTuple MergedObsoleted = Obsoleted;
   bool FoundAny = false;
+  bool OverrideOrImpl = false;
+  switch (AMK) {
+  case AMK_None:
+  case AMK_Redeclaration:
+    OverrideOrImpl = false;
+    break;
+
+  case AMK_Override:
+  case AMK_ProtocolImplementation:
+    OverrideOrImpl = true;
+    break;
+  }
 
   if (D->hasAttrs()) {
     AttrVec &Attrs = D->getAttrs();
@@ -1856,24 +1873,24 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
       VersionTuple OldObsoleted = OldAA->getObsoleted();
       bool OldIsUnavailable = OldAA->getUnavailable();
 
-      if (!versionsMatch(OldIntroduced, Introduced, Override) ||
-          !versionsMatch(Deprecated, OldDeprecated, Override) ||
-          !versionsMatch(Obsoleted, OldObsoleted, Override) ||
+      if (!versionsMatch(OldIntroduced, Introduced, OverrideOrImpl) ||
+          !versionsMatch(Deprecated, OldDeprecated, OverrideOrImpl) ||
+          !versionsMatch(Obsoleted, OldObsoleted, OverrideOrImpl) ||
           !(OldIsUnavailable == IsUnavailable ||
-            (Override && !OldIsUnavailable && IsUnavailable))) {
-        if (Override) {
+            (OverrideOrImpl && !OldIsUnavailable && IsUnavailable))) {
+        if (OverrideOrImpl) {
           int Which = -1;
           VersionTuple FirstVersion;
           VersionTuple SecondVersion;
-          if (!versionsMatch(OldIntroduced, Introduced, Override)) {
+          if (!versionsMatch(OldIntroduced, Introduced, OverrideOrImpl)) {
             Which = 0;
             FirstVersion = OldIntroduced;
             SecondVersion = Introduced;
-          } else if (!versionsMatch(Deprecated, OldDeprecated, Override)) {
+          } else if (!versionsMatch(Deprecated, OldDeprecated, OverrideOrImpl)) {
             Which = 1;
             FirstVersion = Deprecated;
             SecondVersion = OldDeprecated;
-          } else if (!versionsMatch(Obsoleted, OldObsoleted, Override)) {
+          } else if (!versionsMatch(Obsoleted, OldObsoleted, OverrideOrImpl)) {
             Which = 2;
             FirstVersion = Obsoleted;
             SecondVersion = OldObsoleted;
@@ -1882,15 +1899,20 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
           if (Which == -1) {
             Diag(OldAA->getLocation(),
                  diag::warn_mismatched_availability_override_unavail)
-              << AvailabilityAttr::getPrettyPlatformName(Platform->getName());
+              << AvailabilityAttr::getPrettyPlatformName(Platform->getName())
+              << (AMK == AMK_Override);
           } else {
             Diag(OldAA->getLocation(),
                  diag::warn_mismatched_availability_override)
               << Which
               << AvailabilityAttr::getPrettyPlatformName(Platform->getName())
-              << FirstVersion.getAsString() << SecondVersion.getAsString();
+              << FirstVersion.getAsString() << SecondVersion.getAsString()
+              << (AMK == AMK_Override);
           }
-          Diag(Range.getBegin(), diag::note_overridden_method);
+          if (AMK == AMK_Override)
+            Diag(Range.getBegin(), diag::note_overridden_method);
+          else
+            Diag(Range.getBegin(), diag::note_protocol_method);
         } else {
           Diag(OldAA->getLocation(), diag::warn_mismatched_availability);
           Diag(Range.getBegin(), diag::note_previous_attribute);
@@ -1933,11 +1955,11 @@ AvailabilityAttr *Sema::mergeAvailabilityAttr(NamedDecl *D, SourceRange Range,
       MergedObsoleted == Obsoleted)
     return nullptr;
 
-  // Only create a new attribute if !Override, but we want to do
+  // Only create a new attribute if !OverrideOrImpl, but we want to do
   // the checking.
   if (!checkAvailabilityAttr(*this, Range, Platform, MergedIntroduced,
                              MergedDeprecated, MergedObsoleted) &&
-      !Override) {
+      !OverrideOrImpl) {
     return ::new (Context) AvailabilityAttr(Range, Context, Platform,
                                             Introduced, Deprecated,
                                             Obsoleted, IsUnavailable, Message,
@@ -1978,7 +2000,7 @@ static void handleAvailabilityAttr(Sema &S, Decl *D,
                                                       Deprecated.Version,
                                                       Obsoleted.Version,
                                                       IsUnavailable, Str,
-                                                      /*Override=*/false,
+                                                      Sema::AMK_None,
                                                       Index);
   if (NewAttr)
     D->addAttr(NewAttr);
@@ -2979,9 +3001,7 @@ static void handleFormatAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   IdentifierInfo *II = Attr.getArgAsIdent(0)->Ident;
   StringRef Format = II->getName();
 
-  // Normalize the argument, __foo__ becomes foo.
-  if (Format.startswith("__") && Format.endswith("__")) {
-    Format = Format.substr(2, Format.size() - 4);
+  if (normalizeName(Format)) {
     // If we've modified the string name, we need a new identifier for it.
     II = &S.Context.Idents.get(Format);
   }
@@ -3226,6 +3246,112 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   D->addAttr(::new (Context) AlignValueAttr(TmpAttr));
   return;
 }
+
+#ifdef INTEL_CUSTOMIZATION
+// Verify that attribute's argument can specify an index of function's parameter
+//   1. Check that it is integer constant expression
+//   2. Check value bounds: positive, not greater than number of function params
+//   3. Check function parameter's type: integer type is required
+//   4. Check that attribute is not applied to 'this' implicit first param (C++)
+// Returns false on success.
+static bool VerifyAttributeArg(Sema &S, FunctionDecl *FD,
+                               const AttributeList &Attr, unsigned ArgIndex,
+                               bool DeclHasImplicitThisParam) {
+  Expr *Arg = Attr.getArgAsExpr(ArgIndex);
+  // 1. Check the argument's expression - constant integer is required.
+  llvm::APSInt ArgValue;
+  ExprResult Res = S.VerifyIntegerConstantExpression(
+      Arg, &ArgValue, diag::err_alloc_size_attribute_argument_not_int,
+      /*AllowFold*/ false);
+
+  if (Res.isInvalid())
+    return true;
+
+  // 2. Check the value's bounds. Function parameters are counted from one.
+  unsigned ArgValueUpperBound = FD->getNumParams() + DeclHasImplicitThisParam;
+  unsigned FuncParamIndex = ArgValue.getExtValue();
+  if (FuncParamIndex < 1 || FuncParamIndex > ArgValueUpperBound) {
+    S.Diag(Arg->getExprLoc(), diag::err_attribute_argument_out_of_bounds)
+        << Attr.getName() << ArgIndex + 1;
+    return true;
+  }
+
+  // 3. Check that function's argument with the given index has an integer type.
+  --FuncParamIndex;
+  if (DeclHasImplicitThisParam) {
+    // 4. Check that it isn't implicit 'this' parameter.
+    if (FuncParamIndex == 0) {
+      S.Diag(Attr.getLoc(), diag::err_attribute_invalid_implicit_this_argument)
+          << Attr.getName();
+      return true;
+    }
+    --FuncParamIndex;
+  }
+  ParmVarDecl *FuncParamDecl = FD->getParamDecl(FuncParamIndex);
+  assert(FuncParamDecl && "Function's parameter decl is nullptr!");
+  if (!FuncParamDecl->getType()->isIntegerType()) {
+    S.Diag(FuncParamDecl->getLocation(),
+           diag::warn_attribute_requires_integer_param_type)
+        << Attr.getName() << FuncParamDecl->getSourceRange();
+    S.Diag(Arg->getExprLoc(), diag::note_param_index_specified_here);
+    return true;
+  }
+
+  return false;
+}
+
+// CQ#375011 - 'alloc_size' attribute is not supported.
+// The 'alloc_size' attribute is used to tell the compiler that the function
+// return value points to memory, where the size is given by one or two of the
+// functions parameters.
+// The allocated size is either the value of the single function argument or the
+// product of the two function arguments. Argument numbering starts at one.
+// FIXME: No code gen support for this attribute currently (attr is ignored).
+static void handleAllocSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  // Indicate that attribute is ill-formed and should not be applied to decl.
+  // Used in attempt to diagnose as many problems as possible in one pass.
+  bool ShouldBeIgnored = false;
+  FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  // 'alloc_size' should not be applied to non-function.
+  if (!FD) {
+    S.Diag(Attr.getLoc(), diag::warn_attribute_wrong_decl_type)
+        << Attr.getName() << ExpectedFunctionOrMethod;
+    return;
+  }
+
+  // Check that function returns a pointer.
+  if (!FD->getReturnType()->isPointerType()) {
+    S.Diag(FD->getLocation(), diag::warn_attribute_return_pointers_only)
+        << Attr.getName() << FD->getReturnTypeSourceRange();
+    ShouldBeIgnored = true;
+  }
+
+  if (!checkAttributeAtLeastNumArgs(S, Attr, 1) ||
+      !checkAttributeAtMostNumArgs(S, Attr, 2))
+    return;
+
+  // Determine the upper bound of arguments' values. Function parameters are
+  // counted from one. In C++ 'this' implicit parameter also counts.
+  CXXMethodDecl *MD = dyn_cast<CXXMethodDecl>(FD);
+  bool HasImplicitThisParam = (MD && MD->isInstance());
+
+  // Verify the arguments.
+  for (unsigned ArgIndex = 0; ArgIndex < Attr.getNumArgs(); ++ArgIndex) {
+    if (VerifyAttributeArg(S, FD, Attr, ArgIndex, HasImplicitThisParam))
+      ShouldBeIgnored = true;
+  }
+
+  // If the attribute is ill-formed, we are done. Don't apply it to decl.
+  if (ShouldBeIgnored)
+    return;
+
+  Expr *FirstArg = Attr.getArgAsExpr(0);
+  Expr *SecondArg = Attr.getNumArgs() > 1 ? Attr.getArgAsExpr(1) : nullptr;
+  D->addAttr(::new (S.Context)
+             AllocSizeAttr(Attr.getRange(), S.Context, true, FirstArg, true,
+                           SecondArg, Attr.getAttributeSpellingListIndex()));
+}
+#endif // INTEL_CUSTOMIZATION
 
 static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 #ifdef INTEL_CUSTOMIZATION
@@ -3545,9 +3671,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   IdentifierInfo *Name = Attr.getArgAsIdent(0)->Ident;
   StringRef Str = Name->getName();
 
-  // Normalize the attribute name, __foo__ becomes foo.
-  if (Str.startswith("__") && Str.endswith("__"))
-    Str = Str.substr(2, Str.size() - 4);
+  normalizeName(Str);
 
   unsigned DestWidth = 0;
   bool IntegerMode = true;
@@ -3785,6 +3909,7 @@ static void handleGlobalAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   D->addAttr(::new (S.Context)
               CUDAGlobalAttr(Attr.getRange(), S.Context,
                              Attr.getAttributeSpellingListIndex()));
+
 }
 
 static void handleGNUInlineAttr(Sema &S, Decl *D, const AttributeList &Attr) {
@@ -4780,6 +4905,14 @@ static void handleDLLAttr(Sema &S, Decl *D, const AttributeList &A) {
     }
   }
 
+  if (auto *MD = dyn_cast<CXXMethodDecl>(D)) {
+    if (S.Context.getTargetInfo().getCXXABI().isMicrosoft() &&
+        MD->getParent()->isLambda()) {
+      S.Diag(A.getRange().getBegin(), diag::err_attribute_dll_lambda) << A.getName();
+      return;
+    }
+  }
+
   unsigned Index = A.getAttributeSpellingListIndex();
   Attr *NewAttr = A.getKind() == AttributeList::AT_DLLExport
                       ? (Attr *)S.mergeDLLExportAttr(D, A.getRange(), Index)
@@ -4955,8 +5088,10 @@ static void handleNoSanitizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 static void handleNoSanitizeSpecificAttr(Sema &S, Decl *D,
                                          const AttributeList &Attr) {
+  StringRef AttrName = Attr.getName()->getName();
+  normalizeName(AttrName);
   std::string SanitizerName =
-      llvm::StringSwitch<std::string>(Attr.getName()->getName())
+      llvm::StringSwitch<std::string>(AttrName)
           .Case("no_address_safety_analysis", "address")
           .Case("no_sanitize_address", "address")
           .Case("no_sanitize_thread", "thread")
@@ -5126,6 +5261,12 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     // Type attributes are handled elsewhere; silently move on.
     assert(Attr.isTypeAttr() && "Non-type attribute not handled");
     break;
+#ifdef INTEL_CUSTOMIZATION
+  // CQ#375011 - 'alloc_size' attribute is not supported.
+  case AttributeList::AT_AllocSize:
+    handleAllocSizeAttr(S, D, Attr);
+    break;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_Interrupt:
     handleInterruptAttr(S, D, Attr);
     break;
@@ -5644,6 +5785,8 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleCilkVecLengthAttr(S, D, Attr);
     break;
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
+  // FIXME: Unless TableGen is able to recognize IL0-specific guards, don't
+  // forget to add every attribute appearing here to the #else section below!
   case AttributeList::AT_AvoidFalseShare:
     handleAvoidFalseShareAttr  (S, D, Attr); break;
   case AttributeList::AT_Allocate:
@@ -5654,6 +5797,21 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBNDLegacyAttr  (S, D, Attr); break;
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
+#else
+  // FIXME: No longer need this section as soon as TableGen is able to recognize
+  // IL0-specific guards. Currently attributes below are treated as known, but
+  // unhandled, which leads to assertion failure in 'default' section of switch
+  // in non-IL0 configuration. Related to CQ#375594.
+  case AttributeList::AT_AvoidFalseShare:
+  case AttributeList::AT_Allocate:
+  case AttributeList::AT_GCCStruct:
+  case AttributeList::AT_BNDLegacy:
+  case AttributeList::AT_BNDVarSize:
+    S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
+                              ? diag::warn_unhandled_ms_attribute_ignored
+                              : diag::warn_unknown_attribute_ignored)
+        << Attr.getName();
+    return;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 #endif  // INTEL_CUSTOMIZATION
   }

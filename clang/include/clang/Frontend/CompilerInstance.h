@@ -78,6 +78,9 @@ class CompilerInstance : public ModuleLoader {
   /// The target being compiled for.
   IntrusiveRefCntPtr<TargetInfo> Target;
 
+  /// Auxiliary Target info.
+  IntrusiveRefCntPtr<TargetInfo> AuxTarget;
+
   /// The virtual file system.
   IntrusiveRefCntPtr<vfs::FileSystem> VirtualFileSystem;
 
@@ -348,8 +351,17 @@ public:
     return *Target;
   }
 
-  /// Replace the current diagnostics engine.
+  /// Replace the current Target.
   void setTarget(TargetInfo *Value);
+
+  /// }
+  /// @name AuxTarget Info
+  /// {
+
+  TargetInfo *getAuxTarget() const { return AuxTarget.get(); }
+
+  /// Replace the current AuxTarget.
+  void setAuxTarget(TargetInfo *Value);
 
   /// }
   /// @name Virtual File System
@@ -612,7 +624,8 @@ public:
   createDiagnostics(DiagnosticOptions *Opts,
                     DiagnosticConsumer *Client = nullptr,
                     bool ShouldOwnClient = true,
-                    const CodeGenOptions *CodeGenOpts = nullptr);
+                    const CodeGenOptions *CodeGenOpts = nullptr, // INTEL
+                    bool IntelCompat = false); // INTEL
 
   /// Create the file manager and replace any existing one with it.
   void createFileManager();

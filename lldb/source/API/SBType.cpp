@@ -16,13 +16,12 @@
 #include "lldb/Core/Stream.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Symbol/Type.h"
+#include "lldb/Symbol/TypeSystem.h"
 
 #include "llvm/ADT/APSInt.h"
-#include "clang/AST/Decl.h"
 
 using namespace lldb;
 using namespace lldb_private;
-using namespace clang;
 
 SBType::SBType() :
     m_opaque_sp()
@@ -270,9 +269,9 @@ SBType::GetFunctionReturnType ()
 {
     if (IsValid())
     {
-        CompilerType return_clang_type (m_opaque_sp->GetCompilerType(true).GetFunctionReturnType());
-        if (return_clang_type.IsValid())
-            return SBType(return_clang_type);
+        CompilerType return_type (m_opaque_sp->GetCompilerType(true).GetFunctionReturnType());
+        if (return_type.IsValid())
+            return SBType(return_type);
     }
     return lldb::SBType();
 }

@@ -619,7 +619,6 @@ GDBRemoteCommunicationClient::GetThreadsInfo()
     if (m_supports_jThreadsInfo)
     {
         StringExtractorGDBRemote response;
-        m_supports_jThreadExtendedInfo = eLazyBoolNo;
         if (SendPacketAndWaitForResponse("jThreadsInfo", response, false) == PacketResult::Success)
         {
             if (response.IsUnsupportedResponse())
@@ -1262,9 +1261,13 @@ GDBRemoteCommunicationClient::SendContinuePacketAndWaitForResponse
                         got_async_packet = true;
                         std::string inferior_stdout;
                         inferior_stdout.reserve(response.GetBytesLeft () / 2);
-                        char ch;
-                        while ((ch = response.GetHexU8()) != '\0')
-                            inferior_stdout.append(1, ch);
+
+                        uint8_t ch;
+                        while (response.GetHexU8Ex(ch))
+                        {
+                            if (ch != 0)
+                                inferior_stdout.append(1, (char)ch);
+                        }
                         process->AppendSTDOUT (inferior_stdout.c_str(), inferior_stdout.size());
                     }
                     break;
@@ -3312,10 +3315,16 @@ GDBRemoteCommunicationClient::SendSpeedTestPacket (uint32_t send_size, uint32_t 
     return SendPacketAndWaitForResponse (packet.GetData(), packet.GetSize(), response, false)  == PacketResult::Success;
 }
 
-uint16_t
-GDBRemoteCommunicationClient::LaunchGDBserverAndGetPort (lldb::pid_t &pid, const char *remote_accept_hostname)
+bool
+GDBRemoteCommunicationClient::LaunchGDBServer (const char *remote_accept_hostname,
+                                               lldb::pid_t &pid,
+                                               uint16_t &port,
+                                               std::string &socket_name)
 {
     pid = LLDB_INVALID_PROCESS_ID;
+    port = 0;
+    socket_name.clear();
+
     StringExtractorGDBRemote response;
     StreamString stream;
     stream.PutCString("qLaunchGDBServer;");
@@ -3340,22 +3349,30 @@ GDBRemoteCommunicationClient::LaunchGDBserverAndGetPort (lldb::pid_t &pid, const
 
     // give the process a few seconds to startup
     GDBRemoteCommunication::ScopedTimeout timeout (*this, 10);
-    
+
     if (SendPacketAndWaitForResponse(packet, packet_len, response, false) == PacketResult::Success)
     {
         std::string name;
         std::string value;
-        uint16_t port = 0;
+        StringExtractor extractor;
         while (response.GetNameColonValue(name, value))
         {
             if (name.compare("port") == 0)
                 port = StringConvert::ToUInt32(value.c_str(), 0, 0);
             else if (name.compare("pid") == 0)
                 pid = StringConvert::ToUInt64(value.c_str(), LLDB_INVALID_PROCESS_ID, 0);
+            else if (name.compare("socket_name") == 0)
+            {
+                extractor.GetStringRef().swap(value);
+                extractor.SetFilePos(0);
+                extractor.GetHexByteString(value);
+
+                socket_name = value;
+            }
         }
-        return port;
+        return true;
     }
-    return 0;
+    return false;
 }
 
 bool
@@ -3396,6 +3413,17 @@ GDBRemoteCommunicationClient::SetCurrentThread (uint64_t tid)
             m_curr_tid = tid;
             return true;
         }
+
+        /*
+         * Connected bare-iron target (like YAMON gdb-stub) may not have support for Hg packet.
+         * The reply from '?' packet could be as simple as 'S05'. There is no packet which can
+         * give us pid and/or tid. Assume pid=tid=1 in such cases.
+        */
+        if (response.IsUnsupportedResponse() && IsConnected())
+        {
+            m_curr_tid = 1;
+            return true;
+        }
     }
     return false;
 }
@@ -3420,6 +3448,17 @@ GDBRemoteCommunicationClient::SetCurrentThreadForRun (uint64_t tid)
         if (response.IsOKResponse())
         {
             m_curr_tid_run = tid;
+            return true;
+        }
+
+        /*
+         * Connected bare-iron target (like YAMON gdb-stub) may not have support for Hc packet.
+         * The reply from '?' packet could be as simple as 'S05'. There is no packet which can
+         * give us pid and/or tid. Assume pid=tid=1 in such cases.
+        */
+        if (response.IsUnsupportedResponse() && IsConnected())
+        {
+            m_curr_tid_run = 1;
             return true;
         }
     }
@@ -3546,6 +3585,17 @@ GDBRemoteCommunicationClient::GetCurrentThreadIDs (std::vector<lldb::tid_t> &thr
                     ch = response.GetChar();    // Skip the command separator
                 } while (ch == ',');            // Make sure we got a comma separator
             }
+        }
+
+        /*
+         * Connected bare-iron target (like YAMON gdb-stub) may not have support for
+         * qProcessInfo, qC and qfThreadInfo packets. The reply from '?' packet could
+         * be as simple as 'S05'. There is no packet which can give us pid and/or tid.
+         * Assume pid=tid=1 in such cases.
+        */
+        if (response.IsUnsupportedResponse() && thread_ids.size() == 0 && IsConnected())
+        {
+            thread_ids.push_back (1);
         }
     }
     else

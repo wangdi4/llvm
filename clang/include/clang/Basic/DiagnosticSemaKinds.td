@@ -429,6 +429,7 @@ def warn_redecl_library_builtin : Warning<
 def err_builtin_definition : Error<"definition of builtin function %0">;
 def err_arm_invalid_specialreg : Error<"invalid special register for builtin">;
 def err_invalid_cpu_supports : Error<"invalid cpu feature string for builtin">;
+def err_builtin_needs_feature : Error<"%0 needs target feature %1">;
 def warn_builtin_unknown : Warning<"use of unknown builtin %0">,
   InGroup<ImplicitFunctionDeclare>, DefaultError;
 def warn_dyn_class_memaccess : Warning<
@@ -1158,8 +1159,14 @@ def err_incompatible_exception_specs : Error<
   "target exception specification is not superset of source">;
 def err_deep_exception_specs_differ : Error<
   "exception specifications of %select{return|argument}0 types differ">;
-def warn_missing_exception_specification : Warning<
+def err_missing_exception_specification : Error<
   "%0 is missing exception specification '%1'">;
+def ext_missing_exception_specification : ExtWarn<
+  err_missing_exception_specification.Text>,
+  InGroup<DiagGroup<"missing-exception-spec">>;
+def ext_ms_missing_exception_specification : ExtWarn<
+  err_missing_exception_specification.Text>,
+  InGroup<MicrosoftExceptionSpec>;
 def err_noexcept_needs_constant_expression : Error<
   "argument to noexcept specifier must be a constant expression">;
 def err_exception_spec_not_parsed : Error<
@@ -1168,6 +1175,12 @@ def err_exception_spec_not_parsed : Error<
 // C++ access checking
 def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
+// if INTEL_CUSTOMIZATION
+// Fix for CQ373961: redeclaration of class member with different access.
+def warn_class_redeclared_with_different_access : Warning<
+  "%0 redeclared with '%1' access">,
+  AccessControl, InGroup<RedeclaredClassMember>;
+// endif //INTEL_CUSTOMIZATION
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
 def ext_ms_using_declaration_inaccessible : ExtWarn<
@@ -1207,6 +1220,12 @@ def err_access_dtor_vbase :
     Error<"inherited virtual base class %1 has "
     "%select{private|protected}2 destructor">,
     AccessControl;
+// if INTEL_CUSTOMIZATION
+def warn_access_dtor_vbase :
+    Warning<"inherited virtual base class %1 has "
+    "%select{private|protected}2 destructor">,
+    AccessControl, InGroup<PrivateVBaseDtor>;
+// endif INTEL_CUSTOMIZATION
 def err_access_dtor_temp :
     Error<"temporary of type %0 has %select{private|protected}1 destructor">,
     AccessControl;
@@ -1505,7 +1524,8 @@ def err_init_conversion_failed : Error<
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
   "volatile and restrict|const, volatile, and restrict}5 vs "
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
-  "volatile and restrict|const, volatile, and restrict}6)}4">;
+  "volatile and restrict|const, volatile, and restrict}6)"
+  "|: cannot take the address of a potentially disabled function}4">;
 
 def err_lvalue_to_rvalue_ref : Error<"rvalue reference %diff{to type $ cannot "
   "bind to lvalue of type $|cannot bind to incompatible lvalue}0,1">;
@@ -2048,6 +2068,16 @@ def err_aligned_attribute_argument_not_int : Error<
   "'aligned' attribute requires integer constant">;
 def err_align_value_attribute_argument_not_int : Error<
   "'align_value' attribute requires integer constant">;
+//if INTEL_CUSTOMIZATION
+// CQ#375011
+def err_alloc_size_attribute_argument_not_int : Error<
+  "'alloc_size' attribute requires integer constant">;
+def warn_attribute_requires_integer_param_type : Warning<
+  "%0 attribute requires an integer function parameter">,
+  InGroup<IgnoredAttributes>;
+def note_param_index_specified_here : Note<
+  "parameter's index specified here">;
+//endif INTEL_CUSTOMIZATION
 def err_alignas_attribute_wrong_decl_type : Error<
   "%0 attribute cannot be applied to a %select{function parameter|"
   "variable with 'register' storage class|'catch' variable|bit-field}1">;
@@ -2307,6 +2337,8 @@ def err_attribute_dll_not_extern : Error<
   "%q0 must have external linkage when declared %q1">;
 def err_attribute_dll_thread_local : Error<
   "%q0 cannot be thread local when declared %q1">;
+def err_attribute_dll_lambda : Error<
+  "lambda cannot be declared %0">;
 def warn_attribute_invalid_on_definition : Warning<
   "'%0' attribute cannot be specified on a definition">,
   InGroup<IgnoredAttributes>;
@@ -2408,6 +2440,9 @@ def err_cconv_varargs : Error<
 def warn_cconv_varargs : Warning<
   "%0 calling convention ignored on variadic function">,
   InGroup<IgnoredAttributes>;
+def warn_cconv_structors : Warning<
+  "%0 calling convention ignored on constructor/destructor">,
+  InGroup<IgnoredAttributes>;
 def err_regparm_mismatch : Error<"function declared with regparm(%0) "
   "attribute was previously declared "
   "%plural{0:without the regparm|:with the regparm(%1)}1 attribute">;
@@ -2435,15 +2470,19 @@ def warn_availability_version_ordering : Warning<
 def warn_mismatched_availability: Warning<
   "availability does not match previous declaration">, InGroup<Availability>;
 def warn_mismatched_availability_override : Warning<
-  "overriding method %select{introduced after|"
-  "deprecated before|obsoleted before}0 overridden method on %1 (%2 vs. %3)">, 
-  InGroup<Availability>;
+  "%select{|overriding }4method %select{introduced after|"
+  "deprecated before|obsoleted before}0 "
+  "%select{the protocol method it implements|overridden method}4 "
+  "on %1 (%2 vs. %3)">, InGroup<Availability>;
 def warn_mismatched_availability_override_unavail : Warning<
-  "overriding method cannot be unavailable on %0 when its overridden method is "
+  "%select{|overriding }1method cannot be unavailable on %0 when "
+  "%select{the protocol method it implements|its overridden method}1 is "
   "available">,
   InGroup<Availability>;
 def note_overridden_method : Note<
   "overridden method is here">;
+def note_protocol_method : Note<
+  "protocol method is here">;
 
 // Thread Safety Attributes
 def warn_invalid_capability_name : Warning<
@@ -2902,6 +2941,12 @@ def err_void_param_qualified : Error<
   "'void' as parameter must not have type qualifiers">;
 def err_ident_list_in_fn_declaration : Error<
   "a parameter list without types is only allowed in a function definition">;
+// if INTEL_CUSTOMIZATION
+// CQ#376510: Same as err_ident_list_in_fn_declaration, but a warning.
+def warn_ident_list_in_fn_declaration: Warning<
+  err_ident_list_in_fn_declaration.Text>,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_param_not_declared : Extension<
   "parameter %0 was not declared, defaulting to type 'int'">;
 def err_param_default_argument : Error<
@@ -2943,11 +2988,11 @@ def err_uninitialized_member_in_ctor : Error<
 def err_default_arg_makes_ctor_special : Error<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">;
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 def warn_default_arg_makes_ctor_special : Warning<
   "addition of default argument on redeclaration makes this constructor a "
   "%select{default|copy|move}0 constructor">, InGroup<IntelCompat>;
-//#endif
+// endif
 
 def err_use_of_default_argument_to_function_declared_later : Error<
   "use of default argument to function %0 that is declared later in class %1">;
@@ -3001,7 +3046,11 @@ def note_ovl_candidate : Note<"candidate "
     "%select{none|const|restrict|const and restrict|volatile|const and volatile"
     "|volatile and restrict|const, volatile, and restrict}3 but found "
     "%select{none|const|restrict|const and restrict|volatile|const and volatile"
-    "|volatile and restrict|const, volatile, and restrict}4)}2">;
+    "|volatile and restrict|const, volatile, and restrict}4)"
+    "| made ineligible by enable_if}2">;
+def ext_ovl_equivalent_internal_linkage_functions_in_modules : ExtWarn<
+  "ambiguous use of internal linkage function %0 defined in multiple modules">,
+  InGroup<DiagGroup<"modules-ambiguous-internal-linkage-function">>;
 
 def note_ovl_candidate_inherited_constructor : Note<"inherited from here">;
 def note_ovl_candidate_illegal_constructor : Note<
@@ -4068,6 +4117,13 @@ def err_definition_of_explicitly_defaulted_member : Error<
 def err_redefinition_extern_inline : Error<
   "redefinition of a 'extern inline' function %0 is not supported in "
   "%select{C99 mode|C++}1">;
+// if INTEL_CUSTOMIZATION
+// CQ#377372 - allow to redefine extern inline functions in C++ mode
+def ext_intel_redefinition_extern_inline : ExtWarn<
+  "redefinition of a 'extern inline' function %0 in "
+  "C++ mode is an Intel extension">,
+  InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 
 def note_deleted_dtor_no_operator_delete : Note<
   "virtual destructor requires an unambiguous, accessible 'operator delete'">;
@@ -4394,20 +4450,22 @@ def err_bitfield_has_negative_width : Error<
 def err_anon_bitfield_has_negative_width : Error<
   "anonymous bit-field has negative width (%0)">;
 def err_bitfield_has_zero_width : Error<"named bit-field %0 has zero width">;
-def err_bitfield_width_exceeds_type_size : Error<
-  "size of bit-field %0 (%1 bits) exceeds size of its type (%2 bits)">;
-def err_anon_bitfield_width_exceeds_type_size : Error<
-  "size of anonymous bit-field (%0 bits) exceeds size of its type (%1 bits)">;
+def err_bitfield_width_exceeds_type_width : Error<
+  "width of bit-field %0 (%1 bits) exceeds %select{width|size}2 "
+  "of its type (%3 bit%s3)">;
+def err_anon_bitfield_width_exceeds_type_width : Error<
+  "width of anonymous bit-field (%0 bits) exceeds %select{width|size}1 "
+  "of its type (%2 bit%s2)">;
 def err_incorrect_number_of_vector_initializers : Error<
   "number of elements must be either one or match the size of the vector">;
 
 // Used by C++ which allows bit-fields that are wider than the type.
-def warn_bitfield_width_exceeds_type_size: Warning<
-  "size of bit-field %0 (%1 bits) exceeds the size of its type; value will be "
-  "truncated to %2 bits">;
-def warn_anon_bitfield_width_exceeds_type_size : Warning<
-  "size of anonymous bit-field (%0 bits) exceeds size of its type; value will "
-  "be truncated to %1 bits">;
+def warn_bitfield_width_exceeds_type_width: Warning<
+  "width of bit-field %0 (%1 bits) exceeds the width of its type; value will "
+  "be truncated to %2 bit%s2">, InGroup<BitFieldWidth>;
+def warn_anon_bitfield_width_exceeds_type_width : Warning<
+  "width of anonymous bit-field (%0 bits) exceeds width of its type; value "
+  "will be truncated to %1 bit%s1">, InGroup<BitFieldWidth>;
 
 def warn_missing_braces : Warning<
   "suggest braces around initialization of subobject">,
@@ -4432,6 +4490,15 @@ def warn_cxx98_compat_goto_into_protected_scope : Warning<
   InGroup<CXX98Compat>, DefaultIgnore;
 def err_switch_into_protected_scope : Error<
   "cannot jump from switch statement to this case label">;
+// if INTEL_CUSTOMIZATION
+// CQ370802 - allows bypassing var init in switch statement if IntelCompat
+def warn_switch_into_protected_scope : Warning<
+  "jump from switch statement to this case label bypasses variable initialization">,
+  InGroup<IntelCompat>;
+// CQ370802 - allows indirect goto to const address if IntelCompat
+def warn_indirect_goto_with_const_expr : Warning<
+  "expr in 'goto *expr' is constant">, InGroup<IntelCompat>;
+// endif  // INTEL_CUSTOMIZATION
 def warn_cxx98_compat_switch_into_protected_scope : Warning<
   "jump from switch statement to this case label is incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
@@ -4439,6 +4506,11 @@ def err_indirect_goto_without_addrlabel : Error<
   "indirect goto in function with no address-of-label expressions">;
 def err_indirect_goto_in_protected_scope : Error<
   "cannot jump from this indirect goto statement to one of its possible targets">;
+// if INTEL_CUSTOMIZATION
+// CQ370802 - allows indirect got to any places
+def warn_indirect_goto_in_protected_scope : Warning<
+  err_indirect_goto_in_protected_scope.Text>, InGroup<IntelCompat>;
+// endif  // INTEL_CUSTOMIZATION
 def warn_cxx98_compat_indirect_goto_in_protected_scope : Warning<
   "jump from this indirect goto statement to one of its possible targets "
   "is incompatible with C++98">, InGroup<CXX98Compat>, DefaultIgnore;
@@ -4480,8 +4552,10 @@ def note_protected_by_seh_finally : Note<
   "jump bypasses initialization of __finally block">;
 def note_protected_by___block : Note<
   "jump bypasses setup of __block variable">;
-def note_protected_by_objc_ownership : Note<
-  "jump bypasses initialization of retaining variable">;
+def note_protected_by_objc_strong_init : Note<
+  "jump bypasses initialization of __strong variable">;
+def note_protected_by_objc_weak_init : Note<
+  "jump bypasses initialization of __weak variable">;
 def note_enters_block_captures_cxx_obj : Note<
   "jump enters lifetime of block which captures a destructible C++ object">;
 def note_enters_block_captures_strong : Note<
@@ -4518,8 +4592,10 @@ def note_exits_seh_finally : Note<
   "jump exits __finally block">;
 def note_exits_objc_autoreleasepool : Note<
   "jump exits autoreleasepool block">;
-def note_exits_objc_ownership : Note<
-  "jump exits scope of retaining variable">;
+def note_exits_objc_strong : Note<
+  "jump exits scope of __strong variable">;
+def note_exits_objc_weak : Note<
+  "jump exits scope of __weak variable">;
 def note_exits_block_captures_cxx_obj : Note<
   "jump exits lifetime of block which captures a destructible C++ object">;
 def note_exits_block_captures_strong : Note<
@@ -4722,7 +4798,7 @@ def err_arc_strong_property_ownership : Error<
   "existing instance variable %1 for strong property %0 may not be "
   "%select{|__unsafe_unretained||__weak}2">;
 def err_arc_assign_property_ownership : Error<
-  "existing instance variable %1 for property %0 with %select{unsafe_unretained| assign}2 "
+  "existing instance variable %1 for property %0 with %select{unsafe_unretained|assign}2 "
   "attribute must be __unsafe_unretained">;
 def err_arc_inconsistent_property_ownership : Error<
   "%select{|unsafe_unretained|strong|weak}1 property %0 may not also be "
@@ -5305,6 +5381,8 @@ def err_builtin_func_cast_more_than_one_arg : Error<
   "function-style cast to a builtin type can only take one argument">;
 def err_value_init_for_array_type : Error<
   "array types cannot be value-initialized">;
+def err_value_init_for_function_type : Error<
+  "function types cannot be value-initialized">;
 def warn_format_nonliteral_noargs : Warning<
   "format string is not a string literal (potentially insecure)">,
   InGroup<FormatSecurity>;
@@ -5732,7 +5810,8 @@ def note_hidden_overloaded_virtual_declared_here : Note<
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
   "volatile and restrict|const, volatile, and restrict}2 vs "
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
-  "volatile and restrict|const, volatile, and restrict}3)}1">;
+  "volatile and restrict|const, volatile, and restrict}3)"
+  "|: mismatch in enable_if attributes}1">;
 def warn_using_directive_in_header : Warning<
   "using namespace directive in global context in header">,
   InGroup<HeaderHygiene>, DefaultIgnore;
@@ -5748,13 +5827,13 @@ def err_conditional_ambiguous : Error<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">;
-//#ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 // Fix for CQ375472.
 def warn_conditional_ambiguous : Warning<
   "conditional expression is ambiguous; "
   "%diff{$ can be converted to $ and vice versa|"
   "types can be convert to each other}0,1">, InGroup<IntelCompat>;
-//#endif //INTEL_CUSTOMIZATION
+// endif //INTEL_CUSTOMIZATION
 def err_conditional_ambiguous_ovl : Error<
   "conditional expression is ambiguous; %diff{$ and $|types}0,1 "
   "can be converted to several common types">;
@@ -5979,7 +6058,8 @@ def err_typecheck_convert_incompatible : Error<
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
   "volatile and restrict|const, volatile, and restrict}5 vs "
   "%select{none|const|restrict|const and restrict|volatile|const and volatile|"
-  "volatile and restrict|const, volatile, and restrict}6)}4">;
+  "volatile and restrict|const, volatile, and restrict}6)"
+  "|: cannot take the address of a potentially disabled function}4">;
 def err_typecheck_missing_return_type_incompatible : Error<
   "%diff{return type $ must match previous return type $|"
   "return type must match previous return type}0,1 when %select{block "
@@ -6295,6 +6375,9 @@ def err_atomic_op_needs_atomic : Error<
 def err_atomic_op_needs_non_const_atomic : Error<
   "address argument to atomic operation must be a pointer to non-const _Atomic "
   "type (%0 invalid)">;
+def err_atomic_op_needs_non_const_pointer : Error<
+  "address argument to atomic operation must be a pointer to non-const "
+  "type (%0 invalid)">;
 def err_atomic_op_needs_trivial_copy : Error<
   "address argument to atomic operation must be a pointer to a "
   "trivially-copyable type (%0 invalid)">;
@@ -6519,6 +6602,8 @@ let CategoryName = "Inline Assembly Issue" in {
   def err_asm_non_addr_value_in_memory_constraint : Error <
     "reference to a %select{bit-field|vector element|global register variable}0"
     " in asm %select{input|output}1 with a memory constraint '%2'">;
+  def err_asm_input_duplicate_match : Error<
+    "more than one input constraint matches the same output '%0'">;
 
   def warn_asm_label_on_auto_decl : Warning<
     "ignored asm label '%0' on automatic variable">;
@@ -6533,6 +6618,8 @@ let CategoryName = "Inline Assembly Issue" in {
 
   def note_asm_missing_constraint_modifier : Note<
     "use constraint modifier \"%0\"">;
+  def note_asm_input_duplicate_first : Note<
+    "constraint '%0' is already present here">;
 }
 
 let CategoryName = "Semantic Issue" in {
@@ -7203,6 +7290,10 @@ def note_empty_body_on_separate_line : Note<
 
 def err_va_start_used_in_non_variadic_function : Error<
   "'va_start' used in function with fixed args">;
+def err_va_start_used_in_wrong_abi_function : Error<
+  "'va_start' used in %select{System V|Win64}0 ABI function">;
+def err_ms_va_start_used_in_sysv_function : Error<
+  "'__builtin_ms_va_start' used in System V ABI function">;
 def warn_second_parameter_of_va_start_not_last_named_argument : Warning<
   "second parameter of 'va_start' not last named argument">, InGroup<Varargs>;
 def warn_va_start_of_reference_type_is_undefined : Warning<
@@ -7336,6 +7427,8 @@ def err_64_bit_builtin_32_bit_tgt : Error<
   "this builtin is only available on 64-bit targets">;
 def err_ppc_builtin_only_on_pwr7 : Error<
   "this builtin is only valid on POWER7 or later CPUs">;
+def err_x86_builtin_32_bit_tgt : Error<
+  "this builtin is only available on x86-64 targets">;
 
 def err_builtin_longjmp_unsupported : Error<
   "__builtin_longjmp is not supported for the current target">;
@@ -7557,6 +7650,8 @@ def err_opencl_ptrptr_kernel_param : Error<
   "kernel parameter cannot be declared as a pointer to a pointer">;
 def err_opencl_private_ptr_kernel_param : Error<
   "kernel parameter cannot be declared as a pointer to the __private address space">;
+def err_opencl_non_kernel_variable : Error<
+  "non-kernel function variable cannot be declared in %0 address space">;
 def err_static_function_scope : Error<
   "variables in function scope cannot be declared static">;
 def err_opencl_bitfields : Error<
@@ -7584,7 +7679,7 @@ def err_sampler_argument_required : Error<
 def err_wrong_sampler_addressspace: Error<
   "sampler type cannot be used with the __local and __global address space qualifiers">;
 def err_opencl_global_invalid_addr_space : Error<
-  "global variables must have a constant address space qualifier">;
+  "program scope variable must reside in %0 address space">;
 def err_opencl_no_main : Error<"%select{function|kernel}0 cannot be called 'main'">;
 
 // if INTEL_CUSTOMIZATION
@@ -7897,6 +7992,9 @@ def err_opencl_return_value_with_address_space : Error<
   "return value cannot be qualified with address space">;
 def err_opencl_constant_no_init : Error<
   "variable in constant address space must be initialized">;
+def err_atomic_init_constant : Error<
+  "atomic variable can only be assigned to a compile time constant"
+  " in the declaration statement in the program scope">;
 def err_opencl_implicit_vector_conversion : Error<
   "implicit conversions between vector types (%0 and %1) are not permitted">;
 } // end of sema category
@@ -7971,7 +8069,7 @@ def err_omp_firstprivate_incomplete_type : Error<
 def err_omp_lastprivate_incomplete_type : Error<
   "a lastprivate variable with incomplete type %0">;
 def err_omp_reduction_incomplete_type : Error<
-  "a reduction variable with incomplete type %0">;
+  "a reduction list item with incomplete type %0">;
 def err_omp_unexpected_clause_value : Error<
   "expected %0 in OpenMP clause '%1'">;
 def err_omp_expected_var_name : Error<
@@ -8028,6 +8126,8 @@ def err_omp_required_access : Error<
   "%0 variable must be %1">;
 def err_omp_const_variable : Error<
   "const-qualified variable cannot be %0">;
+def err_omp_const_reduction_list_item : Error<
+  "const-qualified list item cannot be reduction">;
 def err_omp_linear_incomplete_type : Error<
   "a linear variable with incomplete type %0">;
 def err_omp_linear_expected_int_or_ptr : Error<
@@ -8079,7 +8179,7 @@ def warn_omp_loop_64_bit_var : Warning<
 def err_omp_unknown_reduction_identifier : Error<
   "incorrect reduction identifier, expected one of '+', '-', '*', '&', '|', '^', '&&', '||', 'min' or 'max'">;
 def err_omp_reduction_type_array : Error<
-  "a reduction variable with array type %0">;
+  "a reduction list item with array type %0">;
 def err_omp_reduction_ref_type_arg : Error<
   "argument of OpenMP clause 'reduction' must reference the same object in all threads">;
 def err_omp_clause_not_arithmetic_type_arg : Error<
@@ -8093,7 +8193,7 @@ def note_omp_referenced : Note<
 def err_omp_reduction_in_task : Error<
   "reduction variables may not be accessed in an explicit task">;
 def err_omp_reduction_id_not_compatible : Error<
-  "variable of type %0 is not valid for specified reduction operation: unable to provide default initialization value">;
+  "list item of type %0 is not valid for specified reduction operation: unable to provide default initialization value">;
 def err_omp_prohibited_region : Error<
   "region cannot be%select{| closely}0 nested inside '%1' region"
   "%select{|; perhaps you forget to enclose 'omp %3' directive into a parallel region?|"
@@ -8197,6 +8297,12 @@ def err_omp_unnamed_if_clause : Error<
   "expected %select{|one of}0 %1 directive name modifier%select{|s}0">;
 def note_omp_previous_named_if_clause : Note<
   "previous clause with directive name modifier specified here">;
+def err_omp_ordered_directive_with_param : Error<
+  "'ordered' directive %select{without any clauses|with 'threads' clause}0 cannot be closely nested inside ordered region with specified parameter">;
+def note_omp_ordered_param : Note<
+  "'ordered' clause with specified parameter">;
+def err_omp_expected_base_var_name : Error<
+  "expected variable name as a base of the array %select{subscript|section}0">;
 } // end of OpenMP category
 
 let CategoryName = "Related Result Type Issue" in {
@@ -8240,18 +8346,40 @@ def err_module_unimported_use : Error<
 def err_module_unimported_use_multiple : Error<
   "%select{declaration|definition|default argument}0 of %1 must be imported "
   "from one of the following modules before it is required:%2">;
-def err_module_import_in_extern_c : Error<
+def ext_module_import_in_extern_c : ExtWarn<
   "import of C++ module '%0' appears within extern \"C\" language linkage "
-  "specification">;
+  "specification">, DefaultError,
+  InGroup<DiagGroup<"module-import-in-extern-c">>;
 def note_module_import_in_extern_c : Note<
   "extern \"C\" language linkage specification begins here">;
-def err_module_import_not_at_top_level : Error<
-  "import of module '%0' appears within %1">;
+def err_module_import_not_at_top_level_fatal : Error<
+  "import of module '%0' appears within %1">, DefaultFatal;
 def note_module_import_not_at_top_level : Note<"%0 begins here">;
 def err_module_self_import : Error<
   "import of module '%0' appears within same top-level module '%1'">;
 def err_module_import_in_implementation : Error<
   "@import of module '%0' in implementation of '%1'; use #import">;
+}
+
+let CategoryName = "Coroutines Issue" in {
+def err_return_in_coroutine : Error<"return statement in coroutine">;
+def note_declared_coroutine_here : Note<
+  "function is a coroutine due to use of "
+  "'%select{co_await|co_yield|co_return}0' here">;
+def err_coroutine_objc_method : Error<
+  "Objective-C methods as coroutines are not yet supported">;
+def err_coroutine_outside_function : Error<
+  "'%0' cannot be used outside a function">;
+def err_coroutine_ctor_dtor : Error<
+  "'%1' cannot be used in a %select{constructor|destructor}0">;
+def err_coroutine_constexpr : Error<
+  "'%0' cannot be used in a constexpr function">;
+def err_coroutine_varargs : Error<
+  "'%0' cannot be used in a varargs function">;
+def ext_coroutine_without_coawait_coyield : ExtWarn<
+  "'co_return' used in a function "
+  "that uses neither 'co_await' nor 'co_yield'">,
+  InGroup<DiagGroup<"coreturn-without-coawait">>;
 }
 
 let CategoryName = "Documentation Issue" in {
@@ -8309,10 +8437,10 @@ def warn_nullability_missing : Warning<
   "type specifier (_Nonnull, _Nullable, or _Null_unspecified)">,
   InGroup<NullabilityCompleteness>;
 
-def err_type_arg_explicit_nullability : Error<
+def err_objc_type_arg_explicit_nullability : Error<
   "type argument %0 cannot explicitly specify nullability">;
 
-def err_type_param_bound_explicit_nullability : Error<
+def err_objc_type_param_bound_explicit_nullability : Error<
   "type parameter %0 bound %1 cannot explicitly specify nullability">;
 
 }
@@ -8324,6 +8452,8 @@ def err_objc_type_param_bound_nonobject : Error<
 
 def err_objc_type_param_bound_missing_pointer : Error<
   "missing '*' in type bound %0 for type parameter %1">;
+def err_objc_type_param_bound_qualified : Error<
+  "type bound %1 for type parameter %0 cannot be qualified with '%2'">;
 
 def err_objc_type_param_redecl : Error<
   "redeclaration of type parameter %0">;
@@ -8358,6 +8488,8 @@ def err_objc_parameterized_forward_class_first : Error<
 
 def err_objc_type_arg_missing_star : Error<
   "type argument %0 must be a pointer (requires a '*')">;
+def err_objc_type_arg_qualified : Error<
+  "type argument %0 cannot be qualified with '%1'">;
 
 def err_objc_type_arg_missing : Error<
   "no type or protocol named %0">;

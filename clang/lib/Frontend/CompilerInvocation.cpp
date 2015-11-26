@@ -393,38 +393,21 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       Diags.Report(diag::err_drv_invalid_value) << A->getAsString(Args) << Name;
   }
 
-  if (Args.hasArg(OPT_gline_tables_only)) {
-    Opts.setDebugInfo(CodeGenOptions::DebugLineTablesOnly);
-  } else if (Args.hasArg(OPT_g_Flag) || Args.hasArg(OPT_gdwarf_2) ||
-             Args.hasArg(OPT_gdwarf_3) || Args.hasArg(OPT_gdwarf_4)) {
-    bool Default = false;
-    // Until dtrace (via CTF) and LLDB can deal with distributed debug info,
-    // Darwin and FreeBSD default to standalone/full debug info.
-    if (llvm::Triple(TargetOpts.Triple).isOSDarwin() ||
-        llvm::Triple(TargetOpts.Triple).isOSFreeBSD())
-      Default = true;
-
-    if (Args.hasFlag(OPT_fstandalone_debug, OPT_fno_standalone_debug, Default))
-      Opts.setDebugInfo(CodeGenOptions::FullDebugInfo);
-    else
-      Opts.setDebugInfo(CodeGenOptions::LimitedDebugInfo);
+  if (Arg *A = Args.getLastArg(OPT_debug_info_kind_EQ)) {
+    Opts.setDebugInfo(
+        llvm::StringSwitch<CodeGenOptions::DebugInfoKind>(A->getValue())
+            .Case("line-tables-only", CodeGenOptions::DebugLineTablesOnly)
+            .Case("limited", CodeGenOptions::LimitedDebugInfo)
+            .Case("standalone", CodeGenOptions::FullDebugInfo));
   }
+  Opts.DwarfVersion = getLastArgIntValue(Args, OPT_dwarf_version_EQ, 0, Diags);
   Opts.DebugColumnInfo = Args.hasArg(OPT_dwarf_column_info);
-  if (Args.hasArg(OPT_gcodeview)) {
-    Opts.EmitCodeView = true;
-    Opts.DwarfVersion = 0;
-  } else if (Opts.getDebugInfo() != CodeGenOptions::NoDebugInfo) {
-    // Default Dwarf version is 4 if we are generating debug information.
-    Opts.DwarfVersion = 4;
-  }
+  Opts.EmitCodeView = Args.hasArg(OPT_gcodeview);
   Opts.SplitDwarfFile = Args.getLastArgValue(OPT_split_dwarf_file);
-  if (Args.hasArg(OPT_gdwarf_2))
-    Opts.DwarfVersion = 2;
-  else if (Args.hasArg(OPT_gdwarf_3))
-    Opts.DwarfVersion = 3;
-  else if (Args.hasArg(OPT_gdwarf_4))
-    Opts.DwarfVersion = 4;
   Opts.DebugTypeExtRefs = Args.hasArg(OPT_dwarf_ext_refs);
+
+  for (const auto &Arg : Args.getAllArgValues(OPT_fdebug_prefix_map_EQ))
+    Opts.DebugPrefixMap.insert(StringRef(Arg).split('='));
 
   if (const Arg *A =
           Args.getLastArg(OPT_emit_llvm_uselists, OPT_no_emit_llvm_uselists))
@@ -445,6 +428,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OptimizeSize = getOptimizationLevelSize(Args);
   Opts.SimplifyLibCalls = !(Args.hasArg(OPT_fno_builtin) ||
                             Args.hasArg(OPT_ffreestanding));
+  Opts.IntelLibIRCAllowed = Args.hasArg(OPT_intel_libirc_allowed); // INTEL
   Opts.UnrollLoops =
       Args.hasFlag(OPT_funroll_loops, OPT_fno_unroll_loops,
                    (Opts.OptimizationLevel > 1 && !Opts.OptimizeSize));
@@ -462,7 +446,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.DumpCoverageMapping = Args.hasArg(OPT_dump_coverage_mapping);
   Opts.AsmVerbose = Args.hasArg(OPT_masm_verbose);
   Opts.ObjCAutoRefCountExceptions = Args.hasArg(OPT_fobjc_arc_exceptions);
-  Opts.NewMSEH = Args.hasArg(OPT_fnew_ms_eh);
   Opts.CXAAtExit = !Args.hasArg(OPT_fno_use_cxa_atexit);
   Opts.CXXCtorDtorAliases = Args.hasArg(OPT_mconstructor_aliases);
   Opts.CodeModel = getCodeModel(Args, Diags);
@@ -494,6 +477,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NoDwarfDirectoryAsm = Args.hasArg(OPT_fno_dwarf_directory_asm);
   Opts.SoftFloat = Args.hasArg(OPT_msoft_float);
   Opts.StrictEnums = Args.hasArg(OPT_fstrict_enums);
+  Opts.StrictVTablePointers = Args.hasArg(OPT_fstrict_vtable_pointers);
   Opts.UnsafeFPMath = Args.hasArg(OPT_menable_unsafe_fp_math) ||
                       Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
                       Args.hasArg(OPT_cl_fast_relaxed_math);
@@ -516,7 +500,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
 
   Opts.MergeFunctions = Args.hasArg(OPT_fmerge_functions);
 
-  Opts.PrepareForLTO = Args.hasArg(OPT_flto);
+  Opts.PrepareForLTO = Args.hasArg(OPT_flto, OPT_flto_EQ);
+  const Arg *A = Args.getLastArg(OPT_flto, OPT_flto_EQ);
+  Opts.EmitFunctionSummary = A && A->containsValue("thin");
 
   Opts.MSVolatile = Args.hasArg(OPT_fms_volatile);
 
@@ -1003,6 +989,9 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
 
   Opts.OverrideRecordLayoutsFile
     = Args.getLastArgValue(OPT_foverride_record_layout_EQ);
+  Opts.AuxTriple =
+      llvm::Triple::normalize(Args.getLastArgValue(OPT_aux_triple));
+
   if (const Arg *A = Args.getLastArg(OPT_arcmt_check,
                                      OPT_arcmt_modify,
                                      OPT_arcmt_migrate)) {
@@ -1337,7 +1326,7 @@ static Visibility parseVisibility(Arg *arg, ArgList &args,
   StringRef value = arg->getValue();
   if (value == "default") {
     return DefaultVisibility;
-  } else if (value == "hidden") {
+  } else if (value == "hidden" || value == "internal") {
     return HiddenVisibility;
   } else if (value == "protected") {
     // FIXME: diagnose if target does not support protected visibility
@@ -1432,6 +1421,12 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
   Opts.PermissiveArgs = Args.hasArg(OPT_fpermissive_args);
+  // CQ371729: Incompatible name mangling.
+  Opts.GNUMangling =
+      Args.hasFlag(OPT_gnu_mangling_for_simd_types,
+                   OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
+  Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
+                                           Opts.GNUFABIVersion, Diags);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
@@ -1485,11 +1480,17 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   if (Args.hasArg(OPT_fcuda_is_device))
     Opts.CUDAIsDevice = 1;
 
+  if (Args.hasArg(OPT_fcuda_uses_libdevice))
+    Opts.CUDAUsesLibDevice = 1;
+
   if (Args.hasArg(OPT_fcuda_allow_host_calls_from_host_device))
     Opts.CUDAAllowHostCallsFromHostDevice = 1;
 
   if (Args.hasArg(OPT_fcuda_disable_target_call_checks))
     Opts.CUDADisableTargetCallChecks = 1;
+
+  if (Args.hasArg(OPT_fcuda_target_overloads))
+    Opts.CUDATargetOverloads = 1;
 
   if (Opts.ObjC1) {
     if (Arg *arg = Args.getLastArg(OPT_fobjc_runtime_EQ)) {
@@ -1577,7 +1578,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   else if (Args.hasArg(OPT_fwrapv))
     Opts.setSignedOverflowBehavior(LangOptions::SOB_Defined);
 
-  Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);  //***INTEL
   Opts.MSVCCompat = Args.hasArg(OPT_fms_compatibility);
   Opts.MicrosoftExt = Opts.MSVCCompat || Args.hasArg(OPT_fms_extensions);
   Opts.AsmBlocks = Args.hasArg(OPT_fasm_blocks) || Opts.MicrosoftExt;
@@ -1622,6 +1622,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.RTTIData = Opts.RTTI && !Args.hasArg(OPT_fno_rtti_data);
   Opts.Blocks = Args.hasArg(OPT_fblocks);
   Opts.BlocksRuntimeOptional = Args.hasArg(OPT_fblocks_runtime_optional);
+  Opts.Coroutines = Args.hasArg(OPT_fcoroutines);
   Opts.Modules = Args.hasArg(OPT_fmodules);
   Opts.ModulesStrictDeclUse = Args.hasArg(OPT_fmodules_strict_decluse);
   Opts.ModulesDeclUse =
@@ -1640,6 +1641,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ShortWChar = Args.hasFlag(OPT_fshort_wchar, OPT_fno_short_wchar, false);
   Opts.ShortEnums = Args.hasArg(OPT_fshort_enums);
   Opts.Freestanding = Args.hasArg(OPT_ffreestanding);
+#ifdef INTEL_CUSTOMIZATION
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  Opts.FormatExtensions = Args.hasArg(OPT_fformat_extensions);
+#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif  // INTEL_CUSTOMIZATION
   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
   Opts.NoMathBuiltin = Args.hasArg(OPT_fno_math_builtin);
   Opts.AssumeSaneOperatorNew = !Args.hasArg(OPT_fno_assume_sane_operator_new);
@@ -1699,6 +1705,18 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.NativeHalfType |= Args.hasArg(OPT_fnative_half_type);
   Opts.HalfArgsAndReturns = Args.hasArg(OPT_fallow_half_arguments_and_returns);
   Opts.GNUAsm = !Args.hasArg(OPT_fno_gnu_inline_asm);
+
+  // __declspec is enabled by default for the PS4 by the driver, and also
+  // enabled for Microsoft Extensions or Borland Extensions, here.
+  //
+  // FIXME: __declspec is also currently enabled for CUDA, but isn't really a
+  // CUDA extension, however it is required for supporting cuda_builtin_vars.h,
+  // which uses __declspec(property). Once that has been rewritten in terms of
+  // something more generic, remove the Opts.CUDA term here.
+  Opts.DeclSpecKeyword =
+      Args.hasFlag(OPT_fdeclspec, OPT_fno_declspec,
+                   (Opts.MicrosoftExt || Opts.Borland ||      // INTEL
+                    Opts.CUDA || Opts.IntelCompat));          // INTEL
 
   if (!Opts.CurrentModule.empty() && !Opts.ImplementationOfModule.empty() &&
       Opts.CurrentModule != Opts.ImplementationOfModule) {
@@ -1778,6 +1796,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.FiniteMathOnly = Args.hasArg(OPT_ffinite_math_only) ||
       Args.hasArg(OPT_cl_finite_math_only) ||
       Args.hasArg(OPT_cl_fast_relaxed_math);
+  Opts.UnsafeFPMath = Args.hasArg(OPT_menable_unsafe_fp_math) ||
+                      Args.hasArg(OPT_cl_unsafe_math_optimizations) ||
+                      Args.hasArg(OPT_cl_fast_relaxed_math);
 
   Opts.RetainCommentsFromSystemHeaders =
       Args.hasArg(OPT_fretain_comments_from_system_headers);
@@ -2058,8 +2079,8 @@ void ModuleSignature::flush() {
 }
 
 void ModuleSignature::add(StringRef Value) {
-  for (StringRef::iterator I = Value.begin(), IEnd = Value.end(); I != IEnd;++I)
-    add(*I, 8);
+  for (auto &c : Value)
+    add(c, 8);
 }
 
 llvm::APInt ModuleSignature::getAsInteger() const {

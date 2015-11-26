@@ -26,11 +26,14 @@
 #include "polly/LinkAllPasses.h"
 #include "polly/ScopInfo.h"
 #include "polly/Support/ScopHelper.h"
-#include "polly/TempScopInfo.h"
+#include "llvm/Analysis/AliasAnalysis.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Analysis/PostDominators.h"
 
 using namespace polly;
 using namespace llvm;
@@ -56,9 +59,6 @@ public:
   ScalarEvolution *SE;
   RegionInfo *RI;
   ///}
-
-  /// @brief The loop annotator to generate llvm.loop metadata.
-  ScopAnnotator Annotator;
 
   /// @brief Build the runtime condition.
   ///
@@ -105,6 +105,7 @@ public:
     }
   }
 
+  /// @brief Generate LLVM-IR for the SCoP @p S.
   bool runOnScop(Scop &S) override {
     AI = &getAnalysis<IslAstInfo>();
 
@@ -121,6 +122,7 @@ public:
     Region *R = &S.getRegion();
     assert(!R->isTopLevelRegion() && "Top level regions are not supported");
 
+    ScopAnnotator Annotator;
     Annotator.buildAliasScopes(S);
 
     simplifyRegion(R, DT, LI, RI);
@@ -140,10 +142,17 @@ public:
     BasicBlock *StartBlock =
         executeScopConditionally(S, this, Builder.getTrue());
     auto SplitBlock = StartBlock->getSinglePredecessor();
+
+    // First generate code for the hoisted invariant loads and transitively the
+    // parameters they reference. Afterwards, for the remaining parameters that
+    // might reference the hoisted loads. Finally, build the runtime check
+    // that might reference both hoisted loads as well as parameters.
     Builder.SetInsertPoint(SplitBlock->getTerminator());
+    NodeBuilder.preloadInvariantLoads();
     NodeBuilder.addParameters(S.getContext());
+
     Value *RTC = buildRTC(Builder, NodeBuilder.getExprBuilder());
-    SplitBlock->getTerminator()->setOperand(0, RTC);
+    Builder.GetInsertBlock()->getTerminator()->setOperand(0, RTC);
     Builder.SetInsertPoint(StartBlock->begin());
 
     NodeBuilder.create(AstRoot);
@@ -156,8 +165,7 @@ public:
     return true;
   }
 
-  void printScop(raw_ostream &, Scop &) const override {}
-
+  /// @brief Register all analyses and transformation required.
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.addRequired<DominatorTreeWrapperPass>();
     AU.addRequired<IslAstInfo>();
@@ -169,19 +177,21 @@ public:
 
     AU.addPreserved<DependenceInfo>();
 
+    AU.addPreserved<AAResultsWrapperPass>();
+    AU.addPreserved<BasicAAWrapperPass>();
     AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<GlobalsAAWrapperPass>();
     AU.addPreserved<PostDominatorTree>();
     AU.addPreserved<IslAstInfo>();
     AU.addPreserved<ScopDetection>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
+    AU.addPreserved<SCEVAAWrapperPass>();
 
     // FIXME: We do not yet add regions for the newly generated code to the
     //        region tree.
     AU.addPreserved<RegionInfoPass>();
-    AU.addPreserved<TempScopInfo>();
     AU.addPreserved<ScopInfo>();
-    AU.addPreservedID(IndependentBlocksID);
   }
 };
 }
