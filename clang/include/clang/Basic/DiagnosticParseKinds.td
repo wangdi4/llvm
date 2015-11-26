@@ -199,6 +199,11 @@ def err_invalid_token_after_toplevel_declarator : Error<
 def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_expected_statement :
+  Warning<err_expected_statement.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
 def err_expected_punc : Error<"expected ')' or ',' after '%0'">;
@@ -255,6 +260,11 @@ def note_force_empty_selector_name : Note<
   "and have an empty entry in the selector">;
 def err_label_end_of_compound_statement : Error<
   "label at end of compound statement: expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_label_end_of_compound_statement :
+  Warning<err_label_end_of_compound_statement.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_address_of_label_outside_fn : Error<
   "use of address-of-label extension outside of a function body">;
 def err_asm_operand_wide_string_literal : Error<

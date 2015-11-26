@@ -739,6 +739,13 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributesWithRange &attrs) {
       Diag(Tok, diag::err_expected_after) << "__attribute__" << tok::semi;
     }
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#370084: allow label without statement just before '}'.
+  if (getLangOpts().IntelCompat && Tok.is(tok::r_brace)) {
+    Diag(ColonLoc, diag::warn_expected_statement);
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we've not parsed a statement yet, parse one now.
   if (!SubStmt.isInvalid() && !SubStmt.isUsable())
@@ -891,6 +898,14 @@ StmtResult Parser::ParseCaseStatement(bool MissingCase, ExprResult Expr) {
 
   if (Tok.isNot(tok::r_brace)) {
     SubStmt = ParseStatement();
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
+    // CQ#370084: allow label without statement just before '}'.
+    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+    Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Nicely diagnose the common error "switch (X) { case 4: }", which is
     // not valid.  If ColonLoc doesn't point to a valid text location, there was
@@ -947,6 +962,13 @@ StmtResult Parser::ParseDefaultStatement() {
     // Diagnose the common error "switch (X) {... default: }", which is
     // not valid.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+#if INTEL_CUSTOMIZATION
+    // CQ#370084: allow label without statement just before '}'.
+    if (getLangOpts().IntelCompat)
+      Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(AfterColonLoc, diag::err_label_end_of_compound_statement)
       << FixItHint::CreateInsertion(AfterColonLoc, " ;");
     SubStmt = true;
