@@ -499,6 +499,11 @@ def err_expected_field_designator : Error<
 
 def err_declaration_does_not_declare_param : Error<
   "declaration does not declare a parameter">;
+// if INTEL_CUSTOMIZATION
+// CQ#373127
+def warn_declaration_does_not_declare_param : Warning<
+  err_declaration_does_not_declare_param.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_no_matching_param : Error<"parameter named %0 is missing">;
 
 /// C++ parser diagnostics

@@ -1275,6 +1275,12 @@ void Parser::ParseKNRParamDeclarations(Declarator &D) {
     // the declarations though.  It's trivial to ignore them, really hard to do
     // anything else with them.
     if (TryConsumeToken(tok::semi)) {
+#if INTEL_CUSTOMIZATION
+      //CQ#373127: allow compilation with empty declaration in IntelCompat mode.
+      if (getLangOpts().IntelCompat)
+        Diag(DSStart, diag::warn_declaration_does_not_declare_param);
+      else
+#endif //INTEL_CUSTOMIZATION
       Diag(DSStart, diag::err_declaration_does_not_declare_param);
       continue;
     }
