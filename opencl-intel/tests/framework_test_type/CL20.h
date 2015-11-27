@@ -19,6 +19,10 @@ protected:
 
     void DoubleSetDefaultCommandQueue();
 
+    void clSVMMap_FINE_GRAIN();
+
+    void clSVMUnmap_FINE_GRAIN();
+
     void Init()
     {
 //        ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_0, ::CL_base::GetOCLVersion()) <<
