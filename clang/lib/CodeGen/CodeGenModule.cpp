@@ -90,11 +90,11 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
       VMContext(M.getContext()), TBAA(nullptr), TheTargetCodeGenInfo(nullptr),
       Types(*this), VTables(*this), ObjCRuntime(nullptr),
       OpenCLRuntime(nullptr), OpenMPRuntime(nullptr), CUDARuntime(nullptr),
+      DebugInfo(nullptr), ObjCData(nullptr),
+      NoObjCARCExceptionsMetadata(nullptr), PGOReader(nullptr),
 #ifdef INTEL_CUSTOMIZATION
       CilkPlusRuntime(nullptr),
 #endif  // INTEL_CUSTOMIZATION
-      DebugInfo(nullptr), ObjCData(nullptr),
-      NoObjCARCExceptionsMetadata(nullptr), PGOReader(nullptr),
       CFConstantStringClassRef(nullptr), ConstantStringClassRef(nullptr),
       NSConstantStringType(nullptr), NSConcreteGlobalBlock(nullptr),
       NSConcreteStackBlock(nullptr), BlockObjectAssign(nullptr),

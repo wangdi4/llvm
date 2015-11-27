@@ -3299,7 +3299,7 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
     QualType Ty;
     if (Literal.isFloat)
       Ty = Context.FloatTy;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     else if (Literal.isFloat128)
       Ty = Context.Float128Ty;
 #endif  // INTEL_CUSTOMIZATION
@@ -4502,7 +4502,7 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       else
         Diag(Args[NumParams]->getLocStart(),
              MinArgs == NumParams
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
                  // CQ#364630 - in case of too many arguments emit an extension
                  // warning in IntelCompat mode instead of an error.
                  ? (getLangOpts().IntelCompat
@@ -4524,7 +4524,7 @@ Sema::ConvertArgumentsForCall(CallExpr *Call, Expr *Fn,
       
       // This deletes the extra arguments.
       Call->setNumArgs(Context, NumParams);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#364630 - don't consider this an error in IntelCompat mode.
       if (!getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
@@ -9459,7 +9459,7 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
     NeedType = true;
     break;
   case Expr::MLV_LValueCast:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to be used
     // as lvalues, as long as the size of the object is not lengthened through
     // the cast.
@@ -10430,7 +10430,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
       VK = RHS.get()->getValueKind();
       OK = RHS.get()->getObjectKind();
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // Processing for CEAN
     if (!LHS.isInvalid()) {
       ActOnStartCEANExpr(Sema::FullCEANAllowed);
@@ -10457,7 +10457,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
                             LHS.get()->getLocEnd());
       }
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     break;
   }
   if (ResultTy.isNull() || LHS.isInvalid() || RHS.isInvalid())
@@ -10774,7 +10774,7 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
         return BuildOverloadedBinOp(*this, S, OpLoc, Opc, LHSExpr, RHSExpr);
     }
         
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ373962: taking address of overloaded functions.
     if (getLangOpts().IntelCompat && getLangOpts().CPlusPlus &&
         !getLangOpts().ObjC1 && !getLangOpts().ObjC2 &&
@@ -10813,7 +10813,7 @@ ExprResult Sema::BuildBinOp(Scope *S, SourceLocation OpLoc,
         LHSExpr->getType()->isOverloadableType())
       return BuildOverloadedBinOp(*this, S, OpLoc, Opc, LHSExpr, RHSExpr);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ373962: taking address of overloaded functions.
     if (getLangOpts().IntelCompat && getLangOpts().CPlusPlus &&
         !getLangOpts().ObjC1 && !getLangOpts().ObjC2 &&
@@ -12343,10 +12343,10 @@ Sema::PushExpressionEvaluationContext(ExpressionEvaluationContext NewContext,
   ExprNeedsCleanups = false;
   if (!MaybeODRUseExprs.empty())
     std::swap(MaybeODRUseExprs, ExprEvalContexts.back().SavedMaybeODRUseExprs);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (!CilkSpawnCalls.empty())
     std::swap(CilkSpawnCalls, ExprEvalContexts.back().SavedCilkSpawnCalls);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void
@@ -12404,10 +12404,10 @@ void Sema::PopExpressionEvaluationContext() {
     MaybeODRUseExprs.insert(Rec.SavedMaybeODRUseExprs.begin(),
                             Rec.SavedMaybeODRUseExprs.end());
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Restore Cilk spawn calls into the current evaluation context.
   CilkSpawnCalls.swap(Rec.SavedCilkSpawnCalls);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Pop the current expression evaluation context off the stack.
   ExprEvalContexts.pop_back();
 
@@ -12424,9 +12424,9 @@ void Sema::DiscardCleanupsInEvaluationContext() {
          ExprCleanupObjects.end());
   ExprNeedsCleanups = false;
   MaybeODRUseExprs.clear();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   CilkSpawnCalls.clear();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 ExprResult Sema::HandleExprEvaluationContextForTypeof(Expr *E) {
@@ -12692,7 +12692,7 @@ diagnoseUncapturableValueReference(Sema &S, SourceLocation loc,
   // FIXME: Add additional diagnostic info about class etc. which prevents
   // capture.
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 // Build a VarDecl to copy-construct the Cilk for loop control variable,
 // which will be captured by copy or by reference.
 //
@@ -12929,7 +12929,7 @@ static void buildSIMDLocalVariable(Sema &S, SIMDForScopeInfo *FSI,
   } else
     FSI->SetInvalid(Var);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 static bool isVariableAlreadyCapturedInScopeInfo(CapturingScopeInfo *CSI, VarDecl *Var, 
                                       bool &SubCapturesAreNested,
                                       QualType &CaptureType, 
@@ -13161,7 +13161,7 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
     // Actually capture the variable.
     RSI->addCapture(Var, /*isBlock*/false, ByRef, RefersToCapturedVariable, Loc,
                     SourceLocation(), CaptureType, CopyExpr);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // Only build for a Cilk for.
     if (CilkForScopeInfo *CFSI = dyn_cast<CilkForScopeInfo>(RSI))
       buildInnerLoopControlVar(S, CFSI, Var, Field);
@@ -13169,7 +13169,7 @@ static bool captureInCapturedRegion(CapturedRegionScopeInfo *RSI,
     // Build local variables from SIMD for clauses.
     if (SIMDForScopeInfo *FSI = dyn_cast<SIMDForScopeInfo>(RSI))
       buildSIMDLocalVariable(S, FSI, Var);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   }
   return true;
 }
@@ -13326,7 +13326,7 @@ bool Sema::tryCaptureVariable(
   // Capture global variables if it is required to use private copy of this
   // variable
   bool IsGlobal = !Var->hasLocalStorage();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // If this is nested in a simd loop. This is used to make sure that globals
   // can be captured and used in lambdas which are nested in a SIMD for loop.
   // If SIMDIndex is larger than 0, this variable is nested in a SIMD for loop.
@@ -13340,12 +13340,12 @@ bool Sema::tryCaptureVariable(
         break;
       }
     if (SIMDIndex == 0)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (IsGlobal && !(LangOpts.OpenMP && IsOpenMPCapturedVar(Var)))
     return true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // Walk up the stack to determine whether we can capture the variable,
   // performing the "simple" checks that don't depend on type. We stop when
@@ -13578,7 +13578,7 @@ bool Sema::tryCaptureVariable(
       }
       return true;
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     if (SIMDIndex && FunctionScopesIndex == SIMDIndex) {
       // This is the SIMD for loop which has a data clause that needs to capture
       // a static or global variable.
@@ -13588,7 +13588,7 @@ bool Sema::tryCaptureVariable(
       FunctionScopesIndex--;
       break;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     FunctionScopesIndex--;
     DC = ParentDC;
     Explicit = false;

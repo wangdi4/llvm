@@ -74,11 +74,6 @@ def ext_unterminated_char : ExtWarn<"missing terminating ' character">,
 def ext_empty_character : ExtWarn<"empty character constant">,
   InGroup<InvalidPPToken>;
 def err_unterminated_block_comment : Error<"unterminated /* comment">;
-//if INTEL_CUSTOMIZATION
-// CQ#368194 - emit a warning, not an error on unterminated block comment.
-def warn_unterminated_block_comment : Warning<
-  err_unterminated_block_comment.Text>, InGroup<Comment>;
-//endif INTEL_CUSTOMIZATION
 def err_invalid_character_to_charify : Error<
   "invalid argument to convert to character">;
 def err_unterminated___pragma : Error<"missing terminating ')' character">;
@@ -166,11 +161,6 @@ def err_invalid_suffix_integer_constant : Error<
   "invalid suffix '%0' on integer constant">;
 def err_invalid_suffix_float_constant : Error<
   "invalid suffix '%0' on floating constant">;
-// CQ#369184
-// if INTEL_CUSTOMIZATION
-def err_decimal_ext_unsupported : Error<
-  "GNU decimal type extension not supported">;
-// endif INTEL_CUSTOMIZATION
 def warn_cxx11_compat_digit_separator : Warning<
   "digit separators are incompatible with C++ standards before C++14">,
   InGroup<CXXPre14Compat>, DefaultIgnore;
@@ -392,12 +382,6 @@ def err_pp_duplicate_name_in_arg_list : Error<
 def err_pp_stringize_not_parameter : Error<
   "'#' is not followed by a macro parameter">;
 def err_pp_malformed_ident : Error<"invalid #ident directive">;
-// ifdef INTEL_CUSTOMIZATION
-// CQ#372653.
-def warn_pp_malformed_ident :
-  Warning<"invalid #ident directive will be ignored">,
-  InGroup<IntelCompat>;
-// endif
 def err_pp_unterminated_conditional : Error<
   "unterminated conditional directive">;
 def pp_err_else_after_else : Error<"#else after #else">;
@@ -466,12 +450,6 @@ def err__Pragma_malformed : Error<
   "_Pragma takes a parenthesized string literal">;
 def err_pragma_message_malformed : Error<
   "pragma %select{message|warning|error}0 requires parenthesized string">;
-// CQ#367740
-// if INTEL_CUSTOMIZATION
-def warn_pragma_message_malformed : Warning<
-  "pragma %select{message|warning|error}0 requires parenthesized string">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_pragma_push_pop_macro_malformed : Error<
    "pragma %0 requires a parenthesized string">;
 def warn_pragma_pop_macro_no_push : Warning<
@@ -530,14 +508,6 @@ def note_init_list_at_beginning_of_macro_argument : Note<
   "cannot use initializer list at the beginning of a macro argument">;
 def err_too_few_args_in_macro_invoc : Error<
   "too few arguments provided to function-like macro invocation">;
-// if INTEL_CUSTOMIZATION
-def warn_too_few_args_in_macro_invoc : Warning<
-  "too few arguments provided to function-like macro invocation">,
-  InGroup<IntelCompat>;
-def warn_missing_fnmacro_args_replaced_by_empty : Warning<
-  "%0 missing macro argument%s0 treated as empty string%s0">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_pp_bad_paste : Error<
   "pasting formed '%0', an invalid preprocessing token">;
 def ext_pp_bad_paste_ms : ExtWarn<
@@ -556,11 +526,6 @@ def ext_pp_line_zero : Extension<
   InGroup<GNUZeroLineDirective>;
 def err_pp_line_invalid_filename : Error<
   "invalid filename for #line directive">;
-// ifdef INTEL_CUSTOMIZATION
-def warn_pp_line_invalid_filename : Warning<
-  "expected a file name">,
-  InGroup<UnknownPragmas>;
-// endif INTEL_CUSTOMIZATION
 def warn_pp_line_decimal : Warning<
   "%select{#line|GNU line marker}0 directive interprets number as decimal, not octal">;
 def err_pp_line_digit_sequence : Error<

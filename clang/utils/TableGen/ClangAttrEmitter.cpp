@@ -56,6 +56,26 @@ public:
 };
 } // end anonymous namespace
 
+#if INTEL_CUSTOMIZATION
+enum IntelSpecific { ICUSTOMIZATION = 1, ISILKPLUS = 2, IIL0BACKEND = 4 };
+
+static bool DisallowedAttr(const Record *Attr) {
+  int ISpecific = ICUSTOMIZATION; // We support INTEL_CUSTOMIZATION by default
+#if INTEL_SPECIFIC_CILKPLUS
+  ISpecific |= ISILKPLUS;
+#endif // INTEL_SPECIFIC_CILKPLUS
+#ifdef INTEL_SPECIFIC_IL0_BACKEND
+  ISpecific |= IIL0BACKEND;
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+
+  int Requires = ICUSTOMIZATION; // We support INTEL_CUSTOMIZATION by default
+  if (Attr->getValue("Requires")) {
+    Requires = Attr->getValueAsInt("Requires");
+  }
+  return !(Requires == (Requires & ISpecific));
+}
+#endif // INTEL_CUSTOMIZATION
+
 static std::vector<FlattenedSpelling>
 GetFlattenedSpellings(const Record &Attr) {
   std::vector<Record *> Spellings = Attr.getValueAsListOfDefs("Spellings");
@@ -81,7 +101,7 @@ static std::string ReadPCHRecord(StringRef type) {
     .Case("TypeSourceInfo *", "GetTypeSourceInfo(F, Record, Idx)")
     .Case("Expr *", "ReadExpr(F)")
     .Case("IdentifierInfo *", "GetIdentifierInfo(F, Record, Idx)")
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     .Case("SourceLocation", "ReadSourceLocation(F, Record, Idx)")
 #endif  // INTEL_CUSTOMIZATION
     .Case("std::string", "ReadString(Record, Idx)")
@@ -98,7 +118,7 @@ static std::string WritePCHRecord(StringRef type, StringRef name) {
     .Case("Expr *", "AddStmt(" + std::string(name) + ");\n")
     .Case("IdentifierInfo *", 
           "AddIdentifierRef(" + std::string(name) + ", Record);\n")
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     .Case("SourceLocation",
           "AddSourceLocation(" + std::string(name) + ", Record);\n")
 #endif  // INTEL_CUSTOMIZATION
@@ -145,6 +165,10 @@ static ParsedAttrMap getParsedAttrList(const RecordKeeper &Records,
   std::set<std::string> Seen;
   ParsedAttrMap R;
   for (const auto *Attr : Attrs) {
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     if (Attr->getValueAsBit("SemaHandler")) {
       std::string AN;
       if (Attr->isSubClassOf("TargetSpecificAttr") &&
@@ -273,7 +297,7 @@ namespace {
         OS << "\" << get" << getUpperName() << "()->getName() << \"";
       } else if (type == "TypeSourceInfo *") {
         OS << "\" << get" << getUpperName() << "().getAsString() << \"";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       } else if (type == "SourceLocation") {
         OS << "\" << get" << getUpperName() << "().getRawEncoding() << \"";
 #endif  // INTEL_CUSTOMIZATION
@@ -291,7 +315,7 @@ namespace {
       } else if (type == "TypeSourceInfo *") {
         OS << "    OS << \" \" << SA->get" << getUpperName()
            << "().getAsString();\n";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       } else if (type == "SourceLocation") {
         OS << "    OS << \" \";\n";
         OS << "    SA->get" << getUpperName() << "().print(OS, *SM);\n";
@@ -942,7 +966,7 @@ namespace {
     }
     void writeHasChildren(raw_ostream &OS) const override { OS << "true"; }
   };
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   class CheckedExprArgument : public SimpleArgument {
   public:
     CheckedExprArgument(const Record &Arg, StringRef Attr)
@@ -1105,7 +1129,7 @@ createArgument(const Record &Arg, StringRef Attr,
     Ptr = llvm::make_unique<TypeArgument>(Arg, Attr);
   else if (ArgName == "UnsignedArgument")
     Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "unsigned");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   else if (ArgName == "SourceLocArgument")
     Ptr = llvm::make_unique<SimpleArgument>(Arg, Attr, "SourceLocation");
   else if (ArgName == "CheckedExprArgument")
@@ -1213,9 +1237,9 @@ writePrettyPrintFunction(Record &R,
       Prefix = " __declspec(";
       Suffix = ")";
     } else if (Variety == "Keyword"
-#ifdef INTEL_CUSTOMIZATION
-                || Variety == "CilkKeyword"
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+               || Variety == "CilkKeyword"
+#endif  // INTEL_SPECIFIC_CILKPLUS
               ) {
       Prefix = " ";
       Suffix = "";
@@ -1257,7 +1281,7 @@ writePrettyPrintFunction(Record &R,
       writeAvailabilityValue(OS);
     } else {
       for (auto I = Args.begin(), E = Args.end(); I != E; ++ I) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // Fix for CQ368132: __declspec (align) in icc can take more than one
         // argument.
         if (I != Args.begin() && R.getName() == "Aligned") {
@@ -1492,11 +1516,11 @@ static void emitClangAttrIdentifierArgList(RecordKeeper &Records, raw_ostream &O
 
     // All these spellings take an identifier argument.
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*Attr);
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
     std::set<std::string> Emitted;
 #endif
     for (const auto &S : Spellings) {
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
       if (Emitted.insert(S.name()).second)
         OS << ".Case(\"" << S.name() << "\", " << "true" << ")\n";
 #else
@@ -1546,6 +1570,11 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
       if (R.getName() != "TargetSpecificAttr" && SuperName.empty())
         SuperName = R.getName();
     }
+
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     OS << "class " << R.getName() << "Attr : public " << SuperName << " {\n";
 
@@ -1697,7 +1726,7 @@ void EmitClangAttrClass(RecordKeeper &Records, raw_ostream &OS) {
     OS << "  static bool classof(const Attr *A) { return A->getKind() == "
        << "attr::" << R.getName() << "; }\n";
 
-    OS << "};\n\n";
+    OS << "};\n"; // INTEL
   }
 
   OS << "#endif\n";
@@ -1714,6 +1743,11 @@ void EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
     
     if (!R.getValueAsBit("ASTNode"))
       continue;
+
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     std::vector<Record*> ArgRecords = R.getValueAsListOfDefs("Args");
     std::vector<std::unique_ptr<Argument>> Args;
@@ -1748,6 +1782,10 @@ void EmitClangAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
       const Record &R = *Attr;
       if (!R.getValueAsBit("ASTNode"))
         continue;
+#if INTEL_CUSTOMIZATION
+      if (DisallowedAttr(Attr))
+        continue;
+#endif // INTEL_CUSTOMIZATION
 
       OS << "  case attr::" << R.getName() << ":\n";
       OS << "    return cast<" << R.getName() << "Attr>(this)->" << Method
@@ -1840,6 +1878,10 @@ void EmitClangAttrList(RecordKeeper &Records, raw_ostream &OS) {
   for (auto *Attr : Attrs) {
     if (!Attr->getValueAsBit("ASTNode"))
       continue;
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
 
     if (AttrHasPragmaSpelling(Attr))
       PragmaAttrs.push_back(Attr);
@@ -1882,7 +1924,10 @@ void EmitClangAttrPCHRead(RecordKeeper &Records, raw_ostream &OS) {
     const Record &R = *Attr;
     if (!R.getValueAsBit("ASTNode"))
       continue;
-    
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "  case attr::" << R.getName() << ": {\n";
     if (R.isSubClassOf(InhClass))
       OS << "    bool isInherited = Record[Idx++];\n";
@@ -1924,6 +1969,10 @@ void EmitClangAttrPCHWrite(RecordKeeper &Records, raw_ostream &OS) {
     const Record &R = *Attr;
     if (!R.getValueAsBit("ASTNode"))
       continue;
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "  case attr::" << R.getName() << ": {\n";
     Args = R.getValueAsListOfDefs("Args");
     if (R.isSubClassOf(InhClass) || !Args.empty())
@@ -2064,6 +2113,10 @@ void EmitClangAttrHasAttrImpl(RecordKeeper &Records, raw_ostream &OS) {
   // Walk over the list of all attributes, and split them out based on the
   // spelling variety.
   for (auto *R : Attrs) {
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(R))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     std::vector<FlattenedSpelling> Spellings = GetFlattenedSpellings(*R);
     for (const auto &SI : Spellings) {
       std::string Variety = SI.variety();
@@ -2132,9 +2185,9 @@ void EmitClangAttrSpellingListIndex(RecordKeeper &Records, raw_ostream &OS) {
                 .Case("Declspec", 2)
                 .Case("Keyword", 3)
                 .Case("Pragma", 4)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
                 .Case("CilkKeyword", 5)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
                 .Default(0)
          << " && Scope == \"" << Spellings[I].nameSpace() << "\")\n"
          << "        return " << I << ";\n";
@@ -2162,6 +2215,10 @@ void EmitClangAttrASTVisitor(RecordKeeper &Records, raw_ostream &OS) {
     const Record &R = *Attr;
     if (!R.getValueAsBit("ASTNode"))
       continue;
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "  bool Traverse"
        << R.getName() << "Attr(" << R.getName() << "Attr *A);\n";
     OS << "  bool Visit"
@@ -2177,6 +2234,10 @@ void EmitClangAttrASTVisitor(RecordKeeper &Records, raw_ostream &OS) {
     if (!R.getValueAsBit("ASTNode"))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "template <typename Derived>\n"
        << "bool VISITORCLASS<Derived>::Traverse"
        << R.getName() << "Attr(" << R.getName() << "Attr *A) {\n"
@@ -2190,7 +2251,7 @@ void EmitClangAttrASTVisitor(RecordKeeper &Records, raw_ostream &OS) {
       createArgument(*Arg, R.getName())->writeASTVisitorTraversal(OS);
 
     OS << "  return true;\n";
-    OS << "}\n\n";
+    OS << "}\n"; // INTEL
   }
 
   // Write generic Traverse routine
@@ -2208,6 +2269,10 @@ void EmitClangAttrASTVisitor(RecordKeeper &Records, raw_ostream &OS) {
     if (!R.getValueAsBit("ASTNode"))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "    case attr::" << R.getName() << ":\n"
        << "      return getDerived().Traverse" << R.getName() << "Attr("
        << "cast<" << R.getName() << "Attr>(A));\n";
@@ -2237,6 +2302,10 @@ void EmitClangAttrTemplateInstantiate(RecordKeeper &Records, raw_ostream &OS) {
     if (!R.getValueAsBit("ASTNode"))
       continue;
 
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "    case attr::" << R.getName() << ": {\n";
     bool ShouldClone = R.getValueAsBit("Clone");
 
@@ -2748,14 +2817,19 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
 
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::vector<StringMatcher::StringPair> GNU, Declspec, CXX11, Keywords, Pragma
-#ifdef INTEL_CUSTOMIZATION
-      , CilkKeywords
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+      ,
+      CilkKeywords
+#endif // INTEL_SPECIFIC_CILKPLUS
     ;
   std::set<std::string> Seen;
   for (const auto *A : Attrs) {
     const Record &Attr = *A;
 
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(A))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     bool SemaHandler = Attr.getValueAsBit("SemaHandler");
     bool Ignored = Attr.getValueAsBit("Ignored");
     if (SemaHandler || Ignored) {
@@ -2794,10 +2868,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
           Matches = &Declspec;
         else if (Variety == "Keyword")
           Matches = &Keywords;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         else if (Variety == "CilkKeyword")
           Matches = &CilkKeywords;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         else if (Variety == "Pragma")
           Matches = &Pragma;
 
@@ -2825,10 +2899,10 @@ void EmitClangAttrParsedAttrKinds(RecordKeeper &Records, raw_ostream &OS) {
   OS << "  } else if (AttributeList::AS_Keyword == Syntax || ";
   OS << "AttributeList::AS_ContextSensitiveKeyword == Syntax) {\n";
   StringMatcher("Name", Keywords, OS).Emit();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   OS << "  } else if (AttributeList::AS_CilkKeyword == Syntax) {\n";
   StringMatcher("Name", CilkKeywords, OS).Emit();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   OS << "  } else if (AttributeList::AS_Pragma == Syntax) {\n";
   StringMatcher("Name", Pragma, OS).Emit();
   OS << "  }\n";
@@ -2850,6 +2924,10 @@ void EmitClangAttrDump(RecordKeeper &Records, raw_ostream &OS) {
     const Record &R = *Attr;
     if (!R.getValueAsBit("ASTNode"))
       continue;
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(Attr))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     OS << "  case attr::" << R.getName() << ": {\n";
 
     // If the attribute has a semantically-meaningful name (which is determined
@@ -2913,9 +2991,10 @@ enum SpellingKind {
   Declspec = 1 << 2,
   Keyword = 1 << 3,
   Pragma = 1 << 4
-#ifdef INTEL_CUSTOMIZATION
-  , CilkKeyword = 1 << 5
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+  ,
+  CilkKeyword = 1 << 5
+#endif // INTEL_SPECIFIC_CILKPLUS
 };
 
 static void WriteDocumentation(const DocumentationData &Doc,
@@ -2965,9 +3044,9 @@ static void WriteDocumentation(const DocumentationData &Doc,
                             .Case("Declspec", Declspec)
                             .Case("Keyword", Keyword)
                             .Case("Pragma", Pragma)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
                             .Case("CilkKeyword", CilkKeyword)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       ;
 
     // Mask in the supported spelling.
@@ -3004,9 +3083,9 @@ static void WriteDocumentation(const DocumentationData &Doc,
   // List what spelling syntaxes the attribute supports.
   OS << ".. csv-table:: Supported Syntaxes\n";
   OS << "   :header: \"GNU\", \"C++11\", \"__declspec\", \"Keyword\"";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   OS <<	", \"CilkKeyword\"";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   OS << " \"Pragma\"\n\n";
   OS << "   \"";
   if (SupportedSpellings & GNU) OS << "X";
@@ -3019,10 +3098,10 @@ static void WriteDocumentation(const DocumentationData &Doc,
   OS << "\", \"";
   if (SupportedSpellings & Pragma) OS << "X";
   OS << "\"\n\n";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (SupportedSpellings & CilkKeyword) OS << "X";
   OS << "\", \"";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // If the attribute is deprecated, print a message about it, and possibly
   // provide a replacement attribute.
   if (!Doc.Documentation->isValueUnset("Deprecated")) {
@@ -3059,6 +3138,10 @@ void EmitClangAttrDocs(RecordKeeper &Records, raw_ostream &OS) {
   std::vector<Record *> Attrs = Records.getAllDerivedDefinitions("Attr");
   std::map<const Record *, std::vector<DocumentationData>> SplitDocs;
   for (const auto *A : Attrs) {
+#if INTEL_CUSTOMIZATION
+    if (DisallowedAttr(A))
+      continue;
+#endif // INTEL_CUSTOMIZATION
     const Record &Attr = *A;
     std::vector<Record *> Docs = Attr.getValueAsListOfDefs("Documentation");
     for (const auto *D : Docs) {

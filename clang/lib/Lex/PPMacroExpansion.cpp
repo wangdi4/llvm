@@ -335,7 +335,7 @@ void Preprocessor::RegisterBuiltinMacros() {
     Ident__building_module = nullptr;
     Ident__MODULE__ = nullptr;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   Ident__pragma = RegisterBuiltinMacro(*this, "__pragma");
 #endif  // INTEL_CUSTOMIZATION
 }
@@ -937,7 +937,7 @@ MacroArgs *Preprocessor::ReadFunctionLikeMacroArgs(Token &MacroName,
       //  A(x) B(x) C()
       isVarargsElided = true;
     } else if (!ContainsCodeCompletionTok) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#365448 - allow passing less arguments to function-like macro,
       // replacing missing arguments with empty strings and emit a warning.
       if (getLangOpts().IntelMSCompat) {
@@ -954,7 +954,7 @@ MacroArgs *Preprocessor::ReadFunctionLikeMacroArgs(Token &MacroName,
       Diag(MI->getDefinitionLoc(), diag::note_macro_here)
         << MacroName.getIdentifierInfo();
       return nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
     }
@@ -967,7 +967,7 @@ MacroArgs *Preprocessor::ReadFunctionLikeMacroArgs(Token &MacroName,
     Tok.setLength(0);
     ArgTokens.push_back(Tok);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#365448 - add empty tokens for all missing arguments in IntelMSCompat.
     // Note that one empty token was already added at the previous line.
     if (getLangOpts().IntelMSCompat)
@@ -1187,7 +1187,7 @@ static bool HasFeature(const Preprocessor &PP, const IdentifierInfo *II) {
       .Case("cxx_unrestricted_unions", LangOpts.CPlusPlus11)
       .Case("cxx_user_literals", LangOpts.CPlusPlus11)
       .Case("cxx_variadic_templates", LangOpts.CPlusPlus11)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369185 - support of __bases and __direct_bases intrinsics.
       .Case("bases", LangOpts.CPlusPlus11)
       .Case("direct_bases", LangOpts.CPlusPlus11)

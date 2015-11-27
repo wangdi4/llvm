@@ -78,7 +78,7 @@ namespace clang {
   /// number, the repository version, and the vendor tag.
   std::string getClangFullCPPVersion();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   /// \brief Retrieves a string representing the complete clang version suitable
   /// for use in the CPP __VERSION__ macro, which includes the clang version

@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -ferror-limit 0 -verify %s
+// REQUIRES: cilkplus
 
 namespace X {
   int x;

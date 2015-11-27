@@ -99,19 +99,7 @@ def note_decl_hiding_tag_type : Note<
   "%1 %0 is hidden by a non-type declaration of %0 here">;
 def err_attribute_not_type_attr : Error<
   "%0 attribute cannot be applied to types">;
-// CQ#370092
-//#ifdef INTEL_CUSTOMIZATION
-def warn_attribute_not_type_attr : Warning<
-  "%0 attribute cannot be applied to types">,
-  InGroup<IgnoredAttributes>;
-//#endif  // INTEL_CUSTOMIZATION
 def err_enum_template : Error<"enumeration cannot be a template">;
-//#ifdef INTEL_CUSTOMIZATION
-def err_pragma_simd_expected_for_loop : Error<
-  "expected for statement following '#pragma simd'">;
-def err_pragma_simd_invalid_linear_var : Error<
-  "invalid linear variable">;
-//#endif  // INTEL_CUSTOMIZATION
 }
 
 let CategoryName = "Nullability Issue" in {
@@ -211,23 +199,6 @@ def err_unable_to_make_temp : Error<
 // Modules
 def err_module_format_unhandled : Error<
   "no handler registered for module format '%0'">, DefaultFatal;
-
-//#ifdef INTEL_SPECIFIC_IL0_BACKEND
-// Parse && Sema
-def x_warn_intel_pragma_wrong_place : Warning<"this pragma may not be used here">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_func_expect : Warning<"expected a function name">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_expected_common : Warning<"%0 %select{is|are}1 expected">,
-  InGroup<IntelPragma>;
-def x_error_intel_pragma_wrong_place : Error<"this pragma may not be used here">;
-def x_error_intel_pragma_loop_count : Error<"invalid loop count">;
-def x_error_intel_pragma_declaration_precede : Error<"this pragma must immediately precede a declaration">;
-def x_error_intel_pragma_invalid_parallel_pragma : Error<"invalid parallel pragma">;
-def x_error_intel_pragma_parallel_vars : Error<"only simple variables or array expressions are allowed in #pragma parallel">;
-def x_error_intel_pragma_parallel_private : Error<"variable %0 in firstprivate or lastprivate clause may not be in private clause">;
-def x_error_intel_pragma_expected_common : Error<"%0 %select{is|are}1 expected">;
-//#endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 // TransformActions
 // TODO: Use a custom category name to distinguish rewriter errors.

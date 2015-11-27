@@ -349,7 +349,7 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
 
@@ -3811,7 +3811,7 @@ void ASTDeclReader::UpdateDecl(Decl *D, ModuleFile &ModuleFile,
     }
   }
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void ASTDeclReader::VisitPragmaDecl(PragmaDecl *ND) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   VisitDecl(ND);

@@ -26,11 +26,11 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/IR/Intrinsics.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "llvm/IR/TypeBuilder.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "llvm/IR/MDBuilder.h"
 
 using namespace clang;
@@ -80,7 +80,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   EmitStopPoint(S);
 
   switch (S->getStmtClass()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Stmt::PragmaStmtClass:
     llvm_unreachable("should have emitted this statement as simple");
 #endif  // INTEL_CUSTOMIZATION
@@ -90,9 +90,9 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::SEHFinallyStmtClass:
   case Stmt::MSDependentExistsStmtClass:
     llvm_unreachable("invalid statement class to emit generically");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Stmt::CilkSyncStmtClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::NullStmtClass:
   case Stmt::CompoundStmtClass:
   case Stmt::DeclStmtClass:
@@ -189,7 +189,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::SEHTryStmtClass:
     EmitSEHTryStmt(cast<SEHTryStmt>(*S));
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Stmt::CilkForGrainsizeStmtClass:
     EmitCilkForGrainsizeStmt(cast<CilkForGrainsizeStmt>(*S));
     break;
@@ -202,7 +202,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::CilkRankedStmtClass:
     EmitCilkRankedStmt(cast<CilkRankedStmt>(*S));
     break;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case Stmt::OMPParallelDirectiveClass:
     EmitOMPParallelDirective(cast<OMPParallelDirective>(*S));
     break;
@@ -284,13 +284,13 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
 bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   switch (S->getStmtClass()) {
   default: return false;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Stmt::CilkSyncStmtClass:
     CGM.getCilkPlusRuntime().EmitCilkSync(*this); break;
+#endif // INTEL_SPECIFIC_CILKPLUS
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   case Stmt::PragmaStmtClass:   EmitPragmaStmt(cast<PragmaStmt>(*S));     break;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
   case Stmt::NullStmtClass: break;
   case Stmt::CompoundStmtClass: EmitCompoundStmt(cast<CompoundStmt>(*S)); break;
   case Stmt::DeclStmtClass:     EmitDeclStmt(cast<DeclStmt>(*S));         break;
@@ -1790,7 +1790,7 @@ void CodeGenFunction::EmitAsmStmt(const AsmStmt &S) {
     bool IsValid =
       getTarget().validateInputConstraint(OutputConstraintInfos, Info);
     assert(IsValid && "Failed to parse input constraint"); (void)IsValid;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#371735 - allow use of registers for rvalues under 'm' constraint.
     if (getLangOpts().IntelCompat &&
         S.getInputConstraint(i).find('m') != StringRef::npos &&

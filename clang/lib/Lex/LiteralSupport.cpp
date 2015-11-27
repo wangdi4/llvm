@@ -523,7 +523,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
   isUnsigned = false;
   isLongLong = false;
   isFloat = false;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   isFloat128 = false;
 #endif  // INTEL_CUSTOMIZATION
   isImaginary = false;
@@ -585,14 +585,14 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
     case 'f':      // FP Suffix for "float"
     case 'F':
       if (!isFPConstant) break;  // Error for integer constant.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (isFloat || isLong || isFloat128) break; // FF, LF invalid.
 #else
       if (isFloat || isLong) break; // FF, LF invalid.
 #endif  // INTEL_CUSTOMIZATION
       isFloat = true;
       continue;  // Success.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case 'q':      // FP Suffix for "_Quad"
     case 'Q':
       if (!PP.getLangOpts().Float128) break;
@@ -609,7 +609,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'l':
     case 'L':
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (isLong || isLongLong || isFloat128) break;  // Cannot be repeated.
 #else
       if (isLong || isLongLong) break;  // Cannot be repeated.
@@ -628,7 +628,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       continue;  // Success.
     case 'i':
     case 'I':
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (!isLong && !isLongLong && !isFloat && !isFloat128) {
 #else
       if (PP.getLangOpts().MicrosoftExt) {
@@ -681,7 +681,7 @@ NumericLiteralParser::NumericLiteralParser(StringRef TokSpelling,
       ImaginarySuffixLoc = s;
       continue;  // Success.
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369184 - decimal types are not supported, so handle this gracefully.
     if (PP.getLangOpts().IntelCompat)
       if ((*s == 'd' || *s == 'D') && s + 1 != ThisTokEnd)

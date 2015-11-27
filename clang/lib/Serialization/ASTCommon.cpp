@@ -115,7 +115,7 @@ serialization::TypeIdxFromBuiltin(const BuiltinType *BT) {
   case BuiltinType::UnknownAny:
     ID = PREDEF_TYPE_UNKNOWN_ANY;
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
     ID = PREDEF_TYPE_FLOAT128_ID;
     break;
@@ -302,7 +302,7 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
     return true;
 
   // Never redeclarable.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Decl::Pragma:
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable(
@@ -338,9 +338,9 @@ bool serialization::isRedeclarableDeclKind(unsigned Kind) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Decl::CilkSpawn:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:
   case Decl::OMPThreadPrivate:

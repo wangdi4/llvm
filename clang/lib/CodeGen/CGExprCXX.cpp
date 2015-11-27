@@ -80,10 +80,10 @@ RValue CodeGenFunction::EmitCXXMemberOrOperatorCall(
       Args);
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
                   Callee, ReturnValue, Args, MD
-#ifdef INTEL_CUSTOMIZATION
-                  , /*callOrInvoke=*/0,
-                  CE ? CE->isCilkSpawnCall() : false
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                  ,
+                  /*callOrInvoke=*/0, CE ? CE->isCilkSpawnCall() : false
+#endif // INTEL_SPECIFIC_CILKPLUS
   );
 }
 
@@ -334,10 +334,10 @@ CodeGenFunction::EmitCXXMemberPointerCallExpr(const CXXMemberCallExpr *E,
   EmitCallArgs(Args, FPT, E->arguments(), E->getDirectCallee());
   return EmitCall(CGM.getTypes().arrangeCXXMethodCall(Args, FPT, required),
                   Callee, ReturnValue, Args
-#ifdef INTEL_CUSTOMIZATION
-                  , /*TargetDecl=*/0, /*callOrInvoke=*/0,
-                  E->isCilkSpawnCall()
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                  ,
+                  /*TargetDecl=*/0, /*callOrInvoke=*/0, E->isCilkSpawnCall()
+#endif // INTEL_SPECIFIC_CILKPLUS
   );
 }
 

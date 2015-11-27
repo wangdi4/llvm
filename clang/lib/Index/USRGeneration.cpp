@@ -599,7 +599,7 @@ void USRGenerator::VisitType(QualType T) {
           c = 'd'; break;
         case BuiltinType::LongDouble:
           c = 'D'; break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         case BuiltinType::Float128:
           c = 'g'; break;
 #endif  // INTEL_CUSTOMIZATION

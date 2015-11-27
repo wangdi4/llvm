@@ -185,9 +185,9 @@ Parser::ParseStatementOrDeclarationAfterAttributes(StmtVector &Stmts,
           ParsedAttributesWithRange &Attrs) {
   const char *SemiError = nullptr;
   StmtResult Res;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   SuppressCEANSupport NoCEAN(*this);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Cases in this switch statement should fall through if the parser expects
   // the token to end in a semicolon (in which case SemiError should be set),
   // or they directly 'return;' if not.
@@ -465,7 +465,7 @@ Retry:
   case tok::annot_pragma_captured:
     ProhibitAttributes(Attrs);
     return HandlePragmaCaptured();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case tok::kw__Cilk_sync:
     if (!getLangOpts().CilkPlus) {
       Diag(Tok, diag::err_cilkplus_disable);
@@ -490,7 +490,7 @@ Retry:
   case tok::annot_pragma_simd:
     ProhibitAttributes(Attrs);
     return ParseSIMDDirective();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(!OnlyStatement);
@@ -528,14 +528,14 @@ StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // expression[opt] ';'
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   ExprResult Expr(ParseExpression());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnEndCEANExpr(Expr.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (Expr.isInvalid()) {
     // If the expression is invalid, skip ahead to the next semicolon or '}'.
     // Not doing this opens us up to the possibility of infinite loops if
@@ -1290,20 +1290,20 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   // Parse the condition.
   ExprResult CondExp;
   Decl *CondVar = nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (ParseParenExprOrCondition(CondExp, CondVar, IfLoc, true)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     Actions.ActOnEndCEANExpr(0);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     return StmtError();
   }
 
   FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get(), IfLoc));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnEndCEANExpr(FullCondExp.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1689,10 +1689,10 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   //
   unsigned ScopeFlags = 0;
   if (C99orCXXorObjC
-#ifdef INTEL_CUSTOMIZATION
-    && getLangOpts().Zc_forScope
+#if INTEL_CUSTOMIZATION
+      && getLangOpts().Zc_forScope
 #endif  // INTEL_CUSTOMIZATION
-  )
+      )
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);

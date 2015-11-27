@@ -131,7 +131,7 @@ namespace clang {
     void VisitObjCPropertyDecl(ObjCPropertyDecl *D);
     void VisitObjCPropertyImplDecl(ObjCPropertyImplDecl *D);
     void VisitOMPThreadPrivateDecl(OMPThreadPrivateDecl *D);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     void VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
     /// Add an Objective-C type parameter list to the given record.
@@ -2173,7 +2173,7 @@ void ASTWriter::WriteDecl(ASTContext &Context, Decl *D) {
     EagerlyDeserializedDecls.push_back(ID);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void ASTDeclWriter::VisitPragmaDecl(PragmaDecl *D) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   VisitDecl(D);

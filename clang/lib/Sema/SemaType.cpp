@@ -1262,7 +1262,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         << FixItHint::CreateInsertion(DS.getLocStart(), "int");
       }
     } else if (!DS.hasTypeSpecifier()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // In IntelCompat mode we allow functions without type specifier in all
       // languages. CQ#364053.
       if (S.getLangOpts().IntelCompat) {
@@ -1341,7 +1341,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
     break;
   case DeclSpec::TST_half: Result = Context.HalfTy; break;
   case DeclSpec::TST_float: Result = Context.FloatTy; break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case DeclSpec::TST_float128: Result = Context.Float128Ty; break;
 #endif  // INTEL_CUSTOMIZATION
   case DeclSpec::TST_double:
@@ -1482,7 +1482,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       declarator.setInvalidType(true);
     }
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case DeclSpec::TST_bases:
   case DeclSpec::TST_directBases: {
@@ -2033,7 +2033,7 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
   } else {
     // C99 6.7.5.2p1: If the element type is an incomplete or function type,
     // reject it (e.g. void ary[7], struct foo ary[7], void ary[7]())
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#366309 - allow arrays with incomplete element type as Intel extension.
     if (getLangOpts().IntelCompat && !T->isIncompleteArrayType() &&
         !T->isVoidType())
@@ -4642,7 +4642,7 @@ namespace {
       TL.setUnderlyingTInfo(TInfo);
     }
     void VisitUnaryTransformTypeLoc(UnaryTransformTypeLoc TL) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369185 - support of __bases and __direct_bases intrinsics.
       // FIXME: This holds only because we only have three unary transforms.
       assert(DS.getTypeSpecType() == DeclSpec::TST_underlyingType ||
@@ -6196,7 +6196,7 @@ static void processTypeAttrs(TypeProcessingState &state, QualType &type,
     if (attr.isInvalid())
       continue;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#373601: applying gnu::aligned attribute.
     if (state.getSema().getLangOpts().IntelCompat &&
         attr.getKind() == AttributeList::AT_Aligned &&
@@ -6975,7 +6975,7 @@ QualType Sema::BuildUnaryTransformType(QualType BaseType,
       return Context.getUnaryTransformType(BaseType, Underlying,
                                         UnaryTransformType::EnumUnderlyingType);
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case UnaryTransformType::BasesOfType:
   case UnaryTransformType::DirectBasesOfType:

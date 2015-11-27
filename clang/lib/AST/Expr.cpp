@@ -2101,7 +2101,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     R2 = BO->getRHS()->getSourceRange();
     return true;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case CEANBuiltinExprClass: {
     if (getType()->isVoidType())
       return false;
@@ -2120,7 +2120,7 @@ bool Expr::isUnusedResultAWarning(const Expr *&WarnE, SourceLocation &Loc,
     return false;
   }  
   case CEANIndexExprClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case CompoundAssignOperatorClass:
   case VAArgExprClass:
   case AtomicExprClass:
@@ -3025,11 +3025,11 @@ bool Expr::HasSideEffects(const ASTContext &Ctx,
   case CXXNewExprClass:
   case CXXDeleteExprClass:
   case ExprWithCleanupsClass:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case CilkSpawnExprClass:
   case CEANIndexExprClass:
   case CEANBuiltinExprClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     // These always have a side-effect.
     return true;
 

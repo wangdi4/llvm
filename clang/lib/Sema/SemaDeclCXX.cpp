@@ -67,9 +67,9 @@ namespace {
     bool VisitDeclRefExpr(DeclRefExpr *DRE);
     bool VisitCXXThisExpr(CXXThisExpr *ThisE);
     bool VisitLambdaExpr(LambdaExpr *Lambda);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     bool VisitCEANIndexExpr(CEANIndexExpr *Node);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     bool VisitPseudoObjectExpr(PseudoObjectExpr *POE);
   };
 
@@ -95,7 +95,7 @@ namespace {
       //   evaluated. Parameters of a function declared before a default
       //   argument expression are in scope and can hide namespace and
       //   class member names.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#364545 - allow use of arguments in references as default
       // value
       if (!S->getLangOpts().IntelMSCompat ||
@@ -154,7 +154,7 @@ namespace {
     return S->Diag(Lambda->getLocStart(), 
                    diag::err_lambda_capture_default_arg);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   bool CheckDefaultArgumentVisitor::VisitCEANIndexExpr(CEANIndexExpr *Node) {
     bool IsInvalid = false;
     Stmt::child_range Ch = Node->children();
@@ -163,7 +163,7 @@ namespace {
         IsInvalid |= Visit(*I);
     return IsInvalid;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void
@@ -522,7 +522,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#373517: compilation fails with 'redefinition of default
     // argument'.
     if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
@@ -667,7 +667,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     if (NewSM != OldSM) {
       ParmVarDecl *NewParam = New->getParamDecl(New->getMinRequiredArguments());
       assert(NewParam->hasDefaultArg());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ375076: Althreat application failed with error addition of
       // default argument on redeclaration makes this constructor a default
       // constructor
@@ -705,7 +705,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#373130: friend functions with default parameter without name.
   if (!getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
@@ -3248,7 +3248,7 @@ Sema::BuildBaseInitializer(QualType BaseType, TypeSourceInfo *BaseTInfo,
   //   mem-initializer-list can initialize a base class using any
   //   name that denotes that base class type.
   bool Dependent = BaseType->isDependentType() || Init->isTypeDependent();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375134: do not try to perform base constructor search in
   // templates until real instantiation.
   if (getLangOpts().IntelCompat)
@@ -4442,7 +4442,7 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#376362: "Classic" icc allows private destructors in base classes and
     // so should we.
     if (getLangOpts().IntelCompat) {
@@ -11730,7 +11730,7 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
       }
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#372133: overloaded operator's parameter.
     if (!ClassOrEnumParam && getLangOpts().IntelCompat &&
         FnDecl->isTemplateInstantiation())
@@ -11903,7 +11903,7 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // as the only parameters.
     if (Context.hasSameType(T, Context.UnsignedLongLongTy) ||
         Context.hasSameType(T, Context.LongDoubleTy) ||
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.Float128Ty) ||
 #endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.CharTy) ||
@@ -12862,7 +12862,7 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#373130: friend functions with default parameter without
       // name.
       if (!getLangOpts().IntelCompat) {
@@ -12872,7 +12872,7 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
         Diag(OldFD->getLocation(), diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#374679: Several negative tests are failed after promotion
       // due to patches allowing too permissive xmain's behavior.
       // Fix for CQ#376452: friend declaration specifying a default argument

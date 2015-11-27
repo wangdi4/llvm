@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fsyntax-only -Wall -Wno-unused-variable -verify %s
-
+// REQUIRES: cilkplus
 void func1(const int &i);
 void func2(int &i);
 void func3(void *i);

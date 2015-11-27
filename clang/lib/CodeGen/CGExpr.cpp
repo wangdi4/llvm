@@ -14,9 +14,9 @@
 #include "CodeGenFunction.h"
 #include "CGCXXABI.h"
 #include "CGCall.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGDebugInfo.h"
 #include "CGObjCRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -323,7 +323,7 @@ createReferenceTemporary(CodeGenFunction &CGF,
   switch (M->getStorageDuration()) {
   case SD_FullExpression:
   case SD_Automatic: {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // In a captured statement, don't alloca the receiver temp; it is passed in.
     if (CodeGenFunction::CGCilkSpawnInfo *Info =
           dyn_cast_or_null<CodeGenFunction::CGCilkSpawnInfo>
@@ -334,7 +334,7 @@ createReferenceTemporary(CodeGenFunction &CGF,
         return Info->getReceiverTmp();
       }
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     // If we have a constant temporary array or record try to promote it into a
     // constant global under the same rules a normal constant would've been
     // promoted. This is easier on the optimizer and generally emits fewer
@@ -1676,7 +1676,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   // Get the source value, truncated to the width of the bit-field.
   llvm::Value *SrcVal = Src.getScalarVal();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#371662 - don't do bit manipulations in IntelCompat mode if both offset
   // and size are of natural sizes. This improves code size.
   unsigned ByteWidth = getTarget().getCharWidth();
@@ -1701,7 +1701,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
                                  /*IsSigned=*/false);
   llvm::Value *MaskedVal = SrcVal;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (!ShouldSkipBitMasking) {
 #endif // INTEL_CUSTOMIZATION
   // See if there are other bits in the bitfield's storage we'll need to load
@@ -1733,7 +1733,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
   } else {
     assert(Info.Offset == 0);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -2112,7 +2112,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
           }
           return MakeAddrLValue(it->second, T);
         }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         else {
           // If referencing a loop control variable, then load its
           // corresponding inner loop control variable.
@@ -2143,39 +2143,40 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
             }
           }
 // Otherwise load it from the captured struct.
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         LValue CapLVal =
             EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                     CapturedStmtInfo->getContextValue());
         return MakeAddrLValue(
             Address(CapLVal.getPointer(), getContext().getDeclAlign(VD)),
             CapLVal.getType(), AlignmentSource::Decl);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       if (isa<BlockDecl>(CurCodeDecl) || LocalDeclMap.count(VD) == 0) {
 #endif  // INTEL_CUSTOMIZATION
       assert(isa<BlockDecl>(CurCodeDecl));
       Address addr = GetAddrOfBlockDecl(VD, VD->hasAttr<BlocksAttr>());
       return MakeAddrLValue(addr, T, AlignmentSource::Decl);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif  // INTEL_CUSTOMIZATION
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // special case of receiver declared in advance
     // int i;
     // i = Spawn foo();
-    else if (CapturedStmtInfo && (CapturedStmtInfo->getKind() == CR_CilkSpawn)
-              && CapturedStmtInfo->lookup(VD)){
+    else if (CapturedStmtInfo &&
+             (CapturedStmtInfo->getKind() == CR_CilkSpawn) &&
+             CapturedStmtInfo->lookup(VD)) {
       return EmitCapturedFieldLValue(*this, CapturedStmtInfo->lookup(VD),
                                      CapturedStmtInfo->getContextValue());
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   }
 
@@ -3455,7 +3456,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
   case CK_AddressSpaceConversion:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#366312 - enable an extension that allows casts of lvalues to
     // be used as lvalues, as long as the size of the object is not lengthened
     // through the cast.
@@ -3714,7 +3715,7 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
     case Qualifiers::OCL_Weak:
       break;
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     LValue LV;
     RValue RV;
     // Cilk Plus needs the LHS evaluated first to handle cases such as
@@ -3731,7 +3732,7 @@ LValue CodeGenFunction::EmitBinaryOperatorLValue(const BinaryOperator *E) {
 #else
     RValue RV = EmitAnyExpr(E->getRHS());
     LValue LV = EmitCheckedLValue(E->getLHS(), TCK_Store);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     EmitStoreThroughLValue(RV, LV);
     return LV;
   }
@@ -3988,10 +3989,11 @@ RValue CodeGenFunction::EmitCall(QualType CalleeType, llvm::Value *Callee,
   }
 
   return EmitCall(FnInfo, Callee, ReturnValue, Args, TargetDecl
-#ifdef INTEL_CUSTOMIZATION
-                  , /*callOrInvoke=*/0, E->isCilkSpawnCall()
-#endif  // INTEL_CUSTOMIZATION
-  );
+#if INTEL_SPECIFIC_CILKPLUS
+                  ,
+                  /*callOrInvoke=*/0, E->isCilkSpawnCall()
+#endif // INTEL_SPECIFIC_CILKPLUS
+                      );
 }
 
 LValue CodeGenFunction::
@@ -4126,7 +4128,7 @@ RValue CodeGenFunction::EmitPseudoObjectRValue(const PseudoObjectExpr *E,
 LValue CodeGenFunction::EmitPseudoObjectLValue(const PseudoObjectExpr *E) {
   return emitPseudoObjectExpr(*this, E, true, AggValueSlot::ignored()).LV;
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 static void EmitRecursiveCEANBuiltinExpr(CodeGenFunction &CGF,
                                          const CEANBuiltinExpr *E,
                                          unsigned Rank) {
@@ -4176,4 +4178,4 @@ void CodeGenFunction::EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E) {
     EmitBlock(ExitExpr.getBlock());
   }
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS

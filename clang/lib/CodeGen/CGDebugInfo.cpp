@@ -526,7 +526,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
   case BuiltinType::Bool:
     Encoding = llvm::dwarf::DW_ATE_boolean;
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
 #endif  // INTEL_CUSTOMIZATION
   case BuiltinType::Half:
@@ -1152,7 +1152,7 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
     if (!isa<CXXDestructorDecl>(Method) &&
         !CGM.getTarget().getCXXABI().isMicrosoft())
       VIndex = CGM.getItaniumVTableContext().getMethodVTableIndex(Method);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#367037 - Virtual function table index is not set in
     // DISubprogram for MS ABI
     else if (CGM.getLangOpts().IntelMSCompat &&
@@ -1183,7 +1183,7 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
     Flags |= llvm::DINode::FlagLValueReference;
   if (Method->getRefQualifier() == RQ_RValue)
     Flags |= llvm::DINode::FlagRValueReference;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#372369: Mark static method in DISubprogram flags entry.
   if (CGM.getLangOpts().IntelCompat && Method->isStatic())
     Flags |= llvm::DINode::FlagStaticMember;
@@ -2323,7 +2323,7 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
   unsigned Line = getLineNumber(RD->getLocation());
   StringRef RDName = getClassName(RD);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   SmallString<256> TypeInfoString;
   if (CGM.getLangOpts().IntelCompat && RD->isLambda() && RDName.empty()) {

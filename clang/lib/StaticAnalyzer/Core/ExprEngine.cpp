@@ -746,7 +746,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
   assert(!isa<Expr>(S) || S == cast<Expr>(S)->IgnoreParens());
 
   switch (S->getStmtClass()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case Stmt::PragmaStmtClass:
       llvm_unreachable("Pragma should not be in analyzer evaluation loop");
 #endif  // INTEL_CUSTOMIZATION
@@ -803,13 +803,13 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Expr::MSDependentExistsStmtClass:
     case Stmt::CapturedStmtClass:
     case Stmt::OMPParallelDirectiveClass:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case Stmt::CilkSyncStmtClass:
     case Stmt::CilkForGrainsizeStmtClass:
     case Stmt::CilkForStmtClass:
     case Stmt::SIMDForStmtClass:
     case Expr::CilkRankedStmtClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     case Stmt::OMPSimdDirectiveClass:
     case Stmt::OMPForDirectiveClass:
     case Stmt::OMPForSimdDirectiveClass:
@@ -891,10 +891,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OpaqueValueExprClass:
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case Stmt::CEANIndexExprClass:
     case Stmt::CEANBuiltinExprClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       // Fall through.
 
     // Cases we intentionally don't evaluate, since they don't need
@@ -1026,10 +1026,10 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
       VisitBlockExpr(cast<BlockExpr>(S), Pred, Dst);
       Bldr.addNodes(Dst);
       break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case Stmt::CilkSpawnExprClass:
       llvm_unreachable("not implemented yet");
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     case Stmt::LambdaExprClass:
       if (AMgr.options.shouldInlineLambdas()) {
         Bldr.takeNodes(Pred);

@@ -112,14 +112,14 @@ namespace {
     KEYOBJC2    = 0x20000,
     KEYZVECTOR  = 0x40000,
     KEYCOROUTINES = 0x80000,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
     KEYCILKPLUS = 0x100000,
     KEYFLOAT128 = 0x200000,
     KEYRESTRICT = 0x400000,
     KEYMSASM = 0x8000000,
     KEYBASES = 0x10000000,
     KEYNOINT128 = 0x20000000,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
     KEYALL = (0xffffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
   };
@@ -144,8 +144,10 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.GNUKeywords && (Flags & KEYGNU)) return KS_Extension;
   if (LangOpts.MicrosoftExt && (Flags & KEYMS)) return KS_Extension;
   if (LangOpts.Borland && (Flags & KEYBORLAND)) return KS_Extension;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (LangOpts.CilkPlus && (Flags & KEYCILKPLUS)) return KS_Extension;
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
   if (LangOpts.Float128 && (Flags & KEYFLOAT128)) return KS_Extension;
   // CQ#366963 - enable/disable 'restrict' keyword in IntelCompat mode.
   if (LangOpts.Restrict && (Flags & KEYRESTRICT))

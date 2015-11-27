@@ -279,7 +279,7 @@ static llvm::Value *EmitOverflowIntrinsic(CodeGenFunction &CGF,
   return CGF.Builder.CreateExtractValue(Tmp, 0);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// \brief Evaluate argument of the call as constant int, checking its value's
 /// constraints.
 ///
@@ -675,7 +675,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
     // FIXME: Technically these constants should of type 'int', yes?
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#371990 - let __prefetch_builtin arguments be out of their range (0..1
     // for the first argument, 0..3 for the second one), assigning 0 if argument
     // is out of its range.
@@ -1191,7 +1191,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable("Shouldn't make it through sema");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_return:
   case Builtin::BI__builtin_apply:
   case Builtin::BI__builtin_apply_args:
@@ -1456,12 +1456,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                                RequiredArgs::All);
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args, 0, 0,
                     E->isCilkSpawnCall());
 #else
     return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   case Builtin::BI__atomic_test_and_set: {
@@ -1981,7 +1981,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateAlignedLoad(IntToPtr, /*Align=*/4, /*isVolatile=*/true);
     return RValue::get(Load);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__notify_intrinsic:
   case Builtin::BI__notify_zc_intrinsic:
     // FIXME: not implemented yet.
@@ -2075,7 +2075,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   if (getContext().BuiltinInfo.isPredefinedLibFunction(BuiltinID))
     return emitLibraryCall(*this, FD, E, EmitScalarExpr(E->getCallee()));
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Xmain should not perform this check, since we allow intrinsics to be
   // used even when not explicitly supported by the target
   if (!getLangOpts().IntelCompat)

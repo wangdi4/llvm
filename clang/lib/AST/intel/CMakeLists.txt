@@ -6,4 +6,5 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangASTIntel
   DeclIntel.cpp
   ExprIntel.cpp
+  StmtIntel.cpp
   )

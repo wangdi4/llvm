@@ -834,7 +834,7 @@ bool Sema::CheckCXXThrowOperand(SourceLocation ThrowLoc,
 QualType Sema::getCurrentThisType() {
   DeclContext *DC = getFunctionLevelDeclContext();
   QualType ThisTy = CXXThisTypeOverride;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#374503 (invalid use of this) - if a class is defined inside the method
   // of the other class, we should be able to use 'this' keyword. For example:
   // class Base {
@@ -1835,7 +1835,7 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
     DeclareGlobalNewDelete();
     DeclContext *TUDecl = Context.getTranslationUnitDecl();
     bool FallbackEnabled = IsArray && Context.getLangOpts().MSVCCompat;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ376359: overloaded operators 'new/delete' for aligned data
     bool AlignIsRequired = false;
     // FIXME: here could be non-record types - see clang_getTypeDeclaration
@@ -1872,7 +1872,7 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
                                /*Diagnose=*/!FallbackEnabled)) {
       if (!FallbackEnabled)
         return true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ376359: overloaded operators 'new/delete' for aligned data
       AlignedNew = false;
       if (checkAlignArg(*this, AllocType, PlaceArgs)) {
@@ -1897,7 +1897,7 @@ bool Sema::FindAllocationFunctions(SourceLocation StartLoc, SourceRange Range,
       if (FindAllocationOverload(StartLoc, Range, NewName, AllocArgs, TUDecl,
                                /*AllowMissing=*/false, OperatorNew))
       return true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ376359: overloaded operators 'new/delete' for aligned data
       }
 #endif // INTEL_CUSTOMIZATION
@@ -3024,7 +3024,7 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
   // be converted to an rvalue of type "pointer to char"; a wide
   // string literal can be converted to an rvalue of type "pointer
   // to wchar_t" (C++ 4.2p2).
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
   if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
     while (auto *CondOp =
@@ -3045,7 +3045,7 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
               // We don't allow UTF literals to be implicitly converted
               break;
             case StringLiteral::Ascii:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
               // Fix for CQ375353: Allow casting of const char[] to void* in
               // intel ms compat mode.
               if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
@@ -3055,7 +3055,7 @@ Sema::IsStringLiteralToNonConstPointerConversion(Expr *From, QualType ToType) {
               return (ToPointeeType->getKind() == BuiltinType::Char_U ||
                       ToPointeeType->getKind() == BuiltinType::Char_S);
             case StringLiteral::Wide:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
               // Fix for CQ375353: Allow casting of const char[] to void* in
               // intel ms compat mode.
               if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat &&
@@ -5051,7 +5051,7 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
       return QualType();
 
     //   If both can be converted, [...] the program is ill-formed.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ375472: Allow ambigous conversions in conditional expression.
     if (HaveL2R && HaveR2L && getLangOpts().IntelCompat) {
       Diag(QuestionLoc, diag::warn_conditional_ambiguous)
@@ -5626,13 +5626,13 @@ Expr *Sema::MaybeCreateExprWithCleanups(Expr *SubExpr) {
   assert(SubExpr && "subexpression can't be null!");
 
   CleanupVarDeclMarking();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().CilkPlus) {
     // This full expression contains a single valid Cilk spawn.
     // Keep it clean for the following full expression.
     CilkSpawnCalls.clear();
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   unsigned FirstCleanup = ExprEvalContexts.back().NumCleanupObjects;
   assert(ExprCleanupObjects.size() >= FirstCleanup);
   assert(ExprNeedsCleanups || ExprCleanupObjects.size() == FirstCleanup);
@@ -6840,9 +6840,9 @@ Sema::CorrectDelayedTyposInExpr(Expr *E, VarDecl *InitDecl,
 }
 
 ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
                                      CilkReceiverKind &Kind,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
                                      bool DiscardedValue,
                                      bool IsConstexpr, 
                                      bool IsLambdaInitCaptureInitializer) {
@@ -6893,7 +6893,7 @@ ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
     return ExprError();
 
   CheckCompletedExpr(FullExpr.get(), CC, IsConstexpr);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Check if this full expression can be a supported Cilk spawn expression:
   // (1) _Cilk_spawn func();
   // (2) x = _Cilk_spawn func();
@@ -6921,7 +6921,7 @@ ExprResult Sema::ActOnFinishFullExpr(Expr *FE, SourceLocation CC,
     FullExpr = MaybeCreateExprWithCleanups(FullExpr);
     return BuildCilkSpawnExpr(FullExpr.get());
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // At the end of this full expression (which could be a deeply nested 
   // lambda), if there is a potential capture within the nested lambda, 
   // have the outer capture-able lambda try and capture it.

@@ -1587,7 +1587,7 @@ static void handleRestrictAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 }
 
 static void handleCommonAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375398: 'common' attribute is not supported in C++
   if (!S.getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
@@ -2031,7 +2031,7 @@ static T *mergeVisibilityAttr(Sema &S, Decl *D, SourceRange range,
     typename T::VisibilityType existingValue = existingAttr->getVisibility();
     if (existingValue == value)
       return nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#370092 - emit a warning, not error in IntelCompat mode
     if (S.getLangOpts().IntelCompat)
       S.Diag(existingAttr->getLocation(), diag::warn_mismatched_visibility);
@@ -2396,7 +2396,7 @@ static void handleVecTypeHint(Sema &S, Decl *D, const AttributeList &Attr) {
                                                ParmTSI,
                                         Attr.getAttributeSpellingListIndex()));
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 static void handleCilkElementalAttr(Sema &S, Decl *D,
                                     const AttributeList &Attr) {
   assert(Attr.getKind() == AttributeList::AT_CilkElemental);
@@ -2718,7 +2718,7 @@ static void handleCilkAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
       IdLoc ? IdLoc->Loc : SourceLocation(), AlignExpr, Attr.getScopeLoc(), 0);
   D->addAttr(AlignAttr);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 SectionAttr *Sema::mergeSectionAttr(Decl *D, SourceRange Range,
                                     StringRef Name,
@@ -2856,7 +2856,7 @@ static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   QualType ParamTy = FD->getParamDecl(0)->getType();
   if (S.CheckAssignmentConstraints(FD->getParamDecl(0)->getLocation(),
                                    ParamTy, Ty) != Sema::Compatible) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#371284 - allow 'PtrToInt' cast for cleanup function's argument.
     // We also need to generate corresponding cast operation (ptrtoint
     // instead of bitcast) at CodeGen stage.
@@ -2874,7 +2874,7 @@ static void handleCleanupAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     S.Diag(Loc, diag::err_attribute_cleanup_func_arg_incompatible_type)
       << NI.getName() << ParamTy << Ty;
     return;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -3281,7 +3281,7 @@ void Sema::AddAlignValueAttr(SourceRange AttrRange, Decl *D, Expr *E,
   return;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Verify that attribute's argument can specify an index of function's parameter
 //   1. Check that it is integer constant expression
 //   2. Check value bounds: positive, not greater than number of function params
@@ -3388,7 +3388,7 @@ static void handleAllocSizeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 #endif // INTEL_CUSTOMIZATION
 
 static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   if (!S.getLangOpts().IntelCompat)
@@ -3401,7 +3401,7 @@ static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   }
 
   if (Attr.getNumArgs() == 0) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ368132: __declspec (align) in icc can take more than one
     // argument.
     D->addAttr(::new (S.Context) AlignedAttr(
@@ -3434,7 +3434,7 @@ static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   Expr *Offset = nullptr;
@@ -3459,7 +3459,7 @@ static void handleAlignedAttr(Sema &S, Decl *D, const AttributeList &Attr) {
 
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
 void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
@@ -3516,7 +3516,7 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
     D->addAttr(AA);
     return;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   if (getLangOpts().IntelCompat && Offset &&
@@ -3537,7 +3537,7 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
         /*AllowFold*/ false);
   if (ICE.isInvalid())
     return;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   ExprResult ICEOffset;
@@ -3589,7 +3589,7 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E,
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   AlignedAttr *AA = ::new (Context)
@@ -3607,7 +3607,7 @@ void Sema::AddAlignedAttr(SourceRange AttrRange, Decl *D, TypeSourceInfo *TS,
                           unsigned SpellingListIndex, bool IsPackExpansion) {
   // FIXME: Cache the number on the Attr object if non-dependent?
   // FIXME: Perform checking of type validity
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368132: __declspec (align) in icc can take more than one
   // argument.
   AlignedAttr *AA = ::new (Context)
@@ -3720,7 +3720,7 @@ static void handleModeAttr(Sema &S, Decl *D, const AttributeList &Attr) {
     case 'X': DestWidth = 96; break;
     case 'T': DestWidth = 128; break;
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369184 - decimal types are not supported, so handle this gracefully.
     if (S.getLangOpts().IntelCompat && Str[1] == 'D') {
       S.Diag(Attr.getLoc(), diag::err_decimal_unsupported);
@@ -5293,7 +5293,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     // Type attributes are handled elsewhere; silently move on.
     assert(Attr.isTypeAttr() && "Non-type attribute not handled");
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#375011 - 'alloc_size' attribute is not supported.
   case AttributeList::AT_AllocSize:
     handleAllocSizeAttr(S, D, Attr);
@@ -5788,7 +5788,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_TypeTagForDatatype:
     handleTypeTagForDatatypeAttr(S, D, Attr);
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Cilk Plus attributes.
   case AttributeList::AT_CilkElemental:
     handleCilkElementalAttr(S, D, Attr);
@@ -5812,6 +5812,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
   case AttributeList::AT_CilkVecLength:
     handleCilkVecLengthAttr(S, D, Attr);
     break;
+#endif // INTEL_SPECIFIC_CILKPLUS
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   // FIXME: Unless TableGen is able to recognize IL0-specific guards, don't
   // forget to add every attribute appearing here to the #else section below!
@@ -5825,23 +5826,7 @@ static void ProcessDeclAttribute(Sema &S, Scope *scope, Decl *D,
     handleBNDLegacyAttr  (S, D, Attr); break;
   case AttributeList::AT_BNDVarSize:
     handleBNDVarSizeAttr  (S, D, Attr); break;
-#else
-  // FIXME: No longer need this section as soon as TableGen is able to recognize
-  // IL0-specific guards. Currently attributes below are treated as known, but
-  // unhandled, which leads to assertion failure in 'default' section of switch
-  // in non-IL0 configuration. Related to CQ#375594.
-  case AttributeList::AT_AvoidFalseShare:
-  case AttributeList::AT_Allocate:
-  case AttributeList::AT_GCCStruct:
-  case AttributeList::AT_BNDLegacy:
-  case AttributeList::AT_BNDVarSize:
-    S.Diag(Attr.getLoc(), Attr.isDeclspecAttribute()
-                              ? diag::warn_unhandled_ms_attribute_ignored
-                              : diag::warn_unknown_attribute_ignored)
-        << Attr.getName();
-    return;
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   }
 }
 
@@ -6049,7 +6034,7 @@ void Sema::ProcessDeclAttributes(Scope *S, Decl *D, const Declarator &PD) {
   // when X is a decl attribute.
   for (unsigned i = 0, e = PD.getNumTypeObjects(); i != e; ++i)
     if (const AttributeList *Attrs = PD.getTypeObject(i).getAttrs())
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#373601: applying gnu::aligned attribute.
       ProcessDeclAttributeList(S, D, Attrs,
                                getLangOpts().IntelCompat &&

@@ -3,7 +3,8 @@
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK2 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK5 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK6 %s
-//
+// REQUIRES: cilkplus
+
 struct Bool {
   ~Bool();
   operator bool();

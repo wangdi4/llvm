@@ -172,7 +172,7 @@ CODEGENOPT(DebugColumnInfo, 1, 0) ///< Whether or not to use column information
 CODEGENOPT(DebugTypeExtRefs, 1, 0) ///< Whether or not debug info should contain
                                    ///< external references to a PCH or module.
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#368123
 CODEGENOPT(EmitClassDebugAlways, 1, 1) ///< Whether or not to emit debug info
                                        ///< for all class members.
@@ -207,13 +207,13 @@ ENUM_CODEGENOPT(VecLib, VectorLibrary, 1, NoLibrary)
 /// The default TLS model to use.
 ENUM_CODEGENOPT(DefaultTLSModel, TLSModel, 2, GeneralDynamicTLSModel)
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#368119
 /// The kind of file to emit MS debug info into.
 ENUM_CODEGENOPT(MSDebugInfoFile, MSDebugInfoFileKind, 2, MSDebugInfoNoFile)
 #endif // INTEL_CUSTOMIZATION
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369692
 /// No aliasing for all pointer arguments
 CODEGENOPT(NoAliasForPtrArgs, 1, 0)

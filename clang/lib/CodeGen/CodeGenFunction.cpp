@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGBlocks.h"
 #include "CGCleanup.h"
 #include "CGCUDARuntime.h"
@@ -45,9 +45,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
               CGBuilderInserterTy(this)),
       CurFn(nullptr), ReturnValue(Address::invalid()),
       CapturedStmtInfo(nullptr),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       CurCGCilkImplicitSyncInfo(nullptr),
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       SanOpts(CGM.getLangOpts().Sanitize), IsSanitizerScope(false),
       CurFuncIsThunk(false), AutoreleaseResult(false), SawAsmBlock(false),
       IsOutlinedSEHHelper(false),
@@ -64,9 +64,9 @@ CodeGenFunction::CodeGenFunction(CodeGenModule &cgm, bool suppressNewContext)
       CXXStructorImplicitParamDecl(nullptr),
       CXXStructorImplicitParamValue(nullptr), OutermostConditional(nullptr),
       CurLexicalScope(nullptr),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       ExceptionsDisabled(false),
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       TerminateLandingPad(nullptr),
       TerminateHandler(nullptr), TrapBB(nullptr) {
   if (!suppressNewContext)
@@ -99,9 +99,9 @@ CodeGenFunction::~CodeGenFunction() {
   // something.
   if (FirstBlockInfo)
     destroyBlockInfos(FirstBlockInfo);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   delete CurCGCilkImplicitSyncInfo;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().OpenMP) {
     CGM.getOpenMPRuntime().functionFinished(*this);
   }
@@ -759,7 +759,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     DI->EmitFunctionStart(GD, Loc, StartLoc, FnType, CurFn, Builder);
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ368405: Prologue source correlation is missing.
   if (getLangOpts().IntelCompat && getLangOpts().IntelMSCompat)
     if (auto *FD = dyn_cast_or_null<FunctionDecl>(D))
@@ -814,7 +814,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
   EmitStartEHSpec(CurCodeDecl);
 
   PrologueCleanupDepth = EHStack.stable_begin();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // If emitting a spawning function, a Cilk stack frame will be allocated and
   // fully initialized before processing any function parameters, which
   // makes associated cleanups happen last.
@@ -827,7 +827,7 @@ void CodeGenFunction::StartFunction(GlobalDecl GD,
     if (CurCGCilkImplicitSyncInfo->needsImplicitSync())
       CGM.getCilkPlusRuntime().pushCilkImplicitSyncCleanup(*this);
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   EmitFunctionProlog(*CurFnInfo, CurFn, Args);
 
   if (D && isa<CXXMethodDecl>(D) && cast<CXXMethodDecl>(D)->isInstance()) {
@@ -1008,7 +1008,7 @@ void CodeGenFunction::GenerateCode(GlobalDecl GD, llvm::Function *Fn,
   } else
     llvm_unreachable("no definition for emitted function");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // This is disabled in IntelCompat mode to follow icc's example. CQ#371796.
   if (!getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION

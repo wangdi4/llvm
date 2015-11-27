@@ -62,7 +62,7 @@ public:
   bool isLong : 1;          // This is *not* set for long long.
   bool isLongLong : 1;
   bool isFloat : 1;         // 1.0f
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   bool isFloat128 : 1;
 #endif  // INTEL_CUSTOMIZATION
   bool isImaginary : 1;     // 1.0i

@@ -509,7 +509,7 @@ CastsAwayConstness(Sema &Self, QualType SrcType, QualType DestType,
            UnwrappedDestType = Self.Context.getCanonicalType(DestType);
   SmallVector<Qualifiers, 8> cv1, cv2;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#374747: reinterpret_cast casts away qualifiers.
   if (CheckCVR && Self.getLangOpts().IntelCompat &&
       (Self.getLangOpts().GNUMode || Self.getLangOpts().IntelMSCompat) &&

@@ -359,7 +359,7 @@ TARGET_BUILTIN(__builtin_ia32_pmaddwd128, "V4iV8sV8s", "", "sse2")
 TARGET_BUILTIN(__builtin_ia32_monitor, "vv*UiUi", "", "sse3")
 TARGET_BUILTIN(__builtin_ia32_mwait, "vUiUi", "", "sse3")
 TARGET_BUILTIN(__builtin_ia32_lddqu, "V16ccC*", "", "sse3")
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ374386: mwaitxintrin.h couldn't be compiled because of undeclared
 // builtin-functions
 TARGET_BUILTIN(__builtin_ia32_monitorx, "vvC*UiUi", "Fnc", "sse3")

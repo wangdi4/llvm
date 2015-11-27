@@ -198,10 +198,10 @@ namespace sema {
   class LambdaScopeInfo;
   class PossiblyUnreachableDiag;
   class TemplateDeductionInfo;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   class CilkForScopeInfo;
   class SIMDForScopeInfo;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 namespace threadSafety {
@@ -428,7 +428,7 @@ public:
   ///  of the enclosing full expression.  This is cleared at the end of each 
   ///  full expression. 
   llvm::SmallPtrSet<Expr*, 2> MaybeODRUseExprs;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief All the Cilk spawn call expressions in this expression
   /// evaluation context.
   llvm::SmallVector<CallExpr*, 2> CilkSpawnCalls;
@@ -438,7 +438,7 @@ public:
     SmallVectorImpl<CapturedStmt::Capture> &Captures,
     SmallVectorImpl<Expr *> &CaptureInits,
     ArrayRef<sema::CapturingScopeInfo::Capture> Candidates);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Stack containing information about each of the nested
   /// function, block, and method scopes that are currently active.
   ///
@@ -826,11 +826,11 @@ public:
     unsigned NumTypos;
 
     llvm::SmallPtrSet<Expr*, 2> SavedMaybeODRUseExprs;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     /// \brief All the Cilk spawn call expressions when we entered this
     /// expression evaluation context.
     llvm::SmallVector<CallExpr*, 2> SavedCilkSpawnCalls;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     /// \brief The lambdas that are present within this context, if it
     /// is indeed an unevaluated context.
     SmallVector<LambdaExpr *, 2> Lambdas;
@@ -1159,13 +1159,13 @@ public:
   void PushCapturedRegionScope(Scope *RegionScope, CapturedDecl *CD,
                                RecordDecl *RD,
                                CapturedRegionKind K);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void PushCilkForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
                         const VarDecl *LoopControlVariable,
                         SourceLocation CilkForLoc);
   void PushSIMDForScope(Scope *S, CapturedDecl *FD, RecordDecl *RD,
                         SourceLocation PragmaLoc);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   void
   PopFunctionScopeInfo(const sema::AnalysisBasedWarnings::Policy *WP = nullptr,
                        const Decl *D = nullptr,
@@ -1197,7 +1197,7 @@ public:
   void PopCompoundScope();
 
   sema::CompoundScopeInfo &getCurCompoundScope() const;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Retrieve the enclosing compound scope but skip Cilk for scopes.
   /// For example, the compound scope of the function body is returned in
   /// the following example:
@@ -1217,7 +1217,7 @@ public:
 
   /// \brief Retrieve the current SIMD for region, if any.
   sema::SIMDForScopeInfo *getCurSIMDFor();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   bool hasAnyUnrecoverableErrorsInThisFunction() const;
 
   /// \brief Retrieve the current block, if any.
@@ -1737,16 +1737,15 @@ public:
 
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
                             bool TypeMayContainAuto) 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   {
     bool IsCilkSpawnReceiver = false;
     AddInitializerToDecl(dcl, init, DirectInit, TypeMayContainAuto,
                          IsCilkSpawnReceiver);
   }
   void AddInitializerToDecl(Decl *dcl, Expr *init, bool DirectInit,
-                            bool TypeMayContainAuto,
-                            bool &IsCilkSpawnReceiver)
-#endif  // INTEL_CUSTOMIZATION
+                            bool TypeMayContainAuto, bool &IsCilkSpawnReceiver)
+#endif // INTEL_SPECIFIC_CILKPLUS
   ;
   void ActOnUninitializedDecl(Decl *dcl, bool TypeMayContainAuto);
   void ActOnInitializerError(Decl *Dcl);
@@ -2786,7 +2785,7 @@ private:
                              DeclContext *MemberContext, bool EnteringContext,
                              const ObjCObjectPointerType *OPT,
                              bool ErrorRecovery);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
 public:
   enum CEANSupportState {
     NoCEANAllowed,
@@ -2833,7 +2832,7 @@ public:
   };
 
   friend class SuppressQualifiersOnTypeSubstRAII;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;
 
@@ -3484,7 +3483,7 @@ public:
                              Scope *CurScope);
   StmtResult BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void DiagnoseCilkSpawn(Stmt *S, bool isStmtExpr = false);
   void DiagnoseCilkElemental(FunctionDecl *D, Stmt *S);
   bool DiagnoseElementalAttributes(FunctionDecl *FD);
@@ -3532,10 +3531,10 @@ public:
   ExprResult CalculateCilkForLoopCount(SourceLocation CilkForLoc, Expr *Span,
                                        Expr *Increment, Expr *StrideExpr,
                                        int Dir, BinaryOperatorKind Opcode);
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   ExprResult ActOnCustomIdExpression(Scope *CurScope, CXXScopeSpec &ScopeSpec,
                                      const DeclarationNameInfo &Id);
-#endif  // INTEL_CUSTOMIZATION
 
   StmtResult ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                              bool IsVolatile, unsigned NumOutputs,
@@ -3974,7 +3973,7 @@ public:
                                      Expr *Idx, SourceLocation RLoc);
   ExprResult CreateBuiltinArraySubscriptExpr(Expr *Base, SourceLocation LLoc,
                                              Expr *Idx, SourceLocation RLoc);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   ExprResult ActOnCEANIndexExpr(Scope *S, Expr *Base, Expr *LowerBound,
                                 SourceLocation ColonLoc1, Expr *Length,
                                 SourceLocation ColonLoc2, Expr *Stride);
@@ -3986,7 +3985,7 @@ public:
   ExprResult ActOnCEANBuiltinExpr(Scope *S, SourceLocation StartLoc,
                                   unsigned Kind, ArrayRef<Expr *> Args,
                                   SourceLocation RParenLoc);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   ExprResult ActOnOMPArraySectionExpr(Expr *Base, SourceLocation LBLoc,
                                       Expr *LowerBound, SourceLocation ColonLoc,
                                       Expr *Length, SourceLocation RBLoc);
@@ -4932,7 +4931,7 @@ public:
     return ActOnFinishFullExpr(Expr, Expr ? Expr->getExprLoc()
                                           : SourceLocation());
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   enum CilkReceiverKind {
     CRK_MaybeReceiver,
     CRK_IsReceiver,
@@ -4955,7 +4954,7 @@ public:
                                  bool DiscardedValue = false,
                                  bool IsConstexpr = false,
                                  bool IsLambdaInitCaptureInitializer = false);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   StmtResult ActOnFinishFullStmt(Stmt *Stmt);
 
   // Marks SS invalid if it represents an incomplete type.
@@ -7831,7 +7830,7 @@ public:
   /// ActOnPragmaFPContract - Called on well formed
   /// \#pragma {STDC,OPENCL} FP_CONTRACT
   void ActOnPragmaFPContract(tok::OnOffSwitch OOS);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   AttrResult ActOnPragmaSIMDLength(SourceLocation VectorLengthLoc,
                                    Expr *VectorLengthExpr);
 
@@ -7882,7 +7881,7 @@ public:
   AttrResult ActOnPragmaSIMDPrivate(SourceLocation PrivateLoc,
                                     llvm::MutableArrayRef<Expr *> Exprs,
                                     SIMDPrivateKind Kind);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// AddAlignmentAttributesForRecord - Adds any needed alignment attributes to
   /// a the record decl, to handle '\#pragma pack' and '\#pragma options align'.
   void AddAlignmentAttributesForRecord(RecordDecl *RD);
@@ -7934,7 +7933,7 @@ public:
   void AddOptnoneAttributeIfNoConflicts(FunctionDecl *FD, SourceLocation Loc);
 
   /// AddAlignedAttr - Adds an aligned attribute to a particular declaration.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
   void AddAlignedAttr(SourceRange AttrRange, Decl *D, Expr *E, Expr *Offset,
                       unsigned SpellingListIndex, bool IsPackExpansion);

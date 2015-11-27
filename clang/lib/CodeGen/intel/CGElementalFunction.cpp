@@ -12,7 +12,7 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 
 #include "CodeGenModule.h"
 #include "clang/Basic/TargetInfo.h"
@@ -177,9 +177,6 @@ encodeParameters(llvm::Function *Func, llvm::MDNode *ArgName,
   SmallVector<llvm::Type *, 4> Tys;
   llvm::Function::const_arg_iterator Arg = Func->arg_begin();
   for (unsigned i = 1, ie = 1 + ArgSize; i < ie; ++i, ++Arg) {
-    llvm::MDString *Name = dyn_cast<llvm::MDString>(ArgName->getOperand(i));
-    assert(Name && "invalid metadata");
-
     llvm::Metadata *Step = ArgStep->getOperand(i);
     if (llvm::ValueAsMetadata *VAM = dyn_cast<llvm::ValueAsMetadata>(Step)) {
       llvm::Value *V = VAM->getValue();
@@ -1005,4 +1002,4 @@ void CodeGenModule::EmitCilkElementalVariants() {
   }
 }
 
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
