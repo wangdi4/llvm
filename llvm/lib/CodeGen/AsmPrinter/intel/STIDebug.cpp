@@ -111,7 +111,7 @@ static std::string getRealName(std::string name) {
 static bool isStaticMethod(StringRef linkageName) {
   // FIXME: this is a temporary WA to partial demangle linkageName
   //        Clang should mark static method using MDSubprogram (DPD200372369)
-  size_t pos = linkageName.find("@@");
+  size_t pos = linkageName.rfind("@@");
   if (pos != StringRef::npos && (pos + 2) < linkageName.size()) {
     switch (linkageName[pos + 2]) {
     case 'T':
@@ -129,7 +129,7 @@ static bool isStaticMethod(StringRef linkageName) {
 static bool isThunkMethod(StringRef linkageName) {
   // FIXME: this is a temporary WA to partial demangle gcc linkageName
   //        Clang should mark thunk method using MDSubprogram (DPD200372370)
-  size_t pos = linkageName.find("@@");
+  size_t pos = linkageName.rfind("@@");
   if (pos == StringRef::npos || linkageName.size() <= pos + 2) {
     return false;
   }
@@ -147,7 +147,7 @@ static int getThunkAdjustor(StringRef linkageName) {
   // FIXME: this is a temporary WA to partial demangle gcc linkageName
   //        Clang should mark thunk method using MDSubprogram (DPD200372370)
   assert(isThunkMethod(linkageName));
-  size_t pos = linkageName.find("@@");
+  size_t pos = linkageName.rfind("@@");
   if (linkageName.size() <= pos + 3)
     return 0;
 
