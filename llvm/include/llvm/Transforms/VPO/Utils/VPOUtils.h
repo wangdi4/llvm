@@ -351,6 +351,13 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(int DirID);
 
+    /// \brief Generates BB set in sub CFG for a given WRegionNode using
+    /// pre-order visit. The entry basic bblock 'EntryBB' and the exit basic
+    /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
+    /// the basic blocks that belong to this region. 
+    static void CollectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
+                             SmallPtrSetImpl<BasicBlock*> *BBSet);
+
 };
 
 } // End vpo namespace

@@ -71,28 +71,6 @@ WRegionNode::WRegionNode(WRegionNode *W)
   //TODO: add code to copy Children?
 }
 
-void WRegionNode::doPreOrderSubCFGVisit(
-  BasicBlock    *BB,
-  BasicBlock    *ExitBB,
-  SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited
-)
-{
-  if (!PreOrderTreeVisited->count(BB)) {
-
-    // DEBUG(dbgs()<< "DUMP PreOrder Tree Visiting :"  << *BB);
-    PreOrderTreeVisited->insert(BB);
-
-    for (succ_iterator I = succ_begin(BB), 
-                       E = succ_end(BB); I != E; ++I) {
-      if (*I != ExitBB) {
-        doPreOrderSubCFGVisit(*I, ExitBB, PreOrderTreeVisited);
-      }
-    }
-
-  }
-  return;
-}
-
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
 void WRegionNode::populateBBlockSet(void)
 {
@@ -108,7 +86,7 @@ void WRegionNode::populateBBlockSet(void)
 
   SmallPtrSet<BasicBlock*, 16> PreOrderTreeVisited;
 
-  doPreOrderSubCFGVisit(EntryBB, ExitBB, &PreOrderTreeVisited);
+  VPOUtils::CollectBBSet(EntryBB, ExitBB, &PreOrderTreeVisited);
 
   /// Added ExitBBlock to Pre-Order Tree
   PreOrderTreeVisited.insert(ExitBB);

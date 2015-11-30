@@ -113,11 +113,6 @@ protected:
   /// \brief Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
 
-  /// \brief generates BB set in sub CFG for a given WRegionNode.
-  //  Consider moving this to WRegionUtil
-  void doPreOrderSubCFGVisit(BasicBlock *BB, BasicBlock *ExitBB,
-                             SmallPtrSetImpl<BasicBlock*> *PreOrderTreeVisited);
-
   /// \brief Sets the set of bblocks that constitute this region.
   void setBBlockSet(WRegionBSetTy *BBSet) { BBlockSet = BBSet; }
 

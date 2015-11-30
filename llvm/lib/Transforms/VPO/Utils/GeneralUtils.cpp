@@ -73,3 +73,26 @@ Loop * VPOUtils::getLoopFromLoopInfo(
   return Lp;
 }
 
+void VPOUtils::CollectBBSet(
+  BasicBlock    *EntryBB,
+  BasicBlock    *ExitBB,
+  SmallPtrSetImpl<BasicBlock*> *BBSet
+)
+{
+  if (!BBSet->count(EntryBB)) {
+
+    // DEBUG(dbgs()<< "DUMP PreOrder Tree Visiting :"  << *EntryBB);
+    BBSet->insert(EntryBB);
+
+    for (succ_iterator I = succ_begin(EntryBB), 
+                       E = succ_end(EntryBB); I != E; ++I) {
+      if (*I != ExitBB) {
+        CollectBBSet(*I, ExitBB, BBSet);
+      }
+    }
+
+  }
+  return;
+}
+
+
