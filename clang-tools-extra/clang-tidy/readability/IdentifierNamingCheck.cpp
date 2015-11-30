@@ -21,6 +21,7 @@ namespace clang {
 namespace tidy {
 namespace readability {
 
+// clang-format off
 #define NAMING_KEYS(m) \
     m(Namespace) \
     m(InlineNamespace) \
@@ -80,6 +81,7 @@ static StringRef const StyleNames[] = {
 };
 
 #undef NAMING_KEYS
+// clang-format on
 
 IdentifierNamingCheck::IdentifierNamingCheck(StringRef Name,
                                              ClangTidyContext *Context)
@@ -134,13 +136,13 @@ void IdentifierNamingCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
 }
 
 void IdentifierNamingCheck::registerMatchers(MatchFinder *Finder) {
-// FIXME: For now, only Decl and DeclRefExpr nodes are visited for checking and
-// replacement. There is a lot of missing cases, such as references to a class
-// name (as in 'const int CMyClass::kClassConstant = 4;'), to an enclosing
-// context (namespace, class, etc).
-
   Finder->addMatcher(namedDecl().bind("decl"), this);
-  Finder->addMatcher(declRefExpr().bind("declref"), this);
+  Finder->addMatcher(usingDecl().bind("using"), this);
+  Finder->addMatcher(declRefExpr().bind("declRef"), this);
+  Finder->addMatcher(cxxConstructorDecl().bind("classRef"), this);
+  Finder->addMatcher(cxxDestructorDecl().bind("classRef"), this);
+  Finder->addMatcher(typeLoc().bind("typeLoc"), this);
+  Finder->addMatcher(nestedNameSpecifierLoc().bind("nestedNameLoc"), this);
 }
 
 static bool matchesStyle(StringRef Name,
@@ -499,27 +501,122 @@ static StyleKind findStyleKind(
   return SK_Invalid;
 }
 
+static void addUsage(IdentifierNamingCheck::NamingCheckFailureMap &Failures,
+                     const NamedDecl *Decl, SourceRange Range,
+                     const SourceManager *SM) {
+  // Do nothin if the provided range is invalid
+  if (Range.getBegin().isInvalid() || Range.getEnd().isInvalid())
+    return;
+
+  // Try to insert the identifier location in the Usages map, and bail out if it
+  // is already in there
+  auto &Failure = Failures[Decl];
+  if (!Failure.RawUsageLocs.insert(Range.getBegin().getRawEncoding()).second)
+    return;
+
+  Failure.ShouldFix = Failure.ShouldFix && !Range.getBegin().isMacroID() &&
+                      !Range.getEnd().isMacroID();
+}
+
 void IdentifierNamingCheck::check(const MatchFinder::MatchResult &Result) {
-  if (const auto *DeclRef = Result.Nodes.getNodeAs<DeclRefExpr>("declref")) {
-    auto It = NamingCheckFailures.find(DeclRef->getDecl());
-    if (It == NamingCheckFailures.end())
+  if (const auto *Decl =
+          Result.Nodes.getNodeAs<CXXConstructorDecl>("classRef")) {
+    if (Decl->isImplicit())
       return;
 
-    NamingCheckFailure &Failure = It->second;
+    addUsage(NamingCheckFailures, Decl->getParent(),
+             Decl->getNameInfo().getSourceRange(), Result.SourceManager);
+    return;
+  }
+
+  if (const auto *Decl =
+          Result.Nodes.getNodeAs<CXXDestructorDecl>("classRef")) {
+    if (Decl->isImplicit())
+      return;
+
+    SourceRange Range = Decl->getNameInfo().getSourceRange();
+    if (Range.getBegin().isInvalid())
+      return;
+    // The first token that will be found is the ~ (or the equivalent trigraph),
+    // we want instead to replace the next token, that will be the identifier.
+    Range.setBegin(CharSourceRange::getTokenRange(Range).getEnd());
+
+    addUsage(NamingCheckFailures, Decl->getParent(), Range,
+             Result.SourceManager);
+    return;
+  }
+
+  if (const auto *Loc = Result.Nodes.getNodeAs<TypeLoc>("typeLoc")) {
+    NamedDecl *Decl = nullptr;
+    if (const auto &Ref = Loc->getAs<TagTypeLoc>()) {
+      Decl = Ref.getDecl();
+    } else if (const auto &Ref = Loc->getAs<InjectedClassNameTypeLoc>()) {
+      Decl = Ref.getDecl();
+    } else if (const auto &Ref = Loc->getAs<UnresolvedUsingTypeLoc>()) {
+      Decl = Ref.getDecl();
+    } else if (const auto &Ref = Loc->getAs<TemplateTypeParmTypeLoc>()) {
+      Decl = Ref.getDecl();
+    }
+
+    if (Decl) {
+      addUsage(NamingCheckFailures, Decl, Loc->getSourceRange(),
+               Result.SourceManager);
+      return;
+    }
+
+    if (const auto &Ref = Loc->getAs<TemplateSpecializationTypeLoc>()) {
+      const auto *Decl =
+          Ref.getTypePtr()->getTemplateName().getAsTemplateDecl();
+
+      SourceRange Range(Ref.getTemplateNameLoc(), Ref.getTemplateNameLoc());
+      if (const auto *ClassDecl = dyn_cast<TemplateDecl>(Decl)) {
+        addUsage(NamingCheckFailures, ClassDecl->getTemplatedDecl(), Range,
+                 Result.SourceManager);
+        return;
+      }
+    }
+
+    if (const auto &Ref =
+            Loc->getAs<DependentTemplateSpecializationTypeLoc>()) {
+      addUsage(NamingCheckFailures, Ref.getTypePtr()->getAsTagDecl(),
+               Loc->getSourceRange(), Result.SourceManager);
+      return;
+    }
+  }
+
+  if (const auto *Loc =
+          Result.Nodes.getNodeAs<NestedNameSpecifierLoc>("nestedNameLoc")) {
+    if (NestedNameSpecifier *Spec = Loc->getNestedNameSpecifier()) {
+      if (NamespaceDecl *Decl = Spec->getAsNamespace()) {
+        addUsage(NamingCheckFailures, Decl, Loc->getLocalSourceRange(),
+                 Result.SourceManager);
+        return;
+      }
+    }
+  }
+
+  if (const auto *Decl = Result.Nodes.getNodeAs<UsingDecl>("using")) {
+    for (const auto &Shadow : Decl->shadows()) {
+      addUsage(NamingCheckFailures, Shadow->getTargetDecl(),
+               Decl->getNameInfo().getSourceRange(), Result.SourceManager);
+    }
+    return;
+  }
+
+  if (const auto *DeclRef = Result.Nodes.getNodeAs<DeclRefExpr>("declRef")) {
     SourceRange Range = DeclRef->getNameInfo().getSourceRange();
-
-    Failure.Usages.push_back(Range);
-    Failure.ShouldFix = Failure.ShouldFix &&
-                        Result.SourceManager->isInMainFile(Range.getBegin()) &&
-                        Result.SourceManager->isInMainFile(Range.getEnd()) &&
-                        !Range.getBegin().isMacroID() &&
-                        !Range.getEnd().isMacroID();
-
+    addUsage(NamingCheckFailures, DeclRef->getDecl(), Range,
+             Result.SourceManager);
     return;
   }
 
   if (const auto *Decl = Result.Nodes.getNodeAs<NamedDecl>("decl")) {
     if (!Decl->getIdentifier() || Decl->getName().empty() || Decl->isImplicit())
+      return;
+
+    // Ignore ClassTemplateSpecializationDecl which are creating duplicate
+    // replacements with CXXRecordDecl
+    if (isa<ClassTemplateSpecializationDecl>(Decl))
       return;
 
     StyleKind SK = findStyleKind(Decl, NamingStyles);
@@ -550,11 +647,7 @@ void IdentifierNamingCheck::check(const MatchFinder::MatchResult &Result) {
 
       Failure.Fixup = std::move(Fixup);
       Failure.KindName = std::move(KindName);
-      Failure.ShouldFix =
-          Failure.ShouldFix &&
-          Result.SourceManager->isInMainFile(Range.getBegin()) &&
-          Result.SourceManager->isInMainFile(Range.getEnd()) &&
-          !Range.getBegin().isMacroID() && !Range.getEnd().isMacroID();
+      addUsage(NamingCheckFailures, Decl, Range, Result.SourceManager);
     }
   }
 }
@@ -564,19 +657,27 @@ void IdentifierNamingCheck::onEndOfTranslationUnit() {
     const NamedDecl &Decl = *Pair.first;
     const NamingCheckFailure &Failure = Pair.second;
 
-    SourceRange DeclRange =
-        DeclarationNameInfo(Decl.getDeclName(), Decl.getLocation())
-            .getSourceRange();
-    auto Diag = diag(Decl.getLocStart(), "invalid case style for %0 '%1'")
-                << Failure.KindName << Decl.getName();
+    if (Failure.KindName.empty())
+      continue;
 
     if (Failure.ShouldFix) {
-      Diag << FixItHint::CreateReplacement(
-          CharSourceRange::getTokenRange(DeclRange), Failure.Fixup);
+      auto Diag = diag(Decl.getLocStart(), "invalid case style for %0 '%1'")
+                  << Failure.KindName << Decl.getName();
 
-      for (const auto &Range : Failure.Usages) {
+      for (const auto &Loc : Failure.RawUsageLocs) {
+        // We assume that the identifier name is made of one token only. This is
+        // always the case as we ignore usages in macros that could build
+        // identifier names by combining multiple tokens.
+        //
+        // For destructors, we alread take care of it by remembering the
+        // location of the start of the identifier and not the start of the
+        // tilde.
+        //
+        // Other multi-token identifiers, such as operators are not checked at
+        // all.
         Diag << FixItHint::CreateReplacement(
-            CharSourceRange::getTokenRange(Range), Failure.Fixup);
+            SourceRange(SourceLocation::getFromRawEncoding(Loc)),
+            Failure.Fixup);
       }
     }
   }

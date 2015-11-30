@@ -6,6 +6,8 @@
 ; |   <RVAL-REG> LINEAR i32 i1 {sb:3}
 
 ; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
+; This has been marked as XFAIL due to CQ 378686
+; XFAIL: *
 
 ; CHECK:      = ({{.*}}false{{.*}})
 ; CHECK:      <RVAL-REG>{{.*}}{undefined}

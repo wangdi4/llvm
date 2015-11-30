@@ -268,8 +268,6 @@ namespace llvm {
       // Exception Handling helpers.
       EH_RETURN,
 
-      CATCHRET,
-
       // SjLj exception handling setjmp.
       EH_SJLJ_SETJMP,
 
@@ -391,14 +389,18 @@ namespace llvm {
       VPERMIV3,
       VPERMI,
       VPERM2X128,
-      //Fix Up Special Packed Float32/64 values
+      // Bitwise ternary logic
+      VPTERNLOG,
+      // Fix Up Special Packed Float32/64 values
       VFIXUPIMM,
-      //Range Restriction Calculation For Packed Pairs of Float32/64 values
+      // Range Restriction Calculation For Packed Pairs of Float32/64 values
       VRANGE,
       // Reduce - Perform Reduction Transformation on scalar\packed FP
       VREDUCE,
       // RndScale - Round FP Values To Include A Given Number Of Fraction Bits
       VRNDSCALE,
+      // VFPCLASS - Tests Types Of a FP Values
+      VFPCLASS, 
       // Broadcast scalar to vector
       VBROADCAST,
       // Broadcast subvector to vector
@@ -409,6 +411,13 @@ namespace llvm {
 
       /// SSE4A Extraction and Insertion.
       EXTRQI, INSERTQI,
+
+      // XOP variable/immediate rotations
+      VPROT, VPROTI,
+      // XOP arithmetic/logical shifts
+      VPSHA, VPSHL,
+      // XOP signed/unsigned integer comparisons
+      VPCOM, VPCOMU,
 
       // Vector multiply packed unsigned doubleword integers
       PMULUDQ,
@@ -891,6 +900,12 @@ namespace llvm {
     bool getStackCookieLocation(unsigned &AddressSpace,
                                 unsigned &Offset) const override;
 
+    /// Return true if the target stores SafeStack pointer at a fixed offset in
+    /// some non-standard address space, and populates the address space and
+    /// offset as appropriate.
+    bool getSafeStackPointerLocation(unsigned &AddressSpace,
+                                     unsigned &Offset) const override;
+
     SDValue BuildFILD(SDValue Op, EVT SrcVT, SDValue Chain, SDValue StackSlot,
                       SelectionDAG &DAG) const;
 
@@ -902,6 +917,11 @@ namespace llvm {
 
     bool isIntDivCheap(EVT VT, AttributeSet Attr) const override;
 
+#ifndef INTEL_CUSTOMIZATION
+    void markInRegArguments(SelectionDAG &DAG, TargetLowering::ArgListTy& Args)
+      const override;
+#endif //INTEL_CUSTOMIZATION
+
   protected:
     std::pair<const TargetRegisterClass *, uint8_t>
     findRepresentativeClass(const TargetRegisterInfo *TRI,
@@ -911,7 +931,6 @@ namespace llvm {
     /// Keep a pointer to the X86Subtarget around so that we can
     /// make the right decision when generating code for different targets.
     const X86Subtarget *Subtarget;
-    const DataLayout *TD;
 
     /// Select between SSE or x87 floating point ops.
     /// When SSE is available, use it for f32 operations.
@@ -958,7 +977,6 @@ namespace llvm {
                                     const SmallVectorImpl<SDValue> &OutVals,
                                     const SmallVectorImpl<ISD::InputArg> &Ins,
                                            SelectionDAG& DAG) const;
-    bool IsCalleePop(bool isVarArg, CallingConv::ID CallConv) const;
     SDValue EmitTailCallLoadRetAddr(SelectionDAG &DAG, SDValue &OutRetAddr,
                                 SDValue Chain, bool IsTailCall, bool Is64Bit,
                                 int FPDiff, SDLoc dl) const;
@@ -972,7 +990,6 @@ namespace llvm {
 
     SDValue LowerBUILD_VECTOR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBUILD_VECTORvXi1(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerVECTOR_SHUFFLE(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEXTRACT_VECTOR_ELT(SDValue Op, SelectionDAG &DAG) const;
     SDValue ExtractBitFromMaskVector(SDValue Op, SelectionDAG &DAG) const;
@@ -999,7 +1016,6 @@ namespace llvm {
     SDValue LowerSETCC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerSELECT(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerBRCOND(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerMEMSET(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerDYNAMIC_STACKALLOC(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
@@ -1008,7 +1024,6 @@ namespace llvm {
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFRAME_TO_ARGS_OFFSET(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerEH_RETURN(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerCATCHRET(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerEH_SJLJ_SETJMP(SDValue Op, SelectionDAG &DAG) const;
     SDValue lowerEH_SJLJ_LONGJMP(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerINIT_TRAMPOLINE(SDValue Op, SelectionDAG &DAG) const;
@@ -1046,27 +1061,16 @@ namespace llvm {
 
     const MCPhysReg *getScratchRegisters(CallingConv::ID CC) const override;
 
-    bool shouldExpandAtomicLoadInIR(LoadInst *SI) const override;
+    TargetLoweringBase::AtomicExpansionKind
+    shouldExpandAtomicLoadInIR(LoadInst *SI) const override;
     bool shouldExpandAtomicStoreInIR(StoreInst *SI) const override;
-    TargetLoweringBase::AtomicRMWExpansionKind
+    TargetLoweringBase::AtomicExpansionKind
     shouldExpandAtomicRMWInIR(AtomicRMWInst *AI) const override;
 
     LoadInst *
     lowerIdempotentRMWIntoFencedLoad(AtomicRMWInst *AI) const override;
 
     bool needsCmpXchgNb(Type *MemType) const;
-
-    /// Utility function to emit atomic-load-arith operations (and, or, xor,
-    /// nand, max, min, umax, umin). It takes the corresponding instruction to
-    /// expand, the associated machine basic block, and the associated X86
-    /// opcodes for reg/reg.
-    MachineBasicBlock *EmitAtomicLoadArith(MachineInstr *MI,
-                                           MachineBasicBlock *MBB) const;
-
-    /// Utility function to emit atomic-load-arith operations (and, or, xor,
-    /// nand, add, sub, swap) for 64-bit operands on 32-bit target.
-    MachineBasicBlock *EmitAtomicLoadArith6432(MachineInstr *MI,
-                                               MachineBasicBlock *MBB) const;
 
     // Utility function to emit the low-level va_arg code for X86-64.
     MachineBasicBlock *EmitVAARG64WithCustomInserter(
@@ -1091,9 +1095,6 @@ namespace llvm {
                                             MachineBasicBlock *BB) const;
 
     MachineBasicBlock *EmitLoweredTLSCall(MachineInstr *MI,
-                                          MachineBasicBlock *BB) const;
-
-    MachineBasicBlock *emitLoweredTLSAddr(MachineInstr *MI,
                                           MachineBasicBlock *BB) const;
 
     MachineBasicBlock *emitEHSjLjSetJmp(MachineInstr *MI,

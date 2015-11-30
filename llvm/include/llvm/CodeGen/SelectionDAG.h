@@ -180,6 +180,15 @@ class SelectionDAG {
   const TargetMachine &TM;
   const TargetSelectionDAGInfo *TSI;
   const TargetLowering *TLI;
+
+#if INTEL_CUSTOMIZATION
+  /// The Intel compiler uses libirc implementations of library functions
+  /// such as memcpy/set unless a freestanding environment is targeted.
+  /// TargetLibraryInfo is used to determine the availability of
+  /// standard library functions in the targeted environment.
+  const TargetLibraryInfo *TLibI;
+#endif // INTEL_CUSTOMIZATION
+
   MachineFunction *MF;
   LLVMContext *Context;
   CodeGenOpt::Level OptLevel;
@@ -214,6 +223,10 @@ class SelectionDAG {
 
   /// Tracks dbg_value information through SDISel.
   SDDbgInfo *DbgInfo;
+
+#ifndef NDEBUG
+  uint16_t NextPersistentId;
+#endif
 
 public:
   /// Clients of various APIs that cause global effects on
@@ -274,7 +287,7 @@ public:
   ~SelectionDAG();
 
   /// Prepare this SelectionDAG to process code in the given MachineFunction.
-  void init(MachineFunction &mf);
+  void init(MachineFunction &mf, const TargetLibraryInfo *TLibI); // INTEL
 
   /// Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
@@ -532,7 +545,7 @@ public:
     SDVTList VTs = getVTList(MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, getRegister(Reg, N.getValueType()), N, Glue };
     return getNode(ISD::CopyToReg, dl, VTs,
-                   ArrayRef<SDValue>(Ops, Glue.getNode() ? 4 : 3));
+                   makeArrayRef(Ops, Glue.getNode() ? 4 : 3));
   }
 
   // Similar to last getCopyToReg() except parameter Reg is a SDValue
@@ -541,7 +554,7 @@ public:
     SDVTList VTs = getVTList(MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, Reg, N, Glue };
     return getNode(ISD::CopyToReg, dl, VTs,
-                   ArrayRef<SDValue>(Ops, Glue.getNode() ? 4 : 3));
+                   makeArrayRef(Ops, Glue.getNode() ? 4 : 3));
   }
 
   SDValue getCopyFromReg(SDValue Chain, SDLoc dl, unsigned Reg, EVT VT) {
@@ -558,7 +571,7 @@ public:
     SDVTList VTs = getVTList(VT, MVT::Other, MVT::Glue);
     SDValue Ops[] = { Chain, getRegister(Reg, VT), Glue };
     return getNode(ISD::CopyFromReg, dl, VTs,
-                   ArrayRef<SDValue>(Ops, Glue.getNode() ? 3 : 2));
+                   makeArrayRef(Ops, Glue.getNode() ? 3 : 2));
   }
 
   SDValue getCondCode(ISD::CondCode Cond);
@@ -670,7 +683,7 @@ public:
   SDValue getNode(unsigned Opcode, SDLoc DL, EVT VT,
                   ArrayRef<SDUse> Ops);
   SDValue getNode(unsigned Opcode, SDLoc DL, EVT VT,
-                  ArrayRef<SDValue> Ops);
+                  ArrayRef<SDValue> Ops, const SDNodeFlags *Flags = nullptr);
   SDValue getNode(unsigned Opcode, SDLoc DL, ArrayRef<EVT> ResultTys,
                   ArrayRef<SDValue> Ops);
   SDValue getNode(unsigned Opcode, SDLoc DL, SDVTList VTs,
@@ -1161,6 +1174,10 @@ public:
   SDValue FoldConstantArithmetic(unsigned Opcode, SDLoc DL, EVT VT,
                                  const ConstantSDNode *Cst1,
                                  const ConstantSDNode *Cst2);
+
+  SDValue FoldConstantVectorArithmetic(unsigned Opcode, SDLoc DL,
+                                       EVT VT, ArrayRef<SDValue> Ops,
+                                       const SDNodeFlags *Flags = nullptr);
 
   /// Constant fold a setcc to true or false.
   SDValue FoldSetCC(EVT VT, SDValue N1,

@@ -12,18 +12,11 @@ class BreakpointLocationsTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @skipUnlessDarwin
-    @dsym_test
-    def test_with_dsym(self):
-        """Test breakpoint enable/disable for a breakpoint ID with multiple locations."""
-        self.buildDsym()
-        self.breakpoint_locations_test()
-
-    @dwarf_test
     @expectedFailureWindows("llvm.org/pr24528")
-    def test_with_dwarf(self):
+    @expectedFailureAll(oslist=["linux"], compiler="clang", compiler_version=["=", "3.8"], archs=["i386"], debug_info="dwo")
+    def test(self):
         """Test breakpoint enable/disable for a breakpoint ID with multiple locations."""
-        self.buildDwarf()
+        self.build()
         self.breakpoint_locations_test()
 
     def setUp(self):

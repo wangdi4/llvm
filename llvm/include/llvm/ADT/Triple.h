@@ -50,6 +50,7 @@ public:
     armeb,      // ARM (big endian): armeb
     aarch64,    // AArch64 (little endian): aarch64
     aarch64_be, // AArch64 (big endian): aarch64_be
+    avr,        // AVR: Atmel AVR microcontroller
     bpfel,      // eBPF or extended BPF or 64-bit BPF (little endian)
     bpfeb,      // eBPF or extended BPF or 64-bit BPF (big endian)
     hexagon,    // Hexagon: hexagon
@@ -154,7 +155,10 @@ public:
     NVCL,       // NVIDIA OpenCL
     AMDHSA,     // AMD HSA Runtime
     PS4,
-    LastOSType = PS4
+#if INTEL_CUSTOMIZATION
+    ELFIAMCU,
+    LastOSType = ELFIAMCU
+#endif //INTEL_CUSTOMIZATION
   };
   enum EnvironmentType {
     UnknownEnvironment,
@@ -430,6 +434,12 @@ public:
     return getOS() == Triple::Bitrig;
   }
 
+#if INTEL_CUSTOMIZATION
+  bool isOSIAMCU() const {
+    return getOS() == Triple::ELFIAMCU;
+  }
+#endif //INTEL_CUSTOMIZATION
+
   bool isWindowsMSVCEnvironment() const {
     return getOS() == Triple::Win32 &&
            (getEnvironment() == Triple::UnknownEnvironment ||
@@ -509,6 +519,9 @@ public:
     return getVendor() == Triple::SCEI &&
            getOS() == Triple::PS4;
   }
+
+  /// \brief Tests whether the target is Android
+  bool isAndroid() const { return getEnvironment() == Triple::Android; }
 
   /// @}
   /// @name Mutators

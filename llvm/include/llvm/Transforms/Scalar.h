@@ -250,6 +250,9 @@ FunctionPass *createReassociatePass();
 //
 FunctionPass *createJumpThreadingPass(int Threshold = -1,
                                       bool AllowCFGSimps = true);
+// NonLTOGlobalOptimizerPass is a pass which pormotes the non escaped block
+// scope global variables into the registers.
+FunctionPass *createNonLTOGlobalOptimizerPass();
 #endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//

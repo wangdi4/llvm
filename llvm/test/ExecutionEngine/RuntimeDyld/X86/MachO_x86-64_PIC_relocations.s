@@ -57,10 +57,15 @@ z1:
 z2:
         .quad   ds2
 
-# Test subtractor relocations.
-# rtdyld-check: *{8}z3 = z4 - z5
+# Test absolute symbols.
+# rtdyld-check: abssym = 0xdeadbeef
+        .globl  abssym
+abssym = 0xdeadbeef
+
+	# Test subtractor relocations.
+# rtdyld-check: *{8}z3 = z4 - z5 + 4
 z3:
-        .quad  z4 - z5
+        .quad  z4 - z5 + 4
 
         .section        __DATA,_tmp1
 z4:

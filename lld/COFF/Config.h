@@ -66,9 +66,11 @@ struct Configuration {
   bool NoEntry = false;
   std::string OutputFile;
   bool DoGC = true;
+  bool DoICF = true;
   bool Relocatable = true;
   bool Force = false;
   bool Debug = false;
+  bool WriteSymtab = true;
 
   // Symbols in this set are considered as live by the garbage collector.
   std::set<Undefined *> GCRoot;
@@ -87,9 +89,6 @@ struct Configuration {
   // Used for SafeSEH.
   DefinedRelative *SEHTable = nullptr;
   DefinedAbsolute *SEHCount = nullptr;
-
-  // Used for /opt:icf
-  bool ICF = false;
 
   // Used for /opt:lldlto=N
   unsigned LTOOptLevel = 2;

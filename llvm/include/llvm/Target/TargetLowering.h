@@ -87,6 +87,7 @@ public:
     Legal,      // The target natively supports this operation.
     Promote,    // This operation should be executed in a larger type.
     Expand,     // Try to expand this to other ops, otherwise use a libcall.
+    LibCall,    // Don't try to expand this to other ops, always use a libcall.
     Custom      // Use the LowerOperation hook to implement custom lowering.
   };
 
@@ -124,15 +125,14 @@ public:
                           // mask (ex: x86 blends).
   };
 
-  /// Enum that specifies what a AtomicRMWInst is expanded to, if at all. Exists
-  /// because different targets have different levels of support for these
-  /// atomic RMW instructions, and also have different options w.r.t. what they
-  /// should expand to.
-  enum class AtomicRMWExpansionKind {
+  /// Enum that specifies what an atomic load/AtomicRMWInst is expanded
+  /// to, if at all. Exists because different targets have different levels of
+  /// support for these atomic instructions, and also have different options
+  /// w.r.t. what they should expand to.
+  enum class AtomicExpansionKind {
     None,      // Don't expand the instruction.
     LLSC,      // Expand the instruction into loadlinked/storeconditional; used
-               // by ARM/AArch64. Implies `hasLoadLinkedStoreConditional`
-               // returns true.
+               // by ARM/AArch64.
     CmpXChg,   // Expand the instruction into cmpxchg; used by at least X86.
   };
 
@@ -886,7 +886,7 @@ public:
   bool allowsMemoryAccess(LLVMContext &Context, const DataLayout &DL, EVT VT,
                           unsigned AddrSpace = 0, unsigned Alignment = 1,
                           bool *Fast = nullptr) const;
-  
+
   /// Returns the target specific optimal type for load and store operations as
   /// a result of memset, memcpy, and memmove lowering.
   ///
@@ -996,6 +996,14 @@ public:
     return false;
   }
 
+  /// Return true if the target stores SafeStack pointer at a fixed offset in
+  /// some non-standard address space, and populates the address space and
+  /// offset as appropriate.
+  virtual bool getSafeStackPointerLocation(unsigned & /*AddressSpace*/,
+                                           unsigned & /*Offset*/) const {
+    return false;
+  }
+
   /// Returns true if a cast between SrcAS and DestAS is a noop.
   virtual bool isNoopAddrSpaceCast(unsigned SrcAS, unsigned DestAS) const {
     return false;
@@ -1026,10 +1034,6 @@ public:
   //===--------------------------------------------------------------------===//
   /// \name Helpers for atomic expansion.
   /// @{
-
-  /// True if AtomicExpandPass should use emitLoadLinked/emitStoreConditional
-  /// and expand AtomicCmpXchgInst.
-  virtual bool hasLoadLinkedStoreConditional() const { return false; }
 
   /// Perform a load-linked operation on Addr, returning a "Value *" with the
   /// corresponding pointee type. This may entail some non-trivial operations to
@@ -1102,6 +1106,14 @@ public:
   }
   /// @}
 
+  // Emits code that executes when the comparison result in the ll/sc
+  // expansion of a cmpxchg instruction is such that the store-conditional will
+  // not execute.  This makes it possible to balance out the load-linked with
+  // a dedicated instruction, if desired.
+  // E.g., on ARM, if ldrex isn't followed by strex, the exclusive monitor would
+  // be unnecessarily held, except if clrex, inserted by this hook, is executed.
+  virtual void emitAtomicCmpXchgNoStoreLLBalance(IRBuilder<> &Builder) const {}
+
   /// Returns true if the given (atomic) store should be expanded by the
   /// IR-level AtomicExpand pass into an "atomic xchg" which ignores its input.
   virtual bool shouldExpandAtomicStoreInIR(StoreInst *SI) const {
@@ -1111,18 +1123,25 @@ public:
   /// Returns true if arguments should be sign-extended in lib calls.
   virtual bool shouldSignExtendTypeInLibCall(EVT Type, bool IsSigned) const {
     return IsSigned;
- }
+  }
 
-  /// Returns true if the given (atomic) load should be expanded by the
-  /// IR-level AtomicExpand pass into a load-linked instruction
-  /// (through emitLoadLinked()).
-  virtual bool shouldExpandAtomicLoadInIR(LoadInst *LI) const { return false; }
+  /// Returns how the given (atomic) load should be expanded by the
+  /// IR-level AtomicExpand pass.
+  virtual AtomicExpansionKind shouldExpandAtomicLoadInIR(LoadInst *LI) const {
+    return AtomicExpansionKind::None;
+  }
+
+  /// Returns true if the given atomic cmpxchg should be expanded by the
+  /// IR-level AtomicExpand pass into a load-linked/store-conditional sequence
+  /// (through emitLoadLinked() and emitStoreConditional()).
+  virtual bool shouldExpandAtomicCmpXchgInIR(AtomicCmpXchgInst *AI) const {
+    return false;
+  }
 
   /// Returns how the IR-level AtomicExpand pass should expand the given
   /// AtomicRMW, if at all. Default is to never expand.
-  virtual AtomicRMWExpansionKind
-  shouldExpandAtomicRMWInIR(AtomicRMWInst *) const {
-    return AtomicRMWExpansionKind::None;
+  virtual AtomicExpansionKind shouldExpandAtomicRMWInIR(AtomicRMWInst *) const {
+    return AtomicExpansionKind::None;
   }
 
   /// On some platforms, an AtomicRMW that never actually modifies the value
@@ -1699,6 +1718,12 @@ public:
   /// has custom lowering that depends on the index of the first element,
   /// and only the target knows which lowering is cheap.
   virtual bool isExtractSubvectorCheap(EVT ResVT, unsigned Index) const {
+    return false;
+  }
+
+  // Return true if it is profitable to use a scalar input to a BUILD_VECTOR
+  // even if the vector itself has multiple uses.
+  virtual bool aggressivelyPreferBuildVectorSources(EVT VecVT) const {
     return false;
   }
 
@@ -2411,6 +2436,14 @@ public:
 
   };
 
+#ifndef INTEL_CUSTOMIZATION
+  // Mark inreg arguments for lib-calls. For normal calls this is done by
+  // the frontend ABI code.
+  virtual void markInRegArguments(SelectionDAG &DAG, 
+                 TargetLowering::ArgListTy &Args) const {
+    return;
+  }
+#endif //INTEL_CUSTOMIZATION
   /// This function lowers an abstract call to a function into an actual call.
   /// This returns a pair of operands.  The first element is the return value
   /// for the function (if RetTy is not VoidTy).  The second element is the

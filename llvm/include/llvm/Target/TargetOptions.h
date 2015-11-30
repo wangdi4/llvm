@@ -68,6 +68,7 @@ namespace llvm {
           NoZerosInBSS(false),
           GuaranteedTailCallOpt(false),
           StackSymbolOrdering(true),               // INTEL
+          IntelLibIRCAllowed(false),               // INTEL
           StackAlignmentOverride(0),
           EnableFastISel(false), PositionIndependentExecutable(false),
           UseInitArray(false), DisableIntegratedAS(false),
@@ -144,6 +145,11 @@ namespace llvm {
     /// heuristics). When false, the local symbols are left in whatever order
     /// they were generated. Default is true.
     unsigned StackSymbolOrdering : 1;
+
+    /// IntelLibIRCAllowed - When true, this indicates that libirc is 
+    /// available for the compiler to make calls to.  When false, the
+    /// compiler cannot generate libirc calls.
+    unsigned IntelLibIRCAllowed : 1;
 #endif // INTEL_CUSTOMIZATION
 
     /// StackAlignmentOverride - Override default stack alignment for target.
@@ -213,7 +219,7 @@ namespace llvm {
 
     /// This class encapsulates options for reciprocal-estimate code generation.
     TargetRecip Reciprocals;
-    
+
     /// JTType - This flag specifies the type of jump-instruction table to
     /// create for functions that have the jumptable attribute.
     JumpTable::JumpTableType JTType;

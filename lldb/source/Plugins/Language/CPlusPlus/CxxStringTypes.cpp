@@ -24,6 +24,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ProcessStructReader.h"
+#include "lldb/DataFormatters/FormattersHelpers.h"
 
 #include <algorithm>
 
@@ -44,18 +45,17 @@ lldb_private::formatters::Char16StringSummaryProvider (ValueObject& valobj, Stre
     if (!process_sp)
         return false;
     
-    lldb::addr_t valobj_addr = valobj.GetValueAsUnsigned(0);
-    
-    if (!valobj_addr)
+    lldb::addr_t valobj_addr = GetArrayAddressOrPointerValue(valobj);
+    if (valobj_addr == 0 || valobj_addr == LLDB_INVALID_ADDRESS)
         return false;
     
-    ReadStringAndDumpToStreamOptions options(valobj);
+    StringPrinter::ReadStringAndDumpToStreamOptions options(valobj);
     options.SetLocation(valobj_addr);
     options.SetProcessSP(process_sp);
     options.SetStream(&stream);
-    options.SetPrefixToken('u');
+    options.SetPrefixToken("u");
     
-    if (!StringPrinter::ReadStringAndDumpToStream<StringElementType::UTF16>(options))
+    if (!StringPrinter::ReadStringAndDumpToStream<StringPrinter::StringElementType::UTF16>(options))
     {
         stream.Printf("Summary Unavailable");
         return true;
@@ -71,18 +71,17 @@ lldb_private::formatters::Char32StringSummaryProvider (ValueObject& valobj, Stre
     if (!process_sp)
         return false;
     
-    lldb::addr_t valobj_addr = valobj.GetValueAsUnsigned(0);
-    
-    if (!valobj_addr)
+    lldb::addr_t valobj_addr = GetArrayAddressOrPointerValue(valobj);
+    if (valobj_addr == 0 || valobj_addr == LLDB_INVALID_ADDRESS)
         return false;
     
-    ReadStringAndDumpToStreamOptions options(valobj);
+    StringPrinter::ReadStringAndDumpToStreamOptions options(valobj);
     options.SetLocation(valobj_addr);
     options.SetProcessSP(process_sp);
     options.SetStream(&stream);
-    options.SetPrefixToken('U');
+    options.SetPrefixToken("U");
     
-    if (!StringPrinter::ReadStringAndDumpToStream<StringElementType::UTF32>(options))
+    if (!StringPrinter::ReadStringAndDumpToStream<StringPrinter::StringElementType::UTF32>(options))
     {
         stream.Printf("Summary Unavailable");
         return true;
@@ -98,38 +97,32 @@ lldb_private::formatters::WCharStringSummaryProvider (ValueObject& valobj, Strea
     if (!process_sp)
         return false;
     
-    lldb::addr_t data_addr = 0;
-    
-    if (valobj.IsPointerType())
-        data_addr = valobj.GetValueAsUnsigned(0);
-    else if (valobj.IsArrayType())
-        data_addr = valobj.GetAddressOf();
-    
-    if (data_addr == 0 || data_addr == LLDB_INVALID_ADDRESS)
+    lldb::addr_t valobj_addr = GetArrayAddressOrPointerValue(valobj);
+    if (valobj_addr == 0 || valobj_addr == LLDB_INVALID_ADDRESS)
         return false;
     
     // Get a wchar_t basic type from the current type system
-    CompilerType wchar_clang_type = valobj.GetCompilerType().GetBasicTypeFromAST(lldb::eBasicTypeWChar);
+    CompilerType wchar_compiler_type = valobj.GetCompilerType().GetBasicTypeFromAST(lldb::eBasicTypeWChar);
     
-    if (!wchar_clang_type)
+    if (!wchar_compiler_type)
         return false;
     
-    const uint32_t wchar_size = wchar_clang_type.GetBitSize(nullptr); // Safe to pass NULL for exe_scope here
+    const uint32_t wchar_size = wchar_compiler_type.GetBitSize(nullptr); // Safe to pass NULL for exe_scope here
     
-    ReadStringAndDumpToStreamOptions options(valobj);
-    options.SetLocation(data_addr);
+    StringPrinter::ReadStringAndDumpToStreamOptions options(valobj);
+    options.SetLocation(valobj_addr);
     options.SetProcessSP(process_sp);
     options.SetStream(&stream);
-    options.SetPrefixToken('L');
+    options.SetPrefixToken("L");
     
     switch (wchar_size)
     {
         case 8:
-            return StringPrinter::ReadStringAndDumpToStream<StringElementType::UTF8>(options);
+            return StringPrinter::ReadStringAndDumpToStream<StringPrinter::StringElementType::UTF8>(options);
         case 16:
-            return StringPrinter::ReadStringAndDumpToStream<StringElementType::UTF16>(options);
+            return StringPrinter::ReadStringAndDumpToStream<StringPrinter::StringElementType::UTF16>(options);
         case 32:
-            return StringPrinter::ReadStringAndDumpToStream<StringElementType::UTF32>(options);
+            return StringPrinter::ReadStringAndDumpToStream<StringPrinter::StringElementType::UTF32>(options);
         default:
             stream.Printf("size for wchar_t is not valid");
             return true;
@@ -152,15 +145,15 @@ lldb_private::formatters::Char16SummaryProvider (ValueObject& valobj, Stream& st
     if (!value.empty())
         stream.Printf("%s ", value.c_str());
     
-    ReadBufferAndDumpToStreamOptions options(valobj);
+    StringPrinter::ReadBufferAndDumpToStreamOptions options(valobj);
     options.SetData(data);
     options.SetStream(&stream);
-    options.SetPrefixToken('u');
+    options.SetPrefixToken("u");
     options.SetQuote('\'');
     options.SetSourceSize(1);
     options.SetBinaryZeroIsTerminator(false);
     
-    return StringPrinter::ReadBufferAndDumpToStream<StringElementType::UTF16>(options);
+    return StringPrinter::ReadBufferAndDumpToStream<StringPrinter::StringElementType::UTF16>(options);
 }
 
 bool
@@ -178,15 +171,15 @@ lldb_private::formatters::Char32SummaryProvider (ValueObject& valobj, Stream& st
     if (!value.empty())
         stream.Printf("%s ", value.c_str());
     
-    ReadBufferAndDumpToStreamOptions options(valobj);
+    StringPrinter::ReadBufferAndDumpToStreamOptions options(valobj);
     options.SetData(data);
     options.SetStream(&stream);
-    options.SetPrefixToken('U');
+    options.SetPrefixToken("U");
     options.SetQuote('\'');
     options.SetSourceSize(1);
     options.SetBinaryZeroIsTerminator(false);
     
-    return StringPrinter::ReadBufferAndDumpToStream<StringElementType::UTF32>(options);
+    return StringPrinter::ReadBufferAndDumpToStream<StringPrinter::StringElementType::UTF32>(options);
 }
 
 bool
@@ -199,13 +192,13 @@ lldb_private::formatters::WCharSummaryProvider (ValueObject& valobj, Stream& str
     if (error.Fail())
         return false;
     
-    ReadBufferAndDumpToStreamOptions options(valobj);
+    StringPrinter::ReadBufferAndDumpToStreamOptions options(valobj);
     options.SetData(data);
     options.SetStream(&stream);
-    options.SetPrefixToken('L');
+    options.SetPrefixToken("L");
     options.SetQuote('\'');
     options.SetSourceSize(1);
     options.SetBinaryZeroIsTerminator(false);
     
-    return StringPrinter::ReadBufferAndDumpToStream<StringElementType::UTF16>(options);
+    return StringPrinter::ReadBufferAndDumpToStream<StringPrinter::StringElementType::UTF16>(options);
 }

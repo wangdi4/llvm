@@ -19,12 +19,10 @@ class RegistersIteratorTestCase(TestBase):
         self.line1 = line_number('main.cpp', '// Set break point at this line.')
 
     @python_api_test
+    @expectedFailureWindows # Test crashes
     def test_iter_registers(self):
         """Test iterator works correctly for lldbutil.iter_registers()."""
-        self.buildDefault()
-        self.iter_registers()
-
-    def iter_registers(self):
+        self.build()
         exe = os.path.join(os.getcwd(), "a.out")
 
         target = self.dbg.CreateTarget(exe)

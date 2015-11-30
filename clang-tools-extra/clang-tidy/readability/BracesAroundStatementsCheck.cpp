@@ -127,7 +127,7 @@ void BracesAroundStatementsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(whileStmt().bind("while"), this);
   Finder->addMatcher(doStmt().bind("do"), this);
   Finder->addMatcher(forStmt().bind("for"), this);
-  Finder->addMatcher(forRangeStmt().bind("for-range"), this);
+  Finder->addMatcher(cxxForRangeStmt().bind("for-range"), this);
 }
 
 void
@@ -232,8 +232,18 @@ bool BracesAroundStatementsCheck::checkStmt(
 
   // InitialLoc points at the last token before opening brace to be inserted.
   assert(InitialLoc.isValid());
+  // Convert InitialLoc to file location, if it's on the same macro expansion
+  // level as the start of the statement. We also need file locations for
+  // Lexer::getLocForEndOfToken working properly.
+  InitialLoc = Lexer::makeFileCharRange(
+                   CharSourceRange::getCharRange(InitialLoc, S->getLocStart()),
+                   SM, Context->getLangOpts())
+                   .getBegin();
+  if (InitialLoc.isInvalid())
+    return false;
   SourceLocation StartLoc =
       Lexer::getLocForEndOfToken(InitialLoc, 0, SM, Context->getLangOpts());
+
   // StartLoc points at the location of the opening brace to be inserted.
   SourceLocation EndLoc;
   std::string ClosingInsertion;

@@ -58,6 +58,7 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/LibCallSemantics.h"    // For EHPersonality
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Atomic.h"
@@ -91,6 +92,8 @@ static cl::opt<bool> PrintAndersPointsTo("print-anders-points-to", cl::ReallyHid
 static cl::opt<bool> PrintAndersAliasQueries("print-anders-alias-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersModRefQueries("print-anders-modref-queries", cl::ReallyHidden);
 static cl::opt<bool> PrintAndersConstMemQueries("print-anders-const-mem-queries", cl::ReallyHidden);
+static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
+                                         cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
 
 static const unsigned SelfRep = (unsigned)-1;
@@ -338,6 +341,17 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+    if (F->hasPersonalityFn()) {
+      EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
+
+      if (isFuncletEHPersonality(Personality)) {
+        ValueNodes.clear();
+        return;
+      }
+    }
+  }
+
   IndirectCallList.clear();
   IdentifyObjects(M);
   CollectConstraints(M);
@@ -379,9 +393,98 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
       IMR->runAnalysis(M);
   }
 
+  // The following code is the implementation of escape analysis,
+  /// which is treated as extended globals-mod-ref analysis.
+  // In the existing globals mod ref analysis, any non-address taken
+  // static variable is assumed to be not overlapped with any
+  // unknown reference. In the escape analysis, any non-escaped
+  // static variable is assumed to be not overlapped with any
+  // unknown reference. A static variable is escaped if it can be
+  // accessed by outside routines.
+  // Here we assume the points-to graph is created after the
+  // AndersenAA. Given a graph node Xn, let's assume there
+  // exits a points-to path from Node X1 to Node Xn. If Xn is escaped,
+  // it implies that there exists one graph node among X1.Xn-1 which
+  // can be accessed by outside routine.
+
+  // It collects the static variables into the map table
+  // NonEscapeStaticVars.
+  // This map table will be refined during the escape analysis.
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) {
+      for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+        Node *N1 = &GraphNodes[I];
+        Value *V = N1->getValue();
+        if (V && isa<GlobalValue>(V) && V == &GV &&
+            N1 == &GraphNodes[getObject(V)]) {
+          NonEscapeStaticVars[V] = I;
+        }
+      }
+    }
+  }
+
+  // It collects the graph nodes which meet the following criteria.
+  // 1) static variable represented by the graph node
+  //    occurs in more than one routine;
+  // 2) if the address of a static variable occurs as
+  //    the right hand side of store instruction, check whether the
+  //    store instruction's graph node is escaped or not. If it is
+  //    escaped, collects the static variable's graph
+  //    node into EscapedNodeSet.
+  // 3) if the value of a static variable occurs as
+  //    the right hand side of store instruction, check whether the
+  //    store instruction's graph node is escaped or not. If it is
+  //    escaped, it implies that the point-to set of the static variable
+  //    is escaped. It will collect those graph nodes into EscapedNodeSet.
+  //
+  NodeSetTy EscapedNodeSet;
+  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
+       I != E; ++I) {
+    SmallPtrSet<const PHINode *, 16> PhiUsers;
+    const Function *SingleAcessingFunction = nullptr;
+    const Value *V = I->getFirst();
+    bool LoadFlag = false;
+    bool PossibleEscape =
+        analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction, &LoadFlag);
+    if (PossibleEscape || SingleAcessingFunction == nullptr ||
+        LoadFlag == true) {
+      if (PossibleEscape) {
+        EscapedNodeSet.insert(&GraphNodes[I->second]);
+      } else if (LoadFlag == true) {
+        Node *AltN = &GraphNodes[I->second];
+        if (AltN->PointsTo) {
+          for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+               BI != BE; ++BI) {
+            EscapedNodeSet.insert(&GraphNodes[*BI]);
+          }
+        }
+      }
+    }
+  }
+  // Refine the NonEscapeStaticVars based on the set EscapedNodeSet
+  updateEscapeNodes(&EscapedNodeSet);
+
+  if (NonEscapeStaticVars.size() > 0) {
+    analyzePointsToGraph(&EscapedNodeSet);
+  }
+
+  // Dump the non-escaped static variablas
+  if (PrintNonEscapeCands) {
+    PrintNonEscapes();
+  }
+
   //return false;
 }
 
+void AndersensAAResult::PrintNonEscapes() const {
+  errs() << "Non-Escape-Static-Vars_Begin \n";
+  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
+       I != E; ++I) {
+    PrintNode(&GraphNodes[I->second]);
+    errs() << "\n";
+  }
+  errs() << "Non-Escape-Static-Vars_End \n";
+}
 
 AndersensAAResult::AndersensAAResult(const DataLayout &DL,
                                  const TargetLibraryInfo &TLI)
@@ -402,8 +505,8 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ObjectNodes(std::move(Arg.ObjectNodes)),
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
+      NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
       IMR(std::move(Arg.IMR)) {}
-
 
 /*static*/ AndersensAAResult
 AndersensAAResult::analyzeModule(Module &M, const TargetLibraryInfo &TLI,
@@ -527,6 +630,9 @@ volatile llvm::sys::cas_flag AndersensAAResult::Node::Counter = 0;
 
 AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
                         const MemoryLocation &LocB)  {
+  if (ValueNodes.size() == 0) {
+      return AAResultBase::alias(LocA, LocB);
+  }
   NumAliasQuery++; 
   if (NumAliasQuery > MaxAliasQuery) {
       return AAResultBase::alias(LocA, LocB);
@@ -550,12 +656,33 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       errs() << " \n";
   }
 
-  if (N1->PointsTo->test(UniversalSet) || N2->PointsTo->test(UniversalSet)) {
+  if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
       if (PrintAndersAliasQueries) {
-          errs() << " One of them is Universal \n";
+        errs() << " both of them are Universal \n";
           errs() << " Alias_End \n";
       }
       return AAResultBase::alias(LocA, LocB);
+  }
+
+  // Using escape analysis to improve the precision
+  // of AndersenAA result.
+  if (!N1->intersectsIgnoring(N2, NullObject) &&
+      (((N1->PointsTo->test(UniversalSet) || pointsToSetEscapes(N1)) &&
+        !pointsToSetEscapes(N2)) ||
+       ((N2->PointsTo->test(UniversalSet) || pointsToSetEscapes(N2)) &&
+        !pointsToSetEscapes(N1)))) {
+    if (PrintAndersAliasQueries) {
+      errs() << " Result: NoAlias -- from escape analysis \n";
+      errs() << " Alias_End \n";
+    }
+    return NoAlias;
+  } else if (N1->PointsTo->test(UniversalSet) ||
+             N2->PointsTo->test(UniversalSet)) {
+    if (PrintAndersAliasQueries) {
+      errs() << " one of them is Universal and the other one escapes \n";
+      errs() << " Alias_End \n";
+    }
+    return AAResultBase::alias(LocA, LocB);
   }
 
   // Check to see if the two pointers are known to not alias. They don't alias
@@ -640,6 +767,11 @@ ModRefInfo AndersensAAResult::getModRefInfo(ImmutableCallSite CS1,
 ///
 bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
                                                bool OrLocal) {
+
+  if (ValueNodes.size() == 0) {
+    return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
+  }
+
   NumPtrQuery++;
   if (NumPtrQuery > MaxPtrQuery) {
       return AAResultBase::pointsToConstantMemory(Loc, OrLocal);
@@ -692,6 +824,255 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
       errs() << " ConstMem_End \n";
   }
   return true;
+}
+
+// Returns true if the given value V escapes
+bool AndersensAAResult::escapes(const Value *V) {
+  assert(V);
+  if (NonEscapeStaticVars.find(V) != NonEscapeStaticVars.end()) {
+    return false;
+  }
+  return true;
+}
+
+// Returns true if the given graph Node N escapes
+bool AndersensAAResult::graphNodeEscapes(Node *N) {
+  if (N == &GraphNodes[UniversalSet]) {
+    return true;
+  }
+  Value *V = N->getValue();
+  if (V == nullptr) {
+    return false;
+  }
+  return escapes(V);
+}
+
+// Returns true if the given graph Node N escapes.
+bool AndersensAAResult::pointsToSetEscapes(Node *N) {
+  if (N->PointsTo) {
+    for (SparseBitVector<>::iterator I = N->PointsTo->begin();
+         I != N->PointsTo->end(); ++I) {
+      if (graphNodeEscapes(&GraphNodes[*I])) {
+        return true;
+      }
+    }
+    return false;
+  } else {
+    return true;
+  }
+}
+
+// It returns true if the graph node meets one of the following
+// creteria.
+// 1) The graph node does not hae a value
+// 2) The value in the graph node is a global value and has been
+//    determined to be escaped.
+// 3) The value in the graph node N is not global value and
+//    there exists graph node M which points to N.
+bool AndersensAAResult::graphNodePossiblyEscape(Node *AltN) {
+  Value *V = AltN->getValue();
+  if (!V) {
+    return true;
+  }
+  if (isa<GlobalValue>(V)) {
+    return escapes(V);
+  } else {
+    for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+      Node *N = &GraphNodes[I];
+      if (FindNode(I) != I) {
+        N = &GraphNodes[FindNode(I)];
+      }
+      if (N->PointsTo) {
+        for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+             BI != BE; ++BI) {
+          Node *Pointee = &GraphNodes[*BI];
+          if (Pointee->getValue() && V == Pointee->getValue()) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+// It updates the map table NonEscapeStaticVars based on the
+// point-to graph.
+void AndersensAAResult::analyzePointsToGraph(NodeSetTy *EscapedNodeSet) {
+  Node *AltN, *CurN;
+
+  // Given a points-to graph, where p points to q which is in the
+  // set NonEscapeStaticVars, if p is likely to be escaped,
+  // q will be removed from the NonEscapeStaticVars and added
+  // to EscapedNodeSet.
+  for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+    AltN = &GraphNodes[I];
+    if (FindNode(I) != I) {
+      AltN = &GraphNodes[FindNode(I)];
+    }
+    if (AltN->PointsTo) {
+      bool Overlap = false;
+      for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
+           BI != BE; ++BI) {
+        Node *Pointee = &GraphNodes[*BI];
+        for (auto EI = NonEscapeStaticVars.begin(),
+                  EE = NonEscapeStaticVars.end();
+             EI != EE; EI++) {
+          if (Pointee == &GraphNodes[EI->second]) {
+            Overlap = true;
+          }
+        }
+      }
+      if (Overlap &&
+          (pointsToSetEscapes(AltN) || graphNodePossiblyEscape(AltN))) {
+        for (auto BI = AltN->PointsTo->begin(); BI != AltN->PointsTo->end();
+             ++BI) {
+          CurN = &GraphNodes[*BI];
+          if (!graphNodeEscapes(CurN)) {
+            EscapedNodeSet->insert(CurN);
+          }
+        }
+      }
+    }
+  }
+
+  NodeSetTy NodeSet2, NodeSet3;
+  NodeSet2 = *EscapedNodeSet;
+
+  // Given a graph node N in EscapedNodeSet, the point-to set of N
+  // will be added inot the set EscapedNodeSet.
+  // This process iterattes until the set EscapedNodeSet does
+  // not change.
+  propagateEscapedPointsTo(EscapedNodeSet, &NodeSet2, &NodeSet3);
+
+  updateEscapeNodes(EscapedNodeSet);
+}
+
+// It updates the set updateEscapeNodes by the propatation along
+// the points-to graph.
+void AndersensAAResult::propagateEscapedPointsTo(NodeSetTy *NodeSet1,
+                                                 NodeSetTy *NodeSet2,
+                                                 NodeSetTy *NodeSet3) {
+
+  for (auto I = NodeSet2->begin(), E = NodeSet2->end(); I != E; I++) {
+    Node *N = *I;
+    if (N->PointsTo) {
+      for (auto BI = N->PointsTo->begin(); BI != N->PointsTo->end(); ++BI) {
+        Node *CurN = &GraphNodes[*BI];
+        if (!NodeSet1->count(CurN)) {
+          NodeSet3->insert(CurN);
+          NodeSet1->insert(CurN);
+        }
+      }
+    }
+  }
+
+  if (NodeSet3->size() > 0) {
+    NodeSet2->clear();
+    propagateEscapedPointsTo(NodeSet1, NodeSet3, NodeSet2);
+  }
+}
+
+// It updates the NonEscapeStaticVars based on the set EscapedNodeSet.
+void AndersensAAResult::updateEscapeNodes(NodeSetTy *EscapedNodeSet) {
+  for (auto I = EscapedNodeSet->begin(), E = EscapedNodeSet->end(); I != E;
+       I++) {
+    Node *AltN = *I;
+    Value *V = AltN->getValue();
+    if (V) {
+      NonEscapeStaticVars.erase(V);
+    }
+  }
+}
+
+// Returns true if any of the following conditions is satisfied.
+// 1) the address of a static variable occurs as
+//    the right hand side of store instruction, and the
+//    store instruction's graph node is escaped.
+// 2) The use of the global variable is not load, store, phi,
+//    bitcast, getelementptr, select and cmp.
+// 3) the variable occurs in more than one routine
+//
+// The flag LoadFlag is set to true if the following condition is
+// satisfied.
+//    the value of a static variable occurs as
+//    the right hand side of store instruction, and the
+//    store instruction's graph node is escaped.
+//
+bool AndersensAAResult::analyzeGlobalEscape(
+    const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
+    const Function **SingleAcessingFunction, bool *LoadFlag) {
+  const ConstantExpr *CE;
+  for (const Use &U : V->uses()) {
+    const User *UR = U.getUser();
+    CE = dyn_cast<ConstantExpr>(UR);
+    if (CE) {
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction, LoadFlag))
+        return true;
+    } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
+      if (*SingleAcessingFunction == nullptr) {
+        *SingleAcessingFunction = I->getParent()->getParent();
+      } else if (*SingleAcessingFunction != I->getParent()->getParent()) {
+        *SingleAcessingFunction = nullptr;
+        return true;
+      }
+      if (const LoadInst *LI = dyn_cast<LoadInst>(I)) {
+        if (LI->isVolatile()) {
+          return true;
+        }
+        CE = dyn_cast<ConstantExpr>(V);
+        if (LI->getOperand(0) == V && CE) {
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
+                                  LoadFlag)) {
+            *LoadFlag = true;
+          }
+        }
+      } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        if (SI->getOperand(0) == V) {
+          Value *V1 = SI->getOperand(1);
+          Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value *>(V1)))];
+          if (!N1 || pointsToSetEscapes(N1)) {
+            return true;
+          }
+        }
+        if (SI->isVolatile()) {
+          return true;
+        }
+
+      } else if (isa<BitCastInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (isa<GetElementPtrInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (isa<SelectInst>(I)) {
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+          return true;
+      } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
+        if (PhiUsers.insert(PN).second)
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction,
+                                  LoadFlag))
+            return true;
+      } else if (isa<CmpInst>(I)) {
+        ;
+      } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
+        if (MTI->isVolatile())
+          return true;
+      } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
+        if (MSI->isVolatile())
+          return true;
+      } else if (auto C = ImmutableCallSite(I)) {
+        if (!C.isCallee(&U))
+          return true;
+      } else {
+        return true;
+      }
+    } else if (const Constant *C = dyn_cast<Constant>(UR)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 //===----------------------------------------------------------------------===//
@@ -800,6 +1181,11 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       return getNodeForConstantPointer(CE->getOperand(0));
     case Instruction::IntToPtr:
       return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
+      return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointer(CE->getOperand(0));
     default:
@@ -829,6 +1215,11 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::GetElementPtr:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     case Instruction::IntToPtr:
+      return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
@@ -883,7 +1274,8 @@ void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
 /// constraints and return true.  If this is a call to an unknown function,
 /// return false.
 bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) {
-  assert(F->isDeclaration() && "Not an external function!");
+  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden())
+         && "Not an external function!");
 
 
   // These functions don't induce any points-to constraints.
@@ -1222,11 +1614,35 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
-  if (isa<PointerType>(SI.getOperand(0)->getType()))
-    // store P1, P2  -->  <Store/P2/P1>
-    Constraints.push_back(Constraint(Constraint::Store,
-                                     getNode(SI.getOperand(1)),
-                                     getNode(SI.getOperand(0))));
+  ConstantExpr *CE;
+
+  if (isa<PointerType>(SI.getOperand(0)->getType())) {
+    // CQ377860: So far, “value to store” operand of “Instruction::Store”
+    // is treated as either “value” or constant expression. But, it is 
+    // possible that “value to store” operand of “Instruction::Store” 
+    // can be “Instruction::Select” instruction when “Instruction::Select”
+    // is constant expression.
+    //
+    // Ex: store void (i8*)* select (i1 icmp eq (void (i8*)* inttoptr 
+    // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback), 
+    // void (i8*)** %18
+    if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
+        (CE->getOpcode() == Instruction::Select)) {
+      // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
+      unsigned SIN = getNode(SI.getOperand(1));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(1))));
+      Constraints.push_back(Constraint(Constraint::Store, SIN,
+                                       getNode(CE->getOperand(2))));
+    }
+    else {
+      // store P1, P2  -->  <Store/P2/P1>
+      Constraints.push_back(Constraint(Constraint::Store,
+                                       getNode(SI.getOperand(1)),
+                                       getNode(SI.getOperand(0))));
+    }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -1375,7 +1791,27 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
 /// reasonable.
 void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
-  if (F == NULL) {
+  // CQ377893: It is possible that getCalledFunction returns nullptr
+  // even for direct calls. It happens when getCalledValue is not 
+  // direct callee.
+  //
+  // Ex:  extern set_family* sf_new();
+  //      ...
+  //     = sf_new(total_size, cub );  // Notice mismatch  args and formals
+  //
+  // IR:
+  // %call35 = call %struct.set_family* bitcast (%struct.set_family* (...)* 
+  //  @sf_new to %struct.set_family* (i32, i32)*)(i32 %total_size.0, i32 %14)
+  //
+  // Callee can be found by parsing getCalledValue but it may not be 
+  // useful due to mismatch of args and formals. Decided to go conservative. 
+  //
+  if (F == nullptr && isa<ConstantExpr>(CS.getCalledValue())) {
+    AddConstraintsForInitActualsToUniversalSet(CS);
+    return; 
+  }
+
+  if (F == nullptr) {
     // Handle Indirect calls differently
     IndirectCallList.push_back(CS);
     return; 
@@ -1383,7 +1819,8 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     if (AddConstraintsForExternalCall(CS, F)) {
       return;
     }
@@ -2470,7 +2907,8 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
 //
 void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
 
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     // TODO: Model Library calls like malloc here and change Graph
     InitIndirectCallActualsToUniversalSet(CS);
     return;
@@ -2482,6 +2920,11 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   Function::arg_iterator formal_end = F->arg_end();
   Function::arg_iterator last_formal = NULL;
 
+  // TODO: Ignore non-vararg functions if number of formals 
+  // doesn’t match with number of arguments of the call-site 
+  // to improve accuracy of points-to sets.   
+
+
   if (CS.getType()->isPointerTy()) {
     if (isa<PointerType>(F->getFunctionType()->getReturnType())) {
       AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
@@ -2491,7 +2934,9 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
     }
   }
 
-  for (; formal_itr != formal_end;) {
+  // CQ377744: Stop trying to map arguments and formals if 
+  // arg_itr or formal_itr reached an end.
+  for (; formal_itr != formal_end && arg_itr != arg_end;) {
     Argument* formal = formal_itr;
     Value* actual = *arg_itr;
     if (formal->getType()->isPointerTy()) {
@@ -3092,8 +3537,10 @@ void AndersensAAResult::PrintNode(const Node *N) const {
 
   if (V->hasName())
     errs() << V->getName();
-  else
-    errs() << "(unnamed:" << V <<")";
+  else {
+    //    errs() << "(unnamed:" << V <<") ";
+    V->printAsOperand(errs(), false);
+  }
 
   if (isa<GlobalValue>(V) || isa<AllocaInst>(V))
     if (N == &GraphNodes[getObject(V)])
@@ -3134,10 +3581,12 @@ void AndersensAAResult::PrintConstraints() const {
 void AndersensAAResult::PrintPointsToGraph() const {
   errs() << "Points-to graph:" << GraphNodes.size() << "\n";
   for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
+    errs() << "(" << i << "): ";
     const Node *N = &GraphNodes[i];
     if (FindNode(i) != i) {
       PrintNode(N);
-      errs() << "\t--> same as ";
+      errs() << "\t--> same as "
+             << "(" << FindNode(i) << ") ";
       PrintNode(&GraphNodes[FindNode(i)]);
       errs() << "\n";
     } else if (N->PointsTo) {
@@ -3151,6 +3600,7 @@ void AndersensAAResult::PrintPointsToGraph() const {
            ++bi) {
         if (!first)
           errs() << ", ";
+        errs() << "(" << *bi << "): ";
         PrintNode(&GraphNodes[*bi]);
         first = false;
       }
@@ -3613,6 +4063,14 @@ namespace llvm {
 
     // Build the mod-ref set for the function
     void collectFunction(Function *F);
+    
+    // Update the DirectModRef set based on the actions of the Instrution
+    void collectInstruction(Instruction *I, ModRefMap *DirectModRef);
+
+    // Update the DirectModRef set based on the Value, using the specified
+    // mask value for whether to treat the variable as modified or referenced.
+    void collectValue(Value *V, ModRefMap *DirectModRef,
+        unsigned mask = MRI_ModRef);
 
     // Check if the function contains something that will cause the ModRef
     // sets to be BOTTOM
@@ -3701,6 +4159,12 @@ void IntelModRefImpl::collectFunction(Function *F)
         return;
     }
 
+    // Don't collect for a weak function, because it may not be
+    // the function linked in.
+    if (F->mayBeOverridden()) {
+        return;
+    }
+
     DEBUG_WITH_TYPE("imr-ir", F->dump());
 
     DEBUG_WITH_TYPE("imr-collect",
@@ -3724,88 +4188,7 @@ void IntelModRefImpl::collectFunction(Function *F)
 
     ModRefMap DirectModRef;
     for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-        if (LoadInst *LI = dyn_cast<LoadInst>(&*(I))) {
-            Value *ValOperand = LI->getPointerOperand();
-            bool Changed = DirectModRef.addRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "REF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (StoreInst *SI = dyn_cast<StoreInst>(&(*I))) {
-            Value *PtrOperand = SI->getPointerOperand();
-            bool Changed = DirectModRef.addMod(PtrOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *PtrOperand << "\n\n");
-            }
-
-            // Consider the rest of the operands as Loads.
-            Value *ValOperand = SI->getValueOperand();
-            if (isInterestingPointer(ValOperand)) {
-                bool Changed = DirectModRef.addRef(ValOperand);
-                if (Changed) {
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                    DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                    "REF: " << *ValOperand << "\n\n");
-                }
-            }
-            continue;
-        }
-        else if (BitCastInst *BC = dyn_cast<BitCastInst>(&(*I))) {
-            Value *ValOperand = BC->getOperand(0);
-            bool Changed = DirectModRef.addRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MODREF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(&(*I))) {
-            Value *ValOperand = ACX->getPointerOperand();
-            bool Changed = DirectModRef.addModRef(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MODREF: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(&(*I))) {
-            Value *ValOperand = AWMW->getPointerOperand();
-            bool Changed = DirectModRef.addMod(ValOperand);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *ValOperand << "\n\n");
-            }
-        }
-        else if (isInterestingPointer(&(*I))) {
-            Value *ValPtr = &(*I);
-            bool Changed = DirectModRef.addMod(ValPtr);
-            if (Changed) {
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                "MOD: " << *ValPtr << "\n\n");
-            }
-        }
-
-        if (CallSite CS = CallSite(&(*I))) {
-            // Collect all the values passed
-            int ArgNo = 0;
-            for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
-                AI != AE; ++AI, ++ArgNo) {
-                if (isInterestingPointer(*AI)) {
-                    bool Changed = DirectModRef.addRef(*AI);
-                    if (Changed) {
-                        DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-                        DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                                        "REF: " << *(*AI) << "\n\n");
-                    }
-                }
-            }
-        }
+        collectInstruction(&(*I), &DirectModRef);
     }
 
     DEBUG_WITH_TYPE("imr-collect", errs() << "DirectMod:\n");
@@ -3819,6 +4202,123 @@ void IntelModRefImpl::collectFunction(Function *F)
     // Prune modref sets to just be the set we want to track
     pruneModRefSets(&FR);
 }
+
+// Collect pointers (and points-to aliases) for each pointer directly
+// modified or referenced in the instruction.
+void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef)
+{
+    if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
+        Value *ValOperand = LI->getPointerOperand();
+        bool Changed = DirectModRef->addRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "REF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (StoreInst *SI = dyn_cast<StoreInst>(I)) {
+        Value *PtrOperand = SI->getPointerOperand();
+        bool Changed = DirectModRef->addMod(PtrOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *PtrOperand << "\n\n");
+        }
+
+        // Consider the rest of the operands as Loads.
+        Value *ValOperand = SI->getValueOperand();
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        return;
+    }
+    else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
+        Value *ValOperand = BC->getOperand(0);
+        bool Changed = DirectModRef->addRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
+        Value *ValOperand = ACX->getPointerOperand();
+        bool Changed = DirectModRef->addModRef(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (AtomicRMWInst *AWMW = dyn_cast<AtomicRMWInst>(I)) {
+        Value *ValOperand = AWMW->getPointerOperand();
+        bool Changed = DirectModRef->addMod(ValOperand);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *ValOperand << "\n\n");
+        }
+    }
+    else if (isInterestingPointer(I)) {
+        Value *ValPtr = I;
+        bool Changed = DirectModRef->addMod(ValPtr);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MOD: " << *ValPtr << "\n\n");
+        }
+    }
+
+    if (CallSite CS = CallSite(I)) {
+        // Collect all the values passed
+        int ArgNo = 0;
+        for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
+            AI != AE; ++AI, ++ArgNo) {
+            if (isInterestingPointer(*AI)) {
+                bool Changed = DirectModRef->addRef(*AI);
+                if (Changed) {
+                    DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+                    DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                        "REF: " << *(*AI) << "\n\n");
+                }
+            }
+        }
+    }
+}
+
+// Collect pointers (and points-to aliases) for each pointer directly
+// modified or referenced as a Value sub-expression of an instruction.
+void IntelModRefImpl::collectValue(Value *V, ModRefMap *DirectModRef,
+    unsigned mask)
+{
+    ConstantExpr *CE;
+
+    if ((CE = dyn_cast<ConstantExpr>(V)) &&
+        (CE->getOpcode() == Instruction::Select)) {
+        // cq377680: Handle case where store operand is a SelectInst choosing
+        // between two constant memory pointers:
+        //
+        // Ex:
+        //   store void (i8*)*
+        //     select (i1 icmp eq
+        //         (void (i8*)* inttoptr  (i64 3 to void (i8*)*),
+        //          void (i8*)* @DeleteScriptLimitCallback),
+        //       void (i8*)* @Tcl_Free, 
+        //       void (i8*)* @DeleteScriptLimitCallback),
+        //     void (i8*)** %18
+        Value *ValOperand = CE->getOperand(1);
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+        ValOperand = CE->getOperand(2);
+        collectValue(ValOperand, DirectModRef, MRI_Ref);
+    }
+    else if (isInterestingPointer(V)) {
+        bool Changed = DirectModRef->addModRef(V, mask);
+        if (Changed) {
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*V) << "\n");
+            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                "MODREF(" << mask << "): " << *V << "\n\n");
+        }
+    }
+}
+
 
 // Check if there is something about the routine that will cause ModRef
 // sets to always be bottom.
@@ -3861,6 +4361,13 @@ IntelModRefImpl::FunctionRecord::BottomReasonsEnum IntelModRefImpl::isResolvable
 bool IntelModRefImpl::isResolvableCallee(const Function *F) const
 {
     if (!F) {
+        return false;
+    }
+
+    // If calling a weak definition function, we cannot know that a
+    // definition in this compilation unit will not be overridden,
+    // so treat the call as unresolvable.
+    if (F->mayBeOverridden()) {
         return false;
     }
 

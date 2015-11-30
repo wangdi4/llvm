@@ -19,7 +19,7 @@ def Core : Package<"core">;
 def CoreBuiltin : Package<"builtin">, InPackage<Core>;
 def CoreUninitialized  : Package<"uninitialized">, InPackage<Core>;
 def CoreAlpha : Package<"core">, InPackage<Alpha>, Hidden;
-def Nullability : Package<"nullability">, InPackage<CoreAlpha>, Hidden;
+def Nullability : Package<"nullability">;
 
 def Cplusplus : Package<"cplusplus">;
 def CplusplusAlpha : Package<"cplusplus">, InPackage<Alpha>, Hidden;
@@ -129,6 +129,10 @@ def TestAfterDivZeroChecker : Checker<"TestAfterDivZero">,
   HelpText<"Check for division by variable that is later compared against 0. Either the comparison is useless or there is division by zero.">,
   DescFile<"TestAfterDivZeroChecker.cpp">;
 
+def DynamicTypeChecker : Checker<"DynamicTypeChecker">,
+  HelpText<"Check for cases where the dynamic and the static type of an object are unrelated.">,
+  DescFile<"DynamicTypeChecker.cpp">;
+
 } // end "alpha.core"
 
 let ParentPackage = Nullability in {
@@ -153,7 +157,7 @@ def NullableReturnedFromNonnullChecker : Checker<"NullablePassedToNonnull">,
   HelpText<"Warns when a nullable pointer is returned from a function that has _Nonnull return type.">,
   DescFile<"NullabilityChecker.cpp">;
 
-} // end "alpha.core.nullability"
+} // end "nullability"
 
 //===----------------------------------------------------------------------===//
 // Evaluate "builtin" functions.
@@ -479,7 +483,7 @@ def DirectIvarAssignmentForAnnotatedFunctions : Checker<"DirectIvarAssignmentFor
 
 def ObjCGenericsChecker : Checker<"ObjCGenerics">,
   HelpText<"Check for type errors when using Objective-C generics">,
-  DescFile<"ObjCGenericsChecker.cpp">;
+  DescFile<"DynamicTypePropagation.cpp">;
 
 def NonLocalizedStringChecker : Checker<"NonLocalizedStringChecker">,
   HelpText<"Warns about uses of non-localized NSStrings passed to UI methods expecting localized NSStrings">,
@@ -487,6 +491,10 @@ def NonLocalizedStringChecker : Checker<"NonLocalizedStringChecker">,
 
 def EmptyLocalizationContextChecker : Checker<"EmptyLocalizationContextChecker">,
   HelpText<"Check that NSLocalizedString macros include a comment for context">,
+  DescFile<"LocalizationChecker.cpp">;
+
+def PluralMisuseChecker : Checker<"PluralMisuseChecker">,
+  HelpText<"Warns against using one vs. many plural pattern in code when generating localized strings.">,
   DescFile<"LocalizationChecker.cpp">;
 
 } // end "alpha.osx.cocoa"
@@ -581,6 +589,10 @@ def ExprInspectionChecker : Checker<"ExprInspection">,
 
 def ExplodedGraphViewer : Checker<"ViewExplodedGraph">,
   HelpText<"View Exploded Graphs using GraphViz">,
+  DescFile<"DebugCheckers.cpp">;
+
+def BugHashDumper : Checker<"DumpBugHash">,
+  HelpText<"Dump the bug hash for all statements.">,
   DescFile<"DebugCheckers.cpp">;
 
 } // end "debug"

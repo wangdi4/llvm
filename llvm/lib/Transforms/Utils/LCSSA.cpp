@@ -117,7 +117,7 @@ static bool processInstruction(Loop &L, Instruction &Inst, DominatorTree &DT,
       continue;
 
     PHINode *PN = PHINode::Create(Inst.getType(), PredCache.size(ExitBB),
-                                  Inst.getName() + ".lcssa", ExitBB->begin());
+                                  Inst.getName() + ".lcssa", &ExitBB->front());
 
     // Add inputs from inside the loop for this PHI.
     for (BasicBlock *Pred : PredCache.get(ExitBB)) {
@@ -165,8 +165,8 @@ static bool processInstruction(Loop &L, Instruction &Inst, DominatorTree &DT,
     if (isa<PHINode>(UserBB->begin()) && isExitBlock(UserBB, ExitBlocks)) {
       // Tell the VHs that the uses changed. This updates SCEV's caches.
       if (UsesToRewrite[i]->get()->hasValueHandle())
-        ValueHandleBase::ValueIsRAUWd(*UsesToRewrite[i], UserBB->begin());
-      UsesToRewrite[i]->set(UserBB->begin());
+        ValueHandleBase::ValueIsRAUWd(*UsesToRewrite[i], &UserBB->front());
+      UsesToRewrite[i]->set(&UserBB->front());
       continue;
     }
 

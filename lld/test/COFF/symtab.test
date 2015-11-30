@@ -1,6 +1,11 @@
 # RUN: yaml2obj < %s > %t.obj
 # RUN: lld-link /debug /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
 # RUN: llvm-readobj -symbols %t.exe | FileCheck %s
+# RUN: lld-link /debug /opt:noref /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# RUN: llvm-readobj -symbols %t.exe | FileCheck %s
+
+# RUN: lld-link /debug /nosymtab /out:%t.exe /entry:main %t.obj %p/Inputs/std64.lib
+# RUN: llvm-readobj -symbols %t.exe | FileCheck -check-prefix=NO %s
 
 # CHECK:      Symbols [
 # CHECK-NEXT:   Symbol {
@@ -103,6 +108,8 @@
 # CHECK-NEXT:     AuxSymbolCount: 0
 # CHECK-NEXT:   }
 # CHECK-NEXT: ]
+
+# NO: Symbols [
 
 ---
 header:

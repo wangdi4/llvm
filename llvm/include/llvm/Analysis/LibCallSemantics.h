@@ -29,19 +29,13 @@ class InvokeInst;
     MSVC_X86SEH,
     MSVC_Win64SEH,
     MSVC_CXX,
+    CoreCLR
   };
 
   /// \brief See if the given exception handling personality function is one
   /// that we understand.  If so, return a description of it; otherwise return
   /// Unknown.
   EHPersonality classifyEHPersonality(const Value *Pers);
-
-#if INTEL_CUSTOMIZATION
-  /// \brief See if the parent function in which an Instruction lives has an
-  /// MSVC exception handling personality function.  If the Instruction is
-  /// not part of a Function, this routine will return false.
-  bool isParentFnEHPersonalityMSVC(const Instruction *I);
-#endif // INTEL_CUSTOMIZATION
 
   /// \brief Returns true if this personality function catches asynchronous
   /// exceptions.
@@ -57,14 +51,14 @@ class InvokeInst;
     llvm_unreachable("invalid enum");
   }
 
-  /// \brief Returns true if this is an MSVC personality function.
-  inline bool isMSVCEHPersonality(EHPersonality Pers) {
-    // The two SEH personality functions can catch asynch exceptions. We assume
-    // unknown personalities don't catch asynch exceptions.
+  /// \brief Returns true if this is a personality function that invokes
+  /// handler funclets (which must return to it).
+  inline bool isFuncletEHPersonality(EHPersonality Pers) {
     switch (Pers) {
     case EHPersonality::MSVC_CXX:
     case EHPersonality::MSVC_X86SEH:
     case EHPersonality::MSVC_Win64SEH:
+    case EHPersonality::CoreCLR:
       return true;
     default: return false;
     }

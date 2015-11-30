@@ -2579,9 +2579,7 @@ void BugReport::Profile(llvm::FoldingSetNodeID& hash) const {
     hash.AddPointer(GetCurrentOrPreviousStmt(ErrorNode));
   }
 
-  for (SmallVectorImpl<SourceRange>::const_iterator I =
-      Ranges.begin(), E = Ranges.end(); I != E; ++I) {
-    const SourceRange range = *I;
+  for (SourceRange range : Ranges) {
     if (!range.isValid())
       continue;
     hash.AddInteger(range.getBegin().getRawEncoding());
@@ -3224,6 +3222,11 @@ void BugReporter::Register(BugType *BT) {
 
 void BugReporter::emitReport(std::unique_ptr<BugReport> R) {
   if (const ExplodedNode *E = R->getErrorNode()) {
+    // An error node must either be a sink or have a tag, otherwise
+    // it could get reclaimed before the path diagnostic is created.
+    assert((E->isSink() || E->getLocation().getTag()) &&
+            "Error node must either be a sink or have a tag");
+
     const AnalysisDeclContext *DeclCtx =
         E->getLocationContext()->getAnalysisDeclContext();
     // The source of autosynthesized body can be handcrafted AST or a model
@@ -3426,7 +3429,7 @@ void BugReporter::FlushReport(BugReport *exampleReport,
     PathDiagnosticLocation L = exampleReport->getLocation(getSourceManager());
     auto piece = llvm::make_unique<PathDiagnosticEventPiece>(
         L, exampleReport->getDescription());
-    for (const SourceRange &Range : exampleReport->getRanges())
+    for (SourceRange Range : exampleReport->getRanges())
       piece->addRange(Range);
     D->setEndOfPath(std::move(piece));
   }
