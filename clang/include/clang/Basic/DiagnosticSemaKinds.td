@@ -1171,6 +1171,15 @@ def err_class_redeclared_with_different_access : Error<
   "%0 redeclared with '%1' access">;
 def err_access : Error<
   "%1 is a %select{private|protected}0 member of %3">, AccessControl;
+//if INTEL_CUSTOMIZATION
+// Fix for CQ368409: Different behavior on accessing static private class
+// members.
+def warn_access_type : Warning<
+  "type %1 is a %select{private|protected}0 member of %3 (allowed for cfront "
+  "compatibility)">, AccessControl, InGroup<IntelCompat>;
+def warn_access : Warning<
+  err_access.Text>, AccessControl, InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def ext_ms_using_declaration_inaccessible : ExtWarn<
   "using declaration referring to inaccessible member '%0' (which refers "
   "to accessible member '%1') is a Microsoft compatibility extension">,

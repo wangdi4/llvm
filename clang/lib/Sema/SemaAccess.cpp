@@ -1859,6 +1859,19 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
       AccessTarget Entity(Context, AccessedEntity::Member,
                           R.getNamingClass(), I.getPair(),
                           R.getBaseObjectType());
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ368409: Different behavior on accessing static private class
+      // members.
+      if (getLangOpts().IntelCompat && !BuildingUsingDirective &&
+          !getDiagnostics().getDiagnosticOptions().Pedantic &&
+          !getDiagnostics().getDiagnosticOptions().PedanticErrors &&
+          Entity.getNamingClass() && isa<TypeDecl>(Entity.getTargetDecl()))
+        Entity.setDiag(diag::warn_access_type);
+      else if (getLangOpts().IntelCompat && !getLangOpts().IntelMSCompat &&
+               ParsingTemplateArg)
+        Entity.setDiag(diag::warn_access);
+      else
+#endif // INTEL_CUSTOMIZATION
       Entity.setDiag(diag::err_access);
       CheckAccess(*this, R.getNameLoc(), Entity);
     }

@@ -2832,6 +2832,39 @@ public:
   };
 
   friend class SuppressQualifiersOnTypeSubstRAII;
+
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  bool BuildingUsingDirective;
+  class UsingDirectiveRAII {
+  private:
+    Sema &S;
+    bool PrevBuildingUsingDirective;
+  public:
+    UsingDirectiveRAII(Sema &S) : S(S) {
+      PrevBuildingUsingDirective = S.BuildingUsingDirective;
+      S.BuildingUsingDirective = true;
+    }
+    ~UsingDirectiveRAII() {
+      S.BuildingUsingDirective = PrevBuildingUsingDirective;
+    }
+  };
+  friend class UsingDirectiveRAII;
+  bool ParsingTemplateArg;
+  class ParsingTemplateArgRAII {
+  private:
+    Sema &S;
+    bool PrevParsingTemplateArg;
+  public:
+    ParsingTemplateArgRAII(Sema &S) : S(S) {
+      PrevParsingTemplateArg = S.ParsingTemplateArg;
+      S.ParsingTemplateArg = true;
+    }
+    ~ParsingTemplateArgRAII() {
+      S.ParsingTemplateArg = PrevParsingTemplateArg;
+    }
+  };
+  friend class ParsingTemplateArgRAII;
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;

@@ -106,6 +106,9 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     // Fix for CQ374244: non-template call of template function is ambiguous.
 #if INTEL_CUSTOMIZATION
     SuppressQualifiersOnTypeSubst(true),
+    // Fix for CQ368409: Different behavior on accessing static private class
+    // members.
+    BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),

@@ -8227,6 +8227,11 @@ NamedDecl *Sema::BuildUsingDeclaration(Scope *S, AccessSpecifier AS,
   if (RequireCompleteDeclContext(SS, LookupContext))
     return BuildInvalid();
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  UsingDirectiveRAII UsingRAII(*this);
+#endif // INTEL_CUSTOMIZATION
   // Look up the target name.
   LookupResult R(*this, NameInfo, LookupOrdinaryName);
 
