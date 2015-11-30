@@ -73,7 +73,7 @@ Loop * VPOUtils::getLoopFromLoopInfo(
   return Lp;
 }
 
-void VPOUtils::CollectBBSet(
+void VPOUtils::collectBBSet(
   BasicBlock    *EntryBB,
   BasicBlock    *ExitBB,
   SmallPtrSetImpl<BasicBlock*> *BBSet
@@ -87,7 +87,7 @@ void VPOUtils::CollectBBSet(
     for (succ_iterator I = succ_begin(EntryBB), 
                        E = succ_end(EntryBB); I != E; ++I) {
       if (*I != ExitBB) {
-        CollectBBSet(*I, ExitBB, BBSet);
+        collectBBSet(*I, ExitBB, BBSet);
       }
     }
 

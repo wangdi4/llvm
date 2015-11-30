@@ -86,7 +86,7 @@ void WRegionNode::populateBBlockSet(void)
 
   SmallPtrSet<BasicBlock*, 16> PreOrderTreeVisited;
 
-  VPOUtils::CollectBBSet(EntryBB, ExitBB, &PreOrderTreeVisited);
+  VPOUtils::collectBBSet(EntryBB, ExitBB, &PreOrderTreeVisited);
 
   /// Added ExitBBlock to Pre-Order Tree
   PreOrderTreeVisited.insert(ExitBB);

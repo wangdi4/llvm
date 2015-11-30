@@ -355,7 +355,7 @@ public:
     /// pre-order visit. The entry basic bblock 'EntryBB' and the exit basic
     /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
     /// the basic blocks that belong to this region. 
-    static void CollectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
+    static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
                              SmallPtrSetImpl<BasicBlock*> *BBSet);
 
 };
