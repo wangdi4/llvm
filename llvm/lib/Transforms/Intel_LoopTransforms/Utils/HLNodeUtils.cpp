@@ -1618,9 +1618,13 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   bool hasNextNode = Container.end() != Last;
   unsigned NextNum = hasNextNode ? Last->getTopSortNum() : 0;
   if (!NextNum) {
-    for (; Parent; Parent = Parent->getParent()) {
-      if (Parent->getNextNode()) {
-        NextNum = First->getParent()->getNextNode()->getTopSortNum();
+    // !isa<HLRegion>(Parent) - HLRegions are linked in the ilist, but we
+    // should not iterate across regions. If we traced to an HLRegion,
+    // this means that there is no next node in this region.
+    for (;Parent && !isa<HLRegion>(Parent); Parent = Parent->getParent()) {
+      HLNode *NextNode = Parent->getNextNode();
+      if (NextNode) {
+        NextNum = NextNode->getTopSortNum();
         break;
       }
     }
