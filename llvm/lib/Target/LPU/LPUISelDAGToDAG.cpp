@@ -155,7 +155,12 @@ bool LPUDAGToDAGISel::SelectAddrImm(SDNode *Parent, SDValue Addr,
                                          SDValue &Base)
 {
   if(dyn_cast<MemSDNode>(Parent)) {
-    if(Addr.getOpcode() == ISD::TargetExternalSymbol) {
+    if (Addr.getOpcode() == LPUISD::Wrapper) {
+      Base = Addr.getOperand(0);
+      return true;
+    }
+
+    if (Addr.getOpcode() == ISD::TargetExternalSymbol) {
       Base = Addr;
       return true;
     }
