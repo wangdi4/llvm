@@ -252,6 +252,8 @@ void WRegionNode::handleQual(int ClauseID)
       break;
     case QUAL_OMP_PROC_BIND_SPREAD:
       break;
+    case QUAL_LIST_END:
+      break;
     default:
       llvm_unreachable("Unknown ClauseID in handleQual()");
   }
