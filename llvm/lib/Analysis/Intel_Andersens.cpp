@@ -1181,6 +1181,11 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       return getNodeForConstantPointer(CE->getOperand(0));
     case Instruction::IntToPtr:
       return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
+      return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointer(CE->getOperand(0));
     default:
@@ -1210,6 +1215,11 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
     case Instruction::GetElementPtr:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
     case Instruction::IntToPtr:
+      return UniversalSet;
+    // CQ378470: Any form of Constant Select expression can appear as 
+    // operand/argument in other Instruction/Call. For now, consider
+    // it as UniversalSet. 
+    case Instruction::Select:
       return UniversalSet;
     case Instruction::BitCast:
       return getNodeForConstantPointerTarget(CE->getOperand(0));
@@ -1264,7 +1274,8 @@ void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
 /// constraints and return true.  If this is a call to an unknown function,
 /// return false.
 bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) {
-  assert(F->isDeclaration() && "Not an external function!");
+  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden())
+         && "Not an external function!");
 
 
   // These functions don't induce any points-to constraints.
@@ -1808,7 +1819,8 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
 
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     if (AddConstraintsForExternalCall(CS, F)) {
       return;
     }
@@ -2895,7 +2907,8 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
 //
 void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
 
-  if (F->isDeclaration() || F->isIntrinsic()) {
+  // Treat calls to weak functions as external calls.
+  if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
     // TODO: Model Library calls like malloc here and change Graph
     InitIndirectCallActualsToUniversalSet(CS);
     return;
@@ -4146,6 +4159,12 @@ void IntelModRefImpl::collectFunction(Function *F)
         return;
     }
 
+    // Don't collect for a weak function, because it may not be
+    // the function linked in.
+    if (F->mayBeOverridden()) {
+        return;
+    }
+
     DEBUG_WITH_TYPE("imr-ir", F->dump());
 
     DEBUG_WITH_TYPE("imr-collect",
@@ -4342,6 +4361,13 @@ IntelModRefImpl::FunctionRecord::BottomReasonsEnum IntelModRefImpl::isResolvable
 bool IntelModRefImpl::isResolvableCallee(const Function *F) const
 {
     if (!F) {
+        return false;
+    }
+
+    // If calling a weak definition function, we cannot know that a
+    // definition in this compilation unit will not be overridden,
+    // so treat the call as unresolvable.
+    if (F->mayBeOverridden()) {
         return false;
     }
 

@@ -674,6 +674,28 @@ def CC_X86_32_C : CallingConv<[
   CCDelegateTo<CC_X86_32_Common>
 ]>;
 
+// INTEL_CUSTOMIZATION
+def CC_X86_32_MCU : CallingConv<[
+  // Handles byval parameters.  Note that, like FastCC, we can't rely on
+  // the delegation to CC_X86_32_Common because that happens after code that
+  // puts arguments in registers.
+  CCIfByVal<CCPassByVal<4, 4>>,
+
+  // Promote i1/i8/i16 arguments to i32.
+  CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
+
+  // The 'nest' parameter, if any, is passed in ECX.
+  CCIfNest<CCAssignToReg<[ECX]>>,
+
+  // If the call is not a vararg call, some arguments may be passed
+  // in integer registers.
+  CCIfNotVarArg<CCIfType<[i32], CCCustom<"CC_X86_32_MCUInReg">>>,
+
+  // Otherwise, same as everything else.
+  CCDelegateTo<CC_X86_32_Common>
+]>;
+// END INTEL_CUSTOMIZATION
+
 def CC_X86_32_FastCall : CallingConv<[
   // Promote i1/i8/i16 arguments to i32.
   CCIfType<[i1, i8, i16], CCPromoteToType<i32>>,
@@ -851,6 +873,9 @@ def CC_X86_32_RegCall : CallingConv<[
 
 // This is the root argument convention for the X86-32 backend.
 def CC_X86_32 : CallingConv<[
+// INTEL_CUSTOMIZATION
+  CCIfSubtarget<"isTargetMCU()", CCDelegateTo<CC_X86_32_MCU>>,
+// END INTEL_CUSTOMIZATION
   CCIfCC<"CallingConv::X86_FastCall", CCDelegateTo<CC_X86_32_FastCall>>,
   CCIfCC<"CallingConv::X86_VectorCall", CCDelegateTo<CC_X86_32_VectorCall>>,
   CCIfCC<"CallingConv::X86_ThisCall", CCDelegateTo<CC_X86_32_ThisCall>>,

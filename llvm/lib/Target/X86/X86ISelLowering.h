@@ -917,7 +917,7 @@ namespace llvm {
 
     bool isIntDivCheap(EVT VT, AttributeSet Attr) const override;
 
-#if INTEL_CUSTOMIZATION
+#ifndef INTEL_CUSTOMIZATION
     void markInRegArguments(SelectionDAG &DAG, TargetLowering::ArgListTy& Args)
       const override;
 #endif //INTEL_CUSTOMIZATION

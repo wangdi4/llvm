@@ -182,6 +182,11 @@ cl::opt<bool>
 StackSymbolOrdering("stack-symbol-ordering",
                     cl::desc("Order local stack symbols."),
                     cl::init(true));
+
+cl::opt<bool>
+IntelLibIRCAllowed("intel-libirc-allowed",
+                    cl::desc("Allow the generation of calls to libirc."),
+                    cl::init(false));
 #endif // INTEL_CUSTOMIZATION
 
 cl::opt<unsigned>
@@ -273,6 +278,7 @@ static inline TargetOptions InitTargetOptionsFromCodeGenFlags() {
   Options.StackAlignmentOverride = OverrideStackAlignment;
 #ifdef INTEL_CUSTOMIZATION
   Options.StackSymbolOrdering = StackSymbolOrdering;
+  Options.IntelLibIRCAllowed = IntelLibIRCAllowed;
 #endif // INTEL_CUSTOMIZATION
   Options.PositionIndependentExecutable = EnablePIE;
   Options.UseInitArray = !UseCtors;
