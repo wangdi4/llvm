@@ -1,6 +1,7 @@
 // RUN: %clang_cc1 -fcxx-exceptions -fexceptions -fcilkplus -emit-llvm %s -O1 -o %t
 // RUN: FileCheck -check-prefix=CHECK_INVOKE --input-file=%t %s
 // REQUIRES: cilkplus
+// XFAIL: win
 
 namespace spawn_helper_invoke {
 

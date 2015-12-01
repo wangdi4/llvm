@@ -4,6 +4,7 @@
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK5 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK6 %s
 // REQUIRES: cilkplus
+// XFAIL: win
 
 struct Bool {
   ~Bool();
