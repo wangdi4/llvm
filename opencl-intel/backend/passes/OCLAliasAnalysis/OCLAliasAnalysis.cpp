@@ -22,6 +22,28 @@ OCL_INITIALIZE_AG_PASS_END(OCLAliasAnalysis, AliasAnalysis, "ocl-asaa",
                    "OpenCL Address Space Alias Analysis",
                    false, true, false)
 
+//===----------------------------------------------------------------------===//
+//                     OCLAAACallbackVH Class Implementation
+//===----------------------------------------------------------------------===//
+OCLAliasAnalysis::OCLAAACallbackVH::OCLAAACallbackVH(Value *V, OCLAliasAnalysis *ocl_aa)
+  : CallbackVH(V), OCLAA(ocl_aa) {}
+
+void OCLAliasAnalysis::OCLAAACallbackVH::deleted() {
+  assert(OCLAA && "OCLAAACallbackVH called with a null OCLAliasAnalysis!");
+  OCLAA->deleteValue(getValPtr());
+}
+
+void OCLAliasAnalysis::OCLAAACallbackVH::allUsesReplacedWith(Value *V) {
+  assert(OCLAA && "OCLAAACallbackVH called with a null OCLAliasAnalysis!");
+  // It is not clear if it's safe to call OCLAliasAnalysis::copyValue here
+  // as other passes including standart ones might call it.
+  OCLAA->rauwValue(getValPtr(), V);
+}
+
+//===----------------------------------------------------------------------===//
+//                     OCLAliasAnalysis Class Implementation
+//===----------------------------------------------------------------------===//
+
 OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
   initializeOCLAliasAnalysisPass(*PassRegistry::getPassRegistry());
   m_disjointAddressSpaces = getAddressSpaceMask(OCLAddressSpace::Private) |
@@ -30,35 +52,43 @@ OCLAliasAnalysis::OCLAliasAnalysis() : ImmutablePass(ID) {
                             getAddressSpaceMask(OCLAddressSpace::Local);
 }
 
-void OCLAliasAnalysis::deleteValue (Value *V) {
-  m_cachedResults.erase(V);
+void OCLAliasAnalysis::deleteValue(Value *V) {
+  ValueMap.erase(V);
 }
-void OCLAliasAnalysis::copyValue (Value *From, Value *To) {
+void OCLAliasAnalysis::copyValue(Value *From, Value *To) {
   // Do nothing, i.e. let new value compute in resolveAddressSpace.
 }
-void OCLAliasAnalysis::addEscapingUse (Use &U) {
+void OCLAliasAnalysis::addEscapingUse(Use &U) {
   resolveAddressSpace(U.get(), true);
+}
+
+void OCLAliasAnalysis::rauwValue(Value* oldVal, Value* newVal) {
+  auto it = ValueMap.find_as(oldVal);
+  if (it != ValueMap.end())
+    ValueMap.insert(std::make_pair(OCLAAACallbackVH(const_cast<Value*>(newVal), this), it->second));
 }
 
 OCLAliasAnalysis::ResolveResult
 OCLAliasAnalysis::cacheResult(SmallValueSet& values,
-			      ResolveResult resolveResult) {
+                              ResolveResult resolveResult) {
   for (SmallValueSet::iterator it = values.begin(); it != values.end(); ++it) {
-    m_cachedResults.insert(std::make_pair(*it, resolveResult));
+    ValueMap.insert(std::make_pair(OCLAAACallbackVH(const_cast<Value*>(*it), this), resolveResult));
   }
   return resolveResult;
 }
 
 // We may be given a value which by itself does not explicitly specify an OpenCL address
 // space although the address does belong to one (e.g. alloca instructions are used for
-// both Local and Private memory, but do not explicitly specify the addrspace.
-// Since we cannot distinguish OpenCL's Private address space from LLVM's default (i.e. no)
-// address space, we do not trust the value's apparent Private address-space and attempt
+// both __local and __private memory, but do not explicitly specify the addrspace.
+// Since we cannot distinguish OpenCL's __private address space from LLVM's default (i.e. no)
+// address space, we do not trust the value's apparent __private address-space and attempt
 // to find the explicit namespace among the value's users and used base address
-// value (e.g. the pointer operand of a GEP).
+// value (e.g. the pointer operand of a GEP). If at least one pointer is in __generic address space
+// the OCL AAA can not say for sure that another pointer is in disjoint address space.
+//
 // Since OpenCL's address spaces are disjoint, a single relation of an address to a non-default
 // address space is enough to determine the address space. We therefore declare the address
-// space to be Private only if:
+// space to be __private only if:
 // - we cannot find any explicit relation of it to another address space, and
 // - the pointer is not escaping our analysis via casting to/from int
 // (note that when we do find a non-default address space we don't care if the pointer is casted
@@ -77,25 +107,26 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
     const Value* pointerValue = nextPointerValues.front();
     nextPointerValues.pop();
 
+    if (!visitedPointerValues.insert(pointerValue).second) // no insertion happened.
+      continue;
+
     if(!force) {
-      std::map<const Value*, ResolveResult>::iterator it = m_cachedResults.find(pointerValue);
-      if (it != m_cachedResults.end()) {
+      ValueMapType::iterator it = ValueMap.find_as(pointerValue);
+      if (it != ValueMap.end()) {
         return cacheResult(visitedPointerValues, it->second);
       }
     }
-
-    if (!visitedPointerValues.insert(pointerValue).second)
-      continue;
 
     Type* type = pointerValue->getType();
     PointerType *pointerType = dyn_cast<PointerType>(type);
     assert(pointerType && "Value is not of a pointer type");
     unsigned int valueAddressSpace = pointerType->getAddressSpace();
 
-    if(addressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Private && addressSpace != valueAddressSpace)
+    // Check if the same pointer value was not resovled into different named address spaces. E.g. __local and __global.
+    if(addressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Private && addressSpace != valueAddressSpace && valueAddressSpace != OCLAddressSpace::Generic)
       isEscaping = true;
 
-    if(valueAddressSpace != OCLAddressSpace::Private)
+    if(valueAddressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Generic)
       addressSpace = valueAddressSpace;
 
     // Check whether the pointer value stems from or gets casted to an int.
@@ -104,18 +135,24 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
 
     // Mark this value's users to be visited.
     for (Value::const_user_iterator it = pointerValue->user_begin(), end = pointerValue->user_end(); it != end; ++it)
+
       if (isa<BitCastInst>(*it) || isa<GetElementPtrInst>(*it) || isa<AddrSpaceCastInst>(*it))
-	nextPointerValues.push(*it);
+        nextPointerValues.push(*it);
 
     // Also mark the base address this value is using to be visited, in case the
     // address space was for some reason stripped.
+    Value const* operand = nullptr;
     if (const BitCastInst* bitCastInst = dyn_cast<BitCastInst>(pointerValue)) {
-      nextPointerValues.push(bitCastInst->getOperand(0));
+      operand = bitCastInst->getOperand(0);
     } else if (const GetElementPtrInst* gepInst = dyn_cast<GetElementPtrInst>(pointerValue)) {
-      nextPointerValues.push(gepInst->getPointerOperand());
+      operand = gepInst->getPointerOperand();
     } else if (const AddrSpaceCastInst* addrSpaceCastInst = dyn_cast<AddrSpaceCastInst>(pointerValue)) {
-      nextPointerValues.push(addrSpaceCastInst->getOperand(0));
+      operand = addrSpaceCastInst->getOperand(0);
     }
+
+    if (operand)
+      nextPointerValues.push(operand);
+
   } while (!nextPointerValues.empty());
 
   ResolveResult resolveResult = ResolveResult(!isEscaping, addressSpace);
@@ -126,7 +163,6 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
 // memory addresses do not alias.
 AliasAnalysis::AliasResult OCLAliasAnalysis::alias(const Location &LocA,
                                                    const Location &LocB) {
-
   const Value *V1 = LocA.Ptr;
   const Value *V2 = LocB.Ptr;
 
@@ -136,15 +172,16 @@ AliasAnalysis::AliasResult OCLAliasAnalysis::alias(const Location &LocA,
     // If V1 and V2 are pointers to different address spaces then they do not alias.
     // This is not true in general, however, in openCL the memory addresses
     // for private, local, and global are disjoint.
+
     ResolveResult rrV1 = resolveAddressSpace(V1, false);
     ResolveResult rrV2 = resolveAddressSpace(V2, false);
     if (rrV1.isResolved() && rrV1.isResolved()) {
       unsigned int V1PAddressSpace = rrV1.getAddressSpace();
       unsigned int V2PAddressSpace = rrV2.getAddressSpace();
       if (isInSpace(V1PAddressSpace, m_disjointAddressSpaces) &&
-	  isInSpace(V2PAddressSpace, m_disjointAddressSpaces) &&
-	  V1PAddressSpace != V2PAddressSpace) {
-	return NoAlias;
+          isInSpace(V2PAddressSpace, m_disjointAddressSpaces) &&
+          V1PAddressSpace != V2PAddressSpace) {
+        return NoAlias;
       }
     }
   }
