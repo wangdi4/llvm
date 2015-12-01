@@ -48,7 +48,6 @@ const char *LPUTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case LPUISD::Call:               return "LPUISD::Call";
   case LPUISD::TailCall:           return "LPUISD::TailCall";
   case LPUISD::Ret:                return "LPUISD::Ret";
-  case LPUISD::ThreadPointer:      return "LPUISD::ThreadPointer";
   case LPUISD::Wrapper:            return "LPUISD::Wrapper";
   }
 }
@@ -623,9 +622,19 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
   // Analize return values.
   CCInfo.AnalyzeReturn(Outs,RetCC_Reg_LPU);
 
-  SDValue Flag;
-  SmallVector<SDValue, 4> RetOps(1, Chain);
+  /*
+  MachineFunction &MF = DAG.getMachineFunction();
 
+  // If this is the first return lowered for this function, add
+  // the regs to the liveout set for the function.
+  if (MF.getRegInfo().liveout_empty()) {
+    for (unsigned i = 0; i != RVLocs.size(); ++i)
+      if (RVLocs[i].isRegLoc())
+        MF.getRegInfo().addLiveOut(RVLocs[i].getLocReg());
+  }
+  */
+
+  SDValue Flag;
   // Copy the result values into the output registers.
   for (unsigned i = 0; i != RVLocs.size(); ++i) {
     CCValAssign &VA = RVLocs[i];
@@ -637,16 +646,17 @@ LPUTargetLowering::LowerReturn(SDValue Chain,
     // Guarantee that all emitted copies are stuck together,
     // avoiding something bad.
     Flag = Chain.getValue(1);
-    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
   }
 
-  RetOps[0] = Chain;  // Update chain.
-
-  // Add the flag if we have it.
+  SDValue result;
   if (Flag.getNode())
-    RetOps.push_back(Flag);
+    result =  DAG.getNode(LPUISD::Ret, dl, MVT::Other, Chain,
+                          DAG.getRegister(LPU::RA, MVT::i64), Flag);
+  else // Return Void
+    result = DAG.getNode(LPUISD::Ret, dl, MVT::Other, Chain,
+                         DAG.getRegister(LPU::RA, MVT::i64));
 
-  return DAG.getNode(LPUISD::Ret, dl, MVT::Other, RetOps);
+  return result;
 }
 /*
 /// LowerCCCCallTo - functions arguments are copied from virtual regs to

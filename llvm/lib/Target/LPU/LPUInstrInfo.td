@@ -62,15 +62,32 @@ def HasSqrt      : Predicate<"Subtarget.hasSqrt()">;
 def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 
 //===----------------------------------------------------------------------===//
+// LPU profiles and nodes
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
 // LPU Instructions.
 //===----------------------------------------------------------------------===//
 
 // These are target-independent nodes, but have target-specific formats.
-def SDT_LPUCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
-def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i32>,
-                                        SDTCisVT<1, i32> ]>;
+def SDT_LPURet          : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
+def SDT_LPUCall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
+def SDT_LPUCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64> ]>;
+def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
+
 def SDT_LPUWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
+
+def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
+    [SDNPHasChain, SDNPOptInGlue]>;
+
+// Call
+def LPUCall : SDNode<"LPUISD::Call", SDT_LPUCall,
+                      [SDNPHasChain, SDNPOutGlue, SDNPOptInGlue,
+                      SDNPVariadic]>;
+
+def LPUTailCall : SDNode<"LPUISD::TailCall", SDT_LPUCall,
+                      [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_LPUCallSeqStart,
                            [SDNPHasChain, SDNPOutGlue]>;
@@ -80,25 +97,14 @@ def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_LPUCallSeqEnd,
 def LPUWrapper : SDNode<"LPUISD::Wrapper", SDT_LPUWrapper>;
 
 let Defs = [SP], Uses = [SP] in {
-def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i32imm:$amt),
+def ADJCALLSTACKDOWN : PseudoInstLPU<(outs), (ins i64imm:$amt),
                                "# ADJCALLSTACKDOWN $amt",
                                [(callseq_start timm:$amt)]>;
-def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i32imm:$amt1, i32imm:$amt2),
+def ADJCALLSTACKUP : PseudoInstLPU<(outs), (ins i64imm:$amt1, i64imm:$amt2),
                             "# ADJCALLSTACKUP $amt1",
                             [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
-def SDT_LPURet : SDTypeProfile<0, 0, []>;
-
-def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
-    [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
-
-
-let isReturn=1, isTerminator=1, isBarrier=1 in
-def RET : FMTGEN<
-    (outs), (ins),
-    "ret\t%ra",
-    [(LPURet)]>;
 
 multiclass MovOp<string opStr, RegisterClass RC, ValueType opType,
                  list<Predicate> preds> {
@@ -443,6 +449,70 @@ multiclass FStOp<string opStr, RegisterClass RC, ValueType opType> {
     [(store RC:$data, ADDR_R:$addr)]>;
 }
 
+let isBranch=1, isTerminator=1 in {
+  // Branch true
+  def BT : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
+    "bt\t$cond, $target",
+    [(brcond I1:$cond, bb:$target)]>;
+  // Branch false
+  def BF : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
+    "bf\t$cond, $target",
+    [(brcond (not I1:$cond), bb:$target)]>;
+  // Unconditional branch
+  let isBarrier=1 in {
+    def BR : FMTGEN<(outs), (ins brtarget:$target),
+      "br\t$target",
+      [(br bb:$target)]>;
+  }
+}
+
+def : Pat<(brcond (i1 (xor I1:$cond, -1)), bb:$target),
+          (BF I1:$cond, bb:$target)>;
+def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
+          (BF I1:$cond, bb:$target)>;
+
+let isReturn=1, isTerminator=1, isBarrier=1 in
+def RET : FMTGEN<
+    (outs),
+    (ins I64:$op1),
+    "ret\t$op1",
+    [(LPURet I64:$op1)]>;
+
+/*
+let isCall=1, Defs = [] in {
+
+  multiclass CallRel<> {
+    def i : FMTGEN<
+      (outs),
+      (ins calltarget:$target, variable_ops),
+
+}
+*/
+
+// Call
+/*
+def : Pat<(LPUCall tglobaladdr:$dst),
+          (JLREL_I tglobaladdr:$dst)>;
+def : Pat<(LPUCall texternalsym:$dst),
+          (JLREL_I texternalsym:$dst)>;
+
+def : Pat<(LPUCall imm:$dst),
+          (JLREL_I imm:$dst)>;
+def : Pat<(LPUCall GPRC:$dst),
+          (JLABS GPRC:$dst)>;
+
+// Tail call
+def : Pat<(LPUTailCall tglobaladdr:$dst),
+          (TAILCALLREL tglobaladdr:$dst)>;
+def : Pat<(LPUTailCall texternalsym:$dst),
+          (TAILCALLREL texternalsym:$dst)>;
+
+def : Pat<(LPUTailCall imm:$dst),
+          (TAILCALLREL imm:$dst)>;
+def : Pat<(LPUTailCall GPRC:$dst),
+          (TAILCALLABS GPRC:$dst)>;
+*/
+
 // The repetition below could be removed if nested multiclass were supported.
 // (e.g. the first level would expand to 8/16/32/64, then the 2nd level
 // would be as today.)
@@ -455,6 +525,12 @@ defm MOV32     : MovOp<"mov32", I32, i32, [HasI32]>;
 defm MOV32f    : MovOp<"mov32", F32, f32, [HasF32]>;
 defm MOV64     : MovOp<"mov64", I64, i64, [HasI64]>;
 defm MOV64f    : MovOp<"mov64", F64, f64, [HasF64]>;
+
+// GlobalAddress, ExternalSymbol
+
+def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64i tglobaladdr:$src)>;
+def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64i texternalsym:$src)>;
+def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64i tblockaddress:$src)>;
 
 defm NOT1      : UnaryOpP<"not1",     not,   I1,  [HasI1]>;
 defm NOT8      : UnaryOpP<"not8",     not,   I8,  [HasI8]>;
@@ -996,36 +1072,6 @@ def : Pat<(i16 (bitconvert f16:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(f16 (bitconvert i16:$op1)),
     (COPY_TO_REGCLASS $op1, F16)>;
-
-
-let isBranch=1, isTerminator=1 in {
-  // Branch true
-  def BT : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
-    "bt\t$cond, $target",
-    [(brcond I1:$cond, bb:$target)]>;
-  // Branch false
-  def BF : FMTGEN<(outs), (ins I1:$cond, brtarget:$target),
-    "bf\t$cond, $target",
-    [(brcond (not I1:$cond), bb:$target)]>;
-  // Unconditional branch
-  let isBarrier=1 in {
-    def BR : FMTGEN<(outs), (ins brtarget:$target),
-      "br\t$target",
-      [(br bb:$target)]>;
-  }
-}
-
-def : Pat<(brcond (i1 (xor I1:$cond, -1)), bb:$target),
-          (BF I1:$cond, bb:$target)>;
-def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
-          (BF I1:$cond, bb:$target)>;
-
-
-// GlobalAddress, ExternalSymbol
-
-def : Pat<(i64 (LPUWrapper tglobaladdr:$src)),   (MOV64i tglobaladdr:$src)>;
-def : Pat<(i64 (LPUWrapper texternalsym:$src)),  (MOV64i texternalsym:$src)>;
-def : Pat<(i64 (LPUWrapper tblockaddress:$src)), (MOV64i tblockaddress:$src)>;
 
 // Eventually
 //include "LPUIntrinsics.td"
