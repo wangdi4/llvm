@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import lldb
 from lldbtest import *
 import lldbutil
@@ -127,6 +129,12 @@ class InlineTest(TestBase):
         self.buildDwarf()
         self.do_test()
 
+    def __test_with_dwo(self):
+        self.using_dsym = False
+        self.BuildMakefile()
+        self.buildDwo()
+        self.do_test()
+
     def execute_user_command(self, __command):
         exec __command in globals(), locals()
 
@@ -155,8 +163,8 @@ class InlineTest(TestBase):
         value = self.frame().EvaluateExpression (expression)
         self.assertTrue(value.IsValid(), expression+"returned a valid value")
         if self.TraceOn():
-            print value.GetSummary()
-            print value.GetValue()
+            print(value.GetSummary())
+            print(value.GetValue())
         if use_summary:
             answer = value.GetSummary()
         else:
@@ -186,6 +194,7 @@ def MakeInlineTest(__file, __globals, decorators=None):
 
     test.test_with_dsym = ApplyDecoratorsToFunction(test._InlineTest__test_with_dsym, decorators)
     test.test_with_dwarf = ApplyDecoratorsToFunction(test._InlineTest__test_with_dwarf, decorators)
+    test.test_with_dwo = ApplyDecoratorsToFunction(test._InlineTest__test_with_dwo, decorators)
 
     # Add the test case to the globals, and hide InlineTest
     __globals.update({test_name : test})

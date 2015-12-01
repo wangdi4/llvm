@@ -147,9 +147,12 @@ static ScopePair GetDiagForGotoScopeDecl(Sema &S, const Decl *D) {
     if (VD->hasLocalStorage()) {
       switch (VD->getType().isDestructedType()) {
       case QualType::DK_objc_strong_lifetime:
+        return ScopePair(diag::note_protected_by_objc_strong_init,
+                         diag::note_exits_objc_strong);
+
       case QualType::DK_objc_weak_lifetime:
-        return ScopePair(diag::note_protected_by_objc_ownership,
-                         diag::note_exits_objc_ownership);
+        return ScopePair(diag::note_protected_by_objc_weak_init,
+                         diag::note_exits_objc_weak);
 
       case QualType::DK_cxx_destructor:
         OutDiag = diag::note_exits_dtor;
@@ -583,6 +586,10 @@ void JumpScopeChecker::VerifyJumps() {
 void JumpScopeChecker::VerifyIndirectJumps() {
   if (IndirectJumps.empty()) return;
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
+  if (!S.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
   // If there aren't any address-of-label expressions in this function,
   // complain about the first indirect goto.
   if (IndirectJumpTargets.empty()) {
@@ -601,6 +608,16 @@ void JumpScopeChecker::VerifyIndirectJumps() {
     for (SmallVectorImpl<IndirectGotoStmt*>::iterator
            I = IndirectJumps.begin(), E = IndirectJumps.end(); I != E; ++I) {
       IndirectGotoStmt *IG = *I;
+#ifdef INTEL_CUSTOMIZATION
+      // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
+      if (S.getLangOpts().IntelCompat) {
+        Expr *ITarget = IG->getTarget()->IgnoreParens();
+        if (!isa<AddrLabelExpr>(ITarget)) {
+          if (ITarget->isEvaluatable(S.Context))
+            S.Diag(IG->getGotoLoc(), diag::warn_indirect_goto_with_const_expr);
+        }
+      }
+#endif // INTEL_CUSTOMIZATION
       if (CHECK_PERMISSIVE(!LabelAndGotoScopes.count(IG)))
         continue;
       unsigned IGScope = LabelAndGotoScopes[IG];
@@ -715,11 +732,40 @@ static bool IsCXX98CompatWarning(Sema &S, unsigned InDiagNote) {
          InDiagNote == diag::note_protected_by_variable_non_pod;
 }
 
+#ifdef INTEL_CUSTOMIZATION
+/// Return true if a particular error+note combination must be downgraded to a
+/// warning in IntelCompat mode.
+static bool IsIntelJumpWarning(unsigned JumpDiag, unsigned InDiagNote,
+                               unsigned *JumpDiagWarning) {
+  bool result = IsMicrosoftJumpWarning(JumpDiag, InDiagNote);
+  if (!result) {
+    result = (((JumpDiag == diag::err_switch_into_protected_scope) &&
+                (InDiagNote == diag::note_protected_by_variable_init)) ||
+              ((JumpDiag == diag::err_goto_into_protected_scope) &&
+                (InDiagNote == diag::note_protected_by_cleanup))
+             );
+    if (result) {
+      if (JumpDiagWarning && (
+          JumpDiag == diag::err_switch_into_protected_scope))
+        *JumpDiagWarning = diag::warn_switch_into_protected_scope;
+    } else
+      result = InDiagNote == diag::note_protected_by_variable_non_pod;
+  }
+  return result;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// Produce primary diagnostic for an indirect jump statement.
 static void DiagnoseIndirectJumpStmt(Sema &S, IndirectGotoStmt *Jump,
                                      LabelDecl *Target, bool &Diagnosed) {
   if (Diagnosed)
     return;
+#ifdef INTEL_CUSTOMIZATION
+    // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
+  if(S.getLangOpts().IntelCompat)
+    S.Diag(Jump->getGotoLoc(), diag::warn_indirect_goto_in_protected_scope);
+  else
+#endif // INTEL_CUSTOMIZATION
   S.Diag(Jump->getGotoLoc(), diag::err_indirect_goto_in_protected_scope);
   S.Diag(Target->getStmt()->getIdentLoc(), diag::note_indirect_goto_target);
   Diagnosed = true;
@@ -758,6 +804,13 @@ void JumpScopeChecker::DiagnoseIndirectJump(IndirectGotoStmt *Jump,
   for (unsigned I = TargetScope; I != Common; I = Scopes[I].ParentScope)
     if (IsCXX98CompatWarning(S, Scopes[I].InDiag))
       ToScopesCXX98Compat.push_back(I);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
+    else if (S.getLangOpts().IntelCompat &&
+             IsIntelJumpWarning(0, Scopes[I].InDiag, nullptr)) {
+      ToScopesCXX98Compat.push_back(I);
+    }
+#endif // INTEL_CUSTOMIZATION
     else if (Scopes[I].InDiag) {
       DiagnoseIndirectJumpStmt(S, Jump, Target, Diagnosed);
       S.Diag(Scopes[I].Loc, Scopes[I].InDiag);
@@ -815,6 +868,14 @@ void JumpScopeChecker::CheckJump(Stmt *From, Stmt *To, SourceLocation DiagLoc,
       ToScopesWarning.push_back(I);
     else if (IsCXX98CompatWarning(S, Scopes[I].InDiag))
       ToScopesCXX98Compat.push_back(I);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ370802: Certain cases of jump-to-label usage are restricted by xmain
+    else if (S.getLangOpts().IntelCompat &&
+             IsIntelJumpWarning(JumpDiagError, Scopes[I].InDiag,
+                                &JumpDiagWarning)) {
+      ToScopesWarning.push_back(I);
+    }
+#endif // INTEL_CUSTOMIZATION
     else if (Scopes[I].InDiag)
       ToScopesError.push_back(I);
   }

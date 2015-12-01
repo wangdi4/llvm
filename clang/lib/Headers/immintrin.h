@@ -152,6 +152,16 @@ _writegsbase_u64(unsigned long long __V)
 
 #include <fxsrintrin.h>
 
+#ifndef __INTEL_COMPILER    /* Just intel this hits xmain and is in copylist */
+#include <xsaveintrin.h>
+
+#include <xsaveoptintrin.h>
+
+#include <xsavecintrin.h>
+
+#include <xsavesintrin.h>
+#endif /* __INTEL_COMPILER */
+
 /* Some intrinsics inside adxintrin.h are available only on processors with ADX,
  * whereas others are also available at all times. */
 #include <adxintrin.h>

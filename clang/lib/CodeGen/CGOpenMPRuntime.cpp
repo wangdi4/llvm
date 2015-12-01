@@ -41,25 +41,29 @@ public:
     /// \brief Region for constructs that do not require function outlining,
     /// like 'for', 'sections', 'atomic' etc. directives.
     InlinedRegion,
+    /// \brief Region with outlined function for standalone 'target' directive.
+    TargetRegion,
   };
 
   CGOpenMPRegionInfo(const CapturedStmt &CS,
                      const CGOpenMPRegionKind RegionKind,
-                     const RegionCodeGenTy &CodeGen, OpenMPDirectiveKind Kind)
+                     const RegionCodeGenTy &CodeGen, OpenMPDirectiveKind Kind,
+                     bool HasCancel)
       : CGCapturedStmtInfo(CS, CR_OpenMP), RegionKind(RegionKind),
-        CodeGen(CodeGen), Kind(Kind) {}
+        CodeGen(CodeGen), Kind(Kind), HasCancel(HasCancel) {}
 
   CGOpenMPRegionInfo(const CGOpenMPRegionKind RegionKind,
-                     const RegionCodeGenTy &CodeGen, OpenMPDirectiveKind Kind)
+                     const RegionCodeGenTy &CodeGen, OpenMPDirectiveKind Kind,
+                     bool HasCancel)
       : CGCapturedStmtInfo(CR_OpenMP), RegionKind(RegionKind), CodeGen(CodeGen),
-        Kind(Kind) {}
+        Kind(Kind), HasCancel(HasCancel) {}
 
   /// \brief Get a variable or parameter for storing global thread id
   /// inside OpenMP construct.
   virtual const VarDecl *getThreadIDVariable() const = 0;
 
   /// \brief Emit the captured statement body.
-  virtual void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
+  void EmitBody(CodeGenFunction &CGF, const Stmt *S) override;
 
   /// \brief Get an LValue for the current ThreadID variable.
   /// \return LValue for thread id variable. This LValue always has type int32*.
@@ -69,6 +73,8 @@ public:
 
   OpenMPDirectiveKind getDirectiveKind() const { return Kind; }
 
+  bool hasCancel() const { return HasCancel; }
+
   static bool classof(const CGCapturedStmtInfo *Info) {
     return Info->getKind() == CR_OpenMP;
   }
@@ -77,6 +83,7 @@ protected:
   CGOpenMPRegionKind RegionKind;
   const RegionCodeGenTy &CodeGen;
   OpenMPDirectiveKind Kind;
+  bool HasCancel;
 };
 
 /// \brief API for captured statement code generation in OpenMP constructs.
@@ -84,8 +91,9 @@ class CGOpenMPOutlinedRegionInfo : public CGOpenMPRegionInfo {
 public:
   CGOpenMPOutlinedRegionInfo(const CapturedStmt &CS, const VarDecl *ThreadIDVar,
                              const RegionCodeGenTy &CodeGen,
-                             OpenMPDirectiveKind Kind)
-      : CGOpenMPRegionInfo(CS, ParallelOutlinedRegion, CodeGen, Kind),
+                             OpenMPDirectiveKind Kind, bool HasCancel)
+      : CGOpenMPRegionInfo(CS, ParallelOutlinedRegion, CodeGen, Kind,
+                           HasCancel),
         ThreadIDVar(ThreadIDVar) {
     assert(ThreadIDVar != nullptr && "No ThreadID in OpenMP region.");
   }
@@ -114,8 +122,8 @@ public:
   CGOpenMPTaskOutlinedRegionInfo(const CapturedStmt &CS,
                                  const VarDecl *ThreadIDVar,
                                  const RegionCodeGenTy &CodeGen,
-                                 OpenMPDirectiveKind Kind)
-      : CGOpenMPRegionInfo(CS, TaskOutlinedRegion, CodeGen, Kind),
+                                 OpenMPDirectiveKind Kind, bool HasCancel)
+      : CGOpenMPRegionInfo(CS, TaskOutlinedRegion, CodeGen, Kind, HasCancel),
         ThreadIDVar(ThreadIDVar) {
     assert(ThreadIDVar != nullptr && "No ThreadID in OpenMP region.");
   }
@@ -147,8 +155,9 @@ class CGOpenMPInlinedRegionInfo : public CGOpenMPRegionInfo {
 public:
   CGOpenMPInlinedRegionInfo(CodeGenFunction::CGCapturedStmtInfo *OldCSI,
                             const RegionCodeGenTy &CodeGen,
-                            OpenMPDirectiveKind Kind)
-      : CGOpenMPRegionInfo(InlinedRegion, CodeGen, Kind), OldCSI(OldCSI),
+                            OpenMPDirectiveKind Kind, bool HasCancel)
+      : CGOpenMPRegionInfo(InlinedRegion, CodeGen, Kind, HasCancel),
+        OldCSI(OldCSI),
         OuterRegionInfo(dyn_cast_or_null<CGOpenMPRegionInfo>(OldCSI)) {}
   // \brief Retrieve the value of the context parameter.
   llvm::Value *getContextValue() const override {
@@ -156,7 +165,7 @@ public:
       return OuterRegionInfo->getContextValue();
     llvm_unreachable("No context value for inlined OpenMP region");
   }
-  virtual void setContextValue(llvm::Value *V) override {
+  void setContextValue(llvm::Value *V) override {
     if (OuterRegionInfo) {
       OuterRegionInfo->setContextValue(V);
       return;
@@ -204,6 +213,29 @@ private:
   CGOpenMPRegionInfo *OuterRegionInfo;
 };
 
+/// \brief API for captured statement code generation in OpenMP target
+/// constructs. For this captures, implicit parameters are used instead of the
+/// captured fields.
+class CGOpenMPTargetRegionInfo : public CGOpenMPRegionInfo {
+public:
+  CGOpenMPTargetRegionInfo(const CapturedStmt &CS,
+                           const RegionCodeGenTy &CodeGen)
+      : CGOpenMPRegionInfo(CS, TargetRegion, CodeGen, OMPD_target,
+                           /*HasCancel = */ false) {}
+
+  /// \brief This is unused for target regions because each starts executing
+  /// with a single thread.
+  const VarDecl *getThreadIDVariable() const override { return nullptr; }
+
+  /// \brief Get the name of the capture helper.
+  StringRef getHelperName() const override { return ".omp_offloading."; }
+
+  static bool classof(const CGCapturedStmtInfo *Info) {
+    return CGOpenMPRegionInfo::classof(Info) &&
+           cast<CGOpenMPRegionInfo>(Info)->getRegionKind() == TargetRegion;
+  }
+};
+
 /// \brief RAII for emitting code of OpenMP constructs.
 class InlinedOpenMPRegionRAII {
   CodeGenFunction &CGF;
@@ -214,11 +246,11 @@ public:
   /// a list of functions used for code generation of implicitly inlined
   /// regions.
   InlinedOpenMPRegionRAII(CodeGenFunction &CGF, const RegionCodeGenTy &CodeGen,
-                          OpenMPDirectiveKind Kind)
+                          OpenMPDirectiveKind Kind, bool HasCancel)
       : CGF(CGF) {
     // Start emission for the construct.
-    CGF.CapturedStmtInfo =
-        new CGOpenMPInlinedRegionInfo(CGF.CapturedStmtInfo, CodeGen, Kind);
+    CGF.CapturedStmtInfo = new CGOpenMPInlinedRegionInfo(
+        CGF.CapturedStmtInfo, CodeGen, Kind, HasCancel);
   }
   ~InlinedOpenMPRegionRAII() {
     // Restore original CapturedStmtInfo only if we're done with code emission.
@@ -229,16 +261,20 @@ public:
   }
 };
 
-} // namespace
+} // anonymous namespace
+
+static LValue emitLoadOfPointerLValue(CodeGenFunction &CGF, Address PtrAddr,
+                                      QualType Ty) {
+  AlignmentSource Source;
+  CharUnits Align = CGF.getNaturalPointeeTypeAlignment(Ty, &Source);
+  return CGF.MakeAddrLValue(Address(CGF.Builder.CreateLoad(PtrAddr), Align),
+                            Ty->getPointeeType(), Source);
+}
 
 LValue CGOpenMPRegionInfo::getThreadIDVariableLValue(CodeGenFunction &CGF) {
-  return CGF.MakeNaturalAlignAddrLValue(
-      CGF.Builder.CreateLoad(
-          CGF.GetAddrOfLocalVar(getThreadIDVariable())),
-      getThreadIDVariable()
-          ->getType()
-          ->castAs<PointerType>()
-          ->getPointeeType());
+  return emitLoadOfPointerLValue(CGF,
+                                 CGF.GetAddrOfLocalVar(getThreadIDVariable()),
+                                 getThreadIDVariable()->getType());
 }
 
 void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt * /*S*/) {
@@ -257,9 +293,9 @@ void CGOpenMPRegionInfo::EmitBody(CodeGenFunction &CGF, const Stmt * /*S*/) {
 
 LValue CGOpenMPTaskOutlinedRegionInfo::getThreadIDVariableLValue(
     CodeGenFunction &CGF) {
-  return CGF.MakeAddrLValue(
-      CGF.GetAddrOfLocalVar(getThreadIDVariable()),
-      getThreadIDVariable()->getType());
+  return CGF.MakeAddrLValue(CGF.GetAddrOfLocalVar(getThreadIDVariable()),
+                            getThreadIDVariable()->getType(),
+                            AlignmentSource::Decl);
 }
 
 CGOpenMPRuntime::CGOpenMPRuntime(CodeGenModule &CGM)
@@ -305,9 +341,17 @@ llvm::Value *CGOpenMPRuntime::emitParallelOutlinedFunction(
          "thread id variable must be of type kmp_int32 *");
   const CapturedStmt *CS = cast<CapturedStmt>(D.getAssociatedStmt());
   CodeGenFunction CGF(CGM, true);
-  CGOpenMPOutlinedRegionInfo CGInfo(*CS, ThreadIDVar, CodeGen, InnermostKind);
+  bool HasCancel = false;
+  if (auto *OPD = dyn_cast<OMPParallelDirective>(&D))
+    HasCancel = OPD->hasCancel();
+  else if (auto *OPSD = dyn_cast<OMPParallelSectionsDirective>(&D))
+    HasCancel = OPSD->hasCancel();
+  else if (auto *OPFD = dyn_cast<OMPParallelForDirective>(&D))
+    HasCancel = OPFD->hasCancel();
+  CGOpenMPOutlinedRegionInfo CGInfo(*CS, ThreadIDVar, CodeGen, InnermostKind,
+                                    HasCancel);
   CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
-  return CGF.GenerateCapturedStmtFunction(*CS);
+  return CGF.GenerateOpenMPCapturedStmtFunction(*CS);
 }
 
 llvm::Value *CGOpenMPRuntime::emitTaskOutlinedFunction(
@@ -318,7 +362,8 @@ llvm::Value *CGOpenMPRuntime::emitTaskOutlinedFunction(
   auto *CS = cast<CapturedStmt>(D.getAssociatedStmt());
   CodeGenFunction CGF(CGM, true);
   CGOpenMPTaskOutlinedRegionInfo CGInfo(*CS, ThreadIDVar, CodeGen,
-                                        InnermostKind);
+                                        InnermostKind,
+                                        cast<OMPTaskDirective>(D).hasCancel());
   CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
   return CGF.GenerateCapturedStmtFunction(*CS);
 }
@@ -857,8 +902,44 @@ CGOpenMPRuntime::createRuntimeFunction(OpenMPRTLFunction Function) {
     RTLFn = CGM.CreateRuntimeFunction(FnTy, "__kmpc_cancel");
     break;
   }
+  case OMPRTL__tgt_target: {
+    // Build int32_t __tgt_target(int32_t device_id, void *host_ptr, int32_t
+    // arg_num, void** args_base, void **args, size_t *arg_sizes, int32_t
+    // *arg_types);
+    llvm::Type *TypeParams[] = {CGM.Int32Ty,
+                                CGM.VoidPtrTy,
+                                CGM.Int32Ty,
+                                CGM.VoidPtrPtrTy,
+                                CGM.VoidPtrPtrTy,
+                                CGM.SizeTy->getPointerTo(),
+                                CGM.Int32Ty->getPointerTo()};
+    llvm::FunctionType *FnTy =
+        llvm::FunctionType::get(CGM.Int32Ty, TypeParams, /*isVarArg*/ false);
+    RTLFn = CGM.CreateRuntimeFunction(FnTy, "__tgt_target");
+    break;
+  }
   }
   return RTLFn;
+}
+
+static llvm::Value *getTypeSize(CodeGenFunction &CGF, QualType Ty) {
+  auto &C = CGF.getContext();
+  llvm::Value *Size = nullptr;
+  auto SizeInChars = C.getTypeSizeInChars(Ty);
+  if (SizeInChars.isZero()) {
+    // getTypeSizeInChars() returns 0 for a VLA.
+    while (auto *VAT = C.getAsVariableArrayType(Ty)) {
+      llvm::Value *ArraySize;
+      std::tie(ArraySize, Ty) = CGF.getVLASize(VAT);
+      Size = Size ? CGF.Builder.CreateNUWMul(Size, ArraySize) : ArraySize;
+    }
+    SizeInChars = C.getTypeSizeInChars(Ty);
+    assert(!SizeInChars.isZero());
+    Size = CGF.Builder.CreateNUWMul(
+        Size, llvm::ConstantInt::get(CGF.SizeTy, SizeInChars.getQuantity()));
+  } else
+    Size = llvm::ConstantInt::get(CGF.SizeTy, SizeInChars.getQuantity());
+  return Size;
 }
 
 llvm::Constant *CGOpenMPRuntime::createForStaticInitFunction(unsigned IVSize,
@@ -1168,25 +1249,25 @@ static void emitOMPIfClause(CodeGenFunction &CGF, const Expr *Cond,
 
 void CGOpenMPRuntime::emitParallelCall(CodeGenFunction &CGF, SourceLocation Loc,
                                        llvm::Value *OutlinedFn,
-                                       Address CapturedStruct,
+                                       ArrayRef<llvm::Value *> CapturedVars,
                                        const Expr *IfCond) {
   auto *RTLoc = emitUpdateLocation(CGF, Loc);
-  auto &&ThenGen =
-      [this, OutlinedFn, CapturedStruct, RTLoc](CodeGenFunction &CGF) {
-        // Build call __kmpc_fork_call(loc, 1, microtask,
-        // captured_struct/*context*/)
-        llvm::Value *Args[] = {
-            RTLoc,
-            CGF.Builder.getInt32(
-                1), // Number of arguments after 'microtask' argument
-            // (there is only one additional argument - 'context')
-            CGF.Builder.CreateBitCast(OutlinedFn, getKmpc_MicroPointerTy()),
-            CGF.EmitCastToVoidPtr(CapturedStruct.getPointer())};
-        auto RTLFn = createRuntimeFunction(OMPRTL__kmpc_fork_call);
-        CGF.EmitRuntimeCall(RTLFn, Args);
-      };
-  auto &&ElseGen = [this, OutlinedFn, CapturedStruct, RTLoc, Loc](
-      CodeGenFunction &CGF) {
+  auto &&ThenGen = [this, OutlinedFn, CapturedVars,
+                    RTLoc](CodeGenFunction &CGF) {
+    // Build call __kmpc_fork_call(loc, n, microtask, var1, .., varn);
+    llvm::Value *Args[] = {
+        RTLoc,
+        CGF.Builder.getInt32(CapturedVars.size()), // Number of captured vars
+        CGF.Builder.CreateBitCast(OutlinedFn, getKmpc_MicroPointerTy())};
+    llvm::SmallVector<llvm::Value *, 16> RealArgs;
+    RealArgs.append(std::begin(Args), std::end(Args));
+    RealArgs.append(CapturedVars.begin(), CapturedVars.end());
+
+    auto RTLFn = createRuntimeFunction(OMPRTL__kmpc_fork_call);
+    CGF.EmitRuntimeCall(RTLFn, RealArgs);
+  };
+  auto &&ElseGen = [this, OutlinedFn, CapturedVars, RTLoc,
+                    Loc](CodeGenFunction &CGF) {
     auto ThreadID = getThreadID(CGF, Loc);
     // Build calls:
     // __kmpc_serialized_parallel(&Loc, GTid);
@@ -1200,11 +1281,10 @@ void CGOpenMPRuntime::emitParallelCall(CodeGenFunction &CGF, SourceLocation Loc,
       CGF.CreateTempAlloca(CGF.Int32Ty, CharUnits::fromQuantity(4),
                            /*Name*/ ".zero.addr");
     CGF.InitTempAlloca(ZeroAddr, CGF.Builder.getInt32(/*C*/ 0));
-    llvm::Value *OutlinedFnArgs[] = {
-      ThreadIDAddr.getPointer(),
-      ZeroAddr.getPointer(),
-      CapturedStruct.getPointer()
-    };
+    llvm::SmallVector<llvm::Value *, 16> OutlinedFnArgs;
+    OutlinedFnArgs.push_back(ThreadIDAddr.getPointer());
+    OutlinedFnArgs.push_back(ZeroAddr.getPointer());
+    OutlinedFnArgs.append(CapturedVars.begin(), CapturedVars.end());
     CGF.EmitCallOrInvoke(OutlinedFn, OutlinedFnArgs);
 
     // __kmpc_end_serialized_parallel(&Loc, GTid);
@@ -1283,7 +1363,7 @@ public:
     CGF.EmitRuntimeCall(Callee, Args);
   }
 };
-} // namespace
+} // anonymous namespace
 
 void CGOpenMPRuntime::emitCriticalRegion(CodeGenFunction &CGF,
                                          StringRef CriticalName,
@@ -1378,17 +1458,16 @@ void CGOpenMPRuntime::emitTaskgroupRegion(CodeGenFunction &CGF,
 
 /// Given an array of pointers to variables, project the address of a
 /// given variable.
-static Address emitAddrOfVarFromArray(CodeGenFunction &CGF,
-                                      Address Array, unsigned Index,
-                                      const VarDecl *Var) {
+static Address emitAddrOfVarFromArray(CodeGenFunction &CGF, Address Array,
+                                      unsigned Index, const VarDecl *Var) {
   // Pull out the pointer to the variable.
   Address PtrAddr =
-    CGF.Builder.CreateConstArrayGEP(Array, Index, CGF.getPointerSize());
+      CGF.Builder.CreateConstArrayGEP(Array, Index, CGF.getPointerSize());
   llvm::Value *Ptr = CGF.Builder.CreateLoad(PtrAddr);
 
   Address Addr = Address(Ptr, CGF.getContext().getDeclAlign(Var));
-  Addr = CGF.Builder.CreateElementBitCast(Addr,
-                                      CGF.ConvertTypeForMem(Var->getType()));
+  Addr = CGF.Builder.CreateElementBitCast(
+      Addr, CGF.ConvertTypeForMem(Var->getType()));
   return Addr;
 }
 
@@ -1509,8 +1588,7 @@ void CGOpenMPRuntime::emitSingleRegion(CodeGenFunction &CGF,
     auto *CpyFn = emitCopyprivateCopyFunction(
         CGM, CGF.ConvertTypeForMem(CopyprivateArrayTy)->getPointerTo(),
         CopyprivateVars, SrcExprs, DstExprs, AssignmentOps);
-    auto *BufSize = llvm::ConstantInt::get(
-        CGM.SizeTy, C.getTypeSizeInChars(CopyprivateArrayTy).getQuantity());
+    auto *BufSize = getTypeSize(CGF, CopyprivateArrayTy);
     Address CL =
       CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(CopyprivateList,
                                                       CGF.VoidPtrTy);
@@ -1529,26 +1607,26 @@ void CGOpenMPRuntime::emitSingleRegion(CodeGenFunction &CGF,
 
 void CGOpenMPRuntime::emitOrderedRegion(CodeGenFunction &CGF,
                                         const RegionCodeGenTy &OrderedOpGen,
-                                        SourceLocation Loc) {
+                                        SourceLocation Loc, bool IsThreads) {
   // __kmpc_ordered(ident_t *, gtid);
   // OrderedOpGen();
   // __kmpc_end_ordered(ident_t *, gtid);
   // Prepare arguments and build a call to __kmpc_ordered
-  {
-    CodeGenFunction::RunCleanupsScope Scope(CGF);
+  CodeGenFunction::RunCleanupsScope Scope(CGF);
+  if (IsThreads) {
     llvm::Value *Args[] = {emitUpdateLocation(CGF, Loc), getThreadID(CGF, Loc)};
     CGF.EmitRuntimeCall(createRuntimeFunction(OMPRTL__kmpc_ordered), Args);
     // Build a call to __kmpc_end_ordered
     CGF.EHStack.pushCleanup<CallEndCleanup<std::extent<decltype(Args)>::value>>(
         NormalAndEHCleanup, createRuntimeFunction(OMPRTL__kmpc_end_ordered),
         llvm::makeArrayRef(Args));
-    emitInlinedDirective(CGF, OMPD_ordered, OrderedOpGen);
   }
+  emitInlinedDirective(CGF, OMPD_ordered, OrderedOpGen);
 }
 
 void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
-                                      OpenMPDirectiveKind Kind,
-                                      bool CheckForCancel) {
+                                      OpenMPDirectiveKind Kind, bool EmitChecks,
+                                      bool ForceSimpleCall) {
   // Build call __kmpc_cancel_barrier(loc, thread_id);
   // Build call __kmpc_barrier(loc, thread_id);
   OpenMPLocationFlags Flags = OMP_IDENT_KMPC;
@@ -1568,16 +1646,19 @@ void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
   }
   // Build call __kmpc_cancel_barrier(loc, thread_id) or __kmpc_barrier(loc,
   // thread_id);
+  auto *OMPRegionInfo =
+      dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo);
+  // Do not emit barrier call in the single directive emitted in some rare cases
+  // for sections directives.
+  if (OMPRegionInfo && OMPRegionInfo->getDirectiveKind() == OMPD_single)
+    return;
   llvm::Value *Args[] = {emitUpdateLocation(CGF, Loc, Flags),
                          getThreadID(CGF, Loc)};
-  if (auto *OMPRegionInfo =
-          dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo)) {
-    auto CancelDestination =
-        CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
-    if (CancelDestination.isValid()) {
+  if (OMPRegionInfo) {
+    if (!ForceSimpleCall && OMPRegionInfo->hasCancel()) {
       auto *Result = CGF.EmitRuntimeCall(
           createRuntimeFunction(OMPRTL__kmpc_cancel_barrier), Args);
-      if (CheckForCancel) {
+      if (EmitChecks) {
         // if (__kmpc_cancel_barrier()) {
         //   exit from construct;
         // }
@@ -1587,6 +1668,8 @@ void CGOpenMPRuntime::emitBarrierCall(CodeGenFunction &CGF, SourceLocation Loc,
         CGF.Builder.CreateCondBr(Cmp, ExitBB, ContBB);
         CGF.EmitBlock(ExitBB);
         //   exit from construct;
+        auto CancelDestination =
+            CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
         CGF.EmitBranchThroughCleanup(CancelDestination);
         CGF.EmitBlock(ContBB, /*IsFinished=*/true);
       }
@@ -1831,7 +1914,7 @@ enum KmpTaskTFields {
   /// \brief Function with call of destructors for private variables.
   KmpTaskTDestructors,
 };
-} // namespace
+} // anonymous namespace
 
 void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
   if (!KmpRoutineEntryPtrTy) {
@@ -1845,14 +1928,15 @@ void CGOpenMPRuntime::emitKmpRoutineEntryT(QualType KmpInt32Ty) {
   }
 }
 
-static void addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
-                                 QualType FieldTy) {
+static FieldDecl *addFieldToRecordDecl(ASTContext &C, DeclContext *DC,
+                                       QualType FieldTy) {
   auto *Field = FieldDecl::Create(
       C, DC, SourceLocation(), SourceLocation(), /*Id=*/nullptr, FieldTy,
       C.getTrivialTypeSourceInfo(FieldTy, SourceLocation()),
       /*BW=*/nullptr, /*Mutable=*/false, /*InitStyle=*/ICIS_NoInit);
   Field->setAccess(AS_public);
   DC->addDecl(Field);
+  return Field;
 }
 
 namespace {
@@ -1866,11 +1950,10 @@ struct PrivateHelpersTy {
   const VarDecl *PrivateElemInit;
 };
 typedef std::pair<CharUnits /*Align*/, PrivateHelpersTy> PrivateDataTy;
-} // namespace
+} // anonymous namespace
 
 static RecordDecl *
-createPrivatesRecordDecl(CodeGenModule &CGM,
-                         const ArrayRef<PrivateDataTy> Privates) {
+createPrivatesRecordDecl(CodeGenModule &CGM, ArrayRef<PrivateDataTy> Privates) {
   if (!Privates.empty()) {
     auto &C = CGM.getContext();
     // Build struct .kmp_privates_t. {
@@ -1879,9 +1962,16 @@ createPrivatesRecordDecl(CodeGenModule &CGM,
     auto *RD = C.buildImplicitRecord(".kmp_privates.t");
     RD->startDefinition();
     for (auto &&Pair : Privates) {
-      auto Type = Pair.second.Original->getType();
+      auto *VD = Pair.second.Original;
+      auto Type = VD->getType();
       Type = Type.getNonReferenceType();
-      addFieldToRecordDecl(C, RD, Type);
+      auto *FD = addFieldToRecordDecl(C, RD, Type);
+      if (VD->hasAttrs()) {
+        for (specific_attr_iterator<AlignedAttr> I(VD->getAttrs().begin()),
+             E(VD->getAttrs().end());
+             I != E; ++I)
+          FD->addAttr(*I);
+      }
     }
     RD->completeDefinition();
     return RD;
@@ -1911,7 +2001,7 @@ createKmpTaskTRecordDecl(CodeGenModule &CGM, QualType KmpInt32Ty,
 
 static RecordDecl *
 createKmpTaskTWithPrivatesRecordDecl(CodeGenModule &CGM, QualType KmpTaskTQTy,
-                                     const ArrayRef<PrivateDataTy> Privates) {
+                                     ArrayRef<PrivateDataTy> Privates) {
   auto &C = CGM.getContext();
   // Build struct kmp_task_t_with_privates {
   //         kmp_task_t task_data;
@@ -1946,7 +2036,8 @@ emitProxyTaskFunction(CodeGenModule &CGM, SourceLocation Loc,
   FunctionArgList Args;
   ImplicitParamDecl GtidArg(C, /*DC=*/nullptr, Loc, /*Id=*/nullptr, KmpInt32Ty);
   ImplicitParamDecl TaskTypeArg(C, /*DC=*/nullptr, Loc,
-                                /*Id=*/nullptr, KmpTaskTWithPrivatesPtrQTy);
+                                /*Id=*/nullptr,
+                                KmpTaskTWithPrivatesPtrQTy.withRestrict());
   Args.push_back(&GtidArg);
   Args.push_back(&TaskTypeArg);
   FunctionType::ExtInfo Info;
@@ -1966,10 +2057,8 @@ emitProxyTaskFunction(CodeGenModule &CGM, SourceLocation Loc,
   // tt->task_data.shareds);
   auto *GtidParam = CGF.EmitLoadOfScalar(
       CGF.GetAddrOfLocalVar(&GtidArg), /*Volatile=*/false, KmpInt32Ty, Loc);
-  auto *TaskTypeArgAddr = CGF.Builder.CreateLoad(
-      CGF.GetAddrOfLocalVar(&TaskTypeArg));
-  LValue TDBase =
-      CGF.MakeNaturalAlignAddrLValue(TaskTypeArgAddr, KmpTaskTWithPrivatesQTy);
+  LValue TDBase = emitLoadOfPointerLValue(
+      CGF, CGF.GetAddrOfLocalVar(&TaskTypeArg), KmpTaskTWithPrivatesPtrQTy);
   auto *KmpTaskTWithPrivatesQTyRD =
       cast<RecordDecl>(KmpTaskTWithPrivatesQTy->getAsTagDecl());
   LValue Base =
@@ -2014,7 +2103,8 @@ static llvm::Value *emitDestructorsFunction(CodeGenModule &CGM,
   FunctionArgList Args;
   ImplicitParamDecl GtidArg(C, /*DC=*/nullptr, Loc, /*Id=*/nullptr, KmpInt32Ty);
   ImplicitParamDecl TaskTypeArg(C, /*DC=*/nullptr, Loc,
-                                /*Id=*/nullptr, KmpTaskTWithPrivatesPtrQTy);
+                                /*Id=*/nullptr,
+                                KmpTaskTWithPrivatesPtrQTy.withRestrict());
   Args.push_back(&GtidArg);
   Args.push_back(&TaskTypeArg);
   FunctionType::ExtInfo Info;
@@ -2031,10 +2121,8 @@ static llvm::Value *emitDestructorsFunction(CodeGenModule &CGM,
   CGF.StartFunction(GlobalDecl(), KmpInt32Ty, DestructorFn, DestructorFnInfo,
                     Args);
 
-  auto *TaskTypeArgAddr = CGF.Builder.CreateLoad(
-      CGF.GetAddrOfLocalVar(&TaskTypeArg));
-  LValue Base =
-      CGF.MakeNaturalAlignAddrLValue(TaskTypeArgAddr, KmpTaskTWithPrivatesQTy);
+  LValue Base = emitLoadOfPointerLValue(
+      CGF, CGF.GetAddrOfLocalVar(&TaskTypeArg), KmpTaskTWithPrivatesPtrQTy);
   auto *KmpTaskTWithPrivatesQTyRD =
       cast<RecordDecl>(KmpTaskTWithPrivatesQTy->getAsTagDecl());
   auto FI = std::next(KmpTaskTWithPrivatesQTyRD->field_begin());
@@ -2062,10 +2150,10 @@ static llvm::Value *emitDestructorsFunction(CodeGenModule &CGM,
 /// \endcode
 static llvm::Value *
 emitTaskPrivateMappingFunction(CodeGenModule &CGM, SourceLocation Loc,
-                               const ArrayRef<const Expr *> PrivateVars,
-                               const ArrayRef<const Expr *> FirstprivateVars,
+                               ArrayRef<const Expr *> PrivateVars,
+                               ArrayRef<const Expr *> FirstprivateVars,
                                QualType PrivatesQTy,
-                               const ArrayRef<PrivateDataTy> Privates) {
+                               ArrayRef<PrivateDataTy> Privates) {
   auto &C = CGM.getContext();
   FunctionArgList Args;
   ImplicitParamDecl TaskPrivatesArg(
@@ -2112,46 +2200,21 @@ emitTaskPrivateMappingFunction(CodeGenModule &CGM, SourceLocation Loc,
                     TaskPrivatesMapFnInfo, Args);
 
   // *privi = &.privates.privi;
-  auto *TaskPrivatesArgAddr = CGF.Builder.CreateLoad(
-      CGF.GetAddrOfLocalVar(&TaskPrivatesArg));
-  LValue Base =
-      CGF.MakeNaturalAlignAddrLValue(TaskPrivatesArgAddr, PrivatesQTy);
+  LValue Base = emitLoadOfPointerLValue(
+      CGF, CGF.GetAddrOfLocalVar(&TaskPrivatesArg), TaskPrivatesArg.getType());
   auto *PrivatesQTyRD = cast<RecordDecl>(PrivatesQTy->getAsTagDecl());
   Counter = 0;
   for (auto *Field : PrivatesQTyRD->fields()) {
     auto FieldLVal = CGF.EmitLValueForField(Base, Field);
     auto *VD = Args[PrivateVarsPos[Privates[Counter].second.Original]];
     auto RefLVal = CGF.MakeAddrLValue(CGF.GetAddrOfLocalVar(VD), VD->getType());
-    auto RefLoadRVal = CGF.EmitLoadOfLValue(RefLVal, Loc);
-    CGF.EmitStoreOfScalar(
-        FieldLVal.getPointer(),
-        CGF.MakeNaturalAlignAddrLValue(RefLoadRVal.getScalarVal(),
-                                       RefLVal.getType()->getPointeeType()));
+    auto RefLoadLVal =
+        emitLoadOfPointerLValue(CGF, RefLVal.getAddress(), RefLVal.getType());
+    CGF.EmitStoreOfScalar(FieldLVal.getPointer(), RefLoadLVal);
     ++Counter;
   }
   CGF.FinishFunction();
   return TaskPrivatesMap;
-}
-
-static llvm::Value *getTypeSize(CodeGenFunction &CGF, QualType Ty) {
-  auto &C = CGF.getContext();
-  llvm::Value *Size;
-  auto SizeInChars = C.getTypeSizeInChars(Ty);
-  if (SizeInChars.isZero()) {
-    // getTypeSizeInChars() returns 0 for a VLA.
-    Size = nullptr;
-    while (auto *VAT = C.getAsVariableArrayType(Ty)) {
-      llvm::Value *ArraySize;
-      std::tie(ArraySize, Ty) = CGF.getVLASize(VAT);
-      Size = Size ? CGF.Builder.CreateNUWMul(Size, ArraySize) : ArraySize;
-    }
-    SizeInChars = C.getTypeSizeInChars(Ty);
-    assert(!SizeInChars.isZero());
-    Size = CGF.Builder.CreateNUWMul(
-        Size, llvm::ConstantInt::get(CGF.SizeTy, SizeInChars.getQuantity()));
-  } else
-    Size = llvm::ConstantInt::get(CGF.SizeTy, SizeInChars.getQuantity());
-  return Size;
 }
 
 static int array_pod_sort_comparator(const PrivateDataTy *P1,
@@ -2176,7 +2239,7 @@ void CGOpenMPRuntime::emitTaskCall(
   for (auto *E : PrivateVars) {
     auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
     Privates.push_back(std::make_pair(
-        C.getTypeAlignInChars(VD->getType()),
+        C.getDeclAlign(VD),
         PrivateHelpersTy(VD, cast<VarDecl>(cast<DeclRefExpr>(*I)->getDecl()),
                          /*PrivateElemInit=*/nullptr)));
     ++I;
@@ -2186,7 +2249,7 @@ void CGOpenMPRuntime::emitTaskCall(
   for (auto *E : FirstprivateVars) {
     auto *VD = cast<VarDecl>(cast<DeclRefExpr>(E)->getDecl());
     Privates.push_back(std::make_pair(
-        C.getTypeAlignInChars(VD->getType()),
+        C.getDeclAlign(VD),
         PrivateHelpersTy(
             VD, cast<VarDecl>(cast<DeclRefExpr>(*I)->getDecl()),
             cast<VarDecl>(cast<DeclRefExpr>(*IElemInitRef)->getDecl()))));
@@ -2211,8 +2274,7 @@ void CGOpenMPRuntime::emitTaskCall(
       C.getPointerType(KmpTaskTWithPrivatesQTy);
   auto *KmpTaskTWithPrivatesTy = CGF.ConvertType(KmpTaskTWithPrivatesQTy);
   auto *KmpTaskTWithPrivatesPtrTy = KmpTaskTWithPrivatesTy->getPointerTo();
-  auto KmpTaskTWithPrivatesTySize =
-      CGM.getSize(C.getTypeSizeInChars(KmpTaskTWithPrivatesQTy));
+  auto *KmpTaskTWithPrivatesTySize = getTypeSize(CGF, KmpTaskTWithPrivatesQTy);
   QualType SharedsPtrTy = C.getPointerType(SharedsTy);
 
   // Emit initial values for private copies (if any).
@@ -2253,12 +2315,12 @@ void CGOpenMPRuntime::emitTaskCall(
                                      CGF.Builder.getInt32(/*C=*/0))
           : CGF.Builder.getInt32(Final.getInt() ? FinalFlag : 0);
   TaskFlags = CGF.Builder.CreateOr(TaskFlags, CGF.Builder.getInt32(Flags));
-  auto SharedsSize = C.getTypeSizeInChars(SharedsTy);
-  llvm::Value *AllocArgs[] = {
-      emitUpdateLocation(CGF, Loc), getThreadID(CGF, Loc), TaskFlags,
-      KmpTaskTWithPrivatesTySize, CGM.getSize(SharedsSize),
-      CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(TaskEntry,
-                                                      KmpRoutineEntryPtrTy)};
+  auto *SharedsSize = getTypeSize(CGF, SharedsTy);
+  llvm::Value *AllocArgs[] = {emitUpdateLocation(CGF, Loc),
+                              getThreadID(CGF, Loc), TaskFlags,
+                              KmpTaskTWithPrivatesTySize, SharedsSize,
+                              CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
+                                  TaskEntry, KmpRoutineEntryPtrTy)};
   auto *NewTask = CGF.EmitRuntimeCall(
       createRuntimeFunction(OMPRTL__kmpc_omp_task_alloc), AllocArgs);
   auto *NewTaskNewTaskTTy = CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
@@ -2271,10 +2333,13 @@ void CGOpenMPRuntime::emitTaskCall(
   // Copy shareds if there are any.
   Address KmpTaskSharedsPtr = Address::invalid();
   if (!SharedsTy->getAsStructureType()->getDecl()->field_empty()) {
-    KmpTaskSharedsPtr = Address(CGF.EmitLoadOfScalar(
-        CGF.EmitLValueForField(
-            TDBase, *std::next(KmpTaskTQTyRD->field_begin(), KmpTaskTShareds)),
-        Loc), CGF.getNaturalTypeAlignment(SharedsTy));
+    KmpTaskSharedsPtr =
+        Address(CGF.EmitLoadOfScalar(
+                    CGF.EmitLValueForField(
+                        TDBase, *std::next(KmpTaskTQTyRD->field_begin(),
+                                           KmpTaskTShareds)),
+                    Loc),
+                CGF.getNaturalTypeAlignment(SharedsTy));
     CGF.EmitAggregateCopy(KmpTaskSharedsPtr, Shareds, SharedsTy);
   }
   // Emit initial values for private copies (if any).
@@ -2302,6 +2367,9 @@ void CGOpenMPRuntime::emitTaskCall(
           auto *SharedField = CapturesInfo.lookup(OriginalVD);
           auto SharedRefLValue =
               CGF.EmitLValueForField(SharedsBase, SharedField);
+          SharedRefLValue = CGF.MakeAddrLValue(
+              Address(SharedRefLValue.getPointer(), C.getDeclAlign(OriginalVD)),
+              SharedRefLValue.getType(), AlignmentSource::Decl);
           QualType Type = OriginalVD->getType();
           if (Type->isArrayType()) {
             // Initialize firstprivate array.
@@ -2370,8 +2438,8 @@ void CGOpenMPRuntime::emitTaskCall(
     enum RTLDependenceKindTy { DepIn = 1, DepOut = 2, DepInOut = 3 };
     enum RTLDependInfoFieldsTy { BaseAddr, Len, Flags };
     RecordDecl *KmpDependInfoRD;
-    QualType FlagsTy = C.getIntTypeForBitwidth(
-        C.toBits(C.getTypeSizeInChars(C.BoolTy)), /*Signed=*/false);
+    QualType FlagsTy =
+        C.getIntTypeForBitwidth(C.getTypeSize(C.BoolTy), /*Signed=*/false);
     llvm::Type *LLVMFlagsTy = CGF.ConvertTypeForMem(FlagsTy);
     if (KmpDependInfoTy.isNull()) {
       KmpDependInfoRD = C.buildImplicitRecord("kmp_depend_info");
@@ -2405,9 +2473,8 @@ void CGOpenMPRuntime::emitTaskCall(
             CGF.Builder.CreatePtrToInt(Addr.getPointer(), CGM.SizeTy);
         llvm::Value *UpIntPtr = CGF.Builder.CreatePtrToInt(UpAddr, CGM.SizeTy);
         Size = CGF.Builder.CreateNUWSub(UpIntPtr, LowIntPtr);
-      } else {
+      } else
         Size = getTypeSize(CGF, Ty);
-      }
       auto Base = CGF.MakeAddrLValue(
           CGF.Builder.CreateConstArrayGEP(DependenciesArray, i, DependencySize),
           KmpDependInfoTy);
@@ -2524,8 +2591,89 @@ void CGOpenMPRuntime::emitTaskCall(
   }
 }
 
+/// \brief Emit reduction operation for each element of array (required for
+/// array sections) LHS op = RHS.
+/// \param Type Type of array.
+/// \param LHSVar Variable on the left side of the reduction operation
+/// (references element of array in original variable).
+/// \param RHSVar Variable on the right side of the reduction operation
+/// (references element of array in original variable).
+/// \param RedOpGen Generator of reduction operation with use of LHSVar and
+/// RHSVar.
+void EmitOMPAggregateReduction(
+    CodeGenFunction &CGF, QualType Type, const VarDecl *LHSVar,
+    const VarDecl *RHSVar,
+    const llvm::function_ref<void(CodeGenFunction &CGF, const Expr *,
+                                  const Expr *, const Expr *)> &RedOpGen,
+    const Expr *XExpr = nullptr, const Expr *EExpr = nullptr,
+    const Expr *UpExpr = nullptr) {
+  // Perform element-by-element initialization.
+  QualType ElementTy;
+  Address LHSAddr = CGF.GetAddrOfLocalVar(LHSVar);
+  Address RHSAddr = CGF.GetAddrOfLocalVar(RHSVar);
+
+  // Drill down to the base element type on both arrays.
+  auto ArrayTy = Type->getAsArrayTypeUnsafe();
+  auto NumElements = CGF.emitArrayLength(ArrayTy, ElementTy, LHSAddr);
+
+  auto RHSBegin = RHSAddr.getPointer();
+  auto LHSBegin = LHSAddr.getPointer();
+  // Cast from pointer to array type to pointer to single element.
+  auto LHSEnd = CGF.Builder.CreateGEP(LHSBegin, NumElements);
+  // The basic structure here is a while-do loop.
+  auto BodyBB = CGF.createBasicBlock("omp.arraycpy.body");
+  auto DoneBB = CGF.createBasicBlock("omp.arraycpy.done");
+  auto IsEmpty =
+      CGF.Builder.CreateICmpEQ(LHSBegin, LHSEnd, "omp.arraycpy.isempty");
+  CGF.Builder.CreateCondBr(IsEmpty, DoneBB, BodyBB);
+
+  // Enter the loop body, making that address the current address.
+  auto EntryBB = CGF.Builder.GetInsertBlock();
+  CGF.EmitBlock(BodyBB);
+
+  CharUnits ElementSize = CGF.getContext().getTypeSizeInChars(ElementTy);
+
+  llvm::PHINode *RHSElementPHI = CGF.Builder.CreatePHI(
+      RHSBegin->getType(), 2, "omp.arraycpy.srcElementPast");
+  RHSElementPHI->addIncoming(RHSBegin, EntryBB);
+  Address RHSElementCurrent =
+      Address(RHSElementPHI,
+              RHSAddr.getAlignment().alignmentOfArrayElement(ElementSize));
+
+  llvm::PHINode *LHSElementPHI = CGF.Builder.CreatePHI(
+      LHSBegin->getType(), 2, "omp.arraycpy.destElementPast");
+  LHSElementPHI->addIncoming(LHSBegin, EntryBB);
+  Address LHSElementCurrent =
+      Address(LHSElementPHI,
+              LHSAddr.getAlignment().alignmentOfArrayElement(ElementSize));
+
+  // Emit copy.
+  CodeGenFunction::OMPPrivateScope Scope(CGF);
+  Scope.addPrivate(LHSVar, [=]() -> Address { return LHSElementCurrent; });
+  Scope.addPrivate(RHSVar, [=]() -> Address { return RHSElementCurrent; });
+  Scope.Privatize();
+  RedOpGen(CGF, XExpr, EExpr, UpExpr);
+  Scope.ForceCleanup();
+
+  // Shift the address forward by one element.
+  auto LHSElementNext = CGF.Builder.CreateConstGEP1_32(
+      LHSElementPHI, /*Idx0=*/1, "omp.arraycpy.dest.element");
+  auto RHSElementNext = CGF.Builder.CreateConstGEP1_32(
+      RHSElementPHI, /*Idx0=*/1, "omp.arraycpy.src.element");
+  // Check whether we've reached the end.
+  auto Done =
+      CGF.Builder.CreateICmpEQ(LHSElementNext, LHSEnd, "omp.arraycpy.done");
+  CGF.Builder.CreateCondBr(Done, DoneBB, BodyBB);
+  LHSElementPHI->addIncoming(LHSElementNext, CGF.Builder.GetInsertBlock());
+  RHSElementPHI->addIncoming(RHSElementNext, CGF.Builder.GetInsertBlock());
+
+  // Done.
+  CGF.EmitBlock(DoneBB, /*IsFinished=*/true);
+}
+
 static llvm::Value *emitReductionFunction(CodeGenModule &CGM,
                                           llvm::Type *ArgsType,
+                                          ArrayRef<const Expr *> Privates,
                                           ArrayRef<const Expr *> LHSExprs,
                                           ArrayRef<const Expr *> RHSExprs,
                                           ArrayRef<const Expr *> ReductionOps) {
@@ -2562,19 +2710,49 @@ static llvm::Value *emitReductionFunction(CodeGenModule &CGM,
   //  *(Type<i>*)lhs[i] = RedOp<i>(*(Type<i>*)lhs[i], *(Type<i>*)rhs[i]);
   //  ...
   CodeGenFunction::OMPPrivateScope Scope(CGF);
-  for (unsigned I = 0, E = ReductionOps.size(); I < E; ++I) {
+  auto IPriv = Privates.begin();
+  unsigned Idx = 0;
+  for (unsigned I = 0, E = ReductionOps.size(); I < E; ++I, ++IPriv, ++Idx) {
     auto RHSVar = cast<VarDecl>(cast<DeclRefExpr>(RHSExprs[I])->getDecl());
     Scope.addPrivate(RHSVar, [&]() -> Address {
-      return emitAddrOfVarFromArray(CGF, RHS, I, RHSVar);
+      return emitAddrOfVarFromArray(CGF, RHS, Idx, RHSVar);
     });
     auto LHSVar = cast<VarDecl>(cast<DeclRefExpr>(LHSExprs[I])->getDecl());
     Scope.addPrivate(LHSVar, [&]() -> Address {
-      return emitAddrOfVarFromArray(CGF, LHS, I, LHSVar);
+      return emitAddrOfVarFromArray(CGF, LHS, Idx, LHSVar);
     });
+    QualType PrivTy = (*IPriv)->getType();
+    if (PrivTy->isArrayType()) {
+      // Get array size and emit VLA type.
+      ++Idx;
+      Address Elem =
+          CGF.Builder.CreateConstArrayGEP(LHS, Idx, CGF.getPointerSize());
+      llvm::Value *Ptr = CGF.Builder.CreateLoad(Elem);
+      CodeGenFunction::OpaqueValueMapping OpaqueMap(
+          CGF,
+          cast<OpaqueValueExpr>(
+              CGF.getContext().getAsVariableArrayType(PrivTy)->getSizeExpr()),
+          RValue::get(CGF.Builder.CreatePtrToInt(Ptr, CGF.SizeTy)));
+      CGF.EmitVariablyModifiedType(PrivTy);
+    }
   }
   Scope.Privatize();
+  IPriv = Privates.begin();
+  auto ILHS = LHSExprs.begin();
+  auto IRHS = RHSExprs.begin();
   for (auto *E : ReductionOps) {
-    CGF.EmitIgnoredExpr(E);
+    if ((*IPriv)->getType()->isArrayType()) {
+      // Emit reduction for array section.
+      auto *LHSVar = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+      auto *RHSVar = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+      EmitOMPAggregateReduction(CGF, (*IPriv)->getType(), LHSVar, RHSVar,
+                                [=](CodeGenFunction &CGF, const Expr *,
+                                    const Expr *,
+                                    const Expr *) { CGF.EmitIgnoredExpr(E); });
+    } else
+      // Emit reduction for array subscript or single variable.
+      CGF.EmitIgnoredExpr(E);
+    ++IPriv, ++ILHS, ++IRHS;
   }
   Scope.ForceCleanup();
   CGF.FinishFunction();
@@ -2582,6 +2760,7 @@ static llvm::Value *emitReductionFunction(CodeGenModule &CGM,
 }
 
 void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
+                                    ArrayRef<const Expr *> Privates,
                                     ArrayRef<const Expr *> LHSExprs,
                                     ArrayRef<const Expr *> RHSExprs,
                                     ArrayRef<const Expr *> ReductionOps,
@@ -2625,33 +2804,68 @@ void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
 
   if (SimpleReduction) {
     CodeGenFunction::RunCleanupsScope Scope(CGF);
+    auto IPriv = Privates.begin();
+    auto ILHS = LHSExprs.begin();
+    auto IRHS = RHSExprs.begin();
     for (auto *E : ReductionOps) {
-      CGF.EmitIgnoredExpr(E);
+      if ((*IPriv)->getType()->isArrayType()) {
+        auto *LHSVar = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+        auto *RHSVar = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+        EmitOMPAggregateReduction(
+            CGF, (*IPriv)->getType(), LHSVar, RHSVar,
+            [=](CodeGenFunction &CGF, const Expr *, const Expr *,
+                const Expr *) { CGF.EmitIgnoredExpr(E); });
+      } else
+        CGF.EmitIgnoredExpr(E);
+      ++IPriv, ++ILHS, ++IRHS;
     }
     return;
   }
 
   // 1. Build a list of reduction variables.
   // void *RedList[<n>] = {<ReductionVars>[0], ..., <ReductionVars>[<n>-1]};
-  llvm::APInt ArraySize(/*unsigned int numBits=*/32, RHSExprs.size());
+  auto Size = RHSExprs.size();
+  for (auto *E : Privates) {
+    if (E->getType()->isArrayType())
+      // Reserve place for array size.
+      ++Size;
+  }
+  llvm::APInt ArraySize(/*unsigned int numBits=*/32, Size);
   QualType ReductionArrayTy =
       C.getConstantArrayType(C.VoidPtrTy, ArraySize, ArrayType::Normal,
                              /*IndexTypeQuals=*/0);
   Address ReductionList =
       CGF.CreateMemTemp(ReductionArrayTy, ".omp.reduction.red_list");
-  for (unsigned I = 0, E = RHSExprs.size(); I < E; ++I) {
+  auto IPriv = Privates.begin();
+  unsigned Idx = 0;
+  for (unsigned I = 0, E = RHSExprs.size(); I < E; ++I, ++IPriv, ++Idx) {
     Address Elem =
-      CGF.Builder.CreateConstArrayGEP(ReductionList, I, CGF.getPointerSize());
+      CGF.Builder.CreateConstArrayGEP(ReductionList, Idx, CGF.getPointerSize());
     CGF.Builder.CreateStore(
         CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(
             CGF.EmitLValue(RHSExprs[I]).getPointer(), CGF.VoidPtrTy),
         Elem);
+    if ((*IPriv)->getType()->isArrayType()) {
+      // Store array size.
+      ++Idx;
+      Elem = CGF.Builder.CreateConstArrayGEP(ReductionList, Idx,
+                                             CGF.getPointerSize());
+      CGF.Builder.CreateStore(
+          CGF.Builder.CreateIntToPtr(
+              CGF.Builder.CreateIntCast(
+                  CGF.getVLASize(CGF.getContext().getAsVariableArrayType(
+                                     (*IPriv)->getType()))
+                      .first,
+                  CGF.SizeTy, /*isSigned=*/false),
+              CGF.VoidPtrTy),
+          Elem);
+    }
   }
 
   // 2. Emit reduce_func().
   auto *ReductionFn = emitReductionFunction(
-      CGM, CGF.ConvertTypeForMem(ReductionArrayTy)->getPointerTo(), LHSExprs,
-      RHSExprs, ReductionOps);
+      CGM, CGF.ConvertTypeForMem(ReductionArrayTy)->getPointerTo(), Privates,
+      LHSExprs, RHSExprs, ReductionOps);
 
   // 3. Create static kmp_critical_name lock = { 0 };
   auto *Lock = getCriticalRegionLock(".reduction");
@@ -2662,8 +2876,7 @@ void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
       CGF, Loc,
       static_cast<OpenMPLocationFlags>(OMP_IDENT_KMPC | OMP_ATOMIC_REDUCE));
   auto *ThreadId = getThreadID(CGF, Loc);
-  auto *ReductionArrayTySize = llvm::ConstantInt::get(
-      CGM.SizeTy, C.getTypeSizeInChars(ReductionArrayTy).getQuantity());
+  auto *ReductionArrayTySize = getTypeSize(CGF, ReductionArrayTy);
   auto *RL =
     CGF.Builder.CreatePointerBitCastOrAddrSpaceCast(ReductionList.getPointer(),
                                                     CGF.VoidPtrTy);
@@ -2709,8 +2922,22 @@ void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
             createRuntimeFunction(WithNowait ? OMPRTL__kmpc_end_reduce_nowait
                                              : OMPRTL__kmpc_end_reduce),
             llvm::makeArrayRef(EndArgs));
+    auto IPriv = Privates.begin();
+    auto ILHS = LHSExprs.begin();
+    auto IRHS = RHSExprs.begin();
     for (auto *E : ReductionOps) {
-      CGF.EmitIgnoredExpr(E);
+      if ((*IPriv)->getType()->isArrayType()) {
+        // Emit reduction for array section.
+        auto *LHSVar = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+        auto *RHSVar = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+        EmitOMPAggregateReduction(
+            CGF, (*IPriv)->getType(), LHSVar, RHSVar,
+            [=](CodeGenFunction &CGF, const Expr *, const Expr *,
+                const Expr *) { CGF.EmitIgnoredExpr(E); });
+      } else
+        // Emit reduction for array subscript or single variable.
+        CGF.EmitIgnoredExpr(E);
+      ++IPriv, ++ILHS, ++IRHS;
     }
   }
 
@@ -2740,62 +2967,84 @@ void CGOpenMPRuntime::emitReduction(CodeGenFunction &CGF, SourceLocation Loc,
               createRuntimeFunction(OMPRTL__kmpc_end_reduce),
               llvm::makeArrayRef(EndArgs));
     }
-    auto I = LHSExprs.begin();
+    auto ILHS = LHSExprs.begin();
+    auto IRHS = RHSExprs.begin();
+    auto IPriv = Privates.begin();
     for (auto *E : ReductionOps) {
-      const Expr *XExpr = nullptr;
-      const Expr *EExpr = nullptr;
-      const Expr *UpExpr = nullptr;
-      BinaryOperatorKind BO = BO_Comma;
-      if (auto *BO = dyn_cast<BinaryOperator>(E)) {
-        if (BO->getOpcode() == BO_Assign) {
-          XExpr = BO->getLHS();
-          UpExpr = BO->getRHS();
+        const Expr *XExpr = nullptr;
+        const Expr *EExpr = nullptr;
+        const Expr *UpExpr = nullptr;
+        BinaryOperatorKind BO = BO_Comma;
+        if (auto *BO = dyn_cast<BinaryOperator>(E)) {
+          if (BO->getOpcode() == BO_Assign) {
+            XExpr = BO->getLHS();
+            UpExpr = BO->getRHS();
+          }
         }
-      }
-      // Try to emit update expression as a simple atomic.
-      auto *RHSExpr = UpExpr;
-      if (RHSExpr) {
-        // Analyze RHS part of the whole expression.
-        if (auto *ACO = dyn_cast<AbstractConditionalOperator>(
-                RHSExpr->IgnoreParenImpCasts())) {
-          // If this is a conditional operator, analyze its condition for
-          // min/max reduction operator.
-          RHSExpr = ACO->getCond();
+        // Try to emit update expression as a simple atomic.
+        auto *RHSExpr = UpExpr;
+        if (RHSExpr) {
+          // Analyze RHS part of the whole expression.
+          if (auto *ACO = dyn_cast<AbstractConditionalOperator>(
+                  RHSExpr->IgnoreParenImpCasts())) {
+            // If this is a conditional operator, analyze its condition for
+            // min/max reduction operator.
+            RHSExpr = ACO->getCond();
+          }
+          if (auto *BORHS =
+                  dyn_cast<BinaryOperator>(RHSExpr->IgnoreParenImpCasts())) {
+            EExpr = BORHS->getRHS();
+            BO = BORHS->getOpcode();
+          }
         }
-        if (auto *BORHS =
-                dyn_cast<BinaryOperator>(RHSExpr->IgnoreParenImpCasts())) {
-          EExpr = BORHS->getRHS();
-          BO = BORHS->getOpcode();
-        }
-      }
-      if (XExpr) {
-        auto *VD = cast<VarDecl>(cast<DeclRefExpr>(*I)->getDecl());
-        LValue X = CGF.EmitLValue(XExpr);
-        RValue E;
-        if (EExpr)
-          E = CGF.EmitAnyExpr(EExpr);
-        CGF.EmitOMPAtomicSimpleUpdateExpr(
-            X, E, BO, /*IsXLHSInRHSPart=*/true, llvm::Monotonic, Loc,
-            [&CGF, UpExpr, VD](RValue XRValue) {
-              CodeGenFunction::OMPPrivateScope PrivateScope(CGF);
-              PrivateScope.addPrivate(
-                  VD, [&CGF, VD, XRValue]() -> Address {
+        if (XExpr) {
+          auto *VD = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+          auto &&AtomicRedGen = [this, BO, VD, IPriv,
+                                 Loc](CodeGenFunction &CGF, const Expr *XExpr,
+                                      const Expr *EExpr, const Expr *UpExpr) {
+            LValue X = CGF.EmitLValue(XExpr);
+            RValue E;
+            if (EExpr)
+              E = CGF.EmitAnyExpr(EExpr);
+            CGF.EmitOMPAtomicSimpleUpdateExpr(
+                X, E, BO, /*IsXLHSInRHSPart=*/true, llvm::Monotonic, Loc,
+                [&CGF, UpExpr, VD, IPriv](RValue XRValue) {
+                  CodeGenFunction::OMPPrivateScope PrivateScope(CGF);
+                  PrivateScope.addPrivate(VD, [&CGF, VD, XRValue]() -> Address {
                     Address LHSTemp = CGF.CreateMemTemp(VD->getType());
                     CGF.EmitStoreThroughLValue(
-                        XRValue,
-                        CGF.MakeAddrLValue(LHSTemp, VD->getType()));
+                        XRValue, CGF.MakeAddrLValue(LHSTemp, VD->getType()));
                     return LHSTemp;
                   });
-              (void)PrivateScope.Privatize();
-              return CGF.EmitAnyExpr(UpExpr);
-            });
-      } else {
-        // Emit as a critical region.
-        emitCriticalRegion(CGF, ".atomic_reduction", [E](CodeGenFunction &CGF) {
-          CGF.EmitIgnoredExpr(E);
-        }, Loc);
-      }
-      ++I;
+                  (void)PrivateScope.Privatize();
+                  return CGF.EmitAnyExpr(UpExpr);
+                });
+          };
+          if ((*IPriv)->getType()->isArrayType()) {
+            // Emit atomic reduction for array section.
+            auto *RHSVar = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+            EmitOMPAggregateReduction(CGF, (*IPriv)->getType(), VD, RHSVar,
+                                      AtomicRedGen, XExpr, EExpr, UpExpr);
+          } else
+            // Emit atomic reduction for array subscript or single variable.
+            AtomicRedGen(CGF, XExpr, EExpr, UpExpr);
+        } else {
+          // Emit as a critical region.
+          auto &&CritRedGen = [this, E, Loc](CodeGenFunction &CGF, const Expr *,
+                                             const Expr *, const Expr *) {
+            emitCriticalRegion(
+                CGF, ".atomic_reduction",
+                [E](CodeGenFunction &CGF) { CGF.EmitIgnoredExpr(E); }, Loc);
+          };
+          if ((*IPriv)->getType()->isArrayType()) {
+            auto *LHSVar = cast<VarDecl>(cast<DeclRefExpr>(*ILHS)->getDecl());
+            auto *RHSVar = cast<VarDecl>(cast<DeclRefExpr>(*IRHS)->getDecl());
+            EmitOMPAggregateReduction(CGF, (*IPriv)->getType(), LHSVar, RHSVar,
+                                      CritRedGen);
+          } else
+            CritRedGen(CGF, nullptr, nullptr, nullptr);
+        }
+      ++ILHS, ++IRHS, ++IPriv;
     }
   }
 
@@ -2814,8 +3063,9 @@ void CGOpenMPRuntime::emitTaskwaitCall(CodeGenFunction &CGF,
 
 void CGOpenMPRuntime::emitInlinedDirective(CodeGenFunction &CGF,
                                            OpenMPDirectiveKind InnerKind,
-                                           const RegionCodeGenTy &CodeGen) {
-  InlinedOpenMPRegionRAII Region(CGF, CodeGen, InnerKind);
+                                           const RegionCodeGenTy &CodeGen,
+                                           bool HasCancel) {
+  InlinedOpenMPRegionRAII Region(CGF, CodeGen, InnerKind, HasCancel);
   CGF.CapturedStmtInfo->EmitBody(CGF, /*S=*/nullptr);
 }
 
@@ -2851,9 +3101,9 @@ void CGOpenMPRuntime::emitCancellationPointCall(
   // global_tid, kmp_int32 cncl_kind);
   if (auto *OMPRegionInfo =
           dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo)) {
-    auto CancelDest =
-        CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
-    if (CancelDest.isValid()) {
+    if (OMPRegionInfo->getDirectiveKind() == OMPD_single)
+      return;
+    if (OMPRegionInfo->hasCancel()) {
       llvm::Value *Args[] = {
           emitUpdateLocation(CGF, Loc), getThreadID(CGF, Loc),
           CGF.Builder.getInt32(getCancellationKind(CancelRegion))};
@@ -2870,8 +3120,10 @@ void CGOpenMPRuntime::emitCancellationPointCall(
       CGF.Builder.CreateCondBr(Cmp, ExitBB, ContBB);
       CGF.EmitBlock(ExitBB);
       // __kmpc_cancel_barrier();
-      emitBarrierCall(CGF, Loc, OMPD_unknown, /*CheckForCancel=*/false);
+      emitBarrierCall(CGF, Loc, OMPD_unknown, /*EmitChecks=*/false);
       // exit from construct;
+      auto CancelDest =
+          CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
       CGF.EmitBranchThroughCleanup(CancelDest);
       CGF.EmitBlock(ContBB, /*IsFinished=*/true);
     }
@@ -2879,14 +3131,16 @@ void CGOpenMPRuntime::emitCancellationPointCall(
 }
 
 void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
+                                     const Expr *IfCond,
                                      OpenMPDirectiveKind CancelRegion) {
   // Build call kmp_int32 __kmpc_cancel(ident_t *loc, kmp_int32 global_tid,
   // kmp_int32 cncl_kind);
   if (auto *OMPRegionInfo =
           dyn_cast_or_null<CGOpenMPRegionInfo>(CGF.CapturedStmtInfo)) {
-    auto CancelDest =
-        CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
-    if (CancelDest.isValid()) {
+    if (OMPRegionInfo->getDirectiveKind() == OMPD_single)
+      return;
+    auto &&ThenGen = [this, Loc, CancelRegion,
+                      OMPRegionInfo](CodeGenFunction &CGF) {
       llvm::Value *Args[] = {
           emitUpdateLocation(CGF, Loc), getThreadID(CGF, Loc),
           CGF.Builder.getInt32(getCancellationKind(CancelRegion))};
@@ -2903,11 +3157,278 @@ void CGOpenMPRuntime::emitCancelCall(CodeGenFunction &CGF, SourceLocation Loc,
       CGF.Builder.CreateCondBr(Cmp, ExitBB, ContBB);
       CGF.EmitBlock(ExitBB);
       // __kmpc_cancel_barrier();
-      emitBarrierCall(CGF, Loc, OMPD_unknown, /*CheckForCancel=*/false);
+      emitBarrierCall(CGF, Loc, OMPD_unknown, /*EmitChecks=*/false);
       // exit from construct;
+      auto CancelDest =
+          CGF.getOMPCancelDestination(OMPRegionInfo->getDirectiveKind());
       CGF.EmitBranchThroughCleanup(CancelDest);
       CGF.EmitBlock(ContBB, /*IsFinished=*/true);
-    }
+    };
+    if (IfCond)
+      emitOMPIfClause(CGF, IfCond, ThenGen, [](CodeGenFunction &) {});
+    else
+      ThenGen(CGF);
   }
 }
 
+llvm::Value *
+CGOpenMPRuntime::emitTargetOutlinedFunction(const OMPExecutableDirective &D,
+                                            const RegionCodeGenTy &CodeGen) {
+  const CapturedStmt &CS = *cast<CapturedStmt>(D.getAssociatedStmt());
+
+  CodeGenFunction CGF(CGM, true);
+  CGOpenMPTargetRegionInfo CGInfo(CS, CodeGen);
+  CodeGenFunction::CGCapturedStmtRAII CapInfoRAII(CGF, &CGInfo);
+  return CGF.GenerateOpenMPCapturedStmtFunction(CS, /*UseOnlyReferences=*/true);
+}
+
+void CGOpenMPRuntime::emitTargetCall(CodeGenFunction &CGF,
+                                     const OMPExecutableDirective &D,
+                                     llvm::Value *OutlinedFn,
+                                     const Expr *IfCond, const Expr *Device,
+                                     ArrayRef<llvm::Value *> CapturedVars) {
+  /// \brief Values for bit flags used to specify the mapping type for
+  /// offloading.
+  enum OpenMPOffloadMappingFlags {
+    /// \brief Allocate memory on the device and move data from host to device.
+    OMP_MAP_TO = 0x01,
+    /// \brief Allocate memory on the device and move data from device to host.
+    OMP_MAP_FROM = 0x02,
+  };
+
+  enum OpenMPOffloadingReservedDeviceIDs {
+    /// \brief Device ID if the device was not defined, runtime should get it
+    /// from environment variables in the spec.
+    OMP_DEVICEID_UNDEF = -1,
+  };
+
+  // Fill up the arrays with the all the captured variables.
+  SmallVector<llvm::Value *, 16> BasePointers;
+  SmallVector<llvm::Value *, 16> Pointers;
+  SmallVector<llvm::Value *, 16> Sizes;
+  SmallVector<unsigned, 16> MapTypes;
+
+  bool hasVLACaptures = false;
+
+  const CapturedStmt &CS = *cast<CapturedStmt>(D.getAssociatedStmt());
+  auto RI = CS.getCapturedRecordDecl()->field_begin();
+  // auto II = CS.capture_init_begin();
+  auto CV = CapturedVars.begin();
+  for (CapturedStmt::const_capture_iterator CI = CS.capture_begin(),
+                                            CE = CS.capture_end();
+       CI != CE; ++CI, ++RI, ++CV) {
+    StringRef Name;
+    QualType Ty;
+    llvm::Value *BasePointer;
+    llvm::Value *Pointer;
+    llvm::Value *Size;
+    unsigned MapType;
+
+    if (CI->capturesVariableArrayType()) {
+      BasePointer = Pointer = *CV;
+      Size = getTypeSize(CGF, RI->getType());
+      hasVLACaptures = true;
+      // VLA sizes don't need to be copied back from the device.
+      MapType = OMP_MAP_TO;
+    } else if (CI->capturesThis()) {
+      BasePointer = Pointer = *CV;
+      const PointerType *PtrTy = cast<PointerType>(RI->getType().getTypePtr());
+      Size = getTypeSize(CGF, PtrTy->getPointeeType());
+      // Default map type.
+      MapType = OMP_MAP_TO | OMP_MAP_FROM;
+    } else {
+      BasePointer = Pointer = *CV;
+
+      const ReferenceType *PtrTy =
+          cast<ReferenceType>(RI->getType().getTypePtr());
+      QualType ElementType = PtrTy->getPointeeType();
+      Size = getTypeSize(CGF, ElementType);
+      // Default map type.
+      MapType = OMP_MAP_TO | OMP_MAP_FROM;
+    }
+
+    BasePointers.push_back(BasePointer);
+    Pointers.push_back(Pointer);
+    Sizes.push_back(Size);
+    MapTypes.push_back(MapType);
+  }
+
+  // Keep track on whether the host function has to be executed.
+  auto OffloadErrorQType =
+      CGF.getContext().getIntTypeForBitwidth(/*DestWidth=*/32, /*Signed=*/true);
+  auto OffloadError = CGF.MakeAddrLValue(
+      CGF.CreateMemTemp(OffloadErrorQType, ".run_host_version"),
+      OffloadErrorQType);
+  CGF.EmitStoreOfScalar(llvm::Constant::getNullValue(CGM.Int32Ty),
+                        OffloadError);
+
+  // Fill up the pointer arrays and transfer execution to the device.
+  auto &&ThenGen = [this, &BasePointers, &Pointers, &Sizes, &MapTypes,
+                    hasVLACaptures, Device, OffloadError,
+                    OffloadErrorQType](CodeGenFunction &CGF) {
+    unsigned PointerNumVal = BasePointers.size();
+    llvm::Value *PointerNum = CGF.Builder.getInt32(PointerNumVal);
+    llvm::Value *BasePointersArray;
+    llvm::Value *PointersArray;
+    llvm::Value *SizesArray;
+    llvm::Value *MapTypesArray;
+
+    if (PointerNumVal) {
+      llvm::APInt PointerNumAP(32, PointerNumVal, /*isSigned=*/true);
+      QualType PointerArrayType = CGF.getContext().getConstantArrayType(
+          CGF.getContext().VoidPtrTy, PointerNumAP, ArrayType::Normal,
+          /*IndexTypeQuals=*/0);
+
+      BasePointersArray =
+          CGF.CreateMemTemp(PointerArrayType, ".offload_baseptrs").getPointer();
+      PointersArray =
+          CGF.CreateMemTemp(PointerArrayType, ".offload_ptrs").getPointer();
+
+      // If we don't have any VLA types, we can use a constant array for the map
+      // sizes, otherwise we need to fill up the arrays as we do for the
+      // pointers.
+      if (hasVLACaptures) {
+        QualType SizeArrayType = CGF.getContext().getConstantArrayType(
+            CGF.getContext().getSizeType(), PointerNumAP, ArrayType::Normal,
+            /*IndexTypeQuals=*/0);
+        SizesArray =
+            CGF.CreateMemTemp(SizeArrayType, ".offload_sizes").getPointer();
+      } else {
+        // We expect all the sizes to be constant, so we collect them to create
+        // a constant array.
+        SmallVector<llvm::Constant *, 16> ConstSizes;
+        for (auto S : Sizes)
+          ConstSizes.push_back(cast<llvm::Constant>(S));
+
+        auto *SizesArrayInit = llvm::ConstantArray::get(
+            llvm::ArrayType::get(CGM.SizeTy, ConstSizes.size()), ConstSizes);
+        auto *SizesArrayGbl = new llvm::GlobalVariable(
+            CGM.getModule(), SizesArrayInit->getType(),
+            /*isConstant=*/true, llvm::GlobalValue::PrivateLinkage,
+            SizesArrayInit, ".offload_sizes");
+        SizesArrayGbl->setUnnamedAddr(true);
+        SizesArray = SizesArrayGbl;
+      }
+
+      // The map types are always constant so we don't need to generate code to
+      // fill arrays. Instead, we create an array constant.
+      llvm::Constant *MapTypesArrayInit =
+          llvm::ConstantDataArray::get(CGF.Builder.getContext(), MapTypes);
+      auto *MapTypesArrayGbl = new llvm::GlobalVariable(
+          CGM.getModule(), MapTypesArrayInit->getType(),
+          /*isConstant=*/true, llvm::GlobalValue::PrivateLinkage,
+          MapTypesArrayInit, ".offload_maptypes");
+      MapTypesArrayGbl->setUnnamedAddr(true);
+      MapTypesArray = MapTypesArrayGbl;
+
+      for (unsigned i = 0; i < PointerNumVal; ++i) {
+        llvm::Value *BP = CGF.Builder.CreateConstInBoundsGEP2_32(
+            llvm::ArrayType::get(CGM.VoidPtrTy, PointerNumVal),
+            BasePointersArray, 0, i);
+        Address BPAddr(BP, CGM.getContext().getTypeAlignInChars(
+                               CGM.getContext().VoidPtrTy));
+        CGF.Builder.CreateStore(
+            CGF.Builder.CreateBitCast(BasePointers[i], CGM.VoidPtrTy), BPAddr);
+
+        llvm::Value *P = CGF.Builder.CreateConstInBoundsGEP2_32(
+            llvm::ArrayType::get(CGM.VoidPtrTy, PointerNumVal), PointersArray,
+            0, i);
+        Address PAddr(P, CGM.getContext().getTypeAlignInChars(
+                             CGM.getContext().VoidPtrTy));
+        CGF.Builder.CreateStore(
+            CGF.Builder.CreateBitCast(Pointers[i], CGM.VoidPtrTy), PAddr);
+
+        if (hasVLACaptures) {
+          llvm::Value *S = CGF.Builder.CreateConstInBoundsGEP2_32(
+              llvm::ArrayType::get(CGM.SizeTy, PointerNumVal), SizesArray,
+              /*Idx0=*/0,
+              /*Idx1=*/i);
+          Address SAddr(S, CGM.getContext().getTypeAlignInChars(
+                               CGM.getContext().getSizeType()));
+          CGF.Builder.CreateStore(CGF.Builder.CreateIntCast(
+                                      Sizes[i], CGM.SizeTy, /*isSigned=*/true),
+                                  SAddr);
+        }
+      }
+
+      BasePointersArray = CGF.Builder.CreateConstInBoundsGEP2_32(
+          llvm::ArrayType::get(CGM.VoidPtrTy, PointerNumVal), BasePointersArray,
+          /*Idx0=*/0, /*Idx1=*/0);
+      PointersArray = CGF.Builder.CreateConstInBoundsGEP2_32(
+          llvm::ArrayType::get(CGM.VoidPtrTy, PointerNumVal), PointersArray,
+          /*Idx0=*/0,
+          /*Idx1=*/0);
+      SizesArray = CGF.Builder.CreateConstInBoundsGEP2_32(
+          llvm::ArrayType::get(CGM.SizeTy, PointerNumVal), SizesArray,
+          /*Idx0=*/0, /*Idx1=*/0);
+      MapTypesArray = CGF.Builder.CreateConstInBoundsGEP2_32(
+          llvm::ArrayType::get(CGM.Int32Ty, PointerNumVal), MapTypesArray,
+          /*Idx0=*/0,
+          /*Idx1=*/0);
+
+    } else {
+      BasePointersArray = llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);
+      PointersArray = llvm::ConstantPointerNull::get(CGM.VoidPtrPtrTy);
+      SizesArray = llvm::ConstantPointerNull::get(CGM.SizeTy->getPointerTo());
+      MapTypesArray =
+          llvm::ConstantPointerNull::get(CGM.Int32Ty->getPointerTo());
+    }
+
+    // On top of the arrays that were filled up, the target offloading call
+    // takes as arguments the device id as well as the host pointer. The host
+    // pointer is used by the runtime library to identify the current target
+    // region, so it only has to be unique and not necessarily point to
+    // anything. It could be the pointer to the outlined function that
+    // implements the target region, but we aren't using that so that the
+    // compiler doesn't need to keep that, and could therefore inline the host
+    // function if proven worthwhile during optimization.
+
+    llvm::Value *HostPtr = new llvm::GlobalVariable(
+        CGM.getModule(), CGM.Int8Ty, /*isConstant=*/true,
+        llvm::GlobalValue::PrivateLinkage,
+        llvm::Constant::getNullValue(CGM.Int8Ty), ".offload_hstptr");
+
+    // Emit device ID if any.
+    llvm::Value *DeviceID;
+    if (Device)
+      DeviceID = CGF.Builder.CreateIntCast(CGF.EmitScalarExpr(Device),
+                                           CGM.Int32Ty, /*isSigned=*/true);
+    else
+      DeviceID = CGF.Builder.getInt32(OMP_DEVICEID_UNDEF);
+
+    llvm::Value *OffloadingArgs[] = {
+        DeviceID,      HostPtr,    PointerNum,   BasePointersArray,
+        PointersArray, SizesArray, MapTypesArray};
+    auto Return = CGF.EmitRuntimeCall(createRuntimeFunction(OMPRTL__tgt_target),
+                                      OffloadingArgs);
+
+    CGF.EmitStoreOfScalar(Return, OffloadError);
+  };
+
+  if (IfCond) {
+    // Notify that the host version must be executed.
+    auto &&ElseGen = [this, OffloadError,
+                      OffloadErrorQType](CodeGenFunction &CGF) {
+      CGF.EmitStoreOfScalar(llvm::ConstantInt::get(CGM.Int32Ty, /*V=*/-1u),
+                            OffloadError);
+    };
+    emitOMPIfClause(CGF, IfCond, ThenGen, ElseGen);
+  } else {
+    CodeGenFunction::RunCleanupsScope Scope(CGF);
+    ThenGen(CGF);
+  }
+
+  // Check the error code and execute the host version if required.
+  auto OffloadFailedBlock = CGF.createBasicBlock("omp_offload.failed");
+  auto OffloadContBlock = CGF.createBasicBlock("omp_offload.cont");
+  auto OffloadErrorVal = CGF.EmitLoadOfScalar(OffloadError, SourceLocation());
+  auto Failed = CGF.Builder.CreateIsNotNull(OffloadErrorVal);
+  CGF.Builder.CreateCondBr(Failed, OffloadFailedBlock, OffloadContBlock);
+
+  CGF.EmitBlock(OffloadFailedBlock);
+  CGF.Builder.CreateCall(OutlinedFn, BasePointers);
+  CGF.EmitBranch(OffloadContBlock);
+
+  CGF.EmitBlock(OffloadContBlock, /*IsFinished=*/true);
+  return;
+}

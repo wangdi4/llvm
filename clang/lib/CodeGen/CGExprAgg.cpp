@@ -581,6 +581,8 @@ static Expr *findPeephole(Expr *op, CastKind kind) {
 }
 
 void AggExprEmitter::VisitCastExpr(CastExpr *E) {
+  if (const auto *ECE = dyn_cast<ExplicitCastExpr>(E))
+    CGF.CGM.EmitExplicitCastExprType(ECE, &CGF);
   switch (E->getCastKind()) {
   case CK_Dynamic: {
     // FIXME: Can this actually happen? We have no test coverage for it.
@@ -970,8 +972,8 @@ void AggExprEmitter::VisitChooseExpr(const ChooseExpr *CE) {
 }
 
 void AggExprEmitter::VisitVAArgExpr(VAArgExpr *VE) {
-  Address ArgValue = CGF.EmitVAListRef(VE->getSubExpr());
-  Address ArgPtr = CGF.EmitVAArg(ArgValue, VE->getType());
+  Address ArgValue = Address::invalid();
+  Address ArgPtr = CGF.EmitVAArg(VE, ArgValue);
 
   if (!ArgPtr.isValid()) {
     // If EmitVAArg fails, we fall back to the LLVM instruction.

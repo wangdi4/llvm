@@ -31,28 +31,40 @@ public:
     LanguageCategory (lldb::LanguageType lang_type);
     
     bool
-    Get (ValueObject& valobj,
-         lldb::DynamicValueType dynamic,
-         FormattersMatchVector matches,
+    Get (FormattersMatchData& match_data,
          lldb::TypeFormatImplSP& format_sp);
 
     bool
-    Get (ValueObject& valobj,
-         lldb::DynamicValueType dynamic,
-         FormattersMatchVector matches,
+    Get (FormattersMatchData& match_data,
          lldb::TypeSummaryImplSP& format_sp);
 
     bool
-    Get (ValueObject& valobj,
-         lldb::DynamicValueType dynamic,
-         FormattersMatchVector matches,
+    Get (FormattersMatchData& match_data,
          lldb::SyntheticChildrenSP& format_sp);
 
     bool
-    Get (ValueObject& valobj,
-         lldb::DynamicValueType dynamic,
-         FormattersMatchVector matches,
+    Get (FormattersMatchData& match_data,
          lldb::TypeValidatorImplSP& format_sp);
+
+    bool
+    GetHardcoded (FormatManager& fmt_mgr,
+                  FormattersMatchData& match_data,
+                  lldb::TypeFormatImplSP& format_sp);
+
+    bool
+    GetHardcoded (FormatManager& fmt_mgr,
+                  FormattersMatchData& match_data,
+                  lldb::TypeSummaryImplSP& format_sp);
+    
+    bool
+    GetHardcoded (FormatManager& fmt_mgr,
+                  FormattersMatchData& match_data,
+                  lldb::SyntheticChildrenSP& format_sp);
+    
+    bool
+    GetHardcoded (FormatManager& fmt_mgr,
+                  FormattersMatchData& match_data,
+                  lldb::TypeValidatorImplSP& format_sp);
     
     lldb::TypeCategoryImplSP
     GetCategory () const;
@@ -63,9 +75,20 @@ public:
     void
     Disable ();
     
+    bool
+    IsEnabled ();
+    
 private:
     lldb::TypeCategoryImplSP m_category_sp;
+    
+    HardcodedFormatters::HardcodedFormatFinder m_hardcoded_formats;
+    HardcodedFormatters::HardcodedSummaryFinder m_hardcoded_summaries;
+    HardcodedFormatters::HardcodedSyntheticFinder m_hardcoded_synthetics;
+    HardcodedFormatters::HardcodedValidatorFinder m_hardcoded_validators;
+    
     lldb_private::FormatCache m_format_cache;
+    
+    bool m_enabled;
 };
     
 } // namespace lldb_private

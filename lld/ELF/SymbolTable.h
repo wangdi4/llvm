@@ -11,11 +11,11 @@
 #define LLD_ELF_SYMBOL_TABLE_H
 
 #include "InputFiles.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/MapVector.h"
 
 namespace lld {
 namespace elf2 {
+template <class ELFT> class OutputSectionBase;
 struct Symbol;
 
 // SymbolTable is a bucket of all known symbols, including defined,
@@ -28,57 +28,64 @@ struct Symbol;
 // an undefined symbol. Or, if there's a conflict between a lazy and a
 // undefined, it'll read an archive member to read a real definition
 // to replace the lazy symbol. The logic is implemented in resolve().
-class SymbolTable {
+template <class ELFT> class SymbolTable {
 public:
   SymbolTable();
 
   void addFile(std::unique_ptr<InputFile> File);
 
-  const ELFFileBase *getFirstELF() const {
-    if (!ObjectFiles.empty())
-      return ObjectFiles[0].get();
-    if (!SharedFiles.empty())
-      return SharedFiles[0].get();
-    return nullptr;
-  }
+  bool shouldUseRela() const;
 
-  const llvm::DenseMap<StringRef, Symbol *> &getSymbols() const {
+  const llvm::MapVector<StringRef, Symbol *> &getSymbols() const {
     return Symtab;
   }
 
-  const std::vector<std::unique_ptr<ObjectFileBase>> &getObjectFiles() const {
+  const std::vector<std::unique_ptr<ObjectFile<ELFT>>> &getObjectFiles() const {
     return ObjectFiles;
   }
 
-  const std::vector<std::unique_ptr<SharedFileBase>> &getSharedFiles() const {
+  const std::vector<std::unique_ptr<SharedFile<ELFT>>> &getSharedFiles() const {
     return SharedFiles;
   }
 
-  SymbolBody *getEntrySym() const {
-    return EntrySym->getReplacement();
-  }
+  SymbolBody *addUndefined(StringRef Name);
+  SymbolBody *addUndefinedOpt(StringRef Name);
+  void addSyntheticSym(StringRef Name, OutputSectionBase<ELFT> &Section,
+                       typename llvm::object::ELFFile<ELFT>::uintX_t Value);
+  void addIgnoredSym(StringRef Name);
+  bool isUndefined(StringRef Name);
+  void scanShlibUndefined();
 
 private:
   Symbol *insert(SymbolBody *New);
-  template <class ELFT> void addELFFile(ELFFileBase *File);
-  void addELFFile(ELFFileBase *File);
+  void addELFFile(ELFFileBase<ELFT> *File);
   void addLazy(Lazy *New);
   void addMemberFile(Lazy *Body);
+  void checkCompatibility(std::unique_ptr<InputFile> &File);
+  void resolve(SymbolBody *Body);
+  SymbolBody *find(StringRef Name);
+  void reportConflict(const Twine &Message, const SymbolBody &Old,
+                      const SymbolBody &New, bool Warning);
 
-  template <class ELFT> void init();
-  template <class ELFT> void resolve(SymbolBody *Body);
+  std::vector<std::unique_ptr<InputFile>> ArchiveFiles;
 
-  std::vector<std::unique_ptr<ArchiveFile>> ArchiveFiles;
-
-  llvm::DenseMap<StringRef, Symbol *> Symtab;
+  // The order the global symbols are in is not defined. We can use an arbitrary
+  // order, but it has to be reproducible. That is true even when cross linking.
+  // The default hashing of StringRef produces different results on 32 and 64
+  // bit systems so we use a MapVector. That is arbitrary, deterministic but
+  // a bit inefficient.
+  // FIXME: Experiment with passing in a custom hashing or sorting the symbols
+  // once symbol resolution is finished.
+  llvm::MapVector<StringRef, Symbol *> Symtab;
   llvm::BumpPtrAllocator Alloc;
 
+  llvm::DenseSet<StringRef> Comdats;
+
   // The writer needs to infer the machine type from the object files.
-  std::vector<std::unique_ptr<ObjectFileBase>> ObjectFiles;
+  std::vector<std::unique_ptr<ObjectFile<ELFT>>> ObjectFiles;
 
-  std::vector<std::unique_ptr<SharedFileBase>> SharedFiles;
-
-  SymbolBody *EntrySym = nullptr;
+  std::vector<std::unique_ptr<SharedFile<ELFT>>> SharedFiles;
+  llvm::DenseSet<StringRef> IncludedSoNames;
 };
 
 } // namespace elf2

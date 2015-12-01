@@ -22,7 +22,7 @@
 #include "kmp_stats.h"
 #include "kmp_wait_release.h"
 
-#if !KMP_OS_FREEBSD
+#if !KMP_OS_FREEBSD && !KMP_OS_NETBSD
 # include <alloca.h>
 #endif
 #include <unistd.h>
@@ -51,7 +51,6 @@
 # include <sys/sysctl.h>
 # include <mach/mach.h>
 #elif KMP_OS_FREEBSD
-# include <sys/sysctl.h>
 # include <pthread_np.h>
 #endif
 
@@ -622,7 +621,7 @@ static kmp_int32
 __kmp_set_stack_info( int gtid, kmp_info_t *th )
 {
     int            stack_data;
-#if KMP_OS_LINUX || KMP_OS_FREEBSD
+#if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD
     /* Linux* OS only -- no pthread_getattr_np support on OS X* */
     pthread_attr_t attr;
     int            status;
@@ -637,7 +636,7 @@ __kmp_set_stack_info( int gtid, kmp_info_t *th )
         /* Fetch the real thread attributes */
         status = pthread_attr_init( &attr );
         KMP_CHECK_SYSFAIL( "pthread_attr_init", status );
-#if KMP_OS_FREEBSD
+#if KMP_OS_FREEBSD || KMP_OS_NETBSD
         status = pthread_attr_get_np( pthread_self(), &attr );
         KMP_CHECK_SYSFAIL( "pthread_attr_get_np", status );
 #else
@@ -661,7 +660,7 @@ __kmp_set_stack_info( int gtid, kmp_info_t *th )
         TCW_4(th->th.th_info.ds.ds_stackgrow, FALSE);
         return TRUE;
     }
-#endif /* KMP_OS_LINUX || KMP_OS_FREEBSD */
+#endif /* KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD */
     /* Use incremental refinement starting from initial conservative estimate */
     TCW_PTR(th->th.th_info.ds.ds_stacksize, 0);
     TCW_PTR(th -> th.th_info.ds.ds_stackbase, &stack_data);
@@ -677,7 +676,7 @@ __kmp_launch_worker( void *thr )
     sigset_t    new_set, old_set;
 #endif /* KMP_BLOCK_SIGNALS */
     void *exit_val;
-#if KMP_OS_LINUX || KMP_OS_FREEBSD
+#if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD
     void * volatile padding = 0;
 #endif
     int gtid;
@@ -725,7 +724,7 @@ __kmp_launch_worker( void *thr )
     KMP_CHECK_SYSFAIL( "pthread_sigmask", status );
 #endif /* KMP_BLOCK_SIGNALS */
 
-#if KMP_OS_LINUX || KMP_OS_FREEBSD
+#if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD
     if ( __kmp_stkoffset > 0 && gtid > 0 ) {
         padding = KMP_ALLOCA( gtid * __kmp_stkoffset );
     }
@@ -1705,8 +1704,8 @@ static inline void __kmp_suspend_template( int th_gtid, C *flag )
     */
     old_spin = flag->set_sleeping();
 
-    KF_TRACE( 5, ( "__kmp_suspend_template: T#%d set sleep bit for spin(%p)==%d\n",
-                   th_gtid, flag->get(), *(flag->get()) ) );
+    KF_TRACE( 5, ( "__kmp_suspend_template: T#%d set sleep bit for spin(%p)==%x, was %x\n",
+                   th_gtid, flag->get(), *(flag->get()), old_spin ) );
 
     if ( flag->done_check_val(old_spin) ) {
         old_spin = flag->unset_sleeping();
@@ -1758,8 +1757,7 @@ static inline void __kmp_suspend_template( int th_gtid, C *flag )
             status = pthread_cond_timedwait( &th->th.th_suspend_cv.c_cond, &th->th.th_suspend_mx.m_mutex, & now );
 #else
             KF_TRACE( 15, ( "__kmp_suspend_template: T#%d about to perform pthread_cond_wait\n",
-                               th_gtid ) );
-
+                            th_gtid ) );
             status = pthread_cond_wait( &th->th.th_suspend_cv.c_cond, &th->th.th_suspend_mx.m_mutex );
 #endif
 
@@ -1850,7 +1848,7 @@ static inline void __kmp_resume_template( int target_gtid, C *flag )
         KMP_CHECK_SYSFAIL( "pthread_mutex_unlock", status );
         return;
     }
-    else {
+    else { // if multiple threads are sleeping, flag should be internally referring to a specific thread here
         typename C::flag_t old_spin = flag->unset_sleeping();
         if ( ! flag->is_sleeping_val(old_spin) ) {
             KF_TRACE( 5, ( "__kmp_resume_template: T#%d exiting, thread T#%d already awake: flag(%p): "
@@ -2067,7 +2065,7 @@ __kmp_get_xproc( void ) {
 
     int r = 0;
 
-    #if KMP_OS_LINUX
+    #if KMP_OS_LINUX || KMP_OS_FREEBSD || KMP_OS_NETBSD
 
         r = sysconf( _SC_NPROCESSORS_ONLN );
 
@@ -2088,16 +2086,6 @@ __kmp_get_xproc( void ) {
             KMP_WARNING( CantGetNumAvailCPU );
             KMP_INFORM( AssumedNumCPU );
         }; // if
-
-    #elif KMP_OS_FREEBSD
-
-        int mib[] = { CTL_HW, HW_NCPU };
-        size_t len = sizeof( r );
-        if ( sysctl( mib, 2, &r, &len, NULL, 0 ) < 0 ) {
-             r = 0;
-             KMP_WARNING( CantGetNumAvailCPU );
-             KMP_INFORM( AssumedNumCPU );
-        }
 
     #else
 
@@ -2275,7 +2263,7 @@ __kmp_is_address_mapped( void * addr ) {
     int found = 0;
     int rc;
 
-    #if KMP_OS_LINUX
+    #if KMP_OS_LINUX || KMP_OS_FREEBSD
 
         /*
             On Linux* OS, read the /proc/<pid>/maps pseudo-file to get all the address ranges mapped
@@ -2338,9 +2326,9 @@ __kmp_is_address_mapped( void * addr ) {
             found = 1;
         }; // if
 
-    #elif KMP_OS_FREEBSD
+    #elif KMP_OS_FREEBSD || KMP_OS_NETBSD
 
-        // FIXME(FreeBSD*): Implement this
+        // FIXME(FreeBSD, NetBSD): Implement this
         found = 1;
 
     #else

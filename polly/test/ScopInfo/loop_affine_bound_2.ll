@@ -1,4 +1,4 @@
-; RUN: opt %loadPolly -polly-detect-unprofitable -polly-scops -analyze < %s | FileCheck %s
+; RUN: opt %loadPolly -polly-scops -analyze < %s | FileCheck %s
 
 ; void f(long a[][128], long N, long M) {
 ;   long i, j;
@@ -73,11 +73,9 @@ return:                                           ; preds = %bb3, %entry
 ; CHECK-DAG:                  i1 >= 0
 ; CHECK-DAG:                and
 ; CHECK-DAG:                  i1 <= 10 + 5N - 6M - 4i0
-; CHECK-DAG:                and
-; CHECK-DAG:                  4i0 <= 10 + 5N - 6M
 ; CHECK-DAG:                }
 ; CHECK:         Schedule :=
 ; CHECK:             [N, M] -> { Stmt_bb1[i0, i1] -> [i0, i1]
 ; CHECK:         MustWriteAccess := [Reduction Type: NONE]
-; CHECK:             [N, M] -> { Stmt_bb1[i0, i1] -> MemRef_a[-1152 + 768M + 897i0 + 128i1] };
+; CHECK:             [N, M] -> { Stmt_bb1[i0, i1] -> MemRef_a[-9 + 6M + i1, 897i0] 
 ; CHECK: }

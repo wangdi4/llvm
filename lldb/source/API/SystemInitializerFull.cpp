@@ -24,6 +24,8 @@
 #include "lldb/Host/Host.h"
 #include "lldb/Initialization/SystemInitializerCommon.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Symbol/ClangASTContext.h"
+#include "lldb/Symbol/GoASTContext.h"
 
 #include "Plugins/ABI/MacOSX-i386/ABIMacOSX_i386.h"
 #include "Plugins/ABI/MacOSX-arm/ABIMacOSX_arm.h"
@@ -47,6 +49,7 @@
 #include "Plugins/LanguageRuntime/CPlusPlus/ItaniumABI/ItaniumABILanguageRuntime.h"
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntimeV1.h"
 #include "Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCRuntimeV2.h"
+#include "Plugins/LanguageRuntime/Go/GoLanguageRuntime.h"
 #include "Plugins/LanguageRuntime/RenderScript/RenderScriptRuntime/RenderScriptRuntime.h"
 #include "Plugins/MemoryHistory/asan/MemoryHistoryASan.h"
 #include "Plugins/Platform/gdb-server/PlatformRemoteGDBServer.h"
@@ -86,8 +89,18 @@ using namespace lldb_private;
 #ifndef LLDB_DISABLE_PYTHON
 
 // Defined in the SWIG source file
+#if PY_MAJOR_VERSION >= 3
+extern "C" PyObject*
+PyInit__lldb(void);
+
+#define LLDBSwigPyInit PyInit__lldb
+
+#else
 extern "C" void 
 init_lldb(void);
+
+#define LLDBSwigPyInit init_lldb
+#endif
 
 // these are the Pythonic implementations of the required callbacks
 // these are scripting-language specific, which is why they belong here
@@ -136,7 +149,7 @@ LLDBSWIGPythonCallThreadPlan (void *implementor,
                               bool &got_error);
 
 extern "C" size_t
-LLDBSwigPython_CalculateNumChildren (void *implementor);
+LLDBSwigPython_CalculateNumChildren (void *implementor, uint32_t max);
 
 extern "C" void *
 LLDBSwigPython_GetChildAtIndex (void *implementor, uint32_t idx);
@@ -251,6 +264,9 @@ SystemInitializerFull::Initialize()
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllDisassemblers();
 
+    ClangASTContext::Initialize();
+    GoASTContext::Initialize();
+
     ABIMacOSX_i386::Initialize();
     ABIMacOSX_arm::Initialize();
     ABIMacOSX_arm64::Initialize();
@@ -284,6 +300,7 @@ SystemInitializerFull::Initialize()
     AppleObjCRuntimeV1::Initialize();
     SystemRuntimeMacOSX::Initialize();
     RenderScriptRuntime::Initialize();
+    GoLanguageRuntime::Initialize();
     
     CPlusPlusLanguage::Initialize();
     ObjCLanguage::Initialize();
@@ -321,7 +338,7 @@ void SystemInitializerFull::InitializeSWIG()
 {
 #if !defined(LLDB_DISABLE_PYTHON)
     ScriptInterpreterPython::InitializeInterpreter(
-        init_lldb,
+        LLDBSwigPyInit,
         LLDBSwigPythonBreakpointCallbackFunction,
         LLDBSwigPythonWatchpointCallbackFunction,
         LLDBSwigPythonCallTypeScript,
@@ -359,6 +376,10 @@ SystemInitializerFull::Terminate()
 
     // Terminate and unload and loaded system or user LLDB plug-ins
     PluginManager::Terminate();
+
+    ClangASTContext::Terminate();
+    GoASTContext::Terminate();
+
     ABIMacOSX_i386::Terminate();
     ABIMacOSX_arm::Terminate();
     ABIMacOSX_arm64::Terminate();

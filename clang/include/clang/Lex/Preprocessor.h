@@ -98,6 +98,7 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   DiagnosticsEngine        *Diags;
   LangOptions       &LangOpts;
   const TargetInfo  *Target;
+  const TargetInfo  *AuxTarget;
   FileManager       &FileMgr;
   SourceManager     &SourceMgr;
   std::unique_ptr<ScratchBuffer> ScratchBuf;
@@ -661,7 +662,10 @@ public:
   ///
   /// \param Target is owned by the caller and must remain valid for the
   /// lifetime of the preprocessor.
-  void Initialize(const TargetInfo &Target);
+  /// \param AuxTarget is owned by the caller and must remain valid for
+  /// the lifetime of the preprocessor.
+  void Initialize(const TargetInfo &Target,
+                  const TargetInfo *AuxTarget = nullptr);
 
   /// \brief Initialize the preprocessor to parse a model file
   ///
@@ -687,6 +691,7 @@ public:
   void ParseStartMapRegion(SourceLocation HashLoc, Token &FilenameTok);
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
   const TargetInfo &getTargetInfo() const { return *Target; }
+  const TargetInfo *getAuxTargetInfo() const { return AuxTarget; }
   FileManager &getFileManager() const { return FileMgr; }
   SourceManager &getSourceManager() const { return SourceMgr; }
   HeaderSearch &getHeaderSearchInfo() const { return HeaderInfo; }

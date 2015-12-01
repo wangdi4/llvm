@@ -235,7 +235,7 @@ static size_t getSpellingSlow(const Token &Tok, const char *BufPtr,
   size_t Length = 0;
   const char *BufEnd = BufPtr + Tok.getLength();
 
-  if (Tok.is(tok::string_literal)) {
+  if (tok::isStringLiteral(Tok.getKind())) {
     // Munch the encoding-prefix and opening double-quote.
     while (BufPtr < BufEnd) {
       unsigned Size;
@@ -1685,7 +1685,12 @@ const char *Lexer::LexUDSuffix(Token &Result, const char *CurPtr,
 
     if (!IsUDSuffix) {
       if (!isLexingRawMode())
+#ifdef INTEL_CUSTOMIZATION
+        //CQ#374374: in IntelCompat mode print a warning instead an error.
+        Diag(CurPtr, (getLangOpts().MSVCCompat || getLangOpts().IntelCompat)
+#else
         Diag(CurPtr, getLangOpts().MSVCCompat
+#endif
                          ? diag::ext_ms_reserved_user_defined_literal
                          : diag::ext_reserved_user_defined_literal)
           << FixItHint::CreateInsertion(getSourceLocation(CurPtr), " ");
@@ -2264,7 +2269,12 @@ bool Lexer::SkipBlockComment(Token &Result, const char *CurPtr,
   CurPtr += CharSize;
   if (C == 0 && CurPtr == BufferEnd+1) {
     if (!isLexingRawMode())
-      Diag(BufferPtr, diag::err_unterminated_block_comment);
+#if INTEL_CUSTOMIZATION
+      // CQ#368194 - emit a warning, not an error on unterminated block comment.
+      Diag(BufferPtr, LangOpts.IntelCompat
+                          ? diag::warn_unterminated_block_comment
+                          : diag::err_unterminated_block_comment);
+#endif // INTEL_CUSTOMIZATION
     --CurPtr;
 
     // KeepWhitespaceMode should return this broken comment as a token.  Since
@@ -2358,7 +2368,12 @@ bool Lexer::SkipBlockComment(Token &Result, const char *CurPtr,
       }
     } else if (C == 0 && CurPtr == BufferEnd+1) {
       if (!isLexingRawMode())
-        Diag(BufferPtr, diag::err_unterminated_block_comment);
+#if INTEL_CUSTOMIZATION
+        // CQ#368194 - emit a warning, not an error on unterminated /* comment.
+        Diag(BufferPtr, LangOpts.IntelCompat
+                            ? diag::warn_unterminated_block_comment
+                            : diag::err_unterminated_block_comment);
+#endif // INTEL_CUSTOMIZATION
       // Note: the user probably forgot a */.  We could continue immediately
       // after the /*, but this would involve lexing a lot of what really is the
       // comment, which surely would confuse the parser.

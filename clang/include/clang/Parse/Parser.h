@@ -163,6 +163,7 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> MSConstSeg;
   std::unique_ptr<PragmaHandler> MSCodeSeg;
   std::unique_ptr<PragmaHandler> MSSection;
+  std::unique_ptr<PragmaHandler> MSRuntimeChecks;
   std::unique_ptr<PragmaHandler> OptimizeHandler;
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
@@ -1798,7 +1799,9 @@ private:  //***INTEL
                          SourceLocation Loc, bool ConvertToBoolean);
 
   //===--------------------------------------------------------------------===//
-  // C++ types
+  // C++ Coroutines
+
+  ExprResult ParseCoyieldExpression();
 
   //===--------------------------------------------------------------------===//
   // C99 6.7.8: Initialization.
@@ -2394,13 +2397,8 @@ private:
                                 SourceLocation *endLoc = nullptr);
   void MaybeParseMicrosoftDeclSpecs(ParsedAttributes &Attrs,
                                     SourceLocation *End = nullptr) {
-#ifdef INTEL_CUSTOMIZATION
-    if (Tok.is(tok::kw___declspec))
-#else
     const auto &LO = getLangOpts();
-    if ((LO.MicrosoftExt || LO.Borland || LO.CUDA) &&
-        Tok.is(tok::kw___declspec))
-#endif //INTEL_CUSTOMIZATION
+    if (LO.DeclSpecKeyword && Tok.is(tok::kw___declspec))
       ParseMicrosoftDeclSpecs(Attrs, End);
   }
   void ParseMicrosoftDeclSpecs(ParsedAttributes &Attrs,
@@ -2806,6 +2804,14 @@ private:
   //===--------------------------------------------------------------------===//
   // Modules
   DeclGroupPtrTy ParseModuleImport(SourceLocation AtLoc);
+  bool parseMisplacedModuleImport();
+  bool tryParseMisplacedModuleImport() {
+    tok::TokenKind Kind = Tok.getKind();
+    if (Kind == tok::annot_module_begin || Kind == tok::annot_module_end ||
+        Kind == tok::annot_module_include)
+      return parseMisplacedModuleImport();
+    return false;
+  }
 
   //===--------------------------------------------------------------------===//
   // C++11/G++: Type Traits [Type-Traits.html in the GCC manual]

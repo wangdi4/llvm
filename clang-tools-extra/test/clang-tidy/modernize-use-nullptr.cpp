@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s modernize-use-nullptr %t \
+// RUN: %check_clang_tidy %s modernize-use-nullptr %t -- \
 // RUN:   -config="{CheckOptions: [{key: modernize-use-nullptr.NullMacros, value: 'MY_NULL,NULL'}]}" \
 // RUN:   -- -std=c++11
 
@@ -174,4 +174,13 @@ void test_macro_args() {
 #define CALL(X) X
   OPTIONAL_CODE(NOT_NULL);
   CALL(NOT_NULL);
+
+#define ENTRY(X) {X}
+  struct A {
+    int *Ptr;
+  } a[2] = {ENTRY(0), {0}};
+  // CHECK-MESSAGES: :[[@LINE-1]]:19: warning: use nullptr
+  // CHECK-MESSAGES: :[[@LINE-2]]:24: warning: use nullptr
+  // CHECK-FIXES: a[2] = {ENTRY(nullptr), {nullptr}};
+#undef ENTRY
 }

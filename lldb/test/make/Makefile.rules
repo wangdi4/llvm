@@ -73,11 +73,12 @@ endif
 # tests from Visual Studio, the environment variable isn't inherited
 # all the way down to the process spawned for make.
 #----------------------------------------------------------------------
-ifeq "$(OS)" ""
-	OS = $(shell uname -s)
+HOST_OS = $(shell uname -s)
+ifeq "$(HOST_OS)" "windows32"
+	HOST_OS = Windows_NT
 endif
-ifeq "$(OS)" "windows32"
-	OS = Windows_NT
+ifeq "$(OS)" ""
+	OS = $(HOST_OS)
 endif
 
 #----------------------------------------------------------------------
@@ -169,6 +170,11 @@ else
 	endif
 endif
 
+LIMIT_DEBUG_INFO_FLAGS =
+ifneq (,$(findstring clang,$(CC)))
+   LIMIT_DEBUG_INFO_FLAGS += -flimit-debug-info
+endif
+
 CFLAGS ?= -g -O0 -fno-builtin
 ifeq "$(OS)" "Darwin"
 	CFLAGS += $(ARCHFLAG) $(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) -I$(LLDB_BASE_DIR)include
@@ -182,6 +188,10 @@ ifeq "$(OS)" "Darwin"
 	CFLAGS_NO_DEBUG = -O0 $(ARCHFLAG) $(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) $(TRIPLE_CFLAGS)
 else
 	CFLAGS_NO_DEBUG = -O0 $(ARCHFLAG)$(ARCH) $(FRAMEWORK_INCLUDES) $(CFLAGS_EXTRAS) $(TRIPLE_CFLAGS)
+endif
+
+ifeq "$(MAKE_DWO)" "YES"
+	CFLAGS += -gsplit-dwarf
 endif
 
 CXXFLAGS += -std=c++11
@@ -283,12 +293,17 @@ endif
 ifeq (1,$(USE_LIBCPP))
 	# Clang requires an extra flag: -stdlib=libstdc++
 	ifneq (,$(findstring clang,$(CC)))
-		CXXFLAGS += -stdlib=libc++
-		LDFLAGS += -stdlib=libc++
 		ifeq "$(OS)" "Linux"
 			# This is the default install location on Ubuntu 14.04
-			CXXFLAGS += -I/usr/include/c++/v1
-        	endif
+			ifneq ($(wildcard /usr/include/c++/v1/.),)
+				CXXFLAGS += -stdlib=libc++ -DLLDB_USING_LIBCPP
+				LDFLAGS += -stdlib=libc++
+				CXXFLAGS += -I/usr/include/c++/v1
+			endif
+		else
+			CXXFLAGS += -stdlib=libc++ -DLLDB_USING_LIBCPP
+			LDFLAGS += -stdlib=libc++
+		endif
 	endif
 endif
 
@@ -474,7 +489,7 @@ endif
 # files by replacing all .c files with .d.
 #----------------------------------------------------------------------
 PREREQS := $(OBJECTS:.o=.d)
-DWOS := $(OBJECTS:.o=.dwo)
+DWOS := $(OBJECTS:.o=.dwo) $(ARCHIVE_OBJECTS:.o=.dwo)
 ifneq "$(DYLIB_NAME)" ""
 	DYLIB_PREREQS := $(DYLIB_OBJECTS:.o=.d)
 	DYLIB_DWOS := $(DYLIB_OBJECTS:.o=.dwo)
@@ -485,7 +500,7 @@ endif
 # the compiler -MM option. The -M option will list all system headers,
 # and the -MM option will list all non-system dependencies.
 #----------------------------------------------------------------------
-ifeq "$(OS)" "Windows_NT"
+ifeq "$(HOST_OS)" "Windows_NT"
 	JOIN_CMD = &
 	QUOTE = "
 else

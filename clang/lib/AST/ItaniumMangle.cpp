@@ -69,6 +69,16 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(DC))
     return getEffectiveDeclContext(CD);
 
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  if (D->getASTContext().getLangOpts().IntelCompat &&
+      D->getASTContext().getLangOpts().GNUFABIVersion == 1) {
+    if (DC->isExternCContext())
+      return getEffectiveDeclContext(cast<Decl>(DC));
+    return DC;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   if (const auto *VD = dyn_cast<VarDecl>(D))
     if (VD->isExternC())
       return VD->getASTContext().getTranslationUnitDecl();
@@ -173,8 +183,6 @@ public:
                                        raw_ostream &) override;
 
   void mangleStringLiteral(const StringLiteral *, raw_ostream &) override;
-
-  void mangleCXXVTableBitSet(const CXXRecordDecl *RD, raw_ostream &) override;
 
 #ifdef INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
@@ -465,6 +473,15 @@ void CXXNameMangler::mangle(const NamedDecl *D) {
   // <mangled-name> ::= _Z <encoding>
   //            ::= <data name>
   //            ::= <special-name>
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+  const VarDecl *VD = dyn_cast<VarDecl>(D);
+  if (!getASTContext().getLangOpts().IntelCompat ||
+      !getEffectiveDeclContext(D)->isTranslationUnit() ||
+      ((!FD || !FD->isExternC()) && (!VD || !VD->isExternC())) ||
+      getASTContext().getLangOpts().GNUFABIVersion != 1)
+#endif // INTEL_CUSTOMIZATION
   Out << "_Z";
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(FD);
@@ -942,6 +959,10 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //   static void foo();
       // This naming convention is the same as that followed by GCC,
       // though it shouldn't actually matter.
+#ifdef INTEL_CUSTOMIZATION
+      // CQ371729: Incompatible name mangling.
+      if (!getASTContext().getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       if (ND && ND->getFormalLinkage() == InternalLinkage &&
           getEffectiveDeclContext(ND)->isFileContext())
         Out << 'L';
@@ -1760,6 +1781,9 @@ CXXNameMangler::mangleOperatorName(OverloadedOperatorKind OO, unsigned Arity) {
   // The conditional operator can't be overloaded, but we still handle it when
   // mangling expressions.
   case OO_Conditional: Out << "qu"; break;
+  // Proposal on cxx-abi-dev, 2015-10-21.
+  //              ::= aw        # co_await
+  case OO_Coawait: Out << "aw"; break;
 
   case OO_None:
   case NUM_OVERLOADED_OPERATORS:
@@ -1877,6 +1901,19 @@ static bool isTypeSubstitutable(Qualifiers Quals, const Type *Ty) {
 }
 
 void CXXNameMangler::mangleType(QualType T) {
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  bool MangleM64 = false;
+  auto &LangOpts = getASTContext().getLangOpts();
+  if (LangOpts.IntelCompat && T->isVectorType()) {
+    if (auto *TDTy = T->getAs<TypedefType>()) {
+      MangleM64 = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->isStr(
+                      "__m64") &&
+                  (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4);
+    }
+  }
+  if (!MangleM64) {
+#endif // INTEL_CUSTOMIZATION
   // If our type is instantiation-dependent but not dependent, we mangle
   // it as it was written in the source, removing any top-level sugar. 
   // Otherwise, use the canonical type.
@@ -1913,6 +1950,9 @@ void CXXNameMangler::mangleType(QualType T) {
       T = Desugared;
     } while (true);
   }
+#ifdef INTEL_CUSTOMIZATION
+  }
+#endif // INTEL_CUSTOMIZATION
   SplitQualType split = T.split();
   Qualifiers quals = split.Quals;
   const Type *ty = split.Ty;
@@ -1937,6 +1977,15 @@ void CXXNameMangler::mangleType(QualType T) {
     // the unqualified type might be.
     mangleType(QualType(ty, 0));
   } else {
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (MangleM64) {
+      if (LangOpts.GNUMangling && LangOpts.GNUFABIVersion < 4)
+        Out << "U8__vectori";
+      else if (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4)
+        Out << "Dv2_i";
+    } else {
+#endif // INTEL_CUSTOMIZATION
     switch (ty->getTypeClass()) {
 #define ABSTRACT_TYPE(CLASS, PARENT)
 #define NON_CANONICAL_TYPE(CLASS, PARENT) \
@@ -1949,6 +1998,9 @@ void CXXNameMangler::mangleType(QualType T) {
       break;
 #include "clang/AST/TypeNodes.def"
     }
+#ifdef INTEL_CUSTOMIZATION
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Add the substitution.
@@ -1992,37 +2044,84 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   //                 ::= Dn # std::nullptr_t (i.e., decltype(nullptr))
   //                 ::= u <source-name>    # vendor extended type
   switch (T->getKind()) {
-  case BuiltinType::Void: Out << 'v'; break;
-  case BuiltinType::Bool: Out << 'b'; break;
-  case BuiltinType::Char_U: case BuiltinType::Char_S: Out << 'c'; break;
-  case BuiltinType::UChar: Out << 'h'; break;
-  case BuiltinType::UShort: Out << 't'; break;
-  case BuiltinType::UInt: Out << 'j'; break;
-  case BuiltinType::ULong: Out << 'm'; break;
-  case BuiltinType::ULongLong: Out << 'y'; break;
-  case BuiltinType::UInt128: Out << 'o'; break;
-  case BuiltinType::SChar: Out << 'a'; break;
+  case BuiltinType::Void:
+    Out << 'v';
+    break;
+  case BuiltinType::Bool:
+    Out << 'b';
+    break;
+  case BuiltinType::Char_U:
+  case BuiltinType::Char_S:
+    Out << 'c';
+    break;
+  case BuiltinType::UChar:
+    Out << 'h';
+    break;
+  case BuiltinType::UShort:
+    Out << 't';
+    break;
+  case BuiltinType::UInt:
+    Out << 'j';
+    break;
+  case BuiltinType::ULong:
+    Out << 'm';
+    break;
+  case BuiltinType::ULongLong:
+    Out << 'y';
+    break;
+  case BuiltinType::UInt128:
+    Out << 'o';
+    break;
+  case BuiltinType::SChar:
+    Out << 'a';
+    break;
   case BuiltinType::WChar_S:
-  case BuiltinType::WChar_U: Out << 'w'; break;
-  case BuiltinType::Char16: Out << "Ds"; break;
-  case BuiltinType::Char32: Out << "Di"; break;
-  case BuiltinType::Short: Out << 's'; break;
-  case BuiltinType::Int: Out << 'i'; break;
-  case BuiltinType::Long: Out << 'l'; break;
-  case BuiltinType::LongLong: Out << 'x'; break;
-  case BuiltinType::Int128: Out << 'n'; break;
-  case BuiltinType::Half: Out << "Dh"; break;
-  case BuiltinType::Float: Out << 'f'; break;
-  case BuiltinType::Double: Out << 'd'; break;
+  case BuiltinType::WChar_U:
+    Out << 'w';
+    break;
+  case BuiltinType::Char16:
+    Out << "Ds";
+    break;
+  case BuiltinType::Char32:
+    Out << "Di";
+    break;
+  case BuiltinType::Short:
+    Out << 's';
+    break;
+  case BuiltinType::Int:
+    Out << 'i';
+    break;
+  case BuiltinType::Long:
+    Out << 'l';
+    break;
+  case BuiltinType::LongLong:
+    Out << 'x';
+    break;
+  case BuiltinType::Int128:
+    Out << 'n';
+    break;
+  case BuiltinType::Half:
+    Out << "Dh";
+    break;
+  case BuiltinType::Float:
+    Out << 'f';
+    break;
+  case BuiltinType::Double:
+    Out << 'd';
+    break;
   case BuiltinType::LongDouble:
     Out << (getASTContext().getTargetInfo().useFloat128ManglingForLongDouble()
                 ? 'g'
                 : 'e');
     break;
+  case BuiltinType::NullPtr:
+    Out << "Dn";
+    break;
 #ifdef INTEL_CUSTOMIZATION
-  case BuiltinType::Float128: Out << 'g'; break;
+  case BuiltinType::Float128:
+  Out << 'g';
+  break;
 #endif  // INTEL_CUSTOMIZATION
-  case BuiltinType::NullPtr: Out << "Dn"; break;
 
 #define BUILTIN_TYPE(Id, SingletonId)
 #define PLACEHOLDER_TYPE(Id, SingletonId) \
@@ -2030,17 +2129,69 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
 #include "clang/AST/BuiltinTypes.def"
   case BuiltinType::Dependent:
     llvm_unreachable("mangling a placeholder type");
-  case BuiltinType::ObjCId: Out << "11objc_object"; break;
-  case BuiltinType::ObjCClass: Out << "10objc_class"; break;
-  case BuiltinType::ObjCSel: Out << "13objc_selector"; break;
-  case BuiltinType::OCLImage1d: Out << "11ocl_image1d"; break;
-  case BuiltinType::OCLImage1dArray: Out << "16ocl_image1darray"; break;
-  case BuiltinType::OCLImage1dBuffer: Out << "17ocl_image1dbuffer"; break;
-  case BuiltinType::OCLImage2d: Out << "11ocl_image2d"; break;
-  case BuiltinType::OCLImage2dArray: Out << "16ocl_image2darray"; break;
-  case BuiltinType::OCLImage3d: Out << "11ocl_image3d"; break;
-  case BuiltinType::OCLSampler: Out << "11ocl_sampler"; break;
-  case BuiltinType::OCLEvent: Out << "9ocl_event"; break;
+  case BuiltinType::ObjCId:
+    Out << "11objc_object";
+    break;
+  case BuiltinType::ObjCClass:
+    Out << "10objc_class";
+    break;
+  case BuiltinType::ObjCSel:
+    Out << "13objc_selector";
+    break;
+  case BuiltinType::OCLImage1d:
+    Out << "11ocl_image1d";
+    break;
+  case BuiltinType::OCLImage1dArray:
+    Out << "16ocl_image1darray";
+    break;
+  case BuiltinType::OCLImage1dBuffer:
+    Out << "17ocl_image1dbuffer";
+    break;
+  case BuiltinType::OCLImage2d:
+    Out << "11ocl_image2d";
+    break;
+  case BuiltinType::OCLImage2dArray:
+    Out << "16ocl_image2darray";
+    break;
+  case BuiltinType::OCLImage2dDepth:
+    Out << "16ocl_image2ddepth";
+    break;
+  case BuiltinType::OCLImage2dArrayDepth:
+    Out << "21ocl_image2darraydepth";
+    break;
+  case BuiltinType::OCLImage2dMSAA:
+    Out << "15ocl_image2dmsaa";
+    break;
+  case BuiltinType::OCLImage2dArrayMSAA:
+    Out << "20ocl_image2darraymsaa";
+    break;
+  case BuiltinType::OCLImage2dMSAADepth:
+    Out << "20ocl_image2dmsaadepth";
+    break;
+  case BuiltinType::OCLImage2dArrayMSAADepth:
+    Out << "35ocl_image2darraymsaadepth";
+    break;
+  case BuiltinType::OCLImage3d:
+    Out << "11ocl_image3d";
+    break;
+  case BuiltinType::OCLSampler:
+    Out << "11ocl_sampler";
+    break;
+  case BuiltinType::OCLEvent:
+    Out << "9ocl_event";
+    break;
+  case BuiltinType::OCLClkEvent:
+    Out << "12ocl_clkevent";
+    break;
+  case BuiltinType::OCLQueue:
+    Out << "9ocl_queue";
+    break;
+  case BuiltinType::OCLNDRange:
+    Out << "11ocl_ndrange";
+    break;
+  case BuiltinType::OCLReserveID:
+    Out << "13ocl_reserveid";
+    break;
   }
 }
 
@@ -2371,6 +2522,14 @@ void CXXNameMangler::mangleType(const VectorType *T) {
       mangleNeonVectorType(T);
     return;
   }
+#ifdef INTEL_CUSTOMIZATION
+  // CQ371729: Incompatible name mangling.
+  auto &LangOpts = getASTContext().getLangOpts();
+  if (LangOpts.IntelCompat && LangOpts.GNUMangling &&
+      LangOpts.GNUFABIVersion < 4)
+    Out << "U8__vector";
+  else
+#endif // INTEL_CUSTOMIZATION
   Out << "Dv" << T->getNumElements() << '_';
   if (T->getVectorKind() == VectorType::AltiVecPixel)
     Out << 'p';
@@ -3132,6 +3291,12 @@ recurse:
     const UnaryOperator *UO = cast<UnaryOperator>(E);
     mangleOperatorName(UnaryOperator::getOverloadedOperator(UO->getOpcode()),
                        /*Arity=*/1);
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat &&
+        UnaryOperator::isPrefix(UO->getOpcode()))
+      Out << "_";
+#endif // INTEL_CUSTOMIZATION
     mangleExpression(UO->getSubExpr());
     break;
   }
@@ -3385,8 +3550,17 @@ recurse:
     break;
       
   case Expr::SizeOfPackExprClass: {
+    auto *SPE = cast<SizeOfPackExpr>(E);
+    if (SPE->isPartiallySubstituted()) {
+      Out << "sP";
+      for (const auto &A : SPE->getPartialArguments())
+        mangleTemplateArg(A);
+      Out << "E";
+      break;
+    }
+
     Out << "sZ";
-    const NamedDecl *Pack = cast<SizeOfPackExpr>(E)->getPack();
+    const NamedDecl *Pack = SPE->getPack();
     if (const TemplateTypeParmDecl *TTP = dyn_cast<TemplateTypeParmDecl>(Pack))
       mangleTemplateParameter(TTP->getIndex());
     else if (const NonTypeTemplateParmDecl *NTTP
@@ -3616,6 +3790,12 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     // an expression. We compensate for it here to produce the correct mangling.
     ValueDecl *D = A.getAsDecl();
     bool compensateMangling = !A.getParamTypeForDecl()->isReferenceType();
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat &&
+        getASTContext().getLangOpts().GNUFABIVersion == 1)
+      compensateMangling = true;
+#endif // INTEL_CUSTOMIZATION
     if (compensateMangling) {
       Out << 'X';
       mangleOperatorName(OO_Amp, 1);
@@ -3624,6 +3804,19 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     Out << 'L';
     // References to external entities use the mangled name; if the name would
     // not normally be manged then mangle it as unqualified.
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
+    const VarDecl *VD = dyn_cast<VarDecl>(D);
+    if (getASTContext().getLangOpts().IntelCompat &&
+        getASTContext().getLangOpts().GNUFABIVersion == 2 && (VD || FD)) {
+      Out << "Z";
+      if (FD)
+        mangleFunctionEncoding(FD);
+      else
+        mangleName(VD);
+    } else
+#endif // INTEL_CUSTOMIZATION
     mangle(D);
     Out << 'E';
 
@@ -3641,6 +3834,12 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
   }
   case TemplateArgument::Pack: {
     //  <template-arg> ::= J <template-arg>* E
+#ifdef INTEL_CUSTOMIZATION
+    // CQ371729: Incompatible name mangling.
+    if (getASTContext().getLangOpts().IntelCompat)
+      Out << 'I';
+    else
+#endif // INTEL_CUSTOMIZATION
     Out << 'J';
     for (const auto &P : A.pack_elements())
       mangleTemplateArg(P);
@@ -4118,21 +4317,6 @@ void ItaniumMangleContextImpl::mangleCXXRTTIName(QualType Ty,
 
 void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
   mangleCXXRTTIName(Ty, Out);
-}
-
-void ItaniumMangleContextImpl::mangleCXXVTableBitSet(const CXXRecordDecl *RD,
-                                                     raw_ostream &Out) {
-  if (!RD->isExternallyVisible()) {
-    // This part of the identifier needs to be unique across all translation
-    // units in the linked program. The scheme fails if multiple translation
-    // units are compiled using the same relative source file path, or if
-    // multiple translation units are built from the same source file.
-    SourceManager &SM = getASTContext().getSourceManager();
-    Out << "[" << SM.getFileEntryForID(SM.getMainFileID())->getName() << "]";
-  }
-
-  CXXNameMangler Mangler(*this, Out);
-  Mangler.mangleType(QualType(RD->getTypeForDecl(), 0));
 }
 
 #ifdef INTEL_CUSTOMIZATION

@@ -53,6 +53,7 @@ public:
   typedef Elf_Vernaux_Impl<ELFT> Elf_Vernaux;
   typedef Elf_Versym_Impl<ELFT> Elf_Versym;
   typedef Elf_Hash_Impl<ELFT> Elf_Hash;
+  typedef Elf_GnuHash_Impl<ELFT> Elf_GnuHash;
   typedef iterator_range<const Elf_Dyn *> Elf_Dyn_Range;
   typedef iterator_range<const Elf_Shdr *> Elf_Shdr_Range;
   typedef iterator_range<const Elf_Sym *> Elf_Sym_Range;
@@ -86,9 +87,8 @@ public:
   void getRelocationTypeName(uint32_t Type,
                              SmallVectorImpl<char> &Result) const;
 
-  /// \brief Get the symbol table section and symbol for a given relocation.
-  template <class RelT>
-  const Elf_Sym *getRelocationSymbol(const RelT *Rel,
+  /// \brief Get the symbol for a given relocation.
+  const Elf_Sym *getRelocationSymbol(const Elf_Rel *Rel,
                                      const Elf_Shdr *SymTab) const;
 
   ELFFile(StringRef Object, std::error_code &EC);
@@ -211,6 +211,8 @@ public:
   }
 
   ErrorOr<StringRef> getSectionName(const Elf_Shdr *Section) const;
+  template <typename T>
+  ErrorOr<ArrayRef<T>> getSectionContentsAsArray(const Elf_Shdr *Sec) const;
   ErrorOr<ArrayRef<uint8_t> > getSectionContents(const Elf_Shdr *Sec) const;
 };
 
@@ -244,12 +246,25 @@ ELFFile<ELFT>::getSection(const Elf_Sym *Sym, const Elf_Shdr *SymTab,
 }
 
 template <class ELFT>
-ErrorOr<ArrayRef<uint8_t> >
-ELFFile<ELFT>::getSectionContents(const Elf_Shdr *Sec) const {
-  if (Sec->sh_offset + Sec->sh_size > Buf.size())
+template <typename T>
+ErrorOr<ArrayRef<T>>
+ELFFile<ELFT>::getSectionContentsAsArray(const Elf_Shdr *Sec) const {
+  uintX_t Offset = Sec->sh_offset;
+  uintX_t Size = Sec->sh_size;
+
+  if (Size % sizeof(T))
     return object_error::parse_failed;
-  const uint8_t *Start = base() + Sec->sh_offset;
-  return makeArrayRef(Start, Sec->sh_size);
+  if (Offset + Size > Buf.size())
+    return object_error::parse_failed;
+
+  const T *Start = reinterpret_cast<const T *>(base() + Offset);
+  return makeArrayRef(Start, Size / sizeof(T));
+}
+
+template <class ELFT>
+ErrorOr<ArrayRef<uint8_t>>
+ELFFile<ELFT>::getSectionContents(const Elf_Shdr *Sec) const {
+  return getSectionContentsAsArray<uint8_t>(Sec);
 }
 
 template <class ELFT>
@@ -289,9 +304,8 @@ void ELFFile<ELFT>::getRelocationTypeName(uint32_t Type,
 }
 
 template <class ELFT>
-template <class RelT>
 const typename ELFFile<ELFT>::Elf_Sym *
-ELFFile<ELFT>::getRelocationSymbol(const RelT *Rel,
+ELFFile<ELFT>::getRelocationSymbol(const Elf_Rel *Rel,
                                    const Elf_Shdr *SymTab) const {
   uint32_t Index = Rel->getSymbol(isMips64EL());
   if (Index == 0)
@@ -483,7 +497,7 @@ ELFFile<ELFT>::getSHNDXTable(const Elf_Shdr &Section) const {
     return object_error::parse_failed;
   if (NumSymbols != (SymTable.sh_size / sizeof(Elf_Sym)))
     return object_error::parse_failed;
-  return ArrayRef<Elf_Word>(ShndxTableBegin, ShndxTableEnd);
+  return makeArrayRef(ShndxTableBegin, ShndxTableEnd);
 }
 
 template <class ELFT>

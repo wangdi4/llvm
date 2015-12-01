@@ -4442,6 +4442,23 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
+#ifdef INTEL_CUSTOMIZATION
+    // CQ#376362: "Classic" icc allows private destructors in base classes and
+    // so should we.
+    if (getLangOpts().IntelCompat) {
+      if (CheckDestructorAccess(
+          ClassDecl->getLocation(), Dtor,
+          PDiag(diag::warn_access_dtor_vbase)
+          << Context.getTypeDeclType(ClassDecl) << VBase.getType(),
+          Context.getTypeDeclType(ClassDecl)) ==
+        AR_accessible) {
+        CheckDerivedToBaseConversion(
+          Context.getTypeDeclType(ClassDecl), VBase.getType(),
+          diag::warn_access_dtor_vbase, 0, ClassDecl->getLocation(),
+          SourceRange(), DeclarationName(), nullptr);
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (CheckDestructorAccess(
             ClassDecl->getLocation(), Dtor,
             PDiag(diag::err_access_dtor_vbase)
@@ -6977,7 +6994,7 @@ QualType Sema::CheckDestructorDeclarator(Declarator &D, QualType R,
   return Context.getFunctionType(Context.VoidTy, None, EPI);
 }
 
-static void extendLeft(SourceRange &R, const SourceRange &Before) {
+static void extendLeft(SourceRange &R, SourceRange Before) {
   if (Before.isInvalid())
     return;
   R.setBegin(Before.getBegin());
@@ -6985,7 +7002,7 @@ static void extendLeft(SourceRange &R, const SourceRange &Before) {
     R.setEnd(Before.getEnd());
 }
 
-static void extendRight(SourceRange &R, const SourceRange &After) {
+static void extendRight(SourceRange &R, SourceRange After) {
   if (After.isInvalid())
     return;
   if (R.getBegin().isInvalid())
@@ -7885,7 +7902,8 @@ bool Sema::CheckUsingShadowDecl(UsingDecl *Using, NamedDecl *Orig,
       FoundEquivalentDecl = true;
     }
 
-    (isa<TagDecl>(D) ? Tag : NonTag) = D;
+    if (isVisible(D))
+      (isa<TagDecl>(D) ? Tag : NonTag) = D;
   }
 
   if (FoundEquivalentDecl)
@@ -8094,6 +8112,10 @@ public:
 
         // FIXME: Check that the base class member is accessible?
       }
+    } else {
+      auto *FoundRecord = dyn_cast<CXXRecordDecl>(ND);
+      if (FoundRecord && FoundRecord->isInjectedClassName())
+        return false;
     }
 
     if (isa<TypeDecl>(ND))
@@ -12757,15 +12779,30 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     DC = CurContext;
     assert(isa<CXXRecordDecl>(DC) && "friend declaration not in class?");
   }
-  
+
   if (!DC->isRecord()) {
+    int DiagArg = -1;
+    switch (D.getName().getKind()) {
+    case UnqualifiedId::IK_ConstructorTemplateId:
+    case UnqualifiedId::IK_ConstructorName:
+      DiagArg = 0;
+      break;
+    case UnqualifiedId::IK_DestructorName:
+      DiagArg = 1;
+      break;
+    case UnqualifiedId::IK_ConversionFunctionId:
+      DiagArg = 2;
+      break;
+    case UnqualifiedId::IK_Identifier:
+    case UnqualifiedId::IK_ImplicitSelfParam:
+    case UnqualifiedId::IK_LiteralOperatorId:
+    case UnqualifiedId::IK_OperatorFunctionId:
+    case UnqualifiedId::IK_TemplateId:
+      break;
+    }
     // This implies that it has to be an operator or function.
-    if (D.getName().getKind() == UnqualifiedId::IK_ConstructorName ||
-        D.getName().getKind() == UnqualifiedId::IK_DestructorName ||
-        D.getName().getKind() == UnqualifiedId::IK_ConversionFunctionId) {
-      Diag(Loc, diag::err_introducing_special_friend) <<
-        (D.getName().getKind() == UnqualifiedId::IK_ConstructorName ? 0 :
-         D.getName().getKind() == UnqualifiedId::IK_DestructorName ? 1 : 2);
+    if (DiagArg >= 0) {
+      Diag(Loc, diag::err_introducing_special_friend) << DiagArg;
       return nullptr;
     }
   }

@@ -156,6 +156,10 @@ struct PragmaUnrollHintHandler : public PragmaHandler {
                     Token &FirstToken) override;
 };
 
+struct PragmaMSRuntimeChecksHandler : public EmptyPragmaHandler {
+  PragmaMSRuntimeChecksHandler() : EmptyPragmaHandler("runtime_checks") {}
+};
+
 }  // end namespace
 
 void Parser::initializePragmaHandlers() {
@@ -234,6 +238,8 @@ void Parser::initializePragmaHandlers() {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+    MSRuntimeChecks.reset(new PragmaMSRuntimeChecksHandler());
+    PP.AddPragmaHandler(MSRuntimeChecks.get());
   }
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -321,6 +327,8 @@ void Parser::resetPragmaHandlers() {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+    PP.RemovePragmaHandler(MSRuntimeChecks.get());
+    MSRuntimeChecks.reset();
   }
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND

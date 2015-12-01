@@ -113,7 +113,7 @@ def GlobalVar : SubsetSubject<Var,
 // the case of a SubsetSubject, there's no way to express it without this hack.
 def DeclBase : AttrSubject;
 def FunctionLike : SubsetSubject<DeclBase,
-                                  [{S->getFunctionType(false) != NULL}]>;
+                                  [{S->getFunctionType(false) != nullptr}]>;
 
 def OpenCLKernelFunction : SubsetSubject<Function, [{
   S->hasAttr<OpenCLKernelAttr>()
@@ -123,7 +123,7 @@ def OpenCLKernelFunction : SubsetSubject<Function, [{
 // never be specified in a Subjects list along with FunctionLike (due to the
 // inclusive nature of subject testing).
 def HasFunctionProto : SubsetSubject<DeclBase,
-                                     [{(S->getFunctionType(true) != NULL &&
+                                     [{(S->getFunctionType(true) != nullptr &&
                               isa<FunctionProtoType>(S->getFunctionType())) ||
                                        isa<ObjCMethodDecl>(S) ||
                                        isa<BlockDecl>(S)}]>;
@@ -385,6 +385,17 @@ def Aligned : InheritableAttr {
                    Accessor<"isDeclspec",[Declspec<"align">]>];
   let Documentation = [Undocumented];
 }
+
+//#ifdef INTEL_CUSTOMIZATION
+// CQ#375011 - 'alloc_size' attribute is not recognized.
+def AllocSize : InheritableAttr {
+  let Spellings = [GNU<"alloc_size">];
+  let Args = [AlignedArgument<"Size", 0>, AlignedArgument<"SizeByProduct", 1>];
+  let Subjects = SubjectList<[Function, CXXMethod], WarnDiag,
+                             "ExpectedFunctionOrMethod">;
+  let Documentation = [Undocumented];
+}
+//#endif // INTEL_CUSTOMIZATION
 
 def AlignValue : Attr {
   let Spellings = [
@@ -1558,8 +1569,8 @@ def Capability : InheritableAttr {
   let Spellings = [GNU<"capability">, CXX11<"clang", "capability">,
                    GNU<"shared_capability">,
                    CXX11<"clang", "shared_capability">];
-  let Subjects = SubjectList<[Struct, TypedefName], ErrorDiag,
-                             "ExpectedStructOrTypedef">;
+  let Subjects = SubjectList<[Record, TypedefName], ErrorDiag,
+                             "ExpectedStructOrUnionOrTypedef">;
   let Args = [StringArgument<"Name">];
   let Accessors = [Accessor<"isShared",
                     [GNU<"shared_capability">,
@@ -2378,17 +2389,15 @@ def LoopHint : Attr {
     unsigned SpellingIndex = getSpellingListIndex();
     // For "#pragma unroll" and "#pragma nounroll" the string "unroll" or
     // "nounroll" is already emitted as the pragma name.
-    if (SpellingIndex == Pragma_nounroll) {
-      OS << "\n";
+    if (SpellingIndex == Pragma_nounroll)
       return;
-    }
     else if (SpellingIndex == Pragma_unroll) {
-      OS << getValueString(Policy) << "\n";
+      OS << getValueString(Policy);
       return;
     }
 
     assert(SpellingIndex == Pragma_clang_loop && "Unexpected spelling");
-    OS << getOptionName(option) << getValueString(Policy) << "\n";
+    OS << getOptionName(option) << getValueString(Policy);
   }
 
   // Return a string containing the loop hint argument including the

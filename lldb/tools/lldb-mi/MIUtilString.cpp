@@ -45,12 +45,12 @@ CMIUtilString::CMIUtilString(const char *vpData)
 //++ ------------------------------------------------------------------------------------
 // Details: CMIUtilString constructor.
 // Type:    Method.
-// Args:    vpData  - Pointer to UTF8 text data.
+// Args:    vpStr  - Text data.
 // Return:  None.
 // Throws:  None.
 //--
-CMIUtilString::CMIUtilString(const char *const *vpData)
-    : std::string((const char *)vpData)
+CMIUtilString::CMIUtilString(const std::string& vrStr)
+    : std::string(vrStr)
 {
 }
 
@@ -63,14 +63,7 @@ CMIUtilString::CMIUtilString(const char *const *vpData)
 //--
 CMIUtilString &CMIUtilString::operator=(const char *vpRhs)
 {
-    if (*this == vpRhs)
-        return *this;
-
-    if (vpRhs != nullptr)
-    {
-        assign(vpRhs);
-    }
-
+    assign(vpRhs);
     return *this;
 }
 
@@ -83,11 +76,7 @@ CMIUtilString &CMIUtilString::operator=(const char *vpRhs)
 //--
 CMIUtilString &CMIUtilString::operator=(const std::string &vrRhs)
 {
-    if (*this == vrRhs)
-        return *this;
-
     assign(vrRhs);
-
     return *this;
 }
 
@@ -230,7 +219,7 @@ CMIUtilString::Split(const CMIUtilString &vDelimiter, VecString_t &vwVecSplits) 
         // Extract string between delimiters
         const size_t nSectionLen(nNextDelimiterPos - nSectionPos);
         const std::string strSection(substr(nSectionPos, nSectionLen));
-        vwVecSplits.push_back(strSection.c_str());
+        vwVecSplits.push_back(strSection);
 
         // Next
         nOffset = nNextDelimiterPos + 1;
@@ -286,7 +275,7 @@ CMIUtilString::SplitConsiderQuotes(const CMIUtilString &vDelimiter, VecString_t 
         // Extract string between delimiters
         const size_t nSectionLen(nNextDelimiterPos - nSectionPos);
         const std::string strSection(substr(nSectionPos, nSectionLen));
-        vwVecSplits.push_back(strSection.c_str());
+        vwVecSplits.push_back(strSection);
 
         // Next
         nOffset = nNextDelimiterPos + 1;
@@ -324,7 +313,7 @@ CMIUtilString::StripCREndOfLine() const
     if (nPos == std::string::npos)
         return *this;
 
-    const CMIUtilString strNew(substr(0, nPos).c_str());
+    const CMIUtilString strNew(substr(0, nPos));
 
     return strNew;
 }
@@ -529,12 +518,12 @@ CMIUtilString::Trim() const
     const size_t nPos = find_last_not_of(pWhiteSpace);
     if (nPos != std::string::npos)
     {
-        strNew = substr(0, nPos + 1).c_str();
+        strNew = substr(0, nPos + 1);
     }
     const size_t nPos2 = strNew.find_first_not_of(pWhiteSpace);
     if (nPos2 != std::string::npos)
     {
-        strNew = strNew.substr(nPos2).c_str();
+        strNew = strNew.substr(nPos2);
     }
 
     return strNew;
@@ -555,7 +544,7 @@ CMIUtilString::Trim(const char vChar) const
     if (nLen > 1)
     {
         if ((strNew[0] == vChar) && (strNew[nLen - 1] == vChar))
-            strNew = strNew.substr(1, nLen - 2).c_str();
+            strNew = strNew.substr(1, nLen - 2);
     }
 
     return strNew;

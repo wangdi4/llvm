@@ -28,7 +28,9 @@
 
 #include <immintrin.h>
 
+#ifndef __INTEL_COMPILER
 #include <mm3dnow.h>
+#endif /* __INTEL_COMPILER */
 
 #include <bmiintrin.h>
 
@@ -50,7 +52,7 @@
 #include <xopintrin.h>
 
 #include <tbmintrin.h>
-#endif
+#endif /* __INTEL_COMPILER */
 
 #include <f16cintrin.h>
 

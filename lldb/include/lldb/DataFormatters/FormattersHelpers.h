@@ -32,6 +32,12 @@ namespace lldb_private {
                    bool regex = false);
         
         void
+        AddSummary(TypeCategoryImpl::SharedPointer category_sp,
+                   lldb::TypeSummaryImplSP summary_sp,
+                   ConstString type_name,
+                   bool regex = false);
+
+        void
         AddStringSummary(TypeCategoryImpl::SharedPointer category_sp,
                          const char* string,
                          ConstString type_name,
@@ -83,7 +89,8 @@ namespace lldb_private {
         ExtractSummaryFromObjCExpression (ValueObject &valobj,
                                           const char* target_type,
                                           const char* selector,
-                                          Stream &stream);
+                                          Stream &stream,
+                                          lldb::LanguageType lang_type);
         
         lldb::ValueObjectSP
         CallSelectorOnObject (ValueObject &valobj,
@@ -100,6 +107,9 @@ namespace lldb_private {
         size_t
         ExtractIndexFromString (const char* item_name);
         
+        lldb::addr_t
+        GetArrayAddressOrPointerValue (ValueObject& valobj);
+
         time_t
         GetOSXEpoch ();
     } // namespace formatters

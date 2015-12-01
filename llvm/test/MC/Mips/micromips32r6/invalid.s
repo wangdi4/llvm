@@ -32,3 +32,40 @@
   lw16  $4, 68($17)        # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
   lw16  $4, 68($17)        # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
   lw16  $17, 8($10)        # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  teq $34, $9, 5           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  teq $8, $35, 6           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  teq $8, $9, 16           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  tge $34, $9, 5           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tge $8, $35, 6           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tge $8, $9, 16           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  tgeu $34, $9, 5          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tgeu $8, $35, 6          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tgeu $8, $9, 16          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  tlt $34, $9, 5           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tlt $8, $35, 6           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tlt $8, $9, 16           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  tltu $34, $9, 5          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tltu $8, $35, 6          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tltu $8, $9, 16          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  tne $34, $9, 5           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tne $8, $35, 6           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tne $8, $9, 16           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: immediate operand value out of range
+  teq $8, $9, $2           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tge $8, $9, $2           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tgeu $8, $9, $2          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tlt $8, $9, $2           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tltu $8, $9, $2          # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  tne $8, $9, $2           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  wrpgpr $34, $4           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  wrpgpr $3, $33           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  wsbh $34, $4             # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  wsbh $3, $33             # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 1             # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 2             # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 3             # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 10            # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 18            # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 31            # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 33            # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 125           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction
+  jrcaddiusp 132           # CHECK: :[[@LINE]]:{{[0-9]+}}: error: invalid operand for instruction

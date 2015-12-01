@@ -18,7 +18,6 @@
 #include "Error.h"
 #include "Symbols.h"
 #include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ArchiveWriter.h"
@@ -647,7 +646,7 @@ static const llvm::opt::OptTable::Info infoTable[] = {
 
 class COFFOptTable : public llvm::opt::OptTable {
 public:
-  COFFOptTable() : OptTable(infoTable, llvm::array_lengthof(infoTable), true) {}
+  COFFOptTable() : OptTable(infoTable, true) {}
 };
 
 // Parses a given list of options.

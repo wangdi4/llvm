@@ -10,6 +10,7 @@
 #include "SymbolFileDWARFDwo.h"
 
 #include "lldb/Core/Section.h"
+#include "lldb/Expression/DWARFExpression.h"
 #include "lldb/Symbol/ObjectFile.h"
 
 #include "DWARFCompileUnit.h"
@@ -23,16 +24,12 @@ SymbolFileDWARFDwo::SymbolFileDWARFDwo(ObjectFileSP objfile, DWARFCompileUnit* d
     m_obj_file_sp(objfile),
     m_base_dwarf_cu(dwarf_cu)
 {
+    SetID(((lldb::user_id_t)dwarf_cu->GetOffset())<<32);
 }
 
-const lldb_private::DWARFDataExtractor&
-SymbolFileDWARFDwo::GetCachedSectionData(uint32_t got_flag,
-                                         lldb::SectionType sect_type,
-                                         lldb_private::DWARFDataExtractor &data)
+void
+SymbolFileDWARFDwo::LoadSectionData (lldb::SectionType sect_type, DWARFDataExtractor& data)
 {
-    if (!m_flags.IsClear (got_flag))
-        return data;
-
     const SectionList* section_list = m_obj_file->GetSectionList(false /* update_module_section_list */);
     if (section_list)
     {
@@ -43,34 +40,34 @@ SymbolFileDWARFDwo::GetCachedSectionData(uint32_t got_flag,
             if (m_dwarf_data.GetByteSize())
             {
                 data.SetData(m_dwarf_data, section_sp->GetOffset(), section_sp->GetFileSize());
-                m_flags.Set (got_flag);
-                return data;
+                return;
             }
 
             if (m_obj_file->ReadSectionData(section_sp.get(), data) != 0)
-            {
-                m_flags.Set (got_flag);
-                return data;
-            }
+                return;
 
             data.Clear();
         }
     }
-    return SymbolFileDWARF::GetCachedSectionData(got_flag, sect_type, data);
+
+    SymbolFileDWARF::LoadSectionData(sect_type, data);
 }
 
 lldb::CompUnitSP
 SymbolFileDWARFDwo::ParseCompileUnit(DWARFCompileUnit* dwarf_cu, uint32_t cu_idx)
 {
     assert(GetCompileUnit() == dwarf_cu && "SymbolFileDWARFDwo::ParseCompileUnit called with incompatible compile unit");
-    return m_base_dwarf_cu->GetSymbolFileDWARF()->ParseCompileUnit(m_base_dwarf_cu, UINT32_MAX);
+    return GetBaseSymbolFile()->ParseCompileUnit(m_base_dwarf_cu, UINT32_MAX);
 }
 
 DWARFCompileUnit*
 SymbolFileDWARFDwo::GetCompileUnit()
 {
-    assert(GetNumCompileUnits() == 1 && "Only dwo files with 1 compile unit is supported");
-    return DebugInfo()->GetCompileUnitAtIndex(0);
+    // Only dwo files with 1 compile unit is supported
+    if (GetNumCompileUnits() == 1)
+        return DebugInfo()->GetCompileUnitAtIndex(0);
+    else
+        return nullptr;
 }
 
 DWARFCompileUnit*
@@ -82,23 +79,47 @@ SymbolFileDWARFDwo::GetDWARFCompileUnit(lldb_private::CompileUnit *comp_unit)
 SymbolFileDWARF::DIEToTypePtr&
 SymbolFileDWARFDwo::GetDIEToType()
 {
-    return m_base_dwarf_cu->GetSymbolFileDWARF()->GetDIEToType();
+    return GetBaseSymbolFile()->GetDIEToType();
 }
 
 SymbolFileDWARF::DIEToVariableSP&
 SymbolFileDWARFDwo::GetDIEToVariable()
 {
-    return m_base_dwarf_cu->GetSymbolFileDWARF()->GetDIEToVariable();
+    return GetBaseSymbolFile()->GetDIEToVariable();
 }
 
 SymbolFileDWARF::DIEToClangType&
 SymbolFileDWARFDwo::GetForwardDeclDieToClangType()
 {
-    return m_base_dwarf_cu->GetSymbolFileDWARF()->GetForwardDeclDieToClangType();
+    return GetBaseSymbolFile()->GetForwardDeclDieToClangType();
 }
 
 SymbolFileDWARF::ClangTypeToDIE&
 SymbolFileDWARFDwo::GetForwardDeclClangTypeToDie()
 {
-    return m_base_dwarf_cu->GetSymbolFileDWARF()->GetForwardDeclClangTypeToDie();
+    return GetBaseSymbolFile()->GetForwardDeclClangTypeToDie();
+}
+
+lldb::TypeSP
+SymbolFileDWARFDwo::FindDefinitionTypeForDWARFDeclContext (const DWARFDeclContext &die_decl_ctx)
+{
+    return GetBaseSymbolFile()->FindDefinitionTypeForDWARFDeclContext(die_decl_ctx);
+}
+
+SymbolFileDWARF*
+SymbolFileDWARFDwo::GetBaseSymbolFile()
+{
+    return m_base_dwarf_cu->GetSymbolFileDWARF();
+}
+
+DWARFExpression::LocationListFormat
+SymbolFileDWARFDwo::GetLocationListFormat() const
+{
+    return DWARFExpression::SplitDwarfLocationList;
+}
+
+TypeSystem*
+SymbolFileDWARFDwo::GetTypeSystemForLanguage(LanguageType language)
+{
+    return GetBaseSymbolFile()->GetTypeSystemForLanguage(language);
 }

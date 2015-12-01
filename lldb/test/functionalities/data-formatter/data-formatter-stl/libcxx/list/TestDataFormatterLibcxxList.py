@@ -2,7 +2,7 @@
 Test lldb data formatter subsystem.
 """
 
-import os, time
+import os, time, re
 import unittest2
 import lldb
 from lldbtest import *
@@ -11,21 +11,6 @@ import lldbutil
 class LibcxxListDataFormatterTestCase(TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
-
-    @skipUnlessDarwin
-    @dsym_test
-    def test_with_dsym_and_run_command(self):
-        """Test data formatter commands."""
-        self.buildDsym()
-        self.data_formatter_commands()
-
-    @skipIfGcc
-    @skipIfWindows # libc++ not ported to Windows yet
-    @dwarf_test
-    def test_with_dwarf_and_run_command(self):
-        """Test data formatter commands."""
-        self.buildDwarf()
-        self.data_formatter_commands()
 
     def setUp(self):
         # Call super's setUp().
@@ -36,9 +21,14 @@ class LibcxxListDataFormatterTestCase(TestBase):
         self.line3 = line_number('main.cpp', '// Set third break point at this line.')
         self.line4 = line_number('main.cpp', '// Set fourth break point at this line.')
 
-    def data_formatter_commands(self):
+    @skipIfGcc
+    @skipIfWindows # libc++ not ported to Windows yet
+    def test_with_run_command(self):
         """Test that that file and class static variables display correctly."""
+        self.build()
         self.runCmd("file a.out", CURRENT_EXECUTABLE_SET)
+        
+        lldbutil.skip_if_library_missing(self, self.target(), lldbutil.PrintableRegex("libc\+\+"))
 
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line, num_expected_locations=-1)
         lldbutil.run_break_set_by_file_and_line (self, "main.cpp", self.line2, num_expected_locations=-1)

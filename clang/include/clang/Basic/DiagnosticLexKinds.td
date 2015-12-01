@@ -74,6 +74,11 @@ def ext_unterminated_char : ExtWarn<"missing terminating ' character">,
 def ext_empty_character : ExtWarn<"empty character constant">,
   InGroup<InvalidPPToken>;
 def err_unterminated_block_comment : Error<"unterminated /* comment">;
+//if INTEL_CUSTOMIZATION
+// CQ#368194 - emit a warning, not an error on unterminated block comment.
+def warn_unterminated_block_comment : Warning<
+  err_unterminated_block_comment.Text>, InGroup<Comment>;
+//endif INTEL_CUSTOMIZATION
 def err_invalid_character_to_charify : Error<
   "invalid argument to convert to character">;
 def err_unterminated___pragma : Error<"missing terminating ')' character">;
@@ -189,7 +194,7 @@ def ext_hexconstant_invalid : Extension<
 def ext_binary_literal : Extension<
   "binary integer literals are a GNU extension">, InGroup<GNUBinaryLiteral>;
 def ext_binary_literal_cxx14 : Extension<
-  "binary integer literals are a C++14 extension">, InGroup<CXX14>;
+  "binary integer literals are a C++14 extension">, InGroup<CXX14BinaryLiteral>;
 def warn_cxx11_compat_binary_literal : Warning<
   "binary integer literals are incompatible with C++ standards before C++14">,
   InGroup<CXXPre14CompatPedantic>, DefaultIgnore;
@@ -261,10 +266,13 @@ def err_pp_hash_error : Error<"%0">;
 }
 
 def pp_include_next_in_primary : Warning<
-  "#include_next in primary source file">;
+  "#include_next in primary source file">,
+  InGroup<DiagGroup<"include-next-outside-header">>;
 def pp_include_macros_out_of_predefines : Error<
   "the #__include_macros directive is only for internal use by -imacros">;
-def pp_include_next_absolute_path : Warning<"#include_next with absolute path">;
+def pp_include_next_absolute_path : Warning<
+  "#include_next with absolute path">,
+  InGroup<DiagGroup<"include-next-absolute-path">>;
 def ext_c99_whitespace_required_after_macro_name : ExtWarn<
   "ISO C99 requires whitespace after the macro name">, InGroup<C99>;
 def ext_missing_whitespace_after_macro_name : ExtWarn<
@@ -272,9 +280,11 @@ def ext_missing_whitespace_after_macro_name : ExtWarn<
 def warn_missing_whitespace_after_macro_name : Warning<
   "whitespace recommended after macro name">;
   
-def pp_pragma_once_in_main_file : Warning<"#pragma once in main file">;
+def pp_pragma_once_in_main_file : Warning<"#pragma once in main file">,
+  InGroup<DiagGroup<"pragma-once-outside-header">>;
 def pp_pragma_sysheader_in_main_file : Warning<
-  "#pragma system_header ignored in main file">;
+  "#pragma system_header ignored in main file">,
+  InGroup<DiagGroup<"pragma-system-header-outside-header">>;
 def pp_poisoning_existing_macro : Warning<"poisoning existing macro">;
 def pp_out_of_date_dependency : Warning<
   "current file is older than dependency %0">;
@@ -321,7 +331,7 @@ def ext_pp_include_search_ms : ExtWarn<
 
 def ext_pp_ident_directive : Extension<"#ident is a language extension">;
 def ext_pp_include_next_directive : Extension<
-  "#include_next is a language extension">;
+  "#include_next is a language extension">, InGroup<GNUIncludeNext>;
 def ext_pp_warning_directive : Extension<"#warning is a language extension">;
 
 def ext_pp_extra_tokens_at_eol : ExtWarn<
@@ -382,6 +392,12 @@ def err_pp_duplicate_name_in_arg_list : Error<
 def err_pp_stringize_not_parameter : Error<
   "'#' is not followed by a macro parameter">;
 def err_pp_malformed_ident : Error<"invalid #ident directive">;
+// ifdef INTEL_CUSTOMIZATION
+// CQ#372653.
+def warn_pp_malformed_ident :
+  Warning<"invalid #ident directive will be ignored">,
+  InGroup<IntelCompat>;
+// endif
 def err_pp_unterminated_conditional : Error<
   "unterminated conditional directive">;
 def pp_err_else_after_else : Error<"#else after #else">;
@@ -540,6 +556,11 @@ def ext_pp_line_zero : Extension<
   InGroup<GNUZeroLineDirective>;
 def err_pp_line_invalid_filename : Error<
   "invalid filename for #line directive">;
+// ifdef INTEL_CUSTOMIZATION
+def warn_pp_line_invalid_filename : Warning<
+  "expected a file name">,
+  InGroup<UnknownPragmas>;
+// endif INTEL_CUSTOMIZATION
 def warn_pp_line_decimal : Warning<
   "%select{#line|GNU line marker}0 directive interprets number as decimal, not octal">;
 def err_pp_line_digit_sequence : Error<

@@ -27,7 +27,6 @@
 #include "polly/Options.h"
 #include "polly/ScopDetection.h"
 #include "polly/ScopInfo.h"
-#include "polly/TempScopInfo.h"
 #include "llvm/Analysis/CFGPrinter.h"
 #include "llvm/IR/LegacyPassManager.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -147,7 +146,6 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializeCodePreparationPass(Registry);
   initializeDeadCodeElimPass(Registry);
   initializeDependenceInfoPass(Registry);
-  initializeIndependentBlocksPass(Registry);
   initializeJSONExporterPass(Registry);
   initializeJSONImporterPass(Registry);
   initializeIslAstInfoPass(Registry);
@@ -155,7 +153,6 @@ void initializePollyPasses(PassRegistry &Registry) {
   initializePollyCanonicalizePass(Registry);
   initializeScopDetectionPass(Registry);
   initializeScopInfoPass(Registry);
-  initializeTempScopInfoPass(Registry);
 }
 
 /// @brief Register Polly passes such that they form a polyhedral optimizer.
@@ -320,9 +317,9 @@ registerPollyScalarOptimizerLatePasses(const llvm::PassManagerBuilder &Builder,
 /// c). b) is likely to early as it interacts with the inliner. c) is nice
 /// as everything is fully inlined and canonicalized, but we need to be able
 /// to handle LICMed code to make it useful.
-static llvm::RegisterStandardPasses
-    RegisterPollyOptimizerEarly(llvm::PassManagerBuilder::EP_EarlyAsPossible,
-                                registerPollyEarlyAsPossiblePasses);
+static llvm::RegisterStandardPasses RegisterPollyOptimizerEarly(
+    llvm::PassManagerBuilder::EP_ModuleOptimizerEarly,
+    registerPollyEarlyAsPossiblePasses);
 
 static llvm::RegisterStandardPasses
     RegisterPollyOptimizerLoopEnd(llvm::PassManagerBuilder::EP_LoopOptimizerEnd,
