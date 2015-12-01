@@ -74,7 +74,7 @@ public:
   }
 
   // \brief Returns Unique Label name.
-  inline StringRef getName() const { return StringRef(Name); }
+  StringRef getName() const { return StringRef(Name); }
 
   /// clone() - Create a copy of 'this' HLLabel that is identical in all
   /// ways except the following:

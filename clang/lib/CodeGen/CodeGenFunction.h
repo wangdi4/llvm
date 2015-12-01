@@ -250,10 +250,6 @@ public:
     ~CGCapturedStmtRAII() { CGF.CapturedStmtInfo = PrevCapturedStmtInfo; }
   };
 
-  /// BoundsChecking - Emit run-time bounds checks. Higher values mean
-  /// potentially higher performance penalties.
-  unsigned char BoundsChecking;
-
   /// \brief Sanitizers enabled for this function.
   SanitizerSet SanOpts;
 
@@ -1237,8 +1233,6 @@ public:
   void generateObjCSetterBody(const ObjCImplementationDecl *classImpl,
                               const ObjCPropertyImplDecl *propImpl,
                               llvm::Constant *AtomicHelperFn);
-  bool IndirectObjCSetterArg(const CGFunctionInfo &FI);
-  bool IvarTypeWithAggrGCObjects(QualType Ty);
 
   //===--------------------------------------------------------------------===//
   //                                  Block Bits
@@ -1247,10 +1241,6 @@ public:
   llvm::Value *EmitBlockLiteral(const BlockExpr *);
   llvm::Value *EmitBlockLiteral(const CGBlockInfo &Info);
   static void destroyBlockInfos(CGBlockInfo *info);
-  llvm::Constant *BuildDescriptorBlockDecl(const BlockExpr *,
-                                           const CGBlockInfo &Info,
-                                           llvm::StructType *,
-                                           llvm::Constant *BlockVarLayout);
 
   llvm::Function *GenerateBlockFunction(GlobalDecl GD,
                                         const CGBlockInfo &Info,
@@ -1276,9 +1266,6 @@ public:
                                 llvm::Value *ptr);
 
   Address LoadBlockStruct();
-
-  void AllocateBlockCXXThisPointer(const CXXThisExpr *E);
-  void AllocateBlockDecl(const DeclRefExpr *E);
   Address GetAddrOfBlockDecl(const VarDecl *var, bool ByRef);
 
   /// BuildBlockByrefAddress - Computes the location of the
@@ -1354,27 +1341,34 @@ public:
   void EmitInitializerForField(FieldDecl *Field, LValue LHS, Expr *Init,
                                ArrayRef<VarDecl *> ArrayIndexes);
 
-  /// InitializeVTablePointer - Initialize the vtable pointer of the given
-  /// subobject.
-  ///
-  void InitializeVTablePointer(BaseSubobject Base,
-                               const CXXRecordDecl *NearestVBase,
-                               CharUnits OffsetFromNearestVBase,
-                               const CXXRecordDecl *VTableClass);
+  /// Struct with all informations about dynamic [sub]class needed to set vptr.
+  struct VPtr {
+    BaseSubobject Base;
+    const CXXRecordDecl *NearestVBase;
+    CharUnits OffsetFromNearestVBase;
+    const CXXRecordDecl *VTableClass;
+  };
+
+  /// Initialize the vtable pointer of the given subobject.
+  void InitializeVTablePointer(const VPtr &vptr);
+
+  typedef llvm::SmallVector<VPtr, 4> VPtrsVector;
 
   typedef llvm::SmallPtrSet<const CXXRecordDecl *, 4> VisitedVirtualBasesSetTy;
-  void InitializeVTablePointers(BaseSubobject Base,
-                                const CXXRecordDecl *NearestVBase,
-                                CharUnits OffsetFromNearestVBase,
-                                bool BaseIsNonVirtualPrimaryBase,
-                                const CXXRecordDecl *VTableClass,
-                                VisitedVirtualBasesSetTy& VBases);
+  VPtrsVector getVTablePointers(const CXXRecordDecl *VTableClass);
+
+  void getVTablePointers(BaseSubobject Base, const CXXRecordDecl *NearestVBase,
+                         CharUnits OffsetFromNearestVBase,
+                         bool BaseIsNonVirtualPrimaryBase,
+                         const CXXRecordDecl *VTableClass,
+                         VisitedVirtualBasesSetTy &VBases, VPtrsVector &vptrs);
 
   void InitializeVTablePointers(const CXXRecordDecl *ClassDecl);
 
   /// GetVTablePtr - Return the Value of the vtable pointer member pointed
   /// to by This.
-  llvm::Value *GetVTablePtr(Address This, llvm::Type *Ty);
+  llvm::Value *GetVTablePtr(Address This, llvm::Type *VTableTy,
+                            const CXXRecordDecl *VTableClass);
 
   enum CFITypeCheckKind {
     CFITCK_VCall,
@@ -1620,10 +1614,6 @@ public:
                                  AggValueSlot::IsNotAliased);
   }
 
-  /// CreateInAllocaTmp - Create a temporary memory object for the given
-  /// aggregate type.
-  AggValueSlot CreateInAllocaTmp(QualType T, const Twine &Name = "inalloca");
-
   /// Emit a cast to void* in the appropriate address space.
   llvm::Value *EmitCastToVoidPtr(llvm::Value *value);
 
@@ -1647,6 +1637,11 @@ public:
   // EmitVAListRef - Emit a "reference" to a va_list; this is either the address
   // or the value of the expression, depending on how va_list is defined.
   Address EmitVAListRef(const Expr *E);
+
+  /// Emit a "reference" to a __builtin_ms_va_list; this is
+  /// always the value of the expression, because a __builtin_ms_va_list is a
+  /// pointer to a char.
+  Address EmitMSVAListRef(const Expr *E);
 
   /// EmitAnyExprToTemp - Similary to EmitAnyExpr(), however, the result will
   /// always be accessible even if no aggregate location is provided.
@@ -1699,10 +1694,6 @@ public:
                          QualType EltTy, bool isVolatile=false,
                          bool isAssignment = false);
 
-  /// StartBlock - Start new block named N. If insert block is a dummy block
-  /// then reuse it.
-  void StartBlock(const char *N);
-
   /// GetAddrOfLocalVar - Return the address of a local variable.
   Address GetAddrOfLocalVar(const VarDecl *VD) {
     auto it = LocalDeclMap.find(VD);
@@ -1745,11 +1736,23 @@ public:
   /// to -1 in accordance with the Itanium C++ ABI.
   void EmitNullInitialization(Address DestPtr, QualType Ty);
 
-  // EmitVAArg - Generate code to get an argument from the passed in pointer
-  // and update it accordingly. The return value is a pointer to the argument.
+  /// Emits a call to an LLVM variable-argument intrinsic, either
+  /// \c llvm.va_start or \c llvm.va_end.
+  /// \param ArgValue A reference to the \c va_list as emitted by either
+  /// \c EmitVAListRef or \c EmitMSVAListRef.
+  /// \param IsStart If \c true, emits a call to \c llvm.va_start; otherwise,
+  /// calls \c llvm.va_end.
+  llvm::Value *EmitVAStartEnd(llvm::Value *ArgValue, bool IsStart);
+
+  /// Generate code to get an argument from the passed in pointer
+  /// and update it accordingly.
+  /// \param VE The \c VAArgExpr for which to generate code.
+  /// \param VAListAddr Receives a reference to the \c va_list as emitted by
+  /// either \c EmitVAListRef or \c EmitMSVAListRef.
+  /// \returns A pointer to the argument.
   // FIXME: We should be able to get rid of this method and use the va_arg
   // instruction in LLVM instead once it works well enough.
-  Address EmitVAArg(Address VAListAddr, QualType Ty);
+  Address EmitVAArg(VAArgExpr *VE, Address &VAListAddr);
 
   /// emitArrayLength - Compute the length of an array, even if it's a
   /// VLA, and drill down to the base element type.
@@ -1784,14 +1787,6 @@ public:
   // that needs to be abstracted properly.
   llvm::Value *LoadCXXVTT() {
     assert(CXXStructorImplicitParamValue && "no VTT value for this function");
-    return CXXStructorImplicitParamValue;
-  }
-
-  /// LoadCXXStructorImplicitParam - Load the implicit parameter
-  /// for a constructor/destructor.
-  llvm::Value *LoadCXXStructorImplicitParam() {
-    assert(CXXStructorImplicitParamValue &&
-           "no implicit argument value for this function");
     return CXXStructorImplicitParamValue;
   }
 
@@ -1836,9 +1831,17 @@ public:
   // they are substantially the same.
   void EmitDelegatingCXXConstructorCall(const CXXConstructorDecl *Ctor,
                                         const FunctionArgList &Args);
+
   void EmitCXXConstructorCall(const CXXConstructorDecl *D, CXXCtorType Type,
                               bool ForVirtualBase, bool Delegating,
                               Address This, const CXXConstructExpr *E);
+
+  /// Emit assumption load for all bases. Requires to be be called only on
+  /// most-derived class and not under construction of the object.
+  void EmitVTableAssumptionLoads(const CXXRecordDecl *ClassDecl, Address This);
+
+  /// Emit assumption that vptr load == global vtable.
+  void EmitVTableAssumptionLoad(const VPtr &vptr, Address This);
 
   void EmitSynthesizedCXXCopyCtorCall(const CXXConstructorDecl *D,
                                       Address This, Address Src,
@@ -2190,10 +2193,14 @@ public:
 
   LValue InitCapturedStruct(const CapturedStmt &S);
   llvm::Function *EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K);
-  void GenerateCapturedStmtFunctionProlog(const CapturedStmt &S);
-  llvm::Function *GenerateCapturedStmtFunctionEpilog(const CapturedStmt &S);
   llvm::Function *GenerateCapturedStmtFunction(const CapturedStmt &S);
   Address GenerateCapturedStmtArgument(const CapturedStmt &S);
+  llvm::Function *
+  GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S,
+                                     bool UseOnlyReferences = false);
+  void GenerateOpenMPCapturedVars(const CapturedStmt &S,
+                                  SmallVectorImpl<llvm::Value *> &CapturedVars,
+                                  bool UseOnlyReferences = false);
   /// \brief Perform element by element copying of arrays with type \a
   /// OriginalType from \a SrcAddr to \a DestAddr using copying procedure
   /// generated by \a CopyGen.
@@ -2513,7 +2520,6 @@ public:
   // Note: only available for agg return types
   LValue EmitVAArgExprLValue(const VAArgExpr *E);
   LValue EmitDeclRefLValue(const DeclRefExpr *E);
-  LValue EmitReadRegister(const VarDecl *VD);
   LValue EmitStringLiteralLValue(const StringLiteral *E);
   LValue EmitObjCEncodeExprLValue(const ObjCEncodeExpr *E);
   LValue EmitPredefinedLValue(const PredefinedExpr *E);
@@ -2627,6 +2633,8 @@ public:
   RValue EmitCallExpr(const CallExpr *E,
                       ReturnValueSlot ReturnValue = ReturnValueSlot());
 
+  bool checkBuiltinTargetFeatures(const FunctionDecl *TargetDecl);
+
   llvm::CallInst *EmitRuntimeCall(llvm::Value *callee,
                                   const Twine &name = "");
   llvm::CallInst *EmitRuntimeCall(llvm::Value *callee,
@@ -2640,8 +2648,6 @@ public:
 
   llvm::CallSite EmitCallOrInvoke(llvm::Value *Callee,
                                   ArrayRef<llvm::Value *> Args,
-                                  const Twine &Name = "");
-  llvm::CallSite EmitCallOrInvoke(llvm::Value *Callee,
                                   const Twine &Name = "");
   llvm::CallSite EmitRuntimeCallOrInvoke(llvm::Value *callee,
                                          ArrayRef<llvm::Value*> args,
@@ -2729,8 +2735,6 @@ public:
                                    bool negateForRightShift);
   llvm::Value *EmitNeonRShiftImm(llvm::Value *Vec, llvm::Value *Amt,
                                  llvm::Type *Ty, bool usgn, const char *name);
-  // Helper functions for EmitAArch64BuiltinExpr.
-  llvm::Value *vectorWrapScalar8(llvm::Value *Op);
   llvm::Value *vectorWrapScalar16(llvm::Value *Op);
   llvm::Value *EmitAArch64BuiltinExpr(unsigned BuiltinID, const CallExpr *E);
 
@@ -2791,8 +2795,6 @@ public:
   EmitARCStoreStrong(const BinaryOperator *e, bool ignored);
 
   llvm::Value *EmitObjCThrowOperand(const Expr *expr);
-
-  llvm::Value *EmitObjCProduceObject(QualType T, llvm::Value *Ptr);
   llvm::Value *EmitObjCConsumeObject(QualType T, llvm::Value *Ptr);
   llvm::Value *EmitObjCExtendObjectLifetime(QualType T, llvm::Value *Ptr);
 
@@ -2844,11 +2846,6 @@ public:
   /// EmitAggExprToLValue - Emit the computation of the specified expression of
   /// aggregate type into a temporary LValue.
   LValue EmitAggExprToLValue(const Expr *E);
-
-  /// EmitGCMemmoveCollectable - Emit special API for structs with object
-  /// pointers.
-  void EmitGCMemmoveCollectable(llvm::Value *DestPtr, llvm::Value *SrcPtr,
-                                QualType Ty);
 
   /// EmitExtendGCLifetime - Given a pointer to an Objective-C object,
   /// make sure it survives garbage collection until this point.

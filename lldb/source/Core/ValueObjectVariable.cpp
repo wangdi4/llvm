@@ -91,7 +91,7 @@ ValueObjectVariable::GetQualifiedTypeName()
 }
 
 size_t
-ValueObjectVariable::CalculateNumChildren()
+ValueObjectVariable::CalculateNumChildren(uint32_t max)
 {    
     CompilerType type(GetCompilerType());
     
@@ -99,7 +99,8 @@ ValueObjectVariable::CalculateNumChildren()
         return 0;
     
     const bool omit_empty_base_classes = true;
-    return type.GetNumChildren(omit_empty_base_classes);
+    auto child_count = type.GetNumChildren(omit_empty_base_classes);
+    return child_count <= max ? child_count : max;
 }
 
 uint64_t
@@ -168,15 +169,15 @@ ValueObjectVariable::UpdateValue ()
             m_resolved_value = m_value;
             m_value.SetContext(Value::eContextTypeVariable, variable);
             
-            CompilerType clang_type = GetCompilerType();
-            if (clang_type.IsValid())
-                m_value.SetCompilerType(clang_type);
+            CompilerType compiler_type = GetCompilerType();
+            if (compiler_type.IsValid())
+                m_value.SetCompilerType(compiler_type);
 
             Value::ValueType value_type = m_value.GetValueType();
 
             Process *process = exe_ctx.GetProcessPtr();
             const bool process_is_alive = process && process->IsAlive();
-            const uint32_t type_info = clang_type.GetTypeInfo();
+            const uint32_t type_info = compiler_type.GetTypeInfo();
             const bool is_pointer_or_ref = (type_info & (lldb::eTypeIsPointer | lldb::eTypeIsReference)) != 0;
 
             switch (value_type)

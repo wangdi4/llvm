@@ -697,6 +697,12 @@ void OMPClausePrinter::VisitOMPSeqCstClause(OMPSeqCstClause *) {
   OS << "seq_cst";
 }
 
+void OMPClausePrinter::VisitOMPThreadsClause(OMPThreadsClause *) {
+  OS << "threads";
+}
+
+void OMPClausePrinter::VisitOMPSIMDClause(OMPSIMDClause *) { OS << "simd"; }
+
 void OMPClausePrinter::VisitOMPDeviceClause(OMPDeviceClause *Node) {
   OS << "device(";
   Node->getDevice()->printPretty(OS, nullptr, Policy, 0);
@@ -958,7 +964,7 @@ void StmtPrinter::VisitOMPFlushDirective(OMPFlushDirective *Node) {
 }
 
 void StmtPrinter::VisitOMPOrderedDirective(OMPOrderedDirective *Node) {
-  Indent() << "#pragma omp ordered";
+  Indent() << "#pragma omp ordered ";
   PrintOMPExecutableDirective(Node);
 }
 
@@ -991,7 +997,7 @@ void StmtPrinter::VisitOMPCancellationPointDirective(
 
 void StmtPrinter::VisitOMPCancelDirective(OMPCancelDirective *Node) {
   Indent() << "#pragma omp cancel "
-           << getOpenMPDirectiveName(Node->getCancelRegion());
+           << getOpenMPDirectiveName(Node->getCancelRegion()) << " ";
   PrintOMPExecutableDirective(Node);
 }
 //===----------------------------------------------------------------------===//
@@ -1300,9 +1306,11 @@ void StmtPrinter::VisitOMPArraySectionExpr(OMPArraySectionExpr *Node) {
   OS << "[";
   if (Node->getLowerBound())
     PrintExpr(Node->getLowerBound());
-  OS << ":";
-  if (Node->getLength())
-    PrintExpr(Node->getLength());
+  if (Node->getColonLoc().isValid()) {
+    OS << ":";
+    if (Node->getLength())
+      PrintExpr(Node->getLength());
+  }
   OS << "]";
 }
 
@@ -1719,7 +1727,7 @@ void StmtPrinter::VisitUserDefinedLiteral(UserDefinedLiteral *Node) {
     assert(Args);
 
     if (Args->size() != 1) {
-      OS << "operator \"\" " << Node->getUDSuffix()->getName();
+      OS << "operator\"\"" << Node->getUDSuffix()->getName();
       TemplateSpecializationType::PrintTemplateArgumentList(
           OS, Args->data(), Args->size(), Policy);
       OS << "()";

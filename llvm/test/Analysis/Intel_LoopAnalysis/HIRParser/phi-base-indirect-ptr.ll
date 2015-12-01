@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-de-ssa | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that indirect pointer with phi base is parsed correctly.
 ; CHECK: DO i1 = 0, %n + -1

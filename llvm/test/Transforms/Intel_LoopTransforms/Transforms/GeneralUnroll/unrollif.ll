@@ -1,40 +1,23 @@
 ; Test for General unrolling with if condition.
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s  | FileCheck %s 
-; CHECK: entry
-
-; terminator of entry bblock should point to new unrolled region.
-; CHECK: for.body:
-; CHECK: br i1 true, {{.*}}label %region
-
-; check loop is unrolled.
-; CHECK: region:
-; CHECK: loop{{.*}}
-
-; IV is mult by Unroll Factor
-; CHECK: mul i64 8
-
-; Test If is unrolled 8 times
-; CHECK: then
-; CHECK: then
-; CHECK: then
-; CHECK: then
-; CHECK: then
-; CHECK: then
-; CHECK: then
-; CHECK: then
-
-; UB Test of Unrolled Loop
-; CHECK: icmp sle i64 %nextivloop{{.*}}, 123
-
-; Remainder loop
-; CHECK: afterloop{{.*}}
-; LB of Remainder loop
-; CHECK: store i64 992
-; Loop body is same as original loop
-; CHECK: then
-; CHECK: add i64 {{.*}}, 1
-
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; HIR Check
+; CHECK: BEGIN REGION { modified }
+; Check unrolling of loop.
+; CHECK: DO i1 = 0, 123, 1
+; CHECK: if
+; CHECK: if
+; CHECK: if
+; CHECK: if
+; CHECK: if
+; CHECK: if
+; CHECK: if
+; CHECK: if (8 * i1 + 8 > 1)
+; CHECK: END LOOP
+; CHECK-NEXT: DO i1 = 992, 998, 1
+; CHECK: if (i1 + 1 > 1)
+; CHECK: END LOOP
+; CHECK-NEXT: END REGION
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

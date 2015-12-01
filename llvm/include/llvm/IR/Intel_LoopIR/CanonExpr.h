@@ -35,7 +35,7 @@ class SCEV;
 namespace loopopt {
 
 /// \brief The maximum loopnest level allowed in HIR.
-const unsigned MaxLoopNestLevel = 9;
+const int MaxLoopNestLevel = 9;
 
 /// \brief Canonical form in high level IR
 ///
@@ -92,7 +92,12 @@ private:
 
 public:
   typedef const SCEV *BlobTy;
-  typedef SmallVector<BlobTy, 64> BlobTableTy;
+  typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
+  typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
+
+  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
+  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
+
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
   typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
@@ -111,41 +116,54 @@ public:
   typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
   typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator;
 
+  static const unsigned INVALID_BLOB_INDEX = 0;
+
 private:
   /// \brief Copy constructor; only used for cloning.
   CanonExpr(const CanonExpr &);
   /// \brief Make class unassignable.
   void operator=(const CanonExpr &) = delete;
 
-  /// \brief Destroys all objects of this class. Should only be
-  /// called after code gen.
+  /// \brief Destroys all objects of this class. Should only be called after
+  /// code gen.
   static void destroyAll();
-  /// Keeps track of objects of this class.
+  // Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
 
-  /// BlobTable - vector containing blobs for the function.
-  /// TODO: Think about adding another vector sorted by blobs to provide faster
-  /// lookup for Blob -> Index.
-  /// Moved here from HIRParser to allow printer to print blobs without needing
-  /// the parser.
+  // BlobTable - vector containing blobs and corresponding symbases for the
+  // function.
+  // Moved here from HIRParser to allow printer to print blobs without needing
+  // the parser.
   static BlobTableTy BlobTable;
 
-  Type *Ty;
+  // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
+  // faster lookup.
+  static BlobToIndexTy BlobToIndexMap;
+
+  // SrcTy and DestTy hide one level of casting applied on top of the canonical
+  // form.
+  // If they are different, either both are integer types(regular canon exprs)
+  // or pointer types(base canon exprs of GEP DDRefs).
+  // Both types are identical in the absence of casting.
+  Type *SrcTy;
+  Type *DestTy;
+  // Capture whether we are hiding signed or zero extension.
+  bool IsSExt;
   int DefinedAtLevel;
   IVCoeffsTy IVCoeffs;
   BlobCoeffsTy BlobCoeffs;
   int64_t Const;
   int64_t Denominator;
+  // Capture whether we are representing signed or unsigned division.
+  bool IsSignedDiv;
 
-  /// \brief Internal method to check blob index range.
-  static bool isBlobIndexValid(unsigned Index);
-
-  /// \brief Internal method to check level range.
-  static bool isLevelValid(unsigned Level);
+  // The flag is set if expression contains UndefValue term
+  bool IsUndefined;
 
 protected:
-  CanonExpr(Type *Typ, unsigned DefLevel, int64_t ConstVal, int64_t Denom);
-  virtual ~CanonExpr() {};
+  CanonExpr(Type *SrcType, Type *DestType, bool IsSExt, unsigned DefLevel,
+            int64_t ConstVal, int64_t Denom, bool IsSignedDiv);
+  virtual ~CanonExpr(){};
 
   friend class CanonExprUtils;
   friend class HIRParser;
@@ -153,19 +171,42 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
+  /// \brief Internal method to check blob index range.
+  static bool isBlobIndexValid(unsigned Index);
+
+  /// \brief Internal method to check level range.
+  static bool isLevelValid(unsigned Level);
+
   /// \brief Implements find()/insert() functionality.
-  static unsigned findOrInsertBlobImpl(BlobTy Blob, bool Insert);
+  /// ReturnSymbase indicates whether to return blob index or symbase.
+  static unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
+                                       bool Insert, bool ReturnSymbase);
 
   /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns 0 if the blob is not present in the table.
+  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
+  /// table.
   static unsigned findBlob(BlobTy Blob);
+
+  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
+  /// non-temp or non-present blobs.
+  static unsigned findBlobSymbase(BlobTy Blob);
+
   /// \brief Returns the index of Blob in the blob table. Blob is first
   /// inserted, if it isn't already present in the blob table. Index range is
   /// [1, UINT_MAX].
-  static unsigned findOrInsertBlob(BlobTy Blob);
+  static unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
 
-  /// \brief Returns blob corresponding to BlobIndex.
-  static BlobTy getBlob(unsigned BlobIndex);
+  /// \brief Returns blob corresponding to Index.
+  static BlobTy getBlob(unsigned Index);
+
+  /// \brief Returns symbase corresponding to Index. Returns invalid value for
+  /// non-temp non-present blobs.
+  static unsigned getBlobSymbase(unsigned Index);
+
+  /// \brief Maps blobs in Blobs to their corresponding indices and inserts them
+  /// in Indices.
+  static void mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
+                                SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Implements hasIV()/numIV() and hasBlobIVCoeffs()/numBlobIVCoeffs()
   /// functionality.
@@ -195,6 +236,16 @@ protected:
   /// indicates whether simplification can be performed.
   void multiplyByConstantImpl(int64_t Val, bool Simplify);
 
+  /// \brief Implements is*Ext() and isTrunc() functionality.
+  bool isExtImpl(bool IsSigned, bool IsTrunc) const;
+
+  /// \brief Implements collect*BlobIndices() functionality.
+  void collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
+                              bool MakeUnique, bool NeedTempBlobs) const;
+
+  /// \brief Marks this expressions as undefined.
+  void setUndefined(bool Undefined = true) { this->IsUndefined = Undefined; }
+
 public:
   CanonExpr *clone() const;
   /// \brief Dumps CanonExpr.
@@ -202,9 +253,30 @@ public:
   /// \brief Prints CanonExpr.
   void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
-  /// \brief Returns the LLVM type of this canon expr.
-  Type *getType() const { return Ty; }
-  void setType(Type *Typ) { Ty = Typ; }
+  /// \brief Returns the src type of this canon expr.
+  Type *getSrcType() const { return SrcTy; }
+  void setSrcType(Type *SrcType) { SrcTy = SrcType; }
+
+  /// \brief Returns the dest type of this canon expr.
+  Type *getDestType() const { return DestTy; }
+  void setDestType(Type *DestType) { DestTy = DestType; }
+
+  /// \brief Returns true if the canon expr is hiding a signed extension.
+  bool isSExt() const;
+
+  /// \brief Returns true if the canon expr is hiding a zero extension.
+  bool isZExt() const;
+
+  /// \brief Returns true if the canon expr is hiding a trunc.
+  bool isTrunc() const;
+
+  /// \brief Returns true if the canon expr is hiding a pointer to pointer
+  /// bitcast.
+  bool isPtrToPtrCast() const;
+
+  /// \brief Sets the extension type (signed or unsigned) for canon expr. This
+  /// can be a no-op depending upon src and dest types.
+  void setExtType(bool SExt) { IsSExt = SExt; }
 
   /// \brief Returns the innermost level at which some blob present
   /// in this canon expr is defined. The canon expr in linear in all
@@ -222,14 +294,24 @@ public:
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
+
   /// \brief Returns true if this is linear at some levels (greater than
   /// DefinedAtLevel) in the current loopnest.
   bool isLinearAtLevel() const { return (DefinedAtLevel >= 0); }
+
   /// \brief Returns true if some blob in the canon expr is defined in
   /// the current loop level.
   bool isNonLinear() const { return (DefinedAtLevel == -1); }
+
   /// \brief Mark this canon expr as non-linear.
   void setNonLinear() { DefinedAtLevel = -1; }
+
+  /// \brief Returns true if the canon expr is linear at level and does not
+  /// have IV at given level.
+  bool isInvariantAtLevel(unsigned Level) const {
+    return (isLinearAtLevel() && (DefinedAtLevel < (int)(Level)) &&
+            !hasIV(Level));
+  }
 
   /// IV iterator methods
   iv_iterator iv_begin() { return IVCoeffs.begin(); }
@@ -256,7 +338,8 @@ public:
   /// \brief Returns true if constant integer and its value, otherwise false
   bool isConstant(int64_t *Val = nullptr) const {
 
-    bool result = !(hasIV() || hasBlob() || (getDenominator() != 1));
+    bool result =
+        !(isUndefined() || hasIV() || hasBlob() || (getDenominator() != 1));
 
     if (result && Val != nullptr) {
       *Val = getConstant();
@@ -276,6 +359,7 @@ public:
     }
     return false;
   }
+
   /// \brief return true if the CanonExpr is one
   bool isOne() const {
     int64_t Val;
@@ -285,51 +369,17 @@ public:
     return false;
   }
 
-  // TODO:
-  // Extend later for non-constant, e.g. based on UpperBound canon
-  /// \brief return true if non-zero
-  bool isKnownNonZERO() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val != 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if non-positive
-  bool isKnownNonPositive() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val < 1) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if non-negative
-  bool isKnownNonNegative() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val >= 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if negative
-  bool isKnownNegative() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val < 0) {
-      return true;
-    }
-    return false;
-  }
-  /// \brief return true if positive
-  bool isKnownPositive() const {
-    int64_t Val;
-    if (isConstant(&Val) && Val > 0) {
-      return true;
-    }
-    return false;
-  }
+  /// \brief Returns true if this expression contains undefined terms.
+  bool isUndefined() const { return IsUndefined; }
+
   /// \brief Returns the constant additive of the canon expr.
   int64_t getConstant() const { return Const; }
+  /// \brief Sets the constant additive of the canon expr.
   void setConstant(int64_t Val) { Const = Val; }
+
+  /// \brief Adds a constant value (Val) to the existing constant additive
+  /// of the canon expr.
+  void addConstant(int64_t Val) { Const += Val; }
 
   /// \brief Returns the denominator of the canon expr.
   int64_t getDenominator() const { return Denominator; }
@@ -339,8 +389,22 @@ public:
   /// the denominator.
   void setDenominator(int64_t Val, bool Simplify = false);
 
+  /// \brief Multiplies the constant value (Val) with the existing denominator
+  /// of the canon expr. The new denominator equals (Old denominator * Val).
+  void multiplyDenominator(int64_t Val, bool Simplify = false);
+
+  /// \brief Returns true if the division in the canon expr is a signed
+  /// division.
+  bool isSignedDiv() const { return IsSignedDiv; }
+
+  /// \brief Sets the division type which can be either signed or unsigned. This
+  /// is a no-op for unit denominator.
+  void setDivisionType(bool SignedDiv) { IsSignedDiv = SignedDiv; }
+
   /// \brief Returns true if this contains any IV.
   bool hasIV() const;
+  /// \brief Returns true if this contains IV at the given Level.
+  bool hasIV(unsigned Level) const;
   /// \brief Returns the number of non-zero IVs in the canon expr.
   unsigned numIVs() const;
 
@@ -371,8 +435,8 @@ public:
   void setIVCoeff(iv_iterator IVI, unsigned Index, int64_t Coeff);
 
   /// \brief Returns the blob coefficient associated with an IV at a particular
-  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns 0 if there is
-  /// no blob coeff.
+  /// loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns invalid value if
+  /// there is no blob coeff.
   unsigned getIVBlobCoeff(unsigned Lvl) const;
   /// \brief Iterator version of getIVBlobCoeff().
   unsigned getIVBlobCoeff(const_iv_iterator ConstIVIter) const;
@@ -485,9 +549,17 @@ public:
   /// \brief Multiplies this canon expr by a blob.
   void multiplyByBlob(unsigned Index);
 
-  /// \brief Populates BlobIndices with all blobs contained in the CanonExpr
-  /// (including blob IV coeffs).
-  void extractBlobIndices(SmallVectorImpl<unsigned> &Indices);
+  /// \brief Populates Indices with all the blobs contained in the CanonExpr
+  /// (including blob IV coeffs). The blobs are sorted and uniqued if MakeUnique
+  /// is true.
+  void collectBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                          bool MakeUnique = true) const;
+
+  /// \brief Populates Indices with all the temp blobs contained in the
+  /// CanonExpr (including blob IV coeffs). The blobs are sorted and uniqued if
+  /// MakeUnique is true.
+  void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
+                              bool MakeUnique = true) const;
 
   /// \brief Simplifies canon expr by dividing numerator and denominator by
   /// common gcd.
@@ -498,6 +570,9 @@ public:
 
   /// \brief Negates canon expr.
   void negate();
+
+  /// \brief Verifies canon expression
+  void verify() const;
 };
 
 } // End loopopt namespace

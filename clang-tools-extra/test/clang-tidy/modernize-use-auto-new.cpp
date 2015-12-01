@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s modernize-use-auto %t
+// RUN: %check_clang_tidy %s modernize-use-auto %t
 
 class MyType {};
 
@@ -95,4 +95,9 @@ void auto_new() {
     // CHECK-MESSAGES: :[[@LINE-1]]:5: warning: use auto when initializing with new
     // CHECK-FIXES: auto g = new int*, h = new int_p;
   }
+
+  // Don't warn when 'auto' is already being used.
+  auto aut = new MyType();
+  auto *paut = new MyType();
+  const auto *pcaut = new MyType();
 }

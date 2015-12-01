@@ -126,7 +126,6 @@ SOURCES= Polly.cpp \
          Analysis/ScopInfo.cpp \
          Analysis/ScopGraphPrinter.cpp \
          Analysis/ScopPass.cpp \
-         Analysis/TempScopInfo.cpp \
          CodeGen/BlockGenerators.cpp \
          CodeGen/LoopGenerators.cpp \
          CodeGen/IRBuilder.cpp \
@@ -136,7 +135,6 @@ SOURCES= Polly.cpp \
          Transform/Canonicalization.cpp \
          Transform/CodePreparation.cpp \
          Transform/DeadCodeElimination.cpp \
-         Transform/IndependentBlocks.cpp \
          Transform/ScheduleOptimizer.cpp \
          ${GPGPU_FILES} \
          ${ISL_CODEGEN_FILES} \

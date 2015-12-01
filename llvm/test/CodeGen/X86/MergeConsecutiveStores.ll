@@ -147,7 +147,7 @@ define void @merge_nonconst_store(i32 %count, i8 %zz, %struct.A* nocapture %p) n
 
 ; CHECK-LABEL: merge_loads_i16:
 ;  load:
-; CHECK: {{movw|movzwl}}
+; CHECK: {{movw|movzwl}}                                    ;INTEL
 ;  store:
 ; CHECK: movw
 ; CHECK: ret
@@ -181,11 +181,11 @@ define void @merge_loads_i16(i32 %count, %struct.A* noalias nocapture %q, %struc
 ; The loads and the stores are interleaved. Can't merge them.
 ; CHECK-LABEL: no_merge_loads:
 ; load:
-; CHECK: {{movb|movzbl}}
+; CHECK: {{movb|movzbl}}                                      ;INTEL
 ; store:
 ; CHECK: movb
 ; load:
-; CHECK: {{movb|movzbl}}
+; CHECK: {{movb|movzbl}}                                      ;INTEL
 ; store:
 ; CHECK: movb
 ; CHECK: ret
@@ -337,8 +337,8 @@ block4:                                       ; preds = %4, %.lr.ph
 ; Make sure that we merge the consecutive load/store sequence below and use a
 ; word (16 bit) instead of a byte copy.
 ; CHECK-LABEL: MergeLoadStoreBaseIndexOffset:
-; CHECK: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
-; CHECK: movw               %[[REG]], (%{{.*}})
+; CHECK: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]  ;INTEL
+; CHECK: movw               %[[REG]], (%{{.*}})                        ;INTEL
 define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -369,8 +369,8 @@ define void @MergeLoadStoreBaseIndexOffset(i64* %a, i8* %b, i8* %c, i32 %n) {
 ; word (16 bit) instead of a byte copy even if there are intermediate sign
 ; extensions.
 ; CHECK-LABEL: MergeLoadStoreBaseIndexOffsetSext:
-; CHECK: {{movw|movzwl}}  (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
-; CHECK: movw             %[[REG]], (%{{.*}})
+; CHECK: {{movw|movzwl}}  (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]   ;INTEL
+; CHECK: movw             %[[REG]], (%{{.*}})                         ;INTEL
 define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -401,8 +401,8 @@ define void @MergeLoadStoreBaseIndexOffsetSext(i8* %a, i8* %b, i8* %c, i32 %n) {
 ; However, we can only merge ignore sign extensions when they are on all memory
 ; computations;
 ; CHECK-LABEL: loadStoreBaseIndexOffsetSextNoSex:
-; CHECK-NOT: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]]
-; CHECK-NOT: movw               %[[REG]], (%{{.*}})
+; CHECK-NOT: {{movw|movzwl}}    (%{{.*}},%{{.*}}), %{{e?}}[[REG:[abcd]x]];INTEL
+; CHECK-NOT: movw               %[[REG]], (%{{.*}})                      ;INTEL
 define void @loadStoreBaseIndexOffsetSextNoSex(i8* %a, i8* %b, i8* %c, i32 %n) {
   br label %1
 
@@ -482,10 +482,8 @@ define void @merge_vec_extract_stores(<8 x float> %v1, <8 x float> %v2, <4 x flo
   ret void
 
 ; CHECK-LABEL: merge_vec_extract_stores:
-; CHECK:      vmovaps %xmm0, 48(%rdi)
-; CHECK-NEXT: vextractf128 $1, %ymm0, 64(%rdi)
-; CHECK-NEXT: vmovaps %xmm1, 80(%rdi)
-; CHECK-NEXT: vextractf128 $1, %ymm1, 96(%rdi)
+; CHECK:      vmovups %ymm0, 48(%rdi)
+; CHECK-NEXT: vmovups %ymm1, 80(%rdi)
 ; CHECK-NEXT: vzeroupper
 ; CHECK-NEXT: retq
 }

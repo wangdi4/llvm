@@ -467,6 +467,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
 #include "llvm/Support/ELFRelocs/Hexagon.def"
     break;
   case ELF::EM_386:
+#if INTEL_CUSTOMIZATION
+  case ELF::EM_IAMCU:
+#endif //INTEL_CUSTOMIZATION
 #include "llvm/Support/ELFRelocs/i386.def"
     break;
   case ELF::EM_AARCH64:

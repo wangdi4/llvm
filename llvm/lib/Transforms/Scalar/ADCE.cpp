@@ -1,4 +1,4 @@
-//===- DCE.cpp - Code to perform dead code elimination --------------------===//
+//===- ADCE.cpp - Code to perform dead code elimination -------------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -19,6 +19,8 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/Intel_Andersens.h"  // INTEL
+#include "llvm/Analysis/GlobalsModRef.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/InstIterator.h"
@@ -42,6 +44,8 @@ struct ADCE : public FunctionPass {
 
   void getAnalysisUsage(AnalysisUsage& AU) const override {
     AU.setPreservesCFG();
+    AU.addPreserved<AndersensAAWrapperPass>();     // INTEL
+    AU.addPreserved<GlobalsAAWrapperPass>();
   }
 };
 }

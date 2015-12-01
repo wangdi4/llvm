@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s readability-braces-around-statements %t
+// RUN: %check_clang_tidy %s readability-braces-around-statements %t
 
 void do_something(const char *) {}
 
@@ -183,4 +183,12 @@ int test_macros(bool b) {
   // CHECK-FIXES: } else {
   // CHECK-FIXES-NEXT:   M(return 2);
   // CHECK-FIXES-NEXT: }
+  M(
+    for (;;)
+      ;
+  );
+  // CHECK-MESSAGES: :[[@LINE-3]]:13: warning: statement should be inside braces
+  // CHECK-FIXES: {{^}}    for (;;) {{{$}}
+  // CHECK-FIXES-NEXT: {{^      ;$}}
+  // CHECK-FIXES-NEXT: {{^}$}}
 }

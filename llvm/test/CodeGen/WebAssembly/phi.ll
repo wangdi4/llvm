@@ -1,8 +1,5 @@
 ; RUN: llc < %s -asm-verbose=false | FileCheck %s
 
-; This test depends on branching support, which is not yet checked in.
-; XFAIL: *
-
 ; Test that phis are lowered.
 
 target datalayout = "e-p:32:32-i64:64-n32:64-S128"
@@ -10,10 +7,12 @@ target triple = "wasm32-unknown-unknown"
 
 ; Basic phi triangle.
 
-; CHECK-LABEL: test0
-; CHECK: (setlocal [[REG:@.*]] (argument 0))
-; CHECK: (setlocal [[REG]] (sdiv [[REG]] {{.*}}))
-; CHECK: (return [[REG]])
+; CHECK-LABEL: test0:
+; CHECK: get_local 0{{$}}
+; CHECK: set_local [[REG:.*]], pop
+; CHECK: div_s (get_local [[REG]]), {{.*}}
+; CHECK: set_local [[REG]], pop
+; CHECK: return (get_local [[REG]])
 define i32 @test0(i32 %p) {
 entry:
   %t = icmp slt i32 %p, 0
@@ -28,11 +27,14 @@ done:
 
 ; Swap phis.
 
-; CHECK-LABEL: test1
-; CHECK: BB0_1:
-; CHECK: (setlocal [[REG0:@.*]] [[REG1:@.*]])
-; CHECK: (setlocal [[REG1]] [[REG2:@.*]])
-; CHECK: (setlocal [[REG2]] [[REG0]])
+; CHECK-LABEL: test1:
+; CHECK: BB1_1:
+; CHECK: get_local [[REG1:.*]]
+; CHECK: set_local [[REG0:.*]], pop
+; CHECK: get_local [[REG2:.*]]
+; CHECK: set_local [[REG1]], pop
+; CHECK: [[REG0]]
+; CHECK: set_local [[REG2]], pop
 define i32 @test1(i32 %n) {
 entry:
   br label %loop

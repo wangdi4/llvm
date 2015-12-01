@@ -15,10 +15,16 @@
 
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/LLVMContext.h"
+
+#include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
+
 #include "llvm/Support/ErrorHandling.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;
@@ -26,17 +32,25 @@ using namespace loopopt;
 
 HIRParser *HLUtils::HIRPar(nullptr);
 
-CanonExpr *CanonExprUtils::createCanonExpr(Type *Typ, unsigned Level,
-                                           int64_t Const, int64_t Denom) {
-
-  return new CanonExpr(Typ, Level, Const, Denom);
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
+                                           int64_t Const, int64_t Denom,
+                                           bool IsSignedDiv) {
+  return new CanonExpr(Ty, Ty, false, Level, Const, Denom, IsSignedDiv);
 }
 
-CanonExpr *CanonExprUtils::createCanonExpr(const APInt &APVal, int Level) {
+CanonExpr *CanonExprUtils::createExtCanonExpr(Type *SrcType, Type *DestType,
+                                              bool IsSExt, unsigned Level,
+                                              int64_t Const, int64_t Denom,
+                                              bool IsSignedDiv) {
+  return new CanonExpr(SrcType, DestType, IsSExt, Level, Const, Denom,
+                       IsSignedDiv);
+}
+
+CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, const APInt &APVal,
+                                           int Level) {
   // make apint into a CanonExpr
   int64_t Val = APVal.getSExtValue();
-  Type *Int64Type = IntegerType::get(getGlobalContext(), 64);
-  return createCanonExpr(Int64Type, Level, Val, 1);
+  return createCanonExpr(Ty, Level, Val);
 }
 
 void CanonExprUtils::destroy(CanonExpr *CE) { CE->destroy(); }
@@ -81,22 +95,33 @@ unsigned CanonExprUtils::findBlob(CanonExpr::BlobTy Blob) {
   return CanonExpr::findBlob(Blob);
 }
 
+unsigned CanonExprUtils::findBlobSymbase(CanonExpr::BlobTy Blob) {
+  return CanonExpr::findBlobSymbase(Blob);
+}
+
+unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob,
+                                          unsigned Symbase) {
+  return CanonExpr::findOrInsertBlob(Blob, Symbase);
+}
+
 unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findOrInsertBlob(Blob);
+  return CanonExpr::findOrInsertBlob(Blob, 0);
 }
 
 CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
 }
 
-void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob,
-                               bool Detailed) {
-  getHIRParser()->printBlob(OS, Blob, Detailed);
+unsigned CanonExprUtils::getBlobSymbase(unsigned BlobIndex) {
+  return CanonExpr::getBlobSymbase(BlobIndex);
 }
 
-void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase,
-                                 bool Detailed) {
-  getHIRParser()->printScalar(OS, Symbase, Detailed);
+void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
+  getHIRParser()->printBlob(OS, Blob);
+}
+
+void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
+  getHIRParser()->printScalar(OS, Symbase);
 }
 
 bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
@@ -107,9 +132,17 @@ bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isTempBlob(Blob);
 }
 
+bool CanonExprUtils::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) {
+  return getHIRParser()->isGuaranteedProperLinear(TempBlob);
+}
+
+bool CanonExprUtils::isUndefBlob(const CanonExpr::BlobTy Blob) {
+  return getHIRParser()->isUndefBlob(Blob);
+}
+
 CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
                                              unsigned *NewBlobIndex) {
-  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+  return getHIRParser()->createBlob(Val, 0, Insert, NewBlobIndex);
 }
 
 CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
@@ -163,28 +196,88 @@ CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
   return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val) {
+bool CanonExprUtils::contains(CanonExpr::BlobTy Blob,
+                              CanonExpr::BlobTy SubBlob) {
+  return getHIRParser()->contains(Blob, SubBlob);
+}
+
+void CanonExprUtils::collectTempBlobs(
+    CanonExpr::BlobTy Blob, SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) {
+  return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
+}
+
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
+                                                   unsigned Symbase) {
   unsigned Index;
 
-  getHIRParser()->createBlob(Val, true, &Index);
-  auto CE = createCanonExpr(Val->getType());
-  CE->addBlob(Index, 1);
-  CE->setNonLinear();
+  getHIRParser()->createBlob(Temp, Symbase, true, &Index);
+  auto CE = createSelfBlobCanonExpr(Index, -1);
 
   return CE;
 }
 
-bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
-  return (CE1->getType() == CE2->getType());
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
+  auto Blob = getBlob(Index);
+
+  assert(isTempBlob(Blob) && "Unexpected temp blob!");
+
+  auto CE = createCanonExpr(Blob->getType());
+  CE->addBlob(Index, 1);
+
+  if (-1 == Level) {
+    CE->setNonLinear();
+  } else {
+    assert(Level >= 0 && "Invalid level!");
+    CE->setDefinedAtLevel(Level);
+  }
+
+  if (isUndefBlob(Blob)) {
+    CE->setUndefined();
+  }
+
+  return CE;
 }
 
-bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
+bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                                 bool IgnoreDestType) {
+  return (CE1->getSrcType() == CE2->getSrcType()) &&
+         (IgnoreDestType || (CE1->getDestType() == CE2->getDestType() &&
+                             (CE1->isSExt() == CE2->isSExt())));
+}
+
+bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
+                               bool IgnoreDestType) {
+  // TODO: allow merging if only one of the CEs has a distinct destination type?
+  if (!isTypeEqual(CE1, CE2, IgnoreDestType)) {
+    return false;
+  }
+
+  // TODO: Look into the safety of merging signed/unsigned divisons.
+  // We allow merging if one of the denominators is 1 even if the signed
+  // division flag is different. The merged canon expr takes the flag from the
+  // canon expr with non-unit denominator.
+  if ((CE1->getDenominator() != 1) && (CE2->getDenominator() != 1)) {
+    return (CE1->isSignedDiv() == CE2->isSignedDiv());
+  }
+
+  return true;
+}
+
+bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
+                              bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
   // Match the types.
-  if (!isTypeEqual(CE1, CE2))
+  if (!mergeable(CE1, CE2, IgnoreDestType)) {
     return false;
+  }
+
+  // Match defined at level.
+  if ((CE1->isNonLinear() != CE2->isNonLinear()) ||
+      (CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
+    return false;
+  }
 
   if ((CE1->Const != CE2->Const) ||
       (CE1->getDenominator() != CE2->getDenominator())) {
@@ -192,8 +285,9 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
   }
 
   // Check the number of blobs.
-  if (CE1->numBlobs() != CE2->numBlobs())
+  if (CE1->numBlobs() != CE2->numBlobs()) {
     return false;
+  }
 
   auto IVIt1 = CE1->iv_begin();
   auto IVIt2 = CE2->iv_begin();
@@ -233,11 +327,11 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2) {
   return true;
 }
 
-CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
-                               bool CreateNewCE) {
+CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
+                                   bool CreateNewCE, bool IgnoreDestType) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
-  assert(isTypeEqual(CE1, CE2) && " Canon Expr type mismatch!");
+  assert(mergeable(CE1, CE2, IgnoreDestType) && " Canon Expr type mismatch!");
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
@@ -252,6 +346,11 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
     Result->multiplyByConstantImpl(NewDenom / Denom1, false);
+
+    // Since the denominator has changed, we should set the flag based on CE2.
+    // This is safe to do because the division type difference is only allowed
+    // if one of the denominators is 1 which in this case is Denom1.
+    Result->setDivisionType(CE2->isSignedDiv());
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
@@ -283,6 +382,15 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   // Add the constant.
   Result->setConstant(Result->getConstant() + NewCE2->getConstant());
 
+  // Update DefinedAtLevel.
+  if (NewCE2->isNonLinear()) {
+    Result->setNonLinear();
+
+  } else if (!Result->isNonLinear() &&
+             NewCE2->getDefinedAtLevel() > Result->getDefinedAtLevel()) {
+    Result->setDefinedAtLevel(NewCE2->getDefinedAtLevel());
+  }
+
   // Simplify resulting canon expr before returning.
   Result->simplify();
 
@@ -294,41 +402,46 @@ CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
   return Result;
 }
 
-CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                                    bool CreateNewCE) {
+void CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
+                         bool IgnoreDestType) {
+  addImpl(CE1, CE2, false, IgnoreDestType);
+}
 
+CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
+                                       const CanonExpr *CE2,
+                                       bool IgnoreDestType) {
+  return addImpl(const_cast<CanonExpr *>(CE1), CE2, true, IgnoreDestType);
+}
+
+void CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                              bool IgnoreDestType) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
-  CanonExpr *Result;
+  // Here, we avoid cloning by doing negation twice.
+  // -(-CE1+CE2) => CE1-CE2
+  CE1->negate();
+  add(CE1, CE2, IgnoreDestType);
+  CE1->negate();
+}
 
-  if (CreateNewCE) {
-    // Result = -CE2 + CE1
-    Result = CE2->clone();
-    Result->negate();
-    Result = add(Result, CE1, false);
-  } else {
-    // -(-CE1+CE2) => CE1-CE2
-    // Here, we avoid cloning by doing negation twice.
-    Result = CE1;
-    Result->negate();
-    Result = add(Result, CE2, false);
-    Result->negate();
-  }
+CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
+                                            const CanonExpr *CE2,
+                                            bool IgnoreDestType) {
+  assert((CE1 && CE2) && " Canon Expr parameters are null!");
+
+  // Result = -CE2 + CE1
+  CanonExpr *Result = cloneAndNegate(CE2);
+  add(Result, CE1, IgnoreDestType);
+
+  Result->setDestType(CE1->getDestType());
 
   return Result;
 }
 
-CanonExpr *CanonExprUtils::negate(CanonExpr *CE1, bool CreateNewCE) {
-  assert(CE1 && " Canon Expr is null!");
+CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
+  assert(CE && " Canon Expr is null!");
 
-  CanonExpr *Result;
-
-  if (CreateNewCE) {
-    Result = CE1->clone();
-  } else {
-    Result = CE1;
-  }
-
+  CanonExpr *Result = CE->clone();
   Result->negate();
 
   return Result;

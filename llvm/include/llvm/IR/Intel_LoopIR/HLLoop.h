@@ -16,6 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 #define LLVM_IR_INTEL_LOOPIR_HLLOOP_H
 
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 #include "llvm/IR/InstrTypes.h"
@@ -81,8 +82,7 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
-  unsigned TemporalLocalityWt;
-  unsigned SpatialLocalityWt;
+  // This flag indicates if the loop is innermost or not.
   bool IsInnermost;
   Type *IVType;
 
@@ -139,6 +139,9 @@ protected:
   HLLoop *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
+  /// \brief Updates blob DDRefs for the passed in trip count DDRef.
+  void updateTripCountBlobDDRefs(RegDDRef *TripRef) const;
+
 public:
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -157,11 +160,16 @@ public:
 
   /// \brief sets the Ztt for HLLoop.
   void setZtt(HLIf *ZttIf);
+
   /// \brief Removes and returns the Ztt for HLLoop.
   HLIf *removeZtt();
 
-  /// \brief Returns the underlying type of ZTT.
-  Type *getZttLLVMType() const;
+  /// \brief Removes and returns the OrigLoop
+  const Loop *removeLLVMLoop();
+
+  /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
+  /// indicates to overwrite existing Ztt or not.
+  void createZtt(bool IsOverwrite = true);
 
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
@@ -189,14 +197,13 @@ public:
   }
 
   /// \brief Adds new predicate in ZTT.
-  void addZttPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1, RegDDRef *Ref2);
+  void addZttPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2);
 
   /// \brief Removes the associated predicate and operand DDRefs(not destroyed).
   void removeZttPredicate(const_ztt_pred_iterator CPredI);
 
   /// \brief Replaces existing ztt predicate pointed to by CPredI, by NewPred.
-  void replaceZttPredicate(const_ztt_pred_iterator CPredI,
-                           CmpInst::Predicate NewPred);
+  void replaceZttPredicate(const_ztt_pred_iterator CPredI, PredicateTy NewPred);
 
   /// \brief Returns the LHS/RHS operand DDRef of the predicate based on the
   /// IsLHS flag.
@@ -213,6 +220,9 @@ public:
   RegDDRef *removeZttPredicateOperandDDRef(const_ztt_pred_iterator CPredI,
                                            bool IsLHS);
 
+  /// \brief Returns true if this Ref belongs to ztt.
+  bool isZttOperandDDRef(const RegDDRef *Ref) const;
+
   /// \brief Returns the DDRef associated with loop lower bound.
   /// The first DDRef is associated with lower bound.
   RegDDRef *getLowerDDRef();
@@ -226,8 +236,10 @@ public:
   /// The second DDRef is associated with upper bound.
   RegDDRef *getUpperDDRef();
   const RegDDRef *getUpperDDRef() const;
+
   /// \brief Sets the DDRef associated with loop upper bound.
   void setUpperDDRef(RegDDRef *Ref);
+
   /// \brief Removes and returns the DDRef associated with loop upper bound.
   RegDDRef *removeUpperDDRef();
 
@@ -235,8 +247,13 @@ public:
   /// The third DDRef is associated with stride.
   RegDDRef *getStrideDDRef();
   const RegDDRef *getStrideDDRef() const;
+
+  /// \brief Sets the LLVM OrigLoop
+  void setLLVMLoop(const Loop *OrigLoop);
+
   /// \brief Sets the DDRef associated with loop stride.
   void setStrideDDRef(RegDDRef *Ref);
+
   /// \brief Removes and returns the DDRef associated with loop stride.
   RegDDRef *removeStrideDDRef();
 
@@ -254,24 +271,45 @@ public:
 
   /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
-  ///  directly stored so use with caution.
-  const CanonExpr *getTripCountCanonExpr() const;
+  /// directly stored so use with caution.
+  CanonExpr *getTripCountCanonExpr() const;
+
+  /// \brief Returns Trip Count DDRef of this loop.
+  /// Note, this will create a new DDRef in each call.
+  RegDDRef *getTripCountDDRef() const;
+
+  /// \brief Returns true if this is a constant trip count loop and sets the
+  /// trip count in TripCnt parameter only if the loop is constant trip loop.
+  bool isConstTripLoop(int64_t *TripCnt = nullptr) const;
 
   /// \brief Returns true if this is a do loop.
-  bool isDoLoop() const {
-    return (!IsDoWhile && (NumExits == 1) && getUpperDDRef());
+  bool isDo() const {
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->isUndefined());
   }
 
   /// \brief Returns true if this is a do-while loop.
-  bool isDoWhileLoop() const { return IsDoWhile; }
+  bool isDoWhile() const { return IsDoWhile; }
 
   /// \brief Returns true if this is a do multi-exit loop.
-  bool isDoMultiExitLoop() const {
-    return (!IsDoWhile && (NumExits > 1) && getUpperDDRef());
+  bool isDoMultiExit() const {
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->isUndefined());
   }
 
   /// \brief Returns true if this is an unknown loop.
-  bool isUnknownLoop() const { return !getUpperDDRef(); }
+  bool isUnknown() const {
+    auto UpperDDRef = getUpperDDRef();
+    assert(UpperDDRef && "UpperDDRef may not be null");
+    return UpperDDRef->isUndefined();
+  }
+
+  /// \brief Returns true if loop is normalized.
+  /// This method checks if LB = 0 and StrideRef = 1. UB can be a DDRef or
+  // constant.
+  bool isNormalized() const;
 
   /// \brief Returns the number of exits of the loop.
   unsigned getNumExits() const { return NumExits; }
@@ -280,17 +318,8 @@ public:
 
   /// \brief Returns the nesting level of the loop.
   unsigned getNestingLevel() const { return NestingLevel; }
-  /// \brief Returns true if this is the innermost loop in the loopnest.
+  /// \brief Returns true if this is the innermost loop in the loop nest.
   bool isInnermost() const { return IsInnermost; }
-  /// \brief Returns the temporal locality wt of the loop.
-  unsigned getTemporalLocalityWt() const { return TemporalLocalityWt; }
-  /// \brief Returns the spatial locality wt of the loop.
-  unsigned getSpatialLocalityWt() const  { return SpatialLocalityWt;  }
-  /// \brief Sets the temporal locality wt of the loop.
-  void setTemporalLocalityWt(unsigned Weight); 
-  /// \brief Returns the spatial locality wt of the loop.
-  void setSpatialLocalityWt(unsigned Weight);  
-
 
   /// Preheader iterator methods
   pre_iterator pre_begin() { return Children.begin(); }
@@ -452,8 +481,18 @@ public:
   /// be updated by HLNode insertion/removal utilities.
   HLLoop *cloneEmptyLoop() const;
 
+  /// \brief - Clones the original loop without any of the children, preheader
+  /// and postexit nodes. This routines copies all the original loop properties
+  /// such as exits, ub, lb, strides, level. Data members that depend on where
+  //  the cloned loop lives in HIR (like parent, etc) are not copied. They will
+  /// be updated by HLNode insertion/removal utilities.
+  HLLoop *cloneCompleteEmptyLoop() const;
+
   /// \brief Returns the number of operands associated with the loop ztt.
   unsigned getNumZttOperands() const;
+
+  /// \brief Verifies HLLoop integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

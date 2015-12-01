@@ -1,6 +1,34 @@
 ; RUN: opt -basicaa -licm -S < %s | FileCheck %s
-
-; The LICM should remove store in the basic block %for.body.9.us.us.
+;
+; struct matrix {
+;   float *ptr;
+;   int row_size;
+; 
+; public:
+;   matrix(int size) {
+;     ptr = (float *)malloc(sizeof(float) * size * size);
+;     memset(ptr, 0, sizeof(float) * size * size);
+;     row_size = size;
+;   }
+;   ~matrix() { free(ptr); }
+;   matrix operator*(matrix &y) {
+;     int size = y.row_size;
+;     matrix temp(size);
+;     for (int i = 0; i < size; i++) {
+;       for (int j = 0; j < size; j++) {
+;         temp.ptr[(i * size) + j] = 0;
+;         for (int k = 0; k < size; k++)
+;           temp.ptr[(i * size) + j] +=
+;               (ptr[(i * size) + k] * y.ptr[(k * size) + j]);
+;       }
+;     }
+;     return temp;
+;   }
+; };
+; After the basic-aa identifies there is no overlap between the array reference
+; temp.ptr[(i * size) + j] and the references ptr[(i * size) + k] and 
+; y.ptr[(k * size) + j]), the LICM should sink the store out of the loop. 
+; The store in the basic block %for.body.9.us.us will be removed.
 
 ; CHECK:       @_ZN6matrixmlERS_
 ; CHECK:       for.body.9.us.us:

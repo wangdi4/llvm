@@ -29,17 +29,17 @@ void HLIf::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
-HLIf::HLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
+HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
     : HLDDNode(HLNode::HLIfVal) {
-  assert(((FirstPred == CmpInst::Predicate::FCMP_FALSE) ||
-          (FirstPred == CmpInst::Predicate::FCMP_TRUE) || (Ref1 && Ref2)) &&
+  assert(((FirstPred == PredicateTy::FCMP_FALSE) ||
+          (FirstPred == PredicateTy::FCMP_TRUE) || (Ref1 && Ref2)) &&
          "DDRefs cannot be null!");
-  assert((!Ref1 || (Ref1->getType() == Ref2->getType())) &&
+  assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
          "Ref1/Ref2 type mismatch!");
   assert((!Ref1 || ((CmpInst::isIntPredicate(FirstPred) &&
-                     Ref1->getType()->isIntegerTy()) ||
+                     Ref1->getDestType()->isIntegerTy()) ||
                     (CmpInst::isFPPredicate(FirstPred) &&
-                     Ref1->getType()->isFloatingPointTy()))) &&
+                     Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
 
   /// TODO: add check for type consistency (integer/float)
@@ -97,8 +97,8 @@ HLIf *HLIf::clone() const {
   return NewIf;
 }
 
-void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
-                       bool Detailed) const {
+void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
+                           const HLLoop *Loop) const {
 
   bool FirstPred = true;
   OS << "if (";
@@ -110,15 +110,15 @@ void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
       OS << " && ";
     }
 
-    Ref = getPredicateOperandDDRef(I, true);
-    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
-    OS << " ";
+    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, true)
+               : getPredicateOperandDDRef(I, true);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     printPredicate(OS, *I);
 
-    OS << " ";
-    Ref = getPredicateOperandDDRef(I, false);
-    Ref ? Ref->print(OS, Detailed) : (void)(OS << Ref);
+    Ref = Loop ? Loop->getZttPredicateOperandDDRef(I, false)
+               : getPredicateOperandDDRef(I, false);
+    Ref ? Ref->print(OS, false) : (void)(OS << Ref);
 
     FirstPred = false;
   }
@@ -126,11 +126,19 @@ void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth,
   OS << ")\n";
 }
 
+void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth) const {
+  printHeaderImpl(OS, Depth, nullptr);
+}
+
+void HLIf::printZttHeader(formatted_raw_ostream &OS, const HLLoop *Loop) const {
+  printHeaderImpl(OS, 0, Loop);
+}
+
 void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
                  bool Detailed) const {
 
   indent(OS, Depth);
-  printHeader(OS, Depth, false);
+  printHeader(OS, Depth);
 
   HLDDNode::print(OS, Depth, Detailed);
 
@@ -205,21 +213,22 @@ unsigned HLIf::getPredicateOperandDDRefOffset(const_pred_iterator CPredI,
   return ((2 * (CPredI - pred_begin())) + (IsLHS ? 0 : 1));
 }
 
-void HLIf::addPredicate(CmpInst::Predicate Pred, RegDDRef *Ref1,
-                        RegDDRef *Ref2) {
+void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
   assert(Ref1 && Ref2 && "DDRef is null!");
-  assert((Pred != CmpInst::Predicate::FCMP_FALSE) &&
-         (Pred != CmpInst::Predicate::FCMP_TRUE) && "Invalid predicate!");
-  assert((Ref1->getType() == Ref2->getType()) && "Ref1/Ref2 type mismatch!");
+  assert((Pred != PredicateTy::FCMP_FALSE) &&
+         (Pred != PredicateTy::FCMP_TRUE) && "Invalid predicate!");
+  assert((Ref1->getDestType() == Ref2->getDestType()) &&
+         "Ref1/Ref2 type mismatch!");
   assert(((CmpInst::isIntPredicate(Pred) &&
            CmpInst::isIntPredicate(Predicates[0])) ||
           (CmpInst::isFPPredicate(Pred) &&
            CmpInst::isFPPredicate(Predicates[0]))) &&
          "Predicate type mismatch!");
-  assert(((CmpInst::isIntPredicate(Pred) && Ref1->getType()->isIntegerTy()) ||
-          (CmpInst::isFPPredicate(Pred) &&
-           Ref1->getType()->isFloatingPointTy())) &&
-         "Predicate/DDRef type mismatch!");
+  assert(
+      ((CmpInst::isIntPredicate(Pred) && Ref1->getDestType()->isIntegerTy()) ||
+       (CmpInst::isFPPredicate(Pred) &&
+        Ref1->getDestType()->isFloatingPointTy())) &&
+      "Predicate/DDRef type mismatch!");
   unsigned NumOp;
 
   Predicates.push_back(Pred);
@@ -257,8 +266,7 @@ void HLIf::removePredicate(const_pred_iterator CPredI) {
   Predicates.erase(PredI);
 }
 
-void HLIf::replacePredicate(const_pred_iterator CPredI,
-                            CmpInst::Predicate NewPred) {
+void HLIf::replacePredicate(const_pred_iterator CPredI, PredicateTy NewPred) {
   assert((CPredI != pred_end()) && "End iterator is not a valid input!");
   auto PredI = getNonConstPredIterator(CPredI);
   *PredI = NewPred;
@@ -283,4 +291,35 @@ RegDDRef *HLIf::removePredicateOperandDDRef(const_pred_iterator CPredI,
   }
 
   return TRef;
+}
+
+void HLIf::verify() const {
+  bool ContainsTrueFalsePred = false;
+
+  assert(getNumPredicates() > 0 &&
+         "HLIf should contain at least one predicate");
+
+  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
+    assert((CmpInst::isFPPredicate(*I) || CmpInst::isIntPredicate(*I) ||
+            *I == UNDEFINED_PREDICATE) &&
+           "Invalid predicate value, should be one of PredicateTy");
+
+    bool IsBooleanPred = isPredicateTrueOrFalse(*I);
+    ContainsTrueFalsePred = ContainsTrueFalsePred || IsBooleanPred;
+
+    if (IsBooleanPred) {
+      auto *DDRefLhs = getPredicateOperandDDRef(I, true);
+      auto *DDRefRhs = getPredicateOperandDDRef(I, false);
+
+      (void)DDRefLhs;
+      (void)DDRefRhs;
+      assert(DDRefLhs->isUndefined() && DDRefRhs->isUndefined() &&
+             "DDRefs should be undefined for FCMP_TRUE/FCMP_FALSE predicate");
+    }
+  }
+
+  assert((!ContainsTrueFalsePred || getNumPredicates() == 1) &&
+         "FCMP_TRUE/FCMP_FALSE cannot be combined with any other predicates");
+
+  HLDDNode::verify();
 }

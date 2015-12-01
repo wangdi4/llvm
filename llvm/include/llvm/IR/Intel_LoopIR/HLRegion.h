@@ -174,6 +174,9 @@ public:
   /// clone() - Do not support Cloning of Region.
   /// This is LLVM Unreachable code.
   HLRegion *clone() const override;
+
+  /// \brief Verifies HLRegion integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

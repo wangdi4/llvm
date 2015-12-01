@@ -26,6 +26,7 @@
 namespace llvm {
 
 class Function;
+class SwitchInst;
 class DominatorTree;
 struct PostDominatorTree;
 
@@ -105,6 +106,9 @@ private:
   /// \brief Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
 
+  /// \brief Return true if the passed in BB post dominates all switch cases.
+  bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
+
   /// \brief Performs lexical (preorder) walk of the dominator tree for the
   /// region.
   /// Returns the last HLNode for the current sub-tree.
@@ -117,7 +121,7 @@ private:
   void create();
 
   /// \brief Contains implementation for print().
-  void printImpl(raw_ostream &OS, bool printIRRegion) const;
+  void printImpl(raw_ostream &OS, bool FrameworkDetais) const;
 
 public:
   static char ID; // Pass identification
@@ -127,8 +131,9 @@ public:
   void releaseMemory() override;
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  /// \brief Prints the contained IRRegion along with the HLRegion.
-  void printWithIRRegion(raw_ostream &OS) const;
+  /// \brief Prints framework details along with HLRegion like IRRegion and
+  /// SCCs.
+  void printWithFrameworkDetails(raw_ostream &OS) const;
   void verifyAnalysis() const override;
 
   /// Region iterator methods

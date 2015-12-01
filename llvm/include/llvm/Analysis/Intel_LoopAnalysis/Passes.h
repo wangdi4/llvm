@@ -50,6 +50,10 @@ FunctionPass *createHIRParserPass();
 /// Creates analysis which can provide a data dependence graph of an HLNode
 FunctionPass *createDDAnalysisPass();
 
+/// Computes the locality cost for HLLoops which are used during
+/// transformations.
+FunctionPass *createHIRLocalityAnalysisPass();
+
 /// Assigns a symbase to all ddrefs, which groups dd refs into sets that
 /// never alias
 FunctionPass *createSymbaseAssignmentPass();

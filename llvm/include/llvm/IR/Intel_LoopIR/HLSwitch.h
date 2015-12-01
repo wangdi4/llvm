@@ -263,6 +263,9 @@ public:
   /// case_child iterators.
   /// Default case cannot be removed.
   void removeCase(unsigned CaseNum);
+
+  /// \brief Verifies HLSwitch integrity.
+  virtual void verify() const override;
 };
 
 } // End namespace loopopt

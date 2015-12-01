@@ -14,9 +14,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/Function.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 using namespace llvm;
@@ -40,6 +40,7 @@ public:
     auto &HIR = getAnalysis<HIRCreation>();
 
     OS << Banner << "\n";
+    OS << "Function: " << F.getName() << "\n";
 
     HIR.print(OS);
 

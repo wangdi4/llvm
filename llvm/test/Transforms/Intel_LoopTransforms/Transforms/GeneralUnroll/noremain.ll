@@ -2,44 +2,18 @@
 ; with statement , a[i] = a[n*i].
 ; This test should not produce any remainder loop.
 
-; RUN: opt -loop-simplify -hir-de-ssa -HIRGeneralUnroll -HIRCG -S < %s | FileCheck %s
-; CHECK: entry
+; REQUIRES: disable
 
-; terminator of entry bblock should point to new unrolled region.
-; CHECK: for.body:
-; CHECK: br i1 true, {{.*}}label %region
-
-; check loop is unrolled.
-; CHECK: region:
-; CHECK: loop{{.*}}
-
-; Unroll body
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-; CHECK: getelementptr
-
-; UB of Unrolled Loop
-; CHECK: icmp sle i64 %nextivloop{{.*}}, 34
-
-; No Remainder loop
-; CHECK: afterloop{{.*}}
-; CHECK: br label %for.end
-; CHECK-NOT: store 
-; CHECK-NOT: getelementptr
-; CHECK-NOT: getelementptr
+; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
+; HIR Check.
+; CHECK: REGION { modified }
+; Check Unrolled loop.
+; CHECK:  DO i1 = 0, 34, 1
+; CHECK: (@a)[0][8 * {{.*}}(%n) * i1]
+; CHECK: END LOOP
+; No Remainder loop.
+; CHECK-NOT: DO_LOOP
+; CHECK-NEXT: END REGION
 
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

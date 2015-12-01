@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify | opt -analyze -hir-regions | FileCheck %s
+; RUN: opt < %s -loop-simplify | opt -analyze -hir-region-identification | FileCheck %s
 
 ; Check output of hir-regions
 ; CHECK: Region 1

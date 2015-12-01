@@ -54,13 +54,17 @@ using namespace llvm::loopopt;
 static cl::opt<bool> forceHIRCG("force-HIRCG", cl::init(false), cl::Hidden,
                                 cl::desc("forces CodeGen on all HIR regions"));
 
+static cl::opt<unsigned> HIRDebugRegion(
+    "hir-cg-x-region-only", cl::Optional,
+    cl::desc("HIRCG the x'th region only, regardless of modification status"),
+    cl::Hidden, cl::value_desc("number"), cl::init(0));
+
 namespace {
 
 class HIRCodeGen : public FunctionPass {
 private:
   ScalarEvolution *SE;
   Function *F;
-  BasicBlock::InstListType DummyInstList;
 
   // This does the real work of llvm ir cg
   // Uses IRBuilder to generate LLVM IR for each HIR construct
@@ -98,9 +102,23 @@ private:
     Value *visitLabel(HLLabel *L);
     BasicBlock *getBBlockForLabel(HLLabel *L);
 
+    // Regions have a list of live in values and their corresponding symbase
+    // Any use of the value in HIR region is represented by a temp with some
+    // symbase
+    // CG turns those temps into load/stores of memory corresponding ot symbase.
+    // However we must store the initial value into symbase's memory slot or the
+    // first use of live in value will remain as load of uninitialized memory
+    void initializeLiveIn(HLRegion *R);
+
+    // Regions have a list of liveout values and their symbase. We must ensure
+    // that all uses of liveout value are replaced by a load of symbase's
+    // memory slot. We must be careful of cases where one region's live out
+    // is another's livein
+    // TODO: support liveout for multiexit region
+    void processLiveOut(HLRegion *R);
+
     // any client shouldhave used visit(node), this function is used as a
-    // fallback
-    // when visitXXX couldnt be found for an hlnode of type XXX
+    // fallback when visitXXX couldnt be found for an hlnode of type XXX
     Value *visitHLNode(HLNode *Node) {
       llvm_unreachable("Unknown HIR type in CG");
     }
@@ -135,14 +153,15 @@ private:
     Value *generatePredicate(HLIf *HIf, HLIf::const_pred_iterator P);
 
     // \brief Return a value for blob corresponding to BlobIdx
-    Value *getBlobValue(int BlobIdx, Type *Ty) {
+    Value *getBlobValue(int BlobIdx) {
       // SCEVExpander instruction generator references the insertion point's
       // parent.
       // If the IP is bblock.end(), undefined behavior results because the
       // parent of that "instruction" is invalid. We work around this by
       // adding temporary instruction to use as our IP, and remove it after
       Instruction *TmpIP = Builder->CreateUnreachable();
-      Value *Blob = Expander->expandCodeFor(getBlobSCEV(BlobIdx), Ty, TmpIP);
+      Value *Blob =
+          Expander->expandCodeFor(getBlobSCEV(BlobIdx), nullptr, TmpIP);
 
       // Expander shouldnt create new Bblocks, new IP is end of current bblock
       Builder->SetInsertPoint(TmpIP->getParent());
@@ -155,9 +174,9 @@ private:
       return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
     }
 
-    Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty) {
+    Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
       return CoefCG(CE->getIVConstCoeff(IVIt),
-                    getBlobValue(CE->getIVBlobCoeff(IVIt), Ty));
+                    getBlobValue(CE->getIVBlobCoeff(IVIt)));
     }
 
     //\brief return value for blobCoeff * constCoeff * iv with IV at level
@@ -170,8 +189,11 @@ private:
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
                       Type *Ty) {
       return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt), Ty));
+                    getBlobValue(CE->getBlobIndex(BlobIt)));
     }
+
+    // \brief Applies cast to Val according to CE's dest type, if applicable.
+    Value *castToDestType(CanonExpr *CE, Value *Val);
 
     Function *F;
 
@@ -209,11 +231,10 @@ private:
         // Blobs represented by an scevunknowns whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobIdx = CanonExprUtils::findBlob(S);
-        assert(BlobIdx && CG.BlobIdxToSymbase.count(BlobIdx) &&
-               "Invalid blob found");
-        unsigned BlobSymBase = CG.BlobIdxToSymbase[BlobIdx];
-        std::string TempName = CG.getTempName(BlobSymBase);
+        unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
+        assert(BlobSymbase && "Invalid symbase");
+
+        std::string TempName = CG.getTempName(BlobSymbase);
         AllocaInst *TempAddr = CG.getNamedValue(TempName, S->getType());
         // Be careful to use scevexpanders builder, not CGVisitor's
         // otherwise some insertions may be in wrong place.
@@ -240,6 +261,12 @@ private:
     // before the label itself
     SmallDenseMap<HLLabel *, BasicBlock *, 16> InternalLabels;
 
+    // These are stored in HLRegion but become invalidated once CFG is
+    // changed. They are required for liveout materialization, which occurs
+    // after HIRCG's cfg modification
+    SmallDenseMap<HLRegion *, Instruction *, 16> RegionTerminators;
+    SmallDenseMap<HLRegion *, BasicBlock *, 16> RegionSucc;
+
     // \brief Creates a stack allocation of size with name at entry of
     // current func. used for allocs that we expect to regisiterize
     AllocaInst *CreateEntryBlockAlloca(const std::string &VarName, Type *Ty,
@@ -260,66 +287,18 @@ private:
     }
 
     // Temps are named in format of tN where N is the symbase
-    std::string getTempName(unsigned SymBase) {
-      return "t" + std::to_string(SymBase);
+    std::string getTempName(unsigned Symbase) {
+      return "t" + std::to_string(Symbase);
     }
 
     std::string getTempName(RegDDRef *Ref) {
       assert(!Ref->hasGEPInfo() && "Non scalar ref accessed as scalar");
-      return getTempName(Ref->getSymBase());
+      return getTempName(Ref->getSymbase());
     }
 
     // gets an allocation for name of type T, creating a new allocation
     // if necessary. Allocation is a alloca at function entry
     AllocaInst *getNamedValue(const Twine &Name, Type *T);
-
-    typedef SmallDenseMap<unsigned, unsigned, 64> BlobIdxMap;
-    // All blobs correspond to a symbase. Map blob indices to said
-    // symbases since many functions only see CE's and blob indices, but
-    // not refs
-    BlobIdxMap BlobIdxToSymbase;
-
-    // Populates a map of Blob indices to symbase
-    class BlobToSymbaseMapper {
-    private:
-      BlobIdxMap &BlobToSymbase;
-      //adds single blob from CE to map with symbase
-      void addBlobFromCE(const CanonExpr *CE, unsigned SymBase) {
-        unsigned BlobIdx = CE->getSingleBlobIndex();
-        if (!BlobToSymbase.count(BlobIdx)) {
-          BlobToSymbase[BlobIdx] = SymBase;
-        } else {
-          // TODO: this is more properly done in verifier. Remove once
-          // implemented
-          assert(BlobToSymbase[BlobIdx] == SymBase);
-        }
-      }
-
-    public:
-      BlobToSymbaseMapper(BlobIdxMap &CurMap) : BlobToSymbase(CurMap) {}
-      bool skipRecursion(HLNode *Node) { return false; }
-      void visit(HLNode *Node) {}
-      void postVisit(HLNode *Node) {}
-      void visit(HLDDNode *Node) {
-        for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-          if ((*I)->isScalarRef()) {
-            CanonExpr *CE = (*I)->getSingleCanonExpr();
-            if (CE->isSelfBlob()) {
-              addBlobFromCE(CE, (*I)->getSymBase());
-              // no need to look at blobs on this ddref
-              continue;
-            }
-          }
-
-          for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
-               BRefI != BRefE; ++BRefI) {
-            addBlobFromCE((*BRefI)->getCanonExpr(), (*BRefI)->getSymBase());
-          }
-        }
-      }
-      void postVisit(HLDDNode *Node) {}
-      bool isDone() { return false; }
-    };
   };
 
 public:
@@ -330,25 +309,39 @@ public:
   }
 
   bool runOnFunction(Function &F) override {
-    DEBUG(errs() << "Starting the code gen for ");
-    DEBUG(errs().write_escaped(F.getName()) << "\n");
+    DEBUG(dbgs().write_escaped(F.getName()) << "\n");
     DEBUG(F.dump());
 
     this->F = &F;
     SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
     auto HIRP = &getAnalysis<HIRParser>();
 
-    moveDummyInstructions();
-
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
-      if (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG) {
-        DEBUG(errs() << "Starting the code gen for \n");
+    unsigned RegionIdx = 1;
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+         ++I, ++RegionIdx) {
+      if ((!HIRDebugRegion &&
+           (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
+          (RegionIdx == HIRDebugRegion)) {
+        DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
+        DEBUG(I->dump(true));
         DEBUG(I->dump());
         CG.visit(I);
         Transformed = true;
+      }
+    }
+
+    // Liveout must be processed after all regions have be cg'd. One region's
+    // live out value may be the next regions live in.
+    RegionIdx = 1;
+    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+         ++I, ++RegionIdx) {
+      HLRegion *R = cast<HLRegion>(I);
+      if ((!HIRDebugRegion && (R->shouldGenCode() || forceHIRCG)) ||
+          (RegionIdx == HIRDebugRegion)) {
+        CG.processLiveOut(R);
       }
     }
 
@@ -364,11 +357,6 @@ public:
     AU.addRequired<HIRParser>();
   }
 
-  /// \brief Moves all the dummy instructions created by HIR transformations to
-  /// an internal list, to be erased later on. This is done to avoid erasing
-  /// alloca instructions inseted by CG in the function entry bblock.
-  void moveDummyInstructions();
-
   /// \brief Erases all the dummy instructions.
   void eraseDummyInstructions();
 };
@@ -382,9 +370,25 @@ INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 
+Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
+
+  auto DestTy = CE->getDestType();
+
+  if (CE->isSExt()) {
+    Val = Builder->CreateSExt(Val, DestTy);
+  } else if (CE->isZExt()) {
+    Val = Builder->CreateZExt(Val, DestTy);
+  } else if (CE->isTrunc()) {
+    Val = Builder->CreateTrunc(Val, DestTy);
+  }
+
+  return Val;
+}
+
 // TODO support Denominator
 Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
-  Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr;
+  Value *BlobSum = nullptr, *IVSum = nullptr, *C0Value = nullptr,
+        *DenomVal = nullptr;
 
   DEBUG(dbgs() << "cg for CE ");
   DEBUG(CE->dump());
@@ -393,13 +397,18 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   BlobSum = sumBlobs(CE);
   IVSum = sumIV(CE);
 
-  int C0 = CE->getConstant();
-  Type *Ty = CE->getType();
+  int64_t C0 = CE->getConstant();
+  int64_t Denom = CE->getDenominator();
+
+  Type *Ty = CE->getSrcType();
   // TODO I dunno about htis more specially a pointer?
   // ie [i32 X 10] for type of base ptr what type to use?
   if (C0) {
-    if (isa<SequentialType>(Ty)) {
-      Ty = IntegerType::get(F->getContext(), 64);
+    if (isa<CompositeType>(Ty)) {
+      // We should be generating a GEP for a pointer base with an offset. For
+      // struct types, we need to follow the structure layout.
+      assert("Pointer base with offset not handled!");
+      // Ty = IntegerType::get(F->getContext(), Ty->getPrimitiveSizeInBits());
     }
     C0Value = ConstantInt::getSigned(Ty, C0);
   }
@@ -423,6 +432,18 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
       llvm_unreachable("failed to cg IV or blob");
     Res = ConstantInt::getSigned(Ty, C0);
   }
+
+  if (Denom != 1) {
+    DenomVal = ConstantInt::getSigned(Ty, Denom);
+
+    if (CE->isSignedDiv()) {
+      Res = Builder->CreateSDiv(Res, DenomVal);
+    } else {
+      Res = Builder->CreateUDiv(Res, DenomVal);
+    }
+  }
+
+  Res = castToDestType(CE, Res);
 
   return Res;
 }
@@ -449,7 +470,7 @@ Value *HIRCodeGen::CGVisitor::visitScalar(RegDDRef *Ref) {
 
   // Lvals must be stored into
   std::string TempName = getTempName(Ref);
-  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getType());
+  AllocaInst *Alloca = getNamedValue(Twine(TempName), Ref->getDestType());
 
   // For lvals return address of temp
   return Alloca;
@@ -459,7 +480,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   assert(Ref && " Reference is null.");
   DEBUG(dbgs() << "cg for RegRef ");
   DEBUG(Ref->dump());
-  DEBUG(dbgs() << " Symbase: " << Ref->getSymBase() << " \n");
+  DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
   if (Ref->isScalarRef()) {
     return visitScalar(Ref);
@@ -467,15 +488,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
 
   Value *BaseV = visitCanonExpr(Ref->getBaseCE());
 
-  // TODO for exact allocations (global arrays or local (m)allocs) the type
-  // is an array type. However, gep requires a pointer so we have a type
-  // of [10 x i32]*. We know we are referring to the first, and only, alloc'd
-  // array, thus requiring an leading 0. For non exact allocs, we should not
-  // add this 0
-  Value *Zero = ConstantInt::getSigned((*(Ref->canon_begin()))->getType(), 0);
-
   SmallVector<Value *, 4> IndexV;
-  IndexV.push_back(Zero);
 
   // stored as A[canon3][canon2][canon1], but gep requires them in reverse order
   for (auto CEIt = Ref->canon_rbegin(), E = Ref->canon_rend(); CEIt != E;
@@ -490,6 +503,16 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
     GEPVal = Builder->CreateGEP(BaseV, IndexV, "arrayIdx");
   }
 
+  if (Ref->isAddressOf())
+    return GEPVal;
+
+  // Base CE could have different src and dest types in which case we need a
+  // bitcast. Can occur from llvm's canonicalization of store/load of float
+  // to int by bitcast
+  if (Ref->getBaseSrcType() != Ref->getBaseDestType()) {
+    GEPVal = Builder->CreateBitCast(GEPVal, Ref->getBaseDestType());
+  }
+
   // Ref is A[i], but meaning differs for lval vs rval. On rhs, we want the
   // value of A[i], ie a load. For lval, we will store into &A[i], so we
   // want the address, the gep
@@ -500,18 +523,83 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   return GEPVal;
 }
 
+void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *R) {
+  for (auto I = R->live_out_begin(), E = R->live_out_end(); I != E; ++I) {
+    DEBUG(dbgs() << "Symbase " << I->first
+                 << " is liveout with tracked value ");
+    DEBUG(I->second->dump());
+    DEBUG(dbgs() << " \n");
+    DEBUG(R->getSuccBBlock()->dump());
+
+    // BasicBlock *SuccBBlock = R->getSuccBBlock();
+    BasicBlock *SuccBBlock = RegionSucc[R];
+    BasicBlock::iterator IP = SuccBBlock->getFirstInsertionPt();
+    Builder->SetInsertPoint(IP);
+
+    AllocaInst *SymSlot =
+        getNamedValue(getTempName(I->first), I->second->getType());
+    Value *ReplVal = Builder->CreateLoad(SymSlot);
+
+    Value *LiveOutVal = const_cast<Value *>(I->second);
+    SmallVector<Instruction *, 4> CurUsers;
+    SmallVector<PHINode *, 4> PhiUsers;
+
+    // Gather all uses outside of region before replacing any
+    for (Use &LiveOutUse : LiveOutVal->uses()) {
+      if (Instruction *Inst = dyn_cast<Instruction>(LiveOutUse.getUser())) {
+        BasicBlock *UseParentBBlock = Inst->getParent();
+        // Might need to constrain this to only uses outside ANY HIR region?
+        if (!R->containsBBlock(UseParentBBlock)) {
+          if (PHINode *Phi = dyn_cast<PHINode>(Inst)) {
+            if (UseParentBBlock == SuccBBlock) {
+              // uses in succ bblock must be handled differently if user itself
+              // is a phi. The load was generated after the user since all phi
+              // are before any other inst in bblock. We must insert
+              // load in last bblock of region and add a new phi operand.
+              PhiUsers.push_back(Phi);
+              continue;
+            }
+          }
+          CurUsers.push_back(Inst);
+        }
+      } else {
+        llvm_unreachable("unknown case of liveout");
+      }
+    }
+
+    // Replace those uses with loaded value
+    for (auto I = CurUsers.begin(), E = CurUsers.end(); I != E; ++I) {
+      (*I)->replaceUsesOfWith(LiveOutVal, ReplVal);
+    }
+
+    // create load before region terminator and add it as
+    // incoming value to successor bblock phi
+    Builder->SetInsertPoint(RegionTerminators[R]);
+    for (auto I = PhiUsers.begin(), E = PhiUsers.end(); I != E; ++I) {
+      Value *InRegionLoad = Builder->CreateLoad(SymSlot);
+      (*I)->addIncoming(InRegionLoad, RegionTerminators[R]->getParent());
+    }
+  }
+}
+
+void HIRCodeGen::CGVisitor::initializeLiveIn(HLRegion *R) {
+  for (auto I = R->live_in_begin(), E = R->live_in_end(); I != E; ++I) {
+    DEBUG(dbgs() << "Symbase " << I->first << " is livein with initial value ");
+    DEBUG(I->second->dump());
+    DEBUG(dbgs() << " \n");
+    AllocaInst *SymSlot =
+        getNamedValue(getTempName(I->first), I->second->getType());
+    Builder->CreateStore(const_cast<Value *>(I->second), SymSlot);
+  }
+}
+
 Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   // create new bblock for region entry
   BasicBlock *RegionEntry = BasicBlock::Create(F->getContext(), "region", F);
   Builder->SetInsertPoint(RegionEntry);
 
-  // Keep maps of Blob Ids to Symbase independent of region
-  BlobIdxToSymbase.clear();
-  BlobToSymbaseMapper Mapper(BlobIdxToSymbase);
-  HLNodeUtils::visit(&Mapper, R, true, true);
-
-  // TODO Stack map for live out values
+  initializeLiveIn(R);
 
   // Onto children cg
   for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
@@ -529,6 +617,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   // Save entry and succ fields, these get invalidated once block is split
   BasicBlock *EntryFirstHalf = R->getEntryBBlock();
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
+  RegionSucc[R] = RegionSuccessor;
 
   BasicBlock *EntrySecondHalf =
       SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
@@ -546,7 +635,8 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   if (!RegionSuccessor)
     llvm_unreachable("no successor block to region");
 
-  Builder->CreateBr(RegionSuccessor);
+  Value *Terminator = Builder->CreateBr(RegionSuccessor);
+  RegionTerminators[R] = cast<Instruction>(Terminator);
   // DEBUG(F->dump());
   return nullptr;
 }
@@ -659,32 +749,21 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   if (!StartVal || !Alloca)
     llvm_unreachable("Failed to CG IV");
 
-  // TODO remove this and enable assert
-  if (StartVal->getType() != L->getIVType()) {
-    StartVal = Builder->CreateZExt(StartVal, L->getIVType());
-  }
-
-  //  assert(StartVal->getType() == L->getType() &&
-  //         "IVtype does match start type");
+  assert(StartVal->getType() == L->getIVType() &&
+         "IVtype does not match start type");
 
   Builder->CreateStore(StartVal, Alloca);
 
   // step and upper are loop invariant, we can generate them
   //"outside" the loop
   Value *StepVal = visitRegDDRef(L->getStrideDDRef());
+
   Value *Upper = visitRegDDRef(L->getUpperDDRef());
 
-  if (StepVal->getType() != L->getIVType()) {
-    StepVal = Builder->CreateZExt(StepVal, L->getIVType());
-  }
-
-  if (Upper->getType() != L->getIVType()) {
-    Upper = Builder->CreateZExt(Upper, L->getIVType());
-  }
-  //  assert(StepVal->getType() == L->getType() &&
-  //         "IVtype does match stepval type");
-  //  assert(Upper->getType() == L->getType() &&
-  //         "IVtype does match upper type");
+  assert(StepVal->getType() == L->getIVType() &&
+         "IVtype does not match stepval type");
+  assert(Upper->getType() == L->getIVType() &&
+         "IVtype does not match upper type");
 
   std::string LName = "loop." + std::to_string(L->getNumber());
   BasicBlock *LoopBB = BasicBlock::Create(F->getContext(), LName, F);
@@ -747,6 +826,12 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
   // get basic block for G's target
   BasicBlock *TargetBBlock = G->getTargetBBlock();
 
+  if (TargetBBlock) {
+    HLRegion *R = G->getParentRegion();
+    if (R->live_out_begin() != R->live_out_end())
+      llvm_unreachable("Unsupported liveout for multiexit region");
+  }
+
   // if bblock is null, it must be internal.
   if (!TargetBBlock)
     TargetBBlock = getBBlockForLabel(G->getTargetLabel());
@@ -764,11 +849,14 @@ Value *HIRCodeGen::CGVisitor::visitGoto(HLGoto *G) {
 }
 
 Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
-  llvm_unreachable("untested hircg for switch");
 
   Value *CondV = visitRegDDRef(S->getConditionDDRef());
-  BasicBlock *DefaultBlock = BasicBlock::Create(F->getContext(), "default");
-  BasicBlock *EndBlock = BasicBlock::Create(F->getContext(), "switch.end");
+  SmallString<10> SwitchName("hir.sw." + std::to_string(S->getNumber()));
+
+  BasicBlock *DefaultBlock =
+      BasicBlock::Create(F->getContext(), SwitchName + ".default");
+  BasicBlock *EndBlock =
+      BasicBlock::Create(F->getContext(), SwitchName + ".end");
 
   SwitchInst *LLVMSwitch =
       Builder->CreateSwitch(CondV, DefaultBlock, S->getNumCases());
@@ -789,7 +877,8 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
     // assert its a constant or rely on verifier?
     ConstantInt *CaseInt = cast<ConstantInt>(CaseV);
 
-    BasicBlock *CaseBlock = BasicBlock::Create(F->getContext(), "switch.case");
+    BasicBlock *CaseBlock = BasicBlock::Create(
+        F->getContext(), SwitchName + ".case." + std::to_string(I - 1));
     F->getBasicBlockList().push_back(CaseBlock);
     Builder->SetInsertPoint(CaseBlock);
 
@@ -807,15 +896,16 @@ Value *HIRCodeGen::CGVisitor::visitSwitch(HLSwitch *S) {
   return nullptr;
 }
 
-Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
+Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
   // CG the operands
   SmallVector<Value *, 6> Ops;
-  for (auto R = I->op_ddref_begin(), E = I->op_ddref_end(); R != E; ++R) {
+  for (auto R = HInst->op_ddref_begin(), E = HInst->op_ddref_end(); R != E;
+       ++R) {
     Ops.push_back(visitRegDDRef(*R));
   }
 
   // create the inst
-  Instruction *Inst = const_cast<Instruction *>(I->getLLVMInstruction());
+  Instruction *Inst = const_cast<Instruction *>(HInst->getLLVMInstruction());
   if (isa<StoreInst>(Inst) || isa<LoadInst>(Inst)) {
     // We could be loading rhs and storing it into a lhs tmp or mem location
     // or directly storing rhs into lhs tmp/mem location
@@ -826,12 +916,30 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
     Builder->CreateStore(Res, Ops[0]);
   } else if (CallInst *Call = dyn_cast<CallInst>(Inst)) {
     Value *LVal = Ops[0];
-    // Turns Operands vector into function args vector by removing lval
-    Ops.erase(Ops.begin());
+    SmallVector<std::pair<unsigned, MDNode *>, 6> MDs;
+
+    // TODO: copy 'tail' marker.
+
+    if (HInst->hasLval()) {
+      // Turns Operands vector into function args vector by removing lval
+      // TODO: Separate this logic from framework's implementation of putting
+      // lval as the first operand.
+      Ops.erase(Ops.begin());
+    }
 
     // TODO twine for call?
-    Value *Res = Builder->CreateCall(Call->getCalledFunction(), Ops);
-    Builder->CreateStore(Res, LVal);
+    CallInst *ResCall = Builder->CreateCall(Call->getCalledFunction(), Ops);
+
+    // Copy all metadata over to new call instruction.
+    // TODO: Investigate whether this is an ok thing to do in general.
+    Call->getAllMetadata(MDs);
+    for (auto I = MDs.begin(), E = MDs.end(); I != E; ++I) {
+      ResCall->setMetadata(I->first, I->second);
+    }
+
+    if (HInst->hasLval()) {
+      Builder->CreateStore(ResCall, LVal);
+    }
   } else if (CastInst *Cast = dyn_cast<CastInst>(Inst)) {
     assert(Ops.size() == 2 && "invalid cast");
 
@@ -839,7 +947,25 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *I) {
         Cast->getOpcode(), Ops[1], Ops[0]->getType()->getPointerElementType());
 
     Builder->CreateStore(Res, Ops[0]);
-
+  } else if (isa<SelectInst>(Inst)) {
+    Value *Pred;
+    Value *CmpLHS = Ops[1];
+    Value *CmpRHS = Ops[2];
+    Value *TVal = Ops[3];
+    Value *FVal = Ops[4];
+    if (CmpLHS->getType()->isIntegerTy()) {
+      Pred = Builder->CreateICmp(HInst->getPredicate(), CmpLHS, CmpRHS,
+                                 "hir.selcmp." +
+                                     std::to_string(HInst->getNumber()));
+    } else if (CmpLHS->getType()->isFloatTy()) {
+      Pred = Builder->CreateFCmp(HInst->getPredicate(), CmpLHS, CmpRHS,
+                                 "hir.selcmp." +
+                                     std::to_string(HInst->getNumber()));
+    } else {
+      llvm_unreachable("unknown predicate type in HIRCG");
+    }
+    Value *NewSel = Builder->CreateSelect(Pred, TVal, FVal);
+    Builder->CreateStore(NewSel, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
@@ -852,7 +978,7 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_begin();
-  Type *Ty = CE->getType();
+  Type *Ty = CE->getSrcType();
   Value *res = BlobPairCG(CE, CurBlobPair, Ty);
   CurBlobPair++;
 
@@ -876,7 +1002,7 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
   if (CurIVPair == CE->iv_end())
     llvm_unreachable("No iv in CE");
 
-  Type *Ty = CE->getType();
+  Type *Ty = CE->getSrcType();
 
   Value *res = IVPairCG(CE, CurIVPair, Ty);
   CurIVPair++;
@@ -898,7 +1024,7 @@ Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
 
   // pairs are of form <Index, Coeff>.
   if (CE->getIVBlobCoeff(IVIt)) {
-    return Builder->CreateMul(IVCoefCG(CE, IVIt, Ty), IV);
+    return Builder->CreateMul(IVCoefCG(CE, IVIt), IV);
   } else {
     return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
@@ -915,25 +1041,18 @@ Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {
       ConstantInt::getSigned(const_cast<Type *>(V->getType()), Coeff), V);
 }
 
-void HIRCodeGen::moveDummyInstructions() {
-  auto Inst = HLNodeUtils::getFirstDummyInst();
+void HIRCodeGen::eraseDummyInstructions() {
 
-  if (!Inst) {
+  auto FirstInst = HLNodeUtils::getFirstDummyInst();
+  auto LastInst = HLNodeUtils::getLastDummyInst();
+
+  if (!FirstInst) {
     return;
   }
 
-  auto BB = Inst->getParent();
-  auto &BBInstList = BB->getInstList();
-  auto TermInst = BB->getTerminator();
-  auto FirstIt = BasicBlock::iterator(Inst);
-  auto LastIt = BasicBlock::iterator(TermInst);
-
-  // Dummy instructions are inserted before the terminator of the bblock so we
-  // need to move all the instructions upto the terminator.
-  DummyInstList.splice(DummyInstList.begin(), BBInstList, FirstIt, LastIt);
-}
-
-void HIRCodeGen::eraseDummyInstructions() {
-  // clear() calls delete on the nodes.
-  DummyInstList.clear();
+  for (auto I = BasicBlock::iterator(FirstInst),
+            E = std::next(BasicBlock::iterator(LastInst));
+       I != E;) {
+    I = I->eraseFromParent();
+  }
 }

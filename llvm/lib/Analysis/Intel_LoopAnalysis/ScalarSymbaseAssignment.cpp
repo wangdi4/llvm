@@ -29,13 +29,13 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-#define DEBUG_TYPE "hir-scalar-sa"
+#define DEBUG_TYPE "hir-scalar-symbase-assignment"
 
-INITIALIZE_PASS_BEGIN(ScalarSymbaseAssignment, "hir-scalar-sa",
+INITIALIZE_PASS_BEGIN(ScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                       "HIR Scalar Symbase Assignment", false, true)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
-INITIALIZE_PASS_END(ScalarSymbaseAssignment, "hir-scalar-sa",
+INITIALIZE_PASS_END(ScalarSymbaseAssignment, "hir-scalar-symbase-assignment",
                     "HIR Scalar Symbase Assignment", false, true)
 
 char ScalarSymbaseAssignment::ID = 0;
@@ -64,19 +64,16 @@ void ScalarSymbaseAssignment::insertHIRLval(const Value *Lval,
 unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
   BaseTemps.push_back(Temp);
 
-  // Map symbase to Value, only needed for printing lval DDRefs.
-  insertHIRLval(Temp, getMaxScalarSymbase());
-
   return getMaxScalarSymbase();
 }
 
 void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                 unsigned Symbase) {
-  assert((Symbase > getSymBaseForConstants()) &&
+  assert((Symbase > CONSTANT_SYMBASE) &&
          (Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
-
+  (void)Ret;
   assert(Ret.second && "Attempt to overwrite Temp symbase!");
 }
 
@@ -99,29 +96,31 @@ unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
     return Iter->second;
   }
 
-  return 0;
+  return INVALID_SYMBASE;
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  const Value *RetVal;
+  const Value *RetVal = nullptr;
 
-  assert((Symbase > getSymBaseForConstants()) && "Symbase is out of range!");
+  assert((Symbase > CONSTANT_SYMBASE) && "Symbase is out of range!");
 
   if (Symbase <= getMaxScalarSymbase()) {
-    RetVal = BaseTemps[Symbase - getSymBaseForConstants() - 1];
-  }
-  // Symbase can be out of range for new temps created by HIR transformations.
-  else {
+    RetVal = BaseTemps[Symbase - CONSTANT_SYMBASE - 1];
+  } else {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+    // Symbase can be out of range for new temps created by HIR transformations.
+    // These temps are registered by framework utils for printing in debug mode.
     auto It = ScalarLvalSymbases.find(Symbase);
     assert((It != ScalarLvalSymbases.end()) && "Symbase not present in map!");
     RetVal = It->second;
+#else
+    // We shouldn't reach here in prod mode. ScalarLvalSymbases is only
+    // maintained in debug mode for printing.
+    llvm_unreachable("Couldn't find base temp!");
+#endif
   }
 
   return RetVal;
-#else
-  return nullptr;
-#endif
 }
 
 const Value *ScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
@@ -134,12 +133,8 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(const Value *Scalar) const {
   }
 }
 
-unsigned ScalarSymbaseAssignment::getSymBaseForConstants() const {
-  return CONSTANT_SYMBASE;
-}
-
 unsigned ScalarSymbaseAssignment::getMaxScalarSymbase() const {
-  return BaseTemps.size() + getSymBaseForConstants();
+  return BaseTemps.size() + CONSTANT_SYMBASE;
 }
 
 void ScalarSymbaseAssignment::setGenericLoopUpperSymbase() {
@@ -185,7 +180,7 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
   unsigned Symbase;
 
   if (isConstant(Scalar)) {
-    return getSymBaseForConstants();
+    return CONSTANT_SYMBASE;
   }
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
@@ -199,6 +194,12 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
 
       if (It != StrSymbaseMap.end()) {
         Symbase = It->getValue();
+
+        // Insert into TempSymbaseMap so that the base temp can be retrieved
+        // using getBaseScalar().
+        if (Assign && !getTempSymbase(Inst)) {
+          insertTempSymbase(Inst, Symbase);
+        }
       } else {
         if (Assign) {
           Symbase = getOrAssignTempSymbase(Inst);
@@ -300,11 +301,14 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
         insertTempSymbase(*SCCInstIt, Symbase);
       }
 
-      if (auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt)) {
-        if (!SCCLiveInProcessed &&
-            processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
-          SCCLiveInProcessed = true;
-        }
+      if (SCCLiveInProcessed) {
+        continue;
+      }
+      
+      auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt);
+
+      if (SCCPhiInst && processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {
+        SCCLiveInProcessed = true;
       }
     }
   }

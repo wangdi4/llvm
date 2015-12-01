@@ -15,21 +15,12 @@ class DriverBatchModeTest (TestBase):
 
     mydir = TestBase.compute_mydir(__file__)
 
-    @skipUnlessDarwin
-    @unittest2.expectedFailure("<rdar://problem/18684124>, lldb doesn't reliably print the prompt when run under pexpect")
-    @dsym_test
-    def test_driver_batch_mode_with_dsym(self):
-        """Test that the lldb driver's batch mode works correctly."""
-        self.buildDsym()
-        self.setTearDownCleanup()
-        self.batch_mode ()
-
-    @unittest2.expectedFailure("<rdar://problem/18684124>, lldb doesn't reliably print the prompt when run under pexpect")
+    @skipIfRemote # test not remote-ready llvm.org/pr24813
+    @expectedFlakeyLinux("llvm.org/pr25172")
     @expectedFailureWindows("llvm.org/pr22274: need a pexpect replacement for windows")
-    @dwarf_test
-    def test_driver_batch_mode_with_dwarf(self):
+    def test_driver_batch_mode(self):
         """Test that the lldb driver's batch mode works correctly."""
-        self.buildDwarf()
+        self.build()
         self.setTearDownCleanup()
         self.batch_mode()
 
@@ -47,7 +38,6 @@ class DriverBatchModeTest (TestBase):
             self.fail ("Got EOF waiting for '%s'"%(string))
         except pexpect.TIMEOUT:
             self.fail ("Timed out waiting for '%s'"%(string))
-
 
     def batch_mode (self):
         exe = os.path.join(os.getcwd(), "a.out")
@@ -94,12 +84,4 @@ class DriverBatchModeTest (TestBase):
         self.expect_string ("exited")
         index = self.child.expect([pexpect.EOF, pexpect.TIMEOUT])
         self.assertTrue(index == 0, "lldb didn't close on successful batch completion.")
-
-        
-       
-
-        
-        
-
-
 

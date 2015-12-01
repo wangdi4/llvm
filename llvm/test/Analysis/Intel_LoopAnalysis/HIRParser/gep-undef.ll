@@ -1,0 +1,49 @@
+; Check HIR parsing of cases with undefined values in GEP instruction
+; |   (undef)[undef][sext.i32.i64(undef)] = 5 * i1;
+; |   <REG> (LINEAR [5 x i32]* undef)[LINEAR i32 undef][LINEAR i64 sext.i32.i64(undef)] {undefined} {sb:0}
+; |   <BLOB> LINEAR i32 undef {undefined} {sb:10}
+; |   <BLOB> LINEAR [5 x i32]* undef {undefined} {sb:9}
+; |   <REG> LINEAR i32 5 * i1 {sb:4}
+
+; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
+
+; CHECK: (undef)[undef][{{.*}}undef{{.*}}]
+; CHECK-NEXT: <REG>{{.*}}{undefined}
+; CHECK-NEXT: <BLOB>{{.*}}{undefined}
+; CHECK-NEXT: <BLOB>{{.*}}{undefined}
+
+; ModuleID = '2.ll'
+target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@x = common global i32 0, align 4
+
+; Function Attrs: nounwind uwtable
+define i32 @main() #0 {
+entry:
+  %A = alloca [5 x i32], align 16
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %entry
+  %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
+  %cmp = icmp slt i32 %i.0, 5
+  br i1 %cmp, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  %mul = mul nsw i32 5, %i.0
+  %0 = load i32, i32* @x, align 4
+  %idxprom = sext i32 undef to i64
+  %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* undef, i32 undef, i64 %idxprom
+  store i32 %mul, i32* %arrayidx, align 4
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body
+  %inc = add nsw i32 %i.0, 1
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
+  %arrayidx3 = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 0
+  %1 = load i32, i32* %arrayidx3, align 4
+  ret i32 %1
+}
+
