@@ -256,14 +256,17 @@ X86RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return CSR_64_Intel_OCL_BI_SaveList;
     break;
   }
-#if INTEL_CUSTOMIZATION
-  case CallingConv::X86_RegCall:
-    assert(!Subtarget.isTargetKnownWindowsMSVC() &&
-           "Windows target not supported yet");
-    return Is64Bit ? CSR_64_RegCall_SaveList : CSR_32_RegCall_SaveList;
-#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_SaveList;
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall: {
+    return Is64Bit ?
+             IsWin64 ?
+               CSR_Win64_RegCall_SaveList:
+               CSR_Lin64_RegCall_SaveList:
+             CSR_32_RegCall_SaveList;
+  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
       return CSR_64_MostRegs_SaveList;
@@ -324,14 +327,17 @@ X86RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
       return CSR_64_Intel_OCL_BI_RegMask;
     break;
   }
-#if INTEL_CUSTOMIZATION
-  case CallingConv::X86_RegCall:
-    assert(!Subtarget.isTargetKnownWindowsMSVC() &&
-           "Windows target not supported yet");
-    return Is64Bit ? CSR_64_RegCall_RegMask: CSR_32_RegCall_RegMask;
-#endif // INTEL_CUSTOMIZATION
   case CallingConv::HHVM:
     return CSR_64_HHVM_RegMask;
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall: {
+    return Is64Bit ?
+             IsWin64 ?
+               CSR_Win64_RegCall_RegMask:
+               CSR_Lin64_RegCall_RegMask:
+             CSR_32_RegCall_RegMask;
+  }
+#endif // INTEL_CUSTOMIZATION
   case CallingConv::Cold:
     if (Is64Bit)
       return CSR_64_MostRegs_RegMask;
