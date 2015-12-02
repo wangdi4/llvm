@@ -514,6 +514,16 @@ TEST_F(CL20, DoubleSetDefaultCommandQueue)
     DoubleSetDefaultCommandQueue();
 }
 
+TEST_F(CL20, clSVMMap_FINE_GRAIN)
+{
+    clSVMMap_FINE_GRAIN();
+}
+
+TEST_F(CL20, clSVMUnmap_FINE_GRAIN)
+{
+    clSVMUnmap_FINE_GRAIN();
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////   End of CL20 tests.    //////////////////////////////
 /////////////////////////////////////////////////////////////////////

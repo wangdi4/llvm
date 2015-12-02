@@ -3312,17 +3312,23 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
     }
 
     SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
-    if (NULL == pSvmBuf)
-    {
-        // if it's a system pointer, we don't have to do anything
-        return CL_SUCCESS;
-    }
-    if (pSvmBuf->GetContext() != pQueue->GetContext() || !pSvmBuf->IsContainedInBuffer(pSvmPtr, size))
+
+    if (pSvmBuf && (pSvmBuf->GetContext() != pQueue->GetContext() || !pSvmBuf->IsContainedInBuffer(pSvmPtr, size)))
     {
         return CL_INVALID_VALUE;
     }
 
-    MapBufferCommand* const pCmd = new MapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
+    Command* pCmd = NULL;
+    if (pSvmBuf)
+    {
+        pCmd = new MapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, mapflags, (char*)pSvmPtr - (char*)pSvmBuf->GetAddr(), size);
+    }
+    else
+    {
+        // if it's a system pointer, it must work like a marker.
+        pCmd = new SVMMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
+    }
+
     if (NULL == pCmd)
     {
         return CL_OUT_OF_HOST_MEMORY;
@@ -3333,7 +3339,6 @@ cl_int ExecutionModule::EnqueueSVMMap(cl_command_queue clCommandQueue, cl_bool b
         delete pCmd;
         return err;
     }
-    assert(pCmd->GetMappedPtr() == pSvmPtr && "pCmd->GetMappedPtr() != pSvmPtr");
     err = pCmd->EnqueueSelf(bBlockingMap, uiNumEventsInWaitList, pEventWaitList, pEvent, apiLogger);
     if (CL_FAILED(err))
     {
@@ -3363,17 +3368,23 @@ cl_int ExecutionModule::EnqueueSVMUnmap(cl_command_queue clCommandQueue, void* p
     }
 
     SharedPtr<SVMBuffer> pSvmBuf = pQueue->GetContext()->GetSVMBufferContainingAddr(pSvmPtr);
-    if (NULL == pSvmBuf)
-    {
-        // if it's a system pointer, we don't have to do anything
-        return CL_SUCCESS;
-    }
-    if (pSvmBuf->GetContext() != pQueue->GetContext())
+
+    if (pSvmBuf && pSvmBuf->GetContext() != pQueue->GetContext())
     {
         return CL_INVALID_VALUE;
     }
 
-    UnmapMemObjectCommand* const pCmd = new UnmapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pSvmPtr);
+    Command* pCmd = NULL;
+    if(pSvmBuf)
+    {
+        pCmd = new UnmapSvmBufferCommand(pQueue, m_pOclEntryPoints, pSvmBuf, pSvmPtr);
+    }
+    else
+    {
+        // if it's a system pointer, it must work like a marker.
+        pCmd = new SVMUNMAP_Command_NOOP(pQueue, uiNumEventsInWaitList);
+    }
+
     if (NULL == pCmd)
     {
         return CL_OUT_OF_HOST_MEMORY;
