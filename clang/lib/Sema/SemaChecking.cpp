@@ -2636,52 +2636,58 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
       ExprResult Arg = TheCall->getArg(i);
       ValType = NewBuiltinDecl->getParamDecl(i)->getType();
-      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Casting);
-      if (Arg.isInvalid())
-        return ExprError();
+      ExprResult Res = DefaultLvalueConversion(Arg.get());
+      if (Res.isUsable())
+        Arg = Res;
+      Res = Arg;
+      auto CK = PrepareScalarCast(Res, ValType);
+      if (CK != CK_NoOp && Res.isUsable())
+        Res = ImpCastExprToType(Res.get(), ValType, CK);
+      if (Res.isUsable())
+        Arg = Res;
 
-      // GCC does an implicit conversion to the pointer or integer ValType.  This
+      // GCC does an implicit conversion to the pointer or integer ValType. This
       // can fail in some cases (1i -> int**), check for this error case now.
       // Initialize the argument.
-      InitializedEntity Entity = InitializedEntity::InitializeParameter(Context,
-                                                     ValType, /*consume*/ false);
+      InitializedEntity Entity = InitializedEntity::InitializeParameter(
+          Context, ValType, /*consume*/ false);
       Arg = PerformCopyInitialization(Entity, SourceLocation(), Arg);
       if (Arg.isInvalid())
         return ExprError();
 
-      // Okay, we have something that *can* be converted to the right type.  Check
-      // to see if there is a potentially weird extension going on here.  This can
-      // happen when you do an atomic operation on something like an char* and
-      // pass in 42.  The 42 gets converted to char.  This is even more strange
-      // for things like 45.123 -> char, etc.
+      // Okay, we have something that *can* be converted to the right type.
+      // Check to see if there is a potentially weird extension going on here.
+      // This can happen when you do an atomic operation on something like an
+      // char* and pass in 42.  The 42 gets converted to char.  This is even
+      // more strange for things like 45.123 -> char, etc.
       // FIXME: Do this check.
       TheCall->setArg(i, Arg.get());
     }
 
     // Create a new DeclRefExpr to refer to the new decl.
-    DeclRefExpr* NewDRE = DeclRefExpr::Create(
-      Context,
-      DRE->getQualifierLoc(),
-      SourceLocation(),
-      NewBuiltinDecl,
-      /*enclosing*/ false,
-      DRE->getLocation(),
-      Context.BuiltinFnTy,
-      DRE->getValueKind());
+    DeclRefExpr *NewDRE = DeclRefExpr::Create(
+        Context, DRE->getQualifierLoc(), SourceLocation(), NewBuiltinDecl,
+        /*enclosing*/ false, DRE->getLocation(), Context.BuiltinFnTy,
+        DRE->getValueKind());
 
     // Set the callee in the CallExpr.
     // FIXME: This loses syntactic information.
     QualType CalleePtrTy = Context.getPointerType(NewBuiltinDecl->getType());
-    ExprResult PromotedCall = ImpCastExprToType(NewDRE, CalleePtrTy,
-                                              CK_BuiltinFnToFnPtr);
+    ExprResult PromotedCall =
+        ImpCastExprToType(NewDRE, CalleePtrTy, CK_BuiltinFnToFnPtr);
     TheCall->setCallee(PromotedCall.get());
 
     // Change the result type of the call to match the original value type. This
     // is arbitrary, but the codegen for these builtins ins design to handle it
     // gracefully.
     TheCall->setType(NewBuiltinDecl->getCallResultType());
-    }
-    return PerformImplicitConversion(TheCall, ResultType, AA_Converting);
+
+    ExprResult Res = TheCall;
+    auto CK = PrepareScalarCast(Res, ResultType);
+    if (CK != CK_NoOp && Res.isUsable())
+      Res = ImpCastExprToType(Res.get(), ValType, CK);
+    return Res;
+  }
   default:
     break;
   }
