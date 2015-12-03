@@ -70,7 +70,6 @@ def HasMath0     : Predicate<"Subtarget.hasMath0()">;
 //===----------------------------------------------------------------------===//
 
 // These are target-independent nodes, but have target-specific formats.
-def SDT_LPURet          : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
 def SDT_LPUCall         : SDTypeProfile<0, 1, [SDTCisVT<0, iPTR>]>;
 def SDT_LPUCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i64> ]>;
 def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
@@ -78,8 +77,8 @@ def SDT_LPUCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i64>, SDTCisVT<1, i64> ]>;
 def SDT_LPUWrapper      : SDTypeProfile<1, 1, [SDTCisSameAs<0,1>,
                                                SDTCisPtrTy<0>]>;
 
-def LPURet : SDNode<"LPUISD::Ret", SDT_LPURet,
-    [SDNPHasChain, SDNPOptInGlue]>;
+def LPURet : SDNode<"LPUISD::Ret", SDTNone,
+    [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Call
 def LPUCall : SDNode<"LPUISD::Call", SDT_LPUCall,
@@ -474,9 +473,9 @@ def : Pat<(brcond (i1 (setne I1:$cond, -1)), bb:$target),
 let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs),
-    (ins I64:$op1),
-    "ret\t$op1",
-    [(LPURet I64:$op1)]>;
+    (ins),
+    "ret\t%ra",
+    [(LPURet)]>;
 
 /*
 let isCall=1, Defs = [] in {

@@ -18,6 +18,7 @@
 #include "LPU.h"
 #include "llvm/CodeGen/SelectionDAG.h"
 #include "llvm/Target/TargetLowering.h"
+#include "LPUMachineFunctionInfo.h"
 
 namespace llvm {
   namespace LPUISD {
@@ -26,7 +27,6 @@ namespace llvm {
       Call,
       TailCall,
       Ret,
-      ThreadPointer,
       // Wrapper - A wrapper node for TargetConstantPool, TargetExternalSymbol,
       // and TargetGlobalAddress
       Wrapper
@@ -62,13 +62,13 @@ namespace llvm {
     const char *getTargetNodeName(unsigned Opcode) const override;
 
     SDValue LowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+    SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
     /*
     SDValue LowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
     SDValue LowerVASTART(SDValue Op, SelectionDAG &DAG) const;
-    SDValue LowerJumpTable(SDValue Op, SelectionDAG &DAG) const;
     SDValue getReturnAddressFrameIndex(SelectionDAG &DAG) const;
 
     TargetLowering::ConstraintType
@@ -106,7 +106,7 @@ namespace llvm {
                            const SmallVectorImpl<ISD::InputArg> &Ins,
                            SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const;
-    */
+
     SDValue LowerCCCArguments(SDValue Chain,
                               CallingConv::ID CallConv,
                               bool isVarArg,
@@ -114,24 +114,26 @@ namespace llvm {
                               SDLoc dl,
                               SelectionDAG &DAG,
                               SmallVectorImpl<SDValue> &InVals) const;
-    /*
+    */
+    /// IsEligibleForTailCallOptimization - Check whether the call is eligible
+    /// for tail call optimization.
+    bool IsEligibleForTailCallOptimization(unsigned NextStackOffset,
+                                           const LPUMachineFunctionInfo& FI) const;
+
+    SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
+                SmallVectorImpl<SDValue> &InVals) const override;
+
     SDValue LowerCallResult(SDValue Chain, SDValue InFlag,
                             CallingConv::ID CallConv, bool isVarArg,
                             const SmallVectorImpl<ISD::InputArg> &Ins,
                             SDLoc dl, SelectionDAG &DAG,
                             SmallVectorImpl<SDValue> &InVals) const;
-    */
-    SDValue
-      LowerFormalArguments(SDValue Chain,
+
+    SDValue LowerFormalArguments(SDValue Chain,
                            CallingConv::ID CallConv, bool isVarArg,
                            const SmallVectorImpl<ISD::InputArg> &Ins,
                            SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const override;
-    /*
-    SDValue
-      LowerCall(TargetLowering::CallLoweringInfo &CLI,
-                SmallVectorImpl<SDValue> &InVals) const override;
-    */
     SDValue LowerReturn(SDValue Chain,
                         CallingConv::ID CallConv, bool isVarArg,
                         const SmallVectorImpl<ISD::OutputArg> &Outs,
