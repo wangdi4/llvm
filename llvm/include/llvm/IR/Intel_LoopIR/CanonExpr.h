@@ -302,6 +302,10 @@ public:
     DefinedAtLevel = DefLvl;
   }
 
+  /// \brief Marks the CE as non-linear if the necessary, based on the
+  /// level argument.
+  void updateNonLinear(unsigned Level);
+
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }
 

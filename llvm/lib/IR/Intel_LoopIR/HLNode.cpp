@@ -186,6 +186,15 @@ HLLoop *HLNode::getLexicalParentLoop() const {
   return ParLoop;
 }
 
+unsigned HLNode::getHLNodeLevel() const {
+
+  assert(getParentRegion() && " Node should be connected to a HLRegion");
+
+  HLLoop *Loop = getLexicalParentLoop();
+  unsigned Level = Loop ? Loop->getNestingLevel() : 0;
+  return Level;
+}
+
 HLRegion *HLNode::getParentRegion() const {
   assert(!isa<HLRegion>(this) && "Region cannot not have a parent!");
 

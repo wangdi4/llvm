@@ -74,6 +74,27 @@ void CanonExpr::destroyAll() {
   BlobToIndexMap.clear();
 }
 
+void CanonExpr::updateNonLinear(unsigned Level) {
+
+  assert(Level <= MaxLoopNestLevel && "Level exceeds max level.");
+
+  // Constant case.
+  if (isConstant()) {
+    DefinedAtLevel = 0;
+    return;
+  }
+
+  if (isNonLinear()) {
+    return;
+  }
+
+  assert(DefinedAtLevel >= 0 && "DefLevel should be positive.");
+  // Mark as non-linear since def is at the same level.
+  if (DefinedAtLevel >= (int)(Level)) {
+    setNonLinear();
+  }
+}
+
 CanonExpr *CanonExpr::clone() const {
   CanonExpr *CE = new CanonExpr(*this);
   return CE;
@@ -1015,5 +1036,10 @@ void CanonExpr::verify() const {
 
   if (!hasBlob() && !hasBlobIVCoeffs()) {
     assert(!isNonLinear() && "CanonExpr with no blobs cannot be non-linear!");
+  }
+
+  if (isConstant()) {
+    assert(isProperLinear() &&
+           " Defined at Level should be 0 for constant canonexpr!");
   }
 }

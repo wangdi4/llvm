@@ -66,8 +66,25 @@ protected:
   Type *getTypeImpl(bool IsSrc) const;
 
 public:
-  /// Virtual Clone Method
+  /// \brief Virtual Clone Method
   virtual DDRef *clone() const = 0;
+
+  /// \brief Virtual method to update CE levels to non-linear
+  /// if necessary. This should be called by transformations after
+  /// they make any change to DDRef which affect the internal CE.
+  /// Note, specific transformation such as interchange, might need
+  /// customized methods to update the CE levels.
+  /// for example:
+  /// for(i=0; i<n; i++) {
+  ///   t = B[i];
+  ///   for(j=0; j <3; j++) {
+  ///     A[i][j] = t*j;
+  ///   }
+  /// }
+  /// In this example t*j is marked as Linear@Level 1. However, after
+  /// complete unrolling of j-loop it would be marked as non-linear.s
+  virtual void updateCELevel() = 0;
+
   /// \brief Dumps DDRef.
   void dump(bool Detailed) const;
   /// \brief Dumps DDRef in a simple format.
@@ -76,8 +93,11 @@ public:
   /// \brief Prints DDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
-  /// \brief Returns the HLDDNode this DDRef is attached to.
+  /// \brief Returns the parent HLDDNode.
   virtual HLDDNode *getHLDDNode() const = 0;
+
+  /// \brief Returns the Level of parent HLDDNode Level.
+  unsigned getHLDDNodeLevel() const;
 
   /// \brief Returns the underlying value this DDRef represents.
   /// DDRef doesn't store the value right now and it is tricky to retrieve

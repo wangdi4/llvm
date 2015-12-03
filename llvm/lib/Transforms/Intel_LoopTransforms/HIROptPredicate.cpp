@@ -161,6 +161,10 @@ private:
   void removeThenElseChildren(HLIf *If, HLContainerTy *ThenContainer,
                               HLContainerTy *ElseContainer);
 
+  /// \brief Updates the DDRefs inside the HLIf. The updates are specifically
+  /// to mark the CE inside DDRef as non-linear during the transformation.
+  void updateIfRef(HLIf *If);
+
   /// \brief Performs the OptPredicate transformation where condition is
   /// hoisted outside and loops are moved inside the condition.
   void hoistIf(HLIf *If, HLLoop *OrigLoop, HLLoop *NewThenLoop);
@@ -473,6 +477,11 @@ void HIROptPredicate::insertThenChildren(HLIf *If,
 // Visitor used to find a candidate If for OptPredicate.
 class IfSearchVisitor final : public HLNodeVisitorBase {
 
+private:
+  unsigned IfPos;
+  unsigned NodeCount;
+  HLIf *If;
+
 public:
   IfSearchVisitor(unsigned Pos) : IfPos(Pos), NodeCount(0), If(nullptr) {}
 
@@ -488,11 +497,6 @@ public:
   bool isDone() const override { return If; }
 
   HLIf *getIf() { return If; }
-
-private:
-  unsigned IfPos;
-  unsigned NodeCount;
-  HLIf *If;
 };
 
 void HIROptPredicate::insertElseChildren(HLLoop *NewElseLoop, unsigned IfPos,
@@ -516,10 +520,20 @@ void HIROptPredicate::insertElseChildren(HLLoop *NewElseLoop, unsigned IfPos,
   NewIf = nullptr;
 }
 
+void HIROptPredicate::updateIfRef(HLIf *If) {
+  for (auto Iter = If->ddref_begin(), End = If->ddref_end(); Iter != End;
+       ++Iter) {
+    (*Iter)->updateCELevel();
+  }
+}
+
 void HIROptPredicate::hoistIf(HLIf *If, HLLoop *OrigLoop, HLLoop *NewElseLoop) {
 
   // Hoist the If outside the loop.
   HLNodeUtils::moveBefore(OrigLoop, If);
+
+  // Update the DDRefs inside the HLIf.
+  updateIfRef(If);
 
   // Move loop to then part.
   HLNodeUtils::moveAsFirstChild(If, OrigLoop, true);

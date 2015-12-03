@@ -444,7 +444,7 @@ bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
 // A reference group is created at the specified level.
 // Only the IV at that level should change as specified in isGroupMemRefMatch.
 // Simple Example:
-// MemRefMap : B[J][I], B[J][I-1], B[J][I+1], B[J][I-1], B[J+1][I]
+// MemRefMap : B[J][I], B[J][I-1], B[J][I+1], B[J-1][I], B[J+1][I]
 // RefGroup created for I-Level:
 // Group 1 : B[J][I], B[J][I-1], B[J][I+1]
 // Group 2 : B[J-1][I]

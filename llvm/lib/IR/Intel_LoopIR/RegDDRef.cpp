@@ -29,29 +29,29 @@ RegDDRef::RegDDRef(unsigned SB)
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
 
-  /// Copy base canon expr
+  // Copy base canon expr
   if (auto NewCE = RegDDRefObj.getBaseCE()) {
     setBaseCE(NewCE->clone());
   }
 
-  /// Copy inbounds attribute
+  // Copy inbounds attribute
   if (RegDDRefObj.isInBounds()) {
     setInBounds(true);
   }
 
-  /// Copy AddressOf flag.
+  // Copy AddressOf flag.
   if (RegDDRefObj.isAddressOf()) {
     setAddressOf(true);
   }
 
-  /// Loop over CanonExprs
+  // Loop over CanonExprs
   for (auto I = RegDDRefObj.canon_begin(), E = RegDDRefObj.canon_end(); I != E;
        ++I) {
     CanonExpr *NewCE = (*I)->clone();
     CanonExprs.push_back(NewCE);
   }
 
-  /// Loop over Strides
+  // Loop over Strides
   if (RegDDRefObj.hasGEPInfo()) {
     for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
          I != E; ++I) {
@@ -60,7 +60,7 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     }
   }
 
-  /// Loop over BlobDDRefs
+  // Loop over BlobDDRefs
   for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
        ++I) {
     BlobDDRef *NewBlobDDRef = (*I)->clone();
@@ -74,10 +74,37 @@ RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
 
-  /// Call Copy constructor
+  // Call Copy constructor
   RegDDRef *NewRegDDRef = new RegDDRef(*this);
 
   return NewRegDDRef;
+}
+
+void RegDDRef::updateCELevel() {
+
+  unsigned Level = getHLDDNodeLevel();
+
+  // Base CE
+  if (hasGEPInfo()) {
+    getBaseCE()->updateNonLinear(Level);
+  }
+
+  // Loop over CanonExprs
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    (*I)->updateNonLinear(Level);
+  }
+
+  // Loop over Strides
+  if (hasGEPInfo()) {
+    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
+      (*I)->updateNonLinear(Level);
+    }
+  }
+
+  // Loop over BlobDDRefs
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
+    (*I)->updateCELevelImpl(Level);
+  }
 }
 
 void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {

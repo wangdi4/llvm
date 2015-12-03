@@ -20,6 +20,7 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -145,6 +146,13 @@ void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     OS << "{undefined} ";
   }
   OS << "{sb:" << getSymbase() << "}";
+}
+
+unsigned DDRef::getHLDDNodeLevel() const {
+  HLDDNode *DDNode = getHLDDNode();
+  assert(DDNode && " DDRef not attached to any node.");
+
+  return DDNode->getHLNodeLevel();
 }
 
 bool DDRef::isSelfBlob() const {

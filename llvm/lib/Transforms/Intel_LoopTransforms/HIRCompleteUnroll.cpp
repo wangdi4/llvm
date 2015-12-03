@@ -47,32 +47,11 @@
 //  (2) Some  rebuildDDG  util need to be invoked before and after unroll for
 //      the sake of incremental rebuild
 //  (3) Safe reductions chains need to be updated or removed
-//  (4) Linear-at-level need to be adjusted
-//  (5) Linear-in-innermost  may turn   into non-linear  and was-linear as in
-//  this case
-//
-//  Do  I
-//     M =   a(i)
-//       Do j=1,2
-//          B(j) = M + j    // ( M + j) is linear in innermost   canon = i2 + M
-//          (or linear at level eventually)
-//       Enddo
-//  Enddo
-//
-//  After complete unroll
-//   Do  I
-//      M =   a(i)
-//      B(1) = M + 1    //  (M + j)    becomes non-linear (was linear)  canon =
-//      M + 1
-//      B(2) = M + 2    //  (M + j)    becomes non-linear (was linear)  canon =
-//      M + 2
-//   Enddo
-//
-//  (6) Using a simple heuristic (TripCount) for this implementation. We need to
+//  (4) Using a simple heuristic (TripCount) for this implementation. We need to
 //     extend it later to incorporate register pressure. Also, for multi-level
 //     loops, we are currently summing the trip counts for the loop nest.
-//  (7) Handle preheader and postexit of loops during transformation.
-//  (8) Conduct some experiments to determine if going from inner to outer saves
+//  (5) Handle preheader and postexit of loops during transformation.
+//  (6) Conduct some experiments to determine if going from inner to outer saves
 //     compile time. Experiment if unrolling HLIf's increases/decreases
 //     performance.
 
@@ -165,6 +144,7 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 
   RegDD->updateBlobDDRefs(BlobDDRefs);
   assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
+  RegDD->updateCELevel();
 }
 
 /// Processes CanonExpr to replace IV by TripVal.
@@ -172,11 +152,6 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
 void CanonExprVisitor::processCanonExpr(CanonExpr *CExpr) {
   DEBUG(dbgs() << "Replacing CanonExpr IV by tripval :" << TripVal << " \n");
   CExpr->replaceIVByConstant(Level, TripVal);
-
-  // TODO: update CE def level when TripVal is 0 and IV has a blob coeff. This
-  // applies to situations like this-
-  // Original CE: (i1 + i2*t1) {def:1)
-  // Modified CE: (i1) {def:0}
 }
 
 namespace {
@@ -269,8 +244,9 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
 
   // Do an early exit if Trip Threshold is less than 1
   // TODO: Check if we want give some feedback to user
-  if (CurrentTripThreshold == 0)
+  if (CurrentTripThreshold == 0) {
     return false;
+  }
 
   // Gather the outermost loops
   HLNodeUtils::gatherOutermostLoops(OuterLoops);
@@ -311,8 +287,9 @@ bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
     (*TotalTripCnt) += TripCnt;
   }
 
-  if (!ChildValid)
+  if (!ChildValid) {
     return false;
+  }
 
   // Add the loop for transformation if profitable.
   LoopData *LD;
@@ -328,10 +305,9 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
                                      int64_t *ChildTripCnt) {
 
   // TODO: Preheader and PostExit not handled currently.
-  if (Loop->hasPreheader() || Loop->hasPostexit())
+  if (Loop->hasPreheader() || Loop->hasPostexit()) {
     return false;
-
-  // assert((Loop->getNumChildren() > 0) && " Loop has no child.");
+  }
 
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   assert(UBRef && " Loop UpperBound not found.");
@@ -344,18 +320,21 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
 
   // Check if UB is Constant or not.
   int64_t UBConst;
-  if (!UBRef->isIntConstant(&UBConst))
+  if (!UBRef->isIntConstant(&UBConst)) {
     return false;
+  }
 
   // Check if LB is Constant or not.
   int64_t LBConst;
-  if (!LBRef->isIntConstant(&LBConst))
+  if (!LBRef->isIntConstant(&LBConst)) {
     return false;
+  }
 
   // Check if StepVal is Constant or not.
   int64_t StepConst;
-  if (!StrideRef->isIntConstant(&StepConst))
+  if (!StrideRef->isIntConstant(&StepConst)) {
     return false;
+  }
 
   // TripCount is (Upper -Lower)/Stride + 1.
   int64_t ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
@@ -375,8 +354,9 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
 
   // Ignore loops which have switch or function calls for unrolling.
   if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild(),
-                                   false))
+                                   false)) {
     return false;
+  }
 
   // Store loop information for transformation phase.
   *LData = new LoopData(LBConst, UBConst, StepConst);

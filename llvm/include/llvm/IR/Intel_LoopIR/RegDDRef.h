@@ -352,6 +352,10 @@ public:
   ///   * The HLDDNode needs to be explicitly set
   RegDDRef *clone() const override;
 
+  /// \brief Method to update CE levels to non-linear.
+  /// For details, please refer to base class(DDRef.h) documentation.
+  void updateCELevel() override final;
+
   /// \brief Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
   bool isLval() const;
