@@ -68,12 +68,15 @@ public:
   bool runOnFunction(Function &F) override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<LoopInfoWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
     AU.addRequired<RegionIdentification>();
     AU.addRequired<SCCFormation>();
 
     // We need to preserve all the analysis computed for HIR.
-    AU.setPreservesCFG();
+    AU.addPreserved<DominatorTreeWrapperPass>();
+    AU.addPreserved<LoopInfoWrapperPass>();
     AU.addPreserved<ScalarEvolutionWrapperPass>();
     AU.addPreserved<RegionIdentification>();
     AU.addPreserved<SCCFormation>();
@@ -118,10 +121,27 @@ private:
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
+  /// \brief Returns true if any of the SCC phi operands flow through PredBB.
+  /// This means that adding a livein copy in PredBB will kill the SCC phi
+  /// operand so we need to perform edge splitting.
+  bool predKillsSCCOperand(const PHINode *Phi, const BasicBlock *PredBB,
+                           const SmallVectorImpl<unsigned> &SCCPhiOps) const;
+
+  /// \brief Collects all operands of Phi which belong to the same SCC as Phi
+  /// and are not defined in Phi's incoming bblock in SCCPhiOps. Returns true if
+  /// any such operands are found.
+  bool collectSCCPhiOperands(const PHINode *Phi,
+                             const SCCFormation::SCCNodesTy *SCCNodes,
+                             SmallVectorImpl<unsigned> &SCCPhiOps) const;
+
+  /// \brief Returns true if we need to split edge while processing phi liveins.
+  bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB,
+                             const SCCFormation::SCCNodesTy *SCCNodes) const;
+
   /// \brief Inserts copies of Phi operands livein to the SCC. If SCCNodes is
   /// null, Phi is treated as a standalone phi and all operands are considered
   /// livein. Returns true if a livein copy was inserted.
-  bool processPhiLiveins(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
+  bool processPhiLiveins(PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
                          StringRef Name);
 
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
@@ -143,6 +163,8 @@ private:
   void deconstructSSAForRegions();
 
 private:
+  DominatorTree *DT;
+  LoopInfo *LI;
   ScalarEvolution *SE;
   RegionIdentification *RI;
   SCCFormation *SCCF;
@@ -157,6 +179,8 @@ private:
 char SSADeconstruction::ID = 0;
 INITIALIZE_PASS_BEGIN(SSADeconstruction, "hir-ssa-deconstruction",
                       "HIR SSA Deconstruction", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
@@ -373,9 +397,137 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   }
 }
 
-bool SSADeconstruction::processPhiLiveins(PHINode *Phi,
-                                          SCCFormation::SCCNodesTy *SCCNodes,
-                                          StringRef Name) {
+bool SSADeconstruction::predKillsSCCOperand(
+    const PHINode *Phi, const BasicBlock *PredBB,
+    const SmallVectorImpl<unsigned> &SCCPhiOps) const {
+
+  auto Lp = LI->getLoopFor(Phi->getParent());
+  assert(Lp && "Loop containing phi not found!");
+
+  for (auto SuccI = succ_begin(PredBB), E = succ_end(PredBB); SuccI != E;
+       ++SuccI) {
+    auto SuccBB = *SuccI;
+
+    // We reached Phi, now check if any SCC phi operand flows through PredBB.
+    if (SuccBB == Phi->getParent()) {
+      for (unsigned I = 0, E = SCCPhiOps.size(); I < E; ++I) {
+        if (Phi->getIncomingBlock(SCCPhiOps[I]) == PredBB) {
+          return true;
+        }
+      }
+
+      continue;
+    }
+
+    // Skip if we reach the loop header during the traversal to avoid cycling.
+    if (Lp->getHeader() == SuccBB) {
+      continue;
+    }
+
+    auto Lp1 = LI->getLoopFor(SuccBB);
+
+    // Skip if we are outside any loop.
+    if (!Lp1) {
+      continue;
+    }
+
+    if (Lp != Lp1) {
+      // If we reach an inner loop during traversal conservatively return true
+      // as the analysis becomes difficult.
+      if (Lp->contains(Lp1)) {
+        return true;
+      }
+      // Skip if we reach an outer loop.
+      continue;
+    }
+
+    // Recurse on SuccBB.
+    if (predKillsSCCOperand(Phi, SuccBB, SCCPhiOps)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+bool SSADeconstruction::collectSCCPhiOperands(
+    const PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
+    SmallVectorImpl<unsigned> &SCCPhiOps) const {
+
+  if (!SCCNodes) {
+    return false;
+  }
+
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
+    auto PhiOp = Phi->getIncomingValue(I);
+    auto InstPhiOp = dyn_cast<Instruction>(PhiOp);
+
+    if (!InstPhiOp) {
+      continue;
+    }
+
+    // Ignore instructions which are not part of SCC.
+    if (!SCCNodes->count(InstPhiOp)) {
+      continue;
+    }
+
+    auto PredBB = Phi->getIncomingBlock(I);
+
+    // Ignore instructions which are defined in the pred BBlock.
+    if (InstPhiOp->getParent() == PredBB) {
+      continue;
+    }
+
+    SCCPhiOps.push_back(I);
+  }
+
+  return !SCCPhiOps.empty();
+}
+
+bool SSADeconstruction::edgeSplittingRequired(
+    const PHINode *Phi, const BasicBlock *PredBB,
+    const SCCFormation::SCCNodesTy *SCCNodes) const {
+  SmallVector<unsigned, 4> SCCPhiOps;
+
+  // Here's a IR snippet of a loop depicting a case where edge splitting is
+  // required-
+  //
+  // while.body.126:                       ; preds = %entry, %if.end.150
+  //   %0 = phi i32 [ 0, %entry ], [ %2, %if.end.150 ]
+  //   %1 = load i32, i32* %arrayidx131, align 4
+  //   br i1 %cmp, label %if.then.128, label %if.else.139
+  //
+  // if.then.128:                          ; preds = %while.body.126
+  //   %cmp132 = icmp sgt i32 %0, %1
+  //   br i1 %cmp132, label %if.end.150, label %if.then.134
+  //
+  // if.then.134:                          ; preds = %if.then.128
+  //   store i32 %0, i32* %arrayidx131, align 4
+  //   br label %if.end.150
+  //
+  // if.end.150:                           ; preds = %if.then.134, %if.then.128
+  //   %2 = phi i32 [ %0, %if.then.134 ], [ %1, %if.then.128 ]
+  //   %sub152 = sub nsw i32 0, %storemerge.149
+  //   %tobool125 = icmp eq i32 %sub130, 0
+  //   br i1 %tobool125, label %while.end.153.loopexit, label %while.body.126
+  //
+  //
+  // We want to deconstruct phi %2 which is part of SCC containing %0 and %2 but
+  // we cannot insert the livein copy for operand %1 in the predecessor
+  // if.then.128 because that will kill %0 which flows through the same bblock.
+  // %0 is killed because it is assigned the same symbase as the livein copy. To
+  // resolve this we split the edge (if.then.128 -> if.end.150) and insert the
+  // copy in the new bblock.
+
+  if (!collectSCCPhiOperands(Phi, SCCNodes, SCCPhiOps)) {
+    return false;
+  }
+
+  return predKillsSCCOperand(Phi, PredBB, SCCPhiOps);
+}
+
+bool SSADeconstruction::processPhiLiveins(
+    PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes, StringRef Name) {
   bool Ret = false;
 
   // Insert a copy in the predecessor bblock for each phi operand which
@@ -383,20 +535,32 @@ bool SSADeconstruction::processPhiLiveins(PHINode *Phi,
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
     auto PhiOp = Phi->getIncomingValue(I);
 
-    // This check is only for SCC phis.
-    // Constant operand is assumed to lie outside SCC.
-    if (SCCNodes && !isa<Constant>(PhiOp) && isa<Instruction>(PhiOp) &&
+    // Ignore if PhiOp belongs to the same SCC.
+    if (SCCNodes && isa<Instruction>(PhiOp) &&
         SCCNodes->count(cast<Instruction>(PhiOp))) {
       continue;
     }
 
+    auto PredBB = Phi->getIncomingBlock(I);
+
     // Ignore if this value is region live-in.
-    if (!(*CurRegIt)->containsBBlock(Phi->getIncomingBlock(I))) {
+    if (!(*CurRegIt)->containsBBlock(PredBB)) {
       continue;
     }
 
+    // Split edge first, if required.
+    if (edgeSplittingRequired(Phi, PredBB, SCCNodes)) {
+      PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
+                                 CriticalEdgeSplittingOptions(DT, LI));
+      assert(PredBB &&
+             "Could not split edge, SplitCriticalEdge() returned null!");
+
+      // Add the new bblock to the current region.
+      (*CurRegIt)->addBBlock(PredBB);
+    }
+
     // Insert copy.
-    insertCopyAsLastInst(PhiOp, Phi->getIncomingBlock(I), Name);
+    insertCopyAsLastInst(PhiOp, PredBB, Name);
     Ret = true;
   }
 
@@ -554,6 +718,8 @@ void SSADeconstruction::deconstructSSAForRegions() {
 }
 
 bool SSADeconstruction::runOnFunction(Function &F) {
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   RI = &getAnalysis<RegionIdentification>();
   SCCF = &getAnalysis<SCCFormation>();

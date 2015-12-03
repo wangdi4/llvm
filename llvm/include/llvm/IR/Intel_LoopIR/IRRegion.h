@@ -103,6 +103,8 @@ public:
   /// \brief Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const { return BBlocks.count(BB); }
 
+  void addBBlock(const BasicBlock *BB) { BBlocks.insert(BB); }
+
   /// \brief Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.
   void addLiveInTemp(unsigned Symbase, const Value *InitVal) {
