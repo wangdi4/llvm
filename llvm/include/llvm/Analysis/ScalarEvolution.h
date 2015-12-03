@@ -645,13 +645,13 @@ namespace llvm {
     LLVMContext &getContext() const { return F.getContext(); }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
-    /// isHIRLiveInCopy - Returns true if this instruction is a livein copy
+    /// isHIRLiveInCopyInst - Returns true if this instruction is a livein copy
     /// instruction inserted by HIR framework.
-    bool isHIRLiveInCopy(const Instruction *Inst) const;
+    bool isHIRLiveInCopyInst(const Instruction *Inst) const;
 
-    /// isHIRLiveOutCopy - Returns true if this instruction is a liveout copy
-    /// instruction inserted by HIR framework.
-    bool isHIRLiveOutCopy(const Instruction *Inst) const;
+    /// isHIRLiveOutCopyInst - Returns true if this instruction is a liveout
+    /// copy instruction inserted by HIR framework.
+    bool isHIRLiveOutCopyInst(const Instruction *Inst) const;
 
     /// isHIRCopyInst - Returns true if this instruction is a copy instruction
     /// inserted by HIR framework.

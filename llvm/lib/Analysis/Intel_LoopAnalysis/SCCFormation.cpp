@@ -56,21 +56,6 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
-bool SCCFormation::isLinear(const NodeTy *Node) const {
-
-  if (SE->isSCEVable(Node->getType())) {
-    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
-
-    if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      if (AddRecSCEV->isAffine()) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   assert(isa<PHINode>(Node) && "Instruction is not a phi!");
 
@@ -309,15 +294,26 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       SCCTy *NewSCC = new SCCTy(Node);
       auto &NewSCCNodes = NewSCC->Nodes;
       const NodeTy *SCCNode;
+      bool isRootPhi = isa<PHINode>(Node);
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
         NewSCCNodes.insert(SCCNode);
 
+        // If the root of this SCC is not a phi, it may get eliminated as an
+        // intermediate node which results in a dangling root node. To fix this
+        // we set the first phi we encounter to be the root node.
+        if (!isRootPhi && isa<PHINode>(SCCNode)) {
+          NewSCC->Root = SCCNode;
+          isRootPhi = true;
+        }
+
         // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
+
+      assert(isRootPhi && "No phi found in SCC!");
 
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);

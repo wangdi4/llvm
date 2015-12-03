@@ -557,10 +557,16 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
     const Instruction *CurInst, const SCEV *SC, bool *IsTruncation,
     bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
-  // No need to check the SCEV of the current instruction itself.
+  bool IsLiveInCopy = false;
+
   if (!CurInst) {
     CurInst = HIRP->getCurInst();
-  } else if (HIRP->SE->isSCEVable(CurInst->getType())) {
+    IsLiveInCopy = HIRP->SE->isHIRLiveInCopyInst(CurInst);
+  }
+
+  // We should not be checking the SCEV of the livein copy instruction as it
+  // should inherit the SCEV of the rval.
+  if (!IsLiveInCopy && HIRP->SE->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->SE->getSCEV(const_cast<Instruction *>(CurInst));
 
     if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation, ConstMultiplier,
@@ -1253,7 +1259,10 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   Ref->setSingleCanonExpr(CE);
 
-  if (!CE->isSelfBlob()) {
+  // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
+  if (CE->isSelfBlob()) {
+    Ref->setSymbase(CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex()));
+  } else {
     populateBlobDDRefs(Ref);
   }
 
@@ -1446,17 +1455,78 @@ const SCEV *HIRParser::findPointerBlob(const SCEV *PtrSCEV) const {
   return PBF.getPointerBlob();
 }
 
-Type *HIRParser::getPrimaryElementType(Type *PtrTy) const {
-  assert(isa<PointerType>(PtrTy) && "Unexpected type!");
+const Instruction *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
+                                                  bool IsInit) const {
+  assert(RI->isHeaderPhi(Phi) && "Phi is not a header phi!");
 
-  Type *ElTy = cast<PointerType>(PtrTy)->getElementType();
+  auto Lp = LI->getLoopFor(Phi->getParent());
 
-  // Recurse into array types, if any.
-  for (; ArrayType *ArrTy = dyn_cast<ArrayType>(ElTy);
-       ElTy = ArrTy->getElementType()) {
+  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
+    auto PhiOp = Phi->getIncomingValue(I);
+
+    assert(isa<Instruction>(PhiOp) &&
+           "Header phi operand is not an instruction!");
+
+    auto Inst = cast<Instruction>(PhiOp);
+
+    if (IsInit) {
+      if (LI->getLoopFor(Inst->getParent()) != Lp) {
+        return Inst;
+      }
+    } else {
+      if (LI->getLoopFor(Inst->getParent()) == Lp) {
+        return Inst;
+      }
+    }
   }
 
-  return ElTy;
+  llvm_unreachable("Could not find appropriate header phi operand!");
+}
+
+const Instruction *HIRParser::getHeaderPhiInitInst(const PHINode *Phi) const {
+  return getHeaderPhiOperand(Phi, true);
+}
+
+const Instruction *HIRParser::getHeaderPhiUpdateInst(const PHINode *Phi) const {
+  return getHeaderPhiOperand(Phi, false);
+}
+
+CanonExpr *HIRParser::createHeaderPhiInitCE(const PHINode *Phi,
+                                            unsigned Level) {
+  const Instruction *InitInst = getHeaderPhiInitInst(Phi);
+
+  auto InitCE = parseAsBlob(InitInst, Level);
+
+  return InitCE;
+}
+
+CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
+                                             unsigned Level) {
+  const Instruction *UpdateInst = getHeaderPhiUpdateInst(Phi);
+
+  auto PhiSCEV = SE->getSCEV(const_cast<PHINode *>(Phi));
+  auto UpdateSCEV = SE->getSCEV(const_cast<Instruction *>(UpdateInst));
+
+  // Create stride as (update - phi). For example-
+  // PhiSCEV: {%ptr,+,4)
+  // UpdateSCEV : {(%ptr + 4),+,4)
+  // StrideSCEV : 4
+  auto StrideSCEV = SE->getMinusSCEV(UpdateSCEV, PhiSCEV);
+
+  auto IndexTy = Type::getIntNTy(
+      getContext(), getDataLayout().getTypeSizeInBits(Phi->getType()));
+
+  // Create index as {0,+,stride}
+  auto InitSCEV = SE->getConstant(IndexTy, 0);
+  auto IndexSCEV =
+      SE->getAddRecExpr(InitSCEV, StrideSCEV, LI->getLoopFor(Phi->getParent()),
+                        cast<SCEVAddRecExpr>(PhiSCEV)->getNoWrapFlags());
+
+  auto IndexCE = CanonExprUtils::createCanonExpr(IndexTy);
+
+  parseRecursive(IndexSCEV, IndexCE, Level);
+
+  return IndexCE;
 }
 
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
@@ -1489,24 +1559,34 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   // is then translated into a normalized index of i. The final mapped expr
   // looks like this: (%p)[i]
   if (auto RecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-    // getPrimaryElementType() comparison is to gaurd against tracing through
-    // bitcasts.
-    if (RecSCEV->isAffine() && (getPrimaryElementType(RecSCEV->getType()) ==
-                                getPrimaryElementType(BasePhi->getType())) &&
-        (BaseSCEV = findPointerBlob(RecSCEV))) {
 
-      // Collect extra dimensions, if any.
-      collectStrides(BaseSCEV->getType(), Strides);
+    if (RecSCEV->isAffine()) {
+      // getPrimaryElementType() comparison is to guard against tracing through
+      // bitcasts.
+      if ((BaseSCEV = findPointerBlob(RecSCEV)) &&
+          (RI->getPrimaryElementType(RecSCEV->getType()) ==
+           RI->getPrimaryElementType(BasePhi->getType()))) {
+        // Collect extra dimensions, if any.
+        collectStrides(BaseSCEV->getType(), Strides);
 
-      auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
+        auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
-      BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
-      IndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
-      parseRecursive(BaseSCEV, BaseCE, Level);
-      parseRecursive(OffsetSCEV, IndexCE, Level);
+        BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
+        IndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
+        parseRecursive(BaseSCEV, BaseCE, Level);
+        parseRecursive(OffsetSCEV, IndexCE, Level);
 
-      // Normalize with repsect to element size.
-      IndexCE->setDenominator(IndexCE->getDenominator() * ElementSize, true);
+        // Normalize with repsect to element size.
+        IndexCE->multiplyDenominator(ElementSize, true);
+      }
+      // Decompose phi into base and index ourselves.
+      else if (RI->isHeaderPhi(BasePhi)) {
+        BaseCE = createHeaderPhiInitCE(BasePhi, Level);
+        IndexCE = createHeaderPhiIndexCE(BasePhi, Level);
+
+        // Normalize with repsect to element size.
+        IndexCE->multiplyDenominator(ElementSize, true);
+      }
     }
 
     // Use no wrap flags to set inbounds property.
@@ -1737,7 +1817,8 @@ RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   return Ref;
 }
 
-RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level) {
+RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
+                                       bool IsLval) {
   CanonExpr *CE;
 
   clearTempBlobLevelMap();
@@ -1762,7 +1843,19 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level) {
 
   Ref->setSingleCanonExpr(CE);
 
-  if (!CE->isSelfBlob()) {
+  if (CE->isSelfBlob()) {
+    unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+
+    // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
+    if (!IsLval) {
+      Ref->setSymbase(SB);
+    }
+    // If lval DDRef's symbase and blob's symbase don't match, we need to add a
+    // blob DDRef.
+    else if (Symbase != SB) {
+      populateBlobDDRefs(Ref);
+    }
+  } else {
     populateBlobDDRefs(Ref);
   }
 
@@ -1799,7 +1892,7 @@ RegDDRef *HIRParser::createLvalDDRef(const Instruction *Inst, unsigned Level) {
   if (auto SInst = dyn_cast<StoreInst>(Inst)) {
     Ref = createGEPDDRef(SInst->getPointerOperand(), Level, true);
   } else {
-    Ref = createScalarDDRef(Inst, Level);
+    Ref = createScalarDDRef(Inst, Level, true);
   }
 
   return Ref;

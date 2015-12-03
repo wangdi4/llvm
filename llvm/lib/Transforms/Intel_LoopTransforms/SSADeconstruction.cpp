@@ -121,6 +121,11 @@ private:
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
+  /// \brief Returns true is this phi would be considered linear by parser.
+  /// This allows deconstruction to skip inserting liveout copies for the phi
+  /// which results in a cleaner HIR.
+  bool isConsideredLinear(const PHINode *Phi) const;
+
   /// \brief Returns true if any of the SCC phi operands flow through PredBB.
   /// This means that adding a livein copy in PredBB will kill the SCC phi
   /// operand so we need to perform edge splitting.
@@ -259,6 +264,38 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
   return nullptr;
 }
 
+bool SSADeconstruction::isConsideredLinear(const PHINode *Phi) const {
+
+  if (!SE->isSCEVable(Phi->getType())) {
+    return false;
+  }
+
+  auto SC = SE->getSCEV(const_cast<PHINode *>(Phi));
+  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
+    return false;
+  }
+
+  if (!Phi->getType()->isPointerTy()) {
+    return true;
+  }
+
+  // Header phis can be handled by the parser.
+  if (RI->isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  // Check if there is a type mismatch in the primary element type for pointer
+  // types.
+  if (RI->getPrimaryElementType(Phi->getType()) !=
+      RI->getPrimaryElementType(SC->getType())) {
+    return false;
+  }
+
+  return true;
+}
+
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            SCCFormation::SCCNodesTy *SCCNodes,
                                            bool MultipleRegionLiveouts,
@@ -268,7 +305,7 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   bool IsLinear = false;
 
   if (SCCNodes) {
-    IsLinear = SCCF->isLinear(Phi);
+    IsLinear = isConsideredLinear(Phi);
   }
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
@@ -620,7 +657,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
     ProcessedSCCs.insert(PhiSCC);
 
-    bool IsLinear = SCCF->isLinear(Phi);
+    bool IsLinear = isConsideredLinear(Phi);
     bool LiveinCopyInserted = false;
     bool MultipleRegionLiveouts = hasMultipleRegionLiveouts(PhiSCC->Nodes);
 
@@ -688,7 +725,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
     processPhiLiveins(Phi, nullptr, Name.str());
 
-    if (!SCCF->isLinear(Phi)) {
+    if (!isConsideredLinear(Phi)) {
       processPhiLiveouts(Phi, nullptr, false, Name.str());
     }
   }

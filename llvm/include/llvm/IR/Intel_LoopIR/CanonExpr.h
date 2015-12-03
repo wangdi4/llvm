@@ -373,8 +373,9 @@ public:
   }
 
   /// \brief Returns true if this canon expr looks something like (1 * %t)
-  /// i.e.
-  /// a single blob with a coefficient of 1.
+  /// i.e. a single blob with a coefficient of 1. Please note that there is an
+  /// additional symbase matching requirement for DDRef to be considered a
+  /// self-blob. Please refer to description of isSelfBlob() in DDRef.h.
   bool isSelfBlob() const;
 
   /// \brief return true if the CanonExpr is zero
@@ -468,7 +469,8 @@ public:
   void setIVCoeff(iv_iterator IVI, unsigned Index, int64_t Coeff);
 
   /// \brief Returns the blob coefficient associated with an IV at a
-  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns invalid value if there is no blob coeff.
+  /// particular loop level. Lvl's range is [1, MaxLoopNestLevel]. Returns
+  /// invalid value if there is no blob coeff.
   unsigned getIVBlobCoeff(unsigned Lvl) const;
   /// \brief Iterator version of getIVBlobCoeff().
   unsigned getIVBlobCoeff(const_iv_iterator ConstIVIter) const;
@@ -502,7 +504,11 @@ public:
   bool hasIVConstCoeff(const_iv_iterator ConstIVIter) const;
 
   /// \brief Adds to the existing blob/constant IV coefficients at a
-  /// particular loop level. The new IV coefficient looks something like (C1 * b1 + C2 * b2). Index can be set to zero if only a constant needs to be added. For example if the canon expr looks like (2 * n) * i1 before change, it will be modified to (3 + 2 * n) * i1 after a call to addIV(1, 0, 3).
+  /// particular loop level. The new IV coefficient looks something like (C1 *
+  /// b1 + C2 * b2). Index can be set to zero if only a constant needs to be
+  /// added. For example if the canon expr looks like (2 * n) * i1 before
+  /// change, it will be modified to (3 + 2 * n) * i1 after a call to addIV(1,
+  /// 0, 3).
   void addIV(unsigned Lvl, unsigned Index, int64_t Coeff);
   /// \brief Iterator version of addIV().
   void addIV(iv_iterator IVI, unsigned Index, int64_t Coeff);

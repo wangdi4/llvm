@@ -123,6 +123,17 @@ public:
   /// \brief Returns true if this type is supported. Currently returns false for
   /// structure and function types.
   bool isSupported(Type *Ty) const;
+
+  // NOTE: Following functions were moved here so they can be shared between
+  // HIRParser and SSADeconstruction. Is there a better way?
+
+  /// \brief Returns the primary element type of PtrTy. Primary element type is
+  /// the underlying type which this type is pointing to. For example, the
+  /// primary element type of both i32* && [100 x [100 x i32]]* is i32.
+  Type *getPrimaryElementType(Type *PtrTy) const;
+
+  /// \brief Returns true if Phi occurs in the header of a loop.
+  bool isHeaderPhi(const PHINode *Phi) const;
 };
 
 } // End namespace loopopt

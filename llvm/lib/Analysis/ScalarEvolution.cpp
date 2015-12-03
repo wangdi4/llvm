@@ -4335,16 +4335,16 @@ const char* const llvm::HIR_LIVE_IN_STR = "in.de.ssa";
 const char* const llvm::HIR_LIVE_OUT_STR = "out.de.ssa";
 const char* const llvm::HIR_LIVE_RANGE_STR = "live.range.de.ssa";
 
-bool ScalarEvolution::isHIRLiveInCopy(const Instruction *Inst) const {
+bool ScalarEvolution::isHIRLiveInCopyInst(const Instruction *Inst) const {
   return Inst->getMetadata(HIR_LIVE_IN_STR);
 }
 
-bool ScalarEvolution::isHIRLiveOutCopy(const Instruction *Inst) const {
+bool ScalarEvolution::isHIRLiveOutCopyInst(const Instruction *Inst) const {
   return Inst->getMetadata(HIR_LIVE_OUT_STR);
 }
 
 bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
-  return isHIRLiveInCopy(Inst) || isHIRLiveOutCopy(Inst);
+  return isHIRLiveInCopyInst(Inst) || isHIRLiveOutCopyInst(Inst);
 }
 
 bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
@@ -4714,7 +4714,7 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
 
   case Instruction::BitCast:
     // INTEL - Suppress traceback for liveout copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || !isHIRLiveOutCopy(cast<Instruction>(V)))  
+    if (!isa<Instruction>(V) || !isHIRLiveOutCopyInst(cast<Instruction>(V)))  
       // BitCasts are no-op casts so we just eliminate the cast.
       if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
         return getSCEV(U->getOperand(0));

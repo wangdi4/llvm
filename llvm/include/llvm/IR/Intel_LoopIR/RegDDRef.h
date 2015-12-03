@@ -136,7 +136,7 @@ protected:
 
   /// \brief Called by the verifier to check that the temp blobs contained in
   /// the DDRef correspond to blob DDRefs attached to the DDRef.
-  void checkBlobDDRefsConsistentcy() const;
+  void checkBlobDDRefsConsistency() const;
 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.

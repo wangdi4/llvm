@@ -22,6 +22,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -157,11 +159,28 @@ unsigned DDRef::getHLDDNodeLevel() const {
 
 bool DDRef::isSelfBlob() const {
   if (auto Ref = dyn_cast<RegDDRef>(this)) {
-    return Ref->isScalarRef() && Ref->getSingleCanonExpr()->isSelfBlob();
+    if (!Ref->isScalarRef()) {
+      return false;
+    }
+
+    auto CE = Ref->getSingleCanonExpr();
+
+    if (!CE->isSelfBlob()) {
+      return false;
+    }
+
+    unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+
+    return (getSymbase() == SB);
+
   } else if (auto Ref = dyn_cast<BlobDDRef>(this)) {
     (void)Ref;
     assert(Ref->getCanonExpr()->isSelfBlob() &&
            "Blob DDRef is not a self blob!");
+    assert(getSymbase() ==
+               CanonExprUtils::getBlobSymbase(Ref->getBlobIndex()) &&
+           "Symbase mismatch in Blob DDRef!");
+
     return true;
   }
   llvm_unreachable("Unknown DDRef kind!");

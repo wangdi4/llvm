@@ -15,13 +15,15 @@
 
 #include "llvm/Pass.h"
 
+#include "llvm/ADT/Statistic.h"
+
+#include "llvm/Support/Debug.h"
+
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Dominators.h"
 
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
-#include "llvm/Support/Debug.h"
 
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
@@ -33,6 +35,13 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "hir-region-identification"
+
+static cl::opt<unsigned> RegionNumThreshold(
+    "region-number-threshold", cl::init(0), cl::Hidden,
+    cl::desc("Threshold for number of regions to create HIR for, 0 means no"
+             " threshold"));
+
+STATISTIC(RegionCount, "Number of regions created");
 
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
                       "HIR Region Identification", false, true)
@@ -67,6 +76,33 @@ RegionIdentification::getBaseGEPOp(const GEPOperator *GEPOp) const {
   }
 
   return GEPOp;
+}
+
+Type *RegionIdentification::getPrimaryElementType(Type *PtrTy) const {
+  assert(isa<PointerType>(PtrTy) && "Unexpected type!");
+
+  Type *ElTy = cast<PointerType>(PtrTy)->getElementType();
+
+  // Recurse into array types, if any.
+  for (; ArrayType *ArrTy = dyn_cast<ArrayType>(ElTy);
+       ElTy = ArrTy->getElementType()) {
+  }
+
+  return ElTy;
+}
+
+bool RegionIdentification::isHeaderPhi(const PHINode *Phi) const {
+  auto ParentBB = Phi->getParent();
+
+  auto Lp = LI->getLoopFor(ParentBB);
+
+  if (Lp->getHeader() == ParentBB) {
+    assert((Phi->getNumIncomingValues() == 2) &&
+           "Unexpected number of operands for header phi!");
+    return true;
+  }
+
+  return false;
 }
 
 bool RegionIdentification::isSupported(Type *Ty) const {
@@ -304,25 +340,33 @@ bool RegionIdentification::isSIMDLoop(const Loop &Lp) const {
   if (!MDStr || !(MDStr->getString().equals("DIR.OMP.SIMD"))) {
     return false;
   }
-  
+
   return true;
 }
 
 void RegionIdentification::createRegion(const Loop &Lp) {
-  IRRegion::RegionBBlocksTy BBlocks(Lp.getBlocks().begin(), Lp.getBlocks().end());
+
+  if (RegionNumThreshold && (RegionCount == RegionNumThreshold)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Region throttled due to region number "
+                    "threshold.\n");
+    return;
+  }
+
+  IRRegion::RegionBBlocksTy BBlocks(Lp.getBlocks().begin(),
+                                    Lp.getBlocks().end());
   BasicBlock *EntryBB = nullptr;
 
   if (isSIMDLoop(Lp)) {
     // Include preheader in the region as it contains SIMD directives.
     EntryBB = Lp.getLoopPreheader();
     BBlocks.insert(EntryBB);
-  }
-  else {
+  } else {
     EntryBB = Lp.getHeader();
   }
 
   IRRegion *Reg = new IRRegion(EntryBB, BBlocks);
   IRRegions.push_back(Reg);
+  RegionCount++;
 }
 
 bool RegionIdentification::formRegionForLoop(const Loop &Lp,
@@ -393,6 +437,7 @@ void RegionIdentification::releaseMemory() {
 }
 
 void RegionIdentification::print(raw_ostream &OS, const Module *M) const {
+
   for (auto I = IRRegions.begin(), E = IRRegions.end(); I != E; ++I) {
     OS << "\nRegion " << I - IRRegions.begin() + 1 << "\n";
     (*I)->print(OS, 3);

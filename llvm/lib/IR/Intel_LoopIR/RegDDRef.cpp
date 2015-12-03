@@ -352,8 +352,9 @@ void RegDDRef::collectTempBlobIndices(
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
   SmallVector<unsigned, 8> BlobIndices;
 
-  if (isSelfBlob()) {
-    unsigned SB = CanonExprUtils::getBlobSymbase(getSelfBlobIndex());
+  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
+    unsigned SB = CanonExprUtils::getBlobSymbase(
+        getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -365,8 +366,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
     //
     // After modification it looks like this-
     // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8
-    // which
-    // is wrong.
+    // which is wrong.
     //
     // We should not update symbase of lval DDRefs as lvals represent a store
     // into that symbase. Changing it can affect correctness.
@@ -414,7 +414,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
   unsigned Index = 0;
 
-  if (isSelfBlob()) {
+  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
     auto CE = getSingleCanonExpr();
     Index = CE->getSingleBlobIndex();
 
@@ -439,7 +439,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
   return false;
 }
 
-void RegDDRef::checkBlobDDRefsConsistentcy() const {
+void RegDDRef::checkBlobDDRefsConsistency() const {
   SmallVector<unsigned, 8> BlobIndices;
 
   collectTempBlobIndices(BlobIndices);
@@ -489,7 +489,7 @@ void RegDDRef::verify() const {
     assert((BlobDDRefs.size() == 0) &&
            "Self-blobs couldn't contain any BlobDDRefs!");
   } else {
-    checkBlobDDRefsConsistentcy();
+    checkBlobDDRefsConsistency();
   }
 
   if (!IsConst || isLval()) {

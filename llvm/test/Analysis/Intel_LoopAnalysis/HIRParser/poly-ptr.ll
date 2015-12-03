@@ -5,9 +5,9 @@
 
 ; Check parsing output for the loop verifying that polynomial phi pase is parsed correctly.
 ; CHECK: DO i1 = 0, zext.i32.i64((-1 + %n))
-; CHECK-NEXT: %add.ptr.out = &((%add.ptr)[0])
-; CHECK-NEXT: (%add.ptr.out)[0] = i1
-; CHECK-NEXT: %add.ptr = &((%add.ptr)[i1])
+; CHECK-NEXT: %p.addr.07.out = &((%p.addr.07)[0])
+; CHECK-NEXT: (%p.addr.07.out)[0] = i1
+; CHECK-NEXT: %p.addr.07 = &((%p.addr.07)[i1])
 ; CHECK-NEXT: END LOOP
 
 

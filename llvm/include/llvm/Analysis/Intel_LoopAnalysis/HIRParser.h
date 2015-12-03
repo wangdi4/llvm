@@ -280,10 +280,24 @@ private:
   /// \brief Finds pointer blobs in PtrSCEV.
   const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
 
-  /// \brief Returns the primary element type of PtrTy. Primary element type is
-  /// the underlying type which this type is pointing to. For example, the
-  /// primary element type of both i32* && [100 x [100 x i32]]* is i32.
-  Type *getPrimaryElementType(Type *PtrTy) const;
+  /// \brief Returns either the inital or update operand of header phi
+  /// corresponding to the passed in boolean argument.
+  const Instruction *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
+
+  /// \brief Returns the header phi operand which corresponds to the initial
+  /// value of phi (instruction coming from outside the loop).
+  const Instruction *getHeaderPhiInitInst(const PHINode *Phi) const;
+
+  /// \brief Returns the header phi operand which corresponds to phi update
+  /// (instruction coming from loop's backedge).
+  const Instruction *getHeaderPhiUpdateInst(const PHINode *Phi) const;
+
+  /// \brief Creates a canon expr which represents the initial value of header
+  /// phi.
+  CanonExpr *createHeaderPhiInitCE(const PHINode *Phi, unsigned Level);
+
+  /// \brief Creates a canon expr which represents the index of header phi.
+  CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
@@ -304,7 +318,8 @@ private:
   RegDDRef *createUndefDDRef(Type *Type);
 
   /// \brief Returns a RegDDRef representing this scalar value.
-  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level);
+  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
+                              bool IsLval = false);
 
   /// \brief Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,

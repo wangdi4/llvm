@@ -985,6 +985,11 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     // TODO twine for call?
     CallInst *ResCall = Builder->CreateCall(Call->getCalledValue(), Ops);
 
+    // TODO: Copy parameter attributes as well.
+    ResCall->setCallingConv(Call->getCallingConv());
+    ResCall->setAttributes(Call->getAttributes());
+    ResCall->setTailCallKind(Call->getTailCallKind());
+
     // Copy all metadata over to new call instruction.
     // TODO: Investigate whether this is an ok thing to do in general.
     Call->getAllMetadata(MDs);
