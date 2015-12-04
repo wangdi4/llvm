@@ -408,7 +408,7 @@ Value *HIRCodeGen::CGVisitor::createCmpInst(CmpInst::Predicate P, Value *LHS,
 
   if (LHS->getType()->isIntegerTy() || LHS->getType()->isPointerTy()) {
     CmpInst = Builder->CreateICmp(P, LHS, RHS, Name);
-  } else if (LHS->getType()->isFloatTy()) {
+  } else if (LHS->getType()->isFloatingPointTy()) {
     CmpInst = Builder->CreateFCmp(P, LHS, RHS, Name);
   } else {
     llvm_unreachable("unknown predicate type in HIRCG");
@@ -1029,6 +1029,15 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
     //representation for them is always a single rhs ddref 
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
     Builder->CreateStore(Ops[1], Ops[0]);
+  } else if (isa<AllocaInst>(Inst)) {
+    // Lval type is a pointer to type returned by alloca inst. We need to
+    // dereference twice to get to element type
+    Type *ElementType =
+        Ops[0]->getType()->getPointerElementType()->getPointerElementType();
+    Value *Alloca = Builder->CreateAlloca(
+        ElementType, Ops[1],
+        "hir.alloca." + std::to_string(HInst->getNumber()));
+    Builder->CreateStore(Alloca, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }

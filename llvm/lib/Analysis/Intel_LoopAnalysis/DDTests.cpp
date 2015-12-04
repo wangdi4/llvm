@@ -4471,13 +4471,13 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  like scalar vars).
   //  New code added here for temps with more precision  in DV
 
-  DDtest DA;
+  //DDtest DA;
   bool isTemp = false;
 
-  DA.initDV(forwardDV);
-  DA.initDV(backwardDV);
+  initDV(forwardDV);
+  initDV(backwardDV);
 
-  auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+  auto Result = depends(SrcDDRef, DstDDRef, InputDV);
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4674,12 +4674,13 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
 
   if (BiDirection) {
     // (1) both directions
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      backwardDV[II - 1] = Result->getDirection(II);
-    }
+  //  for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+  //    backwardDV[II - 1] = Result->getDirection(II);
+ //   }
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       forwardDV[II - 1] = Result->getDirection(II);
     }
+    reverseDV(forwardDV, backwardDV);
     DEBUG(dbgs() << "\nforward DV: ";
           printDV(forwardDV, Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
