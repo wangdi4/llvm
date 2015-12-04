@@ -454,6 +454,14 @@ def err_cean_arg_not_lvalue : Error<
 // CQ#373129 - support for __assume_aligned builtin.
 def err_assume_aligned_first_arg_not_pointer : Error<
   "first argument to '__assume_aligned' must be a pointer">;
+def warn_bad_cxx_cast_generic : Warning<
+  "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
+  "functional-style cast}0 from %1 to %2 is allowed in Intel/GCC compatibility mode only">,
+  InGroup<IntelCompat>;
+def warn_bad_cxx_cast_unrelated_class : Warning<
+  "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
+  "functional-style cast}0 from %1 to %2, which are not related by "
+  "inheritance, is allowed in Intel/GCC compatibility mode only">, InGroup<IntelCompat>;
 // endif INTEL_CUSTOMIZATION
 }
 // if INTEL_SPECIFIC_IL0_BACKEND
