@@ -140,7 +140,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 				tDeviceProgramMap::const_iterator deviceToProgramEnd = m_deviceToProgram.end();
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
+					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i].get();
 					deviceToProgramIter = m_deviceToProgram.find(pDeviceProgram->GetDeviceId());
 					if (deviceToProgramEnd != deviceToProgramIter)
 					{
@@ -178,7 +178,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 				tDeviceProgramMap::const_iterator deviceToProgramEnd = m_deviceToProgram.end();
 				for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
 				{
-					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
+					DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i].get();
 					deviceToProgramIter = m_deviceToProgram.find(pDeviceProgram->GetDeviceId());
 					if (deviceToProgramEnd != deviceToProgramIter)
 					{
@@ -205,10 +205,12 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 			return CL_SUCCESS;
 		}
 
+	case CL_PROGRAM_IL:
 	case CL_PROGRAM_SOURCE:
 		{
 			szParamValueSize = 0;
-            pValue = NULL;
+                        pValue = NULL;
+                        break;
 		}
 
     case CL_PROGRAM_NUM_KERNELS:
@@ -217,7 +219,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
             for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
             {
-                DeviceProgram* pDevProg = m_ppDevicePrograms[i];
+                DeviceProgram* pDevProg = m_ppDevicePrograms[i].get();
 
                 if (pDevProg->IsBinaryAvailable(CL_PROGRAM_BINARY_TYPE_EXECUTABLE))
 		        {
@@ -253,7 +255,7 @@ cl_err_code Program::GetInfo(cl_int param_name, size_t param_value_size, void *p
 
             for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
             {
-                DeviceProgram* pDevProg = m_ppDevicePrograms[i];
+                DeviceProgram* pDevProg = m_ppDevicePrograms[i].get();
 
                 if (pDevProg->IsBinaryAvailable(CL_PROGRAM_BINARY_TYPE_EXECUTABLE))
 		        {
@@ -786,10 +788,10 @@ DeviceProgram* Program::InternalGetDeviceProgram(cl_device_id clDeviceId)
 {
     for (size_t deviceProg = 0; deviceProg < m_szNumAssociatedDevices; ++deviceProg)
     {
-        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg];
+        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[deviceProg].get();
         if (clDeviceId == pDeviceProgram->GetDeviceId())
         {
-            return m_ppDevicePrograms[deviceProg];
+            return m_ppDevicePrograms[deviceProg].get();
         }
     }
     return NULL;
@@ -804,7 +806,7 @@ cl_err_code Program::GetDevices(cl_device_id* pDeviceID)
 {
     for (unsigned int i = 0; i < m_szNumAssociatedDevices; ++i)
     {
-        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i];
+        DeviceProgram* pDeviceProgram = m_ppDevicePrograms[i].get();
         pDeviceID[i] = pDeviceProgram->GetDeviceId();
     }
 
@@ -850,7 +852,7 @@ void Program::SetContextDevicesToProgramMappingInternal()
 	{
 		if (CL_BUILD_NONE != m_ppDevicePrograms[i]->GetBuildStatus())
 		{
-			realBuiltDeviceToDeviceProgram.insert( pair<cl_device_id, DeviceProgram*>(m_ppDevicePrograms[i]->GetDeviceId(), m_ppDevicePrograms[i]) );
+			realBuiltDeviceToDeviceProgram.insert( pair<cl_device_id, DeviceProgram*>(m_ppDevicePrograms[i]->GetDeviceId(), m_ppDevicePrograms[i].get()) );
 		}
 	}
 	SharedPtr<FissionableDevice>* ppContextDevices = m_pContext->GetDevices(&numDevicesInContext);

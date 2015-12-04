@@ -6,93 +6,87 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithIL::ProgramWithIL(SharedPtr<Context> pContext, const unsigned char* pIL, size_t length, cl_int *piRet)
-                            : Program(pContext)
+ProgramWithIL::ProgramWithIL(SharedPtr<Context>   pContext,
+                             const unsigned char* pIL,
+                             size_t               length,
+                             cl_int*              piRet)
+    : Program(pContext)
 {
-    cl_int err = CL_SUCCESS;
     cl_int ret = CL_SUCCESS;
 
     SharedPtr<FissionableDevice>* pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
-    m_ppDevicePrograms  = new DeviceProgram*[m_szNumAssociatedDevices];
-    if (!m_ppDevicePrograms)
+    try
     {
-        if (piRet)
+        m_pIL.assign(pIL, pIL + length);
+        m_ppDevicePrograms.resize(m_szNumAssociatedDevices);
+
+        for(size_t i = 0; i < m_szNumAssociatedDevices; ++i)
         {
-            *piRet = CL_OUT_OF_HOST_MEMORY;
-        }
-        return;
-    }
+            //std::unique_ptr<DeviceProgram>& pDevProgram = *I;
+            unique_ptr<DeviceProgram>& pDevProgram = m_ppDevicePrograms[i];
+            //pDevProgram.reset(new DeviceProgram());
+            pDevProgram.reset(new DeviceProgram());
 
-    for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-    {
-        m_ppDevicePrograms[i] = new DeviceProgram();
-        if (NULL == m_ppDevicePrograms[i])
-        {
-            for (size_t j = 0; j < i; ++j)
-            {
-                delete m_ppDevicePrograms[j];
-            }
-            delete[] m_ppDevicePrograms;
-            m_ppDevicePrograms = NULL;
+            pDevProgram->SetDevice(pDevices[i]);
+            pDevProgram->SetHandle(GetHandle());
+            pDevProgram->SetContext(pContext->GetHandle());
 
-            if (piRet)
-            {
-                *piRet = CL_OUT_OF_HOST_MEMORY;
-            }
-            return;
-        }
-
-        m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
-        m_ppDevicePrograms[i]->SetHandle(GetHandle());
-        m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-
-        err = m_ppDevicePrograms[i]->SetBinary(length, pIL, NULL);
-        if (CL_SUCCESS != err)
-        {
-            if (CL_INVALID_BINARY == err)
+            cl_prog_binary_type uiBinaryType;
+            if(!pDevProgram->CheckProgramBinary(length, pIL, &uiBinaryType)
+                || uiBinaryType != CL_PROG_BIN_COMPILED_SPIRV)
             {
                 ret = CL_INVALID_VALUE;
-                // Must continue loading binaries for the rest of the devices
-            }
-            else
-            {
-                for (size_t j = 0; j < i; ++j)
-                {
-                    delete m_ppDevicePrograms[j];
-                }
-                delete[] m_ppDevicePrograms;
-                m_ppDevicePrograms = NULL;
-
-                ret = err;
                 break;
             }
-        }
 
-        if (!m_ppDevicePrograms[i]->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_SPIRV)
-        {
-            m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_SPIRV);
-        }
-        else
-        {
-            ret = CL_INVALID_VALUE;
+            // TODO: delete next line once SPIRV consumer will be moved to FE.
+            pDevProgram->SetBinaryInternal(length, pIL, CL_PROGRAM_BINARY_TYPE_SPIRV);
+
+            pDevProgram->SetStateInternal(DEVICE_PROGRAM_SPIRV);
         }
     }
+    catch(std::bad_alloc& e)
+    {
+        ret = CL_OUT_OF_HOST_MEMORY;
+    }
 
-    if (piRet)
+    if(piRet)
     {
         *piRet = ret;
     }
 }
 
-ProgramWithIL::~ProgramWithIL()
+cl_err_code ProgramWithIL::GetInfo(cl_int  param_name,
+                                   size_t  param_value_size,
+                                   void*   param_value,
+                                   size_t* param_value_size_ret) const
 {
-    if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
-    {
-        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-        {
-            delete m_ppDevicePrograms[i];
-        }
-        delete[] m_ppDevicePrograms;
-        m_ppDevicePrograms = NULL;
-    }
+	switch(param_name)
+	{
+	case CL_PROGRAM_IL:
+		{
+            size_t szParamValueSize = m_pIL.size();
+			if (nullptr != param_value)
+			{
+				if (param_value_size < szParamValueSize)
+				{
+					return CL_INVALID_VALUE;
+				}
+
+				MEMCPY_S(param_value, szParamValueSize, m_pIL.data(), szParamValueSize);
+			}
+			if (param_value_size_ret)
+			{
+				*param_value_size_ret = szParamValueSize;
+			}
+			return CL_SUCCESS;
+		}
+
+	default:
+		//No need for specialized implementation
+		return Program::GetInfo(param_name, param_value_size, param_value, param_value_size_ret);
+	}
 }
+
+ProgramWithIL::~ProgramWithIL()
+{}

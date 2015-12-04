@@ -1,174 +1,174 @@
-#include <string>
-#include <vector>
-#include "CL/cl.h"
-#include "test_utils.h"
-#include "CL/cl_platform.h"
+#include "CL21.h"
 
-extern cl_device_type gDeviceType;
-
-//Source for SPIRV
-/*__kernel void test_hostptr(__global float *srcA, __global float *srcB, __global float *dst)
+void CL21::CreateProgramWithIL_IL_VERSION() const
 {
-    int  tid = get_global_id(0);
-
-    dst[tid] = srcA[tid] + srcB[tid];
-}
-*/
-// The array was obtained by command : xxd -i <source file>.
-unsigned char test_spv[] = {
-  0x03, 0x02, 0x23, 0x07, 0x63, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
-  0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x03, 0x00,
-  0x03, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x11, 0x00, 0x02, 0x00,
-  0x04, 0x00, 0x00, 0x00, 0x11, 0x00, 0x02, 0x00, 0x0a, 0x00, 0x00, 0x00,
-  0x0f, 0x00, 0x03, 0x00, 0x06, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00,
-  0x0b, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x4f, 0x70, 0x65, 0x6e,
-  0x43, 0x4c, 0x2e, 0x73, 0x74, 0x64, 0x2e, 0x31, 0x32, 0x00, 0x00, 0x00,
-  0x0e, 0x00, 0x03, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-  0x05, 0x00, 0x09, 0x00, 0x04, 0x00, 0x00, 0x00, 0x5f, 0x5f, 0x73, 0x70,
-  0x69, 0x72, 0x76, 0x5f, 0x47, 0x6c, 0x6f, 0x62, 0x61, 0x6c, 0x49, 0x6e,
-  0x76, 0x6f, 0x63, 0x61, 0x74, 0x69, 0x6f, 0x6e, 0x49, 0x64, 0x00, 0x00,
-  0x05, 0x00, 0x06, 0x00, 0x09, 0x00, 0x00, 0x00, 0x74, 0x65, 0x73, 0x74,
-  0x5f, 0x68, 0x6f, 0x73, 0x74, 0x70, 0x74, 0x72, 0x00, 0x00, 0x00, 0x00,
-  0x05, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x73, 0x72, 0x63, 0x41,
-  0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x04, 0x00, 0x0b, 0x00, 0x00, 0x00,
-  0x73, 0x72, 0x63, 0x42, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00, 0x03, 0x00,
-  0x0c, 0x00, 0x00, 0x00, 0x64, 0x73, 0x74, 0x00, 0x47, 0x00, 0x04, 0x00,
-  0x04, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x1c, 0x00, 0x00, 0x00,
-  0x47, 0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x00, 0x16, 0x00, 0x00, 0x00,
-  0x15, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x17, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00,
-  0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x20, 0x00, 0x04, 0x00,
-  0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-  0x13, 0x00, 0x02, 0x00, 0x05, 0x00, 0x00, 0x00, 0x16, 0x00, 0x03, 0x00,
-  0x06, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x04, 0x00,
-  0x07, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00,
-  0x21, 0x00, 0x06, 0x00, 0x08, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00,
-  0x07, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x15, 0x00, 0x04, 0x00, 0x10, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
-  0x00, 0x00, 0x00, 0x00, 0x3b, 0x00, 0x04, 0x00, 0x03, 0x00, 0x00, 0x00,
-  0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x36, 0x00, 0x05, 0x00,
-  0x05, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x08, 0x00, 0x00, 0x00, 0x37, 0x00, 0x03, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x0a, 0x00, 0x00, 0x00, 0x37, 0x00, 0x03, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x0b, 0x00, 0x00, 0x00, 0x37, 0x00, 0x03, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x0c, 0x00, 0x00, 0x00, 0xf8, 0x00, 0x02, 0x00, 0x0d, 0x00, 0x00, 0x00,
-  0x3d, 0x00, 0x06, 0x00, 0x02, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00,
-  0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-  0x51, 0x00, 0x05, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00,
-  0x0e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x71, 0x00, 0x04, 0x00,
-  0x10, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00, 0x0f, 0x00, 0x00, 0x00,
-  0x72, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x12, 0x00, 0x00, 0x00,
-  0x11, 0x00, 0x00, 0x00, 0x46, 0x00, 0x05, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x13, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x12, 0x00, 0x00, 0x00,
-  0x3d, 0x00, 0x06, 0x00, 0x06, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00,
-  0x13, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-  0x72, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x15, 0x00, 0x00, 0x00,
-  0x11, 0x00, 0x00, 0x00, 0x46, 0x00, 0x05, 0x00, 0x07, 0x00, 0x00, 0x00,
-  0x16, 0x00, 0x00, 0x00, 0x0b, 0x00, 0x00, 0x00, 0x15, 0x00, 0x00, 0x00,
-  0x3d, 0x00, 0x06, 0x00, 0x06, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00,
-  0x16, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-  0x81, 0x00, 0x05, 0x00, 0x06, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00,
-  0x14, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00, 0x72, 0x00, 0x04, 0x00,
-  0x01, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, 0x11, 0x00, 0x00, 0x00,
-  0x46, 0x00, 0x05, 0x00, 0x07, 0x00, 0x00, 0x00, 0x1a, 0x00, 0x00, 0x00,
-  0x0c, 0x00, 0x00, 0x00, 0x19, 0x00, 0x00, 0x00, 0x3e, 0x00, 0x05, 0x00,
-  0x1a, 0x00, 0x00, 0x00, 0x18, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00,
-  0x04, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x01, 0x00, 0x38, 0x00, 0x01, 0x00
-};
-unsigned int test_spv_size = 696;
-
-void CreateProgramWithIL()
-{
-    std::cout << "=============================================================" << std::endl;
-    std::cout << "CreateProgramWithIL" << std::endl;
-    std::cout << "=============================================================" << std::endl;
-
     cl_int iRet = CL_SUCCESS;
-    cl_platform_id platform = 0;
-    cl_device_id device = NULL;
-    cl_context context = NULL;
-    cl_program program = 0;
 
-    iRet = clGetPlatformIDs(1, &platform, NULL);
-    CheckException(L"clGetPlatformIDs", CL_SUCCESS, iRet);
-    iRet = clGetDeviceIDs(platform, gDeviceType, 1, &device, NULL);
-    CheckException(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+    const size_t il_version_size = 14;
+    std::string il_version(il_version_size, '\0');
 
-    size_t il_version_size = 14;
-    std::string il_version(il_version_size, ' ');
-    iRet  = clGetDeviceInfo(device, CL_DEVICE_IL_VERSION, il_version.size(), &il_version[0], NULL);
-    CheckException(L"clGetDeviceInfo with CL_DEVICE_IL_VERSION", CL_SUCCESS, iRet);
+    iRet  = clGetDeviceInfo(m_device,
+                            CL_DEVICE_IL_VERSION,
+                            il_version.size(),
+                            &il_version[0],
+                            /*ret_size*/nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet)
+                << " clGetDeviceInfo with CL_DEVICE_IL_VERSION failed. ";
 
-    const cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
-    //context = clCreateContextFromType(prop, gDeviceType, NULL, NULL, &iRet);
-    context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
-    CheckException(L"clCreateContextFromType", CL_SUCCESS, iRet);
+}
 
-    {//call clCreateProgramWithIL with invalid args
-        iRet = CL_SUCCESS;
-        program = clCreateProgramWithIL(NULL, test_spv, test_spv_size, &iRet);
-        CheckException(L"clCreateProgramWithIL with invalid context", CL_INVALID_CONTEXT, iRet);
+void CL21::CreateProgramWithIL_Negative() const
+{
+    cl_int iRet = CL_SUCCESS;
+    cl_program program = nullptr;
 
-        iRet = CL_SUCCESS;
-        program = clCreateProgramWithIL(context, NULL, test_spv_size, &iRet);
-        CheckException(L"clCreateProgramWithIL with NULL IL buffer", CL_INVALID_VALUE, iRet);
+    std::vector<char> spirv;
+    GetSimpleSPIRV(spirv);
 
-        iRet = CL_SUCCESS;
-        program = clCreateProgramWithIL(context, test_spv, 0, &iRet);
-        CheckException(L"clCreateProgramWithIL with 0 length", CL_INVALID_VALUE, iRet);
+    program = clCreateProgramWithIL(nullptr, spirv.data(), spirv.size(), &iRet);
+    ASSERT_EQ(CL_INVALID_CONTEXT, iRet)
+                 << " clCreateProgramWithIL with invalid context failed. ";
 
-        iRet = CL_SUCCESS;
-        program = clCreateProgramWithIL(context, NULL, 0, &iRet);
-        CheckException(L"clCreateProgramWithIL with NULL IL buffer and 0 length", CL_INVALID_VALUE, iRet);
+    program = clCreateProgramWithIL(m_context, nullptr, spirv.size(), &iRet);
+    ASSERT_EQ(CL_INVALID_VALUE, iRet)
+                << " clCreateProgramWithIL with nullptr IL buffer failed. ";
 
-        iRet = CL_SUCCESS;
-        std::string wrong_IL("trash trash trash");
-        program = clCreateProgramWithIL(context, &wrong_IL[0], wrong_IL.size(), &iRet);
-        CheckException(L"clCreateProgramWithIL with wrong IL", CL_INVALID_VALUE, iRet);
-    }
+    program = clCreateProgramWithIL(m_context, spirv.data(), /*length*/0, &iRet);
+    ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithIL with 0 length failed. ";
 
-    program = clCreateProgramWithIL(context, test_spv, test_spv_size, &iRet);
-    CheckException(L"clCreateProgramWithIL", CL_SUCCESS, iRet);
+    std::string wrong_IL("trash trash trash");
+    program = clCreateProgramWithIL(m_context, &wrong_IL[0], wrong_IL.size(), &iRet);
+    ASSERT_EQ(CL_INVALID_VALUE, iRet) << " clCreateProgramWithIL with invalid IL failed. ";
+}
 
-    iRet = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-    CheckException(L"clBuildProgram", CL_SUCCESS, iRet);
+void CL21::CreateProgramWithIL() const
+{
+    cl_int iRet = CL_SUCCESS;
+    cl_program program = nullptr;
+
+    std::vector<char> spirv;
+    GetSimpleSPIRV(spirv);
+
+    program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";
+
+    iRet = clBuildProgram(program, 0, nullptr, nullptr, nullptr, nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clBuildProgram failed. ";
 
     cl_kernel kern = clCreateKernel(program, "test_hostptr", &iRet);
-    CheckException(L"clCreateKernel", CL_SUCCESS, iRet);
-
-    cl_command_queue queue = clCreateCommandQueue(context, device, 0, &iRet);
-    CheckException(L"clCreateCommandQueue", CL_SUCCESS, iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
 
     size_t arg_size = 4;
-    cl_mem arg = clCreateBuffer(context, 0, arg_size, NULL, &iRet);
-    CheckException(L"clCreateBuffer", CL_SUCCESS, iRet);
+    cl_mem arg = clCreateBuffer(m_context, 0, arg_size, nullptr, &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateBuffer failed. ";
 
     float pattern = 2;
-    iRet = clEnqueueFillBuffer(queue, arg, &pattern, sizeof(pattern), 0, arg_size, 0, NULL, NULL);
-    CheckException(L"clEnqueueFillBuffer", CL_SUCCESS, iRet);
+    iRet = clEnqueueFillBuffer(m_queue,
+                               arg,
+                               &pattern,
+                               sizeof(pattern),
+                               0,
+                               arg_size,
+                               0,
+                               nullptr,
+                               nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueFillBuffer failed. ";
 
-    iRet = clFinish(queue);
-    CheckException(L"clFinish", CL_SUCCESS, iRet);
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clFinish failed. ";
 
     iRet = clSetKernelArg(kern, 0, sizeof(cl_mem), &arg);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clSetKernelArg failed. ";
     iRet = clSetKernelArg(kern, 1, sizeof(cl_mem), &arg);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clSetKernelArg failed. ";
     iRet = clSetKernelArg(kern, 2, sizeof(cl_mem), &arg);
-    CheckException(L"clSetKernelArg", CL_SUCCESS, iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clSetKernelArg failed. ";
+
     size_t gws = 1;
-    iRet = clEnqueueNDRangeKernel(queue, kern, 1, NULL, &gws, NULL, 0, NULL, NULL);
-    CheckException(L"clEnqueueNDRangeKernel", CL_SUCCESS, iRet);
+    iRet = clEnqueueNDRangeKernel(m_queue,
+                                  kern,
+                                  1,
+                                  nullptr,
+                                  &gws,
+                                  nullptr,
+                                  0,
+                                  nullptr,
+                                  nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueNDRangeKernel failed. ";
 
-    iRet = clFinish(queue);
-    CheckException(L"clFinish", CL_SUCCESS, iRet);
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clFinish failed. ";
 
-    float* out = (float*)clEnqueueMapBuffer(queue, arg, CL_TRUE, CL_MAP_READ, 0, arg_size, 0, NULL, NULL, &iRet);
-    CheckException(L"clEnqueueMapBuffer", CL_SUCCESS, iRet);
+    float* out = (float*)clEnqueueMapBuffer(m_queue,
+                                            arg,
+                                            CL_TRUE,
+                                            CL_MAP_READ,
+                                            0,
+                                            arg_size,
+                                            0,
+                                            nullptr,
+                                            nullptr,
+                                            &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clEnqueueMapBuffer failed. ";
 
-    iRet = clFinish(queue);
-    CheckException(L"clFinish", CL_SUCCESS, iRet);
+    iRet = clFinish(m_queue);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clFinish failed. ";
 
-    assert(4 == *out && "Wrong kernel result.");
+    ASSERT_EQ(4, *out) << "Invalid kernel result.";
+}
 
+void CL21::CreateProgramWithIL_PROGRAM_IL_Negative() const
+{
+    cl_int iRet = CL_SUCCESS;
+    cl_program program = nullptr;
+
+    const char* source[] = {"__kernel() {}"};
+    program = clCreateProgramWithSource(m_context, 1, source, nullptr, &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithSource failed. ";
+
+    std::vector<char> spirv(1, 1);
+    size_t ret_size = 1;
+
+    iRet = clGetProgramInfo(program,
+                            CL_PROGRAM_IL,
+                            spirv.size(),
+                            &spirv[0],
+                            &ret_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetProgramInfo with CL_PROGRAM_IL failed. ";
+    ASSERT_EQ(size_t(0), ret_size)
+                << " clGetProgramInfo with CL_PROGRAM_IL failed. Ret size not 0. ";
+    ASSERT_EQ(char(1), spirv[0])
+                << " clGetProgramInfo with CL_PROGRAM_IL failed. param_value changed. ";
+}
+
+void CL21::CreateProgramWithIL_PROGRAM_IL() const
+{
+    cl_int iRet = CL_SUCCESS;
+    cl_program program = nullptr;
+
+    std::vector<char> spirv;
+    GetSimpleSPIRV(spirv);
+
+    program = clCreateProgramWithIL(m_context, spirv.data(), spirv.size(), &iRet);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateProgramWithIL failed. ";
+
+    size_t ret_size = 0;
+    iRet = clGetProgramInfo(program,
+                            CL_PROGRAM_IL,
+                            /*param_value_size*/0,
+                            nullptr,
+                            &ret_size);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetProgramInfo with CL_PROGRAM_IL failed. ";
+    ASSERT_EQ(spirv.size(), ret_size) << " clGetProgramInfo with CL_PROGRAM_IL failed. ";
+
+    std::vector<char> spirv_out(ret_size);
+
+    iRet = clGetProgramInfo(program,
+                            CL_PROGRAM_IL,
+                            spirv_out.size(),
+                            &spirv_out[0],
+                            nullptr);
+    ASSERT_EQ(CL_SUCCESS, iRet) << " clGetProgramInfo with CL_PROGRAM_IL failed. ";
+
+    ASSERT_FALSE(memcmp(spirv.data(), spirv_out.data(), spirv.size()));
 }

@@ -8,6 +8,7 @@
 #include "cl_user_logger.h"
 #include "CL21.h"
 #include "CL20.h"
+#include "CL.h"
 
 namespace Intel { namespace OpenCL { namespace Utils {
 
@@ -499,6 +500,10 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
     clShutdownSVMTest();
 }
 
+TEST_F(CL, Test_CheckExtensions)
+{
+    CheckExtensions();
+}
 /////////////////////////////////////////////////////////////////////
 //////////////      CL20 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -507,6 +512,16 @@ TEST(FrameworkTestType, Test_clShutdownSVMTest)
 TEST_F(CL20, DoubleSetDefaultCommandQueue)
 {
     DoubleSetDefaultCommandQueue();
+}
+
+TEST_F(CL20, clSVMMap_FINE_GRAIN)
+{
+    clSVMMap_FINE_GRAIN();
+}
+
+TEST_F(CL20, clSVMUnmap_FINE_GRAIN)
+{
+    clSVMUnmap_FINE_GRAIN();
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -519,19 +534,9 @@ TEST_F(CL20, DoubleSetDefaultCommandQueue)
 //////////////      CL21 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////
 
-TEST(CL21_depr, Test_Timers)
-{
-    Timers();
-}
-
 TEST(CL21_depr, Test_CloneKernel)
 {
     EXPECT_TRUE(CloneKernel());
-}
-
-TEST(CL21_depr, Test_CreateProgramWithIL)
-{
-    CreateProgramWithIL();
 }
 
 TEST_F(CL21, clSetDefaultDeviceCommandQueue_OOO)
@@ -563,7 +568,6 @@ TEST_F(CL21, clEnqueueSVMMigrateMem)
 {
     EnqueueSVMMigrateMem_Positive();
 }
-
 TEST_F(CL21, clGetKernelSubGroupInfo_MAX_SB_SIZE)
 {
     GetKernelSubGroupInfo_MAX_SB_SIZE();
@@ -642,6 +646,56 @@ TEST_F(CL21, clZeroSized_clEnqueueSVMMemcpy)
 TEST_F(CL21, clZeroSized_clEnqueueSVMMemFill)
 {
     ZeroSized_clEnqueueSVMMemFill();
+}
+
+TEST_F(CL21, Timers_GetPlatformInfo_DEVICE_TIMER_RESOLUTION)
+{
+    GetPlatformInfo_DEVICE_TIMER_RESOLUTION();
+}
+
+TEST_F(CL21, Timers_GetHostTimer_Negative)
+{
+    GetHostTimer_Negative();
+}
+
+TEST_F(CL21, Timers_GetDeviceAndHostTimer_Negative)
+{
+    GetDeviceAndHostTimer_Negative();
+}
+
+TEST_F(CL21, Timers_GetHostTimer)
+{
+    GetHostTimer();
+}
+
+TEST_F(CL21, Timers_GetDeviceAndHostTimer)
+{
+    GetDeviceAndHostTimer();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL)
+{
+    CreateProgramWithIL();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_Negative)
+{
+    CreateProgramWithIL_Negative();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_IL_VERSION)
+{
+    CreateProgramWithIL_IL_VERSION();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL)
+{
+    CreateProgramWithIL_PROGRAM_IL();
+}
+
+TEST_F(CL21, Test_CreateProgramWithIL_PROGRAM_IL_Negative)
+{
+    CreateProgramWithIL_PROGRAM_IL_Negative();
 }
 
 /////////////////////////////////////////////////////////////////////

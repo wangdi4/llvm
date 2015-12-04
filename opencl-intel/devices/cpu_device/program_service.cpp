@@ -697,9 +697,9 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
 
     // Set value parameters
     cl_uint stValSize = 0;
+    std::vector<size_t> vValues(1,0);
     unsigned long long ullValue = 0;
-    const void* pValue;
-    pValue = &ullValue;
+    const void*        pValue   = &ullValue;
     cl_dev_dispatch_buffer_prop dispatchProperties;
 
     switch (param)
@@ -790,13 +790,22 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     case CL_DEV_KERNEL_LOCAL_SIZE_FOR_SUB_GROUP_COUNT:
     {
         const size_t dim = value_size/sizeof(size_t);
-        if(nullptr != input_value)
+        if(nullptr != input_value &&
+           nullptr != value &&
+           dim > 0)
         {
             const size_t desiredSGCount = *(const size_t*)input_value;
-            size_t* pInVal = (size_t*)value;
-            pKernelProps->GetWGSizesForSubGroupsCount(desiredSGCount, dim, pInVal);
+            vValues.resize(dim, 0);
+            pValue = &vValues[0];
+            if(1 == desiredSGCount)
+            {
+                vValues[0] = pKernelProps->GetMaxWorkGroupSize(CPU_MAX_WORK_GROUP_SIZE, CPU_DEV_MAX_WG_PRIVATE_SIZE);
+                for(size_t i = 1; i < dim; ++i)
+                    vValues[i] = 1;
+            }
+            else vValues[0] = 0;
         }
-        stValSize = (nullptr != value)? sizeof(size_t) * dim: 0;
+        stValSize = (nullptr != value && nullptr != input_value)? sizeof(size_t) * dim: 0;
         break;
     }
     case CL_DEV_KERNEL_MAX_NUM_SUB_GROUPS:

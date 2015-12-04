@@ -96,7 +96,7 @@ void DeviceCommand::SignalComplete(cl_dev_err_code err)
     }    
     if (NULL != m_pExecTimeUserPtr)
     {
-        ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulExecTime;
+        ((cl_long*)m_pExecTimeUserPtr)[1] = m_ulCompleteTime;
     }
   }
 

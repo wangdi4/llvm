@@ -142,9 +142,6 @@ cl_err_code DeviceProgram::SetBinary(size_t uiBinarySize, const unsigned char* p
     case CL_PROG_BIN_EXECUTABLE_LLVM:
         clBinaryType = CL_PROGRAM_BINARY_TYPE_EXECUTABLE;
         break;
-    case CL_PROG_BIN_COMPILED_SPIRV:
-        clBinaryType = CL_PROGRAM_BINARY_TYPE_SPIRV;
-        break;
     default:
         if (piBinaryStatus)
         {

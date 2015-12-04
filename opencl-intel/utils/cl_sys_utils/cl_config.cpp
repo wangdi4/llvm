@@ -32,9 +32,127 @@
 #include <cassert>
 #ifdef _WIN32
 #include<Windows.h>
+#elif !defined (__ANDROID__)
+#include "hw_utils.h"
 #endif
 using namespace Intel::OpenCL::Utils;
 using std::string;
+
+namespace Intel { namespace OpenCL { namespace Utils {
+
+static bool isBroadwell(short i16ProcessorSignature)
+{
+    if(0x306D == i16ProcessorSignature || // Broadwell ULT Client.
+       0x4067 == i16ProcessorSignature)   // Broadwell Client Halo.
+        return true;
+
+    return false;
+}
+
+static bool isSkylake(short i16ProcessorSignature)
+{
+    if(0x406E == i16ProcessorSignature || // Skylake ULT/ULX.
+       0x506E == i16ProcessorSignature)   // Skylake DT/HALO.
+        return true;
+
+    return false;
+}
+
+#ifdef _WIN32
+
+static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
+{
+    DISPLAY_DEVICE dd;
+    dd.cb = sizeof(DISPLAY_DEVICE);
+    DWORD devNum = 0;
+    string id;
+
+    while (EnumDisplayDevices(NULL, devNum++, &dd, 0))
+    {
+        if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
+        {
+            id = dd.DeviceID;
+            break;
+        }
+    }
+    if (id.empty())
+    {
+        return false;
+    }
+    vendorId = id.substr(8, 4);
+    devId = id.substr(17, 4);
+    return true;
+}
+
+OPENCL_VERSION GetOpenclVerByCpuModel()
+{
+    // the OpenCL 2.0 support has been dropped from the following Skylake GPU SKUs
+    string vendorId, devId;
+    // by using EnumDisplayDevices we don't need the GPU driver to be installed (this doesn't work in remote desktop)
+    if (GetDisplayPrimaryDeviceIds(vendorId, devId))
+    {
+        if (vendorId == "8086")
+        {
+            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", "1606", "160E"};
+
+            for (size_t i = 0; i < sizeof(opencl12skus) / sizeof(opencl12skus[0]); ++i)
+            {
+                if (devId == opencl12skus[i])
+                {
+                    return OPENCL_VERSION_1_2;
+                }
+            }
+        }
+    }
+    // TODO: replace querying the registry with the above method for all SKUs
+
+    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
+    if ("BDW GT1 MOBILE ULT" == sKmdDevId || "SKL GT1_5 ULT MOBILE F0" == sKmdDevId
+        || "SKL GT1_5 ULX MOBILE F0" == sKmdDevId || "SKL GT1_5 DESKTOP F0" == sKmdDevId)
+    {
+        return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
+    }
+
+    int cpuInfo[4] = {-1};
+    __cpuid(cpuInfo, 1);
+
+    const short i16ProcessorSignature = (short)(cpuInfo[0] >> 4);
+    if(isBroadwell(i16ProcessorSignature) ||
+       isSkylake(i16ProcessorSignature))
+    {
+        return OPENCL_VERSION_2_0;
+    }
+
+    // BXT
+    if ("0A84" == devId || // BXT A stepping
+        "1A84" == devId || // BXT B stepping
+        "5A84" == devId  ) // BXT A-C steppings
+    {
+        return OPENCL_VERSION_2_0;
+    }
+
+    return OPENCL_VERSION_1_2;
+}
+
+#elif !defined (__ANDROID__)
+
+OPENCL_VERSION GetOpenclVerByCpuModel()
+{
+    unsigned int viCPUInfo[4] = {(unsigned int)-1};
+	cpuid(viCPUInfo, 1);
+    const short i16ProcessorSignature = (short)(viCPUInfo[0] >> 4);
+    if(isBroadwell(i16ProcessorSignature) ||
+       isSkylake(i16ProcessorSignature))
+    {
+        return OPENCL_VERSION_2_0;
+    }
+
+    return OPENCL_VERSION_1_2;
+}
+
+#endif
+
+}}}
 
 ConfigFile::ConfigFile(const string& filename, string delimiter, string comment, string sentry)
 {
@@ -252,6 +370,7 @@ string Intel::OpenCL::Utils::GetRegistryValue<string>(HKEY key, const string& va
 }
 #endif
 
+
 OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 {
     static OPENCL_VERSION s_ver = OPENCL_VERSION_UNKNOWN;
@@ -303,7 +422,7 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
             return OPENCL_VERSION_2_1;
         }
     default:
-#ifdef _WIN32
+#if !defined (__ANDROID__)
         s_ver = GetOpenclVerByCpuModel();
         return s_ver;
 #else
@@ -314,82 +433,4 @@ OPENCL_VERSION BasicCLConfigWrapper::GetOpenCLVersion() const
 #endif
 }
 
-#ifdef _WIN32
 
-static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
-{
-    DISPLAY_DEVICE dd;
-    dd.cb = sizeof(DISPLAY_DEVICE);
-    DWORD devNum = 0;
-    string id;
-        
-    while (EnumDisplayDevices(NULL, devNum++, &dd, 0))
-    {
-        if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
-        {
-            id = dd.DeviceID;
-            break;
-        }        
-    }
-    if (id.empty())
-    {
-        return false;
-    }
-    vendorId = id.substr(8, 4);
-    devId = id.substr(17, 4);
-    return true;
-}
-
-OPENCL_VERSION Intel::OpenCL::Utils::GetOpenclVerByCpuModel()
-{
-    // the OpenCL 2.0 support has been dropped from the following Skylake GPU SKUs
-    string vendorId, devId;
-    // by using EnumDisplayDevices we don't need the GPU driver to be installed (this doesn't work in remote desktop)
-    if (GetDisplayPrimaryDeviceIds(vendorId, devId))
-    {
-        if (vendorId == "8086")
-        {
-            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", "1606", "160E"};
-
-            for (size_t i = 0; i < sizeof(opencl12skus) / sizeof(opencl12skus[0]); ++i)
-            {
-                if (devId == opencl12skus[i])
-                {
-                    return OPENCL_VERSION_1_2;
-                }
-            }
-        }
-    }
-    // TODO: replace querying the registry with the above method for all SKUs
-
-    const string sKmdDevId = GetRegistryKeyValue<string>("SOFTWARE\\Intel\\KMD", "DevId", std::string());
-    if ("BDW GT1 MOBILE ULT" == sKmdDevId || "SKL GT1_5 ULT MOBILE F0" == sKmdDevId
-        || "SKL GT1_5 ULX MOBILE F0" == sKmdDevId || "SKL GT1_5 DESKTOP F0" == sKmdDevId)
-    {
-        return OPENCL_VERSION_1_2;  // GPU SKUs Broadwell GT1 and Skylake GT1.5 support OpenCL 1.2, so we have to be aligned with it
-    }
-
-    int cpuInfo[4] = {-1};
-    __cpuid(cpuInfo, 1);
-
-    const short i16ProcessorSignature = (short)(cpuInfo[0] >> 4);	
-    if (0x306d == i16ProcessorSignature ||	// Broadwell ULT Client
-		    0x4067 == i16ProcessorSignature ||	// Broadwell Client Halo
-		    0x406e == i16ProcessorSignature ||	// Skylake ULT/ULX
-		    0x506e == i16ProcessorSignature		// Skylake DT/Halo
-		    )
-    {
-        return OPENCL_VERSION_2_0;
-    }
-
-    // BXT
-    if ("0A84" == devId || // BXT A stepping
-        "1A84" == devId || // BXT B stepping
-        "5A84" == devId  ) // BXT A-C steppings
-    {
-        return OPENCL_VERSION_2_0;
-    }
-
-    return OPENCL_VERSION_1_2;
-}
-#endif

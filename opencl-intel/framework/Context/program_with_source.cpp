@@ -6,8 +6,12 @@
 using namespace Intel::OpenCL::Framework;
 using namespace Intel::OpenCL::Utils;
 
-ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext, cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths, cl_int* piRet) :
-	Program(pContext), m_szSourceString(NULL)
+ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext,
+                                     cl_uint            uiNumStrings,
+                                     const char**       pSources,
+                                     const size_t*      pszLengths,
+                                     cl_int*            piRet) :
+	Program(pContext)
 {
     if ((0 == uiNumStrings) || (NULL == pSources))
     {
@@ -30,94 +34,56 @@ ProgramWithSource::ProgramWithSource(SharedPtr<Context> pContext, cl_uint uiNumS
         }
     }
 
+
+
+    cl_int ret = CL_SUCCESS;
+
 	SharedPtr<FissionableDevice>* pDevices = pContext->GetDevices(&m_szNumAssociatedDevices);
-	m_ppDevicePrograms  = new DeviceProgram* [m_szNumAssociatedDevices];
+    try
+    {
+        m_ppDevicePrograms.resize(m_szNumAssociatedDevices);
+        CopySourceStrings(uiNumStrings, pSources, pszLengths);
 
-	if (!m_ppDevicePrograms)
-	{
-        if (piRet)
-	    {
-		    *piRet = CL_OUT_OF_HOST_MEMORY;
-	    }
-        return;
-	}
-
-	if (!CopySourceStrings(uiNumStrings, pSources, pszLengths))
-	{
-		delete[] m_ppDevicePrograms;
-		m_ppDevicePrograms = NULL;
-
-        if (piRet)
-	    {
-		    *piRet = CL_OUT_OF_HOST_MEMORY;
-	    }
-        return;
-	}
-
-	for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-	{
-        m_ppDevicePrograms[i] = new DeviceProgram();
-        if (NULL == m_ppDevicePrograms[i])
+        for(size_t i = 0; i < m_szNumAssociatedDevices; ++i)
         {
-            for (size_t j = 0; j < i; ++j)
-            {
-                delete m_ppDevicePrograms[j];
-            }
-            delete[] m_ppDevicePrograms;
-            m_ppDevicePrograms = NULL;
+            unique_ptr<DeviceProgram>& pDevProgram = m_ppDevicePrograms[i];
+            pDevProgram.reset(new DeviceProgram());
 
-            if (piRet)
-	        {
-		        *piRet = CL_OUT_OF_HOST_MEMORY;
-	        }
-            return;
+            pDevProgram->SetDevice(pDevices[i]);
+            pDevProgram->SetHandle(GetHandle());
+            pDevProgram->SetContext(pContext->GetHandle());
+            pDevProgram->SetStateInternal(DEVICE_PROGRAM_SOURCE);
         }
-
-        m_ppDevicePrograms[i]->SetDevice(pDevices[i]);
-        m_ppDevicePrograms[i]->SetHandle(GetHandle());
-        m_ppDevicePrograms[i]->SetContext(pContext->GetHandle());
-        m_ppDevicePrograms[i]->SetStateInternal(DEVICE_PROGRAM_SOURCE);
 	}
+    catch(std::bad_alloc& e)
+    {
+        ret = CL_OUT_OF_HOST_MEMORY;
+    }
 
-
-	if (piRet)
-	{
-        *piRet = CL_SUCCESS;
-	}
+    if (piRet)
+    {
+        *piRet = ret;
+    }
 }
 
 ProgramWithSource::~ProgramWithSource()
-{
-	if ((m_szNumAssociatedDevices > 0) && (NULL != m_ppDevicePrograms))
-	{
-        for (size_t i = 0; i < m_szNumAssociatedDevices; ++i)
-        {
-            delete m_ppDevicePrograms[i];
-        }
-		delete[] m_ppDevicePrograms;
-		m_ppDevicePrograms = NULL;
-	}
+{}
 
-	if (m_szSourceString)
-	{
-		delete[] m_szSourceString;
-		m_szSourceString   = NULL;
-	}
-}
-
-cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_size, void * param_value, size_t * param_value_size_ret) const
+cl_err_code ProgramWithSource::GetInfo(cl_int  param_name,
+                                       size_t  param_value_size,
+                                       void*   param_value,
+                                       size_t* param_value_size_ret) const
 {
-	LOG_DEBUG(TEXT("ProgramWithSource::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"), 
+	LOG_DEBUG(TEXT("ProgramWithSource::GetInfo enter. param_name=%d, param_value_size=%d, param_value=%d, param_value_size_ret=%d"),
 		param_name, param_value_size, param_value, param_value_size_ret);
 
 	size_t szParamValueSize = 0;
 
-	switch ( (cl_program_info)param_name )
+	switch(param_name)
 	{
 	case CL_PROGRAM_SOURCE:
 		{
-            // Note: according to spec section 5.4.5, the length returned should include the null terminator
-			szParamValueSize = strlen(m_szSourceString) + 1;
+			szParamValueSize = m_SourceString.size();
 
 			if (NULL != param_value)
 			{
@@ -126,7 +92,7 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 					return CL_INVALID_VALUE;
 				}
 
-				MEMCPY_S(param_value, szParamValueSize, m_szSourceString, szParamValueSize);
+				MEMCPY_S(param_value, szParamValueSize, m_SourceString.data(), szParamValueSize);
 			}
 			if (param_value_size_ret)
 			{
@@ -141,14 +107,12 @@ cl_err_code ProgramWithSource::GetInfo(cl_int param_name, size_t param_value_siz
 	}
 }
 
-bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSources, const size_t* pszLengths)
+bool ProgramWithSource::CopySourceStrings(cl_uint       uiNumStrings,
+                                          const char**  pSources,
+                                          const size_t* pszLengths)
 {
     size_t uiTotalLength = 1;
-    size_t* puiStringLengths = new size_t[uiNumStrings];
-    if (NULL == puiStringLengths)
-    {
-        return false;
-    }
+    std::vector<size_t> puiStringLengths(uiNumStrings);
 
 	for(cl_uint ui = 0; ui < uiNumStrings; ++ui)
 	{
@@ -164,14 +128,9 @@ bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSo
         uiTotalLength += puiStringLengths[ui];
 	}
 
-    m_szSourceString = new char[uiTotalLength];
-    if (!m_szSourceString)
-    {
-        delete[] puiStringLengths;
-        return false;
-    }
+    m_SourceString.resize(uiTotalLength);
 
-    char* szSourceString = m_szSourceString;
+    char* szSourceString = &m_SourceString[0];
     MEMCPY_S(szSourceString, puiStringLengths[0], pSources[0], puiStringLengths[0]);
 
 	for (cl_uint ui = 1; ui < uiNumStrings; ++ui)
@@ -180,8 +139,7 @@ bool ProgramWithSource::CopySourceStrings(cl_uint uiNumStrings, const char** pSo
 		MEMCPY_S(szSourceString, puiStringLengths[ui], pSources[ui], puiStringLengths[ui]);
 	}
 
-	m_szSourceString[uiTotalLength - 1] = '\0'; //uiTotalLength includes the NULL terminator
+	m_SourceString[uiTotalLength - 1] = '\0'; //uiTotalLength includes the NULL terminator
 
-    delete[] puiStringLengths;
 	return true;
 }

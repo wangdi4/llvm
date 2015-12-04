@@ -2,6 +2,7 @@
 #define __CL21__
 
 #include <iostream>
+#include <fstream>
 #include <gtest/gtest.h>
 #include "CL/cl.h"
 #include "test_utils.h"
@@ -73,6 +74,30 @@ protected:
 
     void ZeroSized_clEnqueueSVMMemFill() const;
 
+    // timers
+
+    void GetPlatformInfo_DEVICE_TIMER_RESOLUTION() const;
+
+    void GetHostTimer_Negative() const;
+
+    void GetDeviceAndHostTimer_Negative() const;
+
+    void GetHostTimer() const;
+
+    void GetDeviceAndHostTimer() const;
+
+    // IL
+
+    void CreateProgramWithIL_IL_VERSION() const;
+
+    void CreateProgramWithIL_Negative() const;
+
+    void CreateProgramWithIL() const;
+
+    void CreateProgramWithIL_PROGRAM_IL() const;
+
+    void CreateProgramWithIL_PROGRAM_IL_Negative() const;
+
     void Init()
     {
         ASSERT_LE(OPENCL_VERSION::OPENCL_VERSION_2_1, ::CL_base::GetOCLVersion()) <<
@@ -109,6 +134,18 @@ protected:
 
         kern = clCreateKernel(program, "dummy_kernel", &iRet);
         ASSERT_EQ(CL_SUCCESS, iRet) << " clCreateKernel failed. ";
+    }
+
+    void GetSimpleSPIRV(std::vector<char>& spirv) const
+    {
+        std::fstream spirv_file("test.spv", std::fstream::in | std::fstream::binary | std::fstream::ate);
+        ASSERT_TRUE((bool)(spirv_file.is_open())) << " Error while opening test.spv file. ";
+
+        size_t length = spirv_file.tellg();
+        spirv_file.seekg(0, spirv_file.beg);
+
+        spirv.resize(length, 0);
+        spirv_file.read(&spirv[0], length);
     }
 
 

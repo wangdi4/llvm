@@ -1,4 +1,4 @@
-// Copyright (c) 2006-2014 Intel Corporation
+// Copyright (c) 2006-2015 Intel Corporation
 // All rights reserved.
 //
 // WARRANTY DISCLAIMER
@@ -198,7 +198,7 @@ struct CrtQueue: public CrtObject
 	
 	// CRT opaque handle for the command_queue
 	cl_command_queue	m_queue_handle;
-
+    bool                m_devQ;  // true if device command queue
     cl_int              Release();
 };
 
@@ -633,6 +633,15 @@ public:
         const cl_queue_properties *     properties,
         CrtQueue**                      crtQueue);
 
+    void PushCommandQueue( 
+        CrtQueue* pCrtQueue );
+
+    cl_command_queue GetDevCommandQueue( 
+        cl_command_queue queue_dev_handle );
+
+    void RemoveCommandQueue( 
+        CrtQueue* pCrtQueue );
+
     cl_int CreateProgramWithSource(
         cl_uint            count ,
         const char **      strings ,
@@ -706,6 +715,8 @@ public:
 
     // We need to keep track of all host command queue for flush/finish/WaitForEvents
     std::list<cl_command_queue> m_HostcommandQueues;
+    // device command queue 
+    std::list<CrtQueue *> m_DevCommandQueues;
 
     cl_context              m_context_handle;
 

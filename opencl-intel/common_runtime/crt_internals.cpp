@@ -486,6 +486,7 @@ CrtContext::~CrtContext()
 {
     m_contexts.clear();
     m_HostcommandQueues.clear();
+    m_DevCommandQueues.clear();
 }
 
 cl_int CrtContext::FlushQueues()
@@ -2110,11 +2111,57 @@ cl_int  CrtContext::CreateCommandQueue(
         *crtQueue = pCrtQueue;
         {
             OCLCRT::Utils::OclAutoMutex CS(&m_mutex);   // Critical section
-            m_HostcommandQueues.push_back(queueDEV);
+            PushCommandQueue( pCrtQueue );
         }
     }
     return errCode;
 }
+void CrtContext::PushCommandQueue( 
+    CrtQueue* pCrtQueue )
+{
+    if( pCrtQueue->m_devQ == true )
+    {
+        m_DevCommandQueues.push_back( pCrtQueue );
+    }
+    else
+    {
+        m_HostcommandQueues.push_back( pCrtQueue->m_cmdQueueDEV );
+    }
+}
+
+cl_command_queue
+CrtContext::GetDevCommandQueue( 
+    cl_command_queue    queue_dev_handle )
+{
+    CrtQueue* pCrtQueue = NULL;
+
+    OCLCRT::Utils::OclAutoMutex CS( &m_mutex );   // Critical section
+
+    for( std::list<CrtQueue *>::iterator itr = m_DevCommandQueues.begin();
+         itr != m_DevCommandQueues.end();
+         itr++ )
+    {
+        pCrtQueue = *itr;
+        if( pCrtQueue->m_cmdQueueDEV == queue_dev_handle )
+        {
+            return pCrtQueue->m_queue_handle;
+        }
+    }
+    return NULL;
+}
+void
+CrtContext::RemoveCommandQueue( CrtQueue* pCrtQueue )
+{
+    if( pCrtQueue->m_devQ == true )
+    {
+        m_DevCommandQueues.remove( pCrtQueue );
+    }
+    else
+    {
+        m_HostcommandQueues.remove( pCrtQueue->m_cmdQueueDEV );
+    }
+}
+
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -2173,11 +2220,11 @@ cl_int  CrtContext::CreateCommandQueueWithProperties(
                 }
             }
         }
-        //add only if we have craete non device queue, such queues can't flush on host
-        if( QueueOnDevice == false )
+        pCrtQueue->m_devQ = QueueOnDevice;
+        //add both device and non-device queue, non-device queue can flush on host
         {
             OCLCRT::Utils::OclAutoMutex CS( &m_mutex );   // Critical section
-            m_HostcommandQueues.push_back( queueDEV );
+            PushCommandQueue( pCrtQueue );
         }
     }
     return errCode;
@@ -2245,6 +2292,7 @@ CrtQueue::CrtQueue(CrtContext* ctx)
 :m_contextCRT(ctx)
 {
     m_contextCRT->IncPendencyCnt();
+    m_devQ = false;
 }
 
 CrtQueue::~CrtQueue()
@@ -2284,7 +2332,8 @@ cl_int CrtQueue::Release()
 {
     OCLCRT::Utils::OclAutoMutex CS(&m_contextCRT->m_mutex);   // Critical section
     cl_int errCode  = m_cmdQueueDEV->dispatch->clReleaseCommandQueue(m_cmdQueueDEV);    
-    m_contextCRT->m_HostcommandQueues.remove(m_cmdQueueDEV);
+    m_contextCRT->RemoveCommandQueue( this );
+    
     return errCode;
 }
 

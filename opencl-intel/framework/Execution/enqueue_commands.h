@@ -1358,6 +1358,42 @@ namespace Intel { namespace OpenCL { namespace Framework {
         cl_command_type         GetCommandType() const  { return CL_COMMAND_BARRIER; }
         const char*             GetCommandName() const  { return "CL_COMMAND_BARRIER"; }
     };
+
+    /******************************************************************
+     * The command is used when user map pointers which have not been
+     * allocated by clSVMAlloc, e.g. SVM_FINE_GRAIN_SYSTEM.
+     * In this case we should just handle event dependency.
+     ******************************************************************/
+    class SVMMAP_Command_NOOP : public RuntimeCommand
+    {
+
+    public:
+        SVMMAP_Command_NOOP( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+        virtual ~SVMMAP_Command_NOOP() {}
+
+        cl_command_type         GetCommandType()     const { return CL_COMMAND_SVM_MAP;   }
+        const char*             GetCommandName()     const { return "CL_COMMAND_SVM_MAP"; }
+        virtual const char*     GPA_GetCommandName() const { return "Map SVM Buffer";     }
+    };
+
+    /******************************************************************
+     * The command is used when user map pointers which have not been
+     * allocated by clSVMAlloc, e.g. SVM_FINE_GRAIN_SYSTEM.
+     * In this case we should just handle event dependency.
+     ******************************************************************/
+    class SVMUNMAP_Command_NOOP : public RuntimeCommand
+    {
+
+    public:
+        SVMUNMAP_Command_NOOP( const SharedPtr<IOclCommandQueueBase>& cmdQueue, bool bIsDependentOnEvents ) :
+          RuntimeCommand(cmdQueue, bIsDependentOnEvents) {}
+        virtual ~SVMUNMAP_Command_NOOP() {}
+
+        cl_command_type         GetCommandType()     const { return CL_COMMAND_SVM_UNMAP;   }
+        const char*             GetCommandName()     const { return "CL_COMMAND_SVM_UNMAP"; }
+        virtual const char*     GPA_GetCommandName() const { return "Unmap SVM Buffer";     }
+    };
     
     /******************************************************************
      *

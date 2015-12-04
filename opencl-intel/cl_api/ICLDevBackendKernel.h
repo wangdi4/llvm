@@ -79,10 +79,6 @@ public:
      */
     virtual size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const = 0;
 
-    /** @returns the number of SGs will be generated for specified local work sizes.
-     */
-    virtual void GetWGSizesForSubGroupsCount(size_t desiredSGCount, size_t size, size_t* WGSizes) const = 0;
-
     /** @returns the maximum number of sub-groups that may make up each work-group to execute kernel.
      */
     virtual size_t GetMaxNumSubGroups() const = 0;

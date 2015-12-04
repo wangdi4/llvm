@@ -574,10 +574,35 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
   bool CompilationUtils::getCLVersionFromModule(const Module &M, unsigned &Result) {
     StringRef opt = fetchCompilerOption(M, "-cl-std=");
-    if(opt.empty()) return false;
+    if(!opt.empty()) {
+      opt = opt.drop_front(strlen("-cl-std="));
+      Result = OclVersion::CLStrToVal(opt.data());
+      return true;
+    }
+    return fetchCLVersionFromMetadata(M, Result);
+  }
 
-    opt = opt.drop_front(strlen("-cl-std="));
-    Result = OclVersion::CLStrToVal(opt.data());
+  bool CompilationUtils::fetchCLVersionFromMetadata(const Module &M, unsigned &Result) {
+    /*
+    Example of the metadata
+    !opencl.ocl.version = !{!6}
+    !6 = !{i32 2, i32 0}
+    */
+    NamedMDNode* namedMD = M.getNamedMetadata("opencl.ocl.version");
+    // Metadata API uitls creates whole set of empty named metadata even if they are initially
+    // absent in a module. That is why the 'if' statement below checks if MDNode has operands.
+    if(!namedMD || namedMD->getNumOperands() == 0) return false;
+
+    MDNode * versionMD = cast<MDNode>(namedMD->getOperand(0));
+    assert(versionMD && versionMD->getNumOperands() == 2 && "this MDNode must have 2 operands");
+
+    Metadata * majorMD = versionMD->getOperand(0);
+    Metadata * minorMD = versionMD->getOperand(1);
+    assert(majorMD && minorMD && "expected non-null metadata values");
+
+    uint64_t major = mdconst::extract<ConstantInt>(majorMD)->getZExtValue();;
+    uint64_t minor = mdconst::extract<ConstantInt>(minorMD)->getZExtValue();
+    Result = OclVersion::CLVersionToVal(major, minor);
     return true;
   }
 
