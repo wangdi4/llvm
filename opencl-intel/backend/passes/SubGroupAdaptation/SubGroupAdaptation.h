@@ -34,7 +34,7 @@ namespace intel {
 		IntegerType *m_pSizeT;
 
 		void replaceFunction(Function *oldFunc, std::string newFuncName);
-		void replaceWithConst(Function *oldFunc, unsigned constInt);
+		void replaceWithConst(Function *oldFunc, unsigned constInt, bool isSigned);
 		void replaceSubGroupBroadcast(Function *pFunc);
 		// Helper for WI function call generation.
 		// Generates a call to WI function upon its name and dimension index

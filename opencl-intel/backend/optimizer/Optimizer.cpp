@@ -243,8 +243,9 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(llvm::createInstructionSimplifierPass());
   }
-  // TODO: Add if(isOcl21)
-  PM.add(createSubGroupAdaptationPass());
+
+  if (isOcl20)
+    PM.add(createSubGroupAdaptationPass());
  
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()

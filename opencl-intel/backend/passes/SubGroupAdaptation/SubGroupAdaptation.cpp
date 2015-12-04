@@ -74,11 +74,11 @@ namespace intel {
 			else if (CompilationUtils::isSubGroupAny(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_ANY);
 			else if (CompilationUtils::isGetNumSubGroups(func_name))
-				replaceWithConst(pFunc, 1);
+				replaceWithConst(pFunc, 1, false);
 			else if (CompilationUtils::isGetEnqueuedNumSubGroups(func_name))
-				replaceWithConst(pFunc, 0);
+				replaceWithConst(pFunc, 1, false);
 			else if (CompilationUtils::isGetSubGroupId(func_name))
-				replaceWithConst(pFunc, 0);
+				replaceWithConst(pFunc, 0, false);
 			else if (CompilationUtils::isSubGroupBroadCast(func_name))
 				replaceSubGroupBroadcast(pFunc);
 			else if (CompilationUtils::isSubGroupReduceAdd(func_name))
@@ -93,11 +93,11 @@ namespace intel {
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX);
 			else if (CompilationUtils::isSubGroupScanExclusiveMin(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MIN);
-			else if (CompilationUtils::isSubGroupScanExclusiveAdd(func_name))
+			else if (CompilationUtils::isSubGroupScanInclusiveAdd(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_ADD);
-			else if (CompilationUtils::isSubGroupScanExclusiveMax(func_name))
+			else if (CompilationUtils::isSubGroupScanInclusiveMax(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX);
-			else if (CompilationUtils::isSubGroupScanExclusiveMin(func_name))
+			else if (CompilationUtils::isSubGroupScanInclusiveMin(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MIN);
 			else if (CompilationUtils::isSubGroupReserveReadPipe(func_name))
 				replaceFunction(pFunc, CompilationUtils::NAME_WORK_GROUP_RESERVE_READ_PIPE);
@@ -123,7 +123,7 @@ namespace intel {
 		oldFunc->eraseFromParent();
 	}
 
-	void SubGroupAdaptation::replaceWithConst(Function *oldFunc, unsigned constInt) {
+	void SubGroupAdaptation::replaceWithConst(Function *oldFunc, unsigned constInt, bool isSigned) {
 		std::vector<Instruction*> callSgFunc;
 
 		for (Function::user_iterator ui = oldFunc->user_begin(),
@@ -141,6 +141,7 @@ namespace intel {
 			CI->replaceAllUsesWith(pConstInt);
 			CI->eraseFromParent();
 		}
+		oldFunc->eraseFromParent();
 	}
 
 	void SubGroupAdaptation::replaceSubGroupBroadcast(Function* pFunc){
@@ -218,8 +219,10 @@ namespace intel {
 		Type *pInt32Type = Type::getInt32Ty(*m_pLLVMContext);;
 		FunctionType *pFuncType = FunctionType::get(m_pSizeT, pInt32Type, false);
 		Function *func = cast<Function>(m_pModule->getOrInsertFunction(funcName, pFuncType));
+		func->setCallingConv(CallingConv::SPIR_FUNC);
 		CallInst *pCall = CallInst::Create(func, ArrayRef<Value*>(ConstantInt::get(pInt32Type, dimIdx)), twine, pAtEnd);
 		assert(pCall && "Couldn't create CALL instruction!");
+		pCall->setCallingConv(CallingConv::SPIR_FUNC);
 		return pCall;
 	}
 }
