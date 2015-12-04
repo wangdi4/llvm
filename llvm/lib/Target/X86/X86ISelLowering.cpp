@@ -21532,6 +21532,10 @@ X86TargetLowering::emitEHSjLjSetJmp(MachineInstr *MI,
   MF->insert(I, mainMBB);
   MF->insert(I, sinkMBB);
   MF->push_back(restoreMBB);
+#if INTEL_CUSTOMIZATION
+  // This is cherry-picked from r251113
+  restoreMBB->setHasAddressTaken();
+#endif // INTEL_CUSTOMIZATION
 
   MachineInstrBuilder MIB;
 

@@ -2499,8 +2499,17 @@ void AsmPrinter::EmitBasicBlockStart(const MachineBasicBlock &MBB) const {
     if (isVerbose())
       OutStreamer->AddComment("Block address taken");
 
+#if INTEL_CUSTOMIZATION
+    // This is cherry-picked from r251113
+    // MBBs can have their address taken as part of CodeGen without having
+    // their corresponding BB's address taken in IR
+    if (BB->hasAddressTaken())
+      for (MCSymbol *Sym : MMI->getAddrLabelSymbolToEmit(BB))
+        OutStreamer->EmitLabel(Sym);
+#else // !INTEL_CUSTOMIZATION
     for (MCSymbol *Sym : MMI->getAddrLabelSymbolToEmit(BB))
       OutStreamer->EmitLabel(Sym);
+#endif // !INTEL_CUSTOMIZATION
   }
 
   // Print some verbose block comments.

@@ -709,6 +709,11 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     addRegOffset(BuildMI(MBB, MBBI, DL, TII.get(MOVmr)), StackPtr, true, 16)
         .addReg(RDX)
         .setMIFlag(MachineInstr::FrameSetup);
+#if INTEL_CUSTOMIZATION
+    // The line below is cherry picked from LLVM trunk r252512, but there "RDX"
+    // will be named "Establisher".
+    MBB.addLiveIn(RDX);
+#endif
   }
 
   if (HasFP) {
@@ -774,9 +779,19 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       }
     }
 
+#if INTEL_CUSTOMIZATION
+    // This is cherry picked from LLVM trunk r252512.
+    // Mark the FramePtr as live-in in every block. Don't do this again for
+    // funclet prologues.
+    if (!IsFunclet) {
+      for (MachineBasicBlock &EveryMBB : MF)
+        EveryMBB.addLiveIn(MachineFramePtr);
+    }
+#else // !INTEL_CUSTOMIZATION 
     // Mark the FramePtr as live-in in every block.
     for (MachineFunction::iterator I = MF.begin(), E = MF.end(); I != E; ++I)
       I->addLiveIn(MachineFramePtr);
+#endif // !INTEL_CUSTOMIZATION
   } else {
     assert(!IsFunclet && "funclets without FPs not yet implemented");
     NumBytes = StackSize - X86FI->getCalleeSavedFrameSize();
@@ -1174,10 +1189,23 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
           .addReg(0);
     } else {
       // MOV32ri $RestoreMBB, %eax
+#if INTEL_CUSTOMIZATION
+      // This is cherry picked from LLVM trunk r252512, except there
+      // "RestoreMBB" will be named "TargetMBB".
+      BuildMI(MBB, FirstCSPop, DL, TII.get(X86::MOV32ri), ReturnReg)
+          .addMBB(RestoreMBB);
+#else // !INTEL_CUSTOMIZATION
       BuildMI(MBB, FirstCSPop, DL, TII.get(X86::MOV32ri))
           .addReg(ReturnReg)
           .addMBB(RestoreMBB);
+#endif // !INTEL_CUSTOMIZATION
     }
+#if INTEL_CUSTOMIZATION
+    // This is cherry-picked from r251113
+    // Record that we've taken the address of RestoreMBB and no longer just
+    // reference it in a terminator.
+    RestoreMBB->setHasAddressTaken();
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (MBBI != MBB.end())
