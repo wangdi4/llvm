@@ -4426,9 +4426,42 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   return std::move(Final);
 }
 
-void DDtest::reverseDV(const DVectorTy &InputDV, DVectorTy &outputDV) const {
+///  get DV for Backward Edge
+///    Called when both forward and backward edges are needed
+///           ( *  >  =)  returns  (*  <  =)
+///           ( =  *  =)  returns  (=  *  =)
+///           (<   *  <)  Not supposed to call here
+///           (<=  *  >)  returns  (<= *  <)
+///           Explanation:
+///           (<=  * >)  is equivalent to
+/// --------------------
+///  (<  * >)    no backedge needed
+///  (=  * >)
+///  ----------------------------
+///  (= * >) is equivalent to
+///  ----------------------------
+///  (= < >)  no backedge needed
+///  (= > >)  Need backedge DV (= <  <)
+///  (= = >)  no backedge needed
+///  -----------------------------
+///  For simplicity we derive from it as  (<= * <)
 
-  for (unsigned II = 1; II <= CommonLevels; ++II) {
+void DDtest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
+                                  unsigned MaxLevel) const {
+
+  unsigned StarLevel = 1;
+
+  // Scan for leftmost STAR
+  for (unsigned II = 1; II <= MaxLevel; ++II) {
+    outputDV[II - 1] = InputDV[II - 1];
+    assert(InputDV[II - 1] != DV::LT && "Unexpected Input DV for reversal");
+    if (InputDV[II - 1] == DV::ALL) {
+      StarLevel = II;
+      break;
+    }
+  }
+
+  for (unsigned II = StarLevel + 1; II <= MaxLevel; ++II) {
     switch (InputDV[II - 1]) {
     case DV::LT:
       outputDV[II - 1] = DV::GT;
@@ -4471,13 +4504,12 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  like scalar vars).
   //  New code added here for temps with more precision  in DV
 
-  DDtest DA;
   bool isTemp = false;
 
-  DA.initDV(forwardDV);
-  DA.initDV(backwardDV);
+  initDV(forwardDV);
+  initDV(backwardDV);
 
-  auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+  auto Result = depends(SrcDDRef, DstDDRef, InputDV);
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4490,18 +4522,24 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  //  Bidirectional DV are needed if leftmost (non-EQ or non <=)  is a *
-  //  except when src == dst
-  //  e.g.
-  //  (= = *   =)  Yes
-  //  (= = <=  *)  Yes
-  //  (= = <=  =)  no
-  //  (= = <   >)  no
+  ///  Bidirectional DV is needed when scanning from L to R, it enconuters
+  ///  a * before hitting <.
+  ///  If * is preveded by <. then no backward edge is needed.
+  ///  Exception:  when src == dst, 1 edge is enough for self output dep.
+  ///  e.g.
+  ///  (= = *   =)  Yes
+  ///  (= = <=  *)  Yes
+  ///  (= = <=  =)  no
+  ///  (= = <   >)  no
+  ///  See more details in getDVForBackwardEdge
 
   bool BiDirection = false;
   if (SrcDDRef != DstDDRef) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       DVType dv = Result->getDirection(II);
+      if (dv == DV::LT) {
+        break;
+      }
       if (dv == DV::ALL) {
         BiDirection = true;
         DEBUG(dbgs() << "BiDirection needed!\n");
@@ -4667,19 +4705,23 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   // How to determine whether the edge is forward or backward:
-  //  (1) birectional: both forward & backward
+  //  (1) bidirection: both forward & backward
   //  (2) if all EQ, look at TopSort order
   //  (3) if leftmost non-EQ dv is <
   //      isReversed implies backward else forward
 
   if (BiDirection) {
-    // (1) both directions
+    // (1) Both directions
+    // Leftmost non-equal is a *
+    // Need to reverse one of the DV
+    // e.g. one edge is ( * < >), the other shoud be (* > <)
+
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      backwardDV[II - 1] = Result->getDirection(II);
-    }
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      // Computed from Src -> Dst (Forward edge)
       forwardDV[II - 1] = Result->getDirection(II);
     }
+    getDVForBackwardEdge(forwardDV, backwardDV, Result->getLevels());
+
     DEBUG(dbgs() << "\nforward DV: ";
           printDV(forwardDV, Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
