@@ -269,6 +269,8 @@ public:
   bool escapes(const Value *V);
 
 private:
+  bool isPointsToType(Type *Ty) const;
+
   unsigned getNode(Value *V);
 
   unsigned getObject(Value *V) const;

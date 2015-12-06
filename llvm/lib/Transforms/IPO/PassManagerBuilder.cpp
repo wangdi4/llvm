@@ -558,6 +558,11 @@ void PassManagerBuilder::addLTOOptimizationPasses(legacy::PassManagerBase &PM) {
   PM.add(createFunctionAttrsPass()); // Add nocapture.
   PM.add(createGlobalsAAWrapperPass()); // IP alias analysis.
 
+#if INTEL_CUSTOMIZATION
+  if (EnableAndersen) {
+    PM.add(createAndersensAAWrapperPass()); // Andersen's IP alias analysis
+  }
+#endif // INTEL_CUSTOMIZATION
   PM.add(createLICMPass());                 // Hoist loop invariants.
   if (EnableMLSM)
     PM.add(createMergedLoadStoreMotionPass()); // Merge ld/st in diamonds.
