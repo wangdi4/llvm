@@ -192,3 +192,33 @@ processFunctionBeforeFrameFinalized(MachineFunction &MF,
   if (MFI->hasCalls())
     LMFI->setRAFrameIndex(MFI->CreateSpillStackObject(8, 8));
 }
+
+void LPUFrameLowering::
+eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator I) const {
+  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
+  const LPUInstrInfo &TII =
+    *static_cast<const LPUInstrInfo*>(MF.getSubtarget().getInstrInfo());
+
+  if (!TFI->hasReservedCallFrame(MF)) {
+    int64_t Amount = I->getOperand(0).getImm();
+
+    if (Amount) {
+      // Keep the stack 16 byte aligned
+      Amount = (Amount + 0xf) & ~0xf;
+
+      DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
+
+      if (I->getOpcode() == LPU::ADJCALLSTACKDOWN) {
+	BuildMI(MBB, I, DL, TII.get(LPU::SUB64i), LPU::SP).addReg(LPU::SP).
+          addImm(Amount);
+      } else {
+	BuildMI(MBB, I, DL, TII.get(LPU::ADD64i), LPU::SP).addReg(LPU::SP).
+          addImm(Amount);
+      }
+    }
+  }
+
+  MBB.erase(I);
+}
+

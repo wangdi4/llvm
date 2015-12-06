@@ -115,7 +115,7 @@ void LPUPassConfig::addIRPasses() {
   // We explicitly disable them here.  We do, however, need some functionality
   // of the PrologEpilogCodeInserter pass, so we emulate that behavior in the
   // LPUPrologEpilog pass (see LPUPrologEpilogPass.cpp).
-  disablePass(&PrologEpilogCodeInserterID);
+  //  disablePass(&PrologEpilogCodeInserterID);
   disablePass(&TailDuplicateID);
 
   // Do not need scheduling...
@@ -155,7 +155,7 @@ void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
 }
 */
 void LPUPassConfig::addPostRegAlloc() {
-  addPass(createLPUPrologEpilogPass(), false);
+  //  addPass(createLPUPrologEpilogPass(), false);
 }
 
 bool LPUPassConfig::addGCPasses() {

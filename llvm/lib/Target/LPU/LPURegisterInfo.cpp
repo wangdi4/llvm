@@ -58,10 +58,6 @@ BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
   const TargetFrameLowering *TFL = MF.getSubtarget().getFrameLowering();
 
-  //  Reserved.set(LPU::IGN);
-  //  Reserved.set(LPU::C0);
-  //  Reserved.set(LPU::C1);
-
   Reserved.set(LPU::SP);
   Reserved.set(LPU::RA);
 
@@ -71,32 +67,6 @@ BitVector LPURegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   return Reserved;
 }
-
-void LPURegisterInfo::
-eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
-                              MachineBasicBlock::iterator I) const {
-  const TargetFrameLowering *TFI = MF.getSubtarget().getFrameLowering();
-
-  if (!TFI->hasReservedCallFrame(MF)) {
-    int64_t Amount = I->getOperand(0).getImm();
-
-    if (Amount) {
-      // Keep the stack 8 byte aligned
-      Amount = (Amount + 7) & ~7;
-
-      DebugLoc DL = I != MBB.end() ? I->getDebugLoc() : DebugLoc();
-
-      if (I->getOpcode() == LPU::ADJCALLSTACKDOWN) {
-	BuildMI(MBB, I, DL, TII.get(LPU::SUB64i), LPU::SP).addReg(LPU::SP).addImm(Amount);
-      } else {
-	BuildMI(MBB, I, DL, TII.get(LPU::ADD64i), LPU::SP).addReg(LPU::SP).addImm(Amount);
-      }
-    }
-  }
-
-  MBB.erase(I);
-}
-
 
 void
 LPURegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,

@@ -61,17 +61,20 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   addRegisterClass(MVT::f32,  &LPU::F32RegClass);
   addRegisterClass(MVT::f64,  &LPU::F64RegClass);
 
+  setBooleanContents(ZeroOrOneBooleanContent);
+  setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
+
   // Compute derived properties from the register classes
+  setStackPointerRegisterToSaveRestore(LPU::SP);
   computeRegisterProperties();
+
+  // Scheduling shouldn't be relevant
+  // setSchedulingPreference(Sched::ILP);
 
   // Provide all sorts of operation actions
 
   // Division is expensive
   setIntDivIsCheap(false);
-
-  setStackPointerRegisterToSaveRestore(LPU::SP);
-  setBooleanContents(ZeroOrOneBooleanContent);
-  setBooleanVectorContents(ZeroOrOneBooleanContent); // FIXME: Is this correct?
 
   // Operations we want expanded for all types
   for (MVT VT : MVT::integer_valuetypes()) {
@@ -267,17 +270,17 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setOperationAction(ISD::GlobalAddress,    MVT::i64,   Custom);
   setOperationAction(ISD::ExternalSymbol,   MVT::i64,   Custom);
   setOperationAction(ISD::BlockAddress,     MVT::i64,   Custom);
+  setOperationAction(ISD::JumpTable,        MVT::i64,   Custom);
 
   //  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1,   Expand);
 
-  /*
   // varargs support
   setOperationAction(ISD::VASTART,          MVT::Other, Expand);
   setOperationAction(ISD::VAARG,            MVT::Other, Expand);
   setOperationAction(ISD::VAEND,            MVT::Other, Expand);
   setOperationAction(ISD::VACOPY,           MVT::Other, Expand);
-  //  setOperationAction(ISD::JumpTable,        MVT::i64,   Expand);
-  */
+
+  //setOperationAction(ISD::READCYCLECOUNTER,   MVT::i64,   Legal);
 }
 
 EVT LPUTargetLowering::getSetCCResultType(LLVMContext &Context, EVT VT) const {
@@ -290,11 +293,11 @@ SDValue LPUTargetLowering::LowerOperation(SDValue Op,
   case ISD::GlobalAddress:    return LowerGlobalAddress(Op, DAG);
   case ISD::ExternalSymbol:   return LowerExternalSymbol(Op, DAG);
   case ISD::BlockAddress:     return LowerBlockAddress(Op, DAG);
+  case ISD::JumpTable:        return LowerJumpTable(Op, DAG);
     /*
   case ISD::RETURNADDR:       return LowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:        return LowerFRAMEADDR(Op, DAG);
   case ISD::VASTART:          return LowerVASTART(Op, DAG);
-  case ISD::JumpTable:        return LowerJumpTable(Op, DAG);
     */
   default:
     llvm_unreachable("unimplemented operand");
@@ -472,12 +475,12 @@ LPUTargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       bool Result;
 
       if (Outs[i].IsFixed) {
-        Result = CC_Reg_LPU(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags, CCInfo);
+        Result = CC_Reg_LPU(i, ArgVT, ArgVT, CCValAssign::Full, ArgFlags,
+                            CCInfo);
       }
       else {
-        llvm_unreachable("Varargs linkage NYI");
-        //        Result = CC_Reg_LPU_VarArg(i, ArgVT, ArgVT, CCValAssign::Full,
-        //                                ArgFlags, CCInfo);
+        Result = CC_Reg_VarArg_LPU(i, ArgVT, ArgVT, CCValAssign::Full,
+                                   ArgFlags, CCInfo);
       }
 
       if (Result) {

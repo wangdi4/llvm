@@ -15,7 +15,7 @@
 // Return Value Calling Conventions
 //===----------------------------------------------------------------------===//
 
-// WARNING: These assignments are "known" somewhat in LPUAsmPrinter.cpp
+// For register assignments generally, see LPURegisterInfo.td
 
 // LPU 64-bit C return-value convention using registers
 def RetCC_Reg_LPU : CallingConv<[
@@ -28,6 +28,11 @@ def CC_Reg_LPU : CallingConv<[
   CCIfType<[i1,i8,i16,i32,i64,f16,f32,f64],
         CCAssignToReg<[R2, R3, R4, R5, R6, R7, R8, R9,
                        R10, R11, R12, R13, R14, R15, R16, R17]>>,
+  CCAssignToStack<8, 8>
+]>;
+
+// LPU 64-bit C Calling convention for varargs - all memory
+def CC_Reg_VarArg_LPU : CallingConv<[
   CCAssignToStack<8, 8>
 ]>;
 

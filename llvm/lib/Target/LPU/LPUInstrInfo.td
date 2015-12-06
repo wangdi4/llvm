@@ -18,6 +18,7 @@ include "LPUInstrFormats.td"
 //===----------------------------------------------------------------------===//
 
 def brtarget     : Operand<OtherVT>;
+def calltarget   : Operand<i64>;
 
 // Memory operands
 class Addr<int numArgs, string funcName, dag opInfo> :
@@ -474,43 +475,69 @@ let isReturn=1, isTerminator=1, isBarrier=1 in
 def RET : FMTGEN<
     (outs),
     (ins),
-    "ret\t%ra",
+    "ret\t%ra",         // implicit use of RA
     [(LPURet)]>;
 
-/*
-let isCall=1, Defs = [] in {
 
-  multiclass CallRel<> {
-    def i : FMTGEN<
+let isCall=1,
+    Defs = [
+      R0,  R1,  R2,  R3,  R4,  R5,  R6,  R7,
+      R8,  R9,  R10, R11, R12, R13, R14, R15,
+      R16, R17, R18, R19, R20, R21, R22, R23,
+   // R24, R25, R26, R27, R28, R29, R30, R31,  // preserved
+   // R32, R33, R34, R35, R36, R37, R38, R39,  // preserved
+      R40, R41, R42, R43, R44, R45, R46, R47,
+      R48, R49, R50, R51, R52, R53, R54, R55,
+      R56, R57, R58, R59,/*FP, TP,  SP,*/RA  ] in {
+
+  def JSR : FMTGEN<
+    (outs),
+    (ins I64:$target, variable_ops),
+    "jsr\t%ra, $target",        // implicit use of RA
+    []>;
+
+  def JSRi : FMTGEN<
+    (outs),
+    (ins calltarget:$target, variable_ops),
+    "jsr\t%ra, $target",        // implicit use of RA
+    []>;
+
+  let isTerminator=1, isReturn=1, isBarrier=1, hasExtraSrcRegAllocReq=1,
+    isCodeGenOnly=1 in {
+    def JTR : FMTGEN<
+      (outs),
+      (ins I64:$target, variable_ops),
+      "jmp\t$target",
+      []>;
+
+    def JTRi : FMTGEN<
       (outs),
       (ins calltarget:$target, variable_ops),
+      "jmp\t$target",
+      []>;
+  }
 
 }
-*/
 
-// Call
-/*
 def : Pat<(LPUCall tglobaladdr:$dst),
-          (JLREL_I tglobaladdr:$dst)>;
+          (JSRi tglobaladdr:$dst)>;
 def : Pat<(LPUCall texternalsym:$dst),
-          (JLREL_I texternalsym:$dst)>;
-
+          (JSRi texternalsym:$dst)>;
 def : Pat<(LPUCall imm:$dst),
-          (JLREL_I imm:$dst)>;
-def : Pat<(LPUCall GPRC:$dst),
-          (JLABS GPRC:$dst)>;
+          (JSRi imm:$dst)>;
+def : Pat<(LPUCall I64:$dst),
+          (JSR I64:$dst)>;
 
 // Tail call
 def : Pat<(LPUTailCall tglobaladdr:$dst),
-          (TAILCALLREL tglobaladdr:$dst)>;
+          (JTRi tglobaladdr:$dst)>;
 def : Pat<(LPUTailCall texternalsym:$dst),
-          (TAILCALLREL texternalsym:$dst)>;
-
+          (JTRi texternalsym:$dst)>;
 def : Pat<(LPUTailCall imm:$dst),
-          (TAILCALLREL imm:$dst)>;
-def : Pat<(LPUTailCall GPRC:$dst),
-          (TAILCALLABS GPRC:$dst)>;
-*/
+          (JTRi imm:$dst)>;
+def : Pat<(LPUTailCall I64:$dst),
+          (JTR I64:$dst)>;
+
 
 // The repetition below could be removed if nested multiclass were supported.
 // (e.g. the first level would expand to 8/16/32/64, then the 2nd level
