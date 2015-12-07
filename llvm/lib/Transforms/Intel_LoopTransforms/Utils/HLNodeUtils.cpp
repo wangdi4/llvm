@@ -52,7 +52,7 @@ HLGoto *HLNodeUtils::createHLGoto(HLLabel *TargetL) {
 
 HLInst *HLNodeUtils::createHLInst(Instruction *In) { return new HLInst(In); }
 
-HLIf *HLNodeUtils::createHLIf(CmpInst::Predicate FirstPred, RegDDRef *Ref1,
+HLIf *HLNodeUtils::createHLIf(PredicateTy FirstPred, RegDDRef *Ref1,
                               RegDDRef *Ref2) {
   return new HLIf(FirstPred, Ref1, Ref2);
 }

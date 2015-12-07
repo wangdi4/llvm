@@ -82,7 +82,9 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
-  // This flag indicates if the loop is innermost or not.
+  // This flag indicates if the loop is innermost or not. All loops are created
+  // and cloned as innermost. Insert/remove utilities are updating this flag
+  // assuming that it's true in a fresh HLLoop.
   bool IsInnermost;
   Type *IVType;
 
@@ -109,7 +111,7 @@ protected:
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
   /// \brief Sets the Innermost flag to indicate if it is innermost loop.
-  void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
+  void setInnermost(bool IsInnermost) { IsInnermost = IsInnermost; }
 
   /// \brief Returns the number of DDRefs associated with only the loop
   /// without the ztt.

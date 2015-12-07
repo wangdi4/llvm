@@ -35,6 +35,7 @@ void HLLoop::initialize() {
   RegDDRefs.resize(NumOp, nullptr);
 }
 
+// IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
       IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
@@ -47,6 +48,7 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
   setNumExits(Exits.size());
 }
 
+// IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
                RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
@@ -58,14 +60,6 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 
   assert(LowerDDRef && UpperDDRef && StrideDDRef &&
          "All DDRefs should be non null");
-  assert(
-      ((!getLowerDDRef()->containsUndef() &&
-        !getUpperDDRef()->containsUndef() &&
-        !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
-        getStrideDDRef()->containsUndef())) &&
-      "Lower, Upper and Stride DDRefs "
-      "should be all defined or all undefined");
 
   /// Sets ztt properly, with all the ddref setup.
   setZtt(ZttIf);
@@ -73,13 +67,23 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
   setLowerDDRef(LowerDDRef);
   setUpperDDRef(UpperDDRef);
   setStrideDDRef(StrideDDRef);
+
+  assert(
+      ((!getLowerDDRef()->containsUndef() &&
+        !getUpperDDRef()->containsUndef() &&
+        !getStrideDDRef()->containsUndef()) ||
+       (getLowerDDRef()->containsUndef() &&
+        getUpperDDRef()->containsUndef() &&
+        getStrideDDRef()->containsUndef())) &&
+        "Lower, Upper and Stride DDRefs "
+        "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(HLLoopObj.IsInnermost),
+      NestingLevel(0), IsInnermost(true),
       IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
@@ -185,6 +189,11 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
         OS << "No";
       }
       OS << "\n";
+    }
+
+    {
+      indent(OS, Depth);
+      OS << "+ Innermost: " << isInnermost() << "\n";
     }
   }
 
