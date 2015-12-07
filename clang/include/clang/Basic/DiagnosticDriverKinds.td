@@ -112,12 +112,6 @@ def err_drv_mg_requires_m_or_mm : Error<
   "option '-MG' requires '-M' or '-MM'">;
 def err_drv_unknown_objc_runtime : Error<
   "unknown or ill-formed Objective-C runtime '%0'">;
-//#ifdef INTEL_CUSTOMIZATION
-def err_drv_cilk_objc : Error<
-  "Cilk Plus does not support Objective-C">;
-def err_drv_cilk_unsupported: Error<
-  "Cilk Plus not yet supported for this target">;
-//#endif  // INTEL_CUSTOMIZATION
 def err_drv_emit_llvm_link : Error<
    "-emit-llvm cannot be used when linking">;
 def err_drv_optimization_remark_pattern : Error<

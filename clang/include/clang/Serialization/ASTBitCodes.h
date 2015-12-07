@@ -798,7 +798,7 @@ namespace clang {
       PREDEF_TYPE_RESERVE_ID_ID = 54,
       /// \brief The placeholder type for OpenMP array section.
       PREDEF_TYPE_OMP_ARRAY_SECTION = 55
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       ,
       /// \brief _Quad type.
       PREDEF_TYPE_FLOAT128_ID   = 56
@@ -1283,11 +1283,11 @@ namespace clang {
       EXPR_PSEUDO_OBJECT,
       /// \brief An AtomicExpr record.
       EXPR_ATOMIC,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       /// \brief A CEANIndexExpr record.
       EXPR_CEAN_INDEX,
       EXPR_CEAN_BUILTIN,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       // Objective-C
 
       /// \brief An ObjCStringLiteral record.
@@ -1455,7 +1455,7 @@ namespace clang {
       
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
       EXPR_LAMBDA                // LambdaExpr
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       // Cilk Plus
       ,
       STMT_CILKSYNC,
@@ -1463,7 +1463,7 @@ namespace clang {
       STMT_CILK_FOR,
       STMT_SIMD_FOR,
       STMT_CILK_RANKED
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     };
 
     /// \brief The kinds of designators that can occur in a

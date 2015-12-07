@@ -1,3 +1,4 @@
+#if INTEL_SPECIFIC_CILKPLUS
 class PragmaSIMDHandler : public PragmaHandler {
   public:
     explicit PragmaSIMDHandler() : PragmaHandler("simd") {}
@@ -11,8 +12,8 @@ class PragmaCilkGrainsizeHandler : public PragmaHandler {
     virtual void HandlePragma(Preprocessor &PP, PragmaIntroducerKind Introducer,
                               Token &FirstToken);
 };
-
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_SPECIFIC_IL0_BACKEND
 // #pragma ivdep
 class PragmaIvdepHandler: public PragmaHandler {
   public:

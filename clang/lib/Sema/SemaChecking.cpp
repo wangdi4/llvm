@@ -440,7 +440,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
   case Builtin::BI__sync_swap_4:
   case Builtin::BI__sync_swap_8:
   case Builtin::BI__sync_swap_16:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__atomic_store_explicit:
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -555,7 +555,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (SemaBuiltinAnnotation(*this, TheCall))
       return ExprError();
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Builtin::BI__sec_reduce_add:
   case Builtin::BI__sec_reduce_mul:
   case Builtin::BI__sec_reduce_max:
@@ -618,6 +618,8 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
                                 TheCall->getRParenLoc());
     }
     break;
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
     // CQ#373129 - support for __assume_aligned builtin.
     case Builtin::BI__assume_aligned: {
       if (checkArgCount(*this, TheCall, 2))
@@ -645,7 +647,7 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
       }
       break;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_addressof:
     if (SemaBuiltinAddressof(*this, TheCall))
       return ExprError();
@@ -2145,8 +2147,9 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     BUILTIN_ROW(__sync_lock_test_and_set),
     BUILTIN_ROW(__sync_lock_release),
     BUILTIN_ROW(__sync_swap)
-#ifdef INTEL_CUSTOMIZATION
-    , BUILTIN_ROW(__atomic_store_explicit),
+#if INTEL_CUSTOMIZATION
+        ,
+    BUILTIN_ROW(__atomic_store_explicit),
     BUILTIN_ROW(__atomic_load_explicit),
     BUILTIN_ROW(__atomic_exchange_explicit),
     BUILTIN_ROW(__atomic_compare_exchange_weak_explicit),
@@ -2349,7 +2352,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
   case Builtin::BI__sync_swap_16:
     BuiltinIndex = 16; 
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__atomic_store_explicit:
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2542,7 +2545,7 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     if (!NewBuiltinDecl)
       return ExprError();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   switch (NewBuiltinID) {
   case Builtin::BI__atomic_store_explicit_1:
   case Builtin::BI__atomic_store_explicit_2:
@@ -2633,52 +2636,58 @@ Sema::SemaBuiltinAtomicOverloaded(ExprResult TheCallResult) {
     for (unsigned i = 0, e = NewBuiltinDecl->getNumParams(); i < e; ++i) {
       ExprResult Arg = TheCall->getArg(i);
       ValType = NewBuiltinDecl->getParamDecl(i)->getType();
-      Arg = PerformImplicitConversion(Arg.get(), ValType, AA_Casting);
-      if (Arg.isInvalid())
-        return ExprError();
+      ExprResult Res = DefaultLvalueConversion(Arg.get());
+      if (Res.isUsable())
+        Arg = Res;
+      Res = Arg;
+      auto CK = PrepareScalarCast(Res, ValType);
+      if (CK != CK_NoOp && Res.isUsable())
+        Res = ImpCastExprToType(Res.get(), ValType, CK);
+      if (Res.isUsable())
+        Arg = Res;
 
-      // GCC does an implicit conversion to the pointer or integer ValType.  This
+      // GCC does an implicit conversion to the pointer or integer ValType. This
       // can fail in some cases (1i -> int**), check for this error case now.
       // Initialize the argument.
-      InitializedEntity Entity = InitializedEntity::InitializeParameter(Context,
-                                                     ValType, /*consume*/ false);
+      InitializedEntity Entity = InitializedEntity::InitializeParameter(
+          Context, ValType, /*consume*/ false);
       Arg = PerformCopyInitialization(Entity, SourceLocation(), Arg);
       if (Arg.isInvalid())
         return ExprError();
 
-      // Okay, we have something that *can* be converted to the right type.  Check
-      // to see if there is a potentially weird extension going on here.  This can
-      // happen when you do an atomic operation on something like an char* and
-      // pass in 42.  The 42 gets converted to char.  This is even more strange
-      // for things like 45.123 -> char, etc.
+      // Okay, we have something that *can* be converted to the right type.
+      // Check to see if there is a potentially weird extension going on here.
+      // This can happen when you do an atomic operation on something like an
+      // char* and pass in 42.  The 42 gets converted to char.  This is even
+      // more strange for things like 45.123 -> char, etc.
       // FIXME: Do this check.
       TheCall->setArg(i, Arg.get());
     }
 
     // Create a new DeclRefExpr to refer to the new decl.
-    DeclRefExpr* NewDRE = DeclRefExpr::Create(
-      Context,
-      DRE->getQualifierLoc(),
-      SourceLocation(),
-      NewBuiltinDecl,
-      /*enclosing*/ false,
-      DRE->getLocation(),
-      Context.BuiltinFnTy,
-      DRE->getValueKind());
+    DeclRefExpr *NewDRE = DeclRefExpr::Create(
+        Context, DRE->getQualifierLoc(), SourceLocation(), NewBuiltinDecl,
+        /*enclosing*/ false, DRE->getLocation(), Context.BuiltinFnTy,
+        DRE->getValueKind());
 
     // Set the callee in the CallExpr.
     // FIXME: This loses syntactic information.
     QualType CalleePtrTy = Context.getPointerType(NewBuiltinDecl->getType());
-    ExprResult PromotedCall = ImpCastExprToType(NewDRE, CalleePtrTy,
-                                              CK_BuiltinFnToFnPtr);
+    ExprResult PromotedCall =
+        ImpCastExprToType(NewDRE, CalleePtrTy, CK_BuiltinFnToFnPtr);
     TheCall->setCallee(PromotedCall.get());
 
     // Change the result type of the call to match the original value type. This
     // is arbitrary, but the codegen for these builtins ins design to handle it
     // gracefully.
     TheCall->setType(NewBuiltinDecl->getCallResultType());
-    }
-    return PerformImplicitConversion(TheCall, ResultType, AA_Converting);
+
+    ExprResult Res = TheCall;
+    auto CK = PrepareScalarCast(Res, ResultType);
+    if (CK != CK_NoOp && Res.isUsable())
+      Res = ImpCastExprToType(Res.get(), ValType, CK);
+    return Res;
+  }
   default:
     break;
   }
@@ -3318,7 +3327,7 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
     return true;
 
   if (Result.getSExtValue() < Low || Result.getSExtValue() > High)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   {
     // CQ#371990 - let __builtin_prefetch's argument be out of Low..High range,
     // assuming Low value.
@@ -3330,7 +3339,7 @@ bool Sema::SemaBuiltinConstantArgRange(CallExpr *TheCall, int ArgNum,
 #endif // INTEL_CUSTOMIZATION
     return Diag(TheCall->getLocStart(), diag::err_argument_invalid_range)
       << Low << High << Arg->getSourceRange();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -9797,7 +9806,7 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = WS->getCond()->getSourceRange().getEnd();
     Body = WS->getBody();
     DiagID = diag::warn_empty_while_body;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   } else if (const CilkForStmt *CFS = dyn_cast<CilkForStmt>(S)) {
     StmtLoc = CFS->getCilkForLoc();
     Body = CFS->getBody()->getCapturedStmt();
@@ -9806,7 +9815,7 @@ void Sema::DiagnoseEmptyLoopBody(const Stmt *S,
     StmtLoc = FS->getForLoc();
     Body = FS->getBody()->getCapturedStmt();
     DiagID = diag::warn_empty_simd_for_body;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   } else
     return; // Neither `for' nor `while'.
 

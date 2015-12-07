@@ -10,8 +10,7 @@
 /// \brief This file implements Cilk Plus related semantic analysis.
 ///
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_CUSTOMIZATION
-
+#if INTEL_SPECIFIC_CILKPLUS || INTEL_CUSTOMIZATION
 #include "llvm/ADT/SmallString.h"
 #include "clang/AST/ParentMap.h"
 #include "clang/AST/RecursiveASTVisitor.h"
@@ -25,6 +24,9 @@
 
 using namespace clang;
 using namespace sema;
+#endif // INTEL_SPECIFIC_CILKPLUS || INTEL_CUSTOMIZATION
+
+#if INTEL_SPECIFIC_CILKPLUS
 
 namespace {
 typedef llvm::SmallVectorImpl<VarDecl const *> VarDeclVec;
@@ -589,6 +591,10 @@ static void CheckForCondition(Sema &S, VarDecl *ControlVar, Expr *Cond,
   Limit = RHS;
 }
 
+static bool isAdditiveAssignOp(BinaryOperator::Opcode Opc) {
+  return Opc == BO_AddAssign || Opc == BO_SubAssign;
+}
+
 static bool IsValidForIncrement(Sema &S, Expr *Increment,
                                 const VarDecl *ControlVar,
                                 bool &HasConstantIncrement,
@@ -669,7 +675,7 @@ static bool IsValidForIncrement(Sema &S, Expr *Increment,
     }
 
     // += or -= -- defer checking of the RHS type
-    if (B->isAdditiveAssignOp()) {
+    if (isAdditiveAssignOp(B->getOpcode())) {
       RHS = B->getRHS();
       OperatorName = B->getOpcodeStr();
       Direction = B->getOpcode() == BO_AddAssign ? 1 : -1;
@@ -4665,6 +4671,11 @@ Decl *TemplateDeclInstantiator::VisitCilkSpawnDecl(CilkSpawnDecl *D) {
   return SemaRef.BuildCilkSpawnDecl(NewDecl);
 }
 
+CilkForScopeInfo::~CilkForScopeInfo() { }
+SIMDForScopeInfo::~SIMDForScopeInfo() { }
+#endif // INTEL_SPECIFIC_CILKPLUS
+
+#if INTEL_CUSTOMIZATION
 Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   PragmaDecl *TD = PragmaDecl::Create(SemaRef.Context, Owner, D->getLocStart());
@@ -4682,5 +4693,4 @@ Decl *TemplateDeclInstantiator::VisitPragmaDecl(PragmaDecl *D) {
   return nullptr;
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION

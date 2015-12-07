@@ -100,4 +100,4 @@ CGCilkImplicitSyncInfo *CreateCilkImplicitSyncInfo(CodeGenFunction &CGF);
 } // namespace CodeGen
 } // namespace clang
 
-#endif
+#endif // CLANG_CODEGEN_CILKPLUSRUNTIME_H

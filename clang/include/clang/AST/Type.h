@@ -2037,7 +2037,7 @@ public:
   }
 
   bool isFloatingPoint() const {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     return getKind() >= Half && getKind() <= Float128;
 #else
     return getKind() >= Half && getKind() <= LongDouble;
@@ -3481,7 +3481,7 @@ public:
 class UnaryTransformType : public Type {
 public:
   enum UTTKind {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     BasesOfType,
     DirectBasesOfType,
@@ -3499,7 +3499,7 @@ private:
 protected:
   UnaryTransformType(QualType BaseTy, QualType UnderlyingTy, UTTKind UKind,
                      QualType CanonicalTy);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   UnaryTransformType(QualType BaseTy, UTTKind UKind);
 #endif // INTEL_CUSTOMIZATION
@@ -3513,7 +3513,7 @@ public:
 
   UTTKind getUTTKind() const { return UKind; }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   bool isBasesType() const {
     return UKind == BasesOfType || UKind == DirectBasesOfType;
@@ -3630,6 +3630,7 @@ public:
     attr_noreturn,
     attr_cdecl,
     attr_fastcall,
+    attr_regcall, // INTEL
     attr_stdcall,
     attr_thiscall,
     attr_pascal,

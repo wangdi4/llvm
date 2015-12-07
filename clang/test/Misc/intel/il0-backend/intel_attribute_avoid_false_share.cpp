@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -emit-llvm -verify -o - %s | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -verify -fms-compatibility -o - %s | FileCheck %s
 //***INTEL: attribute avoid_false_share
 
 void www();

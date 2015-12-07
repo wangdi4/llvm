@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify -std=c++11 %s
+// REQUIRES: cilkplus
 
 template<typename T>
 void foo();

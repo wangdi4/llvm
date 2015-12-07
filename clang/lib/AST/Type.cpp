@@ -1755,7 +1755,7 @@ bool Type::hasUnsignedIntegerRepresentation() const {
 bool Type::isFloatingType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Half &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
@@ -1781,7 +1781,7 @@ bool Type::isRealFloatingType() const {
 bool Type::isRealType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
@@ -1794,7 +1794,7 @@ bool Type::isRealType() const {
 bool Type::isArithmeticType() const {
   if (const BuiltinType *BT = dyn_cast<BuiltinType>(CanonicalType))
     return BT->getKind() >= BuiltinType::Bool &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
            BT->getKind() <= BuiltinType::Float128;
 #else
            BT->getKind() <= BuiltinType::LongDouble;
@@ -2542,7 +2542,7 @@ StringRef BuiltinType::getName(const PrintingPolicy &Policy) const {
     return "double";
   case LongDouble:
     return "long double";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Float128:          return "_Quad";
 #endif  // INTEL_CUSTOMIZATION
   case WChar_S:
@@ -2638,6 +2638,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_C: return "cdecl";
   case CC_X86StdCall: return "stdcall";
   case CC_X86FastCall: return "fastcall";
+  case CC_X86RegCall: return "regcall"; // INTEL
   case CC_X86ThisCall: return "thiscall";
   case CC_X86Pascal: return "pascal";
   case CC_X86VectorCall: return "vectorcall";
@@ -2947,7 +2948,7 @@ UnaryTransformType::UnaryTransformType(QualType BaseType,
   : Type(UnaryTransform, CanonicalType, UnderlyingType->isDependentType(),
          UnderlyingType->isInstantiationDependentType(),
          UnderlyingType->isVariablyModifiedType(),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
          // CQ#369185 - support of __bases and __direct_bases intrinsics.
          (UKind == UTTKind::BasesOfType ||
           UKind == UTTKind::DirectBasesOfType) ||
@@ -2956,7 +2957,7 @@ UnaryTransformType::UnaryTransformType(QualType BaseType,
   , BaseType(BaseType), UnderlyingType(UnderlyingType), UKind(UKind)
 {}
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 UnaryTransformType::UnaryTransformType(QualType BaseType, UTTKind UKind)
     : Type(UnaryTransform, QualType(), BaseType->isDependentType(),
@@ -3000,6 +3001,9 @@ bool AttributedType::isQualifier() const {
   case AttributedType::attr_noreturn:
   case AttributedType::attr_cdecl:
   case AttributedType::attr_fastcall:
+#if INTEL_CUSTOMIZATION
+  case AttributedType::attr_regcall:
+#endif // INTEL_CUSTOMIZATION
   case AttributedType::attr_stdcall:
   case AttributedType::attr_thiscall:
   case AttributedType::attr_pascal:
@@ -3053,6 +3057,7 @@ bool AttributedType::isCallingConv() const {
   case attr_pcs_vfp:
   case attr_cdecl:
   case attr_fastcall:
+  case attr_regcall:  // INTEL
   case attr_stdcall:
   case attr_thiscall:
   case attr_vectorcall:

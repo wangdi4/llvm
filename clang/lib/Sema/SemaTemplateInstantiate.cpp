@@ -1622,6 +1622,11 @@ ParmVarDecl *Sema::SubstParmVarDecl(ParmVarDecl *OldParm,
 
     // We have a function parameter pack. Substitute into the pattern of the 
     // expansion.
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ374244: non-template call of template function is ambiguous.
+    SuppressQualifiersOnTypeSubstRAII AllowQualRAII(*this,
+                                                    !getLangOpts().IntelCompat);
+#endif // INTEL_CUSTOMIZATION
     NewDI = SubstType(ExpansionTL.getPatternLoc(), TemplateArgs, 
                       OldParm->getLocation(), OldParm->getDeclName());
     if (!NewDI)
@@ -1644,6 +1649,11 @@ ParmVarDecl *Sema::SubstParmVarDecl(ParmVarDecl *OldParm,
       return nullptr;
     } 
   } else {
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ374244: non-template call of template function is ambiguous.
+    SuppressQualifiersOnTypeSubstRAII AllowQualRAII(*this,
+                                                    !getLangOpts().IntelCompat);
+#endif // INTEL_CUSTOMIZATION
     NewDI = SubstType(OldDI, TemplateArgs, OldParm->getLocation(), 
                       OldParm->getDeclName());
   }

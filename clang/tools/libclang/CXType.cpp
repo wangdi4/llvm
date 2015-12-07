@@ -51,7 +51,7 @@ static CXTypeKind GetBuiltinTypeKind(const BuiltinType *BT) {
     BTCASE(Float);
     BTCASE(Double);
     BTCASE(LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     BTCASE(Float128);
 #endif  // INTEL_CUSTOMIZATION
     BTCASE(NullPtr);
@@ -462,7 +462,7 @@ CXString clang_getTypeKindSpelling(enum CXTypeKind K) {
     TKIND(Float);
     TKIND(Double);
     TKIND(LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     TKIND(Float128);
 #endif  // INTEL_CUSTOMIZATION
     TKIND(NullPtr);
@@ -523,6 +523,7 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(C);
       TCALLINGCONV(X86StdCall);
       TCALLINGCONV(X86FastCall);
+      TCALLINGCONV(X86RegCall); // INTEL
       TCALLINGCONV(X86ThisCall);
       TCALLINGCONV(X86Pascal);
       TCALLINGCONV(X86VectorCall);

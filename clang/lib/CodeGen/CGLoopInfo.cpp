@@ -102,7 +102,7 @@ LoopInfo::LoopInfo(BasicBlock *Header, const LoopAttributes &Attrs)
     : LoopID(nullptr), Header(Header), Attrs(Attrs) {
   LoopID = createMetadata(Header->getContext(), Attrs);
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 LoopInfo::LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs)
   : LoopID(LoopID), Header(0), Attrs(Attrs) { }
 #endif  // INTEL_CUSTOMIZATION
@@ -249,7 +249,7 @@ void LoopInfoStack::InsertHelper(Instruction *I) const {
   if (L.getAttributes().IsParallel && I->mayReadOrWriteMemory())
     I->setMetadata("llvm.mem.parallel_loop_access", L.getLoopID());
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void LoopInfoStack::push(llvm::MDNode *LoopID, bool IsParallel) {
   assert(Active.empty() && "cannot have an active loop");
   Active.push_back(LoopInfo(LoopID, LoopAttributes(IsParallel)));

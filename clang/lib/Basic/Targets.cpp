@@ -2478,6 +2478,7 @@ public:
     return (CC == CC_X86ThisCall ||
             CC == CC_X86FastCall ||
             CC == CC_X86StdCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_X86VectorCall ||
             CC == CC_C ||
             CC == CC_X86Pascal ||
@@ -3362,11 +3363,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   }
   if (CPU >= CK_i586)
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
-
-  if (getTriple().isOSIAMCU()) {
-    Builder.defineMacro("__iamcu");
-    Builder.defineMacro("__iamcu__");
-  }
 }
 
 bool X86TargetInfo::hasFeature(StringRef Feature) const {
@@ -3617,11 +3613,6 @@ public:
     IntPtrType = SignedInt;
     RegParmMax = 3;
 
-    if (getTriple().isOSIAMCU()) {
-      LongDoubleWidth = 64;
-      LongDoubleFormat = &llvm::APFloat::IEEEdouble;
-    }
-
     // Use fpret for all types.
     RealTypeUsesObjCFPRet = ((1 << TargetInfo::Float) |
                              (1 << TargetInfo::Double) |
@@ -3849,6 +3840,27 @@ public:
   }
 };
 
+// X86-32 MCU target
+class MCUX86_32TargetInfo : public X86_32TargetInfo {
+public:
+  MCUX86_32TargetInfo(const llvm::Triple &Triple) : X86_32TargetInfo(Triple) {
+    LongDoubleWidth = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+  }
+
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+    // On MCU we support only C calling convention.
+    return CC == CC_C ? CCCR_OK : CCCR_Warning;
+  }
+
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    X86_32TargetInfo::getTargetDefines(Opts, Builder);
+    Builder.defineMacro("__iamcu");
+    Builder.defineMacro("__iamcu__");
+  }
+};
+
 // RTEMS Target
 template<typename Target>
 class RTEMSTargetInfo : public OSTargetInfo<Target> {
@@ -3953,6 +3965,7 @@ public:
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
     return (CC == CC_C ||
             CC == CC_X86VectorCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_IntelOclBicc ||
             CC == CC_X86_64Win64) ? CCCR_OK : CCCR_Warning;
   }
@@ -3999,6 +4012,7 @@ public:
       return CCCR_Ignore;
     case CC_C:
     case CC_X86VectorCall:
+    case CC_X86RegCall: // INTEL
     case CC_IntelOclBicc:
     case CC_X86_64SysV:
       return CCCR_OK;
@@ -7613,6 +7627,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new RTEMSX86_32TargetInfo(Triple);
     case llvm::Triple::NaCl:
       return new NaClTargetInfo<X86_32TargetInfo>(Triple);
+    case llvm::Triple::ELFIAMCU:
+      return new MCUX86_32TargetInfo(Triple);
     default:
       return new X86_32TargetInfo(Triple);
     }

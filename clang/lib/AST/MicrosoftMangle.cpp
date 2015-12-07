@@ -162,7 +162,7 @@ public:
                              raw_ostream &Out) override;
   void mangleStringLiteral(const StringLiteral *SL, raw_ostream &Out) override;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
 #endif // INTEL_CUSTOMIZATION
@@ -276,7 +276,7 @@ public:
                           bool ForceThisQuals = false);
   void mangleNestedName(const NamedDecl *ND);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   void mangleUnscopedLambdaName(const RecordDecl *RD);
 #endif //INTEL_CUSTOMIZATION
@@ -398,6 +398,14 @@ void MicrosoftCXXNameMangler::mangle(const NamedDecl *D, StringRef Prefix) {
 
   // <mangled-name> ::= ? <name> <type-encoding>
   Out << Prefix;
+#if INTEL_CUSTOMIZATION
+  if (getASTContext().getLangOpts().IntelCompat)
+    if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+      const FunctionProtoType *FT = FD->getType()->castAs<FunctionProtoType>();
+      if (FT->getCallConv () == clang::CC_X86RegCall)
+        Out << "__regcall3__";
+    }
+#endif  // INTEL_CUSTOMIZATION
   mangleName(D);
   if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D))
     mangleFunctionEncoding(FD, Context.shouldMangleDeclName(FD));
@@ -1116,7 +1124,7 @@ MicrosoftCXXNameMangler::mangleUnscopedTemplateName(const TemplateDecl *TD) {
   mangleUnqualifiedName(TD);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void MicrosoftCXXNameMangler::mangleUnscopedLambdaName(const RecordDecl *RD) {
   // <unscoped-lambda-name> ::= __10<unqualified-name>
@@ -1644,7 +1652,7 @@ void MicrosoftCXXNameMangler::mangleType(const BuiltinType *T, Qualifiers,
   case BuiltinType::Char32:
     Out << "_U";
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
     Out << "_Q";
     break;
@@ -1962,6 +1970,11 @@ void MicrosoftCXXNameMangler::mangleCallingConvention(CallingConv CC) {
     case CC_X86StdCall: Out << 'G'; break;
     case CC_X86FastCall: Out << 'I'; break;
     case CC_X86VectorCall: Out << 'Q'; break;
+#if INTEL_CUSTOMIZATION
+    case CC_X86RegCall:
+      //Intel requires another kind of CC mangling (Out << "__regcall3__";)
+      break;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 void MicrosoftCXXNameMangler::mangleCallingConvention(const FunctionType *T) {
@@ -2904,7 +2917,7 @@ void MicrosoftMangleContextImpl::mangleStringLiteral(const StringLiteral *SL,
   Mangler.getStream() << '@';
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void MicrosoftMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
                                                   raw_ostream &Out) {

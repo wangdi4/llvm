@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -triple x86_64-unknown-unknown -fcilkplus -emit-llvm -verify %s
+// REQUIRES: cilkplus
 
 struct X { int a, b, c, d; };
 

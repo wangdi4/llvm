@@ -19,7 +19,7 @@
 #include "clang/AST/Type.h"
 #include "clang/Basic/CapturedStmt.h"
 #include "clang/Basic/PartialDiagnostic.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #include "clang/Basic/intel/PragmaSIMD.h"
 #endif  // INTEL_CUSTOMIZATION
 #include "clang/Sema/Ownership.h"
@@ -57,9 +57,10 @@ class CompoundScopeInfo {
 public:
   CompoundScopeInfo()
     : HasEmptyLoopBodies(false) 
-#ifdef INTEL_CUSTOMIZATION
-      , HasCilkSpawn(false)
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+        ,
+        HasCilkSpawn(false)
+#endif // INTEL_SPECIFIC_CILKPLUS
   { }
 
   /// \brief Whether this compound stamement contains `for' or `while' loops
@@ -69,13 +70,13 @@ public:
   void setHasEmptyLoopBodies() {
     HasEmptyLoopBodies = true;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether this compound statement contains _Cilk_spawn statements.
   bool HasCilkSpawn;
   void setHasCilkSpawn() {
     HasCilkSpawn = true;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 };
 
 class PossiblyUnreachableDiag {
@@ -98,10 +99,11 @@ protected:
     SK_Block,
     SK_Lambda,
     SK_CapturedRegion
-#ifdef INTEL_CUSTOMIZATION
-    , SK_CilkFor,
+#if INTEL_SPECIFIC_CILKPLUS
+    ,
+    SK_CilkFor,
     SK_SIMDFor
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   };
   
 public:
@@ -574,10 +576,9 @@ public:
   static bool classof(const FunctionScopeInfo *FSI) { 
     return FSI->Kind == SK_Block || FSI->Kind == SK_Lambda
                                  || FSI->Kind == SK_CapturedRegion
-#ifdef INTEL_CUSTOMIZATION
-                                 || FSI->Kind == SK_CilkFor
-                                 || FSI->Kind == SK_SIMDFor
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+           || FSI->Kind == SK_CilkFor || FSI->Kind == SK_SIMDFor
+#endif // INTEL_SPECIFIC_CILKPLUS
       ;
   }
 };
@@ -622,19 +623,19 @@ public:
   ImplicitParamDecl *ContextParam;
   /// \brief The kind of captured region.
   CapturedRegionKind CapRegionKind;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether any of the capture expressions require cleanups.
   bool ExprNeedsCleanups;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   CapturedRegionScopeInfo(DiagnosticsEngine &Diag, Scope *S, CapturedDecl *CD,
                           RecordDecl *RD, ImplicitParamDecl *Context,
                           CapturedRegionKind K)
     : CapturingScopeInfo(Diag, ImpCap_CapturedRegion),
       TheCapturedDecl(CD), TheRecordDecl(RD), TheScope(S),
       ContextParam(Context), CapRegionKind(K)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       , ExprNeedsCleanups(false)
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   {
     Kind = SK_CapturedRegion;
   }
@@ -646,14 +647,14 @@ public:
     switch (CapRegionKind) {
     case CR_Default:
       return "default captured statement";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case CR_CilkSpawn:
       return "_Cilk_spawn";
     case CR_CilkFor:
       return "_Cilk_for";
     case CR_SIMDFor:
       return "simd for";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     case CR_OpenMP:
       return "OpenMP region";
     }
@@ -662,16 +663,15 @@ public:
 
   static bool classof(const FunctionScopeInfo *FSI) {
     return FSI->Kind == SK_CapturedRegion 
-#ifdef INTEL_CUSTOMIZATION
-          || FSI->Kind == SK_CilkFor
-          || FSI->Kind == SK_SIMDFor
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+           || FSI->Kind == SK_CilkFor || FSI->Kind == SK_SIMDFor
+#endif // INTEL_SPECIFIC_CILKPLUS
         ;
 
   }
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 /// \brief Retains information about a Cilk for capturing region.
 class CilkForScopeInfo : public CapturedRegionScopeInfo {
 public:
@@ -885,7 +885,7 @@ public:
     return FSI->Kind == SK_SIMDFor;
   }
 };
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 class LambdaScopeInfo final : public CapturingScopeInfo {
 public:

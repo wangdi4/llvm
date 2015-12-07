@@ -68,8 +68,9 @@ void CodeGenTypes::addRecordTypeName(const RecordDecl *RD,
     else
       TDD->printName(OS);
   } else
-#ifdef INTEL_CUSTOMIZATION
-    // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ#371742: C++ Lambda debug info class is created with empty
+    // name
     if (CGM.getLangOpts().IntelCompat && RD->isLambda()) {
       CGM.getCXXABI().getMangleContext().mangleLambdaName(RD, OS);
     } else
@@ -374,7 +375,7 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     case BuiltinType::Float:
     case BuiltinType::Double:
     case BuiltinType::LongDouble:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
 #endif  // INTEL_CUSTOMIZATION
       ResultType = getTypeForFormat(getLLVMContext(),

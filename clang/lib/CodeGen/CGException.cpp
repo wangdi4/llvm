@@ -12,9 +12,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCXXABI.h"
 #include "CGCleanup.h"
 #include "CGObjCRuntime.h"
@@ -536,7 +536,7 @@ void CodeGenFunction::EmitEndEHSpec(const Decl *D) {
 
 void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   EnterCXXTryStmt(S);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // CQ#372058 - associate landing pad in debug info with the end of the try
   // scope. The landing pad is associated with CurEHLocation.
   SourceLocation OldEHLocation = CurEHLocation;
@@ -563,7 +563,7 @@ void CodeGenFunction::EmitCXXTryStmt(const CXXTryStmt &S) {
   CurEHLocation = OldEHLocation;
 #else
   EmitStmt(S.getTryBlock());
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   ExitCXXTryStmt(S);
 }
 
@@ -714,10 +714,10 @@ llvm::BasicBlock *CodeGenFunction::getInvokeDestImpl() {
   assert(EHStack.requiresLandingPad());
   assert(!EHStack.empty());
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (ExceptionsDisabled)
     return nullptr;
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // If exceptions are disabled, there are usually no landingpads. However, when
   // SEH is enabled, functions using SEH still get landingpads.

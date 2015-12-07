@@ -88,9 +88,9 @@ class CGObjCRuntime;
 class CGOpenCLRuntime;
 class CGOpenMPRuntime;
 class CGCUDARuntime;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 class CGCilkPlusRuntime;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 class BlockFieldFlags;
 class FunctionArgList;
 class CoverageMappingModuleGen;
@@ -287,15 +287,14 @@ private:
   CGOpenCLRuntime* OpenCLRuntime;
   CGOpenMPRuntime* OpenMPRuntime;
   CGCUDARuntime* CUDARuntime;
-#ifdef INTEL_CUSTOMIZATION
-  CGCilkPlusRuntime *CilkPlusRuntime;
-#endif  // INTEL_CUSTOMIZATION
   CGDebugInfo* DebugInfo;
   ObjCEntrypoints *ObjCData;
   llvm::MDNode *NoObjCARCExceptionsMetadata;
   std::unique_ptr<llvm::IndexedInstrProfReader> PGOReader;
   InstrProfStats PGOStats;
-#ifdef INTEL_CUSTOMIZATION
+
+#if INTEL_SPECIFIC_CILKPLUS
+  CGCilkPlusRuntime *CilkPlusRuntime;
   struct ElementalVariantInfo {
     /// \brief The CodeGen infomation of this function.
     const CGFunctionInfo *FnInfo;
@@ -317,7 +316,7 @@ private:
 
   /// ElementalAttributes - This contains all attributes of elemental functions.
   llvm::StringMap<llvm::Function *, llvm::BumpPtrAllocator> ElementalAttributes;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // A set of references that have only been seen via a weakref so far. This is
   // used to remove the weak of the reference if we ever see a direct reference
@@ -473,9 +472,9 @@ private:
   void createOpenCLRuntime();
   void createOpenMPRuntime();
   void createCUDARuntime();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void createCilkPlusRuntime();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(GlobalDecl GD);
 
@@ -556,7 +555,7 @@ public:
     assert(CUDARuntime != nullptr);
     return *CUDARuntime;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   CGCilkPlusRuntime &getCilkPlusRuntime() {
     assert(CilkPlusRuntime != 0);
     return *CilkPlusRuntime;
@@ -635,7 +634,7 @@ public:
   /// Emit an attribute for given elemental function.
   void EmitCilkElementalAttribute(llvm::Function *Func, llvm::MDNode *MD,
                                   bool IsMasked);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   ObjCEntrypoints &getObjCEntrypoints() const {
     assert(ObjCData != nullptr);
@@ -928,7 +927,7 @@ public:
                        llvm::FunctionType *FnType = nullptr,
                        bool DontDefer = false, bool IsForDefinition = false);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// getBuiltinIntelLibFunction - Given a builtin id for a function like
   /// "__apply_args", return a Function* for "__apply_args".
   llvm::Value *getBuiltinIntelLibFunction(const FunctionDecl *FD,
@@ -1331,7 +1330,7 @@ private:
   /// .gcda files in a way that persists in .bc files.
   void EmitCoverageFile();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Emit Intel-specific debug info as llvm.dbg.intel.* metadata nodes.
   void EmitIntelDebugInfoMetadata();
 

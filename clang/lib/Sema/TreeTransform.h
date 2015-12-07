@@ -26,7 +26,10 @@
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
 #include "clang/AST/StmtOpenMP.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/intel/StmtIntel.h"
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
 #include "clang/Basic/Builtins.h"
 #endif  // INTEL_CUSTOMIZATION
 #include "clang/Sema/Designator.h"
@@ -150,6 +153,14 @@ public:
   /// pack expansion, in order to avoid violating the AST invariant that each
   /// statement node appears at most once in its containing declaration.
   bool AlwaysRebuild() { return SemaRef.ArgumentPackSubstitutionIndex != -1; }
+
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ374244: non-template call of template function is ambiguous.
+  /// \brief true if the qualifiers must be suppressed for types that should not
+  /// be qualified for template instantiation. false, if all types must be
+  /// qualified (for example, for type substitution on function parameters).
+  bool SuppressQualifiers() { return SemaRef.SuppressQualifiersOnTypeSubst; }
+#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Returns the location of the entity being transformed, if that
   /// information was not available elsewhere in the AST.
@@ -412,10 +423,10 @@ public:
 
     return D;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Transform the SIMD attribute associated with a SIMD for loop.
   AttrResult TransformSIMDAttr(Attr *A);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Transform the attributes associated with the given declaration and
   /// place them on the new declaration.
   ///
@@ -574,7 +585,7 @@ public:
   QualType Transform##CLASS##Type(TypeLocBuilder &TLB, CLASS##TypeLoc T);
 #include "clang/AST/TypeLocNodes.def"
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   bool TryTransformBasesOfType(TemplateArgumentLoc Pattern,
                                TemplateArgumentLoc Out,
@@ -1912,8 +1923,8 @@ public:
                                              LBracketLoc, RHS,
                                              RBracketLoc);
   }
-  
-#ifdef INTEL_CUSTOMIZATION
+
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Build a new CEAN index expression.
   ///
   /// By default, performs semantic analysis to build the new expression.
@@ -1977,7 +1988,7 @@ public:
   ExprResult RebuildCilkSpawnCall(SourceLocation SpawnLoc, Expr *E) {
     return getSema().BuildCilkSpawnCall(SpawnLoc, E);
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   /// \brief Build a new array section expression.
   ///
@@ -3051,13 +3062,13 @@ StmtResult TreeTransform<Derived>::TransformStmt(Stmt *S) {
 #define EXPR(Node, Parent) case Stmt::Node##Class:
 #include "clang/AST/StmtNodes.inc"
     {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       ExprResult E = getDerived().TransformExpr(cast<Expr>(S));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       getSema().ActOnEndCEANExpr(E.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       if (E.isInvalid())
         return StmtError();
 
@@ -3095,7 +3106,7 @@ ExprResult TreeTransform<Derived>::TransformExpr(Expr *E) {
     case Stmt::NoStmtClass: break;
 #define STMT(Node, Parent) case Stmt::Node##Class: break;
 #define ABSTRACT_STMT(Stmt)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #define EXPR(Node, Parent)                                              \
     case Stmt::Node##Class: {                                           \
       ExprResult Res = getDerived().Transform##Node(cast<Node>(E));     \
@@ -3107,7 +3118,7 @@ ExprResult TreeTransform<Derived>::TransformExpr(Expr *E) {
 #define EXPR(Node, Parent)                                              \
     case Stmt::Node##Class:                                             \
     return getDerived().Transform##Node(cast<Node>(E));
-#endif  //  INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "clang/AST/StmtNodes.inc"
   }
 
@@ -3770,7 +3781,7 @@ bool TreeTransform<Derived>::TransformTemplateArguments(
         = getSema().getTemplateArgumentPackExpansionPattern(
               In, Ellipsis, OrigNumExpansions);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369185 - support of __bases and __direct_bases intrinsics.
       if (TryTransformBasesOfType(Pattern, Out, Outputs))
         continue;
@@ -3934,6 +3945,10 @@ TreeTransform<Derived>::TransformQualifiedType(TypeLocBuilder &TLB,
   // Silently suppress qualifiers if the result type can't be qualified.
   // FIXME: this is the right thing for template instantiation, but
   // probably not for other clients.
+#ifdef INTEL_CUSTOMIZATION
+  // Fix for CQ374244: non-template call of template function is ambiguous.
+  if (SuppressQualifiers())
+#endif  // INTEL_CUSTOMIZATION
   if (Result->isFunctionType() || Result->isReferenceType())
     return Result;
 
@@ -5154,7 +5169,7 @@ QualType TreeTransform<Derived>::TransformUnaryTransformType(
   return Result;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 static void CollectAllBases(QualType Type, ASTContext &Context,
                             llvm::SmallPtrSet<QualType, 4> &Set) {
@@ -6009,7 +6024,7 @@ TreeTransform<Derived>::TransformObjCObjectPointerType(TypeLocBuilder &TLB,
 //===----------------------------------------------------------------------===//
 // Statement transformation
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 template<typename Derived>
 StmtResult TreeTransform<Derived>::TransformPragmaStmt(PragmaStmt *S) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -6200,7 +6215,7 @@ StmtResult TreeTransform<Derived>::TransformAttributedStmt(AttributedStmt *S) {
                                             SubStmt.get());
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 // FIXME: Use TableGen to generate this function
 template <typename Derived>
 AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
@@ -6316,7 +6331,7 @@ AttrResult TreeTransform<Derived>::TransformSIMDAttr(Attr *A) {
 
   return R;
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 template<typename Derived>
 StmtResult
@@ -6324,9 +6339,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
   // Transform the condition
   ExprResult Cond;
   VarDecl *ConditionVar = nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (S->getConditionVariable()) {
     ConditionVar
       = cast_or_null<VarDecl>(
@@ -6334,18 +6349,18 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
                                       S->getConditionVariable()->getLocation(),
                                                     S->getConditionVariable()));
     if (!ConditionVar) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       getSema().ActOnEndCEANExpr(0);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       return StmtError();
     }
   } else {
     Cond = getDerived().TransformExpr(S->getCond());
 
     if (Cond.isInvalid()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       getSema().ActOnEndCEANExpr(0);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       return StmtError();
     }
 
@@ -6354,9 +6369,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
       ExprResult CondE = getSema().ActOnBooleanCondition(nullptr, S->getIfLoc(),
                                                          Cond.get());
       if (CondE.isInvalid()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         getSema().ActOnEndCEANExpr(0);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         return StmtError();
       }
 
@@ -6365,9 +6380,9 @@ TreeTransform<Derived>::TransformIfStmt(IfStmt *S) {
   }
 
   Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.get()));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   getSema().ActOnEndCEANExpr(FullCond.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (!S->getConditionVariable() && S->getCond() && !FullCond.get())
     return StmtError();
 
@@ -8221,10 +8236,10 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
   //   [...]
   EnterExpressionEvaluationContext Unevaluated(SemaRef, Sema::Unevaluated,
                                                Sema::ReuseLambdaContextDecl);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (E->getKind() == UETT_SizeOf)
     getSema().ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Try to recover if we have something like sizeof(T::X) where X is a type.
   // Notably, there must be *exactly* one set of parens if X is a type.
   TypeSourceInfo *RecoveryTSI = nullptr;
@@ -8236,10 +8251,10 @@ TreeTransform<Derived>::TransformUnaryExprOrTypeTraitExpr(
         PE, DRE, false, &RecoveryTSI);
   else
     SubExpr = getDerived().TransformExpr(E->getArgumentExpr());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (E->getKind() == UETT_SizeOf)
     getSema().ActOnEndCEANExpr(SubExpr.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (RecoveryTSI) {
     return getDerived().RebuildUnaryExprOrTypeTrait(
         RecoveryTSI, E->getOperatorLoc(), E->getKind(), E->getSourceRange());
@@ -8308,7 +8323,7 @@ TreeTransform<Derived>::TransformOMPArraySectionExpr(OMPArraySectionExpr *E) {
       Length.get(), E->getRBracketLoc());
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformCEANIndexExpr(CEANIndexExpr *E) {
@@ -8359,7 +8374,7 @@ TreeTransform<Derived>::TransformCEANBuiltinExpr(CEANBuiltinExpr *E) {
                                              TArgs,
                                              E->getLocEnd());
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 template<typename Derived>
 ExprResult
@@ -8369,7 +8384,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   if (Callee.isInvalid())
     return ExprError();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   unsigned BuiltinId = 0;
   if (Callee.isUsable()) {
     Expr *Fn = Callee.get()->IgnoreParens();
@@ -8397,14 +8412,14 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   default:
     break;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // Transform arguments.
   bool ArgChanged = false;
   SmallVector<Expr*, 8> Args;
   if (getDerived().TransformExprs(E->getArgs(), E->getNumArgs(), true, Args,
                                   &ArgChanged)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     switch (BuiltinId) {
     case Builtin::BI__sec_reduce_add:
     case Builtin::BI__sec_reduce_mul:
@@ -8423,14 +8438,14 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
     default:
       break;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     return ExprError();
   }
 
   if (!getDerived().AlwaysRebuild() &&
       Callee.get() == E->getCallee() &&
       !ArgChanged) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     switch (BuiltinId) {
     case Builtin::BI__sec_reduce_add:
     case Builtin::BI__sec_reduce_mul:
@@ -8449,7 +8464,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
     default:
       break;
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     return SemaRef.MaybeBindToTemporary(E);
   }
 
@@ -8460,7 +8475,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   ExprResult CE = getDerived().RebuildCallExpr(Callee.get(), FakeLParenLoc,
                                                Args,
                                                E->getRParenLoc());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   switch (BuiltinId) {
   case Builtin::BI__sec_reduce_add:
   case Builtin::BI__sec_reduce_mul:
@@ -8486,7 +8501,7 @@ TreeTransform<Derived>::TransformCallExpr(CallExpr *E) {
   return getDerived().RebuildCilkSpawnCall(E->getCilkSpawnLoc(), CE.get());
 #else
   return CE;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 template<typename Derived>
@@ -11282,7 +11297,7 @@ TreeTransform<Derived>::TransformBlockExpr(BlockExpr *E) {
                                     /*Scope=*/nullptr);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformCilkSpawnExpr(CilkSpawnExpr *E) {
@@ -11295,7 +11310,7 @@ TreeTransform<Derived>::TransformCilkSpawnExpr(CilkSpawnExpr *E) {
 
   return getSema().BuildCilkSpawnExpr(NewSpawn.get());
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 template<typename Derived>
 ExprResult
@@ -11822,7 +11837,7 @@ TreeTransform<Derived>::TransformCapturedStmt(CapturedStmt *S) {
   return getSema().ActOnCapturedRegionEnd(Body.get());
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 template<typename Derived>
 StmtResult
 TreeTransform<Derived>::TransformCilkSyncStmt(CilkSyncStmt *S) {
@@ -12016,7 +12031,7 @@ TreeTransform<Derived>::TransformSIMDForStmt(SIMDForStmt *S) {
 
   return Result;
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 } // end namespace clang
 
 #endif // LLVM_CLANG_LIB_SEMA_TREETRANSFORM_H

@@ -144,7 +144,7 @@ public:
   ComplexPairTy VisitPseudoObjectExpr(PseudoObjectExpr *E) {
     return CGF.EmitPseudoObjectRValue(E).getComplexVal();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFC_CILKPLUS
   ComplexPairTy VisitCEANBuiltinExpr(CEANBuiltinExpr *E) {
     CodeGenFunction::LocalVarsDeclGuard Guard(CGF);
     CGF.EmitCEANBuiltinExprBody(E);
@@ -153,7 +153,7 @@ public:
                                               EmitLoadOfLValue(E->getReturnExpr());
     return ComplexPairTy();
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFC_CILKPLUS
   // FIXME: CompoundLiteralExpr
 
   ComplexPairTy EmitCast(CastKind CK, Expr *Op, QualType DestTy);
@@ -648,7 +648,7 @@ ComplexPairTy ComplexExprEmitter::EmitBinMul(const BinOpInfo &Op) {
     // still more of this within the type system.
 
     if (Op.LHS.second && Op.RHS.second) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
       // Simplify complex dtype recognition in the LLVM->IL0 translator.
       // Just emit call to 'mul' function. It will be pattern matched and
@@ -900,7 +900,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   OpInfo.Ty = E->getComputationResultType();
   QualType ComplexElementTy = cast<ComplexType>(OpInfo.Ty)->getElementType();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   LValue LHS;
 
   // Cilk Plus needs the LHS evaluated first to handle cases such as
@@ -909,7 +909,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   // spawn Objective C block calls.
   if (CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn())
     LHS = CGF.EmitLValue(E->getLHS());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // The RHS should have been converted to the computation type.
   if (E->getRHS()->getType()->isRealFloatingType()) {
@@ -923,12 +923,12 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
     OpInfo.RHS = Visit(E->getRHS());
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (!(CGF.getLangOpts().CilkPlus &&  E->getRHS()->isCilkSpawn()))
     LHS = CGF.EmitLValue(E->getLHS());
 #else
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   // Load from the l-value and convert it.
   SourceLocation Loc = E->getExprLoc();
@@ -992,7 +992,7 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
          "Invalid assignment");
   TestAndClearIgnoreReal();
   TestAndClearIgnoreImag();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   LValue LHS;
   // Cilk Plus needs the LHS evaluated first to handle cases such as
   // array[f()] = _Cilk_spawn foo();
@@ -1012,7 +1012,7 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
   Val = Visit(E->getRHS());
   // Compute the address to store into.
   LValue LHS = CGF.EmitLValue(E->getLHS());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Store the result value into the LHS lvalue.
   EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 

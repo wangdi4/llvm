@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fsyntax-only -verify -fcilkplus %s
-
+// REQUIRES: cilkplus
 namespace A {
   // expected-note@+1 4{{candidate found by name lookup is 'A::a'}}
   int a;

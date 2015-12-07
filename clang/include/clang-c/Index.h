@@ -2250,7 +2250,7 @@ enum CXCursorKind {
   CXCursor_LastStmt                      = CXCursor_CilkRankedStmt,
 #else
   CXCursor_LastStmt                      = CXCursor_OMPTargetDataDirective,
-#endif /* INTEL_CUSTOMIZATION */
+#endif /* INTEL_SPECIFIC_CILKPLUS */
 
   /**
    * \brief Cursor that represents the translation unit itself.
@@ -2846,9 +2846,9 @@ enum CXTypeKind {
   CXType_ObjCClass = 28,
   CXType_ObjCSel = 29,
   CXType_FirstBuiltin = CXType_Void,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CXType_Float128 = 30,
-  CXType_LastBuiltin  = CXType_Float128,
+  CXType_LastBuiltin = CXType_Float128,
 #else
   CXType_LastBuiltin  = CXType_ObjCSel,
 #endif  /* INTEL_CUSTOMIZATION */
@@ -2889,7 +2889,9 @@ enum CXCallingConv {
   CXCallingConv_X86_64Win64 = 10,
   CXCallingConv_X86_64SysV = 11,
   CXCallingConv_X86VectorCall = 12,
-
+#if INTEL_CUSTOMIZATION
+  CXCallingConv_X86RegCall = 20,
+#endif /* INTEL_CUSTOMIZATION */
   CXCallingConv_Invalid = 100,
   CXCallingConv_Unexposed = 200
 };

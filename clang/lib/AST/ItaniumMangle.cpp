@@ -69,7 +69,7 @@ static const DeclContext *getEffectiveDeclContext(const Decl *D) {
   if (const CapturedDecl *CD = dyn_cast<CapturedDecl>(DC))
     return getEffectiveDeclContext(CD);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ371729: Incompatible name mangling.
   if (D->getASTContext().getLangOpts().IntelCompat &&
       D->getASTContext().getLangOpts().GNUFABIVersion == 1) {
@@ -184,7 +184,7 @@ public:
 
   void mangleStringLiteral(const StringLiteral *, raw_ostream &) override;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
   void mangleLambdaName(const RecordDecl *RD, raw_ostream &Out) override;
 #endif // INTEL_CUSTOMIZATION
@@ -473,7 +473,7 @@ void CXXNameMangler::mangle(const NamedDecl *D) {
   // <mangled-name> ::= _Z <encoding>
   //            ::= <data name>
   //            ::= <special-name>
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ371729: Incompatible name mangling.
   const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
   const VarDecl *VD = dyn_cast<VarDecl>(D);
@@ -959,7 +959,7 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
       //   static void foo();
       // This naming convention is the same as that followed by GCC,
       // though it shouldn't actually matter.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ371729: Incompatible name mangling.
       if (!getASTContext().getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
@@ -967,6 +967,17 @@ void CXXNameMangler::mangleUnqualifiedName(const NamedDecl *ND,
           getEffectiveDeclContext(ND)->isFileContext())
         Out << 'L';
 
+#if INTEL_CUSTOMIZATION
+      if (getASTContext().getLangOpts().IntelCompat) {
+        if (auto FD = dyn_cast<FunctionDecl>(ND))
+          if (FD->getType()->castAs<FunctionProtoType>()->getCallConv () ==
+                clang::CC_X86RegCall) {
+            // 12 is the length of "__regcall3__" prefix
+            Out << II->getLength()+12 << "__regcall3__" << II->getName();
+            break;
+          }
+      }
+#endif // INTEL_CUSTOMIZATION
       mangleSourceName(II);
       break;
     }
@@ -1901,7 +1912,7 @@ static bool isTypeSubstitutable(Qualifiers Quals, const Type *Ty) {
 }
 
 void CXXNameMangler::mangleType(QualType T) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ371729: Incompatible name mangling.
   bool MangleM64 = false;
   auto &LangOpts = getASTContext().getLangOpts();
@@ -1950,7 +1961,7 @@ void CXXNameMangler::mangleType(QualType T) {
       T = Desugared;
     } while (true);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   }
 #endif // INTEL_CUSTOMIZATION
   SplitQualType split = T.split();
@@ -1977,7 +1988,7 @@ void CXXNameMangler::mangleType(QualType T) {
     // the unqualified type might be.
     mangleType(QualType(ty, 0));
   } else {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
     if (MangleM64) {
       if (LangOpts.GNUMangling && LangOpts.GNUFABIVersion < 4)
@@ -1998,7 +2009,7 @@ void CXXNameMangler::mangleType(QualType T) {
       break;
 #include "clang/AST/TypeNodes.def"
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -2117,7 +2128,7 @@ void CXXNameMangler::mangleType(const BuiltinType *T) {
   case BuiltinType::NullPtr:
     Out << "Dn";
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
   Out << 'g';
   break;
@@ -2522,7 +2533,7 @@ void CXXNameMangler::mangleType(const VectorType *T) {
       mangleNeonVectorType(T);
     return;
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ371729: Incompatible name mangling.
   auto &LangOpts = getASTContext().getLangOpts();
   if (LangOpts.IntelCompat && LangOpts.GNUMangling &&
@@ -2713,7 +2724,7 @@ void CXXNameMangler::mangleType(const UnaryTransformType *T) {
       case UnaryTransformType::EnumUnderlyingType:
         Out << "3eut";
         break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369185 - support of __bases and __direct_bases intrinsics.
       case UnaryTransformType::BasesOfType:
         Out << "3bot";
@@ -2924,11 +2935,11 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
   case Expr::CEANBuiltinExprClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   {
     // As bad as this diagnostic is, it's better than crashing.
     DiagnosticsEngine &Diags = Context.getDiags();
@@ -3291,7 +3302,7 @@ recurse:
     const UnaryOperator *UO = cast<UnaryOperator>(E);
     mangleOperatorName(UnaryOperator::getOverloadedOperator(UO->getOpcode()),
                        /*Arity=*/1);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
     if (getASTContext().getLangOpts().IntelCompat &&
         UnaryOperator::isPrefix(UO->getOpcode()))
@@ -3790,7 +3801,7 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     // an expression. We compensate for it here to produce the correct mangling.
     ValueDecl *D = A.getAsDecl();
     bool compensateMangling = !A.getParamTypeForDecl()->isReferenceType();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
     if (getASTContext().getLangOpts().IntelCompat &&
         getASTContext().getLangOpts().GNUFABIVersion == 1)
@@ -3804,7 +3815,7 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
     Out << 'L';
     // References to external entities use the mangled name; if the name would
     // not normally be manged then mangle it as unqualified.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
     const FunctionDecl *FD = dyn_cast<FunctionDecl>(D);
     const VarDecl *VD = dyn_cast<VarDecl>(D);
@@ -3834,7 +3845,7 @@ void CXXNameMangler::mangleTemplateArg(TemplateArgument A) {
   }
   case TemplateArgument::Pack: {
     //  <template-arg> ::= J <template-arg>* E
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ371729: Incompatible name mangling.
     if (getASTContext().getLangOpts().IntelCompat)
       Out << 'I';
@@ -4319,7 +4330,7 @@ void ItaniumMangleContextImpl::mangleTypeName(QualType Ty, raw_ostream &Out) {
   mangleCXXRTTIName(Ty, Out);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ#371742: C++ Lambda debug info class is created with empty name
 void ItaniumMangleContextImpl::mangleLambdaName(const RecordDecl *RD,
                                                 raw_ostream &Out) {

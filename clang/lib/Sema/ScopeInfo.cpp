@@ -235,7 +235,3 @@ void LambdaScopeInfo::getPotentialVariableCapture(unsigned Idx, VarDecl *&VD,
 FunctionScopeInfo::~FunctionScopeInfo() { }
 BlockScopeInfo::~BlockScopeInfo() { }
 CapturedRegionScopeInfo::~CapturedRegionScopeInfo() { }
-#ifdef INTEL_CUSTOMIZATION
-CilkForScopeInfo::~CilkForScopeInfo() { }
-SIMDForScopeInfo::~SIMDForScopeInfo() { }
-#endif  // INTEL_CUSTOMIZATION

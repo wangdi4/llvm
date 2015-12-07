@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -emit-llvm -fcilkplus -fintel-compatibility < %s | FileCheck %s
+// REQUIRES: cilkplus
 
 // CHECK: define i32 @setArray0() #0 {
 __declspec(vector)

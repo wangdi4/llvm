@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -triple x86_64-apple-macos10.7.0 -verify -fopenmp -ferror-limit 140 -fcilkplus %s
+// REQUIRES: cilkplus
 
 struct S { // expected-note {{candidate constructor (the implicit copy constructor) not viable: no known conversion from 'int' to 'const S &' for 1st argument}} expected-note {{candidate function (the implicit copy assignment operator) not viable: cannot convert argument of incomplete type 'void' to 'const S'}} expected-note {{candidate function (the implicit copy assignment operator) not viable: no known conversion from 'int' to 'const S' for 1st argument}}
   int a;

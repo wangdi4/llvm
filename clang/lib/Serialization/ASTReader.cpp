@@ -5800,7 +5800,7 @@ QualType ASTReader::GetType(TypeID ID) {
     case PREDEF_TYPE_UCHAR_ID:
       T = Context.UnsignedCharTy;
       break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case PREDEF_TYPE_FLOAT128_ID:
       T = Context.Float128Ty;
       break;

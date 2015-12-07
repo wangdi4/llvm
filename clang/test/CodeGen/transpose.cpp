@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -O0 -emit-llvm %s  -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 /* Regression test.  Just compile .cpp -> .ll to test */
 

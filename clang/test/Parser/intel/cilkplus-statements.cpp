@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify -std=c++11 %s
 // expected-no-diagnostics
+// REQUIRES: cilkplus
 
 struct bar {
   int mem_func(int);
