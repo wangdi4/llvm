@@ -111,7 +111,7 @@ protected:
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
   /// \brief Sets the Innermost flag to indicate if it is innermost loop.
-  void setInnermost(bool IsInnermost) { IsInnermost = IsInnermost; }
+  void setInnermost(bool IsInnermost) { this->IsInnermost = IsInnermost; }
 
   /// \brief Returns the number of DDRefs associated with only the loop
   /// without the ztt.
