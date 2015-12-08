@@ -214,7 +214,11 @@ public:
     return isScalarRef() && getSingleCanonExpr()->isNull();
   }
 
-  /// \brief Returns true if this RegDDRef is any kind of constant.
+  /// \brief Returns true if this scalar RegDDRef's canonical expr is any kind
+  /// of constant. Please note that this is different than the DDRef itself
+  /// being a constant which is represented by setting the symbase to
+  /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
+  /// have CONSTANT_SYMBASE.
   bool isConstant() const {
     return (isIntConstant() || isFPConstant() || isNull());
   }

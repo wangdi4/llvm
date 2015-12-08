@@ -6,47 +6,42 @@
 ; |      <BLOB> LINEAR i32 undef {undefined} {sb:13}
 ; |      <BLOB> NON-LINEAR i32 %0 {sb:5}
 
-; RUN: opt < %s -loop-rotate | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
 
 ; CHECK: = undef * i1{{.*}};
 ; CHECK: <RVAL-REG>{{.*}}undef * i1{{.*}}{undefined}
 ; CHECK-NEXT: <BLOB> LINEAR {{.*}} undef {undefined}
 
-; ModuleID = '2.ll'
+; ModuleID = 'blob-undef2.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
 
 @x = common global i32 0, align 4
 
-; Function Attrs: nounwind uwtable
-define i32 @main() #0 {
+define i32 @main() {
 entry:
   %A = alloca [5 x i32], align 16
-  br label %for.cond
+  br label %for.body
 
-for.cond:                                         ; preds = %for.inc, %entry
-  %i.0 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
-  %cmp = icmp slt i32 %i.0, 5
-  br i1 %cmp, label %for.body, label %for.end
-
-for.body:                                         ; preds = %for.cond
-  %mul = mul nsw i32 undef, %i.0
+for.body:                                         ; preds = %entry, %for.inc
+  %i.01 = phi i32 [ 0, %entry ], [ %inc, %for.inc ]
+  %mul = mul nsw i32 undef, %i.01
   %0 = load i32, i32* @x, align 4
   %mul1 = mul nsw i32 2, %0
   %add = add nsw i32 %mul, %mul1
   %add2 = add nsw i32 %add, 1
-  %idxprom = sext i32 %i.0 to i64
+  %idxprom = sext i32 %i.01 to i64
   %arrayidx = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 %idxprom
   store i32 %add2, i32* %arrayidx, align 4
   br label %for.inc
 
 for.inc:                                          ; preds = %for.body
-  %inc = add nsw i32 %i.0, 1
-  br label %for.cond
+  %inc = add nsw i32 %i.01, 1
+  %cmp = icmp slt i32 %inc, 5
+  br i1 %cmp, label %for.body, label %for.end
 
-for.end:                                          ; preds = %for.cond
+for.end:                                          ; preds = %for.inc
   %arrayidx3 = getelementptr inbounds [5 x i32], [5 x i32]* %A, i32 0, i64 0
   %1 = load i32, i32* %arrayidx3, align 4
   ret i32 %1
 }
-

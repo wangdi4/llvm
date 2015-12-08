@@ -111,7 +111,6 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  bool PrintSymbase = Detailed && !isConstant();
   bool PrintBaseCast = false;
 
   if (HasGEP) {
@@ -156,10 +155,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     }
   }
 
-  if (PrintSymbase) {
-    OS << " ";
-    DDRef::print(OS, Detailed);
-  }
+  DDRef::print(OS, Detailed);
 }
 
 Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {

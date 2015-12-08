@@ -1805,7 +1805,9 @@ RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
   CanonExpr::BlobTy Blob = SE->getUnknown(UndefVal);
 
-  RegDDRef *Ref = DDRefUtils::createRegDDRef(CONSTANT_SYMBASE);
+  auto Symbase = ScalarSA->getOrAssignScalarSymbase(UndefVal);
+
+  RegDDRef *Ref = DDRefUtils::createRegDDRef(Symbase);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty);
 
   // Add an undef blob to the CE to maintain consistency.
@@ -1855,6 +1857,12 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
     else if (Symbase != SB) {
       populateBlobDDRefs(Ref);
     }
+
+  } else if (CE->isConstant()) {
+    if (!IsLval) {
+      Ref->setSymbase(CONSTANT_SYMBASE);
+    }
+
   } else {
     populateBlobDDRefs(Ref);
   }

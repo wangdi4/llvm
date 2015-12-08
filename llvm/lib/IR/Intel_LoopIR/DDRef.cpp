@@ -144,10 +144,13 @@ Type *DDRef::getSrcType() const { return getTypeImpl(true); }
 Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
-  if (containsUndef() && Detailed) {
-    OS << "{undefined} ";
+  if (Detailed) {
+    if (containsUndef()) {
+      OS << " {undefined}";
+    }
+
+    OS << " {sb:" << getSymbase() << "}";
   }
-  OS << "{sb:" << getSymbase() << "}";
 }
 
 unsigned DDRef::getHLDDNodeLevel() const {
