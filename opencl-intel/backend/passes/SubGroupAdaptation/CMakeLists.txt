@@ -11,10 +11,10 @@ set(TARGET_SOURCE_FILES
 include_directories(
     ${BACKEND_ROOT_DIR}/passes
     ${BACKEND_ROOT_DIR}/utils
-	${BACKEND_ROOT_DIR}/name_mangling
-	${BACKEND_ROOT_DIR}/../cl_api
-	${BACKEND_ROOT_DIR}/reflection_module
-	${CMAKE_BINARY_DIR}/include
+    ${BACKEND_ROOT_DIR}/name_mangling
+    ${BACKEND_ROOT_DIR}/../cl_api
+    ${BACKEND_ROOT_DIR}/reflection_module
+    ${CMAKE_BINARY_DIR}/include
 )
 
 add_library(${TARGET_NAME}

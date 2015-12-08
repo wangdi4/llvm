@@ -217,7 +217,6 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     static bool isSubGroupReduceMax(const std::string&);
     static bool isSubGroupScanExclusiveMax(const std::string&);
     static bool isSubGroupScanInclusiveMax(const std::string&);
-    static bool hasSubGroupFinalizePrefix(const std::string&);
     static std::string appendWorkGroupFinalizePrefix(const std::string&);
     static std::string removeWorkGroupFinalizePrefix(const std::string&);
 

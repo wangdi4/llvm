@@ -156,7 +156,9 @@ ndrange_t const_func __attribute__((overloadable))
   return T;
 }
 
-////////// - get_kernel_sub_group_count_for_ndrange
+// This method computes the count of sub-groups accommodated
+// by a given kernel for requested work-group size.
+// For sub-groups emulation this query returns 'one' if a kernel can execute a requested work-group size and 'zero' otherwise.
 uint __attribute__((overloadable)) __attribute__((always_inline))
 get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
                                         void(^block)(void)) {
@@ -170,6 +172,9 @@ get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
       return 1;
 }
 
+// This method computes the count of sub-groups accommodated
+// by a given kernel for requested work-group size.
+// For sub-groups emulation this query returns 'one' if a kernel can execute a requested work-group size and 'zero' otherwise.
 uint __attribute__((overloadable)) __attribute__((always_inline))
   get_kernel_sub_group_count_for_ndrange(const ndrange_t ndrange,
                                          void(^block)(local void *, ...)) {
@@ -183,7 +188,9 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
       return 1;
 }
 
-////////// - get_kernel_max_sub_group_size_for_ndrange
+// This method returns product of local sizes
+// (aka work-group size) in all dimensions specified by ndrange argument.
+// If the work-group size is greater than maximum possible for a given kernel then result is zero.
 uint __attribute__((overloadable)) __attribute__((always_inline))
   get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
                                             void(^block)(void)) {
@@ -197,6 +204,9 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
       return prod;
 }
 
+// This method returns product of local sizes
+// (aka work-group size) in all dimensions specified by ndrange argument.
+// If the work-group size is greater than maximum possible for a given kernel then result is zero.
 uint __attribute__((overloadable)) __attribute__((always_inline))
   get_kernel_max_sub_group_size_for_ndrange(const ndrange_t ndrange,
                                             void(^block)(local void *, ...)) {

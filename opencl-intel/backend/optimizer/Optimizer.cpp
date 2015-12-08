@@ -246,7 +246,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 
   if (isOcl20)
     PM.add(createSubGroupAdaptationPass());
- 
+
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
     PM.add(createLinearIdResolverPass());

@@ -98,7 +98,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_EXCLUSIVE_MAX = "work_group_scan_exclusive_max";
   const std::string CompilationUtils::NAME_WORK_GROUP_SCAN_INCLUSIVE_MAX = "work_group_scan_inclusive_max";
   const std::string CompilationUtils::NAME_FINALIZE_WG_FUNCTION_PREFIX = "__finalize_";
-  
+
   //sub-group functions
   const std::string CompilationUtils::NAME_SUB_GROUP_ALL = "sub_group_all";
   const std::string CompilationUtils::NAME_SUB_GROUP_ANY = "sub_group_any";
@@ -873,7 +873,7 @@ bool CompilationUtils::isGetLocalId(const std::string& S){
 }
 
 bool CompilationUtils::isGetSubGroupId(const std::string& S){
-	return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_ID);
 }
 
 bool CompilationUtils::isGetGlobalLinearId(const std::string& S){
@@ -885,7 +885,7 @@ bool CompilationUtils::isGetLocalLinearId(const std::string& S){
 }
 
 bool CompilationUtils::isGetSubGroupLocalID(const std::string& S){
-	return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
+  return isOptionalMangleOf(S, NAME_GET_SUB_GROUP_LOCAL_ID);
 }
 
 bool CompilationUtils::isGetGlobalSize(const std::string& S){

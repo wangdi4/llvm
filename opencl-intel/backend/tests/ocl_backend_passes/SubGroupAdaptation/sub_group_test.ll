@@ -15,32 +15,8 @@ target triple = "spir64-unknown-unknown"
 ; CHECK: entry
 ; CHECK: call spir_func i32 @_Z18get_sub_group_sizev()
 ; CHECK: call spir_func i32 @_Z22get_max_sub_group_sizev()
-; CHECK: store i32 1, i32* %nsg, align 4
 ; CHECK-NOT: call spir_func i32 @_Z18get_num_sub_groupsv()
-; CHECK: store i32 1, i32* %ensg, align 4
 ; CHECK-NOT: call spir_func i32 @_Z27get_enqueued_num_sub_groupsv()
-; CHECK: load i32* %nsg, align 4
-; CHECK: load i32* %ensg, align 4
-; CHECK: define spir_func i32 @_Z18get_sub_group_sizev()
-; CHECK: entry
-; CHECK: %elsz0 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 0)
-; CHECK: %elsz1 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 1)
-; CHECK: %elsz2 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 2)
-; CHECK: %op0 = mul i64 %elsz0, %elsz1
-; CHECK: %res = mul i64 %op0, %elsz2
-; CHECK: %cast = trunc i64 %res to i32
-; CHECK: ret i32 %cast
-; CHECK: define spir_func i32 @_Z22get_max_sub_group_sizev()
-; CHECK: entry
-; CHECK: %elsz0 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 0)
-; CHECK: %elsz1 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 1)
-; CHECK: %elsz2 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 2)
-; CHECK: %op0 = mul i64 %elsz0, %elsz1
-; CHECK: %res = mul i64 %op0, %elsz2
-; CHECK: %cast = trunc i64 %res to i32
-; CHECK: ret i32 %cast
-
-
 
 ; Function Attrs: nounwind
 define spir_kernel void @sw_test(i32 %res) #0 {
@@ -82,6 +58,26 @@ if.end6:                                          ; preds = %if.end, %entry
   ret void
 }
 
+; CHECK: define spir_func i32 @_Z18get_sub_group_sizev()
+; CHECK: entry
+; CHECK: %lsz0 = call spir_func i64 @_Z14get_local_sizej(i32 0)
+; CHECK: %lsz1 = call spir_func i64 @_Z14get_local_sizej(i32 1)
+; CHECK: %lsz2 = call spir_func i64 @_Z14get_local_sizej(i32 2)
+; CHECK: %op0 = mul i64 %lsz0, %lsz1
+; CHECK: %res = mul i64 %op0, %lsz2
+; CHECK: %cast = trunc i64 %res to i32
+; CHECK: ret i32 %cast
+
+; CHECK: define spir_func i32 @_Z22get_max_sub_group_sizev()
+; CHECK: entry
+; CHECK: %elsz0 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 0)
+; CHECK: %elsz1 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 1)
+; CHECK: %elsz2 = call spir_func i64 @_Z23get_enqueued_local_sizej(i32 2)
+; CHECK: %op0 = mul i64 %elsz0, %elsz1
+; CHECK: %res = mul i64 %op0, %elsz2
+; CHECK: %cast = trunc i64 %res to i32
+; CHECK: ret i32 %cast
+
 declare spir_func i32 @_Z18get_sub_group_sizev() #1
 
 declare spir_func i32 @_Z22get_max_sub_group_sizev() #1
@@ -93,7 +89,8 @@ declare spir_func i32 @_Z27get_enqueued_num_sub_groupsv() #1
 ; CHECK-NOT: declare spir_func i32 @_Z18get_sub_group_sizev()
 ; CHECK-NOT: declare spir_func i32 @_Z22get_max_sub_group_sizev()
 ; CHECK-NOT: declare spir_func i32 @_Z18get_num_sub_groupsv()
-; CHECK-NOT: declare spir_func i32 @_Z27get_enqueued_num_sub_groupsv()
+; CHECK-NOT: declare spir_func i32 @_Z27get_enqueued_num_sub_groupsv() 
+; CHECK: declare spir_func i64 @_Z14get_local_sizej(i32)
 ; CHECK: declare spir_func i64 @_Z23get_enqueued_local_sizej(i32)
 
 attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
