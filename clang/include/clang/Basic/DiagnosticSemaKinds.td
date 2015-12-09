@@ -2412,6 +2412,16 @@ def warn_attribute_not_on_decl : Warning<
   "%0 attribute ignored when parsing type">, InGroup<IgnoredAttributes>;
 def err_base_specifier_attribute : Error<
   "%0 attribute cannot be applied to a base specifier">;
+def err_interrupt_function_wrong_return_type : Error<
+  "interrupt service routine must have void return value">;
+def err_interrupt_function_wrong_args : Error<
+  "interrupt service routine can only have a pointer argument and an optional integer argument">;
+def err_interrupt_function_wrong_first_arg : Error<
+  "interrupt service routine should have a pointer as the first argument">;
+def err_interrupt_function_wrong_second_arg : Error<
+  "interrupt service routine should have one of unsigned integer types as the second argument">;
+def err_interrupt_function_called : Error<
+  "interrupt service routine can't be called directly">;
 
 // Availability attribute
 def warn_availability_unknown_platform : Warning<

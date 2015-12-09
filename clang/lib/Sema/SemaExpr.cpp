@@ -4965,6 +4965,10 @@ Sema::ActOnCallExpr(Scope *S, Expr *Fn, SourceLocation LParenLoc,
                            Fn->getValueKind(), FDecl);
       }
     }
+    if (NDecl && NDecl->hasAttr<IAInterruptAttr>()) {
+      Diag(Fn->getExprLoc(), diag::err_interrupt_function_called);
+      return ExprError();
+    }
   } else if (isa<MemberExpr>(NakedFn))
     NDecl = cast<MemberExpr>(NakedFn)->getMemberDecl();
 

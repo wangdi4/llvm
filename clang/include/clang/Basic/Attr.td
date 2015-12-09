@@ -248,6 +248,7 @@ def TargetARM : TargetArch<["arm", "thumb"]>;
 def TargetMips : TargetArch<["mips", "mipsel"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
 def TargetX86 : TargetArch<["x86"]>;
+def TargetIA : TargetArch<["x86", "x86_64"]>;
 def TargetWindows : TargetArch<["x86", "x86_64", "arm", "thumb"]> {
   let OSes = ["Win32"];
 }
@@ -427,8 +428,8 @@ def Annotate : InheritableParamAttr {
 }
 
 def ARMInterrupt : InheritableAttr, TargetSpecificAttr<TargetARM> {
-  // NOTE: If you add any additional spellings, MSP430Interrupt's spellings
-  // must match.
+  // NOTE: If you add any additional spellings, MSP430Interrupt's and
+  // IAInterrupt's spellings must match.
   let Spellings = [GNU<"interrupt">];
   let Args = [EnumArgument<"Interrupt", "InterruptType",
                            ["IRQ", "FIQ", "SWI", "ABORT", "UNDEF", ""],
@@ -842,8 +843,8 @@ def MSABI : InheritableAttr {
 }
 
 def MSP430Interrupt : InheritableAttr, TargetSpecificAttr<TargetMSP430> {
-  // NOTE: If you add any additional spellings, ARMInterrupt's spellings must
-  // match.
+  // NOTE: If you add any additional spellings, ARMInterrupt's and
+  // IAInterrupt's spellings must match.
   let Spellings = [GNU<"interrupt">];
   let Args = [UnsignedArgument<"Number">];
   let ParseKind = "Interrupt";
@@ -1475,6 +1476,16 @@ def WeakRef : InheritableAttr {
   let Args = [StringArgument<"Aliasee", 1>];
   let Subjects = SubjectList<[Var, Function], WarnDiag>; //***INTEL
   let Documentation = [Undocumented];
+}
+
+def IAInterrupt : InheritableAttr, TargetSpecificAttr<TargetIA> {
+  // NOTE: If you add any additional spellings, ARMInterrupt's  and
+  // MSP430Interrupt's spellings must match.
+  let Spellings = [GNU<"interrupt">];
+  let Subjects = SubjectList<[Function]>;
+  let ParseKind = "Interrupt";
+  let HasCustomParsing = 1;
+  let Documentation = [IAInterruptDocs];
 }
 
 def X86ForceAlignArgPointer : InheritableAttr, TargetSpecificAttr<TargetX86> {

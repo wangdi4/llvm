@@ -4834,12 +4834,62 @@ static void handleMSP430InterruptAttr(Sema &S, Decl *D,
   D->addAttr(UsedAttr::CreateImplicit(S.Context));
 }
 
+static void handleIAInterruptAttr(Sema &S, Decl *D, const AttributeList &Attr) {
+  // Semantic checks for a function with the 'interrupt' attribute.
+  // a) Must be a function.
+  // b) Must have the 'void' return type.
+  // c) Must take 1 or 2 arguments.
+  // d) The 1st argument must be a pointer.
+  // e) The 2nd argument (if any) must be an unsigned integer.
+  if (!isFunctionOrMethod(D) || !hasFunctionProto(D) ||
+      !D->getDeclContext()->isFileContext()) {
+    S.Diag(Attr.getLoc(), diag::err_attribute_wrong_decl_type)
+      << Attr.getName() << ExpectedFunction;
+    return;
+  }
+  // Interrupt handler must have void return type.
+  if (!getFunctionOrMethodResultType(D)->isVoidType()) {
+    S.Diag(getFunctionOrMethodResultSourceRange(D).getBegin(),
+           diag::err_interrupt_function_wrong_return_type);
+    return;
+  }
+  // Interrupt handler must have 1 or 2 parameters.
+  auto NumParams = getFunctionOrMethodNumParams(D);
+  if (NumParams < 1 || NumParams > 2) {
+    S.Diag(D->getLocStart(), diag::err_interrupt_function_wrong_args);
+    return;
+  }
+  // The first argument must be a pointer.
+  if (!getFunctionOrMethodParamType(D, 0)->isPointerType()) {
+    S.Diag(getFunctionOrMethodParamRange(D, 0).getBegin(),
+           diag::err_interrupt_function_wrong_first_arg);
+    return;
+  }
+  // The second argument must be an unsigned integer.
+  if (NumParams == 2 &&
+      !getFunctionOrMethodParamType(D, 1)->isUnsignedIntegerType()) {
+    S.Diag(getFunctionOrMethodParamRange(D, 1).getBegin(),
+           diag::err_interrupt_function_wrong_second_arg);
+    return;
+  }
+  D->addAttr(::new (S.Context) IAInterruptAttr(
+      Attr.getLoc(), S.Context, Attr.getAttributeSpellingListIndex()));
+  D->addAttr(UsedAttr::CreateImplicit(S.Context));
+}
+
 static void handleInterruptAttr(Sema &S, Decl *D, const AttributeList &Attr) {
   // Dispatch the interrupt attribute based on the current target.
-  if (S.Context.getTargetInfo().getTriple().getArch() == llvm::Triple::msp430)
+  switch(S.Context.getTargetInfo().getTriple().getArch()) {
+  case llvm::Triple::msp430:
     handleMSP430InterruptAttr(S, D, Attr);
-  else
+    break;
+  case llvm::Triple::x86:
+  case llvm::Triple::x86_64:
+    handleIAInterruptAttr(S, D, Attr);
+    break;
+  default:
     handleARMInterruptAttr(S, D, Attr);
+  }
 }
 
 static void handleAMDGPUNumVGPRAttr(Sema &S, Decl *D,
