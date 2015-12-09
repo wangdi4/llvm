@@ -2188,6 +2188,10 @@ class X86TargetInfo : public TargetInfo {
     /// Knights Landing processor.
     CK_KNL,
 
+    /// \name Lakemont
+    /// Lakemont microarchitecture based processors.
+    CK_Lakemont,
+
     /// \name K6
     /// K6 architecture processors.
     //@{
@@ -2290,6 +2294,7 @@ class X86TargetInfo : public TargetInfo {
         .Case("skylake", CK_Skylake)
         .Case("skx", CK_Skylake) // Legacy name.
         .Case("knl", CK_KNL)
+        .Case("lakemont", CK_Lakemont)
         .Case("k6", CK_K6)
         .Case("k6-2", CK_K6_2)
         .Case("k6-3", CK_K6_3)
@@ -2423,6 +2428,7 @@ public:
     case CK_C3_2:
     case CK_Pentium4:
     case CK_Pentium4M:
+    case CK_Lakemont:
     case CK_Prescott:
     case CK_K6:
     case CK_K6_2:
@@ -2514,10 +2520,13 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
-  // Enable X87 for all X86 processors.
-  setFeatureEnabledImpl(Features, "x87", true);
+  CPUKind Kind = getCPUKind(CPU);
 
-  switch (getCPUKind(CPU)) {
+  // Enable X87 for all X86 processors but Lakemont.
+  if (Kind != CK_Lakemont)
+    setFeatureEnabledImpl(Features, "x87", true);
+
+  switch (Kind) {
   case CK_Generic:
   case CK_i386:
   case CK_i486:
@@ -2525,6 +2534,7 @@ bool X86TargetInfo::initFeatureMap(
   case CK_Pentium:
   case CK_i686:
   case CK_PentiumPro:
+  case CK_Lakemont:
     break;
   case CK_PentiumMMX:
   case CK_Pentium2:
@@ -3143,6 +3153,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     break;
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
+    break;
+  case CK_Lakemont:
+    Builder.defineMacro("__tune_lakemont__");
     break;
   case CK_K6_2:
     Builder.defineMacro("__k6_2__");
