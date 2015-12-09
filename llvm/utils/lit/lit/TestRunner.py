@@ -394,6 +394,11 @@ def parseIntegratedTestScriptCommands(source_path):
         if not data.endswith(to_bytes('\n')):
             data = data + to_bytes('\n')
 
+        # INTEL_CUSTOMIZATION
+        # Strip ";INTEL" if it appears at the end of line.
+        data = re.sub(';INTEL\n', '\n', data)
+        # end INTEL_CUSTOMIZATION
+
         # Iterate over the matches.
         line_number = 1
         last_match_position = 0
