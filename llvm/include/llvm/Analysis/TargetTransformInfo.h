@@ -275,6 +275,9 @@ public:
   /// target-independent defaults.
   void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) const;
 
+  /// \brief Get target-customized default threshold for loop rotation.
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
+
   /// @}
 
   /// \name Scalar Target Information
@@ -561,6 +564,7 @@ public:
   virtual bool isSourceOfDivergence(const Value *V) = 0;
   virtual bool isLoweredToCall(const Function *F) = 0;
   virtual void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) = 0;
+  virtual unsigned getLoopRotationDefaultThreshold(bool OptForSize) const = 0;
   virtual bool isLegalAddImmediate(int64_t Imm) = 0;
   virtual bool isLegalICmpImmediate(int64_t Imm) = 0;
   virtual bool isLegalAddressingMode(Type *Ty, GlobalValue *BaseGV,
@@ -679,6 +683,9 @@ public:
   }
   void getUnrollingPreferences(Loop *L, UnrollingPreferences &UP) override {
     return Impl.getUnrollingPreferences(L, UP);
+  }
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const override {
+    return Impl.getLoopRotationDefaultThreshold(OptForSize);
   }
   bool isLegalAddImmediate(int64_t Imm) override {
     return Impl.isLegalAddImmediate(Imm);

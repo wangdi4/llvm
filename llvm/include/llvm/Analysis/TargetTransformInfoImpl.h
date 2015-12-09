@@ -200,6 +200,8 @@ public:
 
   void getUnrollingPreferences(Loop *, TTI::UnrollingPreferences &) {}
 
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
+
   bool isLegalAddImmediate(int64_t Imm) { return false; }
 
   bool isLegalICmpImmediate(int64_t Imm) { return false; }

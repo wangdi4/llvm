@@ -42,8 +42,8 @@ using namespace llvm;
 #define DEBUG_TYPE "loop-rotate"
 
 static cl::opt<unsigned>
-DefaultRotationThreshold("rotation-max-header-size", cl::init(16), cl::Hidden,
-       cl::desc("The default maximum header size for automatic loop rotation"));
+RotationThreshold("rotation-max-header-size", cl::init(16), cl::Hidden,
+       cl::desc("The maximum header size for automatic loop rotation"));
 
 STATISTIC(NumRotated, "Number of loops rotated");
 namespace {
@@ -51,12 +51,9 @@ namespace {
   class LoopRotate : public LoopPass {
   public:
     static char ID; // Pass ID, replacement for typeid
-    LoopRotate(int SpecifiedMaxHeaderSize = -1) : LoopPass(ID) {
+    LoopRotate(int SpecifiedMaxHeaderSize = -1)
+        : LoopPass(ID), SpecifiedThreshold(SpecifiedMaxHeaderSize) {
       initializeLoopRotatePass(*PassRegistry::getPassRegistry());
-      if (SpecifiedMaxHeaderSize == -1)
-        MaxHeaderSize = DefaultRotationThreshold;
-      else
-        MaxHeaderSize = unsigned(SpecifiedMaxHeaderSize);
     }
 
     // LCSSA form makes instruction renaming easier.
@@ -79,10 +76,13 @@ namespace {
     }
 
     bool runOnLoop(Loop *L, LPPassManager &LPM) override;
-    bool simplifyLoopLatch(Loop *L);
-    bool rotateLoop(Loop *L, bool SimplifiedLatch);
 
   private:
+    bool simplifyLoopLatch(Loop *L);
+    bool rotateLoop(Loop *L, bool SimplifiedLatch);
+    unsigned chooseMaxHeaderSize(bool OptForSize) const;
+
+    int SpecifiedThreshold;
     unsigned MaxHeaderSize;
     LoopInfo *LI;
     const TargetTransformInfo *TTI;
@@ -108,6 +108,17 @@ Pass *llvm::createLoopRotatePass(int MaxHeaderSize) {
   return new LoopRotate(MaxHeaderSize);
 }
 
+/// Choose max header size based on pass parameter, options and
+/// target preferences.
+unsigned LoopRotate::chooseMaxHeaderSize(bool OptForSize) const {
+  if (SpecifiedThreshold == -1)
+    return RotationThreshold.getNumOccurrences() > 0
+               ? RotationThreshold
+               : TTI->getLoopRotationDefaultThreshold(OptForSize);
+  else
+    return unsigned(SpecifiedThreshold);
+}
+
 /// Rotate Loop L as many times as possible. Return true if
 /// the loop is rotated at least once.
 bool LoopRotate::runOnLoop(Loop *L, LPPassManager &LPM) {
@@ -124,6 +135,8 @@ bool LoopRotate::runOnLoop(Loop *L, LPPassManager &LPM) {
   AC = &getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
   auto *DTWP = getAnalysisIfAvailable<DominatorTreeWrapperPass>();
   DT = DTWP ? &DTWP->getDomTree() : nullptr;
+
+  MaxHeaderSize = chooseMaxHeaderSize(F.optForSize());
 
   // Simplify the loop latch before attempting to rotate the header
   // upward. Rotation may not be needed if the loop tail can be folded into the

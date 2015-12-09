@@ -96,6 +96,11 @@ void TargetTransformInfo::getUnrollingPreferences(
   return TTIImpl->getUnrollingPreferences(L, UP);
 }
 
+unsigned
+TargetTransformInfo::getLoopRotationDefaultThreshold(bool OptForSize) const {
+  return TTIImpl->getLoopRotationDefaultThreshold(OptForSize);
+}
+
 bool TargetTransformInfo::isLegalAddImmediate(int64_t Imm) const {
   return TTIImpl->isLegalAddImmediate(Imm);
 }
