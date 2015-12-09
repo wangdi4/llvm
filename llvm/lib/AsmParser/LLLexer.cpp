@@ -588,6 +588,9 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(preserve_mostcc);
   KEYWORD(preserve_allcc);
   KEYWORD(ghccc);
+#if INTEL_CUSTOMIZATION
+  KEYWORD(x86_intrcc);
+#endif //INTEL_CUSTOMIZATION
   KEYWORD(hhvmcc);
   KEYWORD(hhvm_ccc);
 

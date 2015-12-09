@@ -163,7 +163,12 @@ namespace CallingConv {
     /// that scalar arguments are passed in GPRs, the order of GPRs used
     /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
     /// vector/FP arguments.
-    , X86_RegCall = 83
+    , X86_RegCall = 83,
+    /// X86_INTR - x86 hardware interrupt context. Callee may take one
+    /// parameter representing the hardware error code, the presence of which
+    /// depends on the interrupt vector taken. Valid for both 32- and 64-bit
+    /// subtargets.
+    X86_INTR = 84
 #endif  // INTEL_CUSTOMIZATION
   };
 } // End CallingConv namespace

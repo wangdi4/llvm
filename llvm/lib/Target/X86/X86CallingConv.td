@@ -885,6 +885,16 @@ defm CC_X86_RegCall_Win64 : CC_X86_RegCall_64<RC_X86_64_RegCall_Win>;
 defm CC_X86_RegCall_Lin64 : CC_X86_RegCall_64<RC_X86_64_RegCall_Lin>;
 // endif INTEL_CUSTOMIZATION
 
+// INTEL_CUSTOMIZATION
+def CC_X86_32_Intr : CallingConv<[
+  CCAssignToStack<4, 4>
+]>;
+
+def CC_X86_64_Intr : CallingConv<[
+  CCAssignToStack<8, 8>
+]>;
+// END INTEL_CUSTOMIZATION
+
 //===----------------------------------------------------------------------===//
 // X86 Root Argument Calling Conventions
 //===----------------------------------------------------------------------===//
@@ -902,6 +912,7 @@ def CC_X86_32 : CallingConv<[
   CCIfCC<"CallingConv::HiPE", CCDelegateTo<CC_X86_32_HiPE>>,
 // if INTEL_CUSTOMIZATION
   CCIfCC<"CallingConv::X86_RegCall", CCDelegateTo<CC_X86_RegCall_32__>>,
+  CCIfCC<"CallingConv::X86_INTR", CCDelegateTo<CC_X86_32_Intr>>,
 // endif INTEL_CUSTOMIZATION
 
   // Otherwise, drop to normal X86-32 CC
@@ -924,6 +935,7 @@ def CC_X86_64 : CallingConv<[
     CCIfSubtarget<"isTargetWin64()", CCDelegateTo<CC_X86_RegCall_Win64__>>>,
   CCIfCC<"CallingConv::X86_RegCall",
     CCIfSubtargetLinuxOSX<CCDelegateTo<CC_X86_RegCall_Lin64__>>>,
+  CCIfCC<"CallingConv::X86_INTR", CCDelegateTo<CC_X86_64_Intr>>,
 // endif INTEL_CUSTOMIZATION
 
   // Mingw64 and native Win64 use Win64 CC
@@ -968,6 +980,13 @@ def CSR_64_RT_AllRegs_AVX : CalleeSavedRegs<(add CSR_64_RT_MostRegs,
 def CSR_64_MostRegs : CalleeSavedRegs<(add RBX, RCX, RDX, RSI, RDI, R8, R9, R10,
                                            R11, R12, R13, R14, R15, RBP,
                                            (sequence "XMM%u", 0, 15))>;
+
+// INTEL_CUSTOMIZATION
+def CSR_32_AllRegs     : CalleeSavedRegs<(add EAX, EBX, ECX, EDX, EBP, ESI,
+                                              EDI, ESP)>;
+def CSR_32_AllRegs_SSE : CalleeSavedRegs<(add CSR_32_AllRegs,
+                                              (sequence "XMM%u", 0, 7))>;
+// END INTEL_CUSTOMIZATION
 
 def CSR_64_AllRegs     : CalleeSavedRegs<(add CSR_64_MostRegs, RAX, RSP,
                                               (sequence "XMM%u", 16, 31))>;
