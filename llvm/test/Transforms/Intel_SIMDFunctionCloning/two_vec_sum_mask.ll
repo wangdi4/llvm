@@ -6,41 +6,42 @@
 
 ; CHECK-LABEL: define __regcall <4 x i32> @_ZGVxM4vv_vec_sum(<4 x i32> %i, <4 x i32> %j, <4 x i32> %mask)
 ; CHECK-NEXT: entry:
-; CHECK-NEXT: %vec_i.addr = alloca <4 x i32>
-; CHECK-NEXT: %vec_j.addr = alloca <4 x i32>
-; CHECK-NEXT: %vec_mask = alloca <4 x i32>
-; CHECK-NEXT: %vec_retval = alloca <4 x i32>
-; CHECK-NEXT: store <4 x i32> %i, <4 x i32>* %vec_i.addr, align 4
-; CHECK-NEXT: store <4 x i32> %j, <4 x i32>* %vec_j.addr, align 4
-; CHECK-NEXT: store <4 x i32> %mask, <4 x i32>* %vec_mask
-; CHECK-NEXT: %veccast = bitcast <4 x i32>* %vec_retval to i32*
-; CHECK-NEXT: %veccast.1 = bitcast <4 x i32>* %vec_i.addr to i32*
-; CHECK-NEXT: %veccast.2 = bitcast <4 x i32>* %vec_j.addr to i32*
-; CHECK-NEXT: %veccast.3 = bitcast <4 x i32>* %vec_mask to i32*
+; CHECK-NEXT: %vec.i = alloca <4 x i32>
+; CHECK-NEXT: %vec.j = alloca <4 x i32>
+; CHECK-NEXT: %vec.mask = alloca <4 x i32>
+; CHECK-NEXT: %vec.retval = alloca <4 x i32>
+; CHECK-NEXT: store <4 x i32> %i, <4 x i32>* %vec.i, align 4
+; CHECK-NEXT: store <4 x i32> %j, <4 x i32>* %vec.j, align 4
+; CHECK-NEXT: store <4 x i32> %mask, <4 x i32>* %vec.mask
+; CHECK-NEXT: %vec.i.cast = bitcast <4 x i32>* %vec.i to i32*
+; CHECK-NEXT: %vec.j.cast = bitcast <4 x i32>* %vec.j to i32*
+; CHECK-NEXT: %ret.cast = bitcast <4 x i32>* %vec.retval to i32*
+; CHECK-NEXT: %mask.cast = bitcast <4 x i32>* %vec.mask to i32*
 ; CHECK-NEXT: br label %simd.begin.region
 
 ; CHECK: simd.begin.region:
 ; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: call void @llvm.intel.directive.qual.opnd
 ; CHECK-SAME: i32 4
-; CHECK-NEXT: call void @llvm.intel.directive.qual
+; CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
+; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: br label %simd.loop
 
 ; CHECK: simd.loop:
 ; CHECK-NEXT: %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-; CHECK-NEXT: %maskgep = getelementptr i32, i32* %veccast.3, i32 %index
-; CHECK-NEXT: %mask5 = load i32, i32* %maskgep
-; CHECK-NEXT: %maskcond = icmp ne i32 %mask5, 0
-; CHECK-NEXT: br i1 %maskcond, label %simd.loop.then, label %simd.loop.else
+; CHECK-NEXT: %mask.gep = getelementptr i32, i32* %mask.cast, i32 %index
+; CHECK-NEXT: %mask.parm = load i32, i32* %mask.gep
+; CHECK-NEXT: %mask.cond = icmp ne i32 %mask.parm, 0
+; CHECK-NEXT: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 
 ; CHECK: simd.loop.then:
-; CHECK-NEXT: %vecgep = getelementptr i32, i32* %veccast.1, i32 %index
-; CHECK-NEXT: %0 = load i32, i32* %vecgep, align 4
-; CHECK-NEXT: %vecgep4 = getelementptr i32, i32* %veccast.2, i32 %index
-; CHECK-NEXT: %1 = load i32, i32* %vecgep4, align 4
+; CHECK-NEXT: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
+; CHECK-NEXT: %0 = load i32, i32* %vec.i.cast.gep, align 4
+; CHECK-NEXT: %vec.j.cast.gep = getelementptr i32, i32* %vec.j.cast, i32 %index
+; CHECK-NEXT: %1 = load i32, i32* %vec.j.cast.gep, align 4
 ; CHECK-NEXT: %add = add nsw i32 %0, %1
-; CHECK-NEXT: %vec_gep = getelementptr i32, i32* %veccast, i32 %index
-; CHECK-NEXT: store i32 %add, i32* %vec_gep
+; CHECK-NEXT: %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+; CHECK-NEXT: store i32 %add, i32* %ret.cast.gep
 ; CHECK-NEXT: br label %simd.loop.exit
 
 ; CHECK: simd.loop.else:
@@ -48,17 +49,18 @@
 
 ; CHECK: simd.loop.exit:
 ; CHECK-NEXT: %indvar = add nuw i32 1, %index
-; CHECK-NEXT: %vlcond = icmp ult i32 %indvar, 4
-; CHECK-NEXT: br i1 %vlcond, label %simd.loop, label %simd.end.region
+; CHECK-NEXT: %vl.cond = icmp ult i32 %indvar, 4
+; CHECK-NEXT: br i1 %vl.cond, label %simd.loop, label %simd.end.region
 
 ; CHECK: simd.end.region:
+; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: call void @llvm.intel.directive
 ; CHECK-NEXT: br label %return
 
 ; CHECK: return:
-; CHECK-NEXT: %cast = bitcast i32* %veccast to <4 x i32>*
-; CHECK-NEXT: %vec_ret = load <4 x i32>, <4 x i32>* %cast
-; CHECK-NEXT: ret <4 x i32> %vec_ret
+; CHECK-NEXT: %vec.ret.cast = bitcast i32* %ret.cast to <4 x i32>*
+; CHECK-NEXT: %vec.ret = load <4 x i32>, <4 x i32>* %vec.ret.cast
+; CHECK-NEXT: ret <4 x i32> %vec.ret
 
 ; ModuleID = 'two_vec_sum.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

@@ -83,7 +83,7 @@ class SIMDFunctionCloning : public ModulePass {
         BasicBlock *EntryBlock,
         BasicBlock *LoopBlock,
         BasicBlock *ReturnBlock,
-        std::map<AllocaInst*, Instruction*>& AllocaMap);
+        SmallDenseMap<Value*, Instruction*>& ParmMap);
 
     /// \brief Expand the function parameters to vector types. This function
     /// returns the instruction corresponding to the mask.
@@ -91,31 +91,27 @@ class SIMDFunctionCloning : public ModulePass {
         Function *Clone,
         intel::VectorVariant &V,
         BasicBlock *EntryBlock,
-        std::map<AllocaInst*, Instruction*>& AllocaMap);
+        SmallDenseMap<Value*, Instruction*>& ParmMap);
 
     /// \brief Expand the function's return value to a vector type.
     Instruction* expandReturn(Function *Clone, BasicBlock *EntryBlock,
                              BasicBlock *LoopBlock, BasicBlock *ReturnBlock,
-                             std::map<AllocaInst*, Instruction*>& AllocaMap);
+                             SmallDenseMap<Value*, Instruction*>& ParmMap);
 
-    /// \brief Update the old parameter references to scalar loads/stores with
-    /// the new expanded references.
+    /// \brief Update the old parameter references to with the new vector
+    /// references.
     void updateScalarMemRefsWithVector(
         Function *Clone,
         Function &F,
         BasicBlock *EntryBlock,
         BasicBlock *ReturnBlock,
         PHINode *Phi,
-        std::map<AllocaInst*, Instruction*>& AllocaMap);
+        SmallDenseMap<Value*, Instruction*>& ParmMap);
         
     /// \brief Update the values of linear parameters by adding the stride
     /// before the use.
     void updateLinearReferences(Function *Clone, Function &F,
                                 intel::VectorVariant &V, PHINode *Phi);
-
-    /// \brief Remove any scalar alloca instructions that have been replaced
-    /// with vector alloca instructions during parameter/return expansion.
-    void removeScalarMemRefs(std::map<AllocaInst*, Instruction*>& AllocaMap);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -150,30 +146,37 @@ class SIMDFunctionCloning : public ModulePass {
     /// list.
     int getParmIndexInFunction(Function *F, Value *Parm);
 
-    /// \brief Create a constant vector and return it from the function.
-    void createBroadcastReturn(intel::VectorVariant &V, ReturnInst *Return);
-
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
-    bool isSimpleFunction(Function &F, intel::VectorVariant &V,
+    bool isSimpleFunction(Function *Clone, intel::VectorVariant &V,
                           ReturnInst *Return);
-
-    /// \brief Find the initial parameter store to alloca'd memory for uniform
-    /// parameters and sink the store instruction into the loop.
-    void sinkUniformParmStoresIntoLoop(Function *Clone, Function &F,
-                                       intel::VectorVariant &V,
-                                       BasicBlock *EntryBlock,
-                                       BasicBlock *LoopBlock);
-
-    /// \brief Utility function that returns the last instruction in the basic
-    /// block based on the instruction type indicated by IT.
-    Instruction* findLastInstInBlock(BasicBlock *BB, InstType IT);
 
     /// \brief Inserts the if/else split and mask condition for masked SIMD
     /// functions.
     void insertSplitForMaskedVariant(Function *Clone, BasicBlock *LoopBlock,
                                      BasicBlock *LoopExitBlock,
                                      Instruction *Mask, PHINode *Phi);
+
+    /// \brief Utility function to insert instructions with other instructions
+    /// of the same kind.
+    void insertInstruction(Instruction *Inst, BasicBlock *BB);
+
+    /// \brief Utility function that generates instructions that calculate the
+    /// stride for a linear parameter.
+    Instruction* generateStrideForParameter(Function *Clone, Argument *Arg,
+                                            Instruction *ParmUser, int Stride,
+                                            PHINode *Phi);
+
+    /// \brief Utility function that returns true if Inst is a store of a vector
+    /// or linear parameter.
+    bool isVectorOrLinearParamStore(Function *Clone,
+                                    std::vector<intel::VectorKind> &ParmKinds,
+                                    Instruction *Inst);
+
+    /// \brief Removes the original scalar alloca instructions that correspond
+    /// to a vector parameter before widening.
+    void removeScalarAllocasForVectorParams(
+        SmallDenseMap<Value*, Instruction*> &VectorParmMap);
 
     bool runOnModule(Module &M) override;
 

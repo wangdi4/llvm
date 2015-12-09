@@ -26,13 +26,47 @@
 /// keep in mind is that for vector parameters/return, the old scalar references
 /// referring to the parameters/return must be replaced with a "vector"
 /// reference. This is done by allocating a new vector and then bitcasting this
-/// vector to a pointer of the element type. In turn, this bitcast is used to
-/// replace the old scalar references. This allows the generated LLVM to appear
-/// as a more scalar representation. This pass was primarily implemented so that
-/// AVR construction could be simplified by not having to worry about both
-/// functions and loops.
+/// vector to a pointer of the element type. In turn, the bitcast (or gep of the
+/// bitcast) is used to replace the old scalar references. This allows the
+/// generated LLVM IR to appear as a more scalar representation. This pass was
+/// primarily implemented so that AVR construction could be simplified by not
+/// having to worry about both functions and loops.
 ///
 // ===--------------------------------------------------------------------=== //
+
+// This pass is flexible enough to deal with two forms of LLVM IR, namely the
+// difference between when Mem2Reg has been run and when Mem2Reg has not run.
+//
+// When Mem2Reg has run:
+//
+// define i32 @foo(i32 %i, i32 %x) #0 {
+// entry:
+//   %add = add nsw i32 %x, %i
+//   ret i32 %add
+// }
+//
+// When Mem2Reg has not run:
+//
+// define i32 @foo(i32 %i, i32 %x) #0 {
+// entry:
+// %i.addr = alloca i32, align 4
+// %x.addr = alloca i32, align 4
+// store i32 %i, i32* %i.addr, align 4
+// store i32 %x, i32* %x.addr, align 4
+// %0 = load i32, i32* %x.addr, align 4
+// %1 = load i32, i32* %i.addr, align 4
+// %add = add nsw i32 %0, %1
+//  ret i32 %add
+// }
+//
+// When Mem2Reg has not been run (i.e., parameters have not been registerized),
+// we end up with an alloca, store to alloca, and load from alloca sequence.
+// When parameters have already been registerized, users of the parameter use
+// the parameter directly and not through a load of a new SSA temp. For either
+// case, this pass will expand the vector parameters/return to vector types,
+// alloca new space for them on the stack, and do an initial store to the
+// alloca. Linear and uniform parameters will be used directly, instead of
+// through a load instruction.
 
 #include "llvm/Transforms/VPO/VPOPasses.h"
 #include "llvm/Transforms/VPO/SIMDFunctionCloning.h"
@@ -61,30 +95,36 @@ using namespace intel;
 
 SIMDFunctionCloning::SIMDFunctionCloning() : ModulePass(ID) { }
 
-Instruction* SIMDFunctionCloning::findLastInstInBlock(BasicBlock *BB,
-                                                      InstType IT)
+void SIMDFunctionCloning::insertInstruction(Instruction *Inst,
+                                            BasicBlock *BB)
 {
+  // This function inserts instructions in a way that groups like instructions
+  // together for debuggability/readability purposes. This was designed to make
+  // the entry basic block easier to read since this pass creates/modifies
+  // alloca, store, and bitcast instructions for each vector parameter and
+  // return. Thus, this function ensures all allocas are grouped together, all
+  // stores are grouped together, and so on. If the type of instruction passed
+  // in does not exist in the basic block, then it is added to the end of the
+  // basic block, just before the terminator instruction.
+
   BasicBlock::reverse_iterator BBIt = BB->rbegin();
   BasicBlock::reverse_iterator BBEnd = BB->rend();
-  Instruction *LastInst = BB->getTerminator();
-  if (!LastInst) LastInst = &*BBEnd;
+  BasicBlock::iterator AnchorInstIt = BB->end();
+  AnchorInstIt--;
+  Instruction *Anchor = &*AnchorInstIt;
 
   for (; BBIt != BBEnd; ++BBIt) {
-    if (IT == ALLOCA && isa<AllocaInst>(&*BBIt)) {
-      LastInst = &*BBIt;
-      break;
-    }
-    if (IT == STORE && isa<StoreInst>(&*BBIt)) {
-      LastInst = &*BBIt;
-      break;
-    }
-    if (IT == BITCAST && isa<BitCastInst>(&*BBIt)) {
-      LastInst = &*BBIt;
+    if (Inst->getOpcode() == (&*BBIt)->getOpcode()) {
+      Anchor = &*BBIt;
       break;
     }
   }
 
-  return LastInst;
+  if (isa<BranchInst>(Anchor)) {
+    Inst->insertBefore(Anchor);
+  } else {
+    Inst->insertAfter(Anchor);
+  }
 }
 
 bool SIMDFunctionCloning::hasComplexType(Function *F)
@@ -107,6 +147,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
 {
 
   DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
+  DEBUG(F.dump());
 
   FunctionType* OrigFunctionType = F.getFunctionType();
   Type *ReturnType = F.getReturnType();
@@ -188,68 +229,89 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
   return Clone;
 }
 
+bool SIMDFunctionCloning::isVectorOrLinearParamStore(
+    Function *Clone,
+    std::vector<VectorKind> &ParmKinds,
+    Instruction *Inst)
+{
+  if (StoreInst *Store = dyn_cast<StoreInst>(Inst)) {
+    Value *Op0 = Store->getOperand(0);
+    Function::ArgumentListType &ArgList = Clone->getArgumentList();
+    Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
+    Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+
+    for (; ArgListIt != ArgListEnd; ++ArgListIt) {
+      unsigned ParmIdx = ArgListIt->getArgNo();
+      if (ArgListIt == Op0 &&
+          (ParmKinds[ParmIdx].isVector() || ParmKinds[ParmIdx].isLinear())) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 BasicBlock* SIMDFunctionCloning::splitEntryIntoLoop(Function *Clone,
                                                     VectorVariant &V,
                                                     BasicBlock *EntryBlock)
 {
 
-  // Find the initial store of the last parameter and use as a split point for
-  // the entry block and loop block. If there are no parameters, then the split
-  // point is the last alloca for any function private vars.
+  // EntryInsts contains all instructions that need to stay in the entry basic
+  // block. These instructions include allocas and stores involving vector and
+  // linear parameters to alloca. Linear parameter stores to alloca are kept in
+  // the entry block because there will be a load from this alloca in the loop
+  // for which we will apply the stride. Instructions involving uniform
+  // parameter stores to alloca should be sunk into the loop to maintain
+  // uniform behavior. All instructions involving private variables are also
+  // sunk into the loop.
 
-  // Split the instructions after the final store to the parameters into a new
-  // basic block that will serve as the loop. Or, if there are no parameters,
-  // then split after the last alloca. All other instructions after the last
-  // parameter store (or alloca) are assumed to be operating on an element-wise
-  // basis. The only instructions in the entry block should be the vector alloca
-  // instructions and the vector store for the parameters.
+  SmallVector<Instruction*, 4> EntryInsts;
+  std::vector<VectorKind> ParmKinds = V.getParameters();
+  BasicBlock::iterator BBIt = EntryBlock->begin();
+  BasicBlock::iterator BBEnd = EntryBlock->end();
 
-  Function::ArgumentListType &CloneArgList = Clone->getArgumentList();
-  Function::ArgumentListType::iterator CloneArgListIt = CloneArgList.begin();
-  Function::ArgumentListType::iterator CloneArgListEnd = CloneArgList.end();
-  BasicBlock::iterator SplitPt = NULL;
-
-  // There will be no users of the mask parameter at this point. This will
-  // avoid the assert below on finding a store user.
-  if (V.isMasked()) --CloneArgListEnd;
-
-  if (Clone->arg_size() == 0) {
-    // If the function does not have any parameters, then split after the last
-    // alloca. Function private vars should have an associated alloca.
-    BasicBlock::iterator BBIt = EntryBlock->begin();
-    BasicBlock::iterator BBEnd = EntryBlock->end();
-    for (; BBIt != BBEnd; ++BBIt) {
-      if (dyn_cast<AllocaInst>(BBIt)) {
-        SplitPt = BBIt;
-      }
-    }
-  } else {
-    for (; CloneArgListIt != CloneArgListEnd; ++CloneArgListIt) {
-
-      unsigned UserCnt = 0;
-      unsigned StoreUserCnt = 0;
-      User::user_iterator UserIt = CloneArgListIt->user_begin();
-      User::user_iterator UserEnd = CloneArgListIt->user_end();
-      StoreInst *StoreUser = NULL;
-
-      for (; UserIt != UserEnd; ++UserIt) {
-        StoreUser = dyn_cast<StoreInst>(*UserIt);
-        if (StoreUser) {
-          SplitPt = StoreUser;
-          StoreUserCnt++;
-        }
-        UserCnt++;
-      }
-
-      assert(UserCnt == 1 && StoreUserCnt == 1 &&
-             "Expected a single store as a user of the parameter!\n");
+  for (; BBIt != BBEnd; ++BBIt) {
+    if (isa<AllocaInst>(BBIt) ||
+        isVectorOrLinearParamStore(Clone, ParmKinds, &*BBIt)) {
+      // If this is a store of a vector parameter, keep it in the entry block
+      // because it will be modified with the vector alloca reference. Since the
+      // parameter has already been expanded, this becomes a vector store (i.e.,
+      // packing instruction) that we do not want to appear in the scalar loop.
+      // It is correct to leave linear parameter stores in the entry or move
+      // them to the scalar loop, but leaving them in the entry block prevents
+      // an additional store inside the loop. Uniform parameter stores must be
+      // moved to the loop body to behave as uniform. Consider the following:
+      //
+      // __declspec(vector(uniform(x)))
+      // int foo(int a, int x) {
+      //   x++;
+      //   return (a + x);
+      // }
+      //
+      // Assume x = 1 for the call to foo. This implies x = 2 for the vector
+      // add. e.g., a[0:VL-1] + <2, 2, 2, 2>. If the initial store of x to the
+      // stack is done in the entry block outside of the loop, then x will be
+      // incremented by one each time within the loop because the increment of
+      // x will reside in the loop. Therefore, if the store of x is sunk into
+      // the loop, the initial value of 1 will always be stored to a temp
+      // before the increment, resulting in the value of 2 always being computed
+      // in the scalar loop.
+      EntryInsts.push_back(BBIt);
     }
   }
 
-  assert(SplitPt && "Could not find an appropriate split point for the loop");
+  BasicBlock *LoopBlock = EntryBlock->splitBasicBlock(EntryBlock->begin(),
+                                                      "simd.loop");
 
-  SplitPt++;
-  BasicBlock *LoopBlock = EntryBlock->splitBasicBlock(SplitPt, "simd.loop");
+  for (auto *Inst : EntryInsts) {
+    Inst->removeFromParent();
+    Inst->insertBefore(EntryBlock->getTerminator());
+  }
+
+  DEBUG(dbgs() << "After Entry Block Split\n");
+  DEBUG(Clone->dump());
+
   return LoopBlock;
 }
 
@@ -269,12 +331,8 @@ BasicBlock* SIMDFunctionCloning::splitLoopIntoReturn(Function *Clone,
   if (ReturnInst *Return = dyn_cast<ReturnInst>(SplitPt)) {
 
     // If the return is from a preceeding load, make sure the load is also put
-    // in the return block. This will make the code cleaner when we eventually
-    // remove these instructions because we blindly remove all instructions
-    // from the return block after generating the vector return temp. If the
-    // load remains in part of the loop, then it becomes dead code. This is not
-    // a problem and could be cleaned up later, but this will prevent DCE from
-    // having to run, plus the LLVM is easier to look at immediately.
+    // in the return block. This is the old scalar load that will end up getting
+    // replaced with the vector return and will get cleaned up later.
 
     // Make sure this is not a void function before getting the return
     // operand.
@@ -387,7 +445,7 @@ PHINode* SIMDFunctionCloning::createPhiAndBackedgeForLoop(
                                   VectorLength);
 
   Instruction *VLCmp = new ICmpInst(*LoopExitBlock, CmpInst::ICMP_ULT,
-                                    Induction, VL, "vlcond");
+                                    Induction, VL, "vl.cond");
 
   BranchInst::Create(LoopBlock, ReturnBlock, VLCmp, LoopExitBlock);
 
@@ -404,7 +462,7 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
     Function *Clone,
     VectorVariant &V,
     BasicBlock *EntryBlock,
-    std::map<AllocaInst*, Instruction*>& AllocaMap)
+    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
 {
   // For vector parameters, expand the existing alloca to a vector. Then,
   // bitcast the vector and store this instruction in a map. The map is later
@@ -413,12 +471,11 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
   // perform any expansion since we iterate over the function's arg list.
 
   Instruction *Mask = nullptr;
+  SmallVector<StoreInst*, 4> StoresToInsert;
 
   Function::ArgumentListType &CloneArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgIt = CloneArgList.begin();
   Function::ArgumentListType::iterator ArgEnd = CloneArgList.end();
-
-  BasicBlock::iterator InsertPt = EntryBlock->begin();
 
   for (; ArgIt != ArgEnd; ++ArgIt) {
 
@@ -429,19 +486,39 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
 
     if (VecType) {
 
-      // Create a vector alloca and bitcast for the mask parameter.
+      // Create a new vector alloca and bitcast to a pointer to the
+      // element type. The following is an example of what the cast
+      // should look like:
+      //
+      // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
+      //
+      // geps using the bitcast will appear in a scalar form instead
+      // of casting to an array or using vector. For example,
+      //
+      // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
+      //
+      // instead of:
+      //
+      // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
+      //
+      // We do this to put the geps in a more scalar form.
+
+      Twine VarName = "vec." + ArgIt->getName();
+      AllocaInst *VecAlloca = new AllocaInst(VecType, VarName);
+      insertInstruction(VecAlloca, EntryBlock);
+      PointerType *ElemTypePtr =
+          PointerType::get(VecType->getElementType(),
+                           VecAlloca->getType()->getAddressSpace());
+
+      BitCastInst *VecParmCast = nullptr;
       if (ArgIt->getNumUses() == 0 && V.isMasked()) {
-        Twine VarName = "vec_" + ArgIt->getName();
-        AllocaInst *VecAlloca = new AllocaInst(VecType, VarName, ++InsertPt);
-        PointerType *ElemTypePtr =
-            PointerType::get(VecType->getElementType(),
-                             VecAlloca->getType()->getAddressSpace());
-        Mask = new BitCastInst(VecAlloca, ElemTypePtr, "veccast");
+        Mask = new BitCastInst(VecAlloca, ElemTypePtr, "mask.cast");
+      } else {
+        Twine CastName = "vec." + ArgIt->getName() + ".cast";
+        VecParmCast = new BitCastInst(VecAlloca, ElemTypePtr, CastName);
+        insertInstruction(VecParmCast, EntryBlock);
       }
 
-      // For non-mask parameters, find the initial store of the parameter
-      // to an alloca instruction. Map this alloca to the new vector alloca
-      // so that we can update references.
       for (; UserIt != UserEnd; ++UserIt) {
 
         StoreInst *StoreUser = dyn_cast<StoreInst>(*UserIt);
@@ -449,33 +526,38 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
 
         if (StoreUser) {
 
-          Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
+          // For non-mask parameters, find the initial store of the parameter
+          // to an alloca instruction. Map this alloca to the vector bitcast
+          // created above so that we can update the old scalar references.
 
-          // Create a new vector alloca and bitcast to a pointer to the
-          // element type. The following is an example of what the cast
-          // should look like:
-          //
-          // %veccast = bitcast <2 x i32>* %vec_a.addr to i32*
-          //
-          // geps using the bitcast will appear in a scalar form instead
-          // of casting to an array or using vector. For example,
-          //
-          // %vecgep1 = getelementptr i32, i32* %veccast, i32 %index
-          //
-          // instead of:
-          //
-          // getelementptr inbounds [4 x i32], [4 x i32]* %a, i32 0, i64 1
-          //
-          // We do this to put the geps in a more scalar form.
-          Twine VarName = "vec_" + Alloca->getName();
-          AllocaInst *VecAlloca = new AllocaInst(VecType, VarName, Alloca);
-          BitCastInst *VecCast = new BitCastInst(VecAlloca, Alloca->getType(),
-                                                 "veccast");
-          AllocaMap[Alloca] = VecCast;
-          InsertPt = VecAlloca;
+          Alloca = dyn_cast<AllocaInst>(UserIt->getOperand(1));
+          VectorParmMap[Alloca] = VecParmCast;
+        } else {
+          // Since Mem2Reg has run, there is no existing scalar store for
+          // the parameter, but we must still pack (store) the expanded vector
+          // parameter to a new vector alloca. This store is created here and
+          // put in a container for later insertion. We cannot insert it here
+          // since this will be a new user of the parameter and we are still
+          // iterating over the original users of the parameter. This will
+          // invalidate the iterator. We also map the parameter directly to the
+          // vector bitcast so that we can later update any users of the
+          // parameter.
+
+          Value *ArgValue = dyn_cast<Value>(ArgIt);
+          StoreInst *Store = new StoreInst(ArgValue, VecAlloca);
+          StoresToInsert.push_back(Store);
+          VectorParmMap[ArgValue] = VecParmCast;
         }
       }
     }
+  }
+
+  // Insert any necessary vector parameter stores here. This is needed for when
+  // there were no existing scalar stores that we can update to vector stores
+  // for the parameter. This is needed when Mem2Reg has registerized parameters.
+  // The stores are inserted after the allocas in the entry block.
+  for (auto *Inst : StoresToInsert) {
+    insertInstruction(Inst, EntryBlock);
   }
 
   return Mask;
@@ -487,17 +569,17 @@ Instruction* SIMDFunctionCloning::createExpandedReturn(Function *Clone,
 {
   // Expand the return temp to a vector.
 
-  Twine VarName = "vec_retval";
+  Twine VarName = "vec.retval";
   VectorType *AllocaType = dyn_cast<VectorType>(Clone->getReturnType());
 
-  AllocaInst *VecAlloca = new AllocaInst(AllocaType, VarName,
-                                         findLastInstInBlock(EntryBlock, ALLOCA));
+  AllocaInst *VecAlloca = new AllocaInst(AllocaType, VarName);
+  insertInstruction(VecAlloca, EntryBlock);
   PointerType *ElemTypePtr =
       PointerType::get(ReturnType->getElementType(),
                        VecAlloca->getType()->getAddressSpace());
 
-  BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "veccast",
-                                         findLastInstInBlock(EntryBlock, BITCAST));
+  BitCastInst *VecCast = new BitCastInst(VecAlloca, ElemTypePtr, "ret.cast");
+  insertInstruction(VecCast, EntryBlock);
 
   return VecCast;
 }
@@ -507,7 +589,7 @@ Instruction* SIMDFunctionCloning::expandReturn(
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
     BasicBlock *ReturnBlock,
-    std::map<AllocaInst*, Instruction*>& AllocaMap)
+    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
 {
   // Determine how the return is currently handled, since this will determine
   // if a new vector alloca is required for it. For simple functions, an alloca
@@ -558,7 +640,8 @@ Instruction* SIMDFunctionCloning::expandReturn(
   // Two cases exist, here:
   // 
   // 1) For simple functions, the return is a temp defined within the
-  //    loop body and the temp is not an alloca.
+  //    loop body and the temp is not loaded from an alloca, or the return is
+   //   a constant. (obviously, also not loaded from an alloca)
   // 
   // 2) The return temp traces back to an alloca.
   // 
@@ -584,36 +667,53 @@ Instruction* SIMDFunctionCloning::expandReturn(
     // Case 1
 
     VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType);
-    Instruction *RetFromTemp = dyn_cast<Instruction>(FuncReturn->getOperand(0));
+    Value *RetVal = FuncReturn->getReturnValue();
+    Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
-    BasicBlock::iterator InsertPt = RetFromTemp;
+    BasicBlock::iterator InsertPt;
+    Value *ValToStore;
+    Instruction *Phi = LoopBlock->begin();
+
+    if (RetFromTemp) {
+      // If we're returning from an SSA temp, set the insert point to the
+      // definition of the temp.
+      InsertPt = RetFromTemp;
+      ValToStore = RetFromTemp;
+    } else {
+      // If we're returning a constant, then set the insert point to the loop
+      // phi. From here, a store to the vector using the constant is inserted.
+      InsertPt = Phi;
+      ValToStore = RetVal;
+    }
     InsertPt++;
 
-    Value *Phi = LoopBlock->begin();
-
+    // Generate a gep from the bitcast of the vector alloca used for the return
+    // vector.
+    Twine GepName = VecReturn->getName() + ".gep";
     GetElementPtrInst *VecGep =
         GetElementPtrInst::Create(ReturnType->getElementType(),
-                                  VecReturn, Phi, "vec_gep", InsertPt);
+                                  VecReturn, Phi, GepName, InsertPt);
     InsertPt = VecGep;
     InsertPt++;
 
-    new StoreInst(RetFromTemp, VecGep, InsertPt);
+    // Store the constant or temp to the appropriate lane in the return vector.
+    new StoreInst(ValToStore, VecGep, InsertPt);
 
   } else {
 
     // Case 2
 
     AllocaInst *Alloca = dyn_cast<AllocaInst>(LoadFromAlloca->getOperand(0));
-    if (AllocaMap.find(Alloca) != AllocaMap.end()) {
+    if (VectorParmMap.find(Alloca) != VectorParmMap.end()) {
       // There's already a vector alloca created for the return, which is the
       // same one used for the parameter. E.g., we're returning the updated
       // parameter.
-      VecReturn = AllocaMap[Alloca];
+      VecReturn = VectorParmMap[Alloca];
     } else {
       // A new return vector is needed because we do not load the return value
       // from an alloca.
       VecReturn = createExpandedReturn(Clone, EntryBlock, ReturnType);
-      AllocaMap[Alloca] = VecReturn;
+      VectorParmMap[Alloca] = VecReturn;
     }
   }
 
@@ -627,33 +727,34 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
     BasicBlock *ReturnBlock,
-    std::map<AllocaInst*, Instruction*>& AllocaMap)
+    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
 {
   // If there are no parameters, then this function will do nothing and this
   // is the expected behavior.
-  *Mask = expandVectorParameters(Clone, V, EntryBlock, AllocaMap);
+  *Mask = expandVectorParameters(Clone, V, EntryBlock, VectorParmMap);
 
   // If the function returns void, then don't attempt to expand to vector.
   Instruction *ExpandedReturn = ReturnBlock->getTerminator();
   if (!Clone->getReturnType()->isVoidTy()) {
     ExpandedReturn = expandReturn(Clone, EntryBlock, LoopBlock, ReturnBlock,
-                                  AllocaMap);
+                                  VectorParmMap);
   }
 
-  std::map<AllocaInst*, Instruction*>::iterator MapIt = AllocaMap.begin();
-  std::map<AllocaInst*, Instruction*>::iterator MapEnd = AllocaMap.end();
+  SmallDenseMap<Value*, Instruction*>::iterator MapIt = VectorParmMap.begin();
+  SmallDenseMap<Value*, Instruction*>::iterator MapEnd = VectorParmMap.end();
 
   // So, essentially what has been done to this point is the creation and
   // insertion of the vector alloca instructions. Now, we insert the bitcasts of
-  // those instructions, which have been store in the map. The insertion of the
+  // those instructions, which have been stored in the map. The insertion of the
   // vector bitcast to element type pointer is done at the end of the EntryBlock
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
   for (; MapIt != MapEnd; ++MapIt) {
     Instruction *ExpandedCast = MapIt->second;
-    if (!ExpandedCast->getParent())
-      ExpandedCast->insertBefore(EntryBlock->getTerminator());
+    if (!ExpandedCast->getParent()) {
+      insertInstruction(ExpandedCast, EntryBlock);
+    }
   }
 
   // Insert the mask parameter store to alloca and bitcast if this is a masked
@@ -662,9 +763,8 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
     // Mask points to the bitcast of the alloca instruction to element type
     // pointer. Insert the bitcast after all of the other bitcasts for vector
     // parameters.
-    (*Mask)->insertBefore(EntryBlock->getTerminator());
+    insertInstruction(*Mask, EntryBlock);
 
-    // MaskVector points to the vector alloca instruction.
     Value *MaskVector = (*Mask)->getOperand(0);
 
     // MaskParm points to the function's mask parameter.
@@ -680,15 +780,9 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
     // an alloca for either a parameter or return. This code just ensures that
     // the EntryBlock instructions are grouped by alloca, followed by store,
     // followed by bitcast for readability reasons.
-    Instruction *LastInst = findLastInstInBlock(EntryBlock, STORE);
-    BasicBlock::iterator InsertPt = LastInst;
-    if (isa<StoreInst>(InsertPt)) {
-      InsertPt++;
-    } else {
-      InsertPt = findLastInstInBlock(EntryBlock, ALLOCA);
-      if (isa<AllocaInst>(InsertPt)) InsertPt++;
-    }
-    new StoreInst(MaskParm, MaskVector, InsertPt);
+
+    StoreInst *MaskStore = new StoreInst(MaskParm, MaskVector);
+    insertInstruction(MaskStore, EntryBlock);
   }
 
   DEBUG(dbgs() << "After Parameter/Return Expansion\n");
@@ -703,102 +797,176 @@ void SIMDFunctionCloning::updateScalarMemRefsWithVector(
     BasicBlock *EntryBlock,
     BasicBlock *ReturnBlock,
     PHINode *Phi,
-    std::map<AllocaInst*, Instruction*>& AllocaMap)
+    SmallDenseMap<Value*, Instruction*>& VectorParmMap)
 {
-  // Determine which instruction will serve as the address to the users of the
-  // old alloca instructions that will be updated. For parameter stores, use
-  // the bitcast on the new vector alloca. For instructions in the loop body,
-  // use a gep. These instructions are stored in the AddrMap for later use since
-  // we don't want to update instructions on the fly as we're iterating through
-  // use-def lists.
+  // This function replaces the old scalar uses of a parameter with a reference
+  // to the new vector one. A gep is inserted using the vector bitcast created
+  // in the entry block and any uses of the parameter are replaced with this
+  // gep. The only users that will not be updated are those in the entry block
+  // that do the initial store to the vector alloca of the parameter.
 
-  std::map<Instruction*, Instruction*> AddrMap;
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt =
+      VectorParmMap.begin();
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapEnd =
+      VectorParmMap.end();
 
-  std::map<AllocaInst*, Instruction*>::iterator AllocaMapIt;
-  AllocaMapIt = AllocaMap.begin();
+  for (; VectorParmMapIt != VectorParmMapEnd; ++VectorParmMapIt) {
 
-  std::map<AllocaInst*, Instruction*>::iterator AllocaMapEnd;
-  AllocaMapEnd = AllocaMap.end();
-
-  for (; AllocaMapIt != AllocaMapEnd; ++AllocaMapIt) {
-
-    AllocaInst *Alloca = AllocaMapIt->first;
-    Instruction *ExpandedRef = AllocaMapIt->second;
-    User::user_iterator UserIt = Alloca->user_begin();
-    User::user_iterator UserEnd = Alloca->user_end();
+    SmallVector<Instruction*, 4> InstsToUpdate;
+    Value *Parm = VectorParmMapIt->first;
+    Instruction *Cast = VectorParmMapIt->second;
+    User::user_iterator UserIt = Parm->user_begin();
+    User::user_iterator UserEnd = Parm->user_end();
 
     for (; UserIt != UserEnd; ++UserIt) {
+      InstsToUpdate.push_back(dyn_cast<Instruction>(*UserIt));
+    }
 
-      Instruction *User = dyn_cast<Instruction>(*UserIt);
+    for (unsigned I = 0; I < InstsToUpdate.size(); ++I) {
 
-      // This is an initial store to a parameter, but the memory reference
-      // (bitcast) is stored in the map. Replacement of the old references
-      // below will ensure that the initial store will be made to the alloca'd
-      // vector. All other replacements will be made blindly with the gep
-      // that is stored in the map.
+      Instruction *User = InstsToUpdate[I];
+      if (!(dyn_cast<StoreInst>(User) && User->getParent() == EntryBlock)) {
 
-      if (User->getParent() == EntryBlock && dyn_cast<StoreInst>(User)) {
-        AddrMap[User] = ExpandedRef;
-      }
-
-      // Create a gep for the old alloca references within the loop and store it
-      // in the map. The map is used below to do the actual replacement.
-
-      if (User->getParent() != EntryBlock && User->getParent() != ReturnBlock) {
-
-        // We know we're within the loop body if the user is not in the entry or
-        // exit block. All other basic blocks are part of the loop.
-
-        BitCastInst *BitCast = dyn_cast<BitCastInst>(ExpandedRef);
+        BitCastInst *BitCast = dyn_cast<BitCastInst>(Cast);
         PointerType *BitCastType = dyn_cast<PointerType>(BitCast->getType());
         Type *PointeeType = BitCastType->getElementType();
 
+        Twine GepName = BitCast->getName() + ".gep";
         GetElementPtrInst *VecGep =
-            GetElementPtrInst::Create(PointeeType, ExpandedRef, Phi, "vecgep",
+            GetElementPtrInst::Create(PointeeType, BitCast, Phi, GepName,
                                       User);
-        AddrMap[User] = VecGep;
-      }
-    }
-  }
 
-  // Replace the references to the old scalar alloca instructions with the gep.
-  // Or, if the reference is the initial store of a parameter, make sure to use
-  // the actual alloca and not the bitcast. For this case, since the bitcast
-  // is what is stored in the map, we must pull out the operand of the
-  // bitcast to get the alloca.
-
-  std::map<Instruction*, Instruction*>::iterator AddrMapIt = AddrMap.begin();
-  std::map<Instruction*, Instruction*>::iterator AddrMapEnd = AddrMap.end();
-
-  for (; AddrMapIt != AddrMapEnd; ++AddrMapIt) {
-
-    Instruction *User = AddrMapIt->first;
-    Instruction *Addr = AddrMapIt->second;
-
-    if (dyn_cast<LoadInst>(User)) {
-      User->setOperand(0, Addr);
-    }
-
-    if (dyn_cast<StoreInst>(User)) {
-
-      // The initial store of a vector parameter should be to the alloca'd
-      // vector memory and not to the bitcast. All other references can be
-      // blindly replaced using the gep stored in the map.
-
-      Instruction *MemRef;
-      if (dyn_cast<BitCastInst>(Addr)) {
-          // This should point to the vector alloca for the parameter.
-          MemRef = dyn_cast<Instruction>(Addr->getOperand(0));
+        unsigned NumOps = User->getNumOperands();
+        for (unsigned I = 0; I < NumOps; ++I) {
+          if (User->getOperand(I) == Parm) {
+            if (isa<LoadInst>(User) || isa<StoreInst>(User)) {
+              // If the user is a load/store, then just use the gep.
+              User->setOperand(I, VecGep);
+            } else {
+              // Otherwise, we need to load the value from the gep first before
+              // using it. This effectively loads the particular element from
+              // the vector parameter.
+              Twine LoadName = "vec." + Parm->getName() + ".elem";
+              LoadInst *ParmElemLoad = new LoadInst(VecGep, LoadName); 
+              ParmElemLoad->insertAfter(VecGep);
+              User->setOperand(I, ParmElemLoad);
+            }
+          }
+        }
       } else {
-          MemRef = Addr;
+        // The user is the parameter store to alloca in the entry block. Replace
+        // the old scalar alloca with the new vector one.
+        AllocaInst *VecAlloca = dyn_cast<AllocaInst>(Cast->getOperand(0));
+        User->setOperand(1, VecAlloca);
       }
-
-      User->setOperand(1, MemRef);
     }
   }
 
   DEBUG(dbgs() << "After Alloca Replacement\n");
   DEBUG(Clone->dump());
+}
+
+Instruction* SIMDFunctionCloning::generateStrideForParameter(
+    Function *Clone,
+    Argument *Arg,
+    Instruction *ParmUser,
+    int Stride,
+    PHINode *Phi)
+{
+  // Value returned as the last instruction needed to update the users of the
+  // old parameter reference.
+  Instruction *StrideInst = nullptr;
+
+  // Insert the stride related instructions after the user if the instruction
+  // involves a redefinition of the parameter. For example, a load from the
+  // parameter's associated alloca or a cast. For these situations, we want to
+  // apply the stride to this SSA temp. For other instructions, e.g., add, the
+  // instruction computing the stride must be inserted before the user.
+
+  BasicBlock::iterator StrideInsertPt = ParmUser;
+  if (!isa<UnaryInstruction>(ParmUser)) {
+    StrideInsertPt--;
+  }
+
+  Constant *StrideConst =
+      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
+
+  Instruction *Mul = BinaryOperator::CreateMul(StrideConst, Phi, "stride.mul");
+  Mul->insertAfter(StrideInsertPt);
+
+  if (Arg->getType()->isPointerTy()) {
+
+    // Linear updates to pointer parameters involves an address calculation, so
+    // use gep. To properly update linear pointers we only need to multiply the
+    // loop index and stride since gep is indexed starting at 0 from the base
+    // address passed to the vector function.
+    PointerType *ParmPtrType = dyn_cast<PointerType>(Arg->getType());
+
+    // The base address used for linear gep computations.
+    Value *BaseAddr = nullptr;
+    StringRef RefName;
+
+    if (LoadInst *ParmLoad = dyn_cast<LoadInst>(ParmUser)) {
+      // We are loading from the alloca of the pointer parameter (no Mem2Reg)
+      // i.e., loading a pointer to an SSA temp.
+      BaseAddr = ParmUser;
+      RefName = ParmLoad->getOperand(0)->getName();
+    } else {
+      // The user is using the pointer parameter directly.
+      BaseAddr = Arg;
+      RefName = BaseAddr->getName();
+    }
+
+    // Mul is always generated as i32 since it is calculated using the i32 loop
+    // phi that is inserted by this pass. No cast on Mul is necessary because
+    // gep can use a base address of one type with an index of another type.
+    Twine GepName = RefName + ".gep";
+    GetElementPtrInst *LinearParmGep =
+        GetElementPtrInst::Create(ParmPtrType->getElementType(),
+                                  BaseAddr, Mul, GepName);
+
+    LinearParmGep->insertAfter(Mul);
+    StrideInst = LinearParmGep;
+  } else {
+    // For linear values, a mul/add sequence is needed to generate the correct
+    // value. i.e., val = linear_var * stride + loop_index;
+    //
+    // Also, Mul above is generated as i32 because the phi type is always i32.
+    // However, ParmUser may be another integer type, so we must convert i32 to
+    // i8/i16/i64 when the user is not i32.
+
+    if (ParmUser->getType()->getIntegerBitWidth() !=
+        Mul->getType()->getIntegerBitWidth()) {
+
+      Instruction *MulConv =
+              CastInst::CreateIntegerCast(Mul, ParmUser->getType(), true,
+                                          "stride.cast");
+      MulConv->insertAfter(Mul);
+      Mul = MulConv;
+    }
+
+    // Generate the instruction that computes the stride.
+    BinaryOperator *Add;
+    StringRef TempName = "stride.add";
+    if (isa<UnaryInstruction>(ParmUser)) {
+      // The user of the parameter is an instruction that results in a
+      // redefinition of it. e.g., a load from an alloca (no Mem2Reg) or a cast
+      // instruction. In either case, the stride needs to be applied to this
+      // temp.
+      Add = BinaryOperator::CreateAdd(ParmUser, Mul, TempName);
+    } else {
+      // Otherwise, the user is an instruction that does not redefine the temp,
+      // such as an add instruction. For these cases, the stride must be
+      // computed before the user and the reference to the parameter must be
+      // replaced with this instruction.
+      Add = BinaryOperator::CreateAdd(Arg, Mul, TempName);
+    }
+
+    Add->insertAfter(Mul);
+    StrideInst = Add;
+  }
+
+  return StrideInst;
 }
 
 void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
@@ -807,7 +975,9 @@ void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
   // Add stride to parameters marked as linear. This is done by finding all
   // users of the scalar alloca associated with the parameter. The user should
   // be a load from this alloca to a temp. The stride is then added to this temp
-  // and its uses are replaced with the new temp.
+  // and its uses are replaced with the new temp. Or, if Mem2Reg eliminates the
+  // alloca/load, the parameter is used directly and this use is updated with
+  // the stride.
 
   Function::ArgumentListType &ArgList = Clone->getArgumentList();
   Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
@@ -819,78 +989,161 @@ void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
     User::user_iterator ArgUserIt = ArgListIt->user_begin();
     User::user_iterator ArgUserEnd = ArgListIt->user_end();
     unsigned ParmIdx = ArgListIt->getArgNo();
+    SmallVector<Instruction*, 4> LinearParmUsers;
 
     if (ParmKinds[ParmIdx].isLinear()) {
 
       int Stride = ParmKinds[ParmIdx].getStride();
-      Constant *StrideConst =
-          ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
 
       for (; ArgUserIt != ArgUserEnd; ++ArgUserIt) {
 
-        AllocaInst *Alloca = dyn_cast<AllocaInst>(ArgUserIt->getOperand(1));
+        // Collect all uses of the parameter so that they can later be used to
+        // apply the stride.
+        Instruction *ParmUser = dyn_cast<Instruction>(*ArgUserIt);
+        if (StoreInst *ParmStore = dyn_cast<StoreInst>(ParmUser)) {
 
-        if (Alloca) {
+          // This code traces the store of the parameter to its associated
+          // alloca. Then, we look for a load from that alloca to a temp. This
+          // is the value we need to add the stride to. This is for when
+          // Mem2Reg has not been run.
+          AllocaInst *Alloca = dyn_cast<AllocaInst>(ArgUserIt->getOperand(1));
 
-          User::user_iterator AllocaUserIt = Alloca->user_begin();
-          User::user_iterator AllocaUserEnd = Alloca->user_end();
+          if (Alloca) {
 
-          for (; AllocaUserIt != AllocaUserEnd; ++AllocaUserIt) {
+            User::user_iterator AllocaUserIt = Alloca->user_begin();
+            User::user_iterator AllocaUserEnd = Alloca->user_end();
 
-            // Look only for load users since these will represent
-            // a temp definition for the linear parameter. This is
-            // the temp we will use to add stride.
+            for (; AllocaUserIt != AllocaUserEnd; ++AllocaUserIt) {
 
-            LoadInst *ParmLoad = dyn_cast<LoadInst>(*AllocaUserIt);
-
-            if (ParmLoad) {
-
-              // Now, find users of the load. The new temp with stride
-              // will replace the original temp. We are assuming only
-              // a single user of a load here because of SSA.
-
-              User::user_iterator LoadUser = ParmLoad->user_begin();
-
-              Instruction *Instr = dyn_cast<Instruction>(*LoadUser);
-              assert(Instr && "Expected user of the load to be an\
-                               instruction.");
-
-              BinaryOperator *Mul =
-                  BinaryOperator::CreateMul(StrideConst, Phi, "mul");
-              Mul->insertAfter(ParmLoad);
-
-              Value *LinearVal;
-
-              if (ParmLoad->getType()->isPointerTy()) {
-                // Linear updates to pointer parameters involves an address
-                // calculation, so use gep. To properly update linear pointers
-                // we only need to multiply the loop index and stride since gep
-                // is indexed starting at 0 from the base address passed to the
-                // function.
-                PointerType *ParmPtrType =
-                  dyn_cast<PointerType>(ParmLoad->getType());
-
-                GetElementPtrInst *LinearParmGep =
-                  GetElementPtrInst::Create(ParmPtrType->getElementType(),
-                                            ParmLoad, Mul, "parmgep");
-
-                LinearParmGep->insertAfter(Mul);
-                LinearVal = LinearParmGep;
-              } else {
-                // For linear values, a mul/add sequence is needed to generate
-                // the correct value.
-                // i.e., val = linear_var * stride + loop_index;
-                BinaryOperator *Add =
-                    BinaryOperator::CreateAdd(ParmLoad, Mul, "add");
-                Add->insertAfter(Mul);
-                LinearVal = Add;
+              LoadInst *ParmLoad = dyn_cast<LoadInst>(*AllocaUserIt);
+              if (ParmLoad) {
+                // The parameter is being loaded from an alloca to a new SSA
+                // temp. We must replace the users of this load with an
+                // instruction that adds the result of this load with the
+                // stride.
+                LinearParmUsers.push_back(ParmLoad);
               }
+            }
+          } else {
+            // Mem2Reg has run, so the parameter is directly referenced in the
+            // store instruction.
+            LinearParmUsers.push_back(ParmStore);
+          }
+        } else {
+          // Mem2Reg has registerized the parameters, so users of it will use
+          // it directly, and not through a load of the parameter.
+          LinearParmUsers.push_back(ParmUser);
+        }
 
-              unsigned NumOps = LoadUser->getNumOperands();
-              for (unsigned I = 0; I < NumOps; ++I) {
-                if (LoadUser->getOperand(I) == ParmLoad) {
-                  LoadUser->setOperand(I, LinearVal);
-                }
+        for (unsigned I = 0; I < LinearParmUsers.size(); I++) {
+          // For each user of parameter:
+
+          // We must deal with two cases here, based on whether Mem2Reg has been
+          // run.
+          //
+          // Example:
+          //
+          // __declspec(vector(linear(i:1),uniform(x),vectorlength(4)))
+          // extern int foo(int i, int x) {
+          //   return (x + i);
+          // }
+          //
+          // 1) We are loading the parameter from an alloca and the SSA temp as
+          //    as a result of the load is what we need to add the stride to.
+          //    Then, any users of that temp must be replaced. The only load
+          //    instructions put in the collection above are guaranteed to be
+          //    associated with the parameter's alloca. Thus, we only need to
+          //    check to see if a load is in the map to know what to do.
+          //
+          // Before Linear Update:
+          //
+          // simd.loop:                     ; preds = %simd.loop.exit, %entry
+          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+          //   store i32 %x, i32* %x.addr, align 4
+          //   %0 = load i32, i32* %x.addr, align 4
+          //   %1 = load i32, i32* %i.addr, align 4 <--- %i
+          //   %add = add nsw i32 %0, %1            <--- replace %1 with stride
+          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+          //   store i32 %add, i32* %ret.cast.gep
+          //   br label %simd.loop.exit
+          //
+          // After Linear Update:
+          //
+          // simd.loop:                     ; preds = %simd.loop.exit, %entry
+          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+          //   store i32 %x, i32* %x.addr, align 4
+          //   %0 = load i32, i32* %x.addr, align 4
+          //   %1 = load i32, i32* %i.addr, align 4
+          //   %stride.mul = mul i32 1, %index
+          //   %stride.add = add i32 %1, %stride.mul <--- stride
+          //   %add = add nsw i32 %0, %stride.add    <--- new %i with stride
+          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+          //   store i32 %add, i32* %ret.cast.gep
+          //   br label %simd.loop.exit
+          //
+          // 2) The user uses the parameter directly, and so we must apply the
+          //    stride directly to the parameter. Any users of the parameter
+          //    must then be updated.
+          //
+          // Before Linear Update:
+          //
+          // simd.loop:                     ; preds = %simd.loop.exit, %entry
+          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+          //   %add = add nsw i32 %x, %i <-- direct usage of %i
+          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+          //   store i32 %add, i32* %ret.cast.gep
+          //   br label %simd.loop.exit
+          //
+          // After Linear Update:
+          //
+          // simd.loop:                     ; preds = %simd.loop.exit, %entry
+          //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
+          //   %stride.mul = mul i32 1, %index
+          //   %stride.add = add i32 %i, %stride.mul <--- stride
+          //   %add = add nsw i32 %x, %stride.add    <--- new %i with stride
+          //   %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
+          //   store i32 %add, i32* %ret.cast.gep
+          //   br label %simd.loop.exit
+
+          Instruction *StrideInst =
+              generateStrideForParameter(Clone, ArgListIt, LinearParmUsers[I],
+                                         Stride, Phi);
+
+          SmallVector<Instruction*, 4> InstsToUpdate;
+          Value *ParmUser;
+
+          if (isa<UnaryInstruction>(LinearParmUsers[I])) {
+            // Case 1
+            ParmUser = LinearParmUsers[I];
+            User::user_iterator StrideUserIt = LinearParmUsers[I]->user_begin();
+            User::user_iterator StrideUserEnd = LinearParmUsers[I]->user_end();
+
+            // Find the users of the redefinition of the parameter so that we
+            // can apply the stride to those instructions.
+            for (; StrideUserIt != StrideUserEnd; ++StrideUserIt) {
+
+              Instruction *StrideUser = dyn_cast<Instruction>(*StrideUserIt);
+              if (StrideUser != StrideInst) {
+                // We've already inserted the stride which is now also a user of
+                // the parameter, so don't update that instruction. Otherwise,
+                // we'll create a self reference. Hence, why we don't use
+                // replaceAllUsesWith().
+                InstsToUpdate.push_back(StrideUser);
+              }
+            }
+          } else {
+            // Case 2
+            ParmUser = ArgListIt;
+            InstsToUpdate.push_back(LinearParmUsers[I]);
+          }
+
+          // Replace the old references to the parameter with the instruction
+          // that applies the stride.
+          for (unsigned J = 0; J < InstsToUpdate.size(); ++J) {
+            unsigned NumOps = InstsToUpdate[J]->getNumOperands();
+            for (unsigned K = 0; K < NumOps; ++K) {
+              if (InstsToUpdate[J]->getOperand(K) == ParmUser) {
+                InstsToUpdate[J]->setOperand(K, StrideInst);
               }
             }
           }
@@ -901,24 +1154,6 @@ void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
 
   DEBUG(dbgs() << "After Linear Updates\n");
   DEBUG(Clone->dump());
-}
-
-void SIMDFunctionCloning::removeScalarMemRefs(std::map<AllocaInst*,
-                                                       Instruction*>& AllocaMap)
-{
-  // Remove any scalar alloca instructions that have been expanded to vector
-  // alloca instructions.
-
-  std::map<AllocaInst*, Instruction*>::iterator AllocaMapIt;
-  AllocaMapIt = AllocaMap.begin();
-
-  std::map<AllocaInst*, Instruction*>::iterator AllocaMapEnd;
-  AllocaMapEnd = AllocaMap.end();
-
-  for (; AllocaMapIt != AllocaMapEnd; ++AllocaMapIt) {
-    AllocaInst *OldAlloca = AllocaMapIt->first;
-    OldAlloca->eraseFromParent();
-  }
 }
 
 void SIMDFunctionCloning::updateReturnBlockInstructions(
@@ -958,15 +1193,19 @@ void SIMDFunctionCloning::updateReturnBlockInstructions(
       PointerType *PtrVecType =
           PointerType::get(Clone->getReturnType(),
                            Alloca->getType()->getAddressSpace());
+      Twine CastName = "vec." + ExpandedReturn->getName();
       BitCastInst *BitCast = new BitCastInst(ExpandedReturn, PtrVecType,
-                                             "cast", ReturnBlock);
+                                             CastName, ReturnBlock);
       Return = BitCast;
   } else {
       Return = ExpandedReturn;
   }
 
-  LoadInst *VecReturn = new LoadInst(Return, "vec_ret", ReturnBlock);
+  LoadInst *VecReturn = new LoadInst(Return, "vec.ret", ReturnBlock);
   ReturnInst::Create(Clone->getContext(), VecReturn, ReturnBlock);
+
+  DEBUG(dbgs() << "After Return Block Update\n");
+  DEBUG(Clone->dump());
 }
 
 int SIMDFunctionCloning::getParmIndexInFunction(Function *F,
@@ -1005,8 +1244,8 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
           M, VPOUtils::getClauseString(QUAL_OMP_SIMDLEN), VL);
   VlenCall->insertAfter(SIMDBeginCall);
 
-  // Add directives for linear and vector parameters. Otherwise, the parameter
-  // is uniform by default. Vector parameters can be marked as private.
+  // Add directives for linear and vector parameters. Vector parameters can be
+  // marked as private.
   SmallVector<Value*, 4> LinearVars;
   SmallVector<Value*, 4> PrivateVars;
   Function::ArgumentListType &ArgList = Clone->getArgumentList();
@@ -1043,10 +1282,17 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
     PrivateCall->insertAfter(VlenCall);
   }
 
+  CallInst *DirQualListEndCall =
+      VPOUtils::createDirectiveCall(
+          M, VPOUtils::getDirectiveString(DIR_QUAL_LIST_END));
+  DirQualListEndCall->insertBefore(BeginRegionBlock->getTerminator());
+
+/*
   CallInst *QualEndCall =
       VPOUtils::createDirectiveQualCall(
           M, VPOUtils::getClauseString(QUAL_LIST_END));
   QualEndCall->insertBefore(BeginRegionBlock->getTerminator());
+*/
 }
 
 void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
@@ -1068,6 +1314,11 @@ void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
       VPOUtils::createDirectiveCall(
           M, VPOUtils::getDirectiveString(DIR_OMP_END_SIMD));
   SIMDEndCall->insertBefore(EndDirectiveBlock->getTerminator());
+
+  CallInst *DirQualListEndCall =
+      VPOUtils::createDirectiveCall(
+          M, VPOUtils::getDirectiveString(DIR_QUAL_LIST_END));
+  DirQualListEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
 void SIMDFunctionCloning::insertDirectiveIntrinsics(Module& M,
@@ -1080,164 +1331,31 @@ void SIMDFunctionCloning::insertDirectiveIntrinsics(Module& M,
 {
   insertBeginRegion(M, Clone, F, V, EntryBlock);
   insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock);
+  DEBUG(dbgs() << "After Directives Insertion\n");
+  DEBUG(Clone->dump());
 }
 
-void SIMDFunctionCloning::createBroadcastReturn(VectorVariant &V,
-                                                ReturnInst *Return)
-{
-  Value* ScalarRetVal = Return->getOperand(0);
-
-  // Generate a new scalar Value that will be expanded to vector. We need to do
-  // this because are removing the original scalar return and we don't want any
-  // of the original uses of the Value left around or the LLVM verifier will
-  // complain.
-
-  Constant *ConstVal;
-  SmallVector<Constant*, 4> Splat;
-  Function *ReturnBlockParent = Return->getParent()->getParent();
-
-  if (ConstantInt *Const = dyn_cast<ConstantInt>(ScalarRetVal))
-    ConstVal = ConstantInt::get(Const->getType(), Const->getValue());
-  else if (ConstantFP *Const = dyn_cast<ConstantFP>(ScalarRetVal))
-    ConstVal = ConstantFP::get(ReturnBlockParent->getContext(),
-                               Const->getValueAPF());
-  else
-    // So far, a simple return with a constant value is expected. If we
-    // broadcast an incoming parameter, there will be an alloca for the
-    // parameter and corresponding store/load after, so this function should
-    // not be reached. Allow the rest of the framework to kick in for these
-    // cases. Assert just in case we get any other cases that don't involve a
-    // simple return with constant. Return of constant expressions will be
-    // simplified to a single constant value, which will be covered by the two
-    // cases above.
-    assert("Expected broadcast value to be a constant");
-
-  for (int J = 0; J < V.getVlen(); ++J) {
-    Splat.push_back(ConstVal);
-  }
-
-  Value *ConstVec = ConstantVector::get(Splat);
-  ReturnInst::Create(ReturnBlockParent->getContext(), ConstVec,
-                     Return->getParent());
-
-  Return->eraseFromParent();
-}
-
-bool SIMDFunctionCloning::isSimpleFunction(Function &F, VectorVariant &V,
-                                           ReturnInst *Return)
+bool SIMDFunctionCloning::isSimpleFunction(Function *Clone, VectorVariant &V,
+                                           ReturnInst *ReturnOnly)
 {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
 
-  // Case 1: void foo(void)
+  // Example:
+  //
+  // void foo(void) {
+  //   return;
+  // }
   // 
   // No need to insert a loop for this case since it's basically a no-op. Just
   // clone the function and return. It's possible that we could have some code
   // inside of a vector function that modifies global memory. Let that case go
   // through.
-  if (Return && F.getReturnType()->isVoidTy() && F.arg_empty()) {
-    return true;
-  }
-
-  // Case 2: only instruction is 'ret'
-  //
-  // If this is just a simple return and no other instructions, then just
-  // broadcast the scalar return value to a vector alloca and return it.
-  if (Return && !F.getReturnType()->isVoidTy()) {
-    createBroadcastReturn(V, Return);
+  if (ReturnOnly && Clone->getReturnType()->isVoidTy()) {
     return true;
   }
 
   return false;
-}
-
-void SIMDFunctionCloning::sinkUniformParmStoresIntoLoop(Function *Clone,
-                                                        Function &F,
-                                                        VectorVariant &V,
-                                                        BasicBlock *EntryBlock,
-                                                        BasicBlock *LoopBlock)
-{
-  // Sink all initial stores to alloca of uniform parameters into the loop.
-  // This function essentially ensures that all uniform parameters behave as
-  // such. Sinking the initial store to the alloca inside of the loop ensures
-  // that the original value of the uniform parameter is loaded and the same
-  // value is recomputed in the loop.
-  //
-  // The following is an example:
-  //
-  // __declspec(vector(uniform(v))) int foo(int v) {
-  //  int t = 2;
-  //  v = t + 1;
-  //  return v;
-  // }
-  //
-  // Initial LLVM:
-  //
-  // define i32 @vec_foo(i32 %v) #0 {
-  // entry:
-  //   %v.addr = alloca i32, align 4
-  //   %t = alloca i32, align 4
-  //   store i32 %v, i32* %v.addr, align 4
-  //   store i32 2, i32* %t, align 4
-  //   %0 = load i32, i32* %t, align 4
-  //   %add = add nsw i32 %0, 1
-  //   store i32 %add, i32* %v.addr, align 4
-  //   %1 = load i32, i32* %v.addr, align 4
-  //   ret i32 %1
-  // }
-  //
-  // After Transformation (partial LLVM):
-  //
-  // define <4 x i32> @clone.vec_foo(i32 %v) #0 {
-  // entry:
-  //   %vec_retval = alloca <4 x i32>   <--- return vector
-  //   %veccast = bitcast <4 x i32>* %vec_retval to i32*
-  //   %t = alloca i32, align 4
-  //   br label %simd.loop
-  //
-  // simd.loop:           ; preds = %simd.loop.exit, %entry
-  //   %index = phi i32 [ 0, %entry ], [ %indvar, %simd.loop.exit ]
-  //   %vecgep2 = getelementptr i32, i32* %veccast, i32 %index
-  //   store i32 %v, i32* %vecgep2, align 4  <--- Store moved to loop
-  //   store i32 2, i32* %t, align 4
-  // 
-  // ...
-  // }
-  //
-  // In this case a copy of the value needs to be broadcast to the return
-  // vector, but we cannot do a vector copy in the simd loop preheader. Thus,
-  // we simply move the store instruction to the top of simd loop (after the
-  // phi) and then the initial parameter value can be stored to the appropriate
-  // lane/index before the operation is applied. Or, for cases when other
-  // scalar operations are performed before the vector store, the operation is
-  // applied to the same incoming value of the parameter. Then, later the store
-  // is done using a computation involving a true uniform value.
-
-  SmallVector<StoreInst*, 4> StoresToSink;
-  BasicBlock::iterator InstrIt = EntryBlock->begin();
-  BasicBlock::iterator InstrEnd = EntryBlock->end();
-  std::vector<VectorKind> ParmKinds = V.getParameters();
-
-  for (; InstrIt != InstrEnd; ++InstrIt) {
-    StoreInst *Store = dyn_cast<StoreInst>(InstrIt);
-    if (Store) {
-      Value *Parm = Store->getOperand(0);
-      int ParmIdx = getParmIndexInFunction(Clone, Parm);
-      if (ParmKinds[ParmIdx].isUniform()) {
-        StoresToSink.push_back(Store);
-      }
-    }
-  }
-
-  BasicBlock::iterator InsertPt = LoopBlock->begin();
-  for (unsigned I = 0; I < StoresToSink.size(); ++I) {
-    StoresToSink[I]->removeFromParent();
-    StoresToSink[I]->insertAfter(InsertPt);
-    InsertPt = StoresToSink[I];
-  }
-
-  DEBUG(dbgs() << "After Uniform Store Sinking\n");
-  DEBUG(Clone->dump());
 }
 
 void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
@@ -1261,10 +1379,11 @@ void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
   Type *PointeeType = BitCastType->getElementType();
 
   GetElementPtrInst *MaskGep =
-      GetElementPtrInst::Create(PointeeType, Mask, Phi, "maskgep",
+      GetElementPtrInst::Create(PointeeType, Mask, Phi, "mask.gep",
                                 LoopBlock->getTerminator());
 
-  LoadInst *MaskLoad = new LoadInst(MaskGep, "mask",
+  Twine LoadName = "mask.parm";
+  LoadInst *MaskLoad = new LoadInst(MaskGep, LoadName,
                                     LoopBlock->getTerminator());
 
   Type *CompareTy = MaskLoad->getType();
@@ -1282,11 +1401,11 @@ void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
   if (CompareTy->isIntegerTy()) {
     Zero = VPOUtils::getConstantValue(CompareTy, Clone->getContext(), 0);
     MaskCmp = new ICmpInst(LoopBlock->getTerminator(), CmpInst::ICMP_NE,
-                           MaskLoad, Zero, "maskcond");
+                           MaskLoad, Zero, "mask.cond");
   } else if (CompareTy->isFloatingPointTy()) {
     Zero = VPOUtils::getConstantValue(CompareTy, Clone->getContext(), 0.0);
     MaskCmp = new FCmpInst(LoopBlock->getTerminator(), CmpInst::FCMP_UNE,
-                           MaskLoad, Zero, "maskcond");
+                           MaskLoad, Zero, "mask.cond");
   } else {
     assert(0 && "Unsupported mask compare");
   }
@@ -1294,6 +1413,25 @@ void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
   TerminatorInst *Term = LoopBlock->getTerminator();
   Term->eraseFromParent();
   BranchInst::Create(LoopThenBlock, LoopElseBlock, MaskCmp, LoopBlock);
+
+  DEBUG(dbgs() << "After Split Insertion For Masked Variant\n");
+  DEBUG(Clone->dump());
+}
+
+void SIMDFunctionCloning::removeScalarAllocasForVectorParams(
+    SmallDenseMap<Value*, Instruction*> &VectorParmMap)
+{
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt =
+      VectorParmMap.begin();
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapEnd =
+      VectorParmMap.end();
+
+  for (; VectorParmMapIt != VectorParmMapEnd; ++VectorParmMapIt) {
+    Value *Parm = VectorParmMapIt->first;
+    if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
+      ScalarAlloca->eraseFromParent();
+    }
+  }
 }
 
 bool SIMDFunctionCloning::runOnModule(Module &M) {
@@ -1322,9 +1460,11 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
       Function *Clone = CloneFunction(F, Variant);
       Function::iterator EntryBlock = Clone->begin();
       BasicBlock::iterator FirstInst = EntryBlock->begin();
-      ReturnInst *Return = dyn_cast<ReturnInst>(FirstInst);
+      ReturnInst *ReturnOnly = dyn_cast<ReturnInst>(FirstInst);
 
-      if (isSimpleFunction(F, Variant, Return)) continue;
+      if (isSimpleFunction(Clone, Variant, ReturnOnly)) {
+        continue;
+      }
 
       BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, EntryBlock);
       BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, LoopBlock);
@@ -1340,18 +1480,17 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
       // we can go through and update instructions since we know what
       // is part of the loop.
 
-      // For uniform parameters, we want to avoid updating the var VL times.
-      // Thus, if we sink the initial store of the parameter in the loop, all
-      // operations on the uniform parameter will be recomputed from the
-      // incoming value.
-      sinkUniformParmStoresIntoLoop(Clone, F, Variant, EntryBlock, LoopBlock);
+      // VectorParmMap contains the mapping of the parameter to the bitcast
+      // instruction that casts the vector alloca for vector parameters
+      // to a scalar pointer for use in the simd loop. When parameters are
+      // registerized, the Value* in the map correponds directly to the
+      // function parameter. When parameters are not registerized, then the
+      // Value* in the map is the original scalar alloca before expansion.
+      // Later, users of the parameter, either directly or through the alloca,
+      // are replaced with a gep using the bitcast of the vector alloca for the
+      // parameter and the current loop induction variable value.
 
-      // We don't want to add alloca instructions as we're iterating through
-      // the list of them in the entry block. So, collect them and then
-      // add them to the entry block. This maps the old alloca to the new
-      // one.
-
-      std::map<AllocaInst*, Instruction*> AllocaMap;
+      SmallDenseMap<Value*, Instruction*> VectorParmMap;
 
       // Create a new vector alloca instruction for all vector parameters and
       // return. For parameters, replace the initial store to the old alloca
@@ -1362,25 +1501,29 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
       Instruction *Mask = NULL;
       Instruction *ExpandedReturn =
           expandVectorParametersAndReturn(Clone, Variant, &Mask, EntryBlock,
-                                          LoopBlock, ReturnBlock, AllocaMap);
+                                          LoopBlock, ReturnBlock,
+                                          VectorParmMap);
       updateScalarMemRefsWithVector(Clone, F, EntryBlock, ReturnBlock, Phi,
-                                    AllocaMap);
+                                    VectorParmMap);
 
       // Update any linear variables with the appropriate stride. This function
-      // will insert a mul/add sequence just after the load of the parameter.
+      // will insert a mul/add sequence before the use of the parameter. For
+      // linear pointer parameters, the stride calculation is just a mul
+      // instruction using the loop induction var and the stride value on the
+      // parameter. This mul instruction is then used as the index of the gep
+      // that will be inserted before the next use of the parameter. The
+      // function also updates the users of the parameter with the new
+      // calculation involving the stride.
       updateLinearReferences(Clone, F, Variant, Phi);
 
       // Remove the old scalar instructions associated with the return and
       // replace with packing instructions.
       updateReturnBlockInstructions(Clone, ReturnBlock, ExpandedReturn);
 
-      // Wipe out all of the old scalar alloca instructions that have been
-      // replaced with vector ones. This must be done after updating the
-      // ReturnBlock because if instructions are removed in ReturnBlock, the
-      // original scalar alloca references can be users of those instructions,
-      // and LLVM will complain if defs are removed before uses.
-      removeScalarMemRefs(AllocaMap);
-      AllocaMap.clear();
+      // Remove the old scalar allocas associated with vector parameters since
+      // these have now been replaced with vector ones.
+      removeScalarAllocasForVectorParams(VectorParmMap);
+      VectorParmMap.clear();
 
       // If this is the masked vector variant, insert the mask condition and
       // if/else blocks.
@@ -1391,6 +1534,9 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
       insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopExitBlock,
                                 ReturnBlock);
+
+      DEBUG(dbgs() << "After SIMD Function Cloning\n");
+      DEBUG(Clone->dump());
 
     } // End of function cloning for the variant
   } // End of function cloning for all variants

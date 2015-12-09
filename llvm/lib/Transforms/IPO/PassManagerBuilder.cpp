@@ -439,7 +439,12 @@ void PassManagerBuilder::populateModulePassManager(
   // on the rotated form. Disable header duplication at -Oz.
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
-  addLoopOptPasses(MPM); // INTEL - HIR passes
+#if INTEL_CUSTOMIZATION
+  if (RunSIMDFunctionCloning) {
+    MPM.add(createSIMDFunctionCloningPass());
+  }
+  addLoopOptPasses(MPM);
+#endif // INTEL_CUSTOMIZATION
 
   // Distribute loops to allow partial vectorization.  I.e. isolate dependences
   // into separate loop that would otherwise inhibit vectorization.
@@ -530,9 +535,6 @@ void PassManagerBuilder::populateModulePassManager(
 
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
-  if (RunSIMDFunctionCloning) {
-    MPM.add(createSIMDFunctionCloningPass());
-  }
   if (RunVPODriver) {
     MPM.add(createVPODriverPass());
   }

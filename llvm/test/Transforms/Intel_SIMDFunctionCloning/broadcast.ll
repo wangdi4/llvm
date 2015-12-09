@@ -1,10 +1,9 @@
-; Check simple broadcast of constant integer. SIMDFunctionCloning should be able to just emit vector code for this case.
+; Check broadcast of a constant. The store of the constant should be moved inside of the loop.
 
 ; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
 
-; CHECK-LABEL: __regcall <4 x i32> @_ZGVxN4_foo()
-; CHECK: entry:
-; CHECK: ret <4 x i32> <i32 99, i32 99, i32 99, i32 99>
+; CHECK: simd.loop:
+; CHECK: store i32 99, i32* %ret.cast.gep
 
 ; ModuleID = 'foo.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
