@@ -51,6 +51,7 @@ llvm::Pass *createShiftZeroUpperBitsPass();
 llvm::Pass *createBuiltinCallToInstPass();
 llvm::Pass *createRelaxedPass();
 llvm::Pass *createLinearIdResolverPass();
+llvm::ModulePass *createSubGroupAdaptationPass();
 llvm::ModulePass *createKernelAnalysisPass();
 llvm::ModulePass *createBuiltInImportPass(const char* CPUName);
 llvm::ImmutablePass * createImplicitArgsAnalysisPass(llvm::LLVMContext *C);
@@ -242,6 +243,10 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
     PM.add(llvm::createInstructionCombiningPass());
     PM.add(llvm::createInstructionSimplifierPass());
   }
+
+  if (isOcl20)
+    PM.add(createSubGroupAdaptationPass());
+
   if (isOcl20) {
     // Flatten get_{local, global}_linear_id()
     PM.add(createLinearIdResolverPass());

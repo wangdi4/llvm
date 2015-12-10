@@ -61,6 +61,7 @@ include_directories(
   ${BACKEND_ROOT_DIR}/../cl_api
   ${CL_API_HEADERS}
   ${BACKEND_ROOT_DIR}/name_mangling
+  ${BACKEND_ROOT_DIR}/reflection_module
   ${BACKEND_ROOT_DIR}/metadata_api
   ${BACKEND_ROOT_DIR}/utils
   ${CMAKE_BINARY_DIR}/include

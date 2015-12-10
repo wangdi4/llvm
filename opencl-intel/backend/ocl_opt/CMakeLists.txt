@@ -29,6 +29,7 @@ set(OCL_BE_PASSES
     KernelInfo
     LLVMBarrier
     LLVMVectorizer
+    SubGroupAdaptation
     LinearIdResolver
     LocalBuffAnalysis
     LocalBuffers
