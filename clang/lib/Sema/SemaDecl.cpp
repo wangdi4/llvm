@@ -8780,9 +8780,17 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     HasExtraParameters = false;
 
   if (HasExtraParameters) {
+#if INTEL_CUSTOMIZATION
+    //CQ#373972 - emit a warning if too many parameters.
+    if (getLangOpts().IntelCompat) {
+      Diag(FD->getLocation(), diag::warn_main_surplus_args) << nparams;
+      nparams = 3;
+    } else {
+#endif //INTEL_CUSTOMIZATION
     Diag(FD->getLocation(), diag::err_main_surplus_args) << nparams;
     FD->setInvalidDecl(true);
     nparams = 3;
+    } // INTEL
   }
 
   // FIXME: a lot of the following diagnostics would be improved
