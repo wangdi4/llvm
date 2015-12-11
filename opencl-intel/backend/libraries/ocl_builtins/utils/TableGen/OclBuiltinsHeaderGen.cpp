@@ -75,7 +75,6 @@ typedef std::list<TypedBi> TypedBiList;
 typedef TypedBiList::const_iterator TypedBiIter;
 
   ~MangledNameEmmiter(){
-    llvm::Module* pModule = NULL;
     const char* fileName = "builtins.ll";
     llvm::SMDiagnostic errDiagnostic;
     llvm::LLVMContext context;
@@ -100,7 +99,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
       code += generateBuiltinOverload(B, typeit->second).append("\n");
     }
     build(code, fileName);
-    pModule = llvm::ParseIRFile(fileName, errDiagnostic, context);
+    std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile(fileName, errDiagnostic, context);
     assert(pModule && "module parsing failed");
     //deleting the temporary output file
     remove(fileName);

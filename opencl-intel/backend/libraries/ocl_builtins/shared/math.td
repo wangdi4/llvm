@@ -163,7 +163,19 @@ OclBuiltinImpl hypot_v148f32 = OclBuiltinImpl<hypot, [v1f32, v2f32, v4f32, v8f32
 
 // hypot f(vXfX, vXfX)
 OclBuiltinImpl hypot_svml_expand = OclBuiltinImpl<hypot, math_svml_vFvF_expand, 0, Expand2>;
-OclBuiltinImpl hypot_svml_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_v3_to_v4>;
+
+// [LLVM 3.6 UPGRADE] This is a quick fix for
+// CORC-208 - [Nightly] Pass Spir1.2_math_brute_force - math_kernel3.hypot_float3 did not validate
+//
+// The root cause is UB in hypot_impl_nr hypot(float4, float4) in case when
+// float3 arguments get promoted to float4 arguments filling 4th component with undef value causing
+// hypot(float3, float3) producing not bit-to-bit equal results between runs on the same input.
+//
+// According to SVML documentation performance-tolerant values for
+// hypotf and hypot are in range [-10000.0, 10000.0] for both arguments.
+// Choosing zero to avoid an additional constant load.
+OclBuiltinImpl hypot_svml_promote = OclBuiltinImpl<hypot, math_svml_vFvF_promote, 0, Promote2_tolerant_v3_to_v4,
+                     ["$TolerantValue0"->"0.0", "$TolerantValue1"->"0.0"]>;
 
 // ilogb
 // float3 are promoted to float4

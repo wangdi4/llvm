@@ -696,7 +696,7 @@ code Load = [{
     return res;
   }];
 code LoadC = [{
-    const void *pSrc = ((char*)$Arg1VarName + ($Arg0VarName * $VecLength  * sizeof($ReturnBaseType)));
+    const void *pSrc = __builtin_astype((const __constant char*)$Arg1VarName + ($Arg0VarName * $VecLength  * sizeof($ReturnBaseType)), const void*);
     $ReturnType res;
     memcpy((void*)&res, pSrc, $VecLength * sizeof($ReturnBaseType));
     return res;
@@ -704,9 +704,18 @@ code LoadC = [{
 code Load_half = [{
     return __ocl_HalfToFloat(*((short*)($Arg1VarName+$Arg0VarName)));
   }];
+code Load_const_half = [{
+    return __ocl_HalfToFloat(*((constant short*)($Arg1VarName+$Arg0VarName)));
+  }];
 code Load_half2 = [{
     short8 tmp;
     tmp.s01= *((short2 *)($Arg1VarName + 2*$Arg0VarName));
+    float4 res = __ocl_Half4ToFloat4(tmp);
+    return res.lo;
+  }];
+code Load_const_half2 = [{
+    short8 tmp;
+    tmp.s01= *((constant short2 *)($Arg1VarName + 2*$Arg0VarName));
     float4 res = __ocl_Half4ToFloat4(tmp);
     return res.lo;
   }];
@@ -718,9 +727,22 @@ code Load_half3 = [{
     float4 temp = __ocl_Half4ToFloat4(tmp);
     return temp.s012;
   }];
+code Load_const_half3 = [{
+    short8 tmp;
+    // vload_half3 by spec. must load 6 bytes
+    constant short * base = (constant short*)$Arg1VarName + 3*$Arg0VarName;
+    tmp.s012 = (short3)(*(constant short2*)base, base[2]);
+    float4 temp = __ocl_Half4ToFloat4(tmp);
+    return temp.s012;
+  }];
 code Load_half4 = [{
     short8 tmp;
     tmp.lo = *((short4 *)($Arg1VarName + 4*$Arg0VarName));
+    return __ocl_Half4ToFloat4(tmp);
+  }];
+code Load_const_half4 = [{
+    short8 tmp;
+    tmp.lo = *((constant short4 *)($Arg1VarName + 4*$Arg0VarName));
     return __ocl_Half4ToFloat4(tmp);
   }];
 code Load_half8 = [{
@@ -740,6 +762,14 @@ code Loada_half3 = [{
     // vloada_half3 by spec. must load 6 bytes
     short * base = (short*)$Arg1VarName + 4*$Arg0VarName;
     tmp.s012 = (short3)(*(short2*)base, base[2]);
+    float4 temp = __ocl_Half4ToFloat4(tmp);
+    return temp.s012;
+  }];
+code Loada_const_half3 = [{
+    short8 tmp;
+    // vloada_half3 by spec. must load 6 bytes
+    constant short * base = (constant short*)$Arg1VarName + 4*$Arg0VarName;
+    tmp.s012 = (short3)(*(constant short2*)base, base[2]);
     float4 temp = __ocl_Half4ToFloat4(tmp);
     return temp.s012;
   }];
@@ -783,7 +813,7 @@ code Stored_half8 = [{
     t2 = __ocl_double4ToHalf4($Arg0VarName.s4567);
     f8.xy = t1.lo;
     f8.zw = t2.lo;
-    _mm_storeu_ps((float*)$Arg2VarName, f8.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f8.lo);
   }];
 code Stored_half16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
@@ -805,9 +835,9 @@ code Stored_half16 = [{
     f16.s5 = t6.x;
     f16.s6 = t7.x;
     f16.s7 = t8.x;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.lo);
     $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.hi);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.hi);
   }];
 code Storead_half3 = [{
     float4 t1, t2, f4;
@@ -996,7 +1026,7 @@ code Stored_half_rte8 = [{
     t2 = __ocl_double4ToHalf4_rte($Arg0VarName.s4567);
     f8.xy = t1.lo;
     f8.zw = t2.lo;
-    _mm_storeu_ps((float*)$Arg2VarName, f8.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f8.lo);
   }];
 code Storead_half_rte16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
@@ -1042,9 +1072,9 @@ code Stored_half_rte16 = [{
     f16.s5 = t6.x;
     f16.s6 = t7.x;
     f16.s7 = t8.x;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.lo);
     $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.hi);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.hi);
   }];
 
 
@@ -1151,7 +1181,7 @@ code Stored_half_rtn8 = [{
     t2 = __ocl_double4ToHalf4_rtn($Arg0VarName.s4567);
     f8.xy = t1.lo;
     f8.zw = t2.lo;
-    _mm_storeu_ps((float*)$Arg2VarName, f8.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f8.lo);
   }];
 code Storead_half_rtn16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
@@ -1197,9 +1227,9 @@ code Stored_half_rtn16 = [{
     f16.s5 = t6.x;
     f16.s6 = t7.x;
     f16.s7 = t8.x;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.lo);
     $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.hi);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.hi);
   }];
 
 
@@ -1303,7 +1333,7 @@ code Stored_half_rtp8 = [{
     t2 = __ocl_double4ToHalf4_rtp($Arg0VarName.s4567);
     f8.xy = t1.lo;
     f8.zw = t2.lo;
-    _mm_storeu_ps((float*)$Arg2VarName, f8.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f8.lo);
   }];
 code Storead_half_rtp16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
@@ -1349,9 +1379,9 @@ code Stored_half_rtp16 = [{
     f16.s5 = t6.x;
     f16.s6 = t7.x;
     f16.s7 = t8.x;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.lo);
     $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.hi);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.hi);
   }];
 
 
@@ -1458,7 +1488,7 @@ code Stored_half_rtz8 = [{
     t2 = __ocl_double4ToHalf4_rtz($Arg0VarName.s4567);
     f8.xy = t1.lo;
     f8.zw = t2.lo;
-    _mm_storeu_ps((float*)$Arg2VarName, f8.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f8.lo);
   }];
 code Storead_half_rtz16 = [{
     $Arg2VarName = $Arg2VarName + ($Arg1VarName*16);
@@ -1504,9 +1534,9 @@ code Stored_half_rtz16 = [{
     f16.s5 = t6.x;
     f16.s6 = t7.x;
     f16.s7 = t8.x;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.lo);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.lo);
     $Arg2VarName = $Arg2VarName + 8;
-    _mm_storeu_ps((float*)$Arg2VarName, f16.lo.hi);
+    _mm_storeu_ps((private float*)(float*)$Arg2VarName, f16.lo.hi);
   }];
 
 
@@ -1543,38 +1573,38 @@ OclBuiltinImpl vloadpas = OclBuiltinImpl<vload_pas, [v2f32, v3f32, v4f32, v8f32,
                                                      v2i8, v3i8, v4i8, v8i8, v16i8, v2i16, v3i16, v4i16, v8i16, v16i16,
                                                      v2u8, v3u8, v4u8, v8u8, v16u8, v2u16, v3u16, v4u16, v8u16, v16u16], 0, Load>;
 
-OclBuiltinImpl vload_halfcas = OclBuiltinImpl<vload_half_cas, [v1f16], 0, Load_half>;
+OclBuiltinImpl vload_halfcas = OclBuiltinImpl<vload_half_cas, [v1f16], 0, Load_const_half>;
 OclBuiltinImpl vload_halfgas = OclBuiltinImpl<vload_half_gas, [v1f16], 0, Load_half>;
 OclBuiltinImpl vload_halflas = OclBuiltinImpl<vload_half_las, [v1f16], 0, Load_half>;
 OclBuiltinImpl vload_halfpas = OclBuiltinImpl<vload_half_pas, [v1f16], 0, Load_half>;
-OclBuiltinImpl vloada_halfcas = OclBuiltinImpl<vloada_half_cas, [v1f16], 0, Load_half>;
+OclBuiltinImpl vloada_halfcas = OclBuiltinImpl<vloada_half_cas, [v1f16], 0, Load_const_half>;
 OclBuiltinImpl vloada_halfgas = OclBuiltinImpl<vloada_half_gas, [v1f16], 0, Load_half>;
 OclBuiltinImpl vloada_halflas = OclBuiltinImpl<vloada_half_las, [v1f16], 0, Load_half>;
 OclBuiltinImpl vloada_halfpas = OclBuiltinImpl<vloada_half_pas, [v1f16], 0, Load_half>;
 
-OclBuiltinImpl vload_half_cas2 = OclBuiltinImpl<vload_half_cas, [v2f16], 0, Load_half2>;
+OclBuiltinImpl vload_half_cas2 = OclBuiltinImpl<vload_half_cas, [v2f16], 0, Load_const_half2>;
 OclBuiltinImpl vload_half_gas2 = OclBuiltinImpl<vload_half_gas, [v2f16], 0, Load_half2>;
 OclBuiltinImpl vload_half_las2 = OclBuiltinImpl<vload_half_las, [v2f16], 0, Load_half2>;
 OclBuiltinImpl vload_half_pas2 = OclBuiltinImpl<vload_half_pas, [v2f16], 0, Load_half2>;
-OclBuiltinImpl vloada_half_cas2 = OclBuiltinImpl<vloada_half_cas, [v2f16], 0, Load_half2>;
+OclBuiltinImpl vloada_half_cas2 = OclBuiltinImpl<vloada_half_cas, [v2f16], 0, Load_const_half2>;
 OclBuiltinImpl vloada_half_gas2 = OclBuiltinImpl<vloada_half_gas, [v2f16], 0, Load_half2>;
 OclBuiltinImpl vloada_half_las2 = OclBuiltinImpl<vloada_half_las, [v2f16], 0, Load_half2>;
 OclBuiltinImpl vloada_half_pas2 = OclBuiltinImpl<vloada_half_pas, [v2f16], 0, Load_half2>;
 
-OclBuiltinImpl vload_half_cas3 = OclBuiltinImpl<vload_half_cas, [v3f16], 0, Load_half3>;
+OclBuiltinImpl vload_half_cas3 = OclBuiltinImpl<vload_half_cas, [v3f16], 0, Load_const_half3>;
 OclBuiltinImpl vload_half_gas3 = OclBuiltinImpl<vload_half_gas, [v3f16], 0, Load_half3>;
 OclBuiltinImpl vload_half_las3 = OclBuiltinImpl<vload_half_las, [v3f16], 0, Load_half3>;
 OclBuiltinImpl vload_half_pas3 = OclBuiltinImpl<vload_half_pas, [v3f16], 0, Load_half3>;
-OclBuiltinImpl vloada_half_cas3 = OclBuiltinImpl<vloada_half_cas, [v3f16], 0, Loada_half3>;
+OclBuiltinImpl vloada_half_cas3 = OclBuiltinImpl<vloada_half_cas, [v3f16], 0, Loada_const_half3>;
 OclBuiltinImpl vloada_half_gas3 = OclBuiltinImpl<vloada_half_gas, [v3f16], 0, Loada_half3>;
 OclBuiltinImpl vloada_half_las3 = OclBuiltinImpl<vloada_half_las, [v3f16], 0, Loada_half3>;
 OclBuiltinImpl vloada_half_pas3 = OclBuiltinImpl<vloada_half_pas, [v3f16], 0, Loada_half3>;
 
-OclBuiltinImpl vload_half_cas4 = OclBuiltinImpl<vload_half_cas, [v4f16], 0, Load_half4>;
+OclBuiltinImpl vload_half_cas4 = OclBuiltinImpl<vload_half_cas, [v4f16], 0, Load_const_half4>;
 OclBuiltinImpl vload_half_gas4 = OclBuiltinImpl<vload_half_gas, [v4f16], 0, Load_half4>;
 OclBuiltinImpl vload_half_las4 = OclBuiltinImpl<vload_half_las, [v4f16], 0, Load_half4>;
 OclBuiltinImpl vload_half_pas4 = OclBuiltinImpl<vload_half_pas, [v4f16], 0, Load_half4>;
-OclBuiltinImpl vloada_half_cas4 = OclBuiltinImpl<vloada_half_cas, [v4f16], 0, Load_half4>;
+OclBuiltinImpl vloada_half_cas4 = OclBuiltinImpl<vloada_half_cas, [v4f16], 0, Load_const_half4>;
 OclBuiltinImpl vloada_half_gas4 = OclBuiltinImpl<vloada_half_gas, [v4f16], 0, Load_half4>;
 OclBuiltinImpl vloada_half_las4 = OclBuiltinImpl<vloada_half_las, [v4f16], 0, Load_half4>;
 OclBuiltinImpl vloada_half_pas4 = OclBuiltinImpl<vloada_half_pas, [v4f16], 0, Load_half4>;

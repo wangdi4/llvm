@@ -24,7 +24,7 @@ extern void* readonly __get_runtime_handle(void);
 extern int ocl20_enqueue_kernel_events(
     queue_t queue, kernel_enqueue_flags_t flags, const ndrange_t *ndrange,
     uint num_events_in_wait_list, const __global clk_event_t *in_wait_list,
-    __global clk_event_t *event_ret, void *block, void* DCM,
+    __global clk_event_t *event_ret, __private void *block, void* DCM,
     void* B2K, void *RuntimeHandle);
 int __attribute__((overloadable)) __attribute__((always_inline))
     enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,
@@ -41,7 +41,7 @@ int __attribute__((overloadable)) __attribute__((always_inline))
 
 extern int ocl20_enqueue_kernel_basic(queue_t queue,
                                       kernel_enqueue_flags_t flags,
-                                      const ndrange_t *ndrange, void *block,
+                                      const ndrange_t *ndrange, private void *block,
                                       void* DCM,
                                       void* B2K,
                                       void *RuntimeHandle);
@@ -266,7 +266,7 @@ bool __attribute__((overloadable)) __attribute__((always_inline)) is_valid_event
 
 ////////// - get_kernel_work_group_size
 extern uint readonly
-ocl20_get_kernel_wg_size(void *block, void *DCM, void *B2K);
+ocl20_get_kernel_wg_size(private void *block, void *DCM, void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
     readonly get_kernel_work_group_size(void (^block)(void)) {
   void* DCM = __get_device_command_manager();
@@ -281,7 +281,7 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
 }
 
 ////////// - get_kernel_preferred_work_group_size_multiple
-extern uint ocl20_get_kernel_preferred_wg_size_multiple(void *block, void *DCM,
+extern uint ocl20_get_kernel_preferred_wg_size_multiple(private void *block, void *DCM,
                                                         void *B2K);
 uint __attribute__((overloadable)) __attribute__((always_inline))
     get_kernel_preferred_work_group_size_multiple(void (^block)(void)) {

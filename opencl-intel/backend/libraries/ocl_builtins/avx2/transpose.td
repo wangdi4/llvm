@@ -6,7 +6,7 @@
 // ****************************************************************************
 OclBuiltinImpl transpose_load_char4x8_avx2 = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i8],  0, [{
     // We load "int8", meaning we load the full matrix in a single load
-    __private int* tmpLoadAdd = (__private int*)$Arg0VarName;
+    const __private int* tmpLoadAdd = (const __private int*)$Arg0VarName;
     ocl_char32 Arg0 = (ocl_char32) vload8(0, tmpLoadAdd);                     // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3 | x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
     $Arg1Type Arg1 = $Arg1VarName;
     $Arg2Type Arg2 = $Arg2VarName;
@@ -87,8 +87,8 @@ OclBuiltinImpl transpose_scatter_char4x8_avx2 = OclBuiltinImpl<__ocl_transpose_s
 //                                 short4x8
 // ****************************************************************************
 OclBuiltinImpl transpose_load_short4x8_avx2 = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i16],  0, [{
-    short16 Arg0 = vload16(0, (__private short*)$Arg0VarName);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
-    short16 Arg1 = vload16(1, (__private short*)$Arg0VarName);                           // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+    short16 Arg0 = vload16(0, (const __private short*)$Arg0VarName);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+    short16 Arg1 = vload16(1, (const __private short*)$Arg0VarName);                           // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
     $Arg1Type Arg2 = $Arg1VarName;
     $Arg2Type Arg3 = $Arg2VarName;
     $Arg3Type Arg4 = $Arg3VarName;
@@ -169,7 +169,7 @@ OclBuiltinImpl transpose_scatter_short4x8_avx2 = OclBuiltinImpl<__ocl_transpose_
 // ****************************************************************************
 OclBuiltinImpl transpose_load_int4x4_avx2 = OclBuiltinImpl<__ocl_load_transpose4x4, [v4i32],  0, [{
     // We load "int8", meaning we load the full matrix in 2 loads
-    __private int* tmpLoadAdd = (__private int*)$Arg0VarName;
+    const __private int* tmpLoadAdd = (const __private int*)$Arg0VarName;
     int8 Arg0 = vload8(0, tmpLoadAdd);                                                // x0 y0 z0 w0 x1 y1 z1 w1 xyzw01
     int8 Arg1 = vload8(1, tmpLoadAdd);                                                // x2 y2 z2 w2 x3 y3 z3 w3 xyzw23
     __private int8* Arg2;
@@ -309,7 +309,7 @@ OclBuiltinImpl transpose_scatter_int4x8_avx2 = OclBuiltinImpl<__ocl_transpose_sc
 // ****************************************************************************  
 OclBuiltinImpl transpose_load_int2x8_avx2 = OclBuiltinImpl<__ocl_load_transpose2x8, [v2i32],  0, [{
 
-    __private int* tmpLoadAdd = (__private int*)$Arg0VarName;
+    const __private int* tmpLoadAdd = (const __private int*)$Arg0VarName;
     int8 Arg0 = vload8(0, tmpLoadAdd);                                              
     int8 Arg1 = vload8(1, tmpLoadAdd);  
     
@@ -333,7 +333,7 @@ OclBuiltinImpl transpose_masked_load_int2x8_avx = OclBuiltinImpl<__ocl_masked_lo
 // ****************************************************************************
 OclBuiltinImpl transpose_load_float4x4_avx2 = OclBuiltinImpl<__ocl_load_transpose4x4, [v4f32],  0, [{
     // We load "float8", meaning we load the full matrix in 2 loads
-    __private float* tmpLoadAdd = (__private float*)$Arg0VarName;
+    const __private float* tmpLoadAdd = (const __private float*)$Arg0VarName;
     float8 Arg0 = vload8(0, tmpLoadAdd);                                              // x0 y0 z0 w0 x1 y1 z1 w1
     float8 Arg1 = vload8(1, tmpLoadAdd);                                              // x2 y2 z2 w2 x3 y3 z3 w3
     $Arg1Type Arg5 = $Arg1VarName;

@@ -3,7 +3,8 @@
 // OpenCL 1.2 rev 15, Table 6.8
 let Types = [v1f32, v2f32, v3f32, v4f32, v8f32, v16f32,
              v1f64, v2f64, v3f64, v4f64, v8f64, v16f64],
-    Attrs = [CONSTFUNC, OVERLOADABLE] in {
+    Attrs = [CONSTFUNC, OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def acos          : OclBuiltin<"acos",      (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def acosh         : OclBuiltin<"acosh",     (outs gentype:$ret), (ins gentype:$x), [], [], 0, 1>;
 def acospi        : OclBuiltin<"acospi",    (outs gentype:$ret), (ins gentype:$x), [], [], 0, 0>;
@@ -408,7 +409,8 @@ def vstore_las  : OclBuiltin<"vstore$Suffix", (outs), (ins gentype:$data, size_t
 def vstore_gas  : OclBuiltin<"vstore$Suffix", (outs), (ins gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vload_half_gas        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_GLOBAL;
 def vload_half_cas        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONSTANT;
 def vload_half_las        : OclBuiltin<"vload_half$Suffix",       (outs up_gentype:$ret), (ins size_t:$offset, psgentype:$p), [], [], 0, 0>, CONST_LOCAL;
@@ -452,7 +454,8 @@ def vstoreaf_half_las     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins u
 def vstoreaf_half_gas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoreaf_half_rte_pas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoreaf_half_rte_las : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoreaf_half_rte_gas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
@@ -467,13 +470,15 @@ def vstoreaf_half_rtn_las : OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins u
 def vstoreaf_half_rtn_gas : OclBuiltin<"vstorea_half$Suffix_rtn", (outs), (ins up_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v1f16, v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoread_half_pas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoread_half_las     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoread_half_gas     : OclBuiltin<"vstorea_half$Suffix",     (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
 }
 let Types = [v2f16, v3f16, v4f16, v8f16, v16f16],
-    Attrs = [OVERLOADABLE] in {
+    Attrs = [OVERLOADABLE],
+    NeedForwardDecl = 1 in {
 def vstoread_half_rte_pas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, PRIVATE;
 def vstoread_half_rte_las : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, LOCAL;
 def vstoread_half_rte_gas : OclBuiltin<"vstorea_half$Suffix_rte", (outs), (ins up2_gentype:$data, size_t:$offset, psgentype:$p), [], [], 0, 0>, GLOBAL;
@@ -1019,7 +1024,7 @@ let Types = [ v1i8,  v2i8,  v3i8,  v4i8,  v8i8,  v16i8,
 
 let Types = [ void ],
     Attrs = [OVERLOADABLE] in {
-  def wait_group_events : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>;
+  def wait_group_events : OclBuiltin<"wait_group_events", (outs), (ins v1i32:$num_events, pevent_t:$event_list), [], [], 0, 0>, PRIVATE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

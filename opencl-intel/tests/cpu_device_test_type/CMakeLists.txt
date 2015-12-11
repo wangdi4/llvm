@@ -93,10 +93,16 @@ set( INCLUDE_HEADERS_PATH ${LLVM_INCLUDE_DIRS}/cclang/cl_headers)
 set( INPUT_FILE test.cl )
 set( OUTPUT_FILE test.bc )
 
+if ( BUILD_X64 )
+  set ( SPIR_TRIPLE spir64-unknown-unknown )
+else ( BUILD_X64 )
+  set ( SPIR_TRIPLE spir-unknown-unknown )
+endif ( BUILD_X64 )
+
 add_custom_command( TARGET ${TARGET}
                     POST_BUILD
-                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE} 
-                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
+                    COMMAND ${CLANG} -cc1 -x cl ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
+                    -I ${INCLUDE_HEADERS_PATH} -emit-llvm-bc -triple ${SPIR_TRIPLE} -include opencl_.h -O3 -o ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_FILE}
                     MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${INPUT_FILE}
                     DEPENDS ${INCLUDE_HEADERS_PATH}/opencl_.h
                     COMMENT "Generate optimized ${OUTPUT_FILE}"

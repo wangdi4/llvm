@@ -78,6 +78,10 @@ void dumpModule(llvm::Module& m){
 #endif
 }
 
+TargetOptions ExternInitTargetOptionsFromCodeGenFlags() {
+  return InitTargetOptionsFromCodeGenFlags();
+}
+
 /*
  * Utility methods
  */
@@ -248,6 +252,7 @@ void Compiler::Init()
 /**
  * Initialize the global options
  */
+
 void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
 {
     if( s_globalStateInitialized )
@@ -258,12 +263,6 @@ void Compiler::InitGlobalState( const IGlobalCompilerConfig& config )
     std::vector<std::string> args;
 
     args.push_back("OclBackend");
-    // OpenCL assumes stack is aligned
-    // We are forcing LLVM to align the stack
-    args.push_back("-force-align-stack");
-    // SSE requires maximum alignment of parameters of 16 bytes
-    // AVX requires maximum alignment of parameters of 32 bytes
-    args.push_back("-stack-alignment=32");
 
     if( config.EnableTiming() && false == config.InfoOutputFile().empty())
     {

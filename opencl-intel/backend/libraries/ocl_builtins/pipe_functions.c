@@ -372,7 +372,9 @@ int READ_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __gl
   {
     const uint base_idx = extract_index(reserve_id);
     __global char const * src = p->base + size_of_packet * advance(p, base_idx, index);
-    __builtin_memcpy((void*)data, (const void*)(src), size_of_packet);
+    private void *vd = (private void *)((void*)data);
+    private void const *vs = (private void const *)((void const *)src);
+    __builtin_memcpy(vd, vs, size_of_packet);
     atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
     retVal = 0;
   }
@@ -392,7 +394,9 @@ int WRITE_PIPE_4(GLOBAL)( PIPE_T pipe_, reserve_id_t reserve_id, uint index, __g
   {
     const uint base_idx = extract_index(reserve_id);
     __global char const * dst = p->base + size_of_packet * advance(p, base_idx, index);
-    __builtin_memcpy((void*)dst, (const void*)data, size_of_packet);
+    private void *vd = (private void *)((void*)dst);
+    private void const *vs = (private void const *)((void const *)data);
+    __builtin_memcpy(vd, vs, size_of_packet);
     atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_all_svm_devices);
     retVal = 0;
   }
@@ -443,7 +447,9 @@ int READ_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_p
                                                   memory_order_relaxed,
                                                   memory_scope_all_svm_devices ))
       {
-        __builtin_memcpy((void*)data, (const void*)(p->base + head * size_of_packet), size_of_packet);
+        private void *vd = (private void *)((void*)data);
+        private void const *vs = (private void const *)((void const *)(p->base + head * size_of_packet));
+        __builtin_memcpy(vd, vs, size_of_packet);
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_acquire, memory_scope_all_svm_devices);
         intel_unlock_pipe_read( p );
         retVal = 0;
@@ -499,7 +505,9 @@ int WRITE_PIPE_2(GLOBAL)( PIPE_T pipe_, __global const void* data, uint size_of_
                                                   memory_order_relaxed,
                                                   memory_scope_all_svm_devices ))
       {
-        __builtin_memcpy((void*)(p->base + tail * size_of_packet), (const void*)data, size_of_packet);
+        private void *vd = (private void *)((void*)(p->base + tail * size_of_packet));
+        private void const *vs = (private void const *)((void const *)data);
+        __builtin_memcpy(vd, vs, size_of_packet);
         atomic_work_item_fence(CLK_GLOBAL_MEM_FENCE, memory_order_release, memory_scope_all_svm_devices);
         intel_unlock_pipe_write( p );
         retVal = 0;
@@ -576,48 +584,48 @@ void WORK_GROUP_COMMIT_WRITE_PIPE( PIPE_T p, reserve_id_t reserve_id, uint size_
 // private
 int READ_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
 {
-  return READ_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
+  return READ_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
 }
 // local
 int READ_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
 {
-  return READ_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
+  return READ_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
 }
 
 // read_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
 // private
 int READ_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private void* data, uint size_of_packet)
 {
-  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)data, size_of_packet);
+  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)(void*)data, size_of_packet);
 }
 // local
 int READ_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local void* data, uint size_of_packet)
 {
-  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)data, size_of_packet);
+  return READ_PIPE_4(GLOBAL)(p, reserve_id, index, (__global void*)(void*)data, size_of_packet);
 }
 
 // write_pipe(pipe gentype p, gentype *data);
 // private
 int WRITE_PIPE_2(PRIVATE)( PIPE_T p, __private const void* data, uint size_of_packet)
 {
-  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
+  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
 }
 // local
 int WRITE_PIPE_2(LOCAL)( PIPE_T p, __local const void* data, uint size_of_packet)
 {
-  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)data, size_of_packet);
+  return WRITE_PIPE_2(GLOBAL)(p, (__global const void*)(const void*)data, size_of_packet);
 }
 
 // write_pipe(pipe gentype p, reserve_id_t reserve_id, uint index, gentype *data);
 // private
 int WRITE_PIPE_4(PRIVATE)( PIPE_T p, reserve_id_t reserve_id, uint index, __private const void* data, uint size_of_packet)
 {
-  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)data, size_of_packet);
+  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)(const void*)data, size_of_packet);
 }
 // local
 int WRITE_PIPE_4(LOCAL)( PIPE_T p, reserve_id_t reserve_id, uint index, __local const void* data, uint size_of_packet)
 {
-  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)data, size_of_packet);
+  return WRITE_PIPE_4(GLOBAL)(p, reserve_id, index, (__global const void*)(const void*)data, size_of_packet);
 }
 #endif // defined (__MIC__) || defined(__MIC2__)
 

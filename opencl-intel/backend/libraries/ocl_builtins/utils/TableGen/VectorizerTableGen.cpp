@@ -131,12 +131,11 @@ void VectorizerTableGen::run(raw_ostream& os){
   }
   build (ss.str(), "decls.ll");
   LLVMContext context;
-  Module *pModule = NULL;
   llvm::SMDiagnostic errDiagnostic;
-  pModule = llvm::ParseIRFile("decls.ll", errDiagnostic, context);
+  std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile("decls.ll", errDiagnostic, context);
   //we now associating each BiFunc to its corresponding llvm::Function
   it = m_biMap.begin();
-  Module::const_iterator functionIt = pModule->begin(),
+  llvm::Module::const_iterator functionIt = pModule->begin(),
     functionE = pModule->end();
   while(it != e){
     it->second = functionIt->getName();
