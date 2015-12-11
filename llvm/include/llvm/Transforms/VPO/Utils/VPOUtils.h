@@ -354,9 +354,11 @@ public:
     /// \brief Generates BB set in sub CFG for a given WRegionNode using
     /// pre-order visit. The entry basic bblock 'EntryBB' and the exit basic
     /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
-    /// the basic blocks that belong to this region. 
+    /// the basic blocks that belong to this region. Note that, by using
+    /// SmallVector and pre-order visit, we guarantee that the first item in
+    /// BBSet is 'EntryBB' and the last item in BBSet is 'ExitBB'. 
     static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-                             SmallPtrSetImpl<BasicBlock*> *BBSet);
+                             SmallVectorImpl<BasicBlock*> &BBSet);
 
 };
 

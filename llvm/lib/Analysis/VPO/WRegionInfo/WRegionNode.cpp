@@ -84,26 +84,11 @@ void WRegionNode::populateBBlockSet(void)
   if (!EntryBB || !ExitBB)
     return;
 
-  SmallPtrSet<BasicBlock*, 16> PreOrderTreeVisited;
+  WRegionBSetTy BBSet;
 
-  VPOUtils::collectBBSet(EntryBB, ExitBB, &PreOrderTreeVisited);
+  VPOUtils::collectBBSet(EntryBB, ExitBB, BBSet);
 
-  /// Added ExitBBlock to Pre-Order Tree
-  PreOrderTreeVisited.insert(ExitBB);
-
-  WRegionBSetTy * BBSet = new (WRegionBSetTy);
-
-  // for (SmallPtrSetIterator<BasicBlock *> I = PreOrderTreeVisited.begin(), 
-  for (auto I = PreOrderTreeVisited.begin(), 
-            E = PreOrderTreeVisited.end(); I != E; ++I) {
-    BasicBlock *BB = *I;
-
-    //DEBUG(dbgs()<< "SHOW BBSet BBLOCK Insert Ordering :"  << *BB);
-
-    /// Populate BBlockSet for the Region/Loop
-    BBSet->push_back(BB);
-  }
-  setBBlockSet(BBSet);
+  setBBlockSet(&BBSet);
 }
 
 

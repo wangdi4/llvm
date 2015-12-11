@@ -42,7 +42,7 @@ namespace vpo {
 
 extern std::unordered_map<int, StringRef> WRNName;
 
-typedef std::vector<const BasicBlock *> WRegionBSetTy;
+typedef SmallVector<BasicBlock *, 32> WRegionBSetTy;
 
 class WRegionNode;
 

@@ -14,6 +14,7 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include <queue>
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/IR/Constants.h"
 
@@ -76,23 +77,27 @@ Loop * VPOUtils::getLoopFromLoopInfo(
 void VPOUtils::collectBBSet(
   BasicBlock    *EntryBB,
   BasicBlock    *ExitBB,
-  SmallPtrSetImpl<BasicBlock*> *BBSet
+  SmallVectorImpl<BasicBlock*> &BBSet
 )
 {
-  if (!BBSet->count(EntryBB)) {
+  std::queue<BasicBlock *> workqueue;
+  workqueue.push(EntryBB);
 
-    // DEBUG(dbgs()<< "DUMP PreOrder Tree Visiting :"  << *EntryBB);
-    BBSet->insert(EntryBB);
+  while(!workqueue.empty()) {
+    BasicBlock *front = workqueue.front();
+    workqueue.pop();
 
-    for (succ_iterator I = succ_begin(EntryBB), 
-                       E = succ_end(EntryBB); I != E; ++I) {
-      if (*I != ExitBB) {
-        collectBBSet(*I, ExitBB, BBSet);
-      }
-    }
+    // If 'front' is not in the BBSet, insert it to the end of BBSet.
+    if (std::find(BBSet.begin(), BBSet.end(), front) == BBSet.end())
+      BBSet.push_back(front);
 
+    if (front != ExitBB)
+      for (succ_iterator I = succ_begin(front), E = succ_end(front);
+              I != E; ++I)
+        // Push the successor to the queue only if it is not in the BBSet.
+        if (std::find(BBSet.begin(), BBSet.end(), *I) == BBSet.end())
+          workqueue.push(*I);
   }
-  return;
 }
 
 
