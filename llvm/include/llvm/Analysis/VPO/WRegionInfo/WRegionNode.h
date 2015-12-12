@@ -42,7 +42,7 @@ namespace vpo {
 
 extern std::unordered_map<int, StringRef> WRNName;
 
-typedef SmallVector<BasicBlock *, 32> WRegionBSetTy;
+typedef VPOSmallVectorBB WRegionBBSetTy;
 
 class WRegionNode;
 
@@ -54,10 +54,10 @@ class WRegionNode : public ilist_node<WRegionNode> {
 public:
 
   /// Iterators to iterator over basic block set
-  typedef WRegionBSetTy::iterator bbset_iterator;
-  typedef WRegionBSetTy::const_iterator bbset_const_iterator;
-  typedef WRegionBSetTy::reverse_iterator bbset_reverse_iterator;
-  typedef WRegionBSetTy::const_reverse_iterator bbset_const_reverse_iterator;
+  typedef WRegionBBSetTy::iterator bbset_iterator;
+  typedef WRegionBBSetTy::const_iterator bbset_const_iterator;
+  typedef WRegionBBSetTy::reverse_iterator bbset_reverse_iterator;
+  typedef WRegionBBSetTy::const_reverse_iterator bbset_const_reverse_iterator;
 
 private:
   /// \brief Make class uncopyable.
@@ -74,7 +74,7 @@ private:
   BasicBlock    *ExitBBlock;
 
   /// Set containing all the BBs in this WRN
-  WRegionBSetTy *BBlockSet;
+  WRegionBBSetTy *BBlockSet;
 
   /// Enclosing parent of WRegionNode in CFG.
   WRegionNode *Parent;
@@ -114,7 +114,7 @@ protected:
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
 
   /// \brief Sets the set of bblocks that constitute this region.
-  void setBBlockSet(WRegionBSetTy *BBSet) { BBlockSet = BBSet; }
+  void setBBlockSet(WRegionBBSetTy *BBSet) { BBlockSet = BBSet; }
 
   /// \brief Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
@@ -267,7 +267,7 @@ public:
   // Methods for BBlockSet
 
   /// \brief Returns the set of bblocks that constitute this region.
-  WRegionBSetTy *getBBlockSet() const { return BBlockSet; }
+  WRegionBBSetTy *getBBlockSet() const { return BBlockSet; }
 
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return EntryBBlock; }
@@ -299,7 +299,7 @@ public:
   ///  Because the BB set can change after each transformation,
   ///  it is recommended to rebuild the set before each use.
   void populateBasicBlockSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-     WRegionBSetTy *BBSet);
+     WRegionBBSetTy *BBSet);
 
   /// \brief Reset the BasicBlockSet pointer. Used to prevent access
   /// to outdated basic block set.

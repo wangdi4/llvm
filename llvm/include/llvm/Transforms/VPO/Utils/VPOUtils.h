@@ -41,6 +41,8 @@ class Constant;
 class LLVMContext;
 
 namespace vpo {
+typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
+
 typedef enum OMP_DIRECTIVES {
       DIR_OMP_PARALLEL = 0,
       DIR_OMP_END_PARALLEL,
@@ -351,14 +353,13 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(int DirID);
 
-    /// \brief Generates BB set in sub CFG for a given WRegionNode using
-    /// pre-order visit. The entry basic bblock 'EntryBB' and the exit basic
+    /// \brief Generates BB set in sub CFG for a given WRegionNode.
+    /// The entry basic bblock 'EntryBB' and the exit basic
     /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
-    /// the basic blocks that belong to this region. Note that, by using
-    /// SmallVector and pre-order visit, we guarantee that the first item in
-    /// BBSet is 'EntryBB' and the last item in BBSet is 'ExitBB'. 
-    static void collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-                             SmallVectorImpl<BasicBlock*> &BBSet);
+    /// the basic blocks that belong to this region. It guarantees that the
+    /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'. 
+    static VPOSmallVectorBB* collectBBSet(
+            BasicBlock *EntryBB, BasicBlock *ExitBB);
 
 };
 

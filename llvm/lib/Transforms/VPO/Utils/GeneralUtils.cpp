@@ -74,30 +74,56 @@ Loop * VPOUtils::getLoopFromLoopInfo(
   return Lp;
 }
 
-void VPOUtils::collectBBSet(
+/// \brief This function ensures that EntryBB is the first item in BBSet and
+/// ExitBB is the last item in BBSet.
+VPOSmallVectorBB* VPOUtils::collectBBSet(
   BasicBlock    *EntryBB,
-  BasicBlock    *ExitBB,
-  SmallVectorImpl<BasicBlock*> &BBSet
+  BasicBlock    *ExitBB
 )
 {
-  std::queue<BasicBlock *> workqueue;
-  workqueue.push(EntryBB);
+  if (!EntryBB || !ExitBB) 
+    return nullptr;
 
-  while(!workqueue.empty()) {
-    BasicBlock *front = workqueue.front();
-    workqueue.pop();
+  VPOSmallVectorBB *BBSet = new VPOSmallVectorBB;
+
+  std::queue<BasicBlock *> BBlockQueue;
+  BBlockQueue.push(EntryBB);
+
+  unsigned int ExitBBIndex = 0;
+
+  while(!BBlockQueue.empty()) {
+    BasicBlock *front = BBlockQueue.front();
+    BBlockQueue.pop();
 
     // If 'front' is not in the BBSet, insert it to the end of BBSet.
-    if (std::find(BBSet.begin(), BBSet.end(), front) == BBSet.end())
-      BBSet.push_back(front);
+    if (std::find(BBSet->begin(), BBSet->end(), front) == BBSet->end()) {
+      BBSet->push_back(front);
+      // Record the position of ExitBB, which is the current BBSet.size() minus
+      // 1, since ExitBB is just pushed back.
+      if (front == ExitBB)
+        ExitBBIndex = BBSet->size()-1;
+    }
 
     if (front != ExitBB)
       for (succ_iterator I = succ_begin(front), E = succ_end(front);
               I != E; ++I)
         // Push the successor to the queue only if it is not in the BBSet.
-        if (std::find(BBSet.begin(), BBSet.end(), *I) == BBSet.end())
-          workqueue.push(*I);
+        if (std::find(BBSet->begin(), BBSet->end(), *I) == BBSet->end())
+          BBlockQueue.push(*I);
   }
+
+  // If ExitBB is not the last item, do a swap between ExitBB and the last item
+  // in BBSet.
+  if (ExitBBIndex != (BBSet->size()-1)) {
+    (*BBSet)[ExitBBIndex] = BBSet->back();
+    BBSet->pop_back();
+    BBSet->push_back(ExitBB);
+  }
+
+  assert((BBSet->front() == EntryBB) && "The first element of BBSet is not EntryBB");
+  assert((BBSet->back() == ExitBB) && "The last element of BBSet is not ExitBB");
+
+  return BBSet;
 }
 
 

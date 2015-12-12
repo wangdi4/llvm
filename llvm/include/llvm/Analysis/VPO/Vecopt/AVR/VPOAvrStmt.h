@@ -554,10 +554,10 @@ public:
   typedef ChildrenTy::const_reverse_iterator const_reverse_child_iterator;
 
   /// Iterators to iterate for children nodes.
-  typedef WRegionBSetTy::iterator wrnbbset_iterator;
-  typedef WRegionBSetTy::const_iterator const_wrnbbset_iterator;
-  typedef WRegionBSetTy::reverse_iterator reverse_wrnbbset_iterator;
-  typedef WRegionBSetTy::const_reverse_iterator
+  typedef WRegionBBSetTy::iterator wrnbbset_iterator;
+  typedef WRegionBBSetTy::const_iterator const_wrnbbset_iterator;
+  typedef WRegionBBSetTy::reverse_iterator reverse_wrnbbset_iterator;
+  typedef WRegionBBSetTy::const_reverse_iterator
                              const_reverse_wrnbbset_iterator;
 private:
 

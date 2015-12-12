@@ -81,14 +81,9 @@ void WRegionNode::populateBBlockSet(void)
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
 
-  if (!EntryBB || !ExitBB)
-    return;
+  WRegionBBSetTy *BBSet = VPOUtils::collectBBSet(EntryBB, ExitBB);
 
-  WRegionBSetTy BBSet;
-
-  VPOUtils::collectBBSet(EntryBB, ExitBB, BBSet);
-
-  setBBlockSet(&BBSet);
+  setBBlockSet(BBSet);
 }
 
 
