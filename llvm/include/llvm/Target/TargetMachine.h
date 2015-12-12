@@ -191,6 +191,12 @@ public:
 
   void setFastISel(bool Enable) { Options.EnableFastISel = Enable; }
 
+#if INTEL_CUSTOMIZATION
+  void setIntelLibIRCAllowed(bool Value) {
+    Options.IntelLibIRCAllowed = Value;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   bool shouldPrintMachineCode() const { return Options.PrintMachineCode; }
 
   /// Returns the default value of asm verbosity.
