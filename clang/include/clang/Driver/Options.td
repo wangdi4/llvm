@@ -219,7 +219,6 @@ def extended_float_types : Flag<["--"], "extended_float_types">, Flags<[CC1Optio
 def fcilkplus : Flag <["-"], "fcilkplus">, Group<f_Group>, Flags<[CC1Option]>,  HelpText<"Enable Cilk Plus extensions">;
 // endif INTEL_SPECIFIC_CILKPLUS
 // if INTEL_CUSTOMIZATION
-def intel_libirc_allowed : Flag<["-"], "intel-libirc-allowed">, Flags<[CC1Option]>, HelpText<"Allow calls to Intel libirc library functions">;
 // if INTEL_SPECIFIC_IL0_BACKEND
 def pragma_optimization_level_EQ : Joined<["-"], "pragma-optimization-level=">, Flags<[CC1Option]>, HelpText<"Specifies whether #pragma optimization_level should use Intel(DEFAULT) or GCC syntax">;
 def vd : Joined<["-"], "vd">, Flags<[CC1Option]>, HelpText<"Controls the addition of the hidden vtordisp construction/destruction displacement member">;
