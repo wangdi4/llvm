@@ -23,7 +23,8 @@ File Name: OclBuiltinsHeaderGen.cpp
 #include "cl_device_api.h"
 #include "llvm/TableGen/Record.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/PathV1.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/IR/LLVMContext.h"
@@ -201,11 +202,9 @@ typedef std::list<TypedBi> TypedBiList;
 typedef TypedBiList::const_iterator TypedBiIter;
 
   ~MangledNameEmmiter(){
-    llvm::Module* pModule = NULL;
     std::string err;
-    llvm::sys::Path fileName("builtins");
-    fileName.makeUnique(false, &err);//make path unique for each process
-    fileName.appendSuffix("ll");
+    llvm::SmallString<128> fileName;
+    llvm::sys::fs::createUniqueFile("builtins-%%%%%%%.ll", fileName);
     llvm::SMDiagnostic errDiagnostic;
     llvm::LLVMContext context;
     std::list<const OclBuiltin*>::const_iterator biit = m_builtins.begin(),
@@ -226,7 +225,7 @@ typedef TypedBiList::const_iterator TypedBiIter;
     for(typeit = typedbiList.begin(); typeit != typee ; ++typeit)
       code += generateBuiltinOverload(typeit->first, typeit->second);
     build(code, fileName.str());
-    pModule = llvm::ParseIRFile(fileName.str(), errDiagnostic, context);
+    std::unique_ptr<llvm::Module> pModule = llvm::parseIRFile(fileName.str(), errDiagnostic, context);
     assert(pModule && "module parsing failed");
     //deleting the temporary output file
     remove(fileName.c_str());

@@ -20,8 +20,8 @@ OclBuiltinImpl transpose_masked_store_char4x8_avx = OclBuiltinImpl<__ocl_masked_
 //                                 short4x8
 // ****************************************************************************
 OclBuiltinImpl transpose_load_short4x8_avx = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i16], 0, [{
-    short16 Arg0 = vload16(0, (__private short*)$Arg0VarName);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
-    short16 Arg1 = vload16(1, (__private short*)$Arg0VarName);                           // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
+    short16 Arg0 = vload16(0, (const __private short*)$Arg0VarName);                           // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
+    short16 Arg1 = vload16(1, (const __private short*)$Arg0VarName);                           // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
     $Arg1Type Arg2 = $Arg1VarName;
     $Arg2Type Arg3 = $Arg2VarName;
     $Arg3Type Arg4 = $Arg3VarName;
@@ -216,7 +216,7 @@ OclBuiltinImpl transpose_scatter_int4x8_avx = OclBuiltinImpl<__ocl_transpose_sca
 //                                 float2x8
 // ****************************************************************************
 OclBuiltinImpl transpose_load_float2x8_avx = OclBuiltinImpl<__ocl_load_transpose2x8, [v2f32],  0, [{
-    __private float* tmpLoadAdd = (__private float*)$Arg0VarName;
+    const __private float* tmpLoadAdd = (const __private float*)$Arg0VarName;
     float8 Arg0 = vload8(0, tmpLoadAdd);
     float8 Arg1 = vload8(1, tmpLoadAdd);
 

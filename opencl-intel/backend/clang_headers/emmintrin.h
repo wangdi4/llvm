@@ -581,7 +581,7 @@ _mm_store_pd(double *dp, __m128d a)
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_storeu_pd(double *dp, __m128d a)
+_mm_storeu_pd(private double *dp, __m128d a)
 {
   __builtin_ia32_storeupd(dp, a);
 }
@@ -1174,11 +1174,11 @@ _mm_store_si128(__m128i *p, __m128i b)
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
 _mm_storeu_si128(__m128i *p, __m128i b)
 {
-  __builtin_ia32_storedqu((char *)p, (__v16qi)b);
+  __builtin_ia32_storedqu((private char *)p, (__v16qi)b);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_maskmoveu_si128(__m128i d, __m128i n, char *p)
+_mm_maskmoveu_si128(__m128i d, __m128i n, private char *p)
 {
   __builtin_ia32_maskmovdqu((__v16qi)d, (__v16qi)n, p);
 }
@@ -1193,25 +1193,25 @@ _mm_storel_epi64(__m128i *p, __m128i a)
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_pd(double *p, __m128d a)
+_mm_stream_pd(private double *p, __m128d a)
 {
   __builtin_ia32_movntpd(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_si128(__m128i *p, __m128i a)
+_mm_stream_si128(__private __m128i *p, __m128i a)
 {
   __builtin_ia32_movntdq(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_stream_si32(int *p, int a)
+_mm_stream_si32(__private int *p, int a)
 {
   __builtin_ia32_movnti(p, a);
 }
 
 static __inline__ void __attribute__((__always_inline__, __nodebug__))
-_mm_clflush(void const *p)
+_mm_clflush(void const __private *p)
 {
   __builtin_ia32_clflush(p);
 }

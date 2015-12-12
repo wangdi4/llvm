@@ -17,10 +17,10 @@ set(TARGET_SOURCE_FILES
 # [LLVM 3.6 UPGRADE] Disable Linux warning about unused function
 # this warning occur when processing externals/itt/include/ittnotify.h
 # since it contain __itt_id __itt_id_make(void*, long long unsigned int)
-# function that not use in every build target.
+# function that is not used in every build target.
 if (NOT WIN32)
     add_definitions( "-Wno-unused-function" )
-endif(NOT Win32)
+endif(NOT WIN32)
 
 include_directories( 
             ${LLVM_INCLUDE_DIRS}/cclang

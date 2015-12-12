@@ -27,6 +27,22 @@
     return $ReturnVarName.s012;
   }];
 
+  // The correct way to promote is to fill 4th component with a performance-tolerant value obtained from SVML docs
+  // that is special to every SVML function, so in ideal case every promotion to the bigger vector must
+  // be performed individually for every BI that requires it. Filed CORC-313.
+  //
+  // promote f(v3, v3) to v4. performance-tolerant code for float3 and double3
+  code Promote2_tolerant_v3_to_v4 = [{
+    $Arg0BaseType#4 n$Arg0VarName;
+    n$Arg0VarName.s012 = $Arg0VarName;
+    n$Arg0VarName.s3 = $TolerantValue0;
+    $Arg1BaseType#4  n$Arg1VarName;
+    n$Arg1VarName.s012 = $Arg1VarName;
+    n$Arg1VarName.s3 = $TolerantValue1;
+    $Arg0BaseType#4 $ReturnVarName = $Func(n$Arg0VarName, n$Arg1VarName);
+    return $ReturnVarName.s012;
+  }];
+
   // promote f(v3, v3, v3) to v4. common code for float3 and double3
   code Promote3_v3_to_v4 = [{
     $Arg0BaseType#4 n$Arg0VarName;

@@ -126,7 +126,7 @@ int2 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image2d_
  int4 __attribute__((overloadable)) __attribute__((const)) get_image_dim(image3d_t img)
 {
     __private image_aux_data *pImage = __builtin_astype(img, __private image_aux_data*);
-    __m128i dim = _mm_lddqu_si128((__m128i*)pImage->dim);
+    __m128i dim = _mm_lddqu_si128((private __m128i*)pImage->dim);
     // Set to 0 the highest DWORD
     dim = _mm_srli_si128(_mm_slli_si128(dim, 4),4);
 
@@ -490,7 +490,7 @@ void __attribute__((overloadable)) soa8_read_imageui(image2d_t image, sampler_t 
     call_SOA8_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, translated_coord_x, translated_coord_y, pData, res_x, res_y, res_z, res_w);
 }
 
-uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, int2 coord)
+uint4  __attribute__((overloadable)) mask_read_imageui(int mask, read_only image2d_t image, sampler_t sampler, int2 coord)
 {
   if (mask) return read_imageui(image, sampler, coord);
   return (uint4)(0, 0, 0, 0);
@@ -520,7 +520,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_t image, sampler_t sam
     return call_Image_UI_READ_CBK(read_cbk, (__private void*)pImage, trans_position, pData);
 }
 
-uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image, sampler_t sampler, float2 coord)
+uint4  __attribute__((overloadable)) mask_read_imageui(int mask, read_only image2d_t image, sampler_t sampler, float2 coord)
 {
   if (mask) return read_imageui(image, sampler, coord);
   return (uint4)(0,0,0,0);
@@ -528,7 +528,7 @@ uint4  __attribute__((overloadable)) mask_read_imageui(int mask, image2d_t image
 
 uint4  __attribute__((overloadable)) read_imageui(image3d_t image, sampler_t sampler, float4 coord)
 {
-    coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    coord = _mm_and_ps(coord, *(constant __m128*)fVec4FloatZeroCoordMask3D);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData = pImage->pData;
     int samplerIndex = __builtin_astype(sampler, int);
@@ -594,7 +594,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
     return call_Image_I_READ_CBK(read_cbk, (__private void*)pImage, trans_position, pData);
 }
 
-int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, int2 coord)
+int4  __attribute__((overloadable)) mask_read_imagei(int mask, read_only image2d_t image, sampler_t sampler, int2 coord)
 {
   if (mask) return read_imagei(image, sampler, coord);
   return (int4)(0, 0, 0, 0);
@@ -624,7 +624,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_t image, sampler_t sampl
     return call_Image_I_READ_CBK(read_cbk, (__private void*)pImage, trans_position, pData);
 }
 
-int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, sampler_t sampler, float2 coord)
+int4  __attribute__((overloadable)) mask_read_imagei(int mask, read_only image2d_t image, sampler_t sampler, float2 coord)
 {
   if (mask) return read_imagei(image, sampler, coord);
   return (int4)(0, 0, 0, 0);
@@ -632,7 +632,7 @@ int4  __attribute__((overloadable)) mask_read_imagei(int mask, image2d_t image, 
 
 int4  __attribute__((overloadable)) read_imagei(image3d_t image, sampler_t sampler, float4 coord)
 {
-    coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    coord = _mm_and_ps(coord, *(constant __m128*)fVec4FloatZeroCoordMask3D);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     int samplerIndex = __builtin_astype(sampler, int);
     Image_F_COORD_CBK coord_cbk=(Image_F_COORD_CBK)pImage->coord_translate_f_callback[samplerIndex];
@@ -650,7 +650,7 @@ void  __attribute__((overloadable)) write_imagei(image2d_t image, int2 coord, in
     call_Image_I_WRITE_CBK(cbk, pixel, color);
 }
 
-void  __attribute__((overloadable)) mask_write_imagei(int mask, image2d_t image, int2 coord, int4 color){
+void  __attribute__((overloadable)) mask_write_imagei(int mask, write_only image2d_t image, int2 coord, int4 color){
   if (mask) write_imagei(image, coord, color);
 }
 
@@ -681,7 +681,7 @@ float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_
     return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord).x;
 }
 
-float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, int2 coord)
+float4  __attribute__((overloadable)) mask_read_imagef(int mask, read_only image2d_t image, sampler_t sampler, int2 coord)
 {
   if (mask) return read_imagef(image, sampler, coord);
   return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -724,7 +724,7 @@ float  __attribute__((overloadable)) read_imagef(image2d_depth_t image, sampler_
      return read_imagef_2d(__builtin_astype(image, __private image_aux_data*), sampler, coord).x;
 }
 
-float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image, sampler_t sampler, float2 coord)
+float4  __attribute__((overloadable)) mask_read_imagef(int mask, read_only image2d_t image, sampler_t sampler, float2 coord)
 {
     if (mask) return read_imagef(image, sampler, coord);
     return (float4)(0.f, 0.f, 0.f, 0.f);
@@ -732,7 +732,7 @@ float4  __attribute__((overloadable)) mask_read_imagef(int mask, image2d_t image
 
 float4  __attribute__((overloadable)) read_imagef(image3d_t image, sampler_t sampler, float4 coord)
 {
-    coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    coord = _mm_and_ps(coord, *(__constant __m128*)fVec4FloatZeroCoordMask3D);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
     __private void* pData =pImage->pData;
     int samplerIndex = __builtin_astype(sampler, int);
@@ -794,7 +794,7 @@ float  __attribute__((overloadable)) read_imagef(image2d_array_depth_t image, sa
 
 float4  __attribute__((overloadable)) read_imagef_2d_array(__private image_aux_data *pImage, sampler_t sampler, float4 coord)
 {
-    float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    float4 internal_coord = _mm_and_ps(coord, *(__constant __m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0;
     __private void* pData = GetImagePtr2d(pImage, coord.z);
     int samplerIndex = __builtin_astype(sampler, int);
@@ -834,7 +834,7 @@ int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t
 
 int4  __attribute__((overloadable)) read_imagei(image2d_array_t image, sampler_t sampler, float4 coord)
 {
-    float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    float4 internal_coord = _mm_and_ps(coord, *(__constant __m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
     __private void* pData = GetImagePtr(image, coord.z);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);
@@ -862,7 +862,7 @@ uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler
 
 uint4  __attribute__((overloadable)) read_imageui(image2d_array_t image, sampler_t sampler, float4 coord)
 {
-    float4 internal_coord = _mm_and_ps(coord, *(__m128*)fVec4FloatZeroCoordMask3D);
+    float4 internal_coord = _mm_and_ps(coord, *(__constant __m128*)fVec4FloatZeroCoordMask3D);
     internal_coord.z = 0.f;
     __private void* pData = GetImagePtr(image, coord.z);
     __private image_aux_data *pImage = __builtin_astype(image, __private image_aux_data*);

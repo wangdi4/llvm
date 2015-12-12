@@ -58,6 +58,11 @@ bool BuildProgram(const char* szFileName, cl_dev_program* prog)
     buffer.assign(std::istreambuf_iterator<char>(testFile), std::istreambuf_iterator<char>());
 
     cl_int rc = dev_entry->clDevCreateProgram(buffer.size(), (const void*)buffer.data(), CL_DEV_BINARY_USER, prog);
+    if ( CL_DEV_FAILED(rc) )
+    {
+        printf(">>>>>>> clDevCreateProgram failed: <%X>\n", rc);
+        return false;
+    }
     cl_build_status     build_status;
     rc = dev_entry->clDevBuildProgram(*prog, NULL, &build_status);
 

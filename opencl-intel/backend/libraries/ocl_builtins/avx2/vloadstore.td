@@ -45,8 +45,7 @@ OclBuiltinImpl __ocl_float2half8_rtpA2 = OclBuiltinImpl<__ocl_float2half8_rtp, [
   }]>;
 
 OclBuiltinImpl __ocl_double2ToHalf2_rteA2 = OclBuiltinImpl<__ocl_double2ToHalf2_rte, [v2f64], 0, [{
-    typedef union { double2 d; long2 ix; } double2_t;
-    double2_t x,j;
+    union { double2 d; long2 ix; } x,j;
     float2 f;
     float4 res;
     short2 h;
@@ -63,8 +62,7 @@ OclBuiltinImpl __ocl_double2ToHalf2_rteA2 = OclBuiltinImpl<__ocl_double2ToHalf2_
   }]>;
 
 OclBuiltinImpl __ocl_double4ToHalf4_rteA2 = OclBuiltinImpl<__ocl_double4ToHalf4_rte, [v4f64], 0, [{
-    typedef union { double4 d; long4 ix; } double4_t;
-    double4_t x,j;
+    union { double4 d; long4 ix; } x,j;
     float4 f,res;
     short4 h;
     x.d = $Arg0VarName;

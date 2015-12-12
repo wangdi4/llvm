@@ -55,59 +55,59 @@
 
 // Coordinate callback typedefs
 // coordinates callback for float input
-typedef __constant void *Image_F_COORD_CBK;
+typedef __private void *Image_F_COORD_CBK;
 /// coordinates callback should return coordinates of pixel and
 /// i0,j0,k0,i1,k1,j1 components for interpolation
-typedef __constant void *Image_FF_COORD_CBK;
+typedef __private void *Image_FF_COORD_CBK;
 
 // Image reading callback typedefs
 // Reading from uint32_t image.
-typedef __constant void *Image_UI_READ_CBK;
-typedef __constant void *SOA4_Image_UI_READ_CBK;
-typedef __constant void *SOA8_Image_UI_READ_CBK;
+typedef __private void *Image_UI_READ_CBK;
+typedef __private void *SOA4_Image_UI_READ_CBK;
+typedef __private void *SOA8_Image_UI_READ_CBK;
 
 
 // Reading from signed int image
-typedef __constant void *Image_I_READ_CBK;
+typedef __private void *Image_I_READ_CBK;
 // read callback for float images and float coordinates takes
 // translated coordinates and i0,j0,k0,i1,j1,k1 components for interpolation
-typedef __constant void *Image_F_READ_CBK;
+typedef __private void *Image_F_READ_CBK;
 
 // read callback for float images and integer coordinates
-typedef __constant void *Image_FI_READ_CBK;
+typedef __private void *Image_FI_READ_CBK;
 
 // Write image callback typedefs
-typedef __constant void *Image_UI_WRITE_CBK;
-typedef __constant void *Image_I_WRITE_CBK;
-typedef __constant void *Image_F_WRITE_CBK;
+typedef __private void *Image_UI_WRITE_CBK;
+typedef __private void *Image_I_WRITE_CBK;
+typedef __private void *Image_F_WRITE_CBK;
 
-typedef __constant void *SOA4_Image_UI_WRITE_CBK;
-typedef __constant void *SOA8_Image_UI_WRITE_CBK;
+typedef __private void *SOA4_Image_UI_WRITE_CBK;
+typedef __private void *SOA8_Image_UI_WRITE_CBK;
 
 // Coordinates callback for integer input
-typedef __constant void *Image_I_COORD_CBK;
+typedef __private void *Image_I_COORD_CBK;
 // Coordinates callback for SOA4 integer input
-typedef __constant void *SOA4_Image_I_COORD_CBK;
+typedef __private void *SOA4_Image_I_COORD_CBK;
 // Coordinates callback for SOA8 integer input
-typedef __constant void *SOA8_Image_I_COORD_CBK;
+typedef __private void *SOA8_Image_I_COORD_CBK;
 
-int4   call_Image_F_COORD_CBK      (__constant void* cbk, __private void* image, float4 coord);
-float4 call_Image_FF_COORD_CBK     (__constant void* cbk, __private void* image, float4 coord, __private int4* square0, __private int4* square1);
-uint4  call_Image_UI_READ_CBK      (__constant void* cbk, __private void* image, int4 coord, __private void* pData);
-void   call_SOA4_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private void* pData, __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w);
-void   call_SOA8_Image_UI_READ_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private void* pData, __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w);
-int4   call_Image_I_READ_CBK       (__constant void* cbk, __private void* image, int4 coord, __private void* pData);
-float4 call_Image_F_READ_CBK       (__constant void* cbk, __private void* image, int4 square0, int4 square1, float4 coord, __private void* pData);
-float4 call_Image_FI_READ_CBK      (__constant void* cbk, __private void* image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData);
-void   call_Image_UI_WRITE_CBK     (__constant void* cbk, __private void* image, uint4 color);
-void   call_Image_I_WRITE_CBK      (__constant void* cbk, __private void* image, int4 color);
-void   call_Image_F_WRITE_CBK      (__constant void* cbk, __private void* image, float4 color);
-void   call_SOA4_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p1, __private void* p2, __private void* p3, __private void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
-void   call_SOA8_Image_UI_WRITE_CBK(__constant void* cbk, __private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
+int4   call_Image_F_COORD_CBK      (private void* cbk, __private void* image, float4 coord);
+float4 call_Image_FF_COORD_CBK     (__private void* cbk, __private void* image, float4 coord, __private int4* square0, __private int4* square1);
+uint4  call_Image_UI_READ_CBK      (__private void* cbk, __private void* image, int4 coord, __private void* pData);
+void   call_SOA4_Image_UI_READ_CBK (__private void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private void* pData, __private uint4* res_x, __private uint4* res_y, __private uint4* res_z, __private uint4* res_w);
+void   call_SOA8_Image_UI_READ_CBK (__private void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private void* pData, __private uint8* res_x, __private uint8* res_y, __private uint8* res_z, __private uint8* res_w);
+int4   call_Image_I_READ_CBK       (__private void* cbk, __private void* image, int4 coord, __private void* pData);
+float4 call_Image_F_READ_CBK       (__private void* cbk, __private void* image, int4 square0, int4 square1, float4 coord, __private void* pData);
+float4 call_Image_FI_READ_CBK      (__private void* cbk, __private void* image, int4 coord, int4 dummy0, float4 dummy1, __private void* pData);
+void   call_Image_UI_WRITE_CBK     (__private void* cbk, __private void* image, uint4 color);
+void   call_Image_I_WRITE_CBK      (__private void* cbk, __private void* image, int4 color);
+void   call_Image_F_WRITE_CBK      (__private void* cbk, __private void* image, float4 color);
+void   call_SOA4_Image_UI_WRITE_CBK(__private void* cbk, __private void* p1, __private void* p2, __private void* p3, __private void* p4, uint4 val_x, uint4 val_y, uint4 val_z, uint4 val_w);
+void   call_SOA8_Image_UI_WRITE_CBK(__private void* cbk, __private void* p0, __private void* p1, __private void* p2, __private void* p3, __private void* p4, __private void* p5, __private void* p6, __private void* p7, uint8 val_x, uint8 val_y, uint8 val_z, uint8 val_w);
 
-int4 call_Image_I_COORD_CBK      (__constant void* cbk, __private void* image, int4 coord);
-void call_SOA4_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private int4* translated_coord_x, __private int4* translated_coord_y);
-void call_SOA8_Image_I_COORD_CBK (__constant void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private int8* translated_coord_x, __private int8* translated_coord_y);
+int4 call_Image_I_COORD_CBK      (__private void* cbk, __private void* image, int4 coord);
+void call_SOA4_Image_I_COORD_CBK (__private void* cbk, __private void* image, int4 coord_x, int4 coord_y, __private int4* translated_coord_x, __private int4* translated_coord_y);
+void call_SOA8_Image_I_COORD_CBK (__private void* cbk, __private void* image, int8 coord_x, int8 coord_y, __private int8* translated_coord_x, __private int8* translated_coord_y);
 Image_I_COORD_CBK const call_coord_translate_i_callback(int samplerIndex);
 SOA4_Image_I_COORD_CBK const call_soa4_coord_translate_i_callback(int samplerIndex);
 SOA8_Image_I_COORD_CBK const call_soa8_coord_translate_i_callback(int samplerIndex);
@@ -140,14 +140,14 @@ typedef struct _image_aux_data
                                               // Could be a valid memory pointer or a handle to other object.
   unsigned          uiElementSize;            // Size of image pixel element.
 
-  void*             coord_translate_f_callback[CBK_ARRAY_SIZE]; //the list of float coordinate translation callback
-  void*             read_img_callback_int[CBK_ARRAY_SIZE];      // the list of integer image reader & filter callbacks
-  void*             read_img_callback_float[CBK_ARRAY_SIZE];    // the list of float   image reader & filter callbacks
-  void*             soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
-  void*             soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa8 integer image reader & filter callbacks
-  void*             write_img_callback;             // the write image sampler callback
-  void*             soa4_write_img_callback;        // the write image sampler callback
-  void*             soa8_write_img_callback;        // the write image sampler callback
+  __private void*             coord_translate_f_callback[CBK_ARRAY_SIZE]; //the list of float coordinate translation callback
+  __private void*             read_img_callback_int[CBK_ARRAY_SIZE];      // the list of integer image reader & filter callbacks
+  __private void*             read_img_callback_float[CBK_ARRAY_SIZE];    // the list of float   image reader & filter callbacks
+  __private void*             soa4_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa4 integer image reader & filter callbacks
+  __private void*             soa8_read_img_callback_int[CBK_ARRAY_SIZE]; // the list of soa8 integer image reader & filter callbacks
+  __private void*             write_img_callback;             // the write image sampler callback
+  __private void*             soa4_write_img_callback;        // the write image sampler callback
+  __private void*             soa8_write_img_callback;        // the write image sampler callback
 
   int dimSub1[MAX_WORK_DIM+1] ALIGN16;        // Image size for each dimension subtracted by one
                                               // Used to optimize coordinates computation not to subtract by one for each read

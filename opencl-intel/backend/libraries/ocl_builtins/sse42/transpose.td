@@ -6,7 +6,7 @@
 // ****************************************************************************
 OclBuiltinImpl transpose_load_char4x4_sse4 = OclBuiltinImpl<__ocl_load_transpose4x4,  [v4i8],  0, [{
     // We load "char16", meaning we load the full matrix in a single load
-    __private char* tmpLoadAdd = (__private char*)$Arg0VarName;
+    const __private char* tmpLoadAdd = (const __private char*)$Arg0VarName;
     char16 Arg0 = vload16(0, tmpLoadAdd); // unaligned load
     $Arg1Type Arg1 = $Arg1VarName;
     $Arg2Type Arg2 = $Arg2VarName;
@@ -100,7 +100,7 @@ OclBuiltinImpl transpose_masked_gather_char4x4_sse4 = OclBuiltinImpl<__ocl_maske
 // ****************************************************************************
 OclBuiltinImpl transpose_load_char4x8_sse4 = OclBuiltinImpl<__ocl_load_transpose4x8, [v4i8],  0, [{
     // We load "char16", meaning we load the full matrix in a 2 loads
-    __private char* tmpLoadAdd = (__private char*)$Arg0VarName;
+    const __private char* tmpLoadAdd = (const __private char*)$Arg0VarName;
     char16 Arg0 = vload16(0, tmpLoadAdd);                                             // x0 y0 z0 w0 x1 y1 z1 w1 x2 y2 z2 w2 x3 y3 z3 w3
     char16 Arg1 = vload16(1, tmpLoadAdd);                                             // x4 y4 z4 w4 x5 y5 z5 w5 x6 y6 z6 w6 x7 y7 z7 w7
     $Arg1Type Arg2 = $Arg1VarName;

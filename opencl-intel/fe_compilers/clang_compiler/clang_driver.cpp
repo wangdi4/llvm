@@ -152,6 +152,7 @@ int ClangFECompilerCompileTask::Compile(IOCLFEBinaryResult* *pBinaryResult)
     std::stringstream optionsEx;
     // Add current directory
     optionsEx << " -I" << GetCurrentDir();
+    optionsEx << " -mstackrealign";
 
     if(m_sDeviceInfo.bImageSupport)
     {

@@ -13,6 +13,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/Pass.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/IR/ValueHandle.h"
 
 using namespace llvm;
 
@@ -48,27 +49,44 @@ namespace intel {
 
     private:
 
+      // OCLAAACallbackVH - A CallbackVH to arrange for OCLAliasAnalysis to be
+      // notified whenever a Value is deleted.
+      class OCLAAACallbackVH : public CallbackVH {
+        OCLAliasAnalysis *OCLAA;
+        void deleted() override;
+        void allUsesReplacedWith(Value *New) override;
+      public:
+        OCLAAACallbackVH(Value *V, OCLAliasAnalysis *OCLAA = nullptr);
+      };
+
       // Helper class to hold the result of address space resolution
       class ResolveResult {
       public:
-	ResolveResult(bool r, unsigned int ar) {
-	  resolved = r;
-	  addressSpace = ar;
-	}
-	ResolveResult(const ResolveResult& other) {
-	  resolved = other.resolved;
-	  addressSpace = other.addressSpace;
-	}
-	bool isResolved() {return resolved;}
-	unsigned int getAddressSpace() {return addressSpace;}
-	bool operator==(const ResolveResult& other) {
-	  return (resolved == other.resolved) &&
-	         (addressSpace == other.addressSpace);
-	}
+        ResolveResult(bool r, unsigned int ar) {
+          resolved = r;
+          addressSpace = ar;
+        }
+        ResolveResult(const ResolveResult& other) {
+          resolved = other.resolved;
+          addressSpace = other.addressSpace;
+        }
+        bool isResolved() {return resolved;}
+        unsigned int getAddressSpace() {return addressSpace;}
+        bool operator==(const ResolveResult& other) {
+          return (resolved == other.resolved) &&
+                 (addressSpace == other.addressSpace);
+        }
       private:
-	bool resolved;
-	unsigned int addressSpace;
+        bool resolved;
+        unsigned int addressSpace;
       };
+
+      // ValuerMapType - The typedef for ValueMap.
+      typedef DenseMap<OCLAAACallbackVH, ResolveResult, DenseMapInfo<Value *> >
+         ValueMapType;
+
+      // ValueExprMap - This is a cache of the values we have analyzed so far.
+      ValueMapType ValueMap;
 
       // Go over used values and usages and loop for a cast to a named address
       // space. If there are no conversions from/to int and only one namespace
@@ -81,11 +99,10 @@ namespace intel {
 
       typedef SmallPtrSet<const Value*, 16> SmallValueSet;
       ResolveResult cacheResult(SmallValueSet& values, ResolveResult resolveResult);
-      std::map<const Value*, ResolveResult> m_cachedResults;
+
+      void rauwValue(Value* oldVal, Value* newVal);
 
       int m_disjointAddressSpaces;
-
   };
 }
 #endif
-

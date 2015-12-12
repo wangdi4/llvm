@@ -68,6 +68,8 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
  */
 extern const char* CPU_ARCH_AUTO;
 
+TargetOptions ExternInitTargetOptionsFromCodeGenFlags();
+
 /*
  * Utility methods
  */
@@ -353,7 +355,7 @@ llvm::ExecutionEngine* CPUCompiler::CreateCPUExecutionEngine(llvm::Module* pModu
     // Not sure whether this is a proper alternative and there is a need for one.
     builder.setMCJITMemoryManager(std::unique_ptr<RTDyldMemoryManager>(
         new SectionMemoryManager()));
-    llvm::TargetOptions targetOpt;
+    llvm::TargetOptions targetOpt = ExternInitTargetOptionsFromCodeGenFlags();
     if (pModule->getNamedMetadata("opencl.enable.FP_CONTRACT"))
       targetOpt.AllowFPOpFusion = llvm::FPOpFusion::Fast;
     else
