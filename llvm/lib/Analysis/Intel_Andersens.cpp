@@ -1151,17 +1151,18 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
 
       // Calls to inline asm need to be added as well because the callee isn't
       // referenced anywhere else.
-      if (CallInst *CI = dyn_cast<CallInst>(&*II)) {
-        Value *Callee = CI->getCalledValue();
+      // Treat malloc/calloc in InvokeInst also as memory object creators.
+      if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
+        CallSite CS = CallSite(&*II); 
+        Value *Callee = CS.getCalledValue();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        ImmutableCallSite cs1(&*II);
-        if (const Function *F1 = cs1.getCalledFunction()) {
+        if (const Function *F1 = CS.getCalledFunction()) {
             // TODO: Make this condition as utility function later
             // after adding more malloc-like calls
             if (F1->getName() == "malloc" || F1->getName() == "calloc") {
-                  ObjectNodes[CI] = NumObjects++;
+                  ObjectNodes[CS.getInstruction()] = NumObjects++;
            }
         }
       }
