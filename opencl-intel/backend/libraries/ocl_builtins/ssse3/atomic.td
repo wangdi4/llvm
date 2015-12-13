@@ -619,7 +619,8 @@ OclBuiltinImpl atomic_flag_clear_explicit_scope_l_impl = OclBuiltinImpl<atomic_f
 // atomic_work_item_fence
 OclBuiltinImpl atomic_work_item_fence_impl = OclBuiltinImpl<atomic_work_item_fence, atomic_work_item_fence.Types, 0, [{
     if($Arg0VarName & CLK_GLOBAL_MEM_FENCE &&
-       $Arg2VarName != memory_scope_work_group) { // this implementation relies on that a workgroup is executed
+       $Arg2VarName != memory_scope_work_group &&
+       $Arg2VarName != memory_scope_sub_group) {  // this implementation relies on that a workgroup is executed
                                                   // by single phy. thread
       if($Arg1VarName == memory_order_acquire) {
         _mm_lfence();
