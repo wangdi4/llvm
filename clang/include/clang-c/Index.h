@@ -2890,9 +2890,8 @@ enum CXCallingConv {
   CXCallingConv_X86_64SysV = 11,
   CXCallingConv_X86VectorCall = 12,
 #if INTEL_CUSTOMIZATION
-  CXCallingConv_IntelRegCallcc = 13,
+  CXCallingConv_X86RegCall = 13,
 #endif /* INTEL_CUSTOMIZATION */
-
   CXCallingConv_Invalid = 100,
   CXCallingConv_Unexposed = 200
 };

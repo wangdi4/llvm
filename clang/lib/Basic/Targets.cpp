@@ -2478,12 +2478,10 @@ public:
     return (CC == CC_X86ThisCall ||
             CC == CC_X86FastCall ||
             CC == CC_X86StdCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_X86VectorCall ||
             CC == CC_C ||
             CC == CC_X86Pascal ||
-#if INTEL_CUSTOMIZATION
-            CC == CC_IntelRegCallcc ||
-#endif // INTEL_CUSTOMIZATION
             CC == CC_IntelOclBicc) ? CCCR_OK : CCCR_Warning;
   }
 
@@ -3956,10 +3954,8 @@ public:
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
     return (CC == CC_C ||
             CC == CC_X86VectorCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_IntelOclBicc ||
-#if INTEL_CUSTOMIZATION
-            CC == CC_IntelRegCallcc ||
-#endif // INTEL_CUSTOMIZATION
             CC == CC_X86_64Win64) ? CCCR_OK : CCCR_Warning;
   }
 
@@ -4005,11 +4001,9 @@ public:
       return CCCR_Ignore;
     case CC_C:
     case CC_X86VectorCall:
+    case CC_X86RegCall: // INTEL
     case CC_IntelOclBicc:
     case CC_X86_64SysV:
-#if INTEL_CUSTOMIZATION
-    case CC_IntelRegCallcc:
-#endif // INTEL_CUSTOMIZATION
       return CCCR_OK;
     default:
       return CCCR_Warning;

@@ -2638,6 +2638,7 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_C: return "cdecl";
   case CC_X86StdCall: return "stdcall";
   case CC_X86FastCall: return "fastcall";
+  case CC_X86RegCall: return "regcall"; // INTEL
   case CC_X86ThisCall: return "thiscall";
   case CC_X86Pascal: return "pascal";
   case CC_X86VectorCall: return "vectorcall";
@@ -2648,9 +2649,6 @@ StringRef FunctionType::getNameForCallConv(CallingConv CC) {
   case CC_IntelOclBicc: return "intel_ocl_bicc";
   case CC_SpirFunction: return "spir_function";
   case CC_SpirKernel: return "spir_kernel";
-#if INTEL_CUSTOMIZATION
-  case CC_IntelRegCallcc: return "regcall";
-#endif // INTEL_CUSTOMIZATION
   }
 
   llvm_unreachable("Invalid calling convention.");
@@ -3056,6 +3054,7 @@ bool AttributedType::isCallingConv() const {
   case attr_pcs_vfp:
   case attr_cdecl:
   case attr_fastcall:
+  case attr_regcall:  // INTEL
   case attr_stdcall:
   case attr_thiscall:
   case attr_vectorcall:
@@ -3063,9 +3062,6 @@ bool AttributedType::isCallingConv() const {
   case attr_ms_abi:
   case attr_sysv_abi:
   case attr_inteloclbicc:
-#if INTEL_CUSTOMIZATION
-  case attr_intelregcallcc:
-#endif // INTEL_CUSTOMIZATION
     return true;
   }
   llvm_unreachable("invalid attr kind");

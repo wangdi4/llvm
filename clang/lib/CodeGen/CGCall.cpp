@@ -46,15 +46,13 @@ static unsigned ClangCallConvToLLVMCallConv(CallingConv CC) {
   default: return llvm::CallingConv::C;
   case CC_X86StdCall: return llvm::CallingConv::X86_StdCall;
   case CC_X86FastCall: return llvm::CallingConv::X86_FastCall;
+  case CC_X86RegCall: return llvm::CallingConv::X86_RegCall;  // INTEL
   case CC_X86ThisCall: return llvm::CallingConv::X86_ThisCall;
   case CC_X86_64Win64: return llvm::CallingConv::X86_64_Win64;
   case CC_X86_64SysV: return llvm::CallingConv::X86_64_SysV;
   case CC_AAPCS: return llvm::CallingConv::ARM_AAPCS;
   case CC_AAPCS_VFP: return llvm::CallingConv::ARM_AAPCS_VFP;
   case CC_IntelOclBicc: return llvm::CallingConv::Intel_OCL_BI;
-#if INTEL_CUSTOMIZATION
-  case CC_IntelRegCallcc: return llvm::CallingConv::Intel_regcall;
-#endif // INTEL_CUSTOMIZATION
   // TODO: Add support for __pascal to LLVM.
   case CC_X86Pascal: return llvm::CallingConv::C;
   // TODO: Add support for __vectorcall to LLVM.
@@ -129,7 +127,10 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
 
   if (D->hasAttr<FastCallAttr>())
     return CC_X86FastCall;
-
+#if INTEL_CUSTOMIZATION
+  if (D->hasAttr<RegCallAttr>())
+    return CC_X86RegCall;
+#endif // INTEL_CUSTOMIZATION
   if (D->hasAttr<ThisCallAttr>())
     return CC_X86ThisCall;
 
@@ -145,11 +146,6 @@ static CallingConv getCallingConventionForDecl(const Decl *D, bool IsWindows) {
   if (D->hasAttr<IntelOclBiccAttr>())
     return CC_IntelOclBicc;
 
-#if INTEL_CUSTOMIZATION
-  if (D->hasAttr<IntelRegCallccAttr>())
-    return CC_IntelRegCallcc;
-
-#endif // INTEL_CUSTOMIZATION
   if (D->hasAttr<MSABIAttr>())
     return IsWindows ? CC_C : CC_X86_64Win64;
 

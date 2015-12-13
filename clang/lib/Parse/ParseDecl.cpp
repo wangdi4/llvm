@@ -682,6 +682,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
   while (true) {
     switch (Tok.getKind()) {
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___stdcall:
     case tok::kw___thiscall:
     case tok::kw___cdecl:
@@ -3202,6 +3203,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:
@@ -4493,8 +4495,9 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
+  case tok::kw___regcall:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
@@ -4712,6 +4715,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
+  case tok::kw___regcall: // INTEL
   case tok::kw___thiscall:
   case tok::kw___vectorcall:
   case tok::kw___w64:
@@ -4944,6 +4948,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:

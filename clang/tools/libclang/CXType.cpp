@@ -523,6 +523,7 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(C);
       TCALLINGCONV(X86StdCall);
       TCALLINGCONV(X86FastCall);
+      TCALLINGCONV(X86RegCall); // INTEL
       TCALLINGCONV(X86ThisCall);
       TCALLINGCONV(X86Pascal);
       TCALLINGCONV(X86VectorCall);
@@ -531,9 +532,6 @@ CXCallingConv clang_getFunctionTypeCallingConv(CXType X) {
       TCALLINGCONV(AAPCS);
       TCALLINGCONV(AAPCS_VFP);
       TCALLINGCONV(IntelOclBicc);
-#if INTEL_CUSTOMIZATION
-      TCALLINGCONV(IntelRegCallcc);
-#endif // INTEL_CUSTOMIZATION
     case CC_SpirFunction: return CXCallingConv_Unexposed;
     case CC_SpirKernel: return CXCallingConv_Unexposed;
       break;

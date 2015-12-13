@@ -105,6 +105,7 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
 #define FUNCTION_TYPE_ATTRS_CASELIST \
     case AttributeList::AT_NoReturn: \
     case AttributeList::AT_CDecl: \
+    case AttributeList::AT_RegCall: \
     case AttributeList::AT_FastCall: \
     case AttributeList::AT_StdCall: \
     case AttributeList::AT_ThisCall: \
@@ -114,7 +115,6 @@ static void diagnoseBadTypeAttribute(Sema &S, const AttributeList &attr,
     case AttributeList::AT_SysVABI: \
     case AttributeList::AT_Regparm: \
     case AttributeList::AT_Pcs: \
-    case AttributeList::AT_IntelRegCallcc: /* INTEL_CUSTOMIZATION */ \
     case AttributeList::AT_IntelOclBicc
 
 // Microsoft-specific type qualifiers.
@@ -4487,6 +4487,10 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_CDecl;
   case AttributedType::attr_fastcall:
     return AttributeList::AT_FastCall;
+#if INTEL_CUSTOMIZATION
+  case AttributedType::attr_regcall:
+    return AttributeList::AT_RegCall;
+#endif // INTEL_CUSTOMIZATION
   case AttributedType::attr_stdcall:
     return AttributeList::AT_StdCall;
   case AttributedType::attr_thiscall:
@@ -4500,10 +4504,6 @@ static AttributeList::Kind getAttrListKind(AttributedType::Kind kind) {
     return AttributeList::AT_Pcs;
   case AttributedType::attr_inteloclbicc:
     return AttributeList::AT_IntelOclBicc;
-#if INTEL_CUSTOMIZATION
-  case AttributedType::attr_intelregcallcc:
-    return AttributeList::AT_IntelRegCallcc;
-#endif // INTEL_CUSTOMIZATION
   case AttributedType::attr_ms_abi:
     return AttributeList::AT_MSABI;
   case AttributedType::attr_sysv_abi:
@@ -5767,6 +5767,10 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
     return AttributedType::attr_cdecl;
   case AttributeList::AT_FastCall:
     return AttributedType::attr_fastcall;
+#if INTEL_CUSTOMIZATION
+  case AttributeList::AT_RegCall:
+    return AttributedType::attr_regcall;
+#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_StdCall:
     return AttributedType::attr_stdcall;
   case AttributeList::AT_ThisCall:
@@ -5790,10 +5794,6 @@ static AttributedType::Kind getCCTypeAttrKind(AttributeList &Attr) {
   }
   case AttributeList::AT_IntelOclBicc:
     return AttributedType::attr_inteloclbicc;
-#if INTEL_CUSTOMIZATION
-  case AttributeList::AT_IntelRegCallcc:
-    return AttributedType::attr_intelregcallcc;
-#endif // INTEL_CUSTOMIZATION
   case AttributeList::AT_MSABI:
     return AttributedType::attr_ms_abi;
   case AttributeList::AT_SysVABI:

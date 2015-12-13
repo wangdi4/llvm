@@ -3630,6 +3630,7 @@ public:
     attr_noreturn,
     attr_cdecl,
     attr_fastcall,
+    attr_regcall, // INTEL
     attr_stdcall,
     attr_thiscall,
     attr_pascal,
@@ -3644,9 +3645,6 @@ public:
     attr_nonnull,
     attr_nullable,
     attr_null_unspecified,
-#if INTEL_CUSTOMIZATION
-    attr_intelregcallcc,
-#endif // INTEL_CUSTOMIZATION
     attr_objc_kindof,
   };
 

@@ -674,6 +674,11 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_X86FastCall:
       OS << " __attribute__((fastcall))";
       break;
+#if INTEL_CUSTOMIZATION
+    case CC_X86RegCall:
+      OS << " __attribute__((regcall))";
+      break;
+#endif // INTEL_CUSTOMIZATION
     case CC_X86ThisCall:
       OS << " __attribute__((thiscall))";
       break;
@@ -692,11 +697,6 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_IntelOclBicc:
       OS << " __attribute__((intel_ocl_bicc))";
       break;
-#if INTEL_CUSTOMIZATION
-    case CC_IntelRegCallcc:
-      OS << " __attribute__((regcall))";
-      break;
-#endif // INTEL_CUSTOMIZATION
     case CC_X86_64Win64:
       OS << " __attribute__((ms_abi))";
       break;
@@ -1309,6 +1309,7 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
 
   case AttributedType::attr_cdecl: OS << "cdecl"; break;
   case AttributedType::attr_fastcall: OS << "fastcall"; break;
+  case AttributedType::attr_regcall: OS << "regcall"; break;  // INTEL
   case AttributedType::attr_stdcall: OS << "stdcall"; break;
   case AttributedType::attr_thiscall: OS << "thiscall"; break;
   case AttributedType::attr_vectorcall: OS << "vectorcall"; break;
@@ -1327,9 +1328,6 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
    break;
   }
   case AttributedType::attr_inteloclbicc: OS << "inteloclbicc"; break;
-#if INTEL_CUSTOMIZATION
-  case AttributedType::attr_intelregcallcc: OS << "intelregcallcc"; break;
-#endif // INTEL_CUSTOMIZATION
   }
   OS << "))";
 }
