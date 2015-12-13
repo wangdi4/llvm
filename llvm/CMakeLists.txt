@@ -55,8 +55,6 @@ project(LLVM
   ${cmake_3_0_PROJ_VERSION}
   ${cmake_3_0_LANGUAGES}
   C CXX ASM)
- 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # The following only works with the Ninja generator in CMake >= 3.0.
 set(LLVM_PARALLEL_COMPILE_JOBS "" CACHE STRING
