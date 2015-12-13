@@ -2,7 +2,7 @@
 
 ; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
 
-; CHECK-LABEL: __regcall <4 x i32> @_ZGVxN4u_foo(i32 %b)
+; CHECK-LABEL: x86_regcallcc <4 x i32> @_ZGVxN4u_foo(i32 %b)
 ; CHECK: simd.loop:
 ; CHECK: store i32 %b
 

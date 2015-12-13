@@ -4,7 +4,7 @@
 
 ; Begin non-masked variant checking
 
-; CHECK-LABEL: __regcall <4 x i32> @_ZGVxN4vv_vec_sum(<4 x i32> %i, <4 x i32> %j)
+; CHECK-LABEL: x86_regcallcc <4 x i32> @_ZGVxN4vv_vec_sum(<4 x i32> %i, <4 x i32> %j)
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %vec.i = alloca <4 x i32>
 ; CHECK-NEXT: %vec.j = alloca <4 x i32>

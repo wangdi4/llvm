@@ -157,13 +157,16 @@ namespace CallingConv {
 
     /// \brief HHVM calling convention for invoking C/C++ helpers.
     HHVM_C = 82
-#if INTEL_CUSTOMIZATION
+#ifdef INTEL_CUSTOMIZATION
+    /// \brief The __regcall convention as specified in the Intel Vector
+    /// Function ABI. This calling convention differs from the x86 ABI in
+    /// that scalar arguments are passed in GPRs, the order of GPRs used
+    /// differs from the x86-64 ABI, and all XMM/YMM registers are used for
+    /// vector/FP arguments.
+    , X86_RegCall = 83
 
     /// \brief SVML for intel compiler
-    ,SVML = 83
-
-    /// Intel_regcall - The Intel __regcall Calling convention
-    ,Intel_regcall = 84
+    ,SVML = 84
 #endif // INTEL_CUSTOMIZATION
   };
 } // End CallingConv namespace

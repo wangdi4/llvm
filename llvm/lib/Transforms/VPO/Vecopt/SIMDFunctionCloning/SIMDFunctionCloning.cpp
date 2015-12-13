@@ -221,7 +221,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
 
   SmallVector<ReturnInst*, 8> Returns;
   CloneFunctionInto(Clone, &F, Vmap, true, Returns);
-  Clone->setCallingConv(CallingConv::Intel_regcall);
+  Clone->setCallingConv(CallingConv::X86_RegCall);
 
   DEBUG(dbgs() << "After Cloning and Parameter/Return Expansion\n");
   DEBUG(Clone->dump());

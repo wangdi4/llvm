@@ -1515,6 +1515,7 @@ bool LLParser::ParseOptionalDLLStorageClass(unsigned &Res) {
 ///   ::= 'coldcc'
 ///   ::= 'x86_stdcallcc'
 ///   ::= 'x86_fastcallcc'
+///   ::= 'x86_regcallcc' // INTEL
 ///   ::= 'x86_thiscallcc'
 ///   ::= 'x86_vectorcallcc'
 ///   ::= 'arm_apcscc'
@@ -1544,6 +1545,7 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_coldcc:         CC = CallingConv::Cold; break;
   case lltok::kw_x86_stdcallcc:  CC = CallingConv::X86_StdCall; break;
   case lltok::kw_x86_fastcallcc: CC = CallingConv::X86_FastCall; break;
+  case lltok::kw_x86_regcallcc:  CC = CallingConv::X86_RegCall; break;  // INTEL
   case lltok::kw_x86_thiscallcc: CC = CallingConv::X86_ThisCall; break;
   case lltok::kw_x86_vectorcallcc:CC = CallingConv::X86_VectorCall; break;
   case lltok::kw_arm_apcscc:     CC = CallingConv::ARM_APCS; break;
@@ -1557,7 +1559,6 @@ bool LLParser::ParseOptionalCallingConv(unsigned &CC) {
   case lltok::kw_intel_ocl_bicc: CC = CallingConv::Intel_OCL_BI; break;
 #if INTEL_CUSTOMIZATION
   case lltok::kw_svml_cc:        CC = CallingConv::SVML; break;
-  case lltok::kw___regcall:      CC = CallingConv::Intel_regcall; break;
 #endif // INTEL_CUSTOMIZATION
   case lltok::kw_x86_64_sysvcc:  CC = CallingConv::X86_64_SysV; break;
   case lltok::kw_x86_64_win64cc: CC = CallingConv::X86_64_Win64; break;

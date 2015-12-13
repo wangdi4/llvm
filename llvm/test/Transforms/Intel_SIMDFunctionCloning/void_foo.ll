@@ -2,7 +2,7 @@
 
 ; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
 
-; CHECK-LABEL: __regcall void @_ZGVxN4_foo()
+; CHECK-LABEL: x86_regcallcc void @_ZGVxN4_foo()
 ; CHECK: entry:
 ; CHECK: ret void
 

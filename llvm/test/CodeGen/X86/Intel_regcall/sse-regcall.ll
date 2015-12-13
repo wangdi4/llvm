@@ -48,7 +48,7 @@
 ; LINUXOSX: retq
 
 ;test calling conventions - input parameters, callee saved XMMs
-define __regcall <16 x float> @testf32_inp(<16 x float> %a, <16 x float> %b, <16 x float> %c) nounwind {
+define x86_regcallcc <16 x float> @testf32_inp(<16 x float> %a, <16 x float> %b, <16 x float> %c) nounwind {
   %x1 = fadd <16 x float> %a, %b
   %x2 = fmul <16 x float> %a, %b
   %x3 = fsub <16 x float> %x1, %x2
@@ -89,8 +89,8 @@ define __regcall <16 x float> @testf32_inp(<16 x float> %a, <16 x float> %b, <16
 ; LINUXOSX: retq
 
 ;test calling conventions - input parameters, callee saved GPRs
-define __regcall i32 @testi32_inp(i32 %a1, i32 %a2, i32 %a3, i32 %a4, i32 %a5, i32 %a6,
-                                  i32 %b1, i32 %b2, i32 %b3, i32 %b4, i32 %b5, i32 %b6) nounwind {
+define x86_regcallcc i32 @testi32_inp(i32 %a1, i32 %a2, i32 %a3, i32 %a4, i32 %a5, i32 %a6,
+                                      i32 %b1, i32 %b2, i32 %b3, i32 %b4, i32 %b5, i32 %b6) nounwind {
   %x1 = sub i32 %a1, %a2
   %x2 = sub i32 %a3, %a4
   %x3 = sub i32 %a5, %a6

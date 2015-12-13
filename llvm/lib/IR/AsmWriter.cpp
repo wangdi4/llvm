@@ -307,6 +307,7 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::X86_StdCall:   Out << "x86_stdcallcc"; break;
   case CallingConv::X86_FastCall:  Out << "x86_fastcallcc"; break;
   case CallingConv::X86_ThisCall:  Out << "x86_thiscallcc"; break;
+  case CallingConv::X86_RegCall:   Out << "x86_regcallcc"; break; // INTEL
   case CallingConv::X86_VectorCall:Out << "x86_vectorcallcc"; break;
   case CallingConv::Intel_OCL_BI:  Out << "intel_ocl_bicc"; break;
 #if INTEL_CUSTOMIZATION
@@ -324,9 +325,6 @@ static void PrintCallingConv(unsigned cc, raw_ostream &Out) {
   case CallingConv::SPIR_KERNEL:   Out << "spir_kernel"; break;
   case CallingConv::HHVM:          Out << "hhvmcc"; break;
   case CallingConv::HHVM_C:        Out << "hhvm_ccc"; break;
-#if INTEL_CUSTOMIZATION
-  case CallingConv::Intel_regcall: Out << "__regcall"; break;
-#endif // INTEL_CUSTOMIZATION
   }
 }
 

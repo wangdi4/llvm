@@ -1052,7 +1052,7 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
                                                  attrBuilder);
   wrapperFunc->removeAttributes(AttributeSet::FunctionIndex, attrsToRemove);
       
-  wrapperFunc->setCallingConv(CallingConv::Intel_regcall);
+  wrapperFunc->setCallingConv(CallingConv::X86_RegCall);
   BasicBlock* entryBB = BasicBlock::Create(wrapperFunc->getContext(),
 					   "wrapper.entry",
 					   wrapperFunc);
@@ -1197,7 +1197,7 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
 
   // Inline the wrapper call
   InlineFunctionInfo ifi;
-  bool inlined = llvm::InlineFunction(call, ifi, false);
+  bool inlined = llvm::InlineFunction(call, ifi, nullptr, false);
   assert(inlined && "expected inline to succeed");
 
   return wrapperFunc;
