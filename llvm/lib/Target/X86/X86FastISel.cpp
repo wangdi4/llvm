@@ -1117,8 +1117,9 @@ bool X86FastISel::X86SelectRet(const Instruction *I) {
   // the sret argument into %rax for the return. We saved the argument into
   // a virtual register in the entry block, so now we copy the value out
   // and into %rax. We also do the same with %eax for Win32.
-  if (F.hasStructRetAttr() &&
-      (Subtarget->is64Bit() || Subtarget->isTargetKnownWindowsMSVC())) {
+#if INTEL_CUSTOMIZATION
+  if (F.hasStructRetAttr()) {
+#endif //INTEL_CUSTOMIZATION
     unsigned Reg = X86MFInfo->getSRetReturnReg();
     assert(Reg &&
            "SRetReturnReg should have been set in LowerFormalArguments()!");
@@ -2862,7 +2863,10 @@ static unsigned computeBytesPoppedByCallee(const X86Subtarget *Subtarget,
     return 0;
   if (CS && !CS->paramHasAttr(1, Attribute::StructRet))
     return 0;
-  if (CS && CS->paramHasAttr(1, Attribute::InReg))
+#if INTEL_CUSTOMIZATION
+  if (CS && (CS->paramHasAttr(1, Attribute::InReg) ||
+             Subtarget->isTargetMCU()))
+#endif //INTEL_CUSTOMIZATION
     return 0;
   return 4;
 }

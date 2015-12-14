@@ -61,13 +61,56 @@ BBDuplicateThreshold("jump-threading-threshold",
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
                      cl::desc("Jump thread through loop header blocks"),
-                     cl::init(false), cl::Hidden);
+                     cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+DistantJumpThreading("distant-jump-threading",
+          cl::desc("Perform jump threading across larger-than-BB regions"),
+          cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+ConservativeJumpThreading("conservative-jump-threading",
+          cl::desc("Use conservative heuristics for loop headers and multi-BB "
+                   "thread regions"),
+          cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
   // These are at global scope so static functions can use them too.
   typedef SmallVectorImpl<std::pair<Constant*, BasicBlock*> > PredValueInfo;
   typedef SmallVector<std::pair<Constant*, BasicBlock*>, 8> PredValueInfoTy;
+
+#if INTEL_CUSTOMIZATION
+  ///   A simple extension to jump threading across a single BB is threading
+  /// across a multi-block region described by a <BBTop, BBBottom> pair,
+  /// where BBBottom ends in a multi-way branch that can be pre-determined
+  /// based on an incoming edge to BBTop and where BBTop dominates BBBottom.
+  /// (BBTop needn't strictly dominate BBBottom, i.e. BBTop == BBBottom is ok.)
+  /// We can duplicate every block on every path from BBTop to BBBottom and
+  /// adjust the control flow in the same way as for the single BB case, i.e.
+  /// BBTop's pred of interest is redirected to BBTop.thread, and the multi-way
+  /// branch at the end of BBBottom.thread is replaced by an unconditional
+  /// branch to the pre-determined successor. There can be other exits from the
+  /// region, but IF control gets from BBTop.thread to BBBottom.thread, we save
+  /// the overhead of the multi-way branch.
+  ///
+  ///   Taking the idea one step further, we can put multiple <BBTop, BBBottom>
+  /// pairs together, e.g. <BBTop2, BBBottom2>, <BBTop1, BBBottom1>, to describe
+  /// a thread region headed by BBTop1 and ending with BBBottom2 where BBTop1
+  /// does not dominate BBBottom2. There is an edge from BBBottom1 to BBTop2
+  /// that will be preserved in the threaded code, but there might be other
+  /// incoming edges to BBTop2 that will not. The individual pairs (call them
+  /// sub-regions) have the same control flow properties described above,
+  /// i.e. BBTopN dominates BBBottomN & all blocks on all paths from BBTopN to
+  /// BBBottomN get duplicated as part of the jump threading transformation. The
+  /// sub-regions are in reverse order since it is convenient to construct them
+  /// that way.
+  ///
+  typedef SmallVectorImpl<std::pair<BasicBlock*,BasicBlock*> > ThreadRegionInfo;
+  typedef SmallVector<std::pair<BasicBlock*,BasicBlock*>, 4> ThreadRegionInfoTy;
+  typedef SmallVectorImpl<std::pair<BasicBlock*,BasicBlock*> >::const_iterator
+    ThreadRegionInfoIterator;
+#endif // INTEL_CUSTOMIZATION
 
   // This is used to keep track of what kind of constant we're currently hoping
   // to find.
@@ -114,6 +157,13 @@ namespace {
     // conversion, so we suppress them when this pass is run prior to CFG
     // simplification.
     bool DoCFGSimplifications;
+
+    // Count the number of times that each block has been threaded, and stop
+    // threading across a block once this count reaches the threshold. This is
+    // a fail-safe to ensure that jump threading terminates when we allow
+    // threading across loop headers.
+    DenseMap<BasicBlock*, int> BlockThreadCount;
+    static const int MaxThreadsPerBlock = 10;
 #endif // INTEL_CUSTOMIZATION
 
     // RAII helper for updating the recursion stack.
@@ -154,13 +204,15 @@ namespace {
 
     void FindLoopHeaders(Function &F);
     bool ProcessBlock(BasicBlock *BB);
-    bool ThreadEdge(BasicBlock *BB, const SmallVectorImpl<BasicBlock*> &PredBBs,
+    bool ThreadEdge(const ThreadRegionInfo &RegionInfo,                 // INTEL
+                    const SmallVectorImpl<BasicBlock*> &PredBBs,        // INTEL
                     BasicBlock *SuccBB);
     bool DuplicateCondBranchOnPHIIntoPred(BasicBlock *BB,
                                   const SmallVectorImpl<BasicBlock *> &PredBBs);
 
     bool ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB,
                                          PredValueInfo &Result,
+                                         ThreadRegionInfo &RegionInfo,  // INTEL
                                          ConstantPreference Preference,
                                          Instruction *CxtI = nullptr);
     bool ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
@@ -176,8 +228,13 @@ namespace {
   private:
     BasicBlock *SplitBlockPreds(BasicBlock *BB, ArrayRef<BasicBlock *> Preds,
                                 const char *Suffix);
-    void UpdateBlockFreqAndEdgeWeight(BasicBlock *PredBB, BasicBlock *BB,
-                                      BasicBlock *NewBB, BasicBlock *SuccBB);
+#if INTEL_CUSTOMIZATION
+    void UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
+                       BasicBlock *SuccBB,
+                       const ThreadRegionInfo &RegionInfo,
+                       const SmallVectorImpl<BasicBlock*> &RegionBlocks,
+                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping);
+#endif // INTEL_CUSTOMIZATION
   };
 }
 
@@ -289,14 +346,14 @@ bool JumpThreading::runOnFunction(Function &F) {
   return EverChanged;
 }
 
-/// getJumpThreadDuplicationCost - Return the cost of duplicating this block to
-/// thread across it. Stop scanning the block when passing the threshold.
-static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
-                                             unsigned Threshold) {
-  /// Ignore PHI nodes, these will be flattened when duplication happens.
-  BasicBlock::const_iterator I(BB->getFirstNonPHI());
 #if INTEL_CUSTOMIZATION
-  const TerminatorInst *Term = BB->getTerminator();
+/// getJumpThreadDuplicationCost - Return the cost of duplicating this region to
+/// thread across it. Stop scanning the region when passing the threshold.
+static unsigned getJumpThreadDuplicationCost(
+  const SmallVectorImpl<BasicBlock*> &RegionBlocks,
+  const BasicBlock *RegionBottom,
+  unsigned Threshold) {
+  const TerminatorInst *Term = RegionBottom->getTerminator();
   unsigned Size = 0, TermWeight = 0;
 
   // Threading through a switch statement is particularly profitable.  If this
@@ -307,51 +364,59 @@ static unsigned getJumpThreadDuplicationCost(const BasicBlock *BB,
   // The same holds for indirect branches, but slightly more so.
   if (isa<IndirectBrInst>(Term))
     TermWeight = 8;
-#endif // INTEL_CUSTOMIZATION
 
-  // FIXME: THREADING will delete values that are just used to compute the
-  // branch, so they shouldn't count against the duplication cost.
+  for (auto BB : RegionBlocks) {
+    /// Ignore PHI nodes, these will be flattened when duplication happens.
+    BasicBlock::const_iterator I = BB->getFirstNonPHI();
 
-  // Sum up the cost of each instruction until we get to the terminator.  Don't
-  // include the terminator because the copy won't include it.
-  for (; !isa<TerminatorInst>(I); ++I) {
+    // FIXME: THREADING will delete values that are just used to compute the
+    // branch, so they shouldn't count against the duplication cost.
 
-    // Stop scanning the block if we've reached the threshold.
-    if (Size > Threshold + TermWeight)                                  // INTEL
-      return Size;
+    // Sum up the cost of each instruction.
+    for (; I != BB->end(); ++I) {
+      // Don't include the terminator in the region bottom, because the copy
+      // won't include it.
+      if (isa<TerminatorInst>(I) && BB == RegionBottom)
+        continue;
 
-    // Debugger intrinsics don't incur code size.
-    if (isa<DbgInfoIntrinsic>(I)) continue;
+      // Stop scanning the block if we've reached the threshold.
+      if (Size > Threshold + TermWeight)
+        return Size;
 
-    // If this is a pointer->pointer bitcast, it is free.
-    if (isa<BitCastInst>(I) && I->getType()->isPointerTy())
-      continue;
+      // Debugger intrinsics don't incur code size.
+      if (isa<DbgInfoIntrinsic>(I)) continue;
 
-    // Bail out if this instruction gives back a token type, it is not possible
-    // to duplicate it if it is used outside this BB.
-    if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
-      return ~0U;
+      // If this is a pointer->pointer bitcast, it is free.
+      if (isa<BitCastInst>(I) && I->getType()->isPointerTy())
+        continue;
 
-    // All other instructions count for at least one unit.
-    ++Size;
-
-    // Calls are more expensive.  If they are non-intrinsic calls, we model them
-    // as having cost of 4.  If they are a non-vector intrinsic, we model them
-    // as having cost of 2 total, and if they are a vector intrinsic, we model
-    // them as having cost 1.
-    if (const CallInst *CI = dyn_cast<CallInst>(I)) {
-      if (CI->cannotDuplicate() || CI->isConvergent())
-        // Blocks with NoDuplicate are modelled as having infinite cost, so they
-        // are never duplicated.
+      // Bail out if this instruction gives back a token type, it is not
+      // possible to duplicate it if it is used outside this BB.
+      if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
         return ~0U;
-      else if (!isa<IntrinsicInst>(CI))
-        Size += 3;
-      else if (!CI->getType()->isVectorTy())
-        Size += 1;
+
+      // All other instructions count for at least one unit.
+      ++Size;
+
+      // Calls are more expensive.  If they are non-intrinsic calls, we model
+      // them as having cost of 4.  If they are a non-vector intrinsic, we model
+      // them as having cost of 2 total, and if they are a vector intrinsic, we
+      //  model them as having cost 1.
+      if (const CallInst *CI = dyn_cast<CallInst>(I)) {
+        if (CI->cannotDuplicate() || CI->isConvergent())
+          // Blocks with NoDuplicate are modelled as having infinite cost, so
+          // they are never duplicated.
+          return ~0U;
+        else if (!isa<IntrinsicInst>(CI))
+          Size += 3;
+        else if (!CI->getType()->isVectorTy())
+          Size += 1;
+      }
     }
   }
-  return (Size > TermWeight) ? Size - TermWeight : 0;                   // INTEL
+  return (Size > TermWeight) ? Size - TermWeight : 0;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// FindLoopHeaders - We do not want jump threading to turn proper loop
 /// structures into irreducible loops.  Doing this breaks up the loop nesting
@@ -395,6 +460,23 @@ static Constant *getKnownConstant(Value *Val, ConstantPreference Preference) {
   return dyn_cast<ConstantInt>(Val);
 }
 
+#if INTEL_CUSTOMIZATION
+/// Test whether two ThreadRegions are identical.
+static bool matchingRegionInfo(const ThreadRegionInfo &RegionInfo1,
+                               const ThreadRegionInfo &RegionInfo2) {
+  ThreadRegionInfoIterator I1 = RegionInfo1.begin(), I1E = RegionInfo1.end();
+  ThreadRegionInfoIterator I2 = RegionInfo2.begin(), I2E = RegionInfo2.end();
+
+  while (I1 != I1E && I2 != I2E) {
+    if (I1->first != I2->first || I1->second != I2->second)
+      return false;
+    ++I1, ++I2;
+  }
+
+  return I1 == I1E && I2 == I2E;
+}
+#endif // INTEL_CUSTOMIZATION
+
 /// ComputeValueKnownInPredecessors - Given a basic block BB and a value V, see
 /// if we can infer that the value is a known ConstantInt/BlockAddress or undef
 /// in any of our predecessors.  If so, return the known list of value and pred
@@ -404,6 +486,7 @@ static Constant *getKnownConstant(Value *Val, ConstantPreference Preference) {
 ///
 bool JumpThreading::
 ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
+                                ThreadRegionInfo &RegionInfo,           // INTEL
                                 ConstantPreference Preference,
                                 Instruction *CxtI) {
   // This method walks up use-def chains recursively.  Because of this, we could
@@ -422,6 +505,7 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
     for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI)
       Result.push_back(std::make_pair(KC, *PI));
 
+    RegionInfo.push_back(std::make_pair(BB, BB));                       // INTEL
     return true;
   }
 
@@ -452,7 +536,17 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
         Result.push_back(std::make_pair(KC, P));
     }
 
-    return !Result.empty();
+#if INTEL_CUSTOMIZATION
+    if (!Result.empty()) {
+      RegionInfo.push_back(std::make_pair(BB, BB));
+      return true;
+    }
+
+    // If I is a PHI node defined outside BB, we might have a candidate for
+    // distant jump threading.
+    if (!DistantJumpThreading || !I || !isa<PHINode>(I))
+      return false;
+#endif // INTEL_CUSTOMIZATION
   }
 
   /// If I is a PHI node, then we know the incoming values for any constants.
@@ -464,13 +558,51 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
       } else {
         Constant *CI = LVI->getConstantOnEdge(InVal,
                                               PN->getIncomingBlock(i),
-                                              BB, CxtI);
+                                              PN->getParent(), CxtI);   // INTEL
         if (Constant *KC = getKnownConstant(CI, Preference))
           Result.push_back(std::make_pair(KC, PN->getIncomingBlock(i)));
       }
     }
 
-    return !Result.empty();
+#if INTEL_CUSTOMIZATION
+    if (!Result.empty()) {
+      RegionInfo.push_back(std::make_pair(PN->getParent(), BB));
+      return true;
+    }
+
+    // Temporarily avoid searching for constant values through multiple levels
+    // of PHI while debugging the stability regression in oav2/rotatev2data1.
+    // Once that problem is fixed, we can remove the "|| 1" here.
+    if (!DistantJumpThreading || 1)
+      return false;
+
+    // We failed to find any constant incoming values to PN. Now look back
+    // even further. One of the operands to PN might itself be a PHI node
+    // with constant incoming values. This has the potential of really exploding
+    // compile time, so only search back through one PHI.
+    if (RegionInfo.size() > 0)
+      return false;
+    
+    RegionInfo.push_back(std::make_pair(PN->getParent(), BB));
+    for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i) {
+      Value *InVal = PN->getIncomingValue(i);
+      if (PHINode *PN2 = dyn_cast<PHINode>(InVal)) {
+        ComputeValueKnownInPredecessors(PN2, PN2->getParent(), Result,
+                                        RegionInfo, Preference, CxtI);
+        if (!Result.empty()) {
+          // ComputeValueKnownInPredecessors will have made PN2's block the
+          // bottom of the thread sub-region. We need to change this to be
+          // the relevant predecessor of PN's block.
+          assert(RegionInfo.size() == 2 && "Unexpected thread region");
+          RegionInfo.back().second = PN->getIncomingBlock(i);
+          return true;
+        }
+      }
+    }
+    RegionInfo.pop_back();
+
+    return false;
+#endif // INTEL_CUSTOMIZATION
   }
 
   PredValueInfoTy LHSVals, RHSVals;
@@ -482,9 +614,12 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
     // X & false -> false
     if (I->getOpcode() == Instruction::Or ||
         I->getOpcode() == Instruction::And) {
+      ThreadRegionInfoTy RegionInfoOp0, RegionInfoOp1;                  // INTEL
       ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
+                                      RegionInfoOp0,                    // INTEL
                                       WantInteger, CxtI);
       ComputeValueKnownInPredecessors(I->getOperand(1), BB, RHSVals,
+                                      RegionInfoOp1,                    // INTEL
                                       WantInteger, CxtI);
 
       if (LHSVals.empty() && RHSVals.empty())
@@ -507,6 +642,20 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           Result.back().first = InterestingVal;
           LHSKnownBBs.insert(LHSVals[i].second);
         }
+
+#if INTEL_CUSTOMIZATION
+      // It is possible that there are known values for both operand 0 and
+      // operand 1 but where the top of the thread region is different. Don't
+      // attempt to handle this case. Instead, arbitrarily use operand 0's
+      // known values when the thread region is different.
+      if (!Result.empty() &&
+          !matchingRegionInfo(RegionInfoOp0, RegionInfoOp1)) {
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),
+                          RegionInfoOp0.end());
+        return true;
+      }
+#endif // INTEL_CUSTOMIZATION
+
       for (unsigned i = 0, e = RHSVals.size(); i != e; ++i)
         if (RHSVals[i].first == InterestingVal ||
             isa<UndefValue>(RHSVals[i].first)) {
@@ -518,6 +667,10 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           }
         }
 
+      if (!Result.empty())                                              // INTEL
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp1.begin(),      // INTEL
+                          RegionInfoOp1.end());                         // INTEL
+
       return !Result.empty();
     }
 
@@ -526,7 +679,7 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
         isa<ConstantInt>(I->getOperand(1)) &&
         cast<ConstantInt>(I->getOperand(1))->isOne()) {
       ComputeValueKnownInPredecessors(I->getOperand(0), BB, Result,
-                                      WantInteger, CxtI);
+                                      RegionInfo, WantInteger, CxtI);   // INTEL
       if (Result.empty())
         return false;
 
@@ -541,9 +694,12 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
   } else if (BinaryOperator *BO = dyn_cast<BinaryOperator>(I)) {
     assert(Preference != WantBlockAddress
             && "A binary operator creating a block address?");
+
+    ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if (ConstantInt *CI = dyn_cast<ConstantInt>(BO->getOperand(1))) {
       PredValueInfoTy LHSVals;
       ComputeValueKnownInPredecessors(BO->getOperand(0), BB, LHSVals,
+                                      RegionInfoOp0,                    // INTEL
                                       WantInteger, CxtI);
 
       // Try to use constant folding to simplify the binary operator.
@@ -555,6 +711,10 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           Result.push_back(std::make_pair(KC, LHSVals[i].second));
       }
     }
+
+    if (!Result.empty())                                                // INTEL
+      RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),        // INTEL
+                        RegionInfoOp0.end());                           // INTEL
 
     return !Result.empty();
   }
@@ -613,6 +773,9 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           Result.push_back(std::make_pair(KC, PredBB));
       }
 
+      if (!Result.empty())                                              // INTEL
+        RegionInfo.push_back(std::make_pair(BB, BB));                   // INTEL
+
       return !Result.empty();
     }
 
@@ -637,6 +800,9 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           Result.push_back(std::make_pair(ResC, P));
         }
 
+        if (!Result.empty())                                            // INTEL
+          RegionInfo.push_back(std::make_pair(BB, BB));                 // INTEL
+
         return !Result.empty();
       }
 
@@ -644,7 +810,9 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
       // and evaluate it statically if we can.
       if (Constant *CmpConst = dyn_cast<Constant>(Cmp->getOperand(1))) {
         PredValueInfoTy LHSVals;
+        ThreadRegionInfoTy RegionInfoOp0;                               // INTEL
         ComputeValueKnownInPredecessors(I->getOperand(0), BB, LHSVals,
+                                        RegionInfoOp0,                  // INTEL
                                         WantInteger, CxtI);
 
         for (unsigned i = 0, e = LHSVals.size(); i != e; ++i) {
@@ -654,6 +822,10 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           if (Constant *KC = getKnownConstant(Folded, WantInteger))
             Result.push_back(std::make_pair(KC, LHSVals[i].second));
         }
+
+        if (!Result.empty())                                            // INTEL
+          RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),    // INTEL
+                            RegionInfoOp0.end());                       // INTEL
 
         return !Result.empty();
       }
@@ -666,8 +838,10 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
     Constant *TrueVal = getKnownConstant(SI->getTrueValue(), Preference);
     Constant *FalseVal = getKnownConstant(SI->getFalseValue(), Preference);
     PredValueInfoTy Conds;
+    ThreadRegionInfoTy RegionInfoOp0;                                   // INTEL
     if ((TrueVal || FalseVal) &&
         ComputeValueKnownInPredecessors(SI->getCondition(), BB, Conds,
+                                        RegionInfoOp0,                  // INTEL
                                         WantInteger, CxtI)) {
       for (unsigned i = 0, e = Conds.size(); i != e; ++i) {
         Constant *Cond = Conds[i].first;
@@ -690,6 +864,10 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
           Result.push_back(std::make_pair(Val, Conds[i].second));
       }
 
+      if (!Result.empty())                                              // INTEL
+        RegionInfo.insert(RegionInfo.end(), RegionInfoOp0.begin(),      // INTEL
+                          RegionInfoOp0.end());                         // INTEL
+
       return !Result.empty();
     }
   }
@@ -700,6 +878,9 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
     for (pred_iterator PI = pred_begin(BB), E = pred_end(BB); PI != E; ++PI)
       Result.push_back(std::make_pair(KC, *PI));
   }
+
+  if (!Result.empty())                                                  // INTEL
+    RegionInfo.push_back(std::make_pair(BB, BB));                       // INTEL
 
   return !Result.empty();
 }
@@ -1122,6 +1303,7 @@ bool JumpThreading::SimplifyPartiallyRedundantLoad(LoadInst *LI) {
 /// the list.
 static BasicBlock *
 FindMostPopularDest(BasicBlock *BB,
+                    const ThreadRegionInfo &RegionInfo,                 // INTEL
                     const SmallVectorImpl<std::pair<BasicBlock*,
                                   BasicBlock*> > &PredToDestList) {
   assert(!PredToDestList.empty());
@@ -1134,6 +1316,17 @@ FindMostPopularDest(BasicBlock *BB,
   for (unsigned i = 0, e = PredToDestList.size(); i != e; ++i)
     if (PredToDestList[i].second)
       DestPopularity[PredToDestList[i].second]++;
+
+#if INTEL_CUSTOMIZATION
+  // Avoid picking a block in the thread region if there are any other
+  // available choices, since thread-to-self is disallowed. At this point, we
+  // don't know all the blocks in the region, but check the ones we do know,
+  // i.e. the blocks that begin & end each sub-region.
+  for (auto SubRegion : RegionInfo) {
+    DestPopularity[SubRegion.first] = 0;
+    DestPopularity[SubRegion.second] = 0;
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // Find the most popular dest.
   DenseMap<BasicBlock*, unsigned>::iterator DPI = DestPopularity.begin();
@@ -1189,11 +1382,14 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
     return false;
 
   PredValueInfoTy PredValues;
-  if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues, Preference, CxtI))
+  ThreadRegionInfoTy RegionInfo;                                        // INTEL
+  if (!ComputeValueKnownInPredecessors(Cond, BB, PredValues,            // INTEL
+                                       RegionInfo, Preference, CxtI))   // INTEL
     return false;
 
-  assert(!PredValues.empty() &&
-         "ComputeValueKnownInPredecessors returned true with no values");
+  assert(!PredValues.empty() && !RegionInfo.empty() &&                  // INTEL
+         "ComputeValueKnownInPredecessors returned true with no "       // INTEL
+         "values or regions");                                          // INTEL
 
   DEBUG(dbgs() << "IN BB: " << *BB;
         for (unsigned i = 0, e = PredValues.size(); i != e; ++i) {
@@ -1257,7 +1453,8 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
   BasicBlock *MostPopularDest = OnlyDest;
 
   if (MostPopularDest == MultipleDestSentinel)
-    MostPopularDest = FindMostPopularDest(BB, PredToDestList);
+    MostPopularDest = FindMostPopularDest(BB, RegionInfo,               // INTEL
+                                          PredToDestList);              // INTEL
 
   // Now that we know what the most popular destination is, factor all
   // predecessors that will jump to it into a single predecessor.
@@ -1271,7 +1468,7 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
       // according to # occurrences in PredsToFactor.
       TerminatorInst *PredTI = Pred->getTerminator();
       for (unsigned i = 0, e = PredTI->getNumSuccessors(); i != e; ++i)
-        if (PredTI->getSuccessor(i) == BB)
+        if (PredTI->getSuccessor(i) == RegionInfo.back().first)         // INTEL
           PredsToFactor.push_back(Pred);
     }
 
@@ -1282,7 +1479,7 @@ bool JumpThreading::ProcessThreadableEdges(Value *Cond, BasicBlock *BB,
                             getSuccessor(GetBestDestForJumpOnUndef(BB));
 
   // Ok, try to thread it!
-  return ThreadEdge(BB, PredsToFactor, MostPopularDest);
+  return ThreadEdge(RegionInfo, PredsToFactor, MostPopularDest);        // INTEL
 }
 
 /// ProcessBranchOnPHI - We have an otherwise unthreadable conditional branch on
@@ -1352,15 +1549,23 @@ bool JumpThreading::ProcessBranchOnXOR(BinaryOperator *BO) {
   //    br i1 %Y, ...
 
   PredValueInfoTy XorOpValues;
+  ThreadRegionInfoTy RegionInfo;                                        // INTEL
   bool isLHS = true;
   if (!ComputeValueKnownInPredecessors(BO->getOperand(0), BB, XorOpValues,
-                                       WantInteger, BO)) {
+                                       RegionInfo, WantInteger, BO)) {  // INTEL
     assert(XorOpValues.empty());
     if (!ComputeValueKnownInPredecessors(BO->getOperand(1), BB, XorOpValues,
-                                         WantInteger, BO))
+                                         RegionInfo, WantInteger, BO))  // INTEL
       return false;
     isLHS = false;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Distant jump threading doesn't currently support this transformation.
+  if (RegionInfo.size() != 1 ||
+      RegionInfo.back().first != RegionInfo.back().second)
+    return false;
+#endif // INTEL_CUSTOMIZATION
 
   assert(!XorOpValues.empty() &&
          "ComputeValueKnownInPredecessors returned true with no values");
@@ -1445,33 +1650,131 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
   }
 }
 
+#if INTEL_CUSTOMIZATION
+/// We intend to thread an edge into the region across a group of blocks to an
+/// outgoing edge of the region. In order to do this, we have to duplicate all
+/// the code along every path from the top to the bottom of every sub-region.
+/// This function returns the set of blocks along those paths in RegionBlocks.
+/// The sub-regions are structured such that the top is guaranteed to dominate
+/// the bottom.
+static void collectThreadRegionBlocks(const ThreadRegionInfo &RegionInfo,
+                                   SmallVectorImpl<BasicBlock*> &RegionBlocks) {
+  enum BlockState {
+    NotVisited = 0,
+    Visited
+  };
+  SmallVector<BasicBlock*, 16> WorkStack;
+  DenseMap<BasicBlock*, BlockState> State;
+
+  // Collect the blocks within each sub-region. This is just a DFS walk backward
+  // from BBBottom to BBTop.
+  for (auto SubRegion : RegionInfo) {
+    BasicBlock *BBTop = SubRegion.first;
+    BasicBlock *BBBottom = SubRegion.second;
+
+    WorkStack.push_back(BBBottom);
+    State[BBBottom] = Visited;
+
+    while (!WorkStack.empty()) {
+      BasicBlock *BB = WorkStack.back();
+      WorkStack.pop_back();
+      RegionBlocks.push_back(BB);
+
+      if (BB == BBTop)
+        continue;
+
+      pred_iterator PI, PE;
+      for (pred_iterator PI = pred_begin(BB), PE = pred_end(BB);
+           PI != PE; ++PI) {
+        if (State[*PI] == NotVisited) {
+          State[*PI] = Visited;
+          WorkStack.push_back(*PI);
+        }
+      }
+    }
+  }
+}
+
+/// ThreadEdge was significantly modified to support distant jump threading.
+/// Not every line was changed, but the entire routine is under
+/// INTEL_CUSTOMIZATION, because any community changes to this routine will need
+/// to be manually merged.
+///
 /// ThreadEdge - We have decided that it is safe and profitable to factor the
 /// blocks in PredBBs to one predecessor, then thread an edge from it to SuccBB
-/// across BB.  Transform the IR to reflect this change.
-bool JumpThreading::ThreadEdge(BasicBlock *BB,
+/// across a region of blocks.  Transform the IR to reflect this change.
+bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                                const SmallVectorImpl<BasicBlock*> &PredBBs,
                                BasicBlock *SuccBB) {
-  // If threading to the same block as we come from, we would infinite loop.
-  if (SuccBB == BB) {
-    DEBUG(dbgs() << "  Not threading across BB '" << BB->getName()
-          << "' - would thread to self!\n");
-    return false;
+  BasicBlock *RegionTop = RegionInfo.back().first;
+  BasicBlock *RegionBottom = RegionInfo.front().second;
+  SmallVector<BasicBlock*, 16> RegionBlocks;
+  bool ThreadingLoopHeader = false;
+
+  collectThreadRegionBlocks(RegionInfo, RegionBlocks);
+
+  for (auto BB : RegionBlocks) {
+    // Avoid threading back to a block in the region. This is a hacky way to
+    // prevent the situation where we repeatedly thread across a loop header
+    // effectively performing loop unrolling. This is not a general solution.
+    // You can easily get into the massive unrolling situation in spite of this
+    // check. In order to enable threading across loop headers by default, we
+    // need a more robust fix for this problem.
+    if (BB == SuccBB) {
+      DEBUG(dbgs() << "  Not threading across BB '" << RegionBottom->getName()
+            << "' - would thread to self!\n");
+      return false;
+    }
+
+    // If threading this would thread across a loop header, don't thread the
+    // edge. See the comments above FindLoopHeaders for justifications and
+    // caveats.
+    if (LoopHeaders.count(BB)) {
+      if (!JumpThreadLoopHeader) {
+        DEBUG(dbgs() << "  Not threading across loop header BB '"
+            << BB->getName()
+            << "' to dest BB '" << SuccBB->getName()
+            << "' - it might create an irreducible loop!\n");
+        return false;
+      }
+      ThreadingLoopHeader = true;
+
+      if (BlockThreadCount[RegionBottom] >= MaxThreadsPerBlock) {
+        DEBUG(dbgs() << "  Not threading across loop header BB '"
+              << BB->getName() << "' - max thread count reached!\n");
+        return false;
+      }
+    }
   }
 
-  // If threading this would thread across a loop header, don't thread the edge.
-  // See the comments above FindLoopHeaders for justifications and caveats.
-  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader) {                 // INTEL
-    DEBUG(dbgs() << "  Not threading across loop header BB '" << BB->getName()
-          << "' to dest BB '" << SuccBB->getName()
-          << "' - it might create an irreducible loop!\n");
-    return false;
-  }
-
-  unsigned JumpThreadCost = getJumpThreadDuplicationCost(BB, BBDupThreshold);
+  unsigned JumpThreadCost = getJumpThreadDuplicationCost(RegionBlocks,
+                                                         RegionBottom,
+                                                         BBDupThreshold);
   if (JumpThreadCost > BBDupThreshold) {
-    DEBUG(dbgs() << "  Not threading BB '" << BB->getName()
+    DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
           << "' - Cost is too high: " << JumpThreadCost << "\n");
     return false;
+  }
+
+  if (ConservativeJumpThreading) {
+    // Only allow multi-BB thread regions when threading across switches.
+    if (RegionBlocks.size() != 1 &&
+        !isa<SwitchInst>(RegionBottom->getTerminator())) {
+      DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
+            << "' - Using conservative heuristics for distant threading.\n");
+      return false;
+    }
+
+    // Only thread across loop headers when threading across switches or
+    // threading to return blocks, which are known to exit the loop.
+    if (ThreadingLoopHeader) {
+      if (!isa<ReturnInst>(SuccBB->getTerminator()) &&
+          !isa<SwitchInst>(RegionBottom->getTerminator())) {
+        DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
+              << "' - Using conservative heuristics loop headers.\n");
+        return false;
+      }
+    }
   }
 
   // And finally, do it!  Start by factoring the predecessors if needed.
@@ -1481,68 +1784,139 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
   else {
     DEBUG(dbgs() << "  Factoring out " << PredBBs.size()
           << " common predecessors.\n");
-    PredBB = SplitBlockPreds(BB, PredBBs, ".thr_comm");
+    PredBB = SplitBlockPreds(RegionTop, PredBBs, ".thr_comm");
   }
 
   // And finally, do it!
   DEBUG(dbgs() << "  Threading edge from '" << PredBB->getName() << "' to '"
         << SuccBB->getName() << "' with cost: " << JumpThreadCost
-        << ", across block:\n    "
-        << *BB << "\n");
+        << ", across blocks:\n    ";
+        for (auto BB : RegionBlocks)
+          dbgs() << " " << BB->getName();
+        dbgs() << "\n  Ending with" << *RegionBottom << "\n";);
 
-  LVI->threadEdge(PredBB, BB, SuccBB);
+  // FIXME: This LVI update is not optimal. Removing the PredBB-->RegionTop
+  //   edge can make overdefined values computable in any block in the region,
+  //   not just RegionBottom. We can generalize the LVI->threadEdge algorithm
+  //   to support larger-than-BB thread regions.
+  LVI->threadEdge(PredBB, RegionBottom, SuccBB);
 
-  // We are going to have to map operands from the original BB block to the new
-  // copy of the block 'NewBB'.  If there are PHI nodes in BB, evaluate them to
-  // account for entry from PredBB.
   DenseMap<Instruction*, Value*> ValueMapping;
+  DenseMap<BasicBlock*, BasicBlock*> BlockMapping;
 
-  BasicBlock *NewBB = BasicBlock::Create(BB->getContext(),
-                                         BB->getName()+".thread",
-                                         BB->getParent(), BB);
-  NewBB->moveAfter(PredBB);
+  for (auto OldBB : RegionBlocks) {
+    BasicBlock *NewBB = BasicBlock::Create(OldBB->getContext(),
+                                           OldBB->getName()+".thread",
+                                           OldBB->getParent(), RegionTop);
+    NewBB->moveAfter(PredBB);
+    BlockMapping[OldBB] = NewBB;
 
-  // Set the block frequency of NewBB.
-  if (HasProfileData) {
-    auto NewBBFreq =
-        BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, BB);
-    BFI->setBlockFreq(NewBB, NewBBFreq.getFrequency());
-  }
+    // We are going to have to map operands from their original block 'OldBB' to
+    // the new copy of the block 'NewBB'.
+    BasicBlock::iterator BI = OldBB->begin();
+    BasicBlock::iterator BE = OldBB->end();
 
-  BasicBlock::iterator BI = BB->begin();
-  for (; PHINode *PN = dyn_cast<PHINode>(BI); ++BI)
-    ValueMapping[PN] = PN->getIncomingValueForBlock(PredBB);
-
-  // Clone the non-phi instructions of BB into NewBB, keeping track of the
-  // mapping and using it to remap operands in the cloned instructions.
-  for (; !isa<TerminatorInst>(BI); ++BI) {
-    Instruction *New = BI->clone();
-    New->setName(BI->getName());
-    NewBB->getInstList().push_back(New);
-    ValueMapping[&*BI] = New;
-
-    // Remap operands to patch up intra-block references.
-    for (unsigned i = 0, e = New->getNumOperands(); i != e; ++i)
-      if (Instruction *Inst = dyn_cast<Instruction>(New->getOperand(i))) {
-        DenseMap<Instruction*, Value*>::iterator I = ValueMapping.find(Inst);
-        if (I != ValueMapping.end())
-          New->setOperand(i, I->second);
+    // If OldBB starts a sub-region, map its PHI nodes to the value coming in
+    // from the known predecessor.
+    for (int n = RegionInfo.size() - 1, i = n; i >= 0; i--) {
+      if (RegionInfo[i].first == OldBB) {
+        BasicBlock *PredBlock = (i == n) ? PredBB : RegionInfo[i+1].second;
+        for (; PHINode *PN = dyn_cast<PHINode>(BI); ++BI)
+          ValueMapping[PN] = PN->getIncomingValueForBlock(PredBlock);
+        break;
       }
+    }
+
+    // Clone the remaining instructions of OldBB into NewBB, keeping track of
+    // the mapping. Delay remapping until all blocks in the region have been
+    // cloned. That ensures all required cross-block mappings are available.
+    // In RegionBottom, stop cloning at the terminator instruction.
+    for (; BI != BE && (!isa<TerminatorInst>(BI) || OldBB != RegionBottom);
+         ++BI) {
+      Instruction *New = BI->clone();
+      New->setName(BI->getName());
+      NewBB->getInstList().push_back(New);
+      ValueMapping[&*BI] = New;
+    }
   }
 
-  // We didn't copy the terminator from BB over to NewBB, because there is now
-  // an unconditional jump to SuccBB.  Insert the unconditional jump.
-  BranchInst *NewBI = BranchInst::Create(SuccBB, NewBB);
-  NewBI->setDebugLoc(BB->getTerminator()->getDebugLoc());
+  // Remap operands to patch up intra-thread-region references.
+  for (auto OldBB : RegionBlocks) {
+    BasicBlock *NewBB = BlockMapping[OldBB];
 
-  // Check to see if SuccBB has PHI nodes. If so, we need to add entries to the
-  // PHI nodes for NewBB now.
-  AddPHINodeEntriesForMappedBlock(SuccBB, BB, NewBB, ValueMapping);
+    for (auto &New : *NewBB) {
+      if (PHINode *PN = dyn_cast<PHINode>(&New))
+        // Update intra-region PHI nodes. Any incoming value from a block
+        // outside the region can be ignored, because those edges weren't
+        // copied to the new threaded code. That includes edges from
+        // RegionBottom, since the only edge from RegionBottom that gets copied
+        // to the threaded region is RegionBottom-->SuccBB.
+        for (int i = PN->getNumIncomingValues() - 1; i >= 0; --i) {
+          DenseMap<BasicBlock*, BasicBlock*>::iterator I;
+          I = BlockMapping.find(PN->getIncomingBlock(i));
+          if (I != BlockMapping.end() &&
+              PN->getIncomingBlock(i) != RegionBottom)
+            PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
+          else
+            PN->removeIncomingValue(i);
+        }
 
-#if INTEL_CUSTOMIZATION
-  // This piece of code was moved verbatim from below. We need to replace the
-  // Pred-->BB CFG arc with Pred-->NewBB before we do the SSA rewrite in order
-  // to correctly handle threading across loop headers. For example,
+      for (unsigned i = 0, e = New.getNumOperands(); i != e; ++i)
+        if (Instruction *Inst = dyn_cast<Instruction>(New.getOperand(i))) {
+          DenseMap<Instruction*, Value*>::iterator I = ValueMapping.find(Inst);
+          if (I != ValueMapping.end())
+            New.setOperand(i, I->second);
+        }
+        else if (BasicBlock *DestBB = dyn_cast<BasicBlock>(New.getOperand(i))) {
+          DenseMap<BasicBlock*, BasicBlock*>::iterator I;
+          I = BlockMapping.find(DestBB);
+          if (I != BlockMapping.end())
+            New.setOperand(i, I->second);
+
+          // If we are threading across a loop header, we have to update the
+          // LoopHeaders set. To do this precisely, we would need to re-run
+          // FindLoopHeaders. Instead, we conservatively add any block that
+          // *might* be a loop header in the new CFG, which means any block that
+          // is a target of a new CFG edge. We catch most of them here.
+          if (ThreadingLoopHeader)
+            LoopHeaders.insert(DestBB);
+        }
+    }
+  }
+
+  // We didn't copy the terminator from RegionBottom over to its NewBB,
+  // because there is now an unconditional jump to SuccBB. Insert the
+  // unconditional jump.
+  BranchInst *NewBI = BranchInst::Create(SuccBB, BlockMapping[RegionBottom]);
+  NewBI->setDebugLoc(RegionBottom->getTerminator()->getDebugLoc());
+
+  // Add the remaining loop header candidates here.
+  if (ThreadingLoopHeader) {
+    LoopHeaders.insert(SuccBB);
+    LoopHeaders.insert(BlockMapping[RegionTop]);
+  }
+
+  // Check to see if any blocks that exit the thread region have PHI nodes.
+  // If so, we need to add entries to the PHI nodes for the corresponding NewBB
+  // now.
+  for (auto OldBB : RegionBlocks) {
+    // Ignore RegionBottom in this loop and handle it specially afterward. We
+    // only need to update its SuccBB successor.
+    if (OldBB == RegionBottom)
+      continue;
+    succ_iterator SI = succ_begin(OldBB), SE = succ_end(OldBB);
+    for (; SI != SE; ++SI)
+      if (BlockMapping.find(*SI) == BlockMapping.end())
+        AddPHINodeEntriesForMappedBlock(*SI, OldBB, BlockMapping[OldBB],
+                                        ValueMapping);
+  }
+  AddPHINodeEntriesForMappedBlock(SuccBB, RegionBottom,
+                                  BlockMapping[RegionBottom], ValueMapping);
+
+  // This piece of code used to come after the SSA rewrite that happens next.
+  // We need to replace the Pred-->BB CFG arc with Pred-->NewBB before we do
+  // the SSA rewrite in order to correctly handle threading across loop
+  // headers. For example,
   //
   // BB:
   //     %x = phi i32 [ %y, PredBB ] ...
@@ -1571,79 +1945,74 @@ bool JumpThreading::ThreadEdge(BasicBlock *BB,
   //        order for that to happen, BB must dominate PredBB. That makes
   //        PredBB-->BB a backedge, which puts BB in the LoopHeaders set.
   //
-  // Ok, NewBB is good to go.  Update the terminator of PredBB to jump to
-  // NewBB instead of BB.  This eliminates predecessors from BB, which requires
-  // us to simplify any PHI nodes in BB.
+  // Update the terminator of PredBB to jump to the new thread head instead of
+  // RegionTop.  This eliminates predecessors from RegionTop, which requires us
+  // to simplify any PHI nodes in RegionTop.
   TerminatorInst *PredTerm = PredBB->getTerminator();
   for (unsigned i = 0, e = PredTerm->getNumSuccessors(); i != e; ++i)
-    if (PredTerm->getSuccessor(i) == BB) {
-      BB->removePredecessor(PredBB, true);
-      PredTerm->setSuccessor(i, NewBB);
+    if (PredTerm->getSuccessor(i) == RegionTop) {
+      RegionTop->removePredecessor(PredBB, true);
+      PredTerm->setSuccessor(i, BlockMapping[RegionTop]);
     }
-#endif // INTEL_CUSTOMIZATION
 
-  // If there were values defined in BB that are used outside the block, then we
-  // now have to update all uses of the value to use either the original value,
-  // the cloned value, or some PHI derived value.  This can require arbitrary
-  // PHI insertion, of which we are prepared to do, clean these up now.
+  // If there were values defined in the region that are used outside the
+  // region, then we now have to update all uses of the value to use either the
+  // original value, the cloned value, or some PHI derived value. This can
+  // require arbitrary PHI insertion, which we are prepared to do. Clean these
+  // up now.
   SSAUpdater SSAUpdate;
   SmallVector<Use*, 16> UsesToRename;
-  for (BasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-    // Scan all uses of this instruction to see if it is used outside of its
-    // block, and if so, record them in UsesToRename.
-    for (Use &U : I->uses()) {
-      Instruction *User = cast<Instruction>(U.getUser());
-      if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
-        if (UserPN->getIncomingBlock(U) == BB)
+  for (auto OldBB : RegionBlocks) {
+    for (auto &I : *OldBB) {
+      // Scan all uses of this instruction to see if it is used outside of its
+      // block, and if so, record them in UsesToRename.
+      for (Use &U : I.uses()) {
+        Instruction *User = cast<Instruction>(U.getUser());
+        if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
+          if (UserPN->getIncomingBlock(U) == OldBB)
+            continue;
+        } else if (User->getParent() == OldBB)
           continue;
-      } else if (User->getParent() == BB)
+
+        UsesToRename.push_back(&U);
+      }
+
+      // If there are no uses outside the block, we're done with this
+      // instruction.
+      if (UsesToRename.empty())
         continue;
 
-      UsesToRename.push_back(&U);
+      DEBUG(dbgs() << "JT: Renaming non-local uses of: " << I << "\n");
+
+      // We found a use of I outside the region.  Rename all uses of I that are
+      // outside the region to be uses of the appropriate PHI node etc.  Seed
+      // ValuesInBlocks with the two values we know.
+      SSAUpdate.Initialize(I.getType(), I.getName());
+      SSAUpdate.AddAvailableValue(OldBB, &I);
+      SSAUpdate.AddAvailableValue(BlockMapping[OldBB], ValueMapping[&I]);
+
+      while (!UsesToRename.empty())
+        SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
+      DEBUG(dbgs() << "\n");
     }
-
-    // If there are no uses outside the block, we're done with this instruction.
-    if (UsesToRename.empty())
-      continue;
-
-    DEBUG(dbgs() << "JT: Renaming non-local uses of: " << *I << "\n");
-
-    // We found a use of I outside of BB.  Rename all uses of I that are outside
-    // its block to be uses of the appropriate PHI node etc.  See ValuesInBlocks
-    // with the two values we know.
-    SSAUpdate.Initialize(I->getType(), I->getName());
-    SSAUpdate.AddAvailableValue(BB, &*I);
-    SSAUpdate.AddAvailableValue(NewBB, ValueMapping[&*I]);
-
-    while (!UsesToRename.empty())
-      SSAUpdate.RewriteUse(*UsesToRename.pop_back_val());
-    DEBUG(dbgs() << "\n");
   }
-
-#if !INTEL_CUSTOMIZATION
-  // Ok, NewBB is good to go.  Update the terminator of PredBB to jump to
-  // NewBB instead of BB.  This eliminates predecessors from BB, which requires
-  // us to simplify any PHI nodes in BB.
-  TerminatorInst *PredTerm = PredBB->getTerminator();
-  for (unsigned i = 0, e = PredTerm->getNumSuccessors(); i != e; ++i)
-    if (PredTerm->getSuccessor(i) == BB) {
-      BB->removePredecessor(PredBB, true);
-      PredTerm->setSuccessor(i, NewBB);
-    }
-#endif // !INTEL_CUSTOMIZATION
 
   // At this point, the IR is fully up to date and consistent.  Do a quick scan
   // over the new instructions and zap any that are constants or dead.  This
   // frequently happens because of phi translation.
-  SimplifyInstructionsInBlock(NewBB, TLI);
+  for (auto OldBB : RegionBlocks)
+    SimplifyInstructionsInBlock(BlockMapping[OldBB], TLI);
 
-  // Update the edge weight from BB to SuccBB, which should be less than before.
-  UpdateBlockFreqAndEdgeWeight(PredBB, BB, NewBB, SuccBB);
+  // Update the edge weights and block frequencies.
+  UpdateRegionBlockFreqAndEdgeWeight(PredBB, SuccBB, RegionInfo, RegionBlocks,
+                                     BlockMapping);
 
   // Threaded an edge!
+  ++BlockThreadCount[RegionBottom];
   ++NumThreads;
   return true;
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// Create a new basic block that will be the predecessor of BB and successor of
 /// all blocks in Preds. When profile data is availble, update the frequency of
@@ -1667,54 +2036,113 @@ BasicBlock *JumpThreading::SplitBlockPreds(BasicBlock *BB,
   return PredBB;
 }
 
-/// Update the block frequency of BB and branch weight and the metadata on the
-/// edge BB->SuccBB. This is done by scaling the weight of BB->SuccBB by 1 -
-/// Freq(PredBB->BB) / Freq(BB->SuccBB).
-void JumpThreading::UpdateBlockFreqAndEdgeWeight(BasicBlock *PredBB,
-                                                 BasicBlock *BB,
-                                                 BasicBlock *NewBB,
-                                                 BasicBlock *SuccBB) {
+#if INTEL_CUSTOMIZATION
+/// This routine was significantly refactored to support multi-BB thread
+/// regions. Update the block frequencies and edge weights for all new blocks
+/// in the region. Also, update (reduce) the block frequencies of the original
+/// blocks, and update the edge frequencies out of RegionBottom, since the
+/// RegionBottom->SuccBB edge weight needs to be reduced.
+void JumpThreading::UpdateRegionBlockFreqAndEdgeWeight(BasicBlock *PredBB,
+                                                       BasicBlock *SuccBB,
+                       const ThreadRegionInfo &RegionInfo,
+                       const SmallVectorImpl<BasicBlock*> &RegionBlocks,
+                       DenseMap<BasicBlock*, BasicBlock*> &BlockMapping) {
   if (!HasProfileData)
     return;
 
   assert(BFI && BPI && "BFI & BPI should have been created here");
 
-  // As the edge from PredBB to BB is deleted, we have to update the block
-  // frequency of BB.
-  auto BBOrigFreq = BFI->getBlockFreq(BB);
-  auto NewBBFreq = BFI->getBlockFreq(NewBB);
-  auto BB2SuccBBFreq = BBOrigFreq * BPI->getEdgeProbability(BB, SuccBB);
-  auto BBNewFreq = BBOrigFreq - NewBBFreq;
-  BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
+  BasicBlock *RegionTop = RegionInfo.back().first;
+  BasicBlock *RegionBottom = RegionInfo.front().second;
+  DenseMap<BasicBlock*, int> BlockPredCount;
 
-  // Collect updated outgoing edges' frequencies from BB and use them to update
-  // edge weights.
-  SmallVector<uint64_t, 4> BBSuccFreq;
-  for (auto I = succ_begin(BB), E = succ_end(BB); I != E; ++I) {
-    auto SuccFreq = (*I == SuccBB)
-                        ? BB2SuccBBFreq - NewBBFreq
-                        : BBOrigFreq * BPI->getEdgeProbability(BB, *I);
-    BBSuccFreq.push_back(SuccFreq.getFrequency());
+  // Initialize BlockPredCount for each new block.
+  for (auto BB : RegionBlocks) {
+    BasicBlock *NewBB = BlockMapping[BB];
+    BlockPredCount[NewBB] = std::distance(pred_begin(NewBB), pred_end(NewBB));
   }
 
-  // Normalize edge weights in Weights64 so that the sum of them can fit in
-  BranchProbability::normalizeEdgeWeights(BBSuccFreq.begin(), BBSuccFreq.end());
+  // Seed the algorithm by computing the block Freq of RegionTop and adding
+  // it to the ready block list. The ready block list holds the *original*
+  // blocks whose corresponding new block frequencies have been finalized.
+  BasicBlock *NewRegionTop = BlockMapping[RegionTop];
+  SmallVector<BasicBlock*, 16> ReadyBlocks;
+  auto NewRegionTopFreq =
+    BFI->getBlockFreq(PredBB) * BPI->getEdgeProbability(PredBB, NewRegionTop);
+  BFI->setBlockFreq(NewRegionTop, NewRegionTopFreq.getFrequency());
+  ReadyBlocks.push_back(RegionTop);
 
-  SmallVector<uint32_t, 4> Weights;
-  for (auto Freq : BBSuccFreq)
-    Weights.push_back(static_cast<uint32_t>(Freq));
+  while (!ReadyBlocks.empty()) {
+    BasicBlock *BB = ReadyBlocks.back();
+    BasicBlock *NewBB = BlockMapping[BB];
+    ReadyBlocks.pop_back();
 
-  // Update edge weights in BPI.
-  for (int I = 0, E = Weights.size(); I < E; I++)
-    BPI->setEdgeWeight(BB, I, Weights[I]);
+    // Since NewBB is partially replacing BB, we have to update the block
+    // frequency of BB.
+    auto BBOrigFreq = BFI->getBlockFreq(BB);
+    auto NewBBFreq = BFI->getBlockFreq(NewBB);
+    auto BBNewFreq = BBOrigFreq - NewBBFreq;
+    BFI->setBlockFreq(BB, BBNewFreq.getFrequency());
 
-  if (Weights.size() >= 2) {
-    auto TI = BB->getTerminator();
-    TI->setMetadata(
-        LLVMContext::MD_prof,
-        MDBuilder(TI->getParent()->getContext()).createBranchWeights(Weights));
+    // The bottom block in the region needs special treatment. We don't have to
+    // worry about the outgoing edge weights for NewBB since it now ends in an
+    // unconditional branch, but we do need to adjust the edge weights on exit
+    // from BB, since the BB->SuccBB edge frequency dropped by the NewBB->SuccBB
+    // edge frequency.
+    if (BB == RegionBottom) {
+      // Collect updated outgoing edges' frequencies from BB and use them to
+      // update edge weights.
+      SmallVector<uint64_t, 4> BBSuccFreq;
+      for (auto SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI) {
+        auto SuccFreq = BBOrigFreq * BPI->getEdgeProbability(BB, *SI);
+        if (*SI == SuccBB)
+          SuccFreq -= NewBBFreq;
+        BBSuccFreq.push_back(SuccFreq.getFrequency());
+      }
+      // Normalize edge weights in Weights64 so that the sum of them can fit in
+      BranchProbability::normalizeEdgeWeights(BBSuccFreq.begin(),
+                                              BBSuccFreq.end());
+
+      SmallVector<uint32_t, 4> Weights;
+      for (auto Freq : BBSuccFreq)
+        Weights.push_back(static_cast<uint32_t>(Freq));
+
+      // Update edge weights in BPI.
+      for (int I = 0, E = Weights.size(); I < E; I++)
+        BPI->setEdgeWeight(BB, I, Weights[I]);
+
+      if (Weights.size() >= 2) {
+        auto TI = BB->getTerminator();
+        TI->setMetadata(
+          LLVMContext::MD_prof,
+          MDBuilder(BB->getContext()).createBranchWeights(Weights));
+      }
+
+      continue;
+    }
+
+    unsigned SuccIndex = 0;
+    for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE;
+         ++SI, ++SuccIndex) {
+      // The outgoing edge weights for NewBB are copied from BB.
+      BPI->setEdgeWeight(NewBB, SuccIndex, BPI->getEdgeWeight(BB, SuccIndex));
+
+      // Adjust the block frequency of the successor if it's part of the region.
+      if (BlockMapping.find(*SI) == BlockMapping.end())
+        continue;
+
+      BasicBlock *NewSucc = BlockMapping[*SI];
+      auto EdgeFreq =
+        BFI->getBlockFreq(NewBB) * BPI->getEdgeProbability(BB, SuccIndex);
+      auto NewSuccFreq = BFI->getBlockFreq(NewSucc) + EdgeFreq;
+      BFI->setBlockFreq(NewSucc, NewSuccFreq.getFrequency());
+
+      if (--BlockPredCount[NewSucc] == 0)
+        ReadyBlocks.push_back(*SI);
+    }
   }
 }
+#endif // INTEL_CUSTOMIZATION
 
 /// DuplicateCondBranchOnPHIIntoPred - PredBB contains an unconditional branch
 /// to BB which contains an i1 PHI node and a conditional branch on that PHI.
@@ -1760,7 +2188,10 @@ bool JumpThreading::DuplicateCondBranchOnPHIIntoPred(BasicBlock *BB,
     }
 #endif // INTEL_CUSTOMIZATION
 
-  unsigned DuplicationCost = getJumpThreadDuplicationCost(BB, BBDupThreshold);
+  SmallVector<BasicBlock*, 1> RegionBlocks;                             // INTEL
+  RegionBlocks.push_back(BB);                                           // INTEL
+  unsigned DuplicationCost =                                            // INTEL
+    getJumpThreadDuplicationCost(RegionBlocks, BB, BBDupThreshold);     // INTEL
   if (DuplicationCost > BBDupThreshold) {
     DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
           << "' - Cost is too high: " << DuplicationCost << "\n");

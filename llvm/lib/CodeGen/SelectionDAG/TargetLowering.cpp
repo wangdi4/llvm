@@ -101,7 +101,7 @@ TargetLowering::makeLibCall(SelectionDAG &DAG,
     Args.push_back(Entry);
   }
 
-#if INTEL_CUSTOMIZATION
+#ifndef INTEL_CUSTOMIZATION
   markInRegArguments(DAG, Args);
 #endif //INTEL_CUSTOMIZATION
 

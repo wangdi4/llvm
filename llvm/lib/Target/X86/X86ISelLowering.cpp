@@ -2182,6 +2182,11 @@ X86TargetLowering::LowerReturn(SDValue Chain,
   MachineFunction &MF = DAG.getMachineFunction();
   X86MachineFunctionInfo *FuncInfo = MF.getInfo<X86MachineFunctionInfo>();
 
+#if INTEL_CUSTOMIZATION
+  if (CallConv == CallingConv::X86_INTR && !Outs.empty())
+    report_fatal_error("X86 interrupts may not return any value");
+#endif //INTEL_CUSTOMIZATION
+
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, MF, RVLocs, *DAG.getContext());
   CCInfo.AnalyzeReturn(Outs, RetCC_X86);
@@ -2309,7 +2314,12 @@ X86TargetLowering::LowerReturn(SDValue Chain,
   if (Flag.getNode())
     RetOps.push_back(Flag);
 
-  return DAG.getNode(X86ISD::RET_FLAG, dl, MVT::Other, RetOps);
+  X86ISD::NodeType opcode = X86ISD::RET_FLAG;
+#if INTEL_CUSTOMIZATION
+  if (CallConv == CallingConv::X86_INTR)
+    opcode = X86ISD::IRET;
+#endif //INTEL_CUSTOMIZATION
+  return DAG.getNode(opcode, dl, MVT::Other, RetOps);
 }
 
 bool X86TargetLowering::isUsedByReturnOnly(SDNode *N, SDValue &Chain) const {
@@ -2438,29 +2448,33 @@ enum StructReturnType {
   RegStructReturn,
   StackStructReturn
 };
+#if INTEL_CUSTOMIZATION
 static StructReturnType
-callIsStructReturn(const SmallVectorImpl<ISD::OutputArg> &Outs) {
+callIsStructReturn(const SmallVectorImpl<ISD::OutputArg> &Outs, bool IsMCU) {
+#endif //INTEL_CUSTOMIZATION
   if (Outs.empty())
     return NotStructReturn;
 
   const ISD::ArgFlagsTy &Flags = Outs[0].Flags;
   if (!Flags.isSRet())
     return NotStructReturn;
-  if (Flags.isInReg())
+  if (Flags.isInReg() || IsMCU) //INTEL_CUSTOMIZATION
     return RegStructReturn;
   return StackStructReturn;
 }
 
 /// Determines whether a function uses struct return semantics.
+#if INTEL_CUSTOMIZATION
 static StructReturnType
-argsAreStructReturn(const SmallVectorImpl<ISD::InputArg> &Ins) {
+argsAreStructReturn(const SmallVectorImpl<ISD::InputArg> &Ins, bool IsMCU) {
+#endif //INTEL_CUSTOMIZATION
   if (Ins.empty())
     return NotStructReturn;
 
   const ISD::ArgFlagsTy &Flags = Ins[0].Flags;
   if (!Flags.isSRet())
     return NotStructReturn;
-  if (Flags.isInReg())
+  if (Flags.isInReg() || IsMCU) //INTEL_CUSTOMIZATION
     return RegStructReturn;
   return StackStructReturn;
 }
@@ -2484,6 +2498,7 @@ CreateCopyOfByValArgument(SDValue Src, SDValue Dst, SDValue Chain,
 /// supports tail call optimization.
 static bool IsTailCallConvention(CallingConv::ID CC) {
   return (CC == CallingConv::Fast || CC == CallingConv::GHC ||
+          CC == CallingConv::X86_RegCall || // INTEL
           CC == CallingConv::HiPE || CC == CallingConv::HHVM);
 }
 
@@ -2539,6 +2554,21 @@ X86TargetLowering::LowerMemArgument(SDValue Chain,
   else
     ValVT = VA.getValVT();
 
+#if INTEL_CUSTOMIZATION
+  // Calculate SP offset of interrupt parameter, re-arrange the slot normally
+  // taken by a return address.
+  int Offset = 0;
+  if (CallConv == CallingConv::X86_INTR) {
+    const X86Subtarget& Subtarget =
+        static_cast<const X86Subtarget&>(DAG.getSubtarget());
+    // X86 interrupts may take one or two arguments.
+    // On the stack there will be no return address as in regular call.
+    // Offset of last argument need to be set to -4/-8 bytes.
+    // Where offset of the first argument out of two, should be set to 0 bytes.
+    Offset = (Subtarget.is64Bit() ? 8 : 4) * ((i + 1) % Ins.size() - 1);
+  }
+#endif //INTEL_CUSTOMIZATION
+
   // FIXME: For now, all byval parameter objects are marked mutable. This can be
   // changed with more analysis.
   // In case of tail call optimization mark all arguments mutable. Since they
@@ -2547,10 +2577,23 @@ X86TargetLowering::LowerMemArgument(SDValue Chain,
     unsigned Bytes = Flags.getByValSize();
     if (Bytes == 0) Bytes = 1; // Don't create zero-sized stack objects.
     int FI = MFI->CreateFixedObject(Bytes, VA.getLocMemOffset(), isImmutable);
+#if INTEL_CUSTOMIZATION
+    // Adjust SP offset of interrupt parameter.
+    if (CallConv == CallingConv::X86_INTR) {
+      MFI->setObjectOffset(FI, Offset);
+    }
+#endif //INTEL_CUSTOMIZATION
     return DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
   } else {
     int FI = MFI->CreateFixedObject(ValVT.getSizeInBits()/8,
                                     VA.getLocMemOffset(), isImmutable);
+#if INTEL_CUSTOMIZATION
+    // Adjust SP offset of interrupt parameter.
+    if (CallConv == CallingConv::X86_INTR) {
+      MFI->setObjectOffset(FI, Offset);
+    }
+#endif //INTEL_CUSTOMIZATION
+
     SDValue FIN = DAG.getFrameIndex(FI, getPointerTy(DAG.getDataLayout()));
     SDValue Val = DAG.getLoad(
         ValVT, dl, Chain, FIN,
@@ -2629,6 +2672,16 @@ SDValue X86TargetLowering::LowerFormalArguments(
 
   assert(!(isVarArg && IsTailCallConvention(CallConv)) &&
          "Var args not supported with calling convention fastcc, ghc or hipe");
+
+#if INTEL_CUSTOMIZATION
+  if (CallConv == CallingConv::X86_INTR) {
+    bool isLegal = Ins.size() == 1
+      || (Ins.size() == 2 && ((Is64Bit && Ins[1].VT == MVT::i64) || 
+                              (!Is64Bit && Ins[1].VT == MVT::i32)));
+    if (!isLegal)
+      report_fatal_error("X86 interrupts may take one or two arguments");
+  }
+#endif //INTEL_CUSTOMIZATION
 
   // Assign locations to all of the incoming arguments.
   SmallVector<CCValAssign, 16> ArgLocs;
@@ -2889,12 +2942,19 @@ SDValue X86TargetLowering::LowerFormalArguments(
   if (X86::isCalleePop(CallConv, Is64Bit, isVarArg,
                        MF.getTarget().Options.GuaranteedTailCallOpt)) {
     FuncInfo->setBytesToPopOnReturn(StackSize); // Callee pops everything.
+#if INTEL_CUSTOMIZATION
+  } else if (CallConv == CallingConv::X86_INTR && Ins.size() == 2) {
+    // Interrupts must pop the error code if present
+    FuncInfo->setBytesToPopOnReturn(Is64Bit ? 8 : 4);
+#endif //INTEL_CUSTOMIZATION
   } else {
     FuncInfo->setBytesToPopOnReturn(0); // Callee pops nothing.
     // If this is an sret function, the return should pop the hidden pointer.
+#if INTEL_CUSTOMIZATION
     if (!Is64Bit && !IsTailCallConvention(CallConv) &&
         !Subtarget->getTargetTriple().isOSMSVCRT() &&
-        argsAreStructReturn(Ins) == StackStructReturn)
+        argsAreStructReturn(Ins, Subtarget->isTargetMCU()) == StackStructReturn)
+#endif //INTEL_CUSTOMIZATION
       FuncInfo->setBytesToPopOnReturn(4);
   }
 
@@ -3016,10 +3076,17 @@ X86TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   MachineFunction &MF = DAG.getMachineFunction();
   bool Is64Bit        = Subtarget->is64Bit();
   bool IsWin64        = Subtarget->isCallingConvWin64(CallConv);
-  StructReturnType SR = callIsStructReturn(Outs);
+#if INTEL_CUSTOMIZATION
+  StructReturnType SR = callIsStructReturn(Outs, Subtarget->isTargetMCU());
+#endif //INTEL_CUSTOMIZATION
   bool IsSibcall      = false;
   X86MachineFunctionInfo *X86Info = MF.getInfo<X86MachineFunctionInfo>();
   auto Attr = MF.getFunction()->getFnAttribute("disable-tail-calls");
+
+#if INTEL_CUSTOMIZATION
+  if (CallConv == CallingConv::X86_INTR)
+    report_fatal_error("X86 interrupts may not be called directly");
+#endif //INTEL_CUSTOMIZATION
 
   if (Attr.getValueAsString() == "true")
     isTailCall = false;
@@ -3972,6 +4039,10 @@ bool X86::isCalleePop(CallingConv::ID CallingConv,
   case CallingConv::X86_FastCall:
   case CallingConv::X86_ThisCall:
     return !is64Bit;
+#if INTEL_CUSTOMIZATION
+  case CallingConv::X86_RegCall:
+    return TailCallOpt;
+#endif // INTEL_CUSTOMIZATION
   }
 }
 
@@ -19985,6 +20056,9 @@ const char *X86TargetLowering::getTargetNodeName(unsigned Opcode) const {
   case X86ISD::CMOV:               return "X86ISD::CMOV";
   case X86ISD::BRCOND:             return "X86ISD::BRCOND";
   case X86ISD::RET_FLAG:           return "X86ISD::RET_FLAG";
+#if INTEL_CUSTOMIZATION
+  case X86ISD::IRET:               return "X86ISD::IRET";
+#endif //INTEL_CUSTOMIZATION
   case X86ISD::REP_STOS:           return "X86ISD::REP_STOS";
   case X86ISD::REP_MOVS:           return "X86ISD::REP_MOVS";
   case X86ISD::GlobalBaseReg:      return "X86ISD::GlobalBaseReg";
@@ -21524,6 +21598,10 @@ X86TargetLowering::emitEHSjLjSetJmp(MachineInstr *MI,
   MF->insert(I, mainMBB);
   MF->insert(I, sinkMBB);
   MF->push_back(restoreMBB);
+#if INTEL_CUSTOMIZATION
+  // This is cherry-picked from r251113
+  restoreMBB->setHasAddressTaken();
+#endif // INTEL_CUSTOMIZATION
 
   MachineInstrBuilder MIB;
 
@@ -27587,7 +27665,7 @@ bool X86TargetLowering::isIntDivCheap(EVT VT, AttributeSet Attr) const {
   return OptSize && !VT.isVector();
 }
 
-#if INTEL_CUSTOMIZATION
+#ifndef INTEL_CUSTOMIZATION
 void X86TargetLowering::markInRegArguments(SelectionDAG &DAG,
        TargetLowering::ArgListTy& Args) const {
   // The MCU psABI requires some arguments to be passed in-register.

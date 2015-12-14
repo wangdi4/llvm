@@ -36,6 +36,7 @@ set(sources
   X86FixupLEAs.cpp
   X86FixupBWInsts.cpp     # INTEL
   X86WinEHState.cpp
+  X86OptimizeLEAs.cpp
   )
 
 if( CMAKE_CL_64 )
