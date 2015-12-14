@@ -20,6 +20,9 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
+# INTEL_CUSTOMIZATION
+  SPIRVlib
+# end INTEL_CUSTOMIZATION
   )
 
 # In a standard Clang+LLVM build, we need to generate intrinsics before
