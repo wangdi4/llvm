@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s     -o - | FileCheck %s
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s -O2 -o - | FileCheck --check-prefix=CHECKO2 %s
+// REQUIRES: cilkplus
 
 void anchor(int) throw();
 void touch(float) throw();

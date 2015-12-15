@@ -1,6 +1,7 @@
-// RUN: %clang_cc1 -std=c++11 -emit-llvm -fcilkplus %s -o- | FileCheck %s
+// RUN: %clang_cc1 -std=c++11 -emit-llvm -fcilkplus -fms-compatibility %s -o - | FileCheck %s
 // Example from cq371510 (regCpp/cq161918).
-//
+// REQUIRES: cilkplus
+
 template <typename T> class metasl_vec1_cean;
 typedef metasl_vec1_cean<bool> bool_cean;
 

@@ -873,11 +873,11 @@ public:
   CanQualType UnsignedLongLongTy, UnsignedInt128Ty;
   CanQualType FloatTy, DoubleTy, LongDoubleTy;
   CanQualType HalfTy; // [OpenCL 6.1.1.1], ARM NEON
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CanQualType Float128Ty;
 #endif  // INTEL_CUSTOMIZATION
   CanQualType FloatComplexTy, DoubleComplexTy, LongDoubleComplexTy;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CanQualType Float128ComplexTy;
 #endif  // INTEL_CUSTOMIZATION
   CanQualType VoidPtrTy, NullPtrTy;
@@ -1285,7 +1285,7 @@ public:
   QualType getUnaryTransformType(QualType BaseType, QualType UnderlyingType,
                                  UnaryTransformType::UTTKind UKind) const;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   /// \brief __bases and __direct_bases types.
   QualType getBasesType(QualType ArgType,
@@ -2474,7 +2474,7 @@ public:
   void InitBuiltinTypes(const TargetInfo &Target,
                         const TargetInfo *AuxTarget = nullptr);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Determines whether NamedDecl is a library-defined builtin function
   /// without '__builtin_' prefix.
   bool IsPredefinedLibBuiltin(const NamedDecl *ND) const;
@@ -2511,7 +2511,7 @@ public:
   /// which is treated as a definition for MSVC compatibility.
   bool isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
   // of a structure.
   /// \brief Returns true if this is an inline-initialized static data member

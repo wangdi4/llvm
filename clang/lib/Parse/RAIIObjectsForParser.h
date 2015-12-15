@@ -335,8 +335,8 @@ namespace clang {
       P.BraceCount = BraceCount;
     }
   };
-  
-#ifdef INTEL_CUSTOMIZATION
+
+#if INTEL_SPECIFIC_CILKPLUS
   class SuppressCEANSupport {
   private:
     Parser &P;
@@ -348,7 +348,7 @@ namespace clang {
       P.getActions().EndCEAN();
     }
   };
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   class PoisonSEHIdentifiersRAIIObject {
     PoisonIdentifierRAIIObject Ident_AbnormalTermination;
     PoisonIdentifierRAIIObject Ident_GetExceptionCode;

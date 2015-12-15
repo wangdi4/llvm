@@ -14,9 +14,9 @@
 
 #include "CGCall.h"
 #include "ABIInfo.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCXXABI.h"
 #include "CodeGenFunction.h"
 #include "CodeGenModule.h"
@@ -1245,7 +1245,7 @@ bool CodeGenModule::ReturnTypeUsesFPRet(QualType ResultType) {
       return getTarget().useObjCFPRetForRealType(TargetInfo::Double);
     case BuiltinType::LongDouble:
       return getTarget().useObjCFPRetForRealType(TargetInfo::LongDouble);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
       return getTarget().useObjCFPRetForRealType(TargetInfo::Float128);
 #endif  // INTEL_CUSTOMIZATION
@@ -1646,7 +1646,7 @@ void CodeGenModule::ConstructAttributeList(const CGFunctionInfo &FI,
             llvm::Attribute::InReg));
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369692 - support for '-fargument-noalias' option.
     if (ParamType->isPointerType() && getLangOpts().IntelCompat &&
         CodeGenOpts.NoAliasForPtrArgs)
@@ -3113,9 +3113,10 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  const CallArgList &CallArgs,
                                  const Decl *TargetDecl,
                                  llvm::Instruction **callOrInvoke
-#ifdef INTEL_CUSTOMIZATION
-                                 , bool IsCilkSpawnCall
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                                 ,
+                                 bool IsCilkSpawnCall
+#endif // INTEL_SPECIFIC_CILKPLUS
                                 ) {
   // FIXME: We no longer need the types from CallArgs; lift up and simplify.
 
@@ -3448,12 +3449,12 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                              CallingConv, true);
   llvm::AttributeSet Attrs = llvm::AttributeSet::get(getLLVMContext(),
                                                      AttributeList);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // If this call is a Cilk spawn call, then we need to emit the prologue
   // before emitting the real call.
   if (IsCilkSpawnCall)
     CGM.getCilkPlusRuntime().EmitCilkHelperPrologue(*this);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   llvm::BasicBlock *InvokeDest = nullptr;
   if (!Attrs.hasAttribute(llvm::AttributeSet::FunctionIndex,
                           llvm::Attribute::NoUnwind) ||

@@ -587,13 +587,13 @@ void ASTStmtReader::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   E->setLHS(Reader.ReadSubExpr());
   E->setRHS(Reader.ReadSubExpr());
   E->setRBracketLoc(ReadSourceLocation(Record, Idx));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getIdx()))
     CIE->setBase(E->getBase());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 //===----------------------------------------------------------------------===//
 // Cilk Plus Expressions and Statements.
 //===----------------------------------------------------------------------===//
@@ -681,7 +681,7 @@ void ASTStmtReader::VisitCilkRankedStmt(CilkRankedStmt *S) {
   S->setInits(Reader.ReadSubStmt());
 }
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 void ASTStmtReader::VisitOMPArraySectionExpr(OMPArraySectionExpr *E) {
   VisitExpr(E);
@@ -1297,11 +1297,11 @@ void ASTStmtReader::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *E) {
   E->Operator = (OverloadedOperatorKind)Record[Idx++];
   E->Range = Reader.ReadSourceRange(F, Record, Idx);
   E->setFPContractable((bool)Record[Idx++]);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (E->Operator == OO_Subscript)
     if (CEANIndexExpr *CIE = dyn_cast_or_null<CEANIndexExpr>(E->getArg(0)))
       CIE->setBase(E->getCallee());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void ASTStmtReader::VisitCXXConstructExpr(CXXConstructExpr *E) {
@@ -2681,7 +2681,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case EXPR_ARRAY_SUBSCRIPT:
       S = new (Context) ArraySubscriptExpr(Empty);
       break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case EXPR_CEAN_INDEX:
       S = new (Context) CEANIndexExpr(Empty);
       break;
@@ -2690,7 +2690,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = CEANBuiltinExpr::CreateEmpty(Context, Record[ASTStmtReader::NumExprFields],
                                        Record[ASTStmtReader::NumExprFields + 1]);
       break;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
     case EXPR_OMP_ARRAY_SECTION:
       S = new (Context) OMPArraySectionExpr(Empty);
@@ -3308,7 +3308,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                          NumArrayIndexVars);
       break;
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case STMT_CILKSYNC:
       S = new (Context) CilkSyncStmt(Empty);
       break;
@@ -3330,7 +3330,7 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
     case STMT_SIMD_FOR:
       llvm_unreachable("not implemented yet");
       break;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     }
     
     // We hit a STMT_STOP, so we're done with this expression.
@@ -3354,7 +3354,7 @@ Done:
   return StmtStack.pop_back_val();
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void ASTStmtReader::VisitPragmaStmt(PragmaStmt *S) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   size_t Attribs;

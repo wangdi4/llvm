@@ -279,7 +279,7 @@ static llvm::Value *EmitOverflowIntrinsic(CodeGenFunction &CGF,
   return CGF.Builder.CreateExtractValue(Tmp, 0);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// \brief Evaluate argument of the call as constant int, checking its value's
 /// constraints.
 ///
@@ -484,6 +484,25 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     return RValue::get(ComplexVal.second);
   }
 
+#if INTEL_CUSTOMIZATION
+  // CQ#377481. Adding '__builtin_clrsb' family of builtins. We rely here on
+  // 'clrsb' intrinsics.
+  case Builtin::BI__builtin_clrsb:
+  case Builtin::BI__builtin_clrsbl:
+  case Builtin::BI__builtin_clrsbll: {
+    Value *ArgValue = EmitScalarExpr(E->getArg(0));
+
+    llvm::Type *ArgType = ArgValue->getType();
+    Value *F = CGM.getIntrinsic(Intrinsic::clrsb, ArgType);
+
+    llvm::Type *ResultType = ConvertType(E->getType());
+    Value *Result = Builder.CreateCall(F, ArgValue);
+    if (Result->getType() != ResultType)
+      Result =
+          Builder.CreateIntCast(Result, ResultType, /*isSigned*/ true, "cast");
+    return RValue::get(Result);
+  }
+#endif // INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_ctzs:
   case Builtin::BI__builtin_ctz:
   case Builtin::BI__builtin_ctzl:
@@ -656,7 +675,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   case Builtin::BI__builtin_prefetch: {
     Value *Locality, *RW, *Address = EmitScalarExpr(E->getArg(0));
     // FIXME: Technically these constants should of type 'int', yes?
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#371990 - let __prefetch_builtin arguments be out of their range (0..1
     // for the first argument, 0..3 for the second one), assigning 0 if argument
     // is out of its range.
@@ -1172,7 +1191,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   }
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable("Shouldn't make it through sema");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__builtin_return:
   case Builtin::BI__builtin_apply:
   case Builtin::BI__builtin_apply_args:
@@ -1437,12 +1456,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
                                                RequiredArgs::All);
     llvm::FunctionType *FTy = CGM.getTypes().GetFunctionType(FuncInfo);
     llvm::Constant *Func = CGM.CreateRuntimeFunction(FTy, LibCallName);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args, 0, 0,
                     E->isCilkSpawnCall());
 #else
     return EmitCall(FuncInfo, Func, ReturnValueSlot(), Args);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   case Builtin::BI__atomic_test_and_set: {
@@ -1658,6 +1677,14 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     Builder.SetInsertPoint(ContBB);
     return RValue::get(nullptr);
   }
+
+#if INTEL_CUSTOMIZATION
+  // CQ#377340: __memory_barrier is equivalent of __c11_atomic_thread_fence(5i).
+  case Builtin::BI__memory_barrier: {
+    Builder.CreateFence(llvm::SequentiallyConsistent, llvm::SingleThread);
+    return RValue::get(nullptr);
+  }
+#endif // INTEL_CUSTOMIZATION
 
     // Library functions with special handling.
   case Builtin::BIsqrt:
@@ -1954,7 +1981,7 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
         Builder.CreateAlignedLoad(IntToPtr, /*Align=*/4, /*isVolatile=*/true);
     return RValue::get(Load);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Builtin::BI__notify_intrinsic:
   case Builtin::BI__notify_zc_intrinsic:
     // FIXME: not implemented yet.
@@ -2048,10 +2075,10 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
   if (getContext().BuiltinInfo.isPredefinedLibFunction(BuiltinID))
     return emitLibraryCall(*this, FD, E, EmitScalarExpr(E->getCallee()));
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Xmain should not perform this check, since we allow intrinsics to be
   // used even when not explicitly supported by the target
-  if (!getLangOpts().IntelCompat)
+  if (!getLangOpts().IntelCompat) {
 #endif // INTEL_CUSTOMIZATION
   // Check that a call to a target specific builtin has the correct target
   // features.
@@ -2062,7 +2089,62 @@ RValue CodeGenFunction::EmitBuiltinExpr(const FunctionDecl *FD,
     CGM.getDiags().Report(E->getLocStart(), diag::err_builtin_needs_feature)
         << FD->getDeclName()
         << CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
-        
+#ifdef INTEL_CUSTOMIZATION
+  } else {
+    static std::map<StringRef, uint64_t> FeatureMapping = { 
+      {"cmov", 0x00000004ULL},
+      {"mmx", 0x00000008ULL},
+      {"sse", 0x00000020ULL},
+      {"sse2", 0x00000040ULL},
+      {"sse3", 0x00000080ULL},
+      {"ssse3", 0x00000100ULL},
+      {"sse4.1", 0x00000200ULL},
+      {"sse4.2", 0x00000400ULL},
+      {"popcnt", 0x00001000ULL},
+      {"pclmul", 0x00002000ULL},
+      {"aes", 0x00004000ULL},
+      {"f16c", 0x00008000ULL},
+      {"avx", 0x00010000ULL},
+      {"rdrand", 0x00020000ULL},
+      {"fma", 0x00040000ULL},
+      {"bmi", 0x00080000ULL},
+      {"bmi2", 0x00080000ULL},
+      {"lzcnt", 0x00100000ULL},
+      {"hle", 0x00200000ULL},
+      {"rtm", 0x00400000ULL},
+      {"avx2", 0x00800000ULL},
+      {"avx512dq", 0x01000000ULL},
+      {"avx512f", 0x08000000ULL},
+      {"adx", 0x10000000ULL},
+      {"rdseed", 0x20000000ULL},
+      {"avx512er", 0x100000000ULL},
+      {"avx512pf", 0x200000000ULL},
+      {"avx512cd", 0x400000000ULL},
+      {"sha", 0x800000000ULL},
+      {"avx512bw", 0x2000000000ULL},
+      {"avx512vl", 0x4000000000ULL},
+    };
+
+    const char *FeatureList =
+        CGM.getContext().BuiltinInfo.getRequiredFeatures(BuiltinID);
+    if (FeatureList && StringRef(FeatureList) != "") {
+      SmallVector<StringRef, 1> AttrFeatures;
+      StringRef(FeatureList).split(AttrFeatures, ",");
+
+      llvm::IntegerType *IntType = IntegerType::get(CGM.getLLVMContext(), 64);
+
+      for (const auto &Feature : AttrFeatures) {
+        auto FeatureEnum = FeatureMapping.find(Feature);
+        if (FeatureEnum == FeatureMapping.end())
+          continue;
+        llvm::CallInst *HasFeature = 
+          Builder.CreateCall(CGM.getIntrinsic(Intrinsic::has_feature), 
+                              ConstantInt::get(IntType, FeatureEnum->second));
+        Builder.CreateCall(CGM.getIntrinsic(Intrinsic::assume), HasFeature);
+      }
+    }
+#endif  
+  }
   // See if we have a target specific intrinsic.
   const char *Name = getContext().BuiltinInfo.getName(BuiltinID);
   Intrinsic::ID IntrinsicID = Intrinsic::not_intrinsic;

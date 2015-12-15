@@ -58,8 +58,9 @@ unsigned ASTContext::NumImplicitDestructorsDeclared;
 
 enum FloatingRank {
   HalfRank, FloatRank, DoubleRank, LongDoubleRank
-#ifdef INTEL_CUSTOMIZATION
-  , Float128Rank
+#if INTEL_CUSTOMIZATION
+  ,
+  Float128Rank
 #endif  // INTEL_CUSTOMIZATION
 };
 
@@ -1106,7 +1107,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
 
   // half type (OpenCL 6.1.1.1) / ARM NEON __fp16
   InitBuiltinType(HalfTy, BuiltinType::Half);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // float128 type
   if (LangOpts.Float128) {
     InitBuiltinType(Float128Ty, BuiltinType::Float128);
@@ -1120,7 +1121,7 @@ void ASTContext::InitBuiltinTypes(const TargetInfo &Target,
   VaListTagDecl = nullptr;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 bool ASTContext::IsPredefinedLibBuiltin(const NamedDecl *ND) const {
   const auto FD = ND->getAsFunction();
 
@@ -1352,7 +1353,7 @@ const llvm::fltSemantics &ASTContext::getFloatTypeSemantics(QualType T) const {
   case BuiltinType::Float:      return Target->getFloatFormat();
   case BuiltinType::Double:     return Target->getDoubleFormat();
   case BuiltinType::LongDouble: return Target->getLongDoubleFormat();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128: return LangOpts.Float128 ?
                                       llvm::APFloat::IEEEquad
                                       : Target->getLongDoubleFormat();
@@ -1655,7 +1656,7 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
       Width = Target->getHalfWidth();
       Align = Target->getHalfAlign();
       break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:
       Width = LangOpts.Float128 ? 128 : Target->getLongDoubleWidth();
       Align = LangOpts.Float128 ? 128 : Target->getLongDoubleAlign();
@@ -3994,7 +3995,7 @@ QualType ASTContext::getUnaryTransformType(QualType BaseType,
   return QualType(Ty, 0);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 QualType ASTContext::getBasesType(QualType ArgType,
                                   UnaryTransformType::UTTKind Kind) const {
@@ -4611,7 +4612,7 @@ static FloatingRank getFloatingRank(QualType T) {
   case BuiltinType::Float:      return FloatRank;
   case BuiltinType::Double:     return DoubleRank;
   case BuiltinType::LongDouble: return LongDoubleRank;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128: return Float128Rank;
 #endif  // INTEL_CUSTOMIZATION
   }
@@ -4630,7 +4631,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
     case FloatRank:      return FloatComplexTy;
     case DoubleRank:     return DoubleComplexTy;
     case LongDoubleRank: return LongDoubleComplexTy;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case Float128Rank: return LangOpts.Float128 ?
                               Float128ComplexTy : LongDoubleComplexTy;
 #endif  // INTEL_CUSTOMIZATION
@@ -4643,7 +4644,7 @@ QualType ASTContext::getFloatingTypeOfSizeWithinDomain(QualType Size,
   case FloatRank:      return FloatTy;
   case DoubleRank:     return DoubleTy;
   case LongDoubleRank: return LongDoubleTy;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Float128Rank: return LangOpts.Float128 ?
                             Float128Ty : LongDoubleTy;
 #endif  // INTEL_CUSTOMIZATION
@@ -5097,7 +5098,7 @@ bool ASTContext::isMSStaticDataMemberInlineDefinition(const VarDecl *VD) const {
          !VD->getFirstDecl()->isOutOfLine() && VD->getFirstDecl()->hasInit();
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ#371078: linkfail when static const/constexpr is used as a field of
 // a structure.
 bool ASTContext::isIntelStaticDataMemberInlineDefinition(
@@ -5460,7 +5461,7 @@ static char getObjCEncodingForPrimitiveKind(const ASTContext *C,
     case BuiltinType::Float:      return 'f';
     case BuiltinType::Double:     return 'd';
     case BuiltinType::LongDouble: return 'D';
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case BuiltinType::Float128:   return 'Q';
 #endif  // INTEL_CUSTOMIZATION
     case BuiltinType::NullPtr:    return '*'; // like char*
@@ -8340,7 +8341,7 @@ static GVALinkage basicGVALinkageForFunction(const ASTContext &Context,
     break;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369830 - static declarations are treated differently.
   // For a function definition, if it has ever been declared static, set
   // internal linkage for C.
@@ -8426,7 +8427,7 @@ static GVALinkage basicGVALinkageForVariable(const ASTContext &Context,
   if (Context.isMSStaticDataMemberInlineDefinition(VD))
     return GVA_DiscardableODR;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#371078: linkfail when static const/constexpr is used as a field
   // of a structure.
   if (Context.isIntelStaticDataMemberInlineDefinition(VD))
@@ -8529,7 +8530,7 @@ bool ASTContext::DeclMustBeEmitted(const Decl *D) {
   assert(VD->isFileVarDecl() && "Expected file scoped var");
 
   if (VD->isThisDeclarationADefinition() == VarDecl::DeclarationOnly &&
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#371078: linkfail when static const/constexpr is used as a
       // field of a structure.
       !isIntelStaticDataMemberInlineDefinition(VD) &&
@@ -8641,7 +8642,7 @@ QualType ASTContext::getRealTypeForBitwidth(unsigned DestWidth) const {
     return DoubleTy;
   case TargetInfo::LongDouble:
     return LongDoubleTy;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case TargetInfo::Float128:
     return getLangOpts().Float128 ? Float128Ty : QualType();
 #endif  // INTEL_CUSTOMIZATION

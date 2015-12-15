@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 void extern1();
 void extern2();

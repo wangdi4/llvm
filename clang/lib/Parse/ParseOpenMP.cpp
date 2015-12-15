@@ -835,12 +835,12 @@ OMPClause *Parser::ParseOpenMPVarListClause(OpenMPClauseKind Kind) {
                      Tok.isNot(tok::annot_pragma_openmp_end))) {
     ColonProtectionRAIIObject ColonRAII(*this, MayHaveTail);
     // Parse variable
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     Actions.StartCEAN(Sema::OpenMPCEANAllowed);
 #endif // INTEL_CUSTOMIZATION
     ExprResult VarExpr =
         Actions.CorrectDelayedTyposInExpr(ParseAssignmentExpression());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     Actions.EndCEAN();
 #endif // INTEL_CUSTOMIZATION
 

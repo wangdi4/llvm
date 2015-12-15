@@ -30,6 +30,7 @@
 // RUN: FileCheck -check-prefix=CHECK-CILK29 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK30 --input-file=%t %s
 // RUN: FileCheck -check-prefix=CHECK-CILK31 --input-file=%t %s
+// REQUIRES: cilkplus
 
 // XFAIL: win
 

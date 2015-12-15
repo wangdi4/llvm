@@ -428,7 +428,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
   Opts.OptimizeSize = getOptimizationLevelSize(Args);
   Opts.SimplifyLibCalls = !(Args.hasArg(OPT_fno_builtin) ||
                             Args.hasArg(OPT_ffreestanding));
-  Opts.IntelLibIRCAllowed = Args.hasArg(OPT_intel_libirc_allowed); // INTEL
   Opts.UnrollLoops =
       Args.hasFlag(OPT_funroll_loops, OPT_fno_unroll_loops,
                    (Opts.OptimizationLevel > 1 && !Opts.OptimizeSize));
@@ -605,7 +604,7 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#368119 - support for '/Z7' and '/Zi' options.
   if (Arg *A = Args.getLastArg(OPT_fms_debug_info_file_type)) {
     StringRef Val = A->getValue();
@@ -1409,13 +1408,15 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   }
 
   CompilerInvocation::setLangDefaults(Opts, IK, LangStd);
-#ifdef INTEL_CUSTOMIZATION
-  Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
-  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
+#if INTEL_SPECIFIC_CILKPLUS
   Opts.CilkPlus = Args.hasArg(OPT_fcilkplus);
-  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   if (Opts.CilkPlus && (Opts.ObjC1 || Opts.ObjC2))
     Diags.Report(diag::err_drv_cilk_objc);
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
+  Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
+  Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
+  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
@@ -1641,11 +1642,9 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.ShortWChar = Args.hasFlag(OPT_fshort_wchar, OPT_fno_short_wchar, false);
   Opts.ShortEnums = Args.hasArg(OPT_fshort_enums);
   Opts.Freestanding = Args.hasArg(OPT_ffreestanding);
-#ifdef INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   Opts.FormatExtensions = Args.hasArg(OPT_fformat_extensions);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   Opts.NoBuiltin = Args.hasArg(OPT_fno_builtin) || Opts.Freestanding;
   Opts.NoMathBuiltin = Args.hasArg(OPT_fno_math_builtin);
   Opts.AssumeSaneOperatorNew = !Args.hasArg(OPT_fno_assume_sane_operator_new);
@@ -2022,6 +2021,12 @@ bool CompilerInvocation::CreateFromArgs(CompilerInvocation &Res,
     ParseLangArgs(*Res.getLangOpts(), Args, DashX, Diags);
     if (Res.getFrontendOpts().ProgramAction == frontend::RewriteObjC)
       Res.getLangOpts()->ObjCExceptions = 1;
+#if INTEL_CUSTOMIZATION
+    // Disable __int128 keyword recognition in x86 mode.
+    if (Res.getLangOpts()->IntelCompat &&
+        llvm::Triple(Res.getTargetOpts().Triple).getArch() == llvm::Triple::x86)
+      Res.getLangOpts()->NoInt128 = 1;
+#endif
   }
   // FIXME: ParsePreprocessorArgs uses the FileManager to read the contents of
   // PCH file and find the original header name. Remove the need to do that in

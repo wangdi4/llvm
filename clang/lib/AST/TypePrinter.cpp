@@ -819,7 +819,7 @@ void TypePrinter::printUnaryTransformBefore(const UnaryTransformType *T,
       OS << ')';
       spaceBeforePlaceHolder(OS);
       return;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case UnaryTransformType::BasesOfType:
       OS << "__bases(";
@@ -844,7 +844,7 @@ void TypePrinter::printUnaryTransformAfter(const UnaryTransformType *T,
 
   switch (T->getUTTKind()) {
     case UnaryTransformType::EnumUnderlyingType:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case UnaryTransformType::BasesOfType:
     case UnaryTransformType::DirectBasesOfType:

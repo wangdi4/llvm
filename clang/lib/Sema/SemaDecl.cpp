@@ -108,13 +108,13 @@ bool Sema::isSimpleTypeSpecifier(tok::TokenKind Kind) const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case tok::kw___bases:
   case tok::kw___direct_bases:
@@ -1862,7 +1862,7 @@ NamedDecl *Sema::LazilyCreateBuiltin(IdentifierInfo *II, unsigned ID,
   return New;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// \brief Filter out any previous declarations that are library-defined builtin
 /// functions like 'malloc' or 'exp'.
 static void filterPredefinedLibBuiltins(ASTContext &Context,
@@ -2754,7 +2754,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     if (getLangOpts().MicrosoftExt) {
       Diag(New->getLocation(), diag::ext_static_non_static) << New;
       Diag(OldLocation, PrevDiag);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369830 - static declarations are treated differently.
     } else if (getLangOpts().IntelCompat) {
       Diag(New->getLocation(), diag::ext_intel_static_non_static) << New;
@@ -2824,6 +2824,20 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
   // Merge regparm attribute.
   if (OldTypeInfo.getHasRegParm() != NewTypeInfo.getHasRegParm() ||
       OldTypeInfo.getRegParm() != NewTypeInfo.getRegParm()) {
+#if INTEL_CUSTOMIZATION
+    // CQ#374880: If regparm attribute is available in the old declaration -
+    // take it. Otherwise take regparm attribute from the new declaration.
+    if (getLangOpts().IntelCompat) {
+      // Emit a warning about incompatible declaration if regparm attributes
+      // are different.
+      if (OldTypeInfo.getHasRegParm() && NewTypeInfo.getHasRegParm()) {
+        bool isOldAADefiniton = Old->isThisDeclarationADefinition();
+        Diag(New->getLocation(), diag::warn_func_redecl_conflicting_types)
+             << New->getDeclName() << isOldAADefiniton;
+        Diag(OldLocation, PrevDiag) << Old << Old->getType();
+      }
+    } else
+#endif // INTEL_CUSTOMIZATION
     if (NewTypeInfo.getHasRegParm()) {
       Diag(New->getLocation(), diag::err_regparm_mismatch)
         << NewType->getRegParmType()
@@ -2832,8 +2846,14 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
       return true;
     }
 
+#if INTEL_CUSTOMIZATION
+    // CQ#374880. If regparm attribute is available in the old declaration -
+    // take it. Otherwise take regparm attribute from the new declaration.
+    if (!getLangOpts().IntelCompat || OldTypeInfo.getHasRegParm()) {
+#endif // INTEL_CUSTOMIZATION
     NewTypeInfo = NewTypeInfo.withRegParm(OldTypeInfo.getRegParm());
     RequiresAdjustment = true;
+    } // INTEL
   }
 
   // Merge ns_returns_retained attribute.
@@ -3205,7 +3225,7 @@ bool Sema::MergeFunctionDecl(FunctionDecl *New, NamedDecl *&OldD,
     PrevDiag = diag::note_previous_builtin_declaration;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#366612 - consider New a function redeclaration in IntelCompat mode.
   if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus &&
       !getLangOpts().ObjC1 && !getLangOpts().ObjC2) {
@@ -3520,7 +3540,7 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
       Diag(New->getLocation(), diag::ext_static_non_static)
           << New->getDeclName();
       Diag(OldLocation, PrevDiag);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369830 - static declarations are treated differently.
     } else if (getLangOpts().IntelCompat) {
       Diag(New->getLocation(), diag::ext_intel_static_non_static)
@@ -3548,7 +3568,7 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
   else if (New->getCanonicalDecl()->getStorageClass() != SC_Static &&
            !New->isStaticDataMember() &&
            Old->getCanonicalDecl()->getStorageClass() == SC_Static) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369830 - static declarations are treated differently.
     if (getLangOpts().IntelCompat) {
       Diag(New->getLocation(), diag::ext_intel_non_static_static)
@@ -3559,7 +3579,7 @@ void Sema::MergeVarDecl(VarDecl *New, LookupResult &Previous) {
     Diag(New->getLocation(), diag::err_non_static_static) << New->getDeclName();
     Diag(OldLocation, PrevDiag);
     return New->setInvalidDecl();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     }
 #endif // INTEL_CUSTOMIZATION
   }
@@ -4003,12 +4023,12 @@ Decl *Sema::ParsedFreeStandingDeclSpec(Scope *S, AccessSpecifier AS,
         TypeSpecType == DeclSpec::TST_enum) {
       for (AttributeList* attrs = DS.getAttributes().getList(); attrs;
            attrs = attrs->getNext())
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (getLangOpts().MicrosoftExt || !attrs->isDeclspecAttribute()) {
 #endif // INTEL_CUSTOMIZATION
         Diag(attrs->getLoc(), diag::warn_declspec_attribute_ignored)
             << attrs->getName() << GetDiagnosticTypeSpecifierID(TypeSpecType);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
     }
@@ -4670,7 +4690,7 @@ static bool RebuildDeclaratorInCurrentInstantiation(Sema &S, Declarator &D,
   case DeclSpec::TST_typename:
   case DeclSpec::TST_typeofType:
   case DeclSpec::TST_underlyingType:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case DeclSpec::TST_bases:
   case DeclSpec::TST_directBases:
@@ -6764,7 +6784,7 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD, LookupResult &Previous) {
       checkForConflictWithNonVisibleExternC(*this, NewVD, Previous))
     Previous.setShadowed();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#368318 - filter out built-in functions without '__builtin_' prefix.
   if (getLangOpts().IntelCompat)
     filterPredefinedLibBuiltins(Context, Previous);
@@ -7101,7 +7121,7 @@ static StorageClass getFunctionStorageClass(Sema &SemaRef, Declarator &D) {
       //   block scope shall have no explicit storage-class specifier
       //   other than extern
       // See also (C++ [dcl.stc]p4).
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369830 - static declarations are treated differently.
       if (SemaRef.getLangOpts().IntelCompat) {
         SemaRef.Diag(D.getDeclSpec().getStorageClassSpecLoc(),
@@ -8043,7 +8063,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
         HasExplicitTemplateArgs = false;
       } else {
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
         // Fix for CQ374168: Regression (assertion failure) on
         // cfe_iclangCpp/nlu1_8)
         assert((isFunctionTemplateSpecialization ||
@@ -8290,7 +8310,7 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
   if (NewFD->isFirstDecl() && !NewFD->isInvalidDecl() &&
       isIncompleteDeclExternC(*this, NewFD))
     RegisterLocallyScopedExternCDecl(NewFD, S);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   else {
     // CQ#369830 - static declarations are treated differently.
     // If it is a locally-scoped static declaration of a function, make it
@@ -8402,12 +8422,12 @@ bool Sema::CheckFunctionDeclaration(Scope *S, FunctionDecl *NewFD,
   bool MergeTypeWithPrevious = !getLangOpts().CPlusPlus &&
                                !Previous.isShadowed();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Check that Cilk elemental function requirements are met
   if (getLangOpts().CilkPlus && NewFD->hasAttr<CilkElementalAttr>() &&
       !DiagnoseElementalAttributes(NewFD))
     return false;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   bool Redeclaration = false;
   NamedDecl *OldDecl = nullptr;
@@ -8698,7 +8718,7 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
   assert(T->isFunctionType() && "function decl is not of function type");
   const FunctionType* FT = T->castAs<FunctionType>();
 
-#ifndef INTEL_CUSTOMIZATION
+#if !INTEL_CUSTOMIZATION
   if (getLangOpts().GNUMode && !getLangOpts().CPlusPlus) {
     // In C with GNU extensions we allow main() to have non-integer return
     // type, but we should warn about the extension, and we disable the
@@ -8797,7 +8817,7 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
     }
 
     if (mismatch) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#364268 - emit a warning in IntelCompat mode, continue compilation
       if (getLangOpts().IntelCompat) {
         Diag(FD->getLocation(), diag::warn_main_arg_wrong) << i << Expected[i];
@@ -8806,7 +8826,7 @@ void Sema::CheckMain(FunctionDecl* FD, const DeclSpec& DS) {
       Diag(FD->getLocation(), diag::err_main_arg_wrong) << i << Expected[i];
       // TODO: suggest replacing given type with expected type
       FD->setInvalidDecl(true);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif  // INTEL_CUSTOMIZATION
     }
@@ -9196,9 +9216,10 @@ namespace {
 /// initialization rather than copy initialization.
 void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
                                 bool DirectInit, bool TypeMayContainAuto
-#ifdef INTEL_CUSTOMIZATION
-                                , bool &IsCilkSpawnReceiver
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                                ,
+                                bool &IsCilkSpawnReceiver
+#endif // INTEL_SPECIFIC_CILKPLUS
   ) {
   // If there is no declaration, there was an error parsing it.  Just ignore
   // the initializer.
@@ -9533,22 +9554,22 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
   //   struct T { S a, b; } t = { Temp(), Temp() }
   //
   // we should destroy the first Temp before constructing the second.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // We may initlize this variable with a Cilk Spawn:
   //
   //  int x = _Cilk_spawn func();
   //
   CilkReceiverKind Kind = CRK_MaybeReceiver;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   ExprResult Result = ActOnFinishFullExpr(Init, VDecl->getLocation(), 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
                                           Kind,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
                                           false, VDecl->isConstexpr());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Confirm if this is initializing a variable with a spawn call.
   IsCilkSpawnReceiver = getLangOpts().CilkPlus && (Kind == CRK_IsReceiver);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (Result.isInvalid()) {
     VDecl->setInvalidDecl();
     return;
@@ -10976,7 +10997,7 @@ Decl *Sema::ActOnStartOfFunctionDef(Scope *FnBodyScope, Decl *D,
 
   // Builtin functions cannot be defined.
   if (unsigned BuiltinID = FD->getBuiltinID()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ374883: redefinition of builtin function is not allowed.
     if (getLangOpts().IntelCompat)
       FD->getIdentifier()->revertBuiltin();
@@ -11397,10 +11418,10 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
       MarkBaseAndMemberDestructorsReferenced(Destructor->getLocation(),
                                              Destructor->getParent());
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     if (FD && FD->hasAttr<CilkElementalAttr>())
       DiagnoseCilkElemental(FD, Body);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
     // If any errors have occurred, clear out any temporaries that may have
     // been leftover. This ensures that these temporaries won't be picked up for
@@ -11424,7 +11445,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
     if (FD && FD->hasAttr<NakedAttr>()) {
       for (const Stmt *S : Body->children()) {
         if (!isa<AsmStmt>(S) && !isa<NullStmt>(S)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           // CQ#371340 - ignore 'naked' attribute on functions with non-ASM
           // statements in IntelCompat mode.
           if (getLangOpts().IntelCompat) {
@@ -11436,7 +11457,7 @@ Decl *Sema::ActOnFinishFunctionBody(Decl *dcl, Stmt *Body,
           Diag(S->getLocStart(), diag::err_non_asm_stmt_in_naked_function);
           Diag(FD->getAttr<NakedAttr>()->getLocation(), diag::note_attribute);
           FD->setInvalidDecl();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           }
 #endif // INTEL_CUSTOMIZATION
           break;
@@ -12342,7 +12363,7 @@ Decl *Sema::ActOnTag(Scope *S, unsigned TagSpec, TagUseKind TUK,
             Previous.addDecl(Tag);
             Previous.resolveKind();
           }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           // CQ#364598 - allow elaborated befriended type refer to a typedef in
           // the same scope. Emit a warning as this relaxes ISO C++ restriction.
           else if (getLangOpts().IntelCompat && TUK == TUK_Friend &&
@@ -12648,7 +12669,7 @@ CreateNewDecl:
         if (getLangOpts().MSVCCompat)
           DiagID = diag::ext_ms_forward_ref_enum;
         else if (getLangOpts().CPlusPlus)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         {
           // CQ#365886 - emit an extension warning in IntelCompat mode
           if (getLangOpts().IntelCompat)
@@ -13403,16 +13424,17 @@ bool Sema::CheckNontrivialField(FieldDecl *FD) {
 
         Diag(FD->getLocation(), getLangOpts().CPlusPlus11 ?
                diag::warn_cxx98_compat_nontrivial_union_or_anon_struct_member :
-#ifdef INTEL_CUSTOMIZATION
-               // CQ#364709 - allow union or anonymous struct member have
-               // non-trivial field in IntelMSCompat mode.
-               getLangOpts().IntelMSCompat ?
-                   diag::warn_intel_nontrivial_union_or_anon_struct_member :
+#if INTEL_CUSTOMIZATION
+                // CQ#364709 - allow union or anonymous struct member have
+                // non-trivial field in IntelMSCompat mode.
+                getLangOpts().IntelMSCompat
+                    ? diag::warn_intel_nontrivial_union_or_anon_struct_member
+                    :
 #endif // INTEL_CUSTOMIZATION
                diag::err_illegal_union_or_anon_struct_member)
           << (int)FD->getParent()->isUnion() << FD->getDeclName() << member;
         DiagnoseNontrivial(RDecl, member);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // CQ#364709 - return false in IntelMSCompat mode.
         if (getLangOpts().IntelMSCompat)
           return false;

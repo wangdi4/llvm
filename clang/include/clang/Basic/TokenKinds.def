@@ -268,7 +268,7 @@ KEYWORD(inline                      , KEYC99|KEYCXX|KEYGNU)
 KEYWORD(int                         , KEYALL)
 KEYWORD(long                        , KEYALL)
 KEYWORD(register                    , KEYALL)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 KEYWORD(restrict                    , KEYRESTRICT)
 #else
 KEYWORD(restrict                    , KEYC99)
@@ -382,7 +382,7 @@ TYPE_TRAIT_2(__builtin_types_compatible_p, TypeCompatible, KEYNOCXX)
 KEYWORD(__builtin_va_arg            , KEYALL)
 KEYWORD(__extension__               , KEYALL)
 KEYWORD(__imag                      , KEYALL)
-KEYWORD(__int128                    , KEYALL)
+KEYWORD(__int128                    , KEYNOINT128) // INTEL
 KEYWORD(__label__                   , KEYALL)
 KEYWORD(__real                      , KEYALL)
 KEYWORD(__thread                    , KEYALL)
@@ -398,10 +398,12 @@ KEYWORD(__FUNCSIG__                 , KEYMS)
 KEYWORD(L__FUNCTION__               , KEYMS)
 TYPE_TRAIT_1(__is_interface_class, IsInterfaceClass, KEYMS)
 TYPE_TRAIT_1(__is_sealed, IsSealed, KEYMS)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 KEYWORD(_Cilk_spawn                 , KEYCILKPLUS)
 KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
+#endif  // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
 KEYWORD(_Quad                       , KEYFLOAT128)
 // CQ#367834 - __float128 should be an alias for _Quad.
 ALIAS("__float128"    , _Quad       , KEYFLOAT128)
@@ -509,7 +511,7 @@ KEYWORD(__unaligned                 , KEYALL)
 #else
 KEYWORD(__unaligned                 , KEYMS)
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ375085: allow to use __forceinline modifier even in non-MS mode.
 KEYWORD(__forceinline               , KEYALL)
 #else
@@ -592,7 +594,7 @@ ALIAS("__signed"     , signed     , KEYALL)
 ALIAS("__signed__"   , signed     , KEYALL)
 ALIAS("__typeof"     , typeof     , KEYALL)
 ALIAS("__typeof__"   , typeof     , KEYALL)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 ALIAS("_Typeof"      , typeof     , KEYALL)
 #endif  // INTEL_CUSTOMIZATION
 ALIAS("__volatile"   , volatile   , KEYALL)
@@ -604,7 +606,7 @@ KEYWORD(_Nullable                , KEYALL)
 KEYWORD(_Null_unspecified        , KEYALL)
 
 // Microsoft extensions which should be disabled in strict conformance mode
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // Fix for CQ#373504: __ptr64 and __ptr32 on Linux.
 KEYWORD(__ptr64                       , KEYALL)
 KEYWORD(__ptr32                       , KEYALL)
@@ -634,7 +636,7 @@ ALIAS("__int32"          , int        , KEYALL) //***INTEL: sized int support
 ALIAS("_int32"           , int        , KEYMS)
 ALIAS("_int64"           , __int64    , KEYMS)
 ALIAS("__wchar_t"        , wchar_t    , KEYMS)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369368 - allow '_asm' keyword if MS-style inline assembly is enabled.
 ALIAS("_asm"             , asm        , KEYMS | KEYMSASM)
 #else
@@ -793,7 +795,7 @@ ANNOTATION(pragma_opencl_extension)
 ANNOTATION(pragma_openmp)
 ANNOTATION(pragma_openmp_end)
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 // Annotation for #pragma cilk grainsize...
 // The lexer produces these so that they only take effect when the parser
 // handles them.
@@ -809,9 +811,12 @@ ANNOTATION(pragma_cilk_grainsize_end)
 // handles them.
 ANNOTATION(pragma_simd)
 ANNOTATION(pragma_simd_end)
+#endif // INTEL_SPECIFIC_CILKPLUS
 
+#if INTEL_CUSTOMIZATION
 // Alternate spelling for alignof
 ALIAS("__ALIGNOF__" , __alignof , KEYALL)
+#endif // INTEL_CUSTOMIZATION
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 ANNOTATION(pragma_end)
@@ -937,7 +942,6 @@ ANNOTATION(pragma_float_control)
 ANNOTATION(pragma_intel_fp_contract)
 ANNOTATION(pragma_fenv_access)
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
 
 // Annotations for loop pragma directives #pragma clang loop ...
 // The lexer produces these so that they only take effect when the parser

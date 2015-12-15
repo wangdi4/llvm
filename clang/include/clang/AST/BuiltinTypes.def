@@ -133,7 +133,7 @@ FLOATING_TYPE(Double, DoubleTy)
 // 'long double'
 FLOATING_TYPE(LongDouble, LongDoubleTy)
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // '__float128'/'_Quad'
 FLOATING_TYPE(Float128, Float128Ty)
 #endif  // INTEL_CUSTOMIZATION

@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 void test_builtin() {
   _Cilk_spawn printf("Hello world!\n");

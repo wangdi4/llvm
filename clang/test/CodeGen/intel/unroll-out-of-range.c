@@ -1,34 +1,43 @@
 // CQ#366562
-// RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST1 -emit-llvm %s -o - | FileCheck -check-prefix CHECK1 %s
-// RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST2 -emit-llvm %s -o - | FileCheck -check-prefix CHECK2 %s
-// RUN: %clang_cc1 -fintel-compatibility -O0 -DTEST3 -emit-llvm %s -o - | FileCheck -check-prefix CHECK2 %s
+// RUN: %clang_cc1 -fintel-compatibility -emit-llvm %s -o - | FileCheck %s
 // REQUIRES: llvm-backend
 
 int main(void) {
   int i = 0, s = 0;
 
-#if TEST1
-
-#pragma unroll(2)
-
-#elif TEST2
-
-#pragma unroll(0)
-
-#elif TEST3
-
-#pragma unroll
-
-#else
-
-#error Unknown test mode
-
-#endif
-
+  // Unroll disabled.
+  #pragma unroll(0)
   for (i = 0; i < 10; ++i)
     s = s + i;
+  // CHECK: !llvm.loop [[LOOP_1:!.+]]
 
-  // CHECK1: !{!"llvm.loop.unroll.count", i32 2}
-  // CHECK2: !{!"llvm.loop.unroll.enable"}
+  #pragma nounroll
+  for (i = 0; i < 10; ++i)
+    s = s + i;
+  // CHECK: !llvm.loop [[LOOP_2:!.+]]
+
+  // Unroll enabled.
+  #pragma unroll(-2)
+  for (i = 0; i < 10; ++i)
+    s = s + i;
+  // CHECK: !llvm.loop [[LOOP_3:!.+]]
+  
+  #pragma unroll(1844674407370955161)
+  for (i = 0; i < 10; ++i)
+    s = s + i;
+  // CHECK: !llvm.loop [[LOOP_4:!.+]]
+
+  #pragma unroll
+  for (i = 0; i < 10; ++i)
+    s = s + i;
+  // CHECK: !llvm.loop [[LOOP_5:!.+]]
+
   return s;
+  // CHECK: [[LOOP_1]] = distinct !{[[LOOP_1]], [[ATTR_1:!.+]]}
+  // CHECK: [[ATTR_1]] = !{!"llvm.loop.unroll.disable"}
+  // CHECK: [[LOOP_2]] = distinct !{[[LOOP_2]], [[ATTR_1]]}
+  // CHECK: [[LOOP_3]] = distinct !{[[LOOP_3]], [[ATTR_2:!.+]]}
+  // CHECK: [[ATTR_2]] = !{!"llvm.loop.unroll.enable"}
+  // CHECK: [[LOOP_4]] = distinct !{[[LOOP_4]], [[ATTR_2]]}
+  // CHECK: [[LOOP_5]] = distinct !{[[LOOP_5]], [[ATTR_2]]}
 }

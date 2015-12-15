@@ -53,13 +53,13 @@ bool FormatToken::isSimpleTypeSpecifier() const {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_wchar_t:
   case tok::kw_bool:
   case tok::kw___underlying_type:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case tok::kw___bases:
   case tok::kw___direct_bases:

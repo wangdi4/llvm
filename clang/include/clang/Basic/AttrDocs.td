@@ -1626,3 +1626,59 @@ function are loads and stores from objects pointed to by its pointer-typed
 arguments, with arbitrary offsets.
   }];
 }
+
+def IAInterruptDocs : Documentation {
+  let Category = DocCatFunction;
+  let Content = [{
+Clang supports the GNU style ``__attribute__((interrupt))`` attribute on
+x86 targets. This attribute may be attached to a function definition and
+instructs the backend to generate appropriate function entry/exit code so that
+it can be used directly as an interrupt handler.
+The ``IRET`` instruction, instead of the ``RET`` instruction, is used to return
+from interrupt or exception handlers.  All registers, except for the ``EFLAGS``
+register which is restored by the ``IRET`` instruction, are preserved by the
+compiler.
+Any interruptible-without-stack-switch code must be compiled with -mno-red-zone
+since interrupt handlers can and will, because of the hardware design, touch
+the red zone.
+
+1. interrupt handler must be declared with a mandatory pointer argument:
+
+  .. code-block:: c
+
+    struct interrupt_frame;
+
+    __attribute__ ((interrupt))
+    void f (struct interrupt_frame *frame) {
+      ...
+    }
+
+  and user must properly define the structure the pointer pointing to.
+
+2. exception handler:
+
+  The exception handler is very similar to the interrupt handler with
+  a different mandatory function signature:
+
+  .. code-block:: c
+
+    #ifdef __x86_64__
+    typedef unsigned long long int uword_t;
+    #else
+    typedef unsigned int uword_t;
+    #endif
+
+    struct interrupt_frame;
+
+    __attribute__ ((interrupt))
+    void f (struct interrupt_frame *frame, uword_t error_code) {
+      ...
+    }
+
+  and compiler pops the error code off stack before the 'IRET' instruction.
+
+  The exception handler should only be used for exceptions which push an
+  error code and all other exceptions must use the interrupt handler.
+  The system will crash if the wrong handler is used.
+  }];
+}

@@ -1,8 +1,7 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions  -disable-llvm-optzns -emit-llvm %s -o - | FileCheck %s
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fcxx-exceptions -fexceptions  -disable-llvm-optzns -emit-llvm %s -o - | FileCheck -check-prefix=CHECK1 %s
-//
 // XFAIL: *
-
+// REQUIRES: cilkplus
 
 void test_cilk_for_body() {
   // Confirm this compiles; do not check the generated code.

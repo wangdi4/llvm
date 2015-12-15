@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -emit-llvm -O0 -o - %s | FileCheck %s
+// REQUIRES: cilkplus
 
 // CHECK: %struct.anon = type { i32*, float**, i32* }
 // CHECK: %struct.anon.0 = type { i32*, float** }

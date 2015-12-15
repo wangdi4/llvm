@@ -1575,9 +1575,9 @@ private:
   bool HasImplicitReturnZero : 1;
   bool IsLateTemplateParsed : 1;
   bool IsConstexpr : 1;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   bool IsSpawning: 1;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Indicates if the function uses __try.
   bool UsesSEHTry : 1;
 
@@ -1670,9 +1670,9 @@ protected:
       IsDefaulted(false), IsExplicitlyDefaulted(false),
       HasImplicitReturnZero(false), IsLateTemplateParsed(false),
       IsConstexpr(isConstexprSpecified),
-#ifdef INTEL_CUSTOMIZATION
-      IsSpawning(false),
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+        IsSpawning(false),
+#endif // INTEL_SPECIFIC_CILKPLUS
       UsesSEHTry(false),
       HasSkippedBody(false), EndRangeLoc(NameInfo.getEndLoc()),
       TemplateOrSpecialization(),
@@ -1853,11 +1853,11 @@ public:
   /// Whether this is a (C++11) constexpr function or constexpr constructor.
   bool isConstexpr() const { return IsConstexpr; }
   void setConstexpr(bool IC) { IsConstexpr = IC; }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether this function is a Cilk spawning function.
   bool isSpawning() const { return IsSpawning; }
   void setSpawning() { IsSpawning = true; }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Indicates the function uses __try.
   bool usesSEHTry() const { return UsesSEHTry; }
   void setUsesSEHTry(bool UST) { UsesSEHTry = UST; }
@@ -3643,16 +3643,17 @@ private:
   unsigned ContextParam;
   /// \brief The body of the outlined function.
   llvm::PointerIntPair<Stmt *, 1, bool> BodyAndNothrow;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether this CapturedDecl contains Cilk spawns.
   bool IsSpawning;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   explicit CapturedDecl(DeclContext *DC, unsigned NumParams)
     : Decl(Captured, DC, SourceLocation()), DeclContext(Captured),
       NumParams(NumParams), ContextParam(0), BodyAndNothrow(nullptr, false)
-#ifdef INTEL_CUSTOMIZATION
-      , IsSpawning(false)
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+        ,
+        IsSpawning(false)
+#endif // INTEL_SPECIFIC_CILKPLUS
     { }
 
   ImplicitParamDecl *const *getParams() const {
@@ -3671,10 +3672,10 @@ public:
 
   Stmt *getBody() const override { return BodyAndNothrow.getPointer(); }
   void setBody(Stmt *B) { BodyAndNothrow.setPointer(B); }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void setSpawning() { IsSpawning = true; }
   bool isSpawning() const { return IsSpawning; }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   bool isNothrow() const { return BodyAndNothrow.getInt(); }
   void setNothrow(bool Nothrow = true) { BodyAndNothrow.setInt(Nothrow); }
 
@@ -3726,7 +3727,7 @@ public:
   friend class ASTDeclWriter;
   friend TrailingObjects;
 };
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 class CilkSpawnDecl : public Decl {
   /// \brief The CapturedStmt associated to the expression or statement with
   /// a Cilk spawn call.
@@ -3761,7 +3762,7 @@ public:
   friend class ASTDeclReader;
   friend class ASTDeclWriter;
 };
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 /// \brief Describes a module import declaration, which makes the contents
 /// of the named module visible in the current translation unit.
 ///
@@ -3912,6 +3913,7 @@ inline bool IsEnumDeclScoped(EnumDecl *ED) {
   return ED->isScoped();
 }
 
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 /// PragmaDecl
 class PragmaStmt;
@@ -3954,7 +3956,8 @@ public:
     return false;
   }
 };
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
 
 }  // end namespace clang
 

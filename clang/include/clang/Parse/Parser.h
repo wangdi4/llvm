@@ -168,9 +168,10 @@ class Parser : public CodeCompletionHandler {
   std::unique_ptr<PragmaHandler> LoopHintHandler;
   std::unique_ptr<PragmaHandler> UnrollHintHandler;
   std::unique_ptr<PragmaHandler> NoUnrollHintHandler;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   std::unique_ptr<PragmaHandler> CilkGrainsizeHandler;
   std::unique_ptr<PragmaHandler> SIMDHandler;
+#endif // INTEL_SPECIFIC_CILKPLUS
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   clang::StmtResult ParsePragmaInSIMD();
 
@@ -358,7 +359,6 @@ class Parser : public CodeCompletionHandler {
   // Pragma vtordisp
   std::unique_ptr<PragmaHandler> VtorDispHandler;
 #endif // INTEL_SPECIFIC_IL0_BACKEND
-#endif // INTEL_CUSTOMIZATION
   std::unique_ptr<CommentHandler> CommentSemaHandler;
 
   /// Whether the '>' token acts as an operator or not. This will be
@@ -715,7 +715,7 @@ private:
   /// #pragma clang __debug captured
   StmtResult HandlePragmaCaptured();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Initialize all Intel-specifc pragma handlers.
   void initializeIntelPragmaHandlers();
 
@@ -1432,6 +1432,11 @@ private:
 
     SourceRange Range;
   };
+#if INTEL_CUSTOMIZATION
+  // CQ#371799 - let #pragma unroll precede non-loop statements.
+  /// Save #pragma unroll as pending to be applied once any loop occurs.
+  ParsedAttributesWithRange PendingPragmaUnroll;
+#endif // INTEL_CUSTOMIZATION
 
   DeclGroupPtrTy ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
                                           ParsingDeclSpec *DS = nullptr);
@@ -1645,8 +1650,8 @@ private:
   bool ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
                            SmallVectorImpl<SourceLocation> &CommaLocs,
                            std::function<void()> Completer = nullptr);
-#ifdef INTEL_CUSTOMIZATION
-  /// ParseExpressionList - Used for C/C++ (argument-)expression-list.
+#if INTEL_SPECIFIC_CILKPLUS
+  /// ParseSecReduceExpressionList - Used for reducer (argument-)expression-list
   bool ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
                            SmallVectorImpl<SourceLocation> &CommaLocs,
                            bool CheckReturnType,
@@ -1654,7 +1659,7 @@ private:
                                                    Expr *Data,
                                                    ArrayRef<Expr *> Args) = 0,
                            Expr *Data = 0);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
   /// used for misc language extensions.
   bool ParseSimpleExpressionList(SmallVectorImpl<Expr*> &Exprs,
@@ -1896,18 +1901,18 @@ private:  //***INTEL
   StmtResult ParsePragmaLoopHint(StmtVector &Stmts, bool OnlyStatement,
                                  SourceLocation *TrailingElseLoc,
                                  ParsedAttributesWithRange &Attrs);
-#ifdef INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   /// \brief Check Intel-pragma statements
   void CheckIntelStmt(StmtVector& Stmts);
 #endif // INTEL_SPECIFIC_IL0_BACKEND
+#if INTEL_SPECIFIC_CILKPLUS
   StmtResult ParseCilkForStmt();
   /// \brief Parse the Cilk grainsize pragma followed by a Cilk for statement.
   ///
   /// #pragma cilk grainsize = ...
   /// _Cilk_for (...)
   StmtResult ParsePragmaCilkGrainsize();
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Describes the behavior that should be taken for an __if_exists
   /// block.
   enum IfExistsBehavior {
@@ -2431,7 +2436,7 @@ private:
                                        IdentifierInfo *ScopeName,
                                        SourceLocation ScopeLoc,
                                        AttributeList::Syntax Syntax);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void ParseCilkPlusElementalAttribute(IdentifierInfo &AttrName,
                                        SourceLocation AttrNameLoc,
                                        ParsedAttributes &Attrs,
@@ -2444,7 +2449,7 @@ private:
                                        SourceLocation *EndLoc,
                                        IdentifierInfo &ScopeName,
                                        SourceLocation ScopeLoc);
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   void ParseTypeTagForDatatypeAttribute(IdentifierInfo &AttrName,
                                         SourceLocation AttrNameLoc,
                                         ParsedAttributes &Attrs,
@@ -2467,7 +2472,7 @@ private:
                                          SourceLocation StartLoc,
                                          SourceLocation EndLoc);
   void ParseUnderlyingTypeSpecifier(DeclSpec &DS);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   void ParseBasesSpecifier(DeclSpec &DS);
 #endif // INTEL_CUSTOMIZATION

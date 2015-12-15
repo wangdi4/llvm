@@ -70,10 +70,6 @@ def ext_nullability : Extension<
   InGroup<DiagGroup<"nullability-extension">>;
 
 def error_empty_enum : Error<"use of empty enum">;
-// CQ#364426
-// if INTEL_CUSTOMIZATION
-def warn_empty_enum : Warning<"use of empty enum">, InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 def err_invalid_sign_spec : Error<"'%0' cannot be signed or unsigned">;
 def err_invalid_short_spec : Error<"'short %0' is invalid">;
 def err_invalid_long_spec : Error<"'long %0' is invalid">;
@@ -199,6 +195,11 @@ def err_invalid_token_after_toplevel_declarator : Error<
 def err_invalid_token_after_declarator_suggest_equal : Error<
   "invalid %0 at end of declaration; did you mean '='?">;
 def err_expected_statement : Error<"expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_expected_statement :
+  Warning<err_expected_statement.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_expected_lparen_after : Error<"expected '(' after '%0'">;
 def err_expected_rparen_after : Error<"expected ')' after '%0'">;
 def err_expected_punc : Error<"expected ')' or ',' after '%0'">;
@@ -206,13 +207,6 @@ def err_expected_less_after : Error<"expected '<' after '%0'">;
 def err_expected_lbrace_in_compound_literal : Error<
   "expected '{' in compound literal">;
 def err_expected_while : Error<"expected 'while' in do/while loop">;
-// if INTEL_CUSTOMIZATION
-// CQ#369185 - support of __bases and __direct_bases intrinsics.
-def err_bases_arg_type_not_dependent: Error<"'%select{__bases|__direct_bases}0' "
-  "specifier must be used with dependent type">;
-def err_expected_ellipsis : Error<"expected '...' after "
-  "'%select{__bases|__direct_bases}0' specifier">;
-// endif INTEL_CUSTOMIZATION
 
 def err_expected_semi_after_stmt : Error<"expected ';' after %0 statement">;
 def err_expected_semi_after_expr : Error<"expected ';' after expression">;
@@ -255,6 +249,11 @@ def note_force_empty_selector_name : Note<
   "and have an empty entry in the selector">;
 def err_label_end_of_compound_statement : Error<
   "label at end of compound statement: expected statement">;
+// if INTEL_CUSTOMIZATION
+// CQ#370084
+def warn_label_end_of_compound_statement :
+  Warning<err_label_end_of_compound_statement.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_address_of_label_outside_fn : Error<
   "use of address-of-label extension outside of a function body">;
 def err_asm_operand_wide_string_literal : Error<
@@ -489,6 +488,11 @@ def err_expected_field_designator : Error<
 
 def err_declaration_does_not_declare_param : Error<
   "declaration does not declare a parameter">;
+// if INTEL_CUSTOMIZATION
+// CQ#373127
+def warn_declaration_does_not_declare_param : Warning<
+  err_declaration_does_not_declare_param.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_no_matching_param : Error<"parameter named %0 is missing">;
 
 /// C++ parser diagnostics
@@ -569,13 +573,6 @@ def err_function_is_not_record : Error<
   "unexpected %0 in function call; perhaps remove the %0?">;
 def err_super_in_using_declaration : Error<
   "'__super' cannot be used with a using declaration">;
-// if INTEL_CUSTOMIZATION
-// CQ#364737
-def warn_inline_not_allowed : Warning<
-  "\"inline\" is not allowed">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
-
 
 // C++ derived classes
 def err_dup_virtual : Error<"duplicate 'virtual' in base specifier">;
@@ -620,12 +617,6 @@ def err_cxx11_attribute_forbids_ellipsis : Error<
 def err_cxx11_attribute_repeated : Error<
   "attribute %0 cannot appear multiple times in an attribute specifier">;
 def err_attributes_not_allowed : Error<"an attribute list cannot appear here">;
-// CQ#370092
-// if INTEL_CUSTOMIZATION
-def warn_attributes_not_allowed : Warning<
-  "an attribute list cannot appear here; attributes are ignored">,
-  InGroup<IgnoredAttributes>;
-// endif INTEL_CUSTOMIZATION
 def err_l_square_l_square_not_attribute : Error<
   "C++11 only allows consecutive left square brackets when "
   "introducing an attribute">;
@@ -774,13 +765,6 @@ def ext_defaulted_function : ExtWarn<
 def warn_cxx98_compat_defaulted_function : Warning<
   "defaulted function definitions are incompatible with C++98">,
   InGroup<CXX98Compat>, DefaultIgnore;
-
-// if INTEL_CUSTOMIZATION
-// CQ#373607
-def warn_member_function_initialization : Warning<
-  "initializer on function does not look like a pure-specifier">,
-  InGroup<IntelCompat>;
-// endif INTEL_CUSTOMIZATION
 
 // C++11 in-class member initialization
 def ext_nonstatic_member_init : ExtWarn<
@@ -1003,105 +987,6 @@ def warn_pragma_expected_enable_disable : Warning<
   "expected 'enable' or 'disable' - ignoring">, InGroup<IgnoredPragmas>;
 def warn_pragma_unknown_extension : Warning<
   "unknown OpenCL extension %0 - ignoring">, InGroup<IgnoredPragmas>;
-
-//#ifdef INTEL_CUSTOMIZATION
-// Cilk Plus
-def err_cilkplus_disable: Error<
-  "Cilk Plus support disabled - compile with -fcilkplus">;
-
-def err_cilk_for_missing_control_variable: Error<
-  "missing control variable declaration and initialization in '_Cilk_for'">;
-
-def err_cilk_for_missing_condition: Error<
-  "missing loop condition expression in '_Cilk_for'">;
-
-def err_cilk_for_missing_increment: Error<
-  "missing loop increment expression in '_Cilk_for'">;
-
-def err_cilk_for_missing_semi: Error<
-  "expected ';' in '_Cilk_for'">;
-
-def err_cilk_for_expect_grainsize: Error<
-  "expected 'grainsize' in '#pragma cilk'">;
-
-def err_cilk_for_expect_assign: Error<
-  "expected '=' in '#pragma cilk'">;
-
-def warn_cilk_for_following_grainsize: Warning<
-  "'#pragma cilk' ignored, because it is not followed by a '_Cilk_for' loop">,
-  InGroup<SourceUsesCilkPlus>;
-
-// Pragma SIMD
-def err_simd_for_missing_initialization: Error<
-  "missing initialization in simd for">;
-
-def err_simd_for_missing_condition: Error<
-  "missing loop condition expression in simd for">;
-
-def err_simd_for_missing_increment: Error<
-  "missing loop increment expression in simd for">;
-
-def err_simd_for_missing_semi: Error<
-  "expected ';' in simd for">;
-
-def err_simd_invalid_clause: Error<
-  "invalid pragma simd clause">;
-
-def err_simd_expected_reduction_operator: Error<
-  "expected reduction operator">;
-
-//#ifdef INTEL_SPECIFIC_IL0_BACKEND
-def x_warn_intel_pragma_malformed : Warning<"unknown pragma qualifier">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_extra_text : Warning<"extra text after expected end of preprocessing directive">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_statement_precede : Warning<"this pragma must immediately precede a statement">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_expected_string : Warning<"expected a string">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_on_off_expected : Warning<"'on' or 'off' expected">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_integer_const : Warning<"expected an integer constant">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_reset_integer_const : Warning<"expected reset or an integer constant">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_no_null_string : Warning<"invalid use of null string; pragma ignored">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_unexpected_section : Warning<"Unexpected section '%0'">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_conform_value : Warning<"forScope behavior is %select{non-standard|standard}0">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_missing_region : Warning<"the #pragma region for this #pragma endregion is missing">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_missing_endregion : Warning<"the #pragma region unclosed at end of file">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_missing_start_map_region : Warning<"no #pragma start_map_region is currently active: pragma ignored">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_missing_stop_map_region : Warning<"#pragma start_map_region already active: pragma ignored">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_assert_before_always : Warning<"always must precede assert qualifier, ignored">,
-  InGroup<IntelPragma>;
-def x_warn_intel_pragma_qualifier_conflict : Warning<"invalid combination of pragma qualifiers">,
-  InGroup<IntelPragma>;
-def x_error_intel_pragma_statement_precede : Error<"this pragma must immediately precede a statement">;
-def x_error_intel_pragma_no_section : Error<"no section is specified in #pragma %0">;
-def x_error_intel_pragma_no_variables : Error<"no variables are specified in #pragma %0">;
-//#endif  // INTEL_SPECIFIC_IL0_BACKEND
-// Cilk elemental functions
-def err_elemental_parameter_pack_unsupported: Error<
-  "template parameter pack is not supported in '%0' attribute">;
-
-def err_expected_ident_or_this : Error<
-  "expected identifier or this">;
-
-def err_expected_ident : Error<
-  "expected identifier">;
-
-def err_expected_comma : Error<"expected ','">;
-def err_expected_lparen : Error<"expected '('">;
-def err_expected_rparen : Error<"expected ')'">;
-def err_expected_colon : Error<"expected ':'">;
-//#endif  // INTEL_CUSTOMIZATION
 
 // OpenMP support.
 def warn_pragma_omp_ignored : Warning<

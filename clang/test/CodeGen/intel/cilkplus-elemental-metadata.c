@@ -1,4 +1,6 @@
 // RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
+// XFAIL: win
 
 #ifdef _WIN32
 __declspec(vector(linear(l

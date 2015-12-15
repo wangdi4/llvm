@@ -82,7 +82,7 @@ static void instantiateDependentAlignedAttr(
     // The alignment expression is a constant expression.
     EnterExpressionEvaluationContext Unevaluated(S, Sema::ConstantEvaluated);
     ExprResult Result = S.SubstExpr(Aligned->getAlignmentExpr(), TemplateArgs);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ368132: __declspec (align) in icc can take more than one argument.
     ExprResult OffsetResult;
     if (Aligned->getOffsetExpr())
@@ -91,7 +91,7 @@ static void instantiateDependentAlignedAttr(
 #endif // INTEL_CUSTOMIZATION
     if (!Result.isInvalid())
       S.AddAlignedAttr(Aligned->getLocation(), New, Result.getAs<Expr>(),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
                        // Fix for CQ368132: __declspec (align) in icc can take
                        // more than one argument.
                        OffsetResult.getAs<Expr>(),

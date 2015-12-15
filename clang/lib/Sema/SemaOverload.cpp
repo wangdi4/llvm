@@ -1544,7 +1544,7 @@ static bool IsStandardConversion(Sema &S, Expr* From, QualType ToType,
       SCS.setAllToTypes(FromType);
       return true;
     }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375389: cannot convert wchar_t type in conditional expression.
   } else if (S.getLangOpts().IntelCompat && S.getLangOpts().IntelMSCompat &&
              FromType->isPointerType() &&
@@ -1931,8 +1931,8 @@ bool Sema::IsFloatingPointPromotion(QualType FromType, QualType ToType) {
           (FromBuiltin->getKind() == BuiltinType::Float ||
            FromBuiltin->getKind() == BuiltinType::Double ||
            FromBuiltin->getKind() == BuiltinType::LongDouble)
-#ifdef INTEL_CUSTOMIZATION
-           && (ToBuiltin->getKind() == BuiltinType::Float128)
+#if INTEL_CUSTOMIZATION
+          && (ToBuiltin->getKind() == BuiltinType::Float128)
 #endif  // INTEL_CUSTOMIZATION
          )
         return true;
@@ -7142,7 +7142,7 @@ class BuiltinOperatorOverloadBuilder {
   // provided via the getArithmeticType() method below.
   // The "promoted arithmetic types" are the arithmetic
   // types are that preserved by promotion (C++ [over.built]p2).
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   static const unsigned FirstIntegralType = 4;
   static const unsigned LastIntegralType = 21;
   static const unsigned FirstPromotedIntegralType = 4,
@@ -7170,7 +7170,7 @@ class BuiltinOperatorOverloadBuilder {
       &ASTContext::FloatTy,
       &ASTContext::DoubleTy,
       &ASTContext::LongDoubleTy,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       &ASTContext::Float128Ty,
 #endif  // INTEL_CUSTOMIZATION
 
@@ -7746,7 +7746,7 @@ public:
          Left < LastPromotedArithmeticType; ++Left) {
       for (unsigned Right = FirstPromotedArithmeticType;
            Right < LastPromotedArithmeticType; ++Right) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
 #endif  // INTEL_CUSTOMIZATION
@@ -7805,7 +7805,7 @@ public:
          Left < LastPromotedIntegralType; ++Left) {
       for (unsigned Right = FirstPromotedIntegralType;
            Right < LastPromotedIntegralType; ++Right) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (!S.getLangOpts().Float128 &&
             (Left == Float128Type || Right == Float128Type)) continue;
 #endif  // INTEL_CUSTOMIZATION

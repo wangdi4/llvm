@@ -67,9 +67,9 @@ namespace {
     bool VisitDeclRefExpr(DeclRefExpr *DRE);
     bool VisitCXXThisExpr(CXXThisExpr *ThisE);
     bool VisitLambdaExpr(LambdaExpr *Lambda);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     bool VisitCEANIndexExpr(CEANIndexExpr *Node);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     bool VisitPseudoObjectExpr(PseudoObjectExpr *POE);
   };
 
@@ -95,7 +95,7 @@ namespace {
       //   evaluated. Parameters of a function declared before a default
       //   argument expression are in scope and can hide namespace and
       //   class member names.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#364545 - allow use of arguments in references as default
       // value
       if (!S->getLangOpts().IntelMSCompat ||
@@ -154,7 +154,7 @@ namespace {
     return S->Diag(Lambda->getLocStart(), 
                    diag::err_lambda_capture_default_arg);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   bool CheckDefaultArgumentVisitor::VisitCEANIndexExpr(CEANIndexExpr *Node) {
     bool IsInvalid = false;
     Stmt::child_range Ch = Node->children();
@@ -163,7 +163,7 @@ namespace {
         IsInvalid |= Visit(*I);
     return IsInvalid;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 void
@@ -522,7 +522,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     bool OldParamHasDfl = OldParam ? OldParam->hasDefaultArg() : false;
     bool NewParamHasDfl = NewParam->hasDefaultArg();
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#373517: compilation fails with 'redefinition of default
     // argument'.
     if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
@@ -667,7 +667,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
     if (NewSM != OldSM) {
       ParmVarDecl *NewParam = New->getParamDecl(New->getMinRequiredArguments());
       assert(NewParam->hasDefaultArg());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ375076: Althreat application failed with error addition of
       // default argument on redeclaration makes this constructor a default
       // constructor
@@ -705,7 +705,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
   // argument expression, that declaration shall be a definition and shall be
   // the only declaration of the function or function template in the
   // translation unit.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#373130: friend functions with default parameter without name.
   if (!getLangOpts().IntelCompat)
 #endif // INTEL_CUSTOMIZATION
@@ -3248,7 +3248,7 @@ Sema::BuildBaseInitializer(QualType BaseType, TypeSourceInfo *BaseTInfo,
   //   mem-initializer-list can initialize a base class using any
   //   name that denotes that base class type.
   bool Dependent = BaseType->isDependentType() || Init->isTypeDependent();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ375134: do not try to perform base constructor search in
   // templates until real instantiation.
   if (getLangOpts().IntelCompat)
@@ -4442,7 +4442,7 @@ Sema::MarkBaseAndMemberDestructorsReferenced(SourceLocation Location,
 
     CXXDestructorDecl *Dtor = LookupDestructor(BaseClassDecl);
     assert(Dtor && "No dtor found for BaseClassDecl!");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#376362: "Classic" icc allows private destructors in base classes and
     // so should we.
     if (getLangOpts().IntelCompat) {
@@ -8227,6 +8227,11 @@ NamedDecl *Sema::BuildUsingDeclaration(Scope *S, AccessSpecifier AS,
   if (RequireCompleteDeclContext(SS, LookupContext))
     return BuildInvalid();
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  UsingDirectiveRAII UsingRAII(*this);
+#endif // INTEL_CUSTOMIZATION
   // Look up the target name.
   LookupResult R(*this, NameInfo, LookupOrdinaryName);
 
@@ -11730,7 +11735,7 @@ bool Sema::CheckOverloadedOperatorDeclaration(FunctionDecl *FnDecl) {
       }
     }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#372133: overloaded operator's parameter.
     if (!ClassOrEnumParam && getLangOpts().IntelCompat &&
         FnDecl->isTemplateInstantiation())
@@ -11903,7 +11908,7 @@ bool Sema::CheckLiteralOperatorDeclaration(FunctionDecl *FnDecl) {
     // as the only parameters.
     if (Context.hasSameType(T, Context.UnsignedLongLongTy) ||
         Context.hasSameType(T, Context.LongDoubleTy) ||
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.Float128Ty) ||
 #endif  // INTEL_CUSTOMIZATION
         Context.hasSameType(T, Context.CharTy) ||
@@ -12862,7 +12867,7 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
     // and shall be the only declaration of the function or function
     // template in the translation unit.
     if (functionDeclHasDefaultArgument(FD)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#373130: friend functions with default parameter without
       // name.
       if (!getLangOpts().IntelCompat) {
@@ -12872,10 +12877,13 @@ NamedDecl *Sema::ActOnFriendFunctionDecl(Scope *S, Declarator &D,
         Diag(OldFD->getLocation(), diag::note_previous_declaration);
       } else if (!D.isFunctionDefinition())
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#374679: Several negative tests are failed after promotion
       // due to patches allowing too permissive xmain's behavior.
-      } else if (!D.isFunctionDefinition())
+      // Fix for CQ#376452: friend declaration specifying a default argument
+      // must be a definition.
+      } else if (!D.isFunctionDefinition() &&
+                 FD->getTemplatedKind() != FunctionDecl::TK_NonTemplate)
         Diag(FD->getLocation(), diag::err_friend_decl_with_def_arg_must_be_def);
 #endif // INTEL_CUSTOMIZATION
     }
@@ -13071,6 +13079,14 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
       NewTy->isDependentType() || OldTy->isDependentType())
     return false;
 
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  // Don't emit any diagnostics on dependent types until real instantiation.
+  if (getLangOpts().IntelCompat &&
+      (New->isDependentContext() || Old->isDependentContext()))
+    return false;
+#endif // INTEL_CUSTOMIZATION
+
   // Check if the return types are covariant
   QualType NewClassTy, OldClassTy;
 
@@ -13105,6 +13121,14 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
   //   If the return type of D::f differs from the return type of B::f, the 
   //   class type in the return type of D::f shall be complete at the point of
   //   declaration of D::f or shall be the class type D.
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  // If unqualified types are the same, don't check the completeness of type.
+  bool SameUnqualifiedTypes =
+      Context.hasSameUnqualifiedType(NewClassTy, OldClassTy);
+
+  if (!getLangOpts().IntelCompat || !SameUnqualifiedTypes)
+#endif // INTEL_CUSTOMIZATION
   if (const RecordType *RT = NewClassTy->getAs<RecordType>()) {
     if (!RT->isBeingDefined() &&
         RequireCompleteType(New->getLocation(), NewClassTy, 
@@ -13113,7 +13137,10 @@ bool Sema::CheckOverridingFunctionReturnType(const CXXMethodDecl *New,
     return true;
   }
 
-  if (!Context.hasSameUnqualifiedType(NewClassTy, OldClassTy)) {
+#if INTEL_CUSTOMIZATION
+  // CQ#374721 - different type of overriding virtual function.
+  if (!SameUnqualifiedTypes) {
+#endif // INTEL_CUSTOMIZATION
     // Check if the new class derives from the old class.
     if (!IsDerivedFrom(NewClassTy, OldClassTy)) {
       Diag(New->getLocation(), diag::err_covariant_return_not_derived)

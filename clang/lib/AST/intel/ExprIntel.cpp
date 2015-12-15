@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 
 #include "clang/AST/APValue.h"
 #include "clang/AST/ASTContext.h"
@@ -189,4 +189,4 @@ void CEANBuiltinExpr::setIncrements(ArrayRef<Stmt *> Increments) {
             &reinterpret_cast<Stmt **>(this + 1)[3 + 2 * Rank + ArgsSize]);
 }
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
