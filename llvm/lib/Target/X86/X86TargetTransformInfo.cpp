@@ -1349,3 +1349,7 @@ bool X86TTIImpl::areInlineCompatible(const Function *Caller,
   // correct.
   return (CallerBits & CalleeBits) == CalleeBits;
 }
+
+unsigned X86TTIImpl::getLoopRotationDefaultThreshold(bool OptForSize) const {
+  return (ST->getCPU() == "lakemont" && OptForSize) ? 2 : 16;
+}

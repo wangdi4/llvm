@@ -2,6 +2,7 @@
 target triple = "x86_64-generic-generic"
 
 declare <8 x float> @getvector(i32) #0
+declare <16 x float> @getbigvector(i32) #0
 declare void @passvector(<8 x float>) #0
 declare i1 @ret(<8 x float>) #0
 
@@ -75,6 +76,25 @@ end:
   ret void
 }
 
+; CHECK-LABEL: define void @out_phi(i1 %k) #2
+define void @out_phi(i1 %k) #1 {
+entry:  
+  %vorig = call <8 x float> @getvector(i32 0)
+  br i1 %k, label %if, label %end
+  
+if:
+; CHECK: call x86_fastcallcc void @out_phi_if(<8 x float>* %v1.loc)
+; CHECK: %v1.reload = load <8 x float>, <8 x float>* %v1.loc
+  %v0 = call <16 x float> @getbigvector(i32 1)
+  %v1 = call <8 x float> @getvector(i32 1)
+  br label %end
+  
+end:
+; CHECK: %phi0 = phi <8 x float> [ %vorig, %entry ], [ %v1.reload, %codeRepl ]
+  %phi0 = phi <8 x float> [ %vorig, %entry ], [ %v1, %if ]
+  ret void
+}
+
 ; CHECK-LABEL: define internal x86_fastcallcc void @spill_if2.split(<8 x float>* %spillVec1, <8 x float>* %spillVec) #2 {
 ; CHECK: %reloadVec2 = load <8 x float>, <8 x float>* %spillVec1
 ; CHECK: %reloadVec = load <8 x float>, <8 x float>* %spillVec
@@ -89,9 +109,12 @@ end:
 ; CHECK: %r = call i1 @ret(<8 x float> %reloadVec)
 ; CHECK: br i1 %r, label %header.exitStub, label %end.exitStub
 
+; CHECK-LABEL: define internal x86_fastcallcc void @out_phi_if(<8 x float>* %v1.out) #3
+
 ; CHECK: attributes #0 = { nounwind readnone }
 ; CHECK: attributes #1 = { "target-cpu"="x86-64" }
 ; CHECK: attributes #2 = { "target-cpu"="x86-64" "target-features"="+avx" }
+; CHECK: attributes #3 = { "target-cpu"="x86-64" "target-features"="+avx512f" }
 
 attributes #0 = { nounwind readnone }
 attributes #1 = { "target-cpu"="x86-64" }

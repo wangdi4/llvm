@@ -53,6 +53,7 @@ public:
   /// \name Scalar TTI Implementations
   /// @{
   TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth);
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const;
 
   /// @}
 

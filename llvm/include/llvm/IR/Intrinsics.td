@@ -464,6 +464,31 @@ def int_expect : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>,
 let Properties = [IntrNoMem] in {
   def int_bswap: Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
   def int_ctpop: Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
+// if INTEL_CUSTOMIZATION
+  // CQ#377481. Adding 'clrsb' family of intrinsics.
+  ///
+  /// Syntax.
+  /// This is an overloaded intrinsic. You can use 'llvm.clrsb' on any integer
+  /// bit width, or on any vector with integer elements. Not all targets support
+  /// all bit widths or vector types, however.
+  ///
+  /// Overview.
+  /// The 'llvm.clrsb' family of intrinsics counts the number of leading
+  /// redundant sign bits, i.e. the number of bits following the most
+  /// significant bit that are identical to it.
+  ///
+  /// Arguments.
+  /// The only argument is the value to be counted. The argument may be of any
+  /// integer type, or a vector with integer elements. The return type must
+  /// match the argument type.
+  ///
+  /// Semantics.
+  /// The ‘llvm.clrsb‘ intrinsic counts the leading (most significant)
+  /// redundant sign bits in a variable, or within each element of the vector.
+  /// There's no special case for 0 value.
+  ///
+  def int_clrsb : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>]>;
+// endif INTEL_CUSTOMIZATION
   def int_ctlz : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>, llvm_i1_ty]>;
   def int_cttz : Intrinsic<[llvm_anyint_ty], [LLVMMatchType<0>, llvm_i1_ty]>;
 }
