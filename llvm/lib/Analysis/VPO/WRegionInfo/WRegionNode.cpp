@@ -56,8 +56,8 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB) :
   setNextNumber();
   setParent(nullptr);
   setExitBBlock(nullptr);
-  setBBlockSet(nullptr);
   setIsFromHIR(false);
+  resetBBSet();
 }
 
 WRegionNode::WRegionNode(WRegionNode *W)
@@ -66,8 +66,11 @@ WRegionNode::WRegionNode(WRegionNode *W)
   setParent(W->getParent());
   setEntryBBlock(W->getEntryBBlock()); 
   setExitBBlock(W->getExitBBlock());
-  setBBlockSet(W->getBBlockSet());
   setIsFromHIR(W->getIsFromHIR());
+  if (W->isBBSetEmpty())
+    resetBBSet();
+  else 
+    populateBBlockSet();
   //TODO: add code to copy Children?
 }
 
@@ -76,14 +79,11 @@ void WRegionNode::populateBBlockSet(void)
 {
   BasicBlock *EntryBB = getEntryBBlock();
   BasicBlock *ExitBB  = getExitBBlock();
-  setBBlockSet(nullptr);
 
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
 
-  WRegionBBSetTy *BBSet = VPOUtils::collectBBSet(EntryBB, ExitBB);
-
-  setBBlockSet(BBSet);
+  VPOUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
 }
 
 

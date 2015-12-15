@@ -219,9 +219,8 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
   OS << Indent << "\nEntryBB:"  << *getEntryBBlock();
   OS << Indent << "\nExitBB:"  << *getExitBBlock();
   OS << Indent << "\nBBlockSet dump:\n";
-  auto BBSet = getBBlockSet();
-  if (BBSet && !(BBSet->empty())) {
-    for (auto I=BBSet->begin(),E=BBSet->end(); I!=E; ++I) {
+  if (!isBBSetEmpty()) {
+    for (auto I=bbset_begin(),E=bbset_end(); I!=E; ++I) {
       const BasicBlock *BB = *I;
       OS << Indent << *BB;
     }

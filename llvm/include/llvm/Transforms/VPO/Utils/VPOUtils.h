@@ -358,8 +358,10 @@ public:
     /// block 'ExitBB' are the inputs, and 'BBSet' is the output containing all
     /// the basic blocks that belong to this region. It guarantees that the
     /// first item in BBSet is 'EntryBB' and the last item is 'ExitBB'. 
-    static VPOSmallVectorBB* collectBBSet(
-            BasicBlock *EntryBB, BasicBlock *ExitBB);
+    static void collectBBSet(
+            BasicBlock *EntryBB,
+            BasicBlock *ExitBB,
+            SmallVectorImpl<BasicBlock *> &BBSet);
 
 };
 

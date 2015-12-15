@@ -74,7 +74,7 @@ private:
   BasicBlock    *ExitBBlock;
 
   /// Set containing all the BBs in this WRN
-  WRegionBBSetTy *BBlockSet;
+  WRegionBBSetTy BBlockSet;
 
   /// Enclosing parent of WRegionNode in CFG.
   WRegionNode *Parent;
@@ -113,12 +113,8 @@ protected:
   /// \brief Sets the exit(last) bblock of this region.
   void setExitBBlock(BasicBlock *ExitBB) { ExitBBlock = ExitBB; }
 
-  /// \brief Sets the set of bblocks that constitute this region.
-  void setBBlockSet(WRegionBBSetTy *BBSet) { BBlockSet = BBSet; }
-
   /// \brief Sets the graph parent of this WRegionNode.
   void setParent(WRegionNode *P) { Parent = P; }
-
 
   // The following three functions extract clause info from intrinsics.
   // There are three such intrinsics: intel_directive_qual,  
@@ -266,9 +262,6 @@ public:
 
   // Methods for BBlockSet
 
-  /// \brief Returns the set of bblocks that constitute this region.
-  WRegionBBSetTy *getBBlockSet() const { return BBlockSet; }
-
   /// \brief Returns the entry(first) bblock of this region.
   BasicBlock *getEntryBBlock() const { return EntryBBlock; }
 
@@ -276,34 +269,26 @@ public:
   BasicBlock *getExitBBlock() const { return ExitBBlock; }
 
   /// Basic Block set iterator methods.
-  bbset_iterator bbset_begin() { return BBlockSet->begin(); }
-  bbset_const_iterator bbset_begin() const { return BBlockSet->begin(); }
-  bbset_iterator bbset_end() { return BBlockSet->end(); }
-  bbset_const_iterator bbset_end() const { return BBlockSet->end(); }
+  bbset_iterator bbset_begin() { return BBlockSet.begin(); }
+  bbset_const_iterator bbset_begin() const { return BBlockSet.begin(); }
+  bbset_iterator bbset_end() { return BBlockSet.end(); }
+  bbset_const_iterator bbset_end() const { return BBlockSet.end(); }
 
-  bbset_reverse_iterator bbset_rbegin() { return BBlockSet->rbegin(); }
-  bbset_const_reverse_iterator bbset_rbegin() const { return BBlockSet->rbegin(); }
-  bbset_reverse_iterator bbset_rend() { return BBlockSet->rend(); }
-  bbset_const_reverse_iterator bbset_rend() const { return BBlockSet->rend(); }
+  bbset_reverse_iterator bbset_rbegin() { return BBlockSet.rbegin(); }
+  bbset_const_reverse_iterator bbset_rbegin() const { return BBlockSet.rbegin(); }
+  bbset_reverse_iterator bbset_rend() { return BBlockSet.rend(); }
+  bbset_const_reverse_iterator bbset_rend() const { return BBlockSet.rend(); }
 
   /// \brief Returns True if BasicBlockSet is empty.
-  unsigned isBasicBlockSetEmpty() const { return BBlockSet->empty(); }
+  unsigned isBBSetEmpty() const { return BBlockSet.empty(); }
 
   /// \brief Returns the number of BasicBlocks in BBlockSet.
-  unsigned getBBSetSize() const { return BBlockSet->size(); }
+  unsigned getBBSetSize() const { return BBlockSet.size(); }
 
   /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
   void populateBBlockSet();
 
-  /// \brief On-Demand build of WRNRegionNode's BasicBlockSet.
-  ///  Because the BB set can change after each transformation,
-  ///  it is recommended to rebuild the set before each use.
-  void populateBasicBlockSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-     WRegionBBSetTy *BBSet);
-
-  /// \brief Reset the BasicBlockSet pointer. Used to prevent access
-  /// to outdated basic block set.
-  void resetBBSetPtr() { BBlockSet = nullptr; }
+  void resetBBSet() { BBlockSet.clear(); }
 
   // Derived Class Enumeration
 

@@ -638,11 +638,11 @@ public:
 
   /// \brief Returns true if the WRNSimdNode Basic Block Set is emtpy.
   bool isWrnBBSetEmpty() const {
-    return WRegionSimdNode->isBasicBlockSetEmpty();
+    return WRegionSimdNode->isBBSetEmpty();
   }
 
   /// \Brief Set the WRegionSimdNode BBlockSet pointer to null.
-  void clearBBSet() { return WRegionSimdNode->resetBBSetPtr(); }
+  void clearBBSet() { return WRegionSimdNode->resetBBSet(); }
 
   // Methods for access this AVRWrn's Children
 
