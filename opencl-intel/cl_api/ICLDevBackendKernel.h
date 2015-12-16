@@ -84,10 +84,10 @@ public:
     virtual size_t GetMaxNumSubGroups() const = 0;
 
     /**
-     * @returns the required sub-group size that was declared during kernel compilation.
+     * @returns the required number of sub-groups that was declared during kernel compilation.
      *  0 when this attribute is not present.
      */
-    virtual size_t GetRequiredSubGroupSize() const = 0;
+    virtual size_t GetRequiredNumSubGroups() const = 0;
 
     /** @returns the max. possible WG size with respect to the specified limits.
      */

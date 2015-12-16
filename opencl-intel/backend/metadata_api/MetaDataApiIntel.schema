@@ -133,6 +133,13 @@
                         },
                         {
                             "location": "named",
+                            "key":      "required_num_sub_groups",
+                            "name":     "ReqdNumSubGroups",
+                            "metatype": "int32_item",
+                            "optional": true
+                        },
+                        {
+                            "location": "named",
                             "key":      "kernel_arg_addr_space",
                             "name":     "AddressSpace",
                             "metatype": "int_list",

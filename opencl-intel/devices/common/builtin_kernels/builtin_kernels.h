@@ -95,7 +95,7 @@ protected:
         size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const {return 1;}
         size_t GetNumberOfSubGroups(size_t size, const size_t* WGSizes) const {return 1;}
         size_t GetMaxNumSubGroups() const {return 0;}
-        size_t GetRequiredSubGroupSize() const {return 0;};
+        size_t GetRequiredNumSubGroups() const {return 0;};
         size_t GetImplicitLocalMemoryBufferSize() const {return 0;}
         size_t GetKernelExecutionLength() const {return -1;}
         bool HasPrintOperation() const {return false;}
