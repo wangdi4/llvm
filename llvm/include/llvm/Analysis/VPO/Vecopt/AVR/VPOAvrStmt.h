@@ -233,15 +233,17 @@ private:
   /// IsIndirect - True if branch is indirect.
   bool IsIndirect;
 
-  // TODO: Consolidate Successors/ThenBBlock/ElseBBlock.
-
-  /// Successors - Vector containing avr labels which are the labels of the
-  /// successor basic blocks of this branch.
-  SmallVector<AVRLabel *, 2> Successors;
+  /// BottomTest - True when branch is loop's bottom test branch
+  bool IsBottomTest;
 
   /// Condition - If conditional branch, pointer to the AVR which generates the
   /// true/false bit for conditional branch.
   AVR *Condition;
+
+  // TODO: Consolidate Successors/ThenBBlock/ElseBBlock.
+  /// Successors - Vector containing avr labels which are the labels of the
+  /// successor basic blocks of this branch.
+  SmallVector<AVRLabel *, 2> Successors;
 
 protected:
 
@@ -278,6 +280,12 @@ public:
 
   /// \brief Returns true if the forward branch is conditional
   bool isConditional() { return IsConditional; }
+
+  /// \brief Sets Bottom Test
+  void setBottomTest(bool BT) { IsBottomTest = BT; }
+
+  /// \brief Returns true is branch is a BottomTest
+  bool isBottomTest() const { return IsBottomTest; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {

@@ -88,15 +88,16 @@ StringRef AVRCall::getAvrTypeName() const {
 // AVR Branch Node
 //----------------------------------------------------------------------------//
 AVRBranch::AVRBranch(AVRLabel *ALabel)
-  : AVR(AVR::AVRBranchNode), IsConditional(false), IsIndirect(false) {
+  : AVR(AVR::AVRBranchNode), IsConditional(false), IsIndirect(false),
+    IsBottomTest(false) {
   addSuccessor(ALabel);
 }
 
 AVRBranch::AVRBranch(unsigned SCID, bool IsInd, AVR *Cond)
-  : AVR(SCID), IsIndirect(IsInd), Condition(Cond) {}
+  : AVR(SCID), IsIndirect(IsInd), IsBottomTest(false), Condition(Cond) {}
 
 AVRBranch::AVRBranch(unsigned SCID)
-  : AVR(SCID) {}
+  : AVR(SCID), IsBottomTest(false) {}
 
 AVRBranch *AVRBranch::clone() const {
   return nullptr;

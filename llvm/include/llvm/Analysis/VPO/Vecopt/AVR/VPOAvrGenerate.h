@@ -153,6 +153,10 @@ private:
   AVR *generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
                              AVR *ACondition);
 
+  /// \brief Given AvrLabel of loop latch, find the conditional branch
+  /// and mark as bottom test.
+  void markLoopBottomTest(AVRLabel *LoopLatchLabel);
+
   class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
   public:
     AVR *visitRegion(HLRegion *R);

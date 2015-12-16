@@ -89,7 +89,12 @@ void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const
   AU.addRequired<PostDominatorTree>();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<IdentifyVectorCandidates>();
-  AU.addRequiredTransitive<HIRParser>();
+
+  // Temporary Check to prevent HIR building for LLVMIR mode
+  // This required should be removed in future, since VPO driver
+  // will be called from HIR. If called from HIR we dont need a required here.
+  if (AvrHIRTest)
+    AU.addRequiredTransitive<HIRParser>();
 }
 
 bool AVRGenerate::runOnFunction(Function &F)
@@ -98,7 +103,9 @@ bool AVRGenerate::runOnFunction(Function &F)
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT= &getAnalysis<PostDominatorTree>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  HIRP = &getAnalysis<HIRParser>();
+
+  if (AvrHIRTest)
+    HIRP = &getAnalysis<HIRParser>();
 
   setLLVMFunction(&F);
 
@@ -366,7 +373,7 @@ AvrBlock *AVRBranchOptVisitor::findIfChildrenBlock(BasicBlock *BBlock) {
 
 CandidateIf *AVRBranchOptVisitor::generateAvrIfCandidate(AVRBranchIR *ABranch) {
 
-  if (!ABranch->isConditional())
+  if (!ABranch->isConditional() || ABranch->isBottomTest())
     return nullptr;
 
   BasicBlock *ThenBBlock = ABranch->getThenBBlock();
@@ -712,9 +719,13 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
     assert(LoopLatchBB &&  "Loop Latch BB not found!");
 
     AVR *AvrLbl = AvrLabels[I];
-    AVR *AvrTerm = AvrLabels[LoopLatchBB]->getTerminator();
+    AVRLabel *AvrTermLabel = AvrLabels[LoopLatchBB];
+    AVR *AvrTerm = AvrTermLabel->getTerminator();
 
     if (AvrLbl && AvrTerm) {
+
+      // Mark the bottom test (Exclude it from AvrBranch Opt)
+      markLoopBottomTest(AvrTermLabel);
 
       // Create AvrLoop
       AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
@@ -724,6 +735,24 @@ void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
       AVRUtils::moveAsFirstChildren(AvrLoop, AvrLbl, AvrTerm);
     }
 
+  }
+}
+
+// AVR If insertion walks all of the conditional branches and
+// attempts to generate AVRIF for them.  We need to exclude the
+// conditional branch which is in the loop latch otherwise we
+// incorrectly generate an AVRIF.
+void AVRGenerate::markLoopBottomTest(AVRLabel *LoopLatchLabel) {
+
+  AvrItr BottomTest(LoopLatchLabel);
+
+  while (BottomTest) {
+
+    if (AVRBranch *BT = dyn_cast<AVRBranch>(BottomTest)) {
+      BT->setBottomTest(true);
+      return;
+    }
+    BottomTest = std::next(BottomTest);
   }
 }
 
@@ -750,10 +779,14 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
     assert(LoopLatchBB &&  "Loop Latch BB not found!");
 
     AVR *AvrLbl = AvrLabels[LoopHeaderBB];
-    AVR *AvrTerm = AvrLabels[LoopLatchBB]->getTerminator();
+    AVRLabel *AvrTermLabel = AvrLabels[LoopLatchBB];
+    AVR *AvrTerm = AvrTermLabel->getTerminator();
 
     if (AvrLbl && AvrTerm) {
 
+      // Mark the bottom test (Exclude it from AvrBranch Opt)
+       markLoopBottomTest(AvrTermLabel);
+      
       // Create AvrLoop
       AVRLoop *AvrLoop = AVRUtils::createAVRLoop(Lp);
  
