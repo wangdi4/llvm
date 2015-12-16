@@ -61,12 +61,18 @@ BBDuplicateThreshold("jump-threading-threshold",
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
                      cl::desc("Jump thread through loop header blocks"),
-                     cl::init(false), cl::Hidden);
+                     cl::init(true), cl::Hidden);
 
 static cl::opt<bool>
 DistantJumpThreading("distant-jump-threading",
           cl::desc("Perform jump threading across larger-than-BB regions"),
-          cl::init(false), cl::Hidden);
+          cl::init(true), cl::Hidden);
+
+static cl::opt<bool>
+ConservativeJumpThreading("conservative-jump-threading",
+          cl::desc("Use conservative heuristics for loop headers and multi-BB "
+                   "thread regions"),
+          cl::init(true), cl::Hidden);
 #endif // INTEL_CUSTOMIZATION
 
 namespace {
@@ -151,6 +157,13 @@ namespace {
     // conversion, so we suppress them when this pass is run prior to CFG
     // simplification.
     bool DoCFGSimplifications;
+
+    // Count the number of times that each block has been threaded, and stop
+    // threading across a block once this count reaches the threshold. This is
+    // a fail-safe to ensure that jump threading terminates when we allow
+    // threading across loop headers.
+    DenseMap<BasicBlock*, int> BlockThreadCount;
+    static const int MaxThreadsPerBlock = 10;
 #endif // INTEL_CUSTOMIZATION
 
     // RAII helper for updating the recursion stack.
@@ -556,8 +569,11 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
       RegionInfo.push_back(std::make_pair(PN->getParent(), BB));
       return true;
     }
-    
-    if (!DistantJumpThreading)
+
+    // Temporarily avoid searching for constant values through multiple levels
+    // of PHI while debugging the stability regression in oav2/rotatev2data1.
+    // Once that problem is fixed, we can remove the "|| 1" here.
+    if (!DistantJumpThreading || 1)
       return false;
 
     // We failed to find any constant incoming values to PN. Now look back
@@ -1693,6 +1709,7 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   BasicBlock *RegionTop = RegionInfo.back().first;
   BasicBlock *RegionBottom = RegionInfo.front().second;
   SmallVector<BasicBlock*, 16> RegionBlocks;
+  bool ThreadingLoopHeader = false;
 
   collectThreadRegionBlocks(RegionInfo, RegionBlocks);
 
@@ -1712,11 +1729,21 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     // If threading this would thread across a loop header, don't thread the
     // edge. See the comments above FindLoopHeaders for justifications and
     // caveats.
-    if (LoopHeaders.count(BB) && !JumpThreadLoopHeader) {
-      DEBUG(dbgs() << "  Not threading across loop header BB '" << BB->getName()
+    if (LoopHeaders.count(BB)) {
+      if (!JumpThreadLoopHeader) {
+        DEBUG(dbgs() << "  Not threading across loop header BB '"
+            << BB->getName()
             << "' to dest BB '" << SuccBB->getName()
             << "' - it might create an irreducible loop!\n");
-      return false;
+        return false;
+      }
+      ThreadingLoopHeader = true;
+
+      if (BlockThreadCount[RegionBottom] >= MaxThreadsPerBlock) {
+        DEBUG(dbgs() << "  Not threading across loop header BB '"
+              << BB->getName() << "' - max thread count reached!\n");
+        return false;
+      }
     }
   }
 
@@ -1727,6 +1754,27 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
           << "' - Cost is too high: " << JumpThreadCost << "\n");
     return false;
+  }
+
+  if (ConservativeJumpThreading) {
+    // Only allow multi-BB thread regions when threading across switches.
+    if (RegionBlocks.size() != 1 &&
+        !isa<SwitchInst>(RegionBottom->getTerminator())) {
+      DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
+            << "' - Using conservative heuristics for distant threading.\n");
+      return false;
+    }
+
+    // Only thread across loop headers when threading across switches or
+    // threading to return blocks, which are known to exit the loop.
+    if (ThreadingLoopHeader) {
+      if (!isa<ReturnInst>(SuccBB->getTerminator()) &&
+          !isa<SwitchInst>(RegionBottom->getTerminator())) {
+        DEBUG(dbgs() << "  Not threading BB '" << RegionBottom->getName()
+              << "' - Using conservative heuristics loop headers.\n");
+        return false;
+      }
+    }
   }
 
   // And finally, do it!  Start by factoring the predecessors if needed.
@@ -1824,6 +1872,14 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
           I = BlockMapping.find(DestBB);
           if (I != BlockMapping.end())
             New.setOperand(i, I->second);
+
+          // If we are threading across a loop header, we have to update the
+          // LoopHeaders set. To do this precisely, we would need to re-run
+          // FindLoopHeaders. Instead, we conservatively add any block that
+          // *might* be a loop header in the new CFG, which means any block that
+          // is a target of a new CFG edge. We catch most of them here.
+          if (ThreadingLoopHeader)
+            LoopHeaders.insert(DestBB);
         }
     }
   }
@@ -1833,6 +1889,12 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
   // unconditional jump.
   BranchInst *NewBI = BranchInst::Create(SuccBB, BlockMapping[RegionBottom]);
   NewBI->setDebugLoc(RegionBottom->getTerminator()->getDebugLoc());
+
+  // Add the remaining loop header candidates here.
+  if (ThreadingLoopHeader) {
+    LoopHeaders.insert(SuccBB);
+    LoopHeaders.insert(BlockMapping[RegionTop]);
+  }
 
   // Check to see if any blocks that exit the thread region have PHI nodes.
   // If so, we need to add entries to the PHI nodes for the corresponding NewBB
@@ -1946,6 +2008,7 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
                                      BlockMapping);
 
   // Threaded an edge!
+  ++BlockThreadCount[RegionBottom];
   ++NumThreads;
   return true;
 }

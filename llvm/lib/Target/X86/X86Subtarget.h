@@ -72,6 +72,9 @@ protected:
   /// 3DNow, 3DNow Athlon, or none supported.
   X863DNowEnum X863DNowLevel;
 
+  /// True if the processor supports X87 instructions.
+  bool HasX87;
+
   /// True if this processor has conditional move instructions
   /// (generally pentium pro+).
   bool HasCMov;
@@ -335,6 +338,7 @@ public:
   PICStyles::Style getPICStyle() const { return PICStyle; }
   void setPICStyle(PICStyles::Style Style)  { PICStyle = Style; }
 
+  bool hasX87() const { return HasX87; }
   bool hasCMov() const { return HasCMov; }
   bool hasMMX() const { return HasMMX; }
   bool hasSSE1() const { return X86SSELevel >= SSE1; }
@@ -401,7 +405,7 @@ public:
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool useSoftFloat() const { return UseSoftFloat; }
+  bool useSoftFloat() const { return UseSoftFloat || !hasX87(); }
 
   const Triple &getTargetTriple() const { return TargetTriple; }
 
