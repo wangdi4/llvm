@@ -44,7 +44,10 @@ protected:
 
   /// ConditionRef represents the switch conditon.
   HLSwitch(RegDDRef *ConditionRef);
-  virtual ~HLSwitch() override {}
+
+  /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
+  /// tries to access and destroy the nodes if we don't clear them out here.
+  virtual ~HLSwitch() override { Children.clearAndLeakNodesUnsafely(); }
 
   /// \brief Copy constructor used by cloning.
   HLSwitch(const HLSwitch &HLSwitchObj, GotoContainerTy *GotoList,

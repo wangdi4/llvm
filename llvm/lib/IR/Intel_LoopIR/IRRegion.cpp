@@ -35,7 +35,7 @@ void IRRegion::destroyAll() {
   Objs.clear();
 }
 
-IRRegion::IRRegion(BasicBlock *EntryBB, RegionBBlocksTy BBs)
+IRRegion::IRRegion(BasicBlock *EntryBB, const RegionBBlocksTy &BBs)
     : EntryBBlock(EntryBB), ExitBBlock(nullptr), BBlocks(BBs) {
   assert(EntryBB && "Entry basic block cannot be null!");
 
@@ -87,6 +87,7 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
       OS << ", ";
     }
     I->second->printAsOperand(OS, false);
+    OS << "(sym:" << I->first << ")";
   }
 
   OS << "\n";

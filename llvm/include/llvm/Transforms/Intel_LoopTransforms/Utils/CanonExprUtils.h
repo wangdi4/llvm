@@ -139,7 +139,10 @@ public:
   static bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob);
 
   /// \brief Returns true if Blob is a UndefValue.
-  static bool isUndefBlob(const CanonExpr::BlobTy Blob);
+  static bool isUndefBlob(CanonExpr::BlobTy Blob);
+
+  /// \brief Returns true if Blob represents a FP constant.
+  static bool isConstantFPBlob(CanonExpr::BlobTy Blob);
 
   /// \brief Returns a new blob created from passed in Val.
   static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
