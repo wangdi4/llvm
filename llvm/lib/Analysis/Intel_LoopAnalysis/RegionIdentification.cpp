@@ -41,6 +41,10 @@ static cl::opt<unsigned> RegionNumThreshold(
     cl::desc("Threshold for number of regions to create HIR for, 0 means no"
              " threshold"));
 
+static cl::opt<bool>
+    EnablePtrIV("enable-ptr-iv", cl::init(false), cl::Hidden,
+                cl::desc("Enable loops with pointer induction variable"));
+
 STATISTIC(RegionCount, "Number of regions created");
 
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
@@ -219,6 +223,15 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
+  // which causes issues in HIR.
+  // TODO: look into SCEV analysis logic.
+  if (SE->getBackedgeTakenCount(&Lp)->getType()->isPointerTy()) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Pointer type trip count not supported.\n");
+    return false;
+  }
+
   // Check that the loop backedge is a conditional branch.
   auto LatchBB = Lp.getLoopLatch();
 
@@ -254,11 +267,8 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // SCEV doesn't seem to set type of (ptr1 - ptr2) to integer in some cases
-  // which causes issues in HIR.
-  // TODO: look into SCEV analysis logic.
   // TODO: extend HIR to handle pointer IVs.
-  if (isa<PointerType>(IVNode->getType())) {
+  if (!EnablePtrIV && isa<PointerType>(IVNode->getType())) {
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Pointer IV not supported.\n");
     return false;
   }

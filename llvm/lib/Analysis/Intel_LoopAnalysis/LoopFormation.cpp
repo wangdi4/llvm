@@ -168,7 +168,16 @@ void LoopFormation::setIVType(HLLoop *HLoop) const {
   auto IVNode = findIVDefInHeader(Lp, cast<Instruction>(Cond));
   assert(IVNode && "Could not find loop IV!");
 
-  HLoop->setIVType(IVNode->getType());
+  auto IVType = IVNode->getType();
+
+  // Convert pointer IV type to integer type of same size.
+  if (IVType->isPointerTy()) {
+    IVType = Type::getIntNTy(
+        Func->getContext(),
+        Func->getParent()->getDataLayout().getTypeSizeInBits(IVType));
+  }
+
+  HLoop->setIVType(IVType);
 }
 
 void LoopFormation::formLoops() {

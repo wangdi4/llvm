@@ -1030,7 +1030,12 @@ void CanonExpr::verify() const {
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
     BlobTy B = CanonExpr::getBlob(I->Index);
     (void)B;
-    assert(B->getType() == getSrcType() &&
+
+    // Allow pointer/integer type mismatch as an integral canon expr can look
+    // like (ptr1 - ptr2). Ideally, we should do a bit size check as well but
+    // getting pointer size requires access to data layout.
+    assert(((B->getType() == getSrcType()) ||
+            (B->getType()->isPointerTy() && getSrcType()->isIntegerTy())) &&
            "Types of all blobs should match canon expr type!");
   }
 

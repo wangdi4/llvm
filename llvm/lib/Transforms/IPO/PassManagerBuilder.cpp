@@ -637,12 +637,12 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
     return;
   }
 
+  // This pass "canonicalizes" loops and makes analysis easier.
+  PM.add(createLoopSimplifyPass());
+
+  PM.add(createSSADeconstructionPass());
+
   if (!RunLoopOptFrameworkOnly) {
-    // This pass "canonicalizes" loops and makes analysis easier.
-    PM.add(createLoopSimplifyPass());
-
-    PM.add(createSSADeconstructionPass());
-
     PM.add(createHIROptPredicatePass());
     PM.add(createHIRCompleteUnrollPass());
     PM.add(createHIRGeneralUnrollPass());
