@@ -42,20 +42,20 @@
 //    should work fine, but add more test cases.
 
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -150,7 +150,7 @@ void HIRLocalityAnalysis::print(raw_ostream &OS, const Module *M) const {
   }
 }
 
-void HIRLocalityAnalysis::markLoopModified(const HLLoop *L) {
+void HIRLocalityAnalysis::markLoopBodyModified(const HLLoop *L) {
 
   assert(L && " Loop parameter is null.");
 

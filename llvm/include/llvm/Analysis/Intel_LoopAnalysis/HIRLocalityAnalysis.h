@@ -31,6 +31,7 @@
 #include "llvm/ADT/DenseMap.h"
 
 #include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 namespace llvm {
@@ -44,7 +45,7 @@ class DDRefUtils;
 // First parameter is HLLoop and second parameter is LocalityValue.
 typedef std::pair<const HLLoop *, uint64_t> LoopLocalityPair;
 
-class HIRLocalityAnalysis : public FunctionPass {
+class HIRLocalityAnalysis final : public HIRAnalysisPass {
 
 private:
   typedef MemRefGatherer::MapTy SymToMemRefTy;
@@ -191,7 +192,8 @@ private:
   void verifyLocality(const HLLoop *L);
 
 public:
-  HIRLocalityAnalysis() : FunctionPass(ID) {}
+  HIRLocalityAnalysis()
+      : HIRAnalysisPass(ID, HIRAnalysisPass::HIRLocalityAnalysisVal) {}
   static char ID;
 
   bool runOnFunction(Function &F) override;
@@ -205,7 +207,7 @@ public:
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, locality of the loop and all its parents loops
   /// needs to recomputed.
-  void markLoopModified(const HLLoop *Loop);
+  void markLoopBodyModified(const HLLoop *Loop) override;
 
   /// \brief Returns the loop cost of the specified loop.
   uint64_t getLocalityValue(const HLLoop *Loop);
@@ -215,6 +217,11 @@ public:
   void sortedLocalityLoops(
       const HLLoop *OutermostLoop,
       SmallVectorImpl<std::pair<const HLLoop *, uint64_t>> &LoopLocality);
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const HIRAnalysisPass *AP) {
+    return AP->getHIRAnalysisID() == HIRAnalysisPass::HIRLocalityAnalysisVal;
+  }
 };
 
 } // End namespace loopopt

@@ -57,13 +57,13 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-opt-predicate"
 
@@ -98,13 +98,10 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
-  // Locality Analysis pointer.
-  HIRLocalityAnalysis *LA;
   // DD Analysis pointer.
   DDAnalysis *DD;
   unsigned CurOptPredTripThreshold;
@@ -174,7 +171,6 @@ private:
 char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                       false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                     false, false)
@@ -186,7 +182,6 @@ FunctionPass *llvm::createHIROptPredicatePass(int Threshold) {
 bool HIROptPredicate::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Opt Predicate for Function : " << F.getName() << "\n");
 
-  LA = &getAnalysis<HIRLocalityAnalysis>();
   DD = &getAnalysis<DDAnalysis>();
   IsOptPredTriggered = false;
 
@@ -439,8 +434,9 @@ void HIROptPredicate::transformLoop(HLLoop *OrigLoop, HLIf *If,
   LoopPredTripMap[NewElseLoop] = NewTrip;
   LoopPredTripMap[OrigLoop] = NewTrip;
 
-  LA->markLoopModified(OrigLoop);
-  DD->markLoopBodyModified(OrigLoop);
+  // Mark loop as modified in all the analysis.
+  HIRInvalidationUtils::invalidateLoopBodyAnalysis(
+      OrigLoop, [](const HIRAnalysisPass *HAP) { return false; });
 
   // Set the code gen for modified region
   OrigLoop->getParentRegion()->setGenCode();

@@ -22,7 +22,12 @@
 
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
+
 #include <list>
 
 namespace llvm {
@@ -53,9 +58,9 @@ enum DDVerificationLevel {
   Innermost
 };
 
-class DDAnalysis : public FunctionPass {
+class DDAnalysis final : public HIRAnalysisPass {
 public:
-  DDAnalysis() : FunctionPass(ID) {}
+  DDAnalysis() : HIRAnalysisPass(ID, HIRAnalysisPass::DDAnalysisVal) {}
   static char ID;
   bool runOnFunction(Function &F) override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
@@ -67,7 +72,7 @@ public:
   // canon expr of a ddref in the loop, or adding/removing a ddref. This
   // invalidates the graph for this loop, and any children loops.
   // If modifying loop bounds, call markLoopBoundsModified instead.
-  void markLoopBodyModified(HLLoop *L);
+  void markLoopBodyModified(const HLLoop *L) override;
 
   // \brief Indicates to DDA that the bounds for this loop have been modified.
   // Changing the loop bounds can have a more destructive effect on the ddgraph
@@ -81,7 +86,7 @@ public:
   // j bounds to 1 would make the references independent at all levels.
   // Thus, changing bounds invalidates graph for enclosing loop nest as well as
   // child loops
-  void markLoopBoundsModified(HLLoop *L);
+  void markLoopBoundsModified(const HLLoop *L) override;
 
   // \brief Indicates to DDA that the refs at the topmost region level have
   // been modified. Ie a ref outside any loop nest has been modified.
@@ -91,7 +96,7 @@ public:
   // invalid and whole region graph must be rebuilt for out of loop edges.
   // However the other loop nest's graph is still valid
   // TODO better name
-  void markTopLvlNonLoopNodeModified(HLRegion *R);
+  void markNonLoopRegionModified(const HLRegion *R) override;
 
   // TODO needed for incremental rebuild if and when supported
   // markDDRefModified
@@ -125,6 +130,11 @@ public:
   void releaseMemory() override;
 
   void verifyAnalysis() const override;
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const HIRAnalysisPass *AP) {
+    return AP->getHIRAnalysisID() == HIRAnalysisPass::DDAnalysisVal;
+  }
 
   // TODO
   // void print(raw_stream &OS, const Module* = nullptr) const override;

@@ -63,13 +63,13 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-complete-unroll"
 
@@ -185,13 +185,10 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
-  // Locality Analysis pointer.
-  HIRLocalityAnalysis *LA;
   // DD Analysis pointer.
   DDAnalysis *DD;
 
@@ -226,7 +223,6 @@ private:
 char HIRCompleteUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCompleteUnroll, "hir-complete-unroll",
                       "HIR Complete Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRCompleteUnroll, "hir-complete-unroll",
                     "HIR Complete Unroll", false, false)
@@ -239,7 +235,6 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
 
-  LA = &getAnalysis<HIRLocalityAnalysis>();
   DD = &getAnalysis<DDAnalysis>();
 
   // Do an early exit if Trip Threshold is less than 1
@@ -398,9 +393,10 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
   }
 
   Loop->getParentRegion()->setGenCode();
-  // Mark loop as modified in all the analysis.
-  LA->markLoopModified(Loop);
-  DD->markLoopBodyModified(Loop);
+
+  // Invalidate all analysis for the loop.
+  HIRInvalidationUtils::invalidateLoopBodyAnalysis(
+      Loop, [](const HIRAnalysisPass *HAP) { return false; });
 
   // Delete the original loop.
   HLNodeUtils::erase(Loop);

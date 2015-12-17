@@ -111,13 +111,13 @@ bool DDAnalysis::runOnFunction(Function &F) {
   return false;
 }
 
-void DDAnalysis::markLoopBodyModified(HLLoop *L) {
+void DDAnalysis::markLoopBodyModified(const HLLoop *L) {
   // TODO
 }
-void DDAnalysis::markLoopBoundsModified(HLLoop *L) {
+void DDAnalysis::markLoopBoundsModified(const HLLoop *L) {
   // TODO
 }
-void DDAnalysis::markTopLvlNonLoopNodeModified(HLRegion *R) {
+void DDAnalysis::markNonLoopRegionModified(const HLRegion *R) {
   // TODO
 }
 

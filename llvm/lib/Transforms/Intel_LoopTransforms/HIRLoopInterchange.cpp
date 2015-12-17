@@ -50,6 +50,8 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-loopinterchange"
 
@@ -685,7 +687,13 @@ void HIRLoopInterchange::updateLoopBody(HLLoop *Loop) {
 
 void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
-  LA->markLoopModified(InnermostLoop);
+  // Invalidate all analysis for InnermostLoop.
+  // TODO: we should probably invalidate analysis for all the involved loops.
+  auto isPreserved = [](const HIRAnalysisPass *HAP) { return false; };
+  HIRInvalidationUtils::invalidateLoopBoundsAnalysis(InnermostLoop,
+                                                     isPreserved);
+  HIRInvalidationUtils::invalidateLoopBodyAnalysis(InnermostLoop, isPreserved);
+
   HLNodeUtils::permuteLoopNests(Loop, LoopPermutation);
   updateLoopBody(Loop);
   printOptReport(Loop);

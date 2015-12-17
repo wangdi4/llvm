@@ -75,13 +75,13 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define DEBUG_TYPE "hir-general-unroll"
 
@@ -199,13 +199,10 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
 private:
-  // Locality Analysis pointer.
-  HIRLocalityAnalysis *LA;
   // DD Analysis pointer.
   DDAnalysis *DD;
   unsigned CurrentTripThreshold;
@@ -251,7 +248,6 @@ char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
@@ -265,7 +261,6 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
 
-  LA = &getAnalysis<HIRLocalityAnalysis>();
   DD = &getAnalysis<DDAnalysis>();
   IsUnrollTriggered = false;
 
@@ -403,9 +398,15 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   // Update the OrigLoop to remainder loop.
   processRemainderLoop(OrigLoop, IsConstLoop, TripCount, NewConstBound, NewRef);
 
-  HLLoop *ModLoop = OrigLoop ? OrigLoop : UnrollLoop->getParentLoop();
-  if (ModLoop) {
-    LA->markLoopModified(ModLoop);
+  auto isPreserved = [](const HIRAnalysisPass *HAP) { return false; };
+
+  // Mark parent loop as modified, if it exists.
+  if (auto ParentLoop = UnrollLoop->getParentLoop()) {
+    HIRInvalidationUtils::invalidateLoopBodyAnalysis(ParentLoop, isPreserved);
+  } else if (!IsConstLoop) {
+    // Mark region as modified as we have inserted a new instruction.
+    HIRInvalidationUtils::invalidateNonLoopRegionAnalysis(
+        UnrollLoop->getParentRegion(), isPreserved);
   }
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops ");
@@ -425,7 +426,7 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
   RegDDRef *Ref = OrigLoop->getTripCountDDRef();
   // New instruction should only be created for non-constant trip loops.
   assert(!Ref->isIntConstant() && " Creating a new instruction for constant"
-                               "trip loops should not occur.");
+                                  "trip loops should not occur.");
 
   // This will create a new instruction for calculating ub of unrolled loop
   // and lb of remainder loop. The new instruction is t = (N/8) where 'N' is
@@ -544,7 +545,8 @@ void HIRGeneralUnroll::processRemainderLoop(HLLoop *&OrigLoop, bool IsConstLoop,
                                             int64_t TripCount, int64_t NewBound,
                                             const RegDDRef *NewRef) {
   // Mark Loop bounds as modified.
-  DD->markLoopBoundsModified(OrigLoop);
+  HIRInvalidationUtils::invalidateLoopBoundsAnalysis(
+      OrigLoop, [](const HIRAnalysisPass *HAP) { return false; });
 
   // Check if the Remainder Loop is necessary.
   // This condition occurs when the original constant Trip Count is divided by
