@@ -95,6 +95,10 @@ using namespace intel;
 
 SIMDFunctionCloning::SIMDFunctionCloning() : ModulePass(ID) { }
 
+void SIMDFunctionCloning::getAnalysisUsage(AnalysisUsage &AU) const {
+  // Placeholder for any new pass dependencies. For now, none are needed.
+}
+
 void SIMDFunctionCloning::insertInstruction(Instruction *Inst,
                                             BasicBlock *BB)
 {
@@ -1434,6 +1438,47 @@ void SIMDFunctionCloning::removeScalarAllocasForVectorParams(
   }
 }
 
+void SIMDFunctionCloning::disableLoopUnrolling(BasicBlock *Latch)
+{
+  // Set disable unroll metadata on the conditional branch of the loop latch
+  // for the simd loop. The following is an example of what the loop latch
+  // and Metadata will look like. The !llvm.loop marks the beginning of the
+  // loop Metadata and is always placed on the terminator of the loop latch.
+  // (i.e., simd.loop.exit in this case). According to LLVM documentation, to
+  // properly set the loop Metadata, the 1st operand of !16 must be a self-
+  // reference to avoid some type of Metadata merging conflicts that have
+  // apparently arisen in the past. This is part of LLVM history that I do not
+  // know. Also, according to LLVM documentation, any Metadata nodes referring
+  // to themselves are marked as distinct. As such, all Metadata corresponding
+  // to a loop belongs to that loop alone and no sharing of Metadata can be
+  // done across different loops.
+  //
+  // simd.loop.exit:        ; preds = %simd.loop, %if.else, %if.then
+  //  %indvar = add nuw i32 %index, 1
+  //  %vl.cond = icmp ult i32 %indvar, 2
+  //  br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !16
+  //
+  // !16 = distinct !{!16, !17}
+  // !17 = !{!"llvm.loop.unroll.disable"}
+
+  SmallVector<Metadata *, 4> MDs;
+
+  // Reserve first location for self reference to the LoopID metadata node.
+  MDs.push_back(nullptr);
+
+  // Add unroll(disable) metadata to disable future unrolling.
+  LLVMContext &Context = Latch->getContext();
+  SmallVector<Metadata *, 1> DisableOperands;
+  DisableOperands.push_back(MDString::get(Context, "llvm.loop.unroll.disable"));
+  MDNode *DisableNode = MDNode::get(Context, DisableOperands);
+  MDs.push_back(DisableNode);
+
+  MDNode *NewLoopID = MDNode::get(Context, MDs);
+  // Set operand 0 to refer to the loop id itself.
+  NewLoopID->replaceOperandWith(0, NewLoopID);
+  Latch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
+}
+
 bool SIMDFunctionCloning::runOnModule(Module &M) {
 
   DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
@@ -1538,6 +1583,9 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
       DEBUG(dbgs() << "After SIMD Function Cloning\n");
       DEBUG(Clone->dump());
 
+      // Disable unrolling from kicking in on the simd loop.
+      disableLoopUnrolling(LoopExitBlock);
+
     } // End of function cloning for the variant
   } // End of function cloning for all variants
 
@@ -1551,8 +1599,6 @@ void SIMDFunctionCloning::print(raw_ostream &OS, const Module *M) const {
 ModulePass *llvm::createSIMDFunctionCloningPass() {
   return new llvm::vpo::SIMDFunctionCloning();
 }
-
-using namespace llvm::vpo;
 
 char SIMDFunctionCloning::ID = 0;
 

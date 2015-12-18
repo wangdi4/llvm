@@ -54,17 +54,22 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call)
   assert(isIntelDirectiveOrClause(Call->getIntrinsicID())&&
          "Expected a call to an llvm.intel.directive* intrinsic");
 
+  MDString *OperandMDStr = nullptr;
   Value *Operand = Call->getArgOperand(0);
   MetadataAsValue *OperandMDVal = dyn_cast<MetadataAsValue>(Operand);
-  MDNode *OperandNode = dyn_cast<MDNode>(OperandMDVal->getMetadata());
-  assert(OperandNode && "Expected argument metadata to be an MDNode");
+  Metadata *MD = OperandMDVal->getMetadata();
 
-  Metadata *OperandNodeMD = OperandNode->getOperand(0);
-  assert(OperandNodeMD->getMetadataID() == Metadata::MDStringKind &&
-         "Expected argument to be a metadata string");
+  if (isa<MDNode>(MD)) {
+    MDNode *OperandNode = dyn_cast<MDNode>(MD);
+    Metadata *OperandNodeMD = OperandNode->getOperand(0);
+    OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
+  } else if (isa<MDString>(MD)) {
+    OperandMDStr = dyn_cast<MDString>(MD);
+  }
 
-  MDString *OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
+  assert(OperandMDStr && "Expected argument to be a metadata string");
   StringRef DirectiveStr = OperandMDStr->getString();
+
   return DirectiveStr;
 }
 

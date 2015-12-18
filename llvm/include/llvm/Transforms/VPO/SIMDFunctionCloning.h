@@ -178,6 +178,10 @@ class SIMDFunctionCloning : public ModulePass {
     void removeScalarAllocasForVectorParams(
         SmallDenseMap<Value*, Instruction*> &VectorParmMap);
 
+    /// \brief Adds metadata to the conditional branch of the simd loop latch to
+    /// prevent loop unrolling.
+    void disableLoopUnrolling(BasicBlock *Latch);
+
     bool runOnModule(Module &M) override;
 
   public:
@@ -185,6 +189,7 @@ class SIMDFunctionCloning : public ModulePass {
     static char ID;
     SIMDFunctionCloning();
     void print(raw_ostream &OS, const Module * = nullptr) const override;
+    void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 }; // end pass class
 
