@@ -20,6 +20,7 @@
 #define DEBUG_TYPE "WRegionUtils"
 
 using namespace llvm;
+using namespace loopopt;
 using namespace vpo;
 
 /// \brief Create a specialized WRN based on the DirString.
@@ -47,13 +48,143 @@ WRegionNode *WRegionUtils::createWRegion(
   return W;
 }
 
+/// \brief Similar to createWRegion, but for HIR vectorizer support
+WRegionNode *WRegionUtils::createWRegionHIR(
+  StringRef        DirString,
+  loopopt::HLNode *EntryHLNode
+)
+{
+  WRegionNode *W = nullptr;
+  int DirID = VPOUtils::getDirectiveID(DirString);
+
+  switch(DirID) {
+    // TODO: complete the list for all WRegionNodeKinds needed
+    //       to support vectorizer
+    case DIR_OMP_SIMD:
+      W = new WRNVecLoopNode(EntryHLNode);
+      break;
+  }
+  return W;
+}
+
+/// \brief Update WRGraph from processing HIR representation
+WRegionNode *WRegionUtils::updateWRGraphFromHIR (
+  IntrinsicInst   *Call,
+  Intrinsic::ID   IntrinId,
+  WRContainerTy   *WRGraph,
+  WRegionNode     *CurrentWRN,
+  loopopt::HLNode *H
+)
+{
+  WRegionNode *W = nullptr;
+  StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
+
+  // If there isn't a pending WRN currently, then only need to check
+  // for directives that begin a construct 
+  if (!CurrentWRN) {
+    if (IntrinId == Intrinsic::intel_directive) {
+      // If the intrinsic represents a BEGIN directive for a construct 
+      // needed by the vectorizer (eg: DIR.OMP.LOOP.SIMD), then
+      // createWRegionHIR creates a WRN for it and returns its pointer.
+      // Otherwise, the W returned is a nullptr.
+      W = WRegionUtils::createWRegionHIR(DirOrClauseStr, H);
+      if (W) {
+        // Current HIR doesn't have end directives, so we're not supporting 
+        // hierarchically nested WRNs yet. Therefore, there is no need to 
+        // use a stack as in WRegionCollection::doPreOrderDomTreeVisit().
+        // The resulting WRGraph is just a flat list of WRNs currently.
+        WRGraph->push_back(W);
+      }
+    }
+  }
+  else {//there's a pending WRN currently; process its clauses, if any
+    W = CurrentWRN;
+    int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
+    if (IntrinId == Intrinsic::intel_directive_qual) {
+      // Handle clause with no arguments
+      assert (Call->getNumArgOperands()==1 && 
+              "Bad number of opnds for intel_directive_qual");
+      W->handleQual(ClauseID);
+    }
+    else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
+      // Handle clause with one argument
+      assert (Call->getNumArgOperands()==2 && 
+              "Bad number of opnds for intel_directive_qual_opnd");
+      Value *V = Call->getArgOperand(1);
+      W->handleQualOpnd(ClauseID, V);
+    }
+    else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
+      // Handle clause with argument list
+      assert (Call->getNumArgOperands()>=2 && 
+              "Bad number of opnds for intel_directive_qual_opndlist");
+      W->handleQualOpndList(ClauseID, Call);
+    }
+  }
+  return W;
+}
+
+
+/// \brief Visitor class to walk the HIR and build WRNs
+/// based on HIR. Main logic is in the visit() member function
+/// This visitor class is intended to be instantiated and used
+/// only by WRegionUtils::buildWRGraphFromHIR(). 
+struct HIRVisitor final : public HLNodeVisitorBase {
+  WRContainerTy *WRGraph;
+  WRegionNode   *CurrentWRN;
+  HIRVisitor() : WRGraph(new WRContainerTy), CurrentWRN(nullptr){}
+
+  WRContainerTy *getWRGraph() const { return WRGraph; }
+  void visit(loopopt::HLNode *Node);
+  void postVisit(loopopt::HLNode *) {}
+};
+
+void HIRVisitor::visit(loopopt::HLNode *Node) {
+  // Node->dump();
+  if (HLInst *HI = dyn_cast<HLInst>(Node)) {
+    const Instruction *I = HI->getLLVMInstruction();
+    Instruction *II = const_cast<Instruction *> (I);
+    IntrinsicInst* Call = dyn_cast<IntrinsicInst>(II);
+    if (Call) {
+      Intrinsic::ID IntrinId = Call->getIntrinsicID();
+      if (VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
+        // The intrinsic is one of these: intel_directive,
+        //                                intel_directive_qual, 
+        //                                intel_directive_qual_opnd, 
+        //                                intel_directive_qual_opndlist 
+        // Process them and create or update WRN accordingly
+        CurrentWRN = WRegionUtils::updateWRGraphFromHIR(
+                              Call, IntrinId, WRGraph, CurrentWRN, Node);
+      }
+    }
+  }
+  else if (CurrentWRN) {
+    if (HLLoop *L = dyn_cast<HLLoop>(Node)) {
+      WRNVecLoopNode *VLN = dyn_cast<WRNVecLoopNode>(CurrentWRN);
+      assert(VLN && "Pending HIR-based WRN must be a WRNVecLoopNode");
+      VLN->setExitHLNode(Node); // temporary until HIR shows the end directives
+      VLN->setHLLoop(L);
+      // The WRN is complete; close it by setting W to null
+      CurrentWRN=nullptr; // will be a stack pop when nested WRN 
+                          // is supported in HIR
+    }
+  } 
+}
+
+WRContainerTy *WRegionUtils::buildWRGraphFromHIR()
+{
+  HIRVisitor HV;
+  HLNodeUtils::visitAll(HV);
+  return HV.getWRGraph();
+}
+
+
 // Insertion Utilities
 void WRegionUtils::insertFirstChild(
   WRegionNode *Parent, 
   WrnIter wrn
 ) 
 {
-  insertWRegionNode(Parent, nullptr, wrn, FirstChild);
+  insertWRegionNode(Parent, nullptr, wrn, WRegionUtils::FirstChild);
   return;
 }
 
@@ -62,7 +193,7 @@ void WRegionUtils::insertLastChild(
   WrnIter wrn
 ) 
 {
-  insertWRegionNode(Parent, nullptr, wrn, LastChild);
+  insertWRegionNode(Parent, nullptr, wrn, WRegionUtils::LastChild);
   return;
 }
 
@@ -72,7 +203,7 @@ void WRegionUtils::insertAfter(
 ) 
 {
   assert(pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, wrn, Append);
+  insertWRegionNode(pos->getParent(), pos, wrn, WRegionUtils::Append);
 }
 
 void WRegionUtils::insertBefore(
@@ -81,7 +212,7 @@ void WRegionUtils::insertBefore(
 ) 
 {
   assert(pos && "Insert Position is Null");
-  insertWRegionNode(pos->getParent(), pos, wrn, Prepend);
+  insertWRegionNode(pos->getParent(), pos, wrn, WRegionUtils::Prepend);
 }
 
 void WRegionUtils::insertWRegionNode(
@@ -98,16 +229,16 @@ void WRegionUtils::insertWRegionNode(
   WrnIter InsertionPoint;
 
   switch (Op) {
-      case FirstChild:
+      case WRegionUtils::FirstChild:
         InsertionPoint = Parent->getFirstChild();
         break;
-      case LastChild:
+      case WRegionUtils::LastChild:
         InsertionPoint = Parent->getLastChild();
         break;
-      case Append:
+      case WRegionUtils::Append:
         InsertionPoint = std::next(Pos);
         break;
-      case Prepend:
+      case WRegionUtils::Prepend:
         InsertionPoint = Pos;
         break;
       default:
@@ -119,3 +250,4 @@ void WRegionUtils::insertWRegionNode(
 
   return;
 }
+

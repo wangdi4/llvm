@@ -141,7 +141,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
 
       if (!VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
         // Intrin is not intel_directive or intel_directive_qual*
-        continue; // TODO: break instead?
+        continue;
       }
 
       StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
@@ -185,7 +185,7 @@ void WRegionCollection::doPreOrderDomTreeVisit(
 
           // generate BB set; 
           // TODO: Remove this call later; the client will do it on demand
-          W->populateBBlockSet();
+          W->populateBBSet();
 
           if (!S->empty()) S->pop();
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
@@ -257,12 +257,13 @@ bool WRegionCollection::runOnFunction(Function &F) {
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
+  // Initialize maps from Directive/Clause strings to IDs
+  // This has to be done before clients such as CFGRestructuring calls it
+  VPOUtils::initDirectiveAndClauseStringMap();
+
   // CFG Restructuring, which puts directives into standalone basic blocks.
   // It maintains DominatorTree and LoopInfo.
   VPOUtils::CFGRestructuring(F, DT, LI);
-
-  // Initialize maps from Directive/Clause strings to IDs
-  VPOUtils::initDirectiveAndClauseStringMap();
 
   DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
   WRGraph = new (WRContainerTy);

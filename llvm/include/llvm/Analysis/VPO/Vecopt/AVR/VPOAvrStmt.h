@@ -639,7 +639,7 @@ public:
 
   /// \brief On-demand populate WRegionSimdNode's basic block set with
   /// given EntryBB and ExitBB. 
-  void populateWrnBBSet() { WRegionSimdNode->populateBBlockSet(); }
+  void populateWrnBBSet() { WRegionSimdNode->populateBBSet(); }
 
   /// \brief Returns the number of Basic Blocks in WRNRegionSimd BBlockSet.
   unsigned getBBSetSize() const { return WRegionSimdNode->getBBSetSize(); }

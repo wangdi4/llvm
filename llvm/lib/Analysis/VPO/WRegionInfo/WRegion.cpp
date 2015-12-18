@@ -27,9 +27,13 @@ using namespace llvm::vpo;
 // Methods for WRegion
 //
 
-// constructors
+// constructor for LLVM IR
 WRegion::WRegion(unsigned SCID, BasicBlock *BB) : WRegionNode(SCID, BB) {}
-WRegion::WRegion(WRegionNode *W) : WRegionNode(W)   {}
+
+// constructor for HIR
+WRegion::WRegion(unsigned SCID) : WRegionNode(SCID) {}
+
+WRegion::WRegion(WRegionNode *W) : WRegionNode(W) {}
 
 
 WRegionNode *WRegion::getFirstChild() {
@@ -165,7 +169,7 @@ print(formatted_raw_ostream &OS, unsigned Depth) const {
 // Methods for WRNVecLoopNode
 //
 
-// constructor
+// constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) : 
   WRegion(WRegionNode::WRNVecLoop, BB), LI(Li)
 {
@@ -185,6 +189,26 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) :
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
+// constructor for HIR representation
+WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN) : 
+  WRegion(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN)
+{
+  setPriv(nullptr);
+  setLpriv(nullptr);
+  setRed(nullptr);
+  setLinear(nullptr);
+  setAligned(nullptr);
+  setSimdlen(0);
+  setSafelen(0);
+  setCollapse(0);
+  setIsAutoVec(false);
+
+  setExitHLNode(nullptr);
+  setHLLoop(nullptr);       
+
+  DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() <<">\n");
+}
+
 WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
 {
   setPriv(W->getPriv());
@@ -196,8 +220,15 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
   setSafelen(W->getSafelen());
   setCollapse(W->getCollapse());
   setIsAutoVec(W->getIsAutoVec());
-  setLoopInfo(W->getLoopInfo());
-  setLoop(W->getLoop());
+  if (W->getIsFromHIR()) {
+    setEntryHLNode(W->getEntryHLNode());
+    setExitHLNode(W->getExitHLNode());
+    setHLLoop(W->getHLLoop());
+  }
+  else {
+    setLoopInfo(W->getLoopInfo());
+    setLoop(W->getLoop());
+  }
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
@@ -205,8 +236,6 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
 {
   std::string Indent(Depth*2, ' ');
   OS << Indent << "BEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
-
-  // TODO: print data local to this VecLoop 
 
   OS << Indent << "SIMDLEN clause: "  << getSimdlen() << "\n";
 
@@ -216,19 +245,26 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
     C->print(OS);
   }
 
-  OS << Indent << "\nEntryBB:"  << *getEntryBBlock();
-  OS << Indent << "\nExitBB:"  << *getExitBBlock();
-  OS << Indent << "\nBBlockSet dump:\n";
-  if (!isBBSetEmpty()) {
-    for (auto I=bbset_begin(),E=bbset_end(); I!=E; ++I) {
-      const BasicBlock *BB = *I;
-      OS << Indent << *BB;
-    }
+  if (getIsFromHIR()) {
+    OS << "\n" << Indent << "EntryHLNode:\n";
+    getEntryHLNode()->dump();
+    OS << "\n" << Indent << "HLLoop:\n";
+    getHLLoop()->dump();
   }
   else {
-    OS << Indent << "No BBSet\n";
+    OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
+    OS << "\n" << Indent << "ExitBB:"  << *getExitBBlock();
+    OS << "\n" << Indent << "BBlockSet dump:\n";
+    if (!isBBSetEmpty()) {
+      for (auto I=bbset_begin(),E=bbset_end(); I!=E; ++I) {
+        const BasicBlock *BB = *I;
+        OS << Indent << *BB;
+      }
+    }
+    else {
+      OS << Indent << "No BBSet\n";
+    }
   }
-
   printChildren(OS, Depth+1);
   OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n";
 }

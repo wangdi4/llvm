@@ -18,6 +18,7 @@
 #include "llvm/Analysis/VPO/Vecopt/CandidateIdent/VPOVecCandIdentify.h"
 #include "llvm/Analysis/VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrVistor.h"
+#include "llvm/Analysis/VPO/WRegionInfo/WRegionUtils.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -430,13 +431,19 @@ void AVRBranchOptVisitor::visit(AVRBranch *ABranch) {
 
 void AVRGenerate::buildAbstractLayer()
 {
-
   // Temporary AL construction mechanism. HIR based AL will be constructed
   // via incoming HIR-based WRN graph once available.
   if (AvrHIRTest) {
 
     AVRGenerateVisitor AG;
-    
+
+    // Walk the HIR and build WRGraph based on HIR
+    WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
+    DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
+    for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
+      DEBUG(I->dump());
+    }
+
     for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
       DEBUG(errs() << "Starting AVR gen for \n");
       DEBUG(I->dump());

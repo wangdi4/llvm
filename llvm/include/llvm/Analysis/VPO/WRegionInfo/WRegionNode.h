@@ -98,8 +98,9 @@ private:
 protected:
 
   /// \brief constructors
-  WRegionNode(unsigned SCID, BasicBlock *BB);
-  WRegionNode(WRegionNode *W);
+  WRegionNode(unsigned SCID, BasicBlock *BB); // for LLVM IR
+  WRegionNode(unsigned SCID);                 // for HIR only
+  WRegionNode(WRegionNode *W);                // for both
 
   // copy constructor not needed (at least for now)
   // WRegionNode(const WRegionNode &WRegionNodeObj);
@@ -286,7 +287,7 @@ public:
   unsigned getBBSetSize() const { return BBlockSet.size(); }
 
   /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-  void populateBBlockSet();
+  void populateBBSet();
 
   void resetBBSet() { BBlockSet.clear(); }
 

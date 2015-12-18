@@ -18,33 +18,35 @@
 
 #include "llvm/Support/Compiler.h"
 #include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegion.h"
 
 namespace llvm  { 
 
 namespace vpo { 
 
-/// \brief Enumeration for types of WRegionNode Graph Insert/Remove/Update 
-enum OpType {
-  FirstChild, 
-  LastChild, 
-  Append, 
-  Prepend
-};
-
 /// \brief This class defines the utilies for WRegionNode nodes.
 class WRegionUtils {
 
   typedef WRContainerTy::iterator WrnIter;
 
+
 private:
   /// \brief Do not allow instantiation.
   //WRegionNodeUtils() LLVM_DELETED_FUNCTION;
 
-  /// \brief Destroys all HLNodes, called during framework cleanup.
+  /// \brief Destroys all nodes
   static void destroyAll();
 
 public:
+
+  /// \brief Enumeration for types of WRegionNode Graph insert/update 
+  enum OpType {
+    FirstChild, 
+    LastChild, 
+    Append, 
+    Prepend
+  };
 
   friend class WRegionNode;
 
@@ -76,6 +78,31 @@ public:
   //  (eg create a WRNParRegion node if DirString is "dir.parallel")
   static WRegionNode *createWRegion(StringRef DirString, 
                                     BasicBlock *EntryBB, LoopInfo *LI);
+
+  /// \brief Similar to createWRegion, but for HIR vectorizer support
+  static WRegionNode *createWRegionHIR(StringRef        DirString,
+                                       loopopt::HLNode *EntryHLNode);
+
+  /// \brief Update WRGraph from processing intrinsic calls extracted
+  /// from HIR.  This is needed to support vectorizer in HIR.
+  ///   Call: the call instruction with the intrinsic
+  ///   IntrinId: the intrinsic id (eg intel_directive/_qual, etc.)
+  ///   WRGraph: points to the WRN graph being built
+  ///   CurrentWRN: points to the current pending WRN node. If not null, and
+  ///               if the intrinsic is for a clause, then the CurrentWRN is
+  ///               updated with the clause info
+  ///   H: The HLNode containing the intrinsic call
+  ///
+  /// If it creates a WRN, then it returns a pointer to it. Otherwise,
+  /// it just returns CurrentWRN.
+  static WRegionNode *updateWRGraphFromHIR (IntrinsicInst   *Call,
+                                            Intrinsic::ID   IntrinId,
+                                            WRContainerTy   *WRGraph,
+                                            WRegionNode     *CurrentWRN,
+                                            loopopt::HLNode *H);
+
+  /// \brief Driver routine to build WRGraph based on HIR representation
+  static WRContainerTy *buildWRGraphFromHIR();
 
   /// \brief Extract the operands for a list-type clause. 
   /// This is called by WRegionNode::handleQualOpndList() 

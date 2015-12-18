@@ -50,6 +50,7 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     { WRegionNode::WRNTaskgroup,        "Taskgroup" }
 };
 
+// constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB) : 
   SubClassID(SCID), EntryBBlock(BB) 
 {
@@ -60,6 +61,17 @@ WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB) :
   resetBBSet();
 }
 
+// constructor for HIR representation
+WRegionNode::WRegionNode(unsigned SCID) : SubClassID(SCID)
+{
+  setNextNumber();
+  setParent(nullptr);
+  setEntryBBlock(nullptr);
+  setExitBBlock(nullptr);
+  resetBBSet();
+  setIsFromHIR(true);
+}
+
 WRegionNode::WRegionNode(WRegionNode *W)
     : SubClassID(W->SubClassID) {
   setNextNumber();   // can't reuse the same number; get a new one
@@ -67,15 +79,12 @@ WRegionNode::WRegionNode(WRegionNode *W)
   setEntryBBlock(W->getEntryBBlock()); 
   setExitBBlock(W->getExitBBlock());
   setIsFromHIR(W->getIsFromHIR());
-  if (W->isBBSetEmpty())
-    resetBBSet();
-  else 
-    populateBBlockSet();
+  resetBBSet();
   //TODO: add code to copy Children?
 }
 
 /// \brief Populates BBlockSet with BBs in the WRN from EntryBB to ExitBB.
-void WRegionNode::populateBBlockSet(void)
+void WRegionNode::populateBBSet(void)
 {
   BasicBlock *EntryBB = getEntryBBlock();
   BasicBlock *ExitBB  = getExitBBlock();

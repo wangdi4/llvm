@@ -17,8 +17,10 @@
 #ifndef LLVM_ANALYSIS_VPO_WREGION_H
 #define LLVM_ANALYSIS_VPO_WREGION_H
 
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 #include "llvm/Analysis/VPO/WRegionInfo/WRegionNode.h"
+
 #include <set>
 #include <iterator>
 
@@ -43,7 +45,8 @@ private:
   WRContainerTy Children;
 
 protected:
-  WRegion(unsigned SCID, BasicBlock *BB);
+  WRegion(unsigned SCID, BasicBlock *BB);  // for LLVM IR
+  WRegion(unsigned SCID);                  // for HIR
   WRegion(WRegionNode *W);
 
 public:
@@ -304,25 +307,30 @@ class WRNVecLoopNode : public WRegion
     int                Safelen;             // qualOpnd
     int                Collapse;            // qualOpnd
     bool               IsAutoVec;
-    LoopInfo           *LI;
-    Loop               *Lp;
-
-  protected:
-    void setPriv(PrivateClause *P)      { Priv = P;         }
-    void setLpriv(LastprivateClause *L) { Lpriv = L;        }
-    void setRed(ReductionClause *R)     { Reduction = R;    }
-    void setLinear(LinearClause *L)     { Linear = L;       }
-    void setAligned(AlignedClause *A)   { Aligned = A;      }
-    void setSimdlen(int N)              { Simdlen = N;      }
-    void setSafelen(int N)              { Safelen = N;      }
-    void setCollapse(int N)             { Collapse = N;     }
-    void setIsAutoVec(bool Flag)        { IsAutoVec = Flag; }
-    void setLoopInfo(LoopInfo *L)       { LI = L;           }
-    void setLoop(Loop *L)               { Lp = L;           }
+    LoopInfo           *LI;                 // for LLVM IR only
+    Loop               *Lp;                 // for LLVM IR only
+    loopopt::HLNode    *EntryHLNode;        // for HIR only
+    loopopt::HLNode    *ExitHLNode;         // for HIR only
+    loopopt::HLLoop    *HLp;                // for HIR only
 
   public:
+    void setPriv(PrivateClause *P)          { Priv = P;         }
+    void setLpriv(LastprivateClause *L)     { Lpriv = L;        }
+    void setRed(ReductionClause *R)         { Reduction = R;    }
+    void setLinear(LinearClause *L)         { Linear = L;       }
+    void setAligned(AlignedClause *A)       { Aligned = A;      }
+    void setSimdlen(int N)                  { Simdlen = N;      }
+    void setSafelen(int N)                  { Safelen = N;      }
+    void setCollapse(int N)                 { Collapse = N;     }
+    void setIsAutoVec(bool Flag)            { IsAutoVec = Flag; }
+    void setLoopInfo(LoopInfo *L)           { LI = L;           }
+    void setLoop(Loop *L)                   { Lp = L;           }
+    void setEntryHLNode(loopopt::HLNode *E) { EntryHLNode = E;  }
+    void setExitHLNode(loopopt::HLNode *X)  { ExitHLNode = X;   }
+    void setHLLoop(loopopt::HLLoop *L)      { HLp = L;          }
 
-    WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);
+    WRNVecLoopNode(BasicBlock *BB, LoopInfo *L);  // LLVM IR representation
+    WRNVecLoopNode(loopopt::HLNode *EntryHLN);    // HIR representation
     WRNVecLoopNode(WRNVecLoopNode *W);
     //WRNVecLoopNode(const WRNVecLoopNode &W);  // copy constructor
 
@@ -332,12 +340,16 @@ class WRNVecLoopNode : public WRegion
     LinearClause      * getLinear()  const { return Linear;    }
     AlignedClause     * getAligned() const { return Aligned;   }
 
-    int  getSimdlen()       const { return Simdlen;   }
-    int  getSafelen()       const { return Safelen;   }
-    int  getCollapse()      const { return Collapse;  }
-    bool getIsAutoVec()     const { return IsAutoVec; }
-    LoopInfo *getLoopInfo() const { return LI;      }
-    Loop *getLoop()         const { return Lp;      }
+    int  getSimdlen()       const { return Simdlen;     }
+    int  getSafelen()       const { return Safelen;     }
+    int  getCollapse()      const { return Collapse;    }
+    bool getIsAutoVec()     const { return IsAutoVec;   }
+    LoopInfo *getLoopInfo() const { return LI;          }
+    Loop *getLoop()         const { return Lp;          }
+
+    loopopt::HLNode *getEntryHLNode()const { return EntryHLNode; }
+    loopopt::HLNode *getExitHLNode() const { return ExitHLNode;  }
+    loopopt::HLLoop *getHLLoop()     const { return HLp;         }
     
     void print(formatted_raw_ostream &OS, unsigned Depth) const ;
     /// \brief Method to support type inquiry through isa, cast, and dyn_cast.
