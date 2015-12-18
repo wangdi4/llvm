@@ -285,6 +285,9 @@ public:
   Instruction *visitICmpInstWithCastAndCast(ICmpInst &ICI);
   Instruction *visitICmpInstWithInstAndIntCst(ICmpInst &ICI, Instruction *LHS,
                                               ConstantInt *RHS);
+#if INTEL_CUSTOMIZATION
+  Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
+#endif // INTEL_CUSTOMIZATION
   Instruction *FoldICmpDivCst(ICmpInst &ICI, BinaryOperator *DivI,
                               ConstantInt *DivRHS);
   Instruction *FoldICmpShrCst(ICmpInst &ICI, BinaryOperator *DivI,
@@ -577,6 +580,7 @@ private:
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+  bool TryReduceICmpSize(ICmpInst &ICI, Value *Op0, Value *Op1, unsigned Size);
 #endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 

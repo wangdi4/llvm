@@ -67,20 +67,36 @@ private:
   /// Global number used for assigning unique numbers to HLNodes.
   static unsigned GlobalNum;
 
-  /// ID to differentitate bwtween concrete subclasses.
+  /// ID to differentiate between concrete subclasses.
   const unsigned char SubClassID;
+
   /// Lexical parent of HLNode.
   HLNode *Parent;
 
   /// Unique number associated with HLNodes.
   unsigned Number;
+
   /// Topological sort number of HLNode.
   unsigned TopSortNum;
 
+  /// Maximum topological sort number of HLNode across its children.
+  unsigned LexicalLastTopSortNum;
+
   /// \brief Sets the unique number associated with this HLNode.
   void setNextNumber();
+
   /// \brief Sets the number of this node in the topological sort order.
   void setTopSortNum(unsigned Num) { TopSortNum = Num; }
+
+  /// \brief Sets the maximum sort number of HLNode across its children.
+  void setLexicalLastTopSortNum(unsigned Num) {
+    LexicalLastTopSortNum = Num;
+    if (HLNode *Parent = getParent()) {
+      if (Parent->getLexicalLastTopSortNum() < Num) {
+        Parent->setLexicalLastTopSortNum(Num);
+      }
+    }
+  }
 
 protected:
   HLNode(unsigned SCID);
@@ -149,6 +165,10 @@ public:
   /// preheader/postexit.
   HLLoop *getLexicalParentLoop() const;
 
+  /// \brief Returns the Level of HLNode.
+  /// The level is computed from the node's lexical parent loop.
+  unsigned getHLNodeLevel() const;
+
   /// \brief Returns the parent region of this node, if one exists.
   HLRegion *getParentRegion() const;
 
@@ -163,6 +183,9 @@ public:
 
   /// \brief Returns the number of this node in the topological sort order.
   unsigned getTopSortNum() const { return TopSortNum; }
+
+  /// \brief Returns the maximum topological sort number across its children.
+  unsigned getLexicalLastTopSortNum() const { return LexicalLastTopSortNum; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {
@@ -205,10 +228,12 @@ struct ilist_traits<loopopt::HLNode>
 
     return nullptr;
   }
-  static void deleteNode(loopopt::HLNode *) {}
+
+  // Deletion of nodes intentionally leaved empty to save compile time
+  static void deleteNode(loopopt::HLNode *Node) {}
 
 private:
-  mutable ilist_half_node<loopopt::HLNode> Sentinel;
+  mutable ilist_node<loopopt::HLNode> Sentinel;
 };
 /// Global definitions
 

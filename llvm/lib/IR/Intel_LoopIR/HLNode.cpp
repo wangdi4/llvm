@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
@@ -23,19 +24,25 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
+                                     cl::Hidden,
+                                     cl::desc("Print HLNode TopSort numbers"));
+
 HLContainerTy llvm::loopopt::HLRegions;
 
 std::set<HLNode *> HLNode::Objs;
 unsigned HLNode::GlobalNum(0);
 
 HLNode::HLNode(unsigned SCID)
-    : SubClassID(SCID), Parent(nullptr), TopSortNum(0) {
+    : SubClassID(SCID), Parent(nullptr), TopSortNum(0),
+      LexicalLastTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
-    : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0) {
+    : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0),
+      LexicalLastTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
@@ -75,7 +82,11 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
 
   /// Placeholder until we can get source location.
   if (!isa<HLRegion>(this)) {
-    OS << "<" << Number << ">";
+    OS << "<" << Number;
+    if (PrintTopSortNum) {
+      OS << ":" << TopSortNum << "(" << LexicalLastTopSortNum << ")";
+    }
+    OS << ">";
   }
   OS.PadToColumn(10);
 
@@ -173,6 +184,15 @@ HLLoop *HLNode::getLexicalParentLoop() const {
   }
 
   return ParLoop;
+}
+
+unsigned HLNode::getHLNodeLevel() const {
+
+  assert(getParentRegion() && " Node should be connected to a HLRegion");
+
+  HLLoop *Loop = getLexicalParentLoop();
+  unsigned Level = Loop ? Loop->getNestingLevel() : 0;
+  return Level;
 }
 
 HLRegion *HLNode::getParentRegion() const {

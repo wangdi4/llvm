@@ -84,6 +84,9 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// RI - The region identification pass.
+  const RegionIdentification *RI;
+
   /// HIR - HIR for the function.
   HIRCreation *HIR;
 
@@ -137,6 +140,9 @@ private:
 
   /// BlobPrinter - Used to print blobs.
   class BlobPrinter;
+
+  /// PointerBlobFinder - Used to find pointer type blobs.
+  class PointerBlobFinder;
 
   /// \brief Visits HIR and calls HIRParser's parse*() utilities. Parsing for
   /// non-essential HLInsts is postponed for phase2. Refer to isEssential().
@@ -235,7 +241,7 @@ private:
                       bool IsTop = true, bool UnderCast = false);
 
   /// \brief Forces incoming value to be parsed as a blob.
-  void parseAsBlob(const Value *Val, CanonExpr *CE, unsigned Level);
+  CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
 
   /// \brief Forms and returns a CanonExpr representing Val.
   CanonExpr *parse(const Value *Val, unsigned Level);
@@ -261,15 +267,37 @@ private:
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
   /// \brief collects strides for an ArrayType in the Strides vector.
-  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides);
-
-  /// \brief Looks for GEPOperator associated with this pointer Phi in the phi
-  /// operands.
-  const GEPOperator *findGEPOperator(const PHINode *PtrPhi) const;
+  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides) const;
 
   /// \brief Returns the size of the contained type in bits. Incoming type is
   /// expected to be a pointer type.
   unsigned getBitElementSize(Type *Ty) const;
+
+  /// \brief Returns the base(earliest) GEP in case there are multiple GEPs
+  /// associated with this load/store.
+  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
+
+  /// \brief Finds pointer blobs in PtrSCEV.
+  const SCEV *findPointerBlob(const SCEV *PtrSCEV) const;
+
+  /// \brief Returns either the inital or update operand of header phi
+  /// corresponding to the passed in boolean argument.
+  const Instruction *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
+
+  /// \brief Returns the header phi operand which corresponds to the initial
+  /// value of phi (instruction coming from outside the loop).
+  const Instruction *getHeaderPhiInitInst(const PHINode *Phi) const;
+
+  /// \brief Returns the header phi operand which corresponds to phi update
+  /// (instruction coming from loop's backedge).
+  const Instruction *getHeaderPhiUpdateInst(const PHINode *Phi) const;
+
+  /// \brief Creates a canon expr which represents the initial value of header
+  /// phi.
+  CanonExpr *createHeaderPhiInitCE(const PHINode *Phi, unsigned Level);
+
+  /// \brief Creates a canon expr which represents the index of header phi.
+  CanonExpr *createHeaderPhiIndexCE(const PHINode *Phi, unsigned Level);
 
   /// \brief Creates a GEP RegDDRef for a GEP whose base pointer ia a phi node.
   RegDDRef *createPhiBaseGEPDDRef(const PHINode *BasePhi,
@@ -282,14 +310,16 @@ private:
   /// \brief Creates a GEP RegDDRef for this GEPOperator.
   RegDDRef *createRegularGEPDDRef(const GEPOperator *GEPOp, unsigned Level);
 
-  /// \brief Returns a RegDDRef containing GEPInfo.
-  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level);
+  /// \brief Returns a RegDDRef containing GEPInfo. IsUse indicates whether this
+  /// is a definition or a use of GEP.
+  RegDDRef *createGEPDDRef(const Value *Val, unsigned Level, bool IsUse);
 
   /// \brief Returns a RegDDRef representing this Null value.
   RegDDRef *createUndefDDRef(Type *Type);
 
   /// \brief Returns a RegDDRef representing this scalar value.
-  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level);
+  RegDDRef *createScalarDDRef(const Value *Val, unsigned Level,
+                              bool IsLval = false);
 
   /// \brief Returns an rval DDRef created from Val.
   RegDDRef *createRvalDDRef(const Instruction *Inst, unsigned OpNum,
@@ -351,7 +381,7 @@ private:
 
   /// \brief Collects and returns temp blobs present inside Blob.
   void collectTempBlobs(CanonExpr::BlobTy Blob,
-                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
+                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) const;
 
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
@@ -377,7 +407,10 @@ private:
   bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const;
 
   /// \brief Returns true if this is an UndefValue blob.
-  bool isUndefBlob(const CanonExpr::BlobTy Blob) const;
+  bool isUndefBlob(CanonExpr::BlobTy Blob) const;
+
+  /// \brief Returns true if Blob represents a constant FP value.
+  bool isConstantFPBlob(CanonExpr::BlobTy Blob) const;
 
 public:
   static char ID; // Pass identification
@@ -394,9 +427,9 @@ public:
 
   /// Region iterator methods
   HIRCreation::iterator hir_begin() { return HIR->begin(); }
-  HIRCreation::const_iterator hir_begin() const { return HIR->begin(); }
+  HIRCreation::const_iterator hir_cbegin() const { return HIR->begin(); }
   HIRCreation::iterator hir_end() { return HIR->end(); }
-  HIRCreation::const_iterator hir_end() const { return HIR->end(); }
+  HIRCreation::const_iterator hir_cend() const { return HIR->end(); }
 
   HIRCreation::reverse_iterator hir_rbegin() { return HIR->rbegin(); }
   HIRCreation::const_reverse_iterator hir_rbegin() const {

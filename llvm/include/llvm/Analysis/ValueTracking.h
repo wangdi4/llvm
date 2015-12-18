@@ -97,6 +97,27 @@ namespace llvm {
                       const Instruction *CxtI = nullptr,
                       const DominatorTree *DT = nullptr);
 
+#if INTEL_CUSTOMIZATION
+  /// isKnownWithinIntRange - Return true if the given integer value is within 
+  /// the given bit range, for either signed or unsigned cases. For signed 
+  /// case, the given value V is treated as a signed integer, and this function 
+  /// returns true if the given bit range can hold the signed integer. For 
+  /// unsigned case, the given value V is treated as an unsigned integer, and 
+  /// this function returns true if the given bit range can hold the unsigned 
+  /// integer.
+  ///
+  /// For example, 0xFFF0 is within the signed 16 bit range when treated as a
+  /// signed integer, and within unsigned 16 bit range when treated as an 
+  /// unsigned integer. 0x00FF is within the unsigned 8 bit range when treated 
+  /// as an unsigned integer, and within signed 9 bit range when treated as a
+  /// signed integer.
+  bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
+                             const DataLayout &DL, unsigned Depth = 0,
+                             AssumptionCache *AC = nullptr,
+                             const Instruction *CxtI = nullptr,
+                             const DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
+
   /// MaskedValueIsZero - Return true if 'V & Mask' is known to be zero.  We use
   /// this predicate to simplify operations downstream.  Mask is known to be
   /// zero for bits that V cannot have.

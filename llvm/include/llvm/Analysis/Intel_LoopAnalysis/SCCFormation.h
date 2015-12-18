@@ -162,9 +162,6 @@ public:
   void print(raw_ostream &OS, RegionIdentification::const_iterator RegIt) const;
   void verifyAnalysis() const override;
 
-  /// \brief Returns true is the Node has linear SCEV.
-  bool isLinear(const NodeTy *Node) const;
-
   /// SCC iterator methods
   const_iterator begin(RegionIdentification::const_iterator RegIt) const;
   const_iterator end(RegionIdentification::const_iterator RegIt) const;

@@ -60,6 +60,7 @@ private:
   static Instruction *LastDummyInst;
 
   friend class HIRCreation;
+  friend class HIRParser;
   friend class HIRCleanup;
   friend class LoopFormation;
 
@@ -67,7 +68,74 @@ private:
   struct CloneVisitor;
 
   struct LoopFinderUpdater;
-  struct TopSorter;
+
+  template <bool Force = true> struct TopSorter;
+
+  template <typename T> static void checkHLLoopTy() {
+    // Assert to check that the type is HLLoop. Type can be const or non-const.
+    static_assert(std::is_same<typename std::remove_const<
+                                   typename std::remove_pointer<T>::type>::type,
+                               HLLoop>::value,
+                  "Type should be HLLoop * or const HLLoop *.");
+  }
+
+  /// \brief An enumeration to denote what level to visit. Used internally by
+  /// LoopLevel Visitor.
+  enum VisitKind { Innermost, All, Level };
+
+  /// \brief Visitor to gather loops with specified level.
+  template <typename T, VisitKind VL>
+  struct LoopLevelVisitor final : public HLNodeVisitorBase {
+
+    SmallVectorImpl<T> &LoopContainer;
+    const HLNode *SkipNode;
+    unsigned Level;
+
+    LoopLevelVisitor(SmallVectorImpl<T> &Loops, unsigned Lvl = 0)
+        : LoopContainer(Loops), SkipNode(nullptr), Level(Lvl) {
+      checkHLLoopTy<T>();
+      bool IsLevelVisit = (VL == VisitKind::Level);
+      (void)IsLevelVisit;
+      assert((!IsLevelVisit || isLoopLevelValid(Level)) &&
+             " Level is out of range.");
+    }
+
+    void visit(T Loop) {
+      switch (VL) {
+      case VisitKind::All:
+        // Gather all loops.
+        LoopContainer.push_back(Loop);
+        if (Loop->isInnermost()) {
+          SkipNode = Loop;
+        }
+        break;
+      case VisitKind::Innermost:
+        // Gather only innermost loops.
+        if (Loop->isInnermost()) {
+          LoopContainer.push_back(Loop);
+          SkipNode = Loop;
+        }
+        break;
+      case VisitKind::Level:
+        // Gather loops with specified Level.
+        if (Loop->getNestingLevel() == Level) {
+          LoopContainer.push_back(Loop);
+          SkipNode = Loop;
+        }
+        break;
+      default:
+        llvm_unreachable("Invalid Visit Kind.");
+      }
+    }
+
+    void visit(const HLNode *Node) {}
+    void postVisit(const HLNode *Node) {}
+
+    bool skipRecursion(const HLNode *Node) const override {
+      assert(Node && "Null node found.");
+      return (Node == SkipNode);
+    }
+  };
 
   /// \brief Updates first and last dummy inst of the function.
   static void setFirstAndLastDummyInst(Instruction *Inst);
@@ -246,11 +314,23 @@ private:
   static bool dominatesImpl(const HLNode *Node1, const HLNode *Node2,
                             bool PostDomination, bool StrictDomination);
 
-
-
-
   /// \brief Move Loop Bounds, IVtype and ZTT, etc. from one loop to another
   static void moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop);
+
+  /// \brief Set TopSortNums for the first time
+  static void initTopSortNum();
+
+  /// \brief Called by the framework to update TopSortNum field for
+  /// a range of HLNodes
+  static void updateTopSortNum(const HLContainerTy &Container,
+                               HLContainerTy::iterator First,
+                               HLContainerTy::iterator Last);
+
+  /// \brief Evenly sets TopSortNumbers from a range (MinNum, MaxNum) to
+  /// subtrees [First, Last)
+  static void distributeTopSortNum(HLContainerTy::iterator First,
+                                   HLContainerTy::iterator Last,
+                                   unsigned MinNum, unsigned MaxNum);
 
 public:
   /// \brief return true if non-zero
@@ -470,7 +550,8 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  static void visit(HV &Visitor, ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+  static void visitRange(HV &Visitor, ilist_iterator<NodeTy> Begin,
+                         ilist_iterator<NodeTy> End) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(Begin, End);
   }
@@ -481,12 +562,13 @@ public:
   template <bool Recursive = true, bool RecurseInsideLoops = true,
             bool Forward = true, typename HV, typename NodeTy,
             typename = IsHLNodeTy<NodeTy>>
-  static void visit(HV &Visitor, NodeTy *Begin, NodeTy *End) {
+  static void visitRange(HV &Visitor, NodeTy *Begin, NodeTy *End) {
     assert(Begin && End && " Begin/End Node is null");
     ilist_iterator<NodeTy> BeginIter(Begin);
     ilist_iterator<NodeTy> EndIter(End);
-    visit<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
-                                                  std::next(EndIter));
+    EndIter++;
+    visitRange<Recursive, RecurseInsideLoops, Forward>(Visitor, BeginIter,
+                                                       EndIter);
   }
 
   /// \brief Visits all HLNodes in the HIR. The direction is specified using
@@ -711,6 +793,10 @@ public:
 
   /// \brief Unlinks Node from HIR.
   static void remove(HLNode *Node);
+
+  /// \brief Unlinks a set for node from HIR and places then in the container.
+  static void remove(HLContainerTy *Container, HLNode *Node1, HLNode *Node2);
+
   /// \brief Unlinks Node from HIR and destroys it.
   static void erase(HLNode *Node);
   /// \brief Unlinks [First, Last) from HIR and destroys them.
@@ -720,13 +806,16 @@ public:
   /// \brief Replaces OldNode by an unlinked NewNode.
   static void replace(HLNode *OldNode, HLNode *NewNode);
 
-  /// \brief Reset TopSortNum
-  static void resetTopSortNum();
-
   /// \brief Returns true if Node is in the top sort num range [FirstNode,
   /// LastNode].
   static bool isInTopSortNumRange(const HLNode *Node, const HLNode *FirstNode,
                                   const HLNode *LastNode);
+
+  /// \brief Returns true if the Loop level is in a valid range from
+  /// [1, MaxLoopNestLevel].
+  static bool isLoopLevelValid(unsigned Level) {
+    return (Level > 0 && Level <= MaxLoopNestLevel);
+  }
 
   /// \brief Returns the first lexical child of the parent w.r.t Node. For
   /// example, if parent is a loop and Node lies in postexit, the function will
@@ -774,17 +863,57 @@ public:
 
   /// \brief Gathers the innermost loops across regions and stores them into
   /// the loop vector.
-  static void gatherInnermostLoops(SmallVectorImpl<const HLLoop *> *Loops);
+  template <typename T>
+  static void gatherInnermostLoops(SmallVectorImpl<T> &Loops) {
+    LoopLevelVisitor<T, VisitKind::Innermost> LoopVisit(Loops);
+    HLNodeUtils::visitAll(LoopVisit);
+  }
 
   /// \brief Gathers the outermost loops (or highest level loops with Level 1)
   /// across regions and stores them into the loop vector.
-  static void gatherOutermostLoops(SmallVectorImpl<const HLLoop *> *Loops);
+  template <typename T>
+  static void gatherOutermostLoops(SmallVectorImpl<T> &Loops) {
+    // Level 1 denotes outermost loops
+    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, 1);
+    HLNodeUtils::visitAll(LoopVisit);
+  }
 
   /// \brief Gathers loops inside the Node with specified Level and stores them
   /// in the Loops vector.
+  template <typename T>
+  static void gatherLoopswithLevel(HLNode *Node, SmallVectorImpl<T> &Loops,
+                                   unsigned Level) {
+    assert(Node && " Node is null.");
+    assert(isLoopLevelValid(Level) && " Level is out of range.");
+    LoopLevelVisitor<T, VisitKind::Level> LoopVisit(Loops, Level);
+    HLNodeUtils::visit(LoopVisit, Node);
+  }
+
+  /// \brief Constant Node version of gatherLoopswithLevel.
+  template <typename T>
   static void gatherLoopswithLevel(const HLNode *Node,
-                                   SmallVectorImpl<const HLLoop *> *Loops,
-                                   unsigned Level);
+                                   SmallVectorImpl<T> &Loops, unsigned Level) {
+    static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
+                  "Type of SmallVector parameter should be const HLLoop *.");
+    gatherLoopswithLevel(const_cast<HLNode *>(Node), Loops, Level);
+  }
+
+  /// \brief Gathers all the loops inside the Node and stores them
+  /// in the Loops vector.
+  template <typename T>
+  static void gatherAllLoops(HLNode *Node, SmallVectorImpl<T> &Loops) {
+    assert(Node && " Node is null.");
+    LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
+    HLNodeUtils::visit(LoopVisit, Node);
+  }
+
+  /// \brief Constant Node version of gatherAllLoops.
+  template <typename T>
+  static void gatherAllLoops(const HLNode *Node, SmallVectorImpl<T> &Loops) {
+    static_assert(std::is_const<typename std::remove_pointer<T>::type>::value,
+                  "Type of SmallVector parameter should be const HLLoop *.");
+    gatherAllLoops(const_cast<HLNode *>(Node), Loops);
+  }
 
   /// \brief Returns true if HLSwitch or HLCall exists between NodeStart and
   /// NodeEnd. RecurseInsideLoops flag denotes if we want to check switch
@@ -795,7 +924,6 @@ public:
   static bool hasSwitchOrCall(const HLNode *NodeStart, const HLNode *NodeEnd,
                               bool RecurseInsideLoops = true);
 
-
   /// \brief Returns true if Loop is a perfect Loop nest
   /// and the innermost loop
   static bool isPerfectLoopNest(const HLLoop *Loop,
@@ -803,13 +931,16 @@ public:
                                 bool AllowPrePostHdr = false,
                                 bool AllowTriangularLoop = false);
 
-
   /// \brief Updates Loop properties (Bounds, etc) based on input Permutations
   ///   Used by Interchange now. Could be used later for blocking
-  static void permuteLoopNests(HLLoop *Loop,
-                               SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation); 
- 
-	
+  static void
+  permuteLoopNests(HLLoop *Loop,
+                   SmallVector<HLLoop *, MaxLoopNestLevel> LoopPermutation);
+
+  /// \brief This utility will extract the Ztt outside of the loop and insert
+  /// the loop inside it. It returns a handle to the Ztt. If no Ztt exist,
+  /// it will return nullptr.
+  static HLIf *hoistZtt(HLLoop *Loop);
 };
 
 } // End namespace loopopt

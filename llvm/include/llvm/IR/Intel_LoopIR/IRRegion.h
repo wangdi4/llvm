@@ -47,7 +47,7 @@ public:
   typedef LiveOutSetTy::const_iterator const_live_out_iterator;
 
 protected:
-  IRRegion(BasicBlock *Entry, RegionBBlocksTy BBlocks);
+  IRRegion(BasicBlock *Entry, const RegionBBlocksTy &BBlocks);
   ~IRRegion() {}
 
   /// \brief Make class uncopyable.
@@ -102,6 +102,8 @@ public:
 
   /// \brief Returns true if this region contains BB.
   bool containsBBlock(const BasicBlock *BB) const { return BBlocks.count(BB); }
+
+  void addBBlock(const BasicBlock *BB) { BBlocks.insert(BB); }
 
   /// \brief Adds a live-in temp (represented using Symbase) with initial value
   /// InitVal to the region.

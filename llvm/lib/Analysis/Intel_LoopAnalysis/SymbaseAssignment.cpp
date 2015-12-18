@@ -31,6 +31,8 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
+#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
@@ -62,39 +64,6 @@ public:
   void postVisit(HLNode *) {}
   void postVisit(HLDDNode *) {}
 };
-
-// TODO shared with dda. move?
-
-class DDRefGatherer final : public HLNodeVisitorBase {
-private:
-  void addRef(const DDRef *Ref) {
-    unsigned Symbase = (Ref)->getSymbase();
-    SymToRefs[Symbase].push_back(Ref);
-  }
-
-public:
-  DDRefGatherer() {}
-  void visit(const HLNode *Node) {}
-  void visit(const HLDDNode *Node) {
-    for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-      if (!*I) {
-        continue;
-      }
-
-      if (!(*I)->isConstant()) {
-        addRef(*I);
-        for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
-             BRefI != BRefE; ++BRefI) {
-          addRef(*BRefI);
-        }
-      }
-    }
-  }
-  void postVisit(const HLNode *) {}
-  void postVisit(const HLDDNode *) {}
-
-  std::map<unsigned, SmallVector<const DDRef *, 16>> SymToRefs;
-};
 }
 
 // Returns a value* for base ptr of ref
@@ -116,6 +85,7 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
   return nullptr;
 }
 
+// TODO: add special handling for memrefs with undefined base pointers.
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
   if (Ref->isScalarRef()) {
     return;
@@ -198,13 +168,15 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 }
 
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
-  DDRefGatherer G;
-  HLNodeUtils::visitAll(G);
+  DefinedRefGatherer::MapTy SymToRefs;
+  DefinedRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
+                                  SymToRefs);
+
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";
   FOS << "\n";
 
-  for (auto SymVecPair = G.SymToRefs.begin(), Last = G.SymToRefs.end();
+  for (auto SymVecPair = SymToRefs.begin(), Last = SymToRefs.end();
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
     FOS << "Symbase ";
