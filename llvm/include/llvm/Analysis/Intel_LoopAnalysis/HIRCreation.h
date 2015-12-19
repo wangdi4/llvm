@@ -29,6 +29,7 @@ class Function;
 class SwitchInst;
 class DominatorTree;
 struct PostDominatorTree;
+class LoopInfo;
 
 namespace loopopt {
 
@@ -81,6 +82,9 @@ private:
 
   /// PDT - The post-dominator tree.
   PostDominatorTree *PDT;
+
+  /// LI - The loop information for the function being processed.
+  LoopInfo *LI;
 
   /// RI - The region identification pass.
   const RegionIdentification *RI;

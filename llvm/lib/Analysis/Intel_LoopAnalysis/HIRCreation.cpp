@@ -16,6 +16,8 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/LoopInfo.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRCreation.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"
@@ -34,6 +36,7 @@ using namespace llvm::loopopt;
 INITIALIZE_PASS_BEGIN(HIRCreation, "hir-creation", "HIR Creation", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(RegionIdentification)
 INITIALIZE_PASS_DEPENDENCY(SCCFormation)
 INITIALIZE_PASS_END(HIRCreation, "hir-creation", "HIR Creation", false, true)
@@ -54,6 +57,7 @@ void HIRCreation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
   AU.addRequiredTransitive<PostDominatorTree>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<RegionIdentification>();
   // Only used for printing.
   AU.addRequiredTransitive<SCCFormation>();
@@ -84,16 +88,16 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
   if (BranchInst *BI = dyn_cast<BranchInst>(Terminator)) {
     if (BI->isConditional()) {
-      /// Create dummy if condition for now. Later on the compare instruction
-      /// operands will be substituted here and eliminated. If this is a bottom
-      /// test, it will be eliminated anyway.
+      // Create dummy if condition for now. Later on the compare instruction
+      // operands will be substituted here and eliminated. If this is a bottom
+      // test, it will be eliminated anyway.
       auto If = HLNodeUtils::createHLIf(CmpInst::Predicate::FCMP_TRUE, nullptr,
                                         nullptr);
 
       Ifs[If] = BB;
 
-      /// TODO: HLGoto targets should be assigned in a later pass.
-      /// TODO: Redundant gotos should be cleaned up during lexlink cleanup.
+      // TODO: HLGoto targets should be assigned in a later pass.
+      // TODO: Redundant gotos should be cleaned up during lexlink cleanup.
       HLGoto *ThenGoto = HLNodeUtils::createHLGoto(BI->getSuccessor(0));
       HLNodeUtils::insertAsFirstChild(If, ThenGoto, true);
       Gotos.push_back(ThenGoto);
@@ -117,13 +121,13 @@ HLNode *HIRCreation::populateTerminator(BasicBlock *BB, HLNode *InsertionPos) {
 
     Switches[Switch] = BB;
 
-    /// Add dummy cases so they can be populated during the walk.
+    // Add dummy cases so they can be populated during the walk.
     for (unsigned I = 0, E = SI->getNumCases(); I < E; ++I) {
       Switch->addCase(nullptr);
     }
 
-    /// Add gotos to all the cases. They are added for convenience in forming
-    /// lexical links and will be eliminated later.
+    // Add gotos to all the cases. They are added for convenience in forming
+    // lexical links and will be eliminated later.
     auto DefaultGoto = HLNodeUtils::createHLGoto(SI->getDefaultDest());
     HLNodeUtils::insertAsFirstDefaultChild(Switch, DefaultGoto);
     Gotos.push_back(DefaultGoto);
@@ -180,14 +184,14 @@ bool HIRCreation::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
   if (!PDT->dominates(BB, SI->getDefaultDest())) {
     return false;
   }
-  
-  for(auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
+
+  for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
     if (!PDT->dominates(BB, I.getCaseSuccessor())) {
       return false;
     }
   }
-  
-  return true;  
+
+  return true;
 }
 
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
@@ -197,24 +201,41 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     return InsertionPos;
   }
 
+  BasicBlock *LatchBB = nullptr;
+  bool LatchIsDomChild = false;
   auto Root = DT->getNode(BB);
 
-  /// Visit(link) this bblock to HIR.
+  if (auto Lp = LI->getLoopFor(BB)) {
+    LatchBB = Lp->getLoopLatch();
+  }
+
+  // Visit(link) this bblock to HIR.
   InsertionPos = populateInstSequence(BB, InsertionPos);
 
-  auto LastBBNode = InsertionPos;
+  auto TermNode = InsertionPos;
 
-  /// Walk over dominator children.
+  // TODO: look into dom-child ordering for multi-exit loops.
+
+  // Walk over dominator children.
   for (auto I = Root->begin(), E = Root->end(); I != E; ++I) {
     auto DomChildBB = (*I)->getBlock();
 
-    /// Link if's then/else children.
-    if (auto IfTerm = dyn_cast<HLIf>(LastBBNode)) {
+    // If the loop latch is a dom child, process it in the end. Dominator
+    // children are not ordered so it is possible that we encounter latch bblock
+    // before others in the list of children. We should process it last so that
+    // all the loop bblocks are within (header-latch) range.
+    if (DomChildBB == LatchBB) {
+      LatchIsDomChild = true;
+      continue;
+    }
+
+    // Link if's then/else children.
+    if (auto IfTerm = dyn_cast<HLIf>(TermNode)) {
       auto BI = cast<BranchInst>(BB->getTerminator());
 
       if ((DomChildBB == BI->getSuccessor(0)) &&
-          /// If one of the 'if' successors post-dominates the other, it is
-          /// better to link it after the 'if' instead of linking it as a child.
+          // If one of the 'if' successors post-dominates the other, it is
+          // better to link it after the 'if' instead of linking it as a child.
           !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
         doPreOrderRegionWalk(DomChildBB, IfTerm->getLastThenChild());
         continue;
@@ -224,24 +245,26 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
         continue;
       }
 
-    } else if (auto SwitchTerm = dyn_cast<HLSwitch>(LastBBNode)) {
-      /// Link switch's case children.
+    } else if (auto SwitchTerm = dyn_cast<HLSwitch>(TermNode)) {
+      // Link switch's case children.
       auto SI = cast<SwitchInst>(BB->getTerminator());
 
       if (!postDominatesAllCases(SI, DomChildBB)) {
 
         if (DomChildBB == SI->getDefaultDest()) {
-          doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastDefaultCaseChild());
+          doPreOrderRegionWalk(DomChildBB,
+                               SwitchTerm->getLastDefaultCaseChild());
           continue;
         }
 
         unsigned Count = 1;
         bool IsCaseChild = false;
-   
+
         for (auto I = SI->case_begin(), E = SI->case_end(); I != E;
              ++I, ++Count) {
           if (DomChildBB == I.getCaseSuccessor()) {
-            doPreOrderRegionWalk(DomChildBB, SwitchTerm->getLastCaseChild(Count));
+            doPreOrderRegionWalk(DomChildBB,
+                                 SwitchTerm->getLastCaseChild(Count));
             IsCaseChild = true;
             break;
           }
@@ -253,8 +276,12 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
       }
     }
 
-    /// Keep linking dominator children.
+    // Keep linking dominator children.
     InsertionPos = doPreOrderRegionWalk(DomChildBB, InsertionPos);
+  }
+
+  if (LatchIsDomChild) {
+    InsertionPos = doPreOrderRegionWalk(LatchBB, InsertionPos);
   }
 
   return InsertionPos;
@@ -264,7 +291,7 @@ void HIRCreation::setExitBBlock() const {
 
   auto LastChild = CurRegion->getLastChild();
   assert(LastChild && "Last child of region is null!");
-  /// TODO: Handle other last child types later.
+  // TODO: Handle other last child types later.
   assert(isa<HLIf>(LastChild) && "Unexpected last region child!");
 
   auto ExitRegionBB = getSrcBBlock(cast<HLIf>(LastChild));
@@ -296,6 +323,7 @@ bool HIRCreation::runOnFunction(Function &F) {
 
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT = &getAnalysis<PostDominatorTree>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   RI = &getAnalysis<RegionIdentification>();
 
   HLNodeUtils::initialize(F);
@@ -347,4 +375,4 @@ void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   FOS << "\n";
 }
 
-void HIRCreation::verifyAnalysis() const { }
+void HIRCreation::verifyAnalysis() const {}

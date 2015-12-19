@@ -206,6 +206,11 @@ void HLInst::print(formatted_raw_ostream &OS, unsigned Depth,
     }
   }
 
+  // Print function which no operands (no arguments or return value).
+  if (!Count) {
+    printBeginOpcode(OS, HasSeparator);
+  }
+
   printEndOpcode(OS);
 
   OS << ";\n";
@@ -398,7 +403,7 @@ void HLInst::verify() const {
     const RegDDRef *R1 = getOperandDDRef(1);
     const RegDDRef *R2 = getOperandDDRef(2);
 
-    assert(R1->isUndefined() && R2->isUndefined() &&
+    assert(R1->containsUndef() && R2->containsUndef() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
   }

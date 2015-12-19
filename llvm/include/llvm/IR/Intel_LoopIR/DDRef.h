@@ -66,8 +66,25 @@ protected:
   Type *getTypeImpl(bool IsSrc) const;
 
 public:
-  /// Virtual Clone Method
+  /// \brief Virtual Clone Method
   virtual DDRef *clone() const = 0;
+
+  /// \brief Virtual method to update CE levels to non-linear
+  /// if necessary. This should be called by transformations after
+  /// they make any change to DDRef which affect the internal CE.
+  /// Note, specific transformation such as interchange, might need
+  /// customized methods to update the CE levels.
+  /// for example:
+  /// for(i=0; i<n; i++) {
+  ///   t = B[i];
+  ///   for(j=0; j <3; j++) {
+  ///     A[i][j] = t*j;
+  ///   }
+  /// }
+  /// In this example t*j is marked as Linear@Level 1. However, after
+  /// complete unrolling of j-loop it would be marked as non-linear.s
+  virtual void updateCELevel() = 0;
+
   /// \brief Dumps DDRef.
   void dump(bool Detailed) const;
   /// \brief Dumps DDRef in a simple format.
@@ -76,8 +93,11 @@ public:
   /// \brief Prints DDRef in a simple format.
   virtual void print(formatted_raw_ostream &OS, bool Detailed = false) const;
 
-  /// \brief Returns the HLDDNode this DDRef is attached to.
+  /// \brief Returns the parent HLDDNode.
   virtual HLDDNode *getHLDDNode() const = 0;
+
+  /// \brief Returns the Level of parent HLDDNode Level.
+  unsigned getHLDDNodeLevel() const;
 
   /// \brief Returns the underlying value this DDRef represents.
   /// DDRef doesn't store the value right now and it is tricky to retrieve
@@ -109,11 +129,15 @@ public:
   /// \brief An enumeration to keep track of the concrete subclasses of DDRef
   enum DDRefVal { RegDDRefVal, BlobDDRefVal };
 
-  /// \brief Returns true if the DDRef represents a self-blob.
+  /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
+  /// addition DDRef's symbase should be the same as %t's symbase. This is so
+  /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.
+  /// But since %t1 has a different symbase than %t2 we still need to add a blob
+  /// DDRef for %t2 to the DDRef.
   bool isSelfBlob() const;
 
   /// \brief Returns true if this DDRef contains undefined canon expressions.
-  bool isUndefined() const;
+  bool containsUndef() const;
 
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;

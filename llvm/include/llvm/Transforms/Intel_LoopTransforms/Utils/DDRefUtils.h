@@ -29,10 +29,6 @@ namespace llvm {
 
 namespace loopopt {
 
-// Data Structure to store mapping of symbase to memory references.
-typedef std::map<unsigned int, SmallVector<llvm::loopopt::RegDDRef *, 32>>
-    SymToMemRefTy;
-
 /// \brief Defines utilities for DDRef class
 ///
 /// It contains a bunch of static member functions which manipulate DDRefs.
@@ -83,13 +79,6 @@ public:
 
   /// \brief Destroys the passed in DDRef.
   static void destroy(DDRef *Ref);
-
-  /// \brief Gathers the memory reference inside the Node and stores them
-  /// in the SymToMemRef map.
-  static void gatherMemRefs(const HLNode *Node, SymToMemRefTy &SymToMemRef);
-
-  /// \brief Prints out the SymToMemRef map.
-  static void dumpMemRefMap(SymToMemRefTy *RefMap);
 
   /// \brief Returns a new symbase.
   static unsigned getNewSymbase();

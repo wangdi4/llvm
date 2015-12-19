@@ -16,6 +16,7 @@ using namespace llvm;
 
 void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeSSADeconstructionPass(Registry);
+  initializeHIROptPredicatePass(Registry);
   initializeHIRCompleteUnrollPass(Registry);
   initializeHIRGeneralUnrollPass(Registry);
   initializeHIRDummyTransformationPass(Registry);

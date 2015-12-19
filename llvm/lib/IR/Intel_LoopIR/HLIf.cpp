@@ -104,7 +104,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
   OS << "if (";
 
   /// Print predicates
-  for (auto I = pred_begin(), E = pred_end(); I != E; I++) {
+  for (auto I = pred_begin(), E = pred_end(); I != E; ++I) {
     const RegDDRef *Ref;
     if (!FirstPred) {
       OS << " && ";
@@ -146,7 +146,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << "{\n";
 
   /// Print then children
-  for (auto I = then_begin(), E = then_end(); I != E; I++) {
+  for (auto I = then_begin(), E = then_end(); I != E; ++I) {
     I->print(OS, Depth + 1, Detailed);
   }
 
@@ -160,7 +160,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "{\n";
 
     /// Print else children
-    for (auto I = else_begin(), E = else_end(); I != E; I++) {
+    for (auto I = else_begin(), E = else_end(); I != E; ++I) {
       I->print(OS, Depth + 1, Detailed);
     }
 
@@ -313,7 +313,7 @@ void HLIf::verify() const {
 
       (void)DDRefLhs;
       (void)DDRefRhs;
-      assert(DDRefLhs->isUndefined() && DDRefRhs->isUndefined() &&
+      assert(DDRefLhs->containsUndef() && DDRefRhs->containsUndef() &&
              "DDRefs should be undefined for FCMP_TRUE/FCMP_FALSE predicate");
     }
   }

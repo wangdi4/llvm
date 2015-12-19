@@ -292,8 +292,8 @@ public:
   //  backwardDV[0:1] is (= ,<)
 
   bool findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
-                       const DVectorTy &inputDV, DVectorTy &forwardDV,
-                       DVectorTy &backwardDV);
+                       const DVectorTy &InputDV, DVectorTy &ForwardDV,
+                       DVectorTy &BackwardDV);
 
   /// getSplitIteration - Give a dependence that's splittable at some
   /// particular level, return the iteration that should be used to split
@@ -338,10 +338,12 @@ public:
 
   const CanonExpr *getSplitIteration(const Dependences &Dep, unsigned Level);
 
-  //
-  // Reverse Direction vector
-  //
-  void reverseDV(const DVectorTy &inputDV, DVectorTy &outputDV) const;
+  ///
+  ///  Reverse Direction vector
+  ///
+
+  void getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &OutputDV,
+                            unsigned MaxLevel) const;
 
   // Returns last level in DV .e.g.  (= = =) return 3
 
@@ -354,11 +356,11 @@ public:
   // will fill in (= = *)
   // which is testing for innermost loop only
 
-  static void setInputDV(DVectorTy &inputDV, const unsigned int startLevel,
-                         const unsigned int endLevel);
+  static void setInputDV(DVectorTy &InputDV, const unsigned int StartLevel,
+                         const unsigned int EndLevel);
 
   // Construct all 0
-  static void initDV(DVectorTy &inputDV);
+  static void initDV(DVectorTy &InputDV);
 
 private:
   //    AliasAnalysis *AA;

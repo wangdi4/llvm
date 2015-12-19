@@ -1811,6 +1811,10 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     NewBB->moveAfter(PredBB);
     BlockMapping[OldBB] = NewBB;
 
+    // Disallow threading across loop headers for newly created blocks. This is
+    // an added safety measure to prevent out of control jump threading.
+    BlockThreadCount[NewBB] = MaxThreadsPerBlock;
+
     // We are going to have to map operands from their original block 'OldBB' to
     // the new copy of the block 'NewBB'.
     BasicBlock::iterator BI = OldBB->begin();
@@ -1870,8 +1874,10 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
         else if (BasicBlock *DestBB = dyn_cast<BasicBlock>(New.getOperand(i))) {
           DenseMap<BasicBlock*, BasicBlock*>::iterator I;
           I = BlockMapping.find(DestBB);
-          if (I != BlockMapping.end())
-            New.setOperand(i, I->second);
+          if (I != BlockMapping.end()) {
+            DestBB = I->second;
+            New.setOperand(i, DestBB);
+          }
 
           // If we are threading across a loop header, we have to update the
           // LoopHeaders set. To do this precisely, we would need to re-run
@@ -2156,7 +2162,7 @@ bool JumpThreading::DuplicateCondBranchOnPHIIntoPred(BasicBlock *BB,
   // If BB is a loop header, then duplicating this block outside the loop would
   // cause us to transform this into an irreducible loop, don't do this.
   // See the comments above FindLoopHeaders for justifications and caveats.
-  if (LoopHeaders.count(BB) && !JumpThreadLoopHeader) {                 // INTEL
+  if (LoopHeaders.count(BB)) {
     DEBUG(dbgs() << "  Not duplicating loop header '" << BB->getName()
           << "' into predecessor block '" << PredBBs[0]->getName()
           << "' - it might create an irreducible loop!\n");
@@ -2164,6 +2170,14 @@ bool JumpThreading::DuplicateCondBranchOnPHIIntoPred(BasicBlock *BB,
   }
 
 #if INTEL_CUSTOMIZATION
+  // Initially, I enabled this transformation for loop headers under
+  // JumpThreadLoopHeader, but that caused out-of-control jump threading,
+  // because we were failing to properly update the LoopHeaders set after making
+  // this transformation (see cq379894). We may choose to enable this later as
+  // it should be fairly simple to add the necessary BB(s) to LoopHeaders, but
+  // since it isn't needed for CoreMark, I am simply disabling this for
+  // LoopHeaders for now.
+  //
   // Another problem with performing this optimization on a loop header is
   // that the transformed code can end up identical to the original code,
   // which would prevent the optimization pass from ever converging! This

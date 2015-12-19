@@ -87,4 +87,37 @@ b3:
   ret void
 }
 
+; Check that the "duplicate conditional branch on phi into pred"
+; transformation doesn't cause us to go into an infinite loop of duplicating
+; b1 into its predecessor and then jump threading across b3.
+;
+; CHECK-LABEL: f5
+;
+define i8* @f5(i8* %arg1, i64 %arg2) {
+b0:
+  %cmp1 = icmp sgt i64 %arg2, 0
+  br label %b1
+
+b1:
+  %cmp2 = phi i1 [ %cmp1, %b0 ], [ %cmp3, %b3 ]
+  %m = phi i32 [ -2147483648, %b0 ], [ %shr, %b3 ]
+  %j = phi i64 [ 0, %b0 ], [ %inc, %b3 ]
+  br i1 %cmp2, label %b2, label %b3
+
+b2:
+  %arrayidx = getelementptr inbounds i8, i8* %arg1, i64 %j
+  store i8 0, i8* %arrayidx, align 1
+  br label %b3
+
+b3:
+  %shr = ashr i32 %m, 1
+  %inc = add i64 %j, 1
+  %tobool2 = icmp eq i32 %shr, 0
+  %cmp3 = icmp slt i64 %inc, %arg2
+  br i1 %tobool2, label %b4, label %b1
+
+b4:
+  ret i8* %arg1
+}
+
 declare void @f0()
