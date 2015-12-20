@@ -96,6 +96,10 @@ static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
                                          cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
 
+// This option is used to find any new Instructions are added after
+// community pulldown.
+static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
+
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
 // Position of the function return node relative to the function node.
@@ -341,20 +345,20 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
-  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-    if (F->hasPersonalityFn()) {
-      EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
-
-      if (isFuncletEHPersonality(Personality)) {
-        ValueNodes.clear();
-        return;
-      }
-    }
-  }
-
+  SkipAndersensAnalysis = false;
   IndirectCallList.clear();
   IdentifyObjects(M);
   CollectConstraints(M);
+
+  if (SkipAndersensAnalysis) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints) {
+      errs() << " Constraints Dump: Skipping Analysis " << "\n";
+    }
+    return;
+  }
+
   if (PrintAndersConstraints) {
       errs() << " Constraints Dump " << "\n";
       PrintConstraints();
@@ -570,6 +574,13 @@ void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
+// Returns true if "Ty" is Ptr type or PtrVector type.
+bool AndersensAAResult::isPointsToType(Type *Ty) const {
+  if (Ty->getScalarType()->isPointerTy()) {
+    return true;
+  }
+  return false;
+}
 
 /// getNode - Return the node corresponding to the specified pointer scalar.
 ///
@@ -1067,7 +1078,7 @@ bool AndersensAAResult::analyzeGlobalEscape(
       } else {
         return true;
       }
-    } else if (const Constant *C = dyn_cast<Constant>(UR)) {
+    } else if (isa<Constant>(UR)) {
       return true;
     }
   }
@@ -1111,7 +1122,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     // The function itself is a memory object.
     unsigned First = NumObjects;
     ValueNodes[F] = NumObjects++;
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()))
+    if (isPointsToType(F->getFunctionType()->getReturnType()))
       ReturnNodes[F] = NumObjects++;
     if (F->getFunctionType()->isVarArg())
       VarargNodes[F] = NumObjects++;
@@ -1121,7 +1132,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
       {
-        if (isa<PointerType>(I->getType()))
+        if (isPointsToType(I->getType()))
           ValueNodes[I] = NumObjects++;
       }
     MaxK[First] = NumObjects - First;
@@ -1132,7 +1143,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
     for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
       // If this is an heap or stack allocation, create a node for the memory
       // object.
-      if (isa<PointerType>(II->getType())) {
+      if (isPointsToType(II->getType())) {
         ValueNodes[&*II] = NumObjects++;
         if (AllocaInst *AI = dyn_cast<AllocaInst>(&*II))
           ObjectNodes[AI] = NumObjects++;
@@ -1140,17 +1151,18 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
 
       // Calls to inline asm need to be added as well because the callee isn't
       // referenced anywhere else.
-      if (CallInst *CI = dyn_cast<CallInst>(&*II)) {
-        Value *Callee = CI->getCalledValue();
+      // Treat malloc/calloc in InvokeInst also as memory object creators.
+      if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
+        CallSite CS = CallSite(&*II); 
+        Value *Callee = CS.getCalledValue();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        ImmutableCallSite cs1(&*II);
-        if (const Function *F1 = cs1.getCalledFunction()) {
+        if (const Function *F1 = CS.getCalledFunction()) {
             // TODO: Make this condition as utility function later
             // after adding more malloc-like calls
             if (F1->getName() == "malloc" || F1->getName() == "calloc") {
-                  ObjectNodes[CI] = NumObjects++;
+                  ObjectNodes[CS.getInstruction()] = NumObjects++;
            }
         }
       }
@@ -1169,7 +1181,7 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
 /// getNodeForConstantPointer - Return the node corresponding to the constant
 /// pointer itself.
 unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
-  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
+  assert(isPointsToType(C->getType()) && "Not a constant pointer!");
 
   if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C))
     return NullPtr;
@@ -1192,7 +1204,20 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
-  } else if (const BlockAddress *BA = dyn_cast<BlockAddress>(C)) {
+  } else if (isa<BlockAddress>(C)) {
+      return UniversalSet;
+  } else if (C->getType()->isVectorTy()) {
+      // Conservatively return UniversalSet for VectorType constant. 
+      // TODO: But this can be improved later using the context where
+      // this constant is used. 
+      // Ex:
+      //    Store VecPtr <&x1, &x2, &x3 …>
+      //
+      //  In future, it should be modeled as
+      //     *VecPtr = x1;
+      //     *VecPtr = x2;
+      //      … 
+      //
       return UniversalSet;
   } else {
     errs() << "Constant not yet handled: " << *C << "\n";
@@ -1204,9 +1229,9 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
 /// getNodeForConstantPointerTarget - Return the node POINTED TO by the
 /// specified constant pointer.
 unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
-  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
+  assert(isPointsToType(C->getType()) && "Not a constant pointer!");
 
-  if (isa<ConstantPointerNull>(C))
+  if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C))
     return NullObject;
   else if (GlobalValue *GV = dyn_cast<GlobalValue>(C))
     return getObject(GV);
@@ -1227,7 +1252,20 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
-  } else if (const BlockAddress *BA = dyn_cast<BlockAddress>(C)) {
+  } else if (isa<BlockAddress>(C)) {
+      return UniversalSet;
+  } else if (C->getType()->isVectorTy()) {
+      // Conservatively return UniversalSet for VectorType constant. 
+      // TODO: But this can be improved later using the context where
+      // this constant is used. 
+      // Ex:
+      //    Store VecPtr <&x1, &x2, &x3 …>
+      //
+      //  In future, it should be modeled as
+      //     *VecPtr = x1;
+      //     *VecPtr = x2;
+      //      … 
+      //
       return UniversalSet;
   } else {
     llvm_unreachable("Unknown constant pointer!");
@@ -1262,7 +1300,7 @@ void AndersensAAResult::AddGlobalInitializerConstraints(unsigned NodeIndex,
 /// returned by this function.
 void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
-    if (isa<PointerType>(I->getType()))
+    if (isPointsToType(I->getType()))
       // If this is an argument of an externally accessible function, the
       // incoming pointer might point to anything.
       Constraints.push_back(Constraint(Constraint::Copy, getNode(I),
@@ -1327,8 +1365,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) 
 
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 1 && 
-        isa<PointerType>(FTy->getParamType(0)) &&
-        isa<PointerType>(FTy->getParamType(1))) {
+        isPointsToType(FTy->getParamType(0)) &&
+        isPointsToType(FTy->getParamType(1))) {
 
       // *Dest = *Src, which requires an artificial graph node to represent the
       // constraint.  It is broken up into *Dest = temp, temp = *Src
@@ -1353,7 +1391,7 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) 
       F->getName() == "strtok") {
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 0 && 
-        isa<PointerType>(FTy->getParamType(0))) {
+        isPointsToType(FTy->getParamType(0))) {
       Constraints.push_back(Constraint(Constraint::Copy,
                                        getNode(CS.getInstruction()),
                                        getNode(CS.getArgument(0))));
@@ -1412,7 +1450,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     Constraints.push_back(Constraint(Constraint::Store, ValueNodes[F],
                                      ValueNodes[F]));
     // Set up the return value node.
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()))
+    if (isPointsToType(F->getFunctionType()->getReturnType()))
       GraphNodes[getReturnNode(F)].setValue(F);
     if (F->getFunctionType()->isVarArg())
       GraphNodes[getVarargNode(F)].setValue(F);
@@ -1420,7 +1458,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     // Set up incoming argument nodes.
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
-      if (isa<PointerType>(I->getType()))
+      if (isPointsToType(I->getType()))
         getNodeValue(*I);
 
     // At some point we should just add constraints for the escaping functions
@@ -1437,7 +1475,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       visit(F);
     } else {
       // External functions that return pointers return the universal set.
-      if (isa<PointerType>(F->getFunctionType()->getReturnType()))
+      if (isPointsToType(F->getFunctionType()->getReturnType()))
         Constraints.push_back(Constraint(Constraint::Copy,
                                          getReturnNode(F),
                                          UniversalSet));
@@ -1446,7 +1484,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       // stored into them.
       for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
            I != E; ++I)
-        if (isa<PointerType>(I->getType())) {
+        if (isPointsToType(I->getType())) {
           // Pointers passed into external functions could have anything stored
           // through them.
           Constraints.push_back(Constraint(Constraint::Store, getNode(I),
@@ -1489,27 +1527,119 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
   case Instruction::Resume:
   case Instruction::IndirectBr:
   case Instruction::Fence:
+
+  // Syntax:
+  //     catchendpad unwind label <nextaction>
+  //     catchendpad unwind to caller
+  case Instruction::CatchEndPad:
     return;
 
   default:
-    // Is this something we aren't handling yet?
-    errs() << "Unknown instruction: " << I;
-    llvm_unreachable(0);
+    if (SkipAndersUnreachableAsserts) {
+      // Unknown instruction found.
+      SkipAndersensAnalysis = true;
+      return;
+    }
+    else {
+      // Is this something we aren't handling yet?
+      errs() << "Unknown instruction: " << I;
+      llvm_unreachable(0);
+    }
   }
 }
 
+// Treat args of WinEH instructions conservatively. 
+void AndersensAAResult::processWinEhOperands(Instruction &AI) {
+  for (unsigned Op = 0, NumOps = AI.getNumOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//      CatchReturn <value> unwind label %label
+//
+void AndersensAAResult::visitCatchReturnInst(CatchReturnInst &AI) {
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      <resultval> = catchpad <resultty> [<args>*]
+//          to label <normal label> unwind label <exception label>
+//
+void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getArgOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//     <resultval> = cleanuppad <resultty> [<args>*]
+//
+void AndersensAAResult::visitCleanupPadInst(CleanupPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      CleanupEndPad <type> <value> unwind label <continue>
+//
+void AndersensAAResult::visitCleanupEndPadInst(CleanupEndPadInst &AI) {
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      terminatepad [<args>*] unwind label <exception label>
+//      terminatepad [<args>*] unwind to caller
+//
+void AndersensAAResult::visitTerminatePadInst(TerminatePadInst &AI) {
+  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getArgOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//      cleanupret <type> <value> unwind label <continue>
+//      cleanupret <type> <value> unwind to caller
+//
+void AndersensAAResult::visitCleanupReturnInst(CleanupReturnInst &AI) {
+  processWinEhOperands(AI);
+}
+
 void AndersensAAResult::visitInsertValueInst(InsertValueInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Store, getNodeValue(AI),
+    if (!isPointsToType(AI.getOperand(1)->getType())) {
+        return;
+    }
+    Constraints.push_back(Constraint(Constraint::Store, AN,
                                      getNode(AI.getOperand(1)))); 
 }
 
 void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
@@ -1517,7 +1647,7 @@ void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
 }
 
 void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
-    if (!isa<PointerType>(AI.getValOperand()->getType())) {
+    if (!isPointsToType(AI.getValOperand()->getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Store,
@@ -1526,12 +1656,13 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0))));
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(1))));
 }
 
@@ -1546,7 +1677,7 @@ void AndersensAAResult::visitIntToPtrInst(IntToPtrInst &AI) {
 }
 
 void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
-  if (!AI.getType()->isPointerTy()) {
+  if (!isPointsToType(AI.getType())) {
       return;
   }
   Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
@@ -1554,27 +1685,38 @@ void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
 }
 
 void AndersensAAResult::visitInsertElementInst(InsertElementInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Store, getNodeValue(AI),
+   
+    
+    if (!isPointsToType(AI.getOperand(1)->getType())) {
+        return;
+    }
+    Constraints.push_back(Constraint(Constraint::Store, AN,
                                      getNode(AI.getOperand(1)))); 
 }
 
 void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
-                                     getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
-                                     getNode(AI.getOperand(1)))); 
+    unsigned AN = getNodeValue(AI);
+    if (isPointsToType(AI.getOperand(0)->getType())) {
+      Constraints.push_back(Constraint(Constraint::Copy, AN,
+                                       getNode(AI.getOperand(0)))); 
+    }
+    if (isPointsToType(AI.getOperand(1)->getType())) {
+      Constraints.push_back(Constraint(Constraint::Copy, AN,
+                                       getNode(AI.getOperand(1)))); 
+    }
 }
 
 void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
-  if (!AI.getType()->isPointerTy()) {
+  if (!isPointsToType(AI.getType())) {
       return;
   }
   Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
@@ -1583,7 +1725,7 @@ void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
 }
 
 void AndersensAAResult::visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI) {
-    if (!isa<PointerType>(AI.getNewValOperand()->getType())) {
+    if (!isPointsToType(AI.getNewValOperand()->getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Store,
@@ -1599,7 +1741,7 @@ void AndersensAAResult::visitAllocaInst(AllocaInst &AI) {
 }
 
 void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
-  if (RI.getNumOperands() && isa<PointerType>(RI.getOperand(0)->getType()))
+  if (RI.getNumOperands() && isPointsToType(RI.getOperand(0)->getType()))
     // return V   -->   <Copy/retval{F}/v>
     Constraints.push_back(Constraint(Constraint::Copy,
                                      getReturnNode(RI.getParent()->getParent()),
@@ -1607,7 +1749,7 @@ void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
 }
 
 void AndersensAAResult::visitLoadInst(LoadInst &LI) {
-  if (isa<PointerType>(LI.getType()))
+  if (isPointsToType(LI.getType()))
     // P1 = load P2  -->  <Load/P1/P2>
     Constraints.push_back(Constraint(Constraint::Load, getNodeValue(LI),
                                      getNode(LI.getOperand(0))));
@@ -1616,7 +1758,7 @@ void AndersensAAResult::visitLoadInst(LoadInst &LI) {
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   ConstantExpr *CE;
 
-  if (isa<PointerType>(SI.getOperand(0)->getType())) {
+  if (isPointsToType(SI.getOperand(0)->getType())) {
     // CQ377860: So far, “value to store” operand of “Instruction::Store”
     // is treated as either “value” or constant expression. But, it is 
     // possible that “value to store” operand of “Instruction::Store” 
@@ -1653,7 +1795,7 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
-  if (isa<PointerType>(PN.getType())) {
+  if (isPointsToType(PN.getType())) {
     unsigned PNN = getNodeValue(PN);
     for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i)
       // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
@@ -1664,8 +1806,8 @@ void AndersensAAResult::visitPHINode(PHINode &PN) {
 
 void AndersensAAResult::visitCastInst(CastInst &CI) {
   Value *Op = CI.getOperand(0);
-  if (isa<PointerType>(CI.getType())) {
-    if (isa<PointerType>(Op->getType())) {
+  if (isPointsToType(CI.getType())) {
+    if (isPointsToType(Op->getType())) {
       // P1 = cast P2  --> <Copy/P1/P2>
       Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(CI),
                                        getNode(CI.getOperand(0))));
@@ -1683,7 +1825,7 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
       getNodeValue(CI);
 #endif
     }
-  } else if (isa<PointerType>(Op->getType())) {
+  } else if (isPointsToType(Op->getType())) {
     // int = cast P1 --> <Copy/Univ/P1>
 #if 0
     Constraints.push_back(Constraint(Constraint::Copy,
@@ -1696,7 +1838,7 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
 }
 
 void AndersensAAResult::visitSelectInst(SelectInst &SI) {
-  if (isa<PointerType>(SI.getType())) {
+  if (isPointsToType(SI.getType())) {
     unsigned SIN = getNodeValue(SI);
     // P1 = select C, P2, P3   ---> <Copy/P1/P2>, <Copy/P1/P3>
     Constraints.push_back(Constraint(Constraint::Copy, SIN,
@@ -1722,7 +1864,7 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   Function::arg_iterator formal_end = F->arg_end();
   Function::arg_iterator last_formal = F->arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     Constraints.push_back(Constraint(Constraint::Copy, 
                           getNode(CS.getInstruction()), 
                           getReturnNode(F)));
@@ -1731,8 +1873,8 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   for (; formal_itr != formal_end;) {
     Argument* formal = formal_itr;
     Value* actual = *arg_itr;
-    if (formal->getType()->isPointerTy()) {
-      if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(formal->getType())) {
+      if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
                               getNode(formal_itr), getNode(actual)));
       }
@@ -1755,7 +1897,7 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
     }
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (actual->getType()->isPointerTy()) {
+      if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
                               getNode(last_formal), getNode(actual)));
       }
@@ -1770,14 +1912,14 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     Constraints.push_back(Constraint(Constraint::Copy, 
                           getNode(CS.getInstruction()), UniversalSet));
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
-    if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(actual->getType())) {
       Constraints.push_back(Constraint(Constraint::Store, getNode(actual),
                                        UniversalSet));
     }
@@ -1845,7 +1987,7 @@ void AndersensAAResult::visitCallSite(CallSite CS) {
                             getNodeValue(*CS.getInstruction()), ObjectIndex));
       return;
   }
-  if (isa<PointerType>(CS.getType()))
+  if (isPointsToType(CS.getType()))
     getNodeValue(*CS.getInstruction());
 
   if (Function *F = CS.getCalledFunction()) {
@@ -2890,13 +3032,13 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
-    if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(actual->getType())) {
       // TODO: Need to think more about it. ICC is not doing it.
       // Need to check with small test cases.
     }
@@ -2925,8 +3067,8 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   // to improve accuracy of points-to sets.   
 
 
-  if (CS.getType()->isPointerTy()) {
-    if (isa<PointerType>(F->getFunctionType()->getReturnType())) {
+  if (isPointsToType(CS.getType())) {
+    if (isPointsToType(F->getFunctionType()->getReturnType())) {
       AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
     }
     else {
@@ -2939,8 +3081,8 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   for (; formal_itr != formal_end && arg_itr != arg_end;) {
     Argument* formal = formal_itr;
     Value* actual = *arg_itr;
-    if (formal->getType()->isPointerTy()) {
-      if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(formal->getType())) {
+      if (isPointsToType(actual->getType())) {
         AddEdgeInGraph(getNode(formal_itr), getNode(actual));
       }
       else {
@@ -2955,7 +3097,7 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   if (F->getFunctionType()->isVarArg()) {
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (actual->getType()->isPointerTy()) {
+      if (isPointsToType(actual->getType())) {
         AddEdgeInGraph(getNode(last_formal), getNode(actual));
       }
     }
@@ -3516,7 +3658,7 @@ void AndersensAAResult::PrintNode(const Node *N) const {
   assert(N->getValue() != 0 && "Never set node label!");
   Value *V = N->getValue();
   if (Function *F = dyn_cast<Function>(V)) {
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()) &&
+    if (isPointsToType(F->getFunctionType()->getReturnType()) &&
         N == &GraphNodes[getReturnNode(F)]) {
       errs() << F->getName() << ":retval";
       return;
