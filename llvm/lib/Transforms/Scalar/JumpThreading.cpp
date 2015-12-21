@@ -570,10 +570,7 @@ ComputeValueKnownInPredecessors(Value *V, BasicBlock *BB, PredValueInfo &Result,
       return true;
     }
 
-    // Temporarily avoid searching for constant values through multiple levels
-    // of PHI while debugging the stability regression in oav2/rotatev2data1.
-    // Once that problem is fixed, we can remove the "|| 1" here.
-    if (!DistantJumpThreading || 1)
+    if (!DistantJumpThreading)
       return false;
 
     // We failed to find any constant incoming values to PN. Now look back
@@ -1638,13 +1635,16 @@ static void AddPHINodeEntriesForMappedBlock(BasicBlock *PHIBB,
     // Ok, we have a PHI node.  Figure out what the incoming value was for the
     // DestBlock.
     Value *IV = PN->getIncomingValueForBlock(OldPred);
-
+#if !INTEL_CUSTOMIZATION
+    // This code isn't needed with the Intel customizations, because we always
+    // run the SSAUpdater to resolve cross-BB references.
     // Remap the value if necessary.
     if (Instruction *Inst = dyn_cast<Instruction>(IV)) {
       DenseMap<Instruction*, Value*>::iterator I = ValueMap.find(Inst);
       if (I != ValueMap.end())
         IV = I->second;
     }
+#endif // !INTEL_CUSTOMIZATION
 
     PN->addIncoming(IV, NewPred);
   }
@@ -1820,18 +1820,7 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     BasicBlock::iterator BI = OldBB->begin();
     BasicBlock::iterator BE = OldBB->end();
 
-    // If OldBB starts a sub-region, map its PHI nodes to the value coming in
-    // from the known predecessor.
-    for (int n = RegionInfo.size() - 1, i = n; i >= 0; i--) {
-      if (RegionInfo[i].first == OldBB) {
-        BasicBlock *PredBlock = (i == n) ? PredBB : RegionInfo[i+1].second;
-        for (; PHINode *PN = dyn_cast<PHINode>(BI); ++BI)
-          ValueMapping[PN] = PN->getIncomingValueForBlock(PredBlock);
-        break;
-      }
-    }
-
-    // Clone the remaining instructions of OldBB into NewBB, keeping track of
+    // Clone the instructions of OldBB into NewBB, keeping track of
     // the mapping. Delay remapping until all blocks in the region have been
     // cloned. That ensures all required cross-block mappings are available.
     // In RegionBottom, stop cloning at the terminator instruction.
@@ -1849,27 +1838,51 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
     BasicBlock *NewBB = BlockMapping[OldBB];
 
     for (auto &New : *NewBB) {
-      if (PHINode *PN = dyn_cast<PHINode>(&New))
-        // Update intra-region PHI nodes. Any incoming value from a block
-        // outside the region can be ignored, because those edges weren't
-        // copied to the new threaded code. That includes edges from
-        // RegionBottom, since the only edge from RegionBottom that gets copied
-        // to the threaded region is RegionBottom-->SuccBB.
-        for (int i = PN->getNumIncomingValues() - 1; i >= 0; --i) {
-          DenseMap<BasicBlock*, BasicBlock*>::iterator I;
-          I = BlockMapping.find(PN->getIncomingBlock(i));
-          if (I != BlockMapping.end() &&
-              PN->getIncomingBlock(i) != RegionBottom)
-            PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
-          else
-            PN->removeIncomingValue(i);
+      if (PHINode *PN = dyn_cast<PHINode>(&New)) {
+        if (OldBB == RegionTop) {
+          // For RegionTop, reduce the PHIs to a single incoming value from
+          // PredBB. It is necessary to preserve the PHI, even though it looks
+          // degenerate, so that we can run the SSAResolver separately for the
+          // PHI and its operand.
+          for (int i = PN->getNumIncomingValues() - 1; i >= 0; --i)
+            if (PN->getIncomingBlock(i) != PredBB) PN->removeIncomingValue(i);
         }
+        else {
+          // Update intra-region PHI nodes. Any incoming value from a block
+          // outside the region can be ignored, because those edges weren't
+          // copied to the new threaded code. That includes edges from
+          // RegionBottom, since the only edge from RegionBottom that gets
+          // copied to the threaded region is RegionBottom-->SuccBB.
+          for (int i = PN->getNumIncomingValues() - 1; i >= 0; --i) {
+            DenseMap<BasicBlock*, BasicBlock*>::iterator I;
+            I = BlockMapping.find(PN->getIncomingBlock(i));
+            if (I != BlockMapping.end() &&
+                PN->getIncomingBlock(i) != RegionBottom)
+              PN->setIncomingBlock(i, BlockMapping[PN->getIncomingBlock(i)]);
+            else
+              PN->removeIncomingValue(i);
+          }
+        }
+
+        // Since all PHI operands are cross-block references, there is no
+        // sense trying to remap its operands. We'll always use SSAResolver to
+        // rewrite its operands.
+        continue;
+      }
 
       for (unsigned i = 0, e = New.getNumOperands(); i != e; ++i)
         if (Instruction *Inst = dyn_cast<Instruction>(New.getOperand(i))) {
-          DenseMap<Instruction*, Value*>::iterator I = ValueMapping.find(Inst);
-          if (I != ValueMapping.end())
+          // Only remap operands from the same basic block. We know these
+          // operands should reference the new version of Inst. For any cross-BB
+          // references, we use SSAUpdater to figure out what instruction(s)
+          // can reach the use.
+          if (Inst->getParent() == OldBB) {
+            DenseMap<Instruction*, Value*>::iterator I;
+            I = ValueMapping.find(Inst);
+            assert (I != ValueMapping.end() &&
+                    "Expected to find a mapping for Inst");
             New.setOperand(i, I->second);
+          }
         }
         else if (BasicBlock *DestBB = dyn_cast<BasicBlock>(New.getOperand(i))) {
           DenseMap<BasicBlock*, BasicBlock*>::iterator I;
@@ -1974,10 +1987,7 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       // block, and if so, record them in UsesToRename.
       for (Use &U : I.uses()) {
         Instruction *User = cast<Instruction>(U.getUser());
-        if (PHINode *UserPN = dyn_cast<PHINode>(User)) {
-          if (UserPN->getIncomingBlock(U) == OldBB)
-            continue;
-        } else if (User->getParent() == OldBB)
+        if (!isa<PHINode>(User) && User->getParent() == OldBB)
           continue;
 
         UsesToRename.push_back(&U);
