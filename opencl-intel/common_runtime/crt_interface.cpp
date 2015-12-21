@@ -297,6 +297,23 @@ cl_int CL_API_CALL clGetPlatformInfo(
                 strncpy_s( ( char * )param_value, RetSize, INTEL_ICD_EXTENSIONS_STRING, RetSize );
             }
             break;
+        case CL_PLATFORM_HOST_TIMER_RESOLUTION:
+            {
+                if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
+                {
+                    return CL_INVALID_DEVICE;
+                }
+
+                OCLCRT::DEV_INFO_MAP::const_iterator itr            = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
+                cl_platform_id                       devicePlatform = itr->second->m_crtPlatform->m_platformIdDEV;
+
+                return devicePlatform->dispatch->clGetPlatformInfo( devicePlatform,
+                                                                    CL_PLATFORM_HOST_TIMER_RESOLUTION,
+                                                                    param_value_size,
+                                                                    param_value,
+                                                                    param_value_size_ret );
+            }
+            break;
         default:
             return CL_INVALID_VALUE;
     }
@@ -7594,6 +7611,23 @@ cl_int CL_API_CALL clGetMemObjectInfo(
                 }
             }
             break;
+        case CL_MEM_USES_SVM_POINTER:
+            {
+                //try to route to the GPU with this as GPU controlls SVM allocations
+                cl_device_id gpuDevice = crtMemObj->m_pContext->GetDeviceByType( CL_DEVICE_TYPE_GPU );
+                if( gpuDevice != NULL )
+                {
+                    cl_mem devMemObj       = crtMemObj->getDeviceMemObj( gpuDevice );
+                    errCode = devMemObj->dispatch->clGetMemObjectInfo(
+                        devMemObj,
+                        param_name,
+                        param_value_size,
+                        param_value,
+                        param_value_size_ret);
+                    break;
+                }
+                //in case there is no GPU device , route to any through default section
+            }
         default:
             {
                 cl_mem devMemObj = crtMemObj->getAnyValidDeviceMemObj();
@@ -9896,6 +9930,8 @@ cl_int CL_API_CALL clEnqueueSVMFree(
         errCode = CL_OUT_OF_RESOURCES;
         goto FINISH;
     }
+
+    clbkData->m_queue = command_queue;
     clbkData->m_svmFreeUserEvent = crtEvent;
     clbkData->m_shouldReleaseEvent = ( NULL == event );
     clbkData->m_originalCallback = pfn_free_func;
@@ -9919,7 +9955,7 @@ cl_int CL_API_CALL clEnqueueSVMFree(
                                                         user_data,
                                                         numOutEvents,
                                                         outEvents,
-                                                        event ? &crtEvent->m_eventDEV : NULL );
+                                                        &crtEvent->m_eventDEV );
         if( CL_SUCCESS != errCode )
         {
             goto FINISH;
@@ -9928,7 +9964,8 @@ cl_int CL_API_CALL clEnqueueSVMFree(
         // Need callback so we can remove the SVM pointers from cache
         clbkData->m_isGpuQueue = true;
 
-        errCode = clSetEventCallback( crtEvent->m_eventDEV, CL_COMPLETE, SVMFreeCallbackFunction, clbkData );
+        // Use GPU queue since event was created by GPU
+        errCode = crtQueue->m_cmdQueueDEV->dispatch->clSetEventCallback( crtEvent->m_eventDEV, CL_COMPLETE, SVMFreeCallbackFunction, clbkData );
         if( CL_SUCCESS != errCode )
         {
             errCode = CL_OUT_OF_RESOURCES;

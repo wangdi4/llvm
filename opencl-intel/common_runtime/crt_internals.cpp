@@ -3285,6 +3285,18 @@ cl_int CrtContext::CreateGLImage(
     return errCode;
 }
 
+SVMFreeCallbackData::SVMFreeCallbackData()
+{
+    m_isGpuQueue         = false;
+    m_shouldReleaseEvent = false;
+    m_queue              = NULL;
+    m_SVMPointers        = NULL;
+    m_numSVMPointers     = 0;
+    m_svmFreeUserEvent   = NULL;
+    m_originalUserData   = NULL;
+    m_originalCallback   = NULL;
+}
+
 SVMFreeCallbackData::~SVMFreeCallbackData()
 {
     if( m_SVMPointers )
@@ -3373,9 +3385,6 @@ void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *my
         // Mark the event which is returned to user as complete
         clSetUserEventStatus( clbkData->m_svmFreeUserEvent->m_eventDEV, CL_COMPLETE );
     }
-
-    // Release the marker that was created in clEnqueueSVMFree
-    clReleaseEvent( event );
 
     // The event was not returned to user so we must release it here
     if( clbkData->m_shouldReleaseEvent )
