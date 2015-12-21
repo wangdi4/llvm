@@ -1192,6 +1192,15 @@ def ext_ms_using_declaration_inaccessible : ExtWarn<
 def err_access_ctor : Error<
   "calling a %select{private|protected}0 constructor of class %2">, 
   AccessControl;
+// if INTEL_CUSTOMIZATION
+// Fix for CQ374722: for compatibility reasons allow to call private
+// constructor from template or template instantiation in intel
+// compatibility mode. In MS compatibility mode allow to call private
+// constructor at any point.
+def warn_access_ctor : Warning<err_access_ctor.Text>,
+                       AccessControl,
+                       InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def ext_rvalue_to_reference_access_ctor : Extension<
   "C++98 requires an accessible copy constructor for class %2 when binding "
   "a reference to a temporary; was %select{private|protected}0">,
