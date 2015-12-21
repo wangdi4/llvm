@@ -6,17 +6,12 @@ static const char* BC_FILE = "reqd_num_sub_groups_64.bc";
 static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined (__ANDROID__)
     #define SET_FPOS_T(var, val) (var) = (val)
     #define GET_FPOS_T(var) var
 #else
-    #if defined(__ANDROID__)
-        #define SET_FPOS_T(var, val) (var) = (val)
-        #define GET_FPOS_T(var) var
-    #else
-        #define SET_FPOS_T(var, val) ((var).__pos = (val))
-        #define GET_FPOS_T(var) ((var).__pos)
-    #endif // __ANDROID__
+    #define SET_FPOS_T(var, val) ((var).__pos = (val))
+    #define GET_FPOS_T(var) ((var).__pos)
 #endif
 
 void CL21::GetKernelSubGroupInfo_MAX_SB_SIZE() const

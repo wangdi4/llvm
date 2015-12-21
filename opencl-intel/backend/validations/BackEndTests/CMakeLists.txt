@@ -29,6 +29,7 @@ set (BACKEND_TESTS_SOURCE_FILES
   CompilationServiceTest.cpp
   PluginsTest.cpp
   BlockLiteralTest.cpp
+  KernelSubGroupInfoTest.cpp
 )
 
 add_executable(${TARGET_NAME}
@@ -51,6 +52,11 @@ add_dependencies( ${TARGET_NAME} cl_sys_utils)
 # install the bitcode files that the project loads
 install(FILES Bitcode/bitcodeNoise.bc Bitcode/bitcodeNoKernels.bc Bitcode/bitcodeWithKernels.bc DESTINATION tests/BackEndTests)
 install(FILES BackEndTests.pm DESTINATION tests/BackEndTests)
+if (BUILD_X64)
+    install(FILES Bitcode/reqd_num_sub_groups_64.bc DESTINATION tests/BackEndTests)
+else (BUILD_X64)
+    install(FILES Bitcode/reqd_num_sub_groups_32.bc DESTINATION tests/BackEndTests)
+endif(BUILD_X64)
 
 install( TARGETS ${TARGET_NAME}
     RUNTIME DESTINATION tests/BackEndTests
