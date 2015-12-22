@@ -134,12 +134,12 @@ public:
                          std::vector<int> &objectsToAllocate) const override;
 #endif // INTEL_CUSTOMIZATION
 
-private:
-  uint64_t calculateMaxStackAlign(const MachineFunction &MF) const;
-
   /// Wraps up getting a CFI index and building a MachineInstr for it.
   void BuildCFI(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                 DebugLoc DL, MCCFIInstruction CFIInst) const;
+
+private:
+  uint64_t calculateMaxStackAlign(const MachineFunction &MF) const;
 
   /// Aligns the stack pointer by ANDing it with -MaxAlign.
   void BuildStackAlignAND(MachineBasicBlock &MBB,
