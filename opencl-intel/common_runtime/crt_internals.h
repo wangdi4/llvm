@@ -904,6 +904,7 @@ private:
 // EnqueueSVMFree callback:
 struct SVMFreeCallbackData
 {
+    SVMFreeCallbackData();
     ~SVMFreeCallbackData();
 
     bool                CopySVMPointers(void** SVMPointers, cl_uint numSVMPointers);
