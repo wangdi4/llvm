@@ -4636,10 +4636,18 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
             forwardDV[II - 1] = DV::EQ;
           }
           // Suppress ANTI (< ) edge for now until it's really needed
+          backwardDV[0] = DV::LT;
+          for (unsigned II = 2; II <= Levels; ++II) {
+            backwardDV[II - 1] = DV::ALL;
+          }
 
         } else {
           for (unsigned II = 1; II <= Levels; ++II) {
             backwardDV[II - 1] = DV::EQ;
+          }
+          forwardDV[0] = DV::LT;
+          for (unsigned II = 2; II <= Levels; ++II) {
+            forwardDV[II - 1] = DV::ALL;
           }
           // Suppress ANTI (< ) edge for now until it's really needed
         }

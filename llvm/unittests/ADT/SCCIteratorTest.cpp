@@ -99,6 +99,16 @@ private:
   /// Nodes - The list of nodes for this graph.
   NodeType Nodes[N];
 public:
+#if INTEL_CUSTOMIZATION
+  //Required for implementation of GraphTraits interface.
+  //Full implementation required for intel variant of SCCIterator
+  NodeType* nodes_begin() {
+    return std::begin(Nodes);
+  }
+  NodeType* nodes_end() {
+    return std::end(Nodes);
+  }
+#endif //INTEL_CUSTOMIZATION
 
   /// Graph - Default constructor.  Creates an empty graph.
   Graph() {
@@ -239,6 +249,19 @@ struct GraphTraits<Graph<N> > {
  static inline ChildIteratorType child_end(NodeType *Node) {
    return Graph<N>::child_end(Node);
  }
+
+#if INTEL_CUSTOMIZATION
+  //Required for implementation of GraphTraits interface.
+  //Full implementation required for intel variant of SCCIterator
+ typedef NodeType* nodes_iterator;
+ static inline nodes_iterator nodes_begin(Graph<N> *G) {
+  return G->nodes_begin();
+ }
+
+ static inline nodes_iterator nodes_end(Graph<N> *G) {
+  return G->nodes_end();
+ }
+#endif //INTEL_CUSTOMIZATION
 };
 
 TEST(SCCIteratorTest, AllSmallGraphs) {
@@ -335,9 +358,14 @@ TEST(SCCIteratorTest, AllSmallGraphs) {
         }
     }
 
+#if 0 //INTEL. SCCIterator now creates SCCs for nodes not reachable from 
+    //initial node, it visits components of graphs. Makes the check below 
+    //no longer valid
+    
     // Finally, check that the nodes in some SCC are exactly those that are
     // reachable from the initial node.
     EXPECT_EQ(NodesInSomeSCC, G.NodesReachableFrom(0));
+#endif
   }
 }
 

@@ -337,6 +337,10 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
   if (Loop->hasPreheader() || Loop->hasPostexit()) {
     return false;
   }
+  
+  if(!Loop->hasChildren()) {
+    return false;
+  }
 
   // Loop should be normalized before this pass
   // TODO: Decide whether we can remove this, just to save compile time.

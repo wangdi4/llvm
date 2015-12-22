@@ -304,6 +304,10 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
     return false;
   }
 
+  if(!Loop->hasChildren()) {
+    return false;
+  }
+
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   assert(UBRef && " Loop UpperBound not found.");
 

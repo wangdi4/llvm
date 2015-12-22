@@ -279,7 +279,8 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
 
   // Match defined at level.
   if ((CE1->isNonLinear() != CE2->isNonLinear()) ||
-      (CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
+      (!CE1->isNonLinear() &&
+       CE1->getDefinedAtLevel() != CE2->getDefinedAtLevel())) {
     return false;
   }
 

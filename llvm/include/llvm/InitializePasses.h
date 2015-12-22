@@ -328,6 +328,7 @@ void initializeSSADeconstructionPass(PassRegistry&);
 void initializeHIRPrinterPass(llvm::PassRegistry&);
 void initializeHIRCompleteUnrollPass(PassRegistry&);
 void initializeHIRLoopInterchangePass(PassRegistry&);
+void initializeHIRLoopDistributionPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);

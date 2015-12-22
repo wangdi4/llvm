@@ -2357,6 +2357,7 @@ bool HLNodeUtils::isKnownNonZero(const CanonExpr *CE,
 ///  Default to allow pre and post header is false
 ///  Default to allow Triangular loop is false with  exceptions
 ///  made for first iteration
+///  Does not consider innermost loops as perfect loops
 bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
                                     const HLLoop **InnermostLoop,
                                     bool AllowPrePostHdr,

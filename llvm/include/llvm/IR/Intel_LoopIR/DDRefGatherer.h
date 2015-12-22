@@ -87,7 +87,7 @@ public:
   void visit(const HLDDNode *RefNode) {
     for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
          ++I) {
-      if (!(Mode & ConstantRefs) && (*I)->isConstant()) {
+      if (!(Mode & ConstantRefs) && (*I)->getSymbase() == CONSTANT_SYMBASE) {
         continue;
       }
 

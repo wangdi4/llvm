@@ -898,6 +898,14 @@ public:
     gatherLoopswithLevel(const_cast<HLNode *>(Node), Loops, Level);
   }
 
+  /// \brief Gathers all the loops across regions and stores them in the 
+  ///  Loops vector.
+  template <typename T>
+  static void gatherAllLoops(SmallVectorImpl<T> &Loops) {
+    LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
+    HLNodeUtils::visitAll(LoopVisit);
+  }
+
   /// \brief Gathers all the loops inside the Node and stores them
   /// in the Loops vector.
   template <typename T>
