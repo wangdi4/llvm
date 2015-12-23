@@ -266,8 +266,8 @@ private:
   /// \brief Returns a RegDDRef representing loop upper.
   RegDDRef *createUpperDDRef(const SCEV *BETC, unsigned Level, Type *IVType);
 
-  /// \brief collects strides for an ArrayType in the Strides vector.
-  void collectStrides(Type *GEPType, SmallVectorImpl<uint64_t> &Strides) const;
+  /// \brief Returns the number of dimensions for a GEP base pointer type.
+  unsigned getNumDimensions(Type *GEPType) const;
 
   /// \brief Returns the size of the contained type in bits. Incoming type is
   /// expected to be a pointer type.

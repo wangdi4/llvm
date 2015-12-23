@@ -621,11 +621,6 @@ static void updateDDRefCE(HLDDNode *Node, unsigned InnermostNestingLevel,
       updateCE(RegRef->getBaseCE(), InnermostNestingLevel, OutmostNestingLevel,
                NewLoopLevels);
     }
-    for (auto Iter = RegRef->stride_begin(), End = RegRef->stride_end();
-         Iter != End; ++Iter) {
-      CanonExpr *CE = *Iter;
-      updateCE(CE, InnermostNestingLevel, OutmostNestingLevel, NewLoopLevels);
-    }
   }
 }
 

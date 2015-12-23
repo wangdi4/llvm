@@ -158,12 +158,6 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
   if (RegDD->hasGEPInfo()) {
     processCanonExpr(RegDD->getBaseCE());
   }
-
-  // Process GEP Strides
-  for (auto Iter = RegDD->stride_begin(), End = RegDD->stride_end();
-       Iter != End; ++Iter) {
-    processCanonExpr(*Iter);
-  }
 }
 
 /// processCanonExpr - Processes CanonExpr to modify IV to

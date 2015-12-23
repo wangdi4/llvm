@@ -51,15 +51,6 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     CanonExprs.push_back(NewCE);
   }
 
-  // Loop over Strides
-  if (RegDDRefObj.hasGEPInfo()) {
-    for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
-         I != E; ++I) {
-      CanonExpr *NewCE = (*I)->clone();
-      getStrides().push_back(NewCE);
-    }
-  }
-
   // Loop over BlobDDRefs
   for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
        ++I) {
@@ -92,13 +83,6 @@ void RegDDRef::updateCELevel() {
   // Loop over CanonExprs
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     (*I)->updateNonLinear(Level);
-  }
-
-  // Loop over Strides
-  if (hasGEPInfo()) {
-    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
-      (*I)->updateNonLinear(Level);
-    }
   }
 
   // Loop over BlobDDRefs
@@ -158,6 +142,74 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   DDRef::print(OS, Detailed);
 }
 
+Type *RegDDRef::getTypeImpl(bool IsSrc) const {
+  const CanonExpr *CE = nullptr;
+
+  if (hasGEPInfo()) {
+    CE = getBaseCE();
+
+    PointerType *BaseTy = IsSrc ? cast<PointerType>(CE->getSrcType())
+                                : cast<PointerType>(CE->getDestType());
+
+    // Get base pointer's contained type.
+    // Assuming the base type is [7 x [101 x float]]*, this will give us [7 x
+    // [101 x float]].
+    Type *RetTy = BaseTy->getElementType();
+
+    unsigned I = 0;
+    // Subtract 1 for the pointer dereference.
+    unsigned NumDim = getNumDimensions() - 1;
+
+    // Recurse into the array type(s).
+    // Assuming NumDim is 2 and RetTy is [7 x [101 x float]], the following
+    // loop will set RetTy as float.
+    for (I = 0; I < NumDim; ++I) {
+      if (auto ArrTy = dyn_cast<ArrayType>(RetTy)) {
+        RetTy = ArrTy->getElementType();
+      } else {
+        break;
+      }
+    }
+
+    // 'I' can be less than NumDim for destination type for cases like this-
+    // %arrayidx = getelementptr [10 x float], [10 x float]* %p, i64 0, i64 %k
+    // %190 = bitcast float* %arrayidx to i32*
+    // store i32 %189, i32* %190
+    //
+    // The DDRef looks like this in HIR-
+    // *(i32*)(%ex1)[0][i1]
+    //
+    // The base canon expr is stored like this-
+    // bitcast.[1001 x float]*.i32*(%ex1)
+    // The represented cast is imprecise because the actual casting occurs
+    // from float* to i32*. The stored information is enough to generate the
+    // correct code, though. This setup needs to be rethought if the
+    // transformations want to access three different types involved here-
+    // [1001 x float]*, float* and i32*. We are currently not storing the
+    // intermediate float* type but it can be computed on the fly.
+    //
+    // TODO: Rethink the setup, if required.
+    assert((!IsSrc || (I == NumDim)) && "Malformed DDRef!");
+
+    // For DDRefs representing addresses, we need to return a pointer to
+    // RetTy.
+    if (isAddressOf()) {
+      return PointerType::get(RetTy, BaseTy->getAddressSpace());
+    } else {
+      return RetTy;
+    }
+
+  } else {
+    CE = getSingleCanonExpr();
+    assert(CE && "DDRef is empty!");
+    return IsSrc ? CE->getSrcType() : CE->getDestType();
+  }
+}
+
+Type *RegDDRef::getSrcType() const { return getTypeImpl(true); }
+
+Type *RegDDRef::getDestType() const { return getTypeImpl(false); }
+
 Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {
   if (hasGEPInfo()) {
     return IsSrc ? getBaseCE()->getSrcType() : getBaseCE()->getDestType();
@@ -214,25 +266,25 @@ bool RegDDRef::isScalarRef() const {
   return false;
 }
 
-void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
-  assert(Canon && "Canon is null!");
-  assert((CanonExprs.empty() || Stride) && "Stride is null!");
-
-  /// First dimension may not have stride. If it does, create GEP info.
-  if (CanonExprs.empty()) {
-    if (Stride) {
-      if (!hasGEPInfo()) {
-        createGEP();
-      }
-      getStrides().push_back(Stride);
-    }
-  } else {
-    assert(hasGEPInfo() && !getStrides().empty() && "Stride is null for the "
-                                                    "first dimension!");
-    getStrides().push_back(Stride);
+bool RegDDRef::isSelfBlob() const {
+  if (!isScalarRef()) {
+    return false;
   }
 
-  CanonExprs.push_back(Canon);
+  auto CE = getSingleCanonExpr();
+
+  if (!CE->isSelfBlob()) {
+    return false;
+  }
+
+  unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+
+  return (getSymbase() == SB);
+}
+
+void RegDDRef::addDimension(CanonExpr *IndexCE) {
+  assert(IndexCE && "IndexCE is null!");
+  CanonExprs.push_back(IndexCE);
 }
 
 void RegDDRef::removeDimension(unsigned DimensionNum) {
@@ -240,7 +292,54 @@ void RegDDRef::removeDimension(unsigned DimensionNum) {
   assert((getNumDimensions() > 1) && "Attempt to remove the only dimension!");
 
   CanonExprs.erase(CanonExprs.begin() + (DimensionNum - 1));
-  getStrides().erase(getStrides().begin() + (DimensionNum - 1));
+}
+
+uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
+  assert(!isScalarRef() && "Stride info not applicable for scalar refs!");
+  assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
+
+  SmallVector<uint64_t, 9> Strides;
+  Type *BaseTy = getBaseSrcType();
+
+  assert(isa<PointerType>(BaseTy) && "DDRef base type is not a pointer type!");
+
+  BaseTy = cast<PointerType>(BaseTy)->getElementType();
+
+  // Collect number of elements in each dimension.
+  for (; ArrayType *ArrType = dyn_cast<ArrayType>(BaseTy);
+       BaseTy = ArrType->getElementType()) {
+    Strides.push_back(ArrType->getNumElements());
+  }
+
+  assert((BaseTy->isIntegerTy() || BaseTy->isFloatingPointTy() ||
+          BaseTy->isPointerTy()) &&
+         "Unexpected DDRef primary element type!");
+
+  uint64_t ElementSize = CanonExprUtils::getTypeSizeInBits(BaseTy) / 8;
+
+  // If the actual number of dimensions differ from the maximum number of
+  // dimensions we need to account for the offset. For example, suppose the base
+  // type is [10 x [10 x i32]]* which has a maximum of 3 dimensions, one for
+  // pointer and two for the arrays. If the actual number of dimensions is 3,
+  // the innermost type is i32 and its stride is 4 bytes. But if the actual
+  // number of dimensions is 2, the innermost type is [10 x i32] which has a
+  // stride of 40 bytes.
+  //
+  // Added one to include the pointer dimension.
+  unsigned Offset = (Strides.size() + 1) - getNumDimensions();
+
+  // We subtract 1 for the innermost dimension as ElementSize already represents
+  // the innermost stride.
+  unsigned Count = DimensionNum + Offset - 1;
+
+  // Multiply number of elements in each dimension by the element size.
+  // We need to do a reverse traversal from the smallest(innermost) to
+  // largest(outermost) dimension.
+  for (auto I = Strides.rbegin(); Count > 0; --Count, ++I) {
+    ElementSize *= (*I);
+  }
+
+  return ElementSize;
 }
 
 void RegDDRef::addBlobDDRef(BlobDDRef *BlobRef) {
@@ -334,10 +433,6 @@ void RegDDRef::collectTempBlobIndices(
 
   if (hasGEPInfo()) {
     getBaseCE()->collectTempBlobIndices(Indices, false);
-
-    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
-      (*I)->collectTempBlobIndices(Indices, false);
-    }
   }
 
   // Make the indices unique.
@@ -465,6 +560,18 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
   }
 }
 
+bool RegDDRef::containsUndef() const {
+  auto UndefCanonPredicate = [](const CanonExpr *CE) {
+    return CE->containsUndef();
+  };
+
+  if (hasGEPInfo() && UndefCanonPredicate(getBaseCE())) {
+    return true;
+  }
+
+  return std::any_of(canon_begin(), canon_end(), UndefCanonPredicate);
+}
+
 void RegDDRef::verify() const {
   bool IsConst = isConstant();
 
@@ -473,6 +580,13 @@ void RegDDRef::verify() const {
 
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
     (*I)->verify();
+  }
+
+  if (hasGEPInfo()) {
+    auto CE = getBaseCE();
+    assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
+    assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
+    assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");
   }
 
   for (auto I = blob_cbegin(), E = blob_cend(); I != E; ++I) {
@@ -498,8 +612,6 @@ void RegDDRef::verify() const {
 
   assert((!hasGEPInfo() || getBaseCE() != nullptr) &&
          "GEP DDRefs should have a base canon expression!");
-  assert((!hasGEPInfo() || getNumDimensions() == getStrides().size()) &&
-         "Stride should be present for every dimension!");
 
   // Verify symbase value if this DDRef is defined
   DDRef::verify();

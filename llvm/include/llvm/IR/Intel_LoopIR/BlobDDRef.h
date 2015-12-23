@@ -30,7 +30,7 @@ class HLDDNode;
 ///
 /// This DDRef is associated with a RegDDRef to expose data dependencies
 /// present due to blobs.
-class BlobDDRef : public DDRef {
+class BlobDDRef final : public DDRef {
 private:
   CanonExpr *CE;
   RegDDRef *ParentDDRef;
@@ -87,9 +87,21 @@ public:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
 
+  /// \brief Returns the src element type associated with this DDRef.
+  Type *getSrcType() const override { return CE->getSrcType(); }
+  /// \brief Returns the dest element type associated with this DDRef.
+  Type *getDestType() const override { return CE->getDestType(); }
+
+  /// \brief Returns true if the blob DDRef represents a self-blob like (1 * %t)
+  /// which should always be true.
+  bool isSelfBlob() const override { return true; }
+
+  /// \brief Returns true if this blob DDRef represents an undef blob.
+  bool containsUndef() const override { return CE->containsUndef(); }
+
   /// \brief Method to update CE levels to non-linear.
   /// For details, please refer to base class(DDRef.h) documentation.
-  void updateCELevel() override final;
+  void updateCELevel() override;
 
   /// \brief Used to represent a different blob by replacing the existing blob
   /// index with the new one. Symbase is automatically updated.

@@ -231,6 +231,7 @@ void HIROptPredicate::processOptPredicate() {
   }
 }
 
+namespace {
 // Visitor used to find a candidate If for OptPredicate.
 class IfVisitor final : public HLNodeVisitorBase {
 
@@ -269,6 +270,7 @@ private:
 
   bool isCandidate(const RegDDRef *RegDD) const;
 };
+}
 
 bool IfVisitor::isCandidate(const RegDDRef *RegDD) const {
 

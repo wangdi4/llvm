@@ -200,6 +200,10 @@ public:
   static void collectTempBlobs(CanonExpr::BlobTy Blob,
                                SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
 
+  /// \brief Returns the size of the type in bits. 
+  /// NOTE: This function asserts that the incoming type is sized.
+  static uint64_t getTypeSizeInBits(Type *Ty);
+
   /// \brief Returns true if the type of both Canon Expr matches.
   /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,

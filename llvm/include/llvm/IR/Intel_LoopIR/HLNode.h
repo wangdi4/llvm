@@ -31,10 +31,16 @@ namespace llvm {
 
 namespace loopopt {
 
+class HLNode;
 class HLGoto;
 class HLLabel;
 class HLLoop;
 class HLRegion;
+
+
+// Typedef for a list of HLNodes.
+typedef iplist<HLNode> HLContainerTy;
+
 
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;
@@ -235,17 +241,6 @@ struct ilist_traits<loopopt::HLNode>
 private:
   mutable ilist_node<loopopt::HLNode> Sentinel;
 };
-/// Global definitions
-
-namespace loopopt {
-
-typedef iplist<HLNode> HLContainerTy;
-
-/// TODO: Remove this.
-/// Top level HLNodes (regions)
-extern HLContainerTy HLRegions;
-
-} // End loopopt namespace
 
 } // End llvm namespace
 

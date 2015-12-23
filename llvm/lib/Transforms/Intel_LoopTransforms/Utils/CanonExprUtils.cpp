@@ -242,6 +242,10 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
   return CE;
 }
 
+uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) {
+  return getHIRParser()->getDataLayout().getTypeSizeInBits(Ty);
+}
+
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
                                  bool IgnoreDestType) {
   return (CE1->getSrcType() == CE2->getSrcType()) &&

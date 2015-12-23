@@ -34,7 +34,7 @@ RegDDRef *DDRefUtils::createRegDDRef(unsigned SB) { return new RegDDRef(SB); }
 RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
   assert(CE && " CanonExpr is null.");
   RegDDRef *RegDD = createRegDDRef(SB);
-  RegDD->addDimension(CE, nullptr);
+  RegDD->setSingleCanonExpr(CE);
   return RegDD;
 }
 

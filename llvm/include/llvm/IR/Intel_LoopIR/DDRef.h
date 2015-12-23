@@ -82,7 +82,7 @@ public:
   ///   }
   /// }
   /// In this example t*j is marked as Linear@Level 1. However, after
-  /// complete unrolling of j-loop it would be marked as non-linear.s
+  /// complete unrolling of j-loop it would be marked as non-linear.
   virtual void updateCELevel() = 0;
 
   /// \brief Dumps DDRef.
@@ -99,22 +99,16 @@ public:
   /// \brief Returns the Level of parent HLDDNode Level.
   unsigned getHLDDNodeLevel() const;
 
-  /// \brief Returns the underlying value this DDRef represents.
-  /// DDRef doesn't store the value right now and it is tricky to retrieve
-  /// it from the HLDDNode especially for fake DDRefs. We can think about
-  /// storing it, if really needed.
-  /// virtual Value *getLLVMValue() const = 0;
-
   /// \brief Returns the src element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
   /// [101 x float]]*, we will return float.
   /// TODO: extend to handle struct types.
-  Type *getSrcType() const;
+  virtual Type *getSrcType() const = 0;
   /// \brief Returns the dest element type associated with this DDRef.
   /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
   /// [101 x int32]]*, we will return int32.
   /// TODO: extend to handle struct types.
-  Type *getDestType() const;
+  virtual Type *getDestType() const = 0;
 
   /// \brief Returns the symbol number used to disambiguate references.
   unsigned getSymbase() const { return Symbase; };
@@ -134,10 +128,10 @@ public:
   /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.
   /// But since %t1 has a different symbase than %t2 we still need to add a blob
   /// DDRef for %t2 to the DDRef.
-  bool isSelfBlob() const;
+  virtual bool isSelfBlob() const = 0;
 
   /// \brief Returns true if this DDRef contains undefined canon expressions.
-  bool containsUndef() const;
+  virtual bool containsUndef() const = 0;
 
   /// \brief Verifies DDRef integrity.
   virtual void verify() const;

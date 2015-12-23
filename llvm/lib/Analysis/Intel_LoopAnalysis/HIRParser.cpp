@@ -1380,33 +1380,23 @@ void HIRParser::parse(HLSwitch *Switch) {
   }
 }
 
-void HIRParser::collectStrides(Type *GEPType,
-                               SmallVectorImpl<uint64_t> &Strides) const {
+unsigned HIRParser::getNumDimensions(Type *GEPType) const {
   assert(isa<PointerType>(GEPType) && "GEP is not a pointer type!");
-  GEPType = cast<PointerType>(GEPType)->getElementType();
 
-  // Collect number of elements in each dimension
-  for (; ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType);
-       GEPType = GEPArrType->getElementType()) {
-    Strides.push_back(GEPArrType->getNumElements());
-  }
+  // Start with one for the pointer type.
+  unsigned NumDims = 1;
+
+  // Increment NumDims by 1 for each array type encountered.
+  for (GEPType = cast<PointerType>(GEPType)->getElementType();
+       ArrayType *GEPArrType = dyn_cast<ArrayType>(GEPType);
+       GEPType = GEPArrType->getElementType(), ++NumDims)
+    ;
 
   assert((GEPType->isIntegerTy() || GEPType->isFloatingPointTy() ||
           GEPType->isPointerTy()) &&
          "Unexpected GEP type!");
 
-  auto ElementSize = getDataLayout().getTypeSizeInBits(GEPType) / 8;
-
-  // Multiply number of elements in each dimension by the size of each element
-  // in the dimension.
-  // We need to do a reverse traversal from the smallest(innermost) to
-  // largest(outermost) dimension.
-  for (auto I = Strides.rbegin(), E = Strides.rend(); I != E; ++I) {
-    (*I) *= ElementSize;
-    ElementSize = (*I);
-  }
-
-  Strides.push_back(ElementSize);
+  return NumDims;
 }
 
 unsigned HIRParser::getBitElementSize(Type *Ty) const {
@@ -1532,7 +1522,6 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
-  SmallVector<uint64_t, 9> Strides;
   CanonExpr *BaseCE = nullptr, *IndexCE = nullptr;
   auto BaseTy = BasePhi->getType();
 
@@ -1541,6 +1530,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   const SCEV *BaseSCEV = nullptr;
   unsigned BitElementSize = getBitElementSize(BaseTy);
   unsigned ElementSize = BitElementSize / 8;
+  unsigned NumDims = 1;
   bool IsInBounds = false;
 
   // If the base is linear, we separate it into a pointer base and a linear
@@ -1566,8 +1556,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
       if ((BaseSCEV = findPointerBlob(RecSCEV)) &&
           (RI->getPrimaryElementType(RecSCEV->getType()) ==
            RI->getPrimaryElementType(BasePhi->getType()))) {
-        // Collect extra dimensions, if any.
-        collectStrides(BaseSCEV->getType(), Strides);
+        // Get number of dimensions in base type.
+        NumDims = getNumDimensions(BaseSCEV->getType());
 
         auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
@@ -1603,9 +1593,6 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     IndexCE = CanonExprUtils::createCanonExpr(OffsetType);
   }
 
-  auto StrideCE =
-      CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0, ElementSize);
-
   // Here we add the other operand of GEPOperator as an offset to the index.
   if (GEPOp) {
     assert((2 == GEPOp->getNumOperands()) &&
@@ -1617,9 +1604,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   }
 
   Ref->setBaseCE(BaseCE);
-  Ref->addDimension(IndexCE, StrideCE);
-
-  unsigned NumDims = Strides.size();
+  Ref->addDimension(IndexCE);
 
   // Add zero indices for the extra dimensions.
   // Extra dimensions are involved when the initial value of BasePhi is computed
@@ -1629,9 +1614,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   if (NumDims > 1) {
     for (auto I = NumDims - 1; I > 0; --I) {
       IndexCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType());
-      StrideCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType(), 0,
-                                                 Strides[I - 1]);
-      Ref->addDimension(IndexCE, StrideCE);
+      Ref->addDimension(IndexCE);
     }
   }
 
@@ -1651,23 +1634,19 @@ const GEPOperator *HIRParser::getBaseGEPOp(const GEPOperator *GEPOp) const {
 
 RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
                                            unsigned Level) {
-  SmallVector<uint64_t, 9> Strides;
-
   auto Ref = DDRefUtils::createRegDDRef(0);
 
   const GEPOperator *BaseGEPOp = getBaseGEPOp(GEPOp);
   auto BaseVal = BaseGEPOp->getPointerOperand();
+  const GEPOperator *TempGEPOp = GEPOp;
+  bool FirstGEP = true;
+
+  unsigned NumDims = getNumDimensions(BaseGEPOp->getPointerOperandType());
 
   // TODO: This can be improved by first checking if the original SCEV can be
   // handled.
   CanonExpr *BaseCE = parseAsBlob(BaseVal, Level);
   Ref->setBaseCE(BaseCE);
-
-  collectStrides(BaseGEPOp->getPointerOperandType(), Strides);
-
-  unsigned Count = Strides.size();
-  const GEPOperator *TempGEPOp = GEPOp;
-  bool FirstGEP = true;
 
   // Consider the following sequence of GEPs-
   // %arrayidx = getelementptr inbounds [100 x [100 x i32]], [100 x [100 x
@@ -1703,20 +1682,16 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
       } else {
         // Create additional dimension for each encountered GEP index.
         CanonExpr *IndexCE = parse(TempGEPOp->getOperand(I), Level);
-        CanonExpr *StrideCE = CanonExprUtils::createCanonExpr(
-            IndexCE->getDestType(), 0, Strides[Count - 1]);
-        Ref->addDimension(IndexCE, StrideCE);
-        --Count;
+        Ref->addDimension(IndexCE);
+        assert((NumDims != 0) &&
+               "Number of subscripts exceed number of dimensions!");
+        --NumDims;
       }
       LastGEPIndex = false;
     }
 
     FirstGEP = false;
   } while ((TempGEPOp = dyn_cast<GEPOperator>(TempGEPOp->getPointerOperand())));
-
-  // Check that the number of GEP operands match with the number of strides we
-  // have collected.
-  assert((Count == 0) && "Number of subscripts and strides do not match!");
 
   Ref->setInBounds(GEPOp->isInBounds());
 
@@ -1728,7 +1703,6 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   auto Ref = DDRefUtils::createRegDDRef(0);
   auto GEPTy = GEPVal->getType();
-  unsigned BitElementSize = getBitElementSize(GEPTy);
   auto OffsetTy =
       Type::getIntNTy(getContext(), getDataLayout().getTypeSizeInBits(GEPTy));
 
@@ -1739,10 +1713,8 @@ RegDDRef *HIRParser::createSingleElementGEPDDRef(const Value *GEPVal,
 
   // Create Index of zero.
   auto IndexCE = CanonExprUtils::createCanonExpr(OffsetTy);
-  auto StrideCE =
-      CanonExprUtils::createCanonExpr(OffsetTy, 0, BitElementSize / 8);
 
-  Ref->addDimension(IndexCE, StrideCE);
+  Ref->addDimension(IndexCE);
 
   // Single element is always in bounds.
   Ref->setInBounds(true);

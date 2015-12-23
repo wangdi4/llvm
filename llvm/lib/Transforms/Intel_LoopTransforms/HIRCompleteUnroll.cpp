@@ -136,12 +136,6 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
     processCanonExpr(RegDD->getBaseCE());
   }
 
-  // Process GEP Strides
-  for (auto Iter = RegDD->stride_begin(), End = RegDD->stride_end();
-       Iter != End; ++Iter) {
-    processCanonExpr(*Iter);
-  }
-
   RegDD->updateBlobDDRefs(BlobDDRefs);
   assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
   RegDD->updateCELevel();

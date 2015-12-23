@@ -1032,10 +1032,11 @@ void CanonExpr::verify() const {
     (void)B;
 
     // Allow pointer/integer type mismatch as an integral canon expr can look
-    // like (ptr1 - ptr2). Ideally, we should do a bit size check as well but
-    // getting pointer size requires access to data layout.
-    assert(((B->getType() == getSrcType()) ||
-            (B->getType()->isPointerTy() && getSrcType()->isIntegerTy())) &&
+    // like (ptr1 - ptr2).
+    assert(((B->getType() == SrcTy) ||
+            (B->getType()->isPointerTy() && SrcTy->isIntegerTy() &&
+             (CanonExprUtils::getTypeSizeInBits(B->getType()) ==
+              CanonExprUtils::getTypeSizeInBits(SrcTy)))) &&
            "Types of all blobs should match canon expr type!");
   }
 

@@ -28,8 +28,6 @@ static cl::opt<bool> PrintTopSortNum("hir-details-topsort", cl::init(false),
                                      cl::Hidden,
                                      cl::desc("Print HLNode TopSort numbers"));
 
-HLContainerTy llvm::loopopt::HLRegions;
-
 std::set<HLNode *> HLNode::Objs;
 unsigned HLNode::GlobalNum(0);
 

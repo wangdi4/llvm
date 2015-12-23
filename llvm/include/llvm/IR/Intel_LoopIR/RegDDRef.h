@@ -34,26 +34,19 @@ class HLDDNode;
 /// Objects of this class represent temps and load/stores. Information to
 /// regenerate GEP instruction associated with load/stores is maintained here.
 ///
-class RegDDRef : public DDRef {
+class RegDDRef final : public DDRef {
 public:
   /// loads/stores can be mapped as multi-dimensional subscripts with each
   /// subscript having its own canonical form.
   typedef SmallVector<CanonExpr *, 3> CanonExprsTy;
   typedef SmallVector<BlobDDRef *, 2> BlobDDRefsTy;
   typedef CanonExprsTy SubscriptTy;
-  typedef CanonExprsTy StrideTy;
 
   /// Iterators to iterate over canon exprs
   typedef CanonExprsTy::iterator canon_iterator;
   typedef CanonExprsTy::const_iterator const_canon_iterator;
   typedef CanonExprsTy::reverse_iterator reverse_canon_iterator;
   typedef CanonExprsTy::const_reverse_iterator const_reverse_canon_iterator;
-
-  /// Iterators to iterate over stride exprs
-  typedef canon_iterator stride_iterator;
-  typedef const_canon_iterator const_stride_iterator;
-  typedef reverse_canon_iterator reverse_stride_iterator;
-  typedef const_reverse_canon_iterator const_reverse_stride_iterator;
 
   /// Iterators to iterate over blob ddrefs
   typedef BlobDDRefsTy::iterator blob_iterator;
@@ -66,8 +59,6 @@ private:
   /// at code generation.
   struct GEPInfo {
     CanonExpr *BaseCE;
-    // One for each dimension, corresponds to CanonExprs
-    StrideTy Strides;
     bool InBounds;
     // This is set if this DDRef represents an address computation (GEP) instead
     // of a load or store.
@@ -113,10 +104,6 @@ protected:
     GepInfo = new GEPInfo;
   }
 
-  /// \brief Returns the stride associated with each dimension
-  StrideTy &getStrides() { return GepInfo->Strides; }
-  StrideTy &getStrides() const { return GepInfo->Strides; }
-
   /// \brief Returns non-const iterator version of CBlobI.
   blob_iterator getNonConstBlobIterator(const_blob_iterator CBlobI);
 
@@ -138,6 +125,9 @@ protected:
   /// the DDRef correspond to blob DDRefs attached to the DDRef.
   void checkBlobDDRefsConsistency() const;
 
+  /// \brief Implements get*Type() functionality.
+  Type *getTypeImpl(bool IsSrc) const;
+ 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override { return Node; };
@@ -151,6 +141,17 @@ public:
 
   /// \brief Returns true if the DDRef has GEP Info.
   bool hasGEPInfo() const { return (GepInfo != nullptr); }
+
+  /// \brief Returns the src element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose src base type is [7 x
+  /// [101 x float]]*, we will return float.
+  /// TODO: extend to handle struct types.
+  Type *getSrcType() const override;
+  /// \brief Returns the dest element type associated with this DDRef.
+  /// For example, for a 2 dimensional GEP DDRef whose dest base type is [7 x
+  /// [101 x int32]]*, we will return int32.
+  /// TODO: extend to handle struct types.
+  Type *getDestType() const override;
 
   /// \brief Returns the src type of the base CanonExpr for GEP DDRefs, returns
   /// null for non-GEP DDRefs.
@@ -244,7 +245,7 @@ public:
     assert((getNumDimensions() == 0) && " RegDDRef already has one or more "
                                         "CanonExprs");
     // TODO: Add replace dimension when available
-    addDimension(CE, nullptr);
+    addDimension(CE);
   }
 
   /// CanonExpr iterator methods
@@ -271,81 +272,6 @@ public:
   }
   const_reverse_blob_iterator blob_crend() const { return BlobDDRefs.rend(); }
 
-  /// Stride iterator methods
-  stride_iterator stride_begin() {
-    if (hasGEPInfo()) {
-      return getStrides().begin();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_end();
-    }
-  }
-  const_stride_iterator stride_begin() const {
-    if (hasGEPInfo()) {
-      return getStrides().begin();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_end();
-    }
-  }
-  stride_iterator stride_end() {
-    if (hasGEPInfo()) {
-      return getStrides().end();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_end();
-    }
-  }
-  const_stride_iterator stride_end() const {
-    if (hasGEPInfo()) {
-      return getStrides().end();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_end();
-    }
-  }
-
-  reverse_stride_iterator stride_rbegin() {
-    if (hasGEPInfo()) {
-      return getStrides().rbegin();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_rend();
-    }
-  }
-  const_reverse_stride_iterator stride_rbegin() const {
-    if (hasGEPInfo()) {
-      return getStrides().rbegin();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_rend();
-    }
-  }
-  reverse_stride_iterator stride_rend() {
-    if (hasGEPInfo()) {
-      return getStrides().rend();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_rend();
-    }
-  }
-  const_reverse_stride_iterator stride_rend() const {
-    if (hasGEPInfo()) {
-      return getStrides().rend();
-    } else {
-      // Workaround to avoid forcing clients to check for GEPInfo before
-      // accessing strides.
-      return canon_rend();
-    }
-  }
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const DDRef *Ref) {
     return Ref->getDDRefID() == DDRef::RegDDRefVal;
@@ -358,7 +284,7 @@ public:
 
   /// \brief Method to update CE levels to non-linear.
   /// For details, please refer to base class(DDRef.h) documentation.
-  void updateCELevel() override final;
+  void updateCELevel() override;
 
   /// \brief Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.
@@ -380,22 +306,28 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isScalarRef() const;
 
-  /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
-  void addDimension(CanonExpr *Canon, CanonExpr *Stride);
+  /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
+  /// addition DDRef's symbase should be the same as %t's symbase. This is so
+  /// because for some livein copies %t1 = %t2, lval %t1 is parsed as 1 * %t2.
+  /// But since %t1 has a different symbase than %t2 we still need to add a blob
+  /// DDRef for %t2 to the DDRef.
+  bool isSelfBlob() const override;
 
-  /// \brief Returns the stride canon expr of this DDRef at specified
-  /// position. Position must be within [1, getNumDimensions()].
-  CanonExpr *getDimensionStride(unsigned DimensionNum) const {
-    if (isScalarRef())
-      return nullptr;
-    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
-    return getStrides()[DimensionNum - 1];
-  }
+  /// \brief Returns true if this DDRef contains undefined canon expressions.
+  bool containsUndef() const override;
+
+  /// \brief Adds a dimension to the DDRef. 
+  void addDimension(CanonExpr *IndexCE);
+
+  /// \brief Returns the stride in number of bytes for specified dimension.
+  /// This is computed on the fly. DimensionNum must be within
+  /// [1, getNumDimensions()].
+  uint64_t getDimensionStride(unsigned DimensionNum) const;
 
   /// \brief Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].
   CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
-    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid.");
+    assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
     return CanonExprs[DimensionNum - 1];
   }
 

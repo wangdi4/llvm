@@ -89,7 +89,7 @@ void BlobDDRef::verify() const {
 
   CE->verify();
 
-  assert(isSelfBlob() && "BlobDDRefs should represent a self blob");
+  assert(CE->isSelfBlob() && "BlobDDRefs should represent a self blob");
 
   unsigned Index = CE->getSingleBlobIndex();
   unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
