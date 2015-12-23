@@ -52,6 +52,7 @@ KernelProperties::KernelProperties():
     m_totalImplSize(0),
     m_barrierBufferSize(0),
     m_privateMemorySize(0),
+    m_reqdNumSG(0),
     m_minGroupSizeFactorial(1),
     m_isVectorizedWithTail(false),
     m_uiSizeT(sizeof(void*)),
@@ -95,6 +96,8 @@ void KernelProperties::Serialize(IOutputStream& ost, SerializationStatus* stats)
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     tmp = (unsigned long long int)m_privateMemorySize;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
+    tmp = (unsigned long long int)m_reqdNumSG;
+    Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
     Serializer::SerialPrimitive<bool>(&m_isVectorizedWithTail, ost);
     tmp = (unsigned long long int)m_kernelExecutionLength;
     Serializer::SerialPrimitive<unsigned long long int>(&tmp, ost);
@@ -137,6 +140,8 @@ void KernelProperties::Deserialize(IInputStream& ist, SerializationStatus* stats
     m_barrierBufferSize = (size_t)tmp;
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_privateMemorySize = (size_t)tmp;
+    Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
+    m_reqdNumSG = (size_t)tmp;
     Serializer::DeserialPrimitive<bool>(&m_isVectorizedWithTail, ist);
     Serializer::DeserialPrimitive<unsigned long long int>(&tmp, ist);
     m_kernelExecutionLength = tmp;
@@ -181,11 +186,9 @@ size_t KernelProperties::GetPrivateMemorySize() const
     return m_privateMemorySize;
 }
 
-size_t KernelProperties::GetRequiredSubGroupSize() const
+size_t KernelProperties::GetRequiredNumSubGroups() const
 {
-    std::cerr << __FUNCTION__ << " is not implemented!"
-              << __FILE__ << ":" << __LINE__ << std::endl;
-    return 0;
+    return m_reqdNumSG;
 }
 
 size_t KernelProperties::GetMaxNumSubGroups() const

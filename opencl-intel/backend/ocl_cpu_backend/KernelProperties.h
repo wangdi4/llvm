@@ -99,7 +99,7 @@ public:
 
     virtual size_t GetMaxNumSubGroups() const;
 
-    virtual size_t GetRequiredSubGroupSize() const;
+    virtual size_t GetRequiredNumSubGroups() const;
 
     virtual size_t GetMaxSubGroupSize(size_t size, const size_t* WGSizes) const;
     /**
@@ -176,6 +176,7 @@ public:
     void SetKernelAttributes(std::string attributes) { m_kernelAttributes = attributes;}
     void SetReqdWGSize(const size_t* psize );
     void SetHintWGSize(const size_t* psize );
+    void SetReqdNumSG(size_t value) { m_reqdNumSG = value; }
     void SetDAZ(bool value)        { m_DAZ = value; }
     void SetHasBarrier(bool value) { m_hasBarrier = value; }
     void SetHasGlobalSync(bool value) { m_hasGlobalSync = value; }
@@ -220,6 +221,7 @@ protected:
     size_t m_totalImplSize;
     size_t m_barrierBufferSize;
     size_t m_privateMemorySize;
+    size_t m_reqdNumSG;
     size_t m_kernelExecutionLength;
     std::string m_kernelAttributes;
     unsigned int m_minGroupSizeFactorial;

@@ -816,7 +816,7 @@ cl_dev_err_code ProgramService::GetKernelInfo(cl_dev_kernel      IN  kernel,
     }
     case CL_DEV_KERNEL_COMPILE_NUM_SUB_GROUPS:
     {
-        ullValue = pKernelProps->GetRequiredSubGroupSize();
+        ullValue = pKernelProps->GetRequiredNumSubGroups();
         stValSize = (nullptr != value)? sizeof(size_t): 0;
         break;
     }

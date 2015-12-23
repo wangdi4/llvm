@@ -1,4 +1,18 @@
 #include "CL21.h"
+#include <stdio.h>
+#if defined _M_X64 || defined __x86_64__
+static const char* BC_FILE = "reqd_num_sub_groups_64.bc";
+#else
+static const char* BC_FILE = "reqd_num_sub_groups_32.bc";
+#endif
+
+#if defined(_WIN32) || defined (__ANDROID__)
+    #define SET_FPOS_T(var, val) (var) = (val)
+    #define GET_FPOS_T(var) var
+#else
+    #define SET_FPOS_T(var, val) ((var).__pos = (val))
+    #define GET_FPOS_T(var) ((var).__pos)
+#endif
 
 void CL21::GetKernelSubGroupInfo_MAX_SB_SIZE() const
 {
@@ -443,26 +457,78 @@ void CL21::GetKernelSubGroupInfo_MAX_NUM_SUB_GROUPS() const
 void CL21::GetKernelSubGroupInfo_COMPILE_NUM_SUB_GROUPS() const
 {
     cl_int iRet = CL_SUCCESS;
+    bool bResult = 0;
 
-    cl_kernel kern = nullptr;
-    GetDummyKernel(kern);
+    // source code
+    // __kernel __attribute__((required_num_sub_groups(5))) void test_reqd_num_sg(__global unsigned long *result)
+    // {
+    //     result = get_global_id(0);
+    // }
+
+    cl_context context;
+    cl_device_id device;
+    cl_platform_id platform = 0;
+
+    iRet = clGetPlatformIDs(1, &platform, NULL);
+    bResult &= Check(L"clGetPlatformIDs", CL_SUCCESS, iRet);
+
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
+    iRet = clGetDeviceIDs(platform, CL_DEVICE_TYPE_CPU, 1, &device, NULL);
+    bResult &= Check(L"clGetDeviceIDs", CL_SUCCESS, iRet);
+
+    context = clCreateContext(prop, 1, &device, NULL, NULL, &iRet);
+    bResult &= Check(L"clCreateContext", CL_SUCCESS, iRet);
+
+    // open binary file
+    unsigned int uiContSize = 0;
+    FILE* fout = fopen(BC_FILE, "rb");
+    fpos_t fileSize;
+    SET_FPOS_T(fileSize, 0);
+
+    assert(fout && "Failed open file.");
+    fseek(fout, 0, SEEK_END);
+    fgetpos(fout, &fileSize);
+    uiContSize += (unsigned int)GET_FPOS_T(fileSize);
+    fseek(fout, 0, SEEK_SET);
+
+    assert(uiContSize > 0 && "the input file must not be empty");
+    unsigned char* pCont = (unsigned char*)malloc(uiContSize);
+
+    // construct program container
+    fread(((unsigned char*)pCont), 1, (size_t)GET_FPOS_T(fileSize), fout);
+    fclose(fout);
+
+    size_t binarySize = uiContSize;
+
+    // create program with binary
+    cl_int binaryStatus;
+    cl_program prog = clCreateProgramWithBinary(context, 1, &device, &binarySize, const_cast<const unsigned char**>(&pCont), &binaryStatus, &iRet);
+    bResult &= Check(L"clCreateProgramWithSource", CL_SUCCESS, iRet);
+
+    iRet = clBuildProgram(prog, 1, &device, NULL, NULL, NULL);
+    bResult &= Check(L"clBuildProgram", CL_SUCCESS, iRet);
+
+    cl_kernel kern = clCreateKernel(prog, "test_reqd_num_sg", &iRet);
+    bResult &= Check(L"clCreateKernel", CL_SUCCESS, iRet);
 
     size_t returned_size = 0;
-    size_t required_SG = 0;
+    size_t required_num_SG = 0;
 
     iRet = clGetKernelSubGroupInfo(kern,
                                    m_device,
                                    CL_KERNEL_COMPILE_NUM_SUB_GROUPS,
                                    /*input_value_size*/0,
                                    /*input_value*/nullptr,
-                                   sizeof(required_SG),
-                                   &required_SG,
+                                   sizeof(required_num_SG),
+                                   &required_num_SG,
                                    &returned_size);
+    clReleaseKernel(kern);
+    clReleaseProgram(prog);
     ASSERT_EQ(CL_SUCCESS, iRet)
         << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS query) failed. ";
     ASSERT_EQ(sizeof(size_t), returned_size)
         << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS) failed. Expected and returned size differ. ";
-    ASSERT_EQ((size_t)0, required_SG)
+    ASSERT_EQ((cl_uint)5, required_num_SG)
         << " clGetKernelSubGroupInfo(CL_KERNEL_COMPILE_NUM_SUB_GROUPS query) failed. Unexpected query result. ";
 }
 

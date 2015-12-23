@@ -336,6 +336,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
 
     size_t hintWGSize[MAX_WORK_DIM] = {0,0,0};
     size_t reqdWGSize[MAX_WORK_DIM] = {0,0,0};
+    size_t reqdNumSG = 0;
 
     Module *pModule = func->getParent();
     MetaDataUtils mdUtils(pModule);
@@ -415,6 +416,14 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
         kernelAttributes << ")";
     }
 
+    if (kmd->isReqdNumSubGroupsHasValue())
+    {
+        reqdNumSG = kmd->getReqdNumSubGroups();
+        if (!kernelAttributes.str().empty()) kernelAttributes << " ";
+        kernelAttributes << "required_num_sub_groups(";
+        kernelAttributes << reqdNumSG;
+        kernelAttributes << ")";
+    }
     if (kmd->isVecTypeHintHasValue())
     {
       Type* VTHTy = kmd->getVecTypeHint()->getType();
@@ -533,6 +542,7 @@ KernelProperties* ProgramBuilder::CreateKernelProperties(const Program* pProgram
     pProps->SetOptWGSize(optWGSize);
     pProps->SetReqdWGSize(reqdWGSize);
     pProps->SetHintWGSize(hintWGSize);
+    pProps->SetReqdNumSG(reqdNumSG);
     pProps->SetTotalImplSize(localBufferSize);
     pProps->SetHasBarrier(hasBarrier);
     pProps->SetHasGlobalSync(hasGlobalSync);
