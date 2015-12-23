@@ -86,20 +86,29 @@ static bool GetDisplayPrimaryDeviceIds(string& vendorId, string& devId)
 
 OPENCL_VERSION GetOpenclVerByCpuModel()
 {
-    // the OpenCL 2.0 support has been dropped from the following Skylake GPU SKUs
     string vendorId, devId;
     // by using EnumDisplayDevices we don't need the GPU driver to be installed (this doesn't work in remote desktop)
     if (GetDisplayPrimaryDeviceIds(vendorId, devId))
     {
         if (vendorId == "8086")
         {
-            const char* opencl12skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", "1606", "160E"};
+            const char* opencl_12_skus[] = {"190E", "1915", "1921", "190B", "192B", "190A", "191A", "192A", "1906", "1913", "1902", "1917", // SKL
+                                            "1606", "160E"}; // BDW
+            const char* opencl_21_skus[] = {"591E", "5916", "5912", "591B"}; // KBL
 
-            for (size_t i = 0; i < sizeof(opencl12skus) / sizeof(opencl12skus[0]); ++i)
+            for (size_t i = 0; i < sizeof(opencl_12_skus) / sizeof(opencl_12_skus[0]); ++i)
             {
-                if (devId == opencl12skus[i])
+                if (devId == opencl_12_skus[i])
                 {
                     return OPENCL_VERSION_1_2;
+                }
+            }
+
+            for (size_t i = 0; i < sizeof(opencl_21_skus) / sizeof(opencl_21_skus[0]); ++i)
+            {
+                if (devId == opencl_21_skus[i])
+                {
+                    return OPENCL_VERSION_2_1;
                 }
             }
         }
