@@ -134,6 +134,16 @@ public:
                          std::vector<int> &objectsToAllocate) const override;
 #endif // INTEL_CUSTOMIZATION
 
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252266.
+  /// Sets up EBP and optionally ESI based on the incoming EBP value.  Only
+  /// needed for 32-bit. Used in funclet prologues and at catchret destinations.
+  MachineBasicBlock::iterator
+  restoreWin32EHStackPointers(MachineBasicBlock &MBB,
+                              MachineBasicBlock::iterator MBBI, DebugLoc DL,
+                              bool RestoreSP = false) const;
+#endif // INTEL_CUSTOMIZATION
+
   /// Wraps up getting a CFI index and building a MachineInstr for it.
   void BuildCFI(MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
                 DebugLoc DL, MCCFIInstruction CFIInst) const;
@@ -141,10 +151,18 @@ public:
 private:
   uint64_t calculateMaxStackAlign(const MachineFunction &MF) const;
 
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252210.
+  /// Aligns the stack pointer by ANDing it with -MaxAlign.
+  void BuildStackAlignAND(MachineBasicBlock &MBB,
+                          MachineBasicBlock::iterator MBBI, DebugLoc DL,
+                          unsigned Reg, uint64_t MaxAlign) const;
+#else // !INTEL_CUSTOMIZATION
   /// Aligns the stack pointer by ANDing it with -MaxAlign.
   void BuildStackAlignAND(MachineBasicBlock &MBB,
                           MachineBasicBlock::iterator MBBI, DebugLoc DL,
                           uint64_t MaxAlign) const;
+#endif // !INTEL_CUSTOMIZATION
 
   /// Make small positive stack adjustments using POPs.
   bool adjustStackWithPops(MachineBasicBlock &MBB,
@@ -218,12 +236,15 @@ private:
   };
 #endif // INTEL_CUSTOMIZATION
 
+#if !INTEL_CUSTOMIZATION
+  // Cherry picking r252266, where this is moved to public.
   /// Sets up EBP and optionally ESI based on the incoming EBP value.  Only
   /// needed for 32-bit. Used in funclet prologues and at catchret destinations.
   MachineBasicBlock::iterator
   restoreWin32EHStackPointers(MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator MBBI, DebugLoc DL,
                               bool RestoreSP = false) const;
+#endif // !INTEL_CUSTOMIZATION
 
   unsigned getWinEHFuncletFrameSize(const MachineFunction &MF) const;
 };

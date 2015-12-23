@@ -512,6 +512,23 @@ uint64_t X86FrameLowering::calculateMaxStackAlign(const MachineFunction &MF) con
   return MaxAlign;
 }
 
+#if INTEL_CUSTOMIZATION
+// Cherry picking r252210
+void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
+                                          MachineBasicBlock::iterator MBBI,
+                                          DebugLoc DL, unsigned Reg,
+                                          uint64_t MaxAlign) const {
+  uint64_t Val = -MaxAlign;
+  unsigned AndOp = getANDriOpcode(Uses64BitFramePtr, Val);
+  MachineInstr *MI = BuildMI(MBB, MBBI, DL, TII.get(AndOp), Reg)
+                         .addReg(Reg)
+                         .addImm(Val)
+                         .setMIFlag(MachineInstr::FrameSetup);
+
+  // The EFLAGS implicit def is dead.
+  MI->getOperand(3).setIsDead();
+}
+#else // !INTEL_CUSTOMIZATION
 void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
                                           MachineBasicBlock::iterator MBBI,
                                           DebugLoc DL,
@@ -527,6 +544,7 @@ void X86FrameLowering::BuildStackAlignAND(MachineBasicBlock &MBB,
   // The EFLAGS implicit def is dead.
   MI->getOperand(3).setIsDead();
 }
+#endif // !INTEL_CUSTOMIZATION
 
 /// emitPrologue - Push callee-saved registers onto the stack, which
 /// automatically adjust the stack pointer. Adjust the stack pointer to allocate
@@ -835,7 +853,12 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // Don't do this for Win64, it needs to realign the stack after the prologue.
   if (!IsWin64Prologue && !IsFunclet && TRI->needsStackRealignment(MF)) {
     assert(HasFP && "There should be a frame pointer if stack is realigned.");
+#if INTEL_CUSTOMIZATION
+// Cherry picking r252210
+    BuildStackAlignAND(MBB, MBBI, DL, StackPtr, MaxAlign);
+#else // !INTEL_CUSTOMIZATION
     BuildStackAlignAND(MBB, MBBI, DL, MaxAlign);
+#endif // !INTEL_CUSTOMIZATION
   }
 
   // If there is an SUB32ri of ESP immediately before this instruction, merge
@@ -924,11 +947,18 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
         .setMIFlag(MachineInstr::FrameSetup);
 
   int SEHFrameOffset = 0;
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252210, though this is called SPOrEstablisher there.
+  unsigned SPOrRDX = IsFunclet ? RDX : StackPtr;
+#endif // INTEL_CUSTOMIZATION
   if (IsWin64Prologue && HasFP) {
     // Set RBP to a small fixed offset from RSP. In the funclet case, we base
     // this calculation on the incoming RDX, which holds the value of RSP from
     // the parent frame at the end of the prologue.
-    unsigned SPOrRDX = !IsFunclet ? StackPtr : RDX;
+#if !INTEL_CUSTOMIZATION
+    // Cherry picking r252210, where this is deleted.
+    unsigned SPOrRDX = IsFunclet ? RDX : StackPtr;
+#endif // INTEL_CUSTOMIZATION
     SEHFrameOffset = calculateSetFPREG(ParentFrameNumBytes);
     if (SEHFrameOffset)
       addRegOffset(BuildMI(MBB, MBBI, DL, TII.get(X86::LEA64r), FramePtr),
@@ -978,8 +1008,20 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
   // Win64 requires aligning the stack after the prologue.
   if (IsWin64Prologue && TRI->needsStackRealignment(MF)) {
     assert(HasFP && "There should be a frame pointer if stack is realigned.");
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252210, though SPOrRDX is called SPOrEstablisher there.
+    BuildStackAlignAND(MBB, MBBI, DL, SPOrRDX, MaxAlign);
+#else // !INTEL_CUSTOMIZATION
     BuildStackAlignAND(MBB, MBBI, DL, MaxAlign);
+#endif // !INTEL_CUSTOMIZATION
   }
+
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252210.
+  // We already dealt with stack realignment and funclets above.
+  if (IsFunclet && STI.is32Bit())
+    return;
+#endif
 
   // If we need a base pointer, set it up here. It's whatever the value
   // of the stack pointer is at this point. Any variable size objects
@@ -989,7 +1031,12 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
     // Update the base pointer with the current stack pointer.
     unsigned Opc = Uses64BitFramePtr ? X86::MOV64rr : X86::MOV32rr;
     BuildMI(MBB, MBBI, DL, TII.get(Opc), BasePtr)
-      .addReg(StackPtr)
+#if INTEL_CUSTOMIZATION
+      // Cherry picking r252210, though SPOrRDX is called SPOrEstablisher there.
+      .addReg(SPOrRDX)
+#else // !INTEL_CUSTOMIZATION
+        .addReg(StackPtr)
+#endif // !INTEL_CUSTOMIZATION
       .setMIFlag(MachineInstr::FrameSetup);
     if (X86FI->getRestoreBasePointer()) {
       // Stash value of base pointer.  Saving RSP instead of EBP shortens
@@ -997,11 +1044,22 @@ void X86FrameLowering::emitPrologue(MachineFunction &MF,
       unsigned Opm = Uses64BitFramePtr ? X86::MOV64mr : X86::MOV32mr;
       addRegOffset(BuildMI(MBB, MBBI, DL, TII.get(Opm)),
                    FramePtr, true, X86FI->getRestoreBasePointerOffset())
+#if INTEL_CUSTOMIZATION
+        // Cherry picking r252210, though SPOrRDX is called SPOrEstablisher
+        // there.
+        .addReg(SPOrRDX)
+#else // !INTEL_CUSTOMIZATION
         .addReg(StackPtr)
+#endif // !INTEL_CUSTOMIZATION
         .setMIFlag(MachineInstr::FrameSetup);
     }
 
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252210.
+    if (X86FI->getHasSEHFramePtrSave() && !IsFunclet) {
+#else // !INTEL_CUSTOMIZATION
     if (X86FI->getHasSEHFramePtrSave()) {
+#endif // !INTEL_CUSTOMIZATION
       // Stash the value of the frame pointer relative to the base pointer for
       // Win32 EH. This supports Win32 EH, which does the inverse of the above:
       // it recovers the frame pointer from the base pointer rather than the
@@ -1089,7 +1147,12 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   bool NeedsWinCFI =
       IsWin64Prologue && MF.getFunction()->needsUnwindTableEntry();
   bool IsFunclet = isFuncletReturnInstr(MBBI);
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252266.
+  MachineBasicBlock *TargetMBB = nullptr;
+#else // !INTEL_CUSTOMIZATION
   MachineBasicBlock *RestoreMBB = nullptr;
+#endif // !INTEL_CUSTOMIZATION
 
   // Get the number of bytes to allocate from the FrameInfo.
   uint64_t StackSize = MFI->getStackSize();
@@ -1098,8 +1161,19 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   uint64_t NumBytes = 0;
 
   if (MBBI->getOpcode() == X86::CATCHRET) {
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252266.
+    // SEH shouldn't use catchret.
+    assert(!isAsynchronousEHPersonality(
+               classifyEHPersonality(MF.getFunction()->getPersonalityFn())) &&
+           "SEH should not use CATCHRET");
+#endif // INTEL_CUSTOMIZATION
     NumBytes = getWinEHFuncletFrameSize(MF);
     assert(hasFP(MF) && "EH funclets without FP not yet implemented");
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252266.
+    TargetMBB = MBBI->getOperand(0).getMBB();
+#else // !INTEL_CUSTOMIZATION
     MachineBasicBlock *TargetMBB = MBBI->getOperand(0).getMBB();
 
     // If this is SEH, this isn't really a funclet return.
@@ -1123,12 +1197,15 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       RestoreMBB->addSuccessor(TargetMBB);
       MBBI->getOperand(0).setMBB(RestoreMBB);
     }
+#endif // !INTEL_CUSTOMIZATION
 
     // Pop EBP.
     BuildMI(MBB, MBBI, DL, TII.get(Is64Bit ? X86::POP64r : X86::POP32r),
             MachineFramePtr)
         .setMIFlag(MachineInstr::FrameDestroy);
 
+#if !INTEL_CUSTOMIZATION
+    // Cherry picking r252266, where this is deleted.
     // Insert frame restoration code in a new block.
     if (STI.is32Bit()) {
       auto RestoreMBBI = RestoreMBB->begin();
@@ -1137,6 +1214,7 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
       BuildMI(*RestoreMBB, RestoreMBBI, DL, TII.get(X86::JMP_4))
           .addMBB(TargetMBB);
     }
+#endif // !INTEL_CUSTOMIZATION
   } else if (MBBI->getOpcode() == X86::CLEANUPRET) {
     NumBytes = getWinEHFuncletFrameSize(MF);
     assert(hasFP(MF) && "EH funclets without FP not yet implemented");
@@ -1176,35 +1254,50 @@ void X86FrameLowering::emitEpilogue(MachineFunction &MF,
   }
   MachineBasicBlock::iterator FirstCSPop = MBBI;
 
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252266.
+  if (TargetMBB) {
+#else // !INTEL_CUSTOMIZATION
   if (RestoreMBB) {
+#endif // !INTEL_CUSTOMIZATION
     // Fill EAX/RAX with the address of the target block.
     unsigned ReturnReg = STI.is64Bit() ? X86::RAX : X86::EAX;
     if (STI.is64Bit()) {
+#if INTEL_CUSTOMIZATION
+      // Cherry picking r252266.
+      // LEA64r TargetMBB(%rip), %rax
+#else // !INTEL_CUSTOMIZATION
       // LEA64r RestoreMBB(%rip), %rax
+#endif // !INTEL_CUSTOMIZATION
       BuildMI(MBB, FirstCSPop, DL, TII.get(X86::LEA64r), ReturnReg)
           .addReg(X86::RIP)
           .addImm(0)
           .addReg(0)
+#if INTEL_CUSTOMIZATION
+          // Cherry picking r252266.
+          .addMBB(TargetMBB)
+#else // !INTEL_CUSTOMIZATION
           .addMBB(RestoreMBB)
+#endif // !INTEL_CUSTOMIZATION
           .addReg(0);
     } else {
-      // MOV32ri $RestoreMBB, %eax
 #if INTEL_CUSTOMIZATION
-      // This is cherry picked from LLVM trunk r252512, except there
-      // "RestoreMBB" will be named "TargetMBB".
+      // This is cherry picked from LLVM trunk r252512.
+      // MOV32ri $TargetMBB, %eax
       BuildMI(MBB, FirstCSPop, DL, TII.get(X86::MOV32ri), ReturnReg)
-          .addMBB(RestoreMBB);
+          .addMBB(TargetMBB);
 #else // !INTEL_CUSTOMIZATION
+      // MOV32ri $RestoreMBB, %eax
       BuildMI(MBB, FirstCSPop, DL, TII.get(X86::MOV32ri))
           .addReg(ReturnReg)
           .addMBB(RestoreMBB);
 #endif // !INTEL_CUSTOMIZATION
     }
 #if INTEL_CUSTOMIZATION
-    // This is cherry-picked from r251113
-    // Record that we've taken the address of RestoreMBB and no longer just
+    // This is cherry-picked from r251113 and r252266.
+    // Record that we've taken the address of TargetMBB and no longer just
     // reference it in a terminator.
-    RestoreMBB->setHasAddressTaken();
+    TargetMBB->setHasAddressTaken();
 #endif // INTEL_CUSTOMIZATION
   }
 
@@ -1370,6 +1463,45 @@ int X86FrameLowering::getFrameIndexReferenceFromSP(const MachineFunction &MF,
   const uint64_t StackSize = MFI->getStackSize();
   {
 #ifndef NDEBUG
+#ifdef INTEL_CUSTOMIZATION
+    // Cherry picking r252210
+    // LLVM arranges the stack as follows:
+    //   ...
+    //   ARG2
+    //   ARG1
+    //   RETADDR
+    //   PUSH RBP   <-- RBP points here
+    //   PUSH CSRs
+    //   ~~~~~~~    <-- optional stack realignment dynamic adjustment
+    //   ...
+    //   STACK OBJECTS
+    //   ...        <-- RSP after prologue points here
+    //
+    // if (hasVarSizedObjects()):
+    //   ...        <-- "base pointer" (ESI/RBX) points here
+    //   DYNAMIC ALLOCAS
+    //   ...        <-- RSP points here
+    //
+    // Case 1: In the simple case of no stack realignment and no dynamic
+    // allocas, both "fixed" stack objects (arguments and CSRs) are addressable
+    // with fixed offsets from RSP.
+    //
+    // Case 2: In the case of stack realignment with no dynamic allocas, fixed
+    // stack objects are addressed with RBP and regular stack objects with RSP.
+    //
+    // Case 3: In the case of dynamic allocas and stack realignment, RSP is used
+    // to address stack arguments for outgoing calls and nothing else. The "base
+    // pointer" points to local variables, and RBP points to fixed objects.
+    //
+    // In cases 2 and 3, we can only answer for non-fixed stack objects, and the
+    // answer we give is relative to the SP after the prologue, and not the
+    // SP in the middle of the function.
+
+    assert((!TRI->needsStackRealignment(MF) || !MFI->isFixedObjectIndex(FI)) &&
+           "offset from fixed object to SP is not static");
+
+    // We don't handle tail calls, and shouldn't be seeing them either.
+#else // !INTEL_CUSTOMIZATION
     // Note: LLVM arranges the stack as:
     // Args > Saved RetPC (<--FP) > CSRs > dynamic alignment (<--BP)
     //      > "Stack Slots" (<--SP)
@@ -1385,6 +1517,7 @@ int X86FrameLowering::getFrameIndexReferenceFromSP(const MachineFunction &MF,
 
     // We don't handle tail calls, and shouldn't be seeing them
     // either.
+#endif // !INTEL_CUSTOMIZATION
     int TailCallReturnAddrDelta =
         MF.getInfo<X86MachineFunctionInfo>()->getTCReturnAddrDelta();
     assert(!(TailCallReturnAddrDelta < 0) && "we don't handle this case!");

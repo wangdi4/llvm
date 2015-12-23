@@ -1096,6 +1096,12 @@ namespace llvm {
     MachineBasicBlock *EmitLoweredWinAlloca(MachineInstr *MI,
                                               MachineBasicBlock *BB) const;
 
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252266.
+    MachineBasicBlock *EmitLoweredCatchRet(MachineInstr *MI,
+                                           MachineBasicBlock *BB) const;
+#endif // INTEL_CUSTOMIZATION
+
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr *MI,
                                             MachineBasicBlock *BB) const;
 

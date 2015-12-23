@@ -2980,11 +2980,15 @@ SDValue X86TargetLowering::LowerFormalArguments(
                                DAG.getMachineFunction(), UnwindHelpFI),
                            /*isVolatile=*/true,
                            /*isNonTemporal=*/false, /*Alignment=*/0);
+
+#if !INTEL_CUSTOMIZATION
+    // Cherry picking r252210 where this else clause is removed.
     } else {
       // Functions using Win32 EH are considered to have opaque SP adjustments
       // to force local variables to be addressed from the frame or base
       // pointers.
       MFI->setHasOpaqueSPAdjustment(true);
+#endif // !INTEL_CUSTOMIZATION
     }
   }
 
@@ -21485,6 +21489,49 @@ X86TargetLowering::EmitLoweredWinAlloca(MachineInstr *MI,
   return BB;
 }
 
+#if INTEL_CUSTOMIZATION
+// Cherry picking r252266, r252413 and r252670.
+MachineBasicBlock *
+X86TargetLowering::EmitLoweredCatchRet(MachineInstr *MI,
+                                       MachineBasicBlock *BB) const {
+  MachineFunction *MF = BB->getParent();
+  const Constant *PerFn = MF->getFunction()->getPersonalityFn();
+  bool IsSEH = isAsynchronousEHPersonality(classifyEHPersonality(PerFn));
+  const TargetInstrInfo &TII = *Subtarget->getInstrInfo();
+  MachineBasicBlock *TargetMBB = MI->getOperand(0).getMBB();
+  DebugLoc DL = MI->getDebugLoc();
+
+  // SEH does not outline catch bodies into funclets. Turn CATCHRETs into
+  // JMP_4s, possibly with some extra restoration code for 32-bit EH.
+  if (IsSEH) {
+    if (Subtarget->is32Bit())
+      BuildMI(*BB, MI, DL, TII.get(X86::EH_RESTORE));
+    BuildMI(*BB, MI, DL, TII.get(X86::JMP_4)).addMBB(TargetMBB);
+    MI->eraseFromParent();
+    return BB;
+  }
+
+  // Only 32-bit EH needs to worry about manually restoring stack pointers.
+  if (!Subtarget->is32Bit())
+    return BB;
+
+  // C++ EH creates a new target block to hold the restore code, and wires up
+  // the new block to the return destination with a normal JMP_4.
+  MachineBasicBlock *RestoreMBB =
+      MF->CreateMachineBasicBlock(BB->getBasicBlock());
+  assert(BB->succ_size() == 1);
+  MF->insert(std::next(BB->getIterator()), RestoreMBB);
+  RestoreMBB->transferSuccessorsAndUpdatePHIs(BB);
+  BB->addSuccessor(RestoreMBB);
+  MI->getOperand(0).setMBB(RestoreMBB);
+
+  auto RestoreMBBI = RestoreMBB->begin();
+  BuildMI(*RestoreMBB, RestoreMBBI, DL, TII.get(X86::EH_RESTORE));
+  BuildMI(*RestoreMBB, RestoreMBBI, DL, TII.get(X86::JMP_4)).addMBB(TargetMBB);
+  return BB;
+}
+#endif // INTEL_CUSTOMIZATION
+
 MachineBasicBlock *
 X86TargetLowering::EmitLoweredTLSCall(MachineInstr *MI,
                                       MachineBasicBlock *BB) const {
@@ -21868,6 +21915,11 @@ X86TargetLowering::EmitInstrWithCustomInserter(MachineInstr *MI,
     return BB;
   case X86::WIN_ALLOCA:
     return EmitLoweredWinAlloca(MI, BB);
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252266.
+  case X86::CATCHRET:
+    return EmitLoweredCatchRet(MI, BB);
+#endif // INTEL_CUSTOMIZATION
   case X86::SEG_ALLOCA_32:
   case X86::SEG_ALLOCA_64:
     return EmitLoweredSegAlloca(MI, BB);

@@ -142,6 +142,15 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     return true;
   }
 #if INTEL_CUSTOMIZATION
+  // Cherry picking r252266
+  case X86::EH_RESTORE: {
+    // Restore ESP and EBP, and optionally ESI if required.
+    X86FL->restoreWin32EHStackPointers(MBB, MBBI, DL, /*RestoreSP=*/true);
+    MBBI->eraseFromParent();
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case X86::IRET: {
     // Adjust stack to erase error code
     int64_t StackAdj = MBBI->getOperand(0).getImm();
