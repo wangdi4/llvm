@@ -22,6 +22,8 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 #include <unordered_map>
 
 namespace llvm {
@@ -42,6 +44,7 @@ class LLVMContext;
 
 namespace vpo {
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
+typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 
 typedef enum OMP_DIRECTIVES {
       DIR_OMP_PARALLEL = 0,
@@ -217,6 +220,15 @@ private:
     /// functions as the parameter representing the type of directive.
     static Value* createMetadataAsValueFromString(Module &M, StringRef Str);
 
+    /// \brief The BBSet and the ClonedBBSet (held in \p VMap) merge at the
+    /// successor of ExitBB in BBSet, which we call the "merged bblock". This
+    /// function adds PHI instructions to the merged bblock for any value that
+    /// is live outside BBSet.
+    static void addPHINodes(
+            ValueToValueMapTy &VMap,
+            SmallVectorImpl<BasicBlock *> &BBSet,
+            SmallVectorImpl<Instruction *> &LiveOut);
+
 public:
     /// Constructor and destructor
     VPOUtils() {}
@@ -363,6 +375,49 @@ public:
             BasicBlock *ExitBB,
             SmallVectorImpl<BasicBlock *> &BBSet);
 
+    /// \brief Given a single-entry and single-exit region represented by
+    /// BBSet, generates the following code, where ClonedBBSet is the cloned
+    /// region of BBSet:
+    /// 
+    /// if (Cond)
+    ///   BBSet;
+    /// else
+    ///   ClonedBBSet;
+    ///
+    /// Client needs to recompute Loop information if needed and may need to
+    /// recompute WRegion information as well depending on what the cloned
+    /// region will look like, e.g., becoming serial code or remaining as a
+    /// parallel region.
+    static void singleRegionMultiVersioning(
+            BasicBlock *EntryBB,
+            BasicBlock *ExitBB,
+            SmallVectorImpl<BasicBlock *> &BBSet,
+            Value *Cond,
+            DominatorTree *DT = nullptr);
+
+    /// \brief Clones all the basic blocks in BBSet to ClonedBBSet and remaps
+    /// all the values in the ClonedBBSet. The function does not maintain DT
+    /// and LI information. So the client needs to do that. The cloned
+    /// basic blocks are attached to the end of function \p F's basic block
+    /// list. Function \p F can be the same as where BBSet resides, or
+    /// different. \p CodeInfo (optional) helps to collect additional
+    /// information about the cloned region, such as if it contains call,
+    /// dynamic or static alloca instructions. \p VMap bookkeeps both basic
+    /// block mapping and instruction mapping. 
+    static void cloneBBSet(
+            SmallVectorImpl<BasicBlock *> &BBSet,
+            SmallVectorImpl<BasicBlock *> &ClonedBBSet,
+            ValueToValueMapTy &VMap,
+            const Twine &NameSuffix,
+            Function *F,
+            ClonedCodeInfo *CodeInfo = nullptr);
+
+    /// \brief Collects all the instructions in BBSet who have uses (live-out)
+    /// outside the BBSet and stores them in \p LiveOut.
+    static void findDefsUsedOutsideOfRegion(
+            SmallVectorImpl<BasicBlock *> &BBSet,
+            SmallVectorImpl<Instruction *> &LiveOut);
+    
 };
 
 } // End vpo namespace

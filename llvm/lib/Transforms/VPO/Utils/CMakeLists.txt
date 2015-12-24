@@ -3,6 +3,7 @@ add_llvm_library(LLVMTransformVPOUtils
   IntrinsicUtils.cpp
   OpenMPDirectivesAndClauses.cpp
   GeneralUtils.cpp
+  MultiVersioning.cpp
 )
 
 add_dependencies(LLVMTransformVPOUtils intrinsics_gen)
