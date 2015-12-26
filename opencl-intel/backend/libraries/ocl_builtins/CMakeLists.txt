@@ -597,9 +597,7 @@ add_subdirectory (avx)
 add_subdirectory (avx2)
 add_subdirectory (shared)
 if (BUILD_X64 AND NOT ANDROID)
-  # [LLVM 3.6 UPGRADE] Build of KNL built-ins is currently broken
-  # with clang 3.6.
-  # add_subdirectory (KNLni)
+  add_subdirectory (KNLni)
 endif (BUILD_X64 AND NOT ANDROID)
 if (INCLUDE_MIC_DEVICE)
   add_subdirectory (KNCni)
