@@ -168,7 +168,8 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
   std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     if (VKIt->isVector())
-      ParmTypes.push_back(VectorType::get(*ParmIt, V.getVlen()));
+      ParmTypes.push_back(VectorType::get((*ParmIt)->getScalarType(),
+	                                      V.getVlen()));
     else
       ParmTypes.push_back(*ParmIt);
   }
