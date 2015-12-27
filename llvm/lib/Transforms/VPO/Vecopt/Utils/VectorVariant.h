@@ -210,17 +210,17 @@ public:
       case false:
 	return 'N';
     }
+	 llvm_unreachable("unsupported mask");
   }
 
   static bool decodeMask(char mask) {
     switch(mask) {
-      case 'M':
-	return true;
-      case 'N':
-	return false;
+    case 'M':
+      return true;
+    case 'N':
+	    return false;
     }
-    assert(false && "unsupported mask");
-    return false;
+    llvm_unreachable("unsupported mask");
   }
 
   static unsigned int calcVlen(ISAClass isa, llvm::Type* type);
