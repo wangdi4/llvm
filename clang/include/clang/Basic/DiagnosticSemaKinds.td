@@ -587,6 +587,12 @@ def note_surrounding_namespace_ends_here : Note<
   "surrounding namespace with visibility attribute ends here">;
 def err_pragma_pop_visibility_mismatch : Error<
   "#pragma visibility pop with no matching #pragma visibility push">;
+//#if INTEL_CUSTOMIZATION
+// CQ#374277
+def warn_pragma_pop_visibility_mismatch : Warning<
+  err_pragma_pop_visibility_mismatch.Text>,
+  InGroup<Pragmas>;
+//#endif // INTEL_CUSTOMIZATION
 def note_surrounding_namespace_starts_here : Note<
   "surrounding namespace with visibility attribute starts here">;
 def err_pragma_loop_invalid_argument_type : Error<
