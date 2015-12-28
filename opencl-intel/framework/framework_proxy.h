@@ -157,6 +157,16 @@ namespace Intel { namespace OpenCL { namespace Framework {
         bool            Execute(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
 
         /******************************************************************************************
+        * Function:     Execute task on TaskExecutor immediate
+        * Description:    Simple TaskExecutor Interface for Framework
+        * Arguments:
+        * Return value:    false on error
+        * Author:
+        * Date:
+        ******************************************************************************************/
+        bool            ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const;
+
+        /******************************************************************************************
         * Function:     ~FrameworkProxy
         * Description:    The FrameworkProxy class destructor
         * Arguments:        
@@ -230,6 +240,7 @@ namespace Intel { namespace OpenCL { namespace Framework {
         // SharedPointers at all.
         mutable Intel::OpenCL::TaskExecutor::ITaskExecutor* m_pTaskExecutor;
         mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList;
+        mutable Intel::OpenCL::TaskExecutor::ITaskList*     m_pTaskList_immediate;
         mutable unsigned int    m_uiTEActivationCount;
 
         // a lock to prevent double initialization
