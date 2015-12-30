@@ -525,7 +525,7 @@ bool Sema::MergeCXXFunctionDecl(FunctionDecl *New, FunctionDecl *Old,
 #if INTEL_CUSTOMIZATION
     // Fix for CQ#373517: compilation fails with 'redefinition of default
     // argument'.
-    if (getLangOpts().IntelCompat && (OldParamHasDfl || NewParamHasDfl) &&
+    if (getLangOpts().IntelCompat && OldParamHasDfl && NewParamHasDfl &&
         (getLangOpts().PermissiveArgs ||
          getSourceManager().isInSystemHeader(New->getLocation()))) {
       NewParam->setHasInheritedDefaultArg();
