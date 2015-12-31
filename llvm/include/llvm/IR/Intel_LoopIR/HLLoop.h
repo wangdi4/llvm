@@ -495,6 +495,9 @@ public:
 
   /// \brief Verifies HLLoop integrity.
   virtual void verify() const override;
+
+  /// \brief Checks whether SIMD directive is attached to the loop
+  bool isSIMD() const;
 };
 
 } // End namespace loopopt

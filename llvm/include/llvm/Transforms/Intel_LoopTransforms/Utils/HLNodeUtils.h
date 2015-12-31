@@ -525,6 +525,11 @@ public:
                               RegDDRef *OpRef2, RegDDRef *OpRef3,
                               RegDDRef *OpRef4, RegDDRef *LvalRef = nullptr,
                               const Twine &Name = "");
+  /// \brief Creates a new Call instruction.
+  static HLInst *createCall(Function *F,
+                            const SmallVectorImpl<RegDDRef*> &CallArgs,
+                            RegDDRef *LvalRef = nullptr,
+                            const Twine &Name = "");
 
   /// \brief Creates a clones sequence from Node1 to Node2, including both
   /// the nodes and all the nodes in between them. If Node2 is null or Node1
@@ -578,6 +583,32 @@ public:
   static void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
     V.visitRange(getHIRParser()->hir_begin(), getHIRParser()->hir_end());
+  }
+
+  /// \brief Visits HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitInnerToOuter(HV &Visitor, HLNode *Node) {
+    HLLoopVisitor<HV, true /* InnerToOuter */, Forward> V(Visitor);
+    V.visit<true /* RecurseInsideLoops */>(Node);
+  }
+
+  /// \brief Visits all HLNodes in the HIR in InnerToOuter loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllInnerToOuter(HV &Visitor) {
+    HLLoopVisitor<HV, true /* InnerToOuter */, Forward> V(Visitor);
+    V.visit<true /* RecurseInsideLoops */>(getHIRParser()->hir_begin(),
+                                           getHIRParser()->hir_end());
+  }
+
+  /// \brief Visits all HLNodes in the HIR in OuterToInner loop hierarchy
+  /// order. The direction is specified using Forward flag.
+  template <typename HV, bool Forward = true>
+  static void visitAllOuterToInner(HV &Visitor) {
+    HLLoopVisitor<HV, false /* InnerToOuter=false */, Forward> V(Visitor);
+    V.visit<true /* RecurseInsideLoops */>(getHIRParser()->hir_begin(),
+                                           getHIRParser()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.

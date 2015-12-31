@@ -11,6 +11,7 @@ add_llvm_library(LLVMIntel_LoopAnalysis
   DDAnalysis.cpp
   SymbaseAssignment.cpp
   DDTests.cpp
+  ParVecAnalysis.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis

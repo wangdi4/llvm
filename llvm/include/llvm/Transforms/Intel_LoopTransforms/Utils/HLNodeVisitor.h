@@ -269,6 +269,160 @@ private:
   }
 };
 
+template <typename HV,
+          bool InnerToOuter,
+          bool Forward = true>
+class HLLoopVisitor {
+private:
+  HV &Visitor;
+
+  friend class HLNodeUtils;
+
+  HLLoopVisitor(HV &V) : Visitor(V) {}
+
+  /// \brief Contains the core logic to visit nodes and recurse further.
+  /// Returns true to indicate that early termination has occurred.
+  /// Recursive parameter denotes if we want to visit inside the HLNodes
+  /// such as HLIf and HLLoops. RecursiveInsideLoops parameter denotes
+  /// whether we want to visit inside the loops or not and this parameter
+  /// is only useful if Recursive parameter is true.
+  template <bool RecurseInsideLoops,
+            typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visit(NodeTy *Node){
+    bool Ret;
+
+    if (auto Reg = dyn_cast<HLRegion>(Node)) {
+      Visitor.visit(Reg);
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        Ret = visit<RecurseInsideLoops>(Reg->child_begin(),
+                                                Reg->child_end());
+        if (Ret) {
+          return true;
+        }
+      }
+      Visitor.postVisit(Reg);
+    } else if (auto If = dyn_cast<HLIf>(Node)) {
+      if (!RecurseInsideLoops) Visitor.visit(If);
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        auto Begin1 = Forward ? If->then_begin() : If->else_begin();
+        auto Begin2 = Forward ? If->else_begin() : If->then_begin();
+        auto End1   = Forward ? If->then_end()   : If->else_end();
+        auto End2   = Forward ? If->else_end()   : If->then_end();
+
+        Ret = visit<RecurseInsideLoops>(Begin1, End1);
+        if (Ret) {
+          return true;
+        }
+
+        Ret = visit<RecurseInsideLoops>(Begin2, End2);
+        if (Ret) {
+          return true;
+        }
+      }
+      if (!RecurseInsideLoops) Visitor.postVisit(If);
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+      auto Begin1 = Forward ? Loop->pre_begin()  : Loop->post_begin();
+      auto Begin2 = Forward ? Loop->post_begin() : Loop->pre_begin();
+      auto End1   = Forward ? Loop->pre_end()    : Loop->post_end();
+      auto End2   = Forward ? Loop->post_end()   : Loop->pre_end();
+
+      Ret = visit<RecurseInsideLoops>(Begin1, End1);
+      if (Ret) {
+        return true;
+      }
+
+      if (!InnerToOuter && !RecurseInsideLoops) Visitor.visit(Loop);
+
+      if (RecurseInsideLoops && !Visitor.skipRecursion(Node) &&
+          !Visitor.isDone()) {
+        Ret = visit<InnerToOuter>(Loop->child_begin(),
+                                          Loop->child_end());
+        if (Ret) {
+          return true;
+        }
+        if (InnerToOuter) Visitor.visit(Loop);
+        Ret = visit<!InnerToOuter>(Loop->child_begin(),
+                                           Loop->child_end());
+        if (Ret) {
+          return true;
+        }
+        Visitor.postVisit(Loop);
+      }
+      Ret = visit<RecurseInsideLoops>(Begin2, End2);
+      if (Ret) {
+        return true;
+      }
+    } else if (auto Switch = dyn_cast<HLSwitch>(Node)) {
+      if (!RecurseInsideLoops) Visitor.visit(Switch);
+      if (!Visitor.skipRecursion(Node) && !Visitor.isDone()) {
+        if (!Forward) {
+          if (visit<RecurseInsideLoops>(Switch->default_case_child_begin(),
+                    Switch->default_case_child_end()))
+            return true;
+        }
+        for (unsigned I = 1, E = Switch->getNumCases(); I <= E; ++I) {
+          unsigned I1 = Forward ? I : E - I + 1;
+          if (visit<RecurseInsideLoops>(Switch->case_child_begin(I1),
+                    Switch->case_child_end(I1)))
+            return true;
+        }
+        if (Forward) {
+          if (visit<RecurseInsideLoops>(Switch->default_case_child_begin(),
+                    Switch->default_case_child_end()))
+            return true;
+        }
+      }
+      if (!RecurseInsideLoops) Visitor.postVisit(Switch);
+    } else if (auto Label = dyn_cast<HLLabel>(Node)) {
+      if (!RecurseInsideLoops) Visitor.visit(Label);
+    } else if (auto Goto = dyn_cast<HLGoto>(Node)) {
+      if (!RecurseInsideLoops) Visitor.visit(Goto);
+    } else if (auto Inst = dyn_cast<HLInst>(Node)) {
+      if (!RecurseInsideLoops) Visitor.visit(Inst);
+    } else {
+      llvm_unreachable("Unknown HLNode type!");
+    }
+
+    /// Visitor indicated that the traversal is done
+    if (Visitor.isDone()) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /// \brief Visits HLNodes in the forward/backward direction in the range
+  /// [begin, end). Returns true to indicate that early termination has
+  /// occurred. RecursiveInsideLoops parameter denotes whether we want to
+  /// visit inside the loops or not.
+  template <bool RecurseInsideLoops,
+            typename NodeTy, typename = IsHLNodeTy<NodeTy> >
+  bool visit(ilist_iterator<NodeTy> Begin, ilist_iterator<NodeTy> End) {
+    if (Forward) {
+      for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
+        ++Next;
+        if (visit<RecurseInsideLoops>(&(*I))) {
+          return true;
+        }
+      }
+    }
+    else {
+      std::reverse_iterator<decltype(Begin)> RI(End);
+      std::reverse_iterator<decltype(End)> RE(Begin);
+
+      for (auto I = RI, Next = I, E = RE; I != E; I = Next) {
+
+        ++Next;
+
+        if (visit<RecurseInsideLoops>(&(*I))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
 } // End namespace loopopt
 
 } // End namespace llvm

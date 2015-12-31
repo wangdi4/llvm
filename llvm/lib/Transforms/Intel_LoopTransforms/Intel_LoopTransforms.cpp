@@ -22,4 +22,6 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopInterchangePass(Registry);
   initializeHIRCodeGenPass(Registry);
+  initializeParDirectiveInsertionPass(Registry);
+  initializeVecDirectiveInsertionPass(Registry);
 }

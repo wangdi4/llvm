@@ -688,9 +688,18 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
     PM.add(createSSADeconstructionPass());
 
+    PM.add(createParDirectiveInsertionPass());
+    // TODO: add VPO driver call for parallelization here.
+
     PM.add(createHIROptPredicatePass());
-    PM.add(createHIRCompleteUnrollPass());
-    PM.add(createHIRGeneralUnrollPass());
+    if (!DisableUnrollLoops)
+      PM.add(createHIRCompleteUnrollPass());
+
+    PM.add(createVecDirectiveInsertionPass(OptLevel == 3));
+    // TODO: add VPO driver call for vectorization here.
+
+    if (!DisableUnrollLoops)
+      PM.add(createHIRGeneralUnrollPass());
   }
 
   PM.add(createHIRCodeGenPass());

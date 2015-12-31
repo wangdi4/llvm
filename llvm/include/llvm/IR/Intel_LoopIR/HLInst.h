@@ -207,6 +207,14 @@ public:
 
   /// \brief Verifies HLInst integrity.
   virtual void verify() const override;
+
+  /// \brief Checks whether the instruction is a call to intrinsic
+  /// If so, IntrinID is populated back.
+  bool isIntrinCall(Intrinsic::ID &IntrinID) const;
+
+  /// \brief Checks whether the instruction is a call to SIMD Directive,
+  /// i.e., intel_directive call with the right metadata.
+  bool isSIMDDirective() const;
 };
 
 } // End namespace loopopt

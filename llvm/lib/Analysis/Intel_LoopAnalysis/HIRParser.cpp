@@ -134,7 +134,8 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
 
     if (!UnknownSCEV->isSizeOf(Ty) && !UnknownSCEV->isAlignOf(Ty) &&
         !UnknownSCEV->isOffsetOf(Ty, FieldNo) &&
-        !ScalarSA->isConstant(UnknownSCEV->getValue())) {
+        !ScalarSA->isConstant(UnknownSCEV->getValue()) &&
+        !isMetadataBlob(Blob, nullptr)) {
       return true;
     }
   }
@@ -168,6 +169,20 @@ bool HIRParser::isUndefBlob(CanonExpr::BlobTy Blob) const {
 bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     return isa<ConstantFP>(UnknownSCEV->getValue());
+  }
+
+  return false;
+}
+
+bool HIRParser::isMetadataBlob(CanonExpr::BlobTy Blob,
+                               MetadataAsValue **Val) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    if (auto *p = dyn_cast<MetadataAsValue>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = p;
+      }
+      return true;
+    }
   }
 
   return false;

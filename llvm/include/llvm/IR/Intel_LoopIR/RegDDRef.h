@@ -209,6 +209,12 @@ public:
     return isScalarRef() && getSingleCanonExpr()->isFPConstant();
   }
 
+  /// \brief Returns true if this RegDDRef represents a metadata.
+  /// If true, metadata is returned in Val.
+  bool isMetadata(MetadataAsValue **Val = nullptr) const {
+    return isScalarRef() && getSingleCanonExpr()->isMetadata(Val);
+  }
+
   /// \brief Returns true if this RegDDRef represents null pointer.
   bool isNull() const {
     return isScalarRef() && getSingleCanonExpr()->isNull();
@@ -220,7 +226,7 @@ public:
   /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
   /// have CONSTANT_SYMBASE.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull());
+    return (isIntConstant() || isFPConstant() || isNull() || isMetadata());
   }
 
   /// \brief Returns the number of dimensions of the DDRef.

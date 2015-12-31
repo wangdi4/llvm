@@ -144,6 +144,11 @@ public:
   /// \brief Returns true if Blob represents a FP constant.
   static bool isConstantFPBlob(CanonExpr::BlobTy Blob);
 
+  /// \brief Returns true if Blob represents a metadata.
+  /// If blob is metadata, sets the return value in Val.
+  static bool isMetadataBlob(CanonExpr::BlobTy Blob,
+                             MetadataAsValue **Val = nullptr);
+
   /// \brief Returns a new blob created from passed in Val.
   static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
                                       unsigned *NewBlobIndex = nullptr);

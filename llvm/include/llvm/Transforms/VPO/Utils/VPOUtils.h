@@ -418,6 +418,10 @@ public:
             SmallVectorImpl<BasicBlock *> &BBSet,
             SmallVectorImpl<Instruction *> &LiveOut);
     
+    /// \brief Returns Metadata as Value for a given OMP directive
+    static MetadataAsValue *getMetadataAsValue(Module &M, OMP_DIRECTIVES Dir);
+    /// \brief Returns Metadata as Value for a given OMP directive clause
+    static MetadataAsValue *getMetadataAsValue(Module &M, OMP_CLAUSES Qual);
 };
 
 } // End vpo namespace

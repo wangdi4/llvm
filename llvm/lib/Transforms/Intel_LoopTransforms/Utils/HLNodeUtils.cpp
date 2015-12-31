@@ -17,6 +17,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/Support/Debug.h"
+#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 
 #define DEBUG_TYPE "hlnode-utils"
 using namespace llvm;
@@ -692,6 +693,38 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   HInst->setOperandDDRef(OpRef3, 3);
   HInst->setOperandDDRef(OpRef4, 4);
 
+  return HInst;
+}
+
+HLInst *HLNodeUtils::createCall(Function *F,
+                                const SmallVectorImpl<RegDDRef*> &CallArgs,
+                                RegDDRef *LvalRef, const Twine &Name) {
+  bool HasReturn = !F->getReturnType()->isVoidTy();
+  unsigned NumArgs = CallArgs.size();
+  Value *InstVal;
+  HLInst *HInst;
+  SmallVector<Value *, 4> Args;
+  const Twine NewName(HasReturn ? Name.isTriviallyEmpty() ? "dummy"
+                                                          : Name
+                                : "");
+
+  for (unsigned I=0; I<NumArgs; I++) {
+    MetadataAsValue *Val = nullptr;
+    Args.push_back(CallArgs[I]->isMetadata(&Val)
+                     ? Val
+                     : createOneVal(CallArgs[I]->getDestType()));
+  }
+  InstVal = DummyIRBuilder->CreateCall(F, Args, NewName);
+  if (HasReturn) {
+    HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
+  }
+  else {
+    HInst = createHLInst(cast<Instruction>(InstVal));
+  }
+
+  for (unsigned I=0; I<NumArgs; I++) {
+    HInst->setOperandDDRef(CallArgs[I], I);
+  }
   return HInst;
 }
 

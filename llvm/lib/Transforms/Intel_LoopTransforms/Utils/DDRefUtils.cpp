@@ -21,6 +21,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Metadata.h" // needed for MetadataAsValue -> Value
 
 using namespace llvm;
 using namespace loopopt;
@@ -41,6 +42,15 @@ RegDDRef *DDRefUtils::createScalarRegDDRef(unsigned SB, CanonExpr *CE) {
 RegDDRef *DDRefUtils::createConstDDRef(Type *Ty, int64_t Val) {
   RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
   CanonExpr *CE = CanonExprUtils::createCanonExpr(Ty, 0, Val);
+  NewRegDD->setSingleCanonExpr(CE);
+
+  return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createConstDDRef(MetadataAsValue *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
   NewRegDD->setSingleCanonExpr(CE);
 
   return NewRegDD;

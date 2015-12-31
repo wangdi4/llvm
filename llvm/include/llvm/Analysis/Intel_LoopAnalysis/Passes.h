@@ -57,6 +57,9 @@ FunctionPass *createHIRLocalityAnalysisPass();
 /// Assigns a symbase to all ddrefs, which groups dd refs into sets that
 /// never alias
 FunctionPass *createSymbaseAssignmentPass();
+
+/// Creates analysis which can provide parallel/vector candidate analysis
+FunctionPass *createParVecAnalysisPass();
 }
 
 #endif

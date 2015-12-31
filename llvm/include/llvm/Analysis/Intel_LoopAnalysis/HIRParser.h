@@ -412,6 +412,10 @@ private:
   /// \brief Returns true if Blob represents a constant FP value.
   bool isConstantFPBlob(CanonExpr::BlobTy Blob) const;
 
+  /// \brief Returns true if Blob represents a metadata value.
+  /// If blob is metadata, sets the return value in Val.
+  bool isMetadataBlob(CanonExpr::BlobTy Blob, MetadataAsValue **Val) const;
+
 public:
   static char ID; // Pass identification
   HIRParser();
