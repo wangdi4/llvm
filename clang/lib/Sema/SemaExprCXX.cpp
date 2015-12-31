@@ -5019,6 +5019,30 @@ QualType Sema::CXXCheckConditionalOperands(ExprResult &Cond, ExprResult &LHS,
       // DR (no number yet): the result is a bit-field if the
       // non-throw-expression operand is a bit-field.
       OK = NonThrow->getObjectKind();
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ371470: do not inherit value category from non-throw
+      // expression for gcc/icc compatibility.
+      if (LangOpts.IntelCompat && NonThrow->isGLValue()) {
+        VK = VK_RValue;
+        QualType Ty = NonThrow->getType();
+        ExprResult Res = DefaultFunctionArrayLvalueConversion(NonThrow);
+        if (Res.get() && Res.get()->isGLValue() && Ty->isRecordType()) {
+          // The operands have class type. Make a temporary copy.
+          if (RequireNonAbstractType(QuestionLoc, Ty,
+                                     diag::err_allocation_of_abstract_type))
+            return QualType();
+          InitializedEntity Entity = InitializedEntity::InitializeTemporary(Ty);
+          Res = PerformCopyInitialization(Entity, SourceLocation(), Res.get());
+          if (Res.isInvalid())
+            return QualType();
+        }
+        if (LThrow)
+          RHS = Res;
+        else
+          LHS = Res;
+        return Res.get() ? Res.get()->getType() : QualType();
+      } else
+#endif // INTEL_CUSTOMIZATION
       return NonThrow->getType();
     }
 
