@@ -5261,14 +5261,11 @@ void Sema::DiagnoseFunctionSpecifiers(const DeclSpec &DS) {
   // FIXME: We should probably indicate the identifier in question to avoid
   // confusion for constructs like "inline int a(), b;"
   if (DS.isInlineSpecified())
-#if INTEL_CUSTOMIZATION
-    // CQ#370751: Ignore 'inline' atttribute for non functions
-    if (getLangOpts().IntelCompat)
-      Diag(DS.getInlineSpecLoc(),
-           diag::warn_inline_non_function);
-    else
-#endif // INTEL_CUSTOMIZATION
     Diag(DS.getInlineSpecLoc(),
+#if INTEL_CUSTOMIZATION
+         // CQ#370751: Ignore 'inline' atttribute for non functions
+         getLangOpts().IntelCompat ? diag::warn_inline_non_function :
+#endif // INTEL_CUSTOMIZATION
          diag::err_inline_non_function);
 
   if (DS.isVirtualSpecified())
