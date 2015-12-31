@@ -82,8 +82,8 @@ StringRef AVRLoop::getAvrTypeName() const {
   return StringRef("LOOP");
 }
 
-StringRef AVRLoop::getAvrValueName() const {
-  return StringRef("",0);
+std::string AVRLoop::getAvrValueName() const {
+  return "";
 }
 
 void AVRLoop::codeGen() {

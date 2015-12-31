@@ -111,14 +111,14 @@ StringRef AVRBranch::getAvrTypeName() const {
 }
 
 
-StringRef AVRBranch::getAvrValueName() const {
+std::string AVRBranch::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
 
   assert(!IsConditional && getNumSuccessors() > 0 &&
 	 "Invalid Avr Branch");
 
-  return StringRef(Successors[0]->getAvrValueName());
+  return Successors[0]->getAvrValueName();
 }
 
 
@@ -242,8 +242,8 @@ StringRef AVRWrn::getAvrTypeName() const {
   return StringRef("WRN");
 }
 
-StringRef AVRWrn::getAvrValueName() const {
-  return StringRef("",0);
+std::string AVRWrn::getAvrValueName() const {
+  return "";
 }
 
 void AVRWrn::codeGen() {

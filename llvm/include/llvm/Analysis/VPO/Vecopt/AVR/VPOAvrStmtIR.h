@@ -73,8 +73,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Assign.
   void codeGen();
@@ -115,8 +115,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Label.
   void codeGen();
@@ -157,8 +157,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Phi.
   void codeGen();
@@ -199,8 +199,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Call.
   void codeGen();
@@ -256,8 +256,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Forward branch.
   void codeGen();
@@ -298,8 +298,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Backedge.
   void codeGen();
@@ -340,8 +340,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Entry.
   void codeGen();
@@ -382,8 +382,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Return.
   void codeGen();
@@ -426,8 +426,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Return.
   void codeGen();
@@ -471,8 +471,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Return.
   void codeGen();

@@ -51,12 +51,12 @@ void AVRAssignIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRAssignIR::getAvrValueName() const {
+std::string AVRAssignIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRAssignIR::codeGen() {
@@ -101,7 +101,7 @@ void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRLabelIR::getAvrValueName() const {
+std::string AVRLabelIR::getAvrValueName() const {
   return getSourceBBlock()->getName();
 }
 
@@ -135,12 +135,12 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRPhiIR::getAvrValueName() const {
+std::string AVRPhiIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRPhiIR::codeGen() {
@@ -185,12 +185,12 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRCallIR::getAvrValueName() const {
+std::string AVRCallIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRCallIR::codeGen() {
@@ -248,13 +248,13 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRBranchIR::getAvrValueName() const {
+std::string AVRBranchIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
 
   Instruct->print(RSO);
  
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRBranchIR::codeGen() {
@@ -299,12 +299,12 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRBackEdgeIR::getAvrValueName() const {
+std::string AVRBackEdgeIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRBackEdgeIR::codeGen() {
@@ -349,12 +349,12 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVREntryIR::getAvrValueName() const {
+std::string AVREntryIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVREntryIR::codeGen() {
@@ -399,12 +399,12 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRReturnIR::getAvrValueName() const {
+std::string AVRReturnIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRReturnIR::codeGen() {
@@ -451,12 +451,12 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRSelectIR::getAvrValueName() const {
+std::string AVRSelectIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRSelectIR::codeGen() {
@@ -508,12 +508,12 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRCompareIR::getAvrValueName() const {
+std::string AVRCompareIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
   Instruct->print(RSO);
 
-  return StringRef(IString);
+  return IString;
 }
 
 void AVRCompareIR::codeGen() {

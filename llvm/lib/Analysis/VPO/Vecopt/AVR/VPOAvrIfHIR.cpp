@@ -41,8 +41,8 @@ void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   AVRIf::print(OS, Depth, VLevel);
 }
 
-StringRef AVRIfHIR::getAvrValueName() const {
-  return StringRef("",0);
+std::string AVRIfHIR::getAvrValueName() const {
+  return "";
 }
 
 void AVRIfHIR::codeGen() {

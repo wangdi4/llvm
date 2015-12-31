@@ -40,8 +40,8 @@ void AVRAssignHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRAssignHIR::getAvrValueName() const {
-  return StringRef("");
+std::string AVRAssignHIR::getAvrValueName() const {
+  return "";
 }
 
 //----------AVR Label for HIR Implementation----------//
@@ -63,8 +63,8 @@ void AVRLabelHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRLabelHIR::getAvrValueName() const {
-  return StringRef("");
+std::string AVRLabelHIR::getAvrValueName() const {
+  return "";
 }
 
 //----------AVR Branch for HIR Implementation----------//
@@ -86,6 +86,6 @@ void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
   }
 }
 
-StringRef AVRBranchHIR::getAvrValueName() const {
-  return StringRef("");
+std::string AVRBranchHIR::getAvrValueName() const {
+  return "";
 }

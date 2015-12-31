@@ -67,8 +67,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 };
 
 //----------AVR Label Node for HIR----------//
@@ -101,8 +101,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 };
 
 //----------AVR Branch Node for HIR----------//
@@ -137,8 +137,8 @@ public:
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VLevel) const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const override;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
 };
 
 } // End VPO Vectorizer Namespace

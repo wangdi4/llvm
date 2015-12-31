@@ -82,9 +82,8 @@ StringRef AVRFunction::getAvrTypeName() const {
   return StringRef("FUNCTION ");
 }
 
-StringRef AVRFunction::getAvrValueName() const {
-  std::string IString(OriginalFunction->getName().str());
-  return StringRef(IString);
+std::string AVRFunction::getAvrValueName() const {
+  return OriginalFunction->getName();
 }
 
 void AVRFunction::codeGen() {

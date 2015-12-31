@@ -104,9 +104,9 @@ public:
   /// \brief Returns a StringRef for the type name of this node. 
   virtual StringRef getAvrTypeName() const = 0;
 
-  /// \brief Returns a StringRef for the value name of this node.
+  /// \brief Returns the value name of this node.
   /// The string will be w.r.t to underlying IR. 
-  virtual StringRef getAvrValueName() const = 0;
+  virtual std::string getAvrValueName() const = 0;
 
   /// \brief Returns the Avr nodes's unique ID number
   unsigned getNumber() const { return Number; }

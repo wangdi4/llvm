@@ -135,8 +135,8 @@ public:
   /// \brief Returns a constant StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const override;
 
-  /// \brief Returns a constant StringRef for the value name of this node.
-  virtual StringRef getAvrValueName() const = 0;
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const = 0;
 
 };
 

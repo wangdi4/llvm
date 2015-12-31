@@ -60,8 +60,8 @@ void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
   AVRIf::print(OS,Depth, VLevel);
 }
 
-StringRef AVRIfIR::getAvrValueName() const {
-  return StringRef("",0);
+std::string AVRIfIR::getAvrValueName() const {
+  return "";
 }
 
 void AVRIfIR::codeGen() {

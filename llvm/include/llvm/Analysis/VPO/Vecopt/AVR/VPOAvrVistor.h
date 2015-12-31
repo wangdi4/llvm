@@ -185,7 +185,7 @@ template <typename AV>
 bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
                            bool Forward) {
 
-  bool Ret; 
+  bool Ret = false; 
 
   if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Node)) {
 
