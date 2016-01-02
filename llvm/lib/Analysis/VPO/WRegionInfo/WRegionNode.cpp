@@ -120,7 +120,7 @@ BasicBlock *WRegionNode::getSuccBBlock() const {
 
 bool WRegionNode::hasChildren() const { 
   const WRegion* W = static_cast<const WRegion*>(this);
-  return !(W->hasChildren()); 
+  return W->hasChildren(); 
 }
 
 /// \brief Returns the number of children.
