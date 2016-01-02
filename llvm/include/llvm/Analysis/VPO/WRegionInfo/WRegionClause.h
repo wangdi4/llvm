@@ -169,6 +169,7 @@ class LastprivateItem : public Item
 //
 class ReductionItem : public Item 
 {
+public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
     WRNReductionSum,
@@ -335,6 +336,16 @@ template <typename ClauseItem> class Clause
     Iterator begin()               { return C.begin();    }
     Iterator end()                 { return C.end();      }
 
+    typedef iterator_range<Iterator> ItemsRange;
+    typedef iterator_range<ConstIterator> ConstItemsRange;
+
+    ItemsRange  items() {
+      return ItemsRange(begin(), end());
+    }
+    ConstItemsRange items() const {
+      return ConstItemsRange(begin(), end());
+    }
+
     void print(formatted_raw_ostream &OS) const {
       StringRef S = VPOUtils::getClauseName(getClauseID());
       OS << S << " clause, size=" << size() << ": " ;
@@ -345,7 +356,7 @@ template <typename ClauseItem> class Clause
 
     // search the clause for 
     Iterator findOrig(VAR V) { 
-      for (auto I=begin(); I != end(); ++I)
+      for (auto I : items())
         if ((*I)->getOrig() == V) 
           return I;
       return end();
