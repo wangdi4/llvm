@@ -230,23 +230,22 @@ void WRegionUtils::insertWRegionNode(
 
   switch (Op) {
       case WRegionUtils::FirstChild:
-        InsertionPoint = Parent->getFirstChild();
+        WRContainer.insertAfter(0, W);
         break;
       case WRegionUtils::LastChild:
-        InsertionPoint = Parent->getLastChild();
+        WRContainer.insertAfter(Parent->getLastChild(), W);
         break;
       case WRegionUtils::Append:
-        InsertionPoint = std::next(Pos);
+        WRContainer.insertAfter(Pos, W);
         break;
       case WRegionUtils::Prepend:
-        InsertionPoint = Pos;
+        WRContainer.insert(Pos, W);
         break;
       default:
         llvm_unreachable("VPO: Unknown WRegionNode Insertion Operation Type");
   }
 
   W->setParent(Parent);
-  WRContainer.insert(InsertionPoint, W);
 
   return;
 }
