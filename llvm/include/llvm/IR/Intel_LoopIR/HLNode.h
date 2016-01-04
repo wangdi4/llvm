@@ -86,7 +86,7 @@ private:
   unsigned TopSortNum;
 
   /// Maximum topological sort number of HLNode across its children.
-  unsigned LexicalLastTopSortNum;
+  unsigned MaxTopSortNum;
 
   /// \brief Sets the unique number associated with this HLNode.
   void setNextNumber();
@@ -95,11 +95,11 @@ private:
   void setTopSortNum(unsigned Num) { TopSortNum = Num; }
 
   /// \brief Sets the maximum sort number of HLNode across its children.
-  void setLexicalLastTopSortNum(unsigned Num) {
-    LexicalLastTopSortNum = Num;
+  void setMaxTopSortNum(unsigned Num) {
+    MaxTopSortNum = Num;
     if (HLNode *Parent = getParent()) {
-      if (Parent->getLexicalLastTopSortNum() < Num) {
-        Parent->setLexicalLastTopSortNum(Num);
+      if (Parent->getMaxTopSortNum() < Num) {
+        Parent->setMaxTopSortNum(Num);
       }
     }
   }
@@ -191,7 +191,7 @@ public:
   unsigned getTopSortNum() const { return TopSortNum; }
 
   /// \brief Returns the maximum topological sort number across its children.
-  unsigned getLexicalLastTopSortNum() const { return LexicalLastTopSortNum; }
+  unsigned getMaxTopSortNum() const { return MaxTopSortNum; }
 
   /// \brief An enumeration to keep track of the concrete subclasses of HLNode.
   enum HLNodeVal {

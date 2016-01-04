@@ -1610,7 +1610,7 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
 
   bool hasPrevNode = Container.begin() != First;
   unsigned PrevNum =
-      hasPrevNode ? First->getPrevNode()->getLexicalLastTopSortNum() : 0;
+      hasPrevNode ? First->getPrevNode()->getMaxTopSortNum() : 0;
   if (!PrevNum) {
     PrevNum = Parent->getTopSortNum();
   }
@@ -1675,8 +1675,8 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
 
     if (Force || TopSortNum >= Node->getTopSortNum()) {
       Node->setTopSortNum(TopSortNum);
-      if (Force || TopSortNum >= Node->getLexicalLastTopSortNum()) {
-        Node->setLexicalLastTopSortNum(TopSortNum);
+      if (Force || TopSortNum >= Node->getMaxTopSortNum()) {
+        Node->setMaxTopSortNum(TopSortNum);
       }
     } else {
       Stop = true;
@@ -1701,17 +1701,21 @@ void HLNodeUtils::initTopSortNum() {
 void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
                                        HLContainerTy::iterator Last,
                                        unsigned MinNum, unsigned MaxNum) {
+  // Zero MaxNum means that there is no upper limit. And we can number
+  // [First, Last) nodes with a fixed step
   if (MaxNum) {
-    NodeCounter TC;
-    HLNodeUtils::visitRange(TC, First, Last);
+    NodeCounter NC;
+    HLNodeUtils::visitRange(NC, First, Last);
 
     assert(MinNum < MaxNum && "MinNum should be always less than MaxNum");
 
-    unsigned Step = (MaxNum - MinNum) / (TC.Count + 1);
+    unsigned Step = (MaxNum - MinNum) / (NC.Count + 1);
+    // number [First, Last) nodes
     TopSorter<true> TS(MinNum, Step);
     HLNodeUtils::visitRange(TS, First, Last);
     if (Step == 0) {
-      TopSorter<false> TS(MinNum + TC.Count, 1, std::prev(Last));
+      // Number the rest nodes
+      TopSorter<false> TS(MinNum + NC.Count, 1, std::prev(Last));
       HLNodeUtils::visit(TS, First->getParentRegion());
     }
   } else {

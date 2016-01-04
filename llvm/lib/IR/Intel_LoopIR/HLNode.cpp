@@ -33,14 +33,14 @@ unsigned HLNode::GlobalNum(0);
 
 HLNode::HLNode(unsigned SCID)
     : SubClassID(SCID), Parent(nullptr), TopSortNum(0),
-      LexicalLastTopSortNum(0) {
+      MaxTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
 
 HLNode::HLNode(const HLNode &HLNodeObj)
     : SubClassID(HLNodeObj.SubClassID), Parent(nullptr), TopSortNum(0),
-      LexicalLastTopSortNum(0) {
+      MaxTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
@@ -82,7 +82,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   if (!isa<HLRegion>(this)) {
     OS << "<" << Number;
     if (PrintTopSortNum) {
-      OS << ":" << TopSortNum << "(" << LexicalLastTopSortNum << ")";
+      OS << ":" << TopSortNum << "(" << MaxTopSortNum << ")";
     }
     OS << ">";
   }

@@ -52,7 +52,7 @@ public:
   void visit(const HLNode *Node) {
     unsigned CurrentTopSortNum = Node->getTopSortNum();
     if (Node->getParent()) {
-      assert(Node->getParent()->getLexicalLastTopSortNum() >=
+      assert(Node->getParent()->getMaxTopSortNum() >=
                  CurrentTopSortNum &&
              "Parent LexicalLastTopSortNum should "
              "be bigger than every TopSortNum");
