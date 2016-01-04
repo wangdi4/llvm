@@ -316,8 +316,9 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "QUAL.OMP.DEPEND.INOUT" },
   { QUAL_OMP_NAME,
     "QUAL.OMP.NAME" },
-  { QUAL_LIST_END,
-    "QUAL.LIST.END" }
+  { QUAL_LIST_END,         // TBD: SIMD Function cloning emits DIR.QUAL.LIST.END
+                           // For now changed the string to match.
+    "DIR.QUAL.LIST.END" } 
 };
 
 StringMap<int> VPOUtils::DirectiveIDs;

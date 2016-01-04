@@ -173,6 +173,9 @@ void HIRVisitor::visit(loopopt::HLNode *Node) {
 WRContainerTy *WRegionUtils::buildWRGraphFromHIR()
 {
   HIRVisitor HV;
+
+  VPOUtils::initDirectiveAndClauseStringMap();
+
   HLNodeUtils::visitAll(HV);
   return HV.getWRGraph();
 }

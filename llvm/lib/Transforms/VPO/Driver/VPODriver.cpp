@@ -27,6 +27,10 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrGenerate.h"
 
 #include "llvm/Transforms/VPO/Vecopt/VPOAvrLLVMCodeGen.h"
+#include "llvm/Transforms/VPO/Vecopt/VPOAvrHIRCodeGen.h"
+
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #define DEBUG_TYPE "VPODriver"
 
@@ -37,6 +41,9 @@ INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                       false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
                     false)
 
@@ -55,11 +62,23 @@ void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
   // loops. Same holds for Scalar Evolution which needs to be computed
   // for newly created loops. For now only mark AVRGenerate as
   // preserved.
-  // AU.setPreservesAll();
+  
+  // TBD: Unable to get HIR path working without setPreservesAll
+  AU.setPreservesAll();
   AU.addRequired<LoopInfoWrapperPass>();
   AU.addRequired<AVRGenerate>();
   AU.addRequired<ScalarEvolutionWrapperPass>();
+
+  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRLocalityAnalysis>();
+  AU.addRequiredTransitive<DDAnalysis>();
+
+#if 0
   AU.addPreserved<AVRGenerate>();
+  AU.addPreserved<HIRParser>();
+  AU.addPreserved<HIRLocalityAnalysis>();
+  AU.addPreserved<DDAnalysis>();
+#endif
 }
 
 bool VPODriver::runOnFunction(Function &F) {
@@ -80,11 +99,28 @@ bool VPODriver::runOnFunction(Function &F) {
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *avr = I;
-    AVRCodeGen *SP;
+    AVRWrn *AvrWrn;
 
-    SP = new AVRCodeGen(avr, SC, LI, &F);
-    ret_val = ret_val | SP->vectorize();
-    delete SP;
+    AvrWrn = dyn_cast<AVRWrn>(avr);
+
+    if (!AvrWrn) {
+      continue;
+    }
+
+    if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
+      AVRCodeGen *SP;
+
+      SP = new AVRCodeGen(avr, SC, LI, &F);
+      ret_val = ret_val | SP->vectorize();
+      delete SP;
+    }
+    else {
+      AVRCodeGenHIR *SP;
+
+      SP = new AVRCodeGenHIR(avr);
+      ret_val = ret_val | SP->vectorize();
+      delete SP;
+    }
   }
 
   // Print results of AvrGenerate Pass
@@ -97,8 +133,11 @@ bool VPODriver::runOnFunction(Function &F) {
   // It is possible that stripDirectives eliminates all instructions in a basic
   // block except for the branch instruction. Use CFG simplify to eliminate
   // them.
-  FPM.add(createCFGSimplificationPass());
-  FPM.run(F);
+
+  // Calling CFG simplification pass causes assertions about uses remaining to
+  // deleted value handles. Commenting out for now.
+  //FPM.add(createCFGSimplificationPass());
+  //FPM.run(F);
 
   return ret_val;
 }

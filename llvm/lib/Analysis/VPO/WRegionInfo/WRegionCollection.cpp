@@ -263,7 +263,12 @@ bool WRegionCollection::runOnFunction(Function &F) {
 
   // CFG Restructuring, which puts directives into standalone basic blocks.
   // It maintains DominatorTree and LoopInfo.
-  VPOUtils::CFGRestructuring(F, DT, LI);
+  
+  // TBD: This needs to be run for LLVM IR only path. For the HIR case,
+  // standalone basic blocks created cause HIR region formation to not
+  // include the SIMD directives which in turn causes WRegion formation
+  // to fail. Commenting out the call for now.
+  // VPOUtils::CFGRestructuring(F, DT, LI);
 
   DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
   WRGraph = new (WRContainerTy);

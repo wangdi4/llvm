@@ -450,6 +450,19 @@ Value *HIRCodeGen::CGVisitor::visitCanonExpr(CanonExpr *CE) {
   // combine the blob, const, and ivs into one value
   Value *Res = nullptr;
   if (BlobSum && IVSum) {
+    auto BlobTy = BlobSum->getType();
+    auto IVTy   = IVSum->getType();
+    
+    // Broadcast scalar value
+    if (BlobTy->isVectorTy() && !IVTy->isVectorTy()) {
+      IVSum = Builder->CreateVectorSplat(BlobTy->getVectorNumElements(),
+                                         IVSum);
+    }
+    else if (!BlobTy->isVectorTy() && IVTy->isVectorTy()) {
+      BlobSum = Builder->CreateVectorSplat(IVTy->getVectorNumElements(),
+                                           BlobSum);
+    }
+
     Res = Builder->CreateAdd(BlobSum, IVSum);
   } else {
     Res = IVSum ? IVSum : BlobSum;
@@ -669,6 +682,13 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
 
   // Save entry and succ fields, these get invalidated once block is split
   BasicBlock *EntryFirstHalf = R->getEntryBBlock();
+
+  // Split the block if the region entry is the same as function entry
+  if (&(F->getEntryBlock()) == EntryFirstHalf) {
+    EntryFirstHalf = EntryFirstHalf->splitBasicBlock(EntryFirstHalf->getTerminator(),
+                                                     "entry.split");
+  }
+
   BasicBlock *RegionSuccessor = R->getSuccBBlock();
   RegionSucc[R] = RegionSuccessor;
 
@@ -1075,6 +1095,9 @@ Value *HIRCodeGen::CGVisitor::sumIV(CanonExpr *CE) {
     llvm_unreachable("No iv in CE");
 
   Type *Ty = CE->getSrcType();
+  if (Ty->isVectorTy()){
+    Ty = Ty->getVectorElementType();
+  }
 
   Value *res = IVPairCG(CE, CurIVPair, Ty);
   CurIVPair++;

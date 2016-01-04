@@ -37,6 +37,8 @@ INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
@@ -89,18 +91,24 @@ void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<PostDominatorTree>();
   AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<IdentifyVectorCandidates>();
+  if (!AvrHIRTest) {
+    AU.addRequired<IdentifyVectorCandidates>();
+  }
 
   // Temporary Check to prevent HIR building for LLVMIR mode
   // This required should be removed in future, since VPO driver
   // will be called from HIR. If called from HIR we dont need a required here.
-  if (AvrHIRTest)
+  if (AvrHIRTest) {
     AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<HIRLocalityAnalysis>();
+    AU.addRequiredTransitive<DDAnalysis>();
+  }
 }
 
 bool AVRGenerate::runOnFunction(Function &F)
 {
-  VC = &getAnalysis<IdentifyVectorCandidates>();
+  if (!AvrHIRTest)
+    VC = &getAnalysis<IdentifyVectorCandidates>();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   PDT= &getAnalysis<PostDominatorTree>();
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
@@ -444,10 +452,29 @@ void AVRGenerate::buildAbstractLayer()
       DEBUG(I->dump());
     }
 
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E; I++) {
+    // TBD: Using WRN nodes directly for now. This needs to be changed
+    // to depend on identify vector candidates. We also need to create
+    // AVRLoop variants for LLVM/HIR variants ans use these going
+    // forward.
+    for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
       DEBUG(errs() << "Starting AVR gen for \n");
       DEBUG(I->dump());
-      AbstractLayer.push_back(AG.visit(I));
+      AVRWrn *AWrn;
+      AVR *Avr;
+      WRNVecLoopNode *WVecNode;
+
+      WVecNode = dyn_cast<WRNVecLoopNode>(I);
+      
+      if (!WVecNode) {
+        continue;
+      }
+
+      // Create an AVRWrn and insert AVR for contained loop as child
+      AWrn = AVRUtils::createAVRWrn(WVecNode);
+      Avr = AG.visit(WVecNode->getHLLoop());
+      AVRUtils::insertAVR(AWrn, nullptr, Avr, FirstChild);
+
+      AbstractLayer.push_back(AWrn);
     }
 
     // We have generated AL from HIR, do not invoke LLVM IR AL opts

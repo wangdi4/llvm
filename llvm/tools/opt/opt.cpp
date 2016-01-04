@@ -338,7 +338,11 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
   initializeSIMDFunctionCloningPass(Registry);
-  initializeVPODriverPass(Registry);
+
+  // For testing with HIR, this call has been moved to 
+  // initializeIntel_LoopTransforms. We will possibly need a separate VPO HIR
+  // driver pass  at which point this call needs to be uncommented.
+  // initializeVPODriverPass(Registry);
 #endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,

@@ -34,6 +34,9 @@
 #include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm::loopopt;
