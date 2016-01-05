@@ -252,6 +252,45 @@ namespace llvm {
     ///
     ValueExprMapType ValueExprMap;
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// The typedef for HIRValueExprMap.
+    ///
+    typedef DenseMap<Value *, const SCEV *> HIRValueExprMapType;
+  
+    /// This is a cache of HIR values we have analyzed so far. It is built
+    /// on top of ValueExprMap and needs to stay in sync with it.
+    HIRValueExprMapType HIRValueExprMap;
+
+    /// Structure to contain all HIR related info.
+    struct HIRInfoS {
+    private:
+      // Indicates whether we are parsing for HIR.
+      bool IsValid;
+      // Sets the outermost loop in HIR's context. Used to suppress AddRecs 
+      // belonging to parents of this loop.
+      const Loop *OutermostLoop;
+
+    public:
+      HIRInfoS() { reset(); } 
+
+      bool isValid() const { return IsValid; }
+      const Loop *getOutermostLoop() const { return OutermostLoop; }
+
+      void set(const Loop *OutermostLoop) {
+        IsValid = true;
+        this->OutermostLoop = OutermostLoop;
+      }
+
+      void reset() {
+        IsValid = false;
+        OutermostLoop = nullptr;
+      }
+    };
+
+    HIRInfoS HIRInfo;
+
+#endif  // INTEL_CUSTOMIZATION
+
     /// Mark predicate values currently being processed by isImpliedCond.
     DenseSet<Value*> PendingLoopPredicates;
 
@@ -602,6 +641,11 @@ namespace llvm {
     /// Return an existing SCEV for V if there is one, otherwise return nullptr.
     const SCEV *getExistingSCEV(Value *V);
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// Returns true if specified SCEV is suitable for HIR consumption. 
+    bool isValidSCEVForHIR(const SCEV *SC) const;
+#endif  // INTEL_CUSTOMIZATION
+
     /// Return false iff given SCEV contains a SCEVUnknown with NULL value-
     /// pointer.
     bool checkValidity(const SCEV *S) const;
@@ -680,6 +724,13 @@ namespace llvm {
     /// Return a SCEV expression for the full generality of the specified
     /// expression.
     const SCEV *getSCEV(Value *V);
+
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// Return a SCEV expression suitable for HIR consumption. Specified loop
+    /// is assumed to be the outermost loop of the loopnest. A null outermost
+    /// loop specifies disabling all AddRecs.
+    const SCEV *getSCEVForHIR(Value *Val, const Loop *OutermostLoop);
+#endif  // INTEL_CUSTOMIZATION
 
     const SCEV *getConstant(ConstantInt *V);
     const SCEV *getConstant(const APInt& Val);
@@ -897,6 +948,12 @@ namespace llvm {
     /// hasLoopInvariantBackedgeTakenCount).
     ///
     const SCEV *getBackedgeTakenCount(const Loop *L);
+
+#if INTEL_CUSTOMIZATION // HIR parsing
+    /// Returns a backedge taken count suitable for HIR consumption.
+    const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
+                                            const Loop *OutermostLoop);
+#endif  // INTEL_CUSTOMIZATION
 
     /// Similar to getBackedgeTakenCount, except return the least SCEV value
     /// that is known never to be less than the actual backedge taken count.

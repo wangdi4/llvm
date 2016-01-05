@@ -66,7 +66,8 @@ char HIRParser::ID = 0;
 FunctionPass *llvm::createHIRParserPass() { return new HIRParser(); }
 
 HIRParser::HIRParser()
-    : FunctionPass(ID), CurNode(nullptr), CurRegion(nullptr), CurLevel(0) {
+    : FunctionPass(ID), CurNode(nullptr), CurRegion(nullptr),
+      CurOutermostLoop(nullptr), CurLevel(0) {
   initializeHIRParserPass(*PassRegistry::getPassRegistry());
 }
 
@@ -567,7 +568,7 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
   // We should not be checking the SCEV of the livein copy instruction as it
   // should inherit the SCEV of the rval.
   if (!IsLiveInCopy && HIRP->SE->isSCEVable(CurInst->getType())) {
-    auto CurSCEV = HIRP->SE->getSCEV(const_cast<Instruction *>(CurInst));
+    auto CurSCEV = HIRP->getSCEV(const_cast<Instruction *>(CurInst));
 
     if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation, ConstMultiplier,
                      Additive)) {
@@ -891,6 +892,10 @@ bool HIRParser::isEssential(const Instruction *Inst) const {
   return Ret;
 }
 
+const SCEV *HIRParser::getSCEV(Value *Val) const {
+  return SE->getSCEVForHIR(Val, CurOutermostLoop);
+}
+
 int64_t HIRParser::getSCEVConstantValue(const SCEVConstant *ConstSCEV) const {
   return ConstSCEV->getValue()->getSExtValue();
 }
@@ -1075,8 +1080,9 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
       if (RecSCEV && RecSCEV->isAffine()) {
         auto Lp = RecSCEV->getLoop();
         auto HLoop = LF->findHLLoop(Lp);
+        assert(HLoop && "Could not find HIR loop!");
 
-        if (!HLoop || !HLNodeUtils::contains(HLoop, CurNode)) {
+        if (!HLNodeUtils::contains(HLoop, CurNode)) {
           parseBlob(CastSCEV, CE, Level);
           return;
         }
@@ -1116,9 +1122,9 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto Lp = RecSCEV->getLoop();
     auto HLoop = LF->findHLLoop(Lp);
+    assert(HLoop && "Could not find HIR loop!");
 
-    if (!RecSCEV->isAffine() || !HLoop ||
-        !HLNodeUtils::contains(HLoop, CurNode)) {
+    if (!RecSCEV->isAffine() || !HLNodeUtils::contains(HLoop, CurNode)) {
       parseBlob(SC, CE, Level);
 
     } else {
@@ -1193,7 +1199,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
       CE = CanonExprUtils::createCanonExpr(Val->getType());
     }
 
-    auto SC = SE->getSCEV(const_cast<Value *>(Val));
+    auto SC = getSCEV(const_cast<Value *>(Val));
     parseRecursive(SC, CE, Level, true, UnderCast);
   }
 
@@ -1277,11 +1283,15 @@ void HIRParser::parse(HLLoop *HLoop) {
   assert(Lp && "HLLoop doesn't contain LLVM loop!");
   auto IVType = HLoop->getIVType();
 
-  // Upper should be parsed after imcrementing level.
-  CurLevel++;
+  // Upper should be parsed after incrementing level.
+  ++CurLevel;
+
+  if (1 == CurLevel) {
+    CurOutermostLoop = Lp;
+  }
 
   if (SE->hasLoopInvariantBackedgeTakenCount(Lp)) {
-    auto BETC = SE->getBackedgeTakenCount(Lp);
+    auto BETC = SE->getBackedgeTakenCountForHIR(Lp, CurOutermostLoop);
 
     // Initialize Lower to 0.
     auto LowerRef = createLowerDDRef(IVType);
@@ -1296,6 +1306,14 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setUpperDDRef(UpperRef);
   }
   // TODO: assert that SIMD loops are always DO loops.
+}
+
+void HIRParser::postParse(HLLoop *HLoop) {
+  if (1 == CurLevel) {
+    CurOutermostLoop = nullptr;
+  }
+
+  --CurLevel;
 }
 
 void HIRParser::parseCompare(const Value *Cond, unsigned Level,
@@ -1494,8 +1512,8 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
                                              unsigned Level) {
   const Instruction *UpdateInst = getHeaderPhiUpdateInst(Phi);
 
-  auto PhiSCEV = SE->getSCEV(const_cast<PHINode *>(Phi));
-  auto UpdateSCEV = SE->getSCEV(const_cast<Instruction *>(UpdateInst));
+  auto PhiSCEV = getSCEV(const_cast<PHINode *>(Phi));
+  auto UpdateSCEV = getSCEV(const_cast<Instruction *>(UpdateInst));
 
   // Create stride as (update - phi). For example-
   // PhiSCEV: {%ptr,+,4)
@@ -1526,7 +1544,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
   auto BaseTy = BasePhi->getType();
 
   auto Ref = DDRefUtils::createRegDDRef(0);
-  auto SC = SE->getSCEV(const_cast<PHINode *>(BasePhi));
+  auto SC = getSCEV(const_cast<PHINode *>(BasePhi));
   const SCEV *BaseSCEV = nullptr;
   unsigned BitElementSize = getBitElementSize(BaseTy);
   unsigned ElementSize = BitElementSize / 8;
@@ -1598,7 +1616,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     assert((2 == GEPOp->getNumOperands()) &&
            "Unexpected number of GEP operands!");
 
-    auto OffsetSC = SE->getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
+    auto OffsetSC = getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
     parseRecursive(OffsetSC, IndexCE, Level);
     IsInBounds = GEPOp->isInBounds();
   }
@@ -1676,7 +1694,7 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
       // created index CE.
       if (!FirstGEP && LastGEPIndex) {
         CanonExpr *IndexCE = Ref->getDimensionIndex(Ref->getNumDimensions());
-        auto SC = SE->getSCEV(const_cast<Value *>(TempGEPOp->getOperand(I)));
+        auto SC = getSCEV(const_cast<Value *>(TempGEPOp->getOperand(I)));
 
         parseRecursive(SC, IndexCE, Level, IndexCE->isZero());
       } else {
@@ -1910,6 +1928,8 @@ void HIRParser::parse(HLInst *HInst, bool IsPhase1, unsigned Phase2Level) {
     }
   } else {
     Level = Phase2Level;
+    auto OuterLoop = HInst->getOutermostParentLoop();
+    CurOutermostLoop = OuterLoop ? OuterLoop->getLLVMLoop() : nullptr;
   }
 
   // Process lval

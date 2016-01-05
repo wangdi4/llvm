@@ -171,6 +171,9 @@ public:
   /// preheader/postexit.
   HLLoop *getLexicalParentLoop() const;
 
+  /// \brief Returns the outermost parent loop of this node, if one exists.
+  HLLoop *getOutermostParentLoop() const;
+
   /// \brief Returns the Level of HLNode.
   /// The level is computed from the node's lexical parent loop.
   unsigned getHLNodeLevel() const;

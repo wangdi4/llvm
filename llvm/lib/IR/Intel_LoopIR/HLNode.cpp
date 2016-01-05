@@ -184,6 +184,18 @@ HLLoop *HLNode::getLexicalParentLoop() const {
   return ParLoop;
 }
 
+HLLoop *HLNode::getOutermostParentLoop() const {
+  auto TempLoop = getParentLoop();
+  HLLoop *ParLoop = nullptr;
+
+  while (TempLoop) {
+    ParLoop = TempLoop;
+    TempLoop = TempLoop->getParentLoop();
+  }
+
+  return ParLoop;   
+}
+
 unsigned HLNode::getHLNodeLevel() const {
 
   assert(getParentRegion() && " Node should be connected to a HLRegion");

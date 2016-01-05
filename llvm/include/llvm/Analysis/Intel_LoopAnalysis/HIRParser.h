@@ -43,6 +43,7 @@ class SCEVUnknown;
 class GEPOperator;
 class Value;
 class LoopInfo;
+class Loop;
 
 namespace loopopt {
 
@@ -105,6 +106,9 @@ private:
   /// CurRegion - The region we are operating on.
   HLRegion *CurRegion;
 
+  /// CurOutermostLoop - The outermost loop of the loopnest CurNode belongs to.
+  const Loop *CurOutermostLoop;
+
   /// CurLevel - The loop level we are operating on.
   unsigned CurLevel;
 
@@ -163,7 +167,7 @@ private:
   void postParse(HLRegion *Reg) {}
 
   void parse(HLLoop *HLoop);
-  void postParse(HLLoop *HLoop) { CurLevel--; }
+  void postParse(HLLoop *HLoop);
 
   void parse(HLIf *If);
   void postParse(HLIf *If) {}
@@ -191,6 +195,9 @@ private:
   /// cannot be eliminated.
   bool isEssential(const Instruction *Inst) const;
 
+  /// \brief Wrapper over ScalarEvolution's getSCEVForHIR().
+  const SCEV *getSCEV(Value *Val) const;
+ 
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
 
