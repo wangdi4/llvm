@@ -268,7 +268,7 @@ bool WRegionCollection::runOnFunction(Function &F) {
   // standalone basic blocks created cause HIR region formation to not
   // include the SIMD directives which in turn causes WRegion formation
   // to fail. Commenting out the call for now.
-  // VPOUtils::CFGRestructuring(F, DT, LI);
+  VPOUtils::CFGRestructuring(F, DT, LI);
 
   DEBUG(dbgs() << "W-Region Graph Construction Start {\n");
   WRGraph = new (WRContainerTy);

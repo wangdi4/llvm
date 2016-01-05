@@ -15,9 +15,12 @@
 ///
 // ===--------------------------------------------------------------------=== //
 
+#include "llvm/Support/Debug.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+
+#define DEBUG_TYPE "vpo-utils"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -368,6 +371,7 @@ void VPOUtils::initDirectiveAndClauseStringMap()
 
 bool VPOUtils::isOpenMPDirective(StringRef DirFullName)
 {
+
   if (VPOUtils::DirectiveIDs.count(DirFullName)) {
     return true;
   }
@@ -384,6 +388,7 @@ bool VPOUtils::isOpenMPClause(StringRef ClauseFullName)
 
 int VPOUtils::getDirectiveID(StringRef DirFullName)
 {
+  // DEBUG(dbgs() << "DirFullName 1" << DirFullName << "\n" );
   assert(VPOUtils::isOpenMPDirective(DirFullName) && 
          "Directive string not found");
   return VPOUtils::DirectiveIDs[DirFullName];

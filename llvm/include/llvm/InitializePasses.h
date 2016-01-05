@@ -31,6 +31,10 @@ void initializeVPOVecoptAnalysis(PassRegistry&);
 /// initializeVPODriverPass - Initialize all passes linked into the
 /// VPODriver library
 void initializeVPODriverPass(PassRegistry&);
+
+/// initializeVPOParoptPass - Initialize all passes linked into the
+/// VPOParopt library
+void initializeVPOParoptPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 /// initializeCore - Initialize all passes linked into the

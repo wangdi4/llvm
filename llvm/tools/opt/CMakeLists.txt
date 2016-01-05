@@ -19,6 +19,7 @@ set(LLVM_LINK_COMPONENTS
   WRegionInfoAnalysis
   VPOVectorizer #***INTEL
   VPODriver
+  VPOParopt
   SIMDFunctionCloning
   Passes
   Intel_LoopTransforms

@@ -23,8 +23,9 @@ class ModulePass;
 
 // Create VPO Driver pass
 FunctionPass *createVPODriverPass();
-ModulePass *createSIMDFunctionCloningPass();
 
+ModulePass   *createSIMDFunctionCloningPass();
+ModulePass   *createVPOParoptPass();
 }
 
 #endif // LLVM_TRANSFORMS_VPO_VPOPASSES_H

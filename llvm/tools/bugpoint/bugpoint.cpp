@@ -140,6 +140,7 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
   initializeSIMDFunctionCloningPass(Registry);
+  initializeVPOParoptPass(Registry);
   initializeVPODriverPass(Registry);
 #endif // INTEL_CUSTOMIZATION
 

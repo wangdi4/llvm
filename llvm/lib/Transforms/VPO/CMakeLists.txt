@@ -1,3 +1,4 @@
+add_subdirectory(ParOpt)
 add_subdirectory(Vecopt)
 add_subdirectory(Utils)
 

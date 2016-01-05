@@ -338,6 +338,7 @@ int main(int argc, char **argv) {
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
   initializeSIMDFunctionCloningPass(Registry);
+  initializeVPOParoptPass(Registry);
 
   // For testing with HIR, this call has been moved to 
   // initializeIntel_LoopTransforms. We will possibly need a separate VPO HIR
