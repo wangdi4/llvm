@@ -135,9 +135,9 @@ private:
   /// \brief Collects all operands of Phi which belong to the same SCC as Phi
   /// and are not defined in Phi's incoming bblock in SCCPhiOps. Returns true if
   /// any such operands are found.
-  bool collectSCCPhiOperands(const PHINode *Phi,
-                             const SCCFormation::SCCNodesTy *SCCNodes,
-                             SmallVectorImpl<unsigned> &SCCPhiOps) const;
+  static bool collectSCCPhiOperands(const PHINode *Phi,
+                                    const SCCFormation::SCCNodesTy *SCCNodes,
+                                    SmallVectorImpl<unsigned> &SCCPhiOps);
 
   /// \brief Returns true if we need to split edge while processing phi liveins.
   bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB,
@@ -148,6 +148,10 @@ private:
   /// livein. Returns true if a livein copy was inserted.
   bool processPhiLiveins(PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
                          StringRef Name);
+
+  /// \brief Returns true if we need to insert a liveout copy for this
+  /// standalone phi.
+  bool liveoutCopyRequired(const PHINode *StandAlonePhi) const;
 
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
@@ -296,6 +300,124 @@ bool SSADeconstruction::isConsideredLinear(const PHINode *Phi) const {
   return true;
 }
 
+// If this phi is used in another phi in the same basic block, then we can
+// potentially have ordering issues with the insertion of livein copies
+// for the phis. This is because the use of phi operands is deemed to
+// occur on the edge of the basic block which means that the 'use' takes
+// the value from the previous execution of the bblock, not the merged
+// value in the current basic block.
+//
+// Let us consider the example below.
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   ...
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// After inserting livein copies for the two phis, the basic block would
+// look like this-
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   !in.de.ssa
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   !in.de.ssa
+//   ...
+//   %b.addr.08.in = %c.addr.09 !in.de.ssa
+//   %a.addr.07.in = %b.addr.08 !in.de.ssa
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// The livein copies %a.addr.07.in and %b.addr.08.in would be
+// assigned the same symbase as %a.addr.07 and %b.addr.08, repectively.
+// This means that the value of %a.addr.07 after the execution of the
+// basic block would be the updated value of %b.addr.08 through the copy,
+// which is wrong.
+//
+// To fix this problem, we create a liveout copy of %b.addr.08 so it
+// looks like this-
+//
+// for.body:              ; preds = %entry, %for.body
+//   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
+//   !in.de.ssa
+//   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
+//   !in.de.ssa
+//   %b.addr.08.out = %b.addr.08 !out.de.ssa
+//   ...
+//   %b.addr.08.in = %c.addr.09 !in.de.ssa
+//   %a.addr.07.in = %b.addr.08.out !in.de.ssa
+//   br i1 %exitcond, label %for.end, label %for.body
+//
+// Note that reordering the livein copies which produces a cleaner HIR works in
+// some cases but cannot resolve phi cycles. In comparison, adding a liveout
+// copy always works. Looking for a cycle would take more compile time so this
+// seems like an acceptable solution. If a cleaner HIR is desired we can
+// possibly get SCCFormation to provide the cycle information.
+//
+// Here's an example of a phi cycle-
+//
+// for(i=0; i<n; i++) {
+//   A[i] = a;
+//   t = a;
+//   a = b;
+//   b = c;
+//   c = t;
+// }
+//
+// A phi can be indirectly used in another phi so we need to check the SCEV for
+// SCEVable phis.
+//
+bool SSADeconstruction::liveoutCopyRequired(
+    const PHINode *StandAlonePhi) const {
+
+  const Value *PhiVal = StandAlonePhi;
+  bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
+
+  const SCEV *PhiSCEV =
+      SCEVablePhi ? SE->getUnknown(const_cast<Value *>(PhiVal)) : nullptr;
+
+  // If the 'user' phi occurs before definition phi the copies are inserted
+  // in the correct order (on the assumption that we traverse the bblock
+  // instructions in order) so we only need to check phis which occur after this
+  // one.
+  for (auto InstIt = BasicBlock::const_iterator(StandAlonePhi),
+            EndIt = StandAlonePhi->getParent()->end();
+       InstIt != EndIt; ++InstIt) {
+
+    auto UserPhi = dyn_cast<PHINode>(InstIt);
+
+    if (!UserPhi) {
+      break;
+    }
+
+    // Check usage of StandAlonePhi in UserPhi operands.
+    for (unsigned I = 0, E = UserPhi->getNumIncomingValues(); I != E; ++I) {
+      auto UserPhiOp = UserPhi->getIncomingValue(I);
+      auto UserPhiOpInst = dyn_cast<Instruction>(UserPhiOp);
+
+      if (!UserPhiOpInst || (LI->getLoopFor(UserPhiOpInst->getParent()) !=
+                             LI->getLoopFor(StandAlonePhi->getParent()))) {
+        continue;
+      }
+
+      // Compare values.
+      if (UserPhiOp == PhiVal) {
+        return true;
+      }
+
+      // Check usage in SCEV.
+      if (SCEVablePhi && SE->isSCEVable(UserPhiOp->getType())) {
+        auto SC = SE->getSCEV(UserPhiOp);
+        if (SE->hasOperand(SC, PhiSCEV)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            SCCFormation::SCCNodesTy *SCCNodes,
                                            bool MultipleRegionLiveouts,
@@ -306,6 +428,10 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
 
   if (SCCNodes) {
     IsLinear = isConsideredLinear(Phi);
+
+  } else if (!liveoutCopyRequired(Phi)) {
+    // Return early if no copy required for stand alone phi.
+    return;
   }
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
@@ -332,91 +458,6 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
           continue;
         }
       } else if (IsLinear) {
-        continue;
-      }
-
-    } else {
-      // If this phi is used in another phi in the same basic block, then we can
-      // potentially have ordering issues with the insertion of livein copies
-      // for the phis. This is because the use of phi operands is deemed to
-      // occur on the edge of the basic block which means that the 'use' takes
-      // the value from the previous execution of the bblock, not the merged
-      // value in the current basic block.
-      //
-      // Let us consider the example below.
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   ...
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // After inserting livein copies for the two phis, the basic block would
-      // look like this-
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   !in.de.ssa
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   !in.de.ssa
-      //   ...
-      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
-      //   %a.addr.07.in = %b.addr.08 !in.de.ssa
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // The livein copies %a.addr.07.in and %b.addr.08.in would be
-      // assigned the same symbase as %a.addr.07 and %b.addr.08, repectively.
-      // This means that the value of %a.addr.07 after the execution of the
-      // basic block would be the updated value of %b.addr.08 through the copy,
-      // which is wrong.
-      //
-      // To fix this problem, we create a liveout copy of %b.addr.08 so it
-      // looks like this-
-      //
-      // for.body:              ; preds = %entry, %for.body
-      //   %b.addr.08 = phi i32 [ %c.addr.09, %for.body ], [ %b, %entry ]
-      //   !in.de.ssa
-      //   %a.addr.07 = phi i32 [ %b.addr.08, %for.body ], [ %a, %entry ]
-      //   !in.de.ssa
-      //   %b.addr.08.out = %b.addr.08 !out.de.ssa
-      //   ...
-      //   %b.addr.08.in = %c.addr.09 !in.de.ssa
-      //   %a.addr.07.in = %b.addr.08.out !in.de.ssa
-      //   br i1 %exitcond, label %for.end, label %for.body
-      //
-      // Note that reordering the livein copies which produces a cleaner HIR
-      // works in some cases but cannot resolve phi cycles. In comparison,
-      // adding a liveout copy always works. Looking for a cycle would take
-      // more compile time so this seems like an acceptable solution.
-      //
-      // Here's an example of a phi cycle-
-      //
-      // for(i=0; i<n; i++) {
-      //   A[i] = a;
-      //   t = a;
-      //   a = b;
-      //   b = c;
-      //   c = t;
-      // }
-
-      if (!isa<PHINode>(UserInst) ||
-          (Phi->getParent() != UserInst->getParent())) {
-        continue;
-      }
-
-      bool CopyRequired = true;
-      // If the 'user' phi occurs before definition phi the copies are inserted
-      // in the correct order (on the assumption that we traverse the bblock
-      // instructions in order).
-      for (auto InstIt = Phi->getParent()->begin(),
-                EndIt = BasicBlock::iterator(Phi);
-           InstIt != EndIt; ++InstIt) {
-        if (&(*InstIt) == UserInst) {
-          CopyRequired = false;
-        }
-      }
-
-      if (!CopyRequired) {
         continue;
       }
     }
@@ -489,7 +530,7 @@ bool SSADeconstruction::predKillsSCCOperand(
 
 bool SSADeconstruction::collectSCCPhiOperands(
     const PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
-    SmallVectorImpl<unsigned> &SCCPhiOps) const {
+    SmallVectorImpl<unsigned> &SCCPhiOps) {
 
   if (!SCCNodes) {
     return false;
