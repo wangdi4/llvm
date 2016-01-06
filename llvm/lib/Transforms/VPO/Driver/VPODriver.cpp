@@ -98,26 +98,24 @@ bool VPODriver::runOnFunction(Function &F) {
   AV = &getAnalysis<AVRGenerate>();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
-    AVR *avr = I;
+    AVR *Avr = I;
     AVRWrn *AvrWrn;
 
-    AvrWrn = dyn_cast<AVRWrn>(avr);
-
-    if (!AvrWrn) {
+    if (!(AvrWrn = dyn_cast<AVRWrn>(Avr))) {
       continue;
     }
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
       AVRCodeGen *SP;
 
-      SP = new AVRCodeGen(avr, SC, LI, &F);
+      SP = new AVRCodeGen(Avr, SC, LI, &F);
       ret_val = ret_val | SP->vectorize();
       delete SP;
     }
     else {
       AVRCodeGenHIR *SP;
 
-      SP = new AVRCodeGenHIR(avr);
+      SP = new AVRCodeGenHIR(Avr);
       ret_val = ret_val | SP->vectorize();
       delete SP;
     }

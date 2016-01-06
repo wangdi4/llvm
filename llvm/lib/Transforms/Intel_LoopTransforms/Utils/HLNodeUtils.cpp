@@ -194,10 +194,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
   }
 
   case Instruction::Store: {
-    if (LvalRef) {
-      assert(!LvalRef->isScalarRef() &&
-             "Lval of store instruction cannot be scalar!");
-    }
+    assert(!LvalRef->isScalarRef() &&
+           "Lval of store instruction cannot be scalar!");
 
     auto NullPtr = createZeroVal(LvalRef->getBaseDestType());
 

@@ -6,7 +6,9 @@
 ;CHECK: ELSE
 
 ; clang -O2 -S -fno-unroll-loops -emit-llvm test.c
-; void foo(int *arr, int *barr)
+; The SIMD directive was hand-inserted for WRegion formation to kick in
+; 
+; void foo(int *restrict arr, int *barr)
 ; {
 ;   long index;
 ; 
@@ -30,6 +32,7 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Function Attrs: nounwind uwtable
 define void @foo(i32* nocapture %arr, i32* nocapture %barr) #0 {
 entry:
+  call void @llvm.intel.directive(metadata !5)
   br label %for.body
 
 for.body:                                         ; preds = %for.inc, %entry
@@ -68,6 +71,9 @@ for.end:                                          ; preds = %for.inc
   ret void
 }
 
+; Function Attrs: nounwind argmemonly
+declare void @llvm.intel.directive(metadata) #1
+
 attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.ident = !{!0}
@@ -77,3 +83,4 @@ attributes #0 = { nounwind uwtable "disable-tail-calls"="false" "less-precise-fp
 !2 = !{!"int", !3, i64 0}
 !3 = !{!"omnipotent char", !4, i64 0}
 !4 = !{!"Simple C/C++ TBAA"}
+!5 = !{!"DIR.OMP.SIMD"}

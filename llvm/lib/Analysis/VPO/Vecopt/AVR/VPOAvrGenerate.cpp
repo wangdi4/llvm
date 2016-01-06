@@ -454,7 +454,7 @@ void AVRGenerate::buildAbstractLayer()
 
     // TBD: Using WRN nodes directly for now. This needs to be changed
     // to depend on identify vector candidates. We also need to create
-    // AVRLoop variants for LLVM/HIR variants ans use these going
+    // AVRLoop variants for LLVM/HIR variants and use these going
     // forward.
     for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
       DEBUG(errs() << "Starting AVR gen for \n");
@@ -463,11 +463,8 @@ void AVRGenerate::buildAbstractLayer()
       AVR *Avr;
       WRNVecLoopNode *WVecNode;
 
-      WVecNode = dyn_cast<WRNVecLoopNode>(I);
-      
-      if (!WVecNode) {
+      if (!(WVecNode = dyn_cast<WRNVecLoopNode>(I)))
         continue;
-      }
 
       // Create an AVRWrn and insert AVR for contained loop as child
       AWrn = AVRUtils::createAVRWrn(WVecNode);
