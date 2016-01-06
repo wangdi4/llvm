@@ -235,10 +235,18 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
 void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const 
 {
   std::string Indent(Depth*2, ' ');
-  OS << Indent << "BEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
+  OS << Indent << "\nBEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
 
   OS << Indent << "SIMDLEN clause: "  << getSimdlen() << "\n";
 
+  if (auto RC = getRed())
+    for (ReductionItem *RI : RC->items()) {
+      ReductionItem::WRNReductionKind RType = RI->getType();
+      int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
+      StringRef RedStr = VPOUtils::getReductionClauseString(RedClauseID);
+      OS << Indent << "REDUCTION clause: " << RedStr << " " <<
+        RI->getOrig()->getName() << "\n";
+    }
   LinearClause *C=getLinear();
   if (C) {
     OS << Indent;
@@ -266,5 +274,5 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
     }
   }
   printChildren(OS, Depth+1);
-  OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n";
+  OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n\n";
 }

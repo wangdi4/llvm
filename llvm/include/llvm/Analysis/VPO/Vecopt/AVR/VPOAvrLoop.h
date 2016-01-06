@@ -173,6 +173,12 @@ public:
   reverse_child_iterator child_rend() { return Children.rend(); }
   const_reverse_child_iterator child_rend() const { return Children.rend(); }
 
+  typedef iterator_range<child_iterator> LoopNodesRange;
+
+  LoopNodesRange  nodes() {
+    return LoopNodesRange(child_begin(), child_end());
+  }
+
   // Children Methods
 
   /// \brief Returns the first child if it exists, otherwise returns null.

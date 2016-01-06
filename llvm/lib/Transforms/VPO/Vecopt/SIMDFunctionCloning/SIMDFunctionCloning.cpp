@@ -745,9 +745,6 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
                                   VectorParmMap);
   }
 
-  SmallDenseMap<Value*, Instruction*>::iterator MapIt = VectorParmMap.begin();
-  SmallDenseMap<Value*, Instruction*>::iterator MapEnd = VectorParmMap.end();
-
   // So, essentially what has been done to this point is the creation and
   // insertion of the vector alloca instructions. Now, we insert the bitcasts of
   // those instructions, which have been stored in the map. The insertion of the
@@ -755,8 +752,8 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
-  for (; MapIt != MapEnd; ++MapIt) {
-    Instruction *ExpandedCast = MapIt->second;
+  for (auto MapIt : VectorParmMap) {
+    Instruction *ExpandedCast = MapIt.second;
     if (!ExpandedCast->getParent()) {
       insertInstruction(ExpandedCast, EntryBlock);
     }

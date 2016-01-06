@@ -183,7 +183,8 @@ typedef enum OMP_CLAUSES {
       QUAL_OMP_LASTPRIVATE,
       QUAL_OMP_COPYIN,
       QUAL_OMP_COPYPRIVATE,
-      QUAL_OMP_REDUCTION_ADD,   // must be first REDUCTION op in enum
+      QUAL_OMP_REDUCTION,    // must be first REDUCTION op in enum
+      QUAL_OMP_REDUCTION_ADD,   
       QUAL_OMP_REDUCTION_SUB,
       QUAL_OMP_REDUCTION_MUL,
       QUAL_OMP_REDUCTION_AND,
@@ -240,11 +241,17 @@ public:
     // Map OMP_CLAUSES to StringRefs
     static std::unordered_map<int, StringRef> ClauseStrings;
 
+    // Map OMP_REDUCTION_CLAUSES to StringRefs
+    static std::unordered_map<int, StringRef> ReductionClauseStrings;
+
     // Map StringRefs to OMP_DIRECTIVES
     static StringMap<int> DirectiveIDs;
 
     // Map StringRefs to OMP_CLAUSES
     static StringMap<int> ClauseIDs;
+
+    // Map StringRefs to OMP_REDUCTION_CLAUSES
+    static StringMap<int> ReductionClauseIDs;
 
     /// \brief Initialize maps of directive & clause string to ID.
     /// This routine must be invoked (once) before calling query
@@ -308,6 +315,9 @@ public:
     /// \brief Returns strings corresponding to OpenMP clauses.
     static StringRef getClauseString(int Id);
 
+    /// \brief Returns strings corresponding to OpenMP reduction clauses.
+    static StringRef getReductionClauseString(int Id);
+
     /// \brief Similar to getDirectiveString(), 
     /// but strips out the leading "DIR_OMP_" prefix substring
     static StringRef getDirectiveName(int Id);
@@ -327,6 +337,9 @@ public:
 
     /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
     static int getClauseID(StringRef ClauseFullName);
+
+    /// \brief Returns the ID (enum) corresponding to OpenMP clauses.
+    static int getReductionClauseID(StringRef ClauseFullName);
 
     /// \brief Removes calls to directive intrinsics.
     static void stripDirectives(Function &F);

@@ -364,6 +364,18 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst* Call)
       setAligned(C);
       break;
     }
+    case QUAL_OMP_REDUCTION: {
+      ReductionClause *C =
+        WRegionUtils::extractQualOpndList<ReductionClause>(Call, getRed());
+      // Update reduction operation
+      StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
+      int ReductionClauseID = VPOUtils::getReductionClauseID(DirString);
+      for (ReductionItem *RI : C->items())
+        if (RI->getType() == ReductionItem::WRNReductionError)
+          RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
+      setRed(C);
+      break;
+    }
     default:
       llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
       break;

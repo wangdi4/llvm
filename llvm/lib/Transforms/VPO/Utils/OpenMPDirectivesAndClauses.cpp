@@ -90,6 +90,8 @@ std::unordered_map<int, StringRef> VPOUtils::DirectiveStrings = {
     "DIR.OMP.FLUSH" },
   { DIR_OMP_ORDERED,
     "DIR.OMP.ORDERED" },
+  { DIR_OMP_END_ORDERED,
+    "DIR.OMP.END.ORDERED" },
   { DIR_OMP_SIMD,
     "DIR.OMP.SIMD" },
   { DIR_OMP_END_SIMD,
@@ -275,24 +277,8 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "QUAL.OMP.COPYIN" },
   { QUAL_OMP_COPYPRIVATE,
     "QUAL.OMP.COPYPRIVATE" },
-  { QUAL_OMP_REDUCTION_ADD,
-    "QUAL.OMP.REDUCTION.ADD" },
-  { QUAL_OMP_REDUCTION_SUB,
-    "QUAL.OMP.REDUCTION.SUB" },
-  { QUAL_OMP_REDUCTION_MUL,
-    "QUAL.OMP.REDUCTION.MUL" },
-  { QUAL_OMP_REDUCTION_AND,
-    "QUAL.OMP.REDUCTION.AND" },
-  { QUAL_OMP_REDUCTION_OR,
-    "QUAL.OMP.REDUCTION.OR" },
-  { QUAL_OMP_REDUCTION_XOR,
-    "QUAL.OMP.REDUCTION.XOR" },
-  { QUAL_OMP_REDUCTION_BAND,
-    "QUAL.OMP.REDUCTION.BAND" },
-  { QUAL_OMP_REDUCTION_BOR,
-    "QUAL.OMP.REDUCTION.BOR" },
-  { QUAL_OMP_REDUCTION_UDR,
-    "QUAL.OMP.REDUCTION.UDR" },
+  { QUAL_OMP_REDUCTION,
+    "QUAL.OMP.REDUCTION" },
   { QUAL_OMP_TO,
     "QUAL.OMP.TO" },
   { QUAL_OMP_FROM,
@@ -324,244 +310,248 @@ std::unordered_map<int, StringRef> VPOUtils::ClauseStrings = {
     "DIR.QUAL.LIST.END" } 
 };
 
+std::unordered_map<int, StringRef> VPOUtils::ReductionClauseStrings = {
+  { QUAL_OMP_REDUCTION_ADD,
+    "QUAL.OMP.REDUCTION.ADD" },
+  { QUAL_OMP_REDUCTION_SUB,
+    "QUAL.OMP.REDUCTION.SUB" },
+  { QUAL_OMP_REDUCTION_MUL,
+    "QUAL.OMP.REDUCTION.MUL" },
+  { QUAL_OMP_REDUCTION_AND,
+    "QUAL.OMP.REDUCTION.AND" },
+  { QUAL_OMP_REDUCTION_OR,
+    "QUAL.OMP.REDUCTION.OR" },
+  { QUAL_OMP_REDUCTION_XOR,
+    "QUAL.OMP.REDUCTION.XOR" },
+  { QUAL_OMP_REDUCTION_BAND,
+    "QUAL.OMP.REDUCTION.BAND" },
+  { QUAL_OMP_REDUCTION_BOR,
+    "QUAL.OMP.REDUCTION.BOR" },
+  { QUAL_OMP_REDUCTION_UDR,
+    "QUAL.OMP.REDUCTION.UDR" },
+};
+
+static bool isReductionId(int Id) {
+  return (Id >= QUAL_OMP_REDUCTION_ADD && Id <= QUAL_OMP_REDUCTION_UDR);
+}
+
 StringMap<int> VPOUtils::DirectiveIDs;
 
 StringMap<int> VPOUtils::ClauseIDs;
 
-StringRef VPOUtils::getDirectiveString(int Id)
-{
+StringMap<int> VPOUtils::ReductionClauseIDs;
+
+StringRef VPOUtils::getDirectiveString(int Id) {
+  assert(VPOUtils::DirectiveStrings.count(Id) &&
+         "Can't find a string for directive id");
   return VPOUtils::DirectiveStrings[Id];
 }
 
-StringRef VPOUtils::getClauseString(int Id)
-{
+StringRef VPOUtils::getClauseString(int Id) {
+  if (isReductionId(Id))
+    return getReductionClauseString(Id);
+
+  assert(VPOUtils::ClauseStrings.count(Id) &&
+         "Can't find a string for clause id");
   return VPOUtils::ClauseStrings[Id];
 }
 
-StringRef VPOUtils::getDirectiveName(int Id)
-{
+StringRef VPOUtils::getReductionClauseString(int Id) {
+  assert(isReductionId(Id) &&
+         VPOUtils::ReductionClauseStrings.count(Id) &&
+         "Can't find a string for reduction clause id");
+  return VPOUtils::ReductionClauseStrings[Id];
+}
+
+StringRef VPOUtils::getDirectiveName(int Id) {
   return VPOUtils::DirectiveStrings[Id].substr(8); // skip "DIR_OMP_"
 }
 
-StringRef VPOUtils::getClauseName(int Id)
-{
-  return VPOUtils::ClauseStrings[Id].substr(9); // skip "QUAL_OMP_"
+StringRef VPOUtils::getClauseName(int Id) {
+  return getClauseString(Id).substr(9); // skip "QUAL_OMP_"
 }
 
-void VPOUtils::initDirectiveAndClauseStringMap()
-{
-  int Id; // an enum in OMP_DIRECTIVES or OMP_CLAUSES
+void VPOUtils::initDirectiveAndClauseStringMap() {
+
+  if (!DirectiveIDs.empty()) // All maps are already initialized
+    return;
 
   // Initialize mapping from Directive string to ID.
   // First enum in OMP_DIRECTIVES starts with 0
-  DirectiveIDs.clear();
-  for (Id=0; Id <= DIR_QUAL_LIST_END; ++Id) {
+  for (int Id = 0; Id <= DIR_QUAL_LIST_END; ++Id) {
     StringRef S = VPOUtils::getDirectiveString(Id);
-    DirectiveIDs.insert(std::make_pair(S, Id));
+    DirectiveIDs[S] = Id;
   }
 
   // Initialize mapping from Clause string to ID.
   // First enum in OMP_CLAUSES starts with 0
-  ClauseIDs.clear();
-  for (Id=0; Id <= QUAL_LIST_END; ++Id) {
-    StringRef S = VPOUtils::getClauseString(Id);
-    ClauseIDs.insert(std::make_pair(S, Id));
+  for (int Id = 0; Id <= QUAL_LIST_END; ++Id) {
+    if (isReductionId(Id)) {
+      StringRef S = VPOUtils::getReductionClauseString(Id);
+      ReductionClauseIDs[S] = Id;
+      ClauseIDs[S] = QUAL_OMP_REDUCTION;
+    } else
+      ClauseIDs[VPOUtils::getClauseString(Id)] = Id;
   }
 }
 
-bool VPOUtils::isOpenMPDirective(StringRef DirFullName)
-{
-
-  if (VPOUtils::DirectiveIDs.count(DirFullName)) {
-    return true;
-  }
-  return false;
+bool VPOUtils::isOpenMPDirective(StringRef DirFullName) {
+  return VPOUtils::DirectiveIDs.count(DirFullName);
 }
 
-bool VPOUtils::isOpenMPClause(StringRef ClauseFullName)
-{
-  if (VPOUtils::ClauseIDs.count(ClauseFullName)) {
-    return true;
-  }
-  return false;
+bool VPOUtils::isOpenMPClause(StringRef ClauseFullName) {
+  return VPOUtils::ClauseIDs.count(ClauseFullName);
 }
 
-int VPOUtils::getDirectiveID(StringRef DirFullName)
-{
+int VPOUtils::getDirectiveID(StringRef DirFullName) {
   // DEBUG(dbgs() << "DirFullName 1" << DirFullName << "\n" );
   assert(VPOUtils::isOpenMPDirective(DirFullName) && 
          "Directive string not found");
   return VPOUtils::DirectiveIDs[DirFullName];
 }
 
-int VPOUtils::getClauseID(StringRef ClauseFullName)
-{
+int VPOUtils::getClauseID(StringRef ClauseFullName) {
   assert(VPOUtils::isOpenMPClause(ClauseFullName) && 
          "Clause string not found");
   return VPOUtils::ClauseIDs[ClauseFullName];
 }
 
-bool VPOUtils::isBeginDirective(
-  StringRef DirString
-)
-{
+int VPOUtils::getReductionClauseID(StringRef ClauseFullName) {
+  assert(VPOUtils::isOpenMPClause(ClauseFullName) && 
+         "Clause string not found");
+  return VPOUtils::ReductionClauseIDs[ClauseFullName];
+}
+
+bool VPOUtils::isBeginDirective(StringRef DirString) {
   int DirID = VPOUtils::getDirectiveID(DirString);
   return VPOUtils::isBeginDirective(DirID);
 }
 
-bool VPOUtils::isBeginDirective(
-  int DirID
-)
-{
+bool VPOUtils::isBeginDirective(int DirID) {
   switch(DirID) {
-    case DIR_OMP_PARALLEL:
-    case DIR_OMP_PARALLEL_LOOP:
-    case DIR_OMP_LOOP_SIMD:
-    case DIR_OMP_PARALLEL_LOOP_SIMD:
-    case DIR_OMP_SECTIONS:
-    case DIR_OMP_PARALLEL_SECTIONS:
-    case DIR_OMP_WORKSHARE:
-    case DIR_OMP_PARALLEL_WORKSHARE:
-    case DIR_OMP_SINGLE:
-    case DIR_OMP_TASK:
-    case DIR_OMP_MASTER:
-    case DIR_OMP_CRITICAL:
-    case DIR_OMP_ATOMIC:
-    case DIR_OMP_ORDERED:
-    case DIR_OMP_SIMD:
-    case DIR_OMP_TASKLOOP:
-    case DIR_OMP_TASKLOOP_SIMD:
-    case DIR_OMP_TARGET:
-    case DIR_OMP_TARGET_DATA:
-    case DIR_OMP_TARGET_UPDATE:
-    case DIR_OMP_TEAMS:
-    case DIR_OMP_TEAMS_DISTRIBUTE:
-    case DIR_OMP_TEAMS_SIMD:
-    case DIR_OMP_TEAMS_DISTRIBUTE_SIMD:
-    case DIR_OMP_DISTRIBUTE:
-    case DIR_OMP_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_DISTRIBUTE_SIMD:
-    case DIR_OMP_DISTRIBUTE_PARLOOP_SIMD:
-    case DIR_OMP_TARGET_TEAMS:
-    case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
-    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE:
-    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
-    case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
-      return true;
+  case DIR_OMP_PARALLEL:
+  case DIR_OMP_PARALLEL_LOOP:
+  case DIR_OMP_LOOP_SIMD:
+  case DIR_OMP_PARALLEL_LOOP_SIMD:
+  case DIR_OMP_SECTIONS:
+  case DIR_OMP_PARALLEL_SECTIONS:
+  case DIR_OMP_WORKSHARE:
+  case DIR_OMP_PARALLEL_WORKSHARE:
+  case DIR_OMP_SINGLE:
+  case DIR_OMP_TASK:
+  case DIR_OMP_MASTER:
+  case DIR_OMP_CRITICAL:
+  case DIR_OMP_ATOMIC:
+  case DIR_OMP_ORDERED:
+  case DIR_OMP_SIMD:
+  case DIR_OMP_TASKLOOP:
+  case DIR_OMP_TASKLOOP_SIMD:
+  case DIR_OMP_TARGET:
+  case DIR_OMP_TARGET_DATA:
+  case DIR_OMP_TARGET_UPDATE:
+  case DIR_OMP_TEAMS:
+  case DIR_OMP_TEAMS_DISTRIBUTE:
+  case DIR_OMP_TEAMS_SIMD:
+  case DIR_OMP_TEAMS_DISTRIBUTE_SIMD:
+  case DIR_OMP_DISTRIBUTE:
+  case DIR_OMP_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_DISTRIBUTE_SIMD:
+  case DIR_OMP_DISTRIBUTE_PARLOOP_SIMD:
+  case DIR_OMP_TARGET_TEAMS:
+  case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+  case DIR_OMP_TARGET_TEAMS_DISTRIBUTE:
+  case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_SIMD:
+  case DIR_OMP_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+    return true;
   }
   return false;
 }
 
-
-bool VPOUtils::isEndDirective(
-  StringRef DirString
-)
-{
+bool VPOUtils::isEndDirective(StringRef DirString) {
   int DirID = VPOUtils::getDirectiveID(DirString);
   return VPOUtils::isEndDirective(DirID);
 }
 
-bool VPOUtils::isEndDirective(
-  int DirID
-)
-{
+bool VPOUtils::isEndDirective(int DirID) {
   switch(DirID) {
-    case DIR_OMP_END_PARALLEL:
-    case DIR_OMP_END_PARALLEL_LOOP:
-    case DIR_OMP_END_LOOP_SIMD:
-    case DIR_OMP_END_PARALLEL_LOOP_SIMD:
-    case DIR_OMP_END_SECTIONS:
-    case DIR_OMP_END_PARALLEL_SECTIONS:
-    case DIR_OMP_END_WORKSHARE:
-    case DIR_OMP_END_PARALLEL_WORKSHARE:
-    case DIR_OMP_END_SINGLE:
-    case DIR_OMP_END_TASK:
-    case DIR_OMP_END_MASTER:
-    case DIR_OMP_END_CRITICAL:
-    case DIR_OMP_END_ATOMIC:
-    case DIR_OMP_END_ORDERED:
-    case DIR_OMP_END_SIMD:
-    case DIR_OMP_END_TASKLOOP:
-    case DIR_OMP_END_TASKLOOP_SIMD:
-    case DIR_OMP_END_TARGET:
-    case DIR_OMP_END_TARGET_DATA:
-    case DIR_OMP_END_TARGET_UPDATE:
-    case DIR_OMP_END_TEAMS:
-    case DIR_OMP_END_TEAMS_DISTRIBUTE:
-    case DIR_OMP_END_TEAMS_SIMD:
-    case DIR_OMP_END_TEAMS_DISTRIBUTE_SIMD:
-    case DIR_OMP_END_DISTRIBUTE:
-    case DIR_OMP_END_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_END_DISTRIBUTE_SIMD:
-    case DIR_OMP_END_DISTRIBUTE_PARLOOP_SIMD:
-    case DIR_OMP_END_TARGET_TEAMS:
-    case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
-    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE:
-    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
-    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_SIMD:
-    case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
-      return true;
+  case DIR_OMP_END_PARALLEL:
+  case DIR_OMP_END_PARALLEL_LOOP:
+  case DIR_OMP_END_LOOP_SIMD:
+  case DIR_OMP_END_PARALLEL_LOOP_SIMD:
+  case DIR_OMP_END_SECTIONS:
+  case DIR_OMP_END_PARALLEL_SECTIONS:
+  case DIR_OMP_END_WORKSHARE:
+  case DIR_OMP_END_PARALLEL_WORKSHARE:
+  case DIR_OMP_END_SINGLE:
+  case DIR_OMP_END_TASK:
+  case DIR_OMP_END_MASTER:
+  case DIR_OMP_END_CRITICAL:
+  case DIR_OMP_END_ATOMIC:
+  case DIR_OMP_END_ORDERED:
+  case DIR_OMP_END_SIMD:
+  case DIR_OMP_END_TASKLOOP:
+  case DIR_OMP_END_TASKLOOP_SIMD:
+  case DIR_OMP_END_TARGET:
+  case DIR_OMP_END_TARGET_DATA:
+  case DIR_OMP_END_TARGET_UPDATE:
+  case DIR_OMP_END_TEAMS:
+  case DIR_OMP_END_TEAMS_DISTRIBUTE:
+  case DIR_OMP_END_TEAMS_SIMD:
+  case DIR_OMP_END_TEAMS_DISTRIBUTE_SIMD:
+  case DIR_OMP_END_DISTRIBUTE:
+  case DIR_OMP_END_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_DISTRIBUTE_SIMD:
+  case DIR_OMP_END_DISTRIBUTE_PARLOOP_SIMD:
+  case DIR_OMP_END_TARGET_TEAMS:
+  case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+  case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE:
+  case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP:
+  case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_SIMD:
+  case DIR_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARLOOP_SIMD:
+    return true;
   }
   return false;
 }
 
-bool VPOUtils::isBeginOrEndDirective(
-  StringRef DirString
-)
-{
+bool VPOUtils::isBeginOrEndDirective(StringRef DirString) {
   int DirID = VPOUtils::getDirectiveID(DirString);
   return VPOUtils::isBeginOrEndDirective(DirID);
 }
 
-bool VPOUtils::isBeginOrEndDirective(
-  int DirID
-)
-{
+bool VPOUtils::isBeginOrEndDirective(int DirID) {
   return VPOUtils::isBeginDirective(DirID) ||
          VPOUtils::isEndDirective(DirID);
 }
 
-bool VPOUtils::isSoloDirective(
-  StringRef DirString
-)
-{
+bool VPOUtils::isSoloDirective(StringRef DirString) {
   int DirID = VPOUtils::getDirectiveID(DirString);
   return VPOUtils::isSoloDirective(DirID);
 }
 
-bool VPOUtils::isSoloDirective(
-  int DirID
-)
-{
+bool VPOUtils::isSoloDirective(int DirID) {
   switch(DirID) {
-    case DIR_OMP_SECTION:
-    case DIR_OMP_BARRIER:
-    case DIR_OMP_TASKWAIT:
-    case DIR_OMP_TASKYIELD:
-    case DIR_OMP_FLUSH:
-    case DIR_OMP_TARGET_ENTER_DATA:
-    case DIR_OMP_TARGET_EXIT_DATA:
-    case DIR_OMP_CANCEL:
-    case DIR_OMP_CANCELLATION_POINT:
-      return true;
+  case DIR_OMP_SECTION:
+  case DIR_OMP_BARRIER:
+  case DIR_OMP_TASKWAIT:
+  case DIR_OMP_TASKYIELD:
+  case DIR_OMP_FLUSH:
+  case DIR_OMP_TARGET_ENTER_DATA:
+  case DIR_OMP_TARGET_EXIT_DATA:
+  case DIR_OMP_CANCEL:
+  case DIR_OMP_CANCELLATION_POINT:
+    return true;
   }
   return false;
 }
 
-bool VPOUtils::isListEndDirective(
-  StringRef DirString
-)
-{
+bool VPOUtils::isListEndDirective(StringRef DirString) {
   int DirID = VPOUtils::getDirectiveID(DirString);
   return VPOUtils::isListEndDirective(DirID);
 }
 
-bool VPOUtils::isListEndDirective(
-  int DirID
-)
-{
+bool VPOUtils::isListEndDirective(int DirID) {
   return DirID == DIR_QUAL_LIST_END;
 }

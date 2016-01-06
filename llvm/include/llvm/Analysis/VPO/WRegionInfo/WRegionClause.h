@@ -196,6 +196,14 @@ public:
   public:
     ReductionItem(VAR Orig, WRNReductionKind op=WRNReductionError): 
       Item(Orig), type(op), combiner(nullptr), initializer(nullptr) {}
+
+    static WRNReductionKind getKindFromClauseId(int Id) {
+      return (WRNReductionKind)(Id - QUAL_OMP_REDUCTION);
+    };
+    static int getClauseIdFromKind(WRNReductionKind Kind) {
+      return QUAL_OMP_REDUCTION + (int)Kind;
+    };
+
     void setType(WRNReductionKind op) { type = op;          }
     void setCombiner(RDECL comb)      { combiner = comb;    }
     void setInitializer(RDECL init)   { initializer = init; }
@@ -355,11 +363,11 @@ template <typename ClauseItem> class Clause
     }
 
     // search the clause for 
-    Iterator findOrig(VAR V) { 
+    ClauseItem *findOrig(const VAR V) { 
       for (auto I : items())
-        if ((*I)->getOrig() == V) 
+        if (I->getOrig() == V) 
           return I;
-      return end();
+      return nullptr;
     }
 };
 
