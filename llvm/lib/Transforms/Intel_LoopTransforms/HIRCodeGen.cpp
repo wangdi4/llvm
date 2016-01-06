@@ -188,7 +188,7 @@ private:
     Value *IVPairCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt, Type *Ty);
 
     // \brief retutn value for coeff*V
-    Value *CoefCG(int Coeff, Value *V);
+    Value *CoefCG(int64_t Coeff, Value *V);
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
     Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
@@ -1111,7 +1111,7 @@ Value *HIRCodeGen::CGVisitor::IVPairCG(CanonExpr *CE,
     return CoefCG(CE->getIVConstCoeff(IVIt), IV);
   }
 }
-Value *HIRCodeGen::CGVisitor::CoefCG(int Coeff, Value *V) {
+Value *HIRCodeGen::CGVisitor::CoefCG(int64_t Coeff, Value *V) {
 
   // do not emit 1*iv, just emit IV
   if (Coeff == 1)
