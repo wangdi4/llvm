@@ -510,6 +510,7 @@ public:
   /// Implements AddRec specific checks for replacement.
   bool isReplacableAddRec(const SCEVAddRecExpr *OrigAddRec,
                           const SCEVAddRecExpr *NewAddRec,
+                          SCEV::NoWrapFlags WrapFlags,
                           SCEVConstant **ConstMultiplier,
                           SCEV **Additive) const;
 };
@@ -530,24 +531,22 @@ const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
 
   auto NewSCEV = HIRP->SE->getUnknown(const_cast<Instruction *>(OrigInst));
 
+  // NOTE: The order of truncation, negation, multiplication and addition
+  // matters.
   if (IsTruncation) {
-    assert(!IsNegation && !ConstMultiplier && !Additive &&
-           "Unexpected substitute SCEV!");
     NewSCEV = HIRP->SE->getTruncateExpr(NewSCEV, SC->getType());
+  }
 
-  } else {
-    // NOTE: The order of negation, multiplication and addition matters.
-    if (IsNegation) {
-      NewSCEV = HIRP->SE->getNegativeSCEV(NewSCEV);
-    }
+  if (IsNegation) {
+    NewSCEV = HIRP->SE->getNegativeSCEV(NewSCEV);
+  }
 
-    if (ConstMultiplier) {
-      NewSCEV = HIRP->SE->getMulExpr(ConstMultiplier, NewSCEV);
-    }
+  if (ConstMultiplier) {
+    NewSCEV = HIRP->SE->getMulExpr(ConstMultiplier, NewSCEV);
+  }
 
-    if (Additive) {
-      NewSCEV = HIRP->SE->getAddExpr(Additive, NewSCEV);
-    }
+  if (Additive) {
+    NewSCEV = HIRP->SE->getAddExpr(Additive, NewSCEV);
   }
 
   // Convert value to base value before returning.
@@ -622,6 +621,8 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
     const SCEV *OrigSCEV, const SCEV *NewSCEV, bool *IsTruncation,
     bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
+  bool IsTrunc = false;
+
   // We got an exact match.
   if (NewSCEV == OrigSCEV) {
     return true;
@@ -668,15 +669,16 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
     NewAddRec =
         cast<SCEVAddRecExpr>(HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
 
-    if (isReplacableAddRec(OrigAddRec, NewAddRec, nullptr, nullptr)) {
-      *IsTruncation = true;
-      return true;
-    }
-
-    return false;
+    IsTrunc = true;
   }
 
-  if (isReplacableAddRec(OrigAddRec, NewAddRec, ConstMultiplier, Additive)) {
+  // Wrap flags may get modified during negation so we store the orignal ones
+  // and pass them for comparison.
+  auto WrapFlags = NewAddRec->getNoWrapFlags();
+
+  if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
+                         Additive)) {
+    *IsTruncation = IsTrunc;
     return true;
   }
 
@@ -688,7 +690,9 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
   // Therefore, to find a substitute we need to test the negation too.
   NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getNegativeSCEV(NewAddRec));
 
-  if (isReplacableAddRec(OrigAddRec, NewAddRec, ConstMultiplier, Additive)) {
+  if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
+                         Additive)) {
+    *IsTruncation = IsTrunc;
     *IsNegation = true;
     return true;
   }
@@ -698,7 +702,8 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
 
 bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
     const SCEVAddRecExpr *OrigAddRec, const SCEVAddRecExpr *NewAddRec,
-    SCEVConstant **ConstMultiplier, SCEV **Additive) const {
+    SCEV::NoWrapFlags WrapFlags, SCEVConstant **ConstMultiplier,
+    SCEV **Additive) const {
 
   const SCEVConstant *Mul = nullptr;
   const SCEV *Add = nullptr;
@@ -745,20 +750,20 @@ bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
 
   // If OrigAddRec has NUW, NewAddRec should have it too.
   if (OrigAddRec->getNoWrapFlags(SCEV::FlagNUW) &&
-      !NewAddRec->getNoWrapFlags(SCEV::FlagNUW)) {
+      !(WrapFlags & SCEV::FlagNUW)) {
     return false;
   }
 
   // If OrigAddRec has NSW, NewAddRec should have it too.
   if (OrigAddRec->getNoWrapFlags(SCEV::FlagNSW) &&
-      !NewAddRec->getNoWrapFlags(SCEV::FlagNSW)) {
+      !(WrapFlags & SCEV::FlagNSW)) {
     return false;
   }
 
   // If OrigAddRec has NW, NewAddRec can cover it with any of NUW, NSW or NW.
   if (OrigAddRec->getNoWrapFlags(SCEV::FlagNW) &&
-      !NewAddRec->getNoWrapFlags(
-          (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
+      !(WrapFlags &
+        (SCEV::NoWrapFlags)(SCEV::FlagNUW | SCEV::FlagNSW | SCEV::FlagNW))) {
     return false;
   }
 
