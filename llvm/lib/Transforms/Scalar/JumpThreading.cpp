@@ -1726,6 +1726,18 @@ bool JumpThreading::ThreadEdge(const ThreadRegionInfo &RegionInfo,
       return false;
     }
 
+    // Also avoid thread regions that have internal edges back to the top of
+    // the region since threading to SuccBB is only valid when entering
+    // RegionTop via PredBB.
+    if (BB != RegionBottom)
+      for (succ_iterator SI = succ_begin(BB), SE = succ_end(BB); SI != SE; ++SI)
+        if (*SI == RegionTop) {
+          DEBUG(dbgs() << "  Not threading across BB '"
+                       << RegionBottom->getName()
+                       << "' - internal edge back to RegionTop!\n");
+          return false;
+        }
+
     // If threading this would thread across a loop header, don't thread the
     // edge. See the comments above FindLoopHeaders for justifications and
     // caveats.

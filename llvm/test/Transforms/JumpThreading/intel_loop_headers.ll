@@ -120,4 +120,38 @@ b4:
   ret i8* %arg1
 }
 
+; Check that jump threading doesn't attempt to thread the b0->b1 edge across the
+; switch statement in b2. In theory, that transform is possible but requires
+; that the b1->b1 edge not be duplicated as b1.thread->b1.thread. It must
+; instead be copied as b1.thread->b1, which complicates the transform somewhat,
+; so it is not currently supported.
+;
+; CHECK-LABEL: f6
+; CHECK-NOT: b1.thread
+;
+define i32 @f6(i32 %arg1) {
+b0:
+  br label %b1
+
+b1:
+  %0 = phi i32 [ 0, %b0 ], [ %1, %b1 ]
+  %1 = add i32 %0, 1
+  %2 = call i1 @continue()
+  br i1 %2, label %b1, label %b2
+
+b2:
+  switch i32 %0, label %b4 [
+    i32 42, label %b3
+    i32 85, label %b3
+  ]
+
+b3:
+  ret i32 5
+
+b4:
+  ret i32 50
+}
+
+
 declare void @f0()
+declare i1 @continue()
