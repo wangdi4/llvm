@@ -121,7 +121,7 @@ bool VPOParoptTransform::ParoptTransformer() {
 
   StringRef S = F->getName();
 
-  if (S.compare_lower(StringRef("main"))) {
+  if (!S.compare_lower(StringRef("@main"))) {
     CallInst *RI = VPOParoptUtils::genRTLKmpcBeginCall(F, AI, IdentTy);
     RI->insertBefore(AI);
 

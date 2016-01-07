@@ -46,10 +46,10 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 INITIALIZE_PASS_BEGIN(VPOParopt, "vpo-paropt", 
-                                 "VPO Paropt Driver", false, false)
+                                 "VPO Paropt Module Pass", false, false)
 INITIALIZE_PASS_DEPENDENCY(WRegionInfo)
 INITIALIZE_PASS_END(VPOParopt, "vpo-paropt", 
-                               "VPO Paropt Driver", false, false)
+                               "VPO Paropt Module Pass", false, false)
 
 char VPOParopt::ID = 0;
 
@@ -85,9 +85,9 @@ bool VPOParopt::runOnModule(Module &M) {
     FnList.push_back(F);
   }
 
-  for (auto FI = FnList.begin(), FE = FnList.end(); FI != FE; ++FI) {
-
-    Function *F = *FI;
+  // Iterate over all functions which OpenMP directives to perform Paropt
+  // transformation and generate MT-code
+  for (auto F: FnList) {
 
     // Walk the W-Region Graph top-down, and create W-Region List
     WRegionInfo &WI = getAnalysis<WRegionInfo>(*F);
@@ -105,16 +105,14 @@ bool VPOParopt::runOnModule(Module &M) {
     // Set up a function pass manager so that we can run some cleanup 
     // transforms on the LLVM IR after code gen.
     // 
-    Module *M = F->getParent();
-    legacy::FunctionPassManager FPM(M);
+    legacy::FunctionPassManager FPM(&M);
 
     DEBUG(errs() << "VPOParopt Pass: ");
     DEBUG(errs().write_escaped(F->getName()) << '\n');
 
     // AUTOPAR | OPENMP | SIMD | OFFLOAD  
-    VPOParoptTransform *VP = new VPOParoptTransform(F, &WI, &DT, Mode);
-    Changed = Changed | VP->ParoptTransformer();
-    delete VP;
+    VPOParoptTransform VP(F, &WI, &DT, Mode);
+    Changed = Changed | VP.ParoptTransformer();
 
     // Remove calls to directive intrinsics since the LLVM back end does not 
     // know how to translate them.
