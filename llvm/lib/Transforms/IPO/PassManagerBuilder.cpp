@@ -33,8 +33,10 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR passes
-
+#if INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h" 
+#include "llvm/IR/IRPrintingPasses.h"
+#endif //INTEL_CUSTOMIZATION
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -102,16 +104,20 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
-// INTEL - HIR passes
+#ifdef INTEL_CUSTOMIZATION
+// HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
-// INTEL
 static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only", 
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
 
-#ifdef INTEL_CUSTOMIZATION
+static cl::opt<bool> PrintModuleBeforeLoopopt(
+    "print-module-before-loopopt", cl::init(false), cl::Hidden,
+    cl::desc("Prints LLVM module to dbgs() before first HIR transform(HIR SSA "
+             "deconstruction)"));
+
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
@@ -639,6 +645,10 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
 
   // This pass "canonicalizes" loops and makes analysis easier.
   PM.add(createLoopSimplifyPass());
+
+  if(PrintModuleBeforeLoopopt) {
+    PM.add(createPrintModulePass(dbgs(), ";Module Before HIR" ));
+  }
 
   PM.add(createSSADeconstructionPass());
 
