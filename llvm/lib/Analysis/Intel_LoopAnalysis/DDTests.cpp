@@ -4552,7 +4552,7 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     isTemp = true;
   } else {
     RegDDRef *RegRef = cast<RegDDRef>(SrcDDRef);
-    if (RegRef->isScalarRef()) {
+    if (RegRef->isTerminalRef()) {
       isTemp = true;
     }
   }
@@ -4920,7 +4920,7 @@ bool llvm::loopopt::refineDV(DDRef *SrcDDRef, DDRef *DstDDRef,
   *IsIndependent = false;
   RegDDRef *RegDDref = dyn_cast<RegDDRef>(DstDDRef);
 
-  if (RegDDref && !(RegDDref->isScalarRef())) {
+  if (RegDDref && !(RegDDref->isTerminalRef())) {
     DDtest DA;
     DVectorTy InputDV;
     DDtest::setInputDV(InputDV, InnermostNestingLevel, OutermostNestingLevel);

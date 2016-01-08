@@ -202,17 +202,17 @@ public:
   /// Val parameter is the value associated inside the CanonExpr
   /// of this RegDDRef
   bool isIntConstant(int64_t *Val = nullptr) const {
-    return isScalarRef() && getSingleCanonExpr()->isIntConstant(Val);
+    return isTerminalRef() && getSingleCanonExpr()->isIntConstant(Val);
   }
 
   /// \brief Returns true if this RegDDRef represents an FP constant.
   bool isFPConstant() const {
-    return isScalarRef() && getSingleCanonExpr()->isFPConstant();
+    return isTerminalRef() && getSingleCanonExpr()->isFPConstant();
   }
 
   /// \brief Returns true if this RegDDRef represents null pointer.
   bool isNull() const {
-    return isScalarRef() && getSingleCanonExpr()->isNull();
+    return isTerminalRef() && getSingleCanonExpr()->isNull();
   }
 
   /// \brief Returns true if this scalar RegDDRef's canonical expr is any kind
@@ -304,7 +304,10 @@ public:
   ///      RegDDRef is Memory Reference - A[i]
   ///      RegDDRef is a Pointer Reference - *p
   /// Else returns true for cases like DDRef - 2*i and M+N.
-  bool isScalarRef() const;
+  bool isTerminalRef() const;
+
+  /// \brief Returns true if the DDRef is a memory reference
+  bool isMemRef() const;
 
   /// \brief Returns true if the DDRef represents a self-blob like (1 * %t). In
   /// addition DDRef's symbase should be the same as %t's symbase. This is so
@@ -368,7 +371,8 @@ public:
   /// NOTE: It is the responsibility of the user to call this utility after
   /// making changes to the DDRef and update defined at levels for the new
   /// blobs.
-  void updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs);
+  void updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
+      bool AssumeLvalIfDetached = false);
 
   /// \brief Returns true if the blob is present in this DDRef and returns its
   /// defined at level via DefLevel. DefLevel is expected to be non-null. -1 is

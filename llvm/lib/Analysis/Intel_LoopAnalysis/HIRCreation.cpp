@@ -47,6 +47,10 @@ static cl::opt<bool>
     HIRPrinterDetailed("hir-details", cl::desc("Show HIR with dd_ref details"),
                        cl::init(false));
 
+static cl::opt<bool>
+    HIRPrintModified("hir-print-modified",
+        cl::desc("Show modified HIR Regions only"), cl::init(false));
+
 FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
 
 HIRCreation::HIRCreation() : FunctionPass(ID) {
@@ -362,15 +366,17 @@ void HIRCreation::printImpl(raw_ostream &OS, bool FrameworkDetails) const {
   unsigned Offset = 0;
 
   for (auto I = begin(), E = end(); I != E; ++I, ++Offset) {
-
-    // Print SCCs in hir-parser output and in detailed mode.
-    if (FrameworkDetails) {
-      SCCF->print(FOS, RegBegin + Offset);
-    }
-
-    FOS << "\n";
     assert(isa<HLRegion>(I) && "Top level node is not a region!");
-    (cast<HLRegion>(I))->print(FOS, 0, FrameworkDetails, HIRPrinterDetailed);
+    const HLRegion *Region = cast<HLRegion>(I);
+    if (!HIRPrintModified || Region->shouldGenCode()) {
+      // Print SCCs in hir-parser output and in detailed mode.
+      if (FrameworkDetails) {
+        SCCF->print(FOS, RegBegin + Offset);
+      }
+
+      FOS << "\n";
+      Region->print(FOS, 0, FrameworkDetails, HIRPrinterDetailed);
+    }
   }
   FOS << "\n";
 }

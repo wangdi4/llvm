@@ -88,6 +88,9 @@ private:
   bool IsInnermost;
   Type *IVType;
 
+  // Temporary tag to mark loop as multiversioned.
+  unsigned MVTag = 0;
+
 protected:
   HLLoop(const Loop *LLVMLoop, bool IsDoWh);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
@@ -495,6 +498,14 @@ public:
 
   /// \brief Verifies HLLoop integrity.
   virtual void verify() const override;
+
+  unsigned getMVTag() {
+    return MVTag;
+  }
+
+  void setMVTag(unsigned Tag) {
+    MVTag = Tag;
+  }
 };
 
 } // End namespace loopopt

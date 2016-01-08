@@ -331,6 +331,7 @@ void initializeHIRLoopInterchangePass(PassRegistry&);
 void initializeHIRLoopDistributionPass(PassRegistry&);
 void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
+void initializeHIRRuntimeDDPass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION

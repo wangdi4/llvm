@@ -37,7 +37,8 @@ HLIf::HLIf(PredicateTy FirstPred, RegDDRef *Ref1, RegDDRef *Ref2)
   assert((!Ref1 || (Ref1->getDestType() == Ref2->getDestType())) &&
          "Ref1/Ref2 type mismatch!");
   assert((!Ref1 || ((CmpInst::isIntPredicate(FirstPred) &&
-                     Ref1->getDestType()->isIntegerTy()) ||
+                     (Ref1->getDestType()->isIntegerTy() ||
+                         Ref1->getDestType()->isPointerTy())) ||
                     (CmpInst::isFPPredicate(FirstPred) &&
                      Ref1->getDestType()->isFloatingPointTy()))) &&
          "Predicate/DDRef type mismatch!");
@@ -225,7 +226,9 @@ void HLIf::addPredicate(PredicateTy Pred, RegDDRef *Ref1, RegDDRef *Ref2) {
            CmpInst::isFPPredicate(Predicates[0]))) &&
          "Predicate type mismatch!");
   assert(
-      ((CmpInst::isIntPredicate(Pred) && Ref1->getDestType()->isIntegerTy()) ||
+      ((CmpInst::isIntPredicate(Pred) &&
+          (Ref1->getDestType()->isIntegerTy() ||
+          Ref1->getDestType()->isPointerTy())) ||
        (CmpInst::isFPPredicate(Pred) &&
         Ref1->getDestType()->isFloatingPointTy())) &&
       "Predicate/DDRef type mismatch!");

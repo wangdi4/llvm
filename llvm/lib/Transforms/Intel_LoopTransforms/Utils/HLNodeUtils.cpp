@@ -162,11 +162,11 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
 
   switch (OpCode) {
   case Instruction::Load: {
-    assert(!RvalRef->isScalarRef() &&
+    assert(!RvalRef->isTerminalRef() &&
            "Rval of load instruction cannot be scalar!");
 
     if (LvalRef) {
-      assert(LvalRef->isScalarRef() &&
+      assert(LvalRef->isTerminalRef() &&
              "Lval of load instruction is not a scalar!");
     }
 
@@ -184,7 +184,7 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *LvalRef,
 
   case Instruction::Store: {
     if (LvalRef) {
-      assert(!LvalRef->isScalarRef() &&
+      assert(!LvalRef->isTerminalRef() &&
              "Lval of store instruction cannot be scalar!");
     }
 

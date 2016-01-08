@@ -256,7 +256,7 @@ bool RegDDRef::isFake() const {
   return HNode->isFake(this);
 }
 
-bool RegDDRef::isScalarRef() const {
+bool RegDDRef::isTerminalRef() const {
   // Check GEP and Single CanonExpr
   if (!hasGEPInfo()) {
     assert(isSingleCanonExpr() && "Scalar ref has more than one dimension!");
@@ -266,8 +266,12 @@ bool RegDDRef::isScalarRef() const {
   return false;
 }
 
+bool RegDDRef::isMemRef() const {
+  return hasGEPInfo() && !isAddressOf();
+}
+
 bool RegDDRef::isSelfBlob() const {
-  if (!isScalarRef()) {
+  if (!isTerminalRef()) {
     return false;
   }
 
@@ -295,7 +299,7 @@ void RegDDRef::removeDimension(unsigned DimensionNum) {
 }
 
 uint64_t RegDDRef::getDimensionStride(unsigned DimensionNum) const {
-  assert(!isScalarRef() && "Stride info not applicable for scalar refs!");
+  assert(!isTerminalRef() && "Stride info not applicable for scalar refs!");
   assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
 
   SmallVector<uint64_t, 9> Strides;
@@ -440,10 +444,11 @@ void RegDDRef::collectTempBlobIndices(
   Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
 }
 
-void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
+void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
+    bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
 
-  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
+  if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
     unsigned SB = CanonExprUtils::getBlobSymbase(
         getSingleCanonExpr()->getSingleBlobIndex());
 
@@ -461,7 +466,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
     //
     // We should not update symbase of lval DDRefs as lvals represent a store
     // into that symbase. Changing it can affect correctness.
-    if (isLval()) {
+    if (getHLDDNode() ? isLval() : AssumeLvalIfDetached) {
       if ((getSymbase() == SB)) {
         removeAllBlobDDRefs();
         return;
@@ -505,7 +510,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
   unsigned Index = 0;
 
-  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
+  if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
     auto CE = getSingleCanonExpr();
     Index = CE->getSingleBlobIndex();
 

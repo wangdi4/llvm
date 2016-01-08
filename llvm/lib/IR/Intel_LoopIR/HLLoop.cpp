@@ -342,7 +342,7 @@ const RegDDRef *HLLoop::getLowerDDRef() const {
 }
 
 void HLLoop::setLowerDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isScalarRef()) && "Invalid LowerDDRef!");
+  assert((!Ref || Ref->isTerminalRef()) && "Invalid LowerDDRef!");
 
   setOperandDDRefImpl(Ref, 0);
 }
@@ -364,7 +364,7 @@ const RegDDRef *HLLoop::getUpperDDRef() const {
 }
 
 void HLLoop::setUpperDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isScalarRef()) && "Invalid UpperDDRef!");
+  assert((!Ref || Ref->isTerminalRef()) && "Invalid UpperDDRef!");
 
   setOperandDDRefImpl(Ref, 1);
 }
@@ -386,7 +386,7 @@ const RegDDRef *HLLoop::getStrideDDRef() const {
 }
 
 void HLLoop::setStrideDDRef(RegDDRef *Ref) {
-  assert((!Ref || Ref->isScalarRef()) && "Invalid StrideDDRef!");
+  assert((!Ref || Ref->isTerminalRef()) && "Invalid StrideDDRef!");
 
   setOperandDDRefImpl(Ref, 2);
 }
@@ -498,10 +498,6 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
   if (isUnknown() || !getStrideDDRef()->isIntConstant())
     return nullptr;
-
-  // UB and LB should be scalar refs in the current design.
-  assert(getUpperDDRef()->isScalarRef() && getLowerDDRef()->isScalarRef() &&
-         " Upper Bound and Lower Bound should be terminal or constant.");
 
   CanonExpr *Result = nullptr;
   const CanonExpr *UBCE = getUpperCanonExpr();

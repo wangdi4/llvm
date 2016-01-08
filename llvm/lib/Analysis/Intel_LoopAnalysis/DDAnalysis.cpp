@@ -28,19 +28,18 @@
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 #include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include <vector>
 #include <map>
 #include <algorithm>
+
 using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-analysis"
-
-typedef DefinedRefGatherer::MapTy SymToRefs;
 
 // Rebuild nests in runOnFunction for loops of level n, 0 being whole region
 // for testing.
@@ -196,11 +195,11 @@ void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
   // Visits all dd refs in Node and fills in the symbase to ref vector
   // map based on symbase field of encountered dd refs. Does not assign
   // symbase, assumes symbase of ddrefs is valid
-  SymToRefs RefMap;
-  DefinedRefGatherer::gather(Node, RefMap);
+  NonConstantRefGatherer::MapTy RefMap;
+  NonConstantRefGatherer::gather(Node, RefMap);
 
   DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(dumpRefMap(RefMap));
+  DEBUG(NonConstantRefGatherer::dump(RefMap));
   DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();

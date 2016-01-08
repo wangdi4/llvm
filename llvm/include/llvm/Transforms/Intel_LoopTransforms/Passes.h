@@ -49,6 +49,10 @@ FunctionPass *createHIRLoopInterchangePass();
 
 /// createHIRDummyTransformationPass - This creates a dummy pass that is used
 /// for debugging purposes.
+FunctionPass *createHIRRuntimeDDPass();
+
+/// createHIRDummyTransformationPass - This creates a dummy pass that is used
+/// for debugging purposes.
 FunctionPass *createHIRDummyTransformationPass();
 
 /// createHIRGeneralUnrollPass - This creates a pass that performs general

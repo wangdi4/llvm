@@ -30,9 +30,10 @@
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
 
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
 
 namespace llvm {
 
@@ -48,7 +49,7 @@ typedef std::pair<const HLLoop *, uint64_t> LoopLocalityPair;
 class HIRLocalityAnalysis final : public HIRAnalysisPass {
 
 private:
-  typedef MemRefGatherer::MapTy SymToMemRefTy;
+  typedef DDRefGrouping::SymToMemRefTy SymToMemRefTy;
 
   // Symbolic constant to denote unknown 'N' trip count.
   // TODO: Revisit this for scaling known loops.
@@ -101,23 +102,21 @@ private:
   // When there is no change, all children have valid locality.
   SmallDenseMap<const HLLoop *, bool, 64> LoopModificationMap;
 
-  // RefGrouping data structure.
-  // The first unsigned argument is the group number.
-  std::map<unsigned, SmallVector<const RegDDRef *, 32>> RefGroups;
-
   // This is used for temporarily storing the const trip counts in a cache.
   // First argument is the loop and second argument contains the trip count.
   // If the loop is not present in this cache, it assumed to have symbolic
   // trip count.
   SmallDenseMap<const HLLoop *, unsigned, 16> ConstTripCache;
 
-  /// \brief Internal method to clear the SymToMemRef where the loop level
-  /// is not present.
-  void clearEmptySlots(SymToMemRefTy &MemRefMap);
+  DDRefGrouping::RefGroupsTy RefGroups;
 
   /// \brief Used for debugging purposes only to verify locality value.
   /// This function prints out the locality cost for all the loops.
   void checkLocality();
+
+  /// \brief Internal method to clear the SymToMemRef where the loop level
+  /// is not present.
+  static void clearEmptySlots(SymToMemRefTy &MemRefMap);
 
   /// \brief Computes the locality for the loop nest in which L is contained.
   /// If the loop was not modified, it returns the old computed values.
@@ -137,9 +136,6 @@ private:
   /// \brief Computes the spatial trip count.
   uint64_t computeSpatialTrip(const RegDDRef *Ref, const HLLoop *Loop);
 
-  /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
-  void createRefGroups(SymToMemRefTy &MemRefMap, unsigned Level);
-
   /// \brief Returns the trip count of the loop.
   /// If loop count is symbolic or above than threshold, it
   /// returns SymbolicConst value.
@@ -148,10 +144,6 @@ private:
   /// \brief Initializes the trip count cache for future use inside
   /// the locality computation.
   void initConstTripCache(SmallVectorImpl<const HLLoop *> *Loops);
-
-  /// \brief Returns true if Ref2 belongs to the same array reference group.
-  bool isGroupMemRefMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                          unsigned Level);
 
   /// \brief Returns true if RegDD is invariant of Loop.
   bool isLoopInvariant(const RegDDRef *RegDD, const HLLoop *Loop);
@@ -170,21 +162,11 @@ private:
   bool isTemporalReuse(const RegDDRef *Ref1, const RegDDRef *Ref2,
                        unsigned SubscriptPos);
 
-  /// \brief Prints out the array reference group mapping.
-  /// Primarily used for debugging.
-  void printRefGroups();
-
   /// \brief Prints out the Locality Information.
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
 
-  /// \brief Removes the duplicate Memory Refs in the MemRefMap.
-  void removeDuplicates(SymToMemRefTy &MemRefMap);
-
   /// \brief Resets the locality info for the given loop L.
   void resetLocalityMap(const HLLoop *L);
-
-  /// \brief Sorts the Memory Refs in the MemRefMap.
-  void sortMemRefs(SymToMemRefTy &MemRefMap);
 
   /// \brief Verifies the newly computed locality cost with cached value.
   /// This is primarily done for testing in debug mode. For optimized mode,

@@ -12,18 +12,18 @@
 // DDRefGatherer is an utility class to create map: Symbase -> DDRef
 //
 // Because of variety of DDRef types, there some modes of gathering:
-//   MemRefs       - collect GEP references
-//   TerminalRefs  - collect terminal references
-//   BlobRefs      - collect BlobDDRefs
-//   ConstantRefs  - collect constants
-//   UndefRefs     - collect undefined DDRefs
+//   MemRefs         - collect GEP references, excluding IsAddressOfRefs
+//   TerminalRefs    - collect terminal references
+//   IsAddressOfRefs - collect GEP references for getting a ref. address
+//   BlobRefs        - collect BlobDDRefs
+//   ConstantRefs    - collect constants
+//   UndefRefs       - collect undefined DDRefs
 //
 // These modes can be combined using bitwise "or" operator.
 //
 //===----------------------------------------------------------------------===//
-
-#ifndef LLVM_IR_INTEL_LOOPIR_DDREFGATHERER_H
-#define LLVM_IR_INTEL_LOOPIR_DDREFGATHERER_H
+#ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFGATHERER_H
+#define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_DDREFGATHERER_H
 
 #include <type_traits>
 
@@ -31,8 +31,8 @@
 
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 namespace llvm {
 
@@ -41,10 +41,12 @@ namespace loopopt {
 enum DDRefGatherMode {
   MemRefs = 1 << 0,
   TerminalRefs = 1 << 1,
-  BlobRefs = 1 << 2,
-  ConstantRefs = 1 << 3,
-  UndefRefs = 1 << 4,
-  AllRefs = (1 << 5) - 1,
+  IsAddressOfRefs = 1 << 2,
+  BlobRefs = 1 << 3,
+  ConstantRefs = 1 << 4,
+  UndefRefs = 1 << 5,
+
+  AllRefs = -1,
 };
 
 // Data Structure to store mapping of symbase to memory references.
@@ -87,13 +89,15 @@ public:
   void visit(const HLDDNode *RefNode) {
     for (auto I = RefNode->ddref_begin(), E = RefNode->ddref_end(); I != E;
          ++I) {
+      RegDDRef *Ref = (*I);
+
       if (!(Mode & ConstantRefs) && (*I)->getSymbase() == CONSTANT_SYMBASE) {
         continue;
       }
 
-      bool IsTerminal = (*I)->isScalarRef();
-      if (((Mode & TerminalRefs) && IsTerminal) ||
-          ((Mode & MemRefs) && !IsTerminal)) {
+      if (((Mode & TerminalRefs) && Ref->isTerminalRef()) ||
+          ((Mode & IsAddressOfRefs) && Ref->isAddressOf()) ||
+          ((Mode & MemRefs) && Ref->isMemRef())) {
         addRef<RegDDRef>(*I);
       }
 
@@ -110,46 +114,88 @@ public:
   void postVisit(const HLNode *Node) {}
 };
 
-template <typename RefTy, unsigned Mode> struct DDRefGatherer {
+class DDRefGathererUtils {
+
+  DDRefGathererUtils() = delete;
+  ~DDRefGathererUtils() = delete;
+  DDRefGathererUtils(const DDRefGathererUtils &) = delete;
+  DDRefGathererUtils &operator=(const DDRefGathererUtils &) = delete;
+
+  static bool compareMemRefCE(const CanonExpr *ACanon, const CanonExpr *BCanon);
+  static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
+
+public:
+  #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  template <typename RefTy>
+  static void dump(const SymToRefTy<RefTy> &RefMap) {
+    for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
+         SymVecPair != Last; ++SymVecPair) {
+      auto &RefVec = SymVecPair->second;
+      dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
+      for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
+        dbgs() << "\t";
+        (*Ref)->dump();
+        dbgs() << "\n";
+      }
+    }
+  }
+  #endif
+
+  /// \brief Removes the duplicates by comparing the Ref's in sorted order.
+  template <typename RefTy>
+  static void makeUnique(SymToRefTy<RefTy> &RefMap) {
+    for (auto &SymVecPair : RefMap) {
+      SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair.second;
+
+      RefVec.erase(std::unique(RefVec.begin(), RefVec.end(),
+          [](const DDRef *Ref1, const DDRef *Ref2) {
+        return DDRefUtils::areEqual(Ref1, Ref2);
+      }), RefVec.end());
+    }
+  }
+
+  /// \brief Sorts the Memory Refs in the MemRefMap.
+  template <typename RefTy>
+  static void sort(SymToRefTy<RefTy> &MemRefMap) {
+    // Sorts the memory reference based on the comparison provided
+    // by compareMemRef.
+    for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
+         SymVecPair != Last; ++SymVecPair) {
+      SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
+      std::sort(RefVec.begin(), RefVec.end(), DDRefGathererUtils::compareMemRef);
+    }
+  }
+};
+
+template <typename RefTy, unsigned Mode>
+struct DDRefGatherer :
+  public DDRefGathererUtils {
+
   DDRefGatherer() = delete;
   ~DDRefGatherer() = delete;
   DDRefGatherer(const DDRefGatherer &) = delete;
   DDRefGatherer &operator=(const DDRefGatherer &) = delete;
 
   typedef typename DDRefGathererVisitor<RefTy, Mode>::MapTy MapTy;
-  static void gather(const HLNode *Node, SymToRefTy<RefTy> &SymToMemRef) {
+
+  static void gather(const HLNode *Node, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
     HLNodeUtils::visit(VImpl, Node);
   }
 
   template <template <typename> class It>
   static void gatherRange(It<const HLNode> Begin, It<const HLNode> End,
-                          SymToRefTy<RefTy> &SymToMemRef) {
+                          MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
     HLNodeUtils::visitRange(VImpl, Begin, End);
   }
 };
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-template <typename RefTy> void dumpRefMap(const SymToRefTy<RefTy> &RefMap) {
-  for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-    auto &RefVec = SymVecPair->second;
-    dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
-    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      dbgs() << "\t";
-      (*Ref)->dump();
-      // dbgs() << " -> isWrite:" << (*Ref)->isLval();
-      dbgs() << "\n";
-    }
-  }
-}
-#endif
-
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
-typedef DDRefGatherer<DDRef, TerminalRefs | MemRefs | BlobRefs>
-    DefinedRefGatherer;
+typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
+
 }
+
 }
 
 #endif

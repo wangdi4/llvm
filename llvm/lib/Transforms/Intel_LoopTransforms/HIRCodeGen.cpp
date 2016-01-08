@@ -518,7 +518,7 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
 
   assert(!Ref->containsUndef() && "undef operands not supported");
 
-  if (Ref->isScalarRef()) {
+  if (Ref->isTerminalRef()) {
     return visitScalar(Ref);
   }
 

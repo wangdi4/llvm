@@ -275,7 +275,7 @@ private:
 bool IfVisitor::isCandidate(const RegDDRef *RegDD) const {
 
   // Only handle scalar references.
-  if (!RegDD->isScalarRef()) {
+  if (!RegDD->isTerminalRef()) {
     return false;
   }
 

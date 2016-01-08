@@ -24,14 +24,14 @@
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-
-#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -79,7 +79,7 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
       }
     }
   } else {
-    assert(Ref->isScalarRef() && "DDRef is in an inconsistent state!");
+    assert(Ref->isTerminalRef() && "DDRef is in an inconsistent state!");
     assert(Ref->getSymbase() && "Scalar DDRef was not assigned a symbase!");
   }
   return nullptr;
@@ -87,7 +87,7 @@ Value *SymbaseAssignmentVisitor::getRefPtr(RegDDRef *Ref) {
 
 // TODO: add special handling for memrefs with undefined base pointers.
 void SymbaseAssignmentVisitor::addToAST(RegDDRef *Ref) {
-  if (Ref->isScalarRef()) {
+  if (Ref->isTerminalRef()) {
     return;
   }
 
@@ -168,9 +168,9 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 }
 
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
-  DefinedRefGatherer::MapTy SymToRefs;
-  DefinedRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
-                                  SymToRefs);
+  NonConstantRefGatherer::MapTy SymToRefs;
+  NonConstantRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
+      SymToRefs);
 
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";
