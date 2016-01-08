@@ -18,6 +18,7 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
+#include "llvm/Analysis/VectorVariant.h"
 
 namespace llvm {
 
@@ -28,6 +29,7 @@ class ScalarEvolution;
 class TargetTransformInfo;
 class Type;
 class Value;
+class Attribute;
 
 /// \brief Identify if the intrinsic is trivially vectorizable.
 /// This method returns true if the intrinsic's argument types are all
@@ -125,6 +127,27 @@ DenseMap<Instruction*, uint64_t>
 computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
+
+/// @brief Contains the names of the declared vector function variants
+typedef std::vector<std::string> DeclaredVariants;
+
+/// @brief Contains a mapping of a function to its vector function variants
+typedef std::map<Function*, DeclaredVariants> FunctionVariants;
+
+/// @brief Get all function attributes that specify a vector variant
+/// @param F Function to inspect
+/// @return A vector of all matching attributes
+std::vector<Attribute> getVectorVariantAttributes(Function& F);
+
+/// \brief Determine the characteristic type of the vector function as
+/// specified according to the vector function ABI.
+Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
+
+/// @brief Get all functions marked for vectorization in module.
+/// @param M Module to query
+/// @param funcVars Data structure to hold the declared vector variants
+/// (in string form) for each function.
+void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
     
 } // llvm namespace
 

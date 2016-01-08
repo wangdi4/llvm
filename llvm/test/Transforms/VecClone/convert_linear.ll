@@ -2,7 +2,7 @@
 ; is inserted correctly and the old convert (sext) uses the stride instead of the old
 ; reference to %i.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK: simd.loop:
 ; CHECK: %0 = load i32, i32* %i.addr

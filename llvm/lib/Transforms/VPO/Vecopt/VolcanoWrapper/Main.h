@@ -7,7 +7,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #ifndef __MAIN_H__
 #define __MAIN_H__
 
-#include "VectorVariant.h"
+#include "llvm/Analysis/VectorVariant.h"
 #include "BuiltinLibInfo.h"
 #include "Logger.h"
 

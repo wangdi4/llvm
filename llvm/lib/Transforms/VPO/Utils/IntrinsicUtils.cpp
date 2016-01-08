@@ -60,11 +60,11 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call)
   Metadata *MD = OperandMDVal->getMetadata();
 
   if (isa<MDNode>(MD)) {
-    MDNode *OperandNode = dyn_cast<MDNode>(MD);
+    MDNode *OperandNode = cast<MDNode>(MD);
     Metadata *OperandNodeMD = OperandNode->getOperand(0);
     OperandMDStr = dyn_cast<MDString>(OperandNodeMD);
   } else if (isa<MDString>(MD)) {
-    OperandMDStr = dyn_cast<MDString>(MD);
+    OperandMDStr = cast<MDString>(MD);
   }
 
   assert(OperandMDStr && "Expected argument to be a metadata string");

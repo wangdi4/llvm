@@ -331,7 +331,7 @@ void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 void initializeIdentifyVectorCandidatesPass(PassRegistry&);
-void initializeSIMDFunctionCloningPass(PassRegistry&);
+void initializeVecClonePass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION

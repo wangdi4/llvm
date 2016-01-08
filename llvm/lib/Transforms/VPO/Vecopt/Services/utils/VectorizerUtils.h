@@ -12,8 +12,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Type.h"
 #include <vector>
 
-namespace intel {
-
 class VectorVariant;
 
 class VectorizerUtils {
@@ -209,8 +207,5 @@ private:
                                       const llvm::Type * realType, llvm::Instruction *loc);
 
 };// VectorizerUtils
-
-} // namespace intel
-
 
 #endif //__VECTORIZER_UTILS_H__

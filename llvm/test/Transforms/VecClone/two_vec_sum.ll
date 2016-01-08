@@ -1,22 +1,19 @@
-; Do a sanity check on the structure of the LLVM that SIMDFunctionCloning produces for the masked variant.
+; Do a sanity check on the structure of the LLVM that VecClone produces for the non-masked variant.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 
-; CHECK-LABEL: define x86_regcallcc <4 x i32> @_ZGVxM4vv_vec_sum(<4 x i32> %i, <4 x i32> %j, <4 x i32> %mask)
+; CHECK-LABEL: x86_regcallcc <4 x i32> @_ZGVxN4vv_vec_sum(<4 x i32> %i, <4 x i32> %j)
 ; CHECK-NEXT: entry:
 ; CHECK-NEXT: %vec.i = alloca <4 x i32>
 ; CHECK-NEXT: %vec.j = alloca <4 x i32>
-; CHECK-NEXT: %vec.mask = alloca <4 x i32>
 ; CHECK-NEXT: %vec.retval = alloca <4 x i32>
-; CHECK-NEXT: store <4 x i32> %i, <4 x i32>* %vec.i, align 4
-; CHECK-NEXT: store <4 x i32> %j, <4 x i32>* %vec.j, align 4
-; CHECK-NEXT: store <4 x i32> %mask, <4 x i32>* %vec.mask
+; CHECK-NEXT: store <4 x i32> %i, <4 x i32>* %vec.i
+; CHECK-NEXT: store <4 x i32> %j, <4 x i32>* %vec.j
 ; CHECK-NEXT: %vec.i.cast = bitcast <4 x i32>* %vec.i to i32*
 ; CHECK-NEXT: %vec.j.cast = bitcast <4 x i32>* %vec.j to i32*
 ; CHECK-NEXT: %ret.cast = bitcast <4 x i32>* %vec.retval to i32*
-; CHECK-NEXT: %mask.cast = bitcast <4 x i32>* %vec.mask to i32*
 ; CHECK-NEXT: br label %simd.begin.region
 
 ; CHECK: simd.begin.region:
@@ -29,12 +26,6 @@
 
 ; CHECK: simd.loop:
 ; CHECK-NEXT: %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-; CHECK-NEXT: %mask.gep = getelementptr i32, i32* %mask.cast, i32 %index
-; CHECK-NEXT: %mask.parm = load i32, i32* %mask.gep
-; CHECK-NEXT: %mask.cond = icmp ne i32 %mask.parm, 0
-; CHECK-NEXT: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
-
-; CHECK: simd.loop.then:
 ; CHECK-NEXT: %vec.i.cast.gep = getelementptr i32, i32* %vec.i.cast, i32 %index
 ; CHECK-NEXT: %0 = load i32, i32* %vec.i.cast.gep, align 4
 ; CHECK-NEXT: %vec.j.cast.gep = getelementptr i32, i32* %vec.j.cast, i32 %index
@@ -42,9 +33,6 @@
 ; CHECK-NEXT: %add = add nsw i32 %0, %1
 ; CHECK-NEXT: %ret.cast.gep = getelementptr i32, i32* %ret.cast, i32 %index
 ; CHECK-NEXT: store i32 %add, i32* %ret.cast.gep
-; CHECK-NEXT: br label %simd.loop.exit
-
-; CHECK: simd.loop.else:
 ; CHECK-NEXT: br label %simd.loop.exit
 
 ; CHECK: simd.loop.exit:

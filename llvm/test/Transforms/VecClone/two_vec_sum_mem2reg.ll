@@ -5,7 +5,7 @@
 ; Note: the LLVM IR used as input to this test has already had Mem2Reg applied to it, so no need to
 ; do that here.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; Begin non-masked variant checking
 

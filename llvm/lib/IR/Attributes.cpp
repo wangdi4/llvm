@@ -1394,7 +1394,13 @@ AttrBuilder AttributeFuncs::typeIncompatible(Type *Ty) {
     Incompatible.addAttribute(Attribute::SExt)
       .addAttribute(Attribute::ZExt);
 
+#ifdef INTEL_CUSTOMIZATION
+  // We want to be able to apply the same pointer attributes for vectors of
+  // pointers for vector functions.
+  if (!Ty->isPtrOrPtrVectorTy())
+#else // INTEL_CUSTOMIZATION
   if (!Ty->isPointerTy())
+#endif
     // Attribute that only apply to pointers.
     Incompatible.addAttribute(Attribute::ByVal)
       .addAttribute(Attribute::Nest)

@@ -1,4 +1,4 @@
-//=-- SIMDFunctionCloning.cpp - Vector function to loop transform -*- C++ -*-=//
+//=------- VecClone.cpp - Vector function to loop transform -*- C++ -*-------=//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -69,7 +69,9 @@
 // through a load instruction.
 
 #include "llvm/Transforms/VPO/VPOPasses.h"
-#include "llvm/Transforms/VPO/SIMDFunctionCloning.h"
+#include "llvm/Analysis/VectorUtils.h"
+#include "llvm/Analysis/VectorVariant.h"
+#include "llvm/Transforms/Utils/VecClone.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
@@ -86,21 +88,19 @@
 #include <map>
 #include <set>
 
-#define SV_NAME "simd-function-cloning"
-#define DEBUG_TYPE "SIMDFunctionCloning"
+#define SV_NAME "vec-clone"
+#define DEBUG_TYPE "VecClone"
 
 using namespace llvm;
-using namespace llvm::vpo;
-using namespace intel;
+using namespace vpo;
 
-SIMDFunctionCloning::SIMDFunctionCloning() : ModulePass(ID) { }
+VecClone::VecClone() : ModulePass(ID) { }
 
-void SIMDFunctionCloning::getAnalysisUsage(AnalysisUsage &AU) const {
+void VecClone::getAnalysisUsage(AnalysisUsage &AU) const {
   // Placeholder for any new pass dependencies. For now, none are needed.
 }
 
-void SIMDFunctionCloning::insertInstruction(Instruction *Inst,
-                                            BasicBlock *BB)
+void VecClone::insertInstruction(Instruction *Inst, BasicBlock *BB)
 {
   // This function inserts instructions in a way that groups like instructions
   // together for debuggability/readability purposes. This was designed to make
@@ -131,7 +131,7 @@ void SIMDFunctionCloning::insertInstruction(Instruction *Inst,
   }
 }
 
-bool SIMDFunctionCloning::hasComplexType(Function *F)
+bool VecClone::hasComplexType(Function *F)
 {
   Function::ArgumentListType &ArgList = F->getArgumentList();
   Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
@@ -147,7 +147,7 @@ bool SIMDFunctionCloning::hasComplexType(Function *F)
   return false;
 }
 
-Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
+Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
 {
 
   DEBUG(dbgs() << "Cloning Function: " << F.getName() << "\n");
@@ -155,7 +155,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
 
   FunctionType* OrigFunctionType = F.getFunctionType();
   Type *ReturnType = F.getReturnType();
-  Type *CharacteristicType = VectorizerUtils::calcCharacteristicType(F, V);
+  Type *CharacteristicType = calcCharacteristicType(F, V);
 
   // Expand return type to vector.
   if (!ReturnType->isVoidTy())
@@ -169,7 +169,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
   for (; ParmIt != ParmEnd; ++ParmIt, ++VKIt) {
     if (VKIt->isVector())
       ParmTypes.push_back(VectorType::get((*ParmIt)->getScalarType(),
-	                                      V.getVlen()));
+                                          V.getVlen()));
     else
       ParmTypes.push_back(*ParmIt);
   }
@@ -190,7 +190,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
   // except for the vector variant attributes.
   Clone->copyAttributesFrom(&F);
   AttrBuilder AB;
-  for (auto Attr : VectorizerUtils::getVectorVariantAttributes(*Clone)) {
+  for (auto Attr : getVectorVariantAttributes(*Clone)) {
     AB.addAttribute(Attr);
   }
   AttributeSet AttrsToRemove = AttributeSet::get(Clone->getContext(),
@@ -234,7 +234,7 @@ Function* SIMDFunctionCloning::CloneFunction(Function &F, VectorVariant &V)
   return Clone;
 }
 
-bool SIMDFunctionCloning::isVectorOrLinearParamStore(
+bool VecClone::isVectorOrLinearParamStore(
     Function *Clone,
     std::vector<VectorKind> &ParmKinds,
     Instruction *Inst)
@@ -257,9 +257,8 @@ bool SIMDFunctionCloning::isVectorOrLinearParamStore(
   return false;
 }
 
-BasicBlock* SIMDFunctionCloning::splitEntryIntoLoop(Function *Clone,
-                                                    VectorVariant &V,
-                                                    BasicBlock *EntryBlock)
+BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
+                                         BasicBlock *EntryBlock)
 {
 
   // EntryInsts contains all instructions that need to stay in the entry basic
@@ -320,8 +319,8 @@ BasicBlock* SIMDFunctionCloning::splitEntryIntoLoop(Function *Clone,
   return LoopBlock;
 }
 
-BasicBlock* SIMDFunctionCloning::splitLoopIntoReturn(Function *Clone,
-                                                     BasicBlock *LoopBlock)
+BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
+                                          BasicBlock *LoopBlock)
 {
 
   // Determine the basic block with the return. For simple cases, the 'ret'
@@ -366,9 +365,9 @@ BasicBlock* SIMDFunctionCloning::splitLoopIntoReturn(Function *Clone,
   return ReturnBlock;
 }
 
-void SIMDFunctionCloning::updateReturnPredecessors(Function *Clone,
-                                                   BasicBlock *LoopExitBlock,
-                                                   BasicBlock *ReturnBlock)
+void VecClone::updateReturnPredecessors(Function *Clone,
+                                        BasicBlock *LoopExitBlock,
+                                        BasicBlock *ReturnBlock)
 { 
   // Update the branches of the ReturnBlock predecessors to point back to
   // LoopBlock if the index is less than VL.
@@ -413,8 +412,7 @@ void SIMDFunctionCloning::updateReturnPredecessors(Function *Clone,
   }
 }
 
-BasicBlock* SIMDFunctionCloning::createLoopExit(Function *Clone,
-                                                BasicBlock *ReturnBlock)
+BasicBlock* VecClone::createLoopExit(Function *Clone, BasicBlock *ReturnBlock)
 {
   BasicBlock *LoopExitBlock = BasicBlock::Create(Clone->getContext(),
                                                  "simd.loop.exit",
@@ -424,7 +422,7 @@ BasicBlock* SIMDFunctionCloning::createLoopExit(Function *Clone,
   return LoopExitBlock;
 }
 
-PHINode* SIMDFunctionCloning::createPhiAndBackedgeForLoop(
+PHINode* VecClone::createPhiAndBackedgeForLoop(
     Function *Clone,
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
@@ -463,7 +461,7 @@ PHINode* SIMDFunctionCloning::createPhiAndBackedgeForLoop(
   return Phi;
 }
 
-Instruction* SIMDFunctionCloning::expandVectorParameters(
+Instruction* VecClone::expandVectorParameters(
     Function *Clone,
     VectorVariant &V,
     BasicBlock *EntryBlock,
@@ -568,9 +566,9 @@ Instruction* SIMDFunctionCloning::expandVectorParameters(
   return Mask;
 }
 
-Instruction* SIMDFunctionCloning::createExpandedReturn(Function *Clone,
-                                                       BasicBlock *EntryBlock,
-                                                       VectorType *ReturnType)
+Instruction* VecClone::createExpandedReturn(Function *Clone,
+                                            BasicBlock *EntryBlock,
+                                            VectorType *ReturnType)
 {
   // Expand the return temp to a vector.
 
@@ -589,7 +587,7 @@ Instruction* SIMDFunctionCloning::createExpandedReturn(Function *Clone,
   return VecCast;
 }
 
-Instruction* SIMDFunctionCloning::expandReturn(
+Instruction* VecClone::expandReturn(
     Function *Clone,
     BasicBlock *EntryBlock,
     BasicBlock *LoopBlock,
@@ -725,7 +723,7 @@ Instruction* SIMDFunctionCloning::expandReturn(
   return VecReturn;
 }
 
-Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
+Instruction* VecClone::expandVectorParametersAndReturn(
     Function *Clone,
     VectorVariant &V,
     Instruction **Mask,
@@ -745,6 +743,9 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
                                   VectorParmMap);
   }
 
+  SmallDenseMap<Value*, Instruction*>::iterator MapIt = VectorParmMap.begin();
+  SmallDenseMap<Value*, Instruction*>::iterator MapEnd = VectorParmMap.end();
+
   // So, essentially what has been done to this point is the creation and
   // insertion of the vector alloca instructions. Now, we insert the bitcasts of
   // those instructions, which have been stored in the map. The insertion of the
@@ -752,8 +753,8 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
-  for (auto MapIt : VectorParmMap) {
-    Instruction *ExpandedCast = MapIt.second;
+  for (; MapIt != MapEnd; ++MapIt) {
+    Instruction *ExpandedCast = MapIt->second;
     if (!ExpandedCast->getParent()) {
       insertInstruction(ExpandedCast, EntryBlock);
     }
@@ -793,7 +794,74 @@ Instruction* SIMDFunctionCloning::expandVectorParametersAndReturn(
   return ExpandedReturn;
 }
 
-void SIMDFunctionCloning::updateScalarMemRefsWithVector(
+bool VecClone::typesAreCompatibleForLoad(Type *GepType, Type *LoadType)
+{
+  // GepType will always be a pointer since this refers to an alloca for a
+  // vector.
+  PointerType *GepPtrTy = dyn_cast<PointerType>(GepType);
+  Type *LoadFromTy = GepPtrTy->getElementType();
+  Type *LoadToTy = LoadType;
+
+  // Dereferencing pointers in LLVM IR means that we have to have a load for
+  // each level of indirection. This means that we load from a gep and the
+  // resulting load value type is reduced by one level of indirection. For
+  // example, we load from a gep of i32* to a temp that has an i32 type. We
+  // cannot do multiple levels of dereferencing in a single load. For example,
+  // we cannot load from a gep of i32** to an i32. This requires two loads.
+  //
+  // Legal Case: GepType = i32**, LoadFromTy = i32*,
+  //             LoadType = i32*, LoadToTy = i32*
+  // 
+  // %vec.b.elem.2 = load i32*, i32** %vec.b.cast.gep1
+  //
+  // In this case, since both are pointers, types will be considered equal by
+  // LLVM, so we must continue getting the element types of each pointer type
+  // until one is no longer a pointer type. Then do an equality check.
+  //
+  // Legal Case: GepType = i32*, LoadFromTy = i32,
+  //             LoadType = i32, LoadToTy = i32
+  //
+  // %vec.b.elem.2 = load i32, i32* %vec.b.cast.gep1
+  //
+  // Ready to compare as is
+  //
+  // Illegal Case: GepType = i32**, LoadFromTy = i32*
+  //               LoadType = i32, LoadToTy = i32
+  //
+  // %vec.b.elem.2 = load i32, i32** %vec.b.cast.gep1
+  //
+  // This case arises due to differences in the LLVM IR at -O0 and >= -O1.
+  // For >= -O1, Mem2Reg registerizes parameters and there are no alloca
+  // instructions created for function parameters. At -O0, vector parameters
+  // are expanded and we modify the existing alloca that was used for the scalar
+  // parameter. When there is no alloca for vector parameters, we must create
+  // one for them. Thus, we have introduced an additional level of indirection
+  // for users of parameters at >= -O1. This can become a problem for load
+  // instructions and results in this illegal case. This function helps to
+  // check that we are not attempting to do an extra level of indirection
+  // within the load instructions for elements of vector parameters in the
+  // simd loop. If an illegal case is encountered, an additional load is
+  // inserted to account for the extra level of indirection and any users are
+  // updated accordingly.
+
+  while (LoadFromTy->getTypeID() == Type::PointerTyID &&
+         LoadToTy->getTypeID()   == Type::PointerTyID) {
+
+    PointerType *FromPtrTy = cast<PointerType>(LoadFromTy);
+    PointerType *ToPtrTy = cast<PointerType>(LoadToTy);
+
+    LoadFromTy = FromPtrTy->getElementType();
+    LoadToTy = ToPtrTy->getElementType();
+  }
+
+  if (LoadFromTy->getTypeID() == LoadToTy->getTypeID()) {
+    return true;
+  }
+
+  return false;
+}
+
+void VecClone::updateScalarMemRefsWithVector(
     Function *Clone,
     Function &F,
     BasicBlock *EntryBlock,
@@ -841,8 +909,18 @@ void SIMDFunctionCloning::updateScalarMemRefsWithVector(
         unsigned NumOps = User->getNumOperands();
         for (unsigned I = 0; I < NumOps; ++I) {
           if (User->getOperand(I) == Parm) {
-            if (isa<LoadInst>(User) || isa<StoreInst>(User)) {
-              // If the user is a load/store, then just use the gep.
+
+            bool TypesAreCompatible = false;
+
+            if (isa<LoadInst>(User)) {
+              TypesAreCompatible =
+                  typesAreCompatibleForLoad(VecGep->getType(), User->getType());
+            }
+
+            if ((isa<LoadInst>(User) && TypesAreCompatible) ||
+                isa<StoreInst>(User)) {
+              // If the user is a load/store and the dereferencing is legal,
+              // then just modify the load/store operand to use the gep.
               User->setOperand(I, VecGep);
             } else {
               // Otherwise, we need to load the value from the gep first before
@@ -868,7 +946,7 @@ void SIMDFunctionCloning::updateScalarMemRefsWithVector(
   DEBUG(Clone->dump());
 }
 
-Instruction* SIMDFunctionCloning::generateStrideForParameter(
+Instruction* VecClone::generateStrideForParameter(
     Function *Clone,
     Argument *Arg,
     Instruction *ParmUser,
@@ -971,8 +1049,8 @@ Instruction* SIMDFunctionCloning::generateStrideForParameter(
   return StrideInst;
 }
 
-void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
-                                                 VectorVariant &V, PHINode *Phi)
+void VecClone::updateLinearReferences(Function *Clone, Function &F,
+                                      VectorVariant &V, PHINode *Phi)
 {
   // Add stride to parameters marked as linear. This is done by finding all
   // users of the scalar alloca associated with the parameter. The user should
@@ -1158,7 +1236,7 @@ void SIMDFunctionCloning::updateLinearReferences(Function *Clone, Function &F,
   DEBUG(Clone->dump());
 }
 
-void SIMDFunctionCloning::updateReturnBlockInstructions(
+void VecClone::updateReturnBlockInstructions(
     Function *Clone,
     BasicBlock *ReturnBlock,
     Instruction *ExpandedReturn)
@@ -1210,8 +1288,7 @@ void SIMDFunctionCloning::updateReturnBlockInstructions(
   DEBUG(Clone->dump());
 }
 
-int SIMDFunctionCloning::getParmIndexInFunction(Function *F,
-                                                Value *Parm)
+int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
 {
   Function::arg_iterator ArgIt = F->arg_begin();
   Function::arg_iterator ArgEnd = F->arg_end();
@@ -1222,9 +1299,8 @@ int SIMDFunctionCloning::getParmIndexInFunction(Function *F,
   return -1;
 }
 
-void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
-                                            Function &F, VectorVariant &V,
-                                            BasicBlock *EntryBlock)
+void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
+                                 VectorVariant &V, BasicBlock *EntryBlock)
 {
   // Insert directive indicating the beginning of a SIMD loop.
   CallInst *SIMDBeginCall =
@@ -1297,9 +1373,9 @@ void SIMDFunctionCloning::insertBeginRegion(Module& M, Function *Clone,
 */
 }
 
-void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
-                                          BasicBlock *LoopExitBlock,
-                                          BasicBlock *ReturnBlock)
+void VecClone::insertEndRegion(Module& M, Function *Clone,
+                               BasicBlock *LoopExitBlock,
+                               BasicBlock *ReturnBlock)
 {
   BasicBlock *EndDirectiveBlock = BasicBlock::Create(Clone->getContext(),
                                                      "simd.end.region",
@@ -1323,13 +1399,11 @@ void SIMDFunctionCloning::insertEndRegion(Module& M, Function *Clone,
   DirQualListEndCall->insertBefore(EndDirectiveBlock->getTerminator());
 }
 
-void SIMDFunctionCloning::insertDirectiveIntrinsics(Module& M,
-                                                    Function *Clone,
-                                                    Function &F,
-                                                    VectorVariant &V,
-                                                    BasicBlock *EntryBlock,
-                                                    BasicBlock *LoopExitBlock,
-                                                    BasicBlock *ReturnBlock)
+void VecClone::insertDirectiveIntrinsics(Module& M, Function *Clone,
+                                         Function &F, VectorVariant &V,
+                                         BasicBlock *EntryBlock,
+                                         BasicBlock *LoopExitBlock,
+                                         BasicBlock *ReturnBlock)
 {
   insertBeginRegion(M, Clone, F, V, EntryBlock);
   insertEndRegion(M, Clone, LoopExitBlock, ReturnBlock);
@@ -1337,8 +1411,8 @@ void SIMDFunctionCloning::insertDirectiveIntrinsics(Module& M,
   DEBUG(Clone->dump());
 }
 
-bool SIMDFunctionCloning::isSimpleFunction(Function *Clone, VectorVariant &V,
-                                           ReturnInst *ReturnOnly)
+bool VecClone::isSimpleFunction(Function *Clone, VectorVariant &V,
+                                ReturnInst *ReturnOnly)
 {
   // For really simple functions, there is no need to go through the process
   // of inserting a loop.
@@ -1360,11 +1434,10 @@ bool SIMDFunctionCloning::isSimpleFunction(Function *Clone, VectorVariant &V,
   return false;
 }
 
-void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
-                                                      BasicBlock *LoopBlock,
-                                                      BasicBlock *LoopExitBlock,
-                                                      Instruction *Mask,
-                                                      PHINode *Phi)
+void VecClone::insertSplitForMaskedVariant(Function *Clone,
+                                           BasicBlock *LoopBlock,
+                                           BasicBlock *LoopExitBlock,
+                                           Instruction *Mask, PHINode *Phi)
 {
   BasicBlock *LoopThenBlock =
       LoopBlock->splitBasicBlock(LoopBlock->getFirstNonPHI(),
@@ -1420,7 +1493,7 @@ void SIMDFunctionCloning::insertSplitForMaskedVariant(Function *Clone,
   DEBUG(Clone->dump());
 }
 
-void SIMDFunctionCloning::removeScalarAllocasForVectorParams(
+void VecClone::removeScalarAllocasForVectorParams(
     SmallDenseMap<Value*, Instruction*> &VectorParmMap)
 {
   SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt =
@@ -1436,7 +1509,7 @@ void SIMDFunctionCloning::removeScalarAllocasForVectorParams(
   }
 }
 
-void SIMDFunctionCloning::disableLoopUnrolling(BasicBlock *Latch)
+void VecClone::disableLoopUnrolling(BasicBlock *Latch)
 {
   // Set disable unroll metadata on the conditional branch of the loop latch
   // for the simd loop. The following is an example of what the loop latch
@@ -1477,12 +1550,12 @@ void SIMDFunctionCloning::disableLoopUnrolling(BasicBlock *Latch)
   Latch->getTerminator()->setMetadata("llvm.loop", NewLoopID);
 }
 
-bool SIMDFunctionCloning::runOnModule(Module &M) {
+bool VecClone::runOnModule(Module &M) {
 
   DEBUG(dbgs() << "\nExecuting SIMD Function Cloning ...\n\n");
 
-  VectorizerUtils::FunctionVariants FunctionsToVectorize;
-  VectorizerUtils::getFunctionsToVectorize(M, FunctionsToVectorize);
+  FunctionVariants FunctionsToVectorize;
+  getFunctionsToVectorize(M, FunctionsToVectorize);
   if (FunctionsToVectorize.empty()) {
     // No vector variants for this function exist.
     return false;
@@ -1491,7 +1564,7 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
   for (auto& pair : FunctionsToVectorize) {
 
     Function& F = *pair.first;
-    VectorizerUtils::DeclaredVariants& DeclaredVariants = pair.second;
+    DeclaredVariants &DeclaredVariants = pair.second;
 
     for (auto& DeclaredVariant : DeclaredVariants) {
 
@@ -1590,18 +1663,18 @@ bool SIMDFunctionCloning::runOnModule(Module &M) {
   return true; // LLVM IR has been modified
 }
 
-void SIMDFunctionCloning::print(raw_ostream &OS, const Module *M) const {
+void VecClone::print(raw_ostream &OS, const Module *M) const {
   // TODO
 }
 
-ModulePass *llvm::createSIMDFunctionCloningPass() {
-  return new llvm::vpo::SIMDFunctionCloning();
+ModulePass *llvm::createVecClonePass() {
+  return new llvm::VecClone();
 }
 
-char SIMDFunctionCloning::ID = 0;
+char VecClone::ID = 0;
 
-static const char lv_name[] = "SIMDFunctionCloning";
-INITIALIZE_PASS_BEGIN(SIMDFunctionCloning, SV_NAME, lv_name,
+static const char lv_name[] = "VecClone";
+INITIALIZE_PASS_BEGIN(VecClone, SV_NAME, lv_name,
                       false /* modifies CFG */, false /* transform pass */)
-INITIALIZE_PASS_END(SIMDFunctionCloning, SV_NAME, lv_name,
+INITIALIZE_PASS_END(VecClone, SV_NAME, lv_name,
                     false /* modififies CFG */, false /* transform pass */)

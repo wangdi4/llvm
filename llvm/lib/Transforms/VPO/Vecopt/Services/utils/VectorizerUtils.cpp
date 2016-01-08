@@ -8,7 +8,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "TypeConversion.h"
 #include "FunctionDescriptor.h"
 #include "NameMangleAPI.h"
-#include "VectorVariant.h"
+#include "llvm/Analysis/VectorVariant.h"
 
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/InstIterator.h"
@@ -16,7 +16,6 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
 
-namespace intel{
 using namespace llvm;
  
 std::vector<Attribute> VectorizerUtils::getVectorVariantAttributes(Function& F) {
@@ -833,5 +832,3 @@ Value *VectorizerUtils::canRootInputByShuffle(SmallVector<Value *, 4> &valInChai
   }
   return NULL;
 }
-
-} // nampespace intel

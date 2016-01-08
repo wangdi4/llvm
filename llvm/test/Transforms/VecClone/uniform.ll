@@ -1,6 +1,6 @@
 ; Check to make sure the initial parameter store of the uniform parameter is sunk into the loop.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK-LABEL: x86_regcallcc <4 x i32> @_ZGVxN4u_foo(i32 %b)
 ; CHECK: simd.loop:

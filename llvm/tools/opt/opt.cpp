@@ -337,7 +337,7 @@ int main(int argc, char **argv) {
 
 #if INTEL_CUSTOMIZATION
   initializeVPOVectorizer(Registry);
-  initializeSIMDFunctionCloningPass(Registry);
+  initializeVecClonePass(Registry);
   initializeVPOParoptPass(Registry);
 
   // For testing with HIR, this call has been moved to 

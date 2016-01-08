@@ -1,6 +1,6 @@
 ; Test that the stride is being applied correctly to struct field accesses.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK: simd.loop:
 ; CHECK: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8

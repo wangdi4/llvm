@@ -1,6 +1,6 @@
 ; Check to see that the linear parameter i is updated with the correct stride when Mem2Reg is on.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK: simd.loop:
 ; CHECK: %stride.mul = mul i32 1, %index

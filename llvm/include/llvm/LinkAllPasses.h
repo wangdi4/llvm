@@ -207,7 +207,7 @@ namespace {
       (void) llvm::createIdentifyVectorCandidatesPass();
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createVPODriverPass();
-      (void) llvm::createSIMDFunctionCloningPass();
+      (void) llvm::createVecClonePass();
       (void) llvm::createVPOParoptPass();
 #endif // INTEL_CUSTOMIZATION
 

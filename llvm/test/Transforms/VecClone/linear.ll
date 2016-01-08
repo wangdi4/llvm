@@ -1,6 +1,6 @@
 ; Check to see that the linear parameter i is updated with the correct stride, indicated by a mul/add instruction sequence after the load.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK: simd.loop:
 ; CHECK: %1 = load i32, i32* %i.addr

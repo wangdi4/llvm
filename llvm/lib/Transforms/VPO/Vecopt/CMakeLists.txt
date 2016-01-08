@@ -83,7 +83,6 @@ add_llvm_library(LLVMVPOVectorizer
   SoaAllocaAnalysis/SoaAllocaAnalysis.cpp
   Utils/SimplifyGEP.cpp
   Utils/VectorizerCore.cpp
-  Utils/VectorVariant.cpp
   VolcanoWrapper/Main.cpp
   WIAnalysis/WIAnalysis.cpp
   OCLBranchProbability/OCLBranchProbability.cpp
@@ -93,5 +92,3 @@ add_llvm_library(LLVMVPOVectorizer
 )
 
 add_dependencies(LLVMVPOVectorizer intrinsics_gen)
-
-add_subdirectory(SIMDFunctionCloning)

@@ -111,9 +111,9 @@ static cl::opt<int> RunVPOParopt("llvm-vpo-paropt",
   cl::init(0x00000000), cl::Hidden,
   cl::desc("Run VPO Paropt Pass"));
 
-static cl::opt<bool> RunSIMDFunctionCloning("SIMD-Function-Cloning",
+static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
-  cl::desc("Run SIMD Function Cloning"));
+  cl::desc("Run Vector Function Cloning"));
 
 // While we have two vectorizers to work with (Ported OpenCL Vectorizer and new
 // Abstract Layer VPO vectorizer), we need a temporary switch to disable the 
@@ -253,8 +253,8 @@ void PassManagerBuilder::populateModulePassManager(
 
     addExtensionsToPM(EP_EnabledOnOptLevel0, MPM);
 #if INTEL_CUSTOMIZATION
-    if (RunSIMDFunctionCloning) {
-      MPM.add(createSIMDFunctionCloningPass());
+    if (RunVecClone) {
+      MPM.add(createVecClonePass());
     }
     if (RunVPOParopt) {
       MPM.add(createVPOParoptPass());
@@ -452,9 +452,13 @@ void PassManagerBuilder::populateModulePassManager(
   MPM.add(createLoopRotatePass(SizeLevel == 2 ? 0 : -1));
 
 #if INTEL_CUSTOMIZATION
-  if (RunSIMDFunctionCloning) {
-    MPM.add(createSIMDFunctionCloningPass());
+  if (RunVecClone) {
+    MPM.add(createVecClonePass());
   }
+  // VecClonePass can generate redundant geps/loads for vector parameters when
+  // accessing elem[i] within the inserted simd loop. This makes DD testing
+  // harder, so run CSE here to do some clean-up before HIR construction.
+  MPM.add(createEarlyCSEPass());
   addLoopOptPasses(MPM);
 #endif // INTEL_CUSTOMIZATION
 

@@ -17,7 +17,6 @@ set(LLVM_LINK_COMPONENTS
   VPOVectorizer #***INTEL
   VPODriver
   VPOParopt
-  SIMDFunctionCloning
   Intel_LoopTransforms
   )
 

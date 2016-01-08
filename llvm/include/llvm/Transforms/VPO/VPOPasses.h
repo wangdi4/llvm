@@ -23,8 +23,7 @@ class ModulePass;
 
 // Create VPO Driver pass
 FunctionPass *createVPODriverPass();
-
-ModulePass   *createSIMDFunctionCloningPass();
+ModulePass *createVecClonePass();
 ModulePass   *createVPOParoptPass();
 }
 

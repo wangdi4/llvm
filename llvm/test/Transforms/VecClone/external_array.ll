@@ -1,6 +1,6 @@
 ; Check to see that we are applying the correct updated linear index for an external array access gep.
 
-; RUN: opt -simd-function-cloning -S < %s | FileCheck %s
+; RUN: opt -vec-clone -S < %s | FileCheck %s
 
 ; CHECK: simd.loop:
 ; CHECK: %1 = load i32, i32* %i.addr

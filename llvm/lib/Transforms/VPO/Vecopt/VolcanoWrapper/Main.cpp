@@ -52,8 +52,8 @@ extern "C" FunctionPass* createZMMResolverPass();
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
 
 
-static FunctionPass* createResolverPass(intel::ISAClass isaClass) {
-  if (isaClass == intel::ISAClass::ZMM)
+static FunctionPass* createResolverPass(ISAClass isaClass) {
+  if (isaClass == ISAClass::ZMM)
     return createZMMResolverPass();
   return createX86ResolverPass();
 }

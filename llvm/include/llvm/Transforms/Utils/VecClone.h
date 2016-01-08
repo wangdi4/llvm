@@ -1,4 +1,4 @@
-//===--------- SIMDFunctionCloning.h - Class definition -*- C++ -*---------===//
+//===-------------- VecClone.h - Class definition -*- C++ -*---------------===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -9,7 +9,7 @@
 // ===--------------------------------------------------------------------=== //
 ///
 /// \file
-/// This file defines the SIMDFunctionCloning pass class.
+/// This file defines the VecClone pass class.
 ///
 // ===--------------------------------------------------------------------=== //
 
@@ -17,11 +17,9 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
-#include "../../../../lib/Transforms/VPO/Vecopt/Utils/VectorVariant.h"
-#include "../../../../lib/Transforms/VPO/Vecopt/Services/utils/VectorizerUtils.h"
 
-#ifndef LLVM_TRANSFORMS_VPO_SIMDFUNCTIONCLONING_H
-#define LLVM_TRANSFORMS_VPO_SIMDFUNCTIONCLONING_H
+#ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
+#define LLVM_TRANSFORMS_VPO_VECCLONE_H
 
 enum InstType {
   ALLOCA = 0,
@@ -33,9 +31,7 @@ namespace llvm {
 
 class ModulePass;
 
-namespace vpo {
-
-class SIMDFunctionCloning : public ModulePass {
+class VecClone : public ModulePass {
 
   private:
 
@@ -44,11 +40,11 @@ class SIMDFunctionCloning : public ModulePass {
     bool hasComplexType(Function *F);
 
     /// \brief Make a copy of the function if it is marked as SIMD.
-    Function* CloneFunction(Function &F, intel::VectorVariant &V);
+    Function* CloneFunction(Function &F, VectorVariant &V);
 
     /// \brief Take the entry basic block for the function as split off a second
     /// basic block that will form the loop entry.
-    BasicBlock* splitEntryIntoLoop(Function *Clone, intel::VectorVariant &V,
+    BasicBlock* splitEntryIntoLoop(Function *Clone, VectorVariant &V,
                                    BasicBlock *EntryBlock);
 
     /// \brief Take the loop entry basic block and split off a second basic
@@ -78,7 +74,7 @@ class SIMDFunctionCloning : public ModulePass {
     /// to the mask.
     Instruction* expandVectorParametersAndReturn(
         Function *Clone,
-        intel::VectorVariant &V,
+        VectorVariant &V,
         Instruction **Mask,
         BasicBlock *EntryBlock,
         BasicBlock *LoopBlock,
@@ -89,7 +85,7 @@ class SIMDFunctionCloning : public ModulePass {
     /// returns the instruction corresponding to the mask.
     Instruction* expandVectorParameters(
         Function *Clone,
-        intel::VectorVariant &V,
+        VectorVariant &V,
         BasicBlock *EntryBlock,
         SmallDenseMap<Value*, Instruction*>& ParmMap);
 
@@ -111,7 +107,7 @@ class SIMDFunctionCloning : public ModulePass {
     /// \brief Update the values of linear parameters by adding the stride
     /// before the use.
     void updateLinearReferences(Function *Clone, Function &F,
-                                intel::VectorVariant &V, PHINode *Phi);
+                                VectorVariant &V, PHINode *Phi);
 
     /// \brief Update the instructions in the return basic block to return a
     /// vector temp.
@@ -124,14 +120,14 @@ class SIMDFunctionCloning : public ModulePass {
     /// new loop pragmas so that parameter information can be transferred to
     /// the loop.
     void insertDirectiveIntrinsics(Module& M, Function *Clone, Function &F,
-                                   intel::VectorVariant &V,
+                                   VectorVariant &V,
                                    BasicBlock *EntryBlock, 
                                    BasicBlock *LoopExitBlock,
                                    BasicBlock *ReturnBlock);
 
     /// \brief Create the basic block indicating the begin of the SIMD loop.
     void insertBeginRegion(Module& M, Function *Clone, Function &F,
-                           intel::VectorVariant &V, BasicBlock *EntryBlock);
+                           VectorVariant &V, BasicBlock *EntryBlock);
 
     /// \brief Create the basic block indicating the end of the SIMD loop.
     void insertEndRegion(Module& M, Function *Clone, BasicBlock *LoopExitBlock,
@@ -148,7 +144,7 @@ class SIMDFunctionCloning : public ModulePass {
 
     /// \brief Check to see if the function is simple enough that a loop does
     /// not need to be inserted into the function.
-    bool isSimpleFunction(Function *Clone, intel::VectorVariant &V,
+    bool isSimpleFunction(Function *Clone, VectorVariant &V,
                           ReturnInst *Return);
 
     /// \brief Inserts the if/else split and mask condition for masked SIMD
@@ -170,7 +166,7 @@ class SIMDFunctionCloning : public ModulePass {
     /// \brief Utility function that returns true if Inst is a store of a vector
     /// or linear parameter.
     bool isVectorOrLinearParamStore(Function *Clone,
-                                    std::vector<intel::VectorKind> &ParmKinds,
+                                    std::vector<VectorKind> &ParmKinds,
                                     Instruction *Inst);
 
     /// \brief Removes the original scalar alloca instructions that correspond
@@ -182,18 +178,23 @@ class SIMDFunctionCloning : public ModulePass {
     /// prevent loop unrolling.
     void disableLoopUnrolling(BasicBlock *Latch);
 
+    /// \brief Check to see that the type of the gep used for a load instruction
+    /// is compatible with the type needed as the result of the load. Basically,
+    /// check the validity of the LLVM IR to make sure that proper pointer
+    /// dereferencing is done.
+    bool typesAreCompatibleForLoad(Type *GepType, Type *LoadType);
+
     bool runOnModule(Module &M) override;
 
   public:
 
     static char ID;
-    SIMDFunctionCloning();
+    VecClone();
     void print(raw_ostream &OS, const Module * = nullptr) const override;
     void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 }; // end pass class
 
-} // end vpo namespace
 } // end llvm namespace
 
-#endif // LLVM_TRANSFORMS_VPO_SIMDFUNCTIONCLONING_H
+#endif // LLVM_TRANSFORMS_VPO_VECCLONE_H
