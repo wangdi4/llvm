@@ -2876,13 +2876,13 @@ void AndersensAAResult::OptimizeConstraints() {
     VSSCCRep[i] = i;
     N->PointerEquivLabel = 0;
   }
-  //HU();
+  HU();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-labels"
   DEBUG(PrintLabels());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
-  //RewriteConstraints();
+  RewriteConstraints();
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
     if (FindNode(i) == i) {
       Node *N = &GraphNodes[i];
