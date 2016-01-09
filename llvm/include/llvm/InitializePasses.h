@@ -32,6 +32,10 @@ void initializeVPOVecoptAnalysis(PassRegistry&);
 /// VPODriver library
 void initializeVPODriverPass(PassRegistry&);
 
+/// initializeVPODriverHIRPass - Initialize all passes linked into the
+/// VPODriver library
+void initializeVPODriverHIRPass(PassRegistry&);
+
 /// initializeVPOParoptPass - Initialize all passes linked into the
 /// VPOParopt library
 void initializeVPOParoptPass(PassRegistry&);
@@ -327,6 +331,7 @@ void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 void initializeAVRGeneratePass(PassRegistry&);
+void initializeAVRGenerateHIRPass(PassRegistry&);
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);

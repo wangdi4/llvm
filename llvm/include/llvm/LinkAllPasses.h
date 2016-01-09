@@ -206,7 +206,9 @@ namespace {
       (void) llvm::createWRegionInfoPass();
       (void) llvm::createIdentifyVectorCandidatesPass();
       (void) llvm::createAVRGeneratePass();
+      (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPODriverPass();
+      (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVecClonePass();
       (void) llvm::createVPOParoptPass();
 #endif // INTEL_CUSTOMIZATION

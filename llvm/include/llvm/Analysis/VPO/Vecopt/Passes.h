@@ -22,8 +22,12 @@ namespace llvm {
   class FunctionPass;
 
   /// createAVRGeneratePass - This creates a pass that generates AVRs needed
-  /// for vectorization.
+  /// for vectorization from LLVM IR.
   FunctionPass *createAVRGeneratePass();
+
+  /// createAVRGeneratePass - This creates a pass that generates AVRs needed
+  /// for vectorization from HIR.
+  FunctionPass *createAVRGenerateHIRPass();
 
   /// createIdentifyVectCandidatesPass - This creates a pass that idenitifies
   /// candidate loops for vectorization.

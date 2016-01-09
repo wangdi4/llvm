@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -58,10 +58,8 @@ class ALChange;
 class IdentifyVectorCandidates;
 class CandidateIf;
 
-class AVRGenerate : public FunctionPass {
-
-private:
-
+class AVRGenerateBase : public FunctionPass {
+protected:
   /// The current function being analyzed.
   Function *Func;
 
@@ -76,9 +74,6 @@ private:
   /// The top-level AVR WRN currently being processed/generated.
   AVRWrn *AvrWrn;
 
-  /// True when in AVR scalar stress testing mode
-  bool ScalarStressTest;
-
   /// DisableALBuild - True if AL is not to be built.
   bool DisableALBuild;
 
@@ -90,21 +85,6 @@ private:
 
   /// DisableAvrExprTreeOpt - True if AvrExprTree optimization is disabled.
   bool DisableAvrExprTreeOpt;
-
-  /// VC - Identify Vector Candidates Pass
-  IdentifyVectorCandidates *VC;  
-
-  /// DT - Dominator Tree
-  DominatorTree *DT;
-
-  /// PDT - Post Dominator Tree
-  PostDominatorTree *PDT;
-
-  /// LI - Loop Info for this function.
-  const LoopInfo *LI;
-
-  /// HIRP - HIR Parser
-  HIRParser *HIRP;
 
   /// ALChangeLog - Vector containing all changes, additions, removals,
   /// modifications of AL from optimizations.
@@ -119,11 +99,11 @@ private:
   /// \brief Sets the LLVM Function currently being analysed.
   void setLLVMFunction(Function *F) { Func = F; }
 
-  /// \brief Sets the Loop Info for this function.
-  void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }
-
-  /// \brief Set stress testing mode.
-  void setStressTest(bool ST) { ScalarStressTest = ST; }
+  // Functions for AVR Loop formation.
+  //
+  // Some functions are generic implementation and thus defined within
+  // this class. Others require input IR specific implementations and
+  // thus defined as virtual function.
 
   /// \brief Optimize the abstract layer with AVRLoops.
   void optimizeLoopControl();
@@ -134,55 +114,27 @@ private:
 
   /// \brief For given AVRFunction node, search children for loops and insert
   /// AVRLoops where found.
-  void formAvrLoopNest(AVRFunction *AvrFunction);
+  virtual void formAvrLoopNest(AVRFunction *AvrFunction) { };
 
   /// \brief For given AvrWrn node, search children for loops and insert
   /// AVRLoops where found.
-  void formAvrLoopNest(AVRWrn *AvrWrn);
+  virtual void formAvrLoopNest(AVRWrn *AvrWrn) { };
+
+  // Functions for AVR If hiearchy recognition.
+  //
+  // Implementation is almost generic. Keep it here for now.
 
   /// \brief Optimize the abstract layer with Ifs/splits
   void optimizeAvrBranches();
 
-  /// \brief Removes AVRWrn nodes from the constructed abstract layer list.
-  void cleanupAvrWrnNodes();
-
   /// \brief Cleans up unsed AVRs after AvrBranch optimization.
   void cleanupBranchOpt(CandidateIf *CandIf);
 
-  /// \brief Returns AVR that sets boolean bit for conditional branch.
-  AVR *findAvrConditionForBI(BasicBlock *BB, BranchInst *BI, AVR *InsertionPos);
-
-  /// \brief Generates terminator AVR for given BB
-  AVR *generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
-                             AVR *ACondition);
-
-  /// \brief Given AvrLabel of loop latch, find the conditional branch
-  /// and mark as bottom test.
-  void markLoopBottomTest(AVRLabel *LoopLatchLabel);
-
-  class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
-  public:
-    AVR *visitRegion(HLRegion *R);
-    AVR *visitLoop(HLLoop *L);
-    AVR *visitIf(HLIf *I);
-
-    AVR *visitSwitch(HLSwitch *S);
-
-    AVR *visitInst(HLInst *I);
-
-    AVR *visitGoto(HLGoto *G);
-    AVR *visitLabel(HLLabel *L);
-  };
-
 public:
-
-  AVRGenerate();
+  AVRGenerateBase(char &ID);
 
   /// AvrLabels - Map of avr labels and basic blocks generated in AL.
   SmallDenseMap<BasicBlock *, AVRLabelIR *, 64> AvrLabels;
-
-  // Pass Identification
-  static char ID;
 
   bool runOnFunction(Function &F);
   void create();
@@ -194,26 +146,7 @@ public:
 
   /// \brief Builds the Abstract Layer used in vectorization. AVR nodes
   /// are constructed.
-  void buildAbstractLayer();
-
-  /// \brief Builds an AVR List for incoming this LLVM IR Function. Creates
-  /// an AVRFunction and then builds AVR for body. (Used for stress
-  /// testing of AVR construction)
-  void buildAvrsForFunction();
-
-  /// \brief Builds an AVR List for loop candidates identified as
-  /// vectorization candidates via IdenitfyCandidates analysis pass
-  /// and WRNInfo analysis.
-  void buildAvrsForVectorCandidates();
-
-  /// \brief Recursive preorder traversal walk of Basic Block, which
-  /// builds and AVR at InsertionPos. 
-  AvrItr preorderTravAvrBuild(BasicBlock *BB,  AvrItr InsertionPos);
-
-  /// \brief This function generates a sequnece of AVR nodes for
-  /// each instruction in the given LLVM IR basic block and inserts
-  /// them into an AVR List at Insertpos
-  AvrItr generateAvrInstSeqForBB(BasicBlock *BB, AvrItr InsertionPos);
+  virtual void buildAbstractLayer() = 0;
 
   /// \brief Returns true is AvrGenerate Analysis pass list is empty
   bool isAbstractLayerEmpty() { return AbstractLayer.empty(); }
@@ -227,9 +160,6 @@ public:
 
   /// \brief Returns the LLVM Function currently being analyzed.
   Function *getLLVMFunction() { return Func; }
-
-  /// \brief Returns the Loop Info for this function.
-  const LoopInfo *getLoopInfo() { return LI; }
 
   /// \brief Code generation for AVRs. We have this under analysis for
   /// now. Clients call this from a transform pass. This will change
@@ -256,6 +186,120 @@ public:
 
   /// /brief Release the memory of AVRList container built by this pass.
   void releaseMemory();
+};
+
+class AVRGenerateHIR : public AVRGenerateBase {
+private:
+  /// HIRP - HIR Parser
+  HIRParser *HIRP;
+
+  class AVRGenerateVisitor : public HIRVisitor<AVRGenerateVisitor, AVR *> {
+  public:
+    AVR *visitRegion(HLRegion *R);
+    AVR *visitLoop(HLLoop *L);
+    AVR *visitIf(HLIf *I);
+
+    AVR *visitSwitch(HLSwitch *S);
+
+    AVR *visitInst(HLInst *I);
+
+    AVR *visitGoto(HLGoto *G);
+    AVR *visitLabel(HLLabel *L);
+  };
+
+public:
+  static char ID;
+
+  AVRGenerateHIR();
+  bool runOnFunction(Function &F);
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  void buildAbstractLayer();
+};
+
+class AVRGenerate : public AVRGenerateBase {
+
+private:
+
+  /// True when in AVR scalar stress testing mode
+  bool ScalarStressTest;
+
+  /// VC - Identify Vector Candidates Pass
+  IdentifyVectorCandidates *VC;  
+
+  /// DT - Dominator Tree
+  DominatorTree *DT;
+
+  /// PDT - Post Dominator Tree
+  PostDominatorTree *PDT;
+
+  /// LI - Loop Info for this function.
+  const LoopInfo *LI;
+
+  /// \brief Sets the Loop Info for this function.
+  void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }
+
+  /// \brief Set stress testing mode.
+  void setStressTest(bool ST) { ScalarStressTest = ST; }
+
+  //
+  // Functions for AVR construction.
+  //
+
+  void buildAbstractLayer();
+
+  /// \brief Builds an AVR List for incoming this LLVM IR Function. Creates
+  /// an AVRFunction and then builds AVR for body. (Used for stress
+  /// testing of AVR construction)
+  void buildAvrsForFunction();
+
+  /// \brief Builds an AVR List for loop candidates identified as
+  /// vectorization candidates via IdenitfyCandidates analysis pass
+  /// and WRNInfo analysis.
+  void buildAvrsForVectorCandidates();
+
+  /// \brief Recursive preorder traversal walk of Basic Block, which
+  /// builds and AVR at InsertionPos. 
+  AvrItr preorderTravAvrBuild(BasicBlock *BB,  AvrItr InsertionPos);
+
+  /// \brief This function generates a sequnece of AVR nodes for
+  /// each instruction in the given LLVM IR basic block and inserts
+  /// them into an AVR List at Insertpos
+  AvrItr generateAvrInstSeqForBB(BasicBlock *BB, AvrItr InsertionPos);
+
+  /// \brief Generates terminator AVR for given BB
+  AVR *generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
+                             AVR *ACondition);
+
+  /// \brief Returns AVR that sets boolean bit for conditional branch.
+  AVR *findAvrConditionForBI(BasicBlock *BB, BranchInst *BI, AVR *InsertionPos);
+
+  //
+  // Functions for AVR Loop formation.
+  //
+
+  void formAvrLoopNest(AVRFunction *AvrFunction);
+  void formAvrLoopNest(AVRWrn *AvrWrn);
+
+  /// \brief Given AvrLabel of loop latch, find the conditional branch
+  /// and mark as bottom test.
+  void markLoopBottomTest(AVRLabel *LoopLatchLabel);
+
+  /// \brief Removes AVRWrn nodes from the constructed abstract layer list.
+  void cleanupAvrWrnNodes();
+
+public:
+
+  AVRGenerate();
+
+  // Pass Identification
+  static char ID;
+
+  bool runOnFunction(Function &F);
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  /// \brief Returns the Loop Info for this function.
+  const LoopInfo *getLoopInfo() { return LI; }
 
 };
 

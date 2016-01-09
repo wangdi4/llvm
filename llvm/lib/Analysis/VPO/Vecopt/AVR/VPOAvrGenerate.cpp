@@ -36,12 +36,17 @@ INITIALIZE_PASS_DEPENDENCY(IdentifyVectorCandidates)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 
 char AVRGenerate::ID = 0;
+
+INITIALIZE_PASS_BEGIN(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
+                      false, true)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_END(AVRGenerateHIR, "hir-avr-generate", "AVR Generate HIR",
+                    false, true)
+
+char AVRGenerateHIR::ID = 0;
 
 // Abstract Layer command line options
 
@@ -58,24 +63,16 @@ static cl::bits<ALOpts>DisableALOpt("disable-avr-opt",
     clEnumVal(ALExprTreeOpt, "Disable Abstract Layer Expr Tree Opt"),
     clEnumValEnd));
 
-static cl::opt<bool>AvrHIRTest("avr-hir-test", cl::init(false),
-  cl::desc("Construct Avrs for HIR testing"));
-
 // Pass Initialization
 
 FunctionPass *llvm::createAVRGeneratePass() { return new AVRGenerate(); }
+FunctionPass *llvm::createAVRGenerateHIRPass() { return new AVRGenerateHIR(); }
 
-AVRGenerate::AVRGenerate() : FunctionPass(ID) {
- llvm::initializeAVRGeneratePass(*PassRegistry::getPassRegistry());
-
+AVRGenerateBase::AVRGenerateBase(char &ID) : FunctionPass(ID) {
   setLLVMFunction(nullptr);
   setAvrFunction(nullptr);
   setAvrWrn(nullptr);
-  setLoopInfo(nullptr);
   AbstractLayer.clear();
-
-  // Set Stress Testing Level
-  setStressTest(AvrStressTest);
 
   // Set Optimization Level
   // Default is Abstract Layer build with all optimizations enabled.
@@ -85,37 +82,16 @@ AVRGenerate::AVRGenerate() : FunctionPass(ID) {
   DisableAvrExprTreeOpt = DisableALOpt.isSet(ALExprTreeOpt) ? true : false;
 }
 
-void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const
+void AVRGenerateBase::getAnalysisUsage(AnalysisUsage &AU) const
 {
   AU.setPreservesAll();
   AU.addRequired<DominatorTreeWrapperPass>();
   AU.addRequired<PostDominatorTree>();
   AU.addRequired<LoopInfoWrapperPass>();
-  if (!AvrHIRTest) {
-    AU.addRequired<IdentifyVectorCandidates>();
-  }
-
-  // Temporary Check to prevent HIR building for LLVMIR mode
-  // This required should be removed in future, since VPO driver
-  // will be called from HIR. If called from HIR we dont need a required here.
-  if (AvrHIRTest) {
-    AU.addRequiredTransitive<HIRParser>();
-    AU.addRequiredTransitive<HIRLocalityAnalysis>();
-    AU.addRequiredTransitive<DDAnalysis>();
-  }
 }
 
-bool AVRGenerate::runOnFunction(Function &F)
+bool AVRGenerateBase::runOnFunction(Function &F)
 {
-  if (!AvrHIRTest)
-    VC = &getAnalysis<IdentifyVectorCandidates>();
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  PDT= &getAnalysis<PostDominatorTree>();
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-
-  if (AvrHIRTest)
-    HIRP = &getAnalysis<HIRParser>();
-
   setLLVMFunction(&F);
 
   // Build the base Abstract Layer representation. 
@@ -162,96 +138,6 @@ bool AVRGenerate::runOnFunction(Function &F)
 
 // Abstract Layer Visitor Classes
 
-// AVRGenerateVistor - Generates HIR-based AL
-AVR *AVRGenerate::AVRGenerateVisitor::visitInst(HLInst *I)
-{
-  return AVRUtilsHIR::createAVRAssignHIR(I);
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitLabel(HLLabel *L)
-{
-  return AVRUtilsHIR::createAVRLabelHIR(L);
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitGoto(HLGoto *G)
-{
-  return AVRUtilsHIR::createAVRBranchHIR(G);
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitLoop(HLLoop *L)
-{
-  AVRLoop *ALoop;
-
-  ALoop = AVRUtils::createAVRLoop((const Loop *)nullptr);
-  
-  // Visit loop children
-  for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
-    AVR *ChildAVR;
-
-    ChildAVR = visit(*It);
-    AVRUtils::insertAVR(ALoop, nullptr, ChildAVR, LastChild);
-  }
-
-#if 0
-  formatted_raw_ostream OS(dbgs());
-
-  ALoop->print(OS, 1, 1);
-#endif
-
-  return ALoop;
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitRegion(HLRegion *R)
-{
-  AVRWrn *AWrn;
-  
-  // TODO - for now use AVRWrn to represent a region. AVR generation
-  // for HIR will change once we figure out how SIMD/AUTOVEC intrinsics
-  // are represented and what we consider as potential vectorization
-  // candidates.
-  AWrn = AVRUtils::createAVRWrn(nullptr);
-
-  // Visit region children
-  for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
-    AVR *ChildAVR;
-    ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AWrn, nullptr, ChildAVR, LastChild);
-  }
-  
-  return (AVR *) AWrn;
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitIf(HLIf *HIf)
-{
-  AVRIf *AIf;
-
-  AIf = AVRUtilsHIR::createAVRIfHIR(HIf);
-
-  // Visit then children
-  for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
-    AVR *ChildAVR;
-    ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
-                        ThenChild);
-  }
-
-  // Visit else children
-  for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
-    AVR *ChildAVR;
-    ChildAVR = visit(*It);
-    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
-                        ElseChild);
-  }
-
-  return AIf;
-}
-
-AVR *AVRGenerate::AVRGenerateVisitor::visitSwitch(HLSwitch *S)
-{
-  return (AVR *) nullptr;
-}
-
-
 // Avr Branch Optimization: if-formation.
 /// \brief AVRBranchOptVisitor class is a specialized visitor which walks the
 /// Abstract Layer and idenitifies conditional AvrBranch nodes which can be
@@ -271,7 +157,7 @@ class AVRBranchOptVisitor {
 private:
 
   /// AL - Abstract Layer to optimize.
-  AVRGenerate *AL;
+  AVRGenerateBase *AL;
 
   /// CandidateIfs - Vector of CandidateIfs identified by this visitor.
   CandidateIfTy CandidateIfs; 
@@ -294,7 +180,7 @@ private:
 
 public:
 
-  AVRBranchOptVisitor(AVRGenerate *AbstractLayer) : AL (AbstractLayer) {}
+  AVRBranchOptVisitor(AVRGenerateBase *AbstractLayer) : AL (AbstractLayer) {}
 
   /// Visit Functions
   void visit(AVR* ANode) {}
@@ -437,51 +323,243 @@ void AVRBranchOptVisitor::visit(AVRBranch *ABranch) {
   }
 }
 
+void AVRGenerateBase::optimizeLoopControl() {
+
+  if (!isAbstractLayerEmpty()) {
+
+    DEBUG(dbgs() << "\nInserting Avr Loops.\n");
+
+    // AVRGenerate has created a collection of AVR sequences which represent 
+    // candidate loops for vectorization. At this point these AVR sequences do not
+    // have any control flow AVRs in them.
+    //
+    // The control flow is not added in the first build of AVR for two reasons:
+    //   1. If there is an error in control flow analysis, we still want a base 
+    //      set of AVRS to fall back on for vectorization.
+    // 
+    //   2. The algorithm for detecting loop control flow and insert nodes is 
+    //      simplier when done as a post processing on exisiting AL.
+    //
+    // This walk will iterate through each AVR sequence (which represents a 
+    // candidate loop nest) and insert AVRLoop nodes, and move the AVR nodes
+    // which represent the body of the loop into AVRLoop's children, where
+    // necessary.
+
+    // TODO: Change iteration to vistor. In case of nested
+    // WRN Nodes this will not properly recursively build loops
+    // and link to WRN
+    for (auto I = begin(), E = end(); I != E; ++I) {
+      formAvrLoopNest(I);  
+    }
+  }
+}
+
+void AVRGenerateBase::formAvrLoopNest(AVR *AvrNode) {
+
+  if (AVRWrn *AvrWrn = dyn_cast<AVRWrn>(AvrNode)) {
+    formAvrLoopNest(AvrWrn);
+  } 
+  else if (AVRFunction *AvrFunction = dyn_cast<AVRFunction>(AvrNode)) {
+    formAvrLoopNest(AvrFunction);
+  }
+  else {
+    assert (0 && "Unexpected Avr node for Loop formation!"); 
+  }
+}
+
+//
+// AVRIf nodes are formed in two steps. 
+// (1) Identification/ Setup Pass (AL visit traversal)
+//     Before AVRCompare nodes  can be replaced with AVRIf nodes
+//     we must determine if:
+//       A. AVRCompare is a candidate if. It is not part of a special
+//          compare/select sequence or IV loop check.
+//       B. AVRCompare is in a short circuit compare chain. Short 
+//          circuits are nested ifs which share a common if block.
+//          Example:
+//          if (A && B) {
+//            S1
+//          } 
+//          else {
+//            S2
+//          }
+//
+//          We would need to generate an avr equivalent of:
+//          (TODO: We can generate a more effiecnt sequence)
+//          if (A) {
+//             if (B) { 
+//               S1
+//             }
+//             else {
+//               goto L1;
+//             }
+//          }
+//          else {
+//      L1:   S2
+//          }
+//
+//          Each candidate if is recorded and SC-chains are marked
+//          inside CandidateIF object.
+//
+// (2) AVRCompare replacement with AVRIf transformation.
+//
+
+void AVRGenerateBase::optimizeAvrBranches() {
+
+  // Step 1: Identify Candidates using AL visitor
+  AVRBranchOptVisitor AC(this);
+  AVRVisitor<AVRBranchOptVisitor>AvrBranchOpt(AC); 
+  AvrBranchOpt.forwardVisitAll(this);
+
+  if (!AC.isEmpty()) {
+
+    DEBUG(dbgs() << "\nIdentified " << AC.getNumberOfCandidates()
+                 << " candidates for AvrIf optimization\n");
+
+    // Optimize AVRCompare: Replace AVRBranches with AVRIf and set
+    // children as appropiate. Traverse bottom up.
+
+    // Step 2: Perform Replacement.
+    for (auto I = AC.rbegin(), E = AC.rend(); I != E; ++I) {
+
+      AVRBranch *AvrBranch = (*I)->getAvrBranch();
+      AVRIfIR *AvrIfIR = AVRUtilsIR::createAVRIfIR(AvrBranch);
+      AVRUtils::insertAVRBefore(AvrBranch, AvrIfIR);
+
+      // Then-Children
+      if ((*I)->hasThenBlock()) {
+
+	AVR *ThenBegin = (*I)->getThenBegin();
+	AVR *ThenEnd = (*I)->getThenEnd();
+
+        assert (ThenBegin && ThenEnd && "Malformed AvrIf then-children!");
+        AVRUtils::moveAsFirstThenChildren(AvrIfIR, ThenBegin, ThenEnd);
+      } 
+
+      // Else-Children
+      if ((*I)->hasElseBlock()) {
+
+        if(!(*I)->hasShortCircuit()) {
+
+          AVR *ElseBegin = (*I)->getElseBegin();
+          AVR *ElseEnd = (*I)->getElseEnd();
+
+          assert (ElseEnd && ElseEnd && "Malformed AvrIf else-children!");
+          AVRUtils::moveAsFirstElseChildren(AvrIfIR, ElseBegin, ElseEnd);
+        }
+        else {
+
+          AVRBranch *SCSuccessor = (*I)->getShortCircuitSuccessor();
+
+          assert(SCSuccessor && "AvrIf missing short-circuit successor!");
+          AVRUtils::insertFirstElseChild(AvrIfIR, SCSuccessor);
+	}
+      }
+    }
+
+    // Step 3: Remove conditional branches
+    for (auto I = AC.rbegin(), E = AC.rend(); I != E; ++I) {
+      cleanupBranchOpt(*I);
+    }
+  }
+  else {
+    DEBUG(dbgs() << "No AVRCompares identified for AvrIf transformation!\n");
+  }
+}
+
+void AVRGenerateBase::cleanupBranchOpt(CandidateIf *CandIf) {
+
+  AVRBranch *Branch = CandIf->getAvrBranch();
+
+  const ALChange *OptRemoval;
+
+  // TODO: Move the change log modifications to the AVR utilites
+  // and make transparent to user.
+
+  // OptRemoval = new ALChange(Condition, ALBranchOpt, Removal);
+  // ALChangeLog.push_back(OptRemoval);
+
+  // Remvove the condition from AL
+  // AVRUtils::remove(Condition);
+
+  OptRemoval = new ALChange(Branch, ALBranchOpt, Removal);
+  ALChangeLog.push_back(OptRemoval);
+
+  // Remove the conditional branch from AL
+  AVRUtils::remove(Branch);
+}
+
+void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth, 
+                        VerbosityLevel VLevel) const {
+
+  formatted_raw_ostream FOS(OS);
+
+  if (AbstractLayer.empty()) {
+    FOS << "No AVRs Generated!\n";
+    return;
+  }
+
+  for (auto I = begin(), E = end(); I != E; ++I) {
+    I->print(FOS, Depth, VLevel);
+  }
+}
+
+void AVRGenerateBase::print(raw_ostream &OS, const Module *M) const {
+  this->print(OS, 1, PrintType);
+}
+
+void AVRGenerateBase::dump(VerbosityLevel VLevel) const {
+  formatted_raw_ostream OS(dbgs());
+  this->print(OS, 1, VLevel);
+}
+
+bool AVRGenerateBase::codeGen() {
+
+  if (!AbstractLayer.empty()) {
+    AVR *ANode = &AbstractLayer.back();
+    ANode->codeGen();
+    return true;
+  }
+
+  return false;
+}
+
+void AVRGenerateBase::releaseMemory()
+{
+  AbstractLayer.clear();
+  ALChangeLog.clear();
+
+  // TODO: Free up all generated AVRs.
+}
+
+AVRGenerate::AVRGenerate() : AVRGenerateBase(ID) {
+  llvm::initializeAVRGeneratePass(*PassRegistry::getPassRegistry());
+
+  setLoopInfo(nullptr);
+
+  // Set Stress Testing Level
+  setStressTest(AvrStressTest);
+}
+
+void AVRGenerate::getAnalysisUsage(AnalysisUsage &AU) const
+{
+  AVRGenerateBase::getAnalysisUsage(AU);
+  AU.addRequired<IdentifyVectorCandidates>();
+}
+
+bool AVRGenerate::runOnFunction(Function &F)
+{
+  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  PDT= &getAnalysis<PostDominatorTree>();
+  VC = &getAnalysis<IdentifyVectorCandidates>();
+  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  return AVRGenerateBase::runOnFunction(F);
+}
+
 void AVRGenerate::buildAbstractLayer()
 {
-  // Temporary AL construction mechanism. HIR based AL will be constructed
-  // via incoming HIR-based WRN graph once available.
-  if (AvrHIRTest) {
-
-    AVRGenerateVisitor AG;
-
-    // Walk the HIR and build WRGraph based on HIR
-    WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
-    DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
-    for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-      DEBUG(I->dump());
-    }
-
-    // TBD: Using WRN nodes directly for now. This needs to be changed
-    // to depend on identify vector candidates. We also need to create
-    // AVRLoop variants for LLVM/HIR variants and use these going
-    // forward.
-    for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
-      DEBUG(errs() << "Starting AVR gen for \n");
-      DEBUG(I->dump());
-      AVRWrn *AWrn;
-      AVR *Avr;
-      WRNVecLoopNode *WVecNode;
-
-      if (!(WVecNode = dyn_cast<WRNVecLoopNode>(I)))
-        continue;
-
-      // Create an AVRWrn and insert AVR for contained loop as child
-      AWrn = AVRUtils::createAVRWrn(WVecNode);
-      Avr = AG.visit(WVecNode->getHLLoop());
-      AVRUtils::insertAVR(AWrn, nullptr, Avr, FirstChild);
-
-      AbstractLayer.push_back(AWrn);
-    }
-
-    // We have generated AL from HIR, do not invoke LLVM IR AL opts
-    if (!AbstractLayer.empty()) {
-      DisableLoopOpt = true;
-      DisableAvrBranchOpt = true;
-    }
-
-  }
-  else if (ScalarStressTest) {
+  if (ScalarStressTest) {
 
      DEBUG(dbgs() << "\nAVR: Generating AVRs for whole function.\n");
 
@@ -701,38 +779,6 @@ void AVRGenerate::buildAvrsForFunction()
   AbstractLayer.push_back(AvrFunction);
 }
 
-void AVRGenerate::optimizeLoopControl() {
-
-  if (!isAbstractLayerEmpty()) {
-
-    DEBUG(dbgs() << "\nInserting Avr Loops.\n");
-
-    // AVRGenerate has created a collection of AVR sequences which represent 
-    // candidate loops for vectorization. At this point these AVR sequences do not
-    // have any control flow AVRs in them.
-    //
-    // The control flow is not added in the first build of AVR for two reasons:
-    //   1. If there is an error in control flow analysis, we still want a base 
-    //      set of AVRS to fall back on for vectorization.
-    // 
-    //   2. The algorithm for detecting loop control flow and insert nodes is 
-    //      simplier when done as a post processing on exisiting AL.
-    //
-    // This walk will iterate through each AVR sequence (which represents a 
-    // candidate loop nest) and insert AVRLoop nodes, and move the AVR nodes
-    // which represent the body of the loop into AVRLoop's children, where
-    // necessary.
-
-    // TODO: Change iteration to vistor. In case of nested
-    // WRN Nodes this will not properly recursively build loops
-    // and link to WRN
-    for (auto I = begin(), E = end(); I != E; ++I) {
-      formAvrLoopNest(I);  
-    }
-  }
-}
-
-
 void AVRGenerate::formAvrLoopNest(AVRFunction *AvrFunction) {
 
   Function *Func = AvrFunction->getOrigFunction();
@@ -834,191 +880,153 @@ void AVRGenerate::formAvrLoopNest(AVRWrn *AvrWrn) {
   cleanupAvrWrnNodes();
 }
 
-void AVRGenerate::formAvrLoopNest(AVR *AvrNode) {
-
-  if (AVRWrn *AvrWrn = dyn_cast<AVRWrn>(AvrNode)) {
-    formAvrLoopNest(AvrWrn);
-  } 
-  else if (AVRFunction *AvrFunction = dyn_cast<AVRFunction>(AvrNode)) {
-    formAvrLoopNest(AvrFunction);
-  }
-  else {
-    assert (0 && "Unexpected Avr node for Loop formation!"); 
-  }
-}
-
 void AVRGenerate::cleanupAvrWrnNodes() {
   // TODO
 }
 
-//
-// AVRIf nodes are formed in two steps. 
-// (1) Identification/ Setup Pass (AL visit traversal)
-//     Before AVRCompare nodes  can be replaced with AVRIf nodes
-//     we must determine if:
-//       A. AVRCompare is a candidate if. It is not part of a special
-//          compare/select sequence or IV loop check.
-//       B. AVRCompare is in a short circuit compare chain. Short 
-//          circuits are nested ifs which share a common if block.
-//          Example:
-//          if (A && B) {
-//            S1
-//          } 
-//          else {
-//            S2
-//          }
-//
-//          We would need to generate an avr equivalent of:
-//          (TODO: We can generate a more effiecnt sequence)
-//          if (A) {
-//             if (B) { 
-//               S1
-//             }
-//             else {
-//               goto L1;
-//             }
-//          }
-//          else {
-//      L1:   S2
-//          }
-//
-//          Each candidate if is recorded and SC-chains are marked
-//          inside CandidateIF object.
-//
-// (2) AVRCompare replacement with AVRIf transformation.
-//
-
-void AVRGenerate::optimizeAvrBranches() {
-
-  // Step 1: Identify Candidates using AL visitor
-  AVRBranchOptVisitor AC(this);
-  AVRVisitor<AVRBranchOptVisitor>AvrBranchOpt(AC); 
-  AvrBranchOpt.forwardVisitAll(this);
-
-  if (!AC.isEmpty()) {
-
-    DEBUG(dbgs() << "\nIdentified " << AC.getNumberOfCandidates()
-                 << " candidates for AvrIf optimization\n");
-
-    // Optimize AVRCompare: Replace AVRBranches with AVRIf and set
-    // children as appropiate. Traverse bottom up.
-
-    // Step 2: Perform Replacement.
-    for (auto I = AC.rbegin(), E = AC.rend(); I != E; ++I) {
-
-      AVRBranch *AvrBranch = (*I)->getAvrBranch();
-      AVRIfIR *AvrIfIR = AVRUtilsIR::createAVRIfIR(AvrBranch);
-      AVRUtils::insertAVRBefore(AvrBranch, AvrIfIR);
-
-      // Then-Children
-      if ((*I)->hasThenBlock()) {
-
-	AVR *ThenBegin = (*I)->getThenBegin();
-	AVR *ThenEnd = (*I)->getThenEnd();
-
-        assert (ThenBegin && ThenEnd && "Malformed AvrIf then-children!");
-        AVRUtils::moveAsFirstThenChildren(AvrIfIR, ThenBegin, ThenEnd);
-      } 
-
-      // Else-Children
-      if ((*I)->hasElseBlock()) {
-
-        if(!(*I)->hasShortCircuit()) {
-
-          AVR *ElseBegin = (*I)->getElseBegin();
-          AVR *ElseEnd = (*I)->getElseEnd();
-
-          assert (ElseEnd && ElseEnd && "Malformed AvrIf else-children!");
-          AVRUtils::moveAsFirstElseChildren(AvrIfIR, ElseBegin, ElseEnd);
-        }
-        else {
-
-          AVRBranch *SCSuccessor = (*I)->getShortCircuitSuccessor();
-
-          assert(SCSuccessor && "AvrIf missing short-circuit successor!");
-          AVRUtils::insertFirstElseChild(AvrIfIR, SCSuccessor);
-	}
-      }
-    }
-
-    // Step 3: Remove conditional branches
-    for (auto I = AC.rbegin(), E = AC.rend(); I != E; ++I) {
-      cleanupBranchOpt(*I);
-    }
-  }
-  else {
-    DEBUG(dbgs() << "No AVRCompares identified for AvrIf transformation!\n");
-  }
+AVRGenerateHIR::AVRGenerateHIR() : AVRGenerateBase(ID) {
+  llvm::initializeAVRGenerateHIRPass(*PassRegistry::getPassRegistry());
 }
 
-void AVRGenerate::cleanupBranchOpt(CandidateIf *CandIf) {
-
-  AVRBranch *Branch = CandIf->getAvrBranch();
-
-  const ALChange *OptRemoval;
-
-  // TODO: Move the change log modifications to the AVR utilites
-  // and make transparent to user.
-
-  // OptRemoval = new ALChange(Condition, ALBranchOpt, Removal);
-  // ALChangeLog.push_back(OptRemoval);
-
-  // Remvove the condition from AL
-  // AVRUtils::remove(Condition);
-
-  OptRemoval = new ALChange(Branch, ALBranchOpt, Removal);
-  ALChangeLog.push_back(OptRemoval);
-
-  // Remove the conditional branch from AL
-  AVRUtils::remove(Branch);
-}
-
-void AVRGenerate::print(raw_ostream &OS, unsigned Depth, 
-                        VerbosityLevel VLevel) const {
-
-  formatted_raw_ostream FOS(OS);
-
-  if (AbstractLayer.empty()) {
-    FOS << "No AVRs Generated!\n";
-    return;
-  }
-
-  for (auto I = begin(), E = end(); I != E; ++I) {
-    I->print(FOS, Depth, VLevel);
-  }
-}
-
-void AVRGenerate::print(raw_ostream &OS, const Module *M) const {
-  this->print(OS, 1, PrintType);
-}
-
-void AVRGenerate::dump(VerbosityLevel VLevel) const {
-  formatted_raw_ostream OS(dbgs());
-  this->print(OS, 1, VLevel);
-}
-
-bool AVRGenerate::codeGen() {
-
-  if (!AbstractLayer.empty()) {
-    AVR *ANode = &AbstractLayer.back();
-    ANode->codeGen();
-    return true;
-  }
-
-  return false;
-}
-
-void AVRGenerate::releaseMemory()
+void AVRGenerateHIR::getAnalysisUsage(AnalysisUsage &AU) const
 {
-  AbstractLayer.clear();
-  ALChangeLog.clear();
-
-  // TODO: Free up all generated AVRs.
+  AVRGenerateBase::getAnalysisUsage(AU);
+  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRLocalityAnalysis>();
+  AU.addRequiredTransitive<DDAnalysis>();
 }
 
+bool AVRGenerateHIR::runOnFunction(Function &F)
+{
+  HIRP = &getAnalysis<HIRParser>();
+  return AVRGenerateBase::runOnFunction(F);
+}
 
+void AVRGenerateHIR::buildAbstractLayer()
+{
+  AVRGenerateVisitor AG;
 
+  // Walk the HIR and build WRGraph based on HIR
+  WRContainerTy *WRGraph = WRegionUtils::buildWRGraphFromHIR();
+  DEBUG(errs() << "WRGraph #nodes= " << WRGraph->size() << "\n");
+  for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
+    DEBUG(I->dump());
+  }
 
+  // TBD: Using WRN nodes directly for now. This needs to be changed
+  // to depend on identify vector candidates. We also need to create
+  // AVRLoop variants for LLVM/HIR variants and use these going
+  // forward.
+  for (auto I=WRGraph->begin(), E = WRGraph->end(); I != E; ++I) {
+    DEBUG(errs() << "Starting AVR gen for \n");
+    DEBUG(I->dump());
+    AVRWrn *AWrn;
+    AVR *Avr;
+    WRNVecLoopNode *WVecNode;
 
+    if (!(WVecNode = dyn_cast<WRNVecLoopNode>(I)))
+      continue;
 
+    // Create an AVRWrn and insert AVR for contained loop as child
+    AWrn = AVRUtils::createAVRWrn(WVecNode);
+    Avr = AG.visit(WVecNode->getHLLoop());
+    AVRUtils::insertAVR(AWrn, nullptr, Avr, FirstChild);
 
+    AbstractLayer.push_back(AWrn);
+  }
+
+  // We have generated AL from HIR, do not invoke LLVM IR AL opts
+  if (!AbstractLayer.empty()) {
+    DisableLoopOpt = true;
+    DisableAvrBranchOpt = true;
+  }
+}
+
+// AVRGenerateVistor - Generates HIR-based AL
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitInst(HLInst *I)
+{
+  return AVRUtilsHIR::createAVRAssignHIR(I);
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLabel(HLLabel *L)
+{
+  return AVRUtilsHIR::createAVRLabelHIR(L);
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitGoto(HLGoto *G)
+{
+  return AVRUtilsHIR::createAVRBranchHIR(G);
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L)
+{
+  AVRLoop *ALoop;
+
+  ALoop = AVRUtils::createAVRLoop((const Loop *)nullptr);
+  
+  // Visit loop children
+  for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
+    AVR *ChildAVR;
+
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(ALoop, nullptr, ChildAVR, LastChild);
+  }
+
+#if 0
+  formatted_raw_ostream OS(dbgs());
+
+  ALoop->print(OS, 1, 1);
+#endif
+
+  return ALoop;
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitRegion(HLRegion *R)
+{
+  AVRWrn *AWrn;
+  
+  // TODO - for now use AVRWrn to represent a region. AVR generation
+  // for HIR will change once we figure out how SIMD/AUTOVEC intrinsics
+  // are represented and what we consider as potential vectorization
+  // candidates.
+  AWrn = AVRUtils::createAVRWrn(nullptr);
+
+  // Visit region children
+  for (auto It = R->child_begin(), E = R->child_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AWrn, nullptr, ChildAVR, LastChild);
+  }
+  
+  return (AVR *) AWrn;
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitIf(HLIf *HIf)
+{
+  AVRIf *AIf;
+
+  AIf = AVRUtilsHIR::createAVRIfHIR(HIf);
+
+  // Visit then children
+  for (auto It = HIf->then_begin(), E = HIf->then_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
+                        ThenChild);
+  }
+
+  // Visit else children
+  for (auto It = HIf->else_begin(), E = HIf->else_end(); It != E; ++It) {
+    AVR *ChildAVR;
+    ChildAVR = visit(*It);
+    AVRUtils::insertAVR(AIf, nullptr, ChildAVR, LastChild,
+                        ElseChild);
+  }
+
+  return AIf;
+}
+
+AVR *AVRGenerateHIR::AVRGenerateVisitor::visitSwitch(HLSwitch *S)
+{
+  return (AVR *) nullptr;
+}

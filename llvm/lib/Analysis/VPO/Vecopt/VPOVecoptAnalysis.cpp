@@ -21,4 +21,5 @@ using namespace llvm;
 void llvm::initializeVPOVecoptAnalysis(PassRegistry &Registry) {
   initializeIdentifyVectorCandidatesPass(Registry);
   initializeAVRGeneratePass(Registry);
+  initializeAVRGenerateHIRPass(Registry);
 }

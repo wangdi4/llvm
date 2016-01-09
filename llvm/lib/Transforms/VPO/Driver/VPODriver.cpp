@@ -28,74 +28,85 @@
 
 #include "llvm/Transforms/VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 #include "llvm/Transforms/VPO/Vecopt/VPOAvrHIRCodeGen.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+
 
 #define DEBUG_TYPE "VPODriver"
 
 using namespace llvm;
 using namespace llvm::vpo;
 
-INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
-                      false)
+namespace {
+class VPODriver : public VPODriverBase {
+public:
+  static char ID; // Pass identification, replacement for typeid
+
+  VPODriver() : VPODriverBase(ID) {
+    initializeVPODriverPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+
+class VPODriverHIR : public VPODriverBase {
+public:
+  static char ID; // Pass identification, replacement for typeid
+
+  VPODriverHIR() : VPODriverBase(ID) {
+    initializeVPODriverHIRPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F) override {
+    AV = &getAnalysis<AVRGenerateHIR>();
+    return VPODriverBase::runOnFunction(F);
+  }
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+
+  /// \brief Overrides FunctionPass's printer pass to return one which prints
+  /// HIR instead of LLVM IR.
+  FunctionPass *createPrinterPass(raw_ostream &OS,
+                                  const std::string &Banner) const override {
+    return createHIRPrinterPass(OS, Banner);
+  }
+};
+
+} // anonymous namespace
+
+INITIALIZE_PASS_BEGIN(VPODriver, "VPODriver", "VPO Vectorization Driver",
+                      false, false)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AVRGenerate)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
-INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver", false,
-                    false)
+INITIALIZE_PASS_END(VPODriver, "VPODriver", "VPO Vectorization Driver",
+                    false, false)
 
 char VPODriver::ID = 0;
 
+INITIALIZE_PASS_BEGIN(VPODriverHIR, "VPODriverHIR",
+                      "VPO Vectorization Driver HIR", false, false)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(AVRGenerateHIR)
+INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRLocalityAnalysis)
+INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_END(VPODriverHIR, "VPODriverHIR",
+                    "VPO Vectorization Driver HIR", false, false)
+
+char VPODriverHIR::ID = 0;
+
 FunctionPass *llvm::createVPODriverPass() { return new VPODriver(); }
+FunctionPass *llvm::createVPODriverHIRPass() { return new VPODriverHIR(); }
 
-VPODriver::VPODriver() : FunctionPass(ID) {
-
-  initializeVPODriverPass(*PassRegistry::getPassRegistry());
-}
-
-void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
-
-  // TODO: We do not preserve loopinfo as we remove loops, create new
-  // loops. Same holds for Scalar Evolution which needs to be computed
-  // for newly created loops. For now only mark AVRGenerate as
-  // preserved.
-  
-  // TBD: Unable to get HIR path working without setPreservesAll
-  AU.setPreservesAll();
-  AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<AVRGenerate>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
-
-  AU.addRequiredTransitive<HIRParser>();
-  AU.addRequiredTransitive<HIRLocalityAnalysis>();
-  AU.addRequiredTransitive<DDAnalysis>();
-
-#if 0
-  AU.addPreserved<AVRGenerate>();
-  AU.addPreserved<HIRParser>();
-  AU.addPreserved<HIRLocalityAnalysis>();
-  AU.addPreserved<DDAnalysis>();
-#endif
-}
-
-bool VPODriver::runOnFunction(Function &F) {
+bool VPODriverBase::runOnFunction(Function &F) {
 
   bool ret_val = false;
-
-  // Set up a function pass manager so that we can run some cleanup transforms
-  // on the LLVM IR after code gen.
-  Module *M = F.getParent();
-  legacy::FunctionPassManager FPM(M);
 
   DEBUG(errs() << "VPODriver: ");
   DEBUG(errs().write_escaped(F.getName()) << '\n');
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   SC = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
-  AV = &getAnalysis<AVRGenerate>();
 
   for (auto I = AV->begin(), E = AV->end(); I != E; ++I) {
     AVR *Avr = I;
@@ -128,14 +139,51 @@ bool VPODriver::runOnFunction(Function &F) {
   // how to translate them.
   VPOUtils::stripDirectives(F);
 
-  // It is possible that stripDirectives eliminates all instructions in a basic
-  // block except for the branch instruction. Use CFG simplify to eliminate
-  // them.
+  return ret_val;
+}
 
-  // Calling CFG simplification pass causes assertions about uses remaining to
-  // deleted value handles. Commenting out for now.
-  //FPM.add(createCFGSimplificationPass());
-  //FPM.run(F);
+void VPODriver::getAnalysisUsage(AnalysisUsage &AU) const {
+
+  // TODO: We do not preserve loopinfo as we remove loops, create new
+  // loops. Same holds for Scalar Evolution which needs to be computed
+  // for newly created loops. For now only mark AVRGenerate as
+  // preserved.
+  
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<AVRGenerate>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
+
+  AU.addPreserved<AVRGenerate>();
+}
+
+bool VPODriver::runOnFunction(Function &F) {
+
+  AV = &getAnalysis<AVRGenerate>();
+  bool ret_val = VPODriverBase::runOnFunction(F);
+
+  // Set up a function pass manager so that we can run some cleanup transforms
+  // on the LLVM IR after code gen.
+  Module *M = F.getParent();
+  legacy::FunctionPassManager FPM(M);
+
+  // It is possible that stripDirectives call in parent runOnFunction()
+  // eliminates all instructions in a basic block except for the branch
+  // instruction. Use CFG simplify to eliminate them.
+  FPM.add(createCFGSimplificationPass());
+  FPM.run(F);
 
   return ret_val;
 }
+
+void VPODriverHIR::getAnalysisUsage(AnalysisUsage &AU) const {
+  // HIR path does not work without setPreservesAll
+  AU.setPreservesAll();
+  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequired<AVRGenerateHIR>();
+  AU.addRequired<ScalarEvolutionWrapperPass>();
+
+  AU.addRequiredTransitive<HIRParser>();
+  AU.addRequiredTransitive<HIRLocalityAnalysis>();
+  AU.addRequiredTransitive<DDAnalysis>();
+}
+

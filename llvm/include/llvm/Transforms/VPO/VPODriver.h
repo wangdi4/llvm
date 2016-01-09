@@ -27,21 +27,25 @@ class LoopInfo;
 
 namespace vpo {
 
-class VPODriver : public FunctionPass {
+//
+// VPODriverBase class can be moved inside anonymous namespace
+// inside VPODriver.cpp, as long as the derived classes remain
+// in that single file. For now, keep this in the header file.
+//
+class VPODriverBase : public FunctionPass {
 
   LoopInfo *LI;
   ScalarEvolution *SC;
   WRegionInfo *WR;
 
+protected:
   /// Handle to AVR Generate Pass
-  AVRGenerate *AV;
+  AVRGenerateBase *AV;
 
 public:
-  static char ID; // Pass identification, replacement for typeid
 
-  VPODriver();
+  VPODriverBase(char &ID) : FunctionPass(ID) { };
   bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 } // End namespace vpo

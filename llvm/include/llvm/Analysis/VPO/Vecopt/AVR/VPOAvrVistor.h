@@ -129,10 +129,10 @@ private:
   bool backwardVisit(AvrItr Begin, AvrItr End, bool Recursive, bool RecurseInsideLoops);
 
   /// \brief Visits all AVRs in the abstract layer in forward direction.
-  void forwardVisitAll(AVRGenerate *AG);
+  void forwardVisitAll(AVRGenerateBase *AG);
 
   /// \brief Visits all AVRs in the abstract layer in backward direction.
-  void backwardVisitAll(AVRGenerate *AG);
+  void backwardVisitAll(AVRGenerateBase *AG);
 };
 
 
@@ -172,12 +172,12 @@ bool AVRVisitor<AV>::backwardVisit(AvrItr Begin, AvrItr End, bool Recursive,
 }
 
 template <typename AV>
-void AVRVisitor<AV>::forwardVisitAll(AVRGenerate *AG) {
+void AVRVisitor<AV>::forwardVisitAll(AVRGenerateBase *AG) {
   forwardVisit(AG->begin(), AG->end(), true, true);
 }
 
 template <typename AV>
-void AVRVisitor<AV>::backwardVisitAll(AVRGenerate *AG) {
+void AVRVisitor<AV>::backwardVisitAll(AVRGenerateBase *AG) {
   backwardVisit(AG->begin(), AG->end(), true, true);
 }
 

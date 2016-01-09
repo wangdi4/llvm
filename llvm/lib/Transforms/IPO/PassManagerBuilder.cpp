@@ -710,7 +710,7 @@ void PassManagerBuilder::addLoopOptPasses(legacy::PassManagerBase &PM) const {
       PM.add(createHIRCompleteUnrollPass());
 
     PM.add(createVecDirectiveInsertionPass(OptLevel == 3));
-    // TODO: add VPO driver call for vectorization here.
+    PM.add(createVPODriverHIRPass());
 
     if (!DisableUnrollLoops)
       PM.add(createHIRGeneralUnrollPass());
