@@ -693,10 +693,6 @@ def CC_X86_32_Common : CallingConv<[
   CCIfType<[v32i1], CCPromoteToType<v32i8>>,
   CCIfType<[v64i1], CCPromoteToType<v64i8>>,
 
-  // The first 4 SSE vector arguments are passed in XMM registers.
-  CCIfNotVarArg<CCIfType<[v16i8, v8i16, v4i32, v2i64, v4f32, v2f64],
-                CCAssignToReg<[XMM0, XMM1, XMM2, XMM3]>>>,
-
   // __m64 vectors get 8-byte stack slots that are 4-byte aligned. They are
   // passed in the parameter area.
   CCIfType<[x86mmx], CCAssignToStack<8, 4>>,
