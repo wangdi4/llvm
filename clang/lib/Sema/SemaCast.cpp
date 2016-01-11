@@ -1904,6 +1904,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
     //   type large enough to hold it. A value of std::nullptr_t can be
     //   converted to an integral type; the conversion has the same meaning
     //   and validity as a conversion of (void*)0 to the integral type.
+    if (!Self.getLangOpts().GnuPermissive) //***INTEL CQ#376357
     if (Self.Context.getTypeSize(SrcType) >
         Self.Context.getTypeSize(DestType)) {
       msg = diag::err_bad_reinterpret_cast_small_int;
@@ -1982,6 +1983,7 @@ static TryCastResult TryReinterpretCast(Sema &Self, ExprResult &SrcExpr,
                               !DestType->isBooleanType();
     if ((Self.Context.getTypeSize(SrcType) >
          Self.Context.getTypeSize(DestType)) &&
+         !Self.getLangOpts().GnuPermissive && //***INTEL CQ#376357
          !MicrosoftException) {
       msg = diag::err_bad_reinterpret_cast_small_int;
       return TC_Failed;

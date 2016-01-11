@@ -1422,7 +1422,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
   // argument'.
-  Opts.PermissiveArgs = Args.hasArg(OPT_fpermissive_args);
+  Opts.GnuPermissive = Args.hasArg(OPT_gnu_permissive);
   // CQ371729: Incompatible name mangling.
   Opts.GNUMangling =
       Args.hasFlag(OPT_gnu_mangling_for_simd_types,

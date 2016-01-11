@@ -81,9 +81,8 @@ LANGOPT(Float128, 1, 0, "128 bit float support")
 LANGOPT(NoInt128, 1, 0, "Disable __int128 keyword support")
 LANGOPT(Restrict         , 1, 0,
         "Enables the 'restrict' keyword for disambiguating pointers")
-// CQ#373517: compilation fails with 'redefinition of default argument'.
-LANGOPT(PermissiveArgs   , 1, 0,
-        "Allows to redefine default arguments")
+// CQ#373517, CQ#376357: GCC -fpermissive mode.
+LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // CQ371729: Incompatible name mangling.
 LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
 LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")

@@ -602,9 +602,9 @@ def fno_emit_class_debug_always : Flag<["-"], "fno-emit-class-debug-always">,
 // CQ#369692 - support for '-fargument-noalias' option.
 def fargument_noalias : Flag<["-"], "fargument-noalias">,
   HelpText<"Enables 'noalias' attribute for all pointer-type arguments">;
-// CQ#373517 - compilation fails with 'redefinition of default argument'.
-def fpermissive_args : Flag<["-"], "fpermissive-args">,
-  HelpText<"Allows to redefine default arguments">;
+// CQ#373517,CQ#376357 - GCC option -fpermissive.
+def gnu_permissive : Flag<["-"], "gnu-permissive">,
+  HelpText<"Turn on GNU -fpermissive mode">;
 // CQ371729: Incompatible name mangling.
 def gnu_mangling_for_simd_types : Flag<["--"], "gnu_mangling_for_simd_types">,
   HelpText<"Turn on GNU mangling for vector types">;
