@@ -590,11 +590,11 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos)
 
     auto *DomChildBB = (*I)->getBlock();
 
-    if (AVRBranch *Branch = dyn_cast<AVRBranch>(LastAvr)) { 
+    if (AVRBranch *Branch = dyn_cast<AVRBranch>(LastAvr)) {
 
-      if (Branch->isConditional()) { 
+      if (Branch->isConditional()) {
 
-	// Traverse the basic blocks in program if-then-else order.
+        // Traverse the basic blocks in program if-then-else order.
         BranchInst *BI = cast<BranchInst>(BB->getTerminator());
 
         if ((DomChildBB == BI->getSuccessor(0))  &&
@@ -603,7 +603,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos)
             !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
 
           InsertionPos = preorderTravAvrBuild(DomChildBB, InsertionPos);
-	  ThenPos = InsertionPos;
+          ThenPos = InsertionPos;
           continue;
         }
         else if (DomChildBB == BI->getSuccessor(1)  &&
@@ -660,35 +660,35 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB, AvrItr InsertionPos)
   for (auto I = BB->begin(), E = std::prev(BB->end()); I != E; ++I) {
 
     switch(I->getOpcode()) {
-      case Instruction::Call:
-        NewNode = AVRUtilsIR::createAVRCallIR(I);
-        break;
-      case Instruction::PHI:
-        NewNode = AVRUtilsIR::createAVRPhiIR(I);
-        break;
-      case Instruction::Br:
-        assert(0 && "Encountered a branch before block terminator!"); 
-        NewNode = AVRUtilsIR::createAVRBranchIR(I);
-        break;
-      case Instruction::Ret:
-        assert(0 && "Encountered a return before block terminator!"); 
-        NewNode = AVRUtilsIR::createAVRReturnIR(I);
-        break;
-      case Instruction::ICmp:
-      case Instruction::FCmp:
-        ACondition = AVRUtilsIR::createAVRCompareIR(I);
-	NewNode = ACondition;
-        break;
-      case Instruction::Select:
-	// When a select is encountered, we pair it with the previous compare generated.
-        assert(ACondition && "Select instruction missing compare");
-        NewNode = AVRUtilsIR::createAVRSelectIR(I, cast<AVRCompare>(ACondition));
+    case Instruction::Call:
+      NewNode = AVRUtilsIR::createAVRCallIR(I);
+      break;
+    case Instruction::PHI:
+      NewNode = AVRUtilsIR::createAVRPhiIR(I);
+      break;
+    case Instruction::Br:
+      assert(0 && "Encountered a branch before block terminator!"); 
+      NewNode = AVRUtilsIR::createAVRBranchIR(I);
+      break;
+    case Instruction::Ret:
+      assert(0 && "Encountered a return before block terminator!"); 
+      NewNode = AVRUtilsIR::createAVRReturnIR(I);
+      break;
+    case Instruction::ICmp:
+    case Instruction::FCmp:
+      ACondition = AVRUtilsIR::createAVRCompareIR(I);
+      NewNode = ACondition;
+      break;
+    case Instruction::Select:
+      // When a select is encountered, we pair it with the previous compare generated.
+      assert(ACondition && "Select instruction missing compare");
+      NewNode = AVRUtilsIR::createAVRSelectIR(I, cast<AVRCompare>(ACondition));
 
-        // Reset ACondition pointer to null for any downstream compares.
-        ACondition = nullptr;
-        break;
-      default:
-        NewNode = AVRUtilsIR::createAVRAssignIR(I);
+      // Reset ACondition pointer to null for any downstream compares.
+      ACondition = nullptr;
+      break;
+    default:
+      NewNode = AVRUtilsIR::createAVRAssignIR(I);
     }
 
     AVRUtils::insertAVRAfter(InsertionPos, NewNode);
@@ -727,7 +727,6 @@ AVR *AVRGenerate::findAvrConditionForBI(BasicBlock *BB, BranchInst *BI, AVR *Ins
   }
   return nullptr;
 }
-
 
 AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
                                         AVR *ACondition) {
