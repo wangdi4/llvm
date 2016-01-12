@@ -743,9 +743,6 @@ Instruction* VecClone::expandVectorParametersAndReturn(
                                   VectorParmMap);
   }
 
-  SmallDenseMap<Value*, Instruction*>::iterator MapIt = VectorParmMap.begin();
-  SmallDenseMap<Value*, Instruction*>::iterator MapEnd = VectorParmMap.end();
-
   // So, essentially what has been done to this point is the creation and
   // insertion of the vector alloca instructions. Now, we insert the bitcasts of
   // those instructions, which have been stored in the map. The insertion of the
@@ -753,8 +750,9 @@ Instruction* VecClone::expandVectorParametersAndReturn(
   // to ensure that any initial stores of vector parameters have been done
   // before the cast.
 
-  for (; MapIt != MapEnd; ++MapIt) {
-    Instruction *ExpandedCast = MapIt->second;
+  SmallDenseMap<Value*, Instruction*>::iterator MapIt;
+  for (auto MapIt : VectorParmMap) {
+    Instruction *ExpandedCast = MapIt.second;
     if (!ExpandedCast->getParent()) {
       insertInstruction(ExpandedCast, EntryBlock);
     }
@@ -875,21 +873,16 @@ void VecClone::updateScalarMemRefsWithVector(
   // gep. The only users that will not be updated are those in the entry block
   // that do the initial store to the vector alloca of the parameter.
 
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt =
-      VectorParmMap.begin();
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapEnd =
-      VectorParmMap.end();
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt;
 
-  for (; VectorParmMapIt != VectorParmMapEnd; ++VectorParmMapIt) {
+  for (auto VectorParmMapIt : VectorParmMap) {
 
     SmallVector<Instruction*, 4> InstsToUpdate;
-    Value *Parm = VectorParmMapIt->first;
-    Instruction *Cast = VectorParmMapIt->second;
-    User::user_iterator UserIt = Parm->user_begin();
-    User::user_iterator UserEnd = Parm->user_end();
+    Value *Parm = VectorParmMapIt.first;
+    Instruction *Cast = VectorParmMapIt.second;
 
-    for (; UserIt != UserEnd; ++UserIt) {
-      InstsToUpdate.push_back(dyn_cast<Instruction>(*UserIt));
+    for (User *U : Parm->users()) {
+      InstsToUpdate.push_back(dyn_cast<Instruction>(U));
     }
 
     for (unsigned I = 0; I < InstsToUpdate.size(); ++I) {
@@ -1089,13 +1082,10 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
           AllocaInst *Alloca = dyn_cast<AllocaInst>(ArgUserIt->getOperand(1));
 
           if (Alloca) {
+            for (auto *AU : Alloca->users()) {
 
-            User::user_iterator AllocaUserIt = Alloca->user_begin();
-            User::user_iterator AllocaUserEnd = Alloca->user_end();
+              LoadInst *ParmLoad = dyn_cast<LoadInst>(AU);
 
-            for (; AllocaUserIt != AllocaUserEnd; ++AllocaUserIt) {
-
-              LoadInst *ParmLoad = dyn_cast<LoadInst>(*AllocaUserIt);
               if (ParmLoad) {
                 // The parameter is being loaded from an alloca to a new SSA
                 // temp. We must replace the users of this load with an
@@ -1496,13 +1486,10 @@ void VecClone::insertSplitForMaskedVariant(Function *Clone,
 void VecClone::removeScalarAllocasForVectorParams(
     SmallDenseMap<Value*, Instruction*> &VectorParmMap)
 {
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt =
-      VectorParmMap.begin();
-  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapEnd =
-      VectorParmMap.end();
+  SmallDenseMap<Value*, Instruction*>::iterator VectorParmMapIt;
 
-  for (; VectorParmMapIt != VectorParmMapEnd; ++VectorParmMapIt) {
-    Value *Parm = VectorParmMapIt->first;
+  for (auto VectorParmMapIt : VectorParmMap) {
+    Value *Parm = VectorParmMapIt.first;
     if (AllocaInst *ScalarAlloca = dyn_cast<AllocaInst>(Parm)) {
       ScalarAlloca->eraseFromParent();
     }

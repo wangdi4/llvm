@@ -115,6 +115,10 @@ static cl::opt<bool> RunVecClone("enable-vec-clone",
   cl::init(false), cl::Hidden,
   cl::desc("Run Vector Function Cloning"));
 
+static cl::opt<bool> RunMapIntrinToIml("MapIntrinToIml",
+  cl::init(false), cl::Hidden,
+  cl::desc("Map vectorized math intrinsic calls to svml/libm."));
+
 // While we have two vectorizers to work with (Ported OpenCL Vectorizer and new
 // Abstract Layer VPO vectorizer), we need a temporary switch to disable the 
 // ported OCL vectorizer.
@@ -559,6 +563,9 @@ void PassManagerBuilder::populateModulePassManager(
   }
   if (RunVPOOCLVectorizer) {
     MPM.add(createVPOVectorizerPass());
+  }
+  if (RunMapIntrinToIml) {
+    MPM.add(createMapIntrinToImlPass());
   }
 #endif // INTEL_CUSTOMIZATION
 }

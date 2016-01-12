@@ -16,12 +16,13 @@ set(LLVM_LINK_COMPONENTS
   TransformUtils
   Vectorize
   TransformVPOUtils
-  WRegionInfoAnalysis
-  VPOVectorizer #***INTEL
-  VPODriver
-  VPOParopt
+  WRegionInfoAnalysis  #***INTEL
+  VPOVectorizer        #***INTEL
+  VPODriver            #***INTEL
+  VPOParopt            #***INTEL
   Passes
-  Intel_LoopTransforms
+  Intel_MapIntrinToIml #***INTEL
+  Intel_LoopTransforms #***INTEL
   )
 
 # Support plugins.
