@@ -58,7 +58,9 @@ public:
 
   /// \brief Prints out the array reference group mapping.
   /// Primarily used for debugging.
+  #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   static void dump(const RefGroupsTy &Groups);
+  #endif
 };
 
 }

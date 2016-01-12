@@ -144,6 +144,7 @@ void DDRefGrouping::createGroups(
 }
 
 // Used primarily for debugging.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
 void DDRefGrouping::dump(const RefGroupsTy &Groups) {
   dbgs() << "\n Reference Groups \n";
   for (auto SymVecPair = Groups.begin(), Last = Groups.end();
@@ -158,3 +159,5 @@ void DDRefGrouping::dump(const RefGroupsTy &Groups) {
     }
   }
 }
+#endif
+
