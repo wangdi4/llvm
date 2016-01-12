@@ -9883,6 +9883,10 @@ void Sema::ActOnUninitializedDecl(Decl *RealDecl,
       if (!Var->isInvalidDecl()) {
         if (const IncompleteArrayType *ArrayT
                                     = Context.getAsIncompleteArrayType(Type)) {
+#if INTEL_CUSTOMIZATION
+          // CQ#370357 - Arrays with incomplete element type
+          if (!getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
           if (RequireCompleteType(Var->getLocation(),
                                   ArrayT->getElementType(),
                                   diag::err_illegal_decl_array_incomplete_type))
