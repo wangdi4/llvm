@@ -117,18 +117,14 @@ bool VPODriverBase::runOnFunction(Function &F) {
     }
 
     if (AvrWrn->getWrnNode()->getIsFromHIR() == false) {
-      AVRCodeGen *SP;
+      AVRCodeGen AvrCGNode(Avr, SC, LI, &F);
 
-      SP = new AVRCodeGen(Avr, SC, LI, &F);
-      ret_val = ret_val | SP->vectorize();
-      delete SP;
+      ret_val = ret_val | AvrCGNode.vectorize();
     }
     else {
-      AVRCodeGenHIR *SP;
+      AVRCodeGenHIR AvrCGNode(Avr);
 
-      SP = new AVRCodeGenHIR(Avr);
-      ret_val = ret_val | SP->vectorize();
-      delete SP;
+      ret_val = ret_val | AvrCGNode.vectorize();
     }
   }
 

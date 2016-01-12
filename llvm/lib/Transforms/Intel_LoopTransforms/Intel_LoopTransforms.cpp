@@ -21,6 +21,9 @@ void llvm::initializeIntel_LoopTransforms(PassRegistry &Registry) {
   initializeHIRGeneralUnrollPass(Registry);
   initializeHIRDummyTransformationPass(Registry);
   initializeHIRLoopInterchangePass(Registry);
+
+  // TODO - LLVMBuild.txt needs to be updated - pending on separate
+  // VPO vectorization driver pass for HIR.
   initializeVPODriverHIRPass(Registry);
   initializeHIRCodeGenPass(Registry);
   initializeParDirectiveInsertionPass(Registry);

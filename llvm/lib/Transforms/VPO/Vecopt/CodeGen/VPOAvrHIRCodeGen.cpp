@@ -14,17 +14,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/VPO/Vecopt/VPOAvrHIRCodeGen.h"
 
 #include "llvm/IR/Intrinsics.h"
 
 #define DEBUG_TYPE "VPODriver"
 
+static cl::opt<unsigned>DefaultVL("default-vpo-vl", cl::init(4),
+  cl::desc("Default vector length"));
+
 using namespace llvm;
 using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
 bool AVRCodeGenHIR::unitStrideRef(const RegDDRef *Ref) {
+  if (Ref->isScalarRef())
+    return false;
+
   if (Ref->getNumDimensions() != 1)
     return false;
 
@@ -32,10 +39,10 @@ bool AVRCodeGenHIR::unitStrideRef(const RegDDRef *Ref) {
   if (CE->getDefinedAtLevel() != 0)
     return false;
 
-  if (CE->getIVConstCoeff(1) != 1)
+  if (CE->getIVConstCoeff(OrigLoop->getNestingLevel()) != 1)
     return false;
 
-  if (CE->hasBlobIVCoeffs())
+  if (CE->hasIVBlobCoeff(OrigLoop->getNestingLevel()))
     return false;
 
   return true;
@@ -69,68 +76,66 @@ bool AVRCodeGenHIR::loopIsHandled() {
   if (!ALoop)
     return false;
 
+  Loop = WVecNode->getHLLoop();
+  assert(Loop && "Null HLLoop.");
+  setOrigLoop(Loop);
+  
   // Currently we only handle AVRAssignHIR, give up if we see any
   // other AVRs
   for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); 
        Itr != E; ++Itr) {
-    if (isa<AVRAssignHIR>(Itr)) {
-      // TBD: For now we only handle unit stride load/stores and instructions
-      // whose operands are defined earlier in the loop. Are these checks 
-      // sufficient?
-      const HLInst *INode = 
-        dyn_cast<const HLInst>(dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
-      auto CurInst = const_cast<Instruction *>(INode->getLLVMInstruction());
-      BinaryOperator *BOp;
+    if (!isa<AVRAssignHIR>(Itr))
+      return false;
 
-      if ((BOp = dyn_cast<BinaryOperator>(CurInst)) &&
-          (BOp->getOpcode() == Instruction::FAdd)) {
-        // Check for form of %x = %y Bop %z
-        for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands(); OpIndex < LastIndex;
-             ++OpIndex) {
-          if (!INode->getOperandDDRef(OpIndex)->isSelfBlob())
-            return false;
-        }
-      }
-      else if (isa<StoreInst>(CurInst)) {
-        // Check for a[i] = %x
-        auto Rval = INode->getRvalDDRef();
-        auto Lval = INode->getLvalDDRef();
+    // TBD: For now we only handle unit stride load/stores and instructions
+    // whose operands are defined earlier in the loop. Are these checks 
+    // sufficient?
+    const HLInst *INode = 
+      dyn_cast<const HLInst>(dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
+    auto CurInst = const_cast<Instruction *>(INode->getLLVMInstruction());
+    BinaryOperator *BOp;
 
-        if (!Rval->isSelfBlob())
-          return false;
-
-        if (!unitStrideRef(Lval))
+    if ((BOp = dyn_cast<BinaryOperator>(CurInst)) &&
+        (BOp->getOpcode() == Instruction::FAdd)) {
+      // Check for form of %x = %y Bop %z
+      for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands(); OpIndex < LastIndex;
+           ++OpIndex) {
+        if (!INode->getOperandDDRef(OpIndex)->isSelfBlob())
           return false;
       }
-      else if (isa<LoadInst>(CurInst)) {
-        // Check for %x = a[i]
-        auto Rval = INode->getRvalDDRef();
-        auto Lval = INode->getLvalDDRef();
+    }
+    else if (isa<StoreInst>(CurInst)) {
+      // Check for a[i] = %x
+      auto Rval = INode->getRvalDDRef();
+      auto Lval = INode->getLvalDDRef();
 
-        if (!Lval->isSelfBlob())
-          return false;
-
-        if (!unitStrideRef(Rval))
-          return false;
-      }
-      else {
+      if (!Rval->isSelfBlob())
         return false;
-      }
-    } else {
+
+      if (!unitStrideRef(Lval))
+        return false;
+    }
+    else if (isa<LoadInst>(CurInst)) {
+      // Check for %x = a[i]
+      auto Rval = INode->getRvalDDRef();
+      auto Lval = INode->getLvalDDRef();
+
+      if (!Lval->isSelfBlob())
+        return false;
+
+      if (!unitStrideRef(Rval))
+        return false;
+    }
+    else {
       return false;
     }
   }
 
   VL = AWrn->getSimdVectorLength();
 
-  // Assume a default vectorization factor of 4
+  // Assume the default vectorization factor when VL is 0
   if (VL == 0)
-    VL = 4;
-
-  Loop = WVecNode->getHLLoop();
-
-  if (!Loop)
-    return false;
+    VL = DefaultVL;
 
   // Loop parent is expected to be an HLRegion
   HLRegion *Parent = dyn_cast<HLRegion>(Loop->getParent());
@@ -183,7 +188,6 @@ bool AVRCodeGenHIR::loopIsHandled() {
     return false;
 
   setALoop(ALoop);
-  setOrigLoop(Loop);
   setTripCount(TripCount);
   setVL(VL);
 
@@ -227,7 +231,7 @@ bool AVRCodeGenHIR::processLoop() {
 
   // Mark region for HIR code generation
   LoopX->getParentRegion()->setGenCode();
-  LoopX->getStrideDDRef()->getSingleCanonExpr()->setConstant((int64_t)4);
+  LoopX->getStrideDDRef()->getSingleCanonExpr()->setConstant((int64_t)VL);
   return true;
 }
 
@@ -317,11 +321,13 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     auto Rval = INode->getRvalDDRef()->clone();
     auto RvalDestTy = Rval->getDestType();
     auto VecTyDestS = VectorType::get(RvalDestTy, VL);
-
+    PointerType *PtrType = cast<PointerType>(Rval->getBaseDestType());
+    auto AddressSpace = PtrType->getAddressSpace();
+    
     // Set VectorType on Rval.
-    Rval->setBaseDestType(PointerType::get(VecTyDestS, 0));
+    Rval->setBaseDestType(PointerType::get(VecTyDestS, AddressSpace));
 
-    auto WideInst = HLNodeUtils::createLoad(Rval, nullptr);
+    auto WideInst = HLNodeUtils::createLoad(Rval);
 
     // Store in widen map
     WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
@@ -340,13 +346,12 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
 
     auto Lval = dyn_cast<HLInst>(Node)->getLvalDDRef()->clone();
     auto Rval = WInst->getLvalDDRef()->clone();
-    Lval->setBaseDestType(PointerType::get(Rval->getDestType(), 0));
-    auto WideInst = HLNodeUtils::createStore(Rval, Lval);
 
-#if 0
-    Lval = WideInst->getLvalDDRef();
-    Lval->setBaseDestType(PointerType::get(Rval->getDestType(), 0));
-#endif
+    PointerType *PtrType = cast<PointerType>(Lval->getBaseDestType());
+    auto AddressSpace = PtrType->getAddressSpace();
+
+    Lval->setBaseDestType(PointerType::get(Rval->getDestType(), AddressSpace));
+    auto WideInst = HLNodeUtils::createStore(Rval, Lval);
 
     HLNodeUtils::insertBefore(Anchor, WideInst);
     return;

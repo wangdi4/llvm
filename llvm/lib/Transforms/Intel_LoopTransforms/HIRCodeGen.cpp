@@ -684,6 +684,8 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   BasicBlock *EntryFirstHalf = R->getEntryBBlock();
 
   // Split the block if the region entry is the same as function entry
+  // TODO - As mentioned in discussions with Pankaj, the framework should
+  // handle this splitting as splitting here can cause problems.
   if (&(F->getEntryBlock()) == EntryFirstHalf) {
     EntryFirstHalf = EntryFirstHalf->splitBasicBlock(EntryFirstHalf->getTerminator(),
                                                      "entry.split");
