@@ -41,10 +41,6 @@ static cl::opt<unsigned> RegionNumThreshold(
     cl::desc("Threshold for number of regions to create HIR for, 0 means no"
              " threshold"));
 
-static cl::opt<bool>
-    EnablePtrIV("enable-ptr-iv", cl::init(false), cl::Hidden,
-                cl::desc("Enable loops with pointer induction variable"));
-
 STATISTIC(RegionCount, "Number of regions created");
 
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
@@ -266,13 +262,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
     return false;
   }
-
-  // TODO: extend HIR to handle pointer IVs.
-  if (!EnablePtrIV && isa<PointerType>(IVNode->getType())) {
-    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Pointer IV not supported.\n");
-    return false;
-  }
-
+ 
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 

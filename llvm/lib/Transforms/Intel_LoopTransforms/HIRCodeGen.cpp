@@ -158,7 +158,10 @@ private:
                          const Twine &Name);
 
     // \brief Return a value for blob corresponding to BlobIdx
-    Value *getBlobValue(int BlobIdx) {
+    // We normally expect Blob type to match CE type. The only exception is 
+    // ptr blobs. Ptrs are converted to int of argument type, which should be
+    // CE src type
+    Value *getBlobValue(int BlobIdx, Type *Ty) {
       // SCEVExpander instruction generator references the insertion point's
       // parent.
       // If the IP is bblock.end(), undefined behavior results because the
@@ -171,6 +174,16 @@ private:
       // Expander shouldnt create new Bblocks, new IP is end of current bblock
       Builder->SetInsertPoint(TmpIP->getParent());
       TmpIP->eraseFromParent();
+      Type *BType = Blob->getType();
+      if (BType->isPointerTy() && BType != Ty) {
+        // A version of this should be in verifier, but we want to test CG'd
+        // type
+        unsigned PtrSize =
+            F->getParent()->getDataLayout().getPointerTypeSizeInBits(BType);
+        assert(Ty->getPrimitiveSizeInBits() == PtrSize &&
+               "Pointer size and CE size mismatch");
+        Blob = Builder->CreatePtrToInt(Blob, Ty);
+      }
       return Blob;
     }
 
@@ -181,7 +194,7 @@ private:
 
     Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
       return CoefCG(CE->getIVConstCoeff(IVIt),
-                    getBlobValue(CE->getIVBlobCoeff(IVIt)));
+                    getBlobValue(CE->getIVBlobCoeff(IVIt), CE->getSrcType()));
     }
 
     //\brief return value for blobCoeff * constCoeff * iv with IV at level
@@ -191,10 +204,9 @@ private:
     Value *CoefCG(int64_t Coeff, Value *V);
 
     //\brief returns value for blobCoeff*blob in <blobidx,coeff> pair
-    Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt,
-                      Type *Ty) {
+    Value *BlobPairCG(CanonExpr *CE, CanonExpr::blob_iterator BlobIt) {
       return CoefCG(CE->getBlobCoeff(BlobIt),
-                    getBlobValue(CE->getBlobIndex(BlobIt)));
+                    getBlobValue(CE->getBlobIndex(BlobIt), CE->getSrcType()));
     }
 
     // \brief Applies cast to Val according to CE's dest type, if applicable.
@@ -1050,12 +1062,11 @@ Value *HIRCodeGen::CGVisitor::sumBlobs(CanonExpr *CE) {
     return nullptr;
 
   auto CurBlobPair = CE->blob_begin();
-  Type *Ty = CE->getSrcType();
-  Value *res = BlobPairCG(CE, CurBlobPair, Ty);
+  Value *res = BlobPairCG(CE, CurBlobPair);
   CurBlobPair++;
 
   for (auto E = CE->blob_end(); CurBlobPair != E; ++CurBlobPair)
-    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair, Ty));
+    res = Builder->CreateAdd(res, BlobPairCG(CE, CurBlobPair));
 
   return res;
 }
