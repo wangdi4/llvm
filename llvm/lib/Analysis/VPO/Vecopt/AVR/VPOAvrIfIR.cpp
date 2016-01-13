@@ -43,13 +43,12 @@ void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
     case PrintNumber:
       OS << "(" << getNumber() << ") ";
-    case PrintType:
-      // Always print avr loop type name.
+    case PrintAvrType:
+    case PrintDataType:
     case PrintBase:
       OS << getAvrTypeName();
       OS << "( ";
-      OS << Condition->getAvrTypeName();
-      OS << Condition->getAvrValueName();
+        OS << Condition->getAvrValueName();
       OS << " )\n";
       OS << Indent << "{\n";
       break;

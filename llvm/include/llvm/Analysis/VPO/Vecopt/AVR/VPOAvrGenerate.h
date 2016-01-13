@@ -105,7 +105,7 @@ protected:
   // this class. Others require input IR specific implementations and
   // thus defined as virtual function.
 
-  /// \brief Optimize the abstract layer with AVRLoops.
+  /// \brief Optimize the abstract layer with AVRLoops. (LLVM IR Only)
   void optimizeLoopControl();
 
   /// \brief For given AvrNode, search children for loops and insert
@@ -129,6 +129,15 @@ protected:
 
   /// \brief Cleans up unsed AVRs after AvrBranch optimization.
   void cleanupBranchOpt(CandidateIf *CandIf);
+
+  // Abstract Layer Expression and Value Insertion
+
+  /// \brief Optimizes the abstract layer with AVR Expression and AVR Value nodes.
+  void optimizeAvrExpressions();
+
+  /// \brief Optimizes the abstract layer by combining AVR Expressions to form complex
+  /// subexpressions.
+  void optimizeAvrSubExpressions();
 
 public:
   AVRGenerateBase(char &ID);

@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -39,7 +39,7 @@ public:
   // Creation Utilities
 
   /// \brief Returns a new AVRAssignHIR node.
-  static AVRAssignHIR *createAVRAssignHIR(HLNode *Inst);
+  static AVRAssignHIR *createAVRAssignHIR(HLInst *Inst);
 
   /// \brief Returns a new AVRLabelHIR node.
   static AVRLabelHIR *createAVRLabelHIR(HLNode *Inst);
@@ -49,6 +49,14 @@ public:
 
   /// \brief Returns a new AVRIfHIR node.
   static AVRIfHIR *createAVRIfHIR(HLIf *Inst);
+
+  /// \brief Returns a new AVRExpressionHIR node.
+  static AVRExpressionHIR *createAVRExpressionHIR(AVRAssignHIR *HLAssign,
+                                                  AssignOperand AOp);
+
+  /// \brief Returns a new AVRValueHIR node.
+  static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
+                                        HLInst *HLInstruct);
 };
 
 } // End VPO Vectorizer Namespace

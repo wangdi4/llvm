@@ -23,7 +23,7 @@ using namespace llvm::vpo;
 using namespace llvm::loopopt;
 
 // AVR Creation Utilities
-AVRAssignHIR *AVRUtilsHIR::createAVRAssignHIR(HLNode *Inst) {
+AVRAssignHIR *AVRUtilsHIR::createAVRAssignHIR(HLInst *Inst) {
   return new AVRAssignHIR(Inst);
 }
 
@@ -37,4 +37,14 @@ AVRBranchHIR *AVRUtilsHIR::createAVRBranchHIR(HLNode *Inst) {
 
 AVRIfHIR *AVRUtilsHIR::createAVRIfHIR(HLIf *If) {
   return new AVRIfHIR(If);
+}
+
+AVRExpressionHIR *AVRUtilsHIR::createAVRExpressionHIR(AVRAssignHIR *HLAssign,
+                                                      AssignOperand AOp) {
+  return new AVRExpressionHIR(HLAssign, AOp);
+}
+
+AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
+                                            HLInst *HLInstruct) {
+  return new AVRValueHIR(DDRef, HLInstruct);
 }

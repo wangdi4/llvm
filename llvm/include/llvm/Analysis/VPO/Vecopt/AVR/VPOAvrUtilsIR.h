@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -21,9 +21,6 @@
 #include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrIfIR.h"
 
 namespace llvm { // LLVM Namespace
-
-class LoopInfo;
-
 namespace vpo {  // VPO Vectorizer Namespace
 
 
@@ -70,6 +67,15 @@ public:
 
   /// \brief Returns a new AVRIfIR node.
   static AVRIfIR *createAVRIfIR(AVRBranch *ABranch);
+
+  /// \brief Returns a new AVRExpressionIR node.
+  static AVRExpressionIR *createAVRExpressionIR(AVRAssignIR *Assign, 
+                                                AssignOperand AOp);
+
+  /// \brief Returns a new AVRValueIR node.
+  static AVRValueIR *createAVRValueIR(const Value *V, const Instruction *Inst);
+
+  // Modification Utilities
 
   // Search Utilities
 

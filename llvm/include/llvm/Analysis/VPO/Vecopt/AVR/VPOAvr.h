@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -35,7 +35,10 @@ namespace vpo {   // VPO Vectorizer Namespace
 
 #define TabLength 2
 
-enum VerbosityLevel { PrintBase, PrintType, PrintNumber };
+/// Abstract Layer print verbosity levels
+enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintNumber };
+/// Assignment LHS/RHS enumeration
+enum AssignOperand { RightHand, LeftHand};
 
 class AVRLoop;
 

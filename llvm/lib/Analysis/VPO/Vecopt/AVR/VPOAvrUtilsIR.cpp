@@ -68,4 +68,16 @@ AVRIfIR *AVRUtilsIR::createAVRIfIR(AVRBranch *ABranch) {
   return new AVRIfIR(ABranch);
 }
 
+AVRExpressionIR *AVRUtilsIR::createAVRExpressionIR(AVRAssignIR *Assign,
+                                                   AssignOperand AOp) {
+  return new AVRExpressionIR(Assign, AOp);
+}
+
+AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *V, 
+                                         const Instruction *Inst) {
+  return new AVRValueIR(V, Inst);
+}
+
+// Modification Utilites
+
 // Search Utilities

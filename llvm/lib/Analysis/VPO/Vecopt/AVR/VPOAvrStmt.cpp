@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -22,22 +22,127 @@ using namespace llvm::vpo;
 
 #define DEBUG_TYPE "avr-stmt-node"
 
-// TODO: Properly define print routines.
-
 //----------AVR Assign Implementation----------//
 AVRAssign::AVRAssign(unsigned SCID)
-  : AVR(SCID) {}
+  : AVR(SCID), LHS(nullptr), RHS(nullptr) {}
 
 AVRAssign *AVRAssign::clone() const {
   return nullptr;
 }
 
 void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
-                      VerbosityLevel VLevel) const {}
+                      VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+  OS << Indent;
+
+  // Print Avr Assign Node.
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintAvrType:
+      OS << getAvrTypeName() << "{";
+    case PrintDataType:
+    case PrintBase:
+      // Print avr assign node which contains avr expressions.
+      if (hasLHS() && hasRHS()) {
+
+        this->getLHS()->print(OS, 0, VLevel);
+        OS << " := ";
+        this->getRHS()->print(OS, 0, VLevel);
+
+      }
+      else {  // Print non-expression containing avr assign node.
+        OS << getAvrValueName();
+      }
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+
+  OS << "\n";
+}
+
+
+
 
 StringRef AVRAssign::getAvrTypeName() const {
   return StringRef("ASSIGN");
 }
+
+//----------AVR Expression Implementation----------//
+AVRExpression::AVRExpression(unsigned SCID)
+  : AVR(SCID) {}
+
+AVRExpression *AVRExpression::clone() const {
+  return nullptr;
+}
+
+void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
+                      VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+
+  // Print AVR Expression Node.
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "("  << getNumber() << ")";
+    case PrintAvrType:
+      OS << getAvrTypeName() << "{";
+    case PrintBase:
+      if (isUnaryOperation()) {
+  
+        if (!isLHSExpr())
+          OS << getOpCodeName() << " ";
+
+          this->Operands.back()->print(OS, Depth, VLevel);
+        }
+        else if (isBinaryOperation()) {
+
+          this->Operands[0]->print(OS, Depth, VLevel);
+          OS << " " << getOpCodeName() << " ";
+          this->Operands[1]->print(OS, Depth, VLevel);
+
+        }
+        else {
+
+         OS << getOpCodeName() << " ";
+         for (auto Itr : Operands) {
+           Itr->print(OS, Depth, VLevel);
+           OS << " ";
+         }
+      }
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+}
+
+StringRef AVRExpression::getAvrTypeName() const {
+  return StringRef("EXPR");
+}
+
+//----------AVR Value Implementation----------//
+AVRValue::AVRValue(unsigned SCID)
+  : AVR(SCID) {}
+
+AVRValue *AVRValue::clone() const {
+  return nullptr;
+}
+
+StringRef AVRValue::getAvrTypeName() const {
+  return StringRef("VALUE");
+}
+
 
 //----------AVR Label Implementation----------//
 AVRLabel::AVRLabel(unsigned SCID)
@@ -223,19 +328,22 @@ void AVRWrn::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
     case PrintNumber:
       OS << "(" << getNumber() << ") ";
-    case PrintType:
-      OS << getAvrTypeName();
+    case PrintAvrType:
+    case PrintDataType:
     case PrintBase:
-      OS << "{" << getAvrValueName() << "}\n";
+      OS << getAvrTypeName() << "\n";
+      OS <<  Indent <<"{\n";
+      Depth++;
+      for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
+        Itr->print(OS, Depth, VLevel);
+      }
+      OS << Indent << "}\n";
       break;
     default:
       llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
-  Depth++;
-  for (auto Itr = child_begin(), E = child_end(); Itr != E; ++Itr) { 
-    Itr->print(OS, Depth, VLevel);
-  }
+
 }
 
 StringRef AVRWrn::getAvrTypeName() const {

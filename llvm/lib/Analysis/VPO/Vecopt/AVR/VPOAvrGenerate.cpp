@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -100,7 +100,7 @@ bool AVRGenerateBase::runOnFunction(Function &F)
     buildAbstractLayer();
 
     DEBUG(dbgs() << "Abstract Layer:\n");
-    DEBUG(this->dump(PrintType));
+    DEBUG(this->dump(PrintAvrType));
   }
 
   // Insert AVRLoops into Abstract Layer
@@ -109,7 +109,7 @@ bool AVRGenerateBase::runOnFunction(Function &F)
     optimizeLoopControl();
 
     DEBUG(dbgs() << "Abstract Layer After Loop Formation:\n");
-    DEBUG(this->dump(PrintType)); 
+    DEBUG(this->dump(PrintAvrType)); 
   }
 
   // Insert AVRIfs into Abstract Layer
@@ -118,19 +118,19 @@ bool AVRGenerateBase::runOnFunction(Function &F)
     optimizeAvrBranches();
 
     DEBUG(dbgs() << "Abstract Layer After If Formation:\n");
-    DEBUG(this->dump(PrintType));
+    DEBUG(this->dump(PrintAvrType));
 
   }
 
-  // Insert AVRTerminals and build expression trees into Abstract Layer
+  // Insert AVRExpression and AVRValue nodes and build expression trees into
+  // Abstract Layer.
   if (!DisableAvrExprTreeOpt) {
 
-#if 0
-    optimizeAvrTree();
+    optimizeAvrExpressions();    // Add expressions and values
+    optimizeAvrSubExpressions(); // Build sub-expressions
 
     DEBUG(dbgs() << "Abstract Layer After Expression Tree Formation:\n");
-    DEBUG(this->dump(PrintType));
-#endif
+    DEBUG(this->dump(PrintAvrType));
   }
 
   return false;
@@ -323,6 +323,55 @@ void AVRBranchOptVisitor::visit(AVRBranch *ABranch) {
   }
 }
 
+/// \brief This visitor walks the Abstract Layer and inserts AVRExpression and
+/// AVRValue nodes into the AL. Each AVR Assignmment node is deconstructed into 
+/// LHS and RHS AVR Expression Nodes. Each Expression consists of AVR Value
+/// nodes which represent the operands and of the expression.
+class AddAvrExprVisitor {
+
+private:
+
+  /// AL - Abstract Layer to analze.
+  AVRGenerateBase *AbstractLayer;
+
+public:
+
+  AddAvrExprVisitor(AVRGenerateBase *AL) : AbstractLayer (AL) {}
+
+  /// Visit Functions
+  void visit(AVR* ANode) {}
+  void visit(AVRAssign* Assign);
+  void postVisit(AVR* ANode) {}
+  bool isDone() { return false; }
+  bool skipRecursion(AVR *ANode) { return false; }
+
+};
+
+// To Do: Improve AL visitor to virtual visit functions.
+void AddAvrExprVisitor::visit(AVRAssign* Assign) {
+
+  if (AVRAssignIR *AssignIR = dyn_cast<AVRAssignIR> (Assign)) {
+
+    AVRExpression* LhsExpr = AVRUtilsIR::createAVRExpressionIR(AssignIR,
+                                                               LeftHand);
+    AVRUtils::setAVRAssignLHS(Assign, LhsExpr);
+    AVRExpression* RhsExpr = AVRUtilsIR::createAVRExpressionIR(AssignIR,
+                                                               RightHand);
+    AVRUtils::setAVRAssignRHS(Assign, RhsExpr);
+
+  }
+  else if (AVRAssignHIR *AssignHIR = dyn_cast<AVRAssignHIR> (Assign)) {
+
+    AVRExpressionHIR* LhsExpr = AVRUtilsHIR::createAVRExpressionHIR(AssignHIR,
+                                                                    LeftHand);
+    AVRUtils::setAVRAssignLHS(Assign, LhsExpr);
+    AVRExpressionHIR* RhsExpr = AVRUtilsHIR::createAVRExpressionHIR(AssignHIR,
+                                                                    RightHand);
+    AVRUtils::setAVRAssignRHS(Assign, RhsExpr);
+
+  } 
+}
+
 void AVRGenerateBase::optimizeLoopControl() {
 
   if (!isAbstractLayerEmpty()) {
@@ -489,6 +538,20 @@ void AVRGenerateBase::cleanupBranchOpt(CandidateIf *CandIf) {
   AVRUtils::remove(Branch);
 }
 
+void AVRGenerateBase::optimizeAvrExpressions() {
+
+  // Add Avr Expressions and Avr Value nodes to the AL.
+  AddAvrExprVisitor ExprVisitor(this);
+  AVRVisitor<AddAvrExprVisitor> AddExprOpt(ExprVisitor);
+  AddExprOpt.forwardVisitAll(this);
+
+}
+
+void AVRGenerateBase::optimizeAvrSubExpressions() {
+
+  // TODO: Finish Subexpressions
+}
+
 void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth, 
                         VerbosityLevel VLevel) const {
 
@@ -505,7 +568,7 @@ void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
 }
 
 void AVRGenerateBase::print(raw_ostream &OS, const Module *M) const {
-  this->print(OS, 1, PrintType);
+  this->print(OS, 1, PrintBase);
 }
 
 void AVRGenerateBase::dump(VerbosityLevel VLevel) const {
@@ -979,6 +1042,7 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitLoop(HLLoop *L)
 
   return ALoop;
 }
+
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitRegion(HLRegion *R)
 {

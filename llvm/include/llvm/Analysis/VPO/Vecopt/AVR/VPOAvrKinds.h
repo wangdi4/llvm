@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -10,7 +10,7 @@
 //   Source file:
 //   ------------
 //   VPOAvrKinds.h -- Defines the Abstract Vector Representation (AVR) node
-///  kinds.
+//   kinds.
 //
 //===----------------------------------------------------------------------===//
 
@@ -42,7 +42,15 @@ enum AVRVal {
   AVRAssignHIRNode,
   AVRAssignLastNode,
 
-  AVRExprNode,
+  AVRExpressionNode,
+  AVRExpressionIRNode,
+  AVRExpressionHIRNode,
+  AVRExpressionLastNode,
+
+  AVRValueNode,
+  AVRValueIRNode,
+  AVRValueHIRNode,
+  AVRValueLastNode,
 
   AVRLabelNode,
   AVRLabelIRNode,

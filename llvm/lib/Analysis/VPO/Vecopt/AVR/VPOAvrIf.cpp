@@ -77,7 +77,7 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
   // Print Else-children
   if (hasElseChildren()) {
 
-    OS << Indent << "ELSE {\n";
+    OS << Indent << "else\n" << Indent << "{\n";
  
     for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) { 
       Itr->print(OS, Depth, VLevel);
@@ -87,6 +87,6 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
 }
 
 StringRef AVRIf::getAvrTypeName() const {
-  return StringRef("IF");
+  return StringRef("if");
 }
 

@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -30,12 +30,22 @@ AVRIfHIR *AVRIfHIR::clone() const {
 
 void AVRIfHIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
-  std::string Indent(Depth * TabLength, ' ');
 
-  if (VLevel > PrintBase) { 
-    OS << Indent << "AVR_IF: ";
-    CompareInstruction->printHeader(OS, 0);
-    OS << "\n";
+  std::string Indent(Depth * TabLength, ' ');
+  OS << Indent;
+
+  // Print AVR If Node.
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "("  << getNumber() << ")";
+    case PrintAvrType:
+    case PrintDataType:
+    case PrintBase:
+      CompareInstruction->printHeader(OS, 0);
+      OS << Indent << "{\n";
+      break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   AVRIf::print(OS, Depth, VLevel);

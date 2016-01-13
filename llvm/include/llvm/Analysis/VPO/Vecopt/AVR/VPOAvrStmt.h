@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -29,29 +29,30 @@ class AVRIf;
 class AVRBranch;
 class AVRLabel;
 class AVRCompare;
+class AVRExpression;
 
-// Eric: Think about this.
-// TODO: Need to combine Call, Assign, Label, Phi, Fbranch, BackEdge, Entry,
-//       and Return into derived classes of AVR STMT.
-//   Ex:  AVR (Base Class) -> AVR-STMT
-//                              |-> AVR Assign (derived from STMT)
-//                              |-> AVR Label (derived from STMT)
-//                              |-> AVR Phi (derived from STMT)
-//                              |-> AVR Fbranch (derived from STMT)
-//                              |-> AVR BackEdge (derived from STMT)
-//                              |-> AVR Entry (derived from STMT)
-//                              |-> AVR Return  (derived from STMT)
-//                              |-> Anything else? 
-
-// TODO: Alternatively, one single AVR_STMT CLass with bit set to determine
-//       what kind/type.
-
-
-//----------AVR Assign Node----------//
-/// \brief Assign node abstract vector representation
+//----------AVR Assignment Node----------//
+/// \brief This AVR node represents an assignment in the Abstract Layer.
 ///
-/// An AVRAssign node represents an assignment found in LLVM IR or LoopOpt HIR.
+/// An AVRAssign node is constructed when an incoming LLVM IR or HIR contiains
+/// an assignment. During the abstract layer construction process this node
+/// initially contains only a simple pointer to the underlying LLVM IR instruction
+/// or HIR HLInst node.  As the abstract layer is optimized, this node is updated
+/// more precise/granular information, such as pointers to RHS and LHS nodes.
 class AVRAssign : public AVR {
+
+private:
+
+  /// LHS - Left hand side operand of avr assignment. (Only valid after
+  /// optimizeAVRExpressions())
+  AVR *LHS;
+
+  /// RHS - Right hand side operand of avr assignment. (Only valid after
+  /// optimizeAVRExpressions())
+  AVR *RHS;
+
+  /// IsStore  - True is avr is store.
+  bool IsStore;
 
 protected:
 
@@ -67,12 +68,31 @@ protected:
   /// \brief Sets up state object.
   void initialize();
 
+  /// \brief Sets Node as the LHS avr of this assignment.
+  void setLHS(AVR *Node) { LHS = Node; }
+
+  /// \brief Sets Node as the RHS avr of this assignment.
+  void setRHS(AVR *Node) { RHS = Node; }
+
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
 
+  /// \brief Clone method for AVRAssign.
   AVRAssign *clone() const override;
+
+  /// \brief Retuns the left hand side of the avr assignment.
+  AVR *getLHS() const { return LHS; }
+
+  /// \brief Retuns the right hand side of the avr assignment.
+  AVR *getRHS() const { return RHS; }
+
+  /// \brief Returns true if LHS for this avr assignment node is not null.
+  bool hasLHS() const { return LHS != nullptr;}
+
+  /// \brief Returns true if RHS for this avr assignment node is not null.
+  bool hasRHS() const { return RHS != nullptr;}
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
@@ -88,6 +108,131 @@ public:
   virtual StringRef getAvrTypeName() const override;
 
   /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const = 0;
+
+};
+
+//----------AVR Expression Node----------//
+/// \brief This AVR node represents an expression in the Abstract Layer.
+///
+/// The AVRExpression node represents all unary, binary, and n-ary
+/// expressions in the abstract layer. The initial build of the AL doesnt
+//  not contain AVRExpressions.  This node is added to the Abstract
+/// Layer as it is optimized. 
+class AVRExpression : public AVR {
+
+protected:
+
+  /// Operation - Operation which is executed on operands.
+  unsigned Operation;
+
+  /// Operands - Operands on which this operation executes.
+  SmallVector<AVR *, 1> Operands;
+
+  /// IsLHSExpr - True when this expression is the LHS of an assignment.
+  bool IsLHSExpr;
+
+  /// \brief Constructor used by derived classes. Should not instantiate
+  /// this object at this level.
+  AVRExpression(unsigned SCID);
+
+  /// \brief Destructor for object.
+  virtual ~AVRExpression() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  /// brief Clone method for AVRExpression.
+  AVRExpression *clone() const override;
+
+  /// \brief Returns the number of operands for this operator
+  unsigned getNumOperands() const { return Operands.size(); }
+
+  /// \brief Returns true if operator is binary.
+  bool isBinaryOperation() const { return getNumOperands() == 2; }
+
+  /// \brief Returns true if operator is binary.
+  bool isUnaryOperation() const { return getNumOperands() == 1; }
+
+  /// \brief Returns operation type.
+  unsigned getOperation() { return Operation; }
+
+  /// \brief Returns true is this expression is the LHS of an assignment.
+  bool isLHSExpr() const { return IsLHSExpr; }
+
+  /// \brief Returns the n-th (OpNum) operand of this expression. 
+  AVR* getOperand(unsigned OpNum) const { return Operands[OpNum]; }
+
+  /// \brief Method for supporting type inquiry.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() >= AVR::AVRExpressionNode &&
+            Node->getAVRID() < AVR::AVRExpressionLastNode);
+  }
+
+  /// \brief Prints the AVRAssignIR node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const = 0;
+
+  /// \brief Returns the Opcode name of this expression's operation.
+  virtual std::string getOpCodeName() const = 0;
+
+};
+
+//----------AVR Value Node----------//
+/// \brief AVR node represents a value in the Abstract Layer.
+///
+/// The AVRValue node represents a value, found in the incoming IR. For
+/// HIR, the AVRValue is constructed for each RegDDRef found in HLInst
+/// nodes. For LLVM IR, the AVRValue nodes are constructed for each operand
+/// of an LLVM instruction. AVRValue nodes are not built in the initial 
+/// Abstract Layer build, they are added later as part of an AL optimization.
+class AVRValue : public AVR {
+
+private:
+
+  /// MemRefInfo - Holds memory reference infomation. Information is set via
+  /// memory reference anaylsis or simd attributes. (To be added in future changest)
+  // MemRefInfo *MRI;
+
+protected:
+
+  /// \brief Constructor used by derived classes. Should not instantiate
+  /// this object at this level.
+  AVRValue(unsigned SCID);
+
+  /// \brief Destructor for this object.
+  virtual ~AVRValue() override {}
+
+  // Only the AVR Utility class should create these objects.
+  friend class AVRUtils;
+
+public:
+
+  /// \brief Clone method for AVRValue.
+  AVRValue *clone() const override;
+
+  /// \brief Method for supporting type inquiry.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() >= AVR::AVRValueNode &&
+            Node->getAVRID() < AVR::AVRValueLastNode);
+  }
+
+  /// \brief Prints the AVRAssignIR node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VerbosityLevel) const = 0;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns value name of this node.
   virtual std::string getAvrValueName() const = 0;
 
 };

@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -59,12 +59,27 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   switch (VLevel) {
     case PrintNumber:
       OS << "(" << getNumber() << ") ";
-    case PrintType:
+    case PrintAvrType:
       OS << getAvrTypeName();
+    case PrintDataType:
     case PrintBase:
-      OS << getAvrValueName() << "()\n";
-      OS << Indent << "{\n";
+    {
+      OS << getAvrValueName() << "(";
+  
+      // Print Function Arguments
+      Function::ArgumentListType &ArgList = OriginalFunction->getArgumentList();
+      Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
+      Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+
+      OS << *ArgListIt;
+      ++ArgListIt;
+      for (; ArgListIt != ArgListEnd; ++ArgListIt) {
+        OS << ", "<< *ArgListIt;
+      } 
+
+      OS <<")\n" << Indent << "{\n";
       break;
+    }
     default:
       llvm_unreachable("Unknown Avr Print Verbosity!");
   }

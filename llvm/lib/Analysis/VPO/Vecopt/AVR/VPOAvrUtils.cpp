@@ -48,6 +48,13 @@ AVRBranch *AVRUtils::createAVRBranch(AVRLabel *Successor) {
 
 // Modification Utilities
 
+void AVRUtils::setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node) {
+  AvrAssign->setLHS(Node);
+}
+
+void AVRUtils::setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node) {
+  AvrAssign->setRHS(Node);
+}
 
 // Insertion Utilities
 

@@ -1,6 +1,6 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -26,7 +26,7 @@ namespace vpo {  // VPO Vectorizer Namespace
 //----------AVR Assign Node for LLVM IR----------//
 /// \brief Assign node abstract vector representation for LLVM IR.
 ///
-/// An AVRAssignIR node represents an assignment found in LLVM IR.
+/// See AVRAssign class for more information.
 class AVRAssignIR : public AVRAssign {
 
 private:
@@ -45,7 +45,7 @@ protected:
   /// \brief Copy Constructor. 
   AVRAssignIR (const AVRAssignIR &AVRAssignIR);
 
-  /// \bried Sets up state object.
+  /// \brief Sets up state object.
   void initialize();
 
   /// Only this utility class should be used to modify/delete AVR nodes.
@@ -54,7 +54,7 @@ protected:
 public:
 
   /// \brief Returns the LLVM instruction
-  const Instruction *getLLVMInstruction() const { return Instruct; }
+ const Instruction *getLLVMInstruction() const { return Instruct; }
 
   /// \brief Returns the specified operand value.
   const Value *getOperand(unsigned OperandNumber);
@@ -62,6 +62,7 @@ public:
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
 
+  /// \brief Clone methode for AVRAssignIR.
   AVRAssignIR *clone() const override;
 
   /// \brief Method for supporting type inquiry.
@@ -69,9 +70,11 @@ public:
     return Node->getAVRID() == AVR::AVRAssignIRNode;
   }
 
+#if 0
   /// \brief Prints the AVRAssignIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
              VerbosityLevel VerbosityLevel) const override;
+#endif
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
@@ -81,6 +84,97 @@ public:
 
 };
 
+//----------AVR Expression Node for LLVM IR----------//
+/// \brief Avr expression node for LLVM IR.
+///
+/// See AVRExpression class for more information.
+class AVRExpressionIR : public AVRExpression {
+
+private:
+
+  /// Instruct - LLVM Instruction which expression is build from.
+  const Instruction*  Instruct;
+
+protected:
+
+  /// \brief Constructs and AVRExpressionIR given an AVRAssignIR node and
+  /// LHS/RHS specifier.
+  AVRExpressionIR(AVRAssignIR *Assign, AssignOperand AOp);
+
+  /// \brief AVRAssignIR Object Destructor.
+  virtual ~AVRExpressionIR() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsIR;
+
+public:
+
+  /// \brief Returns the LLVM Instruction for this Expression.
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  ///\brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRExpressionIRNode;
+  }
+
+  /// \brief Clone method for AVRExpressionIR.
+  AVRExpressionIR *clone() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+
+  /// \brief Retuurns the Opcode name of this expression's operation.
+  virtual std::string getOpCodeName() const override;
+
+};
+
+//----------AVR Value Node for LLVM IR----------//
+/// \brief AVR Value node for LLVM IR.
+///
+/// See AVRValue class for more information.
+class AVRValueIR : public AVRValue {
+
+private:
+
+  /// Val - The LLVM IR Value for this operand.
+  const Value *Val;
+
+  /// ValType - LLVM type of this value.
+  Type *ValType;
+
+  /// Instruct - LLVM instruction containing the operand which 
+  /// this AVR Value represents.
+  const Instruction *Instruct;
+
+protected:
+
+  /// \brief Constructs an AVRValueIR for the operand in Inst specified by
+  /// V.
+  AVRValueIR(const Value *V, const Instruction *Inst);
+
+  /// \brief Destructor for this object.
+  virtual ~AVRValueIR() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsIR;
+
+public:
+
+  /// \brief Clone method for AVRValueIR.
+  AVRValueIR *clone() const override;
+
+  /// \brief Method for supporting type inquiry.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRValueIRNode;
+  }
+
+  /// \brief Prints the AVRAssignIR node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VerbosityLevel) const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+};
 
 //----------AVR Label Node for LLVM IR----------//
 /// \brief TODO
