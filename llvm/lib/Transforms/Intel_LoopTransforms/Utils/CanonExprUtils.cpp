@@ -1,6 +1,6 @@
 //===--- CanonExprUtils.cpp - Implements CanonExprUtils class -------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -455,3 +455,8 @@ CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
 
   return Result;
 }
+
+bool CanonExprUtils::hasNonLinearSemantics(int DefLevel, unsigned NestingLevel) {
+  return ((-1 == DefLevel) || (DefLevel && (DefLevel >= (int)NestingLevel)));
+}
+

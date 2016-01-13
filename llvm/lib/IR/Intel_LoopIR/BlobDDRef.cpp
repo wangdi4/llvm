@@ -1,6 +1,6 @@
 //===--- BlobDDRef.cpp - Implements the BlobDDRef class -----------------*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -51,12 +51,6 @@ BlobDDRef *BlobDDRef::clone() const {
 
   return NewBlobDDRef;
 }
-
-void BlobDDRef::updateCELevelImpl(unsigned Level) {
-  CE->updateNonLinear(Level);
-}
-
-void BlobDDRef::updateCELevel() { updateCELevelImpl(getHLDDNodeLevel()); }
 
 void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   CE ? CE->print(OS, Detailed) : (void)(OS << CE);

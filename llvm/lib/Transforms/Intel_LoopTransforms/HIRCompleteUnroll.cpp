@@ -1,6 +1,6 @@
 //===- HIRCompleteUnroll.cpp - Implements CompleteUnroll class ------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -123,8 +123,6 @@ void CanonExprVisitor::visit(HLDDNode *Node) {
 /// processRegDDRef - Processes RegDDRef to call the Canon Exprs
 /// present inside it. This is an internal helper function.
 void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
-  SmallVector<BlobDDRef *, 6> BlobDDRefs;
-
   // Process CanonExprs inside the RegDDRefs
   for (auto Iter = RegDD->canon_begin(), End = RegDD->canon_end(); Iter != End;
        ++Iter) {
@@ -136,9 +134,14 @@ void CanonExprVisitor::processRegDDRef(RegDDRef *RegDD) {
     processCanonExpr(RegDD->getBaseCE());
   }
 
-  RegDD->updateBlobDDRefs(BlobDDRefs);
-  assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
-  RegDD->updateCELevel();
+  RegDD->makeConsistent();
+
+  // Example of an alternative way of updating DDRef which is useful when some
+  // manual work is also involved-
+  //
+  // RegDD->updateBlobDDRefs(BlobDDRefs);
+  // assert(BlobDDRefs.empty() && "New blobs found in DDRef after processing!");
+  // RegDD->updateCELevel();
 }
 
 /// Processes CanonExpr to replace IV by TripVal.
@@ -298,7 +301,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
     return false;
   }
 
-  if(!Loop->hasChildren()) {
+  if (!Loop->hasChildren()) {
     return false;
   }
 

@@ -1,6 +1,6 @@
 //===----------- HLLoop.h - High level IR loop node -------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -144,9 +144,6 @@ protected:
   HLLoop *cloneImpl(GotoContainerTy *GotoList,
                     LabelMapTy *LabelMap) const override;
 
-  /// \brief Updates blob DDRefs for the passed in trip count DDRef.
-  void updateTripCountBlobDDRefs(RegDDRef *TripRef) const;
-
 public:
   /// \brief Prints HLLoop.
   virtual void print(formatted_raw_ostream &OS, unsigned Depth,
@@ -281,7 +278,10 @@ public:
 
   /// \brief Returns Trip Count DDRef of this loop.
   /// Note, this will create a new DDRef in each call.
-  RegDDRef *getTripCountDDRef() const;
+  /// NestingLevel argument indicates the level at which this DDRef will be
+  /// attached to HIR. The default is: (loop nesting nevel - 1).
+  RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
+                                                       1)) const;
 
   /// \brief Returns true if this is a constant trip count loop and sets the
   /// trip count in TripCnt parameter only if the loop is constant trip loop.

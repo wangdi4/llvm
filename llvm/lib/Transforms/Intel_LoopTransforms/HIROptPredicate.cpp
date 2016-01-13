@@ -521,7 +521,7 @@ void HIROptPredicate::insertElseChildren(HLLoop *NewElseLoop, unsigned IfPos,
 void HIROptPredicate::updateIfRef(HLIf *If) {
   for (auto Iter = If->ddref_begin(), End = If->ddref_end(); Iter != End;
        ++Iter) {
-    (*Iter)->updateCELevel();
+    (*Iter)->updateDefLevel();
   }
 }
 

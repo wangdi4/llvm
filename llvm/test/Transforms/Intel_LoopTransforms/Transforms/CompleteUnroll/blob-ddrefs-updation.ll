@@ -26,10 +26,10 @@
 ; CHECK: (%A)[1] = %k
 
 ; Check that the symbase of the self-blob regular DDRef has been updated to %k's symbase.
-; CHECK: <RVAL-REG> NON-LINEAR i32 %k {sb:[[SYM]]}
+; CHECK: <RVAL-REG> LINEAR i32 %k {sb:[[SYM]]}
 
 ; Check that the blob DDRef for %k has been removed for the self-blob regular DDRef.
-; CHECK-NOT: <BLOB> LINEAR i32 %k 
+; CHECK-NOT: <BLOB> 
 
 ; CHECK: (%A)[2] = 2 * %k
 

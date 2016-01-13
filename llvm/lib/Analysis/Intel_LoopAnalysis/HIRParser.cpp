@@ -1,6 +1,6 @@
 //===----- HIRParser.cpp - Parses SCEVs into CanonExprs -------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -983,15 +983,22 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
     if (Lp && (HLoop = LF->findHLLoop(Lp))) {
       DefLevel = HLoop->getNestingLevel();
 
-    } else if (!CurRegion->containsBBlock(Inst->getParent())) {
-      // Blob lies outside the region.
+    } else {
 
-      // Add it as a livein temp.
-      CurRegion->addLiveInTemp(Symbase, Temp);
+      if (!CurRegion->containsBBlock(Inst->getParent())) {
+        // Blob lies outside the region, add it as a livein temp.
+        CurRegion->addLiveInTemp(Symbase, Temp);
+      }
 
       // Workaround to mark blob as linear even if the nesting level is zero.
+      // All blobs defined outside any loop are treated as linear regardless of
+      // whether the definition lies inside or outside the region. This keeps the
+      // marking scheme simple as we don't need to track the blob definition. The
+      // trade-off is a logical inconsistency where the blob is defined inside the
+      // region and its uses outside any loop are still marked as linear.
       NestingLevel++;
     }
+
   } else {
     // Blob is some global value. Global values are not marked livein.
     // Workaround to mark blob as linear even if the nesting level is zero.

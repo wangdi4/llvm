@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -enable-ptr-iv | FileCheck %s
+; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the pointer IV is handled correctly.
 ; CHECK: DO i1 = 0, (-1 * %p + %q + -4)/u4

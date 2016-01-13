@@ -1,6 +1,6 @@
 //===------ CanonExprUtils.h - Utilities for CanonExpr class --*- C++ -*---===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -200,7 +200,7 @@ public:
   static void collectTempBlobs(CanonExpr::BlobTy Blob,
                                SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
 
-  /// \brief Returns the size of the type in bits. 
+  /// \brief Returns the size of the type in bits.
   /// NOTE: This function asserts that the incoming type is sized.
   static uint64_t getTypeSizeInBits(Type *Ty);
 
@@ -247,6 +247,12 @@ public:
   /// \brief Returns a canon expr which represents the negation of CE.
   /// Result = -CE
   static CanonExpr *cloneAndNegate(const CanonExpr *CE);
+
+  /// \brief Returns true if this CE should be considered non-linear given
+  /// DefLevel and NestingLevel. DefLevel is the definition level of a blob
+  /// contained in the CE. NestingLevel is the level where the CE is attached to
+  /// HIR.
+  static bool hasNonLinearSemantics(int DefLevel, unsigned NestingLevel);
 };
 
 } // End namespace loopopt

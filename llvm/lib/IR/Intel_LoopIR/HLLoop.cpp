@@ -1,6 +1,6 @@
 //===-------- HLLoop.cpp - Implements the HLLoop class --------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -516,37 +516,24 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   return Result;
 }
 
-void HLLoop::updateTripCountBlobDDRefs(RegDDRef *TripRef) const {
-  SmallVector<BlobDDRef *, 6> NewBlobRefs;
+RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
 
-  TripRef->updateBlobDDRefs(NewBlobRefs);
-
-  // No new blobs to update level for.
-  if (NewBlobRefs.empty()) {
-    return;
-  }
-
-  for (auto &I : NewBlobRefs) {
-    unsigned Index = I->getBlobIndex();
-    int Level = 0;
-
-    if (getUpperDDRef()->findBlobLevel(Index, &Level) ||
-        getLowerDDRef()->findBlobLevel(Index, &Level) ||
-        getStrideDDRef()->findBlobLevel(Index, &Level)) {
-      (Level == -1) ? I->setNonLinear() : I->setDefinedAtLevel(Level);
-    } else {
-      llvm_unreachable("Trip count blob not found in lower or stride DDRef!");
-    }
-  }
-}
-
-RegDDRef *HLLoop::getTripCountDDRef() const {
+  SmallVector<const RegDDRef*, 4> LoopRefs;
 
   CanonExpr *TripCE = getTripCountCanonExpr();
   RegDDRef *TripRef =
       DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
 
-  updateTripCountBlobDDRefs(TripRef);
+  LoopRefs.push_back(getLowerDDRef());
+  LoopRefs.push_back(getStrideDDRef());
+  LoopRefs.push_back(getUpperDDRef());
+
+  // Default argument case.
+  if ((MaxLoopNestLevel + 1) == NestingLevel) {
+    NestingLevel = getNestingLevel() - 1;
+  }
+
+  TripRef->makeConsistent(&LoopRefs, NestingLevel);
 
   return TripRef;
 }

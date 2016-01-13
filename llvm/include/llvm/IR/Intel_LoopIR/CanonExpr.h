@@ -1,6 +1,6 @@
 //===- CanonExpr.h - Closed form in high level IR ---------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -301,10 +301,6 @@ public:
     assert((DefLvl <= MaxLoopNestLevel) && "DefLvl exceeds max level!");
     DefinedAtLevel = DefLvl;
   }
-
-  /// \brief Marks the CE as non-linear if the necessary, based on the
-  /// level argument.
-  void updateNonLinear(unsigned Level);
 
   /// \brief Returns true if this is linear at all levels.
   bool isProperLinear() const { return (DefinedAtLevel == 0); }

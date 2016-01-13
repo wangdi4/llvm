@@ -1,6 +1,6 @@
 //===----- RegDDRef.cpp - Implements the RegDDRef class -------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -71,23 +71,63 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-void RegDDRef::updateCELevel() {
+int RegDDRef::findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) {
+  int DefLevel = 0, MaxLevel = 0;
 
-  unsigned Level = getHLDDNodeLevel();
+  for (auto Index : BlobIndices) {
+    assert(findBlobLevel(Index, &DefLevel) && "Blob DDRef not found!");
 
-  // Base CE
+    if (-1 == DefLevel) {
+      return -1;
+    } else if (DefLevel > MaxLevel) {
+      MaxLevel = DefLevel;
+    }
+  }
+
+  return MaxLevel;
+}
+
+void RegDDRef::updateCEDefLevel(CanonExpr *CE, unsigned NestingLevel) {
+  SmallVector<unsigned, 8> BlobIndices;
+
+  CE->collectTempBlobIndices(BlobIndices);
+
+  auto MaxLevel = findMaxBlobLevel(BlobIndices);
+
+  if (CanonExprUtils::hasNonLinearSemantics(MaxLevel, NestingLevel)) {
+    CE->setNonLinear();
+  } else {
+    CE->setDefinedAtLevel(MaxLevel);
+  }
+}
+
+void RegDDRef::updateDefLevel(unsigned NestingLevelIfDetached) {
+
+  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+  assert((Level <= MaxLoopNestLevel) &&
+         "Nesting level not set for detached DDRef!");
+
+  // Update attached blob DDRefs' def level first.
+  for (auto It = blob_begin(), EndIt = blob_end(); It != EndIt; ++It) {
+    auto CE = (*It)->getCanonExpr();
+
+    if (CE->isNonLinear()) {
+      continue;
+    }
+
+    if (CanonExprUtils::hasNonLinearSemantics(CE->getDefinedAtLevel(), Level)) {
+      (*It)->setNonLinear();
+    }
+  }
+
+  // Update base CE.
   if (hasGEPInfo()) {
-    getBaseCE()->updateNonLinear(Level);
+    updateCEDefLevel(getBaseCE(), Level);
   }
 
-  // Loop over CanonExprs
+  // Update CanonExprs.
   for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
-    (*I)->updateNonLinear(Level);
-  }
-
-  // Loop over BlobDDRefs
-  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
-    (*I)->updateCELevelImpl(Level);
+    updateCEDefLevel(*I, Level);
   }
 }
 
@@ -442,6 +482,41 @@ void RegDDRef::collectTempBlobIndices(
   // Make the indices unique.
   std::sort(Indices.begin(), Indices.end());
   Indices.erase(std::unique(Indices.begin(), Indices.end()), Indices.end());
+}
+
+void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
+                              unsigned NestingLevelIfDetached) {
+  SmallVector<BlobDDRef *, 8> NewBlobs;
+
+  updateBlobDDRefs(NewBlobs);
+
+  unsigned Level = getHLDDNode() ? getHLDDNodeLevel() : NestingLevelIfDetached;
+
+  // Set def level for the new blobs.
+  for (auto &BRef : NewBlobs) {
+    int DefLevel = 0;
+    bool Found = false;
+    unsigned Index = BRef->getBlobIndex();
+
+    assert(AuxRefs && "Missing auxiliary refs!");
+
+    for (auto &AuxRef : (*AuxRefs)) {
+      if (AuxRef->findBlobLevel(Index, &DefLevel)) {
+        if (CanonExprUtils::hasNonLinearSemantics(DefLevel, Level)) {
+          BRef->setNonLinear();
+        } else {
+          BRef->setDefinedAtLevel(DefLevel);
+        }
+
+        Found = true;
+        break;
+      }
+    }
+
+    assert(Found && "Blob was not found in any auxiliary DDRef!");
+  }
+
+  updateDefLevel(NestingLevelIfDetached);
 }
 
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,

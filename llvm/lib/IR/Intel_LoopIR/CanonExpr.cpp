@@ -1,6 +1,6 @@
 //===- CanonExpr.cpp - Implements the CanonExpr class ---------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -72,27 +72,6 @@ void CanonExpr::destroyAll() {
   Objs.clear();
   BlobTable.clear();
   BlobToIndexMap.clear();
-}
-
-void CanonExpr::updateNonLinear(unsigned Level) {
-
-  assert(Level <= MaxLoopNestLevel && "Level exceeds max level.");
-
-  // Constant case.
-  if (isConstant()) {
-    DefinedAtLevel = 0;
-    return;
-  }
-
-  if (isNonLinear()) {
-    return;
-  }
-
-  assert(DefinedAtLevel >= 0 && "DefLevel should be positive.");
-  // Mark as non-linear since def is at the same level.
-  if (DefinedAtLevel >= (int)(Level)) {
-    setNonLinear();
-  }
 }
 
 CanonExpr *CanonExpr::clone() const {
