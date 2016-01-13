@@ -92,12 +92,10 @@ bool AVRCodeGenHIR::loopIsHandled() {
     // sufficient?
     const HLInst *INode = 
       dyn_cast<const HLInst>(dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
-    auto CurInst = const_cast<Instruction *>(INode->getLLVMInstruction());
-    BinaryOperator *BOp;
+    auto CurInst = INode->getLLVMInstruction();
 
-    if ((BOp = dyn_cast<BinaryOperator>(CurInst)) &&
-        (BOp->getOpcode() == Instruction::FAdd)) {
-      // Check for form of %x = %y Bop %z
+    if (isa<BinaryOperator>(CurInst)) {
+      // Check for form of %x = %y BOp %z
       for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands(); OpIndex < LastIndex;
            ++OpIndex) {
         if (!INode->getOperandDDRef(OpIndex)->isSelfBlob())
@@ -247,12 +245,9 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
   }
 
   DEBUG(Node->dump(true));
-  auto CurInst = const_cast<Instruction *>(INode->getLLVMInstruction());
+  auto CurInst = INode->getLLVMInstruction();
   
-  BinaryOperator *BOp;
-
-  if ((BOp = dyn_cast<BinaryOperator>(CurInst)) &&
-      (BOp->getOpcode() == Instruction::FAdd)) {
+  if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
     assert(WidenMap.find(INode->getOperandDDRef(1)->getSymbase()) != WidenMap.end() &&
            "Value1 being added is expected to be widened already");
     assert(WidenMap.find(INode->getOperandDDRef(2)->getSymbase()) != WidenMap.end() &&
@@ -265,7 +260,11 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     auto Rval1 = WInst1->getLvalDDRef()->clone();
     auto Rval2 = WInst2->getLvalDDRef()->clone();
 
-    auto WideInst = HLNodeUtils::createFAdd(Rval1, Rval2);
+    auto WideInst = HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
+                                                    Rval1, Rval2,
+                                                    nullptr, /* LvalRef */
+                                                    "",      /* Name */
+                                                    BOp);
 
     // Add to WidenMap
     WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;

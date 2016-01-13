@@ -190,10 +190,10 @@ private:
                                    unsigned Align);
 
   /// \brief Creates a binary instruction.
-  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                    RegDDRef *OpRef2, RegDDRef *LvalRef,
-                                    const Twine &Name, bool HasNUWOrExact,
-                                    bool HasNSW, MDNode *FPMathTag);
+  static HLInst *createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
+                                        RegDDRef *OpRef2, RegDDRef *LvalRef,
+                                        const Twine &Name, bool HasNUWOrExact,
+                                        bool HasNSW, MDNode *FPMathTag);
 
   /// \brief Implementation of cloneSequence() which clones from Node1
   /// to Node2 and inserts into the CloneContainer.
@@ -447,6 +447,14 @@ public:
   static HLInst *createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
                                      RegDDRef *LvalRef = nullptr,
                                      const Twine &Name = "");
+  /// \brief Creates a new BinaryOperator with specified opcode. If
+  /// OrigBinOp is not null, copy IR flags from OrigBinOp to the newly
+  /// create instruction.
+  static HLInst *createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                    RegDDRef *OpRef2,
+                                    RegDDRef *LvalRef = nullptr,
+                                    const Twine &Name = "",
+                                    const BinaryOperator *OrigBinOp = nullptr);
   /// \brief Creates a new Add instruction.
   static HLInst *createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",

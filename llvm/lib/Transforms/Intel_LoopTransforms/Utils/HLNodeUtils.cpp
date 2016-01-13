@@ -357,10 +357,10 @@ HLInst *HLNodeUtils::createAddrSpaceCast(Type *DestTy, RegDDRef *RvalRef,
                            DestTy, false, 0);
 }
 
-HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
-                                        RegDDRef *OpRef2, RegDDRef *LvalRef,
-                                        const Twine &Name, bool HasNUWOrExact,
-                                        bool HasNSW, MDNode *FPMathTag) {
+HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
+                                            RegDDRef *OpRef2, RegDDRef *LvalRef,
+                                            const Twine &Name, bool HasNUWOrExact,
+                                            bool HasNSW, MDNode *FPMathTag) {
   Value *InstVal;
   Instruction *Inst;
   HLInst *HInst;
@@ -520,125 +520,142 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   return HInst;
 }
 
+HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
+                                        RegDDRef *OpRef2, RegDDRef *LvalRef,
+                                        const Twine &Name,          
+                                        const BinaryOperator *OrigBinOp) {
+  HLInst *HInst;
+
+  HInst = createBinaryHLInstImpl(OpCode, OpRef1, OpRef2, LvalRef,
+                                 Name, false, false, nullptr);
+  if (OrigBinOp) {
+    auto NewBinOp = cast<BinaryOperator>(const_cast<Instruction *>
+                                         (HInst->getLLVMInstruction()));
+    NewBinOp->copyIRFlags(OrigBinOp);
+  }
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name,
                                bool HasNUW, bool HasNSW) {
-  return createBinaryHLInst(Instruction::Add, OpRef1, OpRef2, LvalRef, Name,
-                            HasNUW, HasNSW, nullptr);
+  return createBinaryHLInstImpl(Instruction::Add, OpRef1, OpRef2, LvalRef, Name,
+                                HasNUW, HasNSW, nullptr);
 }
 
 HLInst *HLNodeUtils::createFAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 MDNode *FPMathTag) {
-  return createBinaryHLInst(Instruction::FAdd, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, FPMathTag);
+  return createBinaryHLInstImpl(Instruction::FAdd, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name,
                                bool HasNUW, bool HasNSW) {
-  return createBinaryHLInst(Instruction::Sub, OpRef1, OpRef2, LvalRef, Name,
-                            HasNUW, HasNSW, nullptr);
+  return createBinaryHLInstImpl(Instruction::Sub, OpRef1, OpRef2, LvalRef, Name,
+                                HasNUW, HasNSW, nullptr);
 }
 
 HLInst *HLNodeUtils::createFSub(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 MDNode *FPMathTag) {
-  return createBinaryHLInst(Instruction::FSub, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, FPMathTag);
+  return createBinaryHLInstImpl(Instruction::FSub, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name,
                                bool HasNUW, bool HasNSW) {
-  return createBinaryHLInst(Instruction::Mul, OpRef1, OpRef2, LvalRef, Name,
-                            HasNUW, HasNSW, nullptr);
+  return createBinaryHLInstImpl(Instruction::Mul, OpRef1, OpRef2, LvalRef, Name,
+                                HasNUW, HasNSW, nullptr);
 }
 
 HLInst *HLNodeUtils::createFMul(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 MDNode *FPMathTag) {
-  return createBinaryHLInst(Instruction::FMul, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, FPMathTag);
+  return createBinaryHLInstImpl(Instruction::FMul, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createUDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 bool IsExact) {
-  return createBinaryHLInst(Instruction::UDiv, OpRef1, OpRef2, LvalRef, Name,
-                            IsExact, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::UDiv, OpRef1, OpRef2, LvalRef, Name,
+                                IsExact, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createSDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 bool IsExact) {
-  return createBinaryHLInst(Instruction::SDiv, OpRef1, OpRef2, LvalRef, Name,
-                            IsExact, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::SDiv, OpRef1, OpRef2, LvalRef, Name,
+                                IsExact, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createFDiv(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 MDNode *FPMathTag) {
-  return createBinaryHLInst(Instruction::FDiv, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, FPMathTag);
+  return createBinaryHLInstImpl(Instruction::FDiv, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createURem(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name) {
-  return createBinaryHLInst(Instruction::URem, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::URem, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createSRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name) {
-  return createBinaryHLInst(Instruction::SRem, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::SRem, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createFRem(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 MDNode *FPMathTag) {
-  return createBinaryHLInst(Instruction::FRem, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, FPMathTag);
+  return createBinaryHLInstImpl(Instruction::FRem, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, FPMathTag);
 }
 
 HLInst *HLNodeUtils::createShl(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name,
                                bool HasNUW, bool HasNSW) {
-  return createBinaryHLInst(Instruction::Shl, OpRef1, OpRef2, LvalRef, Name,
-                            HasNUW, HasNSW, nullptr);
+  return createBinaryHLInstImpl(Instruction::Shl, OpRef1, OpRef2, LvalRef, Name,
+                                HasNUW, HasNSW, nullptr);
 }
 
 HLInst *HLNodeUtils::createLShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 bool IsExact) {
-  return createBinaryHLInst(Instruction::LShr, OpRef1, OpRef2, LvalRef, Name,
-                            IsExact, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::LShr, OpRef1, OpRef2, LvalRef, Name,
+                                IsExact, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createAShr(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                 RegDDRef *LvalRef, const Twine &Name,
                                 bool IsExact) {
-  return createBinaryHLInst(Instruction::AShr, OpRef1, OpRef2, LvalRef, Name,
-                            IsExact, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::AShr, OpRef1, OpRef2, LvalRef, Name,
+                                IsExact, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createAnd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name) {
-  return createBinaryHLInst(Instruction::And, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::And, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createOr(RegDDRef *OpRef1, RegDDRef *OpRef2,
                               RegDDRef *LvalRef, const Twine &Name) {
-  return createBinaryHLInst(Instruction::Or, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::Or, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createXor(RegDDRef *OpRef1, RegDDRef *OpRef2,
                                RegDDRef *LvalRef, const Twine &Name) {
-  return createBinaryHLInst(Instruction::Xor, OpRef1, OpRef2, LvalRef, Name,
-                            false, false, nullptr);
+  return createBinaryHLInstImpl(Instruction::Xor, OpRef1, OpRef2, LvalRef, Name,
+                                false, false, nullptr);
 }
 
 HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
