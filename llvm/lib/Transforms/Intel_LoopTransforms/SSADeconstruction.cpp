@@ -121,11 +121,6 @@ private:
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
-  /// \brief Returns true is this phi would be considered linear by parser.
-  /// This allows deconstruction to skip inserting liveout copies for the phi
-  /// which results in a cleaner HIR.
-  bool isConsideredLinear(const PHINode *Phi) const;
-
   /// \brief Returns true if any of the SCC phi operands flow through PredBB.
   /// This means that adding a livein copy in PredBB will kill the SCC phi
   /// operand so we need to perform edge splitting.
@@ -268,38 +263,6 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
   return nullptr;
 }
 
-bool SSADeconstruction::isConsideredLinear(const PHINode *Phi) const {
-
-  if (!SE->isSCEVable(Phi->getType())) {
-    return false;
-  }
-
-  auto SC = SE->getSCEV(const_cast<PHINode *>(Phi));
-  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
-
-  if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
-    return false;
-  }
-
-  if (!Phi->getType()->isPointerTy()) {
-    return true;
-  }
-
-  // Header phis can be handled by the parser.
-  if (RI->isHeaderPhi(Phi)) {
-    return true;
-  }
-
-  // Check if there is a type mismatch in the primary element type for pointer
-  // types.
-  if (RI->getPrimaryElementType(Phi->getType()) !=
-      RI->getPrimaryElementType(SC->getType())) {
-    return false;
-  }
-
-  return true;
-}
-
 // If this phi is used in another phi in the same basic block, then we can
 // potentially have ordering issues with the insertion of livein copies
 // for the phis. This is because the use of phi operands is deemed to
@@ -425,13 +388,20 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
 
   Instruction *CopyInst = nullptr;
   bool IsLinear = false;
+  Loop *Lp = nullptr;
 
-  if (SCCNodes) {
-    IsLinear = isConsideredLinear(Phi);
+  // For standalone phis we need to create liveout copies in two cases-
+  // 1) If it is used in another phi in the same bblock all its uses need to be
+  // replaced by the copy.
+  // 2) The uses outside the current loop need to be replaced by the copy for
+  // linear phis.
+  if (!SCCNodes) {
+    if ((IsLinear = SCCF->isConsideredLinear(Phi))) {
+      Lp = LI->getLoopFor(Phi->getParent());
 
-  } else if (!liveoutCopyRequired(Phi)) {
-    // Return early if no copy required for stand alone phi.
-    return;
+    } else if (!liveoutCopyRequired(Phi)) {
+      return;
+    }
   }
 
   for (auto UserIt = Phi->user_begin(), EndIt = Phi->user_end();
@@ -457,7 +427,12 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
         if (!MultipleRegionLiveouts) {
           continue;
         }
-      } else if (IsLinear) {
+      }
+    } else if (IsLinear) {
+
+      // Add a liveout copy if this linear phi is used outside its parent loop
+      // as these uses can cause live range violation.
+      if (Lp->contains(LI->getLoopFor(UserInst->getParent()))) {
         continue;
       }
     }
@@ -698,7 +673,6 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
 
     ProcessedSCCs.insert(PhiSCC);
 
-    bool IsLinear = isConsideredLinear(Phi);
     bool LiveinCopyInserted = false;
     bool MultipleRegionLiveouts = hasMultipleRegionLiveouts(PhiSCC->Nodes);
 
@@ -715,9 +689,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
         processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
                            MultipleRegionLiveouts, Name.str());
 
-      }
-      // Linear SCCs cannot cause live range violation.
-      else if (!IsLinear) {
+      } else {
 
         // Attach live range type metadata to suppress SCEV traceback.
         attachMetadata(const_cast<Instruction *>(SCCInst), Name.str(),
@@ -765,10 +737,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     attachMetadata(Phi, Name.str(), LiveInType);
 
     processPhiLiveins(Phi, nullptr, Name.str());
-
-    if (!isConsideredLinear(Phi)) {
-      processPhiLiveouts(Phi, nullptr, false, Name.str());
-    }
+    processPhiLiveouts(Phi, nullptr, false, Name.str());
   }
 }
 

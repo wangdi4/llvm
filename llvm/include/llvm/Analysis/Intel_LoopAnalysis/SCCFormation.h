@@ -162,6 +162,9 @@ public:
   void print(raw_ostream &OS, RegionIdentification::const_iterator RegIt) const;
   void verifyAnalysis() const override;
 
+  /// \brief Returns true if this node is considered linear by parsing.
+  bool isConsideredLinear(const NodeTy *Node) const;
+
   /// SCC iterator methods
   const_iterator begin(RegionIdentification::const_iterator RegIt) const;
   const_iterator end(RegionIdentification::const_iterator RegIt) const;

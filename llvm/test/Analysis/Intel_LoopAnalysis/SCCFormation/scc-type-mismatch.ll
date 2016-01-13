@@ -1,10 +1,7 @@
 ; RUN: opt < %s -loop-simplify | opt -analyze -hir-scc-formation | FileCheck %s
 
-; Check that the SCC with the type mismatch is removed (k.024 -> %.add -> %j.0 -> %conv10) so we are left with only one SCC for the IV.
-
-; CHECK: SCC1
-; CHECK-SAME: indvars.iv
-; CHECK-NOT: SCC2
+; Check that the SCC with the type mismatch is removed (k.024 -> %.add -> %j.0 -> %conv10) so we don't form any SCCs.
+; CHECK-NOT: SCC1
 
 
 

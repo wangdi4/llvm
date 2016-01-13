@@ -5,7 +5,7 @@
 ; CHECK-NEXT: <LVAL-REG> LINEAR i64 %M + 5
 ; CHECK: <RVAL-REG> LINEAR i64 %M + 5
 
-; CHECK: %l2.2.lcssa = %indvars.iv * i2
+; CHECK: %l2.059 = %indvars.iv * i2
 ; CHECK-NEXT: <LVAL-REG> LINEAR i64 %indvars.iv * i2{def@1}
 ; CHECK: <RVAL-REG> LINEAR i64 %indvars.iv * i2{def@1}
 

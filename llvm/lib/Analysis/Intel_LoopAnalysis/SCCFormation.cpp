@@ -56,11 +56,52 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
+bool SCCFormation::isConsideredLinear(const NodeTy *Node) const {
+
+  if (!SE->isSCEVable(Node->getType())) {
+    return false;
+  }
+
+  auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
+  auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC);
+
+  if (!AddRecSCEV || !AddRecSCEV->isAffine()) {
+    return false;
+  }
+
+  if (!Node->getType()->isPointerTy()) {
+    return true;
+  }
+
+  auto Phi = dyn_cast<PHINode>(Node);
+
+  // Header phis can be handled by the parser.
+  if (!Phi || RI->isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  // Check if there is a type mismatch in the primary element type for pointer
+  // types.
+  if (RI->getPrimaryElementType(Phi->getType()) !=
+      RI->getPrimaryElementType(SC->getType())) {
+    return false;
+  }
+
+  return true;
+}
+
 bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   assert(isa<PHINode>(Node) && "Instruction is not a phi!");
 
   // Already visited?
   if (VisitedNodes.find(Node) != VisitedNodes.end()) {
+    return false;
+  }
+
+  // Do not form SCC for IVs as the live range issues caused when IV is parsed
+  // as a blob cannot be handled very cleanly. We will let the parser clean up
+  // IVs.
+  if (isConsideredLinear(Node)) {
     return false;
   }
 
@@ -97,6 +138,11 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
 
   // Phi SCCs do not have anything to do with calls.
   if (isa<CallInst>(Node)) {
+    return false;
+  }
+
+  // Ignore linear uses.
+  if (isConsideredLinear(Node)) {
     return false;
   }
 
