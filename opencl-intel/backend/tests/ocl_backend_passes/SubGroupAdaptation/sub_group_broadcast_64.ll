@@ -9,14 +9,14 @@
 target datalayout = "e-i64:64-v16:16-v24:32-v32:32-v48:64-v96:128-v192:256-v256:256-v512:512-v1024:1024"
 target triple = "spir64-unknown-unknown"
 
-; CHECK: @sw_broadcast_test
+; CHECK: @sg_broadcast_test
 ; CHECK: entry
 ; CHECK: call spir_func i32 @_Z22get_sub_group_local_idv()
 ; CHECK: call spir_func i32 @_Z19sub_group_broadcastij(i32 %2, i32 %3)
 ; CHECK: call spir_func i32 @_Z19sub_group_broadcastij(i32 %6, i32 %7)
 
 ; Function Attrs: nounwind
-define spir_kernel void @sw_broadcast_test(i32 %id, i32 addrspace(1)* %b) #0 {
+define spir_kernel void @sg_broadcast_test(i32 %id, i32 addrspace(1)* %b) #0 {
 entry:
   %id.addr = alloca i32, align 4
   %b.addr = alloca i32 addrspace(1)*, align 8
@@ -66,7 +66,7 @@ declare spir_func i32 @_Z22get_sub_group_local_idv() #1
 ; CHECK: %lid1 = urem i64 %lid1.op, %lsz1
 ; CHECK: %lid2 = udiv i64 %lid1.op, %lsz1
 ; CHECK: %CallWGBroadCast = call spir_func i32 @_Z20work_group_broadcastimmm(i32 %0, i64 %lid0, i64 %lid1, i64 %lid2)
-; CHECK: ret i32 %0
+; CHECK: ret i32 %CallWGBroadCast
 
 declare spir_func i32 @_Z19sub_group_broadcastij(i32, i32) #1
 
@@ -87,7 +87,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !opencl.used.optional.core.features = !{!8}
 !opencl.compiler.options = !{!8}
 
-!0 = !{void (i32, i32 addrspace(1)*)* @sw_broadcast_test, !1, !2, !3, !4, !5}
+!0 = !{void (i32, i32 addrspace(1)*)* @sg_broadcast_test, !1, !2, !3, !4, !5}
 !1 = !{!"kernel_arg_addr_space", i32 0, i32 1}
 !2 = !{!"kernel_arg_access_qual", !"none", !"none"}
 !3 = !{!"kernel_arg_type", !"int", !"int*"}
@@ -102,7 +102,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 ;;;__attribute__((overloadable)) uint get_sub_group_id();
 ;;;__attribute__((overloadable)) int sub_group_broadcast(int, uint);
 ;;;
-;;;__kernel void sw_broadcast_test(int id, __global int* b) {
+;;;__kernel void sg_broadcast_test(int id, __global int* b) {
 ;;;  uint sglid = get_sub_group_local_id();
 ;;;  int res = sub_group_broadcast(b[sglid], id);
 ;;;  uint sgid = get_sub_group_id();

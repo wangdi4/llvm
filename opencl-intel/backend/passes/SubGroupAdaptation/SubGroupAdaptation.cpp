@@ -255,7 +255,7 @@ namespace intel {
 
 		pNewCall->setCallingConv(pFunc->getCallingConv());
 		newF->setCallingConv(pFunc->getCallingConv());
-		ReturnInst::Create(*m_pLLVMContext, firstArg, entry);
+		ReturnInst::Create(*m_pLLVMContext, pNewCall, entry);
 	}
 
 	CallInst *SubGroupAdaptation::getWICall(BasicBlock *pAtEnd, char const* instName, std::string funcName, unsigned dimIdx) {
