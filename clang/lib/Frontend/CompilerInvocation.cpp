@@ -1417,7 +1417,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
 #if INTEL_CUSTOMIZATION
   Opts.IntelCompat = Args.hasArg(OPT_fintel_compatibility);
   Opts.IntelMSCompat = Args.hasArg(OPT_fintel_ms_compatibility);
-  Opts.Float128 = Args.hasArg(OPT_extended_float_types);
+  Opts.IntelQuad = Args.hasArg(OPT_extended_float_types);
   Opts.Restrict =
       Args.hasFlag(OPT_restrict, OPT_no_restrict, /*Default=*/Opts.C99);
   // Fix for CQ#373517: compilation fails with 'redefinition of default
@@ -1429,6 +1429,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                    OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
   Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
                                            Opts.GNUFABIVersion, Diags);
+  // CQ380574: Ability to set various predefines based on gcc version needed.
+  Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
+#if INTEL_SPECIFIC_IL0_BACKEND
+                                       40800,
+#else
+                                       40500,
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+                                       Diags);
+  Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
+                                     Opts.GNUVersion >= 40400);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;

@@ -612,6 +612,9 @@ def no_gnu_mangling_for_simd_types : Flag<["--"], "no_gnu_mangling_for_simd_type
   HelpText<"Turn off GNU mangling for vector types">;
 def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
   HelpText<"Emulate GNU C++ABI version">;
+// CQ380574: Ability to set various predefines based on gcc version needed.
+def gnu_version_EQ : Joined<["--"], "gnu_version=">,
+  HelpText<"Emulate GNU C++ version">;
 // endif INTEL_CUSTOMIZATION
 
 // C++ TSes.

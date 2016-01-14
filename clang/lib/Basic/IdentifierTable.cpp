@@ -250,6 +250,13 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
 
   if (LangOpts.DeclSpecKeyword)
     AddKeyword("__declspec", tok::kw___declspec, KEYALL, LangOpts, *this);
+#if INTEL_CUSTOMIZATION
+// CQ#380574: Ability to set various predefines based on gcc version needed.
+  if (LangOpts.IntelCompat && LangOpts.IntelQuad)
+    AddKeyword("_Quad", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+  if (LangOpts.IntelCompat && LangOpts.GNUVersion >= 40400 && LangOpts.GNUMode)
+    AddKeyword("__float128", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// \brief Checks if the specified token kind represents a keyword in the

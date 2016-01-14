@@ -404,9 +404,9 @@ KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
 #endif  // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
-KEYWORD(_Quad                       , KEYFLOAT128)
+KEYWORD(_Quad                       , 0)
 // CQ#367834 - __float128 should be an alias for _Quad.
-ALIAS("__float128"    , _Quad       , KEYFLOAT128)
+ALIAS("__float128"    , _Quad       , 0)
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 KEYWORD(__bases                     , KEYBASES)
 KEYWORD(__direct_bases              , KEYBASES)
