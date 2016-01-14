@@ -115,8 +115,8 @@ static const unsigned ExpectedNumberOfTests = 8;
 
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests",
-        cl::init(ExpectedNumberOfTests), cl::Hidden,
-        cl::desc("Maximum number of runtime tests for loop."));
+                         cl::init(ExpectedNumberOfTests), cl::Hidden,
+                         cl::desc("Maximum number of runtime tests for loop."));
 
 STATISTIC(LoopsMultiversioned, "Number of loops multiversioned by runtime DD");
 
@@ -129,8 +129,7 @@ struct Segment {
   RegDDRef *Upper;
   const CanonExpr *BaseCE;
 
-  Segment(RegDDRef *Lower, RegDDRef *Upper)
-  : Lower(Lower), Upper(Upper) {
+  Segment(RegDDRef *Lower, RegDDRef *Upper) : Lower(Lower), Upper(Upper) {
     BaseCE = Lower->getBaseCE();
   }
 
@@ -159,32 +158,24 @@ class IVSegment {
   bool IsWrite;
 
   static void replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
-      const CanonExpr *By);
+                                   const CanonExpr *By);
 
   static RegDDRef *genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-      const CanonExpr *Expr);
+                                      const CanonExpr *Expr);
 
 public:
   IVSegment(const DDRefGrouping::RefGroupTy &Group);
 
-  Segment genLUSegment(unsigned Level, int64_t Stride,
-      const CanonExpr *LCE, const CanonExpr *UCE) const;
+  Segment genLUSegment(unsigned Level, int64_t Stride, const CanonExpr *LCE,
+                       const CanonExpr *UCE) const;
 
-  bool isWrite() const {
-    return IsWrite;
-  }
+  bool isWrite() const { return IsWrite; }
 
-  const RegDDRef *getLower() const {
-    return Lower;
-  }
+  const RegDDRef *getLower() const { return Lower; }
 
-  const RegDDRef *getUpper() const {
-    return Upper;
-  }
+  const RegDDRef *getUpper() const { return Upper; }
 
-  const CanonExpr *getBaseCE() const {
-    return BaseCE;
-  }
+  const CanonExpr *getBaseCE() const { return BaseCE; }
 
 #ifndef NDEBUG
   LLVM_DUMP_METHOD void dump() {
@@ -201,9 +192,8 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
   Lower = Group.front();
   Upper = Group.back();
 
-  IsWrite = std::any_of(Group.begin(), Group.end(), [](const RegDDRef *Ref) {
-    return Ref->isLval();
-  });
+  IsWrite = std::any_of(Group.begin(), Group.end(),
+                        [](const RegDDRef *Ref) { return Ref->isLval(); });
 
   BaseCE = Lower->getBaseCE();
 
@@ -211,7 +201,7 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
   Symbase2 = DDRefUtils::getNewSymbase();
 
   assert(CanonExprUtils::areEqual(BaseCE, Upper->getBaseCE()) &&
-      "Unexprected group. Left and Right refs should have the same base.");
+         "Unexprected group. Left and Right refs should have the same base.");
 
 #ifndef NDEBUG
   int64_t DiffValue;
@@ -229,7 +219,8 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
 
 // Generates Segment, by replacing IV at Level with the Lower CE and Upper CE.
 Segment IVSegment::genLUSegment(unsigned Level, int64_t Stride,
-    const CanonExpr *LCE, const CanonExpr *UCE) const {
+                                const CanonExpr *LCE,
+                                const CanonExpr *UCE) const {
   int64_t IVCoeff = (*getLower()->canon_begin())->getIVConstCoeff(Level);
 
   auto *Ref1 = genAddressOfAccess(Lower, Level, Stride > 0 ? LCE : UCE);
@@ -252,7 +243,7 @@ Segment IVSegment::genLUSegment(unsigned Level, int64_t Stride,
 
 // TODO: Make this method more generic and implement multiplyByBlob
 void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
-    const CanonExpr *By) {
+                                     const CanonExpr *By) {
   auto ConstCoeff = Expr->getIVConstCoeff(Level);
   if (ConstCoeff == 0) {
     return;
@@ -261,7 +252,7 @@ void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
   auto Term = By->clone();
   Term->multiplyByConstant(ConstCoeff);
 
-  Term->multiplyDenominator(Expr->getDenominator(), false);
+  Term->divide(Expr->getDenominator(), false);
 
   Expr->removeIV(Level);
   CanonExprUtils::add(Expr, Term, true);
@@ -269,7 +260,7 @@ void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
 }
 
 RegDDRef *IVSegment::genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-    const CanonExpr *Expr) {
+                                        const CanonExpr *Expr) {
 
   RegDDRef *Result = Ref->clone();
   CanonExpr *InnerSub = *Result->canon_begin();
@@ -278,7 +269,7 @@ RegDDRef *IVSegment::genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
 
   Result->setAddressOf(true);
 
-  SmallVector<BlobDDRef*, 6> NewBlobs;
+  SmallVector<BlobDDRef *, 6> NewBlobs;
   Result->updateBlobDDRefs(NewBlobs);
   // TODO: Also update DefineAtLevel property for newly added blobs.
   // A new utility will consume NewBlobs vector + origin RegDDRef, which can be
@@ -336,12 +327,13 @@ public:
 
 private:
   struct LoopAnalyzer final : public HLNodeVisitorBase {
-    SmallVector<LoopCandidate, 16>  Candidates;
+    SmallVector<LoopCandidate, 16> Candidates;
 
 #ifndef NDEBUG
     static const char *getResultString(RuntimeDDResult Result) {
       switch (Result) {
-      case OK: return "OK";
+      case OK:
+        return "OK";
       case NO_OPPORTUNITIES:
         return "No opportunities";
       case NON_INNERMOST:
@@ -372,8 +364,8 @@ private:
 
     LoopAnalyzer() : SkipNode(nullptr) {}
 
-    void visit(HLNode *) { }
-    void postVisit(HLNode *) { }
+    void visit(HLNode *) {}
+    void postVisit(HLNode *) {}
 
     void visit(HLLoop *Loop) {
       LoopCandidate Candidate;
@@ -385,20 +377,18 @@ private:
         LoopsMultiversioned++;
       } else {
         DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop " << Loop->getNumber()
-            << " not selected: " << getResultString(Result) << "\n");
+                     << " not selected: " << getResultString(Result) << "\n");
       }
     }
 
-    bool skipRecursion(const HLNode *N) const override {
-      return N == SkipNode;
-    }
+    bool skipRecursion(const HLNode *N) const override { return N == SkipNode; }
 
   private:
     const HLNode *SkipNode;
   };
 
   static RuntimeDDResult isSegmentSupported(const IVSegment &Segment,
-      const HLLoop *Loop, unsigned Level);
+                                            const HLLoop *Loop, unsigned Level);
 
   // \brief Returns required DD tests for an arbitrary loop L.
   static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
@@ -408,7 +398,6 @@ private:
   // \brief Modifies HIR implementing specified tests.
   void generateDDTest(LoopCandidate &Candidate) const;
 };
-
 }
 
 char HIRRuntimeDD::ID = 0;
@@ -417,12 +406,11 @@ INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
-FunctionPass *llvm::createHIRRuntimeDDPass() {
-  return new HIRRuntimeDD();
-}
+FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
 
 RuntimeDDResult HIRRuntimeDD::isSegmentSupported(const IVSegment &Segment,
-    const HLLoop *Loop, unsigned Level) {
+                                                 const HLLoop *Loop,
+                                                 unsigned Level) {
 
   if (Segment.getBaseCE()->isNonLinear()) {
     return NON_LINEAR_BASE;
@@ -430,13 +418,13 @@ RuntimeDDResult HIRRuntimeDD::isSegmentSupported(const IVSegment &Segment,
 
   auto FirstCanonIter = Segment.getLower()->canon_begin();
 
-  if (!CanonExprUtils::mergeable(*FirstCanonIter,
-      Loop->getUpperCanonExpr(), true)) {
+  if (!CanonExprUtils::mergeable(*FirstCanonIter, Loop->getUpperCanonExpr(),
+                                 true)) {
     return UPPER_SUB_TYPE_MISMATCH;
   }
 
-  for (auto CE = FirstCanonIter,
-      E = Segment.getLower()->canon_end(); CE != E; ++CE) {
+  for (auto CE = FirstCanonIter, E = Segment.getLower()->canon_end(); CE != E;
+       ++CE) {
     if ((*CE)->isNonLinear()) {
       return NON_LINEAR_SUBS;
     }
@@ -456,7 +444,7 @@ RuntimeDDResult HIRRuntimeDD::isSegmentSupported(const IVSegment &Segment,
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
-    LoopCandidate &Candidate) {
+                                           LoopCandidate &Candidate) {
   Candidate.Loop = Loop;
   Candidate.GenTripCountTest = true;
 
@@ -504,15 +492,15 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
 
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   SmallVector<RuntimeDDResult, ExpectedNumberOfTests> Supported;
-  for (unsigned i=0; i<Groups.size(); ++i) {
+  for (unsigned i = 0; i < Groups.size(); ++i) {
     IVSegments.push_back(IVSegment(Groups[i]));
     Supported.push_back(isSegmentSupported(IVSegments.back(), Loop, Level));
   }
 
-  for (unsigned i=0; i<IVSegments.size() - 1; ++i) {
+  for (unsigned i = 0; i < IVSegments.size() - 1; ++i) {
     IVSegment &S1 = IVSegments[i];
 
-    for (unsigned j=i + 1; j<IVSegments.size(); ++j) {
+    for (unsigned j = i + 1; j < IVSegments.size(); ++j) {
       if (Groups[i].front()->getSymbase() != Groups[j].front()->getSymbase()) {
         break;
       }
@@ -536,10 +524,8 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
         return Res;
       }
 
-      Candidate.SegmentList.push_back(
-          S1.genLUSegment(Level, Stride, LCE, UCE));
-      Candidate.SegmentList.push_back(
-          S2.genLUSegment(Level, Stride, LCE, UCE));
+      Candidate.SegmentList.push_back(S1.genLUSegment(Level, Stride, LCE, UCE));
+      Candidate.SegmentList.push_back(S2.genLUSegment(Level, Stride, LCE, UCE));
     }
   }
 
@@ -550,15 +536,14 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   return OK;
 }
 
-HLIf *HIRRuntimeDD::createIfStmtForIntersection(
-    Segment &S1, Segment &S2) const {
+HLIf *HIRRuntimeDD::createIfStmtForIntersection(Segment &S1,
+                                                Segment &S2) const {
   RegDDRef *Bounds[] = {
-      S1.Lower /* 0 */, S1.Upper /* 1 */,
-      S2.Lower /* 2 */, S2.Upper /* 3 */,
+      S1.Lower /* 0 */, S1.Upper /* 1 */, S2.Lower /* 2 */, S2.Upper /* 3 */,
   };
 
-  HLIf *If = HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE,
-      Bounds[1], Bounds[2]);
+  HLIf *If =
+      HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE, Bounds[1], Bounds[2]);
   If->addPredicate(PredicateTy::ICMP_UGE, Bounds[3], Bounds[0]);
 
   return If;
@@ -577,11 +562,10 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
   if (Candidate.GenTripCountTest) {
     uint64_t MinTripCount = Candidate.SegmentList.size();
     RegDDRef *TripCountRef = Candidate.Loop->getTripCountDDRef();
-    HLIf *LowTripCountIf = HLNodeUtils::createHLIf(
-        PredicateTy::ICMP_ULT,
-        TripCountRef,
-        DDRefUtils::createConstDDRef(
-            TripCountRef->getDestType(), MinTripCount));
+    HLIf *LowTripCountIf =
+        HLNodeUtils::createHLIf(PredicateTy::ICMP_ULT, TripCountRef,
+                                DDRefUtils::createConstDDRef(
+                                    TripCountRef->getDestType(), MinTripCount));
 
     HLNodeUtils::insertAsFirstChild(LowTripCountIf, OrigGoto, true);
     HLNodeUtils::insertBefore(OrigLabel, LowTripCountIf);
@@ -589,9 +573,9 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
   //////////////////////////
 
   unsigned RefsCount = Candidate.SegmentList.size();
-  for (unsigned i=0; i<RefsCount; i+=2) {
+  for (unsigned i = 0; i < RefsCount; i += 2) {
     auto &S1 = Candidate.SegmentList[i];
-    auto &S2 = Candidate.SegmentList[i+1];
+    auto &S2 = Candidate.SegmentList[i + 1];
 
     HLIf *DDCheck = createIfStmtForIntersection(S1, S2);
 
@@ -618,7 +602,7 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
     HIRInvalidationUtils::invalidateLoopBodyAnalysis(ParentLoop, PreserveFunc);
   } else {
     HIRInvalidationUtils::invalidateNonLoopRegionAnalysis(ParentRegion,
-        PreserveFunc);
+                                                          PreserveFunc);
   }
 }
 

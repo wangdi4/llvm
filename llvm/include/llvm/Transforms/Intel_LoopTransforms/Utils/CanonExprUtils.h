@@ -149,7 +149,7 @@ public:
                                       unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a new blob created from a constant value.
-  static CanonExpr::BlobTy createBlob(int64_t Val, bool Insert = true,
+  static CanonExpr::BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,
                                       unsigned *NewBlobIndex = nullptr);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its

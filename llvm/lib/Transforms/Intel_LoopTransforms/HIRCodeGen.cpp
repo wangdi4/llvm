@@ -158,7 +158,7 @@ private:
                          const Twine &Name);
 
     // \brief Return a value for blob corresponding to BlobIdx
-    // We normally expect Blob type to match CE type. The only exception is 
+    // We normally expect Blob type to match CE type. The only exception is
     // ptr blobs. Ptrs are converted to int of argument type, which should be
     // CE src type
     Value *getBlobValue(int BlobIdx, Type *Ty) {
@@ -328,6 +328,10 @@ private:
     AllocaInst *getNamedValue(const Twine &Name, Type *T);
   };
 
+  // Performs the necessary HIR Level transformations before visiting
+  // CodeGen. Example: hoists the Ztt above the loop.
+  void preVisitCG(HLRegion *Reg) const;
+
 public:
   static char ID;
 
@@ -349,13 +353,14 @@ public:
     unsigned RegionIdx = 1;
     for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
          ++I, ++RegionIdx) {
-      if ((!HIRDebugRegion &&
-           (cast<HLRegion>(I)->shouldGenCode() || forceHIRCG)) ||
+      HLRegion *Reg = cast<HLRegion>(I);
+      if ((!HIRDebugRegion && (Reg->shouldGenCode() || forceHIRCG)) ||
           (RegionIdx == HIRDebugRegion)) {
-        DEBUG(errs() << "Starting the code gen for " << RegionIdx << "\n");
-        DEBUG(I->dump(true));
-        DEBUG(I->dump());
-        CG.visit(I);
+        DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
+        DEBUG(Reg->dump(true));
+        DEBUG(Reg->dump());
+        preVisitCG(Reg);
+        CG.visit(Reg);
         Transformed = true;
       }
     }
@@ -396,6 +401,18 @@ INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(HIRParser)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
+
+void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
+  // Gather all loops for processing.
+  SmallVector<HLLoop *, 64> Loops;
+  HLNodeUtils::gatherAllLoops(Reg, Loops);
+
+  // Perform only Ztt hoisting.
+  // Preheader/Postexit will be handled later.
+  for (auto &I : Loops) {
+    HLNodeUtils::hoistZtt(I);
+  }
+}
 
 Value *HIRCodeGen::CGVisitor::castToDestType(CanonExpr *CE, Value *Val) {
 
@@ -1037,8 +1054,8 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
                       "hir.cmp." + std::to_string(HInst->getNumber()));
     Builder->CreateStore(CmpVal, Ops[0]);
   } else if (isa<GetElementPtrInst>(Inst)) {
-    //Gep Instructions in LLVM may have any number of operands but the HIR 
-    //representation for them is always a single rhs ddref 
+    // Gep Instructions in LLVM may have any number of operands but the HIR
+    // representation for them is always a single rhs ddref
     assert(Ops.size() == 2 && "Gep Inst have single rhs of form &val");
     Builder->CreateStore(Ops[1], Ops[0]);
   } else if (isa<AllocaInst>(Inst)) {

@@ -149,9 +149,9 @@ CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
   return getHIRParser()->createBlob(Val, 0, Insert, NewBlobIndex);
 }
 
-CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, bool Insert,
+CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
                                              unsigned *NewBlobIndex) {
-  return getHIRParser()->createBlob(Val, Insert, NewBlobIndex);
+  return getHIRParser()->createBlob(Val, Ty, Insert, NewBlobIndex);
 }
 
 CanonExpr::BlobTy CanonExprUtils::createAddBlob(CanonExpr::BlobTy LHS,
@@ -374,16 +374,18 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
 
   // Add NewCE2's IVs to Result.
   for (auto I = NewCE2->iv_begin(), End = NewCE2->iv_end(); I != End; ++I) {
-    if (I->Coeff == 0)
+    if (I->Coeff == 0) {
       continue;
+    }
 
     Result->addIV(NewCE2->getLevel(I), I->Index, I->Coeff);
   }
 
   // Add NewCE2's Blobs to Result.
   for (auto I = NewCE2->blob_begin(), End = NewCE2->blob_end(); I != End; ++I) {
-    if (I->Coeff == 0)
+    if (I->Coeff == 0) {
       continue;
+    }
 
     Result->addBlob(I->Index, I->Coeff);
   }
@@ -456,7 +458,7 @@ CanonExpr *CanonExprUtils::cloneAndNegate(const CanonExpr *CE) {
   return Result;
 }
 
-bool CanonExprUtils::hasNonLinearSemantics(int DefLevel, unsigned NestingLevel) {
+bool CanonExprUtils::hasNonLinearSemantics(int DefLevel,
+                                           unsigned NestingLevel) {
   return ((-1 == DefLevel) || (DefLevel && (DefLevel >= (int)NestingLevel)));
 }
-

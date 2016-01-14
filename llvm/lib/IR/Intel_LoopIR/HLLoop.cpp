@@ -72,19 +72,17 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
       ((!getLowerDDRef()->containsUndef() &&
         !getUpperDDRef()->containsUndef() &&
         !getStrideDDRef()->containsUndef()) ||
-       (getLowerDDRef()->containsUndef() &&
-        getUpperDDRef()->containsUndef() &&
+       (getLowerDDRef()->containsUndef() && getUpperDDRef()->containsUndef() &&
         getStrideDDRef()->containsUndef())) &&
-        "Lower, Upper and Stride DDRefs "
-        "should be all defined or all undefined");
+      "Lower, Upper and Stride DDRefs "
+      "should be all defined or all undefined");
 }
 
 HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
       IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(true),
-      IVType(HLLoopObj.IVType) {
+      NestingLevel(0), IsInnermost(true), IVType(HLLoopObj.IVType) {
 
   const RegDDRef *Ref;
 
@@ -496,8 +494,9 @@ const CanonExpr *HLLoop::getStrideCanonExpr() const {
 
 CanonExpr *HLLoop::getTripCountCanonExpr() const {
 
-  if (isUnknown() || !getStrideDDRef()->isIntConstant())
+  if (isUnknown() || !getStrideDDRef()->isIntConstant()) {
     return nullptr;
+  }
 
   CanonExpr *Result = nullptr;
   const CanonExpr *UBCE = getUpperCanonExpr();
@@ -511,14 +510,14 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   // TripCount Canon Expr = (UB-LB+Stride)/Stride;
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
   Result = CanonExprUtils::cloneAndSubtract(UBCE, getLowerCanonExpr());
-  Result->addConstant(StrideConst);
-  Result->multiplyDenominator(StrideConst, true);
+  Result->addConstant(StrideConst, true);
+  Result->divide(StrideConst, true);
   return Result;
 }
 
 RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
 
-  SmallVector<const RegDDRef*, 4> LoopRefs;
+  SmallVector<const RegDDRef *, 4> LoopRefs;
 
   CanonExpr *TripCE = getTripCountCanonExpr();
   RegDDRef *TripRef =

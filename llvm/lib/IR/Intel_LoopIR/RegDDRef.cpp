@@ -13,6 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
@@ -22,6 +23,8 @@
 
 using namespace llvm;
 using namespace llvm::loopopt;
+
+#define DEBUG_TYPE "hir-regddref"
 
 RegDDRef::RegDDRef(unsigned SB)
     : DDRef(DDRef::RegDDRefVal, SB), GepInfo(nullptr), Node(nullptr) {}
@@ -306,9 +309,7 @@ bool RegDDRef::isTerminalRef() const {
   return false;
 }
 
-bool RegDDRef::isMemRef() const {
-  return hasGEPInfo() && !isAddressOf();
-}
+bool RegDDRef::isMemRef() const { return hasGEPInfo() && !isAddressOf(); }
 
 bool RegDDRef::isSelfBlob() const {
   if (!isTerminalRef()) {
@@ -520,7 +521,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
 }
 
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
-    bool AssumeLvalIfDetached) {
+                                bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
 
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
@@ -615,7 +616,7 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
 
   collectTempBlobIndices(BlobIndices);
 
-  // Check that the DDRef constains a blob DDRef for each contained temp blob.
+  // Check that the DDRef contains a blob DDRef for each contained temp blob.
   for (auto &BI : BlobIndices) {
     bool BlobFound = false;
 

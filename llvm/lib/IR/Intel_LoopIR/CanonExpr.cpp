@@ -283,7 +283,7 @@ void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
   }
 }
 
-void CanonExpr::multiplyDenominator(int64_t Val, bool Simplify) {
+void CanonExpr::divide(int64_t Val, bool Simplify) {
   setDenominator(Denominator * Val, Simplify);
 }
 
@@ -524,7 +524,7 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
     int64_t NewCoeff = 1;
 
     // Create a mul blob from new index/coeff.
-    MulBlob1 = CanonExprUtils::createBlob(Coeff, false);
+    MulBlob1 = CanonExprUtils::createBlob(Coeff, getSrcType(), false);
 
     if (Index != INVALID_BLOB_INDEX) {
       MulBlob1 = CanonExprUtils::createMulBlob(MulBlob1, getBlob(Index), true,
@@ -533,7 +533,8 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
     // Create a mul blob from existing index/coeff.
     if (IVCoeffs[Lvl - 1].Coeff) {
-      MulBlob2 = CanonExprUtils::createBlob(IVCoeffs[Lvl - 1].Coeff, false);
+      MulBlob2 = CanonExprUtils::createBlob(IVCoeffs[Lvl - 1].Coeff,
+                                            getSrcType(), false);
 
       if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
         MulBlob2 = CanonExprUtils::createMulBlob(
@@ -571,12 +572,14 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
   }
 }
 
-void CanonExpr::addIV(unsigned Lvl, unsigned Index, int64_t Coeff) {
-  addIVInternal(Lvl, Index, Coeff);
+void CanonExpr::addIV(unsigned Lvl, unsigned Index, int64_t Coeff,
+                      bool IsMathAdd) {
+  addIVInternal(Lvl, Index, getMathCoeff(Coeff, IsMathAdd));
 }
 
-void CanonExpr::addIV(iv_iterator IVI, unsigned Index, int64_t Coeff) {
-  addIV(getLevel(IVI), Index, Coeff);
+void CanonExpr::addIV(iv_iterator IVI, unsigned Index, int64_t Coeff,
+                      bool IsMathAdd) {
+  addIV(getLevel(IVI), Index, Coeff, IsMathAdd);
 }
 
 void CanonExpr::removeIV(unsigned Lvl) {
@@ -717,12 +720,12 @@ void CanonExpr::setBlobCoeff(blob_iterator BlobI, int64_t Coeff) {
   }
 }
 
-void CanonExpr::addBlob(unsigned Index, int64_t Coeff) {
-  addBlobInternal(Index, Coeff, false);
+void CanonExpr::addBlob(unsigned Index, int64_t Coeff, bool IsMathAdd) {
+  addBlobInternal(Index, getMathCoeff(Coeff, IsMathAdd), false);
 }
 
-void CanonExpr::addBlob(blob_iterator BlobI, int64_t Coeff) {
-  BlobI->Coeff += Coeff;
+void CanonExpr::addBlob(blob_iterator BlobI, int64_t Coeff, bool IsMathAdd) {
+  BlobI->Coeff += getMathCoeff(Coeff, IsMathAdd);
 
   if (!BlobI->Coeff) {
     removeBlob(BlobI);
@@ -747,7 +750,7 @@ void CanonExpr::replaceBlob(unsigned OldIndex, unsigned NewIndex) {
 
   assert((NewIndex != INVALID_BLOB_INDEX) && "NewIndex is invalid!");
 
-  int64_t Coeff;
+  int64_t Coeff = 0;
   bool found = false;
   BlobIndexToCoeff Blob(OldIndex, 0);
 

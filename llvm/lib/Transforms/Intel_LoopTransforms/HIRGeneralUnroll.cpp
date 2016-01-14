@@ -331,8 +331,8 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
   if (Loop->hasPreheader() || Loop->hasPostexit()) {
     return false;
   }
-  
-  if(!Loop->hasChildren()) {
+
+  if (!Loop->hasChildren()) {
     return false;
   }
 
@@ -354,8 +354,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
       return false;
     *IsConstLoop = true;
   } else {
-    // Currently disabling.
-    return false;
     *IsConstLoop = false;
     // TODO: Create explicit Ztt for Do-While loop
     if (Loop->isDoWhile()) {
@@ -364,8 +362,10 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
   }
 
   // Ignore loops which have switch or function calls for unrolling.
-  if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(), Loop->getLastChild()))
+  if (HLNodeUtils::hasSwitchOrCall(Loop->getFirstChild(),
+                                   Loop->getLastChild())) {
     return false;
+  }
 
   return true;
 }
@@ -407,7 +407,8 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
         UnrollLoop->getParentRegion(), isPreserved);
   }
 
-  DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops ");
+  DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops No:"
+               << LoopsGenUnrolled);
   DEBUG(UnrollLoop->dump());
 }
 
@@ -440,7 +441,7 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
     SmallVector<BlobDDRef *, 4> NewBlobRefs;
 
     // Use the same canon expr to generate the division.
-    TripCE->multiplyDenominator(UnrollFactor, true);
+    TripCE->divide(UnrollFactor, true);
 
     // Update blob DDRefs.
     Ref->updateBlobDDRefs(NewBlobRefs);

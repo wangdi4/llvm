@@ -197,7 +197,7 @@ private:
 
   /// \brief Wrapper over ScalarEvolution's getSCEVForHIR().
   const SCEV *getSCEV(Value *Val) const;
- 
+
   /// \brief Returns the integer constant contained in ConstSCEV.
   int64_t getSCEVConstantValue(const SCEVConstant *ConstSCEV) const;
 
@@ -347,7 +347,7 @@ private:
                                unsigned *NewBlobIndex);
 
   /// \brief Returns a new blob created from a constant value.
-  CanonExpr::BlobTy createBlob(int64_t Val, bool Insert,
+  CanonExpr::BlobTy createBlob(int64_t Val, Type *Ty, bool Insert,
                                unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its

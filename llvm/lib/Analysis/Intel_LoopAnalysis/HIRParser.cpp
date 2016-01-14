@@ -196,10 +196,11 @@ CanonExpr::BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, bool Insert,
+CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
                                         unsigned *NewBlobIndex) {
-  Type *Int64Type = IntegerType::get(getContext(), 64);
-  auto Blob = SE->getConstant(Int64Type, Val, false);
+
+  assert(Ty && "Type cannot be null!");
+  auto Blob = SE->getConstant(Ty, Val, false);
 
   insertBlobHelper(Blob, INVALID_SYMBASE, Insert, NewBlobIndex);
 
@@ -992,9 +993,12 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
 
       // Workaround to mark blob as linear even if the nesting level is zero.
       // All blobs defined outside any loop are treated as linear regardless of
-      // whether the definition lies inside or outside the region. This keeps the
-      // marking scheme simple as we don't need to track the blob definition. The
-      // trade-off is a logical inconsistency where the blob is defined inside the
+      // whether the definition lies inside or outside the region. This keeps
+      // the
+      // marking scheme simple as we don't need to track the blob definition.
+      // The
+      // trade-off is a logical inconsistency where the blob is defined inside
+      // the
       // region and its uses outside any loop are still marked as linear.
       NestingLevel++;
     }
@@ -1597,15 +1601,15 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         parseRecursive(OffsetSCEV, IndexCE, Level);
 
         // Normalize with repsect to element size.
-        IndexCE->multiplyDenominator(ElementSize, true);
+        IndexCE->divide(ElementSize, true);
       }
       // Decompose phi into base and index ourselves.
       else if (RI->isHeaderPhi(BasePhi)) {
         BaseCE = createHeaderPhiInitCE(BasePhi, Level);
         IndexCE = createHeaderPhiIndexCE(BasePhi, Level);
 
-        // Normalize with repsect to element size.
-        IndexCE->multiplyDenominator(ElementSize, true);
+        // Normalize with respect to element size.
+        IndexCE->divide(ElementSize, true);
       }
     }
 
