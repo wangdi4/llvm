@@ -293,17 +293,6 @@ int ClangFECompilerConsumeSPIRVTask::ConsumeSPIRV(IOCLFEBinaryResult* *pBinaryRe
     pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
     pResult->setIRName(pModule->getName());
 
-#ifdef OCLFRONTEND_PLUGINS
-    if (getenv("OCLBACKEND_PLUGINS") && NULL == getenv("OCL_DISABLE_SOURCE_RECORDER"))
-    {
-      Intel::OpenCL::Frontend::SPIRVData spirvData(m_pProgDesc->pSPIRVContainer, m_pProgDesc->uiSPIRVSize);
-
-      spirvData.setOptions(m_pProgDesc->pszOptions);
-      spirvData.setBinaryResult(pResult.get());
-      g_pluginManager.OnSPIRVConsumption(&spirvData);
-    }
-#endif //OCLFRONTEND_PLUGINS
-
     if (pBinaryResult) {
       *pBinaryResult = pResult.release();
     }
