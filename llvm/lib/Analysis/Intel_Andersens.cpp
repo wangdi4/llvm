@@ -410,6 +410,14 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   // exits a points-to path from Node X1 to Node Xn. If Xn is escaped,
   // it implies that there exists one graph node among X1.Xn-1 which
   // can be accessed by outside routine.
+  
+  // Escape analysis is inhibited if the point-to graph is too
+  // complicated. We may also need to check the size of point-to set.
+  // It is a workaround and we will come up with better solution.
+  #define MAX_GRAPH_NODE_NUM 10000
+  if (GraphNodes.size() > MAX_GRAPH_NODE_NUM)
+    return;
+
 
   // It collects the static variables into the map table
   // NonEscapeStaticVars.
@@ -441,6 +449,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   //    escaped, it implies that the point-to set of the static variable
   //    is escaped. It will collect those graph nodes into EscapedNodeSet.
   //
+
   NodeSetTy EscapedNodeSet;
   for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
        I != E; ++I) {
