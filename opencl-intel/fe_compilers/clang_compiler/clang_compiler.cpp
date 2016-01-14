@@ -33,6 +33,11 @@ using namespace Intel::OpenCL::FECompilerAPI;
 
 extern DECLARE_LOGGER_CLIENT;
 
+void ClangCompilerTerminate()
+{
+    llvm::llvm_shutdown();
+}
+
 static volatile bool lazyClangCompilerInit =
     true; // the flag must be 'volatile' to prevent caching in a CPU register
 static llvm::sys::Mutex lazyClangCompilerInitMutex;
@@ -42,15 +47,12 @@ void ClangCompilerInitialize()
     if (lazyClangCompilerInit) {
         llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
 
+        atexit(ClangCompilerTerminate);
+
         if (lazyClangCompilerInit) {
             lazyClangCompilerInit = false;
         }
     }
-}
-
-void ClangCompilerTerminate()
-{
-    llvm::llvm_shutdown();
 }
 
 // ClangFECompiler class implementation

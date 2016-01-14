@@ -34,16 +34,6 @@ set(TARGET_SOURCE_FILES
     stdafx.cpp
 )
 
-if (WIN32)
-    list( APPEND TARGET_SOURCE_FILES
-            dllmain_win32.cpp
-        )
-else()
-    list( APPEND TARGET_SOURCE_FILES
-            dllmain_linux.cpp
-        )
-endif()
-
 #
 # Compilation flags
 #
