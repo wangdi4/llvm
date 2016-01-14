@@ -111,16 +111,13 @@ void FrontEndCompiler::FreeResources()
 
 cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
                                          unsigned int   uiProgramBinarySize,
-                                         unsigned int   uiNumInputHeaders,
-                                         const char**   pszInputHeaders,
-                                         const char**   pszInputHeadersNames,
                                          const char*    szOptions,
                                          OUT char**     ppBinary,
                                          OUT size_t*    puiBinarySize,
                                          OUT char**     pszCompileLog) const
 {
-    LOG_DEBUG(TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, uiNumInputHeaders=%d, pszInputHeaders=%d, pszInputHeadersNames=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
-        szProgramBinary, uiProgramBinarySize, uiNumInputHeaders, pszInputHeaders, pszInputHeadersNames, szOptions, ppBinary, puiBinarySize, pszCompileLog);
+    LOG_DEBUG(TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+        szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize, pszCompileLog);
 
     IOCLFEBinaryResult* pResult;
     int err = CL_SUCCESS;

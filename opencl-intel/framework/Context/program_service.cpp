@@ -165,9 +165,6 @@ bool CompileTask::Execute()
 
         m_pFECompiler->ParseSpirv(szSource,
                                   binarySize,
-                                  m_uiNumHeaders,
-                                  m_pszHeaders,
-                                  m_pszHeadersNames,
                                   m_sOptions.c_str(),
                                   pOutBinary.getOutPtr(),
                                   &uiOutBinarySize,
