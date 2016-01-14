@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace FECompilerAPI {
 #define CL_FE_INTERNAL_ERROR_OHNO -1    //thanks to doron for the awesome name
 
 // Compile task descriptor, contains FE compilation info
-struct	FECompileProgramDescriptor
+struct FECompileProgramDescriptor
 {
     // A pointer to main program's source (assumed one nullterminated string)
     const char*     pProgramSource;
@@ -55,7 +55,7 @@ struct	FECompileProgramDescriptor
 };
 
 // Link task descriptor, contains FE Linking info
-struct	FELinkProgramsDescriptor
+struct FELinkProgramsDescriptor
 {
     // array of binary containers
     const void**    pBinaryContainers;
@@ -64,6 +64,16 @@ struct	FELinkProgramsDescriptor
     // the size in bytes of each container in pBinaryContainers
     const size_t*   puiBinariesSizes;
     // A string for link options
+    const char*     pszOptions;
+};
+
+struct FEConsumeSPIRVProgramDescriptor
+{
+    // binary container for SPIRV program
+    const void*     pSPIRVContainer;
+    // the size in bytes of the container pBinaryContainer
+    size_t          uiSPIRVSize;
+    // A string for compile options
     const char*     pszOptions;
 };
 
@@ -82,6 +92,12 @@ public:
     // Output: The interface to link result
     // Returns: Link status
     virtual int LinkPrograms(FELinkProgramsDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
+
+    // Synchronous function
+    // Input: pProgDesc - descriptor of the program to parse
+    // Output: The interface to parse result
+    // Returns: SPIR-V parsing status
+    virtual int ConsumeSPIRV(FEConsumeSPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pBin - the program's binary including the header

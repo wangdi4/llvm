@@ -22,7 +22,9 @@ public:
                                                           piRet));
     }
 
-    virtual const char* GetSourceInternal() { return m_pIL.data(); };
+    virtual const char* GetSourceInternal() { return m_pIL.data(); }
+
+    virtual unsigned int GetSize() { return m_pIL.size(); }
 
     cl_err_code GetInfo(cl_int  param_name,
                         size_t  param_value_size,

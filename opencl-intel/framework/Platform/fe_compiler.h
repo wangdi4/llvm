@@ -118,6 +118,31 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     OUT char**    pszCompileLog) const;
 
         /******************************************************************************************
+        * Function:     ParseSpirv
+        * Description:  Convert SPIRV binary to LLVM.
+        * Arguments:    szProgramBinary - the main program binary.
+        *               uiNumInputHeaders - the number of input headers in pszInputHeaders.
+        *               pszInputHeaders - an array of input headers strings.
+        *               pszInputHeadersNames - array of headers names corresponding to pszInputHeaders.
+        *               szOptions - compile options string.
+        * Output:       ppBinary - the compiled binary container.
+        *               puiBinarySize - pBinary size in bytes.
+        *               pszCompileLog - compile log string.
+        * Return value: CL_SUCCESS - The operation succeeded.
+        * Author:       Vlad Romanov
+        * Date:         January 2016
+        ******************************************************************************************/
+        cl_err_code ParseSpirv(const char*    szProgramBinary,
+                               unsigned int   uiProgramBinarySize,
+                               unsigned int   uiNumInputHeaders,
+                               const char**   pszInputHeaders,
+                               const char**   pszInputHeadersNames,
+                               const char*    szOptions,
+                               OUT char**     ppBinary,
+                               OUT size_t*    puiBinarySize,
+                               OUT char**     pszCompileLog) const;
+
+        /******************************************************************************************
         * Function:     LinkProgram    
         * Description:  Compile source code and return binary data
         * Arguments:    ppBinaries - array of binary containers to be link together

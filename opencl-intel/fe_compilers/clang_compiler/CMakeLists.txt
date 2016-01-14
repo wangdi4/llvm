@@ -5,6 +5,13 @@
 use_eh(TRUE)
 use_rtti(FALSE)
 
+if( NOT DEFINED LLVM_PATH_FE )
+    message( FATAL_ERROR "LLVM_PATH_FE is not specified. Please specify LLVM library location for backend using LLVM_PATH_FE parameter to CMAKE" )
+endif()
+
+set(LLVM_PATH ${LLVM_PATH_FE})
+find_package(LLVM REQUIRED)
+
 # set that name of the main output file as a target name
 set( TARGET_NAME clang_compiler${BUILD_PLATFORM} )
 
@@ -42,10 +49,14 @@ endif()
 #
 set( CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS")
 
+add_definitions( -D__STDC_LIMIT_MACROS )
+add_definitions( -D__STDC_CONSTANT_MACROS )
+
 #
 # Include directories
 #
 include_directories( AFTER
+            ${LLVM_INCLUDE_DIRS}
             ${LLVM_INCLUDE_DIRS}/cclang
             ${CMAKE_SOURCE_DIR}/backend/metadata_api
             ${CMAKE_SOURCE_DIR}/backend/plugin_manager
@@ -95,6 +106,14 @@ target_link_libraries( ${TARGET_NAME}
                         dynamic_load
                         cl_logger
                         cl_sys_utils
+                        # LLVM LIBS
+                        # ToDo: Doing so must be done with cautious as cclang export all the symbols
+                        # on Linux. So one can never know which LLVM symbol (this or from cclang) would
+                        # be actually used for every particular call to LLVM.
+                        LLVMBitWriter
+                        LLVMCore
+                        LLVMSupport
+                        LLVMSPIRVLib
 )
 
 if(WIN32)

@@ -4,6 +4,8 @@
 
 using namespace Intel::OpenCL::ClangFE;
 
+void ClangCompilerTerminate();
+
 void __attribute__ ((constructor)) dll_init(void);
 void __attribute__ ((destructor)) dll_fini(void);
 
@@ -13,5 +15,6 @@ void dll_init(void)
 
 void dll_fini(void)
 {
+  ClangCompilerTerminate();
 }
 
