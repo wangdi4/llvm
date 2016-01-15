@@ -125,13 +125,13 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
     assert(sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiProgramBinarySize &&
            _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)szProgramBinary)[0] && "The binary is not SPIRV program.");
 
-    FEConsumeSPIRVProgramDescriptor spirvDesc;
+    FESPIRVProgramDescriptor spirvDesc;
 
     spirvDesc.pSPIRVContainer = szProgramBinary;
     spirvDesc.uiSPIRVSize = uiProgramBinarySize;
     spirvDesc.pszOptions = szOptions;
 
-    err = m_pFECompiler->ConsumeSPIRV(&spirvDesc, &pResult);
+    err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
 
     if (CL_OUT_OF_HOST_MEMORY == err)
     {

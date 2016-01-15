@@ -94,12 +94,12 @@ int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDe
     return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
 }
 
-int ClangFECompiler::ConsumeSPIRV(FEConsumeSPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
+int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
 {
     assert(NULL != pProgDesc);
     assert(NULL != pBinaryResult);
 
-    return ClangFECompilerConsumeSPIRVTask(pProgDesc).ConsumeSPIRV(pBinaryResult);
+    return ClangFECompilerParseSPIRVTask(pProgDesc).ParseSPIRV(pBinaryResult);
 }
 
 int ClangFECompiler::GetKernelArgInfo(const void*             pBin,

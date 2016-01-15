@@ -67,7 +67,7 @@ struct FELinkProgramsDescriptor
     const char*     pszOptions;
 };
 
-struct FEConsumeSPIRVProgramDescriptor
+struct FESPIRVProgramDescriptor
 {
     // binary container for SPIRV program
     const void*     pSPIRVContainer;
@@ -97,7 +97,7 @@ public:
     // Input: pProgDesc - descriptor of the program to parse
     // Output: The interface to parse result
     // Returns: SPIR-V parsing status
-    virtual int ConsumeSPIRV(FEConsumeSPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
+    virtual int ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pBin - the program's binary including the header

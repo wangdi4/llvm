@@ -269,9 +269,9 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult* *pBinaryResult)
 }
 
 //
-// ClangFECompilerConsumeSPIRVTask call implementation
+// ClangFECompilerParseSPIRVTask call implementation
 //
-int ClangFECompilerConsumeSPIRVTask::ConsumeSPIRV(IOCLFEBinaryResult* *pBinaryResult)
+int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult)
 {
     // parse SPIR-V
     std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());

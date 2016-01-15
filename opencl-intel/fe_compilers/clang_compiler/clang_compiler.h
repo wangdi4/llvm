@@ -27,7 +27,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
         int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc,
                          IOCLFEBinaryResult* *pBinaryResult);
 
-        int ConsumeSPIRV(Intel::OpenCL::FECompilerAPI::FEConsumeSPIRVProgramDescriptor* pProgDesc,
+        int ParseSPIRV(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc,
                          IOCLFEBinaryResult* *pBinaryResult);
 
         int GetKernelArgInfo(const void*        pBin,

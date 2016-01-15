@@ -99,16 +99,16 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              IOCLFEKernelArgInfo** ppResult);
     };
 
-    class ClangFECompilerConsumeSPIRVTask : ClangFETask
+    class ClangFECompilerParseSPIRVTask : ClangFETask
     {
     public:
-        ClangFECompilerConsumeSPIRVTask(Intel::OpenCL::FECompilerAPI::FEConsumeSPIRVProgramDescriptor* pProgDesc)
+        ClangFECompilerParseSPIRVTask(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc)
           : m_pProgDesc(pProgDesc)
         {}
 
-        int ConsumeSPIRV(IOCLFEBinaryResult* *pBinaryResult);
+        int ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult);
     private:
-        Intel::OpenCL::FECompilerAPI::FEConsumeSPIRVProgramDescriptor* m_pProgDesc;
+        Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* m_pProgDesc;
     };
 
     // ClangFECompilerCheckCompileOptions
