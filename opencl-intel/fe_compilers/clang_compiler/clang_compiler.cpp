@@ -47,9 +47,8 @@ void ClangCompilerInitialize()
     if (lazyClangCompilerInit) {
         llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
 
-        atexit(ClangCompilerTerminate);
-
         if (lazyClangCompilerInit) {
+            atexit(ClangCompilerTerminate);
             lazyClangCompilerInit = false;
         }
     }

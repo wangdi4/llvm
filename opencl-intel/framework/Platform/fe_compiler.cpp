@@ -128,7 +128,7 @@ cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
     FESPIRVProgramDescriptor spirvDesc;
 
     spirvDesc.pSPIRVContainer = szProgramBinary;
-    spirvDesc.uiSPIRVSize = uiProgramBinarySize;
+    spirvDesc.uiSPIRVContainerSize = uiProgramBinarySize;
     spirvDesc.pszOptions = szOptions;
 
     err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);

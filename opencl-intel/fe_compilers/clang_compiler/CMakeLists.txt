@@ -39,8 +39,7 @@ set(TARGET_SOURCE_FILES
 #
 set( CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -D OCL_DEV_BACKEND_PLUGINS -D OCLFRONTEND_PLUGINS")
 
-add_definitions( -D__STDC_LIMIT_MACROS )
-add_definitions( -D__STDC_CONSTANT_MACROS )
+add_definitions( ${LLVM_DEFINITIONS} )
 
 #
 # Include directories
@@ -97,8 +96,8 @@ target_link_libraries( ${TARGET_NAME}
                         cl_logger
                         cl_sys_utils
                         # LLVM LIBS
-                        # ToDo: Doing so must be done with cautious as cclang export all the symbols
-                        # on Linux. So one can never know which LLVM symbol (this or from cclang) would
+                        # Doing so must be done with caution as cclang export all the symbols
+                        # on Linux (CORC-159). So one can never know which LLVM symbol (this or from cclang) would
                         # be actually used for every particular call to LLVM.
                         LLVMBitWriter
                         LLVMCore

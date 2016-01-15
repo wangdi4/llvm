@@ -71,8 +71,8 @@ struct FESPIRVProgramDescriptor
 {
     // binary container for SPIRV program
     const void*     pSPIRVContainer;
-    // the size in bytes of the container pBinaryContainer
-    size_t          uiSPIRVSize;
+    // the size in bytes of the container pSPIRVContainer
+    unsigned int    uiSPIRVContainerSize;
     // A string for compile options
     const char*     pszOptions;
 };
@@ -83,26 +83,26 @@ class IOCLFECompiler
 public:
     // Synchronous function
     // Input: pProgDesc - descriptor of the program to compile
-    // Output: The interface to build result
+    // Output: pBinaryResult - The interface to build result
     // Returns: Compile status
     virtual int CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pProgDesc - descriptor of the programs to link
-    // Output: The interface to link result
+    // Output: pBinaryResult - The interface to link result
     // Returns: Link status
     virtual int LinkPrograms(FELinkProgramsDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pProgDesc - descriptor of the program to parse
-    // Output: The interface to parse result
+    // Output: pBinaryResult - The interface to parse result
     // Returns: SPIR-V parsing status
     virtual int ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pBin - the program's binary including the header
     //        szKernelName - the name of the kernel for which we query the arg info
-    // Output: The interface to kernelArgInfo result
+    // Output: pArgInfo - The interface to kernelArgInfo result
     // Returns: CL_SUCCESS in case of success
     //          CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
     //          CL_OUT_OF_HOST_MEMORY for out of host memory

@@ -278,11 +278,11 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
     llvm::Module* pModule;
     std::string errorMsg;
     std::stringstream inputStream(std::string((const char*)m_pProgDesc->pSPIRVContainer,
-        m_pProgDesc->uiSPIRVSize), std::ios_base::in);
+        m_pProgDesc->uiSPIRVContainerSize), std::ios_base::in);
 
     int success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
 
-    std::unique_ptr<OCLFEBinaryResult> pResult(new OCLFEBinaryResult());
+    OCLFEBinaryResult* pResult(new OCLFEBinaryResult());
 
     // serialize to LLVM bitcode
     llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
@@ -294,7 +294,7 @@ int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult
     pResult->setIRName(pModule->getName());
 
     if (pBinaryResult) {
-      *pBinaryResult = pResult.release();
+      *pBinaryResult = pResult;
     }
 
     return success ? CL_SUCCESS : CL_INVALID_PROGRAM;

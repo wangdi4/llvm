@@ -456,7 +456,6 @@ bool DeviceBuildTask::Execute()
     m_pDeviceProgram->SetBuildLogInternal("Device build started\n");
     m_pDeviceProgram->SetStateInternal(DEVICE_PROGRAM_BE_BUILDING);
 
-
     pDeviceAgent = m_pDeviceProgram->GetDevice()->GetDeviceAgent();
     uiBinarySize = m_pDeviceProgram->GetBinarySizeInternal();
     pBinary      = m_pDeviceProgram->GetBinaryInternal();
