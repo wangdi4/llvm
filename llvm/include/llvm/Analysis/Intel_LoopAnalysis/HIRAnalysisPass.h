@@ -1,6 +1,6 @@
 //===------- HIRAnalysisPass.h - Base class for HIR analyses -*- C++ -*----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -79,20 +79,20 @@ public:
   // regions/loops/nodes.
 
   /// \brief This method informs the analysis that the loop body has been
-  /// modified. Most analysis would want to implement this function to 
+  /// modified. Most analysis would want to implement this function to
   /// invalidate results.
   virtual void markLoopBodyModified(const HLLoop *Lp) = 0;
 
   /// \brief This method informs the analysis that the loop bounds has been
   /// modified. Default implementation is empty since most analysis would not
   /// care about changes to loop bounds alone.
-  virtual void markLoopBoundsModified(const HLLoop *Lp){}
+  virtual void markLoopBoundsModified(const HLLoop *Lp) {}
 
   /// \brief This methods informs the analysis that one or more nodes which lie
   /// outside any loop in the region have been modified. Default implementation
-  /// is empty since most analysis would not care about changes to nodes 
+  /// is empty since most analysis would not care about changes to nodes
   /// outside loops.
-  virtual void markNonLoopRegionModified(const HLRegion *Reg){}
+  virtual void markNonLoopRegionModified(const HLRegion *Reg) {}
 };
 
 } // End namespace loopopt

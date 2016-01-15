@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -33,11 +33,11 @@ class PiBlock {
 public:
   enum class PiBlockType : unsigned char {
     SingleStmt = 0, // piblock is a single hlinst/hlif at top level,
-                  // may or may not have self dependence
-    MultipleStmt, // piblock contains multiple stmts
-    SingleLoop,   // single loop, may or may not have loop carried deps
-    MultipleLoop, // piblock contains multiple loops, but no stmts
-    StmtAndLoop,  // piblock contains multiple stmts and loops
+                    // may or may not have self dependence
+    MultipleStmt,   // piblock contains multiple stmts
+    SingleLoop,     // single loop, may or may not have loop carried deps
+    MultipleLoop,   // piblock contains multiple loops, but no stmts
+    StmtAndLoop,    // piblock contains multiple stmts and loops
   };
 
   PiBlock(const std::vector<DistPPNode *> &SCCNodes, PiGraph *G)
@@ -141,7 +141,7 @@ public:
   const SmallVector<const DDEdge *, 16> &getDDEdges() const { return DDEdges; }
 
   PiGraphEdge(PiBlock *Start, PiBlock *End,
-             const SmallVectorImpl<const DDEdge *> &EdgeList)
+              const SmallVectorImpl<const DDEdge *> &EdgeList)
       : Src(Start), Sink(End), DDEdges(EdgeList.begin(), EdgeList.end()) {
     assert(Start && End && "Null src/sink for pi edge");
   }
@@ -330,4 +330,3 @@ void llvm::loopopt::PiGraph::createNodes() {
     std::reverse(PiBlocks.begin(), PiBlocks.end());
   }
 }
-

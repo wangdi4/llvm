@@ -1,6 +1,6 @@
 //===- RegionIdentification.cpp - Identifies HIR Regions ------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -262,7 +262,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
     return false;
   }
- 
+
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 

@@ -1,6 +1,6 @@
 //===-------- HLNodeUtils.h - Utilities for HLNode class ---*- C++ -*------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -898,10 +898,9 @@ public:
     gatherLoopswithLevel(const_cast<HLNode *>(Node), Loops, Level);
   }
 
-  /// \brief Gathers all the loops across regions and stores them in the 
+  /// \brief Gathers all the loops across regions and stores them in the
   ///  Loops vector.
-  template <typename T>
-  static void gatherAllLoops(SmallVectorImpl<T> &Loops) {
+  template <typename T> static void gatherAllLoops(SmallVectorImpl<T> &Loops) {
     LoopLevelVisitor<T, VisitKind::All> LoopVisit(Loops);
     HLNodeUtils::visitAll(LoopVisit);
   }

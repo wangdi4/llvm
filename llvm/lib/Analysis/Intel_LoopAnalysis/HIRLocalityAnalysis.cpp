@@ -1,6 +1,6 @@
 //===---- HIRLocalityAnalysis.cpp - Computes Locality Analysis ------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -534,8 +534,8 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
 
     // Create Groupings based on index.
 
-    DDRefGrouping::createGroups(RefGroups,
-        LoopMemRefMap, CurLoop->getNestingLevel(), NumCacheLines);
+    DDRefGrouping::createGroups(RefGroups, LoopMemRefMap,
+                                CurLoop->getNestingLevel(), NumCacheLines);
     DEBUG(DDRefGrouping::dump(RefGroups));
 
     computeTempReuseLocality(CurLoop);

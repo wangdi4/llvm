@@ -1,6 +1,6 @@
 //===- SymbaseAssignment.cpp - Assigns symbase to ddrefs ------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -170,7 +170,7 @@ bool SymbaseAssignment::runOnFunction(Function &F) {
 void SymbaseAssignment::print(raw_ostream &OS, const Module *M) const {
   NonConstantRefGatherer::MapTy SymToRefs;
   NonConstantRefGatherer::gatherRange(HIRP->hir_cbegin(), HIRP->hir_cend(),
-      SymToRefs);
+                                      SymToRefs);
 
   formatted_raw_ostream FOS(OS);
   FOS << "Symbase Reference Vector:";

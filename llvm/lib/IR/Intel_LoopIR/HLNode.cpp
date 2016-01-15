@@ -1,6 +1,6 @@
 //===-- HLNode.cpp - Implements the HLNode class ---------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -32,8 +32,7 @@ std::set<HLNode *> HLNode::Objs;
 unsigned HLNode::GlobalNum(0);
 
 HLNode::HLNode(unsigned SCID)
-    : SubClassID(SCID), Parent(nullptr), TopSortNum(0),
-      MaxTopSortNum(0) {
+    : SubClassID(SCID), Parent(nullptr), TopSortNum(0), MaxTopSortNum(0) {
   Objs.insert(this);
   setNextNumber();
 }
@@ -193,7 +192,7 @@ HLLoop *HLNode::getOutermostParentLoop() const {
     TempLoop = TempLoop->getParentLoop();
   }
 
-  return ParLoop;   
+  return ParLoop;
 }
 
 unsigned HLNode::getHLNodeLevel() const {

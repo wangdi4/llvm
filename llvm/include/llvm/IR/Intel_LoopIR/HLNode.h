@@ -1,6 +1,6 @@
 //===----------- HLNode.h - High level IR node ------------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -37,10 +37,8 @@ class HLLabel;
 class HLLoop;
 class HLRegion;
 
-
 // Typedef for a list of HLNodes.
 typedef iplist<HLNode> HLContainerTy;
-
 
 // Container for Goto's
 typedef SmallVector<HLGoto *, 16> GotoContainerTy;

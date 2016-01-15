@@ -1,6 +1,6 @@
 //===----- HIRLoopDistribution.cpp - Distribution of HIR loops  -----------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -295,7 +295,7 @@ bool HIRLoopDistribution::loopIsCandidate(const HLLoop *Lp) const {
     //      S5-S8 (PiBlock 3)
     // Single Edge 1->3
     // Distributing j loop will consider k loop a single node. We might split
-    // that entire node into its own loop nest. Second distribution on i loop 
+    // that entire node into its own loop nest. Second distribution on i loop
     // will result in two perfect nests.
     // If we consider innermost a candidate we might end up with 3 perfect
     // nests if blocks 2 and 3 are distributed once for K loop and again at
@@ -435,4 +435,3 @@ bool HIRLoopDistribution::runOnFunction(Function &F) {
 
   return Modified;
 }
-

@@ -1,6 +1,6 @@
 //===-------- DDRefGatherer.cpp - Implements DDRef gathering utilities ----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -24,13 +24,12 @@ using namespace llvm::loopopt;
 
 // Compares the CanonExpr associated with a memory reference
 bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
-    const CanonExpr *BCanon) {
+                                         const CanonExpr *BCanon) {
 
   // TODO: handle type comparison.
   // Not sure, if this is necessary at all.
-  //assert(CanonExprUtils::isTypeEqual(ACanon, BCanon) &&
+  // assert(CanonExprUtils::isTypeEqual(ACanon, BCanon) &&
   //       " Handle Canon Expr type comparison.");
-
 
   // Check the number of IV's.
   if (ACanon->numIVs() != BCanon->numIVs())
@@ -87,7 +86,7 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
 // A[i][0] -> Write will be sorted as
 // A[i][0] -> Write, A[i][0] -> Read, A[i+k][0], A[i][j], A[i+5][j].
 bool DDRefGathererUtils::compareMemRef(const RegDDRef *Ref1,
-    const RegDDRef *Ref2) {
+                                       const RegDDRef *Ref2) {
 
   if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE()))
     return compareMemRefCE(Ref1->getBaseCE(), Ref2->getBaseCE());

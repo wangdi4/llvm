@@ -1,6 +1,6 @@
 //===-- DDRefGrouping.h - Implements DDRef Grouping utilities -*-- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,22 +49,20 @@ private:
 
   /// \brief Returns true if Ref2 belongs to the same array reference group.
   static bool isGroupMemRefMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                          unsigned Level, uint64_t MaxDiff);
+                                 unsigned Level, uint64_t MaxDiff);
 
 public:
   /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
   static void createGroups(RefGroupsTy &Groups, const SymToMemRefTy &MemRefMap,
-                    unsigned Level, uint64_t MaxDiff);
+                           unsigned Level, uint64_t MaxDiff);
 
-  /// \brief Prints out the array reference group mapping.
-  /// Primarily used for debugging.
-  #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+/// \brief Prints out the array reference group mapping.
+/// Primarily used for debugging.
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
   static void dump(const RefGroupsTy &Groups);
-  #endif
+#endif
 };
-
 }
-
 }
 
 #endif

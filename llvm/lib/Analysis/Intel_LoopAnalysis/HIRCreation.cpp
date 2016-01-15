@@ -1,6 +1,6 @@
 //===------- HIRCreation.cpp - Creates HIR Nodes --------------------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -49,7 +49,8 @@ static cl::opt<bool>
 
 static cl::opt<bool>
     HIRPrintModified("hir-print-modified",
-        cl::desc("Show modified HIR Regions only"), cl::init(false));
+                     cl::desc("Show modified HIR Regions only"),
+                     cl::init(false));
 
 FunctionPass *llvm::createHIRCreationPass() { return new HIRCreation(); }
 

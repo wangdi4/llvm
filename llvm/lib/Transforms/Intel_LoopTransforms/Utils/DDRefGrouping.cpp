@@ -1,6 +1,6 @@
 //===-------- DDRefGrouping.cpp - Implements DDRef Grouping utilities -----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -27,8 +27,7 @@ using namespace llvm::loopopt;
 // A[i+1][j] belongs to same group, whereas A[i+1][j+1] and A[i][j] are in
 // different groups.
 bool DDRefGrouping::isGroupMemRefMatch(const RegDDRef *Ref1,
-                                       const RegDDRef *Ref2,
-                                       unsigned Level,
+                                       const RegDDRef *Ref2, unsigned Level,
                                        uint64_t MaxDiff) {
 
   // TODO: Think about if we can delinearize the subscripts.
@@ -41,7 +40,7 @@ bool DDRefGrouping::isGroupMemRefMatch(const RegDDRef *Ref1,
   // TODO: Currently assuming it to be in different groups. Need to add
   // support for cases such as *(ptr+i) and *(ptr+i+1).
   if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
-    //assert(false && " Handle Base CE for array groups.");
+    // assert(false && " Handle Base CE for array groups.");
     return false;
   }
 
@@ -102,11 +101,9 @@ bool DDRefGrouping::isGroupMemRefMatch(const RegDDRef *Ref1,
   return true;
 }
 
-void DDRefGrouping::createGroups(
-    RefGroupsTy &Groups,
-    const SymToMemRefTy &MemRefMap,
-    unsigned Level,
-    uint64_t MaxDiff) {
+void DDRefGrouping::createGroups(RefGroupsTy &Groups,
+                                 const SymToMemRefTy &MemRefMap, unsigned Level,
+                                 uint64_t MaxDiff) {
 
   // Incremented whenever a new group is created.
   unsigned MaxGroupNo = 0;
@@ -151,7 +148,7 @@ void DDRefGrouping::dump(const RefGroupsTy &Groups) {
        SymVecPair != Last; ++SymVecPair) {
     auto &RefVec = SymVecPair->second;
     dbgs() << "Group " << SymVecPair->first
-        << " {sb: " << RefVec.front()->getSymbase() << "} contains: \n";
+           << " {sb: " << RefVec.front()->getSymbase() << "} contains: \n";
     for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
       dbgs() << "\t";
       (*Ref)->dump();
@@ -160,4 +157,3 @@ void DDRefGrouping::dump(const RefGroupsTy &Groups) {
   }
 }
 #endif
-

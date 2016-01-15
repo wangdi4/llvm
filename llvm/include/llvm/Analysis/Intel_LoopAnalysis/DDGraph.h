@@ -1,6 +1,6 @@
 //===------- DDTest.h - Provides Data Dependence Analysis -*-- C++ --*-----===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -57,7 +57,6 @@ public:
   children_iterator children_end(GraphNode *Node) {
     return map_iterator(outgoing_edges_end(Node), GraphNodeDerefFun(SinkFun));
   }
-
 
   // Don't let others modify edges. We can only remove or add
   // edges
@@ -158,8 +157,8 @@ public:
 
   // Next one is useful to loop through each element of DV
   const DVType *getDV() const { return &DV[0]; }
-  //returns dv element for loop level. 
-  DVType getDVAtLevel(unsigned Level) const { return DV[Level-1]; }
+  // returns dv element for loop level.
+  DVType getDVAtLevel(unsigned Level) const { return DV[Level - 1]; }
   // Next one returns pointer to an array of char
   const DVectorTy *getDirVector() const { return &DV; }
 

@@ -1,6 +1,6 @@
 //=== DDRefGatherer.h - Gathers DDRefs attached to HLNodes ----*-- C++ --*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -125,9 +125,8 @@ class DDRefGathererUtils {
   static bool compareMemRef(const RegDDRef *Ref1, const RegDDRef *Ref2);
 
 public:
-  #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-  template <typename RefTy>
-  static void dump(const SymToRefTy<RefTy> &RefMap) {
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+  template <typename RefTy> static void dump(const SymToRefTy<RefTy> &RefMap) {
     for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
          SymVecPair != Last; ++SymVecPair) {
       auto &RefVec = SymVecPair->second;
@@ -139,37 +138,36 @@ public:
       }
     }
   }
-  #endif
+#endif
 
   /// \brief Removes the duplicates by comparing the Ref's in sorted order.
-  template <typename RefTy>
-  static void makeUnique(SymToRefTy<RefTy> &RefMap) {
+  template <typename RefTy> static void makeUnique(SymToRefTy<RefTy> &RefMap) {
     for (auto &SymVecPair : RefMap) {
       SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair.second;
 
       RefVec.erase(std::unique(RefVec.begin(), RefVec.end(),
-          [](const DDRef *Ref1, const DDRef *Ref2) {
-        return DDRefUtils::areEqual(Ref1, Ref2);
-      }), RefVec.end());
+                               [](const DDRef *Ref1, const DDRef *Ref2) {
+                                 return DDRefUtils::areEqual(Ref1, Ref2);
+                               }),
+                   RefVec.end());
     }
   }
 
   /// \brief Sorts the Memory Refs in the MemRefMap.
-  template <typename RefTy>
-  static void sort(SymToRefTy<RefTy> &MemRefMap) {
+  template <typename RefTy> static void sort(SymToRefTy<RefTy> &MemRefMap) {
     // Sorts the memory reference based on the comparison provided
     // by compareMemRef.
     for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
          SymVecPair != Last; ++SymVecPair) {
       SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
-      std::sort(RefVec.begin(), RefVec.end(), DDRefGathererUtils::compareMemRef);
+      std::sort(RefVec.begin(), RefVec.end(),
+                DDRefGathererUtils::compareMemRef);
     }
   }
 };
 
 template <typename RefTy, unsigned Mode>
-struct DDRefGatherer :
-  public DDRefGathererUtils {
+struct DDRefGatherer : public DDRefGathererUtils {
 
   DDRefGatherer() = delete;
   ~DDRefGatherer() = delete;
@@ -193,9 +191,7 @@ struct DDRefGatherer :
 
 typedef DDRefGatherer<RegDDRef, MemRefs> MemRefGatherer;
 typedef DDRefGatherer<DDRef, AllRefs ^ ConstantRefs> NonConstantRefGatherer;
-
 }
-
 }
 
 #endif

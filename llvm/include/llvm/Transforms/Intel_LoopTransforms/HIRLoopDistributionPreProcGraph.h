@@ -1,6 +1,6 @@
 //===----- HIRLoopDistributionGraph.h - Forms Distribution Graph  --------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -72,7 +72,6 @@
 // it would have already been done. This forces clients to analyze loops
 // innermost to outermost if considering all distribution possibilities
 
-
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
@@ -97,9 +96,9 @@ unsigned MaxDistPPSize = 128;
 class DistPPGraph;
 
 // a distppnode[distribution preprocessing node] represents an indivisible(by
-// loop dist anyway) chunk of the program. For example, an if block cannot be 
-// split by loop distribution, nor an inner loop when considering the outer 
-// loop. Stmts are perhaps a special case. Node splitting could theoretically 
+// loop dist anyway) chunk of the program. For example, an if block cannot be
+// split by loop distribution, nor an inner loop when considering the outer
+// loop. Stmts are perhaps a special case. Node splitting could theoretically
 // do it. A distppnode is not a pi block, there could be cycles among nodes.
 // A distppnode is not a HLDDNode either, a dist node can encompass a loop and
 // all its children. All HLNodes contained by a loop share same dist node.
@@ -128,9 +127,9 @@ struct DistPPEdge {
   DistPPNode *getSrc() const { return Src; }
   DistPPNode *getSink() const { return Sink; }
   DistPPEdge(DistPPNode *DistSrc, DistPPNode *DistSink,
-      const SmallVectorImpl<const DDEdge *> &EdgeList)
-    : Src(DistSrc), Sink(DistSink), DDEdges(EdgeList.begin(), EdgeList.end()) {
-    }
+             const SmallVectorImpl<const DDEdge *> &EdgeList)
+      : Src(DistSrc), Sink(DistSink),
+        DDEdges(EdgeList.begin(), EdgeList.end()) {}
   void print(raw_ostream &OS) const {
     // TODO
   }
@@ -174,7 +173,6 @@ public:
   void addNode(DistPPNode *NewNode) { DistPPNodeList.push_back(NewNode); }
 
 private:
-
   // unlike other hirgraphs, this one actually owns the memory for its nodes
   // Special note, the dist nodes(well more precisely DistPPNode->hnode) in this
   // list are in lexical order as dist nodes are created by a lexical walk
@@ -201,8 +199,7 @@ struct DistributionNodeCreator final : public HLNodeVisitorBase {
     DGraph->getNodeMap()[HNode] = DNode;
   }
 
-  DistributionNodeCreator(DistPPGraph *G)
-    : DGraph(G), CurDistPPNode(nullptr) {}
+  DistributionNodeCreator(DistPPGraph *G) : DGraph(G), CurDistPPNode(nullptr) {}
 
   void visitDistPPNode(HLNode *HNode) {
     DistPPNode *DNode = nullptr;
@@ -345,7 +342,7 @@ void DistPPGraph::createNodes(HLLoop *Loop) {
   }
 }
 
-}//loopopt
+} // loopopt
 //===--------------------------------------------------------------------===//
 // GraphTraits specializations for DistPPGraph. This will allow us to use
 // Graph algorithm iterators such as SCCIterator. Must be in same namespace
@@ -384,4 +381,4 @@ template <> struct GraphTraits<DistPPGraph *> {
 
   static unsigned size(DistPPGraph *G) { return G->getNodeCount(); }
 };
-}//llvm
+} // llvm

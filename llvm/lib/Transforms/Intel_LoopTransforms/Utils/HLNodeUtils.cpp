@@ -1,6 +1,6 @@
 //===------- HLNodeUtils.cpp - Implements HLNodeUtils class ---------------===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation and may not be disclosed, examined
@@ -1609,8 +1609,7 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
   }
 
   bool hasPrevNode = Container.begin() != First;
-  unsigned PrevNum =
-      hasPrevNode ? First->getPrevNode()->getMaxTopSortNum() : 0;
+  unsigned PrevNum = hasPrevNode ? First->getPrevNode()->getMaxTopSortNum() : 0;
   if (!PrevNum) {
     PrevNum = Parent->getTopSortNum();
   }
@@ -1621,7 +1620,7 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
     // !isa<HLRegion>(Parent) - HLRegions are linked in the ilist, but we
     // should not iterate across regions. If we traced to an HLRegion,
     // this means that there is no next node in this region.
-    for (;Parent && !isa<HLRegion>(Parent); Parent = Parent->getParent()) {
+    for (; Parent && !isa<HLRegion>(Parent); Parent = Parent->getParent()) {
       HLNode *NextNode = Parent->getNextNode();
       if (NextNode) {
         NextNum = NextNode->getTopSortNum();
@@ -1657,8 +1656,7 @@ struct HLNodeUtils::TopSorter final : public HLNodeVisitorBase {
 
   TopSorter(unsigned MinNum, unsigned Step = 100,
             const HLNode *AfterNode = nullptr)
-      : MinNum(MinNum), TopSortNum(MinNum), AfterNode(AfterNode),
-        Stop(false) {
+      : MinNum(MinNum), TopSortNum(MinNum), AfterNode(AfterNode), Stop(false) {
     this->Step = Step ? Step : 1;
   }
 
