@@ -560,9 +560,14 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
 
   bool IsLiveInCopy = false;
 
+  static SmallPtrSet<const Instruction *, 16> VisitedInsts;
+
   if (!CurInst) {
     CurInst = HIRP->getCurInst();
     IsLiveInCopy = HIRP->SE->isHIRLiveInCopyInst(CurInst);
+
+    // We just started the traceback, clear previous entries.
+    VisitedInsts.clear();
   }
 
   // We should not be checking the SCEV of the livein copy instruction as it
@@ -576,38 +581,31 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
     }
   }
 
-  auto ParentBB = CurInst->getParent();
-  Loop *Lp = nullptr;
-
-  // Is this a phi node that occurs in loop header?
-  bool IsHeaderPhi = isa<PHINode>(CurInst) &&
-                     (Lp = HIRP->LI->getLoopFor(ParentBB)) &&
-                     (Lp->getHeader() == ParentBB);
+  // Insert CurInst in visited instruction set.
+  VisitedInsts.insert(CurInst);
 
   for (auto I = CurInst->op_begin(), E = CurInst->op_end(); I != E; ++I) {
 
-    auto OPInst = dyn_cast<Instruction>(I);
+    auto OpInst = dyn_cast<Instruction>(I);
 
-    if (!OPInst) {
+    if (!OpInst) {
       continue;
     }
 
-    // Avoid cycles while tracing back.
-    if (IsHeaderPhi &&
-        HIRP->LI->getLoopFor(ParentBB) ==
-            HIRP->LI->getLoopFor(OPInst->getParent())) {
+    // Skip if already visited.
+    if (VisitedInsts.count(OpInst)) {
       continue;
     }
 
     // Limit trace back to these instruction types. They roughly correspond to
     // instruction types in SE->createSCEV().
-    if (!isa<BinaryOperator>(OPInst) && !isa<CastInst>(OPInst) &&
-        !isa<GetElementPtrInst>(OPInst) && !isa<PHINode>(OPInst) &&
-        !isa<SelectInst>(OPInst)) {
+    if (!isa<BinaryOperator>(OpInst) && !isa<CastInst>(OpInst) &&
+        !isa<GetElementPtrInst>(OpInst) && !isa<PHINode>(OpInst) &&
+        !isa<SelectInst>(OpInst)) {
       continue;
     }
 
-    auto OrigInst = findOrigInst(OPInst, SC, IsTruncation, IsNegation,
+    auto OrigInst = findOrigInst(OpInst, SC, IsTruncation, IsNegation,
                                  ConstMultiplier, Additive);
 
     if (OrigInst) {
@@ -649,6 +647,10 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
   Type *NewType = NewAddRec->getType();
   Type *OrigType = OrigAddRec->getType();
 
+  // Wrap flags may get modified during truncation/negation so we store the
+  // orignal ones and pass them for comparison.
+  auto WrapFlags = NewAddRec->getNoWrapFlags();
+
   // When a IV is ANDed with a constant whose value is (2^N - 1) it is
   // transformed by SCEV into a truncated IV with type 'iN' and then zero
   // extended again. For example-
@@ -672,10 +674,6 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
 
     IsTrunc = true;
   }
-
-  // Wrap flags may get modified during negation so we store the orignal ones
-  // and pass them for comparison.
-  auto WrapFlags = NewAddRec->getNoWrapFlags();
 
   if (isReplacableAddRec(OrigAddRec, NewAddRec, WrapFlags, ConstMultiplier,
                          Additive)) {
@@ -994,12 +992,10 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
       // Workaround to mark blob as linear even if the nesting level is zero.
       // All blobs defined outside any loop are treated as linear regardless of
       // whether the definition lies inside or outside the region. This keeps
-      // the
-      // marking scheme simple as we don't need to track the blob definition.
-      // The
-      // trade-off is a logical inconsistency where the blob is defined inside
-      // the
-      // region and its uses outside any loop are still marked as linear.
+      // the marking scheme simple as we don't need to track the blob
+      // definition. The trade-off is a logical inconsistency where the blob is
+      // defined inside the region and its uses outside any loop are still
+      // marked as linear.
       NestingLevel++;
     }
 
@@ -1140,13 +1136,21 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     auto HLoop = LF->findHLLoop(Lp);
     assert(HLoop && "Could not find HIR loop!");
 
-    if (!RecSCEV->isAffine() || !HLNodeUtils::contains(HLoop, CurNode)) {
+    auto BaseSCEV = RecSCEV->getOperand(0);
+    auto BaseAddRec = dyn_cast<SCEVAddRecExpr>(BaseSCEV);
+
+    // Sometimes when you multiply affine AddRecs, the base of the resulting
+    // AddRec can become non-affine which would not correspond to any value in
+    // the IR. In this case we need a lookahead.
+    // For example, V1 = i1, V2 = (i1 + i2), V1 * V2 = i1*i1 + i1*i2
+    // Here (i1 * i1) becomes the base but it cannot be reverse engineered as
+    // there is no value corresponding to this SCEV.
+    if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
+        !HLNodeUtils::contains(HLoop, CurNode)) {
       parseBlob(SC, CE, Level);
 
     } else {
 
-      // Break linear addRec into base and step.
-      auto BaseSCEV = RecSCEV->getOperand(0);
       auto StepSCEV = RecSCEV->getOperand(1);
 
       parseRecursive(BaseSCEV, CE, Level, false, UnderCast);
