@@ -639,6 +639,12 @@ void Sema::DiagnoseUnknownTypeName(IdentifierInfo *&II,
       << II << DC << SS->getRange();
   else if (isDependentScopeSpecifier(*SS)) {
     unsigned DiagID = diag::err_typename_missing;
+#if INTEL_CUSTOMIZATION
+    // Fix for CQ368310: missing 'typename' prior to dependent type name.
+    if (getLangOpts().IntelCompat) {
+      DiagID = diag::ext_typename_missing;
+    } else
+#endif // INTEL_COMPATIBILITY
     if (getLangOpts().MSVCCompat && isMicrosoftMissingTypename(SS, S))
       DiagID = diag::ext_typename_missing;
 
