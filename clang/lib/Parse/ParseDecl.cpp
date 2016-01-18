@@ -2219,9 +2219,16 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
 #endif // INTEL_SPECIFIC_CILKPLUS
                                    );
     }
-  } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
+  } else if ((getLangOpts().CPlusPlus11 ||                          // INTEL
+              getLangOpts().IntelCompat) && Tok.is(tok::l_brace) && // INTEL
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
     // Parse C++0x braced-init-list.
+#if INTEL_CUSTOMIZATION
+    // CQ374879
+    if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+      Diag(Tok, diag::ext_generalized_initializer_lists);
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
 
     if (D.getCXXScopeSpec().isSet()) {
