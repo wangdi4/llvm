@@ -1877,7 +1877,7 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
         continue;
       }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#367129: template explicit partial specialization requires
       // 'template<>'
       if (!getLangOpts().IntelCompat)
@@ -1936,7 +1936,7 @@ TemplateParameterList *Sema::MatchTemplateParametersToScopeSpecifier(
       // We don't have a template header for the declaration itself, but we
       // should.
       IsExplicitSpecialization = true;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#367129: template explicit partial specialization requires
       // 'template<>'
       // Fix for CQ#374679: Several negative tests are failed after promotion
@@ -6186,7 +6186,7 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
     else
       isExplicitSpecialization = true;
   } else {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#367129: template explicit partial specialization requires
     // 'template<>'
     if (!getLangOpts().IntelCompat)

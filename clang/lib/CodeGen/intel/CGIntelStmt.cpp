@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
-
 #include "CodeGenFunction.h"
 #include "CGDebugInfo.h"
 #include "CodeGenModule.h"
@@ -33,6 +31,8 @@
 
 using namespace clang;
 using namespace CodeGen;
+
+#if INTEL_SPECIFIC_CILKPLUS
 
 void
 CodeGenFunction::EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S) {
@@ -337,13 +337,9 @@ void CodeGenFunction::EmitSIMDForHelperCall(llvm::Function *BodyFunc,
     LastIter = llvm::ConstantInt::getFalse(BodyFunc->getContext());
   HelperArgs.push_back(LastIter);
 
-#ifdef INTEL_CUSTOMIZATION
   disableExceptions();
-#endif  // INTEL_CUSTOMIZATION
   EmitCallOrInvoke(BodyFunc, HelperArgs);
-#ifdef INTEL_CUSTOMIZATION
   enableExceptions();
-#endif  // INTEL_CUSTOMIZATION
 }
 
 void CodeGenFunction::CGPragmaSimd::emitInit(CodeGenFunction &CGF,
@@ -539,13 +535,9 @@ llvm::Function *CodeGenFunction::EmitSimdFunction(CGPragmaSimdWrapper &W) {
                               LoopStack.getCurLoopParallel());
   CodeGenFunction CGF(CGM, true);
   CGF.CapturedStmtInfo = &CSInfo;
-#ifdef INTEL_CUSTOMIZATION
   CGF.disableExceptions();
-#endif  // INTEL_CUSTOMIZATION
   llvm::Function *BodyFunction = CGF.GenerateCapturedStmtFunction(CS);
-#ifdef INTEL_CUSTOMIZATION
   CGF.enableExceptions();
-#endif  // INTEL_CUSTOMIZATION
   // Always inline this function back to the call site.
   BodyFunction->addFnAttr(llvm::Attribute::AlwaysInline);
   return BodyFunction;
@@ -1048,6 +1040,7 @@ void CodeGenFunction::EmitCilkRankedStmt(const CilkRankedStmt &S) {
   CodeGenFunction::LocalVarsDeclGuard Guard(*this);
   EmitRecursiveCilkRankedStmt(*this, S, 0);
 }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 static StringRef CreateStringRef(const char *Str) {
@@ -1416,5 +1409,4 @@ void CodeGenFunction::EmitIntelAttribute(const Decl &D) {
     }
   }
 }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND

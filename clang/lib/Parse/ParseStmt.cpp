@@ -112,6 +112,17 @@ Parser::ParseStatementOrDeclaration(StmtVector &Stmts, bool OnlyStatement,
 
   assert((Attrs.empty() || Res.isInvalid() || Res.isUsable()) &&
          "attributes on empty statement");
+
+#if INTEL_CUSTOMIZATION
+  // CQ#371799 - let #pragma unroll precede non-loop statements.
+  // Apply pending unroll attribute once a loop is parsed.
+  if (getLangOpts().IntelCompat && Res.isUsable()) {
+    auto StClass = Res.get()->getStmtClass();
+    if (StClass == Stmt::DoStmtClass || StClass == Stmt::WhileStmtClass ||
+        StClass == Stmt::ForStmtClass || StClass == Stmt::CXXForRangeStmtClass)
+      Attrs.takeAllFrom(PendingPragmaUnroll);
+  }
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (OnlyStatement && Res.isUsable() && isa<PragmaStmt>(Res.get())) {
     if (!Attrs.empty())
@@ -174,9 +185,9 @@ Parser::ParseStatementOrDeclarationAfterAttributes(StmtVector &Stmts,
           ParsedAttributesWithRange &Attrs) {
   const char *SemiError = nullptr;
   StmtResult Res;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   SuppressCEANSupport NoCEAN(*this);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Cases in this switch statement should fall through if the parser expects
   // the token to end in a semicolon (in which case SemiError should be set),
   // or they directly 'return;' if not.
@@ -454,7 +465,7 @@ Retry:
   case tok::annot_pragma_captured:
     ProhibitAttributes(Attrs);
     return HandlePragmaCaptured();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case tok::kw__Cilk_sync:
     if (!getLangOpts().CilkPlus) {
       Diag(Tok, diag::err_cilkplus_disable);
@@ -479,7 +490,7 @@ Retry:
   case tok::annot_pragma_simd:
     ProhibitAttributes(Attrs);
     return ParseSIMDDirective();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case tok::annot_pragma_openmp:
     ProhibitAttributes(Attrs);
     return ParseOpenMPDeclarativeOrExecutableDirective(!OnlyStatement);
@@ -517,14 +528,14 @@ StmtResult Parser::ParseExprStatement() {
   // If a case keyword is missing, this is where it should be inserted.
   Token OldToken = Tok;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // expression[opt] ';'
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   ExprResult Expr(ParseExpression());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnEndCEANExpr(Expr.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (Expr.isInvalid()) {
     // If the expression is invalid, skip ahead to the next semicolon or '}'.
     // Not doing this opens us up to the possibility of infinite loops if
@@ -728,6 +739,13 @@ StmtResult Parser::ParseLabeledStatement(ParsedAttributesWithRange &attrs) {
       Diag(Tok, diag::err_expected_after) << "__attribute__" << tok::semi;
     }
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#370084: allow label without statement just before '}'.
+  if (getLangOpts().IntelCompat && Tok.is(tok::r_brace)) {
+    Diag(ColonLoc, diag::warn_expected_statement);
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // If we've not parsed a statement yet, parse one now.
   if (!SubStmt.isInvalid() && !SubStmt.isUsable())
@@ -880,6 +898,14 @@ StmtResult Parser::ParseCaseStatement(bool MissingCase, ExprResult Expr) {
 
   if (Tok.isNot(tok::r_brace)) {
     SubStmt = ParseStatement();
+#if INTEL_CUSTOMIZATION
+  } else if (getLangOpts().IntelCompat && ColonLoc.isValid()) {
+    // CQ#370084: allow label without statement just before '}'.
+    SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+    Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    SubStmt = Actions.ActOnNullStmt(ColonLoc);
+#endif // INTEL_CUSTOMIZATION
   } else {
     // Nicely diagnose the common error "switch (X) { case 4: }", which is
     // not valid.  If ColonLoc doesn't point to a valid text location, there was
@@ -936,6 +962,13 @@ StmtResult Parser::ParseDefaultStatement() {
     // Diagnose the common error "switch (X) {... default: }", which is
     // not valid.
     SourceLocation AfterColonLoc = PP.getLocForEndOfToken(ColonLoc);
+#if INTEL_CUSTOMIZATION
+    // CQ#370084: allow label without statement just before '}'.
+    if (getLangOpts().IntelCompat)
+      Diag(AfterColonLoc, diag::warn_label_end_of_compound_statement)
+        << FixItHint::CreateInsertion(AfterColonLoc, " ;");
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(AfterColonLoc, diag::err_label_end_of_compound_statement)
       << FixItHint::CreateInsertion(AfterColonLoc, " ;");
     SubStmt = true;
@@ -1257,20 +1290,20 @@ StmtResult Parser::ParseIfStatement(SourceLocation *TrailingElseLoc) {
   // Parse the condition.
   ExprResult CondExp;
   Decl *CondVar = nullptr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (ParseParenExprOrCondition(CondExp, CondVar, IfLoc, true)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     Actions.ActOnEndCEANExpr(0);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     return StmtError();
   }
 
   FullExprArg FullCondExp(Actions.MakeFullExpr(CondExp.get(), IfLoc));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.ActOnEndCEANExpr(FullCondExp.get());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
   // there is no compound stmt.  C90 does not have this clause.  We only do this
   // if the body isn't a compound statement to avoid push/pop in common cases.
@@ -1656,10 +1689,10 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
   //
   unsigned ScopeFlags = 0;
   if (C99orCXXorObjC
-#ifdef INTEL_CUSTOMIZATION
-    && getLangOpts().Zc_forScope
+#if INTEL_CUSTOMIZATION
+      && getLangOpts().Zc_forScope
 #endif  // INTEL_CUSTOMIZATION
-  )
+      )
     ScopeFlags = Scope::DeclScope | Scope::ControlScope;
 
   ParseScope ForScope(this, ScopeFlags);
@@ -2036,6 +2069,16 @@ StmtResult Parser::ParsePragmaLoopHint(StmtVector &Stmts, bool OnlyStatement,
     TempAttrs.addNew(Hint.PragmaNameLoc->Ident, Hint.Range, nullptr,
                      Hint.PragmaNameLoc->Loc, ArgHints, 4,
                      AttributeList::AS_Pragma);
+#if INTEL_CUSTOMIZATION
+    // CQ#371799 - let #pragma unroll precede non-loop statements. Also fixes
+    // CQ#377523, allowing several #pragma unroll attributes, choosing the last.
+    auto PragmaName = Hint.PragmaNameLoc->Ident->getName();
+    if (getLangOpts().IntelCompat &&
+        (PragmaName == "unroll" || PragmaName == "nounroll")) {
+      PendingPragmaUnroll.clear();
+      PendingPragmaUnroll.takeAllFrom(TempAttrs);
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   // Get the next statement.

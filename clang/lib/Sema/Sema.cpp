@@ -100,8 +100,15 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     TUKind(TUKind),
     NumSFINAEErrors(0),
     CachedFakeTopLevelModule(nullptr),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     CEANLevelCounter(0),
+#endif  // INTEL_SPECIFIC_CILKPLUS
+    // Fix for CQ374244: non-template call of template function is ambiguous.
+#if INTEL_CUSTOMIZATION
+    SuppressQualifiersOnTypeSubst(true),
+    // Fix for CQ368409: Different behavior on accessing static private class
+    // members.
+    BuildingUsingDirective(false), ParsingTemplateArg(false),
 #endif  // INTEL_CUSTOMIZATION
     AccessCheckingSFINAE(false), InNonInstantiationSFINAEContext(false),
     NonInstantiationEntries(0), ArgumentPackSubstitutionIndex(-1),
@@ -110,16 +117,16 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     VarDataSharingAttributesStack(nullptr), CurScope(nullptr),
     Ident_super(nullptr), Ident___float128(nullptr)
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
-    ,CommonFunctionOptions(),
-    OptionsList()
+      ,
+      CommonFunctionOptions(), OptionsList()
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 {
   TUScope = nullptr;
 
   LoadedExternalKnownNamespaces = false;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   StartCEAN(NoCEANAllowed);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   for (unsigned I = 0; I != NSAPI::NumNSNumberLiteralMethods; ++I)
     NSNumberLiteralMethods[I] = nullptr;
 
@@ -269,7 +276,7 @@ void Sema::Initialize() {
   if (IdResolver.begin(BuiltinVaList) == IdResolver.end())
     PushOnScopeChains(Context.getBuiltinVaListDecl(), TUScope);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#367961: clang does not support automatically-aligned dynamic
   // allocation via <aligned_new> header.
   if (PP.getLangOpts().IntelCompat && PP.getLangOpts().CPlusPlus) {
@@ -1237,7 +1244,7 @@ void Sema::PushBlockScope(Scope *BlockScope, BlockDecl *Block) {
   FunctionScopes.push_back(new BlockScopeInfo(getDiagnostics(),
                                               BlockScope, Block));
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void Sema::PushCilkForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
                             const VarDecl *LoopControlVariable,
                             SourceLocation CilkForLoc) {
@@ -1258,7 +1265,7 @@ void Sema::PushSIMDForScope(Scope *S, CapturedDecl *CD, RecordDecl *RD,
   CSI->ReturnType = Context.VoidTy;
   FunctionScopes.push_back(CSI);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 LambdaScopeInfo *Sema::PushLambdaScope() {
   LambdaScopeInfo *const LSI = new LambdaScopeInfo(getDiagnostics());
@@ -1322,7 +1329,7 @@ BlockScopeInfo *Sema::getCurBlock() {
 
   return CurBSI;
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 CilkForScopeInfo *Sema::getCurCilkFor() {
   if (FunctionScopes.empty())
     return 0;
@@ -1336,7 +1343,7 @@ SIMDForScopeInfo *Sema::getCurSIMDFor() {
 
   return dyn_cast<SIMDForScopeInfo>(FunctionScopes.back());
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 LambdaScopeInfo *Sema::getCurLambda() {
   if (FunctionScopes.empty())

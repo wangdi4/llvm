@@ -258,14 +258,14 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // because we are called recursively, or because the token is not a binop),
     // then we are done!
     if (NextTokPrec < MinPrec) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       if (LHS.isUsable()) {
         if (Actions.CheckCEANExpr(getCurScope(), LHS.get())){
           (void)Actions.CorrectDelayedTyposInExpr(LHS);
           return ExprError();
         }
       }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       return LHS;
     }
 
@@ -281,14 +281,14 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     if (OpToken.is(tok::comma) && isNotExpressionStart()) {
       PP.EnterToken(Tok);
       Tok = OpToken;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       if (LHS.isUsable()) {
         if (Actions.CheckCEANExpr(getCurScope(), LHS.get())){
           (void)Actions.CorrectDelayedTyposInExpr(LHS);
           return ExprError();
         }
       }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       return LHS;
     }
 
@@ -1088,14 +1088,14 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
                            // unary-expression: '__alignof' '(' type-name ')'
   case tok::kw_sizeof:     // unary-expression: 'sizeof' unary-expression
                            // unary-expression: 'sizeof' '(' type-name ')'
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   {
     Actions.ActOnStartCEANExpr(Sema::FullCEANAllowed);
     ExprResult ExprRes(ParseUnaryExprOrTypeTraitExpression());
     Actions.ActOnEndCEANExpr(ExprRes.get());
     return ExprRes;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif                     // INTEL_SPECIFIC_CILKPLUS
   case tok::kw_vec_step:   // unary-expression: OpenCL 'vec_step' expression
   // unary-expression: '__builtin_omp_required_simd_align' '(' type-name ')'
   case tok::kw___builtin_omp_required_simd_align:
@@ -1174,7 +1174,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_void:
@@ -1337,7 +1337,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     cutOffParsing();
     return ExprError();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // postfix-expression: [CP]
   //   _Cilk_spawn[opt] postfix-expression '(' argument-expression-list[opt] ')'
   case tok::kw__Cilk_spawn: {
@@ -1352,7 +1352,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     if (Res.isInvalid()) return ExprError();
     return Actions.ActOnCilkSpawnCall(SpawnLoc, Res.get());
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case tok::l_square:
     if (getLangOpts().CPlusPlus11) {
       if (getLangOpts().ObjC1) {
@@ -1454,7 +1454,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
       Loc = T.getOpenLocation();
       ExprResult Idx, Length;
       SourceLocation ColonLoc;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       if (!Actions.IsOpenMPCEANAllowed()) {
         ExprResult CEANLength, CEANStride;
         bool IsCEAN = false;
@@ -1496,7 +1496,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
                                            ColonLoc2, CEANStride.get());
         }
       } else {
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
         Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
         Idx = ParseBraceInitializer();
@@ -1515,9 +1515,9 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         }
       } else
         Idx = ParseExpression();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       SourceLocation RLoc = Tok.getLocation();
 
       if (!LHS.isInvalid() && !Idx.isInvalid() && !Length.isInvalid() &&
@@ -1604,12 +1604,12 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         cutOffParsing();
         return ExprError();
       }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       unsigned BuiltinId = 0;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       if (OpKind == tok::l_paren || !LHS.isInvalid()) {
         if (Tok.isNot(tok::r_paren)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
           if (LHS.isUsable()) {
             Expr *Fn = LHS.get()->IgnoreParens();
             if (isa<DeclRefExpr>(Fn)) {
@@ -1652,7 +1652,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
             }
             break;
           default:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
           if (ParseExpressionList(ArgExprs, CommaLocs, [&] {
                 Actions.CodeCompleteCall(getCurScope(), LHS.get(), ArgExprs);
              })) {
@@ -1662,10 +1662,10 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
             for (auto &E : ArgExprs)
               Actions.CorrectDelayedTyposInExpr(E);
           }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
             break;
           }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         }
       }
 
@@ -1694,7 +1694,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         LHS = Actions.ActOnCallExpr(getCurScope(), LHS.get(), Loc,
                                     ArgExprs, Tok.getLocation(),
                                     ExecConfig);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         switch (BuiltinId) {
         case Builtin::BI__sec_reduce_add:
         case Builtin::BI__sec_reduce_mul:
@@ -1713,7 +1713,7 @@ Parser::ParsePostfixExpressionSuffix(ExprResult LHS) {
         default:
           break;
         }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         PT.consumeClose();
       }
 
@@ -2809,141 +2809,7 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
   }
   return SawError;
 }
-#ifdef INTEL_CUSTOMIZATION
-/// ParseSecreduceExpressionList - Used for C/C++ (argument-)expression-list.
-///
-/// \verbatim
-///       argument-expression-list:
-///         assignment-expression
-///         argument-expression-list , assignment-expression
-///
-/// [C++] expression-list:
-/// [C++]   assignment-expression
-/// [C++]   expression-list , assignment-expression
-///
-/// [C++0x] expression-list:
-/// [C++0x]   initializer-list
-///
-/// [C++0x] initializer-list
-/// [C++0x]   initializer-clause ...[opt]
-/// [C++0x]   initializer-list , initializer-clause ...[opt]
-///
-/// [C++0x] initializer-clause:
-/// [C++0x]   assignment-expression
-/// [C++0x]   braced-init-list
-/// \endverbatim
-bool
-Parser::ParseSecReduceExpressionList(SmallVectorImpl<Expr*> &Exprs,
-                                     SmallVectorImpl<SourceLocation> &CommaLocs,
-                                     bool CheckReturnType,
-                                     void (Sema::*Completer)(
-                                                         Scope *S,
-                                                         Expr *Data,
-                                                         ArrayRef<Expr *> Args),
-                                     Expr *Data) {
-  unsigned ArgCounter = 0;
-  while (1) {
-    if (Tok.is(tok::code_completion)) {
-      if (Completer)
-        (Actions.*Completer)(getCurScope(), Data, Exprs);
-      else
-        Actions.CodeCompleteOrdinaryName(getCurScope(), Sema::PCC_Expression);
-      cutOffParsing();
-      return true;
-    }
 
-    ExprResult Expr = ExprError();
-    if (ArgCounter == 2 &&
-        getLangOpts().CPlusPlus &&
-        Exprs[0]->getType().getCanonicalType()->isStructureOrClassType()) {
-      TentativeParsingAction PA(*this);
-      CXXScopeSpec SS;
-      if (ParseOptionalCXXScopeSpecifier(SS, ParsedType(), false)) {
-        PA.Commit();
-        return true;
-      }
-      // Ttrying to locate methods in base class.
-      CXXRecordDecl *CXXRD =
-        Exprs[0]->getType().getCanonicalType()->getAsCXXRecordDecl();
-      QualType ClassType =
-        Exprs[0]->getType().getNonReferenceType().getCanonicalType();
-      // Trying to find method T.<Tok>(T arg)
-      //SS.clear();
-      SourceLocation TemplateKWLoc;
-      UnqualifiedId Name;
-      //TentativeParsingAction PA(*this);
-      if (ParseUnqualifiedId(SS, false, false, false,
-                             ParsedType(), TemplateKWLoc, Name)) {
-        PA.Commit();
-        return true;
-      }
-      LookupResult LRes(Actions, Actions.GetNameFromUnqualifiedId(Name),
-                        Sema::LookupOrdinaryName);
-      LRes.suppressDiagnostics();
-      Actions.LookupQualifiedName(LRes, CXXRD);
-      if (!LRes.empty()) {
-        SmallVector<NamedDecl *, 16> FoundDecls;
-        for (LookupResult::iterator I = LRes.begin(), E = LRes.end();
-             I != E; ++I) {
-          NamedDecl *D = *I;
-          if (CXXMethodDecl *CXXMD = dyn_cast<CXXMethodDecl>(D)) {
-            if (CXXMD->isInstance() && !CXXMD->isPure() &&
-                !CXXMD->isDeleted() && !CXXMD->getPrimaryTemplate() &&
-                !CXXMD->getDescribedFunctionTemplate() &&
-                CXXMD->getNumParams() == 1 &&
-                Actions.CheckMemberAccess(Tok.getLocation(), CXXRD,
-                                         I.getPair()) == Sema::AR_accessible) {
-              QualType ParamType =
-                CXXMD->getParamDecl(0)->getType().getCanonicalType();
-              QualType ResType = CXXMD->getReturnType().getCanonicalType();
-              if (Actions.getASTContext().
-                                hasSameUnqualifiedType(ClassType, ParamType) &&
-                  (!CheckReturnType ||
-                   Actions.getASTContext().
-                                hasSameUnqualifiedType(ClassType, ResType)))
-                FoundDecls.push_back(D);
-            }
-          }
-        }
-        if (FoundDecls.size() > 0) {
-          PA.Commit();
-          SS.Extend(Actions.getASTContext(), SourceLocation(),
-                    Actions.getASTContext().
-                            getTrivialTypeSourceInfo(ClassType)->getTypeLoc(),
-                    SourceLocation());
-          Expr = Actions.ActOnIdExpression(getCurScope(), SS, TemplateKWLoc,
-                                           Name, false, true);
-          if (Expr.isInvalid())
-            return true;
-        } else
-          PA.Revert();
-      } else
-        PA.Revert();
-    }
-
-    if (Expr.isInvalid()) {
-      if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
-        Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
-        Expr = ParseBraceInitializer();
-      } else
-        Expr = ParseAssignmentExpression();
-
-      if (Tok.is(tok::ellipsis))
-        Expr = Actions.ActOnPackExpansion(Expr.get(), ConsumeToken());
-      if (Expr.isInvalid())
-        return true;
-    }
-
-    Exprs.push_back(Expr.get());
-
-    if (Tok.isNot(tok::comma))
-      return false;
-    // Move to the next argument, remember where the comma was.
-    CommaLocs.push_back(ConsumeToken());
-    ++ArgCounter;
-  }
-}
-#endif  // INTEL_CUSTOMIZATION
 /// ParseSimpleExpressionList - A simple comma-separated list of expressions,
 /// used for misc language extensions.
 ///

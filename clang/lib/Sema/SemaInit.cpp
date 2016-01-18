@@ -3011,7 +3011,7 @@ bool InitializationSequence::isAmbiguous() const {
   case FK_VariableLengthArrayHasInitializer:
   case FK_PlaceholderType:
   case FK_ExplicitConstructor:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#236476: Static variable is referenced in two separate routines
   // in iclang
   case FK_StaticLabelAddress:
@@ -3653,7 +3653,7 @@ static void TryReferenceListInitialization(Sema &S,
   TryListInitialization(S, TempEntity, Kind, InitList, Sequence);
   if (Sequence) {
     if (DestType->isRValueReferenceType() ||
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // CQ#364712 - allow non-const non-volatile lvalue reference bind to
         // temporary of structure or class types in IntelMSCompat mode.
         (!T1Quals.hasVolatile() &&
@@ -4173,7 +4173,7 @@ static void TryReferenceInitializationCore(Sema &S,
                         InitializationSequence::FK_ReferenceInitOverloadFailed,
                                   ConvOvlResult);
     else
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#364712 - allow non-const lvalue reference bind to temporary in
       // IntelMsCompat mode. Don't change behaviour for volatile lvalues.
       if (!S.getLangOpts().IntelMSCompat || T1Quals.hasVolatile() ||
@@ -4184,7 +4184,7 @@ static void TryReferenceInitializationCore(Sema &S,
              ? InitializationSequence::FK_ReferenceInitDropsQualifiers
              : InitializationSequence::FK_NonConstLValueReferenceBindingToUnrelated)
         : InitializationSequence::FK_NonConstLValueReferenceBindingToTemporary);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#364712. Return only if an error was emitted.
     if (Sequence.Failed())
 #endif // INTEL_CUSTOMIZATION
@@ -4901,7 +4901,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
     return;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#236476 - Static variable is referenced in two separate routines
   // in iclang
   if (S.getLangOpts().IntelCompat && DestType->isAnyPointerType() &&
@@ -4980,15 +4980,21 @@ void InitializationSequence::InitializeFrom(Sema &S,
       TryListInitialization(S, Entity, Kind, cast<InitListExpr>(Initializer),
                             *this);
       AddParenthesizedArrayInitStep(DestType);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#369248: failed to compile gcc header tr1/regex.
       // Header file tr1/regex has bugs in version prior to GCC 5.0. GCC is able
       // to compile it, but emits error messages on class instantiation.
+      // Fix for CQ379037: xmain allows casting of StringRef to const char[2].
     } else if (S.getLangOpts().IntelCompat &&
                Kind.getKind() != InitializationKind::IK_Direct && Initializer &&
                !isa<InitListExpr>(Initializer) &&
                S.CurContext->isDependentContext() &&
-               S.ActiveTemplateInstantiations.empty()) {
+               S.ActiveTemplateInstantiations.empty() &&
+               (Initializer->getType()->isPointerType() ||
+                Initializer->getType()->isConstantArrayType()) &&
+               !Initializer->getType()->isDependentType() &&
+               !Initializer->getType()->isInstantiationDependentType() &&
+               S.SourceMgr.isInSystemHeader(Initializer->getExprLoc())) {
       AddArrayInitStep(DestType);
 #endif // INTEL_CUSTOMIZATION
     } else if (DestAT->getElementType()->isCharType())
@@ -6327,7 +6333,7 @@ InitializationSequence::Perform(Sema &S,
       // Make sure the "temporary" is actually an rvalue.
       assert(CurInit.get()->isRValue() && "not a temporary");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#364712 - allow non-const lvalue reference bind to temporary in
       // IntelMSCompat mode.
       QualType DeclType = Entity.getType();
@@ -7300,7 +7306,7 @@ bool InitializationSequence::Diagnose(Sema &S,
     break;
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ#236476: Static variable is referenced in two separate routines
   // in iclang
   case FK_StaticLabelAddress:
@@ -7446,7 +7452,7 @@ void InitializationSequence::dump(raw_ostream &OS) const {
       OS << "list copy initialization chose explicit constructor";
       break;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ#236476: Static variable is referenced in two separate routines
     // in iclang
     case FK_StaticLabelAddress:
@@ -7654,9 +7660,9 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // represented exactly as an integer.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
-#ifdef INTEL_CUSTOMIZATION
-           // Intel compiler never issues any errors. Follow this in IntelCompat
-           // mode. CQ#366839.
+#if INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors.
+           // Follow this in IntelCompat mode. CQ#366839.
            || S.getLangOpts().IntelCompat
 #endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_type_narrowing
@@ -7670,9 +7676,9 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // A constant value was narrowed.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
-#ifdef INTEL_CUSTOMIZATION
-           // Intel compiler never issues any errors. Follow this in IntelCompat
-           // mode. CQ#366839.
+#if INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors.
+           // Follow this in IntelCompat mode. CQ#366839.
            || S.getLangOpts().IntelCompat
 #endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_constant_narrowing
@@ -7686,9 +7692,9 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     // A variable's value may have been narrowed.
     S.Diag(PostInit->getLocStart(),
            (S.getLangOpts().MicrosoftExt || !S.getLangOpts().CPlusPlus11)
-#ifdef INTEL_CUSTOMIZATION
-           // Intel compiler never issues any errors. Follow this in IntelCompat
-           // mode. CQ#366839.
+#if INTEL_CUSTOMIZATION
+           // Intel compiler never issues any errors.
+           // Follow this in IntelCompat mode. CQ#366839.
            || S.getLangOpts().IntelCompat
 #endif // INTEL_CUSTOMIZATION
                ? diag::warn_init_list_variable_narrowing

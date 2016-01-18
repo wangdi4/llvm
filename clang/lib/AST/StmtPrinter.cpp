@@ -1168,7 +1168,7 @@ static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
   case BuiltinType::Double:     break; // no suffix.
   case BuiltinType::Float:      OS << 'F'; break;
   case BuiltinType::LongDouble: OS << 'L'; break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:   OS << 'Q'; break;
 #endif  // INTEL_CUSTOMIZATION
   }
@@ -1304,7 +1304,7 @@ void StmtPrinter::VisitArraySubscriptExpr(ArraySubscriptExpr *Node) {
   OS << "]";
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void StmtPrinter::VisitCEANIndexExpr(CEANIndexExpr *Node) {
   if (Node->getLowerBound() && Node->getLowerBound()->getLocStart().isValid())
     PrintExpr(Node->getLowerBound());
@@ -1371,7 +1371,7 @@ void StmtPrinter::VisitCEANBuiltinExpr(CEANBuiltinExpr *Node) {
   }
   OS << ")";
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 void StmtPrinter::VisitOMPArraySectionExpr(OMPArraySectionExpr *Node) {
   PrintExpr(Node->getBase());
@@ -1399,10 +1399,10 @@ void StmtPrinter::PrintCallArgs(CallExpr *Call) {
 }
 
 void StmtPrinter::VisitCallExpr(CallExpr *Call) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (Call->isCilkSpawnCall())
     OS << "_Cilk_spawn ";
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   PrintExpr(Call->getCallee());
   OS << "(";
   PrintCallArgs(Call);
@@ -2393,7 +2393,7 @@ void StmtPrinter::VisitAsTypeExpr(AsTypeExpr *Node) {
   OS << ")";
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void StmtPrinter::VisitCilkSpawnExpr(CilkSpawnExpr *Node) {
   llvm_unreachable("not implemented yet");
 }
@@ -2486,6 +2486,8 @@ void StmtPrinter::VisitCilkRankedStmt(CilkRankedStmt *Node) {
     PrintStmt(Node->getAssociatedStmt());
   Indent() << "}\n";
 }
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
 void StmtPrinter::VisitPragmaStmt(PragmaStmt *Node) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (!Node->isNullOp()) {
@@ -2506,7 +2508,7 @@ void StmtPrinter::VisitPragmaStmt(PragmaStmt *Node) {
     "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 //===----------------------------------------------------------------------===//
 // Stmt method implementations

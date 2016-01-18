@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
+// REQUIRES: cilkplus
 
 void keyword() {
   _Cilk_spawn; // expected-error {{use of undeclared identifier '_Cilk_spawn'}}

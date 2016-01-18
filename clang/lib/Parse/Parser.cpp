@@ -72,7 +72,8 @@ Parser::Parser(Preprocessor &pp, Sema &actions, bool skipFunctionBodies)
   : PP(pp), Actions(actions), Diags(PP.getDiagnostics()),
     GreaterThanIsOperator(true), ColonIsSacred(false), 
     InMessageExpression(false), TemplateParameterDepth(0),
-    ParsingInObjCContainer(false) {
+    ParsingInObjCContainer(false), // INTEL
+    PendingPragmaUnroll(AttrFactory) { // INTEL
   SkipFunctionBodies = pp.isCodeCompletionEnabled() || skipFunctionBodies;
   Tok.startToken();
   Tok.setKind(tok::eof);
@@ -288,9 +289,9 @@ bool Parser::SkipUntil(ArrayRef<tok::TokenKind> Toks, SkipUntilFlags Flags) {
     case tok::annot_module_begin:
     case tok::annot_module_end:
     case tok::annot_module_include:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     case tok::annot_pragma_simd_end:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       // Stop before we change submodules. They generally indicate a "good"
       // place to pick up parsing again (except in the special case where
       // we're trying to skip to EOF).
@@ -736,11 +737,11 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     return DeclGroupPtrTy();
   case tok::annot_pragma_openmp:
     return ParseOpenMPDeclarativeDirective();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case tok::annot_pragma_simd:
     HandlePragmaSIMD();
     return DeclGroupPtrTy();
-#endif
+#endif // INTEL_SPECIFIC_CILKPLUS
   case tok::annot_pragma_ms_pointers_to_members:
     HandlePragmaMSPointersToMembers();
     return DeclGroupPtrTy();
@@ -1274,6 +1275,12 @@ void Parser::ParseKNRParamDeclarations(Declarator &D) {
     // the declarations though.  It's trivial to ignore them, really hard to do
     // anything else with them.
     if (TryConsumeToken(tok::semi)) {
+#if INTEL_CUSTOMIZATION
+      //CQ#373127: allow compilation with empty declaration in IntelCompat mode.
+      if (getLangOpts().IntelCompat)
+        Diag(DSStart, diag::warn_declaration_does_not_declare_param);
+      else
+#endif //INTEL_CUSTOMIZATION
       Diag(DSStart, diag::err_declaration_does_not_declare_param);
       continue;
     }

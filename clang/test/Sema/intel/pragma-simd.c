@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -fcilkplus -verify %s
+// REQUIRES: cilkplus
 
 int I();
 const int C0 = 0;

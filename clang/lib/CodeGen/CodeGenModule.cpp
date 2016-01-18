@@ -17,9 +17,9 @@
 #include "CGCXXABI.h"
 #include "CGCall.h"
 #include "CGDebugInfo.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif  // INTEL_CUSTOMIZATION
+#endif  // INTEL_SPECIFIC_CILKPLUS
 #include "CGObjCRuntime.h"
 #include "CGOpenCLRuntime.h"
 #include "CGOpenMPRuntime.h"
@@ -90,11 +90,11 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
       VMContext(M.getContext()), TBAA(nullptr), TheTargetCodeGenInfo(nullptr),
       Types(*this), VTables(*this), ObjCRuntime(nullptr),
       OpenCLRuntime(nullptr), OpenMPRuntime(nullptr), CUDARuntime(nullptr),
-#ifdef INTEL_CUSTOMIZATION
-      CilkPlusRuntime(nullptr),
-#endif  // INTEL_CUSTOMIZATION
       DebugInfo(nullptr), ObjCData(nullptr),
       NoObjCARCExceptionsMetadata(nullptr), PGOReader(nullptr),
+#if INTEL_SPECIFIC_CILKPLUS
+      CilkPlusRuntime(nullptr),
+#endif // INTEL_SPECIFIC_CILKPLUS
       CFConstantStringClassRef(nullptr), ConstantStringClassRef(nullptr),
       NSConstantStringType(nullptr), NSConcreteGlobalBlock(nullptr),
       NSConcreteStackBlock(nullptr), BlockObjectAssign(nullptr),
@@ -132,10 +132,10 @@ CodeGenModule::CodeGenModule(ASTContext &C, const HeaderSearchOptions &HSO,
     createOpenMPRuntime();
   if (LangOpts.CUDA)
     createCUDARuntime();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (LangOpts.CilkPlus)
     createCilkPlusRuntime();
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Enable TBAA unless it's suppressed. ThreadSanitizer needs TBAA even at O0.
   if (LangOpts.Sanitize.has(SanitizerKind::Thread) ||
       (!CodeGenOpts.RelaxedAliasing && CodeGenOpts.OptimizationLevel > 0))
@@ -214,11 +214,11 @@ void CodeGenModule::createCUDARuntime() {
   CUDARuntime = CreateNVCUDARuntime(*this);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void CodeGenModule::createCilkPlusRuntime() {
   CilkPlusRuntime = new CGCilkPlusRuntime;
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 void CodeGenModule::addReplacement(StringRef Name, llvm::Constant *C) {
   Replacements[Name] = C;
@@ -467,9 +467,11 @@ void CodeGenModule::Release() {
 
   if (getCodeGenOpts().EmitDeclMetadata)
     EmitDeclMetadata();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().CilkPlus)
     EmitCilkElementalVariants();
+#endif  // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
   if (getCodeGenOpts().getDebugInfo() != CodeGenOptions::NoDebugInfo) {
     if (getLangOpts().IntelCompat)
       EmitIntelDebugInfoMetadata();
@@ -774,12 +776,12 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
   ConstructAttributeList(Info, D, AttributeList, CallingConv, false);
   F->setAttributes(llvm::AttributeSet::get(getLLVMContext(), AttributeList));
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Add metadata if this is a Cilk Plus elemental function.
   if (getLangOpts().CilkPlus)
     if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D))
       EmitCilkElementalMetadata(Info, FD, F);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 /// Determines whether the language options require us to model
@@ -3903,7 +3905,7 @@ void CodeGenModule::EmitMSDebugInfoMetadata() {
   AddLLVMDbgMetadata(TheModule, "llvm.dbg.ms.pdb",
                      getCodeGenOpts().MSOutputPdbFile);
 }
-#endif //INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 void CodeGenModule::EmitCoverageFile() {
   if (!getCodeGenOpts().CoverageFile.empty()) {

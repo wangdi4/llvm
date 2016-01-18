@@ -34,6 +34,9 @@
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
+#if INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/intel/StmtIntel.h"
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 // The following three macros are used for meta programming.  The code
 // using them is responsible for defining macro OPERATOR().
@@ -1237,10 +1240,12 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
   // is skipped - don't remove it.
   return true;
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(PragmaDecl, {})
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -2202,12 +2207,12 @@ DEF_TRAVERSE_STMT(CXXUnresolvedConstructExpr, {
 DEF_TRAVERSE_STMT(CXXConstructExpr, {})
 DEF_TRAVERSE_STMT(CallExpr, {})
 DEF_TRAVERSE_STMT(CXXMemberCallExpr, {})
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(CilkSpawnExpr, {
   TRY_TO(TraverseDecl(S->getSpawnDecl()));
   return true; // no child statements to loop through.
 })
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 // These exprs (most of them), do not need any action except iterating
 // over the children.
 DEF_TRAVERSE_STMT(AddrLabelExpr, {})
@@ -2285,7 +2290,7 @@ DEF_TRAVERSE_STMT(UnresolvedMemberExpr, {
                                               S->getNumTemplateArgs()));
   }
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(CEANIndexExpr, { })
 DEF_TRAVERSE_STMT(CEANBuiltinExpr, { })
 DEF_TRAVERSE_STMT(CilkSyncStmt, { })
@@ -2293,8 +2298,10 @@ DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
 DEF_TRAVERSE_STMT(CilkForStmt, { })
 DEF_TRAVERSE_STMT(SIMDForStmt, { })
 DEF_TRAVERSE_STMT(CilkRankedStmt, { })
+#endif // INTEL_SPECIFIC_CILKPLUS
+#if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(PragmaStmt, { })
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})

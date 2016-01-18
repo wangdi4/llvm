@@ -6,6 +6,7 @@
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK-SPAWN2 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK-LCV1 %s
 // RUN: FileCheck -input-file=%t -check-prefix=CHECK-LCV2 %s
+// REQUIRES: cilkplus
 
 void test1(void) {
   // CHECK1: test1

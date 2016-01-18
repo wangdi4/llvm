@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -ast-dump %s | FileCheck %s
+// REQUIRES: cilkplus
 
 template <int length>
 void test_simd_length() {

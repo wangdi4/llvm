@@ -152,7 +152,7 @@ std::string getClangFullCPPVersion() {
   return OS.str();
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 std::string getIClangFullCPPVersion() {
   // The version string we report in __VERSION__ is just a compacted version of

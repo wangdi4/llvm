@@ -511,7 +511,7 @@ void ASTStmtWriter::VisitArraySubscriptExpr(ArraySubscriptExpr *E) {
   Code = serialization::EXPR_ARRAY_SUBSCRIPT;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 //===----------------------------------------------------------------------===//
 // Cilk Plus Expressions and Statements.
 //===----------------------------------------------------------------------===//
@@ -596,7 +596,9 @@ void ASTStmtWriter::VisitCilkRankedStmt(CilkRankedStmt *S) {
   Writer.AddStmt(S->getAssociatedStmt());
   Writer.AddStmt(S->getInits());
 }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
+#if INTEL_CUSTOMIZATION
 void ASTStmtWriter::VisitPragmaStmt(PragmaStmt *S) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   VisitStmt(S);
@@ -618,7 +620,7 @@ void ASTStmtWriter::VisitPragmaStmt(PragmaStmt *S) {
     "Intel pragma can't be used without INTEL_SPECIFIC_IL0_BACKEND");
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
 
 void ASTStmtWriter::VisitOMPArraySectionExpr(OMPArraySectionExpr *E) {
   VisitExpr(E);

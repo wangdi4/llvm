@@ -73,7 +73,7 @@ Preprocessor::Preprocessor(IntrusiveRefCntPtr<PreprocessorOptions> PPOpts,
       CodeCompletionReached(0), MainFileDir(nullptr),
       SkipMainFilePreamble(0, true), CurPPLexer(nullptr), CurDirLookup(nullptr),
       CurLexerKind(CLK_Lexer), CurSubmodule(nullptr),
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       LastIncludeWasQuoted(false),
 #endif //INTEL_CUSTOMIZATION
       Callbacks(nullptr),

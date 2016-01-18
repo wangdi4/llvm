@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -std=c++11 -fsyntax-only -verify -Wall -fintel-compatibility %s
+// REQUIRES: cilkplus
 
 class X {
   __attribute__((vector(linear(this)))) // OK

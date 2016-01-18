@@ -278,7 +278,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
     // Only allow void types for memory constraints.
     if (Info.allowsMemory() && !Info.allowsRegister()) {
       if (CheckAsmLValue(InputExpr, *this))
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       {
         // CQ#371735 - classic ICC compiler allows use of registers for rvalues
         // under 'm' constraint.
@@ -297,7 +297,7 @@ StmtResult Sema::ActOnGCCAsmStmt(SourceLocation AsmLoc, bool IsSimple,
                               diag::err_asm_invalid_lvalue_in_input)
                          << Info.getConstraintStr()
                          << InputExpr->getSourceRange());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
     } else if (Info.requiresImmediateConstant() && !Info.allowsRegister()) {

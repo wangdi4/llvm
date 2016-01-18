@@ -1002,8 +1002,9 @@ bool X86_32ABIInfo::shouldReturnTypeInRegister(QualType Ty,
   uint64_t Size = Context.getTypeSize(Ty);
 #if INTEL_CUSTOMIZATION
   // For i386, type must be register sized.
-  // For the MCU ABI, it only needs to be <= 8-byte
-  if ((IsMCUABI && Size > 64) || (!IsMCUABI && !isRegisterSize(Size)))
+  // For the MCU ABI, it only needs to have non-zero size <= 8-bytes.
+  if ((IsMCUABI && (Size == 0 || Size > 64)) ||
+      (!IsMCUABI && !isRegisterSize(Size)))
 #endif //INTEL_CUSTOMIZATION
    return false;
 
@@ -1612,6 +1613,10 @@ void X86_32TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                               llvm::AttributeSet::FunctionIndex,
                                               B));
     }
+    if (FD->hasAttr<IAInterruptAttr>()) {
+      llvm::Function *Fn = cast<llvm::Function>(GV);
+      Fn->setCallingConv(llvm::CallingConv::X86_INTR);
+    }
   }
 }
 
@@ -1913,6 +1918,16 @@ public:
             ('T' << 24);
     return llvm::ConstantInt::get(CGM.Int32Ty, Sig);
   }
+
+  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                           CodeGen::CodeGenModule &CGM) const override {
+    if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
+      if (FD->hasAttr<IAInterruptAttr>()) {
+        llvm::Function *Fn = cast<llvm::Function>(GV);
+        Fn->setCallingConv(llvm::CallingConv::X86_INTR);
+      }
+    }
+  }
 };
 
 class PS4TargetCodeGenInfo : public X86_64TargetCodeGenInfo {
@@ -2030,6 +2045,13 @@ void WinX86_64TargetCodeGenInfo::setTargetAttributes(const Decl *D,
                                             CodeGen::CodeGenModule &CGM) const {
   TargetCodeGenInfo::setTargetAttributes(D, GV, CGM);
 
+  if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D)) {
+    if (FD->hasAttr<IAInterruptAttr>()) {
+      llvm::Function *Fn = cast<llvm::Function>(GV);
+      Fn->setCallingConv(llvm::CallingConv::X86_INTR);
+    }
+  }
+
   addStackProbeSizeTargetAttribute(D, GV, CGM);
 }
 }
@@ -2146,7 +2168,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
         Current = SSE;
       } else
         llvm_unreachable("unexpected long double representation!");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     } else if (k == BuiltinType::Float128) {
       Lo = SSE;
       Hi = SSEUp;
@@ -2321,7 +2343,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
 
     postMerge(Size, Lo, Hi);
     assert((Hi != SSEUp || Lo == SSE) && "Invalid SSEUp array classification.");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     if ((Hi == SSE && Lo == SSE) && (Size == 128 ||
         (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
       // Arguments of 256-bits are split into four eightbyte chunks. The
@@ -2454,7 +2476,7 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
     }
 
     postMerge(Size, Lo, Hi);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     if ((Hi == SSE && Lo == SSE) && (Size == 128 ||
         (AVXLevel == X86AVXABILevel::AVX && Size == 256))) {
       // Arguments of 256-bits are split into four eightbyte chunks. The
@@ -2566,7 +2588,7 @@ llvm::Type *X86_64ABIInfo::GetByteVectorType(QualType Ty) const {
     Ty = QualType(InnerTy, 0);
 
   llvm::Type *IRType = CGT.ConvertType(Ty);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   if (llvm::ArrayType *AT = dyn_cast<llvm::ArrayType>(IRType)) {
     llvm::Type *EltTy = AT->getElementType();
     if (EltTy->isFloatTy() || EltTy->isDoubleTy() ||
@@ -5295,7 +5317,7 @@ bool ARMABIInfo::isHomogeneousAggregateBaseType(QualType Ty) const {
     if (BT->getKind() == BuiltinType::Float ||
         BT->getKind() == BuiltinType::Double ||
         BT->getKind() == BuiltinType::LongDouble
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         || BT->getKind() == BuiltinType::Float128
 #endif  // INTEL_CUSTOMIZATION
        )

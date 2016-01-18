@@ -6,6 +6,7 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangParseIntel
   ParseSIMD.cpp
   ParseStmt.cpp
+  ParseIntelExpr.cpp
   ParseIntelPragma.cpp
   PPIntelDirectives.cpp
   CheckStmt.cpp

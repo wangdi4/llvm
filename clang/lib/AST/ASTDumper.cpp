@@ -353,7 +353,7 @@ namespace  {
       case UnaryTransformType::EnumUnderlyingType:
         OS << " underlying_type";
         break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#369185 - support of __bases and __direct_bases intrinsics.
       case UnaryTransformType::BasesOfType:
         OS << " bases";
@@ -433,12 +433,12 @@ namespace  {
     void VisitVarDecl(const VarDecl *D);
     void VisitFileScopeAsmDecl(const FileScopeAsmDecl *D);
     void VisitImportDecl(const ImportDecl *D);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     void VisitCilkSpawnDecl(const CilkSpawnDecl *D);
     void VisitCapturedStmt(const CapturedStmt *Node);
     void VisitSIMDForStmt(const SIMDForStmt *Node);
     void VisitCilkSpawnExpr(const CilkSpawnExpr *Node);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
     // C++ Decls
     void VisitNamespaceDecl(const NamespaceDecl *D);
@@ -1434,11 +1434,11 @@ void ASTDumper::VisitFriendDecl(const FriendDecl *D) {
   else
     dumpDecl(D->getFriendDecl());
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void ASTDumper::VisitCilkSpawnDecl(const CilkSpawnDecl *D) {
   dumpStmt(D->getCapturedStmt());
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 //===----------------------------------------------------------------------===//
 // Obj-C Declarations
 //===----------------------------------------------------------------------===//
@@ -1697,7 +1697,8 @@ void ASTDumper::VisitGotoStmt(const GotoStmt *Node) {
   dumpPointer(Node->getLabel());
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+//#include "clang/Basic/intel/StmtIntel.h"
 void ASTDumper::VisitSIMDForStmt(const SIMDForStmt *Node) {
   VisitStmt(Node);
   for (ArrayRef<Attr *>::iterator I = Node->getSIMDAttrs().begin(),
@@ -1737,7 +1738,7 @@ void ASTDumper::VisitCilkSpawnExpr(const CilkSpawnExpr *Node) {
   dumpDecl(Node->getSpawnDecl());
 }
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 void ASTDumper::VisitCXXCatchStmt(const CXXCatchStmt *Node) {
   VisitStmt(Node);

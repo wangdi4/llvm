@@ -1,4 +1,6 @@
 // RUN: %clang_cc1 -std=c++11 -fcilkplus -fsyntax-only -fcxx-exceptions -verify %s
+// REQUIRES: cilkplus
+
 extern int foo();
 
 void test_simd_for_body1() {

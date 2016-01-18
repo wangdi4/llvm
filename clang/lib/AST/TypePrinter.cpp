@@ -674,6 +674,11 @@ void TypePrinter::printFunctionProtoAfter(const FunctionProtoType *T,
     case CC_X86FastCall:
       OS << " __attribute__((fastcall))";
       break;
+#if INTEL_CUSTOMIZATION
+    case CC_X86RegCall:
+      OS << " __attribute__((regcall))";
+      break;
+#endif // INTEL_CUSTOMIZATION
     case CC_X86ThisCall:
       OS << " __attribute__((thiscall))";
       break;
@@ -814,7 +819,7 @@ void TypePrinter::printUnaryTransformBefore(const UnaryTransformType *T,
       OS << ')';
       spaceBeforePlaceHolder(OS);
       return;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case UnaryTransformType::BasesOfType:
       OS << "__bases(";
@@ -839,7 +844,7 @@ void TypePrinter::printUnaryTransformAfter(const UnaryTransformType *T,
 
   switch (T->getUTTKind()) {
     case UnaryTransformType::EnumUnderlyingType:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case UnaryTransformType::BasesOfType:
     case UnaryTransformType::DirectBasesOfType:
@@ -1304,6 +1309,7 @@ void TypePrinter::printAttributedAfter(const AttributedType *T,
 
   case AttributedType::attr_cdecl: OS << "cdecl"; break;
   case AttributedType::attr_fastcall: OS << "fastcall"; break;
+  case AttributedType::attr_regcall: OS << "regcall"; break;  // INTEL
   case AttributedType::attr_stdcall: OS << "stdcall"; break;
   case AttributedType::attr_thiscall: OS << "thiscall"; break;
   case AttributedType::attr_vectorcall: OS << "vectorcall"; break;

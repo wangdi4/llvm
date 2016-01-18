@@ -502,7 +502,7 @@ def split_dwarf_file : Separate<["-"], "split-dwarf-file">,
   HelpText<"File name to use for split dwarf debug info output">;
 def fno_wchar : Flag<["-"], "fno-wchar">,
   HelpText<"Disable C++ builtin type wchar_t">;
-// ifdef INTEL_CUSTOMIZATION
+// if INTEL_CUSTOMIZATION
 // CQ#374455. This option is created due to QA needs. It should turn off
 // wchar_t keyword and _WCHAR_T_DEFINED macro. That is what '-fno-wchar'
 // option exactly does.

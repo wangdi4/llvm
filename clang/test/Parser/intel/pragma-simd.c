@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -ferror-limit 0 -verify %s
+// REQUIRES: cilkplus
 
 /* expected-error@+1 {{expected for statement following '#pragma simd'}} */
 #pragma simd

@@ -36,6 +36,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/Debug.h"
+#if INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/intel/StmtIntel.h"
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 namespace llvm {
 class BasicBlock;
@@ -77,9 +80,9 @@ class ObjCAutoreleasePoolStmt;
 
 namespace CodeGen {
 class CodeGenTypes;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 class CGCilkImplicitSyncInfo;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 class CGFunctionInfo;
 class CGRecordLayout;
 class CGBlockInfo;
@@ -238,7 +241,7 @@ public:
     FieldDecl *CXXThisFieldDecl;
   };
   CGCapturedStmtInfo *CapturedStmtInfo;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   class CGSIMDForStmtInfo; // Defined below, after simd wrappers.
 
   /// \brief Wrapper for "#pragma simd" and "#pragma omp simd".
@@ -523,7 +526,7 @@ public:
 
   /// \brief Information about implicit syncs used during code generation.
   CGCilkImplicitSyncInfo *CurCGCilkImplicitSyncInfo;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   /// \brief RAII for correct setting/restoring of CapturedStmtInfo.
   class CGCapturedStmtRAII {
@@ -1295,7 +1298,7 @@ private:
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 public:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// This class is used for instantiation of local variables, but restores
   /// LocalDeclMap state after instantiation. If Empty is true, the LocalDeclMap
   /// is cleared completely and then restored to original state upon
@@ -1380,10 +1383,10 @@ private:
 
   /// The current lexical scope.
   LexicalScope *CurLexicalScope;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Whether exceptions are currently disabled.
   bool ExceptionsDisabled;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// The current source location that should be used for exception
   /// handling code.
   SourceLocation CurEHLocation;
@@ -1453,10 +1456,10 @@ public:
     if (!EHStack.requiresLandingPad()) return nullptr;
     return getInvokeDestImpl();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void disableExceptions() { ExceptionsDisabled = true; }
   void enableExceptions() { ExceptionsDisabled = false; }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL__SPECIFIC_CILKPLUS
   bool currentFunctionUsesSEHTry() const {
     const auto *FD = dyn_cast_or_null<FunctionDecl>(CurCodeDecl);
     return FD && FD->usesSEHTry();
@@ -2209,9 +2212,9 @@ public:
   llvm::Value *EmitCXXTypeidExpr(const CXXTypeidExpr *E);
   llvm::Value *EmitDynamicCast(Address V, const CXXDynamicCastExpr *DCE);
   Address EmitCXXUuidofExpr(const CXXUuidofExpr *E);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void EmitCEANBuiltinExprBody(const CEANBuiltinExpr *E);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// \brief Situations in which we might emit a check for the suitability of a
   ///        pointer or glvalue.
   enum TypeCheckKind {
@@ -2518,7 +2521,7 @@ public:
   llvm::Function *EmitCapturedStmt(const CapturedStmt &S, CapturedRegionKind K);
   llvm::Function *GenerateCapturedStmtFunction(const CapturedStmt &S);
   Address GenerateCapturedStmtArgument(const CapturedStmt &S);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   llvm::Function *EmitSpawnCapturedStmt(const CapturedStmt &S, VarDecl *VD);
   void EmitCilkForGrainsizeStmt(const CilkForGrainsizeStmt &S);
   void EmitCilkForStmt(const CilkForStmt &S, llvm::Value *Grainsize = 0);
@@ -2533,7 +2536,7 @@ public:
   void EmitCilkSpawnDecl(const CilkSpawnDecl *D);
 
   void EmitCilkRankedStmt(const CilkRankedStmt &S);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   llvm::Function *
   GenerateOpenMPCapturedStmtFunction(const CapturedStmt &S,
@@ -2965,9 +2968,10 @@ public:
                   const CallArgList &Args,
                   const Decl *TargetDecl = nullptr,
                   llvm::Instruction **callOrInvoke = nullptr
-#ifdef INTEL_CUSTOMIZATION
-                  , bool IsCilkSpawnCall = false
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                  ,
+                  bool IsCilkSpawnCall = false
+#endif // INTEL_SPECIFIC_CILKPLUS
                 );
 
   RValue EmitCall(QualType FnType, llvm::Value *Callee, const CallExpr *E,
@@ -3293,7 +3297,7 @@ public:
   /// Emit field annotations for the given field & value. Returns the
   /// annotation result.
   Address EmitFieldAnnotations(const FieldDecl *D, Address V);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   //===--------------------------------------------------------------------===//
   //                         Cilk Emission
   //===--------------------------------------------------------------------===//
@@ -3302,7 +3306,7 @@ public:
   /// Only allocation and cleanup will be emitted, and initialization will be
   /// emitted in the helper function.
   void EmitCaptureReceiverDecl(const VarDecl &D);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   //===--------------------------------------------------------------------===//
   //                             Internal Helpers
   //===--------------------------------------------------------------------===//

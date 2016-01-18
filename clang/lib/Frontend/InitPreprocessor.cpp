@@ -481,7 +481,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
                       + getClangFullRepositoryVersion() + "\"");
 #undef TOSTR
 #undef TOSTR2
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#368488 - skip the check and define GCC_* macros for iclang.
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
   if (!LangOpts.IntelCompat)
@@ -507,7 +507,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   // Support for #pragma redefine_extname (Sun compatibility)
   Builder.defineMacro("__PRAGMA_REDEFINE_EXTNAME", "1");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   // Version string for iclang: cfe_iclangC/tr60450
   if (LangOpts.IntelCompat)
@@ -599,7 +599,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__DEPRECATED");
 
   if (!LangOpts.MSVCCompat && LangOpts.CPlusPlus) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369662 - Intel driver already sets __GNUG__ into appropriate value.
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
     if (!LangOpts.IntelCompat)
@@ -618,7 +618,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     }
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // In IntelCompat mode define _BOOL macro on all non-Windows platforms.
   // CQ#373889.
   if (LangOpts.Bool && !LangOpts.MicrosoftExt && LangOpts.IntelCompat)
@@ -667,7 +667,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   assert(TI.getCharWidth() == 8 && "Only support 8-bit char so far");
   Builder.defineMacro("__CHAR_BIT__", "8");
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#366613 - define macro __LONG_DOUBLE_SIZE__ in IntelCompat mode.
   if (LangOpts.IntelCompat) {
     llvm::APFloat Float = llvm::APFloat(TI.getLongDoubleFormat());
@@ -676,9 +676,11 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
     Builder.defineMacro("__LONG_DOUBLE_SIZE__", Twine(LongDoubleSize));
     Builder.defineMacro("__I__", "1j");
   }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (LangOpts.CilkPlus)
     Builder.defineMacro("__cilk", "200");
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
   DefineTypeSize("__SCHAR_MAX__", TargetInfo::SignedChar, TI, Builder);
   DefineTypeSize("__SHRT_MAX__", TargetInfo::SignedShort, TI, Builder);

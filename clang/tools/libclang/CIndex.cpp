@@ -168,7 +168,7 @@ CXSourceRange cxloc::translateSourceRange(const SourceManager &SM,
 static SourceRange getRawCursorExtent(CXCursor C);
 static SourceRange getFullCursorExtent(CXCursor C, SourceManager &SrcMgr);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 bool CursorVisitor::VisitPragmaDecl(PragmaDecl *D) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (Stmt *PS = D->getStmt())
@@ -4327,10 +4327,10 @@ CXString clang_getCursorKindSpelling(enum CXCursorKind Kind) {
     return cxstring::createRef("CXXAccessSpecifier");
   case CXCursor_ModuleImportDecl:
     return cxstring::createRef("ModuleImport");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case CXCursor_CilkRankedStmt:
     return cxstring::createRef("CilkRankedStmt");
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case CXCursor_OMPParallelDirective:
     return cxstring::createRef("OMPParallelDirective");
   case CXCursor_OMPSimdDirective:
@@ -5095,7 +5095,7 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
     return clang_getNullCursor();
 
   switch (D->getKind()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Decl::Pragma:
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
     llvm_unreachable(
@@ -5129,9 +5129,9 @@ CXCursor clang_getCursorDefinition(CXCursor C) {
   case Decl::StaticAssert:
   case Decl::Block:
   case Decl::Captured:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Decl::CilkSpawn:
-#endif  // INTEL_CUSTOMIZATION
+#endif               // INTEL_SPECIFIC_CILKPLUS
   case Decl::Label:  // FIXME: Is this right??
   case Decl::ClassScopeFunctionSpecialization:
   case Decl::Import:

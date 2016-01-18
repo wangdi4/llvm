@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
-
 #include "clang/AST/Decl.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTLambda.h"
@@ -36,6 +34,8 @@
 #include <algorithm>
 
 using namespace clang;
+
+#if INTEL_SPECIFIC_CILKPLUS
 
 CilkSpawnDecl::CilkSpawnDecl(DeclContext *DC, CapturedStmt *Spawn) :
   Decl(CilkSpawn, DC, Spawn->getLocStart()), CapturedSpawn(Spawn) {
@@ -70,6 +70,8 @@ VarDecl *CilkSpawnDecl::getReceiverDecl() const {
 
   return 0;
 }
+#endif // INTEL_SPECIFIC_CILKPLUS
+
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 void PragmaDecl::anchor() { }
 
@@ -81,5 +83,4 @@ PragmaDecl *PragmaDecl::Create(ASTContext &C, DeclContext *DC,
 PragmaDecl *PragmaDecl::CreateDeserialized(ASTContext &C, unsigned ID) {
   return new (C, ID) PragmaDecl(nullptr, SourceLocation());
 }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND

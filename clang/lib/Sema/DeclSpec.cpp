@@ -297,7 +297,7 @@ bool Declarator::isDeclarationOfFunction() const {
     case TST_decimal32:
     case TST_decimal64:
     case TST_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case TST_float128:
 #endif  // INTEL_CUSTOMIZATION
     case TST_enum:
@@ -327,7 +327,7 @@ bool Declarator::isDeclarationOfFunction() const {
       return false;
      
     case TST_underlyingType:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case TST_bases:
     case TST_directBases:
@@ -471,7 +471,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_half:        return "half";
   case DeclSpec::TST_float:       return "float";
   case DeclSpec::TST_double:      return "double";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case DeclSpec::TST_float128:    return "_Quad";
 #endif  // INTEL_CUSTOMIZATION
   case DeclSpec::TST_bool:        return Policy.Bool ? "bool" : "_Bool";
@@ -490,7 +490,7 @@ const char *DeclSpec::getSpecifierName(DeclSpec::TST T,
   case DeclSpec::TST_decltype:    return "(decltype)";
   case DeclSpec::TST_decltype_auto: return "decltype(auto)";
   case DeclSpec::TST_underlyingType: return "__underlying_type";
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case DeclSpec::TST_bases: return "__bases";
   case DeclSpec::TST_directBases: return "__direct_bases";
@@ -1105,7 +1105,7 @@ void DeclSpec::Finish(DiagnosticsEngine &D, Preprocessor &PP, const PrintingPoli
       if (!PP.getLangOpts().CPlusPlus)
         Diag(D, TSTLoc, diag::ext_integer_complex);
     } else if (TypeSpecType != TST_float && TypeSpecType != TST_double
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
                && TypeSpecType != TST_float128
 #endif // INTEL_CUSTOMIZATION
                ) {

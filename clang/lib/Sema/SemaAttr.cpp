@@ -131,8 +131,8 @@ void Sema::AddAlignmentAttributesForRecord(RecordDecl *RD) {
 
 void Sema::AddMsStructLayoutForRecord(RecordDecl *RD) {
   if (!getLangOpts().MicrosoftExt && !MSStructPragmaOn
-#ifdef INTEL_CUSTOMIZATION
-    && !Context.getLangOpts().MSBitfields
+#if INTEL_CUSTOMIZATION
+      && !Context.getLangOpts().MSBitfields
 #endif  // INTEL_CUSTOMIZATION
      )
     return;

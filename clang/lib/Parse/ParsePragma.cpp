@@ -254,7 +254,7 @@ void Parser::initializePragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   initializeIntelPragmaHandlers ();
 #endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -346,7 +346,7 @@ void Parser::resetPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   resetIntelPragmaHandlers();
 #endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
@@ -909,7 +909,7 @@ bool Parser::HandlePragmaLoopHint(LoopHint &Hint) {
     ConsumeToken(); // Consume the constant expression eof terminator.
 
     if (R.isInvalid() ||
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // CQ#366562 - allow pragma unroll value in IntelCompat mode be out of
         // strictly positive 32-bit integer range.
         Actions.CheckLoopHintExpr(R.get(), Toks[0].getLocation(),
@@ -2115,7 +2115,7 @@ void PragmaLoopHintHandler::HandlePragma(Preprocessor &PP,
 ///  #pragma unroll
 ///  #pragma unroll unroll-hint-value
 ///  #pragma unroll '(' unroll-hint-value ')'
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 ///  #pragma unroll '=' unroll-hint-value
 #endif // INTEL_CUSTOMIZATION
 ///  #pragma nounroll
@@ -2152,7 +2152,7 @@ void PragmaUnrollHintHandler::HandlePragma(Preprocessor &PP,
     // "#pragma unroll(N)".
     // Read '(' if it exists.
     bool ValueInParens = Tok.is(tok::l_paren);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#374273 - allow '#pragma unroll = N' spelling.
     bool ValueWithEqual = PP.getLangOpts().IntelCompat && Tok.is(tok::equal);
     if (ValueInParens || ValueWithEqual)

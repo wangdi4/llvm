@@ -698,7 +698,7 @@ public:
   const Expr *IgnoreImplicit() const LLVM_READONLY {
     return const_cast<Expr*>(this)->IgnoreImplicit();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   /// \brief Skip past implicit casts or other intermediate nodes introduced
   /// by semantic analysis.
   Expr *IgnoreImpCastsAsWritten() LLVM_READONLY;
@@ -724,7 +724,7 @@ public:
   /// \biref Returns true if this is a Cilk spawn call expression, with
   /// possible implicit AST nodes associated.
   bool isCilkSpawn() const;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   /// IgnoreParens - Ignore parentheses.  If this Expr is a ParenExpr, return
   ///  its subexpression.  If that subexpression is also a ParenExpr,
   ///  then this method recursively returns its subexpression, and so forth.
@@ -1183,14 +1183,6 @@ public:
   void setHadMultipleCandidates(bool V = true) {
     DeclRefExprBits.HadMultipleCandidates = V;
   }
-
-#ifdef INTEL_CUSTOMIZATION
-  /// \brief Sets the flag telling whether this expression refers to
-  /// enclosing variable or capture
-  void setRefersToEnclosingVariableOrCapture(bool V = true) {
-    DeclRefExprBits.RefersToEnclosingVariableOrCapture = V;
-  }
-#endif  // INTEL_CUSTOMIZATION
 
   /// \brief Does this DeclRefExpr refer to an enclosing local or a captured
   /// variable?
@@ -2201,10 +2193,10 @@ class CallExpr : public Expr {
   Stmt **SubExprs;
   unsigned NumArgs;
   SourceLocation RParenLoc;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Valid only if it is a Cilk spawn call
   SourceLocation CilkSpawnLoc;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 protected:
   // These versions of the constructor are for derived classes.
   CallExpr(const ASTContext& C, StmtClass SC, Expr *fn, unsigned NumPreArgs,
@@ -2335,11 +2327,11 @@ public:
 
   SourceLocation getLocStart() const LLVM_READONLY;
   SourceLocation getLocEnd() const LLVM_READONLY;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   void setCilkSpawnLoc(SourceLocation Loc) { CilkSpawnLoc = Loc; }
   SourceLocation getCilkSpawnLoc() const LLVM_READONLY { return CilkSpawnLoc; }
   bool isCilkSpawnCall() const { return CilkSpawnLoc.isValid(); }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   static bool classof(const Stmt *T) {
     return T->getStmtClass() >= firstCallExprConstant &&
            T->getStmtClass() <= lastCallExprConstant;
@@ -3117,14 +3109,6 @@ public:
     else
       return Opcode(unsigned(Opc) - BO_MulAssign + BO_Mul);
   }
-#ifdef INTEL_CUSTOMIZATION
-  static bool isAdditiveAssignOp(Opcode Opc) {
-    return Opc == BO_AddAssign || Opc == BO_SubAssign;
-  }
-  bool isAdditiveAssignOp() const {
-    return isAdditiveAssignOp(getOpcode());
-  }
-#endif  // INTEL_CUSTOMIZATION
   static bool isShiftAssignOp(Opcode Opc) {
     return Opc == BO_ShlAssign || Opc == BO_ShrAssign;
   }
@@ -4712,7 +4696,7 @@ public:
     return child_range(child_iterator(), child_iterator());
   }
 };
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 /// \brief Adaptor class for mixing a CilkSpawnDecl with expressions.
 class CilkSpawnExpr : public Expr {
   CilkSpawnDecl *TheSpawn;
@@ -4747,7 +4731,7 @@ public:
     return child_range(child_iterator(), child_iterator());
   }
 };
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 /// AsTypeExpr - Clang builtin function __builtin_astype [OpenCL 6.2.4.2]
 /// This AST node provides support for reinterpreting a type to another
 /// type of the same size.
@@ -5059,7 +5043,7 @@ public:
 
 };
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 /// CEANIndexExpr - CEAN index triplet.
 class CEANIndexExpr : public Expr {
   enum { BASE, LOWER_BOUND, LENGTH, STRIDE, INDEX_EXPR, END_EXPR };
@@ -5259,7 +5243,7 @@ public:
                        &reinterpret_cast<Stmt **>(this + 1)[3 + 3 * Rank + ArgsSize]);
   }
 };
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 } // end namespace clang
 
 #endif // LLVM_CLANG_AST_EXPR_H

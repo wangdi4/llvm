@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -verify -Wall %s
+// REQUIRES: cilkplus
 
 __attribute__((vector(uniform(this)))) // OK
 __attribute__((vector(linear(this))))  // OK

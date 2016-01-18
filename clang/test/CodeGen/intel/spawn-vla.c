@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -triple i386-unknown-unknown %s -emit-llvm -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 void reverse( int n, int a[n] ) {
 // CHECK: define {{.*}}reverse

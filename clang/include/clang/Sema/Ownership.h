@@ -274,7 +274,7 @@ namespace clang {
   inline ExprResult ExprEmpty() { return ExprResult(false); }
   inline StmtResult StmtEmpty() { return StmtResult(false); }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   typedef ActionResult<Attr*> AttrResult;
   inline AttrResult AttrError() { return AttrResult(true); }
   inline AttrResult AttrError(const DiagnosticBuilder&) { return AttrError(); }

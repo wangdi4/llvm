@@ -56,7 +56,7 @@ protected:
   // values are specified by the TargetInfo constructor.
   bool BigEndian;
   bool TLSSupported;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   bool IsFloat128Enabled;
 #endif // INTEL_CUSTOMIZATION
   bool NoAsmVariants;  // True if {|} are normal characters.
@@ -136,8 +136,9 @@ public:
     Float = 0,
     Double,
     LongDouble
-#ifdef INTEL_CUSTOMIZATION
-    , Float128
+#if INTEL_CUSTOMIZATION
+    ,
+    Float128
 #endif  // INTEL_CUSTOMIZATION
   };
 

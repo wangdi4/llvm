@@ -320,7 +320,7 @@ TypeSpecifierType BuiltinTypeLoc::getWrittenTypeSpec() const {
   case BuiltinType::Float:
   case BuiltinType::Double:
   case BuiltinType::LongDouble:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
 #endif  // INTEL_CUSTOMIZATION
     llvm_unreachable("Builtin type needs extra local data!");

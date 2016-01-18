@@ -500,11 +500,6 @@ TargetMachine *EmitAssemblyHelper::CreateTargetMachine(bool MustCreateTM) {
       .Case("posix", llvm::ThreadModel::POSIX)
       .Case("single", llvm::ThreadModel::Single);
 
-#if INTEL_CUSTOMIZATION
-  if (CodeGenOpts.IntelLibIRCAllowed)
-    Options.IntelLibIRCAllowed = true;
-#endif // INTEL_CUSTOMIZATION
-
   // Set float ABI type.
   assert((CodeGenOpts.FloatABI == "soft" || CodeGenOpts.FloatABI == "softfp" ||
           CodeGenOpts.FloatABI == "hard" || CodeGenOpts.FloatABI.empty()) &&

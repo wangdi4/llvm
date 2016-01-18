@@ -37,7 +37,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #include "clang/Basic/PartialDiagnostic.h"
 #endif  // INTEL_CUSTOMIZATION
 using namespace clang;
@@ -57,14 +57,14 @@ StmtResult Sema::ActOnExprStmt(ExprResult FE) {
   // operand, even incomplete types.
 
   // Same thing in for stmt first clause (when expr) and third clause.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   StmtResult Res = ActOnCEANExpr(FE.get());
   if (Res.isInvalid())
     return StmtError();
   return StmtResult(Res.get());
 #else
   return StmtResult(FE.getAs<Stmt>());
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 
@@ -329,8 +329,7 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScope() const {
   return getCurFunction()->CompoundScopes.back();
 }
 
-
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipSIMDFor() const {
   unsigned I = FunctionScopes.size() - 1;
   while (isa<SIMDForScopeInfo>(FunctionScopes[I]))
@@ -350,7 +349,7 @@ sema::CompoundScopeInfo &Sema::getCurCompoundScopeSkipCilkFor() const {
 
   return getCurFunction()->CompoundScopes.back();
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
                                    ArrayRef<Stmt *> Elts,
@@ -392,11 +391,12 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
     for (unsigned i = 0; i != NumElts - 1; ++i)
       DiagnoseEmptyLoopBody(Elts[i], Elts[i + 1]);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // Check whether Cilk spawns in this compound statement are well-formed.
   if (getLangOpts().CilkPlus && getCurCompoundScope().HasCilkSpawn)
     for (unsigned i = 0; i < NumElts; ++i)
       DiagnoseCilkSpawn(Elts[i], isStmtExpr);
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   // Analisys for #pragma ivdep, distribute_point before empty statements (i.e. goto, break, continue, declspec)
@@ -461,8 +461,7 @@ StmtResult Sema::ActOnCompoundStmt(SourceLocation L, SourceLocation R,
   {
     Diag(locs[cnt - 1], messages[cnt - 1]) << locs[cnt - 1];
   }
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND
   return new (Context) CompoundStmt(Context, Elts, L, R);
 }
 
@@ -611,14 +610,14 @@ Sema::ActOnIfStmt(SourceLocation IfLoc, FullExprArg CondVal, Decl *CondVar,
                                                   Context.BoolTy, VK_RValue);
   }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   return ActOnCEANIfStmt(new (Context) IfStmt(Context, IfLoc, ConditionVar,
                               ConditionExpr,
                               thenStmt, ElseLoc, elseStmt));
 #else
   return new (Context) IfStmt(Context, IfLoc, ConditionVar, ConditionExpr,
                               thenStmt, ElseLoc, elseStmt);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 }
 
 namespace {
@@ -1520,7 +1519,7 @@ namespace {
     bool FoundDeclInUse() { return FoundDecl; }
 
   };  // end class DeclMatcher
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 }
 
 void Sema::CheckForLoopConditionalStatement(Expr *Second, Expr *Third,
@@ -1789,7 +1788,7 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
 
   CheckBreakContinueBinding(second.get());
   CheckBreakContinueBinding(third.get());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   CheckForLoopConditionalStatement(second.get(), third.get(), Body);
 #else
   CheckForLoopConditionalStatement(*this, second.get(), third.get(), Body);
@@ -2786,7 +2785,7 @@ StmtResult
 Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
   Scope *S = CurScope->getBreakParent();
   if (!S) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // Break from a Cilk for loop is not allowed unless the break is
     // inside a nested loop or switch statement.
     if (isa<CilkForScopeInfo>(getCurFunction())) {
@@ -2796,7 +2795,7 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
       Diag(BreakLoc, diag::err_simd_for_cannot_break);
       return StmtError();
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     // C99 6.8.6.3p1: A break shall appear only in or as a switch/loop body.
     return StmtError(Diag(BreakLoc, diag::err_break_not_in_loop_or_switch));
   }
@@ -2807,12 +2806,12 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
 
   return new (Context) BreakStmt(BreakLoc);
 }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 StmtResult
 Sema::ActOnCilkSyncStmt(SourceLocation SyncLoc) {
   return new (Context) CilkSyncStmt(SyncLoc);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 /// \brief Determine whether the given expression is a candidate for
 /// copy elision in either a return statement or a throw expression.
 ///
@@ -2982,7 +2981,7 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   CapturingScopeInfo *CurCap = cast<CapturingScopeInfo>(getCurFunction());
   QualType FnRetType = CurCap->ReturnType;
   LambdaScopeInfo *CurLambda = dyn_cast<LambdaScopeInfo>(CurCap);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // It is not allowed to return from a Cilk for statement.
   if (isa<CilkForScopeInfo>(CurCap)) {
     Diag(ReturnLoc, diag::err_cilk_for_cannot_return);
@@ -2991,7 +2990,7 @@ Sema::ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     Diag(ReturnLoc, diag::err_simd_for_cannot_return);
     return StmtError();
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   if (CurLambda && hasDeducedReturnType(CurLambda->CallOperator)) {
     // In C++1y, the return type may involve 'auto'.
     // FIXME: Blocks might have a return type of 'auto' explicitly specified.
@@ -3356,7 +3355,7 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
       } else if (!RetValExp->isTypeDependent()) {
         // C99 6.8.6.4p1 (ext_ since GCC warns)
         unsigned D = diag::ext_return_has_expr;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus)
           // CQ#367767 - allow returning a value from a void function.
           D = diag::warn_ext_return_has_expr;
@@ -3417,7 +3416,7 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     FunctionDecl *FD = getCurFunctionDecl();
 
     unsigned DiagID;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Issue a warning, not error in IntelMSCompat and IntelCompat modes
     // (CQ#364256).
     if (getLangOpts().IntelMSCompat || getLangOpts().IntelCompat) {
@@ -3988,7 +3987,7 @@ static void buildCapturedStmtCaptureList(
   }
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 void Sema::BuildCapturedStmtCaptureList(
     SmallVectorImpl<CapturedStmt::Capture> &Captures,
     SmallVectorImpl<Expr *> &CaptureInits,
@@ -3996,7 +3995,7 @@ void Sema::BuildCapturedStmtCaptureList(
 
   buildCapturedStmtCaptureList(Captures, CaptureInits, Candidates);
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 void Sema::ActOnCapturedRegionStart(SourceLocation Loc, Scope *CurScope,
                                     CapturedRegionKind Kind,
@@ -4102,7 +4101,7 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
 
   CapturedDecl *CD = RSI->TheCapturedDecl;
   RecordDecl *RD = RSI->TheRecordDecl;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   // If capturing an expression, then needs to make this expression as a full
   // expression. If it is not parsed after entering the captured region,
   // then check if it has any nontrivial call.
@@ -4111,7 +4110,7 @@ StmtResult Sema::ActOnCapturedRegionEnd(Stmt *S) {
       ExprNeedsCleanups |= E->hasNonTrivialCall(Context);
       S = MaybeCreateExprWithCleanups(E);
     }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   CapturedStmt *Res = CapturedStmt::Create(getASTContext(), S,
                                            RSI->CapRegionKind, Captures,
                                            CaptureInits, CD, RD);

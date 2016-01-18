@@ -1,5 +1,3 @@
-#ifdef INTEL_CUSTOMIZATION
-
 #include "RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/TargetInfo.h"
@@ -16,6 +14,7 @@ namespace {
 #include "intel/ParsePragma.h"
 }
 
+#if INTEL_SPECIFIC_CILKPLUS
 // #pragma simd
 void PragmaSIMDHandler::HandlePragma(Preprocessor &PP,
                                      PragmaIntroducerKind Introducer,
@@ -102,6 +101,7 @@ void PragmaCilkGrainsizeHandler::HandlePragma(Preprocessor &PP,
   PP.EnterTokenStream(Toks, Size + 2, /*DisableMacroExpansion=*/true,
                       /*OwnsTokens=*/false);
 }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 void Parser::DiscardBeforeEndOfDirective() {
@@ -3052,12 +3052,14 @@ void PragmaVtorDispHandler::HandlePragma(Preprocessor &PP, PragmaIntroducerKind 
 #endif  // INTEL_SPECIFIC_IL0_BACKEND
 
 void Parser::initializeIntelPragmaHandlers() {
+#if INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().CilkPlus) {
     CilkGrainsizeHandler.reset(new PragmaCilkGrainsizeHandler());
     PP.AddPragmaHandler(CilkGrainsizeHandler.get());
     SIMDHandler.reset(new PragmaSIMDHandler());
     PP.AddPragmaHandler(SIMDHandler.get());
   }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (getLangOpts().IntelCompat) {
@@ -3215,12 +3217,14 @@ void Parser::initializeIntelPragmaHandlers() {
 
 void Parser::resetIntelPragmaHandlers() {
   // Remove the pragma handlers we installed.
+#if INTEL_SPECIFIC_CILKPLUS
   if (getLangOpts().CilkPlus) {
     PP.RemovePragmaHandler(CilkGrainsizeHandler.get());
     CilkGrainsizeHandler.reset();
     PP.RemovePragmaHandler(SIMDHandler.get());
     SIMDHandler.reset(new PragmaSIMDHandler());
   }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (getLangOpts().IntelCompat) {
@@ -3356,4 +3360,3 @@ void Parser::resetIntelPragmaHandlers() {
   }
 #endif // INTEL_SPECIFIC_IL0_BACKEND
 }
-#endif  // INTEL_CUSTOMIZATION

@@ -265,7 +265,7 @@ public:
     // Otherwise, assume the mapping is the scalar directly.
     return CGF.getOpaqueRValueMapping(E).getScalarVal();
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Value *VisitCEANIndexExpr(CEANIndexExpr *E) {
     assert (E->getIndexExpr() && "Index expr is not set");
     return CGF.EmitScalarExpr(E->getIndexExpr());
@@ -279,7 +279,7 @@ public:
                                               EmitLoadOfLValue(E->getReturnExpr());
     return 0;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // l-values.
   Value *VisitDeclRefExpr(DeclRefExpr *E) {
     if (CodeGenFunction::ConstantEmission result = CGF.tryEmitAsConstant(E)) {
@@ -579,12 +579,12 @@ public:
   }
   Value *VisitAsTypeExpr(AsTypeExpr *CE);
   Value *VisitAtomicExpr(AtomicExpr *AE);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Value *VisitCilkSpawnExpr(CilkSpawnExpr *E) {
     CGF.EmitCilkSpawnExpr(E);
     return 0;
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 };
 }  // end anonymous namespace.
 
@@ -2747,7 +2747,7 @@ Value *ScalarExprEmitter::EmitShl(const BinOpInfo &Ops) {
   Value *RHS = Ops.RHS;
   if (Ops.LHS->getType() != RHS->getType())
     RHS = Builder.CreateIntCast(RHS, Ops.LHS->getType(), false, "sh_prom");
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifndef INTEL_SPECIFIC_IL0_BACKEND
   // Fix for CQ375045: xmain's bitwise shift show results that are differ from
   // results of icc/gcc
@@ -3048,7 +3048,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
   // No reason to do any of these differently.
   case Qualifiers::OCL_None:
   case Qualifiers::OCL_ExplicitNone:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     // Cilk Plus needs the LHS evaluated first to handle cases such as
     // array[f()] = _Cilk_spawn foo();
     // This evaluation order requirement implies that _Cilk_spawn cannot
@@ -3067,7 +3067,7 @@ Value *ScalarExprEmitter::VisitBinAssign(const BinaryOperator *E) {
     // this should improve codegen just a little.
     RHS = Visit(E->getRHS());
     LHS = EmitCheckedLValue(E->getLHS(), CodeGenFunction::TCK_Store);
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     // Store the value into the LHS.  Bit-fields are handled specially
     // because the result is altered by the store, i.e., [C99 6.5.16p1]
     // 'An assignment expression has the value of the left operand after

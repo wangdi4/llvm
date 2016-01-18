@@ -1202,7 +1202,7 @@ public:
       // We have a GCC style pragma message, and we just read the string.
       break;
     default:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#367740 - emit a warning and ignore this pragma in IntelCompat mode.
       if (PP.getLangOpts().IntelCompat)
         PP.Diag(MessageLoc, diag::warn_pragma_message_malformed) << Kind;
@@ -1231,7 +1231,7 @@ public:
     }
 
     // Output the message.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#366856: In icc compatibility mode, don't print diagnostic
     // information, just output the message.
     if (PP.getLangOpts().IntelCompat)
@@ -1531,7 +1531,7 @@ void Preprocessor::RegisterBuiltinPragmas() {
   AddPragmaHandler("STDC", new PragmaSTDC_FENV_ACCESSHandler());
   AddPragmaHandler("STDC", new PragmaSTDC_CX_LIMITED_RANGEHandler());
   AddPragmaHandler("STDC", new PragmaSTDC_UnknownHandler());
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // MS extensions.
   if (LangOpts.MicrosoftExt || LangOpts.IntelCompat) {
     AddPragmaHandler(new PragmaWarningHandler());

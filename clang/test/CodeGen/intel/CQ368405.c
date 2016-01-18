@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fintel-ms-compatibility %s -emit-llvm -g -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -fintel-compatibility -fintel-ms-compatibility %s -emit-llvm -debug-info-kind=limited -o - | FileCheck %s
 
 // CHECK-LINE: main
 int main()

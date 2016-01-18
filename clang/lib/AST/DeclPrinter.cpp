@@ -1351,7 +1351,7 @@ void DeclPrinter::VisitUsingShadowDecl(UsingShadowDecl *D) {
   // ignore
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 void DeclPrinter::VisitPragmaDecl(PragmaDecl *PD) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   PD->getStmt()->printPretty(Out, 0, Policy, Indentation);

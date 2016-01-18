@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -fintel-compatibility -fcilkplus -emit-llvm -verify -o - %s | FileCheck %s
 // expected-no-diagnostics
+// REQUIRES: cilkplus
 
 // CHECK-LABEL: define {{.*float}} @{{.*}}simple{{.*}}(float* {{.+}}, float* {{.+}}, float* {{.+}}, float* {{.+}})
 float simple(float *a, float *b, float *c, float *d) {

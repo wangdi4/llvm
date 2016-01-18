@@ -13,9 +13,9 @@
 
 #include "CodeGenFunction.h"
 #include "CGBlocks.h"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 #include "intel/CGCilkPlusRuntime.h"
-#endif
+#endif // INTEL_SPECIFIC_CILKPLUS
 #include "CGCleanup.h"
 #include "CGDebugInfo.h"
 #include "CGOpenCLRuntime.h"
@@ -38,7 +38,7 @@ using namespace CodeGen;
 
 void CodeGenFunction::EmitDecl(const Decl &D) {
   switch (D.getKind()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case Decl::Pragma:
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
     CodeGenFunction(CGM).EmitPragmaDecl(cast<PragmaDecl>(D));
@@ -126,10 +126,10 @@ void CodeGenFunction::EmitDecl(const Decl &D) {
            "Should not see file-scope variables inside a function!");
     return EmitVarDecl(VD);
   }
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Decl::CilkSpawn:
     return EmitCilkSpawnDecl(cast<CilkSpawnDecl>(&D));
-#endif  // INTEL_CUSTOMIZATION
+#endif                     // INTEL_SPECIFIC_CILKPLUS
   case Decl::Typedef:      // typedef int X;
   case Decl::TypeAlias: {  // using X = int; [C++0x]
     const TypedefNameDecl &TD = cast<TypedefNameDecl>(D);
@@ -520,10 +520,11 @@ namespace {
       // To fix this we insert a bitcast here.
       QualType ArgTy = FnInfo.arg_begin()->type;
       llvm::Value *Arg =
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
           // CQ#371284 - allow 'ptrtoint' parameter cast for cleanup function.
           (CGF.getLangOpts().IntelCompat)
-          ? CGF.Builder.CreateBitOrPointerCast(Addr, CGF.ConvertType(ArgTy)) :
+              ? CGF.Builder.CreateBitOrPointerCast(Addr, CGF.ConvertType(ArgTy))
+              :
 #endif // INTEL_CUSTOMIZATION
         CGF.Builder.CreateBitCast(Addr, CGF.ConvertType(ArgTy));
 
@@ -912,7 +913,7 @@ static bool shouldUseMemSetPlusStoresToInitialize(llvm::Constant *Init,
 /// variable declaration with auto, register, or no storage class specifier.
 /// These turn into simple stack objects, or GlobalValues depending on target.
 void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (CGCilkSpawnInfo *Info =
         dyn_cast_or_null<CGCilkSpawnInfo>(CapturedStmtInfo)) {
     // Do initialization if this decl is inside the helper function.
@@ -923,7 +924,7 @@ void CodeGenFunction::EmitAutoVarDecl(const VarDecl &D) {
       return;
     }
   }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   AutoVarEmission emission = EmitAutoVarAlloca(D);
   EmitAutoVarInit(emission);
   EmitAutoVarCleanups(emission);
@@ -1074,10 +1075,10 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
     EnsureInsertPoint();
 
     if (!DidCallStackSave) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       if (!(CurCGCilkImplicitSyncInfo &&
             CurCGCilkImplicitSyncInfo->needsImplicitSync())) {
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
       // Save the stack.
       Address Stack =
         CreateTempAlloca(Int8PtrTy, getPointerAlign(), "saved_stack");
@@ -1091,14 +1092,14 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
       // Push a cleanup block and restore the stack there.
       // FIXME: in general circumstances, this should be an EH cleanup.
       pushStackRestore(NormalCleanup, Stack);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     }
     llvm::Value *elementCount;
     QualType elementType;
     std::tie(elementCount, elementType) = getVLASize(Ty);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     if (CurCGCilkImplicitSyncInfo &&
         CurCGCilkImplicitSyncInfo->needsImplicitSync()) {
       llvm::Type *TypeParams[] = {CGM.SizeTy};
@@ -1134,16 +1135,16 @@ CodeGenFunction::EmitAutoVarAlloca(const VarDecl &D) {
 
       EHStack.pushCleanup<CallCleanupFunction>(NormalAndEHCleanup, F2, &FI, &D);
     } else {
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
     llvm::Type *llvmTy = ConvertTypeForMem(elementType);
     // Allocate memory for the array.
     llvm::AllocaInst *vla = Builder.CreateAlloca(llvmTy, elementCount, "vla");
     vla->setAlignment(alignment.getQuantity());
 
     address = Address(vla, alignment);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
     }
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   setAddrOfLocalVar(&D, address);

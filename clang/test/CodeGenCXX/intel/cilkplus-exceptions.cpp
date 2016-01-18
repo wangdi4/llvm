@@ -7,6 +7,7 @@
 // RUN: FileCheck -check-prefix=CHECK_SYNC_JUMP --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_MISC_IMP_SYNC --input-file=%t-noopt %s
 // RUN: FileCheck -check-prefix=CHECK_INIT --input-file=%t-noopt %s
+// REQUIRES: cilkplus
 // XFAIL: win
 
 namespace stack_frame_cleanup {

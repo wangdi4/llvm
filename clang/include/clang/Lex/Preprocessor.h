@@ -356,7 +356,7 @@ class Preprocessor : public RefCountedBase<Preprocessor> {
   };
   std::vector<IncludeStackInfo> IncludeMacroStack;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief True if the last processed include was quoted.
   bool LastIncludeWasQuoted;
 #endif // INTEL_CUSTOMIZATION

@@ -6538,9 +6538,18 @@ bool IntExprEvaluator::VisitCallExpr(const CallExpr *E) {
   case Builtin::BI__builtin_classify_type:
     return Success(EvaluateBuiltinClassifyType(E), E);
 
-  // FIXME: BI__builtin_clrsb
-  // FIXME: BI__builtin_clrsbl
-  // FIXME: BI__builtin_clrsbll
+#if INTEL_CUSTOMIZATION
+    // CQ#377481. Adding '__builtin_clrsb' builtins.
+  case Builtin::BI__builtin_clrsb:
+  case Builtin::BI__builtin_clrsbl:
+  case Builtin::BI__builtin_clrsbll: {
+    APSInt Val;
+    if (!EvaluateInteger(E->getArg(0), Val, Info))
+      return false;
+
+    return Success(Val.getNumSignBits() - 1, E);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   case Builtin::BI__builtin_clz:
   case Builtin::BI__builtin_clzl:
@@ -8948,11 +8957,11 @@ static ICEDiag CheckICE(const Expr* E, const ASTContext &Ctx) {
 #define STMT(Node, Base) case Expr::Node##Class:
 #define EXPR(Node, Base)
 #include "clang/AST/StmtNodes.inc"
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   case Expr::CilkSpawnExprClass:
   case Expr::CEANIndexExprClass:
   case Expr::CEANBuiltinExprClass:
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::PredefinedExprClass:
   case Expr::FloatingLiteralClass:
   case Expr::ImaginaryLiteralClass:

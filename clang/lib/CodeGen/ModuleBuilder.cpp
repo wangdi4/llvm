@@ -186,7 +186,7 @@ namespace {
         }
       }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // Fix for CQ#371078: linkfail when static const/constexpr is used as a
       // field of a structure.
       if (Ctx->getLangOpts().IntelCompat) {

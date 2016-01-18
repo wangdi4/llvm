@@ -222,7 +222,7 @@ namespace clang {
     Expr *VisitCompoundAssignOperator(CompoundAssignOperator *E);
     Expr *VisitImplicitCastExpr(ImplicitCastExpr *E);
     Expr *VisitCStyleCastExpr(CStyleCastExpr *E);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     Decl *VisitPragmaDecl(PragmaDecl *D);
 #endif  // INTEL_CUSTOMIZATION
     Expr *VisitCXXConstructExpr(CXXConstructExpr *E);
@@ -5920,7 +5920,7 @@ bool ASTImporter::IsStructurallyEquivalent(QualType From, QualType To,
   return Ctx.IsStructurallyEquivalent(From, To);
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 Decl *ASTNodeImporter::VisitPragmaDecl(PragmaDecl *D) {
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   return VisitDecl(D);

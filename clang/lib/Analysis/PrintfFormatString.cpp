@@ -79,7 +79,7 @@ static PrintfSpecifierResult ParsePrintfSpecifier(FormatStringHandler &H,
   using namespace clang::analyze_format_string;
   using namespace clang::analyze_printf;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   if (LO.FormatExtensions)
     isFreeBSDKPrintf = true;
@@ -618,7 +618,7 @@ bool PrintfSpecifier::fixType(QualType QT, const LangOptions &LangOpt,
   case BuiltinType::UInt128:
   case BuiltinType::Int128:
   case BuiltinType::Half:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case BuiltinType::Float128:
 #endif  // INTEL_CUSTOMIZATION
     // Various types which are non-trivial to correct.

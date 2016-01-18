@@ -1,5 +1,6 @@
 // RUN: %clang -std=c++11 -fno-exceptions -fcilkplus -emit-llvm -c -S %s -o %t
 // RUN: FileCheck --input-file=%t %s
+// REQUIRES: cilkplus
 
 void f1(int &v);
 

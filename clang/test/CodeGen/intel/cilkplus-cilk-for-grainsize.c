@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 void test_grainsize() {
   #pragma cilk grainsize = 2

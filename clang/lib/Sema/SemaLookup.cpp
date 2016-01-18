@@ -1639,7 +1639,7 @@ bool Sema::LookupName(LookupResult &R, Scope *S, bool AllowBuiltinCreation) {
 
             // If the declaration is in the right namespace and visible, add it.
             if (NamedDecl *LastD = R.getAcceptableDecl(*LastI))
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
               // CQ#368318 - filter out built-in functions without '__builtin_'
               // prefix in IntelCompat mode.
               if (!getLangOpts().IntelCompat ||

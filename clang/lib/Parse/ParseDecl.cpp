@@ -152,12 +152,12 @@ void Parser::ParseGNUAttributes(ParsedAttributes &attrs,
       SourceLocation AttrNameLoc = ConsumeToken();
 
       if (Tok.isNot(tok::l_paren)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
         if (AttrName->isStr("vector") && !getLangOpts().CilkPlus) {
           Diag(Tok, diag::err_cilkplus_disable);
           SkipUntil(tok::r_paren, StopAtSemi | StopBeforeMatch);
         }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         attrs.addNew(AttrName, AttrNameLoc, nullptr, AttrNameLoc, nullptr, 0,
                      AttributeList::AS_GNU);
         continue;
@@ -206,7 +206,7 @@ static StringRef normalizeAttrName(StringRef Name) {
   return Name;
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 /// \brief Build full attribute name based in its Syntax, Scope and ID
 static void fillAttrFullName(const IdentifierInfo &II,
                              AttributeList::Syntax Syntax,
@@ -228,9 +228,11 @@ static void fillAttrFullName(const IdentifierInfo &II,
     // FIXME:  add AS_ContextSensitiveKeyword
     Variety = "Keyword";
     break;
+#if INTEL_SPECIFIC_CILKPLUS
   case AttributeList::Syntax::AS_CilkKeyword:
     Variety = "CilkKeyword";
     break;
+#endif // INTEL_SPECIFIC_CILKPLUS
   default:
     Variety = "GNU";
   }
@@ -328,7 +330,7 @@ unsigned Parser::ParseAttributeArgsCommon(
   ArgsVector ArgExprs;
   if (Tok.is(tok::identifier)) {
     // If this attribute wants an 'identifier' argument, make it so.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     bool IsIdentifierArg =
         attributeHasIdentifierArg(*AttrName, Syntax, ScopeName);
 #else
@@ -400,7 +402,7 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
 
   AttributeList::Kind AttrKind =
       AttributeList::getKind(AttrName, ScopeName, Syntax);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   if (AttrName->isStr("vector")) {
     // Cilk Plus elemental function attributes have their own grammar.
     if (!getLangOpts().CilkPlus) {
@@ -411,9 +413,9 @@ void Parser::ParseGNUAttributeArgs(IdentifierInfo *AttrName,
     ParseCilkPlusElementalAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc,
                                     Syntax);
     return;
-  } else 
-#endif  // INTEL_CUSTOMIZATION
-  if (AttrKind == AttributeList::AT_Availability) {
+  } else
+#endif // INTEL_SPECIFIC_CILKPLUS
+      if (AttrKind == AttributeList::AT_Availability) {
     ParseAvailabilityAttribute(*AttrName, AttrNameLoc, Attrs, EndLoc, ScopeName,
                                ScopeLoc, Syntax);
     return;
@@ -577,7 +579,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
                                AttributeList::AS_Declspec);
     T.skipToEnd();
     return !HasInvalidAccessor;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   } else if (AttrName->isStr("vector")) {
     // The vector declspec may have optional argument clauses. Check for a l-paren
     // to decide wether we should parse argument clauses or not.
@@ -588,7 +590,7 @@ bool Parser::ParseMicrosoftDeclSpecArgs(IdentifierInfo *AttrName,
       Attrs.addNew(AttrName, AttrNameLoc, 0, AttrNameLoc, 0, 0,
                    AttributeList::AS_Declspec);
     return true;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   }
 
   unsigned NumArgs =
@@ -682,6 +684,7 @@ void Parser::ParseMicrosoftTypeAttributes(ParsedAttributes &attrs) {
   while (true) {
     switch (Tok.getKind()) {
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___stdcall:
     case tok::kw___thiscall:
     case tok::kw___cdecl:
@@ -1425,7 +1428,7 @@ bool Parser::DiagnoseProhibitedCXX11Attribute() {
     SkipUntil(tok::r_square);
     assert(Tok.is(tok::r_square) && "isCXX11AttributeSpecifier lied");
     SourceLocation EndLoc = ConsumeBracket();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
     if (getLangOpts().IntelCompat)
       Diag(BeginLoc, diag::warn_attributes_not_allowed)
@@ -1453,7 +1456,7 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
   ParseCXX11Attributes(Attrs);
   CharSourceRange AttrRange(SourceRange(Loc, Attrs.Range.getEnd()), true);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
     if (getLangOpts().IntelCompat)
       Diag(Loc, diag::warn_attributes_not_allowed)
@@ -1467,7 +1470,7 @@ void Parser::DiagnoseMisplacedCXX11Attribute(ParsedAttributesWithRange &Attrs,
 }
 
 void Parser::DiagnoseProhibitedAttributes(ParsedAttributesWithRange &attrs) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
     if (getLangOpts().IntelCompat)
       Diag(attrs.Range.getBegin(), diag::warn_attributes_not_allowed)
@@ -1482,7 +1485,7 @@ void Parser::ProhibitCXX11Attributes(ParsedAttributesWithRange &attrs) {
   AttributeList *AttrList = attrs.getList();
   while (AttrList) {
     if (AttrList->isCXX11Attribute()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#370092 - emit a warning, not error in IntelCompat mode
       if (getLangOpts().IntelCompat)
         Diag(AttrList->getLoc(), diag::warn_attribute_not_type_attr) 
@@ -2100,9 +2103,9 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   }
 
   bool TypeContainsAuto = D.getDeclSpec().containsPlaceholderType();
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   bool IsCilkSpawnReceiver = false;
-#endif  //  INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
   // Parse declarator '=' initializer.
   // If a '==' or '+=' is found, suggest a fixit to '='.
   if (isTokenEqualOrEqualTypo()) {
@@ -2162,9 +2165,10 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
       } else
         Actions.AddInitializerToDecl(ThisDecl, Init.get(),
                                      /*DirectInit=*/false, TypeContainsAuto
-#ifdef INTEL_CUSTOMIZATION
-                                      , IsCilkSpawnReceiver
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                                     ,
+                                     IsCilkSpawnReceiver
+#endif // INTEL_SPECIFIC_CILKPLUS
                                     );
     }
   } else if (Tok.is(tok::l_paren)) {
@@ -2209,10 +2213,11 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
                                                           Exprs);
       Actions.AddInitializerToDecl(ThisDecl, Initializer.get(),
                                    /*DirectInit=*/true, TypeContainsAuto
-#ifdef INTEL_CUSTOMIZATION
-                                   , IsCilkSpawnReceiver
-#endif  // INTEL_CUSTOMIZATION
-                                  );
+#if INTEL_SPECIFIC_CILKPLUS
+                                   ,
+                                   IsCilkSpawnReceiver
+#endif // INTEL_SPECIFIC_CILKPLUS
+                                   );
     }
   } else if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace) &&
              (!CurParsedObjCImpl || !D.isFunctionDeclarator())) {
@@ -2236,9 +2241,10 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
     } else
       Actions.AddInitializerToDecl(ThisDecl, Init.get(),
                                    /*DirectInit=*/true, TypeContainsAuto
-#ifdef INTEL_CUSTOMIZATION
-                                    , IsCilkSpawnReceiver
-#endif  // INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+                                   ,
+                                   IsCilkSpawnReceiver
+#endif // INTEL_SPECIFIC_CILKPLUS
                                   );
 
   } else {
@@ -2246,15 +2252,15 @@ Decl *Parser::ParseDeclarationAfterDeclaratorAndAttributes(
   }
 
   Actions.FinalizeDeclaration(ThisDecl);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   Actions.DiscardCleanupsInEvaluationContext();
 
   if (getLangOpts().CilkPlus && IsCilkSpawnReceiver && isa<VarDecl>(ThisDecl))
     return Actions.BuildCilkSpawnDecl(ThisDecl);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   Actions.ActOnVarFunctionDeclForSections(ThisDecl);
-#endif  // INTEL_SPECIFIC_IL0_BACKEND
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_SPECIFIC_CILKPLUS
   return ThisDecl;
 }
 
@@ -3202,6 +3208,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:
@@ -3361,7 +3368,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                         DiagID, Policy);
       break;
     case tok::kw___int64:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // CQ#374966 - cmake application failed with error: redefinition with a
       // different type. Bind '__int64' to 'long' builtin type if its width is
       // suitable for this on target platform.
@@ -3417,7 +3424,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec,
                                      DiagID, Policy);
       break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     case tok::kw__Quad:
       isInvalid = DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec,
                                      DiagID, Policy);
@@ -3543,7 +3550,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       ParseUnderlyingTypeSpecifier(DS);
       continue;
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#369185 - support of __bases and __direct_bases intrinsics.
     case tok::kw___bases:
     case tok::kw___direct_bases:
@@ -4234,7 +4241,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
 
   // C does not allow an empty enumerator-list, C++ does [dcl.enum].
   if (Tok.is(tok::r_brace) && !getLangOpts().CPlusPlus)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   {
     // CQ#364426 - emit a warning in IntelCompat mode
     if (getLangOpts().IntelCompat)
@@ -4242,7 +4249,7 @@ void Parser::ParseEnumBody(SourceLocation StartLoc, Decl *EnumDecl) {
     else
 #endif  // INTEL_CUSTOMIZATION
       Diag(Tok, diag::error_empty_enum);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   }
 #endif // INTEL_CUSTOMIZATION
 
@@ -4419,7 +4426,7 @@ bool Parser::isKnownToBeTypeSpecifier(const Token &Tok) const {
   case tok::kw_float:
   case tok::kw_double:
   case tok::kw_bool:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw__Bool:
@@ -4493,8 +4500,9 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
+  case tok::kw___regcall:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
   case tok::kw__Bool:
@@ -4644,7 +4652,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_half:
   case tok::kw_float:
   case tok::kw_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
 #endif  // INTEL_CUSTOMIZATION
   case tok::kw_bool:
@@ -4712,6 +4720,7 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw___cdecl:
   case tok::kw___stdcall:
   case tok::kw___fastcall:
+  case tok::kw___regcall: // INTEL
   case tok::kw___thiscall:
   case tok::kw___vectorcall:
   case tok::kw___w64:
@@ -4944,6 +4953,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
     case tok::kw___cdecl:
     case tok::kw___stdcall:
     case tok::kw___fastcall:
+    case tok::kw___regcall: // INTEL
     case tok::kw___thiscall:
     case tok::kw___vectorcall:
     case tok::kw___unaligned:
@@ -4975,20 +4985,20 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS, unsigned AttrReqs,
 
     case tok::kw___attribute:
       if (AttrReqs & AR_GNUAttributesParsedAndRejected)
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       // This brace is necessary to suppress a warning suggesting brace
       // insertion to avoid ambiguouse 'else'.
       {
 #endif // INTEL_CUSTOMIZATION
         // When GNU attributes are expressly forbidden, diagnose their usage.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // CQ#370092 - warn_attributes_not_allowed is used in IntelCompat mode
         if (getLangOpts().IntelCompat)
           Diag(Tok, diag::warn_attributes_not_allowed);
         else
 #endif // INTEL_CUSTOMIZATION
         Diag(Tok, diag::err_attributes_not_allowed);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
       }
 #endif // INTEL_CUSTOMIZATION
 
@@ -5451,7 +5461,7 @@ void Parser::ParseDirectDeclarator(Declarator &D) {
         if (Tok.isAtStartOfLine() && Loc.isValid())
           Diag(PP.getLocForEndOfToken(Loc), diag::err_expected_unqualified_id)
               << getLangOpts().CPlusPlus;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // In IntelCompat mode issue a warning, not an error, on usage of
         // "inline" keyword here. CQ#364737.
         else if (getLangOpts().IntelCompat &&

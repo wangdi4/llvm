@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -fsyntax-only -Wall -verify %s
-
+// REQUIRES: cilkplus
 void func1(const int);
 void func2(int *i);
 void func3(const int *i);

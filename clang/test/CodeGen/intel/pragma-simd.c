@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 -fcilkplus -o %t -verify %s
 // expected-no-diagnostics
+// REQUIRES: cilkplus
 
 int I();
 const int C0 = 0;

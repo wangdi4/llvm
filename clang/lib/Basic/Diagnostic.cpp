@@ -255,7 +255,7 @@ bool DiagnosticsEngine::setSeverityForGroup(diag::Flavor Flavor,
     return true;
 
   // Set the mapping.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   for (diag::kind Diag : GroupDiags) {
     // If requested (which happens in IntelCompat mode at the moment), don't
     // transform "ignored" warnings into errors. This is what GCC does and so

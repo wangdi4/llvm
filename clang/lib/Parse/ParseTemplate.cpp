@@ -1165,6 +1165,11 @@ ParsedTemplateArgument Parser::ParseTemplateTemplateArgument() {
 ///         type-id
 ///         id-expression
 ParsedTemplateArgument Parser::ParseTemplateArgument() {
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ368409: Different behavior on accessing static private class
+  // members.
+  Sema::ParsingTemplateArgRAII ParseTemplArgRAII(Actions);
+#endif // INTEL_CUSTOMIZATION
   // C++ [temp.arg]p2:
   //   In a template-argument, an ambiguity between a type-id and an
   //   expression is resolved to a type-id, regardless of the form of

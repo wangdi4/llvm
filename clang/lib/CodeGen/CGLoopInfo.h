@@ -64,7 +64,7 @@ class LoopInfo {
 public:
   /// \brief Construct a new LoopInfo for the loop with entry Header.
   LoopInfo(llvm::BasicBlock *Header, const LoopAttributes &Attrs);
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Construct a new LoopInfo with a given loop id metadata.
   LoopInfo(llvm::MDNode *LoopID, const LoopAttributes &Attrs);
 #endif  // INTEL_CUSTOMIZATION
@@ -100,7 +100,7 @@ public:
   /// applied to the loop and then cleared.
   void push(llvm::BasicBlock *Header);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   /// \brief Extend the code region as part of a parallel loop which might be
   /// inside another llvm function.
   void push(llvm::MDNode *LoopID, bool IsParallel);

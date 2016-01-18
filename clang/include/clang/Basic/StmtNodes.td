@@ -180,18 +180,6 @@ def MSDependentExistsStmt : Stmt;
 
 // OpenCL Extensions.
 def AsTypeExpr : DStmt<Expr>;
-//#ifdef INTEL_CUSTOMIZATION
-// Cilk Plus Extensions.
-def CilkSyncStmt : Stmt;
-def CilkForGrainsizeStmt : Stmt;
-def CilkForStmt : Stmt;
-def SIMDForStmt : Stmt;
-def CilkSpawnExpr : DStmt<Expr>;
-def CilkRankedStmt : Stmt;
-def CEANIndexExpr : DStmt<Expr>;
-def CEANBuiltinExpr : DStmt<Expr>;
-def PragmaStmt : Stmt;
-//#endif  // INTEL_CUSTOMIZATION
 // OpenMP Directives.
 def OMPExecutableDirective : Stmt<1>;
 def OMPLoopDirective : DStmt<OMPExecutableDirective, 1>;
@@ -220,3 +208,5 @@ def OMPTargetDataDirective : DStmt<OMPExecutableDirective>;
 def OMPTeamsDirective : DStmt<OMPExecutableDirective>;
 def OMPCancellationPointDirective : DStmt<OMPExecutableDirective>;
 def OMPCancelDirective : DStmt<OMPExecutableDirective>;
+
+include "../Basic/intel/IntelStmtNodes.td"

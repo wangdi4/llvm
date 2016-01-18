@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -ast-dump -ast-dump-filter test_loop_count %s | FileCheck -strict-whitespace %s
+// REQUIRES: cilkplus
 
 class Foo {
 public:

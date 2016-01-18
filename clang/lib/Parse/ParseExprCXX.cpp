@@ -550,7 +550,7 @@ bool Parser::ParseOptionalCXXScopeSpecifier(CXXScopeSpec &SS,
         // parse correctly as a template, so suggest the keyword 'template'
         // before 'getAs' and treat this as a dependent template name.
         unsigned DiagID = diag::err_missing_dependent_template_keyword;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // CQ#375523 - gimagereader application failed with error:
         // use 'template' keyword to treat 'value' as a dependent template name.
         if (getLangOpts().MicrosoftExt || getLangOpts().IntelCompat)
@@ -1837,7 +1837,7 @@ void Parser::ParseCXXSimpleTypeSpecifier(DeclSpec &DS) {
     DS.SetTypeSpecWidth(DeclSpec::TSW_long, Loc, PrevSpec, DiagID, Policy);
     break;
   case tok::kw___int64:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#374966 - cmake application failed with error: redefinition with a
     // different type. Bind '__int64' to 'long' builtin type if its width is
     // suitable for this on target platform.
@@ -1874,7 +1874,7 @@ void Parser::ParseCXXSimpleTypeSpecifier(DeclSpec &DS) {
   case tok::kw_double:
     DS.SetTypeSpecType(DeclSpec::TST_double, Loc, PrevSpec, DiagID, Policy);
     break;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case tok::kw__Quad:
     DS.SetTypeSpecType(DeclSpec::TST_float128, Loc, PrevSpec, DiagID, Policy);
     break;

@@ -10,7 +10,7 @@
 // This file implements parsing of simd loops.
 //
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 
 #include "clang/Parse/Parser.h"
 #include "clang/Sema/Scope.h"
@@ -659,4 +659,4 @@ StmtResult Parser::ParseSIMDDirective() {
   return Result;
 }
 
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS

@@ -84,7 +84,4 @@ def ClassScopeFunctionSpecialization : Decl;
 def Import : Decl;
 def OMPThreadPrivate : Decl;
 def Empty : Decl;
-//#ifdef INTEL_CUSTOMIZATION
-def CilkSpawn : Decl;
-def Pragma : Decl;
-//#endif  // INTEL_CUSTOMIZATION
+include "../Basic/intel/IntelDeclNodes.td"

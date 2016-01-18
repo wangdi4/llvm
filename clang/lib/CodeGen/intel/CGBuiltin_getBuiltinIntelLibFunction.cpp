@@ -1,4 +1,4 @@
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 #include "CodeGenFunction.h"
 #include "CGObjCRuntime.h"
 #include "CodeGenModule.h"

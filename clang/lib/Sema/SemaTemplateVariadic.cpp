@@ -702,7 +702,7 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_typename:
   case TST_typeofType:
   case TST_underlyingType:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   case TST_bases:
   case TST_directBases:
@@ -732,7 +732,7 @@ bool Sema::containsUnexpandedParameterPacks(Declarator &D) {
   case TST_half:
   case TST_float:
   case TST_double:
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   case TST_float128:
 #endif  // INTEL_CUSTOMIZATION
   case TST_bool:

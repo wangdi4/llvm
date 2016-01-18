@@ -793,12 +793,12 @@ QualType Sema::performLambdaInitCaptureInitialization(SourceLocation Loc,
   // The init-capture initialization is a full-expression that must be
   // processed as one before we enter the declcontext of the lambda's
   // call-operator.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
   CilkReceiverKind CilkKind = CRK_MaybeReceiver;
   Result = ActOnFinishFullExpr(Init, Loc, CilkKind,
 #else
   Result = ActOnFinishFullExpr(Init, Loc,
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
                                 /*DiscardedValue*/ false,
                                /*IsConstexpr*/ false,
                                /*IsLambdaInitCaptureInitalizer*/ true);
@@ -1387,7 +1387,7 @@ static ExprResult performLambdaVarCaptureInitialization(
     Sema &S, LambdaScopeInfo::Capture &Capture,
     FieldDecl *Field,
     SmallVectorImpl<VarDecl *> &ArrayIndexVars,
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ374573: Source correlation for lambda captured values.
     SmallVectorImpl<unsigned> &ArrayIndexStarts, bool ImplicitCapture,
     SourceLocation CaptureDefaultLoc) {
@@ -1411,7 +1411,7 @@ static ExprResult performLambdaVarCaptureInitialization(
   // C++ [expr.prim.lambda]p12:
   //   An entity captured by a lambda-expression is odr-used (3.2) in
   //   the scope containing the lambda-expression.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // Fix for CQ374573: Source correlation for lambda captured values.
   ExprResult RefResult = S.BuildDeclarationNameExpr(
       CXXScopeSpec(),
@@ -1584,7 +1584,7 @@ ExprResult Sema::BuildLambdaExpr(SourceLocation StartLoc, SourceLocation EndLoc,
                                        Var, From.getEllipsisLoc()));
       Expr *Init = From.getInitExpr();
       if (!Init) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
         // Fix for CQ374573: Source correlation for lambda captured values.
         auto InitResult = performLambdaVarCaptureInitialization(
             *this, From, *CurField, ArrayIndexVars, ArrayIndexStarts,

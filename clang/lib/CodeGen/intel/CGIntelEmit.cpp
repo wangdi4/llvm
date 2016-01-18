@@ -28,7 +28,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Type.h"
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 
 using namespace clang;
 using namespace CodeGen;
@@ -44,4 +44,4 @@ void CodeGenFunction::EmitCaptureReceiverDecl(const VarDecl &D) {
   AutoVarEmission Emission = EmitAutoVarAlloca(D);
   EmitAutoVarCleanups(Emission);
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS

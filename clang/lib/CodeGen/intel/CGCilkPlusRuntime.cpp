@@ -12,8 +12,9 @@
 /// making calls to the cilkrts library and call to the spawn helper function.
 ///
 //===----------------------------------------------------------------------===//
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 
+#include "clang/Basic/intel/StmtIntel.h"
 #include "CilkJumpBuffer.h"
 #include "CGCilkPlusRuntime.h"
 #include "CGCleanup.h"
@@ -1687,4 +1688,4 @@ CGCilkImplicitSyncInfo *CreateCilkImplicitSyncInfo(CodeGenFunction &CGF) {
 } // namespace CodeGen
 } // namespace clang
 
-#endif // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS

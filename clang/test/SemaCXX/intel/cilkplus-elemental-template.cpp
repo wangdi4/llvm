@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -std=c++11 -fsyntax-only -verify -Wall %s
+// REQUIRES: cilkplus
 
 # define ATTR(x)  __attribute__((x))
 

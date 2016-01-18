@@ -34,6 +34,9 @@
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
 #include "clang/AST/TypeLoc.h"
+#if INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/intel/StmtIntel.h"
+#endif // INTEL_SPECIFIC_CILKPLUS
 
 // The following three macros are used for meta programming.  The code
 // using them is responsible for defining macro OPERATOR().
@@ -1311,9 +1314,9 @@ DEF_TRAVERSE_DECL(CapturedDecl, {
   // is skipped - don't remove it.
   return true;
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_DECL(CilkSpawnDecl, {})
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_DECL(EmptyDecl, {})
 
 DEF_TRAVERSE_DECL(FileScopeAsmDecl,
@@ -1900,7 +1903,7 @@ DEF_TRAVERSE_DECL(ParmVarDecl, {
       !D->hasUnparsedDefaultArg())
     TRY_TO(TraverseStmt(D->getDefaultArg()));
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_DECL(PragmaDecl, { })
 #endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_DECL
@@ -2253,12 +2256,12 @@ DEF_TRAVERSE_STMT(BlockExpr, {
   TRY_TO(TraverseDecl(S->getBlockDecl()));
   return true; // no child statements to loop through.
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(CilkSpawnExpr, {
   TRY_TO(TraverseDecl(S->getSpawnDecl()));
   return true; // no child statements to loop through.
 })
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(ChooseExpr, {})
 DEF_TRAVERSE_STMT(CompoundLiteralExpr, {
   TRY_TO(TraverseTypeLoc(S->getTypeSourceInfo()->getTypeLoc()));
@@ -2327,7 +2330,7 @@ DEF_TRAVERSE_STMT(UnresolvedMemberExpr, {
                                               S->getNumTemplateArgs()));
   }
 })
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(CEANIndexExpr, { })
 DEF_TRAVERSE_STMT(CEANBuiltinExpr, { })
 DEF_TRAVERSE_STMT(CilkSyncStmt, { })
@@ -2335,7 +2338,7 @@ DEF_TRAVERSE_STMT(CilkForGrainsizeStmt, { })
 DEF_TRAVERSE_STMT(CilkForStmt, { })
 DEF_TRAVERSE_STMT(SIMDForStmt, { })
 DEF_TRAVERSE_STMT(CilkRankedStmt, { })
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
 DEF_TRAVERSE_STMT(SEHTryStmt, {})
 DEF_TRAVERSE_STMT(SEHExceptStmt, {})
 DEF_TRAVERSE_STMT(SEHFinallyStmt, {})
@@ -2771,7 +2774,7 @@ bool RecursiveASTVisitor<Derived>::VisitOMPDeviceClause(OMPDeviceClause *C) {
 //    http://clang.llvm.org/doxygen/classclang_1_1UnaryExprOrTypeTraitExpr.html
 //    http://clang.llvm.org/doxygen/classclang_1_1TypesCompatibleExpr.html
 //    Every class that has getQualifier.
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 DEF_TRAVERSE_STMT(PragmaStmt, { })
 #endif  // INTEL_CUSTOMIZATION
 #undef DEF_TRAVERSE_STMT

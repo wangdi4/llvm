@@ -1,4 +1,6 @@
 // RUN: %clang_cc1 -fcilkplus -x c++ -triple x86_64-unknown-unknown -fexceptions -fcxx-exceptions -O2 -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
+
 // See cq369391.
 void foo() {
   throw 5;

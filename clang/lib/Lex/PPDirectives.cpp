@@ -1258,7 +1258,7 @@ void Preprocessor::HandleIdentSCCSDirective(Token &Tok) {
   // If the token kind isn't a string, it's a malformed directive.
   if (StrTok.isNot(tok::string_literal) &&
       StrTok.isNot(tok::wide_string_literal)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#372653 - just ignore malformed #ident directive.
     if (getLangOpts().IntelCompat)
       Diag(StrTok, diag::warn_pp_malformed_ident);
@@ -1845,7 +1845,7 @@ void Preprocessor::HandleIncludeNextDirective(SourceLocation HashLoc,
                                               Token &IncludeNextTok) {
   Diag(IncludeNextTok, diag::ext_pp_include_next_directive);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#366531 - if the last processed include was quoted, behave like #include.
   if (getLangOpts().IntelCompat && LastIncludeWasQuoted)
     return HandleIncludeDirective(HashLoc, IncludeNextTok,

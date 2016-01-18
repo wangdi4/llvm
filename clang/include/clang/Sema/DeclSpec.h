@@ -285,7 +285,7 @@ public:
   static const TST TST_half = clang::TST_half;
   static const TST TST_float = clang::TST_float;
   static const TST TST_double = clang::TST_double;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   static const TST TST_float128 = clang::TST_float128;
 #endif  // INTEL_CUSTOMIZATION
   static const TST TST_bool = clang::TST_bool;
@@ -303,7 +303,7 @@ public:
   static const TST TST_decltype = clang::TST_decltype;
   static const TST TST_decltype_auto = clang::TST_decltype_auto;
   static const TST TST_underlyingType = clang::TST_underlyingType;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   // CQ#369185 - support of __bases and __direct_bases intrinsics.
   static const TST TST_bases = clang::TST_bases;
   static const TST TST_directBases = clang::TST_directBases;
@@ -405,7 +405,7 @@ private:
 
   static bool isTypeRep(TST T) {
     return (T == TST_typename || T == TST_typeofType ||
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
             // CQ#369185 - support of __bases and __direct_bases intrinsics.
             T == TST_bases || T == TST_directBases ||
 #endif // INTEL_CUSTOMIZATION

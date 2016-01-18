@@ -590,15 +590,6 @@ def IntToVoidPointerCast : DiagGroup<"int-to-void-pointer-cast">;
 def IntToPointerCast : DiagGroup<"int-to-pointer-cast",
                                  [IntToVoidPointerCast]>;
 
-//#ifdef INTEL_CUSTOMIZATION
-// Intel pragma warnings.
-def IntelPragma : DiagGroup<"intel-pragma">;
-// Cilk Plus warnings.
-def SourceUsesCilkPlus : DiagGroup<"source-uses-cilk-plus">;
-def CilkPlusLoopControlVarModification : DiagGroup<"cilk-loop-control-var-modification">;
-def CilkPlusCEAN : DiagGroup<"extended-array-notation">;
-//#endif  // INTEL_CUSTOMIZATION
-
 def Move : DiagGroup<"move", [PessimizingMove, RedundantMove, SelfMove]>;
 
 def Extra : DiagGroup<"extra", [
@@ -639,10 +630,6 @@ def Most : DiagGroup<"most", [
     OverloadedVirtual,
     PrivateExtern,
     SelTypeCast,
-//#ifdef INTEL_CUSTOMIZATION
-    CilkPlusLoopControlVarModification,
-    CilkPlusCEAN,
-//#endif // INTEL_CUSTOMIZATION
     ExternCCompat
  ]>;
 
@@ -666,7 +653,8 @@ def Consumed       : DiagGroup<"consumed">;
 // Note that putting warnings in -Wall will not disable them by default. If a
 // warning should be active _only_ when -Wall is passed in, mark it as
 // DefaultIgnore in addition to putting it here.
-def : DiagGroup<"all", [Most, Parentheses, Switch, SwitchBool]>;
+// INTEL
+def : DiagGroup<"all", [Most, Parentheses, Switch, SwitchBool, IntelSpecific]>;
 
 // Warnings enabled by -pedantic.  This is magically filled in by TableGen.
 def Pedantic : DiagGroup<"pedantic">;
@@ -767,20 +755,6 @@ def MicrosoftAnonTag : DiagGroup<"microsoft-anon-tag">;
 // Aliases.
 def : DiagGroup<"msvc-include", [MicrosoftInclude]>;
                 // -Wmsvc-include = -Wmicrosoft-include
-
-// if INTEL_CUSTOMIZATION
-// CQ#364717
-// A warning group for warnings about Intel compatibility extensions.
-def IntelCompat : DiagGroup<"intel-compat">;
-
-// A warning group for warnings about Intel MS compatibility extensions that are
-// not planned for clang/llvm trunk. CQ#367312.
-def IntelMSCompat : DiagGroup<"intel-ms-compat">;
-
-// Warning group for err_access_dtor_vbase error that we converted to a warning.
-// CQ#376362.
-def PrivateVBaseDtor : DiagGroup<"private-vbase-dtor">;
-// endif INTEL_CUSTOMIZATION
 
 // Warnings group for warnings about Microsoft extensions.
 def Microsoft : DiagGroup<"microsoft",

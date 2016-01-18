@@ -12,7 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
+#include "clang/Basic/intel/StmtIntel.h"
 #include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"
 #include "clang/AST/ASTContext.h"
@@ -465,4 +466,4 @@ void Parser::ParseFunctionParameterAttribute(IdentifierInfo &AttrName,
   if (EndLoc)
     *EndLoc = T.getCloseLocation();
 }
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS

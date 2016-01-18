@@ -910,7 +910,7 @@ void Parser::ParseUnderlyingTypeSpecifier(DeclSpec &DS) {
   DS.setTypeofParensRange(T.getRange());
 }
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 /// [N2965]:
 ///   __bases( type-name )
@@ -2480,7 +2480,7 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
     SmallString<8> Buffer;
     if (Zero.isNot(tok::numeric_constant) || Zero.getLength() != 1 ||
         PP.getSpelling(Zero, Buffer) != "0")
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // CQ#373607 - allow using 0 with modificators as pure-specifier.
     {
       if (getLangOpts().IntelCompat && Zero.is(tok::numeric_constant)) {
@@ -2493,7 +2493,7 @@ Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
       } else
 #endif // INTEL_CUSTOMIZATION
         return false;
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     }
 #endif // INTEL_CUSTOMIZATION
 
@@ -3925,7 +3925,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
 
     // Parse attribute arguments
     if (Tok.is(tok::l_paren)) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_SPECIFIC_CILKPLUS
       if ((ScopeName && ScopeName->isStr("gnu")) ||
           (getLangOpts().CilkPlus &&
            (!ScopeName || ScopeName->isStr("cilkplus")) &&
@@ -3934,7 +3934,7 @@ void Parser::ParseCXX11AttributeSpecifier(ParsedAttributes &attrs,
                               ScopeLoc, AttributeList::AS_CXX11, nullptr);
         AttrParsed = true;
       } else
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_SPECIFIC_CILKPLUS
         AttrParsed = ParseCXX11AttributeArgs(AttrName, AttrLoc, attrs, endLoc,
                                              ScopeName, ScopeLoc);
     }

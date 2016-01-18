@@ -48,7 +48,7 @@ bool Sema::SetMemberAccessSpecifier(NamedDecl *MemberDecl,
   // C++ [class.access.spec]p3: When a member is redeclared its access
   // specifier must be same as its initial declaration.
   if (LexicalAS != AS_none && LexicalAS != PrevMemberDecl->getAccess()) {
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
     // Fix for CQ373961: redeclaration of class member with different access.
     if (getLangOpts().IntelCompat) {
       Diag(MemberDecl->getLocation(),
@@ -1859,6 +1859,19 @@ void Sema::CheckLookupAccess(const LookupResult &R) {
       AccessTarget Entity(Context, AccessedEntity::Member,
                           R.getNamingClass(), I.getPair(),
                           R.getBaseObjectType());
+#if INTEL_CUSTOMIZATION
+      // Fix for CQ368409: Different behavior on accessing static private class
+      // members.
+      if (getLangOpts().IntelCompat && !BuildingUsingDirective &&
+          !getDiagnostics().getDiagnosticOptions().Pedantic &&
+          !getDiagnostics().getDiagnosticOptions().PedanticErrors &&
+          Entity.getNamingClass() && isa<TypeDecl>(Entity.getTargetDecl()))
+        Entity.setDiag(diag::warn_access_type);
+      else if (getLangOpts().IntelCompat && !getLangOpts().IntelMSCompat &&
+               ParsingTemplateArg)
+        Entity.setDiag(diag::warn_access);
+      else
+#endif // INTEL_CUSTOMIZATION
       Entity.setDiag(diag::err_access);
       CheckAccess(*this, R.getNameLoc(), Entity);
     }

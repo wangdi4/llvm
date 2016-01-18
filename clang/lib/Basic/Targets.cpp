@@ -2188,6 +2188,10 @@ class X86TargetInfo : public TargetInfo {
     /// Knights Landing processor.
     CK_KNL,
 
+    /// \name Lakemont
+    /// Lakemont microarchitecture based processors.
+    CK_Lakemont,
+
     /// \name K6
     /// K6 architecture processors.
     //@{
@@ -2290,6 +2294,7 @@ class X86TargetInfo : public TargetInfo {
         .Case("skylake", CK_Skylake)
         .Case("skx", CK_Skylake) // Legacy name.
         .Case("knl", CK_KNL)
+        .Case("lakemont", CK_Lakemont)
         .Case("k6", CK_K6)
         .Case("k6-2", CK_K6_2)
         .Case("k6-3", CK_K6_3)
@@ -2423,6 +2428,7 @@ public:
     case CK_C3_2:
     case CK_Pentium4:
     case CK_Pentium4M:
+    case CK_Lakemont:
     case CK_Prescott:
     case CK_K6:
     case CK_K6_2:
@@ -2478,6 +2484,7 @@ public:
     return (CC == CC_X86ThisCall ||
             CC == CC_X86FastCall ||
             CC == CC_X86StdCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_X86VectorCall ||
             CC == CC_C ||
             CC == CC_X86Pascal ||
@@ -2513,7 +2520,13 @@ bool X86TargetInfo::initFeatureMap(
   if (getTriple().getArch() == llvm::Triple::x86_64)
     setFeatureEnabledImpl(Features, "sse2", true);
 
-  switch (getCPUKind(CPU)) {
+  CPUKind Kind = getCPUKind(CPU);
+
+  // Enable X87 for all X86 processors but Lakemont.
+  if (Kind != CK_Lakemont)
+    setFeatureEnabledImpl(Features, "x87", true);
+
+  switch (Kind) {
   case CK_Generic:
   case CK_i386:
   case CK_i486:
@@ -2521,6 +2534,7 @@ bool X86TargetInfo::initFeatureMap(
   case CK_Pentium:
   case CK_i686:
   case CK_PentiumPro:
+  case CK_Lakemont:
     break;
   case CK_PentiumMMX:
   case CK_Pentium2:
@@ -3140,6 +3154,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_KNL:
     defineCPUMacros(Builder, "knl");
     break;
+  case CK_Lakemont:
+    Builder.defineMacro("__tune_lakemont__");
+    break;
   case CK_K6_2:
     Builder.defineMacro("__k6_2__");
     Builder.defineMacro("__tune_k6_2__");
@@ -3362,11 +3379,6 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   }
   if (CPU >= CK_i586)
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8");
-
-  if (getTriple().isOSIAMCU()) {
-    Builder.defineMacro("__iamcu");
-    Builder.defineMacro("__iamcu__");
-  }
 }
 
 bool X86TargetInfo::hasFeature(StringRef Feature) const {
@@ -3609,16 +3621,13 @@ public:
     LongDoubleWidth = 96;
     LongDoubleAlign = 32;
     SuitableAlign = 128;
-    DataLayoutString = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
+    DataLayoutString = Triple.isOSIAMCU()
+                           ? "e-m:e-p:32:32-i64:32-f64:32-n8:16:32-a:0:32-S32"
+                           : "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
     IntPtrType = SignedInt;
     RegParmMax = 3;
-
-    if (getTriple().isOSIAMCU()) {
-      LongDoubleWidth = 64;
-      LongDoubleFormat = &llvm::APFloat::IEEEdouble;
-    }
 
     // Use fpret for all types.
     RealTypeUsesObjCFPRet = ((1 << TargetInfo::Float) |
@@ -3847,6 +3856,27 @@ public:
   }
 };
 
+// X86-32 MCU target
+class MCUX86_32TargetInfo : public X86_32TargetInfo {
+public:
+  MCUX86_32TargetInfo(const llvm::Triple &Triple) : X86_32TargetInfo(Triple) {
+    LongDoubleWidth = 64;
+    LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+  }
+
+  CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
+    // On MCU we support only C calling convention.
+    return CC == CC_C ? CCCR_OK : CCCR_Warning;
+  }
+
+  void getTargetDefines(const LangOptions &Opts,
+                        MacroBuilder &Builder) const override {
+    X86_32TargetInfo::getTargetDefines(Opts, Builder);
+    Builder.defineMacro("__iamcu");
+    Builder.defineMacro("__iamcu__");
+  }
+};
+
 // RTEMS Target
 template<typename Target>
 class RTEMSTargetInfo : public OSTargetInfo<Target> {
@@ -3951,6 +3981,7 @@ public:
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {
     return (CC == CC_C ||
             CC == CC_X86VectorCall ||
+            CC == CC_X86RegCall ||  // INTEL
             CC == CC_IntelOclBicc ||
             CC == CC_X86_64Win64) ? CCCR_OK : CCCR_Warning;
   }
@@ -3997,6 +4028,7 @@ public:
       return CCCR_Ignore;
     case CC_C:
     case CC_X86VectorCall:
+    case CC_X86RegCall: // INTEL
     case CC_IntelOclBicc:
     case CC_X86_64SysV:
       return CCCR_OK;
@@ -7611,6 +7643,8 @@ static TargetInfo *AllocateTarget(const llvm::Triple &Triple) {
       return new RTEMSX86_32TargetInfo(Triple);
     case llvm::Triple::NaCl:
       return new NaClTargetInfo<X86_32TargetInfo>(Triple);
+    case llvm::Triple::ELFIAMCU:
+      return new MCUX86_32TargetInfo(Triple);
     default:
       return new X86_32TargetInfo(Triple);
     }

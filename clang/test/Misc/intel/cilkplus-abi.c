@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 -fcilkplus -O2 -emit-llvm %s -o - | FileCheck %s
+// REQUIRES: cilkplus
 
 void foo(void);
 
