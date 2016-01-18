@@ -39,6 +39,7 @@
 #include "ElfWriter.h"
 #include "cl_autoptr_ex.h"
 #include <cl_local_array.h>
+#include "program_with_il.h"
 
 #include <string>
 
@@ -157,14 +158,29 @@ bool CompileTask::Execute()
         return true;
     }
 
-    m_pFECompiler->CompileProgram(szSource,
-                                  m_uiNumHeaders,
-                                  m_pszHeaders,
-                                  m_pszHeadersNames,
+    SharedPtr<ProgramWithIL> pIL = m_pProg.DynamicCast<ProgramWithIL>();
+    if(pIL)
+    {
+        unsigned int binarySize = pIL->GetSize();
+
+        m_pFECompiler->ParseSpirv(szSource,
+                                  binarySize,
                                   m_sOptions.c_str(),
                                   pOutBinary.getOutPtr(),
                                   &uiOutBinarySize,
                                   szOutCompileLog.getOutPtr());
+    }
+    else
+    {
+        m_pFECompiler->CompileProgram(szSource,
+                                      m_uiNumHeaders,
+                                      m_pszHeaders,
+                                      m_pszHeadersNames,
+                                      m_sOptions.c_str(),
+                                      pOutBinary.getOutPtr(),
+                                      &uiOutBinarySize,
+                                      szOutCompileLog.getOutPtr());
+    }
 
     if (NULL != szOutCompileLog.get())
     {
@@ -431,8 +447,7 @@ bool DeviceBuildTask::Execute()
     }
 
     // If we are building library no need for device build
-    if (m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_EXECUTABLE &&
-            m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_SPIRV)
+    if (m_pDeviceProgram->GetBinaryTypeInternal() != CL_PROGRAM_BINARY_TYPE_EXECUTABLE)
     {
         SetComplete(CL_BUILD_SUCCESS);
         return true;
@@ -484,11 +499,6 @@ bool DeviceBuildTask::Execute()
         m_pDeviceProgram->SetBuildLogInternal("Failed to build device program\n");
         SetComplete(CL_BUILD_SUCCESS);
         return true;
-    }
-
-    if (CL_PROGRAM_BINARY_TYPE_SPIRV == m_pDeviceProgram->GetBinaryTypeInternal())
-    {
-        m_pDeviceProgram->SetBinaryTypeInternal(CL_PROGRAM_BINARY_TYPE_EXECUTABLE);
     }
 
     m_pDeviceProgram->SetBuildLogInternal("Device build done\n");
@@ -858,6 +868,7 @@ cl_err_code ProgramService::CompileProgram(const SharedPtr<Program>&    program,
                 // Intentional fall through.
             }
         case DEVICE_PROGRAM_SOURCE:
+        case DEVICE_PROGRAM_SPIRV:
             {
                 // Building from source
                 bNeedToBuild = true;
@@ -1364,6 +1375,7 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
                 //Intentional fall through.
             }
         case DEVICE_PROGRAM_SOURCE:
+        case DEVICE_PROGRAM_SPIRV:
             {
                 // Building from source
                 bNeedToBuild = true;
@@ -1397,7 +1409,6 @@ cl_err_code ProgramService::BuildProgram(const SharedPtr<Program>& program, cl_u
             }
         case DEVICE_PROGRAM_LINKED:
         case DEVICE_PROGRAM_CUSTOM_BINARY:
-        case DEVICE_PROGRAM_SPIRV:
             {
                 // Building from linked or custom binary
                 bNeedToBuild = true;

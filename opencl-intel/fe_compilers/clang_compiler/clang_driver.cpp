@@ -35,6 +35,12 @@
 #include <cl_cpu_detect.h>
 #include <cl_autoptr_ex.h>
 
+#include <llvm/IR/Module.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Support/SPIRV.h>
+#include <llvm/Support/raw_ostream.h>
+
 #include <string>
 #include <list>
 #include <vector>
@@ -260,6 +266,38 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult* *pBinaryResult)
         *pBinaryResult = spBinaryResult.release();
     }
     return res;
+}
+
+//
+// ClangFECompilerParseSPIRVTask call implementation
+//
+int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult)
+{
+    // parse SPIR-V
+    std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
+    llvm::Module* pModule;
+    std::string errorMsg;
+    std::stringstream inputStream(std::string((const char*)m_pProgDesc->pSPIRVContainer,
+        m_pProgDesc->uiSPIRVContainerSize), std::ios_base::in);
+
+    int success = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+
+    OCLFEBinaryResult* pResult(new OCLFEBinaryResult());
+
+    // serialize to LLVM bitcode
+    llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+    llvm::WriteBitcodeToFile(pModule, ir_ostream);
+    ir_ostream.flush();
+
+    pResult->setLog(errorMsg);
+    pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
+    pResult->setIRName(pModule->getName());
+
+    if (pBinaryResult) {
+      *pBinaryResult = pResult;
+    }
+
+    return success ? CL_SUCCESS : CL_INVALID_PROGRAM;
 }
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin,

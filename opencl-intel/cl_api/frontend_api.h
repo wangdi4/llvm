@@ -40,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace FECompilerAPI {
 #define CL_FE_INTERNAL_ERROR_OHNO -1    //thanks to doron for the awesome name
 
 // Compile task descriptor, contains FE compilation info
-struct	FECompileProgramDescriptor
+struct FECompileProgramDescriptor
 {
     // A pointer to main program's source (assumed one nullterminated string)
     const char*     pProgramSource;
@@ -55,7 +55,7 @@ struct	FECompileProgramDescriptor
 };
 
 // Link task descriptor, contains FE Linking info
-struct	FELinkProgramsDescriptor
+struct FELinkProgramsDescriptor
 {
     // array of binary containers
     const void**    pBinaryContainers;
@@ -67,26 +67,42 @@ struct	FELinkProgramsDescriptor
     const char*     pszOptions;
 };
 
+struct FESPIRVProgramDescriptor
+{
+    // binary container for SPIRV program
+    const void*     pSPIRVContainer;
+    // the size in bytes of the container pSPIRVContainer
+    unsigned int    uiSPIRVContainerSize;
+    // A string for compile options
+    const char*     pszOptions;
+};
+
 // This interface represent FE compiler instance
 class IOCLFECompiler
 {
 public:
     // Synchronous function
     // Input: pProgDesc - descriptor of the program to compile
-    // Output: The interface to build result
+    // Output: pBinaryResult - The interface to build result
     // Returns: Compile status
     virtual int CompileProgram(FECompileProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
     // Input: pProgDesc - descriptor of the programs to link
-    // Output: The interface to link result
+    // Output: pBinaryResult - The interface to link result
     // Returns: Link status
     virtual int LinkPrograms(FELinkProgramsDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
 
     // Synchronous function
+    // Input: pProgDesc - descriptor of the program to parse
+    // Output: pBinaryResult - The interface to parse result
+    // Returns: SPIR-V parsing status
+    virtual int ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult) = 0;
+
+    // Synchronous function
     // Input: pBin - the program's binary including the header
     //        szKernelName - the name of the kernel for which we query the arg info
-    // Output: The interface to kernelArgInfo result
+    // Output: pArgInfo - The interface to kernelArgInfo result
     // Returns: CL_SUCCESS in case of success
     //          CL_KERNEL_ARG_INFO_NOT_AVAILABLE if binary was built without -cl-kernel-arg-info
     //          CL_OUT_OF_HOST_MEMORY for out of host memory

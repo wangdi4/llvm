@@ -109,6 +109,78 @@ void FrontEndCompiler::FreeResources()
     }
 }
 
+cl_err_code FrontEndCompiler::ParseSpirv(const char*    szProgramBinary,
+                                         unsigned int   uiProgramBinarySize,
+                                         const char*    szOptions,
+                                         OUT char**     ppBinary,
+                                         OUT size_t*    puiBinarySize,
+                                         OUT char**     pszCompileLog) const
+{
+    LOG_DEBUG(TEXT("Enter ParseSpirv(szProgramBinary=%d, uiProgramBinarySize=%d, szOptions=%d, ppBinary=%d, puiBinarySize=%d, pszCompileLog=%d)"),
+        szProgramBinary, uiProgramBinarySize, szOptions, ppBinary, puiBinarySize, pszCompileLog);
+
+    IOCLFEBinaryResult* pResult;
+    int err = CL_SUCCESS;
+
+    assert(sizeof(_CL_SPIRV_MAGIC_NUMBER_) < uiProgramBinarySize &&
+           _CL_SPIRV_MAGIC_NUMBER_ == ((unsigned int*)szProgramBinary)[0] && "The binary is not SPIRV program.");
+
+    FESPIRVProgramDescriptor spirvDesc;
+
+    spirvDesc.pSPIRVContainer = szProgramBinary;
+    spirvDesc.uiSPIRVContainerSize = uiProgramBinarySize;
+    spirvDesc.pszOptions = szOptions;
+
+    err = m_pFECompiler->ParseSPIRV(&spirvDesc, &pResult);
+
+    if (CL_OUT_OF_HOST_MEMORY == err)
+    {
+        LOG_ERROR(TEXT("Front-End compilation failed = %x"), err);
+        if (NULL != pResult)
+        {
+            pResult->Release();
+        }
+
+        return CL_OUT_OF_HOST_MEMORY;
+    }
+
+    const char* errLog = pResult->GetErrorLog();
+
+    if (NULL != errLog)
+    {
+        *pszCompileLog = new char[strlen(errLog) + 1];
+        if (NULL != *pszCompileLog)
+        {
+            MEMCPY_S(*pszCompileLog, strlen(errLog) + 1, errLog, strlen(errLog) + 1);
+        }
+        else
+        {
+            pResult->Release();
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
+    *puiBinarySize = pResult->GetIRSize();
+
+    if (0 != *puiBinarySize)
+    {
+        assert(pResult->GetIR() != 0);
+        *ppBinary = new char[*puiBinarySize];
+        if (NULL != *ppBinary)
+        {
+            MEMCPY_S(*ppBinary, *puiBinarySize, pResult->GetIR(), *puiBinarySize);
+        }
+        else
+        {
+            pResult->Release();
+            return CL_OUT_OF_HOST_MEMORY;
+        }
+    }
+
+    pResult->Release();
+
+    return CL_SUCCESS;
+}
 
 cl_err_code FrontEndCompiler::CompileProgram(const char*    szProgramSource, 
                                              unsigned int   uiNumInputHeaders, 
