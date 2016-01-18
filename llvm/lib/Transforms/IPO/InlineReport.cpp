@@ -77,6 +77,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee has single callsite and local linkage",
   // InlrSingleBasicBlock,
   InlPrtCost, "Callee is single basic block",
+  // InlrAlmostSingleBasicBlock,
+  InlPrtCost, "Callee is single basic block with test",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
   // InlrVectorBonus,

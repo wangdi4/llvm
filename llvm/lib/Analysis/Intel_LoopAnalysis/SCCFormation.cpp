@@ -56,21 +56,6 @@ void SCCFormation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequiredTransitive<RegionIdentification>();
 }
 
-bool SCCFormation::isLinear(const NodeTy *Node) const {
-
-  if (SE->isSCEVable(Node->getType())) {
-    auto SC = SE->getSCEV(const_cast<NodeTy *>(Node));
-
-    if (auto AddRecSCEV = dyn_cast<SCEVAddRecExpr>(SC)) {
-      if (AddRecSCEV->isAffine()) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
 bool SCCFormation::isCandidateRootNode(const NodeTy *Node) const {
   assert(isa<PHINode>(Node) && "Instruction is not a phi!");
 
@@ -210,9 +195,21 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
 
 bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
   SmallPtrSet<const BasicBlock *, 12> BBlocks;
+  Type *NodeTy = nullptr;
 
   for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
        InstIt != IEndIt; ++InstIt) {
+
+    // Check whether all the nodes have the same type. There can be type
+    // mismatch if we have traced through casts.
+    // TODO: is it worth tracing through casts?
+    if (!NodeTy) {
+      NodeTy = (*InstIt)->getType();
+
+    } else if (NodeTy != (*InstIt)->getType()) {
+      return false;
+    }
+
     if (isa<PHINode>(*InstIt)) {
 
       auto ParentBB = (*InstIt)->getParent();
@@ -297,15 +294,29 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       SCCTy *NewSCC = new SCCTy(Node);
       auto &NewSCCNodes = NewSCC->Nodes;
       const NodeTy *SCCNode;
+      bool isRootPhi = isa<PHINode>(Node);
 
       // Insert Nodes in new SCC.
       do {
         SCCNode = NodeStack.pop_back_val();
         NewSCCNodes.insert(SCCNode);
 
+        // If the root of this SCC is not a phi, it may get eliminated as an
+        // intermediate node which results in a dangling root node. To fix this
+        // we set the first phi we encounter to be the root node.
+        if (!isRootPhi && isa<PHINode>(SCCNode)) {
+          NewSCC->Root = SCCNode;
+          isRootPhi = true;
+        }
+
         // Invalidate index so node is ignored in subsequent traverals.
         VisitedNodes[SCCNode] = 0;
       } while (SCCNode != Node);
+
+      assert(isRootPhi && "No phi found in SCC!");
+
+      // Remove nodes not directly associated with the phi nodes.
+      removeIntermediateNodes(NewSCCNodes);
 
       if (isValidSCC(NewSCC)) {
         // Add new SCC to the list.
@@ -313,9 +324,6 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
 
         // Set pointer to first SCC of region, if applicable.
         setRegionSCCBegin();
-
-        // Remove nodes not directly associated with the phi nodes.
-        removeIntermediateNodes(NewSCCNodes);
 
       } else {
         // Not a valid SCC.

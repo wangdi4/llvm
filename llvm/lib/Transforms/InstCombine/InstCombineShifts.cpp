@@ -454,6 +454,34 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
                                          V1->getName()+".mask");
           return BinaryOperator::Create(Op0BO->getOpcode(), YS, XM);
         }
+       
+#if INTEL_CUSTOMIZATION 
+        // Turn ((X << C) + Y) >> C  ->  (X + (Y >> C)) & (~0 >> C) for lshr
+        // This transformation reduces 1 instruction when Y is a ConstantInt, 
+        // and creates potential for other simplifications. 
+        // 
+        // For example, the following code 
+        //     %1 = shl i32 %0, 24
+        //     %2 = add i32 %1, 16777216
+        //     %3 = lshr exact i32 %2, 24
+        // will be simplified to:
+        //     %1 = add i32 %0, 1
+        //     %2 = and %1, 0xFF
+	      if (I.getOpcode() == Instruction::LShr && 
+            Op0BO->getOperand(0)->hasOneUse() &&
+            match(Op0BO->getOperand(0), m_Shl(m_Value(V1), m_Specific(Op1)))) {
+          Value *YS =        // (Y >> C)
+            Builder->CreateLShr(Op0BO->getOperand(1), Op1, Op0BO->getName());
+          // (X + (Y >> C))
+          Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), V1, YS, 
+                                          Op0BO->getOperand(0)->getName());
+          Constant *Mask = 
+            ConstantExpr::getLShr(Constant::getAllOnesValue(X->getType()), Op1);
+          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+            Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
+          return BinaryOperator::CreateAnd(X, Mask);
+        }
+#endif // INTEL_CUSTOMIZATION
       }
 
       // FALL THROUGH.
@@ -490,6 +518,23 @@ Instruction *InstCombiner::FoldShiftByConstant(Value *Op0, Constant *Op1,
           return BinaryOperator::Create(Op0BO->getOpcode(), XM, YS);
         }
 
+#if INTEL_CUSTOMIZATION
+        // Turn (Y + (X << C)) >> C  ->  ((Y >> C) + X) & (~0 >> C) for lshr
+	      if (I.getOpcode() == Instruction::LShr && 
+	          Op0BO->getOperand(0)->hasOneUse() &&
+            match(Op0BO->getOperand(1), m_Shl(m_Value(V1), m_Specific(Op1)))) {
+          Value *YS =        // (Y >> C)
+            Builder->CreateLShr(Op0BO->getOperand(0), Op1, Op0BO->getName());
+          // ((Y >> C) + X)
+          Value *X = Builder->CreateBinOp(Op0BO->getOpcode(), YS, V1, 
+                                          Op0BO->getOperand(0)->getName());
+          Constant *Mask = 
+            ConstantExpr::getLShr(Constant::getAllOnesValue(X->getType()), Op1);
+          if (VectorType *VT = dyn_cast<VectorType>(X->getType()))
+            Mask = ConstantVector::getSplat(VT->getNumElements(), Mask);
+          return BinaryOperator::CreateAnd(X, Mask);
+        }
+#endif // INTEL_CUSTOMIZATION
         break;
       }
       }

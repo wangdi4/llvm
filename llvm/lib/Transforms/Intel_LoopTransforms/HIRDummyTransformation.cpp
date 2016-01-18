@@ -38,7 +38,7 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 static cl::opt<bool>
-    InsertLabels("hir-dummy-label", cl::init(false), cl::Hidden,
+    InsertLabels("hir-dummy-labels", cl::init(false), cl::Hidden,
                  cl::desc("Insert label before each instruction"));
 
 static cl::opt<bool> MarkModified("hir-dummy-cg", cl::init(false), cl::Hidden,
@@ -69,10 +69,14 @@ struct NodeVisitor final : public HLNodeVisitorBase {
 
   NodeVisitor() : Num(0) {}
 
+  void insertLabel(HLInst *I) {
+    HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(Num++));
+    HLNodeUtils::insertBefore(I, Label);
+  }
+
   void visit(HLInst *I) {
     if (InsertLabels) {
-      HLLabel *Label = HLNodeUtils::createHLLabel("L" + std::to_string(Num++));
-      HLNodeUtils::insertBefore(I, Label);
+      insertLabel(I);
 
       I->getParentRegion()->setGenCode(true);
     }
@@ -104,6 +108,7 @@ FunctionPass *llvm::createHIRDummyTransformationPass() {
 bool HIRDummyTransformation::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Dummy Transformation for Function : " << F.getName()
                << "\n");
+
   NodeVisitor V;
   HLNodeUtils::visitAll(V);
 

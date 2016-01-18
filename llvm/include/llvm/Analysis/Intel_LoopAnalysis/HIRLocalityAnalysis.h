@@ -30,6 +30,7 @@
 #include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
 
+#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 namespace llvm {
@@ -46,7 +47,10 @@ typedef std::pair<const HLLoop *, uint64_t> LoopLocalityPair;
 class HIRLocalityAnalysis : public FunctionPass {
 
 private:
+  typedef MemRefGatherer::MapTy SymToMemRefTy;
+
   // Symbolic constant to denote unknown 'N' trip count.
+  // TODO: Revisit this for scaling known loops.
   const unsigned SymbolicConst = 20;
 
   // number of cache lines =
@@ -88,7 +92,7 @@ private:
   };
 
   // Maintains the Locality information in a map for the loops.
-  SmallDenseMap<const HLLoop *, LocalityInfo *, 64> LocalityMap;
+  SmallDenseMap<const HLLoop *, LocalityInfo *, 16> LocalityMap;
 
   // First argument is the HLLoop and second argument
   // tells if the loop was modified or not. True indicates it was
@@ -108,7 +112,7 @@ private:
 
   /// \brief Internal method to clear the SymToMemRef where the loop level
   /// is not present.
-  void clearEmptySlots(SymToMemRefTy *MemRefMap);
+  void clearEmptySlots(SymToMemRefTy &MemRefMap);
 
   /// \brief Used for debugging purposes only to verify locality value.
   /// This function prints out the locality cost for all the loops.
@@ -121,7 +125,7 @@ private:
   void computeLocality(const HLLoop *L, bool EnableCache = true);
 
   /// \brief Computes the temporal invariant locality for a loop.
-  void computeTempInvLocality(const HLLoop *Loop, SymToMemRefTy *MemRefMap);
+  void computeTempInvLocality(const HLLoop *Loop, SymToMemRefTy &MemRefMap);
 
   /// \brief Computes the temporal reuse locality for a loop.
   void computeTempReuseLocality(const HLLoop *Loop);
@@ -133,7 +137,7 @@ private:
   uint64_t computeSpatialTrip(const RegDDRef *Ref, const HLLoop *Loop);
 
   /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
-  void createRefGroups(SymToMemRefTy *MemRefMap, unsigned Level);
+  void createRefGroups(SymToMemRefTy &MemRefMap, unsigned Level);
 
   /// \brief Returns the trip count of the loop.
   /// If loop count is symbolic or above than threshold, it
@@ -173,13 +177,13 @@ private:
   void printLocalityInfo(raw_ostream &OS, const HLLoop *L) const;
 
   /// \brief Removes the duplicate Memory Refs in the MemRefMap.
-  void removeDuplicates(SymToMemRefTy *MemRefMap);
+  void removeDuplicates(SymToMemRefTy &MemRefMap);
 
   /// \brief Resets the locality info for the given loop L.
   void resetLocalityMap(const HLLoop *L);
 
   /// \brief Sorts the Memory Refs in the MemRefMap.
-  void sortMemRefs(SymToMemRefTy *MemRefMap);
+  void sortMemRefs(SymToMemRefTy &MemRefMap);
 
   /// \brief Verifies the newly computed locality cost with cached value.
   /// This is primarily done for testing in debug mode. For optimized mode,
@@ -201,7 +205,7 @@ public:
   /// \brief This method will mark the loop and all its parent loops as
   /// modified. If loop changes, locality of the loop and all its parents loops
   /// needs to recomputed.
-  void markLoopModified(const HLLoop *L);
+  void markLoopModified(const HLLoop *Loop);
 
   /// \brief Returns the loop cost of the specified loop.
   uint64_t getLocalityValue(const HLLoop *Loop);
@@ -209,7 +213,7 @@ public:
   /// \brief Returns a sorted list of loops from lower to higher (where higher
   /// is better) based on locality value.
   void sortedLocalityLoops(
-      const HLLoop *L,
+      const HLLoop *OutermostLoop,
       SmallVectorImpl<std::pair<const HLLoop *, uint64_t>> &LoopLocality);
 };
 

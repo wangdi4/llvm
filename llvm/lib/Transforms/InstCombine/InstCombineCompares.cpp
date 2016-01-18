@@ -1504,6 +1504,27 @@ Instruction *InstCombiner::visitICmpInstWithInstAndIntCst(ICmpInst &ICI,
           return new ICmpInst(ICmpInst::ICMP_NE, LHSI,
                               Constant::getNullValue(RHS->getType()));
       }
+#if INTEL_CUSTOMIZATION
+      // If the second operand of the And is a mask of 8, 16 or 32 bit, and 
+      // RHS is within the range of the mask, we can do the comparison at the 
+      // smaller size, eliminating the And instruction.
+      // For example,
+      //     %a1 = and i32 %a, 255       --->   %tr = trunc i32 %a to i8
+      //     %b = icmp ugt i32 %a1, 42          %b = icmp ugt i8 %tr, 42
+      //
+      const APInt &AndCstV = AndCst->getValue();
+      if (AndCstV == 0x000000FF && TryReduceICmpSize(ICI, LHSI, RHS, 8)) {
+        return &ICI;
+      }
+      
+      if (AndCstV == 0x0000FFFF && TryReduceICmpSize(ICI, LHSI, RHS, 16)) {
+        return &ICI;
+      }
+      
+      if (AndCstV == 0xFFFFFFFF && TryReduceICmpSize(ICI, LHSI, RHS, 32)) {
+        return &ICI;
+      }
+#endif // INTEL_CUSTOMIZATION
     }
 
     // Try to optimize things like "A[i]&42 == 0" to index computations.
@@ -2126,6 +2147,55 @@ Instruction *InstCombiner::visitICmpInstWithCastAndCast(ICmpInst &ICI) {
   assert(ICI.getPredicate() == ICmpInst::ICMP_UGT && "ICmp should be folded!");
   return BinaryOperator::CreateNot(Result);
 }
+
+#if INTEL_CUSTOMIZATION
+/// OptimizeICmpInstSize - Try to do the comparison at a smaller integer size if
+/// profitable. This could eliminate unnecessary instructions. For example:
+///   %a1 = sext i8 %a to i32               %b1 = and i32 %b, 127
+///   %b1 = and i32 %b, 127         --->    %b2 = trunc i32 %b1 to i8
+///   %cmp = icmp slt i32 %a1, %b1          %cmp = icmp slt i8 %a, %b2
+/// in this case, sext is eliminated, and the trunc instruction will be ignored
+/// by code generator. 
+Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI, 
+                                                Value *Op0, Value *Op1) {
+  // Currently we only optimize integer comparisons, but we could extend this 
+  // optimization to pointer comparisons in the future.
+  if (!Op0->getType()->isIntegerTy())
+    return nullptr;
+
+  unsigned OrigSize = Op0->getType()->getIntegerBitWidth();
+  if (OrigSize > 8 && TryReduceICmpSize(ICI, Op0, Op1, 8))
+    return &ICI;
+
+  if (OrigSize > 16 && TryReduceICmpSize(ICI, Op0, Op1, 16))
+    return &ICI;
+
+  if (OrigSize > 32 && TryReduceICmpSize(ICI, Op0, Op1, 32))
+    return &ICI;
+
+  return nullptr;
+}
+
+/// Try to reduce the size of this ICmp instruction. If two operands are known
+/// to be within a smaller range (either signed or unsigned), then we can do 
+/// this comparison in the smaller range. Operands of equality comparisons are 
+/// treated as unsigned. To reduce the size of comparison, we truncate the 
+/// operands to the smaller type.
+bool InstCombiner::TryReduceICmpSize(ICmpInst &ICI, Value *Op0, Value *Op1, 
+                                     unsigned Size) { 
+  if (isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, AC, &ICI, DT) &&
+      isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, AC, &ICI, DT)) {
+    Value *Trunc0 = Builder->CreateTrunc(Op0, 
+                            IntegerType::get(ICI.getContext(), Size));
+    Value *Trunc1 = Builder->CreateTrunc(Op1, 
+                            IntegerType::get(ICI.getContext(), Size));
+    ICI.replaceUsesOfWith(Op0, Trunc0);
+    ICI.replaceUsesOfWith(Op1, Trunc1);
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION    
 
 /// ProcessUGT_ADDCST_ADD - The caller has matched a pattern of the form:
 ///   I = icmp ugt (add (add A, B), CI2), CI1
@@ -3338,6 +3408,16 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
       if (Instruction *R = visitICmpInstWithCastAndCast(I))
         return R;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Optimize the size of ICmp and eliminate unnecessary instructions.
+  // Here we skip the case when operands are instruction and constant 
+  // integer, because the optimizations in visitICmpInstWithInstAndIntCst 
+  // try to eliminate truncating casts, confilicting with this optimization.
+  if (!isa<Instruction>(Op0) || !isa<ConstantInt>(Op1))
+    if (Instruction *R = OptimizeICmpInstSize(I, Op0, Op1))
+      return R;
+ #endif // INTEL_CUSTOMIZATION
 
   // Special logic for binary operators.
   BinaryOperator *BO0 = dyn_cast<BinaryOperator>(Op0);

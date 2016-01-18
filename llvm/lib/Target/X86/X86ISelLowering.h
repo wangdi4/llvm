@@ -126,6 +126,11 @@ namespace llvm {
       /// 1 is the number of bytes of stack to pop.
       RET_FLAG,
 
+#if INTEL_CUSTOMIZATION
+      /// Return from interrupt. Operand 0 is the number of bytes to pop.
+      IRET,
+#endif //INTEL_CUSTOMIZATION
+
       /// Repeat fill, corresponds to X86::REP_STOSx.
       REP_STOS,
 
@@ -1090,6 +1095,12 @@ namespace llvm {
 
     MachineBasicBlock *EmitLoweredWinAlloca(MachineInstr *MI,
                                               MachineBasicBlock *BB) const;
+
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252266.
+    MachineBasicBlock *EmitLoweredCatchRet(MachineInstr *MI,
+                                           MachineBasicBlock *BB) const;
+#endif // INTEL_CUSTOMIZATION
 
     MachineBasicBlock *EmitLoweredSegAlloca(MachineInstr *MI,
                                             MachineBasicBlock *BB) const;

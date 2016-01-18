@@ -39,7 +39,7 @@ CanonExpr::CanonExpr(Type *SrcType, Type *DestType, bool IsSExt,
                      bool IsSignedDiv)
     : SrcTy(SrcType), DestTy(DestType), IsSExt(IsSExt),
       DefinedAtLevel(DefLevel), Const(ConstVal), IsSignedDiv(IsSignedDiv),
-      IsUndefined(false) {
+      ContainsUndef(false) {
 
   Objs.insert(this);
 
@@ -53,7 +53,7 @@ CanonExpr::CanonExpr(const CanonExpr &CE)
     : SrcTy(CE.SrcTy), DestTy(CE.DestTy), IsSExt(CE.IsSExt),
       DefinedAtLevel(CE.DefinedAtLevel), IVCoeffs(CE.IVCoeffs),
       BlobCoeffs(CE.BlobCoeffs), Const(CE.Const), Denominator(CE.Denominator),
-      IsSignedDiv(CE.IsSignedDiv), IsUndefined(CE.IsUndefined) {
+      IsSignedDiv(CE.IsSignedDiv), ContainsUndef(CE.ContainsUndef) {
 
   Objs.insert(this);
 }
@@ -74,16 +74,39 @@ void CanonExpr::destroyAll() {
   BlobToIndexMap.clear();
 }
 
+void CanonExpr::updateNonLinear(unsigned Level) {
+
+  assert(Level <= MaxLoopNestLevel && "Level exceeds max level.");
+
+  // Constant case.
+  if (isConstant()) {
+    DefinedAtLevel = 0;
+    return;
+  }
+
+  if (isNonLinear()) {
+    return;
+  }
+
+  assert(DefinedAtLevel >= 0 && "DefLevel should be positive.");
+  // Mark as non-linear since def is at the same level.
+  if (DefinedAtLevel >= (int)(Level)) {
+    setNonLinear();
+  }
+}
+
 CanonExpr *CanonExpr::clone() const {
   CanonExpr *CE = new CanonExpr(*this);
   return CE;
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void CanonExpr::dump() const {
+void CanonExpr::dump(bool Detailed) const {
   formatted_raw_ostream OS(dbgs());
-  print(OS);
+  print(OS, Detailed);
 }
+
+void CanonExpr::dump() const { dump(false); }
 #endif
 
 void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
@@ -261,10 +284,8 @@ unsigned CanonExpr::getBlobSymbase(unsigned Index) {
 }
 
 bool CanonExpr::isSelfBlob() const {
-  return (!hasIV() && (numBlobs() == 1) &&
-          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())) &&
-          (getSingleBlobCoeff() == 1) && !getConstant() &&
-          (getDenominator() == 1));
+  return (isStandAloneBlob() &&
+          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())));
 }
 
 void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
@@ -315,6 +336,33 @@ bool CanonExpr::isTrunc() const { return isExtImpl(false, true); }
 
 bool CanonExpr::isPtrToPtrCast() const {
   return ((SrcTy != DestTy) && SrcTy->isPointerTy());
+}
+
+bool CanonExpr::isIntConstant(int64_t *Val) const {
+  if (!getSrcType()->isIntegerTy() || !isConstInternal()) {
+    return false;
+  }
+
+  if (Val) {
+    *Val = getConstant();
+  }
+
+  return true;
+}
+
+bool CanonExpr::isFPConstant() const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return CanonExprUtils::isConstantFPBlob(getBlob(getSingleBlobIndex()));
+}
+
+bool CanonExpr::isNull() const {
+  bool Ret = (getSrcType()->isPointerTy() && isConstInternal());
+  assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");
+
+  return Ret;
 }
 
 unsigned CanonExpr::numIVImpl(bool CheckIVPresence,
@@ -988,5 +1036,10 @@ void CanonExpr::verify() const {
 
   if (!hasBlob() && !hasBlobIVCoeffs()) {
     assert(!isNonLinear() && "CanonExpr with no blobs cannot be non-linear!");
+  }
+
+  if (isConstant()) {
+    assert(isProperLinear() &&
+           " Defined at Level should be 0 for constant canonexpr!");
   }
 }

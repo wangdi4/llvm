@@ -204,6 +204,20 @@ bool llvm::isKnownNonEqual(Value *V1, Value *V2, const DataLayout &DL,
                                              DT));
 }
 
+#if INTEL_CUSTOMIZATION
+static bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
+                                  const DataLayout &DL, unsigned Depth, 
+                                  const Query &Q);
+
+bool llvm::isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
+                                 const DataLayout &DL, unsigned Depth,
+                                 AssumptionCache *AC, const Instruction *CxtI,
+                                 const DominatorTree *DT) {
+  return ::isKnownWithinIntRange(V, BitRange, isSigned, DL, Depth, 
+                                 Query(AC, safeCxtI(V, CxtI), DT));
+}
+#endif // INTEL_CUSTOMIZATION
+
 static bool MaskedValueIsZero(Value *V, const APInt &Mask, const DataLayout &DL,
                               unsigned Depth, const Query &Q);
 
@@ -2052,6 +2066,58 @@ static bool isKnownNonEqual(Value *V1, Value *V2, const DataLayout &DL,
   }
   return false;
 }
+
+#if INTEL_CUSTOMIZATION
+/// Return true if the given integer value is within the given bit range, for 
+/// either signed or unsigned cases.
+bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
+                           const DataLayout &DL, unsigned Depth, 
+                           const Query &Q) {
+  assert(V && "No Value?");
+  assert(Depth <= MaxDepth && "Limit Search Depth");
+
+  // The given value should be an integer.
+  if (!V->getType()->isIntegerTy())
+    return false;
+ 
+  unsigned BitWidth = V->getType()->getIntegerBitWidth();
+  // If the bitwidth of the given integer is less than or equal to the given
+  // bit range, then the integer is within the given range whether it's 
+  // treated as signed or unsigned. 
+  if (BitWidth <= BitRange) 
+    return true;
+
+  APInt KnownZero(BitWidth, 0);
+  APInt KnownOne(BitWidth, 0);
+  computeKnownBits(V, KnownZero, KnownOne, DL, Depth, Q);
+  // Use the number of known leading ones or zeros to decide if the given value
+  // is within the given bit range.
+  if (isSigned && (BitWidth - KnownZero.countLeadingOnes() < BitRange ||
+                   BitWidth - KnownOne.countLeadingOnes() < BitRange))
+    return true;
+  if (!isSigned && (BitWidth - KnownZero.countLeadingOnes() <= BitRange))
+    return true;
+
+  // If the given value comes from a sign/zero extension, check its source type.
+  if (SExtInst *SI = dyn_cast<SExtInst>(V))
+    return isSigned && SI->getSrcTy()->getIntegerBitWidth() <= BitRange;
+  if (ZExtInst *ZI = dyn_cast<ZExtInst>(V))
+    return (isSigned && ZI->getSrcTy()->getIntegerBitWidth() < BitRange) ||
+           (!isSigned && ZI->getSrcTy()->getIntegerBitWidth() <= BitRange);
+
+  // If the given value comes from an ashr, it could have either leading ones 
+  // or leading zeros depending on its original sign bit, so that 
+  // computeKnownBits can not capture this case if the sign bit is unknown.
+  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(V)) {
+    ConstantInt *CstIntOp1 = dyn_cast<ConstantInt>(BO->getOperand(1)); 
+    if (BO->getOpcode() == Instruction::AShr && CstIntOp1) 
+      return isSigned && CstIntOp1->getValue().ult(BitWidth) && 
+                         CstIntOp1->getValue().uge(BitWidth - BitRange); 
+  }
+
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION
 
 /// Return true if 'V & Mask' is known to be zero.  We use this predicate to
 /// simplify operations downstream. Mask is known to be zero for bits that V

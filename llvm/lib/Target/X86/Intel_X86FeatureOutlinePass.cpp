@@ -217,8 +217,18 @@ void FeatureOutliner::spillLiveVectors(
         if (!Source)
           continue;
 
-        // As above, PHIs in the header are considered external
+        // If the source basic block does not dominate the user,
+        // then this isn't really an input into the user's region.
+        // Rather, this is the output from a more inner region that
+        // feeds into a phi in the outer region. In this case,
+        // it will be returned by reference (the code extractor takes
+        // care of this), so no need to do anything.
+        if (!DT->dominates(Source, &I))
+          continue;
+
         BasicBlock *SourceBB = Source->getParent();
+
+        // As above, PHIs in the header are considered external
         if (RegionMap.lookup(SourceBB) != &BBRegion || 
             (SourceBB == RegionHeader && isa<PHINode>(Source)))
           UseMap[Source].push_back(&I);

@@ -136,8 +136,12 @@ bool CanonExprUtils::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) {
   return getHIRParser()->isGuaranteedProperLinear(TempBlob);
 }
 
-bool CanonExprUtils::isUndefBlob(const CanonExpr::BlobTy Blob) {
+bool CanonExprUtils::isUndefBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isUndefBlob(Blob);
+}
+
+bool CanonExprUtils::isConstantFPBlob(CanonExpr::BlobTy Blob) {
+  return getHIRParser()->isConstantFPBlob(Blob);
 }
 
 CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
@@ -232,7 +236,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
   }
 
   if (isUndefBlob(Blob)) {
-    CE->setUndefined();
+    CE->setContainsUndef();
   }
 
   return CE;

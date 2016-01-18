@@ -273,12 +273,10 @@ const MCExpr *WinException::create32bitRef(const MCSymbol *Value) {
                                  Asm->OutContext);
 }
 
-const MCExpr *WinException::create32bitRef(const Value *V) {
-  if (!V)
+const MCExpr *WinException::create32bitRef(const GlobalValue *GV) {
+  if (!GV)
     return MCConstantExpr::create(0, Asm->OutContext);
-  if (const auto *GV = dyn_cast<GlobalValue>(V))
-    return create32bitRef(Asm->getSymbol(GV));
-  return create32bitRef(MMI->getAddrLabelSymbol(cast<BasicBlock>(V)));
+  return create32bitRef(Asm->getSymbol(GV));
 }
 
 const MCExpr *WinException::getLabelPlusOne(const MCSymbol *Label) {
@@ -301,6 +299,21 @@ const MCExpr *WinException::getOffsetPlusOne(const MCSymbol *OffsetOf,
                                  Asm->OutContext);
 }
 
+#if INTEL_CUSTOMIZATION
+// Cherry picking r252210
+int WinException::getFrameIndexOffset(int FrameIndex, WinEHFuncInfo &FuncInfo) {
+  const TargetFrameLowering &TFI = *Asm->MF->getSubtarget().getFrameLowering();
+  unsigned UnusedReg;
+  if (Asm->MAI->usesWindowsCFI())
+    return TFI.getFrameIndexReferenceFromSP(*Asm->MF, FrameIndex, UnusedReg);
+  // For 32-bit, offsets should be relative to the end of the EH registration
+  // node. For 64-bit, it's relative to SP at the end of the prologue.
+  assert(FuncInfo.EHRegNodeEndOffset != INT_MAX);
+  int Offset = TFI.getFrameIndexReference(*Asm->MF, FrameIndex, UnusedReg);
+  Offset += FuncInfo.EHRegNodeEndOffset;
+  return Offset;
+}
+#else // !INTEL_CUSTOMIZATION
 int WinException::getFrameIndexOffset(int FrameIndex) {
   const TargetFrameLowering &TFI = *Asm->MF->getSubtarget().getFrameLowering();
   unsigned UnusedReg;
@@ -308,6 +321,7 @@ int WinException::getFrameIndexOffset(int FrameIndex) {
     return TFI.getFrameIndexReferenceFromSP(*Asm->MF, FrameIndex, UnusedReg);
   return TFI.getFrameIndexReference(*Asm->MF, FrameIndex, UnusedReg);
 }
+#endif // !INTEL_CUSTOMIZATION
 
 namespace {
 
@@ -615,7 +629,13 @@ void WinException::emitCXXFrameHandler3Table(const MachineFunction *MF) {
 
   int UnwindHelpOffset = 0;
   if (Asm->MAI->usesWindowsCFI())
+#if INTEL_CUSTOMIZATION
+    // Cherry picking r252210
+    UnwindHelpOffset =
+        getFrameIndexOffset(FuncInfo.UnwindHelpFrameIdx, FuncInfo);
+#else // !INTEL_CUSTOMIZATION
     UnwindHelpOffset = getFrameIndexOffset(FuncInfo.UnwindHelpFrameIdx);
+#endif // !INTEL_CUSTOMIZATION
 
   MCSymbol *UnwindMapXData = nullptr;
   MCSymbol *TryBlockMapXData = nullptr;
@@ -735,6 +755,10 @@ void WinException::emitCXXFrameHandler3Table(const MachineFunction *MF) {
         // emit an offset of zero, indicating that no copy will occur.
         const MCExpr *FrameAllocOffsetRef = nullptr;
         if (HT.CatchObj.FrameIndex != INT_MAX) {
+#if INTEL_CUSTOMIZATION
+          // Cherry picking r252210
+          int Offset = getFrameIndexOffset(HT.CatchObj.FrameIndex, FuncInfo);
+#else // !INTEL_CUSTOMIZATION
           int Offset = getFrameIndexOffset(HT.CatchObj.FrameIndex);
           // For 32-bit, the catch object offset is relative to the end of the
           // EH registration node. For 64-bit, it's relative to SP at the end of
@@ -743,6 +767,7 @@ void WinException::emitCXXFrameHandler3Table(const MachineFunction *MF) {
             assert(FuncInfo.EHRegNodeEndOffset != INT_MAX);
             Offset += FuncInfo.EHRegNodeEndOffset;
           }
+#endif // !INTEL_CUSTOMIZATION
           FrameAllocOffsetRef = MCConstantExpr::create(Offset, Asm->OutContext);
         } else {
           FrameAllocOffsetRef = MCConstantExpr::create(0, Asm->OutContext);

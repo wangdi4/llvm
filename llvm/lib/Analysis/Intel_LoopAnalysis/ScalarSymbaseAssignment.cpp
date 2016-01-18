@@ -20,6 +20,8 @@
 
 #include "llvm/Support/raw_ostream.h"
 
+#include "llvm/Analysis/ScalarEvolution.h"
+
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
@@ -69,8 +71,8 @@ unsigned ScalarSymbaseAssignment::insertBaseTemp(const Value *Temp) {
 
 void ScalarSymbaseAssignment::insertTempSymbase(const Value *Temp,
                                                 unsigned Symbase) {
-  assert((Symbase > CONSTANT_SYMBASE) &&
-         (Symbase <= getMaxScalarSymbase()) && "Symbase is out of range!");
+  assert((Symbase > CONSTANT_SYMBASE) && (Symbase <= getMaxScalarSymbase()) &&
+         "Symbase is out of range!");
 
   auto Ret = TempSymbaseMap.insert(std::make_pair(Temp, Symbase));
   (void)Ret;
@@ -160,7 +162,7 @@ MDString *
 ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
   // We only care about livein copies here because unlike liveout copies, livein
   // copies need to be assigned the same symbase as other values in the SCC.
-  auto MDNode = Inst->getMetadata("in.de.ssa");
+  auto MDNode = Inst->getMetadata(HIR_LIVE_IN_STR);
 
   if (!MDNode) {
     return nullptr;
@@ -179,6 +181,8 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                                       bool Assign) {
   unsigned Symbase;
 
+  // TODO: assign constant symbase to metadata types as they do not cause data
+  // dependencies.
   if (isConstant(Scalar)) {
     return CONSTANT_SYMBASE;
   }
@@ -304,7 +308,7 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
       if (SCCLiveInProcessed) {
         continue;
       }
-      
+
       auto SCCPhiInst = dyn_cast<PHINode>(*SCCInstIt);
 
       if (SCCPhiInst && processRegionPhiLivein(RegIt, SCCPhiInst, Symbase)) {

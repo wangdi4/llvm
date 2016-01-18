@@ -141,6 +141,27 @@ bool X86ExpandPseudo::ExpandMI(MachineBasicBlock &MBB,
     // The EH_RETURN pseudo is really removed during the MC Lowering.
     return true;
   }
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252266
+  case X86::EH_RESTORE: {
+    // Restore ESP and EBP, and optionally ESI if required.
+    X86FL->restoreWin32EHStackPointers(MBB, MBBI, DL, /*RestoreSP=*/true);
+    MBBI->eraseFromParent();
+    return true;
+  }
+#endif // INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
+  case X86::IRET: {
+    // Adjust stack to erase error code
+    int64_t StackAdj = MBBI->getOperand(0).getImm();
+    X86FL->emitSPUpdate(MBB, MBBI, StackAdj, true);
+    // Replace pseudo with machine iret
+    BuildMI(MBB, MBBI, DL,
+            TII->get(STI->is64Bit() ? X86::IRET64 : X86::IRET32));
+    MBB.erase(MBBI);
+    return true;
+  }
+#endif //INTEL_CUSTOMIZATION
   }
   llvm_unreachable("Previous switch has a fallthrough?");
 }

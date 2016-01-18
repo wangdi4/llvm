@@ -275,6 +275,8 @@ public:
     UP.PartialThreshold = UP.PartialOptSizeThreshold = MaxOps;
   }
 
+  unsigned getLoopRotationDefaultThreshold(bool OptForSize) const { return 16; }
+
   /// @}
 
   /// \name Vector TTI Implementations

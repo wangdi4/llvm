@@ -4330,13 +4330,25 @@ ScalarEvolution::getRange(const SCEV *S,
 }
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
+
+const char* const llvm::HIR_LIVE_IN_STR = "in.de.ssa";
+const char* const llvm::HIR_LIVE_OUT_STR = "out.de.ssa";
+const char* const llvm::HIR_LIVE_RANGE_STR = "live.range.de.ssa";
+
+bool ScalarEvolution::isHIRLiveInCopyInst(const Instruction *Inst) const {
+  return Inst->getMetadata(HIR_LIVE_IN_STR);
+}
+
+bool ScalarEvolution::isHIRLiveOutCopyInst(const Instruction *Inst) const {
+  return Inst->getMetadata(HIR_LIVE_OUT_STR);
+}
+
 bool ScalarEvolution::isHIRCopyInst(const Instruction *Inst) const {
-  return (Inst->getMetadata("in.de.ssa") || 
-    Inst->getMetadata("out.de.ssa"));
+  return isHIRLiveInCopyInst(Inst) || isHIRLiveOutCopyInst(Inst);
 }
 
 bool ScalarEvolution::isHIRLiveRangeIndicator(const Instruction *Inst) const {
-  return Inst->getMetadata("live.range.de.ssa");
+  return Inst->getMetadata(HIR_LIVE_RANGE_STR);
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -4701,8 +4713,8 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     return getSignExtendExpr(getSCEV(U->getOperand(0)), U->getType());
 
   case Instruction::BitCast:
-    // Suppress traceback for copy instructions inserted by HIR.
-    if (!isa<Instruction>(V) || !isHIRCopyInst(cast<Instruction>(V))) // INTEL 
+    // INTEL - Suppress traceback for liveout copy instructions inserted by HIR.
+    if (!isa<Instruction>(V) || !isHIRLiveOutCopyInst(cast<Instruction>(V)))  
       // BitCasts are no-op casts so we just eliminate the cast.
       if (isSCEVable(U->getType()) && isSCEVable(U->getOperand(0)->getType()))
         return getSCEV(U->getOperand(0));

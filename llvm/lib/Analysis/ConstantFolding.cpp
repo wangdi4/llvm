@@ -1246,6 +1246,7 @@ bool llvm::canConstantFoldCallTo(const Function *F) {
   case Intrinsic::powi:
   case Intrinsic::bswap:
   case Intrinsic::ctpop:
+  case Intrinsic::clrsb: // INTEL
   case Intrinsic::ctlz:
   case Intrinsic::cttz:
   case Intrinsic::fma:
@@ -1745,6 +1746,11 @@ static Constant *ConstantFoldScalarCall(StringRef Name, unsigned IntrinsicID,
           };
           return ConstantStruct::get(cast<StructType>(Ty), Ops);
         }
+#if INTEL_CUSTOMIZATION
+        // CQ#377481. Implementing 'clrsb' intrinsic.
+        case Intrinsic::clrsb:
+          return ConstantInt::get(Ty, Op1->getValue().getNumSignBits() - 1);
+#endif // INTEL_CUSTOMIZATION
         case Intrinsic::cttz:
           if (Op2->isOne() && Op1->isZero()) // cttz(0, 1) is undef.
             return UndefValue::get(Ty);

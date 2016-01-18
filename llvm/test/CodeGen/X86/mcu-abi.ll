@@ -1,6 +1,7 @@
 ; RUN: llc < %s -mtriple=i686-pc-elfiamcu | FileCheck %s
 ; INTEL_CUSTOMIZATION: Test heavily modified, merge carefully
 
+%struct.S = type { i8 }
 %struct.st12_t = type { i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32 }
 
 ; CHECK-LABEL: test_ints:
@@ -90,6 +91,39 @@ define i32 @test_lib_args(float %a, float %b) #0 {
   %ret = fptosi float %b to i32
   ret i32 %ret
 }
+
+; CHECK-LABEL: test_alignment_d:
+; CHECK-NOT: andl  {{.+}}, %esp
+define void @test_alignment_d() #0 {
+entry:
+  %d = alloca double
+  store double 2.000000e+00, double* %d
+  call void @food(double* inreg %d) 
+  ret void
+}
+
+; CHECK-LABEL: test_alignment_i:
+; CHECK-NOT: andl  {{.+}}, %esp
+define void @test_alignment_i() #0 {
+entry:
+  %i = alloca i64
+  store i64 2, i64* %i
+  call void @fooi(i64* inreg %i) 
+  ret void
+}
+
+
+; CHECK-LABEL: test_alignment_s:
+; CHECK-NOT: andl  {{.+}}, %esp
+define void @test_alignment_s() #0 {
+  %s = alloca %struct.S, align 4
+  call void @foos(%struct.S* inreg %s) 
+  ret void
+}
+
+declare void @food(double* inreg)
+declare void @fooi(i64* inreg)
+declare void @foos(%struct.S* inreg)
 
 declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture readonly, i32, i32, i1) #1
 

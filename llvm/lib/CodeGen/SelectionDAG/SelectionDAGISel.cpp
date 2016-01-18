@@ -166,6 +166,13 @@ STATISTIC(NumFastIselFailStackMap, "Fast isel fails on StackMap call");
 STATISTIC(NumFastIselFailPatchPoint, "Fast isel fails on PatchPoint call");
 #endif
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool>
+IntelLibIRCAllowed("intel-libirc-allowed",
+                    cl::desc("Allow the generation of calls to libirc."),
+                    cl::init(false));
+#endif // INTEL_CUSTOMIZATION
+
 static cl::opt<bool>
 EnableFastISelVerbose("fast-isel-verbose", cl::Hidden,
           cl::desc("Enable verbose messages in the \"fast\" "
@@ -361,6 +368,7 @@ SelectionDAGISel::SelectionDAGISel(TargetMachine &tm,
     initializeAAResultsWrapperPassPass(*PassRegistry::getPassRegistry());
     initializeTargetLibraryInfoWrapperPassPass(
         *PassRegistry::getPassRegistry());
+    TM.setIntelLibIRCAllowed(IntelLibIRCAllowed); // INTEL
   }
 
 SelectionDAGISel::~SelectionDAGISel() {

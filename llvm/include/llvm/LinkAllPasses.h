@@ -195,7 +195,9 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION  // HIR passes
+  #if INTEL_CUSTOMIZATION 
+      (void) llvm::createSNodeAnalysisPass();
+      // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
       (void) llvm::createScalarSymbaseAssignmentPass();
@@ -208,6 +210,7 @@ namespace {
       (void) llvm::createHIRLocalityAnalysisPass();
 
       (void) llvm::createSSADeconstructionPass();
+      (void) llvm::createHIROptPredicatePass();
       (void) llvm::createHIRGeneralUnrollPass();
       (void) llvm::createHIRCompleteUnrollPass();
       (void) llvm::createHIRDummyTransformationPass();

@@ -20,6 +20,9 @@
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
+#include "llvm/IR/Intel_LoopIR/HLDDNode.h"
+
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -141,27 +144,54 @@ Type *DDRef::getSrcType() const { return getTypeImpl(true); }
 Type *DDRef::getDestType() const { return getTypeImpl(false); }
 
 void DDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
-  if (isUndefined() && Detailed) {
-    OS << "{undefined} ";
+  if (Detailed) {
+    if (containsUndef()) {
+      OS << " {undefined}";
+    }
+
+    OS << " {sb:" << getSymbase() << "}";
   }
-  OS << "{sb:" << getSymbase() << "}";
+}
+
+unsigned DDRef::getHLDDNodeLevel() const {
+  HLDDNode *DDNode = getHLDDNode();
+  assert(DDNode && " DDRef not attached to any node.");
+
+  return DDNode->getHLNodeLevel();
 }
 
 bool DDRef::isSelfBlob() const {
   if (auto Ref = dyn_cast<RegDDRef>(this)) {
-    return Ref->isScalarRef() && Ref->getSingleCanonExpr()->isSelfBlob();
+    if (!Ref->isScalarRef()) {
+      return false;
+    }
+
+    auto CE = Ref->getSingleCanonExpr();
+
+    if (!CE->isSelfBlob()) {
+      return false;
+    }
+
+    unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+
+    return (getSymbase() == SB);
+
   } else if (auto Ref = dyn_cast<BlobDDRef>(this)) {
     (void)Ref;
     assert(Ref->getCanonExpr()->isSelfBlob() &&
            "Blob DDRef is not a self blob!");
+    assert(getSymbase() ==
+               CanonExprUtils::getBlobSymbase(Ref->getBlobIndex()) &&
+           "Symbase mismatch in Blob DDRef!");
+
     return true;
   }
   llvm_unreachable("Unknown DDRef kind!");
 }
 
-bool DDRef::isUndefined() const {
+bool DDRef::containsUndef() const {
   auto UndefCanonPredicate = [](const CanonExpr *CE) {
-    return CE->isUndefined();
+    return CE->containsUndef();
   };
 
   if (auto Ref = dyn_cast<RegDDRef>(this)) {

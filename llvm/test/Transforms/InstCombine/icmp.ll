@@ -1365,8 +1365,7 @@ end:
 }
 
 ; CHECK-LABEL: @icmp_lshr_lshr_eq
-; CHECK: %z.unshifted = xor i32 %a, %b
-; CHECK: %z = icmp ult i32 %z.unshifted, 1073741824
+; CHECK: icmp eq i8 %1, %2                               ;INTEL
 define i1 @icmp_lshr_lshr_eq(i32 %a, i32 %b) nounwind {
  %x = lshr i32 %a, 30
  %y = lshr i32 %b, 30
@@ -1576,8 +1575,8 @@ define i32 @f5(i8 %a, i8 %b) {
 
 ; CHECK-LABEL: @f6
 ; CHECK: %cmp.unshifted = xor i32 %a, %b
-; CHECK-NEXT: %cmp.mask = and i32 %cmp.unshifted, 255
-; CHECK-NEXT: %cmp = icmp eq i32 %cmp.mask, 0
+; CHECK-NEXT: %1 = trunc i32 %cmp.unshifted to i8         ;INTEL
+; CHECK-NEXT: %cmp = icmp eq i8 %1, 0                     ;INTEL
 ; CHECK-NEXT: %s = select i1 %cmp, i32 10000, i32 0
 ; CHECK-NEXT: ret i32 %s
 define i32 @f6(i32 %a, i32 %b) {

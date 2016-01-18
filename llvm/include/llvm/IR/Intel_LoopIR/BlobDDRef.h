@@ -56,6 +56,9 @@ protected:
   /// symbase is automatically replaced.
   using DDRef::setSymbase;
 
+  /// \brief Implementation to update CE levels.
+  void updateCELevelImpl(unsigned Level);
+
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
   HLDDNode *getHLDDNode() const override;
@@ -83,6 +86,10 @@ public:
   /// ways except the following:
   ///   * The Parent RegDDRef needs to be set explicitly
   BlobDDRef *clone() const override;
+
+  /// \brief Method to update CE levels to non-linear.
+  /// For details, please refer to base class(DDRef.h) documentation.
+  void updateCELevel() override final;
 
   /// \brief Used to represent a different blob by replacing the existing blob
   /// index with the new one. Symbase is automatically updated.
