@@ -124,6 +124,7 @@ bool immediateExecutionTest();
 bool clCreateImageTest();
 bool MultithreadedBuildTest();
 bool EventDependenciesTest();
+bool ClkEventAsKernelArg();
 bool CreateReleaseOOOQueueTest();
 bool clGetKernelArgInfoTest();
 bool ShutdownFromChildThread();
