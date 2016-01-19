@@ -31,6 +31,7 @@ add_subdirectory(ResolveBlockToStaticCall)
 add_subdirectory(PatchCallbackArgs)
 add_subdirectory(PreLegalizeBools)
 add_subdirectory(OCLAliasAnalysis)
+add_subdirectory(SPIR20BlocksToObjCBlocks)
 
 if(APPLE)
   add_subdirectory(ClangCompatFixer)

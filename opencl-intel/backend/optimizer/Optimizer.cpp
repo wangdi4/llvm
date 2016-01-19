@@ -91,6 +91,7 @@ llvm::ModulePass *createCloneBlockInvokeFuncToKernelPass();
 llvm::Pass *createResolveBlockToStaticCallPass();
 llvm::ModulePass *createPreLegalizeBoolsPass();
 llvm::ImmutablePass* createOCLAliasAnalysisPass();
+llvm::ModulePass *createSPIR20BlocksToObjCBlocks();
 }
 
 using namespace intel;
@@ -221,6 +222,8 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
   PM.add(new llvm::DataLayoutPass);
   PM.add(createOclSyncFunctionAttrsPass());
   if (isOcl20) {
+    // Convert SPIR 2.0 blocks to Objective-C blocks
+    PM.add(createSPIR20BlocksToObjCBlocks());
     // OCL2.0 resolve block to static call
     PM.add(createResolveBlockToStaticCallPass());
     // clone block_invoke functions to kernels
