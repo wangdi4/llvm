@@ -26,7 +26,10 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 ReductionMngr::ReductionMngr(AVR *Avr) {
-  for (ReductionItem *Ri : cast<AVRWrn>(Avr)->getWrnNode()->getRed()->items())
+  ReductionClause *RC = cast<AVRWrn>(Avr)->getWrnNode()->getRed();
+  if (!RC)
+    return;
+  for (ReductionItem *Ri : RC->items())
     ReductionMap[Ri->getOrig()] = Ri;
 }
  
