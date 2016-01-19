@@ -26,6 +26,42 @@
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
 
+// Class ReductionMngr generates code for loop reductions
+class ReductionMngr {
+public:
+  ReductionMngr(AVR *Avr);
+
+  // Set Initializer and Combiner for Reduction Items.
+  // Save loop bbs for future constructions.
+  void initializeReductionPhis(Loop *OrigLoop,
+                               BasicBlock *Preheader,
+                               BasicBlock *VectorLoopBody,
+                               BasicBlock *Exit);
+  
+  // Complete Phi nodes after vectorization.
+  // Build the loop tail.
+  void completeReductionPhis(std::map<Value *, Value *>& WidenMap);
+
+  // Return true if the instruction is a Phi node marked as reduction
+  bool isReductionPhi(Instruction *Phi);
+
+  void saveInsertPointForReductionPhis(Instruction *Inst) {
+    PhiInsertPt = Inst;
+  }
+  static Constant *getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
+                                         Type *Ty);
+  // Widening reduction Phi node
+  Instruction *vectorizePhiNode(Instruction *RdxPhi, unsigned VL);
+private:
+  // Reduction map
+  typedef std::map<Value *, ReductionItem *> ReductionValuesMap;
+  ReductionValuesMap ReductionMap;
+  Instruction *PhiInsertPt;
+  BasicBlock *LoopPreheader;
+  BasicBlock *VectorBody;
+  BasicBlock *LoopExit;
+};
+
 // AVRCodeGen generates vector code by widening of scalars into
 // appropriate length vectors.
 // TBI - In stress mode generate scalar code by cloning
@@ -36,7 +72,7 @@ public:
       : Avr(Avr), F(F), SE(SE), LI(LI), OrigLoop(nullptr), TripCount(0), VL(0),
         Builder(F->getContext()), LoopBackEdge(nullptr), InductionPhi(nullptr),
         InductionCmp(nullptr), StartValue(nullptr), StrideValue(nullptr),
-        NewInductionVal(nullptr) {}
+        NewInductionVal(nullptr), RM(Avr) {}
 
   ~AVRCodeGen() { WidenMap.clear(); }
 
@@ -72,7 +108,7 @@ private:
   AVRPhiIR *InductionPhi;
 
   // Induction variable cmp
-  AVRIf *InductionCmp;
+  AVRCompare *InductionCmp;
 
   // Starting value of loop induction variable
   Value *StartValue;
@@ -86,13 +122,16 @@ private:
   // Map of scalar, widened value
   std::map<Value *, Value *> WidenMap;
 
+  // Reductions handling
+  ReductionMngr RM;
+
   void setALoop(AVRLoop *L) { ALoop = L; }
   void setOrigLoop(Loop *L) { OrigLoop = L; }
   void setTripCount(unsigned int TC) { TripCount = TC; }
   void setVL(int V) { VL = V; }
   void setLoopBackEdge(AVRBranchIR *FB) { LoopBackEdge = FB; }
   void setInductionPhi(AVRPhiIR *P) { InductionPhi = P; }
-  void setInductionCmp(AVRIf *C) { InductionCmp = C; }
+  void setInductionCmp(AVRCompare *C) { InductionCmp = C; }
   void setStartValue(Value *SV) { StartValue = SV; }
   void setStrideValue(ConstantInt *SV) { StrideValue = SV; }
   void setNewInductionVal(Value *V) { NewInductionVal = V; }
@@ -124,6 +163,9 @@ private:
   // Widen the given PHI instruction. For now we assume this corresponds to
   // the Induction PHI.
   void vectorizePHIInstruction(Instruction *Inst);
+
+  void vectorizeReductionPHI(Instruction *Inst);
+  void completeReductions();
 
   // Vectorize the given instruction that cannot be widened using serialization.
   // This is done using a sequence of extractelement, Scalar Op, InsertElement

@@ -245,7 +245,7 @@ public:
   AVRPhiIR *clone() const override;
 
   /// \brief Returns the LLVM Instruction
-  const Instruction *getLLVMInstruction() const { return Instruct; }
+  Instruction *getLLVMInstruction() const { return Instruct; }
 
   /// \brief Prints the AVRPhiIR node.
   void print(formatted_raw_ostream &OS, unsigned Depth,

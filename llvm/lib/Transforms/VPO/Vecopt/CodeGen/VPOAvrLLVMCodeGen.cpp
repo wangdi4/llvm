@@ -19,9 +19,147 @@
 #include "llvm/Transforms/Utils/LoopUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/Intrinsics.h"
+#include <tuple>
+
 
 using namespace llvm;
 using namespace llvm::vpo;
+
+ReductionMngr::ReductionMngr(AVR *Avr) {
+  for (ReductionItem *Ri : cast<AVRWrn>(Avr)->getWrnNode()->getRed()->items())
+    ReductionMap[Ri->getOrig()] = Ri;
+}
+ 
+void ReductionMngr::initializeReductionPhis(Loop *OrigLoop,
+                                            BasicBlock *Preheader,
+                                            BasicBlock *VecLoop,
+                                            BasicBlock *ExitBlock) {
+
+  for (auto Itr : ReductionMap) {
+    PHINode *PhiInstr = cast<PHINode>(Itr.first);
+    ReductionItem *RI = Itr.second;
+    Value *StartValue =
+      PhiInstr->getIncomingValueForBlock(OrigLoop->getLoopPreheader());
+    RI->setInitializer(StartValue);
+    RI->setCombiner(PhiInstr->user_back());
+  }
+  LoopPreheader = Preheader;
+  VectorBody = VecLoop;
+  LoopExit = ExitBlock;
+}
+
+static Value *CreateBinOp(ReductionItem::WRNReductionKind RKind,
+                          IRBuilder<>& Builder, Value *V1, Value *V2) {
+  const char *Name = "reduction.tail";
+  switch (RKind) {
+  case ReductionItem::WRNReductionBxor:
+    return Builder.CreateXor(V1, V2, Name);
+  case ReductionItem::WRNReductionBor:
+    return Builder.CreateOr(V1, V2, Name);
+  case ReductionItem::WRNReductionSum:
+    return V1->getType()->isFloatTy() ? 
+      Builder.CreateFAdd(V1, V2, Name) :
+      Builder.CreateAdd(V1, V2, Name);
+  case ReductionItem::WRNReductionMult:
+    return V1->getType()->isFloatTy() ? 
+      Builder.CreateFMul(V1, V2, Name) :
+      Builder.CreateMul(V1, V2, Name);
+  case ReductionItem::WRNReductionBand:
+    return Builder.CreateAnd(V1, V2, Name);
+  default:
+    llvm_unreachable("Unknown recurrence kind");
+  }  
+}
+
+// Complete edges of the reduction Phi and build the horizontal
+// loop tail.
+void ReductionMngr::completeReductionPhis(std::map<Value *, Value *>& WidenMap) {
+  for (auto Itr : ReductionMap) {
+    Value *OrigPhi = Itr.first;
+    ReductionItem *RI = Itr.second;
+    Value *OrigValue = RI->getCombiner();
+    Value *VecValue = WidenMap[OrigValue];
+    PHINode *VecPhi = cast<PHINode>(WidenMap[OrigPhi]);
+    VecPhi->addIncoming(VecValue, VectorBody);
+
+    // loop tail, non-optimized meanwhile
+    unsigned VL = VecValue->getType()->getVectorNumElements();
+    IRBuilder<> Builder(LoopExit->getFirstInsertionPt());
+
+    Value *Res = Builder.CreateExtractElement(VecValue, Builder.getInt32(0));
+    for (unsigned i = 1; i < VL; ++i) {
+      Value *Op = Builder.CreateExtractElement(VecValue, Builder.getInt32(i));
+      Res = CreateBinOp(RI->getType(), Builder, Res, Op);
+    }
+    // Replace all uses of "Conbiner" except the block of scalar loop
+    BasicBlock *OrigBB = cast<Instruction>(OrigValue)->getParent();
+    OrigValue->replaceUsesOutsideBlock(Res, OrigBB);
+  }
+}
+
+bool ReductionMngr::isReductionPhi(Instruction *Phi) {
+  return isa<PHINode>(Phi) && (ReductionMap.find(Phi) != ReductionMap.end());
+}
+
+/// This function returns the identity element (or neutral element) for
+/// the operation K.
+Constant *
+ReductionMngr::getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
+                                     Type *Ty) {
+  switch (RKind) {
+  case ReductionItem::WRNReductionBxor:
+  case ReductionItem::WRNReductionBor:
+    // Adding, Xoring, Oring zero to a number does not change it.
+    return ConstantInt::get(Ty, 0);
+  case ReductionItem::WRNReductionSum:
+    return Ty->isFloatTy() ? 
+      ConstantFP::get(Ty, 0.0L) : ConstantInt::get(Ty, 0);
+  case ReductionItem::WRNReductionMult:
+    // Multiplying a number by 1 does not change it.
+    return Ty->isFloatTy() ?
+      ConstantInt::get(Ty, 1) : ConstantFP::get(Ty, 1.0L);
+  case ReductionItem::WRNReductionBand:
+    // AND-ing a number with an all-1 value does not change it.
+    return ConstantInt::get(Ty, -1, true);
+  default:
+    llvm_unreachable("Unknown recurrence kind");
+  }
+}
+
+Instruction *ReductionMngr::vectorizePhiNode(Instruction *RdxPhi,
+                                             unsigned VL) {
+  
+  ReductionItem *RI = ReductionMap[RdxPhi];
+  Type *ScalarTy = RdxPhi->getType();
+  ReductionItem::WRNReductionKind RKind = RI->getType();
+  Constant *Iden = getRecurrenceIdentity(RKind, ScalarTy);
+  Value *Identity = ConstantVector::getSplat(VL, Iden);
+
+  // Reduction Phi has 2 incoming adges - one from initial value
+  // and the second from loop body. Now we are setting only the
+  // first incomming edge.
+  IRBuilder<> Builder(LoopPreheader->getTerminator());
+  // This vector is the Identity vector where the first element is the
+  // incoming scalar reduction.
+  Value *VectorStart =
+    Builder.CreateInsertElement(Identity, RI->getInitializer(),
+                                Builder.getInt32(0));
+
+  Builder.SetInsertPoint(PhiInsertPt);
+  PHINode *VecRdxPhi = Builder.CreatePHI(VectorType::get(ScalarTy, VL), 2,
+                                         "vec.rdx.phi");
+  VecRdxPhi->addIncoming(VectorStart, LoopPreheader);
+  return VecRdxPhi;
+}
+
+void AVRCodeGen::vectorizeReductionPHI(Instruction *RdxPhi) {
+  Instruction *VecRdxPhi = RM.vectorizePhiNode(RdxPhi, VL);
+  WidenMap[RdxPhi] = VecRdxPhi;
+}
+
+void AVRCodeGen::completeReductions() {
+  RM.completeReductionPhis(WidenMap);
+}
 
 bool AVRCodeGen::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
@@ -29,7 +167,7 @@ bool AVRCodeGen::loopIsHandled() {
   int VL = 0;
   AVRBranchIR *LoopBackEdge = nullptr;
   AVRPhiIR *InductionPhi = nullptr;
-  AVRIf *InductionCmp = nullptr;
+  AVRCompare *InductionCmp = nullptr;
 
   // We expect avr to be a AVRWrn node
   if (!(AWrn = dyn_cast<AVRWrn>(Avr))) {
@@ -56,32 +194,32 @@ bool AVRCodeGen::loopIsHandled() {
   // for the induction var compare, one branch for loop
   // backedge and one AVRPhiIR for loop induction variable.
   // AVRLabelIRs are ignored for now.
-  for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); Itr != E;
-       ++Itr) {
-    if (isa<AVRAssignIR>(Itr) || isa<AVRLabelIR>(Itr)) {
-      continue;
-    } else if (isa<AVRPhiIR>(Itr)) {
-      if (InductionPhi) {
-        return false;
-      }
+  for (AVR& Itr : ALoop->nodes()) {
+    switch (Itr.getAVRID()) {
 
-      InductionPhi = dyn_cast<AVRPhiIR>(Itr);
-      continue;
-    } else if (isa<AVRIf>(Itr)) {
-      if (InductionCmp) {
+    case AVR::AVRAssignIRNode:
+    case AVR::AVRLabelIRNode:
+    case AVR::AVRCallIRNode:
+      break;
+    case AVR::AVRPhiIRNode: {
+      AVRPhiIR *Phi = cast<AVRPhiIR>(&Itr);
+      if (RM.isReductionPhi(Phi->getLLVMInstruction()))
+        break;
+      else if (InductionPhi)
         return false;
-      }
-
-      InductionCmp = dyn_cast<AVRIf>(Itr);
-      continue;
-    } else if (isa<AVRBranchIR>(Itr)) {
-      if (LoopBackEdge) {
+      else
+        InductionPhi = Phi;
+     }
+     break;
+    case AVR::AVRCompareIRNode:
+      if (InductionCmp)
         return false;
-      }
-
-      LoopBackEdge = dyn_cast<AVRBranchIR>(Itr);
-      continue;
-    } else {
+      InductionCmp = dyn_cast<AVRCompare>(&Itr);
+      break;
+    case AVR::AVRBranchIRNode:
+      LoopBackEdge = dyn_cast<AVRBranchIR>(&Itr);
+      break;
+    default:
       return false;
     }
   }
@@ -94,12 +232,6 @@ bool AVRCodeGen::loopIsHandled() {
   unsigned int NumPhiValues;
 
   PhiInst = dyn_cast<const PHINode>(InductionPhi->getLLVMInstruction());
-  // PhiInst->dump();
-
-  // const Instruction *CmpInst;
-  // CmpInst = InductionCmp->getCompareInstruction();
-  // CmpInst->dump();
-
   NumPhiValues = PhiInst->getNumIncomingValues();
   if (NumPhiValues != 2) {
     return false;
@@ -239,6 +371,9 @@ void AVRCodeGen::createEmptyLoop() {
 
   // Inform SCEV analysis to forget original loop
   SE->forgetLoop(OrigLoop);
+
+  RM.saveInsertPointForReductionPhis(Induction);
+  RM.initializeReductionPhis(OrigLoop, LoopPreHeader, VecBody, LoopExit);
 }
 
 Value *AVRCodeGen::getVectorValue(Value *V) {
@@ -503,13 +638,12 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
       Index = getVectorValue(*IdxIt);
       Indices.push_back(Index);
     }
-    GetElementPtrInst *VectorGEP = GetElementPtrInst::Create(
-        nullptr, VecBase, Indices, "mm_vectorGEP", Builder.GetInsertPoint());
+    GetElementPtrInst *VectorGEP =
+      cast<GetElementPtrInst>(Builder.CreateGEP(VecBase, Indices,
+                                                "mm_vectorGEP"));
     VectorGEP->setIsInBounds(GI->isInBounds());
     WidenMap[cast<Value>(Inst)] = VectorGEP;
 
-    // VectorGEP->dump();
-    // VectorGEP->getParent()->getParent()->dump();
     break;
   }
 
@@ -570,17 +704,20 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::Load: {
-    vectorizeLoadInstruction(Inst);
+    vectorizeLoadInstruction(Inst, true);
     break;
   }
 
   case Instruction::Store: {
-    vectorizeStoreInstruction(Inst);
+    vectorizeStoreInstruction(Inst, true);
     break;
   }
 
   case Instruction::PHI: {
-    vectorizePHIInstruction(Inst);
+    if (RM.isReductionPhi(Inst))
+      vectorizeReductionPHI(Inst);
+    else
+      vectorizePHIInstruction(Inst);
     break;
   }
 
@@ -636,6 +773,6 @@ bool AVRCodeGen::vectorize() {
       vectorizeInstruction(Inst);
     }
   }
-
+  completeReductions();
   return true;
 }

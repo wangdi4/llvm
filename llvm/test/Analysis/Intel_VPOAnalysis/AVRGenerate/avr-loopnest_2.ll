@@ -1,4 +1,4 @@
-; RUN: opt < %s -simd-function-cloning -avr-generate -analyze | FileCheck %s
+; RUN: opt < %s -vec-clone -avr-generate -analyze | FileCheck %s
 
 ; Check sequence AVRs generated for given test.
 ;CHECK: '_ZGVxM4vv_vec_sum'
