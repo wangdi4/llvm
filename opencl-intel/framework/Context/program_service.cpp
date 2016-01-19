@@ -94,7 +94,7 @@ void BuildTask::DoneWithDependencies(const SharedPtr<OclEvent>& pEvent)
 
 bool BuildTask::Launch()
 {
-    return FrameworkProxy::Instance()->Execute(SharedPtr<BuildTask>(this));
+    return FrameworkProxy::Instance()->ExecuteImmediate(SharedPtr<BuildTask>(this));
 }
 
 void BuildTask::SetComplete(cl_int returnCode)
@@ -430,8 +430,13 @@ DeviceBuildTask::~DeviceBuildTask()
 {
 }
 
+#include <mutex>
+
+std::mutex device_build_mtx;
 bool DeviceBuildTask::Execute()
 {
+    std::lock_guard<std::mutex> lck(device_build_mtx);
+
     const char*         pBinary         = NULL;
     size_t              uiBinarySize    = 0;
     cl_dev_program      programHandle   = NULL;

@@ -668,25 +668,31 @@ bool FrameworkProxy::ActivateTaskExecutor() const
                     RootDeviceCreationParam(TE_AUTO_THREADS, TE_ENABLE_MASTERS_JOIN, 1));
 
         SharedPtr<ITaskList> pTaskList;
+        SharedPtr<ITaskList> pTaskList_Immediate;
 
         if (0 != pTERootDevice)
         {
-            pTaskList = pTERootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER );
+            pTaskList           = pTERootDevice->CreateTaskList( TE_CMD_LIST_IN_ORDER  );
+            pTaskList_Immediate = pTERootDevice->CreateTaskList( TE_CMD_LIST_IMMEDIATE );
         }
 
-        if (0 != pTaskList)
+        if (0 != pTaskList && 0 != pTaskList_Immediate)
         {
             m_pTaskList = pTaskList.GetPtr();
             m_pTaskList->IncRefCnt();
+
+            m_pTaskList_immediate = pTaskList_Immediate.GetPtr();
+            m_pTaskList_immediate->IncRefCnt();
         }
     }
 
-    if (NULL != m_pTaskList)
+    if (NULL != m_pTaskList && NULL != m_pTaskList_immediate)
     {
         ++m_uiTEActivationCount;
+        return true;
     }
     
-    return (NULL != m_pTaskList);
+    return false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -701,7 +707,7 @@ void FrameworkProxy::DeactivateTaskExecutor() const
     
     OclAutoMutex cs(&m_initializationMutex);
 
-    if (NULL != m_pTaskList)
+    if (NULL != m_pTaskList && NULL != m_pTaskList_immediate)
     {
         --m_uiTEActivationCount;
 
@@ -714,8 +720,31 @@ void FrameworkProxy::DeactivateTaskExecutor() const
                 m_pTaskList->Cleanup();
             }
             m_pTaskList = NULL;
+
+            ref = m_pTaskList_immediate->DecRefCnt();
+            if ( 0 == ref )
+            {
+                m_pTaskList_immediate->Cleanup();
+            }
+            m_pTaskList_immediate = NULL;
         }
     }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// FrameworkProxy::ExecuteImmediate()
+///////////////////////////////////////////////////////////////////////////////////////////////////
+bool FrameworkProxy::ExecuteImmediate(const Intel::OpenCL::Utils::SharedPtr<Intel::OpenCL::TaskExecutor::ITaskBase>& pTask) const
+{
+    assert(m_pTaskList_immediate);
+    if (NULL == m_pTaskList_immediate)
+    {
+        return false;
+    }
+
+    m_pTaskList_immediate->Enqueue(pTask);
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
