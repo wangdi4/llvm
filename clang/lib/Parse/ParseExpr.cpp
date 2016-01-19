@@ -2779,7 +2779,14 @@ bool Parser::ParseExpressionList(SmallVectorImpl<Expr *> &Exprs,
     }
 
     ExprResult Expr;
-    if (getLangOpts().CPlusPlus11 && Tok.is(tok::l_brace)) {
+    if ((getLangOpts().CPlusPlus11 ||                          // INTEL
+         getLangOpts().IntelCompat) && Tok.is(tok::l_brace)) { // INTEL
+#if INTEL_CUSTOMIZATION
+      // CQ374879
+      if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+        Diag(Tok, diag::ext_generalized_initializer_lists);
+      else
+#endif // INTEL_CUSTOMIZATION
       Diag(Tok, diag::warn_cxx98_compat_generalized_initializer_lists);
       Expr = ParseBraceInitializer();
     } else
