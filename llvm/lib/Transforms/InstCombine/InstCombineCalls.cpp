@@ -139,7 +139,7 @@ void InstCombiner::GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI) {
   Value *StrippedDest = MI->getArgOperand(0)->stripPointerCasts();
   Type *PtrTyp = cast<PointerType>(StrippedDest->getType())->getElementType();
   StructType *STy = dyn_cast<StructType>(&*PtrTyp);
-  assert(STy);
+  assert(STy && "Expected non-empty structure type");
   unsigned int ElemNum = STy->getNumElements();
 
   for (unsigned int i = 0; i < ElemNum; ++i) {

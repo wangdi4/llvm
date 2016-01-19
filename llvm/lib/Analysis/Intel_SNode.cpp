@@ -436,6 +436,7 @@ void SNodeAnalysis::doRoutineLevelSNodeAnalyses() {
       break;
     }
   }
+  assert(Snode && "Expected non-empty incoming entry SNode");
   EntrySNode = Snode;
 }
 

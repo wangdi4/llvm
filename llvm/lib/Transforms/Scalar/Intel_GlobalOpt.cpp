@@ -91,6 +91,7 @@ void NonLTOGlobalOpt::replaceUseOfGV(Value *V, Value *New) {
         Instruction *I = dyn_cast<Instruction>(UR);
         Instruction *CastI =
             CastInst::CreatePointerCast(New, C->getType(), Twine(""), I);
+        assert(I && "Expected non-empty incoming instruction");
         I->setOperand(1, CastI);
       }
       if (C->use_empty())
@@ -203,7 +204,7 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
 
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
-      if (FenceInst *FI = dyn_cast<FenceInst>(I)) {
+      if (dyn_cast<FenceInst>(I)) {
         return Changed;
       }
     }
