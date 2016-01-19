@@ -217,7 +217,9 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION  // HIR passes
+  #if INTEL_CUSTOMIZATION 
+      (void) llvm::createSNodeAnalysisPass();
+      // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
       (void) llvm::createScalarSymbaseAssignmentPass();

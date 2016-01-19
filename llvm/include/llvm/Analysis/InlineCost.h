@@ -60,6 +60,7 @@ typedef enum {
    InlrAlwaysInline,
    InlrSingleLocalCall,
    InlrSingleBasicBlock,
+   InlrAlmostSingleBasicBlock,
    InlrEmptyFunction,
    InlrVectorBonus,
    InlrProfitable,

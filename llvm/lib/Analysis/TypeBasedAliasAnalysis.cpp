@@ -293,8 +293,21 @@ AliasResult TypeBasedAAResult::alias(const MemoryLocation &LocA,
   if (!BM)
     return AAResultBase::alias(LocA, LocB);
 
+#if INTEL_CUSTOMIZATION
+  bool DirectRefA, DirectRefB;
+  DirectRefA = DirectRefB = false;
+  const Value *Ptr1 = LocA.Ptr;
+  const Value *Ptr2 = LocB.Ptr;
+  if (isa<GlobalValue>(Ptr1)) {
+    DirectRefA = true;
+  }
+  if (isa<GlobalValue>(Ptr2)) {
+    DirectRefB = true;
+  }
+#endif // INTEL_CUSTOMIZATION
+
   // If they may alias, chain to the next AliasAnalysis.
-  if (Aliases(AM, BM))
+  if (Aliases(AM, BM, DirectRefA, DirectRefB)) // INTEL 
     return AAResultBase::alias(LocA, LocB);
 
   // Otherwise return a definitive result.
@@ -476,19 +489,21 @@ void Instruction::getAAMetadata(AAMDNodes &N, bool Merge) const {
     N.NoAlias = getMetadata(LLVMContext::MD_noalias);
 }
 
-/// Aliases - Test whether the type represented by A may alias the
-/// type represented by B.
-bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B) const {
-  // Make sure that both MDNodes are struct-path aware.
-  if (isStructPathTBAA(A) && isStructPathTBAA(B))
-    return PathAliases(A, B);
-
+#if INTEL_CUSTOMIZATION
+// Test whether the scalar tag represented by A may alias the
+// scalar tag represented by B. If the flag Mask is CheckA, it checks
+// whether A's ancestors has B. If the flag Mask is CheckB, it checks
+// whether B's ancessors has A. If the flag Mask is CheckBoth, it checks
+// whether A's ancestors has B and B's ancessors has A.
+bool TypeBasedAAResult::ScalarAliases(const MDNode *A, const MDNode *B, 
+                                      enum CheckKind Mask) const {
+#endif // INTEL_CUSTOMIZATION
   // Keep track of the root node for A and B.
   TBAANode RootA, RootB;
 
   // Climb the tree from A to see if we reach B.
   for (TBAANode T(A);;) {
-    if (T.getNode() == B)
+    if ((Mask & CheckA) == CheckA && T.getNode() == B) // INTEL
       // B is an ancestor of A.
       return true;
 
@@ -500,7 +515,7 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B) const {
 
   // Climb the tree from B to see if we reach A.
   for (TBAANode T(B);;) {
-    if (T.getNode() == A)
+    if ((Mask & CheckB) == CheckB && T.getNode() == A) // INTEL
       // A is an ancestor of B.
       return true;
 
@@ -521,9 +536,74 @@ bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B) const {
   return false;
 }
 
+/// Aliases - Test whether the type represented by A may alias the
+/// type represented by B.
+bool TypeBasedAAResult::Aliases(const MDNode *A, const MDNode *B,
+                                bool DirectRefA, bool DirectRefB) const {
+
+#if INTEL_CUSTOMIZATION
+  // 
+  // Given two memory references a and b, the type aliaser before the 
+  // following fix checks the following cases:
+  //  1) whether a's type can be descendants of b's type
+  //  2) whether b's type can be descendants of a's type in the type tree. 
+  // 
+  // The fix refines the rules as follows. 
+  //   If one of the references is global scalar variable, the compiler only 
+  //   needs to check one case, since the global scalar variable cannot be 
+  //   aliased by an access to an enclosing (descendant) type.
+  //
+  // Here is one running example.
+
+  // char a;
+  // int foo(int *s) {
+  //   *s=10;
+  //   a = 12;
+  //   return *s;
+  // }
+  // 
+  // LLVM TBAA
+  //
+  //  store i8 12, i8* @a, align 1, !tbaa !5
+  //  %0 = load i32, i32* %s, align 4, !tbaa !1
+  //
+  // !0 = !{!"clang version 3.8.0 (trunk 1684)"}
+  // !1 = !{!2, !2, i64 0}
+  // !2 = !{!"int", !3, i64 0}
+  // !3 = !{!"omnipotent char", !4, i64 0}
+  // !4 = !{!"Simple C/C++ TBAA"}
+  // !5 = !{!3, !3, i64 0}
+  //
+  // The type based alias analysis before the fix for !5 and !1
+  // Step 1: (!5,0,!1,0)
+  // Step 2: (!3, 0, !2, 0)
+  // Step 3: (!4,0, !2,0) match fails
+  // Step 4: (!3, 0, !2, 0)
+  // Step 5: (!3,0, !3,0) match successful means that they are aliased.
+  //
+  //
+  // With the fix, the compiler can skip step 4 and 5 since the type of store 
+  // for global variable a can not be descendant of another type tree 
+  // unless they are annotated with the same metadata.
+  //
+  // Proposed type based alias analysis for !5 and !1
+  // Step 1: (!5,0,!1,0)
+  // Step 2: (!3, 0, !2, 0)
+  // Step 3: (!4,0, !2,0) match fails
+
+  auto Kind = DirectRefA?CheckA:(DirectRefB?CheckB:CheckBoth);
+  // Make sure that both MDNodes are struct-path aware.
+  if (isStructPathTBAA(A) && isStructPathTBAA(B)) 
+    return PathAliases(A, B, Kind);
+
+  return ScalarAliases(A, B, Kind);
+#endif // INTEL_CUSTOMIZATION
+}
+
 /// Test whether the struct-path tag represented by A may alias the
 /// struct-path tag represented by B.
-bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B) const {
+bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B, // INTEL
+                                    enum CheckKind Mask) const { // INTEL
   // Verify that both input nodes are struct-path aware.
   assert(isStructPathTBAA(A) && "MDNode A is not struct-path aware.");
   assert(isStructPathTBAA(B) && "MDNode B is not struct-path aware.");
@@ -545,7 +625,8 @@ bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B) const {
   const MDNode *BaseB = TagB.getBaseType();
   uint64_t OffsetA = TagA.getOffset(), OffsetB = TagB.getOffset();
   for (TBAAStructTypeNode T(BaseA);;) {
-    if (T.getNode() == BaseB)
+    if ((Mask & CheckA) == CheckA &&  // INTEL
+        T.getNode() == BaseB)         // INTEL
       // Base type of A encloses base type of B, check if the offsets match.
       return OffsetA == OffsetB;
 
@@ -561,7 +642,8 @@ bool TypeBasedAAResult::PathAliases(const MDNode *A, const MDNode *B) const {
   // base type of A.
   OffsetA = TagA.getOffset();
   for (TBAAStructTypeNode T(BaseB);;) {
-    if (T.getNode() == BaseA)
+    if ((Mask & CheckB) == CheckB && // INTEL
+        T.getNode() == BaseA)        // INTEL
       // Base type of B encloses base type of A, check if the offsets match.
       return OffsetA == OffsetB;
 

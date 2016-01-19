@@ -108,6 +108,7 @@ void LTOCodeGenerator::initializeLTOPasses() {
   initializeSROA_SSAUpPass(R);
   initializeFunctionAttrsPass(R);
   initializeGlobalsAAWrapperPassPass(R);
+  initializeAndersensAAWrapperPassPass(R);   // INTEL
   initializeLICMPass(R);
   initializeMergedLoadStoreMotionPass(R);
   initializeGVNPass(R);

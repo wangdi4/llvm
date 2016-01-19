@@ -32,6 +32,7 @@ add_llvm_library(LLVMAnalysis
   InstructionSimplify.cpp
 #ifdef INTEL_CUSTOMIZATION
   Intel_Andersens.cpp
+  Intel_SNode.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp

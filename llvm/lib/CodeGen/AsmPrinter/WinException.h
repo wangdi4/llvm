@@ -77,7 +77,12 @@ class LLVM_LIBRARY_VISIBILITY WinException : public EHStreamer {
   /// given index. For targets using CFI (Win64, etc), this is relative to the
   /// established SP at the end of the prologue. For targets without CFI (Win32
   /// only), it is relative to the frame pointer.
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r252210
+  int getFrameIndexOffset(int FrameIndex, WinEHFuncInfo &FuncInfo);
+#else // !INTEL_CUSTOMIZATION
   int getFrameIndexOffset(int FrameIndex);
+#endif // !INTEL_CUSTOMIZATION
 
 public:
   //===--------------------------------------------------------------------===//

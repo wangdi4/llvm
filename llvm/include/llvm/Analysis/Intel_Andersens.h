@@ -188,6 +188,9 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
   // Whether to use SDT (UniteNodes can use it during solving, but not before)
   bool SDTActive;
 
+  // Skip doing Andersens Analysis if it finds unexpected Insts.
+  bool SkipAndersensAnalysis;
+
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
   DenseMap<const Value *, unsigned> NonEscapeStaticVars;
@@ -266,6 +269,8 @@ public:
   bool escapes(const Value *V);
 
 private:
+  bool isPointsToType(Type *Ty) const;
+
   unsigned getNode(Value *V);
 
   unsigned getObject(Value *V) const;
@@ -370,6 +375,14 @@ private:
   void visitShuffleVectorInst(ShuffleVectorInst &AI);
   void visitLandingPadInst(LandingPadInst &AI);
   void visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI);
+  void visitCatchPadInst(CatchPadInst &AI);
+  void visitCleanupPadInst(CleanupPadInst &AI);
+  void visitTerminatePadInst(TerminatePadInst &AI);
+  void visitCleanupReturnInst(CleanupReturnInst &AI);
+  void visitCatchReturnInst(CatchReturnInst &AI);
+  void visitCleanupEndPadInst(CleanupEndPadInst &AI);
+
+  void processWinEhOperands(Instruction &AI);
  
 };
 
