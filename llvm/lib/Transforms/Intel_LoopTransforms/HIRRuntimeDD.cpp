@@ -597,12 +597,10 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
   HLRegion *ParentRegion = Candidate.Loop->getParentRegion();
   ParentRegion->setGenCode(true);
 
-  auto PreserveFunc = [](const HIRAnalysisPass *HAP) { return false; };
   if (HLLoop *ParentLoop = Candidate.Loop->getParentLoop()) {
-    HIRInvalidationUtils::invalidateLoopBodyAnalysis(ParentLoop, PreserveFunc);
+    HIRInvalidationUtils::invalidateBody(ParentLoop);
   } else {
-    HIRInvalidationUtils::invalidateNonLoopRegionAnalysis(ParentRegion,
-                                                          PreserveFunc);
+    HIRInvalidationUtils::invalidateNonLoopRegion(ParentRegion);
   }
 }
 

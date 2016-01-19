@@ -396,8 +396,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
   Loop->getParentRegion()->setGenCode();
 
   // Invalidate all analysis for the loop.
-  HIRInvalidationUtils::invalidateLoopBodyAnalysis(
-      Loop, [](const HIRAnalysisPass *HAP) { return false; });
+  HIRInvalidationUtils::invalidateBody(Loop);
 
   // Delete the original loop.
   HLNodeUtils::erase(Loop);

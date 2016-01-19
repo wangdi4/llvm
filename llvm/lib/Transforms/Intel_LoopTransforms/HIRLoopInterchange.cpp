@@ -684,10 +684,8 @@ void HIRLoopInterchange::transformLoop(HLLoop *Loop) {
 
   // Invalidate all analysis for InnermostLoop.
   // TODO: we should probably invalidate analysis for all the involved loops.
-  auto isPreserved = [](const HIRAnalysisPass *HAP) { return false; };
-  HIRInvalidationUtils::invalidateLoopBoundsAnalysis(InnermostLoop,
-                                                     isPreserved);
-  HIRInvalidationUtils::invalidateLoopBodyAnalysis(InnermostLoop, isPreserved);
+  HIRInvalidationUtils::invalidateBounds(InnermostLoop);
+  HIRInvalidationUtils::invalidateBody(InnermostLoop);
 
   HLNodeUtils::permuteLoopNests(Loop, LoopPermutation);
   updateLoopBody(Loop);

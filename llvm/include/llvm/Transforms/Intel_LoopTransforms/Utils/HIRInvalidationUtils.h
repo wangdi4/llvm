@@ -11,16 +11,27 @@
 //
 // This file defines the analysis invalidation utilities for HIR.
 //
+// Here are couple examples how to use the utility:
+//  1) HIRInvalidationUtils::invalidateBody(Loop);
+//     This will invalidate all available HIR analysis for that particular loop.
+//
+//  2) HIRInvalidationUtils::invalidateBody<DDAnalysis, HIRAnalysis>(Loop);
+//     You can specify analysis in <...> that are preserved, that means that
+//     they will not be invalidated.
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
+
+#include <type_traits>
 
 namespace llvm {
 
@@ -32,145 +43,103 @@ class HLRegion;
 /// \brief Defines analysis invalidation utilities for HIR.
 class HIRInvalidationUtils : public HLUtils {
 private:
+  // The InPack type determines if T is presented in the parameter Pack.
+  //
+  // Template declaration, useful things are in the specializations.
+  template <typename T, typename... Pack>
+  struct InPack : std::true_type {};
+
+  // InPack<A, B, C, D, E, ...> is handled by this specialization.
+  //
+  // InPack<T = A, First = B, Rest = C, D, E, ...>
+  // The conditional deduces this to true_type if A is B, meaning that
+  // T is in the Pack.
+  //
+  // Otherwise it is deduced as InPack<T = A, First = C, Rest = D, E, ...>.
+  // Recursively it becomes InPack<T = A>, which is actually a false_type.
+  template <typename T, typename First, typename... Rest>
+  struct InPack<T, First, Rest...>
+    : std::conditional<std::is_same<T, First>::value,
+      std::true_type, InPack<T, Rest...>>::type {};
+
+  // This specialization renders a false_type. This type means that there
+  // is no T in the Pack.
+  template <typename T>
+  struct InPack<T> : std::false_type {};
+
+  // AnalysisGetter is a helper class that returns (void *)nullptr if AnalysisTy
+  // is void and returns AnalysisTy instance if available.
+  template <typename AnalysisTy>
+  struct AnalysisGetter {
+    static AnalysisTy *get() {
+      return getHIRParser()->getAnalysisIfAvailable<AnalysisTy>();
+    }
+  };
+
+  template <typename... Analysis>
+  struct AnalysisSet {
+
+    static_assert(sizeof...(Analysis) == HIRAnalysisPass::PassCountVal,
+        "One or more HIR Analysis pass is missing!");
+
+    template <typename F, typename... ArgsTy>
+    static void invoke(F&& Func, ArgsTy... Args) {
+      void *AnalysisArray[] = { AnalysisGetter<Analysis>::get()... };
+      for (void *AnalysisPtr : AnalysisArray) {
+        if (AnalysisPtr) {
+          (static_cast<HIRAnalysisPass *>(AnalysisPtr)->*Func)
+              (std::forward<ArgsTy>(Args)...);
+        }
+      }
+    }
+
+    // This type is an AnalysisSet, but without excluded analysis.
+    template <typename... Excluding>
+    struct Except : AnalysisSet<typename std::conditional<
+      InPack<Analysis, Excluding...>::value, void, Analysis>::type...> {};
+  };
+
+  // There should be all available analysis
+  typedef AnalysisSet<DDAnalysis, HIRLocalityAnalysis> ForEachAnalysis;
+
   /// \brief Do not allow instantiation.
   HIRInvalidationUtils() = delete;
-
-  /// \brief Returns Analysis pointer if it is available and not preserved.
-  template <typename AnalysisTy, typename IsPreservedFuncTy>
-  static AnalysisTy *getAnalysisIfNotPreserved(IsPreservedFuncTy isPreserved,
-                                               unsigned &PassCount);
-
-  /// \brief Invokes specified analysis's (AnalysisTy) loop body invalidation
-  /// interface.
-  template <typename AnalysisTy, typename IsPreservedFuncTy>
-  static void invalidateAnalysisForLoopBody(const HLLoop *Lp,
-                                            IsPreservedFuncTy isPreserved,
-                                            unsigned &PassCount);
-
-  /// \brief Invokes specified analysis's (AnalysisTy) loop bounds invalidation
-  /// interface.
-  template <typename AnalysisTy, typename IsPreservedFuncTy>
-  static void invalidateAnalysisForLoopBounds(const HLLoop *Lp,
-                                              IsPreservedFuncTy isPreserved,
-                                              unsigned &PassCount);
-
-  /// \brief Invokes specified analysis's (AnalysisTy) non-loop region
-  /// invalidation interface.
-  template <typename AnalysisTy, typename IsPreservedFuncTy>
-  static void invalidateAnalysisForNonLoopRegion(const HLRegion *Reg,
-                                                 IsPreservedFuncTy isPreserved,
-                                                 unsigned &PassCount);
 
 public:
   /// \brief Invalidates all the available HIR analysis dependent on the loop
   /// body except the preserved ones explicitly specified by
-  /// isPreserved(HIRAnalysisPass *).
-  template <typename IsPreservedFuncTy>
-  static void invalidateLoopBodyAnalysis(const HLLoop *Lp,
-                                         IsPreservedFuncTy &&isPreserved);
-
-  /// \brief Invalidates all the available HIR analysis dependent on the loop
-  /// bounds except the preserved ones explicitly specified by
-  /// isPreserved(HIRAnalysisPass *).
-  template <typename IsPreservedFuncTy>
-  static void invalidateLoopBoundsAnalysis(const HLLoop *Lp,
-                                           IsPreservedFuncTy &&isPreserved);
+  /// template arguments.
+  template <typename... Except>
+  static void invalidateBody(const HLLoop *Loop) {
+    ForEachAnalysis::Except<Except...>::invoke(
+        &HIRAnalysisPass::markLoopBodyModified, Loop);
+  }
 
   /// \brief Invalidates all the available HIR analysis dependent non-loop
   /// region nodes except the preserved ones explicitly specified by
-  /// isPreserved(HIRAnalysisPass *).
-  template <typename IsPreservedFuncTy>
-  static void invalidateNonLoopRegionAnalysis(const HLRegion *Reg,
-                                              IsPreservedFuncTy &&isPreserved);
+  /// template arguments.
+  template <typename... Except>
+  static void invalidateNonLoopRegion(const HLRegion *Region) {
+    ForEachAnalysis::Except<Except...>::invoke(
+          &HIRAnalysisPass::markNonLoopRegionModified, Region);
+  }
+
+  /// \brief Invalidates all the available HIR analysis dependent on the loop
+  /// bounds except the preserved ones explicitly specified by
+  /// template arguments.
+  template <typename... Except>
+  static void invalidateBounds(const HLLoop *Loop) {
+    ForEachAnalysis::Except<Except...>::invoke(
+          &HIRAnalysisPass::markLoopBoundsModified, Loop);
+  }
 };
 
-// Reference - http://stackoverflow.com/questions/7828675/callback-vs-lambda
-template <typename AnalysisTy, typename IsPreservedFuncTy>
-AnalysisTy *
-HIRInvalidationUtils::getAnalysisIfNotPreserved(IsPreservedFuncTy isPreserved,
-                                                unsigned &PassCount) {
-  PassCount++;
-
-  AnalysisTy *Pass = getHIRParser()->getAnalysisIfAvailable<AnalysisTy>();
-
-  if (Pass && !std::forward<IsPreservedFuncTy>(isPreserved)(Pass)) {
-    return Pass;
+template <>
+struct HIRInvalidationUtils::AnalysisGetter<void> {
+  static void *get() {
+    return nullptr;
   }
-
-  return nullptr;
-}
-
-template <typename AnalysisTy, typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateAnalysisForLoopBody(
-    const HLLoop *Lp, IsPreservedFuncTy isPreserved, unsigned &PassCount) {
-  AnalysisTy *Pass =
-      getAnalysisIfNotPreserved<AnalysisTy>(isPreserved, PassCount);
-
-  if (Pass) {
-    Pass->markLoopBodyModified(Lp);
-  }
-}
-
-template <typename AnalysisTy, typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateAnalysisForLoopBounds(
-    const HLLoop *Lp, IsPreservedFuncTy isPreserved, unsigned &PassCount) {
-  AnalysisTy *Pass =
-      getAnalysisIfNotPreserved<AnalysisTy>(isPreserved, PassCount);
-
-  if (Pass) {
-    Pass->markLoopBoundsModified(Lp);
-  }
-}
-
-template <typename AnalysisTy, typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateAnalysisForNonLoopRegion(
-    const HLRegion *Reg, IsPreservedFuncTy isPreserved, unsigned &PassCount) {
-  AnalysisTy *Pass =
-      getAnalysisIfNotPreserved<AnalysisTy>(isPreserved, PassCount);
-
-  if (Pass) {
-    Pass->markNonLoopRegionModified(Reg);
-  }
-}
-
-template <typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateLoopBodyAnalysis(
-    const HLLoop *Lp, IsPreservedFuncTy &&isPreserved) {
-  unsigned PassCount = 0;
-
-  invalidateAnalysisForLoopBody<DDAnalysis>(Lp, isPreserved, PassCount);
-  invalidateAnalysisForLoopBody<HIRLocalityAnalysis>(Lp, isPreserved,
-                                                     PassCount);
-
-  assert((PassCount == HIRAnalysisPass::PassCountVal) &&
-         "One or more HIR Analysis pass is missing!");
-}
-
-template <typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateLoopBoundsAnalysis(
-    const HLLoop *Lp, IsPreservedFuncTy &&isPreserved) {
-  unsigned PassCount = 0;
-
-  invalidateAnalysisForLoopBounds<DDAnalysis>(Lp, isPreserved, PassCount);
-  invalidateAnalysisForLoopBounds<HIRLocalityAnalysis>(Lp, isPreserved,
-                                                       PassCount);
-
-  assert((PassCount == HIRAnalysisPass::PassCountVal) &&
-         "One or more HIR Analysis pass is missing!");
-}
-
-template <typename IsPreservedFuncTy>
-void HIRInvalidationUtils::invalidateNonLoopRegionAnalysis(
-    const HLRegion *Reg, IsPreservedFuncTy &&isPreserved) {
-  unsigned PassCount = 0;
-
-  invalidateAnalysisForNonLoopRegion<DDAnalysis>(Reg, isPreserved, PassCount);
-  invalidateAnalysisForNonLoopRegion<HIRLocalityAnalysis>(Reg, isPreserved,
-                                                          PassCount);
-
-  assert((PassCount == HIRAnalysisPass::PassCountVal) &&
-         "One or more HIR Analysis pass is missing!");
-}
+};
 
 } // End namespace loopopt
 

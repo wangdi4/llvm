@@ -396,15 +396,13 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   // Update the OrigLoop to remainder loop.
   processRemainderLoop(OrigLoop, IsConstLoop, TripCount, NewConstBound, NewRef);
 
-  auto isPreserved = [](const HIRAnalysisPass *HAP) { return false; };
-
   // Mark parent loop as modified, if it exists.
   if (auto ParentLoop = UnrollLoop->getParentLoop()) {
-    HIRInvalidationUtils::invalidateLoopBodyAnalysis(ParentLoop, isPreserved);
+    HIRInvalidationUtils::invalidateBody(ParentLoop);
   } else if (!IsConstLoop) {
     // Mark region as modified as we have inserted a new instruction.
-    HIRInvalidationUtils::invalidateNonLoopRegionAnalysis(
-        UnrollLoop->getParentRegion(), isPreserved);
+    HIRInvalidationUtils::invalidateNonLoopRegion(
+        UnrollLoop->getParentRegion());
   }
 
   DEBUG(dbgs() << "\n\t Transformed GeneralUnroll Loops No:"
@@ -544,8 +542,7 @@ void HIRGeneralUnroll::processRemainderLoop(HLLoop *&OrigLoop, bool IsConstLoop,
                                             int64_t TripCount, int64_t NewBound,
                                             const RegDDRef *NewRef) {
   // Mark Loop bounds as modified.
-  HIRInvalidationUtils::invalidateLoopBoundsAnalysis(
-      OrigLoop, [](const HIRAnalysisPass *HAP) { return false; });
+  HIRInvalidationUtils::invalidateBounds(OrigLoop);
 
   // Check if the Remainder Loop is necessary.
   // This condition occurs when the original constant Trip Count is divided by

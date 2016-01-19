@@ -437,8 +437,7 @@ void HIROptPredicate::transformLoop(HLLoop *OrigLoop, HLIf *If,
   LoopPredTripMap[OrigLoop] = NewTrip;
 
   // Mark loop as modified in all the analysis.
-  HIRInvalidationUtils::invalidateLoopBodyAnalysis(
-      OrigLoop, [](const HIRAnalysisPass *HAP) { return false; });
+  HIRInvalidationUtils::invalidateBody(OrigLoop);
 
   // Set the code gen for modified region
   OrigLoop->getParentRegion()->setGenCode();
