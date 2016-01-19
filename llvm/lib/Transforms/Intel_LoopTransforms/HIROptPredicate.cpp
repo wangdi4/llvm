@@ -204,10 +204,9 @@ void HIROptPredicate::processOptPredicate() {
   // Visit each candidate loop to run cost analysis.
   // Note, end is not stored as CandidateLoops gets updated for
   // nested/multiple if.
-  for (auto Iter = CandidateLoops.begin(); Iter != CandidateLoops.end();
-       ++Iter) {
+  for (unsigned Index = 0; Index != CandidateLoops.size(); ++Index) {
 
-    HLLoop *Loop = (*Iter);
+    HLLoop *Loop = CandidateLoops[Index];
     DEBUG(dbgs() << "Opt Pred Visiting Loop:\n");
     DEBUG(Loop->dump());
 

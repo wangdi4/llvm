@@ -483,6 +483,8 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
   HLLoop *NewLoop = OrigLoop->cloneEmptyLoop();
   NewLoop->setNumExits((OrigLoop->getNumExits() - 1) * UnrollFactor + 1);
 
+  HLNodeUtils::insertBefore(OrigLoop, NewLoop);
+
   // Update the loop upper bound.
   if (IsConstLoop) {
     NewLoop->getUpperCanonExpr()->setConstant(NewBound);
@@ -503,8 +505,6 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
     // Generate the Ztt.
     NewLoop->createZtt(false);
   }
-
-  HLNodeUtils::insertBefore(OrigLoop, NewLoop);
 
   // Set the code gen for modified region
   NewLoop->getParentRegion()->setGenCode();
