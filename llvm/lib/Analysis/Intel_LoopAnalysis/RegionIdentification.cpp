@@ -106,15 +106,29 @@ bool RegionIdentification::isHeaderPhi(const PHINode *Phi) const {
 }
 
 bool RegionIdentification::isSupported(Type *Ty) const {
+  assert(Ty && "Type is null!");
 
   for (; SequentialType *SeqTy = dyn_cast<SequentialType>(Ty);) {
     if (SeqTy->isVectorTy()) {
+      DEBUG(dbgs()
+            << "LOOPOPT_OPTREPORT: vector types currently not supported.\n");
       return false;
     }
     Ty = SeqTy->getElementType();
   }
 
   if (Ty->isStructTy() || Ty->isFunctionTy()) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointer types "
+                    "currently not supported.\n");
+    return false;
+  }
+
+  auto IntType = dyn_cast<IntegerType>(Ty);
+  // Integer type greater than 64 bits not supported.This is mainly to throttle
+  // 128 bit integers.
+  if (IntType && (IntType->getPrimitiveSizeInBits() > 64)) {
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: integer types greater than 64 bits "
+                    "currently not supported.\n");
     return false;
   }
 
@@ -212,6 +226,15 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
+  // Skip loop with vectorize/unroll pragmas for now so that tests checking for
+  // these are not affected.
+  if (Lp.getLoopID()) {
+    DEBUG(
+        dbgs()
+        << "LOOPOPT_OPTREPORT: Loops with pragmas currently not supported.\n");
+    return false;
+  }
+
   // Don't handle unknown loops for now.
   if (!SE->hasLoopInvariantBackedgeTakenCount(&Lp)) {
     DEBUG(dbgs()
@@ -293,6 +316,14 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
 
     for (auto InstIt = (*I)->begin(), EndIt = (*I)->end(); InstIt != EndIt;
          ++InstIt) {
+
+      if (isa<FenceInst>(InstIt) || isa<AtomicCmpXchgInst>(InstIt) ||
+          isa<AtomicRMWInst>(InstIt)) {
+        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Fence/AtomicCmpXchg/AtomicRMW "
+                        "instructions are currently not supported.\n");
+        return false;
+      }
+
       if (InstIt->getType()->isVectorTy()) {
         DEBUG(dbgs()
               << "LOOPOPT_OPTREPORT: Vector types currently not supported.\n");
@@ -300,8 +331,6 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
       }
 
       if (containsUnsupportedTy(InstIt)) {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: structure/function pointers "
-                        "currently not supported.\n");
         return false;
       }
     }

@@ -559,12 +559,14 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
     bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
 
   bool IsLiveInCopy = false;
+  bool FirstInst = false;
 
   static SmallPtrSet<const Instruction *, 16> VisitedInsts;
 
   if (!CurInst) {
     CurInst = HIRP->getCurInst();
     IsLiveInCopy = HIRP->SE->isHIRLiveInCopyInst(CurInst);
+    FirstInst = true;
 
     // We just started the traceback, clear previous entries.
     VisitedInsts.clear();
@@ -575,8 +577,18 @@ const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
   if (!IsLiveInCopy && HIRP->SE->isSCEVable(CurInst->getType())) {
     auto CurSCEV = HIRP->getSCEV(const_cast<Instruction *>(CurInst));
 
-    if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation, ConstMultiplier,
-                     Additive)) {
+    // First instruction can only be an exact match. A partial match means that
+    // an operand has been parsed in terms of the instruction it is used in!
+    // Consider this CurInst-
+    // %a = %b + 1
+    // The SCEV form of %a might be (%b + 1). This doesn't mean that we can
+    // reverse engineer %b as (%a - 1)!
+    if (FirstInst) {
+      if (CurSCEV == SC) {
+        return CurInst;
+      }
+    } else if (isReplacable(SC, CurSCEV, IsTruncation, IsNegation,
+                            ConstMultiplier, Additive)) {
       return CurInst;
     }
   }
@@ -669,8 +681,15 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
       return false;
     }
 
-    NewAddRec =
-        cast<SCEVAddRecExpr>(HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
+    NewAddRec = dyn_cast<SCEVAddRecExpr>(
+        HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
+
+    // In some case truncation of an AddRec returns a non-AddRec SCEV. For example-
+    // trunc i32 {0,+,2^30} to i16 -> 0 
+    // As the truncated stride evaluates to 0.  
+    if (!NewAddRec) {
+      return false;
+    }
 
     IsTrunc = true;
   }
@@ -1789,6 +1808,12 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
       (GEPOp = dyn_cast<GEPOperator>(GEPVal))) {
 
     BasePhi = dyn_cast<PHINode>(GEPOp->getPointerOperand());
+
+    // We can encounter an unsupported type in the GEPOperator's base pointer
+    // when we trace back the bitcast.
+    if (!RI->isSupported(GEPOp->getPointerOperand()->getType())) {
+      GEPOp = nullptr;
+    }
 
   } else if (GEPInst) {
     BasePhi = dyn_cast<PHINode>(GEPInst);
