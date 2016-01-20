@@ -116,6 +116,10 @@ def warn_indirect_goto_in_protected_scope : Warning<
 def ext_intel_array_incomplete_type : Extension<
   "array with incomplete element type %0 is an Intel extension">,
   InGroup<IntelCompat>;
+  // CQ#380872 - Arrays with incomplete (unknown) size
+def warn_intel_array_incomplete_size : Warning<
+  "array with incomplete (unknown) size element %0">,
+  InGroup<IntelCompat>;
 // Fix for CQ375472.
 def warn_conditional_ambiguous : Warning<
   "conditional expression is ambiguous; "
