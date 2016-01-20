@@ -40,6 +40,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -79,7 +80,12 @@ class FixupBWInstPass : public MachineFunctionPass {
 
 public:
   FixupBWInstPass() : MachineFunctionPass(ID) {}
-
+  
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<MachineLoopInfo>();   //  Need machine loop info.
+    MachineFunctionPass::getAnalysisUsage(AU);
+  }
+  
   /// \brief Loop over all of the basic blocks,
   /// replacing byte and word instructions by equivalent 32 bit instructions
   /// where performance or code size can be improved.
@@ -89,6 +95,7 @@ private:
   MachineFunction *MF;
   const X86InstrInfo *TII; // Machine instruction info.
   bool OptForSize;
+  MachineLoopInfo *MLI;  // Machine loop info.
 };
 char FixupBWInstPass::ID = 0;
 }
@@ -99,6 +106,7 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
   this->MF = &MF;
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
   OptForSize = MF.getFunction()->optForSize();
+  MLI = &getAnalysis<MachineLoopInfo>();
 
   DEBUG(dbgs() << "Start X86FixupBWInsts\n";);
 
@@ -198,7 +206,6 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
   // have been replaced and are to be deleted prior to exiting this
   // function.
   SmallVector<MachineInstr *, 8> MIToBeDeleted;
-  bool IsSingleBBLoop = MBB.isSuccessor(&MBB);
 
   for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I) {
     MachineInstr *NewMI = nullptr;
@@ -209,10 +216,12 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
 
     case X86::MOV8rm:
       // Only replace 8 bit loads with the zero extending versions if
-      // in a very tight loop and not optimizing for size. This takes
+      // in an inner most loop and not optimizing for size. This takes
       // an extra byte to encode, and provides limited performance upside.
-      if (IsSingleBBLoop && !OptForSize)
-        NewMI = tryReplaceLoad(X86::MOVZX32rm8, MVT::i8, MI);
+      if (MachineLoop *ML = MLI->getLoopFor(&MBB)) {
+        if (ML->begin() == ML->end() && !OptForSize)
+          NewMI = tryReplaceLoad(X86::MOVZX32rm8, MVT::i8, MI);
+      }  
       break;
 
     case X86::MOV16rm:
