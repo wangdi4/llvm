@@ -545,8 +545,6 @@ Value *HIRCodeGen::CGVisitor::visitRegDDRef(RegDDRef *Ref) {
   DEBUG(Ref->dump());
   DEBUG(dbgs() << " Symbase: " << Ref->getSymbase() << " \n");
 
-  assert(!Ref->containsUndef() && "undef operands not supported");
-
   if (Ref->isTerminalRef()) {
     return visitScalar(Ref);
   }
