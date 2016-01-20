@@ -4135,6 +4135,9 @@ def err_static_non_static : Error<
   "static declaration of %0 follows non-static declaration">;
 def err_different_language_linkage : Error<
   "declaration of %0 has a different language linkage">;
+def warn_different_language_linkage : Warning<
+  "declaration of %0 has a different language linkage">,
+  InGroup<IntelCompat>;
 def ext_retained_language_linkage : Extension<
   "friend function %0 retaining previous language linkage is an extension">,
   InGroup<DiagGroup<"retained-language-linkage">>;
