@@ -1014,21 +1014,39 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
         return CL_INVALID_DEVICE;
     }
 
-    retCode = devInfo->m_origDispatchTable.clGetDeviceInfo( device,
-                                                            param_name,
-                                                            param_value_size,
-                                                            param_value,
-                                                            param_value_size_ret);
-
-    if( ( retCode == CL_SUCCESS ) &&
-        ( param_name == CL_DEVICE_PLATFORM ) &&
-        ( param_value ) )
+    switch(param_name)
     {
-        memcpy_s( param_value,
-                  sizeof( cl_platform_id ),
-                  &OCLCRT::crt_ocl_module.m_crtPlatformId,
-                  sizeof( cl_platform_id ) );
+    case CL_DEVICE_SVM_CAPABILITIES:
+        {
+            cl_device_id gpuDevice = OCLCRT::crt_ocl_module.GetDeviceByType( CL_DEVICE_TYPE_GPU );
+            CrtDeviceInfo* gpuDeviceInfo =
+                                OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(gpuDevice);
+
+            retCode = gpuDeviceInfo->m_origDispatchTable.clGetDeviceInfo(gpuDevice,
+                                                                         param_name,
+                                                                         param_value_size,
+                                                                         param_value,
+                                                                         param_value_size_ret);
+        }
+        break;
+    default:
+        retCode = devInfo->m_origDispatchTable.clGetDeviceInfo( device,
+                                                                param_name,
+                                                                param_value_size,
+                                                                param_value,
+                                                                param_value_size_ret);
+
+        if( ( retCode == CL_SUCCESS ) &&
+            ( param_name == CL_DEVICE_PLATFORM ) &&
+            ( param_value ) )
+        {
+            memcpy_s( param_value,
+                      sizeof( cl_platform_id ),
+                      &OCLCRT::crt_ocl_module.m_crtPlatformId,
+                      sizeof( cl_platform_id ) );
+        }
     }
+
     return retCode;
 }
 SET_ALIAS( clGetDeviceInfo );
@@ -9854,7 +9872,6 @@ cl_int CL_API_CALL clEnqueueSVMFree(
     SVMFreeCallbackData*    clbkData        = NULL;
     CrtQueue*               crtQueue        = NULL;
     _cl_event_crt*          event_handle    = NULL;
-    cl_event                marker;
 
     if( NULL == command_queue )
     {
@@ -9996,31 +10013,20 @@ cl_int CL_API_CALL clEnqueueSVMFree(
 
         clbkData->m_isGpuQueue = false;
 
-        crtEvent->m_eventDEV = clCreateUserEvent( crtQueue->m_contextCRT->m_context_handle, &errCode );
+        errCode = crtQueue->m_cmdQueueDEV->dispatch->clEnqueueSVMFree(
+                                                        crtQueue->m_cmdQueueDEV,
+                                                        num_svm_pointers,
+                                                        svm_pointers,
+                                                        NULL,
+                                                        NULL,
+                                                        numOutEvents,
+                                                        outEvents,
+                                                        &crtEvent->m_eventDEV);
         if( CL_SUCCESS != errCode )
         {
-            errCode = CL_OUT_OF_RESOURCES;
             goto FINISH;
         }
-        errCode = clSetUserEventStatus( crtEvent->m_eventDEV, CL_QUEUED );
-        if( CL_SUCCESS != errCode )
-        {
-            errCode = CL_OUT_OF_RESOURCES;
-            goto FINISH;
-        }
-
-        errCode = crtQueue->m_cmdQueueDEV->dispatch->clEnqueueMarkerWithWaitList(
-                                                            crtQueue->m_queue_handle,
-                                                            numOutEvents,
-                                                            outEvents,
-                                                            &marker);
-        if( CL_SUCCESS != errCode )
-        {
-            errCode = CL_OUT_OF_RESOURCES;
-            goto FINISH;
-        }
-
-        errCode = clSetEventCallback( marker, CL_COMPLETE, SVMFreeCallbackFunction, clbkData );
+        errCode = crtQueue->m_cmdQueueDEV->dispatch->clSetEventCallback( crtEvent->m_eventDEV, CL_COMPLETE, SVMFreeCallbackFunction, clbkData );
         if( CL_SUCCESS != errCode )
         {
             errCode = CL_OUT_OF_RESOURCES;
