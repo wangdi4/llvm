@@ -3596,7 +3596,7 @@ static void TryReferenceListInitialization(Sema &S,
                                            InitListExpr *InitList,
                                            InitializationSequence &Sequence) {
   // First, catch C++03 where this isn't possible.
-  if (!S.getLangOpts().CPlusPlus11) {
+  if (!S.getLangOpts().CPlusPlus11 && !S.getLangOpts().IntelCompat) { //INTEL
     Sequence.SetFailed(InitializationSequence::FK_ReferenceBindingToInitList);
     return;
   }
@@ -3745,7 +3745,7 @@ static void TryListInitialization(Sema &S,
   // C++11 [dcl.init.list]p3:
   //   - If T is an aggregate, aggregate initialization is performed.
   if (DestType->isRecordType() && !DestType->isAggregateType()) {
-    if (S.getLangOpts().CPlusPlus11) {
+    if (S.getLangOpts().CPlusPlus11 || S.getLangOpts().IntelCompat) { // INTEL
       //   - Otherwise, if the initializer list has no elements and T is a
       //     class type with a default constructor, the object is
       //     value-initialized.
