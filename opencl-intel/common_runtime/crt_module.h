@@ -89,6 +89,7 @@ namespace OCLCRT
         void         Shutdown();
 
         cl_int       isValidProperties(const cl_context_properties* properties);
+        cl_device_id GetDeviceByType(cl_device_type device_type);
         ~CrtModule();
 
         // Patches underlying device id allowing the CRT
