@@ -842,14 +842,18 @@ multiclass CopyOp<string opStr, RegisterClass RC> {
     !strconcat(opStr, "\t$op0, $op1, $op2, $op3, $op4"),
     []>;
 }
-defm COPY0  : CopyOp<"copy0",  I1>;
-defm COPY1  : CopyOp<"copy1",  I1>;
-defm COPY8  : CopyOp<"copy8",  I8>;
-defm COPY16 : CopyOp<"copy16", I16>;
-defm COPY32 : CopyOp<"copy32", I32>;
-defm COPY64 : CopyOp<"copy64", I64>;
+defm COPY0   : CopyOp<"copy0",  I1>;
+defm COPY1   : CopyOp<"copy1",  I1>;
+defm COPY8   : CopyOp<"copy8",  I8>;
+defm COPY16  : CopyOp<"copy16", I16>;
+defm COPY16f : CopyOp<"copy16", F16>;
+defm COPY32  : CopyOp<"copy32", I32>;
+defm COPY32f : CopyOp<"copy32", F32>;
+defm COPY64  : CopyOp<"copy64", I64>;
+defm COPY64f : CopyOp<"copy64", F64>;
 
-multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType> {
+multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType,
+                   SDNode immNode> {
   def "" : FMTGEN<
     (outs RC:$dst),
     (ins I1:$sel, RC:$v0, RC:$v1),
@@ -859,13 +863,22 @@ multiclass MergeOp<string opStr, RegisterClass RC, ValueType opType> {
     (outs RC:$dst),
     (ins I1:$sel, RC:$v0, Operand<opType>:$imm),
     !strconcat(opStr, "\t$dst, $sel, $v0, $imm"),
-    [(set RC:$dst, (select I1:$sel, (opType imm:$imm), RC:$v0))]>;
+    [(set RC:$dst, (select I1:$sel, (opType immNode:$imm), RC:$v0))]>;
+  // allow literal operation for the 1st of the 2 selected operands
+  def i1 : FMTGEN<
+    (outs RC:$dst),
+    (ins I1:$sel, Operand<opType>:$imm, RC:$v1),
+    !strconcat(opStr, "\t$dst, $sel, $imm, $v1"),
+    [(set RC:$dst, (select I1:$sel, RC:$v1, (opType immNode:$imm)))]>;
 }
-defm MERGE1  : MergeOp<"merge1",  I1,  i1>;
-defm MERGE8  : MergeOp<"merge8",  I8,  i8>;
-defm MERGE16 : MergeOp<"merge16", I16, i16>;
-defm MERGE32 : MergeOp<"merge32", I32, i32>;
-defm MERGE64 : MergeOp<"merge64", I64, i64>;
+defm MERGE1   : MergeOp<"merge1",  I1,  i1,  imm>;
+defm MERGE8   : MergeOp<"merge8",  I8,  i8,  imm>;
+defm MERGE16  : MergeOp<"merge16", I16, i16, imm>;
+defm MERGE16f : MergeOp<"merge16", F16, f16, fpimm>;
+defm MERGE32  : MergeOp<"merge32", I32, i32, imm>;
+defm MERGE32f : MergeOp<"merge32", F32, f32, fpimm>;
+defm MERGE64  : MergeOp<"merge64", I64, i64, imm>;
+defm MERGE64f : MergeOp<"merge64", F64, f64, fpimm>;
 
 multiclass SwitchOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -874,11 +887,14 @@ multiclass SwitchOp<string opStr, RegisterClass RC> {
     !strconcat(opStr, "\t$dst0, $dst1, $sel, $v"),
     []>;
 }
-defm SWITCH1  : SwitchOp<"switch1",  I1>;
-defm SWITCH8  : SwitchOp<"switch8",  I8>;
-defm SWITCH16 : SwitchOp<"switch16", I16>;
-defm SWITCH32 : SwitchOp<"switch32", I32>;
-defm SWITCH64 : SwitchOp<"switch64", I64>;
+defm SWITCH1   : SwitchOp<"switch1",  I1>;
+defm SWITCH8   : SwitchOp<"switch8",  I8>;
+defm SWITCH16  : SwitchOp<"switch16", I16>;
+defm SWITCH16f : SwitchOp<"switch16", F16>;
+defm SWITCH32  : SwitchOp<"switch32", I32>;
+defm SWITCH32f : SwitchOp<"switch32", F32>;
+defm SWITCH64  : SwitchOp<"switch64", I64>;
+defm SWITCH64f : SwitchOp<"switch64", F64>;
 
 multiclass SwitchAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -900,11 +916,14 @@ multiclass PickOp<string opStr, RegisterClass RC> {
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
     []>;
 }
-defm PICK1  : PickOp<"pick1",  I1>;
-defm PICK8  : PickOp<"pick8",  I8>;
-defm PICK16 : PickOp<"pick16", I16>;
-defm PICK32 : PickOp<"pick32", I32>;
-defm PICK64 : PickOp<"pick64", I64>;
+defm PICK1   : PickOp<"pick1",  I1>;
+defm PICK8   : PickOp<"pick8",  I8>;
+defm PICK16  : PickOp<"pick16", I16>;
+defm PICK16f : PickOp<"pick16", F16>;
+defm PICK32  : PickOp<"pick32", I32>;
+defm PICK32f : PickOp<"pick32", F32>;
+defm PICK64  : PickOp<"pick64", I64>;
+defm PICK64f : PickOp<"pick64", F64>;
 
 multiclass PickAnyOp<string opStr, RegisterClass RC> {
   def "" : FMTGEN<
@@ -913,14 +932,17 @@ multiclass PickAnyOp<string opStr, RegisterClass RC> {
     !strconcat(opStr, "\t$dst, $sel, $v0, $v1"),
     []>;
 }
-defm PICKANY1  : PickAnyOp<"pickany1",  I1>;
-defm PICKANY8  : PickAnyOp<"pickany8",  I8>;
-defm PICKANY16 : PickAnyOp<"pickany16", I16>;
-defm PICKANY32 : PickAnyOp<"pickany32", I32>;
-defm PICKANY64 : PickAnyOp<"pickany64", I64>;
+defm PICKANY1   : PickAnyOp<"pickany1",  I1>;
+defm PICKANY8   : PickAnyOp<"pickany8",  I8>;
+defm PICKANY16  : PickAnyOp<"pickany16", I16>;
+defm PICKANY16f : PickAnyOp<"pickany16", F16>;
+defm PICKANY32  : PickAnyOp<"pickany32", I32>;
+defm PICKANY32f : PickAnyOp<"pickany32", F32>;
+defm PICKANY64  : PickAnyOp<"pickany64", I64>;
+defm PICKANY64f : PickAnyOp<"pickany64", F64>;
 
 def ANY0 : FMTGEN<
-  (outs I0:$dst),
+  (outs I64:$dst),
   (ins I0:$op1, I0:$op2, I0:$op3, I0:$op4),
   "any0\t$dst, $op1, $op2, $op3, $op4",
   []>;
