@@ -175,6 +175,10 @@ void LoopFormation::setIVType(HLLoop *HLoop) const {
     IVType = Type::getIntNTy(
         Func->getContext(),
         Func->getParent()->getDataLayout().getTypeSizeInBits(IVType));
+  } else if (IVType->isFloatingPointTy()) {
+    // If found IV is floating point type use the type of loop's backedge taken
+    // count.
+    IVType = SE->getBackedgeTakenCount(Lp)->getType();
   }
 
   HLoop->setIVType(IVType);

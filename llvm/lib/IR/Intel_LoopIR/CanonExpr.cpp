@@ -515,6 +515,12 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
     return;
   }
 
+  // If IV is not present, add() reduces to set().
+  if (!IVCoeffs[Lvl - 1].Coeff) {
+    setIVCoeff(Lvl, Index, Coeff);
+    return;
+  }
+
   // Create new blob (C1 * b1 + C2 * b2) if current and incoming blob indices
   // are different.
   // At least one of the indices is non-zero here.

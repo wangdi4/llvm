@@ -684,9 +684,10 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
     NewAddRec = dyn_cast<SCEVAddRecExpr>(
         HIRP->SE->getTruncateExpr(NewAddRec, OrigType));
 
-    // In some case truncation of an AddRec returns a non-AddRec SCEV. For example-
-    // trunc i32 {0,+,2^30} to i16 -> 0 
-    // As the truncated stride evaluates to 0.  
+    // In some case truncation of an AddRec returns a non-AddRec SCEV. For
+    // example-
+    // trunc i32 {0,+,2^30} to i16 -> 0
+    // As the truncated stride evaluates to 0.
     if (!NewAddRec) {
       return false;
     }
@@ -742,6 +743,10 @@ bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
 
     Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
         ConstantExpr::getSDiv(OrigOp->getValue(), NewOp->getValue()))));
+
+    if (Mul->isZero()) {
+      return false;
+    }
 
     NewAddRec = cast<SCEVAddRecExpr>(HIRP->SE->getMulExpr(NewAddRec, Mul));
   }
@@ -1078,10 +1083,7 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   Index = findOrInsertBlobWrapper(NewBlob);
 
   if (IVLevel) {
-    assert(!CE->hasIVConstCoeff(IVLevel) && !CE->hasIVBlobCoeff(IVLevel) &&
-           "Canon Expr already has a coeff for this IV!");
-    CE->setIVCoeff(IVLevel, Index, Multiplier);
-
+    CE->addIV(IVLevel, Index, Multiplier);
   } else {
     CE->addBlob(Index, Multiplier);
   }
@@ -1203,7 +1205,8 @@ CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
   return CE;
 }
 
-CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
+CanonExpr *HIRParser::parse(const Value *Val, unsigned Level,
+                            bool EnableCastHiding) {
   CanonExpr *CE = nullptr;
 
   // Parse as blob if the type is not SCEVable.
@@ -1213,33 +1216,37 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level) {
 
   } else {
 
-    // For cast instructions which cast from loop IV's type to some other type,
-    // we want to explicitly hide the cast and parse the value in IV's type.
-    // This allows more opportunities for canon expr merging. Consider the
-    // following cast-
-    // %idxprom = sext i32 %i.01 to i64
-    // Here %i.01 is the loop IV whose SCEV looks like this:
-    // {0,+,1}<nuw><nsw><%for.body> (i32 type)
-    // The SCEV of %idxprom doesn't have a cast and it looks like this:
-    // {0,+,1}<nuw><nsw><%for.body> (i64 type)
-    // We instead want %idxprom to be considered as a cast: sext i32
-    // {0,+,1}<nuw><nsw><%for.body> to i64
-    auto CI = dyn_cast<CastInst>(Val);
-    auto ParentLoop = getCurNode()->getParentLoop();
-    bool UnderCast = false;
+    if (EnableCastHiding) {
+      // For cast instructions which cast from loop IV's type to some other
+      // type,
+      // we want to explicitly hide the cast and parse the value in IV's type.
+      // This allows more opportunities for canon expr merging. Consider the
+      // following cast-
+      // %idxprom = sext i32 %i.01 to i64
+      // Here %i.01 is the loop IV whose SCEV looks like this:
+      // {0,+,1}<nuw><nsw><%for.body> (i32 type)
+      // The SCEV of %idxprom doesn't have a cast and it looks like this:
+      // {0,+,1}<nuw><nsw><%for.body> (i64 type)
+      // We instead want %idxprom to be considered as a cast: sext i32
+      // {0,+,1}<nuw><nsw><%for.body> to i64
+      auto CI = dyn_cast<CastInst>(Val);
+      auto ParentLoop = getCurNode()->getParentLoop();
 
-    if (CI && ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()) &&
-        (isa<SExtInst>(CI) || isa<ZExtInst>(CI) || isa<TruncInst>(CI))) {
-      Val = CI->getOperand(0);
-      CE = CanonExprUtils::createExtCanonExpr(CI->getSrcTy(), CI->getDestTy(),
-                                              isa<SExtInst>(CI));
-      UnderCast = true;
-    } else {
+      if (CI && ParentLoop && (ParentLoop->getIVType() == CI->getSrcTy()) &&
+          (isa<SExtInst>(CI) || isa<ZExtInst>(CI) || isa<TruncInst>(CI))) {
+        Val = CI->getOperand(0);
+        CE = CanonExprUtils::createExtCanonExpr(CI->getSrcTy(), CI->getDestTy(),
+                                                isa<SExtInst>(CI));
+        EnableCastHiding = false;
+      }
+    } 
+
+    if (!CE) {
       CE = CanonExprUtils::createCanonExpr(Val->getType());
     }
 
     auto SC = getSCEV(const_cast<Value *>(Val));
-    parseRecursive(SC, CE, Level, true, UnderCast);
+    parseRecursive(SC, CE, Level, true, !EnableCastHiding);
   }
 
   return CE;
@@ -1627,7 +1634,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         IndexCE->divide(ElementSize, true);
       }
       // Decompose phi into base and index ourselves.
-      else if (RI->isHeaderPhi(BasePhi)) {
+      else {
         BaseCE = createHeaderPhiInitCE(BasePhi, Level);
         IndexCE = createHeaderPhiIndexCE(BasePhi, Level);
 
@@ -1655,8 +1662,22 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     assert((2 == GEPOp->getNumOperands()) &&
            "Unexpected number of GEP operands!");
 
-    auto OffsetSC = getSCEV(const_cast<Value *>(GEPOp->getOperand(1)));
-    parseRecursive(OffsetSC, IndexCE, Level);
+    auto OpIndexCE = parse(GEPOp->getOperand(1), Level);
+
+    // Workaround to allow merge with zero until mergeable() is extended.
+    if (!OpIndexCE->isZero()) {
+      if (IndexCE->isZero()) {
+        IndexCE->setSrcType(OpIndexCE->getSrcType());
+        IndexCE->setDestType(OpIndexCE->getDestType());
+        IndexCE->setExtType(OpIndexCE->isSExt());
+      }
+      assert(CanonExprUtils::mergeable(IndexCE, OpIndexCE) &&
+             "Indices cannot be merged!");
+      CanonExprUtils::add(IndexCE, OpIndexCE);
+    }
+
+    CanonExprUtils::destroy(OpIndexCE);
+
     IsInBounds = GEPOp->isInBounds();
   }
 
@@ -1729,21 +1750,44 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
 
     // Process GEP operands in reverse order (from lowest to highest dimension).
     for (auto I = GEPNumOp; I > 0; --I) {
+      CanonExpr *OldIndexCE = nullptr;
+
+      // Create additional dimension for each encountered GEP index.
       // If this is the last GEP index of a previous GEP, we add it to the last
       // created index CE.
       if (!FirstGEP && LastGEPIndex) {
-        CanonExpr *IndexCE = Ref->getDimensionIndex(Ref->getNumDimensions());
-        auto SC = getSCEV(const_cast<Value *>(TempGEPOp->getOperand(I)));
+        OldIndexCE = Ref->getDimensionIndex(Ref->getNumDimensions());
+      }
 
-        parseRecursive(SC, IndexCE, Level, IndexCE->isZero());
+      // Disable cast hiding for indices which need to be merged, i.e. first and
+      // last indices in multiple gep case.
+      bool DisableCastHiding = ((OldIndexCE && !OldIndexCE->isZero()) ||
+                                ((I == 1) && (TempGEPOp != BaseGEPOp)));
+
+      CanonExpr *IndexCE =
+          parse(TempGEPOp->getOperand(I), Level, !DisableCastHiding);
+
+      if (OldIndexCE) {
+        // Workaround to allow merge with zero until mergeable() is extended.
+        if (!IndexCE->isZero()) {
+          if (OldIndexCE->isZero()) {
+            OldIndexCE->setSrcType(IndexCE->getSrcType());
+            OldIndexCE->setDestType(IndexCE->getDestType());
+            OldIndexCE->setExtType(IndexCE->isSExt());
+          }
+          assert(CanonExprUtils::mergeable(OldIndexCE, IndexCE) &&
+                 "Indices cannot be merged!");
+          CanonExprUtils::add(OldIndexCE, IndexCE);
+        }
+
+        CanonExprUtils::destroy(IndexCE);
       } else {
-        // Create additional dimension for each encountered GEP index.
-        CanonExpr *IndexCE = parse(TempGEPOp->getOperand(I), Level);
         Ref->addDimension(IndexCE);
         assert((NumDims != 0) &&
                "Number of subscripts exceed number of dimensions!");
         --NumDims;
       }
+
       LastGEPIndex = false;
     }
 
@@ -1819,7 +1863,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
     BasePhi = dyn_cast<PHINode>(GEPInst);
   }
 
-  if (BasePhi) {
+  if (BasePhi && RI->isHeaderPhi(BasePhi)) {
     Ref = createPhiBaseGEPDDRef(BasePhi, GEPOp, Level);
   } else if (GEPOp) {
     Ref = createRegularGEPDDRef(GEPOp, Level);

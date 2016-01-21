@@ -250,8 +250,11 @@ private:
   /// \brief Forces incoming value to be parsed as a blob.
   CanonExpr *parseAsBlob(const Value *Val, unsigned Level);
 
-  /// \brief Forms and returns a CanonExpr representing Val.
-  CanonExpr *parse(const Value *Val, unsigned Level);
+  /// \brief Forms and returns a CanonExpr representing Val. If
+  /// EnableCastHiding is set to false, the topmost cast is not hidden in the
+  /// CE.
+  CanonExpr *parse(const Value *Val, unsigned Level,
+                   bool EnableCastHiding = true);
 
   /// \brief Parses the i1 condition associated with conditional branches and
   /// select instructions.

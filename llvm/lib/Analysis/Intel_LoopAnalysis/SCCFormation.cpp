@@ -131,18 +131,46 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
     return false;
   }
 
-  // Phi SCCs do not have anything to do with exception handling.
-  if (isa<LandingPadInst>(Node)) {
-    return false;
-  }
-
   // Phi SCCs do not have anything to do with calls.
   if (isa<CallInst>(Node)) {
     return false;
   }
 
+  // Phi SCCs do not have anything to do with exception handling.
+  if (isa<LandingPadInst>(Node) || isa<CatchPadInst>(Node) ||
+      isa<CleanupPadInst>(Node)) {
+    return false;
+  }
+
   // Ignore linear uses.
   if (isConsideredLinear(Node)) {
+    return false;
+  }
+
+  // In a valid phi SCC, all phis are either header phis or used in header phis.
+  auto Phi = dyn_cast<PHINode>(Node);
+
+  if (!Phi || RI->isHeaderPhi(Phi)) {
+    return true;
+  }
+
+  bool IsUsedInHeaderPhi = false;
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
+
+    if (!UserPhi || !RI->isHeaderPhi(UserPhi)) {
+      continue;
+    }
+
+    if (!CurLoop->contains(UserPhi->getParent())) {
+      continue;
+    }
+
+    IsUsedInHeaderPhi = true;
+    break;
+  }
+
+  if (!IsUsedInHeaderPhi) {
     return false;
   }
 
@@ -239,26 +267,57 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
-bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
+bool SCCFormation::hasValidPhis(const SCCTy &NewSCC) const {
+
+  for(auto const &Inst : NewSCC.Nodes) {
+    auto Phi = dyn_cast<PHINode>(Inst);
+
+    if (!Phi || RI->isHeaderPhi(Phi)) {
+      continue;
+    }
+
+    bool UsedInPhi = false;
+
+    for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+      auto UserPhi = dyn_cast<PHINode>(*I);
+
+      if (!UserPhi) {
+        continue;
+      }
+
+      if (NewSCC.Nodes.count(UserPhi)) {
+        UsedInPhi = true;
+        break;
+      }
+    }
+    
+    if (!UsedInPhi) {
+      return false;
+    }
+  }
+
+  return true; 
+}
+
+bool SCCFormation::isValidSCC(const SCCTy &NewSCC) const {
   SmallPtrSet<const BasicBlock *, 12> BBlocks;
   Type *NodeTy = nullptr;
 
-  for (auto InstIt = NewSCC->Nodes.begin(), IEndIt = NewSCC->Nodes.end();
-       InstIt != IEndIt; ++InstIt) {
+  for (auto const &Inst : NewSCC.Nodes) {
 
     // Check whether all the nodes have the same type. There can be type
     // mismatch if we have traced through casts.
     // TODO: is it worth tracing through casts?
     if (!NodeTy) {
-      NodeTy = (*InstIt)->getType();
+      NodeTy = Inst->getType();
 
-    } else if (NodeTy != (*InstIt)->getType()) {
+    } else if (NodeTy != Inst->getType()) {
       return false;
     }
 
-    if (isa<PHINode>(*InstIt)) {
+    if (isa<PHINode>(Inst)) {
 
-      auto ParentBB = (*InstIt)->getParent();
+      auto ParentBB = Inst->getParent();
 
       if (BBlocks.count(ParentBB)) {
         // If any two phis in the SCC have the same bblock parent then we
@@ -289,6 +348,8 @@ bool SCCFormation::isValidSCC(SCCTy *NewSCC) {
       BBlocks.insert(ParentBB);
     }
   }
+
+  assert(hasValidPhis(NewSCC) && "SCC has invalid phis!");
 
   return true;
 }
@@ -364,7 +425,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);
 
-      if (isValidSCC(NewSCC)) {
+      if (isValidSCC(*NewSCC)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(NewSCC);
 

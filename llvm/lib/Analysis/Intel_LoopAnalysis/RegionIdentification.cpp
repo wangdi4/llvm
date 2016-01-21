@@ -96,6 +96,10 @@ bool RegionIdentification::isHeaderPhi(const PHINode *Phi) const {
 
   auto Lp = LI->getLoopFor(ParentBB);
 
+  if (!Lp) {
+    return false;
+  }
+
   if (Lp->getHeader() == ParentBB) {
     assert((Phi->getNumIncomingValues() == 2) &&
            "Unexpected number of operands for header phi!");
@@ -285,7 +289,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
     return false;
   }
-
+ 
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
@@ -451,6 +455,10 @@ void RegionIdentification::formRegions() {
 }
 
 bool RegionIdentification::runOnFunction(Function &F) {
+  if (skipOptnoneFunction(F)) {
+    return false;
+  }
+
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();

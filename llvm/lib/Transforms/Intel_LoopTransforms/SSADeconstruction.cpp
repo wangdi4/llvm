@@ -332,6 +332,10 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
 //
 bool SSADeconstruction::liveoutCopyRequired(
     const PHINode *StandAlonePhi) const {
+  
+  if (SCCF->isConsideredLinear(StandAlonePhi)) {
+    return false;
+  }
 
   const Value *PhiVal = StandAlonePhi;
   bool SCEVablePhi = SE->isSCEVable(PhiVal->getType());
@@ -387,20 +391,20 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
-  bool IsLinear = false;
+  bool CopyRequired = false;
   Loop *Lp = nullptr;
 
-  // For standalone phis we need to create liveout copies in two cases-
+  // For standalone header phis we need to create liveout copies in two cases-
   // 1) If it is used in another phi in the same bblock all its uses need to be
   // replaced by the copy.
-  // 2) The uses outside the current loop need to be replaced by the copy for
-  // linear phis.
+  // 2) The uses outside the current loop need to be replaced by the copy.
   if (!SCCNodes) {
-    if ((IsLinear = SCCF->isConsideredLinear(Phi))) {
-      Lp = LI->getLoopFor(Phi->getParent());
-
-    } else if (!liveoutCopyRequired(Phi)) {
+    if (!RI->isHeaderPhi(Phi)) {
       return;
+    }
+
+    if(!(CopyRequired = liveoutCopyRequired(Phi))) {
+      Lp = LI->getLoopFor(Phi->getParent());
     }
   }
 
@@ -428,10 +432,10 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
           continue;
         }
       }
-    } else if (IsLinear) {
+    } else if (!CopyRequired) {
 
-      // Add a liveout copy if this linear phi is used outside its parent loop
-      // as these uses can cause live range violation.
+      // Add a liveout copy if this phi is used outside its parent loop as these
+      // uses can cause live range violation.
       if (Lp->contains(LI->getLoopFor(UserInst->getParent()))) {
         continue;
       }
