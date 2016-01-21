@@ -419,6 +419,9 @@ namespace Intel { namespace OpenCL { namespace Utils {
         }
         
     private:
+        AtomicBitField& operator=(const AtomicBitField&);
+        AtomicBitField(const AtomicBitField&);
+
         unsigned int m_size;
         long* m_bitField;
         volatile long m_oneTimeFlag;
