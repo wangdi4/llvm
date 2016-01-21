@@ -1,114 +1,138 @@
 ; RUN: opt < %s -vec-clone -avr-generate -analyze | FileCheck %s
 
-; Check sequence AVRs generated for given test.
-;CHECK: '_ZGVxM4v_vec_search'
-;CHECK: AVR_WRN
-;CHECK-NEXT: AVR_LABEL:    simd.begin.region
-;CHECK: AVR_FBRANCH:  br label %simd.loop
-;CHECK-NEXT: AVR_LOOP:
-;CHECK-NEXT: AVR_LABEL:    simd.loop
-;CHECK-NEXT: AVR_PHI:      %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-;CHECK-NEXT: AVR_ASSIGN:   %maskgep = getelementptr i32, i32* %veccast.2, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   %mask5 = load i32, i32* %maskgep
-;CHECK-NEXT: AVR_IF:       
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %maskcond, label %simd.loop.then, label %simd.loop.else
-;CHECK-NEXT: AVR_LABEL:    simd.loop.then
-;CHECK-NEXT: AVR_ASSIGN:   store i32 0, i32* %i, align 4
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.cond
-;CHECK-NEXT: AVR_LOOP:
-;CHECK-NEXT: AVR_LABEL:    for.cond
-;CHECK-NEXT: AVR_ASSIGN:   %0 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_IF:       %cmp = icmp slt i32 %0, 64
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %cmp, label %for.body, label %for.end
-;CHECK-NEXT: AVR_LABEL:    for.body
-;CHECK-NEXT: AVR_ASSIGN:   %1 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   %idxprom = sext i32 %1 to i64
-;CHECK-NEXT: AVR_ASSIGN:   %arrayidx = getelementptr inbounds [64 x i32], [64 x i32]* @g1, i32 0, i64 %idxprom
-;CHECK-NEXT: AVR_ASSIGN:   %2 = load i32, i32* %arrayidx, align 4
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP1:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast.1, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   %3 = load i32, i32* [[VECGEP1]], align 4
-;CHECK-NEXT: AVR_IF:       %cmp1 = icmp eq i32 %2, %3
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %cmp1, label %if.then, label %if.end
-;CHECK-NEXT: AVR_LABEL:    if.then
-;CHECK-NEXT: AVR_ASSIGN:   %4 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP2:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   store i32 %4, i32* [[VECGEP2]]
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop.exit
-;CHECK-NEXT: AVR_LABEL:    if.end
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.inc
-;CHECK-NEXT: AVR_LABEL:    for.inc
-;CHECK-NEXT: AVR_ASSIGN:   %5 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   %inc = add nsw i32 %5, 1
-;CHECK-NEXT: AVR_ASSIGN:   store i32 %inc, i32* %i, align 4
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.cond
-;CHECK-NEXT: AVR_LABEL:    for.end
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP3:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   store i32 -1, i32* [[VECGEP3]]
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop.exit
-;CHECK-NEXT: AVR_LABEL:    simd.loop.exit
-;CHECK-NEXT: AVR_ASSIGN:   %indvar = add nuw i32 1, %index
-;CHECK-NEXT: AVR_IF:       %vlcond = icmp ult i32 %indvar, 4
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %vlcond, label %simd.loop, label %simd.end.region
-;CHECK-NEXT: AVR_LABEL:    simd.end.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive
-;CHECK-NEXT: AVR_FBRANCH:  br label %return
-;CHECK-NEXT: AVR_LABEL:    return
-;CHECK-NEXT: AVR_ASSIGN:   %cast = bitcast i32* %veccast to <4 x i32>*
-;CHECK-NEXT: AVR_ASSIGN:   %vec_ret = load <4 x i32>, <4 x i32>* %cast
-;CHECK-NEXT: AVR_RETURN:   ret <4 x i32> %vec_ret
-;CHECK-NEXT: AVR_LABEL:    simd.loop.else
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop.exit
-;CHECK:'_ZGVxN4v_vec_search'
-;CHECK: AVR_WRN
-;CHECK-NEXT: AVR_LABEL:    simd.begin.region
-;CHECK: AVR_FBRANCH:  br label %simd.loop
-;CHECK-NEXT: AVR_LOOP:
-;CHECK-NEXT: AVR_LABEL:    simd.loop
-;CHECK-NEXT: AVR_PHI:      %index = phi i32 [ 0, %simd.begin.region ], [ %indvar, %simd.loop.exit ]
-;CHECK-NEXT: AVR_ASSIGN:   store i32 0, i32* %i, align 4
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.cond
-;CHECK-NEXT: AVR_LOOP:
-;CHECK-NEXT: AVR_LABEL:    for.cond
-;CHECK-NEXT: AVR_ASSIGN:   %0 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_IF:       %cmp = icmp slt i32 %0, 64
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %cmp, label %for.body, label %for.end
-;CHECK-NEXT: AVR_LABEL:    for.body
-;CHECK-NEXT: AVR_ASSIGN:   %1 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   %idxprom = sext i32 %1 to i64
-;CHECK-NEXT: AVR_ASSIGN:   %arrayidx = getelementptr inbounds [64 x i32], [64 x i32]* @g1, i32 0, i64 %idxprom
-;CHECK-NEXT: AVR_ASSIGN:   %2 = load i32, i32* %arrayidx, align 4
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP4:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast.1, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   %3 = load i32, i32* [[VECGEP4]], align 4
-;CHECK-NEXT: AVR_IF:       %cmp1 = icmp eq i32 %2, %3
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %cmp1, label %if.then, label %if.end
-;CHECK-NEXT: AVR_LABEL:    if.then
-;CHECK-NEXT: AVR_ASSIGN:   %4 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP5:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   store i32 %4, i32* [[VECGEP5]]
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop.exit
-;CHECK-NEXT: AVR_LABEL:    if.end
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.inc
-;CHECK-NEXT: AVR_LABEL:    for.inc
-;CHECK-NEXT: AVR_ASSIGN:   %5 = load i32, i32* %i, align 4
-;CHECK-NEXT: AVR_ASSIGN:   %inc = add nsw i32 %5, 1
-;CHECK-NEXT: AVR_ASSIGN:   store i32 %inc, i32* %i, align 4
-;CHECK-NEXT: AVR_FBRANCH:  br label %for.cond
-;CHECK-NEXT: AVR_LABEL:    simd.loop.exit
-;CHECK-NEXT: AVR_ASSIGN:   %indvar = add nuw i32 1, %index
-;CHECK-NEXT: AVR_IF:       %vlcond = icmp ult i32 %indvar, 4
-;CHECK-NEXT: AVR_FBRANCH:  br i1 %vlcond, label %simd.loop, label %simd.end.region
-;CHECK-NEXT: AVR_LABEL:    simd.end.region
-;CHECK-NEXT: AVR_CALL:     call void @llvm.intel.directive
-;CHECK-NEXT: AVR_FBRANCH:  br label %return
-;CHECK-NEXT: AVR_LABEL:    return
-;CHECK-NEXT: AVR_ASSIGN:   %cast = bitcast i32* %veccast to <4 x i32>*
-;CHECK-NEXT: AVR_ASSIGN:   %vec_ret = load <4 x i32>, <4 x i32>* %cast
-;CHECK-NEXT: AVR_RETURN:   ret <4 x i32> %vec_ret
-;CHECK-NEXT: AVR_LABEL:    for.end
-;CHECK-NEXT: AVR_ASSIGN:   [[VECGEP6:%vecgep[0-9]*]] = getelementptr i32, i32* %veccast, i32 %index
-;CHECK-NEXT: AVR_ASSIGN:   store i32 -1, i32* [[VECGEP6]]
-;CHECK-NEXT: AVR_FBRANCH:  br label %simd.loop.exit
+;
+; Check the correctness of generated Abstract Layer for masked function
+;
 
+;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxM4v_vec_search':
+;CHECK: WRN
+
+;CHECK: simd.begin.region:
+;CHECK-NEXT: call void @llvm.intel.directive
+;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
+;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
+;CHECK-NEXT: call void @llvm.intel.directive
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END.2
+
+;CHECK-NEXT: DIR.QUAL.LIST.END.2:
+;CHECK-NEXT: br label %simd.loop
+
+;CHECK: LOOP
+;CHECK: simd.loop:
+;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvar, %simd.loop.exit ]      
+;CHECK: if( %mask.cond = icmp ne i32 %mask.parm, 0 )
+;CHECK: simd.loop.then:
+;CHECK: br label %for.cond
+;CHECK: else
+;CHECK: simd.loop.else:
+;CHECK: br label %simd.loop.exit
+
+;CHECK: LOOP
+;CHECK: for.cond:
+;CHECK-NEXT: %0 := load %i
+;CHECK: br i1 %cmp, label %for.body, label %for.end
+
+;CHECK-NEXT: for.body:
+;CHECK-NEXT: %1 := load %i
+
+;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
+;CHECK: if.then:
+;CHECK-NEXT: %4 := load %i
+;CHECK: br label %simd.loop.exit
+
+;CHECK: else
+;CHECK: if.end:
+;CHECK-NEXT: br label %for.inc
+
+
+;CHECK: for.inc:
+;CHECK-NEXT: %5 := load %i
+;CHECK: br label %for.cond
+
+;CHECK: for.end:
+;CHECK-NEXT: %ret.cast.gep1 := %ret.cast getelementptr %index
+;CHECK: br label %simd.loop.exit
+
+;CHECK-NEXT: simd.loop.exit:
+;CHECK-NEXT: %indvar := 1 add %index
+;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+
+;CHECK: simd.end.region:
+;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
+;CHECK: br label %DIR.QUAL.LIST.END.4
+
+;CHECK-NEXT: DIR.QUAL.LIST.END.4:
+;CHECK-NEXT: br label %return
+
+;CHECK-NEXT: return:
+;CHECK-NEXT: %vec.ret.cast := bitcast %ret.cast
+;CHECK-NEXT: %vec.ret := load %vec.ret.cast
+;CHECK-NEXT: ret <4 x i32> %vec.ret
+
+
+;
+; Check the correctness of generated Abstract Layer for non-masked function
+;
+
+;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxN4v_vec_search':
+;CHECK: WRN
+
+;CHECK: simd.begin.region:
+;CHECK: call void @llvm.intel.directive
+;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
+;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
+;CHECK-NEXT: call void @llvm.intel.directive
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END.2
+
+;CHECK-NEXT: DIR.QUAL.LIST.END.2:
+;CHECK-NEXT: br label %simd.loop
+
+;CHECK: LOOP
+;CHECK: simd.loop:
+;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvar, %simd.loop.exit ]      %i := store 0
+;CHECK-NEXT: br label %for.cond
+
+;CHECK: LOOP( IV )
+;CHECK: for.cond:
+;CHECK-NEXT: %0 := load %i
+;CHECK: br i1 %cmp, label %for.body, label %for.end
+
+;CHECK-NEXT: for.body:
+;CHECK-NEXT: %1 := load %i
+
+;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
+;CHECK: if.then:
+;CHECK-NEXT: %4 := load %i
+;CHECK: br label %simd.loop.exit
+
+;CHECK: else
+;CHECK: if.end:
+;CHECK: br label %for.inc
+
+;CHECK: for.inc:
+;CHECK-NEXT: %5 := load %i
+;CHECK: br label %for.cond
+
+;CHECK: for.end:
+;CHECK-NEXT: %ret.cast.gep1 := %ret.cast getelementptr %index
+;CHECK: br label %simd.loop.exit
+
+;CHECK-NEXT: simd.loop.exit:
+;CHECK-NEXT: %indvar := 1 add %index
+;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
+
+;CHECK: simd.end.region:
+;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
+;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END.4
+
+;CHECK-NEXT: DIR.QUAL.LIST.END.4:
+;CHECK-NEXT: br label %return
+
+;CHECK-NEXT: return:
+;CHECK-NEXT: %vec.ret.cast := bitcast %ret.cast
+;CHECK-NEXT: %vec.ret := load %vec.ret.cast
+;CHECK-NEXT: ret <4 x i32> %vec.ret
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

@@ -250,7 +250,9 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
 std::string AVRPhiIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
+
   Instruct->print(RSO);
+  IString = trimLeadingWhiteSpace(IString);
 
   return IString;
 }
@@ -307,7 +309,9 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
 std::string AVRCallIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
+
   Instruct->print(RSO);
+  IString = trimLeadingWhiteSpace(IString);
 
   return IString;
 }
@@ -490,7 +494,9 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
 std::string AVREntryIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
+
   Instruct->print(RSO);
+  IString = trimLeadingWhiteSpace(IString);
 
   return IString;
 }
@@ -547,7 +553,9 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
 std::string AVRReturnIR::getAvrValueName() const {
   std::string IString;
   llvm::raw_string_ostream RSO(IString);
+
   Instruct->print(RSO);
+  IString = trimLeadingWhiteSpace(IString);
 
   return IString;
 }

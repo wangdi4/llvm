@@ -1,9 +1,19 @@
-; RUN: opt < %s -avr-generate  -avr-hir-test -analyze | FileCheck %s
+; RUN: opt < %s -hir-avr-generate  -analyze | FileCheck %s
+
+; Verify Abstract Layer nodes were correctly generated from incoming HIR
+
+;CHECK: WRN
 ;CHECK: LOOP
-;CHECK: AVR_IF
-;CHECK: ELSE
-;CHECK: AVR_IF
-;CHECK: ELSE
+;CHECK: %rem := i1 srem 3
+
+;CHECK-NEXT: if (%rem == 0)
+;CHECK: (%arr)[i1] := store i1
+;CHECK: else
+;CHECK: (%arr)[i1] := store i1 + 2
+;CHECK-NEXT: %0 := load (%barr)[i1]
+;CHECK-NEXT: if (%0 == 0)
+;CHECK: else
+;CHECK: (%barr)[i1] := store %0 + 1
 
 ; clang -O2 -S -fno-unroll-loops -emit-llvm test.c
 ; The SIMD directive was hand-inserted for WRegion formation to kick in
@@ -25,6 +35,34 @@
 ;   }
 ; }
 ; 
+
+; HIR Representation:
+
+;EntryHLNode:
+;<2>       @llvm.intel.directive(!1);
+
+;HLLoop:
+;<36>      + DO i1 = 0, 1023, 1   <DO_LOOP>
+;<5>       |   %rem = i1  %  3;
+;<7>       |   if (%rem == 0)
+;<7>       |   {
+;<13>      |      (%arr)[i1] = i1;
+;<7>       |   }
+;<7>       |   else
+;<7>       |   {
+;<19>      |      (%arr)[i1] = i1 + 2;
+;<21>      |      %0 = (%barr)[i1];
+;<23>      |      if (%0 == 0)
+;<23>      |      {
+;<23>      |      }
+;<23>      |      else
+;<23>      |      {
+;<28>      |         (%barr)[i1] = %0 + 1;
+;<23>      |      }
+;<7>       |   }
+;<36>      + END LOOP
+;
+
 ; ModuleID = 't2.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
