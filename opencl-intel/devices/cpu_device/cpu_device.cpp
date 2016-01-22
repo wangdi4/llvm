@@ -1605,7 +1605,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
                 *(cl_uint*)paramVal = 0;    // preferred alignment is aligned to the natural size of the type
             }
             return CL_DEV_SUCCESS;
-        case CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS:
+        case CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS:
             if (ver >= OPENCL_VERSION_2_1)
             {
                 *pinternalRetunedValueSize = sizeof(cl_bool);
