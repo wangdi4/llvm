@@ -158,7 +158,7 @@ class MapIntrinToIml : public FunctionPass {
 } // end vpo namespace
 
 // Create VPO Driver pass
-FunctionPass *createMapIntrinToImlPass();
+//FunctionPass *createMapIntrinToImlPass();
 } // end llvm namespace
 
 #endif // LLVM_TRANSFORMS_MAPINTRINTOIML_H

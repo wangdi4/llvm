@@ -21,7 +21,7 @@ set(LLVM_LINK_COMPONENTS
   VPODriver            #***INTEL
   VPOParopt            #***INTEL
   Passes
-  Intel_MapIntrinToIml #***INTEL
+  #Intel_MapIntrinToIml #***INTEL
   Intel_LoopTransforms #***INTEL
   )
 

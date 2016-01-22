@@ -17,7 +17,7 @@ set(LLVM_LINK_COMPONENTS
   VPOVectorizer        #***INTEL
   VPODriver            #***INTEL
   VPOParopt            #***INTEL
-  Intel_MapIntrinToIml #***INTEL
+  #Intel_MapIntrinToIml #***INTEL
   Intel_LoopTransforms #***INTEL
   )
 

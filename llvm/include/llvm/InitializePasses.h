@@ -337,7 +337,7 @@ void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
 void initializeIdentifyVectorCandidatesPass(PassRegistry&);
 void initializeVecClonePass(PassRegistry&);
-void initializeMapIntrinToImlPass(PassRegistry&);
+//void initializeMapIntrinToImlPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION

@@ -208,7 +208,7 @@ namespace {
       (void) llvm::createAVRGeneratePass();
       (void) llvm::createAVRGenerateHIRPass();
       (void) llvm::createVPODriverPass();
-      (void) llvm::createMapIntrinToImlPass();
+      //(void) llvm::createMapIntrinToImlPass();
       (void) llvm::createVPODriverHIRPass();
       (void) llvm::createVecClonePass();
       (void) llvm::createVPOParoptPass();

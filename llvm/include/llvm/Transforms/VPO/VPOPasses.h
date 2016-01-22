@@ -23,7 +23,7 @@ class ModulePass;
 
 // Create VPO Driver pass
 FunctionPass *createVPODriverPass();
-FunctionPass *createMapIntrinToImlPass();
+//FunctionPass *createMapIntrinToImlPass();
 ModulePass   *createVecClonePass();
 FunctionPass *createVPODriverHIRPass();
 ModulePass   *createVPOParoptPass();

@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
   initializeVecClonePass(Registry);
   initializeVPOParoptPass(Registry);
   initializeVPODriverPass(Registry);
-  initializeMapIntrinToImlPass(Registry);
+  //initializeMapIntrinToImlPass(Registry);
 #endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,
