@@ -3142,6 +3142,11 @@ Sema::PerformImplicitConversion(Expr *From, QualType ToType,
                                 AssignmentAction Action, 
                                 CheckedConversionKind CCK) {
   switch (ICS.getKind()) {
+#if INTEL_CUSTOMIZATION
+  case ImplicitConversionSequence::PermissiveConversion:
+    Diag(From->getLocStart(), diag::warn_impcast_permissive_conversion)
+        << From->getType() << ToType;
+#endif // INTEL_CUSTOMIZATION
   case ImplicitConversionSequence::StandardConversion: {
     ExprResult Res = PerformImplicitConversion(From, ToType, ICS.Standard,
                                                Action, CCK);

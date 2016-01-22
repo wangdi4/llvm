@@ -383,6 +383,7 @@ namespace clang {
       UserDefinedConversion,
       AmbiguousConversion,
       EllipsisConversion,
+      PermissiveConversion, // INTEL
       BadConversion
     };
 
@@ -438,6 +439,7 @@ namespace clang {
     {
       switch (ConversionKind) {
       case Uninitialized: break;
+      case PermissiveConversion: // INTEL
       case StandardConversion: Standard = Other.Standard; break;
       case UserDefinedConversion: UserDefined = Other.UserDefined; break;
       case AmbiguousConversion: Ambiguous.copyFrom(Other.Ambiguous); break;
@@ -477,8 +479,13 @@ namespace clang {
       case EllipsisConversion:
         return 2;
 
-      case BadConversion:
+#if INTEL_CUSTOMIZATION
+      case PermissiveConversion:
         return 3;
+
+      case BadConversion:
+        return 4;
+#endif
       }
 
       llvm_unreachable("Invalid ImplicitConversionSequence::Kind!");
@@ -490,6 +497,9 @@ namespace clang {
     bool isAmbiguous() const { return getKind() == AmbiguousConversion; }
     bool isUserDefined() const { return getKind() == UserDefinedConversion; }
     bool isFailure() const { return isBad() || isAmbiguous(); }
+#if INTEL_CUSTOMIZATION
+    bool isPermissive() const { return getKind() == PermissiveConversion; }
+#endif // INTEL_CUSTOMIZATION
 
     /// Determines whether this conversion sequence has been
     /// initialized.  Most operations should never need to query
@@ -518,6 +528,7 @@ namespace clang {
       ConversionKind = AmbiguousConversion;
       Ambiguous.construct();
     }
+    void setPermissive() { setKind(PermissiveConversion); } // INTEL
 
     /// \brief Whether the target is really a std::initializer_list, and the
     /// sequence only represents the worst element conversion.

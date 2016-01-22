@@ -7641,6 +7641,7 @@ static void DiagnoseNarrowingInInitList(Sema &S,
     break;
   case ImplicitConversionSequence::AmbiguousConversion:
   case ImplicitConversionSequence::EllipsisConversion:
+  case ImplicitConversionSequence::PermissiveConversion: // INTEL
   case ImplicitConversionSequence::BadConversion:
     return;
   }

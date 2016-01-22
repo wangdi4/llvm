@@ -2667,6 +2667,12 @@ def warn_impcast_null_pointer_to_integer : Warning<
 def warn_impcast_floating_point_to_bool : Warning<
     "implicit conversion turns floating-point number into bool: %0 to %1">,
     InGroup<ImplicitConversionFloatingPointToBool>;
+//if INTEL_CUSTOMIZATION
+// Fix for CQ376357: -fpermissive illegal conversion.
+def warn_impcast_permissive_conversion : Warning<
+  "illegal implicit type conversion from %0 to %1 allowed in -fpermissive mode">,
+  InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 
 def warn_impcast_pointer_to_bool : Warning<
     "address of%select{| function| array}0 '%1' will always evaluate to "
