@@ -121,9 +121,21 @@ define void @test_alignment_s() #0 {
   ret void
 }
 
+
+; CHECK-LABEL: test_alignment_fp:
+; CHECK-NOT: andl  {{.+}}, %esp
+define void @test_alignment_fp() #0 {
+entry:
+  %f = alloca fp128
+  store fp128 0xL00000000000000004000000000000000, fp128* %f
+  call void @foofp(fp128* inreg %f)
+  ret void
+}
+
 declare void @food(double* inreg)
 declare void @fooi(i64* inreg)
 declare void @foos(%struct.S* inreg)
+declare void @foofp(fp128* inreg)
 
 declare void @llvm.memcpy.p0i8.p0i8.i32(i8* nocapture, i8* nocapture readonly, i32, i32, i1) #1
 
