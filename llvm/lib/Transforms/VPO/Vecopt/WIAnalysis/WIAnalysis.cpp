@@ -11,11 +11,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "InitializePasses.h"
 #include "CompilationUtils.h"
 #include "llvm/Analysis/VectorVariant.h"
+#include "VectorizerUtils.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/Analysis/PostDominators.h"
+#include "llvm/Analysis/ValueTracking.h"
 
 #include <string>
 #include <stack>
@@ -28,10 +30,152 @@ OCL_INITIALIZE_PASS_BEGIN(WIAnalysis, "WIAnalysis", "WIAnalysis provides work it
 OCL_INITIALIZE_PASS_DEPENDENCY(SoaAllocaAnalysis)
 OCL_INITIALIZE_PASS_DEPENDENCY(BuiltinLibInfo)
 OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 OCL_INITIALIZE_PASS_END(WIAnalysis, "WIAnalysis", "WIAnalysis provides work item dependency info", false, false)
 
+char VectorizableLoopsAnalysis::ID = 0;
+static RegisterPass<VectorizableLoopsAnalysis> VLAX("vla",
+                                                    "Vectorizable Loop Analysis",
+                                                    false,
+                                                    true);
 
+bool VectorizableLoopsAnalysis::runOnFunction(Function &F) {
+  LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  assert(LI && "Unable to get LoopInfo pass");
+  // Recursively handle all loops in the function.
+  for (auto Loop : *LI)
+    handleLoopNest(*Loop);
+  return false;
+}
 
+void VectorizableLoopsAnalysis::print(raw_ostream &OS, const Module *M) const {
+  OS << "Vectorizable Loops:\n";
+  for (auto& pair : getLoops()) {
+    Loop* loop = pair.first;
+    assert(loop->getLoopLatch() && "Expected loop to have a single latch");
+    OS.indent(2) << loop->getHeader()->getName() << " .. "
+                 << loop->getLoopLatch()->getName()
+                 << " (vlen=" << pair.second.Vlen
+                 << ", isa=" << VectorVariant::ISAClassToString(pair.second.ISA)
+                 << ")\n";
+  }
+}
+
+Loop* VectorizableLoopsAnalysis::getVectorizedLoop(const Instruction* I) const {
+  const BasicBlock* ContainingBlock = I->getParent();
+  assert(ContainingBlock && "Expected instruction to be in some basic block");
+  for (auto& Pair : getLoops()) {
+    const std::vector<BasicBlock*>& loopBlocks = Pair.first->getBlocks();
+    if (std::find(loopBlocks.begin(), loopBlocks.end(), ContainingBlock) !=
+        loopBlocks.end())
+      return Pair.first;
+  }
+  assert(false && "Expected instruction to be in one of the vectorized loops");
+  return nullptr;
+}
+
+inline const std::set<BasicBlock*> VectorizableLoopsAnalysis::getAllVectorizedBlocks() {
+  std::set<BasicBlock*> Blocks;
+  for (auto& Pair : getLoops()) {
+    for (unsigned int kk = 0; kk < Pair.first->getSubLoops().size(); ++kk)
+      assert(Pair.first->getSubLoops().size() == 1 &&
+             "Expected a single sub-loop");
+    Loop* InnerLoop = Pair.first->getSubLoops()[0];
+    const std::vector<BasicBlock*>& LoopBlocks = InnerLoop->getBlocks();
+    Blocks.insert(LoopBlocks.begin(), LoopBlocks.end());
+  }
+  return Blocks;
+}
+
+void VectorizableLoopsAnalysis::handleLoopNest(Loop& Loop) {
+  // Extract the defined vlen and ISA from the loop.
+  // We assume to-be-vectorized loops have a preheader of the following
+  // structure:
+  // PH:
+  //   ...
+  //   intel.directive("dir.simd")
+  //   intel.directive(...)
+  //   intel.directive("dir.qual.simd.vlen")
+  //   intel.directive("dir.qual.simd.isa")
+  //   intel.directive(...)
+  //   intel.directive("dir.qual.end")
+  //   br LH
+  // Since the loops we're interested in are independant the changes we make
+  // to one loop (including adding the new loop that LI is still unaware of)
+  // should not break our iteration.
+  bool FoundDirSIMD = false;
+  unsigned SIMDVlen = 0;
+  ISAClass SIMDISA = ISA_CLASSES_NUM;
+  BasicBlock* LoopPreheader = Loop.getLoopPreheader();
+  if (LoopPreheader) {
+    bool ClosedDirSIMD = true;
+    auto I = LoopPreheader->begin(), IE = LoopPreheader->end();
+    for (; I != IE; ++I) {
+      IntrinsicInst* Inst = dyn_cast<IntrinsicInst>(&*I);
+      if (!Inst ||
+          (Inst->getIntrinsicID() != Intrinsic::intel_directive &&
+           Inst->getIntrinsicID() != Intrinsic::intel_directive_qual &&
+           Inst->getIntrinsicID() != Intrinsic::intel_directive_qual_opnd &&
+           Inst->getIntrinsicID() != Intrinsic::intel_directive_qual_opndlist)) {
+        assert((!FoundDirSIMD || isa<TerminatorInst>(&*I)) &&
+               "Expected only Intel directives in dir.simd");
+        continue;
+      }
+      StringRef DirString = VPOUtils::getDirectiveMetadataString(Inst);
+      if (DirString == "dir.simd") {
+        assert(!FoundDirSIMD && "Unexpected dir.simd within dir.simd");
+        FoundDirSIMD = true;
+        ClosedDirSIMD = false;
+      }
+      if (DirString == "dir.qual.end") {
+        assert(FoundDirSIMD && "Unexpected dir.simd.end");
+        ClosedDirSIMD = true;
+      }
+      if (DirString == "dir.qual.simd.vlen") {
+        assert(FoundDirSIMD && "Unexpected dir.qual.simd.vlen");
+        assert(Inst->getNumArgOperands() == 2 &&
+               "Expected 2 args fordir.qual.simd.vlen"); // directive, vlen
+        assert(isa<ConstantInt>(Inst->getArgOperand(1)) &&
+               "Expected dir.qual.simd.vlen to be constant int");
+        ConstantInt* VlenOperand = cast<ConstantInt>(Inst->getArgOperand(1));
+        SIMDVlen = VlenOperand->getZExtValue();
+      }
+      if (DirString == "dir.qual.simd.isa") {
+        assert(FoundDirSIMD && "Unexpected dir.qual.simd.isa");
+        assert(Inst->getNumArgOperands() == 2 &&
+               "Expected 2 args fordir.qual.simd.isa"); // directive, isa
+        assert(isa<ConstantDataSequential>(Inst->getArgOperand(1)) &&
+               "Expected dir.qual.simd.isa to be constant data sequential");
+        ConstantDataSequential* ISAOperand =
+          cast<ConstantDataSequential>(Inst->getArgOperand(1));
+        assert(ISAOperand->isString() &&
+               "Expected string arg for dir.qual.simd.isa");
+        StringRef ISAVal = ISAOperand->getAsString();
+        SIMDISA = VectorVariant::ISAClassFromString(ISAVal.str());
+        assert(SIMDISA != ISA_CLASSES_NUM &&
+               "Unsupported dir.qual.simd.isa value");
+      }
+    }
+    assert((!FoundDirSIMD || ClosedDirSIMD) && "Non-terminated dir.simd");
+  }
+  
+  if (FoundDirSIMD) {
+    // Current loop marked for vectorization. Just handle it, assume its
+    // inner loops will not to be marked for vectorization.
+    assert(SIMDVlen && "Expected dir.simd directive to provide a valid vlen");
+    assert(SIMDISA != ISA_CLASSES_NUM &&
+           "Expected dir.simd directive to provide a valid isa");
+    m_loops[&Loop] = VectorizationProperties(SIMDVlen, SIMDISA);
+  }
+  else {
+    // Current loop was not marked for vectorization, but some of its
+    // subloops may be.
+    for (auto SubLoop : Loop)
+      handleLoopNest(*SubLoop);
+  }
+}
+  
 static cl::opt<bool>
 PrintWiaCheck("print-wia-check", cl::init(false), cl::Hidden,
   cl::desc("Debug wia-check analysis"));
@@ -111,27 +255,12 @@ gep_conversion_for_indirection[WIAnalysis::NumDeps][WIAnalysis::NumDeps] = {
 WIAnalysis::WIAnalysis() : FunctionPass(ID), m_rtServices(NULL) {
     initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
     m_vectorizedDim = 0;
-    m_vectorizedLoop = NULL;
 }
 
 WIAnalysis::WIAnalysis(unsigned int vectorizationDimension) :
   FunctionPass(ID), m_rtServices(NULL) {
   initializeWIAnalysisPass(*llvm::PassRegistry::getPassRegistry());
   m_vectorizedDim = vectorizationDimension;
-  m_vectorizedLoop = NULL;
-}
-
-void WIAnalysis::initVectorizedLoop() {
-  // For now we support vectorizing the single top-level loop in the function.
-  LoopInfo::iterator it = m_LI->begin();
-  LoopInfo::iterator end = m_LI->end();
-  assert(it != end && "Expected at least one top-level loops");
-  std::vector<Loop*>& subLoops = (*it)->getSubLoopsVector();
-  assert(subLoops.size() == 1 && "Expected a single nested loop");
-  m_vectorizedLoop = subLoops[0];
-  m_vectorizedLoopDepth = m_vectorizedLoop->getLoopDepth();
-  it++;
-  assert(it == end && "Expected at most one top-level loops");
 }
 
 bool WIAnalysis::runOnFunction(Function &F) {
@@ -152,8 +281,8 @@ bool WIAnalysis::runOnFunction(Function &F) {
   assert(m_PDT && "Unable to get PostDominatorTree pass");
   m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   assert(m_LI && "Unable to get LoopInfo pass");
-
-  initVectorizedLoop();
+  m_VLA = &getAnalysis<VectorizableLoopsAnalysis>();
+  assert(m_VLA && "Unable to get VectorizableLoopsAnalysis");
 
   m_deps.clear();
   m_changed1.clear();
@@ -172,13 +301,13 @@ bool WIAnalysis::runOnFunction(Function &F) {
     if (!Alloca)
       continue;
     if (!hasDependency(Alloca))
-      calculate_dep(Alloca);
+      m_deps[Alloca] = calculate_dep(Alloca);
   }
 
-  // Compute the  first iteration of the WI-dep according to ordering
+  // Compute the first iteration of the WI-dep according to ordering
   // instructions this ordering is generally good (as it usually correlates
   // well with dominance).
-  for (BasicBlock* loopBB : getVectorizedLoop()->getBlocks())
+  for (BasicBlock* loopBB : m_VLA->getAllVectorizedBlocks())
     for (Instruction& loopInst : *loopBB)
       calculate_dep(&loopInst);
 
@@ -224,34 +353,31 @@ bool WIAnalysis::runOnFunction(Function &F) {
 void WIAnalysis::initPredefinedDependencies(Function &F) {
   // Initialize all arguments to uniform (any other dependency should
   // have already been made explicit via induction variables).
-  VectorVariant vectorVariant(F.getName());
   const Function::ArgumentListType& arguments = F.getArgumentList();
-  std::vector<VectorKind>& parameters = vectorVariant.getParameters();
-  assert(arguments.size() == parameters.size() &&
-	 "Vector variant doesn't match function parameters");
   Function::ArgumentListType::const_iterator argIt = arguments.begin();
   Function::ArgumentListType::const_iterator argEnd = arguments.end();
   for (; argIt != argEnd; argIt++) {
     m_deps[&*argIt] = WIDependancy::UNIFORM;
   }
 
-  // Init the induction variable of the outer loop to CONSECUTIVE (only the
+  // Init the induction variable of the outer loops to CONSECUTIVE (only the
   // phi node is used in the vectorized loop).
-  Loop* outerLoop = getVectorizedLoop()->getParentLoop();
-  assert(outerLoop && "Expected vectorized loop to have an outer loop");
-  PHINode* indVar = outerLoop->getCanonicalInductionVariable();
-  assert(indVar && "Vectorized loop has no canonical induction variable");
-  m_deps[indVar] = WIDependancy::CONSECUTIVE;
+  for (auto& pair : m_VLA->getLoops()) {
+    PHINode* indVar = pair.first->getCanonicalInductionVariable();
+    assert(indVar && "Vectorized loop has no canonical induction variable");
+    m_deps[indVar] = WIDependancy::CONSECUTIVE;
+  }
 
-  // All basic blocks outside the vectorized loop (and the instructions
+  // All basic blocks outside the vectorized loops (and the instructions
   // in them) are uniform, including outerloop's auto-increment, test and
   // branch (which must remain uniform despite the induction variable's phi
   // being consecutive in order to keep the outer loop uniform).
   Function::iterator bbIt = F.begin();
   Function::iterator bbEnd = F.end();
+  const std::set<BasicBlock*> vectorizedBBs = m_VLA->getAllVectorizedBlocks();
   for (; bbIt != bbEnd; bbIt++) {
-    if (getVectorizedLoop()->contains(&*bbIt))
-      continue; // block is in the vectorized region
+    if (vectorizedBBs.find(&*bbIt) != vectorizedBBs.end())
+      continue; // block is in one of the vectorized regions
     BasicBlock::iterator instIt = bbIt->begin();
     BasicBlock::iterator instEnd = bbIt->end();
     for (;instIt != instEnd; instIt++) {
@@ -344,7 +470,14 @@ SchdConstMap & WIAnalysis::getSchedulingConstraints() {
 void WIAnalysis::invalidateDepend(const Value* val){
   if (m_deps.find(val) != m_deps.end()) {
     m_deps.erase(val);
+    m_piecewiseUniform.erase(val); // no longer piecewise-uniform either.
   }
+}
+
+bool WIAnalysis::isPiecewiseUniform(const Value *val) {
+  assert(hasDependency(val) && getDependency(val) == WIAnalysis::UNIFORM &&
+         "Non-UNIFORM value queried about piecewise-uniformity?");
+  return m_piecewiseUniform.find(val) != m_piecewiseUniform.end();
 }
 
 WIAnalysis::WIDependancy WIAnalysis::getDependency(const Value *val) {
@@ -406,6 +539,7 @@ void WIAnalysis::calculate_dep(const Value* val) {
   // to the order of their probability of appearance.
   if      (const BinaryOperator *BI = dyn_cast<BinaryOperator>(inst))         dep = calculate_dep(BI);
   else if (const CallInst *CI = dyn_cast<CallInst>(inst))                     dep = calculate_dep(CI);
+  else if (const ICmpInst *IC = dyn_cast<ICmpInst>(inst))                     dep = calculate_dep(IC);
   else if (isa<CmpInst>(inst))                                                dep = calculate_dep_simple(inst);
   else if (isa<ExtractElementInst>(inst))                                     dep = calculate_dep_simple(inst);
   else if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(inst))  dep = calculate_dep(GEP);
@@ -665,6 +799,10 @@ void WIAnalysis::updateDepMap(const Instruction *inst, WIAnalysis::WIDependancy 
   if (!hasDependency(inst) || dep!=getDependency(inst)) {
     // Save the new value of this instruction
     m_deps[inst] = dep;
+    // Cleanup piecewise-uniformity: if this value is not UNIFORM, it is
+    // definitely not piecewise-uniform.
+    if (dep != WIAnalysis::UNIFORM)
+        m_piecewiseUniform.erase(inst);
     // Register for update all of the dependent values of this updated
     // instruction.
     Value::const_user_iterator useItr = inst->user_begin();
@@ -706,6 +844,120 @@ WIAnalysis::WIDependancy WIAnalysis::calculate_dep_simple(const Instruction *I) 
       return WIAnalysis::RANDOM;
   }
   return WIAnalysis::UNIFORM;
+}
+
+
+WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const ICmpInst* inst) {
+  // First see what our analysis has to offer.
+  WIAnalysis::WIDependancy res = WIAnalysis::calculate_dep_simple(inst);
+  if (res != WIAnalysis::RANDOM)
+    return res;
+
+  // Check if we have a comparison of the form IND-VAR <op> EXP, where:
+  // - IND-VAR is the canonical induction variable of the loop being vectorized
+  // - EXP is UNIFORM and aligned on vectorization length
+  // If so, then the condition takes the form:
+  //   k*[0..VL) <op> m*VL for k in {0, 1, ...}
+  // and is piecewise-uniform, i.e. will be UNIFORM within each vector iteration,
+  // although different vector iterations may have different values.
+
+  Loop* vectorizedLoop = m_VLA->getVectorizedLoop(inst);
+  PHINode* indVar = vectorizedLoop->getCanonicalInductionVariable();
+
+  // Bail out if the loop being vectorized does not have a canonical induction
+  // variable.
+  if (!indVar)
+    return res;
+
+  Value* TheOtherOperand = NULL;
+
+  Value *op0 = inst->getOperand(0);
+  Value *op1 = inst->getOperand(1);
+
+  if (op0 == indVar) {
+    TheOtherOperand = op1;
+  }
+  else if (op1 == indVar) {
+    TheOtherOperand = op0;
+  }
+  else {
+    // Bail out if the none of the arguments is the induction variable.
+    return res; 
+  }
+
+  if (WIAnalysis::UNIFORM != getDependency(TheOtherOperand)) {
+    // Bail out if the other operand is not UNIFORM.
+    return res; 
+  }
+
+  assert(isa<IntegerType>(indVar->getType()) &&
+         "Expected induction variable to be of integer type");
+  IntegerType* IndVarType = cast<IntegerType>(indVar->getType());
+  unsigned IndVarSize = IndVarType->getPrimitiveSizeInBits();
+  unsigned int VectorLength = m_VLA->getVectorizationFactor(vectorizedLoop);
+  const DataLayout& DL =
+    inst->getParent()->getParent()->getParent()->getDataLayout();
+  unsigned int MaskBitsNum = VectorizerUtils::getLOG(VectorLength);
+  APInt Mask = APInt::getLowBitsSet(IndVarSize, MaskBitsNum);
+
+  // Since IND-VAR takes the values [0,VL), [VL,2VL), ..., [m*VL, (m+1)VL),
+  // the following comparison/val combinations are piecewise UNIFORM for any
+  // k in [0,m]:
+  //  (i)     ind-var < k*VL
+  //  (ii)    ind-var > k*VL-1
+  //  (iii)   ind-var <= k*VL-1          (equivalent to iii)
+  //  (iv)    ind-var >= k*VL            (equivalent to i)
+  // Assuming VL is a power of 2 we know that:
+  //   - k*VL   is of the form .....100000
+  //   - k*VL-1 is of the form .....011111
+  APInt KnownZeros(IndVarSize, 0), KnownOnes(IndVarSize, 0);
+  computeKnownBits(TheOtherOperand, KnownZeros, KnownOnes, DL);
+
+  if (inst->isSigned()) {
+    // Inspect the sign bit of EXP. If EXP is known to be negative the
+    // comparison is actually a UNIFORM 'true' as IND-VAR is within [0,inf).
+    // Note that this check is optional - checking the lower bits is enough
+    // to guarantee piecewise-uniformity for values where the sign bit is
+    // unknown (since if EXP is negative at runtime the comparison will
+    // still produce a UNIFORM 'true').
+    if (KnownOnes[IndVarSize-1])
+      return UNIFORM;
+  }
+
+  APInt* KnownBits = nullptr;
+  switch (inst->getPredicate()) {
+    case ICmpInst::ICMP_ULT: // (i)
+    case ICmpInst::ICMP_UGE: // (iv)
+    case ICmpInst::ICMP_SLT: // (i)
+    case ICmpInst::ICMP_SGE: // (iv)
+    {
+      // Check whether EXP has all lower log(VL) bits zeroed.
+      KnownBits = &KnownZeros;
+      break;
+    }
+    case ICmpInst::ICMP_ULE: // (iii)
+    case ICmpInst::ICMP_UGT: // (ii)
+    case ICmpInst::ICMP_SLE: // (iii)
+    case ICmpInst::ICMP_SGT: // (ii)
+    {
+      // Check whether EXP has all lower log(VL) bits ones.
+      KnownBits = &KnownOnes;
+      break;
+    }
+    default:
+      // Bail out if the comparison operator is not supported
+      return res;
+  }
+
+  if ((*KnownBits & Mask) == Mask) {
+    // Mark this value as piecewise-uniform and return a UNIFORM
+    // classification for it.
+    m_piecewiseUniform.insert(inst);
+    return WIAnalysis::UNIFORM;
+  }
+
+  // Couldn't do better than our data flow analysis.
+  return res;
 }
 
 WIAnalysis::WIDependancy WIAnalysis::calculate_dep(const BinaryOperator* inst) {
@@ -1210,6 +1462,8 @@ void WIAnalysis::print(raw_ostream &OS, const Module *M) const {
       OS << pInst->getName().str() << " : ";
       switch (itDep->second) {
       case UNIFORM:
+        if (m_piecewiseUniform.find(pInst) != m_piecewiseUniform.end())
+          OS << "(P)";
         OS << "UNI";
         break;
       case CONSECUTIVE:

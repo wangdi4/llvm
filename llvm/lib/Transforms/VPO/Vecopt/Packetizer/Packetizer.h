@@ -90,6 +90,7 @@ public:
 
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesCFG();
+    AU.addRequired<VectorizableLoopsAnalysis>();
     AU.addRequired<WIAnalysis>();
     AU.addRequired<SoaAllocaAnalysis>();
     AU.addRequired<BuiltinLibInfo>();
@@ -100,6 +101,30 @@ public:
   }
 
 private:
+
+  /// @brief Set the context of packetization to a specific loop.
+  ///
+  /// The context doesn't only determine the loop-specific packetization
+  /// parameters (e.g. packet-width), but also make sure that while we're
+  /// packetizing a specific loop the other loops we vectorize in the
+  /// function are treated a UNIFORM code.
+  /// Note that the loop being packetized is the inner loop, so we expect
+  /// the given loop to have a single subloop.
+  inline void setLoopBeingPacketized(Loop* loop,
+                                     const VectorizationProperties& vp) {
+    // set current loop being packetized.
+    assert(loop->getSubLoops().size() == 1 && "Expected a single sub-loop");
+    m_loopBeingPacketized = loop->getSubLoops()[0];
+    // set current loop's vectorization factor.
+    m_packetWidth = vp.Vlen;
+    V_ASSERT(1 <= m_packetWidth && MAX_PACKET_WIDTH >= m_packetWidth &&
+             "Requested packetization width out of range!");
+    V_PRINT(packetizer, "\nStarting packetization of loop: " <<
+            m_loopBeingPacketized->getHeader()->getName() << "\n");
+    V_PRINT(packetizer, " to Width: " << m_packetWidth << "\n");
+  }
+
+  void clearLoopRelatedDataStructures();
 
   /// @brief main Method for packetizing instruction. A sort of dispatch table.
   /// @param I instruction to work on
@@ -479,12 +504,18 @@ private:
   /// @brief Pointer to current function
   Function * m_currFunc;
 
-  /// @brief Width of Function Packetization
+  /// @brief Pointer to the loop we are currently packetizing
+  Loop* m_loopBeingPacketized;
+
+  /// @brief Width of Current Loop Packetization
   unsigned m_packetWidth;
 
   // Pointer to current context
   LLVMContext * m_moduleContext;
   LLVMContext& context() {return *m_moduleContext;}
+
+  // @brief pointer to vectorizable-loops analysis performed for this function
+  VectorizableLoopsAnalysis* m_VLA;
 
   // @brief pointer to work-item analysis performed for this function
   WIAnalysis *m_depAnalysis;

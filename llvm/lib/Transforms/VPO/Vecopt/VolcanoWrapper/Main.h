@@ -12,6 +12,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "Logger.h"
 
 #include "llvm/Pass.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 #include <set>
 
@@ -57,7 +58,7 @@ private:
 					VectorVariant& vectorVariant,
 					Type* characteristicDataType);
     bool preVectorizeFunction(Function& F);
-    void vectorizeFunction(Function& F, VectorVariant& vectorVariant);
+    void vectorizeFunction(Function& F);
     Function* createVectorLoopFunction(Function& scalarFunction,
                                          VectorVariant& vectorVariant,
                                          StringRef scalarFuncName);

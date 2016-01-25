@@ -34,6 +34,19 @@ struct loopRegion {
 
 namespace LoopUtils {
   ///@brief creates loop with loopSize iterations arround the CFG region that
+  ///       begins in head and finishes in latch using with given prehead
+  ///       and exit blocks
+  ///@param prehead - The of the created loop.
+  ///@param head - The of the created loop.
+  ///@param latch - The latch block of the created loop.
+  ///@param exit - The of the created loop.
+  ///@param loopSize - Number of loop iterations.
+  ///@returns struct with pre header and exit block fot the created loop.
+loopRegion createLoop(BasicBlock *prehead, BasicBlock *head, BasicBlock *latch,
+                       BasicBlock *exit, Value *begin, Value *increment,
+                      Value *end, std::string &name, LLVMContext &C);
+
+  ///@brief creates loop with loopSize iterations arround the CFG region that
   ///       begins in head and finishes in latch.
   ///@param head - The of the created loop.
   ///@param latch - The latch block of the created loop.

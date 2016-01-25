@@ -204,35 +204,13 @@ void collectTIDCallInst(const char *name, IVecVec &tidCalls, Function *F) {
   }
 }
 
-//  void fillVariableWIFuncUsers(Module &m, const OpenclRuntime *rt,
-//                                     std::set<Function *> &userFuncs);
-// transforms code as follows:
-// prehead:
-//     br head
-// head:
-//     indVar = phi (0 preHead, latch incIndVar)
-//          :
-// latch: //(can be the same as head)
-//          :
-//     incIndVar = add indVar, 1
-//     x = Icmp eq incIndVar ,loopSize
-//     br x, exit, oldEntry
-// exit:
-//
-//  all get_local_id \ get_global_id are replaced with indVar
-loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
-                      Value *increment, Value *end, std::string &name,
-                      LLVMContext &C) {
+loopRegion createLoop(BasicBlock *prehead, BasicBlock *head, BasicBlock *latch,
+                       BasicBlock *exit, Value *begin, Value *increment,
+                       Value *end, std::string &name, LLVMContext &C) {
   Type *indTy = begin->getType();
   assert(indTy == increment->getType());
   assert(indTy == end->getType());
   assert(head->getParent() == latch->getParent());
-  // Creating Blocks to wrap the code as described above.
-  Function *F = head->getParent();
-  BasicBlock *preHead = BasicBlock::Create(C, name + ".pre_head", F, head);
-  BasicBlock *exit = BasicBlock::Create(C, name + ".exit", F);
-  exit->moveAfter(latch);
-  BranchInst::Create(head, preHead);
 
   // Insert induction variable phi in the head entry.
   PHINode *indVar =
@@ -252,9 +230,37 @@ loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
   BranchInst::Create(exit, head, compare, latch);
 
   // Upadte induction variable phi with the incoming values.
-  indVar->addIncoming(begin, preHead);
+  indVar->addIncoming(begin, prehead);
   indVar->addIncoming(incIndVar, latch);
-  return loopRegion(preHead, exit, indVar);
+  return loopRegion(prehead, exit, indVar);
+}
+
+//  void fillVariableWIFuncUsers(Module &m, const OpenclRuntime *rt,
+//                                     std::set<Function *> &userFuncs);
+// transforms code as follows:
+// prehead:
+//     br head
+// head:
+//     indVar = phi (0 preHead, latch incIndVar)
+//          :
+// latch: //(can be the same as head)
+//          :
+//     incIndVar = add indVar, 1
+//     x = Icmp eq incIndVar ,loopSize
+//     br x, exit, oldEntry
+// exit:
+//
+//  all get_local_id \ get_global_id are replaced with indVar
+loopRegion createLoop(BasicBlock *head, BasicBlock *latch, Value *begin,
+                      Value *increment, Value *end, std::string &name,
+                      LLVMContext &C) {
+  // Creating Blocks to wrap the code as described above.
+  Function *F = head->getParent();
+  BasicBlock *preHead = BasicBlock::Create(C, name + ".pre_head", F, head);
+  BasicBlock *exit = BasicBlock::Create(C, name + ".exit", F);
+  exit->moveAfter(latch);
+  BranchInst::Create(head, preHead);
+  return createLoop(preHead, head, latch, exit, begin, increment, end, name, C);
 }
 } // LoopUtils
 } // namespace intel

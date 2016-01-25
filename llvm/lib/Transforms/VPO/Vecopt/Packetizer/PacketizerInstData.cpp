@@ -142,7 +142,7 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
         }
       }
     }
-    else if (!m_depAnalysis->getVectorizedLoop()->contains(origInst)) {
+    else if (!m_loopBeingPacketized->contains(origInst)) {
       // Value defined outside the vectorized loop, so it can only be
       // UNIFORM or the CONSECUTIVE induction variable of the outer loop).
       switch (m_depAnalysis->whichDepend(origValue)) {
@@ -155,12 +155,17 @@ void PacketizeFunction::obtainVectorizedValue(Value **retValue, Value * origValu
           obtainVectorizedValue(retValue, origValue, origOrigInst);
           return;
         case WIAnalysis::CONSECUTIVE:
+        {
           // This is the induction variable of the 0..m_packetWidth outer-loop,
           // just return a constant vector.
+          IntegerType* intType = dyn_cast<IntegerType>(origInst->getType());
+          assert(intType && "Expected value to be of integer type");
           *retValue =
             VectorizerUtils::createZeroToNMinusOneVector(m_packetWidth,
+                                                         intType,
                                                          origValue->getContext());
           return;
+        }
         default:
           assert(false && "Unexpected dependency of outer-scoped value");
           return;
@@ -228,7 +233,7 @@ void PacketizeFunction::obtainMultiScalarValues(Value *retValues[],
   IntegerType* i32T = Type::getInt32Ty(origValue->getContext());
   origInst = cast<Instruction>(origValue);
   if (m_VCM.count(origValue) == 0) {
-    if (!m_depAnalysis->getVectorizedLoop()->contains(origInst)) {
+    if (!m_loopBeingPacketized->contains(origInst)) {
       // Value defined outside the vectorized loop, so it can only be
       // UNIFORM or the CONSECUTIVE induction variable of the outer loop).
       switch (m_depAnalysis->whichDepend(origValue)) {
@@ -525,6 +530,11 @@ bool PacketizeFunction::resolveDeferredInstructions()
       }
     }
   }
+
+  // clear to allow reuse.
+  m_deferredResOrder.clear();
+  m_deferredResMap.clear();
+
   return true;
 }
 

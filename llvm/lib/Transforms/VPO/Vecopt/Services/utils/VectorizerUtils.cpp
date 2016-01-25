@@ -643,17 +643,19 @@ Instruction *VectorizerUtils::createBroadcast(Value *pVal, unsigned int width, I
 }
 
 Constant* VectorizerUtils::createZeroToNMinusOneVector(unsigned int N,
-                                                       LLVMContext& context) {
-  IntegerType* i32T = Type::getInt32Ty(context);
+                                                          IntegerType* type,
+                                                          LLVMContext& context) {
   std::vector<Constant*> consecutiveConstants;
   for (unsigned int i = 0; i < N; i++)
-    consecutiveConstants.push_back(ConstantInt::get(i32T, i));
+    consecutiveConstants.push_back(ConstantInt::get(type, i));
   return ConstantVector::get(consecutiveConstants);
 }
 
 Instruction *VectorizerUtils::createConsecutiveVector(Value *pVal, unsigned int width, Instruction* whereTo, bool insertAfter) {
   Instruction *broadcastedValue = createBroadcast(pVal, width, whereTo, insertAfter);
-  Constant *incrementalVector = createZeroToNMinusOneVector(width, pVal->getContext());
+  IntegerType* intType = dyn_cast<IntegerType>(pVal->getType());
+  assert(intType && "Expected value to be of integer type");
+  Constant *incrementalVector = createZeroToNMinusOneVector(width, intType, pVal->getContext());
   Instruction *nullInstruction = NULL;
   BinaryOperator *consecutiveVector =
     BinaryOperator::CreateAdd(broadcastedValue, incrementalVector, "consecutiveValue", nullInstruction);

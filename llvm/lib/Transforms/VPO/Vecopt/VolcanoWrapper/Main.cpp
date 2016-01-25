@@ -17,6 +17,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "OCLPassSupport.h"
 #include "VectorizerUtils.h"
 #include "LoopUtils.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Pass.h"
@@ -28,11 +29,13 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <sstream>
 
 using namespace std;
+using namespace vpo;
 
 // Placeholders for debug log files
 FILE * prtFile;
@@ -50,7 +53,6 @@ extern "C" Pass* createBuiltinLibInfoPass(llvm::Module* pRTModule, std::string t
 extern "C" FunctionPass* createX86ResolverPass();
 extern "C" FunctionPass* createZMMResolverPass();
 extern "C" FunctionPass *createIRPrinterPass(std::string dumpDir, std::string dumpName);
-
 
 static FunctionPass* createResolverPass(ISAClass isaClass) {
   if (isaClass == ISAClass::ZMM)
@@ -105,6 +107,210 @@ static OptimizerConfig defaultOptimizerConfig(cpuId, transposeSize,
 					      dumpHeuristicIR, APFLevel);
 
 static unsigned int vectorizationDim = 0;
+
+// Forward declaration.
+static void insertBeginRegion(Module& M, Function *Clone,
+                                VectorVariant &V, BasicBlock *EntryBlock);
+
+#ifndef LOOP_VECTORIZATION_HINTS_IS_VISIBLE
+// --------------------------------------------------------------------------
+// The following code is LLVM's interface between the frontend and the loop
+// vectorizer. Unfortunately, it resides in a source file, not a header file.
+// To avoid a massive change from community source the code is copied here
+// until this interface is (hopefully) refactored to a header in LLVM.
+// --------------------------------------------------------------------------
+/// Utility class for getting and setting loop vectorizer hints in the form
+/// of loop metadata.
+/// This class keeps a number of loop annotations locally (as member variables)
+/// and can, upon request, write them back as metadata on the loop. It will
+/// initially scan the loop for existing metadata, and will update the local
+/// values based on information in the loop.
+/// We cannot write all values to metadata, as the mere presence of some info,
+/// for example 'force', means a decision has been made. So, we need to be
+/// careful NOT to add them if the user hasn't specifically asked so.
+class LoopVectorizeHints {
+  enum HintKind {
+    HK_WIDTH,
+    HK_UNROLL,
+    HK_FORCE
+  };
+
+  /// Hint - associates name and validation with the hint value.
+  struct Hint {
+    const char * Name;
+    unsigned Value; // This may have to change for non-numeric values.
+    HintKind Kind;
+
+    Hint(const char * Name, unsigned Value, HintKind Kind)
+      : Name(Name), Value(Value), Kind(Kind) { }
+
+    bool validate(unsigned Val) {
+      switch (Kind) {
+      case HK_WIDTH:
+        return isPowerOf2_32(Val);
+      case HK_UNROLL:
+        return isPowerOf2_32(Val);
+      case HK_FORCE:
+        return (Val <= 1);
+      }
+      return false;
+    }
+  };
+
+  /// Vectorization width.
+  Hint Width;
+  /// Vectorization interleave factor.
+  Hint Interleave;
+  /// Vectorization forced
+  Hint Force;
+
+  /// Return the loop metadata prefix.
+  static StringRef Prefix() { return "llvm.loop."; }
+
+public:
+  enum ForceKind {
+    FK_Undefined = -1, ///< Not selected.
+    FK_Disabled = 0,   ///< Forcing disabled.
+    FK_Enabled = 1,    ///< Forcing enabled.
+  };
+
+  LoopVectorizeHints(const Loop *L, bool DisableInterleaving)
+      : Width("vectorize.width", 8,
+              HK_WIDTH),
+        Interleave("interleave.count", DisableInterleaving, HK_UNROLL),
+        Force("vectorize.enable", FK_Undefined, HK_FORCE),
+        TheLoop(L) {
+    // Populate values with existing loop metadata.
+    getHintsFromMetadata();
+  }
+
+  /// Mark the loop L as already vectorized by setting the width to 1.
+  void setAlreadyVectorized() {
+    Width.Value = Interleave.Value = 1;
+    Hint Hints[] = {Width, Interleave};
+    writeHintsToMetadata(Hints);
+  }
+
+  unsigned getWidth() const { return Width.Value; }
+  unsigned getInterleave() const { return Interleave.Value; }
+  enum ForceKind getForce() const { return (ForceKind)Force.Value; }
+
+private:
+  /// Find hints specified in the loop metadata and update local values.
+  void getHintsFromMetadata() {
+    MDNode *LoopID = TheLoop->getLoopID();
+    if (!LoopID)
+      return;
+
+    // First operand should refer to the loop id itself.
+    assert(LoopID->getNumOperands() > 0 && "requires at least one operand");
+    assert(LoopID->getOperand(0) == LoopID && "invalid loop id");
+
+    for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
+      const MDString *S = nullptr;
+      SmallVector<Metadata *, 4> Args;
+
+      // The expected hint is either a MDString or a MDNode with the first
+      // operand a MDString.
+      if (const MDNode *MD = dyn_cast<MDNode>(LoopID->getOperand(i))) {
+        if (!MD || MD->getNumOperands() == 0)
+          continue;
+        S = dyn_cast<MDString>(MD->getOperand(0));
+        for (unsigned i = 1, ie = MD->getNumOperands(); i < ie; ++i)
+          Args.push_back(MD->getOperand(i));
+      } else {
+        S = dyn_cast<MDString>(LoopID->getOperand(i));
+        assert(Args.size() == 0 && "too many arguments for MDString");
+      }
+
+      if (!S)
+        continue;
+
+      // Check if the hint starts with the loop metadata prefix.
+      StringRef Name = S->getString();
+      if (Args.size() == 1)
+        setHint(Name, Args[0]);
+    }
+  }
+
+  /// Checks string hint with one operand and set value if valid.
+  void setHint(StringRef Name, Metadata *Arg) {
+    if (!Name.startswith(Prefix()))
+      return;
+    Name = Name.substr(Prefix().size(), StringRef::npos);
+
+    const ConstantInt *C = mdconst::dyn_extract<ConstantInt>(Arg);
+    if (!C) return;
+    unsigned Val = C->getZExtValue();
+
+    Hint *Hints[] = {&Width, &Interleave, &Force};
+    for (auto H : Hints) {
+      if (Name == H->Name) {
+        if (H->validate(Val))
+          H->Value = Val;
+        else
+          dbgs() << "LV: ignoring invalid hint '" << Name << "'\n";
+        break;
+      }
+    }
+  }
+
+  /// Create a new hint from name / value pair.
+  MDNode *createHintMetadata(StringRef Name, unsigned V) const {
+    LLVMContext &Context = TheLoop->getHeader()->getContext();
+    Metadata *MDs[] = {MDString::get(Context, Name),
+                       ConstantAsMetadata::get(
+                           ConstantInt::get(Type::getInt32Ty(Context), V))};
+    return MDNode::get(Context, MDs);
+  }
+
+  /// Matches metadata with hint name.
+  bool matchesHintMetadataName(MDNode *Node, ArrayRef<Hint> HintTypes) {
+    MDString* Name = dyn_cast<MDString>(Node->getOperand(0));
+    if (!Name)
+      return false;
+
+    for (auto H : HintTypes)
+      if (Name->getString().endswith(H.Name))
+        return true;
+    return false;
+  }
+
+  /// Sets current hints into loop metadata, keeping other values intact.
+  void writeHintsToMetadata(ArrayRef<Hint> HintTypes) {
+    if (HintTypes.size() == 0)
+      return;
+
+    // Reserve the first element to LoopID (see below).
+    SmallVector<Metadata *, 4> MDs(1);
+    // If the loop already has metadata, then ignore the existing operands.
+    MDNode *LoopID = TheLoop->getLoopID();
+    if (LoopID) {
+      for (unsigned i = 1, ie = LoopID->getNumOperands(); i < ie; ++i) {
+        MDNode *Node = cast<MDNode>(LoopID->getOperand(i));
+        // If node in update list, ignore old value.
+        if (!matchesHintMetadataName(Node, HintTypes))
+          MDs.push_back(Node);
+      }
+    }
+
+    // Now, add the missing hints.
+    for (auto H : HintTypes)
+      MDs.push_back(createHintMetadata(Twine(Prefix(), H.Name).str(), H.Value));
+
+    // Replace current metadata node with new one.
+    LLVMContext &Context = TheLoop->getHeader()->getContext();
+    MDNode *NewLoopID = MDNode::get(Context, MDs);
+    // Set operand 0 to refer to the loop id itself.
+    NewLoopID->replaceOperandWith(0, NewLoopID);
+
+    TheLoop->setLoopID(NewLoopID);
+  }
+
+  /// The loop these hints belong to.
+  const Loop *TheLoop;
+};
+#endif // LOOP_VECTORIZATION_HINTS_IS_VISIBLE
 
 Vectorizer::Vectorizer(const Module * rt, const OptimizerConfig* pConfig) :
   ModulePass(ID),
@@ -357,19 +563,10 @@ bool Vectorizer::runOnModule(Module &M)
   m_numOfKernels = 0;
   m_isModuleVectorized = true;
 
-  VectorizerUtils::FunctionVariants functionsToVectorize;
-  VectorizerUtils::getFunctionsToVectorize(M, functionsToVectorize);
-  if (functionsToVectorize.empty()) {
-    // No functions to vectorize
-    return false;
-  }
-
-#ifdef USE_METADATA_API
-  Intel::MetaDataUtils mdUtils(&M);
-#endif
+  set<Loop*> vectorizableLoops;
+  set<Function*> functionsWithVectorizableLoops;
 
 /* xmain */
-  createVectorizationStubs(M);
 #if 0
   if (!m_runtimeModule)
   {
@@ -378,7 +575,57 @@ bool Vectorizer::runOnModule(Module &M)
   }
 #endif
 
+  // Collect all loops marked vectorizable and annotate them to-be-vectorized
+  // by VPO notation.
+  for (auto& F : M) {
+    if (F.isDeclaration())
+      continue;
+    DominatorTree DT;
+    DT.recalculate(F);
+    LoopInfo LI;
+    LI.analyze(DT);
+    bool functionHasAtLeastOneVectorizableLoop = false;
+    for (Loop* TopLevelLoop : LI) {
+      for (Loop* L : depth_first(TopLevelLoop)) {
+        LoopVectorizeHints hints(L, true);
+        if (hints.getForce() == LoopVectorizeHints::FK_Enabled) {
+          vectorizableLoops.insert(L);
+          if (!functionHasAtLeastOneVectorizableLoop) {
+            functionHasAtLeastOneVectorizableLoop = true;
+            functionsWithVectorizableLoops.insert(L->getHeader()->getParent());
+          }
+          // Annotate the loop as to-be-vectorized (we only need 'begin region')
+          assert(L->getLoopPreheader() &&
+                 "Expected parallel loop to have a preheader");
+          std::vector<VectorKind> parameters;
+          VectorVariant vectorVariant(XMM, false, hints.getWidth(), parameters);
+          insertBeginRegion(*F.getParent(),
+                            &F,
+                            vectorVariant,
+                            L->getLoopPreheader());
+        }
+      }
+    }
+  }
 
+  // TODO: The vectorizer assumes certain properties to hold on the loops
+  // being vectorized (enforced by preVectorizeFunction). Ideally, we would
+  // apply these prerequisite transformations on the loops, not the containing
+  // functions. Until we narrow it down we pre-vectorize those functions here.
+  for (auto F : functionsWithVectorizableLoops)
+    preVectorizeFunction(*F);
+
+  VectorizerUtils::FunctionVariants functionsToVectorize;
+  VectorizerUtils::getFunctionsToVectorize(M, functionsToVectorize);
+
+#ifdef USE_METADATA_API
+  Intel::MetaDataUtils mdUtils(&M);
+#endif
+
+  // Function vectorization support: generate the required vector variant
+  // functions ready for loop-vectorization: each function will execute a
+  // 0..VL-1 loop calling the scalar function (with scalar transformations
+  // required by the vectorizer).
   for (auto& pair : functionsToVectorize)
   {
     Function& F = *pair.first;
@@ -424,14 +671,24 @@ bool Vectorizer::runOnModule(Module &M)
       // Delete the scalar pre-vectorized clone
       clone->eraseFromParent();
 
-      // Do actual vectorization work on the vector variant
-      vectorizeFunction(*vectFunc, vectorVariant);
-
+      // Mark the vector variant function to protect it from the vectorizer's
+      // cleanup which removes any stub it may have created.
       m_functionsToRetain.insert(vectFunc);
+
+      // Add the vector variant function to the list of functions with
+      // vectorizable loops.
+      functionsWithVectorizableLoops.insert(vectFunc);
     }
   }
 
-  deleteVectorizationStubs(M);
+  // Now, for each function we identified with vectorizable loops do actual
+  // vectorization work on the (loops in the) function.
+  if (!functionsWithVectorizableLoops.empty()) {
+    createVectorizationStubs(M);
+    for (auto F : functionsWithVectorizableLoops)
+      vectorizeFunction(*F);
+    deleteVectorizationStubs(M);
+  }
 
 #ifdef USE_METADATA_API
   //Save Metadata to the module
@@ -485,6 +742,9 @@ bool Vectorizer::preVectorizeFunction(Function& F) {
   // loop simplification by breaking dedicated exit nodes.
   fpm.add(createLoopSimplifyPass());
 
+  // TODO: we actually only need the vectorized loop rotated.
+  fpm.add(llvm::createLoopRotatePass());
+
   fpm.add(createDeadCodeEliminationPass());
   // Need to check for vectorization possibly AFTER phi canonization.
   // In theory this shouldn't matter, since we should never introduce anything
@@ -501,6 +761,211 @@ bool Vectorizer::preVectorizeFunction(Function& F) {
   return vecPossiblity->isVectorizable();
 }
 
+/// @brief Utility pass to remove VPO's vectorization annotation from the code.
+class RemoveVectorizationHints : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  RemoveVectorizationHints() : FunctionPass(ID) {}
+  ~RemoveVectorizationHints() {}
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "RemoveVectorizationHints";
+  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  }
+  virtual bool runOnFunction(Function &F) {
+    vector<Instruction*> hints;
+    for (auto& BB : F)
+      for (auto& I : BB) {
+        IntrinsicInst* Inst = dyn_cast<IntrinsicInst>(&I);
+        if (Inst) {
+          Intrinsic::ID intrinsicID = Inst->getIntrinsicID();
+          if (intrinsicID == Intrinsic::intel_directive ||
+              intrinsicID == Intrinsic::intel_directive_qual ||
+              intrinsicID == Intrinsic::intel_directive_qual_opnd ||
+              intrinsicID == Intrinsic::intel_directive_qual_opndlist)
+            hints.push_back(Inst);
+        }
+      }
+    for (auto hint : hints)
+      hint->eraseFromParent();
+    assert(!verifyFunction(F) && "I broke this module");
+    return !hints.empty();
+  }
+};
+char RemoveVectorizationHints::ID = 0;
+
+/// @brief Utility pass to bring loops marked for vectorization into the
+/// form expected by the vectorizer:
+///
+/// Given a canonical loop. e.g.
+///   for (i = 0; i < N; ++i)
+///     a[i] = b[i] + c[i];
+///
+/// stripmine the loop by factor of 'length' and interchange the loops to get
+///   for (j = 0; j < VL; ++j)
+///     for (i = 0; (i*VL+j) < N; ++i)
+///       a[i+j*VL] = b[i*VL+j] + c[i+j*VL];
+///
+/// The outer loop is the loop to be vectorized (i.e. runs VL iterations at
+/// once), while the inner loop is the region to be packetized (i.e. executes
+/// VL times in parallel), with 'j' predefined as CONSECUTIVE.
+/// This allows us to treat the inner loop and its body uniformly and transform
+/// the inner loop into a vector loop of the form:
+///   for (i=<0,...,0>; (i*VL+j) < <N,...,N>; i+= <VL,...,VL>)
+/// Once the inner loop is packetized the outer loop is removed. The result is
+/// as if a single 'for (k = 0; k < VL; ++k)' loop was vectorized.
+/// Note that:
+/// - We assume VL % AVL == 0 to keep the inner loop UNIFORM. The more general
+/// condition 'i + j < VL' would also support remainder iterations (last
+/// iteration partly masked) but we need WIAnalysis to support piecewise-uniform
+/// values to avoid masking when N % VL == 0 does hold.
+/// - The inner loop can be removed after vectorization if VL == N.
+class PrepareLoopForVectorization : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  PrepareLoopForVectorization() : FunctionPass(ID) {}
+  ~PrepareLoopForVectorization() {}
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "PrepareLoopForVectorization";
+  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    //    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<VectorizableLoopsAnalysis>();
+  }
+  virtual bool runOnFunction(Function &F) {
+    assert(!verifyFunction(F) && "I broke this module");
+    VectorizableLoopsAnalysis* VLA = &getAnalysis<VectorizableLoopsAnalysis>();
+    assert(VLA && "Unable to get vectorizable-loops analysis");
+    bool anyChangeMade = false;
+    for (auto& pair : VLA->getLoops()) {
+      stripmineAndInterchangeLoop(*pair.first, pair.second.Vlen);
+      anyChangeMade = true;
+      assert(!verifyFunction(F) && "I broke this module");
+    }
+    return anyChangeMade;
+  }
+
+private:
+
+  // Note: we are not updating LoopInfo, so calling this function invalidates it.
+  void stripmineAndInterchangeLoop(llvm::Loop& loop, unsigned length) {
+    BasicBlock* preheader = loop.getLoopPreheader();
+    assert(preheader && "Expected loop to have a preheader");
+    PHINode* indVar = loop.getCanonicalInductionVariable();
+    assert(indVar && "loop has no canonical induction variable");
+    BasicBlock* latch = loop.getLoopLatch();
+    assert(latch && "Expected loop to have a (single) latch");
+    Value* valueFromLatch = indVar->getIncomingValueForBlock(latch);
+    assert(isa<BinaryOperator>(valueFromLatch) &&
+           "Induction variable is not canonical");
+    BinaryOperator* autoIncrement = cast<BinaryOperator>(valueFromLatch);
+    assert(autoIncrement->getOpcode() == Instruction::Add &&
+           "Induction variable is not canonical");
+    unsigned phiOpIndex = 0;
+    unsigned oneOpIndex = 1;
+    if (!isa<ConstantInt>(autoIncrement->getOperand(oneOpIndex))) {
+      phiOpIndex = 1;
+      oneOpIndex = 0;
+      assert(isa<ConstantInt>(autoIncrement->getOperand(oneOpIndex)) &&
+             "Induction variable is not canonical");
+    }
+    assert(autoIncrement->getOperand(phiOpIndex) == indVar &&
+           "Expected to find induction variable at auto-increment");
+    assert(isa<ConstantInt>(autoIncrement->getOperand(oneOpIndex)) &&
+           cast<ConstantInt>(autoIncrement->getOperand(oneOpIndex))->isOne() &&
+           "Induction variable is not canonical");
+
+    // Wrap the loop with a new [0..length-1] loop, replacing:
+    // PH -> H1 -> ... -> L1 -> EX
+    //        ^------------+-----^
+    // with:
+    // PH -> H2 -> H1 -> ... -> L1 -> EX -> E2
+    //             ^------------+-----^
+    //       ^------------------------+----^
+    // We'll split the loop's (assumed) single exit block EX into EX -> E2 and
+    // use EX and E2 for the new loop as the latch and exit block, respectively.
+
+    BasicBlock* newLoopLatch = loop.getExitBlock();
+    assert(newLoopLatch && "Expected loop to have a single exit block");
+    BasicBlock* newLoopExit = llvm::SplitBlock(newLoopLatch,
+                                               newLoopLatch->begin());
+    newLoopLatch->getTerminator()->eraseFromParent();
+    BasicBlock* newLoopHeader = llvm::SplitBlock(preheader,
+                                                 preheader->getTerminator());
+    string outerLoopName = "outer_loop";
+    IntegerType* intType = dyn_cast<IntegerType>(indVar->getType());
+    assert(intType && "Expected induction variable to be of integer type");
+    Value* zero = ConstantInt::get(intType, 0);
+    Value* one = ConstantInt::get(intType, 1);
+    Value* lengthVal = ConstantInt::get(intType, length);
+    loopRegion outerLoop = LoopUtils::createLoop(preheader, newLoopHeader,
+                                                 newLoopLatch, newLoopExit,
+                                                 zero, one, lengthVal,
+                                                 outerLoopName,
+                                                 preheader->getContext());
+
+    // Replace all uses of the loops induction variable 'i' with the expression
+    // 'i * length + j'.
+    Instruction* insAtLB = indVar->getParent()->getFirstInsertionPt();
+    Instruction* chunkOffset =
+      BinaryOperator::CreateMul(indVar, lengthVal, "offset", insAtLB);
+    Value* stripminedIndex =
+      BinaryOperator::CreateAdd(chunkOffset,
+                                outerLoop.m_indVar,
+                                "stripminedIndex",
+                                insAtLB);
+    indVar->replaceAllUsesWith(stripminedIndex);
+
+    // The former step also replaced two uses of 'i' that need to linger on:
+    // 1) in the chunk offset value 'offset = i * length'.
+    // 2) the auto-increment of the induction variable 'i = i + 1'
+    // Restore these specific uses here.
+    chunkOffset->setOperand(0, indVar);
+    autoIncrement->setOperand(phiOpIndex, indVar);
+
+    BranchInst* latchBranch = dyn_cast<BranchInst>(latch->getTerminator());
+    assert(latchBranch && latchBranch->isConditional() &&
+           "Expected latch terminator to be a conditional branch");
+    ICmpInst* loopCond = dyn_cast<ICmpInst>(latchBranch->getCondition());
+    assert(loopCond && "Expected loop condition to be icmp");
+    Instruction* nextChunkOffset = BinaryOperator::CreateMul(autoIncrement,
+                                                             lengthVal,
+                                                             "offset.next",
+                                                             loopCond);
+
+    // Complete the stripmining by replacing the loop's limit-reached check
+    // from '(i + 1) == X' to '(i + 1) * length + j >= X'. In order to take
+    // advantage of current support for piecewise-uniform classification we'll
+    // actually use 'j >= X - (i + 1) * length' for the latter.
+    Value* currentLimit = loopCond->getOperand(1);
+    if (currentLimit == autoIncrement)
+      currentLimit = loopCond->getOperand(0);
+    Value* stripminedLimit = BinaryOperator::CreateSub(currentLimit,
+                                                       nextChunkOffset,
+                                                       "stripminedLimit",
+                                                       loopCond);
+    loopCond->replaceUsesOfWith(autoIncrement, outerLoop.m_indVar);
+    loopCond->replaceUsesOfWith(currentLimit, stripminedLimit);
+    
+    switch (loopCond->getPredicate()) {
+      case CmpInst::Predicate::ICMP_EQ:
+        // Should-exit test, fix it to work for vectors.
+        loopCond->setPredicate(CmpInst::Predicate::ICMP_UGE);
+        break;
+      case CmpInst::Predicate::ICMP_SLT:
+      case CmpInst::Predicate::ICMP_ULT:
+        // Should-continue tests, will work as-is for vectors.
+        break;
+      default:
+        assert(false && "Unexpected loop latch predicate");
+        break;
+    }
+  }
+};
+char PrepareLoopForVectorization::ID = 0;
+
 /// @brief Utility pass to collapse the 0..VL outer loop into a single iteration
 class CollapseOuterLoop : public FunctionPass {
 public:
@@ -512,42 +977,43 @@ public:
     return "CollapseOuterLoop";
   }
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequired<LoopInfoWrapperPass>();
+    AU.addRequired<VectorizableLoopsAnalysis>();
   }
   virtual bool runOnFunction(Function &F) {
-    LoopInfo* LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-    assert(LI && "Unable to get LoopInfo pass");
-    LoopInfo::iterator it = LI->begin();
-    LoopInfo::iterator end = LI->end();
-    assert(it != end && "Expected at least one top-level loops");
-    llvm::Loop* outerLoop = *it;
-    it++;
-    assert(it == end && "Expected at most one top-level loops");
-    PHINode* indVar = outerLoop->getCanonicalInductionVariable();
-    assert(indVar && "Outer loop has no canonical induction variable");
-    assert(indVar->hasOneUse() && "Expected single use for induction variable");
-    BasicBlock* latch = outerLoop->getLoopLatch();
-    assert(latch && "Outer loop does not have a single latch");
-    Value* valueFromLatch = indVar->getIncomingValueForBlock(latch);
-    auto userIt = valueFromLatch->user_begin();
-    auto userEnd = valueFromLatch->user_end();
-    for (; userIt != userEnd; ++userIt) {
-      Value* user = *userIt;
-      ICmpInst* limit = dyn_cast<ICmpInst>(user);
-      if (!limit)
-        continue;
-      IntegerType* int32Type = Type::getInt32Ty(F.getContext());
-      ICmpInst* collapsedLimit = new ICmpInst(limit,
-                                              limit->getPredicate(),
-                                              limit->getOperand(0),
-                                              ConstantInt::get(int32Type, 1),
-                                              "collapsed.ind.var");
-      limit->replaceAllUsesWith(collapsedLimit);
-      limit->eraseFromParent();
-      assert(!verifyFunction(F) && "I broke this module");
-      break; // there should be only one
+    VectorizableLoopsAnalysis* VLA = &getAnalysis<VectorizableLoopsAnalysis>();
+    assert(VLA && "Unable to get vectorizable-loops analysis");
+    bool anyChangeMade = false;
+    for (auto& pair : VLA->getLoops()) {
+      llvm::Loop* outerLoop = pair.first;
+      PHINode* indVar = outerLoop->getCanonicalInductionVariable();
+      assert(indVar && "Outer loop has no canonical induction variable");
+      assert(indVar->hasOneUse() && "Expected single use for induction variable");
+      BasicBlock* latch = outerLoop->getLoopLatch();
+      assert(latch && "Outer loop does not have a single latch");
+      Value* valueFromLatch = indVar->getIncomingValueForBlock(latch);
+      auto userIt = valueFromLatch->user_begin();
+      auto userEnd = valueFromLatch->user_end();
+      for (; userIt != userEnd; ++userIt) {
+        Value* user = *userIt;
+        ICmpInst* limit = dyn_cast<ICmpInst>(user);
+        if (!limit)
+          continue;
+        IntegerType* intType =
+          dyn_cast<IntegerType>(limit->getOperand(0)->getType());
+        assert(intType && "Expected limit to be of integer type");
+        ICmpInst* collapsedLimit = new ICmpInst(limit,
+                                                limit->getPredicate(),
+                                                limit->getOperand(0),
+                                                ConstantInt::get(intType, 1),
+                                                "collapsed.ind.var");
+        limit->replaceAllUsesWith(collapsedLimit);
+        limit->eraseFromParent();
+        assert(!verifyFunction(F) && "I broke this module");
+        break; // there should be only one
+      }
+      anyChangeMade = true;
     }
-    return true;
+    return anyChangeMade;
   }
 };
 char CollapseOuterLoop::ID = 0;
@@ -899,7 +1365,7 @@ private:
 };
 char ScatterGatherScalarizer::ID = 0;
 
-void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
+void Vectorizer::vectorizeFunction(Function& F) {
   // Function-wide (vectorization)
   V_PRINT(VectorizerCore, "\nBefore vectorization passes!\n");
 
@@ -908,8 +1374,10 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
 
   BuiltinLibInfo* pBuiltinInfoPass =
     (BuiltinLibInfo*)createBuiltinLibInfoPass(M, "");
-  pBuiltinInfoPass->getRuntimeServices()->setPacketizationWidth(vectorVariant.getVlen());
   fpm.add(pBuiltinInfoPass);
+
+  // Register PrepareLoopForVectorization
+  fpm.add(new PrepareLoopForVectorization());
 
   // add WIAnalysis for the predicator.
   fpm.add(new WIAnalysis(vectorizationDim));
@@ -948,10 +1416,15 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
     fpm.add(createIRPrinterPass(m_pConfig->GetDumpIRDir(), "pre_resolver"));
 
   // Register resolve
-  FunctionPass *resolver = createResolverPass(vectorVariant.getISA());
-  fpm.add(resolver);
+//  fpm.add(createZMMResolverPass()); // TODO
+  fpm.add(createX86ResolverPass());
+
   fpm.add(new CollapseOuterLoop());
-  fpm.add(createLoopUnrollPass());
+
+  // At this point we no longer the vectorization hints.
+  fpm.add(new RemoveVectorizationHints);
+
+//  fpm.add(createLoopUnrollPass()); // TODO: cost model still crashes
   fpm.add(new RemoveTempScalarizingAllocas());
   fpm.add(new ScatterGatherScalarizer()); // TODO: remove when CG can scalarize
 
@@ -972,41 +1445,60 @@ void Vectorizer::vectorizeFunction(Function& F, VectorVariant& vectorVariant) {
   V_ASSERT(!verifyFunction(F) && "vectorized function failed to verify");
 }
 
+// This function is the IR vectorizer's version of VPO's insertBeginRegion()
+// function for marking the begining of a vectorized region.
+static void insertBeginRegion(Module& M, Function *Clone,
+                              VectorVariant &V, BasicBlock *EntryBlock)
+{
+  // Insert directive indicating the beginning of a SIMD loop.
+  CallInst *SIMDBeginCall = VPOUtils::createDirectiveCall(M, "dir.simd");
+  SIMDBeginCall->insertBefore(EntryBlock->getTerminator());
+
+  // Now, split into its own basic block and insert the remaining intrinsics
+  // after this one.
+  BasicBlock *BeginRegionBlock =
+      EntryBlock->splitBasicBlock(SIMDBeginCall, "simd.begin.region");
+
+  // Insert vectorlength directive
+  Constant *VL = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
+                                  V.getVlen());
+
+  Constant* ISAArg =
+    ConstantDataArray::getString(Clone->getContext(),
+                                 VectorVariant::ISAClassToString(V.getISA()),
+                                 false);
+  CallInst *ISACall =
+      VPOUtils::createDirectiveQualOpndCall(M, "dir.qual.simd.isa", ISAArg);
+  ISACall->insertAfter(SIMDBeginCall);
+
+  CallInst *VlenCall =
+      VPOUtils::createDirectiveQualOpndCall(M, "dir.qual.simd.vlen", VL);
+  VlenCall->insertAfter(ISACall);
+
+  CallInst *QualEndCall = VPOUtils::createDirectiveQualCall(M, "dir.qual.end");
+  QualEndCall->insertBefore(BeginRegionBlock->getTerminator());
+}
+
 // Create a function implementing a given vector variant of a scalar function.
 // The resulting function will have the signature induced by the vector variant
-// but will still use a scalar loop to compute the N instances. The loop,
-// however, will be tailored for the vectorizer (i.e. strip-mined and
-// interchanged). For example, for a scalar function
+// but will still use a scalar loop to compute the N instances.
+// For example, for a scalar function
 //   Tr f(uniform T1 p1, consecutive T2 p2, random T3 p3);
 // annotated with some vectorlength=VL, the function will have the following
-// schematic structure (where AVL is the actual vector length chosen by the
-// vectorizer):
+// schematic structure:
 //   <VL x Tr> fv(T1 p1, T2 p2, <VL x T1> p3) {
 //     T3 s3[VL];
 //     Tr sr[VL];
 //     <VL x Tr> rv;
 //     s3 <- p3;
-//     unsigned int AVL = VL; // always, for now
-//     for (i = 0; i < AVL; ++i)      // 'for (k = 0; k < VL; ++k)' strip-mined
-//       for (j = 0; j < VL; j+=AVL)  // by factor AVL and interchanged
-//         sr[j+i] = f(p1, p2+j+i, s3[j+i]); // inlined
+//     intel.directive("dir.simd");
+//     intel.directive("dir.simd.qual.opnd", VL);
+//     intel.directive("dir.qual.end");
+//     for (i = 0; i < VL; ++i)
+//       sr[i] = f(p1, p2+i, s3[i]); // inlined
 //     rv <- sr;
 //     return rv;
 //   }
-// The outer loop is the loop to be vectorized (i.e. runs AVL iterations at once),
-// while the inner loop is the region to be packetized (i.e. executes AVL times
-// in parallel), with 'i' predefined as CONSECUTIVE.
-// This allows us to treat the inner loop and its body uniformly and transform
-// the inner loop into a vector loop of the form:
-//   for (j=<0,...,0>; j < <VL,...,VL>; j+= <AVL,...,AVL>)
-// Once the inner loop is packetized the outer loop is removed. The result is
-// as if a single 'for (k = 0; k < VL; ++k)' loop was vectorized.
-// Note that:
-// - We assume VL % AVL == 0 to keep the inner loop UNIFORM. The more general
-// condition 'i + j < VL' would also support remainder iterations (last
-// iteration partly masked) but we need WIAnalysis to support piecewise-uniform
-// values to avoid masking when VL % AVL == 0 does hold.
-// - The inner loop can be removed after vectorization if VL == AVL.
 // The temporary arrays used for scalarizing the accesses to vector parameters
 // and return value are removed after vectorization.
 Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
@@ -1057,43 +1549,28 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
 					   "wrapper.entry",
 					   wrapperFunc);
 
-  // Create the loops.
+  // Create the loop.
   IntegerType* int32Type = Type::getInt32Ty(wrapperFunc->getContext());
   Value* zero = ConstantInt::get(int32Type, 0);
   Value* one = ConstantInt::get(int32Type, 1);
   unsigned vlen = vectorVariant.getVlen();
-  unsigned avlen = vectorVariant.getVlen();
   Value* vlenVal = ConstantInt::get(int32Type, vlen);
-  Value* avlenVal = ConstantInt::get(int32Type, avlen);
-  string vecLoopName = "vec_loop";
-  loopRegion vecLoop = LoopUtils::createLoop(entryBB, entryBB, zero, avlenVal,
-                                             vlenVal, vecLoopName,
-                                             wrapperFunc->getContext());
-  string outerLoopName = "outer_loop";
-  loopRegion outerLoop = LoopUtils::createLoop(vecLoop.m_preHeader,
-                                               vecLoop.m_exit, zero,
-                                               one, avlenVal, outerLoopName,
-                                               wrapperFunc->getContext());
+  string SIMDLoopName = "simd_loop";
+  loopRegion SIMDLoop = LoopUtils::createLoop(entryBB, entryBB, zero, one,
+                                              vlenVal, SIMDLoopName,
+                                              wrapperFunc->getContext());
 
   // Store vector arguments into arrays so loop is fully scalar, i.e. contains
   // '%s = %v[%i]' access patterns instead of '%s = extractelement %v, %i'.
-  Instruction* insAtPH = outerLoop.m_preHeader->getTerminator();
+  Instruction* insAtPH = SIMDLoop.m_preHeader->getTerminator();
   BasicBlock::iterator insAtLB = entryBB->getFirstInsertionPt();
-  Value* adjustedIndex =
-    BinaryOperator::CreateAdd(BinaryOperator::CreateMul(vecLoop.m_indVar,
-                                                        avlenVal,
-                                                        "offset",
-                                                        insAtLB),
-                              outerLoop.m_indVar,
-                              "index",
-                              insAtLB);
   FunctionType::param_iterator wft_it = vectorFunctionType->param_begin();
   FunctionType::param_iterator wft_end = vectorFunctionType->param_end();
   Function::arg_iterator wfa_it = wrapperFunc->arg_begin();
   Function::arg_iterator ofa_it = scalarFunction.arg_begin();
   vkIt = parameterKinds.begin();
   std::vector<Value*> callArguments;
-  ArrayRef<Value*> loopIndex(adjustedIndex);
+  ArrayRef<Value*> loopIndex(SIMDLoop.m_indVar);
   map<int, Value*> ithStrideValues;
   for (; wft_it != wft_end; ++wft_it, ++wfa_it, ++ofa_it, ++vkIt) {
     Argument& arg = *wfa_it;
@@ -1112,13 +1589,13 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
           if (stride != 1) {
             strideValue = ConstantInt::get(int32Type, stride);
             stride_name << "i_x_" << vkIt->getStride();
-            ithStride = BinaryOperator::CreateMul(adjustedIndex,
+            ithStride = BinaryOperator::CreateMul(SIMDLoop.m_indVar,
                                                   strideValue,
                                                   stride_name.str(),
                                                   insAtLB);
           }
           else
-            ithStride = adjustedIndex;
+            ithStride = SIMDLoop.m_indVar;
           ithStrideValues[stride] = ithStride;
         }
         else
@@ -1171,15 +1648,15 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
   // Create a return value if needed and temporary storage for the scalar
   // return values.
   if (vectorReturnType->isVoidTy())
-    ReturnInst::Create(wrapperFunc->getContext(), outerLoop.m_exit);
+    ReturnInst::Create(wrapperFunc->getContext(), SIMDLoop.m_exit);
   else
   {
     // Return as vector a temporary array to which we'll assign the return
     // values of the scalar call to.
     Value* tmpRetVal = new AllocaInst(vectorReturnType, "__wrapper__.ret", insAtPH);
     ReturnInst::Create(wrapperFunc->getContext(),
-                       new LoadInst(tmpRetVal, "retVal", outerLoop.m_exit),
-                       outerLoop.m_exit);
+                       new LoadInst(tmpRetVal, "retVal", SIMDLoop.m_exit),
+                       SIMDLoop.m_exit);
     // Store the scalar call's return value into the temporary array returned
     // as vector.
     Type* scalarPointerType = originalReturnType->getPointerTo();
@@ -1194,6 +1671,12 @@ Function* Vectorizer::createVectorLoopFunction(Function& scalarFunction,
                                         insAtLB);
     new StoreInst(call, scalarRetStorage, insAtLB);
   }
+
+  // Annotate the loop as to-be-vectorized (we only need 'begin region')
+  insertBeginRegion(*wrapperFunc->getParent(),
+                    wrapperFunc,
+                    vectorVariant,
+                    SIMDLoop.m_preHeader);
 
   // Inline the wrapper call
   InlineFunctionInfo ifi;

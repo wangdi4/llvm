@@ -29,6 +29,7 @@ enum ISAClass {
   YMM1, // (AVX1)
   YMM2, // (AVX2)
   ZMM,  // (MIC)
+  ISA_CLASSES_NUM
 };
 
 #define STRIDE_KIND  's'
@@ -228,6 +229,35 @@ public:
     }
   }
 
+  static std::string ISAClassToString(ISAClass isa_class) {
+    switch(isa_class) {
+      case XMM:
+        return "XMM";
+      case YMM1:
+        return "YMM1";
+      case YMM2:
+        return "YMM2";
+      case ZMM:
+        return "ZMM";
+      default:
+        assert(false && "unsupported ISA class");
+        return "?";
+    }
+  }
+
+  static ISAClass ISAClassFromString(std::string isa_class) {
+    if (isa_class == "XMM")
+      return XMM;
+    if (isa_class == "YMM1")
+      return YMM1;
+    if (isa_class == "YMM2")
+      return YMM2;
+    if (isa_class == "ZMM")
+      return ZMM;
+    assert(false && "unsupported ISA class");
+    return ISA_CLASSES_NUM;
+  }
+
   static char encodeISAClass(ISAClass IsaClass) {
 
     switch(IsaClass) {
@@ -239,6 +269,8 @@ public:
 	return 'Y';
       case ZMM:
 	return 'z';
+      default:
+        break;
     }
 
     assert(false && "unsupported ISA class");

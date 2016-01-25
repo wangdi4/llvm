@@ -108,8 +108,11 @@ public:
 
   /// @brief Create the constant vector <0, 1, ..., N-1>
   /// @param N vector length
+  /// @param type integer type to use for elements
   /// @param context to create the value in
-  static llvm::Constant* createZeroToNMinusOneVector(unsigned int N, llvm::LLVMContext& context);
+  static llvm::Constant* createZeroToNMinusOneVector(unsigned int N,
+                                                        llvm::IntegerType* type,
+                                                        llvm::LLVMContext& context);
 
   /// @brief Creates a consecutive vector (<pVal, pVal, ...> + <0, 1, ... width>)
   /// @param pVal value to prodcast

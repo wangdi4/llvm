@@ -10,6 +10,8 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "BuiltinLibInfo.h"
 #include "SoaAllocaAnalysis.h"
 #include "Logger.h"
+#include "llvm/Analysis/VectorVariant.h"
+#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
 
 #include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -23,6 +25,7 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/InstIterator.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/Analysis/PostDominators.h"
 
 #include <map>
@@ -31,8 +34,88 @@ OpenCL CPU Backend Software PA/License dated November 15, 2012 ; and RS-NDA #587
 typedef std::map<BasicBlock*, std::vector<BasicBlock*> > SchdConstMap;
 
 using namespace llvm;
+using namespace vpo;
 
 namespace intel {
+
+/// @brief Utility class to hold the properties of vectorizable loops
+/// as encoded by VPO SIMD annotation.
+struct VectorizationProperties {
+  VectorizationProperties() {Vlen = 0; ISA = ISA_CLASSES_NUM;}
+  VectorizationProperties(unsigned v, ISAClass i) {Vlen = v; ISA = i;}
+  VectorizationProperties(const VectorizationProperties& other) {
+    Vlen = other.Vlen;
+    ISA = other.ISA;
+  }
+  unsigned Vlen;
+  ISAClass ISA;
+};
+
+/// @brief Analysis that locates loops marked for vectorization and extracts
+/// the required vectorization parameters.
+class VectorizableLoopsAnalysis : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
+  VectorizableLoopsAnalysis() : FunctionPass(ID) {}
+  ~VectorizableLoopsAnalysis() {}
+  /// @brief Provides name of pass
+  virtual const char *getPassName() const {
+    return "VectorizableLoopsAnalysis";
+  }
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+    AU.setPreservesAll();
+    AU.addRequired<LoopInfoWrapperPass>();
+  }
+  virtual bool runOnFunction(Function &F);
+
+  /// @brief print data collected by the pass on the given module
+  /// @param OS stream to print the info regarding the module into
+  /// @param M pointer to the Module
+  void print(raw_ostream &OS, const Module *M) const;
+
+  /// @brief Get the loops marked for vectorization.
+  const std::map<Loop*, VectorizationProperties>& getLoops() const {
+    return m_loops;
+  }
+
+  /// @brief Return the loop being vectorized to which an instruction belongs.
+  /// Note: this naive helper method assumes it is called very infrequently.
+  /// If this is incorrect better modify it to cache its results or
+  /// pre-calculate them.
+  /// @param I the instruction under vectorization
+  Loop* getVectorizedLoop(const Instruction* I) const;
+
+  /// @brief return the vector length associated with a loop (it is an error if
+  // this loop is not one of the loops marked to-be-vectorized).
+  /// @param Loop the Loop to query
+  unsigned getVectorizationFactor(Loop* Loop) const {
+    auto it = getLoops().find(Loop);
+    return it->second.Vlen;
+  }
+
+  /// @brief return the vector length associated with an instruction based
+  /// on the loop-to-be-vectorized it belongs to (it is an error if there is
+  /// no such loop).
+  /// @param I the instruction to query
+  unsigned getVectorizationFactor(const Instruction* I) const {
+    return getVectorizationFactor(getVectorizedLoop(I));
+  }
+
+  /// @brief Get the blocks of all loops marked for vectorization. This method
+  /// is a utility function for the common operation of iterating/querying the
+  /// set of blocks the vectorizer actually handles. We don't cache the results
+  /// to avoid the need to invalidate/update them if LoopInfo is updated by some
+  /// pass.
+  inline const std::set<BasicBlock*> getAllVectorizedBlocks();
+
+private:
+
+  std::map<Loop*, VectorizationProperties> m_loops;
+
+  /// @brief Handle any to-be-vectorized loop in the given loop nest
+  /// @param Loop loop nest to operate on
+  void handleLoopNest(Loop& Loop);
+};
 
 /// @brief Work Item Analysis class used to provide information on
 ///  individual instructions. The analysis class detects values which
@@ -57,24 +140,6 @@ public:
     /// @param F Function to transform
     /// @return True if changed
     virtual bool runOnFunction(Function &F);
-
-    /// @brief Set the loop being vectorized
-    void initVectorizedLoop();
-
-    /// @brief Get the loop being vectorized (i.e. the SESE region that we
-    /// produce a xN version of).
-    /// @return The loop being vectorized
-    inline Loop* getVectorizedLoop() {
-      assert(m_vectorizedLoop && "WIAnalysis queried before running");
-      return m_vectorizedLoop;
-    }
-
-    /// @brief Get the depth of the loop being vectorized
-    /// @return The depth of the loop being vectorized
-    inline unsigned getVectorizedLoopDepth() {
-      assert(m_vectorizedLoop && "WIAnalysis queried before running");
-      return m_vectorizedLoopDepth;
-    }
 
     /// @brief Initialize root values
     /// Predefine the root values for the analysis. We assume the code is
@@ -137,6 +202,11 @@ public:
     /// @param val Value to invalidate
     void invalidateDepend(const Value* val);
 
+    /// @brief Check whether a value is marked piecewise-uniform
+    /// @param val Value to examine
+    /// @return true if value is marked piecewise-uniform, false otherwise.
+    bool isPiecewiseUniform(const Value *val);
+
 private:
     /*! \name Dependency Calculation Functions
      *  \{ */
@@ -144,6 +214,7 @@ private:
     /// @param inst Instruction to inspect
     /// @return Type of dependency.
     void calculate_dep(const Value* val);
+    WIDependancy calculate_dep(const ICmpInst* inst);
     WIDependancy calculate_dep(const BinaryOperator* inst);
     WIDependancy calculate_dep(const CallInst* inst);
     WIDependancy calculate_dep(const GetElementPtrInst* inst);
@@ -207,6 +278,7 @@ private:
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTree>();
       AU.addRequired<LoopInfoWrapperPass>();
+      AU.addRequired<VectorizableLoopsAnalysis>();
       AU.addRequired<BuiltinLibInfo>();
     }
 
@@ -235,12 +307,7 @@ private:
     DominatorTree *m_DT;
     PostDominatorTree *m_PDT;
     LoopInfo *m_LI;
-
-    /// The loop being vectorized
-    Loop* m_vectorizedLoop;
-
-    /// The depth of the loop being vectorized
-    unsigned m_vectorizedLoopDepth;
+    VectorizableLoopsAnalysis* m_VLA;
 
     //// Fields for the control flow divergence propagation
 
@@ -283,6 +350,11 @@ private:
 
     // the dimension over which we vectorize (usually 0).
     unsigned int m_vectorizedDim;
+
+    // Values classified as UNIFORM on a vectorization-iteration base.
+    // For WIAnalysis purposes these values behave as UNIFORM, but passes using
+    // the analysis may need to operate differently on such values.
+    std::set<const Value*> m_piecewiseUniform;
   };
 } // namespace
 

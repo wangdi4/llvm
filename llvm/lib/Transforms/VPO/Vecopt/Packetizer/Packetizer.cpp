@@ -160,16 +160,14 @@ bool PacketizeFunction::runOnFunction(Function &F)
 
   m_currFunc = &F;
   m_moduleContext = &(m_currFunc->getContext());
-  m_packetWidth = m_rtServices->getPacketizationWidth();
-
-  // Force command line packetization size
-  if (CLIPacketSize) m_packetWidth = CLIPacketSize;
-
-  V_ASSERT(1 <= m_packetWidth && MAX_PACKET_WIDTH >= m_packetWidth &&
-    "Requested packetization width out of range!");
+  m_loopBeingPacketized = nullptr;
+  m_packetWidth = 0;
 
   V_PRINT(packetizer, "\nStarting packetization of: " << m_currFunc->getName());
-  V_PRINT(packetizer, " to Width: " << m_packetWidth << "\n");
+
+  // Obtain VectorizableLoopsAnalysis of the function
+  m_VLA = &getAnalysis<VectorizableLoopsAnalysis>();
+  assert(m_VLA && "Unable to get VectorizableLoopsAnalysis");
 
   // Obtain WIAnalysis of the function
   m_depAnalysis = &getAnalysis<WIAnalysis>();
@@ -179,16 +177,9 @@ bool PacketizeFunction::runOnFunction(Function &F)
   m_soaAllocaAnalysis = &getAnalysis<SoaAllocaAnalysis>();
   V_ASSERT(m_soaAllocaAnalysis && "Unable to get pass");
 
-  // Prepare data structures for packetizing a new function (may still have
-  // data left from previous function vectorization)
+  // Prepare data structures to vectorize a new loop
   m_removedInsts.clear();
-  m_VCM.clear();
-  m_BAG.clear();
-  m_deferredResMap.clear();
-  m_deferredResOrder.clear();
-  releaseAllVCMEntries();
-  m_loadTranspMap.clear();
-  m_storeTranspMap.clear();
+  clearLoopRelatedDataStructures();
 
   V_STAT(
   V_PRINT(vectorizer_stat, "Packetizer Statistics on function "<<F.getName()<<":\n");
@@ -211,6 +202,14 @@ bool PacketizeFunction::runOnFunction(Function &F)
 
   // Before we packetize the loop, go over the entry BB's allocas and handle
   // any alloca marked as non-UNIFORM.
+  // FIXME: this should be done per-loop-being-packetized under the (asserted)
+  // assumption that privatization has already taken place, i.e. if an alloca
+  // is used in a vectorized loop it is either:
+  // (1) not used outside vectorized loops and all vectorized loops use the
+  // same vectorization-factor, or
+  // (2) already privatized such that each vectorization-factor has its
+  // own copy of the alloca.
+  // for now, let's hope all allocas are UNIFORM
   BasicBlock& EntryBB = F.getEntryBlock();
   for (auto ItI = EntryBB.begin(), ItE = EntryBB.end(); ItI != ItE; ++ItI) {
     AllocaInst* Alloca = dyn_cast<AllocaInst>(&*ItI);
@@ -225,17 +224,21 @@ bool PacketizeFunction::runOnFunction(Function &F)
   // following the one being packetized (so the iterator will "skip" any instructions
   // that are going to be added in the packetization work
   inst_iterator vI, vE;
-  for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
-    auto vI = vecLoopBB->begin();
-    auto vE = vecLoopBB->end();
-    while (vI != vE) {
-      Instruction *currInst = &*vI;
-      ++vI;
-      dispatchInstructionToPacketize(currInst);
+  for (auto& pair : m_VLA->getLoops()) {
+    setLoopBeingPacketized(pair.first, pair.second);
+    for (auto vecLoopBB : m_loopBeingPacketized->getBlocks()) {
+      auto vI = vecLoopBB->begin();
+      auto vE = vecLoopBB->end();
+      while (vI != vE) {
+        Instruction *currInst = &*vI;
+        ++vI;
+        dispatchInstructionToPacketize(currInst);
+      }
     }
+    resolveDeferredInstructions();
+    // Prepare data structures to vectorize a new loop
+    clearLoopRelatedDataStructures();
   }
-
-  resolveDeferredInstructions();
 
   // Iterate over removed instructions and delete them
   SmallPtrSet<Instruction*, ESTIMATED_INST_NUM>::iterator iterStart = m_removedInsts.begin();
@@ -298,13 +301,27 @@ bool PacketizeFunction::runOnFunction(Function &F)
   return true;
 }
 
+void PacketizeFunction::clearLoopRelatedDataStructures() {
+  // Prepare data structures for packetizing a new loop (may still have
+  // data left from previous function vectorization)
+  m_VCM.clear();
+  m_BAG.clear();
+  m_deferredResMap.clear();
+  m_deferredResOrder.clear();
+  releaseAllVCMEntries();
+  m_loadTranspMap.clear();
+  m_storeTranspMap.clear();
+}
+
 void PacketizeFunction::postponePHINodesAfterExtracts() {
-  bool somethingChanged = true;
-  while (somethingChanged) {
-    // if an extractElement uses a phi-node which uses another phi-node,
-    // we might need to iterate several times.
-    somethingChanged = false;
-    for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
+  for (auto& pair : m_VLA->getLoops()) {
+    setLoopBeingPacketized(pair.first, pair.second);
+    bool somethingChanged = true;
+    while (somethingChanged) {
+      // if an extractElement uses a phi-node which uses another phi-node,
+      // we might need to iterate several times.
+      somethingChanged = false;
+      for (auto vecLoopBB : m_loopBeingPacketized->getBlocks()) {
         BasicBlock* BB = vecLoopBB;
         // duplicate a vector of pointers to the instructions of BB,
         // to safely iterate over the instructions.
@@ -401,6 +418,7 @@ void PacketizeFunction::postponePHINodesAfterExtracts() {
             }
         }
     }
+  }
   }
 }
 
@@ -545,43 +563,46 @@ void PacketizeFunction::obtainTransposeAndStore(Instruction* SI, Value* storeAdd
 
 void PacketizeFunction::obtainTranspose() {
   // Go over all instructions and identify possible load + transpose, tranpose + store
-  for (auto vecLoopBB : m_depAnalysis->getVectorizedLoop()->getBlocks()) {
-    for (auto vI = vecLoopBB->begin(), vE = vecLoopBB->end(); vI != vE; ++vI) {
-      Instruction *I = &*vI;
+  for (auto& pair : m_VLA->getLoops()) {
+    setLoopBeingPacketized(pair.first, pair.second);
+    for (auto vecLoopBB : m_loopBeingPacketized->getBlocks()) {
+      for (auto vI = vecLoopBB->begin(), vE = vecLoopBB->end(); vI != vE; ++vI) {
+        Instruction *I = &*vI;
 
-      Value *Address = NULL, *Val = NULL;
-      bool isTranspose = false, isMasked = false, isStore = false;
-      // First, compute the parameters of the relevant transpose
-      if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
-        isTranspose = true;
-        Address = LI->getPointerOperand();
-      } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
-        isTranspose = true;
-        Address = SI->getPointerOperand();
-        Val = SI->getValueOperand();
-        isStore = true;
-      } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
-        // Handle masked versions of load and store
-        StringRef Name = CI->getCalledFunction()->getName();
-        if (Mangler::isMangledLoad(Name)) {
+        Value *Address = NULL, *Val = NULL;
+        bool isTranspose = false, isMasked = false, isStore = false;
+        // First, compute the parameters of the relevant transpose
+        if (LoadInst* LI = dyn_cast<LoadInst>(I)) {
           isTranspose = true;
-          Address = CI->getArgOperand(1);
-          isMasked = true;
-        } else if (Mangler::isMangledStore(Name)) {
+          Address = LI->getPointerOperand();
+        } else if (StoreInst* SI = dyn_cast<StoreInst>(I)) {
           isTranspose = true;
-          Val = CI->getArgOperand(1);
-          Address = CI->getArgOperand(2);
-          isMasked = true;
+          Address = SI->getPointerOperand();
+          Val = SI->getValueOperand();
           isStore = true;
+        } else if (CallInst* CI = dyn_cast<CallInst>(I)) {
+          // Handle masked versions of load and store
+          StringRef Name = CI->getCalledFunction()->getName();
+          if (Mangler::isMangledLoad(Name)) {
+            isTranspose = true;
+            Address = CI->getArgOperand(1);
+            isMasked = true;
+          } else if (Mangler::isMangledStore(Name)) {
+            isTranspose = true;
+            Val = CI->getArgOperand(1);
+            Address = CI->getArgOperand(2);
+            isMasked = true;
+            isStore = true;
+          }
         }
-      }
 
-      // Now, actually construct it.
-      if (isTranspose) {
-        if (isStore)
-          obtainTransposeAndStore(I, Address, Val, isMasked);
-        else
-          obtainLoadAndTranspose(I, Address, isMasked);
+        // Now, actually construct it.
+        if (isTranspose) {
+          if (isStore)
+            obtainTransposeAndStore(I, Address, Val, isMasked);
+          else
+            obtainLoadAndTranspose(I, Address, isMasked);
+        }
       }
     }
   }
@@ -631,6 +652,43 @@ void PacketizeFunction::dispatchInstructionToPacketize(Instruction *I)
       Value* retVal = returnInst->getReturnValue();
       if (retVal != NULL)
 	canUseOriginalInstruction = false;
+    }
+
+    if (m_depAnalysis->isPiecewiseUniform(I)) {
+      // This value is not truely UNIFORM, but rather behaves as UNIFORM on
+      // a vector-iteration base, which means it is computed from at least
+      // one non-UNIFORM value.
+      // In order to treat it as a regular UNIFORM value (i.e. just use the
+      // scalar value) we'll need to produce a UNIFORM value for each of its
+      // non-UNIFORM operands.
+      // Since for a given instruction
+      //    %inst = operation op1 op2 ... opN
+      // packetizable as:
+      //    %vinst = operation vop1, vop2, ... vopN
+      // the following holds:
+      //    extract-element %vinst, 0 == .. == extract-element %vinst, N
+      // which we can instead modify %inst to:
+      //    %sop1 = extract-element %vop1, 0
+      //         ...
+      //    %sopN = extract-element %vopN, 0
+      //    %inst = operation sop1 sop2 ... sopN
+      // TODO: make sure instructions are not packetized solely for the sake
+      // of this instruction (instead, reuse the scalar instruction).
+      for (unsigned i = 0U; i < I->getNumOperands(); ++i) {
+        Value* scalarOperand = I->getOperand(i);
+        if (WIAnalysis::UNIFORM == m_depAnalysis->whichDepend(scalarOperand))
+          continue;
+        Value* vectorizedOperand;
+        obtainVectorizedValue(&vectorizedOperand, scalarOperand, I);
+        assert(vectorizedOperand && "Expected to get the vectorized operand");
+        Value* zero = ConstantInt::get(Type::getInt32Ty(I->getContext()), 0);
+        Value *elemZero = ExtractElementInst::Create(vectorizedOperand,
+                                                     zero,
+                                                     "partialUniform",
+                                                     I);
+        I->setOperand(i, elemZero);
+      }
+      canUseOriginalInstruction = true;
     }
 
     if (canUseOriginalInstruction) {
@@ -737,33 +795,46 @@ void PacketizeFunction::duplicateNonPacketizableInst(Instruction *I)
   cloneNonPacketizableInst(I, &duplicateInsts[0]);
 
   // Replace operands in duplicates
-  unsigned numOperands = I->getNumOperands();
+  if (isa<CallInst>(I)) {
+    // Iterate over all arguments to the call and replace them
+    CallInst* ICall = cast<CallInst>(I);
+    for (unsigned op = 0; op < ICall->getNumArgOperands(); op++) {
+      Value * multiOperands[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(multiOperands, ICall->getArgOperand(op), I);
 
-  // Iterate over all operands and replace them
-  for (unsigned op = 0; op < numOperands; op++) {
-    Value * multiOperands[MAX_PACKET_WIDTH];
-    obtainMultiScalarValues(multiOperands, I->getOperand(op), I);
-
-    if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
-      // Need to fix Load/Store instruction pointer operand
-      fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
-    }
-    // Set scalar operand into cloned scalar instruction
-    if (isa<CallInst>(I)) {
+      if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+        // Need to fix Load/Store instruction pointer operand
+        fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
+      }
       for (unsigned i = 0; i < m_packetWidth; i++) {
-        V_ASSERT(cast<CallInst>(duplicateInsts[i])->getArgOperand(op)->getType() == multiOperands[i]->getType() &&
-          "original operand type is different than new operand type");
-        cast<CallInst>(duplicateInsts[i])->setArgOperand(op, multiOperands[i]);
+        CallInst* OpCall = cast<CallInst>(duplicateInsts[i]);
+        V_ASSERT(OpCall->getArgOperand(op)->getType() ==
+                 multiOperands[i]->getType() &&
+                 "original operand type is different than new operand type");
+        OpCall->setArgOperand(op, multiOperands[i]);
       }
     }
-    else {
+  }
+  else {
+    unsigned numOperands = I->getNumOperands();
+    // Iterate over all operands and replace them
+    for (unsigned op = 0; op < numOperands; op++) {
+      Value * multiOperands[MAX_PACKET_WIDTH];
+      obtainMultiScalarValues(multiOperands, I->getOperand(op), I);
+
+      if (m_soaAllocaAnalysis->isSoaAllocaScalarRelated(I)) {
+        // Need to fix Load/Store instruction pointer operand
+        fixSoaAllocaLoadStoreOperands(I, op, &multiOperands[0]);
+      }
       for (unsigned i = 0; i < m_packetWidth; i++) {
-        V_ASSERT(duplicateInsts[i]->getOperand(op)->getType() == multiOperands[i]->getType() &&
-          "original operand type is different than new operand type");
+        V_ASSERT(duplicateInsts[i]->getOperand(op)->getType() ==
+                 multiOperands[i]->getType() &&
+                 "original operand type is different than new operand type");
         duplicateInsts[i]->setOperand(op, multiOperands[i]);
       }
     }
   }
+
   // Add new value/s to VCM
   createVCMEntryWithMultiScalarValues(I, duplicateInsts);
   // Add new instructions into function
