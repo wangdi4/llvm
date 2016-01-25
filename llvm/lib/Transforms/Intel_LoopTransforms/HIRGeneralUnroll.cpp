@@ -487,6 +487,7 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
 
   // Update the loop upper bound.
   if (IsConstLoop) {
+    assert((NewBound > 0) && " NewBound cannot be zero or less.");
     NewLoop->getUpperCanonExpr()->setConstant(NewBound);
   } else {
 
@@ -507,6 +508,7 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
   }
 
   // Set the code gen for modified region
+  assert(NewLoop->getParentRegion() && " Loop does not have a parent region.");
   NewLoop->getParentRegion()->setGenCode();
 
   return NewLoop;

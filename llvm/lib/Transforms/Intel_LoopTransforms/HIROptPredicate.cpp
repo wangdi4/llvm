@@ -439,6 +439,7 @@ void HIROptPredicate::transformLoop(HLLoop *OrigLoop, HLIf *If,
   HIRInvalidationUtils::invalidateBody(OrigLoop);
 
   // Set the code gen for modified region
+  assert(OrigLoop->getParentRegion() && " Loop does not have a parent region.");
   OrigLoop->getParentRegion()->setGenCode();
 }
 

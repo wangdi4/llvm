@@ -393,6 +393,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
     HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
   }
 
+  assert(Loop->getParentRegion() && " Loop does not have a parent region.");
   Loop->getParentRegion()->setGenCode();
 
   // Invalidate all analysis for the loop.
