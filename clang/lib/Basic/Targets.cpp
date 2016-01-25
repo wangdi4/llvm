@@ -3621,9 +3621,7 @@ public:
     LongDoubleWidth = 96;
     LongDoubleAlign = 32;
     SuitableAlign = 128;
-    DataLayoutString = Triple.isOSIAMCU()
-                           ? "e-m:e-p:32:32-i64:32-f64:32-n8:16:32-a:0:32-S32"
-                           : "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
+    DataLayoutString = "e-m:e-p:32:32-f64:32:64-f80:32-n8:16:32-S128";
     SizeType = UnsignedInt;
     PtrDiffType = SignedInt;
     IntPtrType = SignedInt;
@@ -3862,6 +3860,10 @@ public:
   MCUX86_32TargetInfo(const llvm::Triple &Triple) : X86_32TargetInfo(Triple) {
     LongDoubleWidth = 64;
     LongDoubleFormat = &llvm::APFloat::IEEEdouble;
+#if INTEL_CUSTOMIZATION
+    DataLayoutString =
+      "e-m:e-p:32:32-i64:32-f64:32-f128:32-n8:16:32-a:0:32-S32";
+#endif // INTEL_CUSTOMIZATION
   }
 
   CallingConvCheckResult checkCallingConvention(CallingConv CC) const override {

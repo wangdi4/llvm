@@ -1660,8 +1660,10 @@ TypeInfo ASTContext::getTypeInfoImpl(const Type *T) const {
     case BuiltinType::Float128:
       Width = LangOpts.Float128 ? 128 : Target->getLongDoubleWidth();
       Align = LangOpts.Float128 ? 128 : Target->getLongDoubleAlign();
+      if (Target->getTriple().isOSIAMCU())
+        Align = Target->getLongDoubleAlign();
       break;
-#endif  // INTEL_CUSTOMIZATION
+#endif // INTEL_CUSTOMIZATION
     case BuiltinType::Float:
       Width = Target->getFloatWidth();
       Align = Target->getFloatAlign();
@@ -1909,11 +1911,11 @@ unsigned ASTContext::getPreferredTypeAlign(const Type *T) const {
   // The preferred alignment of member pointers is that of a pointer.
   if (T->isMemberPointerType())
     return getPreferredTypeAlign(getPointerDiffType().getTypePtr());
-
-  if (Target->getTriple().getArch() == llvm::Triple::xcore ||
+  #if INTEL_CUSTOMIZATION
+	if (Target->getTriple().getArch() == llvm::Triple::xcore ||
       Target->getTriple().isOSIAMCU())
     return ABIAlign;  // Never overalign on XCore and IAMCU.
-
+  #endif // INTEL_CUSTOMIZATION
   // Double and long long should be naturally aligned if possible.
   if (const ComplexType *CT = T->getAs<ComplexType>())
     T = CT->getElementType().getTypePtr();
