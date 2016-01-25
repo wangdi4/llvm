@@ -1578,7 +1578,8 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 
   auto IndexCE = CanonExprUtils::createCanonExpr(IndexTy);
 
-  parseRecursive(IndexSCEV, IndexCE, Level);
+  // Disable cast hiding to prevent possible merging issues.
+  parseRecursive(IndexSCEV, IndexCE, Level, true, true);
 
   return IndexCE;
 }
@@ -1628,7 +1629,8 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
         IndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
         parseRecursive(BaseSCEV, BaseCE, Level);
-        parseRecursive(OffsetSCEV, IndexCE, Level);
+        // Disable cast hiding to prevent possible merging issues.
+        parseRecursive(OffsetSCEV, IndexCE, Level, true, true);
 
         // Normalize with repsect to element size.
         IndexCE->divide(ElementSize, true);
@@ -1662,7 +1664,7 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     assert((2 == GEPOp->getNumOperands()) &&
            "Unexpected number of GEP operands!");
 
-    auto OpIndexCE = parse(GEPOp->getOperand(1), Level);
+    auto OpIndexCE = parse(GEPOp->getOperand(1), Level, IndexCE->isZero());
 
     // Workaround to allow merge with zero until mergeable() is extended.
     if (!OpIndexCE->isZero()) {

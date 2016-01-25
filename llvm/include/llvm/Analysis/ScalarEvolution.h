@@ -270,9 +270,17 @@ namespace llvm {
       // belonging to parents of this loop.
       const Loop *OutermostLoop;
 
-    public:
-      HIRInfoS() { reset(); } 
+      // Used to differentiate between constructed and copy constructed objects.
+      HIRInfoS *Initializer;
 
+    public:
+      HIRInfoS() : Initializer(nullptr) { reset(); } 
+
+      // Copy construction is a hack to disable HIR mode temporarily.
+      HIRInfoS(HIRInfoS&);
+      // Destructor restores the initializer, if it exists.
+      ~HIRInfoS(); 
+ 
       bool isValid() const { return IsValid; }
       const Loop *getOutermostLoop() const { return OutermostLoop; }
 

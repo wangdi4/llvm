@@ -3332,6 +3332,20 @@ const SCEV *ScalarEvolution::getExistingSCEV(Value *V) {
 
 #if INTEL_CUSTOMIZATION // HIR parsing 
 
+ScalarEvolution::HIRInfoS::HIRInfoS(HIRInfoS& InitObj) 
+  : IsValid(InitObj.IsValid), OutermostLoop(InitObj.OutermostLoop)
+  , Initializer(&InitObj) {
+  Initializer->reset(); 
+}
+  
+ScalarEvolution::HIRInfoS::~HIRInfoS() {
+  // Restore initailizer object.
+  if (Initializer) {
+    Initializer->IsValid = IsValid;
+    Initializer->OutermostLoop = OutermostLoop;
+  }
+}
+
 /// Validates SCEV by checking whether it contains AddRecs for a loop whch is 
 /// not contained in OutermostHIRLoop. If OutermostHIRLoop is null, presence
 /// of any AddRec invalidates the SCEV.
@@ -4240,6 +4254,15 @@ ScalarEvolution::getRange(const SCEV *S,
   DenseMap<const SCEV *, ConstantRange> &Cache =
       SignHint == ScalarEvolution::HINT_RANGE_UNSIGNED ? UnsignedRanges
                                                        : SignedRanges;
+
+#if INTEL_CUSTOMIZATION // HIR parsing
+  // Disable HIR mode for analysis. In addition to improving analysis, this 
+  // also prevents infinite recursion in ScalarEvolution. Refer to comments for
+  // getBackedgeTakenInfo().
+  // Copy-construction is a hack to temporarily disable the HIR mode and 
+  // restore it at the end of the function.
+  HIRInfoS SavedHIRInfo(HIRInfo);
+#endif //INTEL_CUSTOMIZATION
 
   // See if we've computed this range already.
   DenseMap<const SCEV *, ConstantRange>::iterator I = Cache.find(S);
