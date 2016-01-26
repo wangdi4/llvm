@@ -60,6 +60,8 @@ std::unordered_map<int, StringRef> VPOUtils::DirectiveStrings = {
     "DIR.OMP.END.PARALLEL.WORKSHARE" },
   { DIR_OMP_SECTION,
     "DIR.OMP.SECTION" },
+  { DIR_OMP_END_SECTION,
+    "DIR.OMP.END.SECTION" },
   { DIR_OMP_SINGLE,
     "DIR.OMP.SINGLE" },
   { DIR_OMP_END_SINGLE,
@@ -433,6 +435,7 @@ bool VPOUtils::isBeginDirective(int DirID) {
   case DIR_OMP_PARALLEL_LOOP:
   case DIR_OMP_LOOP_SIMD:
   case DIR_OMP_PARALLEL_LOOP_SIMD:
+  case DIR_OMP_SECTION:
   case DIR_OMP_SECTIONS:
   case DIR_OMP_PARALLEL_SECTIONS:
   case DIR_OMP_WORKSHARE:
@@ -480,6 +483,7 @@ bool VPOUtils::isEndDirective(int DirID) {
   case DIR_OMP_END_PARALLEL_LOOP:
   case DIR_OMP_END_LOOP_SIMD:
   case DIR_OMP_END_PARALLEL_LOOP_SIMD:
+  case DIR_OMP_END_SECTION:
   case DIR_OMP_END_SECTIONS:
   case DIR_OMP_END_PARALLEL_SECTIONS:
   case DIR_OMP_END_WORKSHARE:
@@ -533,7 +537,6 @@ bool VPOUtils::isSoloDirective(StringRef DirString) {
 
 bool VPOUtils::isSoloDirective(int DirID) {
   switch(DirID) {
-  case DIR_OMP_SECTION:
   case DIR_OMP_BARRIER:
   case DIR_OMP_TASKWAIT:
   case DIR_OMP_TASKYIELD:
