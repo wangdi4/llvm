@@ -964,7 +964,15 @@ LValue CodeGenFunction::EmitLValue(const Expr *E) {
   ApplyDebugLocation DL(*this, E);
   switch (E->getStmtClass()) {
   default: return EmitUnsupportedLValue(E, "l-value expression");
-
+#ifdef INTEL_CUSTOMIZATION
+  case Expr::CEANBuiltinExprClass: {
+    auto *CBE = cast<CEANBuiltinExpr>(E);
+    LocalVarsDeclGuard Guard(*this);
+    EmitCEANBuiltinExprBody(CBE);
+    assert(CBE->getBuiltinKind() != CEANBuiltinExpr::ReduceMutating);
+    return EmitLValue(CBE->getReturnExpr());
+  }
+#endif // INTEL_CUSTOMIZATION
   case Expr::ObjCPropertyRefExprClass:
     llvm_unreachable("cannot emit a property reference directly");
 
