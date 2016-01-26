@@ -710,6 +710,7 @@ void InlineReport::makeCurrent(Module* M, Function* F) {
         continue; 
       } 
       InlineReportCallSite* IRCS = addCallSite(F, &CS, M); 
+      assert(IRCS != nullptr); 
       IRCS->setReason(NinlrNewlyCreated); 
     } 
   } 
