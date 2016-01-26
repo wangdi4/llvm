@@ -400,10 +400,8 @@ void HLInst::verify() const {
   HLDDNode::verify();
 
   if (IsSelectCmpTrueFalse) {
-    const RegDDRef *R1 = getOperandDDRef(1);
-    const RegDDRef *R2 = getOperandDDRef(2);
-
-    assert(R1->containsUndef() && R2->containsUndef() &&
+    assert(getOperandDDRef(1)->containsUndef() &&
+           getOperandDDRef(2)->containsUndef() &&
            "DDRefs for Select or Cmp Instruction with "
            "True or False predicate must be undefined");
   }

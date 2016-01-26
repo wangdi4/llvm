@@ -456,10 +456,7 @@ HLIf *HLLoop::removeZtt() {
 }
 
 CanonExpr *HLLoop::getLoopCanonExpr(RegDDRef *Ref) {
-  if (!Ref) {
-    return nullptr;
-  }
-
+  assert(Ref && "RegDDRef can not be null");
   return Ref->getSingleCanonExpr();
 }
 

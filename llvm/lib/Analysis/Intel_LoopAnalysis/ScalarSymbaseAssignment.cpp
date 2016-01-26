@@ -122,6 +122,7 @@ const Value *ScalarSymbaseAssignment::getBaseScalar(unsigned Symbase) const {
 #endif
   }
 
+  assert(RetVal && "Unexpected null value in RetVal");
   return RetVal;
 }
 
@@ -179,7 +180,7 @@ ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 unsigned
 ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                                       bool Assign) {
-  unsigned Symbase;
+  unsigned Symbase = CONSTANT_SYMBASE;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
   // dependencies.

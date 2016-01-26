@@ -930,13 +930,7 @@ void CanonExpr::simplify() {
     NumeratorGCD = simplifyGCDHelper(NumeratorGCD, I->Coeff);
   }
 
-  // Numerator is zero, nothing to simplify...
-  if (NumeratorGCD == -1) {
-    return;
-  }
-
-  // Get common gcd of numerator and denominator.
-  CommonGCD = CanonExprUtils::gcd(NumeratorGCD, Denom);
+  CommonGCD = simplifyGCDHelper(NumeratorGCD, Denom);
 
   // Cannot simplify any further.
   if (CommonGCD == 1) {

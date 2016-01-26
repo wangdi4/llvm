@@ -142,6 +142,10 @@ struct Segment {
     dbgs() << "]\n";
   }
 #endif
+
+  Type *getType() const {
+    return Lower->getDestType();
+  }
 };
 
 // The class represents a floating constant length memory segment that depends
@@ -161,13 +165,14 @@ class IVSegment {
                                    const CanonExpr *By);
 
   static RegDDRef *genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-                                      const CanonExpr *Expr);
+                                      const RegDDRef *BoundRef);
 
 public:
   IVSegment(const DDRefGrouping::RefGroupTy &Group);
 
-  Segment genLUSegment(unsigned Level, int64_t Stride, const CanonExpr *LCE,
-                       const CanonExpr *UCE) const;
+  Segment genLUSegment(unsigned Level, int64_t Stride,
+                       const RegDDRef *LowerBoundRef,
+                       const RegDDRef *UpperBoundRef) const;
 
   bool isWrite() const { return IsWrite; }
 
@@ -219,12 +224,14 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
 
 // Generates Segment, by replacing IV at Level with the Lower CE and Upper CE.
 Segment IVSegment::genLUSegment(unsigned Level, int64_t Stride,
-                                const CanonExpr *LCE,
-                                const CanonExpr *UCE) const {
+                                const RegDDRef *LowerBoundRef,
+                                const RegDDRef *UpperBoundRef) const {
   int64_t IVCoeff = (*getLower()->canon_begin())->getIVConstCoeff(Level);
 
-  auto *Ref1 = genAddressOfAccess(Lower, Level, Stride > 0 ? LCE : UCE);
-  auto *Ref2 = genAddressOfAccess(Upper, Level, Stride > 0 ? UCE : LCE);
+  auto *Ref1 = genAddressOfAccess(Lower, Level,
+      Stride > 0 ? LowerBoundRef : UpperBoundRef);
+  auto *Ref2 = genAddressOfAccess(Upper, Level,
+      Stride > 0 ? UpperBoundRef : LowerBoundRef);
 
   if (DDRefUtils::areEqual(Ref1, Ref2)) {
     Ref1->setSymbase(Symbase1);
@@ -260,20 +267,19 @@ void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
 }
 
 RegDDRef *IVSegment::genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-                                        const CanonExpr *Expr) {
+                                        const RegDDRef *BoundRef) {
+
+  assert(BoundRef->isTerminalRef() && "BoundRef should be a terminal reference.");
 
   RegDDRef *Result = Ref->clone();
   CanonExpr *InnerSub = *Result->canon_begin();
 
-  replaceIVByCanonExpr(InnerSub, Level, Expr);
+  replaceIVByCanonExpr(InnerSub, Level, BoundRef->getSingleCanonExpr());
+
+  SmallVector<const RegDDRef *, 1> AuxRefs {BoundRef};
+  Result->makeConsistent(&AuxRefs, Level);
 
   Result->setAddressOf(true);
-
-  SmallVector<BlobDDRef *, 6> NewBlobs;
-  Result->updateBlobDDRefs(NewBlobs);
-  // TODO: Also update DefineAtLevel property for newly added blobs.
-  // A new utility will consume NewBlobs vector + origin RegDDRef, which can be
-  // loop lower or upper bound.
 
   return Result;
 }
@@ -393,7 +399,8 @@ private:
   // \brief Returns required DD tests for an arbitrary loop L.
   static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
 
-  HLIf *createIfStmtForIntersection(Segment &S1, Segment &S2) const;
+  HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
+                                    Segment &S2) const;
 
   // \brief Modifies HIR implementing specified tests.
   void generateDDTest(LoopCandidate &Candidate) const;
@@ -471,41 +478,51 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
     Candidate.GenTripCountTest = false;
   }
 
-  auto LCE = Loop->getLowerCanonExpr();
-  auto UCE = Loop->getUpperCanonExpr();
+  auto LowerBoundDD = Loop->getLowerDDRef();
+  auto UpperBoundDD = Loop->getUpperDDRef();
   auto Level = Loop->getNestingLevel();
 
   MemRefGatherer::MapTy RefMap;
   DDRefGrouping::RefGroupsTy Groups;
 
   MemRefGatherer::gather(Loop, RefMap);
+  DEBUG(MemRefGatherer::dump(RefMap));
+
   MemRefGatherer::sort(RefMap);
+  DEBUG(MemRefGatherer::dump(RefMap));
   MemRefGatherer::makeUnique(RefMap);
+  DEBUG(MemRefGatherer::dump(RefMap));
 
   DDRefGrouping::createGroups(Groups, RefMap, Level, 0);
 
   DEBUG(DDRefGrouping::dump(Groups));
 
-  if (Groups.size() * (Groups.size() - 1) / 2 > MaximumNumberOfTests) {
+  unsigned GroupSize = Groups.size();
+
+  if (GroupSize < 2) {
+    return NO_OPPORTUNITIES;
+  }
+
+  if (GroupSize * (GroupSize - 1) / 2 > MaximumNumberOfTests) {
     return TOO_MANY_TESTS;
   }
 
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   SmallVector<RuntimeDDResult, ExpectedNumberOfTests> Supported;
-  for (unsigned i = 0; i < Groups.size(); ++i) {
-    IVSegments.push_back(IVSegment(Groups[i]));
+  for (unsigned I = 0; I < GroupSize; ++I) {
+    IVSegments.push_back(IVSegment(Groups[I]));
     Supported.push_back(isSegmentSupported(IVSegments.back(), Loop, Level));
   }
 
-  for (unsigned i = 0; i < IVSegments.size() - 1; ++i) {
-    IVSegment &S1 = IVSegments[i];
+  for (unsigned I = 0, IE = IVSegments.size() - 1; I < IE; ++I) {
+    IVSegment &S1 = IVSegments[I];
 
-    for (unsigned j = i + 1; j < IVSegments.size(); ++j) {
-      if (Groups[i].front()->getSymbase() != Groups[j].front()->getSymbase()) {
+    for (unsigned J = I + 1, JE = IVSegments.size(); J < JE; ++J) {
+      if (Groups[I].front()->getSymbase() != Groups[J].front()->getSymbase()) {
         break;
       }
 
-      IVSegment &S2 = IVSegments[j];
+      IVSegment &S2 = IVSegments[J];
 
       // Skip Read-Read segments
       if (!S1.isWrite() && !S2.isWrite()) {
@@ -515,17 +532,19 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
       // Check if both segments are OK. Unsupported segment may
       // not be a problem, if there is no another overlapped segment.
       RuntimeDDResult Res;
-      Res = Supported[i];
+      Res = Supported[I];
       if (Res != OK) {
         return Res;
       }
-      Res = Supported[j];
+      Res = Supported[J];
       if (Res != OK) {
         return Res;
       }
 
-      Candidate.SegmentList.push_back(S1.genLUSegment(Level, Stride, LCE, UCE));
-      Candidate.SegmentList.push_back(S2.genLUSegment(Level, Stride, LCE, UCE));
+      Candidate.SegmentList.push_back(S1.genLUSegment(Level, Stride,
+          LowerBoundDD, UpperBoundDD));
+      Candidate.SegmentList.push_back(S2.genLUSegment(Level, Stride,
+          LowerBoundDD, UpperBoundDD));
     }
   }
 
@@ -536,16 +555,37 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   return OK;
 }
 
-HLIf *HIRRuntimeDD::createIfStmtForIntersection(Segment &S1,
-                                                Segment &S2) const {
-  RegDDRef *Bounds[] = {
-      S1.Lower /* 0 */, S1.Upper /* 1 */, S2.Lower /* 2 */, S2.Upper /* 3 */,
-  };
+HLIf *HIRRuntimeDD::createIfStmtForIntersection(
+    HLContainerTy &Nodes,
+    Segment &S1, Segment &S2) const {
+  Segment *S[] = { &S1, &S2 };
+  Type *S1Type = S[0]->getType()->getPointerElementType();
+  Type *S2Type = S[1]->getType()->getPointerElementType();
 
-  HLIf *If =
-      HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE, Bounds[1], Bounds[2]);
-  If->addPredicate(PredicateTy::ICMP_UGE, Bounds[3], Bounds[0]);
+  // In case of different types, bitcast one segment bounds to another to
+  // be in compliance with LLVM IR. (see ex. in lit test ptr-types.ll)
+  if (S1Type != S2Type) {
+    unsigned BiggerTypeIdx =
+        S1Type->getPrimitiveSizeInBits() >
+        S2Type->getPrimitiveSizeInBits() ? 0 : 1;
 
+    Segment *BS = S[BiggerTypeIdx];
+    Type *DestType = S[!BiggerTypeIdx]->getType();
+
+    HLInst *BCIL = HLNodeUtils::createBitCast(DestType, BS->Lower);
+    HLInst *BCIU = HLNodeUtils::createBitCast(DestType, BS->Upper);
+    Nodes.push_back(BCIL);
+    Nodes.push_back(BCIU);
+
+    BS->Lower = BCIL->getLvalDDRef()->clone();
+    BS->Upper = BCIU->getLvalDDRef()->clone();
+  }
+
+  HLIf *If = HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE,
+      S1.Upper, S2.Lower);
+  If->addPredicate(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower);
+
+  Nodes.push_back(If);
   return If;
 }
 
@@ -577,10 +617,11 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
     auto &S1 = Candidate.SegmentList[i];
     auto &S2 = Candidate.SegmentList[i + 1];
 
-    HLIf *DDCheck = createIfStmtForIntersection(S1, S2);
+    HLContainerTy Nodes;
+    HLIf *DDCheck = createIfStmtForIntersection(Nodes, S1, S2);
 
     HLNodeUtils::insertAsFirstChild(DDCheck, OrigGoto->clone(), true);
-    HLNodeUtils::insertBefore(OrigLabel, DDCheck);
+    HLNodeUtils::insertBefore(OrigLabel, &Nodes);
   }
 
   HLGoto *EscapeGoto = HLNodeUtils::createHLGoto(EscapeLabel);
@@ -595,6 +636,7 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
   HLNodeUtils::insertBefore(EscapeGoto, MVLoop);
 
   HLRegion *ParentRegion = Candidate.Loop->getParentRegion();
+  assert(ParentRegion && "Processed loop is not attached.");
   ParentRegion->setGenCode(true);
 
   if (HLLoop *ParentLoop = Candidate.Loop->getParentLoop()) {

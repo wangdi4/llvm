@@ -608,8 +608,7 @@ public:
   void collectTempBlobIndices(SmallVectorImpl<unsigned> &Indices,
                               bool MakeUnique = true) const;
 
-  /// \brief Simplifies canon expr by dividing numerator and denominator by
-  /// common gcd.
+  /// \brief Simplifies canon expr by dividing numerator and denominator by gcd.
   void simplify();
 
   /// \brief Multiplies the canon expr by Val.

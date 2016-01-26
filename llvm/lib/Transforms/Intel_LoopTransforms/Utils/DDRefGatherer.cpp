@@ -25,12 +25,6 @@ using namespace llvm::loopopt;
 // Compares the CanonExpr associated with a memory reference
 bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
                                          const CanonExpr *BCanon) {
-
-  // TODO: handle type comparison.
-  // Not sure, if this is necessary at all.
-  // assert(CanonExprUtils::isTypeEqual(ACanon, BCanon) &&
-  //       " Handle Canon Expr type comparison.");
-
   // Check the number of IV's.
   if (ACanon->numIVs() != BCanon->numIVs())
     return (ACanon->numIVs() < BCanon->numIVs());
@@ -70,6 +64,27 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
   if ((ACanon->getDenominator() != 1) &&
       (ACanon->isSignedDiv() != BCanon->isSignedDiv())) {
     return ACanon->isSignedDiv();
+  }
+
+  // If ACanon and BCanon have incompatible types, order them using type info.
+  if (!CanonExprUtils::mergeable(ACanon, BCanon)) {
+    Type *TypeA = ACanon->getDestType();
+    Type *TypeB = BCanon->getDestType();
+
+    // Get pointer element type (i32 from i32*) to make different pointer types
+    // be grouped together during sorting: (i32*, i32*, i64*, i64*, ...)
+    while (TypeA->isPointerTy() && TypeB->isPointerTy()) {
+      TypeA = TypeA->getPointerElementType();
+      TypeB = TypeB->getPointerElementType();
+    }
+
+    // Separate by type ID.
+    if (TypeA->getTypeID() != TypeB->getTypeID()) {
+      return TypeA->getTypeID() < TypeB->getTypeID();
+    }
+
+    // Separate types with the same ID by type size.
+    return TypeA->getPrimitiveSizeInBits() < TypeB->getPrimitiveSizeInBits();
   }
 
   // Assert, since the two canon expr should differ atleast one case,

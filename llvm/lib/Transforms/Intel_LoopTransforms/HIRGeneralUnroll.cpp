@@ -434,7 +434,7 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
     // Create DDRef for Unroll Factor.
     RegDDRef *UFDD =
         DDRefUtils::createConstDDRef(Ref->getDestType(), UnrollFactor);
-    TempInst = HLNodeUtils::createUDiv(Ref, UFDD, nullptr, "tgu");
+    TempInst = HLNodeUtils::createUDiv(Ref, UFDD, "tgu");
   } else {
     SmallVector<BlobDDRef *, 4> NewBlobRefs;
 
@@ -456,7 +456,7 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
       NewBlobRefs[0]->setDefinedAtLevel(TripCE->getDefinedAtLevel());
     }
 
-    TempInst = HLNodeUtils::createCopyInst(Ref, nullptr, "tgu");
+    TempInst = HLNodeUtils::createCopyInst(Ref, "tgu");
   }
   HLNodeUtils::insertBefore(const_cast<HLLoop *>(OrigLoop), TempInst);
   *NewRef = TempInst->getLvalDDRef();
