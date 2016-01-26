@@ -224,19 +224,6 @@ void ProgramBuilder::ParseProgram(Program* pProgram)
     }
 }
 
-void ProgramBuilder::ParseSPIRVProgram(Program* pProgram)
-{
-    try
-    {
-        assert(!CheckIfProgramHasCachedExecutable(pProgram) && "Program must not be loaded from cache");
-        pProgram->SetModule(GetCompiler()->ParseSPIRVModule(Utils::GetProgramMemoryBuffer(pProgram)));
-    }
-    catch(Exceptions::CompilerException& e)
-    {
-        throw Exceptions::DeviceBackendExceptionBase(e.what());
-    }
-}
-
 cl_dev_err_code ProgramBuilder::BuildProgram(Program* pProgram, const ICLDevBackendOptions* pOptions)
 {
     assert(pProgram && "Program parameter must not be NULL");
