@@ -1018,15 +1018,21 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
     {
     case CL_DEVICE_SVM_CAPABILITIES:
         {
-            cl_device_id gpuDevice = OCLCRT::crt_ocl_module.GetDeviceByType( CL_DEVICE_TYPE_GPU );
-            CrtDeviceInfo* gpuDeviceInfo =
-                                OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(gpuDevice);
+            // When CPU and GPU are available we ask GPU for SVM capabilities due to GPU will own SVM memory,
+            cl_device_id device = NULL;
+            if(OCLCRT::crt_ocl_module.m_availableDeviceTypes & CL_DEVICE_TYPE_GPU)
+                device = OCLCRT::crt_ocl_module.GetDeviceByType( CL_DEVICE_TYPE_GPU );
+            else
+                device = OCLCRT::crt_ocl_module.GetDeviceByType( CL_DEVICE_TYPE_CPU );
 
-            retCode = gpuDeviceInfo->m_origDispatchTable.clGetDeviceInfo(gpuDevice,
-                                                                         param_name,
-                                                                         param_value_size,
-                                                                         param_value,
-                                                                         param_value_size_ret);
+            CrtDeviceInfo* deviceInfo =
+                                OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
+
+            retCode = deviceInfo->m_origDispatchTable.clGetDeviceInfo( device,
+                                                                       param_name,
+                                                                       param_value_size,
+                                                                       param_value,
+                                                                       param_value_size_ret);
         }
         break;
     default:
