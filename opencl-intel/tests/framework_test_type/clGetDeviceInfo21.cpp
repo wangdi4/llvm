@@ -7,7 +7,7 @@ void CL21::GetDeviceInfo_INDEPENDENT_PROGRESS() const
     cl_bool ifp_supported = CL_TRUE;
     size_t ret_size = 0;
     iRet = clGetDeviceInfo(m_device,
-                           CL_DEVICE_SUBGROUP_INDEPENDENT_FORWARD_PROGRESS,
+                           CL_DEVICE_SUB_GROUP_INDEPENDENT_FORWARD_PROGRESS,
                            sizeof(ifp_supported),
                            &ifp_supported,
                            &ret_size);
