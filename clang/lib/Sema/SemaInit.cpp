@@ -4908,8 +4908,19 @@ void InitializationSequence::InitializeFrom(Sema &S,
       Initializer && isa<AddrLabelExpr>(Initializer->IgnoreParenImpCasts()) &&
       Entity.getKind() == InitializedEntity::EK_Variable &&
       cast<VarDecl>(Entity.getDecl())->isStaticLocal()) {
-    SetFailed(FK_StaticLabelAddress);
-    return;
+    // Fix for CQ380936: compiler failed with assertion "it !=
+    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
+    // Address of the label should not be stored in static variable inside a
+    // constructor, because constructor overloading produces another one
+    // function with the same static variable.
+    DeclContext *DC = S.getFunctionLevelDeclContext();
+    while (isa<RecordDecl>(DC))
+      DC = DC->getParent();
+    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
+      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic()) {
+        SetFailed(FK_StaticLabelAddress);
+        return;
+      }
   }
 #endif
 
@@ -7312,13 +7323,13 @@ bool InitializationSequence::Diagnose(Sema &S,
   case FK_StaticLabelAddress:
     // Fix for CQ#374664: After promotion xmain becomes too strict on
     // initialization of static variable with label address.
-    DeclContext *DC = S.getFunctionLevelDeclContext();
-    while (isa<RecordDecl>(DC))
-      DC = DC->getParent();
-    if (auto *CCD = dyn_cast<CXXConstructorDecl>(DC))
-      if (CCD->getType()->getAs<FunctionProtoType>()->isVariadic())
-        S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
-            << Args[0]->getSourceRange();
+    // Fix for CQ380936: compiler failed with assertion "it !=
+    // OpaqueRValues.end() && no mapping for opaque value!" on pointer test.
+    // Address of the label should not be stored in static variable inside a
+    // constructor, because constructor overloading produces another one
+    // function with the same static variable.
+    S.Diag(Kind.getLocation(), diag::err_static_variable_with_label_addr)
+        << Args[0]->getSourceRange();
     break;
 #endif // INTEL_CUSTOMIZATION
   }
