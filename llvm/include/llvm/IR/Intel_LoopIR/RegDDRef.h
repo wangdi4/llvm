@@ -129,7 +129,7 @@ protected:
 
   /// \brief Returns maximum blob level amongst the blobs in the vector. If a
   /// non-linear blob is found, -1 is returned.
-  int findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices);
+  int findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) const;
 
   /// \brief Updates def level of CE based on the level of the blobs present in
   /// CE. DDRef is assumed to have the passed in NestingLevel.
@@ -329,10 +329,18 @@ public:
 
   /// \brief Returns the canon expr (dimension) of this DDRef at specified
   /// position. DimensionNum must be within [1, getNumDimensions()].
-  CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
+  CanonExpr *getDimensionIndex(unsigned DimensionNum) {
     assert(isDimensionValid(DimensionNum) && " DimensionNum is invalid!");
     return CanonExprs[DimensionNum - 1];
   }
+  const CanonExpr *getDimensionIndex(unsigned DimensionNum) const {
+    return const_cast<RegDDRef *>(this)->getDimensionIndex(DimensionNum);
+  }
+
+  /// \brief Returns the stride of this DDRef at specified loop level.
+  /// Returns null if DDRef might not be a regular strided access
+  /// (linear access with invariant stride at Level).
+  CanonExpr *getStrideAtLevel(unsigned Level) const;
 
   /// \brief Removes a dimension from the DDRef. DimensionNum's range is
   /// [1, getNumDimensions()] with 1 representing the lowest dimension.
@@ -372,7 +380,7 @@ public:
   /// making changes to the DDRef and update defined at levels for the new
   /// blobs.
   void updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
-      bool AssumeLvalIfDetached = false);
+                        bool AssumeLvalIfDetached = false);
 
   /// \brief Method to update CE def levels, if necessary. This should be called
   /// by transformations after they make any change to DDRef which affect the

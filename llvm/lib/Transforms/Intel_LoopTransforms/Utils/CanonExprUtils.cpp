@@ -108,6 +108,13 @@ unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
   return CanonExpr::findOrInsertBlob(Blob, 0);
 }
 
+void CanonExprUtils::mapBlobsToIndices(
+    const SmallVectorImpl<CanonExpr::BlobTy> &Blobs,
+    SmallVectorImpl<unsigned> &Indices) {
+  CanonExpr::mapBlobsToIndices(Blobs, Indices);
+  return;
+}
+
 CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
   return CanonExpr::getBlob(BlobIndex);
 }

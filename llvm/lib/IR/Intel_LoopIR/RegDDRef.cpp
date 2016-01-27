@@ -74,7 +74,8 @@ RegDDRef *RegDDRef::clone() const {
   return NewRegDDRef;
 }
 
-int RegDDRef::findMaxBlobLevel(const SmallVectorImpl<unsigned> &BlobIndices) {
+int RegDDRef::findMaxBlobLevel(
+    const SmallVectorImpl<unsigned> &BlobIndices) const {
   int DefLevel = 0, MaxLevel = 0;
 
   for (auto Index : BlobIndices) {
@@ -325,6 +326,68 @@ bool RegDDRef::isSelfBlob() const {
   unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
+}
+
+CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
+  const CanonExpr *BaseCE = getBaseCE();
+  if (!BaseCE || !BaseCE->isInvariantAtLevel(Level))
+    return nullptr;
+
+  CanonExpr *StrideAtLevel = nullptr;
+
+  for (unsigned I = 1; I <= getNumDimensions(); ++I) {
+    const CanonExpr *DimCE = getDimensionIndex(I);
+    uint64_t DimStride = getDimensionStride(I);
+
+    // We want to guarantee that we return a Stride that is invariant at Level,
+    // or otherwise to bail out.
+    // IsLinearAtLevel guarantees that DimCE is defined at a lower (outer)
+    // level than where this RegDDRef is used. We also require that DimCE
+    // does not consist of any elements (blobs) that are defined at a
+    // level >= Level.
+    // Checking that DimCE->getDefinedAtLevel< Level guarantees that all the
+    // blobs of this RegDDRef are invariant in Level, which in turn means that
+    // any evolution of this RegDDRef in Level is associated with the IV of
+    // Level.
+    if (!DimCE->isLinearAtLevel() || DimCE->getDefinedAtLevel() >= Level)
+      return nullptr;
+
+    // !hasIV(Level) does not guarantee that IV at Level does
+    // not affect this access, as it may be hiding behind a blob;
+    // Therefore this check alone is not sufficient (hence the check of the
+    // DefinedAtLevel above).
+    if (!DimCE->hasIV(Level))
+      continue;
+
+    if (StrideAtLevel) {
+      if (!CanonExprUtils::mergeable(StrideAtLevel, DimCE)) {
+        CanonExprUtils::destroy(StrideAtLevel);
+        return nullptr;
+      }
+    } else { // Creating the StrideAtLevel for the first time
+      StrideAtLevel = CanonExprUtils::createExtCanonExpr(
+          DimCE->getSrcType(), DimCE->getDestType(), DimCE->isSExt());
+    }
+
+    unsigned Index = DimCE->getIVBlobCoeff(Level);
+    if (Index != CanonExpr::INVALID_BLOB_INDEX) {
+      StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
+    } else {
+      StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
+    }
+  }
+
+  // Collect the temp blobs of strideCE to potentially update the
+  // DefinedAtLevel property of StrideCE.
+  SmallVector<unsigned, 8> BlobIndices;
+  StrideAtLevel->collectTempBlobIndices(BlobIndices);
+  int MaxLevel = findMaxBlobLevel(BlobIndices);
+  assert(MaxLevel >= 0 && "Invalid level!");
+  if ((unsigned)MaxLevel > StrideAtLevel->getDefinedAtLevel())
+    StrideAtLevel->setDefinedAtLevel(MaxLevel);
+
+  assert(StrideAtLevel->isInvariantAtLevel(Level) && "Invariant Stride!");
+  return StrideAtLevel;
 }
 
 void RegDDRef::addDimension(CanonExpr *IndexCE) {

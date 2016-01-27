@@ -206,7 +206,7 @@ protected:
 
   /// \brief Maps blobs in Blobs to their corresponding indices and inserts
   /// them in Indices.
-  static void mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
+  static void mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
                                 SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Implements hasIV()/numIV() and

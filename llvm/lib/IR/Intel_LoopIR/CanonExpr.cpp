@@ -826,7 +826,7 @@ void CanonExpr::shift(iv_iterator IVI, int64_t Val) {
   shift(getLevel(IVI), Val);
 }
 
-void CanonExpr::mapBlobsToIndices(SmallVectorImpl<BlobTy> &Blobs,
+void CanonExpr::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
                                   SmallVectorImpl<unsigned> &Indices) {
   for (auto &I : Blobs) {
     unsigned Index = findBlob(I);

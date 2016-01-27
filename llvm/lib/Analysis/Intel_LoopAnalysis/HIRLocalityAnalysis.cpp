@@ -256,8 +256,8 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
                                           unsigned IVPos) {
 
   // Compare the diff at subscript Pos.
-  CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
-  CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
+  const CanonExpr *Ref1CE = Ref1->getDimensionIndex(IVPos);
+  const CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
 
   // Diff the CanonExprs.
   const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);

@@ -115,6 +115,11 @@ public:
   /// NOTE: New temp blobs can only be inserted by the framework.
   static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
 
+  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
+  /// them in Indices.
+  static void mapBlobsToIndices(const SmallVectorImpl<CanonExpr::BlobTy> &Blobs,
+                                SmallVectorImpl<unsigned> &Indices);
+
   /// \brief Returns blob corresponding to BlobIndex.
   static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
 
