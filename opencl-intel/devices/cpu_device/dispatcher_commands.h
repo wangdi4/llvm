@@ -77,7 +77,6 @@ protected:
                                          std::vector<char>* kernelParamsVec);
 
     TaskDispatcher*             m_pTaskDispatcher;
-    ITaskList*                  m_pTaskList;
     IOCLDevLogDescriptor*       m_pLogDescriptor;
     cl_int                      m_iLogHandle;
     cl_dev_cmd_desc*            m_pCmd;

@@ -973,7 +973,7 @@ cl_dev_err_code CPUDevice::clDevGetDeviceInfo(unsigned int IN dev_id, cl_device_
             //if OUT paramVal is NULL it should be ignored
             if(NULL != paramVal)
             {
-                memcpy(paramVal, CPU_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
+                MEMCPY_S(paramVal, valSize, CPU_MAX_WORK_ITEM_SIZES, *pinternalRetunedValueSize);
             }
             return CL_DEV_SUCCESS;
         }

@@ -242,6 +242,7 @@ TaskDispatcher::~TaskDispatcher()
             m_pRootDevice->ShutDown();
             m_pRootDevice->ResetObserver();
             m_pRootDevice = NULL;
+            m_pTaskExecutor->DestroyDebugDeviceQueue();
         }
     }
     CpuInfoLog(m_pLogDescriptor, m_iLogHandle, TEXT("%s"), TEXT("TaskDispatcher Released"));
@@ -249,7 +250,6 @@ TaskDispatcher::~TaskDispatcher()
     {
         m_pLogDescriptor->clLogReleaseClient(m_iLogHandle);
     }
-    m_pTaskExecutor->DestroyDebugDeviceQueue();
 }
 
 cl_dev_err_code TaskDispatcher::init()

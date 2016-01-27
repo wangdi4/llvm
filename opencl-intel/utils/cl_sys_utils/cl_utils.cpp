@@ -1089,7 +1089,7 @@ void clCopyMemoryRegion(SMemCpyParams* pCopyCmd)
     SMemCpyParams sRecParam;
 
     // Copy current parameters
-    memcpy(&sRecParam, pCopyCmd, sizeof(SMemCpyParams));
+    MEMCPY_S(&sRecParam, sizeof(SMemCpyParams), pCopyCmd, sizeof(SMemCpyParams));
     sRecParam.uiDimCount = pCopyCmd->uiDimCount-1;
     // Make recursion
     for(unsigned int i=0; i<pCopyCmd->vRegion[sRecParam.uiDimCount]; ++i)

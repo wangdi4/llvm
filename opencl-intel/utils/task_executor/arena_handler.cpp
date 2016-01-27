@@ -340,7 +340,10 @@ void TEDevice::DetachMasterThread()
     TBBTaskExecutor::ThreadManager& thread_manager = m_taskExecutor.GetThreadManager();
     TBB_PerActiveThreadData* tls = thread_manager.RegisterAndGetCurrentThreadDescriptor();
 
-    tls->reset();
+    assert(tls && "You should attach thread at first");
+    if(tls)
+        tls->reset();
+
     thread_manager.UnregisterCurrentThread();
 }
 

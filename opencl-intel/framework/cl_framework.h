@@ -239,14 +239,15 @@ struct ocl_entry_points
     SOCLCRTDispatchTable*                           crtDispatch;
 };
 
-struct _cl_object 
-{    
-	void * object;
-};
-
 struct _crt_dispatch
 {	
     SOCLCRTDispatchTable*       crtDispatch;	
+};
+
+struct _cl_object : public _crt_dispatch
+{    
+	void * object;
+	KHRicdVendorDispatch *dispatch;
 };
 
 struct _cl_platform_id_int : public _cl_platform_id, public _crt_dispatch

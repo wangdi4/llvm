@@ -102,7 +102,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		ECPUBrandFamily	GetCPUBrandFamily() { return m_eCPUBrand; }
 
 	private:
-
+		CPUDetect& operator=(const CPUDetect&);
+		CPUDetect(const CPUDetect&);
 		CPUDetect();
 		~CPUDetect();
 
