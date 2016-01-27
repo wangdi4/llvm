@@ -16,7 +16,6 @@ set(LLVM_LINK_COMPONENTS
   Support
   Target
   TransformUtils
-  VPOVectorizer #***INTEL
   )
 
 if( INTEL_CUSTOMIZATION )
