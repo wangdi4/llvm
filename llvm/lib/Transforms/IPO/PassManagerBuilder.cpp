@@ -120,13 +120,6 @@ static cl::opt<bool> RunMapIntrinToIml("MapIntrinToIml",
   cl::init(false), cl::Hidden,
   cl::desc("Map vectorized math intrinsic calls to svml/libm."));
 */
-
-// While we have two vectorizers to work with (Ported OpenCL Vectorizer and new
-// Abstract Layer VPO vectorizer), we need a temporary switch to disable the 
-// ported OCL vectorizer.
-static cl::opt<bool> RunVPOOCLVectorizer("vpo-ocl-vectorizer",
-  cl::init(true), cl::Hidden,
-  cl::desc("Run VPO OCL Vectorizer"));
 #endif  // INTEL_CUSTOMIZATION
 
 static cl::opt<bool> EnableLoopDistribute(
@@ -267,9 +260,6 @@ void PassManagerBuilder::populateModulePassManager(
     }
     if (RunVPODriver) {
       MPM.add(createVPODriverPass());
-    }
-    if (RunVPOOCLVectorizer) {
-      MPM.add(createVPOVectorizerPass());
     }
 #endif // INTEL_CUSTOMIZATION
     return;
@@ -562,9 +552,6 @@ void PassManagerBuilder::populateModulePassManager(
   }
   if (RunVPODriver) {
     MPM.add(createVPODriverPass());
-  }
-  if (RunVPOOCLVectorizer) {
-    MPM.add(createVPOVectorizerPass());
   }
 /*
   if (RunMapIntrinToIml) {

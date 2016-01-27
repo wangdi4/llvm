@@ -200,20 +200,6 @@ namespace {
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)nullptr);
       X.add(nullptr, 0, llvm::AAMDNodes()); // for -print-alias-sets
 
-#if INTEL_CUSTOMIZATION
-      (void) llvm::createVPOVectorizerPass();
-      (void) llvm::createWRegionCollectionPass();
-      (void) llvm::createWRegionInfoPass();
-      (void) llvm::createIdentifyVectorCandidatesPass();
-      (void) llvm::createAVRGeneratePass();
-      (void) llvm::createAVRGenerateHIRPass();
-      (void) llvm::createVPODriverPass();
-      //(void) llvm::createMapIntrinToImlPass();
-      (void) llvm::createVPODriverHIRPass();
-      (void) llvm::createVecClonePass();
-      (void) llvm::createVPOParoptPass();
-#endif // INTEL_CUSTOMIZATION
-
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
@@ -240,6 +226,24 @@ namespace {
       (void) llvm::createVecDirectiveInsertionPass();
       (void) llvm::createHIRDummyTransformationPass();
       (void) llvm::createHIRCodeGenPass();
+
+      // VPO WRegion Passes
+      (void) llvm::createWRegionCollectionPass();
+      (void) llvm::createWRegionInfoPass();
+
+      // VPO Vectorizer Passes
+      (void) llvm::createIdentifyVectorCandidatesPass();
+      (void) llvm::createAVRGeneratePass();
+      (void) llvm::createAVRGenerateHIRPass();
+      (void) llvm::createVPODriverPass();
+      (void) llvm::createVPODriverHIRPass();
+      (void) llvm::createVecClonePass();
+
+      // VPO Parallelizer Passes
+      (void) llvm::createVPOParoptPass();
+
+      // Scalar/Vector math lib mapping Pass
+      //(void) llvm::createMapIntrinToImlPass();
   #endif // INTEL_CUSTOMIZATION
     }
   } ForcePassLinking; // Force link by creating a global definition.

@@ -126,9 +126,7 @@ int main(int argc, char **argv) {
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
-  initializeIntel_LoopAnalysis(Registry);   //***INTEL
   initializeTransformUtils(Registry);
-  initializeIntel_LoopTransforms(Registry); //***INTEL
   initializeInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
@@ -138,11 +136,13 @@ int main(int argc, char **argv) {
 #endif
 
 #if INTEL_CUSTOMIZATION
-  initializeVPOVectorizer(Registry);
   initializeVecClonePass(Registry);
   initializeVPOParoptPass(Registry);
-  initializeVPODriverPass(Registry);
   //initializeMapIntrinToImlPass(Registry);
+  initializeIntel_LoopAnalysis(Registry);
+  initializeIntel_LoopTransforms(Registry);
+  initializeIntel_VPOVecoptAnalysis(Registry);
+  initializeIntel_VPOVecoptTransform(Registry);
 #endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,

@@ -312,9 +312,7 @@ int main(int argc, char **argv) {
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
-  initializeIntel_LoopAnalysis(Registry);   //***INTEL
   initializeTransformUtils(Registry);
-  initializeIntel_LoopTransforms(Registry); //***INTEL
   initializeInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
@@ -329,19 +327,18 @@ int main(int argc, char **argv) {
 
 #ifdef INTEL_CUSTOMIZATION
   initializeFeatureOutlinerPass(Registry);
+  initializeVecClonePass(Registry);
+  initializeVPOParoptPass(Registry);
+  //initializeMapIntrinToImlPass(Registry);
+  initializeIntel_LoopAnalysis(Registry);
+  initializeIntel_LoopTransforms(Registry);
+  initializeIntel_VPOVecoptAnalysis(Registry);
+  initializeIntel_VPOVecoptTransform(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS
   polly::initializePollyPasses(Registry);
 #endif
-
-#if INTEL_CUSTOMIZATION
-  initializeVPOVectorizer(Registry);
-  initializeVecClonePass(Registry);
-  initializeVPOParoptPass(Registry);
-  initializeVPODriverPass(Registry);
-  //initializeMapIntrinToImlPass(Registry);
-#endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,
     "llvm .bc -> .bc modular optimizer and analysis printer\n");

@@ -15,11 +15,11 @@ set(LLVM_LINK_COMPONENTS
   Target
   TransformUtils
   Vectorize
-  TransformVPOUtils
+  TransformVPOUtils    #***INTEL
   WRegionInfoAnalysis  #***INTEL
-  VPOVectorizer        #***INTEL
   VPODriver            #***INTEL
   VPOParopt            #***INTEL
+  VPOVecopt_Transform  #***INTEL
   Passes
   #Intel_MapIntrinToIml #***INTEL
   Intel_LoopTransforms #***INTEL

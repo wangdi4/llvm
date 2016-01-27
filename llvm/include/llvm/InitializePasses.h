@@ -19,28 +19,6 @@ namespace llvm {
 
 class PassRegistry;
 
-#if INTEL_CUSTOMIZATION
-// initializeVPOVecoptAnaylsis - Initialize all passes linked into the
-// VPO Vectorizer
-void initializeVPOVectorizer(PassRegistry&);
-
-// initializeVPOVecoptAnaylsis - Initialize all passes linked into the 
-// VPOVecoptAnalysis library
-void initializeVPOVecoptAnalysis(PassRegistry&);
-
-/// initializeVPODriverPass - Initialize all passes linked into the
-/// VPODriver library
-void initializeVPODriverPass(PassRegistry&);
-
-/// initializeVPODriverHIRPass - Initialize all passes linked into the
-/// VPODriver library
-void initializeVPODriverHIRPass(PassRegistry&);
-
-/// initializeVPOParoptPass - Initialize all passes linked into the
-/// VPOParopt library
-void initializeVPOParoptPass(PassRegistry&);
-#endif // INTEL_CUSTOMIZATION
-
 /// initializeCore - Initialize all passes linked into the
 /// TransformUtils library.
 void initializeCore(PassRegistry&);
@@ -81,7 +59,7 @@ void initializeCodeGen(PassRegistry&);
 /// initializeCodeGen - Initialize all passes linked into the CodeGen library.
 void initializeTarget(PassRegistry&);
 
-#if INTEL_CUSTOMIZATION // HIR passes
+#if INTEL_CUSTOMIZATION
 /// initializeIntel_LoopAnalysis - Initialize all passes linked into the
 /// Intel_LoopAnalysis library.
 void initializeIntel_LoopAnalysis(PassRegistry&);
@@ -89,6 +67,14 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// initializeIntel_LoopTransforms - Initialize all passes linked into the
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
+
+// initializeIntel_VPOVecoptAnaylsis - Initialize all passes linked into the 
+// Intel_VPOVecoptAnalysis library
+void initializeIntel_VPOVecoptAnalysis(PassRegistry&);
+
+// initializeIntel_VPOVecoptTransform - Initialize all passes linked into the
+// Intel_VPOVecoptTransform library
+void initializeIntel_VPOVecoptTransform(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalPass(PassRegistry&);
@@ -329,16 +315,6 @@ void initializeWinEHPreparePass(PassRegistry&);
 void initializePlaceBackedgeSafepointsImplPass(PassRegistry&);
 void initializePlaceSafepointsPass(PassRegistry&);
 void initializeDwarfEHPreparePass(PassRegistry&);
-#if INTEL_CUSTOMIZATION
-void initializeAVRGeneratePass(PassRegistry&);
-void initializeAVRGenerateHIRPass(PassRegistry&);
-void initializeWRegionCollectionPass(PassRegistry&);
-void initializeWRegionInfoPass(PassRegistry&);
-void initializeWRegionInfoAnalysisPass(PassRegistry&);
-void initializeIdentifyVectorCandidatesPass(PassRegistry&);
-void initializeVecClonePass(PassRegistry&);
-//void initializeMapIntrinToImlPass(PassRegistry&);
-#endif // INTEL_CUSTOMIZATION
 void initializeFloat2IntPass(PassRegistry&);
 #if INTEL_CUSTOMIZATION
 // Pass for SnodeInfo analysis
@@ -369,6 +345,21 @@ void initializeHIRGeneralUnrollPass(PassRegistry&);
 void initializeHIROptPredicatePass(PassRegistry&);
 void initializeHIRDummyTransformationPass(PassRegistry&);
 void initializeHIRCodeGenPass(PassRegistry&);
+// VPO WRegion Passes
+void initializeWRegionCollectionPass(PassRegistry&);
+void initializeWRegionInfoPass(PassRegistry&);
+void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Parallelizer Pass
+void initializeVPOParoptPass(PassRegistry&);
+// VPO Vectorizer Passes
+void initializeAVRGeneratePass(PassRegistry&);
+void initializeAVRGenerateHIRPass(PassRegistry&);
+void initializeIdentifyVectorCandidatesPass(PassRegistry&);
+void initializeVecClonePass(PassRegistry&);
+void initializeVPODriverPass(PassRegistry&);
+void initializeVPODriverHIRPass(PassRegistry&);
+// Scalar/Vector math lib mapping Pass
+//void initializeMapIntrinToImlPass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 void initializeLoopDistributePass(PassRegistry&);
 void initializeSjLjEHPreparePass(PassRegistry&);
