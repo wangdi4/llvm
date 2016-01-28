@@ -918,7 +918,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
   if (Index < IList->getNumInits()) {
     // We have leftover initializers
     if (VerifyOnly) {
-      if (SemaRef.getLangOpts().CPlusPlus ||
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if ((SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) ||
+#endif // INTEL_CUSTOMIZATION
           (SemaRef.getLangOpts().OpenCL &&
            IList->getType()->isVectorType())) {
         hadError = true;
@@ -949,7 +954,12 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
         4;
 
       unsigned DK = diag::ext_excess_initializers;
-      if (SemaRef.getLangOpts().CPlusPlus) {
+#if INTEL_CUSTOMIZATION
+      // CQ#376357: Allow excess initializers in permissive mode.
+      if (SemaRef.getLangOpts().CPlusPlus &&
+          !(SemaRef.getLangOpts().IntelCompat &&
+            SemaRef.getLangOpts().GnuPermissive)) {
+#endif // INTEL_CUSTOMIZATION
         DK = diag::err_excess_initializers;
         hadError = true;
       }

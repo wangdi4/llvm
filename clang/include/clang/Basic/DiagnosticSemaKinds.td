@@ -1337,6 +1337,11 @@ def err_explicit_non_ctor_or_conv_function : Error<
 def err_static_not_bitfield : Error<"static member %0 cannot be a bit-field">;
 def err_static_out_of_line : Error<
   "'static' can only be specified inside the class definition">;
+//if INTEL_CUSTOMIZATION
+// CQ#376357: Allow static specifier for outline method definition.
+def warn_static_out_of_line : Warning<
+  err_static_out_of_line.Text>, InGroup<IntelCompat>;
+// endif // INTEL_CUSTOMIZATION
 def err_storage_class_for_static_member : Error<
   "static data member definition cannot specify a storage class">;
 def err_typedef_not_bitfield : Error<"typedef member %0 cannot be a bit-field">;
@@ -5043,6 +5048,11 @@ def err_qualified_param_declarator : Error<
 def ext_out_of_line_declaration : ExtWarn<
   "out-of-line declaration of a member must be a definition">,
   InGroup<OutOfLineDeclaration>, DefaultError;
+// if INTEL_CUSTOMIZATION
+// CQ#376357
+def warn_out_of_line_declaration : Warning<
+  ext_out_of_line_declaration.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_member_extra_qualification : Error<
   "extra qualification on member %0">;
 def warn_member_extra_qualification : Warning<
