@@ -99,6 +99,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              IOCLFEKernelArgInfo** ppResult);
     };
 
+    // SPIR-V -> llvm::Module converter wrapper.
     class ClangFECompilerParseSPIRVTask : ClangFETask
     {
     public:
