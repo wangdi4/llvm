@@ -154,6 +154,11 @@ bool SCCFormation::isCandidateNode(const NodeTy *Node) const {
     return true;
   }
 
+  // Do not involve single operand phis in SCCs.
+  if (1 == Phi->getNumIncomingValues()) {
+    return false;
+  }
+
   bool IsUsedInHeaderPhi = false;
   for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
     auto UserPhi = dyn_cast<PHINode>(*I);

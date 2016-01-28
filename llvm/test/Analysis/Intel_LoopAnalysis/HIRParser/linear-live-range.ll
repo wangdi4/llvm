@@ -26,9 +26,8 @@
 ; CHECK-NEXT: (%ti)[0][-1 * i1 + i2 + 58][-1 * i1 + i2 + 58] = %5
 ; CHECK-NEXT: %6 = (%n)[0][-1 * i1 + i2 + 58]
 ; CHECK-NEXT: %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136
-; CHECK-NEXT: %add21.lcssa.in = %add21136
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: (%fs)[0] = %add21.lcssa.in
+; CHECK-NEXT: (%fs)[0] = %add21136
 ; CHECK-NEXT: }
 ; CHECK-NEXT: if (-1 * i1 + 58 < 5)
 ; CHECK-NEXT: {
@@ -42,9 +41,8 @@
 ; CHECK-NEXT: %11 = (%x)[0][-1 * i1 + i2 + 58]
 ; CHECK-NEXT: %12 = (%s7)[0][-1 * i1 + i2 + 57]
 ; CHECK-NEXT: (%s7)[0][-1 * i1 + i2 + 57] = -1 * %11 + %12
-; CHECK-NEXT: %add36.lcssa.in = %8
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %add36.lcssa.in
+; CHECK-NEXT: (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8
 ; CHECK-NEXT: (%n1)[0] = -1 * i1 + %n1.promoted + 53
 ; CHECK-NEXT: }
 ; CHECK-NEXT: %indvars.iv169 = -1 * i1 + 57

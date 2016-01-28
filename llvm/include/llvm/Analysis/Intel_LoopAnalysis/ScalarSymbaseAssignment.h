@@ -140,6 +140,10 @@ public:
   /// Only used for printing.
   void insertHIRLval(const Value *Lval, unsigned Symbase);
 
+  /// \brief Traces back single operand phis until something else is encountered
+  /// and returns that.
+  const Value *traceSingleOperandPhis(const Value *Scalar) const;
+
   /// \brief Returns the scalar associated with symbase.
   const Value *getBaseScalar(unsigned Symbase) const;
 

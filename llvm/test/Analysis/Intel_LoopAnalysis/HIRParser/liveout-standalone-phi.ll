@@ -6,7 +6,6 @@
 ; CHECK-NEXT: DO i2 = 0, -1 * i1 + 46
 ; CHECK-NEXT: %k.0.out = %k.0.in.1
 ; CHECK-NEXT: %k.0.in.1 = -1 * i2 + 46
-; CHECK-NEXT: %k.0.lcssa = %k.0.out
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: END LOOP
 

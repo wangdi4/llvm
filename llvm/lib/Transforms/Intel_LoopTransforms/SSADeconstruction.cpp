@@ -735,6 +735,11 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     // }
     //
 
+    // Single operand phis do not need to be deconstructed.
+    if (1 == Phi->getNumIncomingValues()) {
+      return;
+    }
+
     constructName(Phi, Name);
 
     // Attach metadata to Phi to connect it to its copies.

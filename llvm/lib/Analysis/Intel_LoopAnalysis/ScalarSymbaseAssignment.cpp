@@ -90,6 +90,24 @@ unsigned ScalarSymbaseAssignment::getOrAssignTempSymbase(const Value *Temp) {
   return Symbase;
 }
 
+const Value *
+ScalarSymbaseAssignment::traceSingleOperandPhis(const Value *Scalar) const {
+                                                   
+  auto PhiInst = dyn_cast<PHINode>(Scalar);
+
+  while (PhiInst && (1 == PhiInst->getNumIncomingValues())) {
+
+    Scalar = PhiInst->getOperand(0);
+
+    assert(isa<Instruction>(Scalar) &&
+           "Single phi operand is not an instruction!");
+
+    PhiInst = dyn_cast<PHINode>(Scalar);
+  }
+
+  return Scalar;
+}
+
 unsigned ScalarSymbaseAssignment::getTempSymbase(const Value *Temp) const {
 
   auto Iter = TempSymbaseMap.find(Temp);
@@ -180,13 +198,15 @@ ScalarSymbaseAssignment::getInstMDString(const Instruction *Inst) const {
 unsigned
 ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
                                                       bool Assign) {
-  unsigned Symbase = CONSTANT_SYMBASE;
+  unsigned Symbase = INVALID_SYMBASE;
 
   // TODO: assign constant symbase to metadata types as they do not cause data
   // dependencies.
   if (isConstant(Scalar)) {
     return CONSTANT_SYMBASE;
   }
+
+  Scalar = traceSingleOperandPhis(Scalar);
 
   if (auto Inst = dyn_cast<Instruction>(Scalar)) {
     // First check if this instruction is a copy instruction inserted by SSA
@@ -202,7 +222,7 @@ ScalarSymbaseAssignment::getOrAssignScalarSymbaseImpl(const Value *Scalar,
 
         // Insert into TempSymbaseMap so that the base temp can be retrieved
         // using getBaseScalar().
-        if (Assign && !getTempSymbase(Inst)) {
+        if (Assign && (INVALID_SYMBASE == getTempSymbase(Inst))) {
           insertTempSymbase(Inst, Symbase);
         }
       } else {

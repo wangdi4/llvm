@@ -471,9 +471,10 @@ public:
   /// value.
   const SCEV *visitUnknown(const SCEVUnknown *Unknown) {
     if (HIRP->isTempBlob(Unknown)) {
-      const Value *Val = Unknown->getValue();
+      auto Val = Unknown->getValue();
 
-      const Value *BaseVal = HIRP->ScalarSA->getBaseScalar(Val);
+      auto BaseVal = HIRP->ScalarSA->traceSingleOperandPhis(Val);
+      BaseVal = HIRP->ScalarSA->getBaseScalar(BaseVal);
 
       if (BaseVal != Val) {
         return HIRP->SE->getUnknown(const_cast<Value *>(BaseVal));
