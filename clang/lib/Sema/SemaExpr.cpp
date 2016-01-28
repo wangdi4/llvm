@@ -7655,9 +7655,14 @@ QualType Sema::CheckRemainderOperands(
 /// \brief Diagnose invalid arithmetic on two void pointers.
 static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
                                                 Expr *LHSExpr, Expr *RHSExpr) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
-                ? diag::err_typecheck_pointer_arith_void_type
-                : diag::ext_gnu_void_ptr)
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+  S.Diag(Loc, S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive
+                  ? diag::warn_typecheck_pointer_arith_void_type
+                  : (S.getLangOpts().CPlusPlus
+                        ? diag::err_typecheck_pointer_arith_void_type
+                        : diag::ext_gnu_void_ptr))
+#endif // INTEL_CUSTOMIZATION
     << 1 /* two pointers */ << LHSExpr->getSourceRange()
                             << RHSExpr->getSourceRange();
 }
@@ -7665,9 +7670,14 @@ static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
 /// \brief Diagnose invalid arithmetic on a void pointer.
 static void diagnoseArithmeticOnVoidPointer(Sema &S, SourceLocation Loc,
                                             Expr *Pointer) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
-                ? diag::err_typecheck_pointer_arith_void_type
-                : diag::ext_gnu_void_ptr)
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+  S.Diag(Loc, S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive
+                  ? diag::warn_typecheck_pointer_arith_void_type
+                  : S.getLangOpts().CPlusPlus
+                        ? diag::err_typecheck_pointer_arith_void_type
+                        : diag::ext_gnu_void_ptr)
+#endif // INTEL_CUSTOMIZATION
     << 0 /* one pointer */ << Pointer->getSourceRange();
 }
 
@@ -7734,7 +7744,11 @@ static bool checkArithmeticOpPointerOperand(Sema &S, SourceLocation Loc,
   QualType PointeeTy = ResType->getPointeeType();
   if (PointeeTy->isVoidType()) {
     diagnoseArithmeticOnVoidPointer(S, Loc, Operand);
-    return !S.getLangOpts().CPlusPlus;
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+    return !S.getLangOpts().CPlusPlus ||
+        (S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive);
+#endif // INTEL_CUSTOMIZATION
   }
   if (PointeeTy->isFunctionType()) {
     diagnoseArithmeticOnFunctionPointer(S, Loc, Operand);
@@ -7786,7 +7800,11 @@ static bool checkArithmeticBinOpPointerOperands(Sema &S, SourceLocation Loc,
     else if (!isLHSVoidPtr) diagnoseArithmeticOnVoidPointer(S, Loc, RHSExpr);
     else diagnoseArithmeticOnTwoVoidPointers(S, Loc, LHSExpr, RHSExpr);
 
-    return !S.getLangOpts().CPlusPlus;
+#if INTEL_CUSTOMIZATION
+  // CQ#376357: only warning in -fpermissive mode.
+    return !S.getLangOpts().CPlusPlus ||
+        (S.getLangOpts().IntelCompat && S.getLangOpts().GnuPermissive);
+#endif // INTEL_CUSTOMIZATION
   }
 
   bool isLHSFuncPtr = isLHSPointer && LHSPointeeTy->isFunctionType();

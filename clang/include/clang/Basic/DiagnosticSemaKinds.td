@@ -5088,6 +5088,11 @@ def err_typecheck_pointer_arith_function_type : Error<
   "function type%select{|s}2 %1%select{| and %3}2">;
 def err_typecheck_pointer_arith_void_type : Error<
   "arithmetic on%select{ a|}0 pointer%select{|s}0 to void">;
+// if INTEL_CUSTOMIZATION
+// CQ#376357: void pointer arithmetics.
+def warn_typecheck_pointer_arith_void_type : Warning<
+  err_typecheck_pointer_arith_void_type.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_typecheck_decl_incomplete_type : Error<
   "variable has incomplete type %0">;
 def err_typecheck_decl_incomplete_type___float128 : Error<
