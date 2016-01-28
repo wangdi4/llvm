@@ -508,6 +508,11 @@ public:
                     bool *IsTruncation, bool *IsNegation,
                     SCEVConstant **ConstMultiplier, SCEV **Additive) const;
 
+  /// Returns constant multiplier which when applied to AddRec yields MulAddRec,
+  /// if possible, otherwise returns nullptr.
+  const SCEVConstant *getMultiplier(const SCEVAddRecExpr *AddRec,
+                                    const SCEVAddRecExpr *MulAddRec) const;
+
   /// Implements AddRec specific checks for replacement.
   bool isReplacableAddRec(const SCEVAddRecExpr *OrigAddRec,
                           const SCEVAddRecExpr *NewAddRec,
@@ -719,6 +724,41 @@ bool HIRParser::BaseSCEVCreator::isReplacable(
   return false;
 }
 
+const SCEVConstant *HIRParser::BaseSCEVCreator::getMultiplier(
+    const SCEVAddRecExpr *AddRec, const SCEVAddRecExpr *MulAddRec) const {
+
+  const SCEVConstant *Mul = nullptr;
+
+  auto Op = dyn_cast<SCEVConstant>(AddRec->getOperand(1));
+  auto MulOp = dyn_cast<SCEVConstant>(MulAddRec->getOperand(1));
+
+  if (Op && MulOp) {
+    Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
+        ConstantExpr::getSDiv(MulOp->getValue(), Op->getValue()))));
+
+    if (Mul->isZero()) {
+      return nullptr;
+    }
+
+    return Mul;
+  }
+
+  // Looking for this condition-
+  // AddRec: {0,+,%size_x}<%for.cond.47.preheader>
+  // MulAddRec: {0,+,(4 * %size_x)}<%for.cond.47.preheader>
+  auto MulSCEV = dyn_cast<SCEVMulExpr>(MulAddRec->getOperand(1));
+
+  if (!MulSCEV || (MulSCEV->getNumOperands() != 2) ||
+      !isa<SCEVConstant>(MulSCEV->getOperand(0)) ||
+      (MulSCEV->getOperand(1) != AddRec->getOperand(1))) {
+    return nullptr;
+  }
+
+  Mul = cast<SCEVConstant>(MulSCEV->getOperand(0));
+
+  return Mul;
+}
+
 bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
     const SCEVAddRecExpr *OrigAddRec, const SCEVAddRecExpr *NewAddRec,
     SCEV::NoWrapFlags WrapFlags, SCEVConstant **ConstMultiplier,
@@ -734,17 +774,9 @@ bool HIRParser::BaseSCEVCreator::isReplacableAddRec(
       return false;
     }
 
-    auto NewOp = dyn_cast<SCEVConstant>(NewAddRec->getOperand(1));
-    auto OrigOp = dyn_cast<SCEVConstant>(OrigAddRec->getOperand(1));
+    Mul = getMultiplier(NewAddRec, OrigAddRec);
 
-    if (!NewOp || !OrigOp) {
-      return false;
-    }
-
-    Mul = cast<SCEVConstant>(HIRP->SE->getConstant(cast<ConstantInt>(
-        ConstantExpr::getSDiv(OrigOp->getValue(), NewOp->getValue()))));
-
-    if (Mul->isZero()) {
+    if (!Mul) {
       return false;
     }
 
@@ -1239,7 +1271,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level,
                                                 isa<SExtInst>(CI));
         EnableCastHiding = false;
       }
-    } 
+    }
 
     if (!CE) {
       CE = CanonExprUtils::createCanonExpr(Val->getType());
@@ -1509,8 +1541,8 @@ const SCEV *HIRParser::findPointerBlob(const SCEV *PtrSCEV) const {
   return PBF.getPointerBlob();
 }
 
-const Instruction *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
-                                                  bool IsInit) const {
+const Value *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
+                                            bool IsInit) const {
   assert(RI->isHeaderPhi(Phi) && "Phi is not a header phi!");
 
   auto Lp = LI->getLoopFor(Phi->getParent());
@@ -1518,17 +1550,14 @@ const Instruction *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
     auto PhiOp = Phi->getIncomingValue(I);
 
-    assert(isa<Instruction>(PhiOp) &&
-           "Header phi operand is not an instruction!");
-
-    auto Inst = cast<Instruction>(PhiOp);
+    auto Inst = dyn_cast<Instruction>(PhiOp);
 
     if (IsInit) {
-      if (LI->getLoopFor(Inst->getParent()) != Lp) {
-        return Inst;
+      if (!Inst || (LI->getLoopFor(Inst->getParent()) != Lp)) {
+        return PhiOp;
       }
     } else {
-      if (LI->getLoopFor(Inst->getParent()) == Lp) {
+      if (Inst && (LI->getLoopFor(Inst->getParent()) == Lp)) {
         return Inst;
       }
     }
@@ -1537,29 +1566,28 @@ const Instruction *HIRParser::getHeaderPhiOperand(const PHINode *Phi,
   llvm_unreachable("Could not find appropriate header phi operand!");
 }
 
-const Instruction *HIRParser::getHeaderPhiInitInst(const PHINode *Phi) const {
+const Value *HIRParser::getHeaderPhiInitVal(const PHINode *Phi) const {
   return getHeaderPhiOperand(Phi, true);
 }
 
-const Instruction *HIRParser::getHeaderPhiUpdateInst(const PHINode *Phi) const {
+const Value *HIRParser::getHeaderPhiUpdateVal(const PHINode *Phi) const {
   return getHeaderPhiOperand(Phi, false);
 }
 
 CanonExpr *HIRParser::createHeaderPhiInitCE(const PHINode *Phi,
                                             unsigned Level) {
-  const Instruction *InitInst = getHeaderPhiInitInst(Phi);
-
-  auto InitCE = parseAsBlob(InitInst, Level);
+  auto InitVal = getHeaderPhiInitVal(Phi);
+  auto InitCE = parseAsBlob(InitVal, Level);
 
   return InitCE;
 }
 
 CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
                                              unsigned Level) {
-  const Instruction *UpdateInst = getHeaderPhiUpdateInst(Phi);
+  auto UpdateVal = getHeaderPhiUpdateVal(Phi);
 
   auto PhiSCEV = getSCEV(const_cast<PHINode *>(Phi));
-  auto UpdateSCEV = getSCEV(const_cast<Instruction *>(UpdateInst));
+  auto UpdateSCEV = getSCEV(const_cast<Value *>(UpdateVal));
 
   // Create stride as (update - phi). For example-
   // PhiSCEV: {%ptr,+,4)

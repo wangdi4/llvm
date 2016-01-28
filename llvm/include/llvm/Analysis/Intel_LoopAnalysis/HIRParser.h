@@ -292,15 +292,15 @@ private:
 
   /// \brief Returns either the inital or update operand of header phi
   /// corresponding to the passed in boolean argument.
-  const Instruction *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
+  const Value *getHeaderPhiOperand(const PHINode *Phi, bool IsInit) const;
 
   /// \brief Returns the header phi operand which corresponds to the initial
-  /// value of phi (instruction coming from outside the loop).
-  const Instruction *getHeaderPhiInitInst(const PHINode *Phi) const;
+  /// value of phi (value coming from outside the loop).
+  const Value *getHeaderPhiInitVal(const PHINode *Phi) const;
 
   /// \brief Returns the header phi operand which corresponds to phi update
-  /// (instruction coming from loop's backedge).
-  const Instruction *getHeaderPhiUpdateInst(const PHINode *Phi) const;
+  /// (value coming from loop's backedge).
+  const Value *getHeaderPhiUpdateVal(const PHINode *Phi) const;
 
   /// \brief Creates a canon expr which represents the initial value of header
   /// phi.
