@@ -270,6 +270,31 @@ enum STIRegIDEnum {
 };
 typedef enum STIRegIDEnum STIRegID;
 
+//===----------------------------------------------------------------------===//
+// STICompositeProperty
+//===----------------------------------------------------------------------===//
+
+#define STI_COMPOSITE_PROPERTY_KINDS                    \
+    X(STI_COMPOSITE_PROPERTY_NONE,      0x0000)         \
+    X(STI_COMPOSITE_PROPERTY_PACKED,    0x0001)         \
+    X(STI_COMPOSITE_PROPERTY_CTOR,      0x0002)         \
+    X(STI_COMPOSITE_PROPERTY_OVEROPS,   0x0004)         \
+    X(STI_COMPOSITE_PROPERTY_ISNESTED,  0x0008)         \
+    X(STI_COMPOSITE_PROPERTY_CNESTED,   0x0010)         \
+    X(STI_COMPOSITE_PROPERTY_OPASSIGN,  0x0020)         \
+    X(STI_COMPOSITE_PROPERTY_OPCAST,    0x0040)         \
+    X(STI_COMPOSITE_PROPERTY_FWDREF,    0x0080)         \
+    X(STI_COMPOSITE_PROPERTY_SCOPED,    0x0100)         \
+    X(STI_COMPOSITE_PROPERTY_REALNAME,  0x0200)         \
+    X(STI_COMPOSITE_PROPERTY_SEALED,    0x0400)
+
+enum STICompositePropertyEnum {
+#define X(KIND,VALUE) KIND = VALUE,
+    STI_COMPOSITE_PROPERTY_KINDS
+#undef  X
+};
+typedef enum STICompositePropertyEnum STICompositeProperty;
+
 
 // All higher ones have been replaced with a better arrangement
 // of variables controlling uses of features
@@ -627,19 +652,6 @@ typedef enum STIRegIDEnum STIRegID;
 // Defined for internal use only, not emitted.
 //
 #define LF_INTEL_NONE   0x0000
-
-
-#define PROP_PACKED     0x0001          /* Packed structure or union */
-#define PROP_CTOR       0x0002          /* Has constructuctors and/or desctructors */
-#define PROP_OVEROPS    0x0004          /* Has overloaded operators */
-#define PROP_ISNESTED   0x0008          /* Nested structure or union */
-#define PROP_CNESTED    0x0010          /* Contains nested classes */
-#define PROP_OPASSIGN   0x0020          /* Has overloaded assignment */
-#define PROP_OPCAST     0x0040          /* Has casting methods */
-#define PROP_FWDREF     0x0080          /* Is a forward (incomplete) reference */
-#define PROP_SCOPED     0x0100          /* This is a scoped definition */
-#define PROP_REALNAME   0x0200          /* has extra 'real' name field */
-#define PROP_SEALED     0x0400          /* object cannot be derived from */
 
 
 /*

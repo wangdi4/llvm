@@ -11,6 +11,29 @@
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
+// toObjectKindString(kind)
+//
+// Returns a string description of the specified STI object kind.  This string
+// is to be used for debugging purposes only.
+//
+//===----------------------------------------------------------------------===//
+
+const char* toObjectKindString(STIObjectKind kind) {
+  const char* string;
+
+  switch (kind) {
+#define X(KIND, VALUE) case (KIND): string = #KIND; break;
+    STI_OBJECT_KIND_LIST
+#undef  X
+  default:
+    string = "[unrecognized object kind]";
+    break;
+  }
+
+  return string;
+}
+
+//===----------------------------------------------------------------------===//
 // STIObject
 //===----------------------------------------------------------------------===//
 
@@ -1288,7 +1311,7 @@ STITypeStructure::STITypeStructure() :
     STIType     (STI_OBJECT_KIND_TYPE_STRUCTURE),
     _leaf       (0),
     _count      (0),
-    _property   (0),
+    _properties (),
     _fieldType  (nullptr),
     _derivedType(nullptr),
     _vshapeType (nullptr),
@@ -1309,9 +1332,17 @@ uint16_t STITypeStructure::getCount() const { return _count; }
 
 void STITypeStructure::setCount(uint16_t count) { _count = count; }
 
-uint16_t STITypeStructure::getProperty() const { return _property; }
+STITypeStructure::Properties STITypeStructure::getProperties() const {
+  return _properties;
+}
 
-void STITypeStructure::setProperty(uint16_t prop) { _property = prop; }
+void STITypeStructure::setProperties(Properties properties) {
+  _properties = properties;
+}
+
+void STITypeStructure::setProperty(STICompositeProperty property) {
+  _properties.set(property);
+}
 
 STIType *STITypeStructure::getFieldType() const { return _fieldType; }
 
@@ -1347,9 +1378,13 @@ void STITypeStructure::setName(StringRef name) { _name = name; }
 // STITypeEnumeration
 //===----------------------------------------------------------------------===//
 
-STITypeEnumeration::STITypeEnumeration()
-    : STIType(STI_OBJECT_KIND_TYPE_ENUMERATION), _count(0), _property(0),
-      _elementType(nullptr), _fieldType(nullptr) {}
+STITypeEnumeration::STITypeEnumeration() :
+    STIType     (STI_OBJECT_KIND_TYPE_ENUMERATION),
+    _count      (0),
+    _properties (),
+    _elementType(nullptr),
+    _fieldType  (nullptr) {
+}
 
 STITypeEnumeration::~STITypeEnumeration() {}
 
@@ -1361,9 +1396,17 @@ uint16_t STITypeEnumeration::getCount() const { return _count; }
 
 void STITypeEnumeration::setCount(uint16_t count) { _count = count; }
 
-uint16_t STITypeEnumeration::getProperty() const { return _property; }
+STITypeEnumeration::Properties STITypeEnumeration::getProperties() const {
+  return _properties;
+}
 
-void STITypeEnumeration::setProperty(uint16_t prop) { _property = prop; }
+void STITypeEnumeration::setProperties(Properties properties) {
+  _properties = properties;
+}
+
+void STITypeEnumeration::setProperty(STICompositeProperty property) {
+  _properties.set(property);
+}
 
 STIType *STITypeEnumeration::getElementType() const { return _elementType; }
 
@@ -1437,9 +1480,18 @@ void STITypeFunctionID::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeProcedure::STITypeProcedure()
-    : STIType(STI_OBJECT_KIND_TYPE_PROCEDURE), _returnType(nullptr),
-      _classType(nullptr), _thisType(nullptr), _callingConvention(0),
-      _paramCount(0), _argumentList(nullptr), _thisAdjust(0) {}
+    : STIType               (STI_OBJECT_KIND_TYPE_PROCEDURE),
+      _returnType           (nullptr),
+      _argumentList         (nullptr),
+      _callingConvention    (0),
+      _paramCount           (0) {}
+
+STITypeProcedure::STITypeProcedure(STIObjectKind kind)
+    : STIType               (kind),
+      _returnType           (nullptr),
+      _argumentList         (nullptr),
+      _callingConvention    (0),
+      _paramCount           (0) {}
 
 STITypeProcedure::~STITypeProcedure() {}
 
@@ -1450,16 +1502,6 @@ STIType *STITypeProcedure::getReturnType() const { return _returnType; }
 void STITypeProcedure::setReturnType(STIType *returnType) {
   _returnType = returnType;
 }
-
-STIType *STITypeProcedure::getClassType() const { return _classType; }
-
-void STITypeProcedure::setClassType(STIType *classType) {
-  _classType = classType;
-}
-
-STIType *STITypeProcedure::getThisType() const { return _thisType; }
-
-void STITypeProcedure::setThisType(STIType *thisType) { _thisType = thisType; }
 
 int STITypeProcedure::getCallingConvention() const {
   return _callingConvention;
@@ -1481,9 +1523,37 @@ void STITypeProcedure::setArgumentList(STIType *argumentList) {
   _argumentList = argumentList;
 }
 
-int STITypeProcedure::getThisAdjust() const { return _thisAdjust; }
+//===----------------------------------------------------------------------===//
+// STITypeMemberFunction
+//===----------------------------------------------------------------------===//
 
-void STITypeProcedure::setThisAdjust(int thisAdjust) {
+STITypeMemberFunction::STITypeMemberFunction()
+    : STITypeProcedure(STI_OBJECT_KIND_TYPE_MEMBER_FUNCTION),
+      _classType  (nullptr),
+      _thisType   (nullptr),
+      _thisAdjust (0) {}
+
+STITypeMemberFunction::~STITypeMemberFunction() {}
+
+STITypeMemberFunction *STITypeMemberFunction::create() {
+  return new STITypeMemberFunction();
+}
+
+STIType *STITypeMemberFunction::getClassType() const { return _classType; }
+
+void STITypeMemberFunction::setClassType(STIType *classType) {
+  _classType = classType;
+}
+
+STIType *STITypeMemberFunction::getThisType() const { return _thisType; }
+
+void STITypeMemberFunction::setThisType(STIType *thisType) {
+  _thisType = thisType;
+}
+
+int STITypeMemberFunction::getThisAdjust() const { return _thisAdjust; }
+
+void STITypeMemberFunction::setThisAdjust(int thisAdjust) {
   _thisAdjust = thisAdjust;
 }
 
@@ -1492,7 +1562,8 @@ void STITypeProcedure::setThisAdjust(int thisAdjust) {
 //===----------------------------------------------------------------------===//
 
 STITypeArgumentList::STITypeArgumentList()
-    : STIType(STI_OBJECT_KIND_TYPE_ARGUMENT_LIST), _argumentList() {}
+    : STIType       (STI_OBJECT_KIND_TYPE_ARGUMENT_LIST),
+      _argumentList () {}
 
 STITypeArgumentList::~STITypeArgumentList() {}
 
@@ -1511,6 +1582,10 @@ STITypeArgumentList::getArgumentList() const {
 
 STITypeArgumentList::STIArgTypeList *STITypeArgumentList::getArgumentList() {
   return &_argumentList;
+}
+
+void STITypeArgumentList::append(STIType *argument) {
+  _argumentList.push_back(argument);
 }
 
 //===----------------------------------------------------------------------===//

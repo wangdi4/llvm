@@ -53,6 +53,7 @@ class STITypeVShape;
 class STITypeMethodList;
 class STITypeFunctionID;
 class STITypeProcedure;
+class STITypeMemberFunction;
 class STITypeArgumentList;
 class STIStringEntry;
 class STIStringTable;
@@ -65,41 +66,61 @@ class STILineSlice;
 typedef uint32_t STISymbolID; // FIXME: Make enum and move to STI.h
 
 //===----------------------------------------------------------------------===//
-// STIObject
+// STIObjectKind
 //===----------------------------------------------------------------------===//
 
+#define STI_OBJECT_KIND_LIST                                                  \
+    X(STI_OBJECT_KIND_NONE,                 0)                                \
+    X(STI_OBJECT_KIND_LOCATION,             1)   /* STILocation           */  \
+    X(STI_OBJECT_KIND_SCOPE,                2)   /* STIScope              */  \
+    X(STI_OBJECT_KIND_SYMBOL_MODULE,        3)   /* STISymbolModule       */  \
+    X(STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT,  4)   /* STISymbolCompileUnit  */  \
+    X(STI_OBJECT_KIND_SYMBOL_CONSTANT,      5)   /* STISymbolConstant     */  \
+    X(STI_OBJECT_KIND_SYMBOL_PROCEDURE,     6)   /* STISymbolProcedure    */  \
+    X(STI_OBJECT_KIND_SYMBOL_THUNK,         7)   /* STISymbolThunk        */  \
+    X(STI_OBJECT_KIND_SYMBOL_FRAMEPROC,     8)   /* STISymbolFrameProc    */  \
+    X(STI_OBJECT_KIND_SYMBOL_BLOCK,         9)   /* STISymbolBlock        */  \
+    X(STI_OBJECT_KIND_SYMBOL_VARIABLE,      10)  /* STISymbolVariable     */  \
+    X(STI_OBJECT_KIND_SYMBOL_USER_DEFINED,  11)  /* STISymbolUserDefined  */  \
+    X(STI_OBJECT_KIND_TYPE_BASIC,           12)  /* STITypeBasic          */  \
+    X(STI_OBJECT_KIND_TYPE_MODIFIER,        13)  /* STITypeModifier       */  \
+    X(STI_OBJECT_KIND_TYPE_POINTER,         14)  /* STITypePointer        */  \
+    X(STI_OBJECT_KIND_TYPE_ARRAY,           15)  /* STITypeArray          */  \
+    X(STI_OBJECT_KIND_TYPE_STRUCTURE,       16)  /* STITypeStructure      */  \
+    X(STI_OBJECT_KIND_TYPE_ENUMERATION,     17)  /* STITypeEnumeration    */  \
+    X(STI_OBJECT_KIND_TYPE_VSHAPE,          18)  /* STITypeVShape         */  \
+    X(STI_OBJECT_KIND_TYPE_BITFIELD,        19)  /* STITypeBitfield       */  \
+    X(STI_OBJECT_KIND_TYPE_METHOD_LIST,     20)  /* STITypeMethodList     */  \
+    X(STI_OBJECT_KIND_TYPE_FIELD_LIST,      21)  /* STITypeFieldList      */  \
+    X(STI_OBJECT_KIND_TYPE_FUNCTION_ID,     22)  /* STITypeFunctionID     */  \
+    X(STI_OBJECT_KIND_TYPE_PROCEDURE,       23)  /* STITypeProcedure      */  \
+    X(STI_OBJECT_KIND_TYPE_MEMBER_FUNCTION, 24)  /* STITypeMemberFunction */  \
+    X(STI_OBJECT_KIND_TYPE_ARGUMENT_LIST,   25)  /* STITypeArgumentList   */  \
+    X(STI_OBJECT_KIND_TYPE_SERVER,          26)  /* STITypeServer         */
+
 enum STIObjectKindEnum {
-  STI_OBJECT_KIND_NONE = 0,
-#if 0
-  STI_OBJECT_KIND_INSTRUCTION,         // STIInstruction
-#endif
-  STI_OBJECT_KIND_LOCATION,            // STILocation
-  STI_OBJECT_KIND_SCOPE,               // STIScope
-  STI_OBJECT_KIND_SYMBOL_MODULE,       // STISymbolModule
-  STI_OBJECT_KIND_SYMBOL_COMPILE_UNIT, // STISymbolCompileUnit
-  STI_OBJECT_KIND_SYMBOL_CONSTANT,     // STISymbolConstant
-  STI_OBJECT_KIND_SYMBOL_PROCEDURE,    // STISymbolProcedure
-  STI_OBJECT_KIND_SYMBOL_THUNK,        // STISymbolThunk
-  STI_OBJECT_KIND_SYMBOL_FRAMEPROC,    // STISymbolFrameProc
-  STI_OBJECT_KIND_SYMBOL_BLOCK,        // STISymbolBlock
-  STI_OBJECT_KIND_SYMBOL_VARIABLE,     // STISymbolVariable
-  STI_OBJECT_KIND_SYMBOL_USER_DEFINED, // STISymbolUserDefined
-  STI_OBJECT_KIND_TYPE_BASIC,          // STITypeBasic
-  STI_OBJECT_KIND_TYPE_MODIFIER,       // STITypeModifier
-  STI_OBJECT_KIND_TYPE_POINTER,        // STITypePointer
-  STI_OBJECT_KIND_TYPE_ARRAY,          // STITypeArray
-  STI_OBJECT_KIND_TYPE_STRUCTURE,      // STITypeStructure
-  STI_OBJECT_KIND_TYPE_ENUMERATION,    // STITypeEnumeration
-  STI_OBJECT_KIND_TYPE_VSHAPE,         // STITypeVShape
-  STI_OBJECT_KIND_TYPE_BITFIELD,       // STITypeBitfield
-  STI_OBJECT_KIND_TYPE_METHOD_LIST,    // STITypeMethodList
-  STI_OBJECT_KIND_TYPE_FIELD_LIST,     // STITypeFieldList
-  STI_OBJECT_KIND_TYPE_FUNCTION_ID,    // STITypeFunctionID
-  STI_OBJECT_KIND_TYPE_PROCEDURE,      // STITypeProcedure
-  STI_OBJECT_KIND_TYPE_ARGUMENT_LIST,  // STITypeArgumentList
-  STI_OBJECT_KIND_TYPE_SERVER          // STITypeServer
+#define X(KIND, VALUE) KIND = VALUE,
+  STI_OBJECT_KIND_LIST
+#undef  X
 };
 typedef enum STIObjectKindEnum STIObjectKind;
+
+//===----------------------------------------------------------------------===//
+// toObjectKindString(kind)
+//
+// Returns a string describing the specified object kind, to be used for
+// debugging/dumping purposes only.
+//
+//===----------------------------------------------------------------------===//
+
+const char* toObjectKindString(STIObjectKind kind);
+
+//===----------------------------------------------------------------------===//
+// STIObject
+//
+// Root object type for all STI IR objects.
+//
+//===----------------------------------------------------------------------===//
 
 class STIObject {
 private:
@@ -388,6 +409,39 @@ private:
   LeafID    _leafID;
   size_t    _size;
   char*     _data;
+};
+
+//===----------------------------------------------------------------------===//
+// STICompositeProperties
+//
+// A collection of STICompositeProperty values which are used for class,
+// struct, union, and enumeration types.
+//
+//===----------------------------------------------------------------------===//
+
+class STICompositeProperties {
+private:
+  uint16_t _value;
+
+public:
+  typedef STICompositeProperty Property;
+
+  STICompositeProperties() : _value (STI_COMPOSITE_PROPERTY_NONE) {}
+
+  STICompositeProperties(const STICompositeProperties& properties) :
+      _value (properties._value) {}
+
+  ~STICompositeProperties() {}
+
+  void set(Property property)   { _value |= property;  }
+  void unset(Property property) { _value &= ~property; }
+
+  STICompositeProperties& operator = (const STICompositeProperties properties) {
+    _value = properties._value;
+    return *this;
+  }
+
+  operator uint16_t () const { return _value; }
 };
 
 //===----------------------------------------------------------------------===//
@@ -1141,10 +1195,13 @@ public:
 //===----------------------------------------------------------------------===//
 
 class STITypeStructure : public STIType {
+public:
+  typedef STICompositeProperties Properties;
+
 private:
   uint16_t _leaf; // FIXME: STISymbolID?
   uint16_t _count;
-  uint16_t _property;
+  Properties _properties;
   STIType *_fieldType;
   STIType *_derivedType;
   STIType *_vshapeType;
@@ -1165,8 +1222,9 @@ public:
   uint16_t getCount() const;
   void setCount(uint16_t count);
 
-  uint16_t getProperty() const;
-  void setProperty(uint16_t prop);
+  Properties getProperties() const;
+  void setProperties(Properties properties);
+  void setProperty(STICompositeProperty property);
 
   STIType *getFieldType() const;
   void setFieldType(STIType *fieldType);
@@ -1189,9 +1247,12 @@ public:
 //===----------------------------------------------------------------------===//
 
 class STITypeEnumeration : public STIType {
+public:
+  typedef STICompositeProperties Properties;
+
 private:
   uint16_t _count;
-  uint16_t _property;
+  Properties _properties;
   STIType *_elementType;
   STIType *_fieldType;
   std::string _name;
@@ -1207,8 +1268,9 @@ public:
   uint16_t getCount() const;
   void setCount(uint16_t count);
 
-  uint16_t getProperty() const;
-  void setProperty(uint16_t prop);
+  Properties getProperties() const;
+  void setProperties(Properties properties);
+  void setProperty(STICompositeProperty property);
 
   STIType *getElementType() const;
   void setElementType(STIType *elementType);
@@ -1279,15 +1341,13 @@ public:
 class STITypeProcedure : public STIType {
 private:
   STIType *_returnType;
-  STIType *_classType;
-  STIType *_thisType;
+  STIType *_argumentList;
   int _callingConvention;
   uint16_t _paramCount;
-  STIType *_argumentList;
-  int _thisAdjust;
 
 protected:
   STITypeProcedure();
+  STITypeProcedure(STIObjectKind kind);
 
 public:
   ~STITypeProcedure();
@@ -1297,12 +1357,6 @@ public:
   STIType *getReturnType() const;
   void setReturnType(STIType *returnType);
 
-  STIType *getClassType() const;
-  void setClassType(STIType *classType);
-
-  STIType *getThisType() const;
-  void setThisType(STIType *thisType);
-
   int getCallingConvention() const;
   void setCallingConvention(int callingConvention);
 
@@ -1311,6 +1365,31 @@ public:
 
   STIType *getArgumentList() const;
   void setArgumentList(STIType *argumentList);
+};
+
+//===----------------------------------------------------------------------===//
+// STITypeMemberFunction
+//===----------------------------------------------------------------------===//
+
+class STITypeMemberFunction : public STITypeProcedure {
+private:
+  STIType *_classType;
+  STIType *_thisType;
+  int      _thisAdjust;
+
+protected:
+  STITypeMemberFunction();
+
+public:
+  ~STITypeMemberFunction();
+
+  static STITypeMemberFunction *create();
+
+  STIType *getClassType() const;
+  void setClassType(STIType *classType);
+
+  STIType *getThisType() const;
+  void setThisType(STIType *thisType);
 
   int getThisAdjust() const;
   void setThisAdjust(int thisAdjust);
@@ -1339,6 +1418,8 @@ public:
 
   const STIArgTypeList *getArgumentList() const;
   STIArgTypeList *getArgumentList();
+
+  void append(STIType *argument);
 };
 
 //===----------------------------------------------------------------------===//
