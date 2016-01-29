@@ -912,7 +912,10 @@ BUILTIN(__builtin_index, "c*cC*i", "Fn")
 BUILTIN(__builtin_rindex, "c*cC*i", "Fn")
 
 // Microsoft builtins.  These are only active with -fms-extensions.
-LANGBUILTIN(_alloca,          "v*z", "n", ALL_MS_LANGUAGES)
+#if INTEL_CUSTOMIZATION
+// CQ#370960: _alloca is always enabled in ICC mode.
+LANGBUILTIN(_alloca, "v*z", "n", LanguageID(ALL_MS_LANGUAGES | ICC_LANG))
+#endif // INTEL_CUSTOMIZATION
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 // CQ#368488 - builtins fixes for iclang.
 BUILTIN(__assume,     "vb",  "n")
