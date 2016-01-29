@@ -437,7 +437,10 @@ BUILTIN(__builtin_assume_aligned, "v*vC*z.", "nc")
 BUILTIN(__builtin_bcmp, "iv*v*z", "Fn")
 BUILTIN(__builtin_bcopy, "vv*v*z", "n")
 BUILTIN(__builtin_bzero, "vv*z", "nF")
-BUILTIN(__builtin_fprintf, "iP*cC*.", "Fp:1:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Due to icc compatibility 'FILE *' -> 'void *'
+BUILTIN(__builtin_fprintf, "iv*cC*.", "Fp:1:")
+#endif // INTEL_CUSTOMIZATION
 BUILTIN(__builtin_memchr, "v*vC*iz", "nF")
 BUILTIN(__builtin_memcmp, "ivC*vC*z", "nF")
 BUILTIN(__builtin_memcpy, "v*v*vC*z", "nF")
@@ -480,6 +483,17 @@ BUILTIN(__builtin_eh_return_data_regno, "iIi", "nc")
 BUILTIN(__builtin_snprintf, "ic*zcC*.", "nFp:2:")
 BUILTIN(__builtin_vsprintf, "ic*cC*a", "nFP:1:")
 BUILTIN(__builtin_vsnprintf, "ic*zcC*a", "nFP:2:")
+#if INTEL_CUSTOMIZATION
+// CQ#370451. Prinf/scanf builtin functions.
+BUILTIN(__builtin_vprintf,  "icC*a", "FP:0:")
+BUILTIN(__builtin_vfprintf, "iv*cC*a", "FP:1:")
+BUILTIN(__builtin_scanf,   "icC*.",       "Fs:0:")
+BUILTIN(__builtin_fscanf,  "iv*cC*.",   "Fs:1:")
+BUILTIN(__builtin_sscanf,  "icC*cC*.",  "Fs:1:")
+BUILTIN(__builtin_vscanf,  "icC*a",      "FS:0:")
+BUILTIN(__builtin_vfscanf, "iv*cC*a",  "FS:1:")
+BUILTIN(__builtin_vsscanf, "icC*cC*a", "FS:1:")
+#endif // INTEL_CUSTOMIZATION
 
 // GCC exception builtins
 BUILTIN(__builtin_eh_return, "vzv*", "r") // FIXME: Takes intptr_t, not size_t!
