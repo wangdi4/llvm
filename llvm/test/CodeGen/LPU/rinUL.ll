@@ -7,7 +7,7 @@ target triple = "lpu"
 ; Function Attrs: nounwind
 define i64 @rinUL(i64* %p) #0 {
 ; LPU_CHECK-LABEL: rinUL
-; LPU_CHECK: neg32
+; LPU_CHECK: neg64
 ; LPU_CHECK-NOT: sext32
 
 entry:

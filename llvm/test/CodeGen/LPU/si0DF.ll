@@ -6,9 +6,9 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define void @si0DF(double* %p) #0 {
-LPU_CHECK-LABEL: si0DF
-LPU_CHECK: st64
-LPU_CHECK: st64
+; LPU_CHECK-LABEL: si0DF
+; LPU_CHECK: st64
+; LPU_CHECK: st64
 
 entry:
   %p.addr = alloca double*, align 8

@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @first(i32 %a, i32 %b, i16* %c, i32* %ip) #0 {
-LPU_CHECK-LABEL: first
-LPU_CHECK: ld32x
+; LPU_CHECK-LABEL: first
+; LPU_CHECK: ld32x
 
 entry:
   %a.addr = alloca i32, align 4

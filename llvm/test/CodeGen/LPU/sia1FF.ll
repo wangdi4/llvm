@@ -6,10 +6,10 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define void @sia1FF(float* %p) #0 {
-LPU_CHECK-LABEL: sia1FF
-LPU_CHECK: st64
-LPU_CHECK: ld32
-LPU_CHECK: st32
+; LPU_CHECK-LABEL: sia1FF
+; LPU_CHECK: st64
+; LPU_CHECK: ld32
+; LPU_CHECK: st32
 
 entry:
   %p.addr = alloca float*, align 8

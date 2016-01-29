@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i64 @cvtSLDF(double %d) #0 {
-LPU_CHECK-LABEL: cvtSLDF
-LPU_CHECK: cvts64f64
+; LPU_CHECK-LABEL: cvtSLDF
+; LPU_CHECK: cvts64f64
 
 entry:
   %d.addr = alloca double, align 8

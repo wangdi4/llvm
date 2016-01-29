@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @gtFF(float %a, float %b) #0 {
-LPU_CHECK-LABEL: gtFF
-LPU_CHECK: cmpgtf32
+; LPU_CHECK-LABEL: gtFF
+; LPU_CHECK: cmpgtf32
 
 entry:
   %a.addr = alloca float, align 4

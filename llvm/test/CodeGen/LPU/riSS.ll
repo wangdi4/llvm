@@ -1,4 +1,4 @@
- RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
+; RUN: llc -mtriple=lpu < %s | FileCheck %s --check-prefix=LPU_CHECK 
 
 ; ModuleID = 'tools/src/llvm/test/CodeGen/LPU/ALUOps.c'
 target datalayout = "e-m:e-i64:64-n32:64"

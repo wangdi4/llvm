@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define float @fmsFF(float %a, float %b, float %c) #0 {
-LPU_CHECK-LABEL: fmsFF
-LPU_CHECK: fmsf32
+; LPU_CHECK-LABEL: fmsFF
+; LPU_CHECK: fmsf32
 
 entry:
   %a.addr = alloca float, align 4

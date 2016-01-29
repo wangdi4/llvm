@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @leUC(i8 zeroext %a, i8 zeroext %b) #0 {
-LPU_CHECK-LABEL: leUC
-LPU_CHECK: cmples32
+; LPU_CHECK-LABEL: leUC
+; LPU_CHECK: cmples32
 
 entry:
   %a.addr = alloca i8, align 1

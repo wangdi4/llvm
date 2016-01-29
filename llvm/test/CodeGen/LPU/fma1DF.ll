@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define double @fma1DF(double %a, double %b, double %c) #0 {
-LPU_CHECK-LABEL: fma1DF
-LPU_CHECK: fmaf64
+; LPU_CHECK-LABEL: fma1DF
+; LPU_CHECK: fmaf64
 
 entry:
   %a.addr = alloca double, align 8

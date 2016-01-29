@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define float @divFF(float %a, float %b) #0 {
-LPU_CHECK-LABEL: divFF
-LPU_CHECK: divf32
+; LPU_CHECK-LABEL: divFF
+; LPU_CHECK: divf32
 
 entry:
   %a.addr = alloca float, align 4

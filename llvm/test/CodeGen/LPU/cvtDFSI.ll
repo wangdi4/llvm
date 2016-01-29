@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define double @cvtDFSI(i32 %i) #0 {
-LPU_CHECK-LABEL: cvtDFSI
-LPU_CHECK: cvtf64s32
+; LPU_CHECK-LABEL: cvtDFSI
+; LPU_CHECK: cvtf64s32
 
 entry:
   %i.addr = alloca i32, align 4

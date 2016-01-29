@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @neDF(double %a, double %b) #0 {
-LPU_CHECK-LABEL: neDF
-LPU_CHECK: cmpnef64
+; LPU_CHECK-LABEL: neDF
+; LPU_CHECK: cmpnef64
 
 entry:
   %a.addr = alloca double, align 8

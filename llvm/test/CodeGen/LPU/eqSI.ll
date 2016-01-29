@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @eqSI(i32 %a, i32 %b) #0 {
-LPU_CHECK-LABEL: eqSI
-LPU_CHECK: cmpeq32
+; LPU_CHECK-LABEL: eqSI
+; LPU_CHECK: cmpeq32
 
 entry:
   %a.addr = alloca i32, align 4

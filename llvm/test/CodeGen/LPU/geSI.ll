@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @geSI(i32 %a, i32 %b) #0 {
-LPU_CHECK-LABEL: geSI
-LPU_CHECK: cmpges32
+; LPU_CHECK-LABEL: geSI
+; LPU_CHECK: cmpges32
 
 entry:
   %a.addr = alloca i32, align 4

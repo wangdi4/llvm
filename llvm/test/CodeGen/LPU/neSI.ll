@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @neSI(i32 %a, i32 %b) #0 {
-LPU_CHECK-LABEL: neSI
-LPU_CHECK: cmpne32
+; LPU_CHECK-LABEL: neSI
+; LPU_CHECK: cmpne32
 
 entry:
   %a.addr = alloca i32, align 4

@@ -6,8 +6,8 @@ target triple = "lpu"
 
 ; Function Attrs: nounwind
 define i32 @eqFF(float %a, float %b) #0 {
-LPU_CHECK-LABEL: eqFF
-LPU_CHECK: cmpeqf32
+; LPU_CHECK-LABEL: eqFF
+; LPU_CHECK: cmpeqf32
 
 entry:
   %a.addr = alloca float, align 4
