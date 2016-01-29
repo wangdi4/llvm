@@ -245,11 +245,19 @@ private:
         if (!isa<Instruction>(V))
           return V;
 
-        // Blobs represented by an scevunknowns whose value is an instruction
+        // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
         unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
-        assert(BlobSymbase && "Invalid symbase");
+        
+        // SCEVExpander can create its own SCEVs as intermediates which are
+        // then expanded. One example is expandAddToGep which replaces
+        // adds of ptr types with a SCEV for a gep instead of ptrtoints
+        // and adds. These new scevunknowns have an instruction but no 
+        // corresponding blob. For those, return their underlying value
+        if(BlobSymbase == CanonExpr::INVALID_BLOB_INDEX)  {
+          return V;
+        }
 
         std::string TempName = CG.getTempName(BlobSymbase);
         AllocaInst *TempAddr = CG.getNamedValue(TempName, S->getType());
