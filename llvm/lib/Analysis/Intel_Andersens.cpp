@@ -4374,11 +4374,14 @@ void IntelModRefImpl::collectInstruction(Instruction *I, ModRefMap *DirectModRef
     }
     else if (BitCastInst *BC = dyn_cast<BitCastInst>(I)) {
         Value *ValOperand = BC->getOperand(0);
-        bool Changed = DirectModRef->addRef(ValOperand);
-        if (Changed) {
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
-            DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
-                "MODREF: " << *ValOperand << "\n\n");
+        // CQ380767: Skip non-pointer operand in BitCast Inst
+        if (isInterestingPointer(ValOperand)) {
+            bool Changed = DirectModRef->addRef(ValOperand);
+            if (Changed) {
+                DEBUG_WITH_TYPE("imr-collect-trace", errs() << (*I) << "\n");
+                DEBUG_WITH_TYPE("imr-collect-trace", errs() <<
+                    "REF: " << *ValOperand << "\n\n");
+            }
         }
     }
     else if (AtomicCmpXchgInst *ACX = dyn_cast<AtomicCmpXchgInst>(I)) {
