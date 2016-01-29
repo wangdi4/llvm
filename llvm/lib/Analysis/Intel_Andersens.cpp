@@ -4675,7 +4675,7 @@ void IntelModRefImpl::propagate(Module &M)
                 for (auto E = SCC.end(); I != E; ++I) {
                     Function* CurF = (*I)->getFunction();
                     FunctionRecord *CurFR = getFunctionInfo(CurF);
-                    if (FR) {
+                    if (CurFR) {
                         changed = fuseModRefSets(PrevFR, CurFR);
                         PrevFR = CurFR;
                     }
