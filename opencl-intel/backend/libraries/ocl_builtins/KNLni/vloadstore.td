@@ -269,11 +269,15 @@ code Storead_half_rtz16 = [{
   }];
 
 code Load_half8 = [{
-    short8 tmp = *((__constant short8 *)(short8*)($Arg1VarName + 8*$Arg0VarName));
-    return __ocl_Half8ToFloat8(tmp);
+    float8 res;
+    const short8 inp = vload8($Arg0VarName, ($Arg1igentype)$Arg1VarName);
+    return __ocl_Half8ToFloat8(inp);
   }];
 
 code Load_half16 = [{
-    short16 tmp = *((__constant short16 *)(short16*)($Arg1VarName + 16*$Arg0VarName));
-    return __ocl_Half16ToFloat16(tmp);
+    float16 res;
+    const short16 inp = vload16($Arg0VarName, ($Arg1igentype)$Arg1VarName);
+    res.lo = __ocl_Half8ToFloat8(inp.lo);
+    res.hi = __ocl_Half8ToFloat8(inp.hi);
+    return res;
   }];
