@@ -382,22 +382,7 @@ FINISH:
 
 cl_device_id CrtContext::GetDeviceByType( cl_device_type device_type )
 {
-    cl_device_id device = NULL;
-
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Lock();
-
-    for( OCLCRT::DEV_INFO_MAP::const_iterator itr = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().begin();
-        itr != OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.get().end();
-        itr++ )
-    {
-        if( itr->second->m_devType == device_type )
-        {
-            device = itr->first;
-            break;
-        }
-    }
-    OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.Release();
-    return device;
+    return OCLCRT::crt_ocl_module.GetDeviceByType( device_type );
 }
 
 void CrtContext::GetDevicesByPlatformId(
@@ -3381,9 +3366,6 @@ void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *my
             // User didn't provide free function; Assume no system pointers here
             assert( !haveSystemPointers && "System pointers were passed to callback without free function! This should have been checked before." );
         }
-
-        // Mark the event which is returned to user as complete
-        clSetUserEventStatus( clbkData->m_svmFreeUserEvent->m_eventDEV, CL_COMPLETE );
     }
 
     // The event was not returned to user so we must release it here

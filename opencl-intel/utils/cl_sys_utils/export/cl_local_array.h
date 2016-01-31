@@ -31,6 +31,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 	template<class T>
 	class clLocalArray
 	{
+		clLocalArray(const clLocalArray&);
+		clLocalArray& operator=(const clLocalArray&);
 	public:
 		clLocalArray(size_t length) : m_data(NULL), m_heapAllocated(false)
 		{

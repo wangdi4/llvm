@@ -98,6 +98,9 @@ bool clGetPlatformInfoTest()
       case OPENCL_VERSION_2_0:
           bResult &= CheckStr(L"check value", "OpenCL 2.0 WINDOWS", platformInfoStr);
           break;
+      case OPENCL_VERSION_2_1:
+          bResult &= CheckStr(L"check value", "OpenCL 2.1 WINDOWS", platformInfoStr);
+          break;
       default:
           bResult = false;
       }

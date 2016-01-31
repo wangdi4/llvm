@@ -118,6 +118,25 @@ namespace Intel { namespace OpenCL { namespace Framework {
                                     OUT char**    pszCompileLog) const;
 
         /******************************************************************************************
+        * Function:     ParseSpirv
+        * Description:  Convert SPIRV binary to LLVM.
+        * Arguments:    szProgramBinary - the main program binary.
+        *               szOptions - compile options string.
+        * Output:       ppBinary - the compiled binary container.
+        *               puiBinarySize - pBinary size in bytes.
+        *               pszCompileLog - compile log string.
+        * Return value: CL_SUCCESS - The operation succeeded.
+        * Author:       Vlad Romanov
+        * Date:         January 2016
+        ******************************************************************************************/
+        cl_err_code ParseSpirv(const char*    szProgramBinary,
+                               unsigned int   uiProgramBinarySize,
+                               const char*    szOptions,
+                               OUT char**     ppBinary,
+                               OUT size_t*    puiBinarySize,
+                               OUT char**     pszCompileLog) const;
+
+        /******************************************************************************************
         * Function:     LinkProgram    
         * Description:  Compile source code and return binary data
         * Arguments:    ppBinaries - array of binary containers to be link together

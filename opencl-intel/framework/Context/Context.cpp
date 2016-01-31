@@ -90,6 +90,18 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
         return;
     }
 
+    m_szArraySize    = 0;
+    m_sz1dImgBufSize = 0;
+
+    m_sz2dWidth      = 0;
+    m_sz2dHeight     = 0;
+
+    m_sz3dWidth      = 0;
+    m_sz3dHeight     = 0;
+    m_sz3dDepth      = 0;
+
+    m_bSupportsSvmSystem = false;
+
     m_ppAllDevices = NULL;
     m_ppExplicitRootDevices = NULL;
     m_pDeviceIds = NULL;
@@ -224,7 +236,6 @@ Context::Context(const cl_context_properties * clProperties, cl_uint uiNumDevice
     GetMaxImageDimensions(&m_sz2dWidth, &m_sz2dHeight, &m_sz3dWidth, &m_sz3dHeight, &m_sz3dDepth, &m_szArraySize, &m_sz1dImgBufSize);
 
     // calculate m_bSupportsSvmSystem
-    m_bSupportsSvmSystem = false;
     const tSetOfDevices* pDevices = GetAllRootDevices();
     for (tSetOfDevices::const_iterator iter = pDevices->begin(); iter != pDevices->end(); iter++)
     {

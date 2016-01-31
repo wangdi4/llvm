@@ -14,7 +14,9 @@ OCLObject<HandleType,ParentHandleType>::OCLObject(ParentHandleType* parent, cons
 	m_handle.object = this;
 	if ( NULL != parent )
 	{
-		MEMCPY_S(&m_handle, sizeof(ocl_entry_points), &(parent->dispatch), sizeof(ocl_entry_points));
+		m_handle.dispatch    = parent->dispatch;
+		m_handle.crtDispatch = parent->crtDispatch;
+
 		// By default use logger of the parent object
 		SET_LOGGER_CLIENT( ((OCLObject<ParentHandleType>*)parent->object)->GetLoggerClient());
 	}

@@ -504,6 +504,12 @@ TEST_F(CL, Test_CheckExtensions)
 {
     CheckExtensions();
 }
+
+TEST(FrameworkTestType, Test_ClkEventAsKernelArg)
+{
+    EXPECT_TRUE(ClkEventAsKernelArg());
+}
+
 /////////////////////////////////////////////////////////////////////
 //////////////      CL20 tests.        //////////////////////////////
 /////////////////////////////////////////////////////////////////////
@@ -807,5 +813,3 @@ int main(int argc, char** argv)
     }
     return RUN_ALL_TESTS();
 }
-
-

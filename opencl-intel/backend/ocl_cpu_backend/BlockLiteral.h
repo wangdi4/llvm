@@ -22,6 +22,7 @@ File Name:  BlockLiteral.h
 #include "llvm/Support/Compiler.h"
 #include <assert.h>
 #include <string.h>
+#include "cl_sys_defines.h"
 
 /*
   Declartion of Clang's block literal structure. Used in OCL20 Extended execution
@@ -83,13 +84,13 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
     /// Deserialization is done by byte copying buffer and calling UpdateBlockDescrPtr() function
     /// It places in memory fixed size blockdescriptor and block_literal after it 
     /// @param dst - destination memory buffer pre-allocated with GetLiteralAndDescriptorSize() 
-    void Serialize(void *dst) const {
+    void Serialize(void *dst, size_t dst_size) const {
       // copy Block_descriptor
-      ::memcpy(dst, desc, sizeof(Block_descriptor));
+      MEMCPY_S(dst, dst_size, desc, sizeof(Block_descriptor));
       ((Block_descriptor*)dst)->reserved = BLOCKLITERAL_ID;
       // copy BlockLiteral
       void * newDescAddr = static_cast<char*>(dst) + sizeof(Block_descriptor);
-      ::memcpy(newDescAddr, this, desc->size);
+      MEMCPY_S(newDescAddr, dst_size - sizeof(Block_descriptor), this, desc->size);
     }
 
     /// @brief Deserialize BlockLiteral inplace in memory 
@@ -111,7 +112,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
       assert(src && "src is NULL");
       const size_t SizeBytes = src->GetBufferSizeForSerialization();
       char * mem = new char[SizeBytes];
-      src->Serialize(mem);
+      src->Serialize(mem, SizeBytes);
       BlockLiteral * pBL = DeserializeInBuffer(mem);
       return pBL;
     }

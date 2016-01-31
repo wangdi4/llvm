@@ -232,6 +232,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 		cl_err_code Init(ELogLevel level, const char* fileName, const char* title = NULL, FILE* fileDesc = stderr);
 
 	private:
+        FileLogHandler& operator=(const FileLogHandler&);
+        FileLogHandler(const FileLogHandler&);
 
 		char*	m_fileName;             // filename of the logging file
 

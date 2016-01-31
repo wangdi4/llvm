@@ -319,7 +319,7 @@ include_directories(
     ${BACKEND_ROOT_DIR}/utils
     ${BACKEND_ROOT_DIR}/metadata_api
     ${BACKEND_ROOT_DIR}/../utils/cache_binary_handler
-    ${CMAKE_SOURCE_DIR}/utils/CLElfLib 
+    ${CMAKE_SOURCE_DIR}/utils/CLElfLib
     ${CMAKE_BINARY_DIR}/include/
     ${OCL_BINARY_DIR}
 )
@@ -389,6 +389,7 @@ set( BACKEND_PASSES
     SinCosFold
     PreLegalizeBools
     OCLAliasAnalysis
+    SPIR20BlocksToObjCBlocks
 )
 
 set(UTILS_LIBS
@@ -427,7 +428,7 @@ endif(ANDROID)
 set( CMAKE_CXX_FLAGS_DEBUG "-DOCL_DEV_BACKEND_PLUGINS ${CMAKE_CXX_FLAGS_DEBUG}")
 
 add_definitions( -DOclCpuBackEnd_EXPORTS )
-if (KNC_CARD) 
+if (KNC_CARD)
   add_definitions( -DKNC_CARD )
 endif (KNC_CARD)
 

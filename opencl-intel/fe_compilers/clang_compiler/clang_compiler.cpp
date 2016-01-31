@@ -9,6 +9,9 @@
 #include <cl_device_api.h>
 #include <cl_shutdown.h>
 
+#include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Mutex.h"
+
 #if defined (_WIN32)
 #include<windows.h>
 #endif
@@ -30,12 +33,25 @@ using namespace Intel::OpenCL::FECompilerAPI;
 
 extern DECLARE_LOGGER_CLIENT;
 
-void ClangCompilerInitialize()
-{
-}
-
 void ClangCompilerTerminate()
 {
+    llvm::llvm_shutdown();
+}
+
+static volatile bool lazyClangCompilerInit =
+    true; // the flag must be 'volatile' to prevent caching in a CPU register
+static llvm::sys::Mutex lazyClangCompilerInitMutex;
+
+void ClangCompilerInitialize()
+{
+    if (lazyClangCompilerInit) {
+        llvm::sys::ScopedLock lock(lazyClangCompilerInitMutex);
+
+        if (lazyClangCompilerInit) {
+            atexit(ClangCompilerTerminate);
+            lazyClangCompilerInit = false;
+        }
+    }
 }
 
 // ClangFECompiler class implementation
@@ -50,8 +66,6 @@ ClangFECompiler::ClangFECompiler(const void* pszDeviceInfo)
     m_sDeviceInfo.bDoubleSupport    = pDevInfo->bDoubleSupport;
     m_sDeviceInfo.bEnableSourceLevelProfiling = pDevInfo->bEnableSourceLevelProfiling;
     m_config.Initialize(GetConfigFilePath());
-
-    //llvm::DisablePrettyStackTrace = m_config.DisableStackDump();
 }
 
 ClangFECompiler::~ClangFECompiler()
@@ -77,6 +91,14 @@ int ClangFECompiler::LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDe
     assert(NULL != pBinaryResult);
 
     return ClangFECompilerLinkTask(pProgDesc).Link(pBinaryResult);
+}
+
+int ClangFECompiler::ParseSPIRV(FESPIRVProgramDescriptor* pProgDesc, IOCLFEBinaryResult* *pBinaryResult)
+{
+    assert(NULL != pProgDesc);
+    assert(NULL != pBinaryResult);
+
+    return ClangFECompilerParseSPIRVTask(pProgDesc).ParseSPIRV(pBinaryResult);
 }
 
 int ClangFECompiler::GetKernelArgInfo(const void*             pBin,
@@ -109,6 +131,9 @@ FrameworkUserLogger* g_pUserLogger = NULL;
 
 extern "C" DLL_EXPORT int CreateFrontEndInstance(const void* pDeviceInfo, size_t devInfoSize, IOCLFECompiler* *pFECompiler, Intel::OpenCL::Utils::FrameworkUserLogger* pUserLogger)
 {
+    // Lazy initialization
+    ClangCompilerInitialize();
+
     assert(NULL != pFECompiler);
     assert(devInfoSize == sizeof(CLANG_DEV_INFO));
 

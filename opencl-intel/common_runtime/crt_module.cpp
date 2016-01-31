@@ -539,6 +539,25 @@ crt_err_code CrtModule::Initialize()
     return CRT_SUCCESS;
 }
 
+cl_device_id CrtModule::GetDeviceByType( cl_device_type device_type )
+{
+    cl_device_id device = NULL;
+
+    m_deviceInfoMapGuard.Lock();
+
+    for( OCLCRT::DEV_INFO_MAP::const_iterator itr = m_deviceInfoMapGuard.get().begin(),
+            end = m_deviceInfoMapGuard.get().end(); itr != end; ++itr )
+    {
+        if( itr->second->m_devType == device_type )
+        {
+            device = itr->first;
+            break;
+        }
+    }
+    m_deviceInfoMapGuard.Release();
+    return device;
+}
+
 
 cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 {

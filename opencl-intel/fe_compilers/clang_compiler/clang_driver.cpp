@@ -35,11 +35,19 @@
 #include <cl_cpu_detect.h>
 #include <cl_autoptr_ex.h>
 
+#include <llvm/IR/Module.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/Bitcode/ReaderWriter.h>
+#include <llvm/Support/SPIRV.h>
+#include <llvm/Support/raw_ostream.h>
+
 #include <string>
-#include <list>
 #include <vector>
 #include <cctype>
 #include <algorithm>
+#include <iterator>
+#include <sstream>
+#include <istream>
 
 using namespace Intel::OpenCL::ELFUtils;
 using namespace Intel::OpenCL::ClangFE;
@@ -260,6 +268,95 @@ int ClangFECompilerLinkTask::Link(IOCLFEBinaryResult* *pBinaryResult)
         *pBinaryResult = spBinaryResult.release();
     }
     return res;
+}
+
+//
+// ClangFECompilerParseSPIRVTask call implementation. 
+// Description:
+// Implements conversion from a SPIR-V 1.0 program (incapsulated in ClangFECompilerParseSPIRVTask)
+// to a llvm::Module, converts build options to LLVM metadata according to SPIR specification.
+int ClangFECompilerParseSPIRVTask::ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult)
+{
+    OCLFEBinaryResult* pResult(new OCLFEBinaryResult());
+
+    // verify build options
+    unsigned int uiUnrecognizedOptionsSize = strlen(m_pProgDesc->pszOptions) + 1;
+    std::unique_ptr<char> szUnrecognizedOptions(new char[uiUnrecognizedOptionsSize]);
+    szUnrecognizedOptions.get()[uiUnrecognizedOptionsSize - 1] = '\0';
+
+    if (!::CheckCompileOptions(m_pProgDesc->pszOptions,
+        szUnrecognizedOptions.get(), uiUnrecognizedOptionsSize))
+    {
+        std::stringstream errorMessage;
+        errorMessage << "Unrecognized build options: ";
+        errorMessage << szUnrecognizedOptions.get();
+        errorMessage << "\n";
+        pResult->setLog(errorMessage.str());
+
+        if (pBinaryResult) {
+            *pBinaryResult = pResult;
+        }
+
+        return CL_INVALID_COMPILER_OPTIONS;
+    }
+
+    // parse SPIR-V
+    std::unique_ptr<llvm::LLVMContext> context(new llvm::LLVMContext());
+    llvm::Module* pModule;
+    std::string errorMsg;
+    std::stringstream inputStream(std::string((const char*)m_pProgDesc->pSPIRVContainer,
+        m_pProgDesc->uiSPIRVContainerSize), std::ios_base::in);
+
+    bool isParsed = llvm::ReadSPIRV(*context, inputStream, pModule, errorMsg);
+
+    // Respect build options.
+    // Compiler options layout in llvm metadata is defined by SPIR spec.
+    // For example:
+    // !opencl.compiler.options = !{!11}
+    // !11 = !{!"-cl-fast-relaxed-math", !""-cl-mad-enable"}
+    if (isParsed)
+    {
+        llvm::NamedMDNode *OCLCompOptsMD =
+            pModule->getOrInsertNamedMetadata("opencl.compiler.options");
+        // we do not expect spir-v parser to handle build options
+        assert(OCLCompOptsMD->getNumOperands() == 0 &&
+            "SPIR-V parser is not expected to handle compile options");
+
+        if (OCLCompOptsMD->getNumOperands() == 0) {
+            llvm::SmallVector<llvm::Metadata*, 5> OCLBuildOptions;
+
+            std::vector<std::string> buildOptionsSeparated;
+            std::stringstream optionsStrstream(m_pProgDesc->pszOptions);
+            std::copy(std::istream_iterator<std::string>(optionsStrstream),
+                std::istream_iterator<std::string>(),
+                std::back_inserter(buildOptionsSeparated));
+
+            for (auto option : buildOptionsSeparated)
+            {
+                OCLBuildOptions.push_back(llvm::MDString::get(*context, option));
+            }
+
+            OCLCompOptsMD->addOperand(llvm::MDNode::get(*context, OCLBuildOptions));
+        }
+    }
+
+    // setting the result in both sucessful an uncussessful cases
+    // to pass the error log.
+
+    // serialize to LLVM bitcode
+    llvm::raw_svector_ostream ir_ostream(pResult->getIRBufferRef());
+    llvm::WriteBitcodeToFile(pModule, ir_ostream);
+    ir_ostream.flush();
+
+    pResult->setLog(errorMsg);
+    pResult->setIRType(IR_TYPE_COMPILED_OBJECT);
+    pResult->setIRName(pModule->getName());
+
+    if (pBinaryResult) {
+        *pBinaryResult = pResult;
+    }
+
+    return isParsed ? CL_SUCCESS : CL_INVALID_PROGRAM;
 }
 
 int ClangFECompilerGetKernelArgInfoTask::GetKernelArgInfo(const void *pBin,

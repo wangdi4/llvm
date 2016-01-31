@@ -70,7 +70,7 @@ TEST(BlockLiteralTest, SerializeDeserialize)
   // alloc space for dest buffer
   std::vector<char> DestBuf(memneeded);
   // copy to buffer
-  pTestBL->Serialize(&DestBuf[0]);
+  pTestBL->Serialize(&DestBuf[0], DestBuf.size());
 
   // alloc space for another buffer to copy initial
   std::vector<char> NewDestBuf(DestBuf);

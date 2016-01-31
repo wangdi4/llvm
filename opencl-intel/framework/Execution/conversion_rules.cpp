@@ -510,10 +510,10 @@ template <typename OrigVecType, typename VecType>
 cl_int __ANYINT_to_ANYINT(const OrigVecType *color, void *trgtPtr, const cl_channel_order order)
 {
     __m128i color128;
-	memcpy(&color128, color->s, sizeof(OrigVecType));
+    MEMCPY_S(&color128, sizeof(__m128i), color->s, sizeof(OrigVecType));
     VecType tmpColor;
     sat(tmpColor, color128);
-    
+
     VecType *trgt = (VecType *)trgtPtr;
     return __arrange_by_channel_order<VecType>(trgt, &tmpColor, order);
 }

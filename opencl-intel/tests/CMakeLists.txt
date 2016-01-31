@@ -7,6 +7,7 @@ include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )
+add_subdirectory( clang_compiler_test_type )
 
 add_subdirectory( task_executor_test_type )
 

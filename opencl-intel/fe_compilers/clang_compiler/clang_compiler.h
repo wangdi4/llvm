@@ -13,8 +13,6 @@
 #include "cl_config.h"
 #include "common_clang.h"
 
-
-
 namespace Intel { namespace OpenCL { namespace ClangFE {
 
     class ClangFECompiler : public Intel::OpenCL::FECompilerAPI::IOCLFECompiler
@@ -22,11 +20,14 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     public:
         ClangFECompiler(const void* pszDeviceInfo);
 
-          // IOCLFECompiler
-        int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc, 
+        // IOCLFECompiler
+        int CompileProgram(Intel::OpenCL::FECompilerAPI::FECompileProgramDescriptor* pProgDesc,
                            IOCLFEBinaryResult* *pBinaryResult);
 
-        int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc, 
+        int LinkPrograms(Intel::OpenCL::FECompilerAPI::FELinkProgramsDescriptor* pProgDesc,
+                         IOCLFEBinaryResult* *pBinaryResult);
+
+        int ParseSPIRV(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc,
                          IOCLFEBinaryResult* *pBinaryResult);
 
         int GetKernelArgInfo(const void*        pBin,
@@ -39,7 +40,7 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                                  size_t       uiUnrecognizedOptionsSize);
 
         bool CheckLinkOptions(const char*  szOptions,
-                              char*       szUnrecognizedOptions,
+                              char*        szUnrecognizedOptions,
                               size_t       uiUnrecognizedOptionsSize);
 
         void Release()
@@ -52,9 +53,9 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     protected:
         virtual ~ClangFECompiler();
 
-        CLANG_DEV_INFO	m_sDeviceInfo;
+        CLANG_DEV_INFO m_sDeviceInfo;
 
-        Intel::OpenCL::Utils::BasicCLConfigWrapper  m_config;
+        Intel::OpenCL::Utils::BasicCLConfigWrapper m_config;
     };
 
 }}}

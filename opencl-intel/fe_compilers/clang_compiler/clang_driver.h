@@ -24,14 +24,17 @@
 
 #pragma once
 
+#include "common_clang.h"
 #include "clang_device_info.h"
 #include <frontend_api.h>
 #include <cl_synch_objects.h>
 #include "cl_config.h"
 
-#include <string>
+#include "llvm/ADT/SmallVector.h"
+
 #include <list>
 #include <vector>
+#include <string>
 
 namespace Intel { namespace OpenCL { namespace ClangFE {
     typedef std::list<std::string> ArgListType;
@@ -96,6 +99,19 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
                              IOCLFEKernelArgInfo** ppResult);
     };
 
+    // SPIR-V -> llvm::Module converter wrapper.
+    class ClangFECompilerParseSPIRVTask : ClangFETask
+    {
+    public:
+        ClangFECompilerParseSPIRVTask(Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* pProgDesc)
+          : m_pProgDesc(pProgDesc)
+        {}
+
+        int ParseSPIRV(IOCLFEBinaryResult* *pBinaryResult);
+    private:
+        Intel::OpenCL::FECompilerAPI::FESPIRVProgramDescriptor* m_pProgDesc;
+    };
+
     // ClangFECompilerCheckCompileOptions
     // Input: szOptions - a string representing the compile options
     // Output: szUnrecognizedOptions - a new string containing the unrecognized options separated by spaces
@@ -112,4 +128,29 @@ namespace Intel { namespace OpenCL { namespace ClangFE {
     bool ClangFECompilerCheckLinkOptions(const char*  szOptions,
                                          char*        szUnrecognizedOptions,
                                          size_t       uiUnrecognizedOptionsSize);
+
+    class OCLFEBinaryResult : public IOCLFEBinaryResult {
+        // IOCLFEBinaryResult
+    public:
+        size_t GetIRSize() const override { return m_IRBuffer.size(); }
+        const void *GetIR() const override { return m_IRBuffer.data(); }
+        const char *GetIRName() const override { return m_IRName.c_str(); }
+        IR_TYPE GetIRType() const override { return m_type; }
+        const char *GetErrorLog() const override { return m_log.c_str(); }
+        void Release() override { delete this; }
+        // OCLFEBinaryResult
+    public:
+        OCLFEBinaryResult()
+            : m_type(IR_TYPE_UNKNOWN) {}
+        llvm::SmallVectorImpl<char> &getIRBufferRef() { return m_IRBuffer; }
+        std::string &getLogRef() { return m_log; }
+        void setLog(const std::string &log) { m_log = log; }
+        void setIRName(const std::string &name) { m_IRName = name; }
+        void setIRType(Intel::OpenCL::ClangFE::IR_TYPE type) { m_type = type; }
+    private:
+        llvm::SmallVector<char, 4096> m_IRBuffer;
+        std::string m_log;
+        std::string m_IRName;
+        Intel::OpenCL::ClangFE::IR_TYPE m_type;
+    };
 }}}

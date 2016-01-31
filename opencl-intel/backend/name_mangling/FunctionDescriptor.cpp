@@ -134,6 +134,7 @@ bool FunctionDescriptor::isNull()const{
 FunctionDescriptor FunctionDescriptor::null(){
   FunctionDescriptor fd;
   fd.name = "";
+  fd.width = width::V::NONE;
   return fd;
 }
 

@@ -78,7 +78,8 @@ reflection::FunctionDescriptor demangle(const char* rawstring){
     return reflection::FunctionDescriptor::null();
   }
 
-  ret.name = functionName.str();
+  ret.name  = functionName.str();
+  ret.width = reflection::width::NONE;
 
   return ret;
 }

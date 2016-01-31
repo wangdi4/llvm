@@ -5,7 +5,7 @@ include_directories(${LLVM_INCLUDE_DIRS}
                     ${BACKEND_ROOT_DIR}/utils
                     ${BACKEND_ROOT_DIR}/arch_headers)
 link_directories(${LLVM_LIBRARY_DIRS})
-                    
+
 add_executable(${TARGET_NAME}
     ocl_opt.cpp
     ${BACKEND_ROOT_DIR}/passes/InitializePasses.h
@@ -50,6 +50,7 @@ set(OCL_BE_PASSES
     SinCosFold
     PreLegalizeBools
     OCLAliasAnalysis
+    SPIR20BlocksToObjCBlocks
 )
 
 # Dependencies of the passes

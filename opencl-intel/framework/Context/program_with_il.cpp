@@ -39,9 +39,6 @@ ProgramWithIL::ProgramWithIL(SharedPtr<Context>   pContext,
                 break;
             }
 
-            // TODO: delete next line once SPIRV consumer will be moved to FE.
-            pDevProgram->SetBinaryInternal(length, pIL, CL_PROGRAM_BINARY_TYPE_SPIRV);
-
             pDevProgram->SetStateInternal(DEVICE_PROGRAM_SPIRV);
         }
     }
