@@ -778,8 +778,19 @@ void InitListChecker::CheckImplicitInitList(const InitializedEntity &Entity,
   if (maxElements == 0) {
     if (!VerifyOnly)
       SemaRef.Diag(ParentIList->getInit(Index)->getLocStart(),
+#if INTEL_CUSTOMIZATION
+                   // cq371131: Print warning in case of empty records 
+                   SemaRef.getLangOpts().IntelCompat &&
+                   !SemaRef.getLangOpts().IntelMSCompat ?
+                       diag::warn_implicit_empty_initializer :
+#endif // INTEL_CUSTOMIZATION
                    diag::err_implicit_empty_initializer);
     ++Index;
+#if INTEL_CUSTOMIZATION
+    // cq371131
+    if (!SemaRef.getLangOpts().IntelCompat ||
+        SemaRef.getLangOpts().IntelMSCompat)
+#endif // INTEL_CUSTOMIZATION
     hadError = true;
     return;
   }
@@ -931,6 +942,13 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
       return;
     }
 
+#if INTEL_CUSTOMIZATION
+    // cq371131: Do not run this because get_init(0) gives assertion fail if
+    // NunInits is null.
+    if(!SemaRef.getLangOpts().IntelCompat ||
+       SemaRef.getLangOpts().IntelMSCompat ||
+       StructuredList->getNumInits() > 0) {
+#endif // INTEL_CUSTOMIZATION
     if (StructuredIndex == 1 &&
         IsStringInit(StructuredList->getInit(0), T, SemaRef.Context) ==
             SIF_None) {
@@ -971,6 +989,10 @@ void InitListChecker::CheckExplicitInitList(const InitializedEntity &Entity,
       SemaRef.Diag(IList->getInit(Index)->getLocStart(), DK)
         << initKind << IList->getInit(Index)->getSourceRange();
     }
+#if INTEL_CUSTOMIZATION
+    // cq371131
+    }
+#endif // INTEL_CUSTOMIZATION
   }
 
   if (!VerifyOnly && T->isScalarType() &&

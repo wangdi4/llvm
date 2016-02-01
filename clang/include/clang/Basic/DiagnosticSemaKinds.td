@@ -4384,6 +4384,11 @@ def err_init_objc_class : Error<
   "cannot initialize Objective-C class type %0">;
 def err_implicit_empty_initializer : Error<
   "initializer for aggregate with no elements requires explicit braces">;
+// if INTEL_CUSTOMIZATION
+// cq371131
+def warn_implicit_empty_initializer : Warning<
+  err_implicit_empty_initializer.Text>, InGroup<IntelCompat>;
+// endif INTEL_CUSTOMIZATION
 def err_bitfield_has_negative_width : Error<
   "bit-field %0 has negative width (%1)">;
 def err_anon_bitfield_has_negative_width : Error<
