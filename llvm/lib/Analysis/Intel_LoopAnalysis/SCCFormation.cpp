@@ -272,36 +272,28 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
   isNewRegion = true;
 }
 
-bool SCCFormation::hasValidPhis(const SCCTy &NewSCC) const {
+bool SCCFormation::isUsedInSCCPhi(const PHINode *Phi,
+                                const SCCNodesTy &Nodes) const {
+  bool UsedInPhi = false;
 
-  for(auto const &Inst : NewSCC.Nodes) {
-    auto Phi = dyn_cast<PHINode>(Inst);
+  for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
+    auto UserPhi = dyn_cast<PHINode>(*I);
 
-    if (!Phi || RI->isHeaderPhi(Phi)) {
+    if (!UserPhi) {
       continue;
     }
 
-    bool UsedInPhi = false;
-
-    for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
-      auto UserPhi = dyn_cast<PHINode>(*I);
-
-      if (!UserPhi) {
-        continue;
-      }
-
-      if (NewSCC.Nodes.count(UserPhi)) {
-        UsedInPhi = true;
-        break;
-      }
-    }
-    
-    if (!UsedInPhi) {
-      return false;
+    if (Nodes.count(UserPhi)) {
+      UsedInPhi = true;
+      break;
     }
   }
 
-  return true; 
+  if (!UsedInPhi) {
+    return false;
+  }
+
+  return true;
 }
 
 bool SCCFormation::isValidSCC(const SCCTy &NewSCC) const {
@@ -320,41 +312,51 @@ bool SCCFormation::isValidSCC(const SCCTy &NewSCC) const {
       return false;
     }
 
-    if (isa<PHINode>(Inst)) {
+    auto Phi = dyn_cast<PHINode>(Inst);
 
-      auto ParentBB = Inst->getParent();
+    if (!Phi) {
+      continue;
+    }
 
-      if (BBlocks.count(ParentBB)) {
-        // If any two phis in the SCC have the same bblock parent then we
-        // cannot assign the same symbase to them because they are live inside
-        // the bblock at the same time, hence we invalidate the SCC. This can
-        // happen in circular wrap cases. The following example generates a
-        // single SCC out of a, b and c.
-        //
-        // for(i=0; i<n; i++) {
-        //   A[i] = a;
-        //   t = a;
-        //   a = b;
-        //   b = c;
-        //   c = t;
-        // }
-        //
-        // IR-
-        //
-        // for.body:
-        //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
-        //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
-        //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
-        // ...
-        //
-        return false;
-      }
+    auto ParentBB = Inst->getParent();
 
-      BBlocks.insert(ParentBB);
+    if (BBlocks.count(ParentBB)) {
+      // If any two phis in the SCC have the same bblock parent then we
+      // cannot assign the same symbase to them because they are live inside
+      // the bblock at the same time, hence we invalidate the SCC. This can
+      // happen in circular wrap cases. The following example generates a
+      // single SCC out of a, b and c.
+      //
+      // for(i=0; i<n; i++) {
+      //   A[i] = a;
+      //   t = a;
+      //   a = b;
+      //   b = c;
+      //   c = t;
+      // }
+      //
+      // IR-
+      //
+      // for.body:
+      //   %a.addr.010 = phi i32 [ %b.addr.07, %for.body ], [ %a, %entry ]
+      //   %c.addr.08 = phi i32 [ %a.addr.010, %for.body ], [ %c, %entry ]
+      //   %b.addr.07 = phi i32 [ %c.addr.08, %for.body ], [ %b, %entry ]
+      // ...
+      //
+      return false;
+    }
+
+    BBlocks.insert(ParentBB);
+
+    // No further validation needed for header phi.
+    if (RI->isHeaderPhi(Phi)) {
+      continue;
+    }
+
+    if (!isUsedInSCCPhi(Phi, NewSCC.Nodes)) {
+      return false;
     }
   }
-
-  assert(hasValidPhis(NewSCC) && "SCC has invalid phis!");
 
   return true;
 }

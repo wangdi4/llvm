@@ -142,9 +142,8 @@ private:
   /// all its nodes.
   bool isValidSCC(const SCCTy &NewSCC) const;
 
-  /// \brief Checks that each phi in the SCC is either a header phi or is used
-  /// in another phi in the SCC.
-  bool hasValidPhis(const SCCTy &NewSCC) const;
+  /// \brief Checks that Phi is used in another phi in the SCC.
+  bool isUsedInSCCPhi(const PHINode *Phi, const SCCNodesTy &NewSCC) const;
 
   /// \brief Runs Tarjan's algorithm on this node. Returns the lowlink for this
   /// node.
