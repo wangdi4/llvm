@@ -615,6 +615,11 @@ def gnu_fabi_version_EQ : Joined<["--"], "gnu_fabi_version=">,
 // CQ380574: Ability to set various predefines based on gcc version needed.
 def gnu_version_EQ : Joined<["--"], "gnu_version=">,
   HelpText<"Emulate GNU C++ version">;
+// CQ376358: Support -ffriend-injection option.
+def friend_injection : Flag<["--"], "friend_injection">,
+  HelpText<"Inject friend functions into the enclosing namespace.">;
+def no_friend_injection : Flag<["--"], "no_friend_injection">,
+  HelpText<"Do not inject friend functions into the enclosing namespace.">;
 // endif INTEL_CUSTOMIZATION
 
 // C++ TSes.

@@ -1439,6 +1439,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                                        Diags);
   Opts.Float128 = Opts.IntelQuad || (Opts.IntelCompat && Opts.GNUMode &&
                                      Opts.GNUVersion >= 40400);
+  // CQ376358: Support -ffriend-injection option.
+  // GCC < 4.01.00 supports friend function injections by default.
+  // GCC < 4.00.01 supports friend classes injections by default.
+  // This copied from EDG for better compatibility with icc/gcc.
+  Opts.FriendFunctionInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40100 && !Opts.CPlusPlus11);
+  Opts.FriendClassInject =
+      Args.hasFlag(OPT_friend_injection, OPT_no_friend_injection,
+                   Opts.GNUVersion < 40001 && !Opts.CPlusPlus11);
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
   StringRef OptLevel = Args.getLastArgValue(OPT_pragma_optimization_level_EQ, "Intel");
   Opts.PragmaOptimizationLevelIntel = (OptLevel == "Intel") ? 1 : 0;
