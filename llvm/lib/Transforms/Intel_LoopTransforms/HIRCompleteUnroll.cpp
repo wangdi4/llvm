@@ -305,6 +305,11 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
     return false;
   }
 
+  // Ignore loops with SIMD directive.
+  if (Loop->isSIMD()) {
+    return false;
+  }
+
   const RegDDRef *UBRef = Loop->getUpperDDRef();
   assert(UBRef && " Loop UpperBound not found.");
 

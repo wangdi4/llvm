@@ -336,6 +336,11 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
     return false;
   }
 
+  // Ignore loops with SIMD directive.
+  if (Loop->isSIMD()) {
+    return false;
+  }
+
   // Loop should be normalized before this pass
   // TODO: Decide whether we can remove this, just to save compile time.
   if (!Loop->isNormalized() || Loop->isUnknown()) {

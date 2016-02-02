@@ -499,13 +499,12 @@ public:
   /// \brief Verifies HLLoop integrity.
   virtual void verify() const override;
 
-  unsigned getMVTag() {
-    return MVTag;
-  }
+  /// TODO: Add isSIMD support
+  bool isSIMD() const { return false; }
 
-  void setMVTag(unsigned Tag) {
-    MVTag = Tag;
-  }
+  unsigned getMVTag() { return MVTag; }
+
+  void setMVTag(unsigned Tag) { MVTag = Tag; }
 };
 
 } // End namespace loopopt
