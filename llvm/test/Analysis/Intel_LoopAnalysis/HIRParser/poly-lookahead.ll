@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction | opt -analyze -hir-parser | FileCheck %s
 
 ; Check parsing output for the loop verifying that the we are able to handle IV multiplications resulting in polynomial SCEVs by looking ahead.
 

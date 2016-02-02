@@ -1192,20 +1192,31 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
     auto BaseSCEV = RecSCEV->getOperand(0);
     auto BaseAddRec = dyn_cast<SCEVAddRecExpr>(BaseSCEV);
+    auto StepSCEV = RecSCEV->getOperand(1);
+    auto StepAddRec = dyn_cast<SCEVAddRecExpr>(StepSCEV);
 
     // Sometimes when you multiply affine AddRecs, the base of the resulting
     // AddRec can become non-affine which would not correspond to any value in
     // the IR. In this case we need a lookahead.
-    // For example, V1 = i1, V2 = (i1 + i2), V1 * V2 = i1*i1 + i1*i2
-    // Here (i1 * i1) becomes the base but it cannot be reverse engineered as
-    // there is no value corresponding to this SCEV.
+    //
+    // Example 1:
+    // V1 = i1, V2 = (i1 + i2), V1 * V2 = i1*i1 + i1*i2
+    // Here (i1 * i1) becomes non-affine base but it cannot be reverse
+    // engineered as there is no value corresponding to this SCEV.
+    //
+    // Example 2:
+    // V1 = ((i1 + 1)*i2), V2 = i1, V1 * V2 = ((i1*i1 + i1) * i2)
+    // Here (i1 * i1) becomes the non-affine step but it cannot be reverse
+    // engineered as there is no value corresponding to this SCEV.
+    // Note that i1 * i2 is still an affine AddRec even though it is non-linear.
+    // This is because it is represented in SCEV form as follows:
+    // {0, +, {0,+,1}<i1> }<i2>
     if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
+        (StepAddRec && !StepAddRec->isAffine()) ||
         !HLNodeUtils::contains(HLoop, CurNode)) {
       parseBlob(SC, CE, Level);
 
     } else {
-
-      auto StepSCEV = RecSCEV->getOperand(1);
 
       parseRecursive(BaseSCEV, CE, Level, false, UnderCast);
 
@@ -1400,12 +1411,17 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
                              RegDDRef **RHSDDRef) {
 
   if (auto CInst = dyn_cast<CmpInst>(Cond)) {
-    *Pred = CInst->getPredicate();
 
-    *LHSDDRef = createRvalDDRef(CInst, 0, Level);
-    *RHSDDRef = createRvalDDRef(CInst, 1, Level);
+    // Suppress traceback if CInst's operand's type is not supported.
+    if (RI->isSupported(CInst->getOperand(0)->getType()) &&
+        RI->isSupported(CInst->getOperand(1)->getType())) {
+      *Pred = CInst->getPredicate();
 
-    return;
+      *LHSDDRef = createRvalDDRef(CInst, 0, Level);
+      *RHSDDRef = createRvalDDRef(CInst, 1, Level);
+
+      return;
+    }
   }
 
   if (isa<UndefValue>(Cond)) {
@@ -1616,7 +1632,7 @@ CanonExpr *HIRParser::createHeaderPhiIndexCE(const PHINode *Phi,
 RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
                                            const GEPOperator *GEPOp,
                                            unsigned Level) {
-  CanonExpr *BaseCE = nullptr, *IndexCE = nullptr;
+  CanonExpr *BaseCE = nullptr, *LastIndexCE = nullptr, *OpIndexCE = nullptr;
   auto BaseTy = BasePhi->getType();
 
   auto Ref = DDRefUtils::createRegDDRef(0);
@@ -1656,21 +1672,21 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
         auto OffsetSCEV = SE->getMinusSCEV(RecSCEV, BaseSCEV);
 
         BaseCE = CanonExprUtils::createCanonExpr(BaseSCEV->getType());
-        IndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
+        LastIndexCE = CanonExprUtils::createCanonExpr(OffsetSCEV->getType());
         parseRecursive(BaseSCEV, BaseCE, Level);
         // Disable cast hiding to prevent possible merging issues.
-        parseRecursive(OffsetSCEV, IndexCE, Level, true, true);
+        parseRecursive(OffsetSCEV, LastIndexCE, Level, true, true);
 
         // Normalize with repsect to element size.
-        IndexCE->divide(ElementSize, true);
+        LastIndexCE->divide(ElementSize, true);
       }
       // Decompose phi into base and index ourselves.
       else {
         BaseCE = createHeaderPhiInitCE(BasePhi, Level);
-        IndexCE = createHeaderPhiIndexCE(BasePhi, Level);
+        LastIndexCE = createHeaderPhiIndexCE(BasePhi, Level);
 
         // Normalize with respect to element size.
-        IndexCE->divide(ElementSize, true);
+        LastIndexCE->divide(ElementSize, true);
       }
     }
 
@@ -1685,46 +1701,56 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
 
     auto OffsetType = Type::getIntNTy(
         getContext(), getDataLayout().getTypeSizeInBits(BaseTy));
-    IndexCE = CanonExprUtils::createCanonExpr(OffsetType);
+    LastIndexCE = CanonExprUtils::createCanonExpr(OffsetType);
   }
 
-  // Here we add the other operand of GEPOperator as an offset to the index.
+  // Here we add the other operands of GEPOperator as dimensions. LastIndexCE is
+  // merged with the highest dimension.
   if (GEPOp) {
-    assert((2 == GEPOp->getNumOperands()) &&
+    // Subtract 1 for the base pointer.
+    auto NumOp = GEPOp->getNumOperands() - 1;
+
+    assert(((NumOp >= 1) && (NumOp <= NumDims)) &&
            "Unexpected number of GEP operands!");
 
-    auto OpIndexCE = parse(GEPOp->getOperand(1), Level, IndexCE->isZero());
+    // Subtract number of dimensions dereferenced in GEP.
+    NumDims -= NumOp;
 
-    // Workaround to allow merge with zero until mergeable() is extended.
-    if (!OpIndexCE->isZero()) {
-      if (IndexCE->isZero()) {
-        IndexCE->setSrcType(OpIndexCE->getSrcType());
-        IndexCE->setDestType(OpIndexCE->getDestType());
-        IndexCE->setExtType(OpIndexCE->isSExt());
-      }
-      assert(CanonExprUtils::mergeable(IndexCE, OpIndexCE) &&
-             "Indices cannot be merged!");
-      CanonExprUtils::add(IndexCE, OpIndexCE);
+    for (auto I = NumOp; I > 0; --I) {
+      OpIndexCE = parse(GEPOp->getOperand(I), Level, (I != 1));
+      Ref->addDimension(OpIndexCE);
     }
 
-    CanonExprUtils::destroy(OpIndexCE);
+    // Workaround to allow merge with zero until mergeable() is extended.
+    if (!LastIndexCE->isZero()) {
+      if (OpIndexCE->isZero()) {
+        OpIndexCE->setSrcType(LastIndexCE->getSrcType());
+        OpIndexCE->setDestType(LastIndexCE->getDestType());
+        OpIndexCE->setExtType(LastIndexCE->isSExt());
+      }
+      assert(CanonExprUtils::mergeable(OpIndexCE, LastIndexCE) &&
+             "Indices cannot be merged!");
+      CanonExprUtils::add(OpIndexCE, LastIndexCE);
+    }
 
     IsInBounds = GEPOp->isInBounds();
+
+  } else {
+    // Insert the dimension varying as part of phi itself.
+    NumDims--;
+    Ref->addDimension(LastIndexCE);
   }
 
   Ref->setBaseCE(BaseCE);
-  Ref->addDimension(IndexCE);
 
   // Add zero indices for the extra dimensions.
   // Extra dimensions are involved when the initial value of BasePhi is computed
   // using an array like the following-
   // %p.07 = phi i32* [ %incdec.ptr, %for.body ], [ getelementptr inbounds ([50
   // x i32], [50 x i32]* @A, i64 0, i64 10), %entry ]
-  if (NumDims > 1) {
-    for (auto I = NumDims - 1; I > 0; --I) {
-      IndexCE = CanonExprUtils::createCanonExpr(IndexCE->getDestType());
-      Ref->addDimension(IndexCE);
-    }
+  for (auto I = NumDims; I > 0; --I) {
+    OpIndexCE = CanonExprUtils::createCanonExpr(LastIndexCE->getDestType());
+    Ref->addDimension(OpIndexCE);
   }
 
   Ref->setInBounds(IsInBounds);
