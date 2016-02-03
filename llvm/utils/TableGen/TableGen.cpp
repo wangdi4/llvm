@@ -41,6 +41,7 @@ enum ActionType {
   PrintEnums,
   PrintSets,
   GenOptParserDefs,
+  GenMAPatterns, // INTEL
   GenCTags
 };
 
@@ -85,6 +86,10 @@ namespace {
                                "Generate option definitions"),
                     clEnumValN(GenCTags, "gen-ctags",
                                "Generate ctags-compatible index"),
+// INTEL_CUSTOMIZATION
+                    clEnumValN(GenMAPatterns, "gen-ma-patterns",
+                               "Generate MUL/ADD patterns"),
+// END INTEL_CUSTOMIZATION
                     clEnumValEnd));
 
   cl::opt<std::string>
@@ -165,6 +170,9 @@ bool LLVMTableGenMain(raw_ostream &OS, RecordKeeper &Records) {
   case GenCTags:
     EmitCTags(Records, OS);
     break;
+  case GenMAPatterns:            // INTEL
+    EmitMAPatterns(Records, OS); // INTEL
+    break;                       // INTEL
   }
 
   return false;

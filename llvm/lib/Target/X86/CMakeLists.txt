@@ -10,6 +10,7 @@ tablegen(LLVM X86GenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM X86GenFastISel.inc -gen-fast-isel)
 tablegen(LLVM X86GenCallingConv.inc -gen-callingconv)
 tablegen(LLVM X86GenSubtargetInfo.inc -gen-subtarget)
+tablegen(LLVM X86GenMAPatterns.inc -gen-ma-patterns) # INTEL
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources

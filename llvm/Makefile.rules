@@ -1734,6 +1734,12 @@ $(ObjDir)/%GenDFAPacketizer.inc.tmp : %.td $(ObjDir)/.dir $(LLVM_TBLGEN)
 	$(Echo) "Building $(<F) DFA packetizer tables with tblgen"
 	$(Verb) $(LLVMTableGen) -gen-dfa-packetizer -o $(call SYSPATH, $@) $<
 
+# INTEL_CUSTOMIZATION
+$(TARGET:%=$(ObjDir)/%GenMAPatterns.inc.tmp): %.td $(ObjDir)/.dir $(LLVM_TBLGEN)
+	$(Echo) "Building $(<F) mul/add patterns with tblgen"
+	$(Verb) $(LLVMTableGen) -gen-ma-patterns -o $(call SYSPATH, $@) $<
+# END INTEL_CUSTOMIZATION
+
 # Dump all the records to <target>.td.expanded.  This is useful for debugging.
 $(TARGET:%=%.td.expanded): \
 %.td.expanded : %.td $(LLVM_TBLGEN) $(TDFiles)
