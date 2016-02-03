@@ -8,6 +8,13 @@ if (NOT WIN32)
   remove_definitions(-Werror)
 endif (NOT WIN32)
 
+# some debugger tests have to use deprecated OpenCL API functions.
+if (WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif (WIN32)
+
 include_directories(${OCL_SOURCE_DIR}/framework/export
                     ${OCL_SOURCE_DIR}/externals/gtest/include
                     ${OCL_SOURCE_DIR}/cl_api

@@ -221,7 +221,7 @@ bool clCheckJITSaveLoadTest()
 
         // get binaries from the 2nd built program
         std::vector<size_t> binarySizes2(uiNumDevices);
-        char** pBinaries2;
+        char** pBinaries2 = nullptr;
         if(bResult)
         {
             // get the binary

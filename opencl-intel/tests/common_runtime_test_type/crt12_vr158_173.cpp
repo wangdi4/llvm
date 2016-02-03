@@ -57,7 +57,7 @@ void CheckChangeImage(OpenCLDescriptor ocl_descriptor, cl_image_desc desc, cl_in
 	cl_image_format image_format;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
-	cl_mem image;
+	cl_mem image = nullptr;
 
 	//initialize arrays
 	for(int j = 0 ; j < 4 ; j++){
@@ -155,7 +155,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageBufferVisibility1D_VR153){
 	DynamicArray<cl_int> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 	size_t origin[]={0,0,0};
 	size_t region[] = {0,0,0};
 	//initialize arrays
@@ -253,7 +253,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility1D_VR154){
 	DynamicArray<cl_int> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 
 	//initialize arrays
 	for(int i = 0; i < 4 ; i++){
@@ -354,7 +354,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility2D_VR155){
 	DynamicArray<cl_int> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 
 	//initialize arrays
 	for(int i = 0; i < 4 ; i++){
@@ -454,7 +454,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageArrayVisibility2D_VR156){
 	DynamicArray<cl_int> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 
 	//initialize arrays
 	for(int i = 0; i < 4 ; i++){
@@ -557,7 +557,7 @@ TEST_F(CRT12_VR158_173, DISABLED_ImageVisibility3D_VR157){
 	DynamicArray<cl_int> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 
 	//initialize arrays
 	for(int i = 0; i < 4 ; i++){
@@ -657,7 +657,7 @@ TEST_F(CRT12_VR158_173, WriteImage1D_VR158){
 	DynamicArray<cl_int4> input_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 	cl_event user_event;
 	cl_event CPU_event;
 	cl_event GPU_event;
@@ -763,8 +763,8 @@ TEST_F(CRT12_VR158_173, WriteImage2D_VR159){
 	DynamicArray<cl_int4> input_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
-	cl_event user_event;
+	cl_mem image = nullptr;
+	cl_event user_event = nullptr;
 	cl_event CPU_event;
 	cl_event GPU_event;
 	//initialize arrays
@@ -873,7 +873,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction1D_VR160){
 	DynamicArray<cl_int4> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 	cl_event user_event;
 	//initialize arrays
 	for(int j = 0 ; j < 4 ; j++){
@@ -984,7 +984,7 @@ TEST_F(CRT12_VR158_173, BuildInFunction2D_VR161){
 	DynamicArray<cl_int4> output_array(4);
 	cl_image_format image_format;
 	cl_image_desc desc;
-	cl_mem image;
+	cl_mem image = nullptr;
 	cl_event user_event;
 	//initialize arrays
 	for(int j = 0 ; j < 4 ; j++){

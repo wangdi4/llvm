@@ -29,7 +29,13 @@ if (GCC_VERSION VERSION_GREATER 4.6 OR GCC_VERSION VERSION_EQUAL 4.6)
 endif ()
 
 # Compiler switches that CANNOT be modified during makefile generation
-set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -fstack-protector" )
+if (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector-strong" )
+else (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector" )
+endif ()
+
+set (ADD_COMMON_C_FLAGS         "-msse3 -mssse3 ${SSE4_VAL} ${ARCH_BIT} -fPIC -fdiagnostics-show-option -funsigned-bitfields -Wformat -Wformat-security ${FSTACK_PROTECTOR_C_FLAGS}" )
 
 set (ADD_C_FLAGS                "${ADD_COMMON_C_FLAGS} -std=gnu99" )
 set (ADD_C_FLAGS_DEBUG          "-O0 -ggdb3 -D _DEBUG" )
@@ -42,7 +48,7 @@ if (DEFINED UBUNTU64_BUILD)
 endif()
 
 # Linker switches
-set (INIT_LINKER_FLAGS          "-Wl,--enable-new-dtags" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
+set (INIT_LINKER_FLAGS          "-Wl,--enable-new-dtags -z noexecstack -z relro -z now" ) # --enable-new-dtags sets RUNPATH to the same value as RPATH
 
 # embed RPATH and RUNPATH to the binaries that assumes that everything is installed in the same directory
 #

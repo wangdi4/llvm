@@ -185,9 +185,9 @@ int printf_special_chars(){
 
 void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
    cl_int err;
-   cl_kernel kernel;
-   cl_program program;
-   cl_mem count;
+   cl_kernel kernel = nullptr;
+   cl_program program = nullptr;
+   cl_mem count = nullptr;
    int success_count=0;
    FILE *fp=NULL;
    int old_stdout;
@@ -298,8 +298,8 @@ void run_kernel_printf_special_chars(cl_context& context,cl_device_id& device,cl
 
 void run_kernel_printf_simple(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
 	cl_int err;
-	cl_kernel kernel;
-	cl_program program;
+	cl_kernel kernel = nullptr;
+	cl_program program = nullptr;
 	try
 	{
 		const char* ocl_test_program[]={XSTR(PRINTF_SIMPLE)};
@@ -373,8 +373,8 @@ printf ("\n done \n");	\
 
 void run_kernel_printf_int(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
 	cl_int err;
-	cl_kernel kernel;
-	cl_program program;
+	cl_kernel kernel = nullptr;
+	cl_program program = nullptr;
 
 	try
 {
@@ -494,9 +494,9 @@ int printf_format(){
 
 void run_kernel_printf_format(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
 	cl_int err;
-	cl_kernel kernel;
-	cl_program program;
-	cl_mem count;
+	cl_kernel kernel = nullptr;
+	cl_program program = nullptr;
+	cl_mem count = nullptr;
 	int success_count=0;
 	FILE *fp=NULL;
 	int old_stdout;
@@ -629,9 +629,9 @@ int printf_chars(){
 }
 void run_kernel_printf_chars(cl_context& context,cl_device_id& device,cl_command_queue& cmd_queue,bool& bResult){
 	cl_int err;
-	cl_kernel kernel;
-	cl_program program;
-	cl_mem count;
+	cl_kernel kernel = nullptr;
+	cl_program program = nullptr;
+	cl_mem count = nullptr;
 	int success_count=0;
 	FILE *fp=NULL;
 	int old_stdout;

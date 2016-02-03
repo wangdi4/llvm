@@ -16,6 +16,10 @@ set (TARGET_NAME ValidationTests)
 if (WIN32)
 set ( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" )
 set ( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:source /fp:strict /Qlong-double /Qpc80 /Qprec-div" ) 
+# some unittests have to use deprecated OpenCL API functions.
+add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
 endif(WIN32)
 
 

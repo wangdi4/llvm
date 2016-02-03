@@ -1,6 +1,13 @@
 #exectuable name
 set(TARGET_NAME "OclRecorderTest")
 
+#recorder_test has to use deprecated OpenCL API functions.
+if(WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif(WIN32)
+
 #overcomming (the many!) warning issued on linux from the runtime
 remove_definitions( -Werror )
 

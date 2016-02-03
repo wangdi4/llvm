@@ -1,5 +1,12 @@
 set(TARGET_NAME test_metadataapi)
 
+# MetaDataApiTest has to use deprecated OpenCL API functions.
+if (WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif (WIN32)
+
 include_directories(
   ${LLVM_INCLUDE_DIRS}
   ${BACKEND_ROOT_DIR}/../externals/gtest/include
