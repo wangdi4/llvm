@@ -199,6 +199,32 @@ bool HIRCreation::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
   return true;
 }
 
+void HIRCreation::sortDomChildren(
+    DomTreeNode *Node, SmallVectorImpl<BasicBlock *> &SortedChildren) const {
+
+  // Sort the dom children of Node using post dominator relationship. If child1
+  // post dominates child2, it should be visited after child2 otherwise forward
+  // edges can turn into back edges.
+
+  // TODO: look into dom child ordering for multi-exit loops.
+
+  for (auto &I : (*Node)) {
+    SortedChildren.push_back(I->getBlock());
+  }
+
+  // This check orders children that post-dominate other children, before them.
+  // This is because I couldn't think of an appropriate check for sorting in the
+  // reverse order. So instead the children are visited in reverse order after
+  // sorting.
+  auto PostDomOrder = [this](BasicBlock *B1, BasicBlock *B2) {
+    // First check satisfies the strict weak ordering requirements of
+    // comparator function.
+    return ((B1 != B2) && PDT->dominates(B1, B2));
+  };
+
+  std::sort(SortedChildren.begin(), SortedChildren.end(), PostDomOrder);
+}
+
 HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
                                           HLNode *InsertionPos) {
 
@@ -206,33 +232,22 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
     return InsertionPos;
   }
 
-  BasicBlock *LatchBB = nullptr;
-  bool LatchIsDomChild = false;
+  SmallVector<BasicBlock *, 8> DomChildren;
   auto Root = DT->getNode(BB);
-
-  if (auto Lp = LI->getLoopFor(BB)) {
-    LatchBB = Lp->getLoopLatch();
-  }
 
   // Visit(link) this bblock to HIR.
   InsertionPos = populateInstSequence(BB, InsertionPos);
-
   auto TermNode = InsertionPos;
 
-  // TODO: look into dom-child ordering for multi-exit loops.
+  // Sort dominator children.
+  sortDomChildren(Root, DomChildren);
 
-  // Walk over dominator children.
-  for (auto I = Root->begin(), E = Root->end(); I != E; ++I) {
-    auto DomChildBB = (*I)->getBlock();
+  // Walk over dominator children in reverse order since post-dominating
+  // children preceed the children they dominate.
+  for (auto RI = DomChildren.rbegin(), RE = DomChildren.rend(); RI != RE;
+       ++RI) {
 
-    // If the loop latch is a dom child, process it in the end. Dominator
-    // children are not ordered so it is possible that we encounter latch bblock
-    // before others in the list of children. We should process it last so that
-    // all the loop bblocks are within (header-latch) range.
-    if (DomChildBB == LatchBB) {
-      LatchIsDomChild = true;
-      continue;
-    }
+    auto DomChildBB = (*RI);
 
     // Link if's then/else children.
     if (auto IfTerm = dyn_cast<HLIf>(TermNode)) {
@@ -283,10 +298,6 @@ HLNode *HIRCreation::doPreOrderRegionWalk(BasicBlock *BB,
 
     // Keep linking dominator children.
     InsertionPos = doPreOrderRegionWalk(DomChildBB, InsertionPos);
-  }
-
-  if (LatchIsDomChild) {
-    InsertionPos = doPreOrderRegionWalk(LatchBB, InsertionPos);
   }
 
   return InsertionPos;

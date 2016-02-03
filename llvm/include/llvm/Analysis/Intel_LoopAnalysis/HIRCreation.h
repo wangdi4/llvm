@@ -21,6 +21,8 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallVector.h"
 
+#include "llvm/IR/Dominators.h"
+
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 
 namespace llvm {
@@ -110,8 +112,13 @@ private:
   /// \brief Creates HLNodes for the instructions in the basic block.
   HLNode *populateInstSequence(BasicBlock *BB, HLNode *InsertionPos);
 
-  /// \brief Return true if the passed in BB post dominates all switch cases.
+  /// \brief Returns true if the passed in BB post dominates all switch cases.
   bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
+
+  /// \brief Sorts the dominator children of Node using post dominator
+  /// relationship.
+  void sortDomChildren(DomTreeNode *Node,
+                       SmallVectorImpl<BasicBlock *> &SortedChildren) const;
 
   /// \brief Performs lexical (preorder) walk of the dominator tree for the
   /// region.

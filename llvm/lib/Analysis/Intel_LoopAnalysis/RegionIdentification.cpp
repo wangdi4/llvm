@@ -20,8 +20,8 @@
 #include "llvm/Support/Debug.h"
 
 #include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/Dominators.h"
 
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
@@ -46,6 +46,7 @@ STATISTIC(RegionCount, "Number of regions created");
 INITIALIZE_PASS_BEGIN(RegionIdentification, "hir-region-identification",
                       "HIR Region Identification", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(PostDominatorTree)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_END(RegionIdentification, "hir-region-identification",
@@ -64,6 +65,7 @@ RegionIdentification::RegionIdentification() : FunctionPass(ID) {
 void RegionIdentification::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
   AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<PostDominatorTree>();
   AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
 }
@@ -255,9 +257,17 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     return false;
   }
 
-  // Check that the loop backedge is a conditional branch.
   auto LatchBB = Lp.getLoopLatch();
 
+  // We cannot build lexical links if dominator/post-dominator info is absent.
+  // This can be due to unreachable/infinite loops.
+  if (!DT->getNode(LatchBB) || !PDT->getNode(LatchBB)) {
+    DEBUG(dbgs()
+          << "LOOPOPT_OPTREPORT: Unreachable/Infinite loops not supported.\n");
+    return false;
+  }
+
+  // Check that the loop backedge is a conditional branch.
   auto Term = LatchBB->getTerminator();
   auto BrInst = dyn_cast<BranchInst>(Term);
 
@@ -289,7 +299,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
     DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Could not find loop IV.\n");
     return false;
   }
- 
+
   // Check instructions inside the loop.
   for (auto I = Lp.block_begin(), E = Lp.block_end(); I != E; ++I) {
 
@@ -461,6 +471,7 @@ bool RegionIdentification::runOnFunction(Function &F) {
 
   LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  PDT = &getAnalysis<PostDominatorTree>();
   SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
 
   formRegions();

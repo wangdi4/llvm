@@ -31,6 +31,7 @@ class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
+struct PostDominatorTree;
 class ScalarEvolution;
 class GetElementPtrInst;
 class GEPOperator;
@@ -63,6 +64,9 @@ private:
 
   /// DT - The dominator tree.
   DominatorTree *DT;
+
+  /// PDT - The post-dominator tree.
+  PostDominatorTree *PDT;
 
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
