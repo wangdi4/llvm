@@ -219,7 +219,7 @@ static void populatePassesPreFailCheck(llvm::PassManagerBase &PM,
 #endif
   bool HasGatherScatter = pConfig->GetCpuId().HasGatherScatter();
 
-  PM.add(new llvm::DataLayoutPass);
+  PM.add(new llvm::DataLayoutPass());
   PM.add(createOclSyncFunctionAttrsPass());
   if (isOcl20) {
     // Convert SPIR 2.0 blocks to Objective-C blocks
@@ -326,7 +326,7 @@ static void populatePassesPostFailCheck(llvm::PassManagerBase &PM,
   PrintIRPass::DumpIRConfig dumpIRAfterConfig(pConfig->GetIRDumpOptionsAfter());
   PrintIRPass::DumpIRConfig dumpIRBeforeConfig(pConfig->GetIRDumpOptionsBefore());
 #endif
-  PM.add(new llvm::DataLayoutPass);
+  PM.add(new llvm::DataLayoutPass());
   PM.add(createBuiltinLibInfoPass(pRtlModuleList, ""));
   PM.add(createImplicitArgsAnalysisPass(&M->getContext()));
 
