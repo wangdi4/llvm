@@ -603,7 +603,7 @@ cl_err_code CopyMemObjCommand::CopyOnDevice(const SharedPtr<FissionableDevice>& 
 cl_err_code CopyMemObjCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_MemOclObjects);
-
+    m_MemOclObjects.clear();
     return CL_SUCCESS;
 }
 
@@ -2139,6 +2139,7 @@ cl_err_code ReadMemObjCommand::Execute()
 cl_err_code ReadMemObjCommand::CommandDone()
 {
     RelinquishMemoryObjects(m_MemOclObjects);
+    m_MemOclObjects.clear();
     return CL_SUCCESS;
 }
 
@@ -2477,6 +2478,7 @@ cl_err_code WriteMemObjCommand::CommandDone()
     }
 
     RelinquishMemoryObjects(m_MemOclObjects);
+    m_MemOclObjects.clear();
     return CL_SUCCESS;
 }
 
