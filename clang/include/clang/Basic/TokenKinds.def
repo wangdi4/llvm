@@ -368,9 +368,12 @@ KEYWORD(co_return                   , KEYCOROUTINES)
 KEYWORD(co_yield                    , KEYCOROUTINES)
 
 // GNU Extensions (in impl-reserved namespace)
-KEYWORD(_Decimal32                  , KEYALL)
-KEYWORD(_Decimal64                  , KEYALL)
-KEYWORD(_Decimal128                 , KEYALL)
+#if INTEL_CUSTOMIZATION
+// CQ#374317 - do not recognize _Decimal keywords in non-GNU mode.
+KEYWORD(_Decimal32                  , KEYDECIMAL)
+KEYWORD(_Decimal64                  , KEYDECIMAL)
+KEYWORD(_Decimal128                 , KEYDECIMAL)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__null                      , KEYCXX)
 KEYWORD(__alignof                   , KEYALL)
 KEYWORD(__attribute                 , KEYALL)
