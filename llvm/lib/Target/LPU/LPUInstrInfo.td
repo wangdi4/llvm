@@ -427,19 +427,19 @@ multiclass FStOp<string opStr, RegisterClass RC, ValueType opType> {
     def X : FMTGEN<
       (outs),
       (ins ADDR_RX:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign, $addr, $data"),
+      !strconcat(opStr, "x\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RX:$addr)]>;
   }
   let Predicates = [HasDispl] in {
     def D : FMTGEN<
       (outs),
       (ins ADDR_RI:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RI:$addr)]>;
     def R : FMTGEN<
       (outs),
       (ins ADDR_RR:$addr, RC:$data),
-      !strconcat(opStr, "\t%ign, $addr, $data"),
+      !strconcat(opStr, "d\t%ign, $addr, $data"),
       [(store RC:$data, ADDR_RR:$addr)]>;
   }
   def "" : FMTGEN<
