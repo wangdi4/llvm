@@ -253,9 +253,15 @@ extern void ocl20_capture_event_profiling_info(clk_event_t event,
                                                global ulong *value, void *DCM);
 void __attribute__((always_inline)) __attribute__((overloadable))
     capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
-                                 global ulong *value) {
+                                 __global ulong *value) {
   void *DCM = __get_device_command_manager();
   return ocl20_capture_event_profiling_info(event, name, value, DCM);
+}
+void __attribute__((always_inline)) __attribute__((overloadable))
+    capture_event_profiling_info(clk_event_t event, clk_profiling_info name,
+                                 __global void *value) {
+  void *DCM = __get_device_command_manager();
+  return ocl20_capture_event_profiling_info(event, name, (__global ulong*)value, DCM);
 }
 
 extern bool ocl20_is_valid_event(clk_event_t event, void* DCM);
@@ -296,4 +302,44 @@ uint __attribute__((overloadable)) __attribute__((always_inline))
   void* B2K = __get_block_to_kernel_mapper();
   return ocl20_get_kernel_preferred_wg_size_multiple(block, DCM, B2K);
 }
+
+/// address space overloading for enqueue_kernel and enqueue_marker
+const __global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global(const __generic clk_event_t* ptr) {
+  return (const __global clk_event_t*)ptr;
+}
+
+__global clk_event_t* __attribute__((always_inline)) __attribute__((overloadable))
+    cast_to_global(__generic clk_event_t* ptr) {
+  return (__global clk_event_t*)ptr;
+}
+
+#define ADDR_SPACE_OVERLOADING(ADDR_SPACE_1ST, ADDR_SPACE_2ND)\
+int __attribute__((always_inline)) __attribute__((overloadable))\
+    enqueue_marker(queue_t queue, uint num_events_in_wait_list,\
+                   const ADDR_SPACE_1ST clk_event_t *event_wait_list, ADDR_SPACE_2ND clk_event_t* event_ret) {\
+  return enqueue_marker(queue, num_events_in_wait_list,\
+                        cast_to_global(event_wait_list),\
+                        cast_to_global(event_ret));\
+}\
+int __attribute__((overloadable)) __attribute__((always_inline))\
+    enqueue_kernel(queue_t queue, kernel_enqueue_flags_t flags,\
+                   const ndrange_t ndrange, uint num_events_in_wait_list,\
+                   const ADDR_SPACE_1ST clk_event_t *event_wait_list, clk_event_t ADDR_SPACE_2ND *event_ret,\
+                   void (^block)(void)) {\
+  return enqueue_kernel(queue, flags, ndrange, num_events_in_wait_list,\
+                        cast_to_global(event_wait_list),\
+                        cast_to_global(event_ret), block);\
+}
+
+ADDR_SPACE_OVERLOADING(__global, __private)
+ADDR_SPACE_OVERLOADING(__global, __local)
+ADDR_SPACE_OVERLOADING(__private, __private)
+ADDR_SPACE_OVERLOADING(__private, __local)
+ADDR_SPACE_OVERLOADING(__private, __global)
+ADDR_SPACE_OVERLOADING(__local, __private)
+ADDR_SPACE_OVERLOADING(__local, __local)
+ADDR_SPACE_OVERLOADING(__local, __global)
+#undef ADDR_SPACE_OVERLOADING
+
 #endif
