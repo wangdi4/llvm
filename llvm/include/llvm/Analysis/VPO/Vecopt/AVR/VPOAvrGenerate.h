@@ -47,11 +47,11 @@ class LoopInfo;
 class DominatorTree;
 struct PostDominatorTree;
 
-namespace vpo {  // VPO Vectorizer namespace
+namespace vpo { // VPO Vectorizer namespace
 
 // Enumeration for Abstract Layer optimizations
-enum ALOpts { ALBuild, ALLoopOpt, ALBranchOpt, ALExprTreeOpt};
-enum NodeChange { Removal, Insertion, Modification};
+enum ALOpts { ALBuild, ALLoopOpt, ALBranchOpt, ALExprTreeOpt };
+enum NodeChange { Removal, Insertion, Modification };
 
 // Forward Declarations
 class ALChange;
@@ -59,6 +59,7 @@ class IdentifyVectorCandidates;
 class CandidateIf;
 
 class AVRGenerateBase : public FunctionPass {
+
 protected:
   /// The current function being analyzed.
   Function *Func;
@@ -93,7 +94,7 @@ protected:
   /// \brief Sets AvrFunction node for this pass.
   void setAvrFunction(AVRFunction *AFunc) { AvrFunction = AFunc; }
 
-  /// \brief Sets the top-level AvrWrn Node for this pass. 
+  /// \brief Sets the top-level AvrWrn Node for this pass.
   void setAvrWrn(AVRWrn *AWrn) { AvrWrn = AWrn; }
 
   /// \brief Sets the LLVM Function currently being analysed.
@@ -114,11 +115,11 @@ protected:
 
   /// \brief For given AVRFunction node, search children for loops and insert
   /// AVRLoops where found.
-  virtual void formAvrLoopNest(AVRFunction *AvrFunction) { };
+  virtual void formAvrLoopNest(AVRFunction *AvrFunction){};
 
   /// \brief For given AvrWrn node, search children for loops and insert
   /// AVRLoops where found.
-  virtual void formAvrLoopNest(AVRWrn *AvrWrn) { };
+  virtual void formAvrLoopNest(AVRWrn *AvrWrn){};
 
   // Functions for AVR If hiearchy recognition.
   //
@@ -132,10 +133,12 @@ protected:
 
   // Abstract Layer Expression and Value Insertion
 
-  /// \brief Optimizes the abstract layer with AVR Expression and AVR Value nodes.
+  /// \brief Optimizes the abstract layer with AVR Expression and AVR Value
+  /// nodes.
   void optimizeAvrExpressions();
 
-  /// \brief Optimizes the abstract layer by combining AVR Expressions to form complex
+  /// \brief Optimizes the abstract layer by combining AVR Expressions to form
+  /// complex
   /// subexpressions.
   void optimizeAvrSubExpressions();
 
@@ -149,7 +152,7 @@ public:
   void create();
   void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void print(raw_ostream &OS, unsigned Depth = 1, 
+  void print(raw_ostream &OS, unsigned Depth = 1,
              VerbosityLevel VLevel = PrintBase) const;
   void dump(VerbosityLevel VLevel = PrintBase) const;
 
@@ -172,7 +175,7 @@ public:
 
   /// \brief Code generation for AVRs. We have this under analysis for
   /// now. Clients call this from a transform pass. This will change
-  /// and will move into transforms once we have AVR visitors. Returns 
+  /// and will move into transforms once we have AVR visitors. Returns
   /// true if code was generated from AVR.
   bool codeGen();
 
@@ -198,6 +201,7 @@ public:
 };
 
 class AVRGenerateHIR : public AVRGenerateBase {
+
 private:
   /// HIRP - HIR Parser
   HIRParser *HIRP;
@@ -229,12 +233,11 @@ public:
 class AVRGenerate : public AVRGenerateBase {
 
 private:
-
   /// True when in AVR scalar stress testing mode
   bool ScalarStressTest;
 
   /// VC - Identify Vector Candidates Pass
-  IdentifyVectorCandidates *VC;  
+  IdentifyVectorCandidates *VC;
 
   /// DT - Dominator Tree
   DominatorTree *DT;
@@ -268,8 +271,8 @@ private:
   void buildAvrsForVectorCandidates();
 
   /// \brief Recursive preorder traversal walk of Basic Block, which
-  /// builds and AVR at InsertionPos. 
-  AvrItr preorderTravAvrBuild(BasicBlock *BB,  AvrItr InsertionPos);
+  /// builds and AVR at InsertionPos.
+  AvrItr preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos);
 
   /// \brief This function generates a sequnece of AVR nodes for
   /// each instruction in the given LLVM IR basic block and inserts
@@ -298,7 +301,6 @@ private:
   void cleanupAvrWrnNodes();
 
 public:
-
   AVRGenerate();
 
   // Pass Identification
@@ -309,7 +311,6 @@ public:
 
   /// \brief Returns the Loop Info for this function.
   const LoopInfo *getLoopInfo() { return LI; }
-
 };
 
 // Abstract Layer objects
@@ -323,11 +324,10 @@ public:
 /// tuning in the vectorizer cost model.
 
 // TODO: Current implementation only sets up framework for tracking changes.
-// Need to add changes for tracking UniqieID in AL graph. 
+// Need to add changes for tracking UniqieID in AL graph.
 class ALChange {
 
 private:
-
   /// Avr - The AVR node which has been changed.
   AVR *Avr;
 
@@ -338,11 +338,9 @@ private:
   NodeChange ChangeType;
 
 public:
-
-  ALChange(AVR* A, ALOpts ALOpt, NodeChange ChangeT) :
-    Avr(A), ALOptimization(ALOpt), ChangeType(ChangeT) {}
+  ALChange(AVR *A, ALOpts ALOpt, NodeChange ChangeT)
+      : Avr(A), ALOptimization(ALOpt), ChangeType(ChangeT) {}
   ~ALChange();
-
 };
 
 /// \brief A simple class which represents a block of AVRs. Currently used to
@@ -354,18 +352,17 @@ public:
 /// (2) BlockBegin occurs lexically before BlockEnd in the AL.
 ///
 class AvrBlock {
-private:
 
-  /// BlockBegin - Pointer to the first AVR of your block. 
+private:
+  /// BlockBegin - Pointer to the first AVR of your block.
   AVR *BlockBegin;
 
   /// BlockEnd - Pointer to the last AVR of your block.
   AVR *BlockEnd;
 
 public:
-
-  AvrBlock(AVR *BBegin = nullptr, AVR *BEnd = nullptr) :
-    BlockBegin(BBegin), BlockEnd(BEnd) {}
+  AvrBlock(AVR *BBegin = nullptr, AVR *BEnd = nullptr)
+      : BlockBegin(BBegin), BlockEnd(BEnd) {}
   ~AvrBlock();
 
   /// \brief Sets the first avr of the AvrBlock.
@@ -388,7 +385,6 @@ public:
 class CandidateIf {
 
 private:
-
   /// ABranch - The conditional AvrBranch to be transformed to an AVRIf.
   AVRBranchIR *ABranch;
 
@@ -400,33 +396,34 @@ private:
 
   /// ShortCircuitParent - When CandidateIf is inside a short circuit chain,
   /// this points to the topmost if parent in the sc-chain.
-  CandidateIf *ShortCircuitParent; 
+  CandidateIf *ShortCircuitParent;
 
   /// ShortCircuitSuccessor - The AVRBranch which points to the outer most
   /// short-circuit if-chain else block.
   AVRBranch *ShortCircuitSuccessor;
 
 public:
-
   CandidateIf(AVRBranchIR *AB, AvrBlock *ThenB, AvrBlock *ElseB,
-              CandidateIf *SCParent, AVRBranch *SCBranch) : ABranch(AB),
-              ThenChildren(ThenB), ElseChildren(ElseB),
-              ShortCircuitParent(SCParent), ShortCircuitSuccessor(SCBranch) {}
+              CandidateIf *SCParent, AVRBranch *SCBranch)
+      : ABranch(AB), ThenChildren(ThenB), ElseChildren(ElseB),
+        ShortCircuitParent(SCParent), ShortCircuitSuccessor(SCBranch) {}
   ~CandidateIf() {}
 
   /// \brief Sets the AvrBlock for AvrIf's ThenChildren.
-  void setThenChildren(AvrBlock * IfThen) { ThenChildren = IfThen; }
+  void setThenChildren(AvrBlock *IfThen) { ThenChildren = IfThen; }
 
   /// \brief Sets the AvrBlock for AvrIf's ElseChildren.
-  void setElseChildren(AvrBlock * IfElse) { ElseChildren = IfElse; }
+  void setElseChildren(AvrBlock *IfElse) { ElseChildren = IfElse; }
 
   /// \brief Sets the Short Circuit Parent CandidateIf of the SC-chain.
-  void setShortCircuitParent(CandidateIf * SCParent)
-    { ShortCircuitParent = SCParent; }
+  void setShortCircuitParent(CandidateIf *SCParent) {
+    ShortCircuitParent = SCParent;
+  }
 
   /// \brief Sets the ShortCircuitSuccessor of the SC-chain.
-  void setShortCircuitSuccessor(AVRBranch *SCSucc)
-    { ShortCircuitSuccessor = SCSucc; }
+  void setShortCircuitSuccessor(AVRBranch *SCSucc) {
+    ShortCircuitSuccessor = SCSucc;
+  }
 
   /// \brief Returns the conditional AVRBranch for CandidateIf.
   AVRBranchIR *getAvrBranch() { return ABranch; }
@@ -455,7 +452,6 @@ public:
   /// brief Returns ShortCircuitSuccessor.
   AVRBranch *getShortCircuitSuccessor() { return ShortCircuitSuccessor; }
 };
-
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace

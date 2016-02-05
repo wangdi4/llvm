@@ -27,23 +27,19 @@ using namespace llvm::vpo;
 
 // Helper function to trim leading white spaces in value printing. Improved
 // pretty print support
-static inline std::string &trimLeadingWhiteSpace(std::string &MyString)
-{
+static inline std::string &trimLeadingWhiteSpace(std::string &MyString) {
   // Trim leading white spaces for pretty print.
-  MyString.erase(MyString.begin(), std::find_if(MyString.begin(), MyString.end(),
-                 std::not1(std::ptr_fun<int, int>(isspace))));
+  MyString.erase(MyString.begin(),
+                 std::find_if(MyString.begin(), MyString.end(),
+                              std::not1(std::ptr_fun<int, int>(isspace))));
   return MyString;
 }
 
-
-
 //----------AVR Assign for LLVM IR Implementation----------//
-AVRAssignIR::AVRAssignIR(Instruction * Inst)
-  : AVRAssign(AVR::AVRAssignIRNode), Instruct(Inst) {}
+AVRAssignIR::AVRAssignIR(Instruction *Inst)
+    : AVRAssign(AVR::AVRAssignIRNode), Instruct(Inst) {}
 
-AVRAssignIR *AVRAssignIR::clone() const {
-  return nullptr;
-}
+AVRAssignIR *AVRAssignIR::clone() const { return nullptr; }
 
 std::string AVRAssignIR::getAvrValueName() const {
   std::string IString;
@@ -54,22 +50,21 @@ std::string AVRAssignIR::getAvrValueName() const {
 }
 
 void AVRAssignIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR Expression for LLVM IR Implementation----------//
 AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
-  :AVRExpression(AVR::AVRExpressionIRNode) {
+    : AVRExpression(AVR::AVRExpressionIRNode) {
 
   AVRValueIR *AvrVal = nullptr;
   const Value *OpValue = nullptr;
@@ -88,11 +83,9 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
       AvrVal = AVRUtilsIR::createAVRValueIR(StoreInstruct->getValueOperand(),
                                             Instruct);
       this->Operands.push_back(AvrVal);
-    }
-    else {
-
+    } else {
       for (auto Itr = Instruct->op_begin(), End = Instruct->op_end();
-          Itr != End; ++Itr) {
+           Itr != End; ++Itr) {
 
         OpValue = *Itr;
         AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct);
@@ -111,8 +104,7 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
       // Set LHS Expr to pointer operand
       AvrVal = AVRUtilsIR::createAVRValueIR(StoreInstruct->getPointerOperand(),
                                             Instruct);
-    }
-    else {
+    } else {
 
       OpValue = cast<Value>(Instruct);
       AvrVal = AVRUtilsIR::createAVRValueIR(OpValue, Instruct);
@@ -122,44 +114,37 @@ AVRExpressionIR::AVRExpressionIR(AVRAssignIR *Assign, AssignOperand Operand)
   }
 }
 
-AVRExpressionIR *AVRExpressionIR::clone() const {
-  return nullptr;
-}
+AVRExpressionIR *AVRExpressionIR::clone() const { return nullptr; }
 
-std::string AVRExpressionIR::getAvrValueName() const {
-  return "";
-}
+std::string AVRExpressionIR::getAvrValueName() const { return ""; }
 
 std::string AVRExpressionIR::getOpCodeName() const {
   return Instruct->getOpcodeName();
 }
 
-
 //----------AVR Value for LLVM IR Implementation----------//
 AVRValueIR::AVRValueIR(const Value *V, const Instruction *Inst)
-  : AVRValue(AVR::AVRValueIRNode), Val(V), Instruct(Inst) {
+    : AVRValue(AVR::AVRValueIRNode), Val(V), Instruct(Inst) {
 
   ValType = Val->getType();
 }
 
-AVRValueIR *AVRValueIR::clone() const {
-  return nullptr;
-}
+AVRValueIR *AVRValueIR::clone() const { return nullptr; }
 
 void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
-		     VerbosityLevel VLevel) const {
+                       VerbosityLevel VLevel) const {
 
   // Print AVR Value Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "("  << getNumber() << ")";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-      OS << *ValType << " ";
-    case PrintBase:
-      Val->printAsOperand(OS,false);
-      break;
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+    OS << *ValType << " ";
+  case PrintBase:
+    Val->printAsOperand(OS, false);
+    break;
   default:
     llvm_unreachable("Unknown Avr Print Verbosity!");
   }
@@ -169,36 +154,32 @@ void AVRValueIR::print(formatted_raw_ostream &OS, unsigned Depth,
     OS << "}";
 }
 
-std::string AVRValueIR::getAvrValueName() const {
-  return "";
-}
+std::string AVRValueIR::getAvrValueName() const { return ""; }
 
 //----------AVR Label for LLVM IR Implementation----------//
 AVRLabelIR::AVRLabelIR(BasicBlock *SourceB)
-  : AVRLabel(AVR::AVRLabelIRNode), SourceBlock(SourceB) {}
+    : AVRLabel(AVR::AVRLabelIRNode), SourceBlock(SourceB) {}
 
-AVRLabelIR *AVRLabelIR::clone() const {
-  return nullptr;
-}
+AVRLabelIR *AVRLabelIR::clone() const { return nullptr; }
 
 void AVRLabelIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                     VerbosityLevel VLevel) const {
+                       VerbosityLevel VLevel) const {
 
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
 
   // Print Avr Label Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName() << ":";
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName() << ":";
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -215,12 +196,10 @@ std::string AVRLabelIR::getAvrValueName() const {
 void AVRLabelIR::codeGen() {}
 
 //----------AVR Phi for LLVM IR Implementation----------//
-AVRPhiIR::AVRPhiIR(Instruction * Inst)
-  : AVRPhi(AVR::AVRPhiIRNode), Instruct(Inst) {}
+AVRPhiIR::AVRPhiIR(Instruction *Inst)
+    : AVRPhi(AVR::AVRPhiIRNode), Instruct(Inst) {}
 
-AVRPhiIR *AVRPhiIR::clone() const {
-  return nullptr;
-}
+AVRPhiIR *AVRPhiIR::clone() const { return nullptr; }
 
 void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const {
@@ -230,16 +209,16 @@ void AVRPhiIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Phi Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -258,26 +237,23 @@ std::string AVRPhiIR::getAvrValueName() const {
 }
 
 void AVRPhiIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR Call for LLVM IR Implementation----------//
-AVRCallIR::AVRCallIR(Instruction * Inst)
-  : AVRCall(AVR::AVRCallIRNode), Instruct(Inst) {}
+AVRCallIR::AVRCallIR(Instruction *Inst)
+    : AVRCall(AVR::AVRCallIRNode), Instruct(Inst) {}
 
-AVRCallIR *AVRCallIR::clone() const {
-  return nullptr;
-}
+AVRCallIR *AVRCallIR::clone() const { return nullptr; }
 
 void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
                       VerbosityLevel VLevel) const {
@@ -287,16 +263,16 @@ void AVRCallIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Call Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -317,22 +293,21 @@ std::string AVRCallIR::getAvrValueName() const {
 }
 
 void AVRCallIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR Branch for LLVM IR Implementation----------//
 AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
-  : AVRBranch(AVR::AVRBranchIRNode, false, Cond), Instruct(In) { 
+    : AVRBranch(AVR::AVRBranchIRNode, false, Cond), Instruct(In) {
 
   if (BranchInst *BI = dyn_cast<BranchInst>(In)) {
 
@@ -340,16 +315,13 @@ AVRBranchIR::AVRBranchIR(Instruction *In, AVR *Cond)
       setIsConditional(true);
       ThenBBlock = BI->getSuccessor(0);
       ElseBBlock = BI->getSuccessor(1);
-    }
-    else {
+    } else {
       setIsConditional(false);
     }
   }
 }
 
-AVRBranchIR *AVRBranchIR::clone() const {
-  return nullptr;
-}
+AVRBranchIR *AVRBranchIR::clone() const { return nullptr; }
 
 void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
@@ -360,16 +332,16 @@ void AVRBranchIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Branch Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -390,26 +362,23 @@ std::string AVRBranchIR::getAvrValueName() const {
 }
 
 void AVRBranchIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR BackEdge for LLVM IR Implementation----------//
-AVRBackEdgeIR::AVRBackEdgeIR(Instruction * Inst)
-  : AVRBackEdge(AVR::AVRBackEdgeIRNode), Instruct(Inst) {}
+AVRBackEdgeIR::AVRBackEdgeIR(Instruction *Inst)
+    : AVRBackEdge(AVR::AVRBackEdgeIRNode), Instruct(Inst) {}
 
-AVRBackEdgeIR *AVRBackEdgeIR::clone() const {
-  return nullptr;
-}
+AVRBackEdgeIR *AVRBackEdgeIR::clone() const { return nullptr; }
 
 void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
                           VerbosityLevel VLevel) const {
@@ -419,16 +388,16 @@ void AVRBackEdgeIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr BackEdge Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -445,26 +414,23 @@ std::string AVRBackEdgeIR::getAvrValueName() const {
 }
 
 void AVRBackEdgeIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR Entry for LLVM IR Implementation----------//
-AVREntryIR::AVREntryIR(Instruction * Inst)
-  : AVREntry(AVR::AVREntryIRNode), Instruct(Inst) {}
+AVREntryIR::AVREntryIR(Instruction *Inst)
+    : AVREntry(AVR::AVREntryIRNode), Instruct(Inst) {}
 
-AVREntryIR *AVREntryIR::clone() const {
-  return nullptr;
-}
+AVREntryIR *AVREntryIR::clone() const { return nullptr; }
 
 void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
                        VerbosityLevel VLevel) const {
@@ -474,16 +440,16 @@ void AVREntryIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Entry Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -502,26 +468,23 @@ std::string AVREntryIR::getAvrValueName() const {
 }
 
 void AVREntryIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------AVR Return for LLVM IR Implementation----------//
-AVRReturnIR::AVRReturnIR(Instruction * Inst)
-  : AVRReturn(AVR::AVRReturnIRNode), Instruct(Inst) {}
+AVRReturnIR::AVRReturnIR(Instruction *Inst)
+    : AVRReturn(AVR::AVRReturnIRNode), Instruct(Inst) {}
 
-AVRReturnIR *AVRReturnIR::clone() const {
-  return nullptr;
-}
+AVRReturnIR *AVRReturnIR::clone() const { return nullptr; }
 
 void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
@@ -531,23 +494,23 @@ void AVRReturnIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Return Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
   if (VLevel >= PrintAvrType)
     OS << "}";
 
-  OS <<"\n";
+  OS << "\n";
 }
 
 std::string AVRReturnIR::getAvrValueName() const {
@@ -561,28 +524,25 @@ std::string AVRReturnIR::getAvrValueName() const {
 }
 
 void AVRReturnIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------------------------------------------------------------------------//
 // AVR Select Node for LLVM IR
 //----------------------------------------------------------------------------//
-AVRSelectIR::AVRSelectIR(Instruction * Inst, AVRCompare *AComp)
-  : AVRSelect(AVR::AVRSelectIRNode, AComp), Instruct(Inst) {}
+AVRSelectIR::AVRSelectIR(Instruction *Inst, AVRCompare *AComp)
+    : AVRSelect(AVR::AVRSelectIRNode, AComp), Instruct(Inst) {}
 
-AVRSelectIR *AVRSelectIR::clone() const {
-  return nullptr;
-}
+AVRSelectIR *AVRSelectIR::clone() const { return nullptr; }
 
 void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
                         VerbosityLevel VLevel) const {
@@ -592,16 +552,16 @@ void AVRSelectIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Select Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -618,33 +578,30 @@ std::string AVRSelectIR::getAvrValueName() const {
 }
 
 void AVRSelectIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }
 
 //----------------------------------------------------------------------------//
 // AVR Compare Node for LLVM IR
 //----------------------------------------------------------------------------//
 AVRCompareIR::AVRCompareIR(Instruction *Inst)
-  : AVRCompare(AVR::AVRCompareIRNode), Instruct(Inst) {
+    : AVRCompare(AVR::AVRCompareIRNode), Instruct(Inst) {
 
   setIsCompareSelect(false);
   setSelect(nullptr);
   setBranch(nullptr);
 }
 
-AVRCompareIR *AVRCompareIR::clone() const {
-  return nullptr;
-}
+AVRCompareIR *AVRCompareIR::clone() const { return nullptr; }
 
 void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
                          VerbosityLevel VLevel) const {
@@ -654,16 +611,16 @@ void AVRCompareIR::print(formatted_raw_ostream &OS, unsigned Depth,
 
   // Print Avr Compare Node.
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName() << "{";
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrValueName();
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   // Close up open braces
@@ -684,15 +641,14 @@ std::string AVRCompareIR::getAvrValueName() const {
 }
 
 void AVRCompareIR::codeGen() {
-  Instruction *inst;
+  Instruction *Inst;
 
   DEBUG(Instruct->dump());
-  inst = Instruct->clone();
+  Inst = Instruct->clone();
 
-  if (!inst->getType()->isVoidTy())
-    inst->setName(Instruct->getName() + 
-                  ".VPOClone");
+  if (!Inst->getType()->isVoidTy())
+    Inst->setName(Instruct->getName() + ".VPOClone");
 
-  ReplaceInstWithInst(Instruct, inst);
-  DEBUG(inst->dump());
+  ReplaceInstWithInst(Instruct, Inst);
+  DEBUG(Inst->dump());
 }

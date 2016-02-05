@@ -32,9 +32,10 @@ namespace vpo {  // VPO Vectorizer Namespace
 // TBI - In stress mode generate scalar code by cloning
 // instructions.
 class AVRCodeGenHIR {
+
 public:
   AVRCodeGenHIR(AVR *Avr)
-    : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0) {}
+      : Avr(Avr), ALoop(nullptr), OrigLoop(nullptr), TripCount(0), VL(0) {}
 
   ~AVRCodeGenHIR() {}
 
@@ -71,7 +72,6 @@ private:
   void widenNode(const HLNode *Node, HLNode *Anchor);
   bool processLoop();
   bool unitStrideRef(const RegDDRef *Ref);
-
 };
 
 } // End VPO Vectorizer Namespace

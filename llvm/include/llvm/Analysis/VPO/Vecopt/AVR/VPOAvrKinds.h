@@ -17,7 +17,7 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_KINDS_H
 #define LLVM_ANALYSIS_VPO_AVR_KINDS_H
 
-#ifdef LLVM_ANALYSIS_VPO_AVR_H    // Only include the contents in VPOAvr.h
+#ifdef LLVM_ANALYSIS_VPO_AVR_H // Only include the contents in VPOAvr.h
 
 /// \brief Enumeration for the concrete subclasses of AVR.
 ///

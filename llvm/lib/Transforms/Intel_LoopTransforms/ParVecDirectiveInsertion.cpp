@@ -1,4 +1,5 @@
-//===- ParVecDirectiveInsertion.cpp - Implements VecDirectiveInsertion class -===//
+//===- ParVecDirectiveInsertion.cpp - Implements VecDirectiveInsertion class
+//-===//
 //                               Also Implements ParDirectionInsertion class
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
@@ -71,10 +72,9 @@ class ParVecVisitor final : public HLNodeVisitorBase {
   HLInst *insertDirective(HLLoop *L, OMP_DIRECTIVES Dir, bool Append);
 
 public:
-  ParVecVisitor(Function &F, ParVecAnalysis *PVA,
-                ParVecInfo::AnalysisMode Mode)
-  : F(F), M(*(F.getEntryBlock().getModule())), PVA(PVA),
-    Mode(Mode), Inserted(false) {}
+  ParVecVisitor(Function &F, ParVecAnalysis *PVA, ParVecInfo::AnalysisMode Mode)
+      : F(F), M(*(F.getEntryBlock().getModule())), PVA(PVA), Mode(Mode),
+        Inserted(false) {}
   void visit(HLNode *N) {}
   void postVisit(HLNode *N) {}
   /// \brief Checks if directive insertion is needed for the loop
@@ -87,12 +87,12 @@ public:
 /// \brief Abstract parent class for ParDirectiveInsertion/VecDirectiInsertion.
 class ParVecDirectiveInsertion : public HIRTransformPass {
   ParVecInfo::AnalysisMode Mode;
-public:
 
+public:
   ParVecDirectiveInsertion(char &ID, ParVecInfo::AnalysisMode Mode)
-    : HIRTransformPass(ID), Mode(Mode) {
+      : HIRTransformPass(ID), Mode(Mode) {
     // Be sure to take the ID parameter as reference, not by value.
-    // Otherwise, hard to diagnose bugs happen.
+    // Otherwise, it will be hard to diagnose bugs.
   }
 
   /// \brief Analyze auto-parallelizability/auto-vectorizability of the loops
@@ -101,7 +101,7 @@ public:
   bool runOnFunction(Function &F) override {
     auto PVA = &getAnalysis<ParVecAnalysis>();
 
-    // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis ,
+    // Analyze for all regions. Due to the on-demand nature of ParVecAnalysis,
     // this explicit call should not be necessary, but it's easier for
     // debugging. Keep this here until we confirm that on-demand functionality
     // is rock solid,
@@ -109,7 +109,7 @@ public:
     DEBUG(dbgs() << "Analysis results for all regions\n");
     DEBUG(PVA->print(dbgs()));
 
-    // Insert Directives where VecOkay/ParOkay are seen. Recompute 
+    // Insert Directives where VecOkay/ParOkay are seen. Recompute
     // ParVecAnalysis result if stored info doesn't match the analysis
     // mode required.
     ParVecVisitor V(F, PVA, Mode);
@@ -124,7 +124,7 @@ public:
   }
 };
 
-/// \brief Invoke auto-parallelizability analysis (including cost model) and 
+/// \brief Invoke auto-parallelizability analysis (including cost model) and
 /// insert auto-parallelization directive to the loops. When the directive
 /// is inserted to a loop, auto-parallelization decision is already made.
 class ParDirectiveInsertion : public ParVecDirectiveInsertion {
@@ -132,7 +132,7 @@ public:
   static char ID;
 
   ParDirectiveInsertion()
-  : ParVecDirectiveInsertion(ID, ParVecInfo::ParallelForThreadizer) {
+      : ParVecDirectiveInsertion(ID, ParVecInfo::ParallelForThreadizer) {
     initializeParDirectiveInsertionPass(*PassRegistry::getPassRegistry());
   }
   /// \brief Analyze auto-parallelizability of the loops.
@@ -154,7 +154,7 @@ public:
   }
 };
 
-/// \brief Invoke auto-vectorization legality analysis and insert 
+/// \brief Invoke auto-vectorization legality analysis and insert
 /// auto-vectorization candidate directive to the loops. When the directive
 /// is inserted to a loop, further analysis will be performed by the vectorizer
 /// before final auto-vectorization decision is made.
@@ -164,11 +164,12 @@ class VecDirectiveInsertion : public ParVecDirectiveInsertion {
 public:
   static char ID;
 
-  VecDirectiveInsertion(bool OuterVec=true)
-  : ParVecDirectiveInsertion(ID, OuterVec && !NoOuterVec
-                 ? ParVecInfo::VectorForVectorizer
-                 : ParVecInfo::VectorForVectorizerInnermost),
-    OuterVec(OuterVec && !NoOuterVec) {
+  VecDirectiveInsertion(bool OuterVec = true)
+      : ParVecDirectiveInsertion(
+            ID, OuterVec && !NoOuterVec
+                    ? ParVecInfo::VectorForVectorizer
+                    : ParVecInfo::VectorForVectorizerInnermost),
+        OuterVec(OuterVec && !NoOuterVec) {
     initializeVecDirectiveInsertionPass(*PassRegistry::getPassRegistry());
   }
   /// \brief Analyze auto-vectorizability of the loops.
@@ -236,9 +237,9 @@ void ParVecVisitor::visit(HLLoop *HLoop) {
 
 HLInst *ParVecVisitor::insertDirective(HLLoop *L, OMP_DIRECTIVES Dir,
                                        bool Append) {
-  SmallVector<RegDDRef*, 1> CallArgs;
-  auto F = Intrinsic::getDeclaration(&M, Intrinsic::intel_directive); 
-  assert(F && "Cannot get declaration for intrinsic"); 
+  SmallVector<RegDDRef *, 1> CallArgs;
+  auto F = Intrinsic::getDeclaration(&M, Intrinsic::intel_directive);
+  assert(F && "Cannot get declaration for intrinsic");
 
   auto DD = getRegDDRef(Dir);
   CallArgs.push_back(DD);
@@ -248,8 +249,7 @@ HLInst *ParVecVisitor::insertDirective(HLLoop *L, OMP_DIRECTIVES Dir,
 
   if (Append) {
     HLNodeUtils::insertAfter(L, I);
-  }
-  else {
+  } else {
     HLNodeUtils::insertBefore(L, I);
   }
   return I;
@@ -261,7 +261,7 @@ void ParVecVisitor::insertVecDirectives(HLLoop *L, ParVecInfo *Info) {
   Inserted = true;
 
   // Insert SIMD directives and clauses
-  insertDirective(L, DIR_OMP_SIMD,      false /* prepend */);
+  insertDirective(L, DIR_OMP_SIMD, false /* prepend */);
 
   // TODO: Clauses
 
