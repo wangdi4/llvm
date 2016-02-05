@@ -46,7 +46,8 @@ namespace Intel { namespace OpenCL { namespace Framework
 
     SyncGraphicsApiObjects::~SyncGraphicsApiObjects()
     {
-        delete[] m_pMemObjects;
+        if (m_pMemObjects)
+            delete[] m_pMemObjects;
     }
 
     /**
@@ -96,6 +97,11 @@ namespace Intel { namespace OpenCL { namespace Framework
                 }
             }
             // if release command failed - do nothing
+        }
+        if (m_pMemObjects)
+        {
+            delete [] m_pMemObjects;
+            m_pMemObjects = NULL;
         }
         return CL_SUCCESS;
     }
