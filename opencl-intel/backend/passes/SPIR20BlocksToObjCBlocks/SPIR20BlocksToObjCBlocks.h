@@ -53,16 +53,32 @@ namespace intel {
     }
 
   private:
-    // Create Objective-C block descriptor type and initialize the pass.
+    /// Create Objective-C block descriptor type and initialize the pass.
     void initPass(llvm::Module &);
 
-    // Create and initialize a specific Objective-C block using call to
-    // "spir_block_bind" to gather necessary data.
+    /// Replace all GEPs to SPIR 2.0 block context with GEPs to ObjectiveC block context.
+    /*!
+      \param base pointer to SPIR 2.0 block context
+      \param base pointer to ObjectiveC block context
+     */
+    void replaceGEPs(llvm::Value *, llvm::Value *);
+
+    /// Create and initialize a specific Objective-C block using call to
+    /// "spir_block_bind" to gather necessary data.
+    /*!
+      \param module
+      \param call instruciton to "spir_block_bind"
+     */
     llvm::Instruction * createObjCBlock(llvm::Module &, llvm::CallInst *);
 
-    // SPIR 2.0 block invoke functions expects only captured data while
-    // Objecitve-C blocks expects pointer to the block. So, the invoke functions
-    // should be fixed accordingly.
+    /// SPIR 2.0 block invoke functions expects only captured data while
+    /// Objecitve-C blocks expects pointer to the block. So, the invoke functions
+    /// should be fixed accordingly.
+    /*!
+      \param module
+      \param pointer to invoke function
+      \param type of ObjectiveC block
+     */
     void fixBlockInvoke(llvm::Module &, llvm::Value *, llvm::StructType *);
 
     enum { ObjCBlockElementsNumWithoutContext = 5 };

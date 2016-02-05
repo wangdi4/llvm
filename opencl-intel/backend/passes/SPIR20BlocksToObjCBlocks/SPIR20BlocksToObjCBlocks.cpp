@@ -123,6 +123,40 @@ namespace intel {
     m_objcBlockContextElements[4] = objcBlockDescrPtrTy; // block descriptor
   }
 
+  //************************************************************************
+  // Helper function to replace all GEPs from SPIR 2.0 w\ ObjC GEPs
+  //************************************************************************
+  void SPIR20BlocksToObjCBlocks::replaceGEPs(Value * spirContextPtr,
+                                             Value * objcContextPtr) {
+    Value::user_iterator userIt = spirContextPtr->user_begin();
+    for(;userIt != spirContextPtr->user_end();) {
+      // Notice users are erased per iteration which invalidates current iterator
+      User * user = *(userIt++);
+      // Go over all GEPs and subsequent stores to recapture the contexts.
+      GetElementPtrInst * spirCapturedGEP = dyn_cast<GetElementPtrInst>(user);
+      if(!spirCapturedGEP) continue;
+      // Get the second index of GEP from SPIR 2.0 captured context and
+      // add ObjCBlockElementsNumWithoutContext to it. The first index
+      // is 0.
+      assert(spirCapturedGEP->getNumIndices() == 2 &&
+             "unexpected number of indices into SPIR 2.0 context");
+      GetElementPtrInst::op_iterator idxIter = spirCapturedGEP->idx_begin();
+      int64_t spirCapturedValueIdx =
+        cast<ConstantInt>((++idxIter)->get())->getSExtValue();
+
+      Value * objcCapturedGEPIndices[2] =
+        { ConstantInt::get(m_int32Ty, 0),
+          ConstantInt::get(m_int32Ty,
+                           ObjCBlockElementsNumWithoutContext + spirCapturedValueIdx) };
+
+      Instruction* objcCapturedGEP =
+        GetElementPtrInst::Create(objcContextPtr, objcCapturedGEPIndices,
+                                  "objc.block.captured", spirCapturedGEP);
+      spirCapturedGEP->replaceAllUsesWith(objcCapturedGEP);
+      spirCapturedGEP->eraseFromParent();
+    }
+  }
+
   // ****************************************************************
   // Create and initialize a specific Objective-C block using call to
   // "spir_block_bind" to gather necessary data.
@@ -185,34 +219,10 @@ namespace intel {
     new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, spirBlockBindCI);
 
     // 3. Store captured context.
-    AllocaInst * spirContextAlloca =
-      cast<AllocaInst>(spirBlockContextCast->getOperand(0));
-
-    unsigned objcCapturedIdx = ObjCBlockElementsNumWithoutContext;
-    SmallVector<Instruction*, 8> toErase;
-    for(User * user : spirContextAlloca->users()) {
-      // Go over all GEPs and subsequent stores to recapture the contexts.
-      GetElementPtrInst * spirCapturedGEP = dyn_cast<GetElementPtrInst>(user);
-      if(!spirCapturedGEP) continue;
-
-      assert(spirCapturedGEP->hasOneUse() && "single user expected");
-      StoreInst * spirContextStore = cast<StoreInst>(spirCapturedGEP->user_back());
-
-      // Store the captured context to the Objective-C block.
-      Value * objcCapturedGEPIndices[2] = { ConstantInt::get(m_int32Ty, 0),
-                                            ConstantInt::get(m_int32Ty, objcCapturedIdx) };
-      Instruction* objcCapturedPtr =
-        GetElementPtrInst::Create(objcBlockAlloca, objcCapturedGEPIndices,
-                                  "objc.block.captured", spirBlockBindCI);
-      new StoreInst(spirContextStore->getOperand(0), objcCapturedPtr, spirBlockBindCI);
-      // Remove SPIR store instructions.
-      spirContextStore->eraseFromParent();
-      toErase.push_back(spirCapturedGEP);
-      ++objcCapturedIdx;
-    }
-    // Erase SPIR's remnants
-    for(Instruction * inst : toErase)
-      inst->eraseFromParent();
+    Value * spirContextAlloca = spirBlockContextCast->getOperand(0);
+    assert(isa<AllocaInst>(spirContextAlloca) &&
+           "alloca for SPIR 2.0 captured context is expected");
+    replaceGEPs(spirContextAlloca, objcBlockAlloca);
     // Fix the invoke which still expects captrued data as an agrument
     // and all GEPs from it.
     fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
@@ -286,39 +296,11 @@ namespace intel {
     if(spirCastLoad) spirCastToCaptured = spirCastLoad;
 
     // Create cast to Objective-C block context
-    CastInst * obcjCastToContext =
+    CastInst * obcjCastToCaptured =
       CastInst::CreatePointerCast(invokeArgument, objcBlockContextPtrTy,
                                   "spir.to.ojbc.cast", spirCastToCaptured);
-    // Go over all GEPs from SPIR context and replace with GEPs from
-    // Objective-C block context.
-    SmallVector<Instruction*, 8> toErase;
-    for(User * user : spirCastToCaptured->users()) {
-      GetElementPtrInst * spirCapturedGEP = dyn_cast<GetElementPtrInst>(user);
-      if(!spirCapturedGEP) continue;
+    replaceGEPs(spirCastToCaptured, obcjCastToCaptured);
 
-      assert(spirCapturedGEP->getNumIndices() == 2 &&
-             "unexpected number of GEP indices for SPIR 2.0 captured context");
-      // Get the second index of GEP from SPIR 2.0 captured context and
-      // add ObjCBlockElementsNumWithoutContext to it. The first index
-      // is 0.
-      GetElementPtrInst::op_iterator idxIter = spirCapturedGEP->idx_begin();
-      uint64_t spirCapturedValueIdx =
-        cast<ConstantInt>((++idxIter)->get())->getZExtValue();
-
-      Value * objcCapturedGEPIndices[2] =
-        { ConstantInt::get(m_int32Ty, 0),
-          ConstantInt::get(m_int32Ty,
-                           ObjCBlockElementsNumWithoutContext + spirCapturedValueIdx) };
-      Instruction* objcCapturedGEP =
-        GetElementPtrInst::Create(obcjCastToContext, objcCapturedGEPIndices,
-                                  "objc.captured.ptr", spirCapturedGEP);
-      spirCapturedGEP->replaceAllUsesWith(objcCapturedGEP);
-      toErase.push_back(spirCapturedGEP);
-
-    }
-    // Erase SPIR's remnants
-    for(Instruction * inst : toErase)
-      inst->eraseFromParent();
     if(spirCastToCaptured->hasNUses(0))
       spirCastToCaptured->eraseFromParent();
   }
