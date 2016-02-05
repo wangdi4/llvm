@@ -60,7 +60,7 @@ extern int ocl20_enqueue_marker(queue_t queue, uint num_events_in_wait_list,
                                 const __global clk_event_t *event_wait_list,
                                 __global clk_event_t *event_ret,
                                 void* DCM);
-int __attribute__((always_inline)) __attribute__((overloadable)) 
+int __attribute__((always_inline)) __attribute__((overloadable))
     enqueue_marker(queue_t queue, uint num_events_in_wait_list,
                    const __global clk_event_t *event_wait_list, __global clk_event_t* event_ret) {
   void* DCM = __get_device_command_manager();
