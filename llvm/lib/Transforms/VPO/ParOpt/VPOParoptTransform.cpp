@@ -151,14 +151,14 @@ bool VPOParoptTransform::ParoptTransformer() {
   CallInst *RI = VPOParoptUtils::genRTLKmpcGlobalThreadNumCall(F, AI, IdentTy);
   RI->insertBefore(AI);
 
-  StoreInst* tmp0 = new StoreInst(RI, TidPtr, false, AI);
-  tmp0->setAlignment(4);
+  StoreInst* Tmp0 = new StoreInst(RI, TidPtr, false, AI);
+  Tmp0->setAlignment(4);
 
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-  StoreInst* tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
-  tmp1->setAlignment(4);
+  StoreInst* Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
+  Tmp1->setAlignment(4);
 
   gatherWRegionNodeList();
 

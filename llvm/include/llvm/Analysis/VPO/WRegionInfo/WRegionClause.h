@@ -189,13 +189,13 @@ public:
   } WRNReductionKind;
 
   private:
-    WRNReductionKind type; // reduction operation
-    RDECL combiner;
-    RDECL initializer;
+    WRNReductionKind Ty; // reduction operation
+    RDECL Combiner;
+    RDECL Initializer;
 
   public:
-    ReductionItem(VAR Orig, WRNReductionKind op=WRNReductionError): 
-      Item(Orig), type(op), combiner(nullptr), initializer(nullptr) {}
+    ReductionItem(VAR Orig, WRNReductionKind Op=WRNReductionError): 
+      Item(Orig), Ty(Op), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
       return (WRNReductionKind)(Id - QUAL_OMP_REDUCTION);
@@ -204,12 +204,12 @@ public:
       return QUAL_OMP_REDUCTION + (int)Kind;
     };
 
-    void setType(WRNReductionKind op) { type = op;          }
-    void setCombiner(RDECL comb)      { combiner = comb;    }
-    void setInitializer(RDECL init)   { initializer = init; }
-    WRNReductionKind getType() const { return type;        }
-    RDECL getCombiner()        const { return combiner;    }
-    RDECL getInitializer()     const { return initializer; }
+    void setType(WRNReductionKind Op) { Ty = Op;          }
+    void setCombiner(RDECL Comb)      { Combiner = Comb;    }
+    void setInitializer(RDECL Init)   { Initializer = Init; }
+    WRNReductionKind getType() const { return Ty;        }
+    RDECL getCombiner()        const { return Combiner;    }
+    RDECL getInitializer()     const { return Initializer; }
 };
 
 
@@ -271,45 +271,45 @@ class LinearItem : public Item
 class DependItem 
 {
   private:
-    VAR   base;           // scalar item or base of array section
-    bool  isOut;          // depend type: false for IN; true for OUT/INOUT
-    bool  isArraySection; // if true, then lb, length, stride below are used
-    EXPR  lowerBound;     // null if unspecified
-    EXPR  length;         // null if unspecified
-    EXPR  stride;         // null if unspecified
+    VAR   Base;           // scalar item or base of array section
+    bool  IsOut;          // depend type: false for IN; true for OUT/INOUT
+    bool  IsArraySection; // if true, then lb, length, stride below are used
+    EXPR  LowerBound;     // null if unspecified
+    EXPR  Length;         // null if unspecified
+    EXPR  Stride;         // null if unspecified
 
   public:
-    DependItem(VAR V=nullptr) : base(V), isOut(false), isArraySection(false),
-      lowerBound(nullptr), length(nullptr), stride(nullptr) {}
+    DependItem(VAR V=nullptr) : Base(V), IsOut(false), IsArraySection(false),
+      LowerBound(nullptr), Length(nullptr), Stride(nullptr) {}
 
-    void setOrig(VAR V)         { base = V; }
-    void setIsOut(bool Flag)    { isOut = Flag; }
-    void setIsArrSec(bool Flag) { isArraySection = Flag; }
-    void setLb(EXPR lb)         { lowerBound = lb;   }
-    void setLength(EXPR len)    { length = len;  }
-    void setStride(EXPR str)    { stride = str;  }
+    void setOrig(VAR V)         { Base = V; }
+    void setIsOut(bool Flag)    { IsOut = Flag; }
+    void setIsArrSec(bool Flag) { IsArraySection = Flag; }
+    void setLb(EXPR Lb)         { LowerBound = Lb;   }
+    void setLength(EXPR Len)    { Length = Len;  }
+    void setStride(EXPR Str)    { Stride = Str;  }
 
-    VAR  getOrig()      const   { return base; }
-    bool getIsOut()     const   { return isOut; }
-    bool getIsArrSec()  const   { return isArraySection; }
-    EXPR getLb()        const   { return lowerBound; }
-    EXPR getLength()    const   { return length; }
-    EXPR getStride()    const   { return stride; }
+    VAR  getOrig()      const   { return Base; }
+    bool getIsOut()     const   { return IsOut; }
+    bool getIsArrSec()  const   { return IsArraySection; }
+    EXPR getLb()        const   { return LowerBound; }
+    EXPR getLength()    const   { return Length; }
+    EXPR getStride()    const   { return Stride; }
 };
 
 
 class AlignedItem 
 {
   private:
-    VAR   base;           // pointer or base of array
-    int   alignment;      // 0 if unspecified
+    VAR   Base;           // pointer or base of array
+    int   Alignment;      // 0 if unspecified
 
   public:
-    AlignedItem(VAR V=nullptr) : base(V), alignment(0) {}
-    void setOrig(VAR V)      { base = V; }
-    void setAlign(int align) { alignment = align; }
-    VAR  getOrig()  const { return base; }
-    int  getAlign() const { return alignment; }
+    AlignedItem(VAR V=nullptr) : Base(V), Alignment(0) {}
+    void setOrig(VAR V)      { Base = V; }
+    void setAlign(int Align) { Alignment = Align; }
+    VAR  getOrig()  const { return Base; }
+    int  getAlign() const { return Alignment; }
 };
 
 

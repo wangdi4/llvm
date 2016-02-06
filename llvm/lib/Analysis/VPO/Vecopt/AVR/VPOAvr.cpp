@@ -13,9 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/ErrorHandling.h"
-#include "llvm/IR/CFG.h"
-#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvrFunction.h"
+#include "llvm/Analysis/VPO/Vecopt/AVR/VPOAvr.h"
 
 #define DEBUG_TYPE "avr-node"
 
