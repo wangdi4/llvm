@@ -68,7 +68,7 @@
 // alloca. Linear and uniform parameters will be used directly, instead of
 // through a load instruction.
 
-#include "llvm/Transforms/VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Analysis/VectorVariant.h"
 #include "llvm/Transforms/Utils/VecClone.h"
@@ -84,7 +84,7 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include <map>
 #include <set>
 

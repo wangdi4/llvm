@@ -45,11 +45,11 @@
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Analysis/VPO/Vecopt/Passes.h"
-#include "llvm/Analysis/VPO/WRegionInfo/WRegionPasses.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
+#include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionPasses.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
-#include "llvm/Transforms/VPO/VPOPasses.h"
-#include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #endif // INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR
 #include "llvm/Support/Valgrind.h"

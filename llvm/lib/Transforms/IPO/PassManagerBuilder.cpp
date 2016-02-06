@@ -34,8 +34,8 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #if INTEL_CUSTOMIZATION
-#include "llvm/Transforms/VPO/VPOPasses.h"
-#include "llvm/Transforms/VPO/Vecopt/VecoptPasses.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
+#include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR passes
 #endif // INTEL_CUSTOMIZATION
 

@@ -27,7 +27,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/ParVecAnalysis.h"
-#include "llvm/Transforms/VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 
 #define DEBUG_TYPE "parvec-transform"
 

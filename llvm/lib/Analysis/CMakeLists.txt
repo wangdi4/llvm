@@ -82,6 +82,6 @@ add_llvm_library(LLVMAnalysis
 add_dependencies(LLVMAnalysis intrinsics_gen)
 
 if (INTEL_CUSTOMIZATION)
-  add_subdirectory(VPO)
+  add_subdirectory(Intel_VPO)
   add_subdirectory(Intel_LoopAnalysis)
 endif()
