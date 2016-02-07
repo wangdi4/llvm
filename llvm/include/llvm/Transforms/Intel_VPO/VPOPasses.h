@@ -26,6 +26,7 @@ FunctionPass *createVPODriverPass();
 //FunctionPass *createMapIntrinToImlPass();
 ModulePass   *createVecClonePass();
 FunctionPass *createVPODriverHIRPass();
+FunctionPass *createVPOCFGRestructuringPass();
 ModulePass   *createVPOParoptPass();
 }
 

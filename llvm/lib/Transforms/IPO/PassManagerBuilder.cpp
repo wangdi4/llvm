@@ -256,9 +256,11 @@ void PassManagerBuilder::populateModulePassManager(
       MPM.add(createVecClonePass());
     }
     if (RunVPOParopt) {
+      MPM.add(createVPOCFGRestructuringPass());
       MPM.add(createVPOParoptPass());
     }
     if (RunVPODriver) {
+      MPM.add(createVPOCFGRestructuringPass());
       MPM.add(createVPODriverPass());
     }
 #endif // INTEL_CUSTOMIZATION
@@ -548,9 +550,11 @@ void PassManagerBuilder::populateModulePassManager(
   addExtensionsToPM(EP_OptimizerLast, MPM);
 #if INTEL_CUSTOMIZATION
   if (RunVPOParopt) {
+    MPM.add(createVPOCFGRestructuringPass());
     MPM.add(createVPOParoptPass());
   }
   if (RunVPODriver) {
+    MPM.add(createVPOCFGRestructuringPass());
     MPM.add(createVPODriverPass());
   }
 /*

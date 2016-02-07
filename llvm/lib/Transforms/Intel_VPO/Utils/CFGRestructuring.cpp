@@ -20,6 +20,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
@@ -106,7 +107,46 @@ void VPOUtils::CFGRestructuring(
   }
 }
 
+using namespace llvm;
+using namespace llvm::vpo;
 
+namespace {
+class VPOCFGRestructuring : public FunctionPass {
+public:
+  static char ID; // Pass identification, replacement for typeid
 
+  VPOCFGRestructuring() : FunctionPass(ID) {
+    initializeVPOCFGRestructuringPass(*PassRegistry::getPassRegistry());
+  }
+  bool runOnFunction(Function &F) override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+};
+} // anonymous namespace
 
+INITIALIZE_PASS_BEGIN(VPOCFGRestructuring, "vpo-cfg-restructuring",
+                      "VPO CFG Restructuring", false, false)
+INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+INITIALIZE_PASS_END(VPOCFGRestructuring, "vpo-cfg-restructuring",
+                    "VPO CFGRestructuring", false, false)
 
+char VPOCFGRestructuring::ID = 0;
+
+bool VPOCFGRestructuring::runOnFunction(Function &F) {
+  auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+
+  VPOUtils::CFGRestructuring(F, DT, LI);
+
+  return true;
+}
+
+void VPOCFGRestructuring::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.setPreservesAll();
+  AU.addRequired<DominatorTreeWrapperPass>();
+  AU.addRequired<LoopInfoWrapperPass>();
+}
+
+FunctionPass *llvm::createVPOCFGRestructuringPass() {
+  return new VPOCFGRestructuring();
+}

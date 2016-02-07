@@ -13,7 +13,7 @@
 
 using namespace llvm;
 
-void llvm::initializeWRegionInfoAnalysisPass(PassRegistry &Registry) {
-  initializeWRegionCollectionPass(Registry);
-  initializeWRegionInfoPass(Registry);
-}
+//void llvm::initializeWRegionInfoAnalysisPass(PassRegistry &Registry) {
+//  initializeWRegionCollectionPass(Registry);
+//  initializeWRegionInfoPass(Registry);
+//}

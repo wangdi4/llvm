@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2016 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOVecoptTransform.cpp -- Vecopt Transform Passes initializers.
+//   VPOVecoptAnalysis.cpp -- Vecopt Analysis Passes initializers.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,7 +17,12 @@
 
 using namespace llvm;
 
-void llvm::initializeIntel_VPOVecoptTransform(PassRegistry &Registry) {
-  initializeVPODriverPass(Registry);
-  initializeVPODriverHIRPass(Registry);
+void llvm::initializeIntel_VPOAnalysis(PassRegistry &Registry) {
+  initializeWRegionCollectionPass(Registry);
+  initializeWRegionInfoPass(Registry);
+
+  initializeAVRGeneratePass(Registry);
+  initializeAVRGenerateHIRPass(Registry);
+
+  initializeIdentifyVectorCandidatesPass(Registry);
 }

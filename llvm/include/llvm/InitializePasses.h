@@ -68,13 +68,13 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
 
-// initializeIntel_VPOVecoptAnaylsis - Initialize all passes linked into the 
-// Intel_VPOVecoptAnalysis library
-void initializeIntel_VPOVecoptAnalysis(PassRegistry&);
+// initializeIntel_VPOAnaylsis - Initialize all passes linked into the 
+// Intel_VPOAnalysis library
+void initializeIntel_VPOAnalysis(PassRegistry&);
 
-// initializeIntel_VPOVecoptTransform - Initialize all passes linked into the
-// Intel_VPOVecoptTransform library
-void initializeIntel_VPOVecoptTransform(PassRegistry&);
+// initializeIntel_VPOTransforms - Initialize all passes linked into the
+// Intel_VPOTransforms library
+void initializeIntel_VPOTransforms(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalPass(PassRegistry&);
@@ -349,6 +349,8 @@ void initializeHIRCodeGenPass(PassRegistry&);
 void initializeWRegionCollectionPass(PassRegistry&);
 void initializeWRegionInfoPass(PassRegistry&);
 void initializeWRegionInfoAnalysisPass(PassRegistry&);
+// VPO Utility Pass
+void initializeVPOCFGRestructuringPass(PassRegistry&);
 // VPO Parallelizer Pass
 void initializeVPOParoptPass(PassRegistry&);
 // VPO Vectorizer Passes

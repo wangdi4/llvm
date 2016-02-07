@@ -137,12 +137,11 @@ int main(int argc, char **argv) {
 
 #if INTEL_CUSTOMIZATION
   initializeVecClonePass(Registry);
-  initializeVPOParoptPass(Registry);
   //initializeMapIntrinToImlPass(Registry);
   initializeIntel_LoopAnalysis(Registry);
   initializeIntel_LoopTransforms(Registry);
-  initializeIntel_VPOVecoptAnalysis(Registry);
-  initializeIntel_VPOVecoptTransform(Registry);
+  initializeIntel_VPOAnalysis(Registry);
+  initializeIntel_VPOTransforms(Registry);
 #endif // INTEL_CUSTOMIZATION
 
   cl::ParseCommandLineOptions(argc, argv,

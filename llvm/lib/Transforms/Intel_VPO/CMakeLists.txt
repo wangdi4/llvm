@@ -1,11 +1,19 @@
-add_subdirectory(ParOpt)
-add_subdirectory(Vecopt)
-add_subdirectory(Utils)
+add_llvm_library(LLVMIntel_VPOTransforms
+  VPOTransform.cpp
 
-add_llvm_library(LLVMVPODriver
-  Driver/VPODriver.cpp
-  Vecopt/CodeGen/VPOAvrLLVMCodeGen.cpp
-  Vecopt/CodeGen/VPOAvrHIRCodeGen.cpp
+  Utils/CFGRestructuring.cpp
+  Utils/IntrinsicUtils.cpp
+  Utils/OpenMPDirectivesAndClauses.cpp
+#  Utils/GeneralUtils.cpp // moved to Transforms/Utils
+  Utils/MultiVersioning.cpp
+
+  Vecopt/VPODriver.cpp
+  Vecopt/VPOAvrLLVMCodeGen.cpp
+  Vecopt/VPOAvrHIRCodeGen.cpp
+
+  ParOpt/VPOParopt.cpp
+  ParOpt/VPOParoptTransform.cpp
+  ParOpt/VPOParoptUtils.cpp
 )
 
-add_dependencies(LLVMVPODriver intrinsics_gen)
+add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen)

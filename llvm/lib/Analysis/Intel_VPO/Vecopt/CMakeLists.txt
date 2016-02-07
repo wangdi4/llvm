@@ -13,21 +13,23 @@
 
 add_llvm_library(LLVMVecopt_Analysis
   VPOVecoptAnalysis.cpp
-  AVR/VPOAvrGenerate.cpp
-  AVR/VPOAvr.cpp
-  AVR/VPOAvrFunction.cpp
-  AVR/VPOAvrLoop.cpp
-  AVR/VPOAvrStmt.cpp
-  AVR/VPOAvrStmtIR.cpp
-  AVR/VPOAvrStmtHIR.cpp
-  AVR/VPOAvrIf.cpp
-  AVR/VPOAvrIfIR.cpp
-  AVR/VPOAvrIfHIR.cpp
-  AVR/VPOAvrUtils.cpp
-  AVR/VPOAvrUtilsIR.cpp
-  AVR/VPOAvrUtilsHIR.cpp
-  CandidateIdent/VPOVecCandIdentify.cpp
-  CandidateIdent/VPOVectorCandidate.cpp
+  VPOAvrGenerate.cpp
+  VPOAvr.cpp
+  VPOAvrFunction.cpp
+  VPOAvrLoop.cpp
+  VPOAvrStmt.cpp
+  VPOAvrStmtIR.cpp
+  VPOAvrStmtHIR.cpp
+  VPOAvrIf.cpp
+  VPOAvrIfIR.cpp
+  VPOAvrIfHIR.cpp
+  VPOAvrUtils.cpp
+  VPOAvrUtilsIR.cpp
+  VPOAvrUtilsHIR.cpp
+
+  # These two files are to be deleted.
+  VPOVecCandIdentify.cpp
+  VPOVectorCandidate.cpp
 )
 
 add_dependencies(LLVMVecopt_Analysis intrinsics_gen)
