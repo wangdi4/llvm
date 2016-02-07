@@ -20,10 +20,10 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Dominators.h"
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtils.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtilsIR.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtilsHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"

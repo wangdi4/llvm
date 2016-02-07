@@ -17,11 +17,11 @@
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrFunction.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrLoop.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrFunction.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
 
 namespace llvm { // LLVM Namespace
 

@@ -24,7 +24,7 @@
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_VPO/VPODriver.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrLLVMCodeGen.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"

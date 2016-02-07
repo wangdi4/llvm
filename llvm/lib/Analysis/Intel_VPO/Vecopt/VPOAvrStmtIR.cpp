@@ -16,8 +16,8 @@
 
 #include "llvm/IR/CFG.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmtIR.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtilsIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsIR.h"
 #include <cctype>
 
 using namespace llvm;

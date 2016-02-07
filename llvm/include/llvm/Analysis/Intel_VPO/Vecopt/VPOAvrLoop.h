@@ -16,7 +16,7 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_LOOP_H
 #define LLVM_ANALYSIS_VPO_AVR_LOOP_H
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
 namespace llvm { // LLVM Namespace

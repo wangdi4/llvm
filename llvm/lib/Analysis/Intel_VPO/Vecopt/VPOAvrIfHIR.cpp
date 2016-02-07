@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrIfHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
 
 #define DEBUG_TYPE "avr-if-node"
 

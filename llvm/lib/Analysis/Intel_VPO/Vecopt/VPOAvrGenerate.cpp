@@ -14,10 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/PostDominators.h" 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrGenerate.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/CandidateIdent/VPOVecCandIdentify.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrVistor.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVistor.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 
 #include "llvm/Support/CommandLine.h"

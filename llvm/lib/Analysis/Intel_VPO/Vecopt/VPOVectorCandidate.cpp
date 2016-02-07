@@ -13,7 +13,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/CandidateIdent/VPOVectorCandidate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVectorCandidate.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 

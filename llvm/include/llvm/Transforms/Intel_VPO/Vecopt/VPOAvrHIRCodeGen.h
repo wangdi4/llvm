@@ -17,7 +17,7 @@
 #define LLVM_TRANSFORMS_VPO_VECOPT_VPOAVRHIRCODEGEN_H
 
 #include <map>
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"

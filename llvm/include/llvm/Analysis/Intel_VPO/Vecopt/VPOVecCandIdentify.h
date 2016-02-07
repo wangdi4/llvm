@@ -18,7 +18,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/CandidateIdent/VPOVectorCandidate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVectorCandidate.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo { // VPO Vectorizer Namespace

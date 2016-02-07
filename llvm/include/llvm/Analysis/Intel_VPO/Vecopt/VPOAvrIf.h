@@ -16,8 +16,8 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_IF_H
 #define LLVM_ANALYSIS_VPO_AVR_IF_H
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace

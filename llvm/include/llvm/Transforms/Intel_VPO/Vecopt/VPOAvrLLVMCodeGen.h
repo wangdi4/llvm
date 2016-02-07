@@ -21,7 +21,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace

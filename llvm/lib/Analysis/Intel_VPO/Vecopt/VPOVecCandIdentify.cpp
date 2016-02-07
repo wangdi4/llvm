@@ -28,12 +28,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/CandidateIdent/VPOVecCandIdentify.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 
 #define DEBUG_TYPE "identify-vector-candidates"
 

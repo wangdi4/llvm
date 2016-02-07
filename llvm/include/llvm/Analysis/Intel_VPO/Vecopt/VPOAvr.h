@@ -136,7 +136,7 @@ public:
   unsigned getAVRID() const { return SubClassID; }
 
   // AvrKind subclass enumeration
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrKinds.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrKinds.h"
 
 };
 

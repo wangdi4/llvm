@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrLoop.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
 
 #define DEBUG_TYPE "avr-loop"
 

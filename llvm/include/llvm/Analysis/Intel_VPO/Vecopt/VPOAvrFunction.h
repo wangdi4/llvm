@@ -22,7 +22,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 
 namespace llvm { // LLVM Namespace
 

@@ -15,7 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
 using namespace llvm;
 using namespace llvm::vpo;

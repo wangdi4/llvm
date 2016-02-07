@@ -17,7 +17,7 @@
 #define LLVM_ANALYSIS_VPO_AVR_STMT_H
 
 #include "llvm/IR/Instruction.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/IR/Instructions.h"
 

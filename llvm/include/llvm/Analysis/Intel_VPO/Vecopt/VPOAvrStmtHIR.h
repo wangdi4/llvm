@@ -17,7 +17,7 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H
 #define LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"

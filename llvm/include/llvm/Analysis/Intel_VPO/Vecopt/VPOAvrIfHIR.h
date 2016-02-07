@@ -17,7 +17,7 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_IF_HIR_H
 #define LLVM_ANALYSIS_VPO_AVR_IF_HIR_H
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
 #include "llvm/IR/Intel_LoopIR/HLIf.h"
 
 using namespace llvm::loopopt;

@@ -17,13 +17,13 @@
 #define LLVM_ANALYSIS_VPO_AVR_VISTOR_H
 
 #include "llvm/Support/Compiler.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvr.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrFunction.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrLoop.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmtIR.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrIf.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrGenerate.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrFunction.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 
 namespace llvm {
 namespace vpo {

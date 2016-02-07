@@ -14,7 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtilsHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 
 #define DEBUG_TYPE "avr-utilities"
 

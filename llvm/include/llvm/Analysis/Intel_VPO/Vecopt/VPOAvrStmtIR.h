@@ -18,7 +18,7 @@
 #define LLVM_ANALYSIS_VPO_AVR_STMT_IR_H
 
 #include "llvm/IR/Instruction.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmt.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace

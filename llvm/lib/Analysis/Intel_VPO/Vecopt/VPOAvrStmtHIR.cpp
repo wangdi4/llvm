@@ -14,8 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrStmtHIR.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/AVR/VPOAvrUtilsHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
