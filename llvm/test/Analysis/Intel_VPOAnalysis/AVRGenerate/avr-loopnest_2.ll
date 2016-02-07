@@ -1,4 +1,4 @@
-; RUN: opt < %s -vec-clone -avr-generate -analyze | FileCheck %s
+; RUN: opt < %s -vec-clone -vpo-cfg-restructuring -avr-generate -analyze | FileCheck %s
 
 ;
 ; Check the correctness of generated Abstract Layer for masked function
