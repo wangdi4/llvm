@@ -165,14 +165,17 @@ namespace intel {
                                                           CallInst * spirBlockBindCI) {
     LLVMContext & ctx = M.getContext();
 
-    CastInst * spirBlockContextCast = cast<CastInst>(spirBlockBindCI->getArgOperand(3));
-    PointerType * spirBlockCtxPtrTy = cast<PointerType>(spirBlockContextCast->getSrcTy());
-    StructType * spirBlockContextTy = cast<StructType>(spirBlockCtxPtrTy->getElementType());
+    CastInst * spirBlockContextCast = dyn_cast<CastInst>(spirBlockBindCI->getArgOperand(3));
     // Create a packed block structure type like in the example below;
     // <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, ... #CapturedContextTypes }>
-    m_objcBlockContextElements.resize(ObjCBlockElementsNumWithoutContext);
-    m_objcBlockContextElements.append(spirBlockContextTy->elements().begin(),
-                                      spirBlockContextTy->elements().end());
+    // If the captured context isn't empty then cast to i8* is expected
+    if(spirBlockContextCast) {
+      m_objcBlockContextElements.resize(ObjCBlockElementsNumWithoutContext);
+      PointerType * spirBlockCtxPtrTy = cast<PointerType>(spirBlockContextCast->getSrcTy());
+      StructType * spirBlockContextTy = cast<StructType>(spirBlockCtxPtrTy->getElementType());
+      m_objcBlockContextElements.append(spirBlockContextTy->elements().begin(),
+                                        spirBlockContextTy->elements().end());
+    }
     StructType * objcBlockContextTy = StructType::get(ctx, m_objcBlockContextElements,
                                                       /* isPacked */ true);
 
@@ -218,14 +221,16 @@ namespace intel {
                                 "objc.block.descriptor", spirBlockBindCI);
     new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, spirBlockBindCI);
 
-    // 3. Store captured context.
-    Value * spirContextAlloca = spirBlockContextCast->getOperand(0);
-    assert(isa<AllocaInst>(spirContextAlloca) &&
-           "alloca for SPIR 2.0 captured context is expected");
-    replaceGEPs(spirContextAlloca, objcBlockAlloca);
-    // Fix the invoke which still expects captrued data as an agrument
-    // and all GEPs from it.
-    fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
+    // 3. Store captured context if any and fix block invoke function
+    if(spirBlockContextCast) {
+      Value * spirContextAlloca = spirBlockContextCast->getOperand(0);
+      assert(isa<AllocaInst>(spirContextAlloca) &&
+             "alloca for SPIR 2.0 captured context is expected");
+      replaceGEPs(spirContextAlloca, objcBlockAlloca);
+      // Fix the invoke which still expects captured data as an agrument
+      // and all GEPs from it.
+      fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
+    }
 
     return objcBlockAlloca;
   }
