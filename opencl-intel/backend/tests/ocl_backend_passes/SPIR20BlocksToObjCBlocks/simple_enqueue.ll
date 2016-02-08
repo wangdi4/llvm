@@ -32,14 +32,16 @@ declare spir_func float @_Z3cosf(float) #1
 ; CHECK: [[BLOCKDESC:.*]] = internal constant [[BLOCKDESCTY:.*]] { i64 0, i64 40 }
 ; CHECK: define spir_func void @host_kernel
 ; CHECK: [[BLOCKPTR: .*]] = alloca <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, float addrspace(1)* }>
-; CHECK: [[INVOKEGEP:.*]] = getelementptr [[BLOCKPTRTY:.*]][[BLOCKPTR]], i32 0, i32 3
 
+; CHECK: [[CAPTGEP:.*]] = getelementptr [[BLOCKPTRTY:.*]][[BLOCKPTR]], i32 0, i32 5
+; CHECK: store float addrspace(1)* %inout, float addrspace(1)**[[CAPTGEP]]
+
+; CHECK: [[INVOKEGEP:.*]] = getelementptr [[BLOCKPTRTY]][[BLOCKPTR]], i32 0, i32 3
 ; CHECK: store i8* bitcast {{.*}} @__host_kernel_block_invoke {{.*}}[[INVOKEGEP]]
+
 ; CHECK: [[DESCRGEP:.*]] = getelementptr [[BLOCKPTRTY]][[BLOCKPTR]], i32 0, i32 4
 ; CHECK: store [[BLOCKDESCTY]]* [[BLOCKDESC]], [[BLOCKDESCTY]]**[[DESCRGEP]]
 
-; CHECK: [[CAPTGEP:.*]] = getelementptr [[BLOCKPTRTY]][[BLOCKPTR]], i32 0, i32 5
-; CHECK: store float addrspace(1)* %inout, float addrspace(1)**[[CAPTGEP]]
 ; CHECK: [[TOSPIRBLOCK:.*]] = bitcast [[BLOCKPTRTY]][[BLOCKPTR]] to %opencl.block*
 ; CHECK: call spir_func i32 @_Z14enqueue_kernel{{.*}}, %opencl.block*[[TOSPIRBLOCK]])
 
