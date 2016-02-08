@@ -91,9 +91,9 @@ def ext_intel_non_static_static : Extension<
   InGroup<IntelCompat>;
 def ext_intel_static_block_func : Extension<
   "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
-// CQ#364598
-def ext_intel_elab_befriended_type_refers_typedef : ExtWarn<
-  "elaborated befriended type refers to a typedef">, InGroup<IntelCompat>;
+// CQ#364598, CQ#374878.
+def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
+  "elaborated type refers to a typedef">, InGroup<IntelCompat>;
 // CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
