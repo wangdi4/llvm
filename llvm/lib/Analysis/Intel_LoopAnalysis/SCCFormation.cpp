@@ -273,7 +273,7 @@ void SCCFormation::setRegion(RegionIdentification::const_iterator RegIt) {
 }
 
 bool SCCFormation::isUsedInSCCPhi(const PHINode *Phi,
-                                const SCCNodesTy &Nodes) const {
+                                  const SCCNodesTy &Nodes) const {
   bool UsedInPhi = false;
 
   for (auto I = Phi->user_begin(), E = Phi->user_end(); I != E; ++I) {
@@ -296,11 +296,50 @@ bool SCCFormation::isUsedInSCCPhi(const PHINode *Phi,
   return true;
 }
 
-bool SCCFormation::isValidSCC(const SCCTy &NewSCC) const {
+bool SCCFormation::isRegionLiveOut(RegionIdentification::const_iterator RegIt,
+                                   const Instruction *Inst) {
+  for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
+       UserIt != EndIt; ++UserIt) {
+    assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
+
+    if ((*RegIt)->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
+      continue;
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
+bool SCCFormation::isProfitableSCC(const SCCNodesTy &Nodes) const {
+  bool LiveoutValueFound = false;
+
+  for (auto const &Inst : Nodes) {
+
+    if (isRegionLiveOut(CurRegIt, Inst)) {
+      // We skip SCC formation if multiple values are live outside the region.
+      // Technically, we can handle this case but it requires insertion of a
+      // liveout copy during SSA deconstruction for each liveout value in the
+      // SCC and it it not clear whether forming the SCC and then inserting
+      // liveout copies makes HIR any cleaner than not forming the SCC at all.
+      // Thus, this is more of a cost-model decision.
+      if (LiveoutValueFound) {
+        return false;
+      }
+
+      LiveoutValueFound = true;
+    }
+  }
+
+  return true;
+}
+
+bool SCCFormation::isValidSCC(const SCCNodesTy &Nodes) const {
   SmallPtrSet<const BasicBlock *, 12> BBlocks;
   Type *NodeTy = nullptr;
 
-  for (auto const &Inst : NewSCC.Nodes) {
+  for (auto const &Inst : Nodes) {
 
     // Check whether all the nodes have the same type. There can be type
     // mismatch if we have traced through casts.
@@ -353,7 +392,7 @@ bool SCCFormation::isValidSCC(const SCCTy &NewSCC) const {
       continue;
     }
 
-    if (!isUsedInSCCPhi(Phi, NewSCC.Nodes)) {
+    if (!isUsedInSCCPhi(Phi, Nodes)) {
       return false;
     }
   }
@@ -432,7 +471,7 @@ unsigned SCCFormation::findSCC(const NodeTy *Node) {
       // Remove nodes not directly associated with the phi nodes.
       removeIntermediateNodes(NewSCCNodes);
 
-      if (isValidSCC(*NewSCC)) {
+      if (isValidSCC(NewSCCNodes) && isProfitableSCC(NewSCCNodes)) {
         // Add new SCC to the list.
         RegionSCCs.push_back(NewSCC);
 

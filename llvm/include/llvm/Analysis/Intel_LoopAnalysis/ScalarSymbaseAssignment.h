@@ -84,10 +84,6 @@ private:
   /// values created by HIR transformations as well.
   SmallDenseMap<unsigned, const Value *, 64> ScalarLvalSymbases;
 
-  /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
-  bool isRegionLiveOut(RegionIdentification::iterator RegIt,
-                       const Instruction *Inst) const;
-
   /// \brief Populates liveout Values for the region pointed to by RegIt.
   void populateRegionLiveouts(RegionIdentification::iterator RegIt);
 

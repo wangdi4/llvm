@@ -151,14 +151,9 @@ private:
   /// \brief Inserts copies of Phi if it has uses live outside the SCC and
   /// replaces the liveout uses with the copy. If SCCNodes is null, Phi is
   /// treated as a standalone phi and this is needed to handle a special case
-  /// described in the function definition. MultipleRegionLiveouts indicates
-  /// whether multiple instructions in the SCC are live outside the region.
+  /// described in the function definition.
   void processPhiLiveouts(PHINode *Phi, SCCFormation::SCCNodesTy *SCCNodes,
-                          bool MultipleRegionLiveouts, StringRef Name);
-
-  /// \brief Returns true is this SCC has multiple instructions live outside the
-  /// region.
-  bool hasMultipleRegionLiveouts(SCCFormation::SCCNodesTy &SCCNodes) const;
+                          StringRef Name);
 
   /// \brief Deconstructs phi by inserting copies.
   void deconstructPhi(PHINode *Phi);
@@ -332,7 +327,7 @@ SCCFormation::SCCTy *SSADeconstruction::getPhiSCC(const PHINode *Phi) const {
 //
 bool SSADeconstruction::liveoutCopyRequired(
     const PHINode *StandAlonePhi) const {
-  
+
   if (SCCF->isConsideredLinear(StandAlonePhi)) {
     return false;
   }
@@ -387,7 +382,6 @@ bool SSADeconstruction::liveoutCopyRequired(
 
 void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
                                            SCCFormation::SCCNodesTy *SCCNodes,
-                                           bool MultipleRegionLiveouts,
                                            StringRef Name) {
 
   Instruction *CopyInst = nullptr;
@@ -403,7 +397,7 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
       return;
     }
 
-    if(!(CopyRequired = liveoutCopyRequired(Phi))) {
+    if (!(CopyRequired = liveoutCopyRequired(Phi))) {
       Lp = LI->getLoopFor(Phi->getParent());
     }
   }
@@ -424,14 +418,6 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
         continue;
       }
 
-      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-        // CG can only handle single region liveout value per symbase so we need
-        // to add a liveout copy(new symbase) to handle the case where multiple
-        // values in a SCC are live outside the region.
-        if (!MultipleRegionLiveouts) {
-          continue;
-        }
-      }
     } else if (!CopyRequired) {
 
       // Add a liveout copy if this phi is used outside its parent loop as these
@@ -640,30 +626,6 @@ StringRef SSADeconstruction::constructName(const Value *Val,
   return VOS.str();
 }
 
-bool SSADeconstruction::hasMultipleRegionLiveouts(
-    SCCFormation::SCCNodesTy &SCCNodes) const {
-
-  bool LiveoutFound = false;
-
-  for (auto const &Inst : SCCNodes) {
-    for (auto UI = Inst->user_begin(), E = Inst->user_end(); UI != E; ++UI) {
-      assert(isa<Instruction>(*UI) && "Use is not an instruction!");
-      auto UserInst = cast<Instruction>(*UI);
-
-      if (!(*CurRegIt)->containsBBlock(UserInst->getParent())) {
-        if (!LiveoutFound) {
-          LiveoutFound = true;
-          break;
-        } else {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
-}
-
 void SSADeconstruction::deconstructPhi(PHINode *Phi) {
   SmallString<32> Name;
 
@@ -678,7 +640,6 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     ProcessedSCCs.insert(PhiSCC);
 
     bool LiveinCopyInserted = false;
-    bool MultipleRegionLiveouts = hasMultipleRegionLiveouts(PhiSCC->Nodes);
 
     constructName(PhiSCC->Root, Name);
 
@@ -690,8 +651,11 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
                               Name.str()) ||
             LiveinCopyInserted;
 
+        // TODO: Find a test case where a non-phi instruction in an SCC is live
+        // outside the region and is not the lexically last statement of the
+        // SCC. The current code doesn't handle this case.
         processPhiLiveouts(const_cast<PHINode *>(SCCPhiInst), &PhiSCC->Nodes,
-                           MultipleRegionLiveouts, Name.str());
+                           Name.str());
 
       } else {
 
@@ -746,7 +710,7 @@ void SSADeconstruction::deconstructPhi(PHINode *Phi) {
     attachMetadata(Phi, Name.str(), LiveInType);
 
     processPhiLiveins(Phi, nullptr, Name.str());
-    processPhiLiveouts(Phi, nullptr, false, Name.str());
+    processPhiLiveouts(Phi, nullptr, Name.str());
   }
 }
 

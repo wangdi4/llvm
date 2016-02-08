@@ -252,23 +252,6 @@ unsigned ScalarSymbaseAssignment::getScalarSymbase(const Value *Scalar) {
   return getOrAssignScalarSymbaseImpl(Scalar, false);
 }
 
-bool ScalarSymbaseAssignment::isRegionLiveOut(
-    RegionIdentification::iterator RegIt, const Instruction *Inst) const {
-  // Check if the Inst is used outside the region.
-  for (auto UserIt = Inst->user_begin(), EndIt = Inst->user_end();
-       UserIt != EndIt; ++UserIt) {
-    assert(isa<Instruction>(*UserIt) && "Use is not an instruction!");
-
-    if ((*RegIt)->containsBBlock(cast<Instruction>(*UserIt)->getParent())) {
-      continue;
-    }
-
-    return true;
-  }
-
-  return false;
-}
-
 void ScalarSymbaseAssignment::populateRegionLiveouts(
     RegionIdentification::iterator RegIt) {
   // Traverse region basic blocks.
@@ -280,7 +263,7 @@ void ScalarSymbaseAssignment::populateRegionLiveouts(
     for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
          ++Inst) {
 
-      if (isRegionLiveOut(RegIt, Inst)) {
+      if (SCCF->isRegionLiveOut(RegIt, Inst)) {
         auto Symbase = getOrAssignScalarSymbase(Inst);
         (*RegIt)->addLiveOutTemp(Inst, Symbase);
       }

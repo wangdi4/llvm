@@ -138,9 +138,12 @@ private:
   /// \brief Sets RegIt as the current region being processed.
   void setRegion(RegionIdentification::const_iterator RegIt);
 
+  /// \brief Returns true if forming this SCC results in a cleaner HIR.
+  bool isProfitableSCC(const SCCNodesTy &Nodes) const;
+
   /// \brief Checks the validity of an SCC w.r.t assigning the same symbase to
   /// all its nodes.
-  bool isValidSCC(const SCCTy &NewSCC) const;
+  bool isValidSCC(const SCCNodesTy &Nodes) const;
 
   /// \brief Checks that Phi is used in another phi in the SCC.
   bool isUsedInSCCPhi(const PHINode *Phi, const SCCNodesTy &NewSCC) const;
@@ -167,6 +170,10 @@ public:
 
   /// \brief Returns true if this node is considered linear by parsing.
   bool isConsideredLinear(const NodeTy *Node) const;
+
+  /// \brief Returns true if Inst has a user outside region pointed to by RegIt.
+  static bool isRegionLiveOut(RegionIdentification::const_iterator RegIt,
+                              const Instruction *Inst);
 
   /// SCC iterator methods
   const_iterator begin(RegionIdentification::const_iterator RegIt) const;
