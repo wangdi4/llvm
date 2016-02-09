@@ -69,7 +69,7 @@ namespace intel {
       \param module
       \param call instruciton to "spir_block_bind"
      */
-    llvm::Instruction * createObjCBlock(llvm::Module &, llvm::CallInst *);
+    llvm::Value * getOrCreateObjCBlock(llvm::Module &, llvm::CallInst *);
 
     /// SPIR 2.0 block invoke functions expects only captured data while
     /// Objecitve-C blocks expects pointer to the block. So, the invoke functions
@@ -89,7 +89,7 @@ namespace intel {
     llvm::Type *       m_int64Ty;
     llvm::Type *       m_int32Ty;
 
-    std::set<llvm::Function *> m_fixedInvokes;
+    std::map<llvm::Value*, llvm::Value*> m_objcBlocks;
   };
 } // namespace intel
 

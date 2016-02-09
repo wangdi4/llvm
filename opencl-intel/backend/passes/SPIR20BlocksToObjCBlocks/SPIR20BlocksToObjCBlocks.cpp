@@ -70,17 +70,8 @@ namespace intel {
       CallInst * spirBlockBindCI = dyn_cast<CallInst>(user);
       if(!spirBlockBindCI) continue;
       // Create and initialize Objective-C block.
-      Instruction * objcBlock = createObjCBlock(M, spirBlockBindCI);
-
-      // Ideally next what has to be done is to replace all uses of "opencl.block"
-      // opaque type with this new block type but this is tedious and error prone.
-      // It is easier to cast the poiner to Objective-C block to SPIR 2.0 block and
-      // rely on BIImport pass which is able to propery map opaque struct types while
-      // importing built-ins to a user module.
-      CastInst * objcToSpirBlockCast =
-        CastInst::CreatePointerCast(objcBlock, spirBlockBindCI->getType(),
-                                    "objc.to.spir.cast", spirBlockBindCI);
-      spirBlockBindCI->replaceAllUsesWith(objcToSpirBlockCast);
+      Value * objcBlock = getOrCreateObjCBlock(M, spirBlockBindCI);
+      spirBlockBindCI->replaceAllUsesWith(objcBlock);
       toErase.push_back(spirBlockBindCI);
     }
     // Erase SPIR's remnants
@@ -95,7 +86,7 @@ namespace intel {
   // Create Objective-C block descriptor type and initialize the pass.
   // *****************************************************************
   void SPIR20BlocksToObjCBlocks::initPass(Module &M) {
-    m_fixedInvokes.clear();
+    m_objcBlocks.clear();
 
     // Create block descriptor type which contains block size in the last element.
     // See the examples below.
@@ -161,14 +152,21 @@ namespace intel {
   // Create and initialize a specific Objective-C block using call to
   // "spir_block_bind" to gather necessary data.
   // ****************************************************************
-  Instruction * SPIR20BlocksToObjCBlocks::createObjCBlock(Module &M,
-                                                          CallInst * spirBlockBindCI) {
-    LLVMContext & ctx = M.getContext();
+  Value * SPIR20BlocksToObjCBlocks::getOrCreateObjCBlock(Module &M,
+                                                         CallInst * spirBlockBindCI) {
+    // First check if ObjectiveC block for this invoke has been created already.
+    Value * spirBlockInvoke = spirBlockBindCI->getArgOperand(0);
+    auto foundBlock = m_objcBlocks.find(spirBlockInvoke);
+    if(foundBlock != m_objcBlocks.end()) return foundBlock->second;
 
-    CastInst * spirBlockContextCast = dyn_cast<CastInst>(spirBlockBindCI->getArgOperand(3));
+    LLVMContext & ctx = M.getContext();
+    Function * parentFunc = spirBlockBindCI->getParent()->getParent();
+    Instruction * insertBefore = parentFunc->getEntryBlock().getFirstInsertionPt();
+
     // Create a packed block structure type like in the example below;
     // <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, ... #CapturedContextTypes }>
     // If the captured context isn't empty then cast to i8* is expected
+    CastInst * spirBlockContextCast = dyn_cast<CastInst>(spirBlockBindCI->getArgOperand(3));
     if(spirBlockContextCast) {
       m_objcBlockContextElements.resize(ObjCBlockElementsNumWithoutContext);
       PointerType * spirBlockCtxPtrTy = cast<PointerType>(spirBlockContextCast->getSrcTy());
@@ -178,7 +176,6 @@ namespace intel {
     }
     StructType * objcBlockContextTy = StructType::get(ctx, m_objcBlockContextElements,
                                                       /* isPacked */ true);
-
     // Create a block descritptor for this block:
     // @__block_descriptor = internal constant { i64, i64 } { i64 #Reserved, i64 #Size }
     const DataLayout * DL = M.getDataLayout();
@@ -197,10 +194,8 @@ namespace intel {
 
     // Allocate Objective-C block on the stack.
     // %objc.block = alloca <{ i8*, i32, i32, i8*, %struct.__block_descriptor*, ... #CapturedContextTypes }>
-    Function * parentFunc = spirBlockBindCI->getParent()->getParent();
     AllocaInst * objcBlockAlloca =
-      new AllocaInst(objcBlockContextTy, "objc.block",
-                     parentFunc->getEntryBlock().getFirstInsertionPt());
+      new AllocaInst(objcBlockContextTy, "objc.block", insertBefore);
     objcBlockAlloca->setAlignment(DL->getPrefTypeAlignment(objcBlockContextTy));
     // Initialize invoke, block descriptor, and context elements; others aren't used
     // by OpenCL CPU BE
@@ -209,17 +204,16 @@ namespace intel {
                                         ConstantInt::get(m_int32Ty, 3) };
     Instruction* objcInvokePtr =
       GetElementPtrInst::Create(objcBlockAlloca, objcInvokeGEPIndices,
-                                "objc.block.invoke", spirBlockBindCI);
-    Value * spirBlockInvoke = spirBlockBindCI->getArgOperand(0);
-    new StoreInst(spirBlockInvoke, objcInvokePtr, spirBlockBindCI);
+                                "objc.block.invoke", insertBefore);
+    new StoreInst(spirBlockInvoke, objcInvokePtr, insertBefore);
 
     // 2. Store a pointer to the block desriptor global value created earlier
     Value * objcBlockDescrGEPIndices[2] = { ConstantInt::get(m_int32Ty, 0),
                                             ConstantInt::get(m_int32Ty, 4) };
     Instruction* objcBlockDescrPtr =
       GetElementPtrInst::Create(objcBlockAlloca, objcBlockDescrGEPIndices,
-                                "objc.block.descriptor", spirBlockBindCI);
-    new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, spirBlockBindCI);
+                                "objc.block.descriptor", insertBefore);
+    new StoreInst(objcBlockDescrGV, objcBlockDescrPtr, insertBefore);
 
     // 3. Store captured context if any and fix block invoke function
     if(spirBlockContextCast) {
@@ -232,7 +226,15 @@ namespace intel {
       fixBlockInvoke(M, spirBlockInvoke, objcBlockContextTy);
     }
 
-    return objcBlockAlloca;
+    // Ideally next what has to be done is to replace all uses of "opencl.block"
+    // opaque type with this new block type but this is tedious and error prone.
+    // It is easier to cast the poiner to Objective-C block to SPIR 2.0 block and
+    // rely on BIImport pass which is able to properly map opaque struct types while
+    // importing built-ins to a user module.
+    CastInst * objcBlock =
+      CastInst::CreatePointerCast(objcBlockAlloca, spirBlockBindCI->getType(),
+                                  "objc.to.spir.cast", insertBefore);
+    return m_objcBlocks[spirBlockInvoke] = objcBlock;
   }
 
   //************************************************************************
@@ -276,9 +278,6 @@ namespace intel {
                                                 Value * spirBlockInvoke,
                                                 StructType * objcBlockContextTy) {
     Function * invokeFunc = cast<Function>(spirBlockInvoke->stripPointerCasts());
-    // Check if this invoke was already fixed.
-    if(m_fixedInvokes.insert(invokeFunc).second == false)
-      return;
     // The invoke function must have an argument which is a pointer to opencl.block type
     // but it actually might be the second argument if this invoke returns a struct
     auto aIter = invokeFunc->arg_begin();
