@@ -583,7 +583,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
         break;
 
       default:
-        assert(0 && "Unhelded parameter type");
+        assert(0 && "Unhandled parameter type");
       }
 
       // update offset

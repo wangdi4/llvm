@@ -716,7 +716,7 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
         }
         break;
     default:
-        throw TestReferenceRunnerException("Unhelded parameter type");
+        throw TestReferenceRunnerException("Unhandled parameter type");
     }
     return m_pointerArgs[m_pointerArgs.size() - 1];
 }
