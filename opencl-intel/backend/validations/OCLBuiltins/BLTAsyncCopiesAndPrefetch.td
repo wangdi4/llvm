@@ -28,7 +28,7 @@ def prefetch  : REF_OclBuiltin<"prefetch",  (outs), (ins pgentype:$p, size_t:$nu
 // OpenCL 1.2 rev 15, Table 6.18
 let Types = [ v1i32 ],
     Attrs = [CONSTFUNC, OVERLOADABLE] in {
-def wait_group_events  : REF_OclBuiltin<"wait_group_events",  (outs), (ins si32gentype:$num_events, pevent_t:$event_list), [], [], TemplateAttr< [] > >;
+def wait_group_events  : REF_OclBuiltin<"wait_group_events",  (outs), (ins si32gentype:$num_events, pevent_t:$event_list), [], [], TemplateAttr< [] > >, PRIVATE;
 }
 
 class Generic {

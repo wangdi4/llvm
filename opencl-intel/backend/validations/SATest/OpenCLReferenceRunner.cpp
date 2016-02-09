@@ -698,6 +698,7 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
     const PointerType *ptr = cast<PointerType>(argType);
     switch(ptr->getElementType()->getTypeID())
     {
+    case Type::HalfTyID:
     case Type::FloatTyID:
     case Type::DoubleTyID:
     case Type::IntegerTyID:
