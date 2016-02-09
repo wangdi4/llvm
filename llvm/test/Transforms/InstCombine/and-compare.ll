@@ -7,9 +7,9 @@ target triple = "x86_64-unknown-linux-gnu"
 ; Should be optimized to one and.
 define i1 @test1(i32 %a, i32 %b) {
 ; CHECK-LABEL: @test1(
-; CHECK-NEXT: %1 = xor i32 %a, %b               ;INTEL
-; CHECK-NEXT: %2 = trunc i32 %1 to i16          ;INTEL
-; CHECK-NEXT: %tmp = icmp ugt i16 %2, 255       ;INTEL
+; CHECK-NEXT: %1 = xor i32 %a, %b
+; CHECK-NEXT: %2 = and i32 %1, 65280
+; CHECK-NEXT: %tmp = icmp ne i32 %2, 0
 ; CHECK-NEXT: ret i1 %tmp
         %tmp1 = and i32 %a, 65280               ; <i32> [#uses=1]
         %tmp3 = and i32 %b, 65280               ; <i32> [#uses=1]

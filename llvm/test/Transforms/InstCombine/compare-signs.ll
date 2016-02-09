@@ -24,14 +24,17 @@
 define i32 @test3(i32 %a, i32 %b) nounwind readnone {
 ; CHECK-LABEL: @test3(
 entry:
+; CHECK: [[XOR1:%.*]] = xor i32 %a, %b
+; CHECK: [[SHIFT:%.*]] = lshr i32 [[XOR1]], 31
+; CHECK: [[XOR2:%.*]] = xor i32 [[SHIFT]], 1
         %0 = lshr i32 %a, 31            ; <i32> [#uses=1]
         %1 = lshr i32 %b, 31            ; <i32> [#uses=1]
         %2 = icmp eq i32 %0, %1         ; <i1> [#uses=1]
         %3 = zext i1 %2 to i32          ; <i32> [#uses=1]
         ret i32 %3
-; CHECK: lshr                           ;INTEL
-; CHECK: trunc                          ;INTEL
-; CHECK: icmp eq i8                     ;INTEL
+; CHECK-NOT: icmp
+; CHECK-NOT: zext
+; CHECK: ret i32 [[XOR2]]
 }
 
 ; Variation on @test3: checking the 2nd bit in a situation where the 5th bit
@@ -39,6 +42,9 @@ entry:
 define i32 @test3i(i32 %a, i32 %b) nounwind readnone {
 ; CHECK-LABEL: @test3i(
 entry:
+; CHECK: xor i32 %a, %b
+; CHECK: lshr i32 %0, 31
+; CHECK: xor i32 %1, 1
         %0 = lshr i32 %a, 29            ; <i32> [#uses=1]
         %1 = lshr i32 %b, 29            ; <i32> [#uses=1]
         %2 = or i32 %0, 35
@@ -46,9 +52,9 @@ entry:
         %4 = icmp eq i32 %2, %3         ; <i1> [#uses=1]
         %5 = zext i1 %4 to i32          ; <i32> [#uses=1]
         ret i32 %5
-; CHECK: lshr                           ;INTEL
-; CHECK: trunc                          ;INTEL
-; CHECK: icmp eq i8                     ;INTEL
+; CHECK-NOT: icmp
+; CHECK-NOT: zext
+; CHECK: ret i32 %2
 }
 
 define i1 @test4a(i32 %a) {

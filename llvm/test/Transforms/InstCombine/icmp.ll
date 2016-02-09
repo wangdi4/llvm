@@ -1365,7 +1365,8 @@ end:
 }
 
 ; CHECK-LABEL: @icmp_lshr_lshr_eq
-; CHECK: icmp eq i8 %1, %2                               ;INTEL
+; CHECK: %z.unshifted = xor i32 %a, %b
+; CHECK: %z = icmp ult i32 %z.unshifted, 1073741824
 define i1 @icmp_lshr_lshr_eq(i32 %a, i32 %b) nounwind {
  %x = lshr i32 %a, 30
  %y = lshr i32 %b, 30
