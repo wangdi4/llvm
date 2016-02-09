@@ -328,3 +328,36 @@ unsigned LPUInstrInfo::GetInstSizeInBytes(const MachineInstr *MI) const {
   }
 }
 */
+unsigned 
+LPUInstrInfo::getPickSwitchOpcode(const TargetRegisterClass *RC, 
+				    bool isPick) const {
+
+  if (isPick) {
+    switch (RC->getID()) {
+    default: llvm_unreachable("Unknown Target register class!");
+    case LPU::I1RegClassID: return LPU::PICK1;
+    case LPU::I8RegClassID: return LPU::PICK8;
+    case LPU::I16RegClassID: return LPU::PICK16;
+    case LPU::F16RegClassID: return LPU::PICK16f;
+    case LPU::I32RegClassID: return LPU::PICK32;
+    case LPU::F32RegClassID: return LPU::PICK32f;
+    case LPU::I64RegClassID: return LPU::PICK64;
+    case LPU::F64RegClassID: return LPU::PICK64f;
+    }
+  }
+
+
+  switch (RC->getID()) {
+  default: llvm_unreachable("Unknown Target register class!");
+  case LPU::I1RegClassID: return LPU::SWITCH1;
+  case LPU::I8RegClassID: return LPU::SWITCH8;
+  case LPU::I16RegClassID: return LPU::SWITCH16;
+  case LPU::F16RegClassID: return LPU::SWITCH16f;
+  case LPU::I32RegClassID: return LPU::SWITCH32;
+  case LPU::F32RegClassID: return LPU::SWITCH32f;
+  case LPU::I64RegClassID: return LPU::SWITCH64;
+  case LPU::F64RegClassID: return LPU::SWITCH64f;
+  }
+
+}
+

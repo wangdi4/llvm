@@ -81,6 +81,8 @@ public:
                         MachineBasicBlock *FBB,
                         const SmallVectorImpl<MachineOperand> &Cond,
                         DebugLoc DL) const override;
+
+  unsigned getPickSwitchOpcode(const TargetRegisterClass *RC, bool isPick) const;
 };
 
 }

@@ -36,7 +36,7 @@ namespace llvm { extern raw_ostream *CreateInfoOutputFile(); }
 static cl::opt<int>
 ConvertControlPass("lpu-cvt-ctrl-pass", cl::Hidden,
 		   cl::desc("LPU Specific: Convert control flow pass"),
-		   cl::init(0));
+		   cl::init(100));
 
 #define DEBUG_TYPE "lpu-convert-control"
 
@@ -78,6 +78,7 @@ char LPUConvertControlPass::ID = 0;
 bool LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, unsigned int *srcReg1, unsigned int *predReg1, unsigned int *predReg2, MachineBasicBlock **predBB1, MachineBasicBlock **predBB2, const MachineBasicBlock *backedgeBB) {
 
   const TargetInstrInfo &TII = *thisMF->getSubtarget().getInstrInfo();
+  
   bool firstPred = true;
   for (unsigned i = 1, e = MI->getNumOperands(); i != e; i +=2 ) {
     // for each src operand get BB label & corresponding predicate reg
@@ -136,7 +137,7 @@ bool LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI, MachineBasicBlo
 bool LPUConvertControlPass::genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, MachineBasicBlock::iterator lastPhiInst, const MachineBasicBlock *backedgeBB) {
 
         const TargetMachine &TM = thisMF->getTarget();
-        const TargetInstrInfo &TII = *thisMF->getSubtarget().getInstrInfo();
+        const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
         const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
         MachineRegisterInfo *MRI = &thisMF->getRegInfo();
 	bool genDFInst = false;
@@ -161,8 +162,9 @@ bool LPUConvertControlPass::genDFInstructions(MachineInstr *MI, MachineBasicBloc
           unsigned dst = MI->getOperand(0).getReg();
           const TargetRegisterClass *TRC = MRI->getRegClass(dst);
           unsigned newDst = MRI->createVirtualRegister(TRC);
-          MachineInstr *pickInst;
-          if (TRC == &LPU::I32RegClass) {
+	  const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+          MachineInstr *pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg3).addReg(srcReg1).addReg(newDst);
+          /*if (TRC == &LPU::I32RegClass) {
 	 	pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::PICK32), dst).addReg(predReg3).addReg(srcReg1).addReg(newDst);
           }
 	  else if (TRC == &LPU::I64RegClass) {
@@ -172,7 +174,7 @@ bool LPUConvertControlPass::genDFInstructions(MachineInstr *MI, MachineBasicBloc
 	    DEBUG(errs() << "PICK target reg class is not handled - bailing \n");
 	    DEBUG(errs() << "Reg Class Name = " << TRI.getRegClassName(TRC) << "\n");
 	    return false;
-	  }
+	  }*/
 	 
 	  //add a new Phi for the PICK inst src predicate
 	  BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(TargetOpcode::PHI),predReg3).addReg(predReg1).addMBB(predBB1).addReg(predReg2).addMBB(predBB2);
@@ -222,8 +224,9 @@ bool LPUConvertControlPass::genDFInstructions(MachineInstr *MI, MachineBasicBloc
 
       	      MachineBasicBlock::iterator loopBranch = BB->getFirstTerminator(); 
 
-       	      // TODO: do not hard code switch32 opcode       
-	      MachineInstr *switchInst = BuildMI(*BB, BB->end(), BB->end()->getDebugLoc(), TII.get(LPU::SWITCH32), newLiveOutReg).addReg(newLoopBackReg, RegState::Define).addReg(brCond[1].getReg()).addReg(defReg);
+       	      // generate switch op
+	      const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
+	      MachineInstr *switchInst = BuildMI(*BB, BB->end(), BB->end()->getDebugLoc(), TII.get(switchOpcode), newLiveOutReg).addReg(newLoopBackReg, RegState::Define).addReg(brCond[1].getReg()).addReg(defReg);
 
 	      switchInst->removeFromParent();
 	      BB->insert(loopBranch,switchInst);
