@@ -61,9 +61,15 @@ public:
 private:
   MachineFunction *thisMF;
 
-  bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, MachineBasicBlock::iterator lastPhiInst, const MachineBasicBlock *backedgeBB);
+  bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, 
+                         MachineBasicBlock::iterator lastPhiInst, 
+                         const MachineBasicBlock *backedgeBB);
 
-  bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, unsigned int *srcReg1, unsigned int *predReg1, unsigned int *predReg2, MachineBasicBlock **predBB1, MachineBasicBlock **predBB2, const MachineBasicBlock *backedgeBB); 
+  bool analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, 
+                          unsigned int *srcReg1, unsigned int *predReg1,
+                          unsigned int *predReg2, MachineBasicBlock **predBB1,
+                          MachineBasicBlock **predBB2, 
+                          const MachineBasicBlock *backedgeBB); 
 
 };
 }
@@ -75,7 +81,15 @@ MachineFunctionPass *llvm::createLPUConvertControlPass() {
 char LPUConvertControlPass::ID = 0;
 
 
-bool LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI, MachineBasicBlock *BB, unsigned int *srcReg1, unsigned int *predReg1, unsigned int *predReg2, MachineBasicBlock **predBB1, MachineBasicBlock **predBB2, const MachineBasicBlock *backedgeBB) {
+bool 
+LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
+                                          MachineBasicBlock *BB,
+                                          unsigned int *srcReg1, 
+                                          unsigned int *predReg1, 
+                                          unsigned int *predReg2,
+                                          MachineBasicBlock **predBB1,
+                                          MachineBasicBlock **predBB2, 
+                                          const MachineBasicBlock *backedgeBB) {
 
   const TargetInstrInfo &TII = *thisMF->getSubtarget().getInstrInfo();
   
@@ -134,118 +148,130 @@ bool LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI, MachineBasicBlo
 }
 
 // generate PICKs or SWITCHes when possible
-bool LPUConvertControlPass::genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, MachineBasicBlock::iterator lastPhiInst, const MachineBasicBlock *backedgeBB) {
+bool 
+LPUConvertControlPass::genDFInstructions(MachineInstr *MI, 
+                                         MachineBasicBlock *BB, 
+                                         MachineBasicBlock::iterator 
+                                           lastPhiInst, 
+                                         const MachineBasicBlock *backedgeBB) {
 
-        const TargetMachine &TM = thisMF->getTarget();
-        const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>(thisMF->getSubtarget().getInstrInfo());
-        const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
-        MachineRegisterInfo *MRI = &thisMF->getRegInfo();
-	bool genDFInst = false;
+  const TargetMachine &TM = thisMF->getTarget();
+  const LPUInstrInfo &TII = *static_cast<const LPUInstrInfo*>
+                            (thisMF->getSubtarget().getInstrInfo());
+  const TargetRegisterInfo &TRI = *TM.getSubtargetImpl()->getRegisterInfo();
+  MachineRegisterInfo *MRI = &thisMF->getRegInfo();
+  bool genDFInst = false;
 
-        if (MI->isPHI()) { // process Phi
-          // process each live-in use also defined within the loop 
-	  unsigned predReg1 =0, predReg2 = 0, predReg3 = 0;
-	  unsigned srcReg1;
-          MachineBasicBlock *predBB1;
-          MachineBasicBlock *predBB2;
+  if (MI->isPHI()) { // process Phi
+    // process each live-in use also defined within the loop 
+    unsigned predReg1 =0, predReg2 = 0, predReg3 = 0;
+    unsigned srcReg1;
+    MachineBasicBlock *predBB1;
+    MachineBasicBlock *predBB2;
 
 
-  	  if (!analyzePhiOperands(MI, BB, &srcReg1, &predReg1, &predReg2, &predBB1, &predBB2, backedgeBB)) {
-	    DEBUG(errs() << "Phi operands analysis returned false\n");
-	    return false;
-	  }
+    if (!analyzePhiOperands(MI, BB, &srcReg1, &predReg1, &predReg2, &predBB1, 
+                            &predBB2, backedgeBB)) {
+      DEBUG(errs() << "Phi operands analysis returned false\n");
+      return false;
+    }
 
-	  // create a new Phi for predReg2 & predReg1
-	  predReg3 = MRI->createVirtualRegister(MRI->getRegClass(predReg2));
+    // create a new Phi for predReg2 & predReg1
+    predReg3 = MRI->createVirtualRegister(MRI->getRegClass(predReg2));
 
-          // generate a Pick inst immediately after the Phi
-          unsigned dst = MI->getOperand(0).getReg();
-          const TargetRegisterClass *TRC = MRI->getRegClass(dst);
-          unsigned newDst = MRI->createVirtualRegister(TRC);
-	  const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
-          MachineInstr *pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(pickOpcode), dst).addReg(predReg3).addReg(srcReg1).addReg(newDst);
-          /*if (TRC == &LPU::I32RegClass) {
-	 	pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::PICK32), dst).addReg(predReg3).addReg(srcReg1).addReg(newDst);
-          }
-	  else if (TRC == &LPU::I64RegClass) {
-	 	pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(LPU::PICK64), dst).addReg(predReg3).addReg(srcReg1).addReg(newDst);
-          }
-	  else {
-	    DEBUG(errs() << "PICK target reg class is not handled - bailing \n");
-	    DEBUG(errs() << "Reg Class Name = " << TRI.getRegClassName(TRC) << "\n");
-	    return false;
-	  }*/
+    // generate a Pick inst immediately after the Phi
+    unsigned dst = MI->getOperand(0).getReg();
+    const TargetRegisterClass *TRC = MRI->getRegClass(dst);
+    unsigned newDst = MRI->createVirtualRegister(TRC);
+    const unsigned pickOpcode = TII.getPickSwitchOpcode(TRC, true /*pick op*/);
+    MachineInstr *pickInst = BuildMI(*BB, MI, MI->getDebugLoc(), 
+                                     TII.get(pickOpcode), dst).addReg(predReg3).
+                                     addReg(srcReg1).addReg(newDst);
 	 
-	  //add a new Phi for the PICK inst src predicate
-	  BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(TargetOpcode::PHI),predReg3).addReg(predReg1).addMBB(predBB1).addReg(predReg2).addMBB(predBB2);
+    //add a new Phi for the PICK inst src predicate
+    BuildMI(*BB, MI, MI->getDebugLoc(), TII.get(TargetOpcode::PHI),predReg3).
+            addReg(predReg1).addMBB(predBB1).addReg(predReg2).addMBB(predBB2);
 
-	  pickInst->removeFromParent();
-	  BB->insertAfter(lastPhiInst,pickInst);
+    pickInst->removeFromParent();
+    BB->insertAfter(lastPhiInst,pickInst);
 
-          // replace all uses of dst with newDst
-	  MI->substituteRegister(dst, newDst, 0, TRI);
+    // replace all uses of dst with newDst
+    MI->substituteRegister(dst, newDst, 0, TRI);
 
-	  genDFInst = true;
+    genDFInst = true;
 	 
-        } // end process phi inst & PICK generation
-        else { // generate SWITCHes for each live-out def used in loop
-          for (const MachineOperand &currDef : MI->defs()) {
-	    if (!currDef.isReg()) continue;
-	    unsigned defReg = currDef.getReg();
-	    bool liveOut = false;
-	    MachineInstr *usePhi = nullptr;
-	    for (MachineInstr &useMI : MRI->use_instructions(defReg)) { //for each use of this def
-	      // is there any use outside this BB?
-	      if (useMI.getParent() != BB) { 
-	        liveOut = true;
-		continue;
-   	      }
-	      // is there any use in a Phi inside this BB?
-              if (useMI.isPHI()) {
-	        usePhi = &useMI;
-	      } 
-            } // process each use 
-	    if (liveOut && usePhi) { // generate a SWITCH
-	      const TargetRegisterClass *TRC = MRI->getRegClass(defReg);
-	      unsigned newLoopBackReg = MRI->createVirtualRegister(TRC);
-	      unsigned newLiveOutReg = MRI->createVirtualRegister(TRC);
+  } // end process phi inst & PICK generation
+  else { // generate SWITCHes for each live-out def used in loop
+    for (const MachineOperand &currDef : MI->defs()) {
 
-	      SmallVector<MachineOperand, 4> brCond;
-	      MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
-	      if (TII.AnalyzeBranch(*BB, currTBB, currFBB, brCond, true)) {
-	        DEBUG(errs() << "BB branch not analyzable \n");
-	        return false;
-	      }
+      if (!currDef.isReg()) continue;
 
-	      if (brCond.empty()) {
-	        DEBUG(errs() << "brCond is empty \n");
-	        return false;	
-	      }
+      unsigned defReg = currDef.getReg();
+      bool liveOut = false;
+      MachineInstr *usePhi = nullptr;
+      for (MachineInstr &useMI : MRI->use_instructions(defReg)) { 
+        //for each use of this def
+        // is there any use outside this BB?
+        if (useMI.getParent() != BB) { 
+          liveOut = true;
+	  continue;
+        }
+        // is there any use in a Phi inside this BB?
+        if (useMI.isPHI()) {
+          usePhi = &useMI;
+        } 
+      } // process each use 
 
-      	      MachineBasicBlock::iterator loopBranch = BB->getFirstTerminator(); 
+      if (liveOut && usePhi) { // generate a SWITCH
+        const TargetRegisterClass *TRC = MRI->getRegClass(defReg);
+        unsigned newLoopBackReg = MRI->createVirtualRegister(TRC);
+        unsigned newLiveOutReg = MRI->createVirtualRegister(TRC);
 
-       	      // generate switch op
-	      const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false /*not pick op*/);
-	      MachineInstr *switchInst = BuildMI(*BB, BB->end(), BB->end()->getDebugLoc(), TII.get(switchOpcode), newLiveOutReg).addReg(newLoopBackReg, RegState::Define).addReg(brCond[1].getReg()).addReg(defReg);
+        SmallVector<MachineOperand, 4> brCond;
+        MachineBasicBlock *currTBB = nullptr, *currFBB = nullptr;
+        if (TII.AnalyzeBranch(*BB, currTBB, currFBB, brCond, true)) {
+          DEBUG(errs() << "BB branch not analyzable \n");
+          return false;
+        }
 
-	      switchInst->removeFromParent();
-	      BB->insert(loopBranch,switchInst);
+        if (brCond.empty()) {
+          DEBUG(errs() << "brCond is empty \n");
+          return false;	
+        }
 
-	      // update SSA
-	      usePhi->substituteRegister(defReg, newLoopBackReg, 0, TRI);
-	      for (MachineInstr &useMI : MRI->use_instructions(defReg)) { //for each use of this def
-	        // replace uses of defReg outside this BB with switch def
-	        if (useMI.getParent() != BB) { 
-		  useMI.substituteRegister(defReg, newLiveOutReg, 0, TRI);
-   	        }
-              } // process each use 
-	      genDFInst =  true;
-            } // generate switch
+        MachineBasicBlock::iterator loopBranch = BB->getFirstTerminator(); 
 
-	  } // process each def in instruction          
+        // generate switch op
+        const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false 
+                                                              /*not pick op*/);
+        MachineInstr *switchInst = BuildMI(*BB, BB->end(), 
+                                           BB->end()->getDebugLoc(), 
+                                           TII.get(switchOpcode), 
+                                           newLiveOutReg).addReg(newLoopBackReg,
+                                           RegState::Define).
+                                           addReg(brCond[1].getReg()).
+                                           addReg(defReg);
 
-        } // end process non-phi instructions & SWITCH generation
-	return genDFInst;
+        switchInst->removeFromParent();
+        BB->insert(loopBranch,switchInst);
+
+        // update SSA
+        usePhi->substituteRegister(defReg, newLoopBackReg, 0, TRI);
+        for (MachineInstr &useMI : MRI->use_instructions(defReg)) { 
+          //for each use of this def
+	  // replace uses of defReg outside this BB with switch def
+	  if (useMI.getParent() != BB) { 
+	    useMI.substituteRegister(defReg, newLiveOutReg, 0, TRI);
+   	  }
+        } // process each use 
+
+      genDFInst =  true;
+      } // generate switch
+
+    } // process each def in instruction          
+
+  } // end process non-phi instructions & SWITCH generation
+  return genDFInst;
 }
 
 bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
@@ -270,7 +296,6 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 #endif
 
   // for now only well formed innermost loops are processed in this pass
-  // entry bb/parameters special handling for pure DF/HybridDF is handled elsewhere
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
 
   if (!MLI) {
@@ -282,7 +307,8 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
   // first collect the loops to be in cfg (top-down) order
   std::vector<MachineLoop *> cfgOrderLoops;
-  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); LI != LE; ++LI) { // for all top-level loops in MF
+  for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); 
+       LI != LE; ++LI) { // for all top-level loops in MF
     
     MachineLoop *ML = *LI;
     // TODO: add nested loops
@@ -291,7 +317,9 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
   // now walk the loops in cfg order
   int loopProcessedCnt = 0;
-  for (std::vector<MachineLoop *>::reverse_iterator lpIter = cfgOrderLoops.rbegin(), lpIterEnd = cfgOrderLoops.rend(); lpIter != lpIterEnd; ++lpIter) { // for all loops in MF
+  for (std::vector<MachineLoop *>::reverse_iterator lpIter = 
+       cfgOrderLoops.rbegin(), lpIterEnd = cfgOrderLoops.rend(); 
+       lpIter != lpIterEnd; ++lpIter) { // for all loops in MF
     const MachineLoop *currLoop = *lpIter;
 
     
@@ -317,9 +345,12 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     const MachineBasicBlock *backedgeBB = currLoop->getLoopLatch();
     assert(backedgeBB && "backedge BB is null!");
 
-    // TODO: ignore loops with no live-in uses & no live-out defs - check this early & quickly
+    // TODO: ignore loops with no live-in uses & no live-out defs - 
+    // check this early & quickly
     bool loopModified = false;
-    for (MachineLoop::block_iterator BI = currLoop->block_begin(), E = currLoop->block_end(); BI != E; ++BI) { // for each block in loop body - should be only 1 for now
+    for (MachineLoop::block_iterator BI = currLoop->block_begin(), 
+         E = currLoop->block_end(); BI != E; ++BI) { 
+      // for each block in loop body - should be only 1 for now
       MachineBasicBlock *BB = *BI;
 
       DEBUG(errs() << "begin BB# - " << BB->getNumber() << "\n");
@@ -329,7 +360,8 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
         continue;
       }
 
-      // TODO: ignore BB/pred/succ with un-analyzeable brs  - check this early & quickly
+      // TODO: ignore BB/pred/succ with un-analyzeable brs  - 
+      // check this early & quickly
       MachineBasicBlock::iterator lastPhiInst =
         std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
 
@@ -340,7 +372,8 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 	DEBUG(errs() << "processing inst: ");  
 	DEBUG(MI->print(*OS, &TM));  
 
- 	// TODO: do we need to process all insts? what about picks/switches/cmps/brs?
+ 	// TODO: do we need to process all insts? 
+        // what about picks/switches/cmps/brs?
 
 	if (genDFInstructions(MI, BB, lastPhiInst, backedgeBB)) {
            DEBUG(errs() << "modified graph - gen DF insts\n");
