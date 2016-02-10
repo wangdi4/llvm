@@ -517,9 +517,7 @@ T GetRegistryKeyValue(const string& keyName, const string& valName, T defaultVal
         OPENCL_VERSION_2_1 =        3
     };
 
-#ifdef _WIN32
     OPENCL_VERSION GetOpenclVerByCpuModel();
-#endif
 
     /**
      * This is the base class to all config wrappers.
