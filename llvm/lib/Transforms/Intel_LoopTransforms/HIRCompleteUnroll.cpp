@@ -81,6 +81,12 @@ static cl::opt<unsigned> CompleteUnrollTripThreshold(
     cl::desc("Don't unroll if total trip count is bigger than this,"
              "threshold."));
 
+// Option to turn off the HIR Complete Unroll Pass
+static cl::opt<bool>
+    DisableHIRCompleteUnroll("disable-hir-complete-unroll", cl::init(false),
+                             cl::Hidden,
+                             cl::desc("Disable HIR Loop Complete Unrolling"));
+
 namespace {
 
 /// \brief Visitor to update the CanonExpr.
@@ -190,8 +196,10 @@ private:
   DDAnalysis *DD;
 
   unsigned CurrentTripThreshold;
-  // Storage for Outermost Loops.
+
+  // Storage for Outermost Loops
   SmallVector<HLLoop *, 64> OuterLoops;
+
   /// Storage for loops which will be transformed.
   /// The ordering inside the container is from inner to outer.
   SmallVector<std::pair<HLLoop *, LoopData *>, 32> TransformLoops;
@@ -229,6 +237,12 @@ FunctionPass *llvm::createHIRCompleteUnrollPass(int Threshold) {
 }
 
 bool HIRCompleteUnroll::runOnFunction(Function &F) {
+  // Skip if DisableHIRCompleteUnroll is enabled
+  if (DisableHIRCompleteUnroll) {
+    DEBUG(dbgs() << "HIR LOOP Complete Unroll Transformation Disabled \n");
+    return false;
+  }
+
   DEBUG(dbgs() << "Complete unrolling for Function : " << F.getName() << "\n");
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
 
@@ -243,6 +257,7 @@ bool HIRCompleteUnroll::runOnFunction(Function &F) {
   // Gather the outermost loops
   HLNodeUtils::gatherOutermostLoops(OuterLoops);
 
+  // Process Loop Complete Unrolling
   processCompleteUnroll();
 
   return false;
@@ -265,11 +280,12 @@ void HIRCompleteUnroll::processCompleteUnroll() {
 
 bool HIRCompleteUnroll::processLoop(HLLoop *Loop, int64_t *TotalTripCnt) {
 
-  // Gather the immediate children.
+  // 1. Gather Loops starting from the outer-most level, put into ChildLoops
   SmallVector<HLLoop *, 8> ChildLoops;
   HLNodeUtils::gatherLoopswithLevel(Loop, ChildLoops,
                                     Loop->getNestingLevel() + 1);
 
+  // 2.Process each Loop for Complete Unrolling
   bool ChildValid = true;
   // Recurse through the children.
   for (auto Iter = ChildLoops.begin(), E = ChildLoops.end(); Iter != E;
@@ -365,6 +381,7 @@ bool HIRCompleteUnroll::isProfitable(const HLLoop *Loop, LoopData **LData,
   return true;
 }
 
+// Transform (Complete Unroll) each loop inside the TransformLoops vector
 void HIRCompleteUnroll::transformLoops() {
 
   // Transform the loop nest from innermost to outermost.
@@ -373,6 +390,7 @@ void HIRCompleteUnroll::transformLoops() {
   }
 }
 
+// Complete Unroll the given Loop, using provided LD as helper data
 void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
 
   // Guard against the scanning phase setting it appropriately.
@@ -382,7 +400,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
   HLContainerTy LoopBody;
 
   // Iterate over Loop Child for unrolling with trip value incremented
-  // each time. Thus, loop body will be expanded by No. of stmts x TripCount.
+  // each time. Thus, loop body will be expanded by no. of stmts x TripCount.
   for (int64_t TripVal = LD->LB; TripVal <= LD->UB; TripVal += LD->Step) {
     // Clone 0th iteration
     HLNodeUtils::cloneSequence(&LoopBody, Loop->getFirstChild(),
@@ -394,6 +412,7 @@ void HIRCompleteUnroll::transformLoop(HLLoop *&Loop, LoopData *LD) {
 
     HLNodeUtils::insertBefore(Loop, &LoopBody);
 
+    // Update CanonExpr and DD Info
     CanonExprVisitor CEVisit(Loop->getNestingLevel(), TripVal);
     HLNodeUtils::visitRange(CEVisit, CurFirstChild, CurLastChild);
   }

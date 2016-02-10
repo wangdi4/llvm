@@ -102,6 +102,11 @@ static cl::opt<unsigned>
     GeneralUnrollFactor("genunroll-factor", cl::init(8), cl::Hidden,
                         cl::desc("General Unrolling Factor for HIR Loop's."));
 
+static cl::opt<bool>
+    DisableHIRGeneralUnroll("disable-hir-general-unroll", cl::init(false),
+                            cl::Hidden,
+                            cl::desc("Disable HIR Loop General Unrolling"));
+
 /// \brief Visitor to update the CanonExpr.
 namespace {
 class CanonExprVisitor final : public HLNodeVisitorBase {
@@ -208,12 +213,16 @@ private:
   /// \brief Main method to be invoked after all the innermost loops
   /// are gathered.
   void processGeneralUnroll(SmallVectorImpl<HLLoop *> &CandidateLoops);
+
   /// \brief Determines if Unrolling is profitable for the given Loop.
   bool isProfitable(const HLLoop *Loop, bool *IsConstLoop, int64_t *TripCount);
+
   /// \brief High level method which gives call to other sub-methods.
   void transformLoop(HLLoop *OrigLoop, bool IsConstLoop, int64_t TripCount);
+
   /// \brief Performs the actual unrolling.
   void processUnrollLoop(HLLoop *OrigLoop, HLLoop *UnrollLoop);
+
   /// \brief Processes the remainder loop and determines if it necessary.
   void processRemainderLoop(HLLoop *&OrigLoop, bool IsConstLoop,
                             int64_t TripCount, int64_t NewBound,
@@ -228,8 +237,10 @@ private:
   HLLoop *createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
                            int64_t TripCount, int64_t NewBound,
                            const RegDDRef *NewRef);
+
   /// \brief Return true if the loop has more instructions than threshold.
   bool exceedInstThreshold(const HLLoop *Loop);
+
   /// \brief Creates new bounds for unrolled loops.
   // NewUBInt is used for constant trip loops and NewUBRef is used for
   // non-constant trip loops.
@@ -251,6 +262,12 @@ FunctionPass *llvm::createHIRGeneralUnrollPass(int Threshold, int UFactor) {
 }
 
 bool HIRGeneralUnroll::runOnFunction(Function &F) {
+  // Skip if DisableHIRGeneralUnroll is enabled
+  if (DisableHIRGeneralUnroll) {
+    DEBUG(dbgs() << "HIR LOOP General Unroll Transformation Disabled \n");
+    return false;
+  }
+
   DEBUG(dbgs() << "General unrolling for Function : " << F.getName() << "\n");
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
@@ -267,11 +284,13 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   SmallVector<HLLoop *, 64> CandidateLoops;
   HLNodeUtils::gatherInnermostLoops(CandidateLoops);
 
+  // Process General Unrolling
   processGeneralUnroll(CandidateLoops);
 
   return IsUnrollTriggered;
 }
 
+// Nothing to release?
 void HIRGeneralUnroll::releaseMemory() {}
 
 /// processGeneralUnroll - Main routine to perform unrolling.
@@ -281,6 +300,7 @@ void HIRGeneralUnroll::processGeneralUnroll(
 
   int64_t TripCount = 0;
   bool isConstantLoop = false;
+
   // Visit each candidate loop to run cost analysis.
   for (auto Iter = CandidateLoops.begin(), End = CandidateLoops.end();
        Iter != End; ++Iter, TripCount = 0, isConstantLoop = false) {
@@ -499,6 +519,7 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
     // Create 't-1' as new UB.
     assert(NewRef && " New Ref is null.");
     RegDDRef *NewUBRef = NewRef->clone();
+
     // Subtract 1.
     NewUBRef->getSingleCanonExpr()->addConstant(-1);
 
@@ -508,6 +529,7 @@ HLLoop *HIRGeneralUnroll::createUnrollLoop(HLLoop *OrigLoop, bool IsConstLoop,
                      OrigLoop->getNestingLevel() - 1);
 
     NewLoop->setUpperDDRef(NewUBRef);
+
     // Generate the Ztt.
     NewLoop->createZtt(false);
   }
