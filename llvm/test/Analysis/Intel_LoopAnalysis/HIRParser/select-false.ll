@@ -4,7 +4,7 @@
 
 ; CHECK: DO i32 i1 = 0, 4
 ; CHECK: (%A)[0][i1] = 1;
-; CHECK: <RVAL-REG> 1 {sb:1}
+; CHECK: <RVAL-REG> i32 1 {sb:1}
 ; CHECK: END LOOP
 
 ; ModuleID = '2.ll'

@@ -71,11 +71,17 @@ bool DDRefGrouping::isGroupMemRefMatch(const RegDDRef *Ref1,
            " CanonExpr type mismatch.");
 
     // Diff the CanonExprs.
+    // TODO: Think about adding relaxed mode for subtract. The decision will
+    // impact runtimeDD and locality.
     const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+    if (!Result) {
+      return false;
+    }
 
     // Result should not have any IV's or blobs.
-    if (Result->hasBlob() || Result->hasIV())
+    if (Result->hasBlob() || Result->hasIV()) {
       return false;
+    }
 
     // Difference between the two canon expr should be constant.
     uint64_t Diff = std::abs(Result->getConstant()) / Result->getDenominator();

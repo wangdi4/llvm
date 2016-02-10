@@ -507,6 +507,10 @@ CanonExpr *HLLoop::getTripCountCanonExpr() const {
   // TripCount Canon Expr = (UB-LB+Stride)/Stride;
   int64_t StrideConst = getStrideCanonExpr()->getConstant();
   Result = CanonExprUtils::cloneAndSubtract(UBCE, getLowerCanonExpr());
+  assert(Result && " Trip Count computation failed.");
+  if (!Result) {
+    return nullptr;
+  }
   Result->addConstant(StrideConst, true);
   Result->divide(StrideConst, true);
   return Result;
@@ -517,6 +521,10 @@ RegDDRef *HLLoop::getTripCountDDRef(unsigned NestingLevel) const {
   SmallVector<const RegDDRef *, 4> LoopRefs;
 
   CanonExpr *TripCE = getTripCountCanonExpr();
+  if (!TripCE) {
+    return nullptr;
+  }
+
   RegDDRef *TripRef =
       DDRefUtils::createScalarRegDDRef(getUpperDDRef()->getSymbase(), TripCE);
 

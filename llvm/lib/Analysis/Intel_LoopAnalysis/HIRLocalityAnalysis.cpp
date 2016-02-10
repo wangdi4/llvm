@@ -260,11 +260,16 @@ bool HIRLocalityAnalysis::isTemporalReuse(const RegDDRef *Ref1,
   const CanonExpr *Ref2CE = Ref2->getDimensionIndex(IVPos);
 
   // Diff the CanonExprs.
-  const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+  const CanonExpr *Result =
+      CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
+  if (!Result) {
+    return false;
+  }
 
   // TODO: Being conservative with Denom.
-  if (Result->getDenominator() > 1)
+  if (Result->getDenominator() > 1) {
     return false;
+  }
 
   assert(Result->isIntConstant() &&
          " Result is not constant for temporal reuse.");

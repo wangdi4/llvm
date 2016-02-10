@@ -37,6 +37,12 @@ namespace loopopt {
 /// It contains a bunch of static member functions which manipulate CanonExprs.
 /// It does not store any state.
 ///
+/// RelaxedMode : This flag is used in a number of methods across this file.
+/// The flag indicates if the types of canon expr can be relaxed for
+/// computation.
+/// For example, constant canon exprs, CE1 = 0 (srcTy = i32, dstTy = i64) and
+/// CE2 = 1 (srcTy = i64, dstTy = i64), can be added in relaxed mode. Clients
+/// can check canon expr with mergeable call.
 class CanonExprUtils : public HLUtils {
 private:
   /// \brief Do not allow instantiation.
@@ -63,13 +69,25 @@ private:
   static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob, unsigned Symbase);
 
   /// \brief Creates a non-linear self blob canon expr from the passed in Value.
-  /// The new blob is associated with Symbase. New temp blobs from values are
+  /// The new blob is associated with symbase. New temp blobs from values are
   /// only created by framework.
   static CanonExpr *createSelfBlobCanonExpr(Value *Temp, unsigned Symbase);
 
+  /// \brief Returns true if constant canon expr type can be updated to match
+  /// the source type. For any other types or non-mergeable cases, it returns
+  /// false.
+  static bool canMergeConstants(const CanonExpr *CE1, const CanonExpr *CE2,
+                                bool RelaxedMode);
+
+  /// \brief Updates the constant canon expr source type in order to add them.
+  static void updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
+                                  bool RelaxedMode, bool *CreatedAuxCE);
+
   /// \brief Implements add()/cloneAndAdd() functionality.
+  /// This routine will return nullptr, if the canon exprs are not
+  /// mergeable.
   static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                            bool CreateNewCE, bool IgnoreDestType);
+                            bool CreateNewCE, bool RelaxedMode);
 
 public:
   /// \brief Returns a new CanonExpr with identical src and dest types. All
@@ -210,44 +228,45 @@ public:
   static uint64_t getTypeSizeInBits(Type *Ty);
 
   /// \brief Returns true if the type of both Canon Expr matches.
-  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
   static bool isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                          bool IgnoreDestType = false);
+                          bool RelaxedMode = false);
 
   /// \brief Returns true if CE1 and CE2 can be merged (added/subtracted etc).
-  /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
   static bool mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
-                        bool IgnoreDestType = false);
+                        bool RelaxedMode = false);
 
   /// \brief Returns true if passed in canon cxprs are equal to each other.
   /// Ignores dest types of CE1 and CE2 if IgnoreDestType is set.
   static bool areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                       bool IgnoreDestType = false);
+                       bool RelaxedMode = false);
 
   /// \brief Modifies and returns CE1 to reflect sum of CE1 and CE2.
   /// CE1 = CE1 + CE2
-  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
-  static void add(CanonExpr *CE1, const CanonExpr *CE2,
-                  bool IgnoreDestType = false);
+  /// This routine can return nullptr, if the canon exprs are not
+  /// mergeable.
+  static CanonExpr *add(CanonExpr *CE1, const CanonExpr *CE2,
+                        bool RelaxedMode = false);
 
   /// \brief Returns a canon expr which represents the sum of CE1 and CE2.
   /// Result = CE1 + CE2
-  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  /// This routine can return nullptr, if the canon exprs are not
+  /// mergeable.
   static CanonExpr *cloneAndAdd(const CanonExpr *CE1, const CanonExpr *CE2,
-                                bool IgnoreDestType = false);
+                                bool RelaxedMode = false);
 
   /// \brief Modifies and returns CE1 to reflect difference of CE1 and CE2.
   /// CE1 = CE1 - CE2
-  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
-  static void subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                       bool IgnoreDestType = false);
+  /// This routine can return nullptr, if the canon exprs are not
+  /// mergeable.
+  static CanonExpr *subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                             bool RelaxedMode = false);
 
   /// \brief Returns a canon expr which represents the difference of CE1 and
-  /// CE2.
-  /// Result = CE1 - CE2
-  /// Resulting canon expr retains CE1's dest type if IgnoreDestType is true.
+  /// CE2. Result = CE1 - CE2
+  /// This routine can return nullptr, if the canon exprs are not
+  /// mergeable.
   static CanonExpr *cloneAndSubtract(const CanonExpr *CE1, const CanonExpr *CE2,
-                                     bool IgnoreDestType = false);
+                                     bool RelaxedMode = false);
 
   /// \brief Returns a canon expr which represents the negation of CE.
   /// Result = -CE

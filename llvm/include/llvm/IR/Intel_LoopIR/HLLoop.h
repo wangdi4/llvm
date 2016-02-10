@@ -274,12 +274,14 @@ public:
   /// \brief Returns the CanonExpr associated with loop trip count.
   /// Returns a newly allocated CanonExpr as this information is not
   /// directly stored so use with caution.
+  /// This routine can return nullptr if the trip count cannot be computed.
   CanonExpr *getTripCountCanonExpr() const;
 
   /// \brief Returns Trip Count DDRef of this loop.
   /// Note, this will create a new DDRef in each call.
   /// NestingLevel argument indicates the level at which this DDRef will be
   /// attached to HIR. The default is: (loop nesting nevel - 1).
+  /// This routine can return nullptr if the trip count cannot be computed.
   RegDDRef *getTripCountDDRef(unsigned NestingLevel = (MaxLoopNestLevel +
                                                        1)) const;
 
@@ -342,7 +344,7 @@ public:
   reverse_pre_iterator pre_rend() { return Children.rend(); }
   const_reverse_pre_iterator pre_rend() const { return Children.rend(); }
 
-  /// Preheader acess methods
+  /// Preheader access methods
 
   /// \brief Returns the first preheader node if it exists, otherwise returns
   /// null.

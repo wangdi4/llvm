@@ -143,9 +143,7 @@ struct Segment {
   }
 #endif
 
-  Type *getType() const {
-    return Lower->getDestType();
-  }
+  Type *getType() const { return Lower->getDestType(); }
 };
 
 // The class represents a floating constant length memory segment that depends
@@ -206,13 +204,14 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
   Symbase2 = DDRefUtils::getNewSymbase();
 
   assert(CanonExprUtils::areEqual(BaseCE, Upper->getBaseCE()) &&
-         "Unexprected group. Left and Right refs should have the same base.");
+         "Unexpected group. Left and Right refs should have the same base.");
 
 #ifndef NDEBUG
   int64_t DiffValue;
   CanonExpr *LowerCE = *Lower->canon_begin();
   CanonExpr *UpperCE = *Upper->canon_begin();
   auto DiffCE = CanonExprUtils::cloneAndSubtract(UpperCE, LowerCE, false);
+  assert(DiffCE && " CanonExpr difference failed.");
   if (DiffCE->isIntConstant(&DiffValue)) {
     assert(DiffValue >= 0 && "Segment wrong direction");
   } else {
@@ -229,9 +228,9 @@ Segment IVSegment::genLUSegment(unsigned Level, int64_t Stride,
   int64_t IVCoeff = (*getLower()->canon_begin())->getIVConstCoeff(Level);
 
   auto *Ref1 = genAddressOfAccess(Lower, Level,
-      Stride > 0 ? LowerBoundRef : UpperBoundRef);
+                                  Stride > 0 ? LowerBoundRef : UpperBoundRef);
   auto *Ref2 = genAddressOfAccess(Upper, Level,
-      Stride > 0 ? UpperBoundRef : LowerBoundRef);
+                                  Stride > 0 ? UpperBoundRef : LowerBoundRef);
 
   if (DDRefUtils::areEqual(Ref1, Ref2)) {
     Ref1->setSymbase(Symbase1);
@@ -262,21 +261,24 @@ void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
   Term->divide(Expr->getDenominator(), false);
 
   Expr->removeIV(Level);
-  CanonExprUtils::add(Expr, Term, true);
+  Expr = CanonExprUtils::add(Expr, Term, true);
+  assert(Expr && " CanonExpr addition failed.");
+
   CanonExprUtils::destroy(Term);
 }
 
 RegDDRef *IVSegment::genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
                                         const RegDDRef *BoundRef) {
 
-  assert(BoundRef->isTerminalRef() && "BoundRef should be a terminal reference.");
+  assert(BoundRef->isTerminalRef() &&
+         "BoundRef should be a terminal reference.");
 
   RegDDRef *Result = Ref->clone();
   CanonExpr *InnerSub = *Result->canon_begin();
 
   replaceIVByCanonExpr(InnerSub, Level, BoundRef->getSingleCanonExpr());
 
-  SmallVector<const RegDDRef *, 1> AuxRefs {BoundRef};
+  SmallVector<const RegDDRef *, 1> AuxRefs{BoundRef};
   Result->makeConsistent(&AuxRefs, Level);
 
   Result->setAddressOf(true);
@@ -541,10 +543,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
         return Res;
       }
 
-      Candidate.SegmentList.push_back(S1.genLUSegment(Level, Stride,
-          LowerBoundDD, UpperBoundDD));
-      Candidate.SegmentList.push_back(S2.genLUSegment(Level, Stride,
-          LowerBoundDD, UpperBoundDD));
+      Candidate.SegmentList.push_back(
+          S1.genLUSegment(Level, Stride, LowerBoundDD, UpperBoundDD));
+      Candidate.SegmentList.push_back(
+          S2.genLUSegment(Level, Stride, LowerBoundDD, UpperBoundDD));
     }
   }
 
@@ -555,10 +557,10 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   return OK;
 }
 
-HLIf *HIRRuntimeDD::createIfStmtForIntersection(
-    HLContainerTy &Nodes,
-    Segment &S1, Segment &S2) const {
-  Segment *S[] = { &S1, &S2 };
+HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
+                                                Segment &S1,
+                                                Segment &S2) const {
+  Segment *S[] = {&S1, &S2};
   Type *S1Type = S[0]->getType()->getPointerElementType();
   Type *S2Type = S[1]->getType()->getPointerElementType();
 
@@ -566,8 +568,8 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(
   // be in compliance with LLVM IR. (see ex. in lit test ptr-types.ll)
   if (S1Type != S2Type) {
     unsigned BiggerTypeIdx =
-        S1Type->getPrimitiveSizeInBits() >
-        S2Type->getPrimitiveSizeInBits() ? 0 : 1;
+        S1Type->getPrimitiveSizeInBits() > S2Type->getPrimitiveSizeInBits() ? 0
+                                                                            : 1;
 
     Segment *BS = S[BiggerTypeIdx];
     Type *DestType = S[!BiggerTypeIdx]->getType();
@@ -581,8 +583,7 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(
     BS->Upper = BCIU->getLvalDDRef()->clone();
   }
 
-  HLIf *If = HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE,
-      S1.Upper, S2.Lower);
+  HLIf *If = HLNodeUtils::createHLIf(PredicateTy::ICMP_UGE, S1.Upper, S2.Lower);
   If->addPredicate(PredicateTy::ICMP_UGE, S2.Upper, S1.Lower);
 
   Nodes.push_back(If);

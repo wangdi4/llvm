@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/IR/LLVMContext.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
@@ -26,6 +27,8 @@
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+
+#define DEBUG_TYPE "hir-canon-utils"
 
 using namespace llvm;
 using namespace loopopt;
@@ -219,7 +222,7 @@ void CanonExprUtils::collectTempBlobs(
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
                                                    unsigned Symbase) {
-  unsigned Index;
+  unsigned Index = 0;
 
   getHIRParser()->createBlob(Temp, Symbase, true, &Index);
   auto CE = createSelfBlobCanonExpr(Index, -1);
@@ -254,20 +257,21 @@ uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) {
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                                 bool IgnoreDestType) {
+                                 bool RelaxedMode) {
   return (CE1->getSrcType() == CE2->getSrcType()) &&
-         (IgnoreDestType || (CE1->getDestType() == CE2->getDestType() &&
-                             (CE1->isSExt() == CE2->isSExt())));
+         (RelaxedMode || (CE1->getDestType() == CE2->getDestType() &&
+                          (CE1->isSExt() == CE2->isSExt())));
 }
 
 bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
-                               bool IgnoreDestType) {
+                               bool RelaxedMode) {
+
   // TODO: allow merging if only one of the CEs has a distinct destination type?
-  if (!isTypeEqual(CE1, CE2, IgnoreDestType)) {
-    return false;
+  if (!isTypeEqual(CE1, CE2, RelaxedMode)) {
+    return canMergeConstants(CE1, CE2, RelaxedMode);
   }
 
-  // TODO: Look into the safety of merging signed/unsigned divisons.
+  // TODO: Look into the safety of merging signed/unsigned divisions.
   // We allow merging if one of the denominators is 1 even if the signed
   // division flag is different. The merged canon expr takes the flag from the
   // canon expr with non-unit denominator.
@@ -279,12 +283,12 @@ bool CanonExprUtils::mergeable(const CanonExpr *CE1, const CanonExpr *CE2,
 }
 
 bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                              bool IgnoreDestType) {
+                              bool RelaxedMode) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null");
 
   // Match the types.
-  if (!mergeable(CE1, CE2, IgnoreDestType)) {
+  if (!mergeable(CE1, CE2, RelaxedMode)) {
     return false;
   }
 
@@ -343,19 +347,104 @@ bool CanonExprUtils::areEqual(const CanonExpr *CE1, const CanonExpr *CE2,
   return true;
 }
 
+bool CanonExprUtils::canMergeConstants(const CanonExpr *CE1,
+                                       const CanonExpr *CE2, bool RelaxedMode) {
+
+  if (!RelaxedMode) {
+    return false;
+  }
+
+  // Check if either is constant.
+  int64_t Val1 = 0, Val2 = 0;
+  bool IsCE1Const = CE1->isIntConstant(&Val1);
+  bool IsCE2Const = CE2->isIntConstant(&Val2);
+  if (!IsCE1Const && !IsCE2Const) {
+    return false;
+  }
+
+  // Check for zero condition.
+  // These can be merged.
+  if ((Val1 == 0) || (Val2 == 0)) {
+    return true;
+  }
+
+  // Check for overflow condition.
+  // TODO: add it
+
+  // Check if we can update the type of canon expr without
+  // loss of information.
+  if (IsCE1Const) {
+    return (ConstantInt::isValueValidForType(CE2->getSrcType(), Val1) &&
+            ConstantInt::isValueValidForType(CE1->getDestType(), Val1));
+  } else {
+    assert(IsCE2Const && " CE2 should be a int constant.");
+    return (ConstantInt::isValueValidForType(CE1->getSrcType(), Val2) &&
+            ConstantInt::isValueValidForType(CE2->getDestType(), Val2));
+  }
+}
+
+void CanonExprUtils::updateConstantTypes(CanonExpr *CE1, CanonExpr **CE2,
+                                         bool RelaxedMode, bool *CreatedAuxCE) {
+
+  if (!RelaxedMode) {
+    return;
+  }
+
+  int64_t Val1 = 0, Val2 = 0;
+  bool IsCE1Const = CE1->isIntConstant(&Val1);
+  bool IsCE2Const = (*CE2)->isIntConstant(&Val2);
+
+  // Check if either is constant
+  if (!IsCE1Const && !IsCE2Const) {
+    return;
+  }
+
+  if (IsCE1Const) {
+    assert(ConstantInt::isValueValidForType((*CE2)->getSrcType(), Val1) &&
+           ConstantInt::isValueValidForType(CE1->getDestType(), Val1) &&
+           " Constant value cannot be updated.");
+    CE1->setSrcType((*CE2)->getSrcType());
+  } else {
+    assert(ConstantInt::isValueValidForType(CE1->getSrcType(), Val2) &&
+           ConstantInt::isValueValidForType((*CE2)->getDestType(), Val2) &&
+           " Constant value cannot be updated.");
+    // Cannot avoid cloning here.
+    *CE2 = (*CE2)->clone();
+    (*CE2)->setSrcType(CE1->getSrcType());
+    *CreatedAuxCE = true;
+  }
+}
+
 CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
-                                   bool CreateNewCE, bool IgnoreDestType) {
+                                   bool CreateNewCE, bool RelaxedMode) {
 
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
-  assert(mergeable(CE1, CE2, IgnoreDestType) && " Canon Expr type mismatch!");
+
+  bool CreatedAuxCE = false;
 
   CanonExpr *Result = CreateNewCE ? CE1->clone() : CE1;
   CanonExpr *NewCE2 = const_cast<CanonExpr *>(CE2);
-  bool CreatedAuxCE = false;
+
+  if (CE2->isZero()) {
+    Result->simplify();
+    return Result;
+  }
+
+  bool IsMergeable = mergeable(Result, NewCE2, RelaxedMode);
+  // assert(IsMergeable && " Canon Expr are not mergeable!");
+  // Bail out if we cannot merge the canon expr.
+  if (!IsMergeable) {
+    if (CreateNewCE) {
+      Result->destroy();
+    }
+    return nullptr;
+  }
+
+  updateConstantTypes(Result, &NewCE2, RelaxedMode, &CreatedAuxCE);
 
   // Process the denoms.
   int64_t Denom1 = Result->getDenominator();
-  int64_t Denom2 = CE2->getDenominator();
+  int64_t Denom2 = NewCE2->getDenominator();
   int NewDenom = lcm(Denom1, Denom2);
 
   if (NewDenom != Denom1) {
@@ -370,11 +459,13 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   }
   if (NewDenom != Denom2) {
     // Cannot avoid cloning CE2 here
-    NewCE2 = CE2->clone();
+    if (!CreatedAuxCE) {
+      NewCE2 = NewCE2->clone();
+      CreatedAuxCE = true;
+    }
     // Do not simplify while multiplying as this is an intermediate result of
     // add.
     NewCE2->multiplyByConstantImpl(NewDenom / Denom2, false);
-    CreatedAuxCE = true;
   }
 
   Result->setDenominator(NewDenom);
@@ -398,7 +489,8 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   }
 
   // Add the constant.
-  Result->setConstant(Result->getConstant() + NewCE2->getConstant());
+  int64_t CVal = Result->getConstant() + NewCE2->getConstant();
+  Result->setConstant(CVal);
 
   // Update DefinedAtLevel.
   if (NewCE2->isNonLinear()) {
@@ -420,37 +512,40 @@ CanonExpr *CanonExprUtils::addImpl(CanonExpr *CE1, const CanonExpr *CE2,
   return Result;
 }
 
-void CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
-                         bool IgnoreDestType) {
-  addImpl(CE1, CE2, false, IgnoreDestType);
+CanonExpr *CanonExprUtils::add(CanonExpr *CE1, const CanonExpr *CE2,
+                               bool RelaxedMode) {
+  return addImpl(CE1, CE2, false, RelaxedMode);
 }
 
 CanonExpr *CanonExprUtils::cloneAndAdd(const CanonExpr *CE1,
-                                       const CanonExpr *CE2,
-                                       bool IgnoreDestType) {
-  return addImpl(const_cast<CanonExpr *>(CE1), CE2, true, IgnoreDestType);
+                                       const CanonExpr *CE2, bool RelaxedMode) {
+  return addImpl(const_cast<CanonExpr *>(CE1), CE2, true, RelaxedMode);
 }
 
-void CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
-                              bool IgnoreDestType) {
+CanonExpr *CanonExprUtils::subtract(CanonExpr *CE1, const CanonExpr *CE2,
+                                    bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   // Here, we avoid cloning by doing negation twice.
   // -(-CE1+CE2) => CE1-CE2
   CE1->negate();
-  add(CE1, CE2, IgnoreDestType);
+  if (!add(CE1, CE2, RelaxedMode)) {
+    return nullptr;
+  }
   CE1->negate();
+  return CE1;
 }
 
 CanonExpr *CanonExprUtils::cloneAndSubtract(const CanonExpr *CE1,
                                             const CanonExpr *CE2,
-                                            bool IgnoreDestType) {
+                                            bool RelaxedMode) {
   assert((CE1 && CE2) && " Canon Expr parameters are null!");
 
   // Result = -CE2 + CE1
   CanonExpr *Result = cloneAndNegate(CE2);
-  add(Result, CE1, IgnoreDestType);
-
+  if (!add(Result, CE1, RelaxedMode)) {
+    return nullptr;
+  }
   Result->setDestType(CE1->getDestType());
 
   return Result;

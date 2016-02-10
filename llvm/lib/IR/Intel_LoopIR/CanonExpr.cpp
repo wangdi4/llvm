@@ -93,11 +93,13 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   auto Denom = getDenominator();
   bool Printed = false;
 
-  if (Detailed && !isConstant()) {
-    if (isNonLinear()) {
-      OS << "NON-LINEAR ";
-    } else {
-      OS << "LINEAR ";
+  if (Detailed) {
+    if (!isConstant()) {
+      if (isNonLinear()) {
+        OS << "NON-LINEAR ";
+      } else {
+        OS << "LINEAR ";
+      }
     }
 
     if (getSrcType() != getDestType()) {
@@ -318,6 +320,7 @@ bool CanonExpr::isPtrToPtrCast() const {
 }
 
 bool CanonExpr::isIntConstant(int64_t *Val) const {
+
   if (!getSrcType()->isIntegerTy() || !isConstInternal()) {
     return false;
   }
@@ -905,7 +908,7 @@ int64_t CanonExpr::simplifyGCDHelper(int64_t CurrentGCD, int64_t Num) {
 }
 
 void CanonExpr::simplify() {
-  int64_t Denom, C0, NumeratorGCD = -1, CommonGCD;
+  int64_t Denom = 0, C0 = 0, NumeratorGCD = -1, CommonGCD = 0;
 
   // Nothing to simplify...
   if ((Denom = getDenominator()) == 1) {

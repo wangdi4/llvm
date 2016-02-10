@@ -359,6 +359,9 @@ const CanonExpr *DDtest::getMinus(const CanonExpr *SrcConst,
   }
 
   CanonExpr *CE = CanonExprUtils::cloneAndSubtract(SrcConst, DstConst, true);
+  if (!CE) {
+    return nullptr;
+  }
   push(CE);
 
   return CE;
@@ -371,18 +374,21 @@ const CanonExpr *DDtest::getAdd(const CanonExpr *SrcConst,
     return nullptr;
   }
   CanonExpr *CE = CanonExprUtils::cloneAndAdd(SrcConst, DstConst, true);
+  if (!CE) {
+    return nullptr;
+  }
   push(CE);
 
   return CE;
 }
 
 bool DDtest::areCEEqual(const CanonExpr *CE1, const CanonExpr *CE2,
-                        bool IgnoreDestType) const {
+                        bool RelaxedMode) const {
 
   if (!CE1 || !CE2) {
     return false;
   }
-  return CanonExprUtils::areEqual(CE1, CE2, IgnoreDestType);
+  return CanonExprUtils::areEqual(CE1, CE2, RelaxedMode);
 }
 
 const CanonExpr *DDtest::getNegative(const CanonExpr *CE) {
@@ -409,7 +415,7 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
                                     const CanonExpr *CE2) {
 
   // Current support in Util: one of them must be a constant
-  int64_t CVal;
+  int64_t CVal = 0;
 
   CanonExpr *CE = nullptr;
 
