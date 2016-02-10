@@ -54,11 +54,52 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   typedef std::set<Node *> NodeSetTy;
 
-  struct Constraint;
-
   struct PairKeyInfo;
 
   struct ConstraintKeyInfo;
+
+  // Constraint - Objects of this structure are used to represent the various
+  // constraints identified by the algorithm.  The constraints are 'copy',
+  // for statements like "A = B", 'load' for statements like "A = *B",
+  // 'store' for statements like "*A = B", and AddressOf for statements like
+  // A = alloca;  The Offset is applied as *(A + K) = B for stores,
+  // A = *(B + K) for loads, and A = B + K for copies.  It is
+  // illegal on addressof constraints (because it is statically
+  // resolvable to A = &C where C = B + K)
+  //
+  struct Constraint {
+    enum ConstraintType { Copy, Load, Store, AddressOf } Type;
+    unsigned Dest;
+    unsigned Src;
+    unsigned Offset;
+  
+    Constraint(ConstraintType Ty, unsigned D, unsigned S, unsigned O = 0)
+      : Type(Ty), Dest(D), Src(S), Offset(O) {
+      assert((Offset == 0 || Ty != AddressOf) &&
+             "Offset is illegal on addressof constraints");
+    }
+  
+    bool operator==(const Constraint &RHS) const {
+      return RHS.Type == Type
+        && RHS.Dest == Dest
+        && RHS.Src == Src
+        && RHS.Offset == Offset;
+    }
+  
+    bool operator!=(const Constraint &RHS) const {
+      return !(*this == RHS);
+    }
+  
+    bool operator<(const Constraint &RHS) const {
+      if (RHS.Type != Type)
+        return RHS.Type < Type;
+      else if (RHS.Dest != Dest)
+        return RHS.Dest < Dest;
+      else if (RHS.Src != Src)
+        return RHS.Src < Src;
+      return RHS.Offset < Offset;
+    }
+  };
 
   struct WorkListElement {
     Node* node;
@@ -308,6 +349,8 @@ private:
   unsigned getNodeForConstantPointer(Constant *C);
   unsigned getNodeForConstantPointerTarget(Constant *C);
   void AddGlobalInitializerConstraints(unsigned, Constant *C);
+  void CreateConstraint(Constraint::ConstraintType Ty, unsigned D, 
+                        unsigned S, unsigned O);
 
   void AddConstraintsForNonInternalLinkage(Function *F);
   void AddConstraintsForCall(CallSite CS, Function *F);
