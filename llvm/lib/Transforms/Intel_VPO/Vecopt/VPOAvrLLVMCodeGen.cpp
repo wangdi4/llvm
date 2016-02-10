@@ -30,24 +30,11 @@ ReductionMngr::ReductionMngr(AVR *Avr) {
   if (!RC)
     return;
   for (ReductionItem *Ri : RC->items())
-    ReductionMap[Ri->getOrig()] = Ri;
+    ReductionMap[Ri->getCombiner()] = Ri;
 }
  
-void ReductionMngr::initializeReductionPhis(Loop *OrigLoop,
-                                            BasicBlock *Preheader,
-                                            BasicBlock *VecLoop,
-                                            BasicBlock *ExitBlock) {
-
-  for (auto Itr : ReductionMap) {
-    PHINode *PhiInstr = cast<PHINode>(Itr.first);
-    ReductionItem *RI = Itr.second;
-    Value *StartValue =
-      PhiInstr->getIncomingValueForBlock(OrigLoop->getLoopPreheader());
-    RI->setInitializer(StartValue);
-    RI->setCombiner(PhiInstr->user_back());
-  }
+void ReductionMngr::saveLoopEntryExit(BasicBlock *Preheader, BasicBlock *ExitBlock) {
   LoopPreheader = Preheader;
-  VectorBody = VecLoop;
   LoopExit = ExitBlock;
 }
 
@@ -77,13 +64,12 @@ static Value *CreateBinOp(ReductionItem::WRNReductionKind RKind,
 // Complete edges of the reduction Phi and build the horizontal
 // loop tail.
 void ReductionMngr::completeReductionPhis(std::map<Value *, Value *>& WidenMap) {
-  for (auto Itr : ReductionMap) {
-    Value *OrigPhi = Itr.first;
+  for (auto Itr : ReductionPhiMap) {
     ReductionItem *RI = Itr.second;
     Value *OrigValue = RI->getCombiner();
     Value *VecValue = WidenMap[OrigValue];
-    PHINode *VecPhi = cast<PHINode>(WidenMap[OrigPhi]);
-    VecPhi->addIncoming(VecValue, VectorBody);
+    PHINode *VecPhi = Itr.first;
+    VecPhi->addIncoming(VecValue, cast<Instruction>(VecValue)->getParent());
 
     // loop tail, non-optimized meanwhile
     unsigned VL = VecValue->getType()->getVectorNumElements();
@@ -94,14 +80,26 @@ void ReductionMngr::completeReductionPhis(std::map<Value *, Value *>& WidenMap) 
       Value *Op = Builder.CreateExtractElement(VecValue, Builder.getInt32(i));
       Res = CreateBinOp(RI->getType(), Builder, Res, Op);
     }
-    // Replace all uses of "Conbiner" except the block of scalar loop
+    // Replace all uses of "Combiner" except the block of scalar loop
     BasicBlock *OrigBB = cast<Instruction>(OrigValue)->getParent();
     OrigValue->replaceUsesOutsideBlock(Res, OrigBB);
   }
 }
 
-bool ReductionMngr::isReductionPhi(Instruction *Phi) {
-  return isa<PHINode>(Phi) && (ReductionMap.find(Phi) != ReductionMap.end());
+bool ReductionMngr::isReductionVariable(const Value *Val) {
+  return ReductionMap.find(Val) != ReductionMap.end();
+}
+
+ReductionItem *ReductionMngr::getReductionInfo(const Value *Val) {
+  return ReductionMap[Val];
+}
+
+bool ReductionMngr::isReductionPhi(const PHINode* PhiInst) {
+  if (PhiInst->getNumIncomingValues() != 2)
+    return false;
+  const Value *In0 = PhiInst->getIncomingValue(0);
+  const Value *In1 = PhiInst->getIncomingValue(1);
+  return isReductionVariable(In0) || isReductionVariable(In1);
 }
 
 /// This function returns the identity element (or neutral element) for
@@ -129,10 +127,19 @@ ReductionMngr::getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
   }
 }
 
-Instruction *ReductionMngr::vectorizePhiNode(Instruction *RdxPhi,
+Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi,
                                              unsigned VL) {
-  
-  ReductionItem *RI = ReductionMap[RdxPhi];
+  Value *In0 = RdxPhi->getIncomingValue(0);
+  Value *In1 = RdxPhi->getIncomingValue(1);
+
+  ReductionItem *RI = getReductionInfo(In0);
+  if (RI)
+    assert(In1 == RI->getInitializer() && "Unexpected reduction phi node");
+  else {
+    RI = getReductionInfo(In1);
+    assert(RI && In0 == RI->getInitializer() && "Unexpected reduction phi node");
+  }
+
   Type *ScalarTy = RdxPhi->getType();
   ReductionItem::WRNReductionKind RKind = RI->getType();
   Constant *Iden = getRecurrenceIdentity(RKind, ScalarTy);
@@ -140,7 +147,7 @@ Instruction *ReductionMngr::vectorizePhiNode(Instruction *RdxPhi,
 
   // Reduction Phi has 2 incoming adges - one from initial value
   // and the second from loop body. Now we are setting only the
-  // first incomming edge.
+  // first incoming edge.
   IRBuilder<> Builder(LoopPreheader->getTerminator());
   // This vector is the Identity vector where the first element is the
   // incoming scalar reduction.
@@ -152,10 +159,11 @@ Instruction *ReductionMngr::vectorizePhiNode(Instruction *RdxPhi,
   PHINode *VecRdxPhi = Builder.CreatePHI(VectorType::get(ScalarTy, VL), 2,
                                          "vec.rdx.phi");
   VecRdxPhi->addIncoming(VectorStart, LoopPreheader);
+  ReductionPhiMap[VecRdxPhi] = RI;
   return VecRdxPhi;
 }
 
-void AVRCodeGen::vectorizeReductionPHI(Instruction *RdxPhi) {
+void AVRCodeGen::vectorizeReductionPHI(PHINode *RdxPhi) {
   Instruction *VecRdxPhi = RM.vectorizePhiNode(RdxPhi, VL);
   WidenMap[RdxPhi] = VecRdxPhi;
 }
@@ -206,7 +214,7 @@ bool AVRCodeGen::loopIsHandled() {
       break;
     case AVR::AVRPhiIRNode: {
       AVRPhiIR *Phi = cast<AVRPhiIR>(&Itr);
-      if (RM.isReductionPhi(Phi->getLLVMInstruction()))
+      if (RM.isReductionPhi(cast<PHINode>(Phi->getLLVMInstruction())))
         break;
       else if (InductionPhi)
         return false;
@@ -376,7 +384,7 @@ void AVRCodeGen::createEmptyLoop() {
   SE->forgetLoop(OrigLoop);
 
   RM.saveInsertPointForReductionPhis(Induction);
-  RM.initializeReductionPhis(OrigLoop, LoopPreHeader, VecBody, LoopExit);
+  RM.saveLoopEntryExit(LoopPreHeader, LoopExit);
 }
 
 Value *AVRCodeGen::getVectorValue(Value *V) {
@@ -717,8 +725,9 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
   }
 
   case Instruction::PHI: {
-    if (RM.isReductionPhi(Inst))
-      vectorizeReductionPHI(Inst);
+    PHINode *Phi = cast<PHINode>(Inst);
+    if (RM.isReductionPhi(Phi))
+      vectorizeReductionPHI(Phi);
     else
       vectorizePHIInstruction(Inst);
     break;

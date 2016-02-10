@@ -31,19 +31,19 @@ class ReductionMngr {
 public:
   ReductionMngr(AVR *Avr);
 
-  // Set Initializer and Combiner for Reduction Items.
   // Save loop bbs for future constructions.
-  void initializeReductionPhis(Loop *OrigLoop,
-                               BasicBlock *Preheader,
-                               BasicBlock *VectorLoopBody,
-                               BasicBlock *Exit);
+  void saveLoopEntryExit(BasicBlock *Preheader, BasicBlock *Exit);
   
   // Complete Phi nodes after vectorization.
   // Build the loop tail.
   void completeReductionPhis(std::map<Value *, Value *>& WidenMap);
 
   // Return true if the instruction is a Phi node marked as reduction
-  bool isReductionPhi(Instruction *Phi);
+  bool isReductionPhi(const PHINode* Phi);
+
+  bool isReductionVariable(const Value *Val);
+
+  ReductionItem *getReductionInfo(const Value *Val);
 
   void saveInsertPointForReductionPhis(Instruction *Inst) {
     PhiInsertPt = Inst;
@@ -51,11 +51,12 @@ public:
   static Constant *getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
                                          Type *Ty);
   // Widening reduction Phi node
-  Instruction *vectorizePhiNode(Instruction *RdxPhi, unsigned VL);
+  Instruction *vectorizePhiNode(PHINode *RdxPhi, unsigned VL);
 private:
   // Reduction map
-  typedef std::map<Value *, ReductionItem *> ReductionValuesMap;
+  typedef std::map<const Value *, ReductionItem *> ReductionValuesMap;
   ReductionValuesMap ReductionMap;
+  std::map<PHINode *, ReductionItem *> ReductionPhiMap;
   Instruction *PhiInsertPt;
   BasicBlock *LoopPreheader;
   BasicBlock *VectorBody;
@@ -164,7 +165,7 @@ private:
   // the Induction PHI.
   void vectorizePHIInstruction(Instruction *Inst);
 
-  void vectorizeReductionPHI(Instruction *Inst);
+  void vectorizeReductionPHI(PHINode *Inst);
   void completeReductions();
 
   // Vectorize the given instruction that cannot be widened using serialization.
