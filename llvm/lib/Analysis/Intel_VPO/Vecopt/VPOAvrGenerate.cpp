@@ -178,7 +178,7 @@ public:
 
   /// Visit Functions
   void visit(AVR *ANode) {}
-  void visit(AVRBranch *ABranch);
+  void visit(AVRBranchIR *ABranchIR);
   void postVisit(AVR *ANode) {}
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
@@ -304,16 +304,13 @@ CandidateIf *AVRBranchOptVisitor::generateAvrIfCandidate(AVRBranchIR *ABranch) {
                          ShortCircuitParent, ShortCircuitBr);
 }
 
-void AVRBranchOptVisitor::visit(AVRBranch *ABranch) {
+void AVRBranchOptVisitor::visit(AVRBranchIR *ABranchIR) {
 
   // TODO: Convert optimzation to fully IR-independent opt.
-  if (AVRBranchIR *AvrBranchIR = dyn_cast<AVRBranchIR>(ABranch)) {
+  CandidateIf *CandidateIf = generateAvrIfCandidate(ABranchIR);
 
-    CandidateIf *CandidateIf = generateAvrIfCandidate(AvrBranchIR);
-
-    if (CandidateIf) {
-      CandidateIfs.push_back(CandidateIf);
-    }
+  if (CandidateIf) {
+    CandidateIfs.push_back(CandidateIf);
   }
 }
 
@@ -332,33 +329,32 @@ public:
 
   /// Visit Functions
   void visit(AVR *ANode) {}
-  void visit(AVRAssign *Assign);
+  void visit(AVRAssignIR *AssignIR);
+  void visit(AVRAssignHIR *AssignHIR);
   void postVisit(AVR *ANode) {}
   bool isDone() { return false; }
   bool skipRecursion(AVR *ANode) { return false; }
 };
 
 // To Do: Improve AL visitor to virtual visit functions.
-void AddAvrExprVisitor::visit(AVRAssign *Assign) {
+void AddAvrExprVisitor::visit(AVRAssignIR *AssignIR) {
 
-  if (AVRAssignIR *AssignIR = dyn_cast<AVRAssignIR>(Assign)) {
+  AVRExpression *LhsExpr =
+    AVRUtilsIR::createAVRExpressionIR(AssignIR, LeftHand);
+  AVRUtils::setAVRAssignLHS(AssignIR, LhsExpr);
+  AVRExpression *RhsExpr =
+    AVRUtilsIR::createAVRExpressionIR(AssignIR, RightHand);
+  AVRUtils::setAVRAssignRHS(AssignIR, RhsExpr);
+}
 
-    AVRExpression *LhsExpr =
-        AVRUtilsIR::createAVRExpressionIR(AssignIR, LeftHand);
-    AVRUtils::setAVRAssignLHS(Assign, LhsExpr);
-    AVRExpression *RhsExpr =
-        AVRUtilsIR::createAVRExpressionIR(AssignIR, RightHand);
-    AVRUtils::setAVRAssignRHS(Assign, RhsExpr);
+void AddAvrExprVisitor::visit(AVRAssignHIR *AssignHIR) {
 
-  } else if (AVRAssignHIR *AssignHIR = dyn_cast<AVRAssignHIR>(Assign)) {
-
-    AVRExpressionHIR *LhsExpr =
-        AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, LeftHand);
-    AVRUtils::setAVRAssignLHS(Assign, LhsExpr);
-    AVRExpressionHIR *RhsExpr =
-        AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, RightHand);
-    AVRUtils::setAVRAssignRHS(Assign, RhsExpr);
-  }
+  AVRExpressionHIR *LhsExpr =
+    AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, LeftHand);
+  AVRUtils::setAVRAssignLHS(AssignHIR, LhsExpr);
+  AVRExpressionHIR* RhsExpr =
+    AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, RightHand);
+  AVRUtils::setAVRAssignRHS(AssignHIR, RhsExpr);
 }
 
 void AVRGenerateBase::optimizeLoopControl() {

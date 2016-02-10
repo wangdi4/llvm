@@ -1,11 +1,11 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
-// The information and source code contained herein is the exclusive
-// property of Intel Corporation and may not be disclosed, examined
-// or reproduced in whole or in part without explicit written authorization
-// from the company.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //   Source file:
 //   ------------
@@ -79,6 +79,13 @@ typedef AVRContainerTy::iterator AvrItr;
 ///   bool skipRecursion (AVR *Node) { return Node == SkipNode; }
 /// };
 ///
+// The visit/postVisit functions can be specialized to the IR/HIR
+/// implementations, for example:
+/// 
+///   void visit(AVRAssign* Assign) { errs() << "visited assign!\n" }
+///   void visit(AVRAssignIR* AssignIR) { errs() << "visited assign IR!\n" }
+///   void visit(AVRAssignHIR* AssignHIR) { errs() << "visited assign HIR!\n" }
+///
 /// It is also possible to implement generic(catch-all) visit() functions for
 /// AVRs and specialize them for specific type, if desired. For example, if
 /// an optimization only cares about loops, it can implement the visitor class
@@ -103,6 +110,43 @@ private:
   AV &Visitor;
 
   friend class AVRUtils;
+
+  /// \brief A template function for calling Visitor.visit() on one of a list
+  /// of AVR types (the first to match). If the parameter of type T can be
+  /// dyn_cast'ed to type I then visit is called on I. Otherwise we recurse on
+  /// the next type in the list.
+  template <typename T, typename I, typename... Tail>
+  inline void callVisit(T* Avr) {
+    if (I *AvrI = dyn_cast<I>(Avr))
+      Visitor.visit(AvrI);
+    else
+      callVisit<T, Tail...>(Avr);
+  }
+
+  /// \brief A template function for calling Visitor.visit() on some AVR type.
+  template <typename T>
+  inline void callVisit(T* Avr) {
+    Visitor.visit(Avr);
+  }
+
+  /// \brief A template function for calling Visitor.postVisit() on one of a
+  /// list of AVR types (the first to match). If the parameter of type T can be
+  /// dyn_cast'ed to type I then visit is called on I. Otherwise we recurse on
+  /// the next type in the list.
+  template <typename T, typename I, typename... Tail>
+  inline void callPostVisit(T* Avr) {
+    if (I *AvrI = dyn_cast<I>(Avr))
+      Visitor.postVisit(AvrI);
+    else
+      callPostVisit<T, Tail...>(Avr);
+  }
+
+  /// \brief A template function for calling Visitor.postVisit() on some AVR
+  /// type.
+  template <typename T>
+  inline void callPostVisit(T* Avr) {
+    Visitor.postVisit(Avr);
+  }
 
  public:
 
@@ -189,7 +233,7 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
 
   if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Node)) {
 
-    Visitor.visit(AFunc);
+    callVisit<AVRFunction>(AFunc);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
       Ret = Forward ? forwardVisit(AFunc->child_begin(), AFunc->child_end(),
@@ -201,12 +245,12 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
         return true;
       }
 
-      Visitor.postVisit(AFunc);
+      callPostVisit<AVRFunction>(AFunc);
     }
   }
   else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Node)) {
 
-    Visitor.visit(ALoop);
+    callVisit<AVRLoop>(ALoop);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
       Ret = Forward ? forwardVisit(ALoop->child_begin(), ALoop->child_end(),
@@ -218,12 +262,12 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
         return true;
       }
 
-      Visitor.postVisit(ALoop);
+      callPostVisit<AVRLoop>(ALoop);
     }
   }
   else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Node)){
 
-    Visitor.visit(AWrn);
+    callVisit<AVRWrn>(AWrn);
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
 
       Ret = Forward ? forwardVisit(AWrn->child_begin(), AWrn->child_end(),
@@ -235,11 +279,11 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
         return true;
       }
 
-      Visitor.postVisit(AWrn);
+      callPostVisit<AVRWrn>(AWrn);
     }
   }
   else if (AVRIf *AIf = dyn_cast<AVRIf>(Node)) {
-    Visitor.visit(AIf);
+    callVisit<AVRIf, AVRIfIR, AVRIfHIR>(AIf);
 
     if (Recursive && !Visitor.skipRecursion(Node) && !Visitor.isDone()) {
       Ret = Forward ? forwardVisit(AIf->then_begin(), AIf->then_end(),
@@ -260,38 +304,81 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
         return true;
       }
 
-      Visitor.postVisit(AIf);
+      callPostVisit<AVRIf, AVRIfIR, AVRIfHIR>(AIf);
     }
   }
   else if (AVRAssign *AAssign = dyn_cast<AVRAssign>(Node)) {
-    Visitor.visit(AAssign);
+    callVisit<AVRAssign, AVRAssignIR, AVRAssignHIR>(AAssign);
+
+    if (!Recursive || Visitor.skipRecursion(Node) || Visitor.isDone())
+      return true;
+
+    AVR* First = Forward ? AAssign->getRHS() : AAssign->getLHS();
+    AVR* Second = Forward ? AAssign->getLHS() : AAssign->getRHS();
+
+    if (First != nullptr)
+      Ret = visit(First, Recursive, RecurseInsideLoops, Forward);
+
+    if (Ret) {
+      return true;
+    }
+
+    if (Second != nullptr)
+      Ret = visit(Second, Recursive, RecurseInsideLoops, Forward);
+
+    if (Ret) {
+      return true;
+    }
+
+    callPostVisit<AVRAssign, AVRAssignIR, AVRAssignHIR>(AAssign);
+  }
+  else if (AVRExpression *AExpr = dyn_cast<AVRExpression>(Node)) {
+    callVisit<AVRExpression, AVRExpressionIR, AVRExpressionHIR>(AExpr);
+
+    if (!Recursive || Visitor.skipRecursion(Node) || Visitor.isDone())
+      return true;
+
+    unsigned NumOperands = AExpr->getNumOperands();
+    for (unsigned OpIt = 1; OpIt <= NumOperands; ++OpIt) {
+      unsigned OpIndex = Forward ? OpIt - 1 : NumOperands - OpIt;
+      AVR* Operand = AExpr->getOperand(OpIndex);
+      Ret = visit(Operand, Recursive, RecurseInsideLoops, Forward);
+      if (Ret) {
+        return true;
+      }
+    }
+
+    callPostVisit<AVRExpression, AVRExpressionIR, AVRExpressionHIR>(AExpr);
+  }
+  else if (AVRValue *AValue = dyn_cast<AVRValue>(Node)) {
+    callVisit<AVRValue, AVRValueIR, AVRValueHIR>(AValue);
   }
   else if (AVRLabel *ALabel = dyn_cast<AVRLabel>(Node)) {
-    Visitor.visit(ALabel);
+    callVisit<AVRLabel, AVRLabelIR, AVRLabelHIR>(ALabel);
   }
   else if (AVRPhi *APhi = dyn_cast<AVRPhi>(Node)) {
-    Visitor.visit(APhi);
+    callVisit<AVRPhi, AVRPhiIR>(APhi);
   }
   else if (AVRCall *ACall = dyn_cast<AVRCall>(Node)) {
-    Visitor.visit(ACall);
+    callVisit<AVRCall, AVRCallIR>(ACall);
   }
   else if (AVRBranch *ABranch = dyn_cast<AVRBranch>(Node)) {
-    Visitor.visit(ABranch);
+    callVisit<AVRBranch, AVRBranchIR, AVRBranchHIR>(ABranch);
   }
   else if (AVRBackEdge *ABE = dyn_cast<AVRBackEdge>(Node)) {
-    Visitor.visit(ABE);
+    callVisit<AVRBackEdge, AVRBackEdgeIR>(ABE);
   }
   else if (AVREntry *AEntry = dyn_cast<AVREntry>(Node)) {
-    Visitor.visit(AEntry);
+    callVisit<AVREntry, AVREntryIR>(AEntry);
   }
   else if (AVRReturn *AReturn = dyn_cast<AVRReturn>(Node)) {
-    Visitor.visit(AReturn);
+    callVisit<AVRReturn, AVRReturnIR>(AReturn);
   }
   else if (AVRCompare *ACompare = dyn_cast<AVRCompare>(Node)){
-    Visitor.visit(ACompare);
+    callVisit<AVRCompare, AVRCompareIR>(ACompare);
   }
   else if (AVRSelect *ASelect = dyn_cast<AVRSelect>(Node)){
-    Visitor.visit(ASelect);
+    callVisit<AVRSelect, AVRSelectIR>(ASelect);
   }
   else {
     llvm_unreachable("Unknown AVR type!");
