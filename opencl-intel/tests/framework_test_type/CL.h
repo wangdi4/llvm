@@ -27,5 +27,7 @@ protected:
 
     void CheckExtensions();
 
+    void QueryInvalidParamNameFromCQueue_Negative();
+
 };
 #endif /*__CL_GENERAL__*/

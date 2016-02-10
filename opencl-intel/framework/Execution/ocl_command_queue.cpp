@@ -156,6 +156,11 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
     char localParamValue[sizeof(cl_ulong)];    // cl_ulong is the biggest information there is
     const size_t szOutputValueSize = GetInfoInternal(iParamName, localParamValue, sizeof(localParamValue));
     
+
+    if ( NULL != pszParamValueSizeRet )
+    {
+        *pszParamValueSizeRet = szOutputValueSize;
+    }
     // check param_value_size
     if (((NULL != pParamValue) && (szParamValueSize < szOutputValueSize)) || 0 == szOutputValueSize)
     {
@@ -166,10 +171,6 @@ cl_err_code OclCommandQueue::GetInfo( cl_int iParamName, size_t szParamValueSize
         if ( NULL != pParamValue )
         {
             MEMCPY_S(pParamValue, szParamValueSize, localParamValue, szOutputValueSize);
-        }
-        if ( NULL != pszParamValueSizeRet )
-        {
-            *pszParamValueSizeRet = szOutputValueSize;
         }
     }
     return CL_SUCCESS;
