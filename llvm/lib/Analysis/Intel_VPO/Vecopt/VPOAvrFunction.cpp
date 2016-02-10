@@ -7,11 +7,11 @@
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrFunction.cpp -- Implements the Abstract Vector Representation (AVR)
-//   function node.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements the Abstract Vector Representation (AVR) function node.
+///
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrFunction.h"
@@ -22,7 +22,7 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 AVRFunction::AVRFunction(Function *OrigF, const LoopInfo *LpInfo)
-  : AVR(AVR::AVRFunctionNode), OriginalFunction(OrigF), LI(LpInfo) {}
+    : AVR(AVR::AVRFunctionNode), OriginalFunction(OrigF), LI(LpInfo) {}
 
 BasicBlock *AVRFunction::getEntryBBlock() const {
   return &OriginalFunction->getEntryBlock();
@@ -36,17 +36,13 @@ BasicBlock *AVRFunction::getLastBBlock() const {
   return &OriginalFunction->back();
 }
 
-AVRFunction *AVRFunction::clone() const {
-  return nullptr;
-}
+AVRFunction *AVRFunction::clone() const { return nullptr; }
 
 AVR *AVRFunction::getLastChild() {
-  if (hasChildren()){
+  if (hasChildren())
     return std::prev(child_end());
-  }
-  else {
+  else
     return nullptr;
-  }
 }
 
 void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
@@ -57,31 +53,30 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-      OS << getAvrTypeName();
-    case PrintDataType:
-    case PrintBase:
-    {
-      OS << getAvrValueName() << "(";
-  
-      // Print Function Arguments
-      Function::ArgumentListType &ArgList = OriginalFunction->getArgumentList();
-      Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-      Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+    OS << getAvrTypeName();
+  case PrintDataType:
+  case PrintBase: {
+    OS << getAvrValueName() << "(";
 
-      OS << *ArgListIt;
-      ++ArgListIt;
-      for (; ArgListIt != ArgListEnd; ++ArgListIt) {
-        OS << ", "<< *ArgListIt;
-      } 
+    // Print Function Arguments
+    Function::ArgumentListType &ArgList = OriginalFunction->getArgumentList();
+    Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
+    Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
 
-      OS <<")\n" << Indent << "{\n";
-      break;
+    OS << *ArgListIt;
+    ++ArgListIt;
+    for (; ArgListIt != ArgListEnd; ++ArgListIt) {
+      OS << ", " << *ArgListIt;
     }
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+
+    OS << ")\n" << Indent << "{\n";
+    break;
+  }
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   Depth++;
@@ -93,9 +88,7 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent << "}\n";
 }
 
-StringRef AVRFunction::getAvrTypeName() const {
-  return StringRef("FUNCTION ");
-}
+StringRef AVRFunction::getAvrTypeName() const { return StringRef("FUNCTION "); }
 
 std::string AVRFunction::getAvrValueName() const {
   return OriginalFunction->getName();
@@ -107,5 +100,3 @@ void AVRFunction::codeGen() {
     Itr->codeGen();
   }
 }
-
-
