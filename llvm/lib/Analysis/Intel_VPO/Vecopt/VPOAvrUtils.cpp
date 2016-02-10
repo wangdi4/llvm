@@ -1,17 +1,18 @@
-//===----------------------------------------------------------------------===//
+//===--- VPOAvrUtils.cpp ----------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrUtils.cpp -- Implements the Abstract Vector Representation (AVR)
-//   utilities.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements the Abstract Vector Representation (AVR)
+/// utilities.
+///
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
@@ -25,13 +26,12 @@ using namespace llvm::vpo;
 
 // AVR Creation Utilities
 
-AVRFunction *AVRUtils::createAVRFunction(Function *OrigF, const LoopInfo *LpInfo) {
+AVRFunction *AVRUtils::createAVRFunction(Function *OrigF,
+                                         const LoopInfo *LpInfo) {
   return new AVRFunction(OrigF, LpInfo);
 }
 
-AVRLoop *AVRUtils::createAVRLoop(const Loop *Lp) {
-  return new AVRLoop(Lp);
-}
+AVRLoop *AVRUtils::createAVRLoop(const Loop *Lp) { return new AVRLoop(Lp); }
 
 AVRWrn *AVRUtils::createAVRWrn(WRNVecLoopNode *WrnSimdNode) {
   // TODO - for now we create an AVRWrn for every HIR region node by
@@ -64,41 +64,33 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
   assert(Parent && "Parent is null.");
 
   AvrItr InsertionPos;
-  AVRContainerTy  *Children = nullptr;
+  AVRContainerTy *Children = nullptr;
 
   if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Parent)) {
     Children = &(AFunc->Children);
-  }
-  else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
+  } else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
     Children = &(ALoop->Children);
-  }
-  else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
+  } else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
 
     if (SType == ThenChild) {
       Children = &(AIf->ThenChildren);
-    }
-    else if (SType == ElseChild) {
+    } else if (SType == ElseChild) {
       Children = &(AIf->ElseChildren);
-    }
-    else {
+    } else {
 
       // It's possible that insert is called with an AvrIf parent and unknown
       // child container. Resolve children container with a quick look up.
       if (AVRUtils::containsAvr(AIf->ThenChildren, Pos)) {
         Children = &(AIf->ThenChildren);
-      }
-      else if (AVRUtils::containsAvr(AIf->ElseChildren, Pos)) {
-	Children = &(AIf->ElseChildren);
-      }
-      else {
-        assert(0 && "Malformed AVRIf insertion!");
+      } else if (AVRUtils::containsAvr(AIf->ElseChildren, Pos)) {
+        Children = &(AIf->ElseChildren);
+      } else {
+        llvm_unreachable("Malformed AVRIf insertion!");
       }
     }
-  } 
-  else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
+  } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     Children = &(AWrn->Children);
-  }
-  else {
+  } else {
     llvm_unreachable("VPO: Unsupported AVR Insertion\n");
   }
 
@@ -106,21 +98,21 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
 
   // Set insertion point
   switch (Itype) {
-    case FirstChild:
-      InsertionPos = Children->begin();
-      break;
-    case LastChild:
-      InsertionPos = Children->end();
-      break;
-    case Append:
-      InsertionPos = std::next(Pos);
-      break;
-    case Prepend:
-      InsertionPos = Pos;
-      break;
-    default:
-      llvm_unreachable("VPO: Unknown AVR Insertion Type");
-    }
+  case FirstChild:
+    InsertionPos = Children->begin();
+    break;
+  case LastChild:
+    InsertionPos = Children->end();
+    break;
+  case Append:
+    InsertionPos = std::next(Pos);
+    break;
+  case Prepend:
+    InsertionPos = Pos;
+    break;
+  default:
+    llvm_unreachable("VPO: Unknown AVR Insertion Type");
+  }
 
   // Insert new avr.
   NewAvr->setParent(Parent);
@@ -134,11 +126,11 @@ void AVRUtils::insertFirstChildAVR(AVR *Parent, AvrItr NewAvr) {
 }
 
 void AVRUtils::insertFirstThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ThenChild); 
+  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ThenChild);
 }
 
 void AVRUtils::insertFirstElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ElseChild); 
+  insertAVR(AvrIf, nullptr, NewAvr, FirstChild, ElseChild);
 }
 
 void AVRUtils::insertLastChildAVR(AVR *Parent, AvrItr NewAvr) {
@@ -146,11 +138,11 @@ void AVRUtils::insertLastChildAVR(AVR *Parent, AvrItr NewAvr) {
 }
 
 void AVRUtils::insertLastThenChild(AVRIf *AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ThenChild); 
+  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ThenChild);
 }
 
-void AVRUtils::insertLastElseChild(AVRIf*AvrIf, AvrItr NewAvr) {
-  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ElseChild); 
+void AVRUtils::insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr) {
+  insertAVR(AvrIf, nullptr, NewAvr, LastChild, ElseChild);
 }
 
 void AVRUtils::insertAVRAfter(AvrItr InsertionPos, AVR *NewAvr) {
@@ -167,34 +159,33 @@ void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
                             AvrItr InsertionPos, AVRContainerTy *FromContainer,
                             AvrItr Begin, AvrItr End, InsertType Itype) {
 
-  unsigned Distance = std::distance(Begin, End), I = 0; 
+  unsigned Distance = std::distance(Begin, End), I = 0;
 
   // Set insertion point
   switch (Itype) {
-    case FirstChild:
-      InsertionPos = ToContainer.begin();
-      break;
-    case LastChild:
-      InsertionPos = ToContainer.end();
-      break;
-    case Append:
-      InsertionPos = std::next(InsertionPos);
-      break;
-    case Prepend:
-      // No change to InsertionPos will prepend sequence.
-      InsertionPos = InsertionPos;
-      break;
-    default:
-      llvm_unreachable("VPO: Unknown AVR Insertion Type");
-    }
+  case FirstChild:
+    InsertionPos = ToContainer.begin();
+    break;
+  case LastChild:
+    InsertionPos = ToContainer.end();
+    break;
+  case Append:
+    InsertionPos = std::next(InsertionPos);
+    break;
+  case Prepend:
+    // No change to InsertionPos will prepend sequence.
+    InsertionPos = InsertionPos;
+    break;
+  default:
+    llvm_unreachable("VPO: Unknown AVR Insertion Type");
+  }
 
-  ToContainer.splice(InsertionPos, *FromContainer, Begin, End); 
+  ToContainer.splice(InsertionPos, *FromContainer, Begin, End);
 
   // Update parent of topmost nodes. Inner nodes' parent remains the same.
   for (auto It = InsertionPos; I < Distance; ++I, It--) {
-    std::prev(It)->setParent(NewParent);  
+    std::prev(It)->setParent(NewParent);
   }
-
 }
 
 // Move Utitlies
@@ -208,50 +199,46 @@ void AVRUtils::moveAfter(AvrItr InsertionPos, AVR *Node) {
 void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
 
   assert(First->getParent() == Last->getParent() &&
-     "Candidate avr move sequence do not share common parent!");
+         "Candidate avr move sequence do not share common parent!");
 
-  AVRContainerTy TempContainer; 
+  AVRContainerTy TempContainer;
 
   removeInternal(First, Last, &TempContainer, false);
-  insertAVRSeq(ALoop, ALoop->Children, ALoop->Children.begin(),
-               &TempContainer, TempContainer.begin(),
-               TempContainer.end(), FirstChild);
+  insertAVRSeq(ALoop, ALoop->Children, ALoop->Children.begin(), &TempContainer,
+               TempContainer.begin(), TempContainer.end(), FirstChild);
 }
 
 void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   assert(AIf && "Missing AvrIf for insertion!");
   assert(First->getParent() == Last->getParent() &&
-     "Candidate avr move sequence do not share common parent!");
+         "Candidate avr move sequence do not share common parent!");
 
   AVRContainerTy TempContainer;
 
   removeInternal(First, Last, &TempContainer, false);
-  insertAVRSeq(AIf, AIf->ThenChildren, AIf->ThenChildren.begin(), 
-	       &TempContainer, TempContainer.begin(),
-	       TempContainer.end(), FirstChild);
+  insertAVRSeq(AIf, AIf->ThenChildren, AIf->ThenChildren.begin(),
+               &TempContainer, TempContainer.begin(), TempContainer.end(),
+               FirstChild);
 }
 
 void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   assert(AIf && "Missing AvrIf for insertion!");
   assert(First->getParent() == Last->getParent() &&
-     "Candidate avr move sequence do not share common parent!");
+         "Candidate avr move sequence do not share common parent!");
 
-  AVRContainerTy TempContainer; 
+  AVRContainerTy TempContainer;
 
   removeInternal(First, Last, &TempContainer, false);
-  insertAVRSeq(AIf, AIf->ElseChildren, AIf->ElseChildren.begin(), 
-	       &TempContainer, TempContainer.begin(),
-	       TempContainer.end(), FirstChild);
+  insertAVRSeq(AIf, AIf->ElseChildren, AIf->ElseChildren.begin(),
+               &TempContainer, TempContainer.begin(), TempContainer.end(),
+               FirstChild);
 }
 
 // Removal Utilities
 
-void AVRUtils::destroy(AVR *Avr) {
-
-  Avr->destroy();
-}
+void AVRUtils::destroy(AVR *Avr) { Avr->destroy(); }
 
 AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
                                          AVRContainerTy *MoveContainer,
@@ -277,26 +264,24 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
 
     // Remove Sequence
     for (auto I = Begin, Next = I, E = End; I != E; I = Next) {
-   
+
       Next++;
       AVR *Node = OrigContainer->remove(I);
 
       if (Delete)
         destroy(Node);
     }
-  }
-  else {
+  } else {
     MoveContainer->splice(MoveContainer->end(), *OrigContainer, Begin, ++End);
   }
 
   return MoveContainer;
 }
 
-
 // Remove singleton AVR
-void AVRUtils::remove(AVR* Node) {
+void AVRUtils::remove(AVR *Node) {
 
-  assert (Node && "Missing AVR Node!");
+  assert(Node && "Missing AVR Node!");
   removeInternal(Node, Node, nullptr, false);
 }
 
@@ -304,7 +289,7 @@ void AVRUtils::remove(AVR* Node) {
 void AVRUtils::remove(AvrItr Begin, AvrItr End) {
 
   assert(Begin->getParent() == End->getParent() &&
-     "Candidate avr move sequence do not share common parent!");
+         "Candidate avr move sequence do not share common parent!");
 
   removeInternal(Begin, End, nullptr, false);
 }
@@ -324,7 +309,7 @@ bool AVRUtils::containsAvr(AVRContainerTy &Children, AVR *Node) {
   return false;
 }
 
-AVRContainerTy *AVRUtils::getAvrContainer(AVR* Node) {
+AVRContainerTy *AVRUtils::getAvrContainer(AVR *Node) {
 
   AVR *Parent = Node->getParent();
   assert(Parent && "Avr node missing parent!");
@@ -332,22 +317,23 @@ AVRContainerTy *AVRUtils::getAvrContainer(AVR* Node) {
   if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Parent)) {
     return &(AFunc->Children);
   }
-  else if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
+
+  if (AVRLoop *ALoop = dyn_cast<AVRLoop>(Parent)) {
     return &(ALoop->Children);
   }
-  else if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
+
+  if (AVRIf *AIf = dyn_cast<AVRIf>(Parent)) {
 
     if (AVRUtils::containsAvr(AIf->ThenChildren, Node)) {
       return &(AIf->ThenChildren);
     }
-    else if (AVRUtils::containsAvr(AIf->ElseChildren, Node)) {
+
+    if (AVRUtils::containsAvr(AIf->ElseChildren, Node)) {
       return &(AIf->ElseChildren);
     }
-  } 
-  else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
+  } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     return &(AWrn->Children);
   }
 
   llvm_unreachable("VPO: Avr node missing parent container!");
 }
-

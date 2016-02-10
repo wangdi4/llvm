@@ -1,17 +1,18 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrFunction.h ----------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrFunction.h -- Defines the Abstract Vector Representation (AVR)
-//   function node.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the Abstract Vector Representation (AVR)
+/// function node.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_FUNCTION_H
@@ -28,17 +29,16 @@ namespace llvm { // LLVM Namespace
 
 class LoopInfo;
 
-namespace vpo {  // VPO Vectorizer Namespace
+namespace vpo { // VPO Vectorizer Namespace
 
 /// \brief AVR Function node abstract vector representation
 ///
 /// An AVRFunction node represents a function found in LLVM IR or LoopOpt HIR.
 /// This is a temporary AVR Node type used for stress testing. Loop and function
-/// vectorization do not use this node type.  
+/// vectorization do not use this node type.
 ///
 class AVRFunction : public AVR {
 public:
-
   /// List Container of AVRFunction's children nodes.
   typedef AVRContainerTy ChildrenTy;
   //  typedef iplist<BasicBlock> BasicBlockListTy;
@@ -51,7 +51,6 @@ public:
   typedef ChildrenTy::const_reverse_iterator const_reverse_child_iterator;
 
 private:
-
   /// Pointer to orignial LLVM Loop
   Function *OriginalFunction;
 
@@ -65,16 +64,15 @@ private:
   ChildrenTy Children;
 
   /// Loop info for the original LLVM function.
-  const LoopInfo * LI;
+  const LoopInfo *LI;
 
   // TODO: Parameters
   // TODO: Returns
 
   /// \brief Sets Loop Info
   void setLoopInfo(const LoopInfo *LpIn) { LI = LpIn; }
-  
-protected:
 
+protected:
   AVRFunction(Function *OrigF, const LoopInfo *LpIn);
   virtual ~AVRFunction() override {}
 
@@ -92,7 +90,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Returns pointer to original LLVM function.
   Function *getOrigFunction() const { return OriginalFunction; }
 
@@ -108,7 +105,7 @@ public:
   /// \brief Returns Loop Info.
   const LoopInfo *getLoopInfo() { return LI; }
 
-  BasicBlockListTy *getBasicBlockList() const{
+  BasicBlockListTy *getBasicBlockList() const {
     return &OriginalFunction->getBasicBlockList();
   }
 
@@ -127,7 +124,7 @@ public:
   AVRFunction *clone() const override;
 
   /// Children Iterators
-  child_iterator child_begin() {return Children.begin();}
+  child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }
   child_iterator child_end() { return Children.end(); }
   const_child_iterator child_end() const { return Children.end(); }
@@ -170,15 +167,14 @@ public:
   virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR Function Node and its children.
-  // We have this under analysis for now. Clients call this from a 
+  // We have this under analysis for now. Clients call this from a
   // transform pass. This will change and will move into transforms
   // once we have AVR visitors. Only does a simple cloning of the
   // underlying LLVM instruction in AVRs for now.
   void codeGen() override;
-
 };
 
-}  // End VPO Vectorizer Namespace
-}  // End LLVM Namespace
+} // End VPO Vectorizer Namespace
+} // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_FUNCTION_H
+#endif // LLVM_ANALYSIS_VPO_AVR_FUNCTION_H

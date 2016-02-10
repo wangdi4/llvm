@@ -9,7 +9,7 @@
 //
 //   Source file:
 //   ------------
-//   VPOAvrUtilsIR.h -- Defines the utilities class for AVR nodes 
+//   VPOAvrUtilsIR.h -- Defines the utilities class for AVR nodes
 //   that are LLVM IR specific.
 //
 //===----------------------------------------------------------------------===//
@@ -23,7 +23,6 @@
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
 
-
 /// \brief This class defines the LLVM IR specific utilies for AVR nodes.
 ///
 /// It contains functions which are used to create, modify, and destroy
@@ -32,7 +31,6 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRUtilsIR {
 
 public:
-
   // Creation Utilities
 
   /// \brief Returns a new AVRCompareIR node.
@@ -69,7 +67,7 @@ public:
   static AVRIfIR *createAVRIfIR(AVRBranch *ABranch);
 
   /// \brief Returns a new AVRExpressionIR node.
-  static AVRExpressionIR *createAVRExpressionIR(AVRAssignIR *Assign, 
+  static AVRExpressionIR *createAVRExpressionIR(AVRAssignIR *Assign,
                                                 AssignOperand AOp);
 
   /// \brief Returns a new AVRValueIR node.
@@ -78,12 +76,9 @@ public:
   // Modification Utilities
 
   // Search Utilities
-
 };
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
-
-

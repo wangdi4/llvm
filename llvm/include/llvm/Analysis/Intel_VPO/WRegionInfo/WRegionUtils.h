@@ -1,6 +1,7 @@
-//===----- WRegionNodeUtils.h - Utilities for WRegionNodeNode class -----*- C++ -*-===//
+//===----- WRegionNodeUtils.h - Utilities for WRegionNodeNode class -----*- C++
+//-*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -8,9 +9,10 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the utilities for W-Region Node class.
-//
+///
+/// \file
+/// This file defines the utilities for W-Region Node class.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANAYSIS_VPO_WREGIONUTILS_H
@@ -21,32 +23,25 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 
-namespace llvm  { 
+namespace llvm {
 
-namespace vpo { 
+namespace vpo {
 
 /// \brief This class defines the utilies for WRegionNode nodes.
 class WRegionUtils {
 
   typedef WRContainerTy::iterator WrnIter;
 
-
 private:
   /// \brief Do not allow instantiation.
-  //WRegionNodeUtils() LLVM_DELETED_FUNCTION;
+  // WRegionNodeUtils() LLVM_DELETED_FUNCTION;
 
   /// \brief Destroys all nodes
   static void destroyAll();
 
 public:
-
-  /// \brief Enumeration for types of WRegionNode Graph insert/update 
-  enum OpType {
-    FirstChild, 
-    LastChild, 
-    Append, 
-    Prepend
-  };
+  /// \brief Enumeration for types of WRegionNode Graph insert/update
+  enum OpType { FirstChild, LastChild, Append, Prepend };
 
   friend class WRegionNode;
 
@@ -56,8 +51,8 @@ public:
   /// Insertion Utilities -- To Do: Define More Utilities
 
   /// \brief Standard Insert Utility
-  static void insertWRegionNode(WRegionNode *Parent, 
-                                WrnIter Pos, WrnIter W, OpType Op);
+  static void insertWRegionNode(WRegionNode *Parent, WrnIter Pos, WrnIter W,
+                                OpType Op);
 
   /// \brief Inserts new wrn as the first child in Parent wrn.
   static void insertFirstChild(WRegionNode *Parent, WrnIter W);
@@ -74,13 +69,13 @@ public:
   /// Creation Utilities
 
   /// \brief Returns a new node derived from WRegionNode node that
-  /// matches the construct type based on DirString. 
+  /// matches the construct type based on DirString.
   //  (eg create a WRNParRegion node if DirString is "dir.parallel")
-  static WRegionNode *createWRegion(StringRef DirString, 
-                                    BasicBlock *EntryBB, LoopInfo *LI);
+  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
+                                    LoopInfo *LI);
 
   /// \brief Similar to createWRegion, but for HIR vectorizer support
-  static WRegionNode *createWRegionHIR(StringRef        DirString,
+  static WRegionNode *createWRegionHIR(StringRef DirString,
                                        loopopt::HLNode *EntryHLNode);
 
   /// \brief Update WRGraph from processing intrinsic calls extracted
@@ -95,19 +90,19 @@ public:
   ///
   /// If it creates a WRN, then it returns a pointer to it. Otherwise,
   /// it just returns CurrentWRN.
-  static WRegionNode *updateWRGraphFromHIR (IntrinsicInst   *Call,
-                                            Intrinsic::ID   IntrinId,
-                                            WRContainerTy   *WRGraph,
-                                            WRegionNode     *CurrentWRN,
-                                            loopopt::HLNode *H);
+  static WRegionNode *updateWRGraphFromHIR(IntrinsicInst *Call,
+                                           Intrinsic::ID IntrinId,
+                                           WRContainerTy *WRGraph,
+                                           WRegionNode *CurrentWRN,
+                                           loopopt::HLNode *H);
 
   /// \brief Driver routine to build WRGraph based on HIR representation
   static WRContainerTy *buildWRGraphFromHIR();
 
-  /// \brief Extract the operands for a list-type clause. 
-  /// This is called by WRegionNode::handleQualOpndList() 
-  template <typename ClauseTy> static ClauseTy* extractQualOpndList
-                                      (IntrinsicInst* Call, ClauseTy *C);
+  /// \brief Extract the operands for a list-type clause.
+  /// This is called by WRegionNode::handleQualOpndList()
+  template <typename ClauseTy>
+  static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
 
   /// Removal Utilities
 
@@ -127,7 +122,6 @@ public:
   static void replace(WRegionNode *OldW, WRegionNode *NewW);
 };
 
-
 /// \brief This class is used to visit WRegionNode or WRContainerTy
 /// recursively.
 ///
@@ -138,18 +132,18 @@ public:
 ///
 /// Visitor (template class WV) needs to implement:
 ///
-/// 1) void preVisit() function for action done to each WRegionNode 
+/// 1) void preVisit() function for action done to each WRegionNode
 ///    before visiting its children.
-/// 2) void postVisit() functions for action done to each WRegionNode 
+/// 2) void postVisit() functions for action done to each WRegionNode
 ///    after visiting its children.
 /// 3) bool quitVisit() for early termination of the traversal.
 ///
 /// Sample visitor class:
 ///
 /// struct Visitor {
-///   void preVisit(WRegionNode* W)  { errs() << "preVisit node " 
+///   void preVisit(WRegionNode* W)  { errs() << "preVisit node "
 ///                                           << W->getNumber() << "\n"; }
-///   void postVisit(WRegionNode* W) { errs() << "postVisit node " 
+///   void postVisit(WRegionNode* W) { errs() << "postVisit node "
 ///                                           << W->getNumber() << "\n"; }
 ///   bool quitVisit(WRegionNode* W) { return false; }
 /// };
@@ -176,8 +170,7 @@ public:
   bool backwardVisit(WRContainerTy *C);
 };
 
-template <typename WV>
-bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
+template <typename WV> bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
   for (auto I = C->begin(), Next = I, E = C->end(); I != E; I = Next) {
     ++Next;
     if (visit(I, true))
@@ -186,11 +179,11 @@ bool WRNVisitor<WV>::forwardVisit(WRContainerTy *C) {
   return false;
 }
 
-template <typename WV>
-bool WRNVisitor<WV>::backwardVisit(WRContainerTy *C) {
-  for (auto RI = C->rbegin(), RNext = RI, RE=C->rend(); RI != RE; RI = RNext) {
+template <typename WV> bool WRNVisitor<WV>::backwardVisit(WRContainerTy *C) {
+  for (auto RI = C->rbegin(), RNext = RI, RE = C->rend(); RI != RE;
+       RI = RNext) {
     ++RNext;
-    if (visit(&(*RI), false)) 
+    if (visit(&(*RI), false))
       return true;
   }
   return false;
@@ -202,15 +195,14 @@ bool WRNVisitor<WV>::visit(WRegionNode *W, bool Forward) {
   // Execute user-defined action on W before visiting W's children
   Visitor.preVisit(W);
 
-  if (Visitor.quitVisit(W)) 
-    return true;  // early exit
+  if (Visitor.quitVisit(W))
+    return true; // early exit
 
   if (W->hasChildren()) {
     bool Ret;
     if (Forward) {
       Ret = forwardVisit(&(W->getChildren()));
-    }
-    else {
+    } else {
       Ret = backwardVisit(&(W->getChildren()));
     }
     if (Ret)
@@ -221,14 +213,12 @@ bool WRNVisitor<WV>::visit(WRegionNode *W, bool Forward) {
   Visitor.postVisit(W);
 
   /*
-  if (Visitor.quitVisit(W)) 
+  if (Visitor.quitVisit(W))
     return true;  // early exit
   */
 
   return false;
 }
-
-
 
 } // End VPO Namespace
 

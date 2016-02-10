@@ -1,13 +1,17 @@
+//===-- VPODriver.h ---------------------------------------------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
-//
-// This header file declares the base class for HIR transformation passes.
-//
+///
+/// \file
+/// This header file declares the base class for HIR transformation passes.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_VPO_VPODRIVER_H
@@ -43,8 +47,7 @@ protected:
   AVRGenerateBase *AV;
 
 public:
-
-  VPODriverBase(char &ID) : FunctionPass(ID) { };
+  VPODriverBase(char &ID) : FunctionPass(ID){};
   bool runOnFunction(Function &F) override;
 };
 
