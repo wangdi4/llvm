@@ -505,6 +505,11 @@ TEST_F(CL, Test_CheckExtensions)
     CheckExtensions();
 }
 
+TEST_F(CL, Test_QueryInvalidParamNameFromCQueue_Negative)
+{
+    QueryInvalidParamNameFromCQueue_Negative();
+}
+
 TEST(FrameworkTestType, Test_ClkEventAsKernelArg)
 {
     EXPECT_TRUE(ClkEventAsKernelArg());
