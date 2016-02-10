@@ -333,6 +333,33 @@ HLInst *HLNodeUtils::createFPExt(Type *DestTy, RegDDRef *RvalRef,
                            false, 0);
 }
 
+ HLInst *HLNodeUtils::createCastHLInst(unsigned Opcode, RegDDRef *Op,
+                                       Type *DestTy, RegDDRef *LvalRef,
+                                       const Twine &Name) {
+  switch(Opcode) {
+  case Instruction::FPToSI:
+    return createFPToSI(DestTy, Op, LvalRef, Name);
+  case Instruction::FPToUI:
+    return createFPToUI(DestTy, Op, LvalRef, Name);
+  case Instruction::SIToFP:
+    return createSIToFP(DestTy, Op, LvalRef, Name);
+  case Instruction::UIToFP:
+    return createUIToFP(DestTy, Op, LvalRef, Name);
+  case Instruction::FPExt:
+    return createFPExt(DestTy, Op, LvalRef, Name);
+  case Instruction::FPTrunc:
+    return createFPTrunc(DestTy, Op, LvalRef, Name);
+  case Instruction::SExt:
+    return createSExt(DestTy, Op, LvalRef, Name);
+  case Instruction::ZExt:
+    return createZExt(DestTy, Op, LvalRef, Name);
+  case Instruction::Trunc:
+    return createTrunc(DestTy, Op, LvalRef, Name);
+  default:
+    llvm_unreachable("Unexpected cast opcode");
+  }
+}
+
 HLInst *HLNodeUtils::createPtrToInt(Type *DestTy, RegDDRef *RvalRef,
                                     RegDDRef *LvalRef, const Twine &Name) {
   return createUnaryHLInst(Instruction::PtrToInt, LvalRef, RvalRef, Name,

@@ -455,6 +455,11 @@ public:
                                     RegDDRef *LvalRef = nullptr,
                                     const Twine &Name = "",
                                     const BinaryOperator *OrigBinOp = nullptr);
+
+  /// \brief Creates a new Cast instruction with specified opcode.
+  static HLInst *createCastHLInst(unsigned OpCode, RegDDRef *OpRef, Type *DestTy,
+                                  RegDDRef *LvalRef = nullptr,
+                                  const Twine &Name = "");
   /// \brief Creates a new Add instruction.
   static HLInst *createAdd(RegDDRef *OpRef1, RegDDRef *OpRef2,
                            RegDDRef *LvalRef = nullptr, const Twine &Name = "",
