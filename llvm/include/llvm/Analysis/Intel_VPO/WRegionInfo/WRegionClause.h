@@ -333,16 +333,18 @@ template <typename ClauseItem> class Clause
      void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
 
   public:
-    int getClauseID()        const { return ClauseID;     }
-    void setClauseID(int ID)       { ClauseID = ID;       }
-    int size()               const { return C.size();     }
-    int capacity()           const { return C.capacity(); }
-    ClauseItem front()       const { return C.front();    }
-    ClauseItem back()        const { return C.back();     }
-    ConstIterator begin()    const { return C.begin();    }
-    ConstIterator end()      const { return C.end();      }
-    Iterator begin()               { return C.begin();    }
-    Iterator end()                 { return C.end();      }
+    int getClauseID()               const { return ClauseID;     }
+    void setClauseID(int ID)              { ClauseID = ID;       }
+    int size()                      const { return C.size();     }
+    int capacity()                  const { return C.capacity(); }
+    const ClauseItem *front()       const { return C.front();    }
+    const ClauseItem *back()        const { return C.back();     }
+    ConstIterator begin()           const { return C.begin();    }
+    ConstIterator end()             const { return C.end();      }
+    Iterator begin()                      { return C.begin();    }
+    Iterator end()                        { return C.end();      }
+    ClauseItem *front()                   { return C.front();    }
+    ClauseItem *back()                    { return C.back();     }
 
     typedef iterator_range<Iterator> ItemsRange;
     typedef iterator_range<ConstIterator> ConstItemsRange;

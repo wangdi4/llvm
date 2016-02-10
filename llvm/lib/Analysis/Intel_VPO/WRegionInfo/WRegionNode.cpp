@@ -300,6 +300,41 @@ ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
 }
 #endif
 
+/// \brief Fill reduction info in ReductionItem \pRI
+static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
+  auto usedInOnlyOnePhiNode = [](Value *V) {
+    PHINode *Phi = 0;
+    for (auto U : V->users())
+      if (isa<PHINode>(U)) {
+        if (Phi) // More than one Phi node
+          return (PHINode *)nullptr;
+        Phi = cast<PHINode>(U);
+      }
+    return Phi;
+  };
+
+  Value *RedVarPtr = RI->getOrig();      
+  assert(isa<PointerType>(RedVarPtr->getType()) &&
+         "Variable specified in Reduction directive should be a pointer");
+
+  for (auto U : RedVarPtr->users()) {
+    if (!isa<LoadInst>(U))
+      continue;
+    if (auto PhiNode = usedInOnlyOnePhiNode(U)) {
+      RI->setInitializer(U);
+      if (PhiNode->getIncomingValue(0) == U)
+        RI->setCombiner(PhiNode->getIncomingValue(1));
+      else
+        RI->setCombiner(PhiNode->getIncomingValue(0));
+      break;
+    }
+  }
+  assert(RI->getInitializer() && RI->getCombiner() &&
+         "Reduction Item is not initialized");
+  StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
+  int ReductionClauseID = VPOUtils::getReductionClauseID(DirString);
+  RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
+}
 //
 // TODO1: This implementation does not yet support nonPOD and array section
 //        clause items. It also does not support the optional arguments at
@@ -348,18 +383,13 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_REDUCTION: {
     ReductionClause *C =
         WRegionUtils::extractQualOpndList<ReductionClause>(Call, getRed());
-    // Update reduction operation
-    StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-    int ReductionClauseID = VPOUtils::getReductionClauseID(DirString);
-    for (ReductionItem *RI : C->items())
-      if (RI->getType() == ReductionItem::WRNReductionError)
-        RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
-    setRed(C);
-    break;
-  }
-  default:
-    llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
-    break;
+      setRed(C);
+      setReductionItem(C->back(), Call);
+      break;
+    }
+    default:
+      llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
+      break;
   }
 }
 
