@@ -19,9 +19,12 @@ File Name:  ocl_recorder.cpp
 #include "stdafx.h"
 #include "ocl_recorder.h"
 #include "cl_device_api.h"
-#include <memory>
-#include <sstream>
-#include <assert.h>
+#include "cl_device_api.h"
+#include "IBufferContainerList.h"
+#include "BinaryDataWriter.h"
+#include "BufferContainerList.h"
+#include "BufferDesc.h"
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/MutexGuard.h"
 #include "llvm/Support/Casting.h"
@@ -35,11 +38,11 @@ File Name:  ocl_recorder.cpp
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/DataLayout.h"
-#include "cl_device_api.h"
-#include "IBufferContainerList.h"
-#include "BinaryDataWriter.h"
-#include "BufferContainerList.h"
-#include "BufferDesc.h"
+
+#include <assert.h>
+
+#include <memory>
+#include <sstream>
 
 #define MAX_LOG_PATH 512
 
@@ -64,6 +67,11 @@ namespace Validation
         TypeDesc ret;
         switch(type->getTypeID())
         {
+        case llvm::Type::HalfTyID:
+            {
+                ret.SetType(THALF);
+                break;
+            }
         case llvm::Type::FloatTyID:
             {
                 ret.SetType(TFLOAT);

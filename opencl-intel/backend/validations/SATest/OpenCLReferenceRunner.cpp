@@ -698,6 +698,7 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
     const PointerType *ptr = cast<PointerType>(argType);
     switch(ptr->getElementType()->getTypeID())
     {
+    case Type::HalfTyID:
     case Type::FloatTyID:
     case Type::DoubleTyID:
     case Type::IntegerTyID:
@@ -716,7 +717,7 @@ void* OpenCLReferenceRunner::GetPointerToTheArgValues( const IMemoryObject* buff
         }
         break;
     default:
-        throw TestReferenceRunnerException("Unhelded parameter type");
+        throw TestReferenceRunnerException("Unhandled parameter type");
     }
     return m_pointerArgs[m_pointerArgs.size() - 1];
 }

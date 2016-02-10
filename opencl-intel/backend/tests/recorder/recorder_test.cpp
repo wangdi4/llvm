@@ -773,6 +773,106 @@ TEST(OclRecorder, equal_arguments)
     recordDat6File.close();
 }
 
+TEST(OclRecorder, recording_half_ptr)
+{
+    setRecorderEnvVars();
+
+    cl_int returnResult = CL_SUCCESS;
+
+    cl_platform_id computePlatform = 0;
+
+    returnResult = clGetPlatformIDs(1, &computePlatform, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetPlatformIDs";
+
+    cl_context_properties prop[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)computePlatform, 0 };
+
+    cl_device_id computeDevices;
+    cl_uint num_devices_available = 0;
+    returnResult = clGetDeviceIDs(computePlatform, CL_DEVICE_TYPE_CPU, 1, &computeDevices, &num_devices_available);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clGetDeviceIDs";
+    ASSERT_TRUE(num_devices_available >=1 );
+
+    cl_context context = clCreateContext(prop, num_devices_available, &computeDevices, NULL, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateContext";
+
+    cl_command_queue queue = clCreateCommandQueue(context, computeDevices, 0, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateCommandQueue";
+
+    const char *kernelSrc = "__kernel void test_half( __global float *p, __global half *f ) { size_t i = get_global_id(0); vstore_half_rtn( p[i], i, f ); }";
+    const char *kernel_name = "test_half";
+
+    cl_program program = clCreateProgramWithSource(context, 1, &kernelSrc, NULL, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateProgramWithSource";
+
+    returnResult = clBuildProgram(program, 1, &computeDevices, NULL, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clBuildProgram";
+
+    cl_kernel kernel = clCreateKernel(program, kernel_name, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateKernel";
+
+    cl_float value_for_float_buffer = 5.5;
+    cl_mem globalMemFloatBuf = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR), sizeof(cl_float), &value_for_float_buffer, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
+
+    cl_half value_for_half_buffer = 10.5;
+    cl_mem globalMemHalfBuf = clCreateBuffer(context, (CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR), sizeof(cl_float), &value_for_half_buffer, &returnResult);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clCreateBuffer";
+
+    returnResult = clSetKernelArg(kernel, 0, sizeof(cl_mem), &globalMemFloatBuf);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    returnResult = clSetKernelArg(kernel, 1, sizeof(cl_mem), &globalMemHalfBuf);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clSetKernelArg";
+
+    size_t globalDim[]={ 1, 0, 0 }, localDim[]={ 1, 0, 0 };
+
+    // Run the kernel
+    returnResult = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, globalDim, localDim, 0, NULL, NULL);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clEnqueueNDRangeKernel";
+
+    returnResult = clFinish(queue);
+    ASSERT_EQ(CL_SUCCESS, returnResult) << "Function: clFinish";
+
+    clReleaseMemObject(globalMemFloatBuf);
+    clReleaseMemObject(globalMemHalfBuf);
+
+    clReleaseKernel(kernel);
+    clReleaseProgram(program);
+
+    clReleaseCommandQueue(queue);
+    clReleaseContext(context);
+
+    // List of all expected file names:
+    const char* const REC_CL_FILE_NAME  = "OclRecorderTest.recorder_test.10.cl";
+    const char* const REC_CFG_FILE_NAME  = "OclRecorderTest.recorder_test.cfg";
+    const char* const REC_DAT_FILE_NAME = "OclRecorderTest.recorder_test.test_half.dat";
+
+    std::fstream recordClFile(REC_CL_FILE_NAME);
+    std::fstream recordCfgFile(REC_CFG_FILE_NAME);
+    std::fstream recordDatFile(REC_DAT_FILE_NAME);
+
+#if defined(OCLFRONTEND_PLUGINS)
+
+    // These files must exist:
+    ASSERT_TRUE(recordClFile.good());
+    ASSERT_TRUE(recordCfgFile.good());
+    ASSERT_TRUE(recordDatFile.good());
+
+    // Delete files that exist
+    remove(REC_CL_FILE_NAME);
+    remove(REC_CFG_FILE_NAME);
+    remove(REC_DAT_FILE_NAME);
+#else
+    ASSERT_FALSE(recordClFile.good());
+    ASSERT_FALSE(recordCfgFile.good());
+    ASSERT_FALSE(recordDatFile.good());
+#endif // defined(OCLFRONTEND_PLUGINS)
+
+    recordClFile.close();
+    recordCfgFile.close();
+    recordDatFile.close();
+}
+
 int main(int argc, char** argv){
    ::testing::InitGoogleTest(&argc, argv);
    return RUN_ALL_TESTS();

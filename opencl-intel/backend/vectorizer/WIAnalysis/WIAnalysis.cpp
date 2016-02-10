@@ -413,7 +413,7 @@ void WIAnalysis::findDivergePartialJoins(const TerminatorInst *inst) {
   }
 }
 
-static bool phiHasEqualIncomignValues(PHINode* phi) {
+static bool phiHasEqualIncomingValues(PHINode* phi) {
   for (unsigned int i = 1; i < phi->getNumIncomingValues(); i++) {
     if (phi->getIncomingValue(0) != phi->getIncomingValue(i)) {
       return false;
@@ -435,7 +435,7 @@ void WIAnalysis::markDependentPhiRandom() {
         ++instItr) {
 
       if (PHINode* phi = dyn_cast<PHINode>(instItr)) {
-         if (!phiHasEqualIncomignValues(phi)) {
+         if (!phiHasEqualIncomingValues(phi)) {
            updateDepMap(phi, WIAnalysis::RANDOM);
          }
       }
@@ -454,7 +454,7 @@ void WIAnalysis::markDependentPhiRandom() {
         instItr != (*blkItr)->end();
         ++instItr) {
       if (PHINode* phi = dyn_cast<PHINode>(instItr)) {
-         if (!phiHasEqualIncomignValues(phi)) {
+         if (!phiHasEqualIncomingValues(phi)) {
            updateDepMap(phi, WIAnalysis::RANDOM);
          }
       }
