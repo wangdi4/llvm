@@ -9,7 +9,7 @@ VectorVariant::VectorVariant(StringRef FuncName) {
 
   assert(isVectorVariant(FuncName) && "invalid vector variant format");
 
-  std::stringstream SST(FuncName.drop_front(PREFIX().size()));
+  std::stringstream SST(FuncName.drop_front(prefix().size()));
 
   // mandatory annotations
   char EncodedISA;
@@ -25,7 +25,7 @@ VectorVariant::VectorVariant(StringRef FuncName) {
   while (SST.peek() != '_') {
 
     char Kind;
-    int Stride = VectorKind::NA();
+    int Stride = VectorKind::notAValue();
     int StrideSign = POSITIVE;
     int Alignment = NOT_ALIGNED;
 
@@ -65,7 +65,7 @@ VectorVariant::VectorVariant(StringRef FuncName) {
 
   if (Mask) {
     // Masked variants will have an additional mask parameter
-    VectorKind VecKind(VECTOR_KIND, VectorKind::NA());
+    VectorKind VecKind(VECTOR_KIND, VectorKind::notAValue());
     Parameters.push_back(VecKind);
   }
 }

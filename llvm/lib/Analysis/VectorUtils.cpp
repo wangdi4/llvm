@@ -818,7 +818,6 @@ std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
 
 Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
 {
-  ISAClass ISA = Variant.getISA();
   Type* ReturnType = F.getReturnType();
   Type* CharacteristicDataType = NULL;
 
@@ -848,7 +847,7 @@ Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
 
   // Promote char/short types to int for Xeon Phi.
   CharacteristicDataType =
-    VectorVariant::promoteToSupportedType(CharacteristicDataType, ISA);
+    VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
 
   if (CharacteristicDataType->isPointerTy()) {
     // For such cases as 'int* foo(int x)', where x is a non-vector type, the

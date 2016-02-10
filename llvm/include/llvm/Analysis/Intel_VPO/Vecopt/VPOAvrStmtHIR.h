@@ -7,11 +7,12 @@
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrStmtHIR.h -- Defines the Abstract Vector Representation (AVR) stmt
-//   nodes for HIR
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This header file defines the Abstract Vector Representation (AVR) stmt
+/// nodes for HIR
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H
@@ -34,20 +35,18 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRAssignHIR : public AVRAssign {
 
 private:
-
   /// HLInst - Underlying HIR HLInst node for this Assignment
   HLInst *Instruct;
 
 protected:
-
   /// \brief AVRAssignHIR Object Constructor.
   AVRAssignHIR(HLInst *Instr);
 
   /// \brief AVRAssignHIR Object Destructor.
   virtual ~AVRAssignHIR() override {}
 
-  /// \brief Copy Constructor. 
-  AVRAssignHIR (const AVRAssignHIR &AVRAssignHIR);
+  /// \brief Copy Constructor.
+  AVRAssignHIR(const AVRAssignHIR &AVRAssignHIR);
 
   /// \brief Sets up state object.
   void initialize();
@@ -56,7 +55,6 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   /// \brief Returns the HIR Instruction
   HLInst *getHIRInstruction() { return Instruct; }
 
@@ -79,13 +77,11 @@ public:
 class AVRExpressionHIR : public AVRExpression {
 
 private:
-
   /// HLAssign - HIR Inst node which this is expression is built from.
   HLInst *HIRNode;
 
 protected:
-
-  /// \brief Constructs an AVRExpressionHIR given an AVRAssignHIR node and 
+  /// \brief Constructs an AVRExpressionHIR given an AVRAssignHIR node and
   /// LHS/RHS specifier.
   AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand AOp);
 
@@ -96,7 +92,6 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   /// \brief Clone method for AVRExpressionHIR.
   AVRExpressionHIR *clone() const override;
 
@@ -113,9 +108,7 @@ public:
 
   /// \brief Returns the Opcode name of this expression's operation.
   virtual std::string getOpCodeName() const override;
-
 };
-
 
 //----------AVR Value Node for HIR----------//
 /// \brief Avr Value node for HIR.
@@ -124,7 +117,6 @@ public:
 class AVRValueHIR : public AVRValue {
 
 private:
-
   /// Val - The HIR RegDDref for this AVR Value
   RegDDRef *Val;
 
@@ -135,8 +127,7 @@ private:
   Type *ValType;
 
 protected:
-
-  /// \brief Constructs an AVRValueHIR node for the operand in HLInst node  
+  /// \brief Constructs an AVRValueHIR node for the operand in HLInst node
   ///  specified by DDRef.
   AVRValueHIR(RegDDRef *DDRef, HLInst *Inst);
 
@@ -147,7 +138,6 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   /// \brief Clone method for AVRValueHIR.
   AVRValueHIR *clone() const override;
 
@@ -172,7 +162,6 @@ private:
   HLNode *Instruct;
 
 protected:
-
   AVRLabelHIR(HLNode *Instr);
   virtual ~AVRLabelHIR() override {}
 
@@ -181,7 +170,7 @@ protected:
 
 public:
   /// \brief returns HIR Instruction assoicated with this Label.
-  const HLNode *getHIRInstruction () const { return Instruct; }
+  const HLNode *getHIRInstruction() const { return Instruct; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
@@ -235,6 +224,6 @@ public:
 };
 
 } // End VPO Vectorizer Namespace
-} // End LLVM Namespace 
+} // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H
+#endif // LLVM_ANALYSIS_VPO_AVR_STMT_HIR_H

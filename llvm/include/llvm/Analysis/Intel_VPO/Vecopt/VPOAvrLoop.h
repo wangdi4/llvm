@@ -1,16 +1,17 @@
 //===------------------------------------------------------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrLoop.h -- Defines the Abstract Vector Representation (AVR) loop node.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This header file defines the Abstract Vector Representation (AVR) loop node.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_LOOP_H
@@ -23,7 +24,7 @@ namespace llvm { // LLVM Namespace
 
 class Loop;
 
-namespace vpo {  // VPO Vectorizer Namespace
+namespace vpo { // VPO Vectorizer Namespace
 
 /// \brief Loop node abstract vector representation
 ///
@@ -31,7 +32,6 @@ namespace vpo {  // VPO Vectorizer Namespace
 class AVRLoop : public AVR {
 
 public:
-
   /// List Container of AVRFunction's children nodes.
   typedef AVRContainerTy ChildrenTy;
 
@@ -54,14 +54,13 @@ public:
   typedef ChildrenTy::const_reverse_iterator const_reverse_post_iterator;
 
 private:
-
   /// WRNVecLoop Node.
   WRNVecLoopNode *WrnLoopNode;
   /// Pointer to original LLVM loop.
   const Loop *LLVMLoop;
   /// Loop nesting level.
   unsigned NestingLevel;
-  /// Number of loop exits. 
+  /// Number of loop exits.
   unsigned NumberOfExits;
   /// Loop is of form Do-While.
   bool IsDoWhile;
@@ -87,7 +86,6 @@ private:
   // TODO: PHI Node
 
 protected:
-
   // Interface to create AVRLoop from LLVM Loop.
   AVRLoop(const Loop *Lp);
 
@@ -116,18 +114,18 @@ protected:
 
   /// \brief Sets loop as an auto-vectorization candidate.
   void setAutoVectorCandidate(bool AutoVectorCand) {
-    IsAutoVectorCandidate = AutoVectorCand; }
+    IsAutoVectorCandidate = AutoVectorCand;
+  }
 
   /// \brief Sets loop as an explicit-vectorization candidate.
   void setExplicitVectorCandidate(bool ExplicitVectorCand) {
-    IsExplicitVectorCandidate = ExplicitVectorCand; }
+    IsExplicitVectorCandidate = ExplicitVectorCand;
+  }
 
   /// Only this utility class should be use to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
-
-
   /// \brief Set WRNVecLoopNode
   void setWrnVecLoopNode(WRNVecLoopNode *WRN) { WrnLoopNode = WRN; }
 
@@ -147,7 +145,7 @@ public:
   bool isDoWhileLoop() const { return IsDoWhile; }
 
   /// \brief Returns the number of exits of the loop.
-  unsigned getNumExits() const {return NumberOfExits; }
+  unsigned getNumExits() const { return NumberOfExits; }
 
   /// \brief Returns true is loop is innermost
   bool isInnerMost() const { return IsInnerMost; }
@@ -161,13 +159,14 @@ public:
   /// \brief Returns true is loop is a candidate for explicit vectorization.
   bool isExplicitVectorCandidate() const { return IsExplicitVectorCandidate; }
 
-
   // Loop Children Iterators
 
   child_iterator child_begin() { return Children.begin(); }
   const_child_iterator child_begin() const { return Children.begin(); }
   reverse_child_iterator child_rbegin() { return Children.rbegin(); }
-  const_reverse_child_iterator child_rbegin() const { return Children.rbegin(); }
+  const_reverse_child_iterator child_rbegin() const {
+    return Children.rbegin();
+  }
   child_iterator child_end() { return Children.end(); }
   const_child_iterator child_end() const { return Children.end(); }
   reverse_child_iterator child_rend() { return Children.rend(); }
@@ -175,9 +174,7 @@ public:
 
   typedef iterator_range<child_iterator> LoopNodesRange;
 
-  LoopNodesRange  nodes() {
-    return LoopNodesRange(child_begin(), child_end());
-  }
+  LoopNodesRange nodes() { return LoopNodesRange(child_begin(), child_end()); }
 
   // Children Methods
 
@@ -218,14 +215,13 @@ public:
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
 
-  AVRLoop *clone() const override; 
+  AVRLoop *clone() const override;
 
   /// \brief Code generation for AVR loop.
   void codeGen() override;
 };
 
-
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_LOOP_H
+#endif // LLVM_ANALYSIS_VPO_AVR_LOOP_H

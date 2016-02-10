@@ -32,40 +32,40 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionInfo.h"
 
-enum VPOParoptMode {
-  PAROPTOFF  = 0x00000000,
-  OMPVEC     = 0x00000001,
-  OMPPAR     = 0x00000002, 
-  OMPOFFLOAD = 0x00000004,
-  AUTOVEC    = 0x00000008, 
-  AUTOPAR    = 0x00000010
-};
-
 namespace llvm {
 
 class ModulePass;
 
 namespace vpo {
 
+enum VPOParoptMode {
+  PAROPTOFF = 0x00000000,
+  OMPVEC = 0x00000001,
+  OMPPAR = 0x00000002,
+  OMPOFFLOAD = 0x00000004,
+  AUTOVEC = 0x00000008,
+  AUTOPAR = 0x00000010
+};
+
 /// \brief VPOParopt class for performing parallelization and offloading
 class VPOParopt : public ModulePass {
 
-  public:
-    /// Pass Identification
-    static char ID;
+public:
+  /// Pass Identification
+  static char ID;
 
-    VPOParopt();
-   ~VPOParopt() {};
+  VPOParopt();
+  ~VPOParopt(){};
 
-    const char *getPassName() const override {return "VPO Paropt Pass";}
+  const char *getPassName() const override { return "VPO Paropt Pass"; }
 
-    bool runOnModule(Module &M) override;
-    virtual void getAnalysisUsage(AnalysisUsage &AU) const;
+  bool runOnModule(Module &M) override;
+  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
-    //void print(raw_ostream &OS, const Module * = nullptr) const override;
+  // void print(raw_ostream &OS, const Module * = nullptr) const override;
 
-  private:
-    WRegionInfo *WI;
+private:
+  WRegionInfo *WI;
 };
 
 } // end namespace vpo
