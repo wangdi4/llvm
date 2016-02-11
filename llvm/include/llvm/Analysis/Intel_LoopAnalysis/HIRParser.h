@@ -169,7 +169,8 @@ private:
   void parse(HLLoop *HLoop);
   void postParse(HLLoop *HLoop);
 
-  void parse(HLIf *If);
+  // Non-null loop paramter indicates If is a Ztt.
+  void parse(HLIf *If, HLLoop *HLoop = nullptr);
   void postParse(HLIf *If) {}
 
   void parse(HLSwitch *Switch);

@@ -124,7 +124,7 @@ void HLIf::printHeaderImpl(formatted_raw_ostream &OS, unsigned Depth,
     FirstPred = false;
   }
 
-  OS << ")\n";
+  OS << ")";
 }
 
 void HLIf::printHeader(formatted_raw_ostream &OS, unsigned Depth) const {
@@ -140,6 +140,7 @@ void HLIf::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   printHeader(OS, Depth);
+  OS << "\n";
 
   HLDDNode::print(OS, Depth, Detailed);
 

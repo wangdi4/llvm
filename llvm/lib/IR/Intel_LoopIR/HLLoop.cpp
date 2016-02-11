@@ -36,9 +36,9 @@ void HLLoop::initialize() {
 }
 
 // IsInnermost flag is initialized to true, please refer to the header file.
-HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
+HLLoop::HLLoop(const Loop *LLVMLoop)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(LLVMLoop), Ztt(nullptr),
-      IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
+      NestingLevel(0), IsInnermost(true) {
   assert(LLVMLoop && "LLVM loop cannot be null!");
 
   SmallVector<BasicBlock *, 8> Exits;
@@ -50,11 +50,9 @@ HLLoop::HLLoop(const Loop *LLVMLoop, bool IsDoWh)
 
 // IsInnermost flag is initialized to true, please refer to the header file.
 HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
-               RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx)
+               RegDDRef *StrideDDRef, unsigned NumEx)
     : HLDDNode(HLNode::HLLoopVal), OrigLoop(nullptr), Ztt(nullptr),
-      IsDoWhile(IsDoWh), NestingLevel(0), IsInnermost(true) {
-  assert((!ZttIf || !IsDoWh) && "Do while loop cannot have ztt!");
-
+      NestingLevel(0), IsInnermost(true) {
   initialize();
   setNumExits(NumEx);
 
@@ -81,22 +79,29 @@ HLLoop::HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
 HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
                LabelMapTy *LabelMap, bool CloneChildren)
     : HLDDNode(HLLoopObj), OrigLoop(HLLoopObj.OrigLoop), Ztt(nullptr),
-      IsDoWhile(HLLoopObj.IsDoWhile), NumExits(HLLoopObj.NumExits),
-      NestingLevel(0), IsInnermost(true), IVType(HLLoopObj.IVType) {
-
-  const RegDDRef *Ref;
+      NumExits(HLLoopObj.NumExits), NestingLevel(0), IsInnermost(true),
+      IVType(HLLoopObj.IVType) {
 
   initialize();
 
   /// Clone the Ztt
   if (HLLoopObj.hasZtt()) {
     setZtt(HLLoopObj.Ztt->clone());
+
+    auto ZttRefIt = HLLoopObj.ztt_ddref_begin();
+
+    for(auto ZIt = ztt_pred_begin(), EZIt = ztt_pred_end(); ZIt != EZIt; ++ZIt) {
+      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, true);
+      ++ZttRefIt;
+      setZttPredicateOperandDDRef((*ZttRefIt)->clone(), ZIt, false);
+      ++ZttRefIt;
+    }
   }
 
   /// Clone loop RegDDRefs
-  setLowerDDRef((Ref = HLLoopObj.getLowerDDRef()) ? Ref->clone() : nullptr);
-  setUpperDDRef((Ref = HLLoopObj.getUpperDDRef()) ? Ref->clone() : nullptr);
-  setStrideDDRef((Ref = HLLoopObj.getStrideDDRef()) ? Ref->clone() : nullptr);
+  setLowerDDRef(HLLoopObj.getLowerDDRef()->clone());
+  setUpperDDRef(HLLoopObj.getUpperDDRef()->clone());
+  setStrideDDRef(HLLoopObj.getStrideDDRef()->clone());
 
   // Avoid cloning children and preheader/postexit.
   if (!CloneChildren)
@@ -166,9 +171,15 @@ HLLoop *HLLoop::cloneCompleteEmptyLoop() const {
 void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
                    bool Detailed) const {
   const RegDDRef *Ref;
+  bool FirstPreInst = true;
 
   /// Print preheader
   for (auto I = pre_begin(), E = pre_end(); I != E; I++) {
+    if (FirstPreInst) {
+      indent(OS, Depth);
+      OS << "\n";
+      FirstPreInst = false;
+    }
     I->print(OS, Depth + 1, false);
   }
 
@@ -197,7 +208,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
 
   indent(OS, Depth);
   /// Print header
-  if (getUpperDDRef() && (isDo() || isDoWhile() || isDoMultiExit())) {
+  if (getUpperDDRef() && (isDo() || isDoMultiExit())) {
     OS << "+ DO ";
     if (Detailed) {
       getIVType()->print(OS);
@@ -218,8 +229,6 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
     OS.indent(IndentWidth);
     if (isDo()) {
       OS << "<DO_LOOP>";
-    } else if (isDoWhile()) {
-      OS << "<DO_WHILE_LOOP>";
     } else if (isDoMultiExit()) {
       OS << "<DO_MULTI_EXIT_LOOP>";
     }
@@ -245,6 +254,11 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   /// Print postexit
   for (auto I = post_begin(), E = post_end(); I != E; I++) {
     I->print(OS, Depth + 1, Detailed);
+  }
+
+  if (hasPostexit()) {
+    indent(OS, Depth);
+    OS << "\n";
   }
 }
 
@@ -422,6 +436,7 @@ void HLLoop::setZtt(HLIf *ZttIf) {
          "Ztt cannot have any children!");
 
   Ztt = ZttIf;
+  Ztt->setParent(this);
 
   RegDDRefs.resize(getNumOperandsInternal(), nullptr);
 
@@ -435,7 +450,10 @@ void HLLoop::setZtt(HLIf *ZttIf) {
 }
 
 HLIf *HLLoop::removeZtt() {
-  assert(hasZtt() && "Loop doesn't have ztt!");
+
+  if (!hasZtt()) {
+    return nullptr;
+  }
 
   HLIf *If = Ztt;
 
@@ -662,6 +680,47 @@ void HLLoop::createZtt(bool IsOverwrite) {
   setZtt(ZttIf);
 }
 
+HLIf *HLLoop::extractZtt() {
+
+  if (!hasZtt()) {
+    return nullptr;
+  }
+
+  HLIf *Ztt = removeZtt();
+
+  HLNodeUtils::insertBefore(this, Ztt);
+  HLNodeUtils::moveAsFirstChild(Ztt, this, true);
+
+  return Ztt;
+}
+
+void HLLoop::extractPreheader() {
+
+  if (!hasPreheader()) {
+    return;
+  }
+
+  extractZtt();
+
+  HLNodeUtils::moveBefore(this, pre_begin(), pre_end());
+}
+
+void HLLoop::extractPostexit() {
+
+  if (!hasPostexit()) {
+    return;
+  }
+
+  extractZtt();
+
+  HLNodeUtils::moveAfter(this, post_begin(), post_end());
+}
+
+void HLLoop::extractPreheaderAndPostexit() {
+  extractPreheader();
+  extractPostexit();
+}
+
 void HLLoop::verify() const {
   HLDDNode::verify();
 
@@ -688,14 +747,6 @@ void HLLoop::verify() const {
   // if (Ztt) {
   //  Ztt->verify();
   //}
-
-  for (auto I = pre_begin(), E = pre_end(); I != E; ++I) {
-    assert(isa<HLInst>(*I) && "All nodes in preheader must be HLInst");
-  }
-
-  for (auto I = post_begin(), E = post_end(); I != E; ++I) {
-    assert(isa<HLInst>(*I) && "All nodes in postexit must be HLInst");
-  }
 
   assert((!getParentLoop() ||
           (getNestingLevel() == getParentLoop()->getNestingLevel() + 1)) &&

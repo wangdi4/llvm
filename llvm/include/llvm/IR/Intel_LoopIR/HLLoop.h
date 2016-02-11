@@ -78,8 +78,6 @@ private:
   ChildNodeTy::iterator ChildBegin;
   /// Iterator pointing to beginning of postexit nodes.
   ChildNodeTy::iterator PostexitBegin;
-  /// This flag shouldn't change during the lifetime of the loop.
-  const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
   // This flag indicates if the loop is innermost or not. All loops are created
@@ -92,9 +90,9 @@ private:
   unsigned MVTag = 0;
 
 protected:
-  HLLoop(const Loop *LLVMLoop, bool IsDoWh);
+  HLLoop(const Loop *LLVMLoop);
   HLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef, RegDDRef *UpperDDRef,
-         RegDDRef *StrideDDRef, bool IsDoWh, unsigned NumEx);
+         RegDDRef *StrideDDRef, unsigned NumEx);
 
   /// HLNodes are destroyed in bulk using HLNodeUtils::destroyAll(). iplist<>
   /// tries to access and destroy the nodes if we don't clear them out here.
@@ -107,9 +105,13 @@ protected:
          LabelMapTy *LabelMap, bool CloneChildren);
 
   friend class HLNodeUtils;
+  friend class HIRParser; // accesses ZTT
 
   /// \brief Initializes some of the members to bring the loop in a sane state.
   void initialize();
+
+  /// \brief Returns the Ztt of the loop.
+  HLIf *getZtt() { return Ztt; }
 
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
@@ -163,7 +165,8 @@ public:
   /// \brief sets the Ztt for HLLoop.
   void setZtt(HLIf *ZttIf);
 
-  /// \brief Removes and returns the Ztt for HLLoop.
+  /// \brief Removes and returns the Ztt for HLLoop if it exists, else returns
+  /// nullptr.
   HLIf *removeZtt();
 
   /// \brief Removes and returns the OrigLoop
@@ -172,6 +175,10 @@ public:
   /// \brief Creates a Ztt for HLLoop. IsOverwrite flag
   /// indicates to overwrite existing Ztt or not.
   void createZtt(bool IsOverwrite = true);
+
+  /// \brief Hoists the Ztt out of the loop. It returns a handle to the Ztt or
+  /// nullptr if it doesn't exist.
+  HLIf *extractZtt();
 
   /// ZTT Predicate iterator methods
   const_ztt_pred_iterator ztt_pred_begin() const {
@@ -293,17 +300,14 @@ public:
   bool isDo() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->containsUndef());
+    return ((NumExits == 1) && !UpperDDRef->containsUndef());
   }
-
-  /// \brief Returns true if this is a do-while loop.
-  bool isDoWhile() const { return IsDoWhile; }
 
   /// \brief Returns true if this is a do multi-exit loop.
   bool isDoMultiExit() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->containsUndef());
+    return ((NumExits > 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is an unknown loop.
@@ -366,6 +370,10 @@ public:
   /// \brief Returns true if preheader is not empty.
   bool hasPreheader() const { return (pre_begin() != pre_end()); }
 
+  /// \brief Moves preheader nodes before the loop. Ztt is extracted first, if
+  /// present.
+  void extractPreheader();
+
   /// Postexit iterator methods
   post_iterator post_begin() { return PostexitBegin; }
   const_post_iterator post_begin() const { return PostexitBegin; }
@@ -402,6 +410,14 @@ public:
   }
   /// \brief Returns true if postexit is not empty.
   bool hasPostexit() const { return (post_begin() != post_end()); }
+
+  /// \brief Moves postexit nodes after the loop. Ztt is extracted first, if
+  /// present.
+  void extractPostexit();
+
+  /// \brief Moves preheader nodes before the loop and postexit nodes after the
+  /// loop. Ztt is extracted first, if present.
+  void extractPreheaderAndPostexit();
 
   /// Children iterator methods
   child_iterator child_begin() { return pre_end(); }

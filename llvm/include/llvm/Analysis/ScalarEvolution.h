@@ -961,6 +961,9 @@ namespace llvm {
     /// Returns a backedge taken count suitable for HIR consumption.
     const SCEV *getBackedgeTakenCountForHIR(const Loop *Lp, 
                                             const Loop *OutermostLoop);
+
+    /// isLoopZtt - Returns true if ZttInst represents the ztt of the loop. 
+    bool isLoopZtt(const Loop *Lp, const BranchInst *ZttInst);
 #endif  // INTEL_CUSTOMIZATION
 
     /// Similar to getBackedgeTakenCount, except return the least SCEV value

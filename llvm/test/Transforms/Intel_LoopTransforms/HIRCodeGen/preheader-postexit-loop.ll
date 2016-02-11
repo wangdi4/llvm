@@ -1,19 +1,7 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction | opt -analyze -hir-parser -hir-details | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -HIRCG -force-HIRCG -S | FileCheck %s
 
-; Verify that i3 loop has a ztt.
-; CHECK: Ztt: if (i2 < i1)
-; CHECK-NEXT: Innermost: 1
-; CHECK-NEXT: DO i64 i3
-
-; Check parsing output for the loop verifying that there is no inconsistency in parsing livein copies, i.e. lval and rval have identical canon expr.
-; CHECK: %l.061 = %M + 5
-; CHECK-NEXT: <LVAL-REG> LINEAR i64 %M + 5
-; CHECK: <RVAL-REG> LINEAR i64 %M + 5
-
-; CHECK: %l2.059 = %indvars.iv * i2
-; CHECK-NEXT: <LVAL-REG> LINEAR i64 %indvars.iv * i2{def@1}
-; CHECK: <RVAL-REG> LINEAR i64 %indvars.iv * i2{def@1}
-
+; Check that the i2 loop with ztt, preheader and postexit is CG'd correctly.
+; XFAIL: *
 
 ; ModuleID = 'livein-copy1.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

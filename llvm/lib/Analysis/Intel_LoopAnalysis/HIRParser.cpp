@@ -1136,7 +1136,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
   } else if (auto CastSCEV = dyn_cast<SCEVCastExpr>(SC)) {
 
     // Look ahead and check if this zero extension cast contains a non-generable
-    // IV inside. We need to parse the top most convert as a blob to aviod cases
+    // IV inside. We need to parse the top most convert as a blob to avoid cases
     // where the linear SCEV has no corresponding value associated with it due
     // to IV widening.
     if (isa<SCEVZeroExtendExpr>(CastSCEV)) {
@@ -1148,7 +1148,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
         auto HLoop = LF->findHLLoop(Lp);
         assert(HLoop && "Could not find HIR loop!");
 
-        if (!HLNodeUtils::contains(HLoop, CurNode)) {
+        if (!HLNodeUtils::contains(HLoop, CurNode, false)) {
           parseBlob(CastSCEV, CE, Level);
           return;
         }
@@ -1213,7 +1213,7 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
     // {0, +, {0,+,1}<i1> }<i2>
     if (!RecSCEV->isAffine() || (BaseAddRec && !BaseAddRec->isAffine()) ||
         (StepAddRec && !StepAddRec->isAffine()) ||
-        !HLNodeUtils::contains(HLoop, CurNode)) {
+        !HLNodeUtils::contains(HLoop, CurNode, false)) {
       parseBlob(SC, CE, Level);
 
     } else {
@@ -1396,6 +1396,11 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setUpperDDRef(UpperRef);
   }
   // TODO: assert that SIMD loops are always DO loops.
+ 
+  // Parse ztt. 
+  if (HLoop->hasZtt()) {
+    parse(HLoop->getZtt(), HLoop);
+  }
 }
 
 void HIRParser::postParse(HLLoop *HLoop) {
@@ -1447,7 +1452,7 @@ void HIRParser::parseCompare(const Value *Cond, unsigned Level,
   *RHSDDRef = createUndefDDRef(Cond->getType());
 }
 
-void HIRParser::parse(HLIf *If) {
+void HIRParser::parse(HLIf *If, HLLoop *HLoop) {
   PredicateTy Pred;
   RegDDRef *LHSDDRef, *RHSDDRef;
 
@@ -1461,9 +1466,15 @@ void HIRParser::parse(HLIf *If) {
 
   parseCompare(IfCond, CurLevel, &Pred, &LHSDDRef, &RHSDDRef);
 
-  If->replacePredicate(If->pred_begin(), Pred);
-  If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
-  If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+  if (HLoop) {
+    HLoop->replaceZttPredicate(BeginPredIter, Pred);
+    HLoop->setZttPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
+    HLoop->setZttPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+  } else {
+    If->replacePredicate(BeginPredIter, Pred);
+    If->setPredicateOperandDDRef(LHSDDRef, BeginPredIter, true);
+    If->setPredicateOperandDDRef(RHSDDRef, BeginPredIter, false);
+  }
 }
 
 void HIRParser::parse(HLSwitch *Switch) {

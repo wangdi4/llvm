@@ -249,13 +249,13 @@ private:
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
         unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
-        
+
         // SCEVExpander can create its own SCEVs as intermediates which are
         // then expanded. One example is expandAddToGep which replaces
         // adds of ptr types with a SCEV for a gep instead of ptrtoints
-        // and adds. These new scevunknowns have an instruction but no 
+        // and adds. These new scevunknowns have an instruction but no
         // corresponding blob. For those, return their underlying value
-        if(BlobSymbase == CanonExpr::INVALID_BLOB_INDEX)  {
+        if (BlobSymbase == CanonExpr::INVALID_BLOB_INDEX) {
           return V;
         }
 
@@ -337,7 +337,7 @@ private:
   };
 
   // Performs the necessary HIR Level transformations before visiting
-  // CodeGen. Example: hoists the Ztt above the loop.
+  // CodeGen like extracting ztt.
   void preVisitCG(HLRegion *Reg) const;
 
 public:
@@ -415,10 +415,10 @@ void HIRCodeGen::preVisitCG(HLRegion *Reg) const {
   SmallVector<HLLoop *, 64> Loops;
   HLNodeUtils::gatherAllLoops(Reg, Loops);
 
-  // Perform only Ztt hoisting.
-  // Preheader/Postexit will be handled later.
+  // Extract ztt, preheader and postexit.
   for (auto &I : Loops) {
-    HLNodeUtils::hoistZtt(I);
+    I->extractZtt();
+    I->extractPreheaderAndPostexit();
   }
 }
 
@@ -807,50 +807,43 @@ Value *HIRCodeGen::CGVisitor::visitIf(HLIf *HIf) {
   return nullptr;
 }
 
-Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
-  if (L->hasZtt())
-    llvm_unreachable("Unimpl CG for Loop Ztt");
-
-  // undef ref. TODO define isDoLoop
-  // if(!L->isDoLoop()) {
-  //  llvm_unreachable("Unimpl CG for non do loops");
-  //}
-
-  if (L->hasPreheader())
-    llvm_unreachable("Unimpl CG for phdr");
+Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *Lp) {
+  assert(!Lp->hasZtt() && "Ztt should have been extracted!");
+  assert((!Lp->hasPreheader() && !Lp->hasPostexit()) &&
+         "Preheader/Postexit should have been extracted!");
 
   // set up IV, I think we can reuse the IV allocation across
   // multiple loops of same depth
-  std::string IVName = getIVName(L);
-  AllocaInst *Alloca = getNamedValue(IVName, L->getIVType());
+  std::string IVName = getIVName(Lp);
+  AllocaInst *Alloca = getNamedValue(IVName, Lp->getIVType());
 
   // Keep a stack of IV values. CanonExpr CG needs to know types
   // of loop IV itself, but this information is not available from
   // CE
   CurIVValues.push_back(Alloca);
 
-  Value *StartVal = visitRegDDRef(L->getLowerDDRef());
+  Value *StartVal = visitRegDDRef(Lp->getLowerDDRef());
 
   if (!StartVal || !Alloca)
     llvm_unreachable("Failed to CG IV");
 
-  assert(StartVal->getType() == L->getIVType() &&
+  assert(StartVal->getType() == Lp->getIVType() &&
          "IVtype does not match start type");
 
   Builder->CreateStore(StartVal, Alloca);
 
   // step and upper are loop invariant, we can generate them
   //"outside" the loop
-  Value *StepVal = visitRegDDRef(L->getStrideDDRef());
+  Value *StepVal = visitRegDDRef(Lp->getStrideDDRef());
 
-  Value *Upper = visitRegDDRef(L->getUpperDDRef());
+  Value *Upper = visitRegDDRef(Lp->getUpperDDRef());
 
-  assert(StepVal->getType() == L->getIVType() &&
+  assert(StepVal->getType() == Lp->getIVType() &&
          "IVtype does not match stepval type");
-  assert(Upper->getType() == L->getIVType() &&
+  assert(Upper->getType() == Lp->getIVType() &&
          "IVtype does not match upper type");
 
-  std::string LName = "loop." + std::to_string(L->getNumber());
+  std::string LName = "loop." + std::to_string(Lp->getNumber());
   BasicBlock *LoopBB = BasicBlock::Create(F->getContext(), LName, F);
 
   // explicit fallthru to loop, terminates current bblock
@@ -858,7 +851,7 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
   Builder->SetInsertPoint(LoopBB);
 
   // CG children
-  for (auto It = L->child_begin(), E = L->child_end(); It != E; ++It) {
+  for (auto It = Lp->child_begin(), E = Lp->child_end(); It != E; ++It) {
     // a loop might not return anything. Error checking is on callee
     visit(*It);
   }
@@ -877,10 +870,6 @@ Value *HIRCodeGen::CGVisitor::visitLoop(HLLoop *L) {
 
   // new code goes after loop
   Builder->SetInsertPoint(AfterBB);
-
-  // set up postexit
-  if (L->hasPostexit())
-    llvm_unreachable("Unimpl CG for postexit");
 
   CurIVValues.pop_back();
 

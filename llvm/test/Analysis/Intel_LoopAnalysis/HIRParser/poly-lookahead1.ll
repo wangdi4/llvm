@@ -7,9 +7,7 @@
 ; CHECK-NEXT: %qb.041.out.1 = %qb.041;
 ; CHECK-NEXT: %indvars.iv42.out = %indvars.iv42;
 ; CHECK-NEXT: %indvars.iv44.out = %indvars.iv44;
-; CHECK-NEXT: if (i1 + 1 > 1)
-; CHECK-NEXT: {
-; CHECK-NEXT: %2 = i1 + -1  *  i1 + -2;
+; CHECK: %2 = i1 + -1  *  i1 + -2;
 ; CHECK-NEXT: %qb.135 = %qb.041.out.1;
 ; CHECK-NEXT: DO i2 = 0, (i1 + -1)/u3
 ; CHECK-NEXT: %qb.135.out = %qb.135;
@@ -19,9 +17,7 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: %qb.041 = %qb.135;
 ; CHECK-NEXT: %n.addr.038 = %11;
-; CHECK-NEXT: }
-; CHECK-NEXT: %qb.041.out = %qb.041;
-; CHECK-NEXT: %indvars.iv42 = %indvars.iv42  +  -6 * i1 + -12;
+; CHECK: %indvars.iv42 = %indvars.iv42  +  -6 * i1 + -12;
 ; CHECK-NEXT: %indvars.iv44 = %indvars.iv44  +  %indvars.iv42.out;
 ; CHECK-NEXT: %indvars.iv54 = i1;
 ; CHECK-NEXT: %indvars.iv52 = -1 * i1 + -1;

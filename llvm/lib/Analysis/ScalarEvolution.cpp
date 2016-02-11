@@ -3401,6 +3401,58 @@ const SCEV *ScalarEvolution::getSCEVForHIR(Value *Val,
   return SC;
 }
 
+bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
+
+  auto ZttCond = ZttInst->getCondition();
+
+  auto LatchBB = Lp->getLoopLatch();
+  auto LatchInst = cast<BranchInst>(LatchBB->getTerminator());
+
+  auto ICmp = dyn_cast<ICmpInst>(LatchInst->getCondition());
+
+  if (!ICmp) {
+    return false;
+  }
+
+  auto Pred = ICmp->getPredicate();
+
+  auto LHS = getSCEV(ICmp->getOperand(0));
+  auto RHS = getSCEV(ICmp->getOperand(1));
+
+  LHS = getSCEVAtScope(LHS, Lp);
+  RHS = getSCEVAtScope(RHS, Lp);
+
+  if (isLoopInvariant(LHS, Lp)) {
+    std::swap(LHS, RHS);
+    Pred = ICmpInst::getSwappedPredicate(Pred);
+  }
+
+  const SCEVAddRecExpr *IV = cast<SCEVAddRecExpr>(LHS);
+  auto Start = IV->getStart();
+  auto Stride = IV->getStepRecurrence(*this);
+
+  LHS = getMinusSCEV(Start, Stride);
+
+  // We do not know signedness of IV, so we perform both signed and unsigned
+  // comparisons. This can be a potential stability issue. Need a test case for
+  // investigation. Alternative is to use NoWrap flags which is less accurate so
+  // it will miss some cases.
+  if ((Pred == ICmpInst::ICMP_EQ) || (Pred == ICmpInst::ICMP_NE)) {
+    if (isKnownPositive(Stride)) {
+      return (isImpliedCond(ICmpInst::ICMP_ULT, LHS, RHS, ZttCond, false) ||
+              isImpliedCond(ICmpInst::ICMP_SLT, LHS, RHS, ZttCond, false));
+    }
+    else {
+      assert(isKnownNegative(Stride) && 
+             "Stride it not known to be positive or negative!");
+      return (isImpliedCond(ICmpInst::ICMP_UGT, LHS, RHS, ZttCond, false) ||
+              isImpliedCond(ICmpInst::ICMP_SGT, LHS, RHS, ZttCond, false));
+    }
+  }      
+
+  return isImpliedCond(Pred, LHS, RHS, ZttCond, false);
+}
+
 #endif // INTEL_CUSTOMIZATION
 
 /// getNegativeSCEV - Return a SCEV corresponding to -V = -1*V

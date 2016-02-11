@@ -57,14 +57,14 @@ HLIf *HLNodeUtils::createHLIf(PredicateTy FirstPred, RegDDRef *Ref1,
   return new HLIf(FirstPred, Ref1, Ref2);
 }
 
-HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop, bool IsDoWh) {
-  return new HLLoop(LLVMLoop, IsDoWh);
+HLLoop *HLNodeUtils::createHLLoop(const Loop *LLVMLoop) {
+  return new HLLoop(LLVMLoop);
 }
 
 HLLoop *HLNodeUtils::createHLLoop(HLIf *ZttIf, RegDDRef *LowerDDRef,
                                   RegDDRef *UpperDDRef, RegDDRef *StrideDDRef,
-                                  bool IsDoWh, unsigned NumEx) {
-  return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, IsDoWh, NumEx);
+                                  unsigned NumEx) {
+  return new HLLoop(ZttIf, LowerDDRef, UpperDDRef, StrideDDRef, NumEx);
 }
 
 void HLNodeUtils::destroy(HLNode *Node) { Node->destroy(); }
@@ -172,8 +172,8 @@ HLInst *HLNodeUtils::createUnaryHLInst(unsigned OpCode, RegDDRef *RvalRef,
     auto NullPtr = createZeroVal(RvalRef->getDestType());
 
     if (Align) {
-      InstVal = DummyIRBuilder->CreateAlignedLoad(NullPtr, Align, IsVolatile,
-          Name);
+      InstVal =
+          DummyIRBuilder->CreateAlignedLoad(NullPtr, Align, IsVolatile, Name);
     } else {
       InstVal = DummyIRBuilder->CreateLoad(NullPtr, IsVolatile, Name);
     }
@@ -243,8 +243,8 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
 
   // Cannot use IRBuilder here as it returns the same value for casts with
   // identical src and dest types.
-  InstVal = CastInst::Create(Instruction::BitCast, ZeroVal, ZeroVal->getType(),
-                             Name);
+  InstVal =
+      CastInst::Create(Instruction::BitCast, ZeroVal, ZeroVal->getType(), Name);
   Inst = cast<Instruction>(InstVal);
   Inst->insertBefore(DummyIRBuilder->GetInsertPoint());
 
@@ -363,8 +363,8 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   case Instruction::Add: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateAdd(OneVal, OneVal, Name, HasNUWOrExact,
-                                        HasNSW);
+    InstVal =
+        DummyIRBuilder->CreateAdd(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
     break;
   }
 
@@ -378,8 +378,8 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   case Instruction::Sub: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateSub(OneVal, OneVal, Name, HasNUWOrExact,
-                                        HasNSW);
+    InstVal =
+        DummyIRBuilder->CreateSub(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
     break;
   }
 
@@ -393,8 +393,8 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   case Instruction::Mul: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateMul(OneVal, OneVal, Name, HasNUWOrExact,
-                                        HasNSW);
+    InstVal =
+        DummyIRBuilder->CreateMul(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
     break;
   }
 
@@ -408,16 +408,14 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   case Instruction::UDiv: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateUDiv(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal = DummyIRBuilder->CreateUDiv(OneVal, OneVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::SDiv: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateSDiv(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal = DummyIRBuilder->CreateSDiv(OneVal, OneVal, Name, HasNUWOrExact);
     break;
   }
 
@@ -452,24 +450,22 @@ HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
   case Instruction::Shl: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal = DummyIRBuilder->CreateShl(OneVal, OneVal, Name, HasNUWOrExact,
-                                        HasNSW);
+    InstVal =
+        DummyIRBuilder->CreateShl(OneVal, OneVal, Name, HasNUWOrExact, HasNSW);
     break;
   }
 
   case Instruction::LShr: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateLShr(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal = DummyIRBuilder->CreateLShr(OneVal, OneVal, Name, HasNUWOrExact);
     break;
   }
 
   case Instruction::AShr: {
     assert(OpRef1->getDestType()->isIntegerTy() &&
            "Operand is not an integer type!");
-    InstVal =
-        DummyIRBuilder->CreateAShr(OneVal, OneVal, Name, HasNUWOrExact);
+    InstVal = DummyIRBuilder->CreateAShr(OneVal, OneVal, Name, HasNUWOrExact);
     break;
   }
 
@@ -650,8 +646,8 @@ HLInst *HLNodeUtils::createCmp(CmpInst::Predicate Pred, RegDDRef *OpRef1,
     InstVal =
         DummyIRBuilder->CreateICmp(ICmpInst::ICMP_EQ, ZeroVal, ZeroVal, Name);
   } else {
-    InstVal = DummyIRBuilder->CreateFCmp(FCmpInst::FCMP_TRUE, ZeroVal, ZeroVal,
-                                         Name);
+    InstVal =
+        DummyIRBuilder->CreateFCmp(FCmpInst::FCMP_TRUE, ZeroVal, ZeroVal, Name);
   }
 
   HInst = createLvalHLInst(cast<Instruction>(InstVal), LvalRef);
@@ -1080,9 +1076,24 @@ void HLNodeUtils::insertAsLastChild(HLSwitch *Switch, HLNode *Node,
   insertAsChildImpl(Switch, nullptr, Node, Node, CaseNum, false);
 }
 
+bool HLNodeUtils::validPreheaderPostexitNodes(HLContainerTy::iterator First,
+                                              HLContainerTy::iterator Last) {
+
+  for (auto I = First; I != Last; ++I) {
+    if (!isa<HLInst>(*I)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void HLNodeUtils::insertAsPreheaderPostexitImpl(
     HLLoop *Loop, HLContainerTy *OrigContainer, HLContainerTy::iterator First,
     HLContainerTy::iterator Last, bool IsPreheader, bool IsFirstChild) {
+
+  assert(validPreheaderPostexitNodes(First, Last) &&
+         "Invalid preheader/postexit node encountered during insertion!");
 
   HLContainerTy::iterator Pos;
 
@@ -1915,7 +1926,7 @@ const HLNode *HLNodeUtils::getOutermostSafeParent(const HLNode *Node1,
       break;
     }
 
-    if (!Loop->isDo() && !Loop->isDoWhile()) {
+    if (!Loop->isDo()) {
       break;
     }
 
@@ -2107,9 +2118,20 @@ bool HLNodeUtils::strictlyPostDominates(const HLNode *Node1,
   return dominatesImpl(Node1, Node2, true, true);
 }
 
-bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node) {
+bool HLNodeUtils::contains(const HLNode *Parent, const HLNode *Node,
+                           bool IncludePrePostHdr) {
   assert(Parent && "Parent is null!");
   assert(Node && "Node is null!");
+
+  // Skip parent loop for preheader/postexit nodes if IncludePrePostHdr is set
+  // to false.
+  if (!IncludePrePostHdr) {
+    auto Inst = dyn_cast<HLInst>(Node);
+
+    if (Inst && Inst->isInPreheaderOrPostexit()) {
+      Node = Node->getParent()->getParent();
+    }
+  }
 
   while (Node) {
     if (Parent == Node) {
@@ -2377,9 +2399,6 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
     }
 
     UpperBound = Lp->getUpperCanonExpr();
-    if (UpperBound->isNonLinear()) {
-      break;
-    }
 
     if (!AllowTriangularLoop && !FirstIter && UpperBound->hasIV()) {
       //  okay for outermost loop UB to have iv
@@ -2408,9 +2427,8 @@ bool HLNodeUtils::isPerfectLoopNest(const HLLoop *Loop,
 void HLNodeUtils::moveProperties(HLLoop *SrcLoop, HLLoop *DstLoop) {
 
   DstLoop->setIVType(SrcLoop->getIVType());
-  if (DstLoop->hasZtt()) {
-    DstLoop->removeZtt();
-  }
+  DstLoop->removeZtt();
+
   if (SrcLoop->hasZtt()) {
     DstLoop->setZtt(SrcLoop->removeZtt());
   }
@@ -2454,16 +2472,3 @@ void HLNodeUtils::permuteLoopNests(
   }
 }
 
-HLIf *HLNodeUtils::hoistZtt(HLLoop *Loop) {
-
-  if (!Loop->hasZtt()) {
-    return nullptr;
-  }
-
-  HLIf *Ztt = Loop->removeZtt();
-  assert(!Ztt->hasElseChildren() && !Ztt->hasThenChildren() &&
-         " Ztt should not have then/else children.");
-  HLNodeUtils::insertBefore(Loop, Ztt);
-  HLNodeUtils::moveAsFirstChild(Ztt, Loop, true);
-  return Ztt;
-}

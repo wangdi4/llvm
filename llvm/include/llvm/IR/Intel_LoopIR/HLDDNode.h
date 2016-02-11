@@ -78,15 +78,25 @@ public:
   void printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const;
 
   /// DDRef iterator methods
-  ddref_iterator ddref_begin();
-  const_ddref_iterator ddref_begin() const;
-  ddref_iterator ddref_end();
-  const_ddref_iterator ddref_end() const;
+  ddref_iterator ddref_begin() { return RegDDRefs.begin(); }
+  const_ddref_iterator ddref_begin() const {
+    return const_cast<HLDDNode *>(this)->ddref_begin();
+  }
 
-  reverse_ddref_iterator ddref_rbegin();
-  const_reverse_ddref_iterator ddref_rbegin() const;
-  reverse_ddref_iterator ddref_rend();
-  const_reverse_ddref_iterator ddref_rend() const;
+  ddref_iterator ddref_end() { return RegDDRefs.end(); }
+  const_ddref_iterator ddref_end() const {
+    return const_cast<HLDDNode *>(this)->ddref_end();
+  }
+
+  reverse_ddref_iterator ddref_rbegin() { return RegDDRefs.rbegin(); }
+  const_reverse_ddref_iterator ddref_rbegin() const {
+    return const_cast<HLDDNode *>(this)->ddref_rbegin();
+  }
+
+  reverse_ddref_iterator ddref_rend() { return RegDDRefs.rend(); }
+  const_reverse_ddref_iterator ddref_rend() const {
+    return const_cast<HLDDNode *>(this)->ddref_rend();
+  }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const HLNode *Node) {

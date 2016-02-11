@@ -17,9 +17,7 @@
 ;  }
 
 ; CHECK: DO i1 = 0, 56, 1
-; CHECK-NEXT: if (-1 * i1 + 58 < 5)
-; CHECK-NEXT: {
-; CHECK-NEXT: %fs.promoted = (%fs)[0]
+; CHECK: %fs.promoted = (%fs)[0]
 ; CHECK-NEXT: %add21136 = %fs.promoted
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169))))
 ; CHECK-NEXT: %5 = (%ti)[0][-1 * i1 + 58][-1 * i1 + 57]
@@ -28,10 +26,7 @@
 ; CHECK-NEXT: %add21136 = -1 * i1 + i2 + %6 + 58  +  %add21136
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: (%fs)[0] = %add21136
-; CHECK-NEXT: }
-; CHECK-NEXT: if (-1 * i1 + 58 < 5)
-; CHECK-NEXT: {
-; CHECK-NEXT: %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57]
+; CHECK: %arrayidx35.promoted = (%ti)[0][-1 * i1 + 57][-1 * i1 + 57]
 ; CHECK-NEXT: %n1.promoted = (%n1)[0]
 ; CHECK-NEXT: %8 = %arrayidx35.promoted
 ; CHECK-NEXT: DO i2 = 0, zext.i32.i64((4 + (-1 * trunc.i64.i32(%indvars.iv169))))
@@ -44,8 +39,7 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: (%ti)[0][-1 * i1 + 57][-1 * i1 + 57] = %8
 ; CHECK-NEXT: (%n1)[0] = -1 * i1 + %n1.promoted + 53
-; CHECK-NEXT: }
-; CHECK-NEXT: %indvars.iv169 = -1 * i1 + 57
+; CHECK: %indvars.iv169 = -1 * i1 + 57
 ; CHECK-NEXT: END LOOP
 
 

@@ -9,9 +9,7 @@
 ; CHECK: DO i1 = 0, 58
 ; CHECK-NEXT: %inc = %mul26.lcssa.lcssa99  +  1;
 ; CHECK-NEXT: %mul26.lcssa.lcssa98 = %mul26.lcssa.lcssa99 + 1;
-; CHECK-NEXT: if (-1 * i1 + 60 < 12)
-; CHECK-NEXT: {
-; CHECK-NEXT: %mul26.lcssa95.in.2 = %mul26.lcssa.lcssa99 + 1;
+; CHECK: %mul26.lcssa95.in.2 = %mul26.lcssa.lcssa99 + 1;
 ; CHECK-NEXT: DO i2 = 0, i1 + -49
 ; CHECK-NEXT: %mul2692 = %mul26.lcssa95.in.2;
 ; CHECK-NEXT: DO i3 = 0, 9
@@ -22,8 +20,7 @@
 ; CHECK-NEXT: END LOOP
 ; CHECK-NEXT: (%j0)[0] = 11;
 ; CHECK-NEXT: %mul26.lcssa.lcssa98 = %mul2692;
-; CHECK-NEXT: }
-; CHECK-NEXT: %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
+; CHECK: %mul26.lcssa.lcssa99 = %mul26.lcssa.lcssa98;
 ; CHECK-NEXT: END LOOP
 
 

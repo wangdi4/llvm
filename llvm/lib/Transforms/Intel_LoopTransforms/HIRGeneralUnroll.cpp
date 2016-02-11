@@ -380,10 +380,6 @@ bool HIRGeneralUnroll::isProfitable(const HLLoop *Loop, bool *IsConstLoop,
     *IsConstLoop = true;
   } else {
     *IsConstLoop = false;
-    // TODO: Create explicit Ztt for Do-While loop
-    if (Loop->isDoWhile()) {
-      return false;
-    }
   }
 
   // Ignore loops which have switch or function calls for unrolling.
@@ -404,7 +400,7 @@ void HIRGeneralUnroll::transformLoop(HLLoop *OrigLoop, bool IsConstLoop,
   DEBUG(OrigLoop->dump());
 
   // Extract Ztt and add it outside the loop.
-  HLNodeUtils::hoistZtt(OrigLoop);
+  OrigLoop->extractZtt();
 
   // Create UB instruction before the loop 't = (Orig UB)/(UnrollFactor)' for
   // non-constant trip loops. For const trip loops calculate the bound.
