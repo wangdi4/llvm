@@ -2364,6 +2364,11 @@ def err_alias_not_supported_on_darwin : Error <
   "only weak aliases are supported on darwin">;
 def err_alias_to_undefined : Error<
   "alias must point to a defined variable or function">;
+// if INTEL_CUSTOMIZATION
+// CQ#368740: warning for compatibility reasons.
+def warn_alias_to_undefined : Warning<err_alias_to_undefined.Text>,
+    InGroup<IntelCompat>;
+// endif //INTEL_CUSTOMIZATION
 def warn_alias_to_weak_alias : Warning<
   "alias will always resolve to %0 even if weak definition of alias %1 is overridden">,
   InGroup<IgnoredAttributes>;

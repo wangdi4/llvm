@@ -305,6 +305,13 @@ void CodeGenModule::checkAliases() {
       Diags.Report(AA->getLocation(), diag::err_cyclic_alias);
     } else if (GV->isDeclaration()) {
       Error = true;
+#if INTEL_CUSTOMIZATION
+      // CQ#368740: emit warning if alias points to undefined, for compatibility
+      // reasons
+      if (Context.getLangOpts().IntelCompat)
+        Diags.Report(AA->getLocation(), diag::warn_alias_to_undefined);
+      else
+#endif // INTEL_CUSTOMIZATION
       Diags.Report(AA->getLocation(), diag::err_alias_to_undefined);
     }
 
