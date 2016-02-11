@@ -11,9 +11,9 @@ add_llvm_library(LLVMIntel_VPOTransforms
   Vecopt/VPOAvrLLVMCodeGen.cpp
   Vecopt/VPOAvrHIRCodeGen.cpp
 
-  ParOpt/VPOParopt.cpp
-  ParOpt/VPOParoptTransform.cpp
-  ParOpt/VPOParoptUtils.cpp
+  Paropt1/VPOParopt.cpp
+  Paropt1/VPOParoptTransform.cpp
+  Paropt1/VPOParoptUtils.cpp
 )
 
 add_dependencies(LLVMIntel_VPOTransforms intrinsics_gen)

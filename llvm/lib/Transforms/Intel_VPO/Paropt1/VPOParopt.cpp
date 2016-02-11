@@ -37,8 +37,8 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/ParOpt/VPOParopt.h"
-#include "llvm/Transforms/Intel_VPO/ParOpt/VPOParoptTransform.h"
+#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParoptTransform.h"
 
 #define DEBUG_TYPE "VPOParopt"
 

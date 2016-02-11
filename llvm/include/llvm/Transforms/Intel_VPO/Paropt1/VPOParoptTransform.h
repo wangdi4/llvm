@@ -1,4 +1,4 @@
-//===-- VPO/ParOpt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
+//===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
@@ -55,8 +55,8 @@
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/ParOpt/VPOParoptUtils.h"
-#include "llvm/Transforms/Intel_VPO/ParOpt/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParoptUtils.h"
+#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParopt.h"
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
