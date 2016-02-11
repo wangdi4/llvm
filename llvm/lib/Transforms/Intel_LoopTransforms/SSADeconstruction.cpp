@@ -121,22 +121,15 @@ private:
   /// null.
   SCCFormation::SCCTy *getPhiSCC(const PHINode *Phi) const;
 
-  /// \brief Returns true if any of the SCC phi operands flow through PredBB.
-  /// This means that adding a livein copy in PredBB will kill the SCC phi
-  /// operand so we need to perform edge splitting.
-  bool predKillsSCCOperand(const PHINode *Phi, const BasicBlock *PredBB,
-                           const SmallVectorImpl<unsigned> &SCCPhiOps) const;
+  /// \brief Returns true if OrigPredBB has an alternate reaching path to Phi
+  /// other than the immediate successor. This means that adding a livein copy
+  /// in PredBB may kill an SCC operand so we need to perform edge splitting.
+  bool hasAlternatePathToPhi(const PHINode *Phi, const BasicBlock *OrigPredBB,
+                             const BasicBlock *CurBB = nullptr) const;
 
-  /// \brief Collects all operands of Phi which belong to the same SCC as Phi
-  /// and are not defined in Phi's incoming bblock in SCCPhiOps. Returns true if
-  /// any such operands are found.
-  static bool collectSCCPhiOperands(const PHINode *Phi,
-                                    const SCCFormation::SCCNodesTy *SCCNodes,
-                                    SmallVectorImpl<unsigned> &SCCPhiOps);
-
-  /// \brief Returns true if we need to split edge while processing phi liveins.
-  bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB,
-                             const SCCFormation::SCCNodesTy *SCCNodes) const;
+  /// \brief Returns true if we need to split edge to insert a livein copy for
+  /// this phi operand.
+  bool edgeSplittingRequired(const PHINode *Phi, const BasicBlock *PredBB) const;
 
   /// \brief Inserts copies of Phi operands livein to the SCC. If SCCNodes is
   /// null, Phi is treated as a standalone phi and all operands are considered
@@ -440,44 +433,46 @@ void SSADeconstruction::processPhiLiveouts(PHINode *Phi,
   }
 }
 
-bool SSADeconstruction::predKillsSCCOperand(
-    const PHINode *Phi, const BasicBlock *PredBB,
-    const SmallVectorImpl<unsigned> &SCCPhiOps) const {
+bool SSADeconstruction::hasAlternatePathToPhi(const PHINode *Phi,
+                                              const BasicBlock *OrigPredBB,
+                                              const BasicBlock *CurBB) const {
 
-  auto Lp = LI->getLoopFor(Phi->getParent());
-  assert(Lp && "Loop containing phi not found!");
+  auto PhiBB = Phi->getParent();
+  auto PhiLp = LI->getLoopFor(PhiBB);
+  assert(PhiLp && "Loop containing phi not found!");
 
-  for (auto SuccI = succ_begin(PredBB), E = succ_end(PredBB); SuccI != E;
+  if (!CurBB) {
+    CurBB = OrigPredBB;
+  }
+
+  for (auto SuccI = succ_begin(CurBB), E = succ_end(CurBB); SuccI != E;
        ++SuccI) {
     auto SuccBB = *SuccI;
 
-    // We reached Phi, now check if any SCC phi operand flows through PredBB.
-    if (SuccBB == Phi->getParent()) {
-      for (unsigned I = 0, E = SCCPhiOps.size(); I < E; ++I) {
-        if (Phi->getIncomingBlock(SCCPhiOps[I]) == PredBB) {
-          return true;
-        }
+    // We reached Phi, return true if this is a new path.
+    if (SuccBB == PhiBB) {
+      if (CurBB != OrigPredBB) {
+        return true;
       }
-
       continue;
     }
 
     // Skip if we reach the loop header during the traversal to avoid cycling.
-    if (Lp->getHeader() == SuccBB) {
+    if (PhiLp->getHeader() == SuccBB) {
       continue;
     }
 
-    auto Lp1 = LI->getLoopFor(SuccBB);
+    auto Lp = LI->getLoopFor(SuccBB);
 
     // Skip if we are outside any loop.
-    if (!Lp1) {
+    if (!Lp) {
       continue;
     }
 
-    if (Lp != Lp1) {
+    if (Lp != PhiLp) {
       // If we reach an inner loop during traversal conservatively return true
       // as the analysis becomes difficult.
-      if (Lp->contains(Lp1)) {
+      if (PhiLp->contains(Lp)) {
         return true;
       }
       // Skip if we reach an outer loop.
@@ -485,7 +480,7 @@ bool SSADeconstruction::predKillsSCCOperand(
     }
 
     // Recurse on SuccBB.
-    if (predKillsSCCOperand(Phi, SuccBB, SCCPhiOps)) {
+    if (hasAlternatePathToPhi(Phi, OrigPredBB, SuccBB)) {
       return true;
     }
   }
@@ -493,44 +488,8 @@ bool SSADeconstruction::predKillsSCCOperand(
   return false;
 }
 
-bool SSADeconstruction::collectSCCPhiOperands(
-    const PHINode *Phi, const SCCFormation::SCCNodesTy *SCCNodes,
-    SmallVectorImpl<unsigned> &SCCPhiOps) {
-
-  if (!SCCNodes) {
-    return false;
-  }
-
-  for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
-    auto InstPhiOp = dyn_cast<Instruction>(PhiOp);
-
-    if (!InstPhiOp) {
-      continue;
-    }
-
-    // Ignore instructions which are not part of SCC.
-    if (!SCCNodes->count(InstPhiOp)) {
-      continue;
-    }
-
-    auto PredBB = Phi->getIncomingBlock(I);
-
-    // Ignore instructions which are defined in the pred BBlock.
-    if (InstPhiOp->getParent() == PredBB) {
-      continue;
-    }
-
-    SCCPhiOps.push_back(I);
-  }
-
-  return !SCCPhiOps.empty();
-}
-
-bool SSADeconstruction::edgeSplittingRequired(
-    const PHINode *Phi, const BasicBlock *PredBB,
-    const SCCFormation::SCCNodesTy *SCCNodes) const {
-  SmallVector<unsigned, 4> SCCPhiOps;
+bool SSADeconstruction::edgeSplittingRequired(const PHINode *Phi,
+                                              const BasicBlock *PredBB) const {
 
   // Here's a IR snippet of a loop depicting a case where edge splitting is
   // required-
@@ -562,11 +521,7 @@ bool SSADeconstruction::edgeSplittingRequired(
   // resolve this we split the edge (if.then.128 -> if.end.150) and insert the
   // copy in the new bblock.
 
-  if (!collectSCCPhiOperands(Phi, SCCNodes, SCCPhiOps)) {
-    return false;
-  }
-
-  return predKillsSCCOperand(Phi, PredBB, SCCPhiOps);
+  return hasAlternatePathToPhi(Phi, PredBB);
 }
 
 bool SSADeconstruction::processPhiLiveins(
@@ -576,14 +531,6 @@ bool SSADeconstruction::processPhiLiveins(
   // Insert a copy in the predecessor bblock for each phi operand which
   // lies outside the SCC(livein values).
   for (unsigned I = 0, E = Phi->getNumIncomingValues(); I != E; ++I) {
-    auto PhiOp = Phi->getIncomingValue(I);
-
-    // Ignore if PhiOp belongs to the same SCC.
-    if (SCCNodes && isa<Instruction>(PhiOp) &&
-        SCCNodes->count(cast<Instruction>(PhiOp))) {
-      continue;
-    }
-
     auto PredBB = Phi->getIncomingBlock(I);
 
     // Ignore if this value is region live-in.
@@ -591,15 +538,26 @@ bool SSADeconstruction::processPhiLiveins(
       continue;
     }
 
-    // Split edge first, if required.
-    if (edgeSplittingRequired(Phi, PredBB, SCCNodes)) {
-      PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
-                                 CriticalEdgeSplittingOptions(DT, LI));
-      assert(PredBB &&
-             "Could not split edge, SplitCriticalEdge() returned null!");
+    auto PhiOp = Phi->getIncomingValue(I);
 
-      // Add the new bblock to the current region.
-      (*CurRegIt)->addBBlock(PredBB);
+    if (SCCNodes) {
+      auto InstPhiOp = dyn_cast<Instruction>(PhiOp);
+
+      // Ignore if InstPhiOp belongs to the same SCC.
+      if (InstPhiOp && SCCNodes->count(InstPhiOp)) {
+        continue;
+      }
+
+      // Split edge first, if required.
+      if (edgeSplittingRequired(Phi, PredBB)) {
+        PredBB = SplitCriticalEdge(PredBB, Phi->getParent(),
+                                   CriticalEdgeSplittingOptions(DT, LI));
+        assert(PredBB &&
+               "Could not split edge, SplitCriticalEdge() returned null!");
+
+        // Add the new bblock to the current region.
+        (*CurRegIt)->addBBlock(PredBB);
+      }
     }
 
     // Insert copy.

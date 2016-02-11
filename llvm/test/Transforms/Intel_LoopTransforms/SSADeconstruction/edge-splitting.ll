@@ -1,4 +1,4 @@
-; RUN: opt < %s -loop-simplify -hir-ssa-deconstruction -S | FileCheck %s
+; RUN: opt < %s -hir-ssa-deconstruction -S | FileCheck %s
 
 ; Check that we split edges (if.then.128 -> if.end.150) and (if.else.139 -> if.end.150) when deconstructing the SCC consisting of %0 and %2.
 
