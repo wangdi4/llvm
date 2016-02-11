@@ -70,7 +70,8 @@ int __attribute__((always_inline)) __attribute__((overloadable))
 
 ////////// - get_default_queue
 extern queue_t readonly ocl20_get_default_queue(void *DCM);
-queue_t const_func __attribute__((always_inline)) get_default_queue(void) {
+queue_t const_func __attribute__((always_inline))  __attribute__((overloadable))
+    get_default_queue(void) {
   void* DCM = __get_device_command_manager();
   return ocl20_get_default_queue(DCM);
 }
