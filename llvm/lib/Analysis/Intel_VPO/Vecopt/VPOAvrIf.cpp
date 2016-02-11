@@ -21,12 +21,9 @@
 using namespace llvm;
 using namespace llvm::vpo;
 
-AVRIf::AVRIf(unsigned SCID)
-  : AVR(SCID) {}
+AVRIf::AVRIf(unsigned SCID) : AVR(SCID) {}
 
-AVRIf *AVRIf::clone() const {
-  return nullptr;
-}
+AVRIf *AVRIf::clone() const { return nullptr; }
 
 AVR *AVRIf::getFirstElseChild() {
 
@@ -61,13 +58,13 @@ AVR *AVRIf::getLastThenChild() {
 }
 
 void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
-                  VerbosityLevel VLevel) const { 
+                  VerbosityLevel VLevel) const {
 
   std::string Indent(Depth * TabLength, ' ');
   Depth++;
   // Print Then-children
   if (hasThenChildren()) {
-    for (auto Itr = then_begin(), E = then_end(); Itr != E; ++Itr) { 
+    for (auto Itr = then_begin(), E = then_end(); Itr != E; ++Itr) {
       Itr->print(OS, Depth, VLevel);
     }
   }
@@ -78,15 +75,12 @@ void AVRIf::print(formatted_raw_ostream &OS, unsigned Depth,
   if (hasElseChildren()) {
 
     OS << Indent << "else\n" << Indent << "{\n";
- 
-    for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) { 
+
+    for (auto Itr = else_begin(), E = else_end(); Itr != E; ++Itr) {
       Itr->print(OS, Depth, VLevel);
     }
     OS << Indent << "}\n";
   }
 }
 
-StringRef AVRIf::getAvrTypeName() const {
-  return StringRef("if");
-}
-
+StringRef AVRIf::getAvrTypeName() const { return StringRef("if"); }

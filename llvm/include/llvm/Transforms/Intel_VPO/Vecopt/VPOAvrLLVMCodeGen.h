@@ -33,13 +33,13 @@ public:
 
   // Save loop bbs for future constructions.
   void saveLoopEntryExit(BasicBlock *Preheader, BasicBlock *Exit);
-  
+
   // Complete Phi nodes after vectorization.
   // Build the loop tail.
-  void completeReductionPhis(std::map<Value *, Value *>& WidenMap);
+  void completeReductionPhis(std::map<Value *, Value *> &WidenMap);
 
   // Return true if the instruction is a Phi node marked as reduction
-  bool isReductionPhi(const PHINode* Phi);
+  bool isReductionPhi(const PHINode *Phi);
 
   bool isReductionVariable(const Value *Val);
 
@@ -52,6 +52,7 @@ public:
                                          Type *Ty);
   // Widening reduction Phi node
   Instruction *vectorizePhiNode(PHINode *RdxPhi, unsigned VL);
+
 private:
   // Reduction map
   typedef std::map<const Value *, ReductionItem *> ReductionValuesMap;

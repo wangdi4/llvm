@@ -31,9 +31,9 @@ namespace vpo {
 class WRegion;
 class WRegionCollection;
 
-/// \brief This analysis creates W-Region Graph with fills up WRegion node 
-/// with the information in the directive intrinsics. The overall sequence 
-/// of building the W-Region Graph is as follows: 
+/// \brief This analysis creates W-Region Graph with fills up WRegion node
+/// with the information in the directive intrinsics. The overall sequence
+/// of building the W-Region Graph is as follows:
 ///
 /// 1) WRegionCollection - collect work regions and build W-Region Graph.
 /// 2) WRegionInfo - fill Up W-Region Info by parsing directive intrinsics
@@ -57,7 +57,7 @@ private:
   PostDominatorTree *PDT;
 
   /// WRC - WRegionCollection
-  WRegionCollection* WRC;
+  WRegionCollection *WRC;
 
   /// \brief Populates W-Region with WRegionNodes.
   void populateWRegion(WRegion *W, BasicBlock *EntryBB, BasicBlock **ExitBB);
@@ -90,7 +90,7 @@ public:
   const_reverse_iterator rend() const { return getWRGraph()->rend(); }
 
   /// \brief Returns the number of top-level WRegionNodes in the WRGraph
-  unsigned getWGraphSize() const { return getWRGraph()->size();}
+  unsigned getWGraphSize() const { return getWRGraph()->size(); }
 
   /// \brief Returns true if the WRGraph is empty.
   bool WRGraphIsEmpty() const { return getWRGraph()->empty(); }

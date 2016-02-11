@@ -36,13 +36,13 @@ class AVRExpression;
 ///
 /// An AVRAssign node is constructed when an incoming LLVM IR or HIR contiains
 /// an assignment. During the abstract layer construction process this node
-/// initially contains only a simple pointer to the underlying LLVM IR instruction
-/// or HIR HLInst node.  As the abstract layer is optimized, this node is updated
-/// more precise/granular information, such as pointers to RHS and LHS nodes.
+/// initially contains only a simple pointer to the underlying LLVM IR
+/// instruction or HIR HLInst node.  As the abstract layer is optimized, this
+/// node is updated more precise/granular information, such as pointers to RHS
+/// and LHS nodes.
 class AVRAssign : public AVR {
 
 private:
-
   /// LHS - Left hand side operand of avr assignment. (Only valid after
   /// optimizeAVRExpressions())
   AVR *LHS;
@@ -55,15 +55,14 @@ private:
   bool IsStore;
 
 protected:
-
   /// \brief AVRAssign Object Constructor.
   AVRAssign(unsigned SCID);
 
   /// \brief AVRAssign Object Destructor.
   virtual ~AVRAssign() override {}
 
-  /// \brief Copy Constructor. 
-  AVRAssign (const AVRAssign &AVRAssign);
+  /// \brief Copy Constructor.
+  AVRAssign(const AVRAssign &AVRAssign);
 
   /// \brief Sets up state object.
   void initialize();
@@ -78,7 +77,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Clone method for AVRAssign.
   AVRAssign *clone() const override;
 
@@ -89,10 +87,10 @@ public:
   AVR *getRHS() const { return RHS; }
 
   /// \brief Returns true if LHS for this avr assignment node is not null.
-  bool hasLHS() const { return LHS != nullptr;}
+  bool hasLHS() const { return LHS != nullptr; }
 
   /// \brief Returns true if RHS for this avr assignment node is not null.
-  bool hasRHS() const { return RHS != nullptr;}
+  bool hasRHS() const { return RHS != nullptr; }
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
@@ -109,7 +107,6 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------AVR Expression Node----------//
@@ -118,11 +115,10 @@ public:
 /// The AVRExpression node represents all unary, binary, and n-ary
 /// expressions in the abstract layer. The initial build of the AL doesnt
 //  not contain AVRExpressions.  This node is added to the Abstract
-/// Layer as it is optimized. 
+/// Layer as it is optimized.
 class AVRExpression : public AVR {
 
 protected:
-
   /// Operation - Operation which is executed on operands.
   unsigned Operation;
 
@@ -143,7 +139,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// brief Clone method for AVRExpression.
   AVRExpression *clone() const override;
 
@@ -162,8 +157,8 @@ public:
   /// \brief Returns true is this expression is the LHS of an assignment.
   bool isLHSExpr() const { return IsLHSExpr; }
 
-  /// \brief Returns the n-th (OpNum) operand of this expression. 
-  AVR* getOperand(unsigned OpNum) const { return Operands[OpNum]; }
+  /// \brief Returns the n-th (OpNum) operand of this expression.
+  AVR *getOperand(unsigned OpNum) const { return Operands[OpNum]; }
 
   /// \brief Method for supporting type inquiry.
   static bool classof(const AVR *Node) {
@@ -183,7 +178,6 @@ public:
 
   /// \brief Returns the Opcode name of this expression's operation.
   virtual std::string getOpCodeName() const = 0;
-
 };
 
 //----------AVR Value Node----------//
@@ -192,18 +186,17 @@ public:
 /// The AVRValue node represents a value, found in the incoming IR. For
 /// HIR, the AVRValue is constructed for each RegDDRef found in HLInst
 /// nodes. For LLVM IR, the AVRValue nodes are constructed for each operand
-/// of an LLVM instruction. AVRValue nodes are not built in the initial 
+/// of an LLVM instruction. AVRValue nodes are not built in the initial
 /// Abstract Layer build, they are added later as part of an AL optimization.
 class AVRValue : public AVR {
 
 private:
-
   /// MemRefInfo - Holds memory reference infomation. Information is set via
-  /// memory reference anaylsis or simd attributes. (To be added in future changest)
+  /// memory reference anaylsis or simd attributes. (To be added in future
+  /// changest)
   // MemRefInfo *MRI;
 
 protected:
-
   /// \brief Constructor used by derived classes. Should not instantiate
   /// this object at this level.
   AVRValue(unsigned SCID);
@@ -215,7 +208,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Clone method for AVRValue.
   AVRValue *clone() const override;
 
@@ -234,7 +226,6 @@ public:
 
   /// \brief Returns value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------AVR Label Node----------//
@@ -242,12 +233,10 @@ public:
 class AVRLabel : public AVR {
 
 private:
-
-  /// Terminator - Terminator avr for this label. 
+  /// Terminator - Terminator avr for this label.
   AVR *Terminator;
 
 protected:
-
   AVRLabel(unsigned SCID);
   virtual ~AVRLabel() override {}
 
@@ -255,12 +244,11 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Returns the AVRBranch terminator for this label
   AVR *getTerminator() { return Terminator; }
 
   /// \brief Sets the terminator (AVRBranch) for this label
-  void setTerminator(AVR *AB) { Terminator = AB; } 
+  void setTerminator(AVR *AB) { Terminator = AB; }
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
@@ -279,21 +267,17 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------AVR Expr Node----------//
 /// \brief TODO
-class AVRExpr : public AVR{
-
-};
+class AVRExpr : public AVR {};
 
 //----------AVR Phi Node----------//
 /// \brief TODO
 class AVRPhi : public AVR {
 
 protected:
-
   AVRPhi(unsigned SCID);
   virtual ~AVRPhi() override {}
 
@@ -301,7 +285,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRPhiNode &&
@@ -319,20 +302,16 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
-
 
 //----------AVR Call Node----------//
 /// \brief An abstract vector call node.
 class AVRCall : public AVR {
 
 private:
-
   // TODO: Add Member Data
 
 protected:
-
   AVRCall(unsigned SCID);
   virtual ~AVRCall() override {}
 
@@ -341,7 +320,6 @@ protected:
 
   // TODO: Add Member Functions
 public:
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRCallNode &&
@@ -359,19 +337,17 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------------------------------------------------------------------------//
 // AVR Branch Node
 //----------------------------------------------------------------------------//
-/// \brief An abstract vector branch node. AVRBranches are generated for 
-/// conditional, non-conditional, and indirect branches. For loop backedge 
+/// \brief An abstract vector branch node. AVRBranches are generated for
+/// conditional, non-conditional, and indirect branches. For loop backedge
 /// branches we also generate AVRBranch.
 class AVRBranch : public AVR {
 
 private:
-
   /// IsConditional - True if branch is conditional
   bool IsConditional;
 
@@ -391,7 +367,6 @@ private:
   SmallVector<AVRLabel *, 2> Successors;
 
 protected:
-
   /// \brief Create a new non-conditional branch to AVRLabel AL.
   AVRBranch(AVRLabel *AL);
 
@@ -407,13 +382,12 @@ protected:
   void setIsConditional(bool IC) { IsConditional = IC; }
 
   /// \brief Sets the Avr Condition node for a conditional branch.
-  void setCondition(AVR* Cond) { Condition = Cond; }
+  void setCondition(AVR *Cond) { Condition = Cond; }
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
-
   /// \brief Add the AVRLabel of a successor BBlock to successor vector.
   void addSuccessor(AVRLabel *AL) { Successors.push_back(AL); }
 
@@ -449,20 +423,16 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
-
 };
-
 
 //----------AVR Backedge Node----------//
 /// \brief An abstract vector backedge node.
 class AVRBackEdge : public AVR {
 
 private:
-
   // TODO: Add Member Data
 
 protected:
-
   AVRBackEdge(unsigned SCID);
   virtual ~AVRBackEdge() override {}
 
@@ -470,7 +440,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   // TODO: Add Member Functions
 
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
@@ -490,20 +459,16 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
-
 
 //----------AVR Entry Node----------//
 /// \brief An abstract vector entry node.
 class AVREntry : public AVR {
 
 private:
-
   // TODO: Add Member Data
 
 protected:
-
   AVREntry(unsigned SCID);
   virtual ~AVREntry() override {}
 
@@ -512,7 +477,6 @@ protected:
 
   // TODO: Add Member Functions
 public:
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVREntryNode &&
@@ -530,7 +494,6 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------AVR Return Node----------//
@@ -538,11 +501,9 @@ public:
 class AVRReturn : public AVR {
 
 private:
-
   // TODO: Add Member Data
 
 protected:
-
   AVRReturn(unsigned SCID);
   virtual ~AVRReturn() override {}
 
@@ -551,7 +512,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRReturnNode &&
@@ -569,22 +529,19 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------------------------------------------------------------------------//
 // AVR Select Node
 //----------------------------------------------------------------------------//
-/// \brief An abstract vector select node. 
+/// \brief An abstract vector select node.
 ///
 class AVRSelect : public AVR {
 private:
-
   /// Compare - AVR Compare when part of compare - select.
   AVR *Compare;
 
 protected:
-
   AVRSelect(unsigned SCID, AVR *AComp);
   virtual ~AVRSelect() override {}
 
@@ -593,7 +550,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRSelectNode &&
@@ -611,21 +567,19 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
 
 //----------------------------------------------------------------------------//
 // AVR Compare Node
 //----------------------------------------------------------------------------//
 /// \brief An abstract vector compare node. During first traversal of LLVM IR,
-/// Vectorizer generates AVRCompare nodes for icmp/fcmp LLVM IR instructions 
-/// encountered.  Later in AVR optimization, this AVR Cmpare is converted to 
+/// Vectorizer generates AVRCompare nodes for icmp/fcmp LLVM IR instructions
+/// encountered.  Later in AVR optimization, this AVR Cmpare is converted to
 /// AVRIf.
 //
 class AVRCompare : public AVR {
 
 private:
-
   /// Select - AVR Select generated for this compare
   AVRSelect *Select;
 
@@ -636,7 +590,6 @@ private:
   AVRBranch *Branch;
 
 protected:
-
   AVRCompare(unsigned SCID);
   virtual ~AVRCompare() override {}
 
@@ -644,15 +597,14 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Sets the AVRBranch for this compare
-  void setBranch(AVRBranch* BR) { Branch = BR; }
+  void setBranch(AVRBranch *BR) { Branch = BR; }
 
   /// \brief Sets IsCompareSelect bit.
   void setIsCompareSelect(bool CS) { IsCompareSelect = CS; }
 
   /// \brief Sets the AVRSelect for this compare node.
-  void setSelect(AVRSelect* ASelect) { Select = ASelect; }
+  void setSelect(AVRSelect *ASelect) { Select = ASelect; }
 
   /// \brief Returns true is this compare has a select
   bool isCompareSelect() { return IsCompareSelect; }
@@ -680,9 +632,7 @@ public:
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const = 0;
-
 };
-
 
 //----------------------------------------------------------------------------//
 // AVR Wrn Node
@@ -696,7 +646,6 @@ public:
 class AVRWrn : public AVR {
 
 public:
-
   // Setup types for AVRWrn's children and WRegionSimd's BBset.
   typedef AVRContainerTy ChildrenTy;
 
@@ -711,19 +660,18 @@ public:
   typedef WRegionBBSetTy::const_iterator const_wrnbbset_iterator;
   typedef WRegionBBSetTy::reverse_iterator reverse_wrnbbset_iterator;
   typedef WRegionBBSetTy::const_reverse_iterator
-                             const_reverse_wrnbbset_iterator;
-private:
+      const_reverse_wrnbbset_iterator;
 
+private:
   /// Pointer to the WRNVecLoopNode generated from WRN node creatation. Contains
   /// information needed to build AVRLoops.
   WRNVecLoopNode *WRegionSimdNode;
-  
+
   /// Children of AVRInfo node is the entire candidate vector loop nest
   /// associated with this LoopInfo.
   ChildrenTy Children;
 
 protected:
-
   AVRWrn(WRNVecLoopNode *WrnSimdNode);
   virtual ~AVRWrn() override {}
 
@@ -731,7 +679,6 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// \brief Returns LoopInfo from WrnSimdNode
   LoopInfo *getLoopInfo() { return WRegionSimdNode->getLoopInfo(); }
 
@@ -743,56 +690,46 @@ public:
     return WRegionSimdNode->getEntryBBlock();
   }
   /// \brief Returns Entry Basic Block of WRN Region
-  BasicBlock *getExitBBlock() const {
-     return WRegionSimdNode->getExitBBlock();
-  }
+  BasicBlock *getExitBBlock() const { return WRegionSimdNode->getExitBBlock(); }
 
   /// \brief Return SIMD vector length
   int getSimdVectorLength() const {
-    WRNVecLoopNode *WrnNode;
-    WrnNode = getWrnNode();
-    return WrnNode->getSimdlen();
+    return getWrnNode()->getSimdlen();
   }
 
   // Methods for accessing and modifying WRegionSimdNode's basic block set.
 
   /// Iterators to traverse the WRegionSimdNode's basic block set.
-  wrnbbset_iterator wrnbbset_begin() {
-    return WRegionSimdNode->bbset_begin();
-  }
+  wrnbbset_iterator wrnbbset_begin() { return WRegionSimdNode->bbset_begin(); }
   const_wrnbbset_iterator wrnbbset_begin() const {
     return WRegionSimdNode->bbset_begin();
   }
-  wrnbbset_iterator wrnbbset_end() {
+  wrnbbset_iterator wrnbbset_end() { return WRegionSimdNode->bbset_end(); }
+  const_wrnbbset_iterator wrnbbset_end() const {
     return WRegionSimdNode->bbset_end();
   }
-  const_wrnbbset_iterator wrnbbset_end() const {
-     return WRegionSimdNode->bbset_end();
-  }
   reverse_wrnbbset_iterator wrnbbset_rbegin() {
-   return  WRegionSimdNode->bbset_rbegin();
+    return WRegionSimdNode->bbset_rbegin();
   }
   const_reverse_wrnbbset_iterator wrnbbset_rbegin() const {
-    return  WRegionSimdNode->bbset_rbegin();
+    return WRegionSimdNode->bbset_rbegin();
   }
   reverse_wrnbbset_iterator wrnbbset_rend() {
-    return  WRegionSimdNode->bbset_rend();
+    return WRegionSimdNode->bbset_rend();
   }
   const_reverse_wrnbbset_iterator wrnbbset_rend() const {
-    return  WRegionSimdNode->bbset_rend();
+    return WRegionSimdNode->bbset_rend();
   }
 
   /// \brief On-demand populate WRegionSimdNode's basic block set with
-  /// given EntryBB and ExitBB. 
+  /// given EntryBB and ExitBB.
   void populateWrnBBSet() { WRegionSimdNode->populateBBSet(); }
 
   /// \brief Returns the number of Basic Blocks in WRNRegionSimd BBlockSet.
   unsigned getBBSetSize() const { return WRegionSimdNode->getBBSetSize(); }
 
   /// \brief Returns true if the WRNSimdNode Basic Block Set is emtpy.
-  bool isWrnBBSetEmpty() const {
-    return WRegionSimdNode->isBBSetEmpty();
-  }
+  bool isWrnBBSetEmpty() const { return WRegionSimdNode->isBBSetEmpty(); }
 
   /// \Brief Set the WRegionSimdNode BBlockSet pointer to null.
   void clearBBSet() { return WRegionSimdNode->resetBBSet(); }
@@ -806,7 +743,9 @@ public:
   const_child_iterator child_end() const { return Children.end(); }
 
   reverse_child_iterator child_rbegin() { return Children.rbegin(); }
-  const_reverse_child_iterator child_rbegin() const { return Children.rbegin(); }
+  const_reverse_child_iterator child_rbegin() const {
+    return Children.rbegin();
+  }
   reverse_child_iterator child_rend() { return Children.rend(); }
   const_reverse_child_iterator child_rend() const { return Children.rend(); }
 
@@ -854,10 +793,9 @@ public:
 
   /// \brief Code generation for AVR Return.
   void codeGen();
-
 };
 
 } // End VPO Vectorizer Namespace
-} // End LLVM Namespace 
+} // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_STMT_H
+#endif // LLVM_ANALYSIS_VPO_AVR_STMT_H

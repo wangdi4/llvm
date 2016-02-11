@@ -21,7 +21,6 @@
 #include "llvm/IR/Intrinsics.h"
 #include <tuple>
 
-
 using namespace llvm;
 using namespace llvm::vpo;
 
@@ -32,14 +31,15 @@ ReductionMngr::ReductionMngr(AVR *Avr) {
   for (ReductionItem *Ri : RC->items())
     ReductionMap[Ri->getCombiner()] = Ri;
 }
- 
-void ReductionMngr::saveLoopEntryExit(BasicBlock *Preheader, BasicBlock *ExitBlock) {
+
+void ReductionMngr::saveLoopEntryExit(BasicBlock *Preheader,
+                                      BasicBlock *ExitBlock) {
   LoopPreheader = Preheader;
   LoopExit = ExitBlock;
 }
 
 static Value *CreateBinOp(ReductionItem::WRNReductionKind RKind,
-                          IRBuilder<>& Builder, Value *V1, Value *V2) {
+                          IRBuilder<> &Builder, Value *V1, Value *V2) {
   const char *Name = "reduction.tail";
   switch (RKind) {
   case ReductionItem::WRNReductionBxor:
@@ -47,23 +47,22 @@ static Value *CreateBinOp(ReductionItem::WRNReductionKind RKind,
   case ReductionItem::WRNReductionBor:
     return Builder.CreateOr(V1, V2, Name);
   case ReductionItem::WRNReductionSum:
-    return V1->getType()->isFloatTy() ? 
-      Builder.CreateFAdd(V1, V2, Name) :
-      Builder.CreateAdd(V1, V2, Name);
+    return V1->getType()->isFloatTy() ? Builder.CreateFAdd(V1, V2, Name)
+                                      : Builder.CreateAdd(V1, V2, Name);
   case ReductionItem::WRNReductionMult:
-    return V1->getType()->isFloatTy() ? 
-      Builder.CreateFMul(V1, V2, Name) :
-      Builder.CreateMul(V1, V2, Name);
+    return V1->getType()->isFloatTy() ? Builder.CreateFMul(V1, V2, Name)
+                                      : Builder.CreateMul(V1, V2, Name);
   case ReductionItem::WRNReductionBand:
     return Builder.CreateAnd(V1, V2, Name);
   default:
     llvm_unreachable("Unknown recurrence kind");
-  }  
+  }
 }
 
 // Complete edges of the reduction Phi and build the horizontal
 // loop tail.
-void ReductionMngr::completeReductionPhis(std::map<Value *, Value *>& WidenMap) {
+void ReductionMngr::completeReductionPhis(
+    std::map<Value *, Value *> &WidenMap) {
   for (auto Itr : ReductionPhiMap) {
     ReductionItem *RI = Itr.second;
     Value *OrigValue = RI->getCombiner();
@@ -94,7 +93,7 @@ ReductionItem *ReductionMngr::getReductionInfo(const Value *Val) {
   return ReductionMap[Val];
 }
 
-bool ReductionMngr::isReductionPhi(const PHINode* PhiInst) {
+bool ReductionMngr::isReductionPhi(const PHINode *PhiInst) {
   if (PhiInst->getNumIncomingValues() != 2)
     return false;
   const Value *In0 = PhiInst->getIncomingValue(0);
@@ -113,12 +112,12 @@ ReductionMngr::getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
     // Adding, Xoring, Oring zero to a number does not change it.
     return ConstantInt::get(Ty, 0);
   case ReductionItem::WRNReductionSum:
-    return Ty->isFloatTy() ? 
-      ConstantFP::get(Ty, 0.0L) : ConstantInt::get(Ty, 0);
+    return Ty->isFloatTy() ? ConstantFP::get(Ty, 0.0L)
+                           : ConstantInt::get(Ty, 0);
   case ReductionItem::WRNReductionMult:
     // Multiplying a number by 1 does not change it.
-    return Ty->isFloatTy() ?
-      ConstantInt::get(Ty, 1) : ConstantFP::get(Ty, 1.0L);
+    return Ty->isFloatTy() ? ConstantInt::get(Ty, 1)
+                           : ConstantFP::get(Ty, 1.0L);
   case ReductionItem::WRNReductionBand:
     // AND-ing a number with an all-1 value does not change it.
     return ConstantInt::get(Ty, -1, true);
@@ -127,8 +126,7 @@ ReductionMngr::getRecurrenceIdentity(ReductionItem::WRNReductionKind RKind,
   }
 }
 
-Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi,
-                                             unsigned VL) {
+Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi, unsigned VL) {
   Value *In0 = RdxPhi->getIncomingValue(0);
   Value *In1 = RdxPhi->getIncomingValue(1);
 
@@ -137,7 +135,8 @@ Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi,
     assert(In1 == RI->getInitializer() && "Unexpected reduction phi node");
   else {
     RI = getReductionInfo(In1);
-    assert(RI && In0 == RI->getInitializer() && "Unexpected reduction phi node");
+    assert(RI && In0 == RI->getInitializer() &&
+           "Unexpected reduction phi node");
   }
 
   Type *ScalarTy = RdxPhi->getType();
@@ -151,13 +150,12 @@ Instruction *ReductionMngr::vectorizePhiNode(PHINode *RdxPhi,
   IRBuilder<> Builder(LoopPreheader->getTerminator());
   // This vector is the Identity vector where the first element is the
   // incoming scalar reduction.
-  Value *VectorStart =
-    Builder.CreateInsertElement(Identity, RI->getInitializer(),
-                                Builder.getInt32(0));
+  Value *VectorStart = Builder.CreateInsertElement(
+      Identity, RI->getInitializer(), Builder.getInt32(0));
 
   Builder.SetInsertPoint(PhiInsertPt);
-  PHINode *VecRdxPhi = Builder.CreatePHI(VectorType::get(ScalarTy, VL), 2,
-                                         "vec.rdx.phi");
+  PHINode *VecRdxPhi =
+      Builder.CreatePHI(VectorType::get(ScalarTy, VL), 2, "vec.rdx.phi");
   VecRdxPhi->addIncoming(VectorStart, LoopPreheader);
   ReductionPhiMap[VecRdxPhi] = RI;
   return VecRdxPhi;
@@ -168,9 +166,7 @@ void AVRCodeGen::vectorizeReductionPHI(PHINode *RdxPhi) {
   WidenMap[RdxPhi] = VecRdxPhi;
 }
 
-void AVRCodeGen::completeReductions() {
-  RM.completeReductionPhis(WidenMap);
-}
+void AVRCodeGen::completeReductions() { RM.completeReductionPhis(WidenMap); }
 
 bool AVRCodeGen::loopIsHandled() {
   AVRWrn *AWrn = nullptr;
@@ -205,7 +201,7 @@ bool AVRCodeGen::loopIsHandled() {
   // for the induction var compare, one branch for loop
   // backedge and one AVRPhiIR for loop induction variable.
   // AVRLabelIRs are ignored for now.
-  for (AVR& Itr : ALoop->nodes()) {
+  for (AVR &Itr : ALoop->nodes()) {
     switch (Itr.getAVRID()) {
 
     case AVR::AVRAssignIRNode:
@@ -220,8 +216,7 @@ bool AVRCodeGen::loopIsHandled() {
         return false;
       else
         InductionPhi = Phi;
-     }
-     break;
+    } break;
     case AVR::AVRCompareIRNode:
       if (InductionCmp)
         return false;
@@ -257,10 +252,9 @@ bool AVRCodeGen::loopIsHandled() {
 
   // Only handle constant integer stride of 1 for now
   InductionDescriptor ID;
-  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst),
-                                           SE, ID) ||
-      !(StrideValue = ID.getStepValue()) ||
-      !StrideValue->equalsInt(1)) {
+  if (!InductionDescriptor::isInductionPHI(const_cast<PHINode *>(PhiInst), SE,
+                                           ID) ||
+      !(StrideValue = ID.getStepValue()) || !StrideValue->equalsInt(1)) {
     return false;
   }
 
@@ -406,100 +400,102 @@ void AVRCodeGen::vectorizeLoadInstruction(Instruction *Inst,
                                           bool EmitIntrinsic) {
   if (!EmitIntrinsic) {
     serializeInstruction(Inst);
-  } else {
-    LoadInst *LI = dyn_cast<LoadInst>(Inst);
-    Instruction *NewLI;
-    Value *VecPtrOp;
-
-    VecPtrOp = getVectorValue(Inst->getOperand(0));
-    Intrinsic::ID IntrinsicID = Intrinsic::masked_gather;
-
-    Type *i1Ty = Type::getInt1Ty(F->getContext()); // Mask type
-    Type *i32Ty = Type::getInt32Ty(F->getContext());
-
-    // Unmasked for now
-    Value *Mask = ConstantVector::getSplat(VL, ConstantInt::get(i1Ty, 1));
-    Type *VectorOfPointersType = VecPtrOp->getType();
-    Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
-    Type *ElementType = ElementPointerType->getPointerElementType();
-    Type *VectorOfElementsType = VectorType::get(ElementType, VL);
-
-    std::vector<Type *> ArgumentTypes;
-    std::vector<Value *> Arguments;
-
-    ArgumentTypes.push_back(VectorOfElementsType);
-
-    // Vector of pointers to load
-    Arguments.push_back(VecPtrOp);
-
-    // Alignment argument
-    Arguments.push_back(ConstantInt::get(i32Ty, LI->getAlignment()));
-
-    // Mask argument
-    Arguments.push_back(Mask);
-
-    // Passthru argument
-    Arguments.push_back(UndefValue::get(VectorOfElementsType));
-
-    Function *Intrinsic = Intrinsic::getDeclaration(
-        F->getParent(), IntrinsicID, ArrayRef<Type *>(ArgumentTypes));
-    assert(Intrinsic &&
-           "Expected to have an intrinsic for this memory operation");
-    NewLI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
-                             Builder.GetInsertPoint());
-    WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
+    return;
   }
+
+  LoadInst *LI = dyn_cast<LoadInst>(Inst);
+  Instruction *NewLI;
+  Value *VecPtrOp;
+
+  VecPtrOp = getVectorValue(Inst->getOperand(0));
+  Intrinsic::ID IntrinsicID = Intrinsic::masked_gather;
+
+  Type *i1Ty = Type::getInt1Ty(F->getContext()); // Mask type
+  Type *i32Ty = Type::getInt32Ty(F->getContext());
+
+  // Unmasked for now
+  Value *Mask = ConstantVector::getSplat(VL, ConstantInt::get(i1Ty, 1));
+  Type *VectorOfPointersType = VecPtrOp->getType();
+  Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
+  Type *ElementType = ElementPointerType->getPointerElementType();
+  Type *VectorOfElementsType = VectorType::get(ElementType, VL);
+
+  std::vector<Type *> ArgumentTypes;
+  std::vector<Value *> Arguments;
+
+  ArgumentTypes.push_back(VectorOfElementsType);
+
+  // Vector of pointers to load
+  Arguments.push_back(VecPtrOp);
+
+  // Alignment argument
+  Arguments.push_back(ConstantInt::get(i32Ty, LI->getAlignment()));
+
+  // Mask argument
+  Arguments.push_back(Mask);
+
+  // Passthru argument
+  Arguments.push_back(UndefValue::get(VectorOfElementsType));
+
+  Function *Intrinsic = Intrinsic::getDeclaration(
+      F->getParent(), IntrinsicID, ArrayRef<Type *>(ArgumentTypes));
+  assert(Intrinsic &&
+         "Expected to have an intrinsic for this memory operation");
+  NewLI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
+                           Builder.GetInsertPoint());
+  WidenMap[cast<Value>(Inst)] = cast<Value>(NewLI);
 }
 
 void AVRCodeGen::vectorizeStoreInstruction(Instruction *Inst,
                                            bool EmitIntrinsic) {
   if (!EmitIntrinsic) {
     serializeInstruction(Inst);
-  } else {
-    StoreInst *SI = dyn_cast<StoreInst>(Inst);
-    Instruction *NewSI;
-    Value *VecPtrOp, *VecDataOp;
-
-    VecDataOp = getVectorValue(SI->getValueOperand());
-    VecPtrOp = getVectorValue(SI->getPointerOperand());
-
-    Intrinsic::ID IntrinsicID = Intrinsic::masked_scatter;
-
-    Type *i1Ty = Type::getInt1Ty(F->getContext()); // Mask type
-    Type *i32Ty = Type::getInt32Ty(F->getContext());
-
-    // Unmasked for now
-    Value *Mask = ConstantVector::getSplat(VL, ConstantInt::get(i1Ty, 1));
-    Type *VectorOfPointersType = VecPtrOp->getType();
-    Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
-    Type *ElementType = ElementPointerType->getPointerElementType();
-    Type *VectorOfElementsType = VectorType::get(ElementType, VL);
-
-    std::vector<Type *> ArgumentTypes;
-    std::vector<Value *> Arguments;
-
-    ArgumentTypes.push_back(VectorOfElementsType);
-
-    // Vector of data, pointers to store
-    Arguments.push_back(VecDataOp);
-    Arguments.push_back(VecPtrOp);
-
-    // Alignment argument
-    Arguments.push_back(ConstantInt::get(i32Ty, SI->getAlignment()));
-
-    // Mask argument
-    Arguments.push_back(Mask);
-
-    Function *Intrinsic = Intrinsic::getDeclaration(
-        F->getParent(), IntrinsicID, ArrayRef<Type *>(ArgumentTypes));
-    assert(Intrinsic &&
-           "Expected to have an intrinsic for this memory operation");
-    NewSI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
-                             Builder.GetInsertPoint());
-
-    // Is this needed??
-    WidenMap[cast<Value>(Inst)] = cast<Value>(NewSI);
+    return;
   }
+
+  StoreInst *SI = dyn_cast<StoreInst>(Inst);
+  Instruction *NewSI;
+  Value *VecPtrOp, *VecDataOp;
+
+  VecDataOp = getVectorValue(SI->getValueOperand());
+  VecPtrOp = getVectorValue(SI->getPointerOperand());
+
+  Intrinsic::ID IntrinsicID = Intrinsic::masked_scatter;
+
+  Type *i1Ty = Type::getInt1Ty(F->getContext()); // Mask type
+  Type *i32Ty = Type::getInt32Ty(F->getContext());
+
+  // Unmasked for now
+  Value *Mask = ConstantVector::getSplat(VL, ConstantInt::get(i1Ty, 1));
+  Type *VectorOfPointersType = VecPtrOp->getType();
+  Type *ElementPointerType = VectorOfPointersType->getVectorElementType();
+  Type *ElementType = ElementPointerType->getPointerElementType();
+  Type *VectorOfElementsType = VectorType::get(ElementType, VL);
+
+  std::vector<Type *> ArgumentTypes;
+  std::vector<Value *> Arguments;
+
+  ArgumentTypes.push_back(VectorOfElementsType);
+
+  // Vector of data, pointers to store
+  Arguments.push_back(VecDataOp);
+  Arguments.push_back(VecPtrOp);
+
+  // Alignment argument
+  Arguments.push_back(ConstantInt::get(i32Ty, SI->getAlignment()));
+
+  // Mask argument
+  Arguments.push_back(Mask);
+
+  Function *Intrinsic = Intrinsic::getDeclaration(
+      F->getParent(), IntrinsicID, ArrayRef<Type *>(ArgumentTypes));
+  assert(Intrinsic &&
+         "Expected to have an intrinsic for this memory operation");
+  NewSI = CallInst::Create(Intrinsic, ArrayRef<Value *>(Arguments), "",
+                           Builder.GetInsertPoint());
+
+  // Is this needed??
+  WidenMap[cast<Value>(Inst)] = cast<Value>(NewSI);
 }
 
 void AVRCodeGen::serializeInstruction(Instruction *Inst) {
@@ -649,9 +645,8 @@ void AVRCodeGen::vectorizeInstruction(Instruction *Inst) {
       Index = getVectorValue(*IdxIt);
       Indices.push_back(Index);
     }
-    GetElementPtrInst *VectorGEP =
-      cast<GetElementPtrInst>(Builder.CreateGEP(VecBase, Indices,
-                                                "mm_vectorGEP"));
+    GetElementPtrInst *VectorGEP = cast<GetElementPtrInst>(
+        Builder.CreateGEP(VecBase, Indices, "mm_vectorGEP"));
     VectorGEP->setIsInBounds(GI->isInBounds());
     WidenMap[cast<Value>(Inst)] = VectorGEP;
 

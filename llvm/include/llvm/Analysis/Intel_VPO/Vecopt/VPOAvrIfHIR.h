@@ -34,9 +34,8 @@ private:
   HLIf *CompareInstruction;
 
 protected:
-
   AVRIfHIR(HLIf *CompareInst);
-  AVRIfHIR (const AVRIfHIR &AVRIfHIR);
+  AVRIfHIR(const AVRIfHIR &AVRIfHIR);
   virtual ~AVRIfHIR() override {}
 
   /// \brief Sets up state object.
@@ -49,9 +48,8 @@ protected:
   friend class AVRUtilsHIR;
 
 public:
-
   AVRIfHIR *clone() const override;
- 
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRIfHIRNode;
@@ -59,24 +57,21 @@ public:
   /// \brief Returns the number of operands for this instruction.
   unsigned getNumOperands() const;
 
-
   /// \brief Returns the underlying HLIf node for this AvrIf.
-  const HLIf *getCompareInstruction() const {
-    return CompareInstruction;
-  }
+  const HLIf *getCompareInstruction() const { return CompareInstruction; }
 
   /// \brief Prints the AvrIf node.
   void print(formatted_raw_ostream &OS, unsigned Depth,
-	     VerbosityLevel VLevel) const override;
+             VerbosityLevel VLevel) const override;
 
   /// \brief Returns the value name of this node.
   virtual std::string getAvrValueName() const override;
 
   /// \brief Code generation for AVR IF
-  void codeGen()  override;
+  void codeGen() override;
 };
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
-#endif  // LLVM_ANALYSIS_VPO_AVR_IF_HIR_H
+#endif // LLVM_ANALYSIS_VPO_AVR_IF_HIR_H
