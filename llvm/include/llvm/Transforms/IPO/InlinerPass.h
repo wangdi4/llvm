@@ -21,11 +21,11 @@
 #include "llvm/Transforms/IPO/InlineReport.h" // INTEL
 
 namespace llvm {
-  class CallSite;
-  class DataLayout;
-  class InlineCost;
-  template<class PtrType, unsigned SmallSize>
-  class SmallPtrSet;
+class AssumptionCacheTracker;
+class CallSite;
+class DataLayout;
+class InlineCost;
+template <class PtrType, unsigned SmallSize> class SmallPtrSet;
 
 /// Inliner - This class contains all of the helper code which is used to
 /// perform the inlining operations that do not depend on the policy.
@@ -99,6 +99,9 @@ bool shouldInline(CallSite CS);
   // A list of Function*s that can be deleted after the inliner is done
   SmallVector<Function*, 16> DeletableFunctions;
 #endif // INTEL_CUSTOMIZATION
+
+protected:
+  AssumptionCacheTracker *ACT;
 };
 
 } // End llvm namespace

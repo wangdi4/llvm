@@ -126,11 +126,11 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// inlining has the given attribute set either at the call site or the
   /// function declaration.  Primarily used to inspect call site specific
   /// attributes since these can be more precise than the ones on the callee
-  /// itself. 
+  /// itself.
   bool paramHasAttr(Argument *A, Attribute::AttrKind Attr);
   
   /// Return true if the given value is known non null within the callee if
-  /// inlined through this particular callsite. 
+  /// inlined through this particular callsite.
   bool isKnownNonNullInCallee(Value *V);
 
   // Custom analysis routines.
@@ -845,8 +845,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   CallAnalyzer CA(TTI, ACT, *F, InlineConstants::IndirectCallThreshold, CS);
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
-    // bonus we want to apply, but don't go below zero.
-    Cost -= std::max(0, InlineConstants::IndirectCallThreshold - CA.getCost());
+    // threshold to get the bonus we want to apply, but don't go below zero.
+    Cost -= std::max(0, CA.getThreshold() - CA.getCost());
   }
 
   return Base::visitCallSite(CS);
@@ -1472,7 +1472,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } 
 #endif // INTEL_CUSTOMIZATION
 
-  return Cost < Threshold;
+  return Cost <= std::max(0, Threshold);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1495,36 +1495,6 @@ void CallAnalyzer::dump() {
 }
 #endif
 
-INITIALIZE_PASS_BEGIN(InlineCostAnalysis, "inline-cost", "Inline Cost Analysis",
-                      true, true)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_END(InlineCostAnalysis, "inline-cost", "Inline Cost Analysis",
-                    true, true)
-
-char InlineCostAnalysis::ID = 0;
-
-InlineCostAnalysis::InlineCostAnalysis() : CallGraphSCCPass(ID) {}
-
-InlineCostAnalysis::~InlineCostAnalysis() {}
-
-void InlineCostAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  CallGraphSCCPass::getAnalysisUsage(AU);
-}
-
-bool InlineCostAnalysis::runOnSCC(CallGraphSCC &SCC) {
-  TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
-  ACT = &getAnalysis<AssumptionCacheTracker>();
-  return false;
-}
-
-InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, int Threshold) {
-  return getInlineCost(CS, CS.getCalledFunction(), Threshold);
-}
-
 /// \brief Test that two functions either have or have not the given attribute
 ///        at the same time.
 template<typename AttrKind>
@@ -1538,13 +1508,18 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
                                               Function *Callee,
                                               TargetTransformInfo &TTI) {
   return TTI.areInlineCompatible(Caller, Callee) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeAddress) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeMemory) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeThread);
+         AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
-InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
-                                             int Threshold) {
+InlineCost llvm::getInlineCost(CallSite CS, int Threshold,
+                               TargetTransformInfo &CalleeTTI,
+                               AssumptionCacheTracker *ACT) {
+  return getInlineCost(CS, CS.getCalledFunction(), Threshold, CalleeTTI, ACT);
+}
+
+InlineCost llvm::getInlineCost(CallSite CS, Function *Callee, int Threshold,
+                               TargetTransformInfo &CalleeTTI,
+                               AssumptionCacheTracker *ACT) {
   // Cannot inline indirect calls.
   if (!Callee)
     return llvm::InlineCost::getNever(NinlrIndirect); // INTEL 
@@ -1563,8 +1538,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
-  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee,
-                                         TTIWP->getTTI(*Callee)))
+  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee, CalleeTTI))
     return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL 
 
   // Don't inline this call if the caller has the optnone attribute.
@@ -1593,7 +1567,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
         << "...\n");
 
-  CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold, CS);
+  CallAnalyzer CA(CalleeTTI, ACT, *Callee, Threshold, CS);
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
@@ -1612,8 +1586,8 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
     CA.getThreshold(), Reason); // INTEL
 }
 
-bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL 
-  InlineReason& Reason) { // INTEL 
+bool llvm::isInlineViable(Function &F, // INTEL
+                          InlineReason& Reason) { // INTEL 
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or

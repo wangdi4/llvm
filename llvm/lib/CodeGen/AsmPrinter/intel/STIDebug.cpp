@@ -686,11 +686,13 @@ private:
   typedef DenseMap<const MDNode *, STIScope *> STIScopeMap;
   typedef DenseMap<const MDNode *, ClassInfo *> ClassInfoMap;
   typedef DenseMap<const MDNode *, std::string> StringNameMap;
+  typedef DenseMap<const DISubprogram *, Function *> DISubprogramMap;
 
   AsmPrinter *_asmPrinter;
   STISymbolProcedure *_currentProcedure;
   DbgValueHistoryMap _valueHistory;
   FunctionMap _functionMap;
+  DISubprogramMap _subprogramMap;
   STISymbolTable _symbolTable;
   STITypeTable _typeTable;
   STIStringTable _stringTable;
@@ -943,6 +945,7 @@ STIDebugImpl::STIDebugImpl(AsmPrinter *asmPrinter) :
     _currentProcedure   (nullptr),
     _valueHistory       (),
     _functionMap        (),
+    _subprogramMap      (),
     _symbolTable        (),
     _typeTable          (),
     _stringTable        (),
@@ -2647,9 +2650,10 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
 
 STISymbolProcedure *
 STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
-  Function *pFunc = SP->getFunction();
-  if (pFunc == nullptr)
+  DISubprogramMap::iterator Itr = _subprogramMap.find(SP);
+  if (Itr == _subprogramMap.end())
     return nullptr;
+  Function *pFunc = Itr->second;
   assert(pFunc && "LLVM subprogram has no LLVM function");
   if (_functionMap.count(pFunc)) {
     // Function is already created
@@ -2689,7 +2693,7 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
     procedure->setType(procedureType);
     procedure->setSymbolID(SP->isLocalToUnit() ? S_LPROC32 : S_GPROC32);
   }
-  procedure->getLineSlice()->setFunction(SP->getFunction());
+  procedure->getLineSlice()->setFunction(pFunc);
   procedure->setScopeLineNumber(SP->getScopeLine());
   procedure->setFrame(frame);
 
@@ -2708,7 +2712,10 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 }
 
 STISymbolProcedure *STIDebugImpl::createSymbolThunk(const DISubprogram *SP) {
-  Function *pFunc = SP->getFunction();
+  DISubprogramMap::iterator Itr = _subprogramMap.find(SP);
+  if (Itr == _subprogramMap.end())
+    return nullptr;
+  Function *pFunc = Itr->second;
   assert(pFunc && "LLVM subprogram has no LLVM function");
 
   // Thunk methods are artificially created and is expected to have only
@@ -2721,7 +2728,7 @@ STISymbolProcedure *STIDebugImpl::createSymbolThunk(const DISubprogram *SP) {
 
   STISymbolThunk *thunk;
   thunk = STISymbolThunk::create();
-  thunk->getLineSlice()->setFunction(SP->getFunction());
+  thunk->getLineSlice()->setFunction(pFunc);
   thunk->setScopeLineNumber(SP->getScopeLine());
   thunk->setName(getScopeFullName(resolve(SP->getScope()), linkageName, true));
   thunk->setAdjustor(adjustor);
@@ -3118,7 +3125,7 @@ void STIDebugImpl::collectGlobalVariableInfo(const DICompileUnit* CU) {
 }
 
 void STIDebugImpl::collectModuleInfo() {
-  const Module *M = getModule();
+  Module *M = const_cast<Module *>(getModule());
   STISymbolModule *module;
   std::string OBJPath = getOBJFullPath();
 
@@ -3127,6 +3134,14 @@ void STIDebugImpl::collectModuleInfo() {
   module->setPath(OBJPath);
 
   getSymbolTable()->setRoot(module);
+
+  // Initialize the DISubprogram->Function map.
+  for (Module::iterator I = M->begin(), E = M->end(); I != E; ++I) {
+    Function *Fn = &*I;
+    if (auto *SP = Fn->getSubprogram()) {
+      _subprogramMap.insert(std::make_pair(SP, Fn));
+    }
+  }
 
   NamedMDNode *CU_Nodes = M->getNamedMetadata("llvm.dbg.cu");
   if (!CU_Nodes)

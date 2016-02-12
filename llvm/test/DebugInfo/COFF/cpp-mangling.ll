@@ -16,7 +16,7 @@
 ; CHECK-NEXT:     Section: ?bar@foo@@YAHH@Z
 
 ; Function Attrs: nounwind
-define i32 @"\01?bar@foo@@YAHH@Z"(i32 %x) #0 {
+define i32 @"\01?bar@foo@@YAHH@Z"(i32 %x) #0 !dbg !4 {
 entry:
   %x.addr = alloca i32, align 4
   store i32 %x, i32* %x.addr, align 4
@@ -35,7 +35,7 @@ attributes #0 = { nounwind "less-precise-fpmad"="false" "no-frame-pointer-elim"=
 !1 = !DIFile(filename: "<stdin>", directory: "D:\5C")
 !2 = !{}
 !3 = !{!4}
-!4 = distinct !DISubprogram(name: "bar", line: 2, isLocal: false, isDefinition: true, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 2, file: !5, scope: !6, type: !7, function: i32 (i32)* @"\01?bar@foo@@YAHH@Z", variables: !2)
+!4 = distinct !DISubprogram(name: "bar", line: 2, isLocal: false, isDefinition: true, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 2, file: !5, scope: !6, type: !7, variables: !2)
 !5 = !DIFile(filename: "src.cpp", directory: "D:\5C")
 !6 = !DIFile(filename: "src.cpp", directory: "D:C")
 !7 = !DISubroutineType(types: !2)

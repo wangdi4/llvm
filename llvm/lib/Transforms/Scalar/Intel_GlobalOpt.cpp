@@ -204,9 +204,8 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
 
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B) {
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I) {
-      if (dyn_cast<FenceInst>(I)) {
+      if (dyn_cast<FenceInst>(I))
         return Changed;
-      }
     }
   }
 
@@ -214,7 +213,7 @@ bool NonLTOGlobalOpt::runOnFunction(Function &F) {
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   for (Module::global_iterator GVI = M->global_begin(), E = M->global_end();
        GVI != E;) {
-    GlobalVariable *GV = GVI++;
+    GlobalVariable *GV = &*(GVI++);
     if (AA->escapes(GV))
       continue;
 

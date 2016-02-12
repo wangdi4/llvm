@@ -282,10 +282,10 @@ void FeatureOutliner::spillLiveVectors(
     // Spill in the pre-header, reload in the header, and replace all the
     // uses in the region with the re-loaded value.
     AllocaInst *SpillLoc = new AllocaInst(VT, "spillVec", 
-      FuncEntry->getFirstInsertionPt());
-    new StoreInst(Used, SpillLoc, PreHeader->getFirstInsertionPt());
+      &*(FuncEntry->getFirstInsertionPt()));
+    new StoreInst(Used, SpillLoc, &*(PreHeader->getFirstInsertionPt()));
     LoadInst *Reload = new LoadInst(SpillLoc, "reloadVec", 
-      RegionHeader->getFirstInsertionPt());
+      &*(RegionHeader->getFirstInsertionPt()));
     for (Instruction *Use : I.second)
       Use->replaceUsesOfWith(Used, Reload);
   }
@@ -419,7 +419,7 @@ bool FeatureOutliner::runOnModule(Module &M) {
   for (auto F = M.begin(), FE = M.end(); F != FE; ++F) {
     if (F->isDeclaration())
       continue;
-    FunctionList.push_back(F);
+    FunctionList.push_back(&*F);
   }
 
   for (auto FI = FunctionList.begin(), FE = FunctionList.end(); 

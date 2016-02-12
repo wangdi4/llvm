@@ -147,6 +147,10 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Newly created callsite", 
   // NinlrNotProfitable,
   InlPrtCost, "Inlining is not profitable", 
+  // NinlrOpBundles,
+  InlPrtSimple, "Cannot inline call with operand bundle",
+  // NinlrMSVCEH,
+  InlPrtSimple, "Microsoft EH prevents inlining",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 

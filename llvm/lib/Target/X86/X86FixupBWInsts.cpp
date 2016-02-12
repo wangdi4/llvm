@@ -68,14 +68,14 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// passed in. It returns true if that super register is dead
   /// just prior to OrigMI, and false if not.
   bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-                             MVT::SimpleValueType OrigDestVT,
+                             unsigned OrigDestSize,
                              unsigned &SuperDestReg) const;
 
   /// \brief Change the MachineInstr MI into the equivalent extending load
   /// to 32 bit register if it is safe to do so.  Return the replacement
   /// instruction if OK, otherwise return nullptr.
   MachineInstr *tryReplaceLoad(unsigned New32BitOpcode,
-                               MVT::SimpleValueType OrigDestVT,
+                               unsigned OrigDestSize,
                                MachineInstr *MI) const;
 
 public:
@@ -120,11 +120,11 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
 }
 
 bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
-                                            MVT::SimpleValueType OrigDestVT,
+                                            unsigned OrigDestSize,
                                             unsigned &SuperDestReg) const {
 
   unsigned OrigDestReg = MI->getOperand(0).getReg();
-  SuperDestReg = getX86SubSuperRegister(OrigDestReg, MVT::i32);
+  SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
   // Make sure that the sub-register that this instruction has as its
   // destination is the lowest order sub-register of the super-register.
@@ -134,7 +134,7 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
   // register by default when getting a sub-register, so if that doesn't
   // match the original destination register, then the original destination
   // register must not have been the low register portion of that size.
-  if (getX86SubSuperRegister(SuperDestReg, OrigDestVT) != OrigDestReg)
+  if (getX86SubSuperRegister(SuperDestReg, OrigDestSize) != OrigDestReg)
     return false;
 
   MachineBasicBlock::LivenessQueryResult LQR =
@@ -144,12 +144,12 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
   if (LQR != MachineBasicBlock::LQR_Dead)
     return false;
 
-  if (OrigDestVT == MVT::i8) {
+  if (OrigDestSize == 8) {
     // In the case of byte registers, we also have to check that the upper
     // byte register is also dead. That is considered to be independent of
     // whether the super-register is dead.
     unsigned UpperByteReg =
-      getX86SubSuperRegister(SuperDestReg, MVT::i8, true);
+      getX86SubSuperRegister(SuperDestReg, 8, true);
 
     LQR = MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
                                                    UpperByteReg, MI);
@@ -161,11 +161,11 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
 }
 
 MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,
-                                              MVT::SimpleValueType OrigDestVT,
+                                              unsigned OrigDestSize,
                                               MachineInstr *MI) const {
   unsigned NewDestReg;
 
-  if (!getSuperRegDestIfDead(MI, OrigDestVT, NewDestReg))
+  if (!getSuperRegDestIfDead(MI, OrigDestSize, NewDestReg))
     return nullptr;
 
   // Safe to change the instruction.
@@ -192,20 +192,12 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
   // analysis that goes on be better than if the replaced instructions
   // were immediately removed.
   //
-  // This algorithm always adds a replacement instruction
-  // before the original instruction it is replacing. In the old instruction,
-  // the definition of the partial register is considered as a kill of
-  // the full register.  So, leaving in the old instruction serves
-  // to show that the upper portion of the full register continues to be dead.
-  // Whereas, if the old instruction is removed, now it looks as if the upper
-  // portion of the register may be used in subsequent instructions, and that
-  // may inhibit later instructions that use the partial register from
-  // seeing that the upper portion of the register is dead. 
+  // This algorithm always creates a replacement instruction
+  // and notes that and the original in a data structure, until the
+  // whole BB has been analyzed.  This keeps the replacement instructions
+  // from making it seem as if the larger register might be live.
   //
-  // So, this data structure keeps track of the instructions that
-  // have been replaced and are to be deleted prior to exiting this
-  // function.
-  SmallVector<MachineInstr *, 8> MIToBeDeleted;
+  SmallVector<std::pair<MachineInstr *, MachineInstr *>, 8> MIReplacements;
 
   for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I) {
     MachineInstr *NewMI = nullptr;
@@ -220,7 +212,7 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       // an extra byte to encode, and provides limited performance upside.
       if (MachineLoop *ML = MLI->getLoopFor(&MBB)) {
         if (ML->begin() == ML->end() && !OptForSize)
-          NewMI = tryReplaceLoad(X86::MOVZX32rm8, MVT::i8, MI);
+          NewMI = tryReplaceLoad(X86::MOVZX32rm8, 8, MI);
       }  
       break;
 
@@ -229,7 +221,7 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       // Code size is the same, and there is sometimes a perf advantage
       // from eliminating a false dependence on the upper portion of
       // the register.
-      NewMI = tryReplaceLoad(X86::MOVZX32rm16, MVT::i16, MI);
+      NewMI = tryReplaceLoad(X86::MOVZX32rm16, 16, MI);
       break;
 
     default:
@@ -237,15 +229,15 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       break;
     }
 
-    if (NewMI) {
-      MBB.insert(I, NewMI);
-      MIToBeDeleted.push_back(MI);
-    }
+    if (NewMI)
+      MIReplacements.push_back(std::make_pair(MI, NewMI));
   }
 
-  while (!MIToBeDeleted.empty()) {
-    MachineInstr *MI = MIToBeDeleted.back();
-    MIToBeDeleted.pop_back();
+  while (!MIReplacements.empty()) {
+    MachineInstr *MI = MIReplacements.back().first;
+    MachineInstr *NewMI = MIReplacements.back().second;
+    MIReplacements.pop_back();
+    MBB.insert(MI, NewMI);
     MBB.erase(MI);
   }
 }

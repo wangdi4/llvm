@@ -58,7 +58,6 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/LibCallSemantics.h"    // For EHPersonality
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Atomic.h"
@@ -921,19 +920,19 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
   // Add all the globals first.
   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
        I != E; ++I) {
-    ObjectNodes[I] = NumObjects++;
-    ValueNodes[I] = NumObjects++;
+    ObjectNodes[&(*I)] = NumObjects++;
+    ValueNodes[&(*I)] = NumObjects++;
   }
 
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // The function itself is a memory object.
     unsigned First = NumObjects;
-    ValueNodes[F] = NumObjects++;
+    ValueNodes[&(*F)] = NumObjects++;
     if (isPointsToType(F->getFunctionType()->getReturnType()))
-      ReturnNodes[F] = NumObjects++;
+      ReturnNodes[&(*F)] = NumObjects++;
     if (F->getFunctionType()->isVarArg())
-      VarargNodes[F] = NumObjects++;
+      VarargNodes[&(*F)] = NumObjects++;
 
 
     // Add nodes for all of the incoming pointer arguments.
@@ -941,14 +940,14 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
          I != E; ++I)
       {
         if (isPointsToType(I->getType()))
-          ValueNodes[I] = NumObjects++;
+          ValueNodes[&(*I)] = NumObjects++;
       }
     MaxK[First] = NumObjects - First;
 
     // Scan the function body, creating a memory object for each heap/stack
     // allocation in the body of the function and a node to represent all
     // pointer values defined by instructions and used as operands.
-    for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
+    for (inst_iterator II = inst_begin(&(*F)), E = inst_end(&(*F)); II != E; ++II) {
       // If this is an heap or stack allocation, create a node for the memory
       // object.
       ValueNodes[&*II] = NumObjects++;
@@ -1109,7 +1108,7 @@ void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
     if (isPointsToType(I->getType()))
       // If this is an argument of an externally accessible function, the
       // incoming pointer might point to anything.
-      Constraints.push_back(Constraint(Constraint::Copy, getNode(I),
+      Constraints.push_back(Constraint(Constraint::Copy, getNode(&(*I)),
                                        UniversalSet));
    }
 }
@@ -1233,9 +1232,9 @@ void AndersensAAResult::CollectConstraints(Module &M) {
        I != E; ++I) {
     // Associate the address of the global object as pointing to the memory for
     // the global: &G = <G memory>
-    unsigned ObjectIndex = getObject(I);
+    unsigned ObjectIndex = getObject(&(*I));
     Node *Object = &GraphNodes[ObjectIndex];
-    Object->setValue(I);
+    Object->setValue(&(*I));
     Constraints.push_back(Constraint(Constraint::AddressOf, getNodeValue(*I),
                                      ObjectIndex));
 
@@ -1255,16 +1254,16 @@ void AndersensAAResult::CollectConstraints(Module &M) {
 
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // Set function address
-    GraphNodes[ValueNodes[F]].setValue(F);
-    Constraints.push_back(Constraint(Constraint::AddressOf, ValueNodes[F],
-                                     ValueNodes[F]));
-    Constraints.push_back(Constraint(Constraint::Store, ValueNodes[F],
-                                     ValueNodes[F]));
+    GraphNodes[ValueNodes[&(*F)]].setValue(&(*F));
+    Constraints.push_back(Constraint(Constraint::AddressOf, ValueNodes[&(*F)],
+                                     ValueNodes[&(*F)]));
+    Constraints.push_back(Constraint(Constraint::Store, ValueNodes[&(*F)],
+                                     ValueNodes[&(*F)]));
     // Set up the return value node.
     if (isPointsToType(F->getFunctionType()->getReturnType()))
-      GraphNodes[getReturnNode(F)].setValue(F);
+      GraphNodes[getReturnNode(&(*F))].setValue(&(*F));
     if (F->getFunctionType()->isVarArg())
-      GraphNodes[getVarargNode(F)].setValue(F);
+      GraphNodes[getVarargNode(&(*F))].setValue(&(*F));
 
     // Set up incoming argument nodes.
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
@@ -1277,18 +1276,18 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     // address taken functions as escaping and treat them as external until
     // Escape analysis is implemented.
     if (!F->hasLocalLinkage() || F->hasAddressTaken())
-      AddConstraintsForNonInternalLinkage(F);
+      AddConstraintsForNonInternalLinkage(&(*F));
 
     if (!F->isDeclaration()) {
       // Scan the function body, creating a memory object for each heap/stack
       // allocation in the body of the function and a node to represent all
       // pointer values defined by instructions and used as operands.
-      visit(F);
+      visit(&(*F));
     } else {
       // External functions that return pointers return the universal set.
       if (isPointsToType(F->getFunctionType()->getReturnType()))
         Constraints.push_back(Constraint(Constraint::Copy,
-                                         getReturnNode(F),
+                                         getReturnNode(&(*F)),
                                          UniversalSet));
 
       // Any pointers that are passed into the function have the universal set
@@ -1298,17 +1297,17 @@ void AndersensAAResult::CollectConstraints(Module &M) {
         if (isPointsToType(I->getType())) {
           // Pointers passed into external functions could have anything stored
           // through them.
-          Constraints.push_back(Constraint(Constraint::Store, getNode(I),
+          Constraints.push_back(Constraint(Constraint::Store, getNode(&(*I)),
                                            UniversalSet));
           // Memory objects passed into external function calls can have the
           // universal set point to them.
 #if FULL_UNIVERSAL
           Constraints.push_back(Constraint(Constraint::Copy,
                                            UniversalSet,
-                                           getNode(I)));
+                                           getNode(&(*I))));
 #else
           Constraints.push_back(Constraint(Constraint::Copy,
-                                           getNode(I),
+                                           getNode(&(*I)),
                                            UniversalSet));
 #endif
         }
@@ -1316,7 +1315,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       // If this is an external varargs function, it can also store pointers
       // into any pointers passed through the varargs section.
       if (F->getFunctionType()->isVarArg())
-        Constraints.push_back(Constraint(Constraint::Store, getVarargNode(F),
+        Constraints.push_back(Constraint(Constraint::Store, getVarargNode(&(*F)),
                                          UniversalSet));
     }
   }
@@ -1338,11 +1337,6 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
   case Instruction::Resume:
   case Instruction::IndirectBr:
   case Instruction::Fence:
-
-  // Syntax:
-  //     catchendpad unwind label <nextaction>
-  //     catchendpad unwind to caller
-  case Instruction::CatchEndPad:
     return;
 
   default:
@@ -1404,27 +1398,6 @@ void AndersensAAResult::visitCleanupPadInst(CleanupPadInst &AI) {
                           getNodeValue(AI), UniversalSet));
   }
   processWinEhOperands(AI);
-}
-
-// Syntax:
-//      CleanupEndPad <type> <value> unwind label <continue>
-//
-void AndersensAAResult::visitCleanupEndPadInst(CleanupEndPadInst &AI) {
-  processWinEhOperands(AI);
-}
-
-// Syntax:
-//      terminatepad [<args>*] unwind label <exception label>
-//      terminatepad [<args>*] unwind to caller
-//
-void AndersensAAResult::visitTerminatePadInst(TerminatePadInst &AI) {
-  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
-    Value* v1 = AI.getArgOperand(Op);
-    if (v1->getType()->isPointerTy()) {
-      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
-                                       UniversalSet));
-    }
-  }
 }
 
 // Syntax:
@@ -1694,16 +1667,16 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   }
 
   for (; formal_itr != formal_end;) {
-    Argument* formal = formal_itr;
+    Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
     if (isPointsToType(formal->getType())) {
       if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(formal_itr), getNode(actual)));
+                              getNode(&(*formal_itr)), getNode(actual)));
       }
       else {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(formal_itr), UniversalSet));
+                              getNode(&(*formal_itr)), UniversalSet));
       }     
     }
     last_formal = formal_itr;
@@ -1722,7 +1695,7 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(last_formal), getNode(actual)));
+                              getNode(&(*last_formal)), getNode(actual)));
       }
     } 
   }
@@ -2884,7 +2857,7 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = NULL;
+  Function::arg_iterator last_formal = F->arg_end();
 
   // TODO: Ignore non-vararg functions if number of formals 
   // doesn’t match with number of arguments of the call-site 
@@ -2903,14 +2876,14 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   // CQ377744: Stop trying to map arguments and formals if 
   // arg_itr or formal_itr reached an end.
   for (; formal_itr != formal_end && arg_itr != arg_end;) {
-    Argument* formal = formal_itr;
+    Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
     if (isPointsToType(formal->getType())) {
       if (isPointsToType(actual->getType())) {
-        AddEdgeInGraph(getNode(formal_itr), getNode(actual));
+        AddEdgeInGraph(getNode(&(*formal_itr)), getNode(actual));
       }
       else {
-        AddEdgeInGraph(getNode(formal_itr), UniversalSet);
+        AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
       }
     }
     last_formal = formal_itr;
@@ -2922,7 +2895,7 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
       if (isPointsToType(actual->getType())) {
-        AddEdgeInGraph(getNode(last_formal), getNode(actual));
+        AddEdgeInGraph(getNode(&(*last_formal)), getNode(actual));
       }
     }
   }
@@ -5257,7 +5230,7 @@ void AndersensAAResult::InitEscAnal(Module &M) {
     if (isPointsToType(F->getFunctionType()->getReturnType())) {
       DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
       DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal return\n");
-      NodeIdx = getReturnNode(F);
+      NodeIdx = getReturnNode(&*F);
       //
       //     ret (formal)
       //  --------------------------
@@ -5268,14 +5241,14 @@ void AndersensAAResult::InitEscAnal(Module &M) {
     if (F->getFunctionType()->isVarArg()) {
       DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
       DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal var arg\n");
-      NodeIdx = getVarargNode(F);
+      NodeIdx = getVarargNode(&*F);
       NewHoldingNode(NodeIdx, FLAGS_HOLDING);
     }
 
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
          ++I) {
       if (isPointsToType(I->getType())) {
-        NodeIdx = getNode(I);
+        NodeIdx = getNode(&*I);
         DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
         DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal param\n");
         //

@@ -386,11 +386,11 @@ SNode *SNodeAnalysis::genSNodeIfThenElse(SNode *SnIf, SNode *SnThen,
 // the preds and succs based on the CFG.
 void SNodeAnalysis::createSNodeBlocks() {
   for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B) {
-    makeSnBlock(B);
+    makeSnBlock(&*B);
   }
 
   for (Function::iterator B = F->begin(), Be = F->end(); B != Be; ++B) {
-    makeSNodeGraph(B);
+    makeSNodeGraph(&*B);
   }
 }
 
@@ -516,7 +516,7 @@ void SNodeAnalysis::printSNodeStructure(const SNode *Snode, int Level,
       for (const_snode_children_iterator I = Snode->childCBegin(), 
            E = Snode->childCEnd(); I != E;
            ++I) {
-        printSNodeStructure(I, Level + 4, OS);
+        printSNodeStructure(&*I, Level + 4, OS);
       }
     }
     printIndent(Level, OS);
@@ -540,7 +540,7 @@ void SNodeAnalysis::dumpSingleSNode(const SNode *Snode,
     for (const_snode_children_iterator I = Snode->childCBegin(), 
          E = Snode->childCEnd();
          I != E; ++I) {
-      printSNodeNum(I, OS);
+      printSNodeNum(&*I, OS);
     }
   } else {
     printBlockName(Snode->getFirstBlock(), OS);
