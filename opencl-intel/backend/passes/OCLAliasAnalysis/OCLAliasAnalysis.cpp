@@ -98,7 +98,10 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
   SmallValueSet visitedPointerValues;
 
   // Assume this is the default namespace.
-  unsigned int addressSpace = OCLAddressSpace::Private;
+  Type* type = value->getType();
+  PointerType *pointerType = dyn_cast<PointerType>(type);
+  assert(pointerType && "Value is not of a pointer type");
+  unsigned int addressSpace = pointerType->getAddressSpace();
   // Keep track of whether this pointer originates from or gets casted to an int.
   bool isEscaping = false;
 
@@ -117,20 +120,20 @@ OCLAliasAnalysis::ResolveResult OCLAliasAnalysis::resolveAddressSpace(const Valu
       }
     }
 
-    Type* type = pointerValue->getType();
-    PointerType *pointerType = dyn_cast<PointerType>(type);
+    type = pointerValue->getType();
+    pointerType = dyn_cast<PointerType>(type);
     assert(pointerType && "Value is not of a pointer type");
     unsigned int valueAddressSpace = pointerType->getAddressSpace();
 
-    // Check if the same pointer value was not resovled into different named address spaces. E.g. __local and __global.
-    if(addressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Private && addressSpace != valueAddressSpace && valueAddressSpace != OCLAddressSpace::Generic)
-      isEscaping = true;
-
-    if(valueAddressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Generic)
-      addressSpace = valueAddressSpace;
+    if(!isEscaping && addressSpace != valueAddressSpace && valueAddressSpace != OCLAddressSpace::Private && valueAddressSpace != OCLAddressSpace::Generic) {
+        // Check if the same pointer value was not resovled into different named address spaces. E.g. __local and __global.
+        if(addressSpace != OCLAddressSpace::Private && addressSpace != OCLAddressSpace::Generic)
+            isEscaping = true;
+        addressSpace = valueAddressSpace;
+    }
 
     // Check whether the pointer value stems from or gets casted to an int.
-    if (isa<IntToPtrInst>(pointerValue) || isa<PtrToIntInst>(pointerValue))
+    if (!isEscaping && (isa<IntToPtrInst>(pointerValue) || isa<PtrToIntInst>(pointerValue)))
       isEscaping = true;
 
     // Mark this value's users to be visited.
