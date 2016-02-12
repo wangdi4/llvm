@@ -1398,9 +1398,12 @@ void AndersensAAResult::CollectConstraints(Module &M) {
 
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // Set function address
-    GraphNodes[ValueNodes[F]].setValue(F);
-    CreateConstraint(Constraint::AddressOf, ValueNodes[F], ValueNodes[F]);
-    CreateConstraint(Constraint::Store, ValueNodes[F], ValueNodes[F]);
+    if (F->hasAddressTaken()) {
+      GraphNodes[ValueNodes[F]].setValue(F);
+      CreateConstraint(Constraint::AddressOf, ValueNodes[F], ValueNodes[F]);
+      CreateConstraint(Constraint::Store, ValueNodes[F], ValueNodes[F]);
+    }
+
     // Set up the return value node.
     if (isPointsToType(F->getFunctionType()->getReturnType()))
       GraphNodes[getReturnNode(F)].setValue(F);
