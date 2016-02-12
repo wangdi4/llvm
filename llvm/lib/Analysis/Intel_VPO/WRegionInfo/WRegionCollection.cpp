@@ -1,6 +1,6 @@
 //===------ WRegionCollection.cpp - Build WRN Graph -----*- C++ -*---------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-1016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -8,9 +8,10 @@
 //   from the company.
 //
 //===----------------------------------------------------------------------===//
-//
-//   This file implements the W-Region Collection pass.
-//
+///
+/// \file
+/// This file implements the W-Region Collection pass.
+///
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
@@ -36,13 +37,13 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-wrncollection"
 
 INITIALIZE_PASS_BEGIN(WRegionCollection, "vpo-wrncollection",
-                                     "VPO Work-Region Collection", false, true)
+                      "VPO Work-Region Collection", false, true)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LCSSA)
 INITIALIZE_PASS_END(WRegionCollection, "vpo-wrncollection",
-                                     "VPO Work-Region Collection", false, true)
+                    "VPO Work-Region Collection", false, true)
 
 char WRegionCollection::ID = 0;
 
@@ -61,38 +62,26 @@ void WRegionCollection::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
 }
 
-template <class T>
-void WRStack<T>::push(T x)
-{
-  Stack_.push_back(x);
+template <class T> void WRStack<T>::push(T X) {
+  Stack_.push_back(X);
   return;
 }
 
-template <class T>
-void WRStack<T>::pop()
-{
-  if (Stack_.size() > 0) {
+template <class T> void WRStack<T>::pop() {
+  if (Stack_.size() > 0)
     Stack_.erase(Stack_.end() - 1);
-  }
+
   return;
 }
 
-template <class T>
-T WRStack<T>::top()
-{
+template <class T> T WRStack<T>::top() {
   assert(Stack_.size() > 0);
-  return Stack_.at(Stack_.size()-1);
+  return Stack_.at(Stack_.size() - 1);
 }
 
-template <class T>
-size_t WRStack<T>::size()
-{
-  return Stack_.size();
-}
+template <class T> size_t WRStack<T>::size() { return Stack_.size(); }
 
-template <class T>
-bool WRStack<T>::empty()
-{
+template <class T> bool WRStack<T>::empty() {
   return Stack_.size() == 0 ? true : false;
 }
 
@@ -100,49 +89,43 @@ bool WRStack<T>::empty()
 bool WRegionCollection::isCandidateLoop(Loop &Lp) {
 
   /// Return false if we cannot handle this loop
-  if (!Lp.isLoopSimplifyForm()) {
+  if (!Lp.isLoopSimplifyForm())
     return false;
-  }
 
   const SCEV *BETC = SE->getBackedgeTakenCount(&Lp);
 
   /// Only allow single BB loop for now.
-  if (Lp.getBlocks().size() != 1) {
+  if (Lp.getBlocks().size() != 1)
     return false;
-  }
 
   /// Only allow constant trip count loop for now.
-  if (!isa<SCEVConstant>(BETC)) {
+  if (!isa<SCEVConstant>(BETC))
     return false;
-  }
+
   return true;
 }
 
-/// \brief Visit the Dom Tree to identify all W-Regions 
-void WRegionCollection::doPreOrderDomTreeVisit(
-  BasicBlock *BB,
-  WRStack<WRegionNode *> *S
-)
-{
+/// \brief Visit the Dom Tree to identify all W-Regions
+void WRegionCollection::doPreOrderDomTreeVisit(BasicBlock *BB,
+                                               WRStack<WRegionNode *> *S) {
   // DEBUG(dbgs() << "\ndoPreOrderDomTreeVisit: processing BB:\n" << *BB);
   auto Root = DT->getNode(BB);
 
   WRegionNode *W;
-  
+
   //
   // Iterate through all the intstructions in BB.
   //
   for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I) {
 
-    IntrinsicInst* Call = dyn_cast<IntrinsicInst>(&*I);
+    IntrinsicInst *Call = dyn_cast<IntrinsicInst>(&*I);
 
-    if (Call) { 
-      Intrinsic::ID IntrinId=Call->getIntrinsicID();
+    if (Call) {
+      Intrinsic::ID IntrinId = Call->getIntrinsicID();
 
-      if (!VPOUtils::isIntelDirectiveOrClause(IntrinId)) {
+      if (!VPOUtils::isIntelDirectiveOrClause(IntrinId))
         // Intrin is not intel_directive or intel_directive_qual*
         continue;
-      }
 
       StringRef DirOrClauseStr = VPOUtils::getDirectiveMetadataString(Call);
       if (IntrinId == Intrinsic::intel_directive) {
@@ -157,15 +140,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(
           // The intrinsic represents an intel BEGIN directive.
           // W is a pointer to an object for the corresponding WRN.
 
-          if (S->empty()) { 
+          if (S->empty())
             // Top-level WRegionNode
             WRGraph->push_back(W);
-          }
           else {
             WRegionNode *Parent = S->top();
-            if (!Parent->hasChildren()) {
+            if (!Parent->hasChildren())
               WRegionUtils::insertFirstChild(Parent, W);
-            }
             else {
               WRegionNode *C = Parent->getLastChild();
               WRegionUtils::insertAfter(C, W);
@@ -174,44 +155,41 @@ void WRegionCollection::doPreOrderDomTreeVisit(
 
           S->push(W);
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
-        }
-        else if (VPOUtils::isEndDirective(DirOrClauseStr)) {
+        } else if (VPOUtils::isEndDirective(DirOrClauseStr)) {
           // The intrinsic represents an intel END directive
           // TODO: verify the END directive is the expected one
 
           // DEBUG(dbgs() << "\n} Ending WRegion.\n");
-          W = S->top(); 
+          W = S->top();
           W->setExitBBlock(BB);
 
-          // generate BB set; 
+          // generate BB set;
           // TODO: Remove this call later; the client will do it on demand
           W->populateBBSet();
 
-          if (!S->empty()) S->pop();
+          if (!S->empty())
+            S->pop();
           // DEBUG(dbgs() << "\nStacksize = " << S->size() << "\n");
         }
-      }
-      else {
+      } else {
         // Process clauses below
         W = S->top();
         int ClauseID = VPOUtils::getClauseID(DirOrClauseStr);
         if (IntrinId == Intrinsic::intel_directive_qual) {
           // Handle clause with no arguments
-          assert (Call->getNumArgOperands()==1 && 
-                  "Bad number of opnds for intel_directive_qual");
+          assert(Call->getNumArgOperands() == 1 &&
+                 "Bad number of opnds for intel_directive_qual");
           W->handleQual(ClauseID);
-        }
-        else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
+        } else if (IntrinId == Intrinsic::intel_directive_qual_opnd) {
           // Handle clause with one argument
-          assert (Call->getNumArgOperands()==2 && 
-                  "Bad number of opnds for intel_directive_qual_opnd");
+          assert(Call->getNumArgOperands() == 2 &&
+                 "Bad number of opnds for intel_directive_qual_opnd");
           Value *V = Call->getArgOperand(1);
           W->handleQualOpnd(ClauseID, V);
-        }
-        else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
+        } else if (IntrinId == Intrinsic::intel_directive_qual_opndlist) {
           // Handle clause with argument list
-          assert (Call->getNumArgOperands()>=2 && 
-                  "Bad number of opnds for intel_directive_qual_opndlist");
+          assert(Call->getNumArgOperands() >= 2 &&
+                 "Bad number of opnds for intel_directive_qual_opndlist");
           W->handleQualOpndList(ClauseID, Call);
         }
       }
@@ -221,14 +199,13 @@ void WRegionCollection::doPreOrderDomTreeVisit(
       if (!S->empty() && I == E) {
         WRegionNode *A = S->top();
         if (WRegionNode* StandAloneWConstruct = dyn_cast<WRNFlushNode>(&*A) ||
-            WRegionNode* StandAloneWConstruct = dyn_cast<WRNCancelNode>(&*A)) {
+            WRegionNode* StandAloneWConstruct = dyn_cast<WRNCancelNode>(&*A))
           S->pop();
-        }
       }
 #endif
 
     } // if (Call)
-  } // for
+  }   // for
 
   /// Walk over dominator children.
   for (auto D = Root->begin(), E = Root->end(); D != E; ++D) {
@@ -239,13 +216,12 @@ void WRegionCollection::doPreOrderDomTreeVisit(
   return;
 }
 
-
 void WRegionCollection::doBuildWRegionGraph(Function &F) {
 
-  DEBUG(dbgs() << "\nFunction = \n" << *this->Func );
+  DEBUG(dbgs() << "\nFunction = \n" << *this->Func);
   WRStack<WRegionNode *> S;
 
-  doPreOrderDomTreeVisit(&F.getEntryBlock(), &S); 
+  doPreOrderDomTreeVisit(&F.getEntryBlock(), &S);
 
   return;
 }
@@ -269,8 +245,7 @@ bool WRegionCollection::runOnFunction(Function &F) {
   // It maintains DominatorTree and LoopInfo.
   VPOUtils::CFGRestructuring(F, DT, LI);
 #endif
-  
-  
+
   // TBD: This needs to be run for LLVM IR only path. For the HIR case,
   // standalone basic blocks created cause HIR region formation to not
   // include the SIMD directives which in turn causes WRegion formation
@@ -293,7 +268,6 @@ void WRegionCollection::releaseMemory() {
   }
   WRegions.clear();
 #endif
-
 }
 
 void WRegionCollection::print(raw_ostream &OS, const Module *M) const {
