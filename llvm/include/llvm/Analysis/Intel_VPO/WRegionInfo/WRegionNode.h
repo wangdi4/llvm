@@ -1,6 +1,6 @@
 //===--------- WRegionNode.h - W-Region Graph Node --------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -39,14 +39,50 @@
 namespace llvm {
 
 namespace vpo {
+class WRegionNode;
+}
+
+
+/// \brief traits for iplist<WRegionNode>
+///
+/// Refer to ilist_traits<Instruction> in BasicBlock.h for explanation.
+template <>
+struct ilist_traits<vpo::WRegionNode>
+    : public ilist_default_traits<vpo::WRegionNode> {
+
+  vpo::WRegionNode *createSentinel() const;
+
+  static void destroySentinel(vpo::WRegionNode *) {}
+
+  vpo::WRegionNode *provideInitialHead() const { return createSentinel(); }
+  vpo::WRegionNode *ensureHead(vpo::WRegionNode *) const {
+    return createSentinel();
+  }
+  static void noteHead(vpo::WRegionNode *, vpo::WRegionNode *) {}
+
+  static vpo::WRegionNode *createWRegionNode(const vpo::WRegionNode &) {
+    llvm_unreachable("WRegionNodes should be explicitly created via" 
+                     "WRegionUtils class");
+    return nullptr;
+  }
+  static void deleteWRegionNode(vpo::WRegionNode *) {}
+
+private:
+  mutable ilist_half_node<vpo::WRegionNode> Sentinel;
+};
+
+
+namespace vpo {
 
 extern std::unordered_map<int, StringRef> WRNName;
 
 typedef VPOSmallVectorBB WRegionBBSetTy;
 
-class WRegionNode;
-
 typedef iplist<WRegionNode> WRContainerTy;
+typedef WRContainerTy::iterator               wrn_iterator;
+typedef WRContainerTy::const_iterator         wrn_const_iterator;
+typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
+typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
 
 /// \brief WRegion Node base class
 class WRegionNode : public ilist_node<WRegionNode> {
@@ -78,6 +114,9 @@ private:
 
   /// Enclosing parent of WRegionNode in CFG.
   WRegionNode *Parent;
+
+  /// Children container
+  WRContainerTy Children;
 
   /// True if the WRN came from HIR; false otherwise
   bool IsFromHIR;
@@ -235,16 +274,33 @@ public:
   /// \brief Returns the immediate enclosing parent of the WRegionNode.
   WRegionNode *getParent() const { return Parent; }
 
+  /// \brief Children iterator methods
+  wrn_iterator         wrn_child_begin() { return Children.begin(); }
+  wrn_iterator         wrn_child_end()   { return Children.end(); }
+
+  wrn_const_iterator   wrn_child_begin() const { return Children.begin(); }
+  wrn_const_iterator   wrn_child_end()   const { return Children.end(); }
+
+  wrn_reverse_iterator wrn_child_rbegin() { return Children.rbegin(); }
+  wrn_reverse_iterator wrn_child_rend()   { return Children.rend(); }
+
+  wrn_const_reverse_iterator wrn_child_rbegin() const {
+    return Children.rbegin();
+  }
+  wrn_const_reverse_iterator wrn_child_rend() const {
+    return Children.rend();
+  }
+  
   /// Children acess methods
 
   /// \brief Returns true if it has children.
-  bool hasChildren() const ;
+  bool hasChildren() const { return !Children.empty(); }
 
   /// \brief Returns the number of children.
-  unsigned getNumChildren() const ;
+  unsigned getNumChildren() const { return Children.size(); }
 
-  /// \brief Return address of the Children container 
-  WRContainerTy &getChildren() ;
+  /// \brief Returns the Children container (by ref)
+  WRContainerTy &getChildren() { return Children ; }
 
   /// \brief Returns the first child if it exists, otherwise returns null.
   WRegionNode *getFirstChild();
@@ -321,37 +377,6 @@ public:
 }; // class WRegionNode
 
 } // End vpo namespace
-
-
-/// \brief traits for iplist<WRegionNode>
-///
-/// Refer to ilist_traits<Instruction> in BasicBlock.h for explanation.
-template <>
-struct ilist_traits<vpo::WRegionNode>
-    : public ilist_default_traits<vpo::WRegionNode> {
-
-  vpo::WRegionNode *createSentinel() const {
-    return static_cast<vpo::WRegionNode *>(&Sentinel);
-  }
-
-  static void destroySentinel(vpo::WRegionNode *) {}
-
-  vpo::WRegionNode *provideInitialHead() const { return createSentinel(); }
-  vpo::WRegionNode *ensureHead(vpo::WRegionNode *) const {
-    return createSentinel();
-  }
-  static void noteHead(vpo::WRegionNode *, vpo::WRegionNode *) {}
-
-  static vpo::WRegionNode *createWRegionNode(const vpo::WRegionNode &) {
-    llvm_unreachable("WRegionNodes should be explicitly created via" 
-                     "WRegionUtils class");
-    return nullptr;
-  }
-  static void deleteWRegionNode(vpo::WRegionNode *) {}
-
-private:
-  mutable ilist_half_node<vpo::WRegionNode> Sentinel;
-};
 
 } // End llvm namespace
 

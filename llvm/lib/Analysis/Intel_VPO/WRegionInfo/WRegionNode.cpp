@@ -1,6 +1,6 @@
 //===-- WRegionNode.cpp - Implements the WRegionNode class ----------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -48,6 +48,10 @@ std::unordered_map<int, StringRef> llvm::vpo::WRNName = {
     {WRegionNode::WRNFlush, "Flush"},
     {WRegionNode::WRNOrdered, "Ordered"},
     {WRegionNode::WRNTaskgroup, "Taskgroup"}};
+
+WRegionNode *ilist_traits<WRegionNode>::createSentinel() const {
+      return static_cast<WRegionNode *>(&Sentinel);
+}
 
 // constructor for LLVM IR representation
 WRegionNode::WRegionNode(unsigned SCID, BasicBlock *BB)
@@ -111,32 +115,26 @@ BasicBlock *WRegionNode::getSuccBBlock() const {
   return *SuccI;
 }
 
-bool WRegionNode::hasChildren() const {
-  const WRegion *W = static_cast<const WRegion *>(this);
-  return W->hasChildren();
-}
-
-/// \brief Returns the number of children.
-unsigned WRegionNode::getNumChildren() const {
-  const WRegion *W = static_cast<const WRegion *>(this);
-  return W->getNumChildren();
-  return 0;
-}
-
-/// \brief Return address of the Children container
-WRContainerTy &WRegionNode::getChildren() {
-  WRegion *W = static_cast<WRegion *>(this);
-  return W->getChildren();
-}
-
 WRegionNode *WRegionNode::getFirstChild() {
-  WRegion *W = static_cast<WRegion *>(this);
-  return W->getFirstChild();
+  if (hasChildren()) {
+    return Children.begin();
+  }
+  return nullptr;
 }
 
 WRegionNode *WRegionNode::getLastChild() {
-  WRegion *W = static_cast<WRegion *>(this);
-  return W->getLastChild();
+  if (hasChildren()) {
+    return &(Children.back());
+  }
+  return nullptr;
+}
+
+void WRegionNode::printChildren(formatted_raw_ostream &OS,
+                                unsigned Depth) const
+ {
+  for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
+    I->print(OS, Depth);
+  }
 }
 
 void WRegionNode::destroy() {
@@ -153,11 +151,6 @@ void WRegionNode::dump() const {
 #endif
 }
 
-void WRegionNode::printChildren(formatted_raw_ostream &OS,
-                                unsigned Depth) const {
-  const WRegion *W = static_cast<const WRegion *>(this);
-  W->printChildren(OS, Depth);
-}
 
 //
 // functions below are used to update WRNs with clause information

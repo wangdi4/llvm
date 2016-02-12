@@ -1,6 +1,6 @@
 //===----- WRegion.cpp - Implements the WRegion class ---------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -24,45 +24,12 @@ using namespace llvm::vpo;
 #define DEBUG_TYPE "vpo-wregion"
 
 //
-// Methods for WRegion
-//
-
-// constructor for LLVM IR
-WRegion::WRegion(unsigned SCID, BasicBlock *BB) : WRegionNode(SCID, BB) {}
-
-// constructor for HIR
-WRegion::WRegion(unsigned SCID) : WRegionNode(SCID) {}
-
-WRegion::WRegion(WRegionNode *W) : WRegionNode(W) {}
-
-
-WRegionNode *WRegion::getFirstChild() {
-  if (hasChildren()) {
-    return Children.begin();
-  }
-  return nullptr;
-}
-
-WRegionNode *WRegion::getLastChild() {
-  if (hasChildren()) {
-    return &(Children.back());
-  }
-  return nullptr;
-}
-
-void WRegion::printChildren(formatted_raw_ostream &OS, unsigned Depth) const {
-  for (auto I = wrn_child_begin(), E = wrn_child_end(); I != E; ++I) {
-    I->print(OS, Depth);
-  }
-}
-
-//
 // Methods for WRNParallelNode
 //
 
 // constructor
 WRNParallelNode::WRNParallelNode(BasicBlock *BB) : 
-  WRegion(WRegionNode::WRNParallel, BB)
+  WRegionNode(WRegionNode::WRNParallel, BB)
 {
   setShared(nullptr);
   setPriv(nullptr);
@@ -76,7 +43,7 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB) :
   DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
 }
 
-WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegion(W)
+WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W)
 {
   setShared(W->getShared());
   setPriv(W->getPriv());
@@ -89,7 +56,6 @@ WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegion(W)
   setProcBind(W->getProcBind());
   DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
 }
-
 
 
 void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
@@ -112,7 +78,7 @@ void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
 
 // constructor
 WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li) : 
-  WRegion(WRegionNode::WRNParallelLoop, BB), LI(Li)
+  WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li)
 {
   setShared(nullptr);
   setPriv(nullptr);
@@ -132,7 +98,8 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li) :
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() <<">\n");
 }
 
-WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W) : WRegion(W)
+WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W) : 
+                                                       WRegionNode(W)
 {
   setShared(W->getShared());
   setPriv(W->getPriv());
@@ -171,7 +138,7 @@ print(formatted_raw_ostream &OS, unsigned Depth) const {
 
 // constructor for LLVM IR representation
 WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) : 
-  WRegion(WRegionNode::WRNVecLoop, BB), LI(Li)
+  WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li)
 {
   setPriv(nullptr);
   setLpriv(nullptr);
@@ -191,7 +158,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) :
 
 // constructor for HIR representation
 WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN) : 
-  WRegion(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN)
+  WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN)
 {
   setPriv(nullptr);
   setLpriv(nullptr);
@@ -209,7 +176,7 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN) :
   DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() <<">\n");
 }
 
-WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegion(W)
+WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W)
 {
   setPriv(W->getPriv());
   setLpriv(W->getLpriv());

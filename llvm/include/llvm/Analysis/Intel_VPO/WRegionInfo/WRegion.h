@@ -1,6 +1,6 @@
 //===----------------- WRegion.h - W-Region node ----------------*- C++ -*-===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -30,65 +30,6 @@ class LoopInfo;
 class Loop;
 
 namespace vpo {
-
-typedef WRContainerTy::iterator               wrn_iterator;
-typedef WRContainerTy::const_iterator         wrn_const_iterator;
-typedef WRContainerTy::reverse_iterator       wrn_reverse_iterator;
-typedef WRContainerTy::const_reverse_iterator wrn_const_reverse_iterator;
-
-/// \brief WRegion is an intermediate class to work around circular build 
-/// problem that happens if we have WRContainerTy (for the "Children" member)
-/// directly in WRegionNode. This intemediate class should never be 
-/// instantiated directly. All specialized WRN classes are derived from WRegion.
-class WRegion : public WRegionNode {
-private:
-  WRContainerTy Children;
-
-protected:
-  WRegion(unsigned SCID, BasicBlock *BB);  // for LLVM IR
-  WRegion(unsigned SCID);                  // for HIR
-  WRegion(WRegionNode *W);
-
-public:
-  /// Iterators to iterate over WRegionNodes in the "Children" container
-
-  /// \brief Children iterator methods
-  wrn_iterator         wrn_child_begin() { return Children.begin(); }
-  wrn_iterator         wrn_child_end()   { return Children.end(); }
-
-  wrn_const_iterator   wrn_child_begin() const { return Children.begin(); }
-  wrn_const_iterator   wrn_child_end()   const { return Children.end(); }
-
-  wrn_reverse_iterator wrn_child_rbegin() { return Children.rbegin(); }
-  wrn_reverse_iterator wrn_child_rend()   { return Children.rend(); }
-
-  wrn_const_reverse_iterator wrn_child_rbegin() const {
-    return Children.rbegin();
-  }
-  wrn_const_reverse_iterator wrn_child_rend() const {
-    return Children.rend();
-  }
-
-  /// \brief Returns true if it has children.
-  bool hasChildren() const { return !Children.empty(); }
-
-  /// \brief Returns the number of children.
-  unsigned getNumChildren() const { return Children.size(); }
-
-  /// \brief Returns the Children container (by ref)
-  WRContainerTy &getChildren() { return Children ; }
-
-  /// \brief Returns the first child if it exists, otherwise returns null.
-  WRegionNode *getFirstChild();
-
-  /// \brief Returns the last child if it exists, otherwise returns null.
-  WRegionNode *getLastChild();
-
-  /// \brief Prints children.
-  void printChildren(formatted_raw_ostream &OS, unsigned Depth) const;
-
-}; // class WRegion
-
 
 //
 // Classes below represent REGIONS, one for each type in
@@ -126,7 +67,7 @@ public:
 //
 // #pragma omp parallel
 //
-class WRNParallelNode : public WRegion
+class WRNParallelNode : public WRegionNode
 {
   private:
     SharedClause           *Shared;
@@ -178,7 +119,7 @@ class WRNParallelNode : public WRegion
 //
 // #pragma omp parallel sections
 //
-class WRNParallelSectionsNode : public WRegion
+class WRNParallelSectionsNode : public WRegionNode
 {
   private:
     SharedClause           *Shared;
@@ -229,7 +170,7 @@ class WRNParallelSectionsNode : public WRegion
 //
 // #pragma omp parallel loop
 //
-class WRNParallelLoopNode : public WRegion
+class WRNParallelLoopNode : public WRegionNode
 {
   private:
     SharedClause           *Shared;
@@ -295,7 +236,7 @@ class WRNParallelLoopNode : public WRegion
 //
 // #pragma omp simd
 //
-class WRNVecLoopNode : public WRegion
+class WRNVecLoopNode : public WRegionNode
 {
   private:
     PrivateClause      *Priv;               // qualOpndList
