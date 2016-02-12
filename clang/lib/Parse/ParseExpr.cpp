@@ -26,7 +26,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Sema/DeclSpec.h"
-#include "clang/Sema/Lookup.h"
+#include "clang/Sema/Lookup.h" // INTEL
 #include "clang/Sema/ParsedTemplate.h"
 #include "clang/Sema/Scope.h"
 #include "clang/Sema/TypoCorrection.h"
@@ -257,9 +257,9 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
     // If this token has a lower precedence than we are allowed to parse (e.g.
     // because we are called recursively, or because the token is not a binop),
     // then we are done!
-    if (NextTokPrec < MinPrec) {
+    if (NextTokPrec < MinPrec)
 #if INTEL_SPECIFIC_CILKPLUS
-      if (LHS.isUsable()) {
+    { if (LHS.isUsable()) {
         if (Actions.CheckCEANExpr(getCurScope(), LHS.get())){
           (void)Actions.CorrectDelayedTyposInExpr(LHS);
           return ExprError();
@@ -267,7 +267,9 @@ Parser::ParseRHSOfBinaryExpression(ExprResult LHS, prec::Level MinPrec) {
       }
 #endif // INTEL_SPECIFIC_CILKPLUS
       return LHS;
+#if INTEL_SPECIFIC_CILKPLUS
     }
+#endif // INTEL_SPECIFIC_CILKPLUS
 
     // Consume the operator, saving the operator token for error reporting.
     Token OpToken = Tok;
@@ -1066,7 +1068,7 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     SourceLocation CoawaitLoc = ConsumeToken();
     Res = ParseCastExpression(false);
     if (!Res.isInvalid())
-      Res = Actions.ActOnCoawaitExpr(CoawaitLoc, Res.get());
+      Res = Actions.ActOnCoawaitExpr(getCurScope(), CoawaitLoc, Res.get());
     return Res;
   }
 

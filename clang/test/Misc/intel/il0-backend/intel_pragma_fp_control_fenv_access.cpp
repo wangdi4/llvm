@@ -40,7 +40,7 @@ void f4(){}
 #pragma fp_contract (off  // expected-warning {{missing ')' after '#pragma fp_contract' - ignoring}}
 #pragma fenv_access (on  // expected-warning {{missing ')' after '#pragma fenv_access' - ignoring}}
 
-// CHECK: define i32 @main{{.*}} #3
+// CHECK: define i32 @main{{.*}} #4
 int main(int argc, char **argv)
 {
 #pragma fp_contract(on)
@@ -54,3 +54,4 @@ int main(int argc, char **argv)
 // CHECK: attributes #1 = { nounwind "INTEL:EXCEPT-OFF" "INTEL:FP_CONTRACT-OFF" "INTEL:PRECISE-ON"
 // CHECK: attributes #2 = { nounwind "INTEL:EXCEPT-OFF" "INTEL:FENV_ACCESS-ON" "INTEL:FP_CONTRACT-OFF" "INTEL:PRECISE-ON"
 // CHECK: attributes #3 = { nounwind "INTEL:EXCEPT-OFF" "INTEL:FENV_ACCESS-OFF" "INTEL:FP_CONTRACT-OFF" "INTEL:PRECISE-ON"
+// CHECK: attributes #4 = { norecurse nounwind "INTEL:EXCEPT-OFF" "INTEL:FENV_ACCESS-OFF" "INTEL:FP_CONTRACT-OFF" "INTEL:PRECISE-ON"

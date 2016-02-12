@@ -785,7 +785,7 @@ struct CounterCoverageMappingBuilder
     else
       pushRegion(Count, getStart(S));
 
-    if (const CaseStmt *CS = dyn_cast<CaseStmt>(S)) {
+    if (const auto *CS = dyn_cast<CaseStmt>(S)) {
       Visit(CS->getLHS());
       if (const Expr *RHS = CS->getRHS())
         Visit(RHS);
@@ -879,7 +879,7 @@ static bool isMachO(const CodeGenModule &CGM) {
 }
 
 static StringRef getCoverageSection(const CodeGenModule &CGM) {
-  return isMachO(CGM) ? "__DATA,__llvm_covmap" : "__llvm_covmap";
+  return llvm::getInstrProfCoverageSectionName(isMachO(CGM));
 }
 
 static void dump(llvm::raw_ostream &OS, StringRef FunctionName,
@@ -910,24 +910,23 @@ static void dump(llvm::raw_ostream &OS, StringRef FunctionName,
 }
 
 void CoverageMappingModuleGen::addFunctionMappingRecord(
-    llvm::GlobalVariable *FunctionName, StringRef FunctionNameValue,
-    uint64_t FunctionHash, const std::string &CoverageMapping) {
+    llvm::GlobalVariable *NamePtr, StringRef NameValue,
+    uint64_t FuncHash, const std::string &CoverageMapping) {
   llvm::LLVMContext &Ctx = CGM.getLLVMContext();
-  auto *Int32Ty = llvm::Type::getInt32Ty(Ctx);
-  auto *Int64Ty = llvm::Type::getInt64Ty(Ctx);
-  auto *Int8PtrTy = llvm::Type::getInt8PtrTy(Ctx);
   if (!FunctionRecordTy) {
-    llvm::Type *FunctionRecordTypes[] = {Int8PtrTy, Int32Ty, Int32Ty, Int64Ty};
+    #define COVMAP_FUNC_RECORD(Type, LLVMType, Name, Init) LLVMType,
+    llvm::Type *FunctionRecordTypes[] = {
+      #include "llvm/ProfileData/InstrProfData.inc"
+    };
     FunctionRecordTy =
         llvm::StructType::get(Ctx, makeArrayRef(FunctionRecordTypes),
                               /*isPacked=*/true);
   }
 
+  #define COVMAP_FUNC_RECORD(Type, LLVMType, Name, Init) Init,
   llvm::Constant *FunctionRecordVals[] = {
-      llvm::ConstantExpr::getBitCast(FunctionName, Int8PtrTy),
-      llvm::ConstantInt::get(Int32Ty, FunctionNameValue.size()),
-      llvm::ConstantInt::get(Int32Ty, CoverageMapping.size()),
-      llvm::ConstantInt::get(Int64Ty, FunctionHash)};
+      #include "llvm/ProfileData/InstrProfData.inc"
+  };
   FunctionRecords.push_back(llvm::ConstantStruct::get(
       FunctionRecordTy, makeArrayRef(FunctionRecordVals)));
   CoverageMappings += CoverageMapping;
@@ -949,7 +948,7 @@ void CoverageMappingModuleGen::addFunctionMappingRecord(
                                     Expressions, Regions);
     if (Reader.read())
       return;
-    dump(llvm::outs(), FunctionNameValue, Expressions, Regions);
+    dump(llvm::outs(), NameValue, Expressions, Regions);
   }
 }
 
@@ -994,24 +993,30 @@ void CoverageMappingModuleGen::emit() {
       llvm::ArrayType::get(FunctionRecordTy, FunctionRecords.size());
   auto RecordsVal = llvm::ConstantArray::get(RecordsTy, FunctionRecords);
 
+  llvm::Type *CovDataHeaderTypes[] = {
+#define COVMAP_HEADER(Type, LLVMType, Name, Init) LLVMType,
+#include "llvm/ProfileData/InstrProfData.inc"
+  };
+  auto CovDataHeaderTy =
+      llvm::StructType::get(Ctx, makeArrayRef(CovDataHeaderTypes));
+  llvm::Constant *CovDataHeaderVals[] = {
+#define COVMAP_HEADER(Type, LLVMType, Name, Init) Init,
+#include "llvm/ProfileData/InstrProfData.inc"
+  };
+  auto CovDataHeaderVal = llvm::ConstantStruct::get(
+      CovDataHeaderTy, makeArrayRef(CovDataHeaderVals));
+
   // Create the coverage data record
-  llvm::Type *CovDataTypes[] = {Int32Ty,   Int32Ty,
-                                Int32Ty,   Int32Ty,
-                                RecordsTy, FilenamesAndMappingsVal->getType()};
+  llvm::Type *CovDataTypes[] = {CovDataHeaderTy, RecordsTy,
+                                FilenamesAndMappingsVal->getType()};
   auto CovDataTy = llvm::StructType::get(Ctx, makeArrayRef(CovDataTypes));
-  llvm::Constant *TUDataVals[] = {
-      llvm::ConstantInt::get(Int32Ty, FunctionRecords.size()),
-      llvm::ConstantInt::get(Int32Ty, FilenamesSize),
-      llvm::ConstantInt::get(Int32Ty, CoverageMappingSize),
-      llvm::ConstantInt::get(Int32Ty,
-                             /*Version=*/CoverageMappingVersion1),
-      RecordsVal, FilenamesAndMappingsVal};
+  llvm::Constant *TUDataVals[] = {CovDataHeaderVal, RecordsVal,
+                                  FilenamesAndMappingsVal};
   auto CovDataVal =
       llvm::ConstantStruct::get(CovDataTy, makeArrayRef(TUDataVals));
-  auto CovData = new llvm::GlobalVariable(CGM.getModule(), CovDataTy, true,
-                                          llvm::GlobalValue::InternalLinkage,
-                                          CovDataVal,
-                                          "__llvm_coverage_mapping");
+  auto CovData = new llvm::GlobalVariable(
+      CGM.getModule(), CovDataTy, true, llvm::GlobalValue::InternalLinkage,
+      CovDataVal, llvm::getCoverageMappingVarName());
 
   CovData->setSection(getCoverageSection(CGM));
   CovData->setAlignment(8);

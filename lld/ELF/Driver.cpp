@@ -38,7 +38,6 @@ void lld::elf2::link(ArrayRef<const char *> Args) {
 }
 
 static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
-  Config->Emulation = S;
   if (S == "elf32btsmip")
     return {ELF32BEKind, EM_MIPS};
   if (S == "elf32ltsmip")
@@ -51,6 +50,10 @@ static std::pair<ELFKind, uint16_t> parseEmulation(StringRef S) {
     return {ELF32LEKind, EM_386};
   if (S == "elf_x86_64")
     return {ELF64LEKind, EM_X86_64};
+  if (S == "aarch64linux")
+    return {ELF64LEKind, EM_AARCH64};
+  if (S == "i386pe" || S == "i386pep" || S == "thumb2pe")
+    error("Windows targets are not supported on the ELF frontend: " + S);
   error("Unknown emulation: " + S);
 }
 
@@ -95,11 +98,24 @@ getString(opt::InputArgList &Args, unsigned Key, StringRef Default = "") {
   return Default;
 }
 
+static bool hasZOption(opt::InputArgList &Args, StringRef Key) {
+  for (auto *Arg : Args.filtered(OPT_z))
+    if (Key == Arg->getValue())
+      return true;
+  return false;
+}
+
 void LinkerDriver::main(ArrayRef<const char *> ArgsArr) {
   initSymbols();
 
   opt::InputArgList Args = parseArgs(&Alloc, ArgsArr);
   createFiles(Args);
+
+  // Traditional linkers can generate re-linkable object files instead
+  // of executables or DSOs. We don't support that since the feature
+  // does not seem to provide more value than the static archiver.
+  if (Args.hasArg(OPT_relocatable))
+    error("-r option is not supported. Use 'ar' command instead.");
 
   switch (Config->EKind) {
   case ELF32LEKind:
@@ -130,9 +146,11 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
     Config->RPath = llvm::join(RPaths.begin(), RPaths.end(), ":");
 
   if (auto *Arg = Args.getLastArg(OPT_m)) {
-    std::pair<ELFKind, uint16_t> P = parseEmulation(Arg->getValue());
+    StringRef S = Arg->getValue();
+    std::pair<ELFKind, uint16_t> P = parseEmulation(S);
     Config->EKind = P.first;
     Config->EMachine = P.second;
+    Config->Emulation = S;
   }
 
   Config->AllowMultipleDefinition = Args.hasArg(OPT_allow_multiple_definition);
@@ -142,9 +160,12 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
   Config->DiscardNone = Args.hasArg(OPT_discard_none);
   Config->EnableNewDtags = !Args.hasArg(OPT_disable_new_dtags);
   Config->ExportDynamic = Args.hasArg(OPT_export_dynamic);
+  Config->GcSections = Args.hasArg(OPT_gc_sections);
   Config->NoInhibitExec = Args.hasArg(OPT_noinhibit_exec);
   Config->NoUndefined = Args.hasArg(OPT_no_undefined);
+  Config->PrintGcSections = Args.hasArg(OPT_print_gc_sections);
   Config->Shared = Args.hasArg(OPT_shared);
+  Config->StripAll = Args.hasArg(OPT_strip_all);
   Config->Verbose = Args.hasArg(OPT_verbose);
 
   Config->DynamicLinker = getString(Args, OPT_dynamic_linker);
@@ -154,6 +175,18 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
   Config->OutputFile = getString(Args, OPT_o);
   Config->SoName = getString(Args, OPT_soname);
   Config->Sysroot = getString(Args, OPT_sysroot);
+
+  Config->ZExecStack = hasZOption(Args, "execstack");
+  Config->ZNodelete = hasZOption(Args, "nodelete");
+  Config->ZNow = hasZOption(Args, "now");
+  Config->ZOrigin = hasZOption(Args, "origin");
+  Config->ZRelro = !hasZOption(Args, "norelro");
+
+  if (auto *Arg = Args.getLastArg(OPT_O)) {
+    StringRef Val = Arg->getValue();
+    if (Val.getAsInteger(10, Config->Optimize))
+      error("Invalid optimization level");
+  }
 
   if (auto *Arg = Args.getLastArg(OPT_hash_style)) {
     StringRef S = Arg->getValue();
@@ -168,16 +201,6 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
 
   for (auto *Arg : Args.filtered(OPT_undefined))
     Config->Undefined.push_back(Arg->getValue());
-
-  for (auto *Arg : Args.filtered(OPT_z)) {
-    StringRef S = Arg->getValue();
-    if (S == "nodelete")
-      Config->ZNodelete = true;
-    else if (S == "now")
-      Config->ZNow = true;
-    else if (S == "origin")
-      Config->ZOrigin = true;
-  }
 
   for (auto *Arg : Args) {
     switch (Arg->getOption().getID()) {
@@ -211,6 +234,9 @@ void LinkerDriver::createFiles(opt::InputArgList &Args) {
 
   if (Files.empty())
     error("no input files.");
+
+  if (Config->GnuHash && Config->EMachine == EM_MIPS)
+    error("The .gnu.hash section is not compatible with the MIPS target.");
 }
 
 template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
@@ -221,11 +247,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
     // Add entry symbol.
     if (Config->Entry.empty())
       Config->Entry = (Config->EMachine == EM_MIPS) ? "__start" : "_start";
-
-    // Set either EntryAddr (if S is a number) or EntrySym (otherwise).
-    StringRef S = Config->Entry;
-    if (S.getAsInteger(0, Config->EntryAddr))
-      Config->EntrySym = Symtab.addUndefined(S);
 
     // In the assembly for 32 bit x86 the _GLOBAL_OFFSET_TABLE_ symbol
     // is magical and is used to produce a R_386_GOTPC relocation.
@@ -239,7 +260,26 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
     // an undefined symbol in the .o files.
     // Given that the symbol is effectively unused, we just create a dummy
     // hidden one to avoid the undefined symbol error.
-    Symtab.addIgnoredSym("_GLOBAL_OFFSET_TABLE_");
+    Symtab.addIgnored("_GLOBAL_OFFSET_TABLE_");
+  }
+
+  if (!Config->Entry.empty()) {
+    // Set either EntryAddr (if S is a number) or EntrySym (otherwise).
+    StringRef S = Config->Entry;
+    if (S.getAsInteger(0, Config->EntryAddr))
+      Config->EntrySym = Symtab.addUndefined(S);
+  }
+
+  if (Config->EMachine == EM_MIPS) {
+    // On MIPS O32 ABI, _gp_disp is a magic symbol designates offset between
+    // start of function and gp pointer into GOT.
+    Config->MipsGpDisp = Symtab.addIgnored("_gp_disp");
+
+    // Define _gp for MIPS. st_value of _gp symbol will be updated by Writer
+    // so that it points to an absolute address which is relative to GOT.
+    // See "Global Data Symbols" in Chapter 6 in the following document:
+    // ftp://www.linux-mips.org/pub/linux/mips/doc/ABI/mipsabi.pdf
+    Symtab.addAbsolute("_gp", ElfSym<ELFT>::MipsGp);
   }
 
   for (std::unique_ptr<InputFile> &F : Files)
@@ -253,5 +293,7 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &Args) {
 
   // Write the result to the file.
   Symtab.scanShlibUndefined();
+  if (Config->GcSections)
+    markLive<ELFT>(&Symtab);
   writeResult<ELFT>(&Symtab);
 }
