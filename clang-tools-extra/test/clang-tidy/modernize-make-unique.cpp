@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s modernize-make-unique %t
+// RUN: %check_clang_tidy %s modernize-make-unique %t
 
 namespace std {
 
@@ -163,6 +163,18 @@ void aliases() {
   // CHECK-MESSAGES: :[[@LINE-1]]:20: warning: use std::make_unique instead
   // CHECK-FIXES: IntPtr Typedef = std::make_unique<int>();
 
+  // We use 'bool' instead of '_Bool'.
+  typedef std::unique_ptr<bool> BoolPtr;
+  BoolPtr BoolType = BoolPtr(new bool);
+  // CHECK-MESSAGES: :[[@LINE-1]]:22: warning: use std::make_unique instead
+  // CHECK-FIXES: BoolPtr BoolType = std::make_unique<bool>();
+
+  // We use 'Base' instead of 'struct Base'.
+  typedef std::unique_ptr<Base> BasePtr;
+  BasePtr StructType = BasePtr(new Base);
+  // CHECK-MESSAGES: :[[@LINE-1]]:24: warning: use std::make_unique instead
+  // CHECK-FIXES: BasePtr StructType = std::make_unique<Base>();
+
 #define PTR unique_ptr<int>
   std::unique_ptr<int> Macro = std::PTR(new int);
   // CHECK-MESSAGES: :[[@LINE-1]]:32: warning: use std::make_unique instead
@@ -182,4 +194,10 @@ void whitespaces() {
   auto Spaces = std  ::    unique_ptr  <int>(new int());
   // CHECK-MESSAGES: :[[@LINE-1]]:17: warning: use std::make_unique instead
   // CHECK-FIXES: auto Spaces = std::make_unique<int>();
+}
+
+void nesting() {
+  auto Nest = std::unique_ptr<std::unique_ptr<int>>(new std::unique_ptr<int>(new int));
+  // CHECK-MESSAGES: :[[@LINE-1]]:15: warning: use std::make_unique instead
+  // CHECK-FIXES: auto Nest = std::make_unique<std::unique_ptr<int>>(new int);
 }

@@ -17,6 +17,8 @@
 #include "../misc/StaticAssertCheck.h"
 #include "../misc/ThrowByValueCatchByReferenceCheck.h"
 #include "SetLongJmpCheck.h"
+#include "StaticObjectExceptionCheck.h"
+#include "ThrownExceptionTypeCheck.h"
 #include "VariadicFunctionDefCheck.h"
 
 namespace clang {
@@ -40,6 +42,10 @@ public:
     // ERR
     CheckFactories.registerCheck<SetLongJmpCheck>(
         "cert-err52-cpp");
+    CheckFactories.registerCheck<StaticObjectExceptionCheck>(
+        "cert-err58-cpp");
+    CheckFactories.registerCheck<ThrownExceptionTypeCheck>(
+        "cert-err60-cpp");
     CheckFactories.registerCheck<ThrowByValueCatchByReferenceCheck>(
         "cert-err61-cpp");
 

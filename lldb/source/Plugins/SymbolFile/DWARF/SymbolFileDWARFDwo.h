@@ -23,11 +23,6 @@ public:
 
     ~SymbolFileDWARFDwo() override = default;
     
-    const lldb_private::DWARFDataExtractor&
-    GetCachedSectionData(uint32_t got_flag,
-                         lldb::SectionType sect_type,
-                         lldb_private::DWARFDataExtractor &data) override;
-    
     lldb::CompUnitSP
     ParseCompileUnit(DWARFCompileUnit* dwarf_cu, uint32_t cu_idx) override;
 
@@ -44,6 +39,9 @@ public:
     GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
 protected:
+    void
+    LoadSectionData (lldb::SectionType sect_type, lldb_private::DWARFDataExtractor& data) override;
+
     DIEToTypePtr&
     GetDIEToType() override;
 
@@ -55,6 +53,9 @@ protected:
 
     ClangTypeToDIE&
     GetForwardDeclClangTypeToDie() override;
+
+    UniqueDWARFASTTypeMap&
+    GetUniqueDWARFASTTypeMap() override;
 
     lldb::TypeSP
     FindDefinitionTypeForDWARFDeclContext (const DWARFDeclContext &die_decl_ctx) override;

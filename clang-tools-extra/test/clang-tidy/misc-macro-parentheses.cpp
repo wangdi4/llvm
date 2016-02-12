@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s misc-macro-parentheses %t
+// RUN: %check_clang_tidy %s misc-macro-parentheses %t
 
 #define BAD1              -1
 // CHECK-MESSAGES: :[[@LINE-1]]:27: warning: macro replacement list should be enclosed in parentheses [misc-macro-parentheses]
@@ -34,6 +34,8 @@
 #define GOOD23(type)      (type::Field)
 #define GOOD24(t)         std::set<t> s
 #define GOOD25(t)         std::set<t,t,t> s
+#define GOOD26(x)         (a->*x)
+#define GOOD27(x)         (a.*x)
 
 // These are allowed for now..
 #define MAYBE1            *12.34

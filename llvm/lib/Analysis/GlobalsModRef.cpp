@@ -353,12 +353,12 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
     } else if (auto CS = CallSite(I)) {
       // Make sure that this is just the function being called, not that it is
       // passing into the function.
-      if (!CS.isCallee(&U)) {
+      if (CS.isDataOperand(&U)) {
         // Detect calls to free.
-        if (isFreeCall(I, &TLI)) {
+        if (CS.isArgOperand(&U) && isFreeCall(I, &TLI)) {
           if (Writers)
             Writers->insert(CS->getParent()->getParent());
-        } else if (CS.doesNotCapture(CS.getArgumentNo(&U))) {
+        } else if (CS.doesNotCapture(CS.getDataOperandNo(&U))) {
           Function *ParentF = CS->getParent()->getParent();
           // A nocapture argument may be read from or written to, but does not
           // escape unless the call can somehow recurse.
@@ -375,6 +375,15 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
             Writers->insert(ParentF);
         } else {
           return true; // Argument of an unknown call.
+        }
+        // If the Callee is not ReadNone, it may read the global,
+        // and if it is not ReadOnly, it may also write to it.
+        Function *CalleeF = CS.getCalledFunction();
+        if (!CalleeF->doesNotAccessMemory()) {
+          if (Readers)
+            Readers->insert(CalleeF);
+          if (Writers && !CalleeF->onlyReadsMemory())
+            Writers->insert(CalleeF);
         }
       }
     } else if (ICmpInst *ICI = dyn_cast<ICmpInst>(I)) {
@@ -395,11 +404,16 @@ bool GlobalsAAResult::AnalyzeUsesOfPointer(Value *V,
 /// Further, all loads out of GV must directly use the memory, not store the
 /// pointer somewhere.  If this is true, we consider the memory pointed to by
 /// GV to be owned by GV and can disambiguate other pointers from it.
-bool GlobalsAAResult::AnalyzeIndirectGlobalMemory(GlobalValue *GV) {
+bool GlobalsAAResult::AnalyzeIndirectGlobalMemory(GlobalVariable *GV) {
   // Keep track of values related to the allocation of the memory, f.e. the
   // value produced by the malloc call and any casts.
   std::vector<Value *> AllocRelatedValues;
 
+  // If the initializer is a valid pointer, bail.
+  if (Constant *C = GV->getInitializer())
+    if (!C->isNullValue())
+      return false;
+    
   // Walk the user list of the global.  If we find anything other than a direct
   // load or store, bail out.
   for (User *U : GV->users()) {
@@ -502,7 +516,7 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
 
       if (F->isDeclaration()) {
         // Try to get mod/ref behaviour from function attributes.
-        if (F->doesNotAccessMemory()) {
+        if (F->doesNotAccessMemory() || F->onlyAccessesInaccessibleMemory()) {
           // Can't do better than that!
         } else if (F->onlyReadsMemory()) {
           FI.addModRefInfo(MRI_Ref);
@@ -510,6 +524,12 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
             // This function might call back into the module and read a global -
             // consider every global as possibly being read by this function.
             FI.setMayReadAnyGlobal();
+        } else if (F->onlyAccessesArgMemory() || 
+                   F->onlyAccessesInaccessibleMemOrArgMem()) {
+          // This function may only access (read/write) memory pointed to by its
+          // arguments. If this pointer is to a global, this escaping use of the
+          // pointer is captured in AnalyzeUsesOfPointer().
+          FI.addModRefInfo(MRI_ModRef);
         } else {
           FI.addModRefInfo(MRI_ModRef);
           // Can't say anything useful unless it's an intrinsic - they don't
@@ -595,6 +615,66 @@ void GlobalsAAResult::AnalyzeCallGraph(CallGraph &CG, Module &M) {
   }
 }
 
+// GV is a non-escaping global. V is a pointer address that has been loaded from.
+// If we can prove that V must escape, we can conclude that a load from V cannot
+// alias GV.
+static bool isNonEscapingGlobalNoAliasWithLoad(const GlobalValue *GV,
+                                               const Value *V,
+                                               int &Depth,
+                                               const DataLayout &DL) {
+  SmallPtrSet<const Value *, 8> Visited;
+  SmallVector<const Value *, 8> Inputs;
+  Visited.insert(V);
+  Inputs.push_back(V);
+  do {
+    const Value *Input = Inputs.pop_back_val();
+    
+    if (isa<GlobalValue>(Input) || isa<Argument>(Input) || isa<CallInst>(Input) ||
+        isa<InvokeInst>(Input))
+      // Arguments to functions or returns from functions are inherently
+      // escaping, so we can immediately classify those as not aliasing any
+      // non-addr-taken globals.
+      //
+      // (Transitive) loads from a global are also safe - if this aliased
+      // another global, its address would escape, so no alias.
+      continue;
+
+    // Recurse through a limited number of selects, loads and PHIs. This is an
+    // arbitrary depth of 4, lower numbers could be used to fix compile time
+    // issues if needed, but this is generally expected to be only be important
+    // for small depths.
+    if (++Depth > 4)
+      return false;
+
+    if (auto *LI = dyn_cast<LoadInst>(Input)) {
+      Inputs.push_back(GetUnderlyingObject(LI->getPointerOperand(), DL));
+      continue;
+    }  
+    if (auto *SI = dyn_cast<SelectInst>(Input)) {
+      const Value *LHS = GetUnderlyingObject(SI->getTrueValue(), DL);
+      const Value *RHS = GetUnderlyingObject(SI->getFalseValue(), DL);
+      if (Visited.insert(LHS).second)
+        Inputs.push_back(LHS);
+      if (Visited.insert(RHS).second)
+        Inputs.push_back(RHS);
+      continue;
+    }
+    if (auto *PN = dyn_cast<PHINode>(Input)) {
+      for (const Value *Op : PN->incoming_values()) {
+        Op = GetUnderlyingObject(Op, DL);
+        if (Visited.insert(Op).second)
+          Inputs.push_back(Op);
+      }
+      continue;
+    }
+    
+    return false;
+  } while (!Inputs.empty());
+
+  // All inputs were known to be no-alias.
+  return true;
+}
+
 // There are particular cases where we can conclude no-alias between
 // a non-addr-taken global and some other underlying object. Specifically,
 // a non-addr-taken global is known to not be escaped from any function. It is
@@ -669,22 +749,24 @@ bool GlobalsAAResult::isNonEscapingGlobalNoAlias(const GlobalValue *GV,
       // non-addr-taken globals.
       continue;
     }
-    if (auto *LI = dyn_cast<LoadInst>(Input)) {
-      // A pointer loaded from a global would have been captured, and we know
-      // that the global is non-escaping, so no alias.
-      if (isa<GlobalValue>(GetUnderlyingObject(LI->getPointerOperand(), DL)))
-        continue;
-
-      // Otherwise, a load could come from anywhere, so bail.
-      return false;
-    }
-
-    // Recurse through a limited number of selects and PHIs. This is an
+    
+    // Recurse through a limited number of selects, loads and PHIs. This is an
     // arbitrary depth of 4, lower numbers could be used to fix compile time
     // issues if needed, but this is generally expected to be only be important
     // for small depths.
     if (++Depth > 4)
       return false;
+
+    if (auto *LI = dyn_cast<LoadInst>(Input)) {
+      // A pointer loaded from a global would have been captured, and we know
+      // that the global is non-escaping, so no alias.
+      const Value *Ptr = GetUnderlyingObject(LI->getPointerOperand(), DL);
+      if (isNonEscapingGlobalNoAliasWithLoad(GV, Ptr, Depth, DL))
+        // The load does not alias with GV.
+        continue;
+      // Otherwise, a load could come from anywhere, so bail.
+      return false;
+    }
     if (auto *SI = dyn_cast<SelectInst>(Input)) {
       const Value *LHS = GetUnderlyingObject(SI->getTrueValue(), DL);
       const Value *RHS = GetUnderlyingObject(SI->getFalseValue(), DL);
@@ -811,9 +893,7 @@ ModRefInfo GlobalsAAResult::getModRefInfoForArgument(ImmutableCallSite CS,
     GetUnderlyingObjects(A, Objects, DL);
     
     // All objects must be identified.
-    if (!std::all_of(Objects.begin(), Objects.end(), [&GV](const Value *V) {
-          return isIdentifiedObject(V);
-        }))
+    if (!std::all_of(Objects.begin(), Objects.end(), isIdentifiedObject))
       return ConservativeResult;
 
     if (std::find(Objects.begin(), Objects.end(), GV) != Objects.end())

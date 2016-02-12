@@ -19,19 +19,19 @@ namespace clang {
 namespace tidy {
 namespace modernize {
 
-const char LoopNameArray[] = "forLoopArray";
-const char LoopNameIterator[] = "forLoopIterator";
-const char LoopNamePseudoArray[] = "forLoopPseudoArray";
-const char ConditionBoundName[] = "conditionBound";
-const char ConditionVarName[] = "conditionVar";
-const char IncrementVarName[] = "incrementVar";
-const char InitVarName[] = "initVar";
-const char BeginCallName[] = "beginCall";
-const char EndCallName[] = "endCall";
-const char ConditionEndVarName[] = "conditionEndVar";
-const char EndVarName[] = "endVar";
-const char DerefByValueResultName[] = "derefByValueResult";
-const char DerefByRefResultName[] = "derefByRefResult";
+static const char LoopNameArray[] = "forLoopArray";
+static const char LoopNameIterator[] = "forLoopIterator";
+static const char LoopNamePseudoArray[] = "forLoopPseudoArray";
+static const char ConditionBoundName[] = "conditionBound";
+static const char ConditionVarName[] = "conditionVar";
+static const char IncrementVarName[] = "incrementVar";
+static const char InitVarName[] = "initVar";
+static const char BeginCallName[] = "beginCall";
+static const char EndCallName[] = "endCall";
+static const char ConditionEndVarName[] = "conditionEndVar";
+static const char EndVarName[] = "endVar";
+static const char DerefByValueResultName[] = "derefByValueResult";
+static const char DerefByRefResultName[] = "derefByRefResult";
 
 // shared matchers
 static const TypeMatcher AnyType = anything();
@@ -230,18 +230,18 @@ StatementMatcher makePseudoArrayLoopMatcher() {
   // FIXME: Also, a record doesn't necessarily need begin() and end(). Free
   // functions called begin() and end() taking the container as an argument
   // are also allowed.
-  TypeMatcher RecordWithBeginEnd = qualType(
-      anyOf(qualType(isConstQualified(),
-                     hasDeclaration(cxxRecordDecl(
-                         hasMethod(cxxMethodDecl(hasName("begin"), isConst())),
-                         hasMethod(cxxMethodDecl(hasName("end"),
-                                                 isConst())))) // hasDeclaration
-                     ),                                        // qualType
-            qualType(unless(isConstQualified()),
-                     hasDeclaration(
-                         cxxRecordDecl(hasMethod(hasName("begin")),
+  TypeMatcher RecordWithBeginEnd = qualType(anyOf(
+      qualType(isConstQualified(),
+               hasDeclaration(cxxRecordDecl(
+                   hasMethod(cxxMethodDecl(hasName("begin"), isConst())),
+                   hasMethod(cxxMethodDecl(hasName("end"),
+                                           isConst())))) // hasDeclaration
+               ),                                        // qualType
+      qualType(
+          unless(isConstQualified()),
+          hasDeclaration(cxxRecordDecl(hasMethod(hasName("begin")),
                                        hasMethod(hasName("end"))))) // qualType
-            ));
+      ));
 
   StatementMatcher SizeCallMatcher = cxxMemberCallExpr(
       argumentCountIs(0),
@@ -352,11 +352,13 @@ static StringRef getStringFromRange(SourceManager &SourceMgr,
                               LangOpts);
 }
 
-/// \brief If the given expression is actually a DeclRefExpr, find and return
-/// the underlying VarDecl; otherwise, return NULL.
-static const VarDecl *getReferencedVariable(const Expr *E) {
+/// \brief If the given expression is actually a DeclRefExpr or a MemberExpr,
+/// find and return the underlying ValueDecl; otherwise, return NULL.
+static const ValueDecl *getReferencedVariable(const Expr *E) {
   if (const DeclRefExpr *DRE = getDeclRef(E))
     return dyn_cast<VarDecl>(DRE->getDecl());
+  if (const auto *Mem = dyn_cast<MemberExpr>(E->IgnoreParenImpCasts()))
+    return dyn_cast<FieldDecl>(Mem->getMemberDecl());
   return nullptr;
 }
 
@@ -368,11 +370,40 @@ static bool isDirectMemberExpr(const Expr *E) {
   return false;
 }
 
+/// \brief Given an expression that represents an usage of an element from the
+/// containter that we are iterating over, returns false when it can be
+/// guaranteed this element cannot be modified as a result of this usage.
+static bool canBeModified(ASTContext *Context, const Expr *E) {
+  if (E->getType().isConstQualified())
+    return false;
+  auto Parents = Context->getParents(*E);
+  if (Parents.size() != 1)
+    return true;
+  if (const auto *Cast = Parents[0].get<ImplicitCastExpr>()) {
+    if ((Cast->getCastKind() == CK_NoOp &&
+         Cast->getType() == E->getType().withConst()) ||
+        (Cast->getCastKind() == CK_LValueToRValue &&
+         !Cast->getType().isNull() && Cast->getType()->isFundamentalType()))
+      return false;
+  }
+  // FIXME: Make this function more generic.
+  return true;
+}
+
 /// \brief Returns true when it can be guaranteed that the elements of the
 /// container are not being modified.
-static bool usagesAreConst(const UsageResult &Usages) {
-  // FIXME: Make this function more generic.
-  return Usages.empty();
+static bool usagesAreConst(ASTContext *Context, const UsageResult &Usages) {
+  for (const Usage &U : Usages) {
+    // Lambda captures are just redeclarations (VarDecl) of the same variable,
+    // not expressions. If we want to know if a variable that is captured by
+    // reference can be modified in an usage inside the lambda's body, we need
+    // to find the expression corresponding to that particular usage, later in
+    // this loop.
+    if (U.Kind != Usage::UK_CaptureByCopy && U.Kind != Usage::UK_CaptureByRef &&
+        canBeModified(Context, U.Expression))
+      return false;
+  }
+  return true;
 }
 
 /// \brief Returns true if the elements of the container are never accessed
@@ -405,10 +436,11 @@ static bool containerIsConst(const Expr *ContainerExpr, bool Dereference) {
 
 LoopConvertCheck::RangeDescriptor::RangeDescriptor()
     : ContainerNeedsDereference(false), DerefByConstRef(false),
-      DerefByValue(false), IsTriviallyCopyable(false) {}
+      DerefByValue(false) {}
 
 LoopConvertCheck::LoopConvertCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context), TUInfo(new TUTrackingInfo),
+      MaxCopySize(std::stoull(Options.get("MaxCopySize", "16"))),
       MinConfidence(StringSwitch<Confidence::Level>(
                         Options.get("MinConfidence", "reasonable"))
                         .Case("safe", Confidence::CL_Safe)
@@ -422,6 +454,7 @@ LoopConvertCheck::LoopConvertCheck(StringRef Name, ClangTidyContext *Context)
                       .Default(VariableNamer::NS_CamelCase)) {}
 
 void LoopConvertCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
+  Options.store(Opts, "MaxCopySize", std::to_string(MaxCopySize));
   SmallVector<std::string, 3> Confs{"risky", "reasonable", "safe"};
   Options.store(Opts, "MinConfidence", Confs[static_cast<int>(MinConfidence)]);
 
@@ -469,9 +502,10 @@ void LoopConvertCheck::getAliasRange(SourceManager &SM, SourceRange &Range) {
 /// \brief Computes the changes needed to convert a given for loop, and
 /// applies them.
 void LoopConvertCheck::doConversion(
-    ASTContext *Context, const VarDecl *IndexVar, const VarDecl *MaybeContainer,
-    const UsageResult &Usages, const DeclStmt *AliasDecl, bool AliasUseRequired,
-    bool AliasFromForInit, const ForStmt *Loop, RangeDescriptor Descriptor) {
+    ASTContext *Context, const VarDecl *IndexVar,
+    const ValueDecl *MaybeContainer, const UsageResult &Usages,
+    const DeclStmt *AliasDecl, bool AliasUseRequired, bool AliasFromForInit,
+    const ForStmt *Loop, RangeDescriptor Descriptor) {
   auto Diag = diag(Loop->getForLoc(), "use range-based for loop instead");
 
   std::string VarName;
@@ -554,30 +588,34 @@ void LoopConvertCheck::doConversion(
   // Now, we need to construct the new range expression.
   SourceRange ParenRange(Loop->getLParenLoc(), Loop->getRParenLoc());
 
-  QualType AutoType = Context->getAutoDeductType();
+  QualType Type = Context->getAutoDeductType();
+  if (!Descriptor.ElemType.isNull() && Descriptor.ElemType->isFundamentalType())
+    Type = Descriptor.ElemType.getUnqualifiedType();
 
   // If the new variable name is from the aliased variable, then the reference
   // type for the new variable should only be used if the aliased variable was
   // declared as a reference.
-  bool UseCopy =
-      CanCopy &&
-      ((VarNameFromAlias && !AliasVarIsRef) ||
-       (Descriptor.DerefByConstRef && Descriptor.IsTriviallyCopyable));
+  bool IsCheapToCopy =
+      !Descriptor.ElemType.isNull() &&
+      Descriptor.ElemType.isTriviallyCopyableType(*Context) &&
+      // TypeInfo::Width is in bits.
+      Context->getTypeInfo(Descriptor.ElemType).Width <= 8 * MaxCopySize;
+  bool UseCopy = CanCopy && ((VarNameFromAlias && !AliasVarIsRef) ||
+                             (Descriptor.DerefByConstRef && IsCheapToCopy));
 
   if (!UseCopy) {
     if (Descriptor.DerefByConstRef) {
-      AutoType =
-          Context->getLValueReferenceType(Context->getConstType(AutoType));
+      Type = Context->getLValueReferenceType(Context->getConstType(Type));
     } else if (Descriptor.DerefByValue) {
-      if (!Descriptor.IsTriviallyCopyable)
-        AutoType = Context->getRValueReferenceType(AutoType);
+      if (!IsCheapToCopy)
+        Type = Context->getRValueReferenceType(Type);
     } else {
-      AutoType = Context->getLValueReferenceType(AutoType);
+      Type = Context->getLValueReferenceType(Type);
     }
   }
 
   StringRef MaybeDereference = Descriptor.ContainerNeedsDereference ? "*" : "";
-  std::string TypeString = AutoType.getAsString();
+  std::string TypeString = Type.getAsString(getLangOpts());
   std::string Range = ("(" + TypeString + " " + VarName + " : " +
                        MaybeDereference + Descriptor.ContainerString + ")")
                           .str();
@@ -611,7 +649,7 @@ void LoopConvertCheck::getArrayLoopQualifiers(ASTContext *Context,
                                               RangeDescriptor &Descriptor) {
   // On arrays and pseudoarrays, we must figure out the qualifiers from the
   // usages.
-  if (usagesAreConst(Usages) ||
+  if (usagesAreConst(Context, Usages) ||
       containerIsConst(ContainerExpr, Descriptor.ContainerNeedsDereference)) {
     Descriptor.DerefByConstRef = true;
   }
@@ -633,7 +671,7 @@ void LoopConvertCheck::getArrayLoopQualifiers(ASTContext *Context,
       }
       Type = Type->getPointeeType();
     }
-    Descriptor.IsTriviallyCopyable = Type.isTriviallyCopyableType(*Context);
+    Descriptor.ElemType = Type;
   }
 }
 
@@ -654,8 +692,7 @@ void LoopConvertCheck::getIteratorLoopQualifiers(ASTContext *Context,
     // If the dereference operator returns by value then test for the
     // canonical const qualification of the init variable type.
     Descriptor.DerefByConstRef = CanonicalInitVarType.isConstQualified();
-    Descriptor.IsTriviallyCopyable =
-        DerefByValueType->isTriviallyCopyableType(*Context);
+    Descriptor.ElemType = *DerefByValueType;
   } else {
     if (const auto *DerefType =
             Nodes.getNodeAs<QualType>(DerefByRefResultName)) {
@@ -665,8 +702,7 @@ void LoopConvertCheck::getIteratorLoopQualifiers(ASTContext *Context,
       auto ValueType = DerefType->getNonReferenceType();
 
       Descriptor.DerefByConstRef = ValueType.isConstQualified();
-      Descriptor.IsTriviallyCopyable =
-          ValueType.isTriviallyCopyableType(*Context);
+      Descriptor.ElemType = ValueType;
     } else {
       // By nature of the matcher this case is triggered only for built-in
       // iterator types (i.e. pointers).
@@ -676,9 +712,7 @@ void LoopConvertCheck::getIteratorLoopQualifiers(ASTContext *Context,
       // We test for const qualification of the pointed-at type.
       Descriptor.DerefByConstRef =
           CanonicalInitVarType->getPointeeType().isConstQualified();
-      Descriptor.IsTriviallyCopyable =
-          CanonicalInitVarType->getPointeeType().isTriviallyCopyableType(
-              *Context);
+      Descriptor.ElemType = CanonicalInitVarType->getPointeeType();
     }
   }
 }

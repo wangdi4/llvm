@@ -1,4 +1,4 @@
-// RUN: %python %S/check_clang_tidy.py %s modernize-loop-convert %t -- -std=c++11 -I %S/Inputs/modernize-loop-convert
+// RUN: %check_clang_tidy %s modernize-loop-convert %t -- -- -std=c++11 -I %S/Inputs/modernize-loop-convert
 
 #include "structures.h"
 
@@ -92,33 +92,6 @@ void multipleArrays() {
   }
 }
 
-struct HasArr {
-  int Arr[N];
-  Val ValArr[N];
-};
-
-struct HasIndirectArr {
-  HasArr HA;
-  void implicitThis() {
-    for (int I = 0; I < N; ++I) {
-      printf("%d", HA.Arr[I]);
-    }
-
-    for (int I = 0; I < N; ++I) {
-      printf("%d", HA.ValArr[I].X);
-    }
-  }
-
-  void explicitThis() {
-    for (int I = 0; I < N; ++I) {
-      printf("%d", this->HA.Arr[I]);
-    }
-
-    for (int I = 0; I < N; ++I) {
-      printf("%d", this->HA.ValArr[I].X);
-    }
-  }
-};
 }
 
 namespace NegativeIterator {
