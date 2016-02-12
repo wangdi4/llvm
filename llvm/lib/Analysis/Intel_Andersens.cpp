@@ -101,6 +101,11 @@ static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::Rea
 static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
 // Option to control ignoring NullPtr during collection of constraints
 static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::ReallyHidden);
+// Limit number of indirect calls processed during propagation. No limit check
+// if it is set to -1. If number of indirect calls exceeds this limit, treat
+// all indirect calls conservatively.
+static cl::opt<int>
+IndirectCallsLimit("indirect-calls-limit", cl::ReallyHidden, cl::init(2500));
 
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
@@ -1454,6 +1459,17 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       // into any pointers passed through the varargs section.
       if (F->getFunctionType()->isVarArg())
         CreateConstraint(Constraint::Store, getVarargNode(F), UniversalSet);
+    }
+  }
+  // Treat Indirect calls conservatively if number of indirect calls exceeds
+  // IndirectCallsLimit
+  bool DoIndirectCallProcess = ((IndirectCallsLimit == -1) || 
+                              (IndirectCallList.size() <= IndirectCallsLimit));
+  if (!DoIndirectCallProcess) {
+    std::vector<CallSite>::const_iterator calllist_itr;
+
+    for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i) {
+      AddConstraintsForInitActualsToUniversalSet(IndirectCallList[i]);
     }
   }
   NumConstraints += Constraints.size();
@@ -3094,6 +3110,9 @@ void AndersensAAResult::SolveConstraints() {
   CurrWL = &w1;
   NextWL = &w2;
 
+  bool DoIndirectCallProcess = ((IndirectCallsLimit == -1) || 
+                              (IndirectCallList.size() <= IndirectCallsLimit));
+
   OptimizeConstraints();
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa-constraints"
@@ -3371,7 +3390,9 @@ void AndersensAAResult::SolveConstraints() {
 
     // Process Indirect calls here for now. 
     // TODO: Need to find correct placement for this call later.
-    ProcessIndirectCalls();
+    if (DoIndirectCallProcess) {
+      ProcessIndirectCalls();
+    }
 
     // Switch to other work list.
     WorkList* t = CurrWL; CurrWL = NextWL; NextWL = t;
