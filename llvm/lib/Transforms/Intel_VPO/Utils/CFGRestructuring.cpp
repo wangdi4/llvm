@@ -1,9 +1,11 @@
 //===---------- CFGRestructuring.cpp - Restructures CFG *- C++ -*----------===//
 //
-//                     The LLVM Compiler Infrastructure
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+//   The information and source code contained herein is the exclusive
+//   property of Intel Corporation. and may not be disclosed, examined
+//   or reproduced in whole or in part without explicit written authorization
+//   from the company.
 //
 //===----------------------------------------------------------------------===//
 //
@@ -25,7 +27,6 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/ADT/Twine.h"
-
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -52,57 +53,50 @@ using namespace llvm::vpo;
 // ...
 // call void @llvm.intel.directive("DIR_QUAL_LIST_END")
 //
-void VPOUtils::CFGRestructuring(
-  Function &F,
-  DominatorTree *DT,
-  LoopInfo *LI
-)
-{
+void VPOUtils::CFGRestructuring(Function &F, DominatorTree *DT, LoopInfo *LI) {
 
   DEBUG(dbgs() << "VPO CFG Restructuring \n");
 
   // Find all the intrinsic instructions, including directive_begin,
   // directive_end, directive_qual_list_end, and bookkeep them in
   // InstructionsToSplit.
-  std::set<Instruction* > InstructionsToSplit;
+  std::set<Instruction *> InstructionsToSplit;
   InstructionsToSplit.clear();
   for (Function::iterator B = F.begin(), BE = F.end(); B != BE; ++B)
     for (BasicBlock::iterator I = B->begin(), IE = B->end(); I != IE; ++I)
-      if (IntrinsicInst* Inst = dyn_cast<IntrinsicInst>(&*I)) 
+      if (IntrinsicInst *Inst = dyn_cast<IntrinsicInst>(&*I))
         if (Inst->getIntrinsicID() == Intrinsic::intel_directive) {
           StringRef DirString = getDirectiveMetadataString(Inst);
-          if (isBeginOrEndDirective(DirString) ||
-              isListEndDirective(DirString)) {
+          if (isBeginOrEndDirective(DirString) || isListEndDirective(DirString))
             InstructionsToSplit.insert(I);
-          }
         }
 
   // Now, go through InstructionsToSplit and do the splitting around
   // directive_begin or directive_end, or the next instruction right after
   // directive_qual_list_end.
 
-  unsigned counter = 0;
+  unsigned Counter = 0;
 
-  for (Instruction *I: InstructionsToSplit) {
-    counter ++;
+  for (Instruction *I : InstructionsToSplit) {
+    Counter++;
 
     // Get the basic block of this instruction first.
-    BasicBlock* BB = I->getParent();
+    BasicBlock *BB = I->getParent();
 
     // If directive_begin or directive_end is the first instruction of a basic
     // block, we can just skip splitting around it. Note that,
     // directive_qual_list_end will never be the first instruction of a basic
     // block, since it is always paired with directive_begin or directive_end.
     if (I != BB->begin()) {
-      Instruction* SplitPoint = I;
-      StringRef DirString = 
+      Instruction *SplitPoint = I;
+      StringRef DirString =
           getDirectiveMetadataString(dyn_cast<IntrinsicInst>(I));
       if (isListEndDirective(DirString)) {
-        BasicBlock::iterator inst = I;
-        SplitPoint = ++inst;
+        BasicBlock::iterator Inst = I;
+        SplitPoint = ++Inst;
       }
-      BasicBlock* newBB = SplitBlock(BB, SplitPoint, DT, LI);
-      newBB->setName(DirString + "." + Twine(counter));
+      BasicBlock *newBB = SplitBlock(BB, SplitPoint, DT, LI);
+      newBB->setName(DirString + "." + Twine(Counter));
     }
   }
 }

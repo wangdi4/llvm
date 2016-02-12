@@ -28,9 +28,8 @@ using namespace llvm::vpo;
 //
 
 // constructor
-WRNParallelNode::WRNParallelNode(BasicBlock *BB) : 
-  WRegionNode(WRegionNode::WRNParallel, BB)
-{
+WRNParallelNode::WRNParallelNode(BasicBlock *BB)
+    : WRegionNode(WRegionNode::WRNParallel, BB) {
   setShared(nullptr);
   setPriv(nullptr);
   setFpriv(nullptr);
@@ -40,11 +39,10 @@ WRNParallelNode::WRNParallelNode(BasicBlock *BB) :
   setNumThreads(nullptr);
   setDefault(WRNDefaultAbsent);
   setProcBind(WRNProcBindAbsent);
-  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
-WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W)
-{
+WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W) {
   setShared(W->getShared());
   setPriv(W->getPriv());
   setFpriv(W->getFpriv());
@@ -54,32 +52,29 @@ WRNParallelNode::WRNParallelNode(WRNParallelNode *W) : WRegionNode(W)
   setNumThreads(W->getNumThreads());
   setDefault(W->getDefault());
   setProcBind(W->getProcBind());
-  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNParallelNode<" << getNumber() << ">\n");
 }
 
-
 void WRNParallelNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
-  //TODO may need to have an extra parameter (or global) to add a fixed
+  // TODO may need to have an extra parameter (or global) to add a fixed
   //    space for left margin at Depth=0
-  std::string Indent(Depth*2, ' ');
+  std::string Indent(Depth * 2, ' ');
 
   OS << Indent << "BEGIN WRNParallelNode<" << getNumber() << "> {\n";
 
-    // TODO: print data local to this ParRegion
-    //       eg shared vars, priv vars, etc.
-    printChildren(OS, Depth+1);
+  // TODO: print data local to this ParRegion
+  //       eg shared vars, priv vars, etc.
+  printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNParallelNode<" << getNumber() << ">\n";
 }
-
 
 //
 // Methods for WRNParallelLoopNode
 //
 
 // constructor
-WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li) : 
-  WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li)
-{
+WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNParallelLoop, BB), LI(Li) {
   setShared(nullptr);
   setPriv(nullptr);
   setFpriv(nullptr);
@@ -95,12 +90,11 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li) :
   Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
-  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
 
-WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W) : 
-                                                       WRegionNode(W)
-{
+WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W)
+    : WRegionNode(W) {
   setShared(W->getShared());
   setPriv(W->getPriv());
   setFpriv(W->getFpriv());
@@ -115,31 +109,29 @@ WRNParallelLoopNode::WRNParallelLoopNode(WRNParallelLoopNode *W) :
   setOrdered(W->getOrdered());
   setLoopInfo(W->getLoopInfo());
   setLoop(W->getLoop());
-  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNParallelLoopNode::
-print(formatted_raw_ostream &OS, unsigned Depth) const {
-  //TODO may need to have an extra parameter (or global) to add a fixed
+void WRNParallelLoopNode::print(formatted_raw_ostream &OS,
+                                unsigned Depth) const {
+  // TODO may need to have an extra parameter (or global) to add a fixed
   //    space for left margin at Depth=0
-  std::string Indent(Depth*2, ' ');
+  std::string Indent(Depth * 2, ' ');
 
   OS << Indent << "BEGIN WRNParallelLoopNode<" << getNumber() << "> {\n";
-    // TODO: print data local to this ParRegion
-    //       eg shared vars, priv vars, etc.
-    printChildren(OS, Depth+1);
+  // TODO: print data local to this ParRegion
+  //       eg shared vars, priv vars, etc.
+  printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNParallelLoopNode<" << getNumber() << ">\n";
 }
-
 
 //
 // Methods for WRNVecLoopNode
 //
 
 // constructor for LLVM IR representation
-WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) : 
-  WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li)
-{
+WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
+    : WRegionNode(WRegionNode::WRNVecLoop, BB), LI(Li) {
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
@@ -153,13 +145,12 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li) :
   Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
-  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
 // constructor for HIR representation
-WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN) : 
-  WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN)
-{
+WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN)
+    : WRegionNode(WRegionNode::WRNVecLoop), EntryHLNode(EntryHLN) {
   setPriv(nullptr);
   setLpriv(nullptr);
   setRed(nullptr);
@@ -171,13 +162,12 @@ WRNVecLoopNode::WRNVecLoopNode(loopopt::HLNode *EntryHLN) :
   setIsAutoVec(false);
 
   setExitHLNode(nullptr);
-  setHLLoop(nullptr);       
+  setHLLoop(nullptr);
 
-  DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated HIR-WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
-WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W)
-{
+WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W) {
   setPriv(W->getPriv());
   setLpriv(W->getLpriv());
   setRed(W->getRed());
@@ -191,30 +181,28 @@ WRNVecLoopNode::WRNVecLoopNode(WRNVecLoopNode *W) : WRegionNode(W)
     setEntryHLNode(W->getEntryHLNode());
     setExitHLNode(W->getExitHLNode());
     setHLLoop(W->getHLLoop());
-  }
-  else {
+  } else {
     setLoopInfo(W->getLoopInfo());
     setLoop(W->getLoop());
   }
-  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() <<">\n");
+  DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
 }
 
-void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const 
-{
-  std::string Indent(Depth*2, ' ');
+void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
+  std::string Indent(Depth * 2, ' ');
   OS << Indent << "\nBEGIN WRNVecLoopNode<" << getNumber() << "> {\n";
 
-  OS << Indent << "SIMDLEN clause: "  << getSimdlen() << "\n";
+  OS << Indent << "SIMDLEN clause: " << getSimdlen() << "\n";
 
   if (auto RC = getRed())
     for (ReductionItem *RI : RC->items()) {
       ReductionItem::WRNReductionKind RType = RI->getType();
       int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
       StringRef RedStr = VPOUtils::getReductionClauseString(RedClauseID);
-      OS << Indent << "REDUCTION clause: " << RedStr << " " <<
-        RI->getOrig()->getName() << "\n";
+      OS << Indent << "REDUCTION clause: " << RedStr << " "
+         << RI->getOrig()->getName() << "\n";
     }
-  LinearClause *C=getLinear();
+  LinearClause *C = getLinear();
   if (C) {
     OS << Indent;
     C->print(OS);
@@ -225,21 +213,18 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const
     getEntryHLNode()->dump();
     OS << "\n" << Indent << "HLLoop:\n";
     getHLLoop()->dump();
-  }
-  else {
+  } else {
     OS << "\n" << Indent << "EntryBB:" << *getEntryBBlock();
-    OS << "\n" << Indent << "ExitBB:"  << *getExitBBlock();
+    OS << "\n" << Indent << "ExitBB:" << *getExitBBlock();
     OS << "\n" << Indent << "BBlockSet dump:\n";
-    if (!isBBSetEmpty()) {
-      for (auto I=bbset_begin(),E=bbset_end(); I!=E; ++I) {
+    if (!isBBSetEmpty())
+      for (auto I = bbset_begin(), E = bbset_end(); I != E; ++I) {
         const BasicBlock *BB = *I;
         OS << Indent << *BB;
       }
-    }
-    else {
+    else
       OS << Indent << "No BBSet\n";
-    }
   }
-  printChildren(OS, Depth+1);
+  printChildren(OS, Depth + 1);
   OS << Indent << "} END WRNVecLoopNode<" << getNumber() << ">\n\n";
 }

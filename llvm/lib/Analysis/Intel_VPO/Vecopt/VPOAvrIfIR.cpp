@@ -1,6 +1,6 @@
 //===----------------------------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
@@ -23,46 +23,40 @@ using namespace llvm;
 using namespace llvm::vpo;
 
 AVRIfIR::AVRIfIR(AVRBranch *ABranch)
-  : AVRIf(AVR::AVRIfIRNode), AvrBranch(ABranch) {
+    : AVRIf(AVR::AVRIfIRNode), AvrBranch(ABranch) {
 
   assert(ABranch->isConditional() && "Branch for AvrIf is non-conditional!");
   Condition = AvrBranch->getCondition();
 }
 
-AVRIfIR *AVRIfIR::clone() const {
-  return nullptr;
-}
+AVRIfIR *AVRIfIR::clone() const { return nullptr; }
 
 void AVRIfIR::print(formatted_raw_ostream &OS, unsigned Depth,
-                  VerbosityLevel VLevel) const {
+                    VerbosityLevel VLevel) const {
 
   std::string Indent((Depth * TabLength), ' ');
 
   OS << Indent;
 
   switch (VLevel) {
-    case PrintNumber:
-      OS << "(" << getNumber() << ") ";
-    case PrintAvrType:
-    case PrintDataType:
-    case PrintBase:
-      OS << getAvrTypeName();
-      OS << "( ";
-        OS << Condition->getAvrValueName();
-      OS << " )\n";
-      OS << Indent << "{\n";
-      break;
-    default:
-      llvm_unreachable("Unknown Avr Print Verbosity!");
+  case PrintNumber:
+    OS << "(" << getNumber() << ") ";
+  case PrintAvrType:
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrTypeName();
+    OS << "( ";
+    OS << Condition->getAvrValueName();
+    OS << " )\n";
+    OS << Indent << "{\n";
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
-  AVRIf::print(OS,Depth, VLevel);
+  AVRIf::print(OS, Depth, VLevel);
 }
 
-std::string AVRIfIR::getAvrValueName() const {
-  return "";
-}
+std::string AVRIfIR::getAvrValueName() const { return ""; }
 
-void AVRIfIR::codeGen() {
-}
-
+void AVRIfIR::codeGen() {}

@@ -1,6 +1,6 @@
 //===-- VPO/Paropt/VPOParoptTranform.h - Paropt Transform Class -*- C++ -*-===//
 //
-// Copyright (C) 2015 Intel Corporation. All rights reserved.
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 // The information and source code contained herein is the exclusive
 // property of Intel Corporation. and may not be disclosed, examined
@@ -18,9 +18,9 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This file contains the interface to outline a work region formed from 
-/// parallel loop/regions/tasks into a new function, replacing it with a 
-/// call to the threading runtime call by passing new function pointer to 
+/// This file contains the interface to outline a work region formed from
+/// parallel loop/regions/tasks into a new function, replacing it with a
+/// call to the threading runtime call by passing new function pointer to
 /// the runtime for parallel execution.
 ///
 //===----------------------------------------------------------------------===//
@@ -35,7 +35,6 @@
 #include "llvm/ADT/MapVector.h"
 #include "llvm/ADT/PostOrderIterator.h"
 
-//#include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugLoc.h"
@@ -75,24 +74,23 @@ typedef SmallVector<WRegionNode *, 32> WRegionListTy;
 class VPOParoptTransform {
 
 public:
-
   /// \brief ParoptTransform object constructor
-  VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT, 
-                     VPOParoptMode Mode) : F(F), WI(WI), DT(DT), Mode(Mode),
-                     IdentTy(nullptr), TidPtr(nullptr), BidPtr(nullptr) {}
+  VPOParoptTransform(Function *F, WRegionInfo *WI, DominatorTree *DT,
+                     VPOParoptMode Mode)
+      : F(F), WI(WI), DT(DT), Mode(Mode), IdentTy(nullptr), TidPtr(nullptr),
+        BidPtr(nullptr) {}
 
   /// \brief Top level interface for parallel transformation
   bool ParoptTransformer();
 
 private:
-
   /// \brief The W-regions in the function F are to be transformed
   Function *F;
 
-  /// \brief W-Region information holder 
+  /// \brief W-Region information holder
   WRegionInfo *WI;
-  
-  /// \brief Get the Dominator Tree for code extractor 
+
+  /// \brief Get the Dominator Tree for code extractor
   DominatorTree *DT;
 
   /// \brief Paropt compilation mode
@@ -104,7 +102,7 @@ private:
   /// \brief Hold the LOC structure type which is need for KMP library
   StructType *IdentTy;
 
-  /// \brief Hold the pointer to Tid (thread id) Value 
+  /// \brief Hold the pointer to Tid (thread id) Value
   AllocaInst *TidPtr;
 
   /// \brief Hold the pointer to Bid (binding thread id) Value
@@ -123,12 +121,11 @@ private:
   /// \brief Generate __kmpc_fork_call Instruction after CodeExtractor
   void genForkCallInst(WRegionNode *W, CallInst *CI);
 
-  /// \brief Generate loop schdudeling code 
-  //void genParLoopScheduleCode(CallInst *CI, WRegionInfo *WI);
+  /// \brief Generate loop schdudeling code
+  // void genParLoopScheduleCode(CallInst *CI, WRegionInfo *WI);
 
   /// Threading/OpenMP Runtime Function Declarations
-  //Function *genOktoForkCall();
-
+  // Function *genOktoForkCall();
 };
 
 } /// namespace vpo

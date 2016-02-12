@@ -64,14 +64,14 @@ static inline bool isTriviallyVectorizable(Intrinsic::ID ID) {
 }
 
 static inline bool hasVectorInstrinsicScalarOpd(Intrinsic::ID ID,
-                                         unsigned ScalarOpdIdx) {
+                                                unsigned ScalarOpdIdx) {
   switch (ID) {
-    case Intrinsic::ctlz:
-    case Intrinsic::cttz:
-    case Intrinsic::powi:
-      return (ScalarOpdIdx == 1);
-    default:
-      return false;
+  case Intrinsic::ctlz:
+  case Intrinsic::cttz:
+  case Intrinsic::powi:
+    return (ScalarOpdIdx == 1);
+  default:
+    return false;
   }
 }
 
@@ -79,30 +79,26 @@ static Intrinsic::ID checkUnaryFloatSignature(const CallInst &I,
                                               Intrinsic::ID ValidIntrinsicID) {
   if (I.getNumArgOperands() != 1 ||
       !I.getArgOperand(0)->getType()->isFloatingPointTy() ||
-      I.getType() != I.getArgOperand(0)->getType() ||
-      !I.onlyReadsMemory())
+      I.getType() != I.getArgOperand(0)->getType() || !I.onlyReadsMemory())
     return Intrinsic::not_intrinsic;
 
   return ValidIntrinsicID;
 }
 
-static Intrinsic::ID checkBinaryFloatSignature(
-                        const CallInst &I,
-                        Intrinsic::ID ValidIntrinsicID)
-{
+static Intrinsic::ID checkBinaryFloatSignature(const CallInst &I,
+                                               Intrinsic::ID ValidIntrinsicID) {
   if (I.getNumArgOperands() != 2 ||
       !I.getArgOperand(0)->getType()->isFloatingPointTy() ||
       !I.getArgOperand(1)->getType()->isFloatingPointTy() ||
       I.getType() != I.getArgOperand(0)->getType() ||
-      I.getType() != I.getArgOperand(1)->getType() ||
-      !I.onlyReadsMemory())
+      I.getType() != I.getArgOperand(1)->getType() || !I.onlyReadsMemory())
     return Intrinsic::not_intrinsic;
 
   return ValidIntrinsicID;
 }
 
-static Intrinsic::ID
-getIntrinsicIDForCall(CallInst *CI, const TargetLibraryInfo *TLI) {
+static Intrinsic::ID getIntrinsicIDForCall(CallInst *CI,
+                                           const TargetLibraryInfo *TLI) {
   // If we have an intrinsic call, check if it is trivially vectorizable.
   if (IntrinsicInst *II = dyn_cast<IntrinsicInst>(CI)) {
     Intrinsic::ID ID = II->getIntrinsicID();

@@ -7,7 +7,7 @@ using namespace llvm;
 
 VectorVariant::VectorVariant(StringRef FuncName) {
 
-  assert(isVectorVariant(FuncName) && "invalid vector variant format");
+  assert(isVectorVariant(FuncName) && "Invalid vector variant format");
 
   std::stringstream SST(FuncName.drop_front(prefix().size()));
 
@@ -49,7 +49,7 @@ VectorVariant::VectorVariant(StringRef FuncName) {
       // Extract constant stride
       SST >> Stride;
       assert((Kind != STRIDE_KIND || Stride >= 0) &&
-             "variable stride argument index cannot be negative");
+             "Variable stride argument index cannot be negative");
     }
 
     Stride *= StrideSign;
@@ -70,50 +70,48 @@ VectorVariant::VectorVariant(StringRef FuncName) {
   }
 }
 
-unsigned int VectorVariant::calcVlen(ISAClass I,
-				     Type* CharacteristicDataType) {
+unsigned int VectorVariant::calcVlen(ISAClass I, Type *CharacteristicDataType) {
   assert(CharacteristicDataType &&
-	 CharacteristicDataType->getPrimitiveSizeInBits() != 0 &&
-	 "expected characteristic data type to have a primitive size in bits");
+         CharacteristicDataType->getPrimitiveSizeInBits() != 0 &&
+         "Expected characteristic data type to have a primitive size in bits");
 
   unsigned int VectorRegisterSize =
-    maximumSizeofISAClassVectorRegister(I, CharacteristicDataType);
+      maximumSizeofISAClassVectorRegister(I, CharacteristicDataType);
 
   return VectorRegisterSize / CharacteristicDataType->getPrimitiveSizeInBits();
 }
 
 unsigned int VectorVariant::maximumSizeofISAClassVectorRegister(ISAClass I,
-                                                                Type* Ty)
-{
+                                                                Type *Ty) {
   assert((Ty->isIntegerTy() || Ty->isFloatTy() || Ty->isDoubleTy() ||
-          Ty->isPointerTy()) && "unsupported type");
+          Ty->isPointerTy()) &&
+         "Unsupported type");
 
   unsigned int VectorRegisterSize = 0;
 
   switch (I) {
-    case XMM:
+  case XMM:
+    VectorRegisterSize = 128;
+    break;
+  case YMM1:
+    if (Ty->isIntegerTy() || Ty->isPointerTy())
       VectorRegisterSize = 128;
-      break;
-    case YMM1:
-      if (Ty->isIntegerTy() || Ty->isPointerTy())
-	VectorRegisterSize = 128;
-      else
-	VectorRegisterSize = 256;
-      break;
-    case YMM2:
-      if (Ty->isIntegerTy(8))
-	VectorRegisterSize = 128;
-      else
-	VectorRegisterSize = 256;
-      break;
-    case ZMM:
-      VectorRegisterSize = 512;
-      break;
-    default:
-      llvm_unreachable("unknown isa class");
-      return 0;
+    else
+      VectorRegisterSize = 256;
+    break;
+  case YMM2:
+    if (Ty->isIntegerTy(8))
+      VectorRegisterSize = 128;
+    else
+      VectorRegisterSize = 256;
+    break;
+  case ZMM:
+    VectorRegisterSize = 512;
+    break;
+  default:
+    llvm_unreachable("Unknown ISA class");
   }
 
-  assert(VectorRegisterSize != 0 && "unsupported ISA/type combination");
+  assert(VectorRegisterSize != 0 && "Unsupported ISA/type combination");
   return VectorRegisterSize;
 }
