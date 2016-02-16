@@ -11,7 +11,7 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")
 endif()
 
 # Add all the headers to the project for IDEs.
-if (MSVC_IDE OR XCODE)
+if (LIBCXX_CONFIGURE_IDE)
   file(GLOB_RECURSE LIBCXX_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../include/*)
   if(WIN32)
     file( GLOB LIBCXX_WIN32_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/../include/support/win32/*.h)
@@ -24,10 +24,14 @@ if (MSVC_IDE OR XCODE)
   endif()
 endif()
 
+if(NOT LIBCXX_INSTALL_LIBRARY)
+  set(exclude_from_all EXCLUDE_FROM_ALL)
+endif()
+
 if (LIBCXX_ENABLE_SHARED)
-  add_library(cxx SHARED ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
+  add_library(cxx SHARED ${exclude_from_all} ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
 else()
-  add_library(cxx STATIC ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
+  add_library(cxx STATIC ${exclude_from_all} ${LIBCXX_SOURCES} ${LIBCXX_HEADERS})
 endif()
 
 if (DEFINED LIBCXX_CXX_ABI_DEPS)
@@ -154,7 +158,6 @@ if (LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
   )
 endif()
 
-
 if (LIBCXX_INSTALL_LIBRARY)
   install(TARGETS cxx
     LIBRARY DESTINATION lib${LIBCXX_LIBDIR_SUFFIX} COMPONENT libcxx
@@ -163,7 +166,9 @@ if (LIBCXX_INSTALL_LIBRARY)
   # NOTE: This install command must go after the cxx install command otherwise
   # it will not be executed after the library symlinks are installed.
   if (LIBCXX_ENABLE_ABI_LINKER_SCRIPT)
-    install(FILES "$<TARGET_LINKER_FILE:cxx>"
+    # Replace the libc++ filename with $<TARGET_LINKER_FILE:cxx>
+    # after we required CMake 3.0.
+    install(FILES "${LIBCXX_LIBRARY_DIR}/libc++${CMAKE_SHARED_LIBRARY_SUFFIX}"
       DESTINATION lib${LIBCXX_LIBDIR_SUFFIX}
       COMPONENT libcxx)
   endif()
@@ -171,8 +176,11 @@ endif()
 
 if (NOT CMAKE_CONFIGURATION_TYPES AND (LIBCXX_INSTALL_LIBRARY OR
                                        LIBCXX_INSTALL_HEADERS))
+    if(LIBCXX_INSTALL_LIBRARY)
+      set(deps DEPENDS cxx)
+    endif()
     add_custom_target(install-libcxx
-                      DEPENDS cxx
+                      ${deps}
                       COMMAND "${CMAKE_COMMAND}"
                       -DCMAKE_INSTALL_COMPONENT=libcxx
                       -P "${LIBCXX_BINARY_DIR}/cmake_install.cmake")

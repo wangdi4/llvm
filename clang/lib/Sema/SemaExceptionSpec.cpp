@@ -729,7 +729,7 @@ bool Sema::CheckExceptionSpecSubset(
         continue;
 
       Paths.clear();
-      if (!IsDerivedFrom(CanonicalSubT, CanonicalSuperT, Paths))
+      if (!IsDerivedFrom(SubLoc, CanonicalSubT, CanonicalSuperT, Paths))
         continue;
 
       if (Paths.isAmbiguous(Context.getCanonicalType(CanonicalSuperT)))
@@ -1079,8 +1079,10 @@ CanThrowResult Sema::canThrow(const Expr *E) {
 
     // Many other things have subexpressions, so we have to test those.
     // Some are simple:
+  case Expr::CoawaitExprClass:
   case Expr::ConditionalOperatorClass:
   case Expr::CompoundLiteralExprClass:
+  case Expr::CoyieldExprClass:
   case Expr::CXXConstCastExprClass:
   case Expr::CXXReinterpretCastExprClass:
   case Expr::CXXStdInitializerListExprClass:
@@ -1215,6 +1217,7 @@ CanThrowResult Sema::canThrow(const Expr *E) {
   }
 #endif // INTEL_SPECIFIC_CILKPLUS
   case Expr::MSPropertyRefExprClass:
+  case Expr::MSPropertySubscriptExprClass:
     llvm_unreachable("Invalid class for expression");
 
 #define STMT(CLASS, PARENT) case Expr::CLASS##Class:

@@ -18,6 +18,14 @@
 #include <eh.h>
 #endif
 
+#if defined(_MSC_VER)
+// Due to another bug in MSVC 2013, including <future> will generate hundreds of
+// warnings in the Concurrency Runtime.  This can be removed when we switch to
+// MSVC 2015
+#pragma warning(push)
+#pragma warning(disable:4062)
+#endif
+
 #include <cassert>
 #include <cstdint>
 #include <future>
@@ -145,8 +153,7 @@ TaskRunner<T>::AddTask(F&& f, Args&&... args)
             T&& r = f(std::forward<Args>(args)...);
 
             std::unique_lock<std::mutex> lock(this->m_mutex);
-            this->m_ready.emplace_back(std::move(*it));
-            this->m_pending.erase(it);
+            this->m_ready.splice(this->m_ready.end(), this->m_pending, it);
             lock.unlock();
 
             this->m_cv.notify_one();
@@ -205,5 +212,10 @@ TaskRunner<T>::WaitForAllTasks()
 {
     while (WaitForNextCompletedTask().valid());
 }
+
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 
 #endif // #ifndef utility_TaskPool_h_

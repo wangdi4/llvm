@@ -310,12 +310,12 @@ CodeGenFunction::CGCilkSpawnInfo::EmitBody(CodeGenFunction &CGF, const Stmt *S) 
     assert(CGF.CurFn->arg_size() >= 2);
     llvm::Function::arg_iterator A = CGF.CurFn->arg_begin();
     Info->setReceiverAddr(
-        Address(++A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
+        Address(&*(++A), CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
 
     // Similarly, save the receiver temporary address if it exists.
     if (++A != CGF.CurFn->arg_end())
       Info->setReceiverTmp(
-          Address(A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
+          Address(&*A, CharUnits::fromQuantity(CGF.PointerAlignInBytes)));
   }
 
   CGF.CGM.getCilkPlusRuntime().EmitCilkHelperStackFrame(CGF);

@@ -198,6 +198,7 @@ public:
 #if INTEL_CUSTOMIZATION
   bool VisitPragmaDecl(PragmaDecl *);
 #endif  // INTEL_CUSTOMIZATION
+  bool VisitTypeAliasTemplateDecl(TypeAliasTemplateDecl *D);
   bool VisitTypeAliasDecl(TypeAliasDecl *D);
   bool VisitAttributes(Decl *D);
   bool VisitBlockDecl(BlockDecl *B);

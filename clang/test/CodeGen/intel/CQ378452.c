@@ -10,7 +10,6 @@ int main(int argc, char **argv) {
   for (i = 0; i < argc; i++)
     res += i;
 // CHECK: call void @__kmpc_for_static_fini(
-// CHECK: call void @__kmpc_barrier(
   return res;
 }
 

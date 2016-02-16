@@ -862,6 +862,18 @@
 // CHECK_SLM_M64: #define __x86_64 1
 // CHECK_SLM_M64: #define __x86_64__ 1
 //
+// RUN: %clang -march=lakemont -m32 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck %s -check-prefix=CHECK_LMT_M32
+// CHECK_LMT_M32: #define __i386 1
+// CHECK_LMT_M32: #define __i386__ 1
+// CHECK_LMT_M32: #define __tune_lakemont__ 1
+// CHECK_LMT_M32: #define i386 1
+// RUN: not %clang -march=lakemont -m64 -E -dM %s -o - 2>&1 \
+// RUN:     -target i386-unknown-linux \
+// RUN:   | FileCheck %s -check-prefix=CHECK_LMT_M64
+// CHECK_LMT_M64: error:
+//
 // RUN: %clang -march=geode -m32 -E -dM %s -o - 2>&1 \
 // RUN:     -target i386-unknown-linux \
 // RUN:   | FileCheck %s -check-prefix=CHECK_GEODE_M32
@@ -1741,11 +1753,23 @@
 // RUN: %clang -E -dM %s -o - 2>&1 \
 // RUN:     -target sparc-unknown-linux \
 // RUN:   | FileCheck %s -check-prefix=CHECK_SPARC
+// RUN: %clang -mcpu=v9 -E -dM %s -o - 2>&1 \
+// RUN:     -target sparc-unknown-linux \
+// RUN:   | FileCheck %s -check-prefix=CHECK_SPARC-V9
 //
 // CHECK_SPARC: #define __BIG_ENDIAN__ 1
 // CHECK_SPARC: #define __sparc 1
 // CHECK_SPARC: #define __sparc__ 1
+// CHECK_SPARC-NOT: #define __sparcv9 1
+// CHECK_SPARC-NOT: #define __sparcv9__ 1
 // CHECK_SPARC: #define __sparcv8 1
+// CHECK_SPARC-NOT: #define __sparcv9 1
+// CHECK_SPARC-NOT: #define __sparcv9__ 1
+
+// CHECK_SPARC-V9-NOT: #define __sparcv8 1
+// CHECK_SPARC-V9: #define __sparc_v9__ 1
+// CHECK_SPARC-V9: #define __sparcv9 1
+// CHECK_SPARC-V9-NOT: #define __sparcv8 1
 
 //
 // RUN: %clang -E -dM %s -o - 2>&1 \

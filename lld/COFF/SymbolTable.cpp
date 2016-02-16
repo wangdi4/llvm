@@ -13,6 +13,7 @@
 #include "SymbolTable.h"
 #include "Symbols.h"
 #include "lld/Core/Parallel.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/LTO/LTOCodeGenerator.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -368,7 +369,7 @@ void SymbolTable::addCombinedLTOObjects() {
 
   // Create an object file and add it to the symbol table by replacing any
   // DefinedBitcode symbols with the definitions in the object file.
-  LTOCodeGenerator CG;
+  LTOCodeGenerator CG(getGlobalContext());
   CG.setOptLevel(Config->LTOOptLevel);
   std::vector<ObjectFile *> Objs = createLTOObjects(&CG);
 
@@ -406,15 +407,14 @@ std::vector<ObjectFile *> SymbolTable::createLTOObjects(LTOCodeGenerator *CG) {
 
   CG->setModule(BitcodeFiles[0]->takeModule());
   for (unsigned I = 1, E = BitcodeFiles.size(); I != E; ++I)
-    CG->addModule(BitcodeFiles[I]->getModule());
+    CG->addModule(BitcodeFiles[I]->takeModule().get());
 
   bool DisableVerify = true;
 #ifdef NDEBUG
   DisableVerify = false;
 #endif
-  std::string ErrMsg;
-  if (!CG->optimize(DisableVerify, false, false, false, ErrMsg))
-    error(ErrMsg);
+  if (!CG->optimize(DisableVerify, false, false, false))
+    error(""); // optimize() should have emitted any error message.
 
   Objs.resize(Config->LTOJobs);
   // Use std::list to avoid invalidation of pointers in OSPtrs.
@@ -425,8 +425,8 @@ std::vector<ObjectFile *> SymbolTable::createLTOObjects(LTOCodeGenerator *CG) {
     OSPtrs.push_back(&OSs.back());
   }
 
-  if (!CG->compileOptimized(OSPtrs, ErrMsg))
-    error(ErrMsg);
+  if (!CG->compileOptimized(OSPtrs))
+    error(""); // compileOptimized() should have emitted any error message.
 
   std::vector<ObjectFile *> ObjFiles;
   for (SmallVector<char, 0> &Obj : Objs) {
