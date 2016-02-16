@@ -4651,7 +4651,11 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     for (Value *Op = U;; Op = U->getOperand(0)) {
       U = dyn_cast<Operator>(Op);
       unsigned Opcode = U ? U->getOpcode() : 0;
-      if (!U || (Opcode != Instruction::Add && Opcode != Instruction::Sub)) {
+#if INTEL_CUSTOMIZATION // HIR parsing 
+      if (!U || (Opcode != Instruction::Add && Opcode != Instruction::Sub) ||
+          (isa<Instruction>(Op) && 
+          isHIRLiveRangeIndicator(cast<Instruction>(Op)))) {
+#endif // INTEL_CUSTOMIZATION
         assert(Op != V && "V should be an add");
         AddOps.push_back(getSCEV(Op));
         break;
@@ -4692,7 +4696,10 @@ const SCEV *ScalarEvolution::createSCEV(Value *V) {
     SmallVector<const SCEV *, 4> MulOps;
     for (Value *Op = U;; Op = U->getOperand(0)) {
       U = dyn_cast<Operator>(Op);
-      if (!U || U->getOpcode() != Instruction::Mul) {
+#if INTEL_CUSTOMIZATION // HIR parsing 
+      if (!U || U->getOpcode() != Instruction::Mul || (isa<Instruction>(Op) &&
+          isHIRLiveRangeIndicator(cast<Instruction>(Op)))) {
+#endif // INTEL_CUSTOMIZATION
         assert(Op != V && "V should be a mul");
         MulOps.push_back(getSCEV(Op));
         break;
