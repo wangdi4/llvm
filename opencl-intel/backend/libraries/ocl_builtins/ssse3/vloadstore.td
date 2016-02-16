@@ -432,7 +432,7 @@ OclBuiltinImpl __ocl_float2half_rtn2 = OclBuiltinImpl<__ocl_float2half_rtn, [v4f
 
     // underflow
     // if( x < MAKE_HEX_FLOAT(0x1.0p-24f, 0x1L, -24) )
-    eq1 = as_int4(_mm_cmple_ps(as_float4(absParam), as_float4((int4)x33800000)));
+    eq1 = as_int4(_mm_cmplt_ps(as_float4(absParam), as_float4((int4)x33800000)));
 
     // if(f < 0) return 0x8001;
     eq0 = as_int4(_mm_cmplt_ps($Arg0VarName, as_float4(zeros)));
