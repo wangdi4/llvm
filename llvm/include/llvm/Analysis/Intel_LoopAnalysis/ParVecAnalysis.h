@@ -34,7 +34,7 @@ class HLRegion;
 class HLLoop;
 class HLSwitch;
 
-/// \brief Main data struicture describing parallelizability/vectorizability
+/// \brief Main data structure describing parallelizability/vectorizability
 /// of a given loop. If not parallelizable/vectorizable, reason and source
 /// location are stored for later reporting.
 class ParVecInfo {

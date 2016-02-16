@@ -1,28 +1,28 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrHIRCodeGen.cpp ----------------------------------------------===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrHIRCodeGen.cpp -- HIR vector Code generation from AVR
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements the HIR vector Code generation from AVR.
+///
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Intel_VPO/Vecopt/VPOAvrHIRCodeGen.h"
-
 #include "llvm/IR/Intrinsics.h"
 
 #define DEBUG_TYPE "VPODriver"
 
-static cl::opt<unsigned>DefaultVL("default-vpo-vl", cl::init(4),
-  cl::desc("Default vector length"));
+static cl::opt<unsigned> DefaultVL("default-vpo-vl", cl::init(4),
+                                   cl::desc("Default vector length"));
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -63,7 +63,8 @@ bool AVRCodeGenHIR::loopIsHandled() {
   WVecNode = AWrn->getWrnNode();
 
   // An AVRWrn node is expected to have only one AVRLoop child
-  for (auto Itr = AWrn->child_begin(), E = AWrn->child_end(); Itr != E; ++Itr) {
+  for (auto Itr = AWrn->child_begin(), End = AWrn->child_end(); Itr != End;
+       ++Itr) {
     if (AVRLoop *TempALoop = dyn_cast<AVRLoop>(Itr)) {
       if (ALoop)
         return false;
@@ -79,30 +80,29 @@ bool AVRCodeGenHIR::loopIsHandled() {
   Loop = WVecNode->getHLLoop();
   assert(Loop && "Null HLLoop.");
   setOrigLoop(Loop);
-  
+
   // Currently we only handle AVRAssignHIR, give up if we see any
   // other AVRs
-  for (auto Itr = ALoop->child_begin(), E = ALoop->child_end(); 
-       Itr != E; ++Itr) {
+  for (auto Itr = ALoop->child_begin(), End = ALoop->child_end(); Itr != End;
+       ++Itr) {
     if (!isa<AVRAssignHIR>(Itr))
       return false;
 
     // TBD: For now we only handle unit stride load/stores and instructions
-    // whose operands are defined earlier in the loop. Are these checks 
+    // whose operands are defined earlier in the loop. Are these checks
     // sufficient?
-    const HLInst *INode = 
-      dyn_cast<const HLInst>(dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
+    const HLInst *INode = dyn_cast<const HLInst>(
+        dyn_cast<AVRAssignHIR>(Itr)->getHIRInstruction());
     auto CurInst = INode->getLLVMInstruction();
 
     if (isa<BinaryOperator>(CurInst)) {
       // Check for form of %x = %y BOp %z
-      for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands(); OpIndex < LastIndex;
-           ++OpIndex) {
+      for (unsigned OpIndex = 0, LastIndex = INode->getNumOperands();
+           OpIndex < LastIndex; ++OpIndex) {
         if (!INode->getOperandDDRef(OpIndex)->isSelfBlob())
           return false;
       }
-    }
-    else if (isa<StoreInst>(CurInst)) {
+    } else if (isa<StoreInst>(CurInst)) {
       // Check for a[i] = %x
       auto Rval = INode->getRvalDDRef();
       auto Lval = INode->getLvalDDRef();
@@ -112,8 +112,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
 
       if (!unitStrideRef(Lval))
         return false;
-    }
-    else if (isa<LoadInst>(CurInst)) {
+    } else if (isa<LoadInst>(CurInst)) {
       // Check for %x = a[i]
       auto Rval = INode->getRvalDDRef();
       auto Lval = INode->getLvalDDRef();
@@ -123,8 +122,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
 
       if (!unitStrideRef(Rval))
         return false;
-    }
-    else {
+    } else {
       return false;
     }
   }
@@ -140,7 +138,7 @@ bool AVRCodeGenHIR::loopIsHandled() {
   if (!Parent)
     return false;
 
-  // No live out for now
+// No live out for now
 #if 0
   if (Parent->live_in_begin() != Parent->live_in_end())
     return false;
@@ -180,7 +178,8 @@ bool AVRCodeGenHIR::loopIsHandled() {
   // TripCount is (Upper -Lower)/Stride + 1.
   int64_t ConstTripCount = (int64_t)((UBConst - LBConst) / StepConst) + 1;
 
-  // Check for positive trip count and that  trip count is a multiple of vector length.
+  // Check for positive trip count and that  trip count is a multiple of vector
+  // length.
   // No remainder loop is generated currently.
   if (ConstTripCount <= 0 || ConstTripCount % VL)
     return false;
@@ -210,14 +209,14 @@ bool AVRCodeGenHIR::processLoop() {
   HLLoop *LoopX = const_cast<HLLoop *>(OrigLoop);
   HLRegion *Parent = dyn_cast<HLRegion>(OrigLoop->getParent());
 
-  //Erase intrinsics at the beginning of the region
+  // Erase intrinsics at the beginning of the region
   HLNodeUtils::erase(Parent->child_begin(), LoopX);
 
   auto Begin = LoopX->child_begin();
   auto End = LoopX->child_end();
 
-  for (auto Iter = ALoop->child_begin(), E = ALoop->child_end(); 
-       Iter != E; ++Iter) {
+  for (auto Iter = ALoop->child_begin(), EndItr = ALoop->child_end();
+       Iter != EndItr; ++Iter) {
     AVRAssignHIR *AvrAssign;
 
     AvrAssign = cast<AVRAssignHIR>(Iter);
@@ -246,11 +245,13 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
 
   DEBUG(Node->dump(true));
   auto CurInst = INode->getLLVMInstruction();
-  
+
   if (auto BOp = dyn_cast<BinaryOperator>(CurInst)) {
-    assert(WidenMap.find(INode->getOperandDDRef(1)->getSymbase()) != WidenMap.end() &&
+    assert(WidenMap.find(INode->getOperandDDRef(1)->getSymbase()) !=
+               WidenMap.end() &&
            "Value1 being added is expected to be widened already");
-    assert(WidenMap.find(INode->getOperandDDRef(2)->getSymbase()) != WidenMap.end() &&
+    assert(WidenMap.find(INode->getOperandDDRef(2)->getSymbase()) !=
+               WidenMap.end() &&
            "Value2 being added is expected to be widened already");
 
     // Get widened values
@@ -260,11 +261,9 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     auto Rval1 = WInst1->getLvalDDRef()->clone();
     auto Rval2 = WInst2->getLvalDDRef()->clone();
 
-    auto WideInst = HLNodeUtils::createBinaryHLInst(BOp->getOpcode(),
-                                                    Rval1, Rval2,
-                                                    nullptr, /* LvalRef */
-                                                    "",      /* Name */
-                                                    BOp);
+    auto WideInst = HLNodeUtils::createBinaryHLInst(
+        BOp->getOpcode(), Rval1, Rval2, nullptr /* LvalRef */, "" /* Name */,
+        BOp);
 
     // Add to WidenMap
     WidenMap[INode->getLvalDDRef()->getSymbase()] = WideInst;
@@ -272,7 +271,6 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     HLNodeUtils::insertBefore(Anchor, WideInst);
     return;
   }
-
 
 #if 0
   // The widening of cast instruction assumes RVAL is the loop induction var
@@ -322,7 +320,7 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
     auto VecTyDestS = VectorType::get(RvalDestTy, VL);
     PointerType *PtrType = cast<PointerType>(Rval->getBaseDestType());
     auto AddressSpace = PtrType->getAddressSpace();
-    
+
     // Set VectorType on Rval.
     Rval->setBaseDestType(PointerType::get(VecTyDestS, AddressSpace));
 
@@ -338,7 +336,8 @@ void AVRCodeGenHIR::widenNode(const HLNode *Node, HLNode *Anchor) {
   if (isa<StoreInst>(CurInst)) {
     HLInst *WInst;
 
-    assert(WidenMap.find(INode->getRvalDDRef()->getSymbase()) != WidenMap.end() &&
+    assert(WidenMap.find(INode->getRvalDDRef()->getSymbase()) !=
+               WidenMap.end() &&
            "Value being stored is expected to be widened already");
 
     WInst = WidenMap[INode->getRvalDDRef()->getSymbase()];

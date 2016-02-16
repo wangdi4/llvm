@@ -17,7 +17,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
-#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVistor.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 
 #include "llvm/Support/CommandLine.h"
@@ -380,7 +380,7 @@ void AVRGenerateBase::optimizeLoopControl() {
     // which represent the body of the loop into AVRLoop's children, where
     // necessary.
 
-    // TODO: Change iteration to vistor. In case of nested
+    // TODO: Change iteration to visitor. In case of nested
     // WRN Nodes this will not properly recursively build loops
     // and link to WRN
     for (auto I = begin(), E = end(); I != E; ++I) {
@@ -666,7 +666,7 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
 void AVRGenerate::buildAvrsForVectorCandidates() {
   // Temporary implemtation uses vector of Vector Candidate objects to
   // build AVRs.  Will move away from usage of this object and use
-  // vistor for WRN graph when available.
+  // visitor for WRN graph when available.
 
   for (auto I = VC->begin(), E = VC->end(); I != E; ++I) {
 
@@ -972,7 +972,7 @@ void AVRGenerateHIR::buildAbstractLayer() {
   }
 }
 
-// AVRGenerateVistor - Generates HIR-based AL
+// AVRGenerateVisitor - Generates HIR-based AL
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitInst(HLInst *I) {
   return AVRUtilsHIR::createAVRAssignHIR(I);
 }

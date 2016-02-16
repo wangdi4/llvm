@@ -1,37 +1,38 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrUtils.h -------------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvr.h -- Defines the utilities class for AVR nodes.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the utilies class for AVR nodes.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANAYSIS_VPO_AVR_UTILS_H
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_H
 
-#include "llvm/Support/Compiler.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrFunction.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm { // LLVM Namespace
 
 class LoopInfo;
 
-namespace vpo {  // VPO Vectorizer Namespace
+namespace vpo { // VPO Vectorizer Namespace
 
 // Enumeration for types of Avr insertions.
-enum InsertType { FirstChild, LastChild, Append, Prepend};
-enum SplitType  { None, ThenChild, ElseChild};
+enum InsertType { FirstChild, LastChild, Append, Prepend };
+enum SplitType { None, ThenChild, ElseChild };
 
 // Avr Iterator Type
 typedef AVRContainerTy::iterator AvrItr;
@@ -44,14 +45,13 @@ typedef AVRContainerTy::iterator AvrItr;
 class AVRUtils {
 
 private:
-
   // Internal implementations of utility helper functions, not meant
   // to be called externally.
 
   /// \brief Internal helper function for removing and deleting avrs
   /// and sequences of avrs.
   static AVRContainerTy *removeInternal(AvrItr Begin, AvrItr End,
-                                        AVRContainerTy *MoveContainer, 
+                                        AVRContainerTy *MoveContainer,
                                         bool Delete);
 
   static void insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
@@ -59,11 +59,11 @@ private:
                            AvrItr Begin, AvrItr End, InsertType Itype);
 
 public:
-
   // Creation Utilities
 
   /// \brief Returns a new AVRFunction node.
-  static AVRFunction *createAVRFunction(Function *OrigF, const LoopInfo *LpInfo);
+  static AVRFunction *createAVRFunction(Function *OrigF,
+                                        const LoopInfo *LpInfo);
 
   /// \brief Returns a new AVRLoop node.
   static AVRLoop *createAVRLoop(const Loop *Lp);
@@ -82,10 +82,10 @@ public:
 
   // Modification Utilities
 
-  /// \brief Sets AvrAssign's LHS to Node. 
+  /// \brief Sets AvrAssign's LHS to Node.
   static void setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node);
 
-  /// \brief Sets AvrAssign's RHS to Node. 
+  /// \brief Sets AvrAssign's RHS to Node.
   static void setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node);
 
   // Insertion Utilities
@@ -97,19 +97,19 @@ public:
   /// \brief Inserts NewAvr node as the first child in Parent avr.
   static void insertFirstChildAVR(AVR *Parent, AvrItr NewAvr);
 
-  /// \brief Inserts NewAvr node as the first 'Then' child of AVRIf
+  /// \brief Inserts NewAvr node as the first 'Then' child of AVRIf.
   static void insertFirstThenChild(AVRIf *AvrIf, AvrItr NewAvr);
 
-  /// \brief Inserts NewAvr node as the first 'Else' child of AVRIf
+  /// \brief Inserts NewAvr node as the first 'Else' child of AVRIf.
   static void insertFirstElseChild(AVRIf *AvrIf, AvrItr NewAvr);
 
   /// \brief Inserts NewAvr node as the last child in Parent avr.
   static void insertLastChildAVR(AVR *Parent, AvrItr NewAvr);
 
-  /// \brief Inserts NewAvr node as the last 'Then' child of AVRIf
+  /// \brief Inserts NewAvr node as the last 'Then' child of AVRIf.
   static void insertLastThenChild(AVRIf *AvrIf, AvrItr NewAvr);
 
-  /// \brief Inserts NewAvr node as the last 'Else' child of AVRIf
+  /// \brief Inserts NewAvr node as the last 'Else' child of AVRIf.
   static void insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr);
 
   /// \brief Inserts an unlinked AVR node after InsertionPos in AVR list.
@@ -120,7 +120,7 @@ public:
 
   // Move Utilities
 
-  /// \brief Moves AVR from current location to after InsertionPos
+  /// \brief Moves AVR from current location to after InsertionPos.
   static void moveAfter(AvrItr InsertionPos, AVR *Node);
 
   /// \brief Unlinks [First, Last] from their current position and inserts them
@@ -128,27 +128,27 @@ public:
   static void moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last);
 
   /// \brief Unlinks Node from its current location and inserts it as the
-  /// first 'Then' child of AvrIf
+  /// first 'Then' child of AvrIf.
   static void moveAsFirstThenChild(AVRIf *AvrIf, AVR *Node);
 
   /// \brief Unlinks Node from its current location and inserts it as the
-  /// last 'Then' child of AvrIf
+  /// last 'Then' child of AvrIf.
   static void moveAsLastThenChild(AVRIf *AvrIf, AVR *Node);
 
   /// \brief Unlinks Node from its current location and inserts it as the
-  /// first 'Else' child of AvrIf
+  /// first 'Else' child of AvrIf.
   static void moveAsFirstElseChild(AVRIf *AvrIf, AVR *Node);
 
   /// \brief Unlinks Node from its current location and inserts it as the
-  /// last 'Else' child of AvrIf
+  /// last 'Else' child of AvrIf.
   static void moveAsLastElseChild(AVRIf *AvrIf, AVR *Node);
 
   /// \brief Unlinks [First, Last] from its current location and inserts them
-  /// at the begining of 'Then' children of AvrIf
+  /// at the begining of 'Then' children of AvrIf.
   static void moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last);
 
   /// \brief Unlinks [First, Last] from its current location and inserts them
-  /// at the begining of 'Else' children of AvrIf
+  /// at the begining of 'Else' children of AvrIf.
   static void moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last);
 
   // Removal Utilities
@@ -165,8 +165,9 @@ public:
 
   /// \brief Unlinks the AVR nodes which are inside AvrSequence from
   /// thier parent AVRnode container. Returns a pointer to removed container.
-  static void remove(AVRContainerTy &AvrSequence)
-    { remove(AvrSequence.begin(), AvrSequence.end()); }
+  static void remove(AVRContainerTy &AvrSequence) {
+    remove(AvrSequence.begin(), AvrSequence.end());
+  }
 
   /// \brief Unlinks Avr node from avr list and destroys it.
   static void erase(AVR *Node);
@@ -180,18 +181,16 @@ public:
 
   // Search Utilities
 
-  /// \brief Returns true if the given Container contains Node as immediate child.
+  /// \brief Returns true if the given Container contains Node as immediate
+  /// child.
   /// Uses non-recursive search.
   static bool containsAvr(AVRContainerTy &Container, AVR *Node);
 
   /// \brief Retrun a pointer the AVRContainer which contains Avr.
   static AVRContainerTy *getAvrContainer(AVR *Avr);
-
 };
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
 #endif // LLVM_ANAYSIS_VPO_AVR_UTILS_H
-
-

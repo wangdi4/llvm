@@ -1,17 +1,18 @@
-//===----------------------------------------------------------------------===//
+//===-- VPOAvrUtilsIR.cpp -------------------------------------------------===//
 //
-//   Copyright (C) 2015 Intel Corporation. All rights reserved.
+//   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
 //   property of Intel Corporation. and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrUtilsIR.cpp -- Implements the Abstract Vector Representation (AVR)
-//   utilities specific to LLVM IR.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file Implements the Abstract Vector Representation (AVR) utilities
+///  specific to LLVM IR.
+///
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
@@ -28,7 +29,8 @@ AVRCompareIR *AVRUtilsIR::createAVRCompareIR(Instruction *Inst) {
   return new AVRCompareIR(Inst);
 }
 
-AVRSelectIR *AVRUtilsIR::createAVRSelectIR(Instruction *Inst, AVRCompare *AComp) {
+AVRSelectIR *AVRUtilsIR::createAVRSelectIR(Instruction *Inst,
+                                           AVRCompare *AComp) {
   return new AVRSelectIR(Inst, AComp);
 }
 
@@ -73,7 +75,7 @@ AVRExpressionIR *AVRUtilsIR::createAVRExpressionIR(AVRAssignIR *Assign,
   return new AVRExpressionIR(Assign, AOp);
 }
 
-AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *V, 
+AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *V,
                                          const Instruction *Inst) {
   return new AVRValueIR(V, Inst);
 }
