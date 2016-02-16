@@ -74,8 +74,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
   const std::string CompilationUtils::NAME_READ_MEM_FENCE = "read_mem_fence";
   const std::string CompilationUtils::NAME_WRITE_MEM_FENCE = "write_mem_fence";
   // Extended execution var args OpenCL 2.x
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tU13block_pointerFvPU3AS3vzEjz";
-  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM = "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS113ocl_clk_eventPU3AS113ocl_clk_eventU13block_pointerFvPU3AS3vzEjz";
+  const std::string CompilationUtils::NAME_ENQUEUE_KERNEL = "enqueue_kernel";
 
   const std::string CompilationUtils::NAME_GET_KERNEL_SG_COUNT_FOR_NDRANGE = "get_kernel_sub_group_count_for_ndrange";
   const std::string CompilationUtils::NAME_GET_KERNEL_MAX_SG_SIZE_FOR_NDRANGE = "get_kernel_max_sub_group_size_for_ndrange";
@@ -991,14 +990,31 @@ bool CompilationUtils::isPrefetch(const std::string& S){
   return isMangleOf(S, NAME_PREFETCH);
 }
 
+static bool isBlockWithArgs(const std::string& S, unsigned idx) {
+  reflection::FunctionDescriptor fd = demangle(S.c_str());
+  if(fd.parameters.size() <= idx) return false;
+  reflection::ParamType * paramTy = fd.parameters[idx];
+
+  if(paramTy->getTypeId() != reflection::TYPE_ID_BLOCK)
+    return false;
+
+  reflection::BlockType * blockTy = static_cast<reflection::BlockType*>(paramTy);
+  if(blockTy->getNumOfParams() == 0) return false;
+  // Blocks have 'void' argument only when they don't have local memory arguments
+  const reflection::ParamType *tmp = blockTy->getParam(0);
+  const reflection::PrimitiveType * blockArgTy =
+    static_cast<const reflection::PrimitiveType*>(tmp);
+  return blockArgTy->getPrimitive() != reflection::PRIMITIVE_VOID;
+}
+
 bool CompilationUtils::isEnqueueKernelLocalMem(const std::string& S){
-  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_LOCALMEM);
+  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
+  return isBlockWithArgs(S, 3);
 }
 
 bool CompilationUtils::isEnqueueKernelEventsLocalMem(const std::string& S){
-  // TODO: fix CSSD100018608 [OpenCL2.0]ExtExecution. Switch method of detetction of enqueue_kernel BI with variadic arguments to use mangler
-  return (S == CompilationUtils::NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM);
+  if(!isMangleOf(S, NAME_ENQUEUE_KERNEL)) return false;
+  return isBlockWithArgs(S, 6);
 }
 
 bool CompilationUtils::isWorkGroupAll(const std::string& S) {

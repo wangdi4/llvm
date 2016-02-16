@@ -266,11 +266,18 @@ TEST(MangleTest, clk_event){
 }
 
 TEST(DemangleTest, block){
-  FunctionDescriptor fd1 = demangle("_Z14enqueue_kernelU13block_pointerFvvE");
-  ASSERT_FALSE(fd1.isNull());
-  FunctionDescriptor fd2 = demangle("_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz");
-  ASSERT_FALSE(fd2.isNull());
-  //TODO add more block tests
+  char const* names[] = {
+    "_Z14enqueue_kernelU13block_pointerFvvE",
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPKU3AS413ocl_clk_eventPU3AS413ocl_clk_eventU13block_pointerFvPU3AS3vzEjz",
+    "_Z14enqueue_kernel9ocl_queuei9ndrange_tjPK13ocl_clk_eventP13ocl_clk_eventU13block_pointerFvPU3AS3vzEjz"
+  };
+
+  for(char const* name : names) {
+    FunctionDescriptor fd1 = demangle(name);
+    ASSERT_FALSE(fd1.isNull());
+    ASSERT_EQ(mangle(fd1), std::string(name));
+  }
+
 }
 
 TEST(NameMangle, FailedOnce){
