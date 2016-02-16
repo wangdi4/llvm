@@ -29,29 +29,29 @@ RegDDRef::RegDDRef(unsigned SB)
 RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     : DDRef(RegDDRefObj), GepInfo(nullptr), Node(nullptr) {
 
-  /// Copy base canon expr
+  // Copy base canon expr
   if (auto NewCE = RegDDRefObj.getBaseCE()) {
     setBaseCE(NewCE->clone());
   }
 
-  /// Copy inbounds attribute
+  // Copy inbounds attribute
   if (RegDDRefObj.isInBounds()) {
     setInBounds(true);
   }
 
-  /// Copy AddressOf flag.
+  // Copy AddressOf flag.
   if (RegDDRefObj.isAddressOf()) {
     setAddressOf(true);
   }
 
-  /// Loop over CanonExprs
+  // Loop over CanonExprs
   for (auto I = RegDDRefObj.canon_begin(), E = RegDDRefObj.canon_end(); I != E;
        ++I) {
     CanonExpr *NewCE = (*I)->clone();
     CanonExprs.push_back(NewCE);
   }
 
-  /// Loop over Strides
+  // Loop over Strides
   if (RegDDRefObj.hasGEPInfo()) {
     for (auto I = RegDDRefObj.stride_begin(), E = RegDDRefObj.stride_end();
          I != E; ++I) {
@@ -60,7 +60,7 @@ RegDDRef::RegDDRef(const RegDDRef &RegDDRefObj)
     }
   }
 
-  /// Loop over BlobDDRefs
+  // Loop over BlobDDRefs
   for (auto I = RegDDRefObj.blob_cbegin(), E = RegDDRefObj.blob_cend(); I != E;
        ++I) {
     BlobDDRef *NewBlobDDRef = (*I)->clone();
@@ -74,17 +74,43 @@ RegDDRef::GEPInfo::~GEPInfo() {}
 
 RegDDRef *RegDDRef::clone() const {
 
-  /// Call Copy constructor
+  // Call Copy constructor
   RegDDRef *NewRegDDRef = new RegDDRef(*this);
 
   return NewRegDDRef;
+}
+
+void RegDDRef::updateCELevel() {
+
+  unsigned Level = getHLDDNodeLevel();
+
+  // Base CE
+  if (hasGEPInfo()) {
+    getBaseCE()->updateNonLinear(Level);
+  }
+
+  // Loop over CanonExprs
+  for (auto I = canon_begin(), E = canon_end(); I != E; ++I) {
+    (*I)->updateNonLinear(Level);
+  }
+
+  // Loop over Strides
+  if (hasGEPInfo()) {
+    for (auto I = stride_begin(), E = stride_end(); I != E; ++I) {
+      (*I)->updateNonLinear(Level);
+    }
+  }
+
+  // Loop over BlobDDRefs
+  for (auto I = blob_begin(), E = blob_end(); I != E; ++I) {
+    (*I)->updateCELevelImpl(Level);
+  }
 }
 
 void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   const CanonExpr *CE;
   bool HasGEP = hasGEPInfo();
 
-  bool PrintSymbase = Detailed && !isConstant();
   bool PrintBaseCast = false;
 
   if (HasGEP) {
@@ -103,7 +129,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
       }
 
       if (PrintBaseCast) {
-        OS << "*(" << *getBaseDestType() << ")";
+        OS << "(" << *getBaseDestType() << ")";
       }
 
       OS << "(";
@@ -129,10 +155,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
     }
   }
 
-  if (PrintSymbase) {
-    OS << " ";
-    DDRef::print(OS, Detailed);
-  }
+  DDRef::print(OS, Detailed);
 }
 
 Type *RegDDRef::getBaseTypeImpl(bool IsSrc) const {
@@ -189,22 +212,6 @@ bool RegDDRef::isScalarRef() const {
   }
 
   return false;
-}
-
-bool RegDDRef::isIntConstant(int64_t *Val) const {
-  if (!isScalarRef()) {
-    return false;
-  }
-
-  const CanonExpr *CE = getSingleCanonExpr();
-  if (!CE->isConstant())
-    return false;
-
-  if (Val) {
-    *Val = CE->getConstant();
-  }
-
-  return true;
 }
 
 void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
@@ -341,8 +348,9 @@ void RegDDRef::collectTempBlobIndices(
 void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
   SmallVector<unsigned, 8> BlobIndices;
 
-  if (isSelfBlob()) {
-    removeAllBlobDDRefs();
+  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
+    unsigned SB = CanonExprUtils::getBlobSymbase(
+        getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -353,16 +361,28 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs) {
     // <BLOB> LINEAR i32 %k {sb:8}
     //
     // After modification it looks like this-
-    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8 which
-    // is wrong.
+    // <REG> LINEAR i32 %k {sb:4}   <<< symbase is not updated from 4 to 8
+    // which is wrong.
     //
-    unsigned SB = CanonExprUtils::getBlobSymbase(getSelfBlobIndex());
-    setSymbase(SB);
-    return;
-
+    // We should not update symbase of lval DDRefs as lvals represent a store
+    // into that symbase. Changing it can affect correctness.
+    if (isLval()) {
+      if ((getSymbase() == SB)) {
+        removeAllBlobDDRefs();
+        return;
+      }
+    } else {
+      removeAllBlobDDRefs();
+      setSymbase(SB);
+      return;
+    }
   } else if (isConstant()) {
     removeAllBlobDDRefs();
-    setSymbase(CONSTANT_SYMBASE);
+
+    if (!isLval()) {
+      setSymbase(CONSTANT_SYMBASE);
+    }
+
     return;
   }
 
@@ -390,7 +410,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
 
   unsigned Index = 0;
 
-  if (isSelfBlob()) {
+  if (isScalarRef() && getSingleCanonExpr()->isSelfBlob()) {
     auto CE = getSingleCanonExpr();
     Index = CE->getSingleBlobIndex();
 
@@ -415,7 +435,7 @@ bool RegDDRef::findBlobLevel(unsigned BlobIndex, int *DefLevel) const {
   return false;
 }
 
-void RegDDRef::checkBlobDDRefsConsistentcy() const {
+void RegDDRef::checkBlobDDRefsConsistency() const {
   SmallVector<unsigned, 8> BlobIndices;
 
   collectTempBlobIndices(BlobIndices);
@@ -446,7 +466,7 @@ void RegDDRef::checkBlobDDRefsConsistentcy() const {
 }
 
 void RegDDRef::verify() const {
-  bool IsConst = false;
+  bool IsConst = isConstant();
 
   assert(getNumDimensions() > 0 &&
          "RegDDRef should contain at least one CanonExpr!");
@@ -461,17 +481,19 @@ void RegDDRef::verify() const {
            "Child blob DDRefs should have this RegDDRef as a parent!");
   }
 
-  if (isSelfBlob() || (IsConst = isConstant())) {
+  if (isSelfBlob() || IsConst) {
     assert((BlobDDRefs.size() == 0) &&
            "Self-blobs couldn't contain any BlobDDRefs!");
+  } else {
+    checkBlobDDRefsConsistency();
+  }
 
-    if (IsConst) {
-      assert((getSymbase() == CONSTANT_SYMBASE) &&
-             "Constant DDRef's symbase is incorrect!");
-    }
+  if (!IsConst || isLval()) {
+    assert((getSymbase() > CONSTANT_SYMBASE) && "DDRef has invalid symbase!");
 
   } else {
-    checkBlobDDRefsConsistentcy();
+    assert((getSymbase() == CONSTANT_SYMBASE) &&
+           "Constant DDRef's symbase is incorrect!");
   }
 
   assert((!hasGEPInfo() || getBaseCE() != nullptr) &&

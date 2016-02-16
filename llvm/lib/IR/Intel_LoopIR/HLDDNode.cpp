@@ -23,6 +23,10 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
+static cl::opt<bool>
+    PrintConstDDRefs("hir-details-constants", cl::init(false), cl::Hidden,
+                     cl::desc("Print constant DDRefs in detailed print"));
+
 /// DDRefs are taken care of in the derived classes.
 HLDDNode::HLDDNode(unsigned SCID) : HLNode(SCID) {}
 
@@ -116,7 +120,10 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
   }
 
   for (auto I = ddref_begin(), E = ddref_end(); I != E; ++I) {
-    if ((*I)->isConstant()) {
+    // Simply checking for isConstant() also filters out lval DDRefs whose
+    // canonical represenation is a constant. We should print out lval DDRefs
+    // regardless.
+    if (!PrintConstDDRefs && ((*I)->getSymbase() == CONSTANT_SYMBASE)) {
       continue;
     }
 
@@ -129,7 +136,9 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       IsZttDDRef = cast<HLLoop>(this)->isZttOperandDDRef(*I);
     }
 
-    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : (void)(OS << "<REG> ");
+    IsZttDDRef ? (void)(OS << "<ZTT-REG> ") : isLval(*I)
+                                                  ? (void)(OS << "<LVAL-REG> ")
+                                                  : (void)(OS << "<RVAL-REG> ");
 
     (*I)->print(OS, true);
 
@@ -140,6 +149,10 @@ void HLDDNode::printDDRefs(formatted_raw_ostream &OS, unsigned Depth) const {
       if (IsLoop) {
         OS << "| ";
       }
+
+      // Add extra indentation for blob ddrefs.
+      OS.indent(IndentWidth);
+
       OS << "<BLOB> ";
       (*B)->print(OS, true);
       OS << "\n";

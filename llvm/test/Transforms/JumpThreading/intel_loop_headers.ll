@@ -87,4 +87,71 @@ b3:
   ret void
 }
 
+; Check that the "duplicate conditional branch on phi into pred"
+; transformation doesn't cause us to go into an infinite loop of duplicating
+; b1 into its predecessor and then jump threading across b3.
+;
+; CHECK-LABEL: f5
+;
+define i8* @f5(i8* %arg1, i64 %arg2) {
+b0:
+  %cmp1 = icmp sgt i64 %arg2, 0
+  br label %b1
+
+b1:
+  %cmp2 = phi i1 [ %cmp1, %b0 ], [ %cmp3, %b3 ]
+  %m = phi i32 [ -2147483648, %b0 ], [ %shr, %b3 ]
+  %j = phi i64 [ 0, %b0 ], [ %inc, %b3 ]
+  br i1 %cmp2, label %b2, label %b3
+
+b2:
+  %arrayidx = getelementptr inbounds i8, i8* %arg1, i64 %j
+  store i8 0, i8* %arrayidx, align 1
+  br label %b3
+
+b3:
+  %shr = ashr i32 %m, 1
+  %inc = add i64 %j, 1
+  %tobool2 = icmp eq i32 %shr, 0
+  %cmp3 = icmp slt i64 %inc, %arg2
+  br i1 %tobool2, label %b4, label %b1
+
+b4:
+  ret i8* %arg1
+}
+
+; Check that jump threading doesn't attempt to thread the b0->b1 edge across the
+; switch statement in b2. In theory, that transform is possible but requires
+; that the b1->b1 edge not be duplicated as b1.thread->b1.thread. It must
+; instead be copied as b1.thread->b1, which complicates the transform somewhat,
+; so it is not currently supported.
+;
+; CHECK-LABEL: f6
+; CHECK-NOT: b1.thread
+;
+define i32 @f6(i32 %arg1) {
+b0:
+  br label %b1
+
+b1:
+  %0 = phi i32 [ 0, %b0 ], [ %1, %b1 ]
+  %1 = add i32 %0, 1
+  %2 = call i1 @continue()
+  br i1 %2, label %b1, label %b2
+
+b2:
+  switch i32 %0, label %b4 [
+    i32 42, label %b3
+    i32 85, label %b3
+  ]
+
+b3:
+  ret i32 5
+
+b4:
+  ret i32 50
+}
+
+
 declare void @f0()
+declare i1 @continue()

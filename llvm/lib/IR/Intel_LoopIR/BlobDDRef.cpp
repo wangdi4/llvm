@@ -52,9 +52,14 @@ BlobDDRef *BlobDDRef::clone() const {
   return NewBlobDDRef;
 }
 
+void BlobDDRef::updateCELevelImpl(unsigned Level) {
+  CE->updateNonLinear(Level);
+}
+
+void BlobDDRef::updateCELevel() { updateCELevelImpl(getHLDDNodeLevel()); }
+
 void BlobDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   CE ? CE->print(OS, Detailed) : (void)(OS << CE);
-  OS << " ";
   DDRef::print(OS, Detailed);
 }
 

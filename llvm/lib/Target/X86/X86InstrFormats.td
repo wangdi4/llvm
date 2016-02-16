@@ -96,6 +96,17 @@ def SSEPackedSingle : Domain<1>;
 def SSEPackedDouble : Domain<2>;
 def SSEPackedInt    : Domain<3>;
 
+// INTEL_CUSTOMIZATION
+// Class specifying the available MUL/ADD/FMA operations,
+// used by MAPatternsEmitter table-gen/backend.
+class MAOperation<bits<2> val> {
+  int Index = val;
+}
+def MAOperationADD : MAOperation<0>; // ADD: A + B
+def MAOperationMUL : MAOperation<1>; // MUL: A * B
+def MAOperationFMA : MAOperation<2>; // FMA: A * B + C
+// END INTEL_CUSTOMIZATION
+
 // Class specifying the vector form of the decompressed
 // displacement of 8-bit.
 class CD8VForm<bits<3> val> {

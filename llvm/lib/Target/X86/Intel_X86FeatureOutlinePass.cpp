@@ -217,8 +217,18 @@ void FeatureOutliner::spillLiveVectors(
         if (!Source)
           continue;
 
-        // As above, PHIs in the header are considered external
+        // If the source basic block does not dominate the user,
+        // then this isn't really an input into the user's region.
+        // Rather, this is the output from a more inner region that
+        // feeds into a phi in the outer region. In this case,
+        // it will be returned by reference (the code extractor takes
+        // care of this), so no need to do anything.
+        if (!DT->dominates(Source, &I))
+          continue;
+
         BasicBlock *SourceBB = Source->getParent();
+
+        // As above, PHIs in the header are considered external
         if (RegionMap.lookup(SourceBB) != &BBRegion || 
             (SourceBB == RegionHeader && isa<PHINode>(Source)))
           UseMap[Source].push_back(&I);
@@ -272,10 +282,10 @@ void FeatureOutliner::spillLiveVectors(
     // Spill in the pre-header, reload in the header, and replace all the
     // uses in the region with the re-loaded value.
     AllocaInst *SpillLoc = new AllocaInst(VT, "spillVec", 
-      FuncEntry->getFirstInsertionPt());
-    new StoreInst(Used, SpillLoc, PreHeader->getFirstInsertionPt());
+      &*(FuncEntry->getFirstInsertionPt()));
+    new StoreInst(Used, SpillLoc, &*(PreHeader->getFirstInsertionPt()));
     LoadInst *Reload = new LoadInst(SpillLoc, "reloadVec", 
-      RegionHeader->getFirstInsertionPt());
+      &*(RegionHeader->getFirstInsertionPt()));
     for (Instruction *Use : I.second)
       Use->replaceUsesOfWith(Used, Reload);
   }
@@ -409,7 +419,7 @@ bool FeatureOutliner::runOnModule(Module &M) {
   for (auto F = M.begin(), FE = M.end(); F != FE; ++F) {
     if (F->isDeclaration())
       continue;
-    FunctionList.push_back(F);
+    FunctionList.push_back(&*F);
   }
 
   for (auto FI = FunctionList.begin(), FE = FunctionList.end(); 

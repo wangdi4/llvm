@@ -122,7 +122,7 @@ protected:
 
   /// \brief Returns true if the Position is within the dimension range.
   bool isDimensionValid(unsigned Pos) const {
-    return (Pos > 0 && Pos <= getNumDimensions()) ? true : false;
+    return (Pos > 0 && Pos <= getNumDimensions());
   }
 
   /// \brief Implements getBase*Type() functionality.
@@ -136,7 +136,7 @@ protected:
 
   /// \brief Called by the verifier to check that the temp blobs contained in
   /// the DDRef correspond to blob DDRefs attached to the DDRef.
-  void checkBlobDDRefsConsistentcy() const;
+  void checkBlobDDRefsConsistency() const;
 
 public:
   /// \brief Returns HLDDNode this DDRef is attached to.
@@ -197,14 +197,31 @@ public:
     GepInfo->AddressOf = IsAddressOf;
   }
 
-  /// \brief Returns true if this RegDDRef is a constant
+  /// \brief Returns true if this RegDDRef is a constant integer.
   /// Val parameter is the value associated inside the CanonExpr
   /// of this RegDDRef
-  bool isIntConstant(int64_t *Val = nullptr) const;
+  bool isIntConstant(int64_t *Val = nullptr) const {
+    return isScalarRef() && getSingleCanonExpr()->isIntConstant(Val);
+  }
 
-  /// \brief Returns true if this RegDDRef is constant
-  /// TODO: Add support for other types like float
-  bool isConstant() const { return isIntConstant(nullptr); }
+  /// \brief Returns true if this RegDDRef represents an FP constant.
+  bool isFPConstant() const {
+    return isScalarRef() && getSingleCanonExpr()->isFPConstant();
+  }
+
+  /// \brief Returns true if this RegDDRef represents null pointer.
+  bool isNull() const {
+    return isScalarRef() && getSingleCanonExpr()->isNull();
+  }
+
+  /// \brief Returns true if this scalar RegDDRef's canonical expr is any kind
+  /// of constant. Please note that this is different than the DDRef itself
+  /// being a constant which is represented by setting the symbase to
+  /// CONSTANT_SYMBASE. Lval DDRefs can have constant canonical expr but cannot
+  /// have CONSTANT_SYMBASE.
+  bool isConstant() const {
+    return (isIntConstant() || isFPConstant() || isNull());
+  }
 
   /// \brief Returns the number of dimensions of the DDRef.
   unsigned getNumDimensions() const { return CanonExprs.size(); }
@@ -338,6 +355,10 @@ public:
   /// ways except the following:
   ///   * The HLDDNode needs to be explicitly set
   RegDDRef *clone() const override;
+
+  /// \brief Method to update CE levels to non-linear.
+  /// For details, please refer to base class(DDRef.h) documentation.
+  void updateCELevel() override final;
 
   /// \brief Returns true if this DDRef is a lval DDRef. This function
   /// assumes that the DDRef is connected to a HLDDNode.

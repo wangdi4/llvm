@@ -58,7 +58,6 @@
 #include "llvm/Analysis/Intel_Andersens.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/LibCallSemantics.h"    // For EHPersonality
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/Support/Atomic.h"
@@ -79,6 +78,27 @@
 // order to disambiguate further than "points-to anything".
 #define FULL_UNIVERSAL 0
 
+// In the escape analysis, there are five different type of
+// escape properties.
+//    1) A variable is marked with holding if it may points to
+//    a memory location external to the procedure.
+//    2) A variable is marked with opaque if it can be accessed
+//    by multple procedures.
+//    3) A variable is marked with propagates if its contents
+//    might propagate outside the procedure
+//    4) A varialbe is marked with propagates-ret if its contents
+//    might exit via a return statement
+//    5) The property holding-esc is similair to holding excepts that
+//    it exists soley for thoes nodes holding references to
+//    opaque variables.
+//
+
+#define FLAGS_HOLDING 0x01
+#define FLAGS_HOLDING_ESC 0x02
+#define FLAGS_OPAQUE 0x04
+#define FLAGS_PROPAGATES 0x08
+#define FLAGS_PROPAGATES_RET 0x10
+
 using namespace llvm;
 STATISTIC(NumConstraints, "Number of constraints");
 STATISTIC(NumNodes      , "Number of nodes");
@@ -95,6 +115,10 @@ static cl::opt<bool> PrintAndersConstMemQueries("print-anders-const-mem-queries"
 static cl::opt<bool> PrintNonEscapeCands("print-non-escape-candidates",
                                          cl::ReallyHidden);
 static cl::opt<bool> UseIntelModRef("use-intel-mod-ref", cl::init(true), cl::ReallyHidden);
+
+// This option is used to find any new Instructions are added after
+// community pulldown.
+static cl::opt<bool> SkipAndersUnreachableAsserts("skip-anders-unreachable-asserts", cl::init(true), cl::ReallyHidden);
 
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
@@ -229,6 +253,13 @@ public:
   SparseBitVector<> *OldPointsTo;
   std::list<Constraint> Constraints;
 
+  // The incoming edges and outgoing edges are used by the escape analysis.
+  SparseBitVector<> *InEdges;
+  SparseBitVector<> *OutEdges;
+  // The reversed points to set
+  SparseBitVector<> *RevPointsTo;
+  unsigned int EscFlag;
+
   // Pointer and location equivalence labels
   unsigned PointerEquivLabel;
   unsigned LocationEquivLabel;
@@ -259,12 +290,13 @@ public:
   // Used for work list prioritization.
   unsigned Timestamp;
 
-  explicit Node(bool direct = true) :
-    Val(0), Edges(0), PointsTo(0), OldPointsTo(0), 
-    PointerEquivLabel(0), LocationEquivLabel(0), PredEdges(0),
-    ImplicitPredEdges(0), PointedToBy(0), NumInEdges(0),
-    StoredInHash(false), Direct(direct), AddressTaken(false),
-    NodeRep(SelfRep), Timestamp(0) { }
+  explicit Node(bool direct = true)
+      : Val(0), Edges(0), PointsTo(0), OldPointsTo(0), InEdges(nullptr),
+        OutEdges(nullptr), RevPointsTo(nullptr), EscFlag(0),
+        PointerEquivLabel(0), LocationEquivLabel(0), PredEdges(0),
+        ImplicitPredEdges(0), PointedToBy(0), NumInEdges(0),
+        StoredInHash(false), Direct(direct), AddressTaken(false),
+        NodeRep(SelfRep), Timestamp(0) {}
 
   Node *setValue(Value *V) {
     assert(Val == 0 && "Value already set for this node!");
@@ -281,6 +313,12 @@ public:
   /// we already knew about the points-to relation.
   bool addPointerTo(unsigned Node) {
     return PointsTo->test_and_set(Node);
+  }
+
+  bool addRevPointerto(unsigned Node) {
+    if (!RevPointsTo)
+      RevPointsTo = new SparseBitVector<>;
+    return RevPointsTo->test_and_set(Node);
   }
 
   /// intersects - Return true if the points-to set of this node intersects
@@ -341,20 +379,21 @@ bool AndersensAAResult::WorkList::empty() {
 }
 
 void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
-  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
-    if (F->hasPersonalityFn()) {
-      EHPersonality Personality = classifyEHPersonality(F->getPersonalityFn());
-
-      if (isFuncletEHPersonality(Personality)) {
-        ValueNodes.clear();
-        return;
-      }
-    }
-  }
-
+  SkipAndersensAnalysis = false;
   IndirectCallList.clear();
+  DirectCallList.clear();
   IdentifyObjects(M);
   CollectConstraints(M);
+
+  if (SkipAndersensAnalysis) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints) {
+      errs() << " Constraints Dump: Skipping Analysis " << "\n";
+    }
+    return;
+  }
+
   if (PrintAndersConstraints) {
       errs() << " Constraints Dump " << "\n";
       PrintConstraints();
@@ -371,7 +410,11 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
       errs() << " Points-to Graph Dump" << "\n";
       PrintPointsToGraph();
   }
-  
+  if (PrintAndersConstraints) {
+    errs() << " Final Constraints Dump "
+           << "\n";
+    PrintConstraints();
+  }
   // Register Callback Handles here
   for (DenseMap<Value*, unsigned>::iterator Iter = ValueNodes.begin(),
        EV = ValueNodes.end(); Iter != EV; ++Iter) {
@@ -379,6 +422,11 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
           AndersensDeletionCallbackHandle(*this, (Iter->first)));
   }
 
+  PerfomEscAnal(M);
+  // Dump the non-escaped static variablas
+  if (PrintNonEscapeCands) {
+    PrintNonEscapes();
+  }
 
   // Free the constraints list, as we don't need it to respond to alias
   // requests.
@@ -391,86 +439,6 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   if (UseIntelModRef) {
       IMR.reset(new IntelModRef(this));
       IMR->runAnalysis(M);
-  }
-
-  // The following code is the implementation of escape analysis,
-  /// which is treated as extended globals-mod-ref analysis.
-  // In the existing globals mod ref analysis, any non-address taken
-  // static variable is assumed to be not overlapped with any
-  // unknown reference. In the escape analysis, any non-escaped
-  // static variable is assumed to be not overlapped with any
-  // unknown reference. A static variable is escaped if it can be
-  // accessed by outside routines.
-  // Here we assume the points-to graph is created after the
-  // AndersenAA. Given a graph node Xn, let's assume there
-  // exits a points-to path from Node X1 to Node Xn. If Xn is escaped,
-  // it implies that there exists one graph node among X1.Xn-1 which
-  // can be accessed by outside routine.
-
-  // It collects the static variables into the map table
-  // NonEscapeStaticVars.
-  // This map table will be refined during the escape analysis.
-  for (GlobalVariable &GV : M.globals()) {
-    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) {
-      for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
-        Node *N1 = &GraphNodes[I];
-        Value *V = N1->getValue();
-        if (V && isa<GlobalValue>(V) && V == &GV &&
-            N1 == &GraphNodes[getObject(V)]) {
-          NonEscapeStaticVars[V] = I;
-        }
-      }
-    }
-  }
-
-  // It collects the graph nodes which meet the following criteria.
-  // 1) static variable represented by the graph node
-  //    occurs in more than one routine;
-  // 2) if the address of a static variable occurs as
-  //    the right hand side of store instruction, check whether the
-  //    store instruction's graph node is escaped or not. If it is
-  //    escaped, collects the static variable's graph
-  //    node into EscapedNodeSet.
-  // 3) if the value of a static variable occurs as
-  //    the right hand side of store instruction, check whether the
-  //    store instruction's graph node is escaped or not. If it is
-  //    escaped, it implies that the point-to set of the static variable
-  //    is escaped. It will collect those graph nodes into EscapedNodeSet.
-  //
-  NodeSetTy EscapedNodeSet;
-  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
-       I != E; ++I) {
-    SmallPtrSet<const PHINode *, 16> PhiUsers;
-    const Function *SingleAcessingFunction = nullptr;
-    const Value *V = I->getFirst();
-    bool LoadFlag = false;
-    bool PossibleEscape =
-        analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction, &LoadFlag);
-    if (PossibleEscape || SingleAcessingFunction == nullptr ||
-        LoadFlag == true) {
-      if (PossibleEscape) {
-        EscapedNodeSet.insert(&GraphNodes[I->second]);
-      } else if (LoadFlag == true) {
-        Node *AltN = &GraphNodes[I->second];
-        if (AltN->PointsTo) {
-          for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
-               BI != BE; ++BI) {
-            EscapedNodeSet.insert(&GraphNodes[*BI]);
-          }
-        }
-      }
-    }
-  }
-  // Refine the NonEscapeStaticVars based on the set EscapedNodeSet
-  updateEscapeNodes(&EscapedNodeSet);
-
-  if (NonEscapeStaticVars.size() > 0) {
-    analyzePointsToGraph(&EscapedNodeSet);
-  }
-
-  // Dump the non-escaped static variablas
-  if (PrintNonEscapeCands) {
-    PrintNonEscapes();
   }
 
   //return false;
@@ -500,6 +468,7 @@ AndersensAAResult::AndersensAAResult(const DataLayout &DL,
 AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
     : AAResultBase(std::move(Arg)), DL(Arg.DL),
       IndirectCallList(std::move(Arg.IndirectCallList)),
+      DirectCallList(std::move(Arg.DirectCallList)),
       GraphNodes(std::move(Arg.GraphNodes)),
       ValueNodes(std::move(Arg.ValueNodes)),
       ObjectNodes(std::move(Arg.ObjectNodes)),
@@ -570,6 +539,13 @@ void AndersensAAWrapperPass::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<TargetLibraryInfoWrapperPass>();
 }
 
+// Returns true if "Ty" is Ptr type or PtrVector type.
+bool AndersensAAResult::isPointsToType(Type *Ty) const {
+  if (Ty->getScalarType()->isPointerTy()) {
+    return true;
+  }
+  return false;
+}
 
 /// getNode - Return the node corresponding to the specified pointer scalar.
 ///
@@ -655,7 +631,6 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
       PrintNode(N2);
       errs() << " \n";
   }
-
   if (N1->PointsTo->test(UniversalSet) && N2->PointsTo->test(UniversalSet)) {
       if (PrintAndersAliasQueries) {
         errs() << " both of them are Universal \n";
@@ -684,7 +659,6 @@ AliasResult AndersensAAResult::alias(const MemoryLocation &LocA,
     }
     return AAResultBase::alias(LocA, LocB);
   }
-
   // Check to see if the two pointers are known to not alias. They don't alias
   // if their points-to sets do not intersect.
   if (!N1->intersectsIgnoring(N2, NullObject)) {
@@ -849,165 +823,27 @@ bool AndersensAAResult::graphNodeEscapes(Node *N) {
 
 // Returns true if the given graph Node N escapes.
 bool AndersensAAResult::pointsToSetEscapes(Node *N) {
-  if (N->PointsTo) {
-    for (SparseBitVector<>::iterator I = N->PointsTo->begin();
-         I != N->PointsTo->end(); ++I) {
-      if (graphNodeEscapes(&GraphNodes[*I])) {
-        return true;
-      }
-    }
-    return false;
-  } else {
+  unsigned int F = N->EscFlag;
+  if (N == &GraphNodes[UniversalSet]) {
     return true;
   }
-}
-
-// It returns true if the graph node meets one of the following
-// creteria.
-// 1) The graph node does not hae a value
-// 2) The value in the graph node is a global value and has been
-//    determined to be escaped.
-// 3) The value in the graph node N is not global value and
-//    there exists graph node M which points to N.
-bool AndersensAAResult::graphNodePossiblyEscape(Node *AltN) {
-  Value *V = AltN->getValue();
-  if (!V) {
+  if (F & (FLAGS_OPAQUE | FLAGS_HOLDING | FLAGS_HOLDING_ESC))
     return true;
-  }
-  if (isa<GlobalValue>(V)) {
-    return escapes(V);
-  } else {
-    for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
-      Node *N = &GraphNodes[I];
-      if (FindNode(I) != I) {
-        N = &GraphNodes[FindNode(I)];
-      }
-      if (N->PointsTo) {
-        for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
-             BI != BE; ++BI) {
-          Node *Pointee = &GraphNodes[*BI];
-          if (Pointee->getValue() && V == Pointee->getValue()) {
-            return true;
-          }
-        }
-      }
-    }
-  }
   return false;
 }
 
-// It updates the map table NonEscapeStaticVars based on the
-// point-to graph.
-void AndersensAAResult::analyzePointsToGraph(NodeSetTy *EscapedNodeSet) {
-  Node *AltN, *CurN;
-
-  // Given a points-to graph, where p points to q which is in the
-  // set NonEscapeStaticVars, if p is likely to be escaped,
-  // q will be removed from the NonEscapeStaticVars and added
-  // to EscapedNodeSet.
-  for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
-    AltN = &GraphNodes[I];
-    if (FindNode(I) != I) {
-      AltN = &GraphNodes[FindNode(I)];
-    }
-    if (AltN->PointsTo) {
-      bool Overlap = false;
-      for (auto BI = AltN->PointsTo->begin(), BE = AltN->PointsTo->end();
-           BI != BE; ++BI) {
-        Node *Pointee = &GraphNodes[*BI];
-        for (auto EI = NonEscapeStaticVars.begin(),
-                  EE = NonEscapeStaticVars.end();
-             EI != EE; EI++) {
-          if (Pointee == &GraphNodes[EI->second]) {
-            Overlap = true;
-          }
-        }
-      }
-      if (Overlap &&
-          (pointsToSetEscapes(AltN) || graphNodePossiblyEscape(AltN))) {
-        for (auto BI = AltN->PointsTo->begin(); BI != AltN->PointsTo->end();
-             ++BI) {
-          CurN = &GraphNodes[*BI];
-          if (!graphNodeEscapes(CurN)) {
-            EscapedNodeSet->insert(CurN);
-          }
-        }
-      }
-    }
-  }
-
-  NodeSetTy NodeSet2, NodeSet3;
-  NodeSet2 = *EscapedNodeSet;
-
-  // Given a graph node N in EscapedNodeSet, the point-to set of N
-  // will be added inot the set EscapedNodeSet.
-  // This process iterattes until the set EscapedNodeSet does
-  // not change.
-  propagateEscapedPointsTo(EscapedNodeSet, &NodeSet2, &NodeSet3);
-
-  updateEscapeNodes(EscapedNodeSet);
-}
-
-// It updates the set updateEscapeNodes by the propatation along
-// the points-to graph.
-void AndersensAAResult::propagateEscapedPointsTo(NodeSetTy *NodeSet1,
-                                                 NodeSetTy *NodeSet2,
-                                                 NodeSetTy *NodeSet3) {
-
-  for (auto I = NodeSet2->begin(), E = NodeSet2->end(); I != E; I++) {
-    Node *N = *I;
-    if (N->PointsTo) {
-      for (auto BI = N->PointsTo->begin(); BI != N->PointsTo->end(); ++BI) {
-        Node *CurN = &GraphNodes[*BI];
-        if (!NodeSet1->count(CurN)) {
-          NodeSet3->insert(CurN);
-          NodeSet1->insert(CurN);
-        }
-      }
-    }
-  }
-
-  if (NodeSet3->size() > 0) {
-    NodeSet2->clear();
-    propagateEscapedPointsTo(NodeSet1, NodeSet3, NodeSet2);
-  }
-}
-
-// It updates the NonEscapeStaticVars based on the set EscapedNodeSet.
-void AndersensAAResult::updateEscapeNodes(NodeSetTy *EscapedNodeSet) {
-  for (auto I = EscapedNodeSet->begin(), E = EscapedNodeSet->end(); I != E;
-       I++) {
-    Node *AltN = *I;
-    Value *V = AltN->getValue();
-    if (V) {
-      NonEscapeStaticVars.erase(V);
-    }
-  }
-}
-
-// Returns true if any of the following conditions is satisfied.
-// 1) the address of a static variable occurs as
-//    the right hand side of store instruction, and the
-//    store instruction's graph node is escaped.
-// 2) The use of the global variable is not load, store, phi,
-//    bitcast, getelementptr, select and cmp.
-// 3) the variable occurs in more than one routine
-//
-// The flag LoadFlag is set to true if the following condition is
-// satisfied.
-//    the value of a static variable occurs as
-//    the right hand side of store instruction, and the
-//    store instruction's graph node is escaped.
+// Returns true if the variable occurs in more than one routines or
+// there exists volatile access.
 //
 bool AndersensAAResult::analyzeGlobalEscape(
     const Value *V, SmallPtrSet<const PHINode *, 16> PhiUsers,
-    const Function **SingleAcessingFunction, bool *LoadFlag) {
+    const Function **SingleAcessingFunction) {
   const ConstantExpr *CE;
   for (const Use &U : V->uses()) {
     const User *UR = U.getUser();
     CE = dyn_cast<ConstantExpr>(UR);
     if (CE) {
-      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction, LoadFlag))
+      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
         return true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
@@ -1022,53 +858,35 @@ bool AndersensAAResult::analyzeGlobalEscape(
         }
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction,
-                                  LoadFlag)) {
-            *LoadFlag = true;
-          }
-        }
-      } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
-        if (SI->getOperand(0) == V) {
-          Value *V1 = SI->getOperand(1);
-          Node *N1 = &GraphNodes[FindNode(getNode(const_cast<Value *>(V1)))];
-          if (!N1 || pointsToSetEscapes(N1)) {
+          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
             return true;
           }
         }
+      } else if (const StoreInst *SI = dyn_cast<StoreInst>(I)) {
         if (SI->isVolatile()) {
           return true;
         }
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (isa<GetElementPtrInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction, LoadFlag))
+        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
           return true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
         if (PhiUsers.insert(PN).second)
-          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction,
-                                  LoadFlag))
+          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
             return true;
-      } else if (isa<CmpInst>(I)) {
-        ;
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
         if (MTI->isVolatile())
           return true;
       } else if (const MemSetInst *MSI = dyn_cast<MemSetInst>(I)) {
         if (MSI->isVolatile())
           return true;
-      } else if (auto C = ImmutableCallSite(I)) {
-        if (!C.isCallee(&U))
-          return true;
-      } else {
-        return true;
       }
-    } else if (const Constant *C = dyn_cast<Constant>(UR)) {
-      return true;
     }
   }
 
@@ -1102,55 +920,54 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
   // Add all the globals first.
   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
        I != E; ++I) {
-    ObjectNodes[I] = NumObjects++;
-    ValueNodes[I] = NumObjects++;
+    ObjectNodes[&(*I)] = NumObjects++;
+    ValueNodes[&(*I)] = NumObjects++;
   }
 
   // Add nodes for all of the functions and the instructions inside of them.
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // The function itself is a memory object.
     unsigned First = NumObjects;
-    ValueNodes[F] = NumObjects++;
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()))
-      ReturnNodes[F] = NumObjects++;
+    ValueNodes[&(*F)] = NumObjects++;
+    if (isPointsToType(F->getFunctionType()->getReturnType()))
+      ReturnNodes[&(*F)] = NumObjects++;
     if (F->getFunctionType()->isVarArg())
-      VarargNodes[F] = NumObjects++;
+      VarargNodes[&(*F)] = NumObjects++;
 
 
     // Add nodes for all of the incoming pointer arguments.
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
       {
-        if (isa<PointerType>(I->getType()))
-          ValueNodes[I] = NumObjects++;
+        if (isPointsToType(I->getType()))
+          ValueNodes[&(*I)] = NumObjects++;
       }
     MaxK[First] = NumObjects - First;
 
     // Scan the function body, creating a memory object for each heap/stack
     // allocation in the body of the function and a node to represent all
     // pointer values defined by instructions and used as operands.
-    for (inst_iterator II = inst_begin(F), E = inst_end(F); II != E; ++II) {
+    for (inst_iterator II = inst_begin(&(*F)), E = inst_end(&(*F)); II != E; ++II) {
       // If this is an heap or stack allocation, create a node for the memory
       // object.
-      if (isa<PointerType>(II->getType())) {
-        ValueNodes[&*II] = NumObjects++;
-        if (AllocaInst *AI = dyn_cast<AllocaInst>(&*II))
-          ObjectNodes[AI] = NumObjects++;
-      }
+      ValueNodes[&*II] = NumObjects++;
+      if (AllocaInst *AI = dyn_cast<AllocaInst>(&*II))
+        ObjectNodes[AI] = NumObjects++;
 
       // Calls to inline asm need to be added as well because the callee isn't
       // referenced anywhere else.
-      if (CallInst *CI = dyn_cast<CallInst>(&*II)) {
-        Value *Callee = CI->getCalledValue();
+      // Treat malloc/calloc in InvokeInst also as memory object creators.
+      if (isa<CallInst>(&*II) || isa<InvokeInst>(&*II)) {
+        CallSite CS = CallSite(&*II); 
+        Value *Callee = CS.getCalledValue();
         if (isa<InlineAsm>(Callee))
           ValueNodes[Callee] = NumObjects++;
 
-        ImmutableCallSite cs1(&*II);
-        if (const Function *F1 = cs1.getCalledFunction()) {
+        if (const Function *F1 = CS.getCalledFunction()) {
             // TODO: Make this condition as utility function later
             // after adding more malloc-like calls
             if (F1->getName() == "malloc" || F1->getName() == "calloc") {
-                  ObjectNodes[CI] = NumObjects++;
+                  ObjectNodes[CS.getInstruction()] = NumObjects++;
            }
         }
       }
@@ -1169,7 +986,6 @@ void AndersensAAResult::IdentifyObjects(Module &M) {
 /// getNodeForConstantPointer - Return the node corresponding to the constant
 /// pointer itself.
 unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
-  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
 
   if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C))
     return NullPtr;
@@ -1178,6 +994,7 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
   else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(C)) {
     switch (CE->getOpcode()) {
     case Instruction::GetElementPtr:
+    case Instruction::PtrToInt:
       return getNodeForConstantPointer(CE->getOperand(0));
     case Instruction::IntToPtr:
       return UniversalSet;
@@ -1192,7 +1009,20 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
-  } else if (const BlockAddress *BA = dyn_cast<BlockAddress>(C)) {
+  } else if (isa<BlockAddress>(C)) {
+      return UniversalSet;
+  } else if (C->getType()->isVectorTy()) {
+      // Conservatively return UniversalSet for VectorType constant. 
+      // TODO: But this can be improved later using the context where
+      // this constant is used. 
+      // Ex:
+      //    Store VecPtr <&x1, &x2, &x3 …>
+      //
+      //  In future, it should be modeled as
+      //     *VecPtr = x1;
+      //     *VecPtr = x2;
+      //      … 
+      //
       return UniversalSet;
   } else {
     errs() << "Constant not yet handled: " << *C << "\n";
@@ -1204,9 +1034,9 @@ unsigned AndersensAAResult::getNodeForConstantPointer(Constant *C) {
 /// getNodeForConstantPointerTarget - Return the node POINTED TO by the
 /// specified constant pointer.
 unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
-  assert(isa<PointerType>(C->getType()) && "Not a constant pointer!");
+  assert(isPointsToType(C->getType()) && "Not a constant pointer!");
 
-  if (isa<ConstantPointerNull>(C))
+  if (isa<ConstantPointerNull>(C) || isa<UndefValue>(C))
     return NullObject;
   else if (GlobalValue *GV = dyn_cast<GlobalValue>(C))
     return getObject(GV);
@@ -1227,7 +1057,20 @@ unsigned AndersensAAResult::getNodeForConstantPointerTarget(Constant *C) {
       errs() << "Constant Expr not yet handled: " << *CE << "\n";
       llvm_unreachable(0);
     }
-  } else if (const BlockAddress *BA = dyn_cast<BlockAddress>(C)) {
+  } else if (isa<BlockAddress>(C)) {
+      return UniversalSet;
+  } else if (C->getType()->isVectorTy()) {
+      // Conservatively return UniversalSet for VectorType constant. 
+      // TODO: But this can be improved later using the context where
+      // this constant is used. 
+      // Ex:
+      //    Store VecPtr <&x1, &x2, &x3 …>
+      //
+      //  In future, it should be modeled as
+      //     *VecPtr = x1;
+      //     *VecPtr = x2;
+      //      … 
+      //
       return UniversalSet;
   } else {
     llvm_unreachable("Unknown constant pointer!");
@@ -1262,22 +1105,15 @@ void AndersensAAResult::AddGlobalInitializerConstraints(unsigned NodeIndex,
 /// returned by this function.
 void AndersensAAResult::AddConstraintsForNonInternalLinkage(Function *F) {
   for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E; ++I) {
-    if (isa<PointerType>(I->getType()))
+    if (isPointsToType(I->getType()))
       // If this is an argument of an externally accessible function, the
       // incoming pointer might point to anything.
-      Constraints.push_back(Constraint(Constraint::Copy, getNode(I),
+      Constraints.push_back(Constraint(Constraint::Copy, getNode(&(*I)),
                                        UniversalSet));
    }
 }
 
-/// AddConstraintsForCall - If this is a call to a "known" function, add the
-/// constraints and return true.  If this is a call to an unknown function,
-/// return false.
-bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) {
-  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden())
-         && "Not an external function!");
-
-
+bool AndersensAAResult::IsLibFunction(const Function *F) {
   // These functions don't induce any points-to constraints.
   if (F->getName() == "atoi" || F->getName() == "atof" ||
       F->getName() == "atol" || F->getName() == "atoll" ||
@@ -1318,7 +1154,19 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) 
       F->getName() == "sscanf" || F->getName() == "__assert_fail" ||
       F->getName() == "modf")
     return true;
+  return false;
+}
 
+/// AddConstraintsForCall - If this is a call to a "known" function, add the
+/// constraints and return true.  If this is a call to an unknown function,
+/// return false.
+bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS,
+                                                      Function *F) {
+  assert((F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) &&
+         "Not an external function!");
+
+  if (IsLibFunction(F))
+    return true;
 
   // These functions do induce points-to edges.
   if (F->getName() == "llvm.memcpy" ||
@@ -1327,8 +1175,8 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) 
 
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 1 && 
-        isa<PointerType>(FTy->getParamType(0)) &&
-        isa<PointerType>(FTy->getParamType(1))) {
+        isPointsToType(FTy->getParamType(0)) &&
+        isPointsToType(FTy->getParamType(1))) {
 
       // *Dest = *Src, which requires an artificial graph node to represent the
       // constraint.  It is broken up into *Dest = temp, temp = *Src
@@ -1353,7 +1201,7 @@ bool AndersensAAResult::AddConstraintsForExternalCall(CallSite CS, Function *F) 
       F->getName() == "strtok") {
     const FunctionType *FTy = F->getFunctionType();
     if (FTy->getNumParams() > 0 && 
-        isa<PointerType>(FTy->getParamType(0))) {
+        isPointsToType(FTy->getParamType(0))) {
       Constraints.push_back(Constraint(Constraint::Copy,
                                        getNode(CS.getInstruction()),
                                        getNode(CS.getArgument(0))));
@@ -1384,9 +1232,9 @@ void AndersensAAResult::CollectConstraints(Module &M) {
        I != E; ++I) {
     // Associate the address of the global object as pointing to the memory for
     // the global: &G = <G memory>
-    unsigned ObjectIndex = getObject(I);
+    unsigned ObjectIndex = getObject(&(*I));
     Node *Object = &GraphNodes[ObjectIndex];
-    Object->setValue(I);
+    Object->setValue(&(*I));
     Constraints.push_back(Constraint(Constraint::AddressOf, getNodeValue(*I),
                                      ObjectIndex));
 
@@ -1406,21 +1254,21 @@ void AndersensAAResult::CollectConstraints(Module &M) {
 
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // Set function address
-    GraphNodes[ValueNodes[F]].setValue(F);
-    Constraints.push_back(Constraint(Constraint::AddressOf, ValueNodes[F],
-                                     ValueNodes[F]));
-    Constraints.push_back(Constraint(Constraint::Store, ValueNodes[F],
-                                     ValueNodes[F]));
+    GraphNodes[ValueNodes[&(*F)]].setValue(&(*F));
+    Constraints.push_back(Constraint(Constraint::AddressOf, ValueNodes[&(*F)],
+                                     ValueNodes[&(*F)]));
+    Constraints.push_back(Constraint(Constraint::Store, ValueNodes[&(*F)],
+                                     ValueNodes[&(*F)]));
     // Set up the return value node.
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()))
-      GraphNodes[getReturnNode(F)].setValue(F);
+    if (isPointsToType(F->getFunctionType()->getReturnType()))
+      GraphNodes[getReturnNode(&(*F))].setValue(&(*F));
     if (F->getFunctionType()->isVarArg())
-      GraphNodes[getVarargNode(F)].setValue(F);
+      GraphNodes[getVarargNode(&(*F))].setValue(&(*F));
 
     // Set up incoming argument nodes.
     for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
          I != E; ++I)
-      if (isa<PointerType>(I->getType()))
+      if (isPointsToType(I->getType()))
         getNodeValue(*I);
 
     // At some point we should just add constraints for the escaping functions
@@ -1428,38 +1276,38 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     // address taken functions as escaping and treat them as external until
     // Escape analysis is implemented.
     if (!F->hasLocalLinkage() || F->hasAddressTaken())
-      AddConstraintsForNonInternalLinkage(F);
+      AddConstraintsForNonInternalLinkage(&(*F));
 
     if (!F->isDeclaration()) {
       // Scan the function body, creating a memory object for each heap/stack
       // allocation in the body of the function and a node to represent all
       // pointer values defined by instructions and used as operands.
-      visit(F);
+      visit(&(*F));
     } else {
       // External functions that return pointers return the universal set.
-      if (isa<PointerType>(F->getFunctionType()->getReturnType()))
+      if (isPointsToType(F->getFunctionType()->getReturnType()))
         Constraints.push_back(Constraint(Constraint::Copy,
-                                         getReturnNode(F),
+                                         getReturnNode(&(*F)),
                                          UniversalSet));
 
       // Any pointers that are passed into the function have the universal set
       // stored into them.
       for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end();
            I != E; ++I)
-        if (isa<PointerType>(I->getType())) {
+        if (isPointsToType(I->getType())) {
           // Pointers passed into external functions could have anything stored
           // through them.
-          Constraints.push_back(Constraint(Constraint::Store, getNode(I),
+          Constraints.push_back(Constraint(Constraint::Store, getNode(&(*I)),
                                            UniversalSet));
           // Memory objects passed into external function calls can have the
           // universal set point to them.
 #if FULL_UNIVERSAL
           Constraints.push_back(Constraint(Constraint::Copy,
                                            UniversalSet,
-                                           getNode(I)));
+                                           getNode(&(*I))));
 #else
           Constraints.push_back(Constraint(Constraint::Copy,
-                                           getNode(I),
+                                           getNode(&(*I)),
                                            UniversalSet));
 #endif
         }
@@ -1467,7 +1315,7 @@ void AndersensAAResult::CollectConstraints(Module &M) {
       // If this is an external varargs function, it can also store pointers
       // into any pointers passed through the varargs section.
       if (F->getFunctionType()->isVarArg())
-        Constraints.push_back(Constraint(Constraint::Store, getVarargNode(F),
+        Constraints.push_back(Constraint(Constraint::Store, getVarargNode(&(*F)),
                                          UniversalSet));
     }
   }
@@ -1492,24 +1340,90 @@ void AndersensAAResult::visitInstruction(Instruction &I) {
     return;
 
   default:
-    // Is this something we aren't handling yet?
-    errs() << "Unknown instruction: " << I;
-    llvm_unreachable(0);
+    if (SkipAndersUnreachableAsserts) {
+      // Unknown instruction found.
+      SkipAndersensAnalysis = true;
+      return;
+    }
+    else {
+      // Is this something we aren't handling yet?
+      errs() << "Unknown instruction: " << I;
+      llvm_unreachable(0);
+    }
   }
 }
 
+// Treat args of WinEH instructions conservatively. 
+void AndersensAAResult::processWinEhOperands(Instruction &AI) {
+  for (unsigned Op = 0, NumOps = AI.getNumOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//      CatchReturn <value> unwind label %label
+//
+void AndersensAAResult::visitCatchReturnInst(CatchReturnInst &AI) {
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      <resultval> = catchpad <resultty> [<args>*]
+//          to label <normal label> unwind label <exception label>
+//
+void AndersensAAResult::visitCatchPadInst(CatchPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  for (unsigned Op = 0, NumOps = AI.getNumArgOperands(); Op < NumOps; ++Op) {
+    Value* v1 = AI.getArgOperand(Op);
+    if (v1->getType()->isPointerTy()) {
+      Constraints.push_back(Constraint(Constraint::Store, getNode(v1),
+                                       UniversalSet));
+    }
+  }
+}
+
+// Syntax:
+//     <resultval> = cleanuppad <resultty> [<args>*]
+//
+void AndersensAAResult::visitCleanupPadInst(CleanupPadInst &AI) {
+  if (AI.getType()->isPointerTy()) {
+    Constraints.push_back(Constraint(Constraint::Copy, 
+                          getNodeValue(AI), UniversalSet));
+  }
+  processWinEhOperands(AI);
+}
+
+// Syntax:
+//      cleanupret <type> <value> unwind label <continue>
+//      cleanupret <type> <value> unwind to caller
+//
+void AndersensAAResult::visitCleanupReturnInst(CleanupReturnInst &AI) {
+  processWinEhOperands(AI);
+}
+
 void AndersensAAResult::visitInsertValueInst(InsertValueInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Store, getNodeValue(AI),
+    if (!isPointsToType(AI.getOperand(1)->getType())) {
+        return;
+    }
+    Constraints.push_back(Constraint(Constraint::Store, AN,
                                      getNode(AI.getOperand(1)))); 
 }
 
 void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
@@ -1517,7 +1431,7 @@ void AndersensAAResult::visitExtractValueInst(ExtractValueInst &AI) {
 }
 
 void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
-    if (!isa<PointerType>(AI.getValOperand()->getType())) {
+    if (!isPointsToType(AI.getValOperand()->getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Store,
@@ -1526,12 +1440,13 @@ void AndersensAAResult::visitAtomicRMWInst(AtomicRMWInst &AI) {
 }
 
 void AndersensAAResult::visitBinaryOperator(BinaryOperator &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0))));
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(1))));
 }
 
@@ -1546,7 +1461,7 @@ void AndersensAAResult::visitIntToPtrInst(IntToPtrInst &AI) {
 }
 
 void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
-  if (!AI.getType()->isPointerTy()) {
+  if (!isPointsToType(AI.getType())) {
       return;
   }
   Constraints.push_back(Constraint(Constraint::Load, getNodeValue(AI),
@@ -1554,27 +1469,38 @@ void AndersensAAResult::visitExtractElementInst(ExtractElementInst &AI) {
 }
 
 void AndersensAAResult::visitInsertElementInst(InsertElementInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
+    unsigned AN = getNodeValue(AI);
+    Constraints.push_back(Constraint(Constraint::Copy, AN,
                                      getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Store, getNodeValue(AI),
+   
+    
+    if (!isPointsToType(AI.getOperand(1)->getType())) {
+        return;
+    }
+    Constraints.push_back(Constraint(Constraint::Store, AN,
                                      getNode(AI.getOperand(1)))); 
 }
 
 void AndersensAAResult::visitShuffleVectorInst(ShuffleVectorInst &AI) {
-    if (!AI.getType()->isPointerTy()) {
+    if (!isPointsToType(AI.getType())) {
         return;
     }
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
-                                     getNode(AI.getOperand(0)))); 
-    Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
-                                     getNode(AI.getOperand(1)))); 
+    unsigned AN = getNodeValue(AI);
+    if (isPointsToType(AI.getOperand(0)->getType())) {
+      Constraints.push_back(Constraint(Constraint::Copy, AN,
+                                       getNode(AI.getOperand(0)))); 
+    }
+    if (isPointsToType(AI.getOperand(1)->getType())) {
+      Constraints.push_back(Constraint(Constraint::Copy, AN,
+                                       getNode(AI.getOperand(1)))); 
+    }
 }
 
 void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
-  if (!AI.getType()->isPointerTy()) {
+  if (!isPointsToType(AI.getType())) {
       return;
   }
   Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(AI),
@@ -1583,7 +1509,7 @@ void AndersensAAResult::visitLandingPadInst(LandingPadInst &AI) {
 }
 
 void AndersensAAResult::visitAtomicCmpXchgInst(AtomicCmpXchgInst &AI) {
-    if (!isa<PointerType>(AI.getNewValOperand()->getType())) {
+    if (!isPointsToType(AI.getNewValOperand()->getType())) {
         return;
     }
     Constraints.push_back(Constraint(Constraint::Store,
@@ -1599,7 +1525,7 @@ void AndersensAAResult::visitAllocaInst(AllocaInst &AI) {
 }
 
 void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
-  if (RI.getNumOperands() && isa<PointerType>(RI.getOperand(0)->getType()))
+  if (RI.getNumOperands() && isPointsToType(RI.getOperand(0)->getType()))
     // return V   -->   <Copy/retval{F}/v>
     Constraints.push_back(Constraint(Constraint::Copy,
                                      getReturnNode(RI.getParent()->getParent()),
@@ -1607,26 +1533,32 @@ void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
 }
 
 void AndersensAAResult::visitLoadInst(LoadInst &LI) {
-  if (isa<PointerType>(LI.getType()))
-    // P1 = load P2  -->  <Load/P1/P2>
+  //  if (isPointsToType(LI.getType()))
+  // P1 = load P2  -->  <Load/P1/P2>
     Constraints.push_back(Constraint(Constraint::Load, getNodeValue(LI),
                                      getNode(LI.getOperand(0))));
 }
 
 void AndersensAAResult::visitStoreInst(StoreInst &SI) {
   ConstantExpr *CE;
+  if (Constant *C = dyn_cast<Constant>(SI.getOperand(0))) {
+    if (!isPointsToType(SI.getOperand(0)->getType()) &&
+        (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
+         dyn_cast<GlobalValue>(C) == nullptr ||
+         dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+      return;
+  }
 
-  if (isa<PointerType>(SI.getOperand(0)->getType())) {
-    // CQ377860: So far, “value to store” operand of “Instruction::Store”
-    // is treated as either “value” or constant expression. But, it is 
-    // possible that “value to store” operand of “Instruction::Store” 
-    // can be “Instruction::Select” instruction when “Instruction::Select”
-    // is constant expression.
-    //
-    // Ex: store void (i8*)* select (i1 icmp eq (void (i8*)* inttoptr 
-    // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback), 
-    // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback), 
-    // void (i8*)** %18
+  // CQ377860: So far, “value to store” operand of “Instruction::Store”
+  // is treated as either “value” or constant expression. But, it is
+  // possible that “value to store” operand of “Instruction::Store”
+  // can be “Instruction::Select” instruction when “Instruction::Select”
+  // is constant expression.
+  //
+  // Ex: store void (i8*)* select (i1 icmp eq (void (i8*)* inttoptr
+  // (i64 3 to void (i8*)*), void (i8*)* @DeleteScriptLimitCallback),
+  // void (i8*)* @Tcl_Free, void (i8*)* @DeleteScriptLimitCallback),
+  // void (i8*)** %18
     if ((CE = dyn_cast<ConstantExpr>(SI.getOperand(0))) &&
         (CE->getOpcode() == Instruction::Select)) {
       // Store (Select C1, C2), P2  -- <Store/P2/C1> and <Store/P2/C2> 
@@ -1642,7 +1574,6 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
                                        getNode(SI.getOperand(1)),
                                        getNode(SI.getOperand(0))));
     }
-  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -1653,19 +1584,26 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
-  if (isa<PointerType>(PN.getType())) {
-    unsigned PNN = getNodeValue(PN);
-    for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i)
-      // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
-      Constraints.push_back(Constraint(Constraint::Copy, PNN,
-                                       getNode(PN.getIncomingValue(i))));
+  unsigned PNN = getNodeValue(PN);
+  for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
+    // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
+    if (Constant *C = dyn_cast<Constant>(PN.getIncomingValue(i))) {
+      if (!isPointsToType(PN.getType()) &&
+          (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
+           dyn_cast<GlobalValue>(C) == nullptr ||
+           dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+        continue;
+    }
+
+    Constraints.push_back(
+        Constraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i))));
   }
 }
 
 void AndersensAAResult::visitCastInst(CastInst &CI) {
   Value *Op = CI.getOperand(0);
-  if (isa<PointerType>(CI.getType())) {
-    if (isa<PointerType>(Op->getType())) {
+  if (isPointsToType(CI.getType())) {
+    if (isPointsToType(Op->getType())) {
       // P1 = cast P2  --> <Copy/P1/P2>
       Constraints.push_back(Constraint(Constraint::Copy, getNodeValue(CI),
                                        getNode(CI.getOperand(0))));
@@ -1683,7 +1621,7 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
       getNodeValue(CI);
 #endif
     }
-  } else if (isa<PointerType>(Op->getType())) {
+  } else if (isPointsToType(Op->getType())) {
     // int = cast P1 --> <Copy/Univ/P1>
 #if 0
     Constraints.push_back(Constraint(Constraint::Copy,
@@ -1696,7 +1634,7 @@ void AndersensAAResult::visitCastInst(CastInst &CI) {
 }
 
 void AndersensAAResult::visitSelectInst(SelectInst &SI) {
-  if (isa<PointerType>(SI.getType())) {
+  if (isPointsToType(SI.getType())) {
     unsigned SIN = getNodeValue(SI);
     // P1 = select C, P2, P3   ---> <Copy/P1/P2>, <Copy/P1/P3>
     Constraints.push_back(Constraint(Constraint::Copy, SIN,
@@ -1722,23 +1660,23 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
   Function::arg_iterator formal_end = F->arg_end();
   Function::arg_iterator last_formal = F->arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     Constraints.push_back(Constraint(Constraint::Copy, 
                           getNode(CS.getInstruction()), 
                           getReturnNode(F)));
   }
 
   for (; formal_itr != formal_end;) {
-    Argument* formal = formal_itr;
+    Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
-    if (formal->getType()->isPointerTy()) {
-      if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(formal->getType())) {
+      if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(formal_itr), getNode(actual)));
+                              getNode(&(*formal_itr)), getNode(actual)));
       }
       else {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(formal_itr), UniversalSet));
+                              getNode(&(*formal_itr)), UniversalSet));
       }     
     }
     last_formal = formal_itr;
@@ -1755,9 +1693,9 @@ void AndersensAAResult::AddConstraintsForDirectCall(CallSite CS, Function *F)
     }
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (actual->getType()->isPointerTy()) {
+      if (isPointsToType(actual->getType())) {
         Constraints.push_back(Constraint(Constraint::Copy, 
-                              getNode(last_formal), getNode(actual)));
+                              getNode(&(*last_formal)), getNode(actual)));
       }
     } 
   }
@@ -1770,14 +1708,14 @@ void AndersensAAResult::AddConstraintsForInitActualsToUniversalSet(CallSite CS) 
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     Constraints.push_back(Constraint(Constraint::Copy, 
                           getNode(CS.getInstruction()), UniversalSet));
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
-    if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(actual->getType())) {
       Constraints.push_back(Constraint(Constraint::Store, getNode(actual),
                                        UniversalSet));
     }
@@ -1816,6 +1754,7 @@ void AndersensAAResult::AddConstraintsForCall(CallSite CS, Function *F) {
     IndirectCallList.push_back(CS);
     return; 
   }
+  DirectCallList.push_back(CS);
 
   // If this is a call to an external function, try to handle it directly to get
   // some taste of context sensitivity.
@@ -1845,7 +1784,7 @@ void AndersensAAResult::visitCallSite(CallSite CS) {
                             getNodeValue(*CS.getInstruction()), ObjectIndex));
       return;
   }
-  if (isa<PointerType>(CS.getType()))
+  if (isPointsToType(CS.getType()))
     getNodeValue(*CS.getInstruction());
 
   if (Function *F = CS.getCalledFunction()) {
@@ -2890,13 +2829,13 @@ void AndersensAAResult::InitIndirectCallActualsToUniversalSet(CallSite CS) {
   CallSite::arg_iterator arg_itr = CS.arg_begin();
   CallSite::arg_iterator arg_end = CS.arg_end();
 
-  if (CS.getType()->isPointerTy()) {
+  if (isPointsToType(CS.getType())) {
     AddEdgeInGraph(getNode(CS.getInstruction()), UniversalSet);
   }
 
   for (; arg_itr != arg_end; ++arg_itr) {
     Value* actual = *arg_itr;
-    if (actual->getType()->isPointerTy()) {
+    if (isPointsToType(actual->getType())) {
       // TODO: Need to think more about it. ICC is not doing it.
       // Need to check with small test cases.
     }
@@ -2918,15 +2857,15 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   CallSite::arg_iterator arg_end = CS.arg_end();
   Function::arg_iterator formal_itr = F->arg_begin();
   Function::arg_iterator formal_end = F->arg_end();
-  Function::arg_iterator last_formal = NULL;
+  Function::arg_iterator last_formal = F->arg_end();
 
   // TODO: Ignore non-vararg functions if number of formals 
   // doesn’t match with number of arguments of the call-site 
   // to improve accuracy of points-to sets.   
 
 
-  if (CS.getType()->isPointerTy()) {
-    if (isa<PointerType>(F->getFunctionType()->getReturnType())) {
+  if (isPointsToType(CS.getType())) {
+    if (isPointsToType(F->getFunctionType()->getReturnType())) {
       AddEdgeInGraph(getNode(CS.getInstruction()), getReturnNode(F));
     }
     else {
@@ -2937,14 +2876,14 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   // CQ377744: Stop trying to map arguments and formals if 
   // arg_itr or formal_itr reached an end.
   for (; formal_itr != formal_end && arg_itr != arg_end;) {
-    Argument* formal = formal_itr;
+    Argument* formal = &(*formal_itr);
     Value* actual = *arg_itr;
-    if (formal->getType()->isPointerTy()) {
-      if (actual->getType()->isPointerTy()) {
-        AddEdgeInGraph(getNode(formal_itr), getNode(actual));
+    if (isPointsToType(formal->getType())) {
+      if (isPointsToType(actual->getType())) {
+        AddEdgeInGraph(getNode(&(*formal_itr)), getNode(actual));
       }
       else {
-        AddEdgeInGraph(getNode(formal_itr), UniversalSet);
+        AddEdgeInGraph(getNode(&(*formal_itr)), UniversalSet);
       }
     }
     last_formal = formal_itr;
@@ -2955,8 +2894,8 @@ void AndersensAAResult::IndirectCallActualsToFormals(CallSite CS, Function *F) {
   if (F->getFunctionType()->isVarArg()) {
     for (; arg_itr != arg_end && last_formal != formal_end; ++arg_itr) {
       Value* actual = *arg_itr;
-      if (actual->getType()->isPointerTy()) {
-        AddEdgeInGraph(getNode(last_formal), getNode(actual));
+      if (isPointsToType(actual->getType())) {
+        AddEdgeInGraph(getNode(&(*last_formal)), getNode(actual));
       }
     }
   }
@@ -3516,7 +3455,7 @@ void AndersensAAResult::PrintNode(const Node *N) const {
   assert(N->getValue() != 0 && "Never set node label!");
   Value *V = N->getValue();
   if (Function *F = dyn_cast<Function>(V)) {
-    if (isa<PointerType>(F->getFunctionType()->getReturnType()) &&
+    if (isPointsToType(F->getFunctionType()->getReturnType()) &&
         N == &GraphNodes[getReturnNode(F)]) {
       errs() << F->getName() << ":retval";
       return;
@@ -3568,6 +3507,20 @@ void AndersensAAResult::PrintConstraint(const Constraint &C) const {
     errs() << " + " << C.Offset;
   if (C.Type == Constraint::Load && C.Offset != 0)
     errs() << ")";
+  switch (C.Type) {
+  case Constraint::Store:
+    errs() << " (Store) ";
+    break;
+  case Constraint::Load:
+    errs() << " (Load) ";
+    break;
+  case Constraint::AddressOf:
+    errs() << " (Addressof) ";
+    break;
+  case Constraint::Copy:
+    errs() << " (Copy) ";
+    break;
+  }
   errs() << "\n";
 }
 
@@ -4882,4 +4835,494 @@ ModRefInfo AndersensAAResult::IntelModRef::getModRefInfo(
   }
 
   return Impl->getModRefInfo(CS, Loc);
+}
+
+// The following implementation of escape analysis is based
+// on the PhD thesis "Fulcra Pointer Analysis Framework".
+// The basic algorithm is to mark certain node such as parameters,
+// returns and global variable with escape properties. Then
+// the compiler traverses the constraint edges and propagate the
+// escape properties based on certain rules.
+// The reader can refer to the detail at page 99.
+//
+#define SET_INCOMING_EDGE(x, y)                                                \
+  if (!GraphNodes[x].InEdges)                                                  \
+    GraphNodes[x].InEdges = new SparseBitVector<>;                             \
+  assert(y < Constraints.size() &&                                             \
+         "Expected the incoming edge index is within the range");              \
+  GraphNodes[x].InEdges->set(y);
+
+#define SET_OUTGOING_EDGE(x, y)                                                \
+  if (!GraphNodes[x].OutEdges)                                                 \
+    GraphNodes[x].OutEdges = new SparseBitVector<>;                            \
+  assert(y < Constraints.size() &&                                             \
+         "Expected the incoming edge index is within the range");              \
+  GraphNodes[x].OutEdges->set(y);
+
+// The utility builds the incoming edges in the form of
+// sparsebitivector for the graph node according to the constraints.
+// Same for outgoing edges.
+//
+void AndersensAAResult::CreateInOutEdgesforNodes() {
+  for (unsigned i = 0, e = Constraints.size(); i != e; ++i) {
+    Constraint &C = Constraints[i];
+    assert(C.Src < GraphNodes.size() && C.Dest < GraphNodes.size());
+    if (C.Type == Constraint::AddressOf)
+      ;
+    // dest = *src edge
+    else if (C.Type == Constraint::Load) {
+      SET_INCOMING_EDGE(C.Dest, i);
+      SET_OUTGOING_EDGE(C.Src + FirstRefNode, i);
+    }
+    // *dest = src edge
+    else if (C.Type == Constraint::Store) {
+      SET_INCOMING_EDGE(C.Dest + FirstRefNode, i);
+      SET_OUTGOING_EDGE(C.Src, i);
+    }
+    // dest = src edge
+    else {
+      SET_INCOMING_EDGE(C.Dest, i);
+      SET_OUTGOING_EDGE(C.Src, i);
+    }
+  }
+}
+
+// It creates the reverse points to graph based on the points to
+// information.
+void AndersensAAResult::CreateRevPointsToGraph() {
+  for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
+    const Node *N = &GraphNodes[i];
+    if (FindNode(i) != i) {
+      ;
+    } else if (N->PointsTo) {
+      for (SparseBitVector<>::iterator bi = N->PointsTo->begin();
+           bi != N->PointsTo->end(); ++bi) {
+        GraphNodes[*bi].addRevPointerto(i);
+      }
+    }
+  }
+}
+
+// Given a call site, it marks the graph node which represents
+// the actual parameter with propagates flag. Same for return
+// graph node if it exists.
+void AndersensAAResult::ProcessCall(CallSite &CS) {
+
+  CallSite::arg_iterator arg_itr = CS.arg_begin();
+  CallSite::arg_iterator arg_end = CS.arg_end();
+
+  if (isPointsToType(CS.getType()))
+    //
+    //     ret(acutal)
+    //  --------------------------
+    //     holding(actual)
+    //
+    NewHoldingNode(getNode(CS.getInstruction()), FLAGS_HOLDING);
+
+  for (; arg_itr != arg_end; ++arg_itr) {
+    Value *actual = *arg_itr;
+    if (isPointsToType(actual->getType())) {
+      //
+      //     param (actual)
+      //  --------------------------
+      //     propagates(actual)
+      //
+      NewPropNode(getNode(actual), FLAGS_PROPAGATES);
+    }
+  }
+}
+
+// Builds the escape information for the acutal parameters and the
+// return at the call site.
+void AndersensAAResult::CallSitesAnalysis() {
+  for (unsigned i = 0, e = IndirectCallList.size(); i != e; ++i)
+    ProcessCall(IndirectCallList[i]);
+  for (unsigned i = 0, e = DirectCallList.size(); i != e; ++i) {
+    CallSite &CS = DirectCallList[i];
+    const Value *V = CS.getCalledValue();
+    if (isa<InlineAsm>(*V))
+      continue;
+
+    // TODO Side effect information for the library
+    // needs to be used here.
+    if (const Function *F = CS.getCalledFunction()) {
+      if (F->isDeclaration() || F->isIntrinsic() || F->mayBeOverridden()) {
+        if (IsLibFunction(F))
+          continue;
+        if (F->getName() == "malloc" || F->getName() == "calloc" ||
+            F->getName() == "free" || F->getName() == "llvm.memcpy" ||
+            F->getName() == "llvm.memmove" || F->getName() == "memmove" ||
+            F->getName() == "realloc" || F->getName() == "strchr" ||
+            F->getName() == "strrchr" || F->getName() == "strstr" ||
+            F->getName() == "strtok")
+          continue;
+      }
+    }
+    ProcessCall(DirectCallList[i]);
+  }
+}
+
+// Pushes the Node with escape properties into the lsit.
+void AndersensAAResult::AddToWorkList(unsigned int NodeIdx) {
+  NodeWorkList.push_back(NodeIdx);
+}
+
+// Marks the Node with escape property F
+void AndersensAAResult::AddFlags(unsigned NodeIdx, unsigned int F) {
+  GraphNodes[NodeIdx].EscFlag |= F;
+}
+
+// Generates the holding properties for the incoming node.
+void AndersensAAResult::NewHoldingNode(unsigned int NodeIdx,
+                                       unsigned int Flags) {
+  unsigned int F = FindFlags(NodeIdx);
+  if (Flags & FLAGS_HOLDING) {
+    if (F & FLAGS_HOLDING)
+      return;
+    AddFlags(NodeIdx, FLAGS_HOLDING);
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "    Node " << NodeIdx
+                                            << " marked holding\n");
+    if (FindNode(NodeIdx) != NodeIdx)
+      NewHoldingNode(FindNode(NodeIdx), FLAGS_HOLDING);
+    else
+      AddToWorkList(NodeIdx);
+  }
+}
+
+// Processes the holding node and propagates the escape properties based
+// on the following rules.
+//
+void AndersensAAResult::ProcessHoldingNode(unsigned int NodeIdx) {
+  unsigned int F = FindFlags(NodeIdx);
+
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "  Process Holding\n");
+  if (GraphNodes[NodeIdx].OutEdges) {
+    for (SparseBitVector<>::iterator
+             Iter = GraphNodes[NodeIdx].OutEdges->begin(),
+             EN = GraphNodes[NodeIdx].OutEdges->end();
+         Iter != EN; ++Iter) {
+      // dest = src edge
+      //
+      // dest = src     holding(src)
+      // ---------------------------
+      //     holding(dest)
+      //
+      if (Constraints[*Iter].Type == Constraint::Copy) {
+        NewHoldingNode(Constraints[*Iter].Src == NodeIdx
+                           ? Constraints[*Iter].Dest
+                           : Constraints[*Iter].Src,
+                       F);
+      }
+
+      // dest = *src edge
+      //
+      // dest = *src     holding(src)
+      // ----------------------------
+      //      holding(dest)
+      //
+      if (Constraints[*Iter].Type == Constraint::Load) {
+        NewHoldingNode(Constraints[*Iter].Src == NodeIdx
+                           ? Constraints[*Iter].Dest
+                           : Constraints[*Iter].Src,
+                       F);
+      }
+    }
+  }
+
+  if (GraphNodes[NodeIdx].InEdges) {
+    for (SparseBitVector<>::iterator
+             Iter = GraphNodes[NodeIdx].InEdges->begin(),
+             EN = GraphNodes[NodeIdx].InEdges->end();
+         Iter != EN; ++Iter) {
+      // *dest = src edge
+      //
+      // *dest = src       holding(dest)
+      // ------------------------------
+      //      propagates(src)
+      //
+      if (Constraints[*Iter].Type == Constraint::Store) {
+        NewPropNode(Constraints[*Iter].Dest == NodeIdx
+                        ? Constraints[*Iter].Src
+                        : Constraints[*Iter].Dest,
+                    FLAGS_PROPAGATES);
+      }
+    }
+  }
+}
+
+// Generates the propagates or propagates-ret properties for the
+// incoming node.
+void AndersensAAResult::NewPropNode(unsigned int NodeIdx, unsigned int Flags) {
+  if (Flags & FLAGS_PROPAGATES) {
+    unsigned int F = FindFlags(NodeIdx);
+    if (F & FLAGS_PROPAGATES)
+      return;
+
+    AddFlags(NodeIdx, FLAGS_PROPAGATES);
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "    Node " << NodeIdx
+                                            << " marked propagates\n");
+    if (FindNode(NodeIdx) != NodeIdx)
+      NewPropNode(FindNode(NodeIdx), FLAGS_PROPAGATES);
+    else
+      AddToWorkList(NodeIdx);
+  }
+
+  if (Flags & FLAGS_PROPAGATES_RET) {
+    unsigned int F = FindFlags(NodeIdx);
+    if (!(F & FLAGS_PROPAGATES_RET)) {
+      AddFlags(NodeIdx, FLAGS_PROPAGATES_RET);
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "    Node " << NodeIdx
+                                              << " marked propagates_ret\n");
+      if (FindNode(NodeIdx) != NodeIdx)
+        NewPropNode(FindNode(NodeIdx), FLAGS_PROPAGATES_RET);
+      else
+        AddToWorkList(NodeIdx);
+    }
+  }
+}
+
+// Processes the propagates node and propagates the escape properties based
+// on the following rules.
+void AndersensAAResult::ProcessPropNode(unsigned int NodeIdx) {
+  unsigned int F = FindFlags(NodeIdx);
+
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "  Process Propagates\n");
+  if (GraphNodes[NodeIdx].InEdges) {
+    for (SparseBitVector<>::iterator
+             Iter = GraphNodes[NodeIdx].InEdges->begin(),
+             EN = GraphNodes[NodeIdx].InEdges->end();
+         Iter != EN; ++Iter) {
+      // dest = src edge
+      //
+      // dest = src   propagates(dest)
+      // ----------------------------------
+      //       propagates(src)
+      //
+      // dest = src   propagates-ret(dest)
+      // ----------------------------------
+      //       propagates-ret(src)
+      //
+      if (Constraints[*Iter].Type == Constraint::Copy) {
+        NewPropNode(Constraints[*Iter].Dest == NodeIdx
+                        ? Constraints[*Iter].Src
+                        : Constraints[*Iter].Dest,
+                    F);
+      }
+    }
+  }
+  // dest = &src edge
+  //
+  // dest = &src   propagates(dest)
+  // ----------------------------------
+  //       opaque(src)
+  //
+  // dest = &src   propagates-ret(dest)
+  // ----------------------------------
+  //       opaque(src)
+  //
+  if (GraphNodes[NodeIdx].PointsTo) {
+    for (SparseBitVector<>::iterator bi = GraphNodes[NodeIdx].PointsTo->begin();
+         bi != GraphNodes[NodeIdx].PointsTo->end(); ++bi) {
+      NewOpaqueNode(*bi, F);
+    }
+  }
+}
+
+// Generates the opaque properties for the incoming node.
+void AndersensAAResult::NewOpaqueNode(unsigned int NodeIdx,
+                                      unsigned int Flags) {
+  if (Flags & (FLAGS_OPAQUE | FLAGS_PROPAGATES)) {
+    unsigned int F = FindFlags(NodeIdx);
+    if (F & FLAGS_OPAQUE) {
+      return;
+    }
+    AddFlags(NodeIdx, FLAGS_OPAQUE | FLAGS_HOLDING | FLAGS_PROPAGATES);
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "    Node " << NodeIdx
+                                            << " marked opaque\n");
+    AddToWorkList(NodeIdx);
+  }
+  if (Flags & FLAGS_PROPAGATES_RET) {
+    unsigned int F = FindFlags(NodeIdx);
+    if (F & FLAGS_OPAQUE) {
+      return;
+    }
+    AddFlags(NodeIdx, FLAGS_OPAQUE | FLAGS_HOLDING | FLAGS_PROPAGATES);
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "    Node " << NodeIdx
+                                            << " marked opaque\n");
+    AddToWorkList(NodeIdx);
+  }
+}
+
+// Processes the opaque node and propagates the escape properties based
+// on the following rules.
+void AndersensAAResult::ProcessOpaqueNode(unsigned int NodeIdx) {
+  unsigned int F = FindFlags(NodeIdx);
+  AddFlags(NodeIdx, FLAGS_OPAQUE | FLAGS_HOLDING | FLAGS_PROPAGATES);
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+  DEBUG_WITH_TYPE("escanal-trace", dbgs() << "  Process Opaque\n");
+  // dest = &src edge
+  //
+  // dest = &src      opaque(src)
+  // ----------------------
+  //      holding-esc(dest)
+  //
+  if (GraphNodes[NodeIdx].RevPointsTo) {
+    for (SparseBitVector<>::iterator bi =
+             GraphNodes[NodeIdx].RevPointsTo->begin();
+         bi != GraphNodes[NodeIdx].RevPointsTo->end(); ++bi) {
+      NewHoldingNode(*bi, F);
+      AddFlags(*bi, FLAGS_HOLDING_ESC);
+    }
+  }
+}
+
+// Sets up the escape properties for the nodes including the formal
+// parameter, formal return, actual parameters, actual return and
+// global variables.
+void AndersensAAResult::InitEscAnal(Module &M) {
+
+  assert(NodeWorkList.empty() && "Expected empty work list");
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) {
+      for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
+        Node *N1 = &GraphNodes[I];
+        Value *V = N1->getValue();
+        if (V && isa<GlobalValue>(V) && V == &GV &&
+            N1 == &GraphNodes[getObject(V)]) {
+          NonEscapeStaticVars[V] = I;
+        }
+      }
+    } else {
+      if (ObjectNodes.find(&GV) != ObjectNodes.end())
+        //
+        //     global(v)
+        //  ----------------
+        //     opaque(v)
+        //
+        NewOpaqueNode(getObject(&GV), FLAGS_OPAQUE);
+    }
+  }
+
+  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
+       I != E; ++I) {
+    SmallPtrSet<const PHINode *, 16> PhiUsers;
+    const Function *SingleAcessingFunction = nullptr;
+    const Value *V = I->getFirst();
+    if (analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction)) {
+      //
+      //     global(v)
+      //  ----------------
+      //     opaque(v)
+      //
+      NewOpaqueNode(I->getSecond(), FLAGS_OPAQUE);
+    }
+  }
+
+  unsigned NodeIdx;
+  for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
+    if (isPointsToType(F->getFunctionType()->getReturnType())) {
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal return\n");
+      NodeIdx = getReturnNode(&*F);
+      //
+      //     ret (formal)
+      //  --------------------------
+      //     propagate_ret (formal)
+      //
+      NewPropNode(NodeIdx, FLAGS_PROPAGATES_RET);
+    }
+    if (F->getFunctionType()->isVarArg()) {
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal var arg\n");
+      NodeIdx = getVarargNode(&*F);
+      NewHoldingNode(NodeIdx, FLAGS_HOLDING);
+    }
+
+    for (Function::arg_iterator I = F->arg_begin(), E = F->arg_end(); I != E;
+         ++I) {
+      if (isPointsToType(I->getType())) {
+        NodeIdx = getNode(&*I);
+        DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+        DEBUG_WITH_TYPE("escanal-trace", dbgs() << "formal param\n");
+        //
+        //     param (formal)
+        //  --------------------------
+        //     holding (formal)
+        //
+        NewHoldingNode(NodeIdx, FLAGS_HOLDING);
+      }
+    }
+  }
+
+  CallSitesAnalysis();
+}
+
+// Returns the escape properties for the incoming node.
+unsigned int AndersensAAResult::FindFlags(unsigned int NodeIdx) {
+  assert(NodeIdx < GraphNodes.size() &&
+         "Expected the incoming array index is within the range.");
+  Node *N = &GraphNodes[NodeIdx];
+  return N->EscFlag;
+}
+
+// Refine the non-escape candidates based on the escape analysis results.
+void AndersensAAResult::MarkEscaped() {
+  for (unsigned i = 0, e = GraphNodes.size(); i != e; ++i) {
+    unsigned int F = FindFlags(i);
+    if (F & FLAGS_OPAQUE) {
+      Node *N1 = &GraphNodes[i];
+      Value *V = N1->getValue();
+      if (V)
+        NonEscapeStaticVars.erase(V);
+    }
+  }
+}
+
+// Driver for escape analysis.
+void AndersensAAResult::PerfomEscAnal(Module &M) {
+  CreateInOutEdgesforNodes();
+  CreateRevPointsToGraph();
+  InitEscAnal(M);
+
+  while (!NodeWorkList.empty()) {
+    unsigned int NodeIdx = NodeWorkList.front();
+    NodeWorkList.pop_front();
+    unsigned int Flags = FindFlags(NodeIdx);
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "Process Node " << NodeIdx
+                                            << " ");
+    if (GraphNodes[NodeIdx].getValue()) {
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << "(");
+      if (GraphNodes[NodeIdx].getValue()->hasName())
+        DEBUG_WITH_TYPE("escanal-trace",
+                        dbgs() << GraphNodes[NodeIdx].getValue()->getName());
+      else
+        DEBUG_WITH_TYPE(
+            "escanal-trace",
+            GraphNodes[NodeIdx].getValue()->printAsOperand(dbgs(), false));
+      DEBUG_WITH_TYPE("escanal-trace", dbgs() << ")");
+      if ((isa<GlobalValue>(GraphNodes[NodeIdx].getValue()) ||
+           isa<AllocaInst>(GraphNodes[NodeIdx].getValue())) &&
+          ObjectNodes.find(GraphNodes[NodeIdx].getValue()) !=
+              ObjectNodes.end() &&
+          NodeIdx == getObject(GraphNodes[NodeIdx].getValue()))
+        DEBUG_WITH_TYPE("escanal-trace", dbgs() << " <mem>");
+    }
+
+    DEBUG_WITH_TYPE("escanal-trace", dbgs() << "\n");
+    if (Flags & (FLAGS_PROPAGATES | FLAGS_PROPAGATES_RET))
+      ProcessPropNode(NodeIdx);
+    if (Flags & FLAGS_HOLDING)
+      ProcessHoldingNode(NodeIdx);
+    if (Flags & FLAGS_OPAQUE)
+      ProcessOpaqueNode(NodeIdx);
+  }
+  MarkEscaped();
 }

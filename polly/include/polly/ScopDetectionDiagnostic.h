@@ -43,6 +43,9 @@ class Region;
 
 namespace polly {
 
+/// @brief Set the begin and end source location for the given region @p R.
+void getDebugLocations(const Region *R, DebugLoc &Begin, DebugLoc &End);
+
 class RejectLog;
 /// @brief Emit optimization remarks about the rejected regions to the user.
 ///
@@ -51,12 +54,6 @@ class RejectLog;
 /// @param F The function we emit remarks for.
 /// @param Log The error log containing all messages being emitted as remark.
 void emitRejectionRemarks(const llvm::Function &F, const RejectLog &Log);
-
-/// @brief Emit diagnostic remarks for a valid Scop
-///
-/// @param F The function we emit remarks for
-/// @param R The region that marks a valid Scop
-void emitValidRemarks(const llvm::Function &F, const Region *R);
 
 // Discriminator for LLVM-style RTTI (dyn_cast<> et al.)
 enum RejectReasonKind {
@@ -83,10 +80,9 @@ enum RejectReasonKind {
   rrkLoopBound,
 
   rrkFuncCall,
+  rrkNonSimpleMemoryAccess,
 
   rrkAlias,
-
-  rrkSimpleLoop,
 
   // Other
   rrkOther,
@@ -619,24 +615,6 @@ public:
 };
 
 //===----------------------------------------------------------------------===//
-/// @brief Captures errors with non simplified loops.
-class ReportSimpleLoop : public RejectReason {
-  //===--------------------------------------------------------------------===//
-public:
-  ReportSimpleLoop();
-
-  /// @name LLVM-RTTI interface
-  //@{
-  static bool classof(const RejectReason *RR);
-  //@}
-
-  /// @name RejectReason interface
-  //@{
-  virtual std::string getMessage() const override;
-  //@}
-};
-
-//===----------------------------------------------------------------------===//
 /// @brief Base class for otherwise ungrouped reject reasons.
 class ReportOther : public RejectReason {
   //===--------------------------------------------------------------------===//
@@ -759,6 +737,30 @@ public:
   virtual std::string getMessage() const override;
   virtual std::string getEndUserMessage() const override;
   virtual const DebugLoc &getDebugLoc() const override;
+  //@}
+};
+
+//===----------------------------------------------------------------------===//
+/// @brief Captures errors with non-simple memory accesses.
+class ReportNonSimpleMemoryAccess : public ReportOther {
+  //===--------------------------------------------------------------------===//
+
+  // The offending call instruction.
+  Instruction *Inst;
+
+public:
+  ReportNonSimpleMemoryAccess(Instruction *Inst);
+
+  /// @name LLVM-RTTI interface
+  //@{
+  static bool classof(const RejectReason *RR);
+  //@}
+
+  /// @name RejectReason interface
+  //@{
+  virtual std::string getMessage() const override;
+  virtual const DebugLoc &getDebugLoc() const override;
+  virtual std::string getEndUserMessage() const override;
   //@}
 };
 

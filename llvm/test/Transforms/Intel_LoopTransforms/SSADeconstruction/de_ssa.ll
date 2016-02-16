@@ -3,7 +3,7 @@
 ; CHECK: a.addr.014
 ; CHECK-NEXT: a.addr.014.out
 ; CHECK-SAME: out.de.ssa
-; CHECK: output.1.in.1
+; CHECK: output.1.in1
 ; CHECK-SAME: in.de.ssa
 ; CHECK: live.range.de.ssa
 ; CHECK: output.1.in

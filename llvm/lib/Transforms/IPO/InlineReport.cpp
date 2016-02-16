@@ -77,6 +77,8 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtCost, "Callee has single callsite and local linkage",
   // InlrSingleBasicBlock,
   InlPrtCost, "Callee is single basic block",
+  // InlrAlmostSingleBasicBlock,
+  InlPrtCost, "Callee is single basic block with test",
   // InlrEmptyFunction,
   InlPrtCost, "Callee is empty", 
   // InlrVectorBonus,
@@ -145,6 +147,10 @@ const static InlPrtRecord InlineReasonText[NinlrLast + 1] = {
   InlPrtSimple, "Newly created callsite", 
   // NinlrNotProfitable,
   InlPrtCost, "Inlining is not profitable", 
+  // NinlrOpBundles,
+  InlPrtSimple, "Cannot inline call with operand bundle",
+  // NinlrMSVCEH,
+  InlPrtSimple, "Microsoft EH prevents inlining",
   // NinlrLast 
   InlPrtNone, nullptr
 }; 

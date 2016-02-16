@@ -31,8 +31,8 @@ bb2:		; preds = %bb1
 
 bb3:		; preds = %bb1
 ; CHECK: bb3:
-; CHECK: %res.01 = phi i32 [ 1, %bb1.thread ], [ 0, %bb1 ]
-; CHECK: ret i32 %res.01
+; CHECK: %res.02 = phi i32 [ 1, %bb1.thread ], [ 0, %bb1 ] ;INTEL
+; CHECK: ret i32 %res.02                                   ;INTEL
 	ret i32 %res.0
 }
 
@@ -70,8 +70,8 @@ bb2:		; preds = %bb1
 
 bb3:		; preds = %bb1
 ; CHECK: bb3:
-; CHECK: %res.01 = phi i32 [ 1, %bb1.thread ], [ 0, %bb1 ]
-; CHECK: ret i32 %res.01
+; CHECK: %res.02 = phi i32 [ 1, %bb1.thread ], [ 0, %bb1 ] ;INTEL
+; CHECK: ret i32 %res.02                                   ;INTEL
 	ret i32 %res.0
 }
 

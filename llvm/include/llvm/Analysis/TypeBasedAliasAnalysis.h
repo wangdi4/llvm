@@ -44,8 +44,21 @@ public:
   ModRefInfo getModRefInfo(ImmutableCallSite CS1, ImmutableCallSite CS2);
 
 private:
-  bool Aliases(const MDNode *A, const MDNode *B) const;
-  bool PathAliases(const MDNode *A, const MDNode *B) const;
+#if INTEL_CUSTOMIZATION
+  bool Aliases(const MDNode *A, const MDNode *B,
+               bool DirectRefA = false, bool DirectRefB = false) const;
+  enum CheckKind {
+    CheckA = 1,
+    CheckB = 2,
+    CheckBoth = 3
+  };
+
+  bool PathAliases(const MDNode *A, const MDNode *B,
+                   enum CheckKind Mask = CheckBoth) const;
+    
+  bool ScalarAliases(const MDNode *A, const MDNode *B, 
+                     enum CheckKind Mask = CheckBoth) const; 
+#endif // INTEL_CUSTOMIZATION
 };
 
 /// Analysis pass providing a never-invalidated alias analysis result.

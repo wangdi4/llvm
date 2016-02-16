@@ -1,10 +1,76 @@
 ; Check goto parsing
 ; RUN: opt < %s -mem2reg | opt -analyze -hir-parser | FileCheck %s
-
 ; CHECK-DAG: goto [[LABEL1:.*]];
 ; CHECK-DAG: goto [[LABEL2:.*]];
 ; CHECK-DAG: [[LABEL1]]:
 ; CHECK-DAG: [[LABEL2]]:
+
+; Check goto CG
+; RUN: opt < %s -mem2reg -HIRCG -force-HIRCG -S | FileCheck -check-prefix=CHECK-CG %s
+;          BEGIN REGION { }
+;<54>         + DO i1 = 0, 1, 1   <DO_LOOP>
+;<4>          |   (@A)[0][i1] = i1;
+;<6>          |   if (i1 == 0)
+;<6>          |   {
+;<6>          |   }
+;<6>          |   else
+;<6>          |   {
+;<40>         |      if (i1 == 1)
+;<40>         |      {
+;<44>         |         goto L2;
+;<40>         |      }
+;<40>         |      else
+;<40>         |      {
+;<47>         |         if (i1 == 2)
+;<47>         |         {
+;<51>         |            goto L2.63;
+;<47>         |         }
+;<40>         |      }
+;<6>          |   }
+;<14>         |   %0 = (@A)[0][i1];
+;<16>         |   (@A)[0][i1] = %0 + 1;
+;<18>         |   L2:
+;<21>         |   %1 = (@A)[0][i1];
+;<23>         |   (@A)[0][i1] = %1 + 1;
+;<25>         |   L2.63:
+;<28>         |   %2 = (@A)[0][i1];
+;<30>         |   (@A)[0][i1] = %2 + 1;
+;<54>         + END LOOP
+;          END REGION
+;CHECK-CG: region:
+;look in first else block
+;CHECK-CG: else{{.*}}:
+;CHECK-CG: load i32, i32* %i1.i32
+;look for the i1 == 1 condition
+;CHECK-CG-NEXT: %hir.cmp.[[IF_NUM:[0-9]+]] = icmp eq i32 {{.*}}, 1
+;CHECK-CG-NEXT: br i1 %hir.cmp.[[IF_NUM]]
+
+;then block contains only a jump to the hir version of L2
+;CHECK-CG: then.[[IF_NUM]]:
+;CHECK-CG-NEXT: br label %hir.L2
+
+;which contains ld/st to a[0][i1]
+;CHECK-CG: hir.L2:
+;CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+;CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+; and a jump to hir version of L2.63
+;CHECK-CG: br label %hir.L2.63
+
+
+;look for the i1 == 2 condition
+;CHECK-CG: %hir.cmp.[[IF_NUM2:[0-9]+]] = icmp eq i32 {{.*}}, 2
+;CHECK-CG-NEXT: br i1 %hir.cmp.[[IF_NUM2]]
+
+;then block contains only a jump to the hir version of L2.63
+;CHECK-CG: then.[[IF_NUM2]]:
+;CHECK-CG-NEXT: br label %hir.L2.63
+
+;which also contains ld/st to a[0][i1]
+;CHECK-CG: hir.L2.63:
+;CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+;CHECK-CG: getelementptr inbounds [5 x i32], [5 x i32]* @A, i32 0,
+; and ivupdate and loop end
+;CHECK-CG: br i1 %condloop
 
 ; ModuleID = 'goto.c'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

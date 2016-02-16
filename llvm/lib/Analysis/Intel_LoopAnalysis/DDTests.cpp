@@ -225,7 +225,7 @@ const CanonExpr *DDtest::getCoeff(const CanonExpr *CE, unsigned int IVnum,
       CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
   unsigned int IVfound = 0;
-  assert(IVnum > 0 && IVnum <= MaxLoopNestLevel && "IVnum not within range");
+  assert(HLNodeUtils::isLoopLevelValid(IVnum) && "IVnum not within range");
 
   for (auto CurIVPair = CE->iv_begin(), E = CE->iv_end(); CurIVPair != E;
        ++CurIVPair) {
@@ -405,10 +405,10 @@ const CanonExpr *DDtest::getMulExpr(const CanonExpr *CE1,
 
   CanonExpr *CE = nullptr;
 
-  if (CE2->isConstant(&konst)) {
+  if (CE2->isIntConstant(&konst)) {
     CE = CE1->clone();
     CE->multiplyByConstant(konst);
-  } else if (CE1->isConstant(&konst)) {
+  } else if (CE1->isIntConstant(&konst)) {
     CE = CE2->clone();
     CE->multiplyByConstant(konst);
   } else {
@@ -447,10 +447,10 @@ const CanonExpr *DDtest::getUDivExpr(const CanonExpr *CE1,
   }
   int64_t konst1, konst2;
 
-  if (!(CE1->isConstant(&konst1))) {
+  if (!(CE1->isIntConstant(&konst1))) {
     return nullptr;
   }
-  if (!(CE2->isConstant(&konst2)) || konst2 == 0) {
+  if (!(CE2->isIntConstant(&konst2)) || konst2 == 0) {
     return nullptr;
   }
   const CanonExpr *CE = getConstantWithType(
@@ -470,7 +470,7 @@ const CanonExpr *DDtest::getSMaxExpr(const CanonExpr *CE1,
   const CanonExpr *delta = getMinus(CE1, CE2);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isConstant(&konst)) {
+  if (delta->isIntConstant(&konst)) {
     return ((konst > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -485,7 +485,7 @@ const CanonExpr *DDtest::getSMinExpr(const CanonExpr *CE1,
   const CanonExpr *delta = getMinus(CE2, CE1);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isConstant(&konst)) {
+  if (delta->isIntConstant(&konst)) {
     return ((konst > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -1363,8 +1363,8 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   const CanonExpr *k1CE;
 
   // Can we compute distance?
-  if (Coeff->isConstant(&k2)) {
-    if (Delta->isConstant(&k1)) {
+  if (Coeff->isIntConstant(&k2)) {
+    if (Delta->isIntConstant(&k1)) {
       APInt ConstDelta = llvm::APInt(64, k1, true);
       APInt ConstCoeff = llvm::APInt(64, k2, true);
       APInt Distance = ConstDelta; // these need to be initialized
@@ -1504,7 +1504,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   int64_t coeffValue;
   const CanonExpr *ConstCoeff = Coeff;
-  if (!(Coeff->isConstant(&coeffValue))) {
+  if (!(Coeff->isIntConstant(&coeffValue))) {
     return false;
   }
 
@@ -1545,7 +1545,7 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
 
   const CanonExpr *ConstantDelta = Delta;
   int64_t deltaValue;
-  if (!(ConstantDelta->isConstant(&deltaValue))) {
+  if (!(ConstantDelta->isIntConstant(&deltaValue))) {
     return false;
   }
 
@@ -1744,8 +1744,8 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   NewConstraint.setLine(SrcCoeff, getNegative(DstCoeff), Delta, CurLoop);
 
   int64_t k1, k2, k3;
-  if (!(Delta->isConstant(&k1)) || !(SrcCoeff->isConstant(&k2)) ||
-      !(DstCoeff->isConstant(&k3))) {
+  if (!(Delta->isIntConstant(&k1)) || !(SrcCoeff->isIntConstant(&k2)) ||
+      !(DstCoeff->isIntConstant(&k3))) {
     return false;
   }
 
@@ -1774,7 +1774,7 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = CurLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&k1)) {
+    if (UpperBound->isIntConstant(&k1)) {
       UM = llvm::APInt(64, k1, true);
       DEBUG(dbgs() << "\t    UM = " << UM << "\n");
       UMvalid = true;
@@ -1898,9 +1898,9 @@ static bool isRemainderZero(const CanonExpr *Dividend,
 
   int64_t k1, k2;
 
-  Dividend->isConstant(&k1);
+  Dividend->isIntConstant(&k1);
   APInt ConstDividend = llvm::APInt(64, k1, true);
-  Divisor->isConstant(&k2);
+  Divisor->isIntConstant(&k2);
   APInt ConstDivisor = llvm::APInt(64, k2, true);
   return ConstDividend.srem(ConstDivisor) == 0;
 }
@@ -1981,7 +1981,7 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   int64_t coeffValue;
   const CanonExpr *ConstCoeff = DstCoeff;
-  if (!(DstCoeff->isConstant(&coeffValue))) {
+  if (!(DstCoeff->isIntConstant(&coeffValue))) {
     return false;
   }
 
@@ -2030,7 +2030,7 @@ bool DDtest::weakZeroSrcSIVtest(const CanonExpr *DstCoeff,
 
   // if SrcCoeff doesn't divide Delta, then no dependence
   int64_t k1;
-  if (Delta->isConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
+  if (Delta->isIntConstant(&k1) && !isRemainderZero(Delta, ConstCoeff)) {
     ++WeakZeroSIVindependence;
     ++WeakZeroSIVsuccesses;
     return true;
@@ -2105,7 +2105,7 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   const CanonExpr *ConstCoeff = SrcCoeff;
 
-  if (ConstCoeff->isConstant(&k1)) {
+  if (ConstCoeff->isIntConstant(&k1)) {
     return false;
   }
 
@@ -2153,7 +2153,7 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
 
   // if SrcCoeff doesn't divide Delta, then no dependence
 
-  if (!(Delta->isConstant(&k1))) {
+  if (!(Delta->isIntConstant(&k1))) {
     return false;
   }
 
@@ -2192,9 +2192,9 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   int64_t deltaVal, srcCoeffVal, dstCoeffVal, ubVal;
 
-  if (!(Delta->isConstant(&deltaVal)) ||
-      !(SrcCoeff->isConstant(&srcCoeffVal)) ||
-      !(DstCoeff->isConstant(&dstCoeffVal))) {
+  if (!(Delta->isIntConstant(&deltaVal)) ||
+      !(SrcCoeff->isIntConstant(&srcCoeffVal)) ||
+      !(DstCoeff->isIntConstant(&dstCoeffVal))) {
     return false;
   }
 
@@ -2220,7 +2220,7 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   // SrcUM is perhaps unavailable, let's check
 
   if (const CanonExpr *UpperBound = SrcLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&ubVal)) {
+    if (UpperBound->isIntConstant(&ubVal)) {
       SrcUM = llvm::APInt(64, ubVal, true);
       DEBUG(dbgs() << "\t    SrcUM = " << SrcUM << "\n");
       SrcUMvalid = true;
@@ -2232,7 +2232,7 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
 
   // UM is perhaps unavailable, let's check
   if (const CanonExpr *UpperBound = DstLoop->getUpperCanonExpr()) {
-    if (UpperBound->isConstant(&ubVal)) {
+    if (UpperBound->isIntConstant(&ubVal)) {
       DstUM = llvm::APInt(64, ubVal, true);
       DEBUG(dbgs() << "\t    DstUM = " << DstUM << "\n");
       DstUMvalid = true;
@@ -2632,7 +2632,7 @@ static const CanonExpr *getConstantPart(const CanonExpr *Product) {
   // TODO: check blob of the form 10 * N and return 10
 
   int64_t k1;
-  if (Product->isConstant(&k1)) {
+  if (Product->isIntConstant(&k1)) {
     return Product;
   }
   return nullptr;
@@ -2748,7 +2748,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
   // Refer to original code
 
   const CanonExpr *Constant = Delta;
-  if (!Constant || !(Constant->isConstant(&k1))) {
+  if (!Constant || !(Constant->isIntConstant(&k1))) {
     return false;
   }
 
@@ -2850,7 +2850,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
     }
 
     Delta = getMinus(SrcCoeff, DstCoeff);
-    if (!Delta || !(Delta->isConstant(&k1))) {
+    if (!Delta || !(Delta->isIntConstant(&k1))) {
       continue;
     }
 
@@ -4426,9 +4426,42 @@ std::unique_ptr<Dependences> DDtest::depends(DDRef *SrcDDRef, DDRef *DstDDRef,
   return std::move(Final);
 }
 
-void DDtest::reverseDV(const DVectorTy &InputDV, DVectorTy &outputDV) const {
+///  get DV for Backward Edge
+///    Called when both forward and backward edges are needed
+///           ( *  >  =)  returns  (*  <  =)
+///           ( =  *  =)  returns  (=  *  =)
+///           (<   *  <)  Not supposed to call here
+///           (<=  *  >)  returns  (<= *  <)
+///           Explanation:
+///           (<=  * >)  is equivalent to
+/// --------------------
+///  (<  * >)    no backedge needed
+///  (=  * >)
+///  ----------------------------
+///  (= * >) is equivalent to
+///  ----------------------------
+///  (= < >)  no backedge needed
+///  (= > >)  Need backedge DV (= <  <)
+///  (= = >)  no backedge needed
+///  -----------------------------
+///  For simplicity we derive from it as  (<= * <)
 
-  for (unsigned II = 1; II <= CommonLevels; ++II) {
+void DDtest::getDVForBackwardEdge(const DVectorTy &InputDV, DVectorTy &outputDV,
+                                  unsigned MaxLevel) const {
+
+  unsigned StarLevel = 1;
+
+  // Scan for leftmost STAR
+  for (unsigned II = 1; II <= MaxLevel; ++II) {
+    outputDV[II - 1] = InputDV[II - 1];
+    assert(InputDV[II - 1] != DV::LT && "Unexpected Input DV for reversal");
+    if (InputDV[II - 1] == DV::ALL) {
+      StarLevel = II;
+      break;
+    }
+  }
+
+  for (unsigned II = StarLevel + 1; II <= MaxLevel; ++II) {
     switch (InputDV[II - 1]) {
     case DV::LT:
       outputDV[II - 1] = DV::GT;
@@ -4471,13 +4504,12 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   //  like scalar vars).
   //  New code added here for temps with more precision  in DV
 
-  DDtest DA;
   bool isTemp = false;
 
-  DA.initDV(forwardDV);
-  DA.initDV(backwardDV);
+  initDV(forwardDV);
+  initDV(backwardDV);
 
-  auto Result = DA.depends(SrcDDRef, DstDDRef, InputDV);
+  auto Result = depends(SrcDDRef, DstDDRef, InputDV);
 
   if (Result == nullptr) {
     DEBUG(dbgs() << "\nIs Independent!\n");
@@ -4490,18 +4522,24 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
     return false;
   }
 
-  //  Bidirectional DV are needed if leftmost (non-EQ or non <=)  is a *
-  //  except when src == dst
-  //  e.g.
-  //  (= = *   =)  Yes
-  //  (= = <=  *)  Yes
-  //  (= = <=  =)  no
-  //  (= = <   >)  no
+  ///  Bidirectional DV is needed when scanning from L to R, it enconuters
+  ///  a * before hitting <.
+  ///  If * is preveded by <. then no backward edge is needed.
+  ///  Exception:  when src == dst, 1 edge is enough for self output dep.
+  ///  e.g.
+  ///  (= = *   =)  Yes
+  ///  (= = <=  *)  Yes
+  ///  (= = <=  =)  no
+  ///  (= = <   >)  no
+  ///  See more details in getDVForBackwardEdge
 
   bool BiDirection = false;
   if (SrcDDRef != DstDDRef) {
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
       DVType dv = Result->getDirection(II);
+      if (dv == DV::LT) {
+        break;
+      }
       if (dv == DV::ALL) {
         BiDirection = true;
         DEBUG(dbgs() << "BiDirection needed!\n");
@@ -4667,19 +4705,23 @@ bool DDtest::findDependences(DDRef *SrcDDRef, DDRef *DstDDRef,
   }
 
   // How to determine whether the edge is forward or backward:
-  //  (1) birectional: both forward & backward
+  //  (1) bidirection: both forward & backward
   //  (2) if all EQ, look at TopSort order
   //  (3) if leftmost non-EQ dv is <
   //      isReversed implies backward else forward
 
   if (BiDirection) {
-    // (1) both directions
+    // (1) Both directions
+    // Leftmost non-equal is a *
+    // Need to reverse one of the DV
+    // e.g. one edge is ( * < >), the other shoud be (* > <)
+
     for (unsigned II = 1; II <= Result->getLevels(); ++II) {
-      backwardDV[II - 1] = Result->getDirection(II);
-    }
-    for (unsigned II = 1; II <= Result->getLevels(); ++II) {
+      // Computed from Src -> Dst (Forward edge)
       forwardDV[II - 1] = Result->getDirection(II);
     }
+    getDVForBackwardEdge(forwardDV, backwardDV, Result->getLevels());
+
     DEBUG(dbgs() << "\nforward DV: ";
           printDV(forwardDV, Result->getLevels(), dbgs()));
     DEBUG(dbgs() << "\nbackward DV: ";
@@ -4838,7 +4880,7 @@ bool llvm::loopopt::isDValEQ(const DVType *DV) {
 /// In this example, isDVIndepFromLevel(&DV, 2) return true
 bool llvm::loopopt::isDVIndepFromLevel(const DVType *DV, unsigned FromLevel) {
 
-  assert((FromLevel > 0 && FromLevel <= MaxLoopNestLevel) && "incorrect Level");
+  assert(HLNodeUtils::isLoopLevelValid(FromLevel) && "incorrect Level");
 
   for (unsigned II = 1; II <= FromLevel - 1; ++II) {
     unsigned Direction = DV[II - 1];

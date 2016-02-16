@@ -10,13 +10,20 @@
 #ifndef liblldb_ClangASTImporter_h_
 #define liblldb_ClangASTImporter_h_
 
+// C Includes
+// C++ Includes
 #include <map>
+#include <memory>
 #include <set>
+#include <vector>
 
-#include "lldb/lldb-types.h"
+// Other libraries and framework includes
 #include "clang/AST/ASTImporter.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
+
+// Project includes
+#include "lldb/lldb-types.h"
 #include "lldb/Symbol/CompilerDeclContext.h"
 
 namespace lldb_private {
@@ -100,7 +107,11 @@ public:
     CopyType (clang::ASTContext *dst_ctx,
               clang::ASTContext *src_ctx,
               lldb::opaque_compiler_type_t type);
-    
+
+    CompilerType
+    CopyType (ClangASTContext &dst,
+              const CompilerType &src_type);
+
     clang::Decl *
     CopyDecl (clang::ASTContext *dst_ctx,
               clang::ASTContext *src_ctx,
@@ -127,7 +138,10 @@ public:
     
     bool
     CompleteObjCInterfaceDecl (clang::ObjCInterfaceDecl *interface_decl);
-    
+
+    bool
+    CompleteAndFetchChildren (clang::QualType type);
+
     bool
     RequireCompleteType (clang::QualType type);
     
@@ -199,12 +213,13 @@ public:
     
     void ForgetDestination (clang::ASTContext *dst_ctx);
     void ForgetSource (clang::ASTContext *dst_ctx, clang::ASTContext *src_ctx);
+
 private:
     struct DeclOrigin 
     {
         DeclOrigin () :
-            ctx(NULL),
-            decl(NULL)
+            ctx(nullptr),
+            decl(nullptr)
         {
         }
         
@@ -230,7 +245,7 @@ private:
         bool 
         Valid ()
         {
-            return (ctx != NULL || decl != NULL);
+            return (ctx != nullptr || decl != nullptr);
         }
         
         clang::ASTContext  *ctx;
@@ -250,8 +265,8 @@ private:
                                *source_ctx,
                                master.m_file_manager,
                                true /*minimal*/),
-            m_decls_to_deport(NULL),
-            m_decls_already_deported(NULL),
+            m_decls_to_deport(nullptr),
+            m_decls_already_deported(nullptr),
             m_master(master),
             m_source_ctx(source_ctx)
         {
@@ -297,7 +312,7 @@ private:
             m_minions (),
             m_origins (),
             m_namespace_maps (),
-            m_map_completer (NULL)
+            m_map_completer (nullptr)
         {
         }
         

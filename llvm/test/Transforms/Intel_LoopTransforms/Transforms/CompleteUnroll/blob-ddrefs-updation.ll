@@ -1,4 +1,4 @@
-; RUN: opt -hir-ssa-deconstruction -HIRCompleteUnroll -print-before=HIRCompleteUnroll -print-after=HIRCompleteUnroll -hir-details 2>&1 < %s | FileCheck %s
+; RUN: opt -hir-ssa-deconstruction -hir-complete-unroll -print-before=hir-complete-unroll -print-after=hir-complete-unroll -hir-details 2>&1 < %s | FileCheck %s
 
 ; Source code-
 ; for(int i=0; i<6; i++) {
@@ -11,7 +11,7 @@
 
 ; CHECK: Dump Before HIR Complete Unroll
 
-; CHECK: <REG> LINEAR i32 %k * i1
+; CHECK: <RVAL-REG> LINEAR i32 %k * i1
 
 ; Capture symbase assigned to %k.
 ; CHECK: <BLOB> LINEAR i32 %k {sb:[[SYM:[0-9]+]]}
@@ -26,7 +26,7 @@
 ; CHECK: (%A)[1] = %k
 
 ; Check that the symbase of the self-blob regular DDRef has been updated to %k's symbase.
-; CHECK: <REG> LINEAR i32 %k {sb:[[SYM]]}
+; CHECK: <RVAL-REG> NON-LINEAR i32 %k {sb:[[SYM]]}
 
 ; Check that the blob DDRef for %k has been removed for the self-blob regular DDRef.
 ; CHECK-NOT: <BLOB> LINEAR i32 %k 

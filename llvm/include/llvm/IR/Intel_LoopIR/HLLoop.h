@@ -82,7 +82,9 @@ private:
   const bool IsDoWhile;
   unsigned NumExits;
   unsigned NestingLevel;
-  // This flag indicates if the loop is innermost or not.
+  // This flag indicates if the loop is innermost or not. All loops are created
+  // and cloned as innermost. Insert/remove utilities are updating this flag
+  // assuming that it's true in a fresh HLLoop.
   bool IsInnermost;
   Type *IVType;
 
@@ -109,7 +111,7 @@ protected:
   /// \brief Sets the nesting level of the loop.
   void setNestingLevel(unsigned Level) { NestingLevel = Level; }
   /// \brief Sets the Innermost flag to indicate if it is innermost loop.
-  void setInnermost(bool IsInnermst) { IsInnermost = IsInnermst; }
+  void setInnermost(bool IsInnermost) { this->IsInnermost = IsInnermost; }
 
   /// \brief Returns the number of DDRefs associated with only the loop
   /// without the ztt.
@@ -286,7 +288,7 @@ public:
   bool isDo() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->isUndefined());
+    return (!IsDoWhile && (NumExits == 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is a do-while loop.
@@ -296,14 +298,14 @@ public:
   bool isDoMultiExit() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->isUndefined());
+    return (!IsDoWhile && (NumExits > 1) && !UpperDDRef->containsUndef());
   }
 
   /// \brief Returns true if this is an unknown loop.
   bool isUnknown() const {
     auto UpperDDRef = getUpperDDRef();
     assert(UpperDDRef && "UpperDDRef may not be null");
-    return UpperDDRef->isUndefined();
+    return UpperDDRef->containsUndef();
   }
 
   /// \brief Returns true if loop is normalized.

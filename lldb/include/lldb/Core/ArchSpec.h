@@ -212,7 +212,11 @@ public:
         kCore_mips64_last   = eCore_mips64r6,
 
         kCore_mips64el_first  = eCore_mips64el,
-        kCore_mips64el_last   = eCore_mips64r6el
+        kCore_mips64el_last   = eCore_mips64r6el,
+
+        kCore_mips_first  = eCore_mips32,
+        kCore_mips_last   = eCore_mips64r6el
+
     };
 
     typedef void (* StopInfoOverrideCallbackType)(lldb_private::Thread &thread);
@@ -350,6 +354,12 @@ public:
     TripleOSWasSpecified() const
     {
         return !m_triple.getOSName().empty();
+    }
+    
+    bool
+    TripleEnvironmentWasSpecified () const
+    {
+        return !m_triple.getEnvironmentName().empty();
     }
 
     bool
@@ -583,7 +593,18 @@ public:
     //------------------------------------------------------------------
     StopInfoOverrideCallbackType
     GetStopInfoOverrideCallback () const;
+    
+    bool
+    IsFullySpecifiedTriple () const;
 
+    void
+    PiecewiseTripleCompare (const ArchSpec &other,
+                            bool &arch_different,
+                            bool &vendor_different,
+                            bool &os_different,
+                            bool &os_version_different,
+                            bool &env_different);
+    
     uint32_t
     GetFlags () const
     {

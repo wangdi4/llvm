@@ -53,7 +53,7 @@ protected:
   };
 
   enum X863DNowEnum {
-    NoThreeDNow, ThreeDNow, ThreeDNowA
+    NoThreeDNow, MMX, ThreeDNow, ThreeDNowA
   };
 
   enum X86ProcFamilyEnum {
@@ -69,15 +69,15 @@ protected:
   /// SSE1, SSE2, SSE3, SSSE3, SSE41, SSE42, or none supported.
   X86SSEEnum X86SSELevel;
 
-  /// 3DNow, 3DNow Athlon, or none supported.
+  /// MMX, 3DNow, 3DNow Athlon, or none supported.
   X863DNowEnum X863DNowLevel;
+
+  /// True if the processor supports X87 instructions.
+  bool HasX87;
 
   /// True if this processor has conditional move instructions
   /// (generally pentium pro+).
   bool HasCMov;
-
-  /// True if this processor supports MMX instructions.
-  bool HasMMX;
 
   /// True if the processor supports X86-64 instructions.
   bool HasX86_64;
@@ -157,6 +157,9 @@ protected:
   /// Processor has RDSEED instructions.
   bool HasRDSEED;
 
+  /// Processor has LAHF/SAHF instructions.
+  bool HasLAHFSAHF;
+
   /// True if BT (bit test) of memory instructions are slow.
   bool IsBTMemSlow;
 
@@ -224,6 +227,9 @@ protected:
 
   /// Processor has AVX-512 Vector Length eXtenstions
   bool HasVLX;
+
+  /// Processor has PKU extenstions
+  bool HasPKU;
 
   /// Processot supports MPX - Memory Protection Extensions
   bool HasMPX;
@@ -335,8 +341,8 @@ public:
   PICStyles::Style getPICStyle() const { return PICStyle; }
   void setPICStyle(PICStyles::Style Style)  { PICStyle = Style; }
 
+  bool hasX87() const { return HasX87; }
   bool hasCMov() const { return HasCMov; }
-  bool hasMMX() const { return HasMMX; }
   bool hasSSE1() const { return X86SSELevel >= SSE1; }
   bool hasSSE2() const { return X86SSELevel >= SSE2; }
   bool hasSSE3() const { return X86SSELevel >= SSE3; }
@@ -349,6 +355,7 @@ public:
   bool hasFp256() const { return hasAVX(); }
   bool hasInt256() const { return hasAVX2(); }
   bool hasSSE4A() const { return HasSSE4A; }
+  bool hasMMX() const { return X863DNowLevel >= MMX; }
   bool has3DNow() const { return X863DNowLevel >= ThreeDNow; }
   bool has3DNowA() const { return X863DNowLevel >= ThreeDNowA; }
   bool hasPOPCNT() const { return HasPOPCNT; }
@@ -359,9 +366,11 @@ public:
   bool hasXSAVEC() const { return HasXSAVEC; }
   bool hasXSAVES() const { return HasXSAVES; }
   bool hasPCLMUL() const { return HasPCLMUL; }
-  bool hasFMA() const { return HasFMA; }
-  // FIXME: Favor FMA when both are enabled. Is this the right thing to do?
-  bool hasFMA4() const { return HasFMA4 && !HasFMA; }
+  // Prefer FMA4 to FMA - its better for commutation/memory folding and
+  // has equal or better performance on all supported targets.
+  bool hasFMA() const { return HasFMA && !HasFMA4; }
+  bool hasFMA4() const { return HasFMA4; }
+  bool hasAnyFMA() const { return hasFMA() || hasFMA4() || hasAVX512(); }
   bool hasXOP() const { return HasXOP; }
   bool hasTBM() const { return HasTBM; }
   bool hasMOVBE() const { return HasMOVBE; }
@@ -377,6 +386,7 @@ public:
   bool hasSHA() const { return HasSHA; }
   bool hasPRFCHW() const { return HasPRFCHW; }
   bool hasRDSEED() const { return HasRDSEED; }
+  bool hasLAHFSAHF() const { return HasLAHFSAHF; }
   bool isBTMemSlow() const { return IsBTMemSlow; }
   bool isSHLDSlow() const { return IsSHLDSlow; }
   bool isUnalignedMem16Slow() const { return IsUAMem16Slow; }
@@ -397,11 +407,12 @@ public:
   bool hasDQI() const { return HasDQI; }
   bool hasBWI() const { return HasBWI; }
   bool hasVLX() const { return HasVLX; }
+  bool hasPKU() const { return HasPKU; }
   bool hasMPX() const { return HasMPX; }
 
   bool isAtom() const { return X86ProcFamily == IntelAtom; }
   bool isSLM() const { return X86ProcFamily == IntelSLM; }
-  bool useSoftFloat() const { return UseSoftFloat; }
+  bool useSoftFloat() const { return UseSoftFloat || !hasX87(); }
 
   const Triple &getTargetTriple() const { return TargetTriple; }
 
@@ -420,9 +431,7 @@ public:
   bool isTargetNaCl() const { return TargetTriple.isOSNaCl(); }
   bool isTargetNaCl32() const { return isTargetNaCl() && !is64Bit(); }
   bool isTargetNaCl64() const { return isTargetNaCl() && is64Bit(); }
-#if INTEL_CUSTOMIZATION
   bool isTargetMCU() const { return TargetTriple.isOSIAMCU(); }
-#endif //INTEL_CUSTOMIZATION
 
   bool isTargetWindowsMSVC() const {
     return TargetTriple.isWindowsMSVCEnvironment();
@@ -566,7 +575,7 @@ public:
       .Case("lzcnt", HasLZCNT)
       .Case("mm3dnow", X863DNowLevel >= ThreeDNow)
       .Case("mm3dnowa", X863DNowLevel >= ThreeDNowA)
-      .Case("mmx", HasMMX)
+      .Case("mmx", X863DNowLevel >= MMX)
       .Case("pclmul", HasPCLMUL)
       .Case("popcnt", HasPOPCNT)
       .Case("prfchw", HasPRFCHW)

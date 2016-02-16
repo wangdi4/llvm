@@ -26,10 +26,15 @@ namespace llvm {
 
 class Value;
 class Function;
+class Instruction;
+class PHINode;
 class Loop;
 class LoopInfo;
 class DominatorTree;
 class ScalarEvolution;
+class GetElementPtrInst;
+class GEPOperator;
+class SCEV;
 
 namespace loopopt {
 
@@ -62,9 +67,18 @@ private:
   /// SE - Scalar Evolution analysis for the function.
   ScalarEvolution *SE;
 
+  /// \brief Returns the base(earliest) GEP operator in case of multiple GEPs
+  /// associated with a load/store.
+  /// This is used for temporarily suppressing struct GEPs until we can handle
+  /// them in HIR.
+  const GEPOperator *getBaseGEPOp(const GEPOperator *GEPOp) const;
+
   /// \brief Returns true if Lp appears to be generable without looking at the
   /// sub loops.
   bool isSelfGenerable(const Loop &Lp, unsigned LoopnestDepth) const;
+
+  /// \brief Returns true if Lp is a SIMD loop.
+  bool isSIMDLoop(const Loop &Lp) const;
 
   /// \brief Creates a Region out of Lp's basic blocks.
   void createRegion(const Loop &Lp);
@@ -75,6 +89,13 @@ private:
 
   /// \brief Identifies regions in the incoming LLVM IR.
   void formRegions();
+
+  /// \brief Returns true if Inst contains a type not supported by HIR.
+  bool containsUnsupportedTy(const Instruction *Inst) const;
+
+  /// \brief Returns IV definition PHINode of the loop.
+  const PHINode *findIVDefInHeader(const Loop &Lp,
+                                   const Instruction *Inst) const;
 
 public:
   static char ID; // Pass identification
@@ -98,6 +119,21 @@ public:
   const_reverse_iterator rend() const { return IRRegions.rend(); }
 
   unsigned getNumRegions() const { return IRRegions.size(); }
+
+  /// \brief Returns true if this type is supported. Currently returns false for
+  /// structure and function types.
+  bool isSupported(Type *Ty) const;
+
+  // NOTE: Following functions were moved here so they can be shared between
+  // HIRParser and SSADeconstruction. Is there a better way?
+
+  /// \brief Returns the primary element type of PtrTy. Primary element type is
+  /// the underlying type which this type is pointing to. For example, the
+  /// primary element type of both i32* && [100 x [100 x i32]]* is i32.
+  Type *getPrimaryElementType(Type *PtrTy) const;
+
+  /// \brief Returns true if Phi occurs in the header of a loop.
+  bool isHeaderPhi(const PHINode *Phi) const;
 };
 
 } // End namespace loopopt

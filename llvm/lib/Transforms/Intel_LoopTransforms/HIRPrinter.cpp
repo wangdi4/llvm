@@ -14,6 +14,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/Debug.h"
+
 #include "llvm/IR/Function.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"

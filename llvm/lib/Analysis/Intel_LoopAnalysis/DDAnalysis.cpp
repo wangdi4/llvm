@@ -14,19 +14,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Pass.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+
 #include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/CommandLine.h"
 
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
+
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
+#include "llvm/IR/Intel_LoopIR/DDRefGatherer.h"
 #include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include <vector>
@@ -36,6 +39,8 @@ using namespace llvm;
 using namespace llvm::loopopt;
 
 #define DEBUG_TYPE "dd-analysis"
+
+typedef DefinedRefGatherer::MapTy SymToRefs;
 
 // Rebuild nests in runOnFunction for loops of level n, 0 being whole region
 // for testing.
@@ -96,9 +101,6 @@ bool DDAnalysis::runOnFunction(Function &F) {
   HIRP = &getAnalysis<HIRParser>();
   SA = &getAnalysis<SymbaseAssignment>();
 
-  // Compute TopSortNum - which is needed to determine forward or backward edges
-  HLNodeUtils::resetTopSortNum();
-
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
     DDVerificationLevel CurLevel = VerifyLevelList[I];
@@ -125,47 +127,6 @@ DDGraph DDAnalysis::getGraph(HLNode *Node, bool InputEdgesReq) {
     rebuildGraph(Node, InputEdgesReq);
   }
   return DDGraph(Node, &FunctionDDGraph);
-}
-
-// Visits all dd refs in Node and fills in the symbase to ref vector
-// map based on symbase field of encountered dd refs. Does not assign
-// symbase, assumes symbase of ddrefs is valid
-// TODO make this a general DDref walker? Already did this for
-// symbase assignement
-class DDRefGatherer final : public HLNodeVisitorBase {
-
-private:
-  void visitDDNodeRefs(HLDDNode *Node);
-  SymToRefs *RefMap;
-
-public:
-  DDRefGatherer(SymToRefs *CurRefs) : RefMap(CurRefs) {}
-
-  void postVisit(HLNode *Node) {}
-  void postVisit(HLDDNode *Node) {}
-  void visit(HLNode *Node) {}
-  void visit(HLDDNode *Node);
-  void addRef(DDRef *Ref);
-};
-
-void DDRefGatherer::addRef(DDRef *Ref) {
-  unsigned Symbase = (Ref)->getSymbase();
-  (*RefMap)[Symbase].push_back(Ref);
-}
-
-void DDRefGatherer::visit(HLDDNode *Node) {
-  for (auto I = Node->ddref_begin(), E = Node->ddref_end(); I != E; ++I) {
-    if ((*I)->isConstant()) {
-      // dont even bother gathering consts
-    } else {
-      // add ref and blobs to map
-      addRef(*I);
-      for (auto BRefI = (*I)->blob_cbegin(), BRefE = (*I)->blob_cend();
-           BRefI != BRefE; ++BRefI) {
-        addRef(*BRefI);
-      }
-    }
-  }
 }
 
 void DDAnalysis::releaseMemory() {
@@ -231,35 +192,20 @@ void DDAnalysis::setInputDV(DVectorTy &InputDV, HLNode *Node, DDRef *Ref1,
   }
 }
 
-#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
-void DDAnalysis::dumpSymbaseMap(SymToRefs &RefMap) {
-  for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
-       SymVecPair != Last; ++SymVecPair) {
-    std::vector<DDRef *> &RefVec = SymVecPair->second;
-    dbgs() << "Symbase " << SymVecPair->first << " contains: \n";
-    for (auto Ref = RefVec.begin(), E = RefVec.end(); Ref != E; ++Ref) {
-      dbgs() << "\t";
-      (*Ref)->dump();
-      dbgs() << "\n";
-    }
-  }
-}
-#endif
-
 void DDAnalysis::rebuildGraph(HLNode *Node, bool BuildInputEdges) {
-  //  collect all refs into symbase vector
+  // Visits all dd refs in Node and fills in the symbase to ref vector
+  // map based on symbase field of encountered dd refs. Does not assign
+  // symbase, assumes symbase of ddrefs is valid
   SymToRefs RefMap;
-  DDRefGatherer Gatherer(&RefMap);
-
-  HLNodeUtils::visit(Gatherer, Node);
+  DefinedRefGatherer::gather(Node, RefMap);
 
   DEBUG(dbgs() << "Building graph for:\n");
-  DEBUG(dumpSymbaseMap(RefMap));
+  DEBUG(dumpRefMap(RefMap));
   DEBUG(Node->dump());
   // pairwise testing among all refs sharing a symbase
   for (auto SymVecPair = RefMap.begin(), Last = RefMap.end();
        SymVecPair != Last; ++SymVecPair) {
-    std::vector<DDRef *> &RefVec = SymVecPair->second;
+    auto &RefVec = SymVecPair->second;
     if (RefVec.size() < 2)
       continue;
 

@@ -15,9 +15,7 @@
 #ifndef LLVM_LIB_TARGET_X86_X86CALLINGCONV_H
 #define LLVM_LIB_TARGET_X86_X86CALLINGCONV_H
 
-#if INTEL_CUSTOMIZATION
 #include "MCTargetDesc/X86MCTargetDesc.h"
-#endif //INTEL_CUSTOMIZATION
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/IR/CallingConv.h"
 
@@ -45,7 +43,6 @@ inline bool CC_X86_AnyReg_Error(unsigned &, MVT &, MVT &,
   return false;
 }
 
-#if INTEL_CUSTOMIZATION
 inline bool CC_X86_32_MCUInReg(unsigned &ValNo, MVT &ValVT,
                                          MVT &LocVT,
                                          CCValAssign::LocInfo &LocInfo,
@@ -54,24 +51,23 @@ inline bool CC_X86_32_MCUInReg(unsigned &ValNo, MVT &ValVT,
   // This is similar to CCAssignToReg<[EAX, EDX, ECX]>, but makes sure
   // not to split i64 and double between a register and stack
   static const MCPhysReg RegList[] = {X86::EAX, X86::EDX, X86::ECX};
-  static const unsigned NumRegs = 3;
+  static const unsigned NumRegs = sizeof(RegList)/sizeof(RegList[0]);
   
   SmallVectorImpl<CCValAssign> &PendingMembers = State.getPendingLocs();
 
-  // TODO: Do we need to generalize this to larger cases? That is, can
-  // we end up with something that's larger than 2 parts here?
-  // I think not, but need to check - unfortunately, it doesn't seem
-  // like there's enough information at this point to perform the check...
-
-  // If this is the first part of an i64/double, add it to the pending list
-  if (ArgFlags.isSplit()) {
+  // If this is the first part of an double/i64/i128, or if we're already
+  // in the middle of a split, add to the pending list. If this is not
+  // the end of the split, return, otherwise go on to process the pending
+  // list
+  if (ArgFlags.isSplit() || !PendingMembers.empty()) {
     PendingMembers.push_back(
         CCValAssign::getPending(ValNo, ValVT, LocVT, LocInfo));
-    return true;
+    if (!ArgFlags.isSplitEnd())
+      return true;
   }
 
-  // If there are no pending members, this is not the second part of
-  // an i64/double, so do the usual inreg stuff
+  // If there are no pending members, we are not in the middle of a split,
+  // so do the usual inreg stuff.
   if (PendingMembers.empty()) {
     if (unsigned Reg = State.AllocateReg(RegList)) {
       State.addLoc(CCValAssign::getReg(ValNo, ValVT, Reg, LocVT, LocInfo));
@@ -80,14 +76,18 @@ inline bool CC_X86_32_MCUInReg(unsigned &ValNo, MVT &ValVT,
     return false;
   }
 
-  // Ok, so, now what we do depends on how many free registers we have
-  // We need to have at least 2, because we need both parts to either
-  // be on the stack or in memory.
-  unsigned FirstFree = State.getFirstUnallocated(RegList);
-  bool UseRegs = FirstFree <= (NumRegs - 2);
+  assert(ArgFlags.isSplitEnd());
 
-  PendingMembers.push_back(CCValAssign::getPending(ValNo, ValVT, LocVT,
-    LocInfo));
+  // We now have the entire original argument in PendingMembers, so decide
+  // whether to use registers or the stack.
+  // Per the MCU ABI:
+  // a) To use registers, we need to have enough of them free to contain
+  // the entire argument.
+  // b) We never want to use more than 2 registers for a single argument.
+
+  unsigned FirstFree = State.getFirstUnallocated(RegList);
+  bool UseRegs = PendingMembers.size() <= std::min(2U, NumRegs - FirstFree);
+
   for (auto &It : PendingMembers) {
     if (UseRegs)
       It.convertToReg(State.AllocateReg(RegList[FirstFree++]));
@@ -100,7 +100,6 @@ inline bool CC_X86_32_MCUInReg(unsigned &ValNo, MVT &ValVT,
 
   return true;
 }
-#endif //INTEL_CUSTOMIZATION
 
 } // End llvm namespace
 

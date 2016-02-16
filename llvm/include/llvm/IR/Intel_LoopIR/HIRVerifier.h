@@ -1,4 +1,4 @@
-//=== HIRVerifier.cpp - Verifies internal structure of HLNodes *-- C++ --*-===//
+//=== HIRVerifier.h - Verifies internal structure of HLNodes --*-- C++ --*-===//
 //
 // Copyright (C) 2015 Intel Corporation. All rights reserved.
 //
