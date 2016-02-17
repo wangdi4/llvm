@@ -29,6 +29,7 @@ namespace llvm {
 
 class Type;
 class APInt;
+class ConstantFP;
 
 namespace loopopt {
 
@@ -141,8 +142,10 @@ public:
   /// \brief Returns true if Blob is a UndefValue.
   static bool isUndefBlob(CanonExpr::BlobTy Blob);
 
-  /// \brief Returns true if Blob represents a FP constant.
-  static bool isConstantFPBlob(CanonExpr::BlobTy Blob);
+  /// \brief Returns true if \pBlob represents a FP constant.
+  /// If yes, returns the underlying LLVM Values in \pVal
+  static bool isConstantFPBlob(CanonExpr::BlobTy Blob,
+                               ConstantFP **Val = nullptr);
 
   /// \brief Returns true if Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.

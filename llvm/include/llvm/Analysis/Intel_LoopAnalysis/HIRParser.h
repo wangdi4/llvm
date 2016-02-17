@@ -43,6 +43,7 @@ class SCEVUnknown;
 class GEPOperator;
 class Value;
 class LoopInfo;
+class ConstantFP;
 
 namespace loopopt {
 
@@ -409,8 +410,10 @@ private:
   /// \brief Returns true if this is an UndefValue blob.
   bool isUndefBlob(CanonExpr::BlobTy Blob) const;
 
-  /// \brief Returns true if Blob represents a constant FP value.
-  bool isConstantFPBlob(CanonExpr::BlobTy Blob) const;
+  /// \brief Returns true if \pBlob represents a constant FP value.
+  /// If blob is FP constant, returns the underlying LLVM Value in \pVal
+  bool isConstantFPBlob(CanonExpr::BlobTy Blob,
+                        ConstantFP **Val = nullptr) const;
 
   /// \brief Returns true if Blob represents a metadata value.
   /// If blob is metadata, sets the return value in Val.

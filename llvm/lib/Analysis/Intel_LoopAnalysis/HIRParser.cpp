@@ -166,9 +166,15 @@ bool HIRParser::isUndefBlob(CanonExpr::BlobTy Blob) const {
   return isa<UndefValue>(V);
 }
 
-bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob) const {
+bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob,
+                                 ConstantFP **Val) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
-    return isa<ConstantFP>(UnknownSCEV->getValue());
+    if (auto P = dyn_cast<ConstantFP>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
   }
 
   return false;

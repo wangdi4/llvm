@@ -205,8 +205,9 @@ public:
   }
 
   /// \brief Returns true if this RegDDRef represents an FP constant.
-  bool isFPConstant() const {
-    return isScalarRef() && getSingleCanonExpr()->isFPConstant();
+  /// Put the underlying LLVM Value in \p Val
+  bool isFPConstant(ConstantFP **Val = nullptr) const {
+    return isScalarRef() && getSingleCanonExpr()->isFPConstant(Val);
   }
 
   /// \brief Returns true if this RegDDRef represents a metadata.

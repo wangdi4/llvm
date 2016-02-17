@@ -17,7 +17,6 @@
 #define LLVM_IR_INTEL_LOOPIR_CANONEXPR_H
 
 #include "llvm/ADT/SmallVector.h"
-
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/FormattedStream.h"
 
@@ -32,6 +31,7 @@ namespace llvm {
 class Type;
 class SCEV;
 class MetadataAsValue;
+class ConstantFP;
 
 namespace loopopt {
 
@@ -360,7 +360,8 @@ public:
   bool isIntConstant(int64_t *Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a floating point constant.
-  bool isFPConstant() const;
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isFPConstant(ConstantFP **Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a metadata.
   /// If true, metadata is retunred in Val.

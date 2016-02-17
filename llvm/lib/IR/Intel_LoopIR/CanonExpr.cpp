@@ -350,12 +350,12 @@ bool CanonExpr::isIntConstant(int64_t *Val) const {
   return true;
 }
 
-bool CanonExpr::isFPConstant() const {
+bool CanonExpr::isFPConstant(ConstantFP **Val) const {
   if (!isStandAloneBlob()) {
     return false;
   }
 
-  return CanonExprUtils::isConstantFPBlob(getBlob(getSingleBlobIndex()));
+  return CanonExprUtils::isConstantFPBlob(getBlob(getSingleBlobIndex()), Val);
 }
 
 bool CanonExpr::isMetadata(MetadataAsValue **Val) const {

@@ -140,8 +140,9 @@ bool CanonExprUtils::isUndefBlob(CanonExpr::BlobTy Blob) {
   return getHIRParser()->isUndefBlob(Blob);
 }
 
-bool CanonExprUtils::isConstantFPBlob(CanonExpr::BlobTy Blob) {
-  return getHIRParser()->isConstantFPBlob(Blob);
+bool CanonExprUtils::isConstantFPBlob(CanonExpr::BlobTy Blob,
+                                      ConstantFP **Val) {
+  return getHIRParser()->isConstantFPBlob(Blob, Val);
 }
 
 bool CanonExprUtils::isMetadataBlob(CanonExpr::BlobTy Blob,
