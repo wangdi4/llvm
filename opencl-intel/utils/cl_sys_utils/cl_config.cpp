@@ -43,7 +43,8 @@ namespace Intel { namespace OpenCL { namespace Utils {
 static bool isBroadwell(short i16ProcessorSignature)
 {
     if(0x306D == i16ProcessorSignature || // Broadwell ULT Client.
-       0x4067 == i16ProcessorSignature)   // Broadwell Client Halo.
+       0x4067 == i16ProcessorSignature || // Broadwell Client Halo.
+       0x406F == i16ProcessorSignature)   // Broadwell Server
         return true;
 
     return false;
