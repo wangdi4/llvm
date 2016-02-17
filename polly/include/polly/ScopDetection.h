@@ -52,6 +52,7 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/RegionInfo.h"
 #include "llvm/Pass.h"
 #include <map>
 #include <memory>
@@ -60,8 +61,6 @@
 using namespace llvm;
 
 namespace llvm {
-class RegionInfo;
-class Region;
 class LoopInfo;
 class Loop;
 class ScalarEvolution;
@@ -201,7 +200,7 @@ private:
 
   /// @brief Map to remember detection contexts for valid regions.
   using DetectionContextMapTy = DenseMap<const Region *, DetectionContext>;
-  DetectionContextMapTy DetectionContextMap;
+  mutable DetectionContextMapTy DetectionContextMap;
 
   // Remember a list of errors for every region.
   mutable RejectLogsContainer RejectLogs;
@@ -221,6 +220,50 @@ private:
   ///
   /// @returns True if the subregion can be over approximated, false otherwise.
   bool addOverApproximatedRegion(Region *AR, DetectionContext &Context) const;
+
+  /// @brief Find for a given base pointer terms that hint towards dimension
+  ///        sizes of a multi-dimensional array.
+  ///
+  /// @param Context      The current detection context.
+  /// @param BasePointer  A base pointer indicating the virtual array we are
+  ///                     interested in.
+  SmallVector<const SCEV *, 4>
+  getDelinearizationTerms(DetectionContext &Context,
+                          const SCEVUnknown *BasePointer) const;
+
+  /// @brief Check if the dimension size of a delinearized array is valid.
+  ///
+  /// @param Context     The current detection context.
+  /// @param Sizes       The sizes of the different array dimensions.
+  /// @param BasePointer The base pointer we are interested in.
+  /// @returns True if one or more array sizes could be derived - meaning: we
+  ///          see this array as multi-dimensional.
+  bool hasValidArraySizes(DetectionContext &Context,
+                          SmallVectorImpl<const SCEV *> &Sizes,
+                          const SCEVUnknown *BasePointer) const;
+
+  /// @brief Derive access functions for a given base pointer.
+  ///
+  /// @param Context     The current detection context.
+  /// @param Sizes       The sizes of the different array dimensions.
+  /// @param BasePointer The base pointer of all the array for which to compute
+  ///                    access functions.
+  /// @param Shape       The shape that describes the derived array sizes and
+  ///                    which should be filled with newly computed access
+  ///                    functions.
+  /// @returns True if a set of affine access functions could be derived.
+  bool computeAccessFunctions(DetectionContext &Context,
+                              const SCEVUnknown *BasePointer,
+                              std::shared_ptr<ArrayShape> Shape) const;
+
+  /// @brief Check if all accesses to a given BasePointer are affine.
+  ///
+  /// @param Context     The current detection context.
+  /// @param basepointer the base pointer we are interested in.
+  /// @param True if consistent (multi-dimensional) array accesses could be
+  ///        derived for this array.
+  bool hasBaseAffineAccesses(DetectionContext &Context,
+                             const SCEVUnknown *BasePointer) const;
 
   // Delinearize all non affine memory accesses and return false when there
   // exists a non affine memory access that cannot be delinearized. Return true
@@ -242,6 +285,30 @@ private:
   ///
   /// @return True if all blocks in R are valid, false otherwise.
   bool allBlocksValid(DetectionContext &Context) const;
+
+  /// @brief Check if a region has sufficient compute instructions
+  ///
+  /// This function checks if a region has a non-trivial number of instructions
+  /// in each loop. This can be used as an indicator if a loop is worth
+  /// optimising.
+  ///
+  /// @param Context  The context of scop detection.
+  /// @param NumLoops The number of loops in the region.
+  ///
+  /// @return True if region is has sufficient compute instructions,
+  ///         false otherwise.
+  bool hasSufficientCompute(DetectionContext &Context,
+                            int NumAffineLoops) const;
+
+  /// @brief Check if a region is profitable to optimize.
+  ///
+  /// Regions that are unlikely to expose interesting optimization opportunities
+  /// are called 'unprofitable' and may be skipped during scop detection.
+  ///
+  /// @param Context The context of scop detection.
+  ///
+  /// @return True if region is profitable to optimize, false otherwise.
+  bool isProfitableRegion(DetectionContext &Context) const;
 
   /// @brief Check if a region is a Scop.
   ///
@@ -341,12 +408,19 @@ private:
 
   /// @brief Check if the control flow in a basic block is valid.
   ///
-  /// @param BB           The BB to check the control flow.
-  /// @param IsLoopBranch Flag to indicate the branch is a loop exit/latch.
-  /// @param Context      The context of scop detection.
+  /// This function checks if a certain basic block is terminated by a
+  /// Terminator instruction we can handle or, if this is not the case,
+  /// registers this basic block as the start of a non-affine region.
+  ///
+  /// This function optionally allows unreachable statements.
+  ///
+  /// @param BB               The BB to check the control flow.
+  /// @param IsLoopBranch     Flag to indicate the branch is a loop exit/latch.
+  //  @param AllowUnreachable Allow unreachable statements.
+  /// @param Context          The context of scop detection.
   ///
   /// @return True if the BB contains only valid control flow.
-  bool isValidCFG(BasicBlock &BB, bool IsLoopBranch,
+  bool isValidCFG(BasicBlock &BB, bool IsLoopBranch, bool AllowUnreachable,
                   DetectionContext &Context) const;
 
   /// @brief Is a loop valid with respect to a given region.

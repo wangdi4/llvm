@@ -2127,6 +2127,118 @@ Instruction *InstCombiner::visitICmpInstWithCastAndCast(ICmpInst &ICI) {
   return BinaryOperator::CreateNot(Result);
 }
 
+#if INTEL_CUSTOMIZATION
+/// OptimizeICmpInstSize - Try to do the comparison at a smaller integer size if
+/// profitable. This could eliminate unnecessary instructions. For example:
+///   %a1 = sext i8 %a to i32               %b1 = and i32 %b, 127
+///   %b1 = and i32 %b, 127         --->    %b2 = trunc i32 %b1 to i8
+///   %cmp = icmp slt i32 %a1, %b1          %cmp = icmp slt i8 %a, %b2
+/// in this case, sext is eliminated, and the trunc instruction will be ignored
+/// by code generator. 
+Instruction *InstCombiner::OptimizeICmpInstSize(ICmpInst &ICI, 
+                                                Value *Op0, Value *Op1) {
+  // Currently we only optimize integer comparisons, but we could extend this 
+  // optimization to pointer comparisons in the future.
+  if (!Op0->getType()->isIntegerTy())
+    return nullptr;
+
+  unsigned OrigSize = Op0->getType()->getIntegerBitWidth();
+  if (OrigSize > 8 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 8))
+    return &ICI;
+
+  if (OrigSize > 16 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 16))
+    return &ICI;
+
+  if (OrigSize > 32 && ReduceICmpSizeIfProfitable(ICI, Op0, Op1, 32))
+    return &ICI;
+
+  return nullptr;
+}
+
+/// getReduceValueSizeProfit - Evaluate the profit of reducing the size of this
+/// value as a result of shrinking ICmp size. 
+static int getReduceValueSizeProfit(Value *Op, unsigned TargetSize) {
+  assert(Op->getType()->isIntegerTy() && "Expected integer type!");
+  unsigned OrigSize = Op->getType()->getIntegerBitWidth();
+
+  // Only profitable to reduce size to 8, 16 or 32 bits.
+  if (TargetSize != 8 && TargetSize != 16 && TargetSize != 32)
+    return 0;
+  
+  // This value should only have one use, otherwise it will not be removed after
+  // shrinking ICmp size.
+  if (!Op->hasOneUse())
+    return 0;
+
+  // If this value is a sext or zext from the target size, then it will be 
+  // removed after shrinking ICmp size to the target size.
+  if (CastInst *CI = dyn_cast<CastInst>(Op)) {
+    if ((isa<SExtInst>(CI) || isa<ZExtInst>(CI)) && 
+        CI->getSrcTy()->isIntegerTy(TargetSize))
+      return 1;
+  }
+  
+  // When this value comes from a binary operation.  
+  if (BinaryOperator *BO = dyn_cast<BinaryOperator>(Op)) {
+    Value *Op0 = BO->getOperand(0);
+    Value *Op1 = BO->getOperand(1);
+    Value *V1, *V2;
+    ConstantInt *C = dyn_cast<ConstantInt>(Op1);
+    if (C && (BO->getOpcode() == Instruction::LShr || 
+        BO->getOpcode() == Instruction::AShr)) {
+      // (X << C) >> C - This value comes from a left shift from the target size
+      // followed by a right shift to the target size. These 2 shifts will be
+      // removed after shirinking ICmp size to the target size.
+      if (Op0->hasOneUse() && C->getValue() == OrigSize - TargetSize && 
+          match(Op0, m_Shl(m_Value(V1), m_Specific(C))))
+        return 2;
+      // ((X << C) + Y) >> C - This value comes from a left shift followed by a
+      // binary operation followed by a right shift to the target size. These 2
+      // shifts will be removed and the value Y will be shifted back after 
+      // shrinking ICmp size. If Y is an integer constant, it can be shifted 
+      // back at no cost.
+      auto MShl = m_Shl(m_Value(V1), m_Specific(C));
+      if (Op0->hasOneUse() && C->getValue() == OrigSize - TargetSize && 
+         (match(Op0, m_Add(MShl, m_Value(V2))) || 
+          match(Op0, m_Sub(MShl, m_Value(V2))) ||
+          match(Op0, m_And(MShl, m_Value(V2))) ||
+          match(Op0, m_Or(MShl, m_Value(V2))) ||
+          match(Op0, m_Xor(MShl, m_Value(V2)))))
+        return isa<ConstantInt>(V2) ? 2 : 1;
+    }
+    // This value comes from an "And" instruction with a mask of TargetSize.
+    if (C && BO->getOpcode() == Instruction::And && 
+        C->getValue() == APInt::getLowBitsSet(OrigSize, TargetSize))
+      return 1;
+  }
+  return 0;
+}
+
+/// Reduce the size of this ICmp instruction if possible and profitable. If two 
+/// operands are known to be within a smaller range (either signed or unsigned),
+/// and it's profitable to reduce the size of both operands, then we can do this
+/// comparison in the smaller range. Operands of equality comparisons are 
+/// treated as unsigned. To reduce the size of comparison, we truncate the 
+/// operands to the smaller type.
+bool InstCombiner::ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0, 
+					      Value *Op1, unsigned Size) { 
+  int profit = getReduceValueSizeProfit(Op0, Size) + 
+                     getReduceValueSizeProfit(Op1, Size); 
+  if (profit > 0 &&
+      isKnownWithinIntRange(Op0, Size, ICI.isSigned(), DL, 0, AC, &ICI, DT) &&
+      isKnownWithinIntRange(Op1, Size, ICI.isSigned(), DL, 0, AC, &ICI, DT)) {
+    Value *Trunc0 = Builder->CreateTrunc(Op0, 
+                            IntegerType::get(ICI.getContext(), Size));
+    Value *Trunc1 = Builder->CreateTrunc(Op1, 
+                            IntegerType::get(ICI.getContext(), Size));
+    ICI.replaceUsesOfWith(Op0, Trunc0);
+    ICI.replaceUsesOfWith(Op1, Trunc1);
+    return true;
+  }
+  return false;
+}
+#endif // INTEL_CUSTOMIZATION    
+
 /// ProcessUGT_ADDCST_ADD - The caller has matched a pattern of the form:
 ///   I = icmp ugt (add (add A, B), CI2), CI1
 /// If this is of the form:
@@ -2189,11 +2301,9 @@ static Instruction *ProcessUGT_ADDCST_ADD(ICmpInst &I, Value *A, Value *B,
   // If the pattern matches, truncate the inputs to the narrower type and
   // use the sadd_with_overflow intrinsic to efficiently compute both the
   // result and the overflow bit.
-  Module *M = I.getParent()->getParent()->getParent();
-
   Type *NewType = IntegerType::get(OrigAdd->getContext(), NewWidth);
-  Value *F = Intrinsic::getDeclaration(M, Intrinsic::sadd_with_overflow,
-                                       NewType);
+  Value *F = Intrinsic::getDeclaration(I.getModule(),
+                                       Intrinsic::sadd_with_overflow, NewType);
 
   InstCombiner::BuilderTy *Builder = IC.Builder;
 
@@ -2471,7 +2581,6 @@ static Instruction *ProcessUMulZExtIdiom(ICmpInst &I, Value *MulVal,
 
   InstCombiner::BuilderTy *Builder = IC.Builder;
   Builder->SetInsertPoint(MulInstr);
-  Module *M = I.getParent()->getParent()->getParent();
 
   // Replace: mul(zext A, zext B) --> mul.with.overflow(A, B)
   Value *MulA = A, *MulB = B;
@@ -2479,8 +2588,8 @@ static Instruction *ProcessUMulZExtIdiom(ICmpInst &I, Value *MulVal,
     MulA = Builder->CreateZExt(A, MulType);
   if (WidthB < MulWidth)
     MulB = Builder->CreateZExt(B, MulType);
-  Value *F =
-      Intrinsic::getDeclaration(M, Intrinsic::umul_with_overflow, MulType);
+  Value *F = Intrinsic::getDeclaration(I.getModule(),
+                                       Intrinsic::umul_with_overflow, MulType);
   CallInst *Call = Builder->CreateCall(F, {MulA, MulB}, "umul");
   IC.Worklist.Add(MulInstr);
 
@@ -3338,6 +3447,12 @@ Instruction *InstCombiner::visitICmpInst(ICmpInst &I) {
       if (Instruction *R = visitICmpInstWithCastAndCast(I))
         return R;
   }
+
+#if INTEL_CUSTOMIZATION
+  // Optimize the size of ICmp and eliminate unnecessary instructions.
+  if (Instruction *R = OptimizeICmpInstSize(I, Op0, Op1))
+    return R;
+ #endif // INTEL_CUSTOMIZATION
 
   // Special logic for binary operators.
   BinaryOperator *BO0 = dyn_cast<BinaryOperator>(Op0);

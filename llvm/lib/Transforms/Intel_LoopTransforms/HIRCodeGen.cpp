@@ -361,7 +361,7 @@ public:
     unsigned RegionIdx = 1;
     for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
          ++I, ++RegionIdx) {
-      HLRegion *Reg = cast<HLRegion>(I);
+      HLRegion *Reg = cast<HLRegion>(&*I);
       if ((!HIRDebugRegion && (Reg->shouldGenCode() || forceHIRCG)) ||
           (RegionIdx == HIRDebugRegion)) {
         DEBUG(dbgs() << "Starting the code gen for " << RegionIdx << "\n");
@@ -609,7 +609,7 @@ void HIRCodeGen::CGVisitor::processLiveOut(HLRegion *Region) {
     DEBUG(SuccBBlock->dump());
 
     BasicBlock::iterator IP = SuccBBlock->getFirstInsertionPt();
-    Builder->SetInsertPoint(IP);
+    Builder->SetInsertPoint(&*IP);
 
     AllocaInst *SymSlot =
         getNamedValue(getTempName(I->first), I->second->getType());
@@ -708,7 +708,7 @@ Value *HIRCodeGen::CGVisitor::visitRegion(HLRegion *R) {
   RegionSucc[R] = RegionSuccessor;
 
   BasicBlock *EntrySecondHalf =
-      SplitBlock(EntryFirstHalf, EntryFirstHalf->begin());
+      SplitBlock(EntryFirstHalf, &*(EntryFirstHalf->begin()));
   RegionEntrySplitBlock[R] = EntrySecondHalf;
 
   Instruction *Term = EntryFirstHalf->getTerminator();

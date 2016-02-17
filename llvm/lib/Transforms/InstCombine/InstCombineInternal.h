@@ -269,6 +269,9 @@ public:
   Instruction *visitICmpInstWithCastAndCast(ICmpInst &ICI);
   Instruction *visitICmpInstWithInstAndIntCst(ICmpInst &ICI, Instruction *LHS,
                                               ConstantInt *RHS);
+#if INTEL_CUSTOMIZATION
+  Instruction *OptimizeICmpInstSize(ICmpInst &ICI, Value *Op0, Value *Op1);
+#endif // INTEL_CUSTOMIZATION
   Instruction *FoldICmpDivCst(ICmpInst &ICI, BinaryOperator *DivI,
                               ConstantInt *DivRHS);
   Instruction *FoldICmpShrCst(ICmpInst &ICI, BinaryOperator *DivI,
@@ -556,11 +559,13 @@ private:
   Value *InsertRangeTest(Value *V, Constant *Lo, Constant *Hi, bool isSigned,
                          bool Inside);
   Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
-  Instruction *MatchBSwap(BinaryOperator &I);
+  Instruction *MatchBSwapOrBitReverse(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
+  bool ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0, Value *Op1,
+                                  unsigned Size);
 #endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 

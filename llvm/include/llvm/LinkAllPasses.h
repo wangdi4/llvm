@@ -90,7 +90,10 @@ namespace {
       (void) llvm::createDomOnlyViewerPass();
       (void) llvm::createDomViewerPass();
       (void) llvm::createGCOVProfilerPass();
+      (void) llvm::createPGOInstrumentationGenPass();
+      (void) llvm::createPGOInstrumentationUsePass();
       (void) llvm::createInstrProfilingPass();
+      (void) llvm::createFunctionImportPass();
       (void) llvm::createFunctionInliningPass();
       (void) llvm::createAlwaysInlinerPass();
       (void) llvm::createGlobalDCEPass();
@@ -195,7 +198,9 @@ namespace {
       (void) llvm::AreStatisticsEnabled();
       (void) llvm::sys::RunningOnValgrind();
 
-  #if INTEL_CUSTOMIZATION  // HIR passes
+  #if INTEL_CUSTOMIZATION 
+      (void) llvm::createSNodeAnalysisPass();
+      // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
       (void) llvm::createScalarSymbaseAssignmentPass();

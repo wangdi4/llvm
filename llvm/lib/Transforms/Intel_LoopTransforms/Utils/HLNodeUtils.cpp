@@ -246,7 +246,7 @@ HLInst *HLNodeUtils::createCopyInst(RegDDRef *RvalRef, const Twine &Name,
   InstVal =
       CastInst::Create(Instruction::BitCast, ZeroVal, ZeroVal->getType(), Name);
   Inst = cast<Instruction>(InstVal);
-  Inst->insertBefore(DummyIRBuilder->GetInsertPoint());
+  Inst->insertBefore(&*(DummyIRBuilder->GetInsertPoint()));
 
   HInst = createLvalHLInst(Inst, LvalRef);
   HInst->setRvalDDRef(RvalRef);
@@ -811,7 +811,7 @@ void HLNodeUtils::insertInternal(HLContainerTy &InsertContainer,
                                  HLContainerTy::iterator First,
                                  HLContainerTy::iterator Last) {
   if (!OrigContainer) {
-    InsertContainer.insert(Pos, First);
+    InsertContainer.insert(Pos, &*(First));
   } else {
     InsertContainer.splice(Pos, *OrigContainer, First, Last);
   }
@@ -941,15 +941,16 @@ void HLNodeUtils::insertImpl(HLNode *Parent, HLContainerTy::iterator Pos,
 void HLNodeUtils::insertBefore(HLNode *Pos, HLNode *Node) {
   assert(Pos && "Pos is null!");
   assert(Node && "Node is null!");
-  insertImpl(Pos->getParent(), Pos, nullptr, Node, Node, true, true);
+  insertImpl(Pos->getParent(), Pos->getIterator(), nullptr, Node->getIterator(),
+             Node->getIterator(), true, true);
 }
 
 void HLNodeUtils::insertBefore(HLNode *Pos, HLContainerTy *NodeContainer) {
   assert(Pos && "Pos is null!");
   assert(NodeContainer && "NodeContainer is null!");
 
-  insertImpl(Pos->getParent(), Pos, NodeContainer, NodeContainer->begin(),
-             NodeContainer->end(), true, true);
+  insertImpl(Pos->getParent(), Pos->getIterator(), NodeContainer,
+             NodeContainer->begin(), NodeContainer->end(), true, true);
 }
 
 /// This function doesn't require updating separators as they point to the
@@ -960,7 +961,8 @@ void HLNodeUtils::insertAfter(HLNode *Pos, HLNode *Node) {
   assert(Node && "Node is null!");
   HLContainerTy::iterator It(Pos);
 
-  insertImpl(Pos->getParent(), std::next(It), nullptr, Node, Node, false);
+  insertImpl(Pos->getParent(), std::next(It), nullptr, Node->getIterator(),
+             Node->getIterator(), false);
 }
 
 void HLNodeUtils::insertAfter(HLNode *Pos, HLContainerTy *NodeContainer) {
@@ -992,17 +994,20 @@ void HLNodeUtils::insertAsChildImpl(HLNode *Parent,
 
 void HLNodeUtils::insertAsFirstChild(HLRegion *Reg, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Reg, nullptr, Node, Node, true);
+  insertAsChildImpl(Reg, nullptr, Node->getIterator(), Node->getIterator(),
+                    true);
 }
 
 void HLNodeUtils::insertAsLastChild(HLRegion *Reg, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Reg, nullptr, Node, Node, false);
+  insertAsChildImpl(Reg, nullptr, Node->getIterator(), Node->getIterator(),
+                    false);
 }
 
 void HLNodeUtils::insertAsFirstChild(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Loop, nullptr, Node, Node, true);
+  insertAsChildImpl(Loop, nullptr, Node->getIterator(), Node->getIterator(),
+                    true);
 }
 
 void HLNodeUtils::insertAsFirstChildren(HLLoop *Loop,
@@ -1014,7 +1019,8 @@ void HLNodeUtils::insertAsFirstChildren(HLLoop *Loop,
 
 void HLNodeUtils::insertAsLastChild(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Loop, nullptr, Node, Node, false);
+  insertAsChildImpl(Loop, nullptr, Node->getIterator(), Node->getIterator(),
+                    false);
 }
 
 void HLNodeUtils::insertAsLastChildren(HLLoop *Loop,
@@ -1029,15 +1035,15 @@ void HLNodeUtils::insertAsFirstChild(HLIf *If, HLNode *Node, bool IsThenChild) {
   assert(Node && "Node is null!");
 
   insertImpl(If, IsThenChild ? If->then_begin() : If->else_begin(), nullptr,
-             Node, Node, !IsThenChild);
+             Node->getIterator(), Node->getIterator(), !IsThenChild);
 }
 
 void HLNodeUtils::insertAsLastChild(HLIf *If, HLNode *Node, bool IsThenChild) {
   assert(If && "If is null!");
   assert(Node && "Node is null!");
 
-  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr, Node,
-             Node, !IsThenChild);
+  insertImpl(If, IsThenChild ? If->then_end() : If->else_end(), nullptr,
+             Node->getIterator(), Node->getIterator(), !IsThenChild);
 }
 
 void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
@@ -1052,12 +1058,14 @@ void HLNodeUtils::insertAsChildImpl(HLSwitch *Switch,
 
 void HLNodeUtils::insertAsFirstDefaultChild(HLSwitch *Switch, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Switch, nullptr, Node, Node, 0, true);
+  insertAsChildImpl(Switch, nullptr, Node->getIterator(), Node->getIterator(),
+                    0, true);
 }
 
 void HLNodeUtils::insertAsLastDefaultChild(HLSwitch *Switch, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsChildImpl(Switch, nullptr, Node, Node, 0, false);
+  insertAsChildImpl(Switch, nullptr, Node->getIterator(), Node->getIterator(),
+                    0, false);
 }
 
 void HLNodeUtils::insertAsFirstChild(HLSwitch *Switch, HLNode *Node,
@@ -1065,7 +1073,8 @@ void HLNodeUtils::insertAsFirstChild(HLSwitch *Switch, HLNode *Node,
   assert(Node && "Node is null!");
   assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
          "CaseNum is out of range!");
-  insertAsChildImpl(Switch, nullptr, Node, Node, CaseNum, true);
+  insertAsChildImpl(Switch, nullptr, Node->getIterator(), Node->getIterator(),
+                    CaseNum, true);
 }
 
 void HLNodeUtils::insertAsLastChild(HLSwitch *Switch, HLNode *Node,
@@ -1073,7 +1082,8 @@ void HLNodeUtils::insertAsLastChild(HLSwitch *Switch, HLNode *Node,
   assert(Node && "Node is null!");
   assert((CaseNum > 0) && (CaseNum <= Switch->getNumCases()) &&
          "CaseNum is out of range!");
-  insertAsChildImpl(Switch, nullptr, Node, Node, CaseNum, false);
+  insertAsChildImpl(Switch, nullptr, Node->getIterator(), Node->getIterator(),
+                    CaseNum, false);
 }
 
 bool HLNodeUtils::validPreheaderPostexitNodes(HLContainerTy::iterator First,
@@ -1105,22 +1115,26 @@ void HLNodeUtils::insertAsPreheaderPostexitImpl(
 
 void HLNodeUtils::insertAsFirstPreheaderNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsPreheaderPostexitImpl(Loop, nullptr, Node, Node, true, true);
+  insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
+                                Node->getIterator(), true, true);
 }
 
 void HLNodeUtils::insertAsLastPreheaderNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsPreheaderPostexitImpl(Loop, nullptr, Node, Node, true, false);
+  insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
+                                Node->getIterator(), true, false);
 }
 
 void HLNodeUtils::insertAsFirstPostexitNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsPreheaderPostexitImpl(Loop, nullptr, Node, Node, false, true);
+  insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
+                                Node->getIterator(), false, true);
 }
 
 void HLNodeUtils::insertAsLastPostexitNode(HLLoop *Loop, HLNode *Node) {
   assert(Node && "Node is null!");
-  insertAsPreheaderPostexitImpl(Loop, nullptr, Node, Node, false, false);
+  insertAsPreheaderPostexitImpl(Loop, nullptr, Node->getIterator(),
+                                Node->getIterator(), false, false);
 }
 
 bool HLNodeUtils::foundLoopInRange(HLContainerTy::iterator First,
@@ -1263,8 +1277,8 @@ void HLNodeUtils::moveBefore(HLNode *Pos, HLContainerTy::iterator First,
   HLContainerTy TempContainer;
 
   removeImpl(First, Last, &TempContainer);
-  insertImpl(Pos->getParent(), Pos, &TempContainer, TempContainer.begin(),
-             TempContainer.end(), true, true);
+  insertImpl(Pos->getParent(), Pos->getIterator(), &TempContainer,
+             TempContainer.begin(), TempContainer.end(), true, true);
 }
 
 void HLNodeUtils::moveAfter(HLNode *Pos, HLContainerTy::iterator First,
@@ -1523,13 +1537,13 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
   while (Parent) {
     if (auto Reg = dyn_cast<HLRegion>(Parent)) {
       if (std::next(Iter) != Reg->Children.end()) {
-        Succ = std::next(Iter);
+        Succ = &*(std::next(Iter));
         break;
       }
 
     } else if (auto If = dyn_cast<HLIf>(Parent)) {
       if (std::next(Iter) != If->Children.end()) {
-        TempSucc = std::next(Iter);
+        TempSucc = &*(std::next(Iter));
 
         /// Check whether we are crossing separators.
         if ((TempSucc != If->ElseBegin)) {
@@ -1541,7 +1555,7 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
     } else if (auto Switch = dyn_cast<HLSwitch>(Parent)) {
 
       if (std::next(Iter) != Switch->Children.end()) {
-        TempSucc = std::next(Iter);
+        TempSucc = &*(std::next(Iter));
 
         bool IsSeparator = false;
         /// Check whether we are crossing separators.
@@ -1562,11 +1576,46 @@ HLNode *HLNodeUtils::getLexicalControlFlowSuccessor(HLNode *Node) {
       llvm_unreachable("Unexpected node parent type!");
     }
 
-    Iter = Parent;
+    Iter = Parent->getIterator();
     Parent = Parent->getParent();
   }
 
   return Succ;
+}
+
+HLNode *HLNodeUtils::getLinkListNodeImpl(HLNode *Node, bool Prev) {
+  assert(Node && "Node is null!");
+
+  auto Parent = Node->getParent();
+
+  if (!Parent) {
+    assert(isa<HLRegion>(Node) && "getPrev() called on detached node!");
+    auto FirstOrLastRegIter = Prev ? getHIRParser()->hir_begin()
+                                   : std::prev(getHIRParser()->hir_end());
+    auto NodeIter = Node->getIterator();
+
+    if (NodeIter != FirstOrLastRegIter) {
+      return Prev ? &*(std::prev(NodeIter)) : &*(std::next(NodeIter));
+    }
+  } else {
+    auto FirstOrLastNode =
+        Prev ? getFirstLexicalChild(Parent) : getLastLexicalChild(Parent);
+
+    if (Node != FirstOrLastNode) {
+      auto NodeIter = Node->getIterator();
+      return Prev ? &*(std::prev(NodeIter)) : &*(std::next(NodeIter));
+    }
+  }
+
+  return nullptr;
+}
+
+HLNode *HLNodeUtils::getPrevLinkListNode(HLNode *Node) {
+  return getLinkListNodeImpl(Node, true);
+}
+
+HLNode *HLNodeUtils::getNextLinkListNode(HLNode *Node) {
+  return getLinkListNodeImpl(Node, false);
 }
 
 // TopSortNum is a lexical number of an HLNode. The framework is responsible for
@@ -1615,9 +1664,11 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
     return;
   }
 
-  bool hasPrevNode = Container.begin() != First;
-  unsigned PrevNum = hasPrevNode ? First->getPrevNode()->getMaxTopSortNum() : 0;
-  if (!PrevNum) {
+  unsigned PrevNum = 0;
+
+  if (Container.begin() != First) {
+    PrevNum = getPrevLinkListNode(&*First)->getMaxTopSortNum();
+  } else {
     PrevNum = Parent->getTopSortNum();
   }
 
@@ -1628,8 +1679,7 @@ void HLNodeUtils::updateTopSortNum(const HLContainerTy &Container,
     // should not iterate across regions. If we traced to an HLRegion,
     // this means that there is no next node in this region.
     for (; Parent && !isa<HLRegion>(Parent); Parent = Parent->getParent()) {
-      HLNode *NextNode = Parent->getNextNode();
-      if (NextNode) {
+      if (auto NextNode = getNextLinkListNode(Parent)) {
         NextNum = NextNode->getTopSortNum();
         break;
       }
@@ -1719,8 +1769,7 @@ void HLNodeUtils::distributeTopSortNum(HLContainerTy::iterator First,
     TopSorter<true> TS(MinNum, Step);
     HLNodeUtils::visitRange(TS, First, Last);
     if (Step == 0) {
-      // Number the rest nodes
-      TopSorter<false> TS(MinNum + NC.Count, 1, std::prev(Last));
+      TopSorter<false> TS(MinNum + NC.Count, 1, &*(std::prev(Last)));
       HLNodeUtils::visit(TS, First->getParentRegion());
     }
   } else {
@@ -1809,7 +1858,8 @@ const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
   } else if (auto Loop = dyn_cast<HLLoop>(Parent)) {
 
     if (!Node) {
-      return First ? Loop->Children.begin() : std::prev(Loop->Children.end());
+      return First ? &*(Loop->Children.begin())
+                   : &*(std::prev(Loop->Children.end()));
     }
 
     if (isInTopSortNumRange(Node, Loop->getFirstPreheaderNode(),
@@ -1825,7 +1875,8 @@ const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
   } else if (auto If = dyn_cast<HLIf>(Parent)) {
 
     if (!Node) {
-      return First ? If->Children.begin() : std::prev(If->Children.end());
+      return First ? &*(If->Children.begin())
+                   : &*(std::prev(If->Children.end()));
     }
 
     if (isInTopSortNumRange(Node, If->getFirstThenChild(),
@@ -1839,8 +1890,8 @@ const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
     auto Switch = cast<HLSwitch>(Parent);
 
     if (!Node) {
-      return First ? Switch->Children.begin()
-                   : std::prev(Switch->Children.end());
+      return First ? &*(Switch->Children.begin())
+                   : &*(std::prev(Switch->Children.end()));
     }
 
     for (unsigned I = 1, E = Switch->getNumCases(); I <= E; I++) {

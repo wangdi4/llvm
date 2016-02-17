@@ -4,11 +4,11 @@
 
 ; CHECK: DO i1 = 0, 47
 ; CHECK-NEXT: %n.addr.038.out = %n.addr.038;
-; CHECK-NEXT: %qb.041.out.1 = %qb.041;
+; CHECK-NEXT: %qb.041.out1 = %qb.041;
 ; CHECK-NEXT: %indvars.iv42.out = %indvars.iv42;
 ; CHECK-NEXT: %indvars.iv44.out = %indvars.iv44;
 ; CHECK: %2 = i1 + -1  *  i1 + -2;
-; CHECK-NEXT: %qb.135 = %qb.041.out.1;
+; CHECK-NEXT: %qb.135 = %qb.041.out1;
 ; CHECK-NEXT: DO i2 = 0, (i1 + -1)/u3
 ; CHECK-NEXT: %qb.135.out = %qb.135;
 ; CHECK-NEXT: %9 = i1 + -1  *  (-1 + (-1 * %indvars.iv54)) * i2 + %n.addr.038.out + -1;

@@ -126,11 +126,11 @@ class CallAnalyzer : public InstVisitor<CallAnalyzer, bool> {
   /// inlining has the given attribute set either at the call site or the
   /// function declaration.  Primarily used to inspect call site specific
   /// attributes since these can be more precise than the ones on the callee
-  /// itself. 
+  /// itself.
   bool paramHasAttr(Argument *A, Attribute::AttrKind Attr);
   
   /// Return true if the given value is known non null within the callee if
-  /// inlined through this particular callsite. 
+  /// inlined through this particular callsite.
   bool isKnownNonNullInCallee(Value *V);
 
   // Custom analysis routines.
@@ -845,8 +845,8 @@ bool CallAnalyzer::visitCallSite(CallSite CS) {
   CallAnalyzer CA(TTI, ACT, *F, InlineConstants::IndirectCallThreshold, CS);
   if (CA.analyzeCall(CS, nullptr)) { // INTEL 
     // We were able to inline the indirect call! Subtract the cost from the
-    // bonus we want to apply, but don't go below zero.
-    Cost -= std::max(0, InlineConstants::IndirectCallThreshold - CA.getCost());
+    // threshold to get the bonus we want to apply, but don't go below zero.
+    Cost -= std::max(0, CA.getThreshold() - CA.getCost());
   }
 
   return Base::visitCallSite(CS);
@@ -1101,6 +1101,50 @@ ConstantInt *CallAnalyzer::stripAndComputeInBoundsConstantOffsets(Value *&V) {
   return cast<ConstantInt>(ConstantInt::get(IntPtrTy, Offset));
 }
 
+#if INTEL_CUSTOMIZATION
+// 
+// Increment 'GlobalCount' if a load of a global value appears in 'Op'.
+// Increment 'ConstantCount' if an integer constant appears in 'Op'.
+//
+static void countGlobalsAndConstants(Value* Op, unsigned& GlobalCount, 
+  unsigned& ConstantCount) 
+{
+  LoadInst *LILHS = dyn_cast<LoadInst>(Op); 
+  if (LILHS) {
+    Value *GV = LILHS->getPointerOperand(); 
+    if (GV && isa<GlobalValue>(GV)) 
+      GlobalCount++; 
+  } 
+  else if (isa<ConstantInt>(Op)) 
+    ConstantCount++; 
+}
+
+//
+// Return 'true' if a branch is based on a condition of the form:
+//       global-variable .op. constant-integer 
+// or 
+//       constant-integer .op. global-variable 
+// The intent is that such a branch has some likelihood of being eliminated 
+// leaving a single basic block, and the heuristics should reflect this.
+//
+static bool forgivableCondition(TerminatorInst* TI) { 
+  BranchInst *BI = dyn_cast<BranchInst>(TI);
+  if (!BI || !BI->isConditional()) 
+    return false; 
+  Value *Cond = BI->getCondition(); 
+  ICmpInst *ICmp = dyn_cast<ICmpInst>(Cond); 
+  if (!ICmp) 
+    return false; 
+  Value* LHS = ICmp->getOperand(0); 
+  Value* RHS = ICmp->getOperand(1); 
+  unsigned GlobalCount = 0; 
+  unsigned ConstantCount = 0; 
+  countGlobalsAndConstants(LHS, GlobalCount, ConstantCount);
+  countGlobalsAndConstants(RHS, GlobalCount, ConstantCount);
+  return ConstantCount == 1 && GlobalCount == 1; 
+} 
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Analyze a call site for potential inlining.
 ///
 /// Returns true if inlining this call is viable, and false if it is not
@@ -1141,6 +1185,12 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   // threshold by 50% until we pass the single-BB phase.
   bool SingleBB = true;
   int SingleBBBonus = Threshold / 2;
+  // INTEL  CQ378383: Tolerate a single "forgivable" condition when optimizing
+  // INTEL  for size. In this case, we delay subtracting out the single basic
+  // INTEL  block bonus until we see a second branch with multiple targets. 
+  bool SeekingForgivable = CS.getCaller()->optForSize(); // INTEL 
+  bool FoundForgivable = false;                          // INTEL 
+  bool SubtractedBonus = false;                          // INTEL  
 
   // Speculatively apply all possible bonuses to Threshold. If cost exceeds
   // this Threshold any time, and cost cannot decrease, we can stop processing
@@ -1367,16 +1417,30 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
     // have them as well. Note that we assume any basic blocks which existed
     // due to branches or switches which folded above will also fold after
     // inlining.
-    if (SingleBB && TI->getNumSuccessors() > 1) {
-      // Take off the bonus we applied to the threshold.
-      Threshold -= SingleBBBonus;
+#if INTEL_CUSTOMIZATION 
+    if (TI->getNumSuccessors() > 1) { 
+      if (SeekingForgivable && forgivableCondition(TI)) { 
+         FoundForgivable = true;
+         Cost -= InlineConstants::InstrCost;
+      }
+      else {
+         if (!SubtractedBonus) { 
+           SubtractedBonus = true;
+           Threshold -= SingleBBBonus;
+         }
+         FoundForgivable = false;
+      }
       SingleBB = false;
     }
-  }
+#endif // INTEL_CUSTOMIZATION
+  } 
 
 #if INTEL_CUSTOMIZATION 
   if (SingleBB) { 
     YesReasonVector.push_back(InlrSingleBasicBlock);
+  } 
+  else if (FoundForgivable) { 
+    YesReasonVector.push_back(InlrAlmostSingleBasicBlock);
   } 
 #endif // INTEL_CUSTOMIZATION
 
@@ -1408,7 +1472,7 @@ bool CallAnalyzer::analyzeCall(CallSite CS, InlineReason* Reason) { // INTEL
   } 
 #endif // INTEL_CUSTOMIZATION
 
-  return Cost < Threshold;
+  return Cost <= std::max(0, Threshold);
 }
 
 #if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
@@ -1431,36 +1495,6 @@ void CallAnalyzer::dump() {
 }
 #endif
 
-INITIALIZE_PASS_BEGIN(InlineCostAnalysis, "inline-cost", "Inline Cost Analysis",
-                      true, true)
-INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
-INITIALIZE_PASS_END(InlineCostAnalysis, "inline-cost", "Inline Cost Analysis",
-                    true, true)
-
-char InlineCostAnalysis::ID = 0;
-
-InlineCostAnalysis::InlineCostAnalysis() : CallGraphSCCPass(ID) {}
-
-InlineCostAnalysis::~InlineCostAnalysis() {}
-
-void InlineCostAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.setPreservesAll();
-  AU.addRequired<AssumptionCacheTracker>();
-  AU.addRequired<TargetTransformInfoWrapperPass>();
-  CallGraphSCCPass::getAnalysisUsage(AU);
-}
-
-bool InlineCostAnalysis::runOnSCC(CallGraphSCC &SCC) {
-  TTIWP = &getAnalysis<TargetTransformInfoWrapperPass>();
-  ACT = &getAnalysis<AssumptionCacheTracker>();
-  return false;
-}
-
-InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, int Threshold) {
-  return getInlineCost(CS, CS.getCalledFunction(), Threshold);
-}
-
 /// \brief Test that two functions either have or have not the given attribute
 ///        at the same time.
 template<typename AttrKind>
@@ -1474,13 +1508,18 @@ static bool functionsHaveCompatibleAttributes(Function *Caller,
                                               Function *Callee,
                                               TargetTransformInfo &TTI) {
   return TTI.areInlineCompatible(Caller, Callee) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeAddress) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeMemory) &&
-         attributeMatches(Caller, Callee, Attribute::SanitizeThread);
+         AttributeFuncs::areInlineCompatible(*Caller, *Callee);
 }
 
-InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
-                                             int Threshold) {
+InlineCost llvm::getInlineCost(CallSite CS, int Threshold,
+                               TargetTransformInfo &CalleeTTI,
+                               AssumptionCacheTracker *ACT) {
+  return getInlineCost(CS, CS.getCalledFunction(), Threshold, CalleeTTI, ACT);
+}
+
+InlineCost llvm::getInlineCost(CallSite CS, Function *Callee, int Threshold,
+                               TargetTransformInfo &CalleeTTI,
+                               AssumptionCacheTracker *ACT) {
   // Cannot inline indirect calls.
   if (!Callee)
     return llvm::InlineCost::getNever(NinlrIndirect); // INTEL 
@@ -1499,8 +1538,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
 
   // Never inline functions with conflicting attributes (unless callee has
   // always-inline attribute).
-  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee,
-                                         TTIWP->getTTI(*Callee)))
+  if (!functionsHaveCompatibleAttributes(CS.getCaller(), Callee, CalleeTTI))
     return llvm::InlineCost::getNever(NinlrMismatchedAttributes); // INTEL 
 
   // Don't inline this call if the caller has the optnone attribute.
@@ -1529,7 +1567,7 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
   DEBUG(llvm::dbgs() << "      Analyzing call of " << Callee->getName()
         << "...\n");
 
-  CallAnalyzer CA(TTIWP->getTTI(*Callee), ACT, *Callee, Threshold, CS);
+  CallAnalyzer CA(CalleeTTI, ACT, *Callee, Threshold, CS);
 #if INTEL_CUSTOMIZATION
   InlineReason Reason = InlrNoReason;
   bool ShouldInline = CA.analyzeCall(CS, &Reason);
@@ -1548,8 +1586,8 @@ InlineCost InlineCostAnalysis::getInlineCost(CallSite CS, Function *Callee,
     CA.getThreshold(), Reason); // INTEL
 }
 
-bool InlineCostAnalysis::isInlineViable(Function &F, // INTEL 
-  InlineReason& Reason) { // INTEL 
+bool llvm::isInlineViable(Function &F, // INTEL
+                          InlineReason& Reason) { // INTEL 
   bool ReturnsTwice = F.hasFnAttribute(Attribute::ReturnsTwice);
   for (Function::iterator BI = F.begin(), BE = F.end(); BI != BE; ++BI) {
     // Disallow inlining of functions which contain indirect branches or

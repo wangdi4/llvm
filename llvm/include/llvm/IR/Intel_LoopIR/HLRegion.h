@@ -16,6 +16,7 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLREGION_H
 #define LLVM_IR_INTEL_LOOPIR_HLREGION_H
 
+#include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/RegionIdentification.h"

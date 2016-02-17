@@ -7,7 +7,7 @@
 ; CHECK-NEXT: br label %cleanup
 
 ; CHECK: for.cond.16.cleanup_crit_edge:
-; CHECK-NEXT: %ok.092.in.1
+; CHECK-NEXT: %ok.092.in1
 ; CHECK-NEXT: br label %cleanup
 
 

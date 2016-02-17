@@ -16,6 +16,7 @@
 #define LLVM_ANALYSIS_VALUETRACKING_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/IR/ConstantRange.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/Support/DataTypes.h"
 
@@ -48,8 +49,9 @@ namespace llvm {
                         const DominatorTree *DT = nullptr);
   /// Compute known bits from the range metadata.
   /// \p KnownZero the set of bits that are known to be zero
+  /// \p KnownOne the set of bits that are known to be one
   void computeKnownBitsFromRangeMetadata(const MDNode &Ranges,
-                                         APInt &KnownZero);
+                                         APInt &KnownZero, APInt &KnownOne);
   /// Return true if LHS and RHS have no common bits set.
   bool haveNoCommonBitsSet(Value *LHS, Value *RHS, const DataLayout &DL,
                            AssumptionCache *AC = nullptr,
@@ -96,6 +98,27 @@ namespace llvm {
                       AssumptionCache *AC = nullptr,
                       const Instruction *CxtI = nullptr,
                       const DominatorTree *DT = nullptr);
+
+#if INTEL_CUSTOMIZATION
+  /// isKnownWithinIntRange - Return true if the given integer value is within 
+  /// the given bit range, for either signed or unsigned cases. For signed 
+  /// case, the given value V is treated as a signed integer, and this function 
+  /// returns true if the given bit range can hold the signed integer. For 
+  /// unsigned case, the given value V is treated as an unsigned integer, and 
+  /// this function returns true if the given bit range can hold the unsigned 
+  /// integer.
+  ///
+  /// For example, 0xFFF0 is within the signed 16 bit range when treated as a
+  /// signed integer, and within unsigned 16 bit range when treated as an 
+  /// unsigned integer. 0x00FF is within the unsigned 8 bit range when treated 
+  /// as an unsigned integer, and within signed 9 bit range when treated as a
+  /// signed integer.
+  bool isKnownWithinIntRange(Value *V, unsigned BitRange, bool isSigned,
+                             const DataLayout &DL, unsigned Depth = 0,
+                             AssumptionCache *AC = nullptr,
+                             const Instruction *CxtI = nullptr,
+                             const DominatorTree *DT = nullptr);
+#endif // INTEL_CUSTOMIZATION
 
   /// MaskedValueIsZero - Return true if 'V & Mask' is known to be zero.  We use
   /// this predicate to simplify operations downstream.  Mask is known to be
@@ -284,7 +307,7 @@ namespace llvm {
 
   /// Returns true if the result or effects of the given instructions \p I
   /// depend on or influence global memory.
-  /// Memory dependence arises for example if the the instruction reads from
+  /// Memory dependence arises for example if the instruction reads from
   /// memory or may produce effects or undefined behaviour. Memory dependent
   /// instructions generally cannot be reorderd with respect to other memory
   /// dependent instructions or moved into non-dominated basic blocks.
@@ -410,6 +433,11 @@ namespace llvm {
     bool Ordered;               /// When implementing this min/max pattern as
                                 /// fcmp; select, does the fcmp have to be
                                 /// ordered?
+
+    /// \brief Return true if \p SPF is a min or a max pattern.
+    static bool isMinOrMax(SelectPatternFlavor SPF) {
+      return !(SPF == SPF_UNKNOWN || SPF == SPF_ABS || SPF == SPF_NABS);
+    }
   };
   /// Pattern match integer [SU]MIN, [SU]MAX and ABS idioms, returning the kind
   /// and providing the out parameter results if we successfully match.
@@ -429,6 +457,23 @@ namespace llvm {
   SelectPatternResult matchSelectPattern(Value *V, Value *&LHS, Value *&RHS,
                                          Instruction::CastOps *CastOp = nullptr);
 
+  /// Parse out a conservative ConstantRange from !range metadata.
+  ///
+  /// E.g. if RangeMD is !{i32 0, i32 10, i32 15, i32 20} then return [0, 20).
+  ConstantRange getConstantRangeFromMetadata(MDNode &RangeMD);
+
+  /// Return true if RHS is known to be implied by LHS.  A & B must be i1
+  /// (boolean) values or a vector of such values. Note that the truth table for
+  /// implication is the same as <=u on i1 values (but not <=s!).  The truth
+  /// table for both is:
+  ///    | T | F (B)
+  ///  T | T | F
+  ///  F | T | T
+  /// (A)
+  bool isImpliedCondition(Value *LHS, Value *RHS, const DataLayout &DL,
+                          unsigned Depth = 0, AssumptionCache *AC = nullptr,
+                          const Instruction *CxtI = nullptr,
+                          const DominatorTree *DT = nullptr);
 } // end namespace llvm
 
 #endif

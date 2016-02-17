@@ -123,7 +123,7 @@ HLLoop::HLLoop(const HLLoop &HLLoopObj, GotoContainerTy *GotoList,
   for (auto ChildIter = HLLoopObj.child_begin(),
             ChildIterEnd = HLLoopObj.child_end();
        ChildIter != ChildIterEnd; ++ChildIter) {
-    HLNode *NewHLNode = cloneBaseImpl(ChildIter, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*ChildIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode);
   }
 
@@ -580,7 +580,7 @@ void HLLoop::resizeToNumLoopDDRefs() {
 
 HLNode *HLLoop::getFirstPreheaderNode() {
   if (hasPreheader()) {
-    return pre_begin();
+    return &*pre_begin();
   }
 
   return nullptr;
@@ -588,7 +588,7 @@ HLNode *HLLoop::getFirstPreheaderNode() {
 
 HLNode *HLLoop::getLastPreheaderNode() {
   if (hasPreheader()) {
-    return std::prev(pre_end());
+    return &*(std::prev(pre_end()));
   }
 
   return nullptr;
@@ -596,7 +596,7 @@ HLNode *HLLoop::getLastPreheaderNode() {
 
 HLNode *HLLoop::getFirstPostexitNode() {
   if (hasPostexit()) {
-    return post_begin();
+    return &*post_begin();
   }
 
   return nullptr;
@@ -604,7 +604,7 @@ HLNode *HLLoop::getFirstPostexitNode() {
 
 HLNode *HLLoop::getLastPostexitNode() {
   if (hasPostexit()) {
-    return std::prev(post_end());
+    return &*(std::prev(post_end()));
   }
 
   return nullptr;
@@ -612,7 +612,7 @@ HLNode *HLLoop::getLastPostexitNode() {
 
 HLNode *HLLoop::getFirstChild() {
   if (hasChildren()) {
-    return child_begin();
+    return &*child_begin();
   }
 
   return nullptr;
@@ -620,7 +620,7 @@ HLNode *HLLoop::getFirstChild() {
 
 HLNode *HLLoop::getLastChild() {
   if (hasChildren()) {
-    return std::prev(child_end());
+    return &*(std::prev(child_end()));
   }
 
   return nullptr;

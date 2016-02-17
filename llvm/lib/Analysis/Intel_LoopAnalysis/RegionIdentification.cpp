@@ -344,7 +344,7 @@ bool RegionIdentification::isSelfGenerable(const Loop &Lp,
         return false;
       }
 
-      if (containsUnsupportedTy(InstIt)) {
+      if (containsUnsupportedTy(&*InstIt)) {
         return false;
       }
     }
