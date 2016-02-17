@@ -105,8 +105,22 @@ bool clGetPlatformInfoTest()
           bResult = false;
       }
 		
+#elif defined (__linux__) && !defined (__ANDROID__)
+      switch (GetOpenclVerByCpuModel())
+      {
+      case OPENCL_VERSION_1_2:
+          bResult &= CheckStr(L"check value", "OpenCL 1.2 LINUX", platformInfoStr);
+          break;
+      case OPENCL_VERSION_2_0:
+          bResult &= CheckStr(L"check value", "OpenCL 2.0 LINUX", platformInfoStr);
+          break;
+      default:
+          bResult = false;
+      }
+#elif defined (__ANDROID__)
+      bResult &= CheckStr(L"check value", "OpenCL 1.2 LINUX", platformInfoStr);
 #else
-		bResult &= CheckStr(L"check value", "OpenCL 1.2 LINUX", platformInfoStr);
+      #Error! Unhandled platform!
 #endif
 	}
 	return bResult;
