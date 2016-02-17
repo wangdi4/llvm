@@ -883,8 +883,8 @@ void Prefetch::countPFPerLoop () {
           numRandom++;
         OCLSTAT_GATHER_CHECK (
           int accessSize = 0;
-          StoreInst *pStoreInst;
-          LoadInst *pLoadInst;
+          StoreInst *pStoreInst = nullptr;
+          LoadInst *pLoadInst = nullptr;
           if ((pStoreInst = dyn_cast<StoreInst>(MAV[i].I)) != NULL)
             accessSize = getSize(pStoreInst->getValueOperand()->getType());
           else if ((pLoadInst = dyn_cast<LoadInst>(MAV[i].I)) != NULL)

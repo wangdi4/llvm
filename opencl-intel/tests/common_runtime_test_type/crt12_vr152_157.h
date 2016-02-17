@@ -68,7 +68,7 @@ void ImageVisibility(OpenCLDescriptor ocl_descriptor, cl_image_format image_form
 	size_t local_work_size = 1;
 	DynamicArray<T> input_image_array(1);
 	DynamicArray<T> output_array(1);
-	cl_mem image;
+	cl_mem image = nullptr;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 
@@ -131,7 +131,7 @@ void ImageVisibility1D_crush(OpenCLDescriptor ocl_descriptor, cl_image_format im
 	size_t local_work_size = 1;
 	DynamicArray<T> input_image_array(1);
 	DynamicArray<T> output_array(1);
-	cl_mem image;
+	cl_mem image = nullptr;
 	size_t origin[]={0,0,0};
 	size_t region[]={1,1,1};
 	

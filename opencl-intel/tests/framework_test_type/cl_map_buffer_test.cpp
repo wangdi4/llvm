@@ -37,7 +37,7 @@ bool clMapBufferTest()
 	bool bResult = true;
 
 	cl_uint uiNumDevices = 0;
-	cl_device_id * pDevices;
+	cl_device_id * pDevices = nullptr;
 	cl_context context;
 
 	cl_platform_id platform = 0;

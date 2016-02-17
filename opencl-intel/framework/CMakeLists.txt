@@ -10,6 +10,13 @@ if (NOT WIN32)
   add_definitions(-Wno-missing-braces)
 endif (NOT WIN32)
 
+# this component has to use deprecated OpenCL API functions.
+if (WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif (WIN32)
+
 include_directories ( BEFORE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/export

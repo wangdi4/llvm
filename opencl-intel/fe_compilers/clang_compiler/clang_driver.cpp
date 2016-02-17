@@ -123,7 +123,8 @@ const char* GetOpenCLVersionStr(OPENCL_VERSION ver)
 std::string GetCurrentDir()
 {
     char szCurrDirrPath[MAX_STR_BUFF];
-    GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath);
+    if (!GET_CURR_WORKING_DIR(MAX_STR_BUFF, szCurrDirrPath))
+        return std::string();
 
     std::stringstream ss;
 

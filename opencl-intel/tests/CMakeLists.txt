@@ -4,6 +4,13 @@
 # the conformance subdirectory has been added.
 include_directories( BEFORE ${OCL_GLOBAL_INCLUDE} )
 
+# some tests have to use deprecated OpenCL API functions.
+if (WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif (WIN32)
+
 add_subdirectory( tbb_native_test_type )
 add_subdirectory( cpu_device_test_type )
 add_subdirectory( framework_test_type )

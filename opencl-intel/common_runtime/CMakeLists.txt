@@ -5,8 +5,17 @@
 #
 
 if (NOT WIN32)
+    set( CMAKE_CXX_FLAGS_RELEASE                "${CMAKE_CXX_FLAGS_RELEASE} -D_FORTIFY_SOURCE=2")
+    set( CMAKE_C_FLAGS_RELEASE                  "${CMAKE_C_FLAGS_RELEASE}   -D_FORTIFY_SOURCE=2")
     add_definitions( "-Wno-pointer-arith -Wno-reorder" )
 endif(NOT WIN32)
+
+# Common Runtime has to use deprecated OpenCL API functions.
+if(WIN32)
+    add_definitions(
+        -wd4996 # Suppress 'function': was declared deprecated'
+    )
+endif(WIN32)
 
 add_subdirectory( utils )
 # set that name of the main output file as a target name

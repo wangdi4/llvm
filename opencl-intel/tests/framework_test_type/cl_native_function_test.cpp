@@ -210,8 +210,8 @@ void RunFunctionTest (const char* FuncName,const char* ocl_test_program,int vec,
 	}
 	cl_int iRet = CL_SUCCESS;
 
-	cl_program program;
-	cl_kernel kernel;
+	cl_program program = nullptr;
+	cl_kernel kernel = nullptr;
 	cl_mem clBuff[MAX_BUFFS+1]; //+1 for clULP which is clBuff[numBuffs]
 #if defined (__ANDROID__)
   char *kernelCode = new char[strlen(ocl_test_program) +10];

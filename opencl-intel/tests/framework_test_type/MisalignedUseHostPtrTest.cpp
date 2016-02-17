@@ -39,7 +39,7 @@ bool MisalignedUseHostPtrTest()
 	cl_float* hostPtr;
 	cl_program program;
 	cl_command_queue queue1;
-	void* ptr;
+	void* ptr = nullptr;
     unsigned int points_interval = 0;
 
 	// get device(s)

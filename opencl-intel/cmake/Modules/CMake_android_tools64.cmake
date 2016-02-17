@@ -221,8 +221,14 @@ set( CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH )
 set( CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY )
 set( CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY )
 
-set( CMAKE_CXX_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
-set( CMAKE_C_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char" )
+if (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector-strong" )
+else (GCC_VERSION VERSION_GREATER 4.9 OR GCC_VERSION VERSION_EQUAL 4.9)
+  set (FSTACK_PROTECTOR_C_FLAGS       "-fstack-protector" )
+endif ()
+
+set( CMAKE_CXX_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char -Wformat -Wformat-security ${FSTACK_PROTECTOR_C_FLAGS}" )
+set( CMAKE_C_FLAGS " -m64 -fPIC -DANDROID -Wno-psabi -fsigned-char -Wformat -Wformat-security ${FSTACK_PROTECTOR_C_FLAGS}" )
 
 if( BUILD_WITH_ANDROID_NDK )
  set( CMAKE_CXX_FLAGS "--sysroot=${ANDROID_NDK_SYSROOT} ${CMAKE_CXX_FLAGS}" )
@@ -274,7 +280,7 @@ set( CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} ${ADD_CXX
 # My add Rami - End
 #-------------------------------------------------
 
-set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lc++" )
+set( LINKER_FLAGS "-L${STL_LIBRARIES_PATH} -lc++ -z noexecstack -z relro -z now" )
 add_definitions( -D GTEST_USE_OWN_TR1_TUPLE=1 )
 
 set( NO_UNDEFINED ON CACHE BOOL "Don't allow undefined symbols" )

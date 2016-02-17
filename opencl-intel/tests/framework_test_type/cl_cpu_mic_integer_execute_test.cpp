@@ -42,8 +42,8 @@ bool run_the_test(const char* test_name, bool include_migration)
     cl_long pDstBuff[BUFFER_SIZE];
     cl_mem clBuff;
     
-    cl_program program;
-    cl_kernel  kernel;
+    cl_program program = nullptr;
+    cl_kernel  kernel = nullptr;
 
 	printf("=============================================================\n");
 	printf("%s\n", test_name);

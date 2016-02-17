@@ -32,6 +32,10 @@ set (ADD_C_FLAGS         "/Oi -D WINDOWS_ENABLE_CPLUSPLUS /GS")
 set (ADD_C_FLAGS_DEBUG   "-D _DEBUG /RTC1 /MTd")  #/MTd /Gm
 set (ADD_C_FLAGS_RELEASE "/Zi /Gy -D NDEBUG /MT")# /Ob0") #/GL") #MT
 
+if (NOT DEFINED INTEL_COMPILER)
+    set (ADD_C_FLAGS_RELEASE "${ADD_C_FLAGS_RELEASE} /sdl")
+endif()
+
 # Compiler switches that CAN be modified during makefile generation and configuration-independent
 add_definitions( -DWIN32 )
 
@@ -45,9 +49,9 @@ include_directories( ${CMAKE_SOURCE_DIR}/externals/gpa/include )
 
 # Linker switches
 if (BUILD_X64)
-    set (INIT_LINKER_FLAGS        "/MACHINE:X64 /OPT:REF /INCREMENTAL:NO /NXCOMPAT")
+    set (INIT_LINKER_FLAGS        "/MACHINE:X64 /OPT:REF /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT")
 else (BUILD_X64)
-    set (INIT_LINKER_FLAGS        "/MACHINE:X86 /OPT:REF /INCREMENTAL:NO /NXCOMPAT /SAFESEH")
+    set (INIT_LINKER_FLAGS        "/MACHINE:X86 /OPT:REF /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT /SAFESEH")
 endif (BUILD_X64)
 
 set (ADD_LINKER_FLAGS_DEBUG "/DEBUG /NODEFAULTLIB:LIBCMT /NODEFAULTLIB:LIBCPMT")

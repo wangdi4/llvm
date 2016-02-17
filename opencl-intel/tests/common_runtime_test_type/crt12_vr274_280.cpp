@@ -42,7 +42,7 @@ class CRT12_VR274_280: public CommonRuntime{};
 //|
 
 TEST_F(CRT12_VR274_280, LinkProgramWithBuildBinaries){
-	cl_program extra_program;
+	cl_program extra_program = nullptr;
 	// set up shared context, program and queues with kernel1
 	ASSERT_NO_FATAL_FAILURE(setUpContextProgramQueues(ocl_descriptor, "simple_kernels.cl"));
 
