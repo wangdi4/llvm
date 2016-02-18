@@ -307,8 +307,8 @@ typedef void*               clk_event_t;
 
 // default is CLK_ENQUEUE_FLAGS_WAIT_KERNEL
 typedef int                 kernel_enqueue_flags_t;
-#define CLK_ENQUEUE_FLAGS_WAIT_KERNEL               (cl_uint)0
-#define CLK_ENQUEUE_FLAGS_NO_WAIT                   (cl_uint)1
+#define CLK_ENQUEUE_FLAGS_NO_WAIT                   (cl_uint)0
+#define CLK_ENQUEUE_FLAGS_WAIT_KERNEL               (cl_uint)1
 #define CLK_ENQUEUE_FLAGS_WAIT_WORK_GROUP           (cl_uint)2
 
 enum clk_profiling_info
