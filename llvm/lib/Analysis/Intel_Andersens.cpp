@@ -105,7 +105,22 @@ static cl::opt<bool> IgnoreNullPtr("anders-ignore-nullptr", cl::init(true), cl::
 // if it is set to -1. If number of indirect calls exceeds this limit, treat
 // all indirect calls conservatively.
 static cl::opt<int>
-IndirectCallsLimit("indirect-calls-limit", cl::ReallyHidden, cl::init(2500));
+AndersIndirectCallsLimit("anders-indirect-calls-limit", cl::ReallyHidden, cl::init(2500));
+
+// Both optimization of constraints and points-to propagation are disabled
+// if number of constraints exceeds this limit (i.e no points-to info 
+// available). This check is done after collecting constraints. 
+// No limit check if it is set to -1.
+static cl::opt<int>
+AndersNumConstraintsBeforeOptLimit("anders-num-constraints-before-opt-limit", 
+                             cl::ReallyHidden, cl::init(550000));
+// Points-to propagation is disabled if number of constraints after
+// optimization exceeds this limit (i.e no points-to info available).
+// This check is done after optimizing constraints.
+// No limit check if it is set to -1.
+static cl::opt<int>
+AndersNumConstraintsAfterOptLimit("anders-num-constraints-after-opt-limit",
+                            cl::ReallyHidden, cl::init(140000));
 
 static const unsigned SelfRep = (unsigned)-1;
 static const unsigned Unvisited = (unsigned)-1;
@@ -330,6 +345,20 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
     return;
   }
 
+  // check if it exceeds AndersNumConstraintsBeforeOptLimit.
+  // Ex: 483.xlanc (595K constraints ), 403.gcc (503K constraints)
+  // and 400.perlbench (149K constraints)
+  if (AndersNumConstraintsBeforeOptLimit != -1 &&
+      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
+       (int)Constraints.size() > AndersNumConstraintsBeforeOptLimit)) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints || PrintAndersPointsTo) {
+      errs() << "\nAnders disabled...exceeded NumConstraintsBeforeOptLimit\n";
+    }
+    return;
+  }
+
   if (PrintAndersConstraints) {
       errs() << " Constraints Dump " << "\n";
       PrintConstraints();
@@ -340,6 +369,28 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
   DEBUG(PrintConstraints());
 #undef DEBUG_TYPE
 #define DEBUG_TYPE "anders-aa"
+
+  OptimizeConstraints();
+#undef DEBUG_TYPE
+#define DEBUG_TYPE "anders-aa-constraints"
+      DEBUG(PrintConstraints());
+#undef DEBUG_TYPE
+#define DEBUG_TYPE "anders-aa"
+
+  // check if it exceeds AndersNumConstraintsAfterOptLimit.
+  // Ex: 483.xlanc (174K constraints), 403.gcc (77K constraints) and
+  // 400.perlbench (28K constraints)
+  if (AndersNumConstraintsAfterOptLimit != -1 &&
+      (Constraints.size() > (unsigned)std::numeric_limits<int>::max() ||
+       (int)Constraints.size() > AndersNumConstraintsAfterOptLimit)) {
+    // Clear ValueNodes so that AA queries go conservative. 
+    ValueNodes.clear(); 
+    if (PrintAndersConstraints || PrintAndersPointsTo) {
+      errs() << "\nAnders disabled...exceeded NumConstraintsAfterOptLimit\n";
+    }
+    return;
+  }
+
   SolveConstraints();
   DEBUG(PrintPointsToGraph());
   if (PrintAndersPointsTo) {
@@ -1462,9 +1513,10 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     }
   }
   // Treat Indirect calls conservatively if number of indirect calls exceeds
-  // IndirectCallsLimit
-  bool DoIndirectCallProcess = ((IndirectCallsLimit == -1) || 
-                              (IndirectCallList.size() <= IndirectCallsLimit));
+  // AndersIndirectCallsLimit
+  bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
+       (IndirectCallList.size() <= (unsigned)std::numeric_limits<int>::max() &&
+        (int)IndirectCallList.size() <= AndersIndirectCallsLimit));
   if (!DoIndirectCallProcess) {
     std::vector<CallSite>::const_iterator calllist_itr;
 
@@ -3110,15 +3162,9 @@ void AndersensAAResult::SolveConstraints() {
   CurrWL = &w1;
   NextWL = &w2;
 
-  bool DoIndirectCallProcess = ((IndirectCallsLimit == -1) || 
-                              (IndirectCallList.size() <= IndirectCallsLimit));
-
-  OptimizeConstraints();
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "anders-aa-constraints"
-      DEBUG(PrintConstraints());
-#undef DEBUG_TYPE
-#define DEBUG_TYPE "anders-aa"
+  bool DoIndirectCallProcess = ((AndersIndirectCallsLimit == -1) || 
+       (IndirectCallList.size() <= (unsigned)std::numeric_limits<int>::max() &&
+        (int)IndirectCallList.size() <= AndersIndirectCallsLimit));
 
 
   for (unsigned i = 0; i < GraphNodes.size(); ++i) {
