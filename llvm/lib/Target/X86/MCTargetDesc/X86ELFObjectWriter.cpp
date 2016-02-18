@@ -30,15 +30,13 @@ namespace {
   };
 }
 
-#if INTEL_CUSTOMIZATION
 X86ELFObjectWriter::X86ELFObjectWriter(bool IsELF64, uint8_t OSABI,
                                        uint16_t EMachine)
     : MCELFObjectTargetWriter(IsELF64, OSABI, EMachine,
-                              // Only i386 uses Rel instead of RelA.
+                              // Only i386 and IAMCU use Rel instead of RelA.
                               /*HasRelocationAddend*/
                               (EMachine != ELF::EM_386) &&
                                   (EMachine != ELF::EM_IAMCU)) {}
-#endif //INTEL_CUSTOMIZATION
 
 X86ELFObjectWriter::~X86ELFObjectWriter()
 {}
@@ -249,11 +247,9 @@ unsigned X86ELFObjectWriter::GetRelocType(const MCValue &Target,
   X86_64RelType Type = getType64(Fixup.getKind(), Modifier, IsPCRel);
   if (getEMachine() == ELF::EM_X86_64)
     return getRelocType64(Modifier, Type, IsPCRel);
-#if INTEL_CUSTOMIZATION
+
   assert((getEMachine() == ELF::EM_386 || getEMachine() == ELF::EM_IAMCU) &&
          "Unsupported ELF machine type.");
-#endif //INTEL_CUSTOMIZATION
-
   return getRelocType32(Modifier, getType32(Type), IsPCRel);
 }
 

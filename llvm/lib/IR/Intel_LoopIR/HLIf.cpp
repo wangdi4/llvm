@@ -71,13 +71,13 @@ HLIf::HLIf(const HLIf &HLIfObj, GotoContainerTy *GotoList, LabelMapTy *LabelMap)
   /// Loop over Then children and Else children
   for (auto ThenIter = HLIfObj.then_begin(), ThenIterEnd = HLIfObj.then_end();
        ThenIter != ThenIterEnd; ++ThenIter) {
-    HLNode *NewHLNode = cloneBaseImpl(ThenIter, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*ThenIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, true);
   }
 
   for (auto ElseIter = HLIfObj.else_begin(), ElseIterEnd = HLIfObj.else_end();
        ElseIter != ElseIterEnd; ++ElseIter) {
-    HLNode *NewHLNode = cloneBaseImpl(ElseIter, GotoList, LabelMap);
+    HLNode *NewHLNode = cloneBaseImpl(&*ElseIter, GotoList, LabelMap);
     HLNodeUtils::insertAsLastChild(this, NewHLNode, false);
   }
 }
@@ -177,7 +177,7 @@ unsigned HLIf::getNumOperands() const { return getNumOperandsInternal(); }
 
 HLNode *HLIf::getFirstThenChild() {
   if (hasThenChildren()) {
-    return then_begin();
+    return &*then_begin();
   }
 
   return nullptr;
@@ -185,7 +185,7 @@ HLNode *HLIf::getFirstThenChild() {
 
 HLNode *HLIf::getLastThenChild() {
   if (hasThenChildren()) {
-    return std::prev(then_end());
+    return &*(std::prev(then_end()));
   }
 
   return nullptr;
@@ -193,7 +193,7 @@ HLNode *HLIf::getLastThenChild() {
 
 HLNode *HLIf::getFirstElseChild() {
   if (hasElseChildren()) {
-    return else_begin();
+    return &*else_begin();
   }
 
   return nullptr;
@@ -201,7 +201,7 @@ HLNode *HLIf::getFirstElseChild() {
 
 HLNode *HLIf::getLastElseChild() {
   if (hasElseChildren()) {
-    return std::prev(else_end());
+    return &*(std::prev(else_end()));
   }
 
   return nullptr;

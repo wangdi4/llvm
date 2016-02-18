@@ -54,7 +54,6 @@ let isTerminator = 1, isReturn = 1, isBarrier = 1,
   def LRETIW : Ii16<0xCA, RawFrm, (outs), (ins i16imm:$amt),
                     "{l}ret{w|f}\t$amt", [], IIC_RET>, OpSize16;
 
-// INTEL_CUSTOMIZATION
   // The machine return from interrupt instruction, but sometimes we need to
   // perform a post-epilogue stack adjustment. Codegen emits the pseudo form
   // which expands to include an SP adjustment if necessary.
@@ -66,7 +65,6 @@ let isTerminator = 1, isReturn = 1, isBarrier = 1,
                     IIC_IRET>, Requires<[In64BitMode]>;
   let isCodeGenOnly = 1 in
   def IRET : PseudoI<(outs), (ins i16imm:$adj), [(X86iret timm:$adj)]>;
-// END INTEL_CUSTOMIZATION
   
 }
 

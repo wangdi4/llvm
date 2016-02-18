@@ -1000,12 +1000,9 @@ static bool isKnownDeallocObjCMethodName(const ObjCMethodCall &Call) {
   // Ex:  [NSData dataWithBytesNoCopy:bytes length:10];
   // (...unless a 'freeWhenDone' parameter is false, but that's checked later.)
   StringRef FirstSlot = Call.getSelector().getNameForSlot(0);
-  if (FirstSlot == "dataWithBytesNoCopy" ||
-      FirstSlot == "initWithBytesNoCopy" ||
-      FirstSlot == "initWithCharactersNoCopy")
-    return true;
-
-  return false;
+  return FirstSlot == "dataWithBytesNoCopy" ||
+         FirstSlot == "initWithBytesNoCopy" ||
+         FirstSlot == "initWithCharactersNoCopy";
 }
 
 static Optional<bool> getFreeWhenDoneArg(const ObjCMethodCall &Call) {
@@ -2390,7 +2387,7 @@ bool MallocChecker::mayFreeAnyEscapedMemoryOrIsModeledExplicitly(
   if (const ObjCMethodCall *Msg = dyn_cast<ObjCMethodCall>(Call)) {
     // If it's not a framework call, or if it takes a callback, assume it
     // can free memory.
-    if (!Call->isInSystemHeader() || Call->hasNonZeroCallbackArg())
+    if (!Call->isInSystemHeader() || Call->argumentsMayEscape())
       return true;
 
     // If it's a method we know about, handle it explicitly post-call.

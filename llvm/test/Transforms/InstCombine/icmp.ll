@@ -819,8 +819,8 @@ define i1 @test68(i32 %x) nounwind uwtable {
 
 ; PR14708
 ; CHECK-LABEL: @test69(
-; CHECK: %1 = and i32 %c, -33
-; CHECK: %2 = icmp eq i32 %1, 65
+; CHECK: %1 = or i32 %c, 32
+; CHECK: %2 = icmp eq i32 %1, 97
 ; CHECK: ret i1 %2
 define i1 @test69(i32 %c) nounwind uwtable {
   %1 = icmp eq i32 %c, 97
@@ -1365,7 +1365,8 @@ end:
 }
 
 ; CHECK-LABEL: @icmp_lshr_lshr_eq
-; CHECK: icmp eq i8 %1, %2                               ;INTEL
+; CHECK: %z.unshifted = xor i32 %a, %b
+; CHECK: %z = icmp ult i32 %z.unshifted, 1073741824
 define i1 @icmp_lshr_lshr_eq(i32 %a, i32 %b) nounwind {
  %x = lshr i32 %a, 30
  %y = lshr i32 %b, 30

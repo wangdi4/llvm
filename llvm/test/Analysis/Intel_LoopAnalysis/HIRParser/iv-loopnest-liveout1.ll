@@ -3,7 +3,7 @@
 ; Check parsing output for the loop verifying that the IV lievout case is handled properly.
 
 ; CHECK: DO i1 = 0, %n + -1
-; CHECK-NEXT: %j.0.lcssa.in.1 = 0
+; CHECK-NEXT: %j.0.lcssa.in1 = 0
 ; CHECK-NEXT: if (%n > 0)
 ; CHECK-NEXT: {
 ; CHECK-NEXT: %j.02 = 0
@@ -11,9 +11,9 @@
 ; CHECK-NEXT: (%A)[i1] = i2
 ; CHECK-NEXT: %j.02 = i2  +  1
 ; CHECK-NEXT: END LOOP
-; CHECK-NEXT: %j.0.lcssa.in.1 = %j.02
+; CHECK-NEXT: %j.0.lcssa.in1 = %j.02
 ; CHECK-NEXT: }
-; CHECK-NEXT: %ret.05 = %ret.05  +  %j.0.lcssa.in.1
+; CHECK-NEXT: %ret.05 = %ret.05  +  %j.0.lcssa.in1
 ; CHECK-NEXT: END LOOP
 
 

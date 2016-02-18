@@ -49,6 +49,8 @@ private:
 template <typename ELFT> class ELFFileBase : public InputFile {
 public:
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym_Range Elf_Sym_Range;
 
   ELFFileBase(Kind K, MemoryBufferRef M);
@@ -57,17 +59,7 @@ public:
     return K == ObjectKind || K == SharedKind;
   }
 
-  static ELFKind getELFKind() {
-    if (!ELFT::Is64Bits) {
-      if (ELFT::TargetEndianness == llvm::support::little)
-        return ELF32LEKind;
-      return ELF32BEKind;
-    }
-    if (ELFT::TargetEndianness == llvm::support::little)
-      return ELF64LEKind;
-    return ELF64BEKind;
-  }
-
+  static ELFKind getELFKind();
   const llvm::object::ELFFile<ELFT> &getObj() const { return ELFObj; }
   llvm::object::ELFFile<ELFT> &getObj() { return ELFObj; }
 
@@ -78,9 +70,12 @@ public:
 
   StringRef getStringTable() const { return StringTable; }
 
+  uint32_t getSectionIndex(const Elf_Sym &Sym) const;
+
 protected:
   llvm::object::ELFFile<ELFT> ELFObj;
   const Elf_Shdr *Symtab = nullptr;
+  ArrayRef<Elf_Word> SymtabSHNDX;
   StringRef StringTable;
   void initStringTable();
   Elf_Sym_Range getNonLocalSymbols();
@@ -122,25 +117,34 @@ public:
   }
 
   Elf_Sym_Range getLocalSymbols();
+  const Elf_Sym *getLocalSymbol(uintX_t SymIndex);
 
   const Elf_Shdr *getSymbolTable() const { return this->Symtab; };
-  ArrayRef<Elf_Word> getSymbolTableShndx() const { return SymtabSHNDX; };
+
+  // Get MIPS GP0 value defined by this file. This value represents the gp value
+  // used to create the relocatable object and required to support
+  // R_MIPS_GPREL16 / R_MIPS_GPREL32 relocations.
+  uint32_t getMipsGp0() const;
 
 private:
   void initializeSections(llvm::DenseSet<StringRef> &Comdats);
   void initializeSymbols();
+  InputSectionBase<ELFT> *createInputSection(const Elf_Shdr &Sec);
 
   SymbolBody *createSymbolBody(StringRef StringTable, const Elf_Sym *Sym);
 
   // List of all sections defined by this file.
   std::vector<InputSectionBase<ELFT> *> Sections;
 
-  ArrayRef<Elf_Word> SymtabSHNDX;
-
   // List of all symbols referenced or defined by this file.
   std::vector<SymbolBody *> SymbolBodies;
 
+  // MIPS .reginfo section defined by this file.
+  MipsReginfoInputSection<ELFT> *MipsReginfo = nullptr;
+
   llvm::BumpPtrAllocator Alloc;
+  llvm::SpecificBumpPtrAllocator<MergeInputSection<ELFT>> MAlloc;
+  llvm::SpecificBumpPtrAllocator<EHInputSection<ELFT>> EHAlloc;
 };
 
 class ArchiveFile : public InputFile {
@@ -168,6 +172,7 @@ template <class ELFT> class SharedFile : public ELFFileBase<ELFT> {
   typedef ELFFileBase<ELFT> Base;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Shdr Elf_Shdr;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym Elf_Sym;
+  typedef typename llvm::object::ELFFile<ELFT>::Elf_Word Elf_Word;
   typedef typename llvm::object::ELFFile<ELFT>::Elf_Sym_Range Elf_Sym_Range;
 
   std::vector<SharedSymbol<ELFT>> SymbolBodies;
@@ -179,7 +184,7 @@ public:
   llvm::MutableArrayRef<SharedSymbol<ELFT>> getSharedSymbols() {
     return SymbolBodies;
   }
-
+  const Elf_Shdr *getSection(const Elf_Sym &Sym) const;
   llvm::ArrayRef<StringRef> getUndefinedSymbols() { return Undefs; }
 
   static bool classof(const InputFile *F) {

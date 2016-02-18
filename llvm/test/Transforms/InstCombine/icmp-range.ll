@@ -114,7 +114,7 @@ define i1 @test_multi_range2(i32* nocapture readonly %arg) {
 ; Values' ranges overlap each other, so it can not be simplified.
 define i1 @test_two_ranges(i32* nocapture readonly %arg1, i32* nocapture readonly %arg2) {
 ; CHECK-LABEL: test_two_ranges
-; CHECK: icmp ult i8 %1, %2                  ;INTEL
+; CHECK: icmp ult i32 %val2, %val1
   %val1 = load i32, i32* %arg1, !range !5
   %val2 = load i32, i32* %arg2, !range !6
   %rval = icmp ult i32 %val2, %val1

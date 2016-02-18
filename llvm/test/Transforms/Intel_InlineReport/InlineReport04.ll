@@ -38,15 +38,13 @@ attributes #1 = { alwaysinline nounwind uwtable "less-precise-fpmad"="false" "no
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!9, !10}
-!llvm.ident = !{!11}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1)
 !1 = !DIFile(filename: "sm1.c", directory: "/users/rcox2/rgSmall")
-!4 = distinct !DISubprogram(name: "fred", scope: !1, file: !1, line: 6, isLocal: false, isDefinition: true, scopeLine: 7, function: i32 ()* @fred)
-!8 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1, isLocal: true, isDefinition: true, scopeLine: 2, flags: DIFlagPrototyped, isOptimized: false, function: i32 ()* @foo)
+!4 = distinct !DISubprogram(name: "fred", scope: !1, file: !1, line: 6)
+!8 = distinct !DISubprogram(name: "foo", scope: !1, file: !1, line: 1)
 !9 = !{i32 2, !"Dwarf Version", i32 4}
 !10 = !{i32 2, !"Debug Info Version", i32 3}
-!11 = !{!"clang version 3.7.0 (trunk 967) (llvm/branches/ltoprof 992)"}
 !12 = !DILocation(line: 8, column: 11, scope: !4)
 !13 = !DILocation(line: 8, column: 4, scope: !4)
 !14 = !DILocation(line: 3, column: 4, scope: !8)

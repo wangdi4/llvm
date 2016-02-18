@@ -259,9 +259,9 @@ void ScalarSymbaseAssignment::populateRegionLiveouts(
     for (auto Inst = (*BBIt)->begin(), EndI = (*BBIt)->end(); Inst != EndI;
          ++Inst) {
 
-      if (isRegionLiveOut(RegIt, Inst)) {
-        auto Symbase = getOrAssignScalarSymbase(Inst);
-        (*RegIt)->addLiveOutTemp(Inst, Symbase);
+      if (isRegionLiveOut(RegIt, &*Inst)) {
+        auto Symbase = getOrAssignScalarSymbase(&*Inst);
+        (*RegIt)->addLiveOutTemp(&*Inst, Symbase);
       }
     }
   }
@@ -322,12 +322,12 @@ void ScalarSymbaseAssignment::populateRegionPhiLiveins(
             EndIt = (*RegIt)->getEntryBBlock()->end();
        InstIt != EndIt && isa<PHINode>(InstIt); ++InstIt) {
     // Has been processed already?
-    if (getTempSymbase(InstIt)) {
+    if (getTempSymbase(&*InstIt)) {
       continue;
     }
 
     processRegionPhiLivein(RegIt, cast<PHINode>(InstIt),
-                           getOrAssignScalarSymbase(InstIt));
+                           getOrAssignScalarSymbase(&*InstIt));
   }
 }
 

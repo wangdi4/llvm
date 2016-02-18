@@ -559,12 +559,13 @@ private:
   Value *InsertRangeTest(Value *V, Constant *Lo, Constant *Hi, bool isSigned,
                          bool Inside);
   Instruction *PromoteCastOfAllocation(BitCastInst &CI, AllocaInst &AI);
-  Instruction *MatchBSwap(BinaryOperator &I);
+  Instruction *MatchBSwapOrBitReverse(BinaryOperator &I);
   bool SimplifyStoreAtEndOfBlock(StoreInst &SI);
   Instruction *SimplifyMemTransfer(MemIntrinsic *MI);
 #if INTEL_CUSTOMIZATION
   void GenStructFieldsCopyFromMemcpy(MemIntrinsic *MI);
-  bool TryReduceICmpSize(ICmpInst &ICI, Value *Op0, Value *Op1, unsigned Size);
+  bool ReduceICmpSizeIfProfitable(ICmpInst &ICI, Value *Op0, Value *Op1,
+                                  unsigned Size);
 #endif
   Instruction *SimplifyMemSet(MemSetInst *MI);
 

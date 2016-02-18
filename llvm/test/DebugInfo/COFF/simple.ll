@@ -113,7 +113,6 @@
 ; OBJ32-NEXT:     ColEnd: 0
 ; OBJ32-NEXT:   ]
 ; OBJ32-NEXT: ]
-; OBJ32:    }
 
 ; X64-LABEL: f:
 ; X64-NEXT: .L{{.*}}:{{$}}
@@ -227,10 +226,9 @@
 ; OBJ64-NEXT:     ColEnd: 0
 ; OBJ64-NEXT:   ]
 ; OBJ64-NEXT: ]
-; OBJ64:    }
 
 ; Function Attrs: nounwind
-define void @f() #0 {
+define void @f() #0 !dbg !4 {
 entry:
   call void @g(), !dbg !12
   ret void, !dbg !13
@@ -249,7 +247,7 @@ attributes #1 = { "less-precise-fpmad"="false" "no-frame-pointer-elim"="false" "
 !1 = !DIFile(filename: "<unknown>", directory: "D:\5C")
 !2 = !{}
 !3 = !{!4}
-!4 = distinct !DISubprogram(name: "f", line: 3, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 3, file: !5, scope: !6, type: !7, function: void ()* @f, variables: !2)
+!4 = distinct !DISubprogram(name: "f", line: 3, isLocal: false, isDefinition: true, virtualIndex: 6, flags: DIFlagPrototyped, isOptimized: false, scopeLine: 3, file: !5, scope: !6, type: !7, variables: !2)
 !5 = !DIFile(filename: "test.c", directory: "D:\5C")
 !6 = !DIFile(filename: "test.c", directory: "D:C")
 !7 = !DISubroutineType(types: !8)
