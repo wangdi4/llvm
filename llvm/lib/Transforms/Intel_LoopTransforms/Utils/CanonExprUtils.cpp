@@ -145,6 +145,11 @@ bool CanonExprUtils::isConstantFPBlob(CanonExpr::BlobTy Blob,
   return getHIRParser()->isConstantFPBlob(Blob, Val);
 }
 
+bool CanonExprUtils::isConstantVectorBlob(CanonExpr::BlobTy Blob,
+                                          Constant **Val) {
+  return getHIRParser()->isConstantVectorBlob(Blob, Val);
+}
+
 bool CanonExprUtils::isMetadataBlob(CanonExpr::BlobTy Blob,
                                     MetadataAsValue **Val) {
   return getHIRParser()->isMetadataBlob(Blob, Val);

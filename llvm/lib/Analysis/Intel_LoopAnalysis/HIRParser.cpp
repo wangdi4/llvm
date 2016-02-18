@@ -180,6 +180,32 @@ bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob,
   return false;
 }
 
+bool HIRParser::isConstantVectorBlob(CanonExpr::BlobTy Blob,
+                                     Constant **Val) const {
+  if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
+    if (auto P = dyn_cast<ConstantVector>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+    if (auto P = dyn_cast<ConstantDataVector>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+    if (auto P = dyn_cast<ConstantAggregateZero>(UnknownSCEV->getValue())) {
+      if (Val) {
+        *Val = P;
+      }
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool HIRParser::isMetadataBlob(CanonExpr::BlobTy Blob,
                                MetadataAsValue **Val) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {

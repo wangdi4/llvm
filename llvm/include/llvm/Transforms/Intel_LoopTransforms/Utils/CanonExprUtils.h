@@ -143,9 +143,14 @@ public:
   static bool isUndefBlob(CanonExpr::BlobTy Blob);
 
   /// \brief Returns true if \pBlob represents a FP constant.
-  /// If yes, returns the underlying LLVM Values in \pVal
+  /// If yes, returns the underlying LLVM Value in \pVal
   static bool isConstantFPBlob(CanonExpr::BlobTy Blob,
                                ConstantFP **Val = nullptr);
+
+  /// \brief Returns true if \pBlob represents a vector of constants.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  static bool isConstantVectorBlob(CanonExpr::BlobTy Blob,
+                                   Constant **Val = nullptr);
 
   /// \brief Returns true if Blob represents a metadata.
   /// If blob is metadata, sets the return value in Val.

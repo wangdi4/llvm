@@ -366,6 +366,15 @@ bool CanonExpr::isMetadata(MetadataAsValue **Val) const {
   return CanonExprUtils::isMetadataBlob(getBlob(getSingleBlobIndex()), Val);
 }
 
+bool CanonExpr::isConstantVector(Constant **Val) const {
+  if (!isStandAloneBlob()) {
+    return false;
+  }
+
+  return CanonExprUtils::isConstantVectorBlob(getBlob(getSingleBlobIndex()),
+                                              Val);
+}
+
 bool CanonExpr::isNull() const {
   bool Ret = (getSrcType()->isPointerTy() && isConstInternal());
   assert((!Ret || !getConstant()) && "Invalid pointer type canon expr!");

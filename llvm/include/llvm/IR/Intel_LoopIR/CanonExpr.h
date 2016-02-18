@@ -32,6 +32,7 @@ class Type;
 class SCEV;
 class MetadataAsValue;
 class ConstantFP;
+class Constant;
 
 namespace loopopt {
 
@@ -352,7 +353,8 @@ public:
 
   /// \brief Returns true if canon expr represents any kind of constant.
   bool isConstant() const {
-    return (isIntConstant() || isFPConstant() || isNull() || isMetadata());
+    return (isIntConstant() || isFPConstant() || isNull() || isMetadata() ||
+            isConstantVector());
   }
 
   /// \brief Returns true if canon expr is a constant integer. Integer value
@@ -362,6 +364,10 @@ public:
   /// \brief Returns true if canon expr represents a floating point constant.
   /// If yes, returns the underlying LLVM Value in \pVal
   bool isFPConstant(ConstantFP **Val = nullptr) const;
+
+  /// \brief Returns true if canon expr is a vector of constants.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isConstantVector(Constant **Val = nullptr) const;
 
   /// \brief Returns true if canon expr represents a metadata.
   /// If true, metadata is retunred in Val.

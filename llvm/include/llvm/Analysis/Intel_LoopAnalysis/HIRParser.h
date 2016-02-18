@@ -415,6 +415,11 @@ private:
   bool isConstantFPBlob(CanonExpr::BlobTy Blob,
                         ConstantFP **Val = nullptr) const;
 
+  /// \brief Returns true if \pBlob represents a vector of constant values.
+  /// If yes, returns the underlying LLVM Value in \pVal
+  bool isConstantVectorBlob(CanonExpr::BlobTy Blob,
+                            Constant **Val = nullptr) const;
+
   /// \brief Returns true if Blob represents a metadata value.
   /// If blob is metadata, sets the return value in Val.
   bool isMetadataBlob(CanonExpr::BlobTy Blob, MetadataAsValue **Val) const;
