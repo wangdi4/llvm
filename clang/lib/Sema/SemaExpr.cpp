@@ -5969,6 +5969,28 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
 
   QualType CompositeTy = S.Context.mergeTypes(lhptee, rhptee);
 
+#if INTEL_CUSTOMIZATION
+  if (CompositeTy.isNull()) {
+    const FunctionType *LFuncTy = lhptee->getAs<FunctionType>();
+    const FunctionType *RFuncTy = rhptee->getAs<FunctionType>();
+    if (S.getLangOpts().IntelCompat && LFuncTy && RFuncTy &&
+        (LFuncTy->getHasRegParm() != RFuncTy->getHasRegParm() ||
+         LFuncTy->getRegParmType() != RFuncTy->getRegParmType())) {
+      S.Diag(Loc, diag::ext_regparm_cond_mismatch)
+          << LHSTy << RHSTy << LHS.get()->getSourceRange()
+          << RHS.get()->getSourceRange();
+      // CQ#375765. If we can merge two function types assuming that the right
+      // side takes 'regparm' value from the left side, install the type of the
+      // LEFT side for ICC compatibility reasons.
+      // FIXME: With this we produce incorrect code, and so does ICC! Function
+      // from the right side will be called with unexpected calling conventions.
+      auto AdjustedInfo = RFuncTy->getExtInfo().withRegParm(
+          LFuncTy->getRegParmType(), LFuncTy->getHasRegParm());
+      QualType NewTy(S.Context.adjustFunctionType(RFuncTy, AdjustedInfo), 0);
+      CompositeTy = S.Context.mergeTypes(lhptee, NewTy);
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
   if (CompositeTy.isNull()) {
     S.Diag(Loc, diag::ext_typecheck_cond_incompatible_pointers)
       << LHSTy << RHSTy << LHS.get()->getSourceRange()
