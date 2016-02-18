@@ -153,7 +153,8 @@ bool ScalarSymbaseAssignment::isConstant(const Value *Scalar) const {
   // Treat vectors of constants as a constant
   if (isa<ConstantInt>(Scalar) || isa<ConstantFP>(Scalar) ||
       isa<ConstantPointerNull>(Scalar) ||
-      isa<ConstantDataVector>(Scalar) || isa<ConstantVector>(Scalar)) {
+      isa<ConstantDataVector>(Scalar) || isa<ConstantVector>(Scalar) ||
+      isa<ConstantAggregateZero>(Scalar)) {
     return true;
   }
 
