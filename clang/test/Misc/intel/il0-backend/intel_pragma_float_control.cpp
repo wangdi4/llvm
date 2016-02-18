@@ -129,7 +129,7 @@ void f24(){}
 // CHECK-NEXT: }
 void f25(){}
 
-// CHECK: define i32 @main() #0
+// CHECK: define i32 @main() #11
 int main() {
 #pragma float_control(push)
 #pragma float_control(precise, on, push)
@@ -153,4 +153,6 @@ int main() {
 // CHECK: attributes #8 = { nounwind "INTEL:EXTENDED-ON"
 // CHECK: attributes #9 = { nounwind "INTEL:EXTENDED-OFF"
 // CHECK: attributes #10 = { nounwind "INTEL:EXCEPT-OFF" "INTEL:PRECISE-ON"
+// CHECK: attributes #11 = { norecurse nounwind
+// CHECK-SAME: "less
 

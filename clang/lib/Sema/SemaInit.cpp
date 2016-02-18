@@ -805,7 +805,8 @@ void InitListChecker::CheckImplicitInitList(const InitializedEntity &Entity,
     unsigned EndIndex = (Index == StartIndex? StartIndex : Index - 1);
     // Update the structured sub-object initializer so that it's ending
     // range corresponds with the end of the last initializer it used.
-    if (EndIndex < ParentIList->getNumInits()) {
+    if (EndIndex < ParentIList->getNumInits() &&
+        ParentIList->getInit(EndIndex)) {
       SourceLocation EndLoc
         = ParentIList->getInit(EndIndex)->getSourceRange().getEnd();
       StructuredSubobjectInitList->setRBraceLoc(EndLoc);
@@ -3016,6 +3017,7 @@ bool InitializationSequence::isAmbiguous() const {
   // in iclang
   case FK_StaticLabelAddress:
 #endif // INTEL_CUSTOMIZATION
+  case FK_AddressOfUnaddressableFunction:
     return false;
 
   case FK_ReferenceInitOverloadFailed:
@@ -3331,7 +3333,7 @@ static bool TryInitializerListConstruction(Sema &S,
   if (!S.isStdInitializerList(DestType, &E))
     return false;
 
-  if (S.RequireCompleteType(List->getExprLoc(), E, 0)) {
+  if (!S.isCompleteType(List->getExprLoc(), E)) {
     Sequence.setIncompleteTypeFailure(E);
     return true;
   }
@@ -3441,7 +3443,7 @@ static void TryConstructorInitialization(Sema &S,
          "IsListInit must come with a single initializer list argument.");
 
   // The type we're constructing needs to be complete.
-  if (S.RequireCompleteType(Kind.getLocation(), DestType, 0)) {
+  if (!S.isCompleteType(Kind.getLocation(), DestType)) {
     Sequence.setIncompleteTypeFailure(DestType);
     return;
   }
@@ -3690,7 +3692,7 @@ static void TryListInitialization(Sema &S,
   }
 
   if (DestType->isRecordType() &&
-      S.RequireCompleteType(InitList->getLocStart(), DestType, 0)) {
+      !S.isCompleteType(InitList->getLocStart(), DestType)) {
     Sequence.setIncompleteTypeFailure(DestType);
     return;
   }
@@ -3710,7 +3712,7 @@ static void TryListInitialization(Sema &S,
     if (DestType->isRecordType()) {
       QualType InitType = InitList->getInit(0)->getType();
       if (S.Context.hasSameUnqualifiedType(InitType, DestType) ||
-          S.IsDerivedFrom(InitType, DestType)) {
+          S.IsDerivedFrom(InitList->getLocStart(), InitType, DestType)) {
         Expr *InitAsExpr = InitList->getInit(0);
         TryConstructorInitialization(S, Entity, Kind, InitAsExpr, DestType,
                                      Sequence, /*InitListSyntax*/ false,
@@ -3744,7 +3746,9 @@ static void TryListInitialization(Sema &S,
 
   // C++11 [dcl.init.list]p3:
   //   - If T is an aggregate, aggregate initialization is performed.
-  if (DestType->isRecordType() && !DestType->isAggregateType()) {
+  if ((DestType->isRecordType() && !DestType->isAggregateType()) ||
+      (S.getLangOpts().CPlusPlus11 &&
+       S.isStdInitializerList(DestType, nullptr))) {
     if (S.getLangOpts().CPlusPlus11) {
       //   - Otherwise, if the initializer list has no elements and T is a
       //     class type with a default constructor, the object is
@@ -3850,7 +3854,7 @@ static OverloadingResult TryRefInitWithConversionFunction(Sema &S,
 
   const RecordType *T1RecordType = nullptr;
   if (AllowRValues && (T1RecordType = T1->getAs<RecordType>()) &&
-      !S.RequireCompleteType(Kind.getLocation(), T1, 0)) {
+      S.isCompleteType(Kind.getLocation(), T1)) {
     // The type we're converting to is a class type. Enumerate its constructors
     // to see if there is a suitable conversion.
     CXXRecordDecl *T1RecordDecl = cast<CXXRecordDecl>(T1RecordType->getDecl());
@@ -3886,7 +3890,7 @@ static OverloadingResult TryRefInitWithConversionFunction(Sema &S,
 
   const RecordType *T2RecordType = nullptr;
   if ((T2RecordType = T2->getAs<RecordType>()) &&
-      !S.RequireCompleteType(Kind.getLocation(), T2, 0)) {
+      S.isCompleteType(Kind.getLocation(), T2)) {
     // The type we're converting from is a class type, enumerate its conversion
     // functions.
     CXXRecordDecl *T2RecordDecl = cast<CXXRecordDecl>(T2RecordType->getDecl());
@@ -4481,7 +4485,7 @@ static void TryUserDefinedConversion(Sema &S,
       = cast<CXXRecordDecl>(DestRecordType->getDecl());
 
     // Try to complete the type we're converting to.
-    if (!S.RequireCompleteType(Kind.getLocation(), DestType, 0)) {
+    if (S.isCompleteType(Kind.getLocation(), DestType)) {
       DeclContext::lookup_result R = S.LookupConstructors(DestRecordDecl);
       // The container holding the constructors can under certain conditions
       // be changed while iterating. To be safe we copy the lookup results
@@ -4527,7 +4531,7 @@ static void TryUserDefinedConversion(Sema &S,
 
     // We can only enumerate the conversion functions for a complete type; if
     // the type isn't complete, simply skip this step.
-    if (!S.RequireCompleteType(DeclLoc, SourceType, 0)) {
+    if (S.isCompleteType(DeclLoc, SourceType)) {
       CXXRecordDecl *SourceRecordDecl
         = cast<CXXRecordDecl>(SourceRecordType->getDecl());
 
@@ -4824,6 +4828,17 @@ InitializationSequence::InitializationSequence(Sema &S,
   InitializeFrom(S, Entity, Kind, Args, TopLevelOfInitList);
 }
 
+/// Tries to get a FunctionDecl out of `E`. If it succeeds and we can take the
+/// address of that function, this returns true. Otherwise, it returns false.
+static bool isExprAnUnaddressableFunction(Sema &S, const Expr *E) {
+  auto *DRE = dyn_cast<DeclRefExpr>(E);
+  if (!DRE || !isa<FunctionDecl>(DRE->getDecl()))
+    return false;
+
+  return !S.checkAddressOfFunctionIsAvailable(
+      cast<FunctionDecl>(DRE->getDecl()));
+}
+
 void InitializationSequence::InitializeFrom(Sema &S,
                                             const InitializedEntity &Entity,
                                             const InitializationKind &Kind,
@@ -5034,7 +5049,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
   }
 
   assert(S.getLangOpts().CPlusPlus);
-      
+
   //     - If the destination type is a (possibly cv-qualified) class type:
   if (DestType->isRecordType()) {
     //     - If the initialization is direct-initialization, or if it is
@@ -5044,7 +5059,7 @@ void InitializationSequence::InitializeFrom(Sema &S,
     if (Kind.getKind() == InitializationKind::IK_Direct ||
         (Kind.getKind() == InitializationKind::IK_Copy &&
          (Context.hasSameUnqualifiedType(SourceType, DestType) ||
-          S.IsDerivedFrom(SourceType, DestType))))
+          S.IsDerivedFrom(Initializer->getLocStart(), SourceType, DestType))))
       TryConstructorInitialization(S, Entity, Kind, Args,
                                    DestType, *this);
     //     - Otherwise (i.e., for the remaining copy-initialization cases),
@@ -5073,7 +5088,8 @@ void InitializationSequence::InitializeFrom(Sema &S,
     bool NeedAtomicConversion = false;
     if (const AtomicType *Atomic = DestType->getAs<AtomicType>()) {
       if (Context.hasSameUnqualifiedType(SourceType, Atomic->getValueType()) ||
-          S.IsDerivedFrom(SourceType, Atomic->getValueType())) {
+          S.IsDerivedFrom(Initializer->getLocStart(), SourceType,
+                          Atomic->getValueType())) {
         DestType = Atomic->getValueType();
         NeedAtomicConversion = true;
       }
@@ -5131,6 +5147,9 @@ void InitializationSequence::InitializeFrom(Sema &S,
                !S.ResolveAddressOfOverloadedFunction(Initializer, DestType,
                                                      false, dap))
       SetFailed(InitializationSequence::FK_AddressOfOverloadFailed);
+    else if (Initializer->getType()->isFunctionType() &&
+             isExprAnUnaddressableFunction(S, Initializer))
+      SetFailed(InitializationSequence::FK_AddressOfUnaddressableFunction);
     else
       SetFailed(InitializationSequence::FK_ConversionFailed);
   } else {
@@ -6436,7 +6455,7 @@ InitializationSequence::Perform(Sema &S,
         CastKind = CK_ConstructorConversion;
         QualType Class = S.Context.getTypeDeclType(Constructor->getParent());
         if (S.Context.hasSameUnqualifiedType(SourceType, Class) ||
-            S.IsDerivedFrom(SourceType, Class))
+            S.IsDerivedFrom(Loc, SourceType, Class))
           IsCopy = true;
 
         CreatedObject = true;
@@ -7002,6 +7021,13 @@ bool InitializationSequence::Diagnose(Sema &S,
     break;
   }
 
+  case FK_AddressOfUnaddressableFunction: {
+    auto *FD = cast<FunctionDecl>(cast<DeclRefExpr>(Args[0])->getDecl());
+    S.checkAddressOfFunctionIsAvailable(FD, /*Complain=*/true,
+                                        Args[0]->getLocStart());
+    break;
+  }
+
   case FK_ReferenceInitOverloadFailed:
   case FK_UserConversionOverloadFailed:
     switch (FailedOverloadResult) {
@@ -7338,6 +7364,10 @@ void InitializationSequence::dump(raw_ostream &OS) const {
 
     case FK_ArrayNeedsInitList:
       OS << "array requires initializer list";
+      break;
+
+    case FK_AddressOfUnaddressableFunction:
+      OS << "address of unaddressable function was taken";
       break;
 
     case FK_ArrayNeedsInitListOrStringLiteral:
