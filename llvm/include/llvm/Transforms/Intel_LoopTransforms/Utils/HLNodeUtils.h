@@ -25,7 +25,7 @@
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 namespace llvm {
 
@@ -36,7 +36,7 @@ class Instruction;
 namespace loopopt {
 
 class HIRCreation;
-class HIRParser;
+class HIRFramework;
 
 /// \brief Defines utilities for HLNode class
 ///
@@ -60,9 +60,9 @@ private:
   static Instruction *LastDummyInst;
 
   friend class HIRCreation;
-  friend class HIRParser;
   friend class HIRCleanup;
   friend class LoopFormation;
+  friend class HIRFramework;
 
   /// \brief Visitor for clone sequence.
   struct CloneVisitor;
@@ -637,7 +637,7 @@ public:
             bool Forward = true, typename HV>
   static void visitAll(HV &Visitor) {
     HLNodeVisitor<HV, Recursive, RecurseInsideLoops, Forward> V(Visitor);
-    V.visitRange(getHIRParser()->hir_begin(), getHIRParser()->hir_end());
+    V.visitRange(getHIRFramework()->hir_begin(), getHIRFramework()->hir_end());
   }
 
   /// \brief Inserts an unlinked Node before Pos in HIR.

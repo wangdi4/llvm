@@ -45,14 +45,14 @@ class HIRParser;
 
 class SymbaseAssignment : public FunctionPass {
 public:
+  // Accesses getNewSymbase()
+  friend class HIRFramework;
+
   SymbaseAssignment() : FunctionPass(ID) {}
   static char ID;
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
-
-  // Returns a new unused symbase ID
-  unsigned getNewSymbase() { return ++MaxSymbase; }
 
 private:
   Function *F;
@@ -64,6 +64,10 @@ private:
   /// \brief Initializes max symbase using the max scalar symbase returned by
   /// HIRParser.
   void initializeMaxSymbase();
+
+  // Returns a new unused symbase ID.
+  unsigned getNewSymbase() { return ++MaxSymbase; }
+
 };
 }
 }

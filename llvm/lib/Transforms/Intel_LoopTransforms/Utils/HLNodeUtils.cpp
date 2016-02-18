@@ -671,7 +671,7 @@ HLInst *HLNodeUtils::createSelect(CmpInst::Predicate Pred, RegDDRef *OpRef1,
   // OpRef1 and OpRef2 should be the same type.
   checkBinaryInstOperands(nullptr, OpRef1, OpRef2);
 
-  auto CmpVal = createOneVal(Type::getInt1Ty(getHIRParser()->getContext()));
+  auto CmpVal = createOneVal(Type::getInt1Ty(getHIRFramework()->getContext()));
   auto OpVal = createZeroVal(OpRef3->getDestType());
 
   InstVal = DummyIRBuilder->CreateSelect(CmpVal, OpVal, OpVal, Name);
@@ -1590,8 +1590,8 @@ HLNode *HLNodeUtils::getLinkListNodeImpl(HLNode *Node, bool Prev) {
 
   if (!Parent) {
     assert(isa<HLRegion>(Node) && "getPrev() called on detached node!");
-    auto FirstOrLastRegIter = Prev ? getHIRParser()->hir_begin()
-                                   : std::prev(getHIRParser()->hir_end());
+    auto FirstOrLastRegIter = Prev ? getHIRFramework()->hir_begin()
+                                   : std::prev(getHIRFramework()->hir_end());
     auto NodeIter = Node->getIterator();
 
     if (NodeIter != FirstOrLastRegIter) {

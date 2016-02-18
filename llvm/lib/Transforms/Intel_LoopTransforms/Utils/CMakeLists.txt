@@ -1,4 +1,5 @@
 add_llvm_library(LLVMIntel_LoopUtils
+  BlobUtils.cpp
   CanonExprUtils.cpp
   DDRefUtils.cpp
   HLNodeUtils.cpp

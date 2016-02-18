@@ -14,13 +14,14 @@
 // distribution to break recurrences(enables vectorization)
 //===----------------------------------------------------------------------===//
 //
+#include "llvm/ADT/SCCIterator.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Debug.h"
+
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
-#include "llvm/ADT/SCCIterator.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRLoopDistributionGraph.h"
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -85,7 +86,7 @@ public:
   bool runOnFunction(Function &F) override;
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<HIRParser>();
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
@@ -132,7 +133,7 @@ private:
 char HIRLoopDistribution::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLoopDistribution, "hir-loop-distribute",
                       "HIR Loop Distribution", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRLoopDistribution, "hir-loop-distribute",
                     "HIR Loop Distribution", false, false)

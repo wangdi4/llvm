@@ -56,7 +56,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
@@ -98,6 +98,7 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();
   }
 
@@ -171,6 +172,7 @@ private:
 char HIROptPredicate::ID = 0;
 INITIALIZE_PASS_BEGIN(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                       false, false)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIROptPredicate, "hir-opt-predicate", "HIR OptPredicate",
                     false, false)

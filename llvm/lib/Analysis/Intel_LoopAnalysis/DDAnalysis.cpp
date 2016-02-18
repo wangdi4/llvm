@@ -21,16 +21,13 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDTests.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
-
-#include "llvm/IR/Intel_LoopIR/HIRVerifier.h"
 
 #include <vector>
 #include <map>
@@ -69,26 +66,18 @@ static cl::opt<bool>
     forceDDA("force-DDA", cl::init(false), cl::Hidden,
              cl::desc("forces graph construction for every request"));
 
-static cl::opt<bool>
-    HIRVerify("hir-verify",
-              cl::desc("Verify HIR after each transformation (default=true)"),
-              cl::init(true));
-
 FunctionPass *llvm::createDDAnalysisPass() { return new DDAnalysis(); }
 
 char DDAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(DDAnalysis, "dda", "Data Dependence Analysis", false,
                       true)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(DDAnalysis, "dda", "Data Dependence Analysis", false, true)
 
 void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequiredTransitive<HIRParser>();
-  AU.addRequiredTransitive<SymbaseAssignment>();
-
+  AU.addRequiredTransitive<HIRFramework>();
   // scev
   // need tbaa// or just general AA?
 }
@@ -97,8 +86,7 @@ void DDAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 // do any analysis
 bool DDAnalysis::runOnFunction(Function &F) {
 
-  HIRP = &getAnalysis<HIRParser>();
-  SA = &getAnalysis<SymbaseAssignment>();
+  HIRF = &getAnalysis<HIRFramework>();
 
   // If cl opts are present, build graph for requested loop levels
   for (unsigned I = 0; I != VerifyLevelList.size(); ++I) {
@@ -133,13 +121,7 @@ void DDAnalysis::releaseMemory() {
   FunctionDDGraph.clear();
 }
 
-void DDAnalysis::verifyAnalysis() const {
-  if (HIRVerify) {
-    HIRVerifier::verifyAll();
-    DEBUG(dbgs() << "Verification of HIR done"
-                 << "\n");
-  }
-}
+void DDAnalysis::verifyAnalysis() const {}
 
 // Returns true if we must do dd testing between ref1 and ref2. We generally
 // do not need to do testing between rvals, unless we need explicitly need input
@@ -277,5 +259,3 @@ void DDAnalysis::GraphVerifier::visit(HLLoop *Loop) {
     }
   }
 }
-
-unsigned DDAnalysis::getNewSymbase() { return SA->getNewSymbase(); }

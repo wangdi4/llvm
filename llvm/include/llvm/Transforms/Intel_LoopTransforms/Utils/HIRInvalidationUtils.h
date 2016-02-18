@@ -24,7 +24,7 @@
 #ifndef LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 #define LLVM_TRANSFORMS_INTEL_LOOPTRANSFORMS_UTILS_HIRINVALDATIONUTILS_H
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
@@ -72,7 +72,7 @@ private:
   template <typename AnalysisTy>
   struct AnalysisGetter {
     static AnalysisTy *get() {
-      return getHIRParser()->getAnalysisIfAvailable<AnalysisTy>();
+      return getHIRFramework()->getAnalysisIfAvailable<AnalysisTy>();
     }
   };
 

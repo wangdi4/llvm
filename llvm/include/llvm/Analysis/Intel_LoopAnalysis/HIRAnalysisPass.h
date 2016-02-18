@@ -40,7 +40,7 @@ class HLLoop;
 ///   optimized away) and PassManagerBuilder.cpp (to add it to clang opt
 ///   pipeline).
 /// - Define pass under loopopt namespace.
-/// - Declare HIRParser pass as required to access HIR.
+/// - Declare HIRFramework pass as required to access HIR.
 /// - Always call setPreservesAll() in getAnalysisUsage().
 /// - Add a new value for the pass to HIRAnalysisVal enum before PassCountVal.
 /// Pass this value in the constructor.

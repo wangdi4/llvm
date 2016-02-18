@@ -51,8 +51,7 @@
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
@@ -78,16 +77,14 @@ FunctionPass *llvm::createHIRLocalityAnalysisPass() {
 char HIRLocalityAnalysis::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRLocalityAnalysis, "hir-locality-analysis",
                       "HIR Locality Analysis", false, true)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRLocalityAnalysis, "hir-locality-analysis",
                     "HIR Locality Analysis", false, true)
 
 void HIRLocalityAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
 
   AU.setPreservesAll();
-  AU.addRequired<HIRParser>();
-  AU.addRequired<SymbaseAssignment>();
+  AU.addRequired<HIRFramework>();
 }
 
 // Performs a basic setup without actually running the locality

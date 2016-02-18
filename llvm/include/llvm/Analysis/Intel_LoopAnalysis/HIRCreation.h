@@ -43,23 +43,7 @@ class HLSwitch;
 class RegionIdentification;
 
 /// \brief This analysis creates and populates HIR regions with HLNodes using
-/// the information provided by RegionIdentification pass. The overall sequence
-/// of building the HIR is as follows-
-///
-/// 1) RegionIdentification - identifies regions in IR.
-/// 2) SCCFormation - identifies SCCs in regions.
-/// 3) SSADeconstruction - deconstructs SSA for HIR by inserting copies.
-/// 4) ScalarSymbaseAssignment - Assigns symbases to livein/liveout scalar
-///    DDRefs.
-/// 5) HIRCreation - populates HIR regions with a sequence of HLNodes (without
-///    HIR loops).
-/// 6) HIRCleanup - removes redundant gotos/labels from HIR.
-/// 7) LoopFormation - Forms HIR loops within HIR regions.
-/// 8) HIRParser - Creates DDRefs and parses SCEVs into CanonExprs. Also assigns
-///    symbases to non livein/liveout scalars using ScalarSymbaseAssignment's
-///    interface.
-/// 9) SymbaseAssignment - Assigns symbases to memory DDRefs.
-/// 10) DDAnalysis - Builds DD edges between DDRefs.
+/// the information provided by RegionIdentification pass. 
 ///
 class HIRCreation : public FunctionPass {
 public:

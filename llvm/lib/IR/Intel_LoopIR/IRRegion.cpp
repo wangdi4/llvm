@@ -20,7 +20,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Intel_LoopIR/IRRegion.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -73,7 +73,7 @@ void IRRegion::print(raw_ostream &OS, unsigned IndentWidth) const {
     if (I != LiveInSet.begin()) {
       OS << ", ";
     }
-    CanonExprUtils::printScalar(OS, I->first);
+    BlobUtils::printScalar(OS, I->first);
     OS << "(";
     I->second->printAsOperand(OS, false);
     OS << ")";

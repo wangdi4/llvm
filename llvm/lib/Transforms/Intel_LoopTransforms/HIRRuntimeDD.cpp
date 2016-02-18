@@ -93,7 +93,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
@@ -328,7 +327,7 @@ public:
   void releaseMemory() override;
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<SymbaseAssignment>();
+    AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();
     AU.setPreservesAll();
   }
@@ -411,7 +410,7 @@ private:
 
 char HIRRuntimeDD::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
-INITIALIZE_PASS_DEPENDENCY(SymbaseAssignment)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
 INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 

@@ -92,13 +92,6 @@ private:
   };
 
 public:
-  typedef const SCEV *BlobTy;
-  typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
-  typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
-
-  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
-  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
-
   /// Each element represents blob index and coefficient associated with an IV
   /// at a particular loop level.
   typedef SmallVector<BlobIndexToCoeff, 4> IVCoeffsTy;
@@ -117,8 +110,6 @@ public:
   typedef BlobCoeffsTy::reverse_iterator reverse_blob_iterator;
   typedef BlobCoeffsTy::const_reverse_iterator const_reverse_blob_iterator;
 
-  static const unsigned INVALID_BLOB_INDEX = 0;
-
 private:
   /// \brief Copy constructor; only used for cloning.
   CanonExpr(const CanonExpr &);
@@ -130,16 +121,6 @@ private:
   static void destroyAll();
   // Keeps track of objects of this class.
   static std::set<CanonExpr *> Objs;
-
-  // BlobTable - vector containing blobs and corresponding symbases for the
-  // function.
-  // Moved here from HIRParser to allow printer to print blobs without needing
-  // the parser.
-  static BlobTableTy BlobTable;
-
-  // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
-  // faster lookup.
-  static BlobToIndexTy BlobToIndexMap;
 
   // SrcTy and DestTy hide one level of casting applied on top of the
   // canonical form.
@@ -172,42 +153,8 @@ protected:
   /// \brief Destroys the object.
   void destroy();
 
-  /// \brief Internal method to check blob index range.
-  static bool isBlobIndexValid(unsigned Index);
-
   /// \brief Internal method to check level range.
   static bool isLevelValid(unsigned Level);
-
-  /// \brief Implements find()/insert() functionality.
-  /// ReturnSymbase indicates whether to return blob index or symbase.
-  static unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
-                                       bool Insert, bool ReturnSymbase);
-
-  /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
-  /// table.
-  static unsigned findBlob(BlobTy Blob);
-
-  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
-  /// non-temp or non-present blobs.
-  static unsigned findBlobSymbase(BlobTy Blob);
-
-  /// \brief Returns the index of Blob in the blob table. Blob is first
-  /// inserted, if it isn't already present in the blob table. Index range is
-  /// [1, UINT_MAX].
-  static unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
-
-  /// \brief Returns blob corresponding to Index.
-  static BlobTy getBlob(unsigned Index);
-
-  /// \brief Returns symbase corresponding to Index. Returns invalid value for
-  /// non-temp non-present blobs.
-  static unsigned getBlobSymbase(unsigned Index);
-
-  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
-  /// them in Indices.
-  static void mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
-                                SmallVectorImpl<unsigned> &Indices);
 
   /// \brief Implements hasIV()/numIV() and
   /// hasBlobIVCoeffs()/numBlobIVCoeffs() functionality.

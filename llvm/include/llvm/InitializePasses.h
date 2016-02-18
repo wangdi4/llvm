@@ -330,6 +330,7 @@ void initializeHIRCleanupPass(PassRegistry&);
 void initializeLoopFormationPass(PassRegistry&);
 void initializeHIRParserPass(PassRegistry&);
 void initializeSymbaseAssignmentPass(PassRegistry&);
+void initializeHIRFrameworkPass(PassRegistry&);
 void initializeDDAnalysisPass(PassRegistry&);
 void initializeHIRLocalityAnalysisPass(PassRegistry&);
 void initializeSSADeconstructionPass(PassRegistry&);

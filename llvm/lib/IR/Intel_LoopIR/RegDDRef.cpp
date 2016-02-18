@@ -18,6 +18,7 @@
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
@@ -149,7 +150,7 @@ void RegDDRef::print(formatted_raw_ostream &OS, bool Detailed) const {
   // Treat disconnected DDRefs as rvals. isLval() asserts for disconnected
   // DDRefs. Being able to print disconnected DDRefs is useful for debugging.
   if (getHLDDNode() && isLval() && !HasGEP && !Detailed) {
-    CanonExprUtils::printScalar(OS, getSymbase());
+    BlobUtils::printScalar(OS, getSymbase());
   } else {
     if (HasGEP) {
       if (isAddressOf()) {
@@ -323,7 +324,7 @@ bool RegDDRef::isSelfBlob() const {
     return false;
   }
 
-  unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+  unsigned SB = BlobUtils::getBlobSymbase(CE->getSingleBlobIndex());
 
   return (getSymbase() == SB);
 }
@@ -370,7 +371,7 @@ CanonExpr *RegDDRef::getStrideAtLevel(unsigned Level) const {
     }
 
     unsigned Index = DimCE->getIVBlobCoeff(Level);
-    if (Index != CanonExpr::INVALID_BLOB_INDEX) {
+    if (Index != INVALID_BLOB_INDEX) {
       StrideAtLevel->addBlob(Index, DimCE->getIVConstCoeff(Level) * DimStride);
     } else {
       StrideAtLevel->addConstant(DimCE->getIVConstCoeff(Level) * DimStride);
@@ -588,7 +589,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   SmallVector<unsigned, 8> BlobIndices;
 
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB = CanonExprUtils::getBlobSymbase(
+    unsigned SB = BlobUtils::getBlobSymbase(
         getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
@@ -638,7 +639,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
 
     // Defined at level is only applicable for instruction blobs. Other types
     // (like globals, function paramaters) are always proper linear.
-    if (!CanonExprUtils::isGuaranteedProperLinear(CanonExprUtils::getBlob(I))) {
+    if (!BlobUtils::isGuaranteedProperLinear(BlobUtils::getBlob(I))) {
       NewBlobs.push_back(BRef);
     }
   }

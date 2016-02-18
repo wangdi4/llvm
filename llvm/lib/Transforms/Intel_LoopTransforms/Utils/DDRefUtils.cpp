@@ -15,19 +15,14 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/SymbaseAssignment.h"
-
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 using namespace llvm;
 using namespace loopopt;
 
 #define DEBUG_TYPE "ddref-utils"
-
-SymbaseAssignment *HLUtils::SA(nullptr);
 
 RegDDRef *DDRefUtils::createRegDDRef(unsigned SB) { return new RegDDRef(SB); }
 
@@ -55,7 +50,7 @@ void DDRefUtils::destroy(DDRef *Ref) { Ref->destroy(); }
 void DDRefUtils::destroyAll() { DDRef::destroyAll(); }
 
 unsigned DDRefUtils::getNewSymbase() {
-  return getSymbaseAssignment()->getNewSymbase();
+  return getHIRFramework()->getNewSymbase();
 }
 
 RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
@@ -64,8 +59,8 @@ RegDDRef *DDRefUtils::createSelfBlobRef(Value *Temp) {
   // Create a non-linear self-blob canon expr.
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Temp, Symbase);
 
-  // Register new lval with HIRParser for printing.
-  getHIRParser()->insertHIRLval(Temp, Symbase);
+  // Register new lval with HIRFramework for printing.
+  getHIRFramework()->insertHIRLval(Temp, Symbase);
 
   // Create a RegDDRef with the new symbase and canon expr.
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
@@ -163,7 +158,7 @@ bool DDRefUtils::areEqual(const DDRef *Ref1, const DDRef *Ref2,
 
 RegDDRef *DDRefUtils::createSelfBlobRef(unsigned Index, int Level) {
   auto CE = CanonExprUtils::createSelfBlobCanonExpr(Index, Level);
-  unsigned Symbase = CanonExprUtils::getBlobSymbase(Index);
+  unsigned Symbase = BlobUtils::getBlobSymbase(Index);
 
   auto Ref = DDRefUtils::createRegDDRef(Symbase);
   Ref->setSingleCanonExpr(CE);

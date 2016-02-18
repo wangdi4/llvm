@@ -203,12 +203,13 @@ namespace {
       // HIR passes
       (void) llvm::createRegionIdentificationPass();
       (void) llvm::createSCCFormationPass();
-      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRCreationPass();
       (void) llvm::createHIRCleanupPass();
       (void) llvm::createLoopFormationPass();
+      (void) llvm::createScalarSymbaseAssignmentPass();
       (void) llvm::createHIRParserPass();
       (void) llvm::createSymbaseAssignmentPass();
+      (void) llvm::createHIRFrameworkPass();
       (void) llvm::createDDAnalysisPass();
       (void) llvm::createHIRLocalityAnalysisPass();
 

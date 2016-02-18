@@ -62,22 +62,31 @@ class RegDDRef;
 class DDRef;
 class CanonExpr;
 
+typedef const SCEV *BlobTy;
+const unsigned INVALID_BLOB_INDEX = 0;
+
 /// \brief This analysis creates DDRefs and parses SCEVs into CanonExprs for
 /// HLNodes inside HIR regions. It eliminates HLNodes useless to HIR.
 ///
 /// It is also responsible for assigning symbases to non livein/liveout scalars.
 class HIRParser : public FunctionPass {
 private:
-  // CanonExprUtils/DDRefUtils provides wrapper functions on top of private
-  // functions of HIRParser like createBlob() etc.
-  friend class CanonExprUtils;
-  friend class DDRefUtils;
-
+  // CanonExprUtils provides wrapper functions on top of private functions of
+  // HIRParser like createBlob() etc.
+  friend class BlobUtils;
   // Needs to access getMaxScalarSymbase().
   friend class SymbaseAssignment;
+  // Provides access to hir_begin() to HIR transformations.
+  friend class HIRFramework;
 
   typedef std::pair<HLInst *, unsigned> InstLevelPair;
   typedef std::map<unsigned, SmallVector<InstLevelPair, 4>> SymbaseToInstMap;
+
+  typedef std::pair<BlobTy, unsigned> BlobSymbasePairTy;
+  typedef SmallVector<BlobSymbasePairTy, 64> BlobTableTy;
+
+  typedef std::pair<BlobTy, unsigned> BlobPtrIndexPairTy;
+  typedef SmallVector<BlobPtrIndexPairTy, 64> BlobToIndexTy;
 
   /// LI - The loop information for the function we are currently analyzing.
   LoopInfo *LI;
@@ -129,6 +138,19 @@ private:
   /// CurBlobLevelMap - Maps temp blob indices to nesting levels for the current
   /// DDRef. Level of -1 denotes non-linear blobs.
   SmallDenseMap<unsigned, int, 8> CurTempBlobLevelMap;
+
+  // BlobTable - vector containing blobs and corresponding symbases for the
+  // function.
+  BlobTableTy BlobTable;
+
+  // BlobToIndexMap - stores a mapping of blobs to corresponding indices for
+  // faster lookup.
+  BlobToIndexTy BlobToIndexMap;
+
+
+  // Used as comparators to sort blobs.
+  struct BlobPtrCompareLess;
+  struct BlobPtrCompareEqual;
 
   /// BaseSCEVCreator - Creates a base version of SCEV by replacing values by
   /// base values. Base value is representative of a symbase. This is to create
@@ -220,7 +242,7 @@ private:
   /// \brief Wrapper to find/insert Blob in the blob table and assign it a
   /// symbase, if applicable. Returns blob index and Symbase.
   /// This is only used during parsing.
-  unsigned findOrInsertBlobWrapper(CanonExpr::BlobTy Blob,
+  unsigned findOrInsertBlobWrapper(BlobTy Blob,
                                    unsigned *SymbasePtr = nullptr);
 
   /// \brief Adds an entry for the temp blob in blob maps.
@@ -234,12 +256,12 @@ private:
   /// \brief Breaks multiplication blobs such as (2 * n) into multiplier 2 and
   /// new blob n, otherwise sets the multiplier to 1. Also returns new or
   /// the orignal blob, as applicable.
-  void breakConstantMultiplierBlob(CanonExpr::BlobTy Blob, int64_t *Multiplier,
-                                   CanonExpr::BlobTy *NewBlob);
+  void breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
+                                   BlobTy *NewBlob);
 
   /// \brief Parses a blob into CE. If IVLevel is non-zero, blob is parsed as an
   /// IV coeff.
-  void parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
+  void parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                  unsigned IVLevel = 0);
 
   /// \brief Recursively parses SCEV tree into CanonExpr. IsTop is true when we
@@ -340,59 +362,94 @@ private:
   RegDDRef *createLvalDDRef(const Instruction *Inst, unsigned Level);
 
   /// \brief Helper to insert newly created blobs.
-  void insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase, bool Insert,
+  void insertBlobHelper(BlobTy Blob, unsigned Symbase, bool Insert,
                         unsigned *NewBlobIndex);
 
   // External interface follows. The following functions are called by the
   // framework utilities or other passes.
 
+  /// \brief Internal method to check blob index range.
+  bool isBlobIndexValid(unsigned Index) const;
+
+  /// \brief Implements find()/insert() functionality.
+  /// ReturnSymbase indicates whether to return blob index or symbase.
+  unsigned findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
+                                       bool Insert, bool ReturnSymbase);
+
+  /// \brief Returns the index of Blob in the blob table. Index range is [1,
+  /// UINT_MAX]. Returns INVALID_BLOB_INDEX if the blob is not present in the
+  /// table.
+  unsigned findBlob(BlobTy Blob);
+
+  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
+  /// non-temp or non-present blobs.
+  unsigned findBlobSymbase(BlobTy Blob);
+
+  /// \brief Returns the index of Blob in the blob table. Blob is first
+  /// inserted, if it isn't already present in the blob table. Index range is
+  /// [1, UINT_MAX].
+  unsigned findOrInsertBlob(BlobTy Blob, unsigned Symbase);
+
+  /// \brief Returns blob corresponding to Index.
+  BlobTy getBlob(unsigned Index) const;
+
+  /// \brief Returns symbase corresponding to Index. Returns invalid value for
+  /// non-temp non-present blobs.
+  unsigned getBlobSymbase(unsigned Index) const;
+
+  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
+  /// them in Indices.
+  void mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
+                                SmallVectorImpl<unsigned> &Indices);
+
+
   /// \brief Returns a new blob created from passed in Val.
-  CanonExpr::BlobTy createBlob(Value *Val, unsigned Symbase, bool Insert,
+  BlobTy createBlob(Value *Val, unsigned Symbase, bool Insert,
                                unsigned *NewBlobIndex);
 
   /// \brief Returns a new blob created from a constant value.
-  CanonExpr::BlobTy createBlob(int64_t Val, Type *Ty, bool Insert,
+  BlobTy createBlob(int64_t Val, Type *Ty, bool Insert,
                                unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+  BlobTy createAddBlob(BlobTy LHS, BlobTy RHS,
                                   bool Insert, unsigned *NewBlobIndex);
 
   /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createMinusBlob(CanonExpr::BlobTy LHS,
-                                    CanonExpr::BlobTy RHS, bool Insert,
+  BlobTy createMinusBlob(BlobTy LHS,
+                                    BlobTy RHS, bool Insert,
                                     unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createMulBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+  BlobTy createMulBlob(BlobTy LHS, BlobTy RHS,
                                   bool Insert, unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
   /// index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createUDivBlob(CanonExpr::BlobTy LHS, CanonExpr::BlobTy RHS,
+  BlobTy createUDivBlob(BlobTy LHS, BlobTy RHS,
                                    bool Insert, unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createTruncateBlob(CanonExpr::BlobTy Blob, Type *Ty,
+  BlobTy createTruncateBlob(BlobTy Blob, Type *Ty,
                                        bool Insert, unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createZeroExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
+  BlobTy createZeroExtendBlob(BlobTy Blob, Type *Ty,
                                          bool Insert, unsigned *NewBlobIndex);
   /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
   /// true its index is returned via NewBlobIndex argument.
-  CanonExpr::BlobTy createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty,
+  BlobTy createSignExtendBlob(BlobTy Blob, Type *Ty,
                                          bool Insert, unsigned *NewBlobIndex);
 
   // TODO handle min/max blobs.
 
   /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
-  bool contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob);
+  bool contains(BlobTy Blob, BlobTy SubBlob) const;
 
   /// \brief Collects and returns temp blobs present inside Blob.
-  void collectTempBlobs(CanonExpr::BlobTy Blob,
-                        SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) const;
+  void collectTempBlobs(BlobTy Blob,
+                        SmallVectorImpl<BlobTy> &TempBlobs) const;
 
   /// \brief Returns the max symbase assigned to any temp.
   unsigned getMaxScalarSymbase() const;
@@ -405,33 +462,23 @@ private:
   void printScalar(raw_ostream &OS, unsigned Symbase) const;
 
   /// \brief Prints blob.
-  void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const;
+  void printBlob(raw_ostream &OS, BlobTy Blob) const;
 
   /// \brief Checks if the blob is constant or not.
   /// If blob is constant, sets the return value in Val.
-  bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const;
+  bool isConstantIntBlob(BlobTy Blob, int64_t *Val) const;
 
   /// \brief Returns true if this is a temp blob.
-  bool isTempBlob(CanonExpr::BlobTy Blob) const;
+  bool isTempBlob(BlobTy Blob) const;
 
   /// \brief Returns true if TempBlob always has a defined at level of zero.
-  bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const;
+  bool isGuaranteedProperLinear(BlobTy TempBlob) const;
 
   /// \brief Returns true if this is an UndefValue blob.
-  bool isUndefBlob(CanonExpr::BlobTy Blob) const;
+  bool isUndefBlob(BlobTy Blob) const;
 
   /// \brief Returns true if Blob represents a constant FP value.
-  bool isConstantFPBlob(CanonExpr::BlobTy Blob) const;
-
-public:
-  static char ID; // Pass identification
-  HIRParser();
-
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
-  void print(raw_ostream &OS, const Module * = nullptr) const override;
-  void verifyAnalysis() const override;
+  bool isConstantFPBlob(BlobTy Blob) const;
 
   LLVMContext &getContext() const;
   const DataLayout &getDataLayout() const;
@@ -443,11 +490,21 @@ public:
   HIRCreation::const_iterator hir_cend() const { return HIR->end(); }
 
   HIRCreation::reverse_iterator hir_rbegin() { return HIR->rbegin(); }
-  HIRCreation::const_reverse_iterator hir_rbegin() const {
+  HIRCreation::const_reverse_iterator hir_crbegin() const {
     return HIR->rbegin();
   }
   HIRCreation::reverse_iterator hir_rend() { return HIR->rend(); }
-  HIRCreation::const_reverse_iterator hir_rend() const { return HIR->rend(); }
+  HIRCreation::const_reverse_iterator hir_crend() const { return HIR->rend(); }
+
+public:
+  static char ID; // Pass identification
+  HIRParser();
+
+  bool runOnFunction(Function &F) override;
+  void releaseMemory() override;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void print(raw_ostream &OS, const Module * = nullptr) const override;
+  void verifyAnalysis() const override;
 };
 
 } // End namespace loopopt

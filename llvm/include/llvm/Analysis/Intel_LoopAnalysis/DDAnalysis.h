@@ -39,8 +39,7 @@ class HLNode;
 class HLRegion;
 class HLDDNode;
 class HLLoop;
-class HIRParser;
-class SymbaseAssignment;
+class HIRFramework;
 class DirectionVector;
 class DDGraph;
 
@@ -143,8 +142,7 @@ public:
   // init_incremental_rebuild(HLNode*)
 private:
   Function *F;
-  HIRParser *HIRP;
-  SymbaseAssignment *SA;
+  HIRFramework *HIRF;
 
   DenseMap<HLNode *, bool> GraphValidityMap;
 

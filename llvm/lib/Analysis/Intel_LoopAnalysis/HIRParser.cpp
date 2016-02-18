@@ -42,10 +42,10 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/ScalarSymbaseAssignment.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 using namespace llvm;
 using namespace llvm::loopopt;
@@ -115,7 +115,91 @@ void HIRParser::insertHIRLval(const Value *Lval, unsigned Symbase) {
   ScalarSA->insertHIRLval(Lval, Symbase);
 }
 
-bool HIRParser::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const {
+// Used to keep BlobToIndexMap sorted by blob address.
+struct HIRParser::BlobPtrCompareLess {
+  bool operator()(const HIRParser::BlobPtrIndexPairTy &B1,
+                  const HIRParser::BlobPtrIndexPairTy &B2) {
+    return B1.first < B2.first;
+  }
+};
+
+// Used to keep BlobToIndexMap sorted by blob address.
+struct HIRParser::BlobPtrCompareEqual {
+  bool operator()(const HIRParser::BlobPtrIndexPairTy &B1,
+                  const HIRParser::BlobPtrIndexPairTy &B2) {
+    return B1.first == B2.first;
+  }
+};
+
+unsigned HIRParser::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
+                                         bool Insert, bool ReturnSymbase) {
+  assert(Blob && "Blob is null!");
+
+  BlobPtrIndexPairTy BlobPair(Blob, INVALID_BLOB_INDEX);
+
+  auto I = std::lower_bound(BlobToIndexMap.begin(), BlobToIndexMap.end(),
+                            BlobPair, HIRParser::BlobPtrCompareLess());
+
+  if ((I != BlobToIndexMap.end()) &&
+      HIRParser::BlobPtrCompareEqual()(*I, BlobPair)) {
+    assert((getBlob(I->second) == I->first) &&
+           "Inconsistent blob index mapping encountered!");
+    return ReturnSymbase ? getBlobSymbase(I->second) : I->second;
+  }
+
+  if (Insert) {
+    assert((!isTempBlob(Blob) || (Symbase > CONSTANT_SYMBASE)) &&
+           "Invalid Blob/Symbase combination!");
+
+    BlobTable.push_back(std::make_pair(Blob, Symbase));
+
+    // Store blob ptr and index mapping for faster lookup.
+    BlobToIndexMap.insert(I, BlobPtrIndexPairTy(Blob, BlobTable.size()));
+
+    return BlobTable.size();
+  }
+
+  return ReturnSymbase ? INVALID_SYMBASE : INVALID_BLOB_INDEX;
+}
+
+unsigned HIRParser::findBlob(BlobTy Blob) {
+  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, false);
+  ;
+}
+
+unsigned HIRParser::findBlobSymbase(BlobTy Blob) {
+  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, true);
+}
+
+unsigned HIRParser::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
+  return findOrInsertBlobImpl(Blob, Symbase, true, false);
+}
+
+BlobTy HIRParser::getBlob(unsigned Index) const {
+  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
+  return BlobTable[Index - 1].first;
+}
+
+unsigned HIRParser::getBlobSymbase(unsigned Index) const {
+  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
+  return BlobTable[Index - 1].second;
+}
+
+bool HIRParser::isBlobIndexValid(unsigned Index) const {
+  return ((Index > INVALID_BLOB_INDEX) && (Index <= BlobTable.size()));
+}
+
+void HIRParser::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
+                                  SmallVectorImpl<unsigned> &Indices) {
+  for (auto &I : Blobs) {
+    unsigned Index = findBlob(I);
+    assert(Index && "Could not find index of temp blob!");
+
+    Indices.push_back(Index);
+  }
+}
+
+bool HIRParser::isConstantIntBlob(BlobTy Blob, int64_t *Val) const {
 
   // Check if this Blob is of Constant Type
   const SCEVConstant *SConst = dyn_cast<SCEVConstant>(Blob);
@@ -128,7 +212,7 @@ bool HIRParser::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) const {
   return true;
 }
 
-bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
+bool HIRParser::isTempBlob(BlobTy Blob) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     Type *Ty;
     Constant *FieldNo;
@@ -143,7 +227,7 @@ bool HIRParser::isTempBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
-bool HIRParser::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const {
+bool HIRParser::isGuaranteedProperLinear(BlobTy TempBlob) const {
   assert(isTempBlob(TempBlob) && "Not a temp blob!");
 
   auto UnknownSCEV = cast<SCEVUnknown>(TempBlob);
@@ -151,7 +235,7 @@ bool HIRParser::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) const {
   return !isa<Instruction>(UnknownSCEV->getValue());
 }
 
-bool HIRParser::isUndefBlob(CanonExpr::BlobTy Blob) const {
+bool HIRParser::isUndefBlob(BlobTy Blob) const {
   Value *V = nullptr;
 
   if (auto *UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
@@ -166,7 +250,7 @@ bool HIRParser::isUndefBlob(CanonExpr::BlobTy Blob) const {
   return isa<UndefValue>(V);
 }
 
-bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob) const {
+bool HIRParser::isConstantFPBlob(BlobTy Blob) const {
   if (auto UnknownSCEV = dyn_cast<SCEVUnknown>(Blob)) {
     return isa<ConstantFP>(UnknownSCEV->getValue());
   }
@@ -174,10 +258,10 @@ bool HIRParser::isConstantFPBlob(CanonExpr::BlobTy Blob) const {
   return false;
 }
 
-void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase,
-                                 bool Insert, unsigned *NewBlobIndex) {
+void HIRParser::insertBlobHelper(BlobTy Blob, unsigned Symbase, bool Insert,
+                                 unsigned *NewBlobIndex) {
   if (Insert) {
-    unsigned BlobIndex = CanonExprUtils::findOrInsertBlob(Blob, Symbase);
+    unsigned BlobIndex = findOrInsertBlob(Blob, Symbase);
 
     if (NewBlobIndex) {
       *NewBlobIndex = BlobIndex;
@@ -185,8 +269,8 @@ void HIRParser::insertBlobHelper(CanonExpr::BlobTy Blob, unsigned Symbase,
   }
 }
 
-CanonExpr::BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase,
-                                        bool Insert, unsigned *NewBlobIndex) {
+BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase, bool Insert,
+                             unsigned *NewBlobIndex) {
   assert(Val && "Value cannot be null!");
 
   auto Blob = SE->getUnknown(Val);
@@ -196,8 +280,8 @@ CanonExpr::BlobTy HIRParser::createBlob(Value *Val, unsigned Symbase,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
-                                        unsigned *NewBlobIndex) {
+BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
+                             unsigned *NewBlobIndex) {
 
   assert(Ty && "Type cannot be null!");
   auto Blob = SE->getConstant(Ty, Val, false);
@@ -207,9 +291,8 @@ CanonExpr::BlobTy HIRParser::createBlob(int64_t Val, Type *Ty, bool Insert,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
-                                           CanonExpr::BlobTy RHS, bool Insert,
-                                           unsigned *NewBlobIndex) {
+BlobTy HIRParser::createAddBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getAddExpr(LHS, RHS);
@@ -219,9 +302,8 @@ CanonExpr::BlobTy HIRParser::createAddBlob(CanonExpr::BlobTy LHS,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
-                                             CanonExpr::BlobTy RHS, bool Insert,
-                                             unsigned *NewBlobIndex) {
+BlobTy HIRParser::createMinusBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                  unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getMinusSCEV(LHS, RHS);
@@ -231,9 +313,8 @@ CanonExpr::BlobTy HIRParser::createMinusBlob(CanonExpr::BlobTy LHS,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
-                                           CanonExpr::BlobTy RHS, bool Insert,
-                                           unsigned *NewBlobIndex) {
+BlobTy HIRParser::createMulBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getMulExpr(LHS, RHS);
@@ -243,9 +324,8 @@ CanonExpr::BlobTy HIRParser::createMulBlob(CanonExpr::BlobTy LHS,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
-                                            CanonExpr::BlobTy RHS, bool Insert,
-                                            unsigned *NewBlobIndex) {
+BlobTy HIRParser::createUDivBlob(BlobTy LHS, BlobTy RHS, bool Insert,
+                                 unsigned *NewBlobIndex) {
   assert(LHS && RHS && "Blob cannot be null!");
 
   auto Blob = SE->getUDivExpr(LHS, RHS);
@@ -255,9 +335,8 @@ CanonExpr::BlobTy HIRParser::createUDivBlob(CanonExpr::BlobTy LHS,
   return Blob;
 }
 
-CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
-                                                Type *Ty, bool Insert,
-                                                unsigned *NewBlobIndex) {
+BlobTy HIRParser::createTruncateBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                     unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
@@ -268,9 +347,8 @@ CanonExpr::BlobTy HIRParser::createTruncateBlob(CanonExpr::BlobTy Blob,
   return NewBlob;
 }
 
-CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
-                                                  Type *Ty, bool Insert,
-                                                  unsigned *NewBlobIndex) {
+BlobTy HIRParser::createZeroExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                       unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
@@ -281,9 +359,8 @@ CanonExpr::BlobTy HIRParser::createZeroExtendBlob(CanonExpr::BlobTy Blob,
   return NewBlob;
 }
 
-CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
-                                                  Type *Ty, bool Insert,
-                                                  unsigned *NewBlobIndex) {
+BlobTy HIRParser::createSignExtendBlob(BlobTy Blob, Type *Ty, bool Insert,
+                                       unsigned *NewBlobIndex) {
   assert(Blob && "Blob cannot be null!");
   assert(Ty && "Type cannot be null!");
 
@@ -294,7 +371,7 @@ CanonExpr::BlobTy HIRParser::createSignExtendBlob(CanonExpr::BlobTy Blob,
   return NewBlob;
 }
 
-bool HIRParser::contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob) {
+bool HIRParser::contains(BlobTy Blob, BlobTy SubBlob) const {
   assert(Blob && "Blob cannot be null!");
   assert(SubBlob && "SubBlob cannot be null!");
 
@@ -303,19 +380,18 @@ bool HIRParser::contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob) {
 
 class HIRParser::TempBlobCollector {
 private:
-  const HIRParser *HIRP;
-  SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs;
+  const HIRParser &HIRP;
+  SmallVectorImpl<BlobTy> &TempBlobs;
 
 public:
-  TempBlobCollector(const HIRParser *HIRP,
-                    SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs)
+  TempBlobCollector(const HIRParser &HIRP, SmallVectorImpl<BlobTy> &TempBlobs)
       : HIRP(HIRP), TempBlobs(TempBlobs) {}
 
   ~TempBlobCollector() {}
 
   bool follow(const SCEV *SC) const {
 
-    if (HIRP->isTempBlob(SC)) {
+    if (HIRP.isTempBlob(SC)) {
       TempBlobs.push_back(SC);
     }
 
@@ -325,10 +401,9 @@ public:
   bool isDone() const { return false; }
 };
 
-void HIRParser::collectTempBlobs(
-    CanonExpr::BlobTy Blob,
-    SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) const {
-  TempBlobCollector TBC(this, TempBlobs);
+void HIRParser::collectTempBlobs(BlobTy Blob,
+                                 SmallVectorImpl<BlobTy> &TempBlobs) const {
+  TempBlobCollector TBC(*this, TempBlobs);
   SCEVTraversal<TempBlobCollector> Collector(TBC);
   Collector.visitAll(Blob);
 }
@@ -863,7 +938,7 @@ void HIRParser::printScalar(raw_ostream &OS, unsigned Symbase) const {
   ScalarSA->getBaseScalar(Symbase)->printAsOperand(OS, false);
 }
 
-void HIRParser::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) const {
+void HIRParser::printBlob(raw_ostream &OS, BlobTy Blob) const {
 
   if (isa<SCEVConstant>(Blob)) {
     OS << *Blob;
@@ -991,6 +1066,7 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
   // If the CE is already non-linear, DefinedAtLevel cannot be refined any
   // further.
   if (!CE->isNonLinear()) {
+    // TODO: use CanonExprUtils::hasNonLinearSemantics()
     if (DefLevel >= NestingLevel) {
       // Make non-linear instead.
       CE->setNonLinear();
@@ -1003,13 +1079,13 @@ void HIRParser::setCanonExprDefLevel(CanonExpr *CE, unsigned NestingLevel,
 void HIRParser::addTempBlobEntry(unsigned Index, unsigned NestingLevel,
                                  unsigned DefLevel) {
   // -1 indicates non-linear blob
+  // TODO: use CanonExprUtils::hasNonLinearSemantics()
   int Level = (DefLevel >= NestingLevel) ? -1 : DefLevel;
 
   CurTempBlobLevelMap.insert(std::make_pair(Index, Level));
 }
 
-unsigned HIRParser::findOrInsertBlobWrapper(CanonExpr::BlobTy Blob,
-                                            unsigned *SymbasePtr) {
+unsigned HIRParser::findOrInsertBlobWrapper(BlobTy Blob, unsigned *SymbasePtr) {
   unsigned Symbase = INVALID_SYMBASE;
 
   if (isTempBlob(Blob)) {
@@ -1021,7 +1097,7 @@ unsigned HIRParser::findOrInsertBlobWrapper(CanonExpr::BlobTy Blob,
     *SymbasePtr = Symbase;
   }
 
-  return CanonExprUtils::findOrInsertBlob(Blob, Symbase);
+  return findOrInsertBlob(Blob, Symbase);
 }
 
 void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
@@ -1036,15 +1112,16 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
   if (auto Inst = dyn_cast<Instruction>(Temp)) {
     auto Lp = LI->getLoopFor(Inst->getParent());
 
-    if (Lp && (HLoop = LF->findHLLoop(Lp))) {
+    // First check whether the instruction is outisde the current region. If Lp
+    // belongs to another region, the second check will pass and we will set an
+    // incorrect DefLevel.
+    if (!CurRegion->containsBBlock(Inst->getParent())) {
+      // Add blob as a livein temp.
+      CurRegion->addLiveInTemp(Symbase, Temp);
+      NestingLevel++;
+    } else if (Lp && (HLoop = LF->findHLLoop(Lp))) {
       DefLevel = HLoop->getNestingLevel();
-
     } else {
-
-      if (!CurRegion->containsBBlock(Inst->getParent())) {
-        // Blob lies outside the region, add it as a livein temp.
-        CurRegion->addLiveInTemp(Symbase, Temp);
-      }
 
       // Workaround to mark blob as linear even if the nesting level is zero.
       // All blobs defined outside any loop are treated as linear regardless of
@@ -1053,6 +1130,7 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
       // definition. The trade-off is a logical inconsistency where the blob is
       // defined inside the region and its uses outside any loop are still
       // marked as linear.
+      // TODO: remove workaround.
       NestingLevel++;
     }
 
@@ -1078,9 +1156,8 @@ void HIRParser::setTempBlobLevel(const SCEVUnknown *TempBlobSCEV, CanonExpr *CE,
   RequiredSymbases.insert(Symbase);
 }
 
-void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
-                                            int64_t *Multiplier,
-                                            CanonExpr::BlobTy *NewBlob) {
+void HIRParser::breakConstantMultiplierBlob(BlobTy Blob, int64_t *Multiplier,
+                                            BlobTy *NewBlob) {
 
   if (auto MulSCEV = dyn_cast<SCEVMulExpr>(Blob)) {
     for (auto I = MulSCEV->op_begin(), E = MulSCEV->op_end(); I != E; ++I) {
@@ -1101,7 +1178,7 @@ void HIRParser::breakConstantMultiplierBlob(CanonExpr::BlobTy Blob,
   return;
 }
 
-void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
+void HIRParser::parseBlob(BlobTy Blob, CanonExpr *CE, unsigned Level,
                           unsigned IVLevel) {
   int64_t Multiplier;
   unsigned Index;
@@ -1110,7 +1187,7 @@ void HIRParser::parseBlob(CanonExpr::BlobTy Blob, CanonExpr *CE, unsigned Level,
   BaseSCEVCreator BSC(this);
   Blob = BSC.visit(Blob);
 
-  CanonExpr::BlobTy NewBlob;
+  BlobTy NewBlob;
   breakConstantMultiplierBlob(Blob, &Multiplier, &NewBlob);
 
   Index = findOrInsertBlobWrapper(NewBlob);
@@ -1301,7 +1378,7 @@ void HIRParser::clearTempBlobLevelMap() { CurTempBlobLevelMap.clear(); }
 void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
   for (auto I = CurTempBlobLevelMap.begin(), E = CurTempBlobLevelMap.end();
        I != E; ++I) {
-    auto Blob = CanonExprUtils::getBlob(I->first);
+    auto Blob = getBlob(I->first);
     (void)Blob;
     assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
 
@@ -1357,7 +1434,7 @@ RegDDRef *HIRParser::createUpperDDRef(const SCEV *BETC, unsigned Level,
 
   // Update DDRef's symbase to blob's symbase for self-blob DDRefs.
   if (CE->isSelfBlob()) {
-    Ref->setSymbase(CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex()));
+    Ref->setSymbase(getBlobSymbase(CE->getSingleBlobIndex()));
   } else {
     populateBlobDDRefs(Ref);
   }
@@ -1950,7 +2027,7 @@ RegDDRef *HIRParser::createGEPDDRef(const Value *GEPVal, unsigned Level,
 
 RegDDRef *HIRParser::createUndefDDRef(Type *Ty) {
   Value *UndefVal = UndefValue::get(Ty);
-  CanonExpr::BlobTy Blob = SE->getUnknown(UndefVal);
+  BlobTy Blob = SE->getUnknown(UndefVal);
 
   auto Symbase = ScalarSA->getOrAssignScalarSymbase(UndefVal);
 
@@ -1993,7 +2070,7 @@ RegDDRef *HIRParser::createScalarDDRef(const Value *Val, unsigned Level,
   Ref->setSingleCanonExpr(CE);
 
   if (CE->isSelfBlob()) {
-    unsigned SB = CanonExprUtils::getBlobSymbase(CE->getSingleBlobIndex());
+    unsigned SB = getBlobSymbase(CE->getSingleBlobIndex());
 
     // Update rval DDRef's symbase to blob's symbase for self-blob DDRefs.
     if (!IsLval) {
@@ -2195,7 +2272,7 @@ bool HIRParser::runOnFunction(Function &F) {
   LF = &getAnalysis<LoopFormation>();
   ScalarSA = &getAnalysis<ScalarSymbaseAssignment>();
 
-  HLUtils::setHIRParser(this);
+  BlobUtils::setHIRParser(this);
 
   // We parse one region at a time to preserve CurRegion during phase2.
   for (auto I = HIR->begin(), E = HIR->end(); I != E; ++I) {
@@ -2210,8 +2287,6 @@ bool HIRParser::runOnFunction(Function &F) {
     phase2Parse();
   }
 
-  HLNodeUtils::initTopSortNum();
-
   return false;
 }
 
@@ -2223,6 +2298,8 @@ void HIRParser::releaseMemory() {
   CurTempBlobLevelMap.clear();
   UnclassifiedSymbaseInsts.clear();
   RequiredSymbases.clear();
+  BlobTable.clear();
+  BlobToIndexMap.clear();
 }
 
 LLVMContext &HIRParser::getContext() const { return Func->getContext(); }

@@ -14,26 +14,24 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/Constants.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/IR/LLVMContext.h"
 
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionExpressions.h"
-
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/ScalarEvolutionExpressions.h"
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 
 #define DEBUG_TYPE "hir-canon-utils"
 
 using namespace llvm;
 using namespace loopopt;
 
-HIRParser *HLUtils::HIRPar(nullptr);
+HIRFramework *HLUtils::HIRF(nullptr);
 
 CanonExpr *CanonExprUtils::createCanonExpr(Type *Ty, unsigned Level,
                                            int64_t Const, int64_t Denom,
@@ -94,146 +92,20 @@ int64_t CanonExprUtils::lcm(int64_t A, int64_t B) {
   return ((A * B) / gcd(A, B));
 }
 
-unsigned CanonExprUtils::findBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findBlob(Blob);
-}
-
-unsigned CanonExprUtils::findBlobSymbase(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findBlobSymbase(Blob);
-}
-
-unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob,
-                                          unsigned Symbase) {
-  return CanonExpr::findOrInsertBlob(Blob, Symbase);
-}
-
-unsigned CanonExprUtils::findOrInsertBlob(CanonExpr::BlobTy Blob) {
-  return CanonExpr::findOrInsertBlob(Blob, 0);
-}
-
-void CanonExprUtils::mapBlobsToIndices(
-    const SmallVectorImpl<CanonExpr::BlobTy> &Blobs,
-    SmallVectorImpl<unsigned> &Indices) {
-  CanonExpr::mapBlobsToIndices(Blobs, Indices);
-  return;
-}
-
-CanonExpr::BlobTy CanonExprUtils::getBlob(unsigned BlobIndex) {
-  return CanonExpr::getBlob(BlobIndex);
-}
-
-unsigned CanonExprUtils::getBlobSymbase(unsigned BlobIndex) {
-  return CanonExpr::getBlobSymbase(BlobIndex);
-}
-
-void CanonExprUtils::printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob) {
-  getHIRParser()->printBlob(OS, Blob);
-}
-
-void CanonExprUtils::printScalar(raw_ostream &OS, unsigned Symbase) {
-  getHIRParser()->printScalar(OS, Symbase);
-}
-
-bool CanonExprUtils::isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val) {
-  return getHIRParser()->isConstantIntBlob(Blob, Val);
-}
-
-bool CanonExprUtils::isTempBlob(CanonExpr::BlobTy Blob) {
-  return getHIRParser()->isTempBlob(Blob);
-}
-
-bool CanonExprUtils::isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob) {
-  return getHIRParser()->isGuaranteedProperLinear(TempBlob);
-}
-
-bool CanonExprUtils::isUndefBlob(CanonExpr::BlobTy Blob) {
-  return getHIRParser()->isUndefBlob(Blob);
-}
-
-bool CanonExprUtils::isConstantFPBlob(CanonExpr::BlobTy Blob) {
-  return getHIRParser()->isConstantFPBlob(Blob);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createBlob(Value *Val, bool Insert,
-                                             unsigned *NewBlobIndex) {
-  return getHIRParser()->createBlob(Val, 0, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createBlob(int64_t Val, Type *Ty, bool Insert,
-                                             unsigned *NewBlobIndex) {
-  return getHIRParser()->createBlob(Val, Ty, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createAddBlob(CanonExpr::BlobTy LHS,
-                                                CanonExpr::BlobTy RHS,
-                                                bool Insert,
-                                                unsigned *NewBlobIndex) {
-  return getHIRParser()->createAddBlob(LHS, RHS, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createMinusBlob(CanonExpr::BlobTy LHS,
-                                                  CanonExpr::BlobTy RHS,
-                                                  bool Insert,
-                                                  unsigned *NewBlobIndex) {
-  return getHIRParser()->createMinusBlob(LHS, RHS, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createMulBlob(CanonExpr::BlobTy LHS,
-                                                CanonExpr::BlobTy RHS,
-                                                bool Insert,
-                                                unsigned *NewBlobIndex) {
-  return getHIRParser()->createMulBlob(LHS, RHS, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createUDivBlob(CanonExpr::BlobTy LHS,
-                                                 CanonExpr::BlobTy RHS,
-                                                 bool Insert,
-                                                 unsigned *NewBlobIndex) {
-  return getHIRParser()->createUDivBlob(LHS, RHS, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createTruncateBlob(CanonExpr::BlobTy Blob,
-                                                     Type *Ty, bool Insert,
-                                                     unsigned *NewBlobIndex) {
-  return getHIRParser()->createTruncateBlob(Blob, Ty, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createZeroExtendBlob(CanonExpr::BlobTy Blob,
-                                                       Type *Ty, bool Insert,
-                                                       unsigned *NewBlobIndex) {
-  return getHIRParser()->createZeroExtendBlob(Blob, Ty, Insert, NewBlobIndex);
-}
-
-CanonExpr::BlobTy CanonExprUtils::createSignExtendBlob(CanonExpr::BlobTy Blob,
-                                                       Type *Ty, bool Insert,
-                                                       unsigned *NewBlobIndex) {
-  return getHIRParser()->createSignExtendBlob(Blob, Ty, Insert, NewBlobIndex);
-}
-
-bool CanonExprUtils::contains(CanonExpr::BlobTy Blob,
-                              CanonExpr::BlobTy SubBlob) {
-  return getHIRParser()->contains(Blob, SubBlob);
-}
-
-void CanonExprUtils::collectTempBlobs(
-    CanonExpr::BlobTy Blob, SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs) {
-  return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
-}
-
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
                                                    unsigned Symbase) {
   unsigned Index = 0;
 
-  getHIRParser()->createBlob(Temp, Symbase, true, &Index);
+  BlobUtils::createBlob(Temp, Symbase, true, &Index);
   auto CE = createSelfBlobCanonExpr(Index, -1);
 
   return CE;
 }
 
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
-  auto Blob = getBlob(Index);
+  auto Blob = BlobUtils::getBlob(Index);
 
-  assert(isTempBlob(Blob) && "Unexpected temp blob!");
+  assert(BlobUtils::isTempBlob(Blob) && "Unexpected temp blob!");
 
   auto CE = createCanonExpr(Blob->getType());
   CE->addBlob(Index, 1);
@@ -245,7 +117,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
     CE->setDefinedAtLevel(Level);
   }
 
-  if (isUndefBlob(Blob)) {
+  if (BlobUtils::isUndefBlob(Blob)) {
     CE->setContainsUndef();
   }
 
@@ -253,7 +125,7 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
 }
 
 uint64_t CanonExprUtils::getTypeSizeInBits(Type *Ty) {
-  return getHIRParser()->getDataLayout().getTypeSizeInBits(Ty);
+  return getHIRFramework()->getDataLayout().getTypeSizeInBits(Ty);
 }
 
 bool CanonExprUtils::isTypeEqual(const CanonExpr *CE1, const CanonExpr *CE2,

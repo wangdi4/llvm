@@ -19,15 +19,13 @@
 
 #include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 
 using namespace llvm;
 using namespace loopopt;
 
 std::set<CanonExpr *> CanonExpr::Objs;
-CanonExpr::BlobTableTy CanonExpr::BlobTable;
-CanonExpr::BlobToIndexTy CanonExpr::BlobToIndexMap;
-const unsigned CanonExpr::INVALID_BLOB_INDEX;
 
 CanonExpr::BlobIndexToCoeff::BlobIndexToCoeff(unsigned Indx, int64_t Coef)
     : Index(Indx), Coeff(Coef) {}
@@ -70,8 +68,6 @@ void CanonExpr::destroyAll() {
   }
 
   Objs.clear();
-  BlobTable.clear();
-  BlobToIndexMap.clear();
 }
 
 CanonExpr *CanonExpr::clone() const {
@@ -136,7 +132,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
         OS << I->Coeff << " * ";
       }
       if (I->Index != INVALID_BLOB_INDEX) {
-        CanonExprUtils::printBlob(OS, getBlob(I->Index));
+        BlobUtils::printBlob(OS, BlobUtils::getBlob(I->Index));
         OS << " * ";
       }
       OS << "i" << getLevel(I);
@@ -154,7 +150,7 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
       if (I->Coeff != 1) {
         OS << I->Coeff << " * ";
       }
-      CanonExprUtils::printBlob(OS, getBlob(I->Index));
+      BlobUtils::printBlob(OS, BlobUtils::getBlob(I->Index));
     }
   }
 
@@ -186,87 +182,13 @@ void CanonExpr::print(formatted_raw_ostream &OS, bool Detailed) const {
   }
 }
 
-// Used to keep BlobToIndexMap sorted by blob address.
-struct BlobPtrCompareLess {
-  bool operator()(const CanonExpr::BlobPtrIndexPairTy &B1,
-                  const CanonExpr::BlobPtrIndexPairTy &B2) {
-    return B1.first < B2.first;
-  }
-};
-
-// Used to keep BlobToIndexMap sorted by blob address.
-struct BlobPtrCompareEqual {
-  bool operator()(const CanonExpr::BlobPtrIndexPairTy &B1,
-                  const CanonExpr::BlobPtrIndexPairTy &B2) {
-    return B1.first == B2.first;
-  }
-};
-
-unsigned CanonExpr::findOrInsertBlobImpl(BlobTy Blob, unsigned Symbase,
-                                         bool Insert, bool ReturnSymbase) {
-  assert(Blob && "Blob is null!");
-
-  BlobPtrIndexPairTy BlobPair(Blob, INVALID_BLOB_INDEX);
-
-  auto I = std::lower_bound(BlobToIndexMap.begin(), BlobToIndexMap.end(),
-                            BlobPair, BlobPtrCompareLess());
-
-  if ((I != BlobToIndexMap.end()) && BlobPtrCompareEqual()(*I, BlobPair)) {
-    assert((getBlob(I->second) == I->first) &&
-           "Inconsistent blob index mapping encountered!");
-    return ReturnSymbase ? getBlobSymbase(I->second) : I->second;
-  }
-
-  if (Insert) {
-    assert(
-        (!CanonExprUtils::isTempBlob(Blob) || (Symbase > CONSTANT_SYMBASE)) &&
-        "Invalid Blob/Symbase combination!");
-
-    BlobTable.push_back(std::make_pair(Blob, Symbase));
-
-    // Store blob ptr and index mapping for faster lookup.
-    BlobToIndexMap.insert(I, BlobPtrIndexPairTy(Blob, BlobTable.size()));
-
-    return BlobTable.size();
-  }
-
-  return ReturnSymbase ? INVALID_SYMBASE : INVALID_BLOB_INDEX;
-}
-
-unsigned CanonExpr::findBlob(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, false);
-  ;
-}
-
-unsigned CanonExpr::findBlobSymbase(BlobTy Blob) {
-  return findOrInsertBlobImpl(Blob, INVALID_SYMBASE, false, true);
-}
-
-unsigned CanonExpr::findOrInsertBlob(BlobTy Blob, unsigned Symbase) {
-  return findOrInsertBlobImpl(Blob, Symbase, true, false);
-}
-
-bool CanonExpr::isBlobIndexValid(unsigned Index) {
-  return ((Index > INVALID_BLOB_INDEX) && (Index <= BlobTable.size()));
-}
-
 bool CanonExpr::isLevelValid(unsigned Level) {
   return ((Level > 0) && (Level <= MaxLoopNestLevel));
 }
 
-CanonExpr::BlobTy CanonExpr::getBlob(unsigned Index) {
-  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
-  return BlobTable[Index - 1].first;
-}
-
-unsigned CanonExpr::getBlobSymbase(unsigned Index) {
-  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
-  return BlobTable[Index - 1].second;
-}
-
 bool CanonExpr::isSelfBlob() const {
   return (isStandAloneBlob() &&
-          CanonExprUtils::isTempBlob(getBlob(getSingleBlobIndex())));
+          BlobUtils::isTempBlob(BlobUtils::getBlob(getSingleBlobIndex())));
 }
 
 void CanonExpr::setDenominator(int64_t Val, bool Simplify) {
@@ -337,7 +259,7 @@ bool CanonExpr::isFPConstant() const {
     return false;
   }
 
-  return CanonExprUtils::isConstantFPBlob(getBlob(getSingleBlobIndex()));
+  return BlobUtils::isConstantFPBlob(BlobUtils::getBlob(getSingleBlobIndex()));
 }
 
 bool CanonExpr::isNull() const {
@@ -465,8 +387,9 @@ void CanonExpr::setIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff,
                               bool OverwriteIndex, bool OverwriteCoeff) {
 
   assert(isLevelValid(Lvl) && "Level is out of bounds!");
-  assert(((Index == INVALID_BLOB_INDEX) || isBlobIndexValid(Index)) &&
-         "Blob Index is invalid!");
+  assert(
+      ((Index == INVALID_BLOB_INDEX) || BlobUtils::isBlobIndexValid(Index)) &&
+      "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -508,8 +431,9 @@ void CanonExpr::setIVConstCoeff(iv_iterator IVI, int64_t Coeff) {
 void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
 
   assert(isLevelValid(Lvl) && "Level is out of bounds!");
-  assert(((Index == INVALID_BLOB_INDEX) || isBlobIndexValid(Index)) &&
-         "Blob Index is invalid!");
+  assert(
+      ((Index == INVALID_BLOB_INDEX) || BlobUtils::isBlobIndexValid(Index)) &&
+      "Blob Index is invalid!");
 
   resizeIVCoeffsToMax(Lvl);
 
@@ -533,33 +457,32 @@ void CanonExpr::addIVInternal(unsigned Lvl, unsigned Index, int64_t Coeff) {
     int64_t NewCoeff = 1;
 
     // Create a mul blob from new index/coeff.
-    MulBlob1 = CanonExprUtils::createBlob(Coeff, getSrcType(), false);
+    MulBlob1 = BlobUtils::createBlob(Coeff, getSrcType(), false);
 
     if (Index != INVALID_BLOB_INDEX) {
-      MulBlob1 = CanonExprUtils::createMulBlob(MulBlob1, getBlob(Index), true,
-                                               &NewIndex);
+      MulBlob1 = BlobUtils::createMulBlob(MulBlob1, BlobUtils::getBlob(Index),
+                                          true, &NewIndex);
     }
 
     // Create a mul blob from existing index/coeff.
     if (IVCoeffs[Lvl - 1].Coeff) {
-      MulBlob2 = CanonExprUtils::createBlob(IVCoeffs[Lvl - 1].Coeff,
-                                            getSrcType(), false);
+      MulBlob2 =
+          BlobUtils::createBlob(IVCoeffs[Lvl - 1].Coeff, getSrcType(), false);
 
       if (IVCoeffs[Lvl - 1].Index != INVALID_BLOB_INDEX) {
-        MulBlob2 = CanonExprUtils::createMulBlob(
-            MulBlob2, getBlob(IVCoeffs[Lvl - 1].Index), false);
+        MulBlob2 = BlobUtils::createMulBlob(
+            MulBlob2, BlobUtils::getBlob(IVCoeffs[Lvl - 1].Index), false);
       }
     }
 
     // Create an add blob, if necessary.
     if (MulBlob2) {
-      AddBlob =
-          CanonExprUtils::createAddBlob(MulBlob1, MulBlob2, true, &NewIndex);
+      AddBlob = BlobUtils::createAddBlob(MulBlob1, MulBlob2, true, &NewIndex);
 
       // Check whether the add blob has been simplified to a constant, if so,
       // set it as a constant coefficient.
       // For example: (%b + 2) + (-%b) = 2
-      if (CanonExprUtils::isConstantIntBlob(AddBlob, &NewCoeff)) {
+      if (BlobUtils::isConstantIntBlob(AddBlob, &NewCoeff)) {
         NewIndex = INVALID_BLOB_INDEX;
       }
     }
@@ -686,7 +609,7 @@ int64_t CanonExpr::getBlobCoeff(const_blob_iterator CBlobI) const {
 void CanonExpr::addBlobInternal(unsigned Index, int64_t Coeff, bool Overwrite) {
 
   assert((Coeff != 0) && "Coeff cannot be zero!");
-  assert(isBlobIndexValid(Index) && "Index is out of bounds!");
+  assert(BlobUtils::isBlobIndexValid(Index) && "Index is out of bounds!");
 
   BlobIndexToCoeff Blob(Index, Coeff);
 
@@ -829,16 +752,6 @@ void CanonExpr::shift(iv_iterator IVI, int64_t Val) {
   shift(getLevel(IVI), Val);
 }
 
-void CanonExpr::mapBlobsToIndices(const SmallVectorImpl<BlobTy> &Blobs,
-                                  SmallVectorImpl<unsigned> &Indices) {
-  for (auto &I : Blobs) {
-    unsigned Index = findBlob(I);
-    assert(Index && "Could not find index of temp blob!");
-
-    Indices.push_back(Index);
-  }
-}
-
 void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
                                        bool MakeUnique,
                                        bool NeedTempBlobs) const {
@@ -853,8 +766,8 @@ void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
       // Collect temp blobs inside this blob.
       SmallVector<BlobTy, 6> TempBlobs;
 
-      CanonExprUtils::collectTempBlobs(getBlob(I.Index), TempBlobs);
-      mapBlobsToIndices(TempBlobs, Indices);
+      BlobUtils::collectTempBlobs(BlobUtils::getBlob(I.Index), TempBlobs);
+      BlobUtils::mapBlobsToIndices(TempBlobs, Indices);
 
     } else {
       Indices.push_back(I.Index);
@@ -872,8 +785,8 @@ void CanonExpr::collectBlobIndicesImpl(SmallVectorImpl<unsigned> &Indices,
       // Collect temp blobs inside this blob.
       SmallVector<BlobTy, 6> TempBlobs;
 
-      CanonExprUtils::collectTempBlobs(getBlob(I.Index), TempBlobs);
-      mapBlobsToIndices(TempBlobs, Indices);
+      BlobUtils::collectTempBlobs(BlobUtils::getBlob(I.Index), TempBlobs);
+      BlobUtils::mapBlobsToIndices(TempBlobs, Indices);
 
     } else {
       Indices.push_back(I.Index);
@@ -1013,7 +926,7 @@ void CanonExpr::verify() const {
   }
 
   for (auto I = BlobCoeffs.begin(), E = BlobCoeffs.end(); I != E; ++I) {
-    BlobTy B = CanonExpr::getBlob(I->Index);
+    BlobTy B = BlobUtils::getBlob(I->Index);
     (void)B;
 
     // Allow pointer/integer type mismatch as an integral canon expr can look

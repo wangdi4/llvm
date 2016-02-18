@@ -27,13 +27,13 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Analysis/ScalarEvolutionExpander.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Support/Debug.h"
 
@@ -189,7 +189,7 @@ private:
 
     // \brief TODO blobs are reprsented by scev with some caveats
     SCEV *getBlobSCEV(int BlobIdx) {
-      return const_cast<SCEV *>(CanonExprUtils::getBlob(BlobIdx));
+      return const_cast<SCEV *>(BlobUtils::getBlob(BlobIdx));
     }
 
     Value *IVCoefCG(CanonExpr *CE, CanonExpr::iv_iterator IVIt) {
@@ -248,14 +248,14 @@ private:
         // Blobs represented by an scevunknown whose value is an instruction
         // are represented by load and stores to a memory location corresponding
         // to the blob's symbase. Blobs are always rvals, and so loaded
-        unsigned BlobSymbase = CanonExprUtils::findBlobSymbase(S);
+        unsigned BlobSymbase = BlobUtils::findBlobSymbase(S);
 
         // SCEVExpander can create its own SCEVs as intermediates which are
         // then expanded. One example is expandAddToGep which replaces
         // adds of ptr types with a SCEV for a gep instead of ptrtoints
         // and adds. These new scevunknowns have an instruction but no
         // corresponding blob. For those, return their underlying value
-        if (BlobSymbase == CanonExpr::INVALID_BLOB_INDEX) {
+        if(BlobSymbase == INVALID_BLOB_INDEX)  {
           return V;
         }
 
@@ -353,13 +353,13 @@ public:
 
     this->F = &F;
     SE = &(getAnalysis<ScalarEvolutionWrapperPass>().getSE());
-    auto HIRP = &getAnalysis<HIRParser>();
+    auto HIRF = &getAnalysis<HIRFramework>();
 
     // generate code
     CGVisitor CG(&F, SE, this);
     bool Transformed = false;
     unsigned RegionIdx = 1;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+    for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
       HLRegion *Reg = cast<HLRegion>(&*I);
       if ((!HIRDebugRegion && (Reg->shouldGenCode() || forceHIRCG)) ||
@@ -376,7 +376,7 @@ public:
     // Liveout must be processed after all regions have be cg'd. One region's
     // live out value may be the next regions live in.
     RegionIdx = 1;
-    for (auto I = HIRP->hir_begin(), E = HIRP->hir_end(); I != E;
+    for (auto I = HIRF->hir_begin(), E = HIRF->hir_end(); I != E;
          ++I, ++RegionIdx) {
       HLRegion *R = cast<HLRegion>(I);
       if ((!HIRDebugRegion && (R->shouldGenCode() || forceHIRCG)) ||
@@ -394,7 +394,7 @@ public:
 
     // AU.addRequiredTransitive<ScalarEvolutionWrapperPass>();
     AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<HIRParser>();
+    AU.addRequired<HIRFramework>();
   }
 
   /// \brief Erases all the dummy instructions.
@@ -407,7 +407,7 @@ FunctionPass *llvm::createHIRCodeGenPass() { return new HIRCodeGen(); }
 char HIRCodeGen::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRCodeGen, "HIRCG", "HIR Code Generation", false, false)
 
 void HIRCodeGen::preVisitCG(HLRegion *Reg) const {

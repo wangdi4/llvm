@@ -74,8 +74,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -198,12 +197,10 @@ public:
 
   void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
-    AU.addRequiredTransitive<DDAnalysis>();
+    AU.addRequiredTransitive<HIRFramework>();
   }
 
 private:
-  // DD Analysis pointer.
-  DDAnalysis *DD;
   unsigned CurrentTripThreshold;
   unsigned UnrollFactor;
   // TODO: Remove this when loop resource is added.
@@ -252,8 +249,7 @@ private:
 char HIRGeneralUnroll::ID = 0;
 INITIALIZE_PASS_BEGIN(HIRGeneralUnroll, "hir-general-unroll",
                       "HIR General Unroll", false, false)
-INITIALIZE_PASS_DEPENDENCY(HIRParser)
-INITIALIZE_PASS_DEPENDENCY(DDAnalysis)
+INITIALIZE_PASS_DEPENDENCY(HIRFramework)
 INITIALIZE_PASS_END(HIRGeneralUnroll, "hir-general-unroll",
                     "HIR General Unroll", false, false)
 
@@ -272,7 +268,6 @@ bool HIRGeneralUnroll::runOnFunction(Function &F) {
   DEBUG(dbgs() << "Trip Count Threshold : " << CurrentTripThreshold << "\n");
   DEBUG(dbgs() << "GeneralUnrollFactor : " << UnrollFactor << "\n");
 
-  DD = &getAnalysis<DDAnalysis>();
   IsUnrollTriggered = false;
 
   // Do an early exit if Trip Threshold is less than 1

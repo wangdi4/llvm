@@ -19,8 +19,6 @@
 #include <stdint.h>
 #include "llvm/Support/Compiler.h"
 
-#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
-
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLUtils.h"
 
 #include <set>
@@ -31,6 +29,8 @@ class Type;
 class APInt;
 
 namespace loopopt {
+
+class CanonExpr;
 
 /// \brief Defines utilities for CanonExpr class
 ///
@@ -48,25 +48,14 @@ private:
   /// \brief Do not allow instantiation.
   CanonExprUtils() = delete;
 
-  friend class HIRParser;
-  friend class DDRefUtils;
+  friend class DDRefUtils; // accesses createSelfBlobCanonExpr()
+  friend class HIRParser; // accesses destroyAll()
 
-  /// Keeps track of objects of the CanonExpr class.
-  static std::set<CanonExpr *> GlobalCanonExprs;
-
-  /// \brief Destroys all CanonExprs and BlobTable. Called during HIR cleanup.
+  /// \brief Destroys all CanonExprs. Called during HIR cleanup.
   static void destroyAll();
 
   /// \brief Calculates the lcm of two positive inputs.
   static int64_t lcm(int64_t A, int64_t B);
-
-  /// \brief Returns the index of Blob in the blob table. Blob is first
-  /// inserted, if it isn't already present in the blob table. Index range is
-  /// [1, UINT_MAX]. There is a 1-1 mapping of temp blob index and symbase. This
-  /// information is stored in the blob table. This interface is private
-  /// because only the framework is allowed to create temp blobs for insertion
-  /// in the blob table.
-  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob, unsigned Symbase);
 
   /// \brief Creates a non-linear self blob canon expr from the passed in Value.
   /// The new blob is associated with symbase. New temp blobs from values are
@@ -118,110 +107,6 @@ public:
 
   /// \brief Calculates the gcd of two positive inputs.
   static int64_t gcd(int64_t A, int64_t B);
-
-  /// \brief Returns the index of Blob in the blob table. Index range is [1,
-  /// UINT_MAX]. Returns invalid value if the blob is not present in the table.
-  static unsigned findBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns symbase corresponding to Blob. Returns invalid value for
-  /// non-temp or non-present blobs.
-  static unsigned findBlobSymbase(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns the index of Blob in the blob table. Blob is first
-  /// inserted, if it isn't already present in the blob table. Index range is
-  /// [1, UINT_MAX].
-  /// NOTE: New temp blobs can only be inserted by the framework.
-  static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Maps blobs in Blobs to their corresponding indices and inserts
-  /// them in Indices.
-  static void mapBlobsToIndices(const SmallVectorImpl<CanonExpr::BlobTy> &Blobs,
-                                SmallVectorImpl<unsigned> &Indices);
-
-  /// \brief Returns blob corresponding to BlobIndex.
-  static CanonExpr::BlobTy getBlob(unsigned BlobIndex);
-
-  /// \brief Returns symbase corresponding to BlobIndex. Returns invalid value
-  /// for non-temp blobs.
-  static unsigned getBlobSymbase(unsigned BlobIndex);
-
-  /// \brief Prints blob.
-  static void printBlob(raw_ostream &OS, CanonExpr::BlobTy Blob);
-
-  /// \brief Prints scalar corresponding to symbase.
-  static void printScalar(raw_ostream &OS, unsigned Symbase);
-
-  /// \brief Checks if the blob is constant or not.
-  /// If blob is constant, sets the return value in Val.
-  static bool isConstantIntBlob(CanonExpr::BlobTy Blob, int64_t *Val);
-
-  /// \brief Returns true if Blob is a temp.
-  static bool isTempBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns true if TempBlob always has a defined at level of zero.
-  static bool isGuaranteedProperLinear(CanonExpr::BlobTy TempBlob);
-
-  /// \brief Returns true if Blob is a UndefValue.
-  static bool isUndefBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns true if Blob represents a FP constant.
-  static bool isConstantFPBlob(CanonExpr::BlobTy Blob);
-
-  /// \brief Returns a new blob created from passed in Val.
-  static CanonExpr::BlobTy createBlob(Value *Val, bool Insert = true,
-                                      unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns a new blob created from a constant value.
-  static CanonExpr::BlobTy createBlob(int64_t Val, Type *Ty, bool Insert = true,
-                                      unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns a blob which represents (LHS + RHS). If Insert is true its
-  /// index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy createAddBlob(CanonExpr::BlobTy LHS,
-                                         CanonExpr::BlobTy RHS,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns a blob which represents (LHS - RHS). If Insert is true its
-  /// index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy createMinusBlob(CanonExpr::BlobTy LHS,
-                                           CanonExpr::BlobTy RHS,
-                                           bool Insert = true,
-                                           unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (LHS * RHS). If Insert is true its
-  /// index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy createMulBlob(CanonExpr::BlobTy LHS,
-                                         CanonExpr::BlobTy RHS,
-                                         bool Insert = true,
-                                         unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (LHS / RHS). If Insert is true its
-  /// index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy createUDivBlob(CanonExpr::BlobTy LHS,
-                                          CanonExpr::BlobTy RHS,
-                                          bool Insert = true,
-                                          unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (trunc Blob to Ty). If Insert is
-  /// true its index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy createTruncateBlob(CanonExpr::BlobTy Blob, Type *Ty,
-                                              bool Insert = true,
-                                              unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (zext Blob to Ty). If Insert is
-  /// true its index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy
-  createZeroExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
-                       unsigned *NewBlobIndex = nullptr);
-  /// \brief Returns a blob which represents (sext Blob to Ty). If Insert is
-  /// true its index is returned via NewBlobIndex argument.
-  static CanonExpr::BlobTy
-  createSignExtendBlob(CanonExpr::BlobTy Blob, Type *Ty, bool Insert = true,
-                       unsigned *NewBlobIndex = nullptr);
-
-  /// \brief Returns true if Blob contains SubBlob or if Blob == SubBlob.
-  static bool contains(CanonExpr::BlobTy Blob, CanonExpr::BlobTy SubBlob);
-
-  /// \brief Returns all the temp blobs present in Blob via TempBlobs vector.
-  static void collectTempBlobs(CanonExpr::BlobTy Blob,
-                               SmallVectorImpl<CanonExpr::BlobTy> &TempBlobs);
 
   /// \brief Returns the size of the type in bits.
   /// NOTE: This function asserts that the incoming type is sized.
