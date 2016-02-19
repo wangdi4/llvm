@@ -1326,9 +1326,9 @@ CanonExpr *HIRParser::parseAsBlob(const Value *Val, unsigned Level) {
   return CE;
 }
 
-CanonExpr *HIRParser::parse(const Value *Val, unsigned Level,
-                            bool EnableCastHiding) {
+CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
   CanonExpr *CE = nullptr;
+  bool EnableCastHiding = IsTop;
 
   // Parse as blob if the type is not SCEVable.
   // This is currently for handling floating types.
@@ -1337,7 +1337,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level,
 
   } else {
 
-    if (EnableCastHiding) {
+    if (IsTop) {
       // For cast instructions which cast from loop IV's type to some other
       // type,
       // we want to explicitly hide the cast and parse the value in IV's type.
@@ -1367,7 +1367,7 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level,
     }
 
     auto SC = getSCEV(const_cast<Value *>(Val));
-    parseRecursive(SC, CE, Level, true, !EnableCastHiding);
+    parseRecursive(SC, CE, Level, IsTop, !EnableCastHiding);
   }
 
   return CE;
@@ -1805,7 +1805,10 @@ RegDDRef *HIRParser::createPhiBaseGEPDDRef(const PHINode *BasePhi,
     NumDims -= NumOp;
 
     for (auto I = NumOp; I > 0; --I) {
-      OpIndexCE = parse(GEPOp->getOperand(I), Level, (I != 1));
+      // Disable IsTop operations such as cast hiding and denominator parsing
+      // for the first GEP index which would be later merged.
+      OpIndexCE = parse(GEPOp->getOperand(I), Level,
+                        ((I != 1) || LastIndexCE->isZero()));
       Ref->addDimension(OpIndexCE);
     }
 
@@ -1904,13 +1907,14 @@ RegDDRef *HIRParser::createRegularGEPDDRef(const GEPOperator *GEPOp,
         OldIndexCE = Ref->getDimensionIndex(Ref->getNumDimensions());
       }
 
-      // Disable cast hiding for indices which need to be merged, i.e. first and
-      // last indices in multiple gep case.
-      bool DisableCastHiding = ((OldIndexCE && !OldIndexCE->isZero()) ||
-                                ((I == 1) && (TempGEPOp != BaseGEPOp)));
+      // Disable IsTop operations such as cast hiding and denominator parsing
+      // for indices which need to be merged, i.e. first and last indices in
+      // multiple gep case.
+      bool DisableIsTopParsing = ((OldIndexCE && !OldIndexCE->isZero()) ||
+                                  ((I == 1) && (TempGEPOp != BaseGEPOp)));
 
       CanonExpr *IndexCE =
-          parse(TempGEPOp->getOperand(I), Level, !DisableCastHiding);
+          parse(TempGEPOp->getOperand(I), Level, !DisableIsTopParsing);
 
       if (OldIndexCE) {
         // Workaround to allow merge with zero until mergeable() is extended.
