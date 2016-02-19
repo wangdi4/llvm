@@ -1,4 +1,4 @@
-//===- Intel_GeneralUtils.cpp - General set of utilities for VPO -===//
+//===------ Intel_GeneralUtils.cpp - General set of utilities for VPO -----===//
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -15,23 +15,25 @@
 // ===--------------------------------------------------------------------=== //
 
 #include <queue>
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/Analysis/LoopInfo.h"
 
 using namespace llvm;
-using namespace llvm::vpo;
 
 template Constant *
-VPOUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context, int Val);
-
+IntelGeneralUtils::getConstantValue<int>(Type *Ty, LLVMContext &Context,
+                                         int Val);
 template Constant *
-VPOUtils::getConstantValue<float>(Type *Ty, LLVMContext &Context, float Val);
-
+IntelGeneralUtils::getConstantValue<float>(Type *Ty, LLVMContext &Context,
+                                           float Val);
 template Constant *
-VPOUtils::getConstantValue<double>(Type *Ty, LLVMContext &Context, double Val);
-
+IntelGeneralUtils::getConstantValue<double>(Type *Ty, LLVMContext &Context,
+                                            double Val);
 template <typename T>
-Constant *VPOUtils::getConstantValue(Type *Ty, LLVMContext &Context, T Val) {
+Constant *IntelGeneralUtils::getConstantValue(Type *Ty, LLVMContext &Context,
+                                              T Val) {
   Constant *ConstVal = nullptr;
 
   if (Ty->isIntegerTy(8))
@@ -52,7 +54,9 @@ Constant *VPOUtils::getConstantValue(Type *Ty, LLVMContext &Context, T Val) {
   return ConstVal;
 }
 
-Loop *VPOUtils::getLoopFromLoopInfo(LoopInfo *LI, BasicBlock *WRNEntryBB) {
+Loop *IntelGeneralUtils::getLoopFromLoopInfo(LoopInfo *LI,
+                                             BasicBlock *WRNEntryBB) {
+
   // The loop header BB is the successor BB of the WRN's entry BB
   BasicBlock *LoopHeaderBB = *(succ_begin(WRNEntryBB));
   Loop *Lp = LI->getLoopFor(LoopHeaderBB);
@@ -66,8 +70,9 @@ Loop *VPOUtils::getLoopFromLoopInfo(LoopInfo *LI, BasicBlock *WRNEntryBB) {
 
 /// \brief This function ensures that EntryBB is the first item in BBSet and
 /// ExitBB is the last item in BBSet.
-void VPOUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
-                            SmallVectorImpl<BasicBlock *> &BBSet) {
+void IntelGeneralUtils::collectBBSet(BasicBlock *EntryBB, BasicBlock *ExitBB,
+                                     SmallVectorImpl<BasicBlock *> &BBSet) {
+
   assert(EntryBB && "no EntryBB");
   assert(ExitBB && "no ExitBB");
 

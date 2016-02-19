@@ -33,6 +33,7 @@ add_llvm_library(LLVMAnalysis
 #ifdef INTEL_CUSTOMIZATION
   Intel_Andersens.cpp
   Intel_SNode.cpp
+  Intel_VectorVariant.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
@@ -73,7 +74,6 @@ add_llvm_library(LLVMAnalysis
   ScopedNoAliasAA.cpp
   ValueTracking.cpp
   VectorUtils.cpp
-  VectorVariant.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Analysis

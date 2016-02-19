@@ -14,8 +14,8 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef __VECTOR_VARIANT__
-#define __VECTOR_VARIANT__
+#ifndef LLVM_TRANSFORMS_UTILS_INTEL_VECTORVARIANT_H
+#define LLVM_TRANSFORMS_UTILS_INTEL_VECTORVARIANT_H
 
 #include <vector>
 #include <sstream>
@@ -337,4 +337,4 @@ public:
   static unsigned int calcVlen(ISAClass I, Type *Ty);
 };
 
-#endif // __VECTOR_VARIANT__
+#endif // LLVM_TRANSFORMS_UTILS_INTEL_VECTORVARIANT_H

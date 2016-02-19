@@ -91,7 +91,7 @@ void WRegionNode::populateBBSet(void) {
   assert(EntryBB && "Missing EntryBB!");
   assert(ExitBB && "Missing ExitBB!");
 
-  VPOUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
+  IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBlockSet);
 }
 
 // After CFGRestructuring, the EntryBB should have a single predecessor
@@ -325,7 +325,7 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   assert(RI->getInitializer() && RI->getCombiner() &&
          "Reduction Item is not initialized");
   StringRef DirString = VPOUtils::getDirectiveMetadataString(Call);
-  int ReductionClauseID = VPOUtils::getReductionClauseID(DirString);
+  int ReductionClauseID = VPOUtils::getClauseID(DirString);
   RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
 }
 //

@@ -1,4 +1,12 @@
-#include "llvm/Analysis/VectorVariant.h"
+//===------- Intel_VectorVariant.cpp - Vector function ABI -*- C++ -*------===//
+//
+// Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
+//
+// The information and source code contained herein is the exclusive property
+// of Intel Corporation and may not be disclosed, examined or reproduced in
+// whole or in part without explicit written authorization from the company.
+
+#include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/IR/Type.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
@@ -7,7 +15,7 @@ using namespace llvm;
 
 VectorVariant::VectorVariant(StringRef FuncName) {
 
-  assert(isVectorVariant(FuncName) && "Invalid vector variant format");
+  assert(isVectorVariant(FuncName) && "invalid vector variant format");
 
   std::stringstream SST(FuncName.drop_front(prefix().size()));
 
@@ -49,7 +57,7 @@ VectorVariant::VectorVariant(StringRef FuncName) {
       // Extract constant stride
       SST >> Stride;
       assert((Kind != STRIDE_KIND || Stride >= 0) &&
-             "Variable stride argument index cannot be negative");
+             "variable stride argument index cannot be negative");
     }
 
     Stride *= StrideSign;
@@ -70,48 +78,50 @@ VectorVariant::VectorVariant(StringRef FuncName) {
   }
 }
 
-unsigned int VectorVariant::calcVlen(ISAClass I, Type *CharacteristicDataType) {
+unsigned int VectorVariant::calcVlen(ISAClass I,
+				     Type* CharacteristicDataType) {
   assert(CharacteristicDataType &&
-         CharacteristicDataType->getPrimitiveSizeInBits() != 0 &&
-         "Expected characteristic data type to have a primitive size in bits");
+	 CharacteristicDataType->getPrimitiveSizeInBits() != 0 &&
+	 "expected characteristic data type to have a primitive size in bits");
 
   unsigned int VectorRegisterSize =
-      maximumSizeofISAClassVectorRegister(I, CharacteristicDataType);
+    maximumSizeofISAClassVectorRegister(I, CharacteristicDataType);
 
   return VectorRegisterSize / CharacteristicDataType->getPrimitiveSizeInBits();
 }
 
 unsigned int VectorVariant::maximumSizeofISAClassVectorRegister(ISAClass I,
-                                                                Type *Ty) {
+                                                                Type* Ty)
+{
   assert((Ty->isIntegerTy() || Ty->isFloatTy() || Ty->isDoubleTy() ||
-          Ty->isPointerTy()) &&
-         "Unsupported type");
+          Ty->isPointerTy()) && "unsupported type");
 
   unsigned int VectorRegisterSize = 0;
 
   switch (I) {
-  case XMM:
-    VectorRegisterSize = 128;
-    break;
-  case YMM1:
-    if (Ty->isIntegerTy() || Ty->isPointerTy())
+    case XMM:
       VectorRegisterSize = 128;
-    else
-      VectorRegisterSize = 256;
-    break;
-  case YMM2:
-    if (Ty->isIntegerTy(8))
-      VectorRegisterSize = 128;
-    else
-      VectorRegisterSize = 256;
-    break;
-  case ZMM:
-    VectorRegisterSize = 512;
-    break;
-  default:
-    llvm_unreachable("Unknown ISA class");
+      break;
+    case YMM1:
+      if (Ty->isIntegerTy() || Ty->isPointerTy())
+	VectorRegisterSize = 128;
+      else
+	VectorRegisterSize = 256;
+      break;
+    case YMM2:
+      if (Ty->isIntegerTy(8))
+	VectorRegisterSize = 128;
+      else
+	VectorRegisterSize = 256;
+      break;
+    case ZMM:
+      VectorRegisterSize = 512;
+      break;
+    default:
+      llvm_unreachable("unknown isa class");
+      return 0;
   }
 
-  assert(VectorRegisterSize != 0 && "Unsupported ISA/type combination");
+  assert(VectorRegisterSize != 0 && "unsupported ISA/type combination");
   return VectorRegisterSize;
 }

@@ -31,6 +31,7 @@
 #include "llvm/IR/BasicBlock.h"
 
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionClause.h"
 
 #include <set>

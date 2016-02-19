@@ -26,6 +26,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 #define DEBUG_TYPE "IntrinsicUtils"
 
@@ -69,85 +70,6 @@ StringRef VPOUtils::getDirectiveMetadataString(IntrinsicInst *Call) {
   return DirectiveStr;
 }
 
-// Private utility function used by the functions that create the calls
-// to the directive intrinsics.
-Value *VPOUtils::createMetadataAsValueFromString(Module &M, StringRef Str) {
-  MDString *MDStringPtr = MDString::get(M.getContext(), Str);
-  MDNode *MDNodePtr = MDNode::get(M.getContext(), MDStringPtr);
-  return llvm::MetadataAsValue::get(M.getContext(), MDNodePtr);
-}
-
-// This function generates calls to llvm.intel.directive
-CallInst *VPOUtils::createDirectiveCall(Module &M, StringRef DirectiveStr) {
-  Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive);
-
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive(metadata) intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArg);
-  return DirCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual
-CallInst *VPOUtils::createDirectiveQualCall(Module &M, StringRef DirectiveStr) {
-  Function *DirQualIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual);
-
-  assert(DirQualIntrin && "Cannot get declaration for\
-                           @llvm.intel.directive.qual(metadata) intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-  CallInst *DirQualCall = CallInst::Create(DirQualIntrin, CallArg);
-  return DirQualCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual.opnd
-CallInst *VPOUtils::createDirectiveQualOpndCall(Module &M,
-                                                StringRef DirectiveStr,
-                                                Value *Val) {
-  SmallVector<Type *, 4> Tys;
-  Tys.push_back(Val->getType());
-  Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual_opnd, Tys);
-
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive.qual.opnd(metadata, llvm_any_ty)\
-                       intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-
-  SmallVector<Value *, 4> CallArgs;
-  CallArgs.push_back(CallArg);
-  CallArgs.push_back(Val);
-
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArgs);
-  return DirCall;
-}
-
-// This function generates calls to llvm.intel.directive.qual.opndlist
-CallInst *VPOUtils::createDirectiveQualOpndListCall(
-    Module &M, StringRef DirectiveStr, SmallVector<Value *, 4> &VarCallArgs) {
-  Function *DirIntrin =
-      Intrinsic::getDeclaration(&M, Intrinsic::intel_directive_qual_opndlist);
-
-  assert(DirIntrin && "Cannot get declaration for\
-                       @llvm.intel.directive.qual.opndlist(metadata, ...)\
-                       intrinsic");
-
-  Value *CallArg = createMetadataAsValueFromString(M, DirectiveStr);
-
-  SmallVector<Value *, 4> CallArgs;
-  CallArgs.push_back(CallArg);
-  for (unsigned I = 0; I < VarCallArgs.size(); ++I) {
-    CallArgs.push_back(VarCallArgs[I]);
-  }
-
-  CallInst *DirCall = CallInst::Create(DirIntrin, CallArgs);
-  return DirCall;
-}
-
 void VPOUtils::stripDirectives(Function &F) {
   SmallVector<IntrinsicInst *, 4> IntrinsicsToRemove;
 
@@ -170,11 +92,13 @@ void VPOUtils::stripDirectives(Function &F) {
 }
 
 MetadataAsValue *VPOUtils::getMetadataAsValue(Module &M, OMP_DIRECTIVES Dir) {
-  StringRef Str(getDirectiveString(Dir));
-  return dyn_cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
+  StringRef Str(IntelIntrinsicUtils::getDirectiveString(Dir));
+  return dyn_cast<MetadataAsValue>(
+    IntelIntrinsicUtils::createMetadataAsValueFromString(M, Str));
 }
 
 MetadataAsValue *VPOUtils::getMetadataAsValue(Module &M, OMP_CLAUSES Qual) {
-  StringRef Str(getClauseString(Qual));
-  return dyn_cast<MetadataAsValue>(createMetadataAsValueFromString(M, Str));
+  StringRef Str(IntelIntrinsicUtils::getClauseString(Qual));
+  return dyn_cast<MetadataAsValue>(
+    IntelIntrinsicUtils::createMetadataAsValueFromString(M, Str));
 }

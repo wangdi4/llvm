@@ -18,7 +18,9 @@
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Intrinsics.h"
-#include "llvm/Analysis/VectorVariant.h"
+#if INTEL_CUSTOMIZATION
+#include "llvm/Analysis/Intel_VectorVariant.h"
+#endif // INTEL_CUSTOMIZATION
 
 namespace llvm {
 

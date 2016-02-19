@@ -17,6 +17,8 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegion.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 
 using namespace llvm;
 using namespace llvm::vpo;
@@ -87,7 +89,7 @@ WRNParallelLoopNode::WRNParallelLoopNode(BasicBlock *BB, LoopInfo *Li)
   setSchedule(WRNScheduleStaticEven);
   setCollapse(0);
   setOrdered(false);
-  Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNParallelLoopNode<" << getNumber() << ">\n");
@@ -142,7 +144,7 @@ WRNVecLoopNode::WRNVecLoopNode(BasicBlock *BB, LoopInfo *Li)
   setCollapse(0);
   setIsAutoVec(false);
 
-  Loop *L = VPOUtils::getLoopFromLoopInfo(Li, BB);
+  Loop *L = IntelGeneralUtils::getLoopFromLoopInfo(Li, BB);
   setLoop(L);
 
   DEBUG(dbgs() << "\nCreated WRNVecLoopNode<" << getNumber() << ">\n");
@@ -198,7 +200,7 @@ void WRNVecLoopNode::print(formatted_raw_ostream &OS, unsigned Depth) const {
     for (ReductionItem *RI : RC->items()) {
       ReductionItem::WRNReductionKind RType = RI->getType();
       int RedClauseID = ReductionItem::getClauseIdFromKind(RType);
-      StringRef RedStr = VPOUtils::getReductionClauseString(RedClauseID);
+      StringRef RedStr = IntelIntrinsicUtils::getClauseString(RedClauseID);
       OS << Indent << "REDUCTION clause: " << RedStr << " "
          << RI->getOrig()->getName() << "\n";
     }

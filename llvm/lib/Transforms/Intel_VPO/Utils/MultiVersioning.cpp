@@ -23,6 +23,7 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
+#include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/ADT/Twine.h"
 
@@ -236,7 +237,7 @@ void VPOUtils::singleRegionMultiVersioning(
   // 2) Collect BasicBlock Set if it is empty, based on EntryBB and ExitBB.
   //
   if (BBSet.empty())
-    collectBBSet(EntryBB, ExitBB, BBSet); 
+    IntelGeneralUtils::collectBBSet(EntryBB, ExitBB, BBSet); 
 
   // 3) Clone BBSet into the same function F.
   //

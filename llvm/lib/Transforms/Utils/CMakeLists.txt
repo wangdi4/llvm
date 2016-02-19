@@ -16,6 +16,12 @@ add_llvm_library(LLVMTransformUtils
   InlineFunction.cpp
   InstructionNamer.cpp
   IntegerDivision.cpp
+#if INTEL_CUSTOMIZATION
+  Intel_GeneralUtils.cpp
+  Intel_IntrinsicUtils.cpp
+  Intel_OpenMPDirectivesAndClauses.cpp
+  Intel_VecClone.cpp
+#endif // INTEL_CUSTOMIZATION
   LCSSA.cpp
   Local.cpp
   LoopSimplify.cpp
@@ -39,9 +45,6 @@ add_llvm_library(LLVMTransformUtils
   UnifyFunctionExitNodes.cpp
   Utils.cpp
   ValueMapper.cpp
-  VecClone.cpp
-
-  Intel_GeneralUtils.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/Transforms
