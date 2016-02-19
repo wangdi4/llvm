@@ -245,7 +245,7 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
         const unsigned switchOpcode = TII.getPickSwitchOpcode(TRC, false 
                                                               /*not pick op*/);
         MachineInstr *switchInst = BuildMI(*BB, BB->end(), 
-                                           BB->end()->getDebugLoc(), 
+                                           DebugLoc(), 
                                            TII.get(switchOpcode), 
                                            newLiveOutReg).addReg(newLoopBackReg,
                                            RegState::Define).
