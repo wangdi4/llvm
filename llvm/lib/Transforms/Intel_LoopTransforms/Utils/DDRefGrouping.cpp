@@ -64,16 +64,12 @@ bool DDRefGrouping::isGroupMemRefMatch(const RegDDRef *Ref1,
       }
     }
 
-    // TODO: Handle CanonExpr types inside MemRef's.
-    // We can be very conservative and return false, but this might
-    // lead to overestimated values. Currently, adding assert.
-    assert(CanonExprUtils::isTypeEqual(Ref1CE, Ref2CE) &&
-           " CanonExpr type mismatch.");
-
     // Diff the CanonExprs.
-    // TODO: Think about adding relaxed mode for subtract. The decision will
-    // impact runtimeDD and locality.
-    const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE);
+    // TODO: Added RelaxedMode, but think about cases where src type also
+    // differs.
+    // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
+    const CanonExpr *Result =
+        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
     if (!Result) {
       return false;
     }
