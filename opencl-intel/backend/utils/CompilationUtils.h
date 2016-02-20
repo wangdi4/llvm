@@ -381,32 +381,14 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     static const std::string NAME_GET_DEFAULT_QUEUE;
 
-    /// Basic Enqueue kernel
-    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
-    ///                     const ndrange_t ndrange,void (^block)(void))
-    static const std::string NAME_ENQUEUE_KERNEL_BASIC;
     /// ndrange_t ndrange_1D (). matches function with 1, 2, 3 arguments
     static const std::string NAME_NDRANGE_1D;
     /// ndrange_t ndrange_2D (). matches function with 1, 2, 3 arguments
     static const std::string NAME_NDRANGE_2D;
     /// ndrange_t ndrange_3D (). matches function with 1, 2, 3 arguments
     static const std::string NAME_NDRANGE_3D;
-    /// Enqueue kernel with local memory
-    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
-    ///     const ndrange_t ndrange,
-    ///     void (^block)(local void *, ?), uint size0, ?)
-    static const std::string NAME_ENQUEUE_KERNEL_LOCALMEM;
-    /// Enqueue kernel with events
-    /// int enqueue_kernel (queue_t queue,kernel_enqueue_flags_t flags,
-    ///    const ndrange_t ndrange,uint num_events_in_wait_list,
-    ///    const clk_event_t *event_wait_list,clk_event_t *event_ret,void (^block)(void))
-    static const std::string NAME_ENQUEUE_KERNEL_EVENTS;
-    /// Enqueue kernel with events and local memory
-    /// int enqueue_kernel (queue_t queue, kernel_enqueue_flags_t flags,
-    ///    const ndrange_t ndrange, uint num_events_in_wait_list,
-    ///    const clk_event_t *event_wait_list, clk_event_t *event_ret,
-    ///    void (^block)(local void *, ?), uint size0, ?)
-    static const std::string NAME_ENQUEUE_KERNEL_EVENTS_LOCALMEM;
+    /// Enqueue kernel built-ins
+    static const std::string NAME_ENQUEUE_KERNEL;
 
     /// get maximum work-group size that can be used
     /// to execute a block on a specific device
@@ -457,7 +439,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
 
     /// fetchCompilerOption - if an option with specified prefix exists in
     /// the module's metadata returns an entire option string (the fist was met),
-    /// Otherwise returns an empty string. 
+    /// Otherwise returns an empty string.
     static StringRef fetchCompilerOption(const Module &M, char const* prefix);
 
     /// fetchCLVersionFromMetadata - obtain CL version from "!opencl.ocl.version"
