@@ -61,6 +61,11 @@ public:
 private:
   MachineFunction *thisMF;
 
+  void addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *ML);
+  bool candidateLoopForDF(MachineLoop *currLoop);
+
+  bool processLoopForDF(MachineLoop *currLoop, raw_ostream *OS);
+
   bool genDFInstructions(MachineInstr *MI, MachineBasicBlock *BB, 
                          MachineBasicBlock::iterator lastPhiInst, 
                          const MachineBasicBlock *backedgeBB);
@@ -80,6 +85,30 @@ MachineFunctionPass *llvm::createLPUConvertControlPass() {
 
 char LPUConvertControlPass::ID = 0;
 
+bool LPUConvertControlPass::candidateLoopForDF(MachineLoop *currLoop) {
+
+    // ignore outer loops
+    const std::vector<MachineLoop*> &SubLoops = currLoop->getSubLoops();
+    if (SubLoops.size() != 0) {
+      DEBUG(errs() << "\nignoring outer loop\n");
+      return false;
+    }
+    // ignore loops with multiple blocks
+    if (currLoop->getNumBlocks() > 1) {
+      DEBUG(errs() << "\nignoring loop with multiple blocks\n");
+      return false;
+    }
+    // ignore loops with multiple backedges
+    if (currLoop->getNumBackEdges() != 1) {
+      DEBUG(errs() << "\nignoring loop with multiple backedges\n");
+      return false;
+    }
+    // TODO: ignore loops with no live-in uses & no live-out defs - 
+    // check this early & quickly
+
+    return true;
+
+}
 
 bool 
 LPUConvertControlPass::analyzePhiOperands(MachineInstr *MI,
@@ -274,6 +303,67 @@ LPUConvertControlPass::genDFInstructions(MachineInstr *MI,
   return genDFInst;
 }
 
+bool LPUConvertControlPass::processLoopForDF(MachineLoop *currLoop, raw_ostream *OS) {
+
+  const TargetMachine &TM = thisMF->getTarget();
+  bool loopModified = false;
+
+  const MachineBasicBlock *backedgeBB = currLoop->getLoopLatch();
+  assert(backedgeBB && "backedge BB is null!");
+
+  for (MachineLoop::block_iterator BI = currLoop->block_begin(), 
+       E = currLoop->block_end(); BI != E; ++BI) { 
+    // for each block in loop body - should be only 1 for now
+    MachineBasicBlock *BB = *BI;
+
+    DEBUG(errs() << "\nbegin BB# - " << BB->getNumber() << "\n");
+
+    // ignore empty blocks
+    if (BB->empty()) {
+      continue;
+    }
+
+    // TODO: ignore BB/pred/succ with un-analyzeable brs  - 
+    // check this early & quickly
+    MachineBasicBlock::iterator lastPhiInst =
+      std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
+
+    // process each instruction in BB
+    for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
+      MachineInstr *MI = I;
+
+      DEBUG(errs() << "processing inst: ");  
+      DEBUG(MI->print(*OS, &TM));  
+
+      // TODO: do we need to process all insts? 
+      // what about picks/switches/cmps/brs?
+
+      if (genDFInstructions(MI, BB, lastPhiInst, backedgeBB)) {
+        DEBUG(errs() << "modified graph - gen DF insts\n");
+        loopModified = true;
+      }
+
+    } // for each instruction in BB
+    DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
+  } // for each block in loop 
+  DEBUG(errs() << "end loop - " << "\n");
+
+  return loopModified;
+}
+
+void LPUConvertControlPass::addLoop(std::vector<MachineLoop *> &loopList, MachineLoop *loop) {
+
+  loopList.push_back(loop);
+
+  // add nested loops
+  const std::vector<MachineLoop*> &SubLoops = loop->getSubLoops();
+  if (SubLoops.size() == 0) return;  
+
+  for (size_t SLI = 0; SLI != SubLoops.size(); SLI++) {
+      addLoop(loopList, SubLoops[SLI]); 
+  }
+}
+
 bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
 
   if (ConvertControlPass == 0) return false;
@@ -295,7 +385,7 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
   }
 #endif
 
-  // for now only well formed innermost loops are processed in this pass
+  // for now only well formed innermost loop regions are processed in this pass
   MachineLoopInfo *MLI = &getAnalysis<MachineLoopInfo>();
 
   if (!MLI) {
@@ -303,88 +393,35 @@ bool LPUConvertControlPass::runOnMachineFunction(MachineFunction &MF) {
     return false;
   }
 
-  // Walk through the CFG and generate dataflow ops like picks & switches
 
   // first collect the loops to be in cfg (top-down) order
+  // is it necessary to walk the loops in cfg order?
   std::vector<MachineLoop *> cfgOrderLoops;
   for (MachineLoopInfo::iterator LI = MLI->begin(), LE = MLI->end(); 
        LI != LE; ++LI) { // for all top-level loops in MF
     
     MachineLoop *ML = *LI;
-    // TODO: add nested loops
-    cfgOrderLoops.push_back(ML);
+    addLoop(cfgOrderLoops, ML); 
   }
 
-  // now walk the loops in cfg order
+  // for each (loop) region in cfg order 
   int loopProcessedCnt = 0;
   for (std::vector<MachineLoop *>::reverse_iterator lpIter = 
        cfgOrderLoops.rbegin(), lpIterEnd = cfgOrderLoops.rend(); 
        lpIter != lpIterEnd; ++lpIter) { // for all loops in MF
-    const MachineLoop *currLoop = *lpIter;
-
+    MachineLoop *currLoop = *lpIter;
     
-    DEBUG(errs() << "begin loop# - \n");
+    DEBUG(errs() << "\nbegin loop# - \n");
 
-    // ignore outer loops
-    const std::vector<MachineLoop*> &SubLoops = currLoop->getSubLoops();
-    if (SubLoops.size() != 0) {
-      DEBUG(errs() << "ignoring outer loop\n");
-      continue;
-    }
-    // ignore loops with multiple blocks
-    if (currLoop->getNumBlocks() > 1) {
-      DEBUG(errs() << "ignoring loop with multiple blocks\n");
-      continue;
-    }
-    // ignore loops with multiple backedges
-    if (currLoop->getNumBackEdges() != 1) {
-      DEBUG(errs() << "ignoring loop with multiple backedges\n");
-      continue;
-    }
+    //Is this a candidate loop for dataflow conversion?
+    if (!candidateLoopForDF(currLoop)) continue;
 
-    const MachineBasicBlock *backedgeBB = currLoop->getLoopLatch();
-    assert(backedgeBB && "backedge BB is null!");
-
-    // TODO: ignore loops with no live-in uses & no live-out defs - 
-    // check this early & quickly
+    //Process this loop to generate dataflow ops
     bool loopModified = false;
-    for (MachineLoop::block_iterator BI = currLoop->block_begin(), 
-         E = currLoop->block_end(); BI != E; ++BI) { 
-      // for each block in loop body - should be only 1 for now
-      MachineBasicBlock *BB = *BI;
-
-      DEBUG(errs() << "begin BB# - " << BB->getNumber() << "\n");
-
-      // ignore empty blocks
-      if (BB->empty()) {
-        continue;
-      }
-
-      // TODO: ignore BB/pred/succ with un-analyzeable brs  - 
-      // check this early & quickly
-      MachineBasicBlock::iterator lastPhiInst =
-        std::prev(BB->SkipPHIsAndLabels(BB->begin())); 
-
-      // process each instruction in BB
-      for (MachineBasicBlock::iterator I = BB->begin(); I != BB->end(); ++I) {
-        MachineInstr *MI = I;
-
-	DEBUG(errs() << "processing inst: ");  
-	DEBUG(MI->print(*OS, &TM));  
-
- 	// TODO: do we need to process all insts? 
-        // what about picks/switches/cmps/brs?
-
-	if (genDFInstructions(MI, BB, lastPhiInst, backedgeBB)) {
-           DEBUG(errs() << "modified graph - gen DF insts\n");
-	   Modified = true;
-	   loopModified = true;
-	}
-
-      } // for each instruction in BB
-      DEBUG(errs() << "end BB# - " <<  BB->getNumber() << "\n");
-    } // for each block in loop 
-    DEBUG(errs() << "end loop - " << "\n");
+    if (processLoopForDF(currLoop, OS)) {
+      loopModified = true;
+      Modified = true;
+    }
 
 #ifndef NDEBUG
     assert(ConvertControlPass > 0 && "ConvertControlPass has invalid value!");
