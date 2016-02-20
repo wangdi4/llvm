@@ -9,12 +9,12 @@ entry:
   %p_event = alloca %opencl.clk_event_t*, align 8
   %event = load %opencl.clk_event_t** %p_event
   ; Call should remain unchanged since it is in the built-in library
-  ; CHECK: call void @_Z28capture_event_profiling_info13ocl_clk_eventiPU3AS1m(%opencl.clk_event_t* %event, i32 1, i64 addrspace(1)* %value)
-  call void @_Z28capture_event_profiling_info13ocl_clk_eventiPU3AS1m(%opencl.clk_event_t* %event, i32 1, i64 addrspace(1)* %value) nounwind
+  ; CHECK: call void @_Z28capture_event_profiling_info12ocl_clkeventiPU3AS1m(%opencl.clk_event_t* %event, i32 1, i64 addrspace(1)* %value)
+  call void @_Z28capture_event_profiling_info12ocl_clkeventiPU3AS1m(%opencl.clk_event_t* %event, i32 1, i64 addrspace(1)* %value) nounwind
   ret void
 }
 
-declare void @_Z28capture_event_profiling_info13ocl_clk_eventiPU3AS1m(%opencl.clk_event_t*, i32, i64 addrspace(1)*)
+declare void @_Z28capture_event_profiling_info12ocl_clkeventiPU3AS1m(%opencl.clk_event_t*, i32, i64 addrspace(1)*)
 
 !opencl.compiler.options = !{!2}
 !2 = !{!"-cl-std=CL2.0"}

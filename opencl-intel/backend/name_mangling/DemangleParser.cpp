@@ -68,7 +68,7 @@ namespace reflection {
     NULL /*'M'*/, NULL /*'N'*/, NULL /*'O'*/, NULL /*'P'*/, NULL /*'Q'*/, NULL /*'R'*/,
     NULL /*'S'*/, NULL /*'T'*/, NULL /*'U'*/, NULL /*'V'*/, NULL /*'W'*/, NULL /*'X'*/,
     NULL /*'Y'*/, NULL /*'Z'*/};
-  
+
 
   struct QualifierInfo {
     char m_token[MAX_TOKEN_LENGTH];
@@ -107,7 +107,7 @@ namespace reflection {
       m_imageTypeNameTranslate["ocl_image2darray"] = PRIMITIVE_IMAGE_2D_ARRAY_T;
       m_imageTypeNameTranslate["ocl_image2darraydepth"] = PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T;
       m_imageTypeNameTranslate["ocl_event"] = PRIMITIVE_EVENT_T;
-      m_imageTypeNameTranslate["ocl_clk_event"] = PRIMITIVE_CLK_EVENT_T;
+      m_imageTypeNameTranslate["ocl_clkevent"] = PRIMITIVE_CLK_EVENT_T;
       m_imageTypeNameTranslate["ocl_queue"] = PRIMITIVE_QUEUE_T;
       m_imageTypeNameTranslate["ocl_pipe"] = PRIMITIVE_PIPE_T;
       m_imageTypeNameTranslate["ocl_sampler"] = PRIMITIVE_SAMPLER_T;
@@ -262,7 +262,7 @@ namespace reflection {
     RefParamType refPointer(pPointer);
     //Push pointer type to end of sign list
     //It is important to do this after parsing the pointee type
-    //in case the pointee is a non-primitive type, it should 
+    //in case the pointee is a non-primitive type, it should
     //be pushed first to the sign list.
     m_signList.push_back(refPointer);
     return refPointer;
@@ -292,7 +292,7 @@ namespace reflection {
     RefParamType refVector(pVector);
     //Push vector type to end of sign list
     //It is important to do this after parsing the scalar type
-    //in case the scalar is a non-primitive type, it should 
+    //in case the scalar is a non-primitive type, it should
     //be pushed first to the sign list.
     m_signList.push_back(refVector);
     return refVector;
@@ -339,7 +339,7 @@ namespace reflection {
     }
     //Push block type to end of sign list
     //It is important to do this after parsing the block parameter types
-    //in case some of the parameters are non-primitive type, it should 
+    //in case some of the parameters are non-primitive type, it should
     //be pushed first to the sign list.
     m_signList.push_back(refBlock);
     return refBlock;

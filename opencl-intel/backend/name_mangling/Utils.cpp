@@ -67,7 +67,7 @@ namespace reflection {
     "16ocl_image2darray",       //PRIMITIVE_IMAGE_2D_ARRAY_T
     "21ocl_image2darraydepth",  //PRIMITIVE_IMAGE_2D_ARRAY_DEPTH_T
     "9ocl_event",               //PRIMITIVE_EVENT_T
-    "13ocl_clk_event",          //PRIMITIVE_CLK_EVENT_T
+    "12ocl_clkevent",           //PRIMITIVE_CLK_EVENT_T
     "9ocl_queue",               //PRIMITIVE_QUEUE_T
     "8ocl_pipe",                //PRIMITIVE_PIPE_T
     "11ocl_sampler"             //PRIMITIVE_SAMPLER_T
