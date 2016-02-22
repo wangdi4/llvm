@@ -1098,14 +1098,23 @@ def : Pat<(i16 (trunc i64:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(i8 (trunc i64:$op1)),
     (COPY_TO_REGCLASS $op1, I8)>;
+def : Pat<(i1 (trunc i64:$op1)),
+    (COPY_TO_REGCLASS $op1, I1)>;
 
 def : Pat<(i16 (trunc i32:$op1)),
     (COPY_TO_REGCLASS $op1, I16)>;
 def : Pat<(i8 (trunc i32:$op1)),
     (COPY_TO_REGCLASS $op1, I8)>;
+def : Pat<(i1 (trunc i32:$op1)),
+    (COPY_TO_REGCLASS $op1, I1)>;
 
 def : Pat<(i8 (trunc i16:$op1)),
     (COPY_TO_REGCLASS $op1, I8)>;
+def : Pat<(i1 (trunc i16:$op1)),
+    (COPY_TO_REGCLASS $op1, I1)>;
+
+def : Pat<(i1 (trunc i8:$op1)),
+    (COPY_TO_REGCLASS $op1, I1)>;
 
 
 // bitconvert (shows up in exp)
