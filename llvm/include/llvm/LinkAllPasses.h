@@ -50,8 +50,9 @@
 #include "llvm/Analysis/Intel_LoopAnalysis/Passes.h" //***INTEL - HIR analysis
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
-#endif // INTEL_CUSTOMIZATION
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR
+#endif // INTEL_CUSTOMIZATION
 #include "llvm/Support/Valgrind.h"
 #include <cstdlib>
 

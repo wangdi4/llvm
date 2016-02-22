@@ -84,9 +84,9 @@
 #include "llvm/Analysis/Passes.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/PassRegistry.h"
-#include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
 #include "llvm/Transforms/Utils/Intel_IntrinsicUtils.h"
 #include "llvm/Transforms/Utils/Intel_GeneralUtils.h"
+#include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
 #include <map>
 #include <set>
 
@@ -94,7 +94,6 @@
 #define DEBUG_TYPE "VecClone"
 
 using namespace llvm;
-using namespace vpo;
 
 VecClone::VecClone() : ModulePass(ID) { }
 

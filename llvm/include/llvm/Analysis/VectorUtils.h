@@ -153,6 +153,7 @@ computeMinimumValueSizes(ArrayRef<BasicBlock*> Blocks,
                          DemandedBits &DB,
                          const TargetTransformInfo *TTI=nullptr);
 
+#if INTEL_CUSTOMIZATION
 /// @brief Contains the names of the declared vector function variants
 typedef std::vector<std::string> DeclaredVariants;
 
@@ -173,6 +174,7 @@ Type* calcCharacteristicType(Function& F, VectorVariant& Variant);
 /// @param funcVars Data structure to hold the declared vector variants
 /// (in string form) for each function.
 void getFunctionsToVectorize(Module &M, FunctionVariants& funcVars);
+#endif // INTEL_CUSTOMIZATION
     
 } // llvm namespace
 

@@ -17,6 +17,7 @@
 #include "llvm/Pass.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
+#include "llvm/Analysis/Intel_VectorVariant.h"
 
 #ifndef LLVM_TRANSFORMS_VPO_VECCLONE_H
 #define LLVM_TRANSFORMS_VPO_VECCLONE_H
@@ -194,6 +195,8 @@ class VecClone : public ModulePass {
     void getAnalysisUsage(AnalysisUsage &AU) const override;
 
 }; // end pass class
+
+ModulePass *createVecClonePass();
 
 } // end llvm namespace
 

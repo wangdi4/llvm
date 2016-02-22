@@ -803,6 +803,7 @@ DenseMap<Instruction*, uint64_t> llvm::computeMinimumValueSizes(
   return MinBWs;
 }
 
+#if INTEL_CUSTOMIZATION
 std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
   std::vector<Attribute> RetVal;
   AttributeSet Attributes = F.getAttributes().getFnAttributes();
@@ -877,3 +878,4 @@ void llvm::getFunctionsToVectorize(llvm::Module &M,
       DeclaredFuncVariants.push_back(Attr.getKindAsString());
   }
 }
+#endif // INTEL_CUSTOMIZATION

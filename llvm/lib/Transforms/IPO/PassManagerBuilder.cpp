@@ -37,6 +37,7 @@
 #include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Transforms/Intel_VPO/Vecopt/VecoptPasses.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR passes
+#include "llvm/Transforms/Utils/Intel_VecClone.h"
 #endif // INTEL_CUSTOMIZATION
 
 using namespace llvm;
