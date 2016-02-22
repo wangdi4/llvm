@@ -3479,13 +3479,27 @@ unsigned AndersensAAResult::UniteNodes(unsigned First, unsigned Second,
     int RankFirst  = (int) FirstNode ->NodeRep;
     int RankSecond = (int) SecondNode->NodeRep;
 
-    // Rank starts at -1 and gets decremented as it increases.
-    // Translation: higher rank, lower NodeRep value, which is always negative.
-    if (RankFirst > RankSecond) {
-      unsigned t = First; First = Second; Second = t;
-      Node* tp = FirstNode; FirstNode = SecondNode; SecondNode = tp;
-    } else if (RankFirst == RankSecond) {
-      FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+    // CQ380767: Avoid swapping First (Rep) and Second nodes when Rep
+    // node is a special node (i.e universal node ) even though rank
+    // of second node is higher to avoid deleting parts of Universal
+    // node. Return Universal node as unified node but fix rank of it.
+    if (First < NumberSpecialNodes) {
+      if (RankFirst > RankSecond) {
+        FirstNode->NodeRep = RankSecond;
+      } else if (RankFirst == RankSecond) {
+        FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+      }
+    }
+    else {
+      // Rank starts at -1 and gets decremented as it increases.
+      // Translation: higher rank, lower NodeRep value, which is always
+      // negative.
+      if (RankFirst > RankSecond) {
+        unsigned t = First; First = Second; Second = t;
+        Node* tp = FirstNode; FirstNode = SecondNode; SecondNode = tp;
+      } else if (RankFirst == RankSecond) {
+        FirstNode->NodeRep = (unsigned) (RankFirst - 1);
+      }
     }
   }
 
