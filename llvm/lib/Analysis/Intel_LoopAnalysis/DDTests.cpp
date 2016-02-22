@@ -493,10 +493,10 @@ const CanonExpr *DDtest::getSMaxExpr(const CanonExpr *CE1,
     return nullptr;
   }
 
-  const CanonExpr *delta = getMinus(CE1, CE2);
+  const CanonExpr *Delta = getMinus(CE1, CE2);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isIntConstant(&CVal)) {
+  if (Delta && Delta->isIntConstant(&CVal)) {
     return ((CVal > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -511,10 +511,10 @@ const CanonExpr *DDtest::getSMinExpr(const CanonExpr *CE1,
   if (!CE1 || !CE2) {
     return nullptr;
   }
-  const CanonExpr *delta = getMinus(CE2, CE1);
+  const CanonExpr *Delta = getMinus(CE2, CE1);
   // Note: getMinus already performed push_back for CE.
   // No need to do it here again
-  if (delta->isIntConstant(&CVal)) {
+  if (Delta && Delta->isIntConstant(&CVal)) {
     return ((CVal > 0) ? CE1 : CE2);
   }
   return nullptr;
@@ -1228,6 +1228,9 @@ bool DDtest::isKnownPredicate(ICmpInst::Predicate Pred, const CanonExpr *X,
                               const CanonExpr *Y) {
 
   const CanonExpr *Delta = getMinus(X, Y);
+  if (!Delta) {
+    return false;
+  }
   switch (Pred) {
   case CmpInst::ICMP_EQ:
     return Delta->isZero();
@@ -1343,6 +1346,11 @@ bool DDtest::strongSIVtest(const CanonExpr *Coeff, const CanonExpr *SrcConst,
   Level--;
 
   const CanonExpr *Delta = getMinus(SrcConst, DstConst);
+
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // check that |Delta| < iteration count
@@ -1518,6 +1526,10 @@ bool DDtest::weakCrossingSIVtest(const CanonExpr *Coeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   NewConstraint.setLine(Coeff, Coeff, Delta, CurLoop);
   if (Delta->isZero()) {
@@ -1774,6 +1786,10 @@ bool DDtest::exactSIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
   DEBUG(dbgs() << "\n");
 
@@ -2125,6 +2141,10 @@ bool DDtest::weakZeroDstSIVtest(const CanonExpr *SrcCoeff,
   Level--;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   NewConstraint.setLine(SrcCoeff, getConstantWithType(Delta->getSrcType(),
                                                       Delta->getDestType(),
                                                       Delta->isSExt(), 0),
@@ -2226,6 +2246,10 @@ bool DDtest::exactRDIVtest(const CanonExpr *SrcCoeff, const CanonExpr *DstCoeff,
   ++ExactRDIVapplications;
   Result.Consistent = false;
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   int64_t deltaVal, srcCoeffVal, dstCoeffVal, ubVal;
@@ -2388,6 +2412,9 @@ bool DDtest::symbolicRDIVtest(const CanonExpr *A1, const CanonExpr *A2,
     DEBUG(dbgs() << "\n    N2 = "; N2->dump());
   }
   const CanonExpr *C2_C1 = getMinus(C2, C1);
+  if (!C2_C1) {
+    return false;
+  }
   const CanonExpr *C1_C2 = getNegative(C2_C1);
 
   DEBUG(dbgs() << "\n    C2 - C1 = "; C2_C1->dump());
@@ -2783,6 +2810,10 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
 
   APInt ExtraGCD = APInt::getNullValue(BitWidth);
   const CanonExpr *Delta = getMinus(DstConst, SrcConst);
+  if (!Delta) {
+    return false;
+  }
+
   DEBUG(dbgs() << "    Delta = "; Delta->dump());
 
   // TODO: Will handle later when delta is a sum of products
@@ -2846,6 +2877,7 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         getConstantWithType(Src->getSrcType(), Src->getDestType(),
                             Src->isSExt(), CE->getIVConstCoeff(CurIVPair));
     const CanonExpr *DstCoeff = getMinus(SrcCoeff, SrcCoeff); // start with  0
+
     const CanonExpr *Inner = Src;
 
     CE2 = Inner;
@@ -2891,6 +2923,10 @@ bool DDtest::gcdMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
         RunningGCD =
             APIntOps::GreatestCommonDivisor(RunningGCD, ConstCoeff.abs());
       }
+    }
+
+    if (!DstCoeff) {
+      continue;
     }
 
     Delta = getMinus(SrcCoeff, DstCoeff);
@@ -2975,6 +3011,9 @@ bool DDtest::banerjeeMIVtest(const CanonExpr *Src, const CanonExpr *Dst,
       collectCoeffInfo(Dst, false, B0, SrcParentLoop, DstParentLoop);
   BoundInfo *Bound = new BoundInfo[MaxLevels + 1];
   const CanonExpr *Delta = getMinus(B0, A0);
+  if (!Delta) {
+    return false;
+  }
   DEBUG(dbgs() << "\n    Delta = "; Delta->dump());
 
   // Compute bounds for all the * directions.
@@ -3360,12 +3399,18 @@ void DDtest::findBoundsGT(CoefficientInfo *A, CoefficientInfo *B,
 
 // X^+ = max(X, 0)
 const CanonExpr *DDtest::getPositivePart(const CanonExpr *X) {
+  if (!X) {
+    return nullptr;
+  }
   return getSMaxExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
                                             X->isSExt(), 0));
 }
 
 // X^- = min(X, 0)
 const CanonExpr *DDtest::getNegativePart(const CanonExpr *X) {
+  if (!X) {
+    return nullptr;
+  }
   return getSMinExpr(X, getConstantWithType(X->getSrcType(), X->getDestType(),
                                             X->isSExt(), 0));
 }
