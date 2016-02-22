@@ -45,7 +45,7 @@
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionNode.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
 
-#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParoptTransform.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptTransform.h"
 
 #include <algorithm>
 #include <set>

@@ -34,7 +34,7 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParoptUtils.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
 
 #include <string>
 

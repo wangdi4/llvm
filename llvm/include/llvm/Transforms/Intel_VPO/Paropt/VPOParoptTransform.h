@@ -54,8 +54,8 @@
 #include "llvm/Transforms/Utils/CodeExtractor.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include "llvm/Transforms/Intel_VPO/Utils/VPOUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParoptUtils.h"
-#include "llvm/Transforms/Intel_VPO/Paropt1/VPOParopt.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParoptUtils.h"
+#include "llvm/Transforms/Intel_VPO/Paropt/VPOParopt.h"
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
