@@ -795,6 +795,8 @@ private:
   // Maps from a type identifier to the actual MDNode.
   DITypeIdentifierMap TypeIdentifierMap;
 
+  static const char* _unnamedType;
+
 public:
   STIDebugImpl(AsmPrinter *asmPrinter);
   virtual ~STIDebugImpl();
@@ -1054,6 +1056,12 @@ protected:
   void emitTypeArgumentList(const STITypeArgumentList *type) const;
   void emitTypeServer(const STITypeServer *type) const;
 };
+
+//===----------------------------------------------------------------------===//
+// STIDebugImpl::_unnamedType
+//===----------------------------------------------------------------------===//
+
+const char* STIDebugImpl::_unnamedType = "<unnamed-type>";
 
 //===----------------------------------------------------------------------===//
 // STIDebugImpl Public Routines
@@ -2489,7 +2497,7 @@ STIType *STIDebugImpl::lowerTypeAlias(const DIDerivedType *llvmType) {
   if (baseType->getKind() == STI_OBJECT_KIND_TYPE_ENUMERATION) {
     STITypeEnumeration *enumeration =
         static_cast<STITypeEnumeration *>(baseType);
-    if (enumeration->getName().empty()) {
+    if (enumeration->getName() == _unnamedType) {
       enumeration->setName(name);
     }
   }
@@ -3159,7 +3167,17 @@ STIType *STIDebugImpl::lowerTypeEnumeration(const DICompositeType *llvmType) {
     appendFixup(new STIDebugFixupNested(llvmType));
   }
 
-  name          = llvmType->getName();
+  name = llvmType->getName();
+  if (name.empty()) {
+      // When the name is empty (just a null character), this can cause the
+      // Microsoft PDB writer to generate a corrupt PDB file.  Instead, we
+      // need to emit these as "<unnamed-tag>".  We use a static variable for
+      // this in order to test against it if a named alias occurs which
+      // we can borrow the name from.
+      //
+      name = _unnamedType;
+  }
+
   sizeInBits    = llvmType->getSizeInBits();
 
   if (llvmType->isForwardDecl()) {
@@ -3573,7 +3591,6 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
     assert(DVInsn && "Unknown location");
     assert(DVInsn->getNumOperands() == 3 || DVInsn->getNumOperands() == 4);
     // TODO: handle the case DVInsn->getNumOperands() == 4
-    bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
     if (DVInsn->getOperand(0).isReg()) {
       const MachineOperand RegOp = DVInsn->getOperand(0);
       // If the second operand is an immediate, this is an indirect value.
@@ -3584,11 +3601,14 @@ STISymbolVariable *STIDebugImpl::createSymbolVariable(
           location = STILocation::createRegisterOffset(
               toSTIRegID(RegOp.getReg()), DVInsn->getOperand(1).getImm());
         }
-      } else if (indirect) {
-        location =
-            STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
       } else if (RegOp.getReg()) {
-        location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
+        bool indirect = isIndirectExpression(DVInsn->getDebugExpression());
+        if (indirect) {
+          location =
+              STILocation::createRegisterOffset(toSTIRegID(RegOp.getReg()), 0);
+        } else {
+          location = STILocation::createRegister(toSTIRegID(RegOp.getReg()));
+        }
       }
     } else if (DVInsn->getOperand(0).isImm()) {
       //assert(!"FIXME: support this case");
@@ -5406,6 +5426,12 @@ void STIDebugImpl::emitTypeEnumeration(const STITypeEnumeration *type) const {
   StringRef name = type->getName();
   const size_t length = 16 + name.size() + 1;
   const size_t padding = paddingBytes(length);
+
+  // If an empty name is emitted (nothing but a terminating null character),
+  // then this can corrupt the PDB writer.  Make sure we never emit an
+  // enumeration with a empty name.
+  //
+  assert(!name.empty());
 
   typeBegin     (type);
   emitInt16     (length + padding - 2);
