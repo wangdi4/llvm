@@ -706,6 +706,9 @@ defm DIVF16    : BinOpNC<"divf16", fdiv, F16, f16, fpimm, [HasF16,HasFDiv]>;
 defm DIVF32    : BinOpNC<"divf32", fdiv, F32, f32, fpimm, [HasF32,HasFDiv]>;
 defm DIVF64    : BinOpNC<"divf64", fdiv, F64, f64, fpimm, [HasF64,HasFDiv]>;
 
+defm POWF32    : BinOpNC<"powf32",   fpow,  F32, f32, fpimm, [HasF32,HasMath0]>;
+defm POWF64    : BinOpNC<"powf64",   fpow,  F64, f64, fpimm, [HasF64,HasMath0]>;
+
 defm CMPLTS8  : CmpOpNC<"cmplts8", setlt,  I8,  i8,  [HasI8]>;
 defm CMPLTS16 : CmpOpNC<"cmplts16",setlt,  I16, i16, [HasI16]>;
 defm CMPLTS32 : CmpOpNC<"cmplts32",setlt,  I32, i32, [HasI32]>;

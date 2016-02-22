@@ -241,8 +241,8 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
     setOperationAction(ISD::FCOS,  MVT::f64, Legal);
     //setOperationAction(ISD::FPOWI, MVT::f32, Legal);
     //setOperationAction(ISD::FPOWI, MVT::f64, Legal);
-    //setOperationAction(ISD::FPOW,  MVT::f32, Legal);
-    //setOperationAction(ISD::FPOW,  MVT::f64, Legal);
+    setOperationAction(ISD::FPOW,  MVT::f32, Legal);
+    setOperationAction(ISD::FPOW,  MVT::f64, Legal);
     setOperationAction(ISD::FLOG,  MVT::f32, Legal);
     setOperationAction(ISD::FLOG,  MVT::f64, Legal);
     setOperationAction(ISD::FLOG2, MVT::f32, Legal);
