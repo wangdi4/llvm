@@ -156,6 +156,11 @@ LPUTargetLowering::LPUTargetLowering(const TargetMachine &TM)
   setTruncStoreAction(MVT::i32, MVT::i8 , Expand);
   setTruncStoreAction(MVT::i16, MVT::i8,  Expand);
 
+  setTruncStoreAction(MVT::i64, MVT::i1,  Promote);
+  setTruncStoreAction(MVT::i32, MVT::i1,  Promote);
+  setTruncStoreAction(MVT::i16, MVT::i1,  Promote);
+  setTruncStoreAction(MVT::i8,  MVT::i1,  Promote);
+
   setTruncStoreAction(MVT::f64, MVT::f32, Expand);
   setTruncStoreAction(MVT::f64, MVT::f16, Expand);
   setTruncStoreAction(MVT::f32, MVT::f16, Expand);
