@@ -68,7 +68,6 @@
 // alloca. Linear and uniform parameters will be used directly, instead of
 // through a load instruction.
 
-#include "llvm/Transforms/Intel_VPO/VPOPasses.h"
 #include "llvm/Analysis/VectorUtils.h"
 #include "llvm/Analysis/Intel_VectorVariant.h"
 #include "llvm/Transforms/Utils/Intel_VecClone.h"
@@ -217,7 +216,7 @@ Function* VecClone::CloneFunction(Function &F, VectorVariant &V)
   Function::arg_iterator NewArgIt = Clone->arg_begin();
   for (; ArgIt != ArgEnd; ++ArgIt, ++NewArgIt) {
     NewArgIt->setName(ArgIt->getName());
-    Vmap[ArgIt] = NewArgIt;
+    Vmap[&*ArgIt] = &*NewArgIt;
   }
 
   if (V.isMasked()) {
@@ -248,7 +247,7 @@ bool VecClone::isVectorOrLinearParamStore(
 
     for (; ArgListIt != ArgListEnd; ++ArgListIt) {
       unsigned ParmIdx = ArgListIt->getArgNo();
-      if (ArgListIt == Op0 &&
+      if (&*ArgListIt == Op0 &&
           (ParmKinds[ParmIdx].isVector() || ParmKinds[ParmIdx].isLinear())) {
         return true;
       }
@@ -302,7 +301,7 @@ BasicBlock* VecClone::splitEntryIntoLoop(Function *Clone, VectorVariant &V,
       // the loop, the initial value of 1 will always be stored to a temp
       // before the increment, resulting in the value of 2 always being computed
       // in the scalar loop.
-      EntryInsts.push_back(BBIt);
+      EntryInsts.push_back(&*BBIt);
     }
   }
 
@@ -355,12 +354,14 @@ BasicBlock* VecClone::splitLoopIntoReturn(Function *Clone,
     }
   }
 
-  Function::iterator ReturnBlock = Clone->end();
+  Function::iterator ReturnBlockIt = Clone->end();
+  BasicBlock *ReturnBlock;
   if (dyn_cast<LoadInst>(SplitPt) || dyn_cast<ReturnInst>(SplitPt)) {
     ReturnBlock = LoopBlock->splitBasicBlock(SplitPt, "return");
   } else {
-    ReturnBlock = Clone->end();
-    ReturnBlock--;
+    ReturnBlockIt = Clone->end();
+    ReturnBlockIt--;
+    ReturnBlock = &*ReturnBlockIt;
   }
 
   return ReturnBlock;
@@ -436,7 +437,7 @@ PHINode* VecClone::createPhiAndBackedgeForLoop(
   // edge to the loop from the loop exit.
 
   PHINode *Phi = PHINode::Create(Type::getInt32Ty(Clone->getContext()), 2,
-                                 "index", LoopBlock->getFirstInsertionPt());
+                                 "index", &*LoopBlock->getFirstInsertionPt());
 
   Constant *Inc = ConstantInt::get(Type::getInt32Ty(Clone->getContext()), 1);
   Constant *IndInit = ConstantInt::get(Type::getInt32Ty(Clone->getContext()),
@@ -674,9 +675,9 @@ Instruction* VecClone::expandReturn(
     Value *RetVal = FuncReturn->getReturnValue();
     Instruction *RetFromTemp = dyn_cast<Instruction>(RetVal);
 
-    BasicBlock::iterator InsertPt;
+    Instruction *InsertPt;
     Value *ValToStore;
-    Instruction *Phi = LoopBlock->begin();
+    Instruction *Phi = &*LoopBlock->begin();
 
     if (RetFromTemp) {
       // If we're returning from an SSA temp, set the insert point to the
@@ -689,19 +690,18 @@ Instruction* VecClone::expandReturn(
       InsertPt = Phi;
       ValToStore = RetVal;
     }
-    InsertPt++;
 
     // Generate a gep from the bitcast of the vector alloca used for the return
     // vector.
     Twine GepName = VecReturn->getName() + ".gep";
     GetElementPtrInst *VecGep =
         GetElementPtrInst::Create(ReturnType->getElementType(),
-                                  VecReturn, Phi, GepName, InsertPt);
-    InsertPt = VecGep;
-    InsertPt++;
+                                  VecReturn, Phi, GepName);
+    VecGep->insertAfter(InsertPt);
 
     // Store the constant or temp to the appropriate lane in the return vector.
-    new StoreInst(ValToStore, VecGep, InsertPt);
+    StoreInst *VecStore = new StoreInst(ValToStore, VecGep);
+    VecStore->insertAfter(VecGep);
 
   } else {
 
@@ -783,7 +783,7 @@ Instruction* VecClone::expandVectorParametersAndReturn(
     // the EntryBlock instructions are grouped by alloca, followed by store,
     // followed by bitcast for readability reasons.
 
-    StoreInst *MaskStore = new StoreInst(MaskParm, MaskVector);
+    StoreInst *MaskStore = new StoreInst(&*MaskParm, MaskVector);
     insertInstruction(MaskStore, EntryBlock);
   }
 
@@ -951,22 +951,22 @@ Instruction* VecClone::generateStrideForParameter(
   // old parameter reference.
   Instruction *StrideInst = nullptr;
 
+  Constant *StrideConst =
+      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
+
+  Instruction *Mul = BinaryOperator::CreateMul(StrideConst, Phi, "stride.mul");
+
   // Insert the stride related instructions after the user if the instruction
   // involves a redefinition of the parameter. For example, a load from the
   // parameter's associated alloca or a cast. For these situations, we want to
   // apply the stride to this SSA temp. For other instructions, e.g., add, the
   // instruction computing the stride must be inserted before the user.
 
-  BasicBlock::iterator StrideInsertPt = ParmUser;
   if (!isa<UnaryInstruction>(ParmUser)) {
-    StrideInsertPt--;
+    Mul->insertBefore(ParmUser);
+  } else {
+    Mul->insertAfter(ParmUser);
   }
-
-  Constant *StrideConst =
-      ConstantInt::get(Type::getInt32Ty(Clone->getContext()), Stride);
-
-  Instruction *Mul = BinaryOperator::CreateMul(StrideConst, Phi, "stride.mul");
-  Mul->insertAfter(StrideInsertPt);
 
   if (Arg->getType()->isPointerTy()) {
 
@@ -1177,7 +1177,7 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
           //   br label %simd.loop.exit
 
           Instruction *StrideInst =
-              generateStrideForParameter(Clone, ArgListIt, LinearParmUsers[I],
+              generateStrideForParameter(Clone, &*ArgListIt, LinearParmUsers[I],
                                          Stride, Phi);
 
           SmallVector<Instruction*, 4> InstsToUpdate;
@@ -1204,7 +1204,7 @@ void VecClone::updateLinearReferences(Function *Clone, Function &F,
             }
           } else {
             // Case 2
-            ParmUser = ArgListIt;
+            ParmUser = &*ArgListIt;
             InstsToUpdate.push_back(LinearParmUsers[I]);
           }
 
@@ -1243,7 +1243,7 @@ void VecClone::updateReturnBlockInstructions(
   BasicBlock::iterator InstEnd = ReturnBlock->end();
 
   for (; InstIt != InstEnd; ++InstIt) {
-    InstToRemove.push_back(InstIt);
+    InstToRemove.push_back(&*InstIt);
   }
 
   // Remove all instructions from the return block. These will be replaced
@@ -1284,7 +1284,7 @@ int VecClone::getParmIndexInFunction(Function *F, Value *Parm)
   Function::arg_iterator ArgIt = F->arg_begin();
   Function::arg_iterator ArgEnd = F->arg_end();
   for (unsigned Idx = 0; ArgIt != ArgEnd; ++ArgIt, ++Idx) {
-    if (Parm == ArgIt) return Idx; 
+    if (Parm == &*ArgIt) return Idx; 
   }
 
   return -1;
@@ -1327,11 +1327,11 @@ void VecClone::insertBeginRegion(Module& M, Function *Clone, Function &F,
     unsigned ParmIdx = ArgListIt->getArgNo();
 
     if (ParmKinds[ParmIdx].isLinear()) {
-      LinearVars.push_back(ArgListIt); 
+      LinearVars.push_back(&*ArgListIt); 
     }
 
     if (ParmKinds[ParmIdx].isVector()) {
-      PrivateVars.push_back(ArgListIt); 
+      PrivateVars.push_back(&*ArgListIt); 
     }
   }
 
@@ -1565,10 +1565,10 @@ bool VecClone::runOnModule(Module &M) {
         continue;
       }
 
-      BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, EntryBlock);
+      BasicBlock *LoopBlock = splitEntryIntoLoop(Clone, Variant, &*EntryBlock);
       BasicBlock *ReturnBlock = splitLoopIntoReturn(Clone, LoopBlock);
       BasicBlock *LoopExitBlock = createLoopExit(Clone, ReturnBlock);
-      PHINode *Phi = createPhiAndBackedgeForLoop(Clone, EntryBlock,
+      PHINode *Phi = createPhiAndBackedgeForLoop(Clone, &*EntryBlock,
                                                  LoopBlock, LoopExitBlock,
                                                  ReturnBlock,
                                                  Variant.getVlen());
@@ -1599,10 +1599,10 @@ bool VecClone::runOnModule(Module &M) {
 
       Instruction *Mask = NULL;
       Instruction *ExpandedReturn =
-          expandVectorParametersAndReturn(Clone, Variant, &Mask, EntryBlock,
+          expandVectorParametersAndReturn(Clone, Variant, &Mask, &*EntryBlock,
                                           LoopBlock, ReturnBlock,
                                           VectorParmMap);
-      updateScalarMemRefsWithVector(Clone, F, EntryBlock, ReturnBlock, Phi,
+      updateScalarMemRefsWithVector(Clone, F, &*EntryBlock, ReturnBlock, Phi,
                                     VectorParmMap);
 
       // Update any linear variables with the appropriate stride. This function
@@ -1631,8 +1631,8 @@ bool VecClone::runOnModule(Module &M) {
       }
 
       // Insert the basic blocks that mark the beginning/end of the SIMD loop.
-      insertDirectiveIntrinsics(M, Clone, F, Variant, EntryBlock, LoopExitBlock,
-                                ReturnBlock);
+      insertDirectiveIntrinsics(M, Clone, F, Variant, &*EntryBlock,
+                                LoopExitBlock, ReturnBlock);
 
       DEBUG(dbgs() << "After SIMD Function Cloning\n");
       DEBUG(Clone->dump());
