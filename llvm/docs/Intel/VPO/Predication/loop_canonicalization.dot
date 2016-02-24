@@ -1,0 +1,72 @@
+digraph examples {
+
+  node [shape=record]
+
+  subgraph cluster_ex1 {
+    label="(I) Multi-exit loop"
+    color=black
+    ex1_entry     [label="ENTRY"; rank=source]
+    ex1_exit      [label="EXIT"; rank=sink]
+    ex1_header    [label="H"]
+    ex1_continue  [label="test1()"]
+    ex1_exiting   [label="test2()"]
+    ex1_out       [label="A"]
+    ex1_latch     [label="i \< 100"]
+    ex1_next      [label="B"]
+    ex1_postdom   [label="P"]
+
+    ex1_entry -> ex1_header   [style="dashed"]
+    ex1_header -> ex1_continue   [color="blue3"]
+    ex1_continue -> ex1_exiting  [color="blue3"]
+    ex1_continue -> ex1_latch    [color="blue3"]
+    ex1_exiting  -> ex1_out      [color="green3"]
+    ex1_exiting  -> ex1_latch    [color="blue3"]
+    ex1_out   -> ex1_postdom     [color="green3"]
+    ex1_latch -> ex1_header      [color="blue3"]
+    ex1_latch -> ex1_next        [color="purple3"]
+    ex1_next -> ex1_postdom      [color="purple3"]
+    ex1_postdom -> ex1_exit      [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) Canonicalized loop"
+    color=black
+    ex2_entry     [label="ENTRY"; rank=source]
+    ex2_exit      [label="EXIT"; rank=sink]
+    ex2_initlatch [label="v = 1"]
+    ex2_header    [label="H"]
+    ex2_continue  [label="test1()"]
+    ex2_exiting1  [label="test2()"]
+    ex2_exit1     [label="exit_to = 1"]
+    ex2_reset     [label="v = 0"]
+    ex2_out       [label="A"]
+    ex2_latch     [label="i \< 100"]
+    ex2_exit2     [label="exit_to = 2"]
+    ex2_canonl    [label="all-zeros(v)"]
+    ex2_check1    [label="switch(exit_to)"]
+    ex2_next      [label="B"]
+    ex2_postdom   [label="P"]
+
+    ex2_entry -> ex2_initlatch     [style="dashed"]
+    ex2_initlatch -> ex2_header
+    ex2_header -> ex2_continue     [color="blue3"]
+    ex2_continue -> ex2_canonl     [color="blue3"]
+    ex2_continue -> ex2_exiting1   [color="blue3"]
+    ex2_exiting1 -> ex2_exit1      [color="blue3"]
+    ex2_exit1 -> ex2_reset         [color="blue3"]
+    ex2_exiting1 -> ex2_latch      [color="blue3"]
+    ex2_reset -> ex2_canonl        [color="blue3"]
+    ex2_latch -> ex2_exit2         [color="blue3"]
+    ex2_exit2 -> ex2_reset         [color="blue3"]
+    ex2_latch -> ex2_canonl        [color="blue3"]
+
+    ex2_canonl -> ex2_check1
+    ex2_canonl -> ex2_header       [color="blue3"]
+    ex2_check1 -> ex2_out          [color="green3"; label="1"]
+    ex2_out -> ex2_postdom         [color="green3"]
+    ex2_check1 -> ex2_next         [color="purple3"; label="2"]
+    ex2_next -> ex2_postdom        [color="purple3"]
+    ex2_postdom -> ex2_exit        [style="dashed"]
+  }
+
+}

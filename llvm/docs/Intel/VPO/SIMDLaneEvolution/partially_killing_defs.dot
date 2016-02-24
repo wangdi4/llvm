@@ -1,0 +1,90 @@
+digraph examples {
+
+  node [shape=box]
+
+  subgraph cluster_ex1 {
+    label="(I)" +
+          "\n&beta; &rarr; &theta; &rarr; &alpha; &rarr; &delta;" +
+          "\n&beta; &rarr; &theta; &rarr; &alpha; &rarr; &gamma;"
+    color=black
+    ex1_entry  [label="ENTRY"; rank=source]
+    ex1_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex1_header [label=""; color="red3"]
+      ex1_def    [label="x = ..."]
+      ex1_latch  [label="... = x"; fontcolor="red3"]
+      ex1_use    [label="... = x"; fontcolor="red3"]
+    }
+    ex1_pdom   [label=""]
+
+    ex1_entry -> ex1_header [style="dashed"]
+    ex1_header -> ex1_def [label="&alpha;"]
+    ex1_header -> ex1_latch [label="&beta;"]
+    ex1_def -> ex1_latch [label="&gamma;"]
+    ex1_def -> ex1_use [label="&delta;"]
+    ex1_use -> ex1_pdom
+    ex1_latch -> ex1_header [label="&theta;"]
+    ex1_latch -> ex1_pdom
+
+    ex1_pdom -> ex1_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II)" +
+          "\n&gamma; &rarr; &theta; &rarr; &psi; &rarr;" +
+          "\n&rarr; &alpha; &rarr; &beta; &rarr; &delta;"
+    color=black
+    ex2_entry  [label="ENTRY"; rank=source]
+    ex2_exit   [label="EXIT"; rank=sink]
+    ex2_header [label=""]
+    ex2_div  [label=""; color="red3"]
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex2_def  [label="x = ..."]
+    }
+    ex2_pdom   [label="... = x"; fontcolor="red3"]
+    ex2_latch  [label=""]
+
+    ex2_entry -> ex2_header [style="dashed"]
+    ex2_header -> ex2_div [label="&alpha;"]
+    ex2_div -> ex2_def [label="&beta;"]
+    ex2_div -> ex2_pdom [label="&gamma;"]
+    ex2_def -> ex2_pdom [label="&delta;"]
+    ex2_pdom -> ex2_latch [label="&theta;"]
+    ex2_latch -> ex2_header [label="&psi;"]
+
+    ex2_latch -> ex2_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III)" +
+          "\nUse dominated" +
+          "\nby Def"
+    color=black
+    ex3_entry  [label="ENTRY"; rank=source]
+    ex3_exit   [label="EXIT"; rank=sink]
+    ex3_header [label=""]
+    ex3_div  [label=""; color="red3"]
+    subgraph cluster_ex3_ir {
+      label=""
+      color=red
+      ex3_def  [label="x = ..."]
+      ex3_use    [label="... = x"; fontcolor="red3"]
+    }
+    ex3_latch  [label=""]
+
+    ex3_entry -> ex3_header [style="dashed"]
+    ex3_header -> ex3_div [label="&alpha;"]
+    ex3_div -> ex3_def [label="&beta;"]
+    ex3_div -> ex3_latch [label="&gamma;"]
+    ex3_def -> ex3_use [label="&delta;"]
+    ex3_use -> ex3_latch [label="&theta;"]
+    ex3_latch -> ex3_header [label="&psi;"]
+
+    ex3_latch -> ex3_exit [style="dashed"]
+  }
+
+}

@@ -1,0 +1,92 @@
+digraph examples {
+
+  node [shape=record]
+
+  subgraph cluster_ex1 {
+    label="(I) IR with side entry"
+    color=black
+    ex1_entry  [label="ENTRY"; rank=source]
+    ex1_exit   [label="EXIT"; rank=sink]
+    ex1_if1    [label="A"]
+    ex1_if2    [label="B"; color="red3"]
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex1_then2  [label="C"]
+      ex1_else2  [label="D"]
+    }
+    ex1_else1  [label="E"]
+    ex1_pdom2  [label="F"]
+    ex1_pdom1  [label="G"]
+
+    ex1_entry -> ex1_if1    [style="dashed"]
+    ex1_if1 -> ex1_if2
+    ex1_if1 -> ex1_else1
+    ex1_if2 -> ex1_then2
+    ex1_if2 -> ex1_else2
+    ex1_then2 -> ex1_pdom2
+    ex1_else2 -> ex1_pdom2
+    ex1_pdom2 -> ex1_pdom1
+    ex1_else1 -> ex1_else2
+    ex1_else1 -> ex1_pdom1
+    ex1_pdom1 -> ex1_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) SESE linearization"
+    color=black
+    ex2_entry  [label="ENTRY"; rank=source]
+    ex2_exit   [label="EXIT"; rank=sink]
+    ex2_if1    [label="A | &mu;A &equiv; 1"]
+    ex2_if2    [label="B | &mu;B = &mu;A && A"; color="red3"]
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex2_then2  [label="C | &mu;C = &mu;B && B"]
+      ex2_else2  [label="D | &mu;D = (&mu;B && ~B) \|\| (&mu;E && E)"]
+    }
+    ex2_else1  [label="E | &mu;E = &mu;A && ~A"]
+    ex2_pdom2  [label="F | &mu;F = &mu;C \|\| &mu;D"]
+    ex2_pdom1  [label="G | &mu;G = &mu;F \|\| (&mu;E && ~E)"]
+
+    ex2_entry -> ex2_if1    [style="dashed"]
+    ex2_if1 -> ex2_else1
+    ex2_else1 -> ex2_if2
+    ex2_if2 -> ex2_then2
+    ex2_then2 -> ex2_else2
+    ex2_else2 -> ex2_pdom2
+    ex2_pdom2 -> ex2_pdom1
+    ex2_pdom1 -> ex2_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(I) IR with side entry"
+    color=black
+    ex3_entry  [label="ENTRY"; rank=source]
+    ex3_exit   [label="EXIT"; rank=sink]
+    ex3_if1    [label="A | &mu;A &equiv; 1"]
+    ex3_if2    [label="B | &mu;B = &mu;A && A"; color="red3"]
+    subgraph cluster_ex3_ir {
+      label=""
+      color=red
+      ex3_then2  [label="C | &mu;C = &mu;B && B"]
+      ex3_else2  [label="D | &mu;D = &phi;(&mu;B && ~B, &mu;E && E)\n&mu;C' = &phi;(&mu;C, 0)"]
+    }
+    ex3_else1  [label="E | &mu;E = &mu;A && ~A"]
+    ex3_pdom2  [label="F | &mu;F = &phi;(&mu;C' \|\| &mu;D)"]
+    ex3_pdom1  [label="G | &mu;G = &phi;(&mu;F, &mu;E && ~E)"]
+
+    ex3_entry -> ex3_if1    [style="dashed"]
+    ex3_if1 -> ex3_if2
+    ex3_if1 -> ex3_else1
+    ex3_if2 -> ex3_then2
+    ex3_then2 -> ex3_else2
+    ex3_else2 -> ex3_pdom2
+    ex3_pdom2 -> ex3_pdom1
+    ex3_else1 -> ex3_else2
+    ex3_else1 -> ex3_pdom1
+    ex3_pdom1 -> ex3_exit   [style="dashed"]
+  }
+
+
+}

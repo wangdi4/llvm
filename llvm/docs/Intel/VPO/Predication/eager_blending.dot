@@ -1,0 +1,101 @@
+digraph examples {
+
+  node [shape=record]
+
+  subgraph cluster_ex1 {
+    label="(I) B &rarr; C &rarr; E &rarr; F"
+    color=black
+    ex1_entry [label="ENTRY"; rank=source]
+    ex1_exit  [label="EXIT"; rank=sink]
+    ex1_cond  [label="A | &mu;=1111"]
+    ex1_then  [label="{{B | &mu;=1100}|x = A ? 1,1,1,1 : x}"]
+    ex1_else  [label="{{C | &mu;=0011}|x = !A ? 2,2,2,2 : x}"]
+    ex1_cond2 [label="D | &mu;=1111"]
+    ex1_then2 [label="{{E | &mu;=1010}|x = D ? 3,3,3,3 : x}"]
+    ex1_else2 [label="F | &mu;=0101"]
+    ex1_use   [label="{G|...=x}"]
+
+    ex1_entry -> ex1_cond [style="dashed"]
+    ex1_cond -> ex1_then  [label="x=&Phi;,&Phi;,&Phi;,&Phi;"]
+    ex1_then -> ex1_else  [label="x=1,1,&Phi;,&Phi;"]
+    ex1_else -> ex1_cond2 [label="x=1,1,2,2"]
+
+    ex1_cond2 -> ex1_then2 [label="x=3,1,3,2"]
+    ex1_then2 -> ex1_else2 [label="x=3,1,3,2"]
+    ex1_else2 -> ex1_use   [label="x=3,1,3,2"]
+    ex1_use -> ex1_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) C &rarr; B &rarr; E &rarr; F"
+    color=black
+    ex2_entry [label="ENTRY"; rank=source]
+    ex2_exit  [label="EXIT"; rank=sink]
+    ex2_cond  [label="A | &mu;=1111"]
+    ex2_then  [label="{{B | &mu;=1100}|x = A ? 1,1,1,1 : x}"]
+    ex2_else  [label="{{C | &mu;=0011}|x = !A ? 2,2,2,2 : x}"]
+    ex2_cond2 [label="D | &mu;=1111"]
+    ex2_then2 [label="{{E | &mu;=1010}|x = D ? 3,3,3,3 : x}"]
+    ex2_else2 [label="F | &mu;=0101"]
+    ex2_use   [label="{G|...=x}"]
+
+    ex2_entry -> ex2_cond [style="dashed"]
+    ex2_cond -> ex2_else  [label="x=&Phi;,&Phi;,&Phi;,&Phi;"]
+    ex2_else -> ex2_then  [label="x=2,2,&Phi;,&Phi;"]
+    ex2_then -> ex2_cond2 [label="x=1,1,2,2"]
+
+    ex2_cond2 -> ex2_then2 [label="x=3,1,3,2"]
+    ex2_then2 -> ex2_else2 [label="x=3,1,3,2"]
+    ex2_else2 -> ex2_use   [label="x=3,1,3,2"]
+    ex2_use -> ex2_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III) B &rarr; C &rarr; F &rarr; E"
+    color=black
+    ex3_entry [label="ENTRY"; rank=source]
+    ex3_exit  [label="EXIT"; rank=sink]
+    ex3_cond  [label="A | &mu;=1111"]
+    ex3_then  [label="{{B | &mu;=1100}|x = A ? 1,1,1,1 : x}"]
+    ex3_else  [label="{{C | &mu;=0011}|x = !A ? 2,2,2,2 : x}"]
+    ex3_cond2 [label="D | &mu;=1111"]
+    ex3_then2 [label="{{E | &mu;=1010}|x = D ? 3,3,3,3 : x}"]
+    ex3_else2 [label="F | &mu;=0101"]
+    ex3_use   [label="{G|...=x}"]
+
+    ex3_entry -> ex3_cond [style="dashed"]
+    ex3_cond -> ex3_then  [label="x=&Phi;,&Phi;,&Phi;,&Phi;"]
+    ex3_then -> ex3_else  [label="x=1,1,&Phi;,&Phi;"]
+    ex3_else -> ex3_cond2 [label="x=1,1,2,2"]
+
+    ex3_cond2 -> ex3_else2 [label="x=1,1,2,2"]
+    ex3_else2 -> ex3_then2 [label="x=1,1,2,2"]
+    ex3_then2 -> ex3_use   [label="x=3,1,3,2"]
+    ex3_use -> ex3_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex4 {
+    label="(IV) C &rarr; B &rarr; F &rarr; E"
+    color=black
+    ex4_entry [label="ENTRY"; rank=source]
+    ex4_exit  [label="EXIT"; rank=sink]
+    ex4_cond  [label="A | &mu;=1111"]
+    ex4_then  [label="{{B | &mu;=1100}|x = A ? 1,1,1,1 : x}"]
+    ex4_else  [label="{{C | &mu;=0011}|x = !A ? 2,2,2,2 : x}"]
+    ex4_cond2 [label="D | &mu;=1111"]
+    ex4_then2 [label="{{E | &mu;=1010}|x = D ? 3,3,3,3 : x}"]
+    ex4_else2 [label="F | &mu;=0101"]
+    ex4_use   [label="{G|...=x}"]
+
+    ex4_entry -> ex4_cond [style="dashed"]
+    ex4_cond -> ex4_else  [label="x=&Phi;,&Phi;,&Phi;,&Phi;"]
+    ex4_else -> ex4_then  [label="x=2,2,&Phi;,&Phi;"]
+    ex4_then -> ex4_cond2 [label="x=1,1,2,2"]
+
+    ex4_cond2 -> ex4_else2 [label="x=1,1,2,2"]
+    ex4_else2 -> ex4_then2 [label="x=1,1,2,2"]
+    ex4_then2 -> ex4_use   [label="x=3,1,3,2"]
+    ex4_use -> ex4_exit   [style="dashed"]
+  }
+
+}

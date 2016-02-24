@@ -1,0 +1,62 @@
+digraph examples {
+
+  node [shape=record]
+
+  subgraph cluster_ex1 {
+    label="(I) SSA form"
+    color=black
+    ex1_entry [label="ENTRY"; rank=source]
+    ex1_exit  [label="EXIT"; rank=sink]
+    ex1_A  [label="A"; color="red3"]
+    ex1_B  [label="{B|x1=1}"]
+    ex1_C  [label="{C|x2=2}"]
+    ex1_D [label="{D|x3 = &phi;(x1/B, x2/C)}"]
+    ex1_E [label="E"; color="red3"]
+    ex1_F [label="{F|x4=3}"]
+    ex1_G [label="G"]
+    ex1_H [label="{H|x3 = &phi;(x4/F, x3/G)}"]
+    ex1_I [label="{I|...=x}"; fontcolor="red3"]
+
+    ex1_entry -> ex1_A [style="dashed"]
+    ex1_A -> ex1_B [label="1,2"]
+    ex1_A -> ex1_C [label="3,4"]
+    ex1_B -> ex1_D [label="1,2"]
+    ex1_C -> ex1_D [label="3,4"]
+    ex1_D -> ex1_E [label="1,2,3,4"]
+
+    ex1_E -> ex1_F [label="1,3"]
+    ex1_E -> ex1_G [label="2,4"]
+    ex1_F -> ex1_H [label="1,3"]
+    ex1_G -> ex1_H [label="2,4"]
+    ex1_H -> ex1_I [label="1,2,3,4"]
+    
+    ex1_I -> ex1_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(I) Def-Use form"
+    color=black
+    ex2_entry [label="ENTRY"; rank=source]
+    ex2_exit  [label="EXIT"; rank=sink]
+    ex2_cond  [label="A"; color="red3"]
+    ex2_then  [label="{B|x=1}"]
+    ex2_else  [label="{C|x=2}"]
+    ex2_cond2 [label="D"; color="red3"]
+    ex2_then2 [label="{E|x=3}"]
+    ex2_else2 [label="F"]
+    ex2_use   [label="{G|...=x}"; fontcolor="red3"]
+
+    ex2_entry -> ex2_cond [style="dashed"]
+    ex2_cond -> ex2_then  [label="1,2"]
+    ex2_cond -> ex2_else  [label="3,4"]
+    ex2_then -> ex2_cond2 [label="1,2"]
+    ex2_else -> ex2_cond2 [label="3,4"]
+
+    ex2_cond2 -> ex2_then2 [label="1,3"]
+    ex2_cond2 -> ex2_else2 [label="2,4"]
+    ex2_then2 -> ex2_use   [label="1,3"]
+    ex2_else2 -> ex2_use   [label="2,4"]
+    ex2_use -> ex2_exit   [style="dashed"]
+  }
+
+}

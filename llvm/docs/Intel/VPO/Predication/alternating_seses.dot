@@ -1,0 +1,214 @@
+digraph examples {
+
+  node [shape=record]
+
+  subgraph cluster_ex1 {
+    label="(I)"
+    color=black
+    ex1_entry  [label="ENTRY"; rank=source]
+    ex1_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex1_1 {
+      label=""
+      color=blue3
+      ex1_if1    [label="A"; color="red3"]
+      ex1_pdom1  [label="J"]
+
+      subgraph cluster_ex1_2 {
+        label=""
+        color=orange3
+        ex1_if2    [label="C"]
+        ex1_then2  [label="D"]
+        ex1_pdom2  [label="I"]
+
+        subgraph cluster_ex1_3 {
+          label=""
+          color=green3
+          ex1_if3    [label="E"; color="red3"]
+          ex1_then3  [label="F"]
+          ex1_else3  [label="G"]
+          ex1_pdom3  [label="H"]
+        }
+
+      }
+
+      subgraph cluster_ex1_4 {
+        label=""
+        color=purple3
+        ex1_if4  [label="B"]
+        ex1_then4  [label="J"]
+        ex1_pdom4  [label="O"]
+
+        subgraph cluster_ex1_5 {
+          label=""
+          color=cyan3
+          ex1_if5    [label="K"; color="red3"]
+          ex1_then5  [label="L"]
+          ex1_else5  [label="M"]
+          ex1_pdom5  [label="N"]
+        }
+
+      }
+
+    }
+
+    ex1_entry -> ex1_if1    [style="dashed"]
+
+    ex1_if1   -> ex1_if2
+    ex1_if1   -> ex1_if4
+
+    ex1_if2   -> ex1_then2
+    ex1_if2   -> ex1_if3
+    ex1_then2 -> ex1_pdom2
+    ex1_pdom2 -> ex1_pdom1
+
+    ex1_if3   -> ex1_then3
+    ex1_if3   -> ex1_else3
+    ex1_then3 -> ex1_pdom3
+    ex1_else3 -> ex1_pdom3
+    ex1_pdom3 -> ex1_pdom2
+
+    ex1_if4   -> ex1_then4
+    ex1_if4   -> ex1_if5
+    ex1_then4 -> ex1_pdom4
+    ex1_pdom4 -> ex1_pdom1
+
+    ex1_if5   -> ex1_then5
+    ex1_if5   -> ex1_else5
+    ex1_then5 -> ex1_pdom5
+    ex1_else5 -> ex1_pdom5
+    ex1_pdom5 -> ex1_pdom4
+
+    ex1_pdom1 -> ex1_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II)"
+    color=black
+    ex2_entry  [label="ENTRY"; rank=source]
+    ex2_exit   [label="EXIT"; rank=sink]
+    subgraph cluster_ex2_1 {
+      label=""
+      color=blue3
+      ex2_if1    [label="A"; color="red3"]
+      ex2_pdom1  [label="J"]
+
+      subgraph cluster_ex2_2 {
+        label=""
+        color=orange3
+        ex2_if2    [label="C"]
+        ex2_then2  [label="D"]
+        ex2_pdom2  [label="I"]
+
+          ex2_if3    [label="E"; color="red3"]
+          ex2_then3  [label="F"]
+          ex2_else3  [label="G"]
+          ex2_pdom3  [label="H"]
+
+      }
+
+      subgraph cluster_ex2_4 {
+        label=""
+        color=purple3
+        ex2_if4  [label="B"]
+        ex2_then4  [label="J"]
+        ex2_pdom4  [label="O"]
+
+          ex2_if5    [label="K"; color="red3"]
+          ex2_then5  [label="L"]
+          ex2_else5  [label="M"]
+          ex2_pdom5  [label="N"]
+
+      }
+
+    }
+
+    ex2_entry -> ex2_if1    [style="dashed"]
+
+    ex2_if1   -> ex2_if2
+    ex2_if1   -> ex2_if4
+
+    ex2_if2   -> ex2_then2
+    ex2_if2   -> ex2_if3
+    ex2_then2 -> ex2_pdom2
+    ex2_pdom2 -> ex2_pdom1
+
+    ex2_if3   -> ex2_then3
+    ex2_then3 -> ex2_else3
+    ex2_else3 -> ex2_pdom3
+    ex2_pdom3 -> ex2_pdom2
+
+    ex2_if4   -> ex2_then4
+    ex2_if4   -> ex2_if5
+    ex2_then4 -> ex2_pdom4
+    ex2_pdom4 -> ex2_pdom1
+
+    ex2_if5   -> ex2_then5
+    ex2_then5 -> ex2_else5
+    ex2_else5 -> ex2_pdom5
+    ex2_pdom5 -> ex2_pdom4
+
+    ex2_pdom1 -> ex2_exit   [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III)"
+    color=black
+    ex3_entry  [label="ENTRY"; rank=source]
+    ex3_exit   [label="EXIT"; rank=sink]
+      ex3_if1    [label="A"; color="red3"]
+      ex3_pdom1  [label="J"]
+
+      subgraph cluster_ex3_2 {
+        label=""
+        color=orange3
+        ex3_if2    [label="C"]
+        ex3_then2  [label="D"]
+        ex3_pdom2  [label="I"]
+
+          ex3_if3    [label="E"; color="red3"]
+          ex3_then3  [label="F"]
+          ex3_else3  [label="G"]
+          ex3_pdom3  [label="H"]
+      }
+
+      subgraph cluster_ex3_4 {
+        label=""
+        color=purple3
+        ex3_if4  [label="B"]
+        ex3_then4  [label="J"]
+        ex3_pdom4  [label="O"]
+
+          ex3_if5    [label="K"; color="red3"]
+          ex3_then5  [label="L"]
+          ex3_else5  [label="M"]
+          ex3_pdom5  [label="N"]
+      }
+
+    ex3_entry -> ex3_if1    [style="dashed"]
+
+    ex3_if1   -> ex3_if2
+
+    ex3_if2   -> ex3_then2
+    ex3_if2   -> ex3_if3
+    ex3_then2 -> ex3_pdom2
+    ex3_pdom2 -> ex3_if4
+
+    ex3_if3   -> ex3_then3
+    ex3_then3 -> ex3_else3
+    ex3_else3 -> ex3_pdom3
+    ex3_pdom3 -> ex3_pdom2
+
+    ex3_if4   -> ex3_then4
+    ex3_if4   -> ex3_if5
+    ex3_then4 -> ex3_pdom4
+    ex3_pdom4 -> ex3_pdom1
+
+    ex3_if5   -> ex3_then5
+    ex3_then5 -> ex3_else5
+    ex3_else5 -> ex3_pdom5
+    ex3_pdom5 -> ex3_pdom4
+
+    ex3_pdom1 -> ex3_exit   [style="dashed"]
+  }
+
+}

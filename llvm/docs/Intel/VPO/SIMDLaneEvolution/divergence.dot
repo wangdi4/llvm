@@ -1,0 +1,113 @@
+digraph examples {
+
+  node [shape=box]
+
+  subgraph cluster_ex1 {
+    label="(I) if-then-else"
+    color=black
+    ex1_entry [label="ENTRY"; rank=source]
+    ex1_exit  [label="EXIT"; rank=sink]
+    ex1_cond  [label=""; color="red3"]
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex1_then1 [label="x = 1"]
+      ex1_else  [label="x = 2"]
+    }
+    ex1_pdom   [label="... = x"; fontcolor="red3"]
+
+    ex1_entry -> ex1_cond [style="dashed"]
+    ex1_cond -> ex1_then1 [color="green3"]
+    ex1_then1 -> ex1_pdom [color="green3"]
+
+    ex1_cond -> ex1_else [color="blue3"]
+    ex1_else -> ex1_pdom [color="blue3"]
+    ex1_pdom -> ex1_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) partial Def"
+    color=black
+    ex2_entry [label="ENTRY"; rank=source]
+    ex2_exit  [label="EXIT"; rank=sink]
+    ex2_cond  [label=""; color="red3"]
+    subgraph cluster_ex2_ir {
+      label=""
+      color=red
+      ex2_then1 [label="x = 1"]
+      ex2_else  [label=""]
+    }
+    ex2_pdom   [label="... = x"]
+
+    ex2_entry -> ex2_cond [style="dashed"]
+    ex2_cond -> ex2_then1 [color="green3"]
+    ex2_then1 -> ex2_pdom [color="green3"]
+
+    ex2_cond -> ex2_else [color="blue3"]
+    ex2_else -> ex2_pdom [color="blue3"]
+    ex2_pdom -> ex2_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III) partially killed Def"
+    color=black
+    ex3_entry [label="ENTRY"; rank=source]
+    ex3_exit  [label="EXIT"; rank=sink]
+    ex3_prev  [label="x = 0"]
+    ex3_cond  [label=""; color="red3"]
+    subgraph cluster_ex3_ir {
+      label=""
+      color=red
+      ex3_then1 [label="x = 1"]
+      ex3_else  [label=""]
+    }
+    ex3_pdom   [label="... = x"; fontcolor="red3"]
+
+    ex3_entry -> ex3_prev [style="dashed"]
+    ex3_prev -> ex3_cond
+    ex3_cond -> ex3_then1 [color="green3"]
+    ex3_then1 -> ex3_pdom [color="green3"]
+
+    ex3_cond -> ex3_else [color="blue3"]
+    ex3_else -> ex3_pdom [color="blue3"]
+    ex3_pdom -> ex3_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex4 {
+    label="(IV) shielded Defs"
+    color=black
+    ex4_entry [label="ENTRY"; rank=source]
+    ex4_exit  [label="EXIT"; rank=sink]
+    ex4_cond1 [label=""; color="red3"]
+    subgraph cluster_ex1_ir {
+      label=""
+      color=red
+      ex4_cond2 [label=""]
+      ex4_cond3 [label=""]
+      ex4_cond4 [label=""]
+      ex4_def1 [label="x = 1"]
+      ex4_def2 [label="x = 2"]
+      ex4_use [label="... = x"]
+    }
+    ex4_pdom [label=""]
+
+    ex4_entry -> ex4_cond1 [style="dashed"]
+
+    ex4_cond1 -> ex4_cond2 [color="green3"]
+    ex4_cond1 -> ex4_cond3 [color="blue3"]
+
+    ex4_cond2 -> ex4_cond4 [color="green3"]
+
+    ex4_cond3 -> ex4_cond4 [color="blue3"]
+    ex4_cond3 -> ex4_pdom [color="blue3"]
+
+    ex4_cond4 -> ex4_def1
+    ex4_cond4 -> ex4_def2
+    ex4_def1 -> ex4_use
+    ex4_def2 -> ex4_use
+    ex4_use -> ex4_pdom
+
+    ex4_pdom -> ex4_exit [style="dashed"]
+  }
+
+}

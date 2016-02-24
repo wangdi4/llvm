@@ -1,0 +1,110 @@
+digraph examples {
+
+  node [shape=box]
+
+  subgraph cluster_ex1 {
+    label="(I) untainted &phi;"
+    color=black
+    ex1_entry [label="ENTRY"; rank=source]
+    ex1_exit  [label="EXIT"; rank=sink]
+    ex1_cond  [label="cond I"]
+    ex1_x1 [label="x = 1"]
+    ex1_left_cond [label="cond II"; color="red3"]
+    ex1_x2 [label="x = 2"]
+    ex1_right_cond [label="cond III"]
+    ex1_x3 [label="x3 = &phi;(x1, x2)"]
+    ex1_x4 [label="x4 = &phi;(x1, x2)"]
+    ex1_pdom  [label="x5 = &phi;(x3, x4)"]
+
+    ex1_entry -> ex1_cond [style="dashed"]
+
+    ex1_cond -> ex1_x1 [color="green3"]
+    ex1_x1 -> ex1_left_cond [color="green3"]
+    ex1_left_cond -> ex1_x3 [color="purple3"]
+    ex1_left_cond -> ex1_x4 [color="orange3"]
+    ex1_x3 -> ex1_pdom [color="purple3"]
+    ex1_x3 -> ex1_pdom [color="blue3"]
+
+    ex1_cond -> ex1_x2 [color="blue3"]
+    ex1_x2 -> ex1_right_cond [color="blue3"]
+    ex1_right_cond -> ex1_x3 [color="blue3"]
+    ex1_right_cond -> ex1_x4 [color="blue3"]
+    ex1_x4 -> ex1_pdom [color="blue3"]
+    ex1_x4 -> ex1_pdom [color="orange3"]
+
+    ex1_pdom -> ex1_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex2 {
+    label="(II) uniform by undef"
+    color=black
+    ex2_entry [label="ENTRY"; rank=source]
+    ex2_exit  [label="EXIT"; rank=sink]
+    ex2_cond  [label=""; color="red3"]
+    ex2_x1 [label="x = 1"]
+    ex2_use_inside [label="... = x"]
+    ex2_pdom [label=""]
+    ex2_use_outside [label="... = x"]
+
+    ex2_entry -> ex2_cond [style="dashed"]
+
+    ex2_cond -> ex2_x1
+    ex2_cond -> ex2_pdom
+    ex2_x1 -> ex2_use_inside
+    ex2_use_inside -> ex2_pdom
+
+    ex2_pdom -> ex2_use_outside
+    ex2_use_outside -> ex2_exit [style="dashed"]
+  }
+
+  subgraph cluster_ex3 {
+    label="(III) partially overriding def"
+    color=black
+    ex3_entry [label="ENTRY"; rank=source]
+    ex3_exit  [label="EXIT"; rank=sink]
+    ex3_x1 [label="x = 1"]
+    ex3_cond  [label=""; color="red3"]
+    ex3_x2 [label="x = 2"]
+    ex3_use_inside [label="... = x"]
+    ex3_pdom [label=""]
+    ex3_use_outside [label="... = x"; fontcolor="red3"]
+
+    ex3_entry -> ex3_x1 [style="dashed"]
+
+    ex3_x1 -> ex3_cond
+    ex3_cond -> ex3_x2
+    ex3_cond -> ex3_pdom
+    ex3_x2 -> ex3_use_inside
+    ex3_use_inside -> ex3_pdom
+
+    ex3_pdom -> ex3_use_outside
+    ex3_use_outside -> ex3_exit [style="dashed"]
+  }
+ 
+  subgraph cluster_ex4 {
+    label="(IV) non conflicting defs"
+    color=black
+    ex4_entry [label="ENTRY"; rank=source]
+    ex4_exit  [label="EXIT"; rank=sink]
+    ex4_x1 [label="x = 1"]
+    ex4_cond  [label=""; color="red3"]
+    ex4_x2 [label="x = 2"]
+    ex4_use_inside [label="... = x"]
+    ex4_pdom [label=""]
+    ex4_use_outside [label="... = x"]
+
+    ex4_entry -> ex4_x1 [style="dashed"]
+    ex4_entry -> ex4_cond [style="dashed"]
+
+    ex4_cond -> ex4_x2
+    ex4_cond -> ex4_pdom
+    ex4_x2 -> ex4_use_inside
+    ex4_use_inside -> ex4_pdom
+
+    ex4_x1 -> ex4_use_inside
+
+    ex4_pdom -> ex4_use_outside
+    ex4_use_outside -> ex4_exit [style="dashed"]
+  }
+
+}
