@@ -283,8 +283,12 @@ For API clients and LLVM developers.
    Describes the TableGen tool, which is used heavily by the LLVM code
    generator.
 
+.. INTEL_CUSTOMIZATION
+
 :doc:`Intel <Intel/index>`
    Documentation of the Xmain project.
+
+.. // INTEL_CUSTOMIZATION
 
 :doc:`AliasAnalysis`
    Information on how to write a new alias analysis implementation or how to
