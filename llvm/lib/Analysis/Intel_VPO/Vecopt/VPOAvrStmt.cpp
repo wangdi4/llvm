@@ -48,7 +48,7 @@ void AVRAssign::print(formatted_raw_ostream &OS, unsigned Depth,
       if (hasLHS() && hasRHS()) {
 
         this->getLHS()->print(OS, 0, VLevel);
-        OS << " := ";
+        OS << " = ";
         this->getRHS()->print(OS, 0, VLevel);
 
       }
@@ -94,6 +94,7 @@ void AVRExpression::print(formatted_raw_ostream &OS, unsigned Depth,
       OS << "("  << getNumber() << ")";
     case PrintAvrType:
       OS << getAvrTypeName() << "{";
+    case PrintDataType:
     case PrintBase:
       if (isUnaryOperation()) {
   
@@ -360,3 +361,43 @@ void AVRWrn::codeGen() {
   }
 }
 
+//----------AVR NOP Implementation----------//
+AVRNOP::AVRNOP()
+  : AVR(AVR::AVRNOPNode) {}
+
+AVRNOP *AVRNOP::clone() const {
+  return nullptr;
+}
+
+void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
+                     VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+  OS << Indent;
+
+  // Print AVR Expression Node.
+  switch (VLevel) {
+    case PrintNumber:
+      OS << "("  << getNumber() << ")";
+    case PrintAvrType:
+      OS << getAvrTypeName() << "{";
+    case PrintBase:
+      OS << getAvrValueName();
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+  OS << "\n";
+}
+
+StringRef AVRNOP::getAvrTypeName() const {
+  return StringRef("NOP");
+}
+
+std::string AVRNOP::getAvrValueName() const {
+  return "No Operation";
+}

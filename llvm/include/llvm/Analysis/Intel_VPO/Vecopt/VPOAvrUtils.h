@@ -22,6 +22,7 @@
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrLoop.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIf.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitch.h"
 #include "llvm/Support/Compiler.h"
 
 namespace llvm { // LLVM Namespace
@@ -58,6 +59,10 @@ private:
                            AvrItr InsertionPos, AVRContainerTy *FromContainer,
                            AvrItr Begin, AvrItr End, InsertType Itype);
 
+  /// \brief Internal helper function to resolve mismatched lexical nesting
+  /// levels of avr (First, Last) sequences.
+  static bool resolveCommonLexicalParent(AVR *First, AVR **Last);
+
 public:
   // Creation Utilities
 
@@ -80,6 +85,9 @@ public:
   /// \brief Returns a new AVRBranch node.
   static AVRBranch *createAVRBranch(AVRLabel *Sucessor);
 
+  /// \brief Returns a new AVRNOP node.
+  static AVRNOP *createAVRNOP();
+
   // Modification Utilities
 
   /// \brief Sets AvrAssign's LHS to Node.
@@ -88,11 +96,15 @@ public:
   /// \brief Sets AvrAssign's RHS to Node.
   static void setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node);
 
+  /// \brief Add a case to the ASwitch node
+  static void addCase(AVRSwitch *ASwitch);
+
   // Insertion Utilities
 
   /// \brief Standard Insert Utility wrapper for AVRIf.
-  static void insertAVR(AVR *Parent, AvrItr Postion, AvrItr NewAvr,
-                        InsertType Itype, SplitType SType = None);
+  static void insertAVR(AVR *Parent, AvrItr Postion, AvrItr NewAvr, 
+                        InsertType Itype, SplitType SType = None,
+                        unsigned CaseNumber = 0);
 
   /// \brief Inserts NewAvr node as the first child in Parent avr.
   static void insertFirstChildAVR(AVR *Parent, AvrItr NewAvr);
@@ -113,10 +125,26 @@ public:
   static void insertLastElseChild(AVRIf *AvrIf, AvrItr NewAvr);
 
   /// \brief Inserts an unlinked AVR node after InsertionPos in AVR list.
-  static void insertAVRAfter(AvrItr InsertionPos, AVR *Node);
+  static void insertAVRAfter(AvrItr InsertionPos, AVR *NewAvr);
 
   /// \brief Inserts an unlinked AVR node before InsertionPos in AVR list.
-  static void insertAVRBefore(AvrItr InsertionPos, AVR *Node);
+  static void insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr);
+
+  /// \brief Inserts NewAvr node as the first child of ASwitch's default case.
+  static void insertFirstDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr);
+
+  /// \brief Inserts NewAvr node as the last child of ASwitch's deault case.
+  static void insertLastDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr);
+ 
+  /// \brief Inserts NewAvr node as the first child of ASwitch's n-th case,
+  /// where n-th is specified by CaseNum.
+  static void insertFirstChild(AVRSwitch *ASwitch, AVR *NewAvr,
+                               unsigned CaseNum);
+
+  /// \brief Inserts NewAvr node as the last child of ASwitch's n-th case,
+  /// where n-th is specified by CaseNum.
+  static void insertLastChild(AVRSwitch *ASwitch, AVR *NewAvr,
+                              unsigned CaseNum);
 
   // Move Utilities
 

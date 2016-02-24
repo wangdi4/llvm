@@ -3,7 +3,7 @@
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
@@ -29,6 +29,7 @@
 
 using namespace llvm;
 using namespace llvm::vpo;
+using namespace llvm::loopopt;
 
 INITIALIZE_PASS_BEGIN(AVRGenerate, "avr-generate", "AVR Generate", false, true)
 INITIALIZE_PASS_DEPENDENCY(IdentifyVectorCandidates)
@@ -112,10 +113,15 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
   // Insert AVRIfs into Abstract Layer
   if (!DisableAvrBranchOpt) {
 
+#if 0
+    // In the process of moving the optimization of the AL, improving
+    // its stability. Temporary disable until next check-in 
+    // AVR IFs are now constructed by default.
     optimizeAvrBranches();
 
     DEBUG(dbgs() << "Abstract Layer After If Formation:\n");
     DEBUG(this->dump(PrintAvrType));
+#endif
   }
 
   // Insert AVRExpression and AVRValue nodes and build expression trees into
@@ -128,6 +134,9 @@ bool AVRGenerateBase::runOnFunction(Function &F) {
     DEBUG(dbgs() << "Abstract Layer After Expression Tree Formation:\n");
     DEBUG(this->dump(PrintAvrType));
   }
+
+  // Clean up unnecessary AVR nodes.
+  removeAvrNOPs();
 
   return false;
 }
@@ -340,22 +349,43 @@ public:
 void AddAvrExprVisitor::visit(AVRAssignIR *AssignIR) {
 
   AVRExpression *LhsExpr =
-    AVRUtilsIR::createAVRExpressionIR(AssignIR, LeftHand);
+      AVRUtilsIR::createAVRExpressionIR(AssignIR, LeftHand);
   AVRUtils::setAVRAssignLHS(AssignIR, LhsExpr);
   AVRExpression *RhsExpr =
-    AVRUtilsIR::createAVRExpressionIR(AssignIR, RightHand);
+      AVRUtilsIR::createAVRExpressionIR(AssignIR, RightHand);
   AVRUtils::setAVRAssignRHS(AssignIR, RhsExpr);
 }
 
 void AddAvrExprVisitor::visit(AVRAssignHIR *AssignHIR) {
 
   AVRExpressionHIR *LhsExpr =
-    AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, LeftHand);
+      AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, LeftHand);
   AVRUtils::setAVRAssignLHS(AssignHIR, LhsExpr);
-  AVRExpressionHIR* RhsExpr =
-    AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, RightHand);
+  AVRExpressionHIR *RhsExpr =
+      AVRUtilsHIR::createAVRExpressionHIR(AssignHIR, RightHand);
   AVRUtils::setAVRAssignRHS(AssignHIR, RhsExpr);
 }
+
+/// \brief This visitor walks the Abstract Layer and removes unnecessary avr
+/// nodes. Avr nodes such as no-op nodes which were inserted during AL
+/// generation are removed in this visitor.
+class RemoveAvrNOPs {
+
+private:
+  /// AbstractLayer - Abstract Layer of avr nodes to analyze
+  AVRGenerateBase *AbstractLayer;
+
+public:
+  RemoveAvrNOPs(AVRGenerateBase *AL) : AbstractLayer(AL) {}
+  /// Visit Functions
+  void visit(AVR *ANode) {}
+  void visit(AVRNOP *ANOP);
+  void postVisit(AVR *ANode) {}
+  bool isDone() { return false; }
+  bool skipRecursion(AVR *ANode) { return false; }
+};
+
+void RemoveAvrNOPs::visit(AVRNOP *ANOP) { AVRUtils::remove(ANOP); }
 
 void AVRGenerateBase::optimizeLoopControl() {
 
@@ -533,6 +563,12 @@ void AVRGenerateBase::optimizeAvrSubExpressions() {
   // TODO: Finish Subexpressions
 }
 
+void AVRGenerateBase::removeAvrNOPs() {
+  RemoveAvrNOPs NOPRemover(this);
+  AVRVisitor<RemoveAvrNOPs> RemoveVisitor(NOPRemover);
+  RemoveVisitor.forwardVisitAll(this);
+}
+
 void AVRGenerateBase::print(raw_ostream &OS, unsigned Depth,
                             VerbosityLevel VLevel) const {
 
@@ -615,21 +651,49 @@ void AVRGenerate::buildAbstractLayer() {
   }
 }
 
+bool AVRGenerate::postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const {
+
+  if (!PDT->dominates(BB, SI->getDefaultDest()))
+    return false;
+
+  for (auto I = SI->case_begin(), E = SI->case_end(); I != E; ++I) {
+    if (!PDT->dominates(BB, I.getCaseSuccessor()))
+      return false;
+  }
+
+  return true;
+}
+
 AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
+
   assert(BB && InsertionPos && "Avr preorder traversal failed!");
 
+  BasicBlock *LatchBB = nullptr;
+  bool LatchIsDomChild = false;
   auto *DomNode = DT->getNode(BB);
+
+  if (auto Lp = LI->getLoopFor(BB))
+    LatchBB = Lp->getLoopLatch();
 
   // Build AVR node sequence for current basic block
   InsertionPos = generateAvrInstSeqForBB(BB, InsertionPos);
-  AvrItr LastAvr(InsertionPos), ThenPos = nullptr;
+  AvrItr LastAvr(InsertionPos);
 
   // Traverse dominator children
   for (auto I = DomNode->begin(), E = DomNode->end(); I != E; ++I) {
 
     auto *DomChildBB = (*I)->getBlock();
 
-    if (AVRBranch *Branch = dyn_cast<AVRBranch>(LastAvr)) {
+    // In some cases the latch BB will be a dom child of a conditional.
+    // (Dominator children are not ordered). Save the latch BB evaluation
+    // for the end of our traversal.
+    if (DomChildBB == LatchBB) {
+      LatchIsDomChild = true;
+      continue;
+    }
+
+    if (AVRIfIR *AvrIfIR = dyn_cast<AVRIfIR>(LastAvr)) {
+      AVRBranch *Branch = AvrIfIR->getAvrBranch();
 
       if (Branch->isConditional()) {
 
@@ -642,22 +706,52 @@ AvrItr AVRGenerate::preorderTravAvrBuild(BasicBlock *BB, AvrItr InsertionPos) {
             // child.
             !PDT->dominates(DomChildBB, BI->getSuccessor(1))) {
 
-          InsertionPos = preorderTravAvrBuild(DomChildBB, InsertionPos);
-          ThenPos = InsertionPos;
+          preorderTravAvrBuild(DomChildBB, AvrIfIR->getLastThenChild());
           continue;
+
         } else if (DomChildBB == BI->getSuccessor(1) &&
                    !PDT->dominates(DomChildBB, BI->getSuccessor(0))) {
 
-          InsertionPos = preorderTravAvrBuild(DomChildBB,
-                                              ThenPos ? ThenPos : InsertionPos);
-          ThenPos = nullptr;
+          preorderTravAvrBuild(DomChildBB, AvrIfIR->getLastElseChild());
           continue;
         }
       }
+    } else if (AVRSwitchIR *ASwitchIR = dyn_cast<AVRSwitchIR>(LastAvr)) {
+
+      // Link switch's case children.
+      auto SI = cast<SwitchInst>(BB->getTerminator());
+
+      if (!postDominatesAllCases(SI, DomChildBB)) {
+
+        if (DomChildBB == SI->getDefaultDest()) {
+          preorderTravAvrBuild(DomChildBB,
+                               ASwitchIR->getDefaultCaseLastChild());
+          continue;
+        }
+
+        unsigned Count = 1;
+        bool IsCaseChild = false;
+        for (auto Itr = SI->case_begin(), End = SI->case_end(); Itr != End;
+             ++Itr, ++Count) {
+          if (DomChildBB == Itr.getCaseSuccessor()) {
+            preorderTravAvrBuild(DomChildBB,
+                                 ASwitchIR->getCaseLastChild(Count));
+            IsCaseChild = true;
+            break;
+          }
+        }
+
+        if (IsCaseChild)
+          continue;
+      }
     }
 
-    // TODO: Properly Handle Switch statements
+    // Link remaining dominator children.
     InsertionPos = preorderTravAvrBuild(DomChildBB, InsertionPos);
+  }
+
+  if (LatchIsDomChild) {
+    InsertionPos = preorderTravAvrBuild(LatchBB, InsertionPos);
   }
 
   return InsertionPos;
@@ -730,6 +824,7 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
       NewNode = AVRUtilsIR::createAVRAssignIR(I);
     }
 
+    DEBUG(NewNode->dump());
     AVRUtils::insertAVRAfter(InsertionPos, NewNode);
     InsertionPos = NewNode;
   }
@@ -785,15 +880,35 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
         AVRUtilsIR::createAVRBranchIR(Terminator, ACondition);
     AVRUtils::insertAVRAfter(InsertionPos, ABranch);
     InsertionPos = ABranch;
+
+    // Construct the AVR If in place. Do not generate Avr ifs for loop header
+    // or loop latches
+    Loop *Lp = LI->getLoopFor(BB); 
+    auto LpLatchBB = Lp ? Lp->getLoopLatch() : nullptr;
+
+    if (BI->isConditional() && !LI->isLoopHeader(BB) && BB != LpLatchBB) {
+
+      // Create an avr if node for terminator
+      AVRIfIR *AvrIf = AVRUtilsIR::createAVRIfIR(ABranch);
+      AVRUtils::insertAVRAfter(InsertionPos, AvrIf);
+      InsertionPos = AvrIf;
+
+    }
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
-    // TODO
-    assert(SI && "LLVM switch not supported yet!");
+
+    // Create an avr switch node for terminator
+    AVRSwitchIR *NewSwitch = AVRUtilsIR::createAVRSwitchIR(SI);
+
+    AVRUtils::insertAVRAfter(InsertionPos, NewSwitch);
+    InsertionPos = NewSwitch;
+
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
 
-    // Creat a return terminator
+    // Create a return terminator
     AVRReturnIR *AReturn = AVRUtilsIR::createAVRReturnIR(RI);
     AVRUtils::insertAVRAfter(InsertionPos, AReturn);
     InsertionPos = AReturn;
+
   } else {
     llvm_unreachable("Unknown terminator type!");
   }
@@ -1049,5 +1164,38 @@ AVR *AVRGenerateHIR::AVRGenerateVisitor::visitIf(HLIf *HIf) {
 }
 
 AVR *AVRGenerateHIR::AVRGenerateVisitor::visitSwitch(HLSwitch *S) {
-  return (AVR *)nullptr;
+
+  AVRSwitch *ASwitch = AVRUtilsHIR::createAVRSwitchHIR(S);
+
+  // Visit default case children
+  for (auto It = S->default_case_child_begin(),
+       E = S->default_case_child_end(); It != E; ++It){
+
+    AVR *ChildAVR = visit(*It);
+
+    if (It == S->default_case_child_begin())
+      AVRUtils::insertFirstDefaultChild(ASwitch, ChildAVR); 
+    else
+      AVRUtils::insertLastDefaultChild(ASwitch, ChildAVR); 
+  }
+
+  // Vist case children
+  for (unsigned Case = 1, NumCases = S->getNumCases(); Case <= NumCases;
+       ++Case) {
+
+    AVRUtils::addCase(ASwitch);
+    for (auto It = S->case_child_begin(Case),
+         E = S->case_child_end(Case); It != E; ++It){
+
+      AVR *ChildAVR = visit(*It);
+
+      if (It == S->case_child_begin(Case))
+        AVRUtils::insertFirstChild(ASwitch, ChildAVR, Case);
+      else
+        AVRUtils::insertLastChild(ASwitch, ChildAVR, Case);
+    }
+  }
+
+  return ASwitch;
 }
+

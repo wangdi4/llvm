@@ -15,6 +15,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #define DEBUG_TYPE "avr-if-node"
@@ -27,6 +28,13 @@ AVRIfIR::AVRIfIR(AVRBranch *ABranch)
 
   assert(ABranch->isConditional() && "Branch for AvrIf is non-conditional!");
   Condition = AvrBranch->getCondition();
+
+  // Set NOP Then-Else first children for downstream simplified node insertion. 
+  AVR *ANOP = AVRUtils::createAVRNOP();
+  AVRUtils::insertFirstThenChild(this, ANOP);
+
+  ANOP = AVRUtils::createAVRNOP();
+  AVRUtils::insertFirstElseChild(this, ANOP);
 }
 
 AVRIfIR *AVRIfIR::clone() const { return nullptr; }

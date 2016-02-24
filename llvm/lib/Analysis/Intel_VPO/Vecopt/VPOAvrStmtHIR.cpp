@@ -57,6 +57,8 @@ AVRExpressionHIR::AVRExpressionHIR(AVRAssignHIR *HLAssign, AssignOperand Operand
       RegDDRef *DDRef =  HIRNode->getOperandDDRef(Idx);
       AVRValueHIR *AvrVal = AVRUtilsHIR::createAVRValueHIR(DDRef, HIRNode);
       this->Operands.push_back(AvrVal);
+
+      IsLHSExpr = false;
     }
 
     // Set Operation Type
@@ -86,7 +88,9 @@ std::string AVRExpressionHIR::getAvrValueName() const {
 }
 
 std::string AVRExpressionHIR::getOpCodeName() const {
-  return HIRNode->getLLVMInstruction()->getOpcodeName();
+  auto NodeOpCode = HIRNode->getLLVMInstruction()->getOpcode();
+  assert(NodeOpCode && "Missing HIR node opcode!");
+  return Instruction::getOpcodeName(NodeOpCode);
 }
 
 //----------AVR Value for HIR Implementation----------//

@@ -19,6 +19,7 @@
 
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtHIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfHIR.h"
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitchHIR.h"
 
 using namespace llvm::loopopt;
 
@@ -57,6 +58,10 @@ public:
   /// \brief Returns a new AVRValueHIR node.
   static AVRValueHIR *createAVRValueHIR(RegDDRef *DDRef,
                                         HLInst *HLInstruct);
+
+  /// \brief Returns a new AVRSwitchHIR node.
+  static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);
+
 };
 
 } // End VPO Vectorizer Namespace

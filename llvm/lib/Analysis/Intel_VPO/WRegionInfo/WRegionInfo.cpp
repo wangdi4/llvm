@@ -65,7 +65,7 @@ bool WRegionInfo::runOnFunction(Function &F) {
   PDT    = &getAnalysis<PostDominatorTree>();
   WRC    = &getAnalysis<WRegionCollection>();
 
-#if 1
+#if 0
   DEBUG(dbgs() << "\nRC Size = " << WRC->getWRGraphSize() << "\n");
   for (auto I = WRC->begin(), E = WRC->end(); I != E; ++I)
       I->dump();

@@ -5,68 +5,72 @@
 ;
 
 ;CHECK: Printing analysis 'AVR Generate' for function '_ZGVxM4v_vec_search':
-;CHECK: WRN
+;CHECK-NEXT: WRN
 
 ;CHECK: simd.begin.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
 ;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END.2
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.2:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK: LOOP
+
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvar, %simd.loop.exit ]      
-;CHECK: if( %mask.cond = icmp ne i32 %mask.parm, 0 )
-;CHECK: simd.loop.then:
+;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]      
+;CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
+
+;CHECK-NEXT: simd.loop.then:
 ;CHECK: br label %for.cond
-;CHECK: else
-;CHECK: simd.loop.else:
-;CHECK: br label %simd.loop.exit
 
 ;CHECK: LOOP
+
 ;CHECK: for.cond:
-;CHECK-NEXT: %0 := load %i
+;CHECK-NEXT: %0 = load %i
 ;CHECK: br i1 %cmp, label %for.body, label %for.end
 
 ;CHECK-NEXT: for.body:
-;CHECK-NEXT: %1 := load %i
+;CHECK-NEXT: %1 = load %i
 
 ;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
 ;CHECK: if.then:
-;CHECK-NEXT: %4 := load %i
+;CHECK-NEXT: %4 = load %i
 ;CHECK: br label %simd.loop.exit
 
 ;CHECK: else
+
 ;CHECK: if.end:
 ;CHECK-NEXT: br label %for.inc
 
 
 ;CHECK: for.inc:
-;CHECK-NEXT: %5 := load %i
+;CHECK-NEXT: %5 = load %i
 ;CHECK: br label %for.cond
 
 ;CHECK: for.end:
-;CHECK-NEXT: %ret.cast.gep1 := %ret.cast getelementptr %index
+;CHECK-NEXT: %ret.cast.gep1 = %ret.cast getelementptr %index
 ;CHECK: br label %simd.loop.exit
 
+;CHECK-NEXT: simd.loop.else:
+;CHECK-NEXT: br label %simd.loop.exit
+
 ;CHECK-NEXT: simd.loop.exit:
-;CHECK-NEXT: %indvar := 1 add %index
+;CHECK-NEXT: %indvar = 1 add %index
 ;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
 ;CHECK: simd.end.region:
 ;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
-;CHECK: br label %DIR.QUAL.LIST.END.4
+;CHECK: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.4:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %return
 
 ;CHECK-NEXT: return:
-;CHECK-NEXT: %vec.ret.cast := bitcast %ret.cast
-;CHECK-NEXT: %vec.ret := load %vec.ret.cast
+;CHECK-NEXT: %vec.ret.cast = bitcast %ret.cast
+;CHECK-NEXT: %vec.ret = load %vec.ret.cast
 ;CHECK-NEXT: ret <4 x i32> %vec.ret
 
 
@@ -82,27 +86,27 @@
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
 ;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END.2
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.2:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK: LOOP
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvar, %simd.loop.exit ]      %i := store 0
-;CHECK-NEXT: br label %for.cond
+;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]
+;CHECK: br label %for.cond
 
 ;CHECK: LOOP( IV )
 ;CHECK: for.cond:
-;CHECK-NEXT: %0 := load %i
+;CHECK-NEXT: %0 = load %i
 ;CHECK: br i1 %cmp, label %for.body, label %for.end
 
 ;CHECK-NEXT: for.body:
-;CHECK-NEXT: %1 := load %i
+;CHECK-NEXT: %1 = load %i
 
 ;CHECK: if( %cmp1 = icmp eq i32 %2, %3 )
 ;CHECK: if.then:
-;CHECK-NEXT: %4 := load %i
+;CHECK-NEXT: %4 = load %i
 ;CHECK: br label %simd.loop.exit
 
 ;CHECK: else
@@ -110,29 +114,29 @@
 ;CHECK: br label %for.inc
 
 ;CHECK: for.inc:
-;CHECK-NEXT: %5 := load %i
+;CHECK-NEXT: %5 = load %i
 ;CHECK: br label %for.cond
 
-;CHECK: for.end:
-;CHECK-NEXT: %ret.cast.gep1 := %ret.cast getelementptr %index
-;CHECK: br label %simd.loop.exit
-
-;CHECK-NEXT: simd.loop.exit:
-;CHECK-NEXT: %indvar := 1 add %index
+;CHECK: simd.loop.exit:
+;CHECK-NEXT: %indvar = 1 add %index
 ;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
 ;CHECK: simd.end.region:
 ;CHECK-NEXT: call void @llvm.intel.directive(metadata !13)
 ;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END.4
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.4:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %return
 
 ;CHECK-NEXT: return:
-;CHECK-NEXT: %vec.ret.cast := bitcast %ret.cast
-;CHECK-NEXT: %vec.ret := load %vec.ret.cast
+;CHECK-NEXT: %vec.ret.cast = bitcast %ret.cast
+;CHECK-NEXT: %vec.ret = load %vec.ret.cast
 ;CHECK-NEXT: ret <4 x i32> %vec.ret
+
+;CHECK: for.end:
+;CHECK-NEXT: %ret.cast.gep1 = %ret.cast getelementptr %index
+;CHECK: br label %simd.loop.exit
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

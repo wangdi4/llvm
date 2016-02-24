@@ -48,3 +48,7 @@ AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
                                             HLInst *HLInstruct) {
   return new AVRValueHIR(DDRef, HLInstruct);
 }
+
+AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {
+  return new AVRSwitchHIR(HSwitch);
+}

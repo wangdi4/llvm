@@ -12,39 +12,38 @@
 ;CHECK-NEXT: call void @llvm.intel.directive.qual.opnd.i32
 ;CHECK-NEXT: call void (metadata, ...) @llvm.intel.directive.qual.opndlist
 ;CHECK-NEXT: call void @llvm.intel.directive(metadata !10)
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END.2
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.2:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %simd.loop
 
 ;CHECK-NEXT: LOOP
 ;CHECK: simd.loop:
-;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.2 ], [ %indvar, %simd.loop.exit ]      %mask.gep := %mask.cast getelementptr %index
+;CHECK-NEXT: %index = phi i32 [ 0, %DIR.QUAL.LIST.END.{{[0-9]}} ], [ %indvar, %simd.loop.exit ]
 
-;CHECK: if( %mask.cond = icmp ne i32 %mask.parm, 0 )
+;CHECK: br i1 %mask.cond, label %simd.loop.then, label %simd.loop.else
 ;CHECK: simd.loop.then:
-;CHECK-NEXT: %vec.a.cast.gep := %vec.a.cast getelementptr %index
+;CHECK-NEXT: %vec.a.cast.gep = %vec.a.cast getelementptr %index
 ;CHECK: br label %simd.loop.exit
 
-;CHECK: else
 ;CHECK: simd.loop.else:
 ;CHECK-NEXT: br label %simd.loop.exit
 
 ;CHECK: simd.loop.exit:
-;CHECK-NEXT: %indvar := 1 add %index
+;CHECK-NEXT: %indvar = 1 add %index
 ;CHECK: br i1 %vl.cond, label %simd.loop, label %simd.end.region, !llvm.loop !11
 
 ;CHECK: simd.end.region:
 ;CHECK-NEXT: call void @llvm.intel.directive
 ;CHECK-NEXT: call void @llvm.intel.directive
-;CHECK-NEXT: br label %DIR.QUAL.LIST.END.4
+;CHECK-NEXT: br label %DIR.QUAL.LIST.END
 
-;CHECK-NEXT: DIR.QUAL.LIST.END.4:
+;CHECK-NEXT: DIR.QUAL.LIST.END
 ;CHECK-NEXT: br label %return
 
 ;CHECK-NEXT: return:
-;CHECK-NEXT: %vec.ret.cast := bitcast %ret.cast
-;CHECK-NEXT: %vec.ret := load %vec.ret.cast
+;CHECK-NEXT: %vec.ret.cast = bitcast %ret.cast
+;CHECK-NEXT: %vec.ret = load %vec.ret.cast
 ;CHECK-NEXT: ret <4 x i32> %vec.ret
 
 ; ModuleID = 'krtest.c'

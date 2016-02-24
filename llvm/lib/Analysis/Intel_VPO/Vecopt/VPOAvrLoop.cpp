@@ -51,18 +51,19 @@ void AVRLoop::print(formatted_raw_ostream &OS, unsigned Depth,
   OS << Indent;
 
   switch (VLevel) {
-  case PrintNumber:
-    OS << "(" << getNumber() << ") ";
-  case PrintAvrType:
-  // Always print avr loop type name.
-  case PrintBase:
-    OS << getAvrTypeName();
-    // TODO: Add IV Info
-    OS << "( IV )\n";
-    OS << Indent << "{\n";
-    break;
-  default:
-    llvm_unreachable("Unknown Avr Print Verbosity!");
+    case PrintNumber:
+      OS << "(" << getNumber() << ") ";
+    case PrintAvrType:
+      // Always print avr loop type name.
+    case PrintDataType:
+    case PrintBase:
+      OS << getAvrTypeName();
+      // TODO: Add IV Info
+      OS << "( IV )\n";
+      OS << Indent << "{\n";
+      break;
+    default:
+      llvm_unreachable("Unknown Avr Print Verbosity!");
   }
 
   Depth++;

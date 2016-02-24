@@ -4,16 +4,16 @@
 
 ;CHECK: WRN
 ;CHECK: LOOP
-;CHECK: %rem := i1 srem 3
+;CHECK: %rem = i1 srem 3
 
 ;CHECK-NEXT: if (%rem == 0)
-;CHECK: (%arr)[i1] := store i1
+;CHECK: (%arr)[i1] = store i1
 ;CHECK: else
-;CHECK: (%arr)[i1] := store i1 + 2
-;CHECK-NEXT: %0 := load (%barr)[i1]
+;CHECK: (%arr)[i1] = store i1 + 2
+;CHECK-NEXT: %0 = load (%barr)[i1]
 ;CHECK-NEXT: if (%0 == 0)
 ;CHECK: else
-;CHECK: (%barr)[i1] := store %0 + 1
+;CHECK: (%barr)[i1] = store %0 + 1
 
 ; clang -O2 -S -fno-unroll-loops -emit-llvm test.c
 ; The SIMD directive was hand-inserted for WRegion formation to kick in

@@ -1,4 +1,4 @@
-; RUN: opt < %s -avr-generate -avr-stress-test=true -disable-avr-opt=ALLoopOpt -disable-avr-opt=ALBranchOpt -disable-avr-opt=ALExprTreeOpt  -analyze | FileCheck %s
+; RUN: opt < %s -avr-generate -avr-stress-test=true -analyze | FileCheck %s
 
 ; Check that the Abstract Layer generated incoming LLVM basic blocks in lexical order.
 
@@ -6,38 +6,46 @@
 ;CHECK: foo(i32* %a, i32* %b, i32* %c, i32* %d, i32 %N)
 
 ;CHECK: entry:
-;CHECK-NEXT: %a.addr = alloca i32*, align 8
+;CHECK-NEXT: %a.addr = alloca 1
 ;CHECK: br label %for.cond
 
-;CHECK-NEXT: for.cond:
-;CHECK-NEXT: %0 = load i32, i32* %i, align 4
+;CHECK: LOOP
+
+;CHECK: for.cond:
+;CHECK-NEXT: %0 = load %i
 ;CHECK: br i1 %cmp, label %for.body, label %for.end
 
 ;CHECK-NEXT: for.body:
-;CHECK-NEXT: %2 = load i32, i32* %i, align 4
+;CHECK-NEXT: %2 = load %i
 ;CHECK: br i1 %cmp1, label %land.lhs.true, label %if.else
 
-;CHECK-NEXT: land.lhs.true:
-;CHECK-NEXT: %5 = load i32, i32* %i, align 4
+;CHECK-NEXT: if( %cmp1 = icmp eq i32 %rem, 0 )
+
+;CHECK: land.lhs.true:
+;CHECK-NEXT: %5 = load %i
 ;CHECK: br i1 %cmp5, label %if.then, label %if.else
 
-;CHECK-NEXT: if.then:
-;CHECK-NEXT: %8 = load i32, i32* %i, align 4
+;CHECK:  if( %cmp5 = icmp eq i32 %rem4, 0 )
+
+;CHECK: if.then:
+;CHECK-NEXT: %8 = load %i
 ;CHECK: br label %if.end
 
-;CHECK-NEXT: if.else:
-;CHECK-NEXT: %19 = load i32, i32* %i, align 4
-;CHECK: br label %if.end
+;CHECK: else
 
-;CHECK-NEXT: for.end:
-;CHECK-NEXT: ret void
+;CHECK: if.else:
+;CHECK-NEXT: %19 = load %i
+;CHECK: br label %if.end
 
 ;CHECK: if.end:
 ;CHECK-NEXT: br label %for.inc
 
 ;CHECK: for.inc:
-;CHECK-NEXT: %27 = load i32, i32* %i, align 4
+;CHECK-NEXT: %27 = load %i
 ;CHECK: br label %for.cond
+
+;CHECK: for.end:
+;CHECK-NEXT: ret void
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"

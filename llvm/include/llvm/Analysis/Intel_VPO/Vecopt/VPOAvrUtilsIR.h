@@ -17,6 +17,7 @@
 #ifndef LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 
+#include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrSwitchIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmtIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrIfIR.h"
 
@@ -72,6 +73,9 @@ public:
 
   /// \brief Returns a new AVRValueIR node.
   static AVRValueIR *createAVRValueIR(const Value *V, const Instruction *Inst);
+
+  /// \brief Returns a new AVRSwitch node.
+  static AVRSwitchIR *createAVRSwitchIR(Instruction *SwitchI);
 
   // Modification Utilities
 

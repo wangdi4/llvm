@@ -37,6 +37,11 @@ enum AVRVal {
   AVRIfHIRNode,
   AVRIfLastNode,
 
+  AVRSwitchNode,
+  AVRSwitchIRNode,
+  AVRSwitchHIRNode,
+  AVRSwitchLastNode,
+
   AVRAssignNode,
   AVRAssignIRNode,
   AVRAssignHIRNode,
@@ -90,7 +95,8 @@ enum AVRVal {
   AVRSelectIRNode,
   AVRSelectLastNode,
 
-  AVRWrnNode
+  AVRWrnNode,
+  AVRNOPNode
 };
 
 #endif // LLVM_ANALYSIS_VPO_AVR_H

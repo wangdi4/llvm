@@ -36,7 +36,7 @@ AVR *AVRIf::getFirstElseChild() {
 AVR *AVRIf::getLastElseChild() {
 
   if (hasElseChildren()) {
-    return ElseChildren.end();
+    return std::prev(ElseChildren.end());
   }
   return nullptr;
 }
@@ -52,7 +52,7 @@ AVR *AVRIf::getFirstThenChild() {
 AVR *AVRIf::getLastThenChild() {
 
   if (hasThenChildren()) {
-    return ThenChildren.end();
+    return std::prev(ThenChildren.end());
   }
   return nullptr;
 }

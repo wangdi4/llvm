@@ -795,6 +795,42 @@ public:
   void codeGen();
 };
 
+//----------AVR NOP Node----------//
+/// \brief An abstract vector NO-OP node. This avr node is a no operation node.
+/// It's use is to simplify abstract layer node insertion and deletion. NOP
+/// nodes should be removed before idiom recognition.
+class AVRNOP : public AVR {
+
+protected:
+
+  AVRNOP();
+  virtual ~AVRNOP() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRNOPNode;
+  }
+
+  AVRNOP *clone() const override;
+
+  /// \brief Prints the AVRNOP node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+
+};
+
+
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 

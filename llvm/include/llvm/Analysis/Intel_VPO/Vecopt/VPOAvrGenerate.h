@@ -142,6 +142,12 @@ protected:
   /// subexpressions.
   void optimizeAvrSubExpressions();
 
+  // Abstract Layer clean up optimizations
+
+  /// \brief Removes any AVR NOP nodes present in abstract layer.
+  void removeAvrNOPs();
+
+
 public:
   AVRGenerateBase(char &ID);
 
@@ -269,6 +275,10 @@ private:
   /// vectorization candidates via IdenitfyCandidates analysis pass
   /// and WRNInfo analysis.
   void buildAvrsForVectorCandidates();
+
+  /// \brief Returns true if the basic block BB post dominates all of the
+  /// switch cases in SI.
+  bool postDominatesAllCases(SwitchInst *SI, BasicBlock *BB) const;
 
   /// \brief Recursive preorder traversal walk of Basic Block, which
   /// builds and AVR at InsertionPos.

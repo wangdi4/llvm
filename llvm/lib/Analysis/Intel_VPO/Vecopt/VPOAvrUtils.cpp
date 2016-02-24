@@ -46,6 +46,10 @@ AVRBranch *AVRUtils::createAVRBranch(AVRLabel *Successor) {
   return new AVRBranch(Successor);
 }
 
+AVRNOP *AVRUtils::createAVRNOP() {
+  return new AVRNOP();
+}
+
 // Modification Utilities
 
 void AVRUtils::setAVRAssignLHS(AVRAssign *AvrAssign, AVR *Node) {
@@ -56,15 +60,21 @@ void AVRUtils::setAVRAssignRHS(AVRAssign *AvrAssign, AVR *Node) {
   AvrAssign->setRHS(Node);
 }
 
+void AVRUtils::addCase(AVRSwitch *ASwitch) {
+  ASwitch->addCase();
+}
+
 // Insertion Utilities
 
 void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
-                         InsertType Itype, SplitType SType) {
+                         InsertType Itype, SplitType SType, 
+                         unsigned CaseNumber) {
 
   assert(Parent && "Parent is null.");
 
   AvrItr InsertionPos;
   AVRContainerTy *Children = nullptr;
+  AVRSwitch *ASwitch = nullptr;
 
   if (AVRFunction *AFunc = dyn_cast<AVRFunction>(Parent)) {
     Children = &(AFunc->Children);
@@ -77,7 +87,6 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
     } else if (SType == ElseChild) {
       Children = &(AIf->ElseChildren);
     } else {
-
       // It's possible that insert is called with an AvrIf parent and unknown
       // child container. Resolve children container with a quick look up.
       if (AVRUtils::containsAvr(AIf->ThenChildren, Pos)) {
@@ -90,6 +99,14 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
     }
   } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     Children = &(AWrn->Children);
+  } else if (isa<AVRSwitch>(Parent)) {
+    ASwitch = cast<AVRSwitch>(Parent);
+
+    assert((SType == None) && " Invalid insertion into switch avr node!");
+    assert((CaseNumber <= ASwitch->getNumCases()) &&
+           "Switch case number is out of range!");
+
+    Children = &(ASwitch->Children);
   } else {
     llvm_unreachable("VPO: Unsupported AVR Insertion\n");
   }
@@ -98,25 +115,56 @@ void AVRUtils::insertAVR(AVR *Parent, AvrItr Pos, AvrItr NewAvr,
 
   // Set insertion point
   switch (Itype) {
-  case FirstChild:
-    InsertionPos = Children->begin();
-    break;
-  case LastChild:
-    InsertionPos = Children->end();
-    break;
-  case Append:
-    InsertionPos = std::next(Pos);
-    break;
-  case Prepend:
-    InsertionPos = Pos;
-    break;
-  default:
-    llvm_unreachable("VPO: Unknown AVR Insertion Type");
+    case FirstChild:
+      // FirstChild insertion for Switch case statements requires special
+      // handling. A single children container holds all switch cases. Update
+      // insertion iterator to point to correct switch case FirstChild.
+      if (ASwitch) {
+        if (CaseNumber == 0) {
+          InsertionPos = ASwitch->default_case_child_begin();
+	}
+        else {
+          InsertionPos = ASwitch->case_child_begin(CaseNumber);
+	}
+      } 
+      else {
+        InsertionPos = Children->begin();
+      }
+      break;
+    case LastChild:
+      // LastChild insertion for Switch case statements requires special
+      // handling. A single children container holds all switch cases. Update
+      // insertion iterator to point to correct switch case LastChild.
+      if (ASwitch) {
+        if (CaseNumber == 0)
+          InsertionPos = ASwitch->default_case_child_end();
+        else
+          InsertionPos = ASwitch->case_child_end(CaseNumber);
+      }
+      else {
+        InsertionPos = Children->end();
+      }
+      break;
+    case Append:
+      InsertionPos = std::next(Pos);
+      break;
+    case Prepend:
+      InsertionPos = Pos;
+      break;
+    default:
+      llvm_unreachable("VPO: Unknown AVR Insertion Type");
   }
 
   // Insert new avr.
   NewAvr->setParent(Parent);
   Children->insert(InsertionPos, NewAvr);
+
+  // Because the Avr Switch node uses a single linked-list container to store 
+  // all the cases of the switch, we must update internal seperators which
+  // keep track of where each case begins in the linked-list. 
+  if ((Itype == FirstChild) && (ASwitch) && (CaseNumber != 0)) {
+    ASwitch->CaseBegin[CaseNumber - 1] = std::prev(InsertionPos);
+  }
 
   return;
 }
@@ -155,6 +203,24 @@ void AVRUtils::insertAVRBefore(AvrItr InsertionPos, AVR *NewAvr) {
   insertAVR(InsertionPos->getParent(), InsertionPos, NewAvr, Prepend);
 }
 
+void AVRUtils::insertFirstDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
+  insertAVR(ASwitch, nullptr, NewAvr, FirstChild, None, 0);
+}
+
+void AVRUtils::insertLastDefaultChild(AVRSwitch *ASwitch, AVR *NewAvr) {
+  insertAVR(ASwitch, nullptr, NewAvr, LastChild, None, 0);
+}
+
+void AVRUtils::insertFirstChild(AVRSwitch *ASwitch, AVR *NewAvr,
+                                  unsigned CaseNum) {
+  insertAVR(ASwitch, nullptr, NewAvr, FirstChild, None, CaseNum);
+}
+
+void AVRUtils::insertLastChild(AVRSwitch *ASwitch, AVR *NewAvr,
+                                 unsigned CaseNum) {
+  insertAVR(ASwitch, nullptr, NewAvr, LastChild, None, CaseNum);
+}
+
 void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
                             AvrItr InsertionPos, AVRContainerTy *FromContainer,
                             AvrItr Begin, AvrItr End, InsertType Itype) {
@@ -188,7 +254,7 @@ void AVRUtils::insertAVRSeq(AVR *NewParent, AVRContainerTy &ToContainer,
   }
 }
 
-// Move Utitlies
+// Move Utilities
 
 void AVRUtils::moveAfter(AvrItr InsertionPos, AVR *Node) {
 
@@ -198,12 +264,16 @@ void AVRUtils::moveAfter(AvrItr InsertionPos, AVR *Node) {
 
 void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
 
-  assert(First->getParent() == Last->getParent() &&
-         "Candidate avr move sequence do not share common parent!");
-
   AVRContainerTy TempContainer;
+  AVR *Begin = First, *End = Last;
 
-  removeInternal(First, Last, &TempContainer, false);
+  if (First->getParent() != Last->getParent()) {
+
+    if(!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(Begin, End, &TempContainer, false);
   insertAVRSeq(ALoop, ALoop->Children, ALoop->Children.begin(), &TempContainer,
                TempContainer.begin(), TempContainer.end(), FirstChild);
 }
@@ -211,12 +281,17 @@ void AVRUtils::moveAsFirstChildren(AVRLoop *ALoop, AvrItr First, AvrItr Last) {
 void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   assert(AIf && "Missing AvrIf for insertion!");
-  assert(First->getParent() == Last->getParent() &&
-         "Candidate avr move sequence do not share common parent!");
 
   AVRContainerTy TempContainer;
+  AVR *Begin = First, *End = Last;
 
-  removeInternal(First, Last, &TempContainer, false);
+  if (First->getParent() != Last->getParent()) {
+
+    if(!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(Begin, End, &TempContainer, false);
   insertAVRSeq(AIf, AIf->ThenChildren, AIf->ThenChildren.begin(),
                &TempContainer, TempContainer.begin(), TempContainer.end(),
                FirstChild);
@@ -225,12 +300,17 @@ void AVRUtils::moveAsFirstThenChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 void AVRUtils::moveAsFirstElseChildren(AVRIf *AIf, AvrItr First, AvrItr Last) {
 
   assert(AIf && "Missing AvrIf for insertion!");
-  assert(First->getParent() == Last->getParent() &&
-         "Candidate avr move sequence do not share common parent!");
 
   AVRContainerTy TempContainer;
+  AVR *Begin = First, *End = Last;
 
-  removeInternal(First, Last, &TempContainer, false);
+  if (First->getParent() != Last->getParent()) {
+
+    if(!resolveCommonLexicalParent(Begin, &End))
+      llvm_unreachable("Coudlnt resolve common lexical parent for avr sequence!");
+  }
+
+  removeInternal(Begin, End, &TempContainer, false);
   insertAVRSeq(AIf, AIf->ElseChildren, AIf->ElseChildren.begin(),
                &TempContainer, TempContainer.begin(), TempContainer.end(),
                FirstChild);
@@ -253,11 +333,25 @@ AVRContainerTy *AVRUtils::removeInternal(AvrItr Begin, AvrItr End,
 
     // Remove Singleton
     if (Begin == End) {
+
+      // Removing avr nodes with switch parents requires the updating of
+      // internal separators used to specify switch cases within the
+      // children container.
+      if (AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Begin->getParent())) {
+        for (unsigned Itr = 0, End = ASwitch->getNumCases(); Itr < End;
+             ++Itr) {
+
+          if (ASwitch->CaseBegin[Itr] == Begin) {
+            ASwitch->CaseBegin[Itr] = std::next(Begin);
+            break;
+          }
+	}
+      }
+
       OrigContainer->remove(Begin);
 
-      if (Delete) {
+      if (Delete)
         destroy(Begin);
-      }
 
       return nullptr;
     }
@@ -334,6 +428,42 @@ AVRContainerTy *AVRUtils::getAvrContainer(AVR *Node) {
   } else if (AVRWrn *AWrn = dyn_cast<AVRWrn>(Parent)) {
     return &(AWrn->Children);
   }
+  else if(AVRSwitch *ASwitch = dyn_cast<AVRSwitch>(Parent)){
+    return &(ASwitch->Children);
+  }
+
 
   llvm_unreachable("VPO: Avr node missing parent container!");
 }
+
+// Helper Functions
+
+bool AVRUtils::resolveCommonLexicalParent(AVR *First, AVR **Last) {
+
+  // We only traverse up the lexical tree for Last. The thought is that
+  // Last could be the last avr of some child container and that the
+  // parent of this child container is at the same lexical nesting level
+  // of First. This function will update Last to point to that parent.
+
+  AVR *TargetParent = First->getParent();
+  AVR *TestParent = (*Last)->getParent();
+  AVR *NewLast = *Last;
+
+  assert(TargetParent && "Couldn't resolve First's parent node!");
+  assert(TestParent && "Couldn't resolve Last's parent node!");
+
+  do {
+
+    if (TargetParent == TestParent) {
+      *Last = NewLast;
+      return true;
+    }
+
+    NewLast = TestParent;
+    TestParent = TestParent->getParent();
+
+  } while (TestParent);
+
+  return false;
+}
+

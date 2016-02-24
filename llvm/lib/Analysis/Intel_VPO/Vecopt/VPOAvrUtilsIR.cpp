@@ -80,6 +80,10 @@ AVRValueIR *AVRUtilsIR::createAVRValueIR(const Value *V,
   return new AVRValueIR(V, Inst);
 }
 
+AVRSwitchIR *AVRUtilsIR::createAVRSwitchIR(Instruction *SwitchI) {
+  return new AVRSwitchIR(SwitchI);
+}
+
 // Modification Utilites
 
 // Search Utilities
