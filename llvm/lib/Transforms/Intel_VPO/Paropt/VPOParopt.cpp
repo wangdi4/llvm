@@ -103,7 +103,7 @@ bool VPOParopt::runOnModule(Module &M) {
     // Set up a function pass manager so that we can run some cleanup
     // transforms on the LLVM IR after code gen.
     //
-    //legacy::FunctionPassManager FPM(&M);
+    // legacy::FunctionPassManager FPM(&M);
 
     DEBUG(errs() << "VPOParopt Pass: ");
     DEBUG(errs().write_escaped(F->getName()) << '\n');
@@ -114,13 +114,13 @@ bool VPOParopt::runOnModule(Module &M) {
 
     // Remove calls to directive intrinsics since the LLVM back end does not
     // know how to translate them.
-    //VPOUtils::stripDirectives(*F);
+    // VPOUtils::stripDirectives(*F);
 
     // It is possible that stripDirectives eliminates all instructions in a
     // basic block except for the branch instruction. Use CFG simplify to
     // eliminate them.
-    //FPM.add(createCFGSimplificationPass());
-    //FPM.run(*F);
+    // FPM.add(createCFGSimplificationPass());
+    // FPM.run(*F);
   }
 
   DEBUG(dbgs() << "\n====== End VPO Paropt Pass ======\n\n");

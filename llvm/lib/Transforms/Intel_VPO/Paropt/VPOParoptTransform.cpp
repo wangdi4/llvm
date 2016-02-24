@@ -10,17 +10,17 @@
 // Authors:
 // --------
 // Xinmin Tian (xinmin.tian@intel.com)
-//   
+//
 // Major Revisions:
 // ----------------
-// Dec 2015: Initial Implementation of MT-code generation (Xinmin Tian) 
+// Dec 2015: Initial Implementation of MT-code generation (Xinmin Tian)
 //
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// VPOParoptTransform.cpp implements the interface to outline a work 
+/// VPOParoptTransform.cpp implements the interface to outline a work
 /// region formed from parallel loop/regions/tasks into a new function,
-/// replacing it with a call to the threading runtime call by passing new 
+/// replacing it with a call to the threading runtime call by passing new
 /// function pointer to the runtime for parallel execution.
 ///
 //===----------------------------------------------------------------------===//
@@ -63,26 +63,25 @@ class VPOWRegionVisitor {
 
 public:
   WRegionListTy &WRegionList;
-  
+
   VPOWRegionVisitor(WRegionListTy &WL) : WRegionList(WL) {}
 
-  void preVisit(WRegionNode* W)  {}
+  void preVisit(WRegionNode *W) {}
 
-  // use DFS visiting of WRegionNode  
-  void postVisit(WRegionNode* W) { WRegionList.push_back(W); }
+  // use DFS visiting of WRegionNode
+  void postVisit(WRegionNode *W) { WRegionList.push_back(W); }
 
-  bool quitVisit(WRegionNode* W) { return false; }
+  bool quitVisit(WRegionNode *W) { return false; }
 };
 
-void VPOParoptTransform::gatherWRegionNodeList()
-{
-  DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n"); 
+void VPOParoptTransform::gatherWRegionNodeList() {
+  DEBUG(dbgs() << "\nSTART: Gather WRegion Node List\n");
 
   VPOWRegionVisitor WV(WRegionList);
   WRNVisitor<VPOWRegionVisitor> WRegionGather(WV);
   WRegionGather.forwardVisit(WI->getWRGraph());
 
-  DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n"); 
+  DEBUG(dbgs() << "\nEND: Gather WRegion Node List\n");
   return;
 }
 
@@ -110,14 +109,14 @@ bool VPOParoptTransform::ParoptTransformer() {
   //
   // The bits that the flags field can hold are defined as KMP_IDENT_* before
   //
-  Type *IdentFieldTy[] = { Type::getInt32Ty(C),      // reserved_1
-                           Type::getInt32Ty(C),      // flags
-                           Type::getInt32Ty(C),      // reserved_2
-                           Type::getInt32Ty(C),      // reserved_3
-                           Type::getInt8PtrTy(C) };  // *psource
+  Type *IdentFieldTy[] = {Type::getInt32Ty(C),    // reserved_1
+                          Type::getInt32Ty(C),    // flags
+                          Type::getInt32Ty(C),    // reserved_2
+                          Type::getInt32Ty(C),    // reserved_3
+                          Type::getInt8PtrTy(C)}; // *psource
 
-  IdentTy = StructType::create(ArrayRef<Type *>(IdentFieldTy, 5),
-                               "ident_t", false);  // isPacked = false
+  IdentTy = StructType::create(ArrayRef<Type *>(IdentFieldTy, 5), "ident_t",
+                               false); // isPacked = false
 
   StringRef S = F->getName();
 
@@ -151,13 +150,13 @@ bool VPOParoptTransform::ParoptTransformer() {
   CallInst *RI = VPOParoptUtils::genRTLKmpcGlobalThreadNumCall(F, AI, IdentTy);
   RI->insertBefore(AI);
 
-  StoreInst* Tmp0 = new StoreInst(RI, TidPtr, false, AI);
+  StoreInst *Tmp0 = new StoreInst(RI, TidPtr, false, AI);
   Tmp0->setAlignment(4);
 
   // Constant Definitions
   ConstantInt *ValueZero = ConstantInt::get(Type::getInt32Ty(C), 0);
 
-  StoreInst* Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
+  StoreInst *Tmp1 = new StoreInst(ValueZero, BidPtr, false, AI);
   Tmp1->setAlignment(4);
 
   gatherWRegionNodeList();
@@ -172,37 +171,37 @@ bool VPOParoptTransform::ParoptTransformer() {
 
     switch (W->getWRegionKindID()) {
 
-      // Parallel constructs need to perform outlining
-      case WRegionNode::WRNParallel:
-           DEBUG(dbgs()<<"\n WRegionNode::WRNParallel - Transformation \n\n"); 
-           genMultiThreadedCode(W);
-           break;
-      case WRegionNode::WRNParallelLoop:
-      case WRegionNode::WRNParallelSections:
-           break;
+    // Parallel constructs need to perform outlining
+    case WRegionNode::WRNParallel:
+      DEBUG(dbgs() << "\n WRegionNode::WRNParallel - Transformation \n\n");
+      genMultiThreadedCode(W);
+      break;
+    case WRegionNode::WRNParallelLoop:
+    case WRegionNode::WRNParallelSections:
+      break;
 
-      // Task constructs need to perform outlining
-      case WRegionNode::WRNTask:
-      case WRegionNode::WRNTaskLoop:
-           break;
+    // Task constructs need to perform outlining
+    case WRegionNode::WRNTask:
+    case WRegionNode::WRNTaskLoop:
+      break;
 
-      // Constructs do not need to perform outlining
-      case WRegionNode::WRNVecLoop:
-      case WRegionNode::WRNWksLoop:
-      case WRegionNode::WRNWksSections:
-      case WRegionNode::WRNSection:
-      case WRegionNode::WRNSingle:
-      case WRegionNode::WRNMaster:
-      case WRegionNode::WRNAtomic:
-      case WRegionNode::WRNBarrier:
-      case WRegionNode::WRNCancel:
-      case WRegionNode::WRNCritical:
-      case WRegionNode::WRNFlush:
-      case WRegionNode::WRNOrdered:
-      case WRegionNode::WRNTaskgroup:
-           break;
-      default:
-           break;
+    // Constructs do not need to perform outlining
+    case WRegionNode::WRNVecLoop:
+    case WRegionNode::WRNWksLoop:
+    case WRegionNode::WRNWksSections:
+    case WRegionNode::WRNSection:
+    case WRegionNode::WRNSingle:
+    case WRegionNode::WRNMaster:
+    case WRegionNode::WRNAtomic:
+    case WRegionNode::WRNBarrier:
+    case WRegionNode::WRNCancel:
+    case WRegionNode::WRNCritical:
+    case WRegionNode::WRNFlush:
+    case WRegionNode::WRNOrdered:
+    case WRegionNode::WRNTaskgroup:
+      break;
+    default:
+      break;
     }
   }
 
@@ -212,14 +211,13 @@ bool VPOParoptTransform::ParoptTransformer() {
   return Changed;
 }
 
-bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W)
-{
+bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W) {
   bool Changed = false;
 
   // brief extract a W-Region to generate a function
   CodeExtractor CE(makeArrayRef(W->bbset_begin(), W->bbset_end()), DT, false);
 
-  assert( CE.isEligible() );
+  assert(CE.isEligible());
 
   // Set up Fn Attr for the new function
   if (Function *NewF = CE.extractCodeRegion()) {
@@ -247,42 +245,43 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W)
     // Pass tid and bid arguments.
     MTFnArgs.push_back(TidPtr);
     MTFnArgs.push_back(BidPtr);
-  
+
     CallSite CS(NewCall);
 
     // Pass all the same arguments of the extracted function.
     for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
-       MTFnArgs.push_back((*I));
+      MTFnArgs.push_back((*I));
     }
 
     CallInst *MTFnCI = CallInst::Create(MTFn, MTFnArgs, "", NewCall);
     MTFnCI->setCallingConv(CS.getCallingConv());
 
-    // Copy isTailCall attribute 
-    if (NewCall->isTailCall()) MTFnCI->setTailCall();
+    // Copy isTailCall attribute
+    if (NewCall->isTailCall())
+      MTFnCI->setTailCall();
 
     MTFnCI->setDebugLoc(NewCall->getDebugLoc());
 
-    //MTFnArgs.clear();
+    // MTFnArgs.clear();
 
-    if (!NewCall->use_empty()) 
+    if (!NewCall->use_empty())
       NewCall->replaceAllUsesWith(MTFnCI);
 
-    // Keep the orginal extraced function name after finalization  
+    // Keep the orginal extraced function name after finalization
     MTFnCI->takeName(NewCall);
 
-    // Remove the orginal serial call to extracted NewF from the program, 
+    // Remove the orginal serial call to extracted NewF from the program,
     // reducing the use-count of NewF
     NewCall->eraseFromParent();
 
     // Finally, nuke the original extracted function.
     NewF->eraseFromParent();
 
-    // Geneate _kmpc_fork_call for multithreaded execution of MTFn call  
+    // Geneate _kmpc_fork_call for multithreaded execution of MTFn call
     genForkCallInst(W, MTFnCI);
 
-    // Remove the serial call to MTFn function from the program, reducing  
-    // the use-count of MTFn 
+    // Remove the serial call to MTFn function from the program, reducing
+    // the use-count of MTFn
     MTFnCI->eraseFromParent();
 
     Changed = true;
@@ -291,29 +290,26 @@ bool VPOParoptTransform::genMultiThreadedCode(WRegionNode *W)
   return Changed;
 }
 
-
-void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI)
-{
-  Module      *M = F->getParent();
+void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI) {
+  Module *M = F->getParent();
   LLVMContext &C = F->getContext();
 
   // Get MicroTask Function for __kmpc_fork_call
-  Function     *MicroTaskFn   = CI->getCalledFunction();
+  Function *MicroTaskFn = CI->getCalledFunction();
   FunctionType *MicroTaskFnTy = MicroTaskFn->getFunctionType();
 
   // Get MicroTask Function for __kmpc_fork_call
   //
-  // TBD: Need to add global_tid and bound_tid to Micro Task Function 
+  // TBD: Need to add global_tid and bound_tid to Micro Task Function
   // Build void (*kmpc_micro)(kmp_int32 global_tid, kmp_int32 bound_tid,...)
-  // Type *MicroTaskParams[] = {Type::getInt32Ty(C)), Type::getInt32Ty(C))}; 
-  // 
+  // Type *MicroTaskParams[] = {Type::getInt32Ty(C)), Type::getInt32Ty(C))};
+  //
 
   //
-  // geneate void __kmpc_fork_call(ident_t *loc, 
+  // geneate void __kmpc_fork_call(ident_t *loc,
   //                               kmp_int32 argc, (*kmpc_microtask)(), ...);
   //
-  Type *ForkParams[] = {PointerType::getUnqual(IdentTy), 
-                        Type::getInt32Ty(C),
+  Type *ForkParams[] = {PointerType::getUnqual(IdentTy), Type::getInt32Ty(C),
                         PointerType::getUnqual(MicroTaskFnTy)};
 
   FunctionType *FnTy = FunctionType::get(Type::getVoidTy(C), ForkParams, true);
@@ -321,9 +317,8 @@ void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI)
   Function *ForkCallFn = M->getFunction("__kmpc_fork_call");
 
   if (!ForkCallFn) {
-    ForkCallFn = Function::Create(FnTy,
-                                  GlobalValue::ExternalLinkage, 
-                                  "__kmpc_fork_call", M); 
+    ForkCallFn = Function::Create(FnTy, GlobalValue::ExternalLinkage,
+                                  "__kmpc_fork_call", M);
     ForkCallFn->setCallingConv(CallingConv::C);
   }
 
@@ -331,7 +326,7 @@ void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI)
   SmallVector<AttributeSet, 4> Attrs;
 
   AttributeSet FnAttrSet;
-  AttrBuilder  B;
+  AttrBuilder B;
   FnAttrSet = AttributeSet::get(C, ~0U, B);
 
   Attrs.push_back(FnAttrSet);
@@ -339,28 +334,27 @@ void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI)
 
   ForkCallFn->setAttributes(ForkCallFnAttr);
 
-  // get source location information from DebugLoc 
+  // get source location information from DebugLoc
   BasicBlock *EntryBB = W->getEntryBBlock();
-  BasicBlock *ExitBB  = W->getExitBBlock();
+  BasicBlock *ExitBB = W->getExitBBlock();
 
-  AllocaInst *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(F, CI,
-                                                  IdentTy, KMP_IDENT_KMPC,
-                                                  EntryBB, ExitBB);
+  AllocaInst *KmpcLoc = VPOParoptUtils::genKmpcLocfromDebugLoc(
+      F, CI, IdentTy, KMP_IDENT_KMPC, EntryBB, ExitBB);
 
-  ConstantInt *ValueTwo  = ConstantInt::get(Type::getInt32Ty(C), 2);
+  ConstantInt *ValueTwo = ConstantInt::get(Type::getInt32Ty(C), 2);
 
   std::vector<Value *> Params;
   Params.push_back(KmpcLoc);
   Params.push_back(ValueTwo);
   Params.push_back(MicroTaskFn);
-  
+
   CallSite CS(CI);
 
   for (auto I = CS.arg_begin(), E = CS.arg_end(); I != E; ++I) {
     Params.push_back((*I));
   }
 
-  CallInst* ForkCallInst = CallInst::Create(ForkCallFn, Params, "", CI);
+  CallInst *ForkCallInst = CallInst::Create(ForkCallFn, Params, "", CI);
 
   // CI->replaceAllUsesWith(NewCI);
 
@@ -370,13 +364,12 @@ void VPOParoptTransform::genForkCallInst(WRegionNode *W, CallInst *CI)
   return;
 }
 
-Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn) 
-{
+Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn) {
   LLVMContext &C = Fn->getContext();
 
   // Computing a new prototype for the function, which is the same as
   // the old function with two new parameters for passing tid and bid
-  // required by OpenMP runtime library. 
+  // required by OpenMP runtime library.
   FunctionType *FnTy = Fn->getFunctionType();
 
   std::vector<Type *> ParamsTy;
@@ -384,12 +377,12 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn)
   ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
   ParamsTy.push_back(PointerType::getUnqual(Type::getInt32Ty(C)));
 
-  for (auto ArgTyI = FnTy->param_begin(), 
-            ArgTyE = FnTy->param_end(); ArgTyI != ArgTyE; ++ArgTyI) {
+  for (auto ArgTyI = FnTy->param_begin(), ArgTyE = FnTy->param_end();
+       ArgTyI != ArgTyE; ++ArgTyI) {
     ParamsTy.push_back(*ArgTyI);
   }
 
-  Type         *RetTy = FnTy->getReturnType(); 
+  Type *RetTy = FnTy->getReturnType();
   FunctionType *NFnTy = FunctionType::get(RetTy, ParamsTy, false);
 
   // Create the new function body and insert it into the module...
@@ -401,13 +394,13 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn)
   NFn->takeName(Fn);
 
   // Since we have now created the new function, splice the body of the old
-  // function right into the new function, leaving the old rotting hulk of 
+  // function right into the new function, leaving the old rotting hulk of
   // the function empty.
   NFn->getBasicBlockList().splice(NFn->begin(), Fn->getBasicBlockList());
 
-  // Loop over the argument list, transferring uses of the old arguments over 
-  // to the new arguments, also transferring over the names as well. 
-  Function::arg_iterator NewArgI = NFn->arg_begin(); 
+  // Loop over the argument list, transferring uses of the old arguments over
+  // to the new arguments, also transferring over the names as well.
+  Function::arg_iterator NewArgI = NFn->arg_begin();
 
   // The first argument is *tid - thread id argument
   NewArgI->setName("tid");
@@ -417,8 +410,8 @@ Function *VPOParoptTransform::finalizeExtractedMTFunction(Function *Fn)
   NewArgI->setName("bid");
   ++NewArgI;
 
-  for (Function::arg_iterator I = Fn->arg_begin(), 
-                              E = Fn->arg_end(); I != E; ++I, ++NewArgI) {
+  for (Function::arg_iterator I = Fn->arg_begin(), E = Fn->arg_end(); I != E;
+       ++I, ++NewArgI) {
     // Move the name and users over to the new version.
     I->replaceAllUsesWith(&*NewArgI);
     NewArgI->takeName(&*I);
