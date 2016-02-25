@@ -503,6 +503,7 @@ KEYWORD(__declspec                  , 0)
 // Microsoft Extension.
 #ifdef INTEL_CUSTOMIZATION
 KEYWORD(__regcall                   , KEYALL)
+KEYWORD(_regcall                    , KEYALL)
 #endif //INTEL_CUSTOMIZATION
 KEYWORD(__cdecl                     , KEYALL)
 KEYWORD(__stdcall                   , KEYALL)
