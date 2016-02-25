@@ -43,7 +43,7 @@ CallInst *getWICall(Module *M, StringRef funcName, Type *retTy, unsigned dim,
 }
 
 Type *getIndTy(Module *M) {
-  unsigned pointerSizeInBits = M->getDataLayout()->getPointerSizeInBits(0);
+  unsigned pointerSizeInBits = M->getDataLayout().getPointerSizeInBits(0);
   assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
          "Unsopported pointer size");
   return IntegerType::get(M->getContext(), pointerSizeInBits);

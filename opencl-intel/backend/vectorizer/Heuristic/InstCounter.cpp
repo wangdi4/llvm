@@ -1380,7 +1380,7 @@ bool CanVectorizeImpl::hasNonInlineUnsupportedFunctions(Function &F) {
 
 bool CanVectorizeImpl::hasDirectStreamCalls(Function &F, RuntimeServices* services) {
   Module *pM = F.getParent();
-  bool isPointer64 = pM->getDataLayout()->getPointerSizeInBits(0) == 64;
+  bool isPointer64 = pM->getDataLayout().getPointerSizeInBits(0) == 64;
   std::set<Function *> streamFunctions;
   std::set<Function *> unsupportedFunctions;
 

@@ -500,7 +500,7 @@ private:
   bool UseScatterGather;
 
   /// @brief DataLayout of processed module
-  DataLayout const* m_pDL;
+  const DataLayout &m_pDL;
 
   /// @brief counter of cases when packetizing is cancelled because of shufflevector instruction
   int m_shuffleCtr;

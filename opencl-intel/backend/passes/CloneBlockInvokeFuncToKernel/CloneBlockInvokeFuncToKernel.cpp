@@ -278,7 +278,7 @@ size_t CloneBlockInvokeFuncToKernel::computeBlockLiteralSize(Function *F)
 #endif
 
     //block_literal itself
-    return static_cast<size_t>(m_pTD->getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
+    return static_cast<size_t>(m_pTD.getStructLayout(pStructBlockLiteralTy)->getSizeInBytes());
   }
 
   assert(0 && "did not find bitcast to struct");

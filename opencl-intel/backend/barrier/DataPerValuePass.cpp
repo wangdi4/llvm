@@ -342,8 +342,8 @@ namespace intel {
 
     //TODO: check what is better to use for alignment?
     //unsigned int alignment = m_pDL->getABITypeAlignment(pType);
-    unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL->getPrefTypeAlignment(pType);
-    unsigned int sizeInBits = m_pDL->getTypeSizeInBits(pType);
+    unsigned int alignment = (allocaAlignment) ? allocaAlignment : m_pDL.getPrefTypeAlignment(pType);
+    unsigned int sizeInBits = m_pDL.getTypeSizeInBits(pType);
 
     Type *pElementType = pType;
     VectorType* pVecType = dyn_cast<VectorType>(pType);
@@ -351,7 +351,7 @@ namespace intel {
       pElementType = pVecType->getElementType();
     }
     assert(!isa<VectorType>(pElementType) && "element type of a vector is another vector!");
-    if ( m_pDL->getTypeSizeInBits(pElementType) == 1 ) {
+    if ( m_pDL.getTypeSizeInBits(pElementType) == 1 ) {
       //we have a Value with base type i1
       m_oneBitElementValues.insert(pVal);
       //We will extend i1 to i32 before storing to special buffer.
@@ -359,7 +359,7 @@ namespace intel {
       sizeInBits = (pVecType ? pVecType->getNumElements() : 1) * 32;
 
       //This assertion seems to not hold for all Data Layouts
-      //assert(m_pDL->getPrefTypeAlignment(pType) ==
+      //assert(m_pDL.getPrefTypeAlignment(pType) ==
       //  (pVecType ? pVecType->getNumElements() : 1) &&
       //  "assumes alignment of vector of i1 type equals to vector length");
     }

@@ -143,7 +143,7 @@ namespace intel{
           unsigned VecSize = kimd->isVectorizedWidthHasValue() ? kimd->getVectorizedWidth() : 1;
           if (VecSize != 1 && VectorType::isValidElementType(EltTy))
             EltTy = VectorType::get(EltTy, VecSize);
-          Alignment = llvm::NextPowerOf2(m_DL->getTypeAllocSize(EltTy) - 1);
+          Alignment = llvm::NextPowerOf2(m_DL.getTypeAllocSize(EltTy) - 1);
         }
         Allocation->setAlignment(Alignment);
         pArg = builder.CreatePointerCast(Allocation, callIt->getType());
@@ -197,7 +197,7 @@ namespace intel{
       currOffset = arguments.back().offset_in_bytes +
                    TypeAlignment::getSize(arguments.back());
       currOffset = ImplicitArgsUtils::getAdjustedAlignment(
-          currOffset, m_DL->getPointerABIAlignment());
+          currOffset, m_DL.getPointerABIAlignment());
     }
     // Handle implicit arguments
     // Set to the Work Group Info implicit arg, as soon as it is known. Used for

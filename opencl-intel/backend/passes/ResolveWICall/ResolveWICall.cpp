@@ -53,7 +53,7 @@ namespace intel {
       m_pModule = &M;
       m_pLLVMContext = &M.getContext();
       m_IAA = &getAnalysis<ImplicitArgsAnalysis>();
-      unsigned PointerSize = M.getDataLayout()->getPointerSizeInBits(0);
+      unsigned PointerSize = M.getDataLayout().getPointerSizeInBits(0);
       m_IAA->initDuringRun(PointerSize);
       m_sizeTTy = IntegerType::get(*m_pLLVMContext, PointerSize);
 
@@ -311,7 +311,7 @@ namespace intel {
   Value* ResolveWICall::updatePrintf(CallInst *pCall) {
 
     assert( m_pRuntimeHandle && "Context pointer m_pRuntimeHandle created as expected" );
-    DataLayout const &DL = *m_pModule->getDataLayout();
+    const DataLayout &DL = *m_pModule->getDataLayout();
 
     // Find out the buffer size required to store all the arguments.
     // Note: CallInst->getNumOperands() returns the number of operands in
@@ -413,7 +413,7 @@ namespace intel {
 
     DataLayout const& DL = *m_pModule->getDataLayout();
 
-    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned int uiSizeT = m_pModule->getDataLayout().getPointerSizeInBits(0);
 
     // Create new call instruction with extended parameters
     SmallVector<Value*, 4> params;
@@ -457,7 +457,7 @@ namespace intel {
       return;
     }
 
-    unsigned int uiSizeT = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned int uiSizeT = m_pModule->getDataLayout().getPointerSizeInBits(0);
 
     std::vector<Type*> params;
     // Source Pointer
@@ -779,7 +779,7 @@ Value *ResolveWICall::getOrCreateRuntimeInterface() {
     m_ExtExecDecls.insert(type);
   }
   unsigned ResolveWICall::getPointerSize() const {
-    unsigned pointerSizeInBits = m_pModule->getDataLayout()->getPointerSizeInBits(0);
+    unsigned pointerSizeInBits = m_pModule->getDataLayout().getPointerSizeInBits(0);
     assert((32 == pointerSizeInBits  || 64 == pointerSizeInBits) &&
            "Unsopported pointer size");
     return pointerSizeInBits;

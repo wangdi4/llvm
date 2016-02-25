@@ -112,7 +112,7 @@ namespace intel {
     // if there is no global variables - return 0
     if (M.global_empty()) return 0;
     size_t totalSize = 0;
-    const DataLayout &TD = *M.getDataLayout();
+    const DataLayout &TD = M.getDataLayout();
     for (Module::const_global_iterator it = M.global_begin(); it != M.global_end(); ++it) {
       PointerType* ptr = cast<PointerType>(it->getType());
       assert(ptr && "Global variable is always a pointer.");

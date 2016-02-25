@@ -427,8 +427,8 @@ OCL_INITIALIZE_PASS_END(SimplifyGEP, "SimplifyGEP", "SimplifyGEP simplify GEP in
         // No DataLayout cannot apply this SimplifyGEP approach!
         return false;
       }
-      unsigned int vectorSize = m_pDL->getTypeAllocSize(baseType);
-      unsigned int elementSize = m_pDL->getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
+      unsigned int vectorSize = m_pDL.getTypeAllocSize(baseType);
+      unsigned int elementSize = m_pDL.getTypeAllocSize(cast<VectorType>(baseType)->getElementType());
       V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
         "vector size should be a multiply of element size");
       arraySizes.push_back(vectorSize/elementSize);

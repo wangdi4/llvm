@@ -1510,7 +1510,7 @@ void NEATPlugIn::visitBitCastInst( BitCastInst &I )
     NEATGenericValue R;
 
     // To know byte order on target machine.
-    bool isLittleEndian = m_pInterp->getDataLayout()->isLittleEndian();
+    bool isLittleEndian = m_pInterp->getDataLayout().isLittleEndian();
     // Ignore operation that doesn't involve NEAT supported data types
     if (!m_NTD.IsNEATSupported(DstTy) && !m_NTD.IsNEATSupported(SrcTy))
         return;

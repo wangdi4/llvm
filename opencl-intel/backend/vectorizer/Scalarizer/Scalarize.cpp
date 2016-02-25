@@ -964,8 +964,8 @@ void ScalarizeFunction::scalarizeInstruction(LoadInst *LI) {
     SCMEntry *newEntry = getSCMEntry(LI);
 
     // Get additional info from instruction
-    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
+    unsigned int vectorSize = m_pDL.getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL.getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;
@@ -1043,8 +1043,8 @@ void ScalarizeFunction::scalarizeInstruction(StoreInst *SI) {
   VectorType *dataType = dyn_cast<VectorType>(SI->getOperand(indexData)->getType());
   if (isScalarizableLoadStoreType(dataType) && m_pDL) {
     // Get additional info from instruction
-    unsigned int vectorSize = m_pDL->getTypeAllocSize(dataType);
-    unsigned int elementSize = m_pDL->getTypeAllocSize(dataType->getElementType());
+    unsigned int vectorSize = m_pDL.getTypeAllocSize(dataType);
+    unsigned int elementSize = m_pDL.getTypeAllocSize(dataType->getElementType());
     V_ASSERT((vectorSize/elementSize > 0) && (vectorSize % elementSize == 0) &&
       "vector size should be a multiply of element size");
     unsigned numElements = vectorSize/elementSize;

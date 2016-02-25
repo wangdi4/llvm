@@ -54,7 +54,7 @@ namespace intel {
 
 		m_pModule = &M;
 		m_pLLVMContext = &M.getContext();
-		unsigned pointerSizeInBits = M.getDataLayout()->getPointerSizeInBits(0);
+		unsigned pointerSizeInBits = M.getDataLayout().getPointerSizeInBits(0);
 		assert((32 == pointerSizeInBits || 64 == pointerSizeInBits) &&
 			"Unsupported pointer size");
 		m_pSizeT = IntegerType::get(*m_pLLVMContext, pointerSizeInBits);

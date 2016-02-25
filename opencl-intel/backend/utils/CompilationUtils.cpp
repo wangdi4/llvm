@@ -407,7 +407,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
             curArg.size_in_bytes |= (uiElemSize << 16);
             break;
           }
-          curArg.size_in_bytes = pModule->getDataLayout()->getPointerSize(0);
+          curArg.size_in_bytes = pModule->getDataLayout().getPointerSize(0);
           // Detect pointer qualifier
           // Test for opaque types: images, queue_t, pipe_t
           StructType *ST = dyn_cast<StructType>(PTy->getElementType());
@@ -562,7 +562,7 @@ namespace Intel { namespace OpenCL { namespace DeviceBackend {
               llvm::IntegerType *ITy = llvm::cast<llvm::IntegerType>(arg_it->getType());
               curArg.type = CL_KRNL_ARG_INT;
               assert(pModule->getDataLayout() && "Module must have DataLayout");
-              curArg.size_in_bytes = pModule->getDataLayout()->getTypeAllocSize(ITy);
+              curArg.size_in_bytes = pModule->getDataLayout().getTypeAllocSize(ITy);
             }
           }
           break;

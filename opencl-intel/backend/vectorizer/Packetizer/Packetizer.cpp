@@ -1424,11 +1424,11 @@ void PacketizeFunction::obtainBaseIndex(MemoryOperation &MO) {
         gepArg1Dep == WIAnalysis::CONSECUTIVE &&
         fieldConstantInt && !fieldConstantInt->isNegative()) {
       // Make sure this actually is a struct field access
-      uint64_t structAllocSize = m_pDL->getTypeAllocSize(structType);
+      uint64_t structAllocSize = m_pDL.getTypeAllocSize(structType);
       uint64_t fieldIndex = fieldConstantInt->getZExtValue();
       Type* fieldType = structType->getElementType(fieldIndex);
-      uint64_t fieldSize = m_pDL->getTypeStoreSize(fieldType);
-      uint64_t fieldOffset = m_pDL->getStructLayout(structType)->getElementOffset(fieldIndex);
+      uint64_t fieldSize = m_pDL.getTypeStoreSize(fieldType);
+      uint64_t fieldOffset = m_pDL.getStructLayout(structType)->getElementOffset(fieldIndex);
       // make sure struct is not too large for current packet width and
       // that the resulting field addresses are aligned to fieldSize (or
       // we can't express them as array indices).

@@ -178,7 +178,7 @@ namespace intel {
                                                       /* isPacked */ true);
     // Create a block descritptor for this block:
     // @__block_descriptor = internal constant { i64, i64 } { i64 #Reserved, i64 #Size }
-    const DataLayout * DL = M.getDataLayout();
+    const DataLayout & DL = M.getDataLayout();
     uint64_t objcSizeOfBlock =
       DL->getTypeAllocSize(objcBlockContextTy);
 
