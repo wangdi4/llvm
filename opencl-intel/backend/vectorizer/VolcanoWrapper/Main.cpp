@@ -38,7 +38,7 @@ namespace intel {
 {
   m_runtimeModuleList = rtList;
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
 }
 

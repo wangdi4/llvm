@@ -69,7 +69,7 @@ namespace intel {
 
     /// @brief Constructor
     KernelInfoPass(Intel::MetaDataUtils *mdUtils) : FunctionPass(ID), m_mdUtils(mdUtils) {
-      initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+      initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
     }
 
     /// @brief Provides name of pass
@@ -83,7 +83,7 @@ namespace intel {
     bool runOnFunction(Function &Func);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-      AU.addRequired<LoopInfo>();
+      AU.addRequired<LoopInfoWrapperPass>();
       AU.setPreservesAll();
     }
 

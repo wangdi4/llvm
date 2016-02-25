@@ -134,7 +134,7 @@ bool WIAnalysis::runOnFunction(Function &F) {
   assert(m_DT && "Unable to get DominatorTreeWrapperPass pass");
   m_PDT = &getAnalysis<PostDominatorTree>();
   assert(m_PDT && "Unable to get PostDominatorTree pass");
-  m_LI = &getAnalysis<LoopInfo>();
+  m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   assert(m_LI && "Unable to get LoopInfo pass");
 
   m_deps.clear();

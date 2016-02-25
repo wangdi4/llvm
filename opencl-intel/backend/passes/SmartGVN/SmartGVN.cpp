@@ -78,7 +78,7 @@ bool SmartGVN::runOnModule(Module &M)
 
 bool SmartGVN::isNoLoadsCandidate(Function *func)
 {
-  LoopInfo &LI = getAnalysis<LoopInfo>(*func);
+  LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>(*func).getLoopInfo();
   // We consider the function to be a good candidate for GVN with NoLoads if:
   // 1. It has a loop which consists of single basic block + loop header.
   // 2. This basic block has a lot of instructions with long live-interval

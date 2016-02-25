@@ -80,7 +80,7 @@ RenderscriptVectorizer::RenderscriptVectorizer(const OptimizerConfig* pConfig,
   m_optimizerWidths(&optimizerWidths)
 {
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   V_INIT_PRINT;
 }
 
@@ -94,7 +94,7 @@ RenderscriptVectorizer::RenderscriptVectorizer() :
   m_optimizerWidths(NULL)
 {
   // init debug prints
-  initializeLoopInfoPass(*PassRegistry::getPassRegistry());
+  initializeLoopInfoWrapperPassPass(*PassRegistry::getPassRegistry());
   m_pCPUId = new Intel::CPUId();
   m_pConfig = new OptimizerConfig(*m_pCPUId,
             0,

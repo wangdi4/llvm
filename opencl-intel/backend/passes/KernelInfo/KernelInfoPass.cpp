@@ -97,7 +97,7 @@ namespace intel {
   }
 
   size_t KernelInfoPass::getExecutionLength(Function *pFunc) {
-    LoopInfo &LI = getAnalysis<LoopInfo>();
+    LoopInfo &LI = getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     size_t currLength = 0;
     for (Function::iterator i = pFunc->begin(), e = pFunc->end(); i != e; ++i) {

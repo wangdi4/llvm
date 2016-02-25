@@ -52,7 +52,7 @@ public:
   /// @brief Inform about usage/mofication/dependency of this pass
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     if (noLoadAnalysis) {
-      AU.addRequired<LoopInfo>();
+      AU.addRequired<LoopInfoWrapperPass>();
     }
   }
 protected:

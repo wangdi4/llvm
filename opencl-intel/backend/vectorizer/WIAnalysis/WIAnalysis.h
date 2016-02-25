@@ -179,7 +179,7 @@ private:
       AU.addRequired<SoaAllocaAnalysis>();
       AU.addRequired<DominatorTreeWrapperPass>();
       AU.addRequired<PostDominatorTree>();
-      AU.addRequired<LoopInfo>();
+      AU.addRequired<LoopInfoWrapperPass>();
       AU.addRequired<BuiltinLibInfo>();
     }
 

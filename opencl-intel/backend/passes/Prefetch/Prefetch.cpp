@@ -18,6 +18,14 @@ File Name:  Prefetch.cpp
 
 #define DEBUG_TYPE "AutoPrefetcher"
 
+#include "OCLAddressSpace.h"
+#include "Prefetch.h"
+#include "OCLPassSupport.h"
+#include "mic_dev_limits.h"
+#include "OclTune.h"
+#include "InitializePasses.h"
+
+#include "llvm/InitializePasses.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
@@ -26,13 +34,7 @@ File Name:  Prefetch.cpp
 #include "llvm/Support/Debug.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Type.h"
-#include "OCLAddressSpace.h"
-#include "mic_dev_limits.h"
-#include "OclTune.h"
 
-#include "Prefetch.h"
-#include "OCLPassSupport.h"
-#include "InitializePasses.h"
 #include <sstream>
 #include <string>
 #include <climits>
@@ -142,9 +144,9 @@ const int Prefetch::PrefecthedAddressSpaces =
 char Prefetch::ID = 0;
 
 OCL_INITIALIZE_PASS_BEGIN(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
-OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfo)
-OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolution)
-OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfo)
+OCL_INITIALIZE_PASS_DEPENDENCY(LoopInfoWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
+OCL_INITIALIZE_PASS_DEPENDENCY(BranchProbabilityInfoWrapperPass)
 OCL_INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 OCL_INITIALIZE_PASS_END(Prefetch, "prefetch", "Auto Prefetch in Function", false, false)
 
@@ -959,7 +961,7 @@ unsigned int Prefetch::IterLength(Loop *L)
   if ((it = m_iterLength.find(L)) != m_iterLength.end())
     return it->second;
 
-  BranchProbabilityInfo *BPI = &getAnalysis<BranchProbabilityInfo>();
+  BranchProbabilityInfo *BPI = &getAnalysis<BranchProbabilityInfoWrapperPass>().getBPI();
   assert (BPI && "Branch Probability is not available");
   unsigned int len = 0;
   BasicBlock *BB = L->getHeader();
@@ -996,7 +998,7 @@ unsigned int Prefetch::IterLength(Loop *L)
           "expected to enter subloop from its header");
       unsigned internalLoopLen = IterLength(BBL);
       {
-        ScalarEvolution *SE = &getAnalysis<ScalarEvolution>();
+        ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
         SmallVector<BasicBlock *, 8> ExitBlocks;
         L->getExitBlocks(ExitBlocks);
         unsigned tripCount = 0;
@@ -1341,10 +1343,10 @@ bool Prefetch::runOnFunction(Function &F) {
     return false;
 
   // connect some analysis passes
-  m_LI = &getAnalysis<LoopInfo>();
+  m_LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
   assert(m_LI && "Unable to get LoopInfo in Prefetch");
 
-  m_SE = &getAnalysis<ScalarEvolution>();
+  m_SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
   assert(m_SE && "Unable to get ScalarEvolution in Prefetch");
 
   // prepare some constants in function context
