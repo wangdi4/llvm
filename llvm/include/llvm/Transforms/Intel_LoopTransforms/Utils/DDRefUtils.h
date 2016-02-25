@@ -28,6 +28,8 @@
 namespace llvm {
 
 class MetadataAsValue;
+class ConstantAggregateZero;
+class ConstantDataVector;
 
 namespace loopopt {
 
@@ -75,6 +77,16 @@ public:
   /// This routine will automatically create a single canon expr from metadata
   /// and attach it to the new RegDDRef.
   static RegDDRef *createConstDDRef(MetadataAsValue *Val);
+
+  /// \brief Returns a new constant RegDDRef from a constant all-zero vector
+  /// node. This routine will automatically create a single canon expr from
+  /// ConstantAggregateZero and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(ConstantAggregateZero *Val);
+
+  /// \brief Returns a new constant RegDDRef from a constant data vector
+  /// node. This routine will automatically create a single canon expr from
+  /// ConstantDataVector and attach it to the new RegDDRef.
+  static RegDDRef *createConstDDRef(ConstantDataVector *Val);
 
   /// \brief Returns a new BlobDDRef representing blob with Index. Level is the
   /// defined at level for the blob. Level of -1 means non-linear blob.

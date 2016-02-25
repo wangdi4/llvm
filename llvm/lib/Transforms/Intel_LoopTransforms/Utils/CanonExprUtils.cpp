@@ -221,11 +221,11 @@ void CanonExprUtils::collectTempBlobs(
   return getHIRParser()->collectTempBlobs(Blob, TempBlobs);
 }
 
-CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
+CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Val,
                                                    unsigned Symbase) {
   unsigned Index;
 
-  getHIRParser()->createBlob(Temp, Symbase, true, &Index);
+  getHIRParser()->createBlob(Val, Symbase, true, &Index);
   // Constant Blob needs to have Level 0.
   int Level = Symbase == CONSTANT_SYMBASE ? 0 : -1;
   auto CE = createSelfBlobCanonExpr(Index, Level);
@@ -236,7 +236,8 @@ CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(Value *Temp,
 CanonExpr *CanonExprUtils::createSelfBlobCanonExpr(unsigned Index, int Level) {
   auto Blob = getBlob(Index);
 
-  assert((isTempBlob(Blob) || isMetadataBlob(Blob)) &&
+  assert((isTempBlob(Blob) || isMetadataBlob(Blob) ||
+          isConstantVectorBlob(Blob)) &&
          "Unexpected temp blob!");
 
   auto CE = createCanonExpr(Blob->getType());

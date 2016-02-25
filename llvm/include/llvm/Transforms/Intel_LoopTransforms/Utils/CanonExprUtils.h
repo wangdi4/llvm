@@ -63,10 +63,10 @@ private:
   /// in the blob table.
   static unsigned findOrInsertBlob(CanonExpr::BlobTy Blob, unsigned Symbase);
 
-  /// \brief Creates a non-linear self blob canon expr from the passed in Value.
+  /// \brief Creates a non-linear self blob canon expr from the passed in \p Val.
   /// The new blob is associated with Symbase. New temp blobs from values are
   /// only created by framework.
-  static CanonExpr *createSelfBlobCanonExpr(Value *Temp, unsigned Symbase);
+  static CanonExpr *createSelfBlobCanonExpr(Value *Val, unsigned Symbase);
 
   /// \brief Implements add()/cloneAndAdd() functionality.
   static CanonExpr *addImpl(CanonExpr *CE1, const CanonExpr *CE2,

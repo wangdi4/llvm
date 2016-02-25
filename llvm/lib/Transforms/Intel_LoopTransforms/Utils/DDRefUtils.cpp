@@ -56,6 +56,24 @@ RegDDRef *DDRefUtils::createConstDDRef(MetadataAsValue *Val) {
   return NewRegDD;
 }
 
+RegDDRef *DDRefUtils::createConstDDRef(ConstantAggregateZero *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  NewRegDD->setSingleCanonExpr(CE);
+
+  return NewRegDD;
+}
+
+RegDDRef *DDRefUtils::createConstDDRef(ConstantDataVector *Val) {
+  RegDDRef *NewRegDD = createRegDDRef(CONSTANT_SYMBASE);
+  // Create a linear self-blob constant canon expr.
+  auto CE = CanonExprUtils::createSelfBlobCanonExpr(Val, CONSTANT_SYMBASE);
+  NewRegDD->setSingleCanonExpr(CE);
+
+  return NewRegDD;
+}
+
 BlobDDRef *DDRefUtils::createBlobDDRef(unsigned Index, int Level) {
   return new BlobDDRef(Index, Level);
 }
