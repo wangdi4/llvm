@@ -90,7 +90,7 @@ void HLNode::indent(formatted_raw_ostream &OS, unsigned Depth) const {
   auto Parent = getParent();
 
   /// Don't print loop marker "|" if the node is in preheader/postexit.
-  if (Parent && isa<HLLoop>(Parent) && isa<HLInst>(this) &&
+  if ((Depth > 0) && Parent && isa<HLLoop>(Parent) && isa<HLInst>(this) &&
       cast<HLInst>(this)->isInPreheaderOrPostexit()) {
     LoopIndentString = SpaceString + LoopIndentString;
     Depth--;

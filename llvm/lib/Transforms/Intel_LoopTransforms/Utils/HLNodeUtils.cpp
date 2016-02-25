@@ -1796,59 +1796,6 @@ bool HLNodeUtils::isInTopSortNumRange(const HLNode *Node,
   return (Num >= FirstNum && Num <= LastNum);
 }
 
-// For domination we care about single entry i.e. absence of labels in the scope
-// of interest.
-// For post domination we care about single exit i.e. absence of jumps from
-// inside to outside the scope of interest.
-// TODO: handle intrinsics/calls/exception handling semantics.
-struct StructuredFlowChecker final : public HLNodeVisitorBase {
-  bool IsPDom;
-  const HLNode *TargetNode;
-  bool IsStructured;
-  bool IsDone;
-
-  StructuredFlowChecker(bool PDom, const HLNode *TNode)
-      : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {}
-
-  void visit(const HLNode *Node) {
-    if (Node == TargetNode) {
-      IsDone = true;
-      return;
-    }
-
-    if (!IsPDom) {
-      if (isa<HLLabel>(Node)) {
-        IsStructured = false;
-      }
-      return;
-    }
-
-    // Post domination logic.
-    if (auto Goto = dyn_cast<HLGoto>(Node)) {
-      if (Goto->isExternal()) {
-        IsStructured = false;
-        return;
-      }
-
-      auto Label = Goto->getTargetLabel();
-
-      if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
-        IsStructured = false;
-      }
-
-    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
-      // Be conservative in the presence of multi-exit loops.
-      if (Loop->getNumExits() > 1) {
-        IsStructured = false;
-      }
-    }
-  }
-
-  void postVisit(const HLNode *) {}
-  bool isDone() const override { return (IsDone || !IsStructured); }
-  bool isStructured() { return IsStructured; }
-};
-
 const HLNode *HLNodeUtils::getLexicalChildImpl(const HLNode *Parent,
                                                const HLNode *Node, bool First) {
   assert(Parent && "Parent is null!");
@@ -1929,31 +1876,98 @@ HLNode *HLNodeUtils::getLastLexicalChild(HLNode *Parent, HLNode *Node) {
       static_cast<const HLNode *>(Parent), static_cast<const HLNode *>(Node)));
 }
 
+// For domination we care about single entry i.e. absence of labels in the scope
+// of interest.
+// For post domination we care about single exit i.e. absence of jumps from
+// inside to outside the scope of interest.
+// TODO: handle intrinsics/calls/exception handling semantics.
+struct StructuredFlowChecker final : public HLNodeVisitorBase {
+  bool IsPDom;
+  const HLNode *TargetNode;
+  bool IsStructured;
+  bool IsDone;
+
+  StructuredFlowChecker(bool PDom, const HLNode *TNode)
+      : IsPDom(PDom), TargetNode(TNode), IsStructured(true), IsDone(false) {}
+
+  void visit(const HLNode *Node) {
+    if (Node == TargetNode) {
+      IsDone = true;
+      return;
+    }
+
+    if (!IsPDom) {
+      if (isa<HLLabel>(Node)) {
+        IsStructured = false;
+      }
+      return;
+    }
+
+    // Post domination logic.
+    if (auto Goto = dyn_cast<HLGoto>(Node)) {
+      if (Goto->isExternal()) {
+        IsStructured = false;
+        return;
+      }
+
+      auto Label = Goto->getTargetLabel();
+
+      if (Label->getTopSortNum() > TargetNode->getTopSortNum()) {
+        IsStructured = false;
+      }
+
+    } else if (auto Loop = dyn_cast<HLLoop>(Node)) {
+      // Be conservative in the presence of multi-exit loops.
+      if (Loop->getNumExits() > 1) {
+        IsStructured = false;
+      }
+    }
+  }
+
+  void postVisit(const HLNode *) {}
+  bool isDone() const override { return (IsDone || !IsStructured); }
+  bool isStructured() { return IsStructured; }
+};
+
 bool HLNodeUtils::hasStructuredFlow(const HLNode *Parent, const HLNode *Node,
                                     const HLNode *TargetNode,
                                     bool PostDomination, bool UpwardTraversal) {
   const HLNode *FirstNode = nullptr, *LastNode = nullptr;
-  auto ParentLoop = dyn_cast<HLLoop>(Parent);
 
-  // For loop parents we should check the structure in the loop body even if
-  // Node lies in preheader or postexit.
+  // For parent loops we should retrieve the absolute first/last lexical child
+  // of the loop rather than returning the first/last preheader/postexit child.
+  // Consider a domination query for this case-
+  // + DO LOOP
+  // |  goto L:
+  // |  Node1
+  // |  L:
+  // + END DO
+  //   Node2
+  //
+  // Node2 lies in postexit so if we only check the postexit nodes of the loop
+  // while tracing Node2 to the common parent of Node1 and itself (do loop), the
+  // query will return true which would be wrong.
   if (UpwardTraversal) {
-    FirstNode = ParentLoop ? ParentLoop->getFirstChild()
-                           : getFirstLexicalChild(Parent, Node);
+    FirstNode = isa<HLLoop>(Parent) ? getFirstLexicalChild(Parent)
+                                    : getFirstLexicalChild(Parent, Node);
     LastNode = Node;
   } else {
     FirstNode = Node;
-    LastNode = ParentLoop ? ParentLoop->getLastChild()
-                          : getLastLexicalChild(Parent, Node);
+    LastNode = isa<HLLoop>(Parent) ? getLastLexicalChild(Parent)
+                                   : getLastLexicalChild(Parent, Node);
   }
 
-  if (!FirstNode || !LastNode) {
-    return true;
-  }
+  assert((FirstNode && LastNode) && "Could not find first/last lexical child!");
 
   StructuredFlowChecker SFC(PostDomination, TargetNode);
-  // Doesn't recurse into loops.
-  visitRange<true, false>(SFC, FirstNode, LastNode);
+
+  // Don't need to recurse into loops.
+  // Do a forward traversal when going down and vice versa.
+  if (!UpwardTraversal) {
+    visitRange<true, false, true>(SFC, FirstNode, LastNode);
+  } else {
+    visitRange<true, false, false>(SFC, FirstNode, LastNode);
+  }
 
   return SFC.isStructured();
 }
@@ -2522,4 +2536,3 @@ void HLNodeUtils::permuteLoopNests(
     moveProperties(SrcLoop, DstLoop);
   }
 }
-
