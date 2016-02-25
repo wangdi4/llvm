@@ -1,16 +1,17 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvr.h ------------------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvr.h -- Defines the Abstract Vector Representation (AVR) base node.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the Abstract Vector Representation (AVR) base node.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_H
@@ -20,25 +21,23 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
-
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/ilist_node.h"
-
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Compiler.h"
 
-namespace llvm {  // LLVM Namespace
-namespace vpo {   // VPO Vectorizer Namespace
+namespace llvm { // LLVM Namespace
+namespace vpo {  // VPO Vectorizer Namespace
 
 #define TabLength 2
 
 /// Abstract Layer print verbosity levels
 enum VerbosityLevel { PrintBase, PrintDataType, PrintAvrType, PrintNumber };
 /// Assignment LHS/RHS enumeration
-enum AssignOperand { RightHand, LeftHand};
+enum AssignOperand { RightHand, LeftHand };
 
 class AVRLoop;
 
@@ -52,7 +51,6 @@ class AVRLoop;
 class AVR : public ilist_node<AVR> {
 
 private:
-
   /// \brief Make class uncopyable.
   void operator=(const AVR &) = delete;
 
@@ -68,7 +66,7 @@ private:
   /// Number - Unique ID for AVR node.
   unsigned Number;
 
-  /// \brief Destroys all objects of this class. Only called after Vectorizer 
+  /// \brief Destroys all objects of this class. Only called after Vectorizer
   /// phase code generation.
   static void destroyAll();
 
@@ -90,25 +88,25 @@ protected:
   friend class AVRUtils;
 
 public:
-
   /// Virtual Clone Method
   virtual AVR *clone() const = 0;
 
-  /// \brief Dumps AvrNode. 
+  /// \brief Dumps AvrNode.
   void dump() const;
 
   /// \brief Dumps Avr Node at verbosity Level.
   void dump(VerbosityLevel VLevel) const;
 
-  /// \brief Virtual print method. Derived classes should implement this routine.
-  virtual void print(formatted_raw_ostream &OS, unsigned Depth, 
+  /// \brief Virtual print method. Derived classes should implement this
+  /// routine.
+  virtual void print(formatted_raw_ostream &OS, unsigned Depth,
                      VerbosityLevel VLevel) const = 0;
-                     
-  /// \brief Returns a StringRef for the type name of this node. 
+
+  /// \brief Returns a StringRef for the type name of this node.
   virtual StringRef getAvrTypeName() const = 0;
 
   /// \brief Returns the value name of this node.
-  /// The string will be w.r.t to underlying IR. 
+  /// The string will be w.r.t to underlying IR.
   virtual std::string getAvrValueName() const = 0;
 
   /// \brief Returns the Avr nodes's unique ID number
@@ -135,21 +133,17 @@ public:
   /// be used for any other purpose.
   unsigned getAVRID() const { return SubClassID; }
 
-  // AvrKind subclass enumeration
+// AvrKind subclass enumeration
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrKinds.h"
-
 };
 
-
 } // End VPO Vectorizer Namspace
-
 
 /// \brief Traits for iplist<AVR>
 ///
 /// See ilist_traits<Instruction> in BasicBlock.h for details
 template <>
-struct ilist_traits<vpo::AVR>
-  : public ilist_default_traits<vpo::AVR> {
+struct ilist_traits<vpo::AVR> : public ilist_default_traits<vpo::AVR> {
 
   vpo::AVR *createSentinel() const {
     return static_cast<vpo::AVR *>(&Sentinel);
@@ -158,9 +152,7 @@ struct ilist_traits<vpo::AVR>
   static void destroySentinel(vpo::AVR *) {}
 
   vpo::AVR *provideInitialHead() const { return createSentinel(); }
-  vpo::AVR *ensureHead(vpo::AVR *) const {
-    return createSentinel();
-  }
+  vpo::AVR *ensureHead(vpo::AVR *) const { return createSentinel(); }
   static void noteHead(vpo::AVR *, vpo::AVR *) {}
 
   static vpo::AVR *createNode(const vpo::AVR &) {
@@ -186,5 +178,3 @@ extern AVRContainerTy AVRFunctions;
 } // End LLVM Namespace
 
 #endif // LLVM_ANALYSIS_VPO_AVR_H
-
-
