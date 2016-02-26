@@ -53,9 +53,9 @@ namespace intel {
     // Sort all functions in call-graph order
     sortFunctionsInCGOrder(m_pModule, m_functionsToHandle, true);
 
-    // Iterate through functions sorted in the function list 
-    for (TFunctionList::iterator func_it = m_functionsToHandle.begin(), 
-                                 func_it_end = m_functionsToHandle.end(); 
+    // Iterate through functions sorted in the function list
+    for (TFunctionList::iterator func_it = m_functionsToHandle.begin(),
+                                 func_it_end = m_functionsToHandle.end();
                                  func_it != func_it_end; func_it++) {
       m_GASPointers.clear();
       m_GASEstimate.clear();
@@ -112,7 +112,7 @@ namespace intel {
 
 
   // Collect GAS pointers initializations in the function (together with their uses' tree)
-    for (inst_iterator inst_it = inst_begin(*curFuncIt), 
+    for (inst_iterator inst_it = inst_begin(*curFuncIt),
                        inst_it_end = inst_end(*curFuncIt);
                        inst_it != inst_it_end; inst_it++) {
 
