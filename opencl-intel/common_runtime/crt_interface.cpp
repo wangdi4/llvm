@@ -35,7 +35,13 @@
 
 namespace OCLCRT
 {
-    CrtModule crt_ocl_module;
+    // Allocate CrtModule on heap intentionally.
+    // In some applications, global objects call OpenCL API in their dectructors,
+    // so if we allocate CrtModule as global object it might be destroyed earlier
+    // than application's destructors are complete. Hence we should allocate CrtModule
+    // on heap to manage it's lifetime.
+    // The CrtModule will be deleted on the latest step of unload this library.
+    CrtModule& crt_ocl_module = *(new CrtModule());
 
     // Globally Initialized Variable
     char* CrtModule::m_common_extensions = NULL;
@@ -1028,11 +1034,14 @@ cl_int CL_API_CALL clGetDeviceInfo(cl_device_id device,
             CrtDeviceInfo* deviceInfo =
                                 OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue(device);
 
-            retCode = deviceInfo->m_origDispatchTable.clGetDeviceInfo( device,
-                                                                       param_name,
-                                                                       param_value_size,
-                                                                       param_value,
-                                                                       param_value_size_ret);
+            if(deviceInfo != NULL)
+            {
+                retCode = deviceInfo->m_origDispatchTable.clGetDeviceInfo( device,
+                                                                           param_name,
+                                                                           param_value_size,
+                                                                           param_value,
+                                                                           param_value_size_ret);
+            }
         }
         break;
     default:
@@ -9807,7 +9816,7 @@ void * CL_API_CALL clSVMAlloc(
     // cache the SVM pointer
     if( NULL != pSvmPtr )
     {
-        pCrtCtx->m_svmPointers.push_back( pSvmPtr );
+        pCrtCtx->m_svmPointers.Add( pSvmPtr, size );
     }
 
 FINISH:
@@ -9852,7 +9861,7 @@ void CL_API_CALL clSVMFree(
                             svm_pointer );
 
     // remove the SVM pointer from cache
-    pCrtCtx->m_svmPointers.remove( svm_pointer );
+    pCrtCtx->m_svmPointers.Remove( svm_pointer );
 }
 SET_ALIAS( clSVMFree );
 
@@ -10002,13 +10011,11 @@ cl_int CL_API_CALL clEnqueueSVMFree(
 
         if( NULL == pfn_free_func )
         {
-            std::list<void *> * svmPointers = &( crtQueue->m_contextCRT->m_svmPointers );
-
             // user didn't provide free function;
             // so all SVM pointers must have been created using clSVMAlloc
             for( cl_uint i = 0; i < num_svm_pointers; i++ )
             {
-                if( svmPointers->end() == std::find( svmPointers->begin(), svmPointers->end(), svm_pointers[i] ) )
+                if( !crtQueue->m_contextCRT->m_svmPointers.HasSVMAllocPtr( svm_pointers[i]) )
                 {
                     // pointer was not found in cache
                     errCode = CL_INVALID_VALUE;
@@ -10529,6 +10536,7 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueSVMMigrateMem(
     SyncManager *synchHelper    = NULL;
     CrtQueue* queue             = NULL;
     cl_event *outEvents         = NULL;
+    CrtDeviceInfo* devInfo      = NULL;
     cl_uint numOutEvents        = 0;
 
     if( OCLCRT::crt_ocl_module.m_CrtPlatformVersion < OPENCL_2_1 )
@@ -10581,15 +10589,44 @@ CL_API_ENTRY cl_int CL_API_CALL clEnqueueSVMMigrateMem(
         goto FINISH;
     }
 
-    errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueSVMMigrateMem(
-        queue->m_cmdQueueDEV,
-        num_svm_pointers,
-        svm_pointers,
-        sizes,
-        flags,
-        numOutEvents,
-        outEvents,
-        &crtEvent->m_eventDEV );
+    devInfo = OCLCRT::crt_ocl_module.m_deviceInfoMapGuard.GetValue( queue->m_device );
+    if( NULL == devInfo )
+    {
+        errCode = CL_INVALID_COMMAND_QUEUE;
+        goto FINISH;
+    }
+
+    if( devInfo->m_devType == CL_DEVICE_TYPE_GPU )
+    {
+
+        errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueSVMMigrateMem(
+            queue->m_cmdQueueDEV,
+            num_svm_pointers,
+            svm_pointers,
+            sizes,
+            flags,
+            numOutEvents,
+            outEvents,
+            &crtEvent->m_eventDEV );
+    }
+    else
+    {
+        for(size_t i = 0; i < num_svm_pointers; ++i)
+        {
+            if( !queue->m_contextCRT->m_svmPointers.GetSVMAllocPtrForRange( svm_pointers[i], (sizes)? sizes[i] : 0 ) )
+            {
+                errCode = CL_INVALID_VALUE;
+                goto FINISH;
+            }
+        }
+
+        errCode = queue->m_cmdQueueDEV->dispatch->clEnqueueBarrierWithWaitList(
+            queue->m_cmdQueueDEV,
+            numOutEvents,
+            outEvents,
+            &crtEvent->m_eventDEV );
+
+    }
 
     if( ( errCode == CL_SUCCESS ) && oclevent )
     {

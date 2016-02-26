@@ -534,6 +534,44 @@ public:
     cl_pipe_properties* m_properties;
 };
 
+class CrtSVMAllocation
+{
+    std::map<const void*, size_t> m_svmAllocations;
+
+public:
+    void Add(const void* pSVMPtr, size_t size)
+    {
+        m_svmAllocations[pSVMPtr] = size;
+    }
+
+    void Remove(const void* pSVMPtr)
+    {
+        m_svmAllocations.erase(pSVMPtr);
+    }
+
+    bool HasSVMAllocPtr(const void* pSVMPtr)
+    {
+        return m_svmAllocations.end() != m_svmAllocations.find( pSVMPtr );
+    }
+
+    const void* GetSVMAllocPtrForRange(const void* pSVMPtr, size_t size) const
+    {
+        std::map<const void*, size_t>::const_iterator iter = m_svmAllocations.upper_bound( pSVMPtr );
+        if (iter == m_svmAllocations.begin())
+        {
+            return NULL;
+        }
+        --iter;
+
+        if (((char*)pSVMPtr >= (char*)iter->first) &&
+            ((char*)pSVMPtr + size < (char*)iter->first + iter->second))
+        {
+            return iter->first;
+        }
+        return NULL;
+    }
+
+};
 /// ------------------------------------------------------------------------------
 ///
 /// ------------------------------------------------------------------------------
@@ -724,7 +762,7 @@ public:
     OCLCRT::Utils::OclMutex          m_mutex;
 
     // cache of SVM pointers created using clSVMAlloc()
-    std::list<void *>       m_svmPointers;
+    CrtSVMAllocation        m_svmPointers;
 };
 /// ------------------------------------------------------------------------------
 ///
