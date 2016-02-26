@@ -723,6 +723,8 @@ LPUTargetLowering::LowerFormalArguments(SDValue Chain,
         tClass = &LPU::RF64RegClass;
       } else if(tVT == MVT::f32) {
         tClass = &LPU::RF32RegClass;
+      } else if(tVT == MVT::f16) {
+        tClass = &LPU::RF16RegClass;
       } else {
         llvm_unreachable("WTC!!");
       }
