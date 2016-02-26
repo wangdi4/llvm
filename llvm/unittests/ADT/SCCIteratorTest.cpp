@@ -249,20 +249,34 @@ struct GraphTraits<Graph<N> > {
  static inline ChildIteratorType child_end(NodeType *Node) {
    return Graph<N>::child_end(Node);
  }
+};
 
 #if INTEL_CUSTOMIZATION
+template <unsigned N>
+struct GraphTraits<Graph<N> *> {
+  typedef typename Graph<N>::NodeType NodeType;
+  typedef typename Graph<N>::ChildIterator ChildIteratorType;
+
+ static inline NodeType *getEntryNode(const Graph<N>* const &G) { return G->AccessNode(0); }
+ static inline ChildIteratorType child_begin(NodeType *Node) {
+   return Graph<N>::child_begin(Node);
+ }
+ static inline ChildIteratorType child_end(NodeType *Node) {
+   return Graph<N>::child_end(Node);
+ }
+
   //Required for implementation of GraphTraits interface.
   //Full implementation required for intel variant of SCCIterator
  typedef NodeType* nodes_iterator;
- static inline nodes_iterator nodes_begin(Graph<N> *G) {
-  return G->nodes_begin();
+ static inline nodes_iterator nodes_begin(Graph<N> **G) {
+  return (*G)->nodes_begin();
  }
 
- static inline nodes_iterator nodes_end(Graph<N> *G) {
-  return G->nodes_end();
+ static inline nodes_iterator nodes_end(Graph<N> **G) {
+  return (*G)->nodes_end();
  }
-#endif //INTEL_CUSTOMIZATION
 };
+#endif //INTEL_CUSTOMIZATION
 
 TEST(SCCIteratorTest, AllSmallGraphs) {
   // Test SCC computation against every graph with NUM_NODES nodes or less.
@@ -296,8 +310,10 @@ TEST(SCCIteratorTest, AllSmallGraphs) {
 
     /// NodesInSomeSCC - Those nodes which are in some SCC.
     GT::NodeSubset NodesInSomeSCC;
-
-    for (scc_iterator<GT> I = scc_begin(G), E = scc_end(G); I != E; ++I) {
+#if INTEL_CUSTOMIZATION
+    auto GP = &G;
+    for (scc_iterator<GT*> I = scc_begin(GP), E = scc_end(GP); I != E; ++I) {
+#endif //INTEL_CUSTOMIZATION
       const std::vector<GT::NodeType *> &SCC = *I;
 
       // Get the nodes in this SCC as a NodeSubset rather than a vector.
