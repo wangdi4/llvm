@@ -81,33 +81,38 @@ void LPUInstrInfo::copyPhysReg(MachineBasicBlock &MBB,
 }
 
 
-/*
 void LPUInstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
                                           MachineBasicBlock::iterator MI,
-                                    unsigned SrcReg, bool isKill, int FrameIdx,
+                                          unsigned SrcReg, bool isKill, int FrameIdx,
                                           const TargetRegisterClass *RC,
                                           const TargetRegisterInfo *TRI) const {
   DebugLoc DL;
   if (MI != MBB.end()) DL = MI->getDebugLoc();
-  MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = *MF.getFrameInfo();
+  unsigned opc;
 
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(FrameIdx),
-                            MachineMemOperand::MOStore,
-                            MFI.getObjectSize(FrameIdx),
-                            MFI.getObjectAlignment(FrameIdx));
+  if        (RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass) {
+    opc = LPU::ST8D;
+  } else if (RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
+    opc = LPU::ST8D;
+  } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
+    opc = LPU::ST16D;
+  } else if (RC == &LPU::F16RegClass || RC == &LPU::RF16RegClass || RC == &LPU::CF16RegClass) {
+    opc = LPU::ST16fD;
+  } else if (RC == &LPU::I32RegClass || RC == &LPU::RI32RegClass || RC == &LPU::CI32RegClass) {
+    opc = LPU::ST32D;
+  } else if (RC == &LPU::F32RegClass || RC == &LPU::RF32RegClass || RC == &LPU::CF32RegClass) {
+    opc = LPU::ST32fD;
+  } else if (RC == &LPU::I64RegClass || RC == &LPU::RI64RegClass || RC == &LPU::CI64RegClass) {
+    opc = LPU::ST64D;
+  } else if (RC == &LPU::F64RegClass || RC == &LPU::RF64RegClass || RC == &LPU::CF64RegClass) {
+    opc = LPU::ST64fD;
+  } else {
+    llvm_unreachable("Unknown register class");
+  }
 
-  if (RC == &LPU::GR16RegClass)
-    BuildMI(MBB, MI, DL, get(LPU::MOV16mr))
-      .addFrameIndex(FrameIdx).addImm(0)
-      .addReg(SrcReg, getKillRegState(isKill)).addMemOperand(MMO);
-  else if (RC == &LPU::GR8RegClass)
-    BuildMI(MBB, MI, DL, get(LPU::MOV8mr))
-      .addFrameIndex(FrameIdx).addImm(0)
-      .addReg(SrcReg, getKillRegState(isKill)).addMemOperand(MMO);
-  else
-    llvm_unreachable("Cannot store this register to stack slot!");
+  BuildMI(MBB, MI, DL, get(opc)).addFrameIndex(FrameIdx).addImm(0)
+    .addReg(SrcReg, getKillRegState(isKill));
+
 }
 
 void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -117,25 +122,31 @@ void LPUInstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                            const TargetRegisterInfo *TRI) const{
   DebugLoc DL;
   if (MI != MBB.end()) DL = MI->getDebugLoc();
-  MachineFunction &MF = *MBB.getParent();
-  MachineFrameInfo &MFI = *MF.getFrameInfo();
+  unsigned opc;
 
-  MachineMemOperand *MMO =
-    MF.getMachineMemOperand(MachinePointerInfo::getFixedStack(FrameIdx),
-                            MachineMemOperand::MOLoad,
-                            MFI.getObjectSize(FrameIdx),
-                            MFI.getObjectAlignment(FrameIdx));
+  if        (RC == &LPU::I1RegClass  || RC == &LPU::RI1RegClass  || RC == &LPU::CI1RegClass) {
+    opc = LPU::LD8D;
+  } else if (RC == &LPU::I8RegClass  || RC == &LPU::RI8RegClass  || RC == &LPU::CI8RegClass) {
+    opc = LPU::LD8D;
+  } else if (RC == &LPU::I16RegClass || RC == &LPU::RI16RegClass || RC == &LPU::CI16RegClass) {
+    opc = LPU::LD16D;
+  } else if (RC == &LPU::F16RegClass || RC == &LPU::RF16RegClass || RC == &LPU::CF16RegClass) {
+    opc = LPU::LD16fD;
+  } else if (RC == &LPU::I32RegClass || RC == &LPU::RI32RegClass || RC == &LPU::CI32RegClass) {
+    opc = LPU::LD32D;
+  } else if (RC == &LPU::F32RegClass || RC == &LPU::RF32RegClass || RC == &LPU::CF32RegClass) {
+    opc = LPU::LD32fD;
+  } else if (RC == &LPU::I64RegClass || RC == &LPU::RI64RegClass || RC == &LPU::CI64RegClass) {
+    opc = LPU::LD64D;
+  } else if (RC == &LPU::F64RegClass || RC == &LPU::RF64RegClass || RC == &LPU::CF64RegClass) {
+    opc = LPU::LD64fD;
+  } else {
+    llvm_unreachable("Unknown register class");
+  }
 
-  if (RC == &LPU::GR16RegClass)
-    BuildMI(MBB, MI, DL, get(LPU::MOV16rm))
-      .addReg(DestReg).addFrameIndex(FrameIdx).addImm(0).addMemOperand(MMO);
-  else if (RC == &LPU::GR8RegClass)
-    BuildMI(MBB, MI, DL, get(LPU::MOV8rm))
-      .addReg(DestReg).addFrameIndex(FrameIdx).addImm(0).addMemOperand(MMO);
-  else
-    llvm_unreachable("Cannot store this register to stack slot!");
+  BuildMI(MBB, MI, DL, get(opc), DestReg).addFrameIndex(FrameIdx).addImm(0);
 }
-*/
+
 unsigned LPUInstrInfo::RemoveBranch(MachineBasicBlock &MBB) const {
   MachineBasicBlock::iterator I = MBB.end();
   unsigned Count = 0;

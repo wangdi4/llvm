@@ -49,7 +49,6 @@ public:
                    unsigned DestReg, unsigned SrcReg,
                    bool KillSrc) const override;
 
-  /*
   void storeRegToStackSlot(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MI,
                            unsigned SrcReg, bool isKill,
@@ -62,6 +61,7 @@ public:
                             const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
 
+  /*
   unsigned GetInstSizeInBytes(const MachineInstr *MI) const;
   */
   // Branch folding goodness

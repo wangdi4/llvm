@@ -58,7 +58,7 @@ LPUTargetMachine::LPUTargetMachine(const Target &T, StringRef TT,
       TLOF(make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, CPU, FS, *this) {
   // Not sure this is needed
-  setRequiresStructuredCFG(true);
+  //setRequiresStructuredCFG(true);
   initAsmInfo();
   //setAsmVerbosityDefault(true);
 }
@@ -76,29 +76,16 @@ public:
     return getTM<LPUTargetMachine>();
   }
 
-  void addIRPasses() override;
-  bool addInstSelector() override;
+  bool addInstSelector() override {
+    // Install an instruction selector.
+    addPass(createLPUISelDag(getLPUTargetMachine(), getOptLevel()));
+    return false;
+  }
 
-  void addPreRegAlloc() override;
+  void addPreRegAlloc() override {
+    addPass(createLPUConvertControlPass(), false);
+  }
 
-  FunctionPass *createTargetRegisterAllocator(bool) override;
-  /* temp disable
-  void addFastRegAlloc(FunctionPass *RegAllocPass) override;
-  void addOptimizedRegAlloc(FunctionPass *RegAllocPass) override;
-  */
-
-  void addPostRegAlloc() override;
-
-  bool addGCPasses() override;
-  void addBlockPlacement() override;
-
-  /* These are used by the AMD (R600) target.  May be interesting....
-     See AMDGPUTargetMachine.cpp
-  void addCodeGenPrepare() override;
-  bool addPreISel() override;
-  void addPreSched2() override;
-  void addPreEmitPass() override;
-  */
 };
 } // namespace
 
@@ -106,70 +93,3 @@ TargetPassConfig *LPUTargetMachine::createPassConfig(PassManagerBase &PM) {
   LPUPassConfig *PassConfig = new LPUPassConfig(this, PM);
   return PassConfig;
 }
-
-void LPUPassConfig::addIRPasses() {
-
-  // (Cribbed from NVPTX)
-  // The following passes are known to not play well with virtual regs hanging
-  // around after register allocation (which in our case, is *all* registers).
-  // We explicitly disable them here.  We do, however, need some functionality
-  // of the PrologEpilogCodeInserter pass, so we emulate that behavior in the
-  // LPUPrologEpilog pass (see LPUPrologEpilogPass.cpp).
-  //  disablePass(&PrologEpilogCodeInserterID);
-  disablePass(&TailDuplicateID);
-
-  // Do not need scheduling...
-  // (Note: Does not dsable the "fastDAGScheduler"...)
-  disablePass(&MachineSchedulerID);
-  disablePass(&PostMachineSchedulerID);
-  disablePass(&PostRASchedulerID);
-  TargetPassConfig::addIRPasses();
-}
-
-bool LPUPassConfig::addInstSelector() {
-  // Install an instruction selector.
-  addPass(createLPUISelDag(getLPUTargetMachine(), getOptLevel()));
-  return false;
-}
-
-void LPUPassConfig::addPreRegAlloc() {
-  addPass(createLPUConvertControlPass(), false);
-}
-
-FunctionPass *LPUPassConfig::createTargetRegisterAllocator(bool) {
-  return createBasicRegisterAllocator();
-  /* temp disable   return nullptr; // No reg alloc */
-}
-/* temp disable
-void LPUPassConfig::addFastRegAlloc(FunctionPass *RegAllocPass) {
-  assert(!RegAllocPass && "LPU uses no regalloc!");
-  addPass(createLPULICAllocPass(), false); // removes PHIs...
-  //addPass(&ProcessImplicitDefsID);
-  //addPass(&LiveVariablesID);
-  addPass(&MachineLoopInfoID);
-  //addPass(&PHIEliminationID);
-}
-
-void LPUPassConfig::addOptimizedRegAlloc(FunctionPass *RegAllocPass) {
-  addFastRegAlloc(RegAllocPass);
-}
-*/
-void LPUPassConfig::addPostRegAlloc() {
-  //  addPass(createLPUPrologEpilogPass(), false);
-}
-
-bool LPUPassConfig::addGCPasses() {
-  // none for now
-  return false;
-}
-
-void LPUPassConfig::addBlockPlacement() {
-  // none for now
-}
-
-/*
-void LPUPassConfig::addPreEmitPass() {
-  // Must run branch selection immediately preceding the asm printer.
-  //addPass(createLPUBranchSelectionPass(), false);
-}
-*/
