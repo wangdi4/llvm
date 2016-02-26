@@ -438,6 +438,8 @@ class HIRParser::BaseSCEVCreator
     : public SCEVVisitor<BaseSCEVCreator, const SCEV *> {
 private:
   const HIRParser *HIRP;
+  // Used to mark visited instructions during traceback in findOrigInst().
+  SmallPtrSet<const Instruction *, 16> VisitedInsts;
 
 public:
   BaseSCEVCreator(const HIRParser *HIRP) : HIRP(HIRP) {}
@@ -573,7 +575,7 @@ public:
   const Instruction *findOrigInst(const Instruction *CurInst, const SCEV *SC,
                                   bool *IsTruncation, bool *IsNegation,
                                   SCEVConstant **ConstMultiplier,
-                                  SCEV **Additive) const;
+                                  SCEV **Additive);
 
   /// Returns true if NewSCEV can replace OrigSCEV in the SCEV tree with a
   /// combination of basic operations like truncation, negation etc applied on
@@ -637,12 +639,10 @@ const SCEV *HIRParser::BaseSCEVCreator::getSubstituteSCEV(const SCEV *SC) {
 
 const Instruction *HIRParser::BaseSCEVCreator::findOrigInst(
     const Instruction *CurInst, const SCEV *SC, bool *IsTruncation,
-    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) const {
+    bool *IsNegation, SCEVConstant **ConstMultiplier, SCEV **Additive) {
 
   bool IsLiveInCopy = false;
   bool FirstInst = false;
-
-  static SmallPtrSet<const Instruction *, 16> VisitedInsts;
 
   if (!CurInst) {
     CurInst = HIRP->getCurInst();
