@@ -422,7 +422,7 @@ void AndersensAAResult::RunAndersensAnalysis(Module &M)  {
           AndersensDeletionCallbackHandle(*this, (Iter->first)));
   }
 
-  PerfomEscAnal(M);
+  PerformEscAnal(M);
   // Dump the non-escaped static variablas
   if (PrintNonEscapeCands) {
     PrintNonEscapes();
@@ -448,7 +448,7 @@ void AndersensAAResult::PrintNonEscapes() const {
   errs() << "Non-Escape-Static-Vars_Begin \n";
   for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
        I != E; ++I) {
-    PrintNode(&GraphNodes[I->second]);
+    PrintNode(&GraphNodes[getObject(const_cast<Value *>(*I))]);
     errs() << "\n";
   }
   errs() << "Non-Escape-Static-Vars_End \n";
@@ -475,6 +475,7 @@ AndersensAAResult::AndersensAAResult(AndersensAAResult &&Arg)
       ReturnNodes(std::move(Arg.ReturnNodes)),
       VarargNodes(std::move(Arg.VarargNodes)),
       NonEscapeStaticVars(std::move(Arg.NonEscapeStaticVars)),
+      NonPointerAssignments(std::move(Arg.NonPointerAssignments)),
       IMR(std::move(Arg.IMR)) {}
 
 /*static*/ AndersensAAResult
@@ -803,7 +804,7 @@ bool AndersensAAResult::pointsToConstantMemory(const MemoryLocation &Loc,
 // Returns true if the given value V escapes
 bool AndersensAAResult::escapes(const Value *V) {
   assert(V);
-  if (NonEscapeStaticVars.find(V) != NonEscapeStaticVars.end()) {
+  if (NonEscapeStaticVars.count(V)) {
     return false;
   }
   return true;
@@ -843,7 +844,8 @@ bool AndersensAAResult::analyzeGlobalEscape(
     const User *UR = U.getUser();
     CE = dyn_cast<ConstantExpr>(UR);
     if (CE) {
-      if (analyzeGlobalEscape(CE, PhiUsers, SingleAcessingFunction))
+      if (analyzeGlobalEscape(CE, PhiUsers,
+                              SingleAcessingFunction))
         return true;
     } else if (const Instruction *I = dyn_cast<Instruction>(UR)) {
       if (*SingleAcessingFunction == nullptr) {
@@ -856,9 +858,13 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (LI->isVolatile()) {
           return true;
         }
+        if (!isPointsToType(LI->getType())) 
+          NonPointerAssignments.insert(LI);
+        
         CE = dyn_cast<ConstantExpr>(V);
         if (LI->getOperand(0) == V && CE) {
-          if (analyzeGlobalEscape(LI, PhiUsers, SingleAcessingFunction)) {
+          if (analyzeGlobalEscape(LI, PhiUsers, 
+                                  SingleAcessingFunction)) {
             return true;
           }
         }
@@ -866,20 +872,30 @@ bool AndersensAAResult::analyzeGlobalEscape(
         if (SI->isVolatile()) {
           return true;
         }
+        if (!isPointsToType(SI->getOperand(0)->getType()))
+          NonPointerAssignments.insert(SI);
 
       } else if (isa<BitCastInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, 
+                                SingleAcessingFunction))
           return true;
       } else if (isa<GetElementPtrInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, 
+                                SingleAcessingFunction))
           return true;
       } else if (isa<SelectInst>(I)) {
-        if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (analyzeGlobalEscape(I, PhiUsers, 
+                                SingleAcessingFunction))
           return true;
       } else if (const PHINode *PN = dyn_cast<PHINode>(I)) {
-        if (PhiUsers.insert(PN).second)
-          if (analyzeGlobalEscape(I, PhiUsers, SingleAcessingFunction))
+        if (PhiUsers.insert(PN).second) {
+          if (!isPointsToType(PN->getType())) 
+            NonPointerAssignments.insert(PN);
+
+          if (analyzeGlobalEscape(I, PhiUsers, 
+                                  SingleAcessingFunction))
             return true;
+        }
       } else if (const MemTransferInst *MTI = dyn_cast<MemTransferInst>(I)) {
         if (MTI->isVolatile())
           return true;
@@ -1252,6 +1268,8 @@ void AndersensAAResult::CollectConstraints(Module &M) {
     }
   }
 
+  InitEscAnalForGlobals(M);
+
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     // Set function address
     GraphNodes[ValueNodes[&(*F)]].setValue(&(*F));
@@ -1533,7 +1551,8 @@ void AndersensAAResult::visitReturnInst(ReturnInst &RI) {
 }
 
 void AndersensAAResult::visitLoadInst(LoadInst &LI) {
-  //  if (isPointsToType(LI.getType()))
+  if (isPointsToType(LI.getType()) ||
+      NonPointerAssignments.count(&LI))
   // P1 = load P2  -->  <Load/P1/P2>
     Constraints.push_back(Constraint(Constraint::Load, getNodeValue(LI),
                                      getNode(LI.getOperand(0))));
@@ -1549,6 +1568,8 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
       return;
   }
 
+  if (isPointsToType(SI.getOperand(0)->getType()) ||
+      NonPointerAssignments.count(&SI)) {
   // CQ377860: So far, “value to store” operand of “Instruction::Store”
   // is treated as either “value” or constant expression. But, it is
   // possible that “value to store” operand of “Instruction::Store”
@@ -1574,6 +1595,7 @@ void AndersensAAResult::visitStoreInst(StoreInst &SI) {
                                        getNode(SI.getOperand(1)),
                                        getNode(SI.getOperand(0))));
     }
+  }
 }
 
 void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
@@ -1584,19 +1606,21 @@ void AndersensAAResult::visitGetElementPtrInst(GetElementPtrInst &GEP) {
 }
 
 void AndersensAAResult::visitPHINode(PHINode &PN) {
-  unsigned PNN = getNodeValue(PN);
-  for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
+  if (isPointsToType(PN.getType()) ||
+      NonPointerAssignments.count(&PN)) {
+    unsigned PNN = getNodeValue(PN);
+    for (unsigned i = 0, e = PN.getNumIncomingValues(); i != e; ++i) {
     // P1 = phi P2, P3  -->  <Copy/P1/P2>, <Copy/P1/P3>, ...
-    if (Constant *C = dyn_cast<Constant>(PN.getIncomingValue(i))) {
-      if (!isPointsToType(PN.getType()) &&
-          (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
-           dyn_cast<GlobalValue>(C) == nullptr ||
-           dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
-        continue;
-    }
-
-    Constraints.push_back(
+      if (Constant *C = dyn_cast<Constant>(PN.getIncomingValue(i))) {
+        if (!isPointsToType(PN.getType()) &&
+            (!isa<ConstantPointerNull>(C) || !isa<UndefValue>(C) ||
+            dyn_cast<GlobalValue>(C) == nullptr ||
+            dyn_cast<ConstantExpr>(C) == nullptr || !isa<BlockAddress>(C)))
+          continue;
+      }
+      Constraints.push_back(
         Constraint(Constraint::Copy, PNN, getNode(PN.getIncomingValue(i))));
+    }
   }
 }
 
@@ -5183,49 +5207,41 @@ void AndersensAAResult::ProcessOpaqueNode(unsigned int NodeIdx) {
   }
 }
 
+// Collecting the static variables which are unlikely to be escaped.
+// For example, the static vairable which occurs in only one routine.
+// The utilty analyzeGlobalEscape is also used to collect the 
+// non-pointer assignments related to the static variable.
+void AndersensAAResult::InitEscAnalForGlobals(Module &M) {
+
+  for (GlobalVariable &GV : M.globals()) {
+    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) { 
+      SmallPtrSet<const PHINode *, 16> PhiUsers;
+      const Function *SingleAcessingFunction = nullptr;
+      const Value *V = &GV;
+      if (!analyzeGlobalEscape(V, PhiUsers, 
+                               &SingleAcessingFunction)) 
+        NonEscapeStaticVars.insert(V);
+    }
+  }
+
+}
 // Sets up the escape properties for the nodes including the formal
 // parameter, formal return, actual parameters, actual return and
 // global variables.
 void AndersensAAResult::InitEscAnal(Module &M) {
-
+  unsigned NodeIdx;
   assert(NodeWorkList.empty() && "Expected empty work list");
   for (GlobalVariable &GV : M.globals()) {
-    if (GV.isDiscardableIfUnused() && GV.hasLocalLinkage()) {
-      for (unsigned I = 0, E = GraphNodes.size(); I != E; ++I) {
-        Node *N1 = &GraphNodes[I];
-        Value *V = N1->getValue();
-        if (V && isa<GlobalValue>(V) && V == &GV &&
-            N1 == &GraphNodes[getObject(V)]) {
-          NonEscapeStaticVars[V] = I;
-        }
-      }
-    } else {
-      if (ObjectNodes.find(&GV) != ObjectNodes.end())
-        //
-        //     global(v)
-        //  ----------------
-        //     opaque(v)
-        //
-        NewOpaqueNode(getObject(&GV), FLAGS_OPAQUE);
-    }
+    if (!NonEscapeStaticVars.count(&GV) &&
+        ObjectNodes.find(&GV) != ObjectNodes.end())
+       //
+       //     global(v)
+       //  ----------------
+       //     opaque(v)
+       //
+       NewOpaqueNode(getObject(&GV), FLAGS_OPAQUE);
   }
 
-  for (auto I = NonEscapeStaticVars.begin(), E = NonEscapeStaticVars.end();
-       I != E; ++I) {
-    SmallPtrSet<const PHINode *, 16> PhiUsers;
-    const Function *SingleAcessingFunction = nullptr;
-    const Value *V = I->getFirst();
-    if (analyzeGlobalEscape(V, PhiUsers, &SingleAcessingFunction)) {
-      //
-      //     global(v)
-      //  ----------------
-      //     opaque(v)
-      //
-      NewOpaqueNode(I->getSecond(), FLAGS_OPAQUE);
-    }
-  }
-
-  unsigned NodeIdx;
   for (Module::iterator F = M.begin(), E = M.end(); F != E; ++F) {
     if (isPointsToType(F->getFunctionType()->getReturnType())) {
       DEBUG_WITH_TYPE("escanal-trace", dbgs() << "EscAnal:  ");
@@ -5286,7 +5302,7 @@ void AndersensAAResult::MarkEscaped() {
 }
 
 // Driver for escape analysis.
-void AndersensAAResult::PerfomEscAnal(Module &M) {
+void AndersensAAResult::PerformEscAnal(Module &M) {
   CreateInOutEdgesforNodes();
   CreateRevPointsToGraph();
   InitEscAnal(M);
