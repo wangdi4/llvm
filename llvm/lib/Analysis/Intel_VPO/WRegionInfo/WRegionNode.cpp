@@ -373,7 +373,15 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
     setAligned(C);
     break;
   }
-  case QUAL_OMP_REDUCTION: {
+  case QUAL_OMP_REDUCTION_ADD:
+  case QUAL_OMP_REDUCTION_SUB:
+  case QUAL_OMP_REDUCTION_MUL:
+  case QUAL_OMP_REDUCTION_AND:
+  case QUAL_OMP_REDUCTION_OR:
+  case QUAL_OMP_REDUCTION_XOR:
+  case QUAL_OMP_REDUCTION_BAND:
+  case QUAL_OMP_REDUCTION_BOR:
+  case QUAL_OMP_REDUCTION_UDR: {
     ReductionClause *C =
         WRegionUtils::extractQualOpndList<ReductionClause>(Call, getRed());
       setRed(C);
