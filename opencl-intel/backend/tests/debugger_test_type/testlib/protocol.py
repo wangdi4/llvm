@@ -25,13 +25,6 @@ def send_message(sock, message):
     packed_len = struct.pack('>L', len(s))
     sock.sendall(packed_len + s)
 
-def send_message_wrong_size(sock, message, size):
-    """ Send a serialized message (protobuf Message interface)
-        to a socket, prepended by its length packed in 4
-        bytes (big endian).
-    """
-    packed_len = struct.pack('>L', size)
-    sock.sendall(packed_len + message)
 
 def get_message(sock):
     """ Read a message from a socket. Return the deserialized

@@ -48,8 +48,6 @@ class ClientGDB(TestClient):
     REGEX_LOCATION_POSTFIX_1 = "\s+([^\ ]*)\s+\(.*\)\s+at\s+(.*)\n"
     # Handle location format like "0xabcdef in func_name () at file_name.txt:4
     REGEX_LOCATION_POSTFIX_2 = "\s+0x[^\ ]*\s+in\s+([^\ ]*)\s+\(.*\)\s+at\s+(.*)\n"
-    # Handle location format like "0xabcdef in func_name ()
-    REGEX_LOCATION_POSTFIX_3 = "\s+0x[^\ ]*\s+in\s+([^\ ]*)\s+\(.*\)\s(\d)?"
     # Takes a line from 'info locals' of the form "varname = varvalue" and
     # Groups the varname in matchobject.group(1) when used with re.search()
     REGEX_VARIABLE_NAME = "([^\ ]*)\s+=\s+.*$"
@@ -141,7 +139,6 @@ class ClientGDB(TestClient):
         if not options_str:
              options_str = 'none'
         args = [gdb_command,
-#                "localhost:12345",
                 "--args",
                 self.debuggee_exe_path,
                 hostprog_name,
@@ -204,9 +201,6 @@ class ClientGDB(TestClient):
 
         return output
 
-    def send_message_to_server_wrong_size(self, message, size):
-        pass
-        
     def _expect_prompt(self, timeout):
         """
         Reads GDB's output stream until a prompt (or question or error)
@@ -601,8 +595,7 @@ class ClientGDB(TestClient):
         function_name = None
 
         for gdb_location_format in [ClientGDB.REGEX_LOCATION_POSTFIX_1,
-                                    ClientGDB.REGEX_LOCATION_POSTFIX_2,
-                                    ClientGDB.REGEX_LOCATION_POSTFIX_3]:
+                                    ClientGDB.REGEX_LOCATION_POSTFIX_2]:
 
             s = re.search(ClientGDB.REGEX_LOCATION_PREFIX + str(frame_number) \
                         + gdb_location_format, frame_info)
@@ -612,8 +605,7 @@ class ClientGDB(TestClient):
                 return (source_location, function_name)
 
         raise ClientError("Unable to parse GDB location format with any regex. " \
-                        + "frame number:\n" + str(frame_number) \
-                        + "\nOriginal string:\n" + frame_info )
+                        + "Original string:\n" + frame_info)
 
     def _frame_location(self, stackframe=0):
         """

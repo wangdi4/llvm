@@ -11,7 +11,7 @@ from multiprocessing import JoinableQueue, Queue, Process
 from testlib.common import TestSuiteNotFoundException, logi
 from testlib.debuggertestcase import DebuggerTestCase
 from testlib.timelimited import timelimited, TimeLimitExpired
-import logging
+
 class RunnerParams:
     """ Parameters used to initialize the testcase runner process """
     def __init__(self,
@@ -125,8 +125,6 @@ class RunnerProcess(Process):
             Allows up to timeout seconds for each suite to run before reporting a timeout.
             Default timeout = 30min
         """
-
-        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
         # create a testcase runner client (gdb driver/simulator) for the worker thread
         client = self.make_client()

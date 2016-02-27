@@ -183,11 +183,6 @@ class ClientSimulator(TestClient):
         """
         protocol.send_message(self.socket, message)
 
-    def send_message_to_server_wrong_size(self, message, size):
-        """ Send a ClientToServerMessage to the server.
-        """
-        protocol.send_message_wrong_size(self.socket, message, size)
-
     def get_message_from_server(self, timeout=80):
         """ Get a ServerToClientMessage from the server.
 
@@ -200,7 +195,7 @@ class ClientSimulator(TestClient):
         except TimeLimitExpired:
             raise SimulatorError('failed to get a message within timeout')
 
-    def start_session(self, gid_x, gid_y, gid_z, timeout = 80):
+    def start_session(self, gid_x, gid_y, gid_z):
         """ Send START_SESSION to the server, with the given GID.
 
             If START_SESSION_ACK is received successfully in reply, return
@@ -214,7 +209,7 @@ class ClientSimulator(TestClient):
         self.send_message_to_server(msg)
 
         # expect a fast response to START_MESSAGE, with the default timeout
-        reply = self.get_message_from_server(timeout)
+        reply = self.get_message_from_server()
         self._expect_reply_type(reply, ServerToClientMessage.START_SESSION_ACK)
 
         self.sizeof_size_t = reply.start_session_ack_msg.sizeof_size_t
@@ -336,18 +331,6 @@ class ClientSimulator(TestClient):
         #~ print reply
         self._expect_reply_type(reply, ServerToClientMessage.MEMORY_RANGE_INFO)
         return debuginfo.var_info_value(var_info, reply.memory_range_info_msg.buf)
-
-    def var_query_range(self, start_addr, end_addr, stackframe=None):
-        """ Return the value (as a string) of the variable named 'varname'.
-            See doc of var_list for explanation of stackframe.
-        """
-        # make error message more comprehensible for a common mistake
-        self._get_memory_range(start_addr, end_addr)
-
-        reply = self.get_message_from_server()
-        #~ print reply
-        self._expect_reply_type(reply, ServerToClientMessage.MEMORY_RANGE_INFO)
-        return reply
 
     def get_stack_trace(self):
         """ Get a stack trace from the server and store it locally for later
