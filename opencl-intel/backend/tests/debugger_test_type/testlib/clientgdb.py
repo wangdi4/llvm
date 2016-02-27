@@ -136,7 +136,7 @@ class ClientGDB(TestClient):
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
         gdb_command = os.environ['GDB']+'/gdb'
-		
+
         options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
         if not options_str:
              options_str = 'none'
@@ -206,7 +206,7 @@ class ClientGDB(TestClient):
 
     def send_message_to_server_wrong_size(self, message, size):
         pass
-        
+
     def _expect_prompt(self, timeout):
         """
         Reads GDB's output stream until a prompt (or question or error)
