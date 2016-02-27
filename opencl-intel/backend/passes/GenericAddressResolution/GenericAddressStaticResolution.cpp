@@ -53,9 +53,9 @@ namespace intel {
     // Sort all functions in call-graph order
     sortFunctionsInCGOrder(m_pModule, m_functionsToHandle, true);
 
-    // Iterate through functions sorted in the function list 
-    for (TFunctionList::iterator func_it = m_functionsToHandle.begin(), 
-                                 func_it_end = m_functionsToHandle.end(); 
+    // Iterate through functions sorted in the function list
+    for (TFunctionList::iterator func_it = m_functionsToHandle.begin(),
+                                 func_it_end = m_functionsToHandle.end();
                                  func_it != func_it_end; func_it++) {
       m_GASPointers.clear();
       m_GASEstimate.clear();
@@ -112,8 +112,8 @@ namespace intel {
 
 
   // Collect GAS pointers initializations in the function (together with their uses' tree)
-    for (inst_iterator inst_it = inst_begin(*curFuncIt), 
-                       inst_it_end = inst_end(*curFuncIt); 
+    for (inst_iterator inst_it = inst_begin(*curFuncIt),
+                       inst_it_end = inst_end(*curFuncIt);
                        inst_it != inst_it_end; inst_it++) {
 
       Instruction *pInstr = &(*inst_it);
@@ -125,16 +125,16 @@ namespace intel {
         continue;
       }
 
-      // At first, we check the most frequent initialization cases: 
+      // At first, we check the most frequent initialization cases:
       //     <named>-to-<generic> address space conversion of pointer value by BitCast and GEP
-      const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType()); 
+      const PointerType *pPtrType = dyn_cast<const PointerType>(pInstr->getType());
       if (pPtrType && IS_ADDR_SPACE_GENERIC(pPtrType->getAddressSpace())) {
         unsigned opCode = pInstr->getOpcode();
         if (opCode == Instruction::BitCast || opCode == Instruction::AddrSpaceCast || opCode == Instruction::GetElementPtr) {
           const PointerType *pSrcPtrType = dyn_cast<PointerType>(pInstr->getOperand(0)->getType());
-          if (pSrcPtrType && isSinglePtr(pSrcPtrType) && 
+          if (pSrcPtrType && isSinglePtr(pSrcPtrType) &&
               !IS_ADDR_SPACE_GENERIC(pSrcPtrType->getAddressSpace())) {
-            // If this is a conversion from named pointer type to GAS pointer: 
+            // If this is a conversion from named pointer type to GAS pointer:
             // store GAS pointer info into the collection (together with its uses - recursively)
             addGASInstr(pInstr, (OCLAddressSpace::spaces) pSrcPtrType->getAddressSpace());
             continue;
@@ -155,7 +155,7 @@ namespace intel {
     }
 
     // Now collect use trees of GAS pointer initializations
-    for (TPointerList::iterator ptr_it = m_GASPointers.begin(); 
+    for (TPointerList::iterator ptr_it = m_GASPointers.begin();
                                 ptr_it != m_GASPointers.end(); ptr_it++) {
 
       Instruction *pInstr = *ptr_it;
@@ -184,7 +184,7 @@ namespace intel {
                        cast<const PointerType>(pArrayElemType)->getAddressSpace())) {
             return true;
           }
-        } else if (pElemType->isPointerTy() && 
+        } else if (pElemType->isPointerTy() &&
                    IS_ADDR_SPACE_GENERIC(cast<const PointerType>(pElemType)->getAddressSpace())) {
           return true;
         }
@@ -192,7 +192,7 @@ namespace intel {
     } else if (pType->isArrayTy()) {
       // Look into the array element for structs of GAS pointers
       const Type *pArrayElemType = pType->getArrayElementType();
-      if (pArrayElemType->isAggregateType() && 
+      if (pArrayElemType->isAggregateType() &&
           isAllocaStructGASPointer(pArrayElemType, isStructDetected)) {
         return true;
       } else if (isStructDetected && pArrayElemType->isPointerTy() &&
@@ -224,8 +224,8 @@ namespace intel {
       // frequent, and we leave it for dynamic resolution. This is because the
       // analysis should be delegated to callee, and then we will need yet more
       // rounds over all functions to resolve new dependencies:
-      //  - "named" pointer result value may produce new "named" arguments to another callee, 
-      //  - the latter may produce yet another callee instance, 
+      //  - "named" pointer result value may produce new "named" arguments to another callee,
+      //  - the latter may produce yet another callee instance,
       //  - the latter may produce yet another "named" return value and so on.
       // In worst case, amount of rounds will reach amount of functions with GAS pointer
       // return value. Compile-time vs. optimization gain trade-off can be negative here.
@@ -281,7 +281,7 @@ namespace intel {
         break;
     }
     if (toPropagate) {
-      for (Value::user_iterator user_it = pInstr->user_begin(), 
+      for (Value::user_iterator user_it = pInstr->user_begin(),
                                 user_end = pInstr->user_end();
                                 user_it != user_end; user_it++) {
         Instruction *pUserInst = dyn_cast<Instruction>(*user_it);
@@ -309,7 +309,7 @@ namespace intel {
       }
       if (pInstr->getOpcode() == Instruction::Store) {
         // If Store instruction encountered due to its VALUE operand (rather than
-        // ADDRESS operand) - we should not resolve it. That is because not all 
+        // ADDRESS operand) - we should not resolve it. That is because not all
         // uses of corresponding 'alloca' GAS pointer may be resolvable.
         const PointerType *pValuePtrType =
                       dyn_cast<const PointerType>(pInstr->getOperand(0)->getType());
@@ -325,7 +325,7 @@ namespace intel {
       m_GASEstimate.insert(TPointerInfo(pInstr, space));
       return;
     }
-    // If we reached already traversed node - validate its type 
+    // If we reached already traversed node - validate its type
     if (ptr_it->second == space) {
       // Original addr space is confirmed - nothing to do
       return;
@@ -362,7 +362,7 @@ namespace intel {
           if (PointerType *pOpPtrType = dyn_cast<PointerType>(pOpVal->getType())) {
             // We're looking only for pointer operands of the expression
             OCLAddressSpace::spaces opPtrSpace = (OCLAddressSpace::spaces) pOpPtrType->getAddressSpace();
-            if (IS_ADDR_SPACE_GENERIC(opPtrSpace)) { 
+            if (IS_ADDR_SPACE_GENERIC(opPtrSpace)) {
               // If the pointer is GAS - look for a named addr-space pointer behind him
               return handleGASConstantExprIfNeeded(pOpVal, pInstr);
             } else {
@@ -381,8 +381,8 @@ namespace intel {
 
     bool changed = false;
     // Iterate through the collection of GAS pointers and try to resolve them statically
-    // to named address space pointer  
-    for (TPointerList::iterator ptr_it = m_GASPointers.begin(), 
+    // to named address space pointer
+    for (TPointerList::iterator ptr_it = m_GASPointers.begin(),
                                 ptr_end = m_GASPointers.end();
                                 ptr_it != ptr_end; ptr_it++) {
       Instruction *pInstr = *ptr_it;
@@ -395,7 +395,7 @@ namespace intel {
       }
 
       // Resolve GAS pointers from collection:
-      
+
       // 1. Prepare replacements with named addr space pointers
       switch (pInstr->getOpcode()) {
         case Instruction::IntToPtr      :
@@ -454,22 +454,22 @@ namespace intel {
           break;
         case Instruction::AddrSpaceCast :
         case Instruction::BitCast       :
-        case Instruction::IntToPtr      : 
+        case Instruction::IntToPtr      :
         case Instruction::GetElementPtr : {
-          // For Int2Ptr/Bitcast/GEP instruction which ORIGINALLY produced NAMED addr-space pointer 
+          // For Int2Ptr/Bitcast/GEP instruction which ORIGINALLY produced NAMED addr-space pointer
           // or integer: replace uses with new value
           PointerType *pDestType = dyn_cast<PointerType>(pOldInstr->getType());
           if (!pDestType || !IS_ADDR_SPACE_GENERIC(pDestType->getAddressSpace())) {
             pOldInstr->replaceAllUsesWith(pNewVal);
           } else {
-            // Clean-up is need because BFS tree of GAS data flow is not guaranteed 
+            // Clean-up is need because BFS tree of GAS data flow is not guaranteed
             // to be balanced, and yet may have cycles
             pOldInstr->replaceAllUsesWith(Constant::getNullValue(pOldInstr->getType()));
           }
           break;
         }
         default:
-          // For instruction which produces a pointer (less bitcast/GEP special case above): 
+          // For instruction which produces a pointer (less bitcast/GEP special case above):
           // its use is already set during address space resolution, however
           // clean-up is yet needed because BFS tree of GAS data flow is not guaranteed
           // to be balanced, and yet may have cycles
