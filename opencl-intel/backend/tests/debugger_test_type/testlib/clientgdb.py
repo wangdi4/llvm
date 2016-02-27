@@ -136,7 +136,7 @@ class ClientGDB(TestClient):
         cl_file_fullpath = self.cl_abs_filename(cl_name)
         # GDB environment variable should be set to gdb path before start of test
         gdb_command = os.environ['GDB']+'/gdb'
-
+		
         options_str = ','.join('%s=%s' % (k, v) for k, v in options.iteritems())
         if not options_str:
              options_str = 'none'
@@ -206,7 +206,7 @@ class ClientGDB(TestClient):
 
     def send_message_to_server_wrong_size(self, message, size):
         pass
-
+        
     def _expect_prompt(self, timeout):
         """
         Reads GDB's output stream until a prompt (or question or error)
@@ -376,6 +376,11 @@ class ClientGDB(TestClient):
             self._frame(stackframe)
         return self._print(varname)
 
+    def var_query_range(self, start_addr, end_addr, stackframe=None):
+        if stackframe is not None and stackframe != 0:
+            self._frame(stackframe)
+        return self._print("*"+str(start_addr))+self._print("*"+str(start_addr))
+        
     def var_set_value(self, varname, value, stackframe=None):
         if stackframe is not None and stackframe != 0:
             self._frame(stackframe)
@@ -547,7 +552,7 @@ class ClientGDB(TestClient):
             if vector_component.startswith("0x"):
                 # Remove marker of the form "<Address 0x22 out of bounds>" that GDB
                 # adds when it cannot dereference a pointer.
-                vector_component = re.sub("\ <.*>", "", vector_component)
+                vector_component = re.sub("\ (.*)", "", vector_component)
 
                 # Turn hex values into integers.
                 cmps[idx] = str(int(vector_component, 16))
