@@ -654,10 +654,6 @@ if( MINGW )
   llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
 endif()
 
-if(INTEL_CUSTOMIZATION)
-  llvm_replace_compiler_option(CMAKE_CXX_FLAGS_RELEASE "-O3" "-O2")
-endif()
-
 # Put this before tblgen. Else we have a circular dependence.
 add_subdirectory(lib/Support)
 add_subdirectory(lib/TableGen)
