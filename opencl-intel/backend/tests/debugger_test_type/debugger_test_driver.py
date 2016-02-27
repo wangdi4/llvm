@@ -6,7 +6,7 @@ import sys
 import unittest
 import time
 import Queue
-
+import logging
 from optparse import OptionParser
 from multiprocessing import cpu_count, JoinableQueue, Queue, Process
 
@@ -22,7 +22,7 @@ for fname in ['pexpect_2_4.zip', 'protobuf_lib.zip']:
 
     sys.path.insert(0, path)
 
-from testlib.common import find_on_path, os_is_windows, TestSuiteNotFoundException, logd, logw, loge
+from testlib.common import find_on_path, os_is_windows, TestSuiteNotFoundException, logd, logw, loge, loglevel
 from testlib.debuggertestcase import DebuggerTestCase
 from testlib.runner_process import RunnerProcess, RunnerParams
 
@@ -290,7 +290,7 @@ def process_results(result_queue):
 
 #---------------------------------------------------------------------------
 if __name__ == "__main__":
-    import logging
+    #import logging
 
     os.environ['PATH'] = os.getcwd() + ';' + os.environ['PATH']
 
@@ -319,9 +319,9 @@ if __name__ == "__main__":
     (options, args) = parse_options()
 
     if options.verbose:
-        logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+        loglevel(logging.DEBUG)
     else:
-        logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+        loglevel(logging.INFO)
 
     result_queue = run_tests(options=options, names=args)
 

@@ -29,6 +29,9 @@ def find_on_path(file, path, delim=":"):
         if os.path.exists(candidate):
             return os.path.abspath(candidate)
     return None
+def loglevel(lev):
+    """ Setting log level """
+    logging.basicConfig(stream=sys.stderr, level=lev)
 
 def logi(message):
     """ Log informational message """
