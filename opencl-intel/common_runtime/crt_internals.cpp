@@ -30,8 +30,35 @@
 
 namespace OCLCRT
 {
-    extern CrtModule crt_ocl_module;
+    extern CrtModule& crt_ocl_module;
 }
+
+#ifdef _WIN32
+BOOL DllMain( HMODULE hModule,
+              DWORD  ul_reason_for_call,
+              LPVOID lpReserved)
+{
+    switch (ul_reason_for_call)
+    {
+        case DLL_PROCESS_ATTACH:
+        case DLL_THREAD_ATTACH:
+        case DLL_THREAD_DETACH:
+            break;
+        case DLL_PROCESS_DETACH:
+            // release the CrtModule.
+            delete &OCLCRT::crt_ocl_module;
+        break;
+    }
+    return TRUE;
+}
+#else
+__attribute__ ((destructor)) static void dll_fini(void);
+void dll_fini(void)
+{
+    // release the CrtModule.
+    delete &OCLCRT::crt_ocl_module;
+}
+#endif
 
 CrtObject::CrtObject():
 m_refCount(1), m_pendencyCount(1)
@@ -3329,19 +3356,17 @@ void CL_CALLBACK SVMFreeCallbackFunction(cl_event event, cl_int status, void *my
         // Callback called from GPU; only delete SVM pointers from cache
         for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
         {
-            crtQueue->m_contextCRT->m_svmPointers.remove( clbkData->m_SVMPointers[i] );
+            crtQueue->m_contextCRT->m_svmPointers.Remove( clbkData->m_SVMPointers[i] );
         }
     }
     else
     {
         // Callback called from CPU
 
-        std::list<void *> * svmPointers = &( crtQueue->m_contextCRT->m_svmPointers );
-
         // Free pointers that were returned by clSVMAlloc
         for( cl_uint i = 0; i < clbkData->m_numSVMPointers; i++ )
         {
-            if( svmPointers->end() != std::find( svmPointers->begin(), svmPointers->end(), clbkData->m_SVMPointers[i] ) )
+            if( crtQueue->m_contextCRT->m_svmPointers.HasSVMAllocPtr( clbkData->m_SVMPointers[i] ) )
             {
                 clSVMFree( crtQueue->m_contextCRT->m_context_handle, clbkData->m_SVMPointers[i] );
             }

@@ -72,7 +72,7 @@ crt_err_code OclDynamicLib::Load(const char* pLibName)
     {
 #ifdef _DEBUG
         const char* e = dlerror();
-        printf("Error loading %s: %s\n", pLibName, e);
+        printf("Warning. Unable to load %s: %s\n", pLibName, e);
 #endif
         return CRT_FAIL;
     }

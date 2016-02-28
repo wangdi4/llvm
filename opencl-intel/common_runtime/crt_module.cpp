@@ -32,7 +32,7 @@ using namespace OCLCRT;
 
 namespace OCLCRT
 {
-    extern CrtModule crt_ocl_module;
+    extern CrtModule& crt_ocl_module;
 }
 
 IcdDispatchMgr::IcdDispatchMgr()
@@ -195,8 +195,10 @@ m_deviceInfoMapGuard(m_deviceInfoMap),
 m_contextInfoGuard(m_contextInfo),
 m_CrtPlatformVersion(OPENCL_INVALID)
 {
-    m_initializeState   = NOT_INITIALIZED;
-    m_crtPlatformId     = NULL;
+    m_initializeState      = NOT_INITIALIZED;
+    m_crtPlatformId        = NULL;
+    m_defaultDeviceType    = 0;
+    m_availableDeviceTypes = 0;
 }
 
 crt_err_code CrtModule::PatchClDeviceID(cl_device_id& inDeviceId)
@@ -574,8 +576,9 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
     cl_bool cl_dxva9_device_intel_set       = CL_FALSE;
     cl_bool cl_d3d11_device_khr_set         = CL_FALSE;
 #else
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ANDROID__)
     cl_bool cl_glx_display_khr_set          = CL_FALSE;
+    cl_bool cl_egl_display_khr_set          = CL_FALSE;
 #endif
 #ifdef LIBVA_SHARING
     cl_bool cl_va_api_display_intel_set     = CL_FALSE;
@@ -662,13 +665,20 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
                 cl_dxva9_device_intel_set  = CL_TRUE;
                 break;
 #else
-#ifdef __linux__
+#if defined(__linux__) && !defined(__ANDROID__)
             case CL_GLX_DISPLAY_KHR:
                 if( cl_glx_display_khr_set == CL_TRUE )
                 {
                     return CL_INVALID_PROPERTY;
                 }
                 cl_glx_display_khr_set = CL_TRUE;
+                break;
+            case CL_EGL_DISPLAY_KHR:
+                if( cl_egl_display_khr_set == CL_TRUE )
+                {
+                    return CL_INVALID_PROPERTY;
+                }
+                cl_egl_display_khr_set = CL_TRUE;
                 break;
 #endif //__linux__
 #ifdef LIBVA_SHARING
@@ -682,7 +692,6 @@ cl_int CrtModule::isValidProperties(const cl_context_properties* properties)
 #endif
 #endif     
             case CL_CGL_SHAREGROUP_KHR:
-            case CL_EGL_DISPLAY_KHR:
                 return CL_INVALID_OPERATION;
             default:
                 return CL_INVALID_PROPERTY;
