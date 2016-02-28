@@ -14,6 +14,7 @@ tablegen(LLVM X86GenMAPatterns.inc -gen-ma-patterns) # INTEL
 add_public_tablegen_target(X86CommonTableGen)
 
 set(sources
+  Intel_X86FMA.cpp        # INTEL
   Intel_X86FeatureOutlinePass.cpp
   X86AsmPrinter.cpp
   X86CallFrameOptimization.cpp

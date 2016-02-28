@@ -6,30 +6,43 @@
 // License. See LICENSE.TXT for details.
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the pass that looks through the machine instructions
-// late in the compilation, and finds byte or word instructions that
-// can be profitably replaced with 32 bit instructions that give equivalent
-// results for the bits of the results that are used. There are two possible
-// reasons to do this.
-//
-// One reason is to avoid false-dependences on the upper portions
-// of the registers.  Only instructions that have a destination register which
-// is not in any of the src registers can be affected by this.  Those
-// instructions are primarily loads, and register-to-register moves.  It would
-// seem like cmov(s) would also be affected, but because of the way cmov is
-// really implemented by most machines as reading both the dst and src regs,
-// and then "merging" the two based on a condition, it really should be
-// considered as reading the dst as well.
-//
-// The other reason to do this is for potential code size savings.  Word
-// operations need an extra override byte compared to their 32 bit
-// versions. So this can convert many
-// word operations to their larger size, saving a byte in encoding. This may
-// introduce partial register dependencies, so this should only be done
-// when you can prove the partial register dependence won't exist, or when
-// optimizing for minimum code size.
-//
+/// \file
+/// This file defines the pass that looks through the machine instructions
+/// late in the compilation, and finds byte or word instructions that
+/// can be profitably replaced with 32 bit instructions that give equivalent
+/// results for the bits of the results that are used. There are two possible
+/// reasons to do this.
+///
+/// One reason is to avoid false-dependences on the upper portions
+/// of the registers.  Only instructions that have a destination register
+/// which is not in any of the source registers can be affected by this.
+/// Any instruction where one of the source registers is also the destination
+/// register is unaffected, because it has a true dependence on the source
+/// register already.  So, this consideration primarily affects load
+/// instructions and register-to-register moves.  It would
+/// seem like cmov(s) would also be affected, but because of the way cmov is
+/// really implemented by most machines as reading both the destination and
+/// and source regsters, and then "merging" the two based on a condition,
+/// it really already should be considered as having a true dependence on the
+/// destination register as well.
+///
+/// The other reason to do this is for potential code size savings.  Word
+/// operations need an extra override byte compared to their 32 bit
+/// versions. So this can convert many word operations to their larger
+/// size, saving a byte in encoding. This could introduce partial register
+/// dependences where none existed however.  As an example take:
+///   orw  ax, $0x1000
+///   addw ax, $3
+/// now if this were to get transformed into
+///   orw  ax, $1000
+///   addl eax, $3
+/// because the addl encodes shorter than the addw, this would introduce
+/// a use of a register that was only partially written earlier.  On older
+/// Intel processors this can be quite a performance penalty, so this should
+/// probably only be done when it can be proven that a new partial dependence
+/// wouldn't be created, or when your know a newer processor is being
+/// targeted, or when optimizing for minimum code size.
+///
 //===----------------------------------------------------------------------===//
 
 #include "X86.h"
@@ -39,8 +52,8 @@
 #include "llvm/CodeGen/LiveVariables.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -48,6 +61,14 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "x86-fixup-bw-insts"
+
+// Option to allow this optimization pass to have fine-grained control.
+// This is turned off by default so as not to affect a large number of
+// existing lit tests.
+static cl::opt<bool>
+    FixupBWInsts("fixup-byte-word-insts",
+                 cl::desc("Change byte and word instructions to larger sizes"),
+                 cl::init(true), cl::Hidden);   // INTEL
 
 namespace {
 class FixupBWInstPass : public MachineFunctionPass {
@@ -60,32 +81,32 @@ class FixupBWInstPass : public MachineFunctionPass {
   /// \brief Loop over all of the instructions in the basic block
   /// replacing applicable byte or word instructions with better
   /// alternatives.
-  void processBasicBlock(MachineFunction &MF,
-                         MachineBasicBlock &MBB) const;
+  void processBasicBlock(MachineFunction &MF, MachineBasicBlock &MBB) const;
 
-  /// \brief This sets the SuperDestReg to the 32 bit super reg
-  /// of the original destination register of the MachineInstr MI
+  /// \brief This sets the \p SuperDestReg to the 32 bit super reg
+  /// of the original destination register of the MachineInstr
   /// passed in. It returns true if that super register is dead
-  /// just prior to OrigMI, and false if not.
-  bool getSuperRegDestIfDead(MachineInstr *OrigMI,
-                             unsigned OrigDestSize,
+  /// just prior to \p OrigMI, and false if not.
+  /// \pre OrigDestSize must be 8 or 16.
+  bool getSuperRegDestIfDead(MachineInstr *OrigMI, unsigned OrigDestSize,
                              unsigned &SuperDestReg) const;
 
-  /// \brief Change the MachineInstr MI into the equivalent extending load
+  /// \brief Change the MachineInstr \p MI into the equivalent extending load
   /// to 32 bit register if it is safe to do so.  Return the replacement
   /// instruction if OK, otherwise return nullptr.
-  MachineInstr *tryReplaceLoad(unsigned New32BitOpcode,
-                               unsigned OrigDestSize,
+  /// \pre OrigDestSize must be 8 or 16.
+  MachineInstr *tryReplaceLoad(unsigned New32BitOpcode, unsigned OrigDestSize,
                                MachineInstr *MI) const;
 
 public:
   FixupBWInstPass() : MachineFunctionPass(ID) {}
-  
+
   void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<MachineLoopInfo>();   //  Need machine loop info.
+    AU.addRequired<MachineLoopInfo>(); // Machine loop info is used to
+                                       // guide some heuristics.
     MachineFunctionPass::getAnalysisUsage(AU);
   }
-  
+
   /// \brief Loop over all of the basic blocks,
   /// replacing byte and word instructions by equivalent 32 bit instructions
   /// where performance or code size can be improved.
@@ -93,9 +114,15 @@ public:
 
 private:
   MachineFunction *MF;
-  const X86InstrInfo *TII; // Machine instruction info.
+
+  /// Machine instruction info used throughout the class.
+  const X86InstrInfo *TII;
+
+  /// Local member for function's OptForSize attribute.
   bool OptForSize;
-  MachineLoopInfo *MLI;  // Machine loop info.
+
+  /// Machine loop info used for guiding some heruistics.
+  MachineLoopInfo *MLI;
 };
 char FixupBWInstPass::ID = 0;
 }
@@ -103,6 +130,9 @@ char FixupBWInstPass::ID = 0;
 FunctionPass *llvm::createX86FixupBWInsts() { return new FixupBWInstPass(); }
 
 bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
+  if (!FixupBWInsts)
+    return false;
+
   this->MF = &MF;
   TII = MF.getSubtarget<X86Subtarget>().getInstrInfo();
   OptForSize = MF.getFunction()->optForSize();
@@ -119,11 +149,20 @@ bool FixupBWInstPass::runOnMachineFunction(MachineFunction &MF) {
   return true;
 }
 
-bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
+// TODO: This method of analysis can miss some legal cases, because the
+// super-register could be live into the address expression for a memory
+// reference for the instruction, and still be killed/last used by the
+// instruction. However, the existing query interfaces don't seem to
+// easily allow that to be checked.
+//
+// What we'd really like to know is whether after OrigMI, the
+// only portion of SuperDestReg that is alive is the portion that
+// was the destination register of OrigMI.
+bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *OrigMI,
                                             unsigned OrigDestSize,
                                             unsigned &SuperDestReg) const {
 
-  unsigned OrigDestReg = MI->getOperand(0).getReg();
+  unsigned OrigDestReg = OrigMI->getOperand(0).getReg();
   SuperDestReg = getX86SubSuperRegister(OrigDestReg, 32);
 
   // Make sure that the sub-register that this instruction has as its
@@ -138,8 +177,8 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
     return false;
 
   MachineBasicBlock::LivenessQueryResult LQR =
-    MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
-                                             SuperDestReg, MI);
+      OrigMI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
+                                                   SuperDestReg, OrigMI);
 
   if (LQR != MachineBasicBlock::LQR_Dead)
     return false;
@@ -148,11 +187,10 @@ bool FixupBWInstPass::getSuperRegDestIfDead(MachineInstr *MI,
     // In the case of byte registers, we also have to check that the upper
     // byte register is also dead. That is considered to be independent of
     // whether the super-register is dead.
-    unsigned UpperByteReg =
-      getX86SubSuperRegister(SuperDestReg, 8, true);
+    unsigned UpperByteReg = getX86SubSuperRegister(SuperDestReg, 8, true);
 
-    LQR = MI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
-                                                   UpperByteReg, MI);
+    LQR = OrigMI->getParent()->computeRegisterLiveness(&TII->getRegisterInfo(),
+                                                       UpperByteReg, OrigMI);
     if (LQR != MachineBasicBlock::LQR_Dead)
       return false;
   }
@@ -165,11 +203,14 @@ MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,
                                               MachineInstr *MI) const {
   unsigned NewDestReg;
 
+  // We are going to try to rewrite this load to a larger zero-extending
+  // load.  This is safe if all portions of the 32 bit super-register
+  // of the original destination register, except for the original destination
+  // register are dead. getSuperRegDestIfDead checks that.
   if (!getSuperRegDestIfDead(MI, OrigDestSize, NewDestReg))
     return nullptr;
 
   // Safe to change the instruction.
-
   MachineInstrBuilder MIB =
       BuildMI(*MF, MI->getDebugLoc(), TII->get(New32BitOpcode), NewDestReg);
 
@@ -185,7 +226,6 @@ MachineInstr *FixupBWInstPass::tryReplaceLoad(unsigned New32BitOpcode,
 void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
                                         MachineBasicBlock &MBB) const {
 
-  //
   // This algorithm doesn't delete the instructions it is replacing
   // right away.  By leaving the existing instructions in place, the
   // register liveness information doesn't change, and this makes the
@@ -196,7 +236,6 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
   // and notes that and the original in a data structure, until the
   // whole BB has been analyzed.  This keeps the replacement instructions
   // from making it seem as if the larger register might be live.
-  //
   SmallVector<std::pair<MachineInstr *, MachineInstr *>, 8> MIReplacements;
 
   for (MachineBasicBlock::iterator I = MBB.begin(); I != MBB.end(); ++I) {
@@ -213,7 +252,7 @@ void FixupBWInstPass::processBasicBlock(MachineFunction &MF,
       if (MachineLoop *ML = MLI->getLoopFor(&MBB)) {
         if (ML->begin() == ML->end() && !OptForSize)
           NewMI = tryReplaceLoad(X86::MOVZX32rm8, 8, MI);
-      }  
+      }
       break;
 
     case X86::MOV16rm:

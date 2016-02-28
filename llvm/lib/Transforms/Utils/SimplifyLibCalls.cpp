@@ -2179,7 +2179,14 @@ Value *LibCallSimplifier::optimizeCall(CallInst *CI) {
   LibFunc::Func Func;
   Function *Callee = CI->getCalledFunction();
   StringRef FuncName = Callee->getName();
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r256912
+  SmallVector<OperandBundleDef, 2> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+  IRBuilder<> Builder(CI, /*FPMathTag=*/nullptr, OpBundles);
+#else // !INTEL_CUSTOMIZATION
   IRBuilder<> Builder(CI);
+#endif
   bool isCallingConvC = CI->getCallingConv() == llvm::CallingConv::C;
 
   // Command-line parameter overrides function attribute.
@@ -2552,7 +2559,14 @@ Value *FortifiedLibCallSimplifier::optimizeCall(CallInst *CI) {
   LibFunc::Func Func;
   Function *Callee = CI->getCalledFunction();
   StringRef FuncName = Callee->getName();
+#if INTEL_CUSTOMIZATION
+  // Cherry picking r256912
+  SmallVector<OperandBundleDef, 2> OpBundles;
+  CI->getOperandBundlesAsDefs(OpBundles);
+  IRBuilder<> Builder(CI, /*FPMathTag=*/nullptr, OpBundles);
+#else // !INTEL_CUSTOMIZATION
   IRBuilder<> Builder(CI);
+#endif
   bool isCallingConvC = CI->getCallingConv() == llvm::CallingConv::C;
 
   // First, check that this is a known library functions.
