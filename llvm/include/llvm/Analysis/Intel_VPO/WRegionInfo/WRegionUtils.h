@@ -27,100 +27,6 @@ namespace llvm {
 
 namespace vpo {
 
-/// \brief This class defines the utilies for WRegionNode nodes.
-class WRegionUtils {
-
-  typedef WRContainerTy::iterator WrnIter;
-
-private:
-  /// \brief Do not allow instantiation.
-  // WRegionNodeUtils() LLVM_DELETED_FUNCTION;
-
-  /// \brief Destroys all nodes
-  static void destroyAll();
-
-public:
-  /// \brief Enumeration for types of WRegionNode Graph insert/update
-  enum OpType { FirstChild, LastChild, Append, Prepend };
-
-  friend class WRegionNode;
-
-  /// It contains functions which are used to create, modify, and destroy
-  /// WRegionNode.
-
-  /// Insertion Utilities -- To Do: Define More Utilities
-
-  /// \brief Standard Insert Utility
-  static void insertWRegionNode(WRegionNode *Parent, WrnIter Pos, WrnIter W,
-                                OpType Op);
-
-  /// \brief Inserts new wrn as the first child in Parent wrn.
-  static void insertFirstChild(WRegionNode *Parent, WrnIter W);
-
-  /// \brief Inserts new wrn as the last child in Parent wrn.
-  static void insertLastChild(WRegionNode *Parent, WrnIter W);
-
-  /// \brief Inserts an unlinked WRegion Node after pos in WRegion Node list.
-  static void insertAfter(WrnIter Pos, WRegionNode *W);
-
-  /// \brief Inserts an unlinked WRegion Node before pos in WRegion Node list.
-  static void insertBefore(WrnIter Pos, WRegionNode *W);
-
-  /// Creation Utilities
-
-  /// \brief Returns a new node derived from WRegionNode node that
-  /// matches the construct type based on DirString.
-  //  (eg create a WRNParRegion node if DirString is "dir.parallel")
-  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
-                                    LoopInfo *LI);
-
-  /// \brief Similar to createWRegion, but for HIR vectorizer support
-  static WRegionNode *createWRegionHIR(StringRef DirString,
-                                       loopopt::HLNode *EntryHLNode);
-
-  /// \brief Update WRGraph from processing intrinsic calls extracted
-  /// from HIR.  This is needed to support vectorizer in HIR.
-  ///   Call: the call instruction with the intrinsic
-  ///   IntrinId: the intrinsic id (eg intel_directive/_qual, etc.)
-  ///   WRGraph: points to the WRN graph being built
-  ///   CurrentWRN: points to the current pending WRN node. If not null, and
-  ///               if the intrinsic is for a clause, then the CurrentWRN is
-  ///               updated with the clause info
-  ///   H: The HLNode containing the intrinsic call
-  ///
-  /// If it creates a WRN, then it returns a pointer to it. Otherwise,
-  /// it just returns CurrentWRN.
-  static WRegionNode *updateWRGraphFromHIR(IntrinsicInst *Call,
-                                           Intrinsic::ID IntrinId,
-                                           WRContainerTy *WRGraph,
-                                           WRegionNode *CurrentWRN,
-                                           loopopt::HLNode *H);
-
-  /// \brief Driver routine to build WRGraph based on HIR representation
-  static WRContainerTy *buildWRGraphFromHIR();
-
-  /// \brief Extract the operands for a list-type clause.
-  /// This is called by WRegionNode::handleQualOpndList()
-  template <typename ClauseTy>
-  static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
-
-  /// Removal Utilities
-
-  /// \brief Destroys the passed in WRegion node.
-  static void destroy(WRegionNode *wrn);
-
-  /// \brief Unlinks WRegion node from avr list.
-  static void remove(WRegionNode *wrn);
-
-  /// \brief Unlinks wrn node from wrn list and destroys it.
-  static void erase(WRegionNode *wrn);
-
-  /// \brief Unlinks [First, Last) from WRegionNode list and destroys them.
-  static void erase(WrnIter First, WrnIter Last);
-
-  /// \brief Replaces OldNode by an unlinked NewNode.
-  static void replace(WRegionNode *OldW, WRegionNode *NewW);
-};
 
 /// \brief This class is used to visit WRegionNode or WRContainerTy
 /// recursively.
@@ -219,6 +125,118 @@ bool WRNVisitor<WV>::visit(WRegionNode *W, bool Forward) {
 
   return false;
 }
+
+/// \brief This class defines the utilies for WRegionNode nodes.
+class WRegionUtils {
+
+  typedef WRContainerTy::iterator WrnIter;
+
+private:
+  /// \brief Do not allow instantiation.
+  // WRegionNodeUtils() LLVM_DELETED_FUNCTION;
+
+  /// \brief Destroys all nodes
+  static void destroyAll();
+
+public:
+  /// \brief Enumeration for types of WRegionNode Graph insert/update
+  enum OpType { FirstChild, LastChild, Append, Prepend };
+
+  friend class WRegionNode;
+
+  /// \brief Visit all WRN nodes in the Graph in the forward direction
+  template <typename WV>
+  static void forwardVisit(WV &Visitor, WRContainerTy *Graph) {
+    WRNVisitor<WV> V(Visitor);
+    V.forwardVisit(Graph);
+  }
+  
+  /// \brief Visit all WRN nodes in the Graph in the backward direction
+  template <typename WV>
+  static void backwardVisit(WV &Visitor, WRContainerTy *Graph) {
+    WRNVisitor<WV> V(Visitor);
+    V.backwardVisit(Graph);
+  }
+  
+ 
+
+  /// It contains functions which are used to create, modify, and destroy
+  /// WRegionNode.
+
+  /// Insertion Utilities -- To Do: Define More Utilities
+
+  /// \brief Standard Insert Utility
+  static void insertWRegionNode(WRegionNode *Parent, WrnIter Pos, WrnIter W,
+                                OpType Op);
+
+  /// \brief Inserts new wrn as the first child in Parent wrn.
+  static void insertFirstChild(WRegionNode *Parent, WrnIter W);
+
+  /// \brief Inserts new wrn as the last child in Parent wrn.
+  static void insertLastChild(WRegionNode *Parent, WrnIter W);
+
+  /// \brief Inserts an unlinked WRegion Node after pos in WRegion Node list.
+  static void insertAfter(WrnIter Pos, WRegionNode *W);
+
+  /// \brief Inserts an unlinked WRegion Node before pos in WRegion Node list.
+  static void insertBefore(WrnIter Pos, WRegionNode *W);
+
+  /// Creation Utilities
+
+  /// \brief Returns a new node derived from WRegionNode node that
+  /// matches the construct type based on DirString.
+  //  (eg create a WRNParRegion node if DirString is "dir.parallel")
+  static WRegionNode *createWRegion(StringRef DirString, BasicBlock *EntryBB,
+                                    LoopInfo *LI);
+
+  /// \brief Similar to createWRegion, but for HIR vectorizer support
+  static WRegionNode *createWRegionHIR(StringRef DirString,
+                                       loopopt::HLNode *EntryHLNode);
+
+  /// \brief Update WRGraph from processing intrinsic calls extracted
+  /// from HIR.  This is needed to support vectorizer in HIR.
+  ///   Call: the call instruction with the intrinsic
+  ///   IntrinId: the intrinsic id (eg intel_directive/_qual, etc.)
+  ///   WRGraph: points to the WRN graph being built
+  ///   CurrentWRN: points to the current pending WRN node. If not null, and
+  ///               if the intrinsic is for a clause, then the CurrentWRN is
+  ///               updated with the clause info
+  ///   H: The HLNode containing the intrinsic call
+  ///
+  /// If it creates a WRN, then it returns a pointer to it. Otherwise,
+  /// it just returns CurrentWRN.
+  static WRegionNode *updateWRGraphFromHIR(IntrinsicInst *Call,
+                                           Intrinsic::ID IntrinId,
+                                           WRContainerTy *WRGraph,
+                                           WRegionNode *CurrentWRN,
+                                           loopopt::HLNode *H);
+
+  /// \brief Driver routine to build WRGraph based on HIR representation
+  static WRContainerTy *buildWRGraphFromHIR();
+
+  /// \brief Extract the operands for a list-type clause.
+  /// This is called by WRegionNode::handleQualOpndList()
+  template <typename ClauseTy>
+  static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
+
+  /// Removal Utilities
+
+  /// \brief Destroys the passed in WRegion node.
+  static void destroy(WRegionNode *wrn);
+
+  /// \brief Unlinks WRegion node from avr list.
+  static void remove(WRegionNode *wrn);
+
+  /// \brief Unlinks wrn node from wrn list and destroys it.
+  static void erase(WRegionNode *wrn);
+
+  /// \brief Unlinks [First, Last) from WRegionNode list and destroys them.
+  static void erase(WrnIter First, WrnIter Last);
+
+  /// \brief Replaces OldNode by an unlinked NewNode.
+  static void replace(WRegionNode *OldW, WRegionNode *NewW);
+};
+
 
 } // End VPO Namespace
 

@@ -107,8 +107,7 @@ void IdentifyVectorCandidates::identifyExplicitCandidates()
 {
   //DEBUG(dbgs() << "\nENG: Idenitfy Vector Candidates\n");
   VecNodeVisitor Visitor(VecCandidates);
-  WRNVisitor<VecNodeVisitor> VecCandidateVisitor(Visitor);
-  VecCandidateVisitor.forwardVisit(WR->getWRGraph());
+  WRegionUtils::forwardVisit(Visitor, WR->getWRGraph());
 }
 
 void IdentifyVectorCandidates::releaseMemory() {
