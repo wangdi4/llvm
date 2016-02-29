@@ -136,6 +136,13 @@ CodeGenTBAA::getTBAAInfo(QualType QTy) {
   }
 
   // Handle pointers.
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for pointers.
+  if (Features.IntelCompat) {
+    if (const PointerType *PTy = dyn_cast<PointerType>(Ty))
+      return MetadataCache[Ty] = createTBAAPointerType(PTy);
+  } else
+#endif // INTEL_CUSTOMIZATION
   // TODO: Implement C++'s type "similarity" and consider dis-"similar"
   // pointers distinct.
   if (Ty->isPointerType())
@@ -157,11 +164,65 @@ CodeGenTBAA::getTBAAInfo(QualType QTy) {
     MContext.mangleTypeName(QualType(ETy, 0), Out);
     return MetadataCache[Ty] = createTBAAScalarType(OutName, getChar());
   }
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for arrays.
+  if (Features.IntelCompat) {
+    if (const ConstantArrayType* CATy = dyn_cast<ConstantArrayType>(Ty)) {
+      if (canCreateUniqueTBAA(Ty)) {
+        SmallString<256> OutName;
+        llvm::raw_svector_ostream Out(OutName);
+        Out << "array@";
+        MContext.mangleTypeName(QualType(Ty, 0), Out);
+        llvm::MDNode *Parent = getTBAAInfo(CATy->getElementType());
+        return MetadataCache[Ty] = createTBAAScalarType(OutName, Parent);
+      }
+    }
+  }
+#endif // INTEL_CUSTOMIZATION
 
   // For now, handle any other kind of type conservatively.
   return MetadataCache[Ty] = getChar();
 }
 
+#if INTEL_CUSTOMIZATION
+// CQ#379144 TBAA for pointers and arrays.
+bool CodeGenTBAA::canCreateUniqueTBAA(const Type *Ty) {
+  if (isa<BuiltinType>(Ty))
+    return true;
+  if (const PointerType *PTy = dyn_cast<PointerType>(Ty))
+    return canCreateUniqueTBAA(Context.getCanonicalType(
+        PTy->getPointeeType().getTypePtr()));
+  if (const ConstantArrayType *ArrayTy = dyn_cast<ConstantArrayType>(Ty))
+    return canCreateUniqueTBAA(Context.getCanonicalType(
+        ArrayTy->getElementType().getTypePtr()));
+  if (const FunctionProtoType *FnTy = dyn_cast<FunctionProtoType>(Ty)) {
+    if (!canCreateUniqueTBAA(Context.getCanonicalType(
+          FnTy->getReturnType().getTypePtr())))
+      return false;
+    for (unsigned i = 0, n = FnTy->getNumParams(); i < n; ++i)
+      if (!canCreateUniqueTBAA(Context.getCanonicalType(
+            FnTy->getParamType(i).getTypePtr())))
+        return false;
+    return true;
+  }
+  if (const EnumType *EnumTy = dyn_cast<EnumType>(Ty))
+    return Features.CPlusPlus && EnumTy->getDecl()->isExternallyVisible();
+  if (const RecordType *RecordTy = dyn_cast<RecordType>(Ty))
+    return RecordTy->getDecl()->isExternallyVisible();
+  return false;
+}
+
+llvm::MDNode *CodeGenTBAA::createTBAAPointerType(const PointerType *PTy) {
+  if (!canCreateUniqueTBAA(PTy))
+    return createTBAAScalarType("unspecified pointer", getChar());
+
+  SmallString<256> OutName;
+  llvm::raw_svector_ostream Out(OutName);
+  Out << "pointer@";
+  MContext.mangleTypeName(QualType(PTy, 0), Out);
+  return createTBAAScalarType(OutName, getChar());
+}
+#endif // INTEL_CUSTOMIZATION
 llvm::MDNode *CodeGenTBAA::getTBAAInfoForVTablePtr() {
   return createTBAAScalarType("vtable pointer", getRoot());
 }
@@ -266,13 +327,18 @@ CodeGenTBAA::getTBAAStructTypeInfo(QualType QTy) {
     }
 
     SmallString<256> OutName;
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 Intel TBAA.
+    llvm::raw_svector_ostream Out(OutName);
+    if (Features.IntelCompat)
+      Out << "struct@";
     if (Features.CPlusPlus) {
       // Don't use the mangler for C code.
-      llvm::raw_svector_ostream Out(OutName);
       MContext.mangleTypeName(QualType(Ty, 0), Out);
     } else {
-      OutName = RD->getName();
+      Out << RD->getName();
     }
+#endif // INTEL_CUSTOMIZATION
     // Create the struct type node with a vector of pairs (offset, type).
     return StructTypeMetadataCache[Ty] =
       MDHelper.createTBAAStructTypeNode(OutName, Fields);
@@ -299,9 +365,15 @@ CodeGenTBAA::getTBAAStructTagInfo(QualType BaseQTy, llvm::MDNode *AccessNode,
   llvm::MDNode *BNode = nullptr;
   if (isTBAAPathStruct(BaseQTy))
     BNode  = getTBAAStructTypeInfo(BaseQTy);
-  if (!BNode)
-    return StructTagMetadataCache[PathTag] =
-       MDHelper.createTBAAStructTagNode(AccessNode, AccessNode, 0);
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for arrays.
+  else if (BTy->isConstantArrayType() && canCreateUniqueTBAA(BTy))
+    BNode = getTBAAInfo(BaseQTy);
+  if (!BNode) {
+    // It is same as scalar so also remember it as a scalar.
+    return StructTagMetadataCache[PathTag] = getTBAAScalarTagInfo(AccessNode);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return StructTagMetadataCache[PathTag] =
     MDHelper.createTBAAStructTagNode(BNode, AccessNode, Offset);

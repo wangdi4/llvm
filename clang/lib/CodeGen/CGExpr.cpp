@@ -2840,6 +2840,11 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
 
   AlignmentSource AlignSource;
   Address Addr = Address::invalid();
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for arrays
+  QualType  TBAABaseType;
+  uint64_t TBAAOffset = 0;
+#endif // INTEL_CUSTOMIZATION
   if (const VariableArrayType *vla =
            getContext().getAsVariableArrayType(E->getType())) {
     // The base must be a pointer, which is not an aggregate.  Emit
@@ -2911,6 +2916,15 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
                                  E->getType(),
                                  !getLangOpts().isSignedOverflowDefined());
     AlignSource = ArrayLV.getAlignmentSource();
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 TBAA for arrays
+    if (getLangOpts().IntelCompat && CGM.getCodeGenOpts().StructPathTBAA) {
+      // Propagate TBAA from array to element access. Array element access
+      // in TBAA looks like access to first element in the array.
+      TBAABaseType = ArrayLV.getTBAABaseType();
+      TBAAOffset = ArrayLV.getTBAAOffset();
+    }
+#endif // INTEL_CUSTOMIZATION
   } else {
     // The base must be a pointer; emit it with an estimate of its alignment.
     Addr = EmitPointerWithAlignment(E->getBase(), &AlignSource);
@@ -2921,6 +2935,13 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E,
   LValue LV = MakeAddrLValue(Addr, E->getType(), AlignSource);
 
   // TODO: Preserve/extend path TBAA metadata?
+#if INTEL_CUSTOMIZATION
+    // CQ#379144 TBAA for arrays
+  if (!TBAABaseType.isNull()) {
+    LV.setTBAABaseType(TBAABaseType);
+    LV.setTBAAOffset(TBAAOffset);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   if (getLangOpts().ObjC1 &&
       getLangOpts().getGC() != LangOptions::NonGC) {
