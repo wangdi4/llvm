@@ -67,9 +67,12 @@
 //    performance as compared to the existing one.
 
 #include "llvm/Pass.h"
+
 #include "llvm/ADT/Statistic.h"
+
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
+
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
@@ -436,7 +439,11 @@ void HIRGeneralUnroll::createNewBound(HLLoop *OrigLoop, bool IsConstLoop,
   }
 
   // Process for non-const trip loop.
-  RegDDRef *Ref = OrigLoop->getTripCountDDRef();
+
+  // The paramater indicates that the new trip count DDRef would be attached to
+  // the HIR at the current loop level. This is done to retain linearity of trip
+  // count canon expr.
+  RegDDRef *Ref = OrigLoop->getTripCountDDRef(OrigLoop->getNestingLevel());
   // New instruction should only be created for non-constant trip loops.
   assert(!Ref->isIntConstant() && " Creating a new instruction for constant"
                                   "trip loops should not occur.");

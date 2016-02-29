@@ -1250,8 +1250,14 @@ void HIRParser::parseRecursive(const SCEV *SC, CanonExpr *CE, unsigned Level,
 
   } else if (auto UDivSCEV = dyn_cast<SCEVUDivExpr>(SC)) {
     if (IsTop) {
-      // If the denominator is constant, move it into CE's denominator.
-      if (auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS())) {
+      auto ConstDenomSCEV = dyn_cast<SCEVConstant>(UDivSCEV->getRHS());
+
+      // If the denominator is constant and is not minimum 64 bit signed value,
+      // move it into CE's denominator. Negative denominators are negated and
+      // stored as positive integers but we cannot negate INT_MIN so we make it
+      // a blob.
+      if (ConstDenomSCEV && ((ConstDenomSCEV->getValue()->getBitWidth() < 64) ||
+                             !ConstDenomSCEV->getValue()->isMinValue(true))) {
         parseDenominator(ConstDenomSCEV, CE);
         parseRecursive(UDivSCEV->getLHS(), CE, Level, false, UnderCast);
       } else {
@@ -1376,14 +1382,51 @@ CanonExpr *HIRParser::parse(const Value *Val, unsigned Level, bool IsTop) {
 void HIRParser::clearTempBlobLevelMap() { CurTempBlobLevelMap.clear(); }
 
 void HIRParser::populateBlobDDRefs(RegDDRef *Ref) {
-  for (auto I = CurTempBlobLevelMap.begin(), E = CurTempBlobLevelMap.end();
-       I != E; ++I) {
-    auto Blob = getBlob(I->first);
-    (void)Blob;
-    assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
 
-    auto BRef = DDRefUtils::createBlobDDRef(I->first, I->second);
-    Ref->addBlobDDRef(BRef);
+  SmallVector<unsigned, 8> BlobIndices;
+
+  // For GEP DDRefs, some of the parsed blobs can get cancelled due to index
+  // merging. So we check whether there is a mismatch in collected blobs and
+  // actual blobs present in the DDRef. 
+  //
+  // Here's a very simple made up example composed of multiple GEPs-
+  // 
+  // %p = GEP @A, %1
+  // %2 = sub 0, %1
+  // %q = GEP %p, %2
+  //
+  // When parsing %q, we parse %p (@A + %1) and %2 (-1 * %1) separately and then
+  // merge them. On merging %1 will cancel out.
+  //
+  if (Ref->getBaseCE()) {
+    Ref->collectTempBlobIndices(BlobIndices);
+  }
+
+  if (BlobIndices.empty() ||
+      (BlobIndices.size() == CurTempBlobLevelMap.size())) {
+    // No mismatch, populate all the blobs present in the map.
+    for (auto const &I : CurTempBlobLevelMap) {
+      auto Blob = getBlob(I.first);
+      (void)Blob;
+      assert(isa<SCEVUnknown>(Blob) && "Unexpected temp blob!");
+
+      auto BRef = DDRefUtils::createBlobDDRef(I.first, I.second);
+      Ref->addBlobDDRef(BRef);
+    }
+
+  } else {
+    // Mismatch in number of blobs, only add blobs which are actually present in
+    // the DDRef.
+    assert((BlobIndices.size() < CurTempBlobLevelMap.size()) &&
+           "Inconsistent blob parsing!");
+
+    for (auto &I : BlobIndices) {
+      auto It = CurTempBlobLevelMap.find(I);
+      assert((It != CurTempBlobLevelMap.end()) && "Blob not found!");
+
+      auto BRef = DDRefUtils::createBlobDDRef(It->first, It->second);
+      Ref->addBlobDDRef(BRef);
+    }
   }
 }
 
@@ -1473,8 +1516,8 @@ void HIRParser::parse(HLLoop *HLoop) {
     HLoop->setUpperDDRef(UpperRef);
   }
   // TODO: assert that SIMD loops are always DO loops.
- 
-  // Parse ztt. 
+
+  // Parse ztt.
   if (HLoop->hasZtt()) {
     parse(HLoop->getZtt(), HLoop);
   }
