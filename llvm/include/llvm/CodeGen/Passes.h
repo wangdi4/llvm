@@ -272,6 +272,12 @@ protected:
     return false;
   }
 
+#if INTEL_CUSTOMIZATION
+  /// Add passes that perform advanced pattern matching optimizations.
+  /// These passes are run while the machine code is still in SSA form.
+  virtual void addAdvancedPatternMatchingOpts() { }
+#endif // INTEL_CUSTOMIZATION
+
   /// This method may be implemented by targets that want to run passes
   /// immediately before register allocation.
   virtual void addPreRegAlloc() { }

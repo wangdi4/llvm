@@ -196,7 +196,8 @@ class AndersensAAResult : public AAResultBase<AndersensAAResult>,
 
   // The data structure to record the static global variable
   // which are not escaped from the current routine.
-  DenseMap<const Value *, unsigned> NonEscapeStaticVars;
+  SmallPtrSet<const Value *, 16> NonEscapeStaticVars;
+  SmallPtrSet<const Instruction *, 16> NonPointerAssignments;
 
   /// Handle to clear this analysis on deletion of values.
   struct AndersensDeletionCallbackHandle final : CallbackVH {
@@ -333,9 +334,10 @@ private:
   void NewOpaqueNode(unsigned int NodeIdx, unsigned int Flags);
   void ProcessOpaqueNode(unsigned int NodeIdx);
   void InitEscAnal(Module &M);
+  void InitEscAnalForGlobals(Module &M);
   unsigned int FindFlags(unsigned NodeIdx);
   void AddFlags(unsigned NodeIdx, unsigned int F);
-  void PerfomEscAnal(Module &M);
+  void PerformEscAnal(Module &M);
   void MarkEscaped();
   void ProcessCall(CallSite &CS);
 
@@ -345,8 +347,8 @@ private:
   bool graphNodeEscapes(Node *N);
   // Analyze whether the given global escapes or not
   bool analyzeGlobalEscape(const Value *V,
-                           SmallPtrSet<const PHINode *, 16> PhiUsers,
-                           const Function **SinlgeAcessingFunction);
+               SmallPtrSet<const PHINode *, 16> PhiUsers,
+               const Function **SinlgeAcessingFunction);
   void PrintNonEscapes() const;
 
   void ProcessIndirectCall(CallSite CS);

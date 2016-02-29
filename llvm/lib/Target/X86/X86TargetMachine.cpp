@@ -217,6 +217,7 @@ public:
   void addPreRegAlloc() override;
   void addPostRegAlloc() override;
   void addPreEmitPass() override;
+  void addAdvancedPatternMatchingOpts() override;  // INTEL
   void addCodeGenPrepare() override;               // INTEL
   void addPreSched2() override;
 };
@@ -252,6 +253,10 @@ bool X86PassConfig::addILPOpts() {
     addPass(&MachineCombinerID);
   return true;
 }
+
+void X86PassConfig::addAdvancedPatternMatchingOpts() { // INTEL
+  addPass(createX86GlobalFMAPass());                   // INTEL
+}                                                      // INTEL
 
 bool X86PassConfig::addPreISel() {
   // Only add this pass for 32-bit x86 Windows.

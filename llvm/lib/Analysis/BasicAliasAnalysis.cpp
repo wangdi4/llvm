@@ -1354,19 +1354,29 @@ AliasResult BasicAAResult::aliasCheck(const Value *V1, uint64_t V1Size,
 
 #if INTEL_CUSTOMIZATION
   // Here the flag SameOperand is introduced to help the code in routine
-  // aliasGEP for better alias analysis given the case of V1:p->f1 and V2:p->f2.
+  // aliasGEP for better alias analysis given the case of V1 and V2.
+  // The value V1 or V2 can be GEP instruction or bitcast instruction.
   // The compiler may not know that V2 is GEP instruction in routine aliasGEP
   // since V2 is applied with stripPointerCasts. The V2 will be changed if
   // all the indices of GEP is 0.
-  const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1);
-  const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2);
-  if (GEP1 && GEP2) {
-    const Value *GEP1BaseOperand = GEP1->getPointerOperand();
-    const Value *GEP2BaseOperand = GEP2->getPointerOperand();
-    if (GEP1BaseOperand == GEP2BaseOperand) {
-      SameOperand = true;
-    }
-  }
+
+  const Value *BaseOperand1 = nullptr;
+  if (const GEPOperator *GEP1 = dyn_cast<GEPOperator>(V1))
+    BaseOperand1 = GEP1->getPointerOperand();
+  else if (Operator::getOpcode(V1) == Instruction::BitCast ||
+           Operator::getOpcode(V1) == Instruction::AddrSpaceCast)
+    BaseOperand1 = cast<Operator>(V1)->getOperand(0);
+
+  const Value *BaseOperand2 = nullptr;
+  if (const GEPOperator *GEP2 = dyn_cast<GEPOperator>(V2))
+    BaseOperand2 = GEP2->getPointerOperand();
+  else if (Operator::getOpcode(V2) == Instruction::BitCast ||
+           Operator::getOpcode(V2) == Instruction::AddrSpaceCast)
+    BaseOperand2 = cast<Operator>(V2)->getOperand(0);
+
+  if (BaseOperand1 == BaseOperand2 && BaseOperand1 != nullptr)
+    SameOperand = true;
+
 #endif // INTEL_CUSTOMIZATION
 
   // Strip off any casts if they exist.
