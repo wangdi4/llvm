@@ -14,7 +14,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 
     // Make sure initialization happened before we go on
     barrier(CLK_LOCAL_MEM_FENCE);
-    uint val1 = *((uint*) &buf_out[0]);
+    uint val1 = *((__global uint*) &buf_out[0]);
     int dummy = 128; // we'll stop here being sure no one has incremented yet
                      // because of the next barrier
     barrier(CLK_LOCAL_MEM_FENCE);
@@ -25,7 +25,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 
     // Make sure all WIs done incrementing
     barrier(CLK_LOCAL_MEM_FENCE);
-    uint val2 = *((uint*) &buf_out[0]);
+    uint val2 = *((__global uint*) &buf_out[0]);
 
     buf_out[6] = 0;
 }

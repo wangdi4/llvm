@@ -16,7 +16,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
     __global unsigned int* bufuip = &buf_out[0];
     atomic_add(bufuip, 1);
 	barrier(CLK_GLOBAL_MEM_FENCE);
-	uint result = *((uint*) &buf_out[0]);
+	uint result = *((__global uint*) &buf_out[0]);
 	int i = 1;
 	// some function calls without any purpose except using them
 	mem_fence(CLK_GLOBAL_MEM_FENCE);

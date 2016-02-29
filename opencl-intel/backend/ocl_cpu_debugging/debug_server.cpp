@@ -624,8 +624,8 @@ VarsMapping DebugServer::DebugServerImpl::CollectVisibleVars(
 {
     VarsMapping visiblevars;
 
-    assert(line_metadata->getNumOperands() == 4);
-    if (const MDNode* scope = dyn_cast<const MDNode>(line_metadata->getOperand(2))) {
+    assert(line_metadata->getNumOperands() == 1);
+    if (const MDNode* scope = dyn_cast<const MDNode>(line_metadata->getOperand(0))) {
         DILexicalBlock descriptor(scope);
         if (descriptor.isLexicalBlock()) {
             visiblevars = CollectVarsInLexicalBlock(descriptor, stackframe);

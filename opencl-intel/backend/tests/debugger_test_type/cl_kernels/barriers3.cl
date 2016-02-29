@@ -26,7 +26,7 @@ __kernel void main_kernel(__global uchar* buf_in, __global uchar* buf_out)
 
     // the 'for' loop decremented the shared value 20 * #WI times
 
-    uint val2 = *((uint*) &buf_out[0]);
+    uint val2 = *((__global uint*) &buf_out[0]);
 
     buf_out[6] = 0;
 }
