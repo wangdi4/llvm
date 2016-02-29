@@ -128,9 +128,6 @@ bool VPODriverBase::runOnFunction(Function &F) {
     }
   }
 
-  // Print results of AvrGenerate Pass
-  DEBUG(AV->dump());
-
   // Remove calls to directive intrinsics since the LLVM back end does not know
   // how to translate them.
   VPOUtils::stripDirectives(F);
