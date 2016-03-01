@@ -27,6 +27,10 @@
 #include "llvm/Transforms/Utils/Intel_OpenMPDirectivesAndClauses.h"
 #include <unordered_map>
 
+// Used for Parallel Section Transformations
+#include <stack>
+#include "llvm/IR/IRBuilder.h"
+
 namespace llvm {
 
 class Value;
@@ -44,6 +48,16 @@ class Constant;
 class LLVMContext;
 
 namespace vpo {
+
+/// Data structure Used for Parallel Section Transformations
+typedef struct ParSectNode {
+    BasicBlock *EntryBB;
+    BasicBlock *ExitBB;
+    int DirBeginID;
+    SmallVector<ParSectNode *, 8> Children;
+} ParSectNode;
+//////////////////////////////////////
+
 typedef SmallVector<BasicBlock *, 32> VPOSmallVectorBB;
 typedef SmallVector<Instruction *, 32> VPOSmallVectorInst;
 
@@ -159,6 +173,8 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(int DirID);
 
+    ////////////////// MultiVersioning Transformation ////////////////////////
+    //
     /// \brief Given a single-entry and single-exit region represented by
     /// BBSet, generates the following code, where ClonedBBSet is the cloned
     /// region of BBSet:
@@ -201,15 +217,59 @@ public:
     static void findDefsUsedOutsideOfRegion(
             SmallVectorImpl<BasicBlock *> &BBSet,
             SmallVectorImpl<Instruction *> &LiveOut);
+
+    /////////////// End MultiVersioning Transformation ////////////////////////
     
     /// \brief Returns Metadata as Value for a given OMP directive
     static MetadataAsValue *getMetadataAsValue(Module &M, OMP_DIRECTIVES Dir);
     /// \brief Returns Metadata as Value for a given OMP directive clause
     static MetadataAsValue *getMetadataAsValue(Module &M, OMP_CLAUSES Qual);
+
+    ////////// Functions for Parallel Section Transformation //////////////////
+    //
+    // Transforms OpenMP parallel sections to parallel do loop and work-sharing
+    // sections to work-sharing do loop in function \p F. Use a post-order
+    // travesal on the Section Tree (built based on the Dominator Tree) to do
+    // the transformation so that children can be deleted after
+    // transformation at each node. The core transforamtion function is
+    // doParSectTrans.
+    static bool parSectTransformer(
+          Function *F, DominatorTree *DT = nullptr);
+    static void parSectTransRecursive(Function *F, ParSectNode *Node,
+                        int &Counter, DominatorTree *DT = nullptr);
+    static void doParSectTrans(Function *F, ParSectNode *Node,
+                        int Counter, DominatorTree *DT = nullptr);
+
+    // Generate an empty loop with lower bound \p LB, upper bound \p UB, stride
+    // \p stride, right after the InsertBlock pointed by \p Builder.
+    static Value *genNewLoop(Value *LB, Value *UB, Value *Stride,
+                        IRBuilder<> &Builder, int Counter,
+                        DominatorTree *DT = nullptr);
+
+    // Generate a switch statement for the parallel section or work-sharing
+    // section represented by \p Node. Each section in the parallel section or
+    // work-sharing section corresponds to a case statement in the switch.
+    static SwitchInst *genParSectSwitch(Value *SwitchCond, ParSectNode *Node,
+                        IRBuilder<> &Builder, int Counter,
+                        DominatorTree *DT = nullptr);
+
+    // Generate a tree data structure called Section Tree to represent the
+    // nesting relationship of OMP_PARALLEL_SECTIONS (or OMP_SECTIONS) and
+    // OMP_SECTION in a function. It is used for the transformations of OpenMP
+    // parallel sections and work-sharing sections.
+    static ParSectNode *buildParSectTree(Function *F,
+                        DominatorTree *DT = nullptr);
+    static void buildParSectTreeRecursive(BasicBlock* BB, 
+                        std::stack<ParSectNode *> &SectionStack, 
+                        DominatorTree *DT = nullptr);
+    static void printParSectTree(ParSectNode *Node);
+
+    ///////////////// End Parallel Section Transformation /////////////////
 };
 
 } // End vpo namespace
 
 } // End llvm namespace
 #endif
+
 

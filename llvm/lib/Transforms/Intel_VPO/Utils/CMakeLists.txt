@@ -4,6 +4,7 @@ add_llvm_library(LLVMTransformVPOUtils
   OpenMPDirectivesAndClauses.cpp
 #  GeneralUtils.cpp
   MultiVersioning.cpp
+  ParSecTrans.cpp
 )
 
 add_dependencies(LLVMTransformVPOUtils intrinsics_gen)
