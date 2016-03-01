@@ -547,6 +547,66 @@ HLInst *HLNodeUtils::createBinaryHLInstImpl(unsigned OpCode, RegDDRef *OpRef1,
   return HInst;
 }
 
+HLInst *HLNodeUtils::CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                             ArrayRef<int> Mask,
+                                             RegDDRef *LvalRef,
+                                             const Twine &Name) {
+  assert(OpRef1->getDestType()->isVectorTy() &&
+         OpRef1->getDestType() == OpRef2->getDestType() &&
+         "Illegal operand types for shufflevector");
+
+  auto OneVal = createOneVal(OpRef1->getDestType());
+
+  Value *InstVal = DummyIRBuilder->CreateShuffleVector(OneVal, OneVal, Mask,
+                                                       Name);
+  Instruction  *Inst = cast<Instruction>(InstVal);
+
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef1, 1);
+  HInst->setOperandDDRef(OpRef2, 2);
+  Value *MaskVecValue = Inst->getOperand(2);
+  RegDDRef *MaskVecDDRef;
+  if (isa<ConstantAggregateZero>(MaskVecValue))
+    MaskVecDDRef =
+      DDRefUtils::createConstDDRef(cast<ConstantAggregateZero>(MaskVecValue));
+  else if (isa<ConstantDataVector>(MaskVecValue))
+    MaskVecDDRef =
+      DDRefUtils::createConstDDRef(cast<ConstantDataVector>(MaskVecValue));
+  else
+    llvm_unreachable("Unexpected Mask vector type");
+  HInst->setOperandDDRef(MaskVecDDRef, 3);
+  return HInst;
+}
+
+HLInst *HLNodeUtils::CreateExtractElementInst(RegDDRef *OpRef, 
+                                              unsigned Idx,
+                                              RegDDRef *LvalRef,
+                                              const Twine &Name) {
+
+  assert(OpRef->getDestType()->isVectorTy() &&
+         "Illegal operand types for extractelement");
+
+  auto OneVal = createOneVal(OpRef->getDestType());
+  Value *InstVal = DummyIRBuilder->CreateExtractElement(OneVal, Idx, Name);
+  Instruction  *Inst = cast<Instruction>(InstVal);
+  assert((!LvalRef || LvalRef->getDestType() == Inst->getType()) &&
+         "Incompatible type of LvalRef");
+
+  HLInst *HInst = createLvalHLInst(Inst, LvalRef);
+
+  HInst->setOperandDDRef(OpRef, 1);
+
+  RegDDRef *IdxDDref =
+    DDRefUtils::createConstDDRef(Inst->getOperand(1)->getType(), Idx);
+  HInst->setOperandDDRef(IdxDDref, 2);
+
+  return HInst;
+}
+
 HLInst *HLNodeUtils::createBinaryHLInst(unsigned OpCode, RegDDRef *OpRef1,
                                         RegDDRef *OpRef2, RegDDRef *LvalRef,
                                         const Twine &Name,          

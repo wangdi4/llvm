@@ -544,6 +544,17 @@ public:
                             RegDDRef *LvalRef = nullptr,
                             const Twine &Name = "");
 
+  /// \brief Creates a new ShuffleVector instruction
+  static HLInst *CreateShuffleVectorInst(RegDDRef *OpRef1, RegDDRef *OpRef2,
+                                         ArrayRef<int> Mask,
+                                         RegDDRef *LvalRef = nullptr,
+                                         const Twine &Name = "");
+
+  /// \brief Creates a new ExtractElement instruction
+  static HLInst *CreateExtractElementInst(RegDDRef *OpRef, unsigned Idx,
+                                          RegDDRef *LvalRef = nullptr,
+                                          const Twine &Name = "");
+
   /// \brief Creates a clones sequence from Node1 to Node2, including both
   /// the nodes and all the nodes in between them. If Node2 is null or Node1
   /// equals Node2, then the utility just clones Node1 and inserts into the

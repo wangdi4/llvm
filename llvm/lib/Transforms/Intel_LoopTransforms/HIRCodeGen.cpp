@@ -1060,6 +1060,13 @@ Value *HIRCodeGen::CGVisitor::visitInst(HLInst *HInst) {
         ElementType, Ops[1],
         "hir.alloca." + std::to_string(HInst->getNumber()));
     Builder->CreateStore(Alloca, Ops[0]);
+
+  } else if (isa<ExtractElementInst>(Inst)) {
+    Value *Res = Builder->CreateExtractElement(Ops[1], Ops[2], Inst->getName());
+    Builder->CreateStore(Res, Ops[0]);
+  } else if (isa<ShuffleVectorInst>(Inst)) {
+    Value *Res = Builder->CreateShuffleVector(Ops[1], Ops[2], Ops[3], Inst->getName());
+    Builder->CreateStore(Res, Ops[0]);
   } else {
     llvm_unreachable("Unimpl CG for inst");
   }
