@@ -2325,14 +2325,16 @@ static bool getMaxMinValue(const CanonExpr *CE, int64_t *Val, VALType *ValType,
 
   for (Loop = ParentLoop; Loop != nullptr; Loop = Loop->getParentLoop()) {
 
+    // Skip unknown loops and proceed to a parent loop as it can contain
+    // target blob in the upper bound
     if (Loop->isUnknown()) {
-      return false;
+      continue;
     }
 
     const CanonExpr *UB = Loop->getUpperCanonExpr();
 
     if (UB->numBlobs() != 1 || UB->hasIV()) {
-      return false;
+      continue;
     }
 
     int64_t UBCoeff = UB->getSingleBlobCoeff();

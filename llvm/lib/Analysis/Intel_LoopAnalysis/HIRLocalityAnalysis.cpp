@@ -201,7 +201,7 @@ void HIRLocalityAnalysis::computeTempInvLocality(const HLLoop *Loop,
   for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
        SymVecPair != Last; ++SymVecPair) {
 
-    SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
+    auto &RefVec = SymVecPair->second;
 
     // Count Invariant References and remove them from the map.
     // Note, we need to check vector end, since elements are deleted.
@@ -479,6 +479,83 @@ void HIRLocalityAnalysis::clearEmptySlots(SymToMemRefTy &MemRefMap) {
   }
 }
 
+bool HIRLocalityAnalysis::isGroupMemRefMatch(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2,
+                                             unsigned Level, uint64_t MaxDiff) {
+
+  // TODO: Think about if we can delinearize the subscripts.
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions())
+    return false;
+
+  unsigned NumConstDiff = 0;
+
+  // Compare base CE.
+  // TODO: Currently assuming it to be in different groups. Need to add
+  // support for cases such as *(ptr+i) and *(ptr+i+1).
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
+    // assert(false && " Handle Base CE for array groups.");
+    return false;
+  }
+
+  for (auto Ref1Iter = Ref1->canon_begin(), End = Ref1->canon_end(),
+            Ref2Iter = Ref2->canon_begin();
+       Ref1Iter != End; ++Ref1Iter, ++Ref2Iter) {
+
+    // Check if both the CanonExprs have IV.
+    const CanonExpr *Ref1CE = *Ref1Iter;
+    const CanonExpr *Ref2CE = *Ref2Iter;
+
+    // For cases such as A[i+1][j+1] and A[i][j], where j+1 and j will have
+    // const diff, but need to be placed in different groups for i-loop
+    // grouping.
+    if (!Ref1CE->hasIV(Level)) {
+      // Compare 'j' and 'j+1'
+      if (!CanonExprUtils::areEqual(Ref1CE, Ref2CE)) {
+        return false;
+      } else {
+        continue;
+      }
+    }
+
+    // Diff the CanonExprs.
+    // TODO: Added RelaxedMode, but think about cases where src type also
+    // differs.
+    // sext.i32.i64(i+21) and i64(i+21) should be present in the same group.
+    const CanonExpr *Result =
+        CanonExprUtils::cloneAndSubtract(Ref1CE, Ref2CE, true);
+    if (!Result) {
+      return false;
+    }
+
+    // Result should not have any IV's or blobs.
+    if (Result->hasBlob() || Result->hasIV()) {
+      return false;
+    }
+
+    // Difference between the two canon expr should be constant.
+    uint64_t Diff = std::abs(Result->getConstant()) / Result->getDenominator();
+
+    // If Diff is greater than MaxDiff then place it in a
+    // separate bucket.
+    if (Diff > MaxDiff) {
+      return false;
+    }
+
+    if (Diff != 0) {
+      NumConstDiff++;
+      // Multiple Const diff will be in separate groups.
+      if (NumConstDiff > 1)
+        return false;
+    }
+  }
+
+  // Both RegDDRefs are same. This shouldn't exist as we have removed
+  // duplicates.
+  assert(NumConstDiff && " Duplicate DDRef found.");
+
+  return true;
+}
+
 // This is a high level routine to compute different locality.
 void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
                                           bool EnableCache) {
@@ -536,8 +613,11 @@ void HIRLocalityAnalysis::computeLocality(const HLLoop *Loop,
 
     // Create Groupings based on index.
 
-    DDRefGrouping::createGroups(RefGroups, LoopMemRefMap,
-                                CurLoop->getNestingLevel(), NumCacheLines);
+    DDRefGrouping::createGroups(
+        RefGroups, LoopMemRefMap,
+        std::bind(isGroupMemRefMatch, std::placeholders::_1,
+                  std::placeholders::_2, CurLoop->getNestingLevel(),
+                  NumCacheLines));
     DEBUG(DDRefGrouping::dump(RefGroups));
 
     computeTempReuseLocality(CurLoop);

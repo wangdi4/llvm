@@ -180,7 +180,7 @@ void HLLoop::print(formatted_raw_ostream &OS, unsigned Depth,
       OS << "\n";
       FirstPreInst = false;
     }
-    I->print(OS, Depth + 1, false);
+    I->print(OS, Depth + 1, Detailed);
   }
 
   if (Detailed) {

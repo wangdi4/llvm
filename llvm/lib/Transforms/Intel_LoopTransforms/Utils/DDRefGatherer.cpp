@@ -87,6 +87,12 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
     return TypeA->getPrimitiveSizeInBits() < TypeB->getPrimitiveSizeInBits();
   }
 
+  if (ACanon->isNonLinear() != BCanon->isNonLinear()) {
+    return ACanon->isNonLinear();
+  } else if (!ACanon->isNonLinear()) {
+    return ACanon->getDefinedAtLevel() < BCanon->getDefinedAtLevel();
+  }
+
   // Assert, since the two canon expr should differ atleast one case,
   // as we have already checked for their equality.
   llvm_unreachable("CanonExprs should be different.");
@@ -100,6 +106,22 @@ bool DDRefGathererUtils::compareMemRefCE(const CanonExpr *ACanon,
 // For example: A[i+5][j], A[i][0] -> Read, A[i][j], A[i+k][0],
 // A[i][0] -> Write will be sorted as
 // A[i][0] -> Write, A[i][0] -> Read, A[i+k][0], A[i][j], A[i+5][j].
+//
+// As a comparator, compareMemRef must meet the requirements of Compare concept:
+// For a long story see http://en.cppreference.com/w/cpp/concept/Compare
+//
+// Short story:
+// Given: comp(a, b), equiv(a, b), an expression equivalent to
+//                    !comp(a, b) && !comp(b, a)
+//
+// For any a, b, c:
+// 1) comp(a,a)==false
+// 2) if (comp(a,b)==true) comp(b,a)==false
+// 3) if (comp(a,b)==true && comp(b,c)==true) comp(a,c)==true
+// 4) equiv(a,a)==true
+// 5) if (equiv(a,b)==true) equiv(b,a)==true
+// 6) if (equiv(a,b)==true && equiv(b,c)==true) equiv(a,c)==true
+//
 bool DDRefGathererUtils::compareMemRef(const RegDDRef *Ref1,
                                        const RegDDRef *Ref2) {
 
@@ -124,9 +146,9 @@ bool DDRefGathererUtils::compareMemRef(const RegDDRef *Ref1,
   }
 
   // Place writes first in case everything matches.
-  if (Ref2->isLval()) {
-    return false;
+  if (Ref1->isLval() != Ref2->isLval()) {
+    return Ref1->isLval();
   }
 
-  return true;
+  return false;
 }

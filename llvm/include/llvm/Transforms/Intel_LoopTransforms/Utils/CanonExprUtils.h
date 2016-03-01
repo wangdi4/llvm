@@ -162,6 +162,14 @@ public:
   /// contained in the CE. NestingLevel is the level where the CE is attached to
   /// HIR.
   static bool hasNonLinearSemantics(int DefLevel, unsigned NestingLevel);
+
+  /// \brief Replaces IV in *CE1* at a particular loop *Level* by a CanonExpr
+  /// *CE2*.
+  /// Please be aware that this method can handle only CE2 with unit
+  /// denominator because b*(x/d) != (b*x)/d.
+  static CanonExpr *replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                         const CanonExpr *CE2,
+                                         bool RelaxedMode = false);
 };
 
 } // End namespace loopopt

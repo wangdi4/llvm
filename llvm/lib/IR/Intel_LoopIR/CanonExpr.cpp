@@ -909,6 +909,61 @@ void CanonExpr::multiplyByConstant(int64_t Val) {
   multiplyByConstantImpl(Val, true);
 }
 
+void CanonExpr::multiplyByBlob(unsigned Index) {
+  assert(BlobUtils::isBlobIndexValid(Index) && "Must be a valid blob index");
+
+  // The canon expr is looking like:
+  //   c1*b1*i1 + c2*b2 + c0
+  // After multiplication by blob "b" it should be like:
+  //   c1*(b*b1)*i1 + c2*(b*b2) + c0*b
+  //
+  //  1) (b*b1), (b*b2) are new blobs
+  //  2) c1 was not touched, just need to switch b1 to (b1*b)
+  //  3) b2 blob is removed, the new (b1*b) is added with the same c2 coeff
+  //  4) c0 is removed, the b blob is added with c0 coeff
+
+  // Get blob for "b"
+  BlobTy MultiplierBlob = BlobUtils::getBlob(Index);
+
+  // Handle IV blob coeffs
+  for (auto I = iv_begin(), End = iv_end(); I != End; ++I) {
+    unsigned IVBlobIndex;
+    int64_t IVConstCoeff;
+    getIVCoeff(I, &IVBlobIndex, &IVConstCoeff);
+
+    if (IVBlobIndex != INVALID_BLOB_INDEX) {
+      BlobTy IVBlob = BlobUtils::getBlob(IVBlobIndex);
+      unsigned NewBlobIndex;
+      BlobUtils::createMulBlob(IVBlob, MultiplierBlob, true, &NewBlobIndex);
+      setIVBlobCoeff(I, NewBlobIndex);
+    } else if (IVConstCoeff != 0) {
+      setIVBlobCoeff(I, Index);
+    }
+  }
+
+  // Handle blob terms
+  if (numBlobs()) {
+    BlobCoeffsTy AuxBlobs;
+    for (auto I = blob_begin(), End = blob_end(); I != End; ++I) {
+      auto BlobCoef = getBlobCoeff(I);
+      BlobTy Blob = BlobUtils::getBlob(getBlobIndex(I));
+      unsigned NewBlobIndex;
+      BlobUtils::createMulBlob(Blob, MultiplierBlob, true, &NewBlobIndex);
+      AuxBlobs.push_back(BlobIndexToCoeff(NewBlobIndex, BlobCoef));
+    }
+
+    std::sort(AuxBlobs.begin(), AuxBlobs.end(), BlobIndexCompareLess());
+    BlobCoeffs = AuxBlobs;
+  }
+
+  // Handle c0 constant
+  int64_t C0 = getConstant();
+  if (C0 != 0) {
+    addBlob(Index, C0);
+    setConstant(0);
+  }
+}
+
 void CanonExpr::negate() { multiplyByConstant(-1); }
 
 void CanonExpr::verify() const {

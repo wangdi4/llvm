@@ -588,6 +588,8 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
                                 bool AssumeLvalIfDetached) {
   SmallVector<unsigned, 8> BlobIndices;
 
+  bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
+
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
     unsigned SB = BlobUtils::getBlobSymbase(
         getSingleCanonExpr()->getSingleBlobIndex());
@@ -606,7 +608,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
     //
     // We should not update symbase of lval DDRefs as lvals represent a store
     // into that symbase. Changing it can affect correctness.
-    if (getHLDDNode() ? isLval() : AssumeLvalIfDetached) {
+    if (IsLvalAssumed) {
       if ((getSymbase() == SB)) {
         removeAllBlobDDRefs();
         return;
@@ -619,7 +621,7 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   } else if (isConstant()) {
     removeAllBlobDDRefs();
 
-    if (!isLval()) {
+    if (!IsLvalAssumed) {
       setSymbase(CONSTANT_SYMBASE);
     }
 

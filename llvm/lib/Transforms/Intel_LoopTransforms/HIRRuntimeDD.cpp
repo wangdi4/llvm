@@ -83,6 +83,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "HIRRuntimeDD.h"
+
 #include "llvm/Pass.h"
 
 #include "llvm/ADT/Statistic.h"
@@ -91,16 +93,12 @@
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Debug.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
 
-#include "llvm/Transforms/Intel_LoopTransforms/Passes.h"
-#include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
-
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
 
 #define OPT_SWITCH "hir-runtime-dd"
@@ -110,97 +108,58 @@
 using namespace llvm;
 using namespace llvm::loopopt;
 
-static const unsigned ExpectedNumberOfTests = 8;
-
 static cl::opt<unsigned>
     MaximumNumberOfTests(OPT_SWITCH "-max-tests",
                          cl::init(ExpectedNumberOfTests), cl::Hidden,
                          cl::desc("Maximum number of runtime tests for loop."));
 
-STATISTIC(LoopsMultiversioned, "Number of loops multiversioned by runtime DD");
+// This will count both innermost and outer transformations
+STATISTIC(LoopsMultiversioned,
+          "Number of loops multiversioned by runtime DD");
 
-namespace {
+STATISTIC(OuterLoopsMultiversioned,
+          "Number of outer loops multiversioned by runtime DD");
 
-// The struct represents a segment of memory. It is used to construct checks
-// for memory intersection
-struct Segment {
-  RegDDRef *Lower;
-  RegDDRef *Upper;
-  const CanonExpr *BaseCE;
+struct HIRRuntimeDD::LoopAnalyzer final : public HLNodeVisitorBase {
+  SmallVector<LoopCandidate, 16> Candidates;
 
-  Segment(RegDDRef *Lower, RegDDRef *Upper) : Lower(Lower), Upper(Upper) {
-    BaseCE = Lower->getBaseCE();
+  LoopAnalyzer() : SkipNode(nullptr) {}
+
+  void visit(HLNode *) {}
+  void postVisit(HLNode *) {}
+
+  void visit(HLLoop *Loop) {
+    LoopCandidate Candidate;
+    DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
+    RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Candidate);
+    if (Result == OK) {
+      SkipNode = Loop;
+
+      Candidates.push_back(std::move(Candidate));
+      LoopsMultiversioned++;
+
+      if (!Loop->isInnermost()) {
+        OuterLoopsMultiversioned++;
+      }
+    }
+    DEBUG(dbgs() << "LOOPOPT_OPTREPORT: [RTDD] Loop " << Loop->getNumber()
+                 << ": " << HIRRuntimeDD::getResultString(Result) << "\n");
   }
 
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD void dump() {
-    dbgs() << "[";
-    Lower->dump();
-    dbgs() << ", ";
-    Upper->dump();
-    dbgs() << "]\n";
-  }
-#endif
+  bool skipRecursion(const HLNode *N) const override { return N == SkipNode; }
 
-  Type *getType() const { return Lower->getDestType(); }
-};
-
-// The class represents a floating constant length memory segment that depends
-// on the IV. This class is used to generate specific memory segments where
-// IV is replaced with a Lower and Upper bound.
-class IVSegment {
-  const RegDDRef *Lower;
-  const RegDDRef *Upper;
-  const CanonExpr *BaseCE;
-
-  unsigned Symbase1;
-  unsigned Symbase2;
-
-  bool IsWrite;
-
-  static void replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
-                                   const CanonExpr *By);
-
-  static RegDDRef *genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-                                      const RegDDRef *BoundRef);
-
-public:
-  IVSegment(const DDRefGrouping::RefGroupTy &Group);
-
-  Segment genLUSegment(unsigned Level, int64_t Stride,
-                       const RegDDRef *LowerBoundRef,
-                       const RegDDRef *UpperBoundRef) const;
-
-  bool isWrite() const { return IsWrite; }
-
-  const RegDDRef *getLower() const { return Lower; }
-
-  const RegDDRef *getUpper() const { return Upper; }
-
-  const CanonExpr *getBaseCE() const { return BaseCE; }
-
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD void dump() {
-    dbgs() << "[";
-    Lower->dump();
-    dbgs() << ", ";
-    Upper->dump();
-    dbgs() << "]\n";
-  }
-#endif
+private:
+  const HLNode *SkipNode;
 };
 
 IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
-  Lower = Group.front();
-  Upper = Group.back();
+  Lower = Group.front()->clone();
+  Upper = Group.back()->clone();
 
   IsWrite = std::any_of(Group.begin(), Group.end(),
                         [](const RegDDRef *Ref) { return Ref->isLval(); });
 
   BaseCE = Lower->getBaseCE();
-
-  Symbase1 = DDRefUtils::getNewSymbase();
-  Symbase2 = DDRefUtils::getNewSymbase();
 
   assert(CanonExprUtils::areEqual(BaseCE, Upper->getBaseCE()) &&
          "Unexpected group. Left and Right refs should have the same base.");
@@ -220,192 +179,174 @@ IVSegment::IVSegment(const DDRefGrouping::RefGroupTy &Group) {
 #endif
 }
 
-// Generates Segment, by replacing IV at Level with the Lower CE and Upper CE.
-Segment IVSegment::genLUSegment(unsigned Level, int64_t Stride,
-                                const RegDDRef *LowerBoundRef,
-                                const RegDDRef *UpperBoundRef) const {
-  int64_t IVCoeff = (*getLower()->canon_begin())->getIVConstCoeff(Level);
+IVSegment::IVSegment(IVSegment &&Segment)
+    : Lower(std::move(Segment.Lower)),
+      Upper(std::move(Segment.Upper)),
+      BaseCE(std::move(Segment.BaseCE)),
+      IsWrite(std::move(Segment.IsWrite)) {
 
-  auto *Ref1 = genAddressOfAccess(Lower, Level,
-                                  Stride > 0 ? LowerBoundRef : UpperBoundRef);
-  auto *Ref2 = genAddressOfAccess(Upper, Level,
-                                  Stride > 0 ? UpperBoundRef : LowerBoundRef);
+  Segment.Lower = nullptr;
+  Segment.Upper = nullptr;
+}
 
-  if (DDRefUtils::areEqual(Ref1, Ref2)) {
-    Ref1->setSymbase(Symbase1);
-    Ref2->setSymbase(Symbase1);
-  } else {
-    Ref1->setSymbase(Symbase1);
-    Ref2->setSymbase(Symbase2);
+IVSegment::~IVSegment() {
+  if (Lower) {
+    DDRefUtils::destroy(Lower);
   }
 
-  if (IVCoeff > 0) {
-    return Segment(Ref1, Ref2);
-  } else {
-    return Segment(Ref2, Ref1);
+  if (Upper) {
+    DDRefUtils::destroy(Upper);
   }
 }
 
-// TODO: Make this method more generic and implement multiplyByBlob
-void IVSegment::replaceIVByCanonExpr(CanonExpr *Expr, unsigned Level,
-                                     const CanonExpr *By) {
-  auto ConstCoeff = Expr->getIVConstCoeff(Level);
-  if (ConstCoeff == 0) {
-    return;
-  }
+// Clone bounds and set isAddressOf flag.
+Segment IVSegment::genSegment() const {
+  auto *Ref1 = getLower()->clone();
+  auto *Ref2 = getUpper()->clone();
 
-  auto Term = By->clone();
-  Term->multiplyByConstant(ConstCoeff);
-
-  Term->divide(Expr->getDenominator(), false);
-
-  Expr->removeIV(Level);
-  Expr = CanonExprUtils::add(Expr, Term, true);
-  assert(Expr && " CanonExpr addition failed.");
-
-  CanonExprUtils::destroy(Term);
+  Ref1->setAddressOf(true);
+  Ref2->setAddressOf(true);
+  return Segment(Ref1, Ref2);
 }
 
-RegDDRef *IVSegment::genAddressOfAccess(const RegDDRef *Ref, unsigned Level,
-                                        const RegDDRef *BoundRef) {
+// The method replaces IV @ Level inside Ref with MaxRef or MinRef depending on
+// the IV direction
+void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
+                                      const RegDDRef *MaxRef,
+                                      const RegDDRef *MinRef,
+                                      const HLLoop *InnerLoop) {
+  bool HasChanged = false;
 
-  assert(BoundRef->isTerminalRef() &&
-         "BoundRef should be a terminal reference.");
+  for (auto CEI = Ref->canon_begin(), CEE = Ref->canon_end(); CEI != CEE;
+       ++CEI) {
+    CanonExpr *CE = *CEI;
 
-  RegDDRef *Result = Ref->clone();
-  CanonExpr *InnerSub = *Result->canon_begin();
+    unsigned IVBlobIndex;
+    int64_t IVCoeff;
+    CE->getIVCoeff(Level, &IVBlobIndex, &IVCoeff);
 
-  replaceIVByCanonExpr(InnerSub, Level, BoundRef->getSingleCanonExpr());
-
-  SmallVector<const RegDDRef *, 1> AuxRefs{BoundRef};
-  Result->makeConsistent(&AuxRefs, Level);
-
-  Result->setAddressOf(true);
-
-  return Result;
-}
-
-struct LoopCandidate {
-  HLLoop *Loop;
-  llvm::SmallVector<Segment, ExpectedNumberOfTests> SegmentList;
-  bool GenTripCountTest;
-
-#ifndef NDEBUG
-  LLVM_DUMP_METHOD void dump() {
-    dbgs() << "Loop " << Loop->getNumber() << ":\n";
-    for (auto &Segment : SegmentList) {
-      Segment.dump();
+    if (IVCoeff == 0) {
+      continue;
     }
+
+    // Determine IV direction: C*B*i, get C and B signs.
+    int64_t Direction = 1;
+    if (IVBlobIndex != INVALID_BLOB_INDEX) {
+      // IVBlobExpr is a helper CE to use HLNodeUtils::isKnownNegative
+      CanonExpr *IVBlobExpr =
+          CanonExprUtils::CanonExprUtils::createExtCanonExpr(
+              CE->getSrcType(), CE->getDestType(), CE->isSExt());
+      IVBlobExpr->addBlob(IVBlobIndex, IVCoeff);
+
+      // At this point IVBlobIndex is KnownPositive or KnownNegative, as we
+      // dropped others as non supported
+      // The utility checks both blob and coeff sign.
+      if (HLNodeUtils::isKnownNegative(IVBlobExpr, InnerLoop)) {
+        Direction *= -1;
+      }
+
+      CanonExprUtils::destroy(IVBlobExpr);
+    } else {
+      Direction *= IVCoeff;
+    }
+
+    // Get max reference depending on the direction
+    const RegDDRef *Bound = (Direction > 0) ? MaxRef : MinRef;
+    assert(Bound->isTerminalRef() && "DDRef should be a terminal reference.");
+
+    // The relaxed mode is safe here as we know that upper bound is always non
+    // negative
+    assert(!Bound->getSingleCanonExpr()->isTrunc() &&
+           "Truncations are not supported");
+
+    bool Ret = CanonExprUtils::replaceIVByCanonExpr(
+        CE, Level, Bound->getSingleCanonExpr(), true);
+    assert(Ret &&
+           "Assuming replace will always succeed as we already checked if both "
+           "are mergeable.");
+    (void)Ret;
+
+    HasChanged = true;
   }
-#endif
-};
 
-enum RuntimeDDResult {
-  OK,
-  NO_OPPORTUNITIES,
-  NON_INNERMOST,
-  NON_LINEAR_BASE,
-  NON_LINEAR_SUBS,
-  NON_LINEAR_ACCESS,
-  NON_CONSTANT_IV_STRIDE,
-  SMALL_TRIPCOUNT,
-  ALREADY_MV,
-  TOO_MANY_TESTS,
-  UPPER_SUB_TYPE_MISMATCH,
-  BLOB_IV_COEFF,
-};
+  if (HasChanged) {
+    SmallVector<const RegDDRef *, 2> Aux { MaxRef, MinRef };
+    Ref->makeConsistent(&Aux, Level);
+  }
+}
 
-class HIRRuntimeDD : public HIRTransformPass {
-public:
-  static char ID;
+RuntimeDDResult
+IVSegment::isSegmentSupported(const HLLoop *Loop,
+                              const HLLoop *InnermostLoop) const {
 
-  HIRRuntimeDD() : HIRTransformPass(ID) {
-    initializeHIRRuntimeDDPass(*PassRegistry::getPassRegistry());
+  if (getBaseCE()->isNonLinear()) {
+    return NON_LINEAR_BASE;
   }
 
-  bool runOnFunction(Function &F) override;
-  void releaseMemory() override;
+  const RegDDRef *Lower = getLower();
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
-    AU.addRequiredTransitive<HIRFramework>();
-    AU.addRequiredTransitive<DDAnalysis>();
-    AU.setPreservesAll();
-  }
+  // We will be replacing every IV inside a RegDDRef: a[i+j+k][j][k]. So we have
+  // to check all canon expressions against UB of every loop in loopnest.
+  // We skip loops if its IV is absent.
+  for (auto I = Lower->canon_begin(),
+            E = Lower->canon_end();
+       E != I; ++I) {
+    CanonExpr *CE = *I;
 
-private:
-  struct LoopAnalyzer final : public HLNodeVisitorBase {
-    SmallVector<LoopCandidate, 16> Candidates;
+    if (CE->isNonLinear()) {
+      return NON_LINEAR_SUBS;
+    }
 
-#ifndef NDEBUG
-    static const char *getResultString(RuntimeDDResult Result) {
-      switch (Result) {
-      case OK:
-        return "OK";
-      case NO_OPPORTUNITIES:
-        return "No opportunities";
-      case NON_INNERMOST:
-        return "Non innermost loop";
-      case NON_LINEAR_BASE:
-        return "The reference base is non linear";
-      case NON_LINEAR_SUBS:
-        return "One of the dimensions is non linear";
-      case NON_LINEAR_ACCESS:
-        return "Memory accessed in non linear pattern";
-      case NON_CONSTANT_IV_STRIDE:
-        return "Non constant IV stride is not supported";
-      case SMALL_TRIPCOUNT:
-        return "Small trip count loop is skipped";
-      case ALREADY_MV:
-        return "The loop is already multiversioned";
-      case TOO_MANY_TESTS:
-        return "Exceeded maximum number of tests";
-      case UPPER_SUB_TYPE_MISMATCH:
-        return "Upper bound/sub type mismatch";
-      case BLOB_IV_COEFF:
-        return "Blob IV coeffs are not supported yet.";
-      default:
-        llvm_unreachable("Unexpected give up reason");
+    auto Level = Loop->getNestingLevel();
+    if (!CE->hasIV(Level)) {
+      continue;
+    }
+
+    const CanonExpr *UpperBoundCE = Loop->getUpperCanonExpr();
+
+    // Check if CE and UpperBoundCE are mergeable and check if UpperBoundCE
+    // denominator equals one as we will not be able to replace IV with such
+    // upper bound. This is because b*(x/d) != (b*x)/d.
+    if (UpperBoundCE->getDenominator() != 1 ||
+        !CanonExprUtils::mergeable(CE, UpperBoundCE, true)) {
+      return UPPER_SUB_TYPE_MISMATCH;
+    }
+    assert(CanonExprUtils::mergeable(CE, Loop->getLowerCanonExpr(), true) &&
+           "Assuming that the Lower bound is also mergeable if Upper is"
+           "mergeable");
+
+    auto IVBlobIndex = CE->getIVBlobCoeff(Level);
+    if (IVBlobIndex != INVALID_BLOB_INDEX) {
+      CanonExpr *IVBlobExpr =
+          CanonExprUtils::CanonExprUtils::createExtCanonExpr(
+              CE->getSrcType(), CE->getDestType(), CE->isSExt());
+
+      IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
+
+      bool IsKnownNonZero =
+          HLNodeUtils::isKnownPositive(IVBlobExpr, InnermostLoop) ||
+          HLNodeUtils::isKnownNegative(IVBlobExpr, InnermostLoop);
+
+      CanonExprUtils::destroy(IVBlobExpr);
+      if (!IsKnownNonZero) {
+        return BLOB_IV_COEFF;
       }
     }
-#endif
+  }
 
-    LoopAnalyzer() : SkipNode(nullptr) {}
+  return OK;
+}
 
-    void visit(HLNode *) {}
-    void postVisit(HLNode *) {}
-
-    void visit(HLLoop *Loop) {
-      LoopCandidate Candidate;
-      RuntimeDDResult Result = HIRRuntimeDD::computeTests(Loop, Candidate);
-      if (Result == OK) {
-        SkipNode = Loop;
-
-        Candidates.push_back(Candidate);
-        LoopsMultiversioned++;
-      } else {
-        DEBUG(dbgs() << "LOOPOPT_OPTREPORT: Loop " << Loop->getNumber()
-                     << " not selected: " << getResultString(Result) << "\n");
-      }
-    }
-
-    bool skipRecursion(const HLNode *N) const override { return N == SkipNode; }
-
-  private:
-    const HLNode *SkipNode;
-  };
-
-  static RuntimeDDResult isSegmentSupported(const IVSegment &Segment,
-                                            const HLLoop *Loop, unsigned Level);
-
-  // \brief Returns required DD tests for an arbitrary loop L.
-  static RuntimeDDResult computeTests(HLLoop *Loop, LoopCandidate &Candidate);
-
-  HLIf *createIfStmtForIntersection(HLContainerTy &Nodes, Segment &S1,
-                                    Segment &S2) const;
-
-  // \brief Modifies HIR implementing specified tests.
-  void generateDDTest(LoopCandidate &Candidate) const;
-};
+// The method will replace IV @ Level inside segment bounds, depending on
+// direction of IV, constant and blob coefficients. The result segment represent
+// lower and upper address accessed inside a loopnest.
+void IVSegment::updateIVWithBounds(unsigned Level, const RegDDRef *LowerBound,
+                                   const RegDDRef *UpperBound,
+                                   const HLLoop *InnerLoop) {
+  updateRefIVWithBounds(getLower(), Level, LowerBound, UpperBound,
+      InnerLoop);
+  updateRefIVWithBounds(getUpper(), Level, UpperBound, LowerBound,
+      InnerLoop);
 }
 
 char HIRRuntimeDD::ID = 0;
@@ -416,39 +357,135 @@ INITIALIZE_PASS_END(HIRRuntimeDD, OPT_SWITCH, OPT_DESCR, false, false)
 
 FunctionPass *llvm::createHIRRuntimeDDPass() { return new HIRRuntimeDD(); }
 
-RuntimeDDResult HIRRuntimeDD::isSegmentSupported(const IVSegment &Segment,
-                                                 const HLLoop *Loop,
-                                                 unsigned Level) {
-
-  if (Segment.getBaseCE()->isNonLinear()) {
-    return NON_LINEAR_BASE;
+#ifndef NDEBUG
+const char *HIRRuntimeDD::getResultString(RuntimeDDResult Result) {
+  switch (Result) {
+  case OK:
+    return "OK";
+  case NO_OPPORTUNITIES:
+    return "No opportunities";
+  case NON_PERFECT_LOOPNEST:
+    return "Non perfect loopnest/non innermost loop";
+  case NON_LINEAR_BASE:
+    return "The reference base is non linear";
+  case NON_LINEAR_SUBS:
+    return "One of the dimensions is non linear";
+  case NON_CONSTANT_IV_STRIDE:
+    return "Non constant IV stride is not supported";
+  case SMALL_TRIPCOUNT:
+    return "Small trip count loop is skipped";
+  case ALREADY_MV:
+    return "The loop is already multiversioned";
+  case TOO_MANY_TESTS:
+    return "Exceeded maximum number of tests";
+  case UPPER_SUB_TYPE_MISMATCH:
+    return "Upper bound/sub type mismatch";
+  case BLOB_IV_COEFF:
+    return "Blob IV coeffs are not supported yet.";
+  case SAME_BASE:
+    return "Multiple groups with the same base CE";
+  case NON_DO_LOOP:
+    return "Non DO loops are not supported";
+  default:
+    llvm_unreachable("Unexpected give up reason");
   }
+}
+#endif
 
-  auto FirstCanonIter = Segment.getLower()->canon_begin();
+RuntimeDDResult
+HIRRuntimeDD::processLoopnest(const HLLoop *OuterLoop, const HLLoop *InnerLoop,
+                SmallVectorImpl<IVSegment> &IVSegments,
+                SmallVectorImpl<RuntimeDDResult> &SegmentConditions,
+                bool &ShouldGenerateTripCount) {
 
-  if (!CanonExprUtils::mergeable(*FirstCanonIter, Loop->getUpperCanonExpr(),
-                                 true)) {
-    return UPPER_SUB_TYPE_MISMATCH;
-  }
+  unsigned SegmentCount = IVSegments.size();
 
-  for (auto CE = FirstCanonIter, E = Segment.getLower()->canon_end(); CE != E;
-       ++CE) {
-    if ((*CE)->isNonLinear()) {
-      return NON_LINEAR_SUBS;
+  // TotalTripCount is used only to decide should we generate runtime small trip
+  // test or not.
+  bool ConstantTripCount = true;
+  uint64_t TotalTripCount = 1;
+  for (const HLLoop *LoopI = InnerLoop;; LoopI = LoopI->getParentLoop()) {
+    if (!LoopI->isDo()) {
+      return NON_DO_LOOP;
     }
 
-    if (CE == FirstCanonIter) {
-      if ((*CE)->hasIVBlobCoeff(Level)) {
-        return BLOB_IV_COEFF;
+    if (!LoopI->getStrideCanonExpr()->isIntConstant()) {
+      return NON_CONSTANT_IV_STRIDE;
+    }
+
+    // TotalTripCount is a minimal estimation of loopnest tripcount. Non-const
+    // loops are treated as they execute at least once.
+    int64_t TripCount;
+    if (LoopI->isConstTripLoop(&TripCount)) {
+      TotalTripCount *= TripCount;
+      if (TotalTripCount >= SmallTripCountTest) {
+        ShouldGenerateTripCount = false;
       }
     } else {
-      if ((*CE)->hasIV(Level)) {
-        return NON_LINEAR_ACCESS;
+      ConstantTripCount = false;
+    }
+
+    auto LowerBoundRef = LoopI->getLowerDDRef();
+    auto UpperBoundRef = LoopI->getUpperDDRef();
+    auto Level = LoopI->getNestingLevel();
+
+    for (unsigned I = 0; I < SegmentCount; ++I) {
+      RuntimeDDResult IsSupported =
+          IVSegments[I].isSegmentSupported(LoopI, InnerLoop);
+
+      SegmentConditions.push_back(IsSupported);
+      if (IsSupported == OK) {
+        IVSegments[I].updateIVWithBounds(Level, LowerBoundRef, UpperBoundRef,
+            InnerLoop);
       }
     }
+
+    if (LoopI == OuterLoop) {
+      break;
+    }
+  }
+
+  if (ConstantTripCount && TotalTripCount < SmallTripCountTest) {
+    return SMALL_TRIPCOUNT;
   }
 
   return OK;
+}
+
+bool HIRRuntimeDD::isGroupMemRefMatchForRTDD(const RegDDRef *Ref1,
+                                             const RegDDRef *Ref2) {
+  if (Ref1->getNumDimensions() != Ref2->getNumDimensions()) {
+    return false;
+  }
+
+  if (!CanonExprUtils::areEqual(Ref1->getBaseCE(), Ref2->getBaseCE())) {
+    return false;
+  }
+
+  auto I = Ref1->canon_begin();
+  auto J = Ref2->canon_begin();
+
+  const CanonExpr *Result = CanonExprUtils::cloneAndSubtract(*I, *J, true);
+  if (!Result) {
+    return false;
+  }
+
+  if (Result->hasBlob() || Result->hasIV()) {
+    return false;
+  }
+
+  ++I;
+  ++J;
+
+  for (auto E = Ref1->canon_end(); I != E; ++I, ++J) {
+    if (!CanonExprUtils::areEqual(*I, *J)) {
+      return false;
+    }
+  }
+
+  assert(Result->getConstant() != 0 && "Duplicate DDRef found.");
+
+  return true;
 }
 
 RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
@@ -456,37 +493,22 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   Candidate.Loop = Loop;
   Candidate.GenTripCountTest = true;
 
-  DEBUG(dbgs() << "Runtime DD for loop " << Loop->getNumber() << ":\n");
-
   if (Loop->getMVTag()) {
     return ALREADY_MV;
   }
 
-  if (!Loop->isInnermost()) {
-    return NON_INNERMOST;
+  const HLLoop *InnermostLoop = Loop;
+  if (!Loop->isInnermost() &&
+      !HLNodeUtils::isPerfectLoopNest(Loop, &InnermostLoop, false, false)) {
+    return NON_PERFECT_LOOPNEST;
   }
-
-  int64_t Stride;
-  if (!Loop->getStrideCanonExpr()->isIntConstant(&Stride)) {
-    return NON_CONSTANT_IV_STRIDE;
-  }
-
-  int64_t TripCount;
-  if (Loop->isConstTripLoop(&TripCount)) {
-    if (TripCount < 4) {
-      return SMALL_TRIPCOUNT;
-    }
-    Candidate.GenTripCountTest = false;
-  }
-
-  auto LowerBoundDD = Loop->getLowerDDRef();
-  auto UpperBoundDD = Loop->getUpperDDRef();
-  auto Level = Loop->getNestingLevel();
 
   MemRefGatherer::MapTy RefMap;
   DDRefGrouping::RefGroupsTy Groups;
 
-  MemRefGatherer::gather(Loop, RefMap);
+  // Gather references which are only inside a loop, excepting loop bounds,
+  // pre-header and post-exit.
+  MemRefGatherer::gatherRange(Loop->child_begin(), Loop->child_end(), RefMap);
   DEBUG(MemRefGatherer::dump(RefMap));
 
   MemRefGatherer::sort(RefMap);
@@ -494,8 +516,7 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
   MemRefGatherer::makeUnique(RefMap);
   DEBUG(MemRefGatherer::dump(RefMap));
 
-  DDRefGrouping::createGroups(Groups, RefMap, Level, 0);
-
+  DDRefGrouping::createGroups(Groups, RefMap, isGroupMemRefMatchForRTDD);
   DEBUG(DDRefGrouping::dump(Groups));
 
   unsigned GroupSize = Groups.size();
@@ -504,30 +525,41 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
     return NO_OPPORTUNITIES;
   }
 
-  if (GroupSize * (GroupSize - 1) / 2 > MaximumNumberOfTests) {
-    return TOO_MANY_TESTS;
-  }
-
   SmallVector<IVSegment, ExpectedNumberOfTests> IVSegments;
   SmallVector<RuntimeDDResult, ExpectedNumberOfTests> Supported;
   for (unsigned I = 0; I < GroupSize; ++I) {
     IVSegments.push_back(IVSegment(Groups[I]));
-    Supported.push_back(isSegmentSupported(IVSegments.back(), Loop, Level));
   }
 
+  RuntimeDDResult Res;
+  Res = processLoopnest(Loop, InnermostLoop, IVSegments, Supported,
+                        Candidate.GenTripCountTest);
+  if (Res != OK)  {
+    return Res;
+  }
+
+  // Create pairs of segments to intersect and store them into
+  // Candidate.SegmentList
+  unsigned NumOfTests = 0;
   for (unsigned I = 0, IE = IVSegments.size() - 1; I < IE; ++I) {
     IVSegment &S1 = IVSegments[I];
 
     for (unsigned J = I + 1, JE = IVSegments.size(); J < JE; ++J) {
-      if (Groups[I].front()->getSymbase() != Groups[J].front()->getSymbase()) {
+      IVSegment &S2 = IVSegments[J];
+
+      if (S1.getLower()->getSymbase() != S2.getLower()->getSymbase()) {
         break;
       }
-
-      IVSegment &S2 = IVSegments[J];
 
       // Skip Read-Read segments
       if (!S1.isWrite() && !S2.isWrite()) {
         continue;
+      }
+
+      // Skip loops with refs where base CEs are the same, as this
+      // transformation mostly for cases with different pointers.
+      if (CanonExprUtils::areEqual(S1.getBaseCE(), S2.getBaseCE())) {
+        return SAME_BASE;
       }
 
       // Check if both segments are OK. Unsupported segment may
@@ -542,10 +574,13 @@ RuntimeDDResult HIRRuntimeDD::computeTests(HLLoop *Loop,
         return Res;
       }
 
-      Candidate.SegmentList.push_back(
-          S1.genLUSegment(Level, Stride, LowerBoundDD, UpperBoundDD));
-      Candidate.SegmentList.push_back(
-          S2.genLUSegment(Level, Stride, LowerBoundDD, UpperBoundDD));
+      Candidate.SegmentList.push_back(S1.genSegment());
+      Candidate.SegmentList.push_back(S2.genSegment());
+
+      NumOfTests++;
+      if (NumOfTests > MaximumNumberOfTests) {
+        return TOO_MANY_TESTS;
+      }
     }
   }
 
@@ -590,6 +625,8 @@ HLIf *HIRRuntimeDD::createIfStmtForIntersection(HLContainerTy &Nodes,
 }
 
 void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
+  Candidate.Loop->extractPreheaderAndPostexit();
+
   HLLabel *OrigLabel = HLNodeUtils::createHLLabel("mv.orig");
   HLLabel *EscapeLabel = HLNodeUtils::createHLLabel("mv.escape");
 
@@ -600,8 +637,11 @@ void HIRRuntimeDD::generateDDTest(LoopCandidate &Candidate) const {
 
   // Generate tripcount test
   if (Candidate.GenTripCountTest) {
-    uint64_t MinTripCount = Candidate.SegmentList.size();
+    // TODO: generation of small tripcount tests for a loopnest
+    uint64_t MinTripCount = SmallTripCountTest;
     RegDDRef *TripCountRef = Candidate.Loop->getTripCountDDRef();
+    assert(TripCountRef != nullptr &&
+           "getTripCountDDRef() unexpectedly returned nullptr");
     HLIf *LowTripCountIf =
         HLNodeUtils::createHLIf(PredicateTy::ICMP_ULT, TripCountRef,
                                 DDRefUtils::createConstDDRef(

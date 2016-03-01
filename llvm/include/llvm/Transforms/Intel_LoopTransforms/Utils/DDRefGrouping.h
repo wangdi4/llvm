@@ -35,7 +35,7 @@ class DDRefGrouping {
 public:
   typedef MemRefGatherer::MapTy SymToMemRefTy;
 
-  typedef SmallVector<const RegDDRef *, 32> RefGroupTy;
+  typedef SmallVector<const RegDDRef *, 8> RefGroupTy;
 
   // RefGroupsTy data structure.
   // The first unsigned argument is the group number.
@@ -47,14 +47,47 @@ private:
   DDRefGrouping(const DDRefGathererUtils &) = delete;
   DDRefGrouping &operator=(const DDRefGrouping &) = delete;
 
-  /// \brief Returns true if Ref2 belongs to the same array reference group.
-  static bool isGroupMemRefMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
-                                 unsigned Level, uint64_t MaxDiff);
-
 public:
   /// \brief Creates a reference group out of the Symbol to Mem Ref Table.
+  /// GroupingPredicate is a callable bool(const RegDDRef *, const RegDDRef *)
+  /// that gets two RegDDRefs and returns true if both belong to the same group.
+  template <typename GroupingPredicate>
   static void createGroups(RefGroupsTy &Groups, const SymToMemRefTy &MemRefMap,
-                           unsigned Level, uint64_t MaxDiff);
+                           GroupingPredicate Predicate) {
+    // Incremented whenever a new group is created.
+    unsigned MaxGroupNo = 0;
+
+    for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
+         SymVecPair != Last; ++SymVecPair) {
+
+      // Keep track of the new groups to match existing DDRefs.
+      unsigned StartGroupIndex = MaxGroupNo;
+
+      auto &RefVec = SymVecPair->second;
+      for (auto VecIt = RefVec.begin(), End = RefVec.end(); VecIt != End;
+           ++VecIt) {
+
+        bool MatchFound = false;
+
+        // Check if DDRef matches any of the groups.
+        for (unsigned GroupIndex = StartGroupIndex; GroupIndex < MaxGroupNo;
+             ++GroupIndex) {
+          SmallVectorImpl<const RegDDRef *> &GroupRefVec = Groups[GroupIndex];
+          assert(!GroupRefVec.empty() && " Ref Group is empty.");
+          if (Predicate(GroupRefVec[0], *VecIt)) {
+            MatchFound = true;
+            GroupRefVec.push_back(*VecIt);
+            break;
+          }
+        }
+
+        // Create a new group since no match was found.
+        if (!MatchFound) {
+          Groups[MaxGroupNo++].push_back(*VecIt);
+        }
+      }
+    }
+  }
 
 /// \brief Prints out the array reference group mapping.
 /// Primarily used for debugging.

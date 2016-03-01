@@ -118,6 +118,30 @@ private:
   /// is not present.
   static void clearEmptySlots(SymToMemRefTy &MemRefMap);
 
+  /// \brief Returns true if Ref2 belongs to the same array reference group.
+  /// This method checks if Ref2 matches Ref1 to be stored in the same array
+  /// reference group.
+  /// For the specific IV at *Level* and *MaxDiff* value the method returns true
+  /// if all the following is true:
+  ///  1) The numbers of dimensions in refs are the same
+  ///  2) The first right-to-left canon expressions containing IV are different
+  ///     only by a constant not exceeding *MaxDiff*
+  ///  3) All other canons should be the same.
+  /// Otherwise it returns false.
+  ///
+  /// Examples:
+  ///  Ref1 = A[i  ][j  ][k  ]
+  ///  Ref2 = A[i  ][j+1][k  ]
+  ///  Ref3 = A[i+1][j  ][k  ]
+  ///  Ref4 = A[i+1][j  ][k-1]
+  ///
+  ///  1) Level j - (Ref1, Ref2) == true
+  ///  2) Level i - (Ref1, Ref2) == false
+  ///  3) Level i - (Ref1, Ref3) == true
+  ///  4) Level k - (Ref3, Ref4) == true
+  static bool isGroupMemRefMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
+                                 unsigned Level, uint64_t MaxDiff);
+
   /// \brief Computes the locality for the loop nest in which L is contained.
   /// If the loop was not modified, it returns the old computed values.
   /// EnableCache parameter specifies if we want to used cached value or not.

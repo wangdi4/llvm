@@ -11,7 +11,7 @@
 ; }
 
 ; CHECK: Runtime DD for loop [[LOOP:[0-9]+]]:
-; CHECK: LOOPOPT_OPTREPORT: Loop [[LOOP]] not selected: No opportunities
+; CHECK: LOOPOPT_OPTREPORT: [RTDD] Loop [[LOOP]]: No opportunities
 
 ; ModuleID = 'one-ref.ll'
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"

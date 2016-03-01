@@ -49,7 +49,8 @@ enum DDRefGatherMode {
   AllRefs = -1,
 };
 
-// Data Structure to store mapping of symbase to memory references.
+// Data Structure to store mapping of symbase to memory references. We are using
+// std::map here instead of DenseMap because of a large vector size.
 template <typename RefTy>
 using SymToRefTy = std::map<unsigned int, SmallVector<RefTy *, 32>>;
 
@@ -76,7 +77,7 @@ protected:
       return;
     }
 
-    decltype(Ref->getSymbase()) SB = Ref->getSymbase();
+    unsigned SB = Ref->getSymbase();
     SymToMemRef[SB].push_back(Ref);
   }
 
@@ -143,13 +144,13 @@ public:
   /// \brief Removes the duplicates by comparing the Ref's in sorted order.
   template <typename RefTy> static void makeUnique(SymToRefTy<RefTy> &RefMap) {
     for (auto &SymVecPair : RefMap) {
-      SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair.second;
+      auto &RefVec = SymVecPair.second;
 
-      RefVec.erase(std::unique(RefVec.begin(), RefVec.end(),
-                               [](const DDRef *Ref1, const DDRef *Ref2) {
-                                 return DDRefUtils::areEqual(Ref1, Ref2);
-                               }),
-                   RefVec.end());
+      RefVec.erase(
+          std::unique(RefVec.begin(), RefVec.end(),
+                      std::bind(DDRefUtils::areEqual, std::placeholders::_1,
+                                std::placeholders::_2, false)),
+          RefVec.end());
     }
   }
 
@@ -159,7 +160,44 @@ public:
     // by compareMemRef.
     for (auto SymVecPair = MemRefMap.begin(), Last = MemRefMap.end();
          SymVecPair != Last; ++SymVecPair) {
-      SmallVectorImpl<RegDDRef *> &RefVec = SymVecPair->second;
+      auto &RefVec = SymVecPair->second;
+
+#if 0
+      // The code below is for checking the conformance of compareMemRef to a
+      // Compare concept.
+      // It's O(n^3) and wouldn't be enabled neither in prod nor in debug modes.
+      // Un-comment if you believe that something is wrong with the sorting, it
+      // could help to catch refs on which compareMemRef fails.
+      auto comp = [](const RegDDRef *R1, const RegDDRef *R2) {
+        return DDRefGathererUtils::compareMemRef(R1, R2);
+      };
+      auto equv = [](const RegDDRef *R1, const RegDDRef *R2) {
+        return !DDRefGathererUtils::compareMemRef(R1, R2) &&
+               !DDRefGathererUtils::compareMemRef(R2, R1);
+      };
+
+      for (auto I = RefVec.begin(), IE = RefVec.end(); I != IE; ++I) {
+        assert(comp(*I, *I) == false);
+        assert(equv(*I, *I) == true);
+        for (auto J = RefVec.begin(), JE = RefVec.end(); J != JE; ++J) {
+          if (comp(*I, *J) == true) {
+            assert(comp(*J, *I) == false);
+          }
+          if (equv(*I, *J) == true) {
+            assert(equv(*J, *I) == true);
+          }
+          for (auto C = RefVec.begin(), CE = RefVec.end(); C != CE; ++C) {
+            if (comp(*I, *J) == true && comp(*J, *C) == true) {
+              assert(comp(*I, *C) == true);
+            }
+            if (equv(*I, *J) == true && equv(*J, *C) == true) {
+              assert(equv(*I, *C) == true);
+            }
+          }
+        }
+      }
+#endif
+
       std::sort(RefVec.begin(), RefVec.end(),
                 DDRefGathererUtils::compareMemRef);
     }
@@ -181,8 +219,8 @@ struct DDRefGatherer : public DDRefGathererUtils {
     HLNodeUtils::visit(VImpl, Node);
   }
 
-  template <template <typename> class It>
-  static void gatherRange(It<const HLNode> Begin, It<const HLNode> End,
+  template <typename It>
+  static void gatherRange(It Begin, It End,
                           MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
     HLNodeUtils::visitRange(VImpl, Begin, End);

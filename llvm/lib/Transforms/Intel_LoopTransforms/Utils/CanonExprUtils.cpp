@@ -436,3 +436,50 @@ bool CanonExprUtils::hasNonLinearSemantics(int DefLevel,
                                            unsigned NestingLevel) {
   return ((-1 == DefLevel) || (DefLevel && (DefLevel >= (int)NestingLevel)));
 }
+
+CanonExpr * CanonExprUtils::replaceIVByCanonExpr(CanonExpr *CE1, unsigned Level,
+                                                 const CanonExpr *CE2,
+                                                 bool RelaxedMode) {
+  // CE1 = C1*B1*i1 + C3*i2 + ..., Level 1
+  // CE2 = C2*B2
+
+  auto ConstCoeff = CE1->getIVConstCoeff(Level);
+  if (ConstCoeff == 0) {
+    return CE1;
+  }
+
+  // If CE2 is zero - just remove the IV
+  if (CE2->isZero()) {
+    CE1->removeIV(Level);
+    return CE1;
+  }
+
+  int64_t Denom = CE2->getDenominator();
+  if (Denom != 1) {
+    return nullptr;
+  }
+
+  auto Term = CE2->clone();
+
+  // CE2 <- CE2 * C1
+  Term->multiplyByConstant(ConstCoeff);
+
+  auto BlobCoeff = CE1->getIVBlobCoeff(Level);
+  if (BlobUtils::isBlobIndexValid(BlobCoeff)) {
+    // CE2 <- CE2 * B1
+    Term->multiplyByBlob(BlobCoeff);
+  }
+
+  CE1->removeIV(Level);
+  // At this point:
+  // CE1 = C3*i2 + ...
+  // CE2 = C1*C2 * B1*B2
+
+  // Set denominator from CE1 to CE2
+  Term->divide(CE1->getDenominator(), false);
+
+  // CE1 = C1*C2 * B1*B2 + C3*i2 + ...
+  CanonExpr *AddResult = CanonExprUtils::add(CE1, Term, RelaxedMode);
+  CanonExprUtils::destroy(Term);
+  return AddResult;
+}
