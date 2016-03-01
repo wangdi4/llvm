@@ -152,9 +152,6 @@ private:
   bool isGroupMemRefMatch(const RegDDRef *Ref1, const RegDDRef *Ref2,
                           unsigned Level);
 
-  /// \brief Returns true if RegDD is invariant of Loop.
-  bool isLoopInvariant(const RegDDRef *RegDD, const HLLoop *Loop);
-
   /// \brief Returns true if this Loop was modified or doesn't exist.
   bool isLoopModified(const HLLoop *Loop);
 

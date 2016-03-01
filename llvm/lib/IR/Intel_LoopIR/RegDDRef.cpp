@@ -214,6 +214,25 @@ bool RegDDRef::isScalarRef() const {
   return false;
 }
 
+bool RegDDRef::isInvariantAtLevel(unsigned LoopLevel) const {
+  // Check the Base CE.
+  if (!getBaseCE()->isInvariantAtLevel(LoopLevel))
+    return false;
+
+  // Check canon expr of the ddrefs to see if level exist.
+  for (auto Iter = canon_begin(), End = canon_end(); Iter != End; ++Iter) {
+
+    const CanonExpr *Canon = *Iter;
+    // Check if CanonExpr is invariant i.e. IV is not present in any form inside
+    // the canon expr.
+    if (!Canon->isInvariantAtLevel(LoopLevel))
+      return false;
+  }
+
+  // Level doesn't exist in any of the canon exprs.
+  return true;
+}
+
 void RegDDRef::addDimension(CanonExpr *Canon, CanonExpr *Stride) {
   assert(Canon && "Canon is null!");
   assert((CanonExprs.empty() || Stride) && "Stride is null!");

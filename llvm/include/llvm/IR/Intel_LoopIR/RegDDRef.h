@@ -394,6 +394,9 @@ public:
   /// Else returns true for cases like DDRef - 2*i and M+N.
   bool isScalarRef() const;
 
+  /// \brief Returns true if the the DDRef is invariant at \p Level
+  bool isInvariantAtLevel(unsigned Level) const;
+
   /// \brief Adds a dimension to the DDRef. Stride can be null for a scalar.
   void addDimension(CanonExpr *Canon, CanonExpr *Stride);
 
