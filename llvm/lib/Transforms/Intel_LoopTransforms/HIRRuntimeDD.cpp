@@ -233,9 +233,8 @@ void IVSegment::updateRefIVWithBounds(RegDDRef *Ref, unsigned Level,
     int64_t Direction = 1;
     if (IVBlobIndex != INVALID_BLOB_INDEX) {
       // IVBlobExpr is a helper CE to use HLNodeUtils::isKnownNegative
-      CanonExpr *IVBlobExpr =
-          CanonExprUtils::CanonExprUtils::createExtCanonExpr(
-              CE->getSrcType(), CE->getDestType(), CE->isSExt());
+      CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt());
       IVBlobExpr->addBlob(IVBlobIndex, IVCoeff);
 
       // At this point IVBlobIndex is KnownPositive or KnownNegative, as we
@@ -317,9 +316,8 @@ IVSegment::isSegmentSupported(const HLLoop *Loop,
 
     auto IVBlobIndex = CE->getIVBlobCoeff(Level);
     if (IVBlobIndex != INVALID_BLOB_INDEX) {
-      CanonExpr *IVBlobExpr =
-          CanonExprUtils::CanonExprUtils::createExtCanonExpr(
-              CE->getSrcType(), CE->getDestType(), CE->isSExt());
+      CanonExpr *IVBlobExpr = CanonExprUtils::createExtCanonExpr(
+          CE->getSrcType(), CE->getDestType(), CE->isSExt());
 
       IVBlobExpr->addBlob(IVBlobIndex, CE->getIVConstCoeff(Level));
 
