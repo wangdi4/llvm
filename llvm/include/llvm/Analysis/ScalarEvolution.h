@@ -552,6 +552,11 @@ namespace llvm {
     /// are computed.
     DenseMap<const Loop*, BackedgeTakenInfo> BackedgeTakenCounts;
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+    /// This is a cache of HIR backedge taken counts. It is built on top of
+    /// BackedgeTakenCounts and needs to stay in sync with it.
+    DenseMap<const Loop*, BackedgeTakenInfo> HIRBackedgeTakenCounts;
+#endif  // INTEL_CUSTOMIZATION
     /// This map contains entries for all of the PHI instructions that we
     /// attempt to compute constant evolutions for.  This allows us to avoid
     /// potentially expensive recomputation of these properties.  An instruction
@@ -816,6 +821,10 @@ namespace llvm {
 #if INTEL_CUSTOMIZATION // HIR parsing 
     /// Returns true if specified SCEV is suitable for HIR consumption. 
     bool isValidSCEVForHIR(const SCEV *SC) const;
+
+    /// Constructs the original SCEV corresponding to this HIR SCEV by 
+    /// re-parsing contained SCEVUnknowns.
+    const SCEV *getOriginalSCEV(const SCEV *SC);
 #endif  // INTEL_CUSTOMIZATION
 
     /// Return false iff given SCEV contains a SCEVUnknown with NULL value-

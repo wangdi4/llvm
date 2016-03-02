@@ -3320,6 +3320,8 @@ const SCEV *ScalarEvolution::getSCEV(Value *V) {
     S = createSCEV(V);
 #if INTEL_CUSTOMIZATION // HIR parsing 
     if (HIRInfo.isValid()) {
+      // This SCEV was created especially for HIR so it should not be cached in
+      // the original cache (ValueExprMap).
       HIRValueExprMap.insert(std::make_pair(V, S));
       return S;
     }
@@ -3480,6 +3482,39 @@ bool ScalarEvolution::isLoopZtt(const Loop *Lp, const BranchInst *ZttInst) {
   }      
 
   return isImpliedCond(Pred, LHS, RHS, ZttCond, false);
+}
+
+// This class is used to recreate original SCEV form of a value given the HIR
+// SCEV form. This is done by reparsing SCEVUnkowns in the incoming SCEV.
+class OriginalSCEVCreator : public SCEVRewriteVisitor<OriginalSCEVCreator> {
+public:
+  static const SCEV *create(const SCEV *SC, ScalarEvolution &SE) {
+    OriginalSCEVCreator Rewriter(SE);
+    return Rewriter.visit(SC);
+  }
+ 
+  OriginalSCEVCreator(ScalarEvolution &SE): SCEVRewriteVisitor(SE) {}
+ 
+  const SCEV *visitUnknown(const SCEVUnknown *UnknownSCEV) {
+    return SE.getSCEV(UnknownSCEV->getValue());
+  }
+
+};
+
+const SCEV *ScalarEvolution::getOriginalSCEV(const SCEV *SC) {
+  if (HIRInfo.isValid()) {
+    // Copy-construction temporarily disables HIR mode and restores it at the
+    // end of the scope.
+    // During copy construction, the constructed object stores a pointer to the
+    // initializer object and copies its fields. Initializer is then 'reset'.
+    // When the destructor of the copy constructed object is invoked, it looks
+    // for the initializer and restores its state. This is akin to RAII idiom.
+    HIRInfoS SavedHIRInfo(HIRInfo);
+
+    return OriginalSCEVCreator::create(SC, *this);
+  }
+
+  return SC;
 }
 
 #endif // INTEL_CUSTOMIZATION
@@ -4388,14 +4423,14 @@ ScalarEvolution::getRange(const SCEV *S,
                                                        : SignedRanges;
 
 #if INTEL_CUSTOMIZATION // HIR parsing
-  // Disable HIR mode for analysis. In addition to improving analysis, this 
-  // also prevents infinite recursion in ScalarEvolution. Refer to comments for
-  // getBackedgeTakenInfo().
-  // Copy-construction is a hack to temporarily disable the HIR mode and 
-  // restore it at the end of the function.
-  HIRInfoS SavedHIRInfo(HIRInfo);
-#endif //INTEL_CUSTOMIZATION
+  // Construct original non-HIR SCEV for analysis.
+  S = getOriginalSCEV(S);
 
+  // Disable HIR mode to make analysis more precise.
+  // Copy-construction is a hack to temporarily disable HIR mode and restore it
+  // at the end of the function.
+  HIRInfoS SavedHIRInfo(HIRInfo);
+#endif // INTEL_CUSTOMIZATION
   // See if we've computed this range already.
   DenseMap<const SCEV *, ConstantRange>::iterator I = Cache.find(S);
   if (I != Cache.end())
@@ -5186,13 +5221,34 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // update the value. The temporary CouldNotCompute value tells SCEV
   // code elsewhere that it shouldn't attempt to request a new
   // backedge-taken count, which could result in infinite recursion.
+#if INTEL_CUSTOMIZATION // HIR parsing 
+  // If in HIR mode, first check HIR cache.
+  if (HIRInfo.isValid()) {
+    auto Pair = HIRBackedgeTakenCounts.insert(
+            std::make_pair(L, BackedgeTakenInfo()));
+
+    if (!Pair.second) 
+      return Pair.first->second;
+  }
+
+  // If not in HIR mode or no entry in HIR cache, check the original cache.
+#endif // INTEL_CUSTOMIZATION
   std::pair<DenseMap<const Loop *, BackedgeTakenInfo>::iterator, bool> Pair =
     BackedgeTakenCounts.insert(std::make_pair(L, BackedgeTakenInfo()));
-  if (!Pair.second &&                                        // INTEL
-      (!HIRInfo.isValid() ||                                 // INTEL
-      isValidSCEVForHIR(Pair.first->second.getExact(this)))) // INTEL
-    return Pair.first->second;
 
+#if INTEL_CUSTOMIZATION // HIR parsing 
+  if (!Pair.second) {
+    auto & BTI = Pair.first->second;
+
+    // Return original entry in non-HIR mode.
+    if (!HIRInfo.isValid()) 
+      return BTI;
+
+    // If original cache entry is valid for HIR, copy the entry.
+    if (isValidSCEVForHIR(BTI.getExact(this))) 
+      return HIRBackedgeTakenCounts.find(L)->second = BTI;
+  }
+#endif // INTEL_CUSTOMIZATION
   // computeBackedgeTakenCount may allocate memory for its result. Inserting it
   // into the BackedgeTakenCounts map transfers ownership. Otherwise, the result
   // must be cleared in this scope.
@@ -5267,6 +5323,10 @@ ScalarEvolution::getBackedgeTakenInfo(const Loop *L) {
   // recusive call to getBackedgeTakenInfo (on a different
   // loop), which would invalidate the iterator computed
   // earlier.
+#if INTEL_CUSTOMIZATION // HIR parsing
+  if (HIRInfo.isValid()) 
+    return HIRBackedgeTakenCounts.find(L)->second = Result;
+#endif // INTEL_CUSTOMIZATION
   return BackedgeTakenCounts.find(L)->second = Result;
 }
 
@@ -5282,6 +5342,13 @@ void ScalarEvolution::forgetLoop(const Loop *L) {
     BackedgeTakenCounts.erase(BTCPos);
   }
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  auto HBTCPos = HIRBackedgeTakenCounts.find(L);
+  if (HBTCPos != HIRBackedgeTakenCounts.end()) {
+    HBTCPos->second.clear();
+    HIRBackedgeTakenCounts.erase(HBTCPos);
+  }
+#endif // INTEL_CUSTOMIZATION
   // Drop information about expressions based on loop-header PHIs.
   SmallVector<Instruction *, 16> Worklist;
   PushLoopPHIs(L, Worklist);
@@ -8485,8 +8552,11 @@ ScalarEvolution::HowManyLessThans(const SCEV *LHS, const SCEV *RHS,
   if (!IV || IV->getLoop() != L || !IV->isAffine())
     return getCouldNotCompute();
 
+  // INTEL - Use original SCEV to get precise wrap flags.
+  auto OrigIV = cast<SCEVAddRecExpr>(getOriginalSCEV(IV)); // INTEL
   bool NoWrap = ControlsExit &&
-                IV->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+                OrigIV->getNoWrapFlags(                            // INTEL
+                        IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
 
   const SCEV *Stride = IV->getStepRecurrence(*this);
 
@@ -8565,8 +8635,11 @@ ScalarEvolution::HowManyGreaterThans(const SCEV *LHS, const SCEV *RHS,
   if (!IV || IV->getLoop() != L || !IV->isAffine())
     return getCouldNotCompute();
 
+  // INTEL - Use original SCEV to get precise wrap flags.
+  auto OrigIV = cast<SCEVAddRecExpr>(getOriginalSCEV(IV)); // INTEL
   bool NoWrap = ControlsExit &&
-                IV->getNoWrapFlags(IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW);
+                OrigIV->getNoWrapFlags(                            // INTEL
+                        IsSigned ? SCEV::FlagNSW : SCEV::FlagNUW); // INTEL
 
   const SCEV *Stride = getNegativeSCEV(IV->getStepRecurrence(*this));
 
@@ -9338,6 +9411,7 @@ ScalarEvolution::ScalarEvolution(ScalarEvolution &&Arg)
       HIRValueExprMap(std::move(Arg.HIRValueExprMap)), // INTEL
       WalkingBEDominatingConds(false), ProvingSplitPredicate(false),
       BackedgeTakenCounts(std::move(Arg.BackedgeTakenCounts)),
+      HIRBackedgeTakenCounts(std::move(Arg.HIRBackedgeTakenCounts)), // INTEL
       ConstantEvolutionLoopExitValue(
           std::move(Arg.ConstantEvolutionLoopExitValue)),
       ValuesAtScopes(std::move(Arg.ValuesAtScopes)),
@@ -9371,6 +9445,10 @@ ScalarEvolution::~ScalarEvolution() {
   for (auto &BTCI : BackedgeTakenCounts)
     BTCI.second.clear();
 
+#if INTEL_CUSTOMIZATION // HIR parsing
+  for (auto &BTCI : HIRBackedgeTakenCounts)
+    BTCI.second.clear();
+#endif // INTEL_CUSTOMIZATION
   assert(PendingLoopPredicates.empty() && "isImpliedCond garbage");
   assert(!WalkingBEDominatingConds && "isLoopBackedgeGuardedByCond garbage!");
   assert(!ProvingSplitPredicate && "ProvingSplitPredicate garbage!");
@@ -9704,6 +9782,19 @@ void ScalarEvolution::forgetMemoizedResults(const SCEV *S) {
     else
       ++I;
   }
+#if INTEL_CUSTOMIZATION // HIR parsing
+  for (DenseMap<const Loop*, BackedgeTakenInfo>::iterator I =
+         HIRBackedgeTakenCounts.begin(), E = HIRBackedgeTakenCounts.end(); 
+         I != E; ) {
+    BackedgeTakenInfo &BEInfo = I->second;
+    if (BEInfo.hasOperand(S, this)) {
+      BEInfo.clear();
+      HIRBackedgeTakenCounts.erase(I++);
+    }
+    else
+      ++I;
+  }
+#endif // INTEL_CUSTOMIZATION
 }
 
 typedef DenseMap<const Loop *, std::string> VerifyMap;
