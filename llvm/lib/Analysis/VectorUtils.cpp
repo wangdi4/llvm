@@ -22,6 +22,7 @@
 #include "llvm/IR/PatternMatch.h"
 #include "llvm/IR/Value.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/Analysis/Intel_VectorVariant.h" // INTEL
 
 using namespace llvm;
 using namespace llvm::PatternMatch;
@@ -565,3 +566,80 @@ llvm::computeMinimumValueSizes(ArrayRef<BasicBlock *> Blocks, DemandedBits &DB,
 
   return MinBWs;
 }
+
+#if INTEL_CUSTOMIZATION
+std::vector<Attribute> llvm::getVectorVariantAttributes(Function& F) {
+  std::vector<Attribute> RetVal;
+  AttributeSet Attributes = F.getAttributes().getFnAttributes();
+  AttributeSet::iterator ItA = Attributes.begin(0);
+  AttributeSet::iterator EndA = Attributes.end(0);
+  for (; ItA != EndA; ++ItA) {
+    if (!ItA->isStringAttribute())
+      continue;
+    StringRef AttributeKind = ItA->getKindAsString();
+    if (VectorVariant::isVectorVariant(AttributeKind))
+      RetVal.push_back(*ItA);
+  }
+  return RetVal;
+}
+
+Type* llvm::calcCharacteristicType(Function& F, VectorVariant& Variant)
+{
+  Type* ReturnType = F.getReturnType();
+  Type* CharacteristicDataType = NULL;
+
+  if (!ReturnType->isVoidTy())
+    CharacteristicDataType = ReturnType;
+
+  if (!CharacteristicDataType) {
+
+    std::vector<VectorKind>& ParmKinds = Variant.getParameters();
+    const Function::ArgumentListType& Args = F.getArgumentList();
+    Function::ArgumentListType::const_iterator ArgIt = Args.begin();
+    Function::ArgumentListType::const_iterator ArgEnd = Args.end();
+    std::vector<VectorKind>::iterator VKIt = ParmKinds.begin();
+
+    for (; ArgIt != ArgEnd; ++ArgIt, ++VKIt) {
+      if (VKIt->isVector()) {
+        CharacteristicDataType = (*ArgIt).getType();
+        break;
+      }
+    }
+  }
+
+  // TODO except Clang's ComplexType
+  if (!CharacteristicDataType || CharacteristicDataType->isStructTy()) {
+    CharacteristicDataType = Type::getInt32Ty(F.getContext());
+  }
+
+  // Promote char/short types to int for Xeon Phi.
+  CharacteristicDataType =
+    VectorVariant::promoteToSupportedType(CharacteristicDataType, Variant);
+
+  if (CharacteristicDataType->isPointerTy()) {
+    // For such cases as 'int* foo(int x)', where x is a non-vector type, the
+    // characteristic type at this point will be i32*. If we use the DataLayout
+    // to query the supported pointer size, then a promotion to i64* is
+    // incorrect because the mask element type will mismatch the element type
+    // of the characteristic type.
+    PointerType *PointerTy = cast<PointerType>(CharacteristicDataType);
+    CharacteristicDataType = PointerTy->getElementType();
+  }
+
+  return CharacteristicDataType;
+}
+
+void llvm::getFunctionsToVectorize(llvm::Module &M,
+                                   FunctionVariants& FuncVars) {
+  for (auto It = M.begin(), End = M.end(); It != End; ++It) {
+    Function& F = *It;
+    auto VariantAttributes = getVectorVariantAttributes(F);
+    if (VariantAttributes.empty())
+      continue;
+    FuncVars[&F] = DeclaredVariants();
+    DeclaredVariants& DeclaredFuncVariants = FuncVars[&F];
+    for (auto Attr : VariantAttributes)
+      DeclaredFuncVariants.push_back(Attr.getKindAsString());
+  }
+}
+#endif // INTEL_CUSTOMIZATION

@@ -35,6 +35,7 @@ add_llvm_library(LLVMAnalysis
   Intel_Andersens.cpp
   Intel_SNode.cpp
   Intel_OptVLS.cpp
+  Intel_VectorVariant.cpp
 #endif     // INTEL_CUSTOMIZATION
   Interval.cpp
   IntervalPartition.cpp
