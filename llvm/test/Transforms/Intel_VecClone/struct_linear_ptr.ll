@@ -2,6 +2,7 @@
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
+; CHECK-LABEL: @_ZGVxN4l_foo
 ; CHECK: simd.loop:
 ; CHECK: %0 = load %struct.my_struct*, %struct.my_struct** %s.addr, align 8
 ; CHECK: %stride.mul{{.*}} = mul i32 1, %index

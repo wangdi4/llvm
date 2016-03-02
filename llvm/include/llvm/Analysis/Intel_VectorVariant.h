@@ -10,7 +10,12 @@
 //===----------------------------------------------------------------------===//
 ///
 /// \file
-/// This header file implements decoding and encoding of vector variants.
+/// This header file defines the VectorVariant class and implements the encoding
+/// and decoding utilities for VectorVariant objects. Multiple VectorVariant
+/// objects can be created (masked, non-masked, etc.) and associated with the
+/// original scalar function. These objects are then used to clone new functions
+/// that can be vectorized. This class follows the standards defined in the
+/// vector function ABI.
 ///
 //===----------------------------------------------------------------------===//
 
@@ -66,28 +71,42 @@ public:
     Alignment = Other.Alignment;
   }
 
+  /// \brief Is the stride for a linear parameter a uniform variable? (i.e.,
+  /// the stride is stored in a variable but is uniform)
   bool isVariableStride() { return Kind == STRIDE_KIND; }
 
+  /// \brief Is the stride for a linear variable non-unit stride?
   bool isNonUnitStride() { return Kind == LINEAR_KIND && Stride != 1; }
 
+  /// \brief Is the stride for a linear variable unit stride?
   bool isUnitStride() { return Kind == LINEAR_KIND && Stride == 1; }
 
+  /// \brief Is this a linear parameter?
   bool isLinear() {
     return isVariableStride() || isNonUnitStride() || isUnitStride();
   }
 
+  /// \brief Is this a uniform parameter?
   bool isUniform() { return Kind == UNIFORM_KIND; }
 
+  /// \brief Is this a vector parameter?
   bool isVector() { return Kind == VECTOR_KIND; }
 
+  /// \brief Is the parameter aligned?
   bool isAligned() { return Alignment != NOT_ALIGNED; }
 
+  /// \brief Get the stride associated with a linear parameter.
   int getStride() { return Stride; }
 
+  /// \brief Get the alignment associated with a linear parameter.
   int getAlignment() { return Alignment; }
 
+  /// \brief Represents a don't care value for strides of parameters other
+  /// than linear parameters.
   static int notAValue() { return -1; }
 
+  /// \brief Encode the parameter information into a mangled string
+  /// corresponding to the standards defined in the vector function ABI.
   std::string encode() {
     std::stringstream SST;
     SST << Kind;
@@ -109,13 +128,14 @@ public:
   }
 
 private:
-  char Kind;
-  int Stride;
-  int Alignment;
+  char Kind;      // linear, uniform, vector
+  int  Stride;
+  int  Alignment;
 };
 
 class VectorVariant {
 private:
+  // Targets defined in the vector function ABI.
   enum TargetProcessor {
     PENTIUM_4,         // ISA extension = SSE2,     ISA class = XMM
     PENTIUM_4_SSE3,    // ISA extension = SSE3,     ISA class = XMM
@@ -130,6 +150,7 @@ private:
     FUTURE_CPU_23,     // ISA extension = AVX512,   ISA class = ZMM
   };
 
+  // ISA classes defined in the vector function ABI.
   enum ISAClass {
     XMM,  // (SSE2)
     YMM1, // (AVX1)
@@ -145,6 +166,8 @@ private:
 
   static std::string prefix() { return "_ZGV"; }
 
+  /// \brief Determine the maximum vector register width based on the ISA classes
+  /// defined in the vector function ABI.
   static unsigned int maximumSizeofISAClassVectorRegister(ISAClass I, Type *Ty);
 
 public:
@@ -164,14 +187,21 @@ public:
 
   VectorVariant(StringRef FuncName);
 
+  /// \brief Get the ISA corresponding to this vector variant.
   ISAClass getISA() { return Isa; }
 
+  /// \brief Is this a masked vector function variant?
   bool isMasked() { return Mask; }
 
+  /// \brief Get the vector length of the vector variant.
   unsigned int getVlen() { return Vlen; }
 
+  /// \brief Get the parameters of the vector variant.
   std::vector<VectorKind> &getParameters() { return Parameters; }
 
+  /// \brief Build the mangled name for the vector variant. This function
+  /// builds a mangled name by including the encodings for the ISA class,
+  /// mask information, and all parameters.
   std::string encode() {
 
     std::stringstream SST;
@@ -191,6 +221,7 @@ public:
     return SST.str();
   }
 
+  /// \brief Generate a function name corresponding to a vector variant.
   std::string generateFunctionName(StringRef ScalarFuncName) {
 
     static StringRef ManglingPrefix("_Z");
@@ -202,14 +233,20 @@ public:
       return Name + ScalarFuncName.str();
   }
 
+  /// \brief Some targets do not support particular types, so promote to a type
+  /// that is supported.
   Type *promoteToSupportedType(Type *Ty) {
     return promoteToSupportedType(Ty, *this);
   }
 
+  /// \brief Check to see if this is a vector variant based on the function
+  /// name.
   static bool isVectorVariant(StringRef FuncName) {
     return FuncName.startswith(prefix());
   }
 
+  /// \brief Some targets do not support particular types, so promote to a type
+  /// that is supported.
   static Type *promoteToSupportedType(Type *Ty, VectorVariant &Variant) {
     ISAClass I;
 
@@ -221,6 +258,7 @@ public:
     return Ty;
   }
 
+  /// \brief Get the ISA class corresponding to a particular target processor.
   static ISAClass targetProcessorISAClass(TargetProcessor Target) {
 
     switch (Target) {
@@ -245,6 +283,7 @@ public:
     }
   }
 
+  /// \brief Get an ISA class string based on ISA class enum.
   static std::string ISAClassToString(ISAClass isa_class) {
     switch (isa_class) {
     case XMM:
@@ -261,6 +300,7 @@ public:
     }
   }
 
+  /// \brief Get an ISA class enum based on ISA class string.
   static ISAClass ISAClassFromString(std::string isa_class) {
     if (isa_class == "XMM")
       return XMM;
@@ -274,6 +314,7 @@ public:
     return ISA_CLASSES_NUM;
   }
 
+  /// \brief Encode the ISA class for the mangled variant name.
   static char encodeISAClass(ISAClass IsaClass) {
 
     switch (IsaClass) {
@@ -293,6 +334,7 @@ public:
     return '?';
   }
 
+  /// \brief Decode the ISA class from the mangled variant name.
   static ISAClass decodeISAClass(char IsaClass) {
 
     switch (IsaClass) {
@@ -310,6 +352,7 @@ public:
     }
   }
 
+  /// \brief Encode the mask information for the mangled variant name.
   static char encodeMask(bool EncodeMask) {
 
     switch (EncodeMask) {
@@ -322,6 +365,7 @@ public:
     llvm_unreachable("unsupported mask");
   }
 
+  /// \brief Decode the mask information from the mangled variant name.
   static bool decodeMask(char MaskToDecode) {
 
     switch (MaskToDecode) {
@@ -334,6 +378,7 @@ public:
     llvm_unreachable("unsupported mask");
   }
 
+  /// \brief Calculate the vector length for the vector variant.
   static unsigned int calcVlen(ISAClass I, Type *Ty);
 };
 

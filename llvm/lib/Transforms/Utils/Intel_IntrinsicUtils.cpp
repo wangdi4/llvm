@@ -1,4 +1,5 @@
-//==-- IntrinsicUtils.cpp - Utilities for VPO related intrinsics -*- C++ -*-==//
+//==-- Intel_IntrinsicUtils.cpp - Utilities for directives-based -*- C++ -*-==//
+//                                intrinsics.
 //
 // Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //

@@ -136,7 +136,7 @@ static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,

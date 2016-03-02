@@ -2,6 +2,7 @@
 
 ; RUN: opt -vec-clone -S < %s | FileCheck %s
 
+; CHECK-LABEL: @_ZGVxN4lu_foo
 ; CHECK: simd.loop:
 ; CHECK: %1 = load i32, i32* %i.addr
 ; CHECK: %stride.mul = mul i32 1, %index
