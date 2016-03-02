@@ -28,7 +28,6 @@
 #include "kernel.h"
 #include "Context.h"
 #include "program.h"
-#include "program_with_il.h"
 #include "fe_compiler.h"
 #include "common_clang.h"
 #include "sampler.h"
@@ -737,12 +736,7 @@ cl_err_code Kernel::CreateDeviceKernels(std::vector<unique_ptr<DeviceProgram>>& 
     if (NULL != pDeviceKernel)
     {
         SetKernelPrototype(pDeviceKernel->GetPrototype(), maxArgBufferSize, maxArgumentBufferAlignment);
-        // by OpenCL 2.1 spec. clGetKernelArgInfo is only working for programs created from OpenCL C
-        // source code and not working for SPIR-V programs.
-        if (!m_pProgram.DynamicCast<ProgramWithIL>())
-            SetKernelArgumentInfo(pDeviceKernel);
-        // FIXME: After the program is build there is should be an ELF container with LLVM BC, executable binaries,
-        // metadata and so on. ATM ProgramWithIL instance contains SPIR-V binary
+        SetKernelArgumentInfo(pDeviceKernel);
     }
 
     return CL_SUCCESS;
