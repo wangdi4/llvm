@@ -735,9 +735,9 @@ STIType::STIType(STIObjectKind kind)
 
 STIType::~STIType() {}
 
-STITypeIndex STIType::getIndex() const { return _index; }
+STIType::Index STIType::getIndex() const { return _index; }
 
-void STIType::setIndex(STITypeIndex index) { _index = index; }
+void STIType::setIndex(STIType::Index index) { _index = index; }
 
 uint32_t STIType::getSizeInBits() const { return _sizeInBits; }
 
@@ -759,6 +759,17 @@ STITypeBasic::Primitive STITypeBasic::getPrimitive() const {
 }
 
 void STITypeBasic::setPrimitive(Primitive primitive) { _primitive = primitive; }
+
+//===----------------------------------------------------------------------===//
+// STITypeIndex
+//===----------------------------------------------------------------------===//
+
+STITypeIndex::STITypeIndex()
+    : STITypeFieldListItem(STI_OBJECT_KIND_TYPE_INDEX), _type(nullptr) {}
+
+STITypeIndex::~STITypeIndex() {}
+
+STITypeIndex *STITypeIndex::create() { return new STITypeIndex(); }
 
 //===----------------------------------------------------------------------===//
 // STITypeModifier
@@ -917,10 +928,11 @@ void STITypeBitfield::setSize(uint32_t size) { _size = size; }
 //===----------------------------------------------------------------------===//
 
 STITypeMember::STITypeMember() :
-    _attribute  (0),
-    _type       (nullptr),
-    _offset     (nullptr),
-    _isStatic   (false) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_MEMBER),
+    _attribute           (0),
+    _type                (nullptr),
+    _offset              (nullptr),
+    _isStatic            (false) {
 }
 
 STITypeMember::~STITypeMember() {
@@ -1019,7 +1031,10 @@ STITypeMethodList::STIMethodTypeList &STITypeMethodList::getList() {
 // STITypeMethod
 //===----------------------------------------------------------------------===//
 
-STITypeMethod::STITypeMethod() : _count(0), _methodList(nullptr) {}
+STITypeMethod::STITypeMethod() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_METHOD),
+    _count               (0),
+    _methodList          (nullptr) {}
 
 STITypeMethod::~STITypeMethod() {}
 
@@ -1041,8 +1056,12 @@ void STITypeMethod::setName(StringRef name) { _name = name; }
 // STITypeOneMethod
 //===----------------------------------------------------------------------===//
 
-STITypeOneMethod::STITypeOneMethod()
-    : _attribute(0), _type(nullptr), _virtuality(0), _virtualIndex(0) {}
+STITypeOneMethod::STITypeOneMethod() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_ONEMETHOD),
+    _attribute           (0),
+    _type                (nullptr),
+    _virtuality          (0),
+    _virtualIndex        (0) {}
 
 STITypeOneMethod::~STITypeOneMethod() {}
 
@@ -1077,8 +1096,9 @@ void STITypeOneMethod::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeEnumerator::STITypeEnumerator() :
-    _attribute  (0),
-    _value      (nullptr) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_ENUMERATOR),
+    _attribute           (0),
+    _value               (nullptr) {
 }
 
 STITypeEnumerator::~STITypeEnumerator() {
@@ -1110,9 +1130,10 @@ void STITypeEnumerator::setName(StringRef name) { _name = name; }
 //===----------------------------------------------------------------------===//
 
 STITypeBaseClass::STITypeBaseClass() :
-    _attribute  (0),
-    _type       (nullptr),
-    _offset     (nullptr) {
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_BASECLASS),
+    _attribute           (0),
+    _type                (nullptr),
+    _offset              (nullptr) {
 }
 
 STITypeBaseClass::~STITypeBaseClass() {
@@ -1142,13 +1163,13 @@ void STITypeBaseClass::setOffset(const STINumeric *offset) {
 //===----------------------------------------------------------------------===//
 
 STITypeVBaseClass::STITypeVBaseClass(bool indirect) :
-    _attribute  (0),
-    _type       (nullptr),
-    _vbpType    (nullptr),
-    _vbpOffset  (nullptr),
-    _vbIndex    (nullptr) {
-  _symbolID = indirect ? LF_IVBCLASS : LF_VBCLASS;
-}
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_VBASECLASS),
+    _attribute           (0),
+    _type                (nullptr),
+    _vbpType             (nullptr),
+    _vbpOffset           (nullptr),
+    _vbIndex             (nullptr),
+    _symbolID            (indirect ? LF_IVBCLASS : LF_VBCLASS) {}
 
 STITypeVBaseClass::~STITypeVBaseClass() {
   delete _vbpOffset;
@@ -1193,7 +1214,9 @@ void STITypeVBaseClass::setVbIndex(const STINumeric *index) {
 // STITypeVFuncTab
 //===----------------------------------------------------------------------===//
 
-STITypeVFuncTab::STITypeVFuncTab() : _type(nullptr) {}
+STITypeVFuncTab::STITypeVFuncTab() :
+    STITypeFieldListItem (STI_OBJECT_KIND_TYPE_VFUNCTAB),
+    _type                (nullptr) {}
 
 STITypeVFuncTab::~STITypeVFuncTab() {}
 
@@ -1204,103 +1227,36 @@ STIType *STITypeVFuncTab::getType() const { return _type; }
 void STITypeVFuncTab::setType(STIType *type) { _type = type; }
 
 //===----------------------------------------------------------------------===//
+// STITypeFieldListItem
+//===----------------------------------------------------------------------===//
+
+STITypeFieldListItem::STITypeFieldListItem(STIObjectKind kind)
+    : STIType (kind) {}
+
+STITypeFieldListItem::~STITypeFieldListItem() {}
+
+//===----------------------------------------------------------------------===//
 // STITypeFieldList
 //===----------------------------------------------------------------------===//
 
 STITypeFieldList::STITypeFieldList()
-    : STIType(STI_OBJECT_KIND_TYPE_FIELD_LIST), _vFuncTab(nullptr) {}
+    : STIType(STI_OBJECT_KIND_TYPE_FIELD_LIST) {}
 
 STITypeFieldList::~STITypeFieldList() {
-  for (STITypeBaseClass *baseClass : getBaseClasses()) {
-    delete baseClass;
+  for (STIType *field : _fields) {
+    delete field;
   }
-
-  for (STITypeVBaseClass *vBaseClass : getVBaseClasses()) {
-    delete vBaseClass;
-  }
-
-  const STITypeVFuncTab *vFuncTab = getVFuncTab();
-  delete vFuncTab;
-
-  for (STITypeMember *member : getMembers()) {
-    delete member;
-  }
-
-  for (STITypeMethod *method : getMethods()) {
-    delete method;
-  }
-
-  for (STITypeOneMethod *method : getOneMethods()) {
-    delete method;
-  }
-
-  for (STITypeEnumerator *enumerator : getEnumerators()) {
-    delete enumerator;
-  }
+  _fields.clear();
 }
 
 STITypeFieldList *STITypeFieldList::create() { return new STITypeFieldList(); }
 
-STITypeFieldList::STITypeBaseClassList &STITypeFieldList::getBaseClasses() {
-  return _baseClasses;
+const STITypeFieldList::Fields &STITypeFieldList::getFields() const {
+  return _fields;
 }
 
-const STITypeFieldList::STITypeBaseClassList &
-STITypeFieldList::getBaseClasses() const {
-  return _baseClasses;
-}
-
-STITypeFieldList::STITypeVBaseClassList &STITypeFieldList::getVBaseClasses() {
-  return _vBaseClasses;
-}
-
-const STITypeFieldList::STITypeVBaseClassList &
-STITypeFieldList::getVBaseClasses() const {
-  return _vBaseClasses;
-}
-
-const STITypeVFuncTab *STITypeFieldList::getVFuncTab() const {
-  return _vFuncTab;
-}
-
-void STITypeFieldList::setVFuncTab(STITypeVFuncTab *vFuncTab) {
-  _vFuncTab = vFuncTab;
-}
-
-STITypeFieldList::STITypeMemberList &STITypeFieldList::getMembers() {
-  return _members;
-}
-
-const STITypeFieldList::STITypeMemberList &
-STITypeFieldList::getMembers() const {
-  return _members;
-}
-
-STITypeFieldList::STITypeMethodsList &STITypeFieldList::getMethods() {
-  return _methods;
-}
-
-const STITypeFieldList::STITypeMethodsList &
-STITypeFieldList::getMethods() const {
-  return _methods;
-}
-
-STITypeFieldList::STITypeOneMethodList &STITypeFieldList::getOneMethods() {
-  return _oneMethods;
-}
-
-const STITypeFieldList::STITypeOneMethodList &
-STITypeFieldList::getOneMethods() const {
-  return _oneMethods;
-}
-
-STITypeFieldList::STITypeEnumeratorList &STITypeFieldList::getEnumerators() {
-  return _enumerators;
-}
-
-const STITypeFieldList::STITypeEnumeratorList &
-STITypeFieldList::getEnumerators() const {
-  return _enumerators;
+void STITypeFieldList::append(STITypeFieldListItem *field) {
+  _fields.push_back(field);
 }
 
 //===----------------------------------------------------------------------===//

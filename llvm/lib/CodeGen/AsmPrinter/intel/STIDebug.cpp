@@ -33,6 +33,7 @@
 
 #include <map>
 #include <vector>
+#include <deque>
 
 // FIXME: We should determine which getcwd to use during configuration and not
 //        at compile time.
@@ -366,6 +367,294 @@ static STIMachineID toMachineID(Triple::ArchType architecture) {
 
   return machineID;
 }
+
+//===----------------------------------------------------------------------===//
+// numericLength(numeric)
+//
+// Returns the encoded length, in bytes, of the specified numeric leaf.
+//
+//===----------------------------------------------------------------------===//
+
+static size_t numericLength(const STINumeric* numeric) {
+  size_t length;
+
+  // Start with the length of the encoding kind.
+  //
+  length  = numeric->getLeafID() != LF_INTEL_NONE ? 2 : 0;
+
+  // Add the size of the numeric data.
+  //
+  length += numeric->getSize();
+
+  // The minimum encoded size of the leaf must be two bytes long.
+  //
+  length  = std::max<size_t>(length, 2);
+
+  return length;
+}
+
+
+//===----------------------------------------------------------------------===//
+// calculateFieldLength(field)
+//
+// Calculate the encoded length, in bytes, of the specified field.
+//
+//===----------------------------------------------------------------------===//
+
+static size_t calculateFieldLength(const STITypeFieldListItem *field) {
+  size_t length;
+
+  switch (field->getKind()) {
+  case (STI_OBJECT_KIND_TYPE_VBASECLASS): {
+    const STITypeVBaseClass *vBaseClass =
+        static_cast<const STITypeVBaseClass*>(field);
+    const STINumeric *offset = vBaseClass->getVbpOffset();
+    const STINumeric *index  = vBaseClass->getVbIndex();
+
+    length = 12 + numericLength(offset) + numericLength(index);
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_BASECLASS): {
+    const STITypeBaseClass *baseClass =
+        static_cast<const STITypeBaseClass*>(field);
+    const STINumeric *offset = baseClass->getOffset();
+
+    length = 8 + numericLength(offset);
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_VFUNCTAB):
+    length = 8;
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_MEMBER): {
+    const STITypeMember *member = static_cast<const STITypeMember*>(field);
+    const STINumeric *offset   = member->getOffset();
+    StringRef         name     = member->getName();
+    bool              isStatic = member->isStatic();
+
+    length = 8
+                + (isStatic ? 0 : numericLength(offset))
+                + name.size() + 1;
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_METHOD): {
+    const STITypeMethod *method = static_cast<const STITypeMethod*>(field);
+    StringRef name = method->getName();
+
+    length = 8 + name.size() + 1;
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_ONEMETHOD): {
+    const STITypeOneMethod *method =
+        static_cast<const STITypeOneMethod*>(field);
+    StringRef name = method->getName();
+    bool isVirtual = method->getVirtuality();
+
+    length = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_ENUMERATOR): {
+    const STITypeEnumerator *enumerator =
+        static_cast<const STITypeEnumerator*>(field);
+    const STINumeric *value = enumerator->getValue();
+    StringRef         name  = enumerator->getName();
+
+    length = 4 + numericLength(value) + name.size() + 1;
+    }
+    break;
+
+  case (STI_OBJECT_KIND_TYPE_INDEX):
+    length = 8;
+    break;
+
+  default:
+    assert(!"Invalid field list item kind!");
+    length = 0;
+    break;
+  }
+
+  return length;
+}
+
+//===----------------------------------------------------------------------===//
+// calculateFieldListLength(fieldList)
+//
+// Calculate the encoded length, in bytes, of the specified field list.
+//
+//===----------------------------------------------------------------------===//
+
+static size_t calculateFieldListLength(const STITypeFieldList *fieldList) {
+  size_t length = 4;
+
+  for (const STITypeFieldListItem *field : fieldList->getFields()) {
+    size_t fieldLength;
+
+    fieldLength = calculateFieldLength(field);
+    fieldLength += paddingBytes(fieldLength);
+
+    length += fieldLength;
+  }
+
+  return length;
+}
+
+//===----------------------------------------------------------------------===//
+// STIFieldListBuilder
+//
+// This class contains contains code for constructing field list types.
+//
+// If the field list length approaches the maximum size, then create
+// additional field lists and string them together using index entries,
+// like this:
+//
+//     0x1000 LF_FIELDLIST
+//            list[0] = LF_ENUMERATE ...
+//            ...
+//            list[n] = LF_ENUMERATE ...
+//     0x1001 LF_FIELDLIST
+//            list[0] = LF_ENUMERATE ...
+//            ...
+//            LF_INDEX, type: 0x1000
+//     0x1002 LF_FIELDLIST
+//            list[0] = LF_ENUMERATE ...      <-- first field
+//            ...
+//            LF_INDEX, type: 0x1001
+//     0x1003 LF_ENUM, type: 0x1002
+//
+//
+// Usage:
+// {
+//   STIFieldListBuilder builder;
+//
+//   // Add all of the field lists items to the builder.
+//   //
+//   for (STIFieldListItem *item : getFieldListItems()) {
+//     builder.append(item);
+//   }
+//
+//   // Append each field list created by the builder to the types table.
+//   //
+//   for (STITypeFieldList *fieldList : builder.getFieldLists()) {
+//     appendType(fieldList);
+//   }
+// }
+//
+//===----------------------------------------------------------------------===//
+
+class STIFieldListBuilder {
+public:
+  typedef std::deque<STITypeFieldList*> FieldLists;
+
+private:
+  FieldLists    _fieldLists;        // Field lists created by this builder.
+  size_t        _fieldListLength;   // Current length of "_fieldLists.front()"
+
+public:
+  STIFieldListBuilder() :
+      _fieldLists       (),
+      _fieldListLength  (initialFieldListLength()) {
+    _fieldLists.push_back(createTypeFieldList()); // Add initial field list.
+  }
+
+  ~STIFieldListBuilder() {
+    // It is the callers responsibility to deallocate field lists created by
+    // this builder.
+  }
+
+  // append(field)
+  //
+  // Appends the specified field to the field list being built.
+  //
+  void append(STITypeFieldListItem *field) {
+    size_t fieldLength;
+
+    // Calculate the encoded length in bytes of the specified field, including
+    // padding.
+    //
+    fieldLength  = calculateFieldLength(field);
+    fieldLength += paddingBytes(fieldLength);
+
+    // Check to see if adding this field will 'overflow' the maximum allowable
+    // size of a field list type record.  We reserve "8" bytes at the end to
+    // allow for the creation of an LF_INDEX entry in the field list.
+    //
+    if (_fieldListLength + fieldLength + 8 > UINT16_MAX) {
+      createFieldListExtension();
+    }
+
+    // Append the item to the current field list and update the length.
+    //
+    _fieldLists.front()->append(field);
+    _fieldListLength += fieldLength;
+  }
+
+  // getFieldLists()
+  //
+  // Returns a sequential container which can be traversed, in order, to
+  // emit the field lists created by this builder.
+  //
+  FieldLists getFieldLists() const { return _fieldLists; }
+
+private:
+  // createTypeFieldList()
+  //
+  // Returns a newly constructed (empty) field list type.
+  //
+  static STITypeFieldList *createTypeFieldList() {
+    return STITypeFieldList::create();
+  }
+
+  // createTypeIndex(type)
+  //
+  // Creates a new LF_INDEX type record referring to the specified type.
+  //
+  static STITypeIndex *createTypeIndex(STIType *type) {
+    STITypeIndex *index;
+
+    index = STITypeIndex::create();
+    index->setType(type);
+
+    return index;
+  }
+
+  // initialFieldListLength()
+  //
+  // Length in bytes of a field list which contains no fields.
+  //
+  static size_t initialFieldListLength() {
+    return 4;
+  }
+
+  // createFieldListExtension()
+  //
+  // Creates an extension of the current field list, which can be used when
+  // the size of the fields overflows the maximum allowable size of a single
+  // field list.
+  //
+  void createFieldListExtension() {
+    STITypeFieldList *fieldList = createTypeFieldList();
+
+    // The existing field list is connected to the next field list using an
+    // LF_INDEX type entry.  This entries requires 8 bytes, so make sure we
+    // have room for it.
+    //
+    assert(_fieldListLength + 8 <= UINT16_MAX);
+    _fieldLists.front()->append(createTypeIndex(fieldList));
+
+    // Prepend the new field list before the others.
+    //
+    _fieldLists.push_front(fieldList);
+
+    // Reset the length to match the newly created field list.
+    //
+    _fieldListLength = initialFieldListLength();
+  }
+};
 
 //===----------------------------------------------------------------------===//
 // STITypeTable
@@ -914,16 +1203,27 @@ protected:
   STIType *toTypeDefinition(STIType *type);
 
   STISymbolUserDefined *createSymbolUserDefined(STIType *type, StringRef name);
+
+  STITypeVShape *lowerTypeVShape(unsigned vMethodsCount);
+
   STITypeBasic *createTypeBasic(
         STITypeBasic::Primitive primitive,
         uint32_t sizeInBits) const;
-  STITypeStructure *createTypeStructure(const DICompositeType *llvmType,
-                                        ClassInfo& classInfo,
-                                        bool isDecl);
-  STITypeStructure *createTypeStructureDecl(const DICompositeType *llvmType,
-                                        ClassInfo& classInfo);
-  STITypeStructure *createTypeStructureDefn(const DICompositeType *llvmType,
-                                        ClassInfo& classInfo);
+  STITypeStructure *createTypeStructure(
+        const uint16_t leaf,
+        std::string name,
+        STITypeFieldList *fieldType,
+        STITypeVShape *vshapeType,
+        const uint16_t count,
+        STITypeStructure::Properties  properties,
+        STINumeric *size,
+        const uint32_t sizeInBits);
+  STITypeStructure *lowerTypeStructureDecl(
+        const DICompositeType *llvmType,
+        ClassInfo& classInfo);
+  STITypeStructure *lowerTypeStructureDefn(
+        const DICompositeType *llvmType,
+        ClassInfo& classInfo);
 
   STITypeBasic::Primitive toBasicPrimitive(const DIBasicType *llvmType);
   STITypeBasic::Primitive toPointerPrimitive(const DIDerivedType *llvmType);
@@ -933,7 +1233,8 @@ protected:
       uint16_t       firstArgIndex);
   STITypeFieldList* lowerTypeStructureFieldList(
       const DICompositeType *llvmType,
-      ClassInfo             &info);
+      ClassInfo             &info,
+      STITypeVShape         *vShapeType);
 
   STIType *lowerTypeBasic(const DIBasicType *llvmType);
   STIType *lowerTypePointer(const DIDerivedType *llvmType);
@@ -968,8 +1269,6 @@ protected:
 
   // Used with _typeIdentifierMap for type resolution, not clear why?
   template <typename T> T *resolve(TypedDINodeRef<T> ref) const;
-
-  size_t numericLength(const STINumeric* numeric) const;
 
   // Routines for emitting atomic data.
   void emitAlign(unsigned int byteAlignment) const;
@@ -1050,11 +1349,20 @@ protected:
   void emitTypeBitfield(const STITypeBitfield *type) const;
   void emitTypeMethodList(const STITypeMethodList *type) const;
   void emitTypeFieldList(const STITypeFieldList *type) const;
+  void emitTypeFieldListItem(const STITypeFieldListItem *field) const;
   void emitTypeFunctionID(const STITypeFunctionID *type) const;
   void emitTypeProcedure(const STITypeProcedure *type) const;
   void emitTypeMemberFunction(const STITypeMemberFunction *type) const;
   void emitTypeArgumentList(const STITypeArgumentList *type) const;
   void emitTypeServer(const STITypeServer *type) const;
+  void emitTypeVBaseClass(const STITypeVBaseClass *vBaseClass) const;
+  void emitTypeBaseClass(const STITypeBaseClass *baseClass) const;
+  void emitTypeVFuncTab(const STITypeVFuncTab *vFuncTab) const;
+  void emitTypeMember(const STITypeMember *member) const;
+  void emitTypeMethod(const STITypeMethod *method) const;
+  void emitTypeOneMethod(const STITypeOneMethod *method) const;
+  void emitTypeEnumerator(const STITypeEnumerator *enumerator) const;
+  void emitTypeIndex(const STITypeIndex *index) const;
 };
 
 //===----------------------------------------------------------------------===//
@@ -2128,17 +2436,17 @@ STIType *STIDebugImpl::toTypeDefinition(STIType *type) {
 }
 
 //===----------------------------------------------------------------------===//
-// leafForAggregateDwarfTag(tag)
+// leafForAggregateType(llvmType)
 //
-// Maps the specified DWARF tag, which must correspond to an aggregate type,
-// to an STI leaf identifier for the aggregate type.
+// Returns the STI leaf identifier for the specified composite type, which must
+// be an aggregate type (class, struct, union).
 //
 //===----------------------------------------------------------------------===//
 
-static uint16_t leafForAggregateDwarfTag(const dwarf::Tag tag) {
+static uint16_t leafForAggregateType(const DICompositeType *llvmType) {
   uint16_t leaf;
 
-  switch (tag) {
+  switch (static_cast<dwarf::Tag>(llvmType->getTag())) {
 #define X(TAG, TYPE) case dwarf::TAG: leaf = TYPE; break
     X(DW_TAG_class_type,     LF_CLASS);
     X(DW_TAG_structure_type, LF_STRUCTURE);
@@ -2173,74 +2481,22 @@ STITypeBasic *STIDebugImpl::createTypeBasic(
 }
 
 //===----------------------------------------------------------------------===//
-// createTypeStructure(llvmType, classInfo, isDecl)
+// createTypeStructure(...)
 //
-// Creates a single type entry for an aggregate type.  The type entry is based
-// on the specified LLVM type and class information.  If isDecl is TRUE, then
-// the type entry will be a forward reference for the aggregate type, otherwse
-// a definition will be created.
-//
-// This routine currently generates the field list and virtual table type
-// entries as well.
+// Creates a single type entry for an aggregate type.
 //
 //===----------------------------------------------------------------------===//
 
 STITypeStructure *STIDebugImpl::createTypeStructure(
-        const DICompositeType *llvmType,
-        ClassInfo& classInfo,
-        bool isDecl) {
-  const dwarf::Tag  tag = static_cast<dwarf::Tag>(llvmType->getTag());
-  const uint16_t    leaf = leafForAggregateDwarfTag(tag);
-  std::string       name = nameForAggregateType(llvmType);
+      const uint16_t                leaf,
+      std::string                   name,
+      STITypeFieldList             *fieldType,
+      STITypeVShape                *vshapeType,
+      const uint16_t                count,
+      STITypeStructure::Properties  properties,
+      STINumeric                   *size,
+      const uint32_t                sizeInBits) {
   STITypeStructure *type;
-  STITypeFieldList *fieldType;
-  STITypeVShape    *vshapeType;
-  uint16_t          count;
-  STITypeStructure::Properties properties;
-  STINumeric       *size;
-
-  if (isDecl) {
-    count       = 0;
-    size        = createNumericSignedInt(0);
-    fieldType   = nullptr;
-    vshapeType  = nullptr;
-    properties.set(STI_COMPOSITE_PROPERTY_FWDREF);
-  } else {
-    count       = llvmType->getElements().size();
-    size        = createNumericSignedInt(llvmType->getSizeInBits() >> 3);
-    fieldType   = lowerTypeStructureFieldList(llvmType, classInfo);
-
-    if (classInfo.hasCTOR) {
-      properties.set(STI_COMPOSITE_PROPERTY_CTOR);
-    }
-
-    if (classInfo.vMethodsCount) {
-      vshapeType = STITypeVShape::create();
-      vshapeType->setCount(classInfo.vMethodsCount);
-      appendType(vshapeType);
-
-      if (classInfo.vFuncTab) {
-        STITypePointer *vtableType;
-
-        // Create VFUNCTAB
-        vtableType = STITypePointer::create();
-        vtableType->setSizeInBits(getPointerSizeInBits());
-        vtableType->setPointerTo(vshapeType);
-        appendType(vtableType);
-
-        STITypeVFuncTab *vFuncTab = STITypeVFuncTab::create();
-        vFuncTab->setType(vtableType);
-
-        fieldType->setVFuncTab(vFuncTab);
-      }
-    } else {
-      vshapeType = nullptr;
-    }
-  }
-
-  // Always set the REALNAME property on structures.
-  //
-  properties.set(STI_COMPOSITE_PROPERTY_REALNAME);
 
   type = STITypeStructure::create();
   type->setLeaf         (leaf);
@@ -2250,29 +2506,138 @@ STITypeStructure *STIDebugImpl::createTypeStructure(
   type->setVShapeType   (vshapeType);
   type->setSize         (size);
   type->setName         (name);
-  type->setSizeInBits   (llvmType->getSizeInBits());
+  type->setSizeInBits   (sizeInBits);
 
   return type;
 }
 
 //===----------------------------------------------------------------------===//
-// createTypeStructureDecl(llvmType, classInfo)
+// lowerTypeStructureDecl(llvmType, classInfo)
+//
+// Creates a single type entry for an aggregate type declaration.
+//
 //===----------------------------------------------------------------------===//
 
-STITypeStructure *STIDebugImpl::createTypeStructureDecl(
+STITypeStructure *STIDebugImpl::lowerTypeStructureDecl(
         const DICompositeType *llvmType,
         ClassInfo             &classInfo) {
-    return createTypeStructure(llvmType, classInfo, true);
+  typedef STITypeStructure::Properties Properties;
+
+  STITypeStructure *type;
+  uint16_t          leaf;
+  std::string       name;
+  uint16_t          count;
+  STINumeric       *size;
+  STITypeFieldList *fieldType;
+  STITypeVShape    *vshapeType;
+  Properties        properties;
+  uint32_t          sizeInBits;
+
+  leaf       = leafForAggregateType(llvmType);
+  name       = nameForAggregateType(llvmType);
+  count      = 0;
+  size       = createNumericSignedInt(0);
+  fieldType  = nullptr;
+  vshapeType = nullptr;
+  sizeInBits = llvmType->getSizeInBits();
+
+  properties.set(STI_COMPOSITE_PROPERTY_FWDREF);
+  properties.set(STI_COMPOSITE_PROPERTY_REALNAME);
+
+  type = createTypeStructure(
+          leaf,
+          name,
+          fieldType,
+          vshapeType,
+          count,
+          properties,
+          size,
+          sizeInBits);
+
+  appendType(type);
+
+  return type;
 }
 
 //===----------------------------------------------------------------------===//
-// createTypeStructureDefn(llvmType, classInfo)
+// lowerTypeVShape(info)
 //===----------------------------------------------------------------------===//
 
-STITypeStructure *STIDebugImpl::createTypeStructureDefn(
+STITypeVShape *STIDebugImpl::lowerTypeVShape(unsigned vMethodsCount) {
+  STITypeVShape *vShapeType;
+
+  // If the virtual methods count is zero then there isn't going to be a
+  // virtual function table and we don't need to describe it's shape.
+  // 
+  if (!vMethodsCount) {
+    return nullptr;
+  }
+
+  vShapeType = STITypeVShape::create();
+  vShapeType->setCount(vMethodsCount);
+
+  appendType(vShapeType);
+
+  return vShapeType;
+}
+
+//===----------------------------------------------------------------------===//
+// lowerTypeStructureDefn(llvmType, classInfo)
+//
+// Creates a single type entry for an aggregate type definition.
+//
+//===----------------------------------------------------------------------===//
+
+STITypeStructure *STIDebugImpl::lowerTypeStructureDefn(
         const DICompositeType *llvmType,
-        ClassInfo             &classInfo) {
-    return createTypeStructure(llvmType, classInfo, false);
+        ClassInfo             &info) {
+  typedef STITypeStructure::Properties Properties;
+
+  STITypeStructure *type;
+  uint16_t          leaf;
+  std::string       name;
+  uint16_t          count;
+  STINumeric       *size;
+  STITypeFieldList *fieldType;
+  STITypeVShape    *vShapeType;
+  Properties        properties;
+  uint32_t          sizeInBits;
+
+  // Lower the virtual function table shape descriptor.  This is done here
+  // because it is referenced by both the LF_VFUNCTAB entry in the field list
+  // and by the LF_STRUCT type entry.
+  //
+  vShapeType = lowerTypeVShape(info.vMethodsCount);
+
+  // The field list needs to be lowered before the structure definition.
+  //
+  fieldType  = lowerTypeStructureFieldList(llvmType, info, vShapeType);
+
+  leaf       = leafForAggregateType(llvmType);
+  name       = nameForAggregateType(llvmType);
+  count      = llvmType->getElements().size();
+  size       = createNumericSignedInt(llvmType->getSizeInBits() >> 3);
+  sizeInBits = llvmType->getSizeInBits();
+
+  properties.set(STI_COMPOSITE_PROPERTY_REALNAME);
+
+  if (info.hasCTOR) {
+    properties.set(STI_COMPOSITE_PROPERTY_CTOR);
+  }
+
+  type = createTypeStructure(
+          leaf,
+          name,
+          fieldType,
+          vShapeType,
+          count,
+          properties,
+          size,
+          sizeInBits);
+
+  appendType(type);
+
+  return type;
 }
 
 //===----------------------------------------------------------------------===//
@@ -2800,10 +3165,9 @@ STIType *STIDebugImpl::lowerTypeArray(const DICompositeType *llvmType) {
 
 STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     const DICompositeType *llvmType,
-    ClassInfo& info) {
-  STITypeFieldList *fieldList;
-
-  fieldList = STITypeFieldList::create();
+    ClassInfo& info,
+    STITypeVShape *vShapeType) {
+  STIFieldListBuilder  fieldListBuilder;
 
   // Create base classes
   ClassInfo::BaseClassList &baseClasses = info.baseClasses;
@@ -2817,7 +3181,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     bClass->setOffset(
             createNumericUnsignedInt(inheritance->getOffsetInBits() >> 3));
 
-    fieldList->getBaseClasses().push_back(bClass);
+    fieldListBuilder.append(bClass);
   }
 
   // Create virtual base classes
@@ -2834,7 +3198,23 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     vbClass->setVbpOffset(createNumericSignedInt(info.vbpOffset));
     vbClass->setVbIndex(createNumericUnsignedInt(vbIndex));
 
-    fieldList->getVBaseClasses().push_back(vbClass);
+    fieldListBuilder.append(vbClass);
+  }
+
+  // Create virtual function table descriptor.
+  if (info.vFuncTab) {
+    STITypePointer  *vTableType;
+    STITypeVFuncTab *vFuncTab;
+
+    vTableType = STITypePointer::create();
+    vTableType->setPointerTo(vShapeType);
+    vTableType->setSizeInBits(getPointerSizeInBits());
+    appendType(vTableType);
+
+    vFuncTab = STITypeVFuncTab::create();
+    vFuncTab->setType(vTableType);
+
+    fieldListBuilder.append(vFuncTab);
   }
 
   // Create members
@@ -2854,7 +3234,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
       member->setType(memberBaseType);
       member->setName(llvmMember->getName());
 
-      fieldList->getMembers().push_back(member);
+      fieldListBuilder.append(member);
       continue;
     }
 
@@ -2894,7 +3274,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
     member->setOffset(createNumericUnsignedInt(OffsetInBytes));
     member->setName(llvmMember->getName());
 
-    fieldList->getMembers().push_back(member);
+    fieldListBuilder.append(member);
   }
 
   // Create methods
@@ -2925,7 +3305,7 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
       }
       method->setName(itr.first);
 
-      fieldList->getOneMethods().push_back(method);
+      fieldListBuilder.append(method);
     } else {
       // Create LF_METHODLIST entry
       STITypeMethodList *methodList = STITypeMethodList::create();
@@ -2963,13 +3343,19 @@ STITypeFieldList* STIDebugImpl::lowerTypeStructureFieldList(
       method->setList(methodList);
       method->setName(itr.first);
 
-      fieldList->getMethods().push_back(method);
+      fieldListBuilder.append(method);
     }
   }
 
-  appendType(fieldList);
+  // Append each field list created by the builder to the types table.
+  //
+  for (STITypeFieldList *fieldList : fieldListBuilder.getFieldLists()) {
+    appendType(fieldList);
+  }
 
-  return fieldList;
+  // Return the last field list appended, which contains the first field.
+  //
+  return fieldListBuilder.getFieldLists().back();
 }
 
 //===----------------------------------------------------------------------===//
@@ -3007,17 +3393,16 @@ STIType *STIDebugImpl::lowerTypeStructure(const DICompositeType *llvmType) {
   //       references back to this aggregate type require a forward decl.
   //
   if (llvmType->isForwardDecl() || isNamed || inProgress ) {
-    decl = createTypeStructureDecl(llvmType, classInfo);
+    decl = lowerTypeStructureDecl(llvmType, classInfo);
 
     // Once the declaration has been created the LLVM type will be mapped to
     // the declaration so we no longer need to record the type definition
-    // as in-progress.
+    // as in-progress.  This needs to be done before the type is mapped.
     //
     if (inProgress) {
       setDefnInProgress(llvmType, false);
     }
 
-    appendType(decl);
     mapLLVMTypeToSTIType(llvmType, decl);
   } else {
     decl = nullptr;
@@ -3042,8 +3427,7 @@ STIType *STIDebugImpl::lowerTypeStructure(const DICompositeType *llvmType) {
     //
     setDefnInProgress(llvmType, true);
   }
-  defn = createTypeStructureDefn(llvmType, classInfo);
-  appendType(defn);
+  defn = lowerTypeStructureDefn(llvmType, classInfo);
   if (!decl) {
     // The definition has been created and is no longer in progress.
     //
@@ -3107,34 +3491,38 @@ STITypeEnumerator* STIDebugImpl::lowerTypeEnumerator(
 
 STIType *STIDebugImpl::lowerTypeEnumerationFieldList(
     const DICompositeType *llvmType) {
-  STITypeFieldList *fieldList;
-  DIEnumerator *enumerator;
-  STITypeEnumerator *enumeratorType;
-
-  fieldList = STITypeFieldList::create();
+  STIFieldListBuilder  fieldListBuilder;
 
   // Add enumerators to enumeration type.
   //
   for (DINode* element : llvmType->getElements()) {
-    enumerator = dyn_cast_or_null<DIEnumerator>(element);
+    DIEnumerator      *llvmEnumerator;
+    STITypeEnumerator *stiEnumerator;
 
     // If we allow null enumerators here and skip them then our count in the
     // enumeration type would be incorrect.
     //
-    assert (enumerator != nullptr);
+    llvmEnumerator = dyn_cast_or_null<DIEnumerator>(element);
+    assert(llvmEnumerator != nullptr);
 
     // Lower the enumerator entry.
     //
-    enumeratorType = lowerTypeEnumerator(enumerator);
+    stiEnumerator = lowerTypeEnumerator(llvmEnumerator);
 
-    // Append the enumerator to the enumeration field list.
+    // Append the new entry to the field list.
     //
-    fieldList->getEnumerators().push_back(enumeratorType);
+    fieldListBuilder.append(stiEnumerator);
   }
 
-  appendType(fieldList);
+  // Append each field list to the types table in order.
+  //
+  for (STITypeFieldList *fieldList : fieldListBuilder.getFieldLists()) {
+    appendType(fieldList);
+  }
 
-  return fieldList;
+  // Return the last field list appended, which contains the first enumerator.
+  //
+  return fieldListBuilder.getFieldLists().back();
 }
 
 //===----------------------------------------------------------------------===//
@@ -4831,21 +5219,6 @@ void STIDebugImpl::emitSymbolScopeEnd() const {
 }
 
 //===----------------------------------------------------------------------===//
-// numericLength(numeric)
-//
-// Returns the encoded length, in bytes, of the specified numeric leaf.
-//
-// NOTE: The minimum encoded size of the leaf must be two bytes long.
-//
-//===----------------------------------------------------------------------===//
-
-size_t STIDebugImpl::numericLength(const STINumeric* numeric) const {
-  return std::max<size_t>(
-          (numeric->getLeafID() != LF_INTEL_NONE ? 2 : 0) + numeric->getSize(),
-          2);
-}
-
-//===----------------------------------------------------------------------===//
 // emitNumeric(numeric)
 //===----------------------------------------------------------------------===//
 
@@ -5517,182 +5890,214 @@ void STIDebugImpl::emitTypeMethodList(const STITypeMethodList *type) const {
   typeEnd       (type);
 }
 
-void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *type) const {
-  size_t length = 4;
-  size_t padding;
+//===----------------------------------------------------------------------===//
+// emitTypeVBaseClass(vBaseClass)
+//===----------------------------------------------------------------------===//
 
-  const STITypeVFuncTab *vFuncTab = type->getVFuncTab();
+void STIDebugImpl::emitTypeVBaseClass(
+      const STITypeVBaseClass *vBaseClass) const {
+  STISymbolID symbolID = vBaseClass->getSymbolID();
+  uint16_t attribute = vBaseClass->getAttribute();
+  const STIType *vBaseClassType = vBaseClass->getType();
+  const STIType *vbpType = vBaseClass->getVbpType();
+  const STINumeric *offset = vBaseClass->getVbpOffset();
+  const STINumeric *index  = vBaseClass->getVbIndex();
+  const size_t length = 12 + numericLength(offset) + numericLength(index);
+  const size_t padding = paddingBytes(length);
 
-  for (STITypeVBaseClass *vBaseClass : type->getVBaseClasses()) {
-    const STINumeric *offset = vBaseClass->getVbpOffset();
-    const STINumeric *index  = vBaseClass->getVbIndex();
-    const size_t fieldLength =
-        12 + numericLength(offset) + numericLength(index);
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
+  emitInt16   (symbolID);
+  emitInt16   (attribute);
+  emitInt32   (vBaseClassType ? vBaseClassType->getIndex() : T_NOTYPE);
+  emitInt32   (vbpType ? vbpType->getIndex() : T_NOTYPE);
+  emitNumeric (offset);
+  emitNumeric (index);
+  emitPadding (padding);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeBaseClass(type)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeBaseClass(const STITypeBaseClass *baseClass) const {
+  uint16_t          attribute     = baseClass->getAttribute();
+  const STIType    *baseType      = baseClass->getType();
+  STIType::Index    baseIndex     = baseType ? baseType->getIndex() : T_NOTYPE;
+  const STINumeric *offset        = baseClass->getOffset();
+  const size_t      length        = 8 + numericLength(offset);
+  const size_t      padding       = paddingBytes(length);
+
+  emitInt16   (LF_BCLASS);
+  emitInt16   (attribute);
+  emitInt32   (baseIndex);
+  emitNumeric (offset);
+  emitPadding (padding);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeVFuncTab(vFuncTable)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeVFuncTab(
+      const STITypeVFuncTab *vFuncTab) const {
+  const STIType *vptrType = vFuncTab->getType();
+
+  emitInt16   (LF_VFUNCTAB);
+  emitInt16   (0); // 0-Padding
+  emitInt32   (vptrType ? vptrType->getIndex() : T_NOTYPE);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeMember(member)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeMember(const STITypeMember *member) const {
+  uint16_t attribute = member->getAttribute();
+  const STIType *memberType = member->getType();
+  const STINumeric *offset = member->getOffset();
+  StringRef name = member->getName();
+  bool isStatic = member->isStatic();
+  const size_t length =
+      8 + (isStatic ? 0 : numericLength(offset)) + name.size() + 1;
+  const size_t padding = paddingBytes(length);
+
+  emitInt16   (isStatic ? LF_STMEMBER : LF_MEMBER);
+  emitInt16   (attribute);
+  emitInt32   (memberType ? memberType->getIndex() : T_NOTYPE);
+  if (!isStatic) {
+    emitNumeric(offset);
   }
+  emitString  (name);
+  emitPadding (padding);
+}
 
-  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
-    const STINumeric *offset = baseClass->getOffset();
-    const size_t fieldLength = 8 + numericLength(offset);
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
+//===----------------------------------------------------------------------===//
+// emitTypeMethod(method)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeMethod(const STITypeMethod *method) const {
+  uint16_t count = method->getCount();
+  const STIType *methodListType = method->getList();
+  StringRef name = method->getName();
+  const size_t length = 8 + name.size() + 1;
+  const size_t padding = paddingBytes(length);
+
+  emitInt16   (LF_METHOD);
+  emitInt16   (count);
+  emitInt32   (methodListType ? methodListType->getIndex() : T_NOTYPE);
+  emitString  (name);
+  emitPadding (padding);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeOneMethod(method)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeOneMethod(const STITypeOneMethod *method) const {
+  uint16_t attribute = method->getAttribute();
+  const STIType *methodType = method->getType();
+  bool isVirtual = method->getVirtuality();
+  uint32_t virtualIndex = method->getVirtualIndex();
+  StringRef name = method->getName();
+  const size_t length = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
+  const size_t padding = paddingBytes(length);
+
+  emitInt16   (LF_ONEMETHOD);
+  emitInt16   (attribute);
+  emitInt32   (methodType ? methodType->getIndex() : T_NOTYPE);
+  if (isVirtual) {
+    emitInt32 (virtualIndex * (getPointerSizeInBits() >> 3));
   }
+  emitString  (name);
+  emitPadding (padding);
+}
 
-  if (vFuncTab) {
-    length += 8;
+//===----------------------------------------------------------------------===//
+// emitTypeEnumerator(enumerator)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeEnumerator(
+      const STITypeEnumerator *enumerator) const {
+  uint16_t attribute = enumerator->getAttribute();
+  const STINumeric *value = enumerator->getValue();
+  StringRef name = enumerator->getName();
+  const size_t length = 4 + numericLength(value) + name.size() + 1;
+  const size_t padding = paddingBytes(length);
+
+  emitInt16   (LF_ENUMERATE);
+  emitInt16   (attribute);
+  emitNumeric (value);
+  emitString  (name);
+  emitPadding (padding);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeIndex(index)
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeIndex(const STITypeIndex *index) const {
+  STIType *indexedType = index->getType();
+
+  emitInt16   (LF_INDEX);
+  emitInt16   (0);          // two bytes of zeroes
+  emitInt32   (indexedType ? indexedType->getIndex() : T_NOTYPE);
+}
+
+//===----------------------------------------------------------------------===//
+// emitTypeFieldListItem(field)
+//
+// Emits the specified field list item by checking the type kind and invoking
+// an appropriate handler.
+//
+//===----------------------------------------------------------------------===//
+
+void STIDebugImpl::emitTypeFieldListItem(
+      const STITypeFieldListItem *field) const {
+  // Invoke a field-specific handler based on the field kind.
+  switch (field->getKind()) {
+#define X(KIND, HANDLER, TYPE)                                                \
+    case (STI_OBJECT_KIND_TYPE_##KIND):                                       \
+      HANDLER(static_cast<const TYPE*>(field));                               \
+      break
+  X(VBASECLASS, emitTypeVBaseClass, STITypeVBaseClass);
+  X(BASECLASS,  emitTypeBaseClass,  STITypeBaseClass);
+  X(VFUNCTAB,   emitTypeVFuncTab,   STITypeVFuncTab);
+  X(MEMBER,     emitTypeMember,     STITypeMember);
+  X(METHOD,     emitTypeMethod,     STITypeMethod);
+  X(ONEMETHOD,  emitTypeOneMethod,  STITypeOneMethod);
+  X(ENUMERATOR, emitTypeEnumerator, STITypeEnumerator);
+  X(INDEX,      emitTypeIndex,      STITypeIndex);
+#undef  X
+  default:
+    assert(!"unsupported field list item kind!");
+    break;
   }
+}
 
-  for (STITypeMember *member : type->getMembers()) {
-    const STINumeric *offset = member->getOffset();
-    StringRef name = member->getName();
-    bool isStatic = member->isStatic();
-    const size_t fieldLength =
-        8 + (isStatic ? 0 : numericLength(offset)) + name.size() + 1;
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
-  }
+//===----------------------------------------------------------------------===//
+// emitTypeFieldList(type)
+//===----------------------------------------------------------------------===//
 
-  for (STITypeMethod *method : type->getMethods()) {
-    StringRef name = method->getName();
-    const size_t fieldLength = 8 + name.size() + 1;
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
-  }
+void STIDebugImpl::emitTypeFieldList(const STITypeFieldList *fieldList) const {
+  size_t       length  = calculateFieldListLength(fieldList);
+  const size_t padding = paddingBytes(length);
 
-  for (STITypeOneMethod *method : type->getOneMethods()) {
-    StringRef name = method->getName();
-    bool isVirtual = method->getVirtuality();
-    const size_t fieldLength = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
-  }
+  assert(length + padding - 2 <= UINT16_MAX);
 
-  for (STITypeEnumerator *enumerator : type->getEnumerators()) {
-    const STINumeric *value = enumerator->getValue();
-    StringRef name = enumerator->getName();
-    const size_t fieldLength = 4 + numericLength(value) + name.size() + 1;
-    const size_t fieldPadding = paddingBytes(fieldLength);
-    length += fieldLength + fieldPadding;
-  }
-
-  padding = paddingBytes(length);
-
-  typeBegin     (type);
+  typeBegin     (fieldList);
   emitInt16     (length + padding - 2);
   emitInt16     (LF_FIELDLIST);
 
-  for (STITypeVBaseClass *vBaseClass : type->getVBaseClasses()) {
-    STISymbolID symbolID = vBaseClass->getSymbolID();
-    uint16_t attribute = vBaseClass->getAttribute();
-    const STIType *vBaseClassType = vBaseClass->getType();
-    const STIType *vbpType = vBaseClass->getVbpType();
-    const STINumeric *offset = vBaseClass->getVbpOffset();
-    const STINumeric *index  = vBaseClass->getVbIndex();
-    const size_t length = 12 + numericLength(offset) + numericLength(index);
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (symbolID);
-    emitInt16   (attribute);
-    emitInt32   (vBaseClassType ? vBaseClassType->getIndex() : T_NOTYPE);
-    emitInt32   (vbpType ? vbpType->getIndex() : T_NOTYPE);
-    emitNumeric (offset);
-    emitNumeric (index);
-    emitPadding (padding);
-  }
-
-  for (STITypeBaseClass *baseClass : type->getBaseClasses()) {
-    uint16_t attribute = baseClass->getAttribute();
-    const STIType *baseClassType = baseClass->getType();
-    const STINumeric *offset = baseClass->getOffset();
-    const size_t length = 8 + numericLength(offset);
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (LF_BCLASS);
-    emitInt16   (attribute);
-    emitInt32   (baseClassType ? baseClassType->getIndex() : T_NOTYPE);
-    emitNumeric (offset);
-    emitPadding (padding);
-  }
-
-  if (vFuncTab) {
-    const STIType *vptrType = vFuncTab->getType();
-
-    emitInt16   (LF_VFUNCTAB);
-    emitInt16   (0); // 0-Padding
-    emitInt32   (vptrType ? vptrType->getIndex() : T_NOTYPE);
-  }
-
-  for (STITypeMember *member : type->getMembers()) {
-    uint16_t attribute = member->getAttribute();
-    const STIType *memberType = member->getType();
-    const STINumeric *offset = member->getOffset();
-    StringRef name = member->getName();
-    bool isStatic = member->isStatic();
-    const size_t length =
-        8 + (isStatic ? 0 : numericLength(offset)) + name.size() + 1;
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (isStatic ? LF_STMEMBER : LF_MEMBER);
-    emitInt16   (attribute);
-    emitInt32   (memberType ? memberType->getIndex() : T_NOTYPE);
-    if (!isStatic) {
-      emitNumeric(offset);
-    }
-    emitString  (name);
-    emitPadding (padding);
-  }
-
-  for (STITypeMethod *method : type->getMethods()) {
-    uint16_t count = method->getCount();
-    const STIType *methodListType = method->getList();
-    StringRef name = method->getName();
-    const size_t length = 8 + name.size() + 1;
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (LF_METHOD);
-    emitInt16   (count);
-    emitInt32   (methodListType ? methodListType->getIndex() : T_NOTYPE);
-    emitString  (name);
-    emitPadding (padding);
-  }
-
-  for (STITypeOneMethod *method : type->getOneMethods()) {
-    uint16_t attribute = method->getAttribute();
-    const STIType *methodType = method->getType();
-    bool isVirtual = method->getVirtuality();
-    uint32_t virtualIndex = method->getVirtualIndex();
-    StringRef name = method->getName();
-    const size_t length = 8 + (isVirtual ? 4 : 0) + name.size() + 1;
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (LF_ONEMETHOD);
-    emitInt16   (attribute);
-    emitInt32   (methodType ? methodType->getIndex() : T_NOTYPE);
-    if (isVirtual) {
-      emitInt32 (virtualIndex * (getPointerSizeInBits() >> 3));
-    }
-    emitString  (name);
-    emitPadding (padding);
-  }
-
-  for (STITypeEnumerator *enumerator : type->getEnumerators()) {
-    uint16_t attribute = enumerator->getAttribute();
-    const STINumeric *value = enumerator->getValue();
-    StringRef name = enumerator->getName();
-    const size_t length = 4 + numericLength(value) + name.size() + 1;
-    const size_t padding = paddingBytes(length);
-
-    emitInt16   (LF_ENUMERATE);
-    emitInt16   (attribute);
-    emitNumeric (value);
-    emitString  (name);
-    emitPadding (padding);
+  for (STITypeFieldListItem *item : fieldList->getFields()) {
+    emitTypeFieldListItem(item);
   }
 
   emitPadding   (padding);
-  typeEnd       (type);
+  typeEnd       (fieldList);
 }
+
+//===----------------------------------------------------------------------===//
+// emitTypeFunctionID(type)
+//===----------------------------------------------------------------------===//
 
 void STIDebugImpl::emitTypeFunctionID(const STITypeFunctionID *type) const {
   StringRef name = type->getName();
