@@ -69,12 +69,12 @@ ImplicationSearchThreshold(
 static cl::opt<bool>
 JumpThreadLoopHeader("jump-thread-loop-header",
                      cl::desc("Jump thread through loop header blocks"),
-                     cl::init(true), cl::Hidden);
+                     cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
 DistantJumpThreading("distant-jump-threading",
           cl::desc("Perform jump threading across larger-than-BB regions"),
-          cl::init(true), cl::Hidden);
+          cl::init(false), cl::Hidden);
 
 static cl::opt<bool>
 ConservativeJumpThreading("conservative-jump-threading",
