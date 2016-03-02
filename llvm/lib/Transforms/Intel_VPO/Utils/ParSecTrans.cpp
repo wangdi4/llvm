@@ -128,8 +128,13 @@ using namespace llvm::vpo;
 // 3) The directive DIR_OMP_SECTION/DIR_OMP_END_SECTION for the first section
 // must be presented in the CFG, although it can be omitted in the user code;
 //
-// 4) There can be data flow (use-def chain) across sections inside a parallel
-// section or work-sharing section;
+// 4) There can be data flow across sections inside a parallel
+// section or work-sharing section; however, if that happens, the variable and
+// its related operations will be guarded in a critical section which inforces
+// the load and store of the variable from/to memory first (this is OpenMP
+// shared-memory model). In other words, such variable will not be
+// registerized, and we do not have to worry about the SSA form or update for
+// it.
 //
 // 5) Each OMP_PARALLEL_SECTIONS, OMP_SECTIONS and OMP_SECTION must form a
 // single-entry and single-exit region;
