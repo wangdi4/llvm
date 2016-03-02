@@ -448,13 +448,23 @@ bool LoopIdiomRecognize::processLoopMemSet(MemSetInst *MSI,
                                  BECount, /*NegStride=*/false);
 }
 
+#if INTEL_CUSTOMIZATION
+#define CheckAliasBetweenStoreAndInsns(L, IgnoredStore, StoreLoc)              \
+  for (Loop::block_iterator BI = L->block_begin(), E = L->block_end();         \
+       BI != E; ++BI)                                                          \
+    for (BasicBlock::iterator I = (*BI)->begin(), E = (*BI)->end(); I != E;    \
+         ++I)                                                                  \
+      if (&*I != IgnoredStore && (AA.getModRefInfo(&*I, StoreLoc) & Access))   \
+        return true;
+#endif // INTEL_CUSTOMIZATION
+
 /// mayLoopAccessLocation - Return true if the specified loop might access the
 /// specified pointer location, which is a loop-strided access.  The 'Access'
 /// argument specifies what the verboten forms of access are (read or write).
 static bool mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
                                   const SCEV *BECount, unsigned StoreSize,
-                                  AliasAnalysis &AA,
-                                  Instruction *IgnoredStore) {
+                                  AliasAnalysis &AA, Instruction *IgnoredStore,
+                                  const AAMDNodes *AATags) { // INTEL
   // Get the location that may be stored across the loop.  Since the access is
   // strided positively through memory, we say that the modified location starts
   // at the pointer and has infinite size.
@@ -469,13 +479,15 @@ static bool mayLoopAccessLocation(Value *Ptr, ModRefInfo Access, Loop *L,
   // operand in the store.  Store to &A[i] of 100 will always return may alias
   // with store of &A[100], we need to StoreLoc to be "A" with size of 100,
   // which will then no-alias a store to &A[100].
-  MemoryLocation StoreLoc(Ptr, AccessSize);
-
-  for (Loop::block_iterator BI = L->block_begin(), E = L->block_end(); BI != E;
-       ++BI)
-    for (BasicBlock::iterator I = (*BI)->begin(), E = (*BI)->end(); I != E; ++I)
-      if (&*I != IgnoredStore && (AA.getModRefInfo(&*I, StoreLoc) & Access))
-        return true;
+#if INTEL_CUSTOMIZATION
+  if (AATags == nullptr) {
+    MemoryLocation StoreLoc(Ptr, AccessSize);
+    CheckAliasBetweenStoreAndInsns(L, IgnoredStore, StoreLoc);
+  } else {
+    MemoryLocation StoreLoc(Ptr, AccessSize, *AATags);
+    CheckAliasBetweenStoreAndInsns(L, IgnoredStore, StoreLoc);
+  }
+#endif // INTEL_CUSTOMIZATION
 
   return false;
 }
@@ -550,7 +562,8 @@ bool LoopIdiomRecognize::processLoopStridedStore(
   Value *BasePtr =
       Expander.expandCodeFor(Start, DestInt8PtrTy, Preheader->getTerminator());
   if (mayLoopAccessLocation(BasePtr, MRI_ModRef, CurLoop, BECount, StoreSize,
-                            *AA, TheStore)) {
+                            *AA, TheStore,
+                            nullptr)) { // INTEL
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
     RecursivelyDeleteTriviallyDeadInstructions(BasePtr, TLI);
@@ -659,8 +672,14 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
   Value *StoreBasePtr = Expander.expandCodeFor(
       StrStart, Builder.getInt8PtrTy(StrAS), Preheader->getTerminator());
 
+#if INTEL_CUSTOMIZATION
+  AAMDNodes AAInfo;
+  // Pass the tbaa metadata for the store location to the alias queries.
+  SI->getAAMetadata(AAInfo);
+#endif // INTEL_CUSTOMIZATION
   if (mayLoopAccessLocation(StoreBasePtr, MRI_ModRef, CurLoop, BECount,
-                            StoreSize, *AA, SI)) {
+                            StoreSize, *AA, SI,
+                            &AAInfo)) { // INTEL
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
     RecursivelyDeleteTriviallyDeadInstructions(StoreBasePtr, TLI);
@@ -680,7 +699,8 @@ bool LoopIdiomRecognize::processLoopStoreOfLoopLoad(
       LdStart, Builder.getInt8PtrTy(LdAS), Preheader->getTerminator());
 
   if (mayLoopAccessLocation(LoadBasePtr, MRI_Mod, CurLoop, BECount, StoreSize,
-                            *AA, SI)) {
+                            *AA, SI,
+                            nullptr)) { // INTEL
     Expander.clear();
     // If we generated new code for the base pointer, clean up.
     RecursivelyDeleteTriviallyDeadInstructions(LoadBasePtr, TLI);
