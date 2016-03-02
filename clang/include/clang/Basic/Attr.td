@@ -1982,7 +1982,7 @@ def SelectAny : InheritableAttr {
 
 def Thread : Attr {
   let Spellings = [Declspec<"thread">];
-  let LangOpts = [MicrosoftExt];
+  //let LangOpts = [MicrosoftExt];  // INTEL
   let Documentation = [ThreadDocs];
   let Subjects = SubjectList<[Var]>;
 }
