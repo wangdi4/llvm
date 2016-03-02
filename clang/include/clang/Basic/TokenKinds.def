@@ -368,9 +368,12 @@ KEYWORD(co_return                   , KEYCOROUTINES)
 KEYWORD(co_yield                    , KEYCOROUTINES)
 
 // GNU Extensions (in impl-reserved namespace)
-KEYWORD(_Decimal32                  , KEYALL)
-KEYWORD(_Decimal64                  , KEYALL)
-KEYWORD(_Decimal128                 , KEYALL)
+#if INTEL_CUSTOMIZATION
+// CQ#374317 - do not recognize _Decimal keywords in non-GNU mode.
+KEYWORD(_Decimal32                  , KEYDECIMAL)
+KEYWORD(_Decimal64                  , KEYDECIMAL)
+KEYWORD(_Decimal128                 , KEYDECIMAL)
+#endif // INTEL_CUSTOMIZATION
 KEYWORD(__null                      , KEYCXX)
 KEYWORD(__alignof                   , KEYALL)
 KEYWORD(__attribute                 , KEYALL)
@@ -405,9 +408,9 @@ KEYWORD(_Cilk_sync                  , KEYCILKPLUS)
 KEYWORD(_Cilk_for                   , KEYCILKPLUS)
 #endif  // INTEL_SPECIFIC_CILKPLUS
 #if INTEL_CUSTOMIZATION
-KEYWORD(_Quad                       , KEYFLOAT128)
+KEYWORD(_Quad                       , 0)
 // CQ#367834 - __float128 should be an alias for _Quad.
-ALIAS("__float128"    , _Quad       , KEYFLOAT128)
+ALIAS("__float128"    , _Quad       , 0)
 // CQ#369185 - support of __bases and __direct_bases intrinsics.
 KEYWORD(__bases                     , KEYBASES)
 KEYWORD(__direct_bases              , KEYBASES)
@@ -500,18 +503,20 @@ KEYWORD(__declspec                  , 0)
 // Microsoft Extension.
 #ifdef INTEL_CUSTOMIZATION
 KEYWORD(__regcall                   , KEYALL)
+KEYWORD(_regcall                    , KEYALL)
 #endif //INTEL_CUSTOMIZATION
 KEYWORD(__cdecl                     , KEYALL)
 KEYWORD(__stdcall                   , KEYALL)
 KEYWORD(__fastcall                  , KEYALL)
 KEYWORD(__thiscall                  , KEYALL)
 KEYWORD(__vectorcall                , KEYALL)
-#ifdef INTEL_SPECIFIC_IL0_BACKEND
+#ifdef INTEL_CUSTOMIZATION
 // CQ#368488 - keyword fixes for iclang.
+// CQ#367651 - keyword fix for xmain.
 KEYWORD(__unaligned                 , KEYALL)
 #else
 KEYWORD(__unaligned                 , KEYMS)
-#endif // INTEL_SPECIFIC_IL0_BACKEND
+#endif // INTEL_CUSTOMIZATION
 #if INTEL_CUSTOMIZATION
 // Fix for CQ375085: allow to use __forceinline modifier even in non-MS mode.
 KEYWORD(__forceinline               , KEYALL)

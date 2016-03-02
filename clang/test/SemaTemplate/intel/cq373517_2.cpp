@@ -10,5 +10,14 @@ T foo(T a = T());
 
 template <typename T>
 T foo(T a = T());
-#endif // HEADER
 
+class A {
+  friend void bar(int a, int b);
+};
+
+void bar(int a, int b = 0);
+
+void bar2() {
+  bar(0);
+}
+#endif // HEADER

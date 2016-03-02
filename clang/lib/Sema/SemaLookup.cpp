@@ -1873,6 +1873,52 @@ static bool HasOnlyStaticMembers(InputIterator First, InputIterator Last) {
   return false;
 }
 
+#if INTEL_CUSTOMIZATION
+// Fix for CQ374121: Xmain cannot find suitable existing template declaration.
+namespace {
+class LookupRAII {
+private:
+  Sema &S;
+  llvm::SmallVector<std::pair<DeclContext *, DeclContext *>, 16> Parents;
+  llvm::SmallVector<NamedDecl *, 16> RemovedFromIdResolver;
+  DeclarationName DN;
+
+public:
+  LookupRAII(Sema &S, bool Apply, DeclarationName DN) : S(S), DN(DN) {
+    if (Apply) {
+      for (auto &I : S.ParsingFieldDecls) {
+        if (I->isFirstDecl() && I->getDeclName() == DN) {
+          auto *Parent = I->getDeclContext();
+          auto *LexicalParent = I->getLexicalDeclContext();
+          if (LexicalParent) {
+            Parents.push_back(std::make_pair(Parent, LexicalParent));
+            LexicalParent->removeDecl(I);
+          } else {
+            Parents.push_back(std::make_pair(Parent, nullptr));
+            Parent->removeDecl(I);
+          }
+        }
+      }
+    }
+  }
+  ~LookupRAII() {
+    auto DI = S.ParsingFieldDecls.begin();
+    for (auto &Pair : Parents) {
+      if ((*DI)->isFirstDecl() && (*DI)->getDeclName() == DN) {
+        (*DI)->setDeclContext(Pair.first);
+        if (Pair.second) {
+          (*DI)->setLexicalDeclContext(Pair.second);
+          Pair.second->addDecl(*DI);
+        } else
+          Pair.first->addDecl(*DI);
+        ++DI;
+      }
+    }
+  }
+};
+} // namespace
+#endif // INTEL_CUSTOMIZATION
+
 /// \brief Perform qualified name lookup into a given context.
 ///
 /// Qualified name lookup (C++ [basic.lookup.qual]) is used to find
@@ -1909,6 +1955,12 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
           cast<TagDecl>(LookupCtx)->isBeingDefined()) &&
          "Declaration context must already be complete!");
 
+#if INTEL_CUSTOMIZATION
+  // Fix for CQ374121: Xmain cannot find suitable existing template declaration.
+  LookupRAII GuardRAII(*this, InUnqualifiedLookup, R.getLookupName());
+#endif // INTEL_CUSTOMIZATION
+
+  // Perform qualified name lookup into the LookupCtx.
   struct QualifiedLookupInScope {
     bool oldVal;
     DeclContext *Context;

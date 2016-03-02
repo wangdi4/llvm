@@ -2889,6 +2889,39 @@ public:
     }
   };
   friend class ParsingTemplateArgRAII;
+
+  // Fix for CQ374121: Xmain cannot find suitable existing template declaration.
+  llvm::DenseSet<NamedDecl *> ParsingFieldDecls;
+  class ParsingFieldDeclsRAII {
+  private:
+    Sema &S;
+    NamedDecl *ParsingFD;
+
+  public:
+    ParsingFieldDeclsRAII(Sema &S, NamedDecl *ParsingFD)
+        : S(S), ParsingFD(ParsingFD) {
+      if (S.getLangOpts().IntelCompat && ParsingFD) {
+        S.ParsingFieldDecls.insert(ParsingFD);
+        for (auto IR = S.IdResolver.begin(ParsingFD->getDeclName()),
+                  E = S.IdResolver.end();
+             IR != E; ++IR) {
+          if ((*IR) == ParsingFD) {
+            S.IdResolver.RemoveDecl(ParsingFD);
+            S.getCurScope()->RemoveDecl(ParsingFD);
+            break;
+          }
+        }
+      }
+    }
+    ~ParsingFieldDeclsRAII() {
+      if (S.getLangOpts().IntelCompat && ParsingFD) {
+        S.ParsingFieldDecls.erase(S.ParsingFieldDecls.find(ParsingFD));
+        S.IdResolver.AddDecl(ParsingFD);
+        S.getCurScope()->AddDecl(ParsingFD);
+      }
+    }
+  };
+  friend class ParsingFieldDeclsRAII;
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
 public:
   const TypoExprState &getTypoExprState(TypoExpr *TE) const;

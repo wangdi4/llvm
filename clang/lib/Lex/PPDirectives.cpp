@@ -1099,6 +1099,10 @@ static bool ReadLineMarkerFlags(bool &IsFileEntry, bool &IsFileExit,
     SourceLocation IncLoc = PLoc.getIncludeLoc();
     if (IncLoc.isInvalid() ||
         SM.getDecomposedExpansionLoc(IncLoc).first != CurFileID) {
+#if INTEL_CUSTOMIZATION
+      // CQ#375723. This error message is sacrificed for icc-compatibility.
+      if (!PP.getLangOpts().IntelCompat)
+#endif // INTEL_CUSTOMIZATION
       PP.Diag(FlagTok, diag::err_pp_linemarker_invalid_pop);
       PP.DiscardUntilEndOfDirective();
       return true;
@@ -1169,6 +1173,12 @@ void Preprocessor::HandleDigitDirective(Token &DigitTok) {
   if (StrTok.is(tok::eod))
     ; // ok
   else if (StrTok.isNot(tok::string_literal)) {
+#if INTEL_CUSTOMIZATION
+    // CQ#375723. Emit warning instead of error.
+    if (getLangOpts().IntelCompat) {
+      Diag(StrTok, diag::warn_pp_line_invalid_filename);
+    } else
+#endif // INTEL_CUSTOMIZATION
     Diag(StrTok, diag::err_pp_linemarker_invalid_filename);
     return DiscardUntilEndOfDirective();
   } else if (StrTok.hasUDSuffix()) {

@@ -29,6 +29,7 @@ namespace clang {
   class CodeGenOptions;
   class LangOptions;
   class MangleContext;
+  class PointerType; // INTEL
   class QualType;
   class Type;
 
@@ -91,6 +92,17 @@ class CodeGenTBAA {
   /// pointer to another node in the type DAG.
   llvm::MDNode *createTBAAScalarType(StringRef Name, llvm::MDNode *Parent);
 
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 TBAA for pointers and arrays.
+
+  /// Return true if unique TBAA can be created for the type.
+  bool canCreateUniqueTBAA(const Type *PTy);
+
+  /// createTBAAPointerType - Create TBAA for a pointer type. Pointers to
+  /// different scalar type considered different from each other. For simplicity
+  /// pointers to struct considered to be equivalent.
+  llvm::MDNode *createTBAAPointerType(const PointerType *PTy);
+#endif // INTEL_CUSTOMIZATION
 public:
   CodeGenTBAA(ASTContext &Ctx, llvm::LLVMContext &VMContext,
               const CodeGenOptions &CGO,

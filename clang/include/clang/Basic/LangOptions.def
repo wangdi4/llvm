@@ -78,15 +78,21 @@ LANGOPT(IntelMSCompat     , 1, 0,
         "Enables or disables Microsoft compatibility features that are not planned for clang/llvm trunk")
 LANGOPT(Zc_forScope      , 1, 1, "Supports Microsoft C++ behavior for the For loops")
 LANGOPT(Float128, 1, 0, "128 bit float support")
+LANGOPT(IntelQuad, 1, 0, "Intel's 128 bit float support")
 LANGOPT(NoInt128, 1, 0, "Disable __int128 keyword support")
 LANGOPT(Restrict         , 1, 0,
         "Enables the 'restrict' keyword for disambiguating pointers")
-// CQ#373517: compilation fails with 'redefinition of default argument'.
-LANGOPT(PermissiveArgs   , 1, 0,
-        "Allows to redefine default arguments")
+// CQ#373517, CQ#376357: GCC -fpermissive mode.
+LANGOPT(GnuPermissive   , 1, 0, "Turns on GNU -fpermissive mode")
 // CQ371729: Incompatible name mangling.
 LANGOPT(GNUMangling       , 1, 0, "GNU mangling for vector types")
 LANGOPT(GNUFABIVersion    , 32, 0, "GNU C++ABI version")
+// Fix for CQ380574: Ability to set various predefines based on gcc version
+// needed.
+LANGOPT(GNUVersion    , 32, 0, "GNU C++ version")
+// CQ376358: Support -ffriend-injection option
+LANGOPT(FriendFunctionInject, 1, 0, "Inject friend functions into the enclosing namespace")
+LANGOPT(FriendClassInject, 1, 0, "Inject friend classes into the enclosing namespace")
 #ifdef INTEL_SPECIFIC_IL0_BACKEND
 LANGOPT(PragmaOptimizationLevelIntel      , 1, 1, 
         "Specifies whether #pragma optimization_level shoud use Intel(DEFAULT) or GCC syntax")

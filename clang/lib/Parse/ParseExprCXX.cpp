@@ -2739,7 +2739,15 @@ Parser::ParseCXXNewExpression(bool UseGlobal, SourceLocation Start) {
     Initializer = Actions.ActOnParenListExpr(ConstructorLParen,
                                              ConstructorRParen,
                                              ConstructorArgs);
-  } else if (Tok.is(tok::l_brace) && getLangOpts().CPlusPlus11) {
+  } else if ((getLangOpts().CPlusPlus11 ||
+              getLangOpts().IntelCompat) && // INTEL
+             Tok.is(tok::l_brace)) {        // INTEL
+#if INTEL_CUSTOMIZATION
+    // CQ374879
+    if (!getLangOpts().CPlusPlus11 && getLangOpts().IntelCompat)
+      Diag(Tok.getLocation(), diag::ext_generalized_initializer_lists);
+    else
+#endif // INTEL_CUSTOMIZATION
     Diag(Tok.getLocation(),
          diag::warn_cxx98_compat_generalized_initializer_lists);
     Initializer = ParseBraceInitializer();

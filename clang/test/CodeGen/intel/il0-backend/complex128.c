@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fintel-compatibility --extended_float_types %s -emit-llvm -o - | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-apple-darwin10 -fintel-compatibility -std=gnu99 --extended_float_types %s -emit-llvm -o - | FileCheck %s
 
 
 // Define __complex128 type corresponding to __float128 (as in GCC headers).

@@ -2458,6 +2458,14 @@ void CodeGenFunction::EmitFunctionEpilog(const CGFunctionInfo &FI,
         // Reuse the debug location from the store unless there is
         // cleanup code to be emitted between the store and return
         // instruction.
+#if INTEL_CUSTOMIZATION
+        // Fix for CQ379239: Emit debug location for return instruction, not
+        // eliminated store.
+        if (!getLangOpts().IntelCompat || !getLangOpts().IntelMSCompat ||
+            !CurCodeDecl || !isa<FunctionDecl>(CurCodeDecl) ||
+            !cast<FunctionDecl>(CurCodeDecl)->getBody() ||
+            !isa<CompoundStmt>(cast<FunctionDecl>(CurCodeDecl)->getBody()))
+#endif // INTEL_CUSTOMIZATION
         if (EmitRetDbgLoc && !AutoreleaseResult)
           RetDbgLoc = SI->getDebugLoc();
         // Get the stored value and nuke the now-dead store.

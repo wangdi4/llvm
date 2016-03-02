@@ -680,8 +680,8 @@ ASTContext::getCanonicalTemplateTemplateParmDecl(
 }
 
 CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
-  if (!LangOpts.CPlusPlus) return nullptr;
-
+#if INTEL_CUSTOMIZATION
+  // CQ#379144 Intel TBAA.
   switch (T.getCXXABI().getKind()) {
   case TargetCXXABI::GenericARM: // Same as Itanium at this level
   case TargetCXXABI::iOS:
@@ -695,6 +695,9 @@ CXXABI *ASTContext::createCXXABI(const TargetInfo &T) {
   case TargetCXXABI::Microsoft:
     return CreateMicrosoftCXXABI(*this);
   }
+  // Initialize CXX ABI if any. It is used for mangling types in TBAA.
+  if (!LangOpts.CPlusPlus) return nullptr;
+#endif // INTEL_CUSTOMIZATION
   llvm_unreachable("Invalid CXXABI type!");
 }
 

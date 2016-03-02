@@ -91,9 +91,9 @@ def ext_intel_non_static_static : Extension<
   InGroup<IntelCompat>;
 def ext_intel_static_block_func : Extension<
   "static functions inside blocks are Intel extension">, InGroup<IntelCompat>;
-// CQ#364598
-def ext_intel_elab_befriended_type_refers_typedef : ExtWarn<
-  "elaborated befriended type refers to a typedef">, InGroup<IntelCompat>;
+// CQ#364598, CQ#374878.
+def ext_intel_elaborated_type_refers_to_typedef : ExtWarn<
+  "elaborated type refers to a typedef">, InGroup<IntelCompat>;
 // CQ#366612
 def warn_func_redecl_conflicting_types: Warning<
   "declaration of %0 is incompatible with previous "
@@ -115,6 +115,10 @@ def warn_indirect_goto_in_protected_scope : Warning<
   // CQ#366309 - allow arrays with incomplete element type in IntelCompat mode.
 def ext_intel_array_incomplete_type : Extension<
   "array with incomplete element type %0 is an Intel extension">,
+  InGroup<IntelCompat>;
+  // CQ#380872 - Arrays with incomplete (unknown) size
+def warn_intel_array_incomplete_size : Warning<
+  "array with incomplete (unknown) size element %0">,
   InGroup<IntelCompat>;
 // Fix for CQ375472.
 def warn_conditional_ambiguous : Warning<
@@ -454,6 +458,14 @@ def err_cean_arg_not_lvalue : Error<
 // CQ#373129 - support for __assume_aligned builtin.
 def err_assume_aligned_first_arg_not_pointer : Error<
   "first argument to '__assume_aligned' must be a pointer">;
+def warn_bad_cxx_cast_generic : Warning<
+  "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
+  "functional-style cast}0 from %1 to %2 is allowed in Intel/GCC compatibility mode only">,
+  InGroup<IntelCompat>;
+def warn_bad_cxx_cast_unrelated_class : Warning<
+  "%select{const_cast|static_cast|reinterpret_cast|dynamic_cast|C-style cast|"
+  "functional-style cast}0 from %1 to %2, which are not related by "
+  "inheritance, is allowed in Intel/GCC compatibility mode only">, InGroup<IntelCompat>;
 // endif INTEL_CUSTOMIZATION
 }
 // if INTEL_SPECIFIC_IL0_BACKEND

@@ -3388,10 +3388,12 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
         // C99 6.8.6.4p1 (ext_ since GCC warns)
         unsigned D = diag::ext_return_has_expr;
 #if INTEL_CUSTOMIZATION
-        if (getLangOpts().IntelCompat && !getLangOpts().CPlusPlus)
-          // CQ#367767 - allow returning a value from a void function.
+        // CQ#367767 - allow returning a value from a void function.
+        // CQ#381258 - void template function should not return a value.
+        if (getLangOpts().IntelCompat &&
+            (!getLangOpts().CPlusPlus || CurContext->isDependentContext()))
           D = diag::warn_ext_return_has_expr;
-#endif /* INTEL_CUSTOMIZATION */
+#endif // INTEL_CUSTOMIZATION
         if (RetValExp->getType()->isVoidType()) {
           NamedDecl *CurDecl = getCurFunctionOrMethodDecl();
           if (isa<CXXConstructorDecl>(CurDecl) ||
@@ -3487,6 +3489,10 @@ StmtResult Sema::BuildReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
     // the C version of which boils down to CheckSingleAssignmentConstraints.
     if (RetValExp)
       NRVOCandidate = getCopyElisionCandidate(FnRetType, RetValExp, false);
+#if INTEL_CUSTOMIZATION
+    // CQ377385: don't check return expression until template instantiation
+    if (!(getLangOpts().IntelCompat && CurContext->isDependentContext()))
+#endif // INTEL_CUSTOMIZATION
     if (!HasDependentReturnType && !RetValExp->isTypeDependent()) {
       // we have a non-void function with an expression, continue checking
       InitializedEntity Entity = InitializedEntity::InitializeResult(ReturnLoc,

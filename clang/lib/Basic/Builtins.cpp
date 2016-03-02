@@ -59,6 +59,11 @@ bool Builtin::Context::builtinIsSupported(const Builtin::Info &BuiltinInfo,
   bool MSModeUnsupported =
       !LangOpts.MicrosoftExt && (BuiltinInfo.Langs & MS_LANG);
   bool ObjCUnsupported = !LangOpts.ObjC1 && BuiltinInfo.Langs == OBJC_LANG;
+#if INTEL_CUSTOMIZATION
+  // CQ#370960 Allow ICC specific intrinsic.
+  if (LangOpts.IntelCompat && (BuiltinInfo.Langs & ICC_LANG))
+    return true;
+#endif // INTEL_CUSTOMIZATION
   return !BuiltinsUnsupported && !MathBuiltinsUnsupported &&
          !GnuModeUnsupported && !MSModeUnsupported && !ObjCUnsupported;
 }

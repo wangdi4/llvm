@@ -119,6 +119,7 @@ namespace {
     KEYMSASM = 0x8000000,
     KEYBASES = 0x10000000,
     KEYNOINT128 = 0x20000000,
+    KEYDECIMAL = 0x40000000,
 #endif // INTEL_CUSTOMIZATION || INTEL_SPECIFIC_CILKPLUS
     KEYALL = (0xffffffff & ~KEYNOMS18 & // INTEL_CUSTOMIZATION 0xfffffff
               ~KEYNOOPENCL) // KEYNOMS18 and KEYNOOPENCL are used to exclude.
@@ -160,6 +161,9 @@ static KeywordStatus getKeywordStatus(const LangOptions &LangOpts,
   if (LangOpts.IntelCompat && LangOpts.CPlusPlus11 && (Flags & KEYBASES))
     return KS_Extension;
   if (!(LangOpts.IntelCompat && LangOpts.NoInt128) && (Flags & KEYNOINT128))
+    return KS_Enabled;
+  // CQ#374317 - don't recognize _Decimal keyword if not in GNU mode.
+  if ((!LangOpts.IntelCompat || LangOpts.GNUMode) && (Flags & KEYDECIMAL))
     return KS_Enabled;
 #endif  // INTEL_CUSTOMIZATION
   if (LangOpts.Bool && (Flags & BOOLSUPPORT)) return KS_Enabled;
@@ -250,6 +254,13 @@ void IdentifierTable::AddKeywords(const LangOptions &LangOpts) {
 
   if (LangOpts.DeclSpecKeyword)
     AddKeyword("__declspec", tok::kw___declspec, KEYALL, LangOpts, *this);
+#if INTEL_CUSTOMIZATION
+// CQ#380574: Ability to set various predefines based on gcc version needed.
+  if (LangOpts.IntelCompat && LangOpts.IntelQuad)
+    AddKeyword("_Quad", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+  if (LangOpts.IntelCompat && LangOpts.GNUVersion >= 40400 && LangOpts.GNUMode)
+    AddKeyword("__float128", tok::kw__Quad, KEYFLOAT128, LangOpts, *this);
+#endif // INTEL_CUSTOMIZATION
 }
 
 /// \brief Checks if the specified token kind represents a keyword in the
