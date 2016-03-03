@@ -38,7 +38,9 @@
 #if INTEL_CUSTOMIZATION
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" 
 #include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/Transforms/Utils/Intel_VecClone.h" 
 #endif //INTEL_CUSTOMIZATION
+
 using namespace llvm;
 
 #if INTEL_CUSTOMIZATION
@@ -106,8 +108,12 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
-#ifdef INTEL_CUSTOMIZATION
-// HIR passes
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVecClone("enable-vec-clone",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run Vector Function Cloning"));
+
+// INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
 
