@@ -41,6 +41,9 @@ WRegionNode *WRegionUtils::createWRegion(
     case DIR_OMP_PARALLEL:
       W = new WRNParallelNode(EntryBB);
       break;
+    case DIR_OMP_PARALLEL_LOOP:
+      W = new WRNParallelLoopNode(EntryBB, LI);
+      break;
     case DIR_OMP_SIMD:
       W = new WRNVecLoopNode(EntryBB, LI);
       break;

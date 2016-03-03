@@ -218,6 +218,9 @@ public:
   /// This is called by WRegionNode::handleQualOpndList()
   template <typename ClauseTy>
   static ClauseTy *extractQualOpndList(IntrinsicInst *Call, ClauseTy *C);
+  static ReductionClause *extractReductionOpndList(IntrinsicInst *Call,
+                                                   ReductionClause *C,
+                                                   int ReductionKind);
 
   /// Removal Utilities
 

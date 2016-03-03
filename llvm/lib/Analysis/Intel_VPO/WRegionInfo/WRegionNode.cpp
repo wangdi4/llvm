@@ -274,6 +274,7 @@ void WRegionNode::handleQualOpnd(int ClauseID, Value *V) {
 //   undefined reference to `llvm::vpo::Clause<llvm::vpo::PrivateItem>*
 //   llvm::vpo::WRegionUtils::extractQualOpndList<llvm::vpo::PrivateItem>(
 //   llvm::IntrinsicInst*, llvm::vpo::Clause<llvm::vpo::PrivateItem>*)'
+
 template <typename ClauseTy>
 ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
   if (C == nullptr) {
@@ -288,11 +289,39 @@ ClauseTy *WRegionUtils::extractQualOpndList(IntrinsicInst *Call, ClauseTy *C) {
     Value *V = Call->getArgOperand(I);
     C->add(V);
   }
+  return C;
+}
 
+ReductionClause *WRegionUtils::extractReductionOpndList(IntrinsicInst *Call, 
+                                                        ReductionClause *C,
+                                                        int ReductionKind) {
+  if (C == nullptr) {
+    C = new ReductionClause();
+    C->setClauseID(QUAL_OMP_REDUCTION_ADD); // dummy reduction op
+  }
+
+  // Skip argument(0) as it is the metadata
+  for (unsigned I = 1; I < Call->getNumArgOperands(); ++I) {
+    Value *V = Call->getArgOperand(I);
+    C->add(V);
+    ReductionItem *RI = C->back();
+    RI->setType((ReductionItem::WRNReductionKind)ReductionKind);
+  }
   return C;
 }
 #endif
 
+
+//
+// The code below was trying to get initializer and combiner from the LLVM IR.
+// However, only UDR requires initializer and combiner function pointers, and
+// the front-end has to provide them. 
+// For standard OpenMP reduction operations(ie, not UDR), the combiner and 
+// initializer operations are implied by the reduction operation and type
+// of the reduction variable.
+// Therefore, we should never have to use the code below.
+//
+#if 0
 /// \brief Fill reduction info in ReductionItem \pRI
 static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   auto usedInOnlyOnePhiNode = [](Value *V) {
@@ -328,6 +357,9 @@ static void setReductionItem(ReductionItem *RI, IntrinsicInst *Call) {
   int ReductionClauseID = VPOUtils::getClauseID(DirString);
   RI->setType(ReductionItem::getKindFromClauseId(ReductionClauseID));
 }
+#endif
+
+
 //
 // TODO1: This implementation does not yet support nonPOD and array section
 //        clause items. It also does not support the optional arguments at
@@ -382,15 +414,19 @@ void WRegionNode::handleQualOpndList(int ClauseID, IntrinsicInst *Call) {
   case QUAL_OMP_REDUCTION_BAND:
   case QUAL_OMP_REDUCTION_BOR:
   case QUAL_OMP_REDUCTION_UDR: {
+    int ReductionKind = ReductionItem::getKindFromClauseId(ClauseID);
+    assert(ReductionKind > 0 && "Bad reduction operation");
     ReductionClause *C =
-        WRegionUtils::extractQualOpndList<ReductionClause>(Call, getRed());
-      setRed(C);
-      setReductionItem(C->back(), Call);
-      break;
-    }
-    default:
-      llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
-      break;
+        WRegionUtils::extractReductionOpndList(Call, getRed(), ReductionKind);
+    setRed(C);
+
+    //don't call this: 
+    // setReductionItem(C->back(), Call);
+    break;
+  }
+  default:
+    llvm_unreachable("Unknown ClauseID in handleQualOpndList()");
+    break;
   }
 }
 

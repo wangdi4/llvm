@@ -215,3 +215,20 @@ bool VPOUtils::isListEndDirective(StringRef DirString) {
 bool VPOUtils::isListEndDirective(int DirID) {
   return DirID == DIR_QUAL_LIST_END;
 }
+
+bool VPOUtils::isReductionClause(int ClauseID) {
+  switch(ClauseID) {
+    case QUAL_OMP_REDUCTION_ADD:
+    case QUAL_OMP_REDUCTION_SUB:
+    case QUAL_OMP_REDUCTION_MUL:
+    case QUAL_OMP_REDUCTION_AND:
+    case QUAL_OMP_REDUCTION_OR:
+    case QUAL_OMP_REDUCTION_XOR:
+    case QUAL_OMP_REDUCTION_BAND:
+    case QUAL_OMP_REDUCTION_BOR:
+    case QUAL_OMP_REDUCTION_UDR:
+    return true;
+  }
+  return false;
+}
+

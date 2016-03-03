@@ -172,19 +172,21 @@ class ReductionItem : public Item
 public:
   typedef enum WRNReductionKind {
     WRNReductionError = 0,
+    // The order of these reduction operations must match the same order as
+    // in the enum OMP_CLAUSES, starting with QUAL_OMP_REDUCTION_ADD.
     WRNReductionSum,
-    WRNReductionMult,
     WRNReductionSub,
-    WRNReductionMax,
-    WRNReductionMin,
+    WRNReductionMult,
     WRNReductionAnd,
     WRNReductionOr,
+    WRNReductionBxor,
     WRNReductionBand,
     WRNReductionBor,
-    WRNReductionIeor,
-    WRNReductionBxor,
-    WRNReductionEqv,
-    WRNReductionNeqv,
+    // TBD: add these Fortran reduction operations later
+    // WRNReductionEqv,
+    // WRNReductionNeqv,
+    // WRNReductionMax,
+    // WRNReductionMin,
     WRNReductionUdr   //user-defined reduction
   } WRNReductionKind;
 
@@ -198,10 +200,10 @@ public:
       Item(Orig), Ty(Op), Combiner(nullptr), Initializer(nullptr) {}
 
     static WRNReductionKind getKindFromClauseId(int Id) {
-      return (WRNReductionKind)(Id - QUAL_OMP_REDUCTION);
+      return (WRNReductionKind)(Id - QUAL_OMP_REDUCTION_ADD + 1);
     };
     static int getClauseIdFromKind(WRNReductionKind Kind) {
-      return QUAL_OMP_REDUCTION + (int)Kind;
+      return QUAL_OMP_REDUCTION_ADD + (int)Kind -1;
     };
 
     void setType(WRNReductionKind Op) { Ty = Op;          }
@@ -330,7 +332,7 @@ template <typename ClauseItem> class Clause
 
   protected:
     // Create a new item for VAR V and append it to the clause
-     void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
+    void add(VAR V) { ClauseItem *P = new ClauseItem(V); C.push_back(P); }
 
   public:
     int getClauseID()               const { return ClauseID;     }

@@ -173,6 +173,10 @@ public:
     static bool isListEndDirective(StringRef DirString);
     static bool isListEndDirective(int DirID);
 
+    /// \brief Return true iff the ClauseID represents a REDUCTION clause,
+    /// such as QUAL_OMP_REDUCTION_ADD
+    static bool isReductionClause(int ClauseID);
+
     ////////////////// MultiVersioning Transformation ////////////////////////
     //
     /// \brief Given a single-entry and single-exit region represented by
