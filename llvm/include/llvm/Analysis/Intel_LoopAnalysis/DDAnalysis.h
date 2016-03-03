@@ -20,11 +20,11 @@
 #ifndef INTEL_LOOPANALYSIS_DDA
 #define INTEL_LOOPANALYSIS_DDA
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Pass.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDGraph.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeVisitor.h"
 
@@ -64,7 +64,7 @@ public:
   bool runOnFunction(Function &F) override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   // \brief Marks a loop body as modified, causing DD to rebuild the graph
   // for this loop and its children. This should be done when modifying the

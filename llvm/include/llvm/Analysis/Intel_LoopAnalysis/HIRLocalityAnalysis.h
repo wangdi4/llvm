@@ -27,13 +27,13 @@
 
 #include <map>
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Pass.h"
 
 #include "llvm/Analysis/Intel_LoopAnalysis/HIRAnalysisPass.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGatherer.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefGrouping.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
 
 namespace llvm {
 
@@ -206,7 +206,7 @@ public:
 
   void print(raw_ostream &OS, const Module * = nullptr) const override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
 
   void releaseMemory() override;
 

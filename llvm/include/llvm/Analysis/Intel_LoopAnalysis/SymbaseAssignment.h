@@ -51,7 +51,7 @@ public:
   SymbaseAssignment() : FunctionPass(ID) {}
   static char ID;
   bool runOnFunction(Function &F) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
   void print(raw_ostream &OS, const Module * = nullptr) const override;
 
 private:
@@ -67,7 +67,6 @@ private:
 
   // Returns a new unused symbase ID.
   unsigned getNewSymbase() { return ++MaxSymbase; }
-
 };
 }
 }

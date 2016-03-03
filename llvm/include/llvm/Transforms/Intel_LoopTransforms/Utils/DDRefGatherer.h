@@ -29,10 +29,10 @@
 
 #include "llvm/Support/Debug.h"
 
-#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/BlobDDRef.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 namespace llvm {
 
@@ -46,7 +46,9 @@ enum DDRefGatherMode {
   ConstantRefs = 1 << 4,
   UndefRefs = 1 << 5,
 
-  AllRefs = -1,
+  // When adding new modes, ensure AllRef
+  // bits are set.
+  AllRefs = (1 << 20) - 1,
 };
 
 // Data Structure to store mapping of symbase to memory references. We are using
@@ -220,8 +222,7 @@ struct DDRefGatherer : public DDRefGathererUtils {
   }
 
   template <typename It>
-  static void gatherRange(It Begin, It End,
-                          MapTy &SymToMemRef) {
+  static void gatherRange(It Begin, It End, MapTy &SymToMemRef) {
     DDRefGathererVisitor<RefTy, Mode> VImpl(SymToMemRef);
     HLNodeUtils::visitRange(VImpl, Begin, End);
   }

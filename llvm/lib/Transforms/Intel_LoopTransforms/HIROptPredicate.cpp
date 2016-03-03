@@ -48,22 +48,22 @@
 //    will only hoist them outside the innermost loop.
 // 6. Add opt report messages.
 
-#include "llvm/Pass.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 #include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRFramework.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/HIRTransformPass.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/DDRefUtils.h"
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/HIRInvalidationUtils.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 
 #define DEBUG_TYPE "hir-opt-predicate"
 
@@ -96,7 +96,7 @@ public:
   bool runOnFunction(Function &F) override;
   void releaseMemory() override;
 
-  void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
     AU.addRequiredTransitive<HIRFramework>();
     AU.addRequiredTransitive<DDAnalysis>();

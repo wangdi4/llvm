@@ -16,8 +16,8 @@
 #ifndef LLVM_IR_INTEL_LOOPIR_HLDDNODE_H
 #define LLVM_IR_INTEL_LOOPIR_HLDDNODE_H
 
-#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/IR/Intel_LoopIR/HLNode.h"
 #include <iterator>
 
 namespace llvm {
@@ -68,7 +68,7 @@ protected:
   /// This function populates the GotoList with Goto branches
   /// and LabelMap with Old and New Labels.
   virtual HLDDNode *cloneImpl(GotoContainerTy *GotoList,
-                              LabelMapTy *LabelMap) const = 0;
+                              LabelMapTy *LabelMap) const override = 0;
 
 public:
   /// \brief Prints HLInst.
@@ -110,7 +110,7 @@ public:
   unsigned getNumDDRefs() const { return RegDDRefs.size(); }
 
   /// \brief Virtual Clone method
-  virtual HLDDNode *clone() const = 0;
+  virtual HLDDNode *clone() const override = 0;
 
   /// \brief Returns the number of operands (and lval, if applicable) this node
   /// is supposed to have.
