@@ -1516,6 +1516,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
                    OPT_no_gnu_mangling_for_simd_types, Opts.GNUMangling);
   Opts.GNUFABIVersion = getLastArgIntValue(Args, OPT_gnu_fabi_version_EQ,
                                            Opts.GNUFABIVersion, Diags);
+
+  // CQ382285: Emulate GNU ABI support exactly as icc does it.
+  if (Opts.GNUFABIVersion == 0)
+    Opts.EmulateGNUABIBugs = 0;
+
   // CQ380574: Ability to set various predefines based on gcc version needed.
   Opts.GNUVersion = getLastArgIntValue(Args, OPT_gnu_version_EQ,
 #if INTEL_SPECIFIC_IL0_BACKEND

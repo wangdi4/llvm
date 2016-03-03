@@ -392,6 +392,7 @@ private:
 
   void mangleType(const TagType*);
   void mangleType(TemplateName);
+  void mangleType(const VectorType *T, bool IsMType); // INTEL
   void mangleBareFunctionType(const FunctionType *T, bool MangleReturnType,
                               const FunctionDecl *FD = nullptr);
   void mangleNeonVectorType(const VectorType *T);
@@ -1917,19 +1918,53 @@ static bool isTypeSubstitutable(Qualifiers Quals, const Type *Ty) {
   return true;
 }
 
+#if INTEL_CUSTOMIZATION
+// Is given type one of special __mN vector types?
+//
+// These types are recognized by icc and mangled in a special way. We should
+// replicate this.
+//
+// Is result is true, type identifier is returned via MTypeName. Is result is
+// false, MTypeName is set to "".
+static bool isMType(QualType T, StringRef &MTypeName) {
+  MTypeName = "";
+
+  if (!T->isVectorType())
+    return false;
+
+  auto *TDTy = T->getAs<TypedefType>();
+
+  if (TDTy == nullptr)
+    return false;
+
+  MTypeName = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->getName();
+
+  bool res = llvm::StringSwitch<bool>(MTypeName)
+    .Case("__m64", true)
+    .Case("__m128", true)
+    .Case("__m128i", true)
+    .Case("__m128d", true)
+    .Case("__m256", true)
+    .Case("__m256i", true)
+    .Case("__m256d", true)
+    .Case("__m512", true)
+    .Case("__m512i", true)
+    .Case("__m512d", true)
+    .Default(false);
+
+  if (res == false)
+    MTypeName = "";
+
+  return res;
+}
+#endif // INTEL_CUSTOMIZATION
+
 void CXXNameMangler::mangleType(QualType T) {
 #if INTEL_CUSTOMIZATION
-  // CQ371729: Incompatible name mangling.
-  bool MangleM64 = false;
+  // CQ371729: Special mangling for __mN vector types.
   auto &LangOpts = getASTContext().getLangOpts();
-  if (LangOpts.IntelCompat && T->isVectorType()) {
-    if (auto *TDTy = T->getAs<TypedefType>()) {
-      MangleM64 = TDTy->getDecl()->getCanonicalDecl()->getIdentifier()->isStr(
-                      "__m64") &&
-                  (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4);
-    }
-  }
-  if (!MangleM64) {
+  StringRef MTypeName;
+  bool IsMType = LangOpts.IntelCompat && isMType(T, MTypeName);
 #endif // INTEL_CUSTOMIZATION
   // If our type is instantiation-dependent but not dependent, we mangle
   // it as it was written in the source, removing any top-level sugar. 
@@ -1967,9 +2002,6 @@ void CXXNameMangler::mangleType(QualType T) {
       T = Desugared;
     } while (true);
   }
-#if INTEL_CUSTOMIZATION
-  }
-#endif // INTEL_CUSTOMIZATION
   SplitQualType split = T.split();
   Qualifiers quals = split.Quals;
   const Type *ty = split.Ty;
@@ -1995,12 +2027,13 @@ void CXXNameMangler::mangleType(QualType T) {
     mangleType(QualType(ty, 0));
   } else {
 #if INTEL_CUSTOMIZATION
-    // CQ371729: Incompatible name mangling.
-    if (MangleM64) {
-      if (LangOpts.GNUMangling && LangOpts.GNUFABIVersion < 4)
-        Out << "U8__vectori";
-      else if (LangOpts.GNUMangling || LangOpts.GNUFABIVersion >= 4)
-        Out << "Dv2_i";
+    // CQ371729: Special mangling for __mN vector types.
+    if (IsMType) {
+      // In non-GNUMangling mode, mangle __mN types as: name length + name.
+      if (!LangOpts.GNUMangling)
+        Out << MTypeName.size() << MTypeName;
+      else
+        mangleType(static_cast<const VectorType*>(ty), true);
     } else {
 #endif // INTEL_CUSTOMIZATION
     switch (ty->getTypeClass()) {
@@ -2530,6 +2563,10 @@ void CXXNameMangler::mangleAArch64NeonVectorType(const VectorType *T) {
   Out << TypeName.length() << TypeName;
 }
 
+#if INTEL_CUSTOMIZATION
+void CXXNameMangler::mangleType(const VectorType *T) { mangleType(T, false); }
+#endif // INTEL_CUSTOMIZATION
+
 // GNU extension: vector types
 // <type>                  ::= <vector-type>
 // <vector-type>           ::= Dv <positive dimension number> _
@@ -2538,7 +2575,7 @@ void CXXNameMangler::mangleAArch64NeonVectorType(const VectorType *T) {
 // <extended element type> ::= <element type>
 //                         ::= p # AltiVec vector pixel
 //                         ::= b # Altivec vector bool
-void CXXNameMangler::mangleType(const VectorType *T) {
+void CXXNameMangler::mangleType(const VectorType *T, bool IsMType) { // INTEL
   if ((T->getVectorKind() == VectorType::NeonVector ||
        T->getVectorKind() == VectorType::NeonPolyVector)) {
     llvm::Triple Target = getASTContext().getTargetInfo().getTriple();
@@ -2552,10 +2589,18 @@ void CXXNameMangler::mangleType(const VectorType *T) {
     return;
   }
 #if INTEL_CUSTOMIZATION
-  // CQ371729: Incompatible name mangling.
+  // CQ371729: Mangle __mN types exactly as icc does.
   auto &LangOpts = getASTContext().getLangOpts();
-  if (LangOpts.IntelCompat && LangOpts.GNUMangling &&
-      LangOpts.GNUFABIVersion < 4)
+  // __m64 is a special type, mangled as if it is defined as two ints, while in
+  // reality it is a long long.
+  if (LangOpts.IntelCompat && IsMType && (T->getNumElements() == 1) &&
+      (getASTContext().getTypeSize(T->getElementType()) == 64)) {
+    if (LangOpts.GNUFABIVersion < 4)
+      Out << "U8__vectori";
+    else
+      Out << "Dv2_i";
+    return;
+  } else if (LangOpts.IntelCompat && IsMType && (LangOpts.GNUFABIVersion < 4))
     Out << "U8__vector";
   else
 #endif // INTEL_CUSTOMIZATION
