@@ -1,18 +1,20 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrUtilsIR.h -----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrUtilsIR.h -- Defines the utilities class for AVR nodes
-//   that are LLVM IR specific.
-//
 //===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the utilities class for AVR nodes that are LLVM IR
+/// specific.
+///
+//===----------------------------------------------------------------------===//
+
 
 #ifndef LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
 #define LLVM_ANAYSIS_VPO_AVR_UTILS_IR_H
@@ -38,7 +40,7 @@ public:
   static AVRCompareIR *createAVRCompareIR(Instruction *Inst);
 
   /// \brief Returns a new AVRSelectIR node.
-  static AVRSelectIR *createAVRSelectIR(Instruction *Inst, AVRCompare *AComp);
+  static AVRSelectIR *createAVRSelectIR(Instruction *Inst, AVR *ACond);
 
   /// \brief Returns a new AVRAssignIR node.
   static AVRAssignIR *createAVRAssignIR(Instruction *Inst);
@@ -74,8 +76,11 @@ public:
   /// \brief Returns a new AVRValueIR node.
   static AVRValueIR *createAVRValueIR(const Value *V, const Instruction *Inst);
 
-  /// \brief Returns a new AVRSwitch node.
+  /// \brief Returns a new AVRSwitchIR node.
   static AVRSwitchIR *createAVRSwitchIR(Instruction *SwitchI);
+
+  /// \brief Returns a new AVRUnreachableIR node.
+  static AVRUnreachableIR *createAVRUnreachableIR(Instruction *UI);
 
   // Modification Utilities
 

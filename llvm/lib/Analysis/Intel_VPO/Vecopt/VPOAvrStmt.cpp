@@ -215,7 +215,7 @@ void AVRReturn::print(formatted_raw_ostream &OS, unsigned Depth,
 StringRef AVRReturn::getAvrTypeName() const { return StringRef("RETURN"); }
 
 //----------AVR Select Implementation----------//
-AVRSelect::AVRSelect(unsigned SCID, AVR *AComp) : AVR(SCID), Compare(AComp) {}
+AVRSelect::AVRSelect(unsigned SCID) : AVR(SCID) {}
 
 AVRSelect *AVRSelect::clone() const { return nullptr; }
 
@@ -287,12 +287,13 @@ void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
   std::string Indent((Depth * TabLength), ' ');
   OS << Indent;
 
-  // Print AVR Expression Node.
+  // Print AVR NOP Node.
   switch (VLevel) {
   case PrintNumber:
     OS << "(" << getNumber() << ")";
   case PrintAvrType:
     OS << getAvrTypeName() << "{";
+  case PrintDataType:
   case PrintBase:
     OS << getAvrValueName();
     break;
@@ -310,3 +311,41 @@ void AVRNOP::print(formatted_raw_ostream &OS, unsigned Depth,
 StringRef AVRNOP::getAvrTypeName() const { return StringRef("NOP"); }
 
 std::string AVRNOP::getAvrValueName() const { return "No Operation"; }
+
+//----------AVR Unreachable Implementation----------//
+AVRUnreachable::AVRUnreachable(unsigned SCID) : AVR(SCID) {}
+
+AVRUnreachable *AVRUnreachable::clone() const { return nullptr; }
+
+void AVRUnreachable::print(formatted_raw_ostream &OS, unsigned Depth,
+                           VerbosityLevel VLevel) const {
+
+  std::string Indent((Depth * TabLength), ' ');
+  OS << Indent;
+
+  // Print AVR Unreachable Node.
+  switch (VLevel) {
+  case PrintNumber:
+    OS << "(" << getNumber() << ")";
+  case PrintAvrType:
+    OS << getAvrTypeName() << "{";
+  case PrintDataType:
+  case PrintBase:
+    OS << getAvrValueName();
+    break;
+  default:
+    llvm_unreachable("Unknown Avr Print Verbosity!");
+  }
+
+  // Close up open braces
+  if (VLevel >= PrintAvrType)
+    OS << "}";
+
+  OS << "\n";
+}
+
+StringRef AVRUnreachable::getAvrTypeName() const {
+  return StringRef("Unreachable");
+}
+
+std::string AVRUnreachable::getAvrValueName() const { return "unreachable"; }

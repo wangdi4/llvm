@@ -62,6 +62,9 @@ public:
   /// \brief Returns a new AVRSwitchHIR node.
   static AVRSwitchHIR *createAVRSwitchHIR(HLSwitch *HSwitch);
 
+  /// \brief Returns a new AVRUnreachableHIR node.
+  static AVRUnreachableHIR *createAVRUnreachableHIR(HLNode *Node);
+
 };
 
 } // End VPO Vectorizer Namespace

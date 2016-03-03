@@ -63,13 +63,17 @@ void AVRFunction::print(formatted_raw_ostream &OS, unsigned Depth,
 
     // Print Function Arguments
     Function::ArgumentListType &ArgList = OriginalFunction->getArgumentList();
-    Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
-    Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
 
-    OS << *ArgListIt;
-    ++ArgListIt;
-    for (; ArgListIt != ArgListEnd; ++ArgListIt) {
-      OS << ", " << *ArgListIt;
+    if (!ArgList.empty()) {
+
+      Function::ArgumentListType::iterator ArgListIt = ArgList.begin();
+      Function::ArgumentListType::iterator ArgListEnd = ArgList.end();
+
+      OS << *ArgListIt;
+      ++ArgListIt;
+      for (; ArgListIt != ArgListEnd; ++ArgListIt) {
+        OS << ", " << *ArgListIt;
+      }
     }
 
     OS << ")\n" << Indent << "{\n";

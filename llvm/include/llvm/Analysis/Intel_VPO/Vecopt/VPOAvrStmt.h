@@ -537,19 +537,26 @@ public:
 /// \brief An abstract vector select node.
 ///
 class AVRSelect : public AVR {
-private:
-  /// Compare - AVR Compare when part of compare - select.
-  AVR *Compare;
 
 protected:
-  AVRSelect(unsigned SCID, AVR *AComp);
+
+  /// Condition - The avr generated for the condition of this select.
+  AVR *Condition;
+
+  /// \brief Object constructor.
+  AVRSelect(unsigned SCID);
+
+  /// \brief Destructor for object.
   virtual ~AVRSelect() override {}
 
-  // TODO: Add Member Functions
+  /// \brief Sets the condition avr for this select node. 
+  void setCondition(AVR *Cond) { Condition = Cond; }
+
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtils;
 
 public:
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return (Node->getAVRID() >= AVR::AVRSelectNode &&
@@ -830,6 +837,45 @@ public:
 
 };
 
+//----------AVR Unreachable Node----------//
+/// \brief An abstract vector unreachable node. This avr node represents an
+/// unreachable instruction.
+class AVRUnreachable : public AVR {
+
+protected:
+
+  /// \brief AVRUnreachable object constructor. This object should only be
+  /// instantiated from its derived classes.
+  AVRUnreachable(unsigned SCID);
+
+  /// \brief Virtual object destructor.
+  virtual ~AVRUnreachable() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtils;
+
+public:
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return (Node->getAVRID() >= AVR::AVRUnreachableNode &&
+            Node->getAVRID() < AVR::AVRUnreachableLastNode);
+  }
+
+  /// \brief Clone method for AVRUnreachable.
+  AVRUnreachable *clone() const override;
+
+  /// \brief Prints the AVR Unreachable node.
+  void print(formatted_raw_ostream &OS, unsigned Depth,
+             VerbosityLevel VLevel) const override;
+
+  /// \brief Returns a constant StringRef for the type name of this node.
+  virtual StringRef getAvrTypeName() const override;
+
+  /// \brief Returns the value name of this node.
+  virtual std::string getAvrValueName() const override;
+
+};
 
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace

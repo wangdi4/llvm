@@ -1,4 +1,4 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrGenerate.h ----------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -7,24 +7,25 @@
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrGenerate.h -- Defines the analysis pass used to generate AVR nodes
-//   from LLVM IR and HIR.
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the analysis pass used to generate AVR nodes from LLVM
+/// IR and HIR.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_GENERATE_H
 #define LLVM_ANALYSIS_VPO_AVR_GENERATE_H
 
-#include "llvm/Pass.h"
-#include "llvm/IR/Dominators.h"
-
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvr.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtils.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsIR.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrUtilsHIR.h"
-
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
+#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
+#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
 #include "llvm/IR/Intel_LoopIR/HLSwitch.h"
 #include "llvm/IR/Intel_LoopIR/HLLoop.h"
 #include "llvm/IR/Intel_LoopIR/HLRegion.h"
@@ -32,12 +33,8 @@
 #include "llvm/IR/Intel_LoopIR/HLInst.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
 #include "llvm/IR/Intel_LoopIR/HIRVisitor.h"
-
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRParser.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/DDAnalysis.h"
-#include "llvm/Analysis/Intel_LoopAnalysis/HIRLocalityAnalysis.h"
-
-#include "llvm/Transforms/Intel_LoopTransforms/Utils/HLNodeUtils.h"
+#include "llvm/Pass.h"
+#include "llvm/IR/Dominators.h"
 
 using namespace llvm::loopopt;
 
@@ -149,6 +146,7 @@ protected:
 
 
 public:
+
   AVRGenerateBase(char &ID);
 
   /// AvrLabels - Map of avr labels and basic blocks generated in AL.
@@ -239,6 +237,7 @@ public:
 class AVRGenerate : public AVRGenerateBase {
 
 private:
+
   /// True when in AVR scalar stress testing mode
   bool ScalarStressTest;
 
@@ -290,8 +289,7 @@ private:
   AvrItr generateAvrInstSeqForBB(BasicBlock *BB, AvrItr InsertionPos);
 
   /// \brief Generates terminator AVR for given BB
-  AVR *generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
-                             AVR *ACondition);
+  AVR *generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos);
 
   /// \brief Returns AVR that sets boolean bit for conditional branch.
   AVR *findAvrConditionForBI(BasicBlock *BB, BranchInst *BI, AVR *InsertionPos);
@@ -311,7 +309,12 @@ private:
   void cleanupAvrWrnNodes();
 
 public:
+
   AVRGenerate();
+
+  /// AvrInst - Map of generated non-expression optimized avr nodes to llvm
+  /// instructions. Does not include labels
+  SmallDenseMap<Instruction *, AVR *, 128> AvrInsts;
 
   // Pass Identification
   static char ID;
@@ -321,6 +324,7 @@ public:
 
   /// \brief Returns the Loop Info for this function.
   const LoopInfo *getLoopInfo() { return LI; }
+
 };
 
 // Abstract Layer objects

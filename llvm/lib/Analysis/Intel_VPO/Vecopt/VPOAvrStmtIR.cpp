@@ -541,8 +541,12 @@ void AVRReturnIR::codeGen() {
 //----------------------------------------------------------------------------//
 // AVR Select Node for LLVM IR
 //----------------------------------------------------------------------------//
-AVRSelectIR::AVRSelectIR(Instruction *Inst, AVRCompare *AComp)
-    : AVRSelect(AVR::AVRSelectIRNode, AComp), Instruct(Inst) {}
+AVRSelectIR::AVRSelectIR(Instruction *Inst, AVR *ACondition)
+  : AVRSelect(AVR::AVRSelectIRNode), Instruct(Inst) {
+
+  this->setCondition(ACondition);
+}
+
 
 AVRSelectIR *AVRSelectIR::clone() const { return nullptr; }
 
@@ -654,3 +658,11 @@ void AVRCompareIR::codeGen() {
   ReplaceInstWithInst(Instruct, Inst);
   DEBUG(Inst->dump());
 }
+
+
+//----------AVR Unreachable for LLVM IR Implementation----------//
+AVRUnreachableIR::AVRUnreachableIR(Instruction *Inst)
+    : AVRUnreachable(AVR::AVRUnreachableIRNode), Instruct(Inst) {}
+
+AVRUnreachableIR *AVRUnreachableIR::clone() const { return nullptr; }
+

@@ -1,4 +1,4 @@
-//===-- VPOAvrGenerate.cpp --------------------------------------*- C++ -*-===//
+//===-- VPOAvrGenerate.cpp ------------------------------------------------===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -7,19 +7,19 @@
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
-//   Source file:
-//   ------------
-//   VPOAvrGenerate.cpp -- Implements the AVR Generation Pass
-//
+//===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file implements the AVR Generation Pass.
+///
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrGenerate.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOVecCandIdentify.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/Passes.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrVisitor.h"
 #include "llvm/Analysis/Intel_VPO/WRegionInfo/WRegionUtils.h"
-
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Instructions.h"
@@ -774,7 +774,7 @@ void AVRGenerate::buildAvrsForVectorCandidates() {
 AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
                                             AvrItr InsertionPos) {
   AVRLabelIR *ALabel = AVRUtilsIR::createAVRLabelIR(BB);
-  AVR *ACondition = nullptr, *NewNode = nullptr;
+  AVR *NewNode = nullptr;
 
   // Add Avr label to map for downstream AL optimizations
   AvrLabels[BB] = ALabel;
@@ -808,95 +808,87 @@ AvrItr AVRGenerate::generateAvrInstSeqForBB(BasicBlock *BB,
       break;
     case Instruction::ICmp:
     case Instruction::FCmp:
-      ACondition = AVRUtilsIR::createAVRCompareIR(I);
-      NewNode = ACondition;
+      NewNode = AVRUtilsIR::createAVRCompareIR(I);
       break;
     case Instruction::Select:
-      // When a select is encountered, we pair it with the previous compare
-      // generated.
-      assert(ACondition && "Select instruction missing compare");
-      NewNode = AVRUtilsIR::createAVRSelectIR(I, cast<AVRCompare>(ACondition));
+    {
+      auto *SI = cast<SelectInst>(I);
+      auto *CI = cast<Instruction>(SI->getCondition());
+      assert(CI && "Could not resolve condition inst for select inst!");
 
-      // Reset ACondition pointer to null for any downstream compares.
-      ACondition = nullptr;
+      AVR *AvrCondition = AvrInsts[CI];
+      assert(AvrCondition && "Could not resolve avr condition for select!");
+
+      NewNode = AVRUtilsIR::createAVRSelectIR(I, AvrCondition);
       break;
+    }
     default:
       NewNode = AVRUtilsIR::createAVRAssignIR(I);
     }
 
+    DEBUG(dbgs() << "VECREPORT: Generated New AVR = ");
     DEBUG(NewNode->dump());
+
+    // Add newly created avr and it's corresponding instruction to map.
+    AvrInsts[I] = NewNode;
+
+    // Insert the newly created avr into the abstract layer.
     AVRUtils::insertAVRAfter(InsertionPos, NewNode);
     InsertionPos = NewNode;
   }
 
-  InsertionPos = generateAvrTerminator(BB, InsertionPos, ACondition);
+  // Generate terminator and set pointer in avr label node.
+  InsertionPos = generateAvrTerminator(BB, InsertionPos);
   ALabel->setTerminator(InsertionPos);
 
   return InsertionPos;
 }
 
-AVR *AVRGenerate::findAvrConditionForBI(BasicBlock *BB, BranchInst *BI,
-                                        AVR *InsertionPos) {
+AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos) {
 
-  AvrItr I(AvrLabels[BB]), E(InsertionPos);
-  Value *BrCond = BI->getCondition();
-
-  // Search Backwards for condition
-  for (; I != E; --E) {
-
-    const Instruction *Inst = nullptr;
-
-    if (AVRAssignIR *Assign = dyn_cast<AVRAssignIR>(E)) {
-      Inst = Assign->getLLVMInstruction();
-    } else if (AVRPhiIR *Phi = dyn_cast<AVRPhiIR>(E)) {
-      Inst = Phi->getLLVMInstruction();
-    } else if (AVRCompareIR *Compare = dyn_cast<AVRCompareIR>(E)) {
-      Inst = Compare->getLLVMInstruction();
-    }
-
-    if (Inst == BrCond) {
-      return E;
-    }
-  }
-  return nullptr;
-}
-
-AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
-                                        AVR *ACondition) {
   auto Terminator = BB->getTerminator();
 
   if (BranchInst *BI = dyn_cast<BranchInst>(Terminator)) {
 
-    if (!ACondition && BI->isConditional()) {
+    AVR *AvrCondition = nullptr;
 
-      // An AvrCompare was not idenitified for this branch. Search
-      // AVRs for this branch's condition.
-      ACondition = findAvrConditionForBI(BB, BI, InsertionPos);
-      assert(ACondition && "Unable to find condition for branch!");
+    if (BI->isConditional()) {
+
+      auto *CI = cast<Instruction>(BI->getCondition());
+      AvrCondition = AvrInsts[CI];
+      assert(AvrCondition && "Avr condition for branch could not be resolved!");
+
     }
 
     // Create a branch terminator
     AVRBranchIR *ABranch =
-        AVRUtilsIR::createAVRBranchIR(Terminator, ACondition);
+        AVRUtilsIR::createAVRBranchIR(Terminator, AvrCondition);
+
+    // Insert newly created branch into the abstract layer.
     AVRUtils::insertAVRAfter(InsertionPos, ABranch);
     InsertionPos = ABranch;
 
-    // Construct the AVR If in place. Do not generate Avr ifs for loop header
-    // or loop latches
+    // Construct the AVRIf in place. Do not generate AVRIfs for loop header or
+    // loop latches.  The conditional branch this AVRIf represents will be 
+    // cleaned up downstream. For now we leave it in the abstract layer.
+
     Loop *Lp = LI->getLoopFor(BB); 
     auto LpLatchBB = Lp ? Lp->getLoopLatch() : nullptr;
 
     if (BI->isConditional() && !LI->isLoopHeader(BB) && BB != LpLatchBB) {
 
-      // Create an avr if node for terminator
+      // Create an AVRIf node for terminator and insert it into the
+      // abstract layer.
       AVRIfIR *AvrIf = AVRUtilsIR::createAVRIfIR(ABranch);
       AVRUtils::insertAVRAfter(InsertionPos, AvrIf);
       InsertionPos = AvrIf;
 
     }
+
   } else if (SwitchInst *SI = dyn_cast<SwitchInst>(Terminator)) {
 
-    // Create an avr switch node for terminator
+    // Create an avr switch node for terminator and insert it into the
+    // abstract layer.
     AVRSwitchIR *NewSwitch = AVRUtilsIR::createAVRSwitchIR(SI);
 
     AVRUtils::insertAVRAfter(InsertionPos, NewSwitch);
@@ -904,13 +896,25 @@ AVR *AVRGenerate::generateAvrTerminator(BasicBlock *BB, AVR *InsertionPos,
 
   } else if (ReturnInst *RI = dyn_cast<ReturnInst>(Terminator)) {
 
-    // Create a return terminator
+    // Create a return node terminator and insert it into the abstract
+    // layer
     AVRReturnIR *AReturn = AVRUtilsIR::createAVRReturnIR(RI);
     AVRUtils::insertAVRAfter(InsertionPos, AReturn);
     InsertionPos = AReturn;
 
+  } else if (UnreachableInst *UI = dyn_cast<UnreachableInst>(Terminator)) {
+
+    // Create an unreachable node terminator and insert into the abstract
+    // layer.
+    AVRUnreachableIR *AUnreach= AVRUtilsIR::createAVRUnreachableIR(UI);
+    AVRUtils::insertAVRAfter(InsertionPos, AUnreach);
+    InsertionPos = AUnreach;
+
   } else {
+
+    DEBUG(Terminator->dump());
     llvm_unreachable("Unknown terminator type!");
+
   }
 
   return InsertionPos;

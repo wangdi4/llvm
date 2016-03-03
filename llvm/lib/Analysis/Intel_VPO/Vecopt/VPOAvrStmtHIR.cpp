@@ -173,3 +173,11 @@ void AVRBranchHIR::print(formatted_raw_ostream &OS, unsigned Depth,
 std::string AVRBranchHIR::getAvrValueName() const {
   return "";
 }
+
+//----------AVR Unreachable for HIR Implementation----------//
+AVRUnreachableHIR::AVRUnreachableHIR(HLNode *Inst)
+  : AVRUnreachable(AVR::AVRUnreachableHIRNode), Instruct(Inst) {}
+
+AVRUnreachableHIR *AVRUnreachableHIR::clone() const {
+  return nullptr;
+}

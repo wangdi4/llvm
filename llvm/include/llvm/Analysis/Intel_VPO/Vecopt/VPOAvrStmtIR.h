@@ -3,7 +3,7 @@
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
 //   The information and source code contained herein is the exclusive
-//   property of Intel Corporation. and may not be disclosed, examined
+//   property of Intel Corporation and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
 //
@@ -17,8 +17,8 @@
 #ifndef LLVM_ANALYSIS_VPO_AVR_STMT_IR_H
 #define LLVM_ANALYSIS_VPO_AVR_STMT_IR_H
 
-#include "llvm/IR/Instruction.h"
 #include "llvm/Analysis/Intel_VPO/Vecopt/VPOAvrStmt.h"
+#include "llvm/IR/Instruction.h"
 
 namespace llvm { // LLVM Namespace
 namespace vpo {  // VPO Vectorizer Namespace
@@ -435,25 +435,29 @@ public:
   void codeGen();
 };
 
-//----------------------------------------------------------------------------//
-// AVR Select Node for LLVM
-//----------------------------------------------------------------------------//
+//----------AVR Select Node for LLVM IR----------//
 /// \brief An abstract vector select node.
 ///
 class AVRSelectIR : public AVRSelect {
 
 private:
+
   /// \p Instruct - Originial LLVM Instruction
   Instruction *Instruct;
 
 protected:
-  AVRSelectIR(Instruction *Inst, AVRCompare *AComp);
+
+  /// \brief Construct an avr select for llvm ir node.
+  AVRSelectIR(Instruction *Inst, AVR *ACond);
+
+  /// \brief Virutal destructor.
   virtual ~AVRSelectIR() override {}
 
   /// Only this utility class should be used to modify/delete AVR nodes.
   friend class AVRUtilsIR;
 
 public:
+
   /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
   static bool classof(const AVR *Node) {
     return Node->getAVRID() == AVR::AVRSelectIRNode;
@@ -475,9 +479,7 @@ public:
   void codeGen();
 };
 
-//----------------------------------------------------------------------------//
-// AVR Compare Node for LLVM
-//----------------------------------------------------------------------------//
+//----------AVR Compare Node for LLVM IR----------//
 /// \brief An abstract vector select node.
 ///
 class AVRCompareIR : public AVRCompare {
@@ -514,6 +516,41 @@ public:
 
   /// \brief Code generation for AVR Return.
   void codeGen();
+};
+
+//----------AVR Unreachable Node for LLVM IR----------//
+/// \brief An abstract vector unreachable node for LLVM IR.
+class AVRUnreachableIR : public AVRUnreachable {
+
+private:
+
+  /// \p Instruct - Original LLVM return instruction
+  Instruction *Instruct;
+
+protected:
+
+  /// \brief AVRUnreachableIR object constructor. 
+  AVRUnreachableIR(Instruction *Inst);
+
+  /// \brief Object destructor.
+  virtual ~AVRUnreachableIR() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsIR;
+
+public:
+
+  /// \brief Returns unreachable instruction.
+  const Instruction *getLLVMInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRUnreachableIRNode;
+  }
+
+  /// \brief Clone method for AVRUnreachable.
+  AVRUnreachableIR *clone() const override;
+
 };
 
 } // End VPO Vectorizer Namespace

@@ -388,6 +388,8 @@ bool AVRVisitor<AV>::visit(AVR *Node, bool Recursive, bool RecurseInsideLoops,
     callVisit<AVRSelect, AVRSelectIR>(ASelect);
   } else if (AVRNOP *ANop = dyn_cast<AVRNOP>(Node)) {
     callVisit<AVRNOP>(ANop);
+  } else if (AVRUnreachable *AUnreach = dyn_cast<AVRUnreachable>(Node)) {
+    callVisit<AVRUnreachable, AVRUnreachableIR, AVRUnreachableHIR>(AUnreach);
   } else if (isa<AVR>(Node)) {
     llvm_unreachable("Malformed AVR pointer!");
   } else {

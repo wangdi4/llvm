@@ -1,4 +1,4 @@
-//===------------------------------------------------------------*- C++ -*-===//
+//===-- VPOAvrKinds.h -------------------------------------------*- C++ -*-===//
 //
 //   Copyright (C) 2015-2016 Intel Corporation. All rights reserved.
 //
@@ -6,13 +6,12 @@
 //   property of Intel Corporation. and may not be disclosed, examined
 //   or reproduced in whole or in part without explicit written authorization
 //   from the company.
-//
-//   Source file:
-//   ------------
-//   VPOAvrKinds.h -- Defines the Abstract Vector Representation (AVR) node
-//   kinds.
-//
 //===----------------------------------------------------------------------===//
+///
+/// \file
+/// This file defines the Abstract Vector Representation (AVR) node kinds.
+///
+//===----------------------------------------------------------------------===////
 
 #ifndef LLVM_ANALYSIS_VPO_AVR_KINDS_H
 #define LLVM_ANALYSIS_VPO_AVR_KINDS_H
@@ -95,8 +94,14 @@ enum AVRVal {
   AVRSelectIRNode,
   AVRSelectLastNode,
 
+  AVRUnreachableNode,
+  AVRUnreachableIRNode,
+  AVRUnreachableHIRNode,
+  AVRUnreachableLastNode,
+
   AVRWrnNode,
   AVRNOPNode
+
 };
 
 #endif // LLVM_ANALYSIS_VPO_AVR_H

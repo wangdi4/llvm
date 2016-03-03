@@ -52,3 +52,7 @@ AVRValueHIR *AVRUtilsHIR::createAVRValueHIR(RegDDRef *DDRef,
 AVRSwitchHIR *AVRUtilsHIR::createAVRSwitchHIR(HLSwitch *HSwitch) {
   return new AVRSwitchHIR(HSwitch);
 }
+
+AVRUnreachableHIR *AVRUtilsHIR::createAVRUnreachableHIR(HLNode *HUnreach) {
+  return new AVRUnreachableHIR(HUnreach);
+}

@@ -223,6 +223,41 @@ public:
   virtual std::string getAvrValueName() const override;
 };
 
+//----------AVR Unreachable Node for HIR----------//
+/// \brief An abstract vector unreachable node for HIR.
+class AVRUnreachableHIR : public AVRUnreachable {
+
+private:
+
+  /// \p Instruct - HIR node which genreated the unreachable avr.
+  HLNode *Instruct;
+
+protected:
+
+  /// \brief AVRUnreachableHIR object constructor. 
+  AVRUnreachableHIR(HLNode *Inst);
+
+  /// \brief Object destructor.
+  virtual ~AVRUnreachableHIR() override {}
+
+  /// Only this utility class should be used to modify/delete AVR nodes.
+  friend class AVRUtilsHIR;
+
+public:
+
+  /// \brief Returns unreachable instruction.
+  const HLNode *getHIRInstruction() const { return Instruct; }
+
+  /// \brief Method for supporting type inquiry through isa, cast, and dyn_cast.
+  static bool classof(const AVR *Node) {
+    return Node->getAVRID() == AVR::AVRUnreachableHIRNode;
+  }
+
+  /// \brief Clone method for AVRUnreachable.
+  AVRUnreachableHIR *clone() const override;
+
+};
+
 } // End VPO Vectorizer Namespace
 } // End LLVM Namespace
 
