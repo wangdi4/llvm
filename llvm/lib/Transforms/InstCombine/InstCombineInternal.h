@@ -186,7 +186,7 @@ private:
   // Required analyses.
   // FIXME: These can never be null and should be references.
 #if INTEL_CUSTOMIZATION
-  TargetTransformInfo *TTI;
+  const TargetTransformInfo &TTI;
 #endif // INTEL_CUSTOMIZATION
   AssumptionCache *AC;
   TargetLibraryInfo *TLI;
@@ -202,16 +202,17 @@ private:
 public:
   InstCombiner(InstCombineWorklist &Worklist, BuilderTy *Builder,
                bool MinimizeSize, AliasAnalysis *AA,
-               AssumptionCache *AC, TargetLibraryInfo *TLI,
 #if INTEL_CUSTOMIZATION
-               TargetTransformInfo *TTI,
+               TargetTransformInfo &TTI,
 #endif
+               AssumptionCache *AC, TargetLibraryInfo *TLI,
                DominatorTree *DT, const DataLayout &DL, LoopInfo *LI)
       : Worklist(Worklist), Builder(Builder), MinimizeSize(MinimizeSize),
+        AA(AA), 
 #if INTEL_CUSTOMIZATION
         TTI(TTI),
 #endif // INTEL_CUSTOMIZATION
-        AA(AA), AC(AC), TLI(TLI), DT(DT), DL(DL), LI(LI), MadeIRChange(false) {}
+        AC(AC), TLI(TLI), DT(DT), DL(DL), LI(LI), MadeIRChange(false) {}
 
   /// \brief Run the combiner over the entire worklist until it is empty.
   ///
@@ -229,7 +230,7 @@ public:
   TargetLibraryInfo *getTargetLibraryInfo() const { return TLI; }
 
 #if INTEL_CUSTOMIZATION
-  TargetTransformInfo *getTargetTransformInfo() const { return TTI; }
+  const TargetTransformInfo &getTargetTransformInfo() const { return TTI; }
 #endif // INTEL_CUSTOMIZATION
 
   // Visitation implementation - Implement instruction combining for different

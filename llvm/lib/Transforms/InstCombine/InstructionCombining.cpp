@@ -3034,11 +3034,11 @@ combineInstructionsOverFunction(Function &F, InstCombineWorklist &Worklist,
       Changed = true;
 
     InstCombiner IC(Worklist, &Builder, F.optForMinSize(),
-                    AA, &AC, &TLI, 
+                    AA,
 #if INTEL_CUSTOMIZATION
-                    &TTI,
+                    TTI,
 #endif // INTEL_CUSTOMIZATION
-                    &DT, DL, LI);
+                    &AC, &TLI, &DT, DL, LI);
     if (IC.run())
       Changed = true;
 

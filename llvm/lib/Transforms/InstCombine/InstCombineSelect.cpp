@@ -968,7 +968,10 @@ findSaturateDownConvertAltPattern(SelectInst &SI, Value *&Val,
   if (!SITy->isIntOrIntVectorTy()) return false;
   unsigned SizeOfInBits = SITy->getScalarSizeInBits();
   if (SizeOfInBits != 8 && SizeOfInBits != 16) return false;
-  Value *LHS1 = nullptr, *RHS1 = nullptr, *LHS2 = nullptr, *RHS2 = nullptr;
+  // To keep the part of the code similar to findSaturateDownConvertPattern(),
+  // variable name usages are also kept similar. That's why LHS2/RHS2 names
+  // are used here.
+  Value *LHS2 = nullptr, *RHS2 = nullptr;
 
   Value *TrueVal = SI.getTrueValue();
   Value *FalseVal = SI.getFalseValue();
@@ -1133,7 +1136,7 @@ findSaturateDownConvertPattern(SelectInst &SI, Value *&Val,
 /// behavior meets saturate add/sub idiom. 
 static CallInst *
 getSaturateAddSub(SelectInst &SI, Value *Val, Constant *Clip1, Constant *Clip2,
-                  TargetTransformInfo *TTI,
+                  const TargetTransformInfo &TTI,
                   bool SignedSat, bool UnsignedSat, bool &Found) {
   Instruction *ValI = dyn_cast<Instruction>(Val);
   if (!ValI ||
@@ -1166,7 +1169,7 @@ getSaturateAddSub(SelectInst &SI, Value *Val, Constant *Clip1, Constant *Clip2,
        : UnsignedSat ? Intrinsic::usat_sub : Intrinsic::ssat_sub;
 
   GenCall = GenCall &&
-            TTI->isLegalSatAddSub(IID, SITy, Clip1, Clip2);
+            TTI.isLegalSatAddSub(IID, SITy, Clip1, Clip2);
   DEBUG(dbgs() << "IC: Found Saturating Add/Sub:\t["
         << *Clip1 << ", " << *Clip2 << "], Signed=" << SignedSat
         << " Unsigned=" << UnsignedSat
@@ -1185,7 +1188,7 @@ getSaturateAddSub(SelectInst &SI, Value *Val, Constant *Clip1, Constant *Clip2,
 /// Find an unsigned saturate add/sub pattern and generate saturate
 /// add/sub intrinsic call instruction
 static CallInst *
-getSaturateUnsignedAddSub(SelectInst &SI, TargetTransformInfo *TTI) {
+getSaturateUnsignedAddSub(SelectInst &SI, const TargetTransformInfo &TTI) {
   // See if we are performing saturating unsigned add/sub.
   // where saturation lowerbound is implicitly zero.
   //   zext
@@ -1226,7 +1229,7 @@ getSaturateUnsignedAddSub(SelectInst &SI, TargetTransformInfo *TTI) {
 /// Find a saturate add/sub/downconvert pattern and generate saturate
 /// add/sub/downconvert intrinsic call instruction
 static CallInst *
-getSaturateAddSubDownConvert(SelectInst &SI, TargetTransformInfo *TTI) {
+getSaturateAddSubDownConvert(SelectInst &SI, const TargetTransformInfo &TTI) {
   // See if we are performing saturating downconvert
   // or saturating Add/Sub.
   //    packsswb, packssdw, packuswb: sse2
@@ -1260,7 +1263,7 @@ getSaturateAddSubDownConvert(SelectInst &SI, TargetTransformInfo *TTI) {
             ? UnsignedSat ? Intrinsic::usat_dcnv : Intrinsic::ssat_dcnv
             : SignedSat   ? Intrinsic::ssat_dcnv : Intrinsic::usat_dcnv;
     GenCall = GenCall &&
-              TTI->isLegalSatDcnv(IID, Val->getType(), SITy, CC1, CC2);
+              TTI.isLegalSatDcnv(IID, Val->getType(), SITy, CC1, CC2);
 
     if (!Found) {
       DEBUG(dbgs() << "IC: Found Saturating Downconvert:\t["
