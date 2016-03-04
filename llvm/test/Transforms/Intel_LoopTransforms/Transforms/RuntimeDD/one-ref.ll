@@ -1,5 +1,6 @@
 ; Check that cases with no mem refs do not render asserts or errors
 
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -debug-only=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ; int foo(int N) {

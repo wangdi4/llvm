@@ -13,10 +13,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/Debug.h"
-#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/RegDDRef.h"
+#include "llvm/IR/Intel_LoopIR/CanonExpr.h"
 #include "llvm/IR/Intel_LoopIR/HLDDNode.h"
+#include "llvm/Support/Debug.h"
 
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/BlobUtils.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Utils/CanonExprUtils.h"
@@ -80,7 +80,9 @@ int RegDDRef::findMaxBlobLevel(
   int DefLevel = 0, MaxLevel = 0;
 
   for (auto Index : BlobIndices) {
-    assert(findBlobLevel(Index, &DefLevel) && "Blob DDRef not found!");
+    bool BlobExist = findBlobLevel(Index, &DefLevel);
+    (void)BlobExist;
+    assert(BlobExist && "Blob DDRef not found!");
 
     if (-1 == DefLevel) {
       return -1;
@@ -578,6 +580,7 @@ void RegDDRef::makeConsistent(const SmallVectorImpl<const RegDDRef *> *AuxRefs,
       }
     }
 
+    (void)Found;
     assert(Found && "Blob was not found in any auxiliary DDRef!");
   }
 
@@ -591,8 +594,8 @@ void RegDDRef::updateBlobDDRefs(SmallVectorImpl<BlobDDRef *> &NewBlobs,
   bool IsLvalAssumed = getHLDDNode() ? isLval() : AssumeLvalIfDetached;
 
   if (isTerminalRef() && getSingleCanonExpr()->isSelfBlob()) {
-    unsigned SB = BlobUtils::getBlobSymbase(
-        getSingleCanonExpr()->getSingleBlobIndex());
+    unsigned SB =
+        BlobUtils::getBlobSymbase(getSingleCanonExpr()->getSingleBlobIndex());
 
     // We need to modify the symbase if this DDRef was turned into a self blob
     // as the associated blob DDRef is removed.
@@ -693,6 +696,7 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
       }
     }
 
+    (void)BlobFound;
     assert(BlobFound && "Temp blob not found in blob DDRefs!");
   }
 
@@ -701,7 +705,7 @@ void RegDDRef::checkBlobDDRefsConsistency() const {
     unsigned Index = (*I)->getBlobIndex();
 
     auto It = std::lower_bound(BlobIndices.begin(), BlobIndices.end(), Index);
-
+    (void)It;
     assert(((It != BlobIndices.end()) && (*It == Index)) &&
            "Stale blob DDRef found!");
   }
@@ -731,6 +735,7 @@ void RegDDRef::verify() const {
 
   if (hasGEPInfo()) {
     auto CE = getBaseCE();
+    (void)CE;
     assert(CE && "BaseCE is absent in RegDDRef containing GEPInfo!");
     assert(isa<PointerType>(CE->getSrcType()) && "Invalid BaseCE src type!");
     assert(isa<PointerType>(CE->getDestType()) && "Invalid BaseCE dest type!");

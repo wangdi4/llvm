@@ -10,6 +10,7 @@
 ;    return A[2];
 ; }
 
+; REQUIRES: asserts
 ; RUN: opt -loop-simplify -hir-ssa-deconstruction -hir-general-unroll -print-after=hir-general-unroll -S < %s 2>&1 | FileCheck %s
 
 ; Check the main unrolled loop.

@@ -1,5 +1,6 @@
 ; Check runtime dd multiversioning for a case when pointers have different types
 
+; REQUIRES: asserts
 ; RUN: opt -hir-ssa-deconstruction -hir-runtime-dd -print-after=hir-runtime-dd -S < %s 2>&1 | FileCheck %s
 
 ;void foo(int *a, long *b, int N) {
