@@ -577,6 +577,13 @@ STISymbolFrameProc *STISymbolProcedure::getFrame() const { return _frame; }
 
 void STISymbolProcedure::setFrame(STISymbolFrameProc *frame) { _frame = frame; }
 
+Function *STISymbolProcedure::getFunction() const {
+  return getLineSlice()->getFunction();
+}
+
+void STISymbolProcedure::setFunction(Function *function) {
+  getLineSlice()->setFunction(function);
+}
 
 //===----------------------------------------------------------------------===//
 // STISymbolThunk
@@ -584,19 +591,28 @@ void STISymbolProcedure::setFrame(STISymbolFrameProc *frame) { _frame = frame; }
 
 STISymbolThunk::STISymbolThunk()
     : STISymbolProcedure(STI_OBJECT_KIND_SYMBOL_THUNK, S_THUNK32),
-      _adjustor(0), _targetName() {}
+      _ordinal(STI_THUNK_NOTYPE), _adjustor(0), _target(), _pcode(nullptr) {}
 
 STISymbolThunk::~STISymbolThunk() {}
 
 STISymbolThunk *STISymbolThunk::create() { return new STISymbolThunk(); }
 
+STISymbolThunk::Ordinal STISymbolThunk::getOrdinal() const { return _ordinal; }
+
+void STISymbolThunk::setOrdinal(Ordinal ordinal) { _ordinal = ordinal; }
+
 int STISymbolThunk::getAdjustor() const { return _adjustor; }
 
 void STISymbolThunk::setAdjustor(int adjustor) { _adjustor = adjustor; }
 
-StringRef STISymbolThunk::getTargetName() const { return _targetName; }
+StringRef STISymbolThunk::getTarget() const { return _target; }
 
-void STISymbolThunk::setTargetName(StringRef name) { _targetName = name; }
+void STISymbolThunk::setTarget(StringRef target) { _target = target; }
+
+MCSymbol *STISymbolThunk::getPCODE() const { return _pcode; }
+
+void STISymbolThunk::setPCODE(MCSymbol *pcode) { _pcode = pcode; }
+
 
 //===----------------------------------------------------------------------===//
 // STISymbolFrameProc

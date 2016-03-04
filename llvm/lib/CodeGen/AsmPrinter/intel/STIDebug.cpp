@@ -125,51 +125,6 @@ static bool isStaticMethod(StringRef linkageName) {
   return false;
 }
 
-static bool isThunkMethod(StringRef linkageName) {
-  // FIXME: this is a temporary WA to partial demangle gcc linkageName
-  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
-  size_t pos = linkageName.rfind("@@");
-  if (pos == StringRef::npos || linkageName.size() <= pos + 2) {
-    return false;
-  }
-  char ch = linkageName[pos + 2];
-  switch (ch) {
-  case 'W':
-  case 'G':
-  case 'O':
-    return true;
-  }
-  return false;
-}
-
-static int getThunkAdjustor(StringRef linkageName) {
-  // FIXME: this is a temporary WA to partial demangle gcc linkageName
-  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
-  assert(isThunkMethod(linkageName));
-  size_t pos = linkageName.rfind("@@");
-  if (linkageName.size() <= pos + 3)
-    return 0;
-
-  char adjChar = linkageName[pos + 3];
-  if (adjChar < '0' || adjChar > '9')
-    return 0;
-
-  return -(adjChar - '0' + 1);
-}
-
-StringRef getThunkTargetMethodName(StringRef linkageName) {
-  // FIXME: this is a temporary WA to partial demangle gcc linkageName
-  //        Clang should mark thunk method using MDSubprogram (DPD200372370)
-  assert(isThunkMethod(linkageName));
-  size_t posStart = linkageName.find("?");
-  size_t posEnd = linkageName.find("@");
-  posStart = (posStart == StringRef::npos)? 0 : posStart+1;
-  if (posEnd == StringRef::npos)
-    posEnd = linkageName.size();
-  StringRef name = linkageName.slice(posStart, posEnd);
-  return name;
-}
-
 static unsigned getFunctionAttribute(const DISubprogram *SP,
                                      const DICompositeType *llvmParentType,
                                      bool introduced) {
@@ -4047,8 +4002,9 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
     return _functionMap[pFunc];
   }
 
-  StringRef linkageName = SP->getLinkageName();
-  if (isThunkMethod(linkageName)) {
+  // Thunk routines are emitted as special symbols.
+  //
+  if (SP->isThunk()) {
     return createSymbolThunk(SP);
   }
 
@@ -4099,34 +4055,57 @@ STIDebugImpl::getOrCreateSymbolProcedure(const DISubprogram *SP) {
 }
 
 STISymbolProcedure *STIDebugImpl::createSymbolThunk(const DISubprogram *SP) {
+  STISymbolThunk          *thunk;
+  Function                *function;
+  unsigned                 line;
+  StringRef                name;
+  StringRef                linkageName;
+  STISymbolThunk::Ordinal  ordinal;
+
+  // Thunk methods are artificial and should not have a source name.
+  name = SP->getName();
+  assert(name.empty());
+
+  // The LLVM subprogram must have an LLVM function.
   DISubprogramMap::iterator Itr = _subprogramMap.find(SP);
   if (Itr == _subprogramMap.end())
     return nullptr;
-  Function *pFunc = Itr->second;
-  assert(pFunc && "LLVM subprogram has no LLVM function");
+  function = Itr->second;
+  assert(function != nullptr);
 
-  // Thunk methods are artificially created and is expected to have only
-  // linkage name, no regular name.
-  assert(SP->getName().empty() && "Thunk method has a name");
+  // Identify the thunk using the linkage name for now.  In the future it may
+  // be better to manufacture a name.  We drop the first character because it
+  // contains garbage - the same thing is already done for other names in
+  // CLANG.
+  linkageName = SP->getLinkageName();
+  assert(!linkageName.empty());
+  name = linkageName.drop_front();
 
-  StringRef linkageName = SP->getLinkageName();
-  int adjustor = getThunkAdjustor(linkageName);
-  std::string targetName = getThunkTargetMethodName(linkageName);
+  line = SP->getScopeLine();
 
-  STISymbolThunk *thunk;
+  // We haven't seen any cases where Visual Studio actually uses the additional
+  // thunk information (this adjustment, virtual table offset, etc). The
+  // important part of the S_THUNK32 entry is the address range information so
+  // Visual Studio can properly step through the thunk. For now we always emit
+  // the ordinal as "NOTYPE".
+  // Create and initialize a symbol for the thunk.
+  ordinal = STI_THUNK_NOTYPE;
+
   thunk = STISymbolThunk::create();
-  thunk->getLineSlice()->setFunction(pFunc);
-  thunk->setScopeLineNumber(SP->getScopeLine());
-  thunk->setName(getScopeFullName(resolve(SP->getScope()), linkageName, true));
-  thunk->setAdjustor(adjustor);
-  thunk->setTargetName(targetName);
+  thunk->setScopeLineNumber(line);
+  thunk->setName(name);
+  thunk->setFunction(function);
+  thunk->setOrdinal(ordinal);
 
   getCompileUnit()->getScope()->add(thunk);
 
-  // Thunk symbol is a derived container from procedure symbol.
-  STISymbolProcedure* procedure = static_cast<STISymbolProcedure*>(thunk);
-  _functionMap.insert(std::make_pair(pFunc, procedure));
-  return procedure;
+  // Add the thunk procedure to the function map.
+  _functionMap.insert(
+          std::make_pair(
+              function,
+              static_cast<STISymbolProcedure*>(thunk)));
+
+  return thunk;
 }
 
 STISymbolBlock *STIDebugImpl::createSymbolBlock(const DILexicalBlockBase* LB) {
@@ -5119,38 +5098,91 @@ STIDebugImpl::emitSymbolProcedure(const STISymbolProcedure *procedure) const {
 
 void
 STIDebugImpl::emitSymbolThunk(const STISymbolThunk *thunk) const {
-  int length;
-  int pParent = 0;
-  int pEnd = 0;
-  int pNext = 0;
-  const MCSymbol *labelBegin = thunk->getLabelBegin();
-  const MCSymbol *labelEnd = thunk->getLabelEnd();
-  StringRef name = thunk->getName();
-  StringRef targetName = thunk->getTargetName();
-  int adjustor = thunk->getAdjustor();
+  StringRef                name          = thunk->getName();
+  STISymbolThunk::Ordinal  ordinal       = thunk->getOrdinal();
+  const MCSymbol          *labelBegin    = thunk->getLabelBegin();
+  const MCSymbol          *labelEnd      = thunk->getLabelEnd();
+  Function                *function      = thunk->getFunction();
+  MCSymbol                *functionLabel = ASM()->getSymbol(function);
+  int                      pParent       = 0;
+  int                      pEnd          = 0;
+  int                      pNext         = 0;
+  int                      length;
+  unsigned                 ordinalSize;
+  StringRef                target;      // STI_THUNK_ADJUSTOR
+  int                      adjustor;    // STI_THUNK_ADJUSTOR, STI_THUNK_VCALL
+  MCSymbol                *pcodeLabel;  // STI_THUNK_PCODE
 
-  // Is not this equal to: labelBegin?
-  const STILineSlice *slice = thunk->getLineSlice();
-  Function *function = slice->getFunction(); // FIXME
-  MCSymbol *functionLabel = ASM()->getSymbol(function);
+  assert(!name.empty()); // The name cannot be an empty string.
 
-  length = 23 + (name.size() + 1)
-           // For adjustor thunk type
-           + 2 + (targetName.size() + 1);
+  // Determine the size of the ordinal-specific fields.
+  switch (ordinal) {
+  case (STI_THUNK_NOTYPE):
+    ordinalSize = 0;
+    break;
 
-  emitInt16(length); // record length
-  emitSymbolID(S_THUNK32);
-  emitInt32(pParent);
-  emitInt32(pEnd);
-  emitInt32(pNext);
-  emitSecRel32(functionLabel);
-  emitSectionIndex(functionLabel);
-  emitLabelDiff(labelBegin, labelEnd, 2);
-  emitInt8(STI_THUNK_ADJUSTOR);
-  emitString(name);
-  // For adjustor thunk type
-  emitInt16(adjustor);
-  emitString(targetName);
+  case (STI_THUNK_ADJUSTOR):
+    target      = thunk->getTarget();
+    adjustor    = thunk->getAdjustor();
+    ordinalSize = 2 + target.size() + 1;
+    assert(!target.empty()); // The target cannot be an empty string.
+    break;
+
+  case (STI_THUNK_VCALL):
+    adjustor    = thunk->getAdjustor();
+    ordinalSize = 2;
+    break;
+
+  case (STI_THUNK_PCODE):
+    pcodeLabel  = thunk->getPCODE();
+    ordinalSize = 6;
+    break;
+
+  default:
+    assert(!"Invalid ordinal kind!");
+    break;
+  }
+
+  // Calculate the length of this S_THUNK32 record.
+  length = 23 + name.size() + 1 + ordinalSize;
+
+  // Emit the S_THUNK32 symbol fields which are independent of the ordinal.
+  emitInt16         (length);
+  emitSymbolID      (S_THUNK32);
+  emitInt32         (pParent);
+  emitInt32         (pEnd);
+  emitInt32         (pNext);
+  emitSecRel32      (functionLabel);
+  emitSectionIndex  (functionLabel);
+  emitLabelDiff     (labelBegin, labelEnd, 2);
+  emitInt8          (ordinal);
+  emitString        (name);
+
+  // Emit the ordinal-specific fields.
+  switch (ordinal) {
+  case (STI_THUNK_NOTYPE):
+    // Nothing additional is emitted.
+    break;
+
+  case (STI_THUNK_ADJUSTOR): {
+    emitInt16       (adjustor);     // 'this' pointer adjustment.
+    emitString      (target);
+    break;
+  }
+
+  case (STI_THUNK_VCALL):
+    emitInt16       (adjustor);     // virtual table adjustment.
+    break;
+
+  case (STI_THUNK_PCODE):
+    emitSecRel32    (pcodeLabel);   // PCODE entry point offset.
+    emitSectionIndex(pcodeLabel);   // PCODE entry point segment.
+    break;
+
+  default:
+    assert(!"Invalid ordinal kind!");
+    break;
+  }
 }
 
 void STIDebugImpl::emitSymbolProcedureEnd() const {

@@ -596,6 +596,9 @@ public:
 
   STISymbolFrameProc *getFrame() const;
   void setFrame(STISymbolFrameProc *frame);
+
+  Function *getFunction() const;
+  void setFunction(Function *function);
 };
 
 //===----------------------------------------------------------------------===//
@@ -603,9 +606,14 @@ public:
 //===----------------------------------------------------------------------===//
 
 class STISymbolThunk : public STISymbolProcedure {
+public:
+  typedef uint32_t Ordinal;
+
 private:
-  int _adjustor;
-  std::string _targetName;
+  Ordinal         _ordinal;
+  int             _adjustor;
+  std::string     _target;
+  MCSymbol       *_pcode;
 
 protected:
   STISymbolThunk();
@@ -615,10 +623,14 @@ public:
 
   ~STISymbolThunk();
 
+  Ordinal getOrdinal() const;
+  void setOrdinal(Ordinal ordinal);
   int getAdjustor() const;
   void setAdjustor(int adjustor);
-  StringRef getTargetName() const;
-  void setTargetName(StringRef name);
+  StringRef getTarget() const;
+  void setTarget(StringRef name);
+  MCSymbol *getPCODE() const;
+  void setPCODE(MCSymbol *pcode);
 };
 
 //===----------------------------------------------------------------------===//
