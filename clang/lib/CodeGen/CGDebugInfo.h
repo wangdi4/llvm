@@ -305,6 +305,11 @@ public:
   /// Constructs the debug code for exiting a function.
   void EmitFunctionEnd(CGBuilderTy &Builder);
 
+#if INTEL_CUSTOMIZATION
+  // Marks a function as being a thunk routine.
+  void setIsThunk(llvm::Function *Fn);
+#endif // INTEL_CUSTOMIZATION
+
   /// Emit metadata to indicate the beginning of a new lexical block
   /// and push the block onto the stack.
   void EmitLexicalBlockStart(CGBuilderTy &Builder, SourceLocation Loc);

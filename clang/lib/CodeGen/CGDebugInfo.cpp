@@ -2874,6 +2874,13 @@ void CGDebugInfo::EmitFunctionEnd(CGBuilderTy &Builder) {
   FnBeginRegionCount.pop_back();
 }
 
+#if INTEL_CUSTOMIZATION
+void CGDebugInfo::setIsThunk(llvm::Function *Fn) {
+  if (llvm::DISubprogram *subprogram = Fn->getSubprogram())
+    subprogram->setIsThunk();
+}
+#endif // INTEL_CUSTOMIZATION
+
 llvm::DIType *CGDebugInfo::EmitTypeForVarWithBlocksAttr(const VarDecl *VD,
                                                         uint64_t *XOffset) {
 
