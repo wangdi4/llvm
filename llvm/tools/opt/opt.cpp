@@ -318,9 +318,7 @@ int main(int argc, char **argv) {
   initializeVectorization(Registry);
   initializeIPO(Registry);
   initializeAnalysis(Registry);
-  initializeIntel_LoopAnalysis(Registry);   //***INTEL
   initializeTransformUtils(Registry);
-  initializeIntel_LoopTransforms(Registry); //***INTEL
   initializeInstCombine(Registry);
   initializeInstrumentation(Registry);
   initializeTarget(Registry);
@@ -333,8 +331,11 @@ int main(int argc, char **argv) {
   initializeDwarfEHPreparePass(Registry);
   initializeSjLjEHPreparePass(Registry);
 
-#ifdef INTEL_CUSTOMIZATION
+#if INTEL_CUSTOMIZATION
   initializeFeatureOutlinerPass(Registry);
+  initializeIntel_LoopAnalysis(Registry);
+  initializeIntel_LoopTransforms(Registry);
+  initializeVecClonePass(Registry);
 #endif  // INTEL_CUSTOMIZATION
 
 #ifdef LINK_POLLY_INTO_TOOLS

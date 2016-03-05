@@ -67,6 +67,9 @@ void initializeIntel_LoopAnalysis(PassRegistry&);
 /// initializeIntel_LoopTransforms - Initialize all passes linked into the
 /// Intel_LoopTransforms library.
 void initializeIntel_LoopTransforms(PassRegistry&);
+
+/// VPO Vectorizer Passes
+void initializeVecClonePass(PassRegistry&);
 #endif // INTEL_CUSTOMIZATION
 
 void initializeAAEvalPass(PassRegistry&);

@@ -36,6 +36,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Vectorize.h"
 #include "llvm/Transforms/Intel_LoopTransforms/Passes.h" // INTEL - HIR passes
+#include "llvm/Transforms/Utils/Intel_VecClone.h"        // INTEL
 
 using namespace llvm;
 
@@ -104,6 +105,11 @@ static cl::opt<bool> EnableLoopDistribute(
     "enable-loop-distribute", cl::init(false), cl::Hidden,
     cl::desc("Enable the new, experimental LoopDistribution Pass"));
 
+#if INTEL_CUSTOMIZATION
+static cl::opt<bool> RunVecClone("enable-vec-clone",
+  cl::init(false), cl::Hidden,
+  cl::desc("Run Vector Function Cloning"));
+
 // INTEL - HIR passes
 static cl::opt<bool> RunLoopOpts("loopopt", cl::init(false), cl::Hidden,
                                  cl::desc("Runs loop optimization passes"));
@@ -113,7 +119,6 @@ static cl::opt<bool> RunLoopOptFrameworkOnly("loopopt-framework-only",
     cl::init(false), cl::Hidden,
     cl::desc("Enables loopopt framework without any transformation passes"));
 
-#ifdef INTEL_CUSTOMIZATION
 // register promotion for global vars at -O2 and above.
 static cl::opt<bool> EnableNonLTOGlobalVarOpt(
     "enable-non-lto-global-var-opt", cl::init(true), cl::Hidden,
